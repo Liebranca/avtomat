@@ -18,10 +18,24 @@ package avt;
   use strict;
   use warnings;
 
+# ---   *   ---   *   ---
+# info
+
   use constant {
-    VERSION => 2.0,
+  
+    VERSION        => 2.0,
+
+    CONFIG_DEFAULT => 'x . . 0',
 
   };
+
+# ---   *   ---   *   ---
+# global storage
+
+  my %CACHE=(
+    -ROOT => '.',
+
+  );
 
 # ---   *   ---   *   ---
 # default prints
@@ -66,19 +80,45 @@ sub make_version {
 # path utils
 
 # args=path
-# recursively list of dirs and files in path
-sub walk_dir {
+# recursively list dirs and files in path
+sub walk {
 
-  my %dirs=();my $path=glob shift;
+  my %dirs=();my $path=shift;
 
   # dissect recursive ls
   { my @ls=split "\n\n",`ls -FBR1 $path`;
     while(@ls) {
       my @sub=split ":\n",shift @ls;
+
+      # exclude hidden folders and documentation
+      if( ($sub[0]=~ m/\./)
+      ||  ($sub[0] eq 'docs')      
+      ) {next;};
+
+      # shorten dirnames
+      $sub[0]=~ s/${ path }//;
+      if(!$sub[0]) {$sub[0]='<main>';};
+
+      # remove ws      
       $sub[1]=~ s/^\s+|\s+$//;
+
+# ---   *   ---   *   ---
+
+      # filter out folders and headers
+      my @tmp=split "\n",$sub[1];
+      my @files=();
       
-      my @tmp=split "\n",$sub[1];      
-      $dirs{ $sub[0] }=\@tmp;
+      while(@tmp) {
+        my $entry=shift @tmp;
+        if(($entry=~ m/\/|.*\.h|GNUmakefile|Makefile|makefile/)) {
+          next;
+
+        };push @files,$entry;
+
+      };
+
+      # dirs{folder}=ref(list of files)
+      $dirs{ $sub[0] }=\@files;
 
     };    
 
@@ -86,75 +126,151 @@ sub walk_dir {
 
 };
 
-
 # ---   *   ---   *   ---
-# folder structure sanity checks
 
-# ensures trsh and bin exist
-sub make_dirs {
+# ensures trsh and bin exist, outs file/dir list
+sub scan {
 
-  my $root=glob shift;
-
-  # confirmation prompt
-  { print "Using $root as top directory. Continue? [Y/N] ";
-
-    `stty -icanon -echo`;
-    my $in=lc `dd bs=1 count=1 2> /dev/null`;
-    
-    `stty icanon echo`;print "$in\n";
-
-    if ($in eq 'n') {
-      print "Aborted by user\n";
-      return;
-
-    } elsif($in ne 'y') {
-      print "Answer unclear, handler stuck in limbo\n";
-      print "Aborted jic\n";
-      return;
-
-    };
-
-  };
-
-  chdir $root;
-
-# ---   *   ---   *   ---
+  my $module_list='';
+  `echo -n '' > $CACHE{-ROOT}/.avto-modules`;
 
   # iter provided names
   while(@_) {
     my $mod=shift;
-    print "\n>Run structure check on $mod\n";
     
-    my $trsh="./trashcan/$mod";
-    my $modpath="./$mod";
+    my $trsh="$CACHE{-ROOT}/trashcan/$mod";
+    my $modpath="$CACHE{-ROOT}/$mod";
 
     # ensure there is a trashcan
     if(!(-e $trsh)) {
-      #system 'mkdir',('-p',"$trsh");
+      system 'mkdir',('-p',"$trsh");
 
     };
 
 # ---   *   ---   *   ---
 
-    # walk module
-    
+    # walk module path and capture sub count
+    my %h=%{ walk($modpath) };my $len=keys %h;
+    `echo "$mod $len" >> $CACHE{-ROOT}/.avto-modules`;
 
-    # create any missing folders
-#    for my $sub (@subdirs) {
-#
-#      if($sub eq '.git' || $sub eq 'docs') {next;};
-#    
-#      my $tsub="$trsh/$sub";
-#      $sub="$modpath/$sub";
-#      if(-d $sub && !(-e $tsub)) {
-#        print "\e[1;34mdir\e[0m $tsub\n";
-#        #mkdir $tsub;
-#
-#      };
-#
-#    };
+    # paths/dir checks
+    for my $sub (keys %h) {
 
-    #`touch $trsh/mklog`;
+      # ensure directores exist
+      my $tsub=$sub;$tsub=~ s/${ modpath }/${ trsh }/;      
+      if(!(-e $trsh)) {      
+        mkdir $tsub;
+
+      };
+
+      # capture file list
+      my @files=@{ $h{$sub} };
+      
+      `echo "$sub @files" >> $CACHE{-ROOT}/.avto-modules`;
+      
+    };`touch $trsh/mklog`;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+# parse modules into hash
+sub read_modules {
+  
+  my %h;{
+    my @m=split "\n",`cat $CACHE{-ROOT}/.avto-modules`;
+
+    # get parent name
+    while(@m) {
+      my ($key,$len)=split ' ',shift @m;
+      my @paths;
+
+      # store submodules as references
+      while($len--) {
+        my @tmp=shift @m;
+        push @paths,\@tmp;
+
+      };
+
+      # hash{parent}=( ($path,@files) );
+      $h{$key}=\@paths;
+
+    };
+  };return \%h;
+  
+};
+
+# ---   *   ---   *   ---
+
+# manages build config file
+sub config {
+
+  my %config;
+  while(@_) {
+    my $mod=shift @_;    
+    my $settings=shift @_;
+
+    $config{$mod}=$settings;
+
+  };
+
+  # rewrite file
+  open FH,'>',"$CACHE{-ROOT}/.avto-config" or die $!;
+  for my $mod (keys %config) {
+    print FH "$mod $config{$mod}\n"
+
+  };close FH;
+
+};
+
+# ---   *   ---   *   ---
+
+# emits a makefile
+sub make {
+
+  # add these directories to search path
+  # ... but only if they exist, obviously
+  
+  my $base_lib=(-e $CACHE{-ROOT}.'/lib')
+    ? $CACHE{-ROOT}.'/lib'
+    : ''
+    ;
+
+  my $base_include=(-e $CACHE{-ROOT}.'/include')
+    ? $CACHE{-ROOT}.'/include'
+    : ''
+    ;
+
+# ---   *   ---   *   ---
+
+  # fetch dir/file list
+  my %modules=%{ read_modules($CACHE{-ROOT}) };
+
+  # fetch config
+  my @config=split "\n",`cat $CACHE{-ROOT}/.avto-config`;
+
+  # now iter 
+  while(@config) {
+
+    my (    
+      $name,
+      $mode,
+      $lib,
+      $include,
+      $define
+      
+    )=split ' ',shift @config;
+
+    my @paths=@{ $modules{$name} };
+    print "$mode:$name:$lib:$include:$define\n\n";
+    while(@paths) {
+      my @path=@{ shift @paths };
+      print @path;
+      print "\n\n";
+
+    };
 
   };
 
@@ -164,30 +280,39 @@ sub make_dirs {
 # entry point
 
 package main;
+  use Cwd qw(abs_path);
 
-my %h=%{ avt::walk_dir('~/AR/kvr/src/kvrnel') };
-for my $key (keys %h) {
-  print "+ $key:\n";
-  for my $f (@{ $h{$key} }) {
-    print "|--->$f\n";
+  if(!@ARGV || $ARGV[0] eq 'help') {
+    # put helper here
 
-  };print "\n";
+  };$CACHE{-ROOT}=abs_path shift;
+  chdir $CACHE{-ROOT};
 
-};
+# ---   *   ---   *   ---
+# run
 
-exit;
-print "\e[1;33m<AR/AVTOMAT>\e[0m ";
+  my $task=shift;my %tasks=(
+    'scan'    => \&avt::scan,
+    'config'  => \&avt::config,
+    'make'    => \&avt::make,
 
-  if(!@ARGV) {
-    print "No task provided";
-
-  } elsif($ARGV[0] eq 'dirs') {
-    shift;avt::make_dirs(@ARGV);
+  );
+  
+  if(grep $task,keys %tasks) {
+    $tasks{$task}->(@ARGV);
 
   };
 
-print "\n";
-print '<AR/AVTOMAT> last run by '.`echo -n \$HOSTNAME`." on ".`date`."\n\n";
+# ---   *   ---   *   ---
+
+my $log=
+  'AR/AVTOMAT: last run by '.
+  `echo -n \$USER`.'@'.`echo -n \$HOSTNAME`.
+  ' on '.`date`."\n\n";
+
+`echo "$log" > $CACHE{-ROOT}/.avto`;
+
+
 
 # ---   *   ---   *   ---
 1; # ret

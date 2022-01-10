@@ -1,0 +1,9 @@
+#!/usr/bin/perl
+
+`./avtomat ~/AR/kvr/src/ scan kvrnel`;
+`./avtomat ~/AR/kvr/src/ config kvrnel "x . . ."`;
+
+print `./avtomat ~/AR/kvr/src/ make`;
+
+# ---   *   ---   *   ---
+1; # ret
