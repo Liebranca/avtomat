@@ -1,0 +1,99 @@
+#!/usr/bin/perl
+
+# AR-INSTALL
+# this script sets up a new AR directory
+
+# once your ARPATH./bin/ is made, you may
+# update it through avtomat itself
+
+# ---   *   ---   *   ---
+# sanity check
+
+my $root=$ENV{'ARPATH'};if(!$root) {
+  print "ARPATH missing from ENV; aborted\n";
+  exit;
+
+};
+
+# ---   *   ---   *   ---
+# deps
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use avt;
+
+# ---   *   ---   *   ---
+# package configs
+
+my$avtomat_config;{
+
+  my %config=(
+
+  'BUILD' =>  '.'       ,
+  
+  'XCPY'  =>  'avtomat*',
+  'LCPY'  =>  'avt.pm'  ,
+
+  'GENS'  =>  '.'       ,
+  'LIBS'  =>  '.'       ,
+  'INCL'  =>  '.'       ,
+
+  'DEFS'  =>  '.'       ,
+
+  );$avtomat_config=avt::strconfig \%config;  
+  
+};
+
+# ---   *   ---   *   ---
+
+my$help_config;{
+
+  my %config=(
+
+  'BUILD' =>  '.'       ,
+  
+  'XCPY'  =>  'help*'   ,
+  'LCPY'  =>  'cash.pm' ,
+
+  'GENS'  =>  '.'       ,
+  'LIBS'  =>  '.'       ,
+  'INCL'  =>  '.'       ,
+
+  'DEFS'  =>  '.'       ,
+
+  );$help_config=avt::strconfig \%config;  
+  
+};
+
+# ---   *   ---   *   ---
+
+my$ft8_config;{
+
+  my %config=(
+
+  'BUILD' =>  '.'       ,
+  
+  'XCPY'  =>  'ft8*'    ,
+  'LCPY'  =>  'jojft.pm',
+
+  'GENS'  =>  '.'       ,
+  'LIBS'  =>  '.'       ,
+  'INCL'  =>  '.'       ,
+
+  'DEFS'  =>  '.'       ,
+
+  );$ft8_config=avt::strconfig \%config;
+  
+};
+
+# ---   *   ---   *   ---
+# install packages
+  
+`./avtomat $root scan avtomat help ft8`;
+`./avtomat $root config avtomat $avtomat_config help $help_config ft8 $ft8_config`;
+
+`./avtomat $root make`;
+
+# ---   *   ---   *   ---
+1; # ret

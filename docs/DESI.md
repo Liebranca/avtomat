@@ -27,22 +27,32 @@ avtomat <dir> <task> [<items>]
 
 **items** works slightly different for each task.
 
-For **scan** and **make**, `items` equals a list of directories within `dir` you want to work with, e.g. `avtomat ~/my-projects/ scan module_a module_b`
+For **scan** `items` equals a list of directories within `dir` you want to work with, e.g. `avtomat ~/my-projects/ scan module_a module_b`
 
-For **config**, `items` takes the form `module_a "config" module_b "config"`, where `"config"` is `"[x|so|l] $INCLUDES $LIBS $DEFINES"`; with _x_ meaning produce an executable, _so_ a shared object and _l_ a static lib. Includes, libs and defines are simply a single `.` dot for do nothing, or a list of comma-separated items.
+# CONFIG FILES
 
-Here's a example in pseudo, you may do something like this in the scripting language of yor choice:
+For **config**, `items` represent build options for a module; so this is slightly more involved. A config file is made of lists of comma-separated items, each separated by a single space:
 
 ```
-dir       = '~/my-projects';
-libs      = '~/my-libs/,somelibrary';
-includes  = '~/include-these/,~/buried/quite/deep/include-these-too/';
-defines   = 'my_define=0xDE74,my_other_define=0xBEEE';
+BUILD XCPY LCPY GENS LIBS INCL DEFS
 
-call avtomat dir config my-module "x $libs $includes $defines";
 ```
 
-Because it is trivial to differentiate a proper path from a filename, avtomat does it; so do not specify -L and -l switches for libraries. Additionally, if you have a `lib` and `include` directory within your projects folder they'll be added to the search path avtmatically, so do not specify those either.
+Let's unpack that.
+
+- BUILD can be `[x|so|l]`; executable, shared object and static library, respectively. This option is only important for modules which contain code that requires compilation
+- XCPY is a list of either scripts or pre-compiled binaries that already live within the module folder and must be copied to the local `bin`, relative to the project folder
+- LCPY is the same, but for `lib`
+- GENS lists either scripts or binaries that must be run to generate a dependency
+- LIBS lists both additional library search directories and the libraries themselves
+- INCL is for additional include paths
+- Finally, DEFS is for macro definitions; it can be used for modifying the build environment
+
+Processing of each of these lists can be skipped by passing them as a single `.` dot. Note that the `lib` and `include` folders relative to the project directory will always be used, so do not specify them.
+
+Furthermore, for `LIBS` and `INCL` you musn't pass `-L`, `-l` or `-I` switches; all your paths must contain at least a single `/` slash so that they can be identified as proper paths; `..` two dots and `~` (ascii)tilde work relative to the symbolic `ROOT`, which refers to the top folder, or project directory as set by the initial call to avtomat.
+
+For an example script that sets up a project, refer to the `AR-install` file provided with avtomat.
 
 # THE TRASHCAN
 
