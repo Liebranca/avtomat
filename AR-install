@@ -24,9 +24,21 @@ my $root=$ENV{'ARPATH'};if(!$root) {
   use avt;
 
 # ---   *   ---   *   ---
+# fetch missing deps
+
+{
+  my @deps=(
+    ['help'   ,'https://github.com/Liebranca/help'   ,undef],
+    ['ft8'    ,'https://github.com/Liebranca/ft8'    ,undef],
+
+  );avt::depchk "$root",\@deps;
+
+};
+
+# ---   *   ---   *   ---
 # package configs
 
-my$avtomat_config;{
+my $avtomat_config;{
 
   my %config=(
 
@@ -47,7 +59,7 @@ my$avtomat_config;{
 
 # ---   *   ---   *   ---
 
-my$help_config;{
+my $help_config;{
 
   my %config=(
 
@@ -68,13 +80,18 @@ my$help_config;{
 
 # ---   *   ---   *   ---
 
-my$ft8_config;{
+my $ft8_config;{
+
+  my @deps=(
+    ['rw-psf','https://github.com/talamus/rw-psf',undef],
+
+  );avt::depchk "$root/ft8",\@deps;
 
   my %config=(
 
   'BUILD' =>  '.'       ,
   
-  'XCPY'  =>  'ft8*'    ,
+  'XCPY'  =>  'ft8*,writepsf*',
   'LCPY'  =>  'jojft.pm',
 
   'GENS'  =>  '.'       ,
@@ -90,10 +107,16 @@ my$ft8_config;{
 # ---   *   ---   *   ---
 # install packages
   
-`./avtomat $root scan avtomat help ft8`;
-`./avtomat $root config avtomat $avtomat_config help $help_config ft8 $ft8_config`;
+`$root/avtomat/avtomat $root scan avtomat help ft8`;
+`$root/avtomat/avtomat $root config avtomat $avtomat_config help $help_config ft8 $ft8_config`;
 
-`./avtomat $root make`;
+`$root/avtomat/avtomat $root make`;
+
+# generate default font
+if(!(-e "$root/fonts")) {
+  avt::ex 'ft8',['-g','8,16,24',"$root/ft8/lycon","$root/fonts"],'';
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

@@ -17,7 +17,7 @@ package avt;
   use strict;
   use warnings;
 
-  use Cwd qw(abs_path);
+  use Cwd qw(abs_path getcwd);
 
 # ---   *   ---   *   ---
 # info
@@ -112,7 +112,7 @@ sub dqwrap {
 
 sub rescap {
   my $s=shift;
-  $s=~ s/\*/\\\*/;
+  $s=~ s/\*/\\\*/g;
   
   return $s;
 
@@ -139,6 +139,35 @@ sub ex {
 
 # ---   *   ---   *   ---
 # path utils
+
+# args=chkpath,name,repo-url,actions
+# pulls what you need
+sub depchk {
+  my ($chkpath,$deps_ref)=@_;
+  $chkpath=abs_path $chkpath;
+
+  my @deps=@{ $deps_ref };
+  my $old_cwd=abs_path getcwd();chdir $chkpath;
+
+  while(@deps) {
+
+    my ($name,$url,$act)=@{ shift @deps };
+  
+    # pull if dir not found in provided path  
+    if(!(-e $chkpath."/$name")) {
+      `git clone $url`;
+
+    # blank for now, use this for building extdeps
+    };if($act) {
+      ;
+
+    };
+    
+  };chdir $old_cwd;
+
+};
+
+# ---   *   ---   *   ---
 
 # args=path
 # recursively list dirs and files in path
@@ -405,8 +434,8 @@ sub make {
           my $match=shift @matches;
 
           if(!$xcpy) {last;};
-          
-          $xcpy=~ s/${ match }\\\*//;$match=~ s/\*//;
+
+          $xcpy=~ s/\|?${ match }\\\*\|?//;$match=~ s/\*//;
           `cp $mod/$match $CACHE{-ROOT}/bin/$match`;
 
         };
@@ -420,7 +449,7 @@ sub make {
 
           if(!$lcpy) {last;};
           
-          $lcpy=~ s/${ match }//;$match=~ s/\*//;
+          $lcpy=~ s/\|?${ match }\|?//;
           `cp $mod/$match $CACHE{-ROOT}/lib/$match`;
 
         };
