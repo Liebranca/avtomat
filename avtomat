@@ -40,14 +40,14 @@ package main;
 
   );
 
-  # valid arg  
+  # valid arg
   if(grep m/${ task }/,keys %tasks) {
     $tasks{$task}->(@ARGV);
 
   # invalid
   } else {
     print "Unrecognized '$task'\n";
-    
+
 
   };
 

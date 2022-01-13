@@ -23,7 +23,7 @@ package avt;
 # info
 
   use constant {
-  
+
     VERSION        => 2.0,
     BOXCHAR        => '.',
     CONFIG_DEFAULT => 'x . . 0',
@@ -86,7 +86,7 @@ sub version {
 
   ("$c"x 32)."\n".sprintf(
     "$c %-28s $c\n",$l1
-    
+
   )."$c ".(' 'x 28)." $c\n".
 
   sprintf("$c %-28s $c\n$c %-28s $c\n",$l2,$l3).
@@ -98,7 +98,77 @@ sub version {
 };
 
 # ---   *   ---   *   ---
+# C code emitter tools
+
+# name=what your file is called
+# x=1==end, 0==beg
+# makes header guards
+sub cboil_h {
+  my $name=uc shift;
+  my $x=shift;
+
+  # header guard start
+  if(!$x) {
+    my $s=
+'#ifndef __'.$name.'_H__'."\n".
+'#define __'.$name.'_H__'."\n".
+'#ifdef __cplusplus'."\n".
+'extern "C" {'."\n".
+'#endif'."\n"
+
+  ;return $s;
+
+  };my $s=
+'#ifdef __cplusplus'."\n".
+'};'."\n".
+'#endif'."\n".
+'#endif // __'.$name.'_H__'."\n"
+
+  ;return $s;
+
+# ---   *   ---   *   ---
+
+# dir=where to save the file to
+# fname=fname
+# call=reference to a sub taking filehandle
+
+# wraps sub in header boilerplate
+};sub wrcboil_h {
+
+  my $dir=shift;
+  my $fname=shift;
+  my $call=shift;
+
+  # open boiler
+  open my $FH,'>',
+    $CACHE{-ROOT}.$dir.$fname.'.h' or die $!;
+
+  print $FH avt::cboil_h uc($fname),0;
+
+  # write the code through the generator
+  $call->($FH);
+
+  # close boiler
+  print $FH avt::cboil_h uc($fname),1;
+  close $FH;
+
+};
+
+# ---   *   ---   *   ---
 # bash utils
+
+# arg=string any
+# multi-byte ord
+sub mord {
+  my @s=split '',shift;
+  my $seq=0;
+  my $i=0;while(@s) {
+    $seq|=ord(shift @s)<<$i;$i+=8;
+
+  };return $seq;
+};
+
+# ---   *   ---   *   ---
 
 sub sqwrap {
   return "'".shift."'";
@@ -113,7 +183,7 @@ sub dqwrap {
 sub rescap {
   my $s=shift;
   $s=~ s/\*/\\\*/g;
-  
+
   return $s;
 
 };
@@ -152,8 +222,8 @@ sub depchk {
   while(@deps) {
 
     my ($name,$url,$act)=@{ shift @deps };
-  
-    # pull if dir not found in provided path  
+
+    # pull if dir not found in provided path
     if(!(-e $chkpath."/$name")) {
       `git clone $url`;
 
@@ -162,7 +232,7 @@ sub depchk {
       ;
 
     };
-    
+
   };chdir $old_cwd;
 
 };
@@ -189,7 +259,7 @@ sub walk {
       ||  ($sub[0] eq '/docs')
       ) {next;};
 
-      # remove ws      
+      # remove ws
       $sub[1]=~ s/^\s+|\s+$//;
 
 # ---   *   ---   *   ---
@@ -197,7 +267,7 @@ sub walk {
       # filter out folders and headers
       my @tmp=split "\n",$sub[1];
       my @files=();
-      
+
       while(@tmp) {
         my $entry=shift @tmp;
         if(($entry=~ m/\/|.*\.h|GNUmakefile|Makefile|makefile/)) {
@@ -210,7 +280,7 @@ sub walk {
       # dirs{folder}=ref(list of files)
       $dirs{ $sub[0] }=\@files;
 
-    };    
+    };
 
   };return (\%dirs);
 
@@ -250,7 +320,7 @@ sub scan {
   # iter provided names
   while(@_) {
     my $mod=shift;
-    
+
     my $trsh="$CACHE{-ROOT}/trashcan/$mod";
     my $modpath="$CACHE{-ROOT}/$mod";
 
@@ -270,17 +340,17 @@ sub scan {
     for my $sub (keys %h) {
 
       # ensure directores exist
-      my $tsub=$sub;$tsub=~ s/${ modpath }/${ trsh }/;      
-      if(!(-e $trsh)) {      
+      my $tsub=$sub;$tsub=~ s/${ modpath }/${ trsh }/;  
+      if(!(-e $trsh)) {
         mkdir $tsub;
 
       };
 
       # capture file list
       my @files=@{ $h{$sub} };
-      
+
       `echo "$sub @files" >> $CACHE{-ROOT}/.avto-modules`;
-      
+
     };`touch $trsh/mklog`;
 
   };
@@ -291,7 +361,7 @@ sub scan {
 
 # parse modules into hash
 sub read_modules {
-  
+
   my %h;{
     my @m=split "\n",`cat $CACHE{-ROOT}/.avto-modules`;
 
@@ -302,7 +372,7 @@ sub read_modules {
 
       # store submodules as references
       while($len--) {
-        my @tmp=split ' ',shift @m;        
+        my @tmp=split ' ',shift @m;
         push @paths,\@tmp;
 
       };
@@ -312,7 +382,7 @@ sub read_modules {
 
     };
   };return \%h;
-  
+
 };
 
 # ---   *   ---   *   ---
@@ -321,10 +391,10 @@ sub strconfig {
   my %config=%{ $_[0] };
   return rescap dqwrap(
     $config{'BUILD'}.' '.
-    
+
     $config{'XCPY' }.' '.
     $config{'LCPY' }.' '.
-    
+
     $config{'GENS' }.' '.
     $config{'LIBS' }.' '.
     $config{'INCL' }.' '.
@@ -363,7 +433,7 @@ sub make {
 
   # add these directories to search path
   # ... but only if they exist, obviously
-  
+
   my $base_lib=(-e $CACHE{-ROOT}.'/lib')
     ? $CACHE{-ROOT}.'/lib'
     : ''
@@ -382,22 +452,22 @@ sub make {
   # fetch config
   my @config=split "\n",`cat $CACHE{-ROOT}/.avto-config`;
 
-  # now iter 
+  # now iter
   while(@config) {
 
-    my (    
-      $name,      
+    my (
+      $name,
       $build,
 
       $xcpy,
       $lcpy,
 
-      $gens,      
+      $gens,
       $libs,
       $incl,
-      
+
       $defs
-      
+
     )=split ' ',shift @config;
 
     my @paths=@{ $modules{$name} };
@@ -448,7 +518,7 @@ sub make {
           my $match=shift @matches;
 
           if(!$lcpy) {last;};
-          
+
           $lcpy=~ s/\|?${ match }\|?//;
           `cp $mod/$match $CACHE{-ROOT}/lib/$match`;
 
