@@ -431,7 +431,7 @@ sub scan {
 
       `echo "$sub @files" >> $CACHE{-ROOT}/.avto-modules`;
 
-    };`touch $trsh/mklog`;
+    };
 
   };
 
@@ -509,7 +509,42 @@ sub config {
 
 # ---   *   ---   *   ---
 
-# emits a makefile
+# gives up social life for programming
+sub strlist {
+  my @l=@{ $_[0] };
+
+  if(!@l) {return '();'};
+  for(my $x=0;$x<@l;$x++) {
+    $l[$x]=dqwrap $l[$x];
+
+  };return '('.( join ',',@l ).');';
+};
+
+# makes file list out of gcc .d files
+sub parsemmd {
+  my $dep=shift;$dep=`cat $dep`;
+  $dep=~ s/\\//g;
+  $dep=~ s/\s/\,/g;
+  $dep=~ s/.*\://;
+
+  my @tmp=split ',',$dep;
+  my @deps=();while(@tmp) {
+    my $f=shift @tmp;
+    if($f) {push @deps,$f;};
+
+  };return \@deps;
+
+};
+
+# shortens pathname for sanity
+sub shpath {
+  my $path=shift;
+  $path=~ s/${ CACHE{-ROOT} }//;
+  return $path;
+
+};
+
+# emits builders
 sub make {
 
   # add these directories to search path
@@ -555,12 +590,17 @@ sub make {
 
     )=split ' ',shift @config;
     my @paths=@{ $modules{$name} };
-    open FH,'>',"$CACHE{-ROOT}/$name/GNUmakefile";
+
+    open FH,'>',"$CACHE{-ROOT}/$name/avto" or die $!;
+    my $FILE='';
+
+    $FILE.='#!/usr/bin/perl'."\n";
 
     # accumulate to these vars
     my @OBJS=();
-    my @DEPS=();
     my @GENS=();
+    my @DEFS=();
+    my @FCPY=();
 
     my $src_rcees='';
     my $post_build='';
@@ -568,21 +608,45 @@ sub make {
 
 # ---   *   ---   *   ---
 
-    # write makefile header
-    print FH note('IBN-3DILA','#');
-    print FH "\nFSWAT=$name\n";
+    # write notice and vars
+    $FILE.=note('IBN-3DILA','#');
+
+    $FILE.=<<'EOF'
+  use strict;
+  use warnings;
+  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use avt;
+
+  my $OFLG='-s -Os -fno-unwind-tables '.
+    '-fno-asynchronous-unwind-tables '.
+    '-ffast-math -fsingle-precision-constant '.
+    '-fno-ident';
+
+  my $LFLG=$OFLG.' -flto -ffunction-sections '.
+    '-fdata-sections -Wl,--gc-sections '.
+    '-Wl,-fuse-ld=bfd';
+
+  my $PFLG='-m64';
+  my $DFLG='';
+
+EOF
+;   $FILE.="\nmy \$FSWAT=\"$name\";\n";
 
     my $mkwat=($build ne '.')
       ? (split ':',$build)[1]
       : ''
       ;
 
-    print FH "MKWAT=$mkwat\n\n";
-    print FH "BIN=$bind\n";
-    print FH "MAIN=$bind/$mkwat\n";
-    print FH "TRSH=$ENV{'ARPATH'}/trashcan/$name\n";
+    # make the ifs for build later
+    $FILE.='my $LMODE=\'\';'."\n";
 
-    print FH "-include $ENV{'ARPATH'}/avtomat/mkvars\n";
+    $FILE.="my \$ROOT=\"$ENV{'ARPATH'}\";\n";
+    $FILE.="my \$MKWAT=\"$mkwat\";\n\n";
+    $FILE.="my \$BIN=\"$bind\";\n";
+    $FILE.="my \$MAIN=\"$bind/$mkwat\";\n";
+    $FILE.="my \$TRSH=\"$ENV{'ARPATH'}".
+      "/trashcan/$name\";\n";
+
 # ---   *   ---   *   ---
 
     # parse libs listing
@@ -602,8 +666,9 @@ sub make {
       };
 
       $libs=$base_lib.' '.(join ' ',@libs);
+      $FILE.="my \$LIBS=\"$libs\";\n";
 
-    };print FH "LIBS=$libs\n";
+    };
 
 # ---   *   ---   *   ---
 
@@ -615,7 +680,7 @@ sub make {
 
     $incl=$base_include." $incl";
 
-    print FH "INCLUDES=$incl\n";
+    $FILE.="my \$INCLUDES=\"$incl\";\n";
 
 # ---   *   ---   *   ---
 
@@ -690,13 +755,13 @@ sub make {
           $xcpy=~ s/\|?${ match }\\\*\|?//;
           $match=~ s/\*//;
 
-          $post_build.="\t".'@if [ ! -f '.
-          "$mod/$match ]".' || [ '.
-          "$mod/$match -nt $bind/$match ];then ".
-          "cp $mod/$match $bind/$match;fi\n";
+          push @FCPY,(
+            "$mod/$match",
+            "$bind/$match"
+
+          );
 
         };
-
       };
 
 # ---   *   ---   *   ---
@@ -710,10 +775,11 @@ sub make {
 
           $lcpy=~ s/\|?${ match }\|?//;
 
-          $post_build.="\t".'@if [ ! -f '.
-          "$mod/$match ]".' || [ '.
-          "$mod/$match -nt $bind/$match ];then ".
-          "cp $mod/$match $libd/$match;fi\n";
+          push @FCPY,(
+            "$mod/$match",
+            "$libd/$match"
+
+          );
 
         };
       };
@@ -730,8 +796,11 @@ sub make {
 
           $hcpy=~ s/\|?${ match }\|?//;
 
-          $post_build.="\t\@cp $mod/$match ".
-            "$CACHE{-ROOT}/include/$match\n";
+          push @FCPY,(
+            "$mod/$match",
+            "$CACHE{-ROOT}/include/$match"
+
+          );
 
         };
       };
@@ -752,11 +821,11 @@ sub make {
 
           my $res=$gens_res{$match.'\*'};
 
-          $gens_rcees.="$mod/$res: ".
-            "$mod/$match\n".
-            "\t$mod/$match\n";
+          push @GENS,(
+            "$mod/$match",
+            "$mod/$res"
 
-          push @GENS,"$mod/$res";
+          );
 
         };
       };
@@ -774,64 +843,121 @@ sub make {
             my $dep=$match;$dep=(substr $dep,0,
               (length $dep)-1).'d';
 
-            push @OBJS,"$trsh/$ob";
-            push @DEPS,"$trsh/$dep";
+            push @OBJS,(
+              "$mod/$match",
+              "$trsh/$ob",
+              "$trsh/$dep"
 
-# ---   *   ---   *   ---
+            );
 
-          # this is why we dont write these by hand
-          };$src_rcees.="\n$trsh/\%.o: $mod/\%.c\n".
-            "\t".'@echo $<'."\n".
-            "\t".'@gcc -MMD $(OFLG) '.
-            '$(INCLUDES) $(DFLG) $(PFLG) -Wa,'.
-            '-a=$(subst .o,.asm,$@) -c $< -o $@'.
-            "\n\n"
-
-          ;
-
+          };
         };
       };
+    };
 
 # ---   *   ---   *   ---
+
+    my $mkvars='my @OBJS=' .( strlist \@OBJS );
+    $mkvars.="\nmy \@GENS=".( strlist \@GENS );
+    $mkvars.="\nmy \@FCPY=".( strlist \@FCPY );
+    $FILE.="$mkvars\n";
+
+    # write x|so rule...
+    if($mkwat) {
+      $FILE.=<<'EOF'
+
+avt::root $ROOT;
+
+while(@GENS) {
+
+  my $src=shift @GENS;
+  my $res=shift @GENS;
+
+  my $do_gen=!(-e $res);
+
+  if(!$do_gen) {$do_gen=!((-M $res) < (-M $src));};
+  if($do_gen) {
+    print 'Regen '.( avt::shpath $src )."\n";
+    `$src`;
+
+  };
+
+};
+
+my $OBJS='';
+while(@OBJS) {
+
+  my $src=shift @OBJS;
+  my $obj=shift @OBJS;
+  my $mmd=shift @OBJS;
+
+  $OBJS.=$obj.' ';
+
+  my @deps=($src);
+
+  my $do_build=!(-e $obj);if($mmd) {
+    @deps=@{ avt::parsemmd $mmd };
+
+  };for(my $x=0;$x<@deps;$x++) {
+    if($deps[$x] && !(-e $deps[$x])) {
+      print ''.( avt::shpath $src );
+      print " missing dependency $deps[$x]\n";
+      exit;
+
+    };
+  };
+
+  if(!$do_build) {
+    while(@deps) {
+      my $dep=shift @deps;
+      if(!((-M $obj) < (-M $dep))) {
+        $do_build=1;last;
+
+      };
+    };
+  };
+
+  if($do_build) {
+
+    print ''.( avt::shpath $src )."\n";
+    my $asm=$obj;$asm=substr(
+      $asm,0,(length $asm)-1
+
+    );$asm.='asm';
+
+    my $call="gcc -MMD $OFLG $INCLUDES $DFLG $PFLG ".
+      "-Wa,-a=$asm -c $src -o $obj";`$call`;
+
+  };
+};
+
+print ''.( avt::shpath $MAIN) ."\n";
+if(-e $MAIN) {`rm $MAIN`;};
+
+  my $call="gcc $LMODE $LFLG $INCLUDES".
+    "$PFLG $OBJS $LIBS -o $MAIN";`$call`;
+
+while(@FCPY) {
+  my $og=shift @FCPY;
+  my $cp=shift @FCPY;
+
+  my $do_cpy=!(-e $cp);
+
+  if(!$do_cpy) {$do_cpy=((-M $cp) < (-M $og));};
+  if($do_cpy) {`cp $og $cp`;};
+
+};
+
+EOF
+;
+    # or do nothing, basically (for now)
+    } else {
+      ;
 
     };
 
-      my $mkvars='OBJS='.( join ' ',@OBJS );
-      $mkvars.="\nDEPS=".( join ' ',@DEPS );
-      $mkvars.="\nGENS=".( join ' ',@GENS );
-      print FH "$mkvars\n\n";
-
-      # write x|so rule...
-      if($mkwat) {
-        print FH '.PHONY:build'."\n".
-        'build: $(MAIN)'."\n".
-
-        '$(MAIN):| $(GENS) $(OBJS)'."\n".
-        "\t".'@echo $(MAIN)'."\n".
-        "\t".'@if test -f $(MAIN);'.
-          'then rm $(MAIN);fi'."\n".
-
-        "\t".'@gcc $(LMODE) $(LFLG) $(INCLUDES) '.
-          '$(PFLG) $(OBJS) $(LIBS) -o $(MAIN)'."\n".
-
-        "$post_build\n";
-
-      # or do nothing, basically
-      } else {
-        print FH '.PHONY:build'."\n\n".
-        'build:| $(GENS)'."\n".
-        "$post_build\n";
-
-      };print FH "$src_rcees$gens_rcees\n";
-      if(@DEPS) {
-        print FH '-include $(DEPS)'."\n\n";
-
-      };
-
-      print FH '-include '.
-        "$ENV{'ARPATH'}/avtomat/mkrcee\n";
-
-      close FH;
+    print FH $FILE;
+    close FH;`chmod +x "$CACHE{-ROOT}/$name/avto"`
   };
 };
 
