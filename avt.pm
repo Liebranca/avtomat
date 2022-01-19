@@ -55,6 +55,8 @@ sub note {
   my $ch=shift;
 
   my $t=`date +%Y`;
+  $t=substr $t,0,(length $t)-1;
+
   my $note=<<"EOF"
 $ch ---   *   ---   *   ---
 $ch LIBRE BOILERPASTE
@@ -132,17 +134,24 @@ sub cboil_h {
 # fname=fname
 # call=reference to a sub taking filehandle
 
+# author=your name
+
 # wraps sub in header boilerplate
 };sub wrcboil_h {
 
   my $dir=shift;
   my $fname=shift;
   my $call=shift;
+  my $author=shift;
 
-  # open boiler
+  # create file
   open my $FH,'>',
     $CACHE{-ROOT}.$dir.$fname.'.h' or die $!;
 
+  # print a notice
+  print $FH note($author,'//');
+
+  # open boiler
   print $FH avt::cboil_h uc($fname),0;
 
   # write the code through the generator
@@ -151,6 +160,77 @@ sub cboil_h {
   # close boiler
   print $FH avt::cboil_h uc($fname),1;
   close $FH;
+
+};
+
+# ---   *   ---   *   ---
+
+# mode=beg|nxt|end
+# type=array|enum
+# value=elem name
+# dst=string
+
+# array/enum generator helper
+sub clist {
+
+  my ($mode,$type,$value,$dst)=@{ $_[0] };
+
+  # opening clause
+  if(!$mode) {
+
+    my $is_arr;
+    ($is_arr,$type)=split ':',$type;
+    $is_arr=$is_arr eq 'arr';
+
+    if($is_arr) {
+      $dst.="static const $type $value"."[]={\n";
+      $type='';
+
+    } else {
+      $dst.="enum {\n";
+
+    };$mode++;
+
+# ---   *   ---   *   ---
+
+  # list element
+  } elsif($mode==1) {
+    $dst.=" $value,\n";
+
+  # closer
+  } else {
+
+    if(!$type) {
+      $dst=substr $dst,0,(length $dst)-2;
+      $dst.="\n\n};\n\n";
+
+    } else {
+      $dst.=" $type\n\n};\n\n";
+
+    };
+
+  };
+
+  return [$mode,$type,$value,$dst];
+
+};
+
+# ---   *   ---   *   ---
+
+# type=ret:args
+# name=func name
+# code=func contents
+# dst=string
+
+# function generator helper
+sub cfunc {
+
+  my ($type,$name,$code,$dst)=@{ $_[0] };
+
+  my ($ret,$args)=split ':',$type;
+  $dst.="$ret $name($args) {\n$code\n};\n\n";
+
+  return [$type,$name,$code,$dst];
 
 };
 
@@ -270,7 +350,7 @@ sub walk {
 
       while(@tmp) {
         my $entry=shift @tmp;
-        if(($entry=~ m/\/|.*\.h|GNUmakefile|Makefile|makefile/)) {
+        if(($entry=~ m/\/|GNUmakefile|Makefile|makefile/)) {
           next;
 
         };push @files,$entry;
@@ -394,6 +474,7 @@ sub strconfig {
 
     $config{'XCPY' }.' '.
     $config{'LCPY' }.' '.
+    $config{'HCPY' }.' '.
 
     $config{'GENS' }.' '.
     $config{'LIBS' }.' '.
@@ -435,14 +516,17 @@ sub make {
   # ... but only if they exist, obviously
 
   my $base_lib=(-e $CACHE{-ROOT}.'/lib')
-    ? $CACHE{-ROOT}.'/lib'
+    ? '-L'.$CACHE{-ROOT}.'/lib'
     : ''
     ;
 
   my $base_include=(-e $CACHE{-ROOT}.'/include')
-    ? $CACHE{-ROOT}.'/include'
+    ? '-I'.$CACHE{-ROOT}.'/include'
     : ''
     ;
+
+  my $bind=$CACHE{-ROOT}.'/bin';
+  my $libd=$CACHE{-ROOT}.'/lib';
 
 # ---   *   ---   *   ---
 
@@ -461,6 +545,7 @@ sub make {
 
       $xcpy,
       $lcpy,
+      $hcpy,
 
       $gens,
       $libs,
@@ -469,8 +554,62 @@ sub make {
       $defs
 
     )=split ' ',shift @config;
-
     my @paths=@{ $modules{$name} };
+    open FH,'>',"$CACHE{-ROOT}/$name/GNUmakefile";
+
+    # accumulate to these vars
+    my @OBJS=();
+    my @DEPS=();
+    my @GENS=();
+
+    my $src_rcees='';
+    my $post_build='';
+    my $gens_rcees='';
+
+# ---   *   ---   *   ---
+
+    # write makefile header
+    print FH note('IBN-3DILA','#');
+    print FH "\nFSWAT=$name\n";
+
+    my $mkwat=($build ne '.')
+      ? (split ':',$build)[1]
+      : ''
+      ;
+
+    print FH "MKWAT=$mkwat\n\n";
+    print FH "-include $ENV{'ARPATH'}/avtomat/mkvars\n";
+
+    # parse libs listing
+    { my @libs=($libs ne '.')
+      ? split ',',$libs
+      : ()
+      ;
+
+      for(my $x=0;$x<@libs;$x++) {
+        if((index $libs[$x],'/')>=0) {
+          $libs[$x]='-L'.$libs[$x];
+
+        } else {
+          $libs[$x]='-l'.$libs[$x];
+
+        };
+      };
+
+      $libs=$base_lib.' '.(join ' ',@libs);
+
+    };print FH "LIBS=$libs\n";
+
+    # parse includes
+    $incl=($incl ne '.')
+      ? '-I'.(join ' -I',(split ',',$incl))
+      : ''
+      ;
+
+    $incl=$base_include." $incl";
+
+    print FH "INCLUDES=$incl\n";
+    print FH "-include $ENV{'ARPATH'}/avtomat/mkrcee\n";
 
 # ---   *   ---   *   ---
 
@@ -486,17 +625,52 @@ sub make {
       : ''
       ;
 
+    # get list copy list C
+    $hcpy=($hcpy ne '.')
+      ? join '|',(split ',',$hcpy)
+      : ''
+      ;
+
+# ---   *   ---   *   ---
+
+    # get generator list
+    my $gens_src='';
+    my %gens_res=();
+    { my @tmp1=($gens ne '.')
+      ? split ',',$gens
+      : ()
+      ;
+
+      while(@tmp1) {
+        my ($res,$src)=split ':',shift @tmp1;
+        $gens_res{$src}=$res;
+
+      };$gens_src=join '|',(keys %gens_res);
+
+    };
+
 # ---   *   ---   *   ---
 
     while(@paths) {
       my @path=@{ shift @paths };
       my $mod=shift @path;
+      my $trsh='';
+
+      if((index $mod,'/')==0) {
+        $mod=substr $mod,1,length $mod;
+
+      };
 
       # get path to
-      $mod=($mod eq '<main>')
-        ? $CACHE{-ROOT}."/$name"
-        : $CACHE{-ROOT}."/$name/$mod"
+      ($mod,$trsh)=($mod eq '<main>')
+        ? ($CACHE{-ROOT}."/$name",
+          $CACHE{-ROOT}."/trashcan/$name")
+
+        : ($CACHE{-ROOT}."/$name/$mod",
+          $CACHE{-ROOT}."/trashcan/$name/$mod")
         ;
+
+# ---   *   ---   *   ---
 
       # copy these to bin
       if($xcpy) { my @matches=grep m/${ xcpy }/,@path;
@@ -505,12 +679,19 @@ sub make {
 
           if(!$xcpy) {last;};
 
-          $xcpy=~ s/\|?${ match }\\\*\|?//;$match=~ s/\*//;
-          `cp $mod/$match $CACHE{-ROOT}/bin/$match`;
+          $xcpy=~ s/\|?${ match }\\\*\|?//;
+          $match=~ s/\*//;
+
+          $post_build.="\t".'@if [ ! -f '.
+          "$mod/$match ]".' || [ '.
+          "$mod/$match -nt $bind/$match ];then ".
+          "cp $mod/$match $bind/$match;fi\n";
 
         };
 
       };
+
+# ---   *   ---   *   ---
 
       # copy these to lib
       if($lcpy) { my @matches=grep m/${ lcpy }/,@path;
@@ -520,16 +701,119 @@ sub make {
           if(!$lcpy) {last;};
 
           $lcpy=~ s/\|?${ match }\|?//;
-          `cp $mod/$match $CACHE{-ROOT}/lib/$match`;
+
+          $post_build.="\t".'@if [ ! -f '.
+          "$mod/$match ]".' || [ '.
+          "$mod/$match -nt $bind/$match ];then ".
+          "cp $mod/$match $libd/$match;fi\n";
 
         };
-
       };
+
+
+# ---   *   ---   *   ---
+
+      # copy these to include
+      if($hcpy) { my @matches=grep m/${ hcpy }/,@path;
+        while(@matches) {
+          my $match=shift @matches;
+
+          if(!$hcpy) {last;};
+
+          $hcpy=~ s/\|?${ match }\|?//;
+
+          $post_build.="\t\@cp $mod/$match ".
+            "$CACHE{-ROOT}/include/$match\n";
+
+        };
+      };
+
+# ---   *   ---   *   ---
+
+      # make generator rules
+      if($gens_src) {
+        my @matches=grep m/${ gens_src }/,@path;
+
+        while(@matches) {
+          my $match=shift @matches;
+
+          if(!$gens_src) {last;};
+
+          $gens_src=~ s/\|?${ match }\\\*\|?//;
+          $match=~ s/\*//;
+
+          my $res=$gens_res{$match.'\*'};
+
+          $gens_rcees.="$mod/$res: ".
+            "$mod/$match\n".
+            "\t$mod/$match\n";
+
+          push @GENS,"$mod/$res";
+
+        };
+      };
+
+# ---   *   ---   *   ---
+
+      { my @matches=grep m/.\.c/,@path;
+        if(@matches) {
+
+          while(@matches) {
+            my $match=shift @matches;
+            my $ob=$match;$ob=(substr $ob,0,
+              (length $ob)-1).'o';
+
+            my $dep=$match;$dep=(substr $dep,0,
+              (length $dep)-1).'d';
+
+            push @OBJS,"$trsh/$ob";
+            push @DEPS,"$trsh/$dep";
+
+          };$src_rcees.="\n$trsh/\%.o: $mod/\%c\n".
+            "\t".'@echo $<'."\n".
+            "\t".'@gcc -MMD $(OFLG)'.
+            '$(INCLUDES) $(DFLG) $(PFLG) -Wa,'.
+            '-a=$(subst .o,.asm,$@) -c $< -o $@'.
+            "\n\n"
+
+          ;
+
+        };
+      };
+
+# ---   *   ---   *   ---
 
     };
 
-  };
+      my $mkvars='OBJS='.( join ' ',@OBJS );
+      $mkvars.="\nDEPS=".( join ' ',@DEPS );
+      $mkvars.="\nGENS=".( join ' ',@GENS );
+      print FH "$mkvars\n\n";
 
+      if($build) {
+        print FH '$(MAIN):| $(GENS) $(OBJS)'."\n".
+        "\t".'@echo $(MAIN)'."\n".
+        "\t".'@if test -f $(MAIN);'.
+          'then rm $(MAIN);fi'."\n".
+
+        "\t".'@gcc $(LMODE) $(LFLG) $(INCLUDES) '.
+          '$(PFLG) $(OBJS) $(LIBS) -o $(MAIN)'."\n".
+
+        "$post_build\n";
+
+      } else {
+        print FH '.PHONY:main'."\n\n".
+        'main:| $(GENS)'."\n".
+        "$post_build\n";
+
+      };print FH "$src_rcees$gens_rcees\n";
+      if(@DEPS) {
+        print FH '-include $(DEPS)'."\n\n";
+
+      };
+
+      close FH;
+  };
 };
 
 # ---   *   ---   *   ---

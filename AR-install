@@ -30,6 +30,7 @@ my $root=$ENV{'ARPATH'};if(!$root) {
   my @deps=(
     ['help'   ,'https://github.com/Liebranca/help'   ,undef],
     ['ft8'    ,'https://github.com/Liebranca/ft8'    ,undef],
+    ['ce'     ,'https://github.com/Liebranca/ce'    ,undef],
 
   );avt::depchk "$root",\@deps;
 
@@ -43,9 +44,10 @@ my $avtomat_config;{
   my %config=(
 
   'BUILD' =>  '.'       ,
-  
+
   'XCPY'  =>  'avtomat*',
   'LCPY'  =>  'avt.pm'  ,
+  'HCPY'  =>  '.'       ,
 
   'GENS'  =>  '.'       ,
   'LIBS'  =>  '.'       ,
@@ -53,8 +55,8 @@ my $avtomat_config;{
 
   'DEFS'  =>  '.'       ,
 
-  );$avtomat_config=avt::strconfig \%config;  
-  
+  );$avtomat_config=avt::strconfig \%config;
+
 };
 
 # ---   *   ---   *   ---
@@ -64,9 +66,10 @@ my $help_config;{
   my %config=(
 
   'BUILD' =>  '.'       ,
-  
+
   'XCPY'  =>  'help*'   ,
   'LCPY'  =>  'cash.pm' ,
+  'HCPY'  =>  '.'       ,
 
   'GENS'  =>  '.'       ,
   'LIBS'  =>  '.'       ,
@@ -74,8 +77,8 @@ my $help_config;{
 
   'DEFS'  =>  '.'       ,
 
-  );$help_config=avt::strconfig \%config;  
-  
+  );$help_config=avt::strconfig \%config;
+
 };
 
 # ---   *   ---   *   ---
@@ -90,9 +93,10 @@ my $ft8_config;{
   my %config=(
 
   'BUILD' =>  '.'       ,
-  
+
   'XCPY'  =>  'ft8*,writepsf*',
   'LCPY'  =>  'jojft.pm',
+  'HCPY'  =>  '.'       ,
 
   'GENS'  =>  '.'       ,
   'LIBS'  =>  '.'       ,
@@ -101,16 +105,40 @@ my $ft8_config;{
   'DEFS'  =>  '.'       ,
 
   );$ft8_config=avt::strconfig \%config;
-  
+
+};
+
+# ---   *   ---   *   ---
+
+my $ce_config;{
+
+  my %config=(
+
+  'BUILD' =>  'x:ce'    ,
+
+  'XCPY'  =>  '.'       ,
+  'LCPY'  =>  '.'       ,
+  'HCPY'  =>  '.'       ,
+
+  'GENS'  =>  'chartab.h:chartab*,'.
+              'keymap.h:keymap*',
+
+  'LIBS'  =>  'AR'      ,
+  'INCL'  =>  '.'       ,
+
+  'DEFS'  =>  '.'       ,
+
+  );$ce_config=avt::strconfig \%config;
+
 };
 
 # ---   *   ---   *   ---
 # install packages
-  
-`$root/avtomat/avtomat $root scan avtomat help ft8`;
-`$root/avtomat/avtomat $root config avtomat $avtomat_config help $help_config ft8 $ft8_config`;
 
-`$root/avtomat/avtomat $root make`;
+`$root/avtomat/avtomat $root scan avtomat help ft8 ce`;
+`$root/avtomat/avtomat $root config avtomat $avtomat_config help $help_config ft8 $ft8_config ce $ce_config`;
+
+print `$root/avtomat/avtomat $root make`;
 
 # generate default font
 if(!(-e "$root/fonts")) {
