@@ -2,15 +2,6 @@
 
 #    ---     ---     ---     ---     ---
 
-DIRS      = $(shell find $(BASE_DIR) -type d)
-HEDS      = $(wildcard $(DIRS:%=%/*.h))
-SRCS      = $(wildcard $(DIRS:%=%/*.c))
-BIN       = $(dir $(abspath ..)/bin)
-TRSH      = $(dir $(abspath ..)/trashcan/$(FSWAT))
-
-PCHS      = $(patsubst %.h,$(TRSH)/%.pch,$(HEDS))
-MAIN      = $(BIN)/$(MKWAT)
-
 DFLG      = 
 
 ifdef DEBUG

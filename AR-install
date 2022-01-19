@@ -123,7 +123,7 @@ my $ce_config;{
   'GENS'  =>  'chartab.h:chartab*,'.
               'keymap.h:keymap*',
 
-  'LIBS'  =>  'AR'      ,
+  'LIBS'  =>  '.'       ,
   'INCL'  =>  '.'       ,
 
   'DEFS'  =>  '.'       ,

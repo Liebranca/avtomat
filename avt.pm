@@ -578,7 +578,12 @@ sub make {
       ;
 
     print FH "MKWAT=$mkwat\n\n";
+    print FH "BIN=$bind\n";
+    print FH "MAIN=$bind/$mkwat\n";
+    print FH "TRSH=$ENV{'ARPATH'}/trashcan/$name\n";
+
     print FH "-include $ENV{'ARPATH'}/avtomat/mkvars\n";
+# ---   *   ---   *   ---
 
     # parse libs listing
     { my @libs=($libs ne '.')
@@ -600,6 +605,8 @@ sub make {
 
     };print FH "LIBS=$libs\n";
 
+# ---   *   ---   *   ---
+
     # parse includes
     $incl=($incl ne '.')
       ? '-I'.(join ' -I',(split ',',$incl))
@@ -609,7 +616,6 @@ sub make {
     $incl=$base_include." $incl";
 
     print FH "INCLUDES=$incl\n";
-    print FH "-include $ENV{'ARPATH'}/avtomat/mkrcee\n";
 
 # ---   *   ---   *   ---
 
@@ -679,6 +685,8 @@ sub make {
 
           if(!$xcpy) {last;};
 
+          # pop match+(\*|) from string
+          # makes perfect sense to me ;>
           $xcpy=~ s/\|?${ match }\\\*\|?//;
           $match=~ s/\*//;
 
@@ -769,9 +777,12 @@ sub make {
             push @OBJS,"$trsh/$ob";
             push @DEPS,"$trsh/$dep";
 
-          };$src_rcees.="\n$trsh/\%.o: $mod/\%c\n".
+# ---   *   ---   *   ---
+
+          # this is why we dont write these by hand
+          };$src_rcees.="\n$trsh/\%.o: $mod/\%.c\n".
             "\t".'@echo $<'."\n".
-            "\t".'@gcc -MMD $(OFLG)'.
+            "\t".'@gcc -MMD $(OFLG) '.
             '$(INCLUDES) $(DFLG) $(PFLG) -Wa,'.
             '-a=$(subst .o,.asm,$@) -c $< -o $@'.
             "\n\n"
@@ -790,8 +801,12 @@ sub make {
       $mkvars.="\nGENS=".( join ' ',@GENS );
       print FH "$mkvars\n\n";
 
-      if($build) {
-        print FH '$(MAIN):| $(GENS) $(OBJS)'."\n".
+      # write x|so rule...
+      if($mkwat) {
+        print FH '.PHONY:build'."\n".
+        'build: $(MAIN)'."\n".
+
+        '$(MAIN):| $(GENS) $(OBJS)'."\n".
         "\t".'@echo $(MAIN)'."\n".
         "\t".'@if test -f $(MAIN);'.
           'then rm $(MAIN);fi'."\n".
@@ -801,9 +816,10 @@ sub make {
 
         "$post_build\n";
 
+      # or do nothing, basically
       } else {
-        print FH '.PHONY:main'."\n\n".
-        'main:| $(GENS)'."\n".
+        print FH '.PHONY:build'."\n\n".
+        'build:| $(GENS)'."\n".
         "$post_build\n";
 
       };print FH "$src_rcees$gens_rcees\n";
@@ -811,6 +827,9 @@ sub make {
         print FH '-include $(DEPS)'."\n\n";
 
       };
+
+      print FH '-include '.
+        "$ENV{'ARPATH'}/avtomat/mkrcee\n";
 
       close FH;
   };
