@@ -110,6 +110,7 @@ my $ft8_config;{
 
 # ---   *   ---   *   ---
 
+my $ce_scan="ce -x keys";
 my $ce_config;{
 
   my %config=(
@@ -135,10 +136,12 @@ my $ce_config;{
 # ---   *   ---   *   ---
 # install packages
 
-`$root/avtomat/avtomat $root scan avtomat help ft8 ce`;
-`$root/avtomat/avtomat $root config avtomat $avtomat_config help $help_config ft8 $ft8_config ce $ce_config`;
+my $EX="$root/avtomat/avtomat $root";
+`$EX scan avtomat help ft8 $ce_scan`;
 
-print `$root/avtomat/avtomat $root make`;
+`$EX $root config avtomat $avtomat_config help $help_config ft8 $ft8_config ce $ce_config`;
+
+`$EX $root make`;
 
 # generate default font
 if(!(-e "$root/fonts")) {

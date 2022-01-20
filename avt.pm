@@ -393,13 +393,34 @@ sub scan {
   if(!(-e "$CACHE{-ROOT}/trashcan")) {
     mkdir "$CACHE{-ROOT}/trashcan";
 
-  };
+  };open FH,'>',
+      $CACHE{-ROOT}.'/.avto-modules' or  die $!;
 
 # ---   *   ---   *   ---
 
   # iter provided names
   while(@_) {
     my $mod=shift;
+    my $excluded;
+
+    if($_[0]){
+
+      # handle exclude flag short
+      if($_[0] eq '-x') {
+        shift;$excluded=shift;
+
+      # handle exclude flag long
+      } elsif($_[0]=~ m/\-\-exclude\=[\w|\d]*/) {
+        $excluded=shift;$excluded=~ s/\-\-exclude\=//;
+
+      };
+
+      if($excluded) {
+        $excluded=join '|',(split ',',$excluded);
+
+      };
+
+    };
 
     my $trsh="$CACHE{-ROOT}/trashcan/$mod";
     my $modpath="$CACHE{-ROOT}/$mod";
@@ -413,14 +434,21 @@ sub scan {
 # ---   *   ---   *   ---
 
     # walk module path and capture sub count
-    my %h=%{ walk($modpath) };my $len=keys %h;
-    `echo "$mod $len" >> $CACHE{-ROOT}/.avto-modules`;
+    my %h=%{ walk($modpath) };my $len=(keys %h);
+    my $list='';
 
     # paths/dir checks
     for my $sub (keys %h) {
 
+      if($excluded) {
+        if(grep m/${ excluded }/,$sub) {
+          $len--;next;
+
+        };
+      };
+
       # ensure directores exist
-      my $tsub=$sub;$tsub=~ s/${ modpath }/${ trsh }/;  
+      my $tsub=$sub;$tsub=~ s/${ modpath }/${ trsh }/;
       if(!(-e $trsh)) {
         mkdir $tsub;
 
@@ -428,13 +456,12 @@ sub scan {
 
       # capture file list
       my @files=@{ $h{$sub} };
+      $list.="$sub @files\n";
 
-      `echo "$sub @files" >> $CACHE{-ROOT}/.avto-modules`;
+# ---   *   ---   *   ---
 
-    };
-
-  };
-
+    };print FH "$mod $len\n$list";
+  };close FH;
 };
 
 # ---   *   ---   *   ---
