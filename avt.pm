@@ -670,7 +670,15 @@ EOF
     $FILE.="my \$ROOT=\"$ENV{'ARPATH'}\";\n";
     $FILE.="my \$MKWAT=\"$mkwat\";\n\n";
     $FILE.="my \$BIN=\"$bind\";\n";
-    $FILE.="my \$MAIN=\"$bind/$mkwat\";\n";
+
+    if($mkwat) {
+      $FILE.="my \$MAIN=\"$bind/$mkwat\";\n";
+
+    } else {
+      $FILE.="my \$MAIN=undef;\n";
+
+    };
+
     $FILE.="my \$TRSH=\"$ENV{'ARPATH'}".
       "/trashcan/$name\";\n";
 
@@ -889,9 +897,7 @@ EOF
     $mkvars.="\nmy \@FCPY=".( strlist \@FCPY );
     $FILE.="$mkvars\n";
 
-    # write x|so rule...
-    if($mkwat) {
-      $FILE.=<<'EOF'
+    $FILE.=<<'EOF'
 
 avt::root $ROOT;
 
@@ -958,11 +964,14 @@ while(@OBJS) {
   };
 };
 
-print ''.( avt::shpath $MAIN) ."\n";
-if(-e $MAIN) {`rm $MAIN`;};
+if($MAIN) {
+  print ''.( avt::shpath $MAIN) ."\n";
+  if(-e $MAIN) {`rm $MAIN`;};
 
-  my $call="gcc $LMODE $LFLG $INCLUDES".
-    "$PFLG $OBJS $LIBS -o $MAIN";`$call`;
+    my $call="gcc $LMODE $LFLG $INCLUDES".
+      "$PFLG $OBJS $LIBS -o $MAIN";`$call`;
+
+};
 
 while(@FCPY) {
   my $og=shift @FCPY;
@@ -970,18 +979,13 @@ while(@FCPY) {
 
   my $do_cpy=!(-e $cp);
 
-  if(!$do_cpy) {$do_cpy=((-M $cp) < (-M $og));};
+  if(!$do_cpy) {$do_cpy=!((-M $cp) < (-M $og));};
   if($do_cpy) {`cp $og $cp`;};
 
 };
 
 EOF
 ;
-    # or do nothing, basically (for now)
-    } else {
-      ;
-
-    };
 
     print FH $FILE;
     close FH;`chmod +x "$CACHE{-ROOT}/$name/avto"`
