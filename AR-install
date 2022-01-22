@@ -110,6 +110,29 @@ my $ft8_config;{
 
 # ---   *   ---   *   ---
 
+my $sin_config;{
+
+  my %config=(
+
+  'BUILD' =>  'ar:sin'  ,
+
+  'XCPY'  =>  '.'       ,
+  'LCPY'  =>  '.'       ,
+  'HCPY'  =>  'sin.h'   ,
+
+  'GENS'  =>  '.'       ,
+
+  'LIBS'  =>  'GL,glut,GLEW',
+  'INCL'  =>  '.'       ,
+
+  'DEFS'  =>  '.'       ,
+
+  );$sin_config=avt::strconfig \%config;
+
+};
+
+# ---   *   ---   *   ---
+
 my $ce_scan="ce -x keys";
 my $ce_config;{
 
@@ -124,7 +147,7 @@ my $ce_config;{
   'GENS'  =>  'chartab.h:chartab*,'.
               'keymap.h:keymap*',
 
-  'LIBS'  =>  '.'       ,
+  'LIBS'  =>  'GL,glut,GLEW,sin',
   'INCL'  =>  '.'       ,
 
   'DEFS'  =>  '.'       ,
@@ -137,13 +160,13 @@ my $ce_config;{
 # install packages
 
 my $EX="$root/avtomat/avtomat $root";
-`$EX scan avtomat help ft8 $ce_scan`;
+`$EX scan avtomat help ft8 sin $ce_scan`;
 
-`$EX $root config avtomat $avtomat_config help $help_config ft8 $ft8_config ce $ce_config`;
+`$EX config avtomat $avtomat_config help $help_config ft8 $ft8_config sin $sin_config ce $ce_config`;
 
-`$EX make $root`;
+`$EX make`;
 
-for my $sub('avtomat','help','ft8','ce') {
+for my $sub('avtomat','help','ft8','sin','ce') {
   print "*>$root/$sub/avto\n";
   print `$root/$sub/avto`;
 
@@ -154,10 +177,10 @@ if(!(-e "$root/fonts")) {
   avt::ex 'ft8',['-g','8,16,24',"$root/ft8/lycon",
     "$root/fonts"],'';
 
-};
+  avt::ex 'ft8',['-x','8,16,24','lycon',
+    "$root/fonts/","$root/fonts/X11"],'';
 
-print avt::ex 'ft8',['-x','8,16,24','lycon',
-  "$root/fonts/","$root/fonts/X11"],'';
+};
 
 # ---   *   ---   *   ---
 1; # ret

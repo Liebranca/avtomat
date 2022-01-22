@@ -659,20 +659,37 @@ sub make {
 EOF
 ;   $FILE.="\nmy \$FSWAT=\"$name\";\n";
 
-    my $mkwat=($build ne '.')
-      ? (split ':',$build)[1]
-      : ''
+    my ($lmode,$mkwat)=($build ne '.')
+      ? split ':',$build
+      : ('','')
       ;
 
-    # make the ifs for build later
-    $FILE.='my $LMODE=\'\';'."\n";
+    if($lmode eq 'so') {
+      $lmode='-shared -fPIC';
+
+    } elsif($lmode ne 'ar') {
+      $lmode='';
+
+    };
+
+    $FILE.="my \$LMODE='$lmode';\n";
 
     $FILE.="my \$ROOT=\"$ENV{'ARPATH'}\";\n";
     $FILE.="my \$MKWAT=\"$mkwat\";\n\n";
     $FILE.="my \$BIN=\"$bind\";\n";
 
     if($mkwat) {
-      $FILE.="my \$MAIN=\"$bind/$mkwat\";\n";
+
+      if($lmode eq 'ar') {
+        $FILE.="my \$MAIN=\"$libd/lib$mkwat.a\";\n";
+
+      } elsif($lmode eq '-shared -fPIC') {
+        $FILE.="my \$MAIN=\"$libd/lib$mkwat.so\";\n";
+
+      } else {
+        $FILE.="my \$MAIN=\"$bind/$mkwat\";\n";
+
+      };
 
     } else {
       $FILE.="my \$MAIN=undef;\n";
@@ -964,7 +981,10 @@ while(@OBJS) {
   };
 };
 
-if($MAIN) {
+if($LMODE eq 'ar') {
+  my $call="ar -crs $MAIN $OBJS";`$call`;
+
+} elsif($MAIN) {
   print ''.( avt::shpath $MAIN) ."\n";
   if(-e $MAIN) {`rm $MAIN`;};
 
