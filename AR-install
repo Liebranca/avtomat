@@ -147,7 +147,7 @@ my $chasm_config;{
 
   'GENS'  =>  '.'       ,
 
-  'LIBS'  =>  'GL,GLEW,SDL2,SDL2main',
+  'LIBS'  =>  'GL,GLEW,SDL2,SDL2main,ce',
   'INCL'  =>  '.'       ,
 
   'DEFS'  =>  '.'       ,
@@ -157,16 +157,39 @@ my $chasm_config;{
 };
 
 # ---   *   ---   *   ---
+
+my $test_config;{
+
+  my %config=(
+
+  'BUILD' =>  'x:test',
+
+  'XCPY'  =>  '.'       ,
+  'LCPY'  =>  '.'       ,
+  'HCPY'  =>  '.'       ,
+
+  'GENS'  =>  '.'       ,
+
+  'LIBS'  =>  'chasm',
+  'INCL'  =>  '.'       ,
+
+  'DEFS'  =>  '.'       ,
+
+  );$test_config=avt::strconfig \%config;
+
+};
+
+# ---   *   ---   *   ---
 # install packages
 
 my $EX="$root/avtomat/avtomat $root";
-`$EX scan avtomat help ft8 $ce_scan chasm`;
+`$EX scan avtomat help ft8 $ce_scan chasm test`;
 
-`$EX config avtomat $avtomat_config help $help_config ft8 $ft8_config ce $ce_config chasm $chasm_config`;
+`$EX config avtomat $avtomat_config help $help_config ft8 $ft8_config ce $ce_config chasm $chasm_config test $test_config`;
 
 `$EX make`;
 
-for my $sub('avtomat','help','ft8','sin','ce','chasm') {
+for my $sub('avtomat','help','ft8','sin','ce','chasm','test') {
   print "*>$root/$sub/avto\n";
   print `$root/$sub/avto`;
 

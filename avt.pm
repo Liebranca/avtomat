@@ -998,21 +998,41 @@ if($LMODE eq 'ar') {
   print ''.( avt::shpath $MAIN) ."\n";
   if(-e $MAIN) {`rm $MAIN`;};
 
+    my @lsearch=();
+    my @lbins=();
+
     for my $mlib(split ' ',$LIBS) {
 
-      if((index $mlib,'-L')==0) {next;};
-      $mlib=substr $mlib,2,length $mlib;
-
-      if(!(-e "$ROOT/lib/.$mlib")) {
-        my $deps=`cat $ROOT/lib/.$mlib`;
-        my @matches=grep m/${ $deps }/,$LIBS;
-        while(@matches) {
-          my $match=shift @matches;
-          $deps=~ s/${ $match }//;
-
-        };$LIBS.=' '.$deps.' ';
+      if((index $mlib,'-L')==0) {
+        push @lsearch,substr $mlib,2,length $mlib;
+        next;
 
       };
+
+      $mlib=substr $mlib,2,length $mlib;
+      push @lbins,$mlib;
+
+    };for my $lbin(@lbins) {
+      for my $ldir(@lsearch) {
+
+        if(-e "$ldir/.$lbin") {
+          my $deps=`cat $ROOT/lib/.$lbin`;
+          chomp $deps;$deps=join '|',(split ' ',$deps);
+
+          my @matches=grep(
+            m/${ deps }/,
+            split (' ',$LIBS)
+
+          );while(@matches) {
+            my $match=shift @matches;
+            $deps=~ s/${ match }\|?//;
+
+          };$deps=~ s/\|/ /g;
+          $LIBS.=' '.$deps.' ';last;
+
+        };
+      };
+
     };
 
     my $call="gcc $LMODE $LFLG $INCLUDES".
