@@ -682,17 +682,25 @@ EOF
 
       if($lmode eq 'ar') {
         $FILE.="my \$MAIN=\"$libd/lib$mkwat.a\";\n";
+        $FILE.="my \$MLIB=undef;\n";
+        $FILE.="my \$ILIB=\"$libd/.$mkwat\";\n";
 
       } elsif($lmode eq '-shared -fPIC') {
         $FILE.="my \$MAIN=\"$libd/lib$mkwat.so\";\n";
+        $FILE.="my \$MLIB=undef;\n";
+        $FILE.="my \$ILIB=\"$libd/.$mkwat\";\n";
 
       } else {
         $FILE.="my \$MAIN=\"$bind/$mkwat\";\n";
+        $FILE.="my \$MLIB=\"$libd/lib$mkwat.a\";\n";
+        $FILE.="my \$ILIB=\"$libd/.$mkwat\";\n";
 
       };
 
     } else {
       $FILE.="my \$MAIN=undef;\n";
+      $FILE.="my \$MLIB=undef;\n";
+      $FILE.="my \$ILIB=undef;\n";
 
     };
 
@@ -732,7 +740,7 @@ EOF
 
     $incl=$base_include." $incl";
 
-    $FILE.="my \$INCLUDES=\"$incl\";\n";
+    $FILE.="my \$INCLUDES=\"$incl -I\$ROOT\";\n";
 
 # ---   *   ---   *   ---
 
@@ -960,6 +968,7 @@ while(@OBJS) {
   if(!$do_build) {
     while(@deps) {
       my $dep=shift @deps;
+      if(!(-e $dep)) {next;};
       if(!((-M $obj) < (-M $dep))) {
         $do_build=1;last;
 
@@ -983,13 +992,36 @@ while(@OBJS) {
 
 if($LMODE eq 'ar') {
   my $call="ar -crs $MAIN $OBJS";`$call`;
+  `echo "$LIBS" > $ILIB`;
 
 } elsif($MAIN) {
   print ''.( avt::shpath $MAIN) ."\n";
   if(-e $MAIN) {`rm $MAIN`;};
 
+    for my $mlib(split ' ',$LIBS) {
+
+      if((index $mlib,'-L')==0) {next;};
+      $mlib=substr $mlib,2,length $mlib;
+
+      if(!(-e "$ROOT/lib/.$mlib")) {
+        my $deps=`cat $ROOT/lib/.$mlib`;
+        my @matches=grep m/${ $deps }/,$LIBS;
+        while(@matches) {
+          my $match=shift @matches;
+          $deps=~ s/${ $match }//;
+
+        };$LIBS.=' '.$deps.' ';
+
+      };
+    };
+
     my $call="gcc $LMODE $LFLG $INCLUDES".
       "$PFLG $OBJS $LIBS -o $MAIN";`$call`;
+
+    if($LMODE ne '-shared -fPIC') {
+      $call="ar -crs $MLIB $OBJS";`$call`;
+
+    };`echo "$LIBS" > $ILIB`;
 
 };
 

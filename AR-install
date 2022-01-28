@@ -110,29 +110,6 @@ my $ft8_config;{
 
 # ---   *   ---   *   ---
 
-my $sin_config;{
-
-  my %config=(
-
-  'BUILD' =>  'ar:sin'  ,
-
-  'XCPY'  =>  '.'       ,
-  'LCPY'  =>  '.'       ,
-  'HCPY'  =>  'sin.h'   ,
-
-  'GENS'  =>  '.'       ,
-
-  'LIBS'  =>  'GL,glut,GLEW',
-  'INCL'  =>  '.'       ,
-
-  'DEFS'  =>  '.'       ,
-
-  );$sin_config=avt::strconfig \%config;
-
-};
-
-# ---   *   ---   *   ---
-
 my $ce_scan="ce -x keys";
 my $ce_config;{
 
@@ -147,7 +124,7 @@ my $ce_config;{
   'GENS'  =>  'chartab.h:chartab*,'.
               'keymap.h:keymap*',
 
-  'LIBS'  =>  'GL,glut,GLEW,sin',
+  'LIBS'  =>  '.'       ,
   'INCL'  =>  '.'       ,
 
   'DEFS'  =>  '.'       ,
@@ -157,16 +134,39 @@ my $ce_config;{
 };
 
 # ---   *   ---   *   ---
+
+my $chasm_config;{
+
+  my %config=(
+
+  'BUILD' =>  'ar:chasm',
+
+  'XCPY'  =>  '.'       ,
+  'LCPY'  =>  '.'       ,
+  'HCPY'  =>  '.'       ,
+
+  'GENS'  =>  '.'       ,
+
+  'LIBS'  =>  'GL,GLEW,SDL2,SDL2main',
+  'INCL'  =>  '.'       ,
+
+  'DEFS'  =>  '.'       ,
+
+  );$chasm_config=avt::strconfig \%config;
+
+};
+
+# ---   *   ---   *   ---
 # install packages
 
 my $EX="$root/avtomat/avtomat $root";
-`$EX scan avtomat help ft8 sin $ce_scan`;
+`$EX scan avtomat help ft8 $ce_scan chasm`;
 
-`$EX config avtomat $avtomat_config help $help_config ft8 $ft8_config sin $sin_config ce $ce_config`;
+`$EX config avtomat $avtomat_config help $help_config ft8 $ft8_config ce $ce_config chasm $chasm_config`;
 
 `$EX make`;
 
-for my $sub('avtomat','help','ft8','sin','ce') {
+for my $sub('avtomat','help','ft8','sin','ce','chasm') {
   print "*>$root/$sub/avto\n";
   print `$root/$sub/avto`;
 
