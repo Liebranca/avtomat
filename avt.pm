@@ -35,12 +35,55 @@ package avt;
 
   my %CACHE=(
     -ROOT       =>  '.',
+    -INCLUDE    =>   [],
 
   );
 
 sub root {
   if(@_) {$CACHE{-ROOT}=abs_path(shift);};
   return $CACHE{-ROOT};
+
+};
+
+# ---   *   ---   *   ---
+
+# add to search path
+sub stinc {
+
+  my $path=shift;
+  $path=~ s/\-I//;
+
+  $path=abs_path($path);
+  my $ref=$CACHE{-INCLUDE};
+
+  push @$ref,$path;
+
+};
+
+# find file within search path
+sub ffind {
+
+  my $fname=shift;
+  my $src=undef;
+  my $path=undef;
+  my $ref=$CACHE{-INCLUDE};
+
+  for $path(@$ref) {
+    if(!$path) {next;};
+
+    if(-e "$path/$fname") {
+      $src="$path/$fname";last;
+
+    };
+  };
+
+  if(!$src) {
+    print "Could not find $fname\n";
+    return (undef,undef);
+
+  };
+
+  return ($src,$path);
 
 };
 
