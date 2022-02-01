@@ -50,10 +50,12 @@ sub root {
 # add to search path
 sub stinc {
 
-  my $path=shift;
+  my $path=shift @ARGV;
+
   $path=~ s/\-I//;
 
-  $path=abs_path($path);
+  $path=abs_path(glob($path));
+
   my $ref=$CACHE{-INCLUDE};
 
   push @$ref,$path;
@@ -81,9 +83,58 @@ sub ffind {
     print "Could not find $fname\n";
     return (undef,undef);
 
+  };return ($src,$path);
+
+};
+
+# ---   *   ---   *   ---
+
+# in=pattern
+# wildcard search
+sub wfind {
+
+  my $in=shift;{
+    my $beg=substr(
+      $in,0,
+      index($in,'%')
+
+    );my $end=substr(
+      $in,index($in,'%')+1,
+      length $in
+
+    );$beg="\Q$beg";
+      $end="\Q$end";
+
+    $in=$beg.'%'.$end;
+
+  };$in=~ s/\%/.*/;
+
+# ---   *   ---   *   ---
+
+  # find files matching pattern
+  my @ar=();
+  my $ref=$CACHE{-INCLUDE};
+  for my $path(@$ref) {
+
+    my %h=%{ walk($path) };
+    for my $dir(keys %h) {
+      my @files=@{ $h{$dir} };
+      my @matches=(grep m/${ in }/,@files);
+
+      $dir=($dir eq '<main>')
+        ? ''
+        : $dir
+        ;
+
+      for my $match(@matches) {
+        $match="$path$dir/$match";
+
+      };push @ar,@matches;
+
+    };
   };
 
-  return ($src,$path);
+  return \@ar;
 
 };
 
@@ -184,8 +235,9 @@ sub cboil_h {
 
   my $dir=shift;
   my $fname=shift;
-  my $call=shift;
   my $author=shift;
+  my $call=shift;
+  my $call_args=shift;
 
   # create file
   open my $FH,'>',
@@ -198,7 +250,7 @@ sub cboil_h {
   print $FH avt::cboil_h uc($fname),0;
 
   # write the code through the generator
-  $call->($FH);
+  $call->($FH,@$call_args);
 
   # close boiler
   print $FH avt::cboil_h uc($fname),1;
@@ -331,6 +383,69 @@ sub ex {
 };
 
 # ---   *   ---   *   ---
+
+# in=string
+# read comma-separated list
+sub rcsl {
+
+  my $in=shift;
+  my @ar=();
+  my $item='';
+
+  my $is_list=0;
+
+  # get sub up to comma
+  while($in) {
+
+    my $s=substr $in,0,(index $in,',');
+    $item.=$s;
+
+    # on [item,item] format
+    if((index $s,'[')>=0) {
+      $is_list|=1;
+
+    } elsif((index $s,']')>=0) {
+      $is_list|=2;
+
+    };
+
+    # clear s(,)
+    $in=~ s/[\,]?//;
+    $in=substr $in,(length $s)+1,length $in;
+
+# ---   *   ---   *   ---
+
+    # appending
+    if(!$is_list) {
+      push @ar,[$item];
+      $item='';
+
+    # list close
+    } elsif($is_list&2) {
+      $item=~ s/\[//;
+      $item=~ s/\]//;
+
+      push @ar,[split ',',$item];
+      $item='';$is_list&=~3;
+
+    # list opened
+    } elsif($is_list) {
+      $item.=',';
+
+    };
+
+  # append leftovers
+  };if($item) {
+    $item=~ s/\[//;
+    $item=~ s/\]//;
+
+    push @ar,[split ',',$item];
+
+  };return \@ar;
+
+};
+
+# ---   *   ---   *   ---
 # path utils
 
 # args=chkpath,name,repo-url,actions
@@ -383,6 +498,7 @@ sub walk {
       ) {next;};
 
       # remove ws
+      if(!$sub[1]) {print " >>> $sub[0]\n";};
       $sub[1]=~ s/^\s+|\s+$//;
 
 # ---   *   ---   *   ---
@@ -585,7 +701,7 @@ sub strlist {
 
   if(!@l) {return '();'};
   for(my $x=0;$x<@l;$x++) {
-    $l[$x]=dqwrap $l[$x];
+    $l[$x]=sqwrap $l[$x];
 
   };return '('.( join ',',@l ).');';
 };
@@ -811,13 +927,17 @@ EOF
     my $gens_src='';
     my %gens_res=();
     { my @tmp1=($gens ne '.')
-      ? split ',',$gens
+      ? @{ rcsl($gens) }
       : ()
       ;
 
       while(@tmp1) {
-        my ($res,$src)=split ':',shift @tmp1;
-        $gens_res{$src}=$res;
+        my @l=@{ shift @tmp1 };
+
+        my ($res,$src)=split ':',shift @l;
+        @l=(@l) ? @l : ();
+
+        $gens_res{$src}=[$res,\@l];
 
       };$gens_src=join '|',(keys %gens_res);
 
@@ -922,11 +1042,13 @@ EOF
           $gens_src=~ s/\|?${ match }\\\*\|?//;
           $match=~ s/\*//;
 
-          my $res=$gens_res{$match.'\*'};
+          my ($res,$srcs)=@{ $gens_res{$match.'\*'} };
 
           push @GENS,(
             "$mod/$match",
-            "$mod/$res"
+            "$mod/$res",
+
+            join(',',@$srcs)
 
           );
 
@@ -969,17 +1091,40 @@ EOF
 
 avt::root $ROOT;
 
+for my $inc(split ' ',$INCLUDES) {
+  if($inc eq "-I$ROOT") {next;};
+  unshift @ARGV,$inc;avt::stinc();
+
+};
+
 while(@GENS) {
 
-  my $src=shift @GENS;
+  my $gen=shift @GENS;
   my $res=shift @GENS;
+
+  my @msrcs=split ',',shift @GENS;
 
   my $do_gen=!(-e $res);
 
-  if(!$do_gen) {$do_gen=!((-M $res) < (-M $src));};
+  if(!$do_gen) {$do_gen=!((-M $res) < (-M $gen));};
+  if(!$do_gen) {
+    while(@msrcs) {
+      my $msrc=shift @msrcs;
+
+      my @srcs=@{ avt::wfind($msrc) };
+      while(@srcs) {
+        my $src=shift @srcs;
+        if( !((-M $res) < (-M $src)) ) {
+          $do_gen=1;last;
+
+        };
+      };if($do_gen) {last;};
+    };
+  };
+
   if($do_gen) {
-    print 'Regen '.( avt::shpath $src )."\n";
-    `$src`;
+    print 'Regen '.( avt::shpath $gen )."\n";
+    `$gen`;
 
   };
 
