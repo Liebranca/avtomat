@@ -170,7 +170,7 @@ my $chasm_config;{
 
   'GENS'  =>  '.'       ,
 
-  'LIBS'  =>  'ce,sin,SDL2,SDL2main',
+  'LIBS'  =>  'sin,SDL2,SDL2main',
   'INCL'  =>  '.'       ,
 
   'DEFS'  =>  '.'       ,
