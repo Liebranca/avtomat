@@ -139,6 +139,109 @@ sub wfind {
 };
 
 # ---   *   ---   *   ---
+
+# finds .lib files
+sub libsearch {
+
+  my @lbins=@{ $_[0] };
+  my @lsearch=@{ $_[1] };
+
+  my $deps=$_[2];
+  my $found='';
+
+  for my $lbin(@lbins) {
+    for my $ldir(@lsearch) {
+
+      # .lib file found
+      if(-e "$ldir/.$lbin") {
+        my $ndeps.=`cat $ldir/.$lbin`;
+
+        chomp $ndeps;
+        $ndeps=join '|',(split ' ',$ndeps);
+
+        # filter out the duplicates
+        my @matches=grep(
+          m/${ ndeps }/,
+          split (' ',$deps)
+
+        );while(@matches) {
+          my $match=shift @matches;
+          $ndeps=~ s/${ match }\|?//;
+
+        };$ndeps=~ s/\|/ /g;
+        $found.=' '.$ndeps.' ';last;
+
+      };
+    };
+
+  };return $found;
+};
+
+# ---   *   ---   *   ---
+
+# recursively appends lib dependencies to LIBS var
+sub libexpand {
+
+  my $LIBS=shift;
+  my $ndeps=$LIBS;
+
+  my $deps='';
+
+  while(1) {
+
+    my @lsearch=();
+    my @lbins=();
+
+    # get search path(s)
+    for my $mlib(split ' ',$ndeps) {
+
+      if((index $mlib,'-L')==0) {
+        push @lsearch,substr $mlib,2,length $mlib;
+        next;
+
+      };
+
+      # append found libs to bin search
+      $mlib=substr $mlib,2,length $mlib;
+      push @lbins,$mlib;
+
+    };
+
+# ---   *   ---   *   ---
+
+    # find dependencies of found libs
+    $ndeps=libsearch(\@lbins,\@lsearch,$deps);
+
+    # stop when none found
+    if(!(length $ndeps)) {last;};
+
+    # else append and start over
+    $deps=$ndeps.' '.$deps;
+
+  };
+
+# ---   *   ---   *   ---
+
+  # append deps to libs
+  $deps=join '|',(split ' ',$deps);
+
+  # filter out the duplicates
+  my @matches=grep(
+    m/${ deps }/,
+    split (' ',$LIBS)
+
+  );while(@matches) {
+    my $match=shift @matches;
+    $deps=~ s/${ match }\|?//;
+
+  };$deps=~ s/\|/ /g;
+
+  $LIBS.=' '.$deps.' ';
+  return $LIBS;
+
+};
+
+# ---   *   ---   *   ---
 # default prints
 
 # args=author,comment prefix
@@ -498,7 +601,6 @@ sub walk {
       ) {next;};
 
       # remove ws
-      if(!$sub[1]) {print " >>> $sub[0]\n";};
       $sub[1]=~ s/^\s+|\s+$//;
 
 # ---   *   ---   *   ---
@@ -1186,42 +1288,7 @@ if($LMODE eq 'ar') {
   print ''.( avt::shpath $MAIN) ."\n";
   if(-e $MAIN) {`rm $MAIN`;};
 
-    my @lsearch=();
-    my @lbins=();
-
-    for my $mlib(split ' ',$LIBS) {
-
-      if((index $mlib,'-L')==0) {
-        push @lsearch,substr $mlib,2,length $mlib;
-        next;
-
-      };
-
-      $mlib=substr $mlib,2,length $mlib;
-      push @lbins,$mlib;
-
-    };for my $lbin(@lbins) {
-      for my $ldir(@lsearch) {
-
-        if(-e "$ldir/.$lbin") {
-          my $deps=`cat $ROOT/lib/.$lbin`;
-          chomp $deps;$deps=join '|',(split ' ',$deps);
-
-          my @matches=grep(
-            m/${ deps }/,
-            split (' ',$LIBS)
-
-          );while(@matches) {
-            my $match=shift @matches;
-            $deps=~ s/${ match }\|?//;
-
-          };$deps=~ s/\|/ /g;
-          $LIBS.=' '.$deps.' ';last;
-
-        };
-      };
-
-    };
+    $LIBS=avt::libexpand($LIBS);
 
     my $call="gcc $LMODE $LFLG $INCLUDES".
       "$PFLG $OBJS $LIBS -o $MAIN";`$call`;
