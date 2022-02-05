@@ -36,6 +36,7 @@ package avt;
   my %CACHE=(
     -ROOT       =>  '.',
     -INCLUDE    =>   [],
+    -LIB        =>   [],
 
   );
 
@@ -62,22 +63,88 @@ sub stinc {
 
 };
 
+# add to search path
+sub stlib {
+
+  my $path=shift @ARGV;
+
+  $path=~ s/\-L//;
+
+  $path=abs_path(glob($path));
+
+  my $ref=$CACHE{-LIB};
+
+  push @$ref,$path;
+
+};
+
+# ---   *   ---   *   ---
+
+# in:filename
+# sets search path and filelist accto filename
+sub illnames {
+
+  my $fname=shift;
+
+  my @files=();
+  my $ref;
+
+  # point to lib on -l at strbeg
+  if($fname=~ m/^\s*\-l/) {
+    $ref=$CACHE{-LIB};
+    $fname=~ s/^\s*\-l//;
+
+    for my $i(0..1) {
+      push @files,'lib'.$fname.( ('.so','.a')[$i] );
+
+    };push @files,$fname;
+
+  # common file search
+  } else {
+    $ref=$CACHE{-INCLUDE};
+    #$fname=~ s/^\s*\-f//;
+
+    push @files,$fname;
+
+  };return [$ref,\@files];
+
+};
+
+# ---   *   ---   *   ---
+
+# TODO: return array ref
 # find file within search path
 sub ffind {
 
   my $fname=shift;
+
+  my ($ref,@files);{
+    my @ret=@{ illnames($fname) };
+    $ref=$ret[0];@files=@{ $ret[1] };
+    $fname=$files[$#files];
+
+  };
+
+# ---   *   ---   *   ---
+
   my $src=undef;
   my $path=undef;
-  my $ref=$CACHE{-INCLUDE};
 
+  # iter search path
   for $path(@$ref) {
     if(!$path) {next;};
 
-    if(-e "$path/$fname") {
-      $src="$path/$fname";last;
+    # iter alt names
+    for my $f(@files) {
+      if(-e "$path/$f") {
+        $src="$path/$f";last;
 
-    };
+      };
+
+    };if($src) {last;};
   };
+
+# ---   *   ---   *   ---
 
   if(!$src) {
     print "Could not find $fname\n";
@@ -93,27 +160,44 @@ sub ffind {
 # wildcard search
 sub wfind {
 
-  my $in=shift;{
+  my $in=shift;
+
+  my $ref=undef;
+  my @patterns=();
+
+  { my @ret=@{ illnames($in) };
+    $ref=$ret[0];@patterns=@{ $ret[1] };
+
+  };
+
+# ---   *   ---   *   ---
+
+  # non wildcard escaping
+  for my $pat(@patterns) {
     my $beg=substr(
-      $in,0,
-      index($in,'%')
+      $pat,0,
+      index($pat,'%')
 
     );my $end=substr(
-      $in,index($in,'%')+1,
-      length $in
+      $pat,index($pat,'%')+1,
+      length $pat
 
     );$beg="\Q$beg";
       $end="\Q$end";
 
-    $in=$beg.'%'.$end;
+    $pat=$beg.'%'.$end;
 
-  };$in=~ s/\%/.*/;
+    # substitute %
+    $pat=~ s/\%/.*/;
+
+  };$in=join '|',@patterns;
 
 # ---   *   ---   *   ---
 
   # find files matching pattern
   my @ar=();
-  my $ref=$CACHE{-INCLUDE};
+
+  # iter search path
   for my $path(@$ref) {
 
     my %h=%{ walk($path) };
@@ -1197,7 +1281,7 @@ for my $inc(split ' ',$INCLUDES) {
   if($inc eq "-I$ROOT") {next;};
   unshift @ARGV,$inc;avt::stinc();
 
-};
+};unshift @ARGV,'.';avt::stinc();
 
 while(@GENS) {
 

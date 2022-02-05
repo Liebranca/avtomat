@@ -145,7 +145,7 @@ my $sin_config;{
   'LCPY'  =>  '.'       ,
   'HCPY'  =>  '.'       ,
 
-  'GENS'  =>  '.'       ,
+  'GENS'  =>  'shblk.h:[shblk*,%.glsl]',
 
   'LIBS'  =>  'GL,GLEW,ce',
   'INCL'  =>  '.'       ,
@@ -185,7 +185,7 @@ my $test_config;{
 
   my %config=(
 
-  'BUILD' =>  'x:test',
+  'BUILD' =>  'so:test',
 
   'XCPY'  =>  '.'       ,
   'LCPY'  =>  '.'       ,
@@ -210,7 +210,7 @@ my $EX="$root/avtomat/avtomat $root";
 
 `$EX config avtomat $avtomat_config help $help_config ft8 $ft8_config ce $ce_config sin $sin_config chasm $chasm_config test $test_config`;
 
-print `$EX make`;
+`$EX make`;
 
 for my $sub('avtomat','help','ft8','ce','sin','chasm','test') {
   print "*>$root/$sub/avto\n";
