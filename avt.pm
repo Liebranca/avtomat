@@ -28,7 +28,7 @@ package avt;
     BOXCHAR        => '.',
     CONFIG_DEFAULT => 'x . . 0',
 
-    CTYPES         => join('\\**\\s*\\**|',(
+    CTYPE          => join('\\**\\s*\\**|',(
 
       'void',
       'int',
@@ -248,7 +248,7 @@ sub libsearch {
 
       # .lib file found
       if(-e "$ldir/.$lbin") {
-        my $ndeps.=`cat $ldir/.$lbin`;
+        my $ndeps.=(split "\n",`cat $ldir/.$lbin`)[0];
 
         chomp $ndeps;
         $ndeps=join '|',(split ' ',$ndeps);
@@ -529,9 +529,14 @@ sub cfunc {
 # ---   *   ---   *   ---
 # C reading
 
-# in:@{ filename }
-# get symbol typedata (return,args)
+# in:modname,[files]
+# write symbol typedata (return,args) to shadow lib
 sub symscan {
+
+  my $mod=shift;
+
+  unshift @ARGV,$CACHE{-ROOT}."/$mod/";
+  stinc();
 
   my @files=();
 
@@ -553,25 +558,37 @@ sub symscan {
 
 # ---   *   ---   *   ---
 
-  # type ws name
+  # type(*) name
   my $p_type_name=''.
 
-    '('.CTYPES.')\\s+'.
+    '('.CTYPE.')\\s+'.
     '('.CNAME.'+)\\s*'
 
   ;
 
+  # type(*) name,
   my $p_sing_args=''.
 
-    '('.CTYPES.')\\s+'.
+    '('.CTYPE.')\\s+'.
     '('.CNAME.'*)\\s*'
 
   ;
 
+  # type name,...
   my $p_mult_args='(\\(.*\\))\\s*[\;\{]';
 
 # ---   *   ---   *   ---
 
+  my $dst=$CACHE{-ROOT}."/lib/.$mod";
+  my $deps=(split "\n",`cat $dst`)[0];
+
+  open my $FH,'>',$dst or die $!;
+
+  print $FH "$deps\n";
+
+# ---   *   ---   *   ---
+
+  # iter through files
   for my $f(@files) {
     my $src=`cat $f`;
 
@@ -581,6 +598,7 @@ sub symscan {
     # strip // ... \n
     $src=~ s/\/\/.*\n//g;
 
+    # iter through expressions
     for my $exp( split(';',$src) ) {
 
       $exp.=';';
@@ -592,20 +610,24 @@ sub symscan {
 
         $exp=~ s/${ p_type_name }//s;
 
+        # get function return and name
         my $type=$1;
         my $name=$2;$type=~ s/\s*//sg;
 
-        print "$name $type";
+        print $FH "$name $type";
 
 # ---   *   ---   *   ---
 
+        # if non void args
         if($exp=~ m/${ p_mult_args }/s) {
           $exp=~ s/${ p_mult_args }//s;
           my $args=$1;
 
+          # iter through arguments
           while($args=~ m/${ p_sing_args }/s) {
             $args=~ s/${ p_sing_args }\,?//s;
 
+            # get arg type and name
             $type=$1;
             $name=$2;$type=~ s/\s*//sg;
 
@@ -614,19 +636,71 @@ sub symscan {
               : $type
               ;
 
-            print " $item";
+            print $FH " $item";
+
           };
+
+# ---   *   ---   *   ---
 
         # debug, show me which forms dont match
         } else {
           print "\n!ERR $exp";
 
-        };print "\n";
+        };print $FH "\n";
 
       };
+    };
+
+  };close $FH;
+
+};
+
+# ---   *   ---   *   ---
+
+# in:modname
+# get symbol typedata from shadow lib
+sub symrd {
+
+  my $mod=shift;
+  my $src=$CACHE{-ROOT}."/lib/.$mod";
+
+  # existence check
+  if(!(-e $src)) {
+    print "Can't find $mod shadow lib\n";
+    return undef;
+
+  };
+
+  # read lib and discard deps
+  my @symbols=split "\n",`cat $src`;
+  shift @symbols;
+
+# ---   *   ---   *   ---
+
+  # iter symbols
+  my %h=();while(@symbols) {
+    my @symbol=split ' ',shift @symbols;
+
+    my $key=shift @symbol;
+    my $ret=shift @symbol;
+
+    # h[symbol_name]=return type,(types),(names)
+    $h{$key}=[$ret,[],[]];
+
+    my $ref0=@{ $h{$key} }[1];
+    my $ref1=@{ $h{$key} }[2];
+
+    # iter through args
+    while(@symbol) {
+      my $arg_type=shift @symbol;
+      my $arg_name=shift @symbol;
+
+      push @$ref0,$arg_type;
+      push @$ref1,$arg_name;
 
     };
-  };
+
+  };return \%h;
 
 };
 
