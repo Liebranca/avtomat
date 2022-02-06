@@ -28,6 +28,17 @@ package avt;
     BOXCHAR        => '.',
     CONFIG_DEFAULT => 'x . . 0',
 
+    CTYPES         => join('\\**\\s*\\**|',(
+
+      'void',
+      'int',
+      'char',
+      'float'
+
+    ) ).'\\**\\s*\\**',
+
+    CNAME          => '[\w|\d|_]',
+
   };
 
 # ---   *   ---   *   ---
@@ -112,7 +123,6 @@ sub illnames {
 
 # ---   *   ---   *   ---
 
-# TODO: return array ref
 # find file within search path
 sub ffind {
 
@@ -148,9 +158,9 @@ sub ffind {
 
   if(!$src) {
     print "Could not find $fname\n";
-    return (undef,undef);
+    return undef;
 
-  };return ($src,$path);
+  };return $src;
 
 };
 
@@ -513,6 +523,110 @@ sub cfunc {
   $dst.="$ret $name($args) {\n$code\n};\n\n";
 
   return [$type,$name,$code,$dst];
+
+};
+
+# ---   *   ---   *   ---
+# C reading
+
+# in:@{ filename }
+# get symbol typedata (return,args)
+sub symscan {
+
+  my @files=();
+
+  { my @fnames=@{ $_[0] };shift;
+
+    # iter filelist
+    for my $fname(@fnames) {
+
+      if( ($fname=~ m/\%/) ) {
+        push @files,@{ wfind($fname) };
+
+      } else {
+        push @files,ffind($fname);
+
+      };
+
+    };
+  };
+
+# ---   *   ---   *   ---
+
+  # type ws name
+  my $p_type_name=''.
+
+    '('.CTYPES.')\\s+'.
+    '('.CNAME.'+)\\s*'
+
+  ;
+
+  my $p_sing_args=''.
+
+    '('.CTYPES.')\\s+'.
+    '('.CNAME.'*)\\s*'
+
+  ;
+
+  my $p_mult_args='(\\(.*\\))\\s*[\;\{]';
+
+# ---   *   ---   *   ---
+
+  for my $f(@files) {
+    my $src=`cat $f`;
+
+    # strip /* ... */
+    $src=~ s/\/\*.*\*\///sg;
+
+    # strip // ... \n
+    $src=~ s/\/\/.*\n//g;
+
+    for my $exp( split(';',$src) ) {
+
+      $exp.=';';
+
+      if( $exp=~
+        m/${ p_type_name }${ p_mult_args }/s
+
+      ) {
+
+        $exp=~ s/${ p_type_name }//s;
+
+        my $type=$1;
+        my $name=$2;$type=~ s/\s*//sg;
+
+        print "$name $type";
+
+# ---   *   ---   *   ---
+
+        if($exp=~ m/${ p_mult_args }/s) {
+          $exp=~ s/${ p_mult_args }//s;
+          my $args=$1;
+
+          while($args=~ m/${ p_sing_args }/s) {
+            $args=~ s/${ p_sing_args }\,?//s;
+
+            $type=$1;
+            $name=$2;$type=~ s/\s*//sg;
+
+            my $item=($name)
+              ? $type.' '.$name
+              : $type
+              ;
+
+            print " $item";
+          };
+
+        # debug, show me which forms dont match
+        } else {
+          print "\n!ERR $exp";
+
+        };print "\n";
+
+      };
+
+    };
+  };
 
 };
 
