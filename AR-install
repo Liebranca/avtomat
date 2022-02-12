@@ -117,14 +117,14 @@ my $ce_config;{
 
   'BUILD' =>  'x:ce'    ,
 
-  'XCPY'  =>  '.'       ,
-  'LCPY'  =>  '.'       ,
+  'XCPY'  =>  'wpid'    ,
+  'LCPY'  =>  'genks.pm',
   'HCPY'  =>  '.'       ,
 
   'GENS'  =>  'chartab.h:chartab*,'.
-              'keymap.h:[keymap*,%.k]',
+              'keymap.h:[keymap*,genks.pm,%.k]',
 
-  'LIBS'  =>  '.'       ,
+  'LIBS'  =>  'X11'     ,
   'INCL'  =>  '.'       ,
 
   'DEFS'  =>  '.'       ,

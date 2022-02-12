@@ -873,6 +873,7 @@ sub walk {
       ) {next;};
 
       # remove ws
+      if(not defined $sub[1]) {next;};
       $sub[1]=~ s/^\s+|\s+$//;
 
 # ---   *   ---   *   ---
@@ -1464,12 +1465,14 @@ EOF
     $FILE.=<<'EOF'
 
 avt::root $ROOT;
+chdir $ROOT;
 
 for my $inc(split ' ',$INCLUDES) {
   if($inc eq "-I$ROOT") {next;};
   unshift @ARGV,$inc;avt::stinc();
 
 };unshift @ARGV,'.';avt::stinc();
+unshift @ARGV,"-I$ROOT/$FSWAT";avt::stinc();
 
 while(@GENS) {
 
@@ -1485,14 +1488,26 @@ while(@GENS) {
     while(@msrcs) {
       my $msrc=shift @msrcs;
 
-      my @srcs=@{ avt::wfind($msrc) };
-      while(@srcs) {
-        my $src=shift @srcs;
-        if( !((-M $res) < (-M $src)) ) {
+      if($msrc=~ m/\%/) {
+        my @srcs=@{ avt::wfind($msrc) };
+        while(@srcs) {
+          my $src=shift @srcs;
+          if( !((-M $res) < (-M $src)) ) {
+            $do_gen=1;last;
+
+          };
+        };if($do_gen) {last;};
+
+      } else {
+        $msrc=avt::ffind($msrc);
+        if(!$msrc) {next;};
+
+        if( !((-M $res) < (-M $msrc)) ) {
           $do_gen=1;last;
 
         };
-      };if($do_gen) {last;};
+
+      };
     };
   };
 
