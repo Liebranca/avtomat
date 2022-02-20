@@ -191,9 +191,9 @@ my $test_config;{
   'LCPY'  =>  '.'       ,
   'HCPY'  =>  '.'       ,
 
-  'GENS'  =>  '.'       ,
+  'GENS'  =>  'keymap.h:[keymap*,lib/genks.pm]',
 
-  'LIBS'  =>  'chasm',
+  'LIBS'  =>  'chasm'   ,
   'INCL'  =>  '.'       ,
 
   'DEFS'  =>  '.'       ,

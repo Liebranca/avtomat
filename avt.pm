@@ -657,6 +657,8 @@ sub symscan {
 
 # ---   *   ---   *   ---
 
+# TODO: append symscan to sub make
+
 # in:modname
 # get symbol typedata from shadow lib
 sub symrd {
@@ -1181,7 +1183,7 @@ sub make {
   my $OFLG='-s -Os -fno-unwind-tables '.
     '-fno-asynchronous-unwind-tables '.
     '-ffast-math -fsingle-precision-constant '.
-    '-fno-ident';
+    '-fno-ident -fPIC';
 
   my $LFLG=$OFLG.' -flto -ffunction-sections '.
     '-fdata-sections -Wl,--gc-sections '.
@@ -1199,7 +1201,7 @@ EOF
       ;
 
     if($lmode eq 'so') {
-      $lmode='-shared -fPIC';
+      $lmode='-shared ';
 
     } elsif($lmode ne 'ar') {
       $lmode='';
@@ -1219,7 +1221,7 @@ EOF
         $FILE.="my \$MLIB=undef;\n";
         $FILE.="my \$ILIB=\"$libd/.$mkwat\";\n";
 
-      } elsif($lmode eq '-shared -fPIC') {
+      } elsif($lmode eq '-shared ') {
         $FILE.="my \$MAIN=\"$libd/lib$mkwat.so\";\n";
         $FILE.="my \$MLIB=undef;\n";
         $FILE.="my \$ILIB=\"$libd/.$mkwat\";\n";
@@ -1561,7 +1563,9 @@ while(@OBJS) {
 
     );$asm.='asm';
 
-    my $call="gcc -MMD $OFLG $INCLUDES $DFLG $PFLG ".
+    my $call=''.
+      "gcc -MMD $OFLG ".
+      "$INCLUDES $DFLG $PFLG ".
       "-Wa,-a=$asm -c $src -o $obj";`$call`;
 
   };
@@ -1580,7 +1584,7 @@ if($LMODE eq 'ar') {
     my $call="gcc $LMODE $LFLG $INCLUDES".
       "$PFLG $OBJS $LIBS -o $MAIN";`$call`;
 
-    if($LMODE ne '-shared -fPIC') {
+    if($LMODE ne '-shared ') {
       $call="ar -crs $MLIB $OBJS";`$call`;
 
     };`echo "$LIBS" > $ILIB`;
