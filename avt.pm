@@ -28,6 +28,8 @@ package avt;
     BOXCHAR        => '.',
     CONFIG_DEFAULT => 'x . . 0',
 
+    # C parsing
+
     CTYPE          => join('\\**\\s*\\**|',(
 
       'void',
@@ -38,6 +40,19 @@ package avt;
     ) ).'\\**\\s*\\**',
 
     CNAME          => '[\w|\d|_]',
+
+    # gcc switches
+
+    OFLG           =>''.
+      '-s -Os -fno-unwind-tables '.
+      '-fno-asynchronous-unwind-tables '.
+      '-ffast-math -fsingle-precision-constant '.
+      '-fno-ident -fPIC ',
+
+    LFLG           =>''.
+      ' -flto -ffunction-sections '.
+      '-fdata-sections -Wl,--gc-sections '.
+      '-Wl,-fuse-ld=bfd ',
 
   };
 
@@ -127,6 +142,7 @@ sub illnames {
 sub ffind {
 
   my $fname=shift;
+  if(-e $fname) {return $fname;};
 
   my ($ref,@files);{
     my @ret=@{ illnames($fname) };
@@ -279,19 +295,24 @@ sub libexpand {
   my $LIBS=shift;
   my $ndeps=$LIBS;
 
-  my $deps='';
+  my $deps='';my $i=0;
+  my @lsearch=@{ $CACHE{-LIB} };
 
   while(1) {
-
-    my @lsearch=();
     my @lbins=();
 
     # get search path(s)
     for my $mlib(split ' ',$ndeps) {
 
       if((index $mlib,'-L')==0) {
-        push @lsearch,substr $mlib,2,length $mlib;
-        next;
+
+        my $s=substr $mlib,2,length $mlib;
+        my $lsearch=join ' ',@lsearch;
+
+        if(!($lsearch=~ m/${ s }/)) {
+          push @lsearch,$s;
+
+        };next;
 
       };
 
@@ -590,6 +611,7 @@ sub symscan {
 
   # iter through files
   for my $f(@files) {
+    if(!$f) {next;};
     my $src=`cat $f`;
 
     # strip /* ... */
@@ -657,8 +679,6 @@ sub symscan {
 
 # ---   *   ---   *   ---
 
-# TODO: append symscan to sub make
-
 # in:modname
 # get symbol typedata from shadow lib
 sub symrd {
@@ -687,7 +707,14 @@ sub symrd {
     my $ret=shift @symbol;
 
     # h[symbol_name]=return type,(types),(names)
-    $h{$key}=[$ret,[],[]];
+    if(@symbol) {
+      $h{$key}=[$ret,[],[]];
+
+    # void arguments
+    } else {
+      $h{$key}=[$ret,['void'],['']];
+
+    };
 
     my $ref0=@{ $h{$key} }[1];
     my $ref1=@{ $h{$key} }[2];
@@ -707,6 +734,196 @@ sub symrd {
 };
 
 # ---   *   ---   *   ---
+# C to Perl code emitter stuff
+
+# name=what your file is called
+# x=1==end, 0==beg
+# makes open and close boiler for Platypus modules
+sub cplboil_pm {
+  my $name=uc shift;
+  my $x=shift;
+
+  # guard start
+  if(!$x) {
+    my $s=<<'EOF'
+#!/usr/bin/perl
+$:NOTE;>
+
+EOF
+
+  ;$s.='package '.( lc $name ).";\n";
+  $s.=<<'EOF'
+
+# deps
+  use strict;
+  use warnings;
+
+  use FFI::Platypus;
+  use FFI::CheckLib;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use avt;
+
+# ---   *   ---   *   ---
+
+EOF
+
+  ;return $s;
+
+  # guard end
+  };my $s=<<'EOF'
+
+# ---   *   ---   *   ---
+1; # ret
+
+EOF
+
+  ;return $s;
+
+# ---   *   ---   *   ---
+
+# dir=where to save the file to
+# fname=fname
+# call=reference to a sub taking filehandle
+
+# author=your name
+
+# wraps sub in Platypus module boilerplate
+};sub wrcplboil_pm {
+
+  my $dir=shift;
+  my $fname=shift;
+  my $author=shift;
+  my $call=shift;
+  my $call_args=shift;
+
+  # create file
+  open my $FH,'>',
+    $CACHE{-ROOT}.$dir.$fname.'.pm' or die $!;
+
+  # generate notice
+  my $n=note($author,'#');
+
+  # open boiler and subst notice
+  my $op=avt::cplboil_pm uc($fname),0;
+  $op=~ s/\$\:NOTE\;\>/${ n }/;
+
+  # write it to file
+  print $FH $op;
+
+  # write the code through the generator
+  $call->($FH,@$call_args);
+
+  # close boiler
+  print $FH avt::cplboil_pm uc($fname),1;
+  close $FH;
+
+};
+
+# ---   *   ---   *   ---
+# C to Perl binding
+
+# in: file handle,soname,[libraries]
+# reads in symbol tables and generates exports
+sub ctopl {
+
+  my $FH=shift;
+  my $soname=shift;
+  my $sopath="$CACHE{-ROOT}/lib/lib$soname.so";
+  my $so_gen=!(-e $sopath);
+
+  my @libs=@{ $_[0] };shift;
+  my %symtab=();
+
+  # make symbol table
+  for my $lib(@libs) {
+    %symtab=(%symtab,%{ avt::symrd($lib) });
+
+    # so regen check
+    if(!$so_gen) {
+      $so_gen=avt::ot($lib,$sopath);
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+
+  # generate so
+  if($so_gen) {
+
+    # recursively get dependencies
+    my $O_LIBS='-l'.( join ' -l',@libs );
+    unshift @ARGV,"$CACHE{-ROOT}/lib/";
+    stlib();
+
+    my $LIBS=avt::libexpand($O_LIBS);
+
+    # filter out the deps
+    for my $lib(split ' ',$O_LIBS) {
+      $LIBS=~ s/${ O_LIBS }//;
+
+    };
+
+    # link
+    my $call="gcc -shared ".
+      (avt->OFLG.' '.avt->LFLG)." ".
+
+      "-m64 ".
+      "-Wl,--whole-archive ".$O_LIBS." ".
+      "-Wl,--no-whole-archive ".$LIBS." -o $sopath";
+
+    `$call`;
+
+  };
+
+# ---   *   ---   *   ---
+
+  my $search=<<"EOF"
+
+my \$libfold=__FILE__;{
+  my \@tmp=split('/',\$libfold);
+  \$libfold=join('/',\@tmp[0..(\$#tmp)-1]);
+};
+
+my \$ffi=FFI::Platypus->new(api => 1);
+\$ffi->lib(
+  "\$libfold/lib$soname.so"
+
+);
+
+EOF
+
+  ;print $FH $search;
+
+# ---   *   ---   *   ---
+
+  # attach symbols from table
+  my $tab='';
+  for my $name(keys %symtab) {
+
+    my $ar=@{ $symtab{$name} }[1];
+    for my $s(@$ar) {
+      $s=sqwrap($s);
+
+    };
+
+    my $arg_types='['.( join(
+      ',',@$ar
+
+    )).']';$tab.=''.
+      "my \$$name=\'$name\';\n".
+
+      '$ffi->attach('.
+      "\$$name,".
+      "$arg_types,".
+      "'$symtab{$name}->[0]');\n\n";
+
+  };print $FH $tab;
+
+};
+
+# ---   *   ---   *   ---
 # bash utils
 
 # arg=string any
@@ -718,6 +935,13 @@ sub mord {
     $seq|=ord(shift @s)<<$i;$i+=8;
 
   };return $seq;
+};
+
+#in: two filepaths to compare
+# Older Than; return a is older than b
+sub ot {
+  return !((-M $_[0]) < (-M $_[1]));
+
 };
 
 # ---   *   ---   *   ---
@@ -1037,7 +1261,7 @@ sub strconfig {
 
     $config{'XCPY' }.' '.
     $config{'LCPY' }.' '.
-    $config{'HCPY' }.' '.
+    $config{'XPRT' }.' '.
 
     $config{'GENS' }.' '.
     $config{'LIBS' }.' '.
@@ -1143,7 +1367,7 @@ sub make {
 
       $xcpy,
       $lcpy,
-      $hcpy,
+      $xprt,
 
       $gens,
       $libs,
@@ -1160,6 +1384,8 @@ sub make {
     $FILE.='#!/usr/bin/perl'."\n";
 
     # accumulate to these vars
+    my @SRCS=();
+    my @XPRT=();
     my @OBJS=();
     my @GENS=();
     my @DEFS=();
@@ -1179,15 +1405,6 @@ sub make {
   use warnings;
   use lib $ENV{'ARPATH'}.'/avtomat/';
   use avt;
-
-  my $OFLG='-s -Os -fno-unwind-tables '.
-    '-fno-asynchronous-unwind-tables '.
-    '-ffast-math -fsingle-precision-constant '.
-    '-fno-ident -fPIC';
-
-  my $LFLG=$OFLG.' -flto -ffunction-sections '.
-    '-fdata-sections -Wl,--gc-sections '.
-    '-Wl,-fuse-ld=bfd';
 
   my $PFLG='-m64';
   my $DFLG='';
@@ -1292,9 +1509,9 @@ EOF
       : ''
       ;
 
-    # get list copy list C
-    $hcpy=($hcpy ne '.')
-      ? join '|',(split ',',$hcpy)
+    # get exports list
+    $xprt=($xprt ne '.')
+      ? join '|',(split ',',$xprt)
       : ''
       ;
 
@@ -1388,19 +1605,14 @@ EOF
 # ---   *   ---   *   ---
 
       # copy these to include
-      if($hcpy) { my @matches=grep m/${ hcpy }/,@path;
+      if($xprt) { my @matches=grep m/${ xprt }/,@path;
         while(@matches) {
           my $match=shift @matches;
 
-          if(!$hcpy) {last;};
+          if(!$xprt) {last;};
+          $xprt=~ s/\|?${ match }\|?//;
 
-          $hcpy=~ s/\|?${ match }\|?//;
-
-          push @FCPY,(
-            "$mod/$match",
-            "$CACHE{-ROOT}/include/$match"
-
-          );
+          push @XPRT,"$mod/$match";
 
         };
       };
@@ -1445,8 +1657,9 @@ EOF
             my $dep=$match;$dep=(substr $dep,0,
               (length $dep)-1).'d';
 
+            push @SRCS,"$mod/$match";
+
             push @OBJS,(
-              "$mod/$match",
               "$trsh/$ob",
               "$trsh/$dep"
 
@@ -1459,12 +1672,16 @@ EOF
 
 # ---   *   ---   *   ---
 
-    my $mkvars='my @OBJS=' .( strlist \@OBJS );
+    my $mkvars="my \@SRCS=".( strlist \@SRCS );
+    $mkvars.="\nmy \@XPRT=".( strlist \@XPRT );
+    $mkvars.="\nmy \@OBJS=".( strlist \@OBJS );
     $mkvars.="\nmy \@GENS=".( strlist \@GENS );
     $mkvars.="\nmy \@FCPY=".( strlist \@FCPY );
     $FILE.="$mkvars\n";
 
     $FILE.=<<'EOF'
+
+# ---   *   ---   *   ---
 
 avt::root $ROOT;
 chdir $ROOT;
@@ -1485,7 +1702,7 @@ while(@GENS) {
 
   my $do_gen=!(-e $res);
 
-  if(!$do_gen) {$do_gen=!((-M $res) < (-M $gen));};
+  if(!$do_gen) {$do_gen=avt::ot($res,$gen);};
   if(!$do_gen) {
     while(@msrcs) {
       my $msrc=shift @msrcs;
@@ -1494,7 +1711,7 @@ while(@GENS) {
         my @srcs=@{ avt::wfind($msrc) };
         while(@srcs) {
           my $src=shift @srcs;
-          if( !((-M $res) < (-M $src)) ) {
+          if(avt::ot($res,$src)) {
             $do_gen=1;last;
 
           };
@@ -1504,7 +1721,7 @@ while(@GENS) {
         $msrc=avt::ffind($msrc);
         if(!$msrc) {next;};
 
-        if( !((-M $res) < (-M $msrc)) ) {
+        if(avt::ot($res,$msrc)) {
           $do_gen=1;last;
 
         };
@@ -1522,11 +1739,12 @@ while(@GENS) {
 };
 
 my $OBJS='';
-while(@OBJS) {
+for(my ($i,$j)=(0,0);$i<@SRCS;$i++,$j+=2) {
 
-  my $src=shift @OBJS;
-  my $obj=shift @OBJS;
-  my $mmd=shift @OBJS;
+  my $src=$SRCS[$i];
+
+  my $obj=$OBJS[$j+0];
+  my $mmd=$OBJS[$j+1];
 
   $OBJS.=$obj.' ';
 
@@ -1548,7 +1766,7 @@ while(@OBJS) {
     while(@deps) {
       my $dep=shift @deps;
       if(!(-e $dep)) {next;};
-      if(!((-M $obj) < (-M $dep))) {
+      if(avt::ot($obj,$dep)) {
         $do_build=1;last;
 
       };
@@ -1564,16 +1782,19 @@ while(@OBJS) {
     );$asm.='asm';
 
     my $call=''.
-      "gcc -MMD $OFLG ".
+      "gcc -MMD ".(avt->OFLG)." ".
       "$INCLUDES $DFLG $PFLG ".
       "-Wa,-a=$asm -c $src -o $obj";`$call`;
 
   };
+
 };
 
 if($LMODE eq 'ar') {
   my $call="ar -crs $MAIN $OBJS";`$call`;
+
   `echo "$LIBS" > $ILIB`;
+  avt::symscan($FSWAT,\@XPRT);
 
 } elsif($MAIN) {
   print ''.( avt::shpath $MAIN) ."\n";
@@ -1581,13 +1802,20 @@ if($LMODE eq 'ar') {
 
     $LIBS=avt::libexpand($LIBS);
 
-    my $call="gcc $LMODE $LFLG $INCLUDES".
-      "$PFLG $OBJS $LIBS -o $MAIN";`$call`;
+    my $call="gcc $LMODE ".
+      (avt->OFLG.' '.avt->LFLG)." ".
+       "$INCLUDES $PFLG $OBJS $LIBS -o $MAIN";
+
+      `$call`;
+      `echo "$LIBS" > $ILIB`;
 
     if($LMODE ne '-shared ') {
       $call="ar -crs $MLIB $OBJS";`$call`;
 
-    };`echo "$LIBS" > $ILIB`;
+      `echo "$LIBS" > $ILIB`;
+      avt::symscan($FSWAT,\@XPRT);
+
+    };
 
 };
 
@@ -1597,7 +1825,7 @@ while(@FCPY) {
 
   my $do_cpy=!(-e $cp);
 
-  if(!$do_cpy) {$do_cpy=!((-M $cp) < (-M $og));};
+  if(!$do_cpy) {$do_cpy=avt::ot($cp,$og);};
   if($do_cpy) {`cp $og $cp`;};
 
 };

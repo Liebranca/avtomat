@@ -47,7 +47,7 @@ my $avtomat_config;{
 
   'XCPY'  =>  'avtomat*',
   'LCPY'  =>  'avt.pm'  ,
-  'HCPY'  =>  '.'       ,
+  'XPRT'  =>  '.'       ,
 
   'GENS'  =>  '.'       ,
   'LIBS'  =>  '.'       ,
@@ -69,7 +69,7 @@ my $help_config;{
 
   'XCPY'  =>  'help*'   ,
   'LCPY'  =>  'cash.pm' ,
-  'HCPY'  =>  '.'       ,
+  'XPRT'  =>  '.'       ,
 
   'GENS'  =>  '.'       ,
   'LIBS'  =>  '.'       ,
@@ -96,7 +96,7 @@ my $ft8_config;{
 
   'XCPY'  =>  'ft8*,writepsf*',
   'LCPY'  =>  'jojft.pm',
-  'HCPY'  =>  '.'       ,
+  'XPRT'  =>  '.'       ,
 
   'GENS'  =>  '.'       ,
   'LIBS'  =>  '.'       ,
@@ -119,7 +119,7 @@ my $ce_config;{
 
   'XCPY'  =>  'wpid'    ,
   'LCPY'  =>  'genks.pm',
-  'HCPY'  =>  '.'       ,
+  'XPRT'  =>  'keyboard.h',
 
   'GENS'  =>  'chartab.h:chartab*,'.
               'keymap.h:[keymap*,genks.pm,%.k]',
@@ -143,7 +143,7 @@ my $sin_config;{
 
   'XCPY'  =>  '.'       ,
   'LCPY'  =>  '.'       ,
-  'HCPY'  =>  '.'       ,
+  'XPRT'  =>  '.'       ,
 
   'GENS'  =>  'shblk.h:[shblk*,%.glsl]',
 
@@ -166,7 +166,7 @@ my $chasm_config;{
 
   'XCPY'  =>  '.'       ,
   'LCPY'  =>  '.'       ,
-  'HCPY'  =>  '.'       ,
+  'XPRT'  =>  '.'       ,
 
   'GENS'  =>  '.'       ,
 
@@ -185,11 +185,11 @@ my $test_config;{
 
   my %config=(
 
-  'BUILD' =>  'so:test',
+  'BUILD' =>  'x:test'  ,
 
   'XCPY'  =>  '.'       ,
   'LCPY'  =>  '.'       ,
-  'HCPY'  =>  '.'       ,
+  'XPRT'  =>  '.'       ,
 
   'GENS'  =>  'keymap.h:[keymap*,lib/genks.pm]',
 
@@ -218,6 +218,8 @@ for my $sub('avtomat','help','ft8','ce','sin','chasm','test') {
 
 };
 
+# ---   *   ---   *   ---
+
 # generate default font
 if(!(-e "$root/fonts")) {
   avt::ex 'ft8',['-g','8,16,24',"$root/ft8/lycon",
@@ -227,6 +229,17 @@ if(!(-e "$root/fonts")) {
     "$root/fonts/","$root/fonts/X11"],'';
 
 };
+
+# ---   *   ---   *   ---
+
+avt::wrcplboil_pm(
+  '/lib/',
+  'platy',
+  'IBN-3DILA',
+
+  \&avt::ctopl,['platy',['ce']]
+
+);
 
 # ---   *   ---   *   ---
 1; # ret
