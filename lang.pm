@@ -16,6 +16,9 @@
 # all I did was *manually* collect them to make this
 # syntax file generator
 
+# ^ this note is outdated ;>
+# dirty regexes are at their own language files now
+
 # ---   *   ---   *   ---
 
 # deps
@@ -26,7 +29,7 @@ package lang;
 # ---   *   ---   *   ---
 
   my $_LUN='[_a-zA-Z][_a-zA-Z0-9]';
-  my $DRFC='::|->|\.';
+  my $DRFC='(::|->|\.)';
 
   my $OPS='+-*/\$@%&\^<>!|?{[()]}~,.=;:';
 
@@ -109,7 +112,15 @@ sub lkback {
   my $pat=rescap(shift);
   my $end=shift;
 
-  return '([^'.$pat.']'.$end.'|^'.$end.')';
+  return ('('.
+
+    ' '.$end.
+
+    # well, crap
+    #'|[^'.$pat.']'.$end.
+    '|^'.$end.
+
+  ')');
 
 };
 
@@ -266,8 +277,9 @@ my %DICT=(-GPRE=>{
 
     # class & hierarchy stuff
     [0x04,eiths('this,self')],
-    [0x04,"$_LUN*($DRFC)"],
-    [0x0D,"($DRFC)$_LUN*($DRFC)"],
+    [0x04,"$_LUN*$DRFC"],
+    [0x0D,"\\b$_LUN*$DRFC$_LUN*$DRFC"],
+    [0x04,"$DRFC$_LUN*$DRFC"],
 
   ],
 
@@ -283,7 +295,7 @@ my %DICT=(-GPRE=>{
   -GBL =>[
 
     # constants/globals
-    [0x0D,'\b[A-Z_0-9]*\b'],
+    [0x0D,'\b[_A-Z][_A-Z0-9]*\b'],
 
   ],
 
@@ -373,7 +385,7 @@ my %DICT=(-GPRE=>{
     [0x0E,
 
       '(#[[:blank:]]*include[[:blank:]]*'.
-      delim2('<','>').'|'.delim2('"').'\n?)',
+      delim2('<','>').'|'.delim('"').'\n?)',
 
     ],
 
@@ -410,129 +422,4 @@ my %DICT=(-GPRE=>{
 };
 
 # ---   *   ---   *   ---
-# definitions to specific languages
-# should go into their own file...
-
-# move this to its own place later
-
-my %PERL=(
-
-  -NAME => 'perl',
-  -EXT  => '\.p[lm]$',
-  -HED  => '^#!.*perl',
-
-  -MAG  => 'Perl script',
-
-  -COM  => '#',
-
-# ---   *   ---   *   ---
-
-  -VARS =>[
-
-    [0x04,'[$%&@]('.
-
-      '('.$_LUN.'*|'.
-      '\^[][A-Z?\^_]|[0-9]+\b)|'.
-
-      '(\{(\^?'.$_LUN.'*|'.
-      '\^[][?\^][0-9]+)\})|'.
-
-      '(([][!"#\'()*+,.:;<=>?`|~-]|'.
-      '\{[][!-/:-@\`|~]\})|\$[$%&@])|'.
-
-      '((^|[[:blank:]])[$%@][/\\\\])'.
-
-    ')'
-
-    ],
-
-  ],
-
-# ---   *   ---   *   ---
-
-  -BILTN =>[
-
-    [0x01,eiths(
-
-      'accept,alarm,atan2,bin(d|mode),'.
-
-      'c(aller|h(dir|mod|op|own|root)|lose(dir)?'.
-      '|onnect|os|rypt),'.
-
-      'd(bm(close|open)|efined|elete|ie|o|ump),'.
-
-      'e(ach|of|val|x(ec|ists|it|p)),'.
-      'f(cntl|ileno|lock|ork),'.
-
-      'get(c|login|peername|pgrp|ppid|priority'.
-      '|pwnam|(host|net|proto|serv)byname'.
-      '|pwuid|grgid|(host|net)byaddr'.
-      '|protobynumber|servbyport)'.
-
-      '([gs]et|end)(pw|gr|host|net|proto|serv)ent,'.
-
-# ---   *   ---   *   ---
-
-      'getsock(name|opt),'.
-      'gmtime,goto,grep,hex,index,int,ioctl,join'.
-
-      'keys,kill,last,length,link,listen,'.
-      'local(time)?,log,lstat,m,mkdir,'.
-
-      'msg(ctl|get|snd|rcv),next,oct,open(dir)?,'.
-      'ord,pack,pipe,pop,printf?,push,'.
-
-      'q,qq,qx,rand,re(ad(dir|link)?,'.
-
-      'cv|do|name|quire|set|turn|verse|winddir),'.
-
-      'rindex,rmdir,s,scalar,seek(dir)?'.
-
-      'se(lect|mctl|mget|mop|nd|tpgrp'.
-      '|tpriority|tsockopt),'.
-
-# ---   *   ---   *   ---
-
-      'shift,shm(ctl|get|read|write),'.
-
-      'shutdown,sin,sleep,socket(pair)?,'.
-
-      'sort,spli(ce|t),sprintf,sqrt,srand,stat,'.
-      'study,substr,symlink,'.
-
-      'sys(call|read|tem|write),'.
-      'tell(dir)?,time,tr(y)?,truncate,umask,'.
-
-      'un(def|link|pack|shift),'.
-      'utime,values,vec,wait(pid)?,'.
-      'wantarray,warn,write'
-
-    ,1)],
-
-  ],
-
-# ---   *   ---   *   ---
-
-  -KEYS =>[
-
-    [0x0D,eiths(
-
-      'continue,else,elsif,do,for,foreach,'.
-      'if,unless,until,while,eq,ne,lt,gt,'.
-      'le,ge,cmp,x,my,sub,use,package,can,isa'
-
-    ,1)],
-
-  ],
-
-# ---   *   ---   *   ---
-
-# line comments
-);$PERL{-LCOM}=[
-  [0x02,eaf(lkback('$%&@\'"',$PERL{-COM}),0,1)]
-
-];
-
-$DICT{-PERL}=\%PERL;
-
-# ---   *   ---   *   ---
+# langdefs pasted here by sygen

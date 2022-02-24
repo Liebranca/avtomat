@@ -16,7 +16,42 @@
   use strict;
   use warnings;
 
-  use lib $ENV{'ARPATH'}.'/avtomat/';
+# ---   *   ---   *   ---
+# patch out our own dependencies
+# because we can
+
+  BEGIN {
+
+    my $path=$ENV{'ARPATH'}.'/avtomat/';
+
+    # first make some copies
+    `cp $path/lang.pm $ENV{'ARPATH'}/lib/`;
+    `cp $path/avt.pm $ENV{'ARPATH'}/lib/`;
+
+    # now open the first copy
+    open MONKEY,'>>',
+      $ENV{'ARPATH'}.'/lib/lang.pm'
+
+    or die $!;
+
+    # iter through addons and append
+    for my $lang('perl') {
+      my $s=`cat $path/langdefs/$lang`;
+      $s=~ s/.*\$:CUT;>//sg;
+
+      print MONKEY $s;
+
+    };
+
+    print MONKEY "\n1; #ret\n";
+    close MONKEY;
+
+  };
+
+# ---   *   ---   *   ---
+
+  # now import them like nothing happened
+  use lib $ENV{'ARPATH'}.'/lib/';
   use avt;
   use lang;
 
@@ -37,10 +72,10 @@ my @colors=(
 
 # ---   *   ---   *   ---
 
-my $prop=(
+my $prop=((
 
-      ( lang::PROP(-PERL,-NAME) ).' '.
-  '"'.( lang::PROP(-PERL,-EXT ) ).'"'
+  lang::PROP(-PERL,-NAME) ).' "'.(
+  lang::PROP(-PERL,-EXT ) ).'\"'
 
 );print "syntax $prop\n";
 
