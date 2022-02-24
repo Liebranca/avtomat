@@ -19,6 +19,9 @@ package avt;
 
   use Cwd qw(abs_path getcwd);
 
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use lang;
+
 # ---   *   ---   *   ---
 # info
 
@@ -614,6 +617,9 @@ sub symscan {
     if(!$f) {next;};
     my $src=`cat $f`;
 
+    # save filename
+    print $FH "$f:\n";
+
     # strip /* ... */
     $src=~ s/\/\*.*\*\///sg;
 
@@ -700,8 +706,27 @@ sub symrd {
 # ---   *   ---   *   ---
 
   # iter symbols
-  my %h=();while(@symbols) {
-    my @symbol=split ' ',shift @symbols;
+  my %h=('files'=>[]);while(@symbols) {
+
+    my $line=shift @symbols;
+
+    # entry is filename
+    if($line=~ m/.*\:/) {
+      $line=~ s/\://;
+
+      # transform into path to equivalent object file
+      $line=~ s/\.[\w|\d]*/\.o/;
+      $line=~ s/${ CACHE{-ROOT} }//;
+
+      $line= "${ CACHE{-ROOT} }/trashcan/$line";
+
+      push @{ $h{'files'} },$line;
+      next;
+
+    };
+
+    # else is symbol data
+    my @symbol=split ' ',$line;
 
     my $key=shift @symbol;
     my $ret=shift @symbol;
@@ -847,6 +872,10 @@ sub ctopl {
 
   };
 
+  # get object file list
+  my @o_files=@{ $symtab{'files'} };
+  delete $symtab{'files'};
+
 # ---   *   ---   *   ---
 
   # generate so
@@ -860,18 +889,17 @@ sub ctopl {
     my $LIBS=avt::libexpand($O_LIBS);
 
     # filter out the deps
-    for my $lib(split ' ',$O_LIBS) {
-      $LIBS=~ s/${ O_LIBS }//;
+#    for my $lib(split ' ',$O_LIBS) {
+#      $LIBS=~ s/${ O_LIBS }//;
+#
+#    };
 
-    };
+    my $OBJS=join ' ',@o_files;
 
     # link
     my $call="gcc -shared ".
       (avt->OFLG.' '.avt->LFLG)." ".
-
-      "-m64 ".
-      "-Wl,--whole-archive ".$O_LIBS." ".
-      "-Wl,--no-whole-archive ".$LIBS." -o $sopath";
+      "-m64 $OBJS $LIBS -o $sopath";
 
     `$call`;
 
@@ -956,14 +984,6 @@ sub dqwrap {
 
 };
 
-sub rescap {
-  my $s=shift;
-  $s=~ s/\*/\\\*/g;
-
-  return $s;
-
-};
-
 sub ex {
 
   my $name=shift @_;
@@ -980,6 +1000,27 @@ sub ex {
   };
 
   return `$ENV{'ARPATH'}/bin/$name @opts $tail`;
+
+};
+
+# ---   *   ---   *   ---
+
+# in: filepath
+# get name of file without the path
+sub basename {
+  my $name=shift;{
+    my @tmp=split '/',$name;
+    $name=$tmp[$#tmp];
+
+  };return $name;
+};
+
+# ^ removes extension(s)
+sub nxbasename {
+  my $name=basename($_[0]);
+  $name=~ s/\..*//;
+
+  return $name;
 
 };
 
@@ -1256,7 +1297,7 @@ sub read_modules {
 
 sub strconfig {
   my %config=%{ $_[0] };
-  return rescap dqwrap(
+  return lang::rescap dqwrap(
     $config{'BUILD'}.' '.
 
     $config{'XCPY' }.' '.
@@ -1309,7 +1350,11 @@ sub strlist {
 
 # makes file list out of gcc .d files
 sub parsemmd {
-  my $dep=shift;$dep=`cat $dep`;
+  my $dep=shift;
+
+  if(!(-e $dep)) {return [];};
+
+  $dep=`cat $dep`;
   $dep=~ s/\\//g;
   $dep=~ s/\s/\,/g;
   $dep=~ s/.*\://;

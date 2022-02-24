@@ -23,6 +23,8 @@ my $root=$ENV{'ARPATH'};if(!$root) {
   use lib $ENV{'ARPATH'}.'/avtomat/';
   use avt;
 
+avt::root($root);
+
 # ---   *   ---   *   ---
 # fetch missing deps
 
