@@ -41,7 +41,7 @@ sub rescap {
 
 
   for my $c(split '','.^$([{}])+*?/|:') {
-    $s=~ s/\Q${ c }/\\${ c }/g;
+    $s=~ s/\Q${ c }/\\${ c }/;
 
   };
 
@@ -84,24 +84,53 @@ sub neg_lkahead {
 
   my $string=shift;
   my $ml=shift;
-  $ml=(!$ml) ? '\n' : '';
+  $ml=(!$ml) ? '' : '\\x0D\\x0A|';
 
   my $do_uber=shift;
   my @chars=split '',$string;
 
   my $s=rescap( shift @chars );
-  my $re="[^$s$ml\\\\]";
+  my $re="$ml"."[^$s\\\\]";
 
   for my $c(@chars) {
 
     $c=rescap($c);
-    $re.='|'.$s."[^$c$ml\\\\]";
+    $re.='|'.$s."[^$c\\\\]";
     $s.=$c;
 
   };if($do_uber) {$re.='|'.UBERSCAP( rescap($string) );};
   return $re;
 };
 
+# ---   *   ---   *   ---
+
+sub lkback {
+
+  my $pat=rescap(shift);
+  my $end=shift;
+
+  return '([^'.$pat.']'.$end.'|^'.$end.')';
+
+};
+
+# ---   *   ---   *   ---
+
+# do not use
+sub vcapitalize {
+  my @words=split '\|',$_[0];
+  for my $word(@words){
+    $word=~ m/\b([a-z])[a-z]*\b/;
+
+    my $c=$1;if(!$c) {next;};
+
+    $c='('.(lc $c).'|'.(uc $c).')';
+
+    $word=~ s/\b[a-z]([a-z]*)\b/FFFF${ 1 }/;
+    $word=~ s/FFFF/${ c }/g;
+
+  };return join '|',@words;
+
+};
 
 # ---   *   ---   *   ---
 # delimiter patterns
@@ -151,7 +180,7 @@ sub delim2 {
   $end=rescap($end);
 
   return ''.
-    "[^$beg]*$beg".
+    "$beg".
     "(($allow|$end)*)$end".
     "[^$end]*\$";
 
@@ -167,15 +196,15 @@ sub eithc {
   my $string=shift;
   my $disable_escapes=shift;
 
+  my @chars=split '',$string;
   if(!$disable_escapes) {
-    $string=rescap($string);
+    for my $c(@chars) {$c=rescap($c);};
 
-  };my @chars=split '',$string;
-  return '('.( join '|',@chars).')';
+  };return '('.( join '|',@chars).')';
 
 };
 
-# in: "str0,...,strN",disable escapes
+# in: "str0,...,strN",disable escapes,v(C|c)apitalize
 # matches \b(str0|...|strN)\b
 sub eiths {
 
@@ -185,7 +214,12 @@ sub eiths {
   if(!$disable_escapes) {
     $string=rescap($string);
 
-  };my @words=split ',',$string;
+  };my $vcapitalize=shift;
+
+  my @words=split ',',$string;
+
+  if($vcapitalize) {@words=vcapitalize(@words);};
+
   return '\b('.( join '|',@words).')\b';
 
 };
@@ -211,7 +245,7 @@ sub eaf {
   $pat=(!$disable_escapes) ? rescap($pat) : $pat;
 
   if(!$line_beg) {
-    $pat='^[^"\']*'.$pat;
+    ;
 
   } elsif($line_beg>0) {
     $pat='^'.$pat;
@@ -219,23 +253,7 @@ sub eaf {
   } elsif($line_beg<0) {
     $pat='^[\s|\n]*'.$pat;
 
-  };return "$pat([^\"']*)\\n?";
-
-};
-
-# ---   *   ---   *   ---
-# base modeler for all syntax structures
-
-# in: [metadata,[patterns]]
-sub snx {
-
-  my @mets=@{ $_[0] };shift;
-  my %snx_s=();while(@mets) {
-
-    my $meta=shift @mets;
-    my @pats=@{ shift @mets };
-
-  };
+  };return "($pat.*(\\x0D?\\x0A|\$))";
 
 };
 
@@ -249,8 +267,7 @@ my %DICT=(-GPRE=>{
     # class & hierarchy stuff
     [0x04,eiths('this,self')],
     [0x04,"$_LUN*($DRFC)"],
-    [0x0D,"*($DRFC)"."$_LUN*($DRFC)"],
-    [0x04,"($DRFC)$_LUN*($DRFC)"],
+    [0x0D,"($DRFC)$_LUN*($DRFC)"],
 
   ],
 
@@ -259,8 +276,7 @@ my %DICT=(-GPRE=>{
   -PFUN =>[
 
     # functions with parens
-    [0x01,"\\b$_LUN*\\b".delim2('(',')',1)],
-    [0x07,delim2('(',')',1)]
+    [0x01,"\\b$_LUN*[[:blank:]]*\\("],
 
   ],
 
@@ -325,6 +341,8 @@ my %DICT=(-GPRE=>{
 
     ],
 
+# ---   *   ---   *   ---
+
     # bin
     [0x03,'('.
 
@@ -340,38 +358,70 @@ my %DICT=(-GPRE=>{
 
   ],
 
+# ---   *   ---   *   ---
+
   -DEV =>[
 
-    [0x0B,eiths('TODO,NOTE').':?|\*+:'],
-    [0x09,eiths('FIX,BUG').':?|\!+:'],
-    [0x08,'\s+$'], #[[:space:]]
+    [0x0B,'('.( eiths('TODO,NOTE') ).':?|\*+:)'],
+    [0x09,'('.( eiths('FIX,BUG') ).':?|\!+:)'],
+    [0x08,'(\s+$)'], #[[:space:]]
+
+
+# ---   *   ---   *   ---
+  # preprocessor
+
+    [0x0E,
+
+      '(#[[:blank:]]*include[[:blank:]]*'.
+      delim2('<','>').'|'.delim2('"').'\n?)',
+
+    ],
+
+    [0x0E,'(#[[:blank:]]*'.( eiths(
+
+      '(el)?if,ifn?def,'.
+      'undef,error,warning'
+
+      ,1)).'[[:blank:]]*'.$_LUN.'*\n?)'
+
+    ],[0x0E,'(#[[:blank:]]*'.eiths('else,endif').')'],
+
+    [0x0E,'(#[[:blank:]]*'.
+
+      'define[[:blank:]]*'.
+      $_LUN.'*('.( delim2('(',')') ).
+
+      ')?\n?)'
+
+    ],
 
   ],
 
 # ---   *   ---   *   ---
 # hash fetch
 
-});sub PAT {
+});sub PROP {
 
   my $lang=shift;
   my $key=shift;
-  my $idex=shift;
 
-  print "$lang $key $idex\n";
-
-  return $DICT{$lang}->{$key}->[$idex]->[1];
+  return $DICT{$lang}->{$key};
 
 };
 
 # ---   *   ---   *   ---
+# definitions to specific languages
+# should go into their own file...
+
+# move this to its own place later
 
 my %PERL=(
-
-  -MAG  => 'Perl script',
 
   -NAME => 'perl',
   -EXT  => '\.p[lm]$',
   -HED  => '^#!.*perl',
+
+  -MAG  => 'Perl script',
 
   -COM  => '#',
 
@@ -417,7 +467,7 @@ my %PERL=(
       'get(c|login|peername|pgrp|ppid|priority'.
       '|pwnam|(host|net|proto|serv)byname'.
       '|pwuid|grgid|(host|net)byaddr'.
-      '|protobynumber|servbyport),'.
+      '|protobynumber|servbyport)'.
 
       '([gs]et|end)(pw|gr|host|net|proto|serv)ent,'.
 
@@ -433,6 +483,7 @@ my %PERL=(
       'ord,pack,pipe,pop,printf?,push,'.
 
       'q,qq,qx,rand,re(ad(dir|link)?,'.
+
       'cv|do|name|quire|set|turn|verse|winddir),'.
 
       'rindex,rmdir,s,scalar,seek(dir)?'.
@@ -464,7 +515,7 @@ my %PERL=(
 
   -KEYS =>[
 
-    [0x05,eiths(
+    [0x0D,eiths(
 
       'continue,else,elsif,do,for,foreach,'.
       'if,unless,until,while,eq,ne,lt,gt,'.
@@ -478,8 +529,7 @@ my %PERL=(
 
 # line comments
 );$PERL{-LCOM}=[
-
-  [0x02,eaf($PERL{-COM},0)]
+  [0x02,eaf(lkback('$%&@\'"',$PERL{-COM}),0,1)]
 
 ];
 

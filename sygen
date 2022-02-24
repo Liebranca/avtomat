@@ -1,0 +1,98 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# SYGEN
+# Creates syntax files from
+# available definitions
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+# ---   *   ---   *   ---
+
+# deps
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use avt;
+  use lang;
+
+# ---   *   ---   *   ---
+
+my @colors=(
+
+  'black','red','green','yellow',
+  'blue','magenta','cyan','white',
+
+  'grey','red','green','yellow',
+  'blue','magenta','cyan','white',
+
+);for(my $i=9;$i<16;$i++) {
+  $colors[$i]='bright'.$colors[$i];
+
+};
+
+# ---   *   ---   *   ---
+
+my $prop=(
+
+      ( lang::PROP(-PERL,-NAME) ).' '.
+  '"'.( lang::PROP(-PERL,-EXT ) ).'"'
+
+);print "syntax $prop\n";
+
+$prop=avt::dqwrap(lang::PROP(-PERL,-HED));
+print "header $prop\n";
+
+$prop=avt::dqwrap(lang::PROP(-PERL,-MAG));
+print "magic $prop\n";
+
+$prop=avt::dqwrap(lang::PROP(-PERL,-COM));
+print "comment $prop\n\n";
+
+# ---   *   ---   *   ---
+
+sub prprops {
+
+  my $l=shift;
+  my $key=shift;
+
+  my @ar=@{ lang::PROP($l,$key) };
+  for(my $i=0;$i<@ar;$i++) {
+
+    my ($color,$pat)=@{ $ar[$i] };
+    $color=$colors[$color];
+
+    $pat=avt::dqwrap($pat);
+
+    print "color $color $pat\n";
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+for my $key(
+  -HIER,-PFUN,-DELM0,-GBL,
+
+) {prprops(-GPRE,$key);};
+
+for my $key(
+  -BILTN,-KEYS,-VARS
+
+) {prprops(-PERL,$key);};
+
+for my $key(
+  -NUMS,-DELM1,-OPS,-DELM2,
+
+) {prprops(-GPRE,$key);};
+
+prprops(-PERL,-LCOM);
+prprops(-GPRE,-DEV);
+
+# ---   *   ---   *   ---
+1; # ret
