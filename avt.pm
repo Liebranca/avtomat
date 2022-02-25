@@ -29,7 +29,8 @@ package avt;
 
     VERSION        => 2.0,
     BOXCHAR        => '.',
-    CONFIG_DEFAULT => 'x . . 0',
+
+    CONFIG_DEFAULT => '#',
 
     # C parsing
 
@@ -66,6 +67,13 @@ package avt;
     -ROOT       =>  '.',
     -INCLUDE    =>   [],
     -LIB        =>   [],
+
+    -CONFIG_FIELDS =>[
+
+      'BUILD','XCPY','LCPY','INCL',
+      'LIBS','GENS','DEFS','XPRT'
+
+    ],
 
   );
 
@@ -1064,8 +1072,9 @@ sub rcsl {
 
     # list close
     } elsif($is_list&2) {
-      $item=~ s/\[//;
-      $item=~ s/\]//;
+
+      $item=~ s/\\\\\[//g;
+      $item=~ s/\\\\\]//g;
 
       push @ar,[split ',',$item];
       $item='';$is_list&=~3;
@@ -1078,8 +1087,8 @@ sub rcsl {
 
   # append leftovers
   };if($item) {
-    $item=~ s/\[//;
-    $item=~ s/\]//;
+    $item=~ s/\\\\\[//g;
+    $item=~ s/\\\\\]//g;
 
     push @ar,[split ',',$item];
 
@@ -1296,8 +1305,17 @@ sub read_modules {
 # ---   *   ---   *   ---
 
 sub strconfig {
+
   my %config=%{ $_[0] };
-  return lang::rescap dqwrap(
+
+  for my $key(@{ $CACHE{-CONFIG_FIELDS} }) {
+    if(!(exists $config{$key})) {
+      $config{$key}=CONFIG_DEFAULT;
+
+    };
+  };
+
+  return dqwrap(lang::lescap
     $config{'BUILD'}.' '.
 
     $config{'XCPY' }.' '.
@@ -1448,7 +1466,7 @@ sub make {
     $FILE.=<<'EOF'
   use strict;
   use warnings;
-  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use lib $ENV{'ARPATH'}.'/lib/';
   use avt;
 
   my $PFLG='-m64';
@@ -1457,7 +1475,7 @@ sub make {
 EOF
 ;   $FILE.="\nmy \$FSWAT=\"$name\";\n";
 
-    my ($lmode,$mkwat)=($build ne '.')
+    my ($lmode,$mkwat)=($build ne CONFIG_DEFAULT)
       ? split ':',$build
       : ('','')
       ;
@@ -1508,7 +1526,7 @@ EOF
 # ---   *   ---   *   ---
 
     # parse libs listing
-    { my @libs=($libs ne '.')
+    { my @libs=($libs ne CONFIG_DEFAULT)
       ? split ',',$libs
       : ()
       ;
@@ -1531,7 +1549,7 @@ EOF
 # ---   *   ---   *   ---
 
     # parse includes
-    $incl=($incl ne '.')
+    $incl=($incl ne CONFIG_DEFAULT)
       ? '-I'.(join ' -I',(split ',',$incl))
       : ''
       ;
@@ -1543,19 +1561,19 @@ EOF
 # ---   *   ---   *   ---
 
     # get list copy list A
-    $xcpy=($xcpy ne '.')
+    $xcpy=($xcpy ne CONFIG_DEFAULT)
       ? join '|',(split ',',$xcpy)
       : ''
       ;
 
     # get list copy list B
-    $lcpy=($lcpy ne '.')
+    $lcpy=($lcpy ne CONFIG_DEFAULT)
       ? join '|',(split ',',$lcpy)
       : ''
       ;
 
     # get exports list
-    $xprt=($xprt ne '.')
+    $xprt=($xprt ne CONFIG_DEFAULT)
       ? join '|',(split ',',$xprt)
       : ''
       ;
@@ -1565,7 +1583,7 @@ EOF
     # get generator list
     my $gens_src='';
     my %gens_res=();
-    { my @tmp1=($gens ne '.')
+    { my @tmp1=($gens ne CONFIG_DEFAULT)
       ? @{ rcsl($gens) }
       : ()
       ;
@@ -1574,6 +1592,8 @@ EOF
         my @l=@{ shift @tmp1 };
 
         my ($res,$src)=split ':',shift @l;
+        $res=~ s/\\//g;
+
         @l=(@l) ? @l : ();
 
         $gens_res{$src}=[$res,\@l];
@@ -1615,7 +1635,7 @@ EOF
           # pop match+(\*|) from string
           # makes perfect sense to me ;>
           $xcpy=~ s/\|?${ match }\\\*\|?//;
-          $match=~ s/\*//;
+          $match=~ s/\*//;$match=~ s/\\//g;
 
           push @FCPY,(
             "$mod/$match",
@@ -1636,6 +1656,7 @@ EOF
           if(!$lcpy) {last;};
 
           $lcpy=~ s/\|?${ match }\|?//;
+          $match=~ s/\\//g;
 
           push @FCPY,(
             "$mod/$match",
@@ -1656,6 +1677,7 @@ EOF
 
           if(!$xprt) {last;};
           $xprt=~ s/\|?${ match }\|?//;
+          $match=~ s/\\//g;
 
           push @XPRT,"$mod/$match";
 
@@ -1696,6 +1718,8 @@ EOF
 
           while(@matches) {
             my $match=shift @matches;
+            $match=~ s/\\//g;
+
             my $ob=$match;$ob=(substr $ob,0,
               (length $ob)-1).'o';
 

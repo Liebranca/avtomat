@@ -22,35 +22,51 @@
 
   BEGIN {
 
-    my $path=$ENV{'ARPATH'}.'/avtomat/';
+    my $path=$ENV{'ARPATH'}.'/avtomat';
+    my $do_cp=0;
 
-    # first make some copies
-    `cp $path/lang.pm $ENV{'ARPATH'}/lib/`;
-    `cp $path/avt.pm $ENV{'ARPATH'}/lib/`;
+    # first make copy
+    $do_cp=!(-e "$ENV{'ARPATH'}/lib/lang.pm");
+    $do_cp=(!$do_cp)
+      ? !((-M "$ENV{'ARPATH'}/lib/lang.pm")
+        < (-M $path."/lang.pm"))
 
-    # now open the first copy
-    open MONKEY,'>>',
-      $ENV{'ARPATH'}.'/lib/lang.pm'
+      : $do_cp
+      ;
 
-    or die $!;
-
-    # iter through addons and append
-    for my $lang('perl') {
-      my $s=`cat $path/langdefs/$lang`;
-      $s=~ s/.*\$:CUT;>//sg;
-
-      print MONKEY $s;
+    if($do_cp) {
+      `cp $path/lang.pm $ENV{'ARPATH'}/lib/`;
 
     };
 
-    print MONKEY "\n1; #ret\n";
-    close MONKEY;
+# ---   *   ---   *   ---
+    
+    # on update, perform patch
+    if($do_cp) {
 
+      open MONKEY,'>>',
+        $ENV{'ARPATH'}.'/lib/lang.pm'
+
+      or die $!;
+
+      # iter through addons and append
+      for my $lang('perl') {
+        my $s=`cat $path/langdefs/$lang`;
+        $s=~ s/.*\$:CUT;>//sg;
+
+        print MONKEY $s;
+
+      };
+
+      print MONKEY "\n1; #ret\n";
+      close MONKEY;
+
+    };
   };
 
 # ---   *   ---   *   ---
 
-  # now import them like nothing happened
+  # now import like nothing happened
   use lib $ENV{'ARPATH'}.'/lib/';
   use avt;
   use lang;

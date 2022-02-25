@@ -9,9 +9,31 @@
 # ---   *   ---   *   ---
 # sanity check
 
-my $root=$ENV{'ARPATH'};if(!$root) {
-  print "ARPATH missing from ENV; aborted\n";
-  exit;
+BEGIN {
+
+  my $root=$ENV{'ARPATH'};if(!$root) {
+    print "ARPATH missing from ENV; aborted\n";
+    exit;
+
+  };my $path=$ENV{'ARPATH'}.'/lib';
+
+  my $src=$ENV{'ARPATH'}."/avtomat/avt.pm";
+  my $do_cp=0;if(! (-e $path) ) {
+    `mkdir -p $path`;$do_cp=1;
+
+# ---   *   ---   *   ---
+
+  } else {
+    $do_cp=!(-e $path.'/avt.pm');
+    $do_cp=(!$do_cp)
+      ? !((-M $path.'/avt.pm')
+      < (-M $src) )
+
+      : $do_cp; 
+      ;
+
+  };if($do_cp) {`cp $src $path/avt.pm`;};
+  `$ENV{'ARPATH'}/avtomat/sygen`;
 
 };
 
@@ -20,10 +42,10 @@ my $root=$ENV{'ARPATH'};if(!$root) {
   use strict;
   use warnings;
 
-  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use lib $ENV{'ARPATH'}.'/lib/';
   use avt;
 
-avt::root($root);
+my $root=avt::root($ENV{'ARPATH'});
 
 # ---   *   ---   *   ---
 # fetch missing deps
@@ -44,18 +66,7 @@ avt::root($root);
 my $avtomat_config;{
 
   my %config=(
-
-  'BUILD' =>  '.'       ,
-
   'XCPY'  =>  'avtomat*',
-  'LCPY'  =>  'avt.pm'  ,
-  'XPRT'  =>  '.'       ,
-
-  'GENS'  =>  '.'       ,
-  'LIBS'  =>  '.'       ,
-  'INCL'  =>  '.'       ,
-
-  'DEFS'  =>  '.'       ,
 
   );$avtomat_config=avt::strconfig \%config;
 
@@ -67,17 +78,8 @@ my $help_config;{
 
   my %config=(
 
-  'BUILD' =>  '.'       ,
-
-  'XCPY'  =>  'help*'   ,
-  'LCPY'  =>  'cash.pm' ,
-  'XPRT'  =>  '.'       ,
-
-  'GENS'  =>  '.'       ,
-  'LIBS'  =>  '.'       ,
-  'INCL'  =>  '.'       ,
-
-  'DEFS'  =>  '.'       ,
+  'XCPY'  =>  'help*',
+  'LCPY'  =>  'cash.pm',
 
   );$help_config=avt::strconfig \%config;
 
@@ -94,17 +96,8 @@ my $ft8_config;{
 
   my %config=(
 
-  'BUILD' =>  '.'       ,
-
   'XCPY'  =>  'ft8*,writepsf*',
   'LCPY'  =>  'jojft.pm',
-  'XPRT'  =>  '.'       ,
-
-  'GENS'  =>  '.'       ,
-  'LIBS'  =>  '.'       ,
-  'INCL'  =>  '.'       ,
-
-  'DEFS'  =>  '.'       ,
 
   );$ft8_config=avt::strconfig \%config;
 
@@ -117,19 +110,16 @@ my $ce_config;{
 
   my %config=(
 
-  'BUILD' =>  'x:ce'    ,
+  'BUILD' =>  'x:ce',
 
-  'XCPY'  =>  'wpid'    ,
+  'XCPY'  =>  'wpid',
   'LCPY'  =>  'genks.pm',
   'XPRT'  =>  'keyboard.h',
 
   'GENS'  =>  'chartab.h:chartab*,'.
               'keymap.h:[keymap*,genks.pm,%.k]',
 
-  'LIBS'  =>  'X11'     ,
-  'INCL'  =>  '.'       ,
-
-  'DEFS'  =>  '.'       ,
+  'LIBS'  =>  'X11',
 
   );$ce_config=avt::strconfig \%config;
 
@@ -143,16 +133,9 @@ my $sin_config;{
 
   'BUILD' =>  'ar:sin',
 
-  'XCPY'  =>  '.'       ,
-  'LCPY'  =>  '.'       ,
-  'XPRT'  =>  '.'       ,
-
   'GENS'  =>  'shblk.h:[shblk*,%.glsl]',
 
   'LIBS'  =>  'GL,GLEW,ce',
-  'INCL'  =>  '.'       ,
-
-  'DEFS'  =>  '.'       ,
 
   );$sin_config=avt::strconfig \%config;
 
@@ -165,17 +148,7 @@ my $chasm_config;{
   my %config=(
 
   'BUILD' =>  'ar:chasm',
-
-  'XCPY'  =>  '.'       ,
-  'LCPY'  =>  '.'       ,
-  'XPRT'  =>  '.'       ,
-
-  'GENS'  =>  '.'       ,
-
   'LIBS'  =>  'sin,SDL2,SDL2main',
-  'INCL'  =>  '.'       ,
-
-  'DEFS'  =>  '.'       ,
 
   );$chasm_config=avt::strconfig \%config;
 
@@ -187,18 +160,10 @@ my $test_config;{
 
   my %config=(
 
-  'BUILD' =>  'x:test'  ,
-
-  'XCPY'  =>  '.'       ,
-  'LCPY'  =>  '.'       ,
-  'XPRT'  =>  '.'       ,
+  'BUILD' =>  'x:test',
 
   'GENS'  =>  'keymap.h:[keymap*,lib/genks.pm]',
-
-  'LIBS'  =>  'chasm'   ,
-  'INCL'  =>  '.'       ,
-
-  'DEFS'  =>  '.'       ,
+  'LIBS'  =>  'chasm',
 
   );$test_config=avt::strconfig \%config;
 

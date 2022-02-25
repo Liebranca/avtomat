@@ -37,14 +37,25 @@ package lang;
 # regex tools
 
 # in:pattern
+# escapes [*]: in pattern
+sub lescap {
+
+  my $s=shift;
+  for my $c(split '','[*]:') {
+    $s=~ s/\Q${ c }/\\${ c }/g;
+
+  };return $s;
+
+};
+
+# in:pattern
 # escapes .^$([{}])+*?/|\: in pattern
 sub rescap {
 
   my $s=shift;$s=~ s/\\/\\\\/g;
 
-
   for my $c(split '','.^$([{}])+*?/|:') {
-    $s=~ s/\Q${ c }/\\${ c }/;
+    $s=~ s/\Q${ c }/\\${ c }/g;
 
   };
 
