@@ -1,0 +1,98 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# C syntax defs
+
+# ---   *   ---   *   ---
+#$:CUT;>
+
+my %CEE=(
+
+  -NAME => 'c',
+  -EXT  => '\.([ch](pp|xx)?|C|cc|c\+\+|cu|H|hh|ii?)$',
+  -HED  => '-\*-.*\<C(\+\+)?((;|[[:blank:]]).*)?-\*-',
+
+  -MAG  => '^(C|C\+\+) (source|program)',
+
+  -COM  => '//',
+
+# ---   *   ---   *   ---
+
+  # VARS/TYPES
+  -VARS =>[
+
+    [0x04,eiths(
+
+      'auto,bool,char,const,double,enum,extern,'.
+      'float,inline,int,long,restrict,short,'.
+
+      'signed,sizeof,static,struct,typedef,'.
+      'union,offsetof,unsigned,void,'.
+
+      # [any lc]* | u?intN
+      '([a-z][a-z_]*'.
+      '|(u_?)?int(8|16|32|64))'.
+
+      '_t,'.
+
+# ---   *   ---   *   ---
+
+      '_(Alignas|Alignof|Atomic|Bool|Complex'.
+      '|Generic|Imaginary|Noreturn'.
+      '|Static_assert|Thread_local),'.
+
+      'class,explicit,friend,mutable,'.
+      'namespace,override,private,'.
+      'protected,public,register,'.
+
+      'template,this,typename,'.
+      'using,virtual,volatile,'.
+
+# ---   *   ---   *   ---
+
+      'nihil,vec4,mat4,uint,'.
+      'gl_(Position|FragColor)',
+
+    ,1)],
+
+  ],
+
+  -BILTN =>[
+
+  ],
+
+# ---   *   ---   *   ---
+
+
+  -KEYS =>[
+
+    [0x0D,eiths(
+
+      'if,else,for,while,do,switch,case,default,'.
+      'try,throw,catch,operator,new,delete,'.
+      'break,continue,goto,return'
+
+    ,1)],
+
+    [0x01,eiths(
+
+      '__attribute__[[:blank:]]*\(\([^)]*\)\)'.
+
+      '|__('.
+
+        'aligned|asm|builtin|hidden'.
+        '|inline|packed|restrict|section'.
+        '|typeof|weak'.
+
+      ')__'
+
+    ,1)],
+
+  ],
+
+
+);$CEE{-LCOM}=[
+  [0x02,eaf($CEE{-COM},0,1)],
+  [0x02,delim2('/*','*/',1)],
+
+];$DICT{-CEE}=\%CEE;
+

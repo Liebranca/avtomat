@@ -34,6 +34,31 @@
       : $do_cp
       ;
 
+# ---   *   ---   *   ---
+
+    # check secondary deps to lib
+    my @files=split m/\s+/,
+      `ls $ENV{'ARPATH'}'/avtomat/langdefs'`;
+
+    if(!$do_cp) {
+
+      my $lfold=$ENV{'ARPATH'}.'/avtomat/langdefs';
+
+      for my $f(@files) {
+
+        if(
+
+          !((-M "$ENV{'ARPATH'}/lib/lang.pm")
+          < (-M $lfold."/$f"))
+
+        ) {$do_cp=1;last;};
+
+      };
+
+    };
+
+# ---   *   ---   *   ---
+
     if($do_cp) {
       `cp $path/lang.pm $ENV{'ARPATH'}/lib/`;
 
@@ -50,7 +75,7 @@
       or die $!;
 
       # iter through addons and append
-      for my $lang('perl') {
+      for my $lang(@files) {
         my $s=`cat $path/langdefs/$lang`;
         $s=~ s/.*\$:CUT;>//sg;
 
@@ -88,23 +113,7 @@ my @colors=(
 
 # ---   *   ---   *   ---
 
-my $prop=((
-
-  lang::PROP(-PERL,-NAME) ).' "'.(
-  lang::PROP(-PERL,-EXT ) ).'\"'
-
-);print "syntax $prop\n";
-
-$prop=avt::dqwrap(lang::PROP(-PERL,-HED));
-print "header $prop\n";
-
-$prop=avt::dqwrap(lang::PROP(-PERL,-MAG));
-print "magic $prop\n";
-
-$prop=avt::dqwrap(lang::PROP(-PERL,-COM));
-print "comment $prop\n\n";
-
-# ---   *   ---   *   ---
+my $FH=undef;
 
 sub prprops {
 
@@ -119,7 +128,7 @@ sub prprops {
 
     $pat=avt::dqwrap($pat);
 
-    print "color $color $pat\n";
+    print $FH "color $color $pat\n";
 
   };
 
@@ -127,23 +136,59 @@ sub prprops {
 
 # ---   *   ---   *   ---
 
-for my $key(
-  -HIER,-PFUN,-DELM0,-GBL,
+sub glang {
 
-) {prprops(-GPRE,$key);};
+  while(@_) {
+    my $src=shift;
+    my $dst=shift;
 
-for my $key(
-  -BILTN,-KEYS,-VARS
+    open $FH,'>',$dst or die $!;
 
-) {prprops(-PERL,$key);};
+    my $prop=((
 
-for my $key(
-  -NUMS,-DELM1,-OPS,-DELM2,
+      lang::PROP($src,-NAME) ).' "'.(
+      lang::PROP($src,-EXT ) ).'"'
 
-) {prprops(-GPRE,$key);};
+    );print $FH "syntax $prop\n";
 
-prprops(-PERL,-LCOM);
-prprops(-GPRE,-DEV);
+    $prop=avt::dqwrap(lang::PROP($src,-HED));
+    print $FH "header $prop\n";
+
+    $prop=avt::dqwrap(lang::PROP($src,-MAG));
+    print $FH "magic $prop\n";
+
+    $prop=avt::dqwrap(lang::PROP($src,-COM));
+    print $FH "comment $prop\n\n";
+
+    # ---   *   ---   *   ---
+
+    for my $key(
+      -HIER,-PFUN,-DELM0,-GBL,
+
+    ) {prprops(-GPRE,$key);};
+
+    for my $key(
+      -BILTN,-KEYS,-VARS
+
+    ) {prprops($src,$key);};
+
+    for my $key(
+      -NUMS,-DELM1,-OPS,-DELM2,
+
+    ) {prprops(-GPRE,$key);};
+
+    prprops($src,-LCOM);
+    prprops(-GPRE,-DEV);
+
+    close $FH;
+
+  };
+
+};glang(
+  -PERL,glob('~/.config/nano/perl.nanorc'),
+  -CEE,glob('~/.config/nano/c.nanorc'),
+
+);
 
 # ---   *   ---   *   ---
 1; # ret
