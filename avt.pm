@@ -32,19 +32,6 @@ package avt;
 
     CONFIG_DEFAULT => '#',
 
-    # C parsing
-
-    CTYPE          => join('\\**\\s*\\**|',(
-
-      'void',
-      'int',
-      'char',
-      'float'
-
-    ) ).'\\**\\s*\\**',
-
-    CNAME          => '[\w|\d|_]',
-
     # gcc switches
 
     OFLG           =>''.
@@ -590,19 +577,24 @@ sub symscan {
 
 # ---   *   ---   *   ---
 
+  my $ctypes=lang::PROP(-CEE,-VARS)->[3]->[1]);
+  $ctypes.='(\\**\\s*|\\s**\\**)';
+
+  my $cnames=lang->$_LUN;
+
   # type(*) name
   my $p_type_name=''.
 
-    '('.CTYPE.')\\s+'.
-    '('.CNAME.'+)\\s*'
+    '('.$ctypes.')\\s+'.
+    '('.$cnames.'+)\\s*'
 
   ;
 
   # type(*) name,
   my $p_sing_args=''.
 
-    '('.CTYPE.')\\s+'.
-    '('.CNAME.'*)\\s*'
+    '('.$ctypes.')\\s+'.
+    '('.$cnames.'*)\\s*'
 
   ;
 

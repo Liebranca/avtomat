@@ -17,24 +17,28 @@ my %CEE=(
 
 # ---   *   ---   *   ---
 
-  # VARS/TYPES
   -VARS =>[
 
     [0x04,eiths(
 
-      'auto,bool,char,const,double,enum,extern,'.
-      'float,inline,int,long,restrict,short,'.
+      'auto,extern,inline,restrict,signed,'.
+      'union,struct,unsigned,static,typedef,'.
 
-      'signed,sizeof,static,struct,typedef,'.
-      'union,offsetof,unsigned,void,'.
+      'const'
 
-      # [any lc]* | u?intN
-      '([a-z][a-z_]*'.
-      '|(u_?)?int(8|16|32|64))'.
-
-      '_t,'.
+    ,1)],
 
 # ---   *   ---   *   ---
+
+    [0x04,eiths(
+
+      'sizeof,offsetof,typedef'
+
+    ,1)],
+
+# ---   *   ---   *   ---
+
+    [0x04,eiths(
 
       '_(Alignas|Alignof|Atomic|Bool|Complex'.
       '|Generic|Imaginary|Noreturn'.
@@ -45,12 +49,31 @@ my %CEE=(
       'protected,public,register,'.
 
       'template,this,typename,'.
-      'using,virtual,volatile,'.
+      'using,virtual,volatile'
+
+    ,1)],
 
 # ---   *   ---   *   ---
 
-      'nihil,vec4,mat4,uint,'.
-      'gl_(Position|FragColor)',
+    [0x04,eiths(
+
+      'bool,char,double,float,'.
+      'int,float,long,short,void,enum,'.
+
+      '([a-z][a-z_]*'.
+      '|(u_?)?int(8|16|32|64))'.
+
+      '_t,'.
+
+      'nihil,vec4,mat4,uint'
+
+    ,1)],
+
+# ---   *   ---   *   ---
+
+    [0x04,eiths(
+
+      'gl_(Position|FragColor)'
 
     ,1)],
 
@@ -89,10 +112,116 @@ my %CEE=(
 
   ],
 
+# ---   *   ---   *   ---
+
 
 );$CEE{-LCOM}=[
   [0x02,eaf($CEE{-COM},0,1)],
   [0x02,delim2('/*','*/',1)],
 
 ];$DICT{-CEE}=\%CEE;
+
+# ---   *   ---   *   ---
+
+my %PS=(
+
+  -PAT => '',
+  -STR => '',
+
+  -DST => {},
+  
+
+);
+
+# ---   *   ---   *   ---
+
+sub ps {
+
+  my $key=shift;
+
+  while($PS{-STR}=~ m/^\s*(${PS{-PAT}})/) {
+
+    if(!$1) {last;};;
+
+    push @{ $PS{-DST}->{$key} },$1;
+    $PS{-STR}=~ s/\s*${PS{-PAT}}\s*//
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub prval {
+
+  my $d=shift;
+
+  print 'Type: ('.(
+    (join ' ',@{ $d->{-QUAL} }).') '.
+    (join ' ',@{ $d->{-TYPE} })
+
+  )."\n";
+
+  print 'Name: '.( join ' ',@{ $d->{-NAME} } )."\n";
+
+};
+
+# ---   *   ---   *   ---
+
+# in:C code
+# returns code matches decl
+sub cdecl {
+
+  my $s=shift;print "in: '$s'\n";
+
+  my $qualy=$CEE{-VARS}->[0]->[1];
+  my $types=$CEE{-VARS}->[3]->[1];
+  my $isptr='(\\**\\s*|\\s*\\**)';
+
+  $PS{-PAT}='('.$qualy.')*\s+('.
+    $types.$pat_ptr.')('.$_LUN.'*)';
+
+  if(!($s=~ m/${ PS{-PAT} }/)) {
+    return undef;
+
+  };$PS{-STR}=$s;
+
+# ---   *   ---   *   ---
+
+  my %d=(
+
+    -FN => {
+      -QUAL =>[],
+      -TYPE =>[],
+      -NAME =>[],
+
+    },-ARGS =>[],
+
+  );my $i=0;while($PS{-STR}) {
+
+    $PS{-DST}=$d{-FN};if($i) {
+
+      push @{ $d{-ARGS} },{
+        -QUAL=>[],
+        -TYPE=>[],
+        -NAME=>[],
+
+      };$PS{-DST}=$d{-ARGS}->[-1];
+
+    };
+
+# ---   *   ---   *   ---
+
+    $PS{-PAT}=$qualy;ps(-QUAL);
+    $PS{-PAT}=$types.$isptr;ps(-TYPE);
+    $PS{-PAT}=$_LUN.'*';ps(-NAME);
+
+    $PS{-STR}=~ s/^\s*[\(,\)]//;$i++;
+
+  };prval($d{-FN});
+  for my $ar(@{ $d{-ARGS} }) {prval($ar);};
+
+};
+
+# ---   *   ---   *   ---
 

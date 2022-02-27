@@ -395,8 +395,15 @@ my %DICT=(-GPRE=>{
 
     [0x0E,
 
-      '(#[[:blank:]]*include[[:blank:]]*'.
-      delim2('<','>').'|'.delim('"').'\n?)',
+      '#[[:blank:]]*include[[:blank:]]*'.
+      delim2('<','>')
+
+    ],
+
+    [0x0E,
+
+      '#[[:blank:]]*include[[:blank:]]*'.
+      delim2('"')
 
     ],
 
