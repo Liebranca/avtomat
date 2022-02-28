@@ -548,6 +548,22 @@ sub cfunc {
 # ---   *   ---   *   ---
 # C reading
 
+sub typecon {
+
+  my $s=shift;
+  my $i=0;
+
+  my @con=('int*','string');
+
+  for my $t('nihil','char\*') {
+    if($s=~ m/^${t}[\s|\*]?/) {
+      $s=~ s/^${t}/${ con[$i] }/;
+
+    };$i++;
+
+  };return $s;
+};
+
 # in:modname,[files]
 # write symbol typedata (return,args) to shadow lib
 sub symscan {
@@ -609,11 +625,17 @@ sub symscan {
       my $data=lang::PROP(-CEE,-DECL)->($exp);
       if(!$data) {next;};
 
+      @$data[1]=typecon(@$data[1]);
+
+# ---   *   ---   *   ---
+
       my $match="@$data[2] @$data[1]";
       my $ix=4;while($ix<@$data) {
 
         # void args
         if(!@$data[$ix]) {last;};
+
+        @$data[$ix]=typecon(@$data[$ix]);
 
         $match.=" @$data[$ix] @$data[$ix+1]";
         $ix+=3;
@@ -810,7 +832,7 @@ sub ctopl {
 
     # so regen check
     if(!$so_gen) {
-      $so_gen=ot(ffind('-l'.$lib),$sopath);
+      $so_gen=ot($sopath,ffind('-l'.$lib));
 
     };
 
@@ -831,13 +853,6 @@ sub ctopl {
     stlib();
 
     my $LIBS=avt::libexpand($O_LIBS);
-
-    # filter out the deps
-#    for my $lib(split ' ',$O_LIBS) {
-#      $LIBS=~ s/${ O_LIBS }//;
-#
-#    };
-
     my $OBJS=join ' ',@o_files;
 
     # link

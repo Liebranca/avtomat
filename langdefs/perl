@@ -65,7 +65,7 @@ my %PERL=(
 # ---   *   ---   *   ---
 
       'getsock(name|opt),'.
-      'gmtime,goto,grep,hex,index,int,ioctl,join'.
+      'gmtime,goto,grep,hex,index,int,ioctl,join,'.
 
       'keys,kill,last,length,link,listen,'.
       'local(time)?,log,lstat,m,mkdir,'.
@@ -77,7 +77,7 @@ my %PERL=(
 
       'cv|do|name|quire|set|turn|verse|winddir),'.
 
-      'rindex,rmdir,s,scalar,seek(dir)?'.
+      'rindex,rmdir,s,scalar,seek(dir)?,'.
 
       'se(lect|mctl|mget|mop|nd|tpgrp'.
       '|tpriority|tsockopt),'.

@@ -170,9 +170,10 @@ sub cee_decl {
   if(!($s=~ m/${ PS{-PAT} }/sg)) {
     return undef;
 
-  };$s=~ s/\n/ /sg;
-  $s=~ m/(.*)${ PS{-PAT} }/;
-  $s=~ s/\Q${ 1 }//;
+  };$s=~ s/\n//sg;
+
+  $s=~ m/^(.*)${ PS{-PAT} }/;
+  if($1) {$s=~ s/\Q${ 1 }//;};
 
   $PS{-STR}=$s;
 

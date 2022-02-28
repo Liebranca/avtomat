@@ -181,7 +181,6 @@ my $EX="$root/avtomat/avtomat $root";
 `$EX make`;
 
 for my $sub('avtomat','help','ft8','ce','sin','chasm','test') {
-  print "*>$root/$sub/avto\n";
   print `$root/$sub/avto`;
 
 };
