@@ -119,7 +119,7 @@ my %CEE=(
   [0x02,eaf($CEE{-COM},0,1)],
   [0x02,delim2('/*','*/',1)],
 
-];$DICT{-CEE}=\%CEE;
+];
 
 # ---   *   ---   *   ---
 
@@ -139,12 +139,12 @@ sub ps {
 
   my $key=shift;
 
-  while($PS{-STR}=~ m/^\s*(${PS{-PAT}})/) {
+  while($PS{-STR}=~ m/^\s*(${PS{-PAT}})/sg) {
 
     if(!$1) {last;};;
 
     push @{ $PS{-DST}->{$key} },$1;
-    $PS{-STR}=~ s/\s*${PS{-PAT}}\s*//
+    $PS{-STR}=~ s/^\s*${PS{-PAT}}\s*//s;
 
   };
 
@@ -152,39 +152,30 @@ sub ps {
 
 # ---   *   ---   *   ---
 
-sub prval {
-
-  my $d=shift;
-
-  print 'Type: ('.(
-    (join ' ',@{ $d->{-QUAL} }).') '.
-    (join ' ',@{ $d->{-TYPE} })
-
-  )."\n";
-
-  print 'Name: '.( join ' ',@{ $d->{-NAME} } )."\n";
-
-};
-
-# ---   *   ---   *   ---
-
 # in:C code
 # returns code matches decl
-sub cdecl {
+sub cee_decl {
 
-  my $s=shift;print "in: '$s'\n";
+  my $s=shift;
 
   my $qualy=$CEE{-VARS}->[0]->[1];
   my $types=$CEE{-VARS}->[3]->[1];
-  my $isptr='(\\**\\s*|\\s*\\**)';
+  my $isptr='(\\**\\s+|\\s+\\**)';
 
   $PS{-PAT}='('.$qualy.')*\s+('.
-    $types.$pat_ptr.')('.$_LUN.'*)';
+    $types.$isptr.')('.$_LUN.'*)'.'\s*';
 
-  if(!($s=~ m/${ PS{-PAT} }/)) {
+  $PS{-PAT}.=delim2('(',')',1);
+
+  if(!($s=~ m/${ PS{-PAT} }/sg)) {
     return undef;
 
-  };$PS{-STR}=$s;
+  };$s=~ s/\n/ /sg;
+  $s=~ m/(.*)${ PS{-PAT} }/;
+  $s=~ s/\Q${ 1 }//;
+
+  $PS{-STR}=$s;
+
 
 # ---   *   ---   *   ---
 
@@ -216,12 +207,31 @@ sub cdecl {
     $PS{-PAT}=$types.$isptr;ps(-TYPE);
     $PS{-PAT}=$_LUN.'*';ps(-NAME);
 
-    $PS{-STR}=~ s/^\s*[\(,\)]//;$i++;
+    $PS{-STR}=~ s/^\s*[\(,\)]//sg;$i++;
 
-  };prval($d{-FN});
-  for my $ar(@{ $d{-ARGS} }) {prval($ar);};
-
-};
+  };
 
 # ---   *   ---   *   ---
 
+  my $ret=[];
+  for my $ar($d{-FN}, @{ $d{-ARGS} }) {
+
+    push @$ret,(
+
+      (join ' ',@{ $ar->{-QUAL} }),
+      (join ' ',@{ $ar->{-TYPE} }),
+      (join ' ',@{ $ar->{-NAME} })
+
+    );
+
+  };my $test=join '',@$ret;
+  if($test=~ m/^\s*$/) {
+    return undef;
+
+  };return $ret;
+
+};$CEE{-DECL}=\&cee_decl;
+
+# ---   *   ---   *   ---
+
+$DICT{-CEE}=\%CEE;

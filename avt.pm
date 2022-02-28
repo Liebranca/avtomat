@@ -577,32 +577,6 @@ sub symscan {
 
 # ---   *   ---   *   ---
 
-  my $ctypes=lang::PROP(-CEE,-VARS)->[3]->[1]);
-  $ctypes.='(\\**\\s*|\\s**\\**)';
-
-  my $cnames=lang->$_LUN;
-
-  # type(*) name
-  my $p_type_name=''.
-
-    '('.$ctypes.')\\s+'.
-    '('.$cnames.'+)\\s*'
-
-  ;
-
-  # type(*) name,
-  my $p_sing_args=''.
-
-    '('.$ctypes.')\\s+'.
-    '('.$cnames.'*)\\s*'
-
-  ;
-
-  # type name,...
-  my $p_mult_args='(\\(.*\\))\\s*[\;\{]';
-
-# ---   *   ---   *   ---
-
   my $dst=$CACHE{-ROOT}."/lib/.$mod";
   my $deps=(split "\n",`cat $dst`)[0];
 
@@ -626,57 +600,27 @@ sub symscan {
     # strip // ... \n
     $src=~ s/\/\/.*\n//g;
 
+    # strip #directives
+    $src=~ s/#.*\n//g;
+
     # iter through expressions
     for my $exp( split(';',$src) ) {
 
-      $exp.=';';
+      my $data=lang::PROP(-CEE,-DECL)->($exp);
+      if(!$data) {next;};
 
-      if( $exp=~
-        m/${ p_type_name }${ p_mult_args }/s
+      my $match="@$data[2] @$data[1]";
+      my $ix=4;while($ix<@$data) {
 
-      ) {
+        # void args
+        if(!@$data[$ix]) {last;};
 
-        $exp=~ s/${ p_type_name }//s;
+        $match.=" @$data[$ix] @$data[$ix+1]";
+        $ix+=3;
 
-        # get function return and name
-        my $type=$1;
-        my $name=$2;$type=~ s/\s*//sg;
+      };$match=~ s/\s+/ /sg;
+      print $FH "$match\n";
 
-        print $FH "$name $type";
-
-# ---   *   ---   *   ---
-
-        # if non void args
-        if($exp=~ m/${ p_mult_args }/s) {
-          $exp=~ s/${ p_mult_args }//s;
-          my $args=$1;
-
-          # iter through arguments
-          while($args=~ m/${ p_sing_args }/s) {
-            $args=~ s/${ p_sing_args }\,?//s;
-
-            # get arg type and name
-            $type=$1;
-            $name=$2;$type=~ s/\s*//sg;
-
-            my $item=($name)
-              ? $type.' '.$name
-              : $type
-              ;
-
-            print $FH " $item";
-
-          };
-
-# ---   *   ---   *   ---
-
-        # debug, show me which forms dont match
-        } else {
-          print "\n!ERR $exp";
-
-        };print $FH "\n";
-
-      };
     };
 
   };close $FH;
@@ -725,7 +669,7 @@ sub symrd {
 
     };
 
-    # else is symbol data
+    # is symbol data
     my @symbol=split ' ',$line;
 
     my $key=shift @symbol;
@@ -866,7 +810,7 @@ sub ctopl {
 
     # so regen check
     if(!$so_gen) {
-      $so_gen=avt::ot($lib,$sopath);
+      $so_gen=ot(ffind('-l'.$lib),$sopath);
 
     };
 
@@ -968,7 +912,7 @@ sub mord {
 #in: two filepaths to compare
 # Older Than; return a is older than b
 sub ot {
-  return !((-M $_[0]) < (-M $_[1]));
+  return !( (-M $_[0]) < (-M $_[1]) );
 
 };
 

@@ -46,6 +46,7 @@ BEGIN {
   use avt;
 
 my $root=avt::root($ENV{'ARPATH'});
+unshift @ARGV,$root.'/lib/';avt::stlib();
 
 # ---   *   ---   *   ---
 # fetch missing deps
