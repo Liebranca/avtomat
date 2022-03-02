@@ -553,9 +553,9 @@ sub typecon {
   my $s=shift;
   my $i=0;
 
-  my @con=('int*','string','wstring');
+  my @con=('string','wstring');
 
-  for my $t('nihil','char\*','wchar_t\*') {
+  for my $t('char\*','wchar_t\*') {
     if($s=~ m/^${t}[\s|\*]?/) {
       $s=~ s/^${t}/${ con[$i] }/;
 
@@ -880,6 +880,9 @@ my \$ffi=FFI::Platypus->new(api => 1);
 );
 
 \$ffi->load_custom_type('::WideString'=>'wstring');
+\$ffi->type('(void)->void'=>'nihil');
+
+sub ffi {return \$ffi;};
 
 EOF
 
