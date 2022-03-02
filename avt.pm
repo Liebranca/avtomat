@@ -494,7 +494,7 @@ sub clist {
     $is_arr=$is_arr eq 'arr';
 
     if($is_arr) {
-      $dst.="static const $type $value"."[]={\n";
+      $dst.="static $type $value"."[]={\n";
       $type='';
 
     } else {
@@ -553,9 +553,9 @@ sub typecon {
   my $s=shift;
   my $i=0;
 
-  my @con=('int*','string');
+  my @con=('int*','string','wstring');
 
-  for my $t('nihil','char\*') {
+  for my $t('nihil','char\*','wchar_t\*') {
     if($s=~ m/^${t}[\s|\*]?/) {
       $s=~ s/^${t}/${ con[$i] }/;
 
@@ -879,6 +879,8 @@ my \$ffi=FFI::Platypus->new(api => 1);
 
 );
 
+\$ffi->load_custom_type('::WideString'=>'wstring');
+
 EOF
 
   ;print $FH $search;
@@ -922,6 +924,27 @@ sub mord {
     $seq|=ord(shift @s)<<$i;$i+=8;
 
   };return $seq;
+};
+
+# ^ for wide strings
+sub wmord {
+  my @s=split '',shift;
+  my $seq=0;
+  my $i=0;while(@s) {
+    $seq|=ord(shift @s)<<$i;$i+=16;
+
+  };return $seq;
+};
+
+# arg=int arr
+# multi-byte chr
+sub mchr {
+  my @s=@_;
+
+  for my $c(@s) {
+    $c=chr($c)
+
+  };return @s;
 };
 
 #in: two filepaths to compare

@@ -163,7 +163,7 @@ sub glang {
     # ---   *   ---   *   ---
 
     for my $key(
-      -HIER,-PFUN,-DELM0,-GBL,
+      -HIER,-PFUN,-DELM0,-GBL,-DELM1
 
     ) {prprops(-GPRE,$key);};
 

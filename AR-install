@@ -80,7 +80,7 @@ my $help_config;{
   my %config=(
 
   'XCPY'  =>  'help*',
-  'LCPY'  =>  'cash.pm',
+  'LCPY'  =>  'cash.pm,board.pm',
 
   );$help_config=avt::strconfig \%config;
 
@@ -115,7 +115,7 @@ my $ce_config;{
 
   'XCPY'  =>  'wpid',
   'LCPY'  =>  'genks.pm',
-  'XPRT'  =>  'keyboard.h',
+  'XPRT'  =>  'keyboard.h,clock.h',
 
   'GENS'  =>  'chartab.h:chartab*,'.
               'keymap.h:[keymap*,genks.pm,%.k]',
@@ -201,10 +201,10 @@ if(!(-e "$root/fonts")) {
 
 avt::wrcplboil_pm(
   '/lib/',
-  'platy',
+  'lycon',
   'IBN-3DILA',
 
-  \&avt::ctopl,['platy',['ce']]
+  \&avt::ctopl,['lycon',['ce']]
 
 );
 
