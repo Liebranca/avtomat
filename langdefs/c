@@ -129,7 +129,6 @@ my %PS=(
   -STR => '',
 
   -DST => {},
-  
 
 );
 
@@ -138,6 +137,9 @@ my %PS=(
 sub ps {
 
   my $key=shift;
+
+  # well handle this later, for now its ignored
+  $PS{-STR}=~ s/extern "C" \{//;
 
   while($PS{-STR}=~ m/^\s*(${PS{-PAT}})/sg) {
 
@@ -208,7 +210,10 @@ sub cee_decl {
     $PS{-PAT}=$types.$isptr;ps(-TYPE);
     $PS{-PAT}=$_LUN.'*';ps(-NAME);
 
+    my $test=$PS{-STR};
     $PS{-STR}=~ s/^\s*[\(,\)]//sg;$i++;
+
+    if($PS{-STR} eq $test) {last;};
 
   };
 

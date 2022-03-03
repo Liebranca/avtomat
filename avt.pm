@@ -553,13 +553,15 @@ sub typecon {
   my $s=shift;
   my $i=0;
 
-  my @con=('string','wstring');
+  my @con=('string','wstring','int*');
 
-  for my $t('char\*','wchar_t\*') {
+  for my $t('char\*','wchar_t\*','void\*') {
     if($s=~ m/^${t}[\s|\*]?/) {
       $s=~ s/^${t}/${ con[$i] }/;
 
-    };$i++;
+    };$s=~ s/\*+/\*/;
+
+    $i++;
 
   };return $s;
 };
@@ -695,7 +697,10 @@ sub symrd {
     my @symbol=split ' ',$line;
 
     my $key=shift @symbol;
+    if(!(defined $key)) {next;};
+
     my $ret=shift @symbol;
+    $ret=(!(defined $ret)) ? 'void' : $ret;
 
     # h[symbol_name]=return type,(types),(names)
     if(@symbol) {
@@ -873,7 +878,7 @@ my \$libfold=__FILE__;{
   \$libfold=join('/',\@tmp[0..(\$#tmp)-1]);
 };
 
-my \$ffi=FFI::Platypus->new(api => 1);
+my \$ffi=FFI::Platypus->new(api => 2);
 \$ffi->lib(
   "\$libfold/lib$soname.so"
 

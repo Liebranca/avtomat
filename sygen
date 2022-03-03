@@ -124,7 +124,10 @@ sub prprops {
   for(my $i=0;$i<@ar;$i++) {
 
     my ($color,$pat)=@{ $ar[$i] };
-    $color=$colors[$color];
+
+    my ($fg,$bg)=($color&0xF,$color>>4);
+
+    $color=$colors[$fg].','.$colors[$bg];
 
     $pat=avt::dqwrap($pat);
 
@@ -185,8 +188,9 @@ sub glang {
   };
 
 };glang(
-  -PERL,glob('~/.config/nano/perl.nanorc'),
   -CEE,glob('~/.config/nano/c.nanorc'),
+  -PESO,glob('~/.config/nano/peso.nanorc'),
+  -PERL,glob('~/.config/nano/perl.nanorc'),
 
 );
 

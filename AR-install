@@ -115,7 +115,7 @@ my $ce_config;{
 
   'XCPY'  =>  'wpid',
   'LCPY'  =>  'genks.pm',
-  'XPRT'  =>  'keyboard.h,clock.h',
+  'XPRT'  =>  'keyboard.h,clock.h,arstd.h',
 
   'GENS'  =>  'chartab.h:chartab*,'.
               'keymap.h:[keymap*,genks.pm,%.k]',

@@ -287,6 +287,7 @@ my %DICT=(-GPRE=>{
   -HIER =>[
 
     # class & hierarchy stuff
+    [0x07,'[^[:blank:]]+[^[:blank:]]*'],
     [0x04,eiths('this,self')],
     [0x04,"$_LUN*$DRFC"],
     [0x0D,"\\b$_LUN*$DRFC$_LUN*$DRFC"],
@@ -387,7 +388,7 @@ my %DICT=(-GPRE=>{
 
     [0x0B,'('.( eiths('TODO,NOTE') ).':?|\*+:)'],
     [0x09,'('.( eiths('FIX,BUG') ).':?|\!+:)'],
-    [0x08,'(\s+$)'], #[[:space:]]
+    [0x44,'(^[[:space:]]+$)'],
 
 
 # ---   *   ---   *   ---

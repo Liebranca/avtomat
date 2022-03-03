@@ -84,7 +84,7 @@ my %PERL=(
 
 # ---   *   ---   *   ---
 
-      'shift,shm(ctl|get|read|write),'.
+      'shift,shm(ctl|get|read(line)?|write),'.
 
       'shutdown,sin,sleep,socket(pair)?,'.
 

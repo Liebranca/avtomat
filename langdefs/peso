@@ -1,0 +1,175 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# $ syntax defs
+
+# ---   *   ---   *   ---
+#$:CUT;>
+
+my %PESO=(
+
+  -NAME => 'peso',
+  -EXT  => '\.(pe)$',
+  -HED  => '\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$',
+
+  -MAG  => '$ program',
+
+  -COM  => '#',
+
+# ---   *   ---   *   ---
+
+  -VARS =>[
+
+    [0x04,eiths(
+
+      'u?(char|wide|word|long|vec|str)[0-9]*,'.
+      'void,ptr,nihil,stark,null,wed,lis'
+
+    ,1)],
+
+  ],
+
+# ---   *   ---   *   ---
+
+  -BILTN =>[
+
+    [0x01,eiths(
+
+      'cpy,mov,wap,'.
+      'kin,sow,reap,'.
+
+      'pop,psh,mem,fre,'.
+
+      'exit'
+
+    ,1)],
+
+  ],
+
+# ---   *   ---   *   ---
+
+
+  -KEYS =>[
+
+    [0x0D,eiths(
+
+      'jmp,jif,eif,call,ret,'.
+      'reg,rom,proc,clan,entry,atexit'
+
+    ,1)],
+
+  ],
+
+# ---   *   ---   *   ---
+
+
+);$PESO{-LCOM}=[
+  [0x02,eaf($PESO{-COM},0,1)],
+
+];$DICT{-PESO}=\%PESO;
+
+# ---   *   ---   *   ---
+
+# in: filename
+# reads in a peso file
+sub peso_rd {
+
+  # open file
+  my $fname=glob(shift);
+  open FH,'<',$fname or die $!;
+
+  # verify header
+  my $rb=readline FH;
+  if(!($rb=~ m/${ PESO{-HED}}/)) {
+    printf STDERR "$fname: bad header\n";
+    goto END;
+
+  };
+
+# ---   *   ---   *   ---
+
+  # get expressions
+  my @exps=();{
+    my $rem='';
+
+    # read file
+    while($rb=readline FH) {
+
+      # strip comments
+      $rb=~ s/#.*\n?//;
+
+      # force single spaces
+      $rb=~ s/\s+/ /;
+
+      # strip newlines?
+      $rb=~ s/\n+//;
+
+      if(!$rb) {next;};
+
+# ---   *   ---   *   ---
+
+      # line ends with ;
+      if($rb=~ m/;$/) {
+        $rb=$rem.$rb;$rem='';
+        push @exps,(split ';',$rb);
+
+      # multi-line expression(s)
+      } else {
+        my @ar=split ';',$rb;
+        $rem.=pop @ar;
+
+        if(@ar) {
+          $exps[0]=$rem.$exps[0];
+          push @exps,@ar;
+
+        };
+      };
+
+# ---   *   ---   *   ---
+
+    };
+
+  };close FH;
+
+# ---   *   ---   *   ---
+
+  # iter expressions
+  for my $exp(@exps) {
+
+    if(!$exp) {next;};
+
+    $PS{-PAT}=$PESO{-KEYS}->[0]->[1];
+    $PS{-STR}=$exp;
+
+    $PS{-DST}={
+      -T0=>[],
+
+    };ps(-T0);my $s=@{ $PS{-DST}->{-T0} }[0];
+    if(!$s) {next;};
+
+# ---   *   ---   *   ---
+
+    # directives
+    { 'reg'=>sub {printf "reg ";},
+      'proc'=>sub {printf "proc ";},
+      'ret'=>sub {printf "ret ";},
+      'clan'=>sub {printf "clan ";},
+
+      'entry'=>sub {printf "entry ";},
+
+    }->{$s}->();
+
+# ---   *   ---   *   ---
+
+    printf ''.join(' : ',@{ $PS{-DST}->{-T0} })."\n";
+
+  };return;
+
+# ---   *   ---   *   ---
+
+  # cleanup
+  END:close FH;
+
+};
+
+# ---   *   ---   *   ---
+*-
