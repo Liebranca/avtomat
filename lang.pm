@@ -287,7 +287,7 @@ my %DICT=(-GPRE=>{
   -HIER =>[
 
     # class & hierarchy stuff
-    [0x07,'[^[:blank:]]+[^[:blank:]]*'],
+    [0x07,'[^[:blank:]]+[^[:blank:]]*^[:blank:]]*'],
     [0x04,eiths('this,self')],
     [0x04,"$_LUN*$DRFC"],
     [0x0D,"\\b$_LUN*$DRFC$_LUN*$DRFC"],
@@ -437,6 +437,127 @@ my %DICT=(-GPRE=>{
   my $key=shift;
 
   return $DICT{$lang}->{$key};
+
+};
+
+# ---   *   ---   *   ---
+# parse utils
+
+my %PS=(
+
+  -PAT => '',
+  -STR => '',
+
+  -DST => {},
+
+);
+
+# ---   *   ---   *   ---
+
+# in: key into PS{-DST}
+# looks for pattern and substs it
+# matches are pushed to dst{key}
+
+sub ps {
+
+  my $key=shift;
+
+  # well handle this later, for now its ignored
+  $PS{-STR}=~ s/extern "C" \{//;
+
+  while($PS{-STR}=~ m/^\s*(${PS{-PAT}})/sg) {
+
+    if(!$1) {last;};;
+
+    push @{ $PS{-DST}->{$key} },$1;
+    $PS{-STR}=~ s/^\s*${PS{-PAT}}\s*//s;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub pscsl {
+
+  my $key=shift;
+
+  if(my @ar=split m/\s*,\s*/,$PS{-STR}) {
+
+    push @{ $PS{-DST}->{$key} },@ar;
+    $PS{-STR}='';
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+# in: pattern,string,key
+# looks for pattern in string
+sub pss {
+
+  my $pat=shift,
+  my $str=shift;
+  my $key=shift;
+
+  $PS{-PAT}=$pat;
+
+  if($str) {$PS{-STR}=$str;};
+
+  if(!$PS{-DST}->{$key}) {
+    $PS{-DST}->{$key}=[];
+
+  };ps($key);return @{ $PS{-DST}->{$key} };
+
+# ---   *   ---   *   ---
+
+# in: string,key
+# reads comma-separated list until end of string
+
+};sub psscsl {
+
+  my $str=shift;
+  my $key=shift;
+
+  if($str) {$PS{-STR}=$str;};
+
+  if(!$PS{-DST}->{$key}) {
+    $PS{-DST}->{$key}=[];
+
+  };pscsl($key);return @{ $PS{-DST}->{$key} };
+
+# ---   *   ---   *   ---
+
+};sub clps {
+  for my $key(keys %{ $PS{-DST} }) {
+    $PS{-DST}->{$key}=[];
+
+  };
+};
+
+# ---   *   ---   *   ---
+
+sub pehex {
+
+  my $x=shift;
+  my $r=0;
+
+  my $i=0;
+
+  for my $c(reverse split '',$x) {
+
+    if($c=~ m/[hHlL]/) {
+      next;
+
+    } elsif($c=~ m/[xX]/) {last;};
+
+    my $v=ord($c);
+
+    $v-=($v > 0x39) ? 55 : 0x30;
+    $r+=$v<<($i*4);$i++;
+
+  };return $r;
 
 };
 

@@ -123,37 +123,6 @@ my %CEE=(
 
 # ---   *   ---   *   ---
 
-my %PS=(
-
-  -PAT => '',
-  -STR => '',
-
-  -DST => {},
-
-);
-
-# ---   *   ---   *   ---
-
-sub ps {
-
-  my $key=shift;
-
-  # well handle this later, for now its ignored
-  $PS{-STR}=~ s/extern "C" \{//;
-
-  while($PS{-STR}=~ m/^\s*(${PS{-PAT}})/sg) {
-
-    if(!$1) {last;};;
-
-    push @{ $PS{-DST}->{$key} },$1;
-    $PS{-STR}=~ s/^\s*${PS{-PAT}}\s*//s;
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-
 # in:C code
 # returns code matches decl
 sub cee_decl {
