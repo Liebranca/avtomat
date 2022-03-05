@@ -109,6 +109,7 @@ my %MAM=(
   },
 
 # ---   *   ---   *   ---
+# leaps and such
 
   -SIZES=>{
 
@@ -118,17 +119,144 @@ my %MAM=(
     'word'=>4,
     'long'=>8,
 
-    # measuring
-    'unit'=>8,
-    'line'=>16,
+# ---   *   ---   *   ---
+# granularity
 
-    # function types
-    'nihil'=>8,
-    'stark'=>8,
+    # ptr size
+    'unit'=>0x0008,
+
+    # pointers align to line
+    # mem buffers align to page
+
+    'line'=>0x0010, # two units
+    'page'=>0x0400, # 1024
+
+# ---   *   ---   *   ---
+# function types
+
+    'nihil'=>8,     # void(*nihil)(void)
+    'stark'=>8,     # void(*stark)(void*)
+
+    'signal'=>8,    # int(*signal)(int)
+
+  },
+
+# ---   *   ---   *   ---
+
+  -CALC=>[],
+
+  -OPS=>{
+
+    '+'=>[2,\&ll::add],
+    '-'=>[2,\&ll::sub0],
+
+    '*'=>[2,\&ll::mul],
+    '/'=>[2,\&ll::div],
+
+    '<'=>[2,\&ll::lt0],
+    '>'=>[2,\&ll::gt0],
+
+    '<<:'=>[2,\&ll::out],
+    '>>:'=>[2,\&ll::in],
+
+    '('=>[2,\&ll::oparn],
+    ')'=>[2,\&ll::cparn],
+
+    '['=>[2,\&ll::obrak],
+    ']'=>[2,\&ll::cbrak],
+
+    '{'=>[2,\&ll::ocurl],
+    '}'=>[2,\&ll::ccurl],
 
   },
 
 );
+
+# ---   *   ---   *   ---
+# sloppy math
+
+# in: arr
+# save tokens to calc stack
+sub peso_calcus_psh {
+
+  my @stk=@_;
+
+  my $i=0;for my $sym(@stk) {
+
+    if(!$sym) {next;};
+
+    push @{ $MAM{-CALC} },$sym;
+    if(exists $MAM{-OPS}->{$sym}) {
+
+      ( $MAM{-CALC}->[$i],
+        $MAM{-CALC}->[$i-1]
+
+      )=ll::wap(
+        $MAM{-CALC}->[$i],
+        $MAM{-CALC}->[$i-1]
+
+      );
+
+
+    };$i++;
+};
+
+# ---   *   ---   *   ---
+
+# in: str
+# solves operation
+};sub peso_calcus_collapse {
+
+  # the undef chk
+  my $s=shift;
+  if(!(defined $s)) {return 0;};
+
+  # ret value
+  my $v=0;
+
+  # check for operators, cut at them
+  for my $op(split ':',$s) {
+
+    # wapping push
+    peso_calcus_psh( split
+      m/${ DICT{-GPRE}
+      ->{-OPS}->[0]->[1] }/,
+
+      $op
+
+# ---   *   ---   *   ---
+
+    # iter through the sorted arr
+    );
+
+print ''.( join "\n",@{ $MAM{-CALC} } )."\n";
+while(@{ $MAM{-CALC} }) {
+      my $sym=shift @{ $MAM{-CALC} };
+
+      if(exists $MAM{-OPS}->{$sym}) {
+
+        my @call=();
+        my ($arg,$sig)=@{
+          $MAM{-OPS}->{$sym}
+
+# ---   *   ---   *   ---
+
+        # $sig->[0..arg-1]
+        };while($arg) {
+
+          push(@call,
+            shift @{ $MAM{-CALC}}
+
+          );$arg--;
+
+        };$v+=$sig->(@call);
+
+      };
+    };
+
+  };return $v;
+
+};
 
 # ---   *   ---   *   ---
 
@@ -211,23 +339,31 @@ sub peso_reg_new {
 
   # get value(s)
   for my $x(psscsl(undef,-VALUE)) {
+
+    $x=peso_calcus_collapse($x);
     $x=pehex($x);
     $v|=($x&((1<<($byte_sz*8)))-1)<<($cbyte*8);
 
     $cbyte+=$byte_sz;
 
+    # value is an array of 64-bit units
+    # thus, only push when value is at that size
     if($cbyte==$MAM{-SIZES}->{'unit'}) {
       push @$value,$v;$v^=$v;
 
     };
 
-  };while((@$value%2) || $v) {
+  # ... or when there's nothing left to push
+  # ++ensure each array is 16-aligned
+  };while((@$value%2) || $v || !(@$value)) {
     push @$value,$v;$v^=$v;
 
   };
 
+  # debug
   printf "$name:\n";
   for(my $i=0;$i<@$value;$i+=2) {
+
     print sprintf
       "%016X %016X\n",
       $value->[$i+1],$value->[$i];

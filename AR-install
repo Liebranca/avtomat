@@ -17,23 +17,25 @@ BEGIN {
 
   };my $path=$ENV{'ARPATH'}.'/lib';
 
-  my $src=$ENV{'ARPATH'}."/avtomat/avt.pm";
-  my $do_cp=0;if(! (-e $path) ) {
-    `mkdir -p $path`;$do_cp=1;
-
 # ---   *   ---   *   ---
 
-  } else {
-    $do_cp=!(-e $path.'/avt.pm');
+  if(! (-e $path) ) { `mkdir -p $path`; };
+
+  for my $lib('/ll.pm','/avt.pm') {
+
+    my $src=$root.'/avtomat/'.$lib;
+
+    my $do_cp=!(-e $path.$lib);
     $do_cp=(!$do_cp)
-      ? !((-M $path.'/avt.pm')
+      ? !((-M $path.$lib)
       < (-M $src) )
 
       : $do_cp; 
       ;
 
-  };if($do_cp) {`cp $src $path/avt.pm`;};
-  `$ENV{'ARPATH'}/avtomat/sygen`;
+    if($do_cp) {`cp $src $path$lib`;};
+
+  };`$ENV{'ARPATH'}/avtomat/sygen`;
 
 };
 
@@ -68,6 +70,7 @@ my $avtomat_config;{
 
   my %config=(
   'XCPY'  =>  'avtomat*',
+  'LCPY'  =>  'll.pm',
 
   );$avtomat_config=avt::strconfig \%config;
 
