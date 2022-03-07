@@ -39,6 +39,15 @@ sub lt0 {return eval(shift.'<'.shift);};
 sub gt0 {return eval(shift.'>'.shift);};
 
 # ---   *   ---   *   ---
+# in: a
+
+#?a
+sub quest {return eval('('.shift.')!=0');};
+
+#!a
+sub neg {return eval('!('.shift.')');};
+
+# ---   *   ---   *   ---
 # peso-like ops
 
 sub wap {my $x=shift;return (shift,$x);};

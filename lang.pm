@@ -22,6 +22,77 @@
 # ---   *   ---   *   ---
 
 # deps
+package node;
+  use strict;
+  use warnings;
+
+my %CACHE=(
+
+  -TREES=>[],
+
+);
+
+# in: val,is_root;
+# make child node or create a new tree
+sub nit {
+
+  my $self=shift;
+
+  my $val=shift;
+  my $is_root=shift;
+
+  my $id;
+  my $tree;
+
+  if(!(defined $is_root)) {
+
+    my @ar=@{ $CACHE{-TREES} };
+    $id=$#ar;
+
+    my %tree=(
+
+      -BUFF=>[],
+      -IDS=>[0..1023],
+
+    );$tree=\%tree;
+
+    push @{ $CACHE{-TREES} },$tree;
+
+
+# ---   *   ---   *   ---
+
+  } else {
+    $tree=$CACHE{-TREES}->[$is_root];
+    my @ar=@{ $tree->{-BUFF} };
+    $id=pop @{ $tree->{-IDS} };
+
+    push @{ $self->{-LEAVES} },$id;
+
+  };
+
+  push @{ $tree->{-BUFF} },
+
+    bless {
+
+    -VAL=>$val,
+    -LEAVES=>[],
+
+    -SELF=>$id,
+    -ROOT=>$is_root,
+
+
+  },'node';
+
+  return $tree->{-BUFF}->[-1];
+
+};
+
+# ---   *   ---   *   ---
+
+
+# ---   *   ---   *   ---
+
+# deps
 package lang;
   use strict;
   use warnings;
@@ -391,7 +462,8 @@ my %DICT=(-GPRE=>{
 
     [0x0B,'('.( eiths('TODO,NOTE') ).':?|\*+:)'],
     [0x09,'('.( eiths('FIX,BUG') ).':?|\!+:)'],
-    [0x44,'(^[[:space:]]+$)'],
+    [0x66,'(^[[:space:]]+$)'],
+    [0x66,'([[:space:]]+$)'],
 
 
 # ---   *   ---   *   ---

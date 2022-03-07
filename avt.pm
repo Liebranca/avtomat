@@ -1790,6 +1790,8 @@ while(@GENS) {
 };
 
 my $OBJS='';
+my $objblt=0;
+
 for(my ($i,$j)=(0,0);$i<@SRCS;$i++,$j+=2) {
 
   my $src=$SRCS[$i];
@@ -1837,9 +1839,12 @@ for(my ($i,$j)=(0,0);$i<@SRCS;$i++,$j+=2) {
       "$INCLUDES $DFLG $PFLG ".
       "-Wa,-a=$asm -c $src -o $obj";`$call`;
 
-  };
+    $objblt++;
 
+  };
 };
+
+if($MAIN && $objblt) {
 
 if($LMODE eq 'ar') {
   my $call="ar -crs $MAIN $OBJS";`$call`;
@@ -1847,28 +1852,32 @@ if($LMODE eq 'ar') {
   `echo "$LIBS" > $ILIB`;
   avt::symscan($FSWAT,\@XPRT);
 
-} elsif($MAIN) {
+} else {
   print ''.( avt::shpath $MAIN) ."\n";
-  if(-e $MAIN) {`rm $MAIN`;};
 
-    $LIBS=avt::libexpand($LIBS);
+  if(-e $MAIN) {
+    `rm $MAIN`;
 
-    my $call="gcc $LMODE ".
-      (avt->OFLG.' '.avt->LFLG)." ".
-       "$INCLUDES $PFLG $OBJS $LIBS -o $MAIN";
+  };
 
-      `$call`;
-      `echo "$LIBS" > $ILIB`;
+  $LIBS=avt::libexpand($LIBS);
 
-    if($LMODE ne '-shared ') {
-      $call="ar -crs $MLIB $OBJS";`$call`;
+  my $call="gcc $LMODE ".
+    (avt->OFLG.' '.avt->LFLG)." ".
+     "$INCLUDES $PFLG $OBJS $LIBS -o $MAIN";
 
-      `echo "$LIBS" > $ILIB`;
-      avt::symscan($FSWAT,\@XPRT);
+    `$call`;
+    `echo "$LIBS" > $ILIB`;
 
-    };
+  if($LMODE ne '-shared ') {
+    $call="ar -crs $MLIB $OBJS";`$call`;
 
-};
+    `echo "$LIBS" > $ILIB`;
+    avt::symscan($FSWAT,\@XPRT);
+
+  };
+
+}};
 
 while(@FCPY) {
   my $og=shift @FCPY;

@@ -22,13 +22,19 @@ my %PESO=(
     [0x04,eiths(
 
       '(char|wide|word|long)[0-9]*,'.
-      'nihil,stark'
+      'nihil,stark,signal,'
 
     ,1)],
 
     [0x04,eiths(
 
-      'str,ptr,null,wed,lis'
+      'str,buf,ptr,wed,lis,'
+
+    ,1)],
+
+    [0x04,eiths(
+
+      'self,null,non,other'
 
     ,1)],
 
@@ -44,8 +50,9 @@ my %PESO=(
       'kin,sow,reap,'.
 
       'pop,psh,mem,fre,'.
+      'skp,rew,'.
 
-      'exit'
+      'sys,stop,exit'
 
     ,1)],
 
@@ -58,14 +65,14 @@ my %PESO=(
     # program flow
     [0x0D,eiths(
 
-      'jmp,jif,eif,call,ret'
+      'jmp,jif,eif,sys,ret,wait'
 
     ,1)],
 
     # directives
     [0x0D,eiths(
 
-      'reg,rom,proc,clan,entry,atexit'
+      'reg,rom,proc,clan,entry,exit,atexit'
 
     ,1)],
 
@@ -144,6 +151,8 @@ my %MAM=(
 # ---   *   ---   *   ---
 
   -CALC=>[],
+  -CALC_B=>[],
+  -CALC_R=>[],
 
   -OPS=>{
 
@@ -168,6 +177,9 @@ my %MAM=(
     '{'=>[2,\&ll::ocurl],
     '}'=>[2,\&ll::ccurl],
 
+    '?'=>[1,\&ll::quest],
+    '!'=>[1,\&ll::neg],
+
   },
 
 );
@@ -183,22 +195,29 @@ sub peso_calcus_psh {
 
   my $i=0;for my $sym(@stk) {
 
-    if(!$sym) {next;};
+    if(!defined $sym) {next}
+    elsif(!(length $sym)) {next;};
 
     push @{ $MAM{-CALC} },$sym;
+
     if(exists $MAM{-OPS}->{$sym}) {
 
-      ( $MAM{-CALC}->[$i],
-        $MAM{-CALC}->[$i-1]
+      my @ar=@{ $MAM{-CALC} };
+
+      if($#ar<1) {goto INC;};
+
+      ( $ar[$i],
+        $ar[$i-1]
 
       )=ll::wap(
-        $MAM{-CALC}->[$i],
-        $MAM{-CALC}->[$i-1]
+        $ar[$i],
+        $ar[$i-1]
 
       );
 
+      @{ $MAM{-CALC} }=@ar;
 
-    };$i++;
+    };INC:$i++;
 };
 
 # ---   *   ---   *   ---
@@ -212,7 +231,8 @@ sub peso_calcus_psh {
   if(!(defined $s)) {return 0;};
 
   # ret value
-  my $v=0;
+  my $v=0;my $i=0;
+  $s=~ s/\s*//gs;
 
   # check for operators, cut at them
   for my $op(split ':',$s) {
@@ -227,32 +247,110 @@ sub peso_calcus_psh {
 # ---   *   ---   *   ---
 
     # iter through the sorted arr
-    );
+    );while(@{ $MAM{-CALC} }) {
 
-print ''.( join "\n",@{ $MAM{-CALC} } )."\n";
-while(@{ $MAM{-CALC} }) {
-      my $sym=shift @{ $MAM{-CALC} };
+      my @ar=@{ $MAM{-CALC} };
+      my $len=@ar-1;
 
-      if(exists $MAM{-OPS}->{$sym}) {
-
-        my @call=();
-        my ($arg,$sig)=@{
-          $MAM{-OPS}->{$sym}
+      my $sym=shift @ar;
 
 # ---   *   ---   *   ---
 
+      if(exists $MAM{-OPS}->{$sym}) {
+
+        my $arg=$MAM{-OPS}->{$sym}->[0];
+
+        # push back
+        if($len<$arg) {
+          printf "$len<$arg\n";
+          printf "pushing $MAM{-CALC}->[0] ".(join
+            ',',@ar
+
+          )."\n";
+
+          while(@{ $MAM{-CALC} }) {
+
+            $sym=shift @{ $MAM{-CALC} };
+
+            if(exists $MAM{-OPS}->{$sym}) {
+              unshift @{ $MAM{-CALC_B} },$sym;
+
+            } else {
+              unshift @{ $MAM{-CALC_R} },$sym;
+
+            };
+          };
+
+          $MAM{-CALC}=[];last;
+
+        };
+
+# ---   *   ---   *   ---
+
+        my @call=();
+        my $sig=0;
+
+        ($arg,$sig)=@{
+          $MAM{-OPS}->{$sym}
+
         # $sig->[0..arg-1]
-        };while($arg) {
+        };shift @{ $MAM{-CALC} };
+
+      while($arg) {
 
           push(@call,
-            shift @{ $MAM{-CALC}}
+            shift @{ $MAM{-CALC} }
 
           );$arg--;
 
-        };$v+=$sig->(@call);
+        };push @{ $MAM{-CALC_R} },$sig->(@call);
+
+# ---   *   ---   *   ---
+
+      } else {
+        push @{ $MAM{-CALC_R} },
+          shift @{ $MAM{-CALC} };
 
       };
-    };
+
+    };$i++;
+  };
+
+# ---   *   ---   *   ---
+
+  # solve tail
+  my @tail=@{ $MAM{-CALC_B} };
+  my @tail_v=@{ $MAM{-CALC_R} };
+
+  while(@tail) {
+
+      my $sym=shift @tail;
+      printf "PP:$sym\n";
+
+      if(!$sym) {next};
+
+      my @call=();
+      my ($arg,$sig)=@{
+        $MAM{-OPS}->{$sym}
+
+      };
+
+      while($arg) {
+        printf ">>$tail_v[0]\n";
+        push @call,shift @tail_v;
+        $arg--;
+
+      };$v=$sig->(@call);
+      push @tail_v,$v;
+
+  };
+
+# ---   *   ---   *   ---
+
+  shift @tail_v;
+  if(@tail_v) {
+    my $rem=eval(join '+',@tail_v);
+    $v+=$rem;
 
   };return $v;
 
@@ -452,6 +550,35 @@ sub peso_rd {
   for my $exp(@exps) {
 
     if(!$exp) {next;};
+
+    my $pat='(('.$PESO{-KEYS}->[1]->[1].'\s+)';
+    $pat.='|('.$PESO{-VARS}->[0]->[1].'\s+))*';
+
+    $exp=~ s/^\s*(${ pat })//;
+
+    # first element is topmost in hierarchy
+    my $key=$1;
+
+    if(!(defined $key)) {next;};
+
+    if(!$exp) {next;};
+
+    # create root node
+    my $is_root=undef;
+    my $root=node::nit($key,$is_root);
+    $is_root=$root->{-ROOT};
+
+    # here we split accordingly
+    printf "-$key\n";
+    for my $sym(split m/,|$/,$exp) {
+      my $node=$root->nit($sym,$is_root);
+
+      $is_root=$node->{-ROOT};
+      printf "|-->".$node->{-VAL}."\n";
+
+    };next;
+
+# ---   *   ---   *   ---
 
     # check for context directives
     if(my @mat=pss(

@@ -65,7 +65,7 @@
     };
 
 # ---   *   ---   *   ---
-    
+
     # on update, perform patch
     if($do_cp) {
 

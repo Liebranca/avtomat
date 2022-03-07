@@ -5,42 +5,34 @@
 
 # once your ARPATH./bin/ is made, you may
 # update it through avtomat itself
-
 # ---   *   ---   *   ---
-# sanity check
 
 BEGIN {
 
-  my $root=$ENV{'ARPATH'};if(!$root) {
-    print "ARPATH missing from ENV; aborted\n";
-    exit;
+  use Cwd qw(abs_path);
 
-  };my $path=$ENV{'ARPATH'}.'/lib';
+  my @ar=split '/',abs_path(__FILE__);
+  my $d=join '/',@ar[0..$#ar-1];
 
-# ---   *   ---   *   ---
+  push @INC,$d;
+  require 'AR.ph';
 
-  if(! (-e $path) ) { `mkdir -p $path`; };
+  my $dst=$ENV{'ARPATH'}.'/include/AR.ph';
+  my $src=$d.'/AR.ph';
 
-  for my $lib('/ll.pm','/avt.pm') {
+  my $do_copy=!(-e $dst);
 
-    my $src=$root.'/avtomat/'.$lib;
+  $do_copy=(!$do_copy)
+    ? !((-M $dst)<(-M $src))
+    : $do_copy;
 
-    my $do_cp=!(-e $path.$lib);
-    $do_cp=(!$do_cp)
-      ? !((-M $path.$lib)
-      < (-M $src) )
-
-      : $do_cp; 
-      ;
-
-    if($do_cp) {`cp $src $path$lib`;};
-
-  };`$ENV{'ARPATH'}/avtomat/sygen`;
+  `cp $src $dst`;
 
 };
 
 # ---   *   ---   *   ---
 # deps
+
   use strict;
   use warnings;
 
