@@ -19,6 +19,7 @@ my %PESO=(
 
   -VARS =>[
 
+    # primitives
     [0x04,eiths(
 
       '(char|wide|word|long)[0-9]*,'.
@@ -26,12 +27,14 @@ my %PESO=(
 
     ,1)],
 
+    # inherents
     [0x04,eiths(
 
       'str,buf,ptr,wed,lis,'
 
     ,1)],
 
+    # simbolic constants (sblconst)
     [0x04,eiths(
 
       'self,null,non,other'
@@ -44,6 +47,7 @@ my %PESO=(
 
   -BILTN =>[
 
+    # instructions
     [0x01,eiths(
 
       'cpy,mov,wap,'.
@@ -545,38 +549,109 @@ sub peso_rd {
   };close FH;
 
 # ---   *   ---   *   ---
+# aliases for these patterns
+
+  my $directive=$PESO{-KEYS}->[1]->[1];
+  my $flowctl=$PESO{-KEYS}->[0]->[1];
+
+  my $primitive=$PESO{-VARS}->[0]->[1];
+  my $inherent=$PESO{-VARS}->[1]->[1];
+  my $sblconst=$PESO{-VARS}->[2]->[1];
+
+  my $instruct=$PESO{-BILTN}->[0]->[1];
+
+# ---   *   ---   *   ---
 
   # iter expressions
   for my $exp(@exps) {
 
     if(!$exp) {next;};
 
-    my $pat='(('.$PESO{-KEYS}->[1]->[1].'\s+)';
-    $pat.='|('.$PESO{-VARS}->[0]->[1].'\s+))*';
+    my $pat='(('.$directive.'\s+)';
+    $pat.='|('.$primitive.'\s+)';
+
+    $pat.='|('.$instruct.'\s+)';
+    $pat.='|('.$flowctl.'\s+)';
+    $pat.='|('.$inherent.'\s+)';
+
+    $pat.='|('.$sblconst.'\s+)';
+
+    $pat.='|('.$_LUN.'+\s+)';
+    $pat.='|('.$_LUN.'+\-\>'.$_LUN.'+\s+))*';
 
     $exp=~ s/^\s*(${ pat })//;
 
     # first element is topmost in hierarchy
     my $key=$1;
 
-    if(!(defined $key)) {next;};
+    if( !(defined $key)
+    ||  !$exp
 
-    if(!$exp) {next;};
+    ) {next;};
+
+# ---   *   ---   *   ---
+
+    # determine expath from key and context
+
+    { my $i=0;for my $p(
+
+        $directive,
+        $flowctl,
+        $primitive,
+        $inherent,
+        $sblconst,
+        $instruct,
+
+      ) {
+
+        # get index of matching group
+        my $sa=$key=~ m/${p}/;
+        if($sa) {last;};$i++;
+
+      };
+
+# ---   *   ---   *   ---
+
+      # TODO
+      # *: fetch expath from table
+
+      # printf $i;
+
+    };
+
+# ---   *   ---   *   ---
 
     # create root node
     my $is_root=undef;
     my $root=node::nit($key,$is_root);
-    $is_root=$root->{-ROOT};
 
-    # here we split accordingly
-    printf "-$key\n";
-    for my $sym(split m/,|$/,$exp) {
-      my $node=$root->nit($sym,$is_root);
+    # here we split
+    printf "+$key\n";
 
-      $is_root=$node->{-ROOT};
-      printf "|-->".$node->{-VAL}."\n";
+    $exp=$root->splitlv(
+      '\b',
+      $exp
 
-    };next;
+    );$root->agroup();
+
+# ---   *   ---   *   ---
+
+    for my $leaf(@{ $root->{-LEAVES} }) {
+      printf '.-->'.$leaf->{-VAL}."\n";
+
+      $exp=$leaf->splitlv('\s*,\s*',$exp);
+      for my $child(@{ $leaf->{-LEAVES} }) {
+        printf '.  \--'.$child->{-VAL}."\n";
+
+        for my $grchild(@{$child->{-LEAVES}}) {
+          printf '.  .  \--'.$grchild->{-VAL}."\n";
+
+        };if(@{$child->{-LEAVES}}) {printf ".  .\n";};
+
+      };printf ".\n"
+    };
+
+    printf "\n";next;
 
 # ---   *   ---   *   ---
 

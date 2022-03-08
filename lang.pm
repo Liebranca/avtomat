@@ -29,6 +29,9 @@ package node;
 my %CACHE=(
 
   -TREES=>[],
+  -NAMES=>'[_a-zA-Z][_a-zA-Z0-9]',
+
+  -OPS=>'[\+\-\*\/\\\$@%&\^<>!\|?\{\[\(\)\]\}~.=;:]',
 
 );
 
@@ -41,20 +44,15 @@ sub nit {
   my $val=shift;
   my $is_root=shift;
 
-  my $id;
   my $tree;
 
   if(!(defined $is_root)) {
 
     my @ar=@{ $CACHE{-TREES} };
-    $id=$#ar;
+    $is_root=$#ar;
 
-    my %tree=(
-
-      -BUFF=>[],
-      -IDS=>[0..1023],
-
-    );$tree=\%tree;
+    my %tree=();
+    $tree=\%tree;
 
     push @{ $CACHE{-TREES} },$tree;
 
@@ -63,32 +61,201 @@ sub nit {
 
   } else {
     $tree=$CACHE{-TREES}->[$is_root];
-    my @ar=@{ $tree->{-BUFF} };
-    $id=pop @{ $tree->{-IDS} };
 
-    push @{ $self->{-LEAVES} },$id;
-
-  };
-
-  push @{ $tree->{-BUFF} },
-
-    bless {
+  };return bless {
 
     -VAL=>$val,
     -LEAVES=>[],
 
-    -SELF=>$id,
     -ROOT=>$is_root,
 
 
   },'node';
 
-  return $tree->{-BUFF}->[-1];
+};
+
+# ---   *   ---   *   ---
+
+sub splitlv {
+
+  my $self=shift;
+
+  my $pat=shift;
+  my $exp=shift;
+
+  my $is_root=$self->{-ROOT};
+
+  for my $sym(split m/${pat}/,$exp) {
+
+    $exp=~ m/^(.*)${sym}/;
+    if(defined $1) {
+      $exp=~ s/\Q${1}//;
+
+    };$sym=~ s/\s+//sg;
+
+    if(!(length $sym)) {$sym='$:cut;>';};
+
+    my $node=$self->nit($sym,$is_root);
+    push @{ $self->{-LEAVES} },$node;
+
+  };
+
+  return $exp;
 
 };
 
 # ---   *   ---   *   ---
 
+sub pluck {
+
+  my $self=shift;
+  my @ar=@_;
+
+  my @plucked=();
+
+  { my $i=0;
+
+    for my $leaf(@{ $self->{-LEAVES} }) {
+      if(!$leaf) {next;};
+
+      my $j=0;
+      for my $node(@ar) {
+
+        if(!$node) {$j++;next;};
+
+        if($leaf->{-VAL} eq $node->{-VAL}) {
+
+          push @plucked,$self->{-LEAVES}->[$i];
+
+          $ar[$j]=undef;
+          $self->{-LEAVES}->[$i]=undef;
+
+          last;
+
+        };$j++;
+
+      };$i++;
+
+    };
+  };
+
+# ---   *   ---   *   ---
+
+  # discard blanks
+
+  my @cpy=();
+  for(my $i=0;$i<@{ $self->{-LEAVES} };$i++) {
+
+    my $node=$self->{-LEAVES}->[$i];
+    if(defined $node) {
+      push @cpy,$node;
+
+    };
+
+  };$self->{-LEAVES}=[@cpy];
+
+  return @plucked;
+
+};
+
+# ---   *   ---   *   ---
+
+sub agroup {
+
+  my $self=shift;
+  my $is_root=$self->{-ROOT};
+
+  my @buf=();
+  my @dst=();
+
+# ---   *   ---   *   ---
+
+  # walk the branches
+  while(@{ $self->{-LEAVES} }) {
+    my $node=shift @{ $self->{-LEAVES} };
+
+    my $sym=$node->{-VAL};
+    if($sym eq '$:cut;>') {
+      push @dst,[@buf];
+
+      @buf=();next;
+
+    };
+
+# ---   *   ---   *   ---
+
+    # operator
+    if(
+
+       !($sym=~ m/${ CACHE{-OPS} }+\s*:/)
+    && !($sym=~ m/:\s*${ CACHE{-OPS} }+/)
+
+    &&   $sym=~ m/${ CACHE{-OPS} }+/
+
+    ) {
+
+      my $t=pop @buf;
+
+      push @buf,$node;
+      if($t) {push @buf,$t;};
+
+# ---   *   ---   *   ---
+
+    # anything else
+    } else {
+      push @buf,$node;
+
+    };
+
+# ---   *   ---   *   ---
+
+  # copy leftovers
+  };if(@buf) {
+    push @dst,[@buf];
+
+  # reorder
+  };for my $ref(@dst) {
+
+    my $node=$self->nit('L',$is_root);
+
+    push @{ $self->{-LEAVES} },$node;
+    push @{ $node->{-LEAVES} },@$ref;
+
+# ---   *   ---   *   ---
+
+    my @tail=();
+    for my $child(@$ref) {
+
+      push @tail,$child;
+      if($child->{-VAL} eq ',') {
+
+        if(@tail>2) {
+
+          $child->{-VAL}='e';
+          pop @tail;
+
+          my @tmp=$node->pluck(@tail);
+          $child->{-LEAVES}=[@tmp];
+
+        } else {
+          $node->pluck($child);
+
+        };@tail=();next;
+
+      };
+
+    };if(@tail>=2) {
+
+      my $child=$node->nit('e',$is_root);
+      my @tmp=$node->pluck(@tail);
+      $child->{-LEAVES}=[@tmp];
+
+      push @{ $node->{-LEAVES} },$child;
+
+    };
+  };
+
+};
 
 # ---   *   ---   *   ---
 
