@@ -181,8 +181,8 @@ my %MAM=(
     '['=>[2,\&ll::obrak],
     ']'=>[2,\&ll::cbrak],
 
-    '{'=>[2,\&ll::ocurl],
-    '}'=>[2,\&ll::ccurl],
+    '{'=>[\&node::ocurl,0],
+    '}'=>[0,\&node::ccurl],
 
     '?'=>[1,\&ll::quest],
     '!'=>[1,\&ll::neg],
@@ -515,13 +515,13 @@ sub peso_rd {
     while($rb=readline FH) {
 
       # strip comments
-      $rb=~ s/#.*\n?//;
+      $rb=~ s/#.*\n?//g;
 
       # force single spaces
-      $rb=~ s/\s+/ /;
+      $rb=~ s/\s+/ /s;
 
       # strip newlines?
-      $rb=~ s/\n+//;
+      $rb=~ s/\n+//sg;
 
       if(!$rb) {next;};
 
@@ -535,13 +535,12 @@ sub peso_rd {
       # multi-line expression(s)
       } else {
         my @ar=split ';',$rb;
-        $rem.=pop @ar;
+        my $entry=pop @ar;
 
         if(@ar) {
-          $exps[0]=$rem.$exps[0];
           push @exps,@ar;
 
-        };
+        };$rem.=$entry;
       };
 
 # ---   *   ---   *   ---
@@ -565,25 +564,29 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
+  my $pat='(('.$directive.'\s+)';
+  $pat.='|('.$primitive.'\s+)';
+
+  $pat.='|('.$instruct.'\s+)';
+  $pat.='|('.$flowctl.'\s+)';
+  $pat.='|('.$inherent.'\s+)';
+
+  $pat.='|('.$sblconst.'\s+)';
+
+  $pat.='|('.$operator.'\s*)';
+
+  #$pat.='|('.$_LUN.'*\s+)';
+  #$pat.='|('.$_LUN.'*\-\>'.$_LUN.'+\s+)';
+
+  $pat.=")*";
+  my @tree=();
+
+# ---   *   ---   *   ---
+
   # iter expressions
   for my $exp(@exps) {
 
     if(!$exp) {next;};
-
-    my $pat='(('.$directive.'\s+)';
-    $pat.='|('.$primitive.'\s+)';
-
-    $pat.='|('.$instruct.'\s+)';
-    $pat.='|('.$flowctl.'\s+)';
-    $pat.='|('.$inherent.'\s+)';
-
-    $pat.='|('.$sblconst.'\s+)';
-    $pat.='|(\s*'.$operator.'\s*)';
-
-    #$pat.='|('.$_LUN.'*\s+)';
-    #$pat.='|('.$_LUN.'*\-\>'.$_LUN.'+\s+)';
-
-    $pat.=')*';
 
     $exp=~ s/^\s*(${ pat })//;
 
@@ -597,8 +600,12 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
+    # create root node
+    my $root=node::nit(undef,$key);
+
     # determine expath from key and context
 
+    my @expath=(undef,undef);
     { my $i=0;for my $p(
 
         $directive,
@@ -607,6 +614,7 @@ sub peso_rd {
         $inherent,
         $sblconst,
         $instruct,
+
         $operator,
 
       ) {
@@ -619,8 +627,42 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-      # TODO
-      # *: fetch expath from table
+    if($key=~ m/.*${operator}.*/) {
+
+      $key=~ s/${operator}//;
+      $exp=$key.$exp;
+
+      $key=$1;
+      $root->{-VAL}=$key;
+
+      $i=6;
+
+    };
+
+# ---   *   ---   *   ---
+
+      # fetch expath from table
+
+      my $tab=(
+          0,0,0,0,0,0,
+          $MAM{-OPS}
+
+        )[$i];
+
+      if($tab) {
+        my %tab=%{ $tab };
+
+        # exists d{k} doesnt work here
+        for my $skey(keys %tab) {
+          if($skey eq $key) {
+            @expath=@{ $tab{$skey} };
+
+            last;
+
+          };
+        };
+
+      };
 
       # printf $i;
 
@@ -628,19 +670,33 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-    # create root node
-    my $root=node::nit(undef,$key);
+    if($expath[0]) {
+      $expath[0]->($root,$key);
+
+    };
+
+# ---   *   ---   *   ---
 
     # tokenize expression
     $exp=$root->splitlv(
-      '\b',
+      '\b|:',
       $exp
 
     # sort tokens
     );$root->agroup();
+    $root->branch_reloc();
 
-    # print structure
-    $root->prich();
+    if(!$root->{-PAR}) {
+      push @tree,$root;
+
+    };
+
+# ---   *   ---   *   ---
+
+    if($expath[1]) {
+      $expath[1]->($root,$key);
+
+    };
 
     next;
 
@@ -679,7 +735,14 @@ sub peso_rd {
 
     };clps();
 
-  };return;
+  };
+
+  for my $root(@tree) {
+    $root->prich();
+
+  };
+
+  return;
 
 # ---   *   ---   *   ---
 
