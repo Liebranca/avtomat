@@ -31,139 +31,345 @@ my %CACHE=(
   -TREES=>[],
   -NAMES=>'[_a-zA-Z][_a-zA-Z0-9]',
 
-  -OPS=>'[\+\-\*\/\\\$@%&\^<>!\|?\{\[\(\)\]\}~.=;:]',
+  -OPS=>''.
+
+    '[\+\-\*\/\\\$\@\%\&'.
+    '\^\<\>\!\|\?\{\[\(\)'.
+    '\]\}\~\.\=\;\:]',
+
+  -ODE=>'[\(\[\{]',
+  -CDE=>'[\}\]\)]',
+
+  -DEPTH=>[],
+  -LDEPTH=>0,
 
 );
 
-# in: val,is_root;
+# ---   *   ---   *   ---
+
+# in: self,val
 # make child node or create a new tree
 sub nit {
 
+  # pass undef for new tree
   my $self=shift;
 
+  # value for new node
   my $val=shift;
-  my $is_root=shift;
 
-  my $tree;
-
-  if(!(defined $is_root)) {
-
-    my @ar=@{ $CACHE{-TREES} };
-    $is_root=$#ar;
-
-    my %tree=();
-    $tree=\%tree;
-
-    push @{ $CACHE{-TREES} },$tree;
-
+  # tree/root handle
+  my $tree={};
+  my $tree_id;
 
 # ---   *   ---   *   ---
 
-  } else {
-    $tree=$CACHE{-TREES}->[$is_root];
+  # make new tree if !$self
+  if(!(defined $self)) {
 
-  };return bless {
+    push @{ $CACHE{-TREES} },$tree;
+
+    my @ar=@{ $CACHE{-TREES} };
+    $tree_id=$#ar;
+
+# ---   *   ---   *   ---
+
+  # ... or fetch from id
+  } else {
+    $tree_id=$self->{-ROOT};
+    $tree=$CACHE{-TREES}->[$tree_id];
+
+  # make node instance
+  };my $node=bless {
 
     -VAL=>$val,
     -LEAVES=>[],
 
-    -ROOT=>$is_root,
-
+    -ROOT=>$tree_id,
+    -PAR=>undef,
 
   },'node';
 
+# ---   *   ---   *   ---
+
+  # add leaf if $self
+  if(defined $self) {
+    push @{ $self->{-LEAVES} },$node;
+    $node->{-PAR}=$self;
+
+  };return $node;
+
 };
 
 # ---   *   ---   *   ---
 
-sub splitlv {
+sub walkup {
+
+  my $self=shift;
+  my $top=shift;
+
+  if(!defined $top) {
+    $top=-1;
+
+  };
+
+  my $node=$self->{-PAR};
+  my $i=0;
+
+  while($top<$i) {
+    my $par=$node->{-PAR};
+    if($par) {
+      $node=$par;
+
+    } else {last;};$i++;
+  };
+
+  return $node;
+
+};
+
+# ---   *   ---   *   ---
+
+# in:overwrite,node arr
+# push node array to leaves
+sub pshlv {
 
   my $self=shift;
 
-  my $pat=shift;
-  my $exp=shift;
+  my $overwrite=shift;
+  if($overwrite) {
+    $self->{-LEAVES}=[];
 
-  my $is_root=$self->{-ROOT};
+  };
 
-  for my $sym(split m/${pat}/,$exp) {
+# ---   *   ---   *   ---
 
-    $exp=~ m/^(.*)${sym}/;
-    if(defined $1) {
-      $exp=~ s/\Q${1}//;
+  # move nodes
+  my %cl=();
+  while(@_) {
 
-    };$sym=~ s/\s+//sg;
+    my $node=shift;
+    my $par=$node->{-PAR};
 
-    if(!(length $sym)) {$sym='$:cut;>';};
-
-    my $node=$self->nit($sym,$is_root);
+    $node->{-PAR}=$self;
     push @{ $self->{-LEAVES} },$node;
 
+    if($par!=$node->{-PAR}) {
+      $par->pluck($node);
+      $cl{$par}=$par;
+
+    };
+
+  };for my $node(keys %cl) {
+    $node=$cl{$node};
+    $node->cllv();
+
   };
-
-  return $exp;
-
 };
 
 # ---   *   ---   *   ---
 
-sub pluck {
+# discard blank nodes
+sub cllv {
 
   my $self=shift;
-  my @ar=@_;
-
-  my @plucked=();
-
-  { my $i=0;
-
-    for my $leaf(@{ $self->{-LEAVES} }) {
-      if(!$leaf) {next;};
-
-      my $j=0;
-      for my $node(@ar) {
-
-        if(!$node) {$j++;next;};
-
-        if($leaf->{-VAL} eq $node->{-VAL}) {
-
-          push @plucked,$self->{-LEAVES}->[$i];
-
-          $ar[$j]=undef;
-          $self->{-LEAVES}->[$i]=undef;
-
-          last;
-
-        };$j++;
-
-      };$i++;
-
-    };
-  };
-
-# ---   *   ---   *   ---
-
-  # discard blanks
-
   my @cpy=();
-  for(my $i=0;$i<@{ $self->{-LEAVES} };$i++) {
 
+  for(
+
+    my $i=0;
+
+    $i<@{ $self->{-LEAVES} };
+    $i++
+
+  ) {
+
+    # push only nodes that arent plucked
     my $node=$self->{-LEAVES}->[$i];
     if(defined $node) {
       push @cpy,$node;
 
     };
 
+  # overwrite with filtered array
   };$self->{-LEAVES}=[@cpy];
 
+};
+
+# ---   *   ---   *   ---
+
+# in:self,pattern,string
+# branch out node from pattern split
+sub splitlv {
+
+  # instance
+  my $self=shift;
+
+  # data
+  my $pat=shift;
+  my $exp=shift;
+
+  my $exp_depth_a=0;
+  my $exp_depth_b=0;
+
+  # split string at pattern
+  for my $sym(split m/${pat}/,$exp) {
+
+    # eliminate match
+    $exp=~ m/^(.*)\Q${sym}/;
+    if(defined $1 && $1) {
+      $exp=~ s/\Q${1}//;
+
+    # space strip
+    };$sym=~ s/\s+//sg;
+
+# ---   *   ---   *   ---
+
+    # subdivide by delimiters
+
+    my @children=();
+    my $delims=${CACHE{-ODE}}.'|'.${CACHE{-CDE}};
+
+    while($sym=~ m/${delims}/) {
+
+      $sym=~ s/(${delims})//;
+      my $c=$1;
+
+# ---   *   ---   *   ---
+
+      # (++ expresion scope )--
+      # [++ fetch scope ]--
+      # {++ code scope }--
+
+      $exp_depth_b+=$c eq '[';
+      $exp_depth_a+=$c eq '(';
+      $exp_depth_a-=$c eq ')';
+      $exp_depth_b-=$c eq ']';
+
+      if($c eq '{') {
+
+        push(
+
+          @{ $CACHE{-DEPTH} },
+          $self->walkup()
+
+        );$CACHE{-LDEPTH}++;
+
+        printf "@>";
+        printf @{ $CACHE{-DEPTH} };
+        printf "\n";
+
+      } elsif($c eq '}') {
+
+        printf "@>";
+        printf @{ $CACHE{-DEPTH} };
+        printf "\n";
+
+        my $dst=pop @{ $CACHE{-DEPTH} };
+        $CACHE{-LDEPTH}--;
+
+        $dst->nit($c);
+        for my $child(@children) {
+          $dst->nit($child);
+
+        };@children=();next;
+
+      };
+
+# ---   *   ---   *   ---
+
+#      $c.="$exp_depth_a | $exp_depth_b | ".
+#        $CACHE{-LDEPTH}.
+#
+#      "\n";
+
+      push @children,$c;
+
+    };
+
+# ---   *   ---   *   ---
+
+    # make new node from token
+    if(!length $sym) {$sym='$:cut;>';};
+    my $node=$self->nit($sym);
+
+    # push leaves
+    for my $child(@children) {
+      $node->nit($child);
+
+    };
+  };
+
+  # return the modified string
+  return $exp;
+
+};
+
+# ---   *   ---   *   ---
+
+# in: node list
+# removes leaves from node
+sub pluck {
+
+  # instance
+  my $self=shift;
+
+  # data
+  my @ar=@_;
+
+  # return value
+  my @plucked=();
+
+# ---   *   ---   *   ---
+
+  # match nodes in list
+  { my $i=0;for my $leaf(
+    @{ $self->{-LEAVES} }
+
+  # skip removed nodes
+  ) { if(!$leaf) {next;};
+
+      # iter node array
+      my $j=0;for my $node(@ar) {
+
+        # skip already removed ones
+        if(!$node) {$j++;next;};
+
+# ---   *   ---   *   ---
+
+        # node is in remove list
+        if($leaf->{-VAL} eq $node->{-VAL}) {
+
+          # save the removed nodes
+          push @plucked,$self->{-LEAVES}->[$i];
+
+          # remove from list and leaves
+          $ar[$j]=undef;
+          $self->{-LEAVES}->[$i]=undef;
+
+          # go to next leaf
+          last;
+
+        };$j++; # next in remove list
+      };$i++; # next in leaves
+    };
+  };
+
+# ---   *   ---   *   ---
+
+  # discard blanks
+  $self->cllv();
+
+  # return removed nodes
   return @plucked;
 
 };
 
 # ---   *   ---   *   ---
 
+# use peso rules for grouping tokens
 sub agroup {
 
   my $self=shift;
-  my $is_root=$self->{-ROOT};
 
   my @buf=();
   my @dst=();
@@ -174,28 +380,62 @@ sub agroup {
   while(@{ $self->{-LEAVES} }) {
     my $node=shift @{ $self->{-LEAVES} };
 
+    # check for special grouping symbols
     my $sym=$node->{-VAL};
     if($sym eq '$:cut;>') {
-      push @dst,[@buf];
 
-      @buf=();next;
+      push @dst,[@buf];
+      @buf=();push @buf,@{ $node->{-LEAVES} };
+
+      #:***;> inspect for delimiters
+      next;
 
     };
 
 # ---   *   ---   *   ---
 
+    my $delims=$CACHE{-ODE}.$CACHE{-CDE};
+
+    # delimiter
+#    if($sym=~ m/${delims}/) {
+#
+#      # open
+#      if($sym=~ m/${CACHE{-ODE}}/) {
+#
+#        push @dst,[@buf];
+#        @buf=();
+#
+#        push @buf,$node;
+#
+#      # close
+#      } else {
+#
+#        push @buf,$node;
+#        push @dst,[@buf];
+#        @buf=();
+#
+#      };next;
+#
+#    };
+
+# ---   *   ---   *   ---
+
     # operator
     if(
-
-       !($sym=~ m/${ CACHE{-OPS} }+\s*:/)
-    && !($sym=~ m/:\s*${ CACHE{-OPS} }+/)
-
-    &&   $sym=~ m/${ CACHE{-OPS} }+/
+0
+#       !($sym=~ m/${ CACHE{-OPS} }+\s*:/)
+#    && !($sym=~ m/:\s*${ CACHE{-OPS} }+/)
+#    && !($sym=~ m/:\s*${ CACHE{-OPS} }+\s*:/)
+#
+#    &&   $sym=~ m/${ CACHE{-OPS} }+/
 
     ) {
 
+
+      # castle value->operator
       my $t=pop @buf;
 
+      # so it's operator->value
       push @buf,$node;
       if($t) {push @buf,$t;};
 
@@ -216,27 +456,30 @@ sub agroup {
   # reorder
   };for my $ref(@dst) {
 
-    my $node=$self->nit('L',$is_root);
-
-    push @{ $self->{-LEAVES} },$node;
-    push @{ $node->{-LEAVES} },@$ref;
+    # make a branch for each obtained group
+    my $node=$self->nit('L');
+    $node->pshlv(0,@$ref);
 
 # ---   *   ---   *   ---
 
-    my @tail=();
-    for my $child(@$ref) {
+    # iter branch leaves
+    my @tail=();for my $child(@$ref) {
 
+      # always stop at commas ;>
       push @tail,$child;
       if($child->{-VAL} eq ',') {
 
+        # create a group if long tail
         if(@tail>2) {
 
           $child->{-VAL}='e';
           pop @tail;
 
+          # group nodes into child
           my @tmp=$node->pluck(@tail);
-          $child->{-LEAVES}=[@tmp];
+          $child->pshlv(1,@tmp);
 
+        # or do not
         } else {
           $node->pluck($child);
 
@@ -244,15 +487,55 @@ sub agroup {
 
       };
 
+# ---   *   ---   *   ---
+
+    # copy leftovers
     };if(@tail>=2) {
 
-      my $child=$node->nit('e',$is_root);
+      my $child=$node->nit('e');
       my @tmp=$node->pluck(@tail);
-      $child->{-LEAVES}=[@tmp];
-
-      push @{ $node->{-LEAVES} },$child;
+      $child->pshlv(1,@tmp);
 
     };
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+# print node leaves
+sub prich {
+
+  # instance
+  my $self=shift;
+  my $depth=shift;
+
+# ---   *   ---   *   ---
+
+  # print head
+  if(!defined $depth) {
+    printf "+$self->{-VAL}\n";
+    $depth=0;
+
+  };
+
+  # iter children
+  for my $node(@{ $self->{-LEAVES} }) {
+
+    printf ''.(
+      '.  'x($depth).'\-->'.
+      $node->{-VAL}
+
+
+    )."\n";$node->prich($depth+1);
+
+  };
+
+# ---   *   ---   *   ---
+
+  if(@{ $self->{-LEAVES} }) {
+    printf '.  'x($depth)."\n";
+
   };
 
 };
@@ -627,8 +910,16 @@ my %DICT=(-GPRE=>{
 
   -DEV =>[
 
-    [0x0B,'('.( eiths('TODO,NOTE') ).':?|\*+:)'],
-    [0x09,'('.( eiths('FIX,BUG') ).':?|\!+:)'],
+    [0x0B,'('.( eiths('TODO,NOTE') ).
+      ':?|#:\*+;>)'
+
+    ],
+
+    [0x09,'('.( eiths('FIX,BUG') ).
+      ':?|#:\!+;>)'
+
+    ],
+
     [0x66,'(^[[:space:]]+$)'],
     [0x66,'([[:space:]]+$)'],
 

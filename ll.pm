@@ -47,6 +47,12 @@ sub quest {return eval('('.shift.')!=0');};
 #!a
 sub neg {return eval('!('.shift.')');};
 
+#++a
+sub inc {return eval('('.shift.')++');};
+
+#--a
+sub dec {return eval('('.shift.')--');};
+
 # ---   *   ---   *   ---
 # peso-like ops
 

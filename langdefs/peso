@@ -30,7 +30,7 @@ my %PESO=(
     # inherents
     [0x04,eiths(
 
-      'str,buf,ptr,wed,lis,'
+      'str,buf,ptr,fptr,wed,lis,lock,'
 
     ,1)],
 
@@ -69,14 +69,14 @@ my %PESO=(
     # program flow
     [0x0D,eiths(
 
-      'jmp,jif,eif,sys,ret,wait'
+      'jmp,jif,eif,call,ret,wait'
 
     ,1)],
 
     # directives
     [0x0D,eiths(
 
-      'reg,rom,proc,clan,entry,exit,atexit'
+      'reg,rom,proc,clan,tab,entry,exit,atexit'
 
     ,1)],
 
@@ -161,7 +161,10 @@ my %MAM=(
   -OPS=>{
 
     '+'=>[2,\&ll::add],
+    '++'=>[1,\&ll::inc],
+
     '-'=>[2,\&ll::sub0],
+    '--'=>[1,\&ll::dec],
 
     '*'=>[2,\&ll::mul],
     '/'=>[2,\&ll::div],
@@ -254,23 +257,19 @@ sub peso_calcus_psh {
     );while(@{ $MAM{-CALC} }) {
 
       my @ar=@{ $MAM{-CALC} };
-      my $len=@ar-1;
+      my $len=$#ar;
 
       my $sym=shift @ar;
 
 # ---   *   ---   *   ---
 
+      # symbol is operator
       if(exists $MAM{-OPS}->{$sym}) {
 
         my $arg=$MAM{-OPS}->{$sym}->[0];
 
-        # push back
+        # push back if less than required args
         if($len<$arg) {
-          printf "$len<$arg\n";
-          printf "pushing $MAM{-CALC}->[0] ".(join
-            ',',@ar
-
-          )."\n";
 
           while(@{ $MAM{-CALC} }) {
 
@@ -291,6 +290,7 @@ sub peso_calcus_psh {
 
 # ---   *   ---   *   ---
 
+        # get appropiate call for operator
         my @call=();
         my $sig=0;
 
@@ -299,6 +299,8 @@ sub peso_calcus_psh {
 
         # $sig->[0..arg-1]
         };shift @{ $MAM{-CALC} };
+
+# ---   *   ---   *   ---
 
       while($arg) {
 
@@ -559,6 +561,7 @@ sub peso_rd {
   my $sblconst=$PESO{-VARS}->[2]->[1];
 
   my $instruct=$PESO{-BILTN}->[0]->[1];
+  my $operator=$DICT{-GPRE}->{-OPS}->[0]->[1];
 
 # ---   *   ---   *   ---
 
@@ -575,9 +578,12 @@ sub peso_rd {
     $pat.='|('.$inherent.'\s+)';
 
     $pat.='|('.$sblconst.'\s+)';
+    $pat.='|(\s*'.$operator.'\s*)';
 
-    $pat.='|('.$_LUN.'+\s+)';
-    $pat.='|('.$_LUN.'+\-\>'.$_LUN.'+\s+))*';
+    #$pat.='|('.$_LUN.'*\s+)';
+    #$pat.='|('.$_LUN.'*\-\>'.$_LUN.'+\s+)';
+
+    $pat.=')*';
 
     $exp=~ s/^\s*(${ pat })//;
 
@@ -585,7 +591,7 @@ sub peso_rd {
     my $key=$1;
 
     if( !(defined $key)
-    ||  !$exp
+    ||  (!$exp && !length $key)
 
     ) {next;};
 
@@ -601,6 +607,7 @@ sub peso_rd {
         $inherent,
         $sblconst,
         $instruct,
+        $operator,
 
       ) {
 
@@ -622,36 +629,20 @@ sub peso_rd {
 # ---   *   ---   *   ---
 
     # create root node
-    my $is_root=undef;
-    my $root=node::nit($key,$is_root);
+    my $root=node::nit(undef,$key);
 
-    # here we split
-    printf "+$key\n";
-
+    # tokenize expression
     $exp=$root->splitlv(
       '\b',
       $exp
 
+    # sort tokens
     );$root->agroup();
 
-# ---   *   ---   *   ---
+    # print structure
+    $root->prich();
 
-    for my $leaf(@{ $root->{-LEAVES} }) {
-      printf '.-->'.$leaf->{-VAL}."\n";
-
-      $exp=$leaf->splitlv('\s*,\s*',$exp);
-      for my $child(@{ $leaf->{-LEAVES} }) {
-        printf '.  \--'.$child->{-VAL}."\n";
-
-        for my $grchild(@{$child->{-LEAVES}}) {
-          printf '.  .  \--'.$grchild->{-VAL}."\n";
-
-        };if(@{$child->{-LEAVES}}) {printf ".  .\n";};
-
-      };printf ".\n"
-    };
-
-    printf "\n";next;
+    next;
 
 # ---   *   ---   *   ---
 
