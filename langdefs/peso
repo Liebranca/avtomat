@@ -53,8 +53,8 @@ my %PESO=(
       'cpy,mov,wap,'.
       'kin,sow,reap,'.
 
-      'pop,psh,mem,fre,'.
-      'skp,rew,'.
+      'pop,push,mem,fre,'.
+      'skip,rew,'.
 
       'sys,stop,exit'
 
@@ -528,17 +528,41 @@ sub peso_rd {
 # ---   *   ---   *   ---
 
       # line ends with ;
-      if($rb=~ m/;$/) {
+      if($rb=~ m/\}?;$/) {
+
         $rb=$rem.$rb;$rem='';
-        push @exps,(split ';',$rb);
+        my @ar=split ';',$rb;
+
+        # separate curls
+        for my $e(@ar) {
+
+          if($e=~ m/^\s*\{/) {
+            push @exps,'{';
+            $e=~ s/^\s*\{//;
+
+          };my $cl=$e=~ s/\}$//;
+
+          push @exps,$e;
+          if($cl) {push @exps,'}';};
+
+        };
 
       # multi-line expression(s)
       } else {
         my @ar=split ';',$rb;
         my $entry=pop @ar;
 
-        if(@ar) {
-          push @exps,@ar;
+        # separate curls
+        for my $e(@ar) {
+
+          if($e=~ m/^\s*\{/) {
+            push @exps,'{';
+            $e=~ s/^\s*\{//;
+
+          };my $cl=$e=~ s/\}$//;
+
+          push @exps,$e;
+          if($cl) {push @exps,'}';};
 
         };$rem.=$entry;
       };
@@ -587,7 +611,6 @@ sub peso_rd {
   for my $exp(@exps) {
 
     if(!$exp) {next;};
-
     $exp=~ s/^\s*(${ pat })//;
 
     # first element is topmost in hierarchy
@@ -627,17 +650,17 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-    if($key=~ m/.*${operator}.*/) {
-
-      $key=~ s/${operator}//;
-      $exp=$key.$exp;
-
-      $key=$1;
-      $root->{-VAL}=$key;
-
-      $i=6;
-
-    };
+#    if($key=~ m/.*${operator}.*/) {
+#
+#      $key=~ s/${operator}//;
+#      $exp=$key.$exp;
+#
+#      $key=$1;
+#      $root->{-VAL}=$key;
+#
+#      $i=6;
+#
+#    };
 
 # ---   *   ---   *   ---
 
@@ -677,14 +700,17 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
+    $exp=~ s/\s+,/,/;
+
     # tokenize expression
     $exp=$root->splitlv(
-      '\b|:',
+
+      '\b[^\s]+\b\s', # |[\b|:]
       $exp
 
     # sort tokens
-    );$root->agroup();
-    $root->branch_reloc();
+    );$root->branch_reloc();
+    #$root->agroup();
 
     if(!$root->{-PAR}) {
       push @tree,$root;

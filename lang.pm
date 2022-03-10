@@ -114,6 +114,20 @@ sub nit {
 
 };
 
+sub mksep {
+
+  return bless {
+
+    -VAL=>'$:cut;>',
+    -LEAVES=>[],
+
+    -ROOT=>0,
+    -PAR=>undef,
+
+  },'node';
+
+};
+
 # ---   *   ---   *   ---
 
 sub branch_reloc {
@@ -124,14 +138,9 @@ sub branch_reloc {
   my $tree_id=$self->{-ROOT};
   my %tree=%{ $CACHE{-TREES}->[$tree_id] };
 
-  printf "SELF $self->{-VAL}\n";
-
   # move branches to saved tree node
   if($tree{-FUSE}) {
-
-  printf "TREE $tree{-FUSE}\n";
-
-    $tree{-FUSE}->pshlv(0,$self);
+    $tree{-FUSE}->pushlv(0,$self);
 
   };
 };
@@ -163,7 +172,7 @@ sub ocurl {
   my @leaves=$self->pluck(@{ $self->{-LEAVES} });
   push @leaves,$self;
 
-  $node->pshlv(0,@leaves);
+  $node->pushlv(0,@leaves);
 
 };
 
@@ -198,7 +207,7 @@ sub walkup {
 
 # in:overwrite,node arr
 # push node array to leaves
-sub pshlv {
+sub pushlv {
 
   my $self=shift;
 
@@ -215,9 +224,16 @@ sub pshlv {
   while(@_) {
 
     my $node=shift;
+    if($node eq '$:cut;>') {
+      $node=node::mksep();
+
+    };
+
     my $par=$node->{-PAR};
 
+    $node->{-ROOT}=$self->{-ROOT};
     $node->{-PAR}=$self;
+
     push @{ $self->{-LEAVES} },$node;
 
     if($par && $par!=$node->{-PAR}) {
@@ -281,7 +297,9 @@ sub splitlv {
   my $delims=${CACHE{-ODE}}.'|'.${CACHE{-CDE}};
 
   # split string at pattern
-  for my $sym(split m/${pat}/,$exp) {
+  for my $sym(split m/(${pat})/,$exp) {
+
+    if(!$sym) {next;};
 
     # eliminate match
     $exp=~ m/^(.*)\Q${sym}/;
@@ -317,7 +335,7 @@ sub splitlv {
 # ---   *   ---   *   ---
 
     # make new node from token
-    if(!length $sym) {$sym='$:cut;>';};
+    if(!length $sym) {next;$sym='$:cut;>';};
     my $node=$self->nit($sym);
 
     # push leaves
@@ -417,26 +435,21 @@ sub agroup {
       push @dst,[@buf];
       @buf=();push @buf,@{ $node->{-LEAVES} };
 
-      #:***;> inspect for delimiters
       next;
 
     };
 
 # ---   *   ---   *   ---
 
-    # delimiter
-    if($sym=~m/${delims}/) {
-      push @buf,$node;
-
-    }
-
     # operator
-    elsif(
-       !($sym=~ m/${ CACHE{-OPS} }+\s*:/)
-    && !($sym=~ m/:\s*${ CACHE{-OPS} }+/)
-    && !($sym=~ m/:\s*${ CACHE{-OPS} }+\s*:/)
+    if(
+    0
 
-    &&   $sym=~ m/${ CACHE{-OPS} }+/
+#       !($sym=~ m/${ CACHE{-OPS} }+\s*:/)
+#    && !($sym=~ m/:\s*${ CACHE{-OPS} }+/)
+#    && !($sym=~ m/:\s*${ CACHE{-OPS} }+\s*:/)
+#
+#    &&   $sym=~ m/${ CACHE{-OPS} }+/
 
     ) {
 
@@ -480,7 +493,7 @@ sub agroup {
 
     # make a branch for each obtained group
     my $node=$self->nit('L');
-    $node->pshlv(0,@$ref);
+    $node->pushlv(0,@$ref);
 
 # ---   *   ---   *   ---
 
@@ -498,8 +511,7 @@ sub agroup {
           pop @tail;
 
           # group nodes into child
-          my @tmp=$node->pluck(@tail);
-          $child->pshlv(1,@tmp);
+          $child->pushlv(0,@tail);
 
         # or do not
         } else {
@@ -512,13 +524,16 @@ sub agroup {
 # ---   *   ---   *   ---
 
     # copy leftovers
-    };if(@tail>=2) {
+    };if(@tail>2) {
 
       my $child=$node->nit('e');
-      my @tmp=$node->pluck(@tail);
-      $child->pshlv(1,@tmp);
 
-    };if(!@{ $node->{-LEAVES} }) {
+      # group nodes into child
+      $child->pushlv(0,@tail);
+
+    };
+
+    if(!@{ $node->{-LEAVES} }) {
       $self->pluck($node);
 
     };
@@ -539,7 +554,7 @@ sub prich {
 
   # print head
   if(!defined $depth) {
-    printf "+$self->{-VAL}\n";
+    printf "$self->{-VAL}\n";
     $depth=0;
 
   };
