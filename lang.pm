@@ -31,11 +31,30 @@ my %CACHE=(
   -TREES=>[],
   -NAMES=>'[_a-zA-Z][_a-zA-Z0-9]',
 
+# ---   *   ---   *   ---
+
   -OPS=>''.
 
     '[\+\-\*\/\\\$\@\%\&'.
     '\^\<\>\!\|\?\{\[\(\)'.
     '\]\}\~\.\=\;\:]',
+
+#((2 *: (y*^2)):/ 8) :+ 8
+
+  -OP_PREC=>[
+
+    '*^','*','/','++','+','--','-',
+
+    '?','!','~',
+    '<<','>>','|','^','&',
+
+    '&&','||',
+
+    ';>','$:',
+
+  ],
+
+# ---   *   ---   *   ---
 
   -ODE=>'[\(\[\{]',
   -CDE=>'[\}\]\)]',
@@ -75,7 +94,10 @@ sub nit {
     $tree_id=@ar;
 
     if(defined $CACHE{-ANCHOR}) {
-      $tree{-FUSE}=$CACHE{-ANCHOR};
+
+      printf "$val\n";
+
+      $tree{-FUSE}=$CACHE{-DEPTH}->[-1];
       $tree{-ROOT}=undef;
 
     };
@@ -147,32 +169,67 @@ sub branch_reloc {
 
 # ---   *   ---   *   ---
 
+# {} open/close
+
 sub ocurl {
   my $self=shift;
   my $val=shift;
 
+  # use self as fake root
   push @{ $CACHE{-DEPTH} },$self;
   $CACHE{-LDEPTH}++;
 
+  # new nodes append to
   $CACHE{-ANCHOR}=$self;
 
 };sub ccurl {
   my $self=shift;
   my $val=shift;
 
+  # remove last fake root
   my $node=pop @{ $CACHE{-DEPTH} };
   $CACHE{-LDEPTH}--;
 
+  # unset dead anchors
   if(!$CACHE{-LDEPTH}) {
     $CACHE{-ANCHOR}=undef;
 
   };
 
+  # reorder branches
   $node->pluck($self);
   my @leaves=$self->pluck(@{ $self->{-LEAVES} });
   push @leaves,$self;
 
   $node->pushlv(0,@leaves);
+
+};
+
+# ---   *   ---   *   ---
+
+# () open/close
+
+sub oparn {
+  my $self=shift;
+  my $val=shift;
+
+  if($val) {
+    $self->nit($val);
+
+  };
+
+  my $node=$self->nit('(');
+
+  return $node;
+
+}; sub cparn {
+  my $self=shift;
+  my $val=shift;
+
+  if($val) {$self->nit($val);};
+  my $node=$self->nit(')');
+
+  return $node;
 
 };
 
@@ -294,7 +351,7 @@ sub splitlv {
   my $exp_depth_a=0;
   my $exp_depth_b=0;
 
-  my $delims=${CACHE{-ODE}}.'|'.${CACHE{-CDE}};
+  my @anch=($self);
 
   # split string at pattern
   for my $sym(split m/(${pat})/,$exp) {
@@ -311,38 +368,48 @@ sub splitlv {
 
 # ---   *   ---   *   ---
 
-    # subdivide by delimiters
+  if($exp_depth_a) {
 
-    my @children=();
-    while($sym=~ m/${delims}/) {
+    if($sym=~ m/\)/) {
 
-      $sym=~ s/(${delims})//;
-      my $c=$1;
+      my $ex;
+      ($ex,$sym)=split m/\)/,$sym;
 
-      if(!length $sym) {
-        $sym=$c;
-        @children=();
+      $anch[-1]->cparn($ex);
+      pop @anch;
 
-        last;
-
-      } else {
-        push @children,$c;
-
-      };
+      $sym=~ s/\)//;
+      $exp_depth_a--;
 
     };
+
+  };
+
+# ---   *   ---   *   ---
+
+  # subdivide by delimiters
+  if( $sym=~ m/(\()/ ) {
+    if(!$sym){last;};
+
+    my $c=$1;
+
+    if($c eq '(') {
+
+      my $ex;
+      ($ex,$sym)=split "\Q$c",$sym;
+
+      push @anch,$self->oparn($ex);
+      $exp_depth_a++;
+
+    };
+  };
 
 # ---   *   ---   *   ---
 
     # make new node from token
     if(!length $sym) {next;$sym='$:cut;>';};
-    my $node=$self->nit($sym);
+    my $node=$anch[-1]->nit($sym);
 
-    # push leaves
-    for my $child(@children) {
-      $self->nit($child);
-
-    };
   };
 
   # return the modified string
@@ -424,120 +491,101 @@ sub agroup {
 
 # ---   *   ---   *   ---
 
-  # walk the branches
-  while(@{ $self->{-LEAVES} }) {
-    my $node=shift @{ $self->{-LEAVES} };
+  # branch out at commas
+  for my $node(@{ $self->{-LEAVES} }) {
+    my @syms=split ',',$node->{-VAL};
 
-    # check for special grouping symbols
-    my $sym=$node->{-VAL};
-    if($sym eq '$:cut;>') {
+    if(@syms>1) {
+      $node->{-VAL}='L';
 
-      push @dst,[@buf];
-      @buf=();push @buf,@{ $node->{-LEAVES} };
-
-      next;
-
-    };
-
-# ---   *   ---   *   ---
-
-    # operator
-    if(
-    0
-
-#       !($sym=~ m/${ CACHE{-OPS} }+\s*:/)
-#    && !($sym=~ m/:\s*${ CACHE{-OPS} }+/)
-#    && !($sym=~ m/:\s*${ CACHE{-OPS} }+\s*:/)
-#
-#    &&   $sym=~ m/${ CACHE{-OPS} }+/
-
-    ) {
-
-      if(
-
-         defined $buf[-1]
-      && $buf[-1]=~ m/${delims}/
-
-      ) {
-
-        push @buf,$node;
-        next;
+      for my $val(@syms) {
+        $node->nit($val);
 
       };
-
-      # castle value->operator
-      my $t=pop @buf;
-
-      # so it's operator->value
-      push @buf,$node;
-      if($t) {push @buf,$t;};
-
-# ---   *   ---   *   ---
-
-    # anything else
-    } else {
-      push @buf,$node;
-
-    };
-
-# ---   *   ---   *   ---
-
-  # copy leftovers
-  };if(@buf) {
-    push @dst,[@buf];
-
-  # reorder
-  };for my $ref(@dst) {
-
-    if(!@$ref) {next;};
-
-    # make a branch for each obtained group
-    my $node=$self->nit('L');
-    $node->pushlv(0,@$ref);
-
-# ---   *   ---   *   ---
-
-    # iter branch leaves
-    my @tail=();for my $child(@$ref) {
-
-      # always stop at commas ;>
-      push @tail,$child;
-      if($child->{-VAL} eq ',') {
-
-        # create a group if long tail
-        if(@tail>2) {
-
-          $child->{-VAL}='e';
-          pop @tail;
-
-          # group nodes into child
-          $child->pushlv(0,@tail);
-
-        # or do not
-        } else {
-          $node->pluck($child);
-
-        };@tail=();next;
-
-      };
-
-# ---   *   ---   *   ---
-
-    # copy leftovers
-    };if(@tail>2) {
-
-      my $child=$node->nit('e');
-
-      # group nodes into child
-      $child->pushlv(0,@tail);
-
-    };
-
-    if(!@{ $node->{-LEAVES} }) {
-      $self->pluck($node);
 
     };
   };
+
+# ---   *   ---   *   ---
+
+#  # walk the branches
+#  while(@{ $self->{-LEAVES} }) {
+#    my $node=shift @{ $self->{-LEAVES} };
+#
+#    # check for special grouping symbols
+#    my $sym=$node->{-VAL};
+#    if($sym eq '$:cut;>') {
+#
+#      push @dst,[@buf];
+#      @buf=();push @buf,@{ $node->{-LEAVES} };
+#
+#      next;
+#
+#    };
+#
+## ---   *   ---   *   ---
+#
+#    # operator
+#    if(
+#    0
+#
+##       !($sym=~ m/${ CACHE{-OPS} }+\s*:/)
+##    && !($sym=~ m/:\s*${ CACHE{-OPS} }+/)
+##    && !($sym=~ m/:\s*${ CACHE{-OPS} }+\s*:/)
+##
+##    &&   $sym=~ m/${ CACHE{-OPS} }+/
+#
+#    ) {
+#
+#      if(
+#
+#         defined $buf[-1]
+#      && $buf[-1]=~ m/${delims}/
+#
+#      ) {
+#
+#        push @buf,$node;
+#        next;
+#
+#      };
+#
+#      # castle value->operator
+#      my $t=pop @buf;
+#
+#      # so it's operator->value
+#      push @buf,$node;
+#      if($t) {push @buf,$t;};
+#
+## ---   *   ---   *   ---
+#
+#    # anything else
+#    } else {
+#      push @buf,$node;
+#
+#    };
+#
+## ---   *   ---   *   ---
+#
+#  # copy leftovers
+#  };if(@buf) {
+#    push @dst,[@buf];
+#
+#  # reorder
+#  };for my $ref(@dst) {
+#
+#    if(!@$ref) {next;};
+#
+#    # make a branch for each obtained group
+#    my $node=$self->nit('L');
+#    $node->pushlv(0,@$ref);
+#
+## ---   *   ---   *   ---
+#
+#    if(!@{ $node->{-LEAVES} }) {
+#      $self->pluck($node);
+#
+#    };
+#  };
 
 };
 

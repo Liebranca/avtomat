@@ -160,32 +160,32 @@ my %MAM=(
 
   -OPS=>{
 
-    '+'=>[2,\&ll::add],
-    '++'=>[1,\&ll::inc],
+    '+' =>[undef,undef],
+    '++'=>[undef,undef],
 
-    '-'=>[2,\&ll::sub0],
-    '--'=>[1,\&ll::dec],
+    '-' =>[undef,undef],
+    '--'=>[undef,undef],
 
-    '*'=>[2,\&ll::mul],
-    '/'=>[2,\&ll::div],
+    '*' =>[undef,undef],
+    '/' =>[undef,undef],
 
-    '<'=>[2,\&ll::lt0],
-    '>'=>[2,\&ll::gt0],
+    '<'=>[undef,undef],
+    '>'=>[undef,undef],
 
-    '<<:'=>[2,\&ll::out],
-    '>>:'=>[2,\&ll::in],
+    '<<:'=>[undef,undef],
+    '>>:'=>[undef,undef],
 
-    '('=>[2,\&ll::oparn],
-    ')'=>[2,\&ll::cparn],
+    '('=>[\&node::oparn,undef],
+    ')'=>[undef,\&node::cparn],
 
-    '['=>[2,\&ll::obrak],
-    ']'=>[2,\&ll::cbrak],
+    '['=>[undef,undef],
+    ']'=>[undef,undef],
 
-    '{'=>[\&node::ocurl,0],
-    '}'=>[0,\&node::ccurl],
+    '{'=>[\&node::ocurl,undef],
+    '}'=>[undef,\&node::ccurl],
 
-    '?'=>[1,\&ll::quest],
-    '!'=>[1,\&ll::neg],
+    '?'=>[undef,undef],
+    '!'=>[undef,undef],
 
   },
 
@@ -527,11 +527,11 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-      # line ends with ;
-      if($rb=~ m/\}?;$/) {
+      # line ends with {;}
+      if($rb=~ m/([\{|\}])|;$/) {
 
         $rb=$rem.$rb;$rem='';
-        my @ar=split ';',$rb;
+        my @ar=split m/([\{|\}])|;$/,$rb;
 
         # separate curls
         for my $e(@ar) {
@@ -542,6 +542,8 @@ sub peso_rd {
 
           };my $cl=$e=~ s/\}$//;
 
+          $e=~ s/;//;
+
           push @exps,$e;
           if($cl) {push @exps,'}';};
 
@@ -549,7 +551,8 @@ sub peso_rd {
 
       # multi-line expression(s)
       } else {
-        my @ar=split ';',$rb;
+
+        my @ar=split m/([\{|\}])|;$/,$rb;
         my $entry=pop @ar;
 
         # separate curls
@@ -560,6 +563,8 @@ sub peso_rd {
             $e=~ s/^\s*\{//;
 
           };my $cl=$e=~ s/\}$//;
+
+          $e=~ s/;//;
 
           push @exps,$e;
           if($cl) {push @exps,'}';};
@@ -584,7 +589,9 @@ sub peso_rd {
   my $sblconst=$PESO{-VARS}->[2]->[1];
 
   my $instruct=$PESO{-BILTN}->[0]->[1];
+
   my $operator=$DICT{-GPRE}->{-OPS}->[0]->[1];
+  my $number=$DICT{-GPRE}->{-NUMS}->[0]->[1];
 
 # ---   *   ---   *   ---
 
@@ -621,6 +628,9 @@ sub peso_rd {
 
     ) {next;};
 
+    $exp=~ s/\s*(${operator}+)\s*/$1/sg;
+    $exp=~ s/(\(|\[|\]|\))/ $1 /sg;
+
 # ---   *   ---   *   ---
 
     # create root node
@@ -650,44 +660,23 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-#    if($key=~ m/.*${operator}.*/) {
-#
-#      $key=~ s/${operator}//;
-#      $exp=$key.$exp;
-#
-#      $key=$1;
-#      $root->{-VAL}=$key;
-#
-#      $i=6;
-#
-#    };
-
-# ---   *   ---   *   ---
-
       # fetch expath from table
 
       my $tab=(
-          0,0,0,0,0,0,
-          $MAM{-OPS}
 
-        )[$i];
+        0,0,0,0,0,0,
+        $MAM{-OPS}
+
+      )[$i];
 
       if($tab) {
         my %tab=%{ $tab };
 
-        # exists d{k} doesnt work here
-        for my $skey(keys %tab) {
-          if($skey eq $key) {
-            @expath=@{ $tab{$skey} };
+        if(exists $tab{$key}) {
+          @expath=@{ $tab{$key} };
 
-            last;
-
-          };
         };
-
       };
-
-      # printf $i;
 
     };
 
@@ -705,7 +694,7 @@ sub peso_rd {
     # tokenize expression
     $exp=$root->splitlv(
 
-      '\b[^\s]+\b\s', # |[\b|:]
+      '\b[^\s]+\b\s',
       $exp
 
     # sort tokens
