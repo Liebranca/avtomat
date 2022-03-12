@@ -353,10 +353,109 @@ sub splitlv {
 
   my @anch=($self);
 
-  # split string at pattern
-  for my $sym(split m/(${pat})/,$exp) {
+# ---   *   ---   *   ---
 
-    if(!$sym) {next;};
+  # spaces are meaningless
+
+  my @elems=();
+
+  { while($exp=~ m/([^\s]*)\s+/) {
+
+      if(defined $1) {
+        my ($pre,$post)=split m/([^\s]*)\s+/,$exp;
+
+        if($post) {push @elems,$post;};
+        $exp=~ s/${pre}//;
+
+      } else {
+
+        if($exp) {push @elems,$exp;};
+        last;
+
+      };
+
+    };
+
+# ---   *   ---   *   ---
+
+  };{
+
+    my @filt=();
+    my $s='';
+
+    my $i=0;for my $e(@elems) {
+
+      my ($ol,$or)=(split '',$e)[0,-1];
+
+      if(!defined $or) {
+        $or=$ol;
+
+      };
+
+# ---   *   ---   *   ---
+
+      # is a
+      if(!$i) {
+        ;
+
+      # (x+y)
+      } else {
+
+        my ($pl,$pr)=(
+
+          split '',
+            $elems[$i-1]
+
+        )[0,-1];
+
+        if(!defined $pr) {
+          $pr=$pl;
+
+        };
+
+# ---   *   ---   *   ---
+
+        if(!($pr=~ m/[^\sA-Za-z0-9,\.:]/)) {
+
+          if($ol eq '(') {
+            push @filt,$s;$s='';
+
+          };
+
+        } elsif($pr ne '(') {
+          push @filt,$s.$e;$s='';
+          next;
+
+        };
+
+# ---   *   ---   *   ---
+
+      };$s.=$e;
+      $i++;
+
+    };if($s) {push @filt,$s;};
+
+    printf ''.( join "\n",@filt )."\n";
+
+    if($exp) {
+
+      printf "$exp\n";
+
+    };
+
+  };
+
+  exit;
+
+# ---   *   ---   *   ---
+
+  # split string at pattern
+  #for my $sym(split m/(${pat})/,$exp) {
+  for my $sym(split m/\s+/,$exp) {
+
+    print "$sym\n";
+
+    if(!length($sym)) {next;};
 
     # eliminate match
     $exp=~ m/^(.*)\Q${sym}/;
@@ -389,7 +488,7 @@ sub splitlv {
 
   # subdivide by delimiters
   if( $sym=~ m/(\()/ ) {
-    if(!$sym){last;};
+    if(!length $sym){last;};
 
     my $c=$1;
 
