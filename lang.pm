@@ -359,29 +359,28 @@ sub splitlv {
 
   my @elems=();
 
-  { while($exp=~ m/([^\s]*)\s+/) {
+  { my @ar=split m/([^\s]*)\s+/,$exp;
 
-      if(defined $1) {
-        my ($pre,$post)=split m/([^\s]*)\s+/,$exp;
-
-        if($post) {push @elems,$post;};
-        $exp=~ s/${pre}//;
-
-      } else {
-
-        if($exp) {push @elems,$exp;};
-        last;
+    while(@ar) {
+      my $elem=shift @ar;
+      if($elem) {
+        push @elems,$elem;
 
       };
-
     };
 
 # ---   *   ---   *   ---
 
   };{
 
+    printf ''.( join ' ',@elems)."\n";
+    #exit;
+
     my @filt=();
     my $s='';
+
+    my $op='[^\sA-Za-z0-9\.:]';
+    my $ndel_op='[^\sA-Za-z0-9\.:\[\(\)\]]';
 
     my $i=0;for my $e(@elems) {
 
@@ -396,7 +395,7 @@ sub splitlv {
 
       # is a
       if(!$i) {
-        ;
+        push @filt,'$:%%join;>';
 
       # (x+y)
       } else {
@@ -415,16 +414,60 @@ sub splitlv {
 
 # ---   *   ---   *   ---
 
-        if(!($pr=~ m/[^\sA-Za-z0-9,\.:]/)) {
 
-          if($ol eq '(') {
+        if(($ol=~ m/${op}/)) {
+
+          if($ol=~ m/\(|\[/) {
+
             push @filt,$s;$s='';
+
+            if( !($pr=~ m/${op}/) ) {
+
+              printf "A) $pr : $ol adds a join\n";
+              push @filt,'$:/join;>';
+              push @filt,'$:%%join;>';
+
+            };
+
+# ---   *   ---   *   ---
+
+          } elsif($pr=~ m/\)|\]/ ) {
+
+            if(!( $ol=~ m/${ndel_op}/) ) {
+              printf "B) $pr : $ol adds a join\n";
+              push @filt,'$:/join;>';
+              push @filt,'$:%%join;>';
+
+            };
 
           };
 
+# ---   *   ---   *   ---
+
         } elsif($pr ne '(') {
-          push @filt,$s.$e;$s='';
-          next;
+
+          push @filt,$s;$s='';
+
+          if( ($pr=~ m/\)|\]/
+          && !($ol=~ m/${op}/) )
+
+          || (!($pr=~ m/${op}/)
+          && !($ol=~ m/${op}/))
+
+          ) {
+
+            printf "C) $pr : $ol adds a join\n";
+
+            push @filt,'$:/join;>';
+            push @filt,'$:%%join;>';
+
+          };
+
+          push @filt,$e;
+
+          $i++;next;
+
+# ---   *   ---   *   ---
 
         };
 
@@ -435,41 +478,70 @@ sub splitlv {
 
     };if($s) {push @filt,$s;};
 
-    printf ''.( join "\n",@filt )."\n";
-
-    if($exp) {
-
-      printf "$exp\n";
-
-    };
+    push @filt,'$:/join;>';
+    @elems=@filt;
 
   };
-
-  exit;
 
 # ---   *   ---   *   ---
 
   # split string at pattern
   #for my $sym(split m/(${pat})/,$exp) {
-  for my $sym(split m/\s+/,$exp) {
-
-    print "$sym\n";
+  for my $sym(@elems) {
 
     if(!length($sym)) {next;};
 
     # eliminate match
     $exp=~ m/^(.*)\Q${sym}/;
-    if(defined $1 && $1) {
+    if(defined $1 && length $1) {
       $exp=~ s/\Q${1}//;
 
     # space strip
     };$sym=~ s/\s+//sg;
+
+    if($sym eq '$:%%join;>'
+    || $sym eq '$:/join;>'
+
+    ) {
+
+      my $node=$self->nit($sym);
+      next;
+
+    };
+
+# ---   *   ---   *   ---
+
+  DELMTOP:
+
+  # subdivide by delimiters
+  if( $sym=~ m/^(\()/ ) {
+    if(!length $sym){last;};
+
+    my $c=$1;
+
+    if($c eq '(') {
+
+      #printf "$sym\n";
+
+      my @ar=split '(\()',$sym;
+      my $ex=shift @ar;
+      shift @ar;
+
+      $sym=join '',@ar;
+
+      push @anch,$self->oparn($ex);
+      $exp_depth_a++;
+
+    };
+  };
 
 # ---   *   ---   *   ---
 
   if($exp_depth_a) {
 
     if($sym=~ m/\)/) {
+
+      #printf "$sym\n";
 
       my $ex;
       ($ex,$sym)=split m/\)/,$sym;
@@ -480,27 +552,10 @@ sub splitlv {
       $sym=~ s/\)//;
       $exp_depth_a--;
 
-    };
-
-  };
-
-# ---   *   ---   *   ---
-
-  # subdivide by delimiters
-  if( $sym=~ m/(\()/ ) {
-    if(!length $sym){last;};
-
-    my $c=$1;
-
-    if($c eq '(') {
-
-      my $ex;
-      ($ex,$sym)=split "\Q$c",$sym;
-
-      push @anch,$self->oparn($ex);
-      $exp_depth_a++;
+      goto DELMTOP;
 
     };
+
   };
 
 # ---   *   ---   *   ---
@@ -510,9 +565,6 @@ sub splitlv {
     my $node=$anch[-1]->nit($sym);
 
   };
-
-  # return the modified string
-  return $exp;
 
 };
 
@@ -590,101 +642,130 @@ sub agroup {
 
 # ---   *   ---   *   ---
 
-  # branch out at commas
-  for my $node(@{ $self->{-LEAVES} }) {
-    my @syms=split ',',$node->{-VAL};
+  my @chest=();
+  my @trash=();
 
-    if(@syms>1) {
+  my $anchor=$self;
+
+  # branch out at joins
+  for my $node(@{ $self->{-LEAVES} }) {
+
+    my $sym=$node->{-VAL};
+
+    # group all nodes inside wrap
+    if($sym eq '$:%%join;>') {
+
+      $anchor=$node;
       $node->{-VAL}='L';
 
-      for my $val(@syms) {
-        $node->nit($val);
+    # ^ wrap close
+    } elsif($sym eq '$:/join;>') {
+      $anchor->pushlv(0,@chest);
+      @chest=();
 
-      };
-
-    };
-  };
+      push @trash,$node;
 
 # ---   *   ---   *   ---
 
-#  # walk the branches
-#  while(@{ $self->{-LEAVES} }) {
-#    my $node=shift @{ $self->{-LEAVES} };
-#
-#    # check for special grouping symbols
-#    my $sym=$node->{-VAL};
-#    if($sym eq '$:cut;>') {
-#
-#      push @dst,[@buf];
-#      @buf=();push @buf,@{ $node->{-LEAVES} };
-#
-#      next;
-#
-#    };
-#
-## ---   *   ---   *   ---
-#
-#    # operator
-#    if(
-#    0
-#
-##       !($sym=~ m/${ CACHE{-OPS} }+\s*:/)
-##    && !($sym=~ m/:\s*${ CACHE{-OPS} }+/)
-##    && !($sym=~ m/:\s*${ CACHE{-OPS} }+\s*:/)
-##
-##    &&   $sym=~ m/${ CACHE{-OPS} }+/
-#
-#    ) {
-#
-#      if(
-#
-#         defined $buf[-1]
-#      && $buf[-1]=~ m/${delims}/
-#
-#      ) {
-#
-#        push @buf,$node;
-#        next;
-#
-#      };
-#
-#      # castle value->operator
-#      my $t=pop @buf;
-#
-#      # so it's operator->value
-#      push @buf,$node;
-#      if($t) {push @buf,$t;};
-#
-## ---   *   ---   *   ---
-#
-#    # anything else
-#    } else {
-#      push @buf,$node;
-#
-#    };
-#
-## ---   *   ---   *   ---
-#
-#  # copy leftovers
-#  };if(@buf) {
-#    push @dst,[@buf];
-#
-#  # reorder
-#  };for my $ref(@dst) {
-#
-#    if(!@$ref) {next;};
-#
-#    # make a branch for each obtained group
-#    my $node=$self->nit('L');
-#    $node->pushlv(0,@$ref);
-#
-## ---   *   ---   *   ---
-#
-#    if(!@{ $node->{-LEAVES} }) {
-#      $self->pluck($node);
-#
-#    };
-#  };
+    # accumulate elements
+    } else {
+
+      if(1){#if(0>index $sym,',') {
+        push @chest,$node;
+
+      # comma found
+      } else {
+
+        my @left=split ',',$sym;
+        while(@left) {
+          my $tail=shift @left;
+
+# ---   *   ---   *   ---
+
+          # compound element
+          if(@chest) {
+
+            my $old=$anchor;
+            $anchor=$anchor->nit('$:group;>');
+
+            $anchor->pushlv(0,@chest);
+            @chest=();
+
+            $anchor->nit($tail);
+            $anchor=$old;
+
+# ---   *   ---   *   ---
+
+          # common element
+          } else {
+
+            # push self
+            push @chest,
+              node::nit(undef,$tail);
+
+            # push leftovers
+            while(@left) {
+              push @chest,node::nit(
+                undef,
+                shift @left
+
+              );
+            };
+
+          # discard explored node
+          };push @trash,$node;
+        };
+
+# ---   *   ---   *   ---
+
+      };
+    };
+
+# ---   *   ---   *   ---
+
+  };if(@chest) {
+    $anchor->pushlv(1,@chest);
+
+  };$self->pluck(@trash);
+
+};
+
+# ---   *   ---   *   ---
+
+# breaks expressions down recursively
+sub subdiv {
+
+  my $self=shift;
+
+  if($self->{-PAR}) {
+
+    my $ndel_op='[^\sA-Za-z0-9\.,:\[\(\)\]]';
+    if($self->{-VAL}=~ m/(${ndel_op}+)/) {
+
+      my $op=$1;
+
+      printf sprintf
+        "%-24s%s\n",
+
+        $self->{-VAL},
+        $op;
+
+      my @ar=split "\Q$op",$self->{-VAL};
+
+      my ($a,$b)=(
+        hex $ar[0],
+        hex $ar[1],
+
+      );print ''.( eval "$a$op$b;" )."\n";
+
+    };
+
+  };
+
+  for my $leaf(@{ $self->{-LEAVES} }) {
+    $leaf->subdiv();
+
+  };
 
 };
 

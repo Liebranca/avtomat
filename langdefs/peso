@@ -518,7 +518,7 @@ sub peso_rd {
       $rb=~ s/#.*\n?//g;
 
       # force single spaces
-      $rb=~ s/\s+/ /s;
+      $rb=~ s/\s+/ /sg;
 
       # strip newlines?
       $rb=~ s/\n+//sg;
@@ -528,10 +528,10 @@ sub peso_rd {
 # ---   *   ---   *   ---
 
       # line ends with {;}
-      if($rb=~ m/([\{|\}])|;$/) {
+      if($rb=~ m/([\{\}])|;$/) {
 
         $rb=$rem.$rb;$rem='';
-        my @ar=split m/([\{|\}])|;$/,$rb;
+        my @ar=split m/([\{\}])|;$/,$rb;
 
         # separate curls
         for my $e(@ar) {
@@ -552,11 +552,16 @@ sub peso_rd {
       # multi-line expression(s)
       } else {
 
-        my @ar=split m/([\{|\}])|;$/,$rb;
+        my @ar=split m/([\{\}])|;/,$rb;
         my $entry=pop @ar;
 
         # separate curls
         for my $e(@ar) {
+
+          if(!defined $e || !length $e) {
+            next;
+
+          };
 
           if($e=~ m/^\s*\{/) {
             push @exps,'{';
@@ -567,7 +572,7 @@ sub peso_rd {
           $e=~ s/;//;
 
           push @exps,$e;
-          if($cl) {push @exps,'}';};
+          if($cl) {push @exps,'\}';};
 
         };$rem.=$entry;
       };
@@ -692,14 +697,16 @@ sub peso_rd {
     $exp=~ s/\s+,/,/;
 
     # tokenize expression
-    $exp=$root->splitlv(
+    $root->splitlv(
 
       '\b[^\s]+\b\s',
       $exp
 
     # sort tokens
     );$root->branch_reloc();
-    #$root->agroup();
+    $root->agroup();
+
+    $root->subdiv();
 
     if(!$root->{-PAR}) {
       push @tree,$root;
@@ -752,10 +759,10 @@ sub peso_rd {
 
   };
 
-#  for my $root(@tree) {
-#    $root->prich();
-#
-#  };
+  for my $root(@tree) {
+    $root->prich();
+
+  };
 
   return;
 
