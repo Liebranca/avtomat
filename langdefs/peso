@@ -759,10 +759,10 @@ sub peso_rd {
 
   };
 
-  for my $root(@tree) {
-    $root->prich();
-
-  };
+#  for my $root(@tree) {
+#    $root->prich();
+#
+#  };
 
   return;
 

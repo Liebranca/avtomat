@@ -95,7 +95,7 @@ sub nit {
 
     if(defined $CACHE{-ANCHOR}) {
 
-      printf "$val\n";
+      #printf "$val\n";
 
       $tree{-FUSE}=$CACHE{-DEPTH}->[-1];
       $tree{-ROOT}=undef;
@@ -373,9 +373,6 @@ sub splitlv {
 
   };{
 
-    printf ''.( join ' ',@elems)."\n";
-    #exit;
-
     my @filt=();
     my $s='';
 
@@ -423,7 +420,7 @@ sub splitlv {
 
             if( !($pr=~ m/${op}/) ) {
 
-              printf "A) $pr : $ol adds a join\n";
+              #printf "A) $pr : $ol adds a join\n";
               push @filt,'$:/join;>';
               push @filt,'$:%%join;>';
 
@@ -434,7 +431,7 @@ sub splitlv {
           } elsif($pr=~ m/\)|\]/ ) {
 
             if(!( $ol=~ m/${ndel_op}/) ) {
-              printf "B) $pr : $ol adds a join\n";
+              #printf "B) $pr : $ol adds a join\n";
               push @filt,'$:/join;>';
               push @filt,'$:%%join;>';
 
@@ -456,7 +453,7 @@ sub splitlv {
 
           ) {
 
-            printf "C) $pr : $ol adds a join\n";
+            #printf "C) $pr : $ol adds a join\n";
 
             push @filt,'$:/join;>';
             push @filt,'$:%%join;>';
@@ -736,38 +733,115 @@ sub agroup {
 sub subdiv {
 
   my $self=shift;
+  my $leaf=$self;
+  my $root=$self;
 
-  if($self->{-PAR}) {
+  my @leafstack=();
+  my @rootstack=();
 
-    my $ndel_op='[^\sA-Za-z0-9\.,:\[\(\)\]]';
-    if($self->{-VAL}=~ m/(${ndel_op}+)/) {
+  my $ndel_op='[^\sA-Za-z0-9\.,:\[\(\)\]]';
 
-      my $op=$1;
+# ---   *   ---   *   ---
 
-      printf sprintf
-        "%-24s%s\n",
+TOP:{
 
-        $self->{-VAL},
-        $op;
+  $self=$leaf;
+  printf "$self->{-VAL}\n";
 
-      my @ar=split "\Q$op",$self->{-VAL};
+  if(!$self->{-VAL}) {goto SKIP;};
 
-      my ($a,$b)=(
-        hex $ar[0],
-        hex $ar[1],
+  # non delimiter operator match
+  my @ar=split m/(${ndel_op}+)/,$self->{-VAL};
 
-      );print ''.( eval "$a$op$b;" )."\n";
+  # we filter out
+  my @ops=();
+  my @elems=();
+
+# ---   *   ---   *   ---
+
+  # save operators and values separately
+  while(@ar) {
+
+    my $e=shift @ar;
+
+    if($e=~ m/(${ndel_op}+)/) {
+      push @ops,$e;
+
+    } else {
+      push @elems,$e;
 
     };
 
   };
 
-  for my $leaf(@{ $self->{-LEAVES} }) {
-    $leaf->subdiv();
+  if(!@ops) {goto SKIP;};
+
+# ---   *   ---   *   ---
+
+  # priorities by index
+  @ar=@{ $CACHE{-OP_PREC} };
+
+  my @q=@ops;
+  my $popped=0;
+
+REPEAT:{
+
+  # sort ops by priority
+  my $highest=9999;
+  my $hname=$ops[0];
+  my $hidex=0;
+
+  my $i=0;
+
+  for my $op(@q) {
+
+    if(!length $op) {
+
+      $popped++;
+      $i++;next;
+
+    };
+
+    my $j=0;for my $e(@ar) {
+      if($e eq $op) {last;};
+
+      $j++;
+
+    };
+
+    if($j < $highest) {
+      $highest=$j;
+      $hname=$op;
+      $hidex=$i;
+
+    };$i++;
 
   };
 
-};
+  $q[$hidex]='';
+
+  my $lhand=$elems[$hidex];
+  my $rhand=$elems[$hidex+1];
+
+  printf ">>$lhand $hname $rhand\n";
+
+  $i=0;if($popped<$#q) {goto REPEAT;};
+
+# ---   *   ---   *   ---
+
+};SKIP:{
+
+  if(!@leafstack && !@{ $self->{-LEAVES} }) {
+    return;
+
+  };
+
+  push @leafstack,@{ $self->{-LEAVES} };
+  $leaf=pop @leafstack;
+
+  goto TOP;
+
+}}};
 
 # ---   *   ---   *   ---
 
