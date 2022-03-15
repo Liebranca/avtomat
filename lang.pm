@@ -567,6 +567,34 @@ sub splitlv {
 
 # ---   *   ---   *   ---
 
+# in: node to replace self by
+# replaces a node in the hierarchy
+
+sub repl {
+
+  my $self=shift;
+  my $other=shift;
+
+  my $ref=$self->{-PAR}->{-LEAVES};
+  my $i=-1;
+
+  for my $node(@$ref) {
+
+    $i++;if($node eq $self) {
+      last;
+
+    };
+  };
+
+  if($i>=0) {
+    $ref->[$i]=$other;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
 # in: node list
 # removes leaves from node
 sub pluck {
@@ -667,7 +695,7 @@ sub agroup {
     # accumulate elements
     } else {
 
-      if(1){#if(0>index $sym,',') {
+      if(0>index $sym,',') {
         push @chest,$node;
 
       # comma found
@@ -739,6 +767,8 @@ sub subdiv {
   my @leafstack=();
   my @rootstack=();
 
+  my @nodes=();
+
   my $ndel_op='[^\sA-Za-z0-9\.,:\[\(\)\]]';
 
 # ---   *   ---   *   ---
@@ -746,7 +776,6 @@ sub subdiv {
 TOP:{
 
   $self=$leaf;
-  printf "$self->{-VAL}\n";
 
   if(!$self->{-VAL}) {goto SKIP;};
 
@@ -788,20 +817,21 @@ REPEAT:{
 
   # sort ops by priority
   my $highest=9999;
-  my $hname=$ops[0];
+  my $hname=undef;
   my $hidex=0;
 
   my $i=0;
 
   for my $op(@q) {
 
+    # skip if already matched
     if(!length $op) {
-
       $popped++;
       $i++;next;
 
     };
 
+    # get index of op
     my $j=0;for my $e(@ar) {
       if($e eq $op) {last;};
 
@@ -809,6 +839,7 @@ REPEAT:{
 
     };
 
+    # compare to previous
     if($j < $highest) {
       $highest=$j;
       $hname=$op;
@@ -818,14 +849,62 @@ REPEAT:{
 
   };
 
+# ---   *   ---   *   ---
+
+  if(!defined $hname) {
+    goto RELOC;
+
+  };
+
   $q[$hidex]='';
 
   my $lhand=$elems[$hidex];
   my $rhand=$elems[$hidex+1];
 
-  printf ">>$lhand $hname $rhand\n";
+  my $node=$self->{-PAR}->nit($hname);
 
-  $i=0;if($popped<$#q) {goto REPEAT;};
+  # handle operands
+  my @mov=();
+  for my $op_elem($lhand,$rhand) {
+
+    # element is a node
+    if((index $op_elem,'node=HASH')>=0) {
+
+      # operand is at root level
+      if($op_elem->{-PAR} eq $node->{-PAR}) {
+        push @mov,$op_elem;
+
+      # ^ or further down the chain
+      } else {
+        push @mov,$op_elem->{-PAR};
+
+      };
+
+    # element is a string
+    } else {
+      $node->nit($op_elem);
+
+    };
+
+# ---   *   ---   *   ---
+
+  # copy operands into node
+  };if(@mov) {
+    $node->pushlv(0,@mov);
+
+  };
+
+  # overwrite used operands
+  $elems[$hidex]=$node;
+  $elems[$hidex+1]=$node;
+
+  # loop back
+  push @nodes,$node;
+  $i=0;if($popped<@q) {goto REPEAT;};
+
+RELOC:
+  $self->{-PAR}->pluck($nodes[-1]);
+  $self->repl($nodes[-1]);
 
 # ---   *   ---   *   ---
 
@@ -839,6 +918,7 @@ REPEAT:{
   push @leafstack,@{ $self->{-LEAVES} };
   $leaf=pop @leafstack;
 
+  @nodes=();
   goto TOP;
 
 }}};
