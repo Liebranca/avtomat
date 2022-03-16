@@ -707,6 +707,7 @@ sub peso_rd {
     $root->agroup();
 
     $root->subdiv();
+    $root->collapse();
 
     if(!$root->{-PAR}) {
       push @tree,$root;

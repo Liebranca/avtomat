@@ -39,21 +39,6 @@ my %CACHE=(
     '\^\<\>\!\|\?\{\[\(\)'.
     '\]\}\~\.\=\;\:]',
 
-#((2 *: (y*^2)):/ 8) :+ 8
-
-  -OP_PREC=>[
-
-    '*^','*','/','++','+','--','-',
-
-    '?','!','~',
-    '<<','>>','|','^','&',
-
-    '&&','||',
-
-    ';>','$:',
-
-  ],
-
 # ---   *   ---   *   ---
 
   -ODE=>'[\(\[\{]',
@@ -64,6 +49,93 @@ my %CACHE=(
   -ANCHOR=>undef,
 
 );
+
+# ---   *   ---   *   ---
+
+  $CACHE{-OP_PREC}={
+
+    '*^'=>[0,2,sub {return (shift)**(shift);}],
+    '*'=>[1,2,sub {return (shift)*(shift);}],
+    '/'=>[2,2,sub {return (shift)/(shift);}],
+
+    '++'=>[3,1,sub {return (shift)+1;}],
+    '+'=>[4,2,sub {return (shift)+(shift);}],
+    '--'=>[5,1,sub {return (shift)-1;}],
+    '-'=>[6,2,sub {return (shift)-(shift);}],
+
+# ---   *   ---   *   ---
+
+    '?'=>[7,1,sub {return int(shift)!=0;}],
+    '!'=>[8,1,sub {return !int(shift);}],
+    '~'=>[9,1,sub {return ~int(shift);}],
+
+    '<<'=>[10,2,sub {
+
+      return int(int(shift)<< int(shift));
+
+    }],
+
+    '>>'=>[11,2,sub {
+
+      return int(int(shift)>> int(shift));
+
+    }],
+
+# ---   *   ---   *   ---
+
+    '|'=>[12,2,sub {
+
+      return int(int(shift)| int(shift));
+
+    }],
+
+    '^'=>[13,2,sub {
+
+      return int(shift)^int(shift);
+
+    }],
+
+    '&'=>[14,2,sub {
+
+      return int(int(shift)& int(shift));
+
+    }],
+
+    '<'=>[15,2,sub {
+
+      return int(int(shift)<int(shift));
+
+    }],
+
+    '>'=>[16,2,sub {
+
+      return int(int(shift)>int(shift));
+
+    }],
+
+# ---   *   ---   *   ---
+
+    '||'=>[17,2,sub {
+
+      return int(
+           (int(shift)!=0)
+        || (int(shift)!=0)
+
+      );
+
+    }],
+
+    '&&'=>[18,2,sub {
+
+      return int(
+           (int(shift)!=0)
+        && (int(shift)!=0)
+
+      );
+
+    }],
+
+  };
 
 # ---   *   ---   *   ---
 
@@ -768,8 +840,10 @@ sub subdiv {
   my @rootstack=();
 
   my @nodes=();
-
   my $ndel_op='[^\sA-Za-z0-9\.,:\[\(\)\]]';
+
+  # operator data
+  my $h=$CACHE{-OP_PREC};
 
 # ---   *   ---   *   ---
 
@@ -807,9 +881,6 @@ TOP:{
 
 # ---   *   ---   *   ---
 
-  # priorities by index
-  @ar=@{ $CACHE{-OP_PREC} };
-
   my @q=@ops;
   my $popped=0;
 
@@ -831,13 +902,8 @@ REPEAT:{
 
     };
 
-    # get index of op
-    my $j=0;for my $e(@ar) {
-      if($e eq $op) {last;};
-
-      $j++;
-
-    };
+    # get op priority
+    my $j=$h->{$op}->[0];
 
     # compare to previous
     if($j < $highest) {
@@ -863,9 +929,42 @@ REPEAT:{
 
   my $node=$self->{-PAR}->nit($hname);
 
+# ---   *   ---   *   ---
+
+  my @operands=();
+
+  # use single operand
+  if($h->{$hname}->[1]<2) {
+
+    my $op_n=0;
+
+    if(!defined $rhand) {
+      push @operands,$lhand;
+
+    } else {
+      push @operands,$rhand;
+      $op_n=1;
+
+    };
+
+    # overwrite used operand
+    $elems[$hidex+$op_n]=$node;
+
+  # use both
+  } else {
+
+    push @operands,($lhand,$rhand);
+
+    $elems[$hidex]=$node;
+    $elems[$hidex+1]=$node;
+
+  };
+
+# ---   *   ---   *   ---
+
   # handle operands
   my @mov=();
-  for my $op_elem($lhand,$rhand) {
+  for my $op_elem(@operands) {
 
     # element is a node
     if((index $op_elem,'node=HASH')>=0) {
@@ -894,10 +993,6 @@ REPEAT:{
 
   };
 
-  # overwrite used operands
-  $elems[$hidex]=$node;
-  $elems[$hidex+1]=$node;
-
   # loop back
   push @nodes,$node;
   $i=0;if($popped<@q) {goto REPEAT;};
@@ -922,6 +1017,74 @@ RELOC:
   goto TOP;
 
 }}};
+
+# ---   *   ---   *   ---
+
+# solve expressions in tree
+
+sub collapse {
+
+  my $self=shift;
+
+  my $leaf=$self;
+  my $ndel_op='[^\sA-Za-z0-9\.,:\[\(\)\]]';
+
+  my @leafstack;
+
+  my $h=$CACHE{-OP_PREC};
+  my @solve=();
+
+# ---   *   ---   *   ---
+
+TOP:{
+
+  $self=$leaf;
+  if(!$self->{-VAL}) {goto SKIP;};
+
+  if($self->{-VAL}=~ m/(${ndel_op}+)/) {
+
+    my $op=$1;
+    my $proc=$h->{$op}->[2];
+    my $argval=$self->{-LEAVES};
+
+    $self->prich();
+
+    push @solve,($self,$proc,$argval);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+SKIP:{
+  if(!@leafstack && !@{ $self->{-LEAVES} }) {
+
+    while(@solve) {
+      my $argval=pop @solve;
+      my $proc=pop @solve;
+      my $node=pop @solve;
+
+      my @argval=();
+      for my $v(@{$argval}) {
+        push @argval,($v->{-VAL});
+
+      };
+
+      my $result=$proc->(@argval);
+      $node->{-VAL}=$result;
+      $node->pluck(@{$argval});
+
+    };return;
+
+  };
+
+  push @leafstack,@{ $self->{-LEAVES} };
+  $leaf=pop @leafstack;
+
+  goto TOP;
+
+}};
 
 # ---   *   ---   *   ---
 
@@ -970,7 +1133,6 @@ package lang;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
-  use ll;
 
 # ---   *   ---   *   ---
 
