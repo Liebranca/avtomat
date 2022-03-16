@@ -175,8 +175,8 @@ my %MAM=(
     '<<:'=>[undef,undef],
     '>>:'=>[undef,undef],
 
-    '('=>[\&node::oparn,undef],
-    ')'=>[undef,\&node::cparn],
+    '('=>[undef,undef],
+    ')'=>[undef,undef],
 
     '['=>[undef,undef],
     ']'=>[undef,undef],
@@ -595,7 +595,7 @@ sub peso_rd {
 
   my $instruct=$PESO{-BILTN}->[0]->[1];
 
-  my $operator=$DICT{-GPRE}->{-OPS}->[0]->[1];
+  my $operator='\{|\}';
   my $number=$DICT{-GPRE}->{-NUMS}->[0]->[1];
 
 # ---   *   ---   *   ---
@@ -704,8 +704,8 @@ sub peso_rd {
 
     # sort tokens
     );$root->branch_reloc();
-    $root->agroup();
 
+    $root->agroup();
     $root->subdiv();
     $root->collapse();
 

@@ -33,16 +33,15 @@ my %CACHE=(
 
 # ---   *   ---   *   ---
 
-  -OPS=>''.
-
-    '[\+\-\*\/\\\$\@\%\&'.
-    '\^\<\>\!\|\?\{\[\(\)'.
-    '\]\}\~\.\=\;\:]',
-
-# ---   *   ---   *   ---
+  -OPS=>'[^\s_A-Za-z0-9\.:]',
 
   -ODE=>'[\(\[\{]',
   -CDE=>'[\}\]\)]',
+
+  -DEL_OPS=>'[\{\[\(\)\]\}]',
+  -NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}]',
+
+# ---   *   ---   *   ---
 
   -DEPTH=>[],
   -LDEPTH=>0,
@@ -191,6 +190,7 @@ sub nit {
 
     -ROOT=>$tree_id,
     -PAR=>undef,
+    -INDEX=>0,
 
   },'node';
 
@@ -198,6 +198,9 @@ sub nit {
 
   # add leaf if $self
   if(defined $self) {
+
+    $node->{-INDEX}=@{$self->{-LEAVES} };
+
     push @{ $self->{-LEAVES} },$node;
     $node->{-PAR}=$self;
 
@@ -445,107 +448,146 @@ sub splitlv {
 
   };{
 
-    my @filt=();
+    # iter split'd arr to find bounds
+
+    my @filt=('$:%%join;>');
     my $s='';
 
-    my $op='[^\sA-Za-z0-9\.:]';
-    my $ndel_op='[^\sA-Za-z0-9\.:\[\(\)\]]';
+    my $op=$CACHE{-OPS};
+    my $del_op=$CACHE{-DEL_OPS};
+    my $ndel_op=$CACHE{-NDEL_OPS};
+
+    my @separator=(
+      '$:/join;>',
+      '$:%%join;>'
+
+    );
 
     my $i=0;for my $e(@elems) {
 
-      my ($ol,$or)=(split '',$e)[0,-1];
+# ---   *   ---   *   ---
 
-      if(!defined $or) {
-        $or=$ol;
+TOP:
 
-      };
+    # skip null str
+    if(!length $e) {goto SKIP;};
+
+    # get left and rightmost chars of elem
+    my ($ol,$or)=(split '',$e)[0,-1];
+
+    # leftmost char fallback on undef right
+    if(!defined $or) {
+      $or=$ol;
+
+    };
 
 # ---   *   ---   *   ---
 
-      # is a
-      if(!$i) {
-        push @filt,'$:%%join;>';
+    # get left and rightmost chars of last
+    my ($pl,$pr)=(
 
-      # (x+y)
-      } else {
+      split '',
+        $elems[$i-1]
 
-        my ($pl,$pr)=(
+    )[0,-1];
 
-          split '',
-            $elems[$i-1]
+    # use last accepted as fallback
+    if(!defined $pl) {
+      ($pl,$pr)=(
 
-        )[0,-1];
+        split '',
+          $filt[-1]
 
-        if(!defined $pr) {
-          $pr=$pl;
+      )[0,-1];
 
-        };
+    };
 
-# ---   *   ---   *   ---
+    # leftmost char fallback on undef right
+    if(!defined $pr) {
+      $pr=$pl;
 
-
-        if(($ol=~ m/${op}/)) {
-
-          if($ol=~ m/\(|\[/) {
-
-            push @filt,$s;$s='';
-
-            if( !($pr=~ m/${op}/) ) {
-
-              #printf "A) $pr : $ol adds a join\n";
-              push @filt,'$:/join;>';
-              push @filt,'$:%%join;>';
-
-            };
+    };
 
 # ---   *   ---   *   ---
 
-          } elsif($pr=~ m/\)|\]/ ) {
+    # is not operator
+    if(!($ol=~ m/${op}/)) {
 
-            if(!( $ol=~ m/${ndel_op}/) ) {
-              #printf "B) $pr : $ol adds a join\n";
-              push @filt,'$:/join;>';
-              push @filt,'$:%%join;>';
+      # put separator if
+      my $cut=(
 
-            };
+        # close delimiter : non operator
+        ($pr=~ m/${CACHE{-CDE}}/)
 
-          };
+        ||
 
-# ---   *   ---   *   ---
+        # non operator : non operator or comma
+        !($pr=~ m/${op}|,}/)
 
-        } elsif($pr ne '(') {
-
-          push @filt,$s;$s='';
-
-          if( ($pr=~ m/\)|\]/
-          && !($ol=~ m/${op}/) )
-
-          || (!($pr=~ m/${op}/)
-          && !($ol=~ m/${op}/))
-
-          ) {
-
-            #printf "C) $pr : $ol adds a join\n";
-
-            push @filt,'$:/join;>';
-            push @filt,'$:%%join;>';
-
-          };
-
-          push @filt,$e;
-
-          $i++;next;
+      );if($cut) {goto APPEND;};
 
 # ---   *   ---   *   ---
 
-        };
+    # is delimiter
+    } elsif($ol=~ $CACHE{-ODE}
+    || $ol=~ $CACHE{-CDE}
+
+    ) {
+
+      my $cut=0;
+
+      # put separator if
+      if($ol=~ m/$CACHE{-ODE}/) {
+
+        $cut=(
+
+          # non operator or comma : open delimiter
+          !($pr=~ m/${op}|,/)
+
+        );
+
+      };if($cut) {
+
+        # accept elements and separate
+        if($s) {push @filt,$s;};
+        push @filt,@separator;
+
+      } elsif($s) {push @filt,$s;};$s='';
+
+      # make it its own element
+      push @filt,$ol;
+      $e=~ s/\Q${ol}//;
+
+      # read remain
+      goto TOP;
+
+    };
+
+    goto SKIP;
+
 
 # ---   *   ---   *   ---
 
-      };$s.=$e;
-      $i++;
+APPEND:
 
-    };if($s) {push @filt,$s;};
+    if($s) {
+      push @filt,$s;
+
+    };if($filt[-1] ne '$:%%join;>') {
+      push @filt,@separator;
+
+    };$s='';
+
+SKIP:
+
+    $s.=$e;
+    $i++;
+
+  };
+
+# ---   *   ---   *   ---
+
+  if($s) {push @filt,$s;};
 
     push @filt,'$:/join;>';
     @elems=@filt;
@@ -580,48 +622,30 @@ sub splitlv {
 
 # ---   *   ---   *   ---
 
-  DELMTOP:
-
   # subdivide by delimiters
-  if( $sym=~ m/^(\()/ ) {
-    if(!length $sym){last;};
+  if( $sym=~ m/^(${CACHE{-ODE}})/ ) {
 
     my $c=$1;
-
     if($c eq '(') {
 
-      #printf "$sym\n";
-
-      my @ar=split '(\()',$sym;
-      my $ex=shift @ar;
-      shift @ar;
-
-      $sym=join '',@ar;
-
-      push @anch,$self->oparn($ex);
+      push @anch,$anch[-1]->oparn(undef);
       $exp_depth_a++;
 
-    };
+    };next;
   };
 
 # ---   *   ---   *   ---
 
   if($exp_depth_a) {
 
-    if($sym=~ m/\)/) {
+    if($sym eq ')') {
 
-      #printf "$sym\n";
-
-      my $ex;
-      ($ex,$sym)=split m/\)/,$sym;
-
-      $anch[-1]->cparn($ex);
+      $anch[-1]->cparn(undef);
       pop @anch;
 
-      $sym=~ s/\)//;
       $exp_depth_a--;
 
-      goto DELMTOP;
+      next;
 
     };
 
@@ -840,7 +864,7 @@ sub subdiv {
   my @rootstack=();
 
   my @nodes=();
-  my $ndel_op='[^\sA-Za-z0-9\.,:\[\(\)\]]';
+  my $ndel_op=$CACHE{-NDEL_OPS};
 
   # operator data
   my $h=$CACHE{-OP_PREC};
@@ -924,6 +948,16 @@ REPEAT:{
 
   $q[$hidex]='';
 
+  if(!defined $elems[$hidex]) {
+    $elems[$hidex]=$self->{-PAR}->{-LEAVES}
+    ->[$self->{-INDEX}-1];
+
+  };if(!defined $elems[$hidex+1]) {
+    $elems[$hidex+1]=$self->{-PAR}->{-LEAVES}
+    ->[$self->{-INDEX}+1];
+
+  };
+
   my $lhand=$elems[$hidex];
   my $rhand=$elems[$hidex+1];
 
@@ -955,8 +989,8 @@ REPEAT:{
 
     push @operands,($lhand,$rhand);
 
-    $elems[$hidex]=$node;
-    $elems[$hidex+1]=$node;
+#    $elems[$hidex]=$node;
+#    $elems[$hidex+1]=$node;
 
   };
 
@@ -1027,7 +1061,7 @@ sub collapse {
   my $self=shift;
 
   my $leaf=$self;
-  my $ndel_op='[^\sA-Za-z0-9\.,:\[\(\)\]]';
+  my $ndel_op=$CACHE{-NDEL_OPS};
 
   my @leafstack;
 
@@ -1047,8 +1081,7 @@ TOP:{
     my $proc=$h->{$op}->[2];
     my $argval=$self->{-LEAVES};
 
-    $self->prich();
-
+    #$self->prich();
     push @solve,($self,$proc,$argval);
 
   };
@@ -1067,7 +1100,14 @@ SKIP:{
 
       my @argval=();
       for my $v(@{$argval}) {
-        push @argval,($v->{-VAL});
+
+        if($v->{-VAL}=~ m/${CACHE{-DEL_OPS}}/) {
+          push @argval,$v->{-LEAVES}->[0]->{-VAL};
+
+        } else {
+          push @argval,($v->{-VAL});
+
+        };
 
       };
 
@@ -1109,6 +1149,7 @@ sub prich {
 
     printf ''.(
       '.  'x($depth).'\-->'.
+#      '['.$node->{-INDEX}.']: '.
       $node->{-VAL}
 
 
