@@ -33,13 +33,13 @@ my %CACHE=(
 
 # ---   *   ---   *   ---
 
-  -OPS=>'[^\s_A-Za-z0-9\.:]',
+  -OPS=>'[^\s_A-Za-z0-9\.:\\\\]',
 
   -ODE=>'[\(\[\{]',
   -CDE=>'[\}\]\)]',
 
-  -DEL_OPS=>'[\{\[\(\)\]\}]',
-  -NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}]',
+  -DEL_OPS=>'[\{\[\(\)\]\}\\\\]',
+  -NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}\\\\]',
 
 # ---   *   ---   *   ---
 
@@ -1054,11 +1054,13 @@ RELOC:
 
 # ---   *   ---   *   ---
 
+# in: value conversion table
 # solve expressions in tree
 
 sub collapse {
 
   my $self=shift;
+  my @nums=@{ $_[0] };shift;
 
   my $leaf=$self;
   my $ndel_op=$CACHE{-NDEL_OPS};
@@ -1075,15 +1077,32 @@ TOP:{
   $self=$leaf;
   if(!$self->{-VAL}) {goto SKIP;};
 
+  # is operation
   if($self->{-VAL}=~ m/(${ndel_op}+)/) {
 
     my $op=$1;
     my $proc=$h->{$op}->[2];
     my $argval=$self->{-LEAVES};
 
-    #$self->prich();
     push @solve,($self,$proc,$argval);
 
+# ---   *   ---   *   ---
+
+  # is value
+  } else {
+
+    for my $ref(@nums) {
+
+      my $pat=$ref->[0];
+      my $proc=$ref->[1];
+
+      if($self->{-VAL}=~ m/${pat}/) {
+        $self->{-VAL}=$proc->($self->{-VAL});
+        last;
+
+      };
+
+    };
   };
 
 };
@@ -1497,6 +1516,7 @@ my %DICT=(-GPRE=>{
     # hex
     [0x03,'('.
 
+      '(\b[0-9A-Fa-f]+\b)|'.
       '((\b0*|\\\\)x[0-9A-Fa-f]+[L]*)|'.
       '(\b[0-9A-Fa-f]+[L]*h)'.
 
@@ -1696,6 +1716,7 @@ sub pss {
 
 # ---   *   ---   *   ---
 
+# hexadecimal conversion
 sub pehex {
 
   my $x=shift;
@@ -1708,7 +1729,12 @@ sub pehex {
     if($c=~ m/[hHlL]/) {
       next;
 
-    } elsif($c=~ m/[xX]/) {last;};
+    # for when you want floats in hex notation
+    } elsif($c=~ m/\./) {
+      $r*=(1/((1<<$i*4)+1));
+      $i=0;next;
+
+    } elsif($c=~ m/[xX]/) {last;}
 
     my $v=ord($c);
 

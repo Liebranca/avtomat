@@ -105,7 +105,7 @@ my %MAM=(
   -CNTX=>\&peso_cntx_non,
 
   -DST=>undef,
-  -CLAN=>'def',
+  -CLAN=>'non',
 
   # var blocks
   -REGS=>{},
@@ -115,9 +115,12 @@ my %MAM=(
 
   # block families
   -CLANS=>{
-    'def'=>{-BLOCKS=>[]}
+    'non'=>{-BLOCKS=>[]},
 
   },
+
+  # local scope
+  -LNAMES=>{},
 
 # ---   *   ---   *   ---
 # leaps and such
@@ -140,7 +143,7 @@ my %MAM=(
     # mem buffers align to page
 
     'line'=>0x0010, # two units
-    'page'=>0x0400, # 1024
+    'page'=>0x1000, # 256 lines
 
 # ---   *   ---   *   ---
 # function types
@@ -707,7 +710,13 @@ sub peso_rd {
 
     $root->agroup();
     $root->subdiv();
-    $root->collapse();
+
+    my @nums=(
+
+      ['((\b[0-9A-F]*|\.)+[0-9A-F]+)\b',\&pehex],
+      ['\b[0-9A-F]+\b',\&pehex]
+
+    );$root->collapse(\@nums);
 
     if(!$root->{-PAR}) {
       push @tree,$root;
