@@ -199,7 +199,7 @@ sub nit {
   # add leaf if $self
   if(defined $self) {
 
-    $node->{-INDEX}=@{$self->{-LEAVES} };
+    $node->{-INDEX}=$self->idextrav();
 
     push @{ $self->{-LEAVES} },$node;
     $node->{-PAR}=$self;
@@ -847,7 +847,31 @@ sub agroup {
   };if(@chest) {
     $anchor->pushlv(1,@chest);
 
-  };$self->pluck(@trash);
+  };
+
+  for my $child(@{ $self->{-LEAVES} }) {
+    if(!@{ $child->{-LEAVES} }) {
+      push @trash,$child;
+
+    };
+
+  };
+
+  $self->pluck(@trash);
+
+};
+
+# ---   *   ---   *   ---
+
+sub idextrav {
+
+  my $self=shift;
+  my $i=0;
+
+  for my $child(@{$self->{-LEAVES}}) {
+    $child->{-INDEX}=$i;$i++;
+
+  };return $i;
 
 };
 
@@ -874,6 +898,7 @@ sub subdiv {
 TOP:{
 
   $self=$leaf;
+  $self->idextrav();
 
   if(!$self->{-VAL}) {goto SKIP;};
 
@@ -948,11 +973,11 @@ REPEAT:{
 
   $q[$hidex]='';
 
-  if(!defined $elems[$hidex]) {
+  if(!length $elems[$hidex]) {
     $elems[$hidex]=$self->{-PAR}->{-LEAVES}
     ->[$self->{-INDEX}-1];
 
-  };if(!defined $elems[$hidex+1]) {
+  };if(!length $elems[$hidex+1]) {
     $elems[$hidex+1]=$self->{-PAR}->{-LEAVES}
     ->[$self->{-INDEX}+1];
 
@@ -989,8 +1014,8 @@ REPEAT:{
 
     push @operands,($lhand,$rhand);
 
-#    $elems[$hidex]=$node;
-#    $elems[$hidex+1]=$node;
+    $elems[$hidex]=$node;
+    $elems[$hidex+1]=$node;
 
   };
 
@@ -1038,6 +1063,8 @@ RELOC:
 # ---   *   ---   *   ---
 
 };SKIP:{
+
+  $self->idextrav();
 
   if(!@leafstack && !@{ $self->{-LEAVES} }) {
     return;
@@ -1516,19 +1543,18 @@ my %DICT=(-GPRE=>{
     # hex
     [0x03,'('.
 
-      '(\b[0-9A-Fa-f]+\b)|'.
-      '((\b0*|\\\\)x[0-9A-Fa-f]+[L]*)|'.
-      '(\b[0-9A-Fa-f]+[L]*h)'.
+      '((\b0+x[0-9A-F]+[L]*)\b)|'.
+      '(((\b0+x[0-9A-F]+\.)+[0-9A-F]+[L]*)\b)'.
 
       ')\b'
 
     ],
 
-    # octal
+    # bin
     [0x03,'('.
 
-      '(\\\\[0-7]+[L]*)|'.
-      '(\b[0-7]+[L]*o)'.
+      '((\b0+b[0-1]+[L]*)\b)|'.
+      '(((\b0+b[0-1]*\.)+[0-1]+[L]*)\b)'.
 
       ')\b'
 
@@ -1536,11 +1562,11 @@ my %DICT=(-GPRE=>{
 
 # ---   *   ---   *   ---
 
-    # bin
+    # octal
     [0x03,'('.
 
-      '((\b0|\\\\)b[0-1]+[L]*)|'.
-      '([0-1]+[L]*b)'.
+      '((\b0+0[0-7]+[L]*)\b)|'.
+      '(((\b0+0[0-7]+\.)+[0-7]+[L]*)\b)'.
 
       ')\b'
 
@@ -1717,7 +1743,7 @@ sub pss {
 # ---   *   ---   *   ---
 
 # hexadecimal conversion
-sub pehex {
+sub pehexnc {
 
   my $x=shift;
   my $r=0;
@@ -1729,9 +1755,9 @@ sub pehex {
     if($c=~ m/[hHlL]/) {
       next;
 
-    # for when you want floats in hex notation
+    # fractions in hex (!!!)
     } elsif($c=~ m/\./) {
-      $r*=(1/((1<<$i*4)+1));
+      $r*=(1/((1<<$i*4)));
       $i=0;next;
 
     } elsif($c=~ m/[xX]/) {last;}
@@ -1740,6 +1766,64 @@ sub pehex {
 
     $v-=($v > 0x39) ? 55 : 0x30;
     $r+=$v<<($i*4);$i++;
+
+  };return $r;
+
+};
+
+# octal conversion
+sub peoctnc {
+
+  my $x=shift;
+  my $r=0;
+
+  my $i=0;
+
+  for my $c(reverse split '',$x) {
+
+    if($c=~ m/[oOlL]/) {
+      next;
+
+    # fractions in octal (!!!)
+    } elsif($c=~ m/\./) {
+      $r*=(1/((1<<$i*3)));
+      $i=0;next;
+
+    };
+
+    my $v=ord($c);
+
+    $v-=0x30;
+    $r+=$v<<($i*3);$i++;
+
+  };return $r;
+
+};
+
+# binary conversion
+sub pebinnc {
+
+  my $x=shift;
+  my $r=0;
+
+  my $i=0;
+
+  for my $c(reverse split '',$x) {
+
+    if($c=~ m/[bBlL]/) {
+      next;
+
+    # fractions in binary (!!!)
+    } elsif($c=~ m/\./) {
+      $r*=(1/((1<<$i)));
+      $i=0;next;
+
+    };
+
+    my $v=ord($c);
+
+    $v-=0x30;
+    $r+=$v<<($i);$i++;
 
   };return $r;
 
