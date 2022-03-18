@@ -1642,7 +1642,7 @@ EOF
 
           push @FCPY,(
             "$mod/$match",
-            "$libd/$match"
+            "$libd/$mod/$match"
 
           );
 
@@ -1882,6 +1882,15 @@ if($LMODE eq 'ar') {
 while(@FCPY) {
   my $og=shift @FCPY;
   my $cp=shift @FCPY;
+
+  my $base_path=
+    join '/',
+    ((split '/',$cp)[0..-2]);
+
+  if(!(-e $base_path)) {
+    `mkdir -p $base_path`;
+
+  };
 
   my $do_cpy=!(-e $cp);
 

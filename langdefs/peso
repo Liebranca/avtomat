@@ -157,338 +157,37 @@ my %MAM=(
 
 # ---   *   ---   *   ---
 
-  -CALC=>[],
-  -CALC_B=>[],
-  -CALC_R=>[],
+  -EXTAB=>{
 
-  -OPS=>{
+    '{'=>[\&peso::node::ocurl,undef],
+    '}'=>[undef,\&peso::node::ccurl],
 
-    '+' =>[undef,undef],
-    '++'=>[undef,undef],
+    'reg'=>[
 
-    '-' =>[undef,undef],
-    '--'=>[undef,undef],
+      undef,
+      sub {
 
-    '*' =>[undef,undef],
-    '/' =>[undef,undef],
+        my $node=shift;
+        my $name=$node->{-LEAVES}->[0]
+          ->{-LEAVES}->[0]->{-VAL};
 
-    '<'=>[undef,undef],
-    '>'=>[undef,undef],
+        printf "reg $name\n";
 
-    '<<:'=>[undef,undef],
-    '>>:'=>[undef,undef],
+        my @reg=();
 
-    '('=>[undef,undef],
-    ')'=>[undef,undef],
+        push @{ $MAM{-CLANS}
+          ->{$MAM{-CLAN}}
+          ->{-BLOCKS} },
 
-    '['=>[undef,undef],
-    ']'=>[undef,undef],
+          @reg;
 
-    '{'=>[\&node::ocurl,undef],
-    '}'=>[undef,\&node::ccurl],
+      }
 
-    '?'=>[undef,undef],
-    '!'=>[undef,undef],
+    ],
 
   },
 
 );
-
-# ---   *   ---   *   ---
-# sloppy math
-
-# in: arr
-# save tokens to calc stack
-sub peso_calcus_psh {
-
-  my @stk=@_;
-
-  my $i=0;for my $sym(@stk) {
-
-    if(!defined $sym) {next}
-    elsif(!(length $sym)) {next;};
-
-    push @{ $MAM{-CALC} },$sym;
-
-    if(exists $MAM{-OPS}->{$sym}) {
-
-      my @ar=@{ $MAM{-CALC} };
-
-      if($#ar<1) {goto INC;};
-
-      ( $ar[$i],
-        $ar[$i-1]
-
-      )=ll::wap(
-        $ar[$i],
-        $ar[$i-1]
-
-      );
-
-      @{ $MAM{-CALC} }=@ar;
-
-    };INC:$i++;
-};
-
-# ---   *   ---   *   ---
-
-# in: str
-# solves operation
-};sub peso_calcus_collapse {
-
-  # the undef chk
-  my $s=shift;
-  if(!(defined $s)) {return 0;};
-
-  # ret value
-  my $v=0;my $i=0;
-  $s=~ s/\s*//gs;
-
-  # check for operators, cut at them
-  for my $op(split ':',$s) {
-
-    # wapping push
-    peso_calcus_psh( split
-      m/${ DICT{-GPRE}
-      ->{-OPS}->[0]->[1] }/,
-
-      $op
-
-# ---   *   ---   *   ---
-
-    # iter through the sorted arr
-    );while(@{ $MAM{-CALC} }) {
-
-      my @ar=@{ $MAM{-CALC} };
-      my $len=$#ar;
-
-      my $sym=shift @ar;
-
-# ---   *   ---   *   ---
-
-      # symbol is operator
-      if(exists $MAM{-OPS}->{$sym}) {
-
-        my $arg=$MAM{-OPS}->{$sym}->[0];
-
-        # push back if less than required args
-        if($len<$arg) {
-
-          while(@{ $MAM{-CALC} }) {
-
-            $sym=shift @{ $MAM{-CALC} };
-
-            if(exists $MAM{-OPS}->{$sym}) {
-              unshift @{ $MAM{-CALC_B} },$sym;
-
-            } else {
-              unshift @{ $MAM{-CALC_R} },$sym;
-
-            };
-          };
-
-          $MAM{-CALC}=[];last;
-
-        };
-
-# ---   *   ---   *   ---
-
-        # get appropiate call for operator
-        my @call=();
-        my $sig=0;
-
-        ($arg,$sig)=@{
-          $MAM{-OPS}->{$sym}
-
-        # $sig->[0..arg-1]
-        };shift @{ $MAM{-CALC} };
-
-# ---   *   ---   *   ---
-
-      while($arg) {
-
-          push(@call,
-            shift @{ $MAM{-CALC} }
-
-          );$arg--;
-
-        };push @{ $MAM{-CALC_R} },$sig->(@call);
-
-# ---   *   ---   *   ---
-
-      } else {
-        push @{ $MAM{-CALC_R} },
-          shift @{ $MAM{-CALC} };
-
-      };
-
-    };$i++;
-  };
-
-# ---   *   ---   *   ---
-
-  # solve tail
-  my @tail=@{ $MAM{-CALC_B} };
-  my @tail_v=@{ $MAM{-CALC_R} };
-
-  while(@tail) {
-
-      my $sym=shift @tail;
-      printf "PP:$sym\n";
-
-      if(!$sym) {next};
-
-      my @call=();
-      my ($arg,$sig)=@{
-        $MAM{-OPS}->{$sym}
-
-      };
-
-      while($arg) {
-        printf ">>$tail_v[0]\n";
-        push @call,shift @tail_v;
-        $arg--;
-
-      };$v=$sig->(@call);
-      push @tail_v,$v;
-
-  };
-
-# ---   *   ---   *   ---
-
-  shift @tail_v;
-  if(@tail_v) {
-    my $rem=eval(join '+',@tail_v);
-    $v+=$rem;
-
-  };return $v;
-
-};
-
-# ---   *   ---   *   ---
-
-# registers new reg block
-sub peso_reg_new {
-
-  # get reg block name
-  if(my @mat=pss(
-
-    "$_LUN*",
-    undef,
-
-    -NAME
-
-  )) {
-
-    # register
-    my $name=$mat[0];
-    $MAM{-REGS}->{$name}={};
-    $MAM{-DST}=[$name,$MAM{-REGS}->{$name}];
-
-    # set subrd func
-    $MAM{-CNTX}=\&peso_reg_rd;
-
-  };
-
-# ---   *   ---   *   ---
-
-# reads reg block entries
-};sub peso_reg_rd {
-
-  my $type='';
-  my $name='';
-
-  my $value=[];
-  my $size=0;
-  my $max_bytes=0;
-  my $byte_sz=1;
-
-# ---   *   ---   *   ---
-
-  # get type
-  if(my @mat=pss(
-
-    $PESO{-VARS}->[0]->[1],
-    undef,
-
-    -TYPE
-
-  )) {
-
-    $type=$mat[0];
-    $type=~ m/(\d*)/;
-
-    # enfornce line size min of 16 bytes
-    $size=($1) ? ($1+3) : $size;
-    $size=($size && $size<4) ? 4 : $size;
-
-    $max_bytes=$size**2;
-    $byte_sz=$MAM{-SIZES}->{$type};
-
-  };
-
-# ---   *   ---   *   ---
-
-  # get name
-  if(my @mat=pss(
-
-    "$_LUN*",
-    undef,
-
-    -NAME
-
-  )) {$name=$mat[0];};
-
-# ---   *   ---   *   ---
-
-  my $v=0;
-  my $cbyte=0;
-
-  # get value(s)
-  for my $x(psscsl(undef,-VALUE)) {
-
-    $x=peso_calcus_collapse($x);
-    $x=pehex($x);
-    $v|=($x&((1<<($byte_sz*8)))-1)<<($cbyte*8);
-
-    $cbyte+=$byte_sz;
-
-    # value is an array of 64-bit units
-    # thus, only push when value is at that size
-    if($cbyte==$MAM{-SIZES}->{'unit'}) {
-      push @$value,$v;$v^=$v;
-
-    };
-
-  # ... or when there's nothing left to push
-  # ++ensure each array is 16-aligned
-  };while((@$value%2) || $v || !(@$value)) {
-    push @$value,$v;$v^=$v;
-
-  };
-
-  # debug
-  printf "$name:\n";
-  for(my $i=0;$i<@$value;$i+=2) {
-
-    print sprintf
-      "%016X %016X\n",
-      $value->[$i+1],$value->[$i];
-
-  };printf "\n";
-
-# ---   *   ---   *   ---
-
-#  $MAM{-DST}->[1]->{$name}=$value;
-#
-#  my $s=$MAM{-REGS}->{$MAM{-DST}->[0]}->{$name};
-#
-#  if($s) {
-#    printf "\n>$name=$s\n";
-#
-#  };
-
-};
 
 # ---   *   ---   *   ---
 
@@ -642,7 +341,7 @@ sub peso_rd {
 # ---   *   ---   *   ---
 
     # create root node
-    my $root=node::nit(undef,$key);
+    my $root=peso::nodenit(undef,$key);
 
     # determine expath from key and context
 
@@ -670,18 +369,13 @@ sub peso_rd {
 
       # fetch expath from table
 
-      my $tab=(
-
-        0,0,0,0,0,0,
-        $MAM{-OPS}
-
-      )[$i];
+      my $tab=$MAM{-EXTAB};
 
       if($tab) {
-        my %tab=%{ $tab };
 
-        if(exists $tab{$key}) {
-          @expath=@{ $tab{$key} };
+        my $k=$key;$k=~ s/\s+//;
+        if(exists $tab->{$k}) {
+          @expath=@{ $tab->{$k} };
 
         };
       };
@@ -755,49 +449,14 @@ sub peso_rd {
 
     };
 
-    next;
-
-# ---   *   ---   *   ---
-
-    # check for context directives
-    if(my @mat=pss(
-
-      $PESO{-KEYS}->[1]->[1],
-      $exp,
-
-      -CNTX
-
-    )) {
-
-# ---   *   ---   *   ---
-
-      # get match
-      my $s=$mat[0];
-
-      # run subrd func
-      { 'reg'=>\&peso_reg_new,
-
-        'proc'=>sub {;},
-        'ret'=>sub {;},
-        'clan'=>sub {;},
-
-        'entry'=>sub {;},
-
-      }->{$s}->();
-
-# ---   *   ---   *   ---
-
-    } else {
-      $MAM{-CNTX}->();
-
-    };clps();
-
   };
 
-  for my $root(@tree) {
-    $root->prich();
+# ---   *   ---   *   ---
 
-  };
+#  for my $root(@tree) {
+#    $root->prich();
+#
+#  };
 
   return;
 

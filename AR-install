@@ -62,7 +62,7 @@ my $avtomat_config;{
 
   my %config=(
   'XCPY'  =>  'avtomat*',
-  'LCPY'  =>  'll.pm',
+  'LCPY'  =>  '',
 
   );$avtomat_config=avt::strconfig \%config;
 

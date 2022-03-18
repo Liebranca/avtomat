@@ -20,7 +20,13 @@ BEGIN {
 # ---   *   ---   *   ---
 
   # update
-  for my $lib('/ll.pm','/avt.pm') {
+  for my $lib(
+    '/peso/node.pm',
+    '/peso/block.pm',
+
+    '/avt.pm'
+
+  ) {
     my $src=$root.'/avtomat/'.$lib;
 
     my $do_cp=!(-e $path.$lib);
