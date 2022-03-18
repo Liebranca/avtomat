@@ -12,7 +12,7 @@
 # ---   *   ---   *   ---
 
 # deps
-package node;
+package peso::node;
   use strict;
   use warnings;
 
@@ -209,7 +209,7 @@ sub nit {
     -PAR=>undef,
     -INDEX=>0,
 
-  },'node';
+  },'peso::node';
 
 # ---   *   ---   *   ---
 

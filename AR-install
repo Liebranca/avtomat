@@ -28,6 +28,9 @@ BEGIN {
 
   `cp $src $dst`;
 
+  # regenerate defs
+  `$ENV{'ARPATH'}./avtomat/sygen`;
+
 };
 
 # ---   *   ---   *   ---

@@ -115,7 +115,8 @@ my %MAM=(
 
   # block families
   -CLANS=>{
-    'non'=>{-BLOCKS=>[]},
+
+    'non'=>peso::block::nit(undef,'non'),
 
   },
 
@@ -155,9 +156,11 @@ my %MAM=(
 
   },
 
+);
+
 # ---   *   ---   *   ---
 
-  -EXTAB=>{
+  $MAM{-EXTAB}={
 
     '{'=>[\&peso::node::ocurl,undef],
     '}'=>[undef,\&peso::node::ccurl],
@@ -171,23 +174,16 @@ my %MAM=(
         my $name=$node->{-LEAVES}->[0]
           ->{-LEAVES}->[0]->{-VAL};
 
-        printf "reg $name\n";
+        my $blk=$MAM{-CLANS}
+          ->{$MAM{-CLAN}}->nit($name);
 
-        my @reg=();
-
-        push @{ $MAM{-CLANS}
-          ->{$MAM{-CLAN}}
-          ->{-BLOCKS} },
-
-          @reg;
+        return $blk;
 
       }
 
     ],
 
-  },
-
-);
+  };
 
 # ---   *   ---   *   ---
 
@@ -341,7 +337,7 @@ sub peso_rd {
 # ---   *   ---   *   ---
 
     # create root node
-    my $root=peso::nodenit(undef,$key);
+    my $root=peso::node::nit(undef,$key);
 
     # determine expath from key and context
 

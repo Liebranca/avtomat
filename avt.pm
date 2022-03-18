@@ -1640,9 +1640,13 @@ EOF
           $lcpy=~ s/\|?${ match }\|?//;
           $match=~ s/\\//g;
 
+my $lmod=$mod;
+$lmod=~ s/${ CACHE{-ROOT} }\/${name}//;
+$lmod.=($lmod) ? '/' : '';
+
           push @FCPY,(
             "$mod/$match",
-            "$libd/$mod/$match"
+            "$libd/$lmod$match"
 
           );
 
@@ -1883,9 +1887,8 @@ while(@FCPY) {
   my $og=shift @FCPY;
   my $cp=shift @FCPY;
 
-  my $base_path=
-    join '/',
-    ((split '/',$cp)[0..-2]);
+  my @ar=split '/',$cp;
+  my $base_path=join '/',@ar[0..$#ar-1];
 
   if(!(-e $base_path)) {
     `mkdir -p $base_path`;

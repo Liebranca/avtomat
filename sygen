@@ -16,6 +16,9 @@
   use strict;
   use warnings;
 
+  use lib $ENV{'ARPATH'}.'/include/';
+  require 'AR.ph';
+
 # ---   *   ---   *   ---
 # patch out our own dependencies
 # because we can

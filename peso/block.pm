@@ -12,12 +12,42 @@
 # ---   *   ---   *   ---
 
 # deps
-package block;
+package peso::block;
   use strict;
   use warnings;
 
 # ---   *   ---   *   ---
 
+sub nit {
+
+  my $self=shift;
+  my $name=shift;
+
+  my $blk=bless {
+
+    -NAME=>$name,
+    -ELEMS=>{},
+
+  },'peso::block';
+
+  if($self) {
+    $self->elems->{$name}=$blk;
+
+  };
+
+  return $blk;
+
+};
+
+# ---   *   ---   *   ---
+
+# getters
+sub name {return (shift)->{-NAME};};
+sub elems {return (shift)->{-ELEMS};};
+
+# ---   *   ---   *   ---
+
 
 
 # ---   *   ---   *   ---
+1; # ret

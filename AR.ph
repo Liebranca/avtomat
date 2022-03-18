@@ -27,7 +27,7 @@ BEGIN {
     '/avt.pm'
 
   ) {
-    my $src=$root.'/avtomat/'.$lib;
+    my $src=$root.'/avtomat'.$lib;
 
     my $do_cp=!(-e $path.$lib);
     $do_cp=(!$do_cp)
@@ -37,10 +37,14 @@ BEGIN {
       : $do_cp;
       ;
 
-    if($do_cp) {`cp $src $path$lib`;};
+    my @ar=split '/',$path.$lib;
+    my $basedir=join '/',@ar[0..$#ar-1];
+    if(!(-e $basedir)) {
+      `mkdir -p $basedir`;
 
-  # regenerate defs
-  };`$ENV{'ARPATH'}/avtomat/sygen`;
+    };if($do_cp) {`cp $src $path$lib`;};
+
+  };
 
 };
 
