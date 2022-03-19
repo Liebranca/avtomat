@@ -16,142 +16,20 @@ package peso::node;
   use strict;
   use warnings;
 
+  use lib $ENV{'ARPATH'}.'/include/';
+  my %PESO=do 'peso/defs.ph';
+
+# ---   *   ---   *   ---
+
 my %CACHE=(
 
   -TREES=>[],
-  -NAMES=>'[_a-zA-Z][_a-zA-Z0-9]',
-
-# ---   *   ---   *   ---
-
-  -OPS=>'[^\s_A-Za-z0-9\.:\\\\]',
-
-  -ODE=>'[\(\[\{]',
-  -CDE=>'[\}\]\)]',
-
-  -DEL_OPS=>'[\{\[\(\)\]\}\\\\]',
-  -NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}\\\\]',
-
-# ---   *   ---   *   ---
 
   -DEPTH=>[],
   -LDEPTH=>0,
   -ANCHOR=>undef,
 
 );
-
-# ---   *   ---   *   ---
-
-  $CACHE{-OP_PREC}={
-
-    '*^'=>[0,2,sub {return (shift)**(shift);}],
-    '*'=>[1,2,sub {return (shift)*(shift);}],
-    '/'=>[2,2,sub {return (shift)/(shift);}],
-
-    '++'=>[3,1,sub {return (shift)+1;}],
-    '+'=>[4,2,sub {return (shift)+(shift);}],
-    '--'=>[5,1,sub {return (shift)-1;}],
-    '-'=>[6,2,sub {return (shift)-(shift);}],
-
-# ---   *   ---   *   ---
-
-    '?'=>[7,1,sub {return int((shift)!=0);}],
-    '!'=>[8,1,sub {return int(!(shift));}],
-    '~'=>[9,1,sub {return ~int(shift);}],
-
-    '<<'=>[10,2,sub {
-
-      return int(int(shift)<< int(shift));
-
-    }],
-
-    '>>'=>[11,2,sub {
-
-      return int(int(shift)>> int(shift));
-
-    }],
-
-# ---   *   ---   *   ---
-
-    '|'=>[12,2,sub {
-
-      return int(int(shift)| int(shift));
-
-    }],
-
-    '^'=>[13,2,sub {
-
-      return int(shift)^int(shift);
-
-    }],
-
-    '&'=>[14,2,sub {
-
-      return int(int(shift)& int(shift));
-
-    }],
-
-    '<'=>[15,2,sub {
-
-      return int((shift)<(shift));
-
-    }],
-
-    '<='=>[15,2,sub {
-
-      return int((shift)<=(shift));
-
-    }],
-
-    '>'=>[16,2,sub {
-
-      return int((shift)>(shift));
-
-    }],
-
-    '>='=>[16,2,sub {
-
-      return int((shift)>=(shift));
-
-    }],
-
-# ---   *   ---   *   ---
-
-    '||'=>[17,2,sub {
-
-      return int(
-           (int(shift)!=0)
-        || (int(shift)!=0)
-
-      );
-
-    }],
-
-    '&&'=>[18,2,sub {
-
-      return int(
-           int((shift)!=0)
-        && int((shift)!=0)
-
-      );
-
-    }],
-
-    '=='=>[19,2,sub {
-      return int((shift)==(shift));
-
-    }],
-
-    '!='=>[20,2,sub {
-      return int((shift)!=(shift));
-
-    }],
-
-    '->'=>[21,2,sub {
-      return (shift).'@'.(shift);
-
-    }],
-
-  };
 
 # ---   *   ---   *   ---
 
@@ -218,7 +96,7 @@ sub nit {
 
     $node->{-INDEX}=$self->idextrav();
 
-    push @{ $self->{-LEAVES} },$node;
+    push @{ $self->leaves },$node;
     $node->{-PAR}=$self;
 
   } else {
@@ -227,6 +105,17 @@ sub nit {
   };return $node;
 
 };
+
+# ---   *   ---   *   ---
+
+# getters
+
+sub leaves {return (shift)->{-LEAVES};};
+sub par {return (shift)->{-PAR};};
+sub val {return (shift)->{-VAL};};
+
+
+# ---   *   ---   *   ---
 
 sub mksep {
 
@@ -290,7 +179,7 @@ sub ocurl {
 
   # reorder branches
   $node->pluck($self);
-  my @leaves=$self->pluck(@{ $self->{-LEAVES} });
+  my @leaves=$self->pluck(@{ $self->leaves });
   push @leaves,$self;
 
   $node->pushlv(0,@leaves);
@@ -337,11 +226,11 @@ sub walkup {
 
   };
 
-  my $node=$self->{-PAR};
+  my $node=$self->par;
   my $i=0;
 
   while($top<$i) {
-    my $par=$node->{-PAR};
+    my $par=$node->par;
     if($par) {
       $node=$par;
 
@@ -362,7 +251,7 @@ sub pushlv {
 
   my $overwrite=shift;
   if($overwrite) {
-    $self->{-LEAVES}=[];
+    $self->leaves=[];
 
   };
 
@@ -378,14 +267,14 @@ sub pushlv {
 
     };
 
-    my $par=$node->{-PAR};
+    my $par=$node->par;
 
     $node->{-ROOT}=$self->{-ROOT};
     $node->{-PAR}=$self;
 
-    push @{ $self->{-LEAVES} },$node;
+    push @{ $self->leaves },$node;
 
-    if($par && $par!=$node->{-PAR}) {
+    if($par && $par!=$node->par) {
       $par->pluck($node);
       $cl{$par}=$par;
 
@@ -410,13 +299,13 @@ sub cllv {
 
     my $i=0;
 
-    $i<@{ $self->{-LEAVES} };
+    $i<@{ $self->leaves };
     $i++
 
   ) {
 
     # push only nodes that arent plucked
-    my $node=$self->{-LEAVES}->[$i];
+    my $node=$self->leaves->[$i];
     if(defined $node) {
       push @cpy,$node;
 
@@ -470,9 +359,9 @@ sub splitlv {
     my @filt=('$:%%join;>');
     my $s='';
 
-    my $op=$CACHE{-OPS};
-    my $del_op=$CACHE{-DEL_OPS};
-    my $ndel_op=$CACHE{-NDEL_OPS};
+    my $op=$PESO{-OPS};
+    my $del_op=$PESO{-DEL_OPS};
+    my $ndel_op=$PESO{-NDEL_OPS};
 
     my @separator=(
       '$:/join;>',
@@ -534,7 +423,7 @@ TOP:
       my $cut=(
 
         # close delimiter : non operator
-        ($pr=~ m/${CACHE{-CDE}}/)
+        ($pr=~ m/${PESO{-CDE}}/)
 
         ||
 
@@ -546,15 +435,15 @@ TOP:
 # ---   *   ---   *   ---
 
     # is delimiter
-    } elsif($ol=~ $CACHE{-ODE}
-    || $ol=~ $CACHE{-CDE}
+    } elsif($ol=~ $PESO{-ODE}
+    || $ol=~ $PESO{-CDE}
 
     ) {
 
       my $cut=0;
 
       # put separator if
-      if($ol=~ m/$CACHE{-ODE}/) {
+      if($ol=~ m/$PESO{-ODE}/) {
 
         $cut=(
 
@@ -640,7 +529,7 @@ SKIP:
 # ---   *   ---   *   ---
 
   # subdivide by delimiters
-  if( $sym=~ m/^(${CACHE{-ODE}})/ ) {
+  if( $sym=~ m/^(${PESO{-ODE}})/ ) {
 
     my $c=$1;
     if($c eq '(') {
@@ -688,7 +577,7 @@ sub repl {
   my $self=shift;
   my $other=shift;
 
-  my $ref=$self->{-PAR}->{-LEAVES};
+  my $ref=$self->par->leaves;
   my $i=-1;
 
   for my $node(@$ref) {
@@ -725,7 +614,7 @@ sub pluck {
 
   # match nodes in list
   { my $i=0;for my $leaf(
-    @{ $self->{-LEAVES} }
+    @{ $self->leaves }
 
   # skip removed nodes
   ) { if(!$leaf) {next;};
@@ -739,14 +628,14 @@ sub pluck {
 # ---   *   ---   *   ---
 
         # node is in remove list
-        if($leaf->{-VAL} eq $node->{-VAL}) {
+        if($leaf->val eq $node->val) {
 
           # save the removed nodes
-          push @plucked,$self->{-LEAVES}->[$i];
+          push @plucked,$self->leaves->[$i];
 
           # remove from list and leaves
           $ar[$j]=undef;
-          $self->{-LEAVES}->[$i]=undef;
+          $self->leaves->[$i]=undef;
 
           # go to next leaf
           last;
@@ -776,7 +665,7 @@ sub agroup {
   my @buf=();
   my @dst=();
 
-  my $delims=${CACHE{-ODE}}.'|'.${CACHE{-CDE}};
+  my $delims=${PESO{-ODE}}.'|'.${PESO{-CDE}};
 
 # ---   *   ---   *   ---
 
@@ -786,9 +675,9 @@ sub agroup {
   my $anchor=$self;
 
   # branch out at joins
-  for my $node(@{ $self->{-LEAVES} }) {
+  for my $node(@{ $self->leaves }) {
 
-    my $sym=$node->{-VAL};
+    my $sym=$node->val;
 
     # group all nodes inside wrap
     if($sym eq '$:%%join;>') {
@@ -839,11 +728,11 @@ sub agroup {
 
             # push self
             push @chest,
-              node::nit(undef,$tail);
+              peso::node::nit(undef,$tail);
 
             # push leftovers
             while(@left) {
-              push @chest,node::nit(
+              push @chest,peso::node::nit(
                 undef,
                 shift @left
 
@@ -866,8 +755,8 @@ sub agroup {
 
   };
 
-  for my $child(@{ $self->{-LEAVES} }) {
-    if(!@{ $child->{-LEAVES} }) {
+  for my $child(@{ $self->leaves }) {
+    if(!@{ $child->leaves }) {
       push @trash,$child;
 
     };
@@ -885,7 +774,7 @@ sub idextrav {
   my $self=shift;
   my $i=0;
 
-  for my $child(@{$self->{-LEAVES}}) {
+  for my $child(@{$self->leaves}) {
     $child->{-INDEX}=$i;$i++;
 
   };return $i;
@@ -905,10 +794,10 @@ sub subdiv {
   my @rootstack=();
 
   my @nodes=();
-  my $ndel_op=$CACHE{-NDEL_OPS};
+  my $ndel_op=$PESO{-NDEL_OPS};
 
   # operator data
-  my $h=$CACHE{-OP_PREC};
+  my $h=$PESO{-OP_PREC};
 
 # ---   *   ---   *   ---
 
@@ -917,10 +806,10 @@ TOP:{
   $self=$leaf;
   $self->idextrav();
 
-  if(!$self->{-VAL}) {goto SKIP;};
+  if(!$self->val) {goto SKIP;};
 
   # non delimiter operator match
-  my @ar=split m/(${ndel_op}+)/,$self->{-VAL};
+  my @ar=split m/(${ndel_op}+)/,$self->val;
 
   # we filter out
   my @ops=();
@@ -991,11 +880,11 @@ REPEAT:{
   $q[$hidex]='';
 
   if(!length $elems[$hidex]) {
-    $elems[$hidex]=$self->{-PAR}->{-LEAVES}
+    $elems[$hidex]=$self->par->leaves
     ->[$self->{-INDEX}-1];
 
   };if(!length $elems[$hidex+1]) {
-    $elems[$hidex+1]=$self->{-PAR}->{-LEAVES}
+    $elems[$hidex+1]=$self->par->leaves
     ->[$self->{-INDEX}+1];
 
   };
@@ -1003,7 +892,7 @@ REPEAT:{
   my $lhand=$elems[$hidex];
   my $rhand=$elems[$hidex+1];
 
-  my $node=$self->{-PAR}->nit($hname);
+  my $node=$self->par->nit($hname);
 
 # ---   *   ---   *   ---
 
@@ -1043,15 +932,15 @@ REPEAT:{
   for my $op_elem(@operands) {
 
     # element is a node
-    if((index $op_elem,'node=HASH')>=0) {
+    if((index $op_elem,'peso::node=HASH')>=0) {
 
       # operand is at root level
-      if($op_elem->{-PAR} eq $node->{-PAR}) {
+      if($op_elem->par eq $node->par) {
         push @mov,$op_elem;
 
       # ^ or further down the chain
       } else {
-        push @mov,$op_elem->{-PAR};
+        push @mov,$op_elem->par;
 
       };
 
@@ -1074,7 +963,7 @@ REPEAT:{
   $i=0;if($popped<@q) {goto REPEAT;};
 
 RELOC:
-  $self->{-PAR}->pluck($nodes[-1]);
+  $self->par->pluck($nodes[-1]);
   $self->repl($nodes[-1]);
 
 # ---   *   ---   *   ---
@@ -1083,12 +972,12 @@ RELOC:
 
   $self->idextrav();
 
-  if(!@leafstack && !@{ $self->{-LEAVES} }) {
+  if(!@leafstack && !@{ $self->leaves }) {
     return;
 
   };
 
-  push @leafstack,@{ $self->{-LEAVES} };
+  push @leafstack,@{ $self->leaves };
   $leaf=pop @leafstack;
 
   @nodes=();
@@ -1107,11 +996,11 @@ sub collapse {
   my @nums=@{ $_[0] };shift;
 
   my $leaf=$self;
-  my $ndel_op=$CACHE{-NDEL_OPS};
+  my $ndel_op=$PESO{-NDEL_OPS};
 
   my @leafstack;
 
-  my $h=$CACHE{-OP_PREC};
+  my $h=$PESO{-OP_PREC};
   my @solve=();
 
 # ---   *   ---   *   ---
@@ -1119,14 +1008,14 @@ sub collapse {
 TOP:{
 
   $self=$leaf;
-  if(!length $self->{-VAL}) {goto SKIP;};
+  if(!length $self->val) {goto SKIP;};
 
   # is operation
-  if($self->{-VAL}=~ m/(${ndel_op}+)/) {
+  if($self->val=~ m/(${ndel_op}+)/) {
 
     my $op=$1;
     my $proc=$h->{$op}->[2];
-    my $argval=$self->{-LEAVES};
+    my $argval=$self->leaves;
 
     push @solve,($self,$proc,$argval);
 
@@ -1140,14 +1029,15 @@ TOP:{
       my $pat=$ref->[0];
       my $proc=$ref->[1];
 
-      if($self->{-VAL}=~ m/${pat}/) {
-        $self->{-VAL}=$proc->($self->{-VAL});
+      if($self->val=~ m/${pat}/) {
+        $self->{-VAL}=$proc->($self->val);
         last;
 
-      } elsif($self->{-VAL}=~
-          m/${CACHE{-NAMES}}*/
-
-      ) {last;};
+      };
+# elsif($self->val=~
+#          m/${PESO{-NAMES}}*/
+#
+#      ) {last;};
 
     };
   };
@@ -1157,7 +1047,7 @@ TOP:{
 # ---   *   ---   *   ---
 
 SKIP:{
-  if(!@leafstack && !@{ $self->{-LEAVES} }) {
+  if(!@leafstack && !@{ $self->leaves }) {
 
     while(@solve) {
 
@@ -1168,23 +1058,21 @@ SKIP:{
       my @argval=();
       for my $v(@{$argval}) {
 
-        if($v->{-VAL}=~ m/${CACHE{-DEL_OPS}}/) {
-          push @argval,$v->{-LEAVES}->[0]->{-VAL};
+        if($v->val=~ m/${PESO{-DEL_OPS}}/) {
+          push @argval,$v->leaves->[0]->val;
 
-        } elsif($self->{-VAL}=~
-            m/${CACHE{-NAMES}}*/
+        } elsif($node->val=~
+            m/${PESO{-NAMES}}*/
 
         ) {
 
           # names are pointers
           # the system is not ready for that ;>
           # just ignore pointers for now
-
           goto NEXT_OP;
 
-        } else {
-
-          push @argval,($v->{-VAL});
+         } else {
+          push @argval,($v->val);
 
         };
 
@@ -1192,15 +1080,15 @@ SKIP:{
 
       my $result=$proc->(@argval);
       $node->{-VAL}=$result;
-      $node->pluck(@{$argval});
 
       NEXT_OP:
+      $node->pluck(@{$argval});
 
     };return;
 
   };
 
-  push @leafstack,@{ $self->{-LEAVES} };
+  push @leafstack,@{ $self->leaves };
   $leaf=pop @leafstack;
 
   goto TOP;
@@ -1220,18 +1108,18 @@ sub prich {
 
   # print head
   if(!defined $depth) {
-    printf "$self->{-VAL}\n";
+    printf $self->val."\n";
     $depth=0;
 
   };
 
   # iter children
-  for my $node(@{ $self->{-LEAVES} }) {
+  for my $node(@{ $self->leaves }) {
 
     printf ''.(
       '.  'x($depth).'\-->'.
 #      '['.$node->{-INDEX}.']: '.
-      $node->{-VAL}
+      $node->val
 
 
     )."\n";$node->prich($depth+1);
@@ -1240,7 +1128,7 @@ sub prich {
 
 # ---   *   ---   *   ---
 
-  if(@{ $self->{-LEAVES} }) {
+  if(@{ $self->leaves }) {
     printf '.  'x($depth)."\n";
 
   };

@@ -16,14 +16,14 @@
   use strict;
   use warnings;
 
-  use lib $ENV{'ARPATH'}.'/include/';
-  require 'AR.ph';
-
 # ---   *   ---   *   ---
 # patch out our own dependencies
 # because we can
 
   BEGIN {
+
+    use lib $ENV{'ARPATH'}.'/include/';
+    require 'AR.ph';
 
     my $path=$ENV{'ARPATH'}.'/avtomat';
     my $do_cp=0;

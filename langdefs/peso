@@ -22,7 +22,7 @@ my %PESO=(
     # primitives
     [0x04,eiths(
 
-      '(char|wide|word|long)[0-9]*,'.
+      '(char|wide|word|long)[1-9]*,'.
       'nihil,stark,signal,'
 
     ,1)],
@@ -54,7 +54,7 @@ my %PESO=(
       'kin,sow,reap,'.
 
       'pop,push,mem,fre,'.
-      'skip,rew,'.
+      'shift,unshift,'.
 
       'sys,stop,exit'
 
@@ -104,9 +104,6 @@ my %MAM=(
   # subrd for current context
   -CNTX=>\&peso_cntx_non,
 
-  -DST=>undef,
-  -CLAN=>'non',
-
   # var blocks
   -REGS=>{},
 
@@ -116,74 +113,139 @@ my %MAM=(
   # block families
   -CLANS=>{
 
-    'non'=>peso::block::nit(undef,'non'),
+    'non'=>peso::block::nit(undef,'non',0),
 
   },
 
   # local scope
   -LNAMES=>{},
 
-# ---   *   ---   *   ---
-# leaps and such
-
-  -SIZES=>{
-
-    # primitives
-    'char'=>1,
-    'wide'=>2,
-    'word'=>4,
-    'long'=>8,
-
-# ---   *   ---   *   ---
-# granularity
-
-    # ptr size
-    'unit'=>0x0008,
-
-    # pointers align to line
-    # mem buffers align to page
-
-    'line'=>0x0010, # two units
-    'page'=>0x1000, # 256 lines
-
-# ---   *   ---   *   ---
-# function types
-
-    'nihil'=>8,     # void(*nihil)(void)
-    'stark'=>8,     # void(*stark)(void*)
-
-    'signal'=>8,    # int(*signal)(int)
-
-  },
-
 );
 
 # ---   *   ---   *   ---
 
-  $MAM{-EXTAB}={
+# default block
+$MAM{-CLAN}=$MAM{-CLANS}->{'non'};
+$MAM{-DST}={
 
-    '{'=>[\&peso::node::ocurl,undef],
-    '}'=>[undef,\&peso::node::ccurl],
+  -TYPE=>0,
+  -BLK=>$MAM{-CLAN},
 
-    'reg'=>[
+};
 
-      undef,
-      sub {
+# table of execution paths
+$MAM{-EXTAB}={
 
-        my $node=shift;
-        my $name=$node->{-LEAVES}->[0]
-          ->{-LEAVES}->[0]->{-VAL};
+'{'=>[\&peso::node::ocurl,undef],
+'}'=>[undef,\&peso::node::ccurl],
 
-        my $blk=$MAM{-CLANS}
-          ->{$MAM{-CLAN}}->nit($name);
+# ---   *   ---   *   ---
 
-        return $blk;
+# new reg block
+'reg'=>[
 
-      }
+  undef,
 
-    ],
+  sub {
 
-  };
+  my $node=shift;
+
+  # get value of first grandchild
+  my $name=$node
+    ->leaves->[0]
+    ->leaves->[0]
+    ->val;
+
+  # get dst
+  my $dst=(defined $MAM{-DST}->{-BLK}->par)
+    ? $MAM{-DST}->{-BLK}->par
+    : $MAM{-DST}->{-BLK}
+    ;
+
+  # append new block to dst
+  my $blk=$dst->nit($name,0);
+
+  # overwrite dst
+  $MAM{-DST}=$blk;
+
+  }
+
+],
+
+# ---   *   ---   *   ---
+
+'char'=>[
+
+  undef,
+
+  sub {
+
+    my $node=shift;
+    my $dst=$MAM{-DST};
+
+    my $key=shift;
+    $key=~ s/\s+//;
+
+# ---   *   ---   *   ---
+
+    # fetch values from tree
+    my @line=();
+
+    { my $ref=$node->leaves;
+      my @values=();
+      my @names=();
+
+      # get names of offsets
+      for my $leaf(@{ $ref->[0]->leaves }) {
+        push @names,$leaf->val;
+
+      };
+
+# ---   *   ---   *   ---
+
+      # get values at offsets
+      if(!defined $ref->[1]->leaves) {
+        for(my $i=0;$i<@names;$i++) {
+          push @values,0;
+
+        };
+
+      } else {
+
+        for my $leaf(@{ $ref->[1]->leaves }) {
+          push @values,$leaf->val;
+
+        };
+
+      };
+
+# ---   *   ---   *   ---
+
+      # make [name,value] ref array
+      my $i=0;
+      for my $name(@names) {
+
+        my $value=(defined $values[$i])
+          ? $values[$i]
+          : 0
+          ;
+
+        $line[$i]=[$name,$value];$i++;
+
+      };
+
+    };
+
+# ---   *   ---   *   ---
+
+    # grow the block
+    $dst->expand(\@line,$key);
+
+  }
+
+],
+
+};
 
 # ---   *   ---   *   ---
 
@@ -448,6 +510,8 @@ sub peso_rd {
   };
 
 # ---   *   ---   *   ---
+
+$MAM{-DST}->prich();
 
 #  for my $root(@tree) {
 #    $root->prich();

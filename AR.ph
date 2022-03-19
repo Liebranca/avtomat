@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-
+# ---   *   ---   *   ---
 # AR
 # boiler hed
 
@@ -13,38 +13,75 @@ BEGIN {
     print "ARPATH missing from ENV; aborted\n";
     exit;
 
-  # find lib
-  };my $path=$ENV{'ARPATH'}.'/lib';
-  if(! (-e $path) ) { `mkdir -p $path`; };
+  };
 
 # ---   *   ---   *   ---
 
-  # update
-  for my $lib(
-    '/peso/node.pm',
-    '/peso/block.pm',
+# in: file list,src path,dst path
+# check dates, update older files
 
-    '/avt.pm'
+sub update {
 
-  ) {
-    my $src=$root.'/avtomat'.$lib;
+  my $ref=shift;
+  my $src=shift;
+  my $dst=shift;
 
-    my $do_cp=!(-e $path.$lib);
+  for my $f(@$ref) {
+
+    my $og=$src.$f;
+    my $cp=$dst.$f;
+
+    my $do_cp=!(-e $cp);
+
     $do_cp=(!$do_cp)
-      ? !((-M $path.$lib)
-      < (-M $src) )
+      ? !((-M $cp)
+      <   (-M $og))
 
       : $do_cp;
       ;
 
-    my @ar=split '/',$path.$lib;
+    my @ar=split '/',$cp;
     my $basedir=join '/',@ar[0..$#ar-1];
+
     if(!(-e $basedir)) {
       `mkdir -p $basedir`;
 
-    };if($do_cp) {`cp $src $path$lib`;};
+    };if($do_cp) {`cp $og $cp`;};
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# check libs
+
+  my $path=$ENV{'ARPATH'}.'/lib';
+  if(! (-e $path) ) { `mkdir -p $path`; };
+
+  update(
+
+    [ '/peso/node.pm',
+      '/peso/block.pm',
+
+      '/avt.pm'
+
+    ],$root.'/avtomat',$path
+
+  );
+
+# ---   *   ---   *   ---
+# check headers
+
+  $path=$ENV{'ARPATH'}.'/include';
+  if(! (-e $path) ) { `mkdir -p $path`; };
+
+  update(
+
+    [ '/peso/defs.ph',
+
+    ],$root.'/avtomat',$path
+
+  );
 
 };
 

@@ -27,6 +27,8 @@ package lang;
   use strict;
   use warnings;
 
+  use List::Util qw( max );
+
   use lib $ENV{'ARPATH'}.'/lib/';
   use peso::node;
   use peso::block;
