@@ -1,0 +1,74 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# sadface
+
+# ---   *   ---   *   ---
+#$:CUT;>
+
+my %JS=(
+
+  -NAME =>'JavaScript',
+  -EXT  =>'\.js$',
+  -HED  =>'#.*node',
+
+  -MAG  =>'JavaScript script',
+
+  -COM  =>'//',
+
+# ---   *   ---   *   ---
+
+  -VARS =>[
+
+    [0x04,eiths(
+
+      'async,class,const,extends,function,'.
+      'let,this,typeof,var,void'
+
+    ,1)],
+
+    [0x04,eiths(
+
+      'true,false,null,undefined'
+
+
+    ,1)],
+
+  ],
+
+# ---   *   ---   *   ---
+
+  -BILTN =>[
+
+  ],
+
+# ---   *   ---   *   ---
+
+
+  -KEYS =>[
+
+    [0x0D,eiths(
+
+      'await,export,import,'.
+      'each,in,of,with,yield,finally,'.
+
+      'if,else,for,while,do,switch,case,'.
+      'default,try,throw,catch,new,delete,'.
+      'break,continue,return'
+
+# probably unexistent
+# operator goto
+
+    ,1)],
+
+  ],
+
+# ---   *   ---   *   ---
+
+
+);$JS{-LCOM}=[
+  [0x02,eaf($JS{-COM},0,1)],
+  [0x02,delim2('/*','*/',1)],
+
+];
+
+$DICT{-JS}=\%JS;

@@ -191,9 +191,11 @@ sub glang {
   };
 
 };glang(
+
   -CEE,glob('~/.config/nano/c.nanorc'),
   -PESO,glob('~/.config/nano/peso.nanorc'),
   -PERL,glob('~/.config/nano/perl.nanorc'),
+  -JS,glob('~/.config/nano/javascript.nanorc'),
 
 );
 
