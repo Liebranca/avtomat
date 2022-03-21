@@ -251,7 +251,7 @@ sub pushlv {
 
   my $overwrite=shift;
   if($overwrite) {
-    $self->leaves=[];
+    $self->{-LEAVES}=[];
 
   };
 
@@ -399,12 +399,33 @@ TOP:
 
     # use last accepted as fallback
     if(!defined $pl) {
-      ($pl,$pr)=(
 
-        split '',
-          $filt[-1]
+      # find last non-escape elem
+      my $j=-1;
+      while(defined $filt[$j]) {
 
-      )[0,-1];
+        my $f=$filt[$j];
+        if($f=~ m/${PESO{-PESC}}/) {
+          $j--;next;
+
+        };last;
+
+      };
+
+      # use if not undef
+      if(defined $filt[$j]) {
+        ($pl,$pr)=(
+
+          split '',
+            $filt[$j]
+
+        )[0,-1];
+
+      # or dont use at all
+      } else {
+        ($pl,$pr)=('','');
+
+      };
 
     };
 
@@ -713,7 +734,7 @@ sub agroup {
           if(@chest) {
 
             my $old=$anchor;
-            $anchor=$anchor->nit('$:group;>');
+            $anchor=$anchor->nit('L');
 
             $anchor->pushlv(0,@chest);
             @chest=();
@@ -807,6 +828,13 @@ TOP:{
   $self->idextrav();
 
   if(!$self->val) {goto SKIP;};
+#  if($self->val=~ m/${PESO{-PESC}}/) {
+#    $self->par->pushlv(0,@{$self->leaves});
+#    $self->par->pluck($self);
+#
+#    goto SKIP;
+#
+#  };
 
   # non delimiter operator match
   my @ar=split m/(${ndel_op}+)/,$self->val;
@@ -859,7 +887,7 @@ REPEAT:{
 
     # get op priority
     my $j=$h->{$op}->[0];
-
+printf "$op\n";
     # compare to previous
     if($j < $highest) {
       $highest=$j;
@@ -1055,6 +1083,8 @@ SKIP:{
       my $proc=pop @solve;
       my $node=pop @solve;
 
+# ---   *   ---   *   ---
+
       my @argval=();
       for my $v(@{$argval}) {
 
@@ -1078,6 +1108,8 @@ SKIP:{
 
       };
 
+# ---   *   ---   *   ---
+
       my $result=$proc->(@argval);
       $node->{-VAL}=$result;
 
@@ -1087,6 +1119,8 @@ SKIP:{
     };return;
 
   };
+
+# ---   *   ---   *   ---
 
   push @leafstack,@{ $self->leaves };
   $leaf=pop @leafstack;

@@ -74,20 +74,6 @@ sub expand {
   my $elem_sz=$PESO{-SIZES}->{$type};
   $self->{-SIZE}+=@$ref*$elem_sz;
 
-  $self->setv($ref,$elem_sz);
-
-};
-
-# ---   *   ---   *   ---
-
-# in: array of [key,value] references
-# packs values by peso rules
-sub setv {
-
-  my $self=shift;
-  my $ref=shift;
-  my $elem_sz=shift;
-
   my $line_sz=$PESO{-SIZES}->{'line'};
 
 # ---   *   ---   *   ---
@@ -119,6 +105,28 @@ sub setv {
     };
 
   };
+
+};
+
+# ---   *   ---   *   ---
+
+# in: name,value
+# sets value at offset
+sub setv {
+
+  my $self=shift;
+  my $name=shift;
+  my $value=shift;
+
+  my ($idex,$shf,$mask)=@{
+    $self->elems->{$name}
+
+  };
+
+  $value=$value&($mask>>$shf);
+
+  $self->data->[$idex]&=~$mask;
+  $self->data->[$idex]|=$value<<$shf;
 
 };
 

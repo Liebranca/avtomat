@@ -53,10 +53,13 @@ my %PESO=(
       'cpy,mov,wap,'.
       'kin,sow,reap,'.
 
+      'inc,dec,'.
+
       'pop,push,mem,fre,'.
       'shift,unshift,'.
 
-      'sys,stop,exit'
+      'sys,stop,exit,'.
+      'entry'
 
     ,1)],
 
@@ -76,7 +79,7 @@ my %PESO=(
     # directives
     [0x0D,eiths(
 
-      'reg,rom,proc,clan,tab,entry,exit,atexit'
+      'reg,rom,proc,clan,tab,atexit'
 
     ,1)],
 
@@ -213,7 +216,20 @@ $MAM{-EXTAB}={
       } else {
 
         for my $leaf(@{ $ref->[1]->leaves }) {
-          push @values,$leaf->val;
+
+          # skip non-numeric values
+          while(!($leaf->val()=~ m/[0-9]+/)) {
+            $leaf=@{$leaf->leaves}[0];
+
+          };
+
+          if(defined $leaf) {
+            push @values,$leaf->val;
+
+          } else {
+            push @values,0;
+
+          };
 
         };
 
@@ -458,8 +474,9 @@ sub peso_rd {
       $exp
 
     # sort tokens
-    );$root->branch_reloc();
+    );
 
+    $root->branch_reloc();
     $root->agroup();
     $root->subdiv();
 
@@ -493,7 +510,9 @@ sub peso_rd {
 
       ],
 
-    );$root->collapse(\@nums);
+    );
+
+    $root->collapse(\@nums);
 
     if(!$root->{-PAR}) {
       push @tree,$root;
@@ -511,6 +530,7 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
+#$MAM{-DST}->setv('b',0xFF);
 $MAM{-DST}->prich();
 
 #  for my $root(@tree) {

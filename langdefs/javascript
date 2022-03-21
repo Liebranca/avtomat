@@ -9,7 +9,7 @@ my %JS=(
 
   -NAME =>'JavaScript',
   -EXT  =>'\.js$',
-  -HED  =>'#.*node',
+  -HED  =>'#!.*node',
 
   -MAG  =>'JavaScript script',
 
