@@ -177,7 +177,7 @@ $MAM{-EXTAB}={
 
 # ---   *   ---   *   ---
 
-'char'=>[
+$PESO{-VARS}->[0]->[1]=>[
 
   undef,
 
@@ -447,7 +447,12 @@ sub peso_rd {
 
       if($tab) {
 
-        my $k=$key;$k=~ s/\s+//;
+        my $k=($i==2)
+          ? $primitive
+          : $key
+          ;
+
+        $k=~ s/\s+$//;
         if(exists $tab->{$k}) {
           @expath=@{ $tab->{$k} };
 
@@ -530,7 +535,7 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-#$MAM{-DST}->setv('b',0xFF);
+$MAM{-DST}->setv('b',0xFF00,'wide');
 $MAM{-DST}->prich();
 
 #  for my $root(@tree) {

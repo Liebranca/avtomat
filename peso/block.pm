@@ -75,6 +75,7 @@ sub expand {
   $self->{-SIZE}+=@$ref*$elem_sz;
 
   my $line_sz=$PESO{-SIZES}->{'line'};
+  my $gran=(1<<($elem_sz*8))-1;
 
 # ---   *   ---   *   ---
 
@@ -89,7 +90,7 @@ sub expand {
     my $v=$ar->[1];
 
     my $shf=$i*8;
-    my $mask=0xFF<<$shf;
+    my $mask=$gran<<$shf;
 
     $v=$v<<$shf;
 
@@ -118,14 +119,25 @@ sub setv {
   my $name=shift;
   my $value=shift;
 
+  my $cast=shift;
+
   my ($idex,$shf,$mask)=@{
     $self->elems->{$name}
 
   };
 
-  $value=$value&($mask>>$shf);
+  if(defined $cast) {
+    my $elem_sz=$PESO{-SIZES}->{$cast};
+    my $i=$shf/8;
 
+    my $gran=(1<<($elem_sz*8))-1;
+    $mask=$gran<<$shf;
+
+  };
+
+  $value=$value&($mask>>$shf);
   $self->data->[$idex]&=~$mask;
+
   $self->data->[$idex]|=$value<<$shf;
 
 };
