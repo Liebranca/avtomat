@@ -21,11 +21,48 @@ package peso::block;
 
 # ---   *   ---   *   ---
 
+  use constant {
+
+    # permissions
+    O_RD=>0b001,
+    O_WR=>0b010,
+    O_EX=>0b100,
+
+    # just for convenience
+    O_RDWR=>0b011,
+    O_RDEX=>0b101,
+    O_WREX=>0b110,
+
+    O_RDWREX=>0b111,
+
+  };
+
+# ---   *   ---   *   ---
+
+my %CACHE=(
+
+  -WED=>undef,
+
+);
+
+
+
+# ---   *   ---   *   ---
+
 sub nit {
 
   my $self=shift;
   my $name=shift;
   my $size=shift;
+  my $attrs=shift;
+
+  if(!defined $size) {
+    $size=$PESO{-SIZES}->{'line'};
+
+  };if(!defined $attrs) {
+    $attrs=0b000;
+
+  };
 
   my $blk=bless {
 
@@ -36,6 +73,8 @@ sub nit {
 
     -ELEMS=>{},
     -DATA=>[],
+
+    -ATTRS=>$attrs,
 
   },'peso::block';
 
@@ -56,6 +95,23 @@ sub elems {return (shift)->{-ELEMS};};
 sub par {return (shift)->{-PAR};};
 sub data {return (shift)->{-DATA};};
 sub size {return (shift)->{-SIZE};};
+sub attrs {return (shift)->{-ATTRS};};
+
+# ---   *   ---   *   ---
+
+sub wedcast {
+
+  my $shf=shift;
+
+  my $elem_sz=$PESO{-SIZES}
+    ->{$CACHE{-WED}};
+
+  my $i=$shf/8;
+
+  my $gran=(1<<($elem_sz*8))-1;
+  return $gran<<$shf;
+
+};
 
 # ---   *   ---   *   ---
 
@@ -70,6 +126,8 @@ sub expand {
 
   my $ref=shift;
   my $type=shift;
+
+  $CACHE{-WED}=$type;
 
   my $elem_sz=$PESO{-SIZES}->{$type};
   $self->{-SIZE}+=@$ref*$elem_sz;
@@ -116,6 +174,15 @@ sub expand {
 sub setv {
 
   my $self=shift;
+
+  if(!($self->attrs& O_WR)) {
+    printf "block '".$self->name.
+      "' cannot be written\n";
+
+    exit;
+
+  };
+
   my $name=shift;
   my $value=shift;
 
@@ -127,17 +194,15 @@ sub setv {
   };
 
   if(defined $cast) {
-    my $elem_sz=$PESO{-SIZES}->{$cast};
-    my $i=$shf/8;
+    $CACHE{-WED}=$cast;
 
-    my $gran=(1<<($elem_sz*8))-1;
-    $mask=$gran<<$shf;
+  };if(defined $CACHE{-WED}) {
+    $mask=wedcast($shf);
 
   };
 
   $value=$value&($mask>>$shf);
   $self->data->[$idex]&=~$mask;
-
   $self->data->[$idex]|=$value<<$shf;
 
 };

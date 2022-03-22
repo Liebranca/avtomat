@@ -27,7 +27,7 @@ my %PESO=(
 
     ,1)],
 
-    # inherents
+    # intrinsics
     [0x04,eiths(
 
       'str,buf,ptr,fptr,wed,lis,lock,'
@@ -166,7 +166,11 @@ $MAM{-EXTAB}={
     ;
 
   # append new block to dst
-  my $blk=$dst->nit($name,0);
+  my $blk=$dst->nit(
+    $name,0,
+    peso::block->O_RDWR
+
+  );
 
   # overwrite dst
   $MAM{-DST}=$blk;
@@ -187,7 +191,15 @@ $PESO{-VARS}->[0]->[1]=>[
     my $dst=$MAM{-DST};
 
     my $key=shift;
-    $key=~ s/\s+//;
+
+    my $instrinsic=$PESO{-VARS}->[1]->[1];
+
+    if($key=~ s/(${instrinsic})//) {
+      printf "$1\n";
+
+    };
+
+    $key=~ s/\s+$//;
 
 # ---   *   ---   *   ---
 
@@ -366,7 +378,7 @@ sub peso_rd {
   my $flowctl=$PESO{-KEYS}->[0]->[1];
 
   my $primitive=$PESO{-VARS}->[0]->[1];
-  my $inherent=$PESO{-VARS}->[1]->[1];
+  my $intrinsic=$PESO{-VARS}->[1]->[1];
   my $sblconst=$PESO{-VARS}->[2]->[1];
 
   my $instruct=$PESO{-BILTN}->[0]->[1];
@@ -381,7 +393,7 @@ sub peso_rd {
 
   $pat.='|('.$instruct.'\s+)';
   $pat.='|('.$flowctl.'\s+)';
-  $pat.='|('.$inherent.'\s+)';
+  $pat.='|('.$intrinsic.'\s+)';
 
   $pat.='|('.$sblconst.'\s+)';
 
@@ -425,7 +437,7 @@ sub peso_rd {
         $directive,
         $flowctl,
         $primitive,
-        $inherent,
+        $intrinsic,
         $sblconst,
         $instruct,
 
@@ -535,7 +547,7 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-$MAM{-DST}->setv('b',0xFF00,'wide');
+$MAM{-DST}->setv('b',0xFF00,'word');
 $MAM{-DST}->prich();
 
 #  for my $root(@tree) {
