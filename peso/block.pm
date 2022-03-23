@@ -42,10 +42,21 @@ package peso::block;
 my %CACHE=(
 
   -WED=>undef,
+  -BLOCKS=>{},
 
 );
 
+sub clan {
 
+  my $key=shift;
+  if(!exists $CACHE{-BLOCKS}->{$key}) {
+
+    printf "No root block named '$key'\n";
+    exit;
+
+  };return $CACHE{-BLOCKS}->{$key};
+
+};
 
 # ---   *   ---   *   ---
 
@@ -81,6 +92,18 @@ sub nit {
   if($self) {
     $self->elems->{$name}=$blk;
 
+  } else {
+
+    if(exists $CACHE{-BLOCKS}->{$name}) {
+
+      printf "Ilegal operation: ".
+        "redeclaration of root block '".
+        $name."' at global scope\n";
+
+      exit;
+
+    };$CACHE{-BLOCKS}->{$name}=$blk;
+
   };
 
   return $blk;
@@ -97,8 +120,27 @@ sub data {return (shift)->{-DATA};};
 sub size {return (shift)->{-SIZE};};
 sub attrs {return (shift)->{-ATTRS};};
 
+sub ances {
+
+  my $self=shift;
+  my $name=$self->name;
+
+  if($self->par) {
+    $name=$self->par->ances().'@'.$name;
+
+  };return $name;
+
+};
+
 # ---   *   ---   *   ---
 
+# in: type
+# set/unset typing mode
+sub wed {$CACHE{-WED}=shift;};
+sub unwed {$CACHE{-WED}=undef;};
+
+# in: offset in bits
+# gives wed-sized mask
 sub wedcast {
 
   my $shf=shift;
@@ -215,6 +257,14 @@ sub getv {
 
   my $self=shift;
   my $name=shift;
+
+  if(!exists $self->elems->{$name}) {
+    printf "Block <".$self->name.'> '.
+      "has no member named '".$name."'\n";
+
+    exit;
+
+  };
 
   my ($idex,$shf,$mask)=@{
     $self->elems->{$name}

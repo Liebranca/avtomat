@@ -29,6 +29,8 @@ my %CACHE=(
   -LDEPTH=>0,
   -ANCHOR=>undef,
 
+  -BLOCKS=>undef,
+
 );
 
 # ---   *   ---   *   ---
@@ -60,8 +62,6 @@ sub nit {
     $tree_id=@ar;
 
     if(defined $CACHE{-ANCHOR}) {
-
-      #printf "$val\n";
 
       $tree{-FUSE}=$CACHE{-DEPTH}->[-1];
       $tree{-ROOT}=undef;
@@ -114,7 +114,6 @@ sub leaves {return (shift)->{-LEAVES};};
 sub par {return (shift)->{-PAR};};
 sub val {return (shift)->{-VAL};};
 
-
 # ---   *   ---   *   ---
 
 sub mksep {
@@ -128,6 +127,23 @@ sub mksep {
     -PAR=>undef,
 
   },'node';
+
+};
+
+sub dup {
+
+  my $self=shift;
+  my $root=shift;
+
+  my @leaves=();
+
+  my $copy=nit($root,$self->val);
+  for my $leaf(@{$self->leaves}) {
+    push @leaves,$leaf->dup($root);
+
+  };$self->pushlv(0,@leaves);
+
+  return $copy;
 
 };
 
@@ -704,7 +720,7 @@ sub agroup {
     if($sym eq '$:%%join;>') {
 
       $anchor=$node;
-      $node->{-VAL}='L';
+      $node->{-VAL}='$:group;>';
 
     # ^ wrap close
     } elsif($sym eq '$:/join;>') {
@@ -734,7 +750,7 @@ sub agroup {
           if(@chest) {
 
             my $old=$anchor;
-            $anchor=$anchor->nit('L');
+            $anchor=$anchor->nit('$:group;>');
 
             $anchor->pushlv(0,@chest);
             @chest=();
@@ -828,13 +844,13 @@ TOP:{
   $self->idextrav();
 
   if(!$self->val) {goto SKIP;};
-#  if($self->val=~ m/${PESO{-PESC}}/) {
+  if($self->val=~ m/${PESO{-PESC}}/) {
 #    $self->par->pushlv(0,@{$self->leaves});
 #    $self->par->pluck($self);
-#
-#    goto SKIP;
-#
-#  };
+
+    goto SKIP;
+
+  };
 
   # non delimiter operator match
   my @ar=split m/(${ndel_op}+)/,$self->val;
@@ -887,7 +903,7 @@ REPEAT:{
 
     # get op priority
     my $j=$h->{$op}->[0];
-printf "$op\n";
+
     # compare to previous
     if($j < $highest) {
       $highest=$j;
@@ -1037,6 +1053,10 @@ TOP:{
 
   $self=$leaf;
   if(!length $self->val) {goto SKIP;};
+  if($self->val=~ m/${PESO{-PESC}}/) {
+    goto SKIP;
+
+  };
 
   # is operation
   if($self->val=~ m/(${ndel_op}+)/) {
@@ -1061,11 +1081,10 @@ TOP:{
         $self->{-VAL}=$proc->($self->val);
         last;
 
-      };
-# elsif($self->val=~
-#          m/${PESO{-NAMES}}*/
-#
-#      ) {last;};
+      } elsif($self->val=~
+          m/${PESO{-NAMES}}*/
+
+      ) {last;};
 
     };
   };
@@ -1091,18 +1110,37 @@ SKIP:{
         if($v->val=~ m/${PESO{-DEL_OPS}}/) {
           push @argval,$v->leaves->[0]->val;
 
-        } elsif($node->val=~
-            m/${PESO{-NAMES}}*/
+        } elsif(
+
+          $v->val=~ m/${PESO{-NAMES}}*/
+        && $proc!=$PESO{-OP_PREC}->{'->'}->[2]
 
         ) {
 
           # names are pointers
-          # the system is not ready for that ;>
-          # just ignore pointers for now
+          # we don't handle them *here*
+
           goto NEXT_OP;
 
-         } else {
-          push @argval,($v->val);
+        } else {
+
+          # operand reordering
+          # done for self->sub->attr chains
+          if(
+
+            $proc==$PESO{-OP_PREC}
+            ->{'->'}->[2]
+
+          && $v->val=~ m/@/
+
+          ) {
+
+            my $old=pop @argval;
+            push @argval,($v->val);
+            push @argval,$old;
+
+          # common operand
+          } else {push @argval,($v->val);}
 
         };
 
@@ -1112,9 +1150,9 @@ SKIP:{
 
       my $result=$proc->(@argval);
       $node->{-VAL}=$result;
+      $node->pluck(@{$argval});
 
       NEXT_OP:
-      $node->pluck(@{$argval});
 
     };return;
 

@@ -30,7 +30,7 @@ my %PESO=(
     # intrinsics
     [0x04,eiths(
 
-      'str,buf,ptr,fptr,wed,lis,lock,'
+      'str,buf,ptr,fptr,wed,unwed,lis,lock,'
 
     ,1)],
 
@@ -94,14 +94,6 @@ my %PESO=(
 
 # ---   *   ---   *   ---
 
-sub peso_cntx_non {
-
-  my $exp=shift;
-
-};
-
-# ---   *   ---   *   ---
-
 my %MAM=(
 
   # subrd for current context
@@ -114,27 +106,17 @@ my %MAM=(
   -PROCS=>{},
 
   # block families
-  -CLANS=>{
-
-    'non'=>peso::block::nit(undef,'non',0),
-
-  },
+  -CLANS=>{},
 
   # local scope
   -LNAMES=>{},
 
+  # fwd decl the execution path table
+  -EXTAB=>{},
+
 );
 
 # ---   *   ---   *   ---
-
-# default block
-$MAM{-CLAN}=$MAM{-CLANS}->{'non'};
-$MAM{-DST}={
-
-  -TYPE=>0,
-  -BLK=>$MAM{-CLAN},
-
-};
 
 # table of execution paths
 $MAM{-EXTAB}={
@@ -160,9 +142,9 @@ $MAM{-EXTAB}={
     ->val;
 
   # get dst
-  my $dst=(defined $MAM{-DST}->{-BLK}->par)
-    ? $MAM{-DST}->{-BLK}->par
-    : $MAM{-DST}->{-BLK}
+  my $dst=(defined $MAM{-DST}->par)
+    ? $MAM{-DST}->par
+    : $MAM{-DST}
     ;
 
   # append new block to dst
@@ -192,10 +174,15 @@ $PESO{-VARS}->[0]->[1]=>[
 
     my $key=shift;
 
-    my $instrinsic=$PESO{-VARS}->[1]->[1];
+    my $intrinsic=$PESO{-VARS}->[1]->[1];
 
-    if($key=~ s/(${instrinsic})//) {
-      printf "$1\n";
+    if($key=~ s/${intrinsic}//) {
+      my $ins=$1;
+
+      printf ''.int(
+        defined $MAM{-EXTAB}->{$ins}
+
+      )."\n";
 
     };
 
@@ -229,9 +216,9 @@ $PESO{-VARS}->[0]->[1]=>[
 
         for my $leaf(@{ $ref->[1]->leaves }) {
 
-          # skip non-numeric values
-          while(!($leaf->val()=~ m/[0-9]+/)) {
-            $leaf=@{$leaf->leaves}[0];
+          # solve non-numeric expressions
+          if(!($leaf->val=~ m/[0-9]+/)) {
+            refsolve($leaf);
 
           };
 
@@ -272,6 +259,86 @@ $PESO{-VARS}->[0]->[1]=>[
   }
 
 ],
+
+'wed'=>[
+
+  undef,
+  sub {
+
+    my $node=shift;
+    peso::block::wed(
+      $node->leaves
+      ->[0]->leaves
+      ->[0]->val
+
+    );
+
+  },
+
+],
+
+'unwed'=>[
+
+  undef,
+  sub {
+
+    my $node=shift;
+    my $key=shift;
+
+    peso::block::unwed();
+
+  },
+
+],
+
+};
+
+# ---   *   ---   *   ---
+
+sub refsolve {
+
+  my $node=shift;
+  my $dst=$MAM{-DST};
+
+  if($node->val=~ m/@/) {
+
+    my @path=split '@',$node->val;
+
+    my $root=shift @path;
+    my $blk=peso::block::clan($root);
+
+    while(@path>1) {
+      my $key=shift @path;
+      if(!exists $blk->elems->{$key}) {
+        printf "Block <".$blk->name.'> '.
+          "has no member named '".
+          $key."' (".$node->val.")\n";
+
+        exit;
+
+      };$blk=$blk->elems->{$key};
+
+    };printf $blk->getv($path[0])."\n";
+
+# ---   *   ---   *   ---
+
+  } elsif(
+
+    $node->val()=~
+    m/${_LUN}*/
+
+  ) {
+
+    if(!exists $dst->elems->{$node->val}) {
+      printf "Block ".$dst->name.' '.
+        "has no member named '".
+        $node->val."'\n";
+
+      exit;
+
+    };printf $dst->getv($node->val)."\n";
+
+  };exit;
 
 };
 
@@ -404,6 +471,17 @@ sub peso_rd {
 
   $pat.=")*";
   my @tree=();
+
+# ---   *   ---   *   ---
+
+  # init default block
+  $MAM{-CLANS}->{'non'}=
+    peso::block::nit(undef,'non',0);
+
+  # save as root
+  $MAM{-DST}
+    =$MAM{-CLAN}
+    =$MAM{-CLANS}->{'non'};
 
 # ---   *   ---   *   ---
 
@@ -547,13 +625,13 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-$MAM{-DST}->setv('b',0xFF00,'word');
-$MAM{-DST}->prich();
+#$MAM{-DST}->setv('b',0xFF00);
+#$MAM{-DST}->prich();
 
-#  for my $root(@tree) {
-#    $root->prich();
-#
-#  };
+  for my $root(@tree) {
+    $root->prich();
+
+  };
 
   return;
 
