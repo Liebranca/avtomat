@@ -134,6 +134,26 @@ sub ances {
 
 # ---   *   ---   *   ---
 
+# in: element name
+# errcheck for bad fetch
+
+sub haselem {
+
+  my $self=shift;
+  my $name=shift;
+
+  if(!exists $self->elems->{$name}) {
+    printf "Block <".$self->ances.'> '.
+      "has no member named '".$name."'\n";
+
+    exit;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
 # in: type
 # set/unset typing mode
 sub wed {$CACHE{-WED}=shift;};
@@ -258,16 +278,15 @@ sub getv {
   my $self=shift;
   my $name=shift;
 
-  if(!exists $self->elems->{$name}) {
-    printf "Block <".$self->name.'> '.
-      "has no member named '".$name."'\n";
-
-    exit;
-
-  };
+  $self->haselem($name);
 
   my ($idex,$shf,$mask)=@{
     $self->elems->{$name}
+
+  };
+
+  if(defined $CACHE{-WED}) {
+    $mask=wedcast($shf);
 
   };
 
@@ -280,13 +299,16 @@ sub getv {
 
 # ---   *   ---   *   ---
 
-# in: name to fetch
+# in: name to fetch, opt bypass cast
 # returns byte offsets assoc with name
 
 sub getloc {
 
   my $self=shift;
   my $name=shift;
+  my $bypass=shift;
+
+  $self->haselem($name);
 
   my ($idex,$shf,$mask)=@{
     $self->elems->{$name}
@@ -297,14 +319,52 @@ sub getloc {
 
 };
 
+# ---   *   ---   *   ---
+
+# in: name to fetch, bypass cast
+# returns byte offsets assoc with name
+
+sub getptrloc {
+
+  my $self=shift;
+  my $name=shift;
+  my $bypass=shift;
+
+  $self->haselem($name);
+
+  my ($idex,$shf,$mask)=@{
+    $self->elems->{$name}
+
+  };
+
+  if(defined $CACHE{-WED} && !$bypass) {
+    $mask=wedcast($shf);
+
+  };
+
+  $mask=($mask>>$shf);
+  my $i=0;
+
+  while($mask>0x08) {
+    printf sprintf "%.16X $i\n",$mask;
+    $mask=$mask>>8;$i++
+
+  };printf "\n";
+
+  return hex(
+    sprintf "%.5X%.1X%.2X",
+    $idex,$shf/8,$i
+
+  );
+
+};
+
 # ---   *   ---   *   ---+
 
 sub prich {
 
   my $self=shift;
   my $v_lines='';
-
-# ---   *   ---   *   ---
 
   # get values
   { my $i=0;
@@ -326,7 +386,7 @@ sub prich {
     my @ar=();
 
     for my $k(keys %h) {
-      my ($idex,$off)=$self->getloc($k);
+      my ($idex,$off,$mask)=$self->getloc($k);
       @ar[$idex*8+$off]=$k;
 
     };

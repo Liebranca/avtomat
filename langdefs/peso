@@ -176,6 +176,8 @@ $PESO{-VARS}->[0]->[1]=>[
 
     my $intrinsic=$PESO{-VARS}->[1]->[1];
 
+# ---   *   ---   *   ---
+
     if($key=~ s/${intrinsic}//) {
       my $ins=$1;
 
@@ -206,11 +208,13 @@ $PESO{-VARS}->[0]->[1]=>[
 # ---   *   ---   *   ---
 
       # get values at offsets
-      if(!defined $ref->[1]->leaves) {
+      if(!defined $ref->[1]) {
         for(my $i=0;$i<@names;$i++) {
           push @values,0;
 
         };
+
+# ---   *   ---   *   ---
 
       } else {
 
@@ -218,13 +222,17 @@ $PESO{-VARS}->[0]->[1]=>[
 
           # solve non-numeric expressions
           if(!($leaf->val=~ m/[0-9]+/)) {
-            refsolve($leaf);
+            refsolve($leaf,$key);
 
           };
 
+# ---   *   ---   *   ---
+
+          # numeric expression
           if(defined $leaf) {
             push @values,$leaf->val;
 
+          # null
           } else {
             push @values,0;
 
@@ -260,6 +268,8 @@ $PESO{-VARS}->[0]->[1]=>[
 
 ],
 
+# ---   *   ---   *   ---
+
 'wed'=>[
 
   undef,
@@ -276,6 +286,8 @@ $PESO{-VARS}->[0]->[1]=>[
   },
 
 ],
+
+# ---   *   ---   *   ---
 
 'unwed'=>[
 
@@ -298,7 +310,13 @@ $PESO{-VARS}->[0]->[1]=>[
 sub refsolve {
 
   my $node=shift;
+  my $type=shift;
   my $dst=$MAM{-DST};
+
+  peso::block::wed($type);
+
+  my $name=undef;
+  my $cont=undef;
 
   if($node->val=~ m/@/) {
 
@@ -318,7 +336,8 @@ sub refsolve {
 
       };$blk=$blk->elems->{$key};
 
-    };printf $blk->getv($path[0])."\n";
+    };$name=$path[0];
+    $cont=$blk;
 
 # ---   *   ---   *   ---
 
@@ -336,9 +355,14 @@ sub refsolve {
 
       exit;
 
-    };printf $dst->getv($node->val)."\n";
+    };$name=$node->val;
+    $cont=$dst;
 
-  };exit;
+  };
+
+  printf sprintf "%.8X\n",$cont->getptrloc($name);
+
+  exit;
 
 };
 
@@ -370,13 +394,22 @@ sub peso_rd {
     while($rb=readline FH) {
 
       # strip comments
-      $rb=~ s/#.*\n?//g;
+      $rb=~ s/#.*\n//g;
+
+      # remove indent
+      $rb=~ s/^\s+//sg;
+
+      # no spaces surrounding commas
+      $rb=~ s/\s*,\s*/,/sg;
 
       # force single spaces
-      $rb=~ s/\s+/ /sg;
+      $rb=~ s/\s+/\$:pad;>/sg;
+      $rb=~ s/\$:pad;>/ /sg;
 
-      # strip newlines?
+      # strip newlines
       $rb=~ s/\n+//sg;
+
+      $rb=~ s/;\s+/;/sg;
 
       if(!$rb) {next;};
 
@@ -386,6 +419,7 @@ sub peso_rd {
       if($rb=~ m/([\{\}])|;$/) {
 
         $rb=$rem.$rb;$rem='';
+
         my @ar=split m/([\{\}])|;$/,$rb;
 
         # separate curls

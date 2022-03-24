@@ -457,7 +457,7 @@ TOP:
     if(!($ol=~ m/${op}/)) {
 
       # put separator if
-      my $cut=(
+      my $cut=(length $pr) && (
 
         # close delimiter : non operator
         ($pr=~ m/${PESO{-CDE}}/)
