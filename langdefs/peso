@@ -114,6 +114,36 @@ my %MAM=(
   # fwd decl the execution path table
   -EXTAB=>{},
 
+  -NUMCON=>[
+
+    # hex conversion
+    [ $DICT{-GPRE}->{-NUMS}->[0]->[1],
+      \&pehexnc
+
+    ],
+
+    # ^bin
+    [ $DICT{-GPRE}->{-NUMS}->[1]->[1],
+      \&pebinnc
+
+    ],
+
+    # ^octal
+    [ $DICT{-GPRE}->{-NUMS}->[2]->[1],
+      \&peoctnc
+
+    ],
+
+    # decimal notation: as-is
+    [ '(((\b[1-9][0-9]*|\.)+[0-9]+f?)\b)|'.
+      '(\b[1-9][0-9]*\b)',
+
+      sub {return (shift);}
+
+    ],
+
+  ],
+
 );
 
 # ---   *   ---   *   ---
@@ -222,7 +252,8 @@ $PESO{-VARS}->[0]->[1]=>[
 
           # solve non-numeric expressions
           if(!($leaf->val=~ m/[0-9]+/)) {
-            refsolve($leaf,$key);
+            wat($leaf,$key);
+            $leaf->collapse($MAM{-NUMCON});
 
           };
 
@@ -327,14 +358,9 @@ sub refsolve {
 
     while(@path>1) {
       my $key=shift @path;
-      if(!exists $blk->elems->{$key}) {
-        printf "Block <".$blk->name.'> '.
-          "has no member named '".
-          $key."' (".$node->val.")\n";
 
-        exit;
-
-      };$blk=$blk->elems->{$key};
+      $blk->haselem($key);
+      $blk=$blk->elems->{$key};
 
     };$name=$path[0];
     $cont=$blk;
@@ -348,22 +374,33 @@ sub refsolve {
 
   ) {
 
-    if(!exists $dst->elems->{$node->val}) {
-      printf "Block ".$dst->name.' '.
-        "has no member named '".
-        $node->val."'\n";
+    $dst->haselem($node->val);
 
-      exit;
-
-    };$name=$node->val;
+    $name=$node->val;
     $cont=$dst;
 
   };
 
-  printf sprintf "%.8X\n",$cont->getptrloc($name);
+  $node->{-VAL}=$cont->getptrloc($name);
 
-  exit;
+};
 
+sub wat {
+
+  my $node=shift;
+  my $key=shift;
+
+  if($node->val=~ m/${_LUN}*/) {
+    refsolve($node,$key);
+
+  } else {
+
+    for my $leaf(@{$node->leaves}) {
+      wat($leaf,$key);
+
+    };
+
+  };
 };
 
 # ---   *   ---   *   ---
@@ -611,37 +648,7 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-    my @nums=(
-
-      # hex conversion
-      [ $DICT{-GPRE}->{-NUMS}->[0]->[1],
-        \&pehexnc
-
-      ],
-
-      # ^bin
-      [ $DICT{-GPRE}->{-NUMS}->[1]->[1],
-        \&pebinnc
-
-      ],
-
-      # ^octal
-      [ $DICT{-GPRE}->{-NUMS}->[2]->[1],
-        \&peoctnc
-
-      ],
-
-      # decimal notation: as-is
-      [ '(((\b[1-9][0-9]*|\.)+[0-9]+f?)\b)|'.
-        '(\b[1-9][0-9]*\b)',
-
-        sub {return (shift);}
-
-      ],
-
-    );
-
-    $root->collapse(\@nums);
+    $root->collapse($MAM{-NUMCON});
 
     if(!$root->{-PAR}) {
       push @tree,$root;
@@ -659,13 +666,22 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-#$MAM{-DST}->setv('b',0xFF00);
-#$MAM{-DST}->prich();
+$MAM{-DST}->prich();
 
-  for my $root(@tree) {
-    $root->prich();
+my $ptr=$MAM{-DST}->getv('q');
+printf ''.(sprintf
 
-  };
+  "\n  0x%.8X : %.8X\n",
+
+  $ptr,
+  $MAM{-DST}->getptrv($ptr)
+
+)."\n";
+
+#  for my $root(@tree) {
+#    $root->prich();
+#
+#  };
 
   return;
 

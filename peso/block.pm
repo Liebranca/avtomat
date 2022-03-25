@@ -43,6 +43,7 @@ my %CACHE=(
 
   -WED=>undef,
   -BLOCKS=>{},
+  -DATA=>[],
 
 );
 
@@ -83,7 +84,6 @@ sub nit {
     -PAR=>$self,
 
     -ELEMS=>{},
-    -DATA=>[],
 
     -ATTRS=>$attrs,
 
@@ -116,7 +116,7 @@ sub nit {
 sub name {return (shift)->{-NAME};};
 sub elems {return (shift)->{-ELEMS};};
 sub par {return (shift)->{-PAR};};
-sub data {return (shift)->{-DATA};};
+sub data {return $CACHE{-DATA};};
 sub size {return (shift)->{-SIZE};};
 sub attrs {return (shift)->{-ATTRS};};
 
@@ -299,6 +299,33 @@ sub getv {
 
 # ---   *   ---   *   ---
 
+sub getptrv {
+
+  my $self=shift;
+  my $ptr=shift;
+
+  my $mask=0xFFFFFFFF;
+  my $idex=$ptr>>3;
+  my $shf=($ptr&7)*8;
+
+  my $value=$self->data->[$idex];
+
+  if(defined $CACHE{-WED}) {
+    $mask=wedcast($shf);
+
+  };
+
+printf sprintf
+  "\n  0x%.8X & %.8X>>%.2X\n",
+  $value,$mask,$shf;
+
+  $value&=$mask;
+  return $value>>$shf;
+
+};
+
+# ---   *   ---   *   ---
+
 # in: name to fetch, opt bypass cast
 # returns byte offsets assoc with name
 
@@ -306,7 +333,6 @@ sub getloc {
 
   my $self=shift;
   my $name=shift;
-  my $bypass=shift;
 
   $self->haselem($name);
 
@@ -337,25 +363,9 @@ sub getptrloc {
 
   };
 
-  if(defined $CACHE{-WED} && !$bypass) {
-    $mask=wedcast($shf);
+  my $ptr=($idex<<3)|($shf/8);
 
-  };
-
-  $mask=($mask>>$shf);
-  my $i=0;
-
-  while($mask>0x08) {
-    printf sprintf "%.16X $i\n",$mask;
-    $mask=$mask>>8;$i++
-
-  };printf "\n";
-
-  return hex(
-    sprintf "%.5X%.1X%.2X",
-    $idex,$shf/8,$i
-
-  );
+  return $ptr;
 
 };
 
@@ -364,13 +374,13 @@ sub getptrloc {
 sub prich {
 
   my $self=shift;
-  my $v_lines='';
+  my $v_lines="\n  0x";
 
   # get values
   { my $i=0;
     for my $v(reverse @{$self->data}) {
       $v_lines.=sprintf "%.16X ",$v;
-      if($i) {$v_lines.="\n";$i=0;};
+      if($i) {$v_lines.="\n  0x";$i=0;next;};
 
       $i++;
 
@@ -386,16 +396,16 @@ sub prich {
     my @ar=();
 
     for my $k(keys %h) {
-      my ($idex,$off,$mask)=$self->getloc($k);
+      my ($idex,$off)=$self->getloc($k);
       @ar[$idex*8+$off]=$k;
 
     };
 
-    $n_lines=join ',',reverse @ar;
+    #$n_lines=join ',',reverse @ar;
 
   };
 
-printf $n_lines."\n  0x".$v_lines."\n";
+  printf $v_lines."\n";
 
 };
 
