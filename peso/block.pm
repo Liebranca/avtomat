@@ -304,23 +304,53 @@ sub getptrv {
   my $self=shift;
   my $ptr=shift;
 
+  # default to 4-byte word
   my $mask=0xFFFFFFFF;
+  my $elem_sz=4;
+
+  # decode pointer
   my $idex=$ptr>>3;
   my $shf=($ptr&7)*8;
 
+  # fetch unit
   my $value=$self->data->[$idex];
 
+  # cast if wedded
   if(defined $CACHE{-WED}) {
     $mask=wedcast($shf);
+    $elem_sz=$PESO{-SIZES}->{$CACHE{-WED}};
 
   };
 
-printf sprintf
-  "\n  0x%.8X & %.8X>>%.2X\n",
-  $value,$mask,$shf;
-
+  # get masked value at offset
   $value&=$mask;
-  return $value>>$shf;
+  $value=$value>>$shf;
+
+# ---   *   ---   *   ---
+
+  # count mask bytes
+  my $i=1;
+  $mask=$mask>>$shf;
+  while($mask>0xFF) {
+    $mask=$mask>>8;$i++;
+
+  };
+
+  # bytes read less than expected
+  if($i<$elem_sz) {
+    $elem_sz-=$i;
+
+    # get remain from next unit
+    $mask=0xFF<<($elem_sz*8);
+    my $rem=$self->data->[$idex+1];
+
+    # get masked value at new offset
+    $rem=$rem<<($i*8);
+    $value|=$rem&$mask;
+
+  };
+
+  return $value;
 
 };
 
