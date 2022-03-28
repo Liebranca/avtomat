@@ -179,8 +179,7 @@ $MAM{-EXTAB}={
 
   # append new block to dst
   my $blk=$dst->nit(
-    $name,0,
-    peso::block->O_RDWR
+    $name,peso::block->O_RDWR
 
   );
 
@@ -547,7 +546,7 @@ sub peso_rd {
 
   # init default block
   $MAM{-CLANS}->{'non'}=
-    peso::block::nit(undef,'non',0);
+    peso::block::nit(undef,'non');
 
   # save as root
   $MAM{-DST}

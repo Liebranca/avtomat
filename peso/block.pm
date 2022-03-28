@@ -47,6 +47,8 @@ my %CACHE=(
 
 );
 
+# in: block name
+# errchk and get root block
 sub clan {
 
   my $key=shift;
@@ -61,17 +63,16 @@ sub clan {
 
 # ---   *   ---   *   ---
 
+# in: name, write/read/exec permissions
+# creates a new data/instruction block
 sub nit {
 
   my $self=shift;
   my $name=shift;
-  my $size=shift;
   my $attrs=shift;
 
-  if(!defined $size) {
-    $size=$PESO{-SIZES}->{'line'};
-
-  };if(!defined $attrs) {
+  # default to all protected
+  if(!defined $attrs) {
     $attrs=0b000;
 
   };
@@ -79,19 +80,20 @@ sub nit {
   my $blk=bless {
 
     -NAME=>$name,
-    -SIZE=>$size,
+    -SIZE=>0,
 
     -PAR=>$self,
-
     -ELEMS=>{},
-
     -ATTRS=>$attrs,
 
   },'peso::block';
 
-  if($self) {
+  # initialized from instance
+  # new->setParent $self
+  if(defined $self) {
     $self->elems->{$name}=$blk;
 
+  # is root block
   } else {
 
     if(exists $CACHE{-BLOCKS}->{$name}) {
@@ -120,6 +122,7 @@ sub data {return $CACHE{-DATA};};
 sub size {return (shift)->{-SIZE};};
 sub attrs {return (shift)->{-ATTRS};};
 
+# find ancestors recursively
 sub ances {
 
   my $self=shift;
@@ -134,17 +137,38 @@ sub ances {
 
 # ---   *   ---   *   ---
 
-# in: element name
+# in: element name, redecl guard
 # errcheck for bad fetch
 
 sub haselem {
 
   my $self=shift;
   my $name=shift;
+  my $redecl=shift;
 
-  if(!exists $self->elems->{$name}) {
+  if(
+
+     !exists $self->elems->{$name}
+  && !defined $redecl
+
+  ) {
+
     printf "Block <".$self->ances.'> '.
       "has no member named '".$name."'\n";
+
+    exit;
+
+# ---   *   ---   *   ---
+
+  } elsif(
+
+     exists $self->elems->{$name}
+  && defined $redecl
+
+  ) {
+
+    printf "Redeclaration of '$name' ".
+      'at block <'.$self->ances.">\n";
 
     exit;
 
@@ -185,41 +209,64 @@ sub wedcast {
 sub expand {
 
   my $self=shift;
-
   my $ref=shift;
   my $type=shift;
 
+  # set type of var for all ops
   $CACHE{-WED}=$type;
 
+  # get size from type, in bytes
   my $elem_sz=$PESO{-SIZES}->{$type};
   $self->{-SIZE}+=@$ref*$elem_sz;
 
+  # 'line' is two units
+  # 'unit' is 64-bit chunk
+  # we use these as minimum size for blocks
   my $line_sz=$PESO{-SIZES}->{'line'};
   my $gran=(1<<($elem_sz*8))-1;
 
 # ---   *   ---   *   ---
 
-  my $i=0;my $j=@{$self->data};
+  # save top of stack
+  my $j=@{$self->data};
   push @{$self->data},0x00;
 
-  while(@$ref) {
+  # push elements to data
+  my $i=0;while(@$ref) {
 
     my $ar=shift @$ref;
 
+    # name/value pair
     my $k=$ar->[0];
     my $v=$ar->[1];
 
+    # prohibit redeclaration
+    $self->haselem($k,1);
+
+    # 'i' is offset in bytes
+    # mask is derived from element size
     my $shf=$i*8;
     my $mask=$gran<<$shf;
 
+    # shift v to next avail place
+    # within current 64-bit unit
     $v=$v<<$shf;
 
+# ---   *   ---   *   ---
+
+    # save fetch metadata to elems
+    # value goes into data
     $self->elems->{$k}=[$j,$shf,$mask];
     $self->data->[$j]|=$v;
 
+    # go to next element
     $i+=$elem_sz;
-    if($i>=($line_sz/2)) {
 
+    # 'i' equals or exceeds 64-bit bound
+    # and elems pending in ref
+    if($i>=($line_sz/2) && @$ref) {
+
+      # reserve a new unit
       push @{ $self->data },0x00;
       $j++;$i=0;
 
@@ -237,6 +284,7 @@ sub setv {
 
   my $self=shift;
 
+  # block is write protected
   if(!($self->attrs& O_WR)) {
     printf "block '".$self->name.
       "' cannot be written\n";
@@ -247,14 +295,17 @@ sub setv {
 
   my $name=shift;
   my $value=shift;
-
   my $cast=shift;
 
+# ---   *   ---   *   ---
+
+  # get fetch metadata
   my ($idex,$shf,$mask)=@{
     $self->elems->{$name}
 
   };
 
+  # manage/alter wedded type
   if(defined $cast) {
     $CACHE{-WED}=$cast;
 
@@ -263,7 +314,12 @@ sub setv {
 
   };
 
+# ---   *   ---   *   ---
+
+  # fit value to type mask
   $value=$value&($mask>>$shf);
+
+  # clear out and set at shifted position
   $self->data->[$idex]&=~$mask;
   $self->data->[$idex]|=$value<<$shf;
 
@@ -278,27 +334,36 @@ sub getv {
   my $self=shift;
   my $name=shift;
 
+  # check name declared
   $self->haselem($name);
 
+# ---   *   ---   *   ---
+
+  # get fetch metadata
   my ($idex,$shf,$mask)=@{
     $self->elems->{$name}
 
   };
 
+  # alter mask to wed
   if(defined $CACHE{-WED}) {
     $mask=wedcast($shf);
 
   };
 
+  # mask out to type
   my $value=$self->data->[$idex];
   $value&=$mask;
 
+  # shift and ret
   return $value>>$shf;
 
 };
 
 # ---   *   ---   *   ---
 
+# in: ptr
+# gets value at saved fetch directions
 sub getptrv {
 
   my $self=shift;
@@ -311,6 +376,8 @@ sub getptrv {
   # decode pointer
   my $idex=$ptr>>3;
   my $shf=($ptr&7)*8;
+
+# ---   *   ---   *   ---
 
   # fetch unit
   my $value=$self->data->[$idex];
@@ -341,12 +408,11 @@ sub getptrv {
     $elem_sz-=$i;
 
     # get remain from next unit
-    $mask=0xFF<<($elem_sz*8);
+    $mask=(1<<($elem_sz*8))-1;
     my $rem=$self->data->[$idex+1];
 
     # get masked value at new offset
-    $rem=$rem<<($i*8);
-    $value|=$rem&$mask;
+    $value|=($rem&$mask)<<($i*8);
 
   };
 
@@ -356,7 +422,7 @@ sub getptrv {
 
 # ---   *   ---   *   ---
 
-# in: name to fetch, opt bypass cast
+# in: name to fetch
 # returns byte offsets assoc with name
 
 sub getloc {
@@ -364,78 +430,143 @@ sub getloc {
   my $self=shift;
   my $name=shift;
 
+  # errchk
   $self->haselem($name);
 
+  # get fetch metadata
   my ($idex,$shf,$mask)=@{
     $self->elems->{$name}
 
   };
 
+  # ret offsets (no mask or typedata)
   return ($idex,$shf/8);
 
 };
 
 # ---   *   ---   *   ---
 
-# in: name to fetch, bypass cast
+# in: name to fetch
 # returns byte offsets assoc with name
 
 sub getptrloc {
 
   my $self=shift;
   my $name=shift;
-  my $bypass=shift;
 
+  # errchk
   $self->haselem($name);
 
+  # fetch metadata
   my ($idex,$shf,$mask)=@{
     $self->elems->{$name}
 
   };
 
+  # encode fetch directions
   my $ptr=($idex<<3)|($shf/8);
-
   return $ptr;
 
 };
 
 # ---   *   ---   *   ---+
 
+# (needs rewrite) prints out block
 sub prich {
 
   my $self=shift;
-  my $v_lines="\n  0x";
+  my $v_lines='';
 
-  # get values
-  { my $i=0;
-    for my $v(reverse @{$self->data}) {
-      $v_lines.=sprintf "%.16X ",$v;
-      if($i) {$v_lines.="\n  0x";$i=0;next;};
-
-      $i++;
-
-    };
-  };
+  my @data=();
 
 # ---   *   ---   *   ---
 
   # get names and offsets
-  my $n_lines='              ';
-
   { my %h=%{$self->elems};
     my @ar=();
 
+    # iter keys out of order
     for my $k(keys %h) {
-      my ($idex,$off)=$self->getloc($k);
-      @ar[$idex*8+$off]=$k;
+
+      my ($idex,$shf,$mask)=@{
+        $self->elems->{$k}
+
+      };
+
+      # mask out to type
+      my $value=$self->data->[$idex];
+      $value&=$mask;
+
+      # shift and ret
+      $value=$value>>$shf;
+      my $sz=0;
+
+      # derive bytesize from mask
+      $mask=$mask>>$shf;
+      while($mask) {
+        $mask=$mask>>8;$sz++;
+
+      };
+
+      # stack elems ordered
+      $ar[$idex*8+($shf/8)]
+        =[$k,$value,$idex,$shf,$sz];
 
     };
 
-    #$n_lines=join ',',reverse @ar;
+    # forget undefined (empty) elems
+    while(@ar) {
+
+      my $v=shift @ar;
+      if(!defined $v) {next;};
+
+      push @data,$v;
+
+    };
 
   };
 
-  printf $v_lines."\n";
+# ---   *   ---   *   ---
+
+  # accumulators
+  my $last_idex=undef;
+  my $unit=0x00;
+  my $unit_names='';
+
+  # iter list
+  while(@data) {
+
+    my $ref=shift @data;
+    my ($name,$v,$i,$shf,$sz)=@{$ref};
+
+    # unit switch
+    if(defined $last_idex) {
+      if($last_idex!=$i) {
+        $v_lines.=sprintf
+          "  0x%.16X %s\n",
+          $unit,$unit_names;
+
+        $unit=0x00;
+        $unit_names='';
+
+      };
+
+    # accumulate
+    };$last_idex=$i;
+    $unit|=$v<<$shf;
+    $unit_names="$name($sz) ".$unit_names;
+
+  };
+
+# ---   *   ---   *   ---
+
+  # append leftovers
+  if($unit) {
+    $v_lines.=sprintf
+      "  0x%.16X %s\n",
+      $unit,$unit_names;
+
+  };printf $v_lines."\n";
 
 };
 
