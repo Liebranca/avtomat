@@ -256,7 +256,7 @@ sub expand {
 
     # save fetch metadata to elems
     # value goes into data
-    $self->elems->{$k}=[$j,$shf,$mask];
+    $self->elems->{$k}=[$j,$shf,$mask,$type];
     $self->data->[$j]|=$v;
 
     # go to next element
@@ -363,19 +363,33 @@ sub getv {
 # ---   *   ---   *   ---
 
 # in: ptr
-# gets value at saved fetch directions
-sub getptrv {
+# decode pointer
+sub decptr {
 
   my $self=shift;
   my $ptr=shift;
 
-  # decode pointer
   my $elem_sz=$ptr>>32;
   my $idex=($ptr&0xFFFFFFFF)>>3;
   my $shf=($ptr&7)*8;
 
   my $mask=(1<<($elem_sz*8))-1;
   $mask=$mask<<$shf;
+
+  return [$idex,$shf,$mask,$elem_sz];
+
+};
+
+# in: ptr
+# gets value at saved fetch directions
+sub getptrv {
+
+  my $self=shift;
+  my $ptr=shift;
+
+  # get ptr data
+  my ($idex,$shf,$mask,$elem_sz)
+    =@{$self->decptr($ptr)};
 
 # ---   *   ---   *   ---
 

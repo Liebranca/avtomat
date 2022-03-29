@@ -53,7 +53,7 @@ my %PESO=(
       'cpy,mov,wap,'.
       'kin,sow,reap,'.
 
-      'inc,dec,'.
+      'inc,dec,cl,'.
 
       'pop,push,mem,fre,'.
       'shift,unshift,'.
@@ -251,7 +251,7 @@ $PESO{-VARS}->[0]->[1]=>[
 
           # solve non-numeric expressions
           if(!($leaf->val=~ m/[0-9]+/)) {
-            wat($leaf,$key);
+            refsolve_rec($leaf,$key);
             $leaf->collapse($MAM{-NUMCON});
 
           };
@@ -295,6 +295,75 @@ $PESO{-VARS}->[0]->[1]=>[
     $dst->expand(\@line,$key);
 
   }
+
+],
+
+# ---   *   ---   *   ---
+
+'inc'=>[
+
+  undef,
+  sub {
+
+    my $node=shift;
+    my $key=shift;
+
+    my $dst=$MAM{-DST};
+
+    sop_ari(
+
+      $node,$dst,1,
+      sub {return (shift)+(shift);}
+
+    );
+
+  },
+
+],
+
+# ---   *   ---   *   ---
+
+'dec'=>[
+
+  undef,
+  sub {
+
+    my $node=shift;
+    my $key=shift;
+
+    my $dst=$MAM{-DST};
+
+    sop_ari(
+
+      $node,$dst,1,
+      sub {return (shift)-(shift);}
+
+    );
+
+  },
+
+],
+
+# ---   *   ---   *   ---
+
+'cl'=>[
+
+  undef,
+  sub {
+
+    my $node=shift;
+    my $key=shift;
+
+    my $dst=$MAM{-DST};
+
+    sop_ari(
+
+      $node,$dst,'self',
+      sub {return (shift)^(shift);}
+
+    );
+
+  },
 
 ],
 
@@ -384,7 +453,50 @@ sub refsolve {
 
 };
 
-sub wat {
+# ---   *   ---   *   ---
+
+# single operand, arithmetic
+sub sop_ari {
+
+    my $node=shift;
+    my $dst=shift;
+    my $v1=shift;
+
+    my $proc=shift;
+
+    # single operand
+    my $op0
+     =$node->leaves
+      ->[0]->leaves
+      ->[0]->val;
+
+    # get operand data
+    my $v0=$dst->getv($op0);
+    my $type=$dst->elems->{$op0}->[3];
+
+    # a op a
+    if($v1 eq 'self') {
+      $v1=$v0;
+
+    # is pointer
+    } elsif($type eq 'unit') {
+      my $elem_sz
+        =$dst->decptr($v0)->[3];
+
+      $v1=$elem_sz;
+
+    };
+
+    $v0=$proc->($v0,$v1);
+    $dst->setv($op0,$v0);
+
+};
+
+# ---   *   ---   *   ---
+
+# recursive name solver
+
+sub refsolve_rec {
 
   my $node=shift;
   my $key=shift;
@@ -395,7 +507,7 @@ sub wat {
   } else {
 
     for my $leaf(@{$node->leaves}) {
-      wat($leaf,$key);
+      refsolve_rec($leaf,$key);
 
     };
 
@@ -667,7 +779,7 @@ sub peso_rd {
 
 $MAM{-DST}->prich();
 
-my $ptr=$MAM{-DST}->getv('r');
+my $ptr=$MAM{-DST}->getv('q');
 printf ''.(sprintf
 
   "\n  0x%.8X : %.8X\n",
