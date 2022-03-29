@@ -207,14 +207,14 @@ $PESO{-VARS}->[0]->[1]=>[
 
 # ---   *   ---   *   ---
 
+    my $runi=undef;
     if($key=~ s/${intrinsic}//) {
       my $ins=$1;
 
-      printf ''.int(
-        defined $MAM{-EXTAB}->{$ins}
+      if($ins eq 'ptr') {
+        $key='unit';
 
-      )."\n";
-
+      };
     };
 
     $key=~ s/\s+$//;
@@ -667,7 +667,7 @@ sub peso_rd {
 
 $MAM{-DST}->prich();
 
-my $ptr=$MAM{-DST}->getv('q');
+my $ptr=$MAM{-DST}->getv('r');
 printf ''.(sprintf
 
   "\n  0x%.8X : %.8X\n",

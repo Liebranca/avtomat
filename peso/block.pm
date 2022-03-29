@@ -369,25 +369,25 @@ sub getptrv {
   my $self=shift;
   my $ptr=shift;
 
-  # default to 4-byte word
-  my $mask=0xFFFFFFFF;
-  my $elem_sz=4;
-
   # decode pointer
-  my $idex=$ptr>>3;
+  my $elem_sz=$ptr>>32;
+  my $idex=($ptr&0xFFFFFFFF)>>3;
   my $shf=($ptr&7)*8;
+
+  my $mask=(1<<($elem_sz*8))-1;
+  $mask=$mask<<$shf;
 
 # ---   *   ---   *   ---
 
   # fetch unit
   my $value=$self->data->[$idex];
 
-  # cast if wedded
-  if(defined $CACHE{-WED}) {
-    $mask=wedcast($shf);
-    $elem_sz=$PESO{-SIZES}->{$CACHE{-WED}};
-
-  };
+#  # cast if wedded
+#  if(defined $CACHE{-WED}) {
+#    $mask=wedcast($shf);
+#    $elem_sz=$PESO{-SIZES}->{$CACHE{-WED}};
+#
+#  };
 
   # get masked value at offset
   $value&=$mask;
@@ -396,12 +396,12 @@ sub getptrv {
 # ---   *   ---   *   ---
 
   # count mask bytes
-  my $i=1;
+  my $i=0;
   $mask=$mask>>$shf;
-  while($mask>0xFF) {
+  if($mask) {while($mask) {
     $mask=$mask>>8;$i++;
 
-  };
+  }} else {$i=$elem_sz;};
 
   # bytes read less than expected
   if($i<$elem_sz) {
@@ -463,15 +463,23 @@ sub getptrloc {
 
   };
 
+  my $sz=0;
+  $mask=$mask>>$shf;
+
+  while($mask) {
+    $mask=$mask>>8;$sz++;
+
+  };
+
   # encode fetch directions
-  my $ptr=($idex<<3)|($shf/8);
+  my $ptr=($sz<<32)|($idex<<3)|($shf/8);
   return $ptr;
 
 };
 
 # ---   *   ---   *   ---+
 
-# (needs rewrite) prints out block
+# prints out block
 sub prich {
 
   my $self=shift;
@@ -513,6 +521,8 @@ sub prich {
         =[$k,$value,$idex,$shf,$sz];
 
     };
+
+# ---   *   ---   *   ---
 
     # forget undefined (empty) elems
     while(@ar) {
