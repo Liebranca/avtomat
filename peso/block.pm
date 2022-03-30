@@ -180,7 +180,16 @@ sub haselem {
 
 # in: type
 # set/unset typing mode
-sub wed {$CACHE{-WED}=shift;};
+sub wed {
+
+  my $w=shift;
+  if(defined $w) {
+    $CACHE{-WED}=$w;
+    return $w
+
+  };return $CACHE{-WED};
+
+};
 sub unwed {$CACHE{-WED}=undef;};
 
 # in: offset in bits
@@ -380,6 +389,8 @@ sub decptr {
 
 };
 
+# ---   *   ---   *   ---
+
 # in: ptr
 # gets value at saved fetch directions
 sub getptrv {
@@ -395,13 +406,6 @@ sub getptrv {
 
   # fetch unit
   my $value=$self->data->[$idex];
-
-#  # cast if wedded
-#  if(defined $CACHE{-WED}) {
-#    $mask=wedcast($shf);
-#    $elem_sz=$PESO{-SIZES}->{$CACHE{-WED}};
-#
-#  };
 
   # get masked value at offset
   $value&=$mask;
@@ -431,6 +435,58 @@ sub getptrv {
   };
 
   return $value;
+
+};
+
+# ---   *   ---   *   ---
+
+# in: ptr,value
+# save to address
+sub setptrv {
+
+  my $self=shift;
+  my $ptr=shift;
+  my $value=shift;
+
+  # get ptr data
+  my ($idex,$shf,$mask,$elem_sz)
+    =@{$self->decptr($ptr)};
+
+  if(defined $CACHE{-WED}) {
+    $mask=wedcast($shf);
+    $elem_sz=$PESO{-SIZES}->{$CACHE{-WED}};
+
+  };
+
+# ---   *   ---   *   ---
+
+  # clear bytes on unit
+  # adjust mask to start
+  $self->data->[$idex]&=~$mask;
+  $mask=$mask>>$shf;
+
+  # set cleared bytes
+  $self->data->[$idex]
+    |=($value&$mask)<<$shf;
+
+  # count mask bytes
+  my $i=0;
+  if($mask) {while($mask) {
+    $mask=$mask>>8;$i++;
+    $value=$value>>8;
+
+  }} else {$i=$elem_sz;};
+
+  # bytes written less than expected
+  if($i<$elem_sz) {
+    $elem_sz-=$i;
+
+    # set remain to next unit
+    $mask=(1<<($elem_sz*8))-1;
+    $self->data->[$idex+1]&=~$mask;
+    $self->data->[$idex+1]|=$value;
+
+  };
 
 };
 

@@ -109,7 +109,7 @@ my %MAM=(
   -CLANS=>{},
 
   # local scope
-  -LNAMES=>{},
+  -SELF=>undef,
 
   # fwd decl the execution path table
   -EXTAB=>{},
@@ -156,7 +156,7 @@ $MAM{-EXTAB}={
 
 # ---   *   ---   *   ---
 
-# new reg block
+# new data block
 'reg'=>[
 
   undef,
@@ -180,6 +180,43 @@ $MAM{-EXTAB}={
   # append new block to dst
   my $blk=$dst->nit(
     $name,peso::block->O_RDWR
+
+  );
+
+  # overwrite dst
+  $MAM{-DST}=$blk;
+  $MAM{-SELF}=$blk;
+
+  }
+
+],
+
+# ---   *   ---   *   ---
+
+# new code block
+'proc'=>[
+
+  undef,
+
+  sub {
+
+  my $node=shift;
+
+  # get value of first grandchild
+  my $name=$node
+    ->leaves->[0]
+    ->leaves->[0]
+    ->val;
+
+  # get dst
+  my $dst=(defined $MAM{-DST}->par)
+    ? $MAM{-DST}->par
+    : $MAM{-DST}
+    ;
+
+  # append new block to dst
+  my $blk=$dst->nit(
+    $name,peso::block->O_EX
 
   );
 
@@ -251,7 +288,7 @@ $PESO{-VARS}->[0]->[1]=>[
 
           # solve non-numeric expressions
           if(!($leaf->val=~ m/[0-9]+/)) {
-            refsolve_rec($leaf,$key);
+            refsolve_rec($leaf,$key,1);
             $leaf->collapse($MAM{-NUMCON});
 
           };
@@ -308,11 +345,9 @@ $PESO{-VARS}->[0]->[1]=>[
     my $node=shift;
     my $key=shift;
 
-    my $dst=$MAM{-DST};
-
     sop_ari(
 
-      $node,$dst,1,
+      $node,1,
       sub {return (shift)+(shift);}
 
     );
@@ -331,11 +366,9 @@ $PESO{-VARS}->[0]->[1]=>[
     my $node=shift;
     my $key=shift;
 
-    my $dst=$MAM{-DST};
-
     sop_ari(
 
-      $node,$dst,1,
+      $node,1,
       sub {return (shift)-(shift);}
 
     );
@@ -354,11 +387,9 @@ $PESO{-VARS}->[0]->[1]=>[
     my $node=shift;
     my $key=shift;
 
-    my $dst=$MAM{-DST};
-
     sop_ari(
 
-      $node,$dst,'self',
+      $node,'self',
       sub {return (shift)^(shift);}
 
     );
@@ -410,7 +441,7 @@ sub refsolve {
 
   my $node=shift;
   my $type=shift;
-  my $dst=$MAM{-DST};
+  my $dst=$MAM{-SELF};
 
   peso::block::wed($type);
 
@@ -449,7 +480,7 @@ sub refsolve {
 
   };
 
-  $node->{-VAL}=$cont->getptrloc($name);
+  return ($cont,$name);
 
 };
 
@@ -459,20 +490,70 @@ sub refsolve {
 sub sop_ari {
 
     my $node=shift;
-    my $dst=shift;
-    my $v1=shift;
 
+    my $v0=undef;
+    my $v1=shift;
     my $proc=shift;
 
-    # single operand
-    my $op0
-     =$node->leaves
-      ->[0]->leaves
-      ->[0]->val;
+    my $op0;
+    my $dst;
+    my $shf=0;
+
+# ---   *   ---   *   ---
+
+    # get reg ptr
+    { my $wed=peso::block::wed(undef);
+
+      refsolve_rec(
+        $node->leaves
+        ->[0]->leaves
+        ->[0],'unit'
+
+      );peso::block::wed($wed);
+
+      my $ref
+        =$node->leaves
+        ->[0]->leaves
+        ->[0]->val;
+
+# ---   *   ---   *   ---
+
+      # pointer math required
+      if(!($ref=~ m/ARRAY\(0x/)) {
+
+        $ref
+        =$node->leaves
+        ->[0]->leaves
+        ->[0]->leaves
+        ->[0]->val;
+
+        $shf=6;
+
+      };
+
+# ---   *   ---   *   ---
+
+      my ($cont,$name)
+
+        =@{$ref};
+
+      $dst=$cont;
+      $op0=$name;
+
+      my $ptr=$dst->getptrloc($op0);
+      $ptr+=$shf;
+
+      $dst->setptrv($ptr,0xDEADBEEF);
+
+    };
+
+# ---   *   ---   *   ---
 
     # get operand data
-    my $v0=$dst->getv($op0);
-    my $type=$dst->elems->{$op0}->[3];
+    if(!defined $v0) {
+      $v0=$dst->getv($op0);
+
+    };my $type=$dst->elems->{$op0}->[3];
 
     # a op a
     if($v1 eq 'self') {
@@ -488,7 +569,7 @@ sub sop_ari {
     };
 
     $v0=$proc->($v0,$v1);
-    $dst->setv($op0,$v0);
+    #$dst->setv($op0,$v0);
 
 };
 
@@ -500,14 +581,21 @@ sub refsolve_rec {
 
   my $node=shift;
   my $key=shift;
+  my $ptr=shift;
 
   if($node->val=~ m/${_LUN}*/) {
-    refsolve($node,$key);
+    my ($cont,$name)=refsolve($node,$key);
+    if(defined $ptr) {
+      $node->{-VAL}=$cont->getptrloc($name);
+
+    } else {
+      $node->{-VAL}=[$cont,$name];
+
+    };
 
   } else {
-
     for my $leaf(@{$node->leaves}) {
-      refsolve_rec($leaf,$key);
+      refsolve_rec($leaf,$key,$ptr);
 
     };
 
@@ -564,14 +652,19 @@ sub peso_rd {
 # ---   *   ---   *   ---
 
       # line ends with {;}
-      if($rb=~ m/([\{\}])|;$/) {
+      if($rb=~ m/([\{\}])|;$|;/) {
 
         $rb=$rem.$rb;$rem='';
 
-        my @ar=split m/([\{\}])|;$/,$rb;
+        my @ar=split m/([\{\}])|;$|;/,$rb;
 
         # separate curls
         for my $e(@ar) {
+
+          if(!defined $e || !length $e) {
+            next;
+
+          };
 
           if($e=~ m/^\s*\{/) {
             push @exps,'{';
@@ -777,17 +870,18 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-$MAM{-DST}->prich();
+peso::block::clan('non')
+  ->elems->{'attrs'}->prich();
 
-my $ptr=$MAM{-DST}->getv('q');
-printf ''.(sprintf
-
-  "\n  0x%.8X : %.8X\n",
-
-  $ptr,
-  $MAM{-DST}->getptrv($ptr)
-
-)."\n";
+#my $ptr=$MAM{-DST}->getv('q');
+#printf ''.(sprintf
+#
+#  "\n  0x%.8X : %.8X\n",
+#
+#  $ptr,
+#  $MAM{-DST}->getptrv($ptr)
+#
+#)."\n";
 
 #  for my $root(@tree) {
 #    $root->prich();
