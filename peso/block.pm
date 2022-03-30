@@ -400,12 +400,12 @@ sub getptrv {
 
   # get ptr data
   my ($idex,$shf,$mask,$elem_sz)
-    =@{$self->decptr($ptr)};
+    =@{decptr(undef,$ptr)};
 
 # ---   *   ---   *   ---
 
   # fetch unit
-  my $value=$self->data->[$idex];
+  my $value=$CACHE{-DATA}->[$idex];
 
   # get masked value at offset
   $value&=$mask;
@@ -427,7 +427,7 @@ sub getptrv {
 
     # get remain from next unit
     $mask=(1<<($elem_sz*8))-1;
-    my $rem=$self->data->[$idex+1];
+    my $rem=$CACHE{-DATA}->[$idex+1];
 
     # get masked value at new offset
     $value|=($rem&$mask)<<($i*8);
@@ -450,7 +450,7 @@ sub setptrv {
 
   # get ptr data
   my ($idex,$shf,$mask,$elem_sz)
-    =@{$self->decptr($ptr)};
+    =@{decptr(undef,$ptr)};
 
   if(defined $CACHE{-WED}) {
     $mask=wedcast($shf);
@@ -462,11 +462,11 @@ sub setptrv {
 
   # clear bytes on unit
   # adjust mask to start
-  $self->data->[$idex]&=~$mask;
+  $CACHE{-DATA}->[$idex]&=~$mask;
   $mask=$mask>>$shf;
 
   # set cleared bytes
-  $self->data->[$idex]
+  $CACHE{-DATA}->[$idex]
     |=($value&$mask)<<$shf;
 
   # count mask bytes
@@ -483,8 +483,8 @@ sub setptrv {
 
     # set remain to next unit
     $mask=(1<<($elem_sz*8))-1;
-    $self->data->[$idex+1]&=~$mask;
-    $self->data->[$idex+1]|=$value;
+    $CACHE{-DATA}->[$idex+1]&=~$mask;
+    $CACHE{-DATA}->[$idex+1]|=$value;
 
   };
 

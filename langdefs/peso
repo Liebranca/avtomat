@@ -288,7 +288,7 @@ $PESO{-VARS}->[0]->[1]=>[
 
           # solve non-numeric expressions
           if(!($leaf->val=~ m/[0-9]+/)) {
-            refsolve_rec($leaf,$key,1);
+            refsolve_rec($leaf,$key);
             $leaf->collapse($MAM{-NUMCON});
 
           };
@@ -501,75 +501,61 @@ sub sop_ari {
 
 # ---   *   ---   *   ---
 
-    # get reg ptr
-    { my $wed=peso::block::wed(undef);
+    my $wed=peso::block::wed(undef);
 
-      refsolve_rec(
-        $node->leaves
-        ->[0]->leaves
-        ->[0],'unit'
+    # solve operations in tree
+    for my $leaf(@{
+      $node->leaves->[0]->leaves
 
-      );peso::block::wed($wed);
+    }) {
 
-      my $ref
-        =$node->leaves
-        ->[0]->leaves
-        ->[0]->val;
-
-# ---   *   ---   *   ---
-
-      # pointer math required
-      if(!($ref=~ m/ARRAY\(0x/)) {
-
-        $ref
-        =$node->leaves
-        ->[0]->leaves
-        ->[0]->leaves
-        ->[0]->val;
-
-        $shf=6;
+      if(!($leaf->val=~ m/[0-9]+/)) {
+        refsolve_rec($leaf,'unit');
+        $leaf->collapse($MAM{-NUMCON});
 
       };
 
-# ---   *   ---   *   ---
-
-      my ($cont,$name)
-
-        =@{$ref};
-
-      $dst=$cont;
-      $op0=$name;
-
-      my $ptr=$dst->getptrloc($op0);
-      $ptr+=$shf;
-
-      $dst->setptrv($ptr,0xDEADBEEF);
-
-    };
+    };peso::block::wed($wed);
 
 # ---   *   ---   *   ---
 
-    # get operand data
-    if(!defined $v0) {
-      $v0=$dst->getv($op0);
+    my $ptr
+      =$node->leaves
+      ->[0]->leaves
+      ->[0]->val;
 
-    };my $type=$dst->elems->{$op0}->[3];
-
-    # a op a
-    if($v1 eq 'self') {
-      $v1=$v0;
-
-    # is pointer
-    } elsif($type eq 'unit') {
-      my $elem_sz
-        =$dst->decptr($v0)->[3];
-
-      $v1=$elem_sz;
-
-    };
+    $v0=peso::block::getptrv(undef,$ptr);
+    if($v1 eq 'self') {$v1=$v0;};
 
     $v0=$proc->($v0,$v1);
-    #$dst->setv($op0,$v0);
+    peso::block::setptrv(undef,$ptr,$v0);
+
+# ---   *   ---   *   ---
+
+# forget about this, its a worse method
+# i'll keep it around for a while JIC
+
+#    # get operand data
+#    if(!defined $v0) {
+#      $v0=$dst->getv($op0);
+#
+#    };my $type=$dst->elems->{$op0}->[3];
+#
+#    # a op a
+#    if($v1 eq 'self') {
+#      $v1=$v0;
+#
+#    # is pointer
+#    } elsif($type eq 'unit') {
+#      my $elem_sz
+#        =$dst->decptr($v0)->[3];
+#
+#      $v1=$elem_sz;
+#
+#    };
+#
+#    $v0=$proc->($v0,$v1);
+#    $dst->setv($op0,$v0);
 
 };
 
@@ -581,21 +567,14 @@ sub refsolve_rec {
 
   my $node=shift;
   my $key=shift;
-  my $ptr=shift;
 
   if($node->val=~ m/${_LUN}*/) {
     my ($cont,$name)=refsolve($node,$key);
-    if(defined $ptr) {
-      $node->{-VAL}=$cont->getptrloc($name);
-
-    } else {
-      $node->{-VAL}=[$cont,$name];
-
-    };
+    $node->{-VAL}=$cont->getptrloc($name);
 
   } else {
     for my $leaf(@{$node->leaves}) {
-      refsolve_rec($leaf,$key,$ptr);
+      refsolve_rec($leaf,$key);
 
     };
 
