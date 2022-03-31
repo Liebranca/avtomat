@@ -108,9 +108,6 @@ my %MAM=(
   # block families
   -CLANS=>{},
 
-  # local scope
-  -SELF=>undef,
-
   # fwd decl the execution path table
   -EXTAB=>{},
 
@@ -185,7 +182,7 @@ $MAM{-EXTAB}={
 
   # overwrite dst
   $MAM{-DST}=$blk;
-  $MAM{-SELF}=$blk;
+  peso::block::setscope($blk);
 
   }
 
@@ -256,6 +253,9 @@ $PESO{-VARS}->[0]->[1]=>[
 
     $key=~ s/\s+$//;
 
+    my $wed=peso::block::wed('get');
+    peso::block::wed($key);
+
 # ---   *   ---   *   ---
 
     # fetch values from tree
@@ -288,7 +288,7 @@ $PESO{-VARS}->[0]->[1]=>[
 
           # solve non-numeric expressions
           if(!($leaf->val=~ m/[0-9]+/)) {
-            refsolve_rec($leaf,$key);
+            peso::block::refsolve_rec($leaf);
             $leaf->collapse($MAM{-NUMCON});
 
           };
@@ -330,6 +330,7 @@ $PESO{-VARS}->[0]->[1]=>[
 
     # grow the block
     $dst->expand(\@line,$key);
+    peso::block::wed($wed);
 
   }
 
@@ -427,60 +428,11 @@ $PESO{-VARS}->[0]->[1]=>[
     my $node=shift;
     my $key=shift;
 
-    peso::block::unwed();
+    peso::block::wed(undef);
 
   },
 
 ],
-
-};
-
-# ---   *   ---   *   ---
-
-sub refsolve {
-
-  my $node=shift;
-  my $type=shift;
-  my $dst=$MAM{-SELF};
-
-  peso::block::wed($type);
-
-  my $name=undef;
-  my $cont=undef;
-
-  if($node->val=~ m/@/) {
-
-    my @path=split '@',$node->val;
-
-    my $root=shift @path;
-    my $blk=peso::block::clan($root);
-
-    while(@path>1) {
-      my $key=shift @path;
-
-      $blk->haselem($key);
-      $blk=$blk->elems->{$key};
-
-    };$name=$path[0];
-    $cont=$blk;
-
-# ---   *   ---   *   ---
-
-  } elsif(
-
-    $node->val()=~
-    m/${_LUN}*/
-
-  ) {
-
-    $dst->haselem($node->val);
-
-    $name=$node->val;
-    $cont=$dst;
-
-  };
-
-  return ($cont,$name);
 
 };
 
@@ -499,9 +451,16 @@ sub sop_ari {
     my $dst;
     my $shf=0;
 
+    # firstborn grandchild
+    my $fbgch
+      =$node->leaves
+      ->[0]->leaves
+      ->[0];
+
 # ---   *   ---   *   ---
 
-    my $wed=peso::block::wed(undef);
+    my $wed=peso::block::wed('get');
+    peso::block::wed('unit');
 
     # solve operations in tree
     for my $leaf(@{
@@ -510,19 +469,31 @@ sub sop_ari {
     }) {
 
       if(!($leaf->val=~ m/[0-9]+/)) {
-        refsolve_rec($leaf,'unit');
+        peso::block::refsolve_rec($leaf);
         $leaf->collapse($MAM{-NUMCON});
 
       };
 
-    };peso::block::wed($wed);
+    };
+
+    peso::block::wed($wed);
 
 # ---   *   ---   *   ---
 
-    my $ptr
-      =$node->leaves
-      ->[0]->leaves
-      ->[0]->val;
+    my $ptr=undef;
+
+    if($fbgch->val eq '[') {
+      $ptr=peso::block::getptrv(
+
+        undef,
+        $fbgch->leaves->[0]->val
+
+      );
+
+    } else {
+      $ptr=$fbgch->val;
+
+    };
 
     $v0=peso::block::getptrv(undef,$ptr);
     if($v1 eq 'self') {$v1=$v0;};
@@ -557,28 +528,6 @@ sub sop_ari {
 #    $v0=$proc->($v0,$v1);
 #    $dst->setv($op0,$v0);
 
-};
-
-# ---   *   ---   *   ---
-
-# recursive name solver
-
-sub refsolve_rec {
-
-  my $node=shift;
-  my $key=shift;
-
-  if($node->val=~ m/${_LUN}*/) {
-    my ($cont,$name)=refsolve($node,$key);
-    $node->{-VAL}=$cont->getptrloc($name);
-
-  } else {
-    for my $leaf(@{$node->leaves}) {
-      refsolve_rec($leaf,$key);
-
-    };
-
-  };
 };
 
 # ---   *   ---   *   ---
@@ -712,9 +661,9 @@ sub peso_rd {
   my $pat='(('.$directive.'\s+)';
   $pat.='|('.$primitive.'\s+)';
 
-  $pat.='|('.$instruct.'\s+)';
-  $pat.='|('.$flowctl.'\s+)';
-  $pat.='|('.$intrinsic.'\s+)';
+  $pat.='|('.$instruct.'(\s+|$))';
+  $pat.='|('.$flowctl.'(\s+|$))';
+  $pat.='|('.$intrinsic.'(\s+|$))';
 
   $pat.='|('.$sblconst.'\s+)';
 

@@ -19,6 +19,8 @@ package peso::node;
   use lib $ENV{'ARPATH'}.'/include/';
   my %PESO=do 'peso/defs.ph';
 
+  use peso::block;
+
 # ---   *   ---   *   ---
 
 my %CACHE=(
@@ -225,6 +227,34 @@ sub oparn {
 
   if($val) {$self->nit($val);};
   my $node=$self->nit(')');
+
+  return $node;
+
+};
+
+# ---   *   ---   *   ---
+
+# [] open/close
+
+sub obrak {
+  my $self=shift;
+  my $val=shift;
+
+  if($val) {
+    $self->nit($val);
+
+  };
+
+  my $node=$self->nit('[');
+
+  return $node;
+
+}; sub cbrak {
+  my $self=shift;
+  my $val=shift;
+
+  if($val) {$self->nit($val);};
+  my $node=$self->nit(']');
 
   return $node;
 
@@ -574,6 +604,10 @@ SKIP:
       push @anch,$anch[-1]->oparn(undef);
       $exp_depth_a++;
 
+    } elsif($c eq '[') {
+      push @anch,$anch[-1]->obrak(undef);
+      $exp_depth_a++;
+
     };next;
   };
 
@@ -584,6 +618,15 @@ SKIP:
     if($sym eq ')') {
 
       $anch[-1]->cparn(undef);
+      pop @anch;
+
+      $exp_depth_a--;
+
+      next;
+
+    } elsif($sym eq ']') {
+
+      $anch[-1]->cbrak(undef);
       pop @anch;
 
       $exp_depth_a--;
@@ -1108,6 +1151,7 @@ SKIP:{
       for my $v(@{$argval}) {
 
         if($v->val=~ m/${PESO{-DEL_OPS}}/) {
+
           push @argval,$v->leaves->[0]->val;
 
         } elsif(

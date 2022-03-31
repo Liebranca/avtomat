@@ -41,9 +41,12 @@ package peso::block;
 
 my %CACHE=(
 
+  -SELF=>undef,
   -WED=>undef,
   -BLOCKS=>{},
   -DATA=>[],
+
+  -TYPES=>join '|',keys %{$PESO{-SIZES}},
 
 );
 
@@ -60,6 +63,10 @@ sub clan {
   };return $CACHE{-BLOCKS}->{$key};
 
 };
+
+# in: block instance
+# scope to block
+sub setscope {$CACHE{-SELF}=shift;};
 
 # ---   *   ---   *   ---
 
@@ -183,14 +190,16 @@ sub haselem {
 sub wed {
 
   my $w=shift;
-  if(defined $w) {
+
+  if(!defined $w) {
+    $CACHE{-WED}=undef;
+
+  } elsif($w=~ m/${CACHE{-TYPES}}/) {
     $CACHE{-WED}=$w;
-    return $w
 
   };return $CACHE{-WED};
 
 };
-sub unwed {$CACHE{-WED}=undef;};
 
 # in: offset in bits
 # gives wed-sized mask
@@ -414,7 +423,7 @@ sub getptrv {
 # ---   *   ---   *   ---
 
   # count mask bytes
-  my $i=0;
+  COUNT:my $i=0;
   $mask=$mask>>$shf;
   if($mask) {while($mask) {
     $mask=$mask>>8;$i++;
@@ -423,14 +432,27 @@ sub getptrv {
 
   # bytes read less than expected
   if($i<$elem_sz) {
-    $elem_sz-=$i;
+    $elem_sz-=$i;$idex++;
 
     # get remain from next unit
     $mask=(1<<($elem_sz*8))-1;
-    my $rem=$CACHE{-DATA}->[$idex+1];
+    my $rem=$CACHE{-DATA}->[$idex];
+
+    # no more bytes in data
+    if(!defined $rem) {
+
+      printf sprintf
+        'Out of bounds read at PE addr '.
+        "<0x%.016X>\n",$ptr;
+
+      return $value;
+
+    };
 
     # get masked value at new offset
     $value|=($rem&$mask)<<($i*8);
+
+    if($elem_sz) {goto COUNT;};
 
   };
 
@@ -453,6 +475,7 @@ sub setptrv {
     =@{decptr(undef,$ptr)};
 
   if(defined $CACHE{-WED}) {
+
     $mask=wedcast($shf);
     $elem_sz=$PESO{-SIZES}->{$CACHE{-WED}};
 
@@ -470,7 +493,7 @@ sub setptrv {
     |=($value&$mask)<<$shf;
 
   # count mask bytes
-  my $i=0;
+  COUNT:my $i=0;
   if($mask) {while($mask) {
     $mask=$mask>>8;$i++;
     $value=$value>>8;
@@ -479,12 +502,26 @@ sub setptrv {
 
   # bytes written less than expected
   if($i<$elem_sz) {
-    $elem_sz-=$i;
+
+    $elem_sz-=$i;$idex++;
+
+    # no more bytes in data
+    if(!defined $CACHE{-DATA}->[$idex]) {
+
+      printf sprintf
+        'Out of bounds write at PE addr '.
+        "<0x%.016X>\n",$ptr;
+
+      return;
+
+    };
 
     # set remain to next unit
     $mask=(1<<($elem_sz*8))-1;
-    $CACHE{-DATA}->[$idex+1]&=~$mask;
-    $CACHE{-DATA}->[$idex+1]|=$value;
+    $CACHE{-DATA}->[$idex]&=~$mask;
+    $CACHE{-DATA}->[$idex]|=$value;
+
+    if($elem_sz) {goto COUNT;};
 
   };
 
@@ -548,6 +585,75 @@ sub getptrloc {
 };
 
 # ---   *   ---   *   ---+
+
+# name solver
+
+sub refsolve {
+
+  my $node=shift;
+  my $dst=$CACHE{-SELF};
+
+  my $name=undef;
+  my $cont=undef;
+
+  if($node->val=~ m/@/) {
+
+    my @path=split '@',$node->val;
+
+    my $root=shift @path;
+    my $blk=clan($root);
+
+    while(@path>1) {
+      my $key=shift @path;
+
+      $blk->haselem($key);
+      $blk=$blk->elems->{$key};
+
+    };$name=$path[0];
+    $cont=$blk;
+
+# ---   *   ---   *   ---
+
+  } elsif(
+
+    $node->val()=~
+    m/${PESO{-NAMES}}*/
+
+  ) {
+
+    $dst->haselem($node->val);
+
+    $name=$node->val;
+    $cont=$dst;
+
+  };
+
+  return ($cont,$name);
+
+};
+
+# ---   *   ---   *   ---
+
+# recursive name solver
+
+sub refsolve_rec {
+
+  my $node=shift;
+
+  if($node->val=~ m/${PESO{-NAMES}}*/) {
+    my ($cont,$name)=refsolve($node);
+    $node->{-VAL}=$cont->getptrloc($name);
+
+  } else {
+    for my $leaf(@{$node->leaves}) {
+      refsolve_rec($leaf);
+
+    };
+
+  };
+};
+
+# ---   *   ---   *   ---
 
 # prints out block
 sub prich {
@@ -641,12 +747,11 @@ sub prich {
 # ---   *   ---   *   ---
 
   # append leftovers
-  if($unit) {
-    $v_lines.=sprintf
-      "  0x%.16X %s\n",
-      $unit,$unit_names;
+  $v_lines.=sprintf
+    "  0x%.16X %s\n",
+    $unit,$unit_names;
 
-  };printf $v_lines."\n";
+  printf $v_lines."\n";
 
 };
 
