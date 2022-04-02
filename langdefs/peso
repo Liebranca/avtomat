@@ -99,17 +99,11 @@ my %MAM=(
   # subrd for current context
   -CNTX=>\&peso_cntx_non,
 
-  # var blocks
-  -REGS=>{},
-
-  # ins blocks
-  -PROCS=>{},
-
-  # block families
-  -CLANS=>{},
-
   # fwd decl the execution path table
   -EXTAB=>{},
+
+  # idex of next instruction to exec
+  -NXINS=>0,
 
   -NUMCON=>[
 
@@ -501,33 +495,6 @@ sub sop_ari {
     $v0=$proc->($v0,$v1);
     peso::block::setptrv(undef,$ptr,$v0);
 
-# ---   *   ---   *   ---
-
-# forget about this, its a worse method
-# i'll keep it around for a while JIC
-
-#    # get operand data
-#    if(!defined $v0) {
-#      $v0=$dst->getv($op0);
-#
-#    };my $type=$dst->elems->{$op0}->[3];
-#
-#    # a op a
-#    if($v1 eq 'self') {
-#      $v1=$v0;
-#
-#    # is pointer
-#    } elsif($type eq 'unit') {
-#      my $elem_sz
-#        =$dst->decptr($v0)->[3];
-#
-#      $v1=$elem_sz;
-#
-#    };
-#
-#    $v0=$proc->($v0,$v1);
-#    $dst->setv($op0,$v0);
-
 };
 
 # ---   *   ---   *   ---
@@ -674,19 +641,12 @@ sub peso_rd {
 
   $pat.=")*";
   my @tree=();
+  my @program=();
 
 # ---   *   ---   *   ---
 
-  # init default block
-  $MAM{-CLANS}->{'non'}=
-    peso::block::nit(undef,'non');
-
-  # save as root
-  $MAM{-DST}
-    =$MAM{-CLAN}
-    =$MAM{-CLANS}->{'non'};
-
-# ---   *   ---   *   ---
+  # init default block as root
+  $MAM{-DST}=peso::block::nit(undef,'non');
 
   # iter expressions
   for my $exp(@exps) {
@@ -771,32 +731,51 @@ sub peso_rd {
       '\b[^\s]+\b\s',
       $exp
 
-    # sort tokens
     );
 
+# ---   *   ---   *   ---
+
+    # sort tokens
     $root->branch_reloc();
     $root->agroup();
     $root->subdiv();
 
-# ---   *   ---   *   ---
-
+    # solve constants
     $root->collapse($MAM{-NUMCON});
 
-    if(!$root->{-PAR}) {
-      push @tree,$root;
-
-    };
-
 # ---   *   ---   *   ---
 
-    if($expath[1]) {
-      $expath[1]->($root,$key);
+    # save instructions
+    if(!$root->{-PAR}) {
+      push @program,[
+
+        $expath[1],
+        $root,$key
+
+      ];
 
     };
-
   };
 
 # ---   *   ---   *   ---
+
+  # execute
+  while(
+
+       $MAM{-NXINS}>=0
+    && $MAM{-NXINS}<@program
+
+  ) {
+
+    my $ins=$program[$MAM{-NXINS}];
+
+    my $call=$ins->[0];
+    my @args=@{$ins}[1,2];
+
+    $call->(@args);
+    $MAM{-NXINS}++;
+
+  };
 
 peso::block::clan('non')
   ->elems->{'attrs'}->prich();
@@ -810,11 +789,6 @@ peso::block::clan('non')
 #  $MAM{-DST}->getptrv($ptr)
 #
 #)."\n";
-
-#  for my $root(@tree) {
-#    $root->prich();
-#
-#  };
 
   return;
 
