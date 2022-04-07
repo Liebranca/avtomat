@@ -46,6 +46,8 @@ my %CACHE=(
   -BLOCKS=>{},
   -DATA=>[],
 
+  -PENDING=>[],
+
   -TYPES=>join '|',keys %{$PESO{-SIZES}},
 
 );
@@ -55,7 +57,10 @@ my %CACHE=(
 sub clan {
 
   my $key=shift;
-  if(!exists $CACHE{-BLOCKS}->{$key}) {
+  if($key eq 'self') {
+    return $CACHE{-SELF};
+
+  } elsif(!exists $CACHE{-BLOCKS}->{$key}) {
 
     printf "No root block named '$key'\n";
     exit;
@@ -115,6 +120,10 @@ sub nit {
 
   };
 
+# placeholder!
+# add block data into this line
+push @{$CACHE{-DATA}},0xFFFFFFFF;
+
   return $blk;
 
 };
@@ -144,6 +153,11 @@ sub ances {
 
 # ---   *   ---   *   ---
 
+sub wat {printf ''.(
+  join "\n",@{$CACHE{-PENDING}}
+
+)."\n";};
+
 # in: element name, redecl guard
 # errcheck for bad fetch
 
@@ -159,6 +173,10 @@ sub haselem {
   && !defined $redecl
 
   ) {
+
+$self->elems->{$name}=[0,0,0,8];
+push @{ $CACHE{-PENDING} },$self->ances.'@'.$name;
+return;
 
     printf "Block <".$self->ances.'> '.
       "has no member named '".$name."'\n";
@@ -654,6 +672,17 @@ sub refsolve_rec {
 };
 
 # ---   *   ---   *   ---
+
+sub prich2 {
+
+my $self=shift;
+for my $v(@{$self->data}) {
+
+printf sprintf "0x%.16X\n",$v;
+
+};
+
+};
 
 # prints out block
 sub prich {

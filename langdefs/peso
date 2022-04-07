@@ -102,6 +102,9 @@ my %MAM=(
   # fwd decl the execution path table
   -EXTAB=>{},
 
+  # instruction stack
+  -PROGRAM=>[],
+
   # idex of next instruction to exec
   -NXINS=>0,
 
@@ -170,7 +173,7 @@ $MAM{-EXTAB}={
 
   # append new block to dst
   my $blk=$dst->nit(
-    $name,peso::block->O_RDWR
+    $name,peso::block->O_RDWR,
 
   );
 
@@ -235,7 +238,6 @@ $PESO{-VARS}->[0]->[1]=>[
 
 # ---   *   ---   *   ---
 
-    my $runi=undef;
     if($key=~ s/${intrinsic}//) {
       my $ins=$1;
 
@@ -320,13 +322,11 @@ $PESO{-VARS}->[0]->[1]=>[
 
     };
 
-# ---   *   ---   *   ---
-
     # grow the block
     $dst->expand(\@line,$key);
     peso::block::wed($wed);
 
-  }
+  },
 
 ],
 
@@ -423,6 +423,89 @@ $PESO{-VARS}->[0]->[1]=>[
     my $key=shift;
 
     peso::block::wed(undef);
+
+  },
+
+],
+
+# ---   *   ---   *   ---
+
+'jmp'=>[
+
+  undef,
+  sub {
+
+    my $node=shift;
+    my $key=shift;
+
+    my $val
+
+    =$node->leaves->[0]
+    ->leaves->[0]
+    ->val;
+
+    my $blk=peso::block::clan('self');
+
+# ---   *   ---   *   ---
+
+    if(
+
+       !exists $blk->elems->{$val}
+    && defined $blk->par
+
+    ) {
+
+      $MAM{-NXINS}--;
+      printf $blk->par->elems->{$val}."\n";
+
+    };
+
+  },
+
+],
+
+# ---   *   ---   *   ---
+
+'entry'=>[
+
+  undef,
+  sub {
+
+    my $node=shift;
+    my $key=shift;
+
+    my $val
+
+    =$node->leaves->[0]
+    ->leaves->[0]
+    ->val;
+
+    # placeholder!
+    printf "Entry point $val\n";
+
+  },
+
+],
+
+# ---   *   ---   *   ---
+
+'exit'=>[
+
+  undef,
+  sub {
+
+    my $node=shift;
+    my $key=shift;
+
+    my $val
+
+    =$node->leaves->[0]
+    ->leaves->[0]
+    ->val;
+
+    # placeholder!
+    printf sprintf "Exit code <0x%.2X>\n",$val;
+    exit;
 
   },
 
@@ -641,7 +724,7 @@ sub peso_rd {
 
   $pat.=")*";
   my @tree=();
-  my @program=();
+  my $program=$MAM{-PROGRAM};
 
 # ---   *   ---   *   ---
 
@@ -710,8 +793,8 @@ sub peso_rd {
           @expath=@{ $tab->{$k} };
 
         };
-      };
 
+      };
     };
 
 # ---   *   ---   *   ---
@@ -747,12 +830,12 @@ sub peso_rd {
 
     # save instructions
     if(!$root->{-PAR}) {
-      push @program,[
+      push @$program,[
 
         $expath[1],
         $root,$key
 
-      ];
+      ];$MAM{-NXINS}++;
 
     };
   };
@@ -760,17 +843,28 @@ sub peso_rd {
 # ---   *   ---   *   ---
 
   # execute
-  while(
+  $MAM{-NXINS}=0;while(
 
        $MAM{-NXINS}>=0
-    && $MAM{-NXINS}<@program
+    && $MAM{-NXINS}<@$program
 
   ) {
 
-    my $ins=$program[$MAM{-NXINS}];
+    my $ins=$program->[$MAM{-NXINS}];
 
     my $call=$ins->[0];
     my @args=@{$ins}[1,2];
+
+    if($call eq $MAM{-EXTAB}
+      ->{$primitive}->[1]
+
+    ) {
+
+      $program->[$MAM{-NXINS}]->[0]
+        =$MAM{-EXTAB}
+        ->{$primitive}->[2]
+
+    };
 
     $call->(@args);
     $MAM{-NXINS}++;
@@ -778,7 +872,9 @@ sub peso_rd {
   };
 
 peso::block::clan('non')
-  ->elems->{'attrs'}->prich();
+  ->elems->{'attrs'}->prich2();
+
+peso::block::wat();
 
 #my $ptr=$MAM{-DST}->getv('q');
 #printf ''.(sprintf
