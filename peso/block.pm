@@ -17,6 +17,9 @@ package peso::block;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/include/';
+  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use stack;
+
   my %PESO=do 'peso/defs.ph';
 
 # ---   *   ---   *   ---
@@ -42,11 +45,11 @@ package peso::block;
 my %CACHE=(
 
   -SELF=>undef,
-  -WED=>undef,
-  -BLOCKS=>{},
-  -DATA=>[],
+  -SOIL=>undef,
 
-  -PENDING=>[],
+  -WED=>undef,
+  -BLOCKS=>undef,
+  -DATA=>[],
 
   -TYPES=>join '|',keys %{$PESO{-SIZES}},
 
@@ -59,6 +62,9 @@ sub clan {
   my $key=shift;
   if($key eq 'self') {
     return $CACHE{-SELF};
+
+  } elsif($key eq 'non') {
+    return $CACHE{-SOIL};
 
   } elsif(!exists $CACHE{-BLOCKS}->{$key}) {
 
@@ -95,6 +101,9 @@ sub nit {
     -SIZE=>0,
 
     -PAR=>$self,
+    -CHILDREN=>[],
+    -SLSTK=>undef,
+
     -ELEMS=>{},
     -ATTRS=>$attrs,
 
@@ -116,15 +125,47 @@ sub nit {
 
       exit;
 
-    };$CACHE{-BLOCKS}->{$name}=$blk;
+    };
+
+    $self=$CACHE{-SOIL};
+
+# ---   *   ---   *   ---
+
+  };if($name ne 'non') {
+    $self->addchld($blk);
 
   };
 
-# placeholder!
-# add block data into this line
-push @{$CACHE{-DATA}},0xFFFFFFFF;
-
   return $blk;
+
+};
+
+# initialize global root
+$CACHE{-SOIL}=nit(undef,'non');
+$CACHE{-SOIL}->{-STACK}=stack::nit(
+  stack::slidex(0x100)
+
+);
+
+$CACHE{-BLOCKS}=$CACHE{-SOIL}->{-ELEMS};
+
+# ---   *   ---   *   ---
+
+sub addchld {
+
+  my $self=shift;
+  my $blk=shift;
+
+  my $i=$self->sstack->spop();
+
+  # add block data into this line
+  my @line=(
+
+    [$blk->name,$i],
+
+  );$self->expand(\@line,'unit');
+  $self->children->[$i]=$blk;
+  $blk->{-PAR}=$self;
 
 };
 
@@ -134,6 +175,8 @@ push @{$CACHE{-DATA}},0xFFFFFFFF;
 sub name {return (shift)->{-NAME};};
 sub elems {return (shift)->{-ELEMS};};
 sub par {return (shift)->{-PAR};};
+sub children {return (shift)->{-CHILDREN};};
+sub sstack {return (shift)->{-STACK};};
 sub data {return $CACHE{-DATA};};
 sub size {return (shift)->{-SIZE};};
 sub attrs {return (shift)->{-ATTRS};};
@@ -153,11 +196,6 @@ sub ances {
 
 # ---   *   ---   *   ---
 
-sub wat {printf ''.(
-  join "\n",@{$CACHE{-PENDING}}
-
-)."\n";};
-
 # in: element name, redecl guard
 # errcheck for bad fetch
 
@@ -173,10 +211,6 @@ sub haselem {
   && !defined $redecl
 
   ) {
-
-$self->elems->{$name}=[0,0,0,8];
-push @{ $CACHE{-PENDING} },$self->ances.'@'.$name;
-return;
 
     printf "Block <".$self->ances.'> '.
       "has no member named '".$name."'\n";
@@ -247,6 +281,7 @@ sub expand {
   my $self=shift;
   my $ref=shift;
   my $type=shift;
+  my $nopad=shift;
 
   # set type of var for all ops
   $CACHE{-WED}=$type;
@@ -266,6 +301,9 @@ sub expand {
   # save top of stack
   my $j=@{$self->data};
   push @{$self->data},0x00;
+
+  # check added size
+  my $units=1;
 
   # push elements to data
   my $i=0;while(@$ref) {
@@ -304,11 +342,25 @@ sub expand {
 
       # reserve a new unit
       push @{ $self->data },0x00;
-      $j++;$i=0;
+      $j++;$i=0;$units++;
 
     };
 
-  };
+  };if($nopad) {return;};
+
+  my @pad=();
+
+  # took this one from perlmonks ;>
+  # check that leftmost bit is the only one set
+  # that means: num is a power of two
+  while(!(sprintf('%b',$units)=~m/^10+$/)) {
+    push @pad,[sprintf(
+      '*>'.$self->ances."_pad_%.8u",$units+$j
+      ),0xF9EEB10C
+
+    ];$units++;
+
+  };if(@pad) {$self->expand(\@pad,'unit',1);};
 
 };
 
@@ -673,17 +725,6 @@ sub refsolve_rec {
 
 # ---   *   ---   *   ---
 
-sub prich2 {
-
-my $self=shift;
-for my $v(@{$self->data}) {
-
-printf sprintf "0x%.16X\n",$v;
-
-};
-
-};
-
 # prints out block
 sub prich {
 
@@ -691,6 +732,8 @@ sub prich {
   my $v_lines='';
 
   my @data=();
+
+  printf '<'.$self->ances.">\n";
 
 # ---   *   ---   *   ---
 
@@ -781,6 +824,10 @@ sub prich {
     $unit,$unit_names;
 
   printf $v_lines."\n";
+  for my $child(@{$self->children}) {
+    $child->prich();
+
+  };
 
 };
 
