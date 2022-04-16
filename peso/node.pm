@@ -19,8 +19,6 @@ package peso::node;
   use lib $ENV{'ARPATH'}.'/include/';
   my %PESO=do 'peso/defs.ph';
 
-  use peso::block;
-
 # ---   *   ---   *   ---
 
 my %CACHE=(
@@ -140,10 +138,11 @@ sub dup {
   my @leaves=();
 
   my $copy=nit($root,$self->val);
-  for my $leaf(@{$self->leaves}) {
-    push @leaves,$leaf->dup($root);
 
-  };$self->pushlv(0,@leaves);
+  for my $leaf(@{$self->leaves}) {
+    $leaf->dup($copy);
+
+  };
 
   return $copy;
 

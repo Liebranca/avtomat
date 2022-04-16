@@ -56,6 +56,10 @@ my %CACHE=(
 
   -TYPES=>join '|',keys %{$PESO{-SIZES}},
 
+  -INS=>[],
+  -INS_KEY=>{},
+  -NODES=>[],
+
 );
 
 # in: block name
@@ -81,6 +85,67 @@ sub clan {
 # in: block instance
 # scope to block
 sub setscope {$CACHE{-SELF}=shift;};
+
+# ---   *   ---   *   ---
+
+# we have to load the instruction set
+# from an external hash for complex reasons
+# i can make it all internal later (maybe)
+
+sub loadins {
+
+  my $ref=shift;my $i=0;
+  for my $key(keys %$ref) {
+    push @{$CACHE{-INS}},$ref->{$key}->[1];
+    $CACHE{-INS_KEY}->{$key}=$i;$i++;
+
+  };
+
+# get idex of instruction
+};sub getinsi {
+
+  my $name=shift;$name=~ s/\s*$//;
+  return $CACHE{-INS_KEY}->{$name};
+
+};sub setnode {
+
+  my $node=shift;
+
+  push @{$CACHE{-NODES}},$node;
+  return int(@{$CACHE{-NODES}})-1;
+
+};sub getnode {
+
+  my $idex=shift;
+  return $CACHE{-NODES}->[$idex];
+
+};
+
+# ---   *   ---   *   ---
+
+sub ex {
+
+  my $self=shift;
+  my $len=int(keys %{$self->elems})/2;
+
+  for(my $i=0;$i<$len;$i++) {
+    my $nx=sprintf "_%.08i",$i;
+
+    my $ins='ins'.$nx;
+    my $arg='arg'.$nx;
+
+    $ins=$self->getv($ins);
+    $arg=$self->getv($arg);
+
+    $arg=getnode($arg);
+    my $ori=$arg;
+    $arg=$arg->dup();
+
+    $CACHE{-INS}->[$ins]->($arg);
+
+  };
+
+};
 
 # ---   *   ---   *   ---
 

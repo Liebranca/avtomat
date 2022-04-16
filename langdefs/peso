@@ -97,7 +97,7 @@ my %PESO=(
 my %MAM=(
 
   # subrd for current context
-  -CNTX=>\&peso_cntx_non,
+  -CNTX=>'non',
 
   # fwd decl the execution path table
   -EXTAB=>{},
@@ -338,7 +338,6 @@ $PESO{-VARS}->[0]->[1]=>[
   sub {
 
     my $node=shift;
-    my $key=shift;
 
     sop_ari(
 
@@ -359,7 +358,6 @@ $PESO{-VARS}->[0]->[1]=>[
   sub {
 
     my $node=shift;
-    my $key=shift;
 
     sop_ari(
 
@@ -380,7 +378,6 @@ $PESO{-VARS}->[0]->[1]=>[
   sub {
 
     my $node=shift;
-    my $key=shift;
 
     sop_ari(
 
@@ -420,8 +417,6 @@ $PESO{-VARS}->[0]->[1]=>[
   sub {
 
     my $node=shift;
-    my $key=shift;
-
     peso::block::wed(undef);
 
   },
@@ -436,7 +431,6 @@ $PESO{-VARS}->[0]->[1]=>[
   sub {
 
     my $node=shift;
-    my $key=shift;
 
     my $val
 
@@ -455,8 +449,10 @@ $PESO{-VARS}->[0]->[1]=>[
 
     ) {
 
-      $MAM{-NXINS}--;
-      printf $blk->par->elems->{$val}."\n";
+      my $non=peso::block::clan('non');
+      my $dst=$non->bgetptrv($val);
+
+      $dst->ex();
 
     };
 
@@ -472,13 +468,11 @@ $PESO{-VARS}->[0]->[1]=>[
   sub {
 
     my $node=shift;
-    my $key=shift;
 
     my $val
-
-    =$node->leaves->[0]
-    ->leaves->[0]
-    ->val;
+      =$node->leaves->[0]
+      ->leaves->[0]
+      ->val;
 
     # placeholder!
     printf "Entry point $val\n";
@@ -495,18 +489,16 @@ $PESO{-VARS}->[0]->[1]=>[
   sub {
 
     my $node=shift;
-    my $key=shift;
 
     my $val
-
-    =$node->leaves->[0]
-    ->leaves->[0]
-    ->val;
+      =$node->leaves->[0]
+      ->leaves->[0]
+      ->val;
 
     # placeholder!
     printf sprintf "Exit code <0x%.2X>\n",$val;
 
-    $MAM{-NXINS}=-2;
+    #$MAM{-NXINS}=-2;
 
   },
 
@@ -731,6 +723,7 @@ sub peso_rd {
 
   # use default block as root
   $MAM{-DST}=peso::block::clan('non');
+  peso::block::loadins($MAM{-EXTAB});
 
   # iter expressions
   for my $exp(@exps) {
@@ -831,46 +824,75 @@ sub peso_rd {
 
     # save instructions
     if(!$root->{-PAR}) {
-      push @$program,[
 
-        $expath[1],
-        $root,$key
+      # context swapping
+      if($key=~ m/(reg|proc)/) {
+        $MAM{-CNTX}=$1;
 
-      ];$MAM{-NXINS}++;
+      # data block
+      };if($MAM{-CNTX} eq 'reg') {
+        $expath[1]->($root,$key);
+
+# ---   *   ---   *   ---
+
+      # code block
+      } elsif($MAM{-CNTX} eq 'proc') {
+
+        # initialize
+        if($root->val=~ m/proc/) {
+          $expath[1]->($root,$key);
+
+        # encode instruction
+        } else {
+
+          my $dst=$MAM{-DST};
+          my $inum=int(keys %{$dst->elems})/2;
+
+          # generate identifier
+          my $iname=sprintf(
+            'ins_%.08i',$inum
+
+          # get instruction id
+          );my $iidex=peso::block::getinsi(
+            $root->val
+
+          );
+
+          my @ins=([$iname,$iidex]);
+
+# ---   *   ---   *   ---
+
+          # encode args
+          my $nname=sprintf(
+            'arg_%.08i',$inum
+
+          );my $nidex=peso::block::setnode(
+            $root
+
+          );
+
+
+# ---   *   ---   *   ---
+
+          # save encoded ins+args
+          $dst->expand([
+            [$iname,$iidex],
+            [$nname,$nidex],
+
+          ],'unit');
+
+        };
+
+      };$MAM{-NXINS}++;
 
     };
   };
 
 # ---   *   ---   *   ---
 
-  # execute
-  $MAM{-NXINS}=0;while(
-
-       $MAM{-NXINS}>=0
-    && $MAM{-NXINS}<@$program
-
-  ) {
-
-    my $ins=$program->[$MAM{-NXINS}];
-
-    my $call=$ins->[0];
-    my @args=@{$ins}[1,2];
-
-    if($call eq $MAM{-EXTAB}
-      ->{$primitive}->[1]
-
-    ) {
-
-      $program->[$MAM{-NXINS}]->[0]
-        =$MAM{-EXTAB}
-        ->{$primitive}->[2]
-
-    };
-
-    $call->(@args);
-    $MAM{-NXINS}++;
-
-  };
+my $non=peso::block::clan('non');
+my $ins=$non->bgetptrv('ins');
+$ins->ex();
 
 peso::block::clan('non')
   ->prich();
