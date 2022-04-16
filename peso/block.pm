@@ -38,6 +38,9 @@ package peso::block;
 
     O_RDWREX=>0b111,
 
+    # pretty hexspeak
+    FREEBLOCK=>0xF9EEB10C,
+
   };
 
 # ---   *   ---   *   ---
@@ -102,7 +105,7 @@ sub nit {
 
     -PAR=>$self,
     -CHILDREN=>[],
-    -SLSTK=>undef,
+    -STACK=>stack::nit(stack::slidex(0x100)),
 
     -ELEMS=>{},
     -ATTRS=>$attrs,
@@ -142,11 +145,6 @@ sub nit {
 
 # initialize global root
 $CACHE{-SOIL}=nit(undef,'non');
-$CACHE{-SOIL}->{-STACK}=stack::nit(
-  stack::slidex(0x100)
-
-);
-
 $CACHE{-BLOCKS}=$CACHE{-SOIL}->{-ELEMS};
 
 # ---   *   ---   *   ---
@@ -226,6 +224,12 @@ sub haselem {
 
   ) {
 
+    # block-as-elem is exempt from redecl
+    if(0>=index $self->elems->{$name},
+      "peso::block"
+
+    ) {return;};
+
     printf "Redeclaration of '$name' ".
       'at block <'.$self->ances.">\n";
 
@@ -281,7 +285,6 @@ sub expand {
   my $self=shift;
   my $ref=shift;
   my $type=shift;
-  my $nopad=shift;
 
   # set type of var for all ops
   $CACHE{-WED}=$type;
@@ -301,9 +304,6 @@ sub expand {
   # save top of stack
   my $j=@{$self->data};
   push @{$self->data},0x00;
-
-  # check added size
-  my $units=1;
 
   # push elements to data
   my $i=0;while(@$ref) {
@@ -342,25 +342,11 @@ sub expand {
 
       # reserve a new unit
       push @{ $self->data },0x00;
-      $j++;$i=0;$units++;
+      $j++;$i=0;
 
     };
 
-  };if($nopad) {return;};
-
-  my @pad=();
-
-  # took this one from perlmonks ;>
-  # check that leftmost bit is the only one set
-  # that means: num is a power of two
-  while(!(sprintf('%b',$units)=~m/^10+$/)) {
-    push @pad,[sprintf(
-      '*>'.$self->ances."_pad_%.8u",$units+$j
-      ),0xF9EEB10C
-
-    ];$units++;
-
-  };if(@pad) {$self->expand(\@pad,'unit',1);};
+  };
 
 };
 
@@ -527,6 +513,21 @@ sub getptrv {
   };
 
   return $value;
+
+};
+
+# ---   *   ---   *   ---
+
+# additional step for ptr-to-block deref
+sub bgetptrv {
+
+  my $self=shift;
+  my $name=shift;
+
+  my $ptr=$self->getptrloc($name);
+  $ptr=$self->getptrv($ptr);
+
+  return $self->children->[$ptr];
 
 };
 

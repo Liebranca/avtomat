@@ -505,7 +505,8 @@ $PESO{-VARS}->[0]->[1]=>[
 
     # placeholder!
     printf sprintf "Exit code <0x%.2X>\n",$val;
-    exit;
+
+    $MAM{-NXINS}=-2;
 
   },
 
@@ -728,8 +729,8 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-  # init default block as root
-  $MAM{-DST}=peso::block::nit(undef,'non');
+  # use default block as root
+  $MAM{-DST}=peso::block::clan('non');
 
   # iter expressions
   for my $exp(@exps) {
@@ -872,19 +873,7 @@ sub peso_rd {
   };
 
 peso::block::clan('non')
-  ->elems->{'attrs'}->prich2();
-
-peso::block::wat();
-
-#my $ptr=$MAM{-DST}->getv('q');
-#printf ''.(sprintf
-#
-#  "\n  0x%.8X : %.8X\n",
-#
-#  $ptr,
-#  $MAM{-DST}->getptrv($ptr)
-#
-#)."\n";
+  ->prich();
 
   return;
 
