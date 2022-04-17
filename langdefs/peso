@@ -58,8 +58,7 @@ my %PESO=(
       'pop,push,mem,fre,'.
       'shift,unshift,'.
 
-      'sys,stop,exit,'.
-      'entry'
+      'sys,stop,exit'
 
     ,1)],
 
@@ -79,7 +78,7 @@ my %PESO=(
     # directives
     [0x0D,eiths(
 
-      'reg,rom,proc,clan,tab,atexit'
+      'reg,rom,proc,clan,tab,atexit,entry'
 
     ,1)],
 
@@ -104,9 +103,6 @@ my %MAM=(
 
   # instruction stack
   -PROGRAM=>[],
-
-  # idex of next instruction to exec
-  -NXINS=>0,
 
   -NUMCON=>[
 
@@ -449,12 +445,12 @@ $PESO{-VARS}->[0]->[1]=>[
 
     ) {
 
-      my $non=peso::block::clan('non');
-      my $dst=$non->bgetptrv($val);
-
-      $dst->ex();
+      $blk=peso::block::clan('non');
 
     };
+
+    my $dst=$blk->bgetptrv($val);
+    peso::block::setnxins($dst->insid);
 
   },
 
@@ -474,8 +470,7 @@ $PESO{-VARS}->[0]->[1]=>[
       ->leaves->[0]
       ->val;
 
-    # placeholder!
-    printf "Entry point $val\n";
+    peso::block::entry($val);
 
   },
 
@@ -497,8 +492,7 @@ $PESO{-VARS}->[0]->[1]=>[
 
     # placeholder!
     printf sprintf "Exit code <0x%.2X>\n",$val;
-
-    #$MAM{-NXINS}=-2;
+    peso::block::setnxins(-2);
 
   },
 
@@ -724,6 +718,7 @@ sub peso_rd {
   # use default block as root
   $MAM{-DST}=peso::block::clan('non');
   peso::block::loadins($MAM{-EXTAB});
+  peso::block::setnxins(0);
 
   # iter expressions
   for my $exp(@exps) {
@@ -829,9 +824,13 @@ sub peso_rd {
       if($key=~ m/(reg|proc)/) {
         $MAM{-CNTX}=$1;
 
-      # data block
-      };if($MAM{-CNTX} eq 'reg') {
-        $expath[1]->($root,$key);
+      # data block or directive
+      };if(
+
+         $MAM{-CNTX} eq 'reg'
+      || $key=~ m/$directive/
+
+      ) {$expath[1]->($root,$key);
 
 # ---   *   ---   *   ---
 
@@ -846,7 +845,7 @@ sub peso_rd {
         } else {
 
           my $dst=$MAM{-DST};
-          my $inum=int(keys %{$dst->elems})/2;
+          my $inum=peso::block::nxins;
 
           # generate identifier
           my $iname=sprintf(
@@ -881,9 +880,9 @@ sub peso_rd {
 
           ],'unit');
 
-        };
+        };peso::block::incnxins();
 
-      };$MAM{-NXINS}++;
+      };
 
     };
   };
@@ -892,6 +891,7 @@ sub peso_rd {
 
 my $non=peso::block::clan('non');
 my $ins=$non->bgetptrv('ins');
+
 $ins->ex();
 
 peso::block::clan('non')

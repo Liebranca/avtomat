@@ -58,6 +58,9 @@ my %CACHE=(
 
   -INS=>[],
   -INS_KEY=>{},
+  -NXINS=>0,
+  -ENTRY=>'nit',
+
   -NODES=>[],
 
 );
@@ -125,25 +128,84 @@ sub loadins {
 
 sub ex {
 
-  my $self=shift;
-  my $len=int(keys %{$self->elems})/2;
+  my $entry=$CACHE{-ENTRY};
+  my $non=$CACHE{-SOIL};
 
-  for(my $i=0;$i<$len;$i++) {
-    my $nx=sprintf "_%.08i",$i;
+  $entry=$non->bgetptrv($entry);
 
-    my $ins='ins'.$nx;
-    my $arg='arg'.$nx;
+  setnxins($entry->insid);
 
-    $ins=$self->getv($ins);
-    $arg=$self->getv($arg);
+  while(!(nxins()<0)) {
+    $entry=$entry->exnext();
 
-    $arg=getnode($arg);
-    my $ori=$arg;
-    $arg=$arg->dup();
-
-    $CACHE{-INS}->[$ins]->($arg);
+    if(nxins()<0) {last;};
 
   };
+
+};
+
+sub exfetnx {
+
+  my $self=shift;
+  my $i=nxins();
+
+  if($i<0) {return (undef,undef,undef);};
+
+  my $nx=sprintf "_%.08i",$i;
+
+  my $ins='ins'.$nx;
+  my $arg='arg'.$nx;
+
+  if(!exists $self->elems->{$ins}) {
+    $self=getinsid($i);
+
+  };
+
+  return ($self,$ins,$arg);
+
+};sub getinsid {
+
+  my $i=shift;
+  my $self=$CACHE{-SOIL};
+  my $blk=undef;
+
+  for my $ptr(keys %{$self->elems}) {
+    $blk=$self->bgetptrv($ptr);
+    if($blk->insid eq $i) {
+      last;
+
+    };
+
+  };if(!defined $blk) {
+
+    printf "EX_END: instruction stack fail!\n";
+    exit;
+
+  };return $blk;
+
+};
+
+sub exnext {
+
+  my $self=shift;
+  my $i=nxins();
+
+  my ($ins,$arg)=(0,0);
+
+  ($self,$ins,$arg)=$self->exfetnx();
+  if(!defined $self) {return;};
+
+  $ins=$self->getv($ins);
+  $arg=$self->getv($arg);
+
+  $arg=getnode($arg);
+  my $ori=$arg;
+  $arg=$arg->dup();
+
+  $CACHE{-INS}->[$ins]->($arg);
+
+  if($i == nxins()) {incnxins();};
+  return $self;
 
 };
 
@@ -163,6 +225,11 @@ sub nit {
 
   };
 
+  my $insid=($attrs& O_EX)
+    ? $CACHE{-NXINS}
+    : -1
+    ;
+
   my $blk=bless {
 
     -NAME=>$name,
@@ -174,6 +241,7 @@ sub nit {
 
     -ELEMS=>{},
     -ATTRS=>$attrs,
+    -INSID=>$insid,
 
   },'peso::block';
 
@@ -243,6 +311,8 @@ sub sstack {return (shift)->{-STACK};};
 sub data {return $CACHE{-DATA};};
 sub size {return (shift)->{-SIZE};};
 sub attrs {return (shift)->{-ATTRS};};
+sub nxins {return $CACHE{-NXINS}};
+sub insid {return (shift)->{-INSID}};
 
 # find ancestors recursively
 sub ances {
@@ -256,6 +326,14 @@ sub ances {
   };return $name;
 
 };
+
+# ---   *   ---   *   ---
+# setters
+
+sub entry {$CACHE{-ENTRY}=shift;};
+
+sub setnxins {$CACHE{-NXINS}=shift};
+sub incnxins {$CACHE{-NXINS}++};
 
 # ---   *   ---   *   ---
 
