@@ -514,7 +514,7 @@ TOP:
         $cut=(
 
           # non operator or comma : open delimiter
-          !($pr=~ m/${op}|,/)
+          !($pr=~ m/${op}|,/) && $pr
 
         );
 
@@ -885,11 +885,10 @@ TOP:{
   $self=$leaf;
   $self->idextrav();
 
-  if(!$self->val) {goto SKIP;};
-  if($self->val=~ m/${PESO{-PESC}}/) {
-#    $self->par->pushlv(0,@{$self->leaves});
-#    $self->par->pluck($self);
+  if(!$self->val) {
+    goto SKIP;
 
+  } elsif($self->val=~ m/${PESO{-PESC}}/) {
     goto SKIP;
 
   };
@@ -1032,7 +1031,7 @@ REPEAT:{
 
     # element is a string
     } else {
-      $node->nit($op_elem);
+      push @mov,nit(undef,$op_elem);
 
     };
 
@@ -1151,6 +1150,7 @@ SKIP:{
 
         if($v->val=~ m/${PESO{-DEL_OPS}}/) {
 
+          if($v->val=~ m/\[/) {goto NEXT_OP;};
           push @argval,$v->leaves->[0]->val;
 
         } elsif(
@@ -1190,6 +1190,15 @@ SKIP:{
       };
 
 # ---   *   ---   *   ---
+
+      for my $arg(@{$argval}) {
+        if($arg->val eq '[') {goto NEXT_OP;};
+        for my $sleaf(@{$arg->leaves}) {
+          if($sleaf->val eq '[') {goto NEXT_OP;};
+
+        };
+
+      };
 
       my $result=$proc->(@argval);
       $node->{-VAL}=$result;

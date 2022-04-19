@@ -526,6 +526,7 @@ sub sop_ari {
     my $wed=peso::block::wed('get');
     peso::block::wed('unit');
 
+$node->prich();
     # solve operations in tree
     for my $leaf(@{
       $node->leaves->[0]->leaves
@@ -544,20 +545,28 @@ sub sop_ari {
 
 # ---   *   ---   *   ---
 
-    my $ptr=undef;
+    peso::block::ptrderef_rec($node);
+    $node->collapse($MAM{-NUMCON});
 
-    if($fbgch->val eq '[') {
-      $ptr=peso::block::getptrv(
+    my $ptr=$fbgch->val;;
 
-        undef,
-        $fbgch->leaves->[0]->val
+#    if($fbgch->val eq '[') {
+#      $ptr=peso::block::getptrv(
+#
+#        undef,
+#        $fbgch->leaves->[0]->val
+#
+#      );
+#
+#    } else {
+#      $ptr=$fbgch->val;
+#
+#    };
 
-      );
+printf "-------\n";
+$node->prich();
 
-    } else {
-      $ptr=$fbgch->val;
 
-    };
 
     $v0=peso::block::getptrv(undef,$ptr);
     if($v1 eq 'self') {$v1=$v0;};

@@ -131,6 +131,8 @@ sub ex {
   my $entry=$CACHE{-ENTRY};
   my $non=$CACHE{-SOIL};
 
+  wed(undef);
+
   $entry=$non->bgetptrv($entry);
 
   setnxins($entry->insid);
@@ -865,6 +867,32 @@ sub refsolve_rec {
     };
 
   };
+};
+
+# ---   *   ---   *   ---
+
+sub ptrderef_rec {
+
+  my $node=shift;
+
+  if($node->val eq '[') {
+
+    $node->{-VAL}=getptrv(
+
+      undef,
+      $node->leaves->[0]->val
+
+    );$node->pluck(@{$node->leaves});
+
+  } else {
+
+    for my $leaf(@{$node->leaves}) {
+      ptrderef_rec($leaf);
+
+    };
+
+  };
+
 };
 
 # ---   *   ---   *   ---
