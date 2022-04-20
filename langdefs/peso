@@ -167,11 +167,24 @@ $MAM{-EXTAB}={
     : $MAM{-DST}
     ;
 
-  # append new block to dst
-  my $blk=$dst->nit(
-    $name,peso::block->O_RDWR,
+# ---   *   ---   *   ---
 
-  );
+  my $blk;
+
+  # append new block to dst on first pass
+  if(peso::block::fpass()) {
+    $blk=$dst->nit(
+      $name,peso::block->O_RDWR,
+
+    );
+
+  # second pass: look for block
+  } else {
+    $blk=peso::block::bgetptrv(
+      undef,$dst->ances."\@$name"
+
+    );
+  };
 
   # overwrite dst
   $MAM{-DST}=$blk;
@@ -204,11 +217,24 @@ $MAM{-EXTAB}={
     : $MAM{-DST}
     ;
 
-  # append new block to dst
-  my $blk=$dst->nit(
-    $name,peso::block->O_EX
+# ---   *   ---   *   ---
 
-  );
+  my $blk;
+
+  # append new block to dst on first pass
+  if(peso::block::fpass()) {
+    $blk=$dst->nit(
+      $name,peso::block->O_EX,
+
+    );
+
+  # second pass: look for block
+  } else {
+    $blk=peso::block::bgetptrv(
+      undef,$dst->ances."\@$name"
+
+    );
+  };
 
   # overwrite dst
   $MAM{-DST}=$blk;
@@ -229,6 +255,7 @@ $PESO{-VARS}->[0]->[1]=>[
     my $dst=$MAM{-DST};
 
     my $key=shift;
+    my $skey=undef;
 
     my $intrinsic=$PESO{-VARS}->[1]->[1];
 
@@ -238,7 +265,7 @@ $PESO{-VARS}->[0]->[1]=>[
       my $ins=$1;
 
       if($ins eq 'ptr') {
-        $key='unit';
+        $skey='unit';
 
       };
     };
@@ -281,7 +308,7 @@ $PESO{-VARS}->[0]->[1]=>[
           # solve non-numeric expressions
           if(!($leaf->val=~ m/[0-9]+/)) {
             peso::block::refsolve_rec($leaf);
-            $leaf->collapse($MAM{-NUMCON});
+            $leaf->collapse();
 
           };
 
@@ -315,6 +342,14 @@ $PESO{-VARS}->[0]->[1]=>[
         $line[$i]=[$name,$value];$i++;
 
       };
+
+    };
+
+# ---   *   ---   *   ---
+
+    # alternate storage type
+    if(defined $skey) {
+      $key=$skey;
 
     };
 
@@ -428,28 +463,38 @@ $PESO{-VARS}->[0]->[1]=>[
 
     my $node=shift;
 
-    my $val
+#    my $val
+#      =$node
+#      ->leaves->[0]
+#      ->leaves->[0]
+#      ->val;
 
-    =$node->leaves->[0]
-    ->leaves->[0]
-    ->val;
+    peso::block::treesolve($node->leaves->[0],1);
 
-    my $blk=peso::block::clan('self');
+    my $ptr
+      =$node
+      ->leaves->[0]
+      ->leaves->[0]
+      ->val;
+
+    my $blk=peso::block::clan('non');
+
+#    my $blk=peso::block::clan('self');
 
 # ---   *   ---   *   ---
 
-    if(
+#    if(
+#
+#       !exists $blk->elems->{$val}
+#    && defined $blk->par
+#
+#    ) {
+#
+#      $blk=peso::block::clan('non');
+#
+#    };
 
-       !exists $blk->elems->{$val}
-    && defined $blk->par
-
-    ) {
-
-      $blk=peso::block::clan('non');
-
-    };
-
-    my $dst=$blk->bgetptrv($val);
+    my $dst=$blk->bderefptr($ptr);
     peso::block::setnxins($dst->insid);
 
   },
@@ -523,33 +568,10 @@ sub sop_ari {
 
 # ---   *   ---   *   ---
 
-    my $wed=peso::block::wed('get');
-    peso::block::wed('unit');
+    peso::block::treesolve($node,0);
+    my $ptr=$fbgch->val;
 
-$node->prich();
-    # solve operations in tree
-    for my $leaf(@{
-      $node->leaves->[0]->leaves
-
-    }) {
-
-      if(!($leaf->val=~ m/[0-9]+/)) {
-        peso::block::refsolve_rec($leaf);
-        $leaf->collapse($MAM{-NUMCON});
-
-      };
-
-    };
-
-    peso::block::wed($wed);
-
-# ---   *   ---   *   ---
-
-    peso::block::ptrderef_rec($node);
-    $node->collapse($MAM{-NUMCON});
-
-    my $ptr=$fbgch->val;;
-
+# i *think* this isn't needed now
 #    if($fbgch->val eq '[') {
 #      $ptr=peso::block::getptrv(
 #
@@ -562,11 +584,6 @@ $node->prich();
 #      $ptr=$fbgch->val;
 #
 #    };
-
-printf "-------\n";
-$node->prich();
-
-
 
     $v0=peso::block::getptrv(undef,$ptr);
     if($v1 eq 'self') {$v1=$v0;};
@@ -729,6 +746,9 @@ sub peso_rd {
   peso::block::loadins($MAM{-EXTAB});
   peso::block::setnxins(0);
 
+  # set number covertion procs
+  peso::node::loadnumcon($MAM{-NUMCON});
+
   # iter expressions
   for my $exp(@exps) {
 
@@ -822,7 +842,7 @@ sub peso_rd {
     $root->subdiv();
 
     # solve constants
-    $root->collapse($MAM{-NUMCON});
+    $root->collapse();
 
 # ---   *   ---   *   ---
 
@@ -839,7 +859,20 @@ sub peso_rd {
          $MAM{-CNTX} eq 'reg'
       || $key=~ m/$directive/
 
-      ) {$expath[1]->($root,$key);
+      ) {
+
+        $expath[1]->($root,$key);
+
+        # save data initializer
+        # run on second pass
+        if($MAM{-CNTX} eq 'reg') {
+
+          push(
+            @$program,
+            [$expath[1],$root,$key]
+
+          );
+        };
 
 # ---   *   ---   *   ---
 
@@ -889,6 +922,21 @@ sub peso_rd {
 
           ],'unit');
 
+          push(
+            @$program,
+
+            [ \&peso::block::expand,
+
+              $dst,
+
+              [ [$iname,$iidex],
+                [$nname,$nidex] ],
+
+              'unit'
+
+            ]
+          );
+
         };peso::block::incnxins();
 
       };
@@ -898,13 +946,26 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-my $non=peso::block::clan('non');
-my $ins=$non->bgetptrv('ins');
+  peso::block::incpass();
+printf "---------\n";
+  for my $ref(@$program) {
+    my @ar=@{$ref};
 
-$ins->ex();
+    my $call=shift @ar;
+    my @args=@ar;
 
-peso::block::clan('non')
-  ->prich();
+    $call->(@args);
+
+  };
+
+# ---   *   ---   *   ---
+
+  my $non=peso::block::clan('non');
+
+  $non->ex();
+
+  peso::block::clan('non')
+    ->prich();
 
   return;
 

@@ -30,8 +30,14 @@ my %CACHE=(
   -ANCHOR=>undef,
 
   -BLOCKS=>undef,
+  -NUMCOM=>undef,
 
 );
+
+# ---   *   ---   *   ---
+
+# load notation-to-decimal procs
+sub loadnumcon {$CACHE{-NUMCON}=shift;};
 
 # ---   *   ---   *   ---
 
@@ -1078,7 +1084,7 @@ RELOC:
 sub collapse {
 
   my $self=shift;
-  my @nums=@{ $_[0] };shift;
+  my @nums=@{$CACHE{-NUMCON}};
 
   my $leaf=$self;
   my $ndel_op=$PESO{-NDEL_OPS};

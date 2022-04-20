@@ -62,6 +62,8 @@ my %CACHE=(
   -ENTRY=>'nit',
 
   -NODES=>[],
+  -PASS=>0,
+  -DPTR=>[],
 
 );
 
@@ -134,7 +136,6 @@ sub ex {
   wed(undef);
 
   $entry=$non->bgetptrv($entry);
-
   setnxins($entry->insid);
 
   while(!(nxins()<0)) {
@@ -296,7 +297,13 @@ sub addchld {
 
     [$blk->name,$i],
 
-  );$self->expand(\@line,'unit');
+  );
+
+# ---   *   ---   *   ---
+
+  my $bypass=int($self->name eq 'non');
+
+  $self->expand(\@line,'unit',$bypass);
   $self->children->[$i]=$blk;
   $blk->{-PAR}=$self;
 
@@ -313,8 +320,9 @@ sub sstack {return (shift)->{-STACK};};
 sub data {return $CACHE{-DATA};};
 sub size {return (shift)->{-SIZE};};
 sub attrs {return (shift)->{-ATTRS};};
-sub nxins {return $CACHE{-NXINS}};
-sub insid {return (shift)->{-INSID}};
+sub nxins {return $CACHE{-NXINS};};
+sub insid {return (shift)->{-INSID};};
+sub fpass {return !$CACHE{-PASS};};
 
 # find ancestors recursively
 sub ances {
@@ -333,6 +341,7 @@ sub ances {
 # setters
 
 sub entry {$CACHE{-ENTRY}=shift;};
+sub incpass {$CACHE{-PASS}++;};
 
 sub setnxins {$CACHE{-NXINS}=shift};
 sub incnxins {$CACHE{-NXINS}++};
@@ -430,13 +439,21 @@ sub expand {
   my $self=shift;
   my $ref=shift;
   my $type=shift;
+  my $bypass=shift;
 
   # set type of var for all ops
   $CACHE{-WED}=$type;
 
   # get size from type, in bytes
   my $elem_sz=$PESO{-SIZES}->{$type};
-  $self->{-SIZE}+=@$ref*$elem_sz;
+
+  my $inc_size=@$ref*$elem_sz;
+
+  # grow block on first pass
+  if(fpass()) {
+    $self->{-SIZE}+=$inc_size;
+
+  };
 
   # 'line' is two units
   # 'unit' is 64-bit chunk
@@ -446,9 +463,22 @@ sub expand {
 
 # ---   *   ---   *   ---
 
-  # save top of stack
-  my $j=@{$self->data};
-  push @{$self->data},0x00;
+  my $j;
+
+  # grow block on first pass
+  if(fpass()) {
+
+    # save top of stack
+    $j=@{$self->data};
+    if(!$bypass) {
+      push @{$CACHE{-DPTR}},$j;
+
+    };push @{$self->data},0x00;
+
+  } else {
+    $j=shift @{$CACHE{-DPTR}};
+
+  };
 
   # push elements to data
   my $i=0;while(@$ref) {
@@ -460,16 +490,27 @@ sub expand {
     my $v=$ar->[1];
 
     # prohibit redeclaration
-    $self->haselem($k,1);
+    if(fpass()) {
+      $self->haselem($k,1);
+
+    };
 
     # 'i' is offset in bytes
     # mask is derived from element size
     my $shf=$i*8;
     my $mask=$gran<<$shf;
 
+    # do not set value on first pass
+    if(fpass() && !$bypass) {
+      $v=0;
+
+    # on second pass:
     # shift v to next avail place
     # within current 64-bit unit
-    $v=$v<<$shf;
+    } else {
+      $v=$v<<$shf;
+
+    };
 
 # ---   *   ---   *   ---
 
@@ -486,8 +527,11 @@ sub expand {
     if($i>=($line_sz/2) && @$ref) {
 
       # reserve a new unit
-      push @{ $self->data },0x00;
-      $j++;$i=0;
+      # grow block on first pass
+      if(fpass()) {
+        push @{ $self->data },0x00;
+
+      };$j++;$i=0;
 
     };
 
@@ -663,14 +707,61 @@ sub getptrv {
 
 # ---   *   ---   *   ---
 
+# by-name block lookup
+
+sub blookup {
+
+  my $self=shift;
+  my $name=shift;
+
+  if(!defined $self) {
+    ($self,$name)=refsolve($name);
+
+  };return ($self,$name);
+
+};
+
+# ---   *   ---   *   ---
+
+# get block location from ptr
+sub bgetptrloc {
+
+  my $self=shift;
+  my $name=shift;
+
+  ($self,$name)=blookup($self,$name);
+
+  my $ptr=$self->getptrloc($name);
+  $ptr=$self->getptrv($ptr);
+
+  return ($self,$ptr);
+
+};
+
+# ---   *   ---   *   ---
+
 # additional step for ptr-to-block deref
 sub bgetptrv {
 
   my $self=shift;
   my $name=shift;
 
-  my $ptr=$self->getptrloc($name);
-  $ptr=$self->getptrv($ptr);
+  ($self,$name)=blookup($self,$name);
+
+  return(
+
+    $self->children
+    ->[bgetptrloc($self,$name)]
+
+  );
+
+# ---   *   ---   *   ---
+
+# ^same, deref by ptr rather than name
+};sub bderefptr {
+
+  my $self=shift;
+  my $ptr=shift;
 
   return $self->children->[$ptr];
 
@@ -786,6 +877,11 @@ sub getptrloc {
 
   };
 
+  if($CACHE{-WED}) {
+  $mask=wedcast($shf);
+
+  };
+
   my $sz=0;
   $mask=$mask>>$shf;
 
@@ -806,15 +902,15 @@ sub getptrloc {
 
 sub refsolve {
 
-  my $node=shift;
+  my $val=shift;
   my $dst=$CACHE{-SELF};
 
   my $name=undef;
   my $cont=undef;
 
-  if($node->val=~ m/@/) {
+  if($val=~ m/@/) {
 
-    my @path=split '@',$node->val;
+    my @path=split '@',$val;
 
     my $root=shift @path;
     my $blk=clan($root);
@@ -822,8 +918,16 @@ sub refsolve {
     while(@path>1) {
       my $key=shift @path;
 
-      $blk->haselem($key);
-      $blk=$blk->elems->{$key};
+      if(fpass()) {
+        if(!exists $blk->elems->{$key}) {
+          return (undef,undef);
+
+        };
+
+      } else {
+        $blk->haselem($key);
+
+      };$blk=$blk->elems->{$key};
 
     };$name=$path[0];
     $cont=$blk;
@@ -832,19 +936,35 @@ sub refsolve {
 
   } elsif(
 
-    $node->val()=~
+    $val=~
     m/${PESO{-NAMES}}*/
 
   ) {
 
-    $dst->haselem($node->val);
+    while(!exists $dst->elems->{$val}) {
 
-    $name=$node->val;
+      $dst=$dst->par;
+      if(!$dst) {
+
+        if(fpass()) {
+          return (undef,undef);
+
+        } else {
+          printf "Symbol '".
+            $val.
+            "' not found\n";
+
+          exit;
+
+        };
+
+      };
+    };
+
+    $name=$val;
     $cont=$dst;
 
-  };
-
-  return ($cont,$name);
+  };return ($cont,$name);
 
 };
 
@@ -857,8 +977,12 @@ sub refsolve_rec {
   my $node=shift;
 
   if($node->val=~ m/${PESO{-NAMES}}*/) {
-    my ($cont,$name)=refsolve($node);
-    $node->{-VAL}=$cont->getptrloc($name);
+    my ($cont,$name)=refsolve($node->val);
+
+    if($cont && $name) {
+      $node->{-VAL}=$cont->getptrloc($name);
+
+    };
 
   } else {
     for my $leaf(@{$node->leaves}) {
@@ -871,18 +995,71 @@ sub refsolve_rec {
 
 # ---   *   ---   *   ---
 
+# in:tree,
+
+# block-deref
+#   0|undef:common ptr
+#   !0:block ptr
+
+# solve operations in tree
+
+sub treesolve {
+
+  my $node=shift;
+  my $blk_deref=shift;
+
+  my $wed=wed('get');wed('unit');
+
+  for my $leaf(@{
+    $node->leaves->[0]->leaves
+
+  }) {
+
+    if(!($leaf->val=~ m/[0-9]+/)) {
+      refsolve_rec($leaf);
+      $leaf->collapse();
+
+    };
+
+  };
+
+  wed($wed);
+  ptrderef_rec($node,$blk_deref);
+
+  $node->collapse();
+
+};
+
 sub ptrderef_rec {
 
   my $node=shift;
+  my $block_ptr=shift;
+
+  $block_ptr=(!$block_ptr);
 
   if($node->val eq '[') {
 
-    $node->{-VAL}=getptrv(
+    if($block_ptr) {
 
-      undef,
-      $node->leaves->[0]->val
+      $node->{-VAL}=getptrv(
+        undef,
+        $node->leaves->[0]->val
 
-    );$node->pluck(@{$node->leaves});
+      );$node->{-VAL}=getptrv(
+        undef,
+        $node->val
+
+      );
+
+    } else {
+      $node->{-VAL}=getptrv(
+
+        undef,
+        $node->leaves->[0]->val
+
+      );
+
+    };$node->pluck(@{$node->leaves});
 
   } else {
 
