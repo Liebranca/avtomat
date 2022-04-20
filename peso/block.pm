@@ -58,6 +58,8 @@ my %CACHE=(
 
   -INS=>[],
   -INS_KEY=>{},
+  -INS_ARR=>[],
+
   -NXINS=>0,
   -ENTRY=>'nit',
 
@@ -135,7 +137,7 @@ sub ex {
 
   wed(undef);
 
-  $entry=$non->bgetptrv($entry);
+  $entry=bgetptrv(undef,$entry);
   setnxins($entry->insid);
 
   while(!(nxins()<0)) {
@@ -169,19 +171,11 @@ sub exfetnx {
 };sub getinsid {
 
   my $i=shift;
-  my $self=$CACHE{-SOIL};
-  my $blk=undef;
+  my $blk=$CACHE{-INS_ARR}->[$i];
 
-  for my $ptr(keys %{$self->elems}) {
-    $blk=$self->bgetptrv($ptr);
-    if($blk->insid eq $i) {
-      last;
+  if(!defined $blk) {
 
-    };
-
-  };if(!defined $blk) {
-
-    printf "EX_END: instruction stack fail!\n";
+    printf "EX_END: instruction fetch fail!\n";
     exit;
 
   };return $blk;
@@ -275,6 +269,11 @@ sub nit {
 
   };
 
+  if($insid>=0) {
+    $CACHE{-INS_ARR}->[$insid]=$blk;
+
+  };
+
   return $blk;
 
 };
@@ -301,7 +300,11 @@ sub addchld {
 
 # ---   *   ---   *   ---
 
-  my $bypass=int($self->name eq 'non');
+  my $bypass=int(
+    $self->name eq 'non'
+  ||!$self->attrs
+
+  );
 
   $self->expand(\@line,'unit',$bypass);
   $self->children->[$i]=$blk;
@@ -357,12 +360,44 @@ sub haselem {
   my $name=shift;
   my $redecl=shift;
 
+  if($name=~ m/@/) {
+
+    my @ar=split '@',$name;
+    my $blk=$self;
+
+    while(@ar) {
+
+      my $root=shift @ar;
+
+      if(exists $blk->elems->{$root}) {
+        $blk=$blk->bgetptrv($root);
+
+        $name=$ar[0];
+        if(@ar eq 1) {last;};
+
+      } else {
+
+        printf "Block <".$self->ances.'> '.
+        "has no member named '".$root."'\n";
+
+        exit;
+
+      };
+
+    };return ($blk,$name);
+
+  };
+
+# ---   *   ---   *   ---
+
   if(
 
      !exists $self->elems->{$name}
   && !defined $redecl
 
   ) {
+
+    NO_ELEM:
 
     printf "Block <".$self->ances.'> '.
       "has no member named '".$name."'\n";
@@ -389,7 +424,7 @@ sub haselem {
 
     exit;
 
-  };
+  };return ($self,$name);
 
 };
 
@@ -729,8 +764,6 @@ sub bgetptrloc {
   my $self=shift;
   my $name=shift;
 
-  ($self,$name)=blookup($self,$name);
-
   my $ptr=$self->getptrloc($name);
   $ptr=$self->getptrv($ptr);
 
@@ -748,12 +781,10 @@ sub bgetptrv {
 
   ($self,$name)=blookup($self,$name);
 
-  return(
+  my $ptr;($self,$ptr)
+    =bgetptrloc($self,$name);
 
-    $self->children
-    ->[bgetptrloc($self,$name)]
-
-  );
+  return $self->children->[$ptr];
 
 # ---   *   ---   *   ---
 
@@ -763,7 +794,24 @@ sub bgetptrv {
   my $self=shift;
   my $ptr=shift;
 
-  return $self->children->[$ptr];
+  my $blk=undef;
+
+  while(!defined $self->children->[$ptr]) {
+
+    my $old=$self;
+    $self=$self->par;
+
+    if(!defined $self) {
+      printf sprintf(
+        "Cannot resolve ptr:%s@%X\n",
+        $old->ances,$ptr
+
+      );exit;
+
+    };
+
+  };$blk=$self->children->[$ptr];
+  return $blk;
 
 };
 
@@ -869,7 +917,7 @@ sub getptrloc {
   my $name=shift;
 
   # errchk
-  $self->haselem($name);
+  ($self,$name)=$self->haselem($name);
 
   # fetch metadata
   my ($idex,$shf,$mask)=@{
@@ -911,6 +959,10 @@ sub refsolve {
   if($val=~ m/@/) {
 
     my @path=split '@',$val;
+    if($path[0] ne 'non') {
+      unshift @path,'non';
+
+    };
 
     my $root=shift @path;
     my $blk=clan($root);
@@ -927,7 +979,13 @@ sub refsolve {
       } else {
         $blk->haselem($key);
 
-      };$blk=$blk->elems->{$key};
+      };if($blk->name ne 'non') {
+        $blk=$blk->elems->{$key};
+
+      } else {
+        $blk=$blk->bgetptrv($key);
+
+      };
 
     };$name=$path[0];
     $cont=$blk;
@@ -1007,14 +1065,21 @@ sub treesolve {
 
   my $node=shift;
   my $blk_deref=shift;
+  my $type=shift;
 
-  my $wed=wed('get');wed('unit');
+  # save current cast and override
+  my $wed=wed('get');
+  if($type) {wed($type);};
 
+# ---   *   ---   *   ---
+
+  # iter tree
   for my $leaf(@{
     $node->leaves->[0]->leaves
 
   }) {
 
+    # solve/fetch non-numeric values
     if(!($leaf->val=~ m/[0-9]+/)) {
       refsolve_rec($leaf);
       $leaf->collapse();
@@ -1023,12 +1088,19 @@ sub treesolve {
 
   };
 
+  # restore cast and dereference pointers
   wed($wed);
   ptrderef_rec($node,$blk_deref);
 
+  # solve the entire tree
   $node->collapse();
 
 };
+
+# ---   *   ---   *   ---
+
+# in:tree,is ptr to block
+# recursively solve pointer dereferences
 
 sub ptrderef_rec {
 
@@ -1037,10 +1109,13 @@ sub ptrderef_rec {
 
   $block_ptr=(!$block_ptr);
 
+# ---   *   ---   *   ---
+
+  # value is ptr dereference
   if($node->val eq '[') {
 
+    # is ptr to block
     if($block_ptr) {
-
       $node->{-VAL}=getptrv(
         undef,
         $node->leaves->[0]->val
@@ -1051,6 +1126,9 @@ sub ptrderef_rec {
 
       );
 
+# ---   *   ---   *   ---
+
+    # ptr to value
     } else {
       $node->{-VAL}=getptrv(
 
@@ -1061,6 +1139,9 @@ sub ptrderef_rec {
 
     };$node->pluck(@{$node->leaves});
 
+# ---   *   ---   *   ---
+
+  # not a pointer derefernce: go to next level
   } else {
 
     for my $leaf(@{$node->leaves}) {

@@ -146,11 +146,35 @@ $MAM{-EXTAB}={
 
 # ---   *   ---   *   ---
 
+# set namespace
+'clan'=>[
+
+  undef,
+  sub {
+
+  my $node=shift;
+
+  # get value of first grandchild
+  my $name=$node
+    ->leaves->[0]
+    ->leaves->[0]
+    ->val;
+
+  my $dst=peso::block::clan('non');
+  my $blk=$dst->nit($name);
+
+  $MAM{-DST}=$blk;
+
+  },
+
+],
+
+# ---   *   ---   *   ---
+
 # new data block
 'reg'=>[
 
   undef,
-
   sub {
 
   my $node=shift;
@@ -162,7 +186,7 @@ $MAM{-EXTAB}={
     ->val;
 
   # get dst
-  my $dst=(defined $MAM{-DST}->par)
+  my $dst=($MAM{-DST}->attrs)
     ? $MAM{-DST}->par
     : $MAM{-DST}
     ;
@@ -180,6 +204,7 @@ $MAM{-EXTAB}={
 
   # second pass: look for block
   } else {
+
     $blk=peso::block::bgetptrv(
       undef,$dst->ances."\@$name"
 
@@ -212,7 +237,7 @@ $MAM{-EXTAB}={
     ->val;
 
   # get dst
-  my $dst=(defined $MAM{-DST}->par)
+  my $dst=($MAM{-DST}->attrs)
     ? $MAM{-DST}->par
     : $MAM{-DST}
     ;
@@ -463,13 +488,11 @@ $PESO{-VARS}->[0]->[1]=>[
 
     my $node=shift;
 
-#    my $val
-#      =$node
-#      ->leaves->[0]
-#      ->leaves->[0]
-#      ->val;
+    peso::block::treesolve(
+      $node->leaves->[0],
+      1,'unit'
 
-    peso::block::treesolve($node->leaves->[0],1);
+    );
 
     my $ptr
       =$node
@@ -477,22 +500,7 @@ $PESO{-VARS}->[0]->[1]=>[
       ->leaves->[0]
       ->val;
 
-    my $blk=peso::block::clan('non');
-
-#    my $blk=peso::block::clan('self');
-
-# ---   *   ---   *   ---
-
-#    if(
-#
-#       !exists $blk->elems->{$val}
-#    && defined $blk->par
-#
-#    ) {
-#
-#      $blk=peso::block::clan('non');
-#
-#    };
+    my $blk=peso::block::clan('self');
 
     my $dst=$blk->bderefptr($ptr);
     peso::block::setnxins($dst->insid);
@@ -947,7 +955,6 @@ sub peso_rd {
 # ---   *   ---   *   ---
 
   peso::block::incpass();
-printf "---------\n";
   for my $ref(@$program) {
     my @ar=@{$ref};
 
@@ -960,10 +967,7 @@ printf "---------\n";
 
 # ---   *   ---   *   ---
 
-  my $non=peso::block::clan('non');
-
-  $non->ex();
-
+  peso::block::ex();
   peso::block::clan('non')
     ->prich();
 
