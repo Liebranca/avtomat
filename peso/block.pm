@@ -52,6 +52,9 @@ my %CACHE=(
 
   -WED=>undef,
   -BLOCKS=>undef,
+  -BBID=>[0..0xFF],
+  -BIDS=>stack::nit(stack::slidex(0x100)),
+
   -DATA=>[],
 
   -TYPES=>join '|',keys %{$PESO{-SIZES}},
@@ -74,6 +77,8 @@ my %CACHE=(
 sub clan {
 
   my $key=shift;
+
+
   if($key eq 'self') {
     return $CACHE{-SELF};
 
@@ -85,7 +90,14 @@ sub clan {
     printf "No root block named '$key'\n";
     exit;
 
-  };return $CACHE{-BLOCKS}->{$key};
+  };
+
+# ---   *   ---   *   ---
+
+  my $non=$CACHE{-SOIL};
+  my $blk=$non->bgetptrv($key);
+
+  return $blk;
 
 };
 
@@ -240,6 +252,8 @@ sub nit {
     -ATTRS=>$attrs,
     -INSID=>$insid,
 
+    -ID=>undef,
+
   },'peso::block';
 
   # initialized from instance
@@ -258,9 +272,10 @@ sub nit {
 
       exit;
 
-    };
+    };$self=$CACHE{-SOIL};
 
-    $self=$CACHE{-SOIL};
+    $blk->{-ID}=$CACHE{-BIDS}->spop();
+    $CACHE{-BBID}->[$blk->{-ID}]=$blk;
 
 # ---   *   ---   *   ---
 
@@ -290,11 +305,12 @@ sub addchld {
   my $blk=shift;
 
   my $i=$self->sstack->spop();
+  my $j=$self->{-ID};
 
   # add block data into this line
   my @line=(
 
-    [$blk->name,$i],
+    [$blk->name,($j<<32)|$i],
 
   );
 
@@ -758,6 +774,18 @@ sub blookup {
 
 # ---   *   ---   *   ---
 
+sub bidptr {
+
+  my $ptr=shift;
+
+  my $bid=$ptr>>32;
+  my $self=$CACHE{-BBID}->[$bid];
+  $ptr&=(1<<32)-1;
+
+  return ($self,$ptr);
+
+};
+
 # get block location from ptr
 sub bgetptrloc {
 
@@ -767,7 +795,7 @@ sub bgetptrloc {
   my $ptr=$self->getptrloc($name);
   $ptr=$self->getptrv($ptr);
 
-  return ($self,$ptr);
+  return bidptr($ptr);;
 
 };
 
@@ -794,24 +822,8 @@ sub bgetptrv {
   my $self=shift;
   my $ptr=shift;
 
-  my $blk=undef;
-
-  while(!defined $self->children->[$ptr]) {
-
-    my $old=$self;
-    $self=$self->par;
-
-    if(!defined $self) {
-      printf sprintf(
-        "Cannot resolve ptr:%s@%X\n",
-        $old->ances,$ptr
-
-      );exit;
-
-    };
-
-  };$blk=$self->children->[$ptr];
-  return $blk;
+  ($self,$ptr)=bidptr($ptr);
+  return $self->children->[$ptr];
 
 };
 

@@ -161,7 +161,19 @@ $MAM{-EXTAB}={
     ->val;
 
   my $dst=peso::block::clan('non');
-  my $blk=$dst->nit($name);
+
+  my $blk;
+  if($name ne 'non') {
+
+    if(peso::block::fpass()) {
+      $blk=peso::block::nit(undef,$name);
+
+    } else {
+      $blk=peso::block::clan($name);
+
+    };
+
+  } else {$blk=$dst;};
 
   $MAM{-DST}=$blk;
 
@@ -331,7 +343,13 @@ $PESO{-VARS}->[0]->[1]=>[
         for my $leaf(@{ $ref->[1]->leaves }) {
 
           # solve non-numeric expressions
-          if(!($leaf->val=~ m/[0-9]+/)) {
+          if(
+
+             !peso::block::fpass()
+          && !($leaf->val=~ m/[0-9]+/)
+
+          ) {
+
             peso::block::refsolve_rec($leaf);
             $leaf->collapse();
 
@@ -858,7 +876,7 @@ sub peso_rd {
     if(!$root->{-PAR}) {
 
       # context swapping
-      if($key=~ m/(reg|proc)/) {
+      if($key=~ m/(reg|proc|clan)/) {
         $MAM{-CNTX}=$1;
 
       # data block or directive
@@ -873,7 +891,7 @@ sub peso_rd {
 
         # save data initializer
         # run on second pass
-        if($MAM{-CNTX} eq 'reg') {
+        if($MAM{-CNTX}=~ m/reg|clan/) {
 
           push(
             @$program,
