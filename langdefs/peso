@@ -518,9 +518,11 @@ $PESO{-VARS}->[0]->[1]=>[
       ->leaves->[0]
       ->val;
 
-    my $blk=peso::block::clan('self');
+    # re-deref block ptr
+    $ptr=peso::block::getptrv(undef,$ptr);
 
-    my $dst=$blk->bderefptr($ptr);
+    # get block and set ins ptr
+    my $dst=peso::block::bderefptr($ptr);
     peso::block::setnxins($dst->insid);
 
   },
@@ -569,6 +571,20 @@ $PESO{-VARS}->[0]->[1]=>[
 
 ],
 
+# ---   *   ---   *   ---
+
+'cpy'=>[
+
+  undef,
+  sub {
+
+  my $node=shift;
+  mop_ari($node,[0,1]);
+
+  }
+
+],
+
 };
 
 # ---   *   ---   *   ---
@@ -594,28 +610,55 @@ sub sop_ari {
 
 # ---   *   ---   *   ---
 
-    peso::block::treesolve($node,0);
-    my $ptr=$fbgch->val;
+    # collapse tree
+    peso::block::treesolve(
+      $node->leaves->[0],0
 
-# i *think* this isn't needed now
-#    if($fbgch->val eq '[') {
-#      $ptr=peso::block::getptrv(
-#
-#        undef,
-#        $fbgch->leaves->[0]->val
-#
-#      );
-#
-#    } else {
-#      $ptr=$fbgch->val;
-#
-#    };
+    );my $ptr=$fbgch->val;
 
+    # decode ptr
     $v0=peso::block::getptrv(undef,$ptr);
     if($v1 eq 'self') {$v1=$v0;};
 
+    # execute
     $v0=$proc->($v0,$v1);
     peso::block::setptrv(undef,$ptr,$v0);
+
+};
+
+# ---   *   ---   *   ---
+
+# multiple operands, arithmetic
+sub mop_ari {
+
+  my $node=shift;
+  my $deref=shift;
+
+  my $op0
+
+    =$node->leaves
+    ->[0]->leaves
+    ->[0];
+
+  my $op1
+
+    =$node->leaves
+    ->[0]->leaves
+    ->[1];
+
+  peso::block::treesolve($op0,$deref->[0]);
+  peso::block::treesolve($op1,$deref->[1]);
+
+  my ($ptr0,$ptr1)=($op0->val,$op1->val);
+
+  # decode ptr
+  my $v0=peso::block::getptrv(undef,$ptr0);
+  my $v1=peso::block::getptrv(undef,$ptr1);
+
+  peso::block::setptrv(
+    undef,$ptr0,$ptr1
+
+  );
 
 };
 
@@ -911,6 +954,29 @@ sub peso_rd {
 
         # encode instruction
         } else {
+
+          my $ins_name=$root->val;
+          my $stack_alloc=0;
+
+          if($root->val=~ m/$primitive/) {
+
+            $expath[1]->($root,$key);
+
+            my $dst=$MAM{-DST};
+
+            push(
+              @$program,
+              [sub {$MAM{-DST}=$dst},$root,$key]
+
+            );
+
+            push(
+              @$program,
+              [$expath[1],$root,$key]
+
+            );next;
+
+          };
 
           my $dst=$MAM{-DST};
           my $inum=peso::block::nxins;

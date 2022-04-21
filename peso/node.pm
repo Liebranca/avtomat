@@ -713,7 +713,7 @@ sub pluck {
 # ---   *   ---   *   ---
 
         # node is in remove list
-        if($leaf->val eq $node->val) {
+        if($leaf eq $node) {
 
           # save the removed nodes
           push @plucked,$self->leaves->[$i];
@@ -1054,6 +1054,7 @@ REPEAT:{
   $i=0;if($popped<@q) {goto REPEAT;};
 
 RELOC:
+
   $self->par->pluck($nodes[-1]);
   $self->repl($nodes[-1]);
 
@@ -1062,7 +1063,6 @@ RELOC:
 };SKIP:{
 
   $self->idextrav();
-
   if(!@leafstack && !@{ $self->leaves }) {
     return;
 
@@ -1145,14 +1145,14 @@ SKIP:{
 
     while(@solve) {
 
-      my $argval=pop @solve;
+      my $args=pop @solve;
       my $proc=pop @solve;
       my $node=pop @solve;
 
 # ---   *   ---   *   ---
 
       my @argval=();
-      for my $v(@{$argval}) {
+      for my $v(@{$args}) {
 
         if($v->val=~ m/${PESO{-DEL_OPS}}/) {
 
@@ -1184,9 +1184,10 @@ SKIP:{
 
           ) {
 
-            my $old=pop @argval;
+# wtf?! no need to reorder?????
+#            my $old=pop @argval;
             push @argval,($v->val);
-            push @argval,$old;
+#            push @argval,$old;
 
           # common operand
           } else {push @argval,($v->val);}
@@ -1197,7 +1198,7 @@ SKIP:{
 
 # ---   *   ---   *   ---
 
-      for my $arg(@{$argval}) {
+      for my $arg(@{$args}) {
         if($arg->val eq '[') {goto NEXT_OP;};
         for my $sleaf(@{$arg->leaves}) {
           if($sleaf->val eq '[') {goto NEXT_OP;};
@@ -1206,9 +1207,15 @@ SKIP:{
 
       };
 
+      if(!defined $proc) {
+
+      goto NEXT_OP;
+
+      };
+
       my $result=$proc->(@argval);
       $node->{-VAL}=$result;
-      $node->pluck(@{$argval});
+      $node->pluck(@{$args});
 
       NEXT_OP:
 

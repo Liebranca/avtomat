@@ -49,6 +49,7 @@ my %CACHE=(
 
   -SELF=>undef,
   -SOIL=>undef,
+  -CURR=>undef,
 
   -WED=>undef,
   -BLOCKS=>undef,
@@ -101,9 +102,25 @@ sub clan {
 
 };
 
+# ---   *   ---   *   ---
+
 # in: block instance
 # scope to block
-sub setscope {$CACHE{-SELF}=shift;};
+sub setscope {
+
+  my $self=shift;
+  $CACHE{-SELF}=$self;
+
+  if(!$self->{-SCOPE}) {
+    $self->{-SCOPE}=$self;
+
+  };
+
+};
+
+# in: block instance
+# set current local space
+sub setcurr {$CACHE{-CURR}=shift;};
 
 # ---   *   ---   *   ---
 
@@ -152,6 +169,11 @@ sub ex {
   $entry=bgetptrv(undef,$entry);
   setnxins($entry->insid);
 
+  setcurr($entry);
+  setscope($entry->{-SCOPE});
+
+printf "ex ".$entry->name."\n";
+
   while(!(nxins()<0)) {
     $entry=$entry->exnext();
 
@@ -184,6 +206,11 @@ sub exfetnx {
 
   my $i=shift;
   my $blk=$CACHE{-INS_ARR}->[$i];
+
+  setcurr($blk);
+  setscope($blk->{-SCOPE});
+
+printf "ex ".$blk->name."\n";
 
   if(!defined $blk) {
 
@@ -247,6 +274,7 @@ sub nit {
     -PAR=>$self,
     -CHILDREN=>[],
     -STACK=>stack::nit(stack::slidex(0x100)),
+    -SCOPE=>$CACHE{-SELF},
 
     -ELEMS=>{},
     -ATTRS=>$attrs,
@@ -780,6 +808,7 @@ sub bidptr {
 
   my $bid=$ptr>>32;
   my $self=$CACHE{-BBID}->[$bid];
+
   $ptr&=(1<<32)-1;
 
   return ($self,$ptr);
@@ -819,7 +848,7 @@ sub bgetptrv {
 # ^same, deref by ptr rather than name
 };sub bderefptr {
 
-  my $self=shift;
+  my $self=undef;
   my $ptr=shift;
 
   ($self,$ptr)=bidptr($ptr);
@@ -968,6 +997,8 @@ sub refsolve {
   my $name=undef;
   my $cont=undef;
 
+TOP:
+
   if($val=~ m/@/) {
 
     my @path=split '@',$val;
@@ -991,13 +1022,7 @@ sub refsolve {
       } else {
         $blk->haselem($key);
 
-      };if($blk->name ne 'non') {
-        $blk=$blk->elems->{$key};
-
-      } else {
-        $blk=$blk->bgetptrv($key);
-
-      };
+      };$blk=$blk->bgetptrv($key);
 
     };$name=$path[0];
     $cont=$blk;
@@ -1020,11 +1045,13 @@ sub refsolve {
           return (undef,undef);
 
         } else {
-          printf "Symbol '".
-            $val.
-            "' not found\n";
 
-          exit;
+          $val
+
+            =$CACHE{-CURR}
+            ->ances."\@$val";
+
+          goto TOP;
 
         };
 
@@ -1086,10 +1113,13 @@ sub treesolve {
 # ---   *   ---   *   ---
 
   # iter tree
-  for my $leaf(@{
-    $node->leaves->[0]->leaves
+  for my $leaf(@{$node->leaves},$node) {
 
-  }) {
+    # skip $:escaped;>
+    if($leaf->val=~ m/${PESO{-PESC}}/) {
+      next;
+
+    };
 
     # solve/fetch non-numeric values
     if(!($leaf->val=~ m/[0-9]+/)) {
@@ -1104,9 +1134,6 @@ sub treesolve {
   wed($wed);
   ptrderef_rec($node,$blk_deref);
 
-  # solve the entire tree
-  $node->collapse();
-
 };
 
 # ---   *   ---   *   ---
@@ -1119,22 +1146,19 @@ sub ptrderef_rec {
   my $node=shift;
   my $block_ptr=shift;
 
-  $block_ptr=(!$block_ptr);
-
 # ---   *   ---   *   ---
 
   # value is ptr dereference
   if($node->val eq '[') {
 
     # is ptr to block
+    # DEPRECATED, it's the same call now
+    # ill correct things later
     if($block_ptr) {
+
       $node->{-VAL}=getptrv(
         undef,
         $node->leaves->[0]->val
-
-      );$node->{-VAL}=getptrv(
-        undef,
-        $node->val
 
       );
 
@@ -1142,6 +1166,7 @@ sub ptrderef_rec {
 
     # ptr to value
     } else {
+
       $node->{-VAL}=getptrv(
 
         undef,
@@ -1160,7 +1185,6 @@ sub ptrderef_rec {
       ptrderef_rec($leaf);
 
     };
-
   };
 
 };
