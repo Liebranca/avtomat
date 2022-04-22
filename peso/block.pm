@@ -1112,8 +1112,8 @@ sub refsolve_rec {
   my $node=shift;
   my $pesonames=peso::defs::names;
 
-  if($node->val=~ m/${pesonames}}*/) {
-    my ($cont,$name)=refsolve($node->val);
+  if($node->val=~ m/${pesonames}*/) {
+    my ($cont,$name)=refsolve($node->val);;
 
     if($cont && $name) {
       $node->{-VAL}=$cont->getptrloc($name);

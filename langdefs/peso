@@ -540,6 +540,7 @@ $PESO{-VARS}->[0]->[1]=>[
   my $v=peso::block::spop();
 
   if($op0->val) {
+
     my $ptr=peso::block::getptrv(
       undef,$op0->val
 
