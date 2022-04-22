@@ -20,7 +20,7 @@ package peso::block;
   use lib $ENV{'ARPATH'}.'/avtomat/';
   use stack;
 
-  my %PESO=do 'peso/defs.ph';
+  my %PESO=();
 
 # ---   *   ---   *   ---
 
@@ -58,7 +58,7 @@ my %CACHE=(
 
   -DATA=>[],
 
-  -TYPES=>join '|',keys %{$PESO{-SIZES}},
+  -TYPES=>'',
 
   -INS=>[],
   -INS_KEY=>{},
@@ -70,6 +70,8 @@ my %CACHE=(
   -NODES=>[],
   -PASS=>0,
   -DPTR=>[],
+
+  -PRSTK=>undef,
 
 );
 
@@ -121,6 +123,23 @@ sub setscope {
 # in: block instance
 # set current local space
 sub setcurr {$CACHE{-CURR}=shift;};
+
+# ---   *   ---   *   ---
+# program stack methods
+
+sub prstk {return $CACHE{-PRSTK};};
+
+sub spush {
+
+  my $v=shift;
+  prstk()->spush($v);
+
+};sub spop {
+
+  my $v=prstk()->spop();
+  return $v;
+
+};
 
 # ---   *   ---   *   ---
 
@@ -321,9 +340,24 @@ sub nit {
 
 };
 
-# initialize global root
-$CACHE{-SOIL}=nit(undef,'non');
-$CACHE{-BLOCKS}=$CACHE{-SOIL}->{-ELEMS};
+# ---   *   ---   *   ---
+
+# initialize globals
+sub gblnit {
+
+  my $tab=shift;
+
+  %PESO=do 'peso/defs.ph';
+  $CACHE{-TYPES}=join '|',keys %{$PESO{-SIZES}};
+
+  $CACHE{-SOIL}=nit(undef,'non');
+  $CACHE{-BLOCKS}=$CACHE{-SOIL}->{-ELEMS};
+  $CACHE{-PRSTK}=stack::nit(0,[]);
+
+  loadins($tab);
+  setnxins(0);
+
+};
 
 # ---   *   ---   *   ---
 

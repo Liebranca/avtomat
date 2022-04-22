@@ -499,6 +499,64 @@ $PESO{-VARS}->[0]->[1]=>[
 
 # ---   *   ---   *   ---
 
+'push'=>[
+
+  undef,
+  sub {
+
+  my $node=shift;
+  my $op0
+
+    =$node
+    ->leaves->[0]
+    ->leaves->[0];
+
+  peso::block::treesolve($op0);
+  peso::block::spush($op0->val);
+
+  },
+
+],
+
+'pop'=>[
+
+  undef,
+  sub {
+
+  my $node=shift;
+
+  my $op0
+
+    =$node
+    ->leaves->[0]
+    ->leaves->[0];
+
+  my $op1
+
+    =$node
+    ->leaves->[0]
+    ->leaves->[1];
+
+  peso::block::treesolve($op0);
+  my $v=peso::block::spop();
+
+  if($op0->val) {
+    my $ptr=peso::block::getptrv(
+      undef,$op0->val
+
+    );peso::block::setptrv(
+      undef,$ptr,$v
+
+    );
+
+  };
+
+  },
+
+],
+
+# ---   *   ---   *   ---
+
 'jmp'=>[
 
   undef,
@@ -668,110 +726,7 @@ sub mop_ari {
 # reads in a peso file
 sub peso_rd {
 
-  # open file
-  my $fname=glob(shift);
-  open FH,'<',$fname or die $!;
-
-  # verify header
-  my $rb=readline FH;
-  if(!($rb=~ m/${ PESO{-HED}}/)) {
-    printf STDERR "$fname: bad header\n";
-    goto END;
-
-  };
-
-# ---   *   ---   *   ---
-
-  # get expressions
-  my @exps=();{
-    my $rem='';
-
-    # read file
-    while($rb=readline FH) {
-
-      # strip comments
-      $rb=~ s/#.*\n//g;
-
-      # remove indent
-      $rb=~ s/^\s+//sg;
-
-      # no spaces surrounding commas
-      $rb=~ s/\s*,\s*/,/sg;
-
-      # force single spaces
-      $rb=~ s/\s+/\$:pad;>/sg;
-      $rb=~ s/\$:pad;>/ /sg;
-
-      # strip newlines
-      $rb=~ s/\n+//sg;
-
-      $rb=~ s/;\s+/;/sg;
-
-      if(!$rb) {next;};
-
-# ---   *   ---   *   ---
-
-      # line ends with {;}
-      if($rb=~ m/([\{\}])|;$|;/) {
-
-        $rb=$rem.$rb;$rem='';
-
-        my @ar=split m/([\{\}])|;$|;/,$rb;
-
-        # separate curls
-        for my $e(@ar) {
-
-          if(!defined $e || !length $e) {
-            next;
-
-          };
-
-          if($e=~ m/^\s*\{/) {
-            push @exps,'{';
-            $e=~ s/^\s*\{//;
-
-          };my $cl=$e=~ s/\}$//;
-
-          $e=~ s/;//;
-
-          push @exps,$e;
-          if($cl) {push @exps,'}';};
-
-        };
-
-      # multi-line expression(s)
-      } else {
-
-        my @ar=split m/([\{\}])|;/,$rb;
-        my $entry=pop @ar;
-
-        # separate curls
-        for my $e(@ar) {
-
-          if(!defined $e || !length $e) {
-            next;
-
-          };
-
-          if($e=~ m/^\s*\{/) {
-            push @exps,'{';
-            $e=~ s/^\s*\{//;
-
-          };my $cl=$e=~ s/\}$//;
-
-          $e=~ s/;//;
-
-          push @exps,$e;
-          if($cl) {push @exps,'\}';};
-
-        };$rem.=$entry;
-      };
-
-# ---   *   ---   *   ---
-
-    };
-
-  };close FH;
+  my @exps=@{peso::rd::file(shift)};
 
 # ---   *   ---   *   ---
 # aliases for these patterns
@@ -810,13 +765,12 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
+  # initialize peso modules
+  peso::block::gblnit($MAM{-EXTAB});
+  peso::node::loadnumcon($MAM{-NUMCON});
+
   # use default block as root
   $MAM{-DST}=peso::block::clan('non');
-  peso::block::loadins($MAM{-EXTAB});
-  peso::block::setnxins(0);
-
-  # set number covertion procs
-  peso::node::loadnumcon($MAM{-NUMCON});
 
   # iter expressions
   for my $exp(@exps) {
@@ -1056,11 +1010,6 @@ sub peso_rd {
     ->prich();
 
   return;
-
-# ---   *   ---   *   ---
-
-  # cleanup
-  END:close FH;
 
 };
 

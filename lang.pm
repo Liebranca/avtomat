@@ -30,6 +30,8 @@ package lang;
   use List::Util qw( max );
 
   use lib $ENV{'ARPATH'}.'/lib/';
+
+  use peso::rd;
   use peso::node;
   use peso::block;
 
