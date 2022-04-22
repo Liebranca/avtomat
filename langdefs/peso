@@ -7,13 +7,12 @@
 
 my %PESO=(
 
-  -NAME => 'peso',
-  -EXT  => '\.(pe)$',
-  -HED  => '\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$',
+  -NAME=>'peso',
 
-  -MAG  => '$ program',
-
-  -COM  => '#',
+  -EXT=>peso::defs::ext,
+  -HED=>peso::defs::hed,
+  -MAG=>peso::defs::mag,
+  -COM=>peso::defs::com,
 
 # ---   *   ---   *   ---
 

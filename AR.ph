@@ -60,10 +60,12 @@ sub update {
 
   update(
 
-    [ '/peso/rd.pm',
+    [ '/peso/defs.pm',
+      '/peso/rd.pm',
       '/peso/node.pm',
       '/peso/block.pm',
 
+      '/stack.pm',
       '/avt.pm'
 
     ],$root.'/avtomat',$path
@@ -78,8 +80,7 @@ sub update {
 
   update(
 
-    [ '/peso/defs.ph',
-      '/AR.ph'
+    [ '/AR.ph'
 
     ],$root.'/avtomat',$path
 

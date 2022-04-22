@@ -17,10 +17,10 @@ package peso::block;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/include/';
-  use lib $ENV{'ARPATH'}.'/avtomat/';
-  use stack;
+  use lib $ENV{'ARPATH'}.'/lib/';
 
-  my %PESO=();
+  use peso::defs;
+  use stack;
 
 # ---   *   ---   *   ---
 
@@ -347,8 +347,10 @@ sub gblnit {
 
   my $tab=shift;
 
-  %PESO=do 'peso/defs.ph';
-  $CACHE{-TYPES}=join '|',keys %{$PESO{-SIZES}};
+  $CACHE{-TYPES}=join(
+    '|',keys %{peso::defs::sizes()}
+
+  );
 
   $CACHE{-SOIL}=nit(undef,'non');
   $CACHE{-BLOCKS}=$CACHE{-SOIL}->{-ELEMS};
@@ -530,7 +532,7 @@ sub wedcast {
 
   my $shf=shift;
 
-  my $elem_sz=$PESO{-SIZES}
+  my $elem_sz=peso::defs::sizes
     ->{$CACHE{-WED}};
 
   my $i=$shf/8;
@@ -558,7 +560,7 @@ sub expand {
   $CACHE{-WED}=$type;
 
   # get size from type, in bytes
-  my $elem_sz=$PESO{-SIZES}->{$type};
+  my $elem_sz=peso::defs::sizes->{$type};
 
   my $inc_size=@$ref*$elem_sz;
 
@@ -571,7 +573,7 @@ sub expand {
   # 'line' is two units
   # 'unit' is 64-bit chunk
   # we use these as minimum size for blocks
-  my $line_sz=$PESO{-SIZES}->{'line'};
+  my $line_sz=peso::defs::sizes->{'line'};
   my $gran=(1<<($elem_sz*8))-1;
 
 # ---   *   ---   *   ---
@@ -907,7 +909,7 @@ sub setptrv {
   if(defined $CACHE{-WED}) {
 
     $mask=wedcast($shf);
-    $elem_sz=$PESO{-SIZES}->{$CACHE{-WED}};
+    $elem_sz=peso::defs::sizes->{$CACHE{-WED}};
 
   };
 
@@ -1028,6 +1030,8 @@ sub refsolve {
   my $val=shift;
   my $dst=$CACHE{-SELF};
 
+  my $pesonames=peso::defs::names;
+
   my $name=undef;
   my $cont=undef;
 
@@ -1066,7 +1070,7 @@ TOP:
   } elsif(
 
     $val=~
-    m/${PESO{-NAMES}}*/
+    m/${pesonames}*/
 
   ) {
 
@@ -1106,8 +1110,9 @@ TOP:
 sub refsolve_rec {
 
   my $node=shift;
+  my $pesonames=peso::defs::names;
 
-  if($node->val=~ m/${PESO{-NAMES}}*/) {
+  if($node->val=~ m/${pesonames}}*/) {
     my ($cont,$name)=refsolve($node->val);
 
     if($cont && $name) {
@@ -1140,6 +1145,8 @@ sub treesolve {
   my $blk_deref=shift;
   my $type=shift;
 
+  my $pesc=peso::defs::pesc;
+
   # save current cast and override
   my $wed=wed('get');
   if($type) {wed($type);};
@@ -1150,7 +1157,7 @@ sub treesolve {
   for my $leaf(@{$node->leaves},$node) {
 
     # skip $:escaped;>
-    if($leaf->val=~ m/${PESO{-PESC}}/) {
+    if($leaf->val=~ m/${pesc}/) {
       next;
 
     };

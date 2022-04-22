@@ -17,7 +17,9 @@ package peso::node;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/include/';
-  my %PESO=do 'peso/defs.ph';
+  use lib $ENV{'ARPATH'}.'/lib/';
+
+  use peso::defs;
 
 # ---   *   ---   *   ---
 
@@ -385,6 +387,15 @@ sub splitlv {
 
   my @anch=($self);
 
+  # patterns
+  my $ops=peso::defs::ops;
+  my $del_op=peso::defs::del_ops;
+  my $ndel_op=peso::defs::ndel_ops;
+
+  my $ode=peso::defs::ode;
+  my $cde=peso::defs::cde;
+  my $pesc=peso::defs::pesc;
+
 # ---   *   ---   *   ---
 
   # spaces are meaningless
@@ -409,10 +420,6 @@ sub splitlv {
 
     my @filt=('$:%%join;>');
     my $s='';
-
-    my $op=$PESO{-OPS};
-    my $del_op=$PESO{-DEL_OPS};
-    my $ndel_op=$PESO{-NDEL_OPS};
 
     my @separator=(
       '$:/join;>',
@@ -456,7 +463,7 @@ TOP:
       while(defined $filt[$j]) {
 
         my $f=$filt[$j];
-        if($f=~ m/${PESO{-PESC}}/) {
+        if($f=~ m/${pesc}/) {
           $j--;next;
 
         };last;
@@ -489,38 +496,38 @@ TOP:
 # ---   *   ---   *   ---
 
     # is not operator
-    if(!($ol=~ m/${op}/)) {
+    if(!($ol=~ m/${ops}/)) {
 
       # put separator if
       my $cut=(length $pr) && (
 
         # close delimiter : non operator
-        ($pr=~ m/${PESO{-CDE}}/)
+        ($pr=~ m/${cde}/)
 
         ||
 
         # non operator : non operator or comma
-        !($pr=~ m/${op}|,}/)
+        !($pr=~ m/${ops}|,}/)
 
       );if($cut) {goto APPEND;};
 
 # ---   *   ---   *   ---
 
     # is delimiter
-    } elsif($ol=~ $PESO{-ODE}
-    || $ol=~ $PESO{-CDE}
+    } elsif($ol=~ peso::defs::ode
+    || $ol=~ peso::defs::cde
 
     ) {
 
       my $cut=0;
 
       # put separator if
-      if($ol=~ m/$PESO{-ODE}/) {
+      if($ol=~ m/${ode}/) {
 
         $cut=(
 
           # non operator or comma : open delimiter
-          !($pr=~ m/${op}|,/) && $pr
+          !($pr=~ m/${ops}|,/) && $pr
 
         );
 
@@ -601,7 +608,7 @@ SKIP:
 # ---   *   ---   *   ---
 
   # subdivide by delimiters
-  if( $sym=~ m/^(${PESO{-ODE}})/ ) {
+  if( $sym=~ m/^(${ode})/ ) {
 
     my $c=$1;
     if($c eq '(') {
@@ -750,7 +757,10 @@ sub agroup {
   my @buf=();
   my @dst=();
 
-  my $delims=${PESO{-ODE}}.'|'.${PESO{-CDE}};
+  my $ode=peso::defs::ode;
+  my $cde=peso::defs::cde;
+
+  my $delims=${ode}.'|'.${cde};
 
 # ---   *   ---   *   ---
 
@@ -879,10 +889,11 @@ sub subdiv {
   my @rootstack=();
 
   my @nodes=();
-  my $ndel_op=$PESO{-NDEL_OPS};
+  my $ndel_op=peso::defs::ndel_ops;
+  my $pesc=peso::defs::pesc;
 
   # operator data
-  my $h=$PESO{-OP_PREC};
+  my $h=peso::defs::op_prec;
 
 # ---   *   ---   *   ---
 
@@ -894,7 +905,7 @@ TOP:{
   if(!$self->val) {
     goto SKIP;
 
-  } elsif($self->val=~ m/${PESO{-PESC}}/) {
+  } elsif($self->val=~ m/${pesc}/) {
     goto SKIP;
 
   };
@@ -1087,11 +1098,15 @@ sub collapse {
   my @nums=@{$CACHE{-NUMCON}};
 
   my $leaf=$self;
-  my $ndel_op=$PESO{-NDEL_OPS};
+
+  my $ndel_ops=peso::defs::ndel_ops;
+  my $del_ops=peso::defs::del_ops;
+  my $pesc=peso::defs::pesc;
+  my $pesonames=peso::defs::names;
 
   my @leafstack;
 
-  my $h=$PESO{-OP_PREC};
+  my $h=peso::defs::op_prec;
   my @solve=();
 
 # ---   *   ---   *   ---
@@ -1100,13 +1115,13 @@ TOP:{
 
   $self=$leaf;
   if(!length $self->val) {goto SKIP;};
-  if($self->val=~ m/${PESO{-PESC}}/) {
+  if($self->val=~ m/${pesc}/) {
     goto SKIP;
 
   };
 
   # is operation
-  if($self->val=~ m/(${ndel_op}+)/) {
+  if($self->val=~ m/(${ndel_ops}+)/) {
 
     my $op=$1;
     my $proc=$h->{$op}->[2];
@@ -1129,7 +1144,7 @@ TOP:{
         last;
 
       } elsif($self->val=~
-          m/${PESO{-NAMES}}*/
+          m/${pesonames}*/
 
       ) {last;};
 
@@ -1154,15 +1169,15 @@ SKIP:{
       my @argval=();
       for my $v(@{$args}) {
 
-        if($v->val=~ m/${PESO{-DEL_OPS}}/) {
+        if($v->val=~ m/${del_ops}/) {
 
           if($v->val=~ m/\[/) {goto NEXT_OP;};
           push @argval,$v->leaves->[0]->val;
 
         } elsif(
 
-          $v->val=~ m/${PESO{-NAMES}}*/
-        && $proc!=$PESO{-OP_PREC}->{'->'}->[2]
+          $v->val=~ m/${pesonames}*/
+        && $proc!=$h->{'->'}->[2]
 
         ) {
 
@@ -1177,9 +1192,7 @@ SKIP:{
           # done for self->sub->attr chains
           if(
 
-            $proc==$PESO{-OP_PREC}
-            ->{'->'}->[2]
-
+             $proc==$h->{'->'}->[2]
           && $v->val=~ m/@/
 
           ) {
