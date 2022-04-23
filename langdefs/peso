@@ -21,8 +21,10 @@ my %PESO=(
     # primitives
     [0x04,eiths(
 
-      '(char|wide|word|long)[1-9]*,'.
-      'nihil,stark,signal,'
+      ( join '|',
+        keys %{peso::defs::sizes()}
+
+      ).'[1-9]*,'
 
     ,1)],
 
@@ -49,15 +51,16 @@ my %PESO=(
     # instructions
     [0x01,eiths(
 
-      'cpy,mov,wap,'.
-      'kin,sow,reap,'.
+      ( join ',',
+        keys %{peso::defs::bafa()}
 
-      'inc,dec,cl,'.
+      ).','.
 
-      'pop,push,mem,fre,'.
+      'mem,fre,'.
       'shift,unshift,'.
 
-      'sys,stop,exit'
+      'kin,sow,reap,'.
+      'sys,stop'
 
     ,1)],
 
@@ -69,15 +72,13 @@ my %PESO=(
 
     # program flow
     [0x0D,eiths(
-
-      'jmp,jif,eif,call,ret,wait'
+      (join ',',keys %{peso::defs::bafc()})
 
     ,1)],
 
     # directives
     [0x0D,eiths(
-
-      'reg,rom,proc,clan,tab,atexit,entry'
+      (join ',',keys %{peso::defs::bafb()})
 
     ,1)],
 
@@ -1005,9 +1006,18 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-  peso::block::ex();
-  peso::block::clan('non')
-    ->prich();
+#  peso::block::ex();
+#  peso::block::clan('non')
+#    ->prich();
+
+my $non=peso::block::clan('non');
+my $type=$non->elems->{'type'};
+
+printf ''.(
+
+join ',',@$type
+
+)."\n";
 
   return;
 

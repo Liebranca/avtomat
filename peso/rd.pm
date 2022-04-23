@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # ---   *   ---   *   ---
 # RD
 # reads pe files

@@ -35,6 +35,10 @@ sub pesc {return $DICT{-PESC};};
 sub sizes {return $DICT{-SIZES};};
 sub op_prec {return $DICT{-OP_PREC};};
 
+sub bafa {return $DICT{-BAFA};};
+sub bafb {return $DICT{-BAFB};};
+sub bafc {return $DICT{-BAFC};};
+
 sub ext {return $DICT{-EXT};};
 sub mag {return $DICT{-MAG};};
 sub hed {return $DICT{-HED};};
@@ -97,6 +101,56 @@ sub com {return $DICT{-COM};};
   'stark'=>8,     # void(*stark)(void*)
 
   'signal'=>8,    # int(*signal)(int)
+
+},
+
+# ---   *   ---   *   ---
+# builtins and functions, group A
+
+-BAFA=>{
+
+  'cpy'=>[2],
+  'mov'=>[2],
+  'wap'=>[2],
+
+  'pop'=>['1+1'],
+  'push'=>['1+1'],
+
+  'inc'=>[1],
+  'dec'=>[1],
+  'clr'=>[1],
+
+  'exit'=>[1],
+
+},
+
+# ---   *   ---   *   ---
+
+-BAFB=>{
+
+  'reg'=>[1],
+  'rom'=>[1],
+  'tab'=>[1],
+
+  'clan'=>[1],
+  'proc'=>[1],
+
+  'entry'=>[1],
+  'atexit'=>[1],
+
+},
+
+# ---   *   ---   *   ---
+
+-BAFC=>{
+
+  'jmp'=>[1],
+  'jif'=>[2],
+  'eif'=>[2],
+
+  'call'=>[-1],
+  'ret'=>[-1],
+  'wait'=>[-1],
 
 },
 
@@ -219,3 +273,4 @@ sub com {return $DICT{-COM};};
 
 # ---   *   ---   *   ---
 );1 # ret
+

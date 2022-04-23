@@ -20,6 +20,8 @@ package peso::block;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use peso::defs;
+  use peso::ptr;
+
   use stack;
 
 # ---   *   ---   *   ---
@@ -359,6 +361,8 @@ sub gblnit {
   loadins($tab);
   setnxins(0);
 
+  return $CACHE{-SOIL};
+
 };
 
 # ---   *   ---   *   ---
@@ -393,8 +397,8 @@ sub addchld {
 };
 
 # ---   *   ---   *   ---
-
 # getters
+
 sub name {return (shift)->{-NAME};};
 sub elems {return (shift)->{-ELEMS};};
 sub par {return (shift)->{-PAR};};
@@ -431,6 +435,22 @@ sub incnxins {$CACHE{-NXINS}++};
 
 # ---   *   ---   *   ---
 
+# in: block, element name
+# lookup errme shorthand
+sub no_such_elem {
+
+  my $self=shift;
+  my $name=shift;
+
+  printf "Block <".$self->ances.'> '.
+  "has no member named '".$name."'\n";
+
+  exit;
+
+};
+
+# ---   *   ---   *   ---
+
 # in: element name, redecl guard
 # errcheck for bad fetch
 
@@ -440,53 +460,50 @@ sub haselem {
   my $name=shift;
   my $redecl=shift;
 
+# ---   *   ---   *   ---
+# solve compound name (module@sub@elem)
+
   if($name=~ m/@/) {
 
     my @ar=split '@',$name;
     my $blk=$self;
 
+# ---   *   ---   *   ---
+
+    # iter ancestry
     while(@ar) {
 
       my $root=shift @ar;
 
+      # match mod->sub
       if(exists $blk->elems->{$root}) {
         $blk=$blk->bgetptrv($root);
 
         $name=$ar[0];
         if(@ar eq 1) {last;};
 
-      } else {
-
-        printf "Block <".$self->ances.'> '.
-        "has no member named '".$root."'\n";
-
-        exit;
+      # element not found
+      } elsif(!defined $redecl) {
+        $blk->no_such_elem($root);
 
       };
 
-    };return ($blk,$name);
-
-  };
+    };$self=$blk;
 
 # ---   *   ---   *   ---
+# element not found (plain name)
 
-  if(
+  } elsif(
 
      !exists $self->elems->{$name}
   && !defined $redecl
 
-  ) {
-
-    NO_ELEM:
-
-    printf "Block <".$self->ances.'> '.
-      "has no member named '".$name."'\n";
-
-    exit;
+  ) {$self->no_such_elem($name);}
 
 # ---   *   ---   *   ---
+# redeclaration guard
 
-  } elsif(
+  elsif(
 
      exists $self->elems->{$name}
   && defined $redecl
@@ -504,6 +521,7 @@ sub haselem {
 
     exit;
 
+  # return match
   };return ($self,$name);
 
 };
@@ -556,12 +574,13 @@ sub expand {
   my $type=shift;
   my $bypass=shift;
 
+# ---   *   ---   *   ---
+
   # set type of var for all ops
   $CACHE{-WED}=$type;
 
   # get size from type, in bytes
   my $elem_sz=peso::defs::sizes->{$type};
-
   my $inc_size=@$ref*$elem_sz;
 
   # grow block on first pass
@@ -569,6 +588,8 @@ sub expand {
     $self->{-SIZE}+=$inc_size;
 
   };
+
+# ---   *   ---   *   ---
 
   # 'line' is two units
   # 'unit' is 64-bit chunk
@@ -584,16 +605,20 @@ sub expand {
   if(fpass()) {
 
     # save top of stack
-    $j=@{$self->data};
+    $j=@{peso::ptr::MEM()};
     if(!$bypass) {
       push @{$CACHE{-DPTR}},$j;
 
-    };push @{$self->data},0x00;
+    # reserve new unit
+    };peso::ptr::nunit();
 
+  # set values on second pass
   } else {
     $j=shift @{$CACHE{-DPTR}};
 
   };
+
+# ---   *   ---   *   ---
 
   # push elements to data
   my $i=0;while(@$ref) {
@@ -613,26 +638,21 @@ sub expand {
     # 'i' is offset in bytes
     # mask is derived from element size
     my $shf=$i*8;
-    my $mask=$gran<<$shf;
-
-    # do not set value on first pass
-    if(fpass() && !$bypass) {
-      $v=0;
-
-    # on second pass:
-    # shift v to next avail place
-    # within current 64-bit unit
-    } else {
-      $v=$v<<$shf;
-
-    };
 
 # ---   *   ---   *   ---
 
-    # save fetch metadata to elems
-    # value goes into data
-    $self->elems->{$k}=[$j,$shf,$mask,$type];
-    $self->data->[$j]|=$v;
+    # create ptr instance
+    # save reference to elems
+    $self->elems->{$k}=peso::ptr::nit(
+
+      $k,$self->ances,
+
+      $j,$gran,$shf,$type,$elem_sz,$v,
+      int(fpass() && !$bypass)
+
+    );
+
+# ---   *   ---   *   ---
 
     # go to next element
     $i+=$elem_sz;
@@ -644,12 +664,11 @@ sub expand {
       # reserve a new unit
       # grow block on first pass
       if(fpass()) {
-        push @{ $self->data },0x00;
+        peso::ptr::nunit();
 
       };$j++;$i=0;
 
     };
-
   };
 
 };
@@ -713,7 +732,7 @@ sub getv {
   my $name=shift;
 
   # check name declared
-  $self->haselem($name);
+  ($self,$name)=$self->haselem($name);
 
 # ---   *   ---   *   ---
 
@@ -735,88 +754,6 @@ sub getv {
 
   # shift and ret
   return $value>>$shf;
-
-};
-
-# ---   *   ---   *   ---
-
-# in: ptr
-# decode pointer
-sub decptr {
-
-  my $self=shift;
-  my $ptr=shift;
-
-  my $elem_sz=$ptr>>32;
-  my $idex=($ptr&0xFFFFFFFF)>>3;
-  my $shf=($ptr&7)*8;
-
-  my $mask=(1<<($elem_sz*8))-1;
-  $mask=$mask<<$shf;
-
-  return [$idex,$shf,$mask,$elem_sz];
-
-};
-
-# ---   *   ---   *   ---
-
-# in: ptr
-# gets value at saved fetch directions
-sub getptrv {
-
-  my $self=shift;
-  my $ptr=shift;
-
-  # get ptr data
-  my ($idex,$shf,$mask,$elem_sz)
-    =@{decptr(undef,$ptr)};
-
-# ---   *   ---   *   ---
-
-  # fetch unit
-  my $value=$CACHE{-DATA}->[$idex];
-
-  # get masked value at offset
-  $value&=$mask;
-  $value=$value>>$shf;
-
-# ---   *   ---   *   ---
-
-  # count mask bytes
-  COUNT:my $i=0;
-  $mask=$mask>>$shf;
-  if($mask) {while($mask) {
-    $mask=$mask>>8;$i++;
-
-  }} else {$i=$elem_sz;};
-
-  # bytes read less than expected
-  if($i<$elem_sz) {
-    $elem_sz-=$i;$idex++;
-
-    # get remain from next unit
-    $mask=(1<<($elem_sz*8))-1;
-    my $rem=$CACHE{-DATA}->[$idex];
-
-    # no more bytes in data
-    if(!defined $rem) {
-
-      printf sprintf
-        'Out of bounds read at PE addr '.
-        "<0x%.016X>\n",$ptr;
-
-      return $value;
-
-    };
-
-    # get masked value at new offset
-    $value|=($rem&$mask)<<($i*8);
-
-    if($elem_sz) {goto COUNT;};
-
-  };
-
-  return $value;
 
 };
 
@@ -970,7 +907,7 @@ sub getloc {
   my $name=shift;
 
   # errchk
-  $self->haselem($name);
+  ($self,$name)=$self->haselem($name);
 
   # get fetch metadata
   my ($idex,$shf,$mask)=@{
@@ -980,44 +917,6 @@ sub getloc {
 
   # ret offsets (no mask or typedata)
   return ($idex,$shf/8);
-
-};
-
-# ---   *   ---   *   ---
-
-# in: name to fetch
-# returns byte offsets assoc with name
-
-sub getptrloc {
-
-  my $self=shift;
-  my $name=shift;
-
-  # errchk
-  ($self,$name)=$self->haselem($name);
-
-  # fetch metadata
-  my ($idex,$shf,$mask)=@{
-    $self->elems->{$name}
-
-  };
-
-  if($CACHE{-WED}) {
-  $mask=wedcast($shf);
-
-  };
-
-  my $sz=0;
-  $mask=$mask>>$shf;
-
-  while($mask) {
-    $mask=$mask>>8;$sz++;
-
-  };
-
-  # encode fetch directions
-  my $ptr=($sz<<32)|($idex<<3)|($shf/8);
-  return $ptr;
 
 };
 
@@ -1249,31 +1148,21 @@ sub prich {
     my @ar=();
 
     # iter keys out of order
-    for my $k(keys %h) {
+    for my $ptr(values %h) {
 
-      my ($idex,$shf,$mask)=@{
-        $self->elems->{$k}
+      my $idex=$ptr->idex()*8;
+      $idex=$idex+int($ptr->shf()/8);
 
-      };
+      # stack elems & data ordered
+      $ar[$idex]=[
 
-      # mask out to type
-      my $value=$self->data->[$idex];
-      $value&=$mask;
+        $ptr->lname,
+        $ptr->value,
+        $ptr->idex,
+        $ptr->shf,
+        $ptr->bytesz
 
-      # shift and ret
-      $value=$value>>$shf;
-      my $sz=0;
-
-      # derive bytesize from mask
-      $mask=$mask>>$shf;
-      while($mask) {
-        $mask=$mask>>8;$sz++;
-
-      };
-
-      # stack elems ordered
-      $ar[$idex*8+($shf/8)]
-        =[$k,$value,$idex,$shf,$sz];
+      ];
 
     };
 

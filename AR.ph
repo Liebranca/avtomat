@@ -63,6 +63,7 @@ sub update {
     [ '/peso/defs.pm',
       '/peso/rd.pm',
       '/peso/node.pm',
+      '/peso/ptr.pm',
       '/peso/block.pm',
 
       '/stack.pm',
