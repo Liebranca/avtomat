@@ -648,7 +648,7 @@ sub expand {
       $k,$self->ances,
 
       $j,$gran,$shf,$type,$elem_sz,$v,
-      int(fpass() && !$bypass)
+      int(!fpass())
 
     );
 
