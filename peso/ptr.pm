@@ -26,11 +26,15 @@ my %CACHE=(
 
   -MEM=>[],
   -TAB=>[],
+  -WED=>undef,
 
   -ADDRS=>{},
   -SCOPES=>{},
 
   -LSCOPE=>undef,
+
+);$CACHE{-TYPES}=join(
+    '|',keys %{peso::defs::sizes()}
 
 );
 
@@ -60,11 +64,135 @@ sub elem_sz {return (shift)->{-ELEM_SZ};};
 
 sub value {
 
-  my $self=shift;return (
+  my $self=shift;
+
+  my $elem_sz=$self->bytesz;
+  my $mask=$self->mask>>$self->shf;
+
+  # handle type-casts
+  wedcast($self->shf,\$mask,\$elem_sz);
+
+  # retrieve value
+  my $value=(
+
     MEM->[$self->idex]
     &$self->mask
 
   )>>$self->shf;
+
+# ---   *   ---   *   ---
+# check cross-unit reads
+
+  $mask=$self->mask>>$self->shf;
+  my $idex=$self->idex;
+
+  COUNT:my $i=masksz($mask);
+
+# ---   *   ---   *   ---
+# bytes read less than expected
+
+  if($i<$elem_sz) {
+
+    $elem_sz-=$i;$idex++;
+
+    # get remain from next unit
+    $mask=(1<<($elem_sz*8))-1;
+    my $rem=MEM->[$idex];
+
+# ---   *   ---   *   ---
+# no more bytes in data
+
+    if(!defined $rem) {
+
+      printf
+        'Out of bounds read at PE addr <'.
+        $self->gname.
+
+      ">\n";
+
+      return 0;
+
+    };
+
+# ---   *   ---   *   ---
+# get masked value at new offset
+
+    $value|=($rem&$mask)<<($i*8);
+
+    if($elem_sz) {goto COUNT;};
+
+  };return $value;
+
+};
+
+# ---   *   ---   *   ---
+# write to addr
+
+sub setv {
+
+  my $self=shift;
+  my $value=shift;
+
+  my $elem_sz=$self->bytesz;
+  my $mask=$self->mask>>$self->shf;
+
+  # handle type-casts
+  wedcast($self->shf,\$mask,\$elem_sz);
+
+  # clear bits at offset
+  MEM->[$self->idex]&=~$self->mask;
+
+  # set value
+  MEM->[$self->idex]|=(
+    ($value<<$self->shf)
+    &$self->mask
+
+  );
+
+# ---   *   ---   *   ---
+# check cross-unit writes
+
+  $mask=$self->mask>>$self->shf;
+  my $idex=$self->idex;
+
+  COUNT:my $i=masksz($mask);
+
+# ---   *   ---   *   ---
+# bytes read less than expected
+
+  if($i<$elem_sz) {
+
+    $value=$value>>($i*8);
+    $elem_sz-=$i;$idex++;
+
+    # get remain from next unit
+    $mask=(1<<($elem_sz*8))-1;
+    my $addr=\(MEM->[$idex]);
+
+# ---   *   ---   *   ---
+# no more bytes in data
+
+    if(!defined $$addr) {
+
+      printf
+        'Out of bounds write at PE addr <'.
+        $self->gname.
+
+      ">\n";
+
+      return 0;
+
+    };
+
+# ---   *   ---   *   ---
+# set masked value at new offset
+
+    $$addr&=~$mask;
+    $$addr|=($value&$mask);
+
+    if($elem_sz) {goto COUNT;};
+
+  };return $value;
 
 };
 
@@ -84,6 +212,7 @@ sub addr {
 };
 
 # ---   *   ---   *   ---
+# move backwards one block-offset
 
 sub mprev_scope {
 
@@ -121,6 +250,7 @@ sub mprev_scope {
 };
 
 # ---   *   ---   *   ---
+# move forward one block+offset
 
 sub mnext_scope  {
 
@@ -242,6 +372,58 @@ sub setscope {
 };
 
 # ---   *   ---   *   ---
+# in: type
+# set/unset type-casting mode
+
+sub wed {
+
+  my $w=shift;
+
+  if(!defined $w) {
+    $CACHE{-WED}=undef;
+
+  } elsif($w=~ m/${CACHE{-TYPES}}/) {
+    $CACHE{-WED}=$w;
+
+  };return $CACHE{-WED};
+
+};
+
+# ---   *   ---   *   ---
+# in:
+#
+#   offset in bits
+#   reference to bitmask
+#   reference to elem_sz
+#
+# manages type-casting
+
+sub wedcast {
+
+  my $shf=shift;
+  my $maskref=shift;
+  my $szref=shift;
+
+  # skip when no casting
+  if(!defined $CACHE{-WED}) {
+    return;
+
+  };
+
+  # get size from type
+  my $elem_sz=peso::defs::sizes
+    ->{$CACHE{-WED}};
+
+  my $i=$shf/8;
+
+  # build mask from size
+  my $gran=(1<<($elem_sz*8))-1;
+  $$maskref=$gran<<$shf;
+  $$szref=$elem_sz;
+
+};
+
+# ---   *   ---   *   ---
 # store instance for later fetch
 
 sub save {
@@ -346,6 +528,8 @@ sub save {
 };
 
 # ---   *   ---   *   ---
+# find scope to which memory index
+# belongs to. used for navigation
 
 sub idex_to_scope {
 
@@ -387,7 +571,9 @@ sub name_in_lscope {
 
   );
 
+# ---   *   ---   *   ---
 # check namespace declared
+
 };sub scope_declared {
 
   my $name =shift;
@@ -513,12 +699,9 @@ sub anonnit {
 # ---   *   ---   *   ---
 # derive bytesize from mask
 
-sub bytesz {
+sub masksz {
 
-  my $self=shift;
-
-  # shift to start of unit
-  my $mask=$self->mask>>$self->shf;
+  my $mask=shift;
   my $sz=0;
 
   # count bytes
@@ -527,9 +710,20 @@ sub bytesz {
 
   };return $sz;
 
+}
+
+sub bytesz {
+
+  my $self=shift;
+
+  # shift to start of unit
+  my $mask=$self->mask>>$self->shf;
+  return masksz($mask);
+
 };
 
 # ---   *   ---   *   ---
+# name solving methods
 
 sub lname_lookup {
 
@@ -593,9 +787,8 @@ sub addr_lookup {
 };
 
 # ---   *   ---   *   ---
-
-# in: name to fetch
-# returns byte offsets assoc with name
+# in: name/addr to fetch
+# get ptr instance from name/addr
 
 sub fetch {
 
@@ -612,31 +805,12 @@ sub fetch {
 
   };return $ptr;
 
-#  if($CACHE{-WED}) {
-#    $mask=wedcast($shf);
-#
-#  };
-#
-#  my $sz=0;
-#  $mask=$mask>>$shf;
-#
-#  while($mask) {
-#    $mask=$mask>>8;$sz++;
-#
-#  };
-#
-## ---   *   ---   *   ---
-#
-#  # encode fetch directions
-#  my $ptr=($sz<<32)|($idex<<3)|($shf/8);
-#  return $ptr;
-
 };
 
 # ---   *   ---   *   ---
-
 # in: address
 # decode fetch directions
+
 sub decode {
 
   my $addr=shift;
@@ -649,68 +823,6 @@ sub decode {
   $mask=$mask<<$shf;
 
   return [$idex,$shf,$mask,$elem_sz];
-
-};
-
-# ---   *   ---   *   ---
-
-# in: ptr
-# gets value at saved fetch directions
-sub getptrv {
-
-  my $self=shift;
-  my $ptr=shift;
-
-  # get ptr data
-  my ($idex,$shf,$mask,$elem_sz)
-    =@{decptr(undef,$ptr)};
-
-# ---   *   ---   *   ---
-
-  # fetch unit
-  my $value=MEM->[$idex];
-
-  # get masked value at offset
-  $value&=$mask;
-  $value=$value>>$shf;
-
-# ---   *   ---   *   ---
-
-  # count mask bytes
-  COUNT:my $i=0;
-  $mask=$mask>>$shf;
-  if($mask) {while($mask) {
-    $mask=$mask>>8;$i++;
-
-  }} else {$i=$elem_sz;};
-
-  # bytes read less than expected
-  if($i<$elem_sz) {
-    $elem_sz-=$i;$idex++;
-
-    # get remain from next unit
-    $mask=(1<<($elem_sz*8))-1;
-    my $rem=$CACHE{-DATA}->[$idex];
-
-    # no more bytes in data
-    if(!defined $rem) {
-
-      printf sprintf
-        'Out of bounds read at PE addr '.
-        "<0x%.016X>\n",$ptr;
-
-      return $value;
-
-    };
-
-    # get masked value at new offset
-    $value|=($rem&$mask)<<($i*8);
-
-    if($elem_sz) {goto COUNT;};
-
-  };
-
-  return $value;
 
 };
 

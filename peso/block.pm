@@ -60,8 +60,6 @@ my %CACHE=(
 
   -DATA=>[],
 
-  -TYPES=>'',
-
   -INS=>[],
   -INS_KEY=>{},
   -INS_ARR=>[],
@@ -349,11 +347,6 @@ sub gblnit {
 
   my $tab=shift;
 
-  $CACHE{-TYPES}=join(
-    '|',keys %{peso::defs::sizes()}
-
-  );
-
   $CACHE{-SOIL}=nit(undef,'non');
   $CACHE{-BLOCKS}=$CACHE{-SOIL}->{-ELEMS};
   $CACHE{-PRSTK}=stack::nit(0,[]);
@@ -523,40 +516,6 @@ sub haselem {
 
   # return match
   };return ($self,$name);
-
-};
-
-# ---   *   ---   *   ---
-
-# in: type
-# set/unset typing mode
-sub wed {
-
-  my $w=shift;
-
-  if(!defined $w) {
-    $CACHE{-WED}=undef;
-
-  } elsif($w=~ m/${CACHE{-TYPES}}/) {
-    $CACHE{-WED}=$w;
-
-  };return $CACHE{-WED};
-
-};
-
-# in: offset in bits
-# gives wed-sized mask
-sub wedcast {
-
-  my $shf=shift;
-
-  my $elem_sz=peso::defs::sizes
-    ->{$CACHE{-WED}};
-
-  my $i=$shf/8;
-
-  my $gran=(1<<($elem_sz*8))-1;
-  return $gran<<$shf;
 
 };
 
@@ -743,10 +702,7 @@ sub getv {
   };
 
   # alter mask to wed
-  if(defined $CACHE{-WED}) {
-    $mask=wedcast($shf);
-
-  };
+  wedcast($shf,\$mask);
 
   # mask out to type
   my $value=$self->data->[$idex];
@@ -845,7 +801,8 @@ sub setptrv {
 
   if(defined $CACHE{-WED}) {
 
-    $mask=wedcast($shf);
+    # alter mask to wed
+    peso::ptr::wedcast($shf,\$mask);
     $elem_sz=peso::defs::sizes->{$CACHE{-WED}};
 
   };
