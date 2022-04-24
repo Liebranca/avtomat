@@ -56,6 +56,7 @@ sub shf {return (shift)->{-SHF};};
 sub elem_sz {return (shift)->{-ELEM_SZ};};
 
 # ---   *   ---   *   ---
+# dereference ptr
 
 sub value {
 
@@ -68,6 +69,7 @@ sub value {
 };
 
 # ---   *   ---   *   ---
+# get raw address
 
 sub addr {
 
@@ -81,6 +83,91 @@ sub addr {
 
 };
 
+# ---   *   ---   *   ---
+
+sub mprev_scope {
+
+  my $self=shift;
+  my $step=shift;
+
+# ---   *   ---   *   ---
+
+  my $idex
+    =SCOPES
+    ->{$self->scope}
+    ->{-BEG}-1;
+
+  # get scope
+  my $scope=SCOPES->{TAB->[$idex]};
+  if($idex<0 || !defined $scope) {
+    goto FAIL;
+
+  };
+
+# ---   *   ---   *   ---
+
+  # get ptr in scope
+  my $neigh=$scope->{-ITAB}->[
+    @{$scope->{-ITAB}}+$step
+
+  ];if(!defined $neigh) {
+    goto FAIL;
+
+  };
+
+  return $neigh;
+  FAIL:err_oob();
+
+};
+
+# ---   *   ---   *   ---
+
+sub mnext_scope  {
+
+  my $self=shift;
+  my $step=shift;
+
+# ---   *   ---   *   ---
+
+  my $idex
+
+    =SCOPES
+    ->{$self->scope}
+    ->{-END}+1;
+
+  # get name of scope
+  my $key=TAB->[$idex];
+  if(!defined $key) {
+    goto FAIL;
+
+  };
+
+# ---   *   ---   *   ---
+
+  # get scope
+  my $scope=SCOPES->{$key};
+  if(!defined $scope) {
+    goto FAIL;
+
+  };
+
+# ---   *   ---   *   ---
+
+  # get ptr in scope
+  my $neigh=$scope->{-ITAB}->[$step];
+  if(!defined $neigh) {
+    goto FAIL;
+
+  };
+
+  return $neigh;
+  FAIL:err_oob();
+
+};
+
+# ---   *   ---   *   ---
+# go to neighboring *named* ptr
+
 sub move {
 
   my $self=shift;
@@ -91,10 +178,12 @@ sub move {
   my $neigh=undef;
 
 # ---   *   ---   *   ---
+# no negative indexing
 
   if($idex<0) {
     goto FAIL;
 
+  # try to get ptr at index
   };$neigh
 
     =$scope
@@ -103,43 +192,35 @@ sub move {
     ->[$idex];
 
 # ---   *   ---   *   ---
+# attempted read was out of bounds
 
   FAIL:if(!defined $neigh) {
 
+    # go to prev scope
     if($idex<0) {
-
       $step+=$self->slot;
-      $idex=$scope->{-BEG}-1;
+      $neigh=$self->mprev_scope($step);
 
-      if($idex<0) {
-        err_oob();
-
-      };
-
-      $scope=SCOPES->{TAB->[$idex]};
-      $neigh=$scope->{-ITAB}->[
-        @{$scope->{-ITAB}}+$step
-
-      ];
-
-# ---   *   ---   *   ---
-
+    # go to next scope
     } else {
-
       $step-=@{$scope->{-ITAB}}-$self->slot;
-
-      $idex=$scope->{-END}+1;
-      $scope=SCOPES->{TAB->[$idex]};
-
-      if(!defined $scope) {
-        err_oob();
-
-      };
-
-      $neigh=$scope->{-ITAB}->[$step];
+      $neigh=$self->mnext_scope($step);
 
     };
   };return $neigh;
+
+};
+
+# ---   *   ---   *   ---
+# navigation shorthands
+
+sub mnext {
+  my $self=shift;
+  return $self->move(1);
+
+};sub mprev {
+  my $self=shift;
+  return $self->move(-1);
 
 };
 
