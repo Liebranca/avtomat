@@ -75,39 +75,47 @@ my %CACHE=(
 
 );
 
+# ---   *   ---   *   ---
 # in: block name
 # errchk and get root block
+
 sub clan {
 
   my $key=shift;
 
+# ---   *   ---   *   ---
+# return local scope
 
   if($key eq 'self') {
     return $CACHE{-SELF};
 
+# ---   *   ---   *   ---
+# return base block
+
   } elsif($key eq 'non') {
     return $CACHE{-SOIL};
 
-  } elsif(!exists $CACHE{-BLOCKS}->{$key}) {
+# ---   *   ---   *   ---
+# name lookup
 
+  } elsif(peso::ptr::is_block_ref($key)) {
+    return peso::ptr::fetch($key)->blk;
+
+# ---   *   ---   *   ---
+# throw err
+
+  } else {
     printf "No root block named '$key'\n";
     exit;
 
   };
 
-# ---   *   ---   *   ---
-
-  my $non=$CACHE{-SOIL};
-  my $blk=$non->bgetptrv($key);
-
-  return $blk;
-
 };
 
 # ---   *   ---   *   ---
-
 # in: block instance
 # scope to block
+
 sub setscope {
 
   my $self=shift;
@@ -118,10 +126,14 @@ sub setscope {
 
   };
 
+  peso::ptr::setscope($self->ances);
+
 };
 
+# ---   *   ---   *   ---
 # in: block instance
 # set current local space
+
 sub setcurr {$CACHE{-CURR}=shift;};
 
 # ---   *   ---   *   ---
@@ -142,7 +154,6 @@ sub spush {
 };
 
 # ---   *   ---   *   ---
-
 # we have to load the instruction set
 # from an external hash for complex reasons
 # i can make it all internal later (maybe)
@@ -156,7 +167,9 @@ sub loadins {
 
   };
 
+# ---   *   ---   *   ---
 # get idex of instruction
+
 };sub getinsi {
 
   my $name=shift;$name=~ s/\s*$//;
@@ -202,6 +215,8 @@ printf "ex ".$entry->name."\n";
 
 };
 
+# ---   *   ---   *   ---
+
 sub exfetnx {
 
   my $self=shift;
@@ -221,6 +236,8 @@ sub exfetnx {
 
   return ($self,$ins,$arg);
 
+# ---   *   ---   *   ---
+
 };sub getinsid {
 
   my $i=shift;
@@ -239,6 +256,8 @@ printf "ex ".$blk->name."\n";
   };return $blk;
 
 };
+
+# ---   *   ---   *   ---
 
 sub exnext {
 
@@ -265,9 +284,9 @@ sub exnext {
 };
 
 # ---   *   ---   *   ---
-
 # in: name, write/read/exec permissions
 # creates a new data/instruction block
+
 sub nit {
 
   my $self=shift;
@@ -341,8 +360,8 @@ sub nit {
 };
 
 # ---   *   ---   *   ---
-
 # initialize globals
+
 sub gblnit {
 
   my $tab=shift;
@@ -371,7 +390,7 @@ sub addchld {
   # add block data into this line
   my @line=(
 
-    [$blk->name,($j<<32)|$i],
+    [$blk->name,$blk],
 
   );
 
@@ -404,7 +423,9 @@ sub nxins {return $CACHE{-NXINS};};
 sub insid {return (shift)->{-INSID};};
 sub fpass {return !$CACHE{-PASS};};
 
+# ---   *   ---   *   ---
 # find ancestors recursively
+
 sub ances {
 
   my $self=shift;
@@ -427,9 +448,9 @@ sub setnxins {$CACHE{-NXINS}=shift};
 sub incnxins {$CACHE{-NXINS}++};
 
 # ---   *   ---   *   ---
-
 # in: block, element name
 # lookup errme shorthand
+
 sub no_such_elem {
 
   my $self=shift;
@@ -462,8 +483,8 @@ sub haselem {
     my $blk=$self;
 
 # ---   *   ---   *   ---
+# iter ancestry
 
-    # iter ancestry
     while(@ar) {
 
       my $root=shift @ar;
@@ -520,7 +541,6 @@ sub haselem {
 };
 
 # ---   *   ---   *   ---
-
 # in: array of [key,value] references,
 # in: data type
 
@@ -534,52 +554,36 @@ sub expand {
   my $bypass=shift;
 
 # ---   *   ---   *   ---
+# get size from type, in bytes
 
-  # set type of var for all ops
-  $CACHE{-WED}=$type;
-
-  # get size from type, in bytes
   my $elem_sz=peso::defs::sizes->{$type};
   my $inc_size=@$ref*$elem_sz;
 
-  # grow block on first pass
-  if(fpass()) {
-    $self->{-SIZE}+=$inc_size;
-
-  };
-
 # ---   *   ---   *   ---
+# 'line' is two units
+# 'unit' is 64-bit chunk
+# we use these as minimum size for blocks
 
-  # 'line' is two units
-  # 'unit' is 64-bit chunk
-  # we use these as minimum size for blocks
   my $line_sz=peso::defs::sizes->{'line'};
   my $gran=(1<<($elem_sz*8))-1;
 
 # ---   *   ---   *   ---
+# grow block on first pass
 
-  my $j;
-
-  # grow block on first pass
-  if(fpass()) {
+  my $j=0;if(fpass()) {
 
     # save top of stack
     $j=@{peso::ptr::MEM()};
-    if(!$bypass) {
-      push @{$CACHE{-DPTR}},$j;
+    $self->{-SIZE}+=$inc_size;
 
     # reserve new unit
-    };peso::ptr::nunit();
-
-  # set values on second pass
-  } else {
-    $j=shift @{$CACHE{-DPTR}};
+    peso::ptr::nunit();
 
   };
 
 # ---   *   ---   *   ---
+# push elements to data
 
-  # push elements to data
   my $i=0;while(@$ref) {
 
     my $ar=shift @$ref;
@@ -599,25 +603,39 @@ sub expand {
     my $shf=$i*8;
 
 # ---   *   ---   *   ---
+# first pass || root block decl:
+#  >create ptr instance
+#  >save reference to elems
 
-    # create ptr instance
-    # save reference to elems
-    $self->elems->{$k}=peso::ptr::nit(
+    if(fpass() || $bypass) {
 
-      $k,$self->ances,
+      $self->elems->{$k}=peso::ptr::nit(
 
-      $j,$gran,$shf,$type,$elem_sz,$v,
-      int(!fpass())
+        $k,$self->ances,
+        $j,$gran,$shf,$type,
+        $elem_sz,$v
 
-    );
+      );
 
 # ---   *   ---   *   ---
+# second pass:
+#  >get ptr
+#  >assign value
 
-    # go to next element
+    } else {
+
+      $self->setv(
+        $self->ances."\@$k",$v
+
+      );
+    };
+
+# ---   *   ---   *   ---
+# go to next element when 'i' equals
+# or exceeds 64-bit bound and
+# elems are pending in ref
+
     $i+=$elem_sz;
-
-    # 'i' equals or exceeds 64-bit bound
-    # and elems pending in ref
     if($i>=($line_sz/2) && @$ref) {
 
       # reserve a new unit
@@ -633,12 +651,14 @@ sub expand {
 };
 
 # ---   *   ---   *   ---
-
 # in: name,value
 # sets value at offset
+
 sub setv {
 
   my $self=shift;
+  my $name=shift;
+  my $value=shift;
 
   # block is write protected
   if(!($self->attrs& O_WR)) {
@@ -649,72 +669,25 @@ sub setv {
 
   };
 
-  my $name=shift;
-  my $value=shift;
-  my $cast=shift;
-
-# ---   *   ---   *   ---
-
-  # get fetch metadata
-  my ($idex,$shf,$mask)=@{
-    $self->elems->{$name}
-
-  };
-
-  # manage/alter wedded type
-  if(defined $cast) {
-    $CACHE{-WED}=$cast;
-
-  };if(defined $CACHE{-WED}) {
-    $mask=wedcast($shf);
-
-  };
-
-# ---   *   ---   *   ---
-
-  # fit value to type mask
-  $value=$value&($mask>>$shf);
-
-  # clear out and set at shifted position
-  $self->data->[$idex]&=~$mask;
-  $self->data->[$idex]|=$value<<$shf;
+  peso::ptr::fetch($name)
+    ->setv($value);
 
 };
 
 # ---   *   ---   *   ---
-
 # in: name to fetch
 # returns stored value
+
 sub getv {
 
   my $self=shift;
   my $name=shift;
 
-  # check name declared
-  ($self,$name)=$self->haselem($name);
-
-# ---   *   ---   *   ---
-
-  # get fetch metadata
-  my ($idex,$shf,$mask)=@{
-    $self->elems->{$name}
-
-  };
-
-  # alter mask to wed
-  wedcast($shf,\$mask);
-
-  # mask out to type
-  my $value=$self->data->[$idex];
-  $value&=$mask;
-
-  # shift and ret
-  return $value>>$shf;
+  return peso::ptr::fetch($name)->value;
 
 };
 
 # ---   *   ---   *   ---
-
 # by-name block lookup
 
 sub blookup {
@@ -730,6 +703,7 @@ sub blookup {
 };
 
 # ---   *   ---   *   ---
+# decode ptr to block (deprecated?)
 
 sub bidptr {
 
@@ -744,7 +718,9 @@ sub bidptr {
 
 };
 
+# ---   *   ---   *   ---
 # get block location from ptr
+
 sub bgetptrloc {
 
   my $self=shift;
@@ -758,8 +734,8 @@ sub bgetptrloc {
 };
 
 # ---   *   ---   *   ---
-
 # additional step for ptr-to-block deref
+
 sub bgetptrv {
 
   my $self=shift;
@@ -773,8 +749,8 @@ sub bgetptrv {
   return $self->children->[$ptr];
 
 # ---   *   ---   *   ---
-
 # ^same, deref by ptr rather than name
+
 };sub bderefptr {
 
   my $self=undef;
@@ -786,75 +762,20 @@ sub bgetptrv {
 };
 
 # ---   *   ---   *   ---
-
-# in: ptr,value
+# in: name,value
 # save to address
+
 sub setptrv {
 
   my $self=shift;
-  my $ptr=shift;
+  my $name=shift;
   my $value=shift;
 
-  # get ptr data
-  my ($idex,$shf,$mask,$elem_sz)
-    =@{decptr(undef,$ptr)};
-
-  if(defined $CACHE{-WED}) {
-
-    # alter mask to wed
-    peso::ptr::wedcast($shf,\$mask);
-    $elem_sz=peso::defs::sizes->{$CACHE{-WED}};
-
-  };
-
-# ---   *   ---   *   ---
-
-  # clear bytes on unit
-  # adjust mask to start
-  $CACHE{-DATA}->[$idex]&=~$mask;
-  $mask=$mask>>$shf;
-
-  # set cleared bytes
-  $CACHE{-DATA}->[$idex]
-    |=($value&$mask)<<$shf;
-
-  # count mask bytes
-  COUNT:my $i=0;
-  if($mask) {while($mask) {
-    $mask=$mask>>8;$i++;
-    $value=$value>>8;
-
-  }} else {$i=$elem_sz;};
-
-  # bytes written less than expected
-  if($i<$elem_sz) {
-
-    $elem_sz-=$i;$idex++;
-
-    # no more bytes in data
-    if(!defined $CACHE{-DATA}->[$idex]) {
-
-      printf sprintf
-        'Out of bounds write at PE addr '.
-        "<0x%.016X>\n",$ptr;
-
-      return;
-
-    };
-
-    # set remain to next unit
-    $mask=(1<<($elem_sz*8))-1;
-    $CACHE{-DATA}->[$idex]&=~$mask;
-    $CACHE{-DATA}->[$idex]|=$value;
-
-    if($elem_sz) {goto COUNT;};
-
-  };
+  peso::ptr::fetch($name)->setv($value);
 
 };
 
 # ---   *   ---   *   ---
-
 # in: name to fetch
 # returns byte offsets assoc with name
 
@@ -863,104 +784,11 @@ sub getloc {
   my $self=shift;
   my $name=shift;
 
-  # errchk
-  ($self,$name)=$self->haselem($name);
-
-  # get fetch metadata
-  my ($idex,$shf,$mask)=@{
-    $self->elems->{$name}
-
-  };
-
-  # ret offsets (no mask or typedata)
-  return ($idex,$shf/8);
-
-};
-
-# ---   *   ---   *   ---+
-
-# name solver
-
-sub refsolve {
-
-  my $val=shift;
-  my $dst=$CACHE{-SELF};
-
-  my $pesonames=peso::defs::names;
-
-  my $name=undef;
-  my $cont=undef;
-
-TOP:
-
-  if($val=~ m/@/) {
-
-    my @path=split '@',$val;
-    if($path[0] ne 'non') {
-      unshift @path,'non';
-
-    };
-
-    my $root=shift @path;
-    my $blk=clan($root);
-
-    while(@path>1) {
-      my $key=shift @path;
-
-      if(fpass()) {
-        if(!exists $blk->elems->{$key}) {
-          return (undef,undef);
-
-        };
-
-      } else {
-        $blk->haselem($key);
-
-      };$blk=$blk->bgetptrv($key);
-
-    };$name=$path[0];
-    $cont=$blk;
-
-# ---   *   ---   *   ---
-
-  } elsif(
-
-    $val=~
-    m/${pesonames}*/
-
-  ) {
-
-    while(!exists $dst->elems->{$val}) {
-
-      $dst=$dst->par;
-      if(!$dst) {
-
-        if(fpass()) {
-          return (undef,undef);
-
-        } else {
-
-          $val
-
-            =$CACHE{-CURR}
-            ->ances."\@$val";
-
-          goto TOP;
-
-        };
-
-      };
-    };
-
-    $name=$val;
-    $cont=$dst;
-
-  };return ($cont,$name);
+  return peso::ptr::fetch($name)->addr;
 
 };
 
 # ---   *   ---   *   ---
-
 # recursive name solver
 
 sub refsolve_rec {
@@ -969,12 +797,11 @@ sub refsolve_rec {
   my $pesonames=peso::defs::names;
 
   if($node->val=~ m/${pesonames}*/) {
-    my ($cont,$name)=refsolve($node->val);;
+    $node->{-VAL}
+      =peso::ptr::fetch(
+      $node->val
 
-    if($cont && $name) {
-      $node->{-VAL}=$cont->getptrloc($name);
-
-    };
+    )->addr;
 
   } else {
     for my $leaf(@{$node->leaves}) {
@@ -986,7 +813,6 @@ sub refsolve_rec {
 };
 
 # ---   *   ---   *   ---
-
 # in:tree,
 
 # block-deref
@@ -1004,8 +830,8 @@ sub treesolve {
   my $pesc=peso::defs::pesc;
 
   # save current cast and override
-  my $wed=wed('get');
-  if($type) {wed($type);};
+  my $wed=peso::ptr::wed('get');
+  if($type) {peso::ptr::wed($type);};
 
 # ---   *   ---   *   ---
 
@@ -1027,14 +853,15 @@ sub treesolve {
 
   };
 
+# ---   *   ---   *   ---
+
   # restore cast and dereference pointers
-  wed($wed);
+  peso::ptr::wed($wed);
   ptrderef_rec($node,$blk_deref);
 
 };
 
 # ---   *   ---   *   ---
-
 # in:tree,is ptr to block
 # recursively solve pointer dereferences
 
@@ -1044,8 +871,8 @@ sub ptrderef_rec {
   my $block_ptr=shift;
 
 # ---   *   ---   *   ---
+# value is ptr dereference
 
-  # value is ptr dereference
   if($node->val eq '[') {
 
     # is ptr to block
@@ -1053,29 +880,28 @@ sub ptrderef_rec {
     # ill correct things later
     if($block_ptr) {
 
-      $node->{-VAL}=getptrv(
-        undef,
+      $node->{-VAL}
+        =peso::ptr::fetch(
         $node->leaves->[0]->val
 
-      );
+      )->value;
 
 # ---   *   ---   *   ---
+# ptr to value
 
-    # ptr to value
     } else {
 
-      $node->{-VAL}=getptrv(
-
-        undef,
+      $node->{-VAL}
+        =peso::ptr::fetch(
         $node->leaves->[0]->val
 
-      );
+      )->value;
 
     };$node->pluck(@{$node->leaves});
 
 # ---   *   ---   *   ---
+# not a pointer derefernce: go to next level
 
-  # not a pointer derefernce: go to next level
   } else {
 
     for my $leaf(@{$node->leaves}) {
@@ -1087,8 +913,8 @@ sub ptrderef_rec {
 };
 
 # ---   *   ---   *   ---
-
 # prints out block
+
 sub prich {
 
   my $self=shift;
@@ -1097,10 +923,12 @@ sub prich {
   my @data=();
 
   printf '<'.$self->ances.">\n";
+  my $wed=peso::ptr::wed('get');
+  peso::ptr::wed(undef);
 
 # ---   *   ---   *   ---
+# get names and offsets
 
-  # get names and offsets
   { my %h=%{$self->elems};
     my @ar=();
 
@@ -1124,8 +952,8 @@ sub prich {
     };
 
 # ---   *   ---   *   ---
+# forget undefined (empty) elems
 
-    # forget undefined (empty) elems
     while(@ar) {
 
       my $v=shift @ar;
@@ -1150,7 +978,9 @@ sub prich {
     my $ref=shift @data;
     my ($name,$v,$i,$shf,$sz)=@{$ref};
 
-    # unit switch
+# ---   *   ---   *   ---
+# unit switch
+
     if(defined $last_idex) {
       if($last_idex!=$i) {
         $v_lines.=sprintf
@@ -1162,7 +992,9 @@ sub prich {
 
       };
 
-    # accumulate
+# ---   *   ---   *   ---
+# accumulate
+
     };$last_idex=$i;
     $unit|=$v<<$shf;
     $unit_names="$name($sz) ".$unit_names;
@@ -1170,8 +1002,8 @@ sub prich {
   };
 
 # ---   *   ---   *   ---
+# append leftovers
 
-  # append leftovers
   $v_lines.=sprintf
     "  0x%.16X %s\n",
     $unit,$unit_names;
@@ -1180,7 +1012,7 @@ sub prich {
   for my $child(@{$self->children}) {
     $child->prich();
 
-  };
+  };peso::ptr::wed($wed);
 
 };
 

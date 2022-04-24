@@ -32,6 +32,7 @@ my %CACHE=(
   -SCOPES=>{},
 
   -LSCOPE=>undef,
+  -LSCOPE_NAME=>'',
 
 );$CACHE{-TYPES}=join(
     '|',keys %{peso::defs::sizes()}
@@ -55,6 +56,7 @@ sub idex {return (shift)->{-IDEX};};
 sub mask {return (shift)->{-MASK};};
 sub scope {return (shift)->{-SCOPE};};
 sub slot {return (shift)->{-SLOT};};
+sub blk {return (shift)->{-BLK};};
 
 sub shf {return (shift)->{-SHF};};
 sub elem_sz {return (shift)->{-ELEM_SZ};};
@@ -140,21 +142,23 @@ sub setv {
   wedcast($self->shf,\$mask,\$elem_sz);
 
   # clear bits at offset
-  MEM->[$self->idex]&=~$self->mask;
+  MEM->[$self->idex]&=~$mask;
 
   # set value
   MEM->[$self->idex]|=(
-    ($value<<$self->shf)
-    &$self->mask
+    ($value<<$self->shf)&$mask
 
   );
 
 # ---   *   ---   *   ---
 # check cross-unit writes
 
-  $mask=$self->mask>>$self->shf;
-  my $idex=$self->idex;
+  if($mask>$self->mask>>$self->shf) {
+    $mask=$self->mask>>$self->shf;
 
+  };
+
+  my $idex=$self->idex;
   COUNT:my $i=masksz($mask);
 
 # ---   *   ---   *   ---
@@ -344,13 +348,22 @@ sub move {
 # ---   *   ---   *   ---
 # navigation shorthands
 
+# get next *named* ptr
 sub mnext {
   my $self=shift;
   return $self->move(1);
 
+# get prev *named* ptr
 };sub mprev {
   my $self=shift;
   return $self->move(-1);
+
+# addr +/- offset
+};sub leap {
+  my $self=shift;
+  my $step=shift;
+
+  return fetch($self->addr+$step);
 
 };
 
@@ -368,6 +381,7 @@ sub setscope {
     exit;
 
   };$CACHE{-LSCOPE}=SCOPES->{$name};
+  $CACHE{-LSCOPE_NAME}=$name;
 
 };
 
@@ -424,6 +438,32 @@ sub wedcast {
 };
 
 # ---   *   ---   *   ---
+# in: name,idex
+# declare an empty block
+
+sub declscope {
+
+  my $name=shift;
+  my $idex=shift;
+
+  SCOPES
+    ->{$name}
+
+    ={
+
+      # we use these values to navigate
+      # pointer arrays through next/prev
+
+      -BEG=>$idex,
+      -END=>$idex+1,
+
+      -ITAB=>[],
+
+    };
+
+};
+
+# ---   *   ---   *   ---
 # store instance for later fetch
 
 sub save {
@@ -447,21 +487,8 @@ sub save {
 # create new hash if need
 
   if(!scope_declared($self->scope)) {
+    declscope($self->scope,$self->idex);
 
-    SCOPES
-      ->{$self->scope}
-
-      ={
-
-        # we use these values to navigate
-        # pointer arrays through next/prev
-
-        -BEG=>$self->idex,
-        -END=>$self->idex+1,
-
-        -ITAB=>[$self],
-
-      };$self->{-SLOT}=0;
 
 # ---   *   ---   *   ---
 
@@ -585,6 +612,12 @@ sub name_in_lscope {
   my $addr=shift;
   return exists ADDRS->{"$addr"};
 
+# check ptr is block reference
+};sub is_block_ref {
+
+  my $name=shift;
+  return exists SCOPES->{$name};
+
 };
 
 # ---   *   ---   *   ---
@@ -610,25 +643,13 @@ sub nit {
     $lname,$scope,
 
     $idex,$mask,$shf,
-    $type,$elem_sz,$value,
+    $type,$elem_sz,$blk,
 
     $set
 
   )=@_;my $gname=$scope.'@'.$lname;
 
-# ---   *   ---   *   ---
-# set bits and return already existing
-
-  if($set) {
-
-    MEM->[$idex]|=($value&$mask)<<$shf;
-
-    if(defined(
-      my $ptr=name_lookup($gname)
-
-    )) {return SCOPES->{$scope}->{$lname};};
-
-  };$mask=$mask<<$shf;
+  $mask=$mask<<$shf;
 
 # ---   *   ---   *   ---
 # create instance
@@ -639,7 +660,7 @@ sub nit {
     -GNAME=>$gname,
     -SCOPE=>$scope,
 
-    -SLOT=>-1,
+    -SLOT=>0,
     -IDEX=>$idex,
     -MASK=>$mask,
     -TYPE=>$type,
@@ -647,6 +668,7 @@ sub nit {
     -SHF=>$shf,
 
     -ELEM_SZ=>$elem_sz,
+    -BLK=>$blk,
 
   },'peso::ptr';
 
@@ -664,9 +686,11 @@ sub anonnit {
 
   my $addr=shift;
 
+  # get fetch metadata
   my ($idex,$shf,$mask,$elem_sz)
     =@{decode($addr)};
 
+  # find scope assoc with addr
   my $scope=idex_to_scope($idex);
 
 # ---   *   ---   *   ---
@@ -731,7 +755,11 @@ sub lname_lookup {
 
   if(!name_in_lscope($key)) {
 
-    printf "$key\n";
+    printf
+
+      "Name <$key> not in local scope ".
+      "($CACHE{-LSCOPE_NAME})\n";
+
     exit;
 
   };return LSCOPE->{$key};
