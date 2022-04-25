@@ -31,11 +31,6 @@ package lang;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
-  use peso::defs;
-  use peso::rd;
-  use peso::node;
-  use peso::block;
-
 # ---   *   ---   *   ---
 
   my $_LUN='[_a-zA-Z][_a-zA-Z0-9]';

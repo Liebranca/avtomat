@@ -31,8 +31,8 @@ my %CACHE=(
   -ADDRS=>{},
   -SCOPES=>{},
 
-  -LSCOPE=>undef,
-  -LSCOPE_NAME=>'',
+  -LSCOPE=>[],
+  -LSCOPE_NAMES=>[],
 
 );$CACHE{-TYPES}=join(
     '|',keys %{peso::defs::sizes()}
@@ -372,17 +372,27 @@ sub mnext {
 
 sub setscope {
 
-  my $name=shift;
+  my @names=@_;
 
-  # errchk
-  if(!scope_declared($name)) {
+  $CACHE{-LSCOPE_NAMES}=[];
+  $CACHE{-LSCOPE}=[];
 
-    printf "Namespace <$name> not declared\n";
-    exit;
+  while(@names) {
 
-  };$CACHE{-LSCOPE}=SCOPES->{$name};
-  $CACHE{-LSCOPE_NAME}=$name;
+    my $name=shift @names;
 
+    # errchk
+    if(!scope_declared($name)) {
+
+      printf "Namespace <$name> not declared\n";
+      exit;
+
+    };
+
+    push @{$CACHE{-LSCOPE}},SCOPES->{$name};
+    push @{$CACHE{-LSCOPE_NAMES}},$name;
+
+  };
 };
 
 # ---   *   ---   *   ---
@@ -579,7 +589,20 @@ sub idex_to_scope {
 
 # check name in local scope
 sub name_in_lscope {
-  return exists LSCOPE->{(shift)};
+
+  my $name=shift;
+  my $i=0;
+
+  # iter current namespace
+  for my $scope(@{LSCOPE()}) {
+
+    if(exists $scope->{$name}) {
+      goto FOUND;
+
+    };$i++;
+
+  };return undef;
+  FOUND:return LSCOPE->[$i];
 
 # check global name declared
 };sub gname_declared {
@@ -647,7 +670,11 @@ sub nit {
 
     $set
 
-  )=@_;my $gname=$scope.'@'.$lname;
+  )=@_;
+
+  my $gname=($scope ne $lname)
+    ? $scope.'@'.$lname
+    : $lname;
 
   $mask=$mask<<$shf;
 
@@ -693,6 +720,8 @@ sub anonnit {
   # find scope assoc with addr
   my $scope=idex_to_scope($idex);
 
+  my $blk=SCOPES->{$scope}->{-ITAB}->[0]->blk;
+
 # ---   *   ---   *   ---
 # create instance
 
@@ -710,6 +739,7 @@ sub anonnit {
     -SHF=>$shf,
 
     -ELEM_SZ=>$elem_sz,
+    -BLK=>$blk,
 
   },'peso::ptr';
 
@@ -752,17 +782,22 @@ sub bytesz {
 sub lname_lookup {
 
   my $key=shift;
+  my $scope=undef;
 
-  if(!name_in_lscope($key)) {
+  if(!defined ($scope=name_in_lscope($key))) {
 
     printf
 
-      "Name <$key> not in local scope ".
-      "($CACHE{-LSCOPE_NAME})\n";
+      "Name <$key> not in local scope:\n".
+
+      ' >'.
+      (join "\n >",@{$CACHE{-LSCOPE_NAMES}}).
+
+      "\n";
 
     exit;
 
-  };return LSCOPE->{$key};
+  };return $scope->{$key};
 
 };sub gname_lookup {
 

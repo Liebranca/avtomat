@@ -53,7 +53,6 @@ my %CACHE=(
   -SOIL=>undef,
   -CURR=>undef,
 
-  -WED=>undef,
   -BLOCKS=>undef,
   -BBID=>[0..0xFF],
   -BIDS=>stack::nit(stack::slidex(0x100)),
@@ -126,7 +125,21 @@ sub setscope {
 
   };
 
-  peso::ptr::setscope($self->ances);
+# ---   *   ---   *   ---
+
+  my @ar=($CACHE{-SELF}->ances);
+  if(defined $CACHE{-CURR}) {
+
+    my $curr=$CACHE{-CURR};
+    push @ar,$curr->ances;
+
+    if(defined $curr->par) {
+      push @ar,$curr->par->ances;
+
+    };
+  };
+
+  peso::ptr::setscope(@ar);
 
 };
 
@@ -175,6 +188,7 @@ sub loadins {
   my $name=shift;$name=~ s/\s*$//;
   return $CACHE{-INS_KEY}->{$name};
 
+# save node/tree for later use
 };sub setnode {
 
   my $node=shift;
@@ -182,6 +196,7 @@ sub loadins {
   push @{$CACHE{-NODES}},$node;
   return int(@{$CACHE{-NODES}})-1;
 
+# ^get saved node from index
 };sub getnode {
 
   my $idex=shift;
@@ -190,22 +205,27 @@ sub loadins {
 };
 
 # ---   *   ---   *   ---
+# execute program as defined by blocks
 
 sub ex {
 
   my $entry=$CACHE{-ENTRY};
   my $non=$CACHE{-SOIL};
 
-  wed(undef);
+  peso::ptr::wed(undef);
 
-  $entry=bgetptrv(undef,$entry);
+  # get entry point block
+  $entry=peso::ptr::fetch($entry)->blk;
   setnxins($entry->insid);
 
+  # scope to block
   setcurr($entry);
   setscope($entry->{-SCOPE});
 
-printf "ex ".$entry->name."\n";
+  # debug: print out what we're executing
+  printf "ex ".$entry->name."\n";
 
+  # execute until end
   while(!(nxins()<0)) {
     $entry=$entry->exnext();
 
@@ -216,6 +236,7 @@ printf "ex ".$entry->name."\n";
 };
 
 # ---   *   ---   *   ---
+# get next instruction
 
 sub exfetnx {
 
@@ -229,6 +250,10 @@ sub exfetnx {
   my $ins='ins'.$nx;
   my $arg='arg'.$nx;
 
+# ---   *   ---   *   ---
+# when instruction not found in current,
+# find block matching instruction index
+
   if(!exists $self->elems->{$ins}) {
     $self=getinsid($i);
 
@@ -237,16 +262,22 @@ sub exfetnx {
   return ($self,$ins,$arg);
 
 # ---   *   ---   *   ---
+# get instruction matching index
 
 };sub getinsid {
 
   my $i=shift;
   my $blk=$CACHE{-INS_ARR}->[$i];
 
+  # scope to block
   setcurr($blk);
   setscope($blk->{-SCOPE});
 
-printf "ex ".$blk->name."\n";
+  # debug: print out what we're executing
+  printf "ex ".$blk->name."\n";
+
+# ---   *   ---   *   ---
+# catch: no instruction matches index
 
   if(!defined $blk) {
 
@@ -258,26 +289,35 @@ printf "ex ".$blk->name."\n";
 };
 
 # ---   *   ---   *   ---
+# execute next instruction in stack
 
 sub exnext {
 
   my $self=shift;
-  my $i=nxins();
-
   my ($ins,$arg)=(0,0);
 
+  # get idex of instruction
+  my $i=nxins();
+
+  # fetch instruction matching idex
   ($self,$ins,$arg)=$self->exfetnx();
   if(!defined $self) {return;};
+
+# ---   *   ---   *   ---
+# decode instruction/argument ptrs
 
   $ins=$self->getv($ins);
   $arg=$self->getv($arg);
 
+  # duplicate node containing args
   $arg=getnode($arg);
   my $ori=$arg;
   $arg=$arg->dup();
 
+  # execute instruction
   $CACHE{-INS}->[$ins]->($arg);
 
+  # increase stack ptr if !jmp
   if($i == nxins()) {incnxins();};
   return $self;
 
@@ -378,6 +418,7 @@ sub gblnit {
 };
 
 # ---   *   ---   *   ---
+# convenience settings for sub-blocks
 
 sub addchld {
 
@@ -405,6 +446,11 @@ sub addchld {
   $self->expand(\@line,'unit',$bypass);
   $self->children->[$i]=$blk;
   $blk->{-PAR}=$self;
+
+  peso::ptr::declscope(
+    $blk->ances,@{peso::ptr::MEM()}
+
+  );
 
 };
 
@@ -478,31 +524,8 @@ sub haselem {
 # solve compound name (module@sub@elem)
 
   if($name=~ m/@/) {
-
-    my @ar=split '@',$name;
-    my $blk=$self;
-
-# ---   *   ---   *   ---
-# iter ancestry
-
-    while(@ar) {
-
-      my $root=shift @ar;
-
-      # match mod->sub
-      if(exists $blk->elems->{$root}) {
-        $blk=$blk->bgetptrv($root);
-
-        $name=$ar[0];
-        if(@ar eq 1) {last;};
-
-      # element not found
-      } elsif(!defined $redecl) {
-        $blk->no_such_elem($root);
-
-      };
-
-    };$self=$blk;
+    my $blk=peso::ptr::fetch($name)->blk;
+    $self=$blk;
 
 # ---   *   ---   *   ---
 # element not found (plain name)
@@ -609,6 +632,7 @@ sub expand {
 
     if(fpass() || $bypass) {
 
+      if(!$bypass) {$v=$self;};
       $self->elems->{$k}=peso::ptr::nit(
 
         $k,$self->ances,
@@ -660,15 +684,6 @@ sub setv {
   my $name=shift;
   my $value=shift;
 
-  # block is write protected
-  if(!($self->attrs& O_WR)) {
-    printf "block '".$self->name.
-      "' cannot be written\n";
-
-    exit;
-
-  };
-
   peso::ptr::fetch($name)
     ->setv($value);
 
@@ -688,80 +703,6 @@ sub getv {
 };
 
 # ---   *   ---   *   ---
-# by-name block lookup
-
-sub blookup {
-
-  my $self=shift;
-  my $name=shift;
-
-  if(!defined $self) {
-    ($self,$name)=refsolve($name);
-
-  };return ($self,$name);
-
-};
-
-# ---   *   ---   *   ---
-# decode ptr to block (deprecated?)
-
-sub bidptr {
-
-  my $ptr=shift;
-
-  my $bid=$ptr>>32;
-  my $self=$CACHE{-BBID}->[$bid];
-
-  $ptr&=(1<<32)-1;
-
-  return ($self,$ptr);
-
-};
-
-# ---   *   ---   *   ---
-# get block location from ptr
-
-sub bgetptrloc {
-
-  my $self=shift;
-  my $name=shift;
-
-  my $ptr=$self->getptrloc($name);
-  $ptr=$self->getptrv($ptr);
-
-  return bidptr($ptr);;
-
-};
-
-# ---   *   ---   *   ---
-# additional step for ptr-to-block deref
-
-sub bgetptrv {
-
-  my $self=shift;
-  my $name=shift;
-
-  ($self,$name)=blookup($self,$name);
-
-  my $ptr;($self,$ptr)
-    =bgetptrloc($self,$name);
-
-  return $self->children->[$ptr];
-
-# ---   *   ---   *   ---
-# ^same, deref by ptr rather than name
-
-};sub bderefptr {
-
-  my $self=undef;
-  my $ptr=shift;
-
-  ($self,$ptr)=bidptr($ptr);
-  return $self->children->[$ptr];
-
-};
-
-# ---   *   ---   *   ---
 # in: name,value
 # save to address
 
@@ -777,7 +718,7 @@ sub setptrv {
 
 # ---   *   ---   *   ---
 # in: name to fetch
-# returns byte offsets assoc with name
+# returns addr assoc with name
 
 sub getloc {
 

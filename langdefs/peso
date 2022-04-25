@@ -5,6 +5,12 @@
 # ---   *   ---   *   ---
 #$:CUT;>
 
+  use peso::defs;
+  use peso::rd;
+  use peso::ptr;
+  use peso::node;
+  use peso::block;
+
 my %PESO=(
 
   -NAME=>'peso',
@@ -162,19 +168,25 @@ $MAM{-EXTAB}={
 
   my $dst=peso::block::clan('non');
 
-  my $blk;
-  if($name ne 'non') {
+# ---   *   ---   *   ---
 
+  # is not global scope/root
+  my $blk;if($name ne 'non') {
+
+    # first pass: create new block
     if(peso::block::fpass()) {
       $blk=peso::block::nit(undef,$name);
 
+    # second pass: find block
     } else {
-      $blk=peso::block::clan($name);
+      $blk=peso::block::clan('non@'.$name);
 
     };
 
-  } else {$blk=$dst;};
+# ---   *   ---   *   ---
 
+  # is global scope
+  } else {$blk=$dst;};
   $MAM{-DST}=$blk;
 
   },
@@ -217,13 +229,15 @@ $MAM{-EXTAB}={
   # second pass: look for block
   } else {
 
-    $blk=peso::block::bgetptrv(
-      undef,$dst->ances."\@$name"
+    $blk=peso::ptr::fetch(
+      $dst->ances."\@$name"
 
-    );
+    )->blk;
   };
 
-  # overwrite dst
+# ---   *   ---   *   ---
+# overwrite dst
+
   $MAM{-DST}=$blk;
   peso::block::setscope($blk);
 
@@ -261,19 +275,21 @@ $MAM{-EXTAB}={
   # append new block to dst on first pass
   if(peso::block::fpass()) {
     $blk=$dst->nit(
-      $name,peso::block->O_EX,
+      $name,peso::block->O_WREX,
 
     );
 
   # second pass: look for block
   } else {
-    $blk=peso::block::bgetptrv(
-      undef,$dst->ances."\@$name"
+    $blk=peso::ptr::fetch(
+      $dst->ances."\@$name"
 
-    );
+    )->blk;
   };
 
-  # overwrite dst
+# ---   *   ---   *   ---
+# overwrite dst
+
   $MAM{-DST}=$blk;
 
   }
@@ -309,8 +325,8 @@ $PESO{-VARS}->[0]->[1]=>[
 
     $key=~ s/\s+$//;
 
-    my $wed=peso::block::wed('get');
-    peso::block::wed($key);
+    my $wed=peso::ptr::wed('get');
+    peso::ptr::wed($key);
 
 # ---   *   ---   *   ---
 
@@ -368,7 +384,6 @@ $PESO{-VARS}->[0]->[1]=>[
           };
 
         };
-
       };
 
 # ---   *   ---   *   ---
@@ -398,7 +413,7 @@ $PESO{-VARS}->[0]->[1]=>[
 
     # grow the block
     $dst->expand(\@line,$key);
-    peso::block::wed($wed);
+    peso::ptr::wed($wed);
 
   },
 
@@ -472,7 +487,7 @@ $PESO{-VARS}->[0]->[1]=>[
   sub {
 
     my $node=shift;
-    peso::block::wed(
+    peso::ptr::wed(
       $node->leaves
       ->[0]->leaves
       ->[0]->val
@@ -491,7 +506,7 @@ $PESO{-VARS}->[0]->[1]=>[
   sub {
 
     my $node=shift;
-    peso::block::wed(undef);
+    peso::ptr::wed(undef);
 
   },
 
@@ -542,10 +557,10 @@ $PESO{-VARS}->[0]->[1]=>[
 
   if($op0->val) {
 
-    my $ptr=peso::block::getptrv(
+    my $ptr=peso::block::getloc(
       undef,$op0->val
 
-    );peso::block::setptrv(
+    );peso::block::setv(
       undef,$ptr,$v
 
     );
@@ -564,7 +579,6 @@ $PESO{-VARS}->[0]->[1]=>[
   sub {
 
     my $node=shift;
-
     peso::block::treesolve(
       $node->leaves->[0],
       1,'unit'
@@ -577,11 +591,10 @@ $PESO{-VARS}->[0]->[1]=>[
       ->leaves->[0]
       ->val;
 
-    # re-deref block ptr
-    $ptr=peso::block::getptrv(undef,$ptr);
+# ---   *   ---   *   ---
 
     # get block and set ins ptr
-    my $dst=peso::block::bderefptr($ptr);
+    my $dst=peso::ptr::fetch($ptr)->blk;
     peso::block::setnxins($dst->insid);
 
   },
@@ -676,12 +689,12 @@ sub sop_ari {
     );my $ptr=$fbgch->val;
 
     # decode ptr
-    $v0=peso::block::getptrv(undef,$ptr);
+    $v0=peso::block::getv(undef,$ptr);
     if($v1 eq 'self') {$v1=$v0;};
 
     # execute
     $v0=$proc->($v0,$v1);
-    peso::block::setptrv(undef,$ptr,$v0);
+    peso::block::setv(undef,$ptr,$v0);
 
 };
 
@@ -711,10 +724,10 @@ sub mop_ari {
   my ($ptr0,$ptr1)=($op0->val,$op1->val);
 
   # decode ptr
-  my $v0=peso::block::getptrv(undef,$ptr0);
-  my $v1=peso::block::getptrv(undef,$ptr1);
+  my $v0=peso::block::getv(undef,$ptr0);
+  my $v1=peso::block::getv(undef,$ptr1);
 
-  peso::block::setptrv(
+  peso::block::setv(
     undef,$ptr0,$ptr1
 
   );
@@ -1006,18 +1019,9 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-#  peso::block::ex();
-#  peso::block::clan('non')
-#    ->prich();
-
-my $non=peso::block::clan('non');
-my $type=$non->elems->{'type'};
-
-printf ''.(
-
-join ',',@$type
-
-)."\n";
+  peso::block::ex();
+  peso::block::clan('non')
+    ->prich();
 
   return;
 
