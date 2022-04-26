@@ -175,7 +175,7 @@ sub loadins {
 
   my $ref=shift;my $i=0;
   for my $key(keys %$ref) {
-    push @{$CACHE{-INS}},$ref->{$key}->[1];
+    push @{$CACHE{-INS}},$ref->{$key};
     $CACHE{-INS_KEY}->{$key}=$i;$i++;
 
   };
@@ -315,7 +315,7 @@ sub exnext {
   $arg=$arg->dup();
 
   # execute instruction
-  $CACHE{-INS}->[$ins]->($arg);
+  $CACHE{-INS}->[$ins]->ex($arg);
 
   # increase stack ptr if !jmp
   if($i == nxins()) {incnxins();};
@@ -738,11 +738,13 @@ sub refsolve_rec {
   my $pesonames=peso::defs::names;
 
   if($node->val=~ m/${pesonames}*/) {
-    $node->{-VAL}
-      =peso::ptr::fetch(
-      $node->val
 
-    )->addr;
+    my $ptr=peso::ptr::fetch($node->val);
+
+    if(peso::ptr::valid($ptr)) {
+      $node->{-VAL}=$ptr->addr;
+
+    };
 
   } else {
     for my $leaf(@{$node->leaves}) {
@@ -765,7 +767,6 @@ sub refsolve_rec {
 sub treesolve {
 
   my $node=shift;
-  my $blk_deref=shift;
   my $type=shift;
 
   my $pesc=peso::defs::pesc;
@@ -775,8 +776,8 @@ sub treesolve {
   if($type) {peso::ptr::wed($type);};
 
 # ---   *   ---   *   ---
+# iter tree
 
-  # iter tree
   for my $leaf(@{$node->leaves},$node) {
 
     # skip $:escaped;>
@@ -795,10 +796,10 @@ sub treesolve {
   };
 
 # ---   *   ---   *   ---
+# restore cast and dereference pointers
 
-  # restore cast and dereference pointers
   peso::ptr::wed($wed);
-  ptrderef_rec($node,$blk_deref);
+  ptrderef_rec($node);
 
 };
 
@@ -809,36 +810,18 @@ sub treesolve {
 sub ptrderef_rec {
 
   my $node=shift;
-  my $block_ptr=shift;
 
 # ---   *   ---   *   ---
 # value is ptr dereference
 
   if($node->val eq '[') {
+    $node->{-VAL}
+      =peso::ptr::fetch(
+      $node->leaves->[0]->val
 
-    # is ptr to block
-    # DEPRECATED, it's the same call now
-    # ill correct things later
-    if($block_ptr) {
+    )->value;
 
-      $node->{-VAL}
-        =peso::ptr::fetch(
-        $node->leaves->[0]->val
-
-      )->value;
-
-# ---   *   ---   *   ---
-# ptr to value
-
-    } else {
-
-      $node->{-VAL}
-        =peso::ptr::fetch(
-        $node->leaves->[0]->val
-
-      )->value;
-
-    };$node->pluck(@{$node->leaves});
+    $node->pluck(@{$node->leaves});
 
 # ---   *   ---   *   ---
 # not a pointer derefernce: go to next level

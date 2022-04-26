@@ -65,6 +65,7 @@ sub update {
       '/peso/node.pm',
       '/peso/ptr.pm',
       '/peso/block.pm',
+      '/peso/symbol.pm',
 
       '/stack.pm',
       '/avt.pm'

@@ -175,6 +175,41 @@ sub branch_reloc {
 
 # ---   *   ---   *   ---
 
+sub group {
+
+  my $self=shift;
+  my $idex=shift;
+  my $sub=shift;
+
+  # errchk
+  if(!@{$self->leaves}) {
+
+    printf
+
+      "Node <".$self->val.
+      "> has no children\n";
+
+    exit;
+
+  };
+
+# ---   *   ---   *   ---
+# get nth group
+
+  my $group=$self->leaves->[$idex];
+
+  # get nth element in group
+  if(defined $sub) {
+
+    my $node=$group->leaves->[$sub];
+    return $node;
+
+  };return $group;
+
+};
+
+# ---   *   ---   *   ---
+
 # {} open/close
 
 sub ocurl {

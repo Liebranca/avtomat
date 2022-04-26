@@ -10,6 +10,7 @@
   use peso::ptr;
   use peso::node;
   use peso::block;
+  use peso::symbol;
 
 my %PESO=(
 
@@ -153,19 +154,13 @@ $MAM{-EXTAB}={
 # ---   *   ---   *   ---
 
 # set namespace
-'clan'=>[
+'clan'=>peso::symbol::nit(
 
-  undef,
+  'clan','1<bare>',
+
   sub {
 
-  my $node=shift;
-
-  # get value of first grandchild
-  my $name=$node
-    ->leaves->[0]
-    ->leaves->[0]
-    ->val;
-
+  my $name=shift;
   my $dst=peso::block::clan('non');
 
 # ---   *   ---   *   ---
@@ -191,23 +186,18 @@ $MAM{-EXTAB}={
 
   },
 
-],
+),
 
 # ---   *   ---   *   ---
 
 # new data block
-'reg'=>[
+'reg'=>peso::symbol::nit(
 
-  undef,
+  'reg','1<bare>',
+
   sub {
 
-  my $node=shift;
-
-  # get value of first grandchild
-  my $name=$node
-    ->leaves->[0]
-    ->leaves->[0]
-    ->val;
+  my $name=shift;
 
   # get dst
   my $dst=($MAM{-DST}->attrs)
@@ -243,24 +233,18 @@ $MAM{-EXTAB}={
 
   }
 
-],
+),
 
 # ---   *   ---   *   ---
 
 # new code block
-'proc'=>[
+'proc'=>peso::symbol::nit(
 
-  undef,
+  'proc','1<bare>',
 
   sub {
 
-  my $node=shift;
-
-  # get value of first grandchild
-  my $name=$node
-    ->leaves->[0]
-    ->leaves->[0]
-    ->val;
+  my $name=shift;
 
   # get dst
   my $dst=($MAM{-DST}->attrs)
@@ -275,7 +259,7 @@ $MAM{-EXTAB}={
   # append new block to dst on first pass
   if(peso::block::fpass()) {
     $blk=$dst->nit(
-      $name,peso::block->O_WREX,
+      $name,peso::block->O_EX,
 
     );
 
@@ -294,7 +278,7 @@ $MAM{-EXTAB}={
 
   }
 
-],
+),
 
 # ---   *   ---   *   ---
 
@@ -461,7 +445,7 @@ $PESO{-VARS}->[0]->[1]=>[
 
 # ---   *   ---   *   ---
 
-'cl'=>[
+'clr'=>[
 
   undef,
   sub {
@@ -487,12 +471,7 @@ $PESO{-VARS}->[0]->[1]=>[
   sub {
 
     my $node=shift;
-    peso::ptr::wed(
-      $node->leaves
-      ->[0]->leaves
-      ->[0]->val
-
-    );
+    peso::ptr::wed($node->group(0,0)->val);
 
   },
 
@@ -520,11 +499,7 @@ $PESO{-VARS}->[0]->[1]=>[
   sub {
 
   my $node=shift;
-  my $op0
-
-    =$node
-    ->leaves->[0]
-    ->leaves->[0];
+  my $op0=$node->group(0,0);
 
   peso::block::treesolve($op0);
   peso::block::spush($op0->val);
@@ -540,17 +515,8 @@ $PESO{-VARS}->[0]->[1]=>[
 
   my $node=shift;
 
-  my $op0
-
-    =$node
-    ->leaves->[0]
-    ->leaves->[0];
-
-  my $op1
-
-    =$node
-    ->leaves->[0]
-    ->leaves->[1];
+  my $op0=$node->group(0,0);
+  my $op1=$node->group(0,1);
 
   peso::block::treesolve($op0);
   my $v=peso::block::spop();
@@ -580,16 +546,11 @@ $PESO{-VARS}->[0]->[1]=>[
 
     my $node=shift;
     peso::block::treesolve(
-      $node->leaves->[0],
-      1,'unit'
+      $node->leaves->[0],'unit'
 
     );
 
-    my $ptr
-      =$node
-      ->leaves->[0]
-      ->leaves->[0]
-      ->val;
+    my $ptr=$node->group(0,0)->val;
 
 # ---   *   ---   *   ---
 
@@ -603,37 +564,28 @@ $PESO{-VARS}->[0]->[1]=>[
 
 # ---   *   ---   *   ---
 
-'entry'=>[
+'entry'=>peso::symbol::nit(
 
-  undef,
+  'entry','1<bare>',
+
   sub {
 
-    my $node=shift;
-
-    my $val
-      =$node->leaves->[0]
-      ->leaves->[0]
-      ->val;
-
-    peso::block::entry($val);
+  my $name=shift;
+  peso::block::entry($name);
 
   },
 
-],
+),
 
 # ---   *   ---   *   ---
 
-'exit'=>[
+'exit'=>peso::symbol::nit(
 
-  undef,
+  'exit','1<bare>',
+
   sub {
 
-    my $node=shift;
-
-    my $val
-      =$node->leaves->[0]
-      ->leaves->[0]
-      ->val;
+    my $val=shift;
 
     # placeholder!
     printf sprintf "Exit code <0x%.2X>\n",$val;
@@ -641,7 +593,7 @@ $PESO{-VARS}->[0]->[1]=>[
 
   },
 
-],
+),
 
 # ---   *   ---   *   ---
 
@@ -675,16 +627,13 @@ sub sop_ari {
     my $shf=0;
 
     # firstborn grandchild
-    my $fbgch
-      =$node->leaves
-      ->[0]->leaves
-      ->[0];
+    my $fbgch=$node->group(0,0);
 
 # ---   *   ---   *   ---
 
     # collapse tree
     peso::block::treesolve(
-      $node->leaves->[0],0
+      $node->leaves->[0]
 
     );my $ptr=$fbgch->val;
 
@@ -706,20 +655,11 @@ sub mop_ari {
   my $node=shift;
   my $deref=shift;
 
-  my $op0
+  my $op0=$node->group(0,0);
+  my $op1=$node->group(0,1);
 
-    =$node->leaves
-    ->[0]->leaves
-    ->[0];
-
-  my $op1
-
-    =$node->leaves
-    ->[0]->leaves
-    ->[1];
-
-  peso::block::treesolve($op0,$deref->[0]);
-  peso::block::treesolve($op1,$deref->[1]);
+  peso::block::treesolve($op0);
+  peso::block::treesolve($op1);
 
   my ($ptr0,$ptr1)=($op0->val,$op1->val);
 
@@ -810,7 +750,7 @@ sub peso_rd {
 
     # determine expath from key and context
 
-    my @expath=(undef,undef);
+    my $expath=undef;
     { my $i=0;for my $p(
 
         $directive,
@@ -845,18 +785,11 @@ sub peso_rd {
 
         $k=~ s/\s+$//;
         if(exists $tab->{$k}) {
-          @expath=@{ $tab->{$k} };
+          $expath=$tab->{$k};
 
         };
 
       };
-    };
-
-# ---   *   ---   *   ---
-
-    if($expath[0]) {
-      $expath[0]->($root,$key);
-
     };
 
 # ---   *   ---   *   ---
@@ -898,7 +831,7 @@ sub peso_rd {
 
       ) {
 
-        $expath[1]->($root,$key);
+        $expath->ex($root,$key);
 
         # save data initializer
         # run on second pass
@@ -906,7 +839,7 @@ sub peso_rd {
 
           push(
             @$program,
-            [$expath[1],$root,$key]
+            [$expath,$root,$key]
 
           );
         };
@@ -918,7 +851,7 @@ sub peso_rd {
 
         # initialize
         if($root->val=~ m/proc/) {
-          $expath[1]->($root,$key);
+          $expath->ex($root);
 
         # encode instruction
         } else {
@@ -928,7 +861,7 @@ sub peso_rd {
 
           if($root->val=~ m/$primitive/) {
 
-            $expath[1]->($root,$key);
+            $expath->ex($root);
 
             my $dst=$MAM{-DST};
 
@@ -940,7 +873,7 @@ sub peso_rd {
 
             push(
               @$program,
-              [$expath[1],$root,$key]
+              [$expath,$root,$key]
 
             );next;
 
@@ -1010,10 +943,16 @@ sub peso_rd {
   for my $ref(@$program) {
     my @ar=@{$ref};
 
-    my $call=shift @ar;
+    my $sym=shift @ar;
     my @args=@ar;
 
-    $call->(@args);
+    if(peso::symbol::valid($sym)) {
+      $sym->ex(@args);
+
+    } else {
+      $sym->(@args);
+
+    };
 
   };
 

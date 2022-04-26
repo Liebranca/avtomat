@@ -19,6 +19,8 @@ package peso::ptr;
   use lib $ENV{'ARPATH'}.'/lib/';
   use peso::defs;
 
+  use Scalar::Util qw/blessed/;
+
 # ---   *   ---   *   ---
 # global state
 
@@ -60,6 +62,19 @@ sub blk {return (shift)->{-BLK};};
 
 sub shf {return (shift)->{-SHF};};
 sub elem_sz {return (shift)->{-ELEM_SZ};};
+
+# ---   *   ---   *   ---
+# check value is an instance of this class
+
+sub valid {
+
+  my $ptr=shift;
+  if(blessed($ptr) && $ptr->isa('peso::ptr')) {
+    return 1;
+
+  };return 0;
+
+};
 
 # ---   *   ---   *   ---
 # dereference ptr
@@ -734,7 +749,7 @@ sub anonnit {
     -SLOT=>-1,
     -IDEX=>$idex,
     -MASK=>$mask,
-    -TYPE=>'anon',
+    -TYPE=>wed('get'),
 
     -SHF=>$shf,
 
