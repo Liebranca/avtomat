@@ -39,6 +39,7 @@ sub INS {return $CACHE{-INS};};
 sub name {return (shift)->{-NAME};};
 sub args {return (shift)->{-ARGS};};
 sub argc {return (shift)->{-ARGC};};
+
 sub code {return (shift)->{-CODE};};
 
 sub num_fields {return (shift)->{-NUM_FIELDS};};
@@ -93,7 +94,7 @@ sub nit {
     # last field
     if(
 
-       ($opt || $varargs)
+       ($opt)
     && $arg ne $args[-1]
 
     ) {
@@ -102,8 +103,7 @@ sub nit {
 
         "Can't make symbol '$name': ".
 
-        "optional and variable-number ".
-        "arguments only allowed on ".
+        "optional arguments only allowed on ".
         "last field\n";
 
       exit;
@@ -256,9 +256,17 @@ sub ex {
     my $count=$arg->{-COUNT};
 
 # ---   *   ---   *   ---
-# check field has *enough* elements
+# get next field
 
     my $field=$node->group($j);
+
+    if(!$field && $arg->{-OPT}) {
+      last;
+
+    };
+
+# ---   *   ---   *   ---
+# check field has *enough* elements
 
     if(
 
@@ -281,7 +289,7 @@ sub ex {
 # only the loop changes between paths
 # so just shove the proc into a code ref
 
-    my $i=0;
+    my $i=0;my @field_args=();
     my $consume_arg=sub {
 
       my $leaf=$field->leaves->[$i];
@@ -292,7 +300,7 @@ sub ex {
       $self->arg_typechk(
         $leaf->val,$type
 
-      );push @args,$leaf->val;$i++;
+      );push @field_args,$leaf->val;$i++;
 
     };
 
@@ -317,11 +325,12 @@ sub ex {
       };
     };
 
-  };
-
 # ---   *   ---   *   ---
+# pass arguments for each field as
+# a list of array references
 
-  $self->code->(@args);
+    push @args,\@field_args;
+  };$self->code->($node->val,@args);
 
 };
 

@@ -160,7 +160,9 @@ $MAM{-EXTAB}={
 
   sub {
 
-  my $name=shift;
+  my $inskey=shift;
+  my $name=(shift)->[0];
+
   my $dst=peso::block::clan('non');
 
 # ---   *   ---   *   ---
@@ -197,7 +199,8 @@ $MAM{-EXTAB}={
 
   sub {
 
-  my $name=shift;
+  my $inskey=shift;
+  my $name=(shift)->[0];
 
   # get dst
   my $dst=($MAM{-DST}->attrs)
@@ -241,7 +244,8 @@ $MAM{-EXTAB}={
 
   sub {
 
-  my $name=shift;
+  my $inskey=shift;
+  my $name=(shift)->[0];
 
   # get dst
   my $dst=($MAM{-DST}->attrs)
@@ -277,126 +281,102 @@ $MAM{-EXTAB}={
 
 # ---   *   ---   *   ---
 
-$PESO{-VARS}->[0]->[1]=>[
+$PESO{-VARS}->[0]->[1]=>peso::symbol::nit(
 
-  undef,
+  'value_decl','-1<bare>:*-1<bare|ptr>',
 
   sub {
 
-    my $node=shift;
-    my $dst=$MAM{-DST};
+  my $inskey=shift;
 
-    my $key=shift;
-    my $skey=undef;
+  my $names=shift;
+  my $values=shift;
 
-    my $intrinsic=$PESO{-VARS}->[1]->[1];
+  my $dst=$MAM{-DST};
+
+  my $skey=undef;
+  my $intrinsic=$PESO{-VARS}->[1]->[1];
 
 # ---   *   ---   *   ---
 
-    if($key=~ s/${intrinsic}//) {
-      my $ins=$1;
+  if($inskey=~ s/${intrinsic}//) {
+    my $ins=$1;
 
-      if($ins eq 'ptr') {
-        $skey='unit';
+    if($ins eq 'ptr') {
+      $skey='unit';
 
-      };
     };
+  };
 
-    $key=~ s/\s+$//;
+  $inskey=~ s/\s+$//;
 
-    my $wed=peso::ptr::wed('get');
-    peso::ptr::wed($key);
-
-# ---   *   ---   *   ---
-
-    # fetch values from tree
-    my @line=();
-
-    { my $ref=$node->leaves;
-      my @values=();
-      my @names=();
-
-      # get names of offsets
-      for my $leaf(@{ $ref->[0]->leaves }) {
-        push @names,$leaf->val;
-
-      };
+  my $wed=peso::ptr::wed('get');
+  peso::ptr::wed($inskey);
 
 # ---   *   ---   *   ---
+# fill out values with zeroes if need
 
-      # get values at offsets
-      if(!defined $ref->[1]) {
-        for(my $i=0;$i<@names;$i++) {
-          push @values,0;
+  my @line=();
 
-        };
+  if(!defined $values) {
 
-# ---   *   ---   *   ---
+    $values=[];
 
-      } else {
-
-        for my $leaf(@{ $ref->[1]->leaves }) {
-
-          # solve non-numeric expressions
-          if(
-
-             !peso::block::fpass()
-          && !($leaf->val=~ m/[0-9]+/)
-
-          ) {
-
-            peso::block::refsolve_rec($leaf);
-            $leaf->collapse();
-
-          };
-
-# ---   *   ---   *   ---
-
-          # numeric expression
-          if(defined $leaf) {
-            push @values,$leaf->val;
-
-          # null
-          } else {
-            push @values,0;
-
-          };
-
-        };
-      };
-
-# ---   *   ---   *   ---
-
-      # make [name,value] ref array
-      my $i=0;
-      for my $name(@names) {
-
-        my $value=(defined $values[$i])
-          ? $values[$i]
-          : 0
-          ;
-
-        $line[$i]=[$name,$value];$i++;
-
-      };
+    for(my $i=0;$i<@$names;$i++) {
+      push @$values,0;
 
     };
 
+  };
+
 # ---   *   ---   *   ---
+# make [name,value] ref array
+
+  my $i=0;
+  for my $name(@$names) {
+
+    my $value=(defined $values->[$i])
+      ? $values->[$i]
+      : 0
+      ;
+
+    $line[$i]=[$name,$value];$i++;
+
+  };
+
+# ---   *   ---   *   ---
+# grow block on first pass
+
+  if(peso::block::fpass()) {
 
     # alternate storage type
     if(defined $skey) {
-      $key=$skey;
+      $inskey=$skey;
 
     };
 
     # grow the block
-    $dst->expand(\@line,$key);
-    peso::ptr::wed($wed);
+    $dst->expand(\@line,$inskey);
+
+# ---   *   ---   *   ---
+# initialize/overwrite values on second pass
+
+  } else {
+
+    for my $pair(@line) {
+
+      my $ptr=$pair->[0];
+      my $value=$pair->[1];
+
+      $ptr->setv($value);
+
+    };
+
+  };
 
   },
 
-],
+),
 
 # ---   *   ---   *   ---
 
@@ -405,14 +385,14 @@ $PESO{-VARS}->[0]->[1]=>[
   undef,
   sub {
 
-    my $node=shift;
+  my $node=shift;
 
-    sop_ari(
+  sop_ari(
 
-      $node,1,
-      sub {return (shift)+(shift);}
+    $node,1,
+    sub {return (shift)+(shift);}
 
-    );
+  );
 
   },
 
@@ -425,14 +405,14 @@ $PESO{-VARS}->[0]->[1]=>[
   undef,
   sub {
 
-    my $node=shift;
+  my $node=shift;
 
-    sop_ari(
+  sop_ari(
 
-      $node,1,
-      sub {return (shift)-(shift);}
+    $node,1,
+    sub {return (shift)-(shift);}
 
-    );
+  );
 
   },
 
@@ -445,14 +425,14 @@ $PESO{-VARS}->[0]->[1]=>[
   undef,
   sub {
 
-    my $node=shift;
+  my $node=shift;
 
-    sop_ari(
+  sop_ari(
 
-      $node,'self',
-      sub {return (shift)^(shift);}
+    $node,'self',
+    sub {return (shift)^(shift);}
 
-    );
+  );
 
   },
 
@@ -465,8 +445,8 @@ $PESO{-VARS}->[0]->[1]=>[
   undef,
   sub {
 
-    my $node=shift;
-    peso::ptr::wed($node->group(0,0)->val);
+  my $node=shift;
+  peso::ptr::wed($node->group(0,0)->val);
 
   },
 
@@ -479,8 +459,8 @@ $PESO{-VARS}->[0]->[1]=>[
   undef,
   sub {
 
-    my $node=shift;
-    peso::ptr::wed(undef);
+  my $node=shift;
+  peso::ptr::wed(undef);
 
   },
 
@@ -540,12 +520,14 @@ $PESO{-VARS}->[0]->[1]=>[
 
   sub {
 
-    # set instruction index to ptr loc
-    my $ptr=shift;
-    peso::block::setnxins(
-      $ptr->blk->insid
+  my $inskey=shift;
+  my $ptr=(shift)->[0];
 
-    );
+  # set instruction index to ptr loc
+  peso::block::setnxins(
+    $ptr->blk->insid
+
+  );
 
   },
 
@@ -559,7 +541,9 @@ $PESO{-VARS}->[0]->[1]=>[
 
   sub {
 
-  my $name=shift;
+  my $inskey=shift;
+  my $name=(shift)->[0];
+
   peso::block::entry($name);
 
   },
@@ -574,11 +558,12 @@ $PESO{-VARS}->[0]->[1]=>[
 
   sub {
 
-    my $val=shift;
+  my $inskey=shift;
+  my $val=(shift)->[0];
 
-    # placeholder!
-    printf sprintf "Exit code <0x%.2X>\n",$val;
-    peso::block::setnxins(-2);
+  # placeholder!
+  printf sprintf "Exit code <0x%.2X>\n",$val;
+  peso::block::setnxins(-2);
 
   },
 
