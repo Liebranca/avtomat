@@ -16,6 +16,7 @@ package peso::symbol;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
+  use peso::defs;
   use peso::ptr;
   use peso::block;
 
@@ -175,47 +176,53 @@ sub nit {
 };
 
 # ---   *   ---   *   ---
+# check that elements in field correspond
+# to valid argument types for symbol
 
 sub arg_typechk {
 
   my $self=shift;
-  my $addr=shift;
-  my $type=shift;
+  my $val=shift;
+  my $types=shift;
 
-  if($type eq 'bare') {
-    return;
+  my $pesonames=peso::defs::names;
 
-  };
+# ---   *   ---   *   ---
 
-  my $ptr=peso::ptr::fetch($addr);
-  if(!peso::ptr::valid($ptr)) {
+  my $valid=0;
+  for my $type(split '\|',$types) {
 
-    printf sprintf
-      "ADDR <0x%X> is not a pointer\n",
-      $addr;
+    if($type eq 'ptr') {
+       $valid=peso::ptr::valid($val);
 
-    exit;
+    # either a string or common numerical value
+    } elsif($type eq 'bare') {
+      $valid
 
-  };
+        =int($val=~ m/${pesonames}*/)
+        |int($val=~ m/-?[0-9]+/);
 
-  if(
+    };
 
-     defined $type
-  && defined $ptr->type
+    if($valid) {
+      return;
 
-  && $type ne $ptr->type
-
-  ) {
-
-    printf
-
-      "Bad type for symbol '".
-      $self->name.
-      "'\n";
-
-    exit;
+    };
 
   };
+
+# ---   *   ---   *   ---
+# errme
+
+  printf sprintf
+
+    "Invalid argument type for symbol '%s'\n".
+    "Valid types are: %s\n",
+
+    $self->name,
+    (join ' or ',(split '\|',$types));
+
+  exit;
 
 };
 
@@ -271,24 +278,31 @@ sub ex {
     };$j++;
 
 # ---   *   ---   *   ---
-# consume only up to count elements
+# only the loop changes between paths
+# so just shove the proc into a code ref
 
     my $i=0;
+    my $consume_arg=sub {
+
+      my $leaf=$field->leaves->[$i];
+      my $type=$arg->{-TYPES}->[$i];
+
+      peso::block::treesolve($field);
+
+      $self->arg_typechk(
+        $leaf->val,$type
+
+      );push @args,$leaf->val;$i++;
+
+    };
+
+# ---   *   ---   *   ---
+# consume only up to count elements
+
     if(!$arg->{-VARARGS}) {
 
       for(my $x=0;$x<$count;$x++) {
-        my $leaf=$field->leaves->[$i];
-        my $type=$arg->{-TYPES}->[$i];
-
-        if($type ne 'bare') {
-          peso::block::treesolve($field);
-
-        };
-
-        $self->arg_typechk(
-          $leaf->val,$type
-
-        );push @args,$leaf->val;$i++;
+        $consume_arg->();
 
       };
 
@@ -298,12 +312,7 @@ sub ex {
     } else {
 
       while($i<@{$field->leaves}) {
-        my $v=$field->leaves->[$i]->val;
-
-        $self->arg_typechk(
-          $v,$arg->{-TYPES}->[$i]
-
-        );push @args,$v;$i++;
+        $consume_arg->();
 
       };
     };

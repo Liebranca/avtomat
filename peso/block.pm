@@ -126,6 +126,7 @@ sub setscope {
   };
 
 # ---   *   ---   *   ---
+# add scope names to list
 
   my @ar=($CACHE{-SELF}->ances);
   if(defined $CACHE{-CURR}) {
@@ -137,8 +138,22 @@ sub setscope {
       push @ar,$curr->par->ances;
 
     };
+
   };
 
+# ---   *   ---   *   ---
+# ensure global scope is... well, global
+
+  my $hasnon=0;
+  for my $name(@ar) {
+    if($name eq 'non') {
+      $hasnon=1;
+      last;
+
+    };
+  };
+
+  if(!$hasnon) {push @ar,'non';};
   peso::ptr::setscope(@ar);
 
 };
@@ -739,10 +754,10 @@ sub refsolve_rec {
 
   if($node->val=~ m/${pesonames}*/) {
 
-    my $ptr=peso::ptr::fetch($node->val);
+    if(fpass()) {return;}
 
-    if(peso::ptr::valid($ptr)) {
-      $node->{-VAL}=$ptr->addr;
+    elsif(peso::ptr::valid($node->{-VAL})) {
+      $node->{-VAL}=$node->val->addr;
 
     };
 
@@ -804,7 +819,7 @@ sub treesolve {
 };
 
 # ---   *   ---   *   ---
-# in:tree,is ptr to block
+# in: tree
 # recursively solve pointer dereferences
 
 sub ptrderef_rec {

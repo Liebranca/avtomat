@@ -218,11 +218,8 @@ $MAM{-EXTAB}={
 
   # second pass: look for block
   } else {
+    $blk=$name->blk;
 
-    $blk=peso::ptr::fetch(
-      $dst->ances."\@$name"
-
-    )->blk;
   };
 
 # ---   *   ---   *   ---
@@ -265,10 +262,8 @@ $MAM{-EXTAB}={
 
   # second pass: look for block
   } else {
-    $blk=peso::ptr::fetch(
-      $dst->ances."\@$name"
+    $blk=$name->blk;
 
-    )->blk;
   };
 
 # ---   *   ---   *   ---
@@ -539,28 +534,22 @@ $PESO{-VARS}->[0]->[1]=>[
 
 # ---   *   ---   *   ---
 
-'jmp'=>[
+'jmp'=>peso::symbol::nit(
 
-  undef,
+  'jmp','1<ptr>',
+
   sub {
 
-    my $node=shift;
-    peso::block::treesolve(
-      $node->leaves->[0],'unit'
+    # set instruction index to ptr loc
+    my $ptr=shift;
+    peso::block::setnxins(
+      $ptr->blk->insid
 
     );
 
-    my $ptr=$node->group(0,0)->val;
-
-# ---   *   ---   *   ---
-
-    # get block and set ins ptr
-    my $dst=peso::ptr::fetch($ptr)->blk;
-    peso::block::setnxins($dst->insid);
-
   },
 
-],
+),
 
 # ---   *   ---   *   ---
 
@@ -581,7 +570,7 @@ $PESO{-VARS}->[0]->[1]=>[
 
 'exit'=>peso::symbol::nit(
 
-  'exit','1<bare>',
+  'exit','1<bare|ptr>',
 
   sub {
 
@@ -819,6 +808,8 @@ sub peso_rd {
     # save instructions
     if(!$root->{-PAR}) {
 
+      push @tree,$root;
+
       # context swapping
       if($key=~ m/(reg|proc|clan)/) {
         $MAM{-CNTX}=$1;
@@ -938,6 +929,17 @@ sub peso_rd {
   };
 
 # ---   *   ---   *   ---
+# replace names with ptr references
+# we only do this once all names are declared
+
+  for my $root(@tree) {
+    $root->findptrs();
+
+  };
+
+# ---   *   ---   *   ---
+# run second pass to set values
+# memory is already reserved
 
   peso::block::incpass();
   for my $ref(@$program) {
@@ -957,6 +959,7 @@ sub peso_rd {
   };
 
 # ---   *   ---   *   ---
+# execute and print memory
 
   peso::block::ex();
   peso::block::clan('non')

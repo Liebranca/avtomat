@@ -68,10 +68,14 @@ sub elem_sz {return (shift)->{-ELEM_SZ};};
 
 sub valid {
 
-  my $ptr=shift;
-  if(blessed($ptr) && $ptr->isa('peso::ptr')) {
-    return 1;
+  my $ptr=shift;if(
 
+     blessed($ptr)
+  && $ptr->isa('peso::ptr')
+
+  ) {
+
+    return 1;
   };return 0;
 
 };
@@ -408,6 +412,7 @@ sub setscope {
     push @{$CACHE{-LSCOPE_NAMES}},$name;
 
   };
+
 };
 
 # ---   *   ---   *   ---

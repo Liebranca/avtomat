@@ -20,6 +20,7 @@ package peso::node;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use peso::defs;
+  use peso::ptr;
 
 # ---   *   ---   *   ---
 
@@ -1279,6 +1280,39 @@ SKIP:{
   goto TOP;
 
 }};
+
+# ---   *   ---   *   ---
+# fetches names from ext module
+# replaces these names with ptr references
+
+sub findptrs {
+
+  my $self=shift;
+
+  my $pesc=peso::defs::pesc;
+  my $pesonames=peso::defs::names;
+
+# ---   *   ---   *   ---
+# iter leaves
+
+  for my $leaf(@{$self->leaves}) {
+
+    $leaf->findptrs();
+
+    # skip $:escaped;>
+    if($leaf->val=~ m/${pesc}/) {
+      next;
+
+    };
+
+    # solve/fetch non-numeric values
+    if($leaf->val=~ m/${pesonames}*/) {
+      $leaf->{-VAL}=peso::ptr::fetch($leaf->val);
+
+    };
+  };
+
+};
 
 # ---   *   ---   *   ---
 
