@@ -347,6 +347,7 @@ $PESO{-VARS}->[0]->[1]=>peso::symbol::nit(
 # ---   *   ---   *   ---
 # alternate storage type
 
+  my $ptrtype=$inskey;
   if(defined $skey) {
     $inskey=$skey;
 
@@ -370,7 +371,15 @@ $PESO{-VARS}->[0]->[1]=>peso::symbol::nit(
       my $ptr=$pair->[0];
       my $value=$pair->[1];
 
-      peso::ptr::fetch($ptr)->setv($value);
+      $ptr=peso::ptr::fetch($ptr);
+      $ptr->mask_to($ptrtype);
+
+      if(!$value && $inskey eq 'unit') {
+        $value=peso::ptr->NULL;
+
+      };
+
+      $ptr->setv($value);
 
     };
 
@@ -448,7 +457,7 @@ $PESO{-VARS}->[0]->[1]=>peso::symbol::nit(
   sub {
 
   my $inskey=shift;
-  my $type=shift;
+  my $type=(shift)->[0];
 
   peso::ptr::wed($type);
 
@@ -464,8 +473,6 @@ $PESO{-VARS}->[0]->[1]=>peso::symbol::nit(
   sub {
 
   my $inskey=shift;
-  my $type=shift;
-
   peso::ptr::wed(undef);
 
   },
@@ -905,7 +912,7 @@ sub peso_rd {
             [$iname,$iidex],
             [$nname,$nidex],
 
-          ],'unit');
+          ],'long');
 
           push(
             @$program,
@@ -917,7 +924,7 @@ sub peso_rd {
               [ [$iname,$iidex],
                 [$nname,$nidex] ],
 
-              'unit'
+              'long'
 
             ]
           );

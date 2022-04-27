@@ -458,7 +458,7 @@ sub addchld {
 
   );
 
-  $self->expand(\@line,'unit',$bypass);
+  $self->expand(\@line,'long',$bypass);
   $self->children->[$i]=$blk;
   $blk->{-PAR}=$self;
 
@@ -718,20 +718,6 @@ sub getv {
 };
 
 # ---   *   ---   *   ---
-# in: name,value
-# save to address
-
-sub setptrv {
-
-  my $self=shift;
-  my $name=shift;
-  my $value=shift;
-
-  peso::ptr::fetch($name)->setv($value);
-
-};
-
-# ---   *   ---   *   ---
 # in: name to fetch
 # returns addr assoc with name
 
@@ -755,6 +741,8 @@ sub refsolve_rec {
   my $is_ptr=peso::ptr::valid($node->val);
   my $is_name=$node->val=~ m/${pesonames}*/;
 
+# ---   *   ---   *   ---
+
   if($is_name || $is_ptr) {
 
     if(fpass()) {
@@ -764,6 +752,8 @@ sub refsolve_rec {
       $node->{-VAL}=$node->val->addr;
 
     };
+
+# ---   *   ---   *   ---
 
   } else {
     for my $leaf(@{$node->leaves}) {
@@ -807,7 +797,6 @@ sub treesolve {
 
     # solve/fetch non-numeric values
     if(!($leaf->val=~ m/^[0-9]+/)) {
-
       refsolve_rec($leaf);
       $leaf->collapse();
 
@@ -818,8 +807,10 @@ sub treesolve {
 # ---   *   ---   *   ---
 # restore cast and dereference pointers
 
-  peso::ptr::wed($wed);
   ptrderef_rec($node);
+  $node->collapse();
+
+  peso::ptr::wed($wed);
 
 };
 
@@ -843,7 +834,6 @@ sub ptrderef_rec {
       $node->{-VAL}=$leaf->val->getv();
 
     } else {
-
       $node->{-VAL}
         =peso::ptr::fetch($leaf->val)->getv();
 

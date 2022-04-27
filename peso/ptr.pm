@@ -22,6 +22,20 @@ package peso::ptr;
   use Scalar::Util qw/blessed/;
 
 # ---   *   ---   *   ---
+
+  use constant {
+
+    MEMPTR=>0xFFB10C<<40,
+
+    MEMPTR_SZBYTE=>0xFF<<32,
+    MEMPTR_SZMASK=>0x08<<32,
+
+  };use constant {
+    NULL=>MEMPTR|MEMPTR_SZMASK|0x00
+
+  };
+
+# ---   *   ---   *   ---
 # global state
 
 my %CACHE=(
@@ -56,6 +70,31 @@ sub gname {return (shift)->{-GNAME};};
 sub type {return (shift)->{-TYPE};};
 sub idex {return (shift)->{-IDEX};};
 sub mask {return (shift)->{-MASK};};
+
+# ---   *   ---   *   ---
+# force size params for ptr to value
+
+sub mask_to {
+
+  my $self=shift;
+  my $type=shift;
+
+  my $wed=wed('get');
+  wed($type);
+
+  my $mask=$self->mask;
+  my $elem_sz=$self->elem_sz;
+
+  wedcast($self->shf,\$mask,\$elem_sz);
+  wed($wed);
+
+  $self->{-PTR_MASK}=$mask;
+  $self->{-PTR_ELEM_SZ}=$elem_sz;
+
+};
+
+# ---   *   ---   *   ---
+
 sub scope {return (shift)->{-SCOPE};};
 sub slot {return (shift)->{-SLOT};};
 sub blk {return (shift)->{-BLK};};
@@ -86,16 +125,27 @@ sub valid {
 sub valid_addr {
 
   my $addr=shift;
+  if($addr eq NULL) {
+    return 0;
+
+  };
+
   if(is_named_ptr($addr)) {
     return 1;
 
   };
 
   my $data=decode($addr);
-  if(defined MEM->[$data->[0]]) {
+  if(
+
+     defined MEM->[$data->[0]]
+  && (($addr& MEMPTR) eq MEMPTR)
+  && ($addr& MEMPTR_SZBYTE)
+
+  ) {
     return 1;
 
-  };
+  };return 0;
 
 };
 
@@ -106,8 +156,18 @@ sub getv {
 
   my $self=shift;
 
+  if($self->addr eq NULL) {
+
+    printf
+      "Can't read from %s (null ptr)\n",
+      $self->gname;
+
+    return 0;
+
+  };
+
   my $elem_sz=$self->bytesz;
-  my $mask=$self->mask>>$self->shf;
+  my $mask=$self->mask;
 
   # handle type-casts
   wedcast($self->shf,\$mask,\$elem_sz);
@@ -123,8 +183,10 @@ sub getv {
 # ---   *   ---   *   ---
 # check cross-unit reads
 
-  $mask=$self->mask>>$self->shf;
-  my $idex=$self->idex;
+  while($mask && !($mask&0xFF)) {
+    $mask=$mask>>8;
+
+  };my $idex=$self->idex;
 
   COUNT:my $i=masksz($mask);
 
@@ -173,27 +235,57 @@ sub setv {
   my $self=shift;
   my $value=shift;
 
+  if($self->addr eq NULL) {
+
+    printf
+      "Can't write to %s (null ptr)\n",
+      $self->gname;
+
+    return;
+
+  };
+
   my $elem_sz=$self->bytesz;
-  my $mask=$self->mask>>$self->shf;
+  my $mask=$self->mask;
+
+# ---   *   ---   *   ---
+# ensure we dont overwrite a pointer's
+# size attributes
+
+  if(
+
+     valid_addr($value)
+  && $self->type eq 'unit'
+
+  ) {
+
+    $elem_sz=$self->{-PTR_ELEM_SZ};
+
+    $value&=0xFFFFFFFF;
+    $value|=$elem_sz<<32;
+    $value|=MEMPTR;
+
+  };
+
+# ---   *   ---   *   ---
 
   # handle type-casts
   wedcast($self->shf,\$mask,\$elem_sz);
 
   # clear bits at offset
-  MEM->[$self->idex]&=~$self->mask;
+  MEM->[$self->idex]&=~$mask;
 
   # set value
   MEM->[$self->idex]|=(
-    ($value<<$self->shf)
-   &($self->mask)
+    ($value<<$self->shf)&$mask
 
   );
 
 # ---   *   ---   *   ---
 # check cross-unit writes
 
-  if($mask>$self->mask>>$self->shf) {
-    $mask=$self->mask>>$self->shf;
+  while($mask && !($mask&0xFF)) {
+    $mask=$mask>>8;
 
   };
 
@@ -245,9 +337,12 @@ sub setv {
 sub addr {
 
   my $self=shift;
+
   return
 
-     ($self->bytesz<<32)
+    MEMPTR
+
+    |($self->bytesz<<32)
 
     |($self->idex<<3)
     |($self->shf/8);
@@ -608,9 +703,14 @@ sub save {
 # find scope to which memory index
 # belongs to. used for navigation
 
-sub idex_to_scope {
+sub addr_to_scope {
 
-  my $idex=shift;
+  my $addr=shift;
+  if($addr eq NULL) {
+    return 'non';
+
+  };my $idex=($addr&0xFFFFFFFF)>>3;
+
   while(!defined TAB->[$idex]) {
 
     $idex--;
@@ -758,8 +858,7 @@ sub anonnit {
     =@{decode($addr)};
 
   # find scope assoc with addr
-  my $scope=idex_to_scope($idex);
-
+  my $scope=addr_to_scope($addr);
   my $blk=SCOPES->{$scope}->{-ITAB}->[0]->blk;
 
 # ---   *   ---   *   ---
@@ -808,7 +907,7 @@ sub masksz {
 
   };return $sz;
 
-}
+};
 
 sub bytesz {
 
@@ -822,6 +921,9 @@ sub bytesz {
 
 # ---   *   ---   *   ---
 # name solving methods
+
+
+# look for name in local scopes array
 
 sub lname_lookup {
 
@@ -842,6 +944,9 @@ sub lname_lookup {
     exit;
 
   };return $scope->{$key};
+
+# ---   *   ---   *   ---
+# look for full name,ie non@mod@sub...
 
 };sub gname_lookup {
 
@@ -922,7 +1027,7 @@ sub decode {
 
   my $addr=shift;
 
-  my $elem_sz=$addr>>32;
+  my $elem_sz=($addr>>32)&0xFF;
   my $idex=($addr&0xFFFFFFFF)>>3;
   my $shf=($addr&7)*8;
 

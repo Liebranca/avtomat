@@ -197,11 +197,7 @@ sub arg_typechk {
 
   ) {
 
-    peso::block::refsolve_rec($node);
-    $node->collapse();
-
-    peso::block::ptrderef_rec($node);
-    $node->collapse();
+    peso::block::treesolve($node);
 
     $node=$node->val;
     if(peso::ptr::valid_addr($node)) {
