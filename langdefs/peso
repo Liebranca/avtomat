@@ -29,7 +29,7 @@ my %PESO=(
     [0x04,eiths(
 
       ( join '|',
-        keys %{peso::defs::sizes()}
+        @{peso::defs::types()}
 
       ).'[1-9]*,'
 
@@ -221,7 +221,7 @@ $MAM{-EXTAB}={
 
   # second pass: look for block
   } else {
-    $blk=$name->blk;
+    $blk=peso::ptr::fetch($name)->blk;
 
   };
 
@@ -266,7 +266,7 @@ $MAM{-EXTAB}={
 
   # second pass: look for block
   } else {
-    $blk=$name->blk;
+    $blk=peso::ptr::fetch($name)->blk;
 
   };
 
@@ -283,7 +283,7 @@ $MAM{-EXTAB}={
 
 $PESO{-VARS}->[0]->[1]=>peso::symbol::nit(
 
-  'value_decl','-1<bare>:*-1<bare|ptr>',
+  'value_decl','-1<ptr|bare>:*-1<ptr|bare>',
 
   sub {
 
@@ -345,15 +345,17 @@ $PESO{-VARS}->[0]->[1]=>peso::symbol::nit(
   };
 
 # ---   *   ---   *   ---
+# alternate storage type
+
+  if(defined $skey) {
+    $inskey=$skey;
+
+  };peso::ptr::wed($inskey);
+
+# ---   *   ---   *   ---
 # grow block on first pass
 
   if(peso::block::fpass()) {
-
-    # alternate storage type
-    if(defined $skey) {
-      $inskey=$skey;
-
-    };
 
     # grow the block
     $dst->expand(\@line,$inskey);
@@ -368,11 +370,11 @@ $PESO{-VARS}->[0]->[1]=>peso::symbol::nit(
       my $ptr=$pair->[0];
       my $value=$pair->[1];
 
-      $ptr->setv($value);
+      peso::ptr::fetch($ptr)->setv($value);
 
     };
 
-  };
+  };peso::ptr::wed($wed);
 
   },
 
@@ -440,31 +442,35 @@ $PESO{-VARS}->[0]->[1]=>peso::symbol::nit(
 
 # ---   *   ---   *   ---
 
-'wed'=>[
+'wed'=>peso::symbol::nit(
 
-  undef,
+  'wed','1<bare>',
   sub {
 
-  my $node=shift;
-  peso::ptr::wed($node->group(0,0)->val);
+  my $inskey=shift;
+  my $type=shift;
+
+  peso::ptr::wed($type);
 
   },
 
-],
+),
 
 # ---   *   ---   *   ---
 
-'unwed'=>[
+'unwed'=>peso::symbol::nit(
 
-  undef,
+  'unwed','0',
   sub {
 
-  my $node=shift;
+  my $inskey=shift;
+  my $type=shift;
+
   peso::ptr::wed(undef);
 
   },
 
-],
+),
 
 # ---   *   ---   *   ---
 
@@ -525,7 +531,7 @@ $PESO{-VARS}->[0]->[1]=>peso::symbol::nit(
 
   # set instruction index to ptr loc
   peso::block::setnxins(
-    $ptr->blk->insid
+    peso::ptr::fetch($ptr)->blk->insid
 
   );
 
@@ -554,7 +560,7 @@ $PESO{-VARS}->[0]->[1]=>peso::symbol::nit(
 
 'exit'=>peso::symbol::nit(
 
-  'exit','1<bare|ptr>',
+  'exit','1<ptr|bare>',
 
   sub {
 
@@ -571,17 +577,27 @@ $PESO{-VARS}->[0]->[1]=>peso::symbol::nit(
 
 # ---   *   ---   *   ---
 
-'cpy'=>[
+'cpy'=>peso::symbol::nit(
 
-  undef,
+  'cpy','2<ptr|bare,ptr|bare>',
   sub {
 
-  my $node=shift;
-  mop_ari($node,[0,1]);
+  my $inskey=shift;
+  my $field=shift;
+
+  my ($dst,$src)=@$field;
+
+  if(peso::ptr::valid($src)) {
+    $src=$src->addr;
+
+  };if(!peso::ptr::valid($dst)) {
+    $dst=peso::ptr::fetch($dst);
+
+  };$dst->setv($src);
 
   }
 
-],
+),
 
 };
 

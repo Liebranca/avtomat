@@ -713,7 +713,7 @@ sub getv {
   my $self=shift;
   my $name=shift;
 
-  return peso::ptr::fetch($name)->value;
+  return peso::ptr::fetch($name)->getv();
 
 };
 
@@ -752,11 +752,15 @@ sub refsolve_rec {
   my $node=shift;
   my $pesonames=peso::defs::names;
 
-  if($node->val=~ m/${pesonames}*/) {
+  my $is_ptr=peso::ptr::valid($node->val);
+  my $is_name=$node->val=~ m/${pesonames}*/;
 
-    if(fpass()) {return;}
+  if($is_name || $is_ptr) {
 
-    elsif(peso::ptr::valid($node->{-VAL})) {
+    if(fpass()) {
+      return;
+
+    } elsif($is_ptr) {
       $node->{-VAL}=$node->val->addr;
 
     };
@@ -802,7 +806,8 @@ sub treesolve {
     };
 
     # solve/fetch non-numeric values
-    if(!($leaf->val=~ m/[0-9]+/)) {
+    if(!($leaf->val=~ m/^[0-9]+/)) {
+
       refsolve_rec($leaf);
       $leaf->collapse();
 
@@ -830,13 +835,19 @@ sub ptrderef_rec {
 # value is ptr dereference
 
   if($node->val eq '[') {
-    $node->{-VAL}
-      =peso::ptr::fetch(
-      $node->leaves->[0]->val
 
-    )->value;
+    my $leaf=$node->leaves->[0];
+    my $is_ptr=peso::ptr::valid($leaf->val);
 
-    $node->pluck(@{$node->leaves});
+    if($is_ptr) {
+      $node->{-VAL}=$leaf->val->getv();
+
+    } else {
+
+      $node->{-VAL}
+        =peso::ptr::fetch($leaf->val)->getv();
+
+    };$node->pluck(@{$node->leaves});
 
 # ---   *   ---   *   ---
 # not a pointer derefernce: go to next level
@@ -881,7 +892,6 @@ sub prich {
       $ar[$idex]=[
 
         $ptr->lname,
-        $ptr->value,
         $ptr->idex,
         $ptr->shf,
         $ptr->bytesz
@@ -915,7 +925,7 @@ sub prich {
   while(@data) {
 
     my $ref=shift @data;
-    my ($name,$v,$i,$shf,$sz)=@{$ref};
+    my ($name,$i,$shf,$sz)=@{$ref};
 
 # ---   *   ---   *   ---
 # unit switch
@@ -935,7 +945,7 @@ sub prich {
 # accumulate
 
     };$last_idex=$i;
-    $unit|=$v<<$shf;
+    $unit=peso::ptr::MEM->[$i];
     $unit_names="$name($sz) ".$unit_names;
 
   };

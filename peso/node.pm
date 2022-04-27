@@ -841,7 +841,7 @@ sub agroup {
 # ---   *   ---   *   ---
 
           # compound element
-          if(@chest) {
+          if(@chest && !$anchor) {
 
             my $old=$anchor;
             $anchor=$anchor->nit('$:group;>');
@@ -855,7 +855,7 @@ sub agroup {
 # ---   *   ---   *   ---
 
           # common element
-          } else {
+          } elsif($tail) {
 
             # push self
             push @chest,
@@ -1291,6 +1291,7 @@ sub findptrs {
 
   my $pesc=peso::defs::pesc;
   my $pesonames=peso::defs::names;
+  my $types=peso::defs::types_re;
 
 # ---   *   ---   *   ---
 # iter leaves
@@ -1306,7 +1307,8 @@ sub findptrs {
     };
 
     # solve/fetch non-numeric values
-    if($leaf->val=~ m/${pesonames}*/) {
+    if($leaf->val=~ m/${pesonames}*/
+    && !($leaf->val=~ m/${types}/)) {
       $leaf->{-VAL}=peso::ptr::fetch($leaf->val);
 
     };

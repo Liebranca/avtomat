@@ -81,9 +81,28 @@ sub valid {
 };
 
 # ---   *   ---   *   ---
+# addr can be fetched without a segfault
+
+sub valid_addr {
+
+  my $addr=shift;
+  if(is_named_ptr($addr)) {
+    return 1;
+
+  };
+
+  my $data=decode($addr);
+  if(defined MEM->[$data->[0]]) {
+    return 1;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # dereference ptr
 
-sub value {
+sub getv {
 
   my $self=shift;
 
@@ -161,11 +180,12 @@ sub setv {
   wedcast($self->shf,\$mask,\$elem_sz);
 
   # clear bits at offset
-  MEM->[$self->idex]&=~$mask;
+  MEM->[$self->idex]&=~$self->mask;
 
   # set value
   MEM->[$self->idex]|=(
-    ($value<<$self->shf)&$mask
+    ($value<<$self->shf)
+   &($self->mask)
 
   );
 
@@ -557,7 +577,7 @@ sub save {
 # JIC metadata for funky scenarios
 
   # save ptr at stringified addr(!!!)
-  ADDRS->{(sprintf "%s",$self->addr)}
+  ADDRS->{$self->addr}
   =$self;
 
   # to help locate scope for anon ptrs
@@ -653,7 +673,7 @@ sub name_in_lscope {
 };sub is_named_ptr {
 
   my $addr=shift;
-  return exists ADDRS->{"$addr"};
+  return exists ADDRS->{$addr};
 
 # check ptr is block reference
 };sub is_block_ref {
@@ -754,7 +774,7 @@ sub anonnit {
     -SLOT=>-1,
     -IDEX=>$idex,
     -MASK=>$mask,
-    -TYPE=>wed('get'),
+    -TYPE=>'anon',
 
     -SHF=>$shf,
 
@@ -766,7 +786,11 @@ sub anonnit {
 # ---   *   ---   *   ---
 
   $ptr->save();
-  return $ptr;
+
+  if(!exists ADDRS->{$addr}) {
+    ADDRS->{$addr}=$ptr;
+
+  };return $ptr;
 
 };
 

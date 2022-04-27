@@ -182,10 +182,39 @@ sub nit {
 sub arg_typechk {
 
   my $self=shift;
-  my $val=shift;
+  my $node=shift;
   my $types=shift;
 
   my $pesonames=peso::defs::names;
+  my $ops=peso::defs::ops;
+
+# ---   *   ---   *   ---
+
+  if(
+
+      !($node->val=~ m/@/)
+  &&  $node->val=~ m/${ops}/
+
+  ) {
+
+    peso::block::refsolve_rec($node);
+    $node->collapse();
+
+    peso::block::ptrderef_rec($node);
+    $node->collapse();
+
+    $node=$node->val;
+    if(peso::ptr::valid_addr($node)) {
+      $node=peso::ptr::fetch($node);
+
+    };
+
+# ---   *   ---   *   ---
+
+  } else {
+    $node=$node->val;
+
+  };
 
 # ---   *   ---   *   ---
 
@@ -193,14 +222,13 @@ sub arg_typechk {
   for my $type(split '\|',$types) {
 
     if($type eq 'ptr') {
-       $valid=peso::ptr::valid($val);
+      $valid=peso::ptr::valid($node);
 
-    # either a string or common numerical value
+    # either a string, number or dereference
     } elsif($type eq 'bare') {
       $valid
-
-        =int($val=~ m/${pesonames}*/)
-        |int($val=~ m/-?[0-9]+/);
+        =  int($node=~ m/${pesonames}*/)
+        || int($node=~ m/-?[0-9]+/);
 
     };
 
@@ -295,10 +323,13 @@ sub ex {
       my $leaf=$field->leaves->[$i];
       my $type=$arg->{-TYPES}->[$i];
 
-      peso::block::treesolve($field);
+      # use last defined type (for varargs)
+      if(!$type) {
+        $type=$arg->{-TYPES}->[-1];
 
-      $self->arg_typechk(
-        $leaf->val,$type
+      # check type is OK
+      };$self->arg_typechk(
+        $leaf,$type
 
       );push @field_args,$leaf->val;$i++;
 

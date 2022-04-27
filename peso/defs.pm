@@ -34,6 +34,8 @@ sub ndel_ops {return $DICT{-NDEL_OPS};};
 sub pesc {return $DICT{-PESC};};
 sub sizes {return $DICT{-SIZES};};
 sub op_prec {return $DICT{-OP_PREC};};
+sub types {return $DICT{-TYPES}};
+sub types_re {return $DICT{-TYPES_RE}};
 
 sub bafa {return $DICT{-BAFA};};
 sub bafb {return $DICT{-BAFB};};
@@ -272,5 +274,13 @@ sub com {return $DICT{-COM};};
 },
 
 # ---   *   ---   *   ---
-);1 # ret
+);
 
+{ my @types=keys %{sizes()};
+  $DICT{-TYPES}=\@types;
+
+};$DICT{-TYPES_RE}=join '|',@{types()};
+
+# ---   *   ---   *   ---
+
+1; # ret
