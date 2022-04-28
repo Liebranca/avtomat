@@ -287,7 +287,7 @@ sub eaf {
 # ---   *   ---   *   ---
 # general-purpose regexes
 
-my %DICT=(-GPRE=>{
+my \%DICT={-GPRE=>{
 
   -HIER =>[
 
@@ -445,14 +445,15 @@ my %DICT=(-GPRE=>{
 # ---   *   ---   *   ---
 # hash fetch
 
-});sub PROP {
+}};sub PROP {
 
   my $lang=shift;
   my $key=shift;
 
   return $DICT{$lang}->{$key};
 
-};
+# hash access
+};sub DICT {return $DICT;};
 
 # ---   *   ---   *   ---
 # parse utils
@@ -640,4 +641,4 @@ sub pebinnc {
 };
 
 # ---   *   ---   *   ---
-# langdefs pasted here by sygen
+1; # ret

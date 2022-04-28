@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# PESO/DEFS
-# language definitions
+# DEFS
+# Where names be given meaning
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -16,271 +16,410 @@ package peso::defs;
   use strict;
   use warnings;
 
-# ---   *   ---   *   ---
-# its just a big ole hash
-# needs fwd decl :c
+  use lib $ENV{'ARPATH'}.'/lib/';
 
-my %DICT=();
+  use peso::decls;
+  use peso::symbol;
+  use peso::ptr;
+  use peso::block;
+
+# ---   *   ---   *   ---
+# global state
+
+  my %CACHE=(
+
+    -SYMS={},
+    -INS={},
+
+  );
 
 # ---   *   ---   *   ---
 # getters
 
-sub names {return $DICT{-NAMES};};
-sub ops {return $DICT{-OPS};};
-sub cde {return $DICT{-CDE};};
-sub ode {return $DICT{-ODE};};
-sub del_ops {return $DICT{-DEL_OPS};};
-sub ndel_ops {return $DICT{-NDEL_OPS};};
-sub pesc {return $DICT{-PESC};};
-sub sizes {return $DICT{-SIZES};};
-sub op_prec {return $DICT{-OP_PREC};};
-sub types {return $DICT{-TYPES}};
-sub types_re {return $DICT{-TYPES_RE}};
-
-sub bafa {return $DICT{-BAFA};};
-sub bafb {return $DICT{-BAFB};};
-sub bafc {return $DICT{-BAFC};};
-
-sub ext {return $DICT{-EXT};};
-sub mag {return $DICT{-MAG};};
-sub hed {return $DICT{-HED};};
-sub com {return $DICT{-COM};};
+sub SYMS {return $CACHE{-SYMS};};
+sub INS {return $CACHE{-INS};};
 
 # ---   *   ---   *   ---
-# actual def
+# constructor, or rather shorthand
 
-%DICT=(
+sub DEFINE {
 
-# ---   *   ---   *   ---
-# common patterns
+  my $key=shift;
+  my $src=shift;
 
--NAMES=>'[_a-zA-Z][_a-zA-Z0-9]',
--OPS=>'[^\s_A-Za-z0-9\.:\\\\]',
+  my $code=shift;
+  my $idex=$src->{$key}->[0];
+  my $args=$src->{$key}->[1];
 
--ODE=>'[\(\[\{]',
--CDE=>'[\}\]\)]',
+  my $sym=peso::symbol::nit($key,$args,$code);
+  INS->[$idex]=SYMS->{$key}=$sym;
 
--DEL_OPS=>'[\{\[\(\)\]\}\\\\]',
--NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}\\\\]',
-
--PESC=>'\$\:(([^;\\]|;[^>\\]|\\;>|[^\\;>]|\\[^\\;>]|\\[^;]|\\[^>])*);>',
+};
 
 # ---   *   ---   *   ---
-# file stuff
-
--HED=>'\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$',
--EXT=>'\.(pe)$',
--MAG=>'$ program',
--COM=>'#',
-
-# ---   *   ---   *   ---
-# leaps and such
-
--SIZES=>{
-
-  # primitives
-  'char'=>1,
-  'wide'=>2,
-  'word'=>4,
-  'long'=>8,
-
-# ---   *   ---   *   ---
-# granularity
-
-  # ptr size
-  'unit'=>0x0008,
-
-  # pointers align to line
-  # mem buffers align to page
-
-  'line'=>0x0010, # two units
-  'page'=>0x1000, # 256 lines
-
-# ---   *   ---   *   ---
-# function types
-
-  'nihil'=>8,     # void(*nihil)(void)
-  'stark'=>8,     # void(*stark)(void*)
-
-  'signal'=>8,    # int(*signal)(int)
-
-},
-
-# ---   *   ---   *   ---
-# builtins and functions, group A
-
--BAFA=>{
-
-  'cpy'=>[2],
-  'mov'=>[2],
-  'wap'=>[2],
-
-  'pop'=>['1+1'],
-  'push'=>['1+1'],
-
-  'inc'=>[1],
-  'dec'=>[1],
-  'clr'=>[1],
-
-  'exit'=>[1],
-
-},
+# defs for declared symbols
 
 # ---   *   ---   *   ---
 
--BAFB=>{
+DEFINE 'cpy',peso::decls::bafa,sub {
 
-  'reg'=>[1],
-  'rom'=>[1],
-  'tab'=>[1],
+  my $inskey=shift;
+  my $field=shift;
 
-  'clan'=>[1],
-  'proc'=>[1],
+  my ($dst,$src)=@$field;
 
-  'entry'=>[1],
-  'atexit'=>[1],
+  if(peso::ptr::valid($src)) {
+    $src=$src->addr;
 
-},
+  };if(!peso::ptr::valid($dst)) {
+    $dst=peso::ptr::fetch($dst);
 
-# ---   *   ---   *   ---
+  };$dst->setv($src);
 
--BAFC=>{
-
-  'jmp'=>[1],
-  'jif'=>[2],
-  'eif'=>[2],
-
-  'call'=>[-1],
-  'ret'=>[-1],
-  'wait'=>[-1],
-
-},
-
-# ---   *   ---   *   ---
-# operator procs and precedence
-
--OP_PREC=>{
-
-  '*^'=>[0,2,sub {return (shift)**(shift);}],
-  '*'=>[1,2,sub {return (shift)*(shift);}],
-  '/'=>[2,2,sub {return (shift)/(shift);}],
-
-  '++'=>[3,1,sub {return (shift)+1;}],
-  '+'=>[4,2,sub {return (shift)+(shift);}],
-  '--'=>[5,1,sub {return (shift)-1;}],
-  '-'=>[6,2,sub {return (shift)-(shift);}],
+};
 
 # ---   *   ---   *   ---
 
-  '?'=>[7,1,sub {return int((shift)!=0);}],
-  '!'=>[8,1,sub {return int(!(shift));}],
-  '~'=>[9,1,sub {return ~int(shift);}],
+DEFINE 'pop',peso::decls::bafa,sub {
 
-  '<<'=>[10,2,sub {
+  my $inskey=shift;
+  my $dst=(shift)->[0];
 
-    return int(int(shift)<< int(shift));
+  my $v=peso::block::spop();
 
-  }],
+  if(peso::ptr::valid($src)) {
+    $src=peso::ptr::fetch($src);
+    $src->setv($v);
 
-  '>>'=>[11,2,sub {
+  };
 
-    return int(int(shift)>> int(shift));
-
-  }],
-
-# ---   *   ---   *   ---
-
-  '|'=>[12,2,sub {
-
-    return int(int(shift)| int(shift));
-
-  }],
-
-  '^'=>[13,2,sub {
-
-    return int(shift)^int(shift);
-
-  }],
-
-  '&'=>[14,2,sub {
-
-    return int(int(shift)& int(shift));
-
-  }],
+};
 
 # ---   *   ---   *   ---
 
-  '<'=>[15,2,sub {
+DEFINE 'push',peso::decls::bafa,sub {
 
-    return int((shift)<(shift));
+  my $inskey=shift;
+  my $src=(shift)->[0];
 
-  }],
+  if(peso::ptr::valid($src)) {
+    $src=$src->addr;
 
-  '<='=>[15,2,sub {
+  };
 
-    return int((shift)<=(shift));
+  peso::block::spush($src);
 
-  }],
-
-  '>'=>[16,2,sub {
-
-    return int((shift)>(shift));
-
-  }],
-
-  '>='=>[16,2,sub {
-
-    return int((shift)>=(shift));
-
-  }],
+};
 
 # ---   *   ---   *   ---
 
-  '||'=>[17,2,sub {
+DEFINE 'inc',peso::decls::bafa,sub {
 
-    return int(
-         (int(shift)!=0)
-      || (int(shift)!=0)
+  my $inskey=shift,
+  my $ptr=(shift)->[0];
+
+  my $ptr=peso::ptr::fetch($ptr);
+  $ptr->setv($ptr->getv()+1);
+
+};
+
+# ---   *   ---   *   ---
+
+DEFINE 'dec',peso::decls::bafa,sub {
+
+  my $inskey=shift,
+  my $ptr=(shift)->[0];
+
+  my $ptr=peso::ptr::fetch($ptr);
+  $ptr->setv($ptr->getv()-1);
+
+};
+
+# ---   *   ---   *   ---
+
+DEFINE 'clr',peso::decls::bafa,sub {
+
+  my $inskey=shift,
+  my $ptr=(shift)->[0];
+
+  my $ptr=peso::ptr::fetch($ptr);
+  $ptr->setv(0);
+
+};
+
+# ---   *   ---   *   ---
+
+DEFINE 'exit',peso::decls::bafa,sub {
+
+  my $inskey=shift;
+  my $val=(shift)->[0];
+
+  # placeholder!
+  printf sprintf "Exit code <0x%.2X>\n",$val;
+  peso::block::setnxins(-2);
+
+};
+
+# ---   *   ---   *   ---
+
+DEFINE 'reg',peso::decls::bafb,sub {
+
+  my $inskey=shift;
+  my $name=(shift)->[0];
+
+  # get dst
+  my $dst=(peso::block::DST->attrs)
+    ? peso::block::DST->par
+    : peso::block::DST
+    ;
+
+# ---   *   ---   *   ---
+
+  my $blk;
+
+  # append new block to dst on first pass
+  if(peso::block::fpass()) {
+    $blk=$dst->nit(
+      $name,peso::block->O_RDWR,
 
     );
 
-  }],
+  # second pass: look for block
+  } else {
+    $blk=peso::ptr::fetch($name)->blk;
 
-  '&&'=>[18,2,sub {
+  };
 
-    return int(
-         int((shift)!=0)
-      && int((shift)!=0)
+# ---   *   ---   *   ---
+# overwrite dst
+
+  peso::block::DST($blk);
+  peso::block::setscope($blk);
+
+};
+
+# ---   *   ---   *   ---
+
+DEFINE 'clan',peso::decls::bafb,sub {
+
+  my $inskey=shift;
+  my $name=(shift)->[0];
+
+  my $dst=peso::block::clan('non');
+
+# ---   *   ---   *   ---
+
+  # is not global scope/root
+  my $blk;if($name ne 'non') {
+
+    # first pass: create new block
+    if(peso::block::fpass()) {
+      $blk=peso::block::nit(undef,$name);
+
+    # second pass: find block
+    } else {
+      $blk=peso::block::clan('non@'.$name);
+
+    };
+
+# ---   *   ---   *   ---
+
+  # is global scope
+  } else {$blk=$dst;};
+  peso::block::DST($blk);
+
+};
+
+# ---   *   ---   *   ---
+
+DEFINE 'proc',peso::decls::bafb,sub {
+
+  my $inskey=shift;
+  my $name=(shift)->[0];
+
+  # get dst
+  my $dst=(peso::block::DST->attrs)
+    ? peso::block::DST->par
+    : peso::block::DST
+    ;
+
+# ---   *   ---   *   ---
+
+  my $blk;
+
+  # append new block to dst on first pass
+  if(peso::block::fpass()) {
+    $blk=$dst->nit(
+      $name,peso::block->O_EX,
 
     );
 
-  }],
+  # second pass: look for block
+  } else {
+    $blk=peso::ptr::fetch($name)->blk;
 
-  '=='=>[19,2,sub {
-    return int((shift)==(shift));
-
-  }],
-
-  '!='=>[20,2,sub {
-    return int((shift)!=(shift));
-
-  }],
-
-  '->'=>[21,2,sub {
-    return (shift).'@'.(shift);
-
-  }],
-
-},
+  };
 
 # ---   *   ---   *   ---
-);
+# overwrite dst
 
-{ my @types=keys %{sizes()};
-  $DICT{-TYPES}=\@types;
+  peso::block::DST($blk);
 
-};$DICT{-TYPES_RE}=join '|',@{types()};
+};
 
 # ---   *   ---   *   ---
 
+DEFINE 'entry',peso::decls::bafb,sub {
+
+  my $inskey=shift;
+  my $name=(shift)->[0];
+
+  peso::block::entry($name);
+
+};
+
+# ---   *   ---   *   ---
+
+DEFINE 'jmp',peso::decls::bafc,sub {
+
+  my $inskey=shift;
+  my $ptr=(shift)->[0];
+
+  # set instruction index to ptr loc
+  peso::block::setnxins(
+    peso::ptr::fetch($ptr)->blk->insid
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+
+DEFINE 'wed',peso::decls::bafd,sub {
+
+  my $inskey=shift;
+  my $type=(shift)->[0];
+
+  peso::ptr::wed($type);
+
+};
+
+# ---   *   ---   *   ---
+
+DEFINE 'unwed',peso::decls::bafd,sub {
+
+  my $inskey=shift;
+  peso::ptr::wed(undef);
+
+};
+
+# ---   *   ---   *   ---
+
+DEFINE 'value_decl',peso::decls::bafe,sub {
+
+  my $inskey=shift;
+
+  my $names=shift;
+  my $values=shift;
+
+  my $dst=peso::block::DST;
+
+  my $skey=undef;
+
+  my $intrinsic=peso::decls::intrinsic;
+
+# ---   *   ---   *   ---
+
+  if($inskey=~ s/${intrinsic}//) {
+    my $ins=$1;
+
+    if($ins eq 'ptr') {
+      $skey='unit';
+
+    };
+  };
+
+  $inskey=~ s/\s+$//;
+
+  my $wed=peso::ptr::wed('get');
+  peso::ptr::wed($inskey);
+
+# ---   *   ---   *   ---
+# fill out values with zeroes if need
+
+  my @line=();
+
+  if(!defined $values) {
+
+    $values=[];
+
+    for(my $i=0;$i<@$names;$i++) {
+      push @$values,0;
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+# make [name,value] ref array
+
+  my $i=0;
+  for my $name(@$names) {
+
+    my $value=(defined $values->[$i])
+      ? $values->[$i]
+      : 0
+      ;
+
+    $line[$i]=[$name,$value];$i++;
+
+  };
+
+# ---   *   ---   *   ---
+# alternate storage type
+
+  my $ptrtype=$inskey;
+  if(defined $skey) {
+    $inskey=$skey;
+
+  };peso::ptr::wed($inskey);
+
+# ---   *   ---   *   ---
+# grow block on first pass
+
+  if(peso::block::fpass()) {
+
+    # grow the block
+    $dst->expand(\@line,$inskey);
+
+# ---   *   ---   *   ---
+# initialize/overwrite values on second pass
+
+  } else {
+
+    for my $pair(@line) {
+
+      my $ptr=$pair->[0];
+      my $value=$pair->[1];
+
+      $ptr=peso::ptr::fetch($ptr);
+      $ptr->mask_to($ptrtype);
+
+      if(!$value && $inskey eq 'unit') {
+        $value=peso::ptr->NULL;
+
+      };
+
+      $ptr->setv($value);
+
+    };
+
+  };peso::ptr::wed($wed);
+
+};
+
+# ---   *   ---   *   ---
+# defs end
+
+# ---   *   ---   *   ---
 1; # ret

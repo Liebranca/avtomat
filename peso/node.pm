@@ -19,7 +19,7 @@ package peso::node;
   use lib $ENV{'ARPATH'}.'/include/';
   use lib $ENV{'ARPATH'}.'/lib/';
 
-  use peso::defs;
+  use peso::decls;
   use peso::ptr;
 
 # ---   *   ---   *   ---
@@ -424,13 +424,13 @@ sub splitlv {
   my @anch=($self);
 
   # patterns
-  my $ops=peso::defs::ops;
-  my $del_op=peso::defs::del_ops;
-  my $ndel_op=peso::defs::ndel_ops;
+  my $ops=peso::decls::ops;
+  my $del_op=peso::decls::del_ops;
+  my $ndel_op=peso::decls::ndel_ops;
 
-  my $ode=peso::defs::ode;
-  my $cde=peso::defs::cde;
-  my $pesc=peso::defs::pesc;
+  my $ode=peso::decls::ode;
+  my $cde=peso::decls::cde;
+  my $pesc=peso::decls::pesc;
 
 # ---   *   ---   *   ---
 
@@ -550,8 +550,8 @@ TOP:
 # ---   *   ---   *   ---
 
     # is delimiter
-    } elsif($ol=~ peso::defs::ode
-    || $ol=~ peso::defs::cde
+    } elsif($ol=~ peso::decls::ode
+    || $ol=~ peso::decls::cde
 
     ) {
 
@@ -793,8 +793,8 @@ sub agroup {
   my @buf=();
   my @dst=();
 
-  my $ode=peso::defs::ode;
-  my $cde=peso::defs::cde;
+  my $ode=peso::decls::ode;
+  my $cde=peso::decls::cde;
 
   my $delims=${ode}.'|'.${cde};
 
@@ -925,11 +925,11 @@ sub subdiv {
   my @rootstack=();
 
   my @nodes=();
-  my $ndel_op=peso::defs::ndel_ops;
-  my $pesc=peso::defs::pesc;
+  my $ndel_op=peso::decls::ndel_ops;
+  my $pesc=peso::decls::pesc;
 
   # operator data
-  my $h=peso::defs::op_prec;
+  my $h=peso::decls::op_prec;
 
 # ---   *   ---   *   ---
 
@@ -1135,14 +1135,14 @@ sub collapse {
 
   my $leaf=$self;
 
-  my $ndel_ops=peso::defs::ndel_ops;
-  my $del_ops=peso::defs::del_ops;
-  my $pesc=peso::defs::pesc;
-  my $pesonames=peso::defs::names;
+  my $ndel_ops=peso::decls::ndel_ops;
+  my $del_ops=peso::decls::del_ops;
+  my $pesc=peso::decls::pesc;
+  my $pesonames=peso::decls::names;
 
   my @leafstack;
 
-  my $h=peso::defs::op_prec;
+  my $h=peso::decls::op_prec;
   my @solve=();
 
 # ---   *   ---   *   ---
@@ -1289,9 +1289,9 @@ sub findptrs {
 
   my $self=shift;
 
-  my $pesc=peso::defs::pesc;
-  my $pesonames=peso::defs::names;
-  my $types=peso::defs::types_re;
+  my $pesc=peso::decls::pesc;
+  my $pesonames=peso::decls::names;
+  my $types=peso::decls::types_re;
 
 # ---   *   ---   *   ---
 # iter leaves

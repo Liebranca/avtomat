@@ -16,7 +16,7 @@ package peso::symbol;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
-  use peso::defs;
+  use peso::decls;
   use peso::ptr;
   use peso::block;
 
@@ -185,8 +185,8 @@ sub arg_typechk {
   my $node=shift;
   my $types=shift;
 
-  my $pesonames=peso::defs::names;
-  my $ops=peso::defs::ops;
+  my $pesonames=peso::decls::names;
+  my $ops=peso::decls::ops;
 
 # ---   *   ---   *   ---
 

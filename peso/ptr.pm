@@ -17,7 +17,7 @@ package peso::ptr;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
-  use peso::defs;
+  use peso::decls;
 
   use Scalar::Util qw/blessed/;
 
@@ -51,7 +51,7 @@ my %CACHE=(
   -LSCOPE_NAMES=>[],
 
 );$CACHE{-TYPES}=join(
-    '|',keys %{peso::defs::sizes()}
+    '|',keys %{peso::decls::sizes()}
 
 );
 
@@ -570,7 +570,7 @@ sub wedcast {
   };
 
   # get size from type
-  my $elem_sz=peso::defs::sizes
+  my $elem_sz=peso::decls::sizes
     ->{$CACHE{-WED}};
 
   my $i=$shf/8;
@@ -614,7 +614,7 @@ sub declscope {
 sub save {
 
   my $self=shift;
-  my $pesonames=peso::defs::names;
+  my $pesonames=peso::decls::names;
 
   # redecl guard
   if($self->gname_declared()) {
@@ -1007,7 +1007,7 @@ sub fetch {
   my $key=shift;
   my $ptr;
 
-  my $pesonames=peso::defs::names;
+  my $pesonames=peso::decls::names;
 
   if($key=~ m/${pesonames}*/) {
     $ptr=name_lookup($key);

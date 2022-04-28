@@ -19,7 +19,7 @@ package peso::block;
   use lib $ENV{'ARPATH'}.'/include/';
   use lib $ENV{'ARPATH'}.'/lib/';
 
-  use peso::defs;
+  use peso::decls;
   use peso::ptr;
 
   use stack;
@@ -52,6 +52,8 @@ my %CACHE=(
   -SELF=>undef,
   -SOIL=>undef,
   -CURR=>undef,
+
+  -DST=>undef,
 
   -BLOCKS=>undef,
   -BBID=>[0..0xFF],
@@ -485,6 +487,19 @@ sub insid {return (shift)->{-INSID};};
 sub fpass {return !$CACHE{-PASS};};
 
 # ---   *   ---   *   ---
+# adjusts current write-to
+
+sub DST {
+
+  my $new=shift;
+  if(defined $new) {
+    $CACHE{-DST}=$new;
+
+  };return $CACHE{-DST};
+
+};
+
+# ---   *   ---   *   ---
 # find ancestors recursively
 
 sub ances {
@@ -594,7 +609,7 @@ sub expand {
 # ---   *   ---   *   ---
 # get size from type, in bytes
 
-  my $elem_sz=peso::defs::sizes->{$type};
+  my $elem_sz=peso::decls::sizes->{$type};
   my $inc_size=@$ref*$elem_sz;
 
 # ---   *   ---   *   ---
@@ -602,7 +617,7 @@ sub expand {
 # 'unit' is 64-bit chunk
 # we use these as minimum size for blocks
 
-  my $line_sz=peso::defs::sizes->{'line'};
+  my $line_sz=peso::decls::sizes->{'line'};
   my $gran=(1<<($elem_sz*8))-1;
 
 # ---   *   ---   *   ---
@@ -736,7 +751,7 @@ sub getloc {
 sub refsolve_rec {
 
   my $node=shift;
-  my $pesonames=peso::defs::names;
+  my $pesonames=peso::decls::names;
 
   my $is_ptr=peso::ptr::valid($node->val);
   my $is_name=$node->val=~ m/${pesonames}*/;
@@ -778,7 +793,7 @@ sub treesolve {
   my $node=shift;
   my $type=shift;
 
-  my $pesc=peso::defs::pesc;
+  my $pesc=peso::decls::pesc;
 
   # save current cast and override
   my $wed=peso::ptr::wed('get');

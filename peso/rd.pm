@@ -17,7 +17,7 @@ package peso::rd;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
-  use peso::defs;
+  use peso::decls;
 
 # ---   *   ---   *   ---
 # global state
@@ -145,7 +145,7 @@ sub fopen {
 
 # ---   *   ---   *   ---
 
-  my $hed=peso::defs::hed;
+  my $hed=peso::decls::hed;
 
   # open file
   $fname=glob(shift);
