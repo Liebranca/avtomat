@@ -59,19 +59,12 @@ my %CACHE=(
   -BBID=>[0..0xFF],
   -BIDS=>stack::nit(stack::slidex(0x100)),
 
-  -DATA=>[],
-
-  -INS=>[],
-  -INS_KEY=>{},
+  -NXINS=>0,
   -INS_ARR=>[],
 
-  -NXINS=>0,
   -ENTRY=>'nit',
 
-  -NODES=>[],
   -PASS=>0,
-  -DPTR=>[],
-
   -PRSTK=>undef,
 
 );
@@ -184,163 +177,6 @@ sub spush {
 };
 
 # ---   *   ---   *   ---
-# we have to load the instruction set
-# from an external hash for complex reasons
-# i can make it all internal later (maybe)
-
-sub loadins {
-
-  my $ref=shift;my $i=0;
-  for my $key(keys %$ref) {
-    push @{$CACHE{-INS}},$ref->{$key};
-    $CACHE{-INS_KEY}->{$key}=$i;$i++;
-
-  };
-
-# ---   *   ---   *   ---
-# get idex of instruction
-
-};sub getinsi {
-
-  my $name=shift;$name=~ s/\s*$//;
-  return $CACHE{-INS_KEY}->{$name};
-
-# save node/tree for later use
-};sub setnode {
-
-  my $node=shift;
-
-  push @{$CACHE{-NODES}},$node;
-  return int(@{$CACHE{-NODES}})-1;
-
-# ^get saved node from index
-};sub getnode {
-
-  my $idex=shift;
-  return $CACHE{-NODES}->[$idex];
-
-};
-
-# ---   *   ---   *   ---
-# execute program as defined by blocks
-
-sub ex {
-
-  my $entry=$CACHE{-ENTRY};
-  my $non=$CACHE{-SOIL};
-
-  peso::ptr::wed(undef);
-
-  # get entry point block
-  $entry=peso::ptr::fetch($entry)->blk;
-  setnxins($entry->insid);
-
-  # scope to block
-  setcurr($entry);
-  setscope($entry->{-SCOPE});
-
-  # debug: print out what we're executing
-  printf "ex ".$entry->name."\n";
-
-  # execute until end
-  while(!(nxins()<0)) {
-    $entry=$entry->exnext();
-
-    if(nxins()<0) {last;};
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# get next instruction
-
-sub exfetnx {
-
-  my $self=shift;
-  my $i=nxins();
-
-  if($i<0) {return (undef,undef,undef);};
-
-  my $nx=sprintf "_%.08i",$i;
-
-  my $ins='ins'.$nx;
-  my $arg='arg'.$nx;
-
-# ---   *   ---   *   ---
-# when instruction not found in current,
-# find block matching instruction index
-
-  if(!exists $self->elems->{$ins}) {
-    $self=getinsid($i);
-
-  };
-
-  return ($self,$ins,$arg);
-
-# ---   *   ---   *   ---
-# get instruction matching index
-
-};sub getinsid {
-
-  my $i=shift;
-  my $blk=$CACHE{-INS_ARR}->[$i];
-
-  # scope to block
-  setcurr($blk);
-  setscope($blk->{-SCOPE});
-
-  # debug: print out what we're executing
-  printf "ex ".$blk->name."\n";
-
-# ---   *   ---   *   ---
-# catch: no instruction matches index
-
-  if(!defined $blk) {
-
-    printf "EX_END: instruction fetch fail!\n";
-    exit;
-
-  };return $blk;
-
-};
-
-# ---   *   ---   *   ---
-# execute next instruction in stack
-
-sub exnext {
-
-  my $self=shift;
-  my ($ins,$arg)=(0,0);
-
-  # get idex of instruction
-  my $i=nxins();
-
-  # fetch instruction matching idex
-  ($self,$ins,$arg)=$self->exfetnx();
-  if(!defined $self) {return;};
-
-# ---   *   ---   *   ---
-# decode instruction/argument ptrs
-
-  $ins=$self->getv($ins);
-  $arg=$self->getv($arg);
-
-  # duplicate node containing args
-  $arg=getnode($arg);
-  my $ori=$arg;
-  $arg=$arg->dup();
-
-  # execute instruction
-  $CACHE{-INS}->[$ins]->ex($arg);
-
-  # increase stack ptr if !jmp
-  if($i == nxins()) {incnxins();};
-  return $self;
-
-};
-
-# ---   *   ---   *   ---
 # in: name, write/read/exec permissions
 # creates a new data/instruction block
 
@@ -421,14 +257,11 @@ sub nit {
 
 sub gblnit {
 
-  my $tab=shift;
-
   $CACHE{-SOIL}=nit(undef,'non');
+  DST($CACHE{-SOIL});
+
   $CACHE{-BLOCKS}=$CACHE{-SOIL}->{-ELEMS};
   $CACHE{-PRSTK}=stack::nit(0,[]);
-
-  loadins($tab);
-  setnxins(0);
 
   return $CACHE{-SOIL};
 
@@ -479,11 +312,20 @@ sub elems {return (shift)->{-ELEMS};};
 sub par {return (shift)->{-PAR};};
 sub children {return (shift)->{-CHILDREN};};
 sub sstack {return (shift)->{-STACK};};
+
+sub scope {return (shift)->{-SCOPE};};
+
 sub data {return $CACHE{-DATA};};
 sub size {return (shift)->{-SIZE};};
 sub attrs {return (shift)->{-ATTRS};};
-sub nxins {return $CACHE{-NXINS};};
+
 sub insid {return (shift)->{-INSID};};
+
+sub ins {
+  return $CACHE{-INS_ARR}->[(shift)->insid];
+
+};sub INS {return $CACHE{-INS_ARR};};
+
 sub fpass {return !$CACHE{-PASS};};
 
 # ---   *   ---   *   ---
@@ -497,7 +339,7 @@ sub DST {
 
   };return $CACHE{-DST};
 
-};
+};sub NON {return $CACHE{-SOIL};};
 
 # ---   *   ---   *   ---
 # find ancestors recursively
@@ -517,11 +359,25 @@ sub ances {
 # ---   *   ---   *   ---
 # setters
 
-sub entry {$CACHE{-ENTRY}=shift;};
-sub incpass {$CACHE{-PASS}++;};
+sub entry {
 
-sub setnxins {$CACHE{-NXINS}=shift};
-sub incnxins {$CACHE{-NXINS}++};
+  my $new=shift;
+  if(defined $new) {
+    $CACHE{-ENTRY}=$new;
+
+  };return $CACHE{-ENTRY};
+
+};sub nxins {
+
+  my $new=shift;
+  if(defined $new) {
+    $CACHE{-NXINS}=$new;
+
+  };return $CACHE{-NXINS};
+
+};
+
+sub incpass {$CACHE{-PASS}++;};
 
 # ---   *   ---   *   ---
 # in: block, element name

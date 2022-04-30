@@ -60,14 +60,14 @@ sub update {
 
   update(
 
-    [ '/peso/defs.pm',
+    [ '/peso/decls.pm',
       '/peso/rd.pm',
       '/peso/node.pm',
       '/peso/ptr.pm',
       '/peso/block.pm',
       '/peso/symbol.pm',
-
-      '/peso/decls.pm',
+      '/peso/defs.pm',
+      '/peso/program.pm',
 
       '/stack.pm',
       '/avt.pm'

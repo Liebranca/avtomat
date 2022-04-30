@@ -26,6 +26,8 @@ package langdefs::peso;
   use peso::node;
   use peso::block;
   use peso::symbol;
+  use peso::defs;
+  use peso::program;
 
 # ---   *   ---   *   ---
 
@@ -127,47 +129,7 @@ my %MAM=(
   # instruction stack
   -PROGRAM=>[],
 
-  -NUMCON=>[
-
-    # hex conversion
-    [ lang::DICT->{-GPRE}->{-NUMS}->[0]->[1],
-      \&lang::pehexnc
-
-    ],
-
-    # ^bin
-    [ lang::DICT->{-GPRE}->{-NUMS}->[1]->[1],
-      \&lang::pebinnc
-
-    ],
-
-    # ^octal
-    [ lang::DICT->{-GPRE}->{-NUMS}->[2]->[1],
-      \&lang::peoctnc
-
-    ],
-
-    # decimal notation: as-is
-    [ '(((\b[1-9][0-9]*|\.)+[0-9]+f?)\b)|'.
-      '(\b[1-9][0-9]*\b)',
-
-      sub {return (shift);}
-
-    ],
-
-  ],
-
 );
-
-# ---   *   ---   *   ---
-
-# table of execution paths
-$MAM{-EXTAB}={
-
-'{'=>[\&peso::node::ocurl,undef],
-'}'=>[undef,\&peso::node::ccurl],
-
-};
 
 # ---   *   ---   *   ---
 
@@ -215,11 +177,7 @@ sub peso_rd {
 # ---   *   ---   *   ---
 
   # initialize peso modules
-  peso::block::gblnit($MAM{-EXTAB});
-  peso::node::loadnumcon($MAM{-NUMCON});
-
-  # use default block as root
-  $MAM{-DST}=peso::block::clan('non');
+  peso::program::nit();
 
   # iter expressions
   for my $exp(@exps) {
@@ -269,12 +227,12 @@ sub peso_rd {
 
       # fetch expath from table
 
-      my $tab=$MAM{-EXTAB};
+      my $tab=peso::defs::SYMS;
 
       if($tab) {
 
         my $k=($i==2)
-          ? $primitive
+          ? 'value_decl'
           : $key
           ;
 
@@ -350,6 +308,8 @@ sub peso_rd {
         if($root->val=~ m/proc/) {
           $expath->ex($root);
 
+# ---   *   ---   *   ---
+
         # encode instruction
         } else {
 
@@ -363,8 +323,12 @@ sub peso_rd {
             my $dst=$MAM{-DST};
 
             push(
+
               @$program,
-              [sub {$MAM{-DST}=$dst},$root,$key]
+              [ sub {peso::block::DST($dst)},
+                $root,$key
+
+              ]
 
             );
 
@@ -376,18 +340,23 @@ sub peso_rd {
 
           };
 
-          my $dst=$MAM{-DST};
-          my $inum=peso::block::nxins;
+# ---   *   ---   *   ---
+
+          my $dst=peso::block::DST;
+          my $inum=peso::program::nxins;
 
           # generate identifier
           my $iname=sprintf(
             'ins_%.08i',$inum
 
           # get instruction id
-          );my $iidex=peso::block::getinsi(
-            $root->val
-
           );
+
+          my $inskey=$root->val;
+          $inskey=~ s/\s+$//;
+
+          my $iidex=
+              peso::defs::INSID->{$inskey};
 
           my @ins=([$iname,$iidex]);
 
@@ -397,7 +366,7 @@ sub peso_rd {
           my $nname=sprintf(
             'arg_%.08i',$inum
 
-          );my $nidex=peso::block::setnode(
+          );my $nidex=peso::program::setnode(
             $root
 
           );
@@ -427,7 +396,7 @@ sub peso_rd {
             ]
           );
 
-        };peso::block::incnxins();
+        };peso::program::incnxins();
 
       };
 
@@ -467,9 +436,8 @@ sub peso_rd {
 # ---   *   ---   *   ---
 # execute and print memory
 
-  peso::block::ex();
-  peso::block::clan('non')
-    ->prich();
+  peso::program::run();
+  peso::block::NON->prich();
 
   return;
 

@@ -28,8 +28,10 @@ package peso::defs;
 
   my %CACHE=(
 
-    -SYMS={},
-    -INS={},
+    -SYMS=>{},
+    -INS=>[],
+
+    -INSID=>{},
 
   );
 
@@ -38,6 +40,7 @@ package peso::defs;
 
 sub SYMS {return $CACHE{-SYMS};};
 sub INS {return $CACHE{-INS};};
+sub INSID {return $CACHE{-INSID};};
 
 # ---   *   ---   *   ---
 # constructor, or rather shorthand
@@ -52,7 +55,9 @@ sub DEFINE {
   my $args=$src->{$key}->[1];
 
   my $sym=peso::symbol::nit($key,$args,$code);
+
   INS->[$idex]=SYMS->{$key}=$sym;
+  INSID->{$key}=$idex;
 
 };
 
@@ -61,7 +66,7 @@ sub DEFINE {
 
 # ---   *   ---   *   ---
 
-DEFINE 'cpy',peso::decls::bafa,sub {
+DEFINE('cpy',peso::decls::bafa,sub {
 
   my $inskey=shift;
   my $field=shift;
@@ -76,28 +81,28 @@ DEFINE 'cpy',peso::decls::bafa,sub {
 
   };$dst->setv($src);
 
-};
+});
 
 # ---   *   ---   *   ---
 
-DEFINE 'pop',peso::decls::bafa,sub {
+DEFINE('pop',peso::decls::bafa,sub {
 
   my $inskey=shift;
   my $dst=(shift)->[0];
 
   my $v=peso::block::spop();
 
-  if(peso::ptr::valid($src)) {
-    $src=peso::ptr::fetch($src);
-    $src->setv($v);
+  if(peso::ptr::valid($dst)) {
+    $dst=peso::ptr::fetch($dst);
+    $dst->setv($v);
 
   };
 
-};
+});
 
 # ---   *   ---   *   ---
 
-DEFINE 'push',peso::decls::bafa,sub {
+DEFINE('push',peso::decls::bafa,sub {
 
   my $inskey=shift;
   my $src=(shift)->[0];
@@ -109,60 +114,60 @@ DEFINE 'push',peso::decls::bafa,sub {
 
   peso::block::spush($src);
 
-};
+});
 
 # ---   *   ---   *   ---
 
-DEFINE 'inc',peso::decls::bafa,sub {
+DEFINE('inc',peso::decls::bafa,sub {
 
   my $inskey=shift,
   my $ptr=(shift)->[0];
 
-  my $ptr=peso::ptr::fetch($ptr);
+  $ptr=peso::ptr::fetch($ptr);
   $ptr->setv($ptr->getv()+1);
 
-};
+});
 
 # ---   *   ---   *   ---
 
-DEFINE 'dec',peso::decls::bafa,sub {
+DEFINE('dec',peso::decls::bafa,sub {
 
   my $inskey=shift,
   my $ptr=(shift)->[0];
 
-  my $ptr=peso::ptr::fetch($ptr);
+  $ptr=peso::ptr::fetch($ptr);
   $ptr->setv($ptr->getv()-1);
 
-};
+});
 
 # ---   *   ---   *   ---
 
-DEFINE 'clr',peso::decls::bafa,sub {
+DEFINE('clr',peso::decls::bafa,sub {
 
   my $inskey=shift,
   my $ptr=(shift)->[0];
 
-  my $ptr=peso::ptr::fetch($ptr);
+  $ptr=peso::ptr::fetch($ptr);
   $ptr->setv(0);
 
-};
+});
 
 # ---   *   ---   *   ---
 
-DEFINE 'exit',peso::decls::bafa,sub {
+DEFINE('exit',peso::decls::bafa,sub {
 
   my $inskey=shift;
   my $val=(shift)->[0];
 
   # placeholder!
   printf sprintf "Exit code <0x%.2X>\n",$val;
-  peso::block::setnxins(-2);
+  peso::program::setnxins(-2);
 
-};
+});
 
 # ---   *   ---   *   ---
 
-DEFINE 'reg',peso::decls::bafb,sub {
+DEFINE('reg',peso::decls::bafb,sub {
 
   my $inskey=shift;
   my $name=(shift)->[0];
@@ -196,16 +201,16 @@ DEFINE 'reg',peso::decls::bafb,sub {
   peso::block::DST($blk);
   peso::block::setscope($blk);
 
-};
+});
 
 # ---   *   ---   *   ---
 
-DEFINE 'clan',peso::decls::bafb,sub {
+DEFINE('clan',peso::decls::bafb,sub {
 
   my $inskey=shift;
   my $name=(shift)->[0];
 
-  my $dst=peso::block::clan('non');
+  my $dst=peso::block::NON;
 
 # ---   *   ---   *   ---
 
@@ -228,11 +233,11 @@ DEFINE 'clan',peso::decls::bafb,sub {
   } else {$blk=$dst;};
   peso::block::DST($blk);
 
-};
+});
 
 # ---   *   ---   *   ---
 
-DEFINE 'proc',peso::decls::bafb,sub {
+DEFINE('proc',peso::decls::bafb,sub {
 
   my $inskey=shift;
   my $name=(shift)->[0];
@@ -265,57 +270,57 @@ DEFINE 'proc',peso::decls::bafb,sub {
 
   peso::block::DST($blk);
 
-};
+});
 
 # ---   *   ---   *   ---
 
-DEFINE 'entry',peso::decls::bafb,sub {
+DEFINE('entry',peso::decls::bafb,sub {
 
   my $inskey=shift;
   my $name=(shift)->[0];
 
   peso::block::entry($name);
 
-};
+});
 
 # ---   *   ---   *   ---
 
-DEFINE 'jmp',peso::decls::bafc,sub {
+DEFINE('jmp',peso::decls::bafc,sub {
 
   my $inskey=shift;
   my $ptr=(shift)->[0];
 
   # set instruction index to ptr loc
-  peso::block::setnxins(
+  peso::program::setnxins(
     peso::ptr::fetch($ptr)->blk->insid
 
   );
 
-};
+});
 
 # ---   *   ---   *   ---
 
-DEFINE 'wed',peso::decls::bafd,sub {
+DEFINE('wed',peso::decls::bafd,sub {
 
   my $inskey=shift;
   my $type=(shift)->[0];
 
   peso::ptr::wed($type);
 
-};
+});
 
 # ---   *   ---   *   ---
 
-DEFINE 'unwed',peso::decls::bafd,sub {
+DEFINE('unwed',peso::decls::bafd,sub {
 
   my $inskey=shift;
   peso::ptr::wed(undef);
 
-};
+});
 
 # ---   *   ---   *   ---
 
-DEFINE 'value_decl',peso::decls::bafe,sub {
+DEFINE('value_decl',peso::decls::bafe,sub {
 
   my $inskey=shift;
 
@@ -416,10 +421,43 @@ DEFINE 'value_decl',peso::decls::bafe,sub {
 
   };peso::ptr::wed($wed);
 
-};
+});
 
 # ---   *   ---   *   ---
 # defs end
+
+# ---   *   ---   *   ---
+# misc definitions
+
+my $NUMCON=[
+
+  # hex conversion
+  [ lang::DICT->{-GPRE}->{-NUMS}->[0]->[1],
+    \&lang::pehexnc
+
+  ],
+
+  # ^bin
+  [ lang::DICT->{-GPRE}->{-NUMS}->[1]->[1],
+    \&lang::pebinnc
+
+  ],
+
+  # ^octal
+  [ lang::DICT->{-GPRE}->{-NUMS}->[2]->[1],
+    \&lang::peoctnc
+
+  ],
+
+  # decimal notation: as-is
+  [ '(((\b[1-9][0-9]*|\.)+[0-9]+f?)\b)|'.
+    '(\b[1-9][0-9]*\b)',
+
+    sub {return (shift);}
+
+  ],
+
+];sub NUMCON {return $NUMCON;};
 
 # ---   *   ---   *   ---
 1; # ret

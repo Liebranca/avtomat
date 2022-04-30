@@ -65,7 +65,12 @@ sub com {return $DICT{-COM};};
 # ---   *   ---   *   ---
 
 sub intrinsic {
-  return lang::eiths(keys %{bafd()});
+  return lang::eiths(
+
+    join ',',
+    keys %{bafd()},1
+
+  );
 };
 
 # ---   *   ---   *   ---
@@ -334,7 +339,7 @@ sub intrinsic {
 { my @types=keys %{sizes()};
   $DICT{-TYPES}=\@types;
 
-};$DICT{-TYPES_RE}=join '\|',@{types()};
+};$DICT{-TYPES_RE}=join '|',@{types()};
 
 # ---   *   ---   *   ---
 
