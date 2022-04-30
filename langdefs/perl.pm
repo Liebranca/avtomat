@@ -3,7 +3,21 @@
 # perl res
 
 # ---   *   ---   *   ---
-#$:CUT;>
+
+# deps
+package langdefs::perl;
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use lang;
+
+# ---   *   ---   *   ---
+
+sub SYGEN_KEY {return -PERL;};
+sub RC_KEY {return 'perl';};
+
+# ---   *   ---   *   ---
 
 my %PERL=(
 
@@ -21,11 +35,11 @@ my %PERL=(
 
     [0x04,'[$%&@]('.
 
-      '('.$_LUN.'*|'.
+      '('.lang::_LUN.'*|'.
 
       '\^[][A-Z?\^_]|[0-9]+\b)|'.
 
-      '(\{(\^?'.$_LUN.'*|'.
+      '(\{(\^?'.lang::_LUN.'*|'.
       '\^[][?\^][0-9]+)\})|'.
 
       '(([][!"#\'()*+,.:;<=>?`|~-]|'.
@@ -43,7 +57,7 @@ my %PERL=(
 
   -BILTN =>[
 
-    [0x01,eiths(
+    [0x01,lang::eiths(
 
       'accept,alarm,atan2,bin(d|mode),'.
 
@@ -106,7 +120,7 @@ my %PERL=(
 
   -KEYS =>[
 
-    [0x0D,eiths(
+    [0x0D,lang::eiths(
 
       'continue,else,elsif,do,for,foreach,'.
       'if,unless,until,while,eq,ne,lt,gt,'.
@@ -120,11 +134,14 @@ my %PERL=(
 
 # line comments
 );$PERL{-LCOM}=[
-  [0x02,eaf(
-    lkback('$%&@\'"',
+  [0x02,lang::eaf(
+    lang::lkback('$%&@\'"',
     $PERL{-COM}),0,1)
 
   ],
 
-];$DICT{-PERL}=\%PERL;
+];lang::DICT->{SYGEN_KEY()}=\%PERL;
+
+# ---   *   ---   *   ---
+1; # ret
 

@@ -12,7 +12,7 @@
 # ---   *   ---   *   ---
 
 # deps
-package peso;
+package langdefs::peso;
   use strict;
   use warnings;
 
@@ -26,6 +26,11 @@ package peso;
   use peso::node;
   use peso::block;
   use peso::symbol;
+
+# ---   *   ---   *   ---
+
+sub SYGEN_KEY {return -PESO;};
+sub RC_KEY {return 'peso';};
 
 # ---   *   ---   *   ---
 
@@ -51,7 +56,7 @@ my %PESO=(
     ,1)],
 
     # intrinsics
-    [0x04,peso::decls::intrinsic,1)],
+    [0x04,peso::decls::intrinsic],
 
     # simbolic constants (sblconst)
     [0x04,lang::eiths(
@@ -107,7 +112,7 @@ my %PESO=(
 );$PESO{-LCOM}=[
   [0x02,lang::eaf($PESO{-COM},0,1)],
 
-];lang::DICT->{-PESO}=\%PESO;
+];lang::DICT->{SYGEN_KEY()}=\%PESO;
 
 # ---   *   ---   *   ---
 
@@ -161,6 +166,8 @@ $MAM{-EXTAB}={
 
 '{'=>[\&peso::node::ocurl,undef],
 '}'=>[undef,\&peso::node::ccurl],
+
+};
 
 # ---   *   ---   *   ---
 

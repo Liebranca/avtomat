@@ -67,6 +67,8 @@ sub update {
       '/peso/block.pm',
       '/peso/symbol.pm',
 
+      '/peso/decls.pm',
+
       '/stack.pm',
       '/avt.pm'
 

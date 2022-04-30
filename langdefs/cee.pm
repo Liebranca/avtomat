@@ -3,7 +3,21 @@
 # C syntax defs
 
 # ---   *   ---   *   ---
-#$:CUT;>
+
+# deps
+package langdefs::cee;
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use lang;
+
+# ---   *   ---   *   ---
+
+sub SYGEN_KEY {return -CEE;};
+sub RC_KEY {return 'c';};
+
+# ---   *   ---   *   ---
 
 my %CEE=(
 
@@ -19,7 +33,7 @@ my %CEE=(
 
   -VARS =>[
 
-    [0x04,eiths(
+    [0x04,lang::eiths(
 
       'auto,extern,inline,restrict,signed,'.
       'union,struct,unsigned,static,typedef,'.
@@ -30,7 +44,7 @@ my %CEE=(
 
 # ---   *   ---   *   ---
 
-    [0x04,eiths(
+    [0x04,lang::eiths(
 
       'sizeof,offsetof,typedef'
 
@@ -38,7 +52,7 @@ my %CEE=(
 
 # ---   *   ---   *   ---
 
-    [0x04,eiths(
+    [0x04,lang::eiths(
 
       '_(Alignas|Alignof|Atomic|Bool|Complex'.
       '|Generic|Imaginary|Noreturn'.
@@ -55,7 +69,7 @@ my %CEE=(
 
 # ---   *   ---   *   ---
 
-    [0x04,eiths(
+    [0x04,lang::eiths(
 
       'bool,char,double,float,'.
       'int,float,long,short,void,enum,'.
@@ -71,7 +85,7 @@ my %CEE=(
 
 # ---   *   ---   *   ---
 
-    [0x04,eiths(
+    [0x04,lang::eiths(
 
       'gl_(Position|FragColor)'
 
@@ -88,7 +102,7 @@ my %CEE=(
 
   -KEYS =>[
 
-    [0x0D,eiths(
+    [0x0D,lang::eiths(
 
       'if,else,for,while,do,switch,case,default,'.
       'try,throw,catch,operator,new,delete,'.
@@ -96,7 +110,7 @@ my %CEE=(
 
     ,1)],
 
-    [0x01,eiths(
+    [0x01,lang::eiths(
 
       '__attribute__[[:blank:]]*\(\([^)]*\)\)'.
 
@@ -116,8 +130,8 @@ my %CEE=(
 
 
 );$CEE{-LCOM}=[
-  [0x02,eaf($CEE{-COM},0,1)],
-  [0x02,delim2('/*','*/',1)],
+  [0x02,lang::eaf($CEE{-COM},0,1)],
+  [0x02,lang::delim2('/*','*/',1)],
 
 ];
 
@@ -133,20 +147,20 @@ sub cee_decl {
   my $types=$CEE{-VARS}->[3]->[1];
   my $isptr='(\\**\\s+|\\s+\\**)';
 
-  $PS{-PAT}='('.$qualy.')*\s+('.
-    $types.$isptr.')('.$_LUN.'*)'.'\s*';
+  my $pat='('.$qualy.')*\s+('.
+    $types.$isptr.')('.lang::_LUN.'*)'.'\s*';
 
-  $PS{-PAT}.=delim2('(',')',1);
+  $pat.=delim2('(',')',1);
 
-  if(!($s=~ m/${ PS{-PAT} }/sg)) {
+  if(!($s=~ m/${pat}/sg)) {
     return undef;
 
   };$s=~ s/\n//sg;
 
-  $s=~ m/^(.*)${ PS{-PAT} }/;
+  $s=~ m/^(.*)${pat}/;
   if($1) {$s=~ s/\Q${ 1 }//;};
 
-  $PS{-STR}=$s;
+  lang::ps_str($s);
 
 
 # ---   *   ---   *   ---
@@ -160,29 +174,31 @@ sub cee_decl {
 
     },-ARGS =>[],
 
-  );my $i=0;while($PS{-STR}) {
+  );my $i=0;while(lang::ps_str) {
 
-    $PS{-DST}=$d{-FN};if($i) {
+    lang::ps_dst($d{-FN});if($i) {
 
       push @{ $d{-ARGS} },{
         -QUAL=>[],
         -TYPE=>[],
         -NAME=>[],
 
-      };$PS{-DST}=$d{-ARGS}->[-1];
+      };lang::ps_dst($d{-ARGS}->[-1]);
 
     };
 
 # ---   *   ---   *   ---
 
-    $PS{-PAT}=$qualy;ps(-QUAL);
-    $PS{-PAT}=$types.$isptr;ps(-TYPE);
-    $PS{-PAT}=$_LUN.'*';ps(-NAME);
+    lang::ps(-QUAL,$qualy);
+    lang::ps(-TYPE,$types.$isptr);
+    lang::ps(-NAME,lang::_LUN.'*');
 
-    my $test=$PS{-STR};
-    $PS{-STR}=~ s/^\s*[\(,\)]//sg;$i++;
+    my $test=lang::ps_str;
+    my $mod=$test;
 
-    if($PS{-STR} eq $test) {last;};
+    $mod=~ s/^\s*[\(,\)]//sg;$i++;
+
+    if($mod eq $test) {last;};
 
   };
 
@@ -205,8 +221,10 @@ sub cee_decl {
 
   };return $ret;
 
-};$CEE{-DECL}=\&cee_decl;
-
 # ---   *   ---   *   ---
 
-$DICT{-CEE}=\%CEE;
+};$CEE{-DECL}=\&cee_decl;
+lang::DICT->{SYGEN_KEY()}=\%CEE;
+
+# ---   *   ---   *   ---
+1; # ret

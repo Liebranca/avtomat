@@ -33,10 +33,9 @@ package lang;
 
 # ---   *   ---   *   ---
 
-  my $_LUN='[_a-zA-Z][_a-zA-Z0-9]';
-  my $DRFC='(::|->|\.)';
-
-  my $OPS='+-*/\$@%&\^<>!|?{[()]}~,.=;:';
+  sub DRFC {return '(::|->|\.)';};
+  sub OPS {return '+-*/\$@%&\^<>!|?{[()]}~,.=;:';};
+  sub _LUN {return '[_a-zA-Z][_a-zA-Z0-9]';};
 
 # ---   *   ---   *   ---
 # regex tools
@@ -287,16 +286,16 @@ sub eaf {
 # ---   *   ---   *   ---
 # general-purpose regexes
 
-my \%DICT={-GPRE=>{
+my $DICT={-GPRE=>{
 
   -HIER =>[
 
     # class & hierarchy stuff
     [0x07,'[^[:blank:]]+'],
     [0x04,eiths('this,self')],
-    [0x04,"$_LUN*$DRFC"],
-    [0x0D,"\\b$_LUN*$DRFC$_LUN*$DRFC"],
-    [0x04,"$DRFC$_LUN*$DRFC"],
+    [0x04,_LUN.'*'.DRFC],
+    [0x0D,"\\b"._LUN.'*'.DRFC._LUN.'*'.DRFC],
+    [0x04,DRFC._LUN.'*'.DRFC],
 
   ],
 
@@ -305,7 +304,7 @@ my \%DICT={-GPRE=>{
   -PFUN =>[
 
     # functions with parens
-    [0x01,"\\b$_LUN*[[:blank:]]*\\("],
+    [0x01,"\\b"._LUN.'*[[:blank:]]*\\('],
 
   ],
 
@@ -319,7 +318,7 @@ my \%DICT={-GPRE=>{
   -OPS =>[
 
     # operators
-    [0x0F,eithc($OPS)],
+    [0x0F,eithc(OPS)],
 
   ],
 
@@ -427,14 +426,14 @@ my \%DICT={-GPRE=>{
       '(el)?if,ifn?def,'.
       'undef,error,warning'
 
-      ,1)).'[[:blank:]]*'.$_LUN.'*\n?)'
+      ,1)).'[[:blank:]]*'._LUN.'*\n?)'
 
     ],[0x0E,'(#[[:blank:]]*'.eiths('else,endif').')'],
 
     [0x0E,'(#[[:blank:]]*'.
 
       'define[[:blank:]]*'.
-      $_LUN.'*('.( delim2('(',')') ).
+      _LUN.'*('.( delim2('(',')') ).
 
       ')?\n?)'
 
@@ -450,7 +449,7 @@ my \%DICT={-GPRE=>{
   my $lang=shift;
   my $key=shift;
 
-  return $DICT{$lang}->{$key};
+  return $DICT->{$lang}->{$key};
 
 # hash access
 };sub DICT {return $DICT;};
@@ -476,18 +475,35 @@ my %PS=(
 sub ps {
 
   my $key=shift;
+  my $pat=shift;
 
   # well handle this later, for now its ignored
   $PS{-STR}=~ s/extern "C" \{//;
 
-  while($PS{-STR}=~ m/^\s*(${PS{-PAT}})/sg) {
+  while($PS{-STR}=~ m/^\s*(${pat})/sg) {
 
     if(!$1) {last;};;
 
     push @{ $PS{-DST}->{$key} },$1;
-    $PS{-STR}=~ s/^\s*${PS{-PAT}}\s*//s;
+    $PS{-STR}=~ s/^\s*${pat}\s*//s;
 
   };
+
+};sub ps_str {
+
+  my $new=shift;
+  if($new) {
+    $PS{-STR}=$new;
+
+  };return $PS{-STR};
+
+};sub ps_dst {
+
+  my $new=shift;
+  if($new) {
+    $PS{-DST}=$new;
+
+  };return $PS{-DST};
 
 };
 

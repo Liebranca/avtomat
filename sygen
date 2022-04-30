@@ -16,90 +16,120 @@
   use strict;
   use warnings;
 
+  use lib $ENV{'ARPATH'}.'/include/';
+  require 'AR.ph';
+
 # ---   *   ---   *   ---
-# patch out our own dependencies
-# because we can
 
-  BEGIN {
+my $srcpath=$ENV{'ARPATH'}.'/avtomat';
+my $dstpath=$ENV{'ARPATH'}.'/lib';
 
-    use lib $ENV{'ARPATH'}.'/include/';
-    require 'AR.ph';
+my $do_cp=0;
 
-    my $path=$ENV{'ARPATH'}.'/avtomat';
-    my $do_cp=0;
+# first make copy
+$do_cp=!(-e "$dstpath/lang.pm");
+$do_cp=(!$do_cp)
+  ? !((-M "$dstpath/lang.pm")
+    < (-M "$srcpath/lang.pm"))
 
-    # first make copy
-    $do_cp=!(-e "$ENV{'ARPATH'}/lib/lang.pm");
-    $do_cp=(!$do_cp)
-      ? !((-M "$ENV{'ARPATH'}/lib/lang.pm")
-        < (-M $path."/lang.pm"))
+  : $do_cp
+  ;
 
-      : $do_cp
+# ---   *   ---   *   ---
+
+# check secondary deps to lib
+my @files=split m/\s+/,
+  `ls $srcpath/langdefs`;
+
+if(!$do_cp) {
+
+  my $lfold="$srcpath/langdefs";
+
+  for my $f(@files) {
+
+    if(
+
+      !((-M "$dstpath/lang.pm")
+      < (-M "$lfold/$f"))
+
+    ) {$do_cp=1;last;};
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+if($do_cp) {
+  `cp $srcpath/lang.pm $dstpath/`;
+
+};if(!(-e "$dstpath/langdefs")) {
+  `mkdir -p $dstpath/langdefs`;
+
+};
+
+# ---   *   ---   *   ---
+
+# on update, perform patch
+if($do_cp) {
+
+  # iter through addons and copy if need
+  for my $lang(@files) {
+
+    my $src="$srcpath/langdefs/$lang";
+    my $dst="$dstpath/langdefs/$lang";
+
+    my $up=!(-e $dst);
+    $up=(!$up)
+
+      ? !((-M $dst)
+        < (-M $src))
+
+      : $up
       ;
 
-# ---   *   ---   *   ---
-
-    # check secondary deps to lib
-    my @files=split m/\s+/,
-      `ls $ENV{'ARPATH'}'/avtomat/langdefs'`;
-
-    if(!$do_cp) {
-
-      my $lfold=$ENV{'ARPATH'}.'/avtomat/langdefs';
-
-      for my $f(@files) {
-
-        if(
-
-          !((-M "$ENV{'ARPATH'}/lib/lang.pm")
-          < (-M $lfold."/$f"))
-
-        ) {$do_cp=1;last;};
-
-      };
+    if($up) {
+      `cp $src $dst`;
 
     };
+  };
+};
 
 # ---   *   ---   *   ---
 
-    if($do_cp) {
-      `cp $path/lang.pm $ENV{'ARPATH'}/lib/`;
+for my $lang(@files) {
+  $lang=~ s/\.pm//;
 
-    };
+};
 
 # ---   *   ---   *   ---
 
-    # on update, perform patch
-    if($do_cp) {
+sub make_script {
 
-      open MONKEY,'>>',
-        $ENV{'ARPATH'}.'/lib/lang.pm'
+my $script=<<'EOF'
+#!/usr/bin/perl
 
-      or die $!;
+  use strict;
+  use warnings;
 
-      # iter through addons and append
-      for my $lang(@files) {
-        my $s=`cat $path/langdefs/$lang`;
-        $s=~ s/.*\$:CUT;>//sg;
+  use lib $ENV{'ARPATH'}.'/lib/';
 
-        print MONKEY $s;
+  use avt;
+  use lang;
 
-      };
+EOF
+;
 
-      print MONKEY "\n1; #ret\n";
-      close MONKEY;
+# ---   *   ---   *   ---
 
-    };
+  for my $lang(@files) {
+    $script.="  use langdefs::$lang;\n";
+
   };
 
 # ---   *   ---   *   ---
 
-  # now import like nothing happened
-  use lib $ENV{'ARPATH'}.'/lib/';
-  use avt;
-  use lang;
-
-# ---   *   ---   *   ---
+$script.=<<'EOF'
 
 my @colors=(
 
@@ -112,11 +142,7 @@ my @colors=(
 );for(my $i=9;$i<16;$i++) {
   $colors[$i]='bright'.$colors[$i];
 
-};
-
-# ---   *   ---   *   ---
-
-my $FH=undef;
+};my $FH=undef;
 
 sub prprops {
 
@@ -150,12 +176,12 @@ sub glang {
 
     open $FH,'>',$dst or die $!;
 
-    my $prop=((
+    my $prop=''.(
 
-      lang::PROP($src,-NAME) ).' "'.(
-      lang::PROP($src,-EXT ) ).'"'
+      ( lang::PROP($src,-NAME) ).' "'.
+      ( lang::PROP($src,-EXT ) ).'"'
 
-    );print $FH "syntax $prop\n";
+    ).'';print $FH "syntax $prop\n";
 
     $prop=avt::dqwrap(lang::PROP($src,-HED));
     print $FH "header $prop\n";
@@ -166,7 +192,7 @@ sub glang {
     $prop=avt::dqwrap(lang::PROP($src,-COM));
     print $FH "comment $prop\n\n";
 
-    # ---   *   ---   *   ---
+# ---   *   ---   *   ---
 
     for my $key(
       -HIER,-PFUN,-DELM0,-GBL,-DELM1
@@ -189,15 +215,38 @@ sub glang {
     close $FH;
 
   };
+};
 
-};glang(
+# ---   *   ---   *   ---
 
-  -CEE,glob('~/.config/nano/c.nanorc'),
-  -PESO,glob('~/.config/nano/peso.nanorc'),
-  -PERL,glob('~/.config/nano/perl.nanorc'),
-  -JS,glob('~/.config/nano/javascript.nanorc'),
+EOF
+;
 
-);
+# ---   *   ---   *   ---
+
+$script.="\n  glang(\n";
+
+for my $lang(@files) {
+
+  $script.=
+    "    langdefs::$lang\::SYGEN_KEY,\n".
+    "    glob(".'"'."~/.config/nano/".'".'.
+    "langdefs::$lang\::RC_KEY".'.".nanorc"),'."\n";
+
+};$script.="\n);\n";
+
+# ---   *   ---   *   ---
+
+  my $ex=$ENV{'ARPATH'}.'/avtomat/ex_sygen';
+  open FH,'>',$ex or die $!;
+
+
+  printf FH $script;
+  close FH;
+
+  `chmod +x $ex`;`$ex`;
+
+};make_script(@files);
 
 # ---   *   ---   *   ---
 1; # ret

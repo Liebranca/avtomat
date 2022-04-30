@@ -65,7 +65,7 @@ sub com {return $DICT{-COM};};
 # ---   *   ---   *   ---
 
 sub intrinsic {
-  return lang::eiths(keys %{bafd});
+  return lang::eiths(keys %{bafd()});
 };
 
 # ---   *   ---   *   ---
