@@ -482,7 +482,7 @@ sub ps {
 
   while($PS{-STR}=~ m/^\s*(${pat})/sg) {
 
-    if(!$1) {last;};;
+    if(!$1) {last;};
 
     push @{ $PS{-DST}->{$key} },$1;
     $PS{-STR}=~ s/^\s*${pat}\s*//s;

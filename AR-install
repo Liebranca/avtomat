@@ -29,7 +29,7 @@ BEGIN {
   `cp $src $dst`;
 
   # regenerate defs
-  `$ENV{'ARPATH'}./avtomat/sygen`;
+  #`$ENV{'ARPATH'}./avtomat/sygen`;
 
 };
 
@@ -173,7 +173,6 @@ my $test_config;{
 
 my $EX="$root/avtomat/avtomat $root";
 `$EX scan avtomat help ft8 $ce_scan sin chasm test`;
-
 `$EX config avtomat $avtomat_config help $help_config ft8 $ft8_config ce $ce_config sin $sin_config chasm $chasm_config test $test_config`;
 
 `$EX make`;

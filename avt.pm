@@ -20,7 +20,9 @@ package avt;
   use Cwd qw(abs_path getcwd);
 
   use lib $ENV{'ARPATH'}.'/lib/';
+
   use lang;
+  use langdefs::cee;
 
 # ---   *   ---   *   ---
 # info

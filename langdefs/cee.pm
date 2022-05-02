@@ -150,7 +150,7 @@ sub cee_decl {
   my $pat='('.$qualy.')*\s+('.
     $types.$isptr.')('.lang::_LUN.'*)'.'\s*';
 
-  $pat.=delim2('(',')',1);
+  $pat.=lang::delim2('(',')',1);
 
   if(!($s=~ m/${pat}/sg)) {
     return undef;
@@ -198,7 +198,8 @@ sub cee_decl {
 
     $mod=~ s/^\s*[\(,\)]//sg;$i++;
 
-    if($mod eq $test) {last;};
+    if(!length $mod) {last;};
+    lang::ps_str($mod);
 
   };
 
