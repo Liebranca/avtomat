@@ -284,6 +284,16 @@ sub eaf {
 };
 
 # ---   *   ---   *   ---
+# type-check utils
+
+sub is_code {
+
+  my $v=shift;
+  return int($v=~ m/^CODE\(0x[0-9a-f]+\)/);
+
+};
+
+# ---   *   ---   *   ---
 # general-purpose regexes
 
 my $DICT={-GPRE=>{

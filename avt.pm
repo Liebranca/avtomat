@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-
 # ---   *   ---   *   ---
 # AVT
 # avtomat utils as a package
@@ -875,25 +874,34 @@ sub ctopl {
 
   my $search=<<"EOF"
 
-my \$libfold=__FILE__;{
-  my \@tmp=split('/',\$libfold);
-  \$libfold=join('/',\@tmp[0..(\$#tmp)-1]);
-};
-
-my \$ffi=FFI::Platypus->new(api => 2);
-\$ffi->lib(
-  "\$libfold/lib$soname.so"
+my \%CACHE=(
+  -FFI=>undef,
 
 );
 
-\$ffi->load_custom_type('::WideString'=>'wstring');
-\$ffi->type('(void)->void'=>'nihil');
+sub ffi {return \$CACHE{-FFI};};
 
-sub ffi {return \$ffi;};
+sub nit {
+
+  my \$libfold=__FILE__;{
+    my \@tmp=split('/',\$libfold);
+    \$libfold=join('/',\@tmp[0..(\$#tmp)-1]);
+  };
+
+  my \$ffi=FFI::Platypus->new(api => 2);
+  \$ffi->lib(
+    "\$libfold/lib$soname.so"
+
+  );
+
+  \$ffi->load_custom_type(
+    '::WideString'=>'wstring'
+
+  );\$ffi->type('(void)->void'=>'nihil');
+  \$CACHE{-FFI}=\$ffi;
 
 EOF
-
-  ;print $FH $search;
+;print $FH $search;
 
 # ---   *   ---   *   ---
 
@@ -918,7 +926,29 @@ EOF
       "$arg_types,".
       "'$symtab{$name}->[0]');\n\n";
 
-  };print $FH $tab;
+  };print $FH $tab."\n};\n";
+
+};
+
+# ---   *   ---   *   ---
+# in: filepaths dst,src
+# extends one perl file with another
+
+sub plext {
+
+  my $dst_path=root.(shift);
+  my $src_path=root.(shift);
+
+  my $src=`cat $src_path`;
+  $src=~ s/.+#:CUT;>\n//sg;
+
+  my $dst=`cat $dst_path`;
+  $dst=~ s/1; # ret\n//sg;
+
+  $dst.=$src;
+  open FH,'>',$dst_path or die $!;
+  print FH $dst;
+  close FH;
 
 };
 
@@ -1334,6 +1364,21 @@ sub config {
     print FH "$mod $config{$mod}\n"
 
   };close FH;
+
+};
+
+# ---   *   ---   *   ---
+
+sub getset {
+
+  my $h=shift;
+  my $key=shift;
+  my $value=shift;
+
+  if(defined $value) {
+    $h->{$key}=$value;
+
+  };return $h->{$key};
 
 };
 

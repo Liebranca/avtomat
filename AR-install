@@ -29,7 +29,7 @@ BEGIN {
   `cp $src $dst`;
 
   # regenerate defs
-  #`$ENV{'ARPATH'}./avtomat/sygen`;
+  `$ENV{'ARPATH'}./avtomat/sygen`;
 
 };
 
@@ -202,6 +202,11 @@ avt::wrcplboil_pm(
   'IBN-3DILA',
 
   \&avt::ctopl,['lycon',['ce']]
+
+);avt::plext(
+
+  '/lib/lycon.pm',
+  '/ce/lycon_ext'
 
 );
 
