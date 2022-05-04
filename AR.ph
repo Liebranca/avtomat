@@ -69,6 +69,7 @@ sub update {
       '/peso/defs.pm',
       '/peso/program.pm',
 
+      '/queue.pm',
       '/stack.pm',
       '/avt.pm'
 
