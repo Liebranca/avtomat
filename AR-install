@@ -78,7 +78,7 @@ my $help_config;{
   my %config=(
 
   'XCPY'  =>  'help*',
-  'LCPY'  =>  'cash.pm,board.pm',
+  'LCPY'  =>  'cash.pm,board.pm,sector.pm,vec4.pm',
 
   );$help_config=avt::strconfig \%config;
 
