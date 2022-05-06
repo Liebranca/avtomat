@@ -18,36 +18,49 @@ package queue;
   use warnings;
 
 # ---   *   ---   *   ---
-# global state
-
-my %CACHE=(
-
-  -DATA=>[],
-  -PROCS=>[],
-
-  -QUEUE=>[],
-
-);
-
-# ---   *   ---   *   ---
 # getters
 
-sub DATA {return $CACHE{-DATA};};
-sub PROCS {return $CACHE{-PROCS};};
-sub QUEUE {return $CACHE{-QUEUE};};
+sub argc {return (shift)->{-ARGC};};
+sub argv {return (shift)->{-ARGV};};
 
-sub pending {return int(@{QUEUE()})!=0;};
+sub procs {return (shift)->{-PROCS};};
+
+sub pending {
+
+  my $self=shift;
+  return int(@{$self->procs()})!=0;
+
+};
+
+# ---   *   ---   *   ---
+# constructor
+
+sub nit {
+
+  return bless {
+
+    -ARGC=>[],
+    -ARGV=>[],
+
+    -PROCS=>[],
+
+  },'queue';
+
+};
 
 # ---   *   ---   *   ---
 
 sub add {
 
-  my $proc=shift;
-  my @data=@_;
+  my $self=shift;
 
-  push @{QUEUE()},int(@data);
-  push @{PROCS()},$proc;
-  push @{DATA()},@data;
+  my $proc=shift;
+  my @argv=@_;
+
+  push @{$self->argc()},int(@argv);
+  push @{$self->argv()},@argv;
+
+  push @{$self->procs()},$proc;
 
 };
 
@@ -55,20 +68,26 @@ sub add {
 
 sub get_next {
 
-  my $argc=shift @{QUEUE()};
-  my $proc=shift @{PROCS()};
+  my $self=shift;
 
-  my @args=();while($argc) {
-    push @args,shift @{DATA()};
+  my $argc=shift @{$self->argc()};
+  my $proc=shift @{$self->procs()};
+
+  my @argv=();while($argc) {
+    push @argv,shift @{$self->argv()};
     $argc--;
 
-  };$proc->(@args);
+  };$proc->(@argv);
 
 };
 
 # ^branchless "do if anything left to do"
 sub ex {
-  (sub {;},\&get_next)[pending()]->();
+
+  my $self=shift;
+
+  (sub {;},\&get_next)
+  [$self->pending()]->($self);
 
 };
 
