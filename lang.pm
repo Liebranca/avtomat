@@ -37,6 +37,15 @@ package lang;
   sub OPS {return '+-*/\$@%&\^<>!|?{[()]}~,.=;:';};
   sub _LUN {return '[_a-zA-Z][_a-zA-Z0-9]';};
 
+  sub ws_split {
+
+    my $c=shift;
+    my $s=shift;
+
+    return split m/\s*${c}\s*/,$s;
+
+  };
+
 # ---   *   ---   *   ---
 # regex tools
 

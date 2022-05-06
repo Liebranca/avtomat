@@ -28,7 +28,7 @@ package avt;
 
   use constant {
 
-    VERSION        => 2.0,
+    VERSION        => 3.0,
     BOXCHAR        => '.',
 
     CONFIG_DEFAULT => '#',
@@ -46,6 +46,12 @@ package avt;
       '-fdata-sections -Wl,--gc-sections '.
       '-Wl,-fuse-ld=bfd ',
 
+    GITHUB=>'https://github.com',
+
+  };use constant {
+
+    LYEB=>GITHUB.'/Liebranca',
+
   };
 
 # ---   *   ---   *   ---
@@ -59,9 +65,17 @@ package avt;
     -CONFIG_FIELDS =>[
 
       'BUILD','XCPY','LCPY','INCL',
-      'LIBS','GENS','DEFS','XPRT'
+      'LIBS','GENS','DEFS','XPRT',
+
+      'NAME','SCAN',
 
     ],
+
+    -CONFIG=>'',
+    -SCAN=>'',
+    -MODULES=>'',
+
+    -POST_BUILD=>{},
 
   );
 
@@ -70,6 +84,10 @@ sub root {
   return $CACHE{-ROOT};
 
 };
+
+# ---   *   ---   *   ---
+
+sub MODULES {return split ' ',$CACHE{-MODULES};};
 
 # ---   *   ---   *   ---
 
@@ -120,7 +138,10 @@ sub illnames {
     $fname=~ s/^\s*\-l//;
 
     for my $i(0..1) {
-      push @files,'lib'.$fname.( ('.so','.a')[$i] );
+      push @files,'lib'.$fname.(
+        ('.so','.a')[$i]
+
+      );
 
     };push @files,$fname;
 
@@ -145,6 +166,7 @@ sub ffind {
 
   my ($ref,@files);{
     my @ret=@{ illnames($fname) };
+
     $ref=$ret[0];@files=@{ $ret[1] };
     $fname=$files[$#files];
 
@@ -258,20 +280,29 @@ sub libsearch {
   my $deps=$_[2];
   my $found='';
 
+# ---   *   ---   *   ---
+
   for my $lbin(@lbins) {
     for my $ldir(@lsearch) {
 
       # .lib file found
       if(-e "$ldir/.$lbin") {
-        my $ndeps.=(split "\n",`cat $ldir/.$lbin`)[0];
+        my $ndeps.=(split "\n",
+          `cat $ldir/.$lbin`
 
-        chomp $ndeps;
-        $ndeps=join '|',(split ' ',$ndeps);
+        )[0];chomp $ndeps;
+
+        $ndeps=join '|',(
+          lang::ws_split(' ',$ndeps)
+
+        );
+
+# ---   *   ---   *   ---
 
         # filter out the duplicates
         my @matches=grep(
           m/${ ndeps }/,
-          split (' ',$deps)
+          lang::ws_split(' ',$deps)
 
         );while(@matches) {
           my $match=shift @matches;
@@ -301,7 +332,7 @@ sub libexpand {
     my @lbins=();
 
     # get search path(s)
-    for my $mlib(split ' ',$ndeps) {
+    for my $mlib(split(' ',$ndeps)) {
 
       if((index $mlib,'-L')==0) {
 
@@ -337,12 +368,11 @@ sub libexpand {
 # ---   *   ---   *   ---
 
   # append deps to libs
-  $deps=join '|',(split ' ',$deps);
+  $deps=join '|',(split(' ',$deps));
 
   # filter out the duplicates
   my @matches=grep(
-    m/${ deps }/,
-    split (' ',$LIBS)
+    m/${ deps }/,split(' ',$LIBS)
 
   );while(@matches) {
     my $match=shift @matches;
@@ -491,7 +521,7 @@ sub clist {
   if(!$mode) {
 
     my $is_arr;
-    ($is_arr,$type)=split ':',$type;
+    ($is_arr,$type)=lang::ws_split(':',$type);
     $is_arr=$is_arr eq 'arr';
 
     if($is_arr) {
@@ -539,7 +569,7 @@ sub cfunc {
 
   my ($type,$name,$code,$dst)=@{ $_[0] };
 
-  my ($ret,$args)=split ':',$type;
+  my ($ret,$args)=lang::ws_split(':',$type);
   $dst.="$ret $name($args) {\n$code\n};\n\n";
 
   return [$type,$name,$code,$dst];
@@ -695,7 +725,7 @@ sub symrd {
     };
 
     # is symbol data
-    my @symbol=split ' ',$line;
+    my @symbol=split(' ',$line);
 
     my $key=shift @symbol;
     if(!(defined $key)) {next;};
@@ -1090,7 +1120,7 @@ sub rcsl {
       $item=~ s/\\\\\[//g;
       $item=~ s/\\\\\]//g;
 
-      push @ar,[split ',',$item];
+      push @ar,[lang::ws_split(',',$item)];
       $item='';$is_list&=~3;
 
     # list opened
@@ -1104,7 +1134,7 @@ sub rcsl {
     $item=~ s/\\\\\[//g;
     $item=~ s/\\\\\]//g;
 
-    push @ar,[split ',',$item];
+    push @ar,[lang::ws_split(',',$item)];
 
   };return \@ar;
 
@@ -1149,6 +1179,7 @@ sub walk {
   my %dirs=();my $path=shift;
 
   # dissect recursive ls
+
   { my @ls=split "\n\n",`ls -FBR1 $path`;
     while(@ls) {
       my @sub=split ":\n",shift @ls;
@@ -1223,28 +1254,42 @@ sub scan {
 # ---   *   ---   *   ---
 
   # iter provided names
-  while(@_) {
-    my $mod=shift;
+  my @ar=split '<MOD>',$CACHE{-SCAN};
+  while(@ar) {
+
+    my $mod=shift @ar;
     my $excluded;
 
-    if($_[0]){
+    if(defined $ar[0]) {
 
       # handle exclude flag short
-      if($_[0] eq '-x') {
-        shift;$excluded=shift;
+      if($ar[0]=~ m/-x/) {
+        $excluded=shift @ar;
+        $excluded=~ s/-x\s*//;
 
       # handle exclude flag long
-      } elsif($_[0]=~ m/\-\-exclude\=[\w|\d]*/) {
-        $excluded=shift;$excluded=~ s/\-\-exclude\=//;
+      } elsif($ar[0]=~
+          m/\-\-exclude\=[\w|\d]*/
+
+      ) {
+        $excluded=shift @ar;
+        $excluded=~ s/\-\-exclude\=//;
 
       };
 
-      if($excluded) {
-        $excluded=join '|',(split ',',$excluded);
+# ---   *   ---   *   ---
 
+      if($excluded) {
+
+        $excluded=join '|',(
+          lang::ws_split(',',$excluded)
+
+        );
       };
 
     };
+
+# ---   *   ---   *   ---
 
     my $trsh="$CACHE{-ROOT}/trashcan/$mod";
     my $modpath="$CACHE{-ROOT}/$mod";
@@ -1258,7 +1303,9 @@ sub scan {
 # ---   *   ---   *   ---
 
     # walk module path and capture sub count
-    my %h=%{ walk($modpath) };my $len=(keys %h);
+    my %h=%{ walk($modpath) };
+    my $len=(keys %h);
+
     my $list='';
 
     # paths/dir checks
@@ -1272,7 +1319,9 @@ sub scan {
       };
 
       # ensure directores exist
-      my $tsub=$sub;$tsub=~ s/${ modpath }/${ trsh }/;
+      my $tsub=$sub;
+      $tsub=~ s/${ modpath }/${ trsh }/;
+
       if(!(-e $trsh)) {
         mkdir $tsub;
 
@@ -1280,7 +1329,7 @@ sub scan {
 
       # capture file list
       my @files=@{ $h{$sub} };
-      $list.="$sub @files\n";
+      $list.="$sub ".(join ' ',@files)."\n";
 
 # ---   *   ---   *   ---
 
@@ -1298,12 +1347,12 @@ sub read_modules {
 
     # get parent name
     while(@m) {
-      my ($key,$len)=split ' ',shift @m;
+      my ($key,$len)=lang::ws_split(' ',shift @m);
       my @paths;
 
       # store submodules as references
       while($len--) {
-        my @tmp=split ' ',shift @m;
+        my @tmp=lang::ws_split(' ',shift @m);
         push @paths,\@tmp;
 
       };
@@ -1322,6 +1371,7 @@ sub strconfig {
 
   my %config=%{ $_[0] };
 
+  # ensure all needed fields are there
   for my $key(@{ $CACHE{-CONFIG_FIELDS} }) {
     if(!(exists $config{$key})) {
       $config{$key}=CONFIG_DEFAULT;
@@ -1329,7 +1379,43 @@ sub strconfig {
     };
   };
 
-  return dqwrap(lang::lescap
+# ---   *   ---   *   ---
+# sanitize input
+
+  for my $key(keys %config) {
+
+    if($key eq 'SCAN') {
+      if($config{$key} eq CONFIG_DEFAULT) {
+        $config{$key}='';
+
+      };
+
+    } else {
+      $config{$key}=~ s/\s+//;
+
+    };
+  };
+
+# ---   *   ---   *   ---
+# append to scan list
+
+  $CACHE{-MODULES}.=$config{'NAME'}.' ';
+  $CACHE{-SCAN}.=$config{'NAME'}.'<MOD>';
+
+  if(length $config{'SCAN'}) {
+    $CACHE{-SCAN}.=$config{'SCAN'}.'<MOD>';
+
+  };
+
+# ---   *   ---   *   ---
+# append to config
+
+  $CACHE{-CONFIG}.=
+
+    $config{'NAME' }.'<MOD>'.
+
+    lang::lescap
+
     $config{'BUILD'}.' '.
 
     $config{'XCPY' }.' '.
@@ -1340,28 +1426,44 @@ sub strconfig {
     $config{'LIBS' }.' '.
     $config{'INCL' }.' '.
 
-    $config{'DEFS' }.' '
+    $config{'DEFS' }.' '.
 
-  );
+  '<MOD>';
 
-};
+# ---   *   ---   *   ---
+# save post-build scripts if any
 
-# manages build config file
-sub config {
+  if(exists $config{'POST'}) {
 
-  my %config;
-  while(@_) {
-    my $mod=shift @_;
-    my $settings=shift @_;
+    $CACHE{-POST_BUILD}
+    ->{$config{'NAME'}}
+      =$config{'POST'};
 
-    $config{$mod}=$settings;
+  } else {
+
+    $CACHE{-POST_BUILD}
+    ->{$config{'NAME'}}
+      ='';
 
   };
 
-  # rewrite file
-  open FH,'>',"$CACHE{-ROOT}/.avto-config" or die $!;
-  for my $mod (keys %config) {
-    print FH "$mod $config{$mod}\n"
+};
+
+# ---   *   ---   *   ---
+# create build config file
+
+sub config {
+
+  my @config=();
+  my @ar=split '<MOD>',$CACHE{-CONFIG};
+
+  open FH,'>',root."/.avto-config" or die $!;
+
+  while(@ar) {
+    my $mod=shift @ar;
+    my $settings=shift @ar;
+
+    print FH "$mod $settings\n";
 
   };close FH;
 
@@ -1406,7 +1508,7 @@ sub parsemmd {
   $dep=~ s/\s/\,/g;
   $dep=~ s/.*\://;
 
-  my @tmp=split ',',$dep;
+  my @tmp=lang::ws_split(',',$dep);
   my @deps=();while(@tmp) {
     my $f=shift @tmp;
     if($f) {push @deps,$f;};
@@ -1467,7 +1569,8 @@ sub make {
 
       $defs
 
-    )=split ' ',shift @config;
+    )=lang::ws_split(' ',shift @config);
+
     my @paths=@{ $modules{$name} };
 
     open FH,'>',"$CACHE{-ROOT}/$name/avto" or die $!;
@@ -1484,7 +1587,6 @@ sub make {
     my @FCPY=();
 
     my $src_rcees='';
-    my $post_build='';
     my $gens_rcees='';
 
 # ---   *   ---   *   ---
@@ -1505,7 +1607,7 @@ EOF
 ;   $FILE.="\nmy \$FSWAT=\"$name\";\n";
 
     my ($lmode,$mkwat)=($build ne CONFIG_DEFAULT)
-      ? split ':',$build
+      ? lang::ws_split(':',$build)
       : ('','')
       ;
 
@@ -1556,7 +1658,7 @@ EOF
 
     # parse libs listing
     { my @libs=($libs ne CONFIG_DEFAULT)
-      ? split ',',$libs
+      ? lang::ws_split(',',$libs)
       : ()
       ;
 
@@ -1579,7 +1681,11 @@ EOF
 
     # parse includes
     $incl=($incl ne CONFIG_DEFAULT)
-      ? '-I'.(join ' -I',(split ',',$incl))
+      ? '-I'.(join ' -I',
+          (lang::ws_split(',',$incl))
+
+        )
+
       : ''
       ;
 
@@ -1591,19 +1697,19 @@ EOF
 
     # get list copy list A
     $xcpy=($xcpy ne CONFIG_DEFAULT)
-      ? join '|',(split ',',$xcpy)
+      ? join '|',(lang::ws_split(',',$xcpy))
       : ''
       ;
 
     # get list copy list B
     $lcpy=($lcpy ne CONFIG_DEFAULT)
-      ? join '|',(split ',',$lcpy)
+      ? join '|',(lang::ws_split(',',$lcpy))
       : ''
       ;
 
     # get exports list
     $xprt=($xprt ne CONFIG_DEFAULT)
-      ? join '|',(split ',',$xprt)
+      ? join '|',(lang::ws_split(',',$xprt))
       : ''
       ;
 
@@ -1620,7 +1726,9 @@ EOF
       while(@tmp1) {
         my @l=@{ shift @tmp1 };
 
-        my ($res,$src)=split ':',shift @l;
+        my ($res,$src)=
+          lang::ws_split(':',shift @l);
+
         $res=~ s/\\//g;
 
         @l=(@l) ? @l : ();
@@ -1781,180 +1889,331 @@ $lmod.=($lmod) ? '/' : '';
     $mkvars.="\nmy \@FCPY=".( strlist \@FCPY );
     $FILE.="$mkvars\n";
 
-    $FILE.=<<'EOF'
-
 # ---   *   ---   *   ---
+
+$FILE.=<<';;EOF'
 
 avt::root $ROOT;
 chdir $ROOT;
 
-for my $inc(split ' ',$INCLUDES) {
-  if($inc eq "-I$ROOT") {next;};
-  unshift @ARGV,$inc;avt::stinc();
+avt::set_build_paths($FSWAT,$INCLUDES);
+avt::update_generated(\@GENS);
 
-};unshift @ARGV,'.';avt::stinc();
-unshift @ARGV,"-I$ROOT/$FSWAT";avt::stinc();
+my ($OBJS,$objblt)=avt::update_objects(
+  \@SRCS,\@OBJS,
 
-while(@GENS) {
+  $INCLUDES,
+  $DFLG,$PFLG
 
-  my $gen=shift @GENS;
-  my $res=shift @GENS;
+);
 
-  my @msrcs=split ',',shift @GENS;
+avt::build_binaries(
+  $MAIN,$LMODE,$FSWAT,
+  $LIBS,$ILIB,$MLIB,
 
-  my $do_gen=!(-e $res);
+  $INCLUDES,$PFLG,
 
-  if(!$do_gen) {$do_gen=avt::ot($res,$gen);};
-  if(!$do_gen) {
-    while(@msrcs) {
-      my $msrc=shift @msrcs;
+  $OBJS,$objblt,
 
-      if($msrc=~ m/\%/) {
-        my @srcs=@{ avt::wfind($msrc) };
-        while(@srcs) {
-          my $src=shift @srcs;
-          if(avt::ot($res,$src)) {
+  \@XPRT,
+
+);
+
+avt::update_regular(\@FCPY);
+
+
+;;EOF
+;
+    print FH $FILE.$CACHE{-POST_BUILD}->{$name};
+    close FH;`chmod +x "$CACHE{-ROOT}/$name/avto"`
+  };
+};
+
+# ---   *   ---   *   ---
+
+sub set_build_paths {
+
+  my $FSWAT=shift;
+  my $INCLUDES=shift;
+
+  for my $inc(lang::ws_split(' ',$INCLUDES)) {
+    if($inc eq "-I".root) {next;};
+
+    unshift @ARGV,$inc;stinc();
+
+  };
+
+  unshift @ARGV,'.';
+  unshift @ARGV,"-I".root."/$FSWAT";
+
+  stinc();
+  stinc();
+
+};
+
+# ---   *   ---   *   ---
+
+sub update_generated {
+
+  my @GENS=@{(shift)};
+
+  # iter the list of generator scripts
+  # ... and sources/dependencies for them
+  while(@GENS) {
+
+    my $gen=shift @GENS;
+    my $res=shift @GENS;
+
+    my @msrcs=lang::ws_split(',',shift @GENS);
+
+# ---   *   ---   *   ---
+# make sure we don't need to update
+
+    my $do_gen=!(-e $res);
+    if(!$do_gen) {$do_gen=ot($res,$gen);};
+
+# ---   *   ---   *   ---
+# make damn sure we don't need to update
+
+    if(!$do_gen) {
+      while(@msrcs) {
+        my $msrc=shift @msrcs;
+
+        # look for wildcard
+        if($msrc=~ m/\%/) {
+          my @srcs=@{ wfind($msrc) };
+          while(@srcs) {
+            my $src=shift @srcs;
+
+            # found file is updated
+            if(avt::ot($res,$src)) {
+              $do_gen=1;last;
+
+            };
+          };if($do_gen) {last;};
+
+# ---   *   ---   *   ---
+
+        # look for specific file
+        } else {
+          $msrc=avt::ffind($msrc);
+          if(!$msrc) {next;};
+
+          # found file is updated
+          if(avt::ot($res,$msrc)) {
             $do_gen=1;last;
 
           };
-        };if($do_gen) {last;};
-
-      } else {
-        $msrc=avt::ffind($msrc);
-        if(!$msrc) {next;};
-
-        if(avt::ot($res,$msrc)) {
-          $do_gen=1;last;
 
         };
+      };
+    };
+
+# ---   *   ---   *   ---
+# run the generator script
+
+    if($do_gen) {
+      print 'Regen '.( shpath $gen )."\n";
+      `$gen`;
+
+    };
+
+  };
+};
+
+# ---   *   ---   *   ---
+
+sub update_regular {
+
+  my @FCPY=@{(shift)};
+
+  while(@FCPY) {
+    my $og=shift @FCPY;
+    my $cp=shift @FCPY;
+
+    my @ar=split '/',$cp;
+    my $base_path=join '/',@ar[0..$#ar-1];
+
+    if(!(-e $base_path)) {
+      `mkdir -p $base_path`;
+
+    };
+
+    my $do_cpy=!(-e $cp);
+
+    if(!$do_cpy) {$do_cpy=ot($cp,$og);};
+    if($do_cpy) {`cp $og $cp`;};
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub update_objects {
+
+  my @SRCS=@{(shift)};
+  my @OBJS=@{(shift)};
+
+  my $INCLUDES=shift;
+  my $DFLG=shift;
+  my $PFLG=shift;
+
+  my $OBJS='';
+  my $objblt=0;
+
+# ---   *   ---   *   ---
+# iter list of source files
+
+  for(my ($i,$j)=(0,0);$i<@SRCS;$i++,$j+=2) {
+
+    my $src=$SRCS[$i];
+
+    my $obj=$OBJS[$j+0];
+    my $mmd=$OBJS[$j+1];
+
+    $OBJS.=$obj.' ';
+    my @deps=($src);
+
+# ---   *   ---   *   ---
+# look at *.d files for additional deps
+
+    my $do_build=!(-e $obj);if($mmd) {
+      @deps=@{ parsemmd $mmd };
+
+# ---   *   ---   *   ---
+# iter deps and check if any are missing
+
+    };for(my $x=0;$x<@deps;$x++) {
+      if($deps[$x] && !(-e $deps[$x])) {
+        print ''.( shpath $src );
+        print " missing dependency $deps[$x]\n";
+        exit;
 
       };
     };
-  };
 
-  if($do_gen) {
-    print 'Regen '.( avt::shpath $gen )."\n";
-    `$gen`;
+# ---   *   ---   *   ---
+# make sure we need to update
 
-  };
+    if(!$do_build) {
+      while(@deps) {
+        my $dep=shift @deps;
+        if(!(-e $dep)) {next;};
 
-};
+        # found dep is updated
+        if(ot($obj,$dep)) {
+          $do_build=1;last;
 
-my $OBJS='';
-my $objblt=0;
-
-for(my ($i,$j)=(0,0);$i<@SRCS;$i++,$j+=2) {
-
-  my $src=$SRCS[$i];
-
-  my $obj=$OBJS[$j+0];
-  my $mmd=$OBJS[$j+1];
-
-  $OBJS.=$obj.' ';
-
-  my @deps=($src);
-
-  my $do_build=!(-e $obj);if($mmd) {
-    @deps=@{ avt::parsemmd $mmd };
-
-  };for(my $x=0;$x<@deps;$x++) {
-    if($deps[$x] && !(-e $deps[$x])) {
-      print ''.( avt::shpath $src );
-      print " missing dependency $deps[$x]\n";
-      exit;
-
-    };
-  };
-
-  if(!$do_build) {
-    while(@deps) {
-      my $dep=shift @deps;
-      if(!(-e $dep)) {next;};
-      if(avt::ot($obj,$dep)) {
-        $do_build=1;last;
-
+        };
       };
     };
-  };
 
-  if($do_build) {
+# ---   *   ---   *   ---
+# rebuild the object
 
-    print ''.( avt::shpath $src )."\n";
-    my $asm=$obj;$asm=substr(
-      $asm,0,(length $asm)-1
+    if($do_build) {
 
-    );$asm.='asm';
+      print ''.( shpath $src )."\n";
+      my $asm=$obj;$asm=substr(
+        $asm,0,(length $asm)-1
 
-    my $call=''.
-      "gcc -MMD ".(avt->OFLG)." ".
-      "$INCLUDES $DFLG $PFLG ".
-      "-Wa,-a=$asm -c $src -o $obj";`$call`;
+      );$asm.='asm';
 
-    $objblt++;
+      my $call=''.
+        "gcc -MMD ".OFLG." ".
+        "$INCLUDES $DFLG $PFLG ".
+        "-Wa,-a=$asm -c $src -o $obj";`$call`;
 
-  };
+      $objblt++;
+
+    };
+
+# ---   *   ---   *   ---
+# return string containing list of objects
+# + the count of objects built
+
+  };return $OBJS,$objblt;
 };
 
-if($MAIN && $objblt) {
+# ---   *   ---   *   ---
+# the one we've been waiting for
 
-if($LMODE eq 'ar') {
-  my $call="ar -crs $MAIN $OBJS";`$call`;
+sub build_binaries {
 
-  `echo "$LIBS" > $ILIB`;
-  avt::symscan($FSWAT,\@XPRT);
+  my $MAIN=shift;
+  my $LMODE=shift;
+  my $FSWAT=shift;
 
-} else {
-  print ''.( avt::shpath $MAIN) ."\n";
+  my $LIBS=shift;
+  my $ILIB=shift;
+  my $MLIB=shift;
 
-  if(-e $MAIN) {
-    `rm $MAIN`;
+  my $INCLUDES=shift;
+  my $PFLG=shift;
 
-  };
+  my $OBJS=shift;
+  my $objblt=shift;
 
-  $LIBS=avt::libexpand($LIBS);
+  my $XPRT=shift;
 
-  my $call="gcc $LMODE ".
-    (avt->OFLG.' '.avt->LFLG)." ".
-     "$INCLUDES $PFLG $OBJS $LIBS -o $MAIN";
+# ---   *   ---   *   ---
+# this sub only builds a new binary IF
+# there is a target defined AND
+# any objects have been updated
 
-    `$call`;
+  if($MAIN && $objblt) {
+
+# ---   *   ---   *   ---
+# build mode is 'static library'
+
+  if($LMODE eq 'ar') {
+    my $call="ar -crs $MAIN $OBJS";`$call`;
+
     `echo "$LIBS" > $ILIB`;
+    symscan($FSWAT,$XPRT);
 
-  if($LMODE ne '-shared ') {
-    $call="ar -crs $MLIB $OBJS";`$call`;
+# ---   *   ---   *   ---
+# otherwise it's executable or shared object
 
-    `echo "$LIBS" > $ILIB`;
-    avt::symscan($FSWAT,\@XPRT);
+  } else {
+    print ''.( shpath $MAIN) ."\n";
 
-  };
+    if(-e $MAIN) {
+      `rm $MAIN`;
 
-}};
+    };
 
-while(@FCPY) {
-  my $og=shift @FCPY;
-  my $cp=shift @FCPY;
+# ---   *   ---   *   ---
+# find any additional libraries we might
+# need to link against
 
-  my @ar=split '/',$cp;
-  my $base_path=join '/',@ar[0..$#ar-1];
+    $LIBS=libexpand($LIBS);
 
-  if(!(-e $base_path)) {
-    `mkdir -p $base_path`;
+# ---   *   ---   *   ---
+# build call is the exact same,
+# only difference being the -shared flag
 
-  };
+    my $call="gcc $LMODE ".
+      (OFLG.' '.LFLG)." ".
+       "$INCLUDES $PFLG $OBJS $LIBS -o $MAIN";
 
-  my $do_cpy=!(-e $cp);
+      `$call`;
+      `echo "$LIBS" > $ILIB`;
 
-  if(!$do_cpy) {$do_cpy=avt::ot($cp,$og);};
-  if($do_cpy) {`cp $og $cp`;};
+# ---   *   ---   *   ---
+# for executables we spawn a shadow lib
 
-};
+    if($LMODE ne '-shared ') {
+      $call="ar -crs $MLIB $OBJS";`$call`;
 
-EOF
-;
+      `echo "$LIBS" > $ILIB`;
+      symscan($FSWAT,$XPRT);
 
-    print FH $FILE;
-    close FH;`chmod +x "$CACHE{-ROOT}/$name/avto"`
-  };
+    };
+
+  }};
+
 };
 
 # ---   *   ---   *   ---
