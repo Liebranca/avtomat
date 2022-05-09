@@ -862,6 +862,8 @@ sub ctopl {
   my @libs=@{ $_[0] };shift;
   my %symtab=();
 
+# ---   *   ---   *   ---
+
   # make symbol table
   for my $lib(@libs) {
     %symtab=(%symtab,%{ avt::symrd($lib) });
@@ -906,12 +908,15 @@ sub ctopl {
 
 my \%CACHE=(
   -FFI=>undef,
+  -NITTED=>0,
 
 );
 
 sub ffi {return \$CACHE{-FFI};};
 
 sub nit {
+
+  if(\$CACHE{-NITTED}) {return;};
 
   my \$libfold=__FILE__;{
     my \@tmp=split('/',\$libfold);
@@ -956,7 +961,15 @@ EOF
       "$arg_types,".
       "'$symtab{$name}->[0]');\n\n";
 
-  };print $FH $tab."\n};\n";
+  };
+
+  my $nit='$CACHE{-NITTED}=1;';
+  my $callnit
+
+    ='(\&nit,sub {;})'.
+    '[$CACHE{-NITTED}]->();';
+
+  print $FH $tab."\n$nit\n};$callnit\n";
 
 };
 
@@ -1882,11 +1895,11 @@ $lmod.=($lmod) ? '/' : '';
 
 # ---   *   ---   *   ---
 
-    my $mkvars="my \@SRCS=".( strlist \@SRCS );
-    $mkvars.="\nmy \@XPRT=".( strlist \@XPRT );
-    $mkvars.="\nmy \@OBJS=".( strlist \@OBJS );
-    $mkvars.="\nmy \@GENS=".( strlist \@GENS );
-    $mkvars.="\nmy \@FCPY=".( strlist \@FCPY );
+    my $mkvars="my \@SRCS=".( strlist(\@SRCS) );
+    $mkvars.="\nmy \@XPRT=".( strlist(\@XPRT) );
+    $mkvars.="\nmy \@OBJS=".( strlist(\@OBJS) );
+    $mkvars.="\nmy \@GENS=".( strlist(\@GENS) );
+    $mkvars.="\nmy \@FCPY=".( strlist(\@FCPY) );
     $FILE.="$mkvars\n";
 
 # ---   *   ---   *   ---

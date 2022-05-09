@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+# test peso execution
+
+# ---   *   ---   *   ---
+# deps
+
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use langdefs::peso;
+
+langdefs::peso::peso_rd("/home/lyeb/cltest");
+
+# ---   *   ---   *   ---

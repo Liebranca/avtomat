@@ -67,7 +67,6 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 { my %config=(
 
   'NAME'  =>  'avtomat',
-  'XCPY'  =>  'avtomat*',
 
   );avt::strconfig \%config;
 

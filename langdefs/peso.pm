@@ -171,6 +171,7 @@ sub peso_rd {
   $pat.='|('.$operator.'\s*)';
 
   $pat.=")*";
+
   my @tree=();
   my $program=$MAM{-PROGRAM};
 
@@ -183,7 +184,8 @@ sub peso_rd {
   for my $exp(@exps) {
 
     if(!$exp) {next;};
-    $exp=~ s/^\s*(${ pat })//;
+
+    $exp=~ s/^\s*(${pat})//;
 
     # first element is topmost in hierarchy
     my $key=$1;
@@ -247,17 +249,8 @@ sub peso_rd {
 
 # ---   *   ---   *   ---
 
-    $exp=~ s/\s+,/,/;
-
     # tokenize expression
-    $root->splitlv(
-
-      '\b[^\s]+\b\s',
-      $exp
-
-    );
-
-# ---   *   ---   *   ---
+    $root->splitlv($exp);
 
     # sort tokens
     $root->branch_reloc();
@@ -438,8 +431,6 @@ sub peso_rd {
 
   peso::program::run();
   peso::block::NON->prich();
-
-  return;
 
 };
 

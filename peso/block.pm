@@ -794,7 +794,7 @@ sub prich {
     if(defined $last_idex) {
       if($last_idex!=$i) {
         $v_lines.=sprintf
-          "  0x%.16X %s\n",
+          "  0x%.16X %.32s\n",
           $unit,$unit_names;
 
         $unit=0x00;
@@ -815,7 +815,7 @@ sub prich {
 # append leftovers
 
   $v_lines.=sprintf
-    "  0x%.16X %s\n",
+    "  0x%.16X %.32s\n",
     $unit,$unit_names;
 
   printf $v_lines."\n";

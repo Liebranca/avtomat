@@ -415,7 +415,6 @@ sub splitlv {
   my $self=shift;
 
   # data
-  my $pat=shift;
   my $exp=shift;
 
   my $exp_depth_a=0;
@@ -482,8 +481,8 @@ TOP:
     };
 
 # ---   *   ---   *   ---
+# get left and rightmost chars of last
 
-    # get left and rightmost chars of last
     my ($pl,$pr)=(
 
       split '',
@@ -491,7 +490,9 @@ TOP:
 
     )[0,-1];
 
-    # use last accepted as fallback
+# ---   *   ---   *   ---
+# use last accepted as fallback
+
     if(!defined $pl) {
 
       # find last non-escape elem
@@ -506,7 +507,9 @@ TOP:
 
       };
 
-      # use if not undef
+# ---   *   ---   *   ---
+# use if not undef
+
       if(defined $filt[$j]) {
         ($pl,$pr)=(
 
@@ -523,15 +526,17 @@ TOP:
 
     };
 
-    # leftmost char fallback on undef right
+# ---   *   ---   *   ---
+# leftmost char fallback on undef right
+
     if(!defined $pr) {
       $pr=$pl;
 
     };
 
 # ---   *   ---   *   ---
+# is not operator
 
-    # is not operator
     if(!($ol=~ m/${ops}/)) {
 
       # put separator if
@@ -567,6 +572,8 @@ TOP:
 
         );
 
+# ---   *   ---   *   ---
+
       };if($cut) {
 
         # accept elements and separate
@@ -582,7 +589,12 @@ TOP:
       # read remain
       goto TOP;
 
+    } elsif(peso::decls::is_str($e)) {
+      goto APPEND;
+
     };
+
+# ---   *   ---   *   ---
 
     goto SKIP;
 

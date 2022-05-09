@@ -62,6 +62,15 @@ sub mag {return $DICT{-MAG};};
 sub hed {return $DICT{-HED};};
 sub com {return $DICT{-COM};};
 
+sub string {return $DICT{-STRING};};
+
+sub is_str {
+
+  my $s=shift;my $string=string();
+  return int($s=~ m/${string}/);
+
+};
+
 # ---   *   ---   *   ---
 
 sub intrinsic {
@@ -91,6 +100,8 @@ sub intrinsic {
 -NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}\\\\]',
 
 -PESC=>'\$\:(([^;\\]|;[^>\\]|\\;>|[^\\;>]|\\[^\\;>]|\\[^;]|\\[^>])*);>',
+
+-STRING=>lang::delim('"'),
 
 # ---   *   ---   *   ---
 # file stuff
@@ -194,6 +205,7 @@ sub intrinsic {
   'unwed'=>[id(),'0'],
 
   'ptr'=>[id(),'0'],
+  'str'=>[id(),'0'],
 
 },
 

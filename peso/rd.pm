@@ -34,23 +34,62 @@ package peso::rd;
 
 sub clean {
 
-  # strip comments
-  $rb=~ s/#.*\n//g;
+  # do not change contents of strings
+  my $string=peso::decls::string;
+  my $result='';
 
-  # remove indent
-  $rb=~ s/^\s+//sg;
+  my $i=0;
 
-  # no spaces surrounding commas
-  $rb=~ s/\s*,\s*/,/sg;
+  my @ar=();
+  while($rb=~ s/${string}/#:str;>/) {
 
-  # force single spaces
-  $rb=~ s/\s+/\$:pad;>/sg;
-  $rb=~ s/\$:pad;>/ /sg;
+    my $s=$1;
+    my $j=0;
 
-  # strip newlines
-  $rb=~ s/\n+//sg;
-  $rb=~ s/;\s+/;/sg;
+    my $nums='';
 
+    $s=~ s/\\n/\n/;
+
+    for my $c(split '',$s) {
+      $nums.=sprintf "0x%02X,",ord($c);
+
+    };$nums=~ s/,$//;
+
+    push @ar,(0,$nums);
+
+  };for my $s(split '#:str;>',$rb) {
+    $ar[$i]=$s;
+    $i+=2;
+
+  };
+
+  for my $s(@ar) {
+
+    if($s=~ m/${string}/) {
+      goto APPEND;
+
+    } elsif(!$s) {next;};
+
+    # strip comments
+    $s=~ s/#.*\n//g;
+
+    # remove indent
+    $s=~ s/^\s+//sg;
+
+    # no spaces surrounding commas
+    $s=~ s/\s*,\s*/,/sg;
+
+    # force single spaces
+    $s=~ s/\s+/\$:pad;>/sg;
+    $s=~ s/\$:pad;>/ /sg;
+
+    # strip newlines
+    $s=~ s/\n+//sg;
+    $s=~ s/;\s+/;/sg;
+
+    APPEND:$result.=$s;
+
+  };$rb=$result;
   if(!$rb) {return 1;};
 
   return 0;

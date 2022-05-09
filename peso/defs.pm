@@ -368,15 +368,43 @@ DEFINE('value_decl',peso::decls::bafe,sub {
 # ---   *   ---   *   ---
 # make [name,value] ref array
 
-  my $i=0;
-  for my $name(@$names) {
+  my $i=0;if(@$names >= @$values) {
 
-    my $value=(defined $values->[$i])
-      ? $values->[$i]
-      : 0
-      ;
+    for my $name(@$names) {
 
-    $line[$i]=[$name,$value];$i++;
+      my $value=(defined $values->[$i])
+        ? $values->[$i]
+        : 0
+        ;
+
+      $line[$i]=[$name,$value];$i++;
+
+    };
+
+  } else {
+
+    my $j=1;
+    for my $value(@$values) {
+
+      my $name=$names->[$i];
+      if(peso::block::fpass()) {
+        $name=(defined $name)
+          ? $name
+          : "$names->[-1]+".($j++)
+          ;
+
+      } else {
+
+        $name=(defined $name)
+          ? $name
+          : $names->[-1]+($j++)
+          ;
+
+      };
+
+      $line[$i]=[$name,$value];$i++;
+
+    };
 
   };
 

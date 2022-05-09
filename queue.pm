@@ -62,6 +62,14 @@ sub add {
 
   push @{$self->procs()},$proc;
 
+};sub clear {
+
+  my $self=shift;
+
+  $self->{-ARGC}=[];
+  $self->{-ARGV}=[];
+  $self->{-PROCS}=[];
+
 };
 
 # ---   *   ---   *   ---
