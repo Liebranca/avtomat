@@ -20,6 +20,7 @@ package peso::node;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use peso::decls;
+  use peso::defs;
   use peso::ptr;
 
 # ---   *   ---   *   ---
@@ -407,9 +408,10 @@ sub cllv {
 
 # ---   *   ---   *   ---
 
-# in:self,pattern,string
-# branch out node from pattern split
-sub splitlv {
+# in:self,string
+# branch out node from whitespace split
+
+sub tokenize {
 
   # instance
   my $self=shift;
@@ -432,280 +434,328 @@ sub splitlv {
   my $pesc=peso::decls::pesc;
 
 # ---   *   ---   *   ---
-
-  # spaces are meaningless
+# spaces are meaningless
 
   my @elems=();
+  my @ar=split m/([^\s]*)\s+/,$exp;
 
-  { my @ar=split m/([^\s]*)\s+/,$exp;
+  while(@ar) {
+    my $elem=shift @ar;
 
-    while(@ar) {
-      my $elem=shift @ar;
-      if(defined $elem) {
-        push @elems,$elem;
-
-      };
-    };
-
-# ---   *   ---   *   ---
-
-  };{
-
-    # iter split'd arr to find bounds
-
-    my @filt=('$:%%join;>');
-    my $s='';
-
-    my @separator=(
-      '$:/join;>',
-      '$:%%join;>'
-
-    );
-
-    my $i=0;for my $e(@elems) {
-
-# ---   *   ---   *   ---
-
-TOP:
-
-    # skip null str
-    if(!length $e) {goto SKIP;};
-
-    # get left and rightmost chars of elem
-    my ($ol,$or)=(split '',$e)[0,-1];
-
-    # leftmost char fallback on undef right
-    if(!defined $or) {
-      $or=$ol;
+    if(defined $elem && length $elem) {
+      $self->nit($elem);
 
     };
+  };
 
 # ---   *   ---   *   ---
-# get left and rightmost chars of last
 
-    my ($pl,$pr)=(
+};sub wat {
 
-      split '',
-        $elems[$i-1]
+  my $self=shift;
+  my $keywords=peso::defs::SYMS;
 
-    )[0,-1];
+  my $anchor=undef;
+  my @moved=();
 
-# ---   *   ---   *   ---
-# use last accepted as fallback
+  my $i=0;while($i<@{$self->leaves}) {
 
-    if(!defined $pl) {
+    my $leaf=$self->leaves->[$i];
+    if(exists $keywords->{$leaf->val}) {
 
-      # find last non-escape elem
-      my $j=-1;
-      while(defined $filt[$j]) {
+      $anchor=$leaf;$i++;
 
-        my $f=$filt[$j];
-        if($f=~ m/${pesc}/) {
-          $j--;next;
+      my @args=@{$keywords->{$leaf->val}->args};
+      for my $arg(@args) {
 
-        };last;
+        my $argc=$arg->{-COUNT};
+        while($argc>0) {
 
-      };
+          $leaf=$self->leaves->[$i];
+          my $value=($leaf) ? $leaf->val : 0;
 
-# ---   *   ---   *   ---
-# use if not undef
+          if(!$leaf && !$arg->{-OPT}) {
+            printf "Insufficient args for ".
+              "symbol '%s'\n",$anchor->val;
 
-      if(defined $filt[$j]) {
-        ($pl,$pr)=(
+            exit;
 
-          split '',
-            $filt[$j]
+          } elsif(!$leaf) {
+            $leaf=nit(undef,$value);
 
-        )[0,-1];
+          };
 
-      # or dont use at all
-      } else {
-        ($pl,$pr)=('','');
+          push @moved,$leaf;
+          $argc-=split ',',$leaf;
+
+        };
+
+        $self->pluck(@moved);
+        $anchor->pushlv(0,@moved);
+
+        @moved=();
 
       };
 
     };
-
-# ---   *   ---   *   ---
-# leftmost char fallback on undef right
-
-    if(!defined $pr) {
-      $pr=$pl;
-
-    };
-
-# ---   *   ---   *   ---
-# is not operator
-
-    if(!($ol=~ m/${ops}/)) {
-
-      # put separator if
-      my $cut=(length $pr) && (
-
-        # close delimiter : non operator
-        ($pr=~ m/${cde}/)
-
-        ||
-
-        # non operator : non operator or comma
-        !($pr=~ m/${ops}|,}/)
-
-      );if($cut) {goto APPEND;};
-
-# ---   *   ---   *   ---
-
-    # is delimiter
-    } elsif($ol=~ peso::decls::ode
-    || $ol=~ peso::decls::cde
-
-    ) {
-
-      my $cut=0;
-
-      # put separator if
-      if($ol=~ m/${ode}/) {
-
-        $cut=(
-
-          # non operator or comma : open delimiter
-          !($pr=~ m/${ops}|,/) && $pr
-
-        );
-
-# ---   *   ---   *   ---
-
-      };if($cut) {
-
-        # accept elements and separate
-        if($s) {push @filt,$s;};
-        push @filt,@separator;
-
-      } elsif(length $s) {push @filt,$s;};$s='';
-
-      # make it its own element
-      push @filt,$ol;
-      $e=~ s/\Q${ol}//;
-
-      # read remain
-      goto TOP;
-
-    } elsif(peso::decls::is_str($e)) {
-      goto APPEND;
-
-    };
-
-# ---   *   ---   *   ---
-
-    goto SKIP;
-
-
-# ---   *   ---   *   ---
-
-APPEND:
-
-    if(length $s) {
-      push @filt,$s;
-
-    };if($filt[-1] ne '$:%%join;>') {
-      push @filt,@separator;
-
-    };$s='';
-
-SKIP:
-
-    $s.=$e;
-    $i++;
-
-  };
-
-# ---   *   ---   *   ---
-
-  if(length $s) {push @filt,$s;};
-
-    push @filt,'$:/join;>';
-    @elems=@filt;
-
-  };
-
-# ---   *   ---   *   ---
-
-  # split string at pattern
-  #for my $sym(split m/(${pat})/,$exp) {
-  for my $sym(@elems) {
-
-    if(!length($sym)) {next;};
-
-    # eliminate match
-    $exp=~ m/^(.*)\Q${sym}/;
-    if(defined $1 && length $1) {
-      $exp=~ s/\Q${1}//;
-
-    # space strip
-    };$sym=~ s/\s+//sg;
-
-    if($sym eq '$:%%join;>'
-    || $sym eq '$:/join;>'
-
-    ) {
-
-      my $node=$self->nit($sym);
-      next;
-
-    };
-
-# ---   *   ---   *   ---
-
-  # subdivide by delimiters
-  if( $sym=~ m/^(${ode})/ ) {
-
-    my $c=$1;
-    if($c eq '(') {
-
-      push @anch,$anch[-1]->oparn(undef);
-      $exp_depth_a++;
-
-    } elsif($c eq '[') {
-      push @anch,$anch[-1]->obrak(undef);
-      $exp_depth_a++;
-
-    };next;
-  };
-
-# ---   *   ---   *   ---
-
-  if($exp_depth_a) {
-
-    if($sym eq ')') {
-
-      $anch[-1]->cparn(undef);
-      pop @anch;
-
-      $exp_depth_a--;
-
-      next;
-
-    } elsif($sym eq ']') {
-
-      $anch[-1]->cbrak(undef);
-      pop @anch;
-
-      $exp_depth_a--;
-
-      next;
-
-    };
-
-  };
-
-# ---   *   ---   *   ---
-
-    # make new node from token
-    if(!length $sym) {next;$sym='$:cut;>';};
-    my $node=$anch[-1]->nit($sym);
 
   };
 
 };
+
+# ---   *   ---   *   ---
+
+
+#{
+#
+#    # iter split'd arr to find bounds
+#
+#    my @filt=('$:%%join;>');
+#    my $s='';
+#
+#    my @separator=(
+#      '$:/join;>',
+#      '$:%%join;>'
+#
+#    );
+#
+#    my $i=0;for my $e(@elems) {
+#
+## ---   *   ---   *   ---
+#
+#TOP:
+#
+#    # skip null str
+#    if(!length $e) {goto SKIP;};
+#
+#    # get left and rightmost chars of elem
+#    my ($ol,$or)=(split '',$e)[0,-1];
+#
+#    # leftmost char fallback on undef right
+#    if(!defined $or) {
+#      $or=$ol;
+#
+#    };
+#
+## ---   *   ---   *   ---
+## get left and rightmost chars of last
+#
+#    my ($pl,$pr)=(
+#
+#      split '',
+#        $elems[$i-1]
+#
+#    )[0,-1];
+#
+## ---   *   ---   *   ---
+## use last accepted as fallback
+#
+#    if(!defined $pl) {
+#
+#      # find last non-escape elem
+#      my $j=-1;
+#      while(defined $filt[$j]) {
+#
+#        my $f=$filt[$j];
+#        if($f=~ m/${pesc}/) {
+#          $j--;next;
+#
+#        };last;
+#
+#      };
+#
+## ---   *   ---   *   ---
+## use if not undef
+#
+#      if(defined $filt[$j]) {
+#        ($pl,$pr)=(
+#
+#          split '',
+#            $filt[$j]
+#
+#        )[0,-1];
+#
+#      # or dont use at all
+#      } else {
+#        ($pl,$pr)=('','');
+#
+#      };
+#
+#    };
+#
+## ---   *   ---   *   ---
+## leftmost char fallback on undef right
+#
+#    if(!defined $pr) {
+#      $pr=$pl;
+#
+#    };
+#
+## ---   *   ---   *   ---
+## is not operator
+#
+#    if(!($ol=~ m/${ops}/)) {
+#
+#      # put separator if
+#      my $cut=(length $pr) && (
+#
+#        # close delimiter : non operator
+#        ($pr=~ m/${cde}/)
+#
+#        ||
+#
+#        # non operator : non operator or comma
+#        !($pr=~ m/${ops}|,}/)
+#
+#      );if($cut) {goto APPEND;};
+#
+## ---   *   ---   *   ---
+#
+#    # is delimiter
+#    } elsif($ol=~ peso::decls::ode
+#    || $ol=~ peso::decls::cde
+#
+#    ) {
+#
+#      my $cut=0;
+#
+#      # put separator if
+#      if($ol=~ m/${ode}/) {
+#
+#        $cut=(
+#
+#          # non operator or comma : open delimiter
+#          !($pr=~ m/${ops}|,/) && $pr
+#
+#        );
+#
+## ---   *   ---   *   ---
+#
+#      };if($cut) {
+#
+#        # accept elements and separate
+#        if($s) {push @filt,$s;};
+#        push @filt,@separator;
+#
+#      } elsif(length $s) {push @filt,$s;};$s='';
+#
+#      # make it its own element
+#      push @filt,$ol;
+#      $e=~ s/\Q${ol}//;
+#
+#      # read remain
+#      goto TOP;
+#
+#    };goto SKIP;
+#
+#
+## ---   *   ---   *   ---
+#
+#APPEND:
+#
+#    if(length $s) {
+#      push @filt,$s;
+#
+#    };if($filt[-1] ne '$:%%join;>') {
+#      push @filt,@separator;
+#
+#    };$s='';
+#
+#SKIP:
+#
+#    $s.=$e;
+#    $i++;
+#
+#  };
+#
+## ---   *   ---   *   ---
+#
+#  if(length $s) {push @filt,$s;};
+#
+#    push @filt,'$:/join;>';
+#    @elems=@filt;
+#
+#  };
+#
+## ---   *   ---   *   ---
+#
+#  # split string at pattern
+#  #for my $sym(split m/(${pat})/,$exp) {
+#  for my $sym(@elems) {
+#
+#    if(!length($sym)) {next;};
+#
+#    # eliminate match
+#    $exp=~ m/^(.*)\Q${sym}/;
+#    if(defined $1 && length $1) {
+#      $exp=~ s/\Q${1}//;
+#
+#    # space strip
+#    };$sym=~ s/\s+//sg;
+#
+#    if($sym eq '$:%%join;>'
+#    || $sym eq '$:/join;>'
+#
+#    ) {
+#
+#      my $node=$self->nit($sym);
+#      next;
+#
+#    };
+#
+## ---   *   ---   *   ---
+#
+#  # subdivide by delimiters
+#  if( $sym=~ m/^(${ode})/ ) {
+#
+#    my $c=$1;
+#    if($c eq '(') {
+#
+#      push @anch,$anch[-1]->oparn(undef);
+#      $exp_depth_a++;
+#
+#    } elsif($c eq '[') {
+#      push @anch,$anch[-1]->obrak(undef);
+#      $exp_depth_a++;
+#
+#    };next;
+#  };
+#
+## ---   *   ---   *   ---
+#
+#  if($exp_depth_a) {
+#
+#    if($sym eq ')') {
+#
+#      $anch[-1]->cparn(undef);
+#      pop @anch;
+#
+#      $exp_depth_a--;
+#
+#      next;
+#
+#    } elsif($sym eq ']') {
+#
+#      $anch[-1]->cbrak(undef);
+#      pop @anch;
+#
+#      $exp_depth_a--;
+#
+#      next;
+#
+#    };
+#
+#  };
+#
+## ---   *   ---   *   ---
+#
+#    # make new node from token
+#    if(!length $sym) {next;$sym='$:cut;>';};
+#    my $node=$anch[-1]->nit($sym);
+#
+#  };
+#
+#};
 
 # ---   *   ---   *   ---
 

@@ -9,8 +9,12 @@
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/avtomat/';
-  use langdefs::peso;
+  use peso::rd;
 
-langdefs::peso::peso_rd("/home/lyeb/cltest");
+my $exps=peso::rd::mam(peso::rd->STR,
+
+  "value_decl x;"
+
+);
 
 # ---   *   ---   *   ---

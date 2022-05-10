@@ -76,6 +76,7 @@ package avt;
     -MODULES=>'',
 
     -POST_BUILD=>{},
+    -PRE_BUILD=>{},
 
   );
 
@@ -918,10 +919,7 @@ sub nit {
 
   if(\$CACHE{-NITTED}) {return;};
 
-  my \$libfold=__FILE__;{
-    my \@tmp=split('/',\$libfold);
-    \$libfold=join('/',\@tmp[0..(\$#tmp)-1]);
-  };
+  my \$libfold=avt::dirof(__FILE__);
 
   my \$ffi=FFI::Platypus->new(api => 2);
   \$ffi->lib(
@@ -1086,6 +1084,38 @@ sub nxbasename {
   $name=~ s/\..*//;
 
   return $name;
+
+};
+
+# ^ get dir of filename...
+# or directory's parent
+
+sub dirof {
+
+  my $path=shift;
+
+  my @tmp=split('/',$path);
+  $path=join('/',@tmp[0..($#tmp)-1]);
+
+  return $path;
+
+};
+
+# ---   *   ---   *   ---
+# in: path to add to PATH, names to include
+# returns a perl snippet as a string to be eval'd
+
+sub reqin {
+
+  my $path=shift;
+  my @names=@_;
+
+  my $s='push @INC,'."$path;\n";
+
+  for my $name(@names) {
+    $s.="require $name;\n";
+
+  };return $s;
 
 };
 
@@ -1444,7 +1474,21 @@ sub strconfig {
   '<MOD>';
 
 # ---   *   ---   *   ---
-# save post-build scripts if any
+# save pre && post-build scripts if any
+
+  if(exists $config{'PREB'}) {
+
+    $CACHE{-PRE_BUILD}
+    ->{$config{'NAME'}}
+      =$config{'PREB'};
+
+  } else {
+
+    $CACHE{-PRE_BUILD}
+    ->{$config{'NAME'}}
+      ='';
+
+  };
 
   if(exists $config{'POST'}) {
 
@@ -1904,6 +1948,7 @@ $lmod.=($lmod) ? '/' : '';
 
 # ---   *   ---   *   ---
 
+$FILE.='BEGIN {'.$CACHE{-PRE_BUILD}->{$name}.'};';
 $FILE.=<<';;EOF'
 
 avt::root $ROOT;
@@ -1937,7 +1982,11 @@ avt::update_regular(\@FCPY);
 
 ;;EOF
 ;
-    print FH $FILE.$CACHE{-POST_BUILD}->{$name};
+    print FH $FILE.'END {'.
+      $CACHE{-POST_BUILD}->{$name}.
+
+    '};';
+
     close FH;`chmod +x "$CACHE{-ROOT}/$name/avto"`
   };
 };

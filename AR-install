@@ -68,6 +68,14 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 
   'NAME'  =>  'avtomat',
 
+  );$config{'PREB'}=q(
+
+    avt::reqin(
+      avt::dirof(__FILE__),
+      'AR.ph',
+
+    );
+
   );avt::strconfig \%config;
 
 };

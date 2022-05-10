@@ -18,6 +18,8 @@ package peso::rd;
 
   use lib $ENV{'ARPATH'}.'/lib/';
   use peso::decls;
+  use peso::node;
+  use peso::program;
 
 # ---   *   ---   *   ---
 # global state
@@ -30,66 +32,36 @@ package peso::rd;
   my @exps=();
 
 # ---   *   ---   *   ---
+# flags
+
+  use constant {
+    FILE=>0x00,
+    STR=>0x01,
+
+  };
+
+# ---   *   ---   *   ---
 # sanitize line of code
 
 sub clean {
 
-  # do not change contents of strings
-  my $string=peso::decls::string;
-  my $result='';
+  # strip comments
+  $rb=~ s/#.*\n//g;
 
-  my $i=0;
+  # remove indent
+  $rb=~ s/^\s+//sg;
 
-  my @ar=();
-  while($rb=~ s/${string}/#:str;>/) {
+  # no spaces surrounding commas
+  $rb=~ s/\s*,\s*/,/sg;
 
-    my $s=$1;
-    my $j=0;
+  # force single spaces
+  $rb=~ s/\s+/\$:pad;>/sg;
+  $rb=~ s/\$:pad;>/ /sg;
 
-    my $nums='';
+  # strip newlines
+  $rb=~ s/\n+//sg;
+  $rb=~ s/;\s+/;/sg;
 
-    $s=~ s/\\n/\n/;
-
-    for my $c(split '',$s) {
-      $nums.=sprintf "0x%02X,",ord($c);
-
-    };$nums=~ s/,$//;
-
-    push @ar,(0,$nums);
-
-  };for my $s(split '#:str;>',$rb) {
-    $ar[$i]=$s;
-    $i+=2;
-
-  };
-
-  for my $s(@ar) {
-
-    if($s=~ m/${string}/) {
-      goto APPEND;
-
-    } elsif(!$s) {next;};
-
-    # strip comments
-    $s=~ s/#.*\n//g;
-
-    # remove indent
-    $s=~ s/^\s+//sg;
-
-    # no spaces surrounding commas
-    $s=~ s/\s*,\s*/,/sg;
-
-    # force single spaces
-    $s=~ s/\s+/\$:pad;>/sg;
-    $s=~ s/\$:pad;>/ /sg;
-
-    # strip newlines
-    $s=~ s/\n+//sg;
-    $s=~ s/;\s+/;/sg;
-
-    APPEND:$result.=$s;
-
-  };$rb=$result;
   if(!$rb) {return 1;};
 
   return 0;
@@ -112,20 +84,7 @@ sub slexps {
     if(!defined $e || !length $e) {
       next;
 
-    };
-
-# ---   *   ---   *   ---
-
-    if($e=~ m/^\s*\{/) {
-      push @exps,'{';
-      $e=~ s/^\s*\{//;
-
-    };my $cl=$e=~ s/\}$//;
-
-    $e=~ s/;//;
-
-    push @exps,$e;
-    if($cl) {push @exps,'}';};
+    };push @exps,$e;
 
   };
 };
@@ -146,18 +105,8 @@ sub mlexps {
 
     };
 
-# ---   *   ---   *   ---
-
-    if($e=~ m/^\s*\{/) {
-      push @exps,'{';
-      $e=~ s/^\s*\{//;
-
-    };my $cl=$e=~ s/\}$//;
-
     $e=~ s/;//;
-
     push @exps,$e;
-    if($cl) {push @exps,'\}';};
 
   };$rem.=$entry;
 
@@ -165,6 +114,19 @@ sub mlexps {
 # proc 'table' for branchless call
 
 };my $rdprocs=[\&mlexps,\&slexps];
+
+# ---   *   ---   *   ---
+# blanks out global state
+
+sub wipe {
+
+  $rb='';
+  $rem='';
+
+  fclose();
+  @exps=();
+
+};
 
 # ---   *   ---   *   ---
 # in: filepath
@@ -175,16 +137,7 @@ sub mlexps {
 
 sub fopen {
 
-  # blank out global state
-  $rb='';
-  $rem='';
-
-  fclose();
-  @exps=();
-
-# ---   *   ---   *   ---
-
-  my $hed=peso::decls::hed;
+  wipe();my $hed=peso::decls::hed;
 
   # open file
   $fname=glob(shift);
@@ -243,9 +196,63 @@ sub expsplit {
   # read body of file
   while($rb=readline $FH) {line();};
 
-  # close and return expressions
-  close $FH;
-  return \@exps;
+  # close file
+  fclose();
+
+# ---   *   ---   *   ---
+# read expressions from a string
+
+};sub string {
+
+  # flush cache
+  wipe();
+
+  # split string into lines
+  my $s=shift;
+  my @ar=split "\n",$s;
+
+  # iter lines && read
+  while($rb=shift @ar) {line();};
+
+};
+
+# ---   *   ---   *   ---
+
+sub mam {
+
+  my $mode=shift;
+  my $src=shift;
+
+  peso::program::nit();
+
+  (\&file,\&string)[$mode]->($src);
+
+  for my $exp(@exps) {
+
+    $exp=~ s/(\(|\[|\]|\))/ $1 /sg;
+
+    my $body=$exp;
+    $exp=peso::node::nit(undef,'void');
+
+    $exp->tokenize($body);
+    $exp->wat();
+
+#    $exp->branch_reloc();
+#    $exp->agroup();
+#    $exp->subdiv();
+#
+#    if(
+#
+#       $exp->val eq 'void'
+#    && $exp->leaves->[0]
+#    && $exp->leaves->[0]->val ne '$:group;>'
+#
+#    ) {$exp=$exp->leaves->[0];};
+#
+#    $exp->collapse();
+    $exp->prich();
+
+  };
 
 };
 
