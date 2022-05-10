@@ -103,10 +103,7 @@ sub mlexps {
     if(!defined $e || !length $e) {
       next;
 
-    };
-
-    $e=~ s/;//;
-    push @exps,$e;
+    };push @exps,$e;
 
   };$rem.=$entry;
 
@@ -229,28 +226,22 @@ sub mam {
 
   for my $exp(@exps) {
 
-    $exp=~ s/(\(|\[|\]|\))/ $1 /sg;
+    #
 
     my $body=$exp;
-    $exp=peso::node::nit(undef,'void');
+    if($body=~ m/\{|\}/) {
+      $exp=peso::node::nit(undef,$body);
 
-    $exp->tokenize($body);
-    $exp->wat();
+    } else {
 
-#    $exp->branch_reloc();
-#    $exp->agroup();
-#    $exp->subdiv();
-#
-#    if(
-#
-#       $exp->val eq 'void'
-#    && $exp->leaves->[0]
-#    && $exp->leaves->[0]->val ne '$:group;>'
-#
-#    ) {$exp=$exp->leaves->[0];};
-#
-#    $exp->collapse();
-    $exp->prich();
+      $exp=peso::node::nit(undef,'void');
+
+      $exp->tokenize($body);
+      $exp->agroup();
+      $exp->reorder();
+      $exp->collapse();
+
+    };$exp->prich();
 
   };
 

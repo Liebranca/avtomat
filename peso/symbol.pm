@@ -17,6 +17,7 @@ package peso::symbol;
 
   use lib $ENV{'ARPATH'}.'/lib/';
   use peso::decls;
+  use peso::defs;
   use peso::ptr;
   use peso::block;
 
@@ -173,6 +174,74 @@ sub nit {
 
   return $sym;
 
+};
+
+# ---   *   ---   *   ---
+# go through a list of nodes and consume them
+# as if they were a [command,args] array
+
+sub ndconsume {
+
+  my $node=shift;
+  my $i=shift;
+
+  my $keywords=peso::defs::SYMS();
+
+  # check that we're not in void context
+  my $leaf=$node->leaves->[$$i];$$i++;
+  if(!$leaf
+  || !exists $keywords->{$leaf->val}
+
+  ) {return;};
+
+# ---   *   ---   *   ---
+# consume nodes according to context
+
+  my $anchor=$leaf;
+  my @moved=();
+
+  my $ref=$keywords->{$leaf->val}->args;
+
+  my @args=@{$ref};
+  for my $arg(@args) {
+
+    my $argc=$arg->{-COUNT};
+    while($argc>0) {
+
+      $leaf=$node->leaves->[$$i];
+      my $value=($leaf) ? $leaf->val : 0;
+
+# ---   *   ---   *   ---
+# handle bad number/order of command args
+
+      if(!$leaf && !$arg->{-OPT}) {
+        printf "Insufficient args for ".
+          "symbol '%s'\n",$anchor->val;
+
+        exit;
+
+      } elsif(!$leaf) {
+        $leaf=nit(undef,$value);
+
+      };
+
+# ---   *   ---   *   ---
+# ^ accumulate && repeat
+
+      push @moved,$leaf;
+      $argc-=split ',',$leaf;
+
+    };
+
+# ---   *   ---   *   ---
+# relocate accumulated nodes && clear
+
+    $node->pluck(@moved);
+    $anchor->pushlv(0,@moved);
+
+    @moved=();
+
+  };
 };
 
 # ---   *   ---   *   ---

@@ -1097,7 +1097,7 @@ sub dirof {
   my @tmp=split('/',$path);
   $path=join('/',@tmp[0..($#tmp)-1]);
 
-  return $path;
+  return abs_path($path);
 
 };
 

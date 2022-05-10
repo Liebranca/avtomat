@@ -333,6 +333,29 @@ sub walkup {
 
 # ---   *   ---   *   ---
 
+sub shiftlv {
+
+  my $self=shift;
+  my $pos=shift;
+  my $sz=shift;
+
+  for my $i(0..$sz-1) {
+    $self->nit('BLANK');
+
+  };
+
+  my $end=@{$self->leaves}-1;
+  for my $i(reverse ($pos..$end)) {
+
+    $self->leaves->[$i]
+      =$self->leaves->[$i-1];
+
+  };$self->idextrav();
+
+};
+
+# ---   *   ---   *   ---
+
 # in:overwrite,node arr
 # push node array to leaves
 sub pushlv {
@@ -450,312 +473,145 @@ sub tokenize {
 
 # ---   *   ---   *   ---
 
-};sub wat {
+};
+
+# ---   *   ---   *   ---
+# clump fields of arguments together
+
+sub agroup {
 
   my $self=shift;
-  my $keywords=peso::defs::SYMS;
 
-  my $anchor=undef;
-  my @moved=();
+  my @shifts=();
+  my $i=0;
 
-  my $i=0;while($i<@{$self->leaves}) {
+# ---   *   ---   *   ---
+# break at commas
 
-    my $leaf=$self->leaves->[$i];
-    if(exists $keywords->{$leaf->val}) {
+  for my $leaf(@{$self->leaves}) {
 
-      $anchor=$leaf;$i++;
+    if($leaf->val=~ m/,/) {
 
-      my @args=@{$keywords->{$leaf->val}->args};
-      for my $arg(@args) {
+      my @values=split ',',$leaf->val;
 
-        my $argc=$arg->{-COUNT};
-        while($argc>0) {
-
-          $leaf=$self->leaves->[$i];
-          my $value=($leaf) ? $leaf->val : 0;
-
-          if(!$leaf && !$arg->{-OPT}) {
-            printf "Insufficient args for ".
-              "symbol '%s'\n",$anchor->val;
-
-            exit;
-
-          } elsif(!$leaf) {
-            $leaf=nit(undef,$value);
-
-          };
-
-          push @moved,$leaf;
-          $argc-=split ',',$leaf;
-
-        };
-
-        $self->pluck(@moved);
-        $anchor->pushlv(0,@moved);
-
-        @moved=();
+      if(0<index $leaf->val,',') {
+        $leaf->{-VAL}='$:group;>';
+        push @shifts,[$leaf,\@values,$i+1]
 
       };
+
+    };$i++;
+
+# ---   *   ---   *   ---
+# populate fields
+
+  };for my $ref(@shifts) {
+
+    my $anchor=$ref->[0];
+    my @values=@{$ref->[1]};
+    my $pos=$ref->[2];
+    my $sz=@values;
+
+    for $i(0..$sz-1) {
+      $anchor->nit(shift @values);
 
     };
 
   };
 
-};
+# ---   *   ---   *   ---
+# break at delimiters
+
+  my $ode=peso::decls::ode;
+  my $cde=peso::decls::cde;
+
+  for my $leaf(@{$self->leaves}) {
+
+    $i=0;
+    for my $grch(@{$leaf->leaves}) {
+
+      $grch->{-VAL}=~ s/(${ode}|${cde})/ $1 /sg;
+      my @values=split ' ',$grch->val;
+
+      if(!defined $values[0]) {shift @values;};
 
 # ---   *   ---   *   ---
 
+      if(@values>1) {
 
-#{
-#
-#    # iter split'd arr to find bounds
-#
-#    my @filt=('$:%%join;>');
-#    my $s='';
-#
-#    my @separator=(
-#      '$:/join;>',
-#      '$:%%join;>'
-#
-#    );
-#
-#    my $i=0;for my $e(@elems) {
-#
-## ---   *   ---   *   ---
-#
-#TOP:
-#
-#    # skip null str
-#    if(!length $e) {goto SKIP;};
-#
-#    # get left and rightmost chars of elem
-#    my ($ol,$or)=(split '',$e)[0,-1];
-#
-#    # leftmost char fallback on undef right
-#    if(!defined $or) {
-#      $or=$ol;
-#
-#    };
-#
-## ---   *   ---   *   ---
-## get left and rightmost chars of last
-#
-#    my ($pl,$pr)=(
-#
-#      split '',
-#        $elems[$i-1]
-#
-#    )[0,-1];
-#
-## ---   *   ---   *   ---
-## use last accepted as fallback
-#
-#    if(!defined $pl) {
-#
-#      # find last non-escape elem
-#      my $j=-1;
-#      while(defined $filt[$j]) {
-#
-#        my $f=$filt[$j];
-#        if($f=~ m/${pesc}/) {
-#          $j--;next;
-#
-#        };last;
-#
-#      };
-#
-## ---   *   ---   *   ---
-## use if not undef
-#
-#      if(defined $filt[$j]) {
-#        ($pl,$pr)=(
-#
-#          split '',
-#            $filt[$j]
-#
-#        )[0,-1];
-#
-#      # or dont use at all
-#      } else {
-#        ($pl,$pr)=('','');
-#
-#      };
-#
-#    };
-#
-## ---   *   ---   *   ---
-## leftmost char fallback on undef right
-#
-#    if(!defined $pr) {
-#      $pr=$pl;
-#
-#    };
-#
-## ---   *   ---   *   ---
-## is not operator
-#
-#    if(!($ol=~ m/${ops}/)) {
-#
-#      # put separator if
-#      my $cut=(length $pr) && (
-#
-#        # close delimiter : non operator
-#        ($pr=~ m/${cde}/)
-#
-#        ||
-#
-#        # non operator : non operator or comma
-#        !($pr=~ m/${ops}|,}/)
-#
-#      );if($cut) {goto APPEND;};
-#
-## ---   *   ---   *   ---
-#
-#    # is delimiter
-#    } elsif($ol=~ peso::decls::ode
-#    || $ol=~ peso::decls::cde
-#
-#    ) {
-#
-#      my $cut=0;
-#
-#      # put separator if
-#      if($ol=~ m/${ode}/) {
-#
-#        $cut=(
-#
-#          # non operator or comma : open delimiter
-#          !($pr=~ m/${ops}|,/) && $pr
-#
-#        );
-#
-## ---   *   ---   *   ---
-#
-#      };if($cut) {
-#
-#        # accept elements and separate
-#        if($s) {push @filt,$s;};
-#        push @filt,@separator;
-#
-#      } elsif(length $s) {push @filt,$s;};$s='';
-#
-#      # make it its own element
-#      push @filt,$ol;
-#      $e=~ s/\Q${ol}//;
-#
-#      # read remain
-#      goto TOP;
-#
-#    };goto SKIP;
-#
-#
-## ---   *   ---   *   ---
-#
-#APPEND:
-#
-#    if(length $s) {
-#      push @filt,$s;
-#
-#    };if($filt[-1] ne '$:%%join;>') {
-#      push @filt,@separator;
-#
-#    };$s='';
-#
-#SKIP:
-#
-#    $s.=$e;
-#    $i++;
-#
-#  };
-#
-## ---   *   ---   *   ---
-#
-#  if(length $s) {push @filt,$s;};
-#
-#    push @filt,'$:/join;>';
-#    @elems=@filt;
-#
-#  };
-#
-## ---   *   ---   *   ---
-#
-#  # split string at pattern
-#  #for my $sym(split m/(${pat})/,$exp) {
-#  for my $sym(@elems) {
-#
-#    if(!length($sym)) {next;};
-#
-#    # eliminate match
-#    $exp=~ m/^(.*)\Q${sym}/;
-#    if(defined $1 && length $1) {
-#      $exp=~ s/\Q${1}//;
-#
-#    # space strip
-#    };$sym=~ s/\s+//sg;
-#
-#    if($sym eq '$:%%join;>'
-#    || $sym eq '$:/join;>'
-#
-#    ) {
-#
-#      my $node=$self->nit($sym);
-#      next;
-#
-#    };
-#
-## ---   *   ---   *   ---
-#
-#  # subdivide by delimiters
-#  if( $sym=~ m/^(${ode})/ ) {
-#
-#    my $c=$1;
-#    if($c eq '(') {
-#
-#      push @anch,$anch[-1]->oparn(undef);
-#      $exp_depth_a++;
-#
-#    } elsif($c eq '[') {
-#      push @anch,$anch[-1]->obrak(undef);
-#      $exp_depth_a++;
-#
-#    };next;
-#  };
-#
-## ---   *   ---   *   ---
-#
-#  if($exp_depth_a) {
-#
-#    if($sym eq ')') {
-#
-#      $anch[-1]->cparn(undef);
-#      pop @anch;
-#
-#      $exp_depth_a--;
-#
-#      next;
-#
-#    } elsif($sym eq ']') {
-#
-#      $anch[-1]->cbrak(undef);
-#      pop @anch;
-#
-#      $exp_depth_a--;
-#
-#      next;
-#
-#    };
-#
-#  };
-#
-## ---   *   ---   *   ---
-#
-#    # make new node from token
-#    if(!length $sym) {next;$sym='$:cut;>';};
-#    my $node=$anch[-1]->nit($sym);
-#
-#  };
-#
-#};
+        $grch->{-VAL}='$:group;>';
+        for my $value(@values) {
+          $grch->nit($value);
+
+        };$grch->delimbrk();
+
+# ---   *   ---   *   ---
+
+        $grch->subdiv();
+
+        my $top=$grch->leaves->[0];
+
+        $grch->pluck($grch->leaves->[0]);
+        $leaf->leaves->[$i]=$top;
+
+# ---   *   ---   *   ---
+
+      } else {
+        $grch->subdiv();
+
+      };$i++;
+    };
+  };
+
+# ---   *   ---   *   ---
+# break at delimiters
+
+};sub delimbrk {
+
+  my $self=shift;
+
+  my @anchors=();
+  my @moved=();
+
+  my $ode=peso::decls::ode;
+  my $cde=peso::decls::cde;
+
+  for my $leaf(@{$self->leaves}) {
+
+    if($anchors[-1]) {
+      push @{$moved[-1]},$leaf;
+
+    };
+
+# ---   *   ---   *   ---
+
+    if($leaf->val=~ m/${ode}/) {
+      push @anchors,$leaf;
+      push @moved,[];
+
+    } elsif($leaf->val=~ m/${cde}/) {
+      my $anchor=pop @anchors;
+      my $ref=pop @moved;
+
+      $self->pluck(@$ref);
+      $anchor->pushlv(0,@$ref);
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+
+};sub reorder {
+
+  my $self=shift;
+
+  my $i=0;while($i<@{$self->leaves}) {
+    peso::symbol::ndconsume($self,\$i);
+
+  };
+
+};
 
 # ---   *   ---   *   ---
 
@@ -842,121 +698,6 @@ sub pluck {
 
   # return removed nodes
   return @plucked;
-
-};
-
-# ---   *   ---   *   ---
-
-# use peso rules for grouping tokens
-sub agroup {
-
-  my $self=shift;
-
-  my @buf=();
-  my @dst=();
-
-  my $ode=peso::decls::ode;
-  my $cde=peso::decls::cde;
-
-  my $delims=${ode}.'|'.${cde};
-
-# ---   *   ---   *   ---
-
-  my @chest=();
-  my @trash=();
-
-  my $anchor=$self;
-
-  # branch out at joins
-  for my $node(@{ $self->leaves }) {
-
-    my $sym=$node->val;
-
-    # group all nodes inside wrap
-    if($sym eq '$:%%join;>') {
-
-      $anchor=$node;
-      $node->{-VAL}='$:group;>';
-
-    # ^ wrap close
-    } elsif($sym eq '$:/join;>') {
-      $anchor->pushlv(0,@chest);
-      @chest=();
-
-      push @trash,$node;
-
-# ---   *   ---   *   ---
-
-    # accumulate elements
-    } else {
-
-      if(0>index $sym,',') {
-        push @chest,$node;
-
-      # comma found
-      } else {
-
-        my @left=split ',',$sym;
-        while(@left) {
-          my $tail=shift @left;
-
-# ---   *   ---   *   ---
-
-          # compound element
-          if(@chest && !$anchor) {
-
-            my $old=$anchor;
-            $anchor=$anchor->nit('$:group;>');
-
-            $anchor->pushlv(0,@chest);
-            @chest=();
-
-            $anchor->nit($tail);
-            $anchor=$old;
-
-# ---   *   ---   *   ---
-
-          # common element
-          } elsif($tail) {
-
-            # push self
-            push @chest,
-              peso::node::nit(undef,$tail);
-
-            # push leftovers
-            while(@left) {
-              push @chest,peso::node::nit(
-                undef,
-                shift @left
-
-              );
-            };
-
-          # discard explored node
-          };push @trash,$node;
-        };
-
-# ---   *   ---   *   ---
-
-      };
-    };
-
-# ---   *   ---   *   ---
-
-  };if(@chest) {
-    $anchor->pushlv(1,@chest);
-
-  };
-
-  for my $child(@{ $self->leaves }) {
-    if(!@{ $child->leaves }) {
-      push @trash,$child;
-
-    };
-
-  };
-
-  $self->pluck(@trash);
 
 };
 
@@ -1419,3 +1160,4 @@ sub prich {
 };
 
 # ---   *   ---   *   ---
+

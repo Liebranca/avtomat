@@ -11,9 +11,10 @@
   use lib $ENV{'ARPATH'}.'/avtomat/';
   use peso::rd;
 
-my $exps=peso::rd::mam(peso::rd->STR,
+my $exps=peso::rd::mam(
 
-  "value_decl x;"
+  peso::rd->STR,
+  "value_decl x,y 1-(3+2),2,3;"
 
 );
 
