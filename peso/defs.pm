@@ -59,6 +59,21 @@ sub DEFINE {
   INS->[$idex]=SYMS->{$key}=$sym;
   INSID->{$key}=$idex;
 
+};sub ALIAS {
+
+  my $key=shift;
+  my $src=shift;
+
+  my $sym=peso::symbol::dup(
+    SYMS->{$src},$key
+
+  );
+
+  my $idex=INSID->{$src};
+
+  INS->[$idex]=SYMS->{$key}=$sym;
+  INSID->{$key}=$idex;
+
 };
 
 # ---   *   ---   *   ---
@@ -200,6 +215,7 @@ DEFINE('reg',peso::decls::bafb,sub {
 
   peso::block::DST($blk);
   peso::block::setscope($blk);
+  peso::block::setcurr($blk);
 
 });
 
@@ -223,7 +239,7 @@ DEFINE('clan',peso::decls::bafb,sub {
 
     # second pass: find block
     } else {
-      $blk=peso::block::clan('non@'.$name);
+      $blk=peso::ptr::fetch($name)->blk;
 
     };
 
@@ -232,6 +248,7 @@ DEFINE('clan',peso::decls::bafb,sub {
   # is global scope
   } else {$blk=$dst;};
   peso::block::DST($blk);
+  peso::block::setcurr($blk);
 
 });
 
@@ -269,6 +286,8 @@ DEFINE('proc',peso::decls::bafb,sub {
 # overwrite dst
 
   peso::block::DST($blk);
+  peso::block::setcurr($blk);
+  peso::block::setscope($blk->scope);
 
 });
 
@@ -461,8 +480,11 @@ DEFINE('value_decl',peso::decls::bafe,sub {
     };
 
   };peso::ptr::wed($wed);
-
 });
+
+# ---   *   ---   *   ---
+
+ALIAS('char','value_decl');
 
 # ---   *   ---   *   ---
 # defs end

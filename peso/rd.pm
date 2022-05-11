@@ -17,8 +17,10 @@ package peso::rd;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
+
   use peso::decls;
   use peso::node;
+  use peso::block;
   use peso::program;
 
 # ---   *   ---   *   ---
@@ -221,8 +223,9 @@ sub mam {
   my $src=shift;
 
   peso::program::nit();
-
   (\&file,\&string)[$mode]->($src);
+
+# ---   *   ---   *   ---
 
   for my $exp(@exps) {
 
@@ -243,9 +246,28 @@ sub mam {
 
       $exp->exwalk();
 
-    };$exp->prich();
+    };
+  };
+
+# ---   *   ---   *   ---
+
+  my $non=peso::block::NON;
+
+  for my $exp(@exps) {
+    $exp->findptrs();
 
   };
+
+# ---   *   ---   *   ---
+
+  peso::block::incpass();
+
+  for my $exp(@exps) {
+    $exp->exwalk();
+
+  };
+
+  $non->prich();
 
 };
 

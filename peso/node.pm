@@ -560,11 +560,33 @@ sub agroup {
         $grch->subdiv();
 
       };$i++;
+
     };
   };
 
 # ---   *   ---   *   ---
-# break at delimiters
+
+  for my $leaf(@{$self->leaves}) {
+
+    if(
+
+       $leaf->val ne '$:group;>'
+    && !exists peso::defs::SYMS->{$leaf->val}
+
+    ) {
+
+      my $value=$leaf->val;
+
+      $leaf->{-VAL}='$:group;>';
+      $leaf->nit($value);
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+# makes a node hierarchy from a
+# delimiter-[values]-delimiter sequence
 
 };sub delimbrk {
 
@@ -621,8 +643,7 @@ TOP:
   $self=shift @leaves;
 
   if(peso::symbol::valid($self->val)) {
-    $self->{-VAL}=$self->val->code->($self);
-    $self->pluck(@{$self->leaves});
+    $self->val->ex($self);
 
   } else {
     push @leaves,@{$self->leaves};
@@ -1128,8 +1149,11 @@ sub findptrs {
     };
 
     # solve/fetch non-numeric values
-    if($leaf->val=~ m/${pesonames}*/
-    && !($leaf->val=~ m/${types}/)) {
+    if($leaf->val=~ m/^${pesonames}*$/
+    && !($leaf->val=~ m/${types}/)
+
+    ) {
+
       $leaf->{-VAL}=peso::ptr::fetch($leaf->val);
 
     };

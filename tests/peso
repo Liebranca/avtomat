@@ -14,7 +14,8 @@
 my $exps=peso::rd::mam(
 
   peso::rd->STR,
-  "cmp 1,1;"
+  "clan a;reg attrs;char x 0xDE;proc ins;".
+  "char y 0x10;cpy x,0xED;"
 
 );
 

@@ -16,6 +16,7 @@ package peso::symbol;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
+
   use peso::decls;
   use peso::defs;
   use peso::ptr;
@@ -174,6 +175,29 @@ sub nit {
 
   return $sym;
 
+# ---   *   ---   *   ---
+# ^ creates a duplicate of a symbol
+# under a different name
+
+};sub dup {
+
+  my $src=shift;
+  my $name=shift;
+
+  my $sym=bless {
+
+    -NAME=>$name,
+    -ARGS=>$src->args,
+    -ARGC=>$src->argc,
+
+    -CODE=>$src->code,
+
+    -NUM_FIELDS=>$src->num_fields,
+
+  },'peso::symbol';
+
+  return $sym;
+
 };
 
 # ---   *   ---   *   ---
@@ -188,17 +212,19 @@ sub ndconsume {
   my $keywords=peso::defs::SYMS();
   my $leaf=$node->leaves->[$$i++];
 
-  # check that we're not in void context
-  if(!$leaf
-  || !exists $keywords->{$leaf->val}
+  my $key=$leaf->val;
 
-  ) {return;};
+  # check that we're not in void context
+  if(!$leaf || !exists $keywords->{$key}) {
+    return;
+
+  };
 
 # ---   *   ---   *   ---
 # consume nodes according to context
 
   my $anchor=$leaf;
-  $anchor->{-VAL}=$keywords->{$anchor->val};
+  $anchor->{-VAL}=$keywords->{$key};
 
   my $ref=$anchor->val->args;
   my @args=@{$ref};
@@ -290,7 +316,7 @@ sub arg_typechk {
     };
 
     if($valid) {
-      return;
+      return 1;
 
     };
 
@@ -298,6 +324,8 @@ sub arg_typechk {
 
 # ---   *   ---   *   ---
 # errme
+
+  if(peso::block::fpass) {return 0;};
 
   printf sprintf
 
@@ -385,10 +413,11 @@ sub ex {
         $type=$arg->{-TYPES}->[-1];
 
       # check type is OK
-      };$self->arg_typechk(
-        $leaf,$type
+      };if(!$self->arg_typechk($leaf,$type)) {
+        return 0;
 
-      );push @field_args,$leaf->val;$i++;
+      };push @field_args,$leaf->val;$i++;
+      return 1;
 
     };
 
@@ -398,7 +427,7 @@ sub ex {
     if(!$arg->{-VARARGS}) {
 
       for(my $x=0;$x<$count;$x++) {
-        $consume_arg->();
+        if(!$consume_arg->()) {return;};
 
       };
 
@@ -408,7 +437,7 @@ sub ex {
     } else {
 
       while($i<@{$field->leaves}) {
-        $consume_arg->();
+        if(!$consume_arg->()) {return;};
 
       };
     };
@@ -418,7 +447,7 @@ sub ex {
 # a list of array references
 
     push @args,\@field_args;
-  };$self->code->($node->val,@args);
+  };$self->code->($self->name,@args);
 
 };
 
