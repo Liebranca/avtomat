@@ -296,9 +296,9 @@ DEFINE('proc',peso::decls::bafb,sub {
 DEFINE('entry',peso::decls::bafb,sub {
 
   my $inskey=shift;
-  my $name=(shift)->[0];
+  my $blk=(shift)->[0];
 
-  peso::block::entry($name);
+  peso::block::entry($blk);
 
 });
 

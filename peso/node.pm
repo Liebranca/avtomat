@@ -520,16 +520,40 @@ sub agroup {
   };
 
 # ---   *   ---   *   ---
+
+  for my $leaf(@{$self->leaves}) {
+
+    if(
+
+       $leaf->val ne '$:group;>'
+    && !exists peso::defs::SYMS->{$leaf->val}
+
+    ) {
+
+      my $value=$leaf->val;
+
+      $leaf->{-VAL}='$:group;>';
+      $leaf->nit($value);
+
+    };
+
+  };$self->wat();
+
+# ---   *   ---   *   ---
 # break at delimiters
+
+};sub wat {
+
+  my $self=shift;
 
   my $ode=peso::decls::ode;
   my $cde=peso::decls::cde;
 
   for my $leaf(@{$self->leaves}) {
 
-    $i=0;
-    for my $grch(@{$leaf->leaves}) {
+    my $i=0;for my $grch(@{$leaf->leaves}) {
 
+      if(!defined $grch) {last;};
       $grch->{-VAL}=~ s/(${ode}|${cde})/ $1 /sg;
       my @values=split ' ',$grch->val;
 
@@ -562,26 +586,6 @@ sub agroup {
       };$i++;
 
     };
-  };
-
-# ---   *   ---   *   ---
-
-  for my $leaf(@{$self->leaves}) {
-
-    if(
-
-       $leaf->val ne '$:group;>'
-    && !exists peso::defs::SYMS->{$leaf->val}
-
-    ) {
-
-      my $value=$leaf->val;
-
-      $leaf->{-VAL}='$:group;>';
-      $leaf->nit($value);
-
-    };
-
   };
 
 # ---   *   ---   *   ---

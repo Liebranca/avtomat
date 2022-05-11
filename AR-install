@@ -82,7 +82,7 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 
   'NAME'  =>  'help',
 
-  'XCPY'  =>  'help*',
+  'XCPY'  =>  'help*,tkmny*',
   'LCPY'  =>  'cash.pm,board.pm,sector.pm,vec4.pm',
 
   );avt::strconfig \%config;

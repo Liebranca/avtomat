@@ -287,6 +287,7 @@ sub arg_typechk {
     peso::block::treesolve($node);
 
     $node=$node->val;
+
     if(peso::ptr::valid_addr($node)) {
       $node=peso::ptr::fetch($node);
 

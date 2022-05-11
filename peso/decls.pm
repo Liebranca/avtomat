@@ -175,7 +175,7 @@ sub intrinsic {
   'clan'=>[id(),'1<bare>'],
   'proc'=>[id(),'1<bare>'],
 
-  'entry'=>[id(),'1<bare>'],
+  'entry'=>[id(),'1<ptr>'],
   'atexit'=>[id(),'1<ptr>'],
 
 },

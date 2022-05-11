@@ -48,7 +48,7 @@ package peso::rd;
 sub clean {
 
   # strip comments
-  $rb=~ s/#.*\n//g;
+  $rb=~ s/#.*//g;
 
   # remove indent
   $rb=~ s/^\s+//sg;
@@ -210,8 +210,14 @@ sub expsplit {
   my $s=shift;
   my @ar=split "\n",$s;
 
+  my @filtered=();
+  for my $l(@ar) {
+    if($l) {push @filtered,$l;};
+
+  };
+
   # iter lines && read
-  while($rb=shift @ar) {line();};
+  while($rb=shift @filtered) {line();};
 
 };
 
@@ -242,11 +248,12 @@ sub mam {
       $exp->tokenize($body);
       $exp->agroup();
       $exp->collapse();
-      $exp->reorder();
 
+      $exp->reorder();
       $exp->exwalk();
 
     };
+
   };
 
 # ---   *   ---   *   ---

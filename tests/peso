@@ -12,11 +12,27 @@
   use peso::rd;
 
 my $exps=peso::rd::mam(
+  peso::rd->STR,q(
 
-  peso::rd->STR,
-  "clan a;reg attrs;char x 0xDE;proc ins;".
-  "char y 0x10;cpy x,0xED;"
+entry main;
+reg attrs;
+  char x 0x00;
 
-);
+proc main;
+  cpy x,0x01;
+
+#clan A;
+#
+#  reg attrs;
+#    char x 0x00;
+#
+#  proc quit;
+#    exit [x];
+#
+#  proc main;
+#    cpy x,0x01;
+
+
+));
 
 # ---   *   ---   *   ---
