@@ -320,6 +320,19 @@ DEFINE('unwed',peso::decls::bafd,sub {
 
 # ---   *   ---   *   ---
 
+DEFINE('cmp',peso::decls::bafd,sub {
+
+  my $node=shift;
+
+  my $v0=$node->group(0,0)->val;
+  my $v1=$node->group(0,1)->val;
+
+  return int($v0 eq $v1);
+
+});
+
+# ---   *   ---   *   ---
+
 DEFINE('value_decl',peso::decls::bafe,sub {
 
   my $inskey=shift;

@@ -186,9 +186,9 @@ sub ndconsume {
   my $i=shift;
 
   my $keywords=peso::defs::SYMS();
+  my $leaf=$node->leaves->[$$i++];
 
   # check that we're not in void context
-  my $leaf=$node->leaves->[$$i];$$i++;
   if(!$leaf
   || !exists $keywords->{$leaf->val}
 
@@ -198,48 +198,40 @@ sub ndconsume {
 # consume nodes according to context
 
   my $anchor=$leaf;
-  my @moved=();
+  $anchor->{-VAL}=$keywords->{$anchor->val};
 
-  my $ref=$keywords->{$leaf->val}->args;
-
+  my $ref=$anchor->val->args;
   my @args=@{$ref};
+
   for my $arg(@args) {
 
-    my $argc=$arg->{-COUNT};
-    while($argc>0) {
+    my $field=$node->leaves->[$$i];
 
-      $leaf=$node->leaves->[$$i];
+    my $argc=$arg->{-COUNT};
+    my $j=0;while($argc>0) {
+
+      $leaf=$field->leaves->[$j++];
       my $value=($leaf) ? $leaf->val : 0;
+
+      $argc--;
 
 # ---   *   ---   *   ---
 # handle bad number/order of command args
 
       if(!$leaf && !$arg->{-OPT}) {
         printf "Insufficient args for ".
-          "symbol '%s'\n",$anchor->val;
+          "symbol '%s'\n",$anchor->val->name;
 
         exit;
 
-      } elsif(!$leaf) {
-        $leaf=nit(undef,$value);
-
       };
-
-# ---   *   ---   *   ---
-# ^ accumulate && repeat
-
-      push @moved,$leaf;
-      $argc-=split ',',$leaf;
-
     };
 
 # ---   *   ---   *   ---
 # relocate accumulated nodes && clear
 
-    $node->pluck(@moved);
-    $anchor->pushlv(0,@moved);
-
-    @moved=();
+    $node->pluck($field);
+    $anchor->pushlv(0,$field);
 
   };
 };

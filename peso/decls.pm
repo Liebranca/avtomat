@@ -207,6 +207,8 @@ sub intrinsic {
   'ptr'=>[id(),'0'],
   'str'=>[id(),'0'],
 
+  'cmp'=>[id(),'2<ptr|bare,ptr|bare>'],
+
 },
 
 # ---   *   ---   *   ---

@@ -238,8 +238,10 @@ sub mam {
 
       $exp->tokenize($body);
       $exp->agroup();
-      $exp->reorder();
       $exp->collapse();
+      $exp->reorder();
+
+      $exp->exwalk();
 
     };$exp->prich();
 

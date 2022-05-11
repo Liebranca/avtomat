@@ -611,6 +611,24 @@ sub agroup {
 
   };
 
+};sub exwalk {
+
+  my $self=shift;
+  my @leaves=($self);
+
+TOP:
+
+  $self=shift @leaves;
+
+  if(peso::symbol::valid($self->val)) {
+    $self->{-VAL}=$self->val->code->($self);
+    $self->pluck(@{$self->leaves});
+
+  } else {
+    push @leaves,@{$self->leaves};
+
+  };if(@leaves) {goto TOP;};
+
 };
 
 # ---   *   ---   *   ---
