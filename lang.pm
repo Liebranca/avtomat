@@ -300,6 +300,14 @@ sub is_code {
   my $v=shift;
   return int($v=~ m/^CODE\(0x[0-9a-f]+\)/);
 
+};sub valid_name {
+
+  my $s=shift;my $_LUN=_LUN();
+  if(defined $s && length $s) {
+    return $s=~ m/^${_LUN}*/;
+
+  };return 0;
+
 };
 
 # ---   *   ---   *   ---
@@ -360,7 +368,8 @@ my $DICT={-GPRE=>{
   -DELM2 =>[
 
     # level 2 delimiters
-    [0x0E,delim('"').'|'.delim("'")],
+    [0x0E,delim('"')],
+    [0x0E,delim("'")],
 
   ],
 
@@ -475,6 +484,37 @@ my $DICT={-GPRE=>{
 
 # ---   *   ---   *   ---
 # parse utils
+
+sub dqstr {return DICT->{-GPRE}->{-DELM2}->[0]->[1];};
+sub sqstr {return DICT->{-GPRE}->{-DELM2}->[1]->[1];};
+
+sub cut($$) {
+
+  my $s=shift;
+  my $pat=shift;
+
+  my (@a,@b)=(),();
+
+  ;;while($s=~ s/${pat}/#:cut;>/) {
+    push @a,$1;
+
+  };for my $sub(split '#:cut;>',$s) {
+    push @b,$sub;
+
+  };
+
+  return (\@a,\@b);
+
+};sub stripline($) {
+
+  my $s=shift;
+  $s=~ s/\s*//sg;
+
+  return $s;
+
+};
+
+# ---   *   ---   *   ---
 
 my %PS=(
 

@@ -1,0 +1,50 @@
+#!/usr/bin/perl
+#
+# Tests usage of standard/blueprint
+# module and class routines
+#
+# ---   *   ---   *   ---
+# deps
+
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use pluts;
+  use lang;
+
+# ---   *   ---   *   ---
+
+package test;
+
+my @stack=(0..0x100);
+sub default_name {
+
+  return sprintf "non_#%04i",pop @stack;
+
+};
+
+my $CLASS;{
+
+  my $ATTRS={
+    -NAME=>[
+      'default_name()',
+      'lang::valid_name',
+
+      pluts->ATTR_SET|pluts->ATTR_GET
+
+    ],
+
+  };
+
+  $CLASS=pluts::DEFAULTS($ATTRS);
+#  print $CLASS;
+
+  eval($CLASS);
+
+  my $ob=new();
+  printf $ob->name."\n";
+
+};
+
+# ---   *   ---   *   ---

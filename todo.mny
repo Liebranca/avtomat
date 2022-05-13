@@ -1,0 +1,15 @@
+avtomat v4;
+
+~ Extend lang && langdefs for basic Perl parse;
+~ Hook langdefs::perl to a source filter;
+~ Use the filter to change how Perl works;
+~ PROFIT;
+~ Utils for enforcing AR module standards;
+~ DEFAULTS enforcer for nits;
+~ VERSION && AUTHOR enforcer for modules and executables;
+~ Rework ARGV handler (partial help/cash.pm migration);
+~ Standarize module avto-nit;
+~ ^ Registering of modules on first include, for a similar purpose;
+~ OOP-ification of $CACHE-type hashes;
+~ Subdivide the avt.pm monolith into modules;
+~ Enable/disable loading of optional deps on install scripts;

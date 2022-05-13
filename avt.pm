@@ -1527,6 +1527,7 @@ sub config {
 };
 
 # ---   *   ---   *   ---
+# TODO: take this out
 
 sub getset {
 

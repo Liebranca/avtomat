@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# perl res
+# perl && lyperl syntax
 
 # ---   *   ---   *   ---
 
