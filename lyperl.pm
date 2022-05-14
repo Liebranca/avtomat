@@ -32,7 +32,11 @@ sub import {
 
     line=>'',
     lineno=>1,
+
     macros=>{},
+
+    unpro=>[],
+    exps=>[],
 
   };filter_add(bless $ref);
 
@@ -40,20 +44,36 @@ sub import {
 
 # ---   *   ---   *   ---
 
-sub replstr($) {
+sub mangle($$) {
 
+  my $self=shift;
   my $s=shift;
 
-  my ($dq,$non_dq)=lang::cut($s,lang::dqstr);
-  my ($sq,$non_sq)=lang::cut($s,lang::sqstr);
+  my $matches=lang::mcut(
 
-  printf ">NON_DQ:\n";
-  printf ''.(join "\n",@$non_dq)."\n";
+    $s,
 
-  printf ">DQ:\n";
-  printf ''.(join "\n",@$dq)."\n";
+    'DQ'=>lang::dqstr,
+    'SQ'=>lang::sqstr,
+    'RE'=>lang::restr,
 
-  printf "____________\n\n";
+  );
+
+  push @{$self->{unpro}},[$s,$matches];
+
+};sub restore($) {
+
+  my $self=shift;
+  my @ar=@{$self->{unpro}};
+
+  while(@ar) {
+
+    my $ref=shift @ar;
+    my $s=lang::mstitch($ref->[0],$ref->[1]);
+
+    printf "$s";
+
+  };
 
 };
 
@@ -65,10 +85,18 @@ sub filter {
   my $status=filter_read();
 
   if(
-      $status<0
+      $status<=0
   ||  !length lang::stripline($_)
+  || m/^\s*#/
 
-  ) {return $status;};my $s=$_;
+  ) {
+
+    if($status<=0) {
+      $self->restore();
+
+    };return $status;
+
+  };my $s=$_;
 
 # ---   *   ---   *   ---
 
@@ -84,9 +112,9 @@ sub filter {
 
 # ---   *   ---   *   ---
 
-  replstr($s);$_='';
-
+  $self->mangle($s);$_='';
   $self->{lineno}++;
+
   return $status;
 
 };

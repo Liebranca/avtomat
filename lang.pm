@@ -127,11 +127,10 @@ sub neg_lkahead {
 
   };if($do_uber) {$re.='|'.UBERSCAP( rescap($string) );};
   return $re;
-};
 
 # ---   *   ---   *   ---
 
-sub lkback {
+};sub lkback {
 
   my $pat=rescap(shift);
   my $end=shift;
@@ -189,7 +188,7 @@ sub delim {
   $beg=rescap($beg);
   $end=rescap($end);
 
-  return "$beg(($allow)*)$end";
+  return "($beg(($allow)*)$end)";
 
 };
 
@@ -373,6 +372,18 @@ my $DICT={-GPRE=>{
 
   ],
 
+  -DELM3 =>[
+
+    # nevermind this one
+    [0x0E,
+
+      '(=~\s*[\w]+/([^/]|\\\\/)*/'.
+      '(([^/]|\\\\/)*/)?([\w]+)?)'
+
+    ],
+
+  ],
+
 # ---   *   ---   *   ---
 
   -NUMS =>[
@@ -487,23 +498,83 @@ my $DICT={-GPRE=>{
 
 sub dqstr {return DICT->{-GPRE}->{-DELM2}->[0]->[1];};
 sub sqstr {return DICT->{-GPRE}->{-DELM2}->[1]->[1];};
+sub restr {return DICT->{-GPRE}->{-DELM3}->[0]->[1];};
 
-sub cut($$) {
+# ---   *   ---   *   ---
+# in:
+#
+#   > string
+#   > pattern to match
+#   > a name for this pattern
+#
+# replace pattern match with a token, to be
+# put back together at a later date
+
+sub cut($$$) {
 
   my $s=shift;
   my $pat=shift;
+  my $id=shift;
 
-  my (@a,@b)=(),();
+  my @ar=();
+  my $s2='';
+  my $i=0;
+
+# ---   *   ---   *   ---
+# cut at pattern match
 
   ;;while($s=~ s/${pat}/#:cut;>/) {
-    push @a,$1;
+    push @ar,$1;
+
+# ---   *   ---   *   ---
+# put token in place of match
 
   };for my $sub(split '#:cut;>',$s) {
-    push @b,$sub;
+    $s2.=sprintf "$sub:__${id}_CUT_%04i__:",$i++;
 
   };
 
-  return (\@a,\@b);
+  return ($s2,\@ar,":__${id}_CUT_".'(\d\d\d\d)__:');
+
+# ---   *   ---   *   ---
+# in:
+#
+#   > string
+#   > array of matches
+#   > token id
+#
+# restores a previously cut string
+
+};sub stitch($$$) {
+
+  my $s=shift;
+  my $ar=shift;
+  my $id=shift;
+
+# ---   *   ---   *   ---
+# look for cut tokens
+
+  my $excl="[^:]*|:[^_]*";
+
+  my $s2='';
+  while($s=~ s/^(${excl})?${id}//) {
+
+    $s2.=$1;
+    my $pat=$2;
+
+# ---   *   ---   *   ---
+# use id of token to find the original
+# pattern match
+
+    $pat=(defined $ar->[$pat]) ? $ar->[$pat] : '';
+    if(!length $pat) {next;};
+
+    $s2.=$pat;
+
+  };return $s2.$s;
+
+# ---   *   ---   *   ---
+# remove all whitespace
 
 };sub stripline($) {
 
@@ -511,6 +582,60 @@ sub cut($$) {
   $s=~ s/\s*//sg;
 
   return $s;
+
+# ---   *   ---   *   ---
+# remove all lingering cut tokens
+
+};sub clear_seams($) {
+
+  my $s=shift;
+  $s=~ s/:__[\w\d]*_CUT_\d\d\d\d__://sg;
+
+  return $s;
+
+};
+
+# ---   *   ---   *   ---
+# in:
+#
+#   > string
+#   > [name=>pattern] array ref
+#
+# cut for multiple patterns, one after the other
+
+;;sub mcut($@) {
+
+  my $s=shift;
+  my %h=@_;
+
+  my %matches=();
+
+  for my $id(keys %h) {
+
+    my ($match,$new_id)=([],'');
+    ($s,$match,$new_id)=cut($s,$h{$id},$id);
+
+    $matches{$new_id}=$match;
+
+  };return ($s,\%matches);
+
+# ---   *   ---   *   ---
+# in:
+#
+#   > string
+#   > matches hash ref from mcut
+#
+# restores a string passed through mcut
+
+};sub mstitch($$) {
+
+  my $s=shift;
+  my $h=shift;
+
+  for my $id(keys %$h) {
+    $s=stitch($s,$h->{$id},$id);
+
+  };return clear_seams($s);
 
 };
 
