@@ -377,7 +377,7 @@ my $DICT={-GPRE=>{
     # nevermind this one
     [0x0E,
 
-      '(=~\s*[\w]+/([^/]|\\\\/)*/'.
+      '([m|s]+/([^/]|\\\\/)*/'.
       '(([^/]|\\\\/)*/)?([\w]+)?)'
 
     ],
@@ -524,15 +524,29 @@ sub cut($$$) {
 # cut at pattern match
 
   ;;while($s=~ s/${pat}/#:cut;>/) {
-    push @ar,$1;
+    push @ar,$1;$i++;
 
 # ---   *   ---   *   ---
 # put token in place of match
 
-  };for my $sub(split '#:cut;>',$s) {
-    $s2.=sprintf "$sub:__${id}_CUT_%04i__:",$i++;
+  };if($i) {
 
-  };
+    my $matchno=$i;
+    $i=0;
+
+    for my $sub(split '#:cut;>',$s) {
+
+      if($i<$matchno) {
+        $s2.=sprintf "$sub:__${id}_CUT_%04i__:",$i++;
+
+      } else {
+        $s2.=$sub;
+
+      };
+
+    };
+
+  } else {$s2=$s;};
 
   return ($s2,\@ar,":__${id}_CUT_".'(\d\d\d\d)__:');
 
@@ -583,16 +597,6 @@ sub cut($$$) {
 
   return $s;
 
-# ---   *   ---   *   ---
-# remove all lingering cut tokens
-
-};sub clear_seams($) {
-
-  my $s=shift;
-  $s=~ s/:__[\w\d]*_CUT_\d\d\d\d__://sg;
-
-  return $s;
-
 };
 
 # ---   *   ---   *   ---
@@ -635,7 +639,7 @@ sub cut($$$) {
   for my $id(keys %$h) {
     $s=stitch($s,$h->{$id},$id);
 
-  };return clear_seams($s);
+  };return $s;
 
 };
 

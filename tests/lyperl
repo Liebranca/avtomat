@@ -13,7 +13,12 @@
 
 # ---   *   ---   *   ---
 
-my $s="oh wow";
-$s=~ s/oh //;
+pirntf "\n";=<<EOF
+
+"hello"
+"there"
+
+EOF
+stat;
 
 # ---   *   ---   *   ---
