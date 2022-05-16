@@ -470,9 +470,6 @@ sub tokenize {
 
     };
   };
-
-# ---   *   ---   *   ---
-
 };
 
 # ---   *   ---   *   ---
@@ -537,12 +534,12 @@ sub agroup {
 
     };
 
-  };$self->wat();
+  };$self->delimchk();
 
 # ---   *   ---   *   ---
-# break at delimiters
+# check for ([]) delimiters
 
-};sub wat {
+};sub delimchk {
 
   my $self=shift;
 

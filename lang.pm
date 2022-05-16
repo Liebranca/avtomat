@@ -506,25 +506,28 @@ sub restr {return DICT->{-GPRE}->{-DELM3}->[0]->[1];};
 #   > string
 #   > pattern to match
 #   > a name for this pattern
+#   > arrayref to store matches
 #
 # replace pattern match with a token, to be
 # put back together at a later date
 
-sub cut($$$) {
+sub cut($$$$) {
 
   my $s=shift;
   my $pat=shift;
   my $id=shift;
+  my $ar=shift;
 
-  my @ar=();
   my $s2='';
   my $i=0;
+
+  my $cnt=@$ar;
 
 # ---   *   ---   *   ---
 # cut at pattern match
 
   ;;while($s=~ s/${pat}/#:cut;>/) {
-    push @ar,$1;$i++;
+    push @$ar,$1;$i++;
 
 # ---   *   ---   *   ---
 # put token in place of match
@@ -537,7 +540,8 @@ sub cut($$$) {
     for my $sub(split '#:cut;>',$s) {
 
       if($i<$matchno) {
-        $s2.=sprintf "$sub:__${id}_CUT_%04i__:",$i++;
+        $s2.=sprintf "$sub:__${id}_CUT_%04X__:",
+          $cnt+($i++);
 
       } else {
         $s2.=$sub;
@@ -548,44 +552,39 @@ sub cut($$$) {
 
   } else {$s2=$s;};
 
-  return ($s2,\@ar,":__${id}_CUT_".'(\d\d\d\d)__:');
+  return $s2;
 
 # ---   *   ---   *   ---
 # in:
 #
 #   > string
 #   > array of matches
-#   > token id
 #
 # restores a previously cut string
 
-};sub stitch($$$) {
+};sub stitch($$) {
 
   my $s=shift;
   my $ar=shift;
-  my $id=shift;
 
 # ---   *   ---   *   ---
 # look for cut tokens
 
-  my $excl="[^:]*|:[^_]*";
+  while($s=~ m/(:__[A-Z]+_CUT_([\dA-F]+)__:)/) {
 
-  my $s2='';
-  while($s=~ s/^(${excl})?${id}//) {
-
-    $s2.=$1;
-    my $pat=$2;
+    my $pat=$1;
+    my $i=hex($2);
 
 # ---   *   ---   *   ---
 # use id of token to find the original
 # pattern match
 
-    $pat=(defined $ar->[$pat]) ? $ar->[$pat] : '';
-    if(!length $pat) {next;};
+    my $str=(defined $ar->[$i]) ? $ar->[$i] : '';
+    if(!length $str) {next;};
 
-    $s2.=$pat;
+    $s=~ s/${pat}/$str/;
 
-  };return $s2.$s;
+  };return $s;
 
 # ---   *   ---   *   ---
 # remove all whitespace
@@ -603,41 +602,25 @@ sub cut($$$) {
 # in:
 #
 #   > string
-#   > [name=>pattern] array ref
+#   > array ref to store matches
+#   > pattern array
 #
 # cut for multiple patterns, one after the other
 
-;;sub mcut($@) {
+;;sub mcut($$@) {
 
   my $s=shift;
-  my %h=@_;
+  my $ar=shift;
 
-  my %matches=();
+  my %patterns=@_;
 
-  for my $id(keys %h) {
+  for my $id(keys %patterns) {
 
-    my ($match,$new_id)=([],'');
-    ($s,$match,$new_id)=cut($s,$h{$id},$id);
+    my $new_id='';
+    ($s,$new_id)=cut(
+      $s,$patterns{$id},$id,$ar
 
-    $matches{$new_id}=$match;
-
-  };return ($s,\%matches);
-
-# ---   *   ---   *   ---
-# in:
-#
-#   > string
-#   > matches hash ref from mcut
-#
-# restores a string passed through mcut
-
-};sub mstitch($$) {
-
-  my $s=shift;
-  my $h=shift;
-
-  for my $id(keys %$h) {
-    $s=stitch($s,$h->{$id},$id);
+    );
 
   };return $s;
 

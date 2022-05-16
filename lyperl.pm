@@ -19,7 +19,10 @@ package lyperl;
   use Filter::Util::Call;
 
   use lib $ENV{'ARPATH'}.'/avtomat/';
+
   use lang;
+  use peso::node;
+  use peso::program;
 
 # ---   *   ---   *   ---
 
@@ -30,7 +33,7 @@ sub import {
 
     lline_exp=>0,
 
-    line=>'',
+    killed=>0,
     lineno=>1,
     in_doc_block=>0,
 
@@ -38,7 +41,9 @@ sub import {
 
     unpro=>[],
     exps=>[],
-    docs=>{},
+    strings=>[],
+
+    docs_accum=>'',
 
   };filter_add(bless $ref);
 
@@ -58,6 +63,8 @@ sub read_doc_block($$$) {
   my $doc=\$self->{in_doc_block}->[2];
   my $lvl=\$self->{in_doc_block}->[3];
 
+  my $len=length $cde;
+
   my $rem;if($first_frame) {
     ($s,$rem)=split ':__CUT__',$s;
     $self->{in_doc_block}->[4]=$s;
@@ -71,12 +78,16 @@ sub read_doc_block($$$) {
 # iter the doc block line
 
   my $i=0;
+  my $accum='';
+
   my @ar=split '',$rem;
 
   for my $c(@ar) {
 
     my $last=$ar[$i-(1*$i>0)];
     my $next=$ar[$i+(1*$i<$#ar)];
+
+    my $term=substr $rem,$i,$i+$len;
 
 # ---   *   ---   *   ---
 # close char downs the depth if not escaped
@@ -97,6 +108,11 @@ sub read_doc_block($$$) {
       $$lvl++;
       $$doc.=$c;
 
+# ---   *   ---   *   ---
+# =<<EOF (or similar) reached
+
+    } elsif($len>1 && $term eq $cde) {
+      $$lvl=-1;last;
 
 # ---   *   ---   *   ---
 # do not append BS if followed
@@ -118,17 +134,20 @@ sub read_doc_block($$$) {
   if($$lvl<0) {
 
     my $id=sprintf(
-      ':__MLS_CUT_%04i__:',
-      int(keys %{$self->{docs}})
+      ':__MLS_CUT_%04X__:',
+      int(@{$self->{strings}})
 
-    );$s.=
-      $self->{in_doc_block}->[4].
-      $id.(substr $rem,$i,-1);
+    );
 
-    $self->{docs}->{$id}=$$doc;
+    $s=$self->{in_doc_block}->[4].
+      $id.(substr $rem,$i,length $cde);
+
+    $accum=join '',@ar[$i+length $cde..$#ar];
+
+    push @{$self->{strings}},$$doc;
     $self->{in_doc_block}=0;
 
-  };return $s;
+  };return ($s,$accum);
 };
 
 # ---   *   ---   *   ---
@@ -138,7 +157,7 @@ sub tokenize_doc($$) {
   my $self=shift;
   my $s=shift;
 
-  my $odes='([\(|\[|\{|\/])';
+  my @odes=split '','([{/';
   my %cdes=(
 
     '('=>')',
@@ -146,7 +165,10 @@ sub tokenize_doc($$) {
     '{'=>'}',
     '/'=>'/',
 
-  );
+  );for my $c(@odes) {
+    $c='\\'.$c;
+
+  };
 
 # ---   *   ---   *   ---
 
@@ -154,10 +176,26 @@ sub tokenize_doc($$) {
   my $ode='';
 
   my $first_frame=0;
-  my $last_frame=0;
+  my $rem='';
+
+  TOP:
 
   if(!$self->{in_doc_block}) {
-    if($s=~ s/(.*q[q|w]?\s*${odes})/$1:__CUT__/) {
+
+    my $pat;
+    if($s=~ m/\$[\w][_\w\d]*\.?=<<([\w][_\w\d]*)/) {
+      $pat='(\$[\w][_\w\d]*\.?=<<([\w][_\w\d]*))';
+
+      $cdes{$1}=$1;
+      push @odes,$1;
+
+    } else {
+      my $odes='('.(join '|',@odes).')';
+      $pat='(\bq[q|w]?\s*'.$odes.')';
+
+    };
+
+    if($s=~ s/${pat}/$1:__CUT__/) {
 
       my $ode=$2;
       my $cde=$cdes{$ode};
@@ -172,27 +210,62 @@ sub tokenize_doc($$) {
 # ---   *   ---   *   ---
 
   };if($self->{in_doc_block}) {
-    $s=$self->read_doc_block($s,$first_frame);
 
-    $last_frame=!$self->{in_doc_block};
+    ($s,$rem)=$self->read_doc_block(
+      $s,$first_frame
 
-  };return ($first_frame)
+    );
 
-    ? ('',$last_frame)
-    : ($s,$last_frame)
+    if(!$self->{in_doc_block}) {
+
+      if(length $rem) {
+
+        $self->{docs_accum}.=$s;
+        $s=$rem;
+
+        goto TOP;
+
+      } else {
+
+        $s=$self->{docs_accum}.$s;
+        $self->{docs_accum}='';
+
+        $first_frame=0;
+
+      };
+
+    };
+
+# ---   *   ---   *   ---
+
+  } else {
+
+    if($self->{docs_accum}) {
+      $s=$self->{docs_accum}.$s;
+      $self->{docs_accum}='';
+
+    };$first_frame=0;
+
+  };
+
+  return ($first_frame)
+
+    ? ''
+    : $s
 
     ;
 
 # ---   *   ---   *   ---
+# abstracts away blocks that
+# need to be kept intact
 
 };sub mangle($$) {
 
   my $self=shift;
   my $s=shift;
 
-  my $hasdoc=0;
+  $s=$self->tokenize_doc($s);
 
-  ($s,$hasdoc)=$self->tokenize_doc($s);
   if(!length lang::stripline($s)) {
     return;
 
@@ -200,9 +273,9 @@ sub tokenize_doc($$) {
 
   my $matches;
 
-  ($s,$matches)=lang::mcut(
+  $s=lang::mcut(
 
-    $s,
+    $s,$self->{strings},
 
     'DQ'=>lang::dqstr,
     'SQ'=>lang::sqstr,
@@ -210,34 +283,81 @@ sub tokenize_doc($$) {
 
   );
 
-  push @{$self->{unpro}},[$s,$matches];
-
-  #printf "$s\n";
+  push @{$self->{unpro}},$s;
 
 # ---   *   ---   *   ---
+# demangles the accumulated code strings
 
 };sub restore($) {
 
   my $self=shift;
-  my @ar=@{$self->{unpro}};
-
   my $s='';
-  while(@ar) {
 
-    my $ref=shift @ar;
-    my $sub=lang::mstitch($ref->[0],$ref->[1]);
+# ---   *   ---   *   ---
+# replace string tokens
 
-    for my $key(keys %{$self->{docs}}) {
+  for my $exp(@{$self->{exps}}) {
+    $s.=lang::stitch($exp.';',$self->{strings});
 
-      my $mls=$self->{docs}->{$key};
-      if($sub=~ s/${key}/$mls/) {
-        delete $self->{docs}->{$key};
+  };return $s;
+};
+
+# ---   *   ---   *   ---
+
+sub expsplit($) {
+
+  my $self=shift;
+  my @exps=
+    split m/([\{\}])|;/,(join '',@{$self->{unpro}});
+
+  my $root=peso::node::nit(undef,'ROOT');
+  my @ances=();
+
+  peso::program::nit();
+
+# ---   *   ---   *   ---
+
+  my $anchor=$root;
+  my $last=$root;
+
+  for my $exp(@exps) {
+
+    if(defined $exp && length lang::stripline($exp)) {
+
+      if($exp eq '{') {
+        push @ances,$anchor;
+        $anchor=$last;
+        next;
+
+      } elsif($exp eq '}') {
+
+        $anchor=pop @ances;
+        next;
 
       };
 
-    };$s.=$sub;
+# ---   *   ---   *   ---
 
-  };printf "$s\n";
+      $exp=~ s/^\s*|\s*$//sg;
+      $exp=~ s/([_\w][_\w\d]*)\s+|\$|\@|\%//;
+
+      my $hed=$1;
+
+      $last=$anchor->nit($hed);
+      if(defined $exp) {
+        $last->tokenize($exp);
+
+      };
+
+    };
+  };
+
+# ---   *   ---   *   ---
+
+  ;
+
+  $root->prich();
+
 };
 
 # ---   *   ---   *   ---
@@ -247,38 +367,40 @@ sub filter {
   my ($self)=@_;
   my $status=filter_read();
 
-  if(
-      $status<=0
-  ||  !length lang::stripline($_)
+# ---   *   ---   *   ---
+
+  if( (!length lang::stripline($_)
+
+      && !$self->{in_doc_block}
+
+      )
+
   || m/^\s*#/
 
   ) {
 
-    if($status<=0) {
-      $self->restore();
-
-    };return $status;
-
-  };my $s=$_;
-
 # ---   *   ---   *   ---
 
-  # not a multi-line bit
-  if($self->{lline_exp}) {
-    $self->{line}=$s;
+    if($status<=0 && !$self->{killed}) {
 
-  # the other way around
-  } else {
-    $self->{line}.=$s;
+      $self->expsplit();
+#      $_=$self->restore();
+#
+#      $self->{killed}=1;
+#      $status=1;
+
+    };return $status;
 
   };
 
 # ---   *   ---   *   ---
 
-  $self->mangle($s);$_='';
+  my $s=$_;$_='';
+
+  $self->mangle($s);
   $self->{lineno}++;
 
-  return $status;
+  $status;
 
 };
 
