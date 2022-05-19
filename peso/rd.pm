@@ -18,20 +18,61 @@ package peso::rd;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
+  use lang;
+
   use peso::decls;
   use peso::node;
-  use peso::block;
+  use peso::blk;
   use peso::program;
 
 # ---   *   ---   *   ---
-# global state
+# getters/setters
 
-  my $rb='';
-  my $rem='';
-  my $fname='';
-  my $FH=undef;
+;;sub line {
 
-  my @exps=();
+  my $self=shift;
+  my $new=shift;
+
+  if(defined $new) {
+    $self->{-LINE}=$new;
+
+  };return $self->{-LINE};
+
+};sub rem {
+
+  my $self=shift;
+  my $new=shift;
+
+  if(defined $new) {
+    $self->{-REM}=$new;
+
+  };return $self->{-REM};
+
+};sub exps {return (shift)->{-EXPS};};
+;;sub langkey {return (shift)->{-LANG};};
+
+# ---   *   ---   *   ---
+# constructor
+
+sub nit {
+
+  my $langkey=shift;
+
+  return bless {
+
+    -LANG=>$langkey,
+
+    -LINE=>'',
+    -REM=>'',
+
+    -FNAME=>'',
+    -FHANDLE=>undef,
+
+    -EXPS=>[],
+
+  },'peso::rd';
+
+};
 
 # ---   *   ---   *   ---
 # flags
@@ -47,26 +88,42 @@ package peso::rd;
 
 sub clean {
 
+  my $self=shift;
+
+  my $com=lang::comment($self->langkey);
+  my $eb=lang::exp_bound($self->langkey);
+
   # strip comments
-  $rb=~ s/#.*//g;
+  $self->{-LINE}=~ s/${com}.*//g;
 
   # remove indent
-  $rb=~ s/^\s+//sg;
+  $self->{-LINE}=~ s/^\s+//sg;
 
   # no spaces surrounding commas
-  $rb=~ s/\s*,\s*/,/sg;
+  $self->{-LINE}=~ s/\s*,\s*/,/sg;
 
   # force single spaces
-  $rb=~ s/\s+/\$:pad;>/sg;
-  $rb=~ s/\$:pad;>/ /sg;
+  $self->{-LINE}=~ s/\s+/\$:rdclpad;>/sg;
+  $self->{-LINE}=~ s/\$:rdclpad;>/ /sg;
 
-  # strip newlines
-  $rb=~ s/\n+//sg;
-  $rb=~ s/;\s+/;/sg;
+  $self->{-LINE}=~ s/'.$eb.'\s+/'.$eb.'/sg;
 
-  if(!$rb) {return 1;};
+  if(!$self->line) {return 1;};
 
   return 0;
+
+};
+
+# ---   *   ---   *   ---
+# append leftovers from previous
+# lines read
+
+sub join_rem {
+
+  my $self=shift;
+
+  $self->line($self->rem.$self->line);
+  $self->rem('');
 
 };
 
@@ -75,8 +132,18 @@ sub clean {
 
 sub slexps {
 
-  $rb=$rem.$rb;$rem='';
-  my @ar=split m/([\{\}])|;$|;/,$rb;
+  my $self=shift;
+  $self->join_rem();
+
+  my $eb=lang::exp_bound($self->langkey);
+  my $sb=lang::scope_bound($self->langkey);
+
+  my @ar=split
+
+    m/([${sb}])|${eb}$|${eb}/,
+    $self->line
+
+  ;
 
 # ---   *   ---   *   ---
 
@@ -86,7 +153,7 @@ sub slexps {
     if(!defined $e || !length $e) {
       next;
 
-    };push @exps,$e;
+    };push @{$self->exps},$e;
 
   };
 };
@@ -96,7 +163,12 @@ sub slexps {
 
 sub mlexps {
 
-  my @ar=split m/([\{\}])|;/,$rb;
+  my $self=shift;
+
+  my $eb=lang::exp_bound($self->langkey);
+  my $sb=lang::scope_bound($self->langkey);
+
+  my @ar=split m/([${sb}])|${eb}/,$self->line;
   my $entry=pop @ar;
 
   # separate curls
@@ -105,9 +177,9 @@ sub mlexps {
     if(!defined $e || !length $e) {
       next;
 
-    };push @exps,$e;
+    };push @{$self->exps},$e;
 
-  };$rem.=$entry;
+  };$self->rem($self->rem.$entry);
 
 # ---   *   ---   *   ---
 # proc 'table' for branchless call
@@ -115,15 +187,17 @@ sub mlexps {
 };my $rdprocs=[\&mlexps,\&slexps];
 
 # ---   *   ---   *   ---
-# blanks out global state
+# blanks out instance
 
 sub wipe {
 
-  $rb='';
-  $rem='';
+  my $self=shift;
 
-  fclose();
-  @exps=();
+  $self->line('');
+  $self->rem('');
+
+  $self->fclose();
+  $self->{-EXPS}=[];
 
 };
 
@@ -136,33 +210,42 @@ sub wipe {
 
 sub fopen {
 
-  wipe();my $hed=peso::decls::hed;
+  my $self=shift;
+  $self->wipe();
+
+  my $hed=lang::file_header($self->langkey);
 
   # open file
-  $fname=glob(shift);
-  open $FH,'<',$fname or die $!;
+  $self->{-FNAME}=glob(shift);open
+
+    $self->{-FHANDLE},'<',
+    $self->{-FNAME} or die $!
+
+  ;
 
   # verify header
-  $rb=readline $FH;
-  if(!($rb=~ m/${hed}/)) {
-    printf STDERR "$fname: bad header\n";
+  $self->line(readline $self->{-FHANDLE});
+  if(!($self->line=~ m/${hed}/)) {
+    printf STDERR $self->{-FNAME}.": bad header\n";
     fclose();
 
   };
 
   # get remains
-  $rb=~ s/${hed}//;
-  $rem='';
+  $self->line_re("s/${hed}//");
+  $self->rem('');
 
 # ---   *   ---   *   ---
 # errchk & close
 
 };sub fclose {
 
-  if(defined $FH) {
-    close $FH;
+  my $self=shift;
 
-  };$FH=undef;
+  if(defined $self->{-FHANDLE}) {
+    close $self->{-FHANDLE};
+
+  };$self->{-FHANDLE}=undef;
 
 };
 
@@ -171,40 +254,61 @@ sub fopen {
 # use proc A if regex match, else use proc B
 
 sub expsplit {
-  $rdprocs->[$rb=~ m/([\{\}])|;$|;/]->();
+
+  my $self=shift;
+
+  my $eb=lang::exp_bound($self->langkey);
+  my $sb=lang::scope_bound($self->langkey);
+
+  $rdprocs
+    ->[$self->line=~ m/([${sb}])|${eb}$|${eb}/]
+    ->($self)
+
+  ;
 
 # ---   *   ---   *   ---
-# read a single line saved to rb
+# process buffered line
 
-};sub line {
+};sub procline {
+
+  my $self=shift;
 
   # skip if blank line
-  if(clean) {return;};
+  if($self->clean) {return;};
 
-  # split expressions at {|;|}
-  expsplit();
+  # split expressions at scope bound (def: '{ or }')
+  # or split at expression bound (def: ';')
+  $self->expsplit();
 
 # ---   *   ---   *   ---
 # read entire file
 
 };sub file {
 
+  my $self=shift;
+
   # open & read first line
-  fopen(shift);line();
+  $self->fopen(shift);
+  $self->procline();
 
   # read body of file
-  while($rb=readline $FH) {line();};
+  while($self->line(
+    readline $self->{FHANDLE}
+
+  )) {$self->procline();};
 
   # close file
-  fclose();
+  $self->fclose();
 
 # ---   *   ---   *   ---
 # read expressions from a string
 
 };sub string {
 
+  my $self=shift;
+
   # flush cache
-  wipe();
+  $self->wipe();
 
   # split string into lines
   my $s=shift;
@@ -217,7 +321,11 @@ sub expsplit {
   };
 
   # iter lines && read
-  while($rb=shift @filtered) {line();};
+  while(@filtered) {
+    $self->line(shift @filtered);
+    $self->procline();
+
+  };
 
 };
 
@@ -225,15 +333,18 @@ sub expsplit {
 
 sub mam {
 
+  my $langkey=shift;
   my $mode=shift;
   my $src=shift;
 
+  my $rd=nit($langkey);
+
   peso::program::nit();
-  (\&file,\&string)[$mode]->($src);
+  (\&file,\&string)[$mode]->($rd,$src);
 
 # ---   *   ---   *   ---
 
-  for my $exp(@exps) {
+  for my $exp(@{$rd->exps}) {
 
     #
 
@@ -258,18 +369,18 @@ sub mam {
 
 # ---   *   ---   *   ---
 
-  my $non=peso::block::NON;
+  my $non=peso::blk::NON;
 
-  for my $exp(@exps) {
+  for my $exp(@{$rd->exps}) {
     $exp->findptrs();
 
   };
 
 # ---   *   ---   *   ---
 
-  peso::block::incpass();
+  peso::blk::incpass();
 
-  for my $exp(@exps) {
+  for my $exp(@{$rd->exps}) {
     $exp->exwalk();
 
   };

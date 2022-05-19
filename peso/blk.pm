@@ -12,7 +12,7 @@
 # ---   *   ---   *   ---
 
 # deps
-package peso::block;
+package peso::blk;
   use strict;
   use warnings;
 
@@ -213,7 +213,7 @@ sub nit {
 
     -ID=>undef,
 
-  },'peso::block';
+  },'peso::blk';
 
   # initialized from instance
   # new->setParent $self
@@ -609,8 +609,8 @@ sub refsolve_rec {
   my $node=shift;
   my $pesonames=peso::decls::names;
 
-  my $is_ptr=peso::ptr::valid($node->val);
-  my $is_name=$node->val=~ m/${pesonames}*/;
+  my $is_ptr=peso::ptr::valid($node->value);
+  my $is_name=$node->value=~ m/${pesonames}*/;
 
 # ---   *   ---   *   ---
 
@@ -620,7 +620,7 @@ sub refsolve_rec {
       return;
 
     } elsif($is_ptr) {
-      $node->{-VAL}=$node->val->addr;
+      $node->value($node->value->addr);
 
     };
 
@@ -661,13 +661,13 @@ sub treesolve {
   for my $leaf(@{$node->leaves},$node) {
 
     # skip $:escaped;>
-    if($leaf->val=~ m/${pesc}/) {
+    if($leaf->value=~ m/${pesc}/) {
       next;
 
     };
 
     # solve/fetch non-numeric values
-    if(!($leaf->val=~ m/^[0-9]+/)) {
+    if(!($leaf->value=~ m/^[0-9]+/)) {
       refsolve_rec($leaf);
       $leaf->collapse();
 
@@ -696,17 +696,19 @@ sub ptrderef_rec {
 # ---   *   ---   *   ---
 # value is ptr dereference
 
-  if($node->val eq '[') {
+  if($node->value eq '[') {
 
     my $leaf=$node->leaves->[0];
-    my $is_ptr=peso::ptr::valid($leaf->val);
+    my $is_ptr=peso::ptr::valid($leaf->value);
 
     if($is_ptr) {
-      $node->{-VAL}=$leaf->val->getv();
+      $node->value($leaf->value->getv());
 
     } else {
-      $node->{-VAL}
-        =peso::ptr::fetch($leaf->val)->getv();
+      $node->value(
+        peso::ptr::fetch($leaf->value)->getv()
+
+      );
 
     };$node->pluck(@{$node->leaves});
 

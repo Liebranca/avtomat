@@ -10,8 +10,11 @@
 
   use lib $ENV{'ARPATH'}.'/avtomat/';
   use peso::rd;
+  use langdefs::peso;
 
 my $exps=peso::rd::mam(
+
+  -PESO,
   peso::rd->STR,q(
 
 entry main;
@@ -19,19 +22,7 @@ reg attrs;
   char x 0x00;
 
 proc main;
-  cpy x,0x01;
-
-#clan A;
-#
-#  reg attrs;
-#    char x 0x00;
-#
-#  proc quit;
-#    exit [x];
-#
-#  proc main;
-#    cpy x,0x01;
-
+  cpy x,(0x04+1)*2;
 
 ));
 

@@ -19,7 +19,7 @@ package peso::program;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use peso::node;
-  use peso::block;
+  use peso::blk;
   use peso::defs;
 
 # ---   *   ---   *   ---
@@ -39,7 +39,7 @@ sub nit {
 
   setnxins(0);
 
-  peso::block::gblnit();
+  peso::blk::gblnit();
   peso::node::loadnumcon(
     peso::defs::NUMCON
 
@@ -57,11 +57,11 @@ sub nxins {return $CACHE{-NXINS};};
 
 sub setnxins {
   $CACHE{-NXINS}=shift;
-  peso::block::nxins($CACHE{-NXINS});
+  peso::blk::nxins($CACHE{-NXINS});
 
 };sub incnxins {
   $CACHE{-NXINS}++;
-  peso::block::nxins($CACHE{-NXINS});
+  peso::blk::nxins($CACHE{-NXINS});
 
 };
 
@@ -88,8 +88,8 @@ sub setnode {
 
 sub run {
 
-  my $entry=peso::block::entry;
-  my $non=peso::block::NON;
+  my $entry=peso::blk::entry;
+  my $non=peso::blk::NON;
 
   peso::ptr::wed(undef);
 
@@ -98,8 +98,8 @@ sub run {
   setnxins($entry->insid);
 
   # scope to block
-  peso::block::setcurr($entry);
-  peso::block::setscope($entry->scope);
+  peso::blk::setcurr($entry);
+  peso::blk::setscope($entry->scope);
 
   # debug: print out what we're executing
   printf "ex ".$entry->name."\n";
@@ -146,11 +146,11 @@ sub next_ins {
 };sub getinsid {
 
   my $i=shift;
-  my $blk=peso::block::INS->[$i];
+  my $blk=peso::blk::INS->[$i];
 
   # scope to block
-  peso::block::setcurr($blk);
-  peso::block::setscope($blk->scope);
+  peso::blk::setcurr($blk);
+  peso::blk::setscope($blk->scope);
 
   # debug: print out what we're executing
   printf "ex ".$blk->name."\n";

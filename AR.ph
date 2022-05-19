@@ -64,8 +64,8 @@ sub update {
       '/peso/rd.pm',
       '/peso/node.pm',
       '/peso/ptr.pm',
-      '/peso/block.pm',
-      '/peso/symbol.pm',
+      '/peso/blk.pm',
+      '/peso/sbl.pm',
       '/peso/defs.pm',
       '/peso/program.pm',
 

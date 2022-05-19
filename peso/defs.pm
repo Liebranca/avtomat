@@ -19,9 +19,9 @@ package peso::defs;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use peso::decls;
-  use peso::symbol;
+  use peso::sbl;
   use peso::ptr;
-  use peso::block;
+  use peso::blk;
 
 # ---   *   ---   *   ---
 # global state
@@ -54,7 +54,7 @@ sub DEFINE {
   my $idex=$src->{$key}->[0];
   my $args=$src->{$key}->[1];
 
-  my $sym=peso::symbol::nit($key,$args,$code);
+  my $sym=peso::sbl::nit($key,$args,$code);
 
   INS->[$idex]=SYMS->{$key}=$sym;
   INSID->{$key}=$idex;
@@ -64,7 +64,7 @@ sub DEFINE {
   my $key=shift;
   my $src=shift;
 
-  my $sym=peso::symbol::dup(
+  my $sym=peso::sbl::dup(
     SYMS->{$src},$key
 
   );
@@ -105,7 +105,7 @@ DEFINE('pop',peso::decls::bafa,sub {
   my $inskey=shift;
   my $dst=(shift)->[0];
 
-  my $v=peso::block::spop();
+  my $v=peso::blk::spop();
 
   if(peso::ptr::valid($dst)) {
     $dst=peso::ptr::fetch($dst);
@@ -127,7 +127,7 @@ DEFINE('push',peso::decls::bafa,sub {
 
   };
 
-  peso::block::spush($src);
+  peso::blk::spush($src);
 
 });
 
@@ -188,9 +188,9 @@ DEFINE('reg',peso::decls::bafb,sub {
   my $name=(shift)->[0];
 
   # get dst
-  my $dst=(peso::block::DST->attrs)
-    ? peso::block::DST->par
-    : peso::block::DST
+  my $dst=(peso::blk::DST->attrs)
+    ? peso::blk::DST->par
+    : peso::blk::DST
     ;
 
 # ---   *   ---   *   ---
@@ -198,9 +198,9 @@ DEFINE('reg',peso::decls::bafb,sub {
   my $blk;
 
   # append new block to dst on first pass
-  if(peso::block::fpass()) {
+  if(peso::blk::fpass()) {
     $blk=$dst->nit(
-      $name,peso::block->O_RDWR,
+      $name,peso::blk->O_RDWR,
 
     );
 
@@ -213,9 +213,9 @@ DEFINE('reg',peso::decls::bafb,sub {
 # ---   *   ---   *   ---
 # overwrite dst
 
-  peso::block::DST($blk);
-  peso::block::setscope($blk);
-  peso::block::setcurr($blk);
+  peso::blk::DST($blk);
+  peso::blk::setscope($blk);
+  peso::blk::setcurr($blk);
 
 });
 
@@ -226,7 +226,7 @@ DEFINE('clan',peso::decls::bafb,sub {
   my $inskey=shift;
   my $name=(shift)->[0];
 
-  my $dst=peso::block::NON;
+  my $dst=peso::blk::NON;
 
 # ---   *   ---   *   ---
 
@@ -234,8 +234,8 @@ DEFINE('clan',peso::decls::bafb,sub {
   my $blk;if($name ne 'non') {
 
     # first pass: create new block
-    if(peso::block::fpass()) {
-      $blk=peso::block::nit(undef,$name);
+    if(peso::blk::fpass()) {
+      $blk=peso::blk::nit(undef,$name);
 
     # second pass: find block
     } else {
@@ -247,8 +247,8 @@ DEFINE('clan',peso::decls::bafb,sub {
 
   # is global scope
   } else {$blk=$dst;};
-  peso::block::DST($blk);
-  peso::block::setcurr($blk);
+  peso::blk::DST($blk);
+  peso::blk::setcurr($blk);
 
 });
 
@@ -260,9 +260,9 @@ DEFINE('proc',peso::decls::bafb,sub {
   my $name=(shift)->[0];
 
   # get dst
-  my $dst=(peso::block::DST->attrs)
-    ? peso::block::DST->par
-    : peso::block::DST
+  my $dst=(peso::blk::DST->attrs)
+    ? peso::blk::DST->par
+    : peso::blk::DST
     ;
 
 # ---   *   ---   *   ---
@@ -270,9 +270,9 @@ DEFINE('proc',peso::decls::bafb,sub {
   my $blk;
 
   # append new block to dst on first pass
-  if(peso::block::fpass()) {
+  if(peso::blk::fpass()) {
     $blk=$dst->nit(
-      $name,peso::block->O_EX,
+      $name,peso::blk->O_EX,
 
     );
 
@@ -285,9 +285,9 @@ DEFINE('proc',peso::decls::bafb,sub {
 # ---   *   ---   *   ---
 # overwrite dst
 
-  peso::block::DST($blk);
-  peso::block::setcurr($blk);
-  peso::block::setscope($blk->scope);
+  peso::blk::DST($blk);
+  peso::blk::setcurr($blk);
+  peso::blk::setscope($blk->scope);
 
 });
 
@@ -298,7 +298,7 @@ DEFINE('entry',peso::decls::bafb,sub {
   my $inskey=shift;
   my $blk=(shift)->[0];
 
-  peso::block::entry($blk);
+  peso::blk::entry($blk);
 
 });
 
@@ -359,7 +359,7 @@ DEFINE('value_decl',peso::decls::bafe,sub {
   my $names=shift;
   my $values=shift;
 
-  my $dst=peso::block::DST;
+  my $dst=peso::blk::DST;
 
   my $skey=undef;
 
@@ -419,7 +419,7 @@ DEFINE('value_decl',peso::decls::bafe,sub {
     for my $value(@$values) {
 
       my $name=$names->[$i];
-      if(peso::block::fpass()) {
+      if(peso::blk::fpass()) {
         $name=(defined $name)
           ? $name
           : "$names->[-1]+".($j++)
@@ -452,7 +452,7 @@ DEFINE('value_decl',peso::decls::bafe,sub {
 # ---   *   ---   *   ---
 # grow block on first pass
 
-  if(peso::block::fpass()) {
+  if(peso::blk::fpass()) {
 
     # grow the block
     $dst->expand(\@line,$inskey);

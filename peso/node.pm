@@ -90,7 +90,7 @@ sub nit {
   # make node instance
   };my $node=bless {
 
-    -VAL=>$val,
+    -VALUE=>$val,
     -LEAVES=>[],
 
     -ROOT=>$tree_id,
@@ -122,7 +122,18 @@ sub nit {
 
 sub leaves {return (shift)->{-LEAVES};};
 sub par {return (shift)->{-PAR};};
-sub val {return (shift)->{-VAL};};
+
+sub value($;$) {
+
+  my $self=shift;
+  my $x=shift;
+
+  if(defined $x) {
+    $self->{-VALUE}=$x;
+
+  };return $self->{-VALUE};
+
+};
 
 # ---   *   ---   *   ---
 
@@ -130,7 +141,7 @@ sub mksep {
 
   return bless {
 
-    -VAL=>'$:cut;>',
+    -VALUE=>'$:cut;>',
     -LEAVES=>[],
 
     -ROOT=>0,
@@ -147,7 +158,7 @@ sub dup {
 
   my @leaves=();
 
-  my $copy=nit($root,$self->val);
+  my $copy=nit($root,$self->valueue);
 
   for my $leaf(@{$self->leaves}) {
     $leaf->dup($copy);
@@ -188,7 +199,7 @@ sub group {
 
     printf
 
-      "Node <".$self->val.
+      "Node <".$self->value.
       "> has no children\n";
 
     exit;
@@ -487,12 +498,12 @@ sub agroup {
 
   for my $leaf(@{$self->leaves}) {
 
-    if($leaf->val=~ m/,/) {
+    if($leaf->value=~ m/,/) {
 
-      my @values=split ',',$leaf->val;
+      my @values=split ',',$leaf->value;
 
-      if(0<index $leaf->val,',') {
-        $leaf->{-VAL}='$:group;>';
+      if(0<index $leaf->value,',') {
+        $leaf->value('$:group;>');
         push @shifts,[$leaf,\@values,$i+1]
 
       };
@@ -522,14 +533,14 @@ sub agroup {
 
     if(
 
-       $leaf->val ne '$:group;>'
-    && !exists peso::defs::SYMS->{$leaf->val}
+       $leaf->value ne '$:group;>'
+    && !exists peso::defs::SYMS->{$leaf->value}
 
     ) {
 
-      my $value=$leaf->val;
+      my $value=$leaf->value;
 
-      $leaf->{-VAL}='$:group;>';
+      $leaf->value('$:group;>');
       $leaf->nit($value);
 
     };
@@ -551,8 +562,8 @@ sub agroup {
     my $i=0;for my $grch(@{$leaf->leaves}) {
 
       if(!defined $grch) {last;};
-      $grch->{-VAL}=~ s/(${ode}|${cde})/ $1 /sg;
-      my @values=split ' ',$grch->val;
+      $grch->{-VALUE}=~ s/(${ode}|${cde})/ $1 /sg;
+      my @values=split ' ',$grch->value;
 
       if(!defined $values[0]) {shift @values;};
 
@@ -560,7 +571,7 @@ sub agroup {
 
       if(@values>1) {
 
-        $grch->{-VAL}='$:group;>';
+        $grch->value('$:group;>');
         for my $value(@values) {
           $grch->nit($value);
 
@@ -608,11 +619,11 @@ sub agroup {
 
 # ---   *   ---   *   ---
 
-    if($leaf->val=~ m/${ode}/) {
+    if($leaf->value=~ m/${ode}/) {
       push @anchors,$leaf;
       push @moved,[];
 
-    } elsif($leaf->val=~ m/${cde}/) {
+    } elsif($leaf->value=~ m/${cde}/) {
       my $anchor=pop @anchors;
       my $ref=pop @moved;
 
@@ -630,7 +641,7 @@ sub agroup {
   my $self=shift;
 
   my $i=0;while($i<@{$self->leaves}) {
-    peso::symbol::ndconsume($self,\$i);
+    peso::sbl::ndconsume($self,\$i);
 
   };
 
@@ -643,8 +654,8 @@ TOP:
 
   $self=shift @leaves;
 
-  if(peso::symbol::valid($self->val)) {
-    $self->val->ex($self);
+  if(peso::sbl::valid($self->value)) {
+    $self->value->ex($self);
 
   } else {
     push @leaves,@{$self->leaves};
@@ -781,16 +792,16 @@ TOP:{
   $self=$leaf;
   $self->idextrav();
 
-  if(!$self->val) {
+  if(!$self->value) {
     goto SKIP;
 
-  } elsif($self->val=~ m/${pesc}/) {
+  } elsif($self->value=~ m/${pesc}/) {
     goto SKIP;
 
   };
 
   # non delimiter operator match
-  my @ar=split m/(${ndel_op}+)/,$self->val;
+  my @ar=split m/(${ndel_op}+)/,$self->value;
 
   # we filter out
   my @ops=();
@@ -993,14 +1004,14 @@ sub collapse {
 TOP:{
 
   $self=$leaf;
-  if(!length $self->val) {goto SKIP;};
-  if($self->val=~ m/${pesc}/) {
+  if(!length $self->value) {goto SKIP;};
+  if($self->value=~ m/${pesc}/) {
     goto SKIP;
 
   };
 
   # is operation
-  if($self->val=~ m/(${ndel_ops}+)/) {
+  if($self->value=~ m/(${ndel_ops}+)/) {
 
     my $op=$1;
     my $proc=$h->{$op}->[2];
@@ -1018,11 +1029,11 @@ TOP:{
       my $pat=$ref->[0];
       my $proc=$ref->[1];
 
-      if($self->val=~ m/${pat}/) {
-        $self->{-VAL}=$proc->($self->val);
+      if($self->value=~ m/${pat}/) {
+        $self->value($proc->($self->value));
         last;
 
-      } elsif($self->val=~
+      } elsif($self->value=~
           m/${pesonames}*/
 
       ) {last;};
@@ -1048,14 +1059,14 @@ SKIP:{
       my @argval=();
       for my $v(@{$args}) {
 
-        if($v->val=~ m/${del_ops}/) {
+        if($v->value=~ m/${del_ops}/) {
 
-          if($v->val=~ m/\[/) {goto NEXT_OP;};
-          push @argval,$v->leaves->[0]->val;
+          if($v->value=~ m/\[/) {goto NEXT_OP;};
+          push @argval,$v->leaves->[0]->value;
 
         } elsif(
 
-          $v->val=~ m/${pesonames}*/
+          $v->value=~ m/${pesonames}*/
         && $proc!=$h->{'->'}->[2]
 
         ) {
@@ -1072,17 +1083,17 @@ SKIP:{
           if(
 
              $proc==$h->{'->'}->[2]
-          && $v->val=~ m/@/
+          && $v->value=~ m/@/
 
           ) {
 
 # wtf?! no need to reorder?????
 #            my $old=pop @argval;
-            push @argval,($v->val);
+            push @argval,($v->value);
 #            push @argval,$old;
 
           # common operand
-          } else {push @argval,($v->val);}
+          } else {push @argval,($v->value);}
 
         };
 
@@ -1091,9 +1102,9 @@ SKIP:{
 # ---   *   ---   *   ---
 
       for my $arg(@{$args}) {
-        if($arg->val eq '[') {goto NEXT_OP;};
+        if($arg->value eq '[') {goto NEXT_OP;};
         for my $sleaf(@{$arg->leaves}) {
-          if($sleaf->val eq '[') {goto NEXT_OP;};
+          if($sleaf->value eq '[') {goto NEXT_OP;};
 
         };
 
@@ -1106,7 +1117,7 @@ SKIP:{
       };
 
       my $result=$proc->(@argval);
-      $node->{-VAL}=$result;
+      $node->value($result);
       $node->pluck(@{$args});
 
       NEXT_OP:
@@ -1144,18 +1155,18 @@ sub findptrs {
     $leaf->findptrs();
 
     # skip $:escaped;>
-    if($leaf->val=~ m/${pesc}/) {
+    if($leaf->value=~ m/${pesc}/) {
       next;
 
     };
 
     # solve/fetch non-numeric values
-    if($leaf->val=~ m/^${pesonames}*$/
-    && !($leaf->val=~ m/${types}/)
+    if($leaf->value=~ m/^${pesonames}*$/
+    && !($leaf->value=~ m/${types}/)
 
     ) {
 
-      $leaf->{-VAL}=peso::ptr::fetch($leaf->val);
+      $leaf->value(peso::ptr::fetch($leaf->value));
 
     };
   };
@@ -1175,7 +1186,7 @@ sub prich {
 
   # print head
   if(!defined $depth) {
-    printf $self->val."\n";
+    printf $self->value."\n";
     $depth=0;
 
   };
@@ -1186,7 +1197,7 @@ sub prich {
     printf ''.(
       '.  'x($depth).'\-->'.
 #      '['.$node->{-INDEX}.']: '.
-      $node->val
+      $node->value
 
 
     )."\n";$node->prich($depth+1);

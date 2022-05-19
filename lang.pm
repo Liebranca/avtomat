@@ -292,27 +292,16 @@ sub eaf {
 };
 
 # ---   *   ---   *   ---
-# type-check utils
-
-sub is_code {
-
-  my $v=shift;
-  return int($v=~ m/^CODE\(0x[0-9a-f]+\)/);
-
-};sub valid_name {
-
-  my $s=shift;my $_LUN=_LUN();
-  if(defined $s && length $s) {
-    return $s=~ m/^${_LUN}*/;
-
-  };return 0;
-
-};
-
-# ---   *   ---   *   ---
 # general-purpose regexes
 
 my $DICT={-GPRE=>{
+
+  -COM=>'#',
+  -EXP_BOUND=>';',
+  -SCOPE_BOUND=>'\{\}',
+  -HED=>'.*',
+
+# ---   *   ---   *   ---
 
   -HIER =>[
 
@@ -488,10 +477,50 @@ my $DICT={-GPRE=>{
   my $lang=shift;
   my $key=shift;
 
+  if(!defined $lang) {
+    $lang=-GPRE;
+
+  };
+
   return $DICT->{$lang}->{$key};
 
 # hash access
 };sub DICT {return $DICT;};
+
+if(!exists $DICT->{-ACTIVE}) {
+  $DICT->{-ACTIVE}=-GPRE;
+
+};
+
+# ---   *   ---   *   ---
+# type-check utils
+
+sub is_code {
+
+  my $v=shift;
+  return int($v=~ m/^CODE\(0x[0-9a-f]+\)/);
+
+};sub valid_name {
+
+  my $s=shift;my $_LUN=_LUN();
+  if(defined $s && length $s) {
+    return $s=~ m/^${_LUN}*/;
+
+  };return 0;
+
+};sub exp_bound {
+  return PROP(shift,-EXP_BOUND);
+
+};sub comment {
+  return PROP(shift,-COM);
+
+};sub scope_bound {
+  return PROP(shift,-SCOPE_BOUND);
+
+};sub file_header {
+  return PROP(shift,-HED);
+
+};
 
 # ---   *   ---   *   ---
 # parse utils
@@ -499,6 +528,14 @@ my $DICT={-GPRE=>{
 sub dqstr {return DICT->{-GPRE}->{-DELM2}->[0]->[1];};
 sub sqstr {return DICT->{-GPRE}->{-DELM2}->[1]->[1];};
 sub restr {return DICT->{-GPRE}->{-DELM3}->[0]->[1];};
+
+;;sub cut_token_re {
+  return ':__[A-Z]+_CUT_[\dA-F]+__:';
+
+};sub cut_token_f {
+  return ':__%s_CUT_%X__:';
+
+};
 
 # ---   *   ---   *   ---
 # in:
@@ -540,8 +577,8 @@ sub cut($$$$) {
     for my $sub(split '#:cut;>',$s) {
 
       if($i<$matchno) {
-        $s2.=sprintf "$sub:__${id}_CUT_%04X__:",
-          $cnt+($i++);
+        $s2.=sprintf $sub.cut_token_f(),
+          $id,$cnt+($i++);
 
       } else {
         $s2.=$sub;
@@ -570,7 +607,8 @@ sub cut($$$$) {
 # ---   *   ---   *   ---
 # look for cut tokens
 
-  while($s=~ m/(:__[A-Z]+_CUT_([\dA-F]+)__:)/) {
+  my $re=cut_token_re();
+  while($s=~ m/(${re})/) {
 
     my $pat=$1;
     my $i=hex($2);

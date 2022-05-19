@@ -18,6 +18,7 @@ package pluts;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/avtomat/';
+  use avt;
 
 # ---   *   ---   *   ---
 # flags/shorthands/convenience
@@ -28,26 +29,31 @@ package pluts;
 
     ATTR_GET=>0x01,
     ATTR_SET=>0x02,
-    ATTR_EXE=>0x04,
+
+    ATTR_CCH=>0x04,
+
+    ATTR_EXE=>0x08,
 
 # ---   *   ---   *   ---
 
     ARGCHK=>q(
 
-my $value=shift;
-if( !($:condition;>($value)) ) {
+### VALUE CHECK
+  my $value=shift;
+  if( !($:condition;>($value)) ) {
 
-  print
+    print
 
-    "Value '$value' is invalid ".
-    "for attr '$:attr_name;>' ".
-    "of class <".$:cls_name;>.">\n";
+      "Value '$value' is invalid ".
+      "for attr '$:attr_name;>' ".
+      "of class <".$:cls_name;>.">\n";
 
-  exit;
+    exit;
 
-};return 1;
+  };return 1;
+### VALUE CHECK
 
-    ),
+),
 
   };
 
@@ -79,7 +85,38 @@ my %GENERATORS
   $:argchk;>($value);
   $self->{$:key;>}=$value;
 
-),-EXE=>q( return (shift)->{%s}->() ),
+),-EXE=>q(
+
+  return (shift)->{$:key;>}->()
+
+# ---   *   ---   *   ---
+
+),-CACHE_GETSET=>q(
+
+  my $value=shift;
+
+  if(defined $value) {
+    $:argchk;>($value);
+    $:argchk;>->{$:key;>}=$value;
+
+  };return $$:cache;>->{$:key;>};
+
+),-CACHE_GET=>q(
+
+  return $$:cache;>->{$:key;>};
+
+),-CACHE_SET=>q(
+
+  my $value=shift;
+
+  $:argchk;>($value);
+  $$:cache;>->{$:key;>}=$value;
+
+),-CACHE_EXE=>q(
+
+  return $$:cache;>->{$:key;>}->();
+
+),
 
 );
 
@@ -88,17 +125,49 @@ my %GENERATORS
 # ensures values are set at nits
 # rejects invalid overwrites
 
-sub DEFAULTS {
+sub MODULE($$) {
 
-  my $h=shift;
+  my $deps=shift;
+  my $attrs=shift;
+
   my $cls_name=caller;
-  $cls_name="\"$cls_name\"";
+  my $cache_name=(uc $cls_name).'_CACHE';
 
   my @methods=('','');
 
 # ---   *   ---   *   ---
-# we accumulate to this code-string
 
+  $methods[1]=q/
+
+my $$:cache;>={};sub CACHE {
+  return $$:cache;>;
+
+};
+/;$methods[1]=~ s/\$:cache;>/$cache_name/sg;
+
+# ---   *   ---   *   ---
+# make the deps block
+
+  my $hed=avt::note(caller->AUTHOR,'#');
+
+  $hed.="\n# deps\npackage $cls_name;";
+  $hed.=q(
+  use strict;
+  use warnings;
+
+);for my $path(keys %$deps) {
+
+    $hed.="  use lib $path;\n";
+    for my $lib(@{$deps->{$path}}) {
+      $hed.="  use $lib;\n";
+
+    };
+  };
+
+# ---   *   ---   *   ---
+# we accumulate attrs to this code-string
+
+  $cls_name="\"$cls_name\"";
   $methods[0]=q/
 
 sub new {
@@ -110,8 +179,8 @@ sub new {
 # ---   *   ---   *   ---
 # iter through attrs
 
-  for my $key(keys %$h) {
-    my ($value,$condition,$flags)=@{$h->{$key}};
+  for my $key(keys %$attrs) {
+    my ($value,$condition,$flags)=@{$attrs->{$key}};
 
 # ---   *   ---   *   ---
 # errchk the coderef
@@ -163,26 +232,43 @@ sub new {
 # ---   *   ---   *   ---
 # switch($flags)
 
+    my $is_cache_op=$flags & ATTR_CCH;
     if($flags) {
 
-      my $method="sub $attr_name {";
+      my $method="sub $attr_name(\$:proto;>) {";
+      my $proto='';
+
+      my @gens=(-GETSET,-GET,-SET,-EXE);
+
+      if($is_cache_op) {
+      for my $gen(@gens) {
+        $gen=~ s/-/-CACHE_/;
+
+      };} else {
+        $proto='$';
+
+      };
+
+      $flags&=~ ATTR_CCH;
 
       # read-write
       if(!($flags ^ (ATTR_GET|ATTR_SET)) ) {
-        $method.=$GENERATORS{-GETSET};
+        $proto.=';$';
+        $method.=$GENERATORS{$gens[0]};
 
       # read only
       } elsif($flags & ATTR_GET) {
-        $method.=$GENERATORS{-GET};
+        $method.=$GENERATORS{$gens[1]};
 
       # write only
       } elsif($flags & ATTR_SET) {
-        $method.=$GENERATORS{-SET};
+        $proto.='$';
+        $method.=$GENERATORS{$gens[2]};
 
 
       # method rets a sub call
       } elsif($flags & ATTR_EXE) {
-        $method.=$GENERATORS{-EXE};
+        $method.=$GENERATORS{$gens[3]};
 
       };
 
@@ -193,6 +279,9 @@ sub new {
       $method=~ s/\$:condition;>/${condition}/sg;
       $method=~ s/\$:key;>/${key}/sg;
 
+      $method=~ s/\$:proto;>/${proto}/sg;
+      $method=~ s/\$:cache;>/${cache_name}/sg;
+
       $method.="};\n";
       push @methods,$method;
 
@@ -200,7 +289,7 @@ sub new {
 # accumulate attrs to the nit
 # then replace the tags
 
-    };$methods[0].=q/
+    };if(!$is_cache_op) {$methods[0].=q/
 
     $:key;>=>(
 
@@ -215,17 +304,31 @@ sub new {
   $methods[0]=~ s/\$:value;>/${value}/sg;
   $methods[0]=~ s/\$:argchk;>/${vchk_name}/sg;
 
-  };$methods[0].=q/
+  } else {$methods[1].=q/
+
+if(!exists CACHE->{$:key;>}) {
+  CACHE->{$:key;>}=$:value;>;
+
+};
+
+/;$methods[1]=~ s/\$:key;>/${key}/sg;
+  $methods[1]=~ s/\$:value;>/${value}/sg;
+
+# ---   *   ---   *   ---
+
+  }};$methods[0].=q/
   );return bless \%h,$:cls_name;>;
 
 };
 /;
 
-# ---   *   ---   *   ---
-# put it all together
-
+  # put it all together
   $methods[0]=~ s/\$:cls_name;>/${cls_name}/sg;
-  return ''.(join "\n",@methods);
+  my $body=''.(join "\n",@methods);
+
+# ---   *   ---   *   ---
+
+  return $hed."\n".$body."\n1;\n";
 
 };
 

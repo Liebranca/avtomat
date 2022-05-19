@@ -13,10 +13,9 @@
 
 # ---   *   ---   *   ---
 
-my $ar=[0,2,4];
-iter $a,\@ar {
-  printf "$a\n";
+proc test char $x str $s {
+  printf ''.(substr $s,0,$x)."\n";
 
-};
+};test 4,244;
 
 # ---   *   ---   *   ---

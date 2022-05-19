@@ -5,46 +5,64 @@
 #
 # ---   *   ---   *   ---
 # deps
-
+package test;
   use strict;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/avtomat/';
-  use pluts;
   use lang;
+
+  use pluts;
 
 # ---   *   ---   *   ---
 
-package test;
+  use constant {
 
-my @stack=(0..0x100);
-sub default_name {
-
-  return sprintf "non_#%04i",pop @stack;
-
-};
-
-my $CLASS;{
-
-  my $ATTRS={
-    -NAME=>[
-      'default_name()',
-      'lang::valid_name',
-
-      pluts->ATTR_SET|pluts->ATTR_GET
-
-    ],
+    AUTHOR=>'IBN-3DILA',
 
   };
 
-  $CLASS=pluts::DEFAULTS($ATTRS);
-#  print $CLASS;
+# ---   *   ---   *   ---
 
-  eval($CLASS);
+my $DEPS={
 
-  my $ob=new();
-  printf $ob->name."\n";
+  q($ENV{'ARPATH'}.'/avtomat/')=>[
+    'lang',
 
+  ],
 };
+
+my $ATTRS={
+  -NAME=>[
+    'default_name()',
+    'lang::valid_name',
+
+    pluts->ATTR_SET|pluts->ATTR_GET
+
+  ],
+
+  -SYMS=>[
+    q({-KEY=>0}),
+    0,
+
+    pluts->ATTR_GET|pluts->ATTR_CCH
+
+  ],
+};
+
+# ---   *   ---   *   ---
+
+my $CLASS=pluts::MODULE(
+
+  $DEPS,
+  $ATTRS
+
+);
+
+open FH,'>',
+  $ENV{'ARPATH'}.'/avtomat/test.pm' or die $!;
+
+print FH $CLASS;
+close FH;
 
 # ---   *   ---   *   ---

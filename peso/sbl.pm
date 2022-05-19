@@ -11,7 +11,7 @@
 # ---   *   ---   *   ---
 
 # deps
-package peso::symbol;
+package peso::sbl;
   use strict;
   use warnings;
 
@@ -20,7 +20,7 @@ package peso::symbol;
   use peso::decls;
   use peso::defs;
   use peso::ptr;
-  use peso::block;
+  use peso::blk;
 
   use Scalar::Util qw/blessed/;
 
@@ -52,7 +52,7 @@ sub valid {
 
   my $sym=shift;
 
-  if(blessed($sym) && $sym->isa('peso::symbol')) {
+  if(blessed($sym) && $sym->isa('peso::sbl')) {
     return 1;
 
   };return 0;
@@ -171,7 +171,7 @@ sub nit {
 
     -NUM_FIELDS=>$num_fields,
 
-  },'peso::symbol';
+  },'peso::sbl';
 
   return $sym;
 
@@ -194,7 +194,7 @@ sub nit {
 
     -NUM_FIELDS=>$src->num_fields,
 
-  },'peso::symbol';
+  },'peso::sbl';
 
   return $sym;
 
@@ -212,7 +212,7 @@ sub ndconsume {
   my $keywords=peso::defs::SYMS();
   my $leaf=$node->leaves->[$$i++];
 
-  my $key=$leaf->val;
+  my $key=$leaf->value;
 
   # check that we're not in void context
   if(!$leaf || !exists $keywords->{$key}) {
@@ -224,9 +224,9 @@ sub ndconsume {
 # consume nodes according to context
 
   my $anchor=$leaf;
-  $anchor->{-VAL}=$keywords->{$key};
+  $anchor->value($keywords->{$key});
 
-  my $ref=$anchor->val->args;
+  my $ref=$anchor->value->args;
   my @args=@{$ref};
 
   for my $arg(@args) {
@@ -237,7 +237,7 @@ sub ndconsume {
     my $j=0;while($argc>0) {
 
       $leaf=$field->leaves->[$j++];
-      my $value=($leaf) ? $leaf->val : 0;
+      my $value=($leaf) ? $leaf->value : 0;
 
       $argc--;
 
@@ -246,7 +246,7 @@ sub ndconsume {
 
       if(!$leaf && !$arg->{-OPT}) {
         printf "Insufficient args for ".
-          "symbol '%s'\n",$anchor->val->name;
+          "symbol '%s'\n",$anchor->value->name;
 
         exit;
 
@@ -279,14 +279,14 @@ sub arg_typechk {
 
   if(
 
-      !($node->val=~ m/@/)
-  &&  $node->val=~ m/${ops}/
+      !($node->value=~ m/@/)
+  &&  $node->value=~ m/${ops}/
 
   ) {
 
-    peso::block::treesolve($node);
+    peso::blk::treesolve($node);
 
-    $node=$node->val;
+    $node=$node->value;
 
     if(peso::ptr::valid_addr($node)) {
       $node=peso::ptr::fetch($node);
@@ -296,7 +296,7 @@ sub arg_typechk {
 # ---   *   ---   *   ---
 
   } else {
-    $node=$node->val;
+    $node=$node->value;
 
   };
 
@@ -326,7 +326,7 @@ sub arg_typechk {
 # ---   *   ---   *   ---
 # errme
 
-  if(peso::block::fpass) {return 0;};
+  if(peso::blk::fpass) {return 0;};
 
   printf sprintf
 
@@ -417,7 +417,7 @@ sub ex {
       };if(!$self->arg_typechk($leaf,$type)) {
         return 0;
 
-      };push @field_args,$leaf->val;$i++;
+      };push @field_args,$leaf->value;$i++;
       return 1;
 
     };

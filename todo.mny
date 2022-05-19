@@ -1,5 +1,13 @@
 avtomat v4;
 
+~ Convert peso classes to prototypes;
+~ node;
+~ blk;
+~ ptr;
+~ sbl;
+~ defs;
+~ decls;
+~ rd;
 ~ Extend lang && langdefs for basic Perl parse;
 ~ Hook langdefs::perl to a source filter;
 ~ Use the filter to change how Perl works;
