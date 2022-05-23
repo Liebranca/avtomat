@@ -14,14 +14,9 @@ package langdefs::python;
 
 # ---   *   ---   *   ---
 
-sub SYGEN_KEY {return -PYTHON;};
-sub RC_KEY {return 'python';};
+lang::def::nit(
 
-# ---   *   ---   *   ---
-
-my %PYTHON=(
-
-  -NAME =>'Python',
+  -NAME =>'python',
   -EXT  =>'\.py$',
   -HED  =>'^#!.*python',
 
@@ -33,21 +28,21 @@ my %PYTHON=(
 
   -VARS =>[
 
-    [0x04,lang::eiths(
+    lang::eiths(
 
       'str,int,float,list,dict,'.
       ''
 
-    ,1)],
+    ,1),
 
-    [0x04,lang::eiths(
+    lang::eiths(
 
       'False,None,True'
 
 
-    ,1)],
+    ,1),
 
-    [0x04,'__'.lang::_LUN.'*__'],
+    '__$:names;>__',
 
   ],
 
@@ -62,7 +57,7 @@ my %PYTHON=(
 
   -KEYS =>[
 
-    [0x0D,lang::eiths(
+    lang::eiths(
 
       'def,'.
 
@@ -78,18 +73,10 @@ my %PYTHON=(
       'pass,raise,return,'.
       'try,while,with,yield'
 
-    ,1)],
+    ,1),
 
   ],
-
-# ---   *   ---   *   ---
-
-
-);$PYTHON{-LCOM}=[
-  [0x02,lang::eaf($PYTHON{-COM},0,1)],
-  [0x02,lang::delim2('/*','*/',1)],
-
-];lang::DICT->{SYGEN_KEY()}=\%PYTHON;
+);
 
 # ---   *   ---   *   ---
 1; # ret

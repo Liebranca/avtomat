@@ -144,22 +144,73 @@ my @colors=(
 
 };my $FH=undef;
 
+my %KEYCOLOR=(
+
+  -HIER0=>0x04,
+  -HIER1=>0x0D,
+
+  -DELM0=>0x09,
+  -DELM1=>0x0E,
+  -DELM2=>0x0E,
+
+  -PFUN=>0x01,
+  -NUMS=>0x03,
+
+  -DEV0=>0x0B,
+  -DEV1=>0x09,
+  -DEV2=>0x66,
+  -DEV3=>0x0E,
+
+  -COMMON=>0x07,
+  -NAMES_U=>0x0D,
+  -TYPES=>0x04,
+  -VARS=>0x04,
+  -BILTN=>0x01,
+
+  -KEYS=>0x0D,
+
+  -LCOM=>0x02,
+  -OPS=>0x0F,
+
+);
+
 sub prprops {
 
-  my $l=shift;
+  my $def=shift;
   my $key=shift;
 
-  my @ar=@{ lang::PROP($l,$key) };
-  for(my $i=0;$i<@ar;$i++) {
-
-    my ($color,$pat)=@{ $ar[$i] };
-
+  my $color=$KEYCOLOR{$key};{
     my ($fg,$bg)=($color&0xF,$color>>4);
-
     $color=$colors[$fg].','.$colors[$bg];
 
-    $pat=avt::dqwrap($pat);
+  };
 
+  my $v=$def->{$key};
+
+  # nano syntax re was written by a degenerate
+  # [\[\]] does not match square brackets
+
+  if($key eq -OPS) {
+    $v='[^\s_A-Za-z0-9]';
+
+  };
+
+  my @ar=($v);
+
+  if($v=~ m/^ARRAY\(0x/) {
+    @ar=@{$v};
+
+  } elsif($v=~ m/^HASH\(0x/) {
+    @ar=(lang::eiths(
+      join(',',keys %{$v}),
+
+    1));
+
+  };
+
+  for my $pat(@ar) {
+
+    $pat=avt::dqwrap($pat);
     print $FH "color $color $pat\n";
 
   };
@@ -171,46 +222,38 @@ sub prprops {
 sub glang {
 
   while(@_) {
-    my $src=shift;
+
+    my $def=shift;
     my $dst=shift;
 
     open $FH,'>',$dst or die $!;
 
-    my $prop=''.(
+    my $prop='syntax '.(
 
-      ( lang::PROP($src,-NAME) ).' "'.
-      ( lang::PROP($src,-EXT ) ).'"'
+      $def->{-NAME}.' "'.
+      $def->ext.'"'
 
-    ).'';print $FH "syntax $prop\n";
+    )."\n";
 
-    $prop=avt::dqwrap(lang::PROP($src,-HED));
-    print $FH "header $prop\n";
+    $prop.='header '.avt::dqwrap($def->hed)."\n";
+    $prop.='magic '.avt::dqwrap($def->mag)."\n";
 
-    $prop=avt::dqwrap(lang::PROP($src,-MAG));
-    print $FH "magic $prop\n";
-
-    $prop=avt::dqwrap(lang::PROP($src,-COM));
-    print $FH "comment $prop\n\n";
+    $prop.='comment '.avt::dqwrap($def->com)."\n";
+    print $FH "$prop\n";
 
 # ---   *   ---   *   ---
 
     for my $key(
-      -HIER,-PFUN,-DELM0,-GBL,-DELM1
 
-    ) {prprops(-GPRE,$key);};
+      -COMMON,-HIER0,-HIER1,
 
-    for my $key(
-      -BILTN,-KEYS,-VARS
+      -NAMES_U,-PFUN,-DELM0,-DELM1,
+      -BILTN,-KEYS,-TYPES,-VARS,
 
-    ) {prprops($src,$key);};
+      -NUMS,-OPS,-DELM2,
+      -LCOM,-DEV0,-DEV1,-DEV2,-DEV3
 
-    for my $key(
-      -NUMS,-DELM1,-OPS,-DELM2,
-
-    ) {prprops(-GPRE,$key);};
-
-    prprops($src,-LCOM);
-    prprops(-GPRE,-DEV);
+    ) {prprops($def,$key);};
 
     close $FH;
 
@@ -224,14 +267,15 @@ EOF
 
 # ---   *   ---   *   ---
 
-$script.="\n  glang(\n";
+$script.="\nglang(\n";
 
 for my $lang(@files) {
 
   $script.=
-    "    langdefs::$lang\::SYGEN_KEY,\n".
-    "    glob(".'"'."~/.config/nano/".'".'.
-    "langdefs::$lang\::RC_KEY".'.".nanorc"),'."\n";
+    "  lang->$lang,\n".
+    "  glob(".'"'."~/.config/nano/".'".'."\n".
+    "  lang->"."$lang->"."{-NAME}".
+    '.".nanorc"),'."\n\n";
 
 };$script.="\n);\n";
 
@@ -241,7 +285,7 @@ for my $lang(@files) {
   open FH,'>',$ex or die $!;
 
 
-  printf FH $script;
+  print FH $script;
   close FH;
 
   `chmod +x $ex`;`$ex`;

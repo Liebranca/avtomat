@@ -209,6 +209,8 @@ sub ndconsume {
   my $node=shift;
   my $i=shift;
 
+$node->prich();
+
   my $keywords=peso::defs::SYMS();
   my $leaf=$node->leaves->[$$i++];
 

@@ -19,9 +19,13 @@ package peso::node;
   use lib $ENV{'ARPATH'}.'/include/';
   use lib $ENV{'ARPATH'}.'/lib/';
 
+  use lang;
+
   use peso::decls;
   use peso::defs;
   use peso::ptr;
+
+  use Scalar::Util qw/blessed/;
 
 # ---   *   ---   *   ---
 
@@ -43,17 +47,35 @@ my %CACHE=(
 # load notation-to-decimal procs
 sub loadnumcon {$CACHE{-NUMCON}=shift;};
 
+sub valid {
+
+  my $node=shift;if(
+
+     blessed($node)
+  && $node->isa('peso::node')
+
+  ) {
+
+    return 1;
+  };return 0;
+
+};
+
 # ---   *   ---   *   ---
 
 # in: self,val
 # make child node or create a new tree
-sub nit {
+sub nit($$;$) {
 
   # pass undef for new tree
   my $self=shift;
 
   # value for new node
   my $val=shift;
+
+  # (optional) key into langdefs dict
+  my $langkey=shift;
+  if(!defined $langkey) {$langkey=-PESO;};
 
   # tree/root handle
   my %tree=(
@@ -87,6 +109,8 @@ sub nit {
     $tree_id=$self->{-ROOT};
     %tree=%{ $CACHE{-TREES}->[$tree_id] };
 
+    $langkey=$tree{-ROOT}->{-LANGKEY};
+
   # make node instance
   };my $node=bless {
 
@@ -96,6 +120,8 @@ sub nit {
     -ROOT=>$tree_id,
     -PAR=>undef,
     -INDEX=>0,
+
+    -LANGKEY=>$langkey,
 
   },'peso::node';
 
@@ -117,8 +143,19 @@ sub nit {
 };
 
 # ---   *   ---   *   ---
-
 # getters
+
+sub langkey {
+  my $self=shift;
+
+  my $tree_id=$self->{-ROOT};
+  my %tree=%{ $CACHE{-TREES}->[$tree_id] };
+
+  return $tree{-ROOT}->{-LANGKEY};
+
+};
+
+# ---   *   ---   *   ---
 
 sub leaves {return (shift)->{-LEAVES};};
 sub par {return (shift)->{-PAR};};
@@ -150,6 +187,9 @@ sub mksep {
   },'node';
 
 };
+
+# ---   *   ---   *   ---
+# makes copy of instance
 
 sub dup {
 
@@ -436,7 +476,7 @@ sub cllv {
     };
 
   # overwrite with filtered array
-  };$self->{-LEAVES}=[@cpy];
+  };$self->pushlv(1,@cpy);
 
 };
 
@@ -459,18 +499,23 @@ sub tokenize {
   my @anch=($self);
 
   # patterns
-  my $ops=peso::decls::ops;
-  my $del_op=peso::decls::del_ops;
-  my $ndel_op=peso::decls::ndel_ops;
+  my $ops=lang::all_ops($self->langkey);
+  my $del_op=lang::del_ops($self->langkey);
+  my $ndel_op=lang::ndel_ops($self->langkey);
 
-  my $ode=peso::decls::ode;
-  my $cde=peso::decls::cde;
-  my $pesc=peso::decls::pesc;
+  my $ode=lang::ode($self->langkey);
+  my $cde=lang::cde($self->langkey);
+  my $pesc=lang::pesc($self->langkey);
 
 # ---   *   ---   *   ---
 # spaces are meaningless
 
   my @elems=();
+
+  $exp=~ s/(${del_op})/ $1 /sg;
+  $exp=~ s/(${ndel_op}+)/ $1 /sg;
+  #$exp=~ s/(,)/ $1 /sg;
+
   my @ar=split m/([^\s]*)\s+/,$exp;
 
   while(@ar) {
@@ -493,59 +538,267 @@ sub agroup {
   my @shifts=();
   my $i=0;
 
+## ---   *   ---   *   ---
+## break at commas
+#
+#  for my $leaf(@{$self->leaves}) {
+#
+#    if($leaf->value=~ m/,/) {
+#
+#      my @values=split ',',$leaf->value;
+#
+#      if(0<index $leaf->value,',') {
+#        $leaf->value('$:group;>');
+#        push @shifts,[$leaf,\@values,$i+1]
+#
+#      };
+#
+#    };$i++;
+#
+## ---   *   ---   *   ---
+## populate fields
+#
+#  };for my $ref(@shifts) {
+#
+#    my $anchor=$ref->[0];
+#    my @values=@{$ref->[1]};
+#    my $pos=$ref->[2];
+#    my $sz=@values;
+#
+#    for $i(0..$sz-1) {
+#      $anchor->nit(shift @values);
+#
+#    };
+#
+#  };
+#
+## ---   *   ---   *   ---
+#
+#  for my $leaf(@{$self->leaves}) {
+#
+#    if(
+#
+#       $leaf->value ne '$:group;>'
+#    && !exists peso::defs::SYMS->{$leaf->value}
+#
+#    ) {
+#
+#      my $value=$leaf->value;
+#
+#      $leaf->value('$:group;>');
+#      $leaf->nit($value);
+#
+#    };
+#
+#  };
+
 # ---   *   ---   *   ---
-# break at commas
 
-  for my $leaf(@{$self->leaves}) {
+  my $h={
 
-    if($leaf->value=~ m/,/) {
+    'int'=>1,
+    'char*'=>1,
 
-      my @values=split ',',$leaf->value;
+  };
 
-      if(0<index $leaf->value,',') {
-        $leaf->value('$:group;>');
-        push @shifts,[$leaf,\@values,$i+1]
+  my $keyword='char';
 
-      };
+  my @anchors=();
+  my @trash=();
 
-    };$i++;
+  my @leaves=@{$self->leaves};
+  TOP:my $leaf=shift @leaves;
 
-# ---   *   ---   *   ---
-# populate fields
+  # INSERT LANG RULES HERE
 
-  };for my $ref(@shifts) {
+  if($leaf->value=~ m/^${keyword}/) {
+    $leaf->{-VALUE}=~ s/\s*\*/ ptr/sg;
 
-    my $anchor=$ref->[0];
-    my @values=@{$ref->[1]};
-    my $pos=$ref->[2];
-    my $sz=@values;
+  } elsif($leaf->value=~ m/${keyword}/) {
+    $leaf->{-VALUE}=~ s/\*\s*/ptr /sg;
 
-    for $i(0..$sz-1) {
-      $anchor->nit(shift @values);
+  };
+
+  if($leaf->value eq ',') {
+    push @trash,$leaf;
+    pop @anchors;
+
+  };
+
+  if($anchors[-1]) {
+
+    my $anchor=$anchors[-1]->[0];
+    my $argc=\$anchors[-1]->[1];
+
+    $anchor->nit($leaf->value);
+    push @trash,$leaf;
+
+    $$argc--;
+
+    if(!$$argc) {
+      pop @anchors;
 
     };
 
   };
 
+  if(exists $h->{$leaf->value}) {
+    push @anchors,[$leaf,$h->{$leaf->value}];
+
+  };
+
+  unshift @leaves,@{$leaf->leaves};
+
+  if(@leaves) {goto TOP;};
+  END:$self->pluck(@trash);
+
+  $self->delimchk();
+
 # ---   *   ---   *   ---
+# expands the tree to solve expressions
 
-  for my $leaf(@{$self->leaves}) {
+};sub subdiv2 {
 
-    if(
+  my $self=shift;
 
-       $leaf->value ne '$:group;>'
-    && !exists peso::defs::SYMS->{$leaf->value}
+  my $ndel_op=lang::ndel_ops($self->langkey);
+  my $del_op=lang::del_ops($self->langkey);
 
-    ) {
+  my %matched=();
 
-      my $value=$leaf->value;
+  my $root=$self;
+  my @leaves=();
 
-      $leaf->value('$:group;>');
-      $leaf->nit($value);
+  # test hash
+  my %h=(
+
+    '++'=>[
+
+      [0,sub {my $x=shift;return ++$$x;}],
+      [0,sub {my $x=shift;return $$x++;}],
+
+      undef,
+
+    ],
+
+    '*'=>[
+
+      undef,
+      [1,sub {return 0;}],
+
+      [0,sub {my ($x,$y)=@_;return $$x*$$y;}],
+
+    ],
+
+  );
+
+# ---   *   ---   *   ---
+# iter tree until operator found
+# then restart the loop (!!!)
+
+  TOP:
+
+  $root->cllv();
+  $root->idextrav();
+
+  my $high_prio=9999;
+  my $high_i=0;
+
+  my @pending=();
+
+  my @ar=@{$root->leaves};
+  for my $leaf(@ar) {
+
+    if($matched{"$leaf"}) {next;};
+
+    my $i=$leaf->{-INDEX};
+
+    my $prev=($i>0) ? $ar[$i-1] : undef;
+    my $next=($i<$#ar) ? $ar[$i+1] : undef;
+
+    if(@{$leaf->leaves}) {
+      push @leaves,$leaf;
 
     };
 
-  };$self->delimchk();
+# ---   *   ---   *   ---
+# check found operands
+
+    my @move=();
+    my ($j,$k)=(0,1);
+
+    # node is operator
+    if($leaf->value=~ m/${ndel_op}/) {
+
+      # look at previous and next node
+      for my $n($prev,$next) {
+        if(!defined $n) {next;};
+
+        # n is an operator with leaves
+        # or n is not an operator
+        my $valid=(
+
+            $n->value=~ m/${ndel_op}/
+         && @{$n->leaves}
+
+        );$valid|=!($n->value=~
+          m/${del_op}|${ndel_op}/
+
+        );
+
+# ---   *   ---   *   ---
+
+        if($valid) {
+          $j|=$k;
+          push @move,$n
+
+        };$k++;
+
+      };
+
+# ---   *   ---   *   ---
+
+    };if(@move) {
+
+      my $prio=$h{$leaf->value}->[$j]->[0];
+
+      if(!defined $prio) {
+        next;
+
+      };
+
+      push @pending,[$leaf,$j,\@move];
+
+      if($prio<$high_prio) {
+        $high_prio=$prio;
+
+        $high_i=$#pending;
+
+      };
+
+    };
+  };
+
+# ---   *   ---   *   ---
+# reorder nodes and restart
+
+  if(@pending) {
+
+    my $ref=$pending[$high_i];
+
+    my $leaf=$ref->[0];
+    my @move=@{$ref->[2]};
+
+    $matched{"$leaf"}=1;
+    $leaf->pushlv(0,$root->pluck(@move));
+    goto TOP;
+
+  };if(@leaves) {
+
+    $root=shift @leaves;
+    goto TOP;
+
+  };
 
 # ---   *   ---   *   ---
 # check for ([]) delimiters
@@ -554,46 +807,31 @@ sub agroup {
 
   my $self=shift;
 
-  my $ode=peso::decls::ode;
-  my $cde=peso::decls::cde;
+  my $ode=lang::ode($self->langkey);
+  my $cde=lang::cde($self->langkey);
 
-  for my $leaf(@{$self->leaves}) {
+  my $i=0;for my $leaf(@{$self->leaves}) {
 
-    my $i=0;for my $grch(@{$leaf->leaves}) {
-
-      if(!defined $grch) {last;};
-      $grch->{-VALUE}=~ s/(${ode}|${cde})/ $1 /sg;
-      my @values=split ' ',$grch->value;
-
-      if(!defined $values[0]) {shift @values;};
+    if(!defined $leaf) {last;};
 
 # ---   *   ---   *   ---
 
-      if(@values>1) {
+    if($leaf->value=~ m/${ode}/) {
 
-        $grch->value('$:group;>');
-        for my $value(@values) {
-          $grch->nit($value);
+      $leaf->delimbrk($i);
+      #$leaf->subdiv();
 
-        };$grch->delimbrk();
+      my $top=$leaf->leaves->[0];
 
-# ---   *   ---   *   ---
-
-        $grch->subdiv();
-
-        my $top=$grch->leaves->[0];
-
-        $grch->pluck($grch->leaves->[0]);
-        $leaf->leaves->[$i]=$top;
+      #$leaf->pluck($leaf->leaves->[0]);
+      #$leaf->leaves->[$i]=$top;
 
 # ---   *   ---   *   ---
 
-      } else {
-        $grch->subdiv();
+    } else {
+      #$leaf->subdiv();
 
-      };$i++;
-
-    };
+    };$i++;
   };
 
 # ---   *   ---   *   ---
@@ -603,14 +841,18 @@ sub agroup {
 };sub delimbrk {
 
   my $self=shift;
+  my $i=shift;
 
   my @anchors=();
   my @moved=();
 
-  my $ode=peso::decls::ode;
-  my $cde=peso::decls::cde;
+  my $ode=lang::ode($self->langkey);
+  my $cde=lang::cde($self->langkey);
 
-  for my $leaf(@{$self->leaves}) {
+  my @ar=@{$self->par->leaves};
+  @ar=@ar[$i..$#ar];
+
+  for my $leaf(@ar) {
 
     if($anchors[-1]) {
       push @{$moved[-1]},$leaf;
@@ -623,7 +865,13 @@ sub agroup {
       push @anchors,$leaf;
       push @moved,[];
 
-    } elsif($leaf->value=~ m/${cde}/) {
+    } elsif(
+
+         $leaf->value=~ m/${cde}/
+      && @anchors
+
+      ) {
+
       my $anchor=pop @anchors;
       my $ref=pop @moved;
 
@@ -772,6 +1020,7 @@ sub idextrav {
 sub subdiv {
 
   my $self=shift;
+
   my $leaf=$self;
   my $root=$self;
 
@@ -779,11 +1028,12 @@ sub subdiv {
   my @rootstack=();
 
   my @nodes=();
-  my $ndel_op=peso::decls::ndel_ops;
-  my $pesc=peso::decls::pesc;
+  my $ndel_op=lang::ndel_ops($self->langkey);
+  my $del_op=lang::del_ops($self->langkey);
+  my $pesc=lang::pesc($self->langkey);
 
   # operator data
-  my $h=peso::decls::op_prec;
+  my $h=lang::op_prec($self->langkey);
 
 # ---   *   ---   *   ---
 
@@ -792,13 +1042,12 @@ TOP:{
   $self=$leaf;
   $self->idextrav();
 
-  if(!$self->value) {
-    goto SKIP;
+  if(
 
-  } elsif($self->value=~ m/${pesc}/) {
-    goto SKIP;
+  !  $self->value
+  || $self->value=~ m/${pesc}/
 
-  };
+  ) {goto SKIP;};
 
   # non delimiter operator match
   my @ar=split m/(${ndel_op}+)/,$self->value;
@@ -839,6 +1088,7 @@ REPEAT:{
   my $hidex=0;
 
   my $i=0;
+  my $operation=undef;
 
   for my $op(@q) {
 
@@ -849,13 +1099,31 @@ REPEAT:{
 
     };
 
+    if($h->{$op}->[0]=~ m/^[\d]+$/) {
+      $operation=$h->{$op};
+
+    } else {
+
+      my $proc=$h->{$op}->[0];
+      $operation=
+        $h->{$op}->[1]
+        ->[$proc->($root,$leaf)];
+
+    };my $j=$operation->[0];
+
     # get op priority
-    my $j=$h->{$op}->[0];
+    if(!defined $j) {
+      goto SKIP;
+
+    };
 
     # compare to previous
     if($j < $highest) {
       $highest=$j;
       $hname=$op;
+
+      $operation=
+
       $hidex=$i;
 
     };$i++;
@@ -891,7 +1159,7 @@ REPEAT:{
   my @operands=();
 
   # use single operand
-  if($h->{$hname}->[1]<2) {
+  if($operation->[1]<2) {
 
     my $op_n=0;
 
@@ -924,7 +1192,7 @@ REPEAT:{
   for my $op_elem(@operands) {
 
     # element is a node
-    if((index $op_elem,'peso::node=HASH')>=0) {
+    if(valid($op_elem)) {
 
       # operand is at root level
       if($op_elem->par eq $node->par) {
@@ -989,14 +1257,13 @@ sub collapse {
 
   my $leaf=$self;
 
-  my $ndel_ops=peso::decls::ndel_ops;
-  my $del_ops=peso::decls::del_ops;
-  my $pesc=peso::decls::pesc;
-  my $pesonames=peso::decls::names;
+  my $ndel_ops=lang::ndel_ops($self->langkey);
+  my $del_ops=lang::del_ops($self->langkey);
+  my $pesc=lang::pesc($self->langkey);
 
   my @leafstack;
 
-  my $h=peso::decls::op_prec;
+  my $h=lang::op_prec($self->langkey);
   my @solve=();
 
 # ---   *   ---   *   ---
@@ -1011,9 +1278,14 @@ TOP:{
   };
 
   # is operation
-  if($self->value=~ m/(${ndel_ops}+)/) {
+  if($self->value=~ m/^(${ndel_ops}+)/) {
 
     my $op=$1;
+    if(!exists $h->{$op}) {
+      goto SKIP;
+
+    };
+
     my $proc=$h->{$op}->[2];
     my $argval=$self->leaves;
 
@@ -1033,10 +1305,10 @@ TOP:{
         $self->value($proc->($self->value));
         last;
 
-      } elsif($self->value=~
-          m/${pesonames}*/
+      } elsif(lang::valid_name(
+          $self->value,$self->langkey
 
-      ) {last;};
+      )) {last;};
 
     };
   };
@@ -1060,14 +1332,15 @@ SKIP:{
       for my $v(@{$args}) {
 
         if($v->value=~ m/${del_ops}/) {
-
           if($v->value=~ m/\[/) {goto NEXT_OP;};
           push @argval,$v->leaves->[0]->value;
 
         } elsif(
 
-          $v->value=~ m/${pesonames}*/
-        && $proc!=$h->{'->'}->[2]
+          lang::valid_name(
+            $v->value,$v->langkey
+
+          ) && $proc!=$h->{'->'}->[2]
 
         ) {
 
@@ -1143,9 +1416,8 @@ sub findptrs {
 
   my $self=shift;
 
-  my $pesc=peso::decls::pesc;
-  my $pesonames=peso::decls::names;
-  my $types=peso::decls::types_re;
+  my $pesc=lang::pesc($self->langkey);
+  my $types=lang::types($self->langkey);
 
 # ---   *   ---   *   ---
 # iter leaves
@@ -1161,8 +1433,10 @@ sub findptrs {
     };
 
     # solve/fetch non-numeric values
-    if($leaf->value=~ m/^${pesonames}*$/
-    && !($leaf->value=~ m/${types}/)
+    if(lang::valid_name(
+        $leaf->value,$leaf->langkey
+
+      ) && !(exists $types->{$leaf->value()})
 
     ) {
 

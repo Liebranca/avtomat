@@ -232,6 +232,8 @@ sub intrinsic {
 
   '*^'=>[0,2,sub {return (shift)**(shift);}],
   '*'=>[1,2,sub {return (shift)*(shift);}],
+
+
   '/'=>[2,2,sub {return (shift)/(shift);}],
 
   '++'=>[3,1,sub {return (shift)+1;}],

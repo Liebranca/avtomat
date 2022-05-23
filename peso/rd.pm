@@ -358,14 +358,22 @@ sub mam {
 
       $exp->tokenize($body);
       $exp->agroup();
-      $exp->collapse();
 
-      $exp->reorder();
-      $exp->exwalk();
+      $exp->subdiv2();
+
+#      $exp->subdiv();
+
+#      $exp->collapse();
+
+#      $exp->reorder();
+#      $exp->exwalk();
 
     };
 
-  };
+printf "\n";
+$exp->prich();
+
+  };exit;
 
 # ---   *   ---   *   ---
 

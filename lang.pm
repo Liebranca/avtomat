@@ -20,9 +20,8 @@
 # dirty regexes are at their own language files now
 
 # ---   *   ---   *   ---
-
-
 # deps
+
 package lang;
   use strict;
   use warnings;
@@ -30,12 +29,6 @@ package lang;
   use List::Util qw( max );
 
   use lib $ENV{'ARPATH'}.'/lib/';
-
-# ---   *   ---   *   ---
-
-  sub DRFC {return '(::|->|\.)';};
-  sub OPS {return '+-*/\$@%&\^<>!|?{[()]}~,.=;:';};
-  sub _LUN {return '[_a-zA-Z][_a-zA-Z0-9]';};
 
   sub ws_split {
 
@@ -293,186 +286,14 @@ sub eaf {
 
 # ---   *   ---   *   ---
 # general-purpose regexes
+# this contains defaults
 
-my $DICT={-GPRE=>{
-
-  -COM=>'#',
-  -EXP_BOUND=>';',
-  -SCOPE_BOUND=>'\{\}',
-  -HED=>'.*',
-
-# ---   *   ---   *   ---
-
-  -HIER =>[
-
-    # class & hierarchy stuff
-    [0x07,'[^[:blank:]]+'],
-    [0x04,eiths('this,self')],
-    [0x04,_LUN.'*'.DRFC],
-    [0x0D,"\\b"._LUN.'*'.DRFC._LUN.'*'.DRFC],
-    [0x04,DRFC._LUN.'*'.DRFC],
-
-  ],
-
-# ---   *   ---   *   ---
-
-  -PFUN =>[
-
-    # functions with parens
-    [0x01,"\\b"._LUN.'*[[:blank:]]*\\('],
-
-  ],
-
-  -GBL =>[
-
-    # constants/globals
-    [0x0D,'\b[_A-Z][_A-Z0-9]*\b'],
-
-  ],
-
-  -OPS =>[
-
-    # operators
-    [0x0F,eithc(OPS)],
-
-  ],
-
-# ---   *   ---   *   ---
-
-  -DELM0 =>[
-
-    # level 0 delimiters
-    [0x01,delim('`')],
-
-  ],
-
-  -DELM1 =>[
-
-    # level 1 delimiters
-    [0x0E,delim('$:',';>')],
-
-  ],
-
-  -DELM2 =>[
-
-    # level 2 delimiters
-    [0x0E,delim('"')],
-    [0x0E,delim("'")],
-
-  ],
-
-  -DELM3 =>[
-
-    # nevermind this one
-    [0x0E,
-
-      '([m|s]+/([^/]|\\\\/)*/'.
-      '(([^/]|\\\\/)*/)?([\w]+)?)'
-
-    ],
-
-  ],
-
-# ---   *   ---   *   ---
-
-  -NUMS =>[
-
-    # hex
-    [0x03,'('.
-
-      '((\b0+x[0-9A-F]+[L]*)\b)|'.
-      '(((\b0+x[0-9A-F]+\.)+[0-9A-F]+[L]*)\b)'.
-
-      ')\b'
-
-    ],
-
-    # bin
-    [0x03,'('.
-
-      '((\b0+b[0-1]+[L]*)\b)|'.
-      '(((\b0+b[0-1]*\.)+[0-1]+[L]*)\b)'.
-
-      ')\b'
-
-    ],
-
-# ---   *   ---   *   ---
-
-    # octal
-    [0x03,'('.
-
-      '((\b0+0[0-7]+[L]*)\b)|'.
-      '(((\b0+0[0-7]+\.)+[0-7]+[L]*)\b)'.
-
-      ')\b'
-
-    ],
-
-    # float
-    [0x03,'((\b[0-9]*|\.)+[0-9]+f?)\b'],
-
-  ],
-
-# ---   *   ---   *   ---
-
-  -DEV =>[
-
-    [0x0B,'('.( eiths('TODO,NOTE') ).
-      ':?|#:\*+;>)'
-
-    ],
-
-    [0x09,'('.( eiths('FIX,BUG') ).
-      ':?|#:\!+;>)'
-
-    ],
-
-    [0x66,'(^[[:space:]]+$)'],
-    [0x66,'([[:space:]]+$)'],
-
-
-# ---   *   ---   *   ---
-  # preprocessor
-
-    [0x0E,
-
-      '#[[:blank:]]*include[[:blank:]]*'.
-      delim2('<','>')
-
-    ],
-
-    [0x0E,
-
-      '#[[:blank:]]*include[[:blank:]]*'.
-      delim2('"')
-
-    ],
-
-    [0x0E,'(#[[:blank:]]*'.( eiths(
-
-      '(el)?if,ifn?def,'.
-      'undef,error,warning'
-
-      ,1)).'[[:blank:]]*'._LUN.'*\n?)'
-
-    ],[0x0E,'(#[[:blank:]]*'.eiths('else,endif').')'],
-
-    [0x0E,'(#[[:blank:]]*'.
-
-      'define[[:blank:]]*'.
-      _LUN.'*('.( delim2('(',')') ).
-
-      ')?\n?)'
-
-    ],
-
-  ],
+my $DICT={-GPRE=>{}};
 
 # ---   *   ---   *   ---
 # hash fetch
 
-}};sub PROP {
+;;sub PROP {
 
   my $lang=shift;
   my $key=shift;
@@ -487,38 +308,18 @@ my $DICT={-GPRE=>{
 # hash access
 };sub DICT {return $DICT;};
 
-if(!exists $DICT->{-ACTIVE}) {
-  $DICT->{-ACTIVE}=-GPRE;
-
-};
-
 # ---   *   ---   *   ---
 # type-check utils
 
-sub is_code {
+;;sub is_code {
 
   my $v=shift;
   return int($v=~ m/^CODE\(0x[0-9a-f]+\)/);
 
-};sub valid_name {
+};sub is_arrayref {
 
-  my $s=shift;my $_LUN=_LUN();
-  if(defined $s && length $s) {
-    return $s=~ m/^${_LUN}*/;
-
-  };return 0;
-
-};sub exp_bound {
-  return PROP(shift,-EXP_BOUND);
-
-};sub comment {
-  return PROP(shift,-COM);
-
-};sub scope_bound {
-  return PROP(shift,-SCOPE_BOUND);
-
-};sub file_header {
-  return PROP(shift,-HED);
+  my $v=shift;
+  return int($v=~ m/^ARRAY\(0x[0-9a-f]+\)/);
 
 };
 
@@ -867,3 +668,264 @@ sub pebinnc {
 
 # ---   *   ---   *   ---
 1; # ret
+
+# ---   *   ---   *   ---
+# utility class
+
+package lang::def;
+  use strict;
+  use warnings;
+
+# ---   *   ---   *   ---
+
+my %DEFAULTS=(
+
+  -NAME=>'',
+
+  -COM=>'#',
+  -EXP_BOUND=>'[;]',
+  -SCOPE_BOUND=>'[\{\}]',
+
+  -HED=>'.*',
+  -EXT=>'',
+  -MAG=>'',
+
+  -DEL_OPS=>'[\{\[\(\)\]\}\\\\]',
+  -NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}\\\\]',
+
+  -OP_PREC=>{},
+
+  -PESC=>
+
+    '\$\:(([^;\\]|;[^>\\]|\\;>'.
+    '|[^\\;>]|\\[^\\;>]|\\[^;]|\\[^>])*);>',
+
+# ---   *   ---   *   ---
+
+  -NAMES=>'\b[_A-Za-z][_A-Za-z0-9]*\b',
+  -NAMES_U=>'\b[_A-Z][_A-Z0-9]*\b',
+  -NAMES_L=>'\b[_a-z][_a-z0-9]*\b',
+
+  -VARS=>[],
+  -BILTN=>[],
+  -KEYS=>[],
+
+  -TYPES=>{},
+
+# ---   *   ---   *   ---
+
+  -DRFC=>'(::|->|\.)',
+  -COMMON=>'[^[:blank:]]+',
+
+# ---   *   ---   *   ---
+
+  -DELM0=>lang::delim('`'),
+  -DELM1=>lang::delim2('$:',';>'),
+
+  -DELM2=>
+
+    lang::delim('"').'|'.
+    lang::delim("'"),
+
+  -DELM3=>
+
+    '([m|s]+/([^/]|\\\\/)*/'.
+    '(([^/]|\\\\/)*/)?([\w]+)?)',
+
+# ---   *   ---   *   ---
+
+  -HIER0=>
+
+    '($:names;>$:drfc;>)|'.
+    '($:drfc;>$:names;>$:drfc;>)',
+
+  -HIER1=>
+
+    '\b$:names;>$:drfc;>$:names;>$:drfc;>',
+
+  -PFUN=>'\b$:names;>\s*\\(',
+
+# ---   *   ---   *   ---
+
+  -NUMS=>[
+
+    # hex
+    '(((\b0+x[0-9A-F]+[L]*)\b)|'.
+    '(((\b0+x[0-9A-F]+\.)+[0-9A-F]+[L]*)\b)'.
+
+    ')\b',
+
+    # bin
+    '(((\b0+b[0-1]+[L]*)\b)|'.
+    '(((\b0+b[0-1]*\.)+[0-1]+[L]*)\b)'.
+
+    ')\b',
+
+    # octal
+    '(((\b0+0[0-7]+[L]*)\b)|'.
+    '(((\b0+0[0-7]+\.)+[0-7]+[L]*)\b)'.
+
+    ')\b',
+
+    # decimal
+    '((\b[0-9]*|\.)+[0-9]+f?)\b',
+
+  ],
+
+# ---   *   ---   *   ---
+# trailing spaces and notes
+
+  -DEV0=>
+
+    '('.( lang::eiths('TODO,NOTE') ).':?|#:\*+;>)',
+
+  -DEV1=>
+
+    '('.( lang::eiths('FIX,BUG') ).':?|#:\!+;>)',
+
+  -DEV2=>'(^[[:space:]]+$)|([[:space:]]+$)',
+
+
+# ---   *   ---   *   ---
+# preprocessor
+
+  -DEV3=>[
+    '#[[:blank:]]*include[[:blank:]]*'.
+    lang::delim2('<','>'),
+
+    '#[[:blank:]]*include[[:blank:]]*'.
+    lang::delim2('"'),
+
+    '(#[[:blank:]]*'.( lang::eiths(
+
+      '(el)?if,ifn?def,'.
+      'undef,error,warning'
+
+      ,1)).
+
+    '[[:blank:]]*[_A-Za-z][_A-Za-z0-9]*\n?)',
+    '(#[[:blank:]]*'.lang::eiths('else,endif').')',
+
+    '(#[[:blank:]]*'.
+
+    'define[[:blank:]]*'.
+    '$:names;>('.( lang::delim2('(',')') ).
+
+    ')?\n?)'
+
+  ],
+
+# ---   *   ---   *   ---
+
+);sub nit {
+
+  my %h=@_;
+  my $ref={};
+
+  for my $key(keys %DEFAULTS) {
+
+    if(exists $h{$key}) {
+      $ref->{$key}=$h{$key};
+
+    } else {
+      $ref->{$key}=$DEFAULTS{$key};
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+
+  $ref->{-OPS}=
+
+    $ref->{-DEL_OPS}.'|'.
+    $ref->{-NDEL_OPS}
+
+  ;
+
+  $ref->{-LCOM}=lang::eaf($ref->{-COM},0,1);
+
+# ---   *   ---   *   ---
+
+  my $names=$ref->{-NAMES};
+  my $drfc=$ref->{-DRFC};
+
+  for my $key(keys %{$ref}) {
+
+    if( lang::is_arrayref($ref->{$key}) ) {
+      for my $v(@{$ref->{$key}}) {
+        $v=~ s/\$:names;>/$names/sg;
+        $v=~ s/\$:drfc;>/$drfc/sg;
+
+      };
+
+    } else {
+
+      $ref->{$key}=~ s/\$:names;>/$names/sg;
+      $ref->{$key}=~ s/\$:drfc;>/$drfc/sg;
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+
+  no strict;
+
+  my $def=bless $ref,'lang::def';
+  my $hack="lang::$def->{-NAME}";
+
+  *$hack=sub {return $def};
+
+  return $def;
+
+};
+
+# ---   *   ---   *   ---
+# getters
+
+sub exp_bound {return (shift)->{-EXP_BOUND};};
+sub com {return (shift)->{-COM};};
+
+sub scope_bound {return (shift)->{-SCOPE_BOUND};};
+
+sub hed {return (shift)->{-HED};};
+sub mag {return (shift)->{-MAG};};
+sub ext {return (shift)->{-EXT};};
+
+# ---   *   ---   *   ---
+
+sub del_ops {return (shift)->{-DEL_OPS};};
+sub ndel_ops {return (shift)->{-NDEL_OPS};};
+
+sub ops {return (shift)->{-OPS}};
+
+# ---   *   ---   *   ---
+
+sub ode {return (shift)->{-ODE};};
+sub cde {return (shift)->{-CDE};};
+sub pesc {return (shift)->{-PESC};};
+
+# ---   *   ---   *   ---
+
+sub names {return (shift)->{-NAMES};};
+sub keyw {return (shift)->{-KEYS};};
+sub vars {return (shift)->{-VARS};};
+sub biltn {return (shift)->{-BILTN};};
+
+# ---   *   ---   *   ---
+
+sub valid_name {
+
+  my $self=shift;
+  my $s=shift;
+
+  my $name=$self->names;
+
+  if(defined $s && length $s) {
+    return $s=~ m/^${name}*/;
+
+  };return 0;
+};
+
+# ---   *   ---   *   ---

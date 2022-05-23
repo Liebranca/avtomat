@@ -14,12 +14,7 @@ package langdefs::perl;
 
 # ---   *   ---   *   ---
 
-sub SYGEN_KEY {return -PERL;};
-sub RC_KEY {return 'perl';};
-
-# ---   *   ---   *   ---
-
-my %PERL=(
+lang::def::nit(
 
   -NAME => 'perl',
   -EXT  => '\.p[lm]$',
@@ -33,13 +28,13 @@ my %PERL=(
 
   -VARS =>[
 
-    [0x04,'[$%&@]('.
+    '[$%&@]('.
 
-      '('.lang::_LUN.'*|'.
+      '($:names;>|'.
 
       '\^[][A-Z?\^_]|[0-9]+\b)|'.
 
-      '(\{(\^?'.lang::_LUN.'*|'.
+      '(\{(\^?$:names;>|'.
       '\^[][?\^][0-9]+)\})|'.
 
       '(([][!"#\'()*+,.:;<=>?`|~-]|'.
@@ -47,9 +42,7 @@ my %PERL=(
 
       '((^|[[:blank:]])[$%@][/\\\\])'.
 
-    ')'
-
-    ],
+    ')',
 
   ],
 
@@ -57,7 +50,7 @@ my %PERL=(
 
   -BILTN =>[
 
-    [0x01,lang::eiths(
+    lang::eiths(
 
       'accept,alarm,atan2,bin(d|mode),'.
 
@@ -112,7 +105,7 @@ my %PERL=(
       'utime,values,vec,wait(pid)?,'.
       'wantarray,warn,write'
 
-    ,1)],
+    ,1),
 
   ],
 
@@ -120,27 +113,28 @@ my %PERL=(
 
   -KEYS =>[
 
-    [0x0D,lang::eiths(
+    lang::eiths(
 
       'continue,else,elsif,do,for,foreach,'.
       'if,unless,until,while,eq,ne,lt,gt,'.
       'le,ge,cmp,x,my,sub,use,package,can,isa'
 
-    ,1)],
+    ,1),
 
   ],
 
 # ---   *   ---   *   ---
 
-# line comments
-);$PERL{-LCOM}=[
-  [0x02,lang::eaf(
-    lang::lkback('$%&@\'"',
-    $PERL{-COM}),0,1)
+# ugh, these effy line comments
+);lang->perl->{-LCOM}=lang::eaf(
 
-  ],
+  lang::lkback(
+    '$%&@\'"',
+    lang->perl->com
 
-];lang::DICT->{SYGEN_KEY()}=\%PERL;
+  ),0,1
+
+);
 
 # ---   *   ---   *   ---
 1; # ret

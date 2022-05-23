@@ -14,14 +14,9 @@ package langdefs::js;
 
 # ---   *   ---   *   ---
 
-sub SYGEN_KEY {return -JS;};
-sub RC_KEY {return 'javascript';};
+lang::def::nit(
 
-# ---   *   ---   *   ---
-
-my %JS=(
-
-  -NAME =>'JavaScript',
+  -NAME =>'js',
   -EXT  =>'\.js$',
   -HED  =>'#!.*node',
 
@@ -33,19 +28,19 @@ my %JS=(
 
   -VARS =>[
 
-    [0x04,lang::eiths(
+    lang::eiths(
 
       'async,class,const,extends,function,'.
       'let,this,typeof,var,void'
 
-    ,1)],
+    ,1),
 
-    [0x04,lang::eiths(
+    lang::eiths(
 
       'true,false,null,undefined'
 
 
-    ,1)],
+    ,1),
 
   ],
 
@@ -60,7 +55,7 @@ my %JS=(
 
   -KEYS =>[
 
-    [0x0D,lang::eiths(
+    lang::eiths(
 
       'await,export,import,'.
       'each,in,of,with,yield,finally,'.
@@ -69,21 +64,10 @@ my %JS=(
       'default,try,throw,catch,new,delete,'.
       'break,continue,return'
 
-# probably unexistent
-# operator goto
-
-    ,1)],
+    ,1),
 
   ],
-
-# ---   *   ---   *   ---
-
-
-);$JS{-LCOM}=[
-  [0x02,lang::eaf($JS{-COM},0,1)],
-  [0x02,lang::delim2('/*','*/',1)],
-
-];lang::DICT->{SYGEN_KEY()}=\%JS;
+);
 
 # ---   *   ---   *   ---
 1; # ret

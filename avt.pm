@@ -21,7 +21,7 @@ package avt;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use lang;
-  use langdefs::cee;
+  use langdefs::c;
 
 # ---   *   ---   *   ---
 # info
@@ -656,7 +656,7 @@ sub symscan {
     # iter through expressions
     for my $exp( split(';',$src) ) {
 
-      my $data=lang::PROP(-CEE,-DECL)->($exp);
+      my $data=undef;#lang::PROP(-CEE,-DECL)->($exp);
       if(!$data) {next;};
 
       @$data[1]=typecon(@$data[1]);
