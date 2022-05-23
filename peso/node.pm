@@ -73,9 +73,8 @@ sub nit($$;$) {
   # value for new node
   my $val=shift;
 
-  # (optional) key into langdefs dict
-  my $langkey=shift;
-  if(!defined $langkey) {$langkey=-PESO;};
+  # language rules
+  my $lang=shift;
 
   # tree/root handle
   my %tree=(
@@ -109,7 +108,7 @@ sub nit($$;$) {
     $tree_id=$self->{-ROOT};
     %tree=%{ $CACHE{-TREES}->[$tree_id] };
 
-    $langkey=$tree{-ROOT}->{-LANGKEY};
+    $lang=$tree{-ROOT}->{-LANG};
 
   # make node instance
   };my $node=bless {
@@ -121,7 +120,7 @@ sub nit($$;$) {
     -PAR=>undef,
     -INDEX=>0,
 
-    -LANGKEY=>$langkey,
+    -LANG=>$lang,
 
   },'peso::node';
 
@@ -145,13 +144,13 @@ sub nit($$;$) {
 # ---   *   ---   *   ---
 # getters
 
-sub langkey {
+sub lang {
   my $self=shift;
 
   my $tree_id=$self->{-ROOT};
   my %tree=%{ $CACHE{-TREES}->[$tree_id] };
 
-  return $tree{-ROOT}->{-LANGKEY};
+  return $tree{-ROOT}->{-LANG};
 
 };
 
@@ -499,13 +498,13 @@ sub tokenize {
   my @anch=($self);
 
   # patterns
-  my $ops=lang::all_ops($self->langkey);
-  my $del_op=lang::del_ops($self->langkey);
-  my $ndel_op=lang::ndel_ops($self->langkey);
+  my $ops=$self->lang->ops;
+  my $del_op=$self->lang->del_ops;
+  my $ndel_op=$self->lang->ndel_ops;
 
-  my $ode=lang::ode($self->langkey);
-  my $cde=lang::cde($self->langkey);
-  my $pesc=lang::pesc($self->langkey);
+  my $ode=$self->lang->ode;
+  my $cde=$self->lang->cde;
+  my $pesc=$self->lang->pesc;
 
 # ---   *   ---   *   ---
 # spaces are meaningless
@@ -661,36 +660,13 @@ sub agroup {
 
   my $self=shift;
 
-  my $ndel_op=lang::ndel_ops($self->langkey);
-  my $del_op=lang::del_ops($self->langkey);
+  my $ndel_op=$self->lang->ndel_ops;
+  my $del_op=$self->lang->del_ops;
 
   my %matched=();
 
   my $root=$self;
   my @leaves=();
-
-  # test hash
-  my %h=(
-
-    '++'=>[
-
-      [0,sub {my $x=shift;return ++$$x;}],
-      [0,sub {my $x=shift;return $$x++;}],
-
-      undef,
-
-    ],
-
-    '*'=>[
-
-      undef,
-      [1,sub {return 0;}],
-
-      [0,sub {my ($x,$y)=@_;return $$x*$$y;}],
-
-    ],
-
-  );
 
 # ---   *   ---   *   ---
 # iter tree until operator found
@@ -760,7 +736,14 @@ sub agroup {
 
     };if(@move) {
 
-      my $prio=$h{$leaf->value}->[$j]->[0];
+      my $prio=
+
+        $self->lang->
+
+        ->op_prec->{$leaf->value}
+        ->[$j]->[0]
+
+      ;
 
       if(!defined $prio) {
         next;
@@ -807,8 +790,8 @@ sub agroup {
 
   my $self=shift;
 
-  my $ode=lang::ode($self->langkey);
-  my $cde=lang::cde($self->langkey);
+  my $ode=$self->lang->ode;
+  my $cde=$self->lang->cde;
 
   my $i=0;for my $leaf(@{$self->leaves}) {
 
@@ -846,8 +829,8 @@ sub agroup {
   my @anchors=();
   my @moved=();
 
-  my $ode=lang::ode($self->langkey);
-  my $cde=lang::cde($self->langkey);
+  my $ode=$self->lang->ode;
+  my $cde=$self->lang->cde;
 
   my @ar=@{$self->par->leaves};
   @ar=@ar[$i..$#ar];
@@ -1028,12 +1011,12 @@ sub subdiv {
   my @rootstack=();
 
   my @nodes=();
-  my $ndel_op=lang::ndel_ops($self->langkey);
-  my $del_op=lang::del_ops($self->langkey);
-  my $pesc=lang::pesc($self->langkey);
+  my $ndel_op=$self->lang->ndel_ops;
+  my $del_op=$self->lang->del_ops;
+  my $pesc=$self->lang->pesc;
 
   # operator data
-  my $h=lang::op_prec($self->langkey);
+  my $h=$self->lang->op_prec;
 
 # ---   *   ---   *   ---
 
@@ -1257,13 +1240,13 @@ sub collapse {
 
   my $leaf=$self;
 
-  my $ndel_ops=lang::ndel_ops($self->langkey);
-  my $del_ops=lang::del_ops($self->langkey);
-  my $pesc=lang::pesc($self->langkey);
+  my $ndel_ops=$self->lang->ndel_ops;
+  my $del_ops=$self->lang->del_ops;
+  my $pesc=$self->lang->pesc;
 
   my @leafstack;
 
-  my $h=lang::op_prec($self->langkey);
+  my $h=$self->lang->op_prec;
   my @solve=();
 
 # ---   *   ---   *   ---
@@ -1305,8 +1288,8 @@ TOP:{
         $self->value($proc->($self->value));
         last;
 
-      } elsif(lang::valid_name(
-          $self->value,$self->langkey
+      } elsif($self->lang->valid_name(
+          $self->value
 
       )) {last;};
 
@@ -1337,8 +1320,8 @@ SKIP:{
 
         } elsif(
 
-          lang::valid_name(
-            $v->value,$v->langkey
+          $self->lang->valid_name(
+            $v->value
 
           ) && $proc!=$h->{'->'}->[2]
 
@@ -1416,8 +1399,8 @@ sub findptrs {
 
   my $self=shift;
 
-  my $pesc=lang::pesc($self->langkey);
-  my $types=lang::types($self->langkey);
+  my $pesc=$self->lang->pesc;
+  my $types=$self->lang->types;
 
 # ---   *   ---   *   ---
 # iter leaves
@@ -1433,8 +1416,8 @@ sub findptrs {
     };
 
     # solve/fetch non-numeric values
-    if(lang::valid_name(
-        $leaf->value,$leaf->langkey
+    if($self->lang->valid_name(
+        $leaf->value
 
       ) && !(exists $types->{$leaf->value()})
 

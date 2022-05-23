@@ -34,6 +34,13 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
+  -NAMES=>peso::decls::names,
+
+  -OP_PREC=>peso::ops->def,
+  -OPS=>lang::hashpat(peso::ops->def),
+
+# ---   *   ---   *   ---
+
   -VARS =>[
 
     # primitives

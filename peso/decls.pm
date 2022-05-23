@@ -17,7 +17,9 @@ package peso::decls;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
+
   use lang;
+  use peso::ops;
 
 # ---   *   ---   *   ---
 # its just a big ole hash
@@ -47,7 +49,6 @@ sub del_ops {return $DICT{-DEL_OPS};};
 sub ndel_ops {return $DICT{-NDEL_OPS};};
 sub pesc {return $DICT{-PESC};};
 sub sizes {return $DICT{-SIZES};};
-sub op_prec {return $DICT{-OP_PREC};};
 sub types {return $DICT{-TYPES}};
 sub types_re {return $DICT{-TYPES_RE}};
 
@@ -91,7 +92,6 @@ sub intrinsic {
 # common patterns
 
 -NAMES=>'[_a-zA-Z][_a-zA-Z0-9]',
--OPS=>'[^\s_A-Za-z0-9\.:\\\\]',
 
 -ODE=>'[\(\[\{]',
 -CDE=>'[\}\]\)]',
@@ -222,125 +222,6 @@ sub intrinsic {
     id(),'-1<ptr|bare>:*-1<ptr|bare>'
 
   ],
-
-},
-
-# ---   *   ---   *   ---
-# operator procs and precedence
-
--OP_PREC=>{
-
-  '*^'=>[0,2,sub {return (shift)**(shift);}],
-  '*'=>[1,2,sub {return (shift)*(shift);}],
-
-
-  '/'=>[2,2,sub {return (shift)/(shift);}],
-
-  '++'=>[3,1,sub {return (shift)+1;}],
-  '+'=>[4,2,sub {return (shift)+(shift);}],
-  '--'=>[5,1,sub {return (shift)-1;}],
-  '-'=>[6,2,sub {return (shift)-(shift);}],
-
-# ---   *   ---   *   ---
-
-  '?'=>[7,1,sub {return int((shift)!=0);}],
-  '!'=>[8,1,sub {return int(!(shift));}],
-  '~'=>[9,1,sub {return ~int(shift);}],
-
-  '<<'=>[10,2,sub {
-
-    return int(int(shift)<< int(shift));
-
-  }],
-
-  '>>'=>[11,2,sub {
-
-    return int(int(shift)>> int(shift));
-
-  }],
-
-# ---   *   ---   *   ---
-
-  '|'=>[12,2,sub {
-
-    return int(int(shift)| int(shift));
-
-  }],
-
-  '^'=>[13,2,sub {
-
-    return int(shift)^int(shift);
-
-  }],
-
-  '&'=>[14,2,sub {
-
-    return int(int(shift)& int(shift));
-
-  }],
-
-# ---   *   ---   *   ---
-
-  '<'=>[15,2,sub {
-
-    return int((shift)<(shift));
-
-  }],
-
-  '<='=>[15,2,sub {
-
-    return int((shift)<=(shift));
-
-  }],
-
-  '>'=>[16,2,sub {
-
-    return int((shift)>(shift));
-
-  }],
-
-  '>='=>[16,2,sub {
-
-    return int((shift)>=(shift));
-
-  }],
-
-# ---   *   ---   *   ---
-
-  '||'=>[17,2,sub {
-
-    return int(
-         (int(shift)!=0)
-      || (int(shift)!=0)
-
-    );
-
-  }],
-
-  '&&'=>[18,2,sub {
-
-    return int(
-         int((shift)!=0)
-      && int((shift)!=0)
-
-    );
-
-  }],
-
-  '=='=>[19,2,sub {
-    return int((shift)==(shift));
-
-  }],
-
-  '!='=>[20,2,sub {
-    return int((shift)!=(shift));
-
-  }],
-
-  '->'=>[21,2,sub {
-    return (shift).'@'.(shift);
-
-  }],
 
 },
 

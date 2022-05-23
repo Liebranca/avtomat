@@ -61,6 +61,9 @@ sub update {
   update(
 
     [ '/peso/decls.pm',
+      '/peso/ops.pm',
+
+
       '/peso/rd.pm',
       '/peso/node.pm',
       '/peso/ptr.pm',

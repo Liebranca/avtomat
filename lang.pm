@@ -60,7 +60,7 @@ sub rescap {
 
   my $s=shift;$s=~ s/\\/\\\\/g;
 
-  for my $c(split '','.^$([{}])+*?/|:') {
+  for my $c(split '','.^$([{}])+*?/|') {
     $s=~ s/\Q${ c }/\\${ c }/g;
 
   };
@@ -285,30 +285,6 @@ sub eaf {
 };
 
 # ---   *   ---   *   ---
-# general-purpose regexes
-# this contains defaults
-
-my $DICT={-GPRE=>{}};
-
-# ---   *   ---   *   ---
-# hash fetch
-
-;;sub PROP {
-
-  my $lang=shift;
-  my $key=shift;
-
-  if(!defined $lang) {
-    $lang=-GPRE;
-
-  };
-
-  return $DICT->{$lang}->{$key};
-
-# hash access
-};sub DICT {return $DICT;};
-
-# ---   *   ---   *   ---
 # type-check utils
 
 ;;sub is_code {
@@ -462,6 +438,33 @@ sub cut($$$$) {
     );
 
   };return $s;
+
+};
+
+# ---   *   ---   *   ---
+# in: hash reference
+# sort keys by length and return
+# a pattern to match them
+
+sub hashpat($;$) {
+
+  my $h=shift;
+  my $disable_escapes=shift;
+
+  my @keys=sort {
+    (length $a)<=(length $b);
+
+  } keys %$h;
+
+  if(!$disable_escapes) {
+    for my $key(@keys) {
+      $key=rescap($key);
+
+    };
+
+  };
+
+  return '('.(join '|',@keys).')';
 
 };
 
@@ -690,10 +693,11 @@ my %DEFAULTS=(
   -EXT=>'',
   -MAG=>'',
 
+  -OPS=>'',
+  -OP_PREC=>{},
+
   -DEL_OPS=>'[\{\[\(\)\]\}\\\\]',
   -NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}\\\\]',
-
-  -OP_PREC=>{},
 
   -PESC=>
 
@@ -836,12 +840,15 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
-  $ref->{-OPS}=
+  if(!exists $ref->{-OPS}) {
+    $ref->{-OPS}='('.
 
-    $ref->{-DEL_OPS}.'|'.
-    $ref->{-NDEL_OPS}
+      $ref->{-DEL_OPS}.'|'.
+      $ref->{-NDEL_OPS}.
 
-  ;
+    ')';
+
+  };
 
   $ref->{-LCOM}=lang::eaf($ref->{-COM},0,1);
 
@@ -899,6 +906,7 @@ sub del_ops {return (shift)->{-DEL_OPS};};
 sub ndel_ops {return (shift)->{-NDEL_OPS};};
 
 sub ops {return (shift)->{-OPS}};
+sub op_prec {return (shift)->{-OP_PREC};};
 
 # ---   *   ---   *   ---
 
