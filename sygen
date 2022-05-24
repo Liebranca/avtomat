@@ -69,29 +69,25 @@ if($do_cp) {
 };
 
 # ---   *   ---   *   ---
+# iter through addons and copy if need
 
-# on update, perform patch
-if($do_cp) {
+for my $lang(@files) {
 
-  # iter through addons and copy if need
-  for my $lang(@files) {
+  my $src="$srcpath/langdefs/$lang";
+  my $dst="$dstpath/langdefs/$lang";
 
-    my $src="$srcpath/langdefs/$lang";
-    my $dst="$dstpath/langdefs/$lang";
+  my $up=!(-e $dst);
+  $up=(!$up)
 
-    my $up=!(-e $dst);
-    $up=(!$up)
+    ? !((-M $dst)
+      < (-M $src))
 
-      ? !((-M $dst)
-        < (-M $src))
+    : $up
+    ;
 
-      : $up
-      ;
+  if($up) {
+    `cp $src $dst`;
 
-    if($up) {
-      `cp $src $dst`;
-
-    };
   };
 };
 
@@ -149,9 +145,10 @@ my %KEYCOLOR=(
   -HIER0=>0x04,
   -HIER1=>0x0D,
 
-  -DELM0=>0x09,
-  -DELM1=>0x0E,
-  -DELM2=>0x0E,
+  -SHCMD=>0x01,
+  -PESC=>0x0E,
+  -STRING=>0x0E,
+  -CHAR=>0x0E,
 
   -PFUN=>0x01,
   -NUMS=>0x03,
@@ -191,7 +188,7 @@ sub prprops {
   # [\[\]] does not match square brackets
 
   if($key eq -OPS) {
-    $v='[^\s_A-Za-z0-9]';
+    $v='([^\s_A-Za-z0-9]|\\\\)';
 
   };
 
@@ -247,10 +244,10 @@ sub glang {
 
       -COMMON,-HIER0,-HIER1,
 
-      -NAMES_U,-PFUN,-DELM0,-DELM1,
+      -NAMES_U,-PFUN,-SHCMD,-PESC,
       -BILTN,-KEYS,-TYPES,-VARS,
 
-      -NUMS,-OPS,-DELM2,
+      -NUMS,-OPS,-CHAR,-STRING,
       -LCOM,-DEV0,-DEV1,-DEV2,-DEV3
 
     ) {prprops($def,$key);};

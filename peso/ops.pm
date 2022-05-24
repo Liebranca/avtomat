@@ -16,6 +16,9 @@ package peso::ops;
   use strict;
   use warnings;
 
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use lang;
+
 # ---   *   ---   *   ---
 # format is as follows:
 #

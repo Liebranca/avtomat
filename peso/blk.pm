@@ -19,10 +19,11 @@ package peso::blk;
   use lib $ENV{'ARPATH'}.'/include/';
   use lib $ENV{'ARPATH'}.'/lib/';
 
+  use lang;
+  use stack;
+
   use peso::decls;
   use peso::ptr;
-
-  use stack;
 
 # ---   *   ---   *   ---
 
@@ -47,47 +48,64 @@ package peso::blk;
 
 # ---   *   ---   *   ---
 
-my %CACHE=(
+sub new_frame($) {
 
-  -SELF=>undef,
-  -SOIL=>undef,
-  -CURR=>undef,
+  my $master=shift;
 
-  -DST=>undef,
+  return bless {
 
-  -BLOCKS=>undef,
-  -BBID=>[0..0xFF],
-  -BIDS=>stack::nit(stack::slidex(0x100)),
+    -SELF=>undef,
+    -SOIL=>undef,
+    -CURR=>undef,
 
-  -NXINS=>0,
-  -INS_ARR=>[],
+    -DST=>undef,
 
-  -ENTRY=>'nit',
+    -BLOCKS=>undef,
+    -BBID=>[0..0xFF],
+    -BIDS=>stack::nit(stack::slidex(0x100)),
 
-  -PASS=>0,
-  -PRSTK=>undef,
+    -NXINS=>0,
+    -INS_ARR=>[],
 
-);
+    -ENTRY=>'nit',
+
+    -PASS=>0,
+    -PRSTK=>undef,
+
+    -MASTER=>$master,
+
+  },'peso::blk';
+
+};sub frame {return (shift)->{-FRAME};};
+;;sub master {
+
+  my ($self)=@_;
+
+  if(exists $self->{-MASTER}) {
+    return $self->{-MASTER};
+
+  };return $self->frame->{-MASTER};
+};
 
 # ---   *   ---   *   ---
 # in: block name
 # errchk and get root block
 
-sub clan {
+sub clan($$) {
 
-  my $key=shift;
+  my ($self,$key)=@_;
 
 # ---   *   ---   *   ---
 # return local scope
 
   if($key eq 'self') {
-    return $CACHE{-SELF};
+    return $self->{-SELF};
 
 # ---   *   ---   *   ---
 # return base block
 
   } elsif($key eq 'non') {
-    return $CACHE{-SOIL};
+    return $self->{-SOIL};
 
 # ---   *   ---   *   ---
 # name lookup
@@ -107,26 +125,27 @@ sub clan {
 };
 
 # ---   *   ---   *   ---
-# in: block instance
+# in: frame, block instance
 # scope to block
 
 sub setscope {
 
-  my $self=shift;
-  $CACHE{-SELF}=$self;
+  my ($frame,$blk)=shift;
 
-  if(!$self->{-SCOPE}) {
-    $self->{-SCOPE}=$self;
+  $frame->{-SELF}=$blk;
+
+  if(!$frame->{-SCOPE}) {
+    $frame->{-SCOPE}=$blk;
 
   };
 
 # ---   *   ---   *   ---
 # add scope names to list
 
-  my @ar=($CACHE{-SELF}->ances);
-  if(defined $CACHE{-CURR}) {
+  my @ar=($frame->{-SELF}->ances);
+  if(defined $frame->{-CURR}) {
 
-    my $curr=$CACHE{-CURR};
+    my $curr=$frame->{-CURR};
     push @ar,$curr->ances;
 
     if(defined $curr->par) {
@@ -154,35 +173,47 @@ sub setscope {
 };
 
 # ---   *   ---   *   ---
-# in: block instance
+# in: frame, block instance
 # set current local space
 
-sub setcurr {$CACHE{-CURR}=shift;};
+sub setcurr {
 
-# ---   *   ---   *   ---
-# program stack methods
-
-sub prstk {return $CACHE{-PRSTK};};
-
-sub spush {
-
-  my $v=shift;
-  prstk()->spush($v);
-
-};sub spop {
-
-  my $v=prstk()->spop();
-  return $v;
+  my ($frame,$blk)=@_;
+  $frame->{-CURR}=$blk;
 
 };
 
 # ---   *   ---   *   ---
-# in: name, write/read/exec permissions
+# program stack methods
+
+sub prstk($) {
+
+  my ($frame)=@_;
+  return $frame->{-PRSTK};
+
+};
+
+sub spush($$) {
+
+  my ($frame,$v)=@_;
+  $frame->prstk->spush($v);
+
+};sub spop($) {
+
+  my ($frame)=@_;
+  return $frame->prstk->spop;
+
+};
+
+# ---   *   ---   *   ---
+# in: name,parent,permissions
 # creates a new data/instruction block
 
-sub nit {
+sub nit($$$$) {
 
-  my $self=shift;
+  my $frame=shift;
+  my $parent=shift;
+
   my $name=shift;
   my $attrs=shift;
 
@@ -202,7 +233,7 @@ sub nit {
     -NAME=>$name,
     -SIZE=>0,
 
-    -PAR=>$self,
+    -PAR=>$parent,
     -CHILDREN=>[],
     -STACK=>stack::nit(stack::slidex(0x100)),
     -SCOPE=>$CACHE{-SELF},
@@ -210,6 +241,7 @@ sub nit {
     -ELEMS=>{},
     -ATTRS=>$attrs,
     -INSID=>$insid,
+    -FRAME=>$frame,
 
     -ID=>undef,
 
@@ -217,13 +249,13 @@ sub nit {
 
   # initialized from instance
   # new->setParent $self
-  if(defined $self) {
-    $self->elems->{$name}=$blk;
+  if(defined $parent) {
+    $parent->elems->{$name}=$blk;
 
   # is root block
   } else {
 
-    if(exists $CACHE{-BLOCKS}->{$name}) {
+    if(exists $frame->{-BLOCKS}->{$name}) {
 
       printf "Ilegal operation: ".
         "redeclaration of root block '".
@@ -231,20 +263,20 @@ sub nit {
 
       exit;
 
-    };$self=$CACHE{-SOIL};
+    };$parent=$frame->{-SOIL};
 
-    $blk->{-ID}=$CACHE{-BIDS}->spop();
-    $CACHE{-BBID}->[$blk->{-ID}]=$blk;
+    $blk->{-ID}=$frame->{-BIDS}->spop();
+    $frame->{-BBID}->[$blk->{-ID}]=$blk;
 
 # ---   *   ---   *   ---
 
   };if($name ne 'non') {
-    $self->addchld($blk);
+    $parent->addchld($blk);
 
   };
 
   if($insid>=0) {
-    $CACHE{-INS_ARR}->[$insid]=$blk;
+    $frame->{-INS_ARR}->[$insid]=$blk;
 
   };
 
@@ -255,15 +287,20 @@ sub nit {
 # ---   *   ---   *   ---
 # initialize globals
 
-sub gblnit {
+sub gblnit($) {
 
-  $CACHE{-SOIL}=nit(undef,'non');
-  DST($CACHE{-SOIL});
+  my ($master)=@_;
+  my $frame=$master->blk;
 
-  $CACHE{-BLOCKS}=$CACHE{-SOIL}->{-ELEMS};
-  $CACHE{-PRSTK}=stack::nit(0,[]);
+  $frame->{-SOIL}=$frame->nit(
+    undef,'non',undef
 
-  return $CACHE{-SOIL};
+  );$frame->DST($frame->{-SOIL});
+
+  $frame->{-BLOCKS}=$frame->{-SOIL}->{-ELEMS};
+  $frame->{-PRSTK}=stack::nit(0,[]);
+
+  return $frame->{-SOIL};
 
 };
 
@@ -315,31 +352,23 @@ sub sstack {return (shift)->{-STACK};};
 
 sub scope {return (shift)->{-SCOPE};};
 
-sub data {return $CACHE{-DATA};};
 sub size {return (shift)->{-SIZE};};
 sub attrs {return (shift)->{-ATTRS};};
 
 sub insid {return (shift)->{-INSID};};
 
-sub ins {
-  return $CACHE{-INS_ARR}->[(shift)->insid];
+sub ins($) {
 
-};sub INS {return $CACHE{-INS_ARR};};
+  my ($self)=@_;
 
-sub fpass {return !$CACHE{-PASS};};
+  return
 
-# ---   *   ---   *   ---
-# adjusts current write-to
+    $self->frame->{-INS_ARR}
+    ->[$self->insid]
 
-sub DST {
+  ;
 
-  my $new=shift;
-  if(defined $new) {
-    $CACHE{-DST}=$new;
-
-  };return $CACHE{-DST};
-
-};sub NON {return $CACHE{-SOIL};};
+};
 
 # ---   *   ---   *   ---
 # find ancestors recursively
@@ -357,27 +386,49 @@ sub ances {
 };
 
 # ---   *   ---   *   ---
-# setters
+# frame getters/setters
 
-sub entry {
+sub entry($;$) {
 
-  my $new=shift;
+  my ($self,$new)=@_;
+
   if(defined $new) {
-    $CACHE{-ENTRY}=$new;
+    $self->{-ENTRY}=$new;
 
-  };return $CACHE{-ENTRY};
+  };return $self->{-ENTRY};
 
 };sub nxins {
 
-  my $new=shift;
-  if(defined $new) {
-    $CACHE{-NXINS}=$new;
+  my ($self,$new)=@_;
 
-  };return $CACHE{-NXINS};
+  if(defined $new) {
+    $self->{-NXINS}=$new;
+
+  };return $self->{-NXINS};
 
 };
 
-sub incpass {$CACHE{-PASS}++;};
+# ---   *   ---   *   ---
+
+sub DATA {return (shift)->{-DATA};};
+sub INS {return (shift)->{-INS_ARR};};
+
+sub incpass {(shift)->{-PASS}++;};
+sub fpass {return !((shift)->{-PASS});};
+
+# ---   *   ---   *   ---
+# adjusts current write-to
+
+sub DST($;$) {
+
+  my ($self,$new)=@_;
+
+  if(defined $new) {
+    $self->{-DST}=$new;
+
+  };return $self->{-DST};
+
+};sub NON {return (shift)->{-SOIL};};
 
 # ---   *   ---   *   ---
 # in: block, element name
@@ -516,14 +567,16 @@ sub expand {
 #  >create ptr instance
 #  >save reference to elems
 
-    if(fpass() || $bypass) {
+    if($self->frame->fpass() || $bypass) {
 
       if(!$bypass) {$v=$self;};
       $self->elems->{$k}=peso::ptr::nit(
 
         $k,$self->ances,
         $j,$gran,$shf,$type,
-        $elem_sz,$v
+        $elem_sz,$v,
+
+        $self->master->lang,
 
       );
 
@@ -607,10 +660,12 @@ sub getloc {
 sub refsolve_rec {
 
   my $node=shift;
-  my $pesonames=peso::decls::names;
 
   my $is_ptr=peso::ptr::valid($node->value);
-  my $is_name=$node->value=~ m/${pesonames}*/;
+  my $is_name=$node->lang->valid_name(
+    $node->value
+
+  );
 
 # ---   *   ---   *   ---
 
@@ -649,7 +704,7 @@ sub treesolve {
   my $node=shift;
   my $type=shift;
 
-  my $pesc=peso::decls::pesc;
+  my $pesc=$node->lang->pesc;
 
   # save current cast and override
   my $wed=peso::ptr::wed('get');

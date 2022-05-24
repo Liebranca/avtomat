@@ -27,17 +27,11 @@ lang::def::nit(
 
   -NAME=>'peso',
 
-  -EXT=>peso::decls::ext,
-  -HED=>peso::decls::hed,
-  -MAG=>peso::decls::mag,
-  -COM=>peso::decls::com,
-
-# ---   *   ---   *   ---
-
-  -NAMES=>peso::decls::names,
+  -EXT=>'\.(pe)$',
+  -HED=>'\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$',
+  -MAG=>'$ program',
 
   -OP_PREC=>peso::ops->def,
-  -OPS=>lang::hashpat(peso::ops->def),
 
 # ---   *   ---   *   ---
 

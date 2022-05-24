@@ -23,63 +23,64 @@ package peso::program;
   use peso::defs;
 
 # ---   *   ---   *   ---
-# global state
+# global kick
 
-my %CACHE=(
+sub nit($) {
 
-  -NXINS=>0,
-  -NODES=>[],
+  my ($lang)=@_;
 
-);
+  my $self=bless {
 
-# ---   *   ---   *   ---
-# bit of a global kick
+    -NXINS=>0,
+    -NODES=>[],
 
-sub nit {
+    -LANG=>$lang,
 
-  setnxins(0);
+  },'peso::program';
 
-  peso::blk::gblnit();
-  peso::node::loadnumcon(
-    peso::defs::NUMCON
+  $h->{-BLK}=peso::blk::new_frame($h);
+  $h->{-BLK}=peso::ptr::new_frame($h);
 
-  );
-
-};
-
-# ---   *   ---   *   ---
-# getters
-
-sub nxins {return $CACHE{-NXINS};};
-
-# ---   *   ---   *   ---
-# setters
-
-sub setnxins {
-  $CACHE{-NXINS}=shift;
-  peso::blk::nxins($CACHE{-NXINS});
-
-};sub incnxins {
-  $CACHE{-NXINS}++;
-  peso::blk::nxins($CACHE{-NXINS});
+  $self->nxins(0);
+  $self->blk->gblnit();
 
 };
+
+# ---   *   ---   *   ---
+# getters/setters
+
+sub nxins($;$) {
+
+  my ($self,$new)=@_;
+  if(defined $new) {
+    $self->{-NXINS}=$new;
+
+  };return $self->{-NXINS};
+
+};sub incnxins($) {((shift)->{-NXINS})++;};
 
 # ---   *   ---   *   ---
 # save node/tree for later use
 
-sub setnode {
+sub nodes($) {
 
-  my $node=shift;
+  my ($self)=@_;
+  return $self->{-NODES};
 
-  push @{$CACHE{-NODES}},$node;
-  return int(@{$CACHE{-NODES}})-1;
+};
+
+sub setnode($$) {
+
+  my ($self,$node)=@_;
+
+  push @{$self->nodes},$node;
+  return int(@{$self->nodes})-1;
 
 # ^get saved node from index
-};sub getnode {
+};sub getnode($$) {
 
-  my $idex=shift;
-  return $CACHE{-NODES}->[$idex];
+  my ($self,$idex)=@_;
+  return $self->nodes->[$idex];
 
 };
 

@@ -302,10 +302,6 @@ sub eaf {
 # ---   *   ---   *   ---
 # parse utils
 
-sub dqstr {return DICT->{-GPRE}->{-DELM2}->[0]->[1];};
-sub sqstr {return DICT->{-GPRE}->{-DELM2}->[1]->[1];};
-sub restr {return DICT->{-GPRE}->{-DELM3}->[0]->[1];};
-
 ;;sub cut_token_re {
   return ':__[A-Z]+_CUT_[\dA-F]+__:';
 
@@ -699,10 +695,7 @@ my %DEFAULTS=(
   -DEL_OPS=>'[\{\[\(\)\]\}\\\\]',
   -NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}\\\\]',
 
-  -PESC=>
-
-    '\$\:(([^;\\]|;[^>\\]|\\;>'.
-    '|[^\\;>]|\\[^\\;>]|\\[^;]|\\[^>])*);>',
+  -PESC=>lang::delim2('$:',';>'),
 
 # ---   *   ---   *   ---
 
@@ -723,31 +716,22 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
-  -DELM0=>lang::delim('`'),
-  -DELM1=>lang::delim2('$:',';>'),
+  -SHCMD=>lang::delim('`'),
 
-  -DELM2=>
+  -CHAR=>lang::delim("'"),
+  -STRING=>lang::delim('"'),
 
-    lang::delim('"').'|'.
-    lang::delim("'"),
-
-  -DELM3=>
+  -REGEX=>
 
     '([m|s]+/([^/]|\\\\/)*/'.
     '(([^/]|\\\\/)*/)?([\w]+)?)',
 
 # ---   *   ---   *   ---
 
-  -HIER0=>
+  -HIER0=>'$:drfc;>$:names;>',
+  -HIER1=>'(^|\s|[^_A-Za-z0-9:>\.])$:names;>$:drfc;>',
 
-    '($:names;>$:drfc;>)|'.
-    '($:drfc;>$:names;>$:drfc;>)',
-
-  -HIER1=>
-
-    '\b$:names;>$:drfc;>$:names;>$:drfc;>',
-
-  -PFUN=>'\b$:names;>\s*\\(',
+  -PFUN=>'$:names;>\s*\\(',
 
 # ---   *   ---   *   ---
 
@@ -774,6 +758,35 @@ my %DEFAULTS=(
     # decimal
     '((\b[0-9]*|\.)+[0-9]+f?)\b',
 
+  ],
+
+# ---   *   ---   *   ---
+
+  -NUMCON=>[
+
+    # hex conversion
+    [ lang->peso->nums->[0],
+      \&lang::pehexnc
+
+    ],
+
+    # ^bin
+    [ lang->peso->nums->[1],
+      \&lang::pebinnc
+
+    ],
+
+    # ^octal
+    [ lang->peso->nums->[2],
+      \&lang::peoctnc
+
+    ],
+
+    # decimal notation: as-is
+    [ lang->peso->nums->[3],
+      sub {return (shift);}
+
+    ],
   ],
 
 # ---   *   ---   *   ---
@@ -840,13 +853,19 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
-  if(!exists $ref->{-OPS}) {
+  if(!keys %{$ref->{-OP_PREC}}) {
     $ref->{-OPS}='('.
 
       $ref->{-DEL_OPS}.'|'.
       $ref->{-NDEL_OPS}.
 
     ')';
+
+  } else {
+    $ref->{-OPS}=lang::hashpat(
+      $ref->{-OP_PREC}
+
+    );
 
   };
 
@@ -921,6 +940,9 @@ sub keyw {return (shift)->{-KEYS};};
 sub vars {return (shift)->{-VARS};};
 sub biltn {return (shift)->{-BILTN};};
 
+sub nums {return (shift)->{-NUMS};};
+sub numcon {return (shift)->{-NUMCON};};
+
 # ---   *   ---   *   ---
 
 sub valid_name {
@@ -934,6 +956,66 @@ sub valid_name {
     return $s=~ m/^${name}*/;
 
   };return 0;
+};
+
+# ---   *   ---   *   ---
+
+sub char {return (shift)->{-CHAR};};
+
+sub is_char {
+
+  my $self=shift;
+  my $s=shift;
+
+  my $char=$self->char;
+
+  return int($s=~ m/${char}/);
+
+};
+
+# ---   *   ---   *   ---
+
+sub string {return (shift)->{-STRING};};
+
+sub is_str {
+
+  my $self=shift;
+  my $s=shift;
+
+  my $string=$self->string;
+
+  return int($s=~ m/${string}/);
+
+};
+
+# ---   *   ---   *   ---
+
+sub shcmd {return (shift)->{-SHCMD};};
+
+sub is_shcmd {
+
+  my $self=shift;
+  my $s=shift;
+
+  my $shcmd=$self->shcmd;
+
+  return int($s=~ m/${shcmd}/);
+
+};
+
+# ---   *   ---   *   ---
+
+sub regex {return (shift)->{-REGEX};};
+
+sub is_regex {
+
+  my $self=shift;
+  my $s=shift;
+
+  my $regex=$self->regex;
+
+  return int($s=~ m/${regex}/);
+
 };
 
 # ---   *   ---   *   ---

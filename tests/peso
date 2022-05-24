@@ -9,12 +9,15 @@
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/avtomat/';
+
   use peso::rd;
+  use peso::program;
+
   use langdefs::peso;
 
 my $exps=peso::rd::mam(
 
-  -PESO,
+  lang->peso,
   peso::rd->STR,q(
 
 (*a++);

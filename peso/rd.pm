@@ -56,11 +56,11 @@ package peso::rd;
 
 sub nit {
 
-  my $langkey=shift;
+  my $lang=shift;
 
   return bless {
 
-    -LANG=>$langkey,
+    -LANG=>$lang,
 
     -LINE=>'',
     -REM=>'',
@@ -90,8 +90,8 @@ sub clean {
 
   my $self=shift;
 
-  my $com=lang::comment($self->langkey);
-  my $eb=lang::exp_bound($self->langkey);
+  my $com=$self->lang->com;
+  my $eb=$self->lang->exp_bound;
 
   # strip comments
   $self->{-LINE}=~ s/${com}.*//g;
@@ -135,8 +135,8 @@ sub slexps {
   my $self=shift;
   $self->join_rem();
 
-  my $eb=lang::exp_bound($self->langkey);
-  my $sb=lang::scope_bound($self->langkey);
+  my $eb=$self->lang->exp_bound;
+  my $sb=$self->lang->scope_bound;
 
   my @ar=split
 
@@ -165,8 +165,8 @@ sub mlexps {
 
   my $self=shift;
 
-  my $eb=lang::exp_bound($self->langkey);
-  my $sb=lang::scope_bound($self->langkey);
+  my $eb=$self->lang->exp_bound;
+  my $sb=$self->lang->scope_bound;
 
   my @ar=split m/([${sb}])|${eb}/,$self->line;
   my $entry=pop @ar;
@@ -213,7 +213,7 @@ sub fopen {
   my $self=shift;
   $self->wipe();
 
-  my $hed=lang::file_header($self->langkey);
+  my $hed=$self->lang->hed;
 
   # open file
   $self->{-FNAME}=glob(shift);open
@@ -257,8 +257,8 @@ sub expsplit {
 
   my $self=shift;
 
-  my $eb=lang::exp_bound($self->langkey);
-  my $sb=lang::scope_bound($self->langkey);
+  my $eb=$self->lang->exp_bound;
+  my $sb=$self->lang->scope_bound;
 
   $rdprocs
     ->[$self->line=~ m/([${sb}])|${eb}$|${eb}/]
@@ -333,13 +333,13 @@ sub expsplit {
 
 sub mam {
 
-  my $langkey=shift;
+  my $lang=shift;
   my $mode=shift;
   my $src=shift;
 
-  my $rd=nit($langkey);
+  my $rd=nit($lang);
 
-  peso::program::nit();
+  peso::program::nit($lang);
   (\&file,\&string)[$mode]->($rd,$src);
 
 # ---   *   ---   *   ---

@@ -41,13 +41,6 @@ sub id {
 
 # ---   *   ---   *   ---
 
-sub names {return $DICT{-NAMES};};
-sub ops {return $DICT{-OPS};};
-sub cde {return $DICT{-CDE};};
-sub ode {return $DICT{-ODE};};
-sub del_ops {return $DICT{-DEL_OPS};};
-sub ndel_ops {return $DICT{-NDEL_OPS};};
-sub pesc {return $DICT{-PESC};};
 sub sizes {return $DICT{-SIZES};};
 sub types {return $DICT{-TYPES}};
 sub types_re {return $DICT{-TYPES_RE}};
@@ -57,20 +50,6 @@ sub bafb {return $DICT{-BAFB};};
 sub bafc {return $DICT{-BAFC};};
 sub bafd {return $DICT{-BAFD};};
 sub bafe {return $DICT{-BAFE};};
-
-sub ext {return $DICT{-EXT};};
-sub mag {return $DICT{-MAG};};
-sub hed {return $DICT{-HED};};
-sub com {return $DICT{-COM};};
-
-sub string {return $DICT{-STRING};};
-
-sub is_str {
-
-  my $s=shift;my $string=string();
-  return int($s=~ m/${string}/);
-
-};
 
 # ---   *   ---   *   ---
 
@@ -87,29 +66,6 @@ sub intrinsic {
 # actual def
 
 %DICT=(
-
-# ---   *   ---   *   ---
-# common patterns
-
--NAMES=>'[_a-zA-Z][_a-zA-Z0-9]',
-
--ODE=>'[\(\[\{]',
--CDE=>'[\}\]\)]',
-
--DEL_OPS=>'[\{\[\(\)\]\}\\\\]',
--NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}\\\\]',
-
--PESC=>'\$\:(([^;\\]|;[^>\\]|\\;>|[^\\;>]|\\[^\\;>]|\\[^;]|\\[^>])*);>',
-
--STRING=>lang::delim('"'),
-
-# ---   *   ---   *   ---
-# file stuff
-
--HED=>'\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$',
--EXT=>'\.(pe)$',
--MAG=>'$ program',
--COM=>'#',
 
 # ---   *   ---   *   ---
 # leaps and such

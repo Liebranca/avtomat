@@ -483,44 +483,12 @@ DEFINE('value_decl',peso::decls::bafe,sub {
 });
 
 # ---   *   ---   *   ---
-
-ALIAS('char','value_decl');
-
-# ---   *   ---   *   ---
 # defs end
 
 # ---   *   ---   *   ---
-# misc definitions
+# alternate names for certain calls
 
-my $NUMCON=[
-
-  # hex conversion
-  [ lang::DICT->{-GPRE}->{-NUMS}->[0]->[1],
-    \&lang::pehexnc
-
-  ],
-
-  # ^bin
-  [ lang::DICT->{-GPRE}->{-NUMS}->[1]->[1],
-    \&lang::pebinnc
-
-  ],
-
-  # ^octal
-  [ lang::DICT->{-GPRE}->{-NUMS}->[2]->[1],
-    \&lang::peoctnc
-
-  ],
-
-  # decimal notation: as-is
-  [ '(((\b[1-9][0-9]*|\.)+[0-9]+f?)\b)|'.
-    '(\b[1-9][0-9]*\b)',
-
-    sub {return (shift);}
-
-  ],
-
-];sub NUMCON {return $NUMCON;};
+ALIAS('char','value_decl');
 
 # ---   *   ---   *   ---
 1; # ret
