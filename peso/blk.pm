@@ -47,168 +47,10 @@ package peso::blk;
   };
 
 # ---   *   ---   *   ---
-
-sub new_frame($) {
-
-  my $master=shift;
-
-  return bless {
-
-    -SELF=>undef,
-    -SOIL=>undef,
-    -CURR=>undef,
-
-    -DST=>undef,
-
-    -BLOCKS=>undef,
-    -BBID=>[0..0xFF],
-    -BIDS=>stack::nit(stack::slidex(0x100)),
-
-    -NXINS=>0,
-    -INS_ARR=>[],
-
-    -ENTRY=>'nit',
-
-    -PASS=>0,
-    -PRSTK=>undef,
-
-    -MASTER=>$master,
-
-  },'peso::blk';
-
-};sub frame {return (shift)->{-FRAME};};
-;;sub master {
-
-  my ($self)=@_;
-
-  if(exists $self->{-MASTER}) {
-    return $self->{-MASTER};
-
-  };return $self->frame->{-MASTER};
-};
-
-# ---   *   ---   *   ---
-# in: block name
-# errchk and get root block
-
-sub clan($$) {
-
-  my ($self,$key)=@_;
-
-# ---   *   ---   *   ---
-# return local scope
-
-  if($key eq 'self') {
-    return $self->{-SELF};
-
-# ---   *   ---   *   ---
-# return base block
-
-  } elsif($key eq 'non') {
-    return $self->{-SOIL};
-
-# ---   *   ---   *   ---
-# name lookup
-
-  } elsif(peso::ptr::is_block_ref($key)) {
-    return peso::ptr::fetch($key)->blk;
-
-# ---   *   ---   *   ---
-# throw err
-
-  } else {
-    printf "No root block named '$key'\n";
-    exit;
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# in: frame, block instance
-# scope to block
-
-sub setscope {
-
-  my ($frame,$blk)=shift;
-
-  $frame->{-SELF}=$blk;
-
-  if(!$frame->{-SCOPE}) {
-    $frame->{-SCOPE}=$blk;
-
-  };
-
-# ---   *   ---   *   ---
-# add scope names to list
-
-  my @ar=($frame->{-SELF}->ances);
-  if(defined $frame->{-CURR}) {
-
-    my $curr=$frame->{-CURR};
-    push @ar,$curr->ances;
-
-    if(defined $curr->par) {
-      push @ar,$curr->par->ances;
-
-    };
-
-  };
-
-# ---   *   ---   *   ---
-# ensure global scope is... well, global
-
-  my $hasnon=0;
-  for my $name(@ar) {
-    if($name eq 'non') {
-      $hasnon=1;
-      last;
-
-    };
-  };
-
-  if(!$hasnon) {push @ar,'non';};
-  peso::ptr::setscope(@ar);
-
-};
-
-# ---   *   ---   *   ---
-# in: frame, block instance
-# set current local space
-
-sub setcurr {
-
-  my ($frame,$blk)=@_;
-  $frame->{-CURR}=$blk;
-
-};
-
-# ---   *   ---   *   ---
-# program stack methods
-
-sub prstk($) {
-
-  my ($frame)=@_;
-  return $frame->{-PRSTK};
-
-};
-
-sub spush($$) {
-
-  my ($frame,$v)=@_;
-  $frame->prstk->spush($v);
-
-};sub spop($) {
-
-  my ($frame)=@_;
-  return $frame->prstk->spop;
-
-};
-
-# ---   *   ---   *   ---
 # in: name,parent,permissions
 # creates a new data/instruction block
 
+sub new_frame($) {peso::blk::frame::create(shift);};
 sub nit($$$$) {
 
   my $frame=shift;
@@ -236,7 +78,7 @@ sub nit($$$$) {
     -PAR=>$parent,
     -CHILDREN=>[],
     -STACK=>stack::nit(stack::slidex(0x100)),
-    -SCOPE=>$CACHE{-SELF},
+    -SCOPE=>$frame->{-SELF},
 
     -ELEMS=>{},
     -ATTRS=>$attrs,
@@ -285,32 +127,12 @@ sub nit($$$$) {
 };
 
 # ---   *   ---   *   ---
-# initialize globals
-
-sub gblnit($) {
-
-  my ($master)=@_;
-  my $frame=$master->blk;
-
-  $frame->{-SOIL}=$frame->nit(
-    undef,'non',undef
-
-  );$frame->DST($frame->{-SOIL});
-
-  $frame->{-BLOCKS}=$frame->{-SOIL}->{-ELEMS};
-  $frame->{-PRSTK}=stack::nit(0,[]);
-
-  return $frame->{-SOIL};
-
-};
-
-# ---   *   ---   *   ---
 # convenience settings for sub-blocks
 
-sub addchld {
+sub addchld($$) {
 
-  my $self=shift;
-  my $blk=shift;
+  my ($self,$blk)=@_;
+  my $frame=$self->frame;
 
   my $i=$self->sstack->spop();
   my $j=$self->{-ID};
@@ -334,8 +156,8 @@ sub addchld {
   $self->children->[$i]=$blk;
   $blk->{-PAR}=$self;
 
-  peso::ptr::declscope(
-    $blk->ances,@{peso::ptr::MEM()}
+  $frame->master->ptr->declscope(
+    $blk->ances,@{$frame->master->ptr->MEM()}
 
   );
 
@@ -344,18 +166,21 @@ sub addchld {
 # ---   *   ---   *   ---
 # getters
 
-sub name {return (shift)->{-NAME};};
-sub elems {return (shift)->{-ELEMS};};
-sub par {return (shift)->{-PAR};};
-sub children {return (shift)->{-CHILDREN};};
-sub sstack {return (shift)->{-STACK};};
+sub name($) {return (shift)->{-NAME};};
+sub elems($) {return (shift)->{-ELEMS};};
+sub par($) {return (shift)->{-PAR};};
+sub children($) {return (shift)->{-CHILDREN};};
+sub sstack($) {return (shift)->{-STACK};};
 
-sub scope {return (shift)->{-SCOPE};};
+sub scope($) {return (shift)->{-SCOPE};};
 
-sub size {return (shift)->{-SIZE};};
-sub attrs {return (shift)->{-ATTRS};};
+sub size($) {return (shift)->{-SIZE};};
+sub attrs($) {return (shift)->{-ATTRS};};
 
-sub insid {return (shift)->{-INSID};};
+sub insid($) {return (shift)->{-INSID};};
+
+sub frame($) {return (shift)->{-FRAME};};
+sub master($) {return (shift)->frame->{-MASTER};};
 
 sub ins($) {
 
@@ -373,10 +198,9 @@ sub ins($) {
 # ---   *   ---   *   ---
 # find ancestors recursively
 
-sub ances {
+sub ances($$) {
 
-  my $self=shift;
-  my $name=$self->name;
+  my ($self,$name)=@_;
 
   if($self->par) {
     $name=$self->par->ances().'@'.$name;
@@ -386,58 +210,12 @@ sub ances {
 };
 
 # ---   *   ---   *   ---
-# frame getters/setters
-
-sub entry($;$) {
-
-  my ($self,$new)=@_;
-
-  if(defined $new) {
-    $self->{-ENTRY}=$new;
-
-  };return $self->{-ENTRY};
-
-};sub nxins {
-
-  my ($self,$new)=@_;
-
-  if(defined $new) {
-    $self->{-NXINS}=$new;
-
-  };return $self->{-NXINS};
-
-};
-
-# ---   *   ---   *   ---
-
-sub DATA {return (shift)->{-DATA};};
-sub INS {return (shift)->{-INS_ARR};};
-
-sub incpass {(shift)->{-PASS}++;};
-sub fpass {return !((shift)->{-PASS});};
-
-# ---   *   ---   *   ---
-# adjusts current write-to
-
-sub DST($;$) {
-
-  my ($self,$new)=@_;
-
-  if(defined $new) {
-    $self->{-DST}=$new;
-
-  };return $self->{-DST};
-
-};sub NON {return (shift)->{-SOIL};};
-
-# ---   *   ---   *   ---
 # in: block, element name
 # lookup errme shorthand
 
-sub no_such_elem {
+sub no_such_elem($$) {
 
-  my $self=shift;
-  my $name=shift;
+  my ($self,$name)=@_;
 
   printf "Block <".$self->ances.'> '.
   "has no member named '".$name."'\n";
@@ -451,17 +229,16 @@ sub no_such_elem {
 # in: element name, redecl guard
 # errcheck for bad fetch
 
-sub haselem {
+sub haselem($$$) {
 
-  my $self=shift;
-  my $name=shift;
-  my $redecl=shift;
+  my ($self,$name,$redecl)=@_;
+  my $fr_ptr=$self->frame->master->ptr;
 
 # ---   *   ---   *   ---
 # solve compound name (module@sub@elem)
 
   if($name=~ m/@/) {
-    my $blk=peso::ptr::fetch($name)->blk;
+    my $blk=$fr_ptr->fetch($name)->blk;
     $self=$blk;
 
 # ---   *   ---   *   ---
@@ -506,12 +283,14 @@ sub haselem {
 
 # inserts new elements into block
 
-sub expand {
+sub expand($$$$) {
 
   my $self=shift;
   my $ref=shift;
   my $type=shift;
   my $bypass=shift;
+
+  my $fr_ptr=$self->frame->master->ptr;
 
 # ---   *   ---   *   ---
 # get size from type, in bytes
@@ -553,7 +332,7 @@ sub expand {
     my $v=$ar->[1];
 
     # prohibit redeclaration
-    if(fpass()) {
+    if($frame->fpass()) {
       $self->haselem($k,1);
 
     };
@@ -567,16 +346,14 @@ sub expand {
 #  >create ptr instance
 #  >save reference to elems
 
-    if($self->frame->fpass() || $bypass) {
+    if($frame->fpass() || $bypass) {
 
       if(!$bypass) {$v=$self;};
-      $self->elems->{$k}=peso::ptr::nit(
+      $self->elems->{$k}=$fr_ptr->nit(
 
         $k,$self->ances,
         $j,$gran,$shf,$type,
-        $elem_sz,$v,
-
-        $self->master->lang,
+        $elem_sz,$v
 
       );
 
@@ -603,8 +380,8 @@ sub expand {
 
       # reserve a new unit
       # grow block on first pass
-      if(fpass()) {
-        peso::ptr::nunit();
+      if($frame->fpass()) {
+        $fr_ptr->nunit();
 
       };$j++;$i=0;
 
@@ -617,14 +394,12 @@ sub expand {
 # in: name,value
 # sets value at offset
 
-sub setv {
+sub setv($$$) {
 
-  my $self=shift;
-  my $name=shift;
-  my $value=shift;
+  my ($self,$name,$value)=@_;
 
-  peso::ptr::fetch($name)
-    ->setv($value);
+  $fr_ptr=$self->frame->master->ptr;
+  $fr_ptr->fetch($name)->setv($value);
 
 };
 
@@ -632,12 +407,12 @@ sub setv {
 # in: name to fetch
 # returns stored value
 
-sub getv {
+sub getv($$) {
 
-  my $self=shift;
-  my $name=shift;
+  my ($self,$name)=@_;
 
-  return peso::ptr::fetch($name)->getv();
+  $fr_ptr=$self->frame->master->ptr;
+  return $fr_ptr->fetch($name)->getv();
 
 };
 
@@ -645,138 +420,12 @@ sub getv {
 # in: name to fetch
 # returns addr assoc with name
 
-sub getloc {
+sub getloc($$) {
 
-  my $self=shift;
-  my $name=shift;
+  my ($self,$name)=@_;
 
-  return peso::ptr::fetch($name)->addr;
-
-};
-
-# ---   *   ---   *   ---
-# recursive name solver
-
-sub refsolve_rec {
-
-  my $node=shift;
-
-  my $is_ptr=peso::ptr::valid($node->value);
-  my $is_name=$node->lang->valid_name(
-    $node->value
-
-  );
-
-# ---   *   ---   *   ---
-
-  if($is_name || $is_ptr) {
-
-    if(fpass()) {
-      return;
-
-    } elsif($is_ptr) {
-      $node->value($node->value->addr);
-
-    };
-
-# ---   *   ---   *   ---
-
-  } else {
-    for my $leaf(@{$node->leaves}) {
-      refsolve_rec($leaf);
-
-    };
-
-  };
-};
-
-# ---   *   ---   *   ---
-# in:tree,
-
-# block-deref
-#   0|undef:common ptr
-#   !0:block ptr
-
-# solve operations in tree
-
-sub treesolve {
-
-  my $node=shift;
-  my $type=shift;
-
-  my $pesc=$node->lang->pesc;
-
-  # save current cast and override
-  my $wed=peso::ptr::wed('get');
-  if($type) {peso::ptr::wed($type);};
-
-# ---   *   ---   *   ---
-# iter tree
-
-  for my $leaf(@{$node->leaves},$node) {
-
-    # skip $:escaped;>
-    if($leaf->value=~ m/${pesc}/) {
-      next;
-
-    };
-
-    # solve/fetch non-numeric values
-    if(!($leaf->value=~ m/^[0-9]+/)) {
-      refsolve_rec($leaf);
-      $leaf->collapse();
-
-    };
-
-  };
-
-# ---   *   ---   *   ---
-# restore cast and dereference pointers
-
-  ptrderef_rec($node);
-  $node->collapse();
-
-  peso::ptr::wed($wed);
-
-};
-
-# ---   *   ---   *   ---
-# in: tree
-# recursively solve pointer dereferences
-
-sub ptrderef_rec {
-
-  my $node=shift;
-
-# ---   *   ---   *   ---
-# value is ptr dereference
-
-  if($node->value eq '[') {
-
-    my $leaf=$node->leaves->[0];
-    my $is_ptr=peso::ptr::valid($leaf->value);
-
-    if($is_ptr) {
-      $node->value($leaf->value->getv());
-
-    } else {
-      $node->value(
-        peso::ptr::fetch($leaf->value)->getv()
-
-      );
-
-    };$node->pluck(@{$node->leaves});
-
-# ---   *   ---   *   ---
-# not a pointer derefernce: go to next level
-
-  } else {
-
-    for my $leaf(@{$node->leaves}) {
-      ptrderef_rec($leaf);
-
-    };
-  };
+  $fr_ptr=$self->frame->master->ptr;
+  return $fr_ptr->fetch($name)->addr();
 
 };
 
@@ -881,6 +530,363 @@ sub prich {
 
   };peso::ptr::wed($wed);
 
+};
+
+# ---   *   ---   *   ---
+# mngr class
+
+package peso::blk::frame;
+  use strict;
+  use warnings;
+
+# ---   *   ---   *   ---
+# getters/setters
+
+sub entry($;$) {
+
+  my ($frame,$new)=@_;
+
+  if(defined $new) {
+    $frame->{-ENTRY}=$new;
+
+  };return $frame->{-ENTRY};
+
+};sub nxins($;$) {
+
+  my ($frame,$new)=@_;
+
+  if(defined $new) {
+    $frame->{-NXINS}=$new;
+
+  };return $frame->{-NXINS};
+
+};
+
+# ---   *   ---   *   ---
+
+sub INS($) {return (shift)->{-INS_ARR};};
+
+sub incpass($) {(shift)->{-PASS}++;};
+sub fpass($) {return !((shift)->{-PASS});};
+
+# ---   *   ---   *   ---
+# adjusts current write-to
+
+sub DST($;$) {
+
+  my ($frame,$new)=@_;
+
+  if(defined $new) {
+    $frame->{-DST}=$new;
+
+  };return $frame->{-DST};
+
+};sub NON {return (shift)->{-SOIL};};
+
+# ---   *   ---   *   ---
+# constructors
+
+sub nit($$$$) {peso::blk::nit(@_);};
+sub create($) {
+
+  my $master=shift;
+  my $frame=bless {
+
+    -SELF=>undef,
+    -SOIL=>undef,
+    -CURR=>undef,
+
+    -DST=>undef,
+
+    -BLOCKS=>undef,
+    -BBID=>[0..0xFF],
+    -BIDS=>stack::nit(stack::slidex(0x100)),
+
+    -NXINS=>0,
+    -INS_ARR=>[],
+
+    -ENTRY=>'nit',
+
+    -PASS=>0,
+    -PRSTK=>undef,
+
+    -MASTER=>$master,
+
+  },'peso::blk::frame';
+
+  $frame->{-SOIL}=$frame->nit(
+    undef,'non',undef
+
+  );$frame->DST($frame->{-SOIL});
+
+  $frame->{-BLOCKS}=$frame->{-SOIL}->{-ELEMS};
+  $frame->{-PRSTK}=stack::nit(0,[]);
+
+  return $frame;
+
+};
+
+# ---   *   ---   *   ---
+# in: block name
+# errchk and get root block
+
+sub clan($$) {
+
+  my ($frame,$key)=@_;
+
+# ---   *   ---   *   ---
+# return local scope
+
+  if($key eq 'self') {
+    return $frame->{-SELF};
+
+# ---   *   ---   *   ---
+# return base block
+
+  } elsif($key eq 'non') {
+    return $frame->{-SOIL};
+
+# ---   *   ---   *   ---
+# name lookup
+
+  } elsif(
+
+      $frame->master
+      ->ptr->is_block_ref($key)
+
+  ) {
+
+    return
+
+      $frame->master
+      ->ptr->fetch($key)->blk
+
+    ;
+
+# ---   *   ---   *   ---
+# throw err
+
+  } else {
+    printf "No root block named '$key'\n";
+    exit;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# in: block instance
+# scope frame to block
+
+sub setscope($$) {
+
+  my ($frame,$blk)=shift;
+
+  $frame->{-SELF}=$blk;
+
+  if(!$blk->{-SCOPE}) {
+    $blk->{-SCOPE}=$blk;
+
+  };
+
+# ---   *   ---   *   ---
+# add scope names to list
+
+  my @ar=($frame->{-SELF}->ances);
+  if(defined $frame->{-CURR}) {
+
+    my $curr=$frame->{-CURR};
+    push @ar,$curr->ances;
+
+    if(defined $curr->par) {
+      push @ar,$curr->par->ances;
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+# ensure global scope is... well, global
+
+  my $hasnon=0;
+  for my $name(@ar) {
+    if($name eq 'non') {
+      $hasnon=1;
+      last;
+
+    };
+  };
+
+  if(!$hasnon) {push @ar,'non';};
+  $frame->master->ptr->setscope(@ar);
+
+};
+
+# ---   *   ---   *   ---
+# in: frame, block instance
+# set current local space
+
+sub setcurr($$) {
+
+  my ($frame,$blk)=@_;
+  $frame->{-CURR}=$blk;
+
+};
+
+# ---   *   ---   *   ---
+# program stack methods
+
+sub prstk($) {
+
+  my ($frame)=@_;
+  return $frame->{-PRSTK};
+
+};
+
+sub spush($$) {
+
+  my ($frame,$v)=@_;
+  $frame->prstk->spush($v);
+
+};sub spop($) {
+
+  my ($frame)=@_;
+  return $frame->prstk->spop;
+
+};
+
+# ---   *   ---   *   ---
+# in:tree,
+
+# block-deref
+#   0|undef:common ptr
+#   !0:block ptr
+
+# solve operations in tree
+
+sub treesolve($$$) {
+
+  my ($frame,$node,$type)=@_;
+
+  my $master=$frame->master;
+  my $fr_ptr=$master->ptr;
+
+  my $pesc=$master->lang->pesc;
+
+  # save current cast and override
+  my $wed=$fr_ptr->wed('get');
+  if($type) {$fr_ptr->wed($type);};
+
+# ---   *   ---   *   ---
+# iter tree
+
+  for my $leaf(@{$node->leaves},$node) {
+
+    # skip $:escaped;>
+    if($leaf->value=~ m/${pesc}/) {
+      next;
+
+    };
+
+    # solve/fetch non-numeric values
+    if(!($leaf->value=~ m/^[0-9]+/)) {
+      $frame->refsolve_rec($leaf);
+      $leaf->collapse();
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+# restore cast and dereference pointers
+
+  $frame->ptrderef_rec($node);
+  $node->collapse();
+
+  $fr_ptr->wed($wed);
+
+};
+
+# ---   *   ---   *   ---
+# in: tree
+# recursively solve pointer dereferences
+
+sub ptrderef_rec($$) {
+
+  my ($frame,$node)=@_;
+
+  my $master=$frame->master;
+  my $fr_ptr=$master->ptr;
+
+# ---   *   ---   *   ---
+# value is ptr dereference
+
+  if($node->value eq '[') {
+
+    my $leaf=$node->leaves->[0];
+    my $is_ptr=$fr_ptr->valid($leaf->value);
+
+    if($is_ptr) {
+      $node->value($leaf->value->getv());
+
+    } else {
+      $node->value(
+        $fr_ptr->fetch($leaf->value)->getv()
+
+      );
+
+    };$node->pluck(@{$node->leaves});
+
+# ---   *   ---   *   ---
+# not a pointer derefernce: go to next level
+
+  } else {
+
+    for my $leaf(@{$node->leaves}) {
+      $frame->ptrderef_rec($leaf);
+
+    };
+  };
+
+};
+
+# ---   *   ---   *   ---
+# recursive name solver
+
+sub refsolve_rec($$) {
+
+  my ($frame,$node)=@_;
+
+  my $master=$frame->master;
+  my $fr_ptr=$master->ptr;
+
+  my $is_ptr=$fr_ptr->valid($node->value);
+  my $is_name=$master->lang->valid_name(
+    $node->value
+
+  );
+
+# ---   *   ---   *   ---
+
+  if($is_name || $is_ptr) {
+
+    if($frame->fpass()) {
+      return;
+
+    } elsif($is_ptr) {
+      $node->value($node->value->addr);
+
+    };
+
+# ---   *   ---   *   ---
+
+  } else {
+    for my $leaf(@{$node->leaves}) {
+      $frame->refsolve_rec($leaf);
+
+    };
+
+  };
 };
 
 # ---   *   ---   *   ---

@@ -695,7 +695,7 @@ my %DEFAULTS=(
   -DEL_OPS=>'[\{\[\(\)\]\}\\\\]',
   -NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}\\\\]',
 
-  -PESC=>lang::delim2('$:',';>'),
+  -PESC=> lang::delim2('$:',';>'),
 
 # ---   *   ---   *   ---
 
@@ -716,10 +716,10 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
-  -SHCMD=>lang::delim('`'),
+  -SHCMD=> lang::delim('`'),
 
-  -CHAR=>lang::delim("'"),
-  -STRING=>lang::delim('"'),
+  -CHAR=> lang::delim("'"),
+  -STRING=> lang::delim('"'),
 
   -REGEX=>
 
@@ -765,25 +765,25 @@ my %DEFAULTS=(
   -NUMCON=>[
 
     # hex conversion
-    [ lang->peso->nums->[0],
+    [ '$:nums 0;>',
       \&lang::pehexnc
 
     ],
 
     # ^bin
-    [ lang->peso->nums->[1],
+    [ '$:nums 1;>',
       \&lang::pebinnc
 
     ],
 
     # ^octal
-    [ lang->peso->nums->[2],
+    [ '$:nums 2;>',
       \&lang::peoctnc
 
     ],
 
     # decimal notation: as-is
-    [ lang->peso->nums->[3],
+    [ '$:nums 3;>',
       sub {return (shift);}
 
     ],
@@ -839,6 +839,7 @@ my %DEFAULTS=(
   my %h=@_;
   my $ref={};
 
+  # set defaults when key not present
   for my $key(keys %DEFAULTS) {
 
     if(exists $h{$key}) {
@@ -852,6 +853,15 @@ my %DEFAULTS=(
   };
 
 # ---   *   ---   *   ---
+# make type-matching pattern
+
+  $ref->{-TYPES_RE}=lang::hashpat(
+    $ref->{-TYPES}
+
+  );
+
+# ---   *   ---   *   ---
+# handle creation of operator pattern
 
   if(!keys %{$ref->{-OP_PREC}}) {
     $ref->{-OPS}='('.
@@ -872,9 +882,12 @@ my %DEFAULTS=(
   $ref->{-LCOM}=lang::eaf($ref->{-COM},0,1);
 
 # ---   *   ---   *   ---
+# replace $:tokens;> with values
 
   my $names=$ref->{-NAMES};
   my $drfc=$ref->{-DRFC};
+
+  my $nums=$ref->{-NUMS};
 
   for my $key(keys %{$ref}) {
 
@@ -883,12 +896,30 @@ my %DEFAULTS=(
         $v=~ s/\$:names;>/$names/sg;
         $v=~ s/\$:drfc;>/$drfc/sg;
 
+        while($v=~ m/\$:nums (\d*);>/) {
+
+          my $idex=$1;
+          my $pat=$nums->[$idex];
+
+          $v=~ s/\$:nums ${idex};>/$pat/;
+
+        };
+
       };
 
     } else {
 
       $ref->{$key}=~ s/\$:names;>/$names/sg;
       $ref->{$key}=~ s/\$:drfc;>/$drfc/sg;
+
+      while($ref->{$key}=~ m/\$:nums (\d*);>/) {
+
+        my $idex=$1;
+        my $pat=$nums->[$idex];
+
+        $ref->{$key}=~ s/\$:nums ${idex};>/$pat/;
+
+      };
 
     };
 
@@ -938,6 +969,8 @@ sub pesc {return (shift)->{-PESC};};
 sub names {return (shift)->{-NAMES};};
 sub keyw {return (shift)->{-KEYS};};
 sub vars {return (shift)->{-VARS};};
+sub types {return (shift)->{-TYPES};};
+sub types_re {return (shift)->{-TYPES_RE};};
 sub biltn {return (shift)->{-BILTN};};
 
 sub nums {return (shift)->{-NUMS};};

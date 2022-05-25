@@ -19,7 +19,9 @@ package langdefs::peso;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use lang;
+
   use peso::decls;
+  use peso::ops;
 
 # ---   *   ---   *   ---
 
@@ -35,15 +37,9 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  -VARS =>[
+  -TYPES=> peso::type::new_frame(peso::decls->TYPES),
 
-    # primitives
-    lang::eiths(
-
-      '('.peso::decls::types_re().
-      ')'.'[1-9]*,'
-
-    ,1),
+  -VARS=>[
 
     # intrinsics
     peso::decls::intrinsic,
@@ -65,7 +61,7 @@ lang::def::nit(
     lang::eiths(
 
       ( join ',',
-        keys %{peso::decls::bafa()}
+        keys %{peso::decls->BAFA}
 
       ).','.
 
@@ -85,13 +81,13 @@ lang::def::nit(
 
     # program flow
     lang::eiths(
-      (join ',',keys %{peso::decls::bafc()})
+      (join ',',keys %{peso::decls->BAFC})
 
     ,1),
 
     # directives
     lang::eiths(
-      (join ',',keys %{peso::decls::bafb()})
+      (join ',',keys %{peso::decls->BAFB})
 
     ,1),
 

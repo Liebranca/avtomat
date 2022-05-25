@@ -60,9 +60,11 @@ sub update {
 
   update(
 
-    [ '/peso/decls.pm',
-      '/peso/ops.pm',
+    [ '/lang.pm',
 
+      '/peso/decls.pm',
+      '/peso/ops.pm',
+      '/peso/type.pm',
 
       '/peso/rd.pm',
       '/peso/node.pm',
@@ -71,8 +73,6 @@ sub update {
       '/peso/sbl.pm',
       '/peso/defs.pm',
       '/peso/program.pm',
-
-      '/lang.pm',
 
       '/queue.pm',
       '/stack.pm',

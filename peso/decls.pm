@@ -19,58 +19,23 @@ package peso::decls;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use lang;
-  use peso::ops;
+  use peso::type;
 
 # ---   *   ---   *   ---
-# its just a big ole hash
-# needs fwd decl :c
+# utilities
 
-my %DICT=(
-
-  -BAF_ID=>0,
-
-);
-
-# ---   *   ---   *   ---
-# getters
-
-sub id {
-  return $DICT{-BAF_ID}++;
+my $BAF_ID=0;sub id {
+  return $BAF_ID++;
 
 };
 
 # ---   *   ---   *   ---
-
-sub sizes {return $DICT{-SIZES};};
-sub types {return $DICT{-TYPES}};
-sub types_re {return $DICT{-TYPES_RE}};
-
-sub bafa {return $DICT{-BAFA};};
-sub bafb {return $DICT{-BAFB};};
-sub bafc {return $DICT{-BAFC};};
-sub bafd {return $DICT{-BAFD};};
-sub bafe {return $DICT{-BAFE};};
-
-# ---   *   ---   *   ---
-
-sub intrinsic {
-  return lang::eiths(
-
-    join ',',
-    keys %{bafd()},1
-
-  );
-};
-
-# ---   *   ---   *   ---
-# actual def
-
-%DICT=(
+# DECLARATIONS START
 
 # ---   *   ---   *   ---
 # leaps and such
 
--SIZES=>{
+use constant TYPES=>[
 
   # primitives
   'char'=>1,
@@ -98,12 +63,12 @@ sub intrinsic {
 
   'signal'=>8,    # int(*signal)(int)
 
-},
+];
 
 # ---   *   ---   *   ---
 # builtins and functions, group A
 
--BAFA=>{
+use constant BAFA=>{
 
   'cpy'=>[id(),'2<ptr,ptr|bare>'],
   'mov'=>[id(),'2<ptr,ptr>'],
@@ -118,11 +83,11 @@ sub intrinsic {
 
   'exit'=>[id(),'1<ptr|bare>'],
 
-},
+};
 
 # ---   *   ---   *   ---
 
--BAFB=>{
+use constant BAFB=>{
 
   'reg'=>[id(),'1<bare>'],
   'rom'=>[id(),'1<bare>'],
@@ -134,11 +99,11 @@ sub intrinsic {
   'entry'=>[id(),'1<ptr>'],
   'atexit'=>[id(),'1<ptr>'],
 
-},
+};
 
 # ---   *   ---   *   ---
 
--BAFC=>{
+use constant BAFC=>{
 
   'jmp'=>[id(),'1<ptr>'],
   'jif'=>[id(),'2<ptr,ptr|bare>'],
@@ -149,13 +114,13 @@ sub intrinsic {
   'ret'=>[id(),'1<ptr>'],
   'wait'=>[id(),'1<ptr>'],
 
-},
+};
 
 # ---   *   ---   *   ---
 # missing/needs rethinking:
 # str,buf,fptr,lis,lock
 
--BAFD=>{
+use constant BAFD=>{
 
   'wed'=>[id(),'1<bare>'],
   'unwed'=>[id(),'0'],
@@ -163,13 +128,11 @@ sub intrinsic {
   'ptr'=>[id(),'0'],
   'str'=>[id(),'0'],
 
-  'cmp'=>[id(),'2<ptr|bare,ptr|bare>'],
-
-},
+};
 
 # ---   *   ---   *   ---
 
--BAFE=>{
+use constant BAFE=>{
 
   #:***;> we need to access this one through
   #:***;> an 'all-types' regex
@@ -179,20 +142,25 @@ sub intrinsic {
 
   ],
 
-},
+};
 
 # ---   *   ---   *   ---
-# definitions end here
-
-);
+# DECLARATIONS END
 
 # ---   *   ---   *   ---
-# shorthand for type-matching pattern
+# getters
 
-{ my @types=keys %{sizes()};
-  $DICT{-TYPES}=\@types;
+sub intrinsic {
 
-};$DICT{-TYPES_RE}=join '|',@{types()};
+  my $h=BAFD;
+
+  return lang::eiths(
+
+    join ',',
+    keys %$h,1
+
+  );
+};
 
 # ---   *   ---   *   ---
 

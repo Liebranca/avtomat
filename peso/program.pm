@@ -39,7 +39,9 @@ sub nit($) {
   },'peso::program';
 
   $h->{-BLK}=peso::blk::new_frame($h);
-  $h->{-BLK}=peso::ptr::new_frame($h);
+  $h->{-PTR}=peso::ptr::new_frame($h);
+
+  $h->ptr->nit()
 
   $self->nxins(0);
   $self->blk->gblnit();
