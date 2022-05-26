@@ -675,6 +675,8 @@ package lang::def;
   use strict;
   use warnings;
 
+  use peso::sbl;
+
 # ---   *   ---   *   ---
 
 my %DEFAULTS=(
@@ -691,6 +693,9 @@ my %DEFAULTS=(
 
   -OPS=>'',
   -OP_PREC=>{},
+
+  -ODE=>'[\(\[\{]',
+  -CDE=>'[\)\]\}]',
 
   -DEL_OPS=>'[\{\[\(\)\]\}\\\\]',
   -NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}\\\\]',
@@ -833,6 +838,11 @@ my %DEFAULTS=(
   ],
 
 # ---   *   ---   *   ---
+# symbol table is made at nit
+
+  -SBL=>'',
+
+# ---   *   ---   *   ---
 
 );sub nit {
 
@@ -871,6 +881,8 @@ my %DEFAULTS=(
 
     ')';
 
+# ---   *   ---   *   ---
+
   } else {
     $ref->{-OPS}=lang::hashpat(
       $ref->{-OP_PREC}
@@ -889,6 +901,8 @@ my %DEFAULTS=(
 
   my $nums=$ref->{-NUMS};
 
+# ---   *   ---   *   ---
+
   for my $key(keys %{$ref}) {
 
     if( lang::is_arrayref($ref->{$key}) ) {
@@ -906,6 +920,8 @@ my %DEFAULTS=(
         };
 
       };
+
+# ---   *   ---   *   ---
 
     } else {
 
@@ -934,6 +950,19 @@ my %DEFAULTS=(
 
   *$hack=sub {return $def};
 
+# ---   *   ---   *   ---
+
+  if($ref->{-SBL}) {
+
+    my $modpath=$ref->{-SBL};
+    $ref->{-SBL}=peso::sbl::new_frame($def);
+
+    eval("use $modpath;");
+
+  };
+
+# ---   *   ---   *   ---
+
   return $def;
 
 };
@@ -955,8 +984,10 @@ sub ext {return (shift)->{-EXT};};
 sub del_ops {return (shift)->{-DEL_OPS};};
 sub ndel_ops {return (shift)->{-NDEL_OPS};};
 
-sub ops {return (shift)->{-OPS}};
+sub ops {return (shift)->{-OPS};};
 sub op_prec {return (shift)->{-OP_PREC};};
+
+sub sbl {return (shift)->{-SBL};};
 
 # ---   *   ---   *   ---
 
@@ -975,6 +1006,9 @@ sub biltn {return (shift)->{-BILTN};};
 
 sub nums {return (shift)->{-NUMS};};
 sub numcon {return (shift)->{-NUMCON};};
+
+# placeholder
+sub keywords {return '';};
 
 # ---   *   ---   *   ---
 

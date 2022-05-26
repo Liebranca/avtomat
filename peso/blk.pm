@@ -66,7 +66,7 @@ sub nit($$$$) {
   };
 
   my $insid=($attrs& O_EX)
-    ? $CACHE{-NXINS}
+    ? $frame->master->nxins
     : -1
     ;
 
@@ -290,33 +290,35 @@ sub expand($$$$) {
   my $type=shift;
   my $bypass=shift;
 
-  my $fr_ptr=$self->frame->master->ptr;
+  my $frame=$self->frame;
+  my $fr_ptr=$frame->master->ptr;
+  my $lang=$frame->master->lang;
 
 # ---   *   ---   *   ---
 # get size from type, in bytes
 
-  my $elem_sz=peso::decls::sizes->{$type};
+  my $elem_sz=$lang->types->{$type}->size;
   my $inc_size=@$ref*$elem_sz;
 
 # ---   *   ---   *   ---
-# 'line' is two units
-# 'unit' is 64-bit chunk
+# 'line' is size of two registers
+# 'unit' is size of a single register
 # we use these as minimum size for blocks
 
-  my $line_sz=peso::decls::sizes->{'line'};
+  my $line_sz=$lang->types->{'line'}->size;
   my $gran=(1<<($elem_sz*8))-1;
 
 # ---   *   ---   *   ---
 # grow block on first pass
 
-  my $j=0;if(fpass()) {
+  my $j=0;if($frame->fpass()) {
 
     # save top of stack
-    $j=@{peso::ptr::MEM()};
+    $j=@{$fr_ptr->MEM()};
     $self->{-SIZE}+=$inc_size;
 
     # reserve new unit
-    peso::ptr::nunit();
+    $fr_ptr->nunit();
 
   };
 
@@ -398,7 +400,7 @@ sub setv($$$) {
 
   my ($self,$name,$value)=@_;
 
-  $fr_ptr=$self->frame->master->ptr;
+  my $fr_ptr=$self->frame->master->ptr;
   $fr_ptr->fetch($name)->setv($value);
 
 };
@@ -411,7 +413,7 @@ sub getv($$) {
 
   my ($self,$name)=@_;
 
-  $fr_ptr=$self->frame->master->ptr;
+  my $fr_ptr=$self->frame->master->ptr;
   return $fr_ptr->fetch($name)->getv();
 
 };
@@ -424,7 +426,7 @@ sub getloc($$) {
 
   my ($self,$name)=@_;
 
-  $fr_ptr=$self->frame->master->ptr;
+  my $fr_ptr=$self->frame->master->ptr;
   return $fr_ptr->fetch($name)->addr();
 
 };
@@ -432,16 +434,18 @@ sub getloc($$) {
 # ---   *   ---   *   ---
 # prints out block
 
-sub prich {
+sub prich($) {
 
   my $self=shift;
+  my $fr_ptr=$self->frame->master->ptr;
+
   my $v_lines='';
 
   my @data=();
 
   printf '<'.$self->ances.">\n";
-  my $wed=peso::ptr::wed('get');
-  peso::ptr::wed(undef);
+  my $wed=$fr_ptr->wed('get');
+  $fr_ptr->wed(undef);
 
 # ---   *   ---   *   ---
 # get names and offsets
@@ -512,7 +516,7 @@ sub prich {
 # accumulate
 
     };$last_idex=$i;
-    $unit=peso::ptr::MEM->[$i];
+    $unit=$fr_ptr->MEM->[$i];
     $unit_names="$name($sz) ".$unit_names;
 
   };
@@ -528,7 +532,7 @@ sub prich {
   for my $child(@{$self->children}) {
     $child->prich();
 
-  };peso::ptr::wed($wed);
+  };$fr_ptr->wed($wed);
 
 };
 
@@ -586,8 +590,10 @@ sub DST($;$) {
 # ---   *   ---   *   ---
 # constructors
 
-sub nit($$$$) {peso::blk::nit(@_);};
-sub create($) {
+sub nit($$$$) {
+  peso::blk::nit($_[0],$_[1],$_[2],$_[3]);
+
+};sub create($) {
 
   my $master=shift;
   my $frame=bless {

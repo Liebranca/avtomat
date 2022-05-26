@@ -17,63 +17,30 @@ package peso::defs;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
+  use lang;
 
   use peso::decls;
-  use peso::sbl;
-  use peso::ptr;
-  use peso::blk;
+
 
 # ---   *   ---   *   ---
-# global state
+# shorthand to $fr_sbl->DEFINE/ALIAS
 
-  my %CACHE=(
+sub DEFINE($$$) {
 
-    -SYMS=>{},
-    -INS=>[],
-
-    -INSID=>{},
+  lang->peso->sbl->DEFINE(
+    $_[0],$_[1],$_[2],
 
   );
+};
 
 # ---   *   ---   *   ---
-# getters
 
-sub SYMS {return $CACHE{-SYMS};};
-sub INS {return $CACHE{-INS};};
-sub INSID {return $CACHE{-INSID};};
+sub ALIAS($$) {
 
-# ---   *   ---   *   ---
-# constructor, or rather shorthand
-
-sub DEFINE {
-
-  my $key=shift;
-  my $src=shift;
-
-  my $code=shift;
-  my $idex=$src->{$key}->[0];
-  my $args=$src->{$key}->[1];
-
-  my $sym=peso::sbl::nit($key,$args,$code);
-
-  INS->[$idex]=SYMS->{$key}=$sym;
-  INSID->{$key}=$idex;
-
-};sub ALIAS {
-
-  my $key=shift;
-  my $src=shift;
-
-  my $sym=peso::sbl::dup(
-    SYMS->{$src},$key
+  lang->peso->sbl->DEFINE(
+    $_[0],$_[1],$_[2],
 
   );
-
-  my $idex=INSID->{$src};
-
-  INS->[$idex]=SYMS->{$key}=$sym;
-  INSID->{$key}=$idex;
-
 };
 
 # ---   *   ---   *   ---
@@ -81,116 +48,134 @@ sub DEFINE {
 
 # ---   *   ---   *   ---
 
-DEFINE('cpy',peso::decls::bafa,sub {
+DEFINE 'cpy',peso::decls->BAFA,sub {
 
-  my $inskey=shift;
-  my $field=shift;
-
+  my ($frame,$inskey,$field)=@_;
   my ($dst,$src)=@$field;
 
-  if(peso::ptr::valid($src)) {
+  my $fr_ptr=$frame->master->ptr;
+
+  if($fr_ptr->valid($src)) {
     $src=$src->addr;
 
-  };if(!peso::ptr::valid($dst)) {
-    $dst=peso::ptr::fetch($dst);
+  };if(!$fr_ptr->valid($dst)) {
+    $dst=$fr_ptr->fetch($dst);
 
   };$dst->setv($src);
 
-});
+};
 
 # ---   *   ---   *   ---
 
-DEFINE('pop',peso::decls::bafa,sub {
+DEFINE 'pop',peso::decls->BAFA,sub {
 
-  my $inskey=shift;
-  my $dst=(shift)->[0];
+  my ($frame,$inskey,$dst)=@_;
+  my $fr_ptr=$frame->master->ptr;
+  my $fr_blk=$frame->master->blk;
 
-  my $v=peso::blk::spop();
+  $dst=$dst->[0];
 
-  if(peso::ptr::valid($dst)) {
-    $dst=peso::ptr::fetch($dst);
+  my $v=$fr_blk->spop();
+
+  if($fr_ptr->valid($dst)) {
+    $dst=$fr_ptr->fetch($dst);
     $dst->setv($v);
 
   };
 
-});
+};
 
 # ---   *   ---   *   ---
 
-DEFINE('push',peso::decls::bafa,sub {
+DEFINE 'push',peso::decls->BAFA,sub {
 
-  my $inskey=shift;
-  my $src=(shift)->[0];
+  my ($frame,$inskey,$src)=@_;
+  my $fr_ptr=$frame->master->ptr;
+  my $fr_blk=$frame->master->blk;
 
-  if(peso::ptr::valid($src)) {
+  $src=$src->[0];
+
+  if($fr_ptr->valid($src)) {
     $src=$src->addr;
 
   };
 
-  peso::blk::spush($src);
+  $fr_blk->spush($src);
 
-});
+};
 
 # ---   *   ---   *   ---
 
-DEFINE('inc',peso::decls::bafa,sub {
+DEFINE 'inc',peso::decls->BAFA,sub {
 
-  my $inskey=shift,
-  my $ptr=(shift)->[0];
+  my ($frame,$inskey,$ptr)=@_;
+  my $fr_ptr=$frame->master->ptr;
 
-  $ptr=peso::ptr::fetch($ptr);
+  $ptr=$ptr->[0];
+
+  $ptr=$fr_ptr->fetch($ptr);
   $ptr->setv($ptr->getv()+1);
 
-});
+};
 
 # ---   *   ---   *   ---
 
-DEFINE('dec',peso::decls::bafa,sub {
+DEFINE 'dec',peso::decls->BAFA,sub {
 
-  my $inskey=shift,
-  my $ptr=(shift)->[0];
+  my ($frame,$inskey,$ptr)=@_;
+  my $fr_ptr=$frame->master->ptr;
 
-  $ptr=peso::ptr::fetch($ptr);
+  $ptr=$ptr->[0];
+
+  $ptr=$fr_ptr->fetch($ptr);
   $ptr->setv($ptr->getv()-1);
 
-});
+};
 
 # ---   *   ---   *   ---
 
-DEFINE('clr',peso::decls::bafa,sub {
+DEFINE 'clr',peso::decls->BAFA,sub {
 
-  my $inskey=shift,
-  my $ptr=(shift)->[0];
+  my ($frame,$inskey,$ptr)=@_;
+  my $fr_ptr=$frame->master->ptr;
 
-  $ptr=peso::ptr::fetch($ptr);
+  $ptr=$ptr->[0];
+
+  $ptr=$fr_ptr->fetch($ptr);
   $ptr->setv(0);
 
-});
+};
 
 # ---   *   ---   *   ---
 
-DEFINE('exit',peso::decls::bafa,sub {
+DEFINE 'exit',peso::decls->BAFA,sub {
 
-  my $inskey=shift;
-  my $val=(shift)->[0];
+  my ($frame,$inskey,$val)=@_;
+  my $master=$frame->master;
+
+  $val=$val->[0];
 
   # placeholder!
   printf sprintf "Exit code <0x%.2X>\n",$val;
-  peso::program::setnxins(-2);
+  $master->setnxins(-2);
 
-});
+};
 
 # ---   *   ---   *   ---
 
-DEFINE('reg',peso::decls::bafb,sub {
+DEFINE 'reg',peso::decls->BAFB,sub {
 
-  my $inskey=shift;
-  my $name=(shift)->[0];
+  my ($frame,$inskey,$name)=@_;
+
+  my $fr_ptr=$frame->master->ptr;
+  my $fr_blk=$frame->master->blk;
+
+  $name=$name->[0];
 
   # get dst
-  my $dst=(peso::blk::DST->attrs)
-    ? peso::blk::DST->par
-    : peso::blk::DST
+  my $dst=($fr_blk->DST->attrs)
+    ? $fr_blk->DST->par
+    : $fr_blk->DST
     ;
 
 # ---   *   ---   *   ---
@@ -198,35 +183,39 @@ DEFINE('reg',peso::decls::bafb,sub {
   my $blk;
 
   # append new block to dst on first pass
-  if(peso::blk::fpass()) {
+  if($fr_blk->fpass()) {
     $blk=$dst->nit(
-      $name,peso::blk->O_RDWR,
+      $name,$fr_blk->O_RDWR,
 
     );
 
   # second pass: look for block
   } else {
-    $blk=peso::ptr::fetch($name)->blk;
+    $blk=$fr_ptr->fetch($name)->blk;
 
   };
 
 # ---   *   ---   *   ---
 # overwrite dst
 
-  peso::blk::DST($blk);
-  peso::blk::setscope($blk);
-  peso::blk::setcurr($blk);
+  $fr_blk->DST($blk);
+  $fr_blk->setscope($blk);
+  $fr_blk->setcurr($blk);
 
-});
+};
 
 # ---   *   ---   *   ---
 
-DEFINE('clan',peso::decls::bafb,sub {
+DEFINE 'clan',peso::decls->BAFB,sub {
 
-  my $inskey=shift;
-  my $name=(shift)->[0];
+  my ($frame,$inskey,$name)=@_;
 
-  my $dst=peso::blk::NON;
+  my $fr_ptr=$frame->master->ptr;
+  my $fr_blk=$frame->master->blk;
+
+  $name=$name->[0];
+
+  my $dst=$fr_blk->NON;
 
 # ---   *   ---   *   ---
 
@@ -234,12 +223,12 @@ DEFINE('clan',peso::decls::bafb,sub {
   my $blk;if($name ne 'non') {
 
     # first pass: create new block
-    if(peso::blk::fpass()) {
-      $blk=peso::blk::nit(undef,$name);
+    if($fr_blk->fpass()) {
+      $blk=$fr_blk->nit(undef,$name);
 
     # second pass: find block
     } else {
-      $blk=peso::ptr::fetch($name)->blk;
+      $blk=$fr_ptr->fetch($name)->blk;
 
     };
 
@@ -247,22 +236,26 @@ DEFINE('clan',peso::decls::bafb,sub {
 
   # is global scope
   } else {$blk=$dst;};
-  peso::blk::DST($blk);
-  peso::blk::setcurr($blk);
+  $fr_blk->DST($blk);
+  $fr_blk->setcurr($blk);
 
-});
+};
 
 # ---   *   ---   *   ---
 
-DEFINE('proc',peso::decls::bafb,sub {
+DEFINE 'proc',peso::decls->BAFB,sub {
 
-  my $inskey=shift;
-  my $name=(shift)->[0];
+  my ($frame,$inskey,$name)=@_;
+
+  my $fr_ptr=$frame->master->ptr;
+  my $fr_blk=$frame->master->blk;
+
+  $name=$name->[0];
 
   # get dst
-  my $dst=(peso::blk::DST->attrs)
-    ? peso::blk::DST->par
-    : peso::blk::DST
+  my $dst=($fr_blk->DST->attrs)
+    ? $fr_blk->DST->par
+    : $fr_blk->DST
     ;
 
 # ---   *   ---   *   ---
@@ -270,100 +263,94 @@ DEFINE('proc',peso::decls::bafb,sub {
   my $blk;
 
   # append new block to dst on first pass
-  if(peso::blk::fpass()) {
+  if($fr_blk->fpass()) {
     $blk=$dst->nit(
-      $name,peso::blk->O_EX,
+      $name,$fr_blk->O_EX,
 
     );
 
   # second pass: look for block
   } else {
-    $blk=peso::ptr::fetch($name)->blk;
+    $fr_ptr->fetch($name)->blk;
 
   };
 
 # ---   *   ---   *   ---
 # overwrite dst
 
-  peso::blk::DST($blk);
-  peso::blk::setcurr($blk);
-  peso::blk::setscope($blk->scope);
+  $fr_blk->DST($blk);
+  $fr_blk->setcurr($blk);
+  $fr_blk->setscope($blk->scope);
 
-});
-
-# ---   *   ---   *   ---
-
-DEFINE('entry',peso::decls::bafb,sub {
-
-  my $inskey=shift;
-  my $blk=(shift)->[0];
-
-  peso::blk::entry($blk);
-
-});
+};
 
 # ---   *   ---   *   ---
 
-DEFINE('jmp',peso::decls::bafc,sub {
+DEFINE 'entry',peso::decls->BAFB,sub {
 
-  my $inskey=shift;
-  my $ptr=(shift)->[0];
+  my ($frame,$inskey,$blk)=@_;
+  my $fr_blk=$frame->master->blk;
+
+  $blk=$blk->[0];
+  $fr_blk->entry($blk);
+
+};
+
+# ---   *   ---   *   ---
+
+DEFINE 'jmp',peso::decls->BAFC,sub {
+
+  my ($frame,$inskey,$ptr)=@_;
+
+  my $master=$frame->master;
+  my $fr_ptr=$master->ptr;
+
+  $ptr=$ptr->[0];
 
   # set instruction index to ptr loc
-  peso::program::setnxins(
-    peso::ptr::fetch($ptr)->blk->insid
+  $master->setnxins(
+    $fr_ptr->fetch($ptr)->blk->insid
 
   );
-
-});
-
-# ---   *   ---   *   ---
-
-DEFINE('wed',peso::decls::bafd,sub {
-
-  my $inskey=shift;
-  my $type=(shift)->[0];
-
-  peso::ptr::wed($type);
-
-});
+};
 
 # ---   *   ---   *   ---
 
-DEFINE('unwed',peso::decls::bafd,sub {
+DEFINE 'wed',peso::decls->BAFD,sub {
 
-  my $inskey=shift;
-  peso::ptr::wed(undef);
+  my ($frame,$inskey,$type)=@_;
+  my $fr_ptr=$frame->master->ptr;
 
-});
+  $type=$type->[0];
+  $fr_ptr->wed($type);
 
-# ---   *   ---   *   ---
-
-DEFINE('cmp',peso::decls::bafd,sub {
-
-  my $node=shift;
-
-  my $v0=$node->group(0,0)->val;
-  my $v1=$node->group(0,1)->val;
-
-  return int($v0 eq $v1);
-
-});
+};
 
 # ---   *   ---   *   ---
 
-DEFINE('value_decl',peso::decls::bafe,sub {
+DEFINE 'unwed',peso::decls->BAFD,sub {
 
-  my $inskey=shift;
+  my ($frame,$inskey)=@_;
+  my $fr_ptr=$frame->master->ptr;
 
-  my $names=shift;
-  my $values=shift;
+  $fr_ptr->wed(undef);
 
-  my $dst=peso::blk::DST;
+};
 
+# ---   *   ---   *   ---
+
+DEFINE 'value_decl',peso::decls->BAFE,sub {
+
+  my ($frame,$inskey,$names,$values)=@_;
+
+  my $fr_blk=$frame->master->blk;
+  my $fr_ptr=$frame->master->ptr;
+  my $lang=$frame->master->lang;
+
+  my $dst=$fr_blk->DST;
   my $skey=undef;
 
-  my $intrinsic=peso::decls::intrinsic;
+  my $intrinsic=$lang->vars->[0];
 
 # ---   *   ---   *   ---
 
@@ -378,8 +365,8 @@ DEFINE('value_decl',peso::decls::bafe,sub {
 
   $inskey=~ s/\s+$//;
 
-  my $wed=peso::ptr::wed('get');
-  peso::ptr::wed($inskey);
+  my $wed=$fr_ptr->wed('get');
+  $fr_ptr->wed($inskey);
 
 # ---   *   ---   *   ---
 # fill out values with zeroes if need
@@ -413,17 +400,21 @@ DEFINE('value_decl',peso::decls::bafe,sub {
 
     };
 
+# ---   *   ---   *   ---
+
   } else {
 
     my $j=1;
     for my $value(@$values) {
 
       my $name=$names->[$i];
-      if(peso::blk::fpass()) {
+      if($fr_blk->fpass()) {
         $name=(defined $name)
           ? $name
           : "$names->[-1]+".($j++)
           ;
+
+# ---   *   ---   *   ---
 
       } else {
 
@@ -432,12 +423,9 @@ DEFINE('value_decl',peso::decls::bafe,sub {
           : $names->[-1]+($j++)
           ;
 
-      };
-
-      $line[$i]=[$name,$value];$i++;
+      };$line[$i]=[$name,$value];$i++;
 
     };
-
   };
 
 # ---   *   ---   *   ---
@@ -447,12 +435,12 @@ DEFINE('value_decl',peso::decls::bafe,sub {
   if(defined $skey) {
     $inskey=$skey;
 
-  };peso::ptr::wed($inskey);
+  };$fr_ptr->wed($inskey);
 
 # ---   *   ---   *   ---
 # grow block on first pass
 
-  if(peso::blk::fpass()) {
+  if($fr_blk->fpass()) {
 
     # grow the block
     $dst->expand(\@line,$inskey);
@@ -467,11 +455,11 @@ DEFINE('value_decl',peso::decls::bafe,sub {
       my $ptr=$pair->[0];
       my $value=$pair->[1];
 
-      $ptr=peso::ptr::fetch($ptr);
+      $ptr=$fr_ptr->fetch($ptr);
       $ptr->mask_to($ptrtype);
 
       if(!$value && $inskey eq 'unit') {
-        $value=peso::ptr->NULL;
+        $value=$fr_ptr->NULL;
 
       };
 
@@ -479,8 +467,8 @@ DEFINE('value_decl',peso::decls::bafe,sub {
 
     };
 
-  };peso::ptr::wed($wed);
-});
+  };$fr_ptr->wed($wed);
+};
 
 # ---   *   ---   *   ---
 # defs end
@@ -488,7 +476,8 @@ DEFINE('value_decl',peso::decls::bafe,sub {
 # ---   *   ---   *   ---
 # alternate names for certain calls
 
-ALIAS('char','value_decl');
+ALIAS 'char','value_decl';
 
 # ---   *   ---   *   ---
 1; # ret
+

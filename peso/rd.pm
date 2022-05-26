@@ -19,10 +19,6 @@ package peso::rd;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use lang;
-
-  use peso::decls;
-  use peso::node;
-  use peso::blk;
   use peso::program;
 
 # ---   *   ---   *   ---
@@ -49,18 +45,19 @@ package peso::rd;
   };return $self->{-REM};
 
 };sub exps {return (shift)->{-EXPS};};
-;;sub langkey {return (shift)->{-LANG};};
+;;sub program {return (shift)->{-PROGRAM};};
+;;sub lang {return (shift)->program->lang;};
 
 # ---   *   ---   *   ---
 # constructor
 
 sub nit {
 
-  my $lang=shift;
+  my $program=shift;
 
   return bless {
 
-    -LANG=>$lang,
+    -PROGRAM=>$program,
 
     -LINE=>'',
     -REM=>'',
@@ -89,9 +86,10 @@ sub nit {
 sub clean {
 
   my $self=shift;
+  my $lang=$self->program->lang;
 
-  my $com=$self->lang->com;
-  my $eb=$self->lang->exp_bound;
+  my $com=$lang->com;
+  my $eb=$lang->exp_bound;
 
   # strip comments
   $self->{-LINE}=~ s/${com}.*//g;
@@ -135,8 +133,10 @@ sub slexps {
   my $self=shift;
   $self->join_rem();
 
-  my $eb=$self->lang->exp_bound;
-  my $sb=$self->lang->scope_bound;
+  my $lang=$self->program->lang;
+
+  my $eb=$lang->exp_bound;
+  my $sb=$lang->scope_bound;
 
   my @ar=split
 
@@ -164,9 +164,10 @@ sub slexps {
 sub mlexps {
 
   my $self=shift;
+  my $lang=$self->program->lang;
 
-  my $eb=$self->lang->exp_bound;
-  my $sb=$self->lang->scope_bound;
+  my $eb=$lang->exp_bound;
+  my $sb=$lang->scope_bound;
 
   my @ar=split m/([${sb}])|${eb}/,$self->line;
   my $entry=pop @ar;
@@ -213,7 +214,8 @@ sub fopen {
   my $self=shift;
   $self->wipe();
 
-  my $hed=$self->lang->hed;
+  my $lang=$self->program->lang;
+  my $hed=$lang->hed;
 
   # open file
   $self->{-FNAME}=glob(shift);open
@@ -232,7 +234,7 @@ sub fopen {
   };
 
   # get remains
-  $self->line_re("s/${hed}//");
+  $self->{-LINE}=~ s/${hed}//;
   $self->rem('');
 
 # ---   *   ---   *   ---
@@ -256,9 +258,10 @@ sub fopen {
 sub expsplit {
 
   my $self=shift;
+  my $lang=$self->program->lang;
 
-  my $eb=$self->lang->exp_bound;
-  my $sb=$self->lang->scope_bound;
+  my $eb=$lang->exp_bound;
+  my $sb=$lang->scope_bound;
 
   $rdprocs
     ->[$self->line=~ m/([${sb}])|${eb}$|${eb}/]
@@ -337,12 +340,16 @@ sub mam {
   my $mode=shift;
   my $src=shift;
 
-  my $rd=nit($lang);
+  my $program=peso::program::nit($lang);
+  my $rd=nit($program);
 
-  peso::program::nit($lang);
   (\&file,\&string)[$mode]->($rd,$src);
 
 # ---   *   ---   *   ---
+
+  my $fr_node=$program->node;
+  my $fr_ptr=$program->ptr;
+  my $fr_blk=$program->blk;
 
   for my $exp(@{$rd->exps}) {
 
@@ -350,18 +357,16 @@ sub mam {
 
     my $body=$exp;
     if($body=~ m/\{|\}/) {
-      $exp=peso::node::nit(undef,$body);
+      $exp=$fr_node->nit(undef,$body);
 
     } else {
 
-      $exp=peso::node::nit(undef,'void');
+      $exp=$fr_node->nit(undef,'void');
 
       $exp->tokenize($body);
       $exp->agroup();
 
-      $exp->subdiv2();
-
-#      $exp->subdiv();
+      $exp->subdiv();
 
 #      $exp->collapse();
 
@@ -377,7 +382,7 @@ $exp->prich();
 
 # ---   *   ---   *   ---
 
-  my $non=peso::blk::NON;
+  my $non=$fr_blk->NON;
 
   for my $exp(@{$rd->exps}) {
     $exp->findptrs();
@@ -386,7 +391,7 @@ $exp->prich();
 
 # ---   *   ---   *   ---
 
-  peso::blk::incpass();
+  $fr_blk->incpass();
 
   for my $exp(@{$rd->exps}) {
     $exp->exwalk();
@@ -398,3 +403,4 @@ $exp->prich();
 };
 
 # ---   *   ---   *   ---
+

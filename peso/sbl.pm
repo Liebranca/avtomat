@@ -16,39 +16,23 @@ package peso::sbl;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
-
-  use peso::decls;
-  use peso::defs;
-  use peso::ptr;
-  use peso::blk;
-
   use Scalar::Util qw/blessed/;
-
-# ---   *   ---   *   ---
-# global state
-
-my %CACHE=(
-
-  -INS=>{},
-
-);
 
 # ---   *   ---   *   ---
 # getters
 
-sub INS {return $CACHE{-INS};};
+sub name($) {return (shift)->{-NAME};};
+sub args($) {return (shift)->{-ARGS};};
+sub argc($) {return (shift)->{-ARGC};};
 
-sub name {return (shift)->{-NAME};};
-sub args {return (shift)->{-ARGS};};
-sub argc {return (shift)->{-ARGC};};
+sub code($) {return (shift)->{-CODE};};
 
-sub code {return (shift)->{-CODE};};
-
-sub num_fields {return (shift)->{-NUM_FIELDS};};
+sub num_fields($) {return (shift)->{-NUM_FIELDS};};
+sub frame($) {return (shift)->{-FRAME};};
 
 # ---   *   ---   *   ---
 
-sub valid {
+sub valid($) {
 
   my $sym=shift;
 
@@ -60,13 +44,18 @@ sub valid {
 };
 
 # ---   *   ---   *   ---
-# constructor
+# constructors
 
-sub nit {
+sub new_frame($) {
+  return peso::sbl::frame::create(shift);
 
-  my $name=shift;
-  my $argv=shift;
-  my $code=shift;
+};
+
+# ---   *   ---   *   ---
+
+sub nit($$$$) {
+
+  my ($frame,$name,$argv,$code)=@_;
 
 # ---   *   ---   *   ---
 # handle unspecified args
@@ -170,6 +159,7 @@ sub nit {
     -CODE=>$code,
 
     -NUM_FIELDS=>$num_fields,
+    -FRAME=>$frame,
 
   },'peso::sbl';
 
@@ -193,6 +183,7 @@ sub nit {
     -CODE=>$src->code,
 
     -NUM_FIELDS=>$src->num_fields,
+    -FRAME=>$src->frame,
 
   },'peso::sbl';
 
@@ -201,97 +192,39 @@ sub nit {
 };
 
 # ---   *   ---   *   ---
-# go through a list of nodes and consume them
-# as if they were a [command,args] array
-
-sub ndconsume {
-
-  my $node=shift;
-  my $i=shift;
-
-$node->prich();
-
-  my $keywords=peso::defs::SYMS();
-  my $leaf=$node->leaves->[$$i++];
-
-  my $key=$leaf->value;
-
-  # check that we're not in void context
-  if(!$leaf || !exists $keywords->{$key}) {
-    return;
-
-  };
-
-# ---   *   ---   *   ---
-# consume nodes according to context
-
-  my $anchor=$leaf;
-  $anchor->value($keywords->{$key});
-
-  my $ref=$anchor->value->args;
-  my @args=@{$ref};
-
-  for my $arg(@args) {
-
-    my $field=$node->leaves->[$$i];
-
-    my $argc=$arg->{-COUNT};
-    my $j=0;while($argc>0) {
-
-      $leaf=$field->leaves->[$j++];
-      my $value=($leaf) ? $leaf->value : 0;
-
-      $argc--;
-
-# ---   *   ---   *   ---
-# handle bad number/order of command args
-
-      if(!$leaf && !$arg->{-OPT}) {
-        printf "Insufficient args for ".
-          "symbol '%s'\n",$anchor->value->name;
-
-        exit;
-
-      };
-    };
-
-# ---   *   ---   *   ---
-# relocate accumulated nodes && clear
-
-    $node->pluck($field);
-    $anchor->pushlv(0,$field);
-
-  };
-};
-
-# ---   *   ---   *   ---
 # check that elements in field correspond
 # to valid argument types for symbol
 
-sub arg_typechk {
+sub arg_typechk($$$) {
 
-  my $self=shift;
-  my $node=shift;
-  my $types=shift;
+  my ($self,$node,$type)=@_;
+  my $frame=$self->frame;
 
-  my $pesonames=peso::decls::names;
-  my $ops=peso::decls::ops;
+  my $master=$frame->master;
+  my $fr_ptr=$master->ptr;
+  my $fr_blk=$master->blk;
+
+  my $lang=$master->lang;
+
+  my $names=$lang->names;
+  my $types=$lang->types;
+  my $ops=$lang->ops;
 
 # ---   *   ---   *   ---
 
   if(
 
       !($node->value=~ m/@/)
-  &&  $node->value=~ m/${ops}/
+  &&  exists $types->{$node->value}
 
   ) {
 
-    peso::blk::treesolve($node);
+    $fr_blk->treesolve($node);
 
     $node=$node->value;
 
-    if(peso::ptr::valid_addr($node)) {
-      $node=peso::ptr::fetch($node);
+    if($fr_ptr->valid_addr($node)) {
+      $fr_ptr->fetch($node);
 
     };
 
@@ -308,12 +241,12 @@ sub arg_typechk {
   for my $type(split '\|',$types) {
 
     if($type eq 'ptr') {
-      $valid=peso::ptr::valid($node);
+      $valid=$fr_ptr->valid($node);
 
     # either a string, number or dereference
     } elsif($type eq 'bare') {
       $valid
-        =  int($node=~ m/${pesonames}*/)
+        =  int($node=~ m/${names}*/)
         || int($node=~ m/-?[0-9]+/);
 
     };
@@ -328,7 +261,7 @@ sub arg_typechk {
 # ---   *   ---   *   ---
 # errme
 
-  if(peso::blk::fpass) {return 0;};
+  if($fr_blk->fpass) {return 0;};
 
   printf sprintf
 
@@ -345,10 +278,9 @@ sub arg_typechk {
 # ---   *   ---   *   ---
 # check passed arguments and execute
 
-sub ex {
+sub ex($$) {
 
-  my $self=shift;
-  my $node=shift;
+  my ($self,$node)=@_;
 
   # check *enough* fields passed
   if(@{$node->leaves}<$self->num_fields) {
@@ -452,6 +384,149 @@ sub ex {
     push @args,\@field_args;
   };$self->code->($self->name,@args);
 
+};
+
+# ---   *   ---   *   ---
+
+package peso::sbl::frame;
+  use strict;
+  use warnings;
+
+# ---   *   ---   *   ---
+# getters
+
+sub SYMS($) {return (shift)->{-SYMS};};
+sub INS($) {return (shift)->{-INS};};
+sub INSID($) {return (shift)->{-INSID};};
+
+sub master($) {return (shift)->{-MASTER};};
+
+# ---   *   ---   *   ---
+# shorthand for orderly symbol nit
+
+sub DEFINE($$$$) {
+
+  my ($frame,$key,$src,$code)=@_;
+  my $fr_sbl=$frame->master->sbl;
+
+  my $idex=$src->{$key}->[0];
+  my $args=$src->{$key}->[1];
+
+  my $sym=$fr_sbl->nit($key,$args,$code);
+
+  $frame->INS->[$idex]
+    =$frame->SYMS->{$key}=$sym;
+
+  $frame->INSID->{$key}=$idex;
+
+# ---   *   ---   *   ---
+# shorthand for creating symbol aliases
+
+};sub ALIAS($$$) {
+
+  my ($frame,$key,$src)=@_;
+  my $fr_sbl=$frame->master->sbl;
+
+  my $sym=$fr_sbl->dup(
+    $frame->SYMS->{$src},$key
+
+  );
+
+  my $idex=$frame->INSID->{$src};
+
+  $frame->INS->[$idex]
+    =$frame->SYMS->{$key}=$sym;
+
+  $frame->INSID->{$key}=$idex;
+
+};
+
+# ---   *   ---   *   ---
+
+sub nit($$$$) {
+  return peso::sbl::nit(
+    $_[0],$_[1],$_[2],$_[3],
+
+  );
+
+};sub create($) {
+
+  my $master=shift;
+
+  my $frame=bless {
+
+    -SYMS=>{},
+    -INS=>[],
+    -INSID=>{},
+
+    -MASTER=>$master,
+
+  },'peso::sbl::frame';
+
+};
+
+# ---   *   ---   *   ---
+# go through a list of nodes and consume them
+# as if they were a [command,args] array
+
+sub ndconsume($$$) {
+
+  my ($frame,$node,$i)=@_;
+
+  my $master=$frame->master;
+  my $fr_def=$master->defs;
+
+  my $keywords=$fr_def->SYMS();
+  my $leaf=$node->leaves->[$$i++];
+
+  my $key=$leaf->value;
+
+  # check that we're not in void context
+  if(!$leaf || !exists $keywords->{$key}) {
+    return;
+
+  };
+
+# ---   *   ---   *   ---
+# consume nodes according to context
+
+  my $anchor=$leaf;
+  $anchor->value($keywords->{$key});
+
+  my $ref=$anchor->value->args;
+  my @args=@{$ref};
+
+  for my $arg(@args) {
+
+    my $field=$node->leaves->[$$i];
+
+    my $argc=$arg->{-COUNT};
+    my $j=0;while($argc>0) {
+
+      $leaf=$field->leaves->[$j++];
+      my $value=($leaf) ? $leaf->value : 0;
+
+      $argc--;
+
+# ---   *   ---   *   ---
+# handle bad number/order of command args
+
+      if(!$leaf && !$arg->{-OPT}) {
+        printf "Insufficient args for ".
+          "symbol '%s'\n",$anchor->value->name;
+
+        exit;
+
+      };
+    };
+
+# ---   *   ---   *   ---
+# relocate accumulated nodes && clear
+
+    $node->pluck($field);
+    $anchor->pushlv(0,$field);
+
+  };
 };
 
 # ---   *   ---   *   ---
