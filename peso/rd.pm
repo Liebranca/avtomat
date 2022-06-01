@@ -44,9 +44,35 @@ package peso::rd;
 
   };return $self->{-REM};
 
-};sub exps {return (shift)->{-EXPS};};
-;;sub program {return (shift)->{-PROGRAM};};
-;;sub lang {return (shift)->program->lang;};
+};sub in_mls_block {
+
+  my $self=shift;
+  my $new=shift;
+
+  if(defined $new) {
+    $self->{-IN_MLS}=$new;
+
+  };return $self->{-IN_MLS};
+
+};sub mls_accum {
+
+  my $self=shift;
+  my $new=shift;
+
+  if(defined $new) {
+    $self->{-MLS_ACCUM}=$new;
+
+  };return $self->{-MLS_ACCUM};
+
+};
+
+# ---   *   ---   *   ---
+
+sub exps {return (shift)->{-EXPS};};
+sub program {return (shift)->{-PROGRAM};};
+sub lang {return (shift)->program->lang;};
+sub strings {return (shift)->{-STRINGS};};
+sub raw {return (shift)->{-RAW};};
 
 # ---   *   ---   *   ---
 # constructor
@@ -67,6 +93,12 @@ sub nit {
 
     -EXPS=>[],
 
+    -MLS_ACCUM=>'',
+    -IN_MLS=>undef,
+
+    -RAW=>[],
+    -STRINGS=>[],
+
   },'peso::rd';
 
 };
@@ -81,12 +113,245 @@ sub nit {
   };
 
 # ---   *   ---   *   ---
+
+sub mls_block($$) {
+
+  my ($self,$first_frame)=@_;
+
+  my $ode=$self->in_mls_block->[0];
+  my $cde=$self->in_mls_block->[1];
+  my $doc=\$self->in_mls_block->[2];
+  my $lvl=\$self->in_mls_block->[3];
+
+  my $len=length $cde;
+  my ($s,$rem);
+
+  if($first_frame) {
+    ($s,$rem)=split ':__CUT__',$self->line;
+    $self->in_mls_block->[4]=$self->line;
+
+  } else {
+    ($s,$rem)=('',$self->line);
+
+  };
+
+# ---   *   ---   *   ---
+# iter the doc block line
+
+  my $i=0;
+  my $accum='';
+
+  my @ar=split '',$rem;
+
+  for my $c(@ar) {
+
+    my $last=$ar[$i-(1*$i>0)];
+    my $next=$ar[$i+(1*$i<$#ar)];
+
+    my $term=substr $rem,$i,$i+$len;
+
+# ---   *   ---   *   ---
+# close char downs the depth if not escaped
+
+    if($c eq $cde && $last ne '\\') {
+
+      if($$lvl) {
+        $$doc.=$c;
+
+      };$$lvl--;
+
+      if($$lvl<0) {last;};
+
+# ---   *   ---   *   ---
+# open char ups the depth if not escaped
+
+    } elsif($c eq $ode && $last ne '\\') {
+      $$lvl++;
+      $$doc.=$c;
+
+# ---   *   ---   *   ---
+# =<<EOF (or similar) reached
+
+    } elsif($len>1 && $term eq $cde) {
+      $$lvl=-1;last;
+
+# ---   *   ---   *   ---
+# do not append BS if followed
+# by open/close char
+
+    } elsif(!(
+
+          $c eq '\\'
+      && ($next ne $cde || $next eq $ode)
+
+      )
+
+    ) {$$doc.=$c;};$i++;
+
+  };
+
+# ---   *   ---   *   ---
+
+  if($$lvl<0) {
+
+    my $id=sprintf(
+      lang::cut_token_f(),
+      'MLS',int(@{$self->strings})
+
+    );
+
+    $s=$self->in_mls_block->[4].
+      $id.(substr $rem,$i,length $cde);
+
+    $accum=join '',@ar[$i+length $cde..$#ar];
+
+    push @{$self->strings},$$doc;
+    $self->in_mls_block(undef);
+
+  };
+
+  $self->line($s);
+  $self->rem($accum);
+
+};
+
+# ---   *   ---   *   ---
+# abstracts away preprocessor, strings
+# and related blocks that escape
+# common interpretation
+
+sub tokenize_block($) {
+
+  my $self=shift;
+  my $lang=$self->lang;
+
+  my $matchtab=$lang->del_mt;
+
+  my $first_frame=0;
+
+# ---   *   ---   *   ---
+# check for mls block beg
+
+  TOP:
+
+  if(!$self->in_mls_block) {
+
+    my $pat=$lang->mls_rule->($lang,$self->line);
+    if(!defined $pat) {return;};
+
+    if($self->{-LINE}=~ s/${pat}/$1:__CUT__/) {
+
+      my $ode=$2;
+      my $cde=$matchtab->{$ode};
+
+      $self->in_mls_block([
+        $ode,$cde,'',0
+
+      ]);
+
+    };$first_frame=1;
+
+# ---   *   ---   *   ---
+# beg found/processing pending
+
+  };if($self->in_mls_block) {
+
+    $self->mls_block(
+      $first_frame
+
+    );
+
+# ---   *   ---   *   ---
+# new mls beg
+
+    if(!$self->in_mls_block) {
+
+      if(length $self->rem) {
+
+        $self->mls_accum(
+          $self->mls_accum.
+          $self->line
+
+        );
+
+        $self->line($self->rem);
+        $self->rem('');
+
+        goto TOP;
+
+# ---   *   ---   *   ---
+# no mls blocks pending
+
+      } else {
+
+        $self->line(
+          $self->mls_accum.
+          $self->line
+
+        );
+
+        $self->mls_accum('');
+        $first_frame=0;
+
+      };
+
+    };
+
+# ---   *   ---   *   ---
+# not inside an mls block
+
+  } else {
+
+    if($self->mls_accum) {
+
+      $self->line(
+        $self->mls_accum.
+        $self->line
+
+      );
+      $self->mls_accum('');
+
+    };$first_frame=0;
+
+  };
+};
+
+# ---   *   ---   *   ---
+# abstracts away blocks that
+# need to be kept intact
+
+sub mangle($) {
+
+  my $self=shift;
+
+  $self->tokenize_block();
+  if(!length lang::stripline($self->line)) {
+    return;
+
+  };
+
+# ---   *   ---   *   ---
+
+  my $matches;
+
+  $self->line(lang::mcut(
+
+    $self->line,
+    $self->strings,
+
+    $self->lang->mcut_tags,
+
+  ));push @{$self->raw},$self->line;
+
+};
+
+# ---   *   ---   *   ---
 # sanitize line of code
 
 sub clean {
 
   my $self=shift;
-  my $lang=$self->program->lang;
+  my $lang=$self->lang;
 
   my $com=$lang->com;
   my $eb=$lang->exp_bound;
@@ -133,7 +398,7 @@ sub slexps {
   my $self=shift;
   $self->join_rem();
 
-  my $lang=$self->program->lang;
+  my $lang=$self->lang;
 
   my $eb=$lang->exp_bound;
   my $sb=$lang->scope_bound;
@@ -146,8 +411,8 @@ sub slexps {
   ;
 
 # ---   *   ---   *   ---
+# separate curls
 
-  # separate curls
   for my $e(@ar) {
 
     if(!defined $e || !length $e) {
@@ -164,7 +429,7 @@ sub slexps {
 sub mlexps {
 
   my $self=shift;
-  my $lang=$self->program->lang;
+  my $lang=$self->lang;
 
   my $eb=$lang->exp_bound;
   my $sb=$lang->scope_bound;
@@ -214,24 +479,27 @@ sub fopen {
   my $self=shift;
   $self->wipe();
 
-  my $lang=$self->program->lang;
+  my $lang=$self->lang;
   my $hed=$lang->hed;
 
   # open file
   $self->{-FNAME}=glob(shift);open
 
-    $self->{-FHANDLE},'<',
+    my $FH,'<',
     $self->{-FNAME} or die $!
 
-  ;
+  ;$self->{-FHANDLE}=$FH;
 
   # verify header
-  $self->line(readline $self->{-FHANDLE});
-  if(!($self->line=~ m/${hed}/)) {
+  my $line=readline $self->{-FHANDLE};
+
+  if(!($line=~ m/${hed}/)) {
     printf STDERR $self->{-FNAME}.": bad header\n";
     fclose();
 
-  };
+    exit;
+
+  };$self->line($line);
 
   # get remains
   $self->{-LINE}=~ s/${hed}//;
@@ -258,7 +526,7 @@ sub fopen {
 sub expsplit {
 
   my $self=shift;
-  my $lang=$self->program->lang;
+  my $lang=$self->lang;
 
   my $eb=$lang->exp_bound;
   my $sb=$lang->scope_bound;
@@ -292,16 +560,28 @@ sub expsplit {
 
   # open & read first line
   $self->fopen(shift);
-  $self->procline();
+  $self->mangle();
 
-  # read body of file
-  while($self->line(
-    readline $self->{FHANDLE}
+# ---   *   ---   *   ---
+# pass body of file through mangler
 
-  )) {$self->procline();};
+  while(my $line=readline $self->{-FHANDLE}) {
+    $self->line($line);
+    $self->mangle();
+
+  };
 
   # close file
   $self->fclose();
+
+# ---   *   ---   *   ---
+# iter mangled
+
+  for my $line(@{$self->raw}) {
+    $self->line($line);
+    $self->procline();
+
+  };
 
 # ---   *   ---   *   ---
 # read expressions from a string
@@ -319,13 +599,24 @@ sub expsplit {
 
   my @filtered=();
   for my $l(@ar) {
-    if($l) {push @filtered,$l;};
+    if($l) {push @filtered,$l."\n";};
 
   };
 
-  # iter lines && read
+# ---   *   ---   *   ---
+# pass str through mangler
+
   while(@filtered) {
     $self->line(shift @filtered);
+    $self->mangle();
+
+  };
+
+# ---   *   ---   *   ---
+# iter mangled
+
+  for my $line(@{$self->raw}) {
+    $self->line($line);
     $self->procline();
 
   };
@@ -352,9 +643,8 @@ sub mam {
   my $fr_blk=$program->blk;
 
   for my $exp(@{$rd->exps}) {
-
-    #
-
+printf "$exp\n";
+next;
     my $body=$exp;
     if($body=~ m/\{|\}/) {
       $exp=$fr_node->nit(undef,$body);
@@ -375,7 +665,6 @@ sub mam {
 
     };
 
-printf "\n";
 $exp->prich();
 
   };exit;

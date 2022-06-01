@@ -297,6 +297,11 @@ sub eaf {
   my $v=shift;
   return int($v=~ m/^ARRAY\(0x[0-9a-f]+\)/);
 
+};sub is_hashref {
+
+  my $v=shift;
+  return int($v=~ m/^HASH\(0x[0-9a-f]+\)/);
+
 };
 
 # ---   *   ---   *   ---
@@ -721,15 +726,36 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
-  -SHCMD=> lang::delim('`'),
+  -SHCMD=>[
+    lang::delim('`'),
 
-  -CHAR=> lang::delim("'"),
-  -STRING=> lang::delim('"'),
+  ],
 
-  -REGEX=>
+  -CHAR=>[
+    lang::delim("'"),
+
+  ],
+
+  -STRING=>[
+    lang::delim('"'),
+
+  ],
+
+  -REGEX=>[
 
     '([m|s]+/([^/]|\\\\/)*/'.
     '(([^/]|\\\\/)*/)?([\w]+)?)',
+
+  ],
+
+  -PREPROC=>[
+
+  ],
+
+# ---   *   ---   *   ---
+
+  -MLS_RULE=>sub {return undef;},
+  -MCUT_TAGS=>[],
 
 # ---   *   ---   *   ---
 
@@ -809,31 +835,10 @@ my %DEFAULTS=(
 
 
 # ---   *   ---   *   ---
-# preprocessor
+# DEPRECATED
+# maybe we'll repurpose this slot
 
   -DEV3=>[
-    '#[[:blank:]]*include[[:blank:]]*'.
-    lang::delim2('<','>'),
-
-    '#[[:blank:]]*include[[:blank:]]*'.
-    lang::delim2('"'),
-
-    '(#[[:blank:]]*'.( lang::eiths(
-
-      '(el)?if,ifn?def,'.
-      'undef,error,warning'
-
-      ,1)).
-
-    '[[:blank:]]*[_A-Za-z][_A-Za-z0-9]*\n?)',
-    '(#[[:blank:]]*'.lang::eiths('else,endif').')',
-
-    '(#[[:blank:]]*'.
-
-    'define[[:blank:]]*'.
-    '$:names;>('.( lang::delim2('(',')') ).
-
-    ')?\n?)'
 
   ],
 
@@ -942,6 +947,34 @@ my %DEFAULTS=(
   };
 
 # ---   *   ---   *   ---
+# make a ode=>cde match table
+
+  my $odes=$ref->{-ODE};
+  my $cdes=$ref->{-CDE};
+
+  $odes=~ s/^\[//;
+  $odes=~ s/\]$//;
+  $odes=~ s/\\\\([^\\\\])/$1/;
+
+  $cdes=~ s/^\[//;
+  $cdes=~ s/\]$//;
+  $cdes=~ s/\\\\([^\\\\])/$1/;
+
+  my @odes=split '',$odes;
+  my @cdes=split '',$cdes;
+
+  my %matchtab=();
+
+  while(@odes) {
+
+    my $ode=shift @odes;
+    my $cde=shift @cdes;
+
+    $matchtab{$ode}=$cde;
+
+  };$ref->{-DEL_MT}=\%matchtab;
+
+# ---   *   ---   *   ---
 
   no strict;
 
@@ -983,6 +1016,8 @@ sub ext {return (shift)->{-EXT};};
 
 sub del_ops {return (shift)->{-DEL_OPS};};
 sub ndel_ops {return (shift)->{-NDEL_OPS};};
+sub del_mt {return (shift)->{-DEL_MT};};
+sub mls_rule {return (shift)->{-MLS_RULE};};
 
 sub ops {return (shift)->{-OPS};};
 sub op_prec {return (shift)->{-OP_PREC};};
@@ -1028,60 +1063,85 @@ sub valid_name {
 # ---   *   ---   *   ---
 
 sub char {return (shift)->{-CHAR};};
-
-sub is_char {
-
-  my $self=shift;
-  my $s=shift;
-
-  my $char=$self->char;
-
-  return int($s=~ m/${char}/);
-
-};
-
-# ---   *   ---   *   ---
-
 sub string {return (shift)->{-STRING};};
-
-sub is_str {
-
-  my $self=shift;
-  my $s=shift;
-
-  my $string=$self->string;
-
-  return int($s=~ m/${string}/);
-
-};
-
-# ---   *   ---   *   ---
-
 sub shcmd {return (shift)->{-SHCMD};};
+sub regex {return (shift)->{-REGEX};};
+sub preproc {return (shift)->{-PREPROC};};
 
-sub is_shcmd {
+# ---   *   ---   *   ---
+# prototype: s matches non-code text family
 
-  my $self=shift;
-  my $s=shift;
+sub is_strtype($$$) {
 
-  my $shcmd=$self->shcmd;
+  my ($self,$s,$type)=@_;
+  my @patterns=$self->{$type};
 
-  return int($s=~ m/${shcmd}/);
+  for my $pat(@patterns) {
+    if($s=~ m/${pat}/) {
+      return 1;
+
+    };
+
+  };return 0;
+};
+
+# ---   *   ---   *   ---
+# ^buncha clones
+
+sub is_shcmd($$) {my ($self,$s)=@_;
+  return $self->is_strtype($self,$s,-SHCMD);
+
+};sub is_char($$) {my ($self,$s)=@_;
+  return $self->is_strtype($self,$s,-CHAR);
+
+};sub is_string($$) {my ($self,$s)=@_;
+  return $self->is_strtype($self,$s,-STRING);
+
+};sub is_regex($$) {my ($self,$s)=@_;
+  return $self->is_strtype($self,$s,-REGEX);
+
+};sub is_preproc($$) {my ($self,$s)=@_;
+  return $self->is_strtype($self,$s,-PREPROC);
 
 };
 
 # ---   *   ---   *   ---
+# generates a pattern list for mcut
 
-sub regex {return (shift)->{-REGEX};};
-
-sub is_regex {
+sub mcut_tags($) {
 
   my $self=shift;
-  my $s=shift;
+  my $tags=$self->{-MCUT_TAGS};
 
-  my $regex=$self->regex;
+  my @ar=();
 
-  return int($s=~ m/${regex}/);
+# ---   *   ---   *   ---
+# iter the attrs to be used
+
+  for my $key(@$tags) {
+
+    my $pats=$self->{$key};
+    my $cpy=$key;
+    $cpy=~ s/^-//;
+
+# ---   *   ---   *   ---
+# either single pattern or arrays of them
+
+    if(lang::is_arrayref($pats)) {
+
+      my $i=0;for my $pat(@$pats) {
+
+        push @ar,($cpy.chr(0x41+$i),$pat);
+        $i++;
+
+      };
+    } else {push @ar,($cpy,$pats);};
+  };
+
+# ---   *   ---   *   ---
+# give back tags=>patterns
+
+  return @ar;
 
 };
 

@@ -131,6 +131,28 @@ sub value($;$) {
 
 };
 
+sub ances($$) {
+
+  my ($self,$join)=@_;
+
+  my $anchor=$self;
+  my $s='';
+
+TOP:
+
+  $s=$anchor->value.$s;
+  if($anchor->par) {
+
+    $s=$join.$s;
+    $anchor=$anchor->par;
+    goto TOP;
+
+  };
+
+  return $s;
+
+};
+
 # ---   *   ---   *   ---
 
 sub mksep {
@@ -384,8 +406,18 @@ sub agroup($) {
   my @anchors=();
   my @trash=();
 
+  $self->cllv();
+
   my @leaves=@{$self->leaves};
   TOP:my $leaf=shift @leaves;
+
+if(!defined $leaf) {
+
+$self->prich();
+
+exit 0;
+
+};
 
 # ---   *   ---   *   ---
 
@@ -435,6 +467,7 @@ sub agroup($) {
 
   };
 
+  $leaf->cllv();
   unshift @leaves,@{$leaf->leaves};
 
   if(@leaves) {goto TOP;};
@@ -996,6 +1029,135 @@ sub findptrs($) {
 
     };
   };
+
+};
+
+# ---   *   ---   *   ---
+
+sub hashtree {
+
+  my $h=shift;
+
+  my $frame=new_frame(undef);
+
+  my @pending=();
+  my $leaf=undef;
+
+TOP:for my $key(keys %$h) {
+
+    my $value=$h->{$key};
+    my $node=$frame->nit($leaf,$key);
+
+    if(lang::is_hashref($value)) {
+      push @pending,([$node,$value]);
+
+    };
+
+  };
+
+  if(@pending) {
+
+    ($leaf,$h)=@{(shift @pending)};
+    goto TOP;
+
+  };
+
+  return $frame->{-TREES}->[-1]->{-ROOT};
+
+};
+
+# ---   *   ---   *   ---
+# gives list of branches holding value
+
+sub branches_with($$) {
+
+  my ($self,$lookfor)=@_;
+  my $anchor=$self;
+
+  my @leaves=();
+  my @found=();
+
+# ---   *   ---   *   ---
+# iter leaves
+
+TOP:
+
+  if(!@{$anchor->leaves}) {goto SKIP;};
+
+  for my $leaf(@{$anchor->leaves}) {
+
+    # accept branch if value found in leaves
+    if($leaf->value=~ m/${lookfor}/) {
+      push @found,$anchor;
+      last;
+
+    };
+  };
+
+  push @leaves,@{$anchor->leaves};
+
+# ---   *   ---   *   ---
+# continue if children pending
+
+SKIP:
+
+  if(@leaves) {
+
+    $anchor=shift @leaves;
+    goto TOP;
+
+  };
+
+# ---   *   ---   *   ---
+# return matches
+
+END:
+  return @found;
+
+};
+
+# ---   *   ---   *   ---
+# gives list of branches starting with value
+
+sub branches_in($$) {
+
+  my ($self,$lookfor)=@_;
+  my $anchor=$self;
+
+  my @leaves=();
+  my @found=();
+
+# ---   *   ---   *   ---
+# check node
+
+TOP:
+
+  if(!@{$anchor->leaves}) {goto SKIP;};
+
+  if($anchor->value=~ m/${lookfor}/) {
+    push @found,$anchor;
+
+  };
+
+  push @leaves,@{$anchor->leaves};
+
+# ---   *   ---   *   ---
+# go to next node if pending
+
+SKIP:
+
+  if(@leaves) {
+
+    $anchor=shift @leaves;
+    goto TOP;
+
+  };
+
+# ---   *   ---   *   ---
+# return matches
+
+END:
+  return @found;
 
 };
 

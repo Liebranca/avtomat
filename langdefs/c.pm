@@ -13,16 +13,49 @@ package langdefs::c;
   use lang;
 
 # ---   *   ---   *   ---
+# used to 'fold' multi-line directives
+
+sub c_mls($$) {
+
+  my ($self,$s)=@_;
+
+  if($s=~ m/(#\s*ifn?(def)?)/) {
+
+    my $open=$1;
+    my $close=$open;
+
+    $close=~ s/(#\s*)//;
+    $close=$1.'endif';
+
+    $self->del_mt->{$open}=$close;
+
+    return "(($open))";
+
+  } else {return undef;};
+
+};
+
+# ---   *   ---   *   ---
 
 lang::def::nit(
 
   -NAME => 'c',
   -EXT  => '\.([ch](pp|xx)?|C|cc|c\+\+|cu|H|hh|ii?)$',
-  -HED  => '-\*-.*\<C(\+\+)?((;|[[:blank:]]).*)?-\*-',
+  -HED  => '',
 
   -MAG  => '^(C|C\+\+) (source|program)',
 
   -COM  => '//',
+
+# ---   *   ---   *   ---
+
+  -PREPROC=>[
+    lang::delim2('#',"\n",1),
+
+  ],
+
+  -MLS_RULE=>\&c_mls,
+  -MCUT_TAGS=>[-STRING,-CHAR,-PREPROC],
 
 # ---   *   ---   *   ---
 
