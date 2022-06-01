@@ -371,12 +371,13 @@ sub join_rem {
 # ---   *   ---   *   ---
 # single-line expressions
 
-sub slexps {
+sub slexps($) {
 
   my $self=shift;
   $self->join_rem();
 
   my $lang=$self->lang;
+  $lang->exp_rule->($self);
 
   my $eb=$lang->exp_bound;
   my $sb=$lang->scope_bound;
@@ -404,7 +405,7 @@ sub slexps {
 # ---   *   ---   *   ---
 # multi-line expressions
 
-sub mlexps {
+sub mlexps($) {
 
   my $self=shift;
   my $lang=$self->lang;
@@ -412,6 +413,7 @@ sub mlexps {
   my $eb=$lang->exp_bound;
   my $sb=$lang->scope_bound;
 
+  $lang->exp_rule->($self);
   my @ar=split
 
     m/(${sb})|${eb}/,
@@ -421,13 +423,6 @@ sub mlexps {
 
   my $entry=pop @ar;
 
-  if(@ar && $self->rem) {
-
-    push @{$self->exps},$self->rem;
-    $self->rem('');
-
-  };
-
   # separate curls
   for my $e(@ar) {
 
@@ -436,7 +431,7 @@ sub mlexps {
 
     };push @{$self->exps},$e;
 
-  };$self->rem($self->rem.$entry);
+  };if($entry) {$self->rem($self->rem.$entry);};
 
 # ---   *   ---   *   ---
 # proc 'table' for branchless call
@@ -620,6 +615,25 @@ sub expsplit {
 
 # ---   *   ---   *   ---
 
+sub no_blanks($) {
+
+  my $self=shift;
+  my @ar=();
+
+  for my $exp(@{$self->exps}) {
+
+    if(length lang::stripline($exp)) {
+      push @ar,$exp;
+
+    };
+  };
+
+  $self->{-EXPS}=\@ar;
+
+};
+
+# ---   *   ---   *   ---
+
 sub mam {
 
   my $lang=shift;
@@ -630,7 +644,12 @@ sub mam {
   my $rd=nit($program);
 
   (\&file,\&string)[$mode]->($rd,$src);
-  if($rd->rem) {push @{$rd->exps},$rd->rem;};
+
+  if($rd->rem) {
+    $rd->line($rd->rem);
+    $rd->lang->exp_rule->($rd);
+
+  };$rd->no_blanks();
 
 # ---   *   ---   *   ---
 
@@ -639,8 +658,6 @@ sub mam {
   my $fr_blk=$program->blk;
 
   for my $exp(@{$rd->exps}) {
-print "$exp\n";
-next;
 
     my $body=$exp;
     if($body=~ m/\{|\}/) {
@@ -651,7 +668,7 @@ next;
       $exp=$fr_node->nit(undef,'void');
 
       $exp->tokenize($body);
-      $exp->agroup();
+#      $exp->agroup();
 
 #      $exp->subdiv();
 
@@ -662,7 +679,7 @@ next;
 
     };
 
-#$exp->prich();
+$exp->prich();
 
   };exit;
 

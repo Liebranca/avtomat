@@ -45,6 +45,23 @@ sub c_mls($$) {
 };
 
 # ---   *   ---   *   ---
+# used to separate statements and directives
+
+sub c_exps($) {
+
+  my $rd=shift;
+
+  my $preproc=lang::cut_token_re;
+  $preproc=~ s/\[A-Z\]\+/PREPROC[A-Z]/;
+
+  while($rd->{-LINE}=~ s/^(${preproc})//) {
+    push @{$rd->exps},$1;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 
 lang::def::nit(
 
@@ -63,7 +80,9 @@ lang::def::nit(
 
   ],
 
+  -EXP_RULE=>\&c_exps,
   -MLS_RULE=>\&c_mls,
+
   -MCUT_TAGS=>[-STRING,-CHAR,-PREPROC],
 
 # ---   *   ---   *   ---

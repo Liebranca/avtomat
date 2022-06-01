@@ -757,7 +757,9 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
+  -EXP_RULE=>sub {;},
   -MLS_RULE=>sub {return undef;},
+
   -MCUT_TAGS=>[],
 
 # ---   *   ---   *   ---
@@ -1021,6 +1023,7 @@ sub del_ops {return (shift)->{-DEL_OPS};};
 sub ndel_ops {return (shift)->{-NDEL_OPS};};
 sub del_mt {return (shift)->{-DEL_MT};};
 sub mls_rule {return (shift)->{-MLS_RULE};};
+sub exp_rule {return (shift)->{-EXP_RULE};};
 
 sub ops {return (shift)->{-OPS};};
 sub op_prec {return (shift)->{-OP_PREC};};
