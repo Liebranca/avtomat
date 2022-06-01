@@ -352,7 +352,11 @@ sub cut($$$$) {
     my $matchno=$i;
     $i=0;
 
-    for my $sub(split '#:cut;>',$s) {
+    if($s eq '#:cut;>') {
+      $s2.=sprintf cut_token_f(),
+        $id,$cnt+($i++);
+
+    } else { for my $sub(split '#:cut;>',$s) {
 
       if($i<$matchno) {
         $s2.=sprintf $sub.cut_token_f(),
@@ -363,10 +367,9 @@ sub cut($$$$) {
 
       };
 
-    };
+    }};
 
   } else {$s2=$s;};
-
   return $s2;
 
 # ---   *   ---   *   ---

@@ -19,7 +19,7 @@ sub c_mls($$) {
 
   my ($self,$s)=@_;
 
-  if($s=~ m/(#\s*ifn?(def)?)/) {
+  if($s=~ m/(#\s*if)/) {
 
     my $open=$1;
     my $close=$open;
@@ -29,7 +29,16 @@ sub c_mls($$) {
 
     $self->del_mt->{$open}=$close;
 
-    return "(($open))";
+    return "($open)";
+
+  } elsif($s=~ m/(#\s*define\s+)/) {
+
+    my $open=$1;
+    my $close="\n";
+
+    $self->del_mt->{$open}=$close;
+
+    return "($open)";
 
   } else {return undef;};
 
@@ -41,7 +50,7 @@ lang::def::nit(
 
   -NAME => 'c',
   -EXT  => '\.([ch](pp|xx)?|C|cc|c\+\+|cu|H|hh|ii?)$',
-  -HED  => '',
+  -HED  => 'N/A',
 
   -MAG  => '^(C|C\+\+) (source|program)',
 
@@ -50,7 +59,7 @@ lang::def::nit(
 # ---   *   ---   *   ---
 
   -PREPROC=>[
-    lang::delim2('#',"\n",1),
+    lang::delim2('#',"\n"),
 
   ],
 

@@ -123,12 +123,11 @@ sub mls_block($$) {
   my $doc=\$self->in_mls_block->[2];
   my $lvl=\$self->in_mls_block->[3];
 
-  my $len=length $cde;
   my ($s,$rem);
 
   if($first_frame) {
     ($s,$rem)=split ':__CUT__',$self->line;
-    $self->in_mls_block->[4]=$self->line;
+    $self->in_mls_block->[4]=$s;
 
   } else {
     ($s,$rem)=('',$self->line);
@@ -140,53 +139,49 @@ sub mls_block($$) {
 
   my $i=0;
   my $accum='';
+  my $tok='';
 
   my @ar=split '',$rem;
 
   for my $c(@ar) {
 
-    my $last=$ar[$i-(1*$i>0)];
-    my $next=$ar[$i+(1*$i<$#ar)];
-
-    my $term=substr $rem,$i,$i+$len;
+    $tok.=$c;
 
 # ---   *   ---   *   ---
-# close char downs the depth if not escaped
+# close char downs the depth
 
-    if($c eq $cde && $last ne '\\') {
+    if($cde=~ m/^\Q${tok}/) {
 
-      if($$lvl) {
-        $$doc.=$c;
+      if($tok=~ m/^${cde}/) {
 
-      };$$lvl--;
+        if($$lvl) {
+          $$doc.=$tok;
+          $tok='';
 
-      if($$lvl<0) {last;};
+        };$$lvl--;
 
-# ---   *   ---   *   ---
-# open char ups the depth if not escaped
+        if($$lvl<0) {$i++;last;};
 
-    } elsif($c eq $ode && $last ne '\\') {
-      $$lvl++;
-      $$doc.=$c;
+      };$i++;next;
 
 # ---   *   ---   *   ---
-# =<<EOF (or similar) reached
+# open char ups the depth
 
-    } elsif($len>1 && $term eq $cde) {
-      $$lvl=-1;last;
+    } elsif($ode=~ m/^\Q${tok}/) {
+
+      if($tok=~ m/^${ode}/) {
+
+        $$lvl++;
+        $$doc.=$tok;
+        $tok='';
+
+      };$i++;next;
 
 # ---   *   ---   *   ---
-# do not append BS if followed
-# by open/close char
+# no match
 
-    } elsif(!(
+    } else {$$doc.=$tok;$tok='';};$i++;
 
-          $c eq '\\'
-      && ($next ne $cde || $next eq $ode)
-
-      )
-
-    ) {$$doc.=$c;};$i++;
 
   };
 
@@ -205,8 +200,8 @@ sub mls_block($$) {
 
     $accum=join '',@ar[$i+length $cde..$#ar];
 
-    push @{$self->strings},$$doc;
-    $self->in_mls_block(undef);
+    push @{$self->strings},$ode.$$doc;
+    $self->in_mls_block(0);
 
   };
 
@@ -224,7 +219,6 @@ sub tokenize_block($) {
 
   my $self=shift;
   my $lang=$self->lang;
-
   my $matchtab=$lang->del_mt;
 
   my $first_frame=0;
@@ -232,14 +226,12 @@ sub tokenize_block($) {
 # ---   *   ---   *   ---
 # check for mls block beg
 
-  TOP:
-
-  if(!$self->in_mls_block) {
+  TOP:if(!$self->in_mls_block) {
 
     my $pat=$lang->mls_rule->($lang,$self->line);
-    if(!defined $pat) {return;};
+    if(!defined $pat) {goto END;};
 
-    if($self->{-LINE}=~ s/${pat}/$1:__CUT__/) {
+    if($self->{-LINE}=~ s/^(.*)${pat}/$1:__CUT__/) {
 
       my $ode=$2;
       my $cde=$matchtab->{$ode};
@@ -255,18 +247,14 @@ sub tokenize_block($) {
 # beg found/processing pending
 
   };if($self->in_mls_block) {
-
-    $self->mls_block(
-      $first_frame
-
-    );
+    $self->mls_block($first_frame);
 
 # ---   *   ---   *   ---
 # new mls beg
 
     if(!$self->in_mls_block) {
 
-      if(length $self->rem) {
+      if(length lang::stripline($self->rem)) {
 
         $self->mls_accum(
           $self->mls_accum.
@@ -282,36 +270,24 @@ sub tokenize_block($) {
 # ---   *   ---   *   ---
 # no mls blocks pending
 
-      } else {
-
-        $self->line(
-          $self->mls_accum.
-          $self->line
-
-        );
-
-        $self->mls_accum('');
-        $first_frame=0;
-
       };
-
     };
 
-# ---   *   ---   *   ---
-# not inside an mls block
+  };END:if(
 
-  } else {
+       !$self->in_mls_block
+    && $self->mls_accum
 
-    if($self->mls_accum) {
+  ) {
 
-      $self->line(
-        $self->mls_accum.
-        $self->line
+    $self->line(
+      $self->mls_accum.
+      $self->line
 
-      );
-      $self->mls_accum('');
+    );
 
-    };$first_frame=0;
+    $self->mls_accum('');
+    $self->rem('');
 
   };
 };
@@ -324,15 +300,13 @@ sub mangle($) {
 
   my $self=shift;
 
-  $self->tokenize_block();
+  #$self->tokenize_block();
   if(!length lang::stripline($self->line)) {
     return;
 
   };
 
 # ---   *   ---   *   ---
-
-  my $matches;
 
   $self->line(lang::mcut(
 
@@ -372,7 +346,6 @@ sub clean {
   $self->{-LINE}=~ s/'.$eb.'\s+/'.$eb.'/sg;
 
   if(!$self->line) {return 1;};
-
   return 0;
 
 };
@@ -391,6 +364,11 @@ sub join_rem {
 };
 
 # ---   *   ---   *   ---
+# SL AND ML EXPS DEPRECATED
+# change these two subs to
+# lang-specific methods
+
+# ---   *   ---   *   ---
 # single-line expressions
 
 sub slexps {
@@ -405,7 +383,7 @@ sub slexps {
 
   my @ar=split
 
-    m/([${sb}])|${eb}$|${eb}/,
+    m/(${sb})|${eb}$|${eb}/,
     $self->line
 
   ;
@@ -434,8 +412,21 @@ sub mlexps {
   my $eb=$lang->exp_bound;
   my $sb=$lang->scope_bound;
 
-  my @ar=split m/([${sb}])|${eb}/,$self->line;
+  my @ar=split
+
+    m/(${sb})|${eb}/,
+    $self->line
+
+  ;
+
   my $entry=pop @ar;
+
+  if(@ar && $self->rem) {
+
+    push @{$self->exps},$self->rem;
+    $self->rem('');
+
+  };
 
   # separate curls
   for my $e(@ar) {
@@ -492,17 +483,21 @@ sub fopen {
 
   # verify header
   my $line=readline $self->{-FHANDLE};
+  if($hed eq 'N/A') {goto SKIP;};
 
-  if(!($line=~ m/${hed}/)) {
+  if(!($line=~ m/^${hed}/)) {
     printf STDERR $self->{-FNAME}.": bad header\n";
     fclose();
 
     exit;
 
-  };$self->line($line);
+  };
+
+  SKIP:
+  $self->line($line);
 
   # get remains
-  $self->{-LINE}=~ s/${hed}//;
+  $self->{-LINE}=~ s/^${hed}//;
   $self->rem('');
 
 # ---   *   ---   *   ---
@@ -635,6 +630,7 @@ sub mam {
   my $rd=nit($program);
 
   (\&file,\&string)[$mode]->($rd,$src);
+  if($rd->rem) {push @{$rd->exps},$rd->rem;};
 
 # ---   *   ---   *   ---
 
@@ -643,8 +639,9 @@ sub mam {
   my $fr_blk=$program->blk;
 
   for my $exp(@{$rd->exps}) {
-printf "$exp\n";
+print "$exp\n";
 next;
+
     my $body=$exp;
     if($body=~ m/\{|\}/) {
       $exp=$fr_node->nit(undef,$body);
@@ -656,7 +653,7 @@ next;
       $exp->tokenize($body);
       $exp->agroup();
 
-      $exp->subdiv();
+#      $exp->subdiv();
 
 #      $exp->collapse();
 
@@ -665,7 +662,7 @@ next;
 
     };
 
-$exp->prich();
+#$exp->prich();
 
   };exit;
 
