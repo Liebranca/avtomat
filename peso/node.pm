@@ -85,6 +85,8 @@ sub nit($$$) {
   };my $node=bless {
 
     -VALUE=>$val,
+    -VALUE_TYPE=>0x00,
+
     -LEAVES=>[],
 
     -ROOT=>$tree_id,

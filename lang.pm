@@ -40,6 +40,44 @@ package lang;
   };
 
 # ---   *   ---   *   ---
+# value type flags
+
+  use constant {
+
+    VT_KEYWORD=>0x01,
+    VT_OPERATOR=>0x02,
+    VT_VALUE=>0x04,
+    VT_XPRS=>0x08,
+
+  };use constant {
+
+    VT_TYPE=>0x0100|VT_KEYWORD,
+    VT_SPEC=>0x0200|VT_KEYWORD,
+    VT_SBL=>0x0400|VT_KEYWORD,
+
+    VT_ITRI=>0x0800|VT_KEYWORD,
+    VT_FCTL=>0x1000|VT_KEYWORD,
+
+    VT_SEP=>0x0100|VT_OPERATOR,
+    VT_DEL=>0x0200|VT_OPERATOR,
+    VT_ARI=>0x0400|VT_OPERATOR,
+
+    VT_BARE=>0x0100|VT_VALUE,
+    VT_PTR=>0x0200|VT_VALUE,
+
+    VT_SBL_DECL=>0x0100|VT_XPRS,
+    VT_PTR_DECL=>0x0200|VT_XPRS,
+    VT_REG_DECL=>0x0400|VT_XPRS,
+    VT_CLAN_DECL=>0x0800|VT_XPRS,
+
+    VT_SBL_DEF=>0x1000|VT_XPRS,
+    VT_PTR_DEF=>0x2000|VT_XPRS,
+    VT_REG_DEF=>0x4000|VT_XPRS,
+    VT_CLAN_DEF=>0x8000|VT_XPRS,
+
+  };
+
+# ---   *   ---   *   ---
 # regex tools
 
 # in:pattern
@@ -176,7 +214,9 @@ sub delim {
   if(!$end) {
     $end=$beg;
 
-  };my $allow=( neg_lkahead($end,shift,1) );
+  };
+
+  my $allow=( neg_lkahead($end,shift,1) );
 
   $beg=rescap($beg);
   $end=rescap($end);
@@ -201,7 +241,9 @@ sub delim2 {
   if(!$end) {
     $end=$beg;
 
-  };my $allow=( neg_lkahead($end,shift,0) );
+  };
+
+  my $allow=( neg_lkahead($end,shift,0) );
 
   $beg=rescap($beg);
   $end=rescap($end);
@@ -695,7 +737,7 @@ my %DEFAULTS=(
   -EXP_BOUND=>'[;]',
   -SCOPE_BOUND=>'[\{\}]',
 
-  -HED=>'.*',
+  -HED=>'N/A',
   -EXT=>'',
   -MAG=>'',
 
@@ -716,11 +758,14 @@ my %DEFAULTS=(
   -NAMES_U=>'\b[_A-Z][_A-Z0-9]*\b',
   -NAMES_L=>'\b[_a-z][_a-z0-9]*\b',
 
-  -VARS=>[],
-  -BILTN=>[],
-  -KEYS=>[],
+  -TYPES=>[],
+  -SPECS=>[],
 
-  -TYPES=>{},
+  -BILTN=>[],
+  -FCTLS=>[],
+  -ITRIS=>[],
+
+  -RESNAMES=>[],
 
 # ---   *   ---   *   ---
 
@@ -873,12 +918,38 @@ my %DEFAULTS=(
   };
 
 # ---   *   ---   *   ---
-# make type-matching pattern
+# convert keyword lists to hashes
 
-  $ref->{-TYPES_RE}=lang::hashpat(
-    $ref->{-TYPES}
+  for my $key(
 
-  );
+    -TYPES,-SPECS,
+    -BILTN,-FCTLS,-ITRIS,
+
+    -RESNAMES,
+
+  ) {
+
+    my @ar=@{$ref->{$key}};
+    my %ht;while(@ar) {
+
+      my $tag=shift @ar;
+
+# ---   *   ---   *   ---
+# definitions to be loaded in later
+# if available/applicable
+
+      $ht{$tag}=0;
+
+    };
+
+# ---   *   ---   *   ---
+# make keyword-matching pattern
+# then save hash
+
+    $ht{re}=lang::hashpat(\%ht);
+    $ref->{$key}=\%ht;
+
+  };
 
 # ---   *   ---   *   ---
 # handle creation of operator pattern
@@ -1039,11 +1110,15 @@ sub pesc {return (shift)->{-PESC};};
 # ---   *   ---   *   ---
 
 sub names {return (shift)->{-NAMES};};
-sub keyw {return (shift)->{-KEYS};};
-sub vars {return (shift)->{-VARS};};
+
 sub types {return (shift)->{-TYPES};};
-sub types_re {return (shift)->{-TYPES_RE};};
+sub specs {return (shift)->{-SPECS};};
+
 sub biltn {return (shift)->{-BILTN};};
+sub itris {return (shift)->{-ITRIS};};
+sub fctls {return (shift)->{-FCTLS};};
+
+sub resnames {return (shift)->{-RESNAMES};};
 
 sub nums {return (shift)->{-NUMS};};
 sub numcon {return (shift)->{-NUMCON};};

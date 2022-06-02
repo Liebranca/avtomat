@@ -13,65 +13,72 @@ package langdefs::c;
   use lang;
 
 # ---   *   ---   *   ---
-# used to 'fold' multi-line directives
-
-sub c_mls($$) {
-
-  my ($self,$s)=@_;
-
-  if($s=~ m/(#\s*if)/) {
-
-    my $open=$1;
-    my $close=$open;
-
-    $close=~ s/(#\s*)//;
-    $close=$1.'endif';
-
-    $self->del_mt->{$open}=$close;
-
-    return "($open)";
-
-  } elsif($s=~ m/(#\s*define\s+)/) {
-
-    my $open=$1;
-    my $close="\n";
-
-    $self->del_mt->{$open}=$close;
-
-    return "($open)";
-
-  } else {return undef;};
-
-};
-
-# ---   *   ---   *   ---
-# used to separate statements and directives
-
-sub c_exps($) {
-
-  my $rd=shift;
-
-  my $preproc=lang::cut_token_re;
-  $preproc=~ s/\[A-Z\]\+/PREPROC[A-Z]/;
-
-  while($rd->{-LINE}=~ s/^(${preproc})//) {
-    push @{$rd->exps},$1;
-
-  };
-
-};
-
-# ---   *   ---   *   ---
 
 lang::def::nit(
 
-  -NAME => 'c',
-  -EXT  => '\.([ch](pp|xx)?|C|cc|c\+\+|cu|H|hh|ii?)$',
-  -HED  => 'N/A',
+  -NAME=>'c',
 
-  -MAG  => '^(C|C\+\+) (source|program)',
+  -EXT=>'\.([ch](pp|xx)?|C|cc|c\+\+|cu|H|hh|ii?)$',
+  -MAG=>'^(C|C\+\+) (source|program)',
+  -COM=>'//',
 
-  -COM  => '//',
+# ---   *   ---   *   ---
+
+  -TYPES=>[qw(
+
+    bool char short int long
+    float double void enum
+
+    int8_t int16_t int32_t int64_t
+    uint8_t uint16_t uint32_t uint64_t
+
+    nihil stark signal
+
+  )],
+
+  -SPECS=>[qw(
+
+    auto extern inline restrict
+    const signed unsigned
+    union struct static
+
+    class explicit friend mutable
+    namespace override private
+    protected public register
+
+    template using virtual volatile
+    noreturn _Atomic complex imaginary
+    thread_local operator
+
+  )],
+
+# ---   *   ---   *   ---
+
+  -ITRIS=>[qw(
+
+    sizeof offsetof typeof alignof
+    typedef typename alignas
+
+    static_assert cassert
+    _Generic __attribute__
+
+  )],
+
+  -FCTLS=>[qw(
+
+    if else for while do
+    switch case default
+    try throw catch new delete
+    break continue goto return
+
+  )],
+
+# ---   *   ---   *   ---
+
+  -RESNAMES=>[qw(
+    this
+
+  )],
 
 # ---   *   ---   *   ---
 
@@ -80,125 +87,56 @@ lang::def::nit(
 
   ],
 
-  -EXP_RULE=>\&c_exps,
-  -MLS_RULE=>\&c_mls,
-
   -MCUT_TAGS=>[-STRING,-CHAR,-PREPROC],
 
 # ---   *   ---   *   ---
 
-  -VARS =>[
+  -EXP_RULE=>sub ($) {
 
-    lang::eiths(
+    my $rd=shift;
 
-      'auto,extern,inline,restrict,signed,'.
-      'union,struct,unsigned,static,typedef,'.
+    my $preproc=lang::cut_token_re;
+    $preproc=~ s/\[A-Z\]\+/PREPROC[A-Z]/;
 
-      'const'
+    while($rd->{-LINE}=~ s/^(${preproc})//) {
+      push @{$rd->exps},$1;
 
-    ,1),
-
-# ---   *   ---   *   ---
-
-    lang::eiths(
-
-      'sizeof,offsetof,typedef'
-
-    ,1),
-
-# ---   *   ---   *   ---
-
-    lang::eiths(
-
-      '_(Alignas|Alignof|Atomic|Bool|Complex'.
-      '|Generic|Imaginary|Noreturn'.
-      '|Static_assert|Thread_local),'.
-
-      'class,explicit,friend,mutable,'.
-      'namespace,override,private,'.
-      'protected,public,register,'.
-
-      'template,this,typename,'.
-      'using,virtual,volatile'
-
-    ,1),
-
-# ---   *   ---   *   ---
-
-    lang::eiths(
-
-      'gl_(Position|FragColor)'
-
-    ,1),
-
-  ],
-
-# ---   *   ---   *   ---
-
-  -TYPES=>{
-
-    'bool'=>1,
-    'char'=>1,
-
-    'short'=>2,
-    'int'=>4,
-    'long'=>8,
-
-    'float'=>4,
-    'double'=>8,
-
-    'void'=>0,
-    'enum'=>0,
-
-    '([a-z][a-z_]*'.
-    '|(u_?)?int(8|16|32|64))'.
-
-    '_t'=>0,
-
-    'nihil'=>8,
-    'stark'=>8,
-    'signal'=>8,
-
-    'uint'=>4,
-    'vec4'=>16,
-    'mat4'=>64,
+    };
 
   },
 
 # ---   *   ---   *   ---
 
-  -BILTN =>[
+  -MLS_RULE=>sub ($$) {
 
-  ],
+    my ($self,$s)=@_;
+
+    if($s=~ m/(#\s*if)/) {
+
+      my $open=$1;
+      my $close=$open;
+
+      $close=~ s/(#\s*)//;
+      $close=$1.'endif';
+
+      $self->del_mt->{$open}=$close;
+
+      return "($open)";
 
 # ---   *   ---   *   ---
 
+    } elsif($s=~ m/(#\s*define\s+)/) {
 
-  -KEYS =>[
+      my $open=$1;
+      my $close="\n";
 
-    lang::eiths(
+      $self->del_mt->{$open}=$close;
 
-      'if,else,for,while,do,switch,case,default,'.
-      'try,throw,catch,operator,new,delete,'.
-      'break,continue,goto,return'
+      return "($open)";
 
-    ,1),
+    } else {return undef;};
 
-    lang::eiths(
-
-      '__attribute__[[:blank:]]*\(\([^)]*\)\)'.
-
-      '|__('.
-
-        'aligned|asm|builtin|hidden'.
-        '|inline|packed|restrict|section'.
-        '|typeof|weak'.
-
-      ')__'
-
-    ,1),
-
-  ],
+  },
 
 );
 

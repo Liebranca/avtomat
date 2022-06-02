@@ -96,7 +96,7 @@ for my $lang(@files) {
 for my $lang(@files) {
   $lang=~ s/\.pm//;
 
-};
+};@files='c';
 
 # ---   *   ---   *   ---
 
@@ -149,6 +149,7 @@ my %KEYCOLOR=(
   -PESC=>0x0E,
   -STRING=>0x0E,
   -CHAR=>0x0E,
+  -PREPROC=>0x0E,
 
   -PFUN=>0x01,
   -NUMS=>0x03,
@@ -160,11 +161,14 @@ my %KEYCOLOR=(
 
   -COMMON=>0x07,
   -NAMES_U=>0x0D,
-  -TYPES=>0x04,
-  -VARS=>0x04,
-  -BILTN=>0x01,
 
-  -KEYS=>0x0D,
+  -TYPES=>0x04,
+  -SPECS=>0x04,
+  -RESNAMES=>0x04,
+
+  -BILTN=>0x01,
+  -ITRIS=>0x04,
+  -FCTLS=>0x0D,
 
   -LCOM=>0x02,
   -OPS=>0x0F,
@@ -207,6 +211,8 @@ sub prprops {
 
   for my $pat(@ar) {
 
+    $pat=join '\n',(split "\n",$pat);
+
     $pat=avt::dqwrap($pat);
     print $FH "color $color $pat\n";
 
@@ -245,9 +251,10 @@ sub glang {
       -COMMON,-HIER0,-HIER1,
 
       -NAMES_U,-PFUN,-SHCMD,-PESC,
-      -BILTN,-KEYS,-TYPES,-VARS,
+      -BILTN,-FCTLS,-TYPES,-SPECS,
+      -ITRIS,-RESNAMES,
 
-      -NUMS,-OPS,-CHAR,-STRING,
+      -NUMS,-OPS,-CHAR,-STRING,-PREPROC,
       -LCOM,-DEV0,-DEV1,-DEV2,-DEV3
 
     ) {prprops($def,$key);};
