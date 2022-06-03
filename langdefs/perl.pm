@@ -24,104 +24,114 @@ lang::def::nit(
 
   -COM  => '#',
 
+  -DRFC => '(::|->)',
+
 # ---   *   ---   *   ---
 
-  -VARS =>[
+  -TYPES=>[
 
-    '[$%&@]('.
+    '([$%&@][#]?$:names;>)',
+    '([$%&@]\^[A-Z?\^_])',
 
-      '($:names;>|'.
+    '([$%&@][0-9]+)',
 
-      '\^[][A-Z?\^_]|[0-9]+\b)|'.
+    '([$%&@]\{\^?$:names;>\})',
+    '([$%&@]\{\^[?\^][0-9]+)\})',
 
-      '(\{(\^?$:names;>|'.
-      '\^[][?\^][0-9]+)\})|'.
+    '([$%&@][!"#\'()*+,.:;<=>?`|~-])',
+    '([$%&@]\{[!-/:-@\`|~]\})',
 
-      '(([][!"#\'()*+,.:;<=>?`|~-]|'.
-      '\{[][!-/:-@\`|~]\})|\$[$%&@])|'.
-
-      '((^|[[:blank:]])[$%@][/\\\\])'.
-
-    ')',
+    '(\$[$%&@])',
 
   ],
 
-# ---   *   ---   *   ---
+  -SPECIFIERS=>[qw(
+    my our sub
 
-  -BILTN =>[
-
-    lang::eiths(
-
-      'accept,alarm,atan2,bin(d|mode),'.
-
-      'c(aller|h(dir|mod|op|own|root)|lose(dir)?'.
-      '|onnect|os|rypt),'.
-
-      'd(bm(close|open)|efined|elete|ie|o|ump),'.
-
-      'e(ach|of|val|x(ec|ists|it|p)),'.
-      'f(cntl|ileno|lock|ork),'.
-
-      'get(c|login|peername|pgrp|ppid|priority'.
-      '|pwnam|(host|net|proto|serv)byname'.
-      '|pwuid|grgid|(host|net)byaddr'.
-      '|protobynumber|servbyport)'.
-
-      '([gs]et|end)(pw|gr|host|net|proto|serv)ent,'.
+  )],
 
 # ---   *   ---   *   ---
 
-      'getsock(name|opt),'.
-      'gmtime,goto,grep,hex,index,int,ioctl,join,'.
+  -BUILTINS=>[qw(
 
-      'keys,kill,last,length,link,listen,'.
-      'local(time)?,log,lstat,m,mkdir,'.
+    accept alarm atan2 bin bind binmode
 
-      'msg(ctl|get|snd|rcv),next,oct,open(dir)?,'.
-      'ord,pack,pipe,pop,printf?,push,'.
+    caller chdir chmod chop chown chroot close
+    closedir connect cos crypt
 
-      'q,qq,qx,rand,re(ad(dir|link)?,'.
+    dbmclose dbmopen defined delete die dump
+    each eof eval exec exists exit exp
 
-      'cv|do|name|quire|set|turn|verse|winddir),'.
+    fcntl fileno flock fork
 
-      'rindex,rmdir,s,scalar,seek(dir)?,'.
+    getc getlogin getpeername getpgrp getppid
+    getpriority getpwnam gethostbyname
 
-      'se(lect|mctl|mget|mop|nd|tpgrp'.
-      '|tpriority|tsockopt),'.
+    getnetbyname getprotobyname getservbyname
+    getpwuid getgrgid gethostbyaddr getnetbyaddr
+
+    getprotobynumber getservbyport
+
+    getpwent getgrent gethostent
+    getnetent getprotoent getservent
+
+    setpwent setgrent sethostent
+    setnetent setprotoent setservent
+
+    endpwent endgrent endhostent
+    endnetent endprotoent endservent
+
+    getsockname getsockopt gmtime grep hex
+    index int ioctl join keys kill
+
+    length link listen local localtime
+    log lstat m mkdir
+
+    msgctl msgget msgsnd msgrcv next oct open
+    opendir ord pack pipe pop print printf
+
+    push q qq qx rand read readdir readlink
+    readline recv rename require
+
+    reverse rewinddir rindex rmdir
+
+    s scalar seek seekdir select semctl semget
+    semop send setpgrp setpriority setsockopt
+
+    shift shmctl shmget shmread shmreadline
+    shmwrite shutdown sin sleep socket socketpair
+
+    sort splice split sprintf sqrt srand stat
+    study substr symlink syscall sysread system
+
+    syswrite tell telldir time tr try truncate
+
+    umask undef unlink unpack unshift
+    utime values vec wait waitpid
+
+    wantarray warn write
+
+  )],
 
 # ---   *   ---   *   ---
 
-      'shift,shm(ctl|get|read(line)?|write),'.
+  -DIRECTIVES=>[qw(
+    use package
 
-      'shutdown,sin,sleep,socket(pair)?,'.
+  )],
 
-      'sort,spli(ce|t),sprintf,sqrt,srand,stat,'.
-      'study,substr,symlink,'.
+  -INTRINSICS=>[qw(
+    eq ne lt gt le ge cmp x can isa
 
-      'sys(call|read|tem|write),'.
-      'tell(dir)?,time,tr(y)?,truncate,umask,'.
+  )],
 
-      'un(def|link|pack|shift),'.
-      'utime,values,vec,wait(pid)?,'.
-      'wantarray,warn,write'
+  -FCTLS=>[qw(
 
-    ,1),
+    continue else elsif do for
+    foreach if unless until while
+    goto next last redo reset return
 
-  ],
-
-# ---   *   ---   *   ---
-
-  -KEYS =>[
-
-    lang::eiths(
-
-      'continue,else,elsif,do,for,foreach,'.
-      'if,unless,until,while,eq,ne,lt,gt,'.
-      'le,ge,cmp,x,my,sub,use,package,can,isa'
-
-    ,1),
-
-  ],
+  )],
 
 # ---   *   ---   *   ---
 

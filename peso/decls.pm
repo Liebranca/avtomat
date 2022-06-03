@@ -35,7 +35,7 @@ my $BAF_ID=0;sub id {
 # ---   *   ---   *   ---
 # leaps and such
 
-use constant TYPES=>[
+use constant TYPES=>{
 
   # primitives
   'char'=>1,
@@ -63,12 +63,12 @@ use constant TYPES=>[
 
   'signal'=>8,    # int(*signal)(int)
 
-];
+};
 
 # ---   *   ---   *   ---
 # builtins and functions, group A
 
-use constant BAFA=>{
+use constant BUILTINS=>{
 
   'cpy'=>[id(),'2<ptr,ptr|bare>'],
   'mov'=>[id(),'2<ptr,ptr>'],
@@ -87,7 +87,7 @@ use constant BAFA=>{
 
 # ---   *   ---   *   ---
 
-use constant BAFB=>{
+use constant DIRECTIVES=>{
 
   'reg'=>[id(),'1<bare>'],
   'rom'=>[id(),'1<bare>'],
@@ -103,7 +103,7 @@ use constant BAFB=>{
 
 # ---   *   ---   *   ---
 
-use constant BAFC=>{
+use constant FCTLS=>{
 
   'jmp'=>[id(),'1<ptr>'],
   'jif'=>[id(),'2<ptr,ptr|bare>'],
@@ -120,13 +120,19 @@ use constant BAFC=>{
 # missing/needs rethinking:
 # str,buf,fptr,lis,lock
 
-use constant BAFD=>{
+use constant INTRINSICS=>{
 
   'wed'=>[id(),'1<bare>'],
   'unwed'=>[id(),'0'],
 
+};
+
+use constant SPECIFIERS=>{
+
   'ptr'=>[id(),'0'],
+  'fptr'=>[id(),'0'],
   'str'=>[id(),'0'],
+  'buf'=>[id(),'0'],
 
 };
 
@@ -146,21 +152,6 @@ use constant BAFE=>{
 
 # ---   *   ---   *   ---
 # DECLARATIONS END
-
-# ---   *   ---   *   ---
-# getters
-
-sub intrinsic {
-
-  my $h=BAFD;
-
-  return lang::eiths(
-
-    join ',',
-    keys %$h,1
-
-  );
-};
 
 # ---   *   ---   *   ---
 

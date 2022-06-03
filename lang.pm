@@ -42,38 +42,39 @@ package lang;
 # ---   *   ---   *   ---
 # value type flags
 
-  use constant {
+  ;;use constant {
 
-    VT_KEYWORD=>0x01,
-    VT_OPERATOR=>0x02,
-    VT_VALUE=>0x04,
-    VT_XPRS=>0x08,
+    VT_KEY=>0x01,
+    VT_OPR=>0x02,
+    VT_VAL=>0x04,
+    VT_XPR=>0x08,
 
   };use constant {
 
-    VT_TYPE=>0x0100|VT_KEYWORD,
-    VT_SPEC=>0x0200|VT_KEYWORD,
-    VT_SBL=>0x0400|VT_KEYWORD,
+    VT_TYPE=>0x0100|VT_KEY,
+    VT_SPECIFIER=>0x0200|VT_KEY,
+    VT_SYMBOL=>0x0400|VT_KEY,
 
-    VT_ITRI=>0x0800|VT_KEYWORD,
-    VT_FCTL=>0x1000|VT_KEYWORD,
+    VT_ITRI=>0x0800|VT_KEY,
+    VT_FCTL=>0x1000|VT_KEY,
+    VT_DIR=>0x1000|VT_KEY,
 
-    VT_SEP=>0x0100|VT_OPERATOR,
-    VT_DEL=>0x0200|VT_OPERATOR,
-    VT_ARI=>0x0400|VT_OPERATOR,
+    VT_SEP=>0x0100|VT_OPR,
+    VT_DEL=>0x0200|VT_OPR,
+    VT_ARI=>0x0400|VT_OPR,
 
-    VT_BARE=>0x0100|VT_VALUE,
-    VT_PTR=>0x0200|VT_VALUE,
+    VT_BARE=>0x0100|VT_VAL,
+    VT_PTR=>0x0200|VT_VAL,
 
-    VT_SBL_DECL=>0x0100|VT_XPRS,
-    VT_PTR_DECL=>0x0200|VT_XPRS,
-    VT_REG_DECL=>0x0400|VT_XPRS,
-    VT_CLAN_DECL=>0x0800|VT_XPRS,
+    VT_SBL_DECL=>0x0100|VT_XPR,
+    VT_PTR_DECL=>0x0200|VT_XPR,
+    VT_REG_DECL=>0x0400|VT_XPR,
+    VT_CLAN_DECL=>0x0800|VT_XPR,
 
-    VT_SBL_DEF=>0x1000|VT_XPRS,
-    VT_PTR_DEF=>0x2000|VT_XPRS,
-    VT_REG_DEF=>0x4000|VT_XPRS,
-    VT_CLAN_DEF=>0x8000|VT_XPRS,
+    VT_SBL_DEF=>0x1000|VT_XPR,
+    VT_PTR_DEF=>0x2000|VT_XPR,
+    VT_REG_DEF=>0x4000|VT_XPR,
+    VT_CLAN_DEF=>0x8000|VT_XPR,
 
   };
 
@@ -759,12 +760,13 @@ my %DEFAULTS=(
   -NAMES_L=>'\b[_a-z][_a-z0-9]*\b',
 
   -TYPES=>[],
-  -SPECS=>[],
+  -SPECIFIERS=>[],
 
-  -BILTN=>[],
+  -BUILTINS=>[],
+  -INTRINSICS=>[],
   -FCTLS=>[],
-  -ITRIS=>[],
 
+  -DIRECTIVES=>[],
   -RESNAMES=>[],
 
 # ---   *   ---   *   ---
@@ -809,9 +811,7 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
-  -HIER0=>'$:drfc;>$:names;>',
-  -HIER1=>'(^|\s|[^_A-Za-z0-9:>\.])$:names;>$:drfc;>',
-
+  -HIER=>'$:drfc;>$:names;>',
   -PFUN=>'$:names;>\s*\\(',
 
 # ---   *   ---   *   ---
@@ -897,9 +897,46 @@ my %DEFAULTS=(
 
   -SBL=>'',
 
+);
+
 # ---   *   ---   *   ---
 
-);sub nit {
+;;sub vrepl {
+
+  my ($ref,$v)=@_;
+
+  my $names=$ref->{-NAMES};
+  my $drfc=$ref->{-DRFC};
+  my $nums=$ref->{-NUMS};
+
+  $$v=~ s/\$:names;>/$names/sg;
+  $$v=~ s/\$:drfc;>/$drfc/sg;
+
+  while($$v=~
+     m/\$:nums (\d*);>/
+
+  ) {
+
+    my $idex=$1;
+    my $pat=$nums->[$idex];
+
+    $$v=~ s/\$:nums ${idex};>/$pat/;
+
+  };
+
+};sub arr_vrepl {
+
+  my ($ref,$key)=@_;
+
+  for my $v(@{$ref->{$key}}) {
+    vrepl($ref,\$v);
+
+  };
+};
+
+# ---   *   ---   *   ---
+
+sub nit {
 
   my %h=@_;
   my $ref={};
@@ -922,8 +959,9 @@ my %DEFAULTS=(
 
   for my $key(
 
-    -TYPES,-SPECS,
-    -BILTN,-FCTLS,-ITRIS,
+    -TYPES,-SPECIFIERS,
+    -BUILTINS,-FCTLS,
+    -INTRINSICS,-DIRECTIVES,
 
     -RESNAMES,
 
@@ -933,6 +971,7 @@ my %DEFAULTS=(
     my %ht;while(@ar) {
 
       my $tag=shift @ar;
+      vrepl($ref,\$tag);
 
 # ---   *   ---   *   ---
 # definitions to be loaded in later
@@ -977,48 +1016,11 @@ my %DEFAULTS=(
 # ---   *   ---   *   ---
 # replace $:tokens;> with values
 
-  my $names=$ref->{-NAMES};
-  my $drfc=$ref->{-DRFC};
-
-  my $nums=$ref->{-NUMS};
-
-# ---   *   ---   *   ---
-
   for my $key(keys %{$ref}) {
-
     if( lang::is_arrayref($ref->{$key}) ) {
-      for my $v(@{$ref->{$key}}) {
-        $v=~ s/\$:names;>/$names/sg;
-        $v=~ s/\$:drfc;>/$drfc/sg;
+      arr_vrepl($ref,$key);
 
-        while($v=~ m/\$:nums (\d*);>/) {
-
-          my $idex=$1;
-          my $pat=$nums->[$idex];
-
-          $v=~ s/\$:nums ${idex};>/$pat/;
-
-        };
-
-      };
-
-# ---   *   ---   *   ---
-
-    } else {
-
-      $ref->{$key}=~ s/\$:names;>/$names/sg;
-      $ref->{$key}=~ s/\$:drfc;>/$drfc/sg;
-
-      while($ref->{$key}=~ m/\$:nums (\d*);>/) {
-
-        my $idex=$1;
-        my $pat=$nums->[$idex];
-
-        $ref->{$key}=~ s/\$:nums ${idex};>/$pat/;
-
-      };
-
-    };
+    } else {vrepl($ref,\$ref->{$key});};
 
   };
 
@@ -1112,10 +1114,11 @@ sub pesc {return (shift)->{-PESC};};
 sub names {return (shift)->{-NAMES};};
 
 sub types {return (shift)->{-TYPES};};
-sub specs {return (shift)->{-SPECS};};
+sub specifiers {return (shift)->{-SPECIFIERS};};
 
-sub biltn {return (shift)->{-BILTN};};
-sub itris {return (shift)->{-ITRIS};};
+sub builtins {return (shift)->{-BUILTINS};};
+sub intrinsics {return (shift)->{-INTRINSICS};};
+sub directives {return (shift)->{-DIRECTIVES};};
 sub fctls {return (shift)->{-FCTLS};};
 
 sub resnames {return (shift)->{-RESNAMES};};

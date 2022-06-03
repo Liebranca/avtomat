@@ -48,7 +48,7 @@ sub ALIAS($$) {
 
 # ---   *   ---   *   ---
 
-DEFINE 'cpy',peso::decls->BAFA,sub {
+DEFINE 'cpy',peso::decls->BUILTINS,sub {
 
   my ($frame,$inskey,$field)=@_;
   my ($dst,$src)=@$field;
@@ -67,7 +67,7 @@ DEFINE 'cpy',peso::decls->BAFA,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'pop',peso::decls->BAFA,sub {
+DEFINE 'pop',peso::decls->BUILTINS,sub {
 
   my ($frame,$inskey,$dst)=@_;
   my $fr_ptr=$frame->master->ptr;
@@ -87,7 +87,7 @@ DEFINE 'pop',peso::decls->BAFA,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'push',peso::decls->BAFA,sub {
+DEFINE 'push',peso::decls->BUILTINS,sub {
 
   my ($frame,$inskey,$src)=@_;
   my $fr_ptr=$frame->master->ptr;
@@ -106,7 +106,7 @@ DEFINE 'push',peso::decls->BAFA,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'inc',peso::decls->BAFA,sub {
+DEFINE 'inc',peso::decls->BUILTINS,sub {
 
   my ($frame,$inskey,$ptr)=@_;
   my $fr_ptr=$frame->master->ptr;
@@ -120,7 +120,7 @@ DEFINE 'inc',peso::decls->BAFA,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'dec',peso::decls->BAFA,sub {
+DEFINE 'dec',peso::decls->BUILTINS,sub {
 
   my ($frame,$inskey,$ptr)=@_;
   my $fr_ptr=$frame->master->ptr;
@@ -134,7 +134,7 @@ DEFINE 'dec',peso::decls->BAFA,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'clr',peso::decls->BAFA,sub {
+DEFINE 'clr',peso::decls->BUILTINS,sub {
 
   my ($frame,$inskey,$ptr)=@_;
   my $fr_ptr=$frame->master->ptr;
@@ -148,7 +148,7 @@ DEFINE 'clr',peso::decls->BAFA,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'exit',peso::decls->BAFA,sub {
+DEFINE 'exit',peso::decls->BUILTINS,sub {
 
   my ($frame,$inskey,$val)=@_;
   my $master=$frame->master;
@@ -163,7 +163,7 @@ DEFINE 'exit',peso::decls->BAFA,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'reg',peso::decls->BAFB,sub {
+DEFINE 'reg',peso::decls->DIRECTIVES,sub {
 
   my ($frame,$inskey,$name)=@_;
 
@@ -206,7 +206,7 @@ DEFINE 'reg',peso::decls->BAFB,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'clan',peso::decls->BAFB,sub {
+DEFINE 'clan',peso::decls->DIRECTIVES,sub {
 
   my ($frame,$inskey,$name)=@_;
 
@@ -243,7 +243,7 @@ DEFINE 'clan',peso::decls->BAFB,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'proc',peso::decls->BAFB,sub {
+DEFINE 'proc',peso::decls->DIRECTIVES,sub {
 
   my ($frame,$inskey,$name)=@_;
 
@@ -286,7 +286,7 @@ DEFINE 'proc',peso::decls->BAFB,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'entry',peso::decls->BAFB,sub {
+DEFINE 'entry',peso::decls->DIRECTIVES,sub {
 
   my ($frame,$inskey,$blk)=@_;
   my $fr_blk=$frame->master->blk;
@@ -298,7 +298,7 @@ DEFINE 'entry',peso::decls->BAFB,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'jmp',peso::decls->BAFC,sub {
+DEFINE 'jmp',peso::decls->FCTLS,sub {
 
   my ($frame,$inskey,$ptr)=@_;
 
@@ -316,7 +316,7 @@ DEFINE 'jmp',peso::decls->BAFC,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'wed',peso::decls->BAFD,sub {
+DEFINE 'wed',peso::decls->INTRINSICS,sub {
 
   my ($frame,$inskey,$type)=@_;
   my $fr_ptr=$frame->master->ptr;
@@ -328,7 +328,7 @@ DEFINE 'wed',peso::decls->BAFD,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'unwed',peso::decls->BAFD,sub {
+DEFINE 'unwed',peso::decls->INTRINSICS,sub {
 
   my ($frame,$inskey)=@_;
   my $fr_ptr=$frame->master->ptr;

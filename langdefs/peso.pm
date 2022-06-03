@@ -38,59 +38,41 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  -TYPES=> peso::type::new_frame(peso::decls->TYPES),
+  -TYPES=>[
+    keys %{peso::decls->TYPES},
 
-  -VARS=>[
+  ],
 
-    # intrinsics
-    peso::decls::intrinsic,
+  -SPECIFIERS=>[
+    keys %{peso::decls->SPECIFIERS},
 
-    # simbolic constants (sblconst)
-    lang::eiths(
+  ],
 
-      'self,null,non,other'
+  -RESNAMES=>[qw(
+    self other null non
 
-    ,1),
+  )],
+
+# ---   *   ---   *   ---
+
+  -INTRINSICS=>[
+    keys %{peso::decls->INTRINSICS},
+
+  ],
+
+  -DIRECTIVES=>[
+    keys %{peso::decls->DIRECTIVES},
 
   ],
 
 # ---   *   ---   *   ---
 
-  -BILTN =>[
+  -BUILTINS=>[qw(
 
-    # instructions
-    lang::eiths(
+    mem fre shift unshift
+    kin sow reap sys stop
 
-      ( join ',',
-        keys %{peso::decls->BAFA}
-
-      ).','.
-
-      'mem,fre,'.
-      'shift,unshift,'.
-
-      'kin,sow,reap,'.
-      'sys,stop'
-
-    ,1),
-
-  ],
-
-# ---   *   ---   *   ---
-
-  -KEYS =>[
-
-    # program flow
-    lang::eiths(
-      (join ',',keys %{peso::decls->BAFC})
-
-    ,1),
-
-    # directives
-    lang::eiths(
-      (join ',',keys %{peso::decls->BAFB})
-
-    ,1),
+  ),keys %{peso::decls->BUILTINS},
 
   ],
 

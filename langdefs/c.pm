@@ -36,7 +36,7 @@ lang::def::nit(
 
   )],
 
-  -SPECS=>[qw(
+  -SPECIFIERS=>[qw(
 
     auto extern inline restrict
     const signed unsigned
@@ -54,7 +54,7 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  -ITRIS=>[qw(
+  -INTRINSICS=>[qw(
 
     sizeof offsetof typeof alignof
     typedef typename alignas
@@ -62,14 +62,16 @@ lang::def::nit(
     static_assert cassert
     _Generic __attribute__
 
+    new delete
+
   )],
 
   -FCTLS=>[qw(
 
     if else for while do
     switch case default
-    try throw catch new delete
-    break continue goto return
+    try throw catch break
+    continue goto return
 
   )],
 

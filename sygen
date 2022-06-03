@@ -96,7 +96,7 @@ for my $lang(@files) {
 for my $lang(@files) {
   $lang=~ s/\.pm//;
 
-};@files='c';
+};
 
 # ---   *   ---   *   ---
 
@@ -142,8 +142,7 @@ my @colors=(
 
 my %KEYCOLOR=(
 
-  -HIER0=>0x04,
-  -HIER1=>0x0D,
+  -HIER=>0x04,
 
   -SHCMD=>0x01,
   -PESC=>0x0E,
@@ -163,17 +162,24 @@ my %KEYCOLOR=(
   -NAMES_U=>0x0D,
 
   -TYPES=>0x04,
-  -SPECS=>0x04,
+  -SPECIFIERS=>0x04,
   -RESNAMES=>0x04,
 
-  -BILTN=>0x01,
-  -ITRIS=>0x04,
+  -BUILTINS=>0x01,
+  -INTRINSICS=>0x04,
+  -DIRECTIVES=>0x0D,
   -FCTLS=>0x0D,
 
   -LCOM=>0x02,
   -OPS=>0x0F,
 
 );
+
+my $EITHS_NOWB={
+
+  'perl'=>{-TYPES=>1,},
+
+};
 
 sub prprops {
 
@@ -202,10 +208,33 @@ sub prprops {
     @ar=@{$v};
 
   } elsif($v=~ m/^HASH\(0x/) {
-    @ar=(lang::eiths(
-      join(',',keys %{$v}),
 
-    1));
+    delete $v->{re};
+    my @keys=keys %{$v};
+    @ar=();
+
+    if(exists $EITHS_NOWB
+      ->{$def->{-NAME}}
+      ->{$key}
+
+    ) {
+
+      @ar=@keys;
+
+    } else {
+      for(my $x=0;$x<@keys;$x+=20) {
+
+        my $top=(@keys>$x+19)
+          ? $x+19 : $#keys;
+
+        push @ar,lang::eiths(
+          join(',',@keys[$x..$top])
+
+        ,1);
+
+      };
+
+    };
 
   };
 
@@ -248,11 +277,11 @@ sub glang {
 
     for my $key(
 
-      -COMMON,-HIER0,-HIER1,
+      -COMMON,-HIER,
 
       -NAMES_U,-PFUN,-SHCMD,-PESC,
-      -BILTN,-FCTLS,-TYPES,-SPECS,
-      -ITRIS,-RESNAMES,
+      -BUILTINS,-FCTLS,-TYPES,-SPECIFIERS,
+      -INTRINSICS,-DIRECTIVES,-RESNAMES,
 
       -NUMS,-OPS,-CHAR,-STRING,-PREPROC,
       -LCOM,-DEV0,-DEV1,-DEV2,-DEV3

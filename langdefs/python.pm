@@ -26,56 +26,41 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  -VARS =>[
+  -TYPES=>[qw(
+    str int float list dict lambda
 
-    lang::eiths(
+  )],
 
-      'str,int,float,list,dict,'.
-      ''
+  -RESNAMES=>[qw(
+    False None True __$:names;>__
 
-    ,1),
-
-    lang::eiths(
-
-      'False,None,True'
-
-
-    ,1),
-
-    '__$:names;>__',
-
-  ],
+  )],
 
 # ---   *   ---   *   ---
 
-  -BILTN =>[
+  -INTRINSICS=>[qw(
+    and as in is as with not or
 
-  ],
+  )],
+
+  -DIRECTIVES=>[qw(
+    class def del assert async
+    import from pass global nonlocal
+
+  )],
 
 # ---   *   ---   *   ---
 
+  -FCTLS=>[qw(
 
-  -KEYS =>[
+    await break continue
+    if elif else except
 
-    lang::eiths(
+    finally for raise return
+    try while yield
 
-      'def,'.
+  )],
 
-      'and,as,assert,async,await,'.
-      'break,class,continue,'.
-
-      'del,elif,else,except,'.
-      'finally,for,from,'.
-
-      'global,if,import,in,is,'.
-      'lambda,nonlocal,not,or,'.
-
-      'pass,raise,return,'.
-      'try,while,with,yield'
-
-    ,1),
-
-  ],
 );
 
 # ---   *   ---   *   ---

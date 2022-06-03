@@ -26,47 +26,47 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  -VARS =>[
+  -TYPES=>[qw(
+    function class var let const
 
-    lang::eiths(
+  )],
 
-      'async,class,const,extends,function,'.
-      'let,this,typeof,var,void'
+  -SPECIFIERS=>[qw(
+    async await export
 
-    ,1),
-
-    lang::eiths(
-
-      'true,false,null,undefined'
-
-
-    ,1),
-
-  ],
+  )],
 
 # ---   *   ---   *   ---
 
-  -BILTN =>[
+  -INTRINSICS=>[qw(
+    extends typeof void
+    new delete in with
 
-  ],
+  )],
+
+  -DIRECTIVES=>[qw(
+    import
+
+  )],
 
 # ---   *   ---   *   ---
 
 
-  -KEYS =>[
+  -FCTLS=>[qw(
 
-    lang::eiths(
+    each of yield finally
 
-      'await,export,import,'.
-      'each,in,of,with,yield,finally,'.
+    if else for while do switch
+    case default try throw catch
+    break continue return
 
-      'if,else,for,while,do,switch,case,'.
-      'default,try,throw,catch,new,delete,'.
-      'break,continue,return'
+  )],
 
-    ,1),
+  -RESNAMES=>[qw(
+    true false null undefined this
 
-  ],
+  )],
+
 );
 
 # ---   *   ---   *   ---
