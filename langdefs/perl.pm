@@ -45,11 +45,6 @@ lang::def::nit(
 
   ],
 
-  -SPECIFIERS=>[qw(
-    my our sub
-
-  )],
-
 # ---   *   ---   *   ---
 
   -BUILTINS=>[qw(
@@ -116,7 +111,7 @@ lang::def::nit(
 # ---   *   ---   *   ---
 
   -DIRECTIVES=>[qw(
-    use package
+    use package my our sub
 
   )],
 

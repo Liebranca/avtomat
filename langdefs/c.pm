@@ -27,10 +27,12 @@ lang::def::nit(
   -TYPES=>[qw(
 
     bool char short int long
-    float double void enum
+    float double void
 
     int8_t int16_t int32_t int64_t
     uint8_t uint16_t uint32_t uint64_t
+
+    FILE
 
     nihil stark signal
 
@@ -39,10 +41,9 @@ lang::def::nit(
   -SPECIFIERS=>[qw(
 
     auto extern inline restrict
-    const signed unsigned
-    union struct static
+    const signed unsigned static
 
-    class explicit friend mutable
+    explicit friend mutable
     namespace override private
     protected public register
 
@@ -57,12 +58,17 @@ lang::def::nit(
   -INTRINSICS=>[qw(
 
     sizeof offsetof typeof alignof
-    typedef typename alignas
+    typename alignas
 
     static_assert cassert
     _Generic __attribute__
 
     new delete
+
+  )],
+
+  -DIRECTIVES=>[qw(
+    class struct union typedef enum
 
   )],
 
@@ -139,6 +145,17 @@ lang::def::nit(
     } else {return undef;};
 
   },
+
+# ---   *   ---   *   ---
+
+  -SBL_DECL=>[qw(
+
+    <spec>?+ <type> <ptr> <ode>
+      <spec>?+ <type> <ptr> <sep>?<<3
+
+    <cde>
+
+  )],
 
 );
 

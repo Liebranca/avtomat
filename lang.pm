@@ -52,8 +52,8 @@ package lang;
   };use constant {
 
     VT_TYPE=>0x0100|VT_KEY,
-    VT_SPECIFIER=>0x0200|VT_KEY,
-    VT_SYMBOL=>0x0400|VT_KEY,
+    VT_SPEC=>0x0200|VT_KEY,
+    VT_SBL=>0x0400|VT_KEY,
 
     VT_ITRI=>0x0800|VT_KEY,
     VT_FCTL=>0x1000|VT_KEY,
@@ -750,6 +750,7 @@ my %DEFAULTS=(
 
   -DEL_OPS=>'[\{\[\(\)\]\}\\\\]',
   -NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}\\\\]',
+  -SEP_OPS=>'[,]',
 
   -PESC=> lang::delim2('$:',';>'),
 
@@ -1094,6 +1095,7 @@ sub ext {return (shift)->{-EXT};};
 
 sub del_ops {return (shift)->{-DEL_OPS};};
 sub ndel_ops {return (shift)->{-NDEL_OPS};};
+sub sep_ops {return (shift)->{-SEP_OPS};};
 sub del_mt {return (shift)->{-DEL_MT};};
 sub mls_rule {return (shift)->{-MLS_RULE};};
 sub exp_rule {return (shift)->{-EXP_RULE};};
@@ -1226,6 +1228,66 @@ sub mcut_tags($) {
 # give back tags=>patterns
 
   return @ar;
+
+};
+
+# ---   *   ---   *   ---
+
+sub classify($$) {
+
+  my ($self,$token)=@_;
+
+  my @ar=(
+
+    -TYPES=>lang->VT_TYPE,
+    -SPECIFIERS=>lang->VT_SPEC,
+
+    -INTRINSICS=>lang->VT_ITRI,
+    -DIRECTIVES=>lang->VT_DIR,
+    -FCTLS=>lang->VT_FCTL,
+
+    -DEL_OPS=>lang->VT_DEL,
+    -SEP_OPS=>lang->VT_SEP,
+    -OPS=>lang->VT_ARI,
+
+    -SBL=>lang->VT_SBL,
+    -NAMES=>lang->VT_PTR,
+
+    -SHCMD=>lang->VT_BARE,
+    -CHAR=>lang->VT_BARE,
+    -STRING=>lang->VT_BARE,
+    -REGEX=>lang->VT_BARE,
+    -PREPROC=>lang->VT_BARE,
+    -NUMS=>lang->VT_BARE,
+
+  );
+
+  while(@ar) {
+
+    my $tag=shift @ar;
+    my $value_type=shift @ar;
+
+    my $h=$self->{$tag};
+    my $proc=undef;
+
+    if(lang::is_hashref($h)) {
+
+      $proc=sub {
+        return exists $h->{$token};
+
+      };
+
+    } else {
+      $proc=sub {
+        return $token=~ m/^${h}/;
+
+      };
+
+    };my $found=$proc->();
+
+    if($found) {return $value_type;};
+
+  };return 0x00;
 
 };
 

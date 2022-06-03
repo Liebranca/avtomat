@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+# tests Peso Language Pattern Syntax
+
+# ---   *   ---   *   ---
+# deps
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+
+  use lang;
+  use langdefs::plps;
+
+  use peso::rd;
+  use avt;
+
+# ---   *   ---   *   ---
+
+peso::rd::mam(
+
+  lang->plps,
+  peso::rd->FILE,
+
+  avt::dirof(__FILE__).'/pat.pe.lps',
+
+);
+
+# ---   *   ---   *   ---
+1; # ret

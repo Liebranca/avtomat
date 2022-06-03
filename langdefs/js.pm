@@ -26,11 +26,6 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  -TYPES=>[qw(
-    function class var let const
-
-  )],
-
   -SPECIFIERS=>[qw(
     async await export
 
@@ -45,7 +40,7 @@ lang::def::nit(
   )],
 
   -DIRECTIVES=>[qw(
-    import
+    import function class var let const
 
   )],
 

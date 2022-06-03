@@ -18,7 +18,7 @@ my $exps=peso::rd::mam(
   lang->peso,
   peso::rd->STR,q(
 
-(*a++);
+char x,y 1         +2*3,4,5;
 
 ));
 

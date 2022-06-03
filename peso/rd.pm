@@ -329,6 +329,7 @@ sub clean {
 
   my $com=$lang->com;
   my $eb=$lang->exp_bound;
+  my $op=$lang->ops;
 
   # strip comments
   $self->{-LINE}=~ s/${com}.*//g;
@@ -345,7 +346,11 @@ sub clean {
 
   $self->{-LINE}=~ s/'.$eb.'\s+/'.$eb.'/sg;
 
+  # cancel spaces around operators
+  $self->{-LINE}=~s/\s?${op}\s?/$1/;
+
   if(!$self->line) {return 1;};
+
   return 0;
 
 };
@@ -668,9 +673,9 @@ sub mam {
       $exp=$fr_node->nit(undef,'void');
 
       $exp->tokenize($body);
-#      $exp->agroup();
+      $exp->agroup();
 
-#      $exp->subdiv();
+      $exp->subdiv();
 
 #      $exp->collapse();
 

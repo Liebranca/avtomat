@@ -133,6 +133,8 @@ sub value($;$) {
 
 };
 
+sub value_type($) {return (shift)->{-VALUE_TYPE};};
+
 sub ances($$) {
 
   my ($self,$join)=@_;
@@ -373,20 +375,42 @@ sub tokenize($$) {
 
   my @elems=();
 
-  $exp=~ s/(${del_op})/ $1 /sg;
-  $exp=~ s/(${ndel_op}+)/ $1 /sg;
-  #$exp=~ s/(,)/ $1 /sg;
-
   my @ar=split m/([^\s]*)\s+/,$exp;
-
-  while(@ar) {
+  my $i=0;while(@ar) {
     my $elem=shift @ar;
 
     if(defined $elem && length $elem) {
-      $frame->nit($self,$elem);
+
+      my $node=$frame->nit($self,"field_$i");
+
+# ---   *   ---   *   ---
+
+      $elem=~ s/(${del_op})/ $1 /sg;
+      $elem=~ s/(${ops})/ $1 /sg;
+
+      for my $tok(split m/([^\s]*)\s+/,$elem) {
+
+        if(defined $tok && length $tok) {
+          $frame->nit($node,$tok);
+
+        };
+      };$i++;
+
+# ---   *   ---   *   ---
 
     };
   };
+
+# ---   *   ---   *   ---
+# classify tokens
+
+  for my $leaf(@{$self->leaves}) {
+
+    $leaf->{-VALUE_TYPE}
+      =$lang->classify($leaf->value);
+
+  };
+
 };
 
 # ---   *   ---   *   ---
@@ -412,30 +436,6 @@ sub agroup($) {
 
   my @leaves=@{$self->leaves};
   TOP:my $leaf=shift @leaves;
-
-if(!defined $leaf) {
-
-$self->prich();
-
-exit 0;
-
-};
-
-# ---   *   ---   *   ---
-
-# INSERT LANG RULES HERE
-
-# ---   *   ---   *   ---
-
-  if($leaf->value=~ m/^${keyword}/) {
-    $leaf->{-VALUE}=~ s/\s*\*/ ptr/sg;
-
-  } elsif($leaf->value=~ m/${keyword}/) {
-    $leaf->{-VALUE}=~ s/\*\s*/ptr /sg;
-
-  };
-
-# ---   *   ---   *   ---
 
   if($leaf->value eq ',') {
     push @trash,$leaf;
@@ -463,11 +463,6 @@ exit 0;
   };
 
 # ---   *   ---   *   ---
-
-  if(exists $lang->types->{$leaf->value}) {
-    push @anchors,[$leaf,$lang->types->{$leaf->value}];
-
-  };
 
   $leaf->cllv();
   unshift @leaves,@{$leaf->leaves};
@@ -539,11 +534,10 @@ exit 0;
         # n is an operator with leaves
         # or n is not an operator
         my $valid=(
-
-            $n->value=~ m/${ndel_op}/
+            ($n->value=~ m/${ndel_op}|${del_op}/)
          && @{$n->leaves}
 
-        );$valid|=!($n->value=~
+        )!=0;$valid|=!($n->value=~
           m/${del_op}|${ndel_op}/
 
         );
@@ -552,7 +546,7 @@ exit 0;
 
         if($valid) {
           $j|=$k;
-          push @move,$n
+          push @move,$n;
 
         };$k++;
 
@@ -566,7 +560,7 @@ exit 0;
 
         =$lang->op_prec
         ->{$leaf->value}
-        ->[$j]->[0]
+        ->[$j-1]->[0]
 
       ;
 
@@ -620,6 +614,9 @@ exit 0;
   my $ode=$lang->ode;
   my $cde=$lang->cde;
 
+  my @leaves=($self);
+  TOP:$self=shift @leaves;
+
   my $i=0;for my $leaf(@{$self->leaves}) {
 
     if(!defined $leaf) {last;};
@@ -627,22 +624,14 @@ exit 0;
 # ---   *   ---   *   ---
 
     if($leaf->value=~ m/${ode}/) {
-
       $leaf->delimbrk($i);
-      #$leaf->subdiv();
-
-      my $top=$leaf->leaves->[0];
-
-      #$leaf->pluck($leaf->leaves->[0]);
-      #$leaf->leaves->[$i]=$top;
-
-# ---   *   ---   *   ---
-
-    } else {
-      #$leaf->subdiv();
 
     };$i++;
+
   };
+
+  unshift @leaves,@{$self->leaves};
+  if(@leaves) {goto TOP;};
 
 # ---   *   ---   *   ---
 # makes a node hierarchy from a
@@ -1186,11 +1175,11 @@ sub prich {
 
     printf ''.(
       '.  'x($depth).'\-->'.
-#      '['.$node->{-INDEX}.']: '.
       $node->value
 
+    )."\n";
 
-    )."\n";$node->prich($depth+1);
+    $node->prich($depth+1);
 
   };
 

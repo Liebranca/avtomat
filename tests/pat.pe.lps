@@ -1,0 +1,11 @@
+$:%plps;>
+
+beg cdecl pattern;
+  <spec>?+ <type> '*'?+ <ptr>
+
+end;
+
+beg function sbl_decl;
+  <cdecl> <ode> <cdecl> ','?-- <cde>
+
+end;
