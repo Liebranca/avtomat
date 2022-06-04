@@ -54,6 +54,14 @@ sub nit($) {
 
   return $self;
 
+};sub prich_tree($) {
+
+  my $self=shift;
+  for my $node(@{$self->{tree}}) {
+    $node->prich();
+
+  };
+
 };
 
 # ---   *   ---   *   ---

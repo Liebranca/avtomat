@@ -17,14 +17,24 @@
 
 # ---   *   ---   *   ---
 
-peso::rd::mam(
+my $program=peso::rd::parse(
 
   lang->plps,
   peso::rd->FILE,
 
   avt::dirof(__FILE__).'/pat.pe.lps',
 
-);
+);lang->plps->sbl->setdef($program);
+
+for my $node(@{$program->{tree}}) {
+  my @ar=$node->branches_in('beg');
+  if(@ar) {
+    lang->plps->sbl->SYMS->{'beg'}->ex($node);
+    #$node->prich();
+
+  };
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

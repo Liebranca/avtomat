@@ -46,8 +46,8 @@ sub valid($) {
 # ---   *   ---   *   ---
 # constructors
 
-sub new_frame($) {
-  return peso::sbl::frame::create(shift);
+sub new_frame() {
+  return peso::sbl::frame::create();
 
 };
 
@@ -197,7 +197,7 @@ sub nit($$$$) {
 
 sub arg_typechk($$$) {
 
-  my ($self,$node,$type)=@_;
+  my ($self,$node,$proto)=@_;
   my $frame=$self->frame;
 
   my $master=$frame->master;
@@ -207,26 +207,25 @@ sub arg_typechk($$$) {
   my $lang=$master->lang;
 
   my $names=$lang->names;
-  my $types=$lang->types;
   my $ops=$lang->ops;
 
 # ---   *   ---   *   ---
 
-  if(
+  if(0
 
-      !($node->value=~ m/@/)
-  &&  exists $types->{$node->value}
+#      !($node->value=~ m/@/)
+#  &&  exists $types->{$node->value}
 
   ) {
 
-    $fr_blk->treesolve($node);
-
-    $node=$node->value;
-
-    if($fr_ptr->valid_addr($node)) {
-      $fr_ptr->fetch($node);
-
-    };
+#    $fr_blk->treesolve($node);
+#
+#    $node=$node->value;
+#
+#    if($fr_ptr->valid_addr($node)) {
+#      $fr_ptr->fetch($node);
+#
+#    };
 
 # ---   *   ---   *   ---
 
@@ -238,16 +237,20 @@ sub arg_typechk($$$) {
 # ---   *   ---   *   ---
 
   my $valid=0;
-  for my $type(split '\|',$types) {
+  for my $v(split '\|',$proto) {
 
-    if($type eq 'ptr') {
+    if($v eq 'ptr') {
       $valid=$fr_ptr->valid($node);
 
     # either a string, number or dereference
-    } elsif($type eq 'bare') {
+    } elsif($v eq 'bare') {
+
       $valid
-        =  int($node=~ m/${names}*/)
+        =  int($node=~ m/${names}/)
         || int($node=~ m/-?[0-9]+/);
+
+    } elsif($v eq 'type') {
+      $valid=exists $lang->types->{$v};
 
     };
 
@@ -269,7 +272,7 @@ sub arg_typechk($$$) {
     "Valid types are: %s\n",
 
     $self->name,
-    (join ' or ',(split '\|',$types));
+    (join ' or ',(split '\|',$proto));
 
   exit;
 
@@ -306,8 +309,7 @@ sub ex($$) {
 # ---   *   ---   *   ---
 # get next field
 
-    my $field=$node->group($j);
-
+    my $field=$node->fieldn($j++);
     if(!$field && $arg->{-OPT}) {
       last;
 
@@ -331,7 +333,7 @@ sub ex($$) {
 
       exit;
 
-    };$j++;
+    };
 
 # ---   *   ---   *   ---
 # only the loop changes between paths
@@ -382,8 +384,18 @@ sub ex($$) {
 # a list of array references
 
     push @args,\@field_args;
-  };$self->code->($self->name,@args);
+  };
 
+# ---   *   ---   *   ---
+
+  $self->code->(
+
+    $self->name,
+    $self->frame,
+
+    @args
+
+  );
 };
 
 # ---   *   ---   *   ---
@@ -407,12 +419,11 @@ sub master($) {return (shift)->{-MASTER};};
 sub DEFINE($$$$) {
 
   my ($frame,$key,$src,$code)=@_;
-  my $fr_sbl=$frame->master->sbl;
 
   my $idex=$src->{$key}->[0];
   my $args=$src->{$key}->[1];
 
-  my $sym=$fr_sbl->nit($key,$args,$code);
+  my $sym=$frame->nit($key,$args,$code);
 
   $frame->INS->[$idex]
     =$frame->SYMS->{$key}=$sym;
@@ -425,9 +436,8 @@ sub DEFINE($$$$) {
 };sub ALIAS($$$) {
 
   my ($frame,$key,$src)=@_;
-  my $fr_sbl=$frame->master->sbl;
 
-  my $sym=$fr_sbl->dup(
+  my $sym=$frame->dup(
     $frame->SYMS->{$src},$key
 
   );
@@ -449,9 +459,9 @@ sub nit($$$$) {
 
   );
 
-};sub create($) {
+# ---   *   ---   *   ---
 
-  my $master=shift;
+};sub create() {
 
   my $frame=bless {
 
@@ -459,9 +469,18 @@ sub nit($$$$) {
     -INS=>[],
     -INSID=>{},
 
-    -MASTER=>$master,
+    -MASTER=>undef,
 
   },'peso::sbl::frame';
+
+  return $frame;
+
+# ---   *   ---   *   ---
+
+};sub setdef($$) {
+
+  my ($self,$def)=@_;
+  $self->{-MASTER}=$def;
 
 };
 

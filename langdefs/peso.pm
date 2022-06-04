@@ -34,7 +34,7 @@ lang::def::nit(
   -MAG=>'$ program',
 
   -OP_PREC=>peso::ops->def,
-  -SBL=>'peso::defs',
+  #-SBL=>,
 
 # ---   *   ---   *   ---
 

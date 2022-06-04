@@ -639,7 +639,7 @@ sub no_blanks($) {
 
 # ---   *   ---   *   ---
 
-sub mam {
+sub parse {
 
   my $lang=shift;
   my $mode=shift;
@@ -662,6 +662,8 @@ sub mam {
   my $fr_ptr=$program->ptr;
   my $fr_blk=$program->blk;
 
+# ---   *   ---   *   ---
+
   for my $exp(@{$rd->exps}) {
 
     my $body=$exp;
@@ -674,39 +676,36 @@ sub mam {
 
       $exp->tokenize($body);
       $exp->agroup();
-
       $exp->subdiv();
 
-#      $exp->collapse();
+# ---   *   ---   *   ---
+# contextualize, so to speak
 
-#      $exp->reorder();
-#      $exp->exwalk();
+      my $f=$exp->fieldn(0);
+      if($lang->is_keyword(
+        $f->leaves->[0]->value
+
+      )) {
+
+        $exp->value($f->leaves->[0]->value);
+        $exp->pluck($f);
+
+        my $i=0;for my $leaf(@{$exp->leaves}) {
+          $leaf->value("field_$i");$i++;
+
+        };
+
+      };
+
+# ---   *   ---   *   ---
 
     };
-
-$exp->prich();
-
-  };exit;
-
-# ---   *   ---   *   ---
-
-  my $non=$fr_blk->NON;
-
-  for my $exp(@{$rd->exps}) {
-    $exp->findptrs();
-
   };
 
 # ---   *   ---   *   ---
 
-  $fr_blk->incpass();
-
-  for my $exp(@{$rd->exps}) {
-    $exp->exwalk();
-
-  };
-
-  $non->prich();
+  $program->{tree}=$rd->exps;
+  return $program;
 
 };
 

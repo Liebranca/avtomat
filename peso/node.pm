@@ -196,6 +196,17 @@ sub dup($$) {
 
 # ---   *   ---   *   ---
 
+sub fieldn($$) {
+
+  my ($self,$i)=@_;
+  my $field=($self->branches_with("field_$i"))[0];
+
+  return $field->leaves->[$i];
+
+};
+
+# ---   *   ---   *   ---
+
 sub group($$;$) {
 
   my ($self,$idex,$sub)=@_;

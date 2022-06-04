@@ -1061,20 +1061,6 @@ sub nit {
   my $hack="lang::$def->{-NAME}";
 
   *$hack=sub {return $def};
-
-# ---   *   ---   *   ---
-
-  if($ref->{-SBL}) {
-
-    my $modpath=$ref->{-SBL};
-    $ref->{-SBL}=peso::sbl::new_frame($def);
-
-    eval("use $modpath;");
-
-  };
-
-# ---   *   ---   *   ---
-
   return $def;
 
 };
@@ -1128,8 +1114,30 @@ sub resnames {return (shift)->{-RESNAMES};};
 sub nums {return (shift)->{-NUMS};};
 sub numcon {return (shift)->{-NUMCON};};
 
-# placeholder
+# PLACEHOLDER && DEPRECATED
 sub keywords {return '';};
+
+sub is_keyword {
+
+  my ($self,$s)=@_;
+
+  for my $tag(
+
+    -TYPES,-SPECIFIERS,
+    -BUILTINS,-FCTLS,
+    -INTRINSICS,-DIRECTIVES,
+
+    -RESNAMES,
+
+  ) {
+
+    if(exists $self->{$tag}->{$s}) {
+      return 1;
+
+    };
+
+  };return 0;
+};
 
 # ---   *   ---   *   ---
 
