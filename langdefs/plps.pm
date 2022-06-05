@@ -13,6 +13,19 @@ package langdefs::plps;
   use peso::sbl;
 
 # ---   *   ---   *   ---
+# translation table
+
+use constant TRTAB=>{
+
+  'type'=>'types',
+  'spec'=>'specifiers',
+  'bare'=>'names',
+  'ode'=>'ode',
+  'cde'=>'cde',
+
+};
+
+# ---   *   ---   *   ---
 # shorthands
 
 my $plps_sbl=undef;
@@ -82,10 +95,232 @@ use constant plps_ops=>{
 };
 
 # ---   *   ---   *   ---
+# UTILITY CALLS
+
+# ---   *   ---   *   ---
+# converts <tags> into pattern objects
+
+sub detag($$) {
+
+  my ($program,$node)=@_;
+  my $root=$node;
+
+  my @leaves=($node);
+
+# ---   *   ---   *   ---
+# iter all tree branches
+
+  do {
+
+    $node=shift @leaves;
+
+    # signals creation of compound pattern
+    if($node->value eq 'end') {
+
+      my ($cath,$name)=@{$program->{dst}};
+      $root->value($name);
+
+# ---   *   ---   *   ---
+# create new pattern instance from tree
+
+      $program->{defs}->{$name}
+        =plps_obj::nit($name,[],$cath);
+
+      ;goto END;
+
+    };
+
+# ---   *   ---   *   ---
+# common pattern
+
+    my $name=$node->value;
+    my $tag=TRTAB->{$name};
+    my $v=undef;
+    my $attrs=undef;
+
+    my $re=lang::cut_token_re;
+
+# ---   *   ---   *   ---
+# <tag> found
+
+    if(defined $tag) {
+      $v=$program->{ext}->$tag;
+      $attrs=$tag;
+
+      if(lang::is_hashref($v)) {
+        $v=lang::hashpat($v);
+
+      };
+
+# ---   *   ---   *   ---
+# string token found
+
+    } elsif($node->value=~ m/${re}/) {
+
+      $v=lang::stitch(
+        $node->value,
+        $program->{strings}
+
+      );
+
+      $v=~ s/^'//;
+      $v=~ s/'$//;
+
+      $attrs='string';
+
+# ---   *   ---   *   ---
+# reference to compound pattern found
+
+    } elsif(defined
+
+        $program->{defs}
+        ->{$node->value}
+
+    ) {
+
+      my $h=$program->{defs}->{$node->value};
+
+      $attrs=$h->{attrs};
+      $v=$h->{value};
+
+    };
+
+# ---   *   ---   *   ---
+# create instance
+
+    if(defined $v) {
+
+      $node->value(
+        plps_obj::nit($name,$v,$attrs)
+
+      );
+
+# ---   *   ---   *   ---
+# replace <tag> hierarchy with object instance
+
+      if($node->par->value eq '<') {
+        $node->par->repl($node);
+
+      };
+
+    };
+
+# ---   *   ---   *   ---
+# tail
+
+    unshift @leaves,@{$node->leaves};
+  } while(@leaves);
+
+  END:return;
+
+};
+
+# ---   *   ---   *   ---
+# exec language selection directive
+
+sub getext($) {
+
+  my $program=shift;
+  my $SYMS=lang->plps->sbl->SYMS;
+
+  my @tree=();
+
+# ---   *   ---   *   ---
+# iter tree to find 'in lang->$name'
+
+  for my $node(@{$program->{tree}}) {
+
+    my @ar=$node->branches_in('^in$');
+    if(@ar) {
+      $SYMS->{$node->value}->ex($node);
+
+    } else {push @tree,$node;};
+
+  };$program->{tree}=\@tree;
+
+};
+
+# ---   *   ---   *   ---
+# gets rid of executed branches
+
+sub cleanup($) {
+
+  my $program=shift;
+  my @tree=();
+
+  for my $node(@{$program->{tree}}) {
+
+    my @ar=$node->branches_in('^beg$');
+    if(!@ar) {
+      push @tree,$node;
+
+    };
+
+  };$program->{tree}=\@tree;
+};
+
+# ---   *   ---   *   ---
+
+sub build {
+
+  my $program=shift;
+  lang->plps->sbl->setdef($program);
+
+  $program->{dst}=undef;
+  $program->{defs}={};
+
+  getext($program);
+  my $SYMS=lang->plps->sbl->SYMS;
+
+  for my $node(@{$program->{tree}}) {
+
+    if(exists $SYMS->{$node->value}) {
+      $SYMS->{$node->value}->ex($node);
+
+# ---   *   ---   *   ---
+# build patterns from tree branches
+
+    } else {
+
+      detag($program,$node);
+
+      $node->collapse();
+      $node->defield();
+
+# ---   *   ---   *   ---
+# remove end marker once it's used
+
+      my @ar=$node->branches_with('^end$');
+      for my $leaf(@ar) {
+        $leaf->pluck($leaf->leaves->[-1]);
+
+      };
+
+# ---   *   ---   *   ---
+# write array of patterns to definitions
+
+      my $name=$node->value;
+      @ar=();for my $leaf(@{$node->leaves}) {
+        push @ar,$leaf->value;
+
+      };$program->{defs}->{$name}->{value}=\@ar;
+
+# ---   *   ---   *   ---
+# tail
+
+    };
+
+  };cleanup($program);
+  $program->{-RUN}=\&plps_obj::run;
+
+};
+
+# ---   *   ---   *   ---
 
 BEGIN {
-
 $plps_sbl=peso::sbl::new_frame();
+
+# ---   *   ---   *   ---
 
 DEFINE 'beg',DIRECTIVE,sub {
 
@@ -117,6 +352,13 @@ DEFINE 'in',DIRECTIVE,sub {
 };
 
 # ---   *   ---   *   ---
+# DEFS END
+#
+# ---   *   ---   *   ---
+# INITIALIZE LANGUAGE
+# ie, regify all of the above
+
+# ---   *   ---   *   ---
 
 lang::def::nit(
 
@@ -143,6 +385,7 @@ lang::def::nit(
   -DIRECTIVES=>[keys %{langdefs::plps->DIRECTIVE}],
 
   -SBL=>$plps_sbl,
+  -BUILDER=>\&build,
 
 # ---   *   ---   *   ---
 
@@ -161,3 +404,90 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 1; # ret
+
+# ---   *   ---   *   ---
+# utility class
+
+package plps_obj;
+  use strict;
+  use warnings;
+
+sub nit($$) {
+
+  my ($name,$value,$attrs)=@_;
+
+  my $obj=bless {
+
+    name=>$name,
+
+    value=>$value,
+    attrs=>$attrs,
+
+    optional=>0,
+    consume_equal=>0,
+    rewind=>0,
+
+    space=>2,
+
+  },'plps_obj';
+
+  return $obj;
+
+};
+
+# ---   *   ---   *   ---
+
+sub run {
+
+  my $program=shift;
+
+  my $key=shift;
+  my $string=shift;
+
+  my $obj=$program->{defs}->{$key};
+  my $last=undef;
+
+  my @pending=($obj);
+
+# ---   *   ---   *   ---
+# iter/unpack patterns
+
+  while(@pending) {
+
+    $obj=shift @pending;
+    my $pat=$obj->{value};
+
+    # compound pattern, unpack
+    if(lang::is_arrayref($pat)) {
+      unshift @pending,@$pat;
+      $last=$obj;
+
+# ---   *   ---   *   ---
+# common pattern, attempt match
+
+    } else {
+
+      REPEAT:
+
+      my $match=int($string=~ s/^(${pat})\s*//);
+
+      if(!$match && !$obj->{optional}) {
+        return 1;
+
+      } elsif($match && $obj->{consume_equal}) {
+        goto REPEAT;
+
+      } elsif($match && $obj->{rewind}) {
+        unshift @pending,$last;next;
+
+      };
+
+# ---   *   ---   *   ---
+
+    };
+  };
+
+  return int(length $string);
+};
+
+# ---   *   ---   *   ---

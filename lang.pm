@@ -809,6 +809,7 @@ my %DEFAULTS=(
   -MLS_RULE=>sub {return undef;},
 
   -MCUT_TAGS=>[],
+  -BUILDER=>sub {;},
 
 # ---   *   ---   *   ---
 
@@ -1296,6 +1297,15 @@ sub classify($$) {
     if($found) {return $value_type;};
 
   };return 0x00;
+
+};
+
+# ---   *   ---   *   ---
+
+sub build {
+
+  my ($self,@args)=@_;
+  return $self->{-BUILDER}->(@args);
 
 };
 

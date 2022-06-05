@@ -43,6 +43,7 @@ sub nit($) {
     -NODES=>[],
 
     -LANG=>$lang,
+    -RUN=>undef,
 
   },'peso::program';
 
@@ -103,33 +104,12 @@ sub setnode($$) {
 };
 
 # ---   *   ---   *   ---
-# execute program as defined by blocks
+# placeholder
 
-sub run {
+sub run($;@) {
 
-#  my $entry=peso::blk::entry;
-#  my $non=peso::blk::NON;
-#
-#  peso::ptr::wed(undef);
-#
-#  # get entry point block
-#  $entry=peso::ptr::fetch($entry)->blk;
-#  setnxins($entry->insid);
-#
-#  # scope to block
-#  peso::blk::setcurr($entry);
-#  peso::blk::setscope($entry->scope);
-#
-#  # debug: print out what we're executing
-#  printf "ex ".$entry->name."\n";
-#
-#  # execute until end
-#  while(!(nxins()<0)) {
-#    $entry=exnext($entry);
-#
-#    if(nxins()<0) {last;};
-#
-#  };
+  my ($self,@args)=@_;
+  $self->{-RUN}->($self,@args);
 
 };
 
