@@ -11,6 +11,7 @@
 
   use lang;
   use langdefs::plps;
+  use langdefs::c;
 
   use peso::rd;
   use avt;
@@ -24,16 +25,82 @@ my $program=peso::rd::parse(
 
   avt::dirof(__FILE__).'/pat.pe.lps',
 
-);lang->plps->sbl->setdef($program);
+);
 
+# ---   *   ---   *   ---
+# program nit, avto this later
+
+lang->plps->sbl->setdef($program);
+
+$program->{dst}=undef;
+$program->{defs}={};
+for my $type(keys %{lang->plps->types}) {
+  $program->{defs}->{$type}={};
+
+};
+
+# ---   *   ---   *   ---
+
+my $abr_h={
+
+  'type'=>'types',
+  'spec'=>'specifiers',
+  'bare'=>'names',
+
+};
+
+# ---   *   ---   *   ---
+
+$program->prich_tree();
+
+my $SYMS=lang->plps->sbl->SYMS;
 for my $node(@{$program->{tree}}) {
-  my @ar=$node->branches_in('beg');
-  if(@ar) {
-    lang->plps->sbl->SYMS->{'beg'}->ex($node);
-    #$node->prich();
 
+  if(exists $SYMS->{$node->value}) {
+    $SYMS->{$node->value}->ex($node);
+
+# ---   *   ---   *   ---
+
+  } else {
+
+    my $i=0;while($i<@{$node->leaves}) {
+
+      my $dst=$program->{dst};
+
+      my $field
+        =$node->fieldn($i)
+        ->leaves->[0]
+
+      ;$i++;
+
+# ---   *   ---   *   ---
+
+      if($field->value eq '<') {
+        my $tag=$field->leaves->[0]->value;
+        $tag=$abr_h->{$tag};
+
+        if(defined $tag) {
+
+          my $ht=$program->{ext}->$tag;
+          my $v;if(lang::is_hashref($ht)) {
+            $v=lang::hashpat($ht);
+
+          } else {$v=$ht;};
+
+          $$dst.=$v.'\s+';
+
+        };
+
+      } elsif($field->value eq 'end') {
+        printf $$dst."\n";
+
+      } else {
+        ;
+
+      };
+
+    };
   };
-
 };
 
 # ---   *   ---   *   ---

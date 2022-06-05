@@ -211,46 +211,37 @@ sub arg_typechk($$$) {
 
 # ---   *   ---   *   ---
 
-  if(0
-
-#      !($node->value=~ m/@/)
-#  &&  exists $types->{$node->value}
-
-  ) {
-
-#    $fr_blk->treesolve($node);
-#
-#    $node=$node->value;
-#
-#    if($fr_ptr->valid_addr($node)) {
-#      $fr_ptr->fetch($node);
-#
-#    };
-
-# ---   *   ---   *   ---
-
-  } else {
-    $node=$node->value;
-
-  };
-
-# ---   *   ---   *   ---
-
+  my $tag=$node->value;
   my $valid=0;
+
   for my $v(split '\|',$proto) {
 
     if($v eq 'ptr') {
-      $valid=$fr_ptr->valid($node);
+      $valid=$fr_ptr->valid($tag);
 
     # either a string, number or dereference
     } elsif($v eq 'bare') {
-
       $valid
-        =  int($node=~ m/${names}/)
-        || int($node=~ m/-?[0-9]+/);
+        =  int($tag=~ m/${names}/)
+        || int($tag=~ m/-?[0-9]+/);
+
+# ---   *   ---   *   ---
+#:!;> this is a hack
+
+    } elsif($v eq 'path') {
+
+      $valid=(
+
+        $lang->op_prec
+        ->{$tag}
+        ->[2]->[0]
+
+      )==-1;$node->collapse();
+
+# ---   *   ---   *   ---
 
     } elsif($v eq 'type') {
-      $valid=exists $lang->types->{$v};
+      $valid=exists $lang->types->{$tag};
 
     };
 

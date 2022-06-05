@@ -41,7 +41,14 @@ my $SBL_ID=0;sub sbl_id() {return $SBL_ID++;};
 
 use constant plps_ops=>{
 
-  '?'=>[
+  '->'=>[
+
+    undef,
+    undef,
+
+    [-1,sub {my ($x,$y)=@_;return "$$x->$$y";}],
+
+  ],'?'=>[
 
     [0,sub {my ($x)=@_;$x->{optional}=1;}],
     undef,
@@ -67,8 +74,10 @@ use constant plps_ops=>{
 
 };use constant DIRECTIVE=>{
 
-  'beg'=>[sbl_id,'1<bare>:1<type>'],
+  'beg'=>[sbl_id,'1<type>:1<bare>'],
   'end'=>[sbl_id,'0'],
+
+  'in'=>[sbl_id,'1<path>'],
 
 };
 
@@ -82,12 +91,28 @@ DEFINE 'beg',DIRECTIVE,sub {
 
   my ($inskey,$frame,@fields)=@_;
   my ($f0,$f1)=@fields;
+  my $m=$frame->master;
 
   $f0=$f0->[0];
   $f1=$f1->[0];
 
-  printf "$f0:$f1\n";
+  $m->{defs}->{$f0}->{$f1}='';
+  $m->{dst}=\$m->{defs}->{$f0}->{$f1};
 
+};
+
+# ---   *   ---   *   ---
+
+DEFINE 'in',DIRECTIVE,sub {
+
+  my ($inskey,$frame,@fields)=@_;
+  my ($f0)=@fields;
+  my $m=$frame->master;
+
+  $f0=$f0->[0];
+
+  #:!;> also a hack
+  $m->{ext}=eval($f0);
 
 };
 
@@ -107,8 +132,9 @@ lang::def::nit(
 
     type spec dir itri
 
-    sbl ptr ode cde
+    sbl ptr bare
     sep del ari
+    ode cde
 
     fctl sbl_decl ptr_decl pattern
 
@@ -126,6 +152,8 @@ lang::def::nit(
   -DEL_OPS=>'[<>]',
   -NDEL_OPS=>'[?+-]',
   -OP_PREC=>plps_ops,
+
+  -MCUT_TAGS=>[-CHAR],
 
 );
 

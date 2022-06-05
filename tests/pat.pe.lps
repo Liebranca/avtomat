@@ -1,11 +1,13 @@
 $:%plps;>
 
-beg cdecl pattern;
-  <spec>?+ <type> '*'?+ <ptr>
+in lang->c;
+
+beg pattern cdecl;
+  <spec>?+ <type> '*'?+ <bare>
 
 end;
 
-beg function sbl_decl;
+beg sbl_decl c_func_decl;
   <cdecl> <ode> <cdecl> ','?-- <cde>
 
 end;

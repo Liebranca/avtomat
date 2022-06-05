@@ -396,8 +396,7 @@ sub tokenize($$) {
 
 # ---   *   ---   *   ---
 
-      $elem=~ s/(${del_op})/ $1 /sg;
-      $elem=~ s/(${ops})/ $1 /sg;
+      $elem=~ s/(${ops}|${del_op})/ $1 /sg;
 
       for my $tok(split m/([^\s]*)\s+/,$elem) {
 
@@ -614,6 +613,55 @@ sub agroup($) {
   };
 
 # ---   *   ---   *   ---
+#:*;> TODO
+#:*;>
+#:*;> half re-implementation :c
+#:*;>
+#:*;> - lacking conversions for literals
+#:*;>
+#:*;> - lacking a good way to find the right
+#:*;>   version of operator to execute
+
+};sub collapse($) {
+
+  my $self=shift;
+  my $lang=$self->frame->master->lang;
+  my $op_prec=$lang->op_prec;
+
+  my @leaves=($self);
+  my @solve=();
+
+# ---   *   ---   *   ---
+# collect pending operations
+
+  do {
+
+    $self=shift @leaves;
+
+    if(exists $op_prec->{$self->value}) {
+      push @solve,$self;
+
+    };unshift @leaves,@{$self->leaves};
+
+  } while(@leaves);
+
+# ---   *   ---   *   ---
+# handle operations bottom to top
+# i.e. first in last out
+
+  while(@solve) {
+
+    my $self=pop @solve;
+    my $op=$op_prec->{$self->value};
+
+    my @args=$self->pluck(@{$self->leaves});
+    for my $arg(@args) {$arg=\$arg->value;};
+
+    $self->value($op->[2]->[1]->(@args));
+
+  };
+
+# ---   *   ---   *   ---
 # check for ([]) delimiters
 
 };sub delimchk($) {
@@ -823,173 +871,6 @@ sub idextrav($) {
   };return $i;
 
 };
-
-# ---   *   ---   *   ---
-# DEPRECATED
-
-# in: value conversion table
-# solve expressions in tree
-
-sub collapse {
-
-  my $self=shift;
-  my $frame=$self->frame;
-  my $lang=$frame->master->lang;
-
-  my @nums=@{$lang->numcon()};
-
-  my $leaf=$self;
-
-  my $ndel_ops=$lang->ndel_ops;
-  my $del_ops=$lang->del_ops;
-  my $pesc=$lang->pesc;
-
-  my @leafstack;
-
-  my $h=$lang->op_prec;
-  my @solve=();
-
-# ---   *   ---   *   ---
-
-TOP:{
-
-  $self=$leaf;
-  if(!length $self->value) {goto SKIP;};
-  if($self->value=~ m/${pesc}/) {
-    goto SKIP;
-
-  };
-
-  # is operation
-  if($self->value=~ m/^(${ndel_ops}+)/) {
-
-    my $op=$1;
-    if(!exists $h->{$op}) {
-      goto SKIP;
-
-    };
-
-    my $proc=$h->{$op}->[2];
-    my $argval=$self->leaves;
-
-    push @solve,($self,$proc,$argval);
-
-# ---   *   ---   *   ---
-
-  # is value
-  } else {
-
-    for my $ref(@nums) {
-
-      my $pat=$ref->[0];
-      my $proc=$ref->[1];
-
-      if($self->value=~ m/${pat}/) {
-        $self->value($proc->($self->value));
-        last;
-
-      } elsif($lang->valid_name(
-          $self->value
-
-      )) {last;};
-
-    };
-  };
-
-};
-
-# ---   *   ---   *   ---
-
-SKIP:{
-  if(!@leafstack && !@{ $self->leaves }) {
-
-    while(@solve) {
-
-      my $args=pop @solve;
-      my $proc=pop @solve;
-      my $node=pop @solve;
-
-# ---   *   ---   *   ---
-
-      my @argval=();
-      for my $v(@{$args}) {
-
-        if($v->value=~ m/${del_ops}/) {
-          if($v->value=~ m/\[/) {goto NEXT_OP;};
-          push @argval,$v->leaves->[0]->value;
-
-        } elsif(
-
-          $lang->valid_name(
-            $v->value
-
-          ) && $proc!=$h->{'->'}->[2]
-
-        ) {
-
-          # names are pointers
-          # we don't handle them *here*
-
-          goto NEXT_OP;
-
-        } else {
-
-          # operand reordering
-          # done for self->sub->attr chains
-          if(
-
-             $proc==$h->{'->'}->[2]
-          && $v->value=~ m/@/
-
-          ) {
-
-# wtf?! no need to reorder?????
-#            my $old=pop @argval;
-            push @argval,($v->value);
-#            push @argval,$old;
-
-          # common operand
-          } else {push @argval,($v->value);}
-
-        };
-
-      };
-
-# ---   *   ---   *   ---
-
-      for my $arg(@{$args}) {
-        if($arg->value eq '[') {goto NEXT_OP;};
-        for my $sleaf(@{$arg->leaves}) {
-          if($sleaf->value eq '[') {goto NEXT_OP;};
-
-        };
-
-      };
-
-      if(!defined $proc) {
-
-      goto NEXT_OP;
-
-      };
-
-      my $result=$proc->(@argval);
-      $node->value($result);
-      $node->pluck(@{$args});
-
-      NEXT_OP:
-
-    };return;
-
-  };
-
-# ---   *   ---   *   ---
-
-  push @leafstack,@{ $self->leaves };
-  $leaf=pop @leafstack;
-
-  goto TOP;
-
-}};
 
 # ---   *   ---   *   ---
 # fetches names from ext module
