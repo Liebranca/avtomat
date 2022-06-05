@@ -705,6 +705,8 @@ sub parse {
 # ---   *   ---   *   ---
 
   $program->{tree}=$rd->exps;
+  $program->{strings}=$rd->strings;
+
   return $program;
 
 };

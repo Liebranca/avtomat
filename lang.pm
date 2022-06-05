@@ -351,7 +351,7 @@ sub eaf {
 # parse utils
 
 ;;sub cut_token_re {
-  return ':__[A-Z]+_CUT_[\dA-F]+__:';
+  return ':__[A-Z]+_CUT_([\dA-F]+)__:';
 
 };sub cut_token_f {
   return ':__%s_CUT_%X__:';

@@ -50,20 +50,20 @@ use constant plps_ops=>{
 
   ],'?'=>[
 
-    [0,sub {my ($x)=@_;$x->{optional}=1;}],
+    [0,sub {my ($x)=@_;$$x->{optional}=1;return $$x;}],
     undef,
     undef,
 
   ],'+'=>[
 
-    [1,sub {my ($x)=@_;$x->{consume_equal}=1;}],
+    [1,sub {my ($x)=@_;$$x->{consume_equal}=1;return $$x;}],
 
     undef,
     undef,
 
   ],'--'=>[
 
-    [2,sub {my ($x)=@_;$x->{rewind}=1;}],
+    [2,sub {my ($x)=@_;$$x->{rewind}=1;return $$x;}],
 
     undef,
     undef,
@@ -96,8 +96,8 @@ DEFINE 'beg',DIRECTIVE,sub {
   $f0=$f0->[0];
   $f1=$f1->[0];
 
-  $m->{defs}->{$f0}->{$f1}='';
-  $m->{dst}=\$m->{defs}->{$f0}->{$f1};
+  $m->{defs}->{$f1}=undef;
+  $m->{dst}=[$f0,$f1];
 
 };
 

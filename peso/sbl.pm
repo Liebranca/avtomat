@@ -233,8 +233,8 @@ sub arg_typechk($$$) {
       $valid=(
 
         $lang->op_prec
-        ->{$tag}
-        ->[2]->[0]
+        ->{$node->value->{op}}
+        ->[$node->value->{idex}]->[0]
 
       )==-1;$node->collapse();
 

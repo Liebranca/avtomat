@@ -579,7 +579,7 @@ sub agroup($) {
 
       };
 
-      push @pending,[$leaf,$j,\@move];
+      push @pending,[$leaf,$j-1,\@move];
 
       if($prio<$high_prio) {
         $high_prio=$prio;
@@ -599,7 +599,16 @@ sub agroup($) {
     my $ref=$pending[$high_i];
 
     my $leaf=$ref->[0];
+    my $idex=$ref->[1];
+
     my @move=@{$ref->[2]};
+
+    $leaf->value(bless {
+
+      op=>$leaf->value,
+      idex=>$idex,
+
+    },'node_op');
 
     $matched{"$leaf"}=1;
     $leaf->pushlv(0,$root->pluck(@move));
@@ -638,7 +647,7 @@ sub agroup($) {
 
     $self=shift @leaves;
 
-    if(exists $op_prec->{$self->value}) {
+    if($self->value=~ m/^node_op=HASH/) {
       push @solve,$self;
 
     };unshift @leaves,@{$self->leaves};
@@ -652,12 +661,29 @@ sub agroup($) {
   while(@solve) {
 
     my $self=pop @solve;
-    my $op=$op_prec->{$self->value};
+
+    my $op=$op_prec->{$self->value->{op}};
+    my $idex=$self->value->{idex};
 
     my @args=$self->pluck(@{$self->leaves});
     for my $arg(@args) {$arg=\$arg->value;};
 
-    $self->value($op->[2]->[1]->(@args));
+    $self->value($op->[$idex]->[1]->(@args));
+
+  };
+
+# ---   *   ---   *   ---
+
+};sub defield($) {
+
+  my $self=shift;
+  my $i=0;while($i<@{$self->leaves}) {
+
+    my $field=$self->fieldn($i);
+    my @ar=$field->pluck(@{$field->leaves});
+
+    $field->value($ar[0]->value);
+    $i++;
 
   };
 
@@ -792,9 +818,13 @@ sub repl($$) {
   };
 
   if($i>=0) {
+    $other->{-PARENT}=$self->par;
     $ref->[$i]=$other;
 
   };
+
+  $self->par->cllv();
+  $self->par->idextrav();
 
 };
 
