@@ -31,7 +31,7 @@ my $program=peso::rd::parse(
 
 print $program->run(
   'c_func_decl',
-  'static const int* var(int x,int y)'
+  'int* var(static const int** x,const int* y)'
 
 )."\n";
 

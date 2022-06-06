@@ -63,23 +63,82 @@ use constant plps_ops=>{
 
   ],'?'=>[
 
-    [0,sub {my ($x)=@_;$$x->{optional}=1;return $$x;}],
+    [3,sub {
+
+      my ($x)=@_;
+
+      $$x->{optional}=1;
+      return $$x;
+
+    }],
+
     undef,
     undef,
 
   ],'+'=>[
 
-    [1,sub {my ($x)=@_;$$x->{consume_equal}=1;return $$x;}],
+    [3,sub {
+
+      my ($x)=@_;
+
+      $$x->{consume_equal}=1;
+      return $$x;
+
+    }],
 
     undef,
     undef,
 
   ],'--'=>[
 
-    [2,sub {my ($x)=@_;$$x->{rewind}=1;return $$x;}],
+    [3,sub {my ($x)=@_;$$x->{rewind}=1;return $$x;}],
 
     undef,
     undef,
+
+  ],'|>'=>[
+
+    [4,sub {my ($x)=@_;$$x->{space}=0;return $$x;}],
+
+    undef,
+    undef,
+
+  ],'|->'=>[
+
+    [4,sub {my ($x)=@_;$$x->{space}=2;return $$x;}],
+
+    undef,
+    undef,
+
+  ],'%'=>[
+
+    undef,
+    undef,
+
+    [5,sub {
+
+      my ($x,$y)=@_;
+
+      $$x->{name}=$$y;
+      return $$x;
+
+    }]
+
+  ],'~'=>[
+
+    undef,
+
+    [6,sub {
+
+      my ($x)=@_;
+
+      $$x->{save_match}=0;
+      return $$x;
+
+    }],
+
+    undef,
+
 
   ],
 
@@ -124,7 +183,7 @@ sub detag($$) {
 # create new pattern instance from tree
 
       $program->{defs}->{$name}
-        =plps_obj::nit($name,[],$cath);
+        =plps_obj::nit($name,[],$cath,undef);
 
       ;goto END;
 
@@ -179,9 +238,7 @@ sub detag($$) {
     ) {
 
       my $h=$program->{defs}->{$node->value};
-
-      $attrs=$h->{attrs};
-      $v=$h->{value};
+      $v=$h->dup();
 
     };
 
@@ -190,10 +247,16 @@ sub detag($$) {
 
     if(defined $v) {
 
-      $node->value(
-        plps_obj::nit($name,$v,$attrs)
+      if(plps_obj::valid($v)) {
+        $node->value($v);
 
-      );
+      } else {
+
+        $node->value(
+          plps_obj::nit($name,$v,$attrs,undef)
+
+        );
+      };
 
 # ---   *   ---   *   ---
 # replace <tag> hierarchy with object instance
@@ -301,9 +364,16 @@ sub build {
 
       my $name=$node->value;
       @ar=();for my $leaf(@{$node->leaves}) {
+
+        $leaf->value->{parent}
+          =$program->{defs}->{$name};
+
         push @ar,$leaf->value;
 
-      };$program->{defs}->{$name}->{value}=\@ar;
+      };
+
+      $program->{defs}->{$name}->{value}=\@ar;
+      $program->{defs}->{$name}->walkdown();
 
 # ---   *   ---   *   ---
 # tail
@@ -393,7 +463,7 @@ lang::def::nit(
   -CDE=>'[>]',
 
   -DEL_OPS=>'[<>]',
-  -NDEL_OPS=>'[?+-]',
+  -NDEL_OPS=>'[?+\-%~]',
   -OP_PREC=>plps_ops,
 
   -MCUT_TAGS=>[-CHAR],
@@ -412,9 +482,31 @@ package plps_obj;
   use strict;
   use warnings;
 
-sub nit($$) {
+  use Scalar::Util qw/blessed/;
 
-  my ($name,$value,$attrs)=@_;
+# ---   *   ---   *   ---
+# typechk
+
+sub valid {
+
+  my $obj=shift;if(
+
+     blessed($obj)
+  && $obj->isa('plps_obj')
+
+  ) {
+
+    return 1;
+  };return 0;
+
+};
+
+# ---   *   ---   *   ---
+# constructor
+
+sub nit($$$$) {
+
+  my ($name,$value,$attrs,$par)=@_;
 
   my $obj=bless {
 
@@ -427,15 +519,143 @@ sub nit($$) {
     consume_equal=>0,
     rewind=>0,
 
-    space=>2,
+    space=>1,
+    matches=>[],
+    save_match=>1,
+
+    parent=>$par,
 
   },'plps_obj';
 
   return $obj;
 
+# ---   *   ---   *   ---
+# duplicates a pattern tree
+#:!!!;> does heavy recursion
+
+};sub dup($) {
+
+  my $self=shift;
+
+  my $compound=lang::is_arrayref(
+    $self->{value}
+
+  );
+
+# ---   *   ---   *   ---
+# create new instance
+
+  my $cpy=nit(
+
+    $self->{name},
+    ($compound) ? [] : $self->{value},
+    $self->{attrs},
+
+    undef
+
+  );
+
+# ---   *   ---   *   ---
+# copy settings
+
+  $cpy->{optional}=$self->{optional};
+  $cpy->{consume_equal}=$self->{consume_equal};
+  $cpy->{rewind}=$self->{rewind};
+  $cpy->{space}=$self->{space};
+
+# ---   *   ---   *   ---
+# make copy of object hierarchy
+
+  if($compound) {
+
+    for my $obj(@{$self->{value}}) {
+      push @{$cpy->{value}},$obj->dup();
+
+    };
+  };
+
+  return $cpy;
+
 };
 
 # ---   *   ---   *   ---
+# builds hierarchy from top down
+
+sub walkdown($) {
+
+  my $self=shift;
+  my $parent=undef;
+
+  my @pending=($self);
+  while(@pending) {
+
+    $self=shift @pending;
+    my $v=$self->{value};
+
+    $self->{parent}=$parent;
+
+    if(lang::is_arrayref($v)) {
+      unshift @pending,@$v;
+      $parent=$self;
+
+    };
+
+  };
+};
+
+# ---   *   ---   *   ---
+# propagates matches upwards the hierarchy
+
+sub regmatch($$$) {
+
+  my ($self,$match,$looped)=@_;
+  if(!$self->{save_match}) {return;};
+
+  while(defined $self) {
+
+    if(!$looped || !@{$self->{matches}}) {
+      push @{$self->{matches}},$match;
+
+    } else {
+      $self->{matches}->[-1].=','.$match;
+
+    };$self=$self->{parent};
+
+  };
+};
+
+# ---   *   ---   *   ---
+# get matches across the hierarchy
+
+sub getmatch($) {
+
+  my $self=shift;
+  my @pending=($self);
+
+  while(@pending) {
+
+    $self=shift @pending;
+    my $v=$self->{value};
+
+    if(lang::is_arrayref($v)) {
+      unshift @pending,@$v;
+
+    };
+
+    if($self->{save_match}) {
+      printf "%-16s",$self->{name};
+      for my $match(@{$self->{matches}}) {
+        printf "$match "
+
+      };printf "\n";
+
+    };
+  };
+
+};
+
+# ---   *   ---   *   ---
+# executes a pattern tree
 
 sub run {
 
@@ -444,8 +664,11 @@ sub run {
   my $key=shift;
   my $string=shift;
 
-  my $obj=$program->{defs}->{$key};
+  my $root=$program->{defs}->{$key};
+
+  my $obj=$root;
   my $last=undef;
+  my $looped=0;
 
   my @pending=($obj);
 
@@ -464,30 +687,64 @@ sub run {
 
 # ---   *   ---   *   ---
 # common pattern, attempt match
+#
+# TODO:
+#
+#   * storing matches
 
     } else {
 
-      REPEAT:
+      my $space='\s*';
+      if($obj->{space}==0) {
+        $space=''
 
-      my $match=int($string=~ s/^(${pat})\s*//);
-
-      if(!$match && !$obj->{optional}) {
-        return 1;
-
-      } elsif($match && $obj->{consume_equal}) {
-        goto REPEAT;
-
-      } elsif($match && $obj->{rewind}) {
-        unshift @pending,$last;next;
+      } elsif($obj->{space}==2) {
+        $space='\s+'
 
       };
 
 # ---   *   ---   *   ---
 
+      REPEAT:
+      my $match=int($string=~ s/^(${pat})${space}//);
+
+# ---   *   ---   *   ---
+# early exit
+
+      if(!$match) {
+        if(!$obj->{optional}) {
+          goto END;
+
+        };
+
+# ---   *   ---   *   ---
+# continuation modifiers
+
+      } elsif($match) {
+
+        $obj->regmatch($1,$looped);
+
+        if($obj->{consume_equal}) {
+          $looped=1;
+          goto REPEAT;
+
+        };if($obj->{rewind}) {
+          $looped=0;
+          unshift @pending,$last;next;
+
+        };
+
+      };$looped=0;
+
+# ---   *   ---   *   ---
+# returns zero on full match
+
     };
   };
 
+  END:$root->getmatch();
   return int(length $string);
+
 };
 
 # ---   *   ---   *   ---

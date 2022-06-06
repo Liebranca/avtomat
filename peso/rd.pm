@@ -330,6 +330,7 @@ sub clean {
   my $com=$lang->com;
   my $eb=$lang->exp_bound;
   my $op=$lang->ops;
+  my $op_prec=$lang->op_prec;
 
   # strip comments
   $self->{-LINE}=~ s/${com}.*//g;
@@ -347,7 +348,42 @@ sub clean {
   $self->{-LINE}=~ s/'.$eb.'\s+/'.$eb.'/sg;
 
   # cancel spaces around operators
-  $self->{-LINE}=~s/\s?${op}\s?/$1/;
+  for my $v(keys %$op_prec) {
+
+
+    # TODO:
+    #
+    # we can do this with a single pattern
+    # match and no loop
+    #
+    # should build \s?$op\s? based on
+    # op_prec at lang::def::nit
+    #
+    # i'll... take care of it later...
+    # *sigh*
+
+    $v="(\\$v)";
+
+    if(
+
+       exists $op_prec->{$v}->[2]
+
+    || (  exists $lang->op_prec->{$v}->[0]
+       && exists $lang->op_prec->{$v}->[1] )
+
+    ) {
+
+      $self->{-LINE}=~ s/\s?${v}\s?/$1/sg;
+
+    } elsif(exists $lang->op_prec->{$v}->[0]) {
+      $self->{-LINE}=~ s/\s?${v}/$1 /sg;
+
+    } elsif(exists $lang->op_prec->{$v}->[1]) {
+      $self->{-LINE}=~ s/${v}\s?/ $1/sg;
+
+    };
+
+  };
 
   if(!$self->line) {return 1;};
 

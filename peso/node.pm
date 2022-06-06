@@ -535,11 +535,11 @@ sub agroup($) {
     my ($j,$k)=(0,1);
 
     # node is operator
-    if($leaf->value=~ m/${ndel_op}/) {
+    if(exists $lang->op_prec->{$leaf->value}) {
 
       # look at previous and next node
       for my $n($prev,$next) {
-        if(!defined $n) {next;};
+        if(!defined $n) {$k++;next;};
 
         # n is an operator with leaves
         # or n is not an operator
@@ -1087,7 +1087,7 @@ sub prich {
 
   # print head
   if(!defined $depth) {
-    printf $self->value."\n";
+    print $self->value."\n";
     $depth=0;
 
   };
@@ -1095,9 +1095,13 @@ sub prich {
   # iter children
   for my $node(@{ $self->leaves }) {
 
-    printf ''.(
-      '.  'x($depth).'\-->'.
-      $node->value
+    my $v=($node->value=~ m/node_op=HASH/)
+      ? $node->value->{op}
+      : $node->value
+      ;
+
+    print ''.(
+      '.  'x($depth).'\-->'.$v
 
     )."\n";
 
