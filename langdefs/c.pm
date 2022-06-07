@@ -10,10 +10,13 @@ package langdefs::c;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
+
   use lang;
+  use langdefs::plps;
 
 # ---   *   ---   *   ---
 
+BEGIN {
 lang::def::nit(
 
   -NAME=>'c',
@@ -147,17 +150,11 @@ lang::def::nit(
   },
 
 # ---   *   ---   *   ---
+# build language patterns
 
-  -SBL_DECL=>[qw(
+);lang->c->{-PLPS}=langdefs::plps::make(lang->c);
 
-    <spec>?+ <type> <ptr> <ode>
-      <spec>?+ <type> <ptr> <sep>?<<3
-
-    <cde>
-
-  )],
-
-);
+};
 
 # ---   *   ---   *   ---
 

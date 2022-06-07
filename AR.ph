@@ -90,7 +90,8 @@ sub update {
 
   update(
 
-    [ '/AR.ph'
+    [ '/AR.ph',
+      '/plps/c.pe.lps',
 
     ],$root.'/avtomat',$path
 

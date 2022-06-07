@@ -10,6 +10,8 @@ package langdefs::plps;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use lang;
+
+  use peso::rd;
   use peso::sbl;
 
 # ---   *   ---   *   ---
@@ -386,6 +388,25 @@ sub build {
 };
 
 # ---   *   ---   *   ---
+# makes plps program for other langdefs
+
+sub make($) {
+
+  my $lang=shift;
+  my $program=peso::rd::parse(
+
+    lang->plps,
+
+    peso::rd->FILE,
+    $lang->{-PLPS},
+
+  );lang->plps->build($program);
+
+  return $program;
+
+};
+
+# ---   *   ---   *   ---
 
 BEGIN {
 $plps_sbl=peso::sbl::new_frame();
@@ -629,8 +650,15 @@ sub regmatch($$$) {
 
 sub getmatch($) {
 
-  my $self=shift;
+  my ($self,$program)=@_;
   my @pending=($self);
+
+  my $root=$self;
+
+  my $fr_node=$program->node;
+  my $tree=$fr_node->nit(undef,$root->{name});
+
+# ---   *   ---   *   ---
 
   while(@pending) {
 
@@ -638,19 +666,41 @@ sub getmatch($) {
     my $v=$self->{value};
 
     if(lang::is_arrayref($v)) {
+
+      if($self ne $root) {
+
+        $tree=($tree->par)
+          ? $tree->par
+          : $tree
+          ;
+
+        $tree=$fr_node->nit($tree,$self->{name});
+
+      };
+
       unshift @pending,@$v;
 
-    };
+# ---   *   ---   *   ---
 
-    if($self->{save_match}) {
-      printf "%-16s",$self->{name};
+    } elsif($self->{save_match}) {
+
+      my $leaf=$fr_node->nit($tree,$self->{name});
       for my $match(@{$self->{matches}}) {
-        printf "$match "
+        $fr_node->nit($leaf,$match);
 
-      };printf "\n";
+      };
 
     };
   };
+
+  $tree=($tree->par)
+    ? $tree->par
+    : $tree
+    ;
+
+  $tree->prich();
+
+  exit;
 
 };
 
@@ -687,10 +737,6 @@ sub run {
 
 # ---   *   ---   *   ---
 # common pattern, attempt match
-#
-# TODO:
-#
-#   * storing matches
 
     } else {
 
@@ -737,13 +783,17 @@ sub run {
       };$looped=0;
 
 # ---   *   ---   *   ---
-# returns zero on full match
+# returns object with match details
 
     };
   };
 
-  END:$root->getmatch();
-  return int(length $string);
+  END:
+
+  my $matches=$root->getmatch($program);
+  my $full_match=!int(length $string);
+
+  return $root;
 
 };
 

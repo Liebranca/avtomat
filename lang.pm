@@ -402,8 +402,11 @@ sub cut($$$$) {
     } else { for my $sub(split '#:cut;>',$s) {
 
       if($i<$matchno) {
-        $s2.=sprintf $sub.cut_token_f(),
-          $id,$cnt+($i++);
+
+        $s2.=$sub.sprintf(cut_token_f(),
+          $id,$cnt+($i++)
+
+        );
 
       } else {
         $s2.=$sub;
@@ -1062,6 +1065,13 @@ sub nit {
   my $hack="lang::$def->{-NAME}";
 
   *$hack=sub {return $def};
+
+# ---   *   ---   *   ---
+
+  $def->{-PLPS}=''.
+    $ENV{'ARPATH'}.'/include/plps/'.
+    $def->{-NAME}.'.pe.lps';
+
   return $def;
 
 };
@@ -1306,6 +1316,15 @@ sub build {
 
   my ($self,@args)=@_;
   return $self->{-BUILDER}->(@args);
+
+};
+
+# ---   *   ---   *   ---
+
+sub plps_match($$$) {
+
+  my ($self,$str,$type)=@_;
+  return $self->{-PLPS}->run($str,$type);
 
 };
 

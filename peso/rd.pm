@@ -304,7 +304,7 @@ sub mangle($) {
   if(!length lang::stripline($self->line)) {
     return;
 
-  };
+  };$self->{-LINE}=~ s/([>'])%/$1%%/sg;
 
 # ---   *   ---   *   ---
 
@@ -330,7 +330,6 @@ sub clean {
   my $com=$lang->com;
   my $eb=$lang->exp_bound;
   my $op=$lang->ops;
-  my $op_prec=$lang->op_prec;
 
   # strip comments
   $self->{-LINE}=~ s/${com}.*//g;
@@ -347,43 +346,46 @@ sub clean {
 
   $self->{-LINE}=~ s/'.$eb.'\s+/'.$eb.'/sg;
 
-  # cancel spaces around operators
-  for my $v(keys %$op_prec) {
+# ---   *   ---   *   ---
+# cancel spaces around operators
 
+  my $op_prec=$lang->op_prec;
+  for my $key(keys %$op_prec) {
 
-    # TODO:
-    #
-    # we can do this with a single pattern
-    # match and no loop
-    #
-    # should build \s?$op\s? based on
-    # op_prec at lang::def::nit
-    #
-    # i'll... take care of it later...
-    # *sigh*
+    my $v="(\\$key)";
 
-    $v="(\\$v)";
+# ---   *   ---   *   ---
+# NOTE:
+#
+#   I thought I could do this without
+#   the loop. Well, turns out I can't.
+#
+#   If we ever find a way...
+#
+# ---   *   ---   *   ---
 
     if(
 
-       exists $op_prec->{$v}->[2]
+       defined $op_prec->{$key}->[2]
 
-    || (  exists $lang->op_prec->{$v}->[0]
-       && exists $lang->op_prec->{$v}->[1] )
+    || (  defined $op_prec->{$key}->[0]
+       && defined $op_prec->{$key}->[1] )
 
     ) {
 
-      $self->{-LINE}=~ s/\s?${v}\s?/$1/sg;
+      $self->{-LINE}=~ s/\s${v}\s/$1/sg;
 
-    } elsif(exists $lang->op_prec->{$v}->[0]) {
-      $self->{-LINE}=~ s/\s?${v}/$1 /sg;
+    } elsif(defined $op_prec->{$key}->[0]) {
+      $self->{-LINE}=~ s/\s${v}/$1 /sg;
 
-    } elsif(exists $lang->op_prec->{$v}->[1]) {
-      $self->{-LINE}=~ s/${v}\s?/ $1/sg;
+    } elsif(defined $op_prec->{$key}->[1]) {
+      $self->{-LINE}=~ s/${v}\s/ $1/sg;
 
     };
 
   };
+
+# ---   *   ---   *   ---
 
   if(!$self->line) {return 1;};
 

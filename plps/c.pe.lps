@@ -8,6 +8,6 @@ beg pattern cdecl;
 end;
 
 beg sbl_decl c_func_decl;
-  <cdecl> ~<ode> <cdecl> ~','?--%cslist ~<cde>
+  <cdecl>%func ~'\('%oparens <cdecl>%args ~','?--%cslist ~'\)'%cparens
 
 end;

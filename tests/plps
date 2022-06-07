@@ -10,26 +10,13 @@
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use lang;
-  use langdefs::plps;
   use langdefs::c;
 
   use peso::rd;
   use avt;
 
-# ---   *   ---   *   ---
+printf lang->c->plps_match(
 
-my $program=peso::rd::parse(
-
-  lang->plps,
-
-  peso::rd->FILE,
-  avt::dirof(__FILE__).'/pat.pe.lps',
-
-);lang->plps->build($program);
-
-# ---   *   ---   *   ---
-
-print $program->run(
   'c_func_decl',
   'int* var(static const int** x,const int* y)'
 
