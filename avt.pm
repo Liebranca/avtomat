@@ -688,7 +688,7 @@ if($exp=~ m/:__|[\{\}]/) {next;};
       my $indlvl=shift @indlvl;
       my $spec=shift @specs;
 
-      if(!$indlvl) {$indlvl='';};
+      #if(!$indlvl) {$indlvl='';};
 
       $indlvl=join '',(split ',',$indlvl);
       $spec=(length $spec)
