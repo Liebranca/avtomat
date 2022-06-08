@@ -15,12 +15,16 @@
   use peso::rd;
   use avt;
 
-printf lang->c->plps_match(
+print avt::file_sbl(glob("~/AR/ce/clock.h"));
 
-  'c_func_decl',
-  'int* var(static const int** x,const int* y)'
-
-)."\n";
+#my $tree=lang->c->plps_match(
+#
+#  'c_func_decl',
+#  'int* var(int** x,const int* y)'
+#
+#);
+#
+#$tree->prich();
 
 # ---   *   ---   *   ---
 1; # ret

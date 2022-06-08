@@ -488,11 +488,14 @@ sub agroup($) {
 };sub subdiv($) {
 
   my $self=shift;
+
   my $frame=$self->frame;
   my $lang=$frame->master->lang;
 
   my $ndel_op=$lang->ndel_ops;
   my $del_op=$lang->del_ops;
+
+  my $cde=$lang->cde;
 
   my %matched=();
 
@@ -555,6 +558,9 @@ sub agroup($) {
 # ---   *   ---   *   ---
 
         if($valid) {
+
+          #if($n=~ m/$cde/) {$n=$n->par;};
+
           $j|=$k;
           push @move,$n;
 
@@ -636,6 +642,7 @@ sub agroup($) {
   my $self=shift;
   my $lang=$self->frame->master->lang;
   my $op_prec=$lang->op_prec;
+  my $del_op=$lang->del_ops;
 
   my @leaves=($self);
   my @solve=();
@@ -670,6 +677,10 @@ sub agroup($) {
 
     $self->value($op->[$idex]->[1]->(@args));
 
+    if($self->par->value=~ m/^${del_op}$/) {
+      $self->par->repl($self);
+
+    };
   };
 
 # ---   *   ---   *   ---
@@ -725,6 +736,7 @@ sub agroup($) {
 };sub delimbrk($$) {
 
   my ($self,$i)=@_;
+
   my $frame=$self->frame;
   my $lang=$frame->master->lang;
 
@@ -1076,6 +1088,25 @@ END:
 
 # ---   *   ---   *   ---
 
+sub plain_arr(@) {
+
+  my @tree=@_;
+  my @result=();
+
+  for my $branch(@tree) {
+
+    for my $leaf(@{$branch->leaves}) {
+      push @result,$leaf->value;
+
+    };
+  };
+
+  return @result;
+
+};
+
+# ---   *   ---   *   ---
+
 # print node leaves
 sub prich {
 
@@ -1087,7 +1118,13 @@ sub prich {
 
   # print head
   if(!defined $depth) {
-    print $self->value."\n";
+
+    my $v=($self->value=~ m/node_op=HASH/)
+      ? $self->value->{op}
+      : $self->value
+      ;
+
+    print $v."\n";
     $depth=0;
 
   };

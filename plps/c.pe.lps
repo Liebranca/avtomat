@@ -3,7 +3,7 @@ $:%plps;>
 in lang->c;
 
 beg pattern cdecl;
-  <spec>?+|-> <type> '\*'?+%indlvl <bare>
+  <spec>?+|-> <type> ~'\*'?+%indlvl (void]kill)!<bare>
 
 end;
 

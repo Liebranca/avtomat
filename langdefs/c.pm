@@ -35,6 +35,8 @@ lang::def::nit(
     int8_t int16_t int32_t int64_t
     uint8_t uint16_t uint32_t uint64_t
 
+    wchar_t size_t
+
     FILE
 
     nihil stark signal
@@ -154,98 +156,6 @@ lang::def::nit(
 
 );lang->c->{-PLPS}=langdefs::plps::make(lang->c);
 
-};
-
-# ---   *   ---   *   ---
-
-# DEPRECATED
-# this function needs a ground-up rewrite
-
-# in:C code
-# returns code matches decl
-sub cdecl {
-
-  my $s=shift;
-
-  my $qualy=lang->c->vars->[0];
-  my $types=lang->c->types;
-
-  my $isptr='(\\**\\s+|\\s+\\**)';
-
-  my $pat='('.$qualy.')*\s+('.
-    $types.$isptr.')('.lang->c->names.'*)'.'\s*';
-
-  $pat.=lang::delim2('(',')',1);
-
-  if(!($s=~ m/${pat}/sg)) {
-    return undef;
-
-  };$s=~ s/\n//sg;
-
-  $s=~ m/^(.*)${pat}/;
-  if($1) {$s=~ s/\Q${ 1 }//;};
-
-  lang::ps_str($s);
-
-
-# ---   *   ---   *   ---
-
-  my %d=(
-
-    -FN => {
-      -QUAL =>[],
-      -TYPE =>[],
-      -NAME =>[],
-
-    },-ARGS =>[],
-
-  );my $i=0;while(lang::ps_str) {
-
-    lang::ps_dst($d{-FN});if($i) {
-
-      push @{ $d{-ARGS} },{
-        -QUAL=>[],
-        -TYPE=>[],
-        -NAME=>[],
-
-      };lang::ps_dst($d{-ARGS}->[-1]);
-
-    };
-
-# ---   *   ---   *   ---
-
-    lang::ps(-QUAL,$qualy);
-    lang::ps(-TYPE,$types.$isptr);
-    lang::ps(-NAME,lang->c->names.'*');
-
-    my $test=lang::ps_str;
-    my $mod=$test;
-
-    $mod=~ s/^\s*[\(,\)]//sg;$i++;
-
-    if(!length $mod) {last;};
-    lang::ps_str($mod);
-
-  };
-
-# ---   *   ---   *   ---
-
-  my $ret=[];
-  for my $ar($d{-FN}, @{ $d{-ARGS} }) {
-
-    push @$ret,(
-
-      (join ' ',@{ $ar->{-QUAL} }),
-      (join ' ',@{ $ar->{-TYPE} }),
-      (join ' ',@{ $ar->{-NAME} })
-
-    );
-
-  };my $test=join '',@$ret;
-  if($test=~ m/^\s*$/) {
-    return undef;
-
-  };return $ret;
 };
 
 # ---   *   ---   *   ---

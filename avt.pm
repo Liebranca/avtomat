@@ -585,6 +585,17 @@ sub typecon {
   my $s=shift;
   my $i=0;
 
+# ---   *   ---   *   ---
+# TODO: handle type specifiers!
+#
+#   we're only handling unsigned right now...
+#
+#   for most uses that's OK but we might need
+#   to take other specs into account, even
+#   if just to remove them
+#
+# ---   *   ---   *   ---
+
   my @con=('string','wstring','int*');
 
   for my $t('char\*','wchar_t\*','void\*') {
@@ -595,11 +606,143 @@ sub typecon {
 
     $i++;
 
-  };return $s;
+  };
+
+  $s=~ s/unsigned\s/u/;
+  return $s;
+
 };
 
+
+# ---   *   ---   *   ---
+# looks at a single file for symbols
+
+sub file_sbl($) {
+
+  my $f=shift;
+  my $found='';
+
+  my $langname=lang::file_ext($f);
+
+# ---   *   ---   *   ---
+# read source file
+
+  my $program=peso::rd::parse(
+    lang->$langname,
+    peso::rd::FILE,
+
+    $f
+
+  );
+
+  my $lang=$program->lang;
+
+# ---   *   ---   *   ---
+# iter through expressions
+
+  for my $exp(@{$program->{cooked}}) {
+
+if($exp=~ m/:__|[\{\}]/) {next;};
+
+    # is exp a symbol declaration?
+    my $tree=$lang->plps_match(
+
+      $lang->{-PLPS}
+      ->{defs}->{'sbl_decl'},
+
+      $exp
+
+    );
+
+    # ^this means 'no'
+    if(!$tree->{full}) {next;};
+
+# ---   *   ---   *   ---
+# decompose the tree
+
+    my @specs=peso::node::plain_arr(
+      $tree->branches_in('^spec$')
+
+    );
+
+    my @types=peso::node::plain_arr(
+      $tree->branches_in('^type$')
+
+    );
+
+    my @indlvl=peso::node::plain_arr(
+      $tree->branches_in('^indlvl$')
+
+    );
+
+    my @names=peso::node::plain_arr(
+        $tree->branches_in('^bare$')
+
+    );
+
+# ---   *   ---   *   ---
+# apply type conversions across the hierarchy
+
+    for my $type(@types) {
+
+      my $indlvl=shift @indlvl;
+      my $spec=shift @specs;
+
+      if(!$indlvl) {$indlvl='';};
+
+      $indlvl=join '',(split ',',$indlvl);
+      $spec=(length $spec)
+        ? "$spec "
+        : ''
+        ;
+
+      $type=typecon($spec.$type.$indlvl);
+
+    };
+
+# ---   *   ---   *   ---
+# naming for clarity
+
+    my %func=(
+
+      name=>shift @names,
+      type=>shift @types,
+
+    );
+
+# ---   *   ---   *   ---
+# save args
+
+    my $match="$func{name} $func{type}";
+    while(@types) {
+
+      # again, naming for clarity
+      my %arg=(
+
+        name=>shift @names,
+        type=>shift @types,
+
+      );
+
+      # is void
+      if(!defined $arg{name}) {last;};
+
+      # has type
+      $match.=" $arg{type} $arg{name}";
+
+# ---   *   ---   *   ---
+# append results
+
+    };$match=~ s/\s+/ /sg;
+    $found.="$match\n";
+
+  };return $found;
+};
+
+# ---   *   ---   *   ---
 # in:modname,[files]
 # write symbol typedata (return,args) to shadow lib
+
 sub symscan {
 
   my $mod=shift;
@@ -631,53 +774,17 @@ sub symscan {
   my $deps=(split "\n",`cat $dst`)[0];
 
   open my $FH,'>',$dst or die $!;
-
   print $FH "$deps\n";
 
 # ---   *   ---   *   ---
+# iter through files
 
-  # iter through files
   for my $f(@files) {
     if(!$f) {next;};
-    my $src=`cat $f`;
 
     # save filename
     print $FH "$f:\n";
-
-    # strip /* ... */
-    $src=~ s/\/\*.*\*\///sg;
-
-    # strip // ... \n
-    $src=~ s/\/\/.*\n//g;
-
-    # strip #directives
-    $src=~ s/#.*\n//g;
-
-    # iter through expressions
-    for my $exp( split(';',$src) ) {
-
-      my $data=undef;#lang::PROP(-CEE,-DECL)->($exp);
-      if(!$data) {next;};
-
-      @$data[1]=typecon(@$data[1]);
-
-# ---   *   ---   *   ---
-
-      my $match="@$data[2] @$data[1]";
-      my $ix=4;while($ix<@$data) {
-
-        # void args
-        if(!@$data[$ix]) {last;};
-
-        @$data[$ix]=typecon(@$data[$ix]);
-
-        $match.=" @$data[$ix] @$data[$ix+1]";
-        $ix+=3;
-
-      };$match=~ s/\s+/ /sg;
-      print $FH "$match\n";
-
-    };
+    print $FH file_sbl($f);
 
   };close $FH;
 

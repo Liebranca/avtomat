@@ -13,13 +13,19 @@
   use langdefs::peso;
   use peso::rd;
 
-my $exps=peso::rd::mam(
+my $program=peso::rd::parse(
 
   lang->peso,
   peso::rd->STR,q(
 
-char x,y 1         +2*3,4,5;
+1;2;3;
 
 ));
+
+for my$line(@{$program->{cooked}}) {
+
+  printf "$line\n";
+
+};
 
 # ---   *   ---   *   ---

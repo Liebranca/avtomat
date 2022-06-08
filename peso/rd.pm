@@ -73,6 +73,7 @@ sub program {return (shift)->{-PROGRAM};};
 sub lang {return (shift)->program->lang;};
 sub strings {return (shift)->{-STRINGS};};
 sub raw {return (shift)->{-RAW};};
+sub cooked {return (shift)->{-COOKED};};
 
 # ---   *   ---   *   ---
 # constructor
@@ -97,6 +98,7 @@ sub nit {
     -IN_MLS=>undef,
 
     -RAW=>[],
+    -COOKED=>[],
     -STRINGS=>[],
 
   },'peso::rd';
@@ -304,7 +306,7 @@ sub mangle($) {
   if(!length lang::stripline($self->line)) {
     return;
 
-  };$self->{-LINE}=~ s/([>'])%/$1%%/sg;
+  };$self->{-LINE}=~ s/([>'])%/$1\%/sg;
 
 # ---   *   ---   *   ---
 
@@ -505,14 +507,14 @@ sub wipe {
 
 sub fopen {
 
-  my $self=shift;
+  my ($self,$src)=@_;
   $self->wipe();
 
   my $lang=$self->lang;
   my $hed=$lang->hed;
 
   # open file
-  $self->{-FNAME}=glob(shift);open
+  $self->{-FNAME}=$src;open
 
     my $FH,'<',
     $self->{-FNAME} or die $!
@@ -589,10 +591,10 @@ sub expsplit {
 
 };sub file {
 
-  my $self=shift;
+  my ($self,$src)=@_;
 
   # open & read first line
-  $self->fopen(shift);
+  $self->fopen($src);
   $self->mangle();
 
 # ---   *   ---   *   ---
@@ -621,14 +623,13 @@ sub expsplit {
 
 };sub string {
 
-  my $self=shift;
+  my ($self,$src)=@_;
 
   # flush cache
   $self->wipe();
 
   # split string into lines
-  my $s=shift;
-  my @ar=split "\n",$s;
+  my @ar=split "\n",$src;
 
   my @filtered=();
   for my $l(@ar) {
@@ -705,6 +706,10 @@ sub parse {
   for my $exp(@{$rd->exps}) {
 
     my $body=$exp;
+    $body=~ s/^\s*//;
+
+    push @{$rd->cooked},$body;
+
     if($body=~ m/\{|\}/) {
       $exp=$fr_node->nit(undef,$body);
 
@@ -740,10 +745,10 @@ sub parse {
     };
   };
 
-# ---   *   ---   *   ---
-
   $program->{tree}=$rd->exps;
   $program->{strings}=$rd->strings;
+  $program->{raw}=$rd->raw;
+  $program->{cooked}=$rd->cooked;
 
   return $program;
 

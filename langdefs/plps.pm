@@ -77,6 +77,8 @@ use constant plps_ops=>{
     undef,
     undef,
 
+# ---   *   ---   *   ---
+
   ],'+'=>[
 
     [3,sub {
@@ -98,6 +100,8 @@ use constant plps_ops=>{
     undef,
     undef,
 
+# ---   *   ---   *   ---
+
   ],'|>'=>[
 
     [4,sub {my ($x)=@_;$$x->{space}=0;return $$x;}],
@@ -111,6 +115,8 @@ use constant plps_ops=>{
 
     undef,
     undef,
+
+# ---   *   ---   *   ---
 
   ],'%'=>[
 
@@ -126,6 +132,28 @@ use constant plps_ops=>{
 
     }]
 
+# ---   *   ---   *   ---
+
+  ],']'=>[
+
+    undef,
+    undef,
+
+
+    [5,sub {
+
+      my ($x,$y)=@_;
+
+      #:!!;> this is a hack as well
+      my $s='int($prev_match=~ m/^'."$$x".'/);';
+
+      return $s;
+
+    }],
+
+# ---   *   ---   *   ---
+
+
   ],'~'=>[
 
     undef,
@@ -139,8 +167,31 @@ use constant plps_ops=>{
 
     }],
 
+    [6,sub {
+
+      my ($x,$y)=@_;
+
+      $$y->{on_no_match}=$$x;
+      $$y->{save_match}=0;
+
+      return $$y;
+
+    }],
+
+
+  ],'!'=>[
+
+    undef,
     undef,
 
+    [6,sub {
+
+      my ($x,$y)=@_;
+      $$y->{on_no_match}=$$x;
+
+      return $$y;
+
+    }],
 
   ],
 
@@ -423,6 +474,8 @@ DEFINE 'beg',DIRECTIVE,sub {
   $f1=$f1->[0];
 
   $m->{defs}->{$f1}=undef;
+  $m->{defs}->{$f0}=$f1;
+
   $m->{dst}=[$f0,$f1];
 
 };
@@ -480,10 +533,10 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  -ODE=>'[<]',
-  -CDE=>'[>]',
+  -ODE=>'[<\(]',
+  -CDE=>'[\)>]',
 
-  -DEL_OPS=>'[<>]',
+  -DEL_OPS=>'[<\(\)>]',
   -NDEL_OPS=>'[?+\-%~]',
   -OP_PREC=>plps_ops,
 
@@ -540,6 +593,8 @@ sub nit($$$$) {
     consume_equal=>0,
     rewind=>0,
 
+    on_no_match=>undef,
+
     space=>1,
     matches=>[],
     save_match=>1,
@@ -583,6 +638,9 @@ sub nit($$$$) {
   $cpy->{consume_equal}=$self->{consume_equal};
   $cpy->{rewind}=$self->{rewind};
   $cpy->{space}=$self->{space};
+
+  $cpy->{on_no_match}=$self->{on_no_match};
+  $cpy->{save_match}=$self->{save_match};
 
 # ---   *   ---   *   ---
 # make copy of object hierarchy
@@ -693,15 +751,34 @@ sub getmatch($) {
     };
   };
 
-  $tree=($tree->par)
+  $tree=(defined $tree->par)
     ? $tree->par
     : $tree
     ;
 
-  $tree->prich();
+  return $tree;
 
-  exit;
+};
 
+# ---   *   ---   *   ---
+# removes match history across the hierarchy
+
+sub clean($) {
+
+  my $self=shift;
+
+  my @pending=($self);
+  while(@pending) {
+
+    $self=shift @pending;
+    my $v=$self->{value};
+
+    if(lang::is_arrayref($v)) {
+      unshift @pending,@$v;
+
+    };$self->{matches}=[];
+
+  };
 };
 
 # ---   *   ---   *   ---
@@ -717,7 +794,11 @@ sub run {
   my $root=$program->{defs}->{$key};
 
   my $obj=$root;
+  my $prev_match=undef;
+
   my $last=undef;
+  my $next=undef;
+
   my $looped=0;
 
   my @pending=($obj);
@@ -732,6 +813,9 @@ sub run {
 
     # compound pattern, unpack
     if(lang::is_arrayref($pat)) {
+
+      $next=$pending[0];
+
       unshift @pending,@$pat;
       $last=$obj;
 
@@ -752,13 +836,32 @@ sub run {
 # ---   *   ---   *   ---
 
       REPEAT:
-      my $match=int($string=~ s/^(${pat})${space}//);
+      my $match=int($string=~ s/^(${pat})${space}//s);
 
 # ---   *   ---   *   ---
 # early exit
 
       if(!$match) {
-        if(!$obj->{optional}) {
+
+        if(defined $obj->{on_no_match} && !$looped) {
+          if(eval($obj->{on_no_match})) {
+
+            while($pending[0] ne $next) {
+
+              $obj->regmatch('',$looped);
+              $obj=shift @pending;
+
+            };next;
+
+          };
+        };
+
+# ---   *   ---   *   ---
+
+        if($looped || $obj->{optional}) {
+          $obj->regmatch('',$looped);
+
+        } elsif(!$obj->{optional}) {
           goto END;
 
         };
@@ -768,6 +871,7 @@ sub run {
 
       } elsif($match) {
 
+        $prev_match=$1;
         $obj->regmatch($1,$looped);
 
         if($obj->{consume_equal}) {
@@ -776,7 +880,7 @@ sub run {
 
         };if($obj->{rewind}) {
           $looped=0;
-          unshift @pending,$last;next;
+          unshift @pending,($last,$obj);next;
 
         };
 
@@ -793,7 +897,10 @@ sub run {
   my $matches=$root->getmatch($program);
   my $full_match=!int(length $string);
 
-  return $root;
+  $matches->{full}=$full_match;
+  $root->clean();
+
+  return $matches;
 
 };
 

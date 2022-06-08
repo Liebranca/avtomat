@@ -519,120 +519,8 @@ sub hashpat($;$) {
 };
 
 # ---   *   ---   *   ---
-
-my %PS=(
-
-  -PAT => '',
-  -STR => '',
-
-  -DST => {},
-
-);
-
-# ---   *   ---   *   ---
-
-# in: key into PS{-DST}
-# looks for pattern and substs it
-# matches are pushed to dst{key}
-
-sub ps {
-
-  my $key=shift;
-  my $pat=shift;
-
-  # well handle this later, for now its ignored
-  $PS{-STR}=~ s/extern "C" \{//;
-
-  while($PS{-STR}=~ m/^\s*(${pat})/sg) {
-
-    if(!$1) {last;};
-
-    push @{ $PS{-DST}->{$key} },$1;
-    $PS{-STR}=~ s/^\s*${pat}\s*//s;
-
-  };
-
-};sub ps_str {
-
-  my $new=shift;
-  if($new) {
-    $PS{-STR}=$new;
-
-  };return $PS{-STR};
-
-};sub ps_dst {
-
-  my $new=shift;
-  if($new) {
-    $PS{-DST}=$new;
-
-  };return $PS{-DST};
-
-};
-
-# ---   *   ---   *   ---
-
-sub pscsl {
-
-  my $key=shift;
-
-  if(my @ar=split m/\s*,\s*/,$PS{-STR}) {
-
-    push @{ $PS{-DST}->{$key} },@ar;
-    $PS{-STR}='';
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-
-# in: pattern,string,key
-# looks for pattern in string
-sub pss {
-
-  my $pat=shift,
-  my $str=shift;
-  my $key=shift;
-
-  $PS{-PAT}=$pat;
-
-  if($str) {$PS{-STR}=$str;};
-
-  if(!$PS{-DST}->{$key}) {
-    $PS{-DST}->{$key}=[];
-
-  };ps($key);return @{ $PS{-DST}->{$key} };
-
-# ---   *   ---   *   ---
-
-# in: string,key
-# reads comma-separated list until end of string
-
-};sub psscsl {
-
-  my $str=shift;
-  my $key=shift;
-
-  if($str) {$PS{-STR}=$str;};
-
-  if(!$PS{-DST}->{$key}) {
-    $PS{-DST}->{$key}=[];
-
-  };pscsl($key);return @{ $PS{-DST}->{$key} };
-
-# ---   *   ---   *   ---
-
-};sub clps {
-  for my $key(keys %{ $PS{-DST} }) {
-    $PS{-DST}->{$key}=[];
-
-  };
-};
-
-# ---   *   ---   *   ---
-
 # hexadecimal conversion
+
 sub pehexnc {
 
   my $x=shift;
@@ -661,7 +549,9 @@ sub pehexnc {
 
 };
 
+# ---   *   ---   *   ---
 # octal conversion
+
 sub peoctnc {
 
   my $x=shift;
@@ -690,7 +580,9 @@ sub peoctnc {
 
 };
 
+# ---   *   ---   *   ---
 # binary conversion
+
 sub pebinnc {
 
   my $x=shift;
@@ -716,6 +608,36 @@ sub pebinnc {
     $r+=$v<<($i);$i++;
 
   };return $r;
+
+};
+
+# ---   *   ---   *   ---
+# book-keeping
+
+my %LANGUAGES=();
+
+sub register_def($) {
+
+  my $name=shift;
+  $LANGUAGES{$name}=1;
+
+};sub file_ext($) {
+
+  my $file=shift;
+  my $name=undef;
+
+  $file=(split '/',$file)[-1];
+
+  for my $key(keys %LANGUAGES) {
+    my $pat=lang->$key->ext;
+
+    if($file=~ m/$pat/) {
+      $name=$key;last;
+
+    };
+  };
+
+  return $name;
 
 };
 
@@ -1072,6 +994,7 @@ sub nit {
     $ENV{'ARPATH'}.'/include/plps/'.
     $def->{-NAME}.'.pe.lps';
 
+  lang::register_def($def->{-NAME});
   return $def;
 
 };
