@@ -14,6 +14,164 @@ package langdefs::perl;
 
 # ---   *   ---   *   ---
 
+use constant LYPERL_DIRECTIVES=>qw(
+  class
+
+);
+
+use constant LYPERL_TYPES=>qw(
+
+
+);
+
+# ---   *   ---   *   ---
+
+my $perl_sbl=undef;
+
+sub DEFINE($$$) {
+
+  $perl_sbl->DEFINE(
+    $_[0],$_[1],$_[2],
+
+  );
+};
+
+# ---   *   ---   *   ---
+
+sub ALIAS($$) {
+
+  $perl_sbl->DEFINE(
+    $_[0],$_[1],$_[2],
+
+  );
+};
+
+# ---   *   ---   *   ---
+
+my $SBL_ID=0;sub sbl_id() {return $SBL_ID++;};
+
+# ---   *   ---   *   ---
+
+use constant OPS=>{
+
+  '->'=>[
+
+    undef,
+    undef,
+
+    [-1,sub {my ($x,$y)=@_;return "$$x->$$y";}],
+
+  ],'.'=>[
+
+    undef,
+    undef,
+
+    [-1,sub {
+
+      my ($x,$y)=@_;
+
+
+
+      return "$$x.$$y";
+
+    }],
+
+  ],
+
+};
+
+# ---   *   ---   *   ---
+
+use constant DIRECTIVE=>{
+
+  'class'=>[sbl_id,'1<bare>'],
+
+};
+
+# ---   *   ---   *   ---
+# utility methods
+
+sub beg_class($) {
+
+  my $program=shift;
+  my $cur=$program->{defs}->{cur};
+
+  return "BEG_class_$cur->{key}";
+
+# ---   *   ---   *   ---
+
+};sub end_class($) {
+
+  my $program=shift;
+  my $cur=$program->{defs}->{cur};
+
+  my $beg;for my $node(@{$program->{tree}}) {
+
+    if($node->value eq "BEG_class_$cur->{key}") {
+      $beg=$node;
+      last;
+
+    };
+  };
+
+  my $args='$';
+  $beg->value(
+
+    'sub nit($'.$args.") {\n".
+    'my $self=shift;'."\n"
+
+
+  );
+
+  return "return bless {},'$cur->{key}';\n}";
+
+};
+
+# ---   *   ---   *   ---
+
+BEGIN {
+$perl_sbl=peso::sbl::new_frame();
+
+# ---   *   ---   *   ---
+
+DEFINE 'class',DIRECTIVE,sub {
+
+  my ($inskey,$frame,@fields)=@_;
+  my ($f0)=@fields;
+  my $m=$frame->master;
+
+  my $name=$f0->[0];
+
+  # TODO: add line number to error
+  if(exists $m->{defs}->{types}->{$name}) {
+    print "Redeclaration of type $name\n";
+    exit;
+
+  };
+
+  $m->{defs}->{types}->{$name}=bless {
+
+    attrs=>{},
+    procs=>{},
+
+  },'lyperl::class';
+
+  $m->{defs}->{cur}={
+
+    key=>$name,
+    tag=>'types',
+
+    ref=>$m->{defs}->{types}->{$name},
+    lvl=>$m->{defs}->{lvl},
+
+    beg=>\&beg_class,
+    end=>\&end_class,
+
+  };return "package $name;";
+
+};
+
+# ---   *   ---   *   ---
 lang::def::nit(
 
   -NAME => 'perl',
@@ -25,6 +183,34 @@ lang::def::nit(
   -COM  => '#',
 
   -DRFC => '(::|->)',
+
+# ---   *   ---   *   ---
+
+  -DEL_OPS=>'[\(\[\{\}\]\)]',
+
+  -NDEL_OPS=>''.
+    '[^\s_A-Za-z0-9\.:\{'.
+    '\[\(\)\]\}\\\\$&]'.
+    '|(^|\s|[^\\\\])[&%]',
+
+  -OP_PREC=>OPS,
+  -SBL=>$perl_sbl,
+
+  -MCUT_TAGS=>[-STRING,-CHAR,-PESC],
+
+  -EXP_RULE=>sub ($) {
+
+    my $rd=shift;
+
+    my $pesc=lang::cut_token_re;
+    $pesc=~ s/\[A-Z\]\+/PESC/;
+
+    while($rd->{-LINE}=~ s/^(${pesc})//) {
+      push @{$rd->exps},{body=>$1,has_eb=>0};
+
+    };
+
+  },
 
 # ---   *   ---   *   ---
 
@@ -50,6 +236,7 @@ lang::def::nit(
   -BUILTINS=>[qw(
 
     accept alarm atan2 bin bind binmode
+    bless blessed
 
     caller chdir chmod chop chown chroot close
     closedir connect cos crypt
@@ -82,7 +269,7 @@ lang::def::nit(
     length link listen local localtime
     log lstat m mkdir
 
-    msgctl msgget msgsnd msgrcv next oct open
+    msgctl msgget msgsnd msgrcv oct open
     opendir ord pack pipe pop print printf
 
     push q qq qx rand read readdir readlink
@@ -99,7 +286,7 @@ lang::def::nit(
     sort splice split sprintf sqrt srand stat
     study substr symlink syscall sysread system
 
-    syswrite tell telldir time tr try truncate
+    syswrite tell telldir time tr truncate
 
     umask undef unlink unpack unshift
     utime values vec wait waitpid
@@ -113,7 +300,7 @@ lang::def::nit(
   -DIRECTIVES=>[qw(
     use package my our sub
 
-  )],
+  ),LYPERL_DIRECTIVES],
 
   -INTRINSICS=>[qw(
     eq ne lt gt le ge cmp x can isa
@@ -125,6 +312,7 @@ lang::def::nit(
     continue else elsif do for
     foreach if unless until while
     goto next last redo reset return
+    try catch finally
 
   )],
 
@@ -140,7 +328,7 @@ lang::def::nit(
   ),0,1
 
 );
+};
 
 # ---   *   ---   *   ---
 1; # ret
-

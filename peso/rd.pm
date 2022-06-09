@@ -24,7 +24,7 @@ package peso::rd;
 # ---   *   ---   *   ---
 # getters/setters
 
-;;sub line {
+;;sub line($;$) {
 
   my $self=shift;
   my $new=shift;
@@ -34,7 +34,7 @@ package peso::rd;
 
   };return $self->{-LINE};
 
-};sub rem {
+};sub rem($;$) {
 
   my $self=shift;
   my $new=shift;
@@ -44,7 +44,9 @@ package peso::rd;
 
   };return $self->{-REM};
 
-};sub in_mls_block {
+# ---   *   ---   *   ---
+
+};sub in_mls_block($;$) {
 
   my $self=shift;
   my $new=shift;
@@ -54,7 +56,7 @@ package peso::rd;
 
   };return $self->{-IN_MLS};
 
-};sub mls_accum {
+};sub mls_accum($;$) {
 
   my $self=shift;
   my $new=shift;
@@ -68,19 +70,26 @@ package peso::rd;
 
 # ---   *   ---   *   ---
 
-sub exps {return (shift)->{-EXPS};};
-sub program {return (shift)->{-PROGRAM};};
-sub lang {return (shift)->program->lang;};
-sub strings {return (shift)->{-STRINGS};};
-sub raw {return (shift)->{-RAW};};
-sub cooked {return (shift)->{-COOKED};};
+sub exps($) {return (shift)->{-EXPS};};
+sub program($) {return (shift)->{-PROGRAM};};
+sub lang($) {return (shift)->program->lang;};
+sub strings($) {return (shift)->{-STRINGS};};
+sub raw($) {return (shift)->{-RAW};};
+sub cooked($) {return (shift)->{-COOKED};};
+
+# ---   *   ---   *   ---
+
+sub keep_comments($) {
+  return (shift)->{-KEEP_COMMENTS};
+
+};
 
 # ---   *   ---   *   ---
 # constructor
 
-sub nit {
+sub nit($$) {
 
-  my $program=shift;
+  my ($program,$keep_comments)=@_;
 
   return bless {
 
@@ -100,6 +109,8 @@ sub nit {
     -RAW=>[],
     -COOKED=>[],
     -STRINGS=>[],
+
+    -KEEP_COMMENTS=>$keep_comments,
 
   },'peso::rd';
 
@@ -310,12 +321,22 @@ sub mangle($) {
 
 # ---   *   ---   *   ---
 
+  my $append=undef;
+  if($self->keep_comments) {
+    $append=[-LCOM];
+
+  };
+
+  my @tags=$self->lang->mcut_tags($append);
+
+# ---   *   ---   *   ---
+
   $self->line(lang::mcut(
 
     $self->line,
     $self->strings,
 
-    $self->lang->mcut_tags,
+    @tags,
 
   ));push @{$self->raw},$self->line;
 
@@ -409,9 +430,46 @@ sub join_rem {
 };
 
 # ---   *   ---   *   ---
-# SL AND ML EXPS DEPRECATED
-# change these two subs to
-# lang-specific methods
+# filters out an expression array
+
+sub expfilt($@) {
+
+  my ($self,@ar)=@_;
+  my $lang=$self->lang;
+
+  my $eb=$lang->exp_bound;
+
+  # iter array
+  for my $e(@ar) {
+
+    # discard blanks
+    if(!defined $e || !length $e) {
+      next;
+
+    };
+
+# ---   *   ---   *   ---
+# catch expression boundary
+
+    if($e=~ m/${eb}/) {
+      if(defined $self->exps->[-1]) {
+        $self->exps->[-1]->{has_eb}=1;
+
+      };next;
+
+    };
+
+# ---   *   ---   *   ---
+# append to expression list
+
+    push @{$self->exps},{
+      body=>$e,
+      has_eb=>0,
+
+    };
+
+  };
+};
 
 # ---   *   ---   *   ---
 # single-line expressions
@@ -429,22 +487,10 @@ sub slexps($) {
 
   my @ar=split
 
-    m/(${sb})|${eb}$|${eb}/,
+    m/(${sb})|(${eb})$|(${eb})/,
     $self->line
 
-  ;
-
-# ---   *   ---   *   ---
-# separate curls
-
-  for my $e(@ar) {
-
-    if(!defined $e || !length $e) {
-      next;
-
-    };push @{$self->exps},$e;
-
-  };
+  ;$self->expfilt(@ar);
 };
 
 # ---   *   ---   *   ---
@@ -461,22 +507,18 @@ sub mlexps($) {
   $lang->exp_rule->($self);
   my @ar=split
 
-    m/(${sb})|${eb}/,
+    m/(${sb})|(${eb})/,
     $self->line
 
   ;
 
   my $entry=pop @ar;
+  $self->expfilt(@ar);
 
-  # separate curls
-  for my $e(@ar) {
+  if($entry) {
+    $self->rem($self->rem.$entry);
 
-    if(!defined $e || !length $e) {
-      next;
-
-    };push @{$self->exps},$e;
-
-  };if($entry) {$self->rem($self->rem.$entry);};
+  };
 
 # ---   *   ---   *   ---
 # proc 'table' for branchless call
@@ -666,7 +708,7 @@ sub no_blanks($) {
 
   for my $exp(@{$self->exps}) {
 
-    if(length lang::stripline($exp)) {
+    if(length lang::stripline($exp->{body})) {
       push @ar,$exp;
 
     };
@@ -678,16 +720,22 @@ sub no_blanks($) {
 
 # ---   *   ---   *   ---
 
-sub parse {
+sub parse($$$;$) {
 
-  my $lang=shift;
-  my $mode=shift;
-  my $src=shift;
+  my ($lang,$mode,$src,$keep_comments)=@_;
+
+  $keep_comments=(!defined $keep_comments)
+    ? 0
+    : $keep_comments
+    ;
 
   my $program=peso::program::nit($lang);
-  my $rd=nit($program);
+  my $rd=nit($program,$keep_comments);
 
   (\&file,\&string)[$mode]->($rd,$src);
+
+# ---   *   ---   *   ---
+# handle leftovers
 
   if($rd->rem) {
     $rd->line($rd->rem);
@@ -705,7 +753,9 @@ sub parse {
 
   for my $exp(@{$rd->exps}) {
 
-    my $body=$exp;
+    my $body=$exp->{body};
+    my $has_eb=$exp->{has_eb};
+
     $body=~ s/^\s*//;
 
     push @{$rd->cooked},$body;
@@ -741,9 +791,12 @@ sub parse {
       };
 
 # ---   *   ---   *   ---
+# remember if node has boundary char
 
-    };
+    };$exp->{has_eb}=$has_eb;
   };
+
+# ---   *   ---   *   ---
 
   $program->{tree}=$rd->exps;
   $program->{strings}=$rd->strings;

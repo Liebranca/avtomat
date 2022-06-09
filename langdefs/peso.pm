@@ -76,6 +76,10 @@ lang::def::nit(
 
   ],
 
+# ---   *   ---   *   ---
+
+  -MCUT_TAGS=>[-STRING,-CHAR],
+
 );
 
 # ---   *   ---   *   ---

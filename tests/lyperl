@@ -13,9 +13,14 @@
 
 # ---   *   ---   *   ---
 
-proc test char $x str $s {
-  printf ''.(substr $s,0,$x)."\n";
+class base {
+  word $var=0x04;
 
-};test 4,244;
+};
+
+void prich void {
+  print self->$var."\n";
+
+};
 
 # ---   *   ---   *   ---

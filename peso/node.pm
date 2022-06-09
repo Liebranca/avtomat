@@ -437,8 +437,6 @@ sub agroup($) {
 
 # ---   *   ---   *   ---
 
-  my $keyword=$lang->keywords;
-
   my @anchors=();
   my @trash=();
 
@@ -628,14 +626,7 @@ sub agroup($) {
   };
 
 # ---   *   ---   *   ---
-#:*;> TODO
-#:*;>
-#:*;> half re-implementation :c
-#:*;>
-#:*;> - lacking conversions for literals
-#:*;>
-#:*;> - lacking a good way to find the right
-#:*;>   version of operator to execute
+# solves operations across the hierarchy
 
 };sub collapse($) {
 
@@ -672,8 +663,28 @@ sub agroup($) {
     my $op=$op_prec->{$self->value->{op}};
     my $idex=$self->value->{idex};
 
+# ---   *   ---   *   ---
+# argument conversions
+# TODO: type-checks!
+
     my @args=$self->pluck(@{$self->leaves});
-    for my $arg(@args) {$arg=\$arg->value;};
+    for my $arg(@args) {
+
+      for my $key(keys %{$lang->numcon}) {
+
+        if($arg->value=~ m/^${key}/) {
+          $arg->value(
+            $lang->numcon->{$key}->($arg->value)
+
+          );last;
+
+        };
+
+      };$arg=\$arg->value;
+
+    };
+
+# ---   *   ---   *   ---
 
     $self->value($op->[$idex]->[1]->(@args));
 
@@ -692,6 +703,18 @@ sub agroup($) {
 
     my $field=$self->fieldn($i);
     my @ar=$field->pluck(@{$field->leaves});
+
+    if(@ar>1) {
+
+      my $s=$ar[0]->value;
+      for my $node(@ar[1..$#ar]) {
+        $s.=' '.$node->value;
+
+      };
+
+      $ar[0]->value($s);
+
+    };
 
     $field->value($ar[0]->value);
     $i++;
@@ -1087,6 +1110,7 @@ END:
 };
 
 # ---   *   ---   *   ---
+# gives array of values from node array
 
 sub plain_arr(@) {
 
@@ -1095,6 +1119,25 @@ sub plain_arr(@) {
 
   for my $branch(@tree) {
 
+    for my $leaf(@{$branch->leaves}) {
+      push @result,$leaf->value;
+
+    };
+  };
+
+  return @result;
+
+# ---   *   ---   *   ---
+# ^ same, includes root nodes
+
+};sub plain_arr2(@) {
+
+  my @tree=@_;
+  my @result=();
+
+  for my $branch(@tree) {
+
+    push @result,$branch->value;
     for my $leaf(@{$branch->leaves}) {
       push @result,$leaf->value;
 

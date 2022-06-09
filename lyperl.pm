@@ -21,10 +21,10 @@ package lyperl;
   use lib $ENV{'ARPATH'}.'/avtomat/';
 
   use lang;
+  use langdefs::perl;
 
+  use peso::rd;
   use peso::node;
-  use peso::program;
-  use lyperl::decls;
 
 # ---   *   ---   *   ---
 
@@ -33,229 +33,162 @@ sub import {
   my ($type)=@_;
   my ($ref)={
 
-    lline_exp=>0,
-
     killed=>0,
     lineno=>1,
-    in_doc_block=>0,
 
-    macros=>{},
-
-    unpro=>[],
-    exps=>[],
-    strings=>[],
-
-    docs_accum=>'',
+    lines=>[],
 
   };filter_add(bless $ref);
 
 };
 
 # ---   *   ---   *   ---
-# demangles the accumulated code strings
+# converts lyperl into executable perl
 
-sub restore($) {
+sub translate($) {
 
-  my $self=shift;
-  my $mangled=shift;
+  my $program=shift;
 
-  # replace string tokens
-  return lang::stitch($mangled,$self->{strings});
+  # keyword-detecting pattern
+  # exclusive to lyperl keywords
 
-};
+  my $keys=lang::eiths(
 
-# ---   *   ---   *   ---
+    (join ',',(
 
-sub subst_iter($$) {
+      langdefs::perl->LYPERL_DIRECTIVES,
+      langdefs::perl->LYPERL_TYPES,
 
-  my $self=shift;
-  my $node=shift;
-
-  my $leaf=$node->leaves->[0];
-  if(!defined $leaf) {
-    print "Symbol 'iter' requires $,$\n";
-    exit;
-
-  };
-
-  my ($a,$b)=split m/\s*,\s*/,$leaf->val;
-  $node->pluck($leaf);
-
-  $node->{-VAL}="for my $a".'(@{'.$b.'})';
-
-};
-
-# ---   *   ---   *   ---
-
-my %PROCS=();
-
-sub subst_proc($$) {
-
-  my $self=shift;
-  my $node=shift;
-
-  my ($name)=$node->pluck($node->leaves->[0]);
-  $name=$name->val;
-
-  $PROCS{$name}=[];
-
-  my @args=();
-  my $i=0;
-
-  while(@{$node->leaves}) {
-
-    my ($vtype,$vname)=$node->pluck(
-      @{$node->leaves}[0,1]
-
-    );
-
-    push @args,[$vname->val=>$vtype->val];
-    push @{$PROCS{$name}},$vtype->val;
-
-    $i++;
-
-  };
-
-  $node->{-VAL}="sub $name(".('$'x$i).")";
-
-  my $s='';
-  for my $ref(@args) {
-    my $key=$ref->[0];
-    $s.='my '.$key."=shift;";
-
-  };return $s;
-
-};
-
-# ---   *   ---   *   ---
-
-sub expsplit($) {
-
-  my $self=shift;
-  my @exps=
-    split m/([\{\};])/,(join '',@{$self->{unpro}});
-
-  my $root=peso::node::nit(undef,'ROOT');
-  my @ances=();
-
-  peso::program::nit();
-
-# ---   *   ---   *   ---
-
-  my %keywords=(
-    'iter'=>\&subst_iter,
-    'proc'=>\&subst_proc,
-
+    ))
   );
 
 # ---   *   ---   *   ---
+# nit the symbol table
 
-  my $vname=lyperl::decls::names;
+  lang->perl->sbl->setdef($program);
+  my $SYMS=lang->perl->sbl->SYMS;
 
-  my $anchor=$root;
-  my $last=$root;
-  my $rem='';
+  $program->{defs}={
 
-  for my $exp(@exps) {
+    types=>{},
+    procs=>{},
 
-    if(defined $exp && length lang::stripline($exp)) {
+    cur=>undef,
+    lvl=>0,
 
-      if($exp eq '{') {
-        push @ances,$anchor;
-        $anchor=$last;
+  };
 
-      } elsif($exp eq '}') {
-        $anchor=pop @ances;
+# ---   *   ---   *   ---
+# walk the tree
+
+  for my $branch(@{$program->{tree}}) {
+
+    my $lvl=\$program->{defs}->{lvl};
+    my $cur=\$program->{defs}->{cur};
+
+    # keyword found
+    if($branch->value=~ m/${keys}/) {
+      my $key=$branch->value;
+
+      $branch->value($SYMS->{$key}->ex($branch));
+      $branch->pluck(@{$branch->leaves});
+
+# ---   *   ---   *   ---
+# definition block in/out
+
+    } elsif($branch->value eq '{') {
+
+      if(defined $$cur && $$lvl==$$cur->{lvl}) {
+        my $beg=$$cur->{beg};
+        $branch->value($beg->($program));
+
+      };
+
+      $$lvl++;
+
+    } elsif($branch->value eq '}') {
+      $$lvl--;
+
+      if(defined $$cur && $$lvl==$$cur->{lvl}) {
+
+        my $end=$$cur->{end};
+        $branch->value($end->($program));
+
+        $$cur=undef;
 
       };
 
 # ---   *   ---   *   ---
+# in definition block!
 
-      $exp=~ s/^\s*|\s*$//sg;
-      $exp=~ s/^${vname}//;
+    } elsif(defined $$cur) {
+      ;
 
-      my $hed=$1;
-
-      if(defined $hed) {
-
-        if(exists $keywords{$hed}) {
-
-          $last=$anchor->nit($hed);
-          $last->tokenize($exp);
-
-          $rem=$keywords{$hed}->($self,$last);
-
-        } elsif(exists $PROCS{$hed}) {
-
-          $exp=~ s/^\s*|\s*$//sg;
-          my @args=split m/\s*,\s*/,$exp;
-
-          my $i=0;
-          for my $type(@{$PROCS{$hed}}) {
-
-            my @wrap=($type eq 'char')
-              ? ('int','(',')')
-              : ('','"','"')
-              ;
-
-            $args[$i]=
-
-              "$wrap[0]$wrap[1]".
-
-              $args[$i].
-              "$wrap[2]";
-
-            $i++;
-
-          };my $exp=join ',',@args;
-
-          $last=$anchor->nit($hed.' '.$exp);
-
-        } else {
-          $last=$anchor->nit($hed.' '.$exp);
-
-        };
-
-      } else {
-
-        if($exp eq ';') {
-          $last->{-VAL}.=$exp;
-          next;
-
-        };
-
-        $last=$anchor->nit($exp);
-
-        if($rem) {
-
-          $anchor->nit($rem);
-          $rem='';
-
-        };
-
-      };
     };
-  };
 
 # ---   *   ---   *   ---
 
-  my $s='';
-  my @leaves=(@{$root->leaves});
+  };
+};
 
-  TOP:my $leaf=shift @leaves;
+# ---   *   ---   *   ---
+# re-assembles the code
 
-  $s.=$leaf->val;
-  $s.=('',"\n")[int($leaf->val=~ m/\{|;/)];
+sub restore($) {
 
-  if($leaf->leaves) {
-    unshift @leaves,@{$leaf->leaves};
+  my $program=shift;
+  my @ar=();
+
+  my $lang=$program->lang;
+
+  my $op
+
+    =$lang->del_ops.'|'.
+     $lang->ndel_ops.'|'.
+     $lang->exp_bound
+
+  ;
+
+# ---   *   ---   *   ---
+# walk the tree
+
+  for my $branch(@{$program->{tree}}) {
+
+    my $proc;
+
+    # solve operations and flatten
+    $branch->collapse();
+    $branch->defield();
+
+    # push semis
+    if($branch->{has_eb}) {
+      $program->node->nit($branch,';');
+
+    };
+
+# ---   *   ---   *   ---
+# convert branch to an array
+
+    if($branch->value eq 'void') {
+      $proc=\&peso::node::plain_arr;
+
+    } else {
+      $proc=\&peso::node::plain_arr2;
+
+    # stringify and de-space
+    };push @ar,lang::stitch(
+      (join ' ',$proc->($branch)),
+      $program->{strings}
+
+    );$ar[-1]=~ s/\s*(${op})\s*/$1/sg;
 
   };
 
 # ---   *   ---   *   ---
+# return the flattened tree as a string
 
-  if(@leaves) {goto TOP;};
-  END:return $s;
+  my $s=join "\n",@ar;
+  return $s;
 
 };
 
@@ -268,26 +201,28 @@ sub filter {
 
 # ---   *   ---   *   ---
 
-  if( (!length lang::stripline($_)
-
-      && !$self->{in_doc_block}
-
-      )
-
-  || m/^\s*#/
-
-  ) {
-
-# ---   *   ---   *   ---
+  if(!length lang::stripline($_)) {
 
     if($status<=0 && !$self->{killed}) {
 
-      $_=$self->restore(
-        $self->expsplit()
+      # process read lines
+      my $program=peso::rd::parse(
+        lang->perl,
+        peso::rd->STR,
+
+        join "\n",@{$self->{lines}}
+
 
       );
 
-printf "$_\n";
+# ---   *   ---   *   ---
+
+      translate($program);
+      $_=restore($program);
+
+print "$_\n";
+
+      exit;
 
       $self->{killed}=1;
       $status=1;
@@ -300,7 +235,7 @@ printf "$_\n";
 
   my $s=$_;$_='';
 
-  $self->mangle($s);
+  push @{$self->{lines}},$s;
   $self->{lineno}++;
 
   $status;

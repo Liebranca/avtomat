@@ -112,7 +112,7 @@ lang::def::nit(
     $preproc=~ s/\[A-Z\]\+/PREPROC[A-Z]/;
 
     while($rd->{-LINE}=~ s/^(${preproc})//) {
-      push @{$rd->exps},$1;
+      push @{$rd->exps},{body=>$1,has_eb=>0};
 
     };
 

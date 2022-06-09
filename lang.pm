@@ -677,7 +677,7 @@ my %DEFAULTS=(
   -NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}\\\\]',
   -SEP_OPS=>'[,]',
 
-  -PESC=> lang::delim2('$:',';>'),
+  -PESC=>lang::delim('$:',';>'),
 
 # ---   *   ---   *   ---
 
@@ -738,7 +738,7 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
-  -HIER=>'$:drfc;>$:names;>',
+  -HIER=>['$:names;>$:drfc;>','$:drfc;>$:names;>'],
   -PFUN=>'$:names;>\s*\\(',
 
 # ---   *   ---   *   ---
@@ -770,32 +770,21 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
-  -NUMCON=>[
+  -NUMCON=>{
 
     # hex conversion
-    [ '$:nums 0;>',
-      \&lang::pehexnc
-
-    ],
+    '$:nums 0;>'=>\&lang::pehexnc,
 
     # ^bin
-    [ '$:nums 1;>',
-      \&lang::pebinnc
-
-    ],
+    '$:nums 1;>'=>\&lang::pebinnc,
 
     # ^octal
-    [ '$:nums 2;>',
-      \&lang::peoctnc
-
-    ],
+    '$:nums 2;>'=>\&lang::peoctnc,
 
     # decimal notation: as-is
-    [ '$:nums 3;>',
-      sub {return (shift);}
+    '$:nums 3;>'=>sub {return (shift);},
 
-    ],
-  ],
+  },
 
 # ---   *   ---   *   ---
 # trailing spaces and notes
@@ -859,6 +848,23 @@ my %DEFAULTS=(
     vrepl($ref,\$v);
 
   };
+};sub hash_vrepl {
+
+  my ($ref,$key)=@_;
+  my $h=$ref->{$key};
+
+  my $result={};
+
+  for my $v(keys %$h) {
+
+    my $original=$v;
+
+    vrepl($ref,\$v);
+    $result->{$v}=$h->{$original};
+
+  };
+
+  $ref->{$key}=$result;
 };
 
 # ---   *   ---   *   ---
@@ -912,7 +918,12 @@ sub nit {
 # make keyword-matching pattern
 # then save hash
 
-    $ht{re}=lang::hashpat(\%ht);
+    my $keypat=lang::hashpat(\%ht);
+
+    $keypat=($keypat eq '()')
+      ? '$^' : $keypat;
+
+    $ht{re}=$keypat;
     $ref->{$key}=\%ht;
 
   };
@@ -949,7 +960,7 @@ sub nit {
 
     } else {vrepl($ref,\$ref->{$key});};
 
-  };
+  };hash_vrepl($ref,-NUMCON);
 
 # ---   *   ---   *   ---
 # make a ode=>cde match table
@@ -1048,12 +1059,12 @@ sub resnames {return (shift)->{-RESNAMES};};
 sub nums {return (shift)->{-NUMS};};
 sub numcon {return (shift)->{-NUMCON};};
 
-# PLACEHOLDER && DEPRECATED
-sub keywords {return '';};
+# ---   *   ---   *   ---
 
 sub is_keyword {
 
   my ($self,$s)=@_;
+  my $x=0;
 
   for my $tag(
 
@@ -1065,12 +1076,16 @@ sub is_keyword {
 
   ) {
 
-    if(exists $self->{$tag}->{$s}) {
-      return 1;
+    my $h=$self->{$tag};
+    my $pat=$self->{$tag}->{re};
 
-    };
+    $x=int(
 
-  };return 0;
+       (exists $h->{$s})
+    || ($s=~ m/^${pat}$/)
+
+    );if($x) {last;};
+  };return $x;
 };
 
 # ---   *   ---   *   ---
@@ -1136,10 +1151,15 @@ sub is_shcmd($$) {my ($self,$s)=@_;
 # ---   *   ---   *   ---
 # generates a pattern list for mcut
 
-sub mcut_tags($) {
+sub mcut_tags($;$) {
 
-  my $self=shift;
-  my $tags=$self->{-MCUT_TAGS};
+  my ($self,$append)=@_;
+  my $tags=[@{$self->{-MCUT_TAGS}}];
+
+  if(defined $append) {
+    push @$tags,@{$append};
+
+  };
 
   my @ar=();
 
