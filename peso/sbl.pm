@@ -241,7 +241,8 @@ sub arg_typechk($$$) {
 # ---   *   ---   *   ---
 
     } elsif($v eq 'type') {
-      $valid=exists $lang->types->{$tag};
+      my $pat=$lang->types->{re};
+      $valid=int($tag=~ m/^${pat}/);
 
     };
 
@@ -428,11 +429,7 @@ sub DEFINE($$$$) {
 
   my ($frame,$key,$src)=@_;
 
-  my $sym=$frame->dup(
-    $frame->SYMS->{$src},$key
-
-  );
-
+  my $sym=$frame->SYMS->{$src}->dup($key);
   my $idex=$frame->INSID->{$src};
 
   $frame->INS->[$idex]

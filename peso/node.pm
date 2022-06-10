@@ -706,13 +706,20 @@ sub agroup($) {
 
     if(@ar>1) {
 
-      my $s=$ar[0]->value;
-      for my $node(@ar[1..$#ar]) {
+      my $root=pop @ar;
+      my $s='';
+
+      while(@ar) {
+
+        my $node=shift @ar;
         $s.=' '.$node->value;
+
+        unshift @ar,@{$node->leaves};
 
       };
 
-      $ar[0]->value($s);
+      $root->value($s);
+      push @ar,$root;
 
     };
 

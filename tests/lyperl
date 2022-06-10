@@ -14,13 +14,17 @@
 # ---   *   ---   *   ---
 
 class base {
-  word $var=0x04;
+
+  word $sc 'hehey';
 
 };
 
-void prich void {
-  print self->$var."\n";
+proc base::prich {
+  print self->$sc."\n";
 
 };
+
+my $obj=new();
+$obj->prich();
 
 # ---   *   ---   *   ---

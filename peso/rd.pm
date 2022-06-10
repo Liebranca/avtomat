@@ -313,32 +313,32 @@ sub mangle($) {
 
   my $self=shift;
 
+# ---   *   ---   *   ---
+
   #$self->tokenize_block();
-  if(!length lang::stripline($self->line)) {
-    return;
+  if(length lang::stripline($self->line)) {
 
-  };$self->{-LINE}=~ s/([>'])%/$1\%/sg;
+    $self->{-LINE}=~ s/([>'])%/$1\%/sg;
 
-# ---   *   ---   *   ---
+    my $append=undef;
+    if($self->keep_comments) {
+      $append=[-LCOM];
 
-  my $append=undef;
-  if($self->keep_comments) {
-    $append=[-LCOM];
-
-  };
-
-  my @tags=$self->lang->mcut_tags($append);
+    };
 
 # ---   *   ---   *   ---
 
-  $self->line(lang::mcut(
+    my @tags=$self->lang->mcut_tags($append);
+    $self->line(lang::mcut(
 
-    $self->line,
-    $self->strings,
+      $self->line,
+      $self->strings,
 
-    @tags,
+      @tags,
 
-  ));push @{$self->raw},$self->line;
+    ));
+
+  };push @{$self->raw},$self->line;
 
 };
 
@@ -410,9 +410,7 @@ sub clean {
 
 # ---   *   ---   *   ---
 
-  if(!$self->line) {return 1;};
-
-  return 0;
+  return (length $self->line)>0;
 
 };
 
@@ -465,6 +463,8 @@ sub expfilt($@) {
     push @{$self->exps},{
       body=>$e,
       has_eb=>0,
+
+      lineno=>$self->{lineno},
 
     };
 
@@ -622,11 +622,14 @@ sub expsplit {
   my $self=shift;
 
   # skip if blank line
-  if($self->clean) {return;};
+  if($self->clean) {
 
-  # split expressions at scope bound (def: '{ or }')
-  # or split at expression bound (def: ';')
-  $self->expsplit();
+# ---   *   ---   *   ---
+# split expressions at scope bound (def: '{ or }')
+# or split at expression bound (def: ';')
+    $self->expsplit();
+
+  };$self->{lineno}++;
 
 # ---   *   ---   *   ---
 # read entire file
@@ -732,6 +735,7 @@ sub parse($$$;$) {
   my $program=peso::program::nit($lang);
   my $rd=nit($program,$keep_comments);
 
+  $rd->{lineno}=1;
   (\&file,\&string)[$mode]->($rd,$src);
 
 # ---   *   ---   *   ---
@@ -755,6 +759,7 @@ sub parse($$$;$) {
 
     my $body=$exp->{body};
     my $has_eb=$exp->{has_eb};
+    my $lineno=$exp->{lineno};
 
     $body=~ s/^\s*//;
 
@@ -794,6 +799,8 @@ sub parse($$$;$) {
 # remember if node has boundary char
 
     };$exp->{has_eb}=$has_eb;
+      $exp->{lineno}=$lineno;
+
   };
 
 # ---   *   ---   *   ---

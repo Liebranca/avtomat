@@ -918,7 +918,7 @@ sub nit {
 # make keyword-matching pattern
 # then save hash
 
-    my $keypat=lang::hashpat(\%ht);
+    my $keypat=lang::hashpat(\%ht,1);
 
     $keypat=($keypat eq '()')
       ? '$^' : $keypat;

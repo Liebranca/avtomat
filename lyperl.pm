@@ -34,8 +34,6 @@ sub import {
   my ($ref)={
 
     killed=>0,
-    lineno=>1,
-
     lines=>[],
 
   };filter_add(bless $ref);
@@ -89,12 +87,19 @@ sub translate($) {
     # keyword found
     if($branch->value=~ m/${keys}/) {
       my $key=$branch->value;
+      my $v=$SYMS->{$key}->ex($branch);
 
-      $branch->value($SYMS->{$key}->ex($branch));
+      if($v=~ s/^ERROR://) {
+        print "$v at line $branch->{lineno}\n";
+        exit;
+
+      };
+
+      $branch->value($v);
       $branch->pluck(@{$branch->leaves});
 
 # ---   *   ---   *   ---
-# definition block in/out
+# definition block in
 
     } elsif($branch->value eq '{') {
 
@@ -106,7 +111,11 @@ sub translate($) {
 
       $$lvl++;
 
+# ---   *   ---   *   ---
+# definition block out
+
     } elsif($branch->value eq '}') {
+
       $$lvl--;
 
       if(defined $$cur && $$lvl==$$cur->{lvl}) {
@@ -119,10 +128,52 @@ sub translate($) {
       };
 
 # ---   *   ---   *   ---
-# in definition block!
+# inside definition block
 
     } elsif(defined $$cur) {
-      ;
+
+      if($$cur->{tag} eq 'procs') {
+
+        my @ar=$branch->branches_with('^self$');
+        for my $node(@ar) {
+
+          if($node->value=~ m/^node_op/
+          && $node->value->{op} eq '->'
+
+          ) {
+
+            for my $leaf(@{$node->leaves}) {
+              if($leaf->value=~ m/^self$/) {
+                $leaf->value('$self');
+
+              } else {
+
+# ufff
+
+my $key=$$cur->{ref}->{base};
+my $kls=$program->{defs}->{types}->{$key};
+
+if(!exists $kls->{attrs}->{$leaf->value}) {
+
+  print
+    "Class $key has no attr ".
+    $leaf->value.", at line $branch->{lineno}\n";
+
+  exit;
+
+};
+
+my ($fchar,$name,$longname)=
+  langdefs::perl::typecon($leaf->value);
+
+$leaf->value("{$longname}");
+
+              };
+            };
+          };
+        };
+
+      };
 
     };
 
@@ -161,10 +212,10 @@ sub restore($) {
     $branch->defield();
 
     # push semis
-    if($branch->{has_eb}) {
-      $program->node->nit($branch,';');
+    if( $branch->{has_eb}
+    && length $branch->value
 
-    };
+    ) {$program->node->nit($branch,';');};
 
 # ---   *   ---   *   ---
 # convert branch to an array
@@ -180,7 +231,7 @@ sub restore($) {
       (join ' ',$proc->($branch)),
       $program->{strings}
 
-    );$ar[-1]=~ s/\s*(${op})\s*/$1/sg;
+    );$ar[-1]=~ s/\x20*(${op})\x20*/$1/sg;
 
   };
 
@@ -220,9 +271,11 @@ sub filter {
       translate($program);
       $_=restore($program);
 
-print "$_\n";
-
-      exit;
+# program print
+#my $i=0;for my $line(split "\n",$_) {
+#  printf "%-3i %s\n",$i++,$line;
+#
+#};
 
       $self->{killed}=1;
       $status=1;
@@ -236,8 +289,6 @@ print "$_\n";
   my $s=$_;$_='';
 
   push @{$self->{lines}},$s;
-  $self->{lineno}++;
-
   $status;
 
 };
