@@ -3,11 +3,11 @@ $:%plps;>
 in lang->c;
 
 beg pattern cdecl;
-  <spec>?+|-> <type> '\*'?+%indlvl (void]kill)!<bare>
+  <spec>?+|-> <type> '\*'?+%indlvl (void]kill)!<bare>;
 
 end;
 
 beg sbl_decl c_func_decl;
-  <cdecl>%func ~'\('%oparens <cdecl>%args ~','?--%cslist ~'\)'%cparens
+  <cdecl>%func ~'\('%oparens <cdecl>%args ~','?--%cslist ~'\)'%cparens;
 
 end;

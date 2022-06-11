@@ -167,16 +167,7 @@ use constant plps_ops=>{
 
     }],
 
-    [6,sub {
-
-      my ($x,$y)=@_;
-
-      $$y->{on_no_match}=$$x;
-      $$y->{save_match}=0;
-
-      return $$y;
-
-    }],
+    undef,
 
 
   ],'!'=>[
@@ -217,6 +208,7 @@ sub detag($$) {
   my ($program,$node)=@_;
   my $root=$node;
 
+  $program->{target_node}=$root;
   my @leaves=($node);
 
 # ---   *   ---   *   ---
@@ -225,22 +217,6 @@ sub detag($$) {
   do {
 
     $node=shift @leaves;
-
-    # signals creation of compound pattern
-    if($node->value eq 'end') {
-
-      my ($cath,$name)=@{$program->{dst}};
-      $root->value($name);
-
-# ---   *   ---   *   ---
-# create new pattern instance from tree
-
-      $program->{defs}->{$name}
-        =plps_obj::nit($name,[],$cath,undef);
-
-      ;goto END;
-
-    };
 
 # ---   *   ---   *   ---
 # common pattern
@@ -327,8 +303,6 @@ sub detag($$) {
     unshift @leaves,@{$node->leaves};
   } while(@leaves);
 
-  END:return;
-
 };
 
 # ---   *   ---   *   ---
@@ -367,7 +341,7 @@ sub cleanup($) {
   for my $node(@{$program->{tree}}) {
 
     my @ar=$node->branches_in('^beg$');
-    if(!@ar) {
+    if(!@ar && $node->value ne 'end') {
       push @tree,$node;
 
     };
@@ -404,19 +378,12 @@ sub build {
       $node->defield();
 
 # ---   *   ---   *   ---
-# remove end marker once it's used
-
-      my @ar=$node->branches_with('^end$');
-      for my $leaf(@ar) {
-        $leaf->pluck($leaf->leaves->[-1]);
-
-      };
-
-# ---   *   ---   *   ---
 # write array of patterns to definitions
 
       my $name=$node->value;
-      @ar=();for my $leaf(@{$node->leaves}) {
+      my @ar=();
+
+      for my $leaf(@{$node->leaves}) {
 
         $leaf->value->{parent}
           =$program->{defs}->{$name};
@@ -425,8 +392,7 @@ sub build {
 
       };
 
-      $program->{defs}->{$name}->{value}=\@ar;
-      $program->{defs}->{$name}->walkdown();
+      $program->{target_node_value}=\@ar;
 
 # ---   *   ---   *   ---
 # tail
@@ -477,6 +443,33 @@ DEFINE 'beg',DIRECTIVE,sub {
   $m->{defs}->{$f0}=$f1;
 
   $m->{dst}=[$f0,$f1];
+
+};
+
+# ---   *   ---   *   ---
+
+DEFINE 'end',DIRECTIVE,sub {
+
+  my ($inskey,$frame,@fields)=@_;
+  my $m=$frame->master;
+
+  my ($cath,$name)=@{$m->{dst}};
+  $m->{target_node}->value($name);
+
+# ---   *   ---   *   ---
+# create new pattern instance from tree
+
+  $m->{defs}->{$name}=plps_obj::nit(
+
+    $name,
+    $m->{target_node_value},
+    $cath,
+    undef
+
+  );$m->{defs}->{$name}->walkdown();
+
+  delete $m->{target_node};
+  delete $m->{target_node_value};
 
 };
 

@@ -642,8 +642,6 @@ sub file_sbl($) {
 
   for my $exp(@{$program->{cooked}}) {
 
-if($exp=~ m/:__|[\{\}]/) {next;};
-
     # is exp a symbol declaration?
     my $tree=$lang->plps_match(
 

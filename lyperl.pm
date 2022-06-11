@@ -41,6 +41,49 @@ sub import {
 };
 
 # ---   *   ---   *   ---
+
+sub namerepl($$$) {
+
+  my ($node,$cur,$program)=@_;
+  my @leaves=($node);
+
+  TOP:while(@leaves) {
+
+    $node=shift @leaves;
+    unshift @leaves,@{$node->leaves};
+
+    if($node->value=~ m/\bself\b/) {
+      my $t='$self';
+      $node->{-VALUE}=~ s/\bself\b/$t/sg;
+
+# ---   *   ---   *   ---
+# check for attr
+
+    } else {
+
+      my $key=$$cur->{ref}->{base};
+      my $kls=$program->{defs}->{types}->{$key};
+
+# ---   *   ---   *   ---
+# errchk
+
+      if(!exists $kls->{attrs}->{$node->value}) {
+        next;
+
+      };
+
+# ---   *   ---   *   ---
+
+      my ($fchar,$name,$longname)=
+        langdefs::perl::typecon($node->value);
+
+      $node->value("{$longname}");
+
+    };
+  };
+};
+
+# ---   *   ---   *   ---
 # converts lyperl into executable perl
 
 sub translate($) {
@@ -87,6 +130,7 @@ sub translate($) {
     # keyword found
     if($branch->value=~ m/${keys}/) {
       my $key=$branch->value;
+
       my $v=$SYMS->{$key}->ex($branch);
 
       if($v=~ s/^ERROR://) {
@@ -134,47 +178,12 @@ sub translate($) {
 
       if($$cur->{tag} eq 'procs') {
 
-        my @ar=$branch->branches_with('^self$');
+        my @ar=$branch->branches_with('\bself\b');
         for my $node(@ar) {
+          namerepl($node,$cur,$program);
 
-          if($node->value=~ m/^node_op/
-          && $node->value->{op} eq '->'
-
-          ) {
-
-            for my $leaf(@{$node->leaves}) {
-              if($leaf->value=~ m/^self$/) {
-                $leaf->value('$self');
-
-              } else {
-
-# ufff
-
-my $key=$$cur->{ref}->{base};
-my $kls=$program->{defs}->{types}->{$key};
-
-if(!exists $kls->{attrs}->{$leaf->value}) {
-
-  print
-    "Class $key has no attr ".
-    $leaf->value.", at line $branch->{lineno}\n";
-
-  exit;
-
-};
-
-my ($fchar,$name,$longname)=
-  langdefs::perl::typecon($leaf->value);
-
-$leaf->value("{$longname}");
-
-              };
-            };
-          };
         };
-
       };
-
     };
 
 # ---   *   ---   *   ---
@@ -272,10 +281,13 @@ sub filter {
       $_=restore($program);
 
 # program print
-#my $i=0;for my $line(split "\n",$_) {
-#  printf "%-3i %s\n",$i++,$line;
-#
-#};
+
+my $i=0;for my $line(split "\n",$_) {
+  printf "%-3i %s\n",$i++,$line;
+
+};
+
+exit;
 
       $self->{killed}=1;
       $status=1;

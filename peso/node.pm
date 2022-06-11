@@ -391,13 +391,11 @@ sub tokenize($$) {
     my $elem=shift @ar;
 
     if(defined $elem && length $elem) {
-
       my $node=$frame->nit($self,"field_$i");
 
 # ---   *   ---   *   ---
 
       $elem=~ s/(${ops}|${del_op})/ $1 /sg;
-
       for my $tok(split m/([^\s]*)\s+/,$elem) {
 
         if(defined $tok && length $tok) {
@@ -490,7 +488,7 @@ sub agroup($) {
   my $frame=$self->frame;
   my $lang=$frame->master->lang;
 
-  my $ndel_op=$lang->ndel_ops;
+  my $ndel_op=$lang->ops;
   my $del_op=$lang->del_ops;
 
   my $cde=$lang->cde;
@@ -706,8 +704,8 @@ sub agroup($) {
 
     if(@ar>1) {
 
-      my $root=pop @ar;
-      my $s='';
+      my $root=shift @ar;
+      my $s=$root->value;
 
       while(@ar) {
 

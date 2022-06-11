@@ -66,16 +66,28 @@ use constant OPS=>{
     undef,
     undef,
 
-    [-1,sub {
+    [0,sub {my ($x,$y)=@_;return "$$x.$$y";}],
 
-      my ($x,$y)=@_;
+  ],'=>'=>[
 
+    undef,
+    undef,
 
+    [97,sub {my ($x,$y)=@_;return "$$x=>$$y";}],
 
-      return "$$x.$$y";
+  ],','=>[
 
-    }],
+    [98,sub {my ($x,$y)=@_;return "$$x,";}],
+    undef,
 
+    [98,sub {my ($x,$y)=@_;return "$$x,$$y";}],
+
+  ],'='=>[
+
+    undef,
+    undef,
+
+    [99,sub {my ($x,$y)=@_;return "$$x=$$y";}],
   ],
 
 };
@@ -93,7 +105,7 @@ use constant DIRECTIVE=>{
 
 use constant TYPE=>{
 
-  'value_decl'=>[sbl_id,'1<type>:*1<bare|type|ptr>'],
+  'value_decl'=>[sbl_id,'1<type|op>'],
 
 };
 
@@ -166,6 +178,11 @@ sub beg_class($) {
 
     my ($fchar,$name,$longname)=typecon($key);
     my $value=$attrs{$key};
+
+    if($fchar=~ m/@/) {
+      $value="[$value]";
+
+    };
 
     $fields.="\n$longname=>".
       "(defined \$attrs{$name})".
@@ -358,11 +375,22 @@ DEFINE 'proc',DIRECTIVE,sub {
 DEFINE 'value_decl',TYPE,sub {
 
   my ($inskey,$frame,@fields)=@_;
-  my ($f0,$f1)=@fields;
+  my ($f0)=@fields;
   my $m=$frame->master;
 
-  my $name=$f0->[0];
-  my $value=$f1->[0];
+  $f0=$f0->[0];
+  my $asg=index $f0,'=';
+  my ($name,$value);
+
+  if(0<$asg) {
+    $name=substr $f0,0,$asg;
+    $value=substr $f0,$asg+1,length $f0;
+
+  } else {
+    $name=$f0;
+    $value=undef;
+
+  };
 
   my $ref=$m->{defs}->{cur}->{ref};
   push @{$ref->{attrs}},($name,$value);

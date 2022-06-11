@@ -16,6 +16,16 @@ package langdefs::c;
 
 # ---   *   ---   *   ---
 
+use constant OPS=>lang::quick_op_prec(
+
+  '*'=>7,
+  '->'=>4,
+  '.'=>6,
+
+);
+
+# ---   *   ---   *   ---
+
 BEGIN {
 lang::def::nit(
 
@@ -24,6 +34,8 @@ lang::def::nit(
   -EXT=>'\.([ch](pp|xx)?|C|cc|c\+\+|cu|H|hh|ii?)$',
   -MAG=>'^(C|C\+\+) (source|program)',
   -COM=>'//',
+
+  -OP_PREC=>OPS,
 
 # ---   *   ---   *   ---
 

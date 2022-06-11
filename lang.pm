@@ -458,6 +458,7 @@ sub cut($$$$) {
 
   my $s=shift;
   $s=~ s/\s*//sg;
+  $s=~ s/:__NL__://sg;
 
   return $s;
 
@@ -638,6 +639,52 @@ sub register_def($) {
   };
 
   return $name;
+
+};
+
+# ---   *   ---   *   ---
+# for when you just need textual recognition
+
+sub quick_op_prec {
+
+  my %h=@_;
+  my $result={};
+
+  for my $op(keys %h) {
+
+    my $flags=$h{$op};
+    my $ar=[undef,undef,undef];
+
+# ---   *   ---   *   ---
+
+    if($flags&0x01) {
+      $ar->[0]
+        =[-1,sub {my ($x)=@_;return $$x.$op;}]
+
+    };
+
+# ---   *   ---   *   ---
+
+    if($flags&0x02) {
+      $ar->[1]
+        =[-1,sub {my ($x)=@_;return $op.$$x;}]
+
+    };
+
+# ---   *   ---   *   ---
+
+    if($flags&0x04) {
+      $ar->[2]
+        =[-1,sub {my ($x,$y)=@_;return $$x.$op.$$y;}]
+
+    };
+
+# ---   *   ---   *   ---
+
+    $result->{$op}=$ar;
+  };
+
+  return $result;
 
 };
 
@@ -932,12 +979,7 @@ sub nit {
 # handle creation of operator pattern
 
   if(!keys %{$ref->{-OP_PREC}}) {
-    $ref->{-OPS}='('.
-
-      $ref->{-DEL_OPS}.'|'.
-      $ref->{-NDEL_OPS}.
-
-    ')';
+    $ref->{-OPS}='$^';
 
 # ---   *   ---   *   ---
 

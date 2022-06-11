@@ -15,12 +15,17 @@
 
 class base {
 
-  word $sc 'hehey';
+  word @ar=(
+
+    1=>2,
+    3=>4
+
+  );
 
 };
 
 proc base::prich {
-  print self->$sc."\n";
+  print self->ar."\n";
 
 };
 

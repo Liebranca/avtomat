@@ -236,7 +236,9 @@ sub arg_typechk($$$) {
         ->{$node->value->{op}}
         ->[$node->value->{idex}]->[0]
 
-      )==-1;$node->collapse();
+      )==-1;
+
+      if($valid) {$node->collapse();};
 
 # ---   *   ---   *   ---
 
@@ -244,7 +246,16 @@ sub arg_typechk($$$) {
       my $pat=$lang->types->{re};
       $valid=int($tag=~ m/^${pat}/);
 
+# ---   *   ---   *   ---
+
+    } elsif($v eq 'op') {
+      $valid=int($tag=~ m/^node_op=HASH/);
+
+      if($valid) {$node->collapse();};
+
     };
+
+# ---   *   ---   *   ---
 
     if($valid) {
       return 1;

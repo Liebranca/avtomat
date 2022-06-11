@@ -345,20 +345,22 @@ sub mangle($) {
 # ---   *   ---   *   ---
 # sanitize line of code
 
-sub clean {
+sub clean($) {
 
   my $self=shift;
   my $lang=$self->lang;
 
   my $com=$lang->com;
   my $eb=$lang->exp_bound;
-  my $op=$lang->ops;
 
   # strip comments
   $self->{-LINE}=~ s/${com}.*//g;
 
   # remove indent
   $self->{-LINE}=~ s/^\s+//sg;
+
+  # replace newlines with tokens
+  $self->{-LINE}=~ s/\n/:__NL__:/sg;
 
   # no spaces surrounding commas
   $self->{-LINE}=~ s/\s*,\s*/,/sg;
@@ -370,12 +372,25 @@ sub clean {
   $self->{-LINE}=~ s/'.$eb.'\s+/'.$eb.'/sg;
 
 # ---   *   ---   *   ---
+# skip blanks
+
+  if(!length lang::stripline($self->line)) {
+    goto END;
+
+  };
+
+# ---   *   ---   *   ---
 # cancel spaces around operators
+# only if operator takes an operand
+# on a given side
 
   my $op_prec=$lang->op_prec;
-  for my $key(keys %$op_prec) {
+  my $op=$lang->ops;
 
-    my $v="(\\$key)";
+  while($self->{-LINE}=~ m/[^\\\\]${op}/) {
+
+    my $key=$1;
+    my $v='('."\Q$key".')';
 
 # ---   *   ---   *   ---
 # NOTE:
@@ -387,6 +402,7 @@ sub clean {
 #
 # ---   *   ---   *   ---
 
+    # x {op} y
     if(
 
        defined $op_prec->{$key}->[2]
@@ -396,21 +412,36 @@ sub clean {
 
     ) {
 
-      $self->{-LINE}=~ s/\s${v}\s/$1/sg;
+      $self->{-LINE}=~ s/\s*${v}\s*/\$:op \\$key;>/sg;
 
+    # x {op}
     } elsif(defined $op_prec->{$key}->[0]) {
-      $self->{-LINE}=~ s/\s${v}/$1 /sg;
+      $self->{-LINE}=~ s/\s*${v}/\$:op \\$key;>/sg;
 
+    # {op} x
     } elsif(defined $op_prec->{$key}->[1]) {
-      $self->{-LINE}=~ s/${v}\s/ $1/sg;
+      $self->{-LINE}=~ s/${v}\s*/\$:op \\$key;>/sg;
+
+    # undef
+    } else {
+      $self->{-LINE}=~ s/${v}/\$:op \\$key;>/sg;
 
     };
 
   };
 
 # ---   *   ---   *   ---
+# restore operators
 
-  return (length $self->line)>0;
+  while($self->{-LINE}=~ s/\$:op \\([^;]+);>/$1/) {
+    ;
+
+  };
+
+# ---   *   ---   *   ---
+
+  END:
+  return (length lang::stripline($self->line))>0;
 
 };
 
@@ -718,7 +749,47 @@ sub no_blanks($) {
   };
 
   $self->{-EXPS}=\@ar;
+  $self->rm_nltoks();
 
+};
+
+# ---   *   ---   *   ---
+# handles that one spacing issue with newlines
+
+sub rm_nltoks($) {
+
+  my $self=shift;
+  my $lang=$self->lang;
+
+  my $ode=$lang->ode;
+  my $cde=$lang->cde;
+  my $ndel_op=$lang->ndel_ops;
+
+  my $notnl='(^|[^:]|:[^_])';
+
+  for my $exp(@{$self->exps}) {
+    while($exp->{body}=~
+      m/${notnl}:__NL__:${notnl}/
+
+    ) {
+
+      my $a=$1;
+      my $b=$2;
+      my $c=' ';
+
+      if(
+
+         ( ($a=~ m/${ndel_op}|${ode}|${cde}/)
+      ||   ($b=~ m/${ndel_op}|${ode}|${cde}/) )
+
+      || ((!length $a) || (!length $b))
+
+      ) {$c='';};
+
+      $exp->{body}=~ s/:__NL__:/$c/;
+
+    };$exp->{body}=~ s/:__NL__://sg;
+  };
 };
 
 # ---   *   ---   *   ---
@@ -757,11 +828,11 @@ sub parse($$$;$) {
 
   for my $exp(@{$rd->exps}) {
 
+    $exp->{body}=~ s/^\s*//;
+
     my $body=$exp->{body};
     my $has_eb=$exp->{has_eb};
     my $lineno=$exp->{lineno};
-
-    $body=~ s/^\s*//;
 
     push @{$rd->cooked},$body;
 
