@@ -15,17 +15,27 @@
 
 class base {
 
-  word @ar=(
+  str xy 'this is a value';
 
-    1=>2,
-    3=>4
+  buf ar 0,1,2;
 
-  );
+  obj ob
+    name=>'strstr',
+    value=>0xFF,
+
+  ;
 
 };
 
 proc base::prich {
-  print self->ar."\n";
+
+  print self->xy."\n";
+  print ''.(join ',',@{self->ar})."\n";
+
+  for my $key(keys %{self->ob}) {
+    print "$key ".self->ob->{$key}."\n";
+
+  };
 
 };
 

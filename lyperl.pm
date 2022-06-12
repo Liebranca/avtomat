@@ -64,20 +64,22 @@ sub namerepl($$$) {
       my $key=$$cur->{ref}->{base};
       my $kls=$program->{defs}->{types}->{$key};
 
-# ---   *   ---   *   ---
-# errchk
-
-      if(!exists $kls->{attrs}->{$node->value}) {
-        next;
-
-      };
+      my $v=$node->value;
 
 # ---   *   ---   *   ---
+# skip if not an attr or a getter exists
 
-      my ($fchar,$name,$longname)=
-        langdefs::perl::typecon($node->value);
+      if(
 
-      $node->value("{$longname}");
+         (!exists $kls->{attrs}->{$v})
+      || (exists $kls->{procs}->{$v})
+
+      ) {next;};
+
+# ---   *   ---   *   ---
+# wrap attr in curlies
+
+      $node->value("{$v}");
 
     };
   };
@@ -235,12 +237,17 @@ sub restore($) {
     } else {
       $proc=\&peso::node::plain_arr2;
 
-    # stringify and de-space
-    };push @ar,lang::stitch(
-      (join ' ',$proc->($branch)),
-      $program->{strings}
+    };
 
-    );$ar[-1]=~ s/\x20*(${op})\x20*/$1/sg;
+    # de-space
+    my $s=join ' ',$proc->($branch);
+    $s=~ s/\x20*(${op})\x20*/$1/sg;
+
+    # restore string tokens
+    push @ar,lang::stitch(
+      $s,$program->{strings}
+
+    );
 
   };
 
@@ -282,12 +289,10 @@ sub filter {
 
 # program print
 
-my $i=0;for my $line(split "\n",$_) {
-  printf "%-3i %s\n",$i++,$line;
-
-};
-
-exit;
+#my $i=0;for my $line(split "\n",$_) {
+#  printf "%-3i %s\n",$i++,$line;
+#
+#};
 
       $self->{killed}=1;
       $status=1;

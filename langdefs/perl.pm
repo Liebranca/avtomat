@@ -20,7 +20,7 @@ use constant LYPERL_DIRECTIVES=>qw(
 );
 
 use constant LYPERL_TYPES=>qw(
-  word
+  str buf obj
 
 );
 
@@ -105,7 +105,7 @@ use constant DIRECTIVE=>{
 
 use constant TYPE=>{
 
-  'value_decl'=>[sbl_id,'1<type|op>'],
+  'value_decl'=>[sbl_id,'1<op|bare>:*1<op|bare>'],
 
 };
 
@@ -170,23 +170,18 @@ sub beg_class($) {
   my %attrs=@{$ref->{attrs}};
 
   my $fields='';
+  my $getters='';
 
 # ---   *   ---   *   ---
 
   my $i=0;
   for my $key(keys %attrs) {
 
-    my ($fchar,$name,$longname)=typecon($key);
     my $value=$attrs{$key};
 
-    if($fchar=~ m/@/) {
-      $value="[$value]";
-
-    };
-
-    $fields.="\n$longname=>".
-      "(defined \$attrs{$name})".
-      "\n?\$attrs{$name}\n:$value,\n"
+    $fields.="\n$key=>".
+      "(defined \$attrs{$key})".
+      "\n?\$attrs{$key}\n:$value,\n"
 
     ;$i++;
 
@@ -196,7 +191,7 @@ sub beg_class($) {
 
 # ---   *   ---   *   ---
 
-  $beg->value("sub new(\%) {my \%attrs=\@_;");
+  $beg->value("sub new {my \%attrs=\@_;");
 
   return ''.
 
@@ -375,20 +370,29 @@ DEFINE 'proc',DIRECTIVE,sub {
 DEFINE 'value_decl',TYPE,sub {
 
   my ($inskey,$frame,@fields)=@_;
-  my ($f0)=@fields;
+  my ($f0,$f1)=@fields;
   my $m=$frame->master;
 
-  $f0=$f0->[0];
-  my $asg=index $f0,'=';
-  my ($name,$value);
+  my $trtab={
 
-  if(0<$asg) {
-    $name=substr $f0,0,$asg;
-    $value=substr $f0,$asg+1,length $f0;
+    'str'=>undef,
 
-  } else {
-    $name=$f0;
-    $value=undef;
+    'buf'=>[qw([ ])],
+    'obj'=>[qw({ })],
+
+  };
+
+  my ($name,$value)=($f0->[0],$f1->[0]);
+
+  if(defined $trtab->{$inskey}) {
+
+    $value=''.
+
+      $trtab->{$inskey}->[0].
+      ((defined $value) ? $value : '').
+      $trtab->{$inskey}->[1]
+
+    ;
 
   };
 
@@ -405,7 +409,9 @@ DEFINE 'value_decl',TYPE,sub {
 #:!;> we might want to change
 #:!;> this based on context
 
-ALIAS 'word','value_decl';
+ALIAS 'str','value_decl';
+ALIAS 'buf','value_decl';
+ALIAS 'obj','value_decl';
 
 # ---   *   ---   *   ---
 lang::def::nit(
