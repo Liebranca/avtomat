@@ -219,6 +219,8 @@ sub restore($) {
     my $proc;
 
     # solve operations and flatten
+    $branch->prich();
+
     $branch->collapse();
     $branch->defield();
 
@@ -289,10 +291,10 @@ sub filter {
 
 # program print
 
-#my $i=0;for my $line(split "\n",$_) {
-#  printf "%-3i %s\n",$i++,$line;
-#
-#};
+my $i=0;for my $line(split "\n",$_) {
+  printf "%-3i %s\n",$i++,$line;
+
+};
 
       $self->{killed}=1;
       $status=1;

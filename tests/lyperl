@@ -13,33 +13,35 @@
 
 # ---   *   ---   *   ---
 
-class base {
+clan base;
 
-  str xy 'this is a value';
+# ---   *   ---   *   ---
 
-  buf ar 0,1,2;
+reg attrs;
 
-  obj ob
-    name=>'strstr',
-    value=>0xFF,
+  str header 0x00;
+  buf body [];
 
-  ;
+proc base::get;
 
-};
+buf >>:in BEG:
+buf >>:out END;
 
-proc base::prich {
+eif out==str;
+  ret self->header;
 
-  print self->xy."\n";
-  print ''.(join ',',@{self->ar})."\n";
+jif out==@;
+  ret self->a;
 
-  for my $key(keys %{self->ob}) {
-    print "$key ".self->ob->{$key}."\n";
+ret null;
 
-  };
+# ---   *   ---   *   ---
 
-};
+clan non;
 
-my $obj=new();
-$obj->prich();
+# ---   *   ---   *   ---
+
+my $obj=base::new(v=>2);
+print $obj->get."\n";
 
 # ---   *   ---   *   ---

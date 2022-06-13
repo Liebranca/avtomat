@@ -10,7 +10,13 @@ x decls;
 x rd;
 x Extend lang && langdefs for basic Perl parse;
 x Hook langdefs::perl to a source filter;
-~ Use the filter to change how Perl works;
+x Use the filter to change how Perl works;
+~ Create a Peso virtual machine in Perl.
+This means, roughly:;
+~ Using peso::blk for data storage. Manual allocation would be preferred later on;
+~ Using peso::ptr for, well, pointers;
+~ reg/clan selective inheritance;
+~ Miscellaneous parser tweaking c:;
 ~ PROFIT;
 ~ Utils for enforcing AR module standards;
 ~ DEFAULTS enforcer for nits;

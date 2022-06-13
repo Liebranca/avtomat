@@ -686,10 +686,10 @@ sub agroup($) {
 
     $self->value($op->[$idex]->[1]->(@args));
 
-    if($self->par->value=~ m/^${del_op}$/) {
-      $self->par->repl($self);
-
-    };
+#    if($self->par->value=~ m/^${del_op}$/) {
+#      $self->par->repl($self);
+#
+#    };
   };
 
 # ---   *   ---   *   ---

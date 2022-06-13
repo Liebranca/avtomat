@@ -96,7 +96,8 @@ use constant OPS=>{
 
 use constant DIRECTIVE=>{
 
-  'class'=>[sbl_id,'1<bare>'],
+  'clan'=>[sbl_id,'1<bare>'],
+  'reg'=>[sbl_id,'1<bare>'],
   'proc'=>[sbl_id,'1<bare>'],
 
 };
@@ -106,6 +107,23 @@ use constant DIRECTIVE=>{
 use constant TYPE=>{
 
   'value_decl'=>[sbl_id,'1<op|bare>:*1<op|bare>'],
+
+};
+
+# ---   *   ---   *   ---
+
+use constant INTRINSIC=>{
+
+  'null'=>[sbl_id,'0'],
+
+};
+
+# ---   *   ---   *   ---
+
+use constant FCTL=>{
+
+  'eif'=>[sbl_id,'2<op>:<ptr>'],
+  'jif'=>[sbl_id,'2<op>:<ptr>'],
 
 };
 
@@ -244,7 +262,56 @@ $perl_sbl=peso::sbl::new_frame();
 
 # ---   *   ---   *   ---
 
-DEFINE 'class',DIRECTIVE,sub {
+DEFINE 'clan',DIRECTIVE,sub {
+
+  my ($inskey,$frame,@fields)=@_;
+  my ($f0)=@fields;
+  my $m=$frame->master;
+
+  my $name=$f0->[0];
+  my $ret='';
+
+  if(exists $m->{defs}->{frames}->{$name}) {
+
+    $ret="ERROR:Redeclaration of type $name";
+    goto END;
+
+  };
+
+# ---   *   ---   *   ---
+# create block
+
+  $m->{defs}->{types}->{$name}=bless {
+
+    attrs=>[],
+    procs=>{},
+
+  },'lyperl::frame';
+
+# ---   *   ---   *   ---
+# create block reference
+
+  $m->{defs}->{cur}={
+
+    key=>$name,
+    tag=>'types',
+
+    ref=>$m->{defs}->{types}->{$name},
+    lvl=>$m->{defs}->{lvl},
+
+    beg=>\&beg_class,
+    end=>\&end_class,
+
+  };$ret="package $name;";
+
+  END:
+  return $ret;
+
+};
+
+# ---   *   ---   *   ---
+
+DEFINE 'reg',DIRECTIVE,sub {
 
   my ($inskey,$frame,@fields)=@_;
   my ($f0)=@fields;
@@ -549,7 +616,7 @@ lang::def::nit(
   -INTRINSICS=>[qw(
     eq ne lt gt le ge cmp x can isa
 
-  )],
+  ),INTRINSIC],
 
   -FCTLS=>[qw(
 
@@ -558,7 +625,7 @@ lang::def::nit(
     goto next last redo reset return
     try catch finally
 
-  )],
+  ),FCTL],
 
 # ---   *   ---   *   ---
 
