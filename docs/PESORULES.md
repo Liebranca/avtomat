@@ -1,4 +1,15 @@
+# WHAT IS PESO?
+
+Four things:
+
+0. A series of data estructure models for storing programs as bytecode strings.
+1. A programming language designed around these structures.
+2. If definition and translation tables are given, a common IR between languages.
+3. A design philosophy; a programming paradigm unto itself.
+
 # PESO RULES
+
+The guiding principles are few and simple:
 
 `<0x0>` Memory layout should be obvious.
 
