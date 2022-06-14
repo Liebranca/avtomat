@@ -213,30 +213,50 @@ sub prprops {
     my @keys=keys %{$v};
     @ar=();
 
+# ---   *   ---   *   ---
+
     if(exists $EITHS_NOWB
       ->{$def->{-NAME}}
       ->{$key}
 
     ) {
 
-      @ar=@keys;
+      my @exclude=();
+      my @noproc=();
 
-    } else {
-      for(my $x=0;$x<@keys;$x+=20) {
+      for my $elem(@keys) {
+        if(!($elem=~ m/^\(+(\[\$|\\\$)/)) {
+          push @exclude,$elem;
 
-        my $top=(@keys>$x+19)
-          ? $x+19 : $#keys;
+        } else {
+          push @noproc,$elem;
 
-        push @ar,lang::eiths(
-          join(',',@keys[$x..$top])
-
-        ,1);
+        };
 
       };
+
+      @ar=@noproc;
+      @keys=@exclude;
+
+    };
+
+# ---   *   ---   *   ---
+
+    for(my $x=0;$x<@keys;$x+=20) {
+
+      my $top=(@keys>$x+19)
+        ? $x+19 : $#keys;
+
+      push @ar,lang::eiths(
+        join(',',@keys[$x..$top])
+
+      ,1);
 
     };
 
   };
+
+# ---   *   ---   *   ---
 
   for my $pat(@ar) {
 

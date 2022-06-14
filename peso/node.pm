@@ -395,8 +395,11 @@ sub tokenize($$) {
 
 # ---   *   ---   *   ---
 
-      $elem=~ s/(${ops}|${del_op})/ $1 /sg;
-      for my $tok(split m/([^\s]*)\s+/,$elem) {
+      for my $tok(
+        split m/${ops}|${del_op}/,
+        $elem
+
+      ) {
 
         if(defined $tok && length $tok) {
           $frame->nit($node,$tok);
@@ -1158,46 +1161,64 @@ sub plain_arr(@) {
 # print node leaves
 sub prich {
 
-  # instance
   my $self=shift;
-  my $depth=shift;
+  my %args=@_;
+
+  my $errout=$args{errout};
+  my $prev_depth=0;
+
+  my $root=$self;
+  my @leaves=($self);
 
 # ---   *   ---   *   ---
 
-  # print head
-  if(!defined $depth) {
+  my $FH=(defined $errout)
+    ? *STDERR
+    : *STDOUT
+    ;
+
+# ---   *   ---   *   ---
+
+  while(@leaves) {
+
+    $self=shift @leaves;
+
+    my $depth=0;
+    if(!$depth && $self ne $root) {
+
+      my $par=$self->par;
+
+      while(defined $par) {
+
+        $depth++;
+        if($par eq $root) {last;};
+
+        $par=$par->par;
+
+      };
+
+    };
+
+    my $branch=($depth)
+      ? '.  'x($depth-1).'\-->'
+      : ''
+      ;
+
+    if($depth<$prev_depth) {
+      $branch=''.
+
+        (('.  'x($depth)."\n")x2).
+        $branch;
+
+    }$prev_depth=$depth;
 
     my $v=($self->value=~ m/node_op=HASH/)
       ? $self->value->{op}
       : $self->value
       ;
 
-    print $v."\n";
-    $depth=0;
-
-  };
-
-  # iter children
-  for my $node(@{ $self->leaves }) {
-
-    my $v=($node->value=~ m/node_op=HASH/)
-      ? $node->value->{op}
-      : $node->value
-      ;
-
-    print ''.(
-      '.  'x($depth).'\-->'.$v
-
-    )."\n";
-
-    $node->prich($depth+1);
-
-  };
-
-# ---   *   ---   *   ---
-
-  if(@{ $self->leaves }) {
-    printf '.  'x($depth)."\n";
+    print $FH $branch.$v."\n";
+    unshift @leaves,@{$self->leaves};
 
   };
 

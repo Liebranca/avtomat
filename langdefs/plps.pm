@@ -313,20 +313,28 @@ sub getext($) {
   my $program=shift;
   my $SYMS=lang->plps->sbl->SYMS;
 
-  my @tree=();
-
 # ---   *   ---   *   ---
 # iter tree to find 'in lang->$name'
 
-  for my $node(@{$program->{tree}}) {
+  my @ar=$program->{tree}->branches_in('^in$');
 
-    my @ar=$node->branches_in('^in$');
-    if(@ar) {
-      $SYMS->{$node->value}->ex($node);
+  if(@ar==1) {
 
-    } else {push @tree,$node;};
+    my $node=shift @ar;
 
-  };$program->{tree}=\@tree;
+    $SYMS->{$node->value}->ex($node);
+    $program->{tree}->pluck($node);
+
+  } else {
+    print STDERR
+      "PLPS file lacking 'in' directive\n";
+
+    exit;
+
+  };
+
+  $program->{tree}->cllv();
+  $program->{tree}->idextrav();
 
 };
 
@@ -338,15 +346,18 @@ sub cleanup($) {
   my $program=shift;
   my @tree=();
 
-  for my $node(@{$program->{tree}}) {
+  for my $node(@{$program->{tree}->leaves}) {
 
     my @ar=$node->branches_in('^beg$');
-    if(!@ar && $node->value ne 'end') {
-      push @tree,$node;
+    if(@ar || $node->value ne 'end') {
+      $program->{tree}->pluck($node);
 
     };
 
-  };$program->{tree}=\@tree;
+  };
+
+  $program->{tree}->cllv();
+  $program->{tree}->idextrav();
 };
 
 # ---   *   ---   *   ---
@@ -362,7 +373,9 @@ sub build {
   getext($program);
   my $SYMS=lang->plps->sbl->SYMS;
 
-  for my $node(@{$program->{tree}}) {
+
+
+  for my $node(@{$program->{tree}->leaves}) {
 
     if(exists $SYMS->{$node->value}) {
       $SYMS->{$node->value}->ex($node);
@@ -371,6 +384,8 @@ sub build {
 # build patterns from tree branches
 
     } else {
+
+$node->prich();
 
       detag($program,$node);
 
@@ -526,13 +541,14 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  -ODE=>'[<\(]',
-  -CDE=>'[\)>]',
+  -DELIMITERS=>{
 
-  -DEL_OPS=>'[<\(\)>]',
-  -NDEL_OPS=>'[?+\-%~]',
+    '<'=>'>',
+    '('=>')',
+
+  },
+
   -OP_PREC=>plps_ops,
-
   -MCUT_TAGS=>[-CHAR],
 
 );

@@ -765,7 +765,7 @@ sub rm_nltoks($) {
   my $cde=$lang->cde;
   my $ndel_op=$lang->ndel_ops;
 
-  my $notnl='(^|[^:]|:[^_])';
+  my $notnl='(^|[^_]|_[^:])';
 
   for my $exp(@{$self->exps}) {
     while($exp->{body}=~
@@ -824,6 +824,12 @@ sub parse($$$;$) {
   my $fr_ptr=$program->ptr;
   my $fr_blk=$program->blk;
 
+  my $root=$fr_node->nit(
+    undef,
+    'PROGRAM_ROOT'
+
+  );
+
 # ---   *   ---   *   ---
 
   for my $exp(@{$rd->exps}) {
@@ -837,11 +843,11 @@ sub parse($$$;$) {
     push @{$rd->cooked},$body;
 
     if($body=~ m/\{|\}/) {
-      $exp=$fr_node->nit(undef,$body);
+      $exp=$fr_node->nit($root,$body);
 
     } else {
 
-      $exp=$fr_node->nit(undef,'void');
+      $exp=$fr_node->nit($root,'void');
 
       $exp->tokenize($body);
       $exp->agroup();
@@ -875,8 +881,10 @@ sub parse($$$;$) {
   };
 
 # ---   *   ---   *   ---
+# copy over read data to program
 
-  $program->{tree}=$rd->exps;
+  $program->{tree}=$root;
+
   $program->{strings}=$rd->strings;
   $program->{raw}=$rd->raw;
   $program->{cooked}=$rd->cooked;

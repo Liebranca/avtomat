@@ -14,18 +14,6 @@ package langdefs::perl;
 
 # ---   *   ---   *   ---
 
-use constant LYPERL_DIRECTIVES=>qw(
-  class proc
-
-);
-
-use constant LYPERL_TYPES=>qw(
-  str buf obj
-
-);
-
-# ---   *   ---   *   ---
-
 my $perl_sbl=undef;
 
 sub DEFINE($$$) {
@@ -106,7 +94,23 @@ use constant DIRECTIVE=>{
 
 use constant TYPE=>{
 
+  'str'=>undef,
+  'buf'=>undef,
+  'tab'=>undef,
+
   'value_decl'=>[sbl_id,'1<op|bare>:*1<op|bare>'],
+
+};
+
+# ---   *   ---   *   ---
+
+use constant SPECIFIER=>{
+
+  'ptr'=>undef,
+
+  'nihil'=>undef,
+  'stark'=>undef,
+  'signal'=>undef,
 
 };
 
@@ -115,6 +119,8 @@ use constant TYPE=>{
 use constant INTRINSIC=>{
 
   'null'=>[sbl_id,'0'],
+  'self'=>[sbl_id,'*1<op>'],
+  'lis'=>[sbl_id,'1<bare>:*1<op|ptr|bare>'],
 
 };
 
@@ -122,8 +128,9 @@ use constant INTRINSIC=>{
 
 use constant FCTL=>{
 
-  'eif'=>[sbl_id,'2<op>:<ptr>'],
-  'jif'=>[sbl_id,'2<op>:<ptr>'],
+  'eif'=>[sbl_id,'2<op>:*1<ptr>'],
+  'jif'=>[sbl_id,'2<op>:*1<ptr>'],
+  'ret'=>[sbl_id,'1<op|ptr|bare>'],
 
 };
 
@@ -478,7 +485,15 @@ DEFINE 'value_decl',TYPE,sub {
 
 ALIAS 'str','value_decl';
 ALIAS 'buf','value_decl';
-ALIAS 'obj','value_decl';
+ALIAS 'tab','value_decl';
+
+# ---   *   ---   *   ---
+
+my $lytype=TYPE;
+my $lyspecs=SPECIFIER;
+my $lydir=DIRECTIVE;
+my $lyitri=INTRINSIC;
+my $lyfctl=FCTL;
 
 # ---   *   ---   *   ---
 lang::def::nit(
@@ -538,7 +553,13 @@ lang::def::nit(
 
     '(\$[$%&@])',
 
-    LYPERL_TYPES,
+    (keys %$lytype),
+
+  ],
+
+  -SPECIFIERS=>[qw(
+
+    ),(keys %$lyspecs)
 
   ],
 
@@ -611,12 +632,12 @@ lang::def::nit(
   -DIRECTIVES=>[qw(
     use package my our sub
 
-  ),LYPERL_DIRECTIVES],
+  ),(keys %$lydir)],
 
   -INTRINSICS=>[qw(
     eq ne lt gt le ge cmp x can isa
 
-  ),INTRINSIC],
+  ),(keys %$lyitri)],
 
   -FCTLS=>[qw(
 
@@ -625,7 +646,7 @@ lang::def::nit(
     goto next last redo reset return
     try catch finally
 
-  ),FCTL],
+  ),(keys %$lyfctl)],
 
 # ---   *   ---   *   ---
 

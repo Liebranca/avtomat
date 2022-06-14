@@ -180,25 +180,6 @@ sub neg_lkahead {
 };
 
 # ---   *   ---   *   ---
-
-# do not use
-sub vcapitalize {
-  my @words=split '\|',$_[0];
-  for my $word(@words){
-    $word=~ m/\b([a-z])[a-z]*\b/;
-
-    my $c=$1;if(!$c) {next;};
-
-    $c='('.(lc $c).'|'.(uc $c).')';
-
-    $word=~ s/\b[a-z]([a-z]*)\b/FFFF${ 1 }/;
-    $word=~ s/FFFF/${ c }/g;
-
-  };return join '|',@words;
-
-};
-
-# ---   *   ---   *   ---
 # delimiter patterns
 
 # in: beg,end,is_multiline
@@ -274,23 +255,66 @@ sub eithc {
 
 };
 
-# in: "str0,...,strN",disable escapes,v(C|c)apitalize
+# ---   *   ---   *   ---
+# in:
+#
+#   >"str0,...,strN"
+#   >disable escapes
+#   >disable \bwrap
+#
 # matches \b(str0|...|strN)\b
-sub eiths {
+
+sub eiths($;$$) {
 
   my $string=shift;
   my $disable_escapes=shift;
+  my $disable_bwrap=shift;
+
+  my @words=sort {
+    (length $a)<=(length $b);
+
+  } (split ',',$string);
 
   if(!$disable_escapes) {
-    $string=rescap($string);
+    for my $s(@words) {
+      $s=rescap($s);
 
-  };my $vcapitalize=shift;
+    };
+  };
 
-  my @words=split ',',$string;
+  my $out='('.(join '|',@words).')';
+  if(!$disable_bwrap) {
+    $out='\b'.$out.'\b';
 
-  if($vcapitalize) {@words=vcapitalize(@words);};
+  };return $out;
 
-  return '\b('.( join '|',@words).')\b';
+# ---   *   ---   *   ---
+# ^same, input is array
+
+};sub eiths_l(\@;$$) {
+
+  my $ar=shift;
+  my $disable_escapes=shift;
+  my $disable_bwrap=shift;
+
+  my @words=sort {
+    (length $a)<=(length $b);
+
+  } @{$ar};
+
+  if(!$disable_escapes) {
+
+    for my $s(@words) {
+      $s=rescap($s);
+
+    };
+  };
+
+  my $out='('.(join '|',@words).')';
+  if(!$disable_bwrap) {
+    $out='\b'.$out.'\b';
+
+  };return $out;
 
 };
 
@@ -497,25 +521,24 @@ sub cut($$$$) {
 # sort keys by length and return
 # a pattern to match them
 
-sub hashpat($;$) {
+sub hashpat($;$$) {
 
   my $h=shift;
   my $disable_escapes=shift;
+  my $disable_bwrap=shift;
 
   my @keys=sort {
     (length $a)<=(length $b);
 
   } keys %$h;
 
-  if(!$disable_escapes) {
-    for my $key(@keys) {
-      $key=rescap($key);
+  return eiths_l(
+    @keys,
 
-    };
+    $disable_escapes,
+    $disable_bwrap
 
-  };
-
-  return '('.(join '|',@keys).')';
+  );
 
 };
 
@@ -714,15 +737,18 @@ my %DEFAULTS=(
   -EXT=>'',
   -MAG=>'',
 
-  -OPS=>'',
+# ---   *   ---   *   ---
+
   -OP_PREC=>{},
 
-  -ODE=>'[\(\[\{]',
-  -CDE=>'[\)\]\}]',
+  -DELIMITERS=>{
+    '\('=>'\)',
+    '\['=>'\]',
+    '\{'=>'\}',
 
-  -DEL_OPS=>'[\{\[\(\)\]\}\\\\]',
-  -NDEL_OPS=>'[^\s_A-Za-z0-9\.:\{\[\(\)\]\}\\\\]',
-  -SEP_OPS=>'[,]',
+  },
+
+  -SEPARATORS=>[','],
 
   -PESC=>lang::delim('$:',';>'),
 
@@ -965,9 +991,9 @@ sub nit {
 # make keyword-matching pattern
 # then save hash
 
-    my $keypat=lang::hashpat(\%ht,1);
+    my $keypat=lang::hashpat(\%ht,1,0);
 
-    $keypat=($keypat eq '()')
+    $keypat=($keypat eq '\b()\b')
       ? '$^' : $keypat;
 
     $ht{re}=$keypat;
@@ -985,13 +1011,41 @@ sub nit {
 
   } else {
     $ref->{-OPS}=lang::hashpat(
-      $ref->{-OP_PREC}
+      $ref->{-OP_PREC},0,1
 
     );
-
   };
 
   $ref->{-LCOM}=lang::eaf($ref->{-COM},0,1);
+
+# ---   *   ---   *   ---
+# make open/close delimiter patterns
+
+  my @odes=keys %{$ref->{-DELIMITERS}};
+  my @cdes=values %{$ref->{-DELIMITERS}};
+
+  $ref->{-ODE}=lang::eiths_l(@odes,0,1);
+  $ref->{-CDE}=lang::eiths_l(@cdes,0,1);
+
+  my @del_ops=(@odes,@cdes);
+  $ref->{-DEL_OPS}=lang::eiths_l(@del_ops,0,1);
+
+  my @seps=@{$ref->{-SEPARATORS}};
+  my @ops_plus_seps=(
+    keys %{$ref->{-OP_PREC}},
+    @seps,
+
+  );
+
+  $ref->{-NDEL_OPS}=lang::eiths_l(
+    @ops_plus_seps,0,1
+
+  );
+
+  $ref->{-SEP_OPS}=lang::eiths_l(
+    @seps,0,1
+
+  );
 
 # ---   *   ---   *   ---
 # replace $:tokens;> with values
@@ -1003,34 +1057,6 @@ sub nit {
     } else {vrepl($ref,\$ref->{$key});};
 
   };hash_vrepl($ref,-NUMCON);
-
-# ---   *   ---   *   ---
-# make a ode=>cde match table
-
-  my $odes=$ref->{-ODE};
-  my $cdes=$ref->{-CDE};
-
-  $odes=~ s/^\[//;
-  $odes=~ s/\]$//;
-  $odes=~ s/\\\\([^\\\\])/$1/;
-
-  $cdes=~ s/^\[//;
-  $cdes=~ s/\]$//;
-  $cdes=~ s/\\\\([^\\\\])/$1/;
-
-  my @odes=split '',$odes;
-  my @cdes=split '',$cdes;
-
-  my %matchtab=();
-
-  while(@odes) {
-
-    my $ode=shift @odes;
-    my $cde=shift @cdes;
-
-    $matchtab{$ode}=$cde;
-
-  };$ref->{-DEL_MT}=\%matchtab;
 
 # ---   *   ---   *   ---
 
@@ -1048,6 +1074,7 @@ sub nit {
     $def->{-NAME}.'.pe.lps';
 
   lang::register_def($def->{-NAME});
+
   return $def;
 
 };

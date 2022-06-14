@@ -18,22 +18,22 @@ clan base;
 # ---   *   ---   *   ---
 
 reg attrs;
-
   str header 0x00;
   buf body [];
 
-proc base::get;
+proc get signal;
+  >>:in ptr;
+  >>:out ptr;
 
-buf >>:in BEG:
-buf >>:out END;
+  eif in==attrs->header;
+    cpy out,self->header;
 
-eif out==str;
-  ret self->header;
+  eif in==attrs->body,END;
+    cpy out,self->a;
 
-jif out==@;
-  ret self->a;
+  END;
 
-ret null;
+ret out;proc set;
 
 # ---   *   ---   *   ---
 
@@ -42,6 +42,6 @@ clan non;
 # ---   *   ---   *   ---
 
 my $obj=base::new(v=>2);
-print $obj->get."\n";
+print $obj->get(str)."\n";
 
 # ---   *   ---   *   ---
