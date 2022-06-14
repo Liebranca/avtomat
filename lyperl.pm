@@ -22,6 +22,7 @@ package lyperl;
 
   use lang;
   use langdefs::perl;
+  use langdefs::peso;
 
   use peso::rd;
   use peso::node;
@@ -96,29 +97,11 @@ sub translate($) {
 
   my $program=shift;
 
-  # keyword-detecting pattern
-  # exclusive to lyperl keywords
-
-  my $keys=lang::eiths(
-
-    (join ',',(
-
-      langdefs::perl->TYPE,
-      langdefs::perl->SPECIFIER,
-
-      langdefs::perl->DIRECTIVE,
-      langdefs::perl->INTRINSIC,
-
-      langdefs::perl->FCTL,
-
-    ))
-  );
-
 # ---   *   ---   *   ---
 # nit the symbol table
 
-  lang->perl->sbl->setdef($program);
-  my $SYMS=lang->perl->sbl->SYMS;
+  lang->peso->sbl->setdef($program);
+  my $SYMS=lang->peso->sbl->SYMS;
 
   $program->{defs}={
 
@@ -131,75 +114,76 @@ sub translate($) {
   };
 
 # ---   *   ---   *   ---
+# set up hierarchy
+
+  my $tree=$program->{tree};
+  langdefs::peso::reorder($tree);
+
+# ---   *   ---   *   ---
 # walk the tree
 
-#  for my $branch(@{$program->{tree}}) {
-#
-#    my $lvl=\$program->{defs}->{lvl};
-#    my $cur=\$program->{defs}->{cur};
-#
-#    # keyword found
-#    if($branch->value=~ m/${keys}/) {
-#      my $key=$branch->value;
-#
-#      my $v=$SYMS->{$key}->ex($branch);
-#
-#      if($v=~ s/^ERROR://) {
-#        print "$v at line $branch->{lineno}\n";
-#        exit;
-#
-#      };
-#
-#      $branch->value($v);
-#      $branch->pluck(@{$branch->leaves});
-#
-## ---   *   ---   *   ---
-## definition block in
-#
-#    } elsif($branch->value eq '{') {
-#
-#      if(defined $$cur && $$lvl==$$cur->{lvl}) {
-#        my $beg=$$cur->{beg};
-#        $branch->value($beg->($program));
-#
-#      };
-#
-#      $$lvl++;
-#
-## ---   *   ---   *   ---
-## definition block out
-#
-#    } elsif($branch->value eq '}') {
-#
-#      $$lvl--;
-#
-#      if(defined $$cur && $$lvl==$$cur->{lvl}) {
-#
-#        my $end=$$cur->{end};
-#        $branch->value($end->($program));
-#
-#        $$cur=undef;
-#
-#      };
-#
-## ---   *   ---   *   ---
-## inside definition block
-#
-#    } elsif(defined $$cur) {
-#
-#      if($$cur->{tag} eq 'procs') {
-#
-#        my @ar=$branch->branches_with('\bself\b');
-#        for my $node(@ar) {
-#          namerepl($node,$cur,$program);
-#
-#        };
-#      };
-#    };
-#
-## ---   *   ---   *   ---
-#
-#  };
+  my @branches=@{$tree->leaves};
+  while(@branches) {
+
+    my $branch=shift @branches;
+
+    my $lvl=\$program->{defs}->{lvl};
+    my $cur=\$program->{defs}->{cur};
+
+# ---   *   ---   *   ---
+# keyword found
+
+    if(lang->peso->is_keyword($branch->value)) {
+
+      my $key=$branch->value;
+      my $v=$SYMS->{$key}->ex($branch);
+
+      if(defined $v && $v=~ s/^ERROR://) {
+
+        print STDERR
+          "$v at line $branch->{lineno}\n";
+
+        exit;
+
+      } elsif(!defined $v) {
+
+        print STDERR
+          "Symbol exec error at line ".
+          "$branch->{lineno}\n";
+
+        exit;
+
+      };
+
+      $branch->value($v);
+      $branch->pluck(@{$branch->leaves});
+
+# ---   *   ---   *   ---
+# scope in
+
+    } elsif($branch->value eq '{') {
+      $$lvl++;
+
+# ---   *   ---   *   ---
+# scope out
+
+    } elsif($branch->value eq '}') {
+      $$lvl--;
+
+# ---   *   ---   *   ---
+# inside definition block
+
+    } elsif(defined $$cur) {
+      ;
+
+    };
+
+# ---   *   ---   *   ---
+
+    END:
+    unshift @branches,@{$branch->leaves};
+
+  };
 };
 
 # ---   *   ---   *   ---
@@ -223,9 +207,8 @@ sub restore($) {
 # ---   *   ---   *   ---
 # walk the tree
 
-  for my $branch(@{$program->{tree}->leaves}) {
-
-    my $proc;
+  my @branches=$program->{tree}->exp_arr();
+  for my $branch(reverse @branches) {
 
     # solve operations and flatten
     $branch->collapse();
@@ -239,6 +222,7 @@ sub restore($) {
 
     # stringify
     my $s=$branch->flatten();
+    $branch->par->pluck($branch);
 
     # de-space
     $s=~ s/\x20*(${op})\x20*/$1/sg;
@@ -254,7 +238,7 @@ sub restore($) {
 # ---   *   ---   *   ---
 # return the flattened tree as a string
 
-  my $s=join "\n",@ar;
+  my $s=join "\n",reverse @ar;
   return $s;
 
 };
@@ -288,6 +272,14 @@ sub filter {
 # ---   *   ---   *   ---
 
       translate($program);
+
+my $non=$program->blk->NON;
+$non->prich();
+
+exit;
+
+# ---   *   ---   *   ---
+
       $_=restore($program);
 
 # program print

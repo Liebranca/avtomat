@@ -10,33 +10,9 @@ package langdefs::perl;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
+
   use lang;
-
-# ---   *   ---   *   ---
-
-my $perl_sbl=undef;
-
-sub DEFINE($$$) {
-
-  $perl_sbl->DEFINE(
-    $_[0],$_[1],$_[2],
-
-  );
-};
-
-# ---   *   ---   *   ---
-
-sub ALIAS($$) {
-
-  $perl_sbl->ALIAS(
-    $_[0],$_[1]
-
-  );
-};
-
-# ---   *   ---   *   ---
-
-my $SBL_ID=0;sub sbl_id() {return $SBL_ID++;};
+  use peso::defs;
 
 # ---   *   ---   *   ---
 
@@ -268,7 +244,7 @@ sub beg_proc($) {
 # ---   *   ---   *   ---
 
 BEGIN {
-$perl_sbl=peso::sbl::new_frame();
+  sbl_new();
 
 # ---   *   ---   *   ---
 
@@ -491,14 +467,6 @@ ALIAS 'buf','value_decl';
 ALIAS 'tab','value_decl';
 
 # ---   *   ---   *   ---
-
-my $lytype=TYPE;
-my $lyspecs=SPECIFIER;
-my $lydir=DIRECTIVE;
-my $lyitri=INTRINSIC;
-my $lyfctl=FCTL;
-
-# ---   *   ---   *   ---
 lang::def::nit(
 
   -NAME => 'perl',
@@ -506,7 +474,6 @@ lang::def::nit(
   -HED  => '^#!.*perl',
 
   -MAG  => 'Perl script',
-
   -COM  => '#',
 
   -DRFC => '(::|->)',
@@ -521,7 +488,7 @@ lang::def::nit(
     '|(^|\s|[^\\\\])[&%]',
 
   -OP_PREC=>OPS,
-  -SBL=>$perl_sbl,
+  -SBL=>$SBL_TABLE,
 
   -MCUT_TAGS=>[-STRING,-CHAR,-PESC],
 
@@ -556,13 +523,13 @@ lang::def::nit(
 
     '(\$[$%&@])',
 
-    (keys %$lytype),
+    (keys %{&TYPE}),
 
   ],
 
   -SPECIFIERS=>[qw(
 
-    ),(keys %$lyspecs)
+    ),(keys %{&SPECIFIER})
 
   ],
 
@@ -635,12 +602,12 @@ lang::def::nit(
   -DIRECTIVES=>[qw(
     use package my our sub
 
-  ),(keys %$lydir)],
+  ),(keys %{&DIRECTIVE})],
 
   -INTRINSICS=>[qw(
     eq ne lt gt le ge cmp x can isa
 
-  ),(keys %$lyitri)],
+  ),(keys %{&INTRINSIC})],
 
   -FCTLS=>[qw(
 
@@ -649,7 +616,7 @@ lang::def::nit(
     goto next last redo reset return
     try catch finally
 
-  ),(keys %$lyfctl)],
+  ),(%{&FCTL})],
 
 # ---   *   ---   *   ---
 

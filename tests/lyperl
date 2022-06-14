@@ -27,10 +27,7 @@ clan non;
 
 # ---   *   ---   *   ---
 
-{ my $obj=base::new(v=>2);
-  print $obj->header."\n";
-  print "\n";
-
-};
+my $obj=base::new(v=>2);
+print $obj->header."\n";
 
 # ---   *   ---   *   ---

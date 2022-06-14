@@ -212,11 +212,6 @@ sub fieldn($$) {
   my ($self,$i)=@_;
   my @fields=$self->branches_in("field_$i");
 
-for my $field(@fields) {
-  $field->prich();
-
-};
-
   return @fields;
 
 };
@@ -1193,6 +1188,30 @@ sub flatten($) {
   };
 
   return $s;
+
+};
+
+# ---   *   ---   *   ---
+
+sub exp_arr($) {
+
+  my $self=shift;
+  my @leaves=($self);
+  my @exps=();
+
+  while(@leaves) {
+    $self=shift @leaves;
+
+    if($self->{has_eb}) {
+      push @exps,$self;
+
+    };
+
+    unshift @leaves,@{$self->leaves};
+
+  };
+
+  return @exps;
 
 };
 

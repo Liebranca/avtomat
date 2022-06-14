@@ -16,13 +16,11 @@ package peso::blk;
   use strict;
   use warnings;
 
-  use lib $ENV{'ARPATH'}.'/include/';
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use lang;
   use stack;
 
-  use peso::decls;
   use peso::ptr;
 
 # ---   *   ---   *   ---
@@ -178,9 +176,7 @@ sub size($) {return (shift)->{-SIZE};};
 sub attrs($) {return (shift)->{-ATTRS};};
 
 sub insid($) {return (shift)->{-INSID};};
-
 sub frame($) {return (shift)->{-FRAME};};
-sub master($) {return (shift)->frame->{-MASTER};};
 
 sub ins($) {
 
@@ -198,12 +194,16 @@ sub ins($) {
 # ---   *   ---   *   ---
 # find ancestors recursively
 
-sub ances($$) {
+sub ances($) {
 
-  my ($self,$name)=@_;
+  my $self=shift;
+  my $name=$self->name;
 
-  if($self->par) {
-    $name=$self->par->ances().'@'.$name;
+  while($self->par) {
+    $name=$self->par->name.'@'.$name;
+    $self=$self->par;
+
+    if(!defined $self) {last;};
 
   };return $name;
 
@@ -297,7 +297,7 @@ sub expand($$$$) {
 # ---   *   ---   *   ---
 # get size from type, in bytes
 
-  my $elem_sz=$lang->types->{$type}->size;
+  my $elem_sz=8;#$lang->types->{$type}->size;
   my $inc_size=@$ref*$elem_sz;
 
 # ---   *   ---   *   ---
@@ -305,7 +305,7 @@ sub expand($$$$) {
 # 'unit' is size of a single register
 # we use these as minimum size for blocks
 
-  my $line_sz=$lang->types->{'line'}->size;
+  my $line_sz=16;#$lang->types->{'line'}->size;
   my $gran=(1<<($elem_sz*8))-1;
 
 # ---   *   ---   *   ---
@@ -572,6 +572,7 @@ sub INS($) {return (shift)->{-INS_ARR};};
 
 sub incpass($) {(shift)->{-PASS}++;};
 sub fpass($) {return !((shift)->{-PASS});};
+sub master($) {return (shift)->{-MASTER};};
 
 # ---   *   ---   *   ---
 # adjusts current write-to

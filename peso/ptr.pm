@@ -51,7 +51,6 @@ sub shf {return (shift)->{-SHF};};
 sub elem_sz {return (shift)->{-ELEM_SZ};};
 
 sub frame {return (shift)->{-FRAME};};
-sub master {return (shift)->frame->{-MASTER};};
 
 # ---   *   ---   *   ---
 # force size params for ptr to value
@@ -551,21 +550,11 @@ sub err_oob {
 };
 
 # ---   *   ---   *   ---
-# memory ops
-
-sub nunit($) {
-
-  my $frame=shift;
-  push @{$frame->MEM()},0x00;
-
-};
-
-# ---   *   ---   *   ---
 # constructors
 
 sub new_frame($) {peso::ptr::frame::create(shift);};
 
-sub nit($@) {
+sub nit {
 
   my $frame=shift;my (
 
@@ -736,7 +725,6 @@ package peso::ptr::frame;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
-  use peso::decls;
 
 # ---   *   ---   *   ---
 # getters
@@ -747,10 +735,12 @@ sub ADDRS {return (shift)->{-ADDRS};};
 sub SCOPES {return (shift)->{-SCOPES};};
 sub LSCOPE {return (shift)->{-LSCOPE};};
 
+sub master {return (shift)->{-MASTER};};
+
 # ---   *   ---   *   ---
 # constructors
 
-sub nit($@) {peso::ptr::nit(@_);};
+sub nit {peso::ptr::nit(@_);};
 
 sub create($) {
 
@@ -776,6 +766,16 @@ sub create($) {
     -MASTER=>$master,
 
   },'peso::ptr::frame';
+
+};
+
+# ---   *   ---   *   ---
+# memory ops
+
+sub nunit($) {
+
+  my $frame=shift;
+  push @{$frame->MEM()},0x00;
 
 };
 

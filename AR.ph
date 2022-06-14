@@ -61,8 +61,8 @@ sub update {
   update(
 
     [ '/lang.pm',
+      '/peso/defs.pm',
 
-      '/peso/decls.pm',
       '/peso/ops.pm',
       '/peso/type.pm',
 
@@ -71,7 +71,6 @@ sub update {
       '/peso/ptr.pm',
       '/peso/blk.pm',
       '/peso/sbl.pm',
-      '/peso/defs.pm',
       '/peso/program.pm',
 
       '/queue.pm',
