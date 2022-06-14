@@ -18,7 +18,7 @@ package lyperl;
 
   use Filter::Util::Call;
 
-  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use lib $ENV{'ARPATH'}.'/lib/';
 
   use lang;
   use langdefs::perl;
@@ -31,10 +31,14 @@ package lyperl;
 sub import {
 
   my ($type)=@_;
+  my ($file,$lineno)=(caller)[1,2];
+
   my ($ref)={
 
     killed=>0,
     lines=>[],
+    file=>$file,
+    lineno=>$lineno+1,
 
   };filter_add(bless $ref);
 
@@ -99,8 +103,13 @@ sub translate($) {
 
     (join ',',(
 
-      langdefs::perl->LYPERL_DIRECTIVES,
-      langdefs::perl->LYPERL_TYPES,
+      langdefs::perl->TYPE,
+      langdefs::perl->SPECIFIER,
+
+      langdefs::perl->DIRECTIVE,
+      langdefs::perl->INTRINSIC,
+
+      langdefs::perl->FCTL,
 
     ))
   );
@@ -124,73 +133,73 @@ sub translate($) {
 # ---   *   ---   *   ---
 # walk the tree
 
-  for my $branch(@{$program->{tree}}) {
-
-    my $lvl=\$program->{defs}->{lvl};
-    my $cur=\$program->{defs}->{cur};
-
-    # keyword found
-    if($branch->value=~ m/${keys}/) {
-      my $key=$branch->value;
-
-      my $v=$SYMS->{$key}->ex($branch);
-
-      if($v=~ s/^ERROR://) {
-        print "$v at line $branch->{lineno}\n";
-        exit;
-
-      };
-
-      $branch->value($v);
-      $branch->pluck(@{$branch->leaves});
-
-# ---   *   ---   *   ---
-# definition block in
-
-    } elsif($branch->value eq '{') {
-
-      if(defined $$cur && $$lvl==$$cur->{lvl}) {
-        my $beg=$$cur->{beg};
-        $branch->value($beg->($program));
-
-      };
-
-      $$lvl++;
-
-# ---   *   ---   *   ---
-# definition block out
-
-    } elsif($branch->value eq '}') {
-
-      $$lvl--;
-
-      if(defined $$cur && $$lvl==$$cur->{lvl}) {
-
-        my $end=$$cur->{end};
-        $branch->value($end->($program));
-
-        $$cur=undef;
-
-      };
-
-# ---   *   ---   *   ---
-# inside definition block
-
-    } elsif(defined $$cur) {
-
-      if($$cur->{tag} eq 'procs') {
-
-        my @ar=$branch->branches_with('\bself\b');
-        for my $node(@ar) {
-          namerepl($node,$cur,$program);
-
-        };
-      };
-    };
-
-# ---   *   ---   *   ---
-
-  };
+#  for my $branch(@{$program->{tree}}) {
+#
+#    my $lvl=\$program->{defs}->{lvl};
+#    my $cur=\$program->{defs}->{cur};
+#
+#    # keyword found
+#    if($branch->value=~ m/${keys}/) {
+#      my $key=$branch->value;
+#
+#      my $v=$SYMS->{$key}->ex($branch);
+#
+#      if($v=~ s/^ERROR://) {
+#        print "$v at line $branch->{lineno}\n";
+#        exit;
+#
+#      };
+#
+#      $branch->value($v);
+#      $branch->pluck(@{$branch->leaves});
+#
+## ---   *   ---   *   ---
+## definition block in
+#
+#    } elsif($branch->value eq '{') {
+#
+#      if(defined $$cur && $$lvl==$$cur->{lvl}) {
+#        my $beg=$$cur->{beg};
+#        $branch->value($beg->($program));
+#
+#      };
+#
+#      $$lvl++;
+#
+## ---   *   ---   *   ---
+## definition block out
+#
+#    } elsif($branch->value eq '}') {
+#
+#      $$lvl--;
+#
+#      if(defined $$cur && $$lvl==$$cur->{lvl}) {
+#
+#        my $end=$$cur->{end};
+#        $branch->value($end->($program));
+#
+#        $$cur=undef;
+#
+#      };
+#
+## ---   *   ---   *   ---
+## inside definition block
+#
+#    } elsif(defined $$cur) {
+#
+#      if($$cur->{tag} eq 'procs') {
+#
+#        my @ar=$branch->branches_with('\bself\b');
+#        for my $node(@ar) {
+#          namerepl($node,$cur,$program);
+#
+#        };
+#      };
+#    };
+#
+## ---   *   ---   *   ---
+#
+#  };
 };
 
 # ---   *   ---   *   ---
@@ -214,13 +223,11 @@ sub restore($) {
 # ---   *   ---   *   ---
 # walk the tree
 
-  for my $branch(@{$program->{tree}}) {
+  for my $branch(@{$program->{tree}->leaves}) {
 
     my $proc;
 
     # solve operations and flatten
-    $branch->prich();
-
     $branch->collapse();
     $branch->defield();
 
@@ -230,19 +237,10 @@ sub restore($) {
 
     ) {$program->node->nit($branch,';');};
 
-# ---   *   ---   *   ---
-# convert branch to an array
-
-    if($branch->value eq 'void') {
-      $proc=\&peso::node::plain_arr;
-
-    } else {
-      $proc=\&peso::node::plain_arr2;
-
-    };
+    # stringify
+    my $s=$branch->flatten();
 
     # de-space
-    my $s=join ' ',$proc->($branch);
     $s=~ s/\x20*(${op})\x20*/$1/sg;
 
     # restore string tokens
@@ -276,10 +274,13 @@ sub filter {
 
       # process read lines
       my $program=peso::rd::parse(
+
         lang->perl,
         peso::rd->STR,
 
-        join "\n",@{$self->{lines}}
+        (join "\n",@{$self->{lines}}),
+
+        lineno=>$self->{lineno},
 
 
       );
@@ -296,11 +297,12 @@ my $i=0;for my $line(split "\n",$_) {
 
 };
 
+exit;
+
       $self->{killed}=1;
-      $status=1;
+      return 1;
 
-    };return $status;
-
+    };
   };
 
 # ---   *   ---   *   ---
@@ -308,7 +310,7 @@ my $i=0;for my $line(split "\n",$_) {
   my $s=$_;$_='';
 
   push @{$self->{lines}},$s;
-  $status;
+  return $status;
 
 };
 

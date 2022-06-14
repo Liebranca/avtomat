@@ -108,7 +108,7 @@ sub nit($$) {
 
     -RAW=>[],
     -COOKED=>[],
-    -STRINGS=>[],
+    -STRINGS=>{},
 
     -KEEP_COMMENTS=>$keep_comments,
 
@@ -202,18 +202,29 @@ sub mls_block($$) {
 
   if($$lvl<0) {
 
-    my $id=sprintf(
-      lang::cut_token_f(),
-      'MLS',int(@{$self->strings})
+    my $v=$ode.$$doc;
+    my $id;
 
-    );
+    if(exists $self->strings->{$v}) {
+      $id=$self->strings->{$v};
+
+    } else {
+
+      $id=sprintf(
+        lang::cut_token_f(),
+        'MLS',int(@{$self->strings})
+
+      );
+
+      $self->strings->{$id}=$v;
+      $self->strings->{$v}=$id;
+
+    };
 
     $s=$self->in_mls_block->[4].
       $id.(substr $rem,$i,length $cde);
 
     $accum=join '',@ar[$i+length $cde..$#ar];
-
-    push @{$self->strings},$ode.$$doc;
     $self->in_mls_block(0);
 
   };
@@ -794,19 +805,27 @@ sub rm_nltoks($) {
 
 # ---   *   ---   *   ---
 
-sub parse($$$;$) {
+sub parse($$$;@) {
 
-  my ($lang,$mode,$src,$keep_comments)=@_;
+  my ($lang,$mode,$src,%opt)=@_;
+
+  my $keep_comments=$opt{keep_comments};
+  my $lineno=$opt{lineno};
 
   $keep_comments=(!defined $keep_comments)
     ? 0
     : $keep_comments
     ;
 
+  $lineno=(!defined $lineno)
+    ? 1
+    : $lineno
+    ;
+
   my $program=peso::program::nit($lang);
   my $rd=nit($program,$keep_comments);
 
-  $rd->{lineno}=1;
+  $rd->{lineno}=$lineno;
   (\&file,\&string)[$mode]->($rd,$src);
 
 # ---   *   ---   *   ---
@@ -830,7 +849,14 @@ sub parse($$$;$) {
 
   );
 
+  my $anchor=$root;
+  my @anchors=($root);
+
 # ---   *   ---   *   ---
+
+  my $sb=$lang->scope_bound;
+  my $ode=$lang->ode;
+  my $cde=$lang->cde;
 
   for my $exp(@{$rd->exps}) {
 
@@ -842,12 +868,26 @@ sub parse($$$;$) {
 
     push @{$rd->cooked},$body;
 
-    if($body=~ m/\{|\}/) {
-      $exp=$fr_node->nit($root,$body);
+# ---   *   ---   *   ---
+
+    if($body=~ m/${sb}/) {
+
+      $exp=$fr_node->nit($anchor,$body);
+
+      if($body=~ m/${ode}/) {
+        push @anchors,$anchor;
+        $anchor=$exp;
+
+      } else {
+        $anchor=pop @anchors;
+
+      };
+
+# ---   *   ---   *   ---
 
     } else {
 
-      $exp=$fr_node->nit($root,'void');
+      $exp=$fr_node->nit($anchor,'void');
 
       $exp->tokenize($body);
       $exp->agroup();

@@ -21,27 +21,16 @@ reg attrs;
   str header 0x00;
   buf body [];
 
-proc get signal;
-  >>:in ptr;
-  >>:out ptr;
-
-  eif in==attrs->header;
-    cpy out,self->header;
-
-  eif in==attrs->body,END;
-    cpy out,self->a;
-
-  END;
-
-ret out;proc set;
-
 # ---   *   ---   *   ---
 
 clan non;
 
 # ---   *   ---   *   ---
 
-my $obj=base::new(v=>2);
-print $obj->get(str)."\n";
+{ my $obj=base::new(v=>2);
+  print $obj->header."\n";
+  print "\n";
+
+};
 
 # ---   *   ---   *   ---

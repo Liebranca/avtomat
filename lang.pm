@@ -398,49 +398,83 @@ sub cut($$$$) {
   my $s=shift;
   my $pat=shift;
   my $id=shift;
-  my $ar=shift;
+  my $h=shift;
 
-  my $s2='';
+  my $result='';
   my $i=0;
 
-  my $cnt=@$ar;
+  my $cnt=(keys %$h)/2;
 
 # ---   *   ---   *   ---
 # cut at pattern match
 
-  ;;while($s=~ s/${pat}/#:cut;>/) {
-    push @$ar,$1;$i++;
+  my @ar=();
+  while($s=~ s/${pat}/#:cut;>/) {
+    push @ar,$1;$i++;
+
+  };
+
+# ---   *   ---   *   ---
+# utility anon
+
+  my $append_match=sub {
+
+    my $elem=shift;
+
+    my $v=shift @ar;
+    my $token=undef;
+
+    if(exists $h->{$v}) {
+      $token=$h->{$v};
+
+    } else {
+      $token=sprintf cut_token_f(),
+        $id,$cnt+($i);
+
+      $h->{$v}=$token;
+      $h->{$token}=$v;
+
+    };$result.=$elem.$token;
+
+  };
 
 # ---   *   ---   *   ---
 # put token in place of match
 
-  };if($i) {
+  if($i) {
 
     my $matchno=$i;
     $i=0;
 
-    if($s eq '#:cut;>') {
-      $s2.=sprintf cut_token_f(),
-        $id,$cnt+($i++);
+# ---   *   ---   *   ---
+# corner case: single match, whole string
 
-    } else { for my $sub(split '#:cut;>',$s) {
+    if($s eq '#:cut;>') {
+      $append_match->('');
+
+# ---   *   ---   *   ---
+# append matches
+
+    } else { for my $elem(split '#:cut;>',$s) {
 
       if($i<$matchno) {
+        $append_match->($elem);
 
-        $s2.=$sub.sprintf(cut_token_f(),
-          $id,$cnt+($i++)
-
-        );
+# ---   *   ---   *   ---
+# handle remainder
 
       } else {
-        $s2.=$sub;
+        $result.=$elem;
 
-      };
+      };$i++;
 
     }};
 
-  } else {$s2=$s;};
-  return $s2;
+# ---   *   ---   *   ---
+# no match
+
+  } else {$result=$s;};
+  return $result;
 
 # ---   *   ---   *   ---
 # in:
@@ -453,7 +487,7 @@ sub cut($$$$) {
 };sub stitch($$) {
 
   my $s=shift;
-  my $ar=shift;
+  my $h=shift;
 
 # ---   *   ---   *   ---
 # look for cut tokens
@@ -462,14 +496,15 @@ sub cut($$$$) {
   while($s=~ m/(${re})/) {
 
     my $pat=$1;
-    my $i=hex($2);
 
 # ---   *   ---   *   ---
 # use id of token to find the original
 # pattern match
 
-    my $str=(defined $ar->[$i]) ? $ar->[$i] : '';
-    if(!length $str) {next;};
+    my $str=(exists $h->{$pat})
+      ? $h->{$pat}
+      : "TOKEN_ERROR($pat)"
+      ;
 
     $s=~ s/${pat}/$str/;
 
@@ -500,7 +535,7 @@ sub cut($$$$) {
 ;;sub mcut($$@) {
 
   my $s=shift;
-  my $ar=shift;
+  my $h=shift;
 
   my %patterns=@_;
 
@@ -508,7 +543,7 @@ sub cut($$$$) {
 
     my $new_id='';
     ($s,$new_id)=cut(
-      $s,$patterns{$id},$id,$ar
+      $s,$patterns{$id},$id,$h
 
     );
 
@@ -742,9 +777,9 @@ my %DEFAULTS=(
   -OP_PREC=>{},
 
   -DELIMITERS=>{
-    '\('=>'\)',
-    '\['=>'\]',
-    '\{'=>'\}',
+    '('=>')',
+    '['=>']',
+    '{'=>'}',
 
   },
 

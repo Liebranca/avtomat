@@ -11,6 +11,7 @@ x rd;
 x Extend lang && langdefs for basic Perl parse;
 x Hook langdefs::perl to a source filter;
 x Use the filter to change how Perl works;
+x Overhaul mcut/stich to work with a hash;
 ~ Create a Peso virtual machine in Perl.
 This means, roughly:;
 ~ Using peso::blk for data storage. Manual allocation would be preferred later on;

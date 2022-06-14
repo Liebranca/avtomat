@@ -195,6 +195,7 @@ sub dup($$) {
 };
 
 # ---   *   ---   *   ---
+# returns first match of field_%i
 
 sub fieldn($$) {
 
@@ -202,6 +203,21 @@ sub fieldn($$) {
   my $field=($self->branches_with("field_$i"))[0];
 
   return $field->leaves->[$i];
+
+# ---   *   ---   *   ---
+# ^same, returns whole list
+
+};sub fieldsn($$) {
+
+  my ($self,$i)=@_;
+  my @fields=$self->branches_in("field_$i");
+
+for my $field(@fields) {
+  $field->prich();
+
+};
+
+  return @fields;
 
 };
 
@@ -702,31 +718,33 @@ sub agroup($) {
   my $self=shift;
   my $i=0;while($i<@{$self->leaves}) {
 
-    my $field=$self->fieldn($i);
-    my @ar=$field->pluck(@{$field->leaves});
+    my @fields=$self->fieldsn($i);
 
-    if(@ar>1) {
+    for my $field(@fields) {
+      my @ar=$field->pluck(@{$field->leaves});
 
-      my $root=shift @ar;
-      my $s=$root->value;
+      if(@ar>1) {
 
-      while(@ar) {
+        my $root=shift @ar;
+        my $s=$root->value;
 
-        my $node=shift @ar;
-        $s.=' '.$node->value;
+        while(@ar) {
 
-        unshift @ar,@{$node->leaves};
+          my $node=shift @ar;
+          $s.=' '.$node->value;
+
+          unshift @ar,@{$node->leaves};
+
+        };
+
+        $root->value($s);
+        push @ar,$root;
 
       };
 
-      $root->value($s);
-      push @ar,$root;
+      $field->value($ar[0]->value);
 
-    };
-
-    $field->value($ar[0]->value);
-    $i++;
-
+    };$i++;
   };
 
 # ---   *   ---   *   ---
@@ -1050,7 +1068,7 @@ TOP:
     };
   };
 
-  push @leaves,@{$anchor->leaves};
+  unshift @leaves,@{$anchor->leaves};
 
 # ---   *   ---   *   ---
 # continue if children pending
@@ -1158,6 +1176,28 @@ sub plain_arr(@) {
 
 # ---   *   ---   *   ---
 
+sub flatten($) {
+
+  my $self=shift;
+  my @leaves=($self);
+
+  my $s='';
+
+  while(@leaves) {
+
+    $self=shift @leaves;
+    $s.=$self->value.' ';
+
+    unshift @leaves,@{$self->leaves};
+
+  };
+
+  return $s;
+
+};
+
+# ---   *   ---   *   ---
+
 # print node leaves
 sub prich {
 
@@ -1220,7 +1260,7 @@ sub prich {
     print $FH $branch.$v."\n";
     unshift @leaves,@{$self->leaves};
 
-  };
+  };print $FH "\n";
 
 };
 

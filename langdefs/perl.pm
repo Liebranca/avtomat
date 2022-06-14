@@ -137,6 +137,7 @@ use constant FCTL=>{
 # ---   *   ---   *   ---
 # utility methods
 
+# DEPRECATED
 sub typecon($) {
 
   my $key=shift;
@@ -166,23 +167,25 @@ sub typecon($) {
 
 };
 
-sub beg_class($) {
+# ---   *   ---   *   ---
+
+sub beg_reg($) {
 
   my $program=shift;
   my $cur=$program->{defs}->{cur};
 
-  return "BEG_class_$cur->{key}";
+  return "BEG_reg_$cur->{key}";
 
 # ---   *   ---   *   ---
 
-};sub end_class($) {
+};sub end_reg($) {
 
   my $program=shift;
   my $cur=$program->{defs}->{cur};
 
   my $beg;for my $node(@{$program->{tree}}) {
 
-    if($node->value eq "BEG_class_$cur->{key}") {
+    if($node->value eq "BEG_reg_$cur->{key}") {
       $beg=$node;
       last;
 
