@@ -41,13 +41,14 @@ package peso::defs;
 
 our $SBL_TABLE=undef;
 our $SBL_ID=0;
+our $USE_PLPS=0;
 
 # ---   *   ---   *   ---
 
 sub DEFINE($$$) {
 
   $SBL_TABLE->DEFINE(
-    $_[0],$_[1],$_[2],
+    $_[0],$_[1],$_[2],$USE_PLPS
 
   );
 };
@@ -66,7 +67,12 @@ sub ALIAS($$) {
 # ---   *   ---   *   ---
 
 sub sbl_id() {return $SBL_ID++;};
-sub sbl_new() {$SBL_TABLE=peso::sbl::new_frame();};
+sub sbl_new($) {
+
+  ($USE_PLPS)=@_;
+  $SBL_TABLE=peso::sbl::new_frame();
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

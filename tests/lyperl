@@ -18,8 +18,7 @@ clan base;
 # ---   *   ---   *   ---
 
 reg attrs;
-  str header 0x00;
-  buf body [];
+  char str header '$$$$';
 
 # ---   *   ---   *   ---
 

@@ -1,0 +1,13 @@
+$:%plps;>
+
+in lang->peso;
+
+beg pattern vdef;
+  <ari|ode|sbl|ptr> ~','?--%cslist;
+
+end;
+
+beg ptr_decl vdecl;
+  <type>|-> <spec>?|-> <bare> (null]kill)!<vdef>?%args
+
+end;

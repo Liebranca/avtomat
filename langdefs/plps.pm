@@ -12,12 +12,14 @@ package langdefs::plps;
   use lang;
 
   use peso::rd;
-  use peso::sbl;
+  use peso::defs;
 
 # ---   *   ---   *   ---
 # translation table
 
 use constant TRTAB=>{
+
+  'ari'=>'ops',
 
   'type'=>'types',
   'spec'=>'specifiers',
@@ -26,31 +28,6 @@ use constant TRTAB=>{
   'cde'=>'cde',
 
 };
-
-# ---   *   ---   *   ---
-# shorthands
-
-my $plps_sbl=undef;
-
-sub DEFINE($$$) {
-
-  $plps_sbl->DEFINE(
-    $_[0],$_[1],$_[2],
-
-  );
-};
-
-# ---   *   ---   *   ---
-
-sub ALIAS($$) {
-
-  $plps_sbl->DEFINE(
-    $_[0],$_[1],$_[2],
-
-  );
-};
-
-my $SBL_ID=0;sub sbl_id() {return $SBL_ID++;};
 
 # ---   *   ---   *   ---
 
@@ -184,6 +161,13 @@ use constant plps_ops=>{
 
     }],
 
+  ],'|'=>[
+
+    undef,
+    undef,
+
+    [7,sub {my ($x,$y)=@_;return "$$x|$$y";}],
+
   ],
 
 # ---   *   ---   *   ---
@@ -201,6 +185,105 @@ use constant plps_ops=>{
 # UTILITY CALLS
 
 # ---   *   ---   *   ---
+# finds value for a given tag
+
+sub tagv($$) {
+
+  my ($program,$tag)=@_;
+  my $re=lang::cut_token_re;
+
+  my $v=undef;
+
+# ---   *   ---   *   ---
+# <tag> found
+
+  if(exists TRTAB->{$tag}) {
+    $tag=TRTAB->{$tag};
+    $v=$program->{ext}->$tag;
+
+    if(lang::is_hashref($v)) {
+      $v=lang::hashpat($v);
+
+    };
+
+# ---   *   ---   *   ---
+# string token found
+
+  } elsif($tag=~ m/${re}/) {
+
+    $v=lang::stitch($tag,$program->{strings});
+
+    $v=~ s/^'//;
+    $v=~ s/'$//;
+
+# ---   *   ---   *   ---
+# reference to compound pattern found
+
+  } elsif(defined $program->{defs}->{$tag}) {
+
+    my $h=$program->{defs}->{$tag};
+    $v=$h->dup();
+
+  };
+
+# ---   *   ---   *   ---
+# compile regexes if present
+
+  $v=(defined $v && !plps_obj::valid($v))
+    ? qr/$v/ : $v;
+
+  return $v;
+};
+
+# ---   *   ---   *   ---
+# breaks down node into tags
+
+sub decompose($$) {
+
+  my ($program,$node)=@_;
+  my $name=$node->value;
+
+# ---   *   ---   *   ---
+# operator found
+
+  my @patterns=();
+  if($name=~ m/node_op=HASH/) {
+
+    # alternation
+    if($name->{op} eq '|') {
+
+      $node->collapse();
+      $name=$node->value;
+
+      push @patterns,split '\|',$name;
+
+      goto END;
+
+    };
+
+# ---   *   ---   *   ---
+# common pattern
+
+  };push @patterns,$name;
+
+# ---   *   ---   *   ---
+
+END:
+
+  my @ar=map {tagv($program,$_);} @patterns;
+  my @results=();
+
+  for my $v(@ar) {
+    if(defined $v) {
+      push @results,$v;
+
+    };
+
+  };return ($name,@results);
+
+};
+
+# ---   *   ---   *   ---
 # converts <tags> into pattern objects
 
 sub detag($$) {
@@ -214,78 +297,25 @@ sub detag($$) {
 # ---   *   ---   *   ---
 # iter all tree branches
 
-  do {
+  while(@leaves) {
 
     $node=shift @leaves;
 
-# ---   *   ---   *   ---
-# common pattern
-
-    my $name=$node->value;
-    my $tag=TRTAB->{$name};
-    my $v=undef;
-    my $attrs=undef;
-
-    my $re=lang::cut_token_re;
-
-# ---   *   ---   *   ---
-# <tag> found
-
-    if(defined $tag) {
-      $v=$program->{ext}->$tag;
-      $attrs=$tag;
-
-      if(lang::is_hashref($v)) {
-        $v=lang::hashpat($v);
-
-      };
-
-# ---   *   ---   *   ---
-# string token found
-
-    } elsif($node->value=~ m/${re}/) {
-
-      $v=lang::stitch(
-        $node->value,
-        $program->{strings}
-
-      );
-
-      $v=~ s/^'//;
-      $v=~ s/'$//;
-
-      $attrs='string';
-
-# ---   *   ---   *   ---
-# reference to compound pattern found
-
-    } elsif(defined
-
-        $program->{defs}
-        ->{$node->value}
-
-    ) {
-
-      my $h=$program->{defs}->{$node->value};
-      $v=$h->dup();
-
-    };
+    my ($name,@patterns)=
+      decompose($program,$node);
 
 # ---   *   ---   *   ---
 # create instance
 
-    if(defined $v) {
+    if(@patterns) {
 
-      if(plps_obj::valid($v)) {
-        $node->value($v);
+print "$name :: ";
+print ''.(join ' ',@patterns)."\n\n";
 
-      } else {
+      $node->value(
+        plps_obj::nit($name,\@patterns,undef)
 
-        $node->value(
-          plps_obj::nit($name,$v,$attrs,undef)
-
-        );
-      };
+      );
 
 # ---   *   ---   *   ---
 # replace <tag> hierarchy with object instance
@@ -301,7 +331,7 @@ sub detag($$) {
 # tail
 
     unshift @leaves,@{$node->leaves};
-  } while(@leaves);
+  };
 
 };
 
@@ -348,8 +378,9 @@ sub cleanup($) {
 
   for my $node(@{$program->{tree}->leaves}) {
 
-    my @ar=$node->branches_in('^beg$');
-    if(@ar || $node->value ne 'end') {
+    my @ar=$node->branches_in('^(beg|end)$');
+
+    if(@ar) {
       $program->{tree}->pluck($node);
 
     };
@@ -373,8 +404,6 @@ sub build {
   getext($program);
   my $SYMS=lang->plps->sbl->SYMS;
 
-
-
   for my $node(@{$program->{tree}->leaves}) {
 
     if(exists $SYMS->{$node->value}) {
@@ -385,12 +414,12 @@ sub build {
 
     } else {
 
-$node->prich();
-
       detag($program,$node);
 
       $node->collapse();
       $node->defield();
+
+      next;
 
 # ---   *   ---   *   ---
 # write array of patterns to definitions
@@ -414,8 +443,12 @@ $node->prich();
 
     };
 
-  };cleanup($program);
+  };
+
+  cleanup($program);
   $program->{-RUN}=\&plps_obj::run;
+
+exit;
 
 };
 
@@ -441,7 +474,7 @@ sub make($) {
 # ---   *   ---   *   ---
 
 BEGIN {
-$plps_sbl=peso::sbl::new_frame();
+  sbl_new(0);
 
 # ---   *   ---   *   ---
 
@@ -528,15 +561,15 @@ lang::def::nit(
 
     sbl ptr bare
     sep del ari
-    ode cde
+    ode cde num
 
     fctl sbl_decl ptr_decl pattern
 
   )],
 
-  -DIRECTIVES=>[keys %{langdefs::plps->DIRECTIVE}],
+  -DIRECTIVES=>[keys %{&DIRECTIVE}],
 
-  -SBL=>$plps_sbl,
+  -SBL=>$SBL_TABLE,
   -BUILDER=>\&build,
 
 # ---   *   ---   *   ---
@@ -587,16 +620,14 @@ sub valid {
 # ---   *   ---   *   ---
 # constructor
 
-sub nit($$$$) {
+sub nit($$$) {
 
-  my ($name,$value,$attrs,$par)=@_;
+  my ($name,$value,$par)=@_;
 
   my $obj=bless {
 
     name=>$name,
-
     value=>$value,
-    attrs=>$attrs,
 
     optional=>0,
     consume_equal=>0,
@@ -621,24 +652,7 @@ sub nit($$$$) {
 };sub dup($) {
 
   my $self=shift;
-
-  my $compound=lang::is_arrayref(
-    $self->{value}
-
-  );
-
-# ---   *   ---   *   ---
-# create new instance
-
-  my $cpy=nit(
-
-    $self->{name},
-    ($compound) ? [] : $self->{value},
-    $self->{attrs},
-
-    undef
-
-  );
+  my $cpy=nit($self->{name},[],undef);
 
 # ---   *   ---   *   ---
 # copy settings
@@ -654,15 +668,19 @@ sub nit($$$$) {
 # ---   *   ---   *   ---
 # make copy of object hierarchy
 
-  if($compound) {
+  for my $v(@{$self->{value}}) {
 
-    for my $obj(@{$self->{value}}) {
-      push @{$cpy->{value}},$obj->dup();
+    # value is another object
+    if(valid $v) {
+      push @{$cpy->{value}},$v->dup();
+
+    # value is plain pattern
+    } else {
+      push @{$cpy->{value}},$v;
 
     };
-  };
 
-  return $cpy;
+  };return $cpy;
 
 };
 
@@ -682,11 +700,11 @@ sub walkdown($) {
 
     $self->{parent}=$parent;
 
-    if(lang::is_arrayref($v)) {
-      unshift @pending,@$v;
-      $parent=$self;
-
-    };
+#    if(lang::is_arrayref($v)) {
+#      unshift @pending,@$v;
+#      $parent=$self;
+#
+#    };
 
   };
 };

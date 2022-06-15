@@ -454,6 +454,7 @@ sub save($) {
 
   my $self=shift;
   my $frame=$self->frame;
+  my $lang=$frame->master->lang;
 
   # redecl guard
   if($frame->gname_declared($self)) {
@@ -477,7 +478,7 @@ sub save($) {
 # ---   *   ---   *   ---
 # append to inner tab if ptr is named
 
-  } elsif($self->lang->valid_name(
+  } elsif($lang->valid_name(
       $self->lname
 
   )) {
@@ -1009,8 +1010,7 @@ sub addr_lookup($$) {
 
 sub setscope($@) {
 
-  my $frame=shift;
-  my @names=@_;
+  my ($frame,@names)=@_;
 
   $frame->{-LSCOPE_NAMES}=[];
   $frame->{-LSCOPE}=[];
@@ -1027,7 +1027,9 @@ sub setscope($@) {
 
     };
 
-    push @{$frame->{-LSCOPE}},SCOPES->{$name};
+    push @{$frame->{-LSCOPE}},
+      $frame->SCOPES->{$name};
+
     push @{$frame->{-LSCOPE_NAMES}},$name;
 
   };

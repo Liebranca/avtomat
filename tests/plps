@@ -10,12 +10,12 @@
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use lang;
-  use langdefs::c;
+  use langdefs::peso;
 
   use peso::rd;
   use avt;
 
-print avt::file_sbl(glob("~/AR/ce/clock.h"));
+#print avt::file_sbl(glob("~/AR/ce/clock.h"));
 
 #my $tree=lang->c->plps_match(
 #

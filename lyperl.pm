@@ -151,12 +151,14 @@ sub translate($) {
           "Symbol exec error at line ".
           "$branch->{lineno}\n";
 
+        $branch->prich();
+
         exit;
 
       };
 
-      $branch->value($v);
-      $branch->pluck(@{$branch->leaves});
+#      $branch->value($v);
+#      $branch->pluck(@{$branch->leaves});
 
 # ---   *   ---   *   ---
 # scope in
@@ -275,6 +277,8 @@ sub filter {
 
 my $non=$program->blk->NON;
 $non->prich();
+
+$program->{tree}->prich();
 
 exit;
 

@@ -19,8 +19,11 @@ package langdefs::peso;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use lang;
+  use langdefs::plps;
+
   use peso::ops;
   use peso::defs;
+  use peso::blk;
 
 # ---   *   ---   *   ---
 # leaps and such
@@ -56,10 +59,7 @@ use constant TYPE=>{
 # ---   *   ---   *   ---
 # the 'make-a-var' call
 
-  'value_decl'=>[
-    sbl_id,'-1<ptr|bare>:*-1<ptr|bare>'
-
-  ],
+  'value_decl'=>[sbl_id,'ptr_decl'],
 
 };
 
@@ -89,7 +89,6 @@ use constant DIRECTIVE=>{
 
   'reg'=>[sbl_id,'1<bare>'],
   'rom'=>[sbl_id,'1<bare>'],
-  'tab'=>[sbl_id,'1<bare>'],
 
   'clan'=>[sbl_id,'1<bare>'],
   'proc'=>[sbl_id,'1<bare>'],
@@ -129,8 +128,10 @@ use constant SPECIFIER=>{
 
   'ptr'=>[sbl_id,'0'],
   'fptr'=>[sbl_id,'0'],
+
   'str'=>[sbl_id,'0'],
   'buf'=>[sbl_id,'0'],
+  'tab'=>[sbl_id,'0'],
 
 };
 
@@ -157,11 +158,13 @@ sub reorder($) {
   my $anchor=$root;
   my @anchors=($root,undef,undef,undef);
 
+  my $scopers=qr/\b(clan|reg|rom|proc)\b/;
+
 # ---   *   ---   *   ---
 # iter tree
 
   for my $leaf(@{$tree->leaves}) {
-    if($leaf->value=~ m/\b(clan|reg|proc)\b/) {
+    if($leaf->value=~ $scopers) {
       my $match=$1;
 
 # ---   *   ---   *   ---
@@ -202,14 +205,13 @@ sub reorder($) {
       $anchor->pushlv(0,$leaf);
 
     };
-
   };
 };
 
 # ---   *   ---   *   ---
 
 BEGIN {
-  sbl_new();
+  sbl_new(1);
 
 # ---   *   ---   *   ---
 
@@ -349,8 +351,8 @@ DEFINE 'reg',DIRECTIVE,sub {
 
   # append new block to dst on first pass
   if($fr_blk->fpass()) {
-    $blk=$dst->nit(
-      $name,$fr_blk->O_RDWR,
+    $blk=$fr_blk->nit(
+      $dst,$name,O_RDWR,
 
     );
 
@@ -380,11 +382,6 @@ DEFINE 'clan',DIRECTIVE,sub {
 
   $name=$name->[0];
 
-print STDERR
-  "clan $name\n";
-
-exit;
-
   my $dst=$fr_blk->NON;
 
 # ---   *   ---   *   ---
@@ -406,8 +403,11 @@ exit;
 
   # is global scope
   } else {$blk=$dst;};
+
   $fr_blk->DST($blk);
   $fr_blk->setcurr($blk);
+
+  return $blk;
 
 };
 
@@ -435,7 +435,7 @@ DEFINE 'proc',DIRECTIVE,sub {
   # append new block to dst on first pass
   if($fr_blk->fpass()) {
     $blk=$dst->nit(
-      $name,$fr_blk->O_EX,
+      $dst,$name,O_EX,
 
     );
 
@@ -520,7 +520,7 @@ DEFINE 'value_decl',TYPE,sub {
   my $dst=$fr_blk->DST;
   my $skey=undef;
 
-  my $intrinsic=$lang->vars->[0];
+  my $intrinsic=$lang->intrinsics;
 
 # ---   *   ---   *   ---
 
@@ -705,9 +705,12 @@ lang::def::nit(
 
   -MCUT_TAGS=>[-STRING,-CHAR],
 
-);
+# ---   *   ---   *   ---
 
-};
+);lang->peso->{-PLPS}
+    =langdefs::plps::make(lang->peso);
+
+};exit;
 
 # ---   *   ---   *   ---
 1; # ret

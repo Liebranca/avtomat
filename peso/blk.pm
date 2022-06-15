@@ -23,6 +23,14 @@ package peso::blk;
 
   use peso::ptr;
 
+  use Exporter 'import';
+  our @EXPORT=qw(
+    O_RD O_WR O_EX
+    O_RDWR O_RDEX O_WREX
+    O_RDWREX FREEBLOCK
+
+  );
+
 # ---   *   ---   *   ---
 
   use constant {
@@ -291,6 +299,9 @@ sub expand($$$$) {
   my $bypass=shift;
 
   my $frame=$self->frame;
+if(exists $frame->{-NAME}) {
+print $frame->name."\n";
+};
   my $fr_ptr=$frame->master->ptr;
   my $lang=$frame->master->lang;
 
@@ -687,7 +698,7 @@ sub clan($$) {
 
 sub setscope($$) {
 
-  my ($frame,$blk)=shift;
+  my ($frame,$blk)=@_;
 
   $frame->{-SELF}=$blk;
 

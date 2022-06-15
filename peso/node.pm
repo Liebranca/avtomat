@@ -1091,42 +1091,27 @@ END:
 sub branches_in($$) {
 
   my ($self,$lookfor)=@_;
-  my $anchor=$self;
 
-  my @leaves=();
+  my @leaves=($self);
   my @found=();
 
 # ---   *   ---   *   ---
-# check node
+# look for matches recursively
 
-TOP:
+  while(@leaves) {
 
-  if(!@{$anchor->leaves}) {goto SKIP;};
+    $self=shift @leaves;
+    if($self->value=~ m/${lookfor}/) {
+      push @found,$self;
 
-  if($anchor->value=~ m/${lookfor}/) {
-    push @found,$anchor;
+    };
 
-  };
-
-  push @leaves,@{$anchor->leaves};
-
-# ---   *   ---   *   ---
-# go to next node if pending
-
-SKIP:
-
-  if(@leaves) {
-
-    $anchor=shift @leaves;
-    goto TOP;
-
-  };
+    unshift @leaves,@{$self->leaves};
 
 # ---   *   ---   *   ---
-# return matches
+# return matching nodes
 
-END:
-  return @found;
+  };return @found;
 
 };
 

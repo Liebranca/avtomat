@@ -53,9 +53,12 @@ sub new_frame() {
 
 # ---   *   ---   *   ---
 
-sub nit($$$$) {
+sub nit($$$$$) {
 
-  my ($frame,$name,$argv,$code)=@_;
+  my ($frame,$name,$argv,$code,$plps)=@_;
+  my $sym;
+
+  if($plps) {goto USE_PLPS;};
 
 # ---   *   ---   *   ---
 # handle unspecified args
@@ -150,7 +153,7 @@ sub nit($$$$) {
 # ---   *   ---   *   ---
 # make instance
 
-  SKIP:my $sym=bless {
+  SKIP:$sym=bless {
 
     -NAME=>$name,
     -ARGS=>[@args],
@@ -164,6 +167,26 @@ sub nit($$$$) {
   },'peso::sbl';
 
   return $sym;
+
+# ---   *   ---   *   ---
+# for languages that use *.lps files
+# rather than the old system
+
+USE_PLPS:$sym=bless {
+
+    -NAME=>$name,
+    -ARGS=>$argv,
+    -ARGC=>0,
+
+    -CODE=>$code,
+
+    -NUM_FIELDS=>0,
+    -FRAME=>$frame,
+
+  },'peso::sbl';
+
+  return $sym;
+
 
 # ---   *   ---   *   ---
 # ^ creates a duplicate of a symbol
@@ -217,7 +240,7 @@ sub arg_typechk($$$) {
   for my $v(split '\|',$proto) {
 
     if($v eq 'ptr') {
-      $valid=$fr_ptr->valid($tag);
+      $valid=peso::ptr::valid($tag);
 
     # either a string, number or dereference
     } elsif($v eq 'bare') {
@@ -419,14 +442,14 @@ sub master($) {return (shift)->{-MASTER};};
 # ---   *   ---   *   ---
 # shorthand for orderly symbol nit
 
-sub DEFINE($$$$) {
+sub DEFINE($$$$$) {
 
-  my ($frame,$key,$src,$code)=@_;
+  my ($frame,$key,$src,$code,$plps)=@_;
 
   my $idex=$src->{$key}->[0];
   my $args=$src->{$key}->[1];
 
-  my $sym=$frame->nit($key,$args,$code);
+  my $sym=$frame->nit($key,$args,$code,$plps);
 
   $frame->INS->[$idex]
     =$frame->SYMS->{$key}=$sym;
@@ -452,9 +475,9 @@ sub DEFINE($$$$) {
 
 # ---   *   ---   *   ---
 
-sub nit($$$$) {
+sub nit($$$$$) {
   return peso::sbl::nit(
-    $_[0],$_[1],$_[2],$_[3],
+    $_[0],$_[1],$_[2],$_[3],$_[4],
 
   );
 

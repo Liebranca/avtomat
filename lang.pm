@@ -1106,7 +1106,7 @@ sub nit {
 
   $def->{-PLPS}=''.
     $ENV{'ARPATH'}.'/include/plps/'.
-    $def->{-NAME}.'.pe.lps';
+    $def->{-NAME}.'.lps';
 
   lang::register_def($def->{-NAME});
 
@@ -1202,7 +1202,7 @@ sub valid_name {
   my $name=$self->names;
 
   if(defined $s && length $s) {
-    return $s=~ m/^${name}*/;
+    return $s=~ m/^${name}/;
 
   };return 0;
 };
