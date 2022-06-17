@@ -739,16 +739,20 @@ sub walkdown($) {
   my $self=shift;
   my $parent=undef;
 
+  my $root=$self;
+
   my @pending=($self);
   while(@pending) {
 
     $self=shift @pending;
+    if(!$self) {$parent=$root;next};
+
     $self->{parent}=$parent;
 
     my $v=$self->{value};
 
     if(lang::is_arrayref($v)) {
-      unshift @pending,@$v;
+      unshift @pending,(@$v,0);
       $parent=$self;
 
     };
@@ -904,19 +908,25 @@ sub getmatch($) {
   while(@pending) {
 
     $self=shift @pending;
+    if(!$self) {
+      $tree=(defined $tree->par)
+        ? $tree->par
+        : $tree
+        ;
+
+      next;
+
+    };
+
+# ---   *   ---   *   ---
+
     my $v=$self->{value};
 
     if(lang::is_arrayref($v)) {
       if($self ne $root) {
-
-        $tree=($tree->par)
-          ? $tree->par
-          : $tree
-          ;
-
         $tree=$fr_node->nit($tree,$self->{name});
 
-      };unshift @pending,@$v;
+      };unshift @pending,(@$v,0);
 
 # ---   *   ---   *   ---
 
@@ -1056,6 +1066,27 @@ sub trymatch($$$) {
 };
 
 # ---   *   ---   *   ---
+# fails match if path is not declared optional
+# somewhere upwards the hierarchy
+
+sub optional_branch($) {
+
+  my $self=shift;
+  my $optional=0;
+
+  while($self->{parent}) {
+    $self=$self->{parent};
+
+    if(!$self->{parent} || $optional) {last;};
+    $optional=$self->{optional};
+
+  };
+
+  return $optional;
+
+};
+
+# ---   *   ---   *   ---
 # a recursive nightmare
 
 sub run {
@@ -1067,7 +1098,6 @@ sub run {
   my $early_exit=0;
   my $prev_match='';
 
-  my @main=map {$_->value;} (@{$tree->leaves});
   my @leaves=($tree);
 
 # ---   *   ---   *   ---
@@ -1092,8 +1122,22 @@ sub run {
         ;
 
       if(!$status && $end) {
-        $early_exit=1;
-        last;
+
+        if(!$obj->optional_branch) {
+          $early_exit=1;
+          last;
+
+        } else {
+
+          while($obj->{nxt}) {
+            $obj->regmatch('');
+            $obj=$obj->{nxt};
+
+            shift @leaves;
+
+          };$obj->regmatch('');
+
+        };
 
       } elsif($status&2) {
         unshift @leaves,(

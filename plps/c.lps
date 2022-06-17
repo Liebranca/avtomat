@@ -11,3 +11,13 @@ beg sbl_decl c_func_decl;
   <cdecl>%func ~'\('%oparens <cdecl>%args ~','?--%cslist ~'\)'%cparens;
 
 end;
+
+beg pattern pr;
+  <cdecl>;
+
+end;
+
+beg pattern test;
+  <pr>? <bare>;
+
+end;

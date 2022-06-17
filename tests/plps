@@ -15,22 +15,22 @@
   use peso::rd;
   use avt;
 
-print avt::file_sbl(glob("~/AR/ce/clock.h"));
+#print avt::file_sbl(glob("~/AR/ce/clock.h"));
 
-#my $tree=lang->c->plps_match(
-#
+my $tree=lang->c->plps_match(
+
 #  'c_func_decl',
 #  'int var(static int x,const int* y)'
-#
-##  'cdecl',
-##  'int* var'
-#
-##  'test',
-##  'int',
-#
-#);
-#
-#$tree->prich();
+
+#  'cdecl',
+#  'int* var'
+
+  'test',
+  'hello',
+
+);
+
+$tree->prich();
 
 # ---   *   ---   *   ---
 1; # ret
