@@ -10,17 +10,23 @@
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use lang;
-  use langdefs::peso;
+  use langdefs::c;
 
   use peso::rd;
   use avt;
 
-#print avt::file_sbl(glob("~/AR/ce/clock.h"));
+print avt::file_sbl(glob("~/AR/ce/clock.h"));
 
 #my $tree=lang->c->plps_match(
 #
 #  'c_func_decl',
-#  'int* var(int** x,const int* y)'
+#  'int var(static int x,const int* y)'
+#
+##  'cdecl',
+##  'int* var'
+#
+##  'test',
+##  'int',
 #
 #);
 #

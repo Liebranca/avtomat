@@ -357,17 +357,20 @@ sub eaf {
 ;;sub is_code {
 
   my $v=shift;
-  return int($v=~ m/^CODE\(0x[0-9a-f]+\)/);
+  return defined $v
+    && int($v=~ m/^CODE\(0x[0-9a-f]+\)/);
 
 };sub is_arrayref {
 
   my $v=shift;
-  return int($v=~ m/^ARRAY\(0x[0-9a-f]+\)/);
+  return defined $v
+    && int($v=~ m/^ARRAY\(0x[0-9a-f]+\)/);
 
 };sub is_hashref {
 
   my $v=shift;
-  return int($v=~ m/^HASH\(0x[0-9a-f]+\)/);
+  return defined $v
+    &&  int($v=~ m/^HASH\(0x[0-9a-f]+\)/);
 
 };
 

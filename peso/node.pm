@@ -646,6 +646,7 @@ sub agroup($) {
   my $lang=$self->frame->master->lang;
   my $op_prec=$lang->op_prec;
   my $del_op=$lang->del_ops;
+  my $ode=$lang->ode;
 
   my @leaves=($self);
   my @solve=();
@@ -700,10 +701,10 @@ sub agroup($) {
 
     $self->value($op->[$idex]->[1]->(@args));
 
-#    if($self->par->value=~ m/^${del_op}$/) {
-#      $self->par->repl($self);
-#
-#    };
+    if($self->par->value=~ m/^${ode}$/) {
+      $self->par->repl($self);
+
+    };
   };
 
 # ---   *   ---   *   ---

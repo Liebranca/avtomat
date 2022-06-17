@@ -122,7 +122,7 @@ use constant plps_ops=>{
       my ($x,$y)=@_;
 
       #:!!;> this is a hack as well
-      my $s='int($prev_match=~ m/^'."$$x".'/);';
+      my $s='int($$prev_match=~ m/^'."$$x".'/);';
 
       return $s;
 
@@ -242,6 +242,7 @@ sub decompose($$) {
 
   my ($program,$node)=@_;
   my $name=$node->value;
+  my $altern=0;
 
 # ---   *   ---   *   ---
 # operator found
@@ -252,6 +253,7 @@ sub decompose($$) {
     # alternation
     if($name->{op} eq '|') {
 
+      $altern=1;
       $node->collapse();
       $name=$node->value;
 
@@ -278,8 +280,9 @@ END:
       push @results,$v;
 
     };
+  };
 
-  };return ($name,@results);
+  return ($name,$altern,@results);
 
 };
 
@@ -301,7 +304,7 @@ sub detag($$) {
 
     $node=shift @leaves;
 
-    my ($name,@patterns)=
+    my ($name,$altern,@patterns)=
       decompose($program,$node);
 
 # ---   *   ---   *   ---
@@ -309,13 +312,35 @@ sub detag($$) {
 
     if(@patterns) {
 
-print "$name :: ";
-print ''.(join ' ',@patterns)."\n\n";
+      my $v=$patterns[0];
 
-      $node->value(
-        plps_obj::nit($name,\@patterns,undef)
+# ---   *   ---   *   ---
+# corner case: <tag0|tag1>
 
-      );
+      if($altern) {
+        $node->value(
+          plps_obj::nit($name,undef,undef)
+
+        );
+
+        $node->value->{altern}=\@patterns;
+
+# ---   *   ---   *   ---
+# compound object
+
+      } elsif(plps_obj::valid $v) {
+        $node->value($v);
+
+# ---   *   ---   *   ---
+# standard object
+
+      } else {
+        $node->value(
+          plps_obj::nit($name,$v,undef)
+
+        );
+
+      };
 
 # ---   *   ---   *   ---
 # replace <tag> hierarchy with object instance
@@ -419,13 +444,11 @@ sub build {
       $node->collapse();
       $node->defield();
 
-      next;
-
 # ---   *   ---   *   ---
 # write array of patterns to definitions
 
-      my $name=$node->value;
       my @ar=();
+      my ($cath,$name)=@{$program->{dst}};
 
       for my $leaf(@{$node->leaves}) {
 
@@ -447,8 +470,6 @@ sub build {
 
   cleanup($program);
   $program->{-RUN}=\&plps_obj::run;
-
-exit;
 
 };
 
@@ -507,14 +528,17 @@ DEFINE 'end',DIRECTIVE,sub {
 # ---   *   ---   *   ---
 # create new pattern instance from tree
 
-  $m->{defs}->{$name}=plps_obj::nit(
+  my $obj=plps_obj::nit(
 
     $name,
     $m->{target_node_value},
     $cath,
     undef
 
-  );$m->{defs}->{$name}->walkdown();
+  );$obj->walkdown();
+  $obj->{tree}=$obj->mktree();
+
+  $m->{defs}->{$name}=$obj;
 
   delete $m->{target_node};
   delete $m->{target_node_value};
@@ -603,7 +627,7 @@ package plps_obj;
 # ---   *   ---   *   ---
 # typechk
 
-sub valid {
+sub valid($) {
 
   my $obj=shift;if(
 
@@ -628,6 +652,7 @@ sub nit($$$) {
 
     name=>$name,
     value=>$value,
+    altern=>undef,
 
     optional=>0,
     consume_equal=>0,
@@ -641,6 +666,10 @@ sub nit($$$) {
 
     parent=>$par,
 
+    nxt=>undef,
+    prv=>undef,
+    looped=>0,
+
   },'plps_obj';
 
   return $obj;
@@ -652,7 +681,7 @@ sub nit($$$) {
 };sub dup($) {
 
   my $self=shift;
-  my $cpy=nit($self->{name},[],undef);
+  my $cpy=nit($self->{name},undef,undef);
 
 # ---   *   ---   *   ---
 # copy settings
@@ -668,17 +697,35 @@ sub nit($$$) {
 # ---   *   ---   *   ---
 # make copy of object hierarchy
 
-  for my $v(@{$self->{value}}) {
+  my $v=$self->{value};
 
-    # value is another object
-    if(valid $v) {
-      push @{$cpy->{value}},$v->dup();
+  # value is another object
+  if(lang::is_arrayref($v)) {
+    $cpy->{value}=[map {$_->dup();} @$v];
 
-    # value is plain pattern
-    } else {
-      push @{$cpy->{value}},$v;
+# ---   *   ---   *   ---
+# value is an alternator
 
+  } elsif(!defined $v) {
+
+    for my $p(@{$self->{altern}}) {
+
+      $cpy->{altern}=[];
+
+      if(valid $p) {
+        push @{$cpy->{altern}},$p->dup();
+
+      } else {
+        push @{$cpy->{altern}},$p;
+
+      };
     };
+
+# ---   *   ---   *   ---
+# value is plain pattern
+
+  } else {
+    $cpy->{value}=$v;
 
   };return $cpy;
 
@@ -696,30 +743,138 @@ sub walkdown($) {
   while(@pending) {
 
     $self=shift @pending;
-    my $v=$self->{value};
-
     $self->{parent}=$parent;
 
-#    if(lang::is_arrayref($v)) {
-#      unshift @pending,@$v;
-#      $parent=$self;
-#
-#    };
+    my $v=$self->{value};
 
+    if(lang::is_arrayref($v)) {
+      unshift @pending,@$v;
+      $parent=$self;
+
+    };
   };
+};
+
+# ---   *   ---   *   ---
+# breaks down an object into a tree
+
+sub mktree($$) {
+
+  my ($root,$program)=@_;
+
+  my $frame=peso::node::new_frame($program);
+
+  my $tree=$frame->nit(undef,$root);
+  my @objs=[$root,$tree];
+
+# ---   *   ---   *   ---
+# walk the hierarchy
+
+  while(@objs) {
+    my ($obj,$anchor)=@{(shift @objs)};
+
+# ---   *   ---   *   ---
+# unpack this object
+
+    for my $v(@{$obj->{value}}) {
+
+# ---   *   ---   *   ---
+# go one level deeper (compound object)
+
+      if(lang::is_arrayref($v->{value})) {
+
+        my $node=$frame->nit(
+          $anchor,$v
+
+        );push @objs,[$v,$node];
+
+# ---   *   ---   *   ---
+# alternators (<pattern | pattern>)
+
+      } elsif(!defined $v->{value}) {
+
+        my $node=$frame->nit($anchor,$v);
+
+        for my $option(@{$v->{altern}}) {
+
+          if(valid $option) {
+
+            my $branch=$frame->nit(
+              $node,$option
+
+            );push @objs,[$option,$branch];
+
+          } else {
+            $frame->nit($node,$option);
+
+          };
+        };
+
+# ---   *   ---   *   ---
+# register pattern (base <tag>)
+
+      } else {
+
+        my $node=$frame->nit($anchor,$v);
+        $frame->nit($node,$v->{value});
+
+      };
+    };
+  };
+
+# ---   *   ---   *   ---
+# setup markers between objects
+
+  my @leaves=($tree);
+  while(@leaves) {
+
+    my $branch=shift @leaves;
+
+    my @ar=(valid $branch->value)
+      ? (@{$branch->leaves})
+      : ()
+      ;
+
+# ---   *   ---   *   ---
+# we want a prev->node->next chain
+
+    my $i=0;while($i<@ar) {
+
+      if(!valid $ar[$i]->value) {
+        goto SKIP;
+
+      };
+
+      my $prv=($i>0) ? $ar[$i-1] : undef;
+      my $nxt=($i<$#ar) ? $ar[$i+1] : undef;
+
+      $ar[$i]->value->{prv}=(defined $prv)
+        ? $prv->value : undef;
+
+      $ar[$i]->value->{nxt}=(defined $nxt)
+        ? $nxt->value : undef;
+
+      $ar[$i]->value->{tree}=$ar[$i];
+
+      SKIP:$i++;
+
+# ---   *   ---   *   ---
+
+    };push @leaves,@{$branch->leaves};
+  };return $tree;
 };
 
 # ---   *   ---   *   ---
 # propagates matches upwards the hierarchy
 
-sub regmatch($$$) {
+sub regmatch($$) {
 
-  my ($self,$match,$looped)=@_;
+  my ($self,$match)=@_;
   if(!$self->{save_match}) {return;};
 
   while(defined $self) {
 
-    if(!$looped || !@{$self->{matches}}) {
+    if(!$self->{looped} || !@{$self->{matches}}) {
       push @{$self->{matches}},$match;
 
     } else {
@@ -742,6 +897,7 @@ sub getmatch($) {
 
   my $fr_node=$program->node;
   my $tree=$fr_node->nit(undef,$root->{name});
+  my $top=$tree;
 
 # ---   *   ---   *   ---
 
@@ -751,7 +907,6 @@ sub getmatch($) {
     my $v=$self->{value};
 
     if(lang::is_arrayref($v)) {
-
       if($self ne $root) {
 
         $tree=($tree->par)
@@ -761,9 +916,7 @@ sub getmatch($) {
 
         $tree=$fr_node->nit($tree,$self->{name});
 
-      };
-
-      unshift @pending,@$v;
+      };unshift @pending,@$v;
 
 # ---   *   ---   *   ---
 
@@ -774,16 +927,12 @@ sub getmatch($) {
         $fr_node->nit($leaf,$match);
 
       };
-
     };
   };
 
-  $tree=(defined $tree->par)
-    ? $tree->par
-    : $tree
-    ;
+# ---   *   ---   *   ---
 
-  return $tree;
+  return $top;
 
 };
 
@@ -803,121 +952,169 @@ sub clean($) {
     if(lang::is_arrayref($v)) {
       unshift @pending,@$v;
 
-    };$self->{matches}=[];
+    };
+
+    $self->{matches}=[];
+    $self->{looped}=0;
 
   };
 };
 
 # ---   *   ---   *   ---
-# executes a pattern tree
+
+sub trymatch($$$) {
+
+  my ($obj,$string,$pat,$prev_match)=@_;
+
+  my $match=0;
+  my $status=0;
+
+# ---   *   ---   *   ---
+
+  my $space='\s*';
+  if($obj->{space}==0) {
+    $space=''
+
+  } elsif($obj->{space}==2) {
+    $space='\s+'
+
+  };
+
+  my ($prev,$next)=($obj->{prv},$obj->{nxt});
+
+# ---   *   ---   *   ---
+
+  REPEAT:
+  $match=int($$string=~ s/^(${pat})${space}//s);
+  $status|=$match!=0;
+
+# ---   *   ---   *   ---
+# early exit
+
+  if(!$match) {
+
+    if(
+
+       defined $obj->{on_no_match}
+    && !$obj->{looped}
+
+    ) {
+
+      if(eval($obj->{on_no_match})) {
+
+        $status|=1|4;
+
+        while($obj->{nxt}) {
+          $obj->regmatch('');
+          $obj=$obj->{nxt};
+
+        };
+
+        goto END;
+
+      };
+    };
+
+# ---   *   ---   *   ---
+# register blanks on optional/abort if mandatory
+
+    if($obj->{looped} || $obj->{optional}) {
+      $obj->regmatch('');
+      $status|=1;
+
+    } elsif(!$obj->{optional}) {
+      goto END;
+
+    };
+
+# ---   *   ---   *   ---
+# continuation modifiers
+
+  } elsif($match) {
+
+    $$prev_match=$1;
+    $obj->regmatch($$prev_match);
+
+    if($obj->{consume_equal}) {
+      $obj->{looped}=1;
+      goto REPEAT;
+
+    };if($obj->{rewind}) {
+      $status|=2;
+      goto END;
+
+    };
+  };
+
+# ---   *   ---   *   ---
+
+  END:
+
+  $obj->{looped}=0;
+  return $status;
+
+};
+
+# ---   *   ---   *   ---
+# a recursive nightmare
 
 sub run {
 
-  my $program=shift;
-
-  my $key=shift;
-  my $string=shift;
-
+  my ($program,$key,$string)=@_;
   my $root=$program->{defs}->{$key};
+  my $tree=$root->{tree};
 
-  my $obj=$root;
-  my $prev_match=undef;
+  my $early_exit=0;
+  my $prev_match='';
 
-  my $last=undef;
-  my $next=undef;
-
-  my $looped=0;
-
-  my @pending=($obj);
+  my @main=map {$_->value;} (@{$tree->leaves});
+  my @leaves=($tree);
 
 # ---   *   ---   *   ---
-# iter/unpack patterns
+# walk the tree
 
-  while(@pending) {
+  while(@leaves) {
 
-    $obj=shift @pending;
-    my $pat=$obj->{value};
+    my $node=shift @leaves;
+    if(!@{$node->leaves}) {
 
-    # compound pattern, unpack
-    if(lang::is_arrayref($pat)) {
+      my $obj=$node->par->value;
+      my $pat=$node->value;
 
-      $next=$pending[0];
+      my $status=$obj->trymatch(
+        \$string,$pat,\$prev_match,
 
-      unshift @pending,@$pat;
-      $last=$obj;
+      );
 
-# ---   *   ---   *   ---
-# common pattern, attempt match
+      my $end=($obj->{altern})
+        ? $node eq $node->par->leaves->[-1]
+        : 1
+        ;
 
-    } else {
+      if(!$status && $end) {
+        $early_exit=1;
+        last;
 
-      my $space='\s*';
-      if($obj->{space}==0) {
-        $space=''
+      } elsif($status&2) {
+        unshift @leaves,(
+          $obj->{prv}->{tree},$node
 
-      } elsif($obj->{space}==2) {
-        $space='\s+'
+        );
+
+      } elsif($status&4) {
+        next;
 
       };
 
 # ---   *   ---   *   ---
 
-      REPEAT:
-      my $match=int($string=~ s/^(${pat})${space}//s);
-
-# ---   *   ---   *   ---
-# early exit
-
-      if(!$match) {
-
-        if(defined $obj->{on_no_match} && !$looped) {
-          if(eval($obj->{on_no_match})) {
-
-            while($pending[0] ne $next) {
-
-              $obj->regmatch('',$looped);
-              $obj=shift @pending;
-
-            };next;
-
-          };
-        };
-
-# ---   *   ---   *   ---
-
-        if($looped || $obj->{optional}) {
-          $obj->regmatch('',$looped);
-
-        } elsif(!$obj->{optional}) {
-          goto END;
-
-        };
-
-# ---   *   ---   *   ---
-# continuation modifiers
-
-      } elsif($match) {
-
-        $prev_match=$1;
-        $obj->regmatch($1,$looped);
-
-        if($obj->{consume_equal}) {
-          $looped=1;
-          goto REPEAT;
-
-        };if($obj->{rewind}) {
-          $looped=0;
-          unshift @pending,($last,$obj);next;
-
-        };
-
-      };$looped=0;
-
-# ---   *   ---   *   ---
-# returns object with match details
+    } else {
+      unshift @leaves,@{$node->leaves};
 
     };
   };
+
+# ---   *   ---   *   ---
 
   END:
 
