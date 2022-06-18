@@ -20,6 +20,7 @@ package langdefs::plps;
 use constant TRTAB=>{
 
   'ari'=>'ops',
+  'ptr'=>'is_ptr&',
 
   'type'=>'types',
   'spec'=>'specifiers',
@@ -199,7 +200,14 @@ sub tagv($$) {
 
   if(exists TRTAB->{$tag}) {
     $tag=TRTAB->{$tag};
-    $v=$program->{ext}->$tag;
+
+    if($tag=~ m/&$/) {
+      $v=$program->{ext}->{$tag};
+
+    } else {
+      $v=$program->{ext}->$tag;
+
+    };
 
     if(lang::is_hashref($v)) {
       $v=lang::hashpat($v);
@@ -229,8 +237,14 @@ sub tagv($$) {
 # ---   *   ---   *   ---
 # compile regexes if present
 
-  $v=(defined $v && !plps_obj::valid($v))
-    ? qr/$v/ : $v;
+  $v=(
+
+     defined $v
+
+  && !plps_obj::valid($v)
+  && !lang::is_coderef($v)
+
+  ) ? qr/$v/ : $v;
 
   return $v;
 };
@@ -742,10 +756,16 @@ sub walkdown($) {
   my $root=$self;
 
   my @pending=($self);
+  my @anchors=();
+
   while(@pending) {
 
     $self=shift @pending;
-    if(!$self) {$parent=$root;next};
+    if(!$self) {
+      $parent=shift @anchors;
+      next;
+
+    };
 
     $self->{parent}=$parent;
 
@@ -753,6 +773,8 @@ sub walkdown($) {
 
     if(lang::is_arrayref($v)) {
       unshift @pending,(@$v,0);
+      unshift @anchors,$parent;
+
       $parent=$self;
 
     };
@@ -974,7 +996,7 @@ sub clean($) {
 
 sub trymatch($$$) {
 
-  my ($obj,$string,$pat,$prev_match)=@_;
+  my ($obj,$program,$string,$pat,$prev_match)=@_;
 
   my $match=0;
   my $status=0;
@@ -993,10 +1015,42 @@ sub trymatch($$$) {
   my ($prev,$next)=($obj->{prv},$obj->{nxt});
 
 # ---   *   ---   *   ---
+# textual pattern
+
+  my $matfn=sub {
+    $match=int($$string=~ s/^(${pat})${space}//s);
+    $status|=$match!=0;
+    $$prev_match=(defined $1) ? $1 : $$prev_match;
+
+  };
+
+# ---   *   ---   *   ---
+# coderef call
+
+  if(lang::is_coderef($pat)) {
+
+    $matfn=sub {
+      $match=$pat->(
+        $program->{ext},
+        $program,$string
+
+      );
+
+      if(length $match) {
+        $$string=~ s/^${space}//s;
+        $$prev_match=$match;
+
+        $status|=1;
+
+      };
+
+    };
+  };
+
+# ---   *   ---   *   ---
 
   REPEAT:
-  $match=int($$string=~ s/^(${pat})${space}//s);
-  $status|=$match!=0;
+  $matfn->($$string);
 
 # ---   *   ---   *   ---
 # early exit
@@ -1042,7 +1096,6 @@ sub trymatch($$$) {
 
   } elsif($match) {
 
-    $$prev_match=$1;
     $obj->regmatch($$prev_match);
 
     if($obj->{consume_equal}) {
@@ -1087,7 +1140,7 @@ sub optional_branch($) {
 };
 
 # ---   *   ---   *   ---
-# a recursive nightmare
+# executes block from a plps program
 
 sub run {
 
@@ -1112,6 +1165,9 @@ sub run {
       my $pat=$node->value;
 
       my $status=$obj->trymatch(
+
+        $program,
+
         \$string,$pat,\$prev_match,
 
       );
@@ -1121,14 +1177,19 @@ sub run {
         : 1
         ;
 
+# ---   *   ---   *   ---
+# dont attempt further matches
+
       if(!$status && $end) {
 
         if(!$obj->optional_branch) {
           $early_exit=1;
           last;
 
-        } else {
+# ---   *   ---   *   ---
+# field is optional
 
+        } else {
           while($obj->{nxt}) {
             $obj->regmatch('');
             $obj=$obj->{nxt};
@@ -1139,11 +1200,17 @@ sub run {
 
         };
 
+# ---   *   ---   *   ---
+# go to previous field
+
       } elsif($status&2) {
         unshift @leaves,(
           $obj->{prv}->{tree},$node
 
         );
+
+# ---   *   ---   *   ---
+# go to next field
 
       } elsif($status&4) {
         next;
@@ -1159,6 +1226,7 @@ sub run {
   };
 
 # ---   *   ---   *   ---
+# return a tree with the matches
 
   END:
 

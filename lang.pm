@@ -354,7 +354,7 @@ sub eaf {
 # ---   *   ---   *   ---
 # type-check utils
 
-;;sub is_code {
+;;sub is_coderef {
 
   my $v=shift;
   return defined $v
@@ -670,6 +670,17 @@ sub pebinnc {
     $r+=$v<<($i);$i++;
 
   };return $r;
+
+};
+
+# ---   *   ---   *   ---
+
+sub nxtok($$) {
+
+  my ($s,$cutat)=@_;
+
+  $s=~ s/${cutat}.*//sg;
+  return $s;
 
 };
 
@@ -1097,6 +1108,18 @@ sub nit {
   };hash_vrepl($ref,-NUMCON);
 
 # ---   *   ---   *   ---
+# these are for coderef access from plps
+
+  for my $key('is_ptr&') {
+
+    my $fnkey=$key;
+    $fnkey=~ s/&$//;
+
+    $ref->{$key}=eval('\&'."$fnkey");
+
+  };
+
+# ---   *   ---   *   ---
 
   no strict;
 
@@ -1375,6 +1398,26 @@ sub plps_match($$$) {
 
   my ($self,$str,$type)=@_;
   return $self->{-PLPS}->run($str,$type);
+
+};
+
+# ---   *   ---   *   ---
+
+
+sub is_ptr($$) {
+
+  my ($self,$program,$string)=@_;
+  my $out=undef;
+
+  my $tok=lang::nxtok($$string,' ');
+
+  if($self->valid_name($tok)) {
+    $$string=~ s/^${tok}//;
+    $out=$tok;
+
+  };
+
+  return ($out);
 
 };
 

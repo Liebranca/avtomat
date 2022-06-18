@@ -710,7 +710,7 @@ lang::def::nit(
 );lang->peso->{-PLPS}
     =langdefs::plps::make(lang->peso);
 
-};exit;
+};
 
 # ---   *   ---   *   ---
 1; # ret

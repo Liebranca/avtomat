@@ -13,7 +13,7 @@ beg sbl_decl c_func_decl;
 end;
 
 beg pattern pr;
-  <cdecl>;
+  <c_func_decl>;
 
 end;
 
