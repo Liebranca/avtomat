@@ -226,6 +226,13 @@ use constant def=>{
 
     [20,sub {my ($x,$y)=@_;return $$x!=$$y;}],
 
+  ],','=>[
+
+    undef,
+    undef,
+
+    [99,sub {my ($x,$y)=@_;return "$$x,$$y";}],
+
   ],
 
 };

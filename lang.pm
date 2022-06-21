@@ -1053,8 +1053,9 @@ sub nit {
 # ---   *   ---   *   ---
 # handle creation of operator pattern
 
+  my $op_obj='node_op=HASH\(0x[0-9a-f]+\)';
   if(!keys %{$ref->{-OP_PREC}}) {
-    $ref->{-OPS}='$^';
+    $ref->{-OPS}="($op_obj)";
 
 # ---   *   ---   *   ---
 
@@ -1063,6 +1064,9 @@ sub nit {
       $ref->{-OP_PREC},0,1
 
     );
+
+    $ref->{-OPS}=~ s/\)$/|${op_obj})/;
+
   };
 
   $ref->{-LCOM}=lang::eaf($ref->{-COM},0,1);
@@ -1188,6 +1192,8 @@ sub resnames {return (shift)->{-RESNAMES};};
 
 sub nums {return (shift)->{-NUMS};};
 sub numcon {return (shift)->{-NUMCON};};
+
+sub separators {return (shift)->{-SEP_OPS};};
 
 # ---   *   ---   *   ---
 
@@ -1402,7 +1408,6 @@ sub plps_match($$$) {
 };
 
 # ---   *   ---   *   ---
-
 
 sub is_ptr($$) {
 

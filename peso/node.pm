@@ -102,10 +102,10 @@ sub nit($$$) {
   # add leaf if ancestry
   if(defined $parent) {
 
-    $node->{-INDEX}=$parent->idextrav();
-
     push @{ $parent->leaves },$node;
     $node->{-PAR}=$parent;
+
+    $parent->idextrav();
 
   } else {
     $tree{-ROOT}=$node;
@@ -640,9 +640,14 @@ sub agroup($) {
 # ---   *   ---   *   ---
 # solves operations across the hierarchy
 
-};sub collapse($) {
+};sub collapse {
 
   my $self=shift;
+  my %args=@_;
+
+  my $depth=0;
+  my $max_depth=$args{depth};
+
   my $lang=$self->frame->master->lang;
   my $op_prec=$lang->op_prec;
   my $del_op=$lang->del_ops;
@@ -654,16 +659,23 @@ sub agroup($) {
 # ---   *   ---   *   ---
 # collect pending operations
 
-  do {
+  while(@leaves) {
 
     $self=shift @leaves;
+    if($self eq 0) {$depth--;next;}
+    elsif($self eq 1) {$depth++;next;};
+
+    if(defined $max_depth
+    && $depth>=$max_depth) {next;};
 
     if($self->value=~ m/^node_op=HASH/) {
       push @solve,$self;
 
-    };unshift @leaves,@{$self->leaves};
+    };
 
-  } while(@leaves);
+    unshift @leaves,1,@{$self->leaves},0;
+
+  };
 
 # ---   *   ---   *   ---
 # handle operations bottom to top
@@ -706,47 +718,24 @@ sub agroup($) {
 
     };
   };
+};
 
 # ---   *   ---   *   ---
+# replaces field_N with it's children
 
-};sub defield($) {
+sub defield($) {
 
   my $self=shift;
-  my $i=0;while($i<@{$self->leaves}) {
 
-    my @fields=$self->fieldsn($i);
+  my @ar=$self->branches_in('^field_\d+$');
+  map {$_->contract()} @ar;
 
-    for my $field(@fields) {
-      my @ar=$field->pluck(@{$field->leaves});
-
-      if(@ar>1) {
-
-        my $root=shift @ar;
-        my $s=$root->value;
-
-        while(@ar) {
-
-          my $node=shift @ar;
-          $s.=' '.$node->value;
-
-          unshift @ar,@{$node->leaves};
-
-        };
-
-        $root->value($s);
-        push @ar,$root;
-
-      };
-
-      $field->value($ar[0]->value);
-
-    };$i++;
-  };
+};
 
 # ---   *   ---   *   ---
 # check for ([]) delimiters
 
-};sub delimchk($) {
+sub delimchk($) {
 
   my $self=shift;
   my $frame=$self->frame;
@@ -886,6 +875,40 @@ sub repl($$) {
 };
 
 # ---   *   ---   *   ---
+# replaces node with it's leaves
+
+sub contract($) {
+
+  my $self=shift;
+  my %args=@_;
+
+  my @move=$self->pluck(@{$self->leaves});
+  my $par=$self->par;
+
+  my $keep_root=$args{keep_root};
+
+  $par->cllv();
+  $par->idextrav();
+
+# ---   *   ---   *   ---
+
+  my $idex=$self->{-INDEX};
+  my @ar=@{$par->leaves};
+
+  if($keep_root) {unshift @move,$self;};
+  if($idex) {unshift @move,@ar[0..$idex-1];};
+  if($idex<$#ar) {push @move,@ar[$idex+1..$#ar];};
+
+# ---   *   ---   *   ---
+
+  $par->pushlv(1,@move);
+
+  $par->cllv();
+  $par->idextrav();
+
+};
+
+# ---   *   ---   *   ---
 
 # in: node list
 # removes leaves from node
@@ -950,6 +973,7 @@ sub pluck {
 sub idextrav($) {
 
   my $self=shift;
+  my $fuck=shift;
   my $i=0;
 
   for my $child(@{$self->leaves}) {
@@ -1157,23 +1181,58 @@ sub plain_arr(@) {
 
 # ---   *   ---   *   ---
 
-sub flatten($) {
+sub nocslist($) {
 
   my $self=shift;
   my @leaves=($self);
+  my @pending=();
+
+  my $sep=$self->frame->master->lang->separators;
+  while(@leaves) {
+    $self=shift @leaves;
+    unshift @leaves,@{$self->leaves};
+
+    if(
+
+       $self->value=~ m/node_op/
+    && $self->value->{op}=~ m/${sep}/
+
+    ) {push @pending,$self;};
+
+  };map {$_->collapse(depth=>1);} @pending;
+
+};
+
+# ---   *   ---   *   ---
+
+sub flatten {
+
+  my $self=shift;
+  my %args=@_;
+  my @leaves=($self);
+
+  my $root=$self;
+
+  my $depth=0;
+  my $max_depth=$args{depth};
 
   my $s='';
 
   while(@leaves) {
 
     $self=shift @leaves;
+    if($self eq 0) {$depth--;next;}
+    elsif($self eq 1) {$depth++;next};
+
     $s.=$self->value.' ';
+    if(defined $max_depth && $depth>=$max_depth) {
+      next;
 
-    unshift @leaves,@{$self->leaves};
+    };
 
-  };
+    unshift @leaves,1,@{$self->leaves},0;
 
-  return $s;
+  };return $s;
 
 };
 
@@ -1233,6 +1292,8 @@ sub prich {
 
       my $par=$self->par;
 
+# ---   *   ---   *   ---
+
       while(defined $par) {
 
         $depth++;
@@ -1243,6 +1304,8 @@ sub prich {
       };
 
     };
+
+# ---   *   ---   *   ---
 
     my $branch=($depth)
       ? '.  'x($depth-1).'\-->'
@@ -1257,10 +1320,18 @@ sub prich {
 
     }$prev_depth=$depth;
 
-    my $v=($self->value=~ m/node_op=HASH/)
-      ? $self->value->{op}
+# ---   *   ---   *   ---
+
+    my $v=($self->value=~
+      m/^node_op=HASH\(0x[0-9a-f]+\)$/
+
+    && length ref $self->value
+
+    ) ? $self->value->{op}
       : $self->value
       ;
+
+# ---   *   ---   *   ---
 
     print $FH $branch.$v."\n";
     unshift @leaves,@{$self->leaves};

@@ -2,12 +2,17 @@ $:%plps;>
 
 in lang->peso;
 
-beg pattern vdef;
-  <ari|ode|sbl|ptr|num>%value ~','?--%cslist;
+beg pattern vlist;
+  <bare|num|ari>%value ~','?--%cslist;
 
 end;
 
-beg ptr_decl vdecl;
-  <type>|-> <spec>?|-> <bare> (null]kill)!<vdef>?%args;
+beg pattern value_decl;
+  <type>|-> <spec>?|-> <bare>%name ~','?--%cslist;
+
+end;
+
+beg ptr_decl pe_ptr_decl;
+   <value_decl> <vlist>?;
 
 end;

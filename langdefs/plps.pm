@@ -523,8 +523,13 @@ DEFINE 'beg',DIRECTIVE,sub {
   $f1=$f1->[0];
 
   $m->{defs}->{$f1}=undef;
-  $m->{defs}->{$f0}=$f1;
 
+  if(!exists $m->{defs}->{$f0}) {
+    $m->{defs}->{$f0}=[];
+
+  };
+
+  push @{$m->{defs}->{$f0}},0x00;
   $m->{dst}=[$f0,$f1];
 
 };
@@ -553,6 +558,7 @@ DEFINE 'end',DIRECTIVE,sub {
   $obj->{tree}=$obj->mktree();
 
   $m->{defs}->{$name}=$obj;
+  $m->{defs}->{$cath}->[-1]=$obj;
 
   delete $m->{target_node};
   delete $m->{target_node_value};
@@ -944,7 +950,8 @@ sub getmatch($) {
 
     my $v=$self->{value};
 
-    if(lang::is_arrayref($v)) {
+    if( lang::is_arrayref($v)) {
+
       if($self ne $root) {
         $tree=$fr_node->nit($tree,$self->{name});
 
@@ -1018,7 +1025,7 @@ sub trymatch($$$) {
 # textual pattern
 
   my $matfn=sub {
-    $match=int($$string=~ s/^(${pat})${space}//s);
+    $match=int($$string=~ s/^(${pat})(${space})?//s);
     $status|=$match!=0;
     $$prev_match=(defined $1) ? $1 : $$prev_match;
 
@@ -1037,7 +1044,7 @@ sub trymatch($$$) {
       );
 
       if(length $match) {
-        $$string=~ s/^${space}//s;
+        $$string=~ s/^(${space})?//s;
         $$prev_match=$match;
 
         $status|=1;
@@ -1146,6 +1153,13 @@ sub run {
 
   my ($program,$key,$string)=@_;
   my $root=$program->{defs}->{$key};
+
+  # TODO: iter through these
+  if(lang::is_arrayref($root)) {
+    $root=$root->[-1];
+
+  };
+
   my $tree=$root->{tree};
 
   my $early_exit=0;
@@ -1159,6 +1173,7 @@ sub run {
   while(@leaves) {
 
     my $node=shift @leaves;
+
     if(!@{$node->leaves}) {
 
       my $obj=$node->par->value;
@@ -1232,6 +1247,124 @@ sub run {
 
   my $matches=$root->getmatch($program);
   my $full_match=!int(length $string);
+
+  $matches->{full}=$full_match;
+  $root->clean();
+
+  return $matches;
+
+};
+
+# ---   *   ---   *   ---
+# ^same, looks for matches in a tree branch
+
+sub run_tree {
+
+  my ($program,$key,$branch)=@_;
+
+  my $root=$program->{defs}->{$key};
+  my $tree=$root->{tree};
+
+  my $early_exit=0;
+  my $prev_match='';
+
+  my @leaves=($tree);
+  my @lookat=($branch);
+
+  my $look=undef;
+
+# ---   *   ---   *   ---
+# walk the block tree
+
+  while(@leaves) {
+
+    if(!defined $look) {
+      $look=shift @lookat;
+      if(!defined $look) {last;};
+
+      unshift @lookat,@{$look->leaves};
+
+    };
+
+# ---   *   ---   *   ---
+
+    my $node=shift @leaves;
+
+    if(!@{$node->leaves}) {
+
+      my $obj=$node->par->value;
+      my $pat=$node->value;
+
+      my $status=$obj->trymatch(
+
+        $program,
+
+        \$look->value,$pat,\$prev_match,
+
+      );
+
+      my $end=($obj->{altern})
+        ? $node eq $node->par->leaves->[-1]
+        : 1
+        ;
+
+      if($status&1) {$look=undef;};
+
+# ---   *   ---   *   ---
+# dont attempt further matches
+
+      if(!$status && $end) {
+
+        if(!$obj->optional_branch) {
+          $early_exit=1;
+          last;
+
+# ---   *   ---   *   ---
+# field is optional
+
+        } else {
+          while($obj->{nxt}) {
+            $obj->regmatch('');
+            $obj=$obj->{nxt};
+
+            shift @leaves;
+
+          };$obj->regmatch('');
+
+        };
+
+# ---   *   ---   *   ---
+# go to previous field
+
+      } elsif($status&2) {
+        unshift @leaves,(
+          $obj->{prv}->{tree},$node
+
+        );
+
+# ---   *   ---   *   ---
+# go to next field
+
+      } elsif($status&4) {
+        next;
+
+      };
+
+# ---   *   ---   *   ---
+
+    } else {
+      unshift @leaves,@{$node->leaves};
+
+    };
+  };
+
+# ---   *   ---   *   ---
+# return a tree with the matches
+
+  END:
+
+  my $matches=$root->getmatch($program);
+  my $full_match=0;
 
   $matches->{full}=$full_match;
   $root->clean();

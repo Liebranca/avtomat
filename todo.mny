@@ -12,6 +12,7 @@ x Extend lang && langdefs for basic Perl parse;
 x Hook langdefs::perl to a source filter;
 x Use the filter to change how Perl works;
 x Overhaul mcut/stich to work with a hash;
+~ decompose PLPS match trees in parser;
 ~ Rework peso::sbl to use PLPS for symbol declarations;
 ~ Create a Peso virtual machine in Perl.
 This means, roughly:;

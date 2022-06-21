@@ -27,14 +27,25 @@
 #
 #);
 
-my $tree=lang->peso->plps_match(
+my $program=peso::rd::parse(
+  lang->peso,
+  peso::rd::STR,q(
 
-  'vdecl',
-  'char ptr x y',
+char ptr x,y a+b,c-d;
 
-);
+));
 
-$tree->prich();
+#$program->{tree}->leaves->[0]->defield();
+#my $s=$program->{tree}->leaves->[0]->flatten();
+#
+#my $tree=lang->peso->plps_match(
+#
+#  'pe_ptr_decl',
+#  $s,
+#
+#);
+#
+#$tree->prich();
 
 # ---   *   ---   *   ---
 1; # ret

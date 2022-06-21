@@ -423,19 +423,20 @@ sub clean($) {
 
     ) {
 
-      $self->{-LINE}=~ s/\s*${v}\s*/\$:op \\$key;>/sg;
+      $self->{-LINE}=~
+        s/\s*${v}\s*/:__OP\\${key}__:/sg;
 
     # x {op}
     } elsif(defined $op_prec->{$key}->[0]) {
-      $self->{-LINE}=~ s/\s*${v}/\$:op \\$key;>/sg;
+      $self->{-LINE}=~ s/\s*${v}/:__OP\\${key}__:/sg;
 
     # {op} x
     } elsif(defined $op_prec->{$key}->[1]) {
-      $self->{-LINE}=~ s/${v}\s*/\$:op \\$key;>/sg;
+      $self->{-LINE}=~ s/${v}\s*/:__OP\\${key}__:/sg;
 
     # undef
     } else {
-      $self->{-LINE}=~ s/${v}/\$:op \\$key;>/sg;
+      $self->{-LINE}=~ s/${v}/:__OP\\${key}__:/sg;
 
     };
 
@@ -444,7 +445,7 @@ sub clean($) {
 # ---   *   ---   *   ---
 # restore operators
 
-  while($self->{-LINE}=~ s/\$:op \\([^;]+);>/$1/) {
+  while($self->{-LINE}=~ s/:__OP\\([^_]+)__:/$1/) {
     ;
 
   };
@@ -805,6 +806,184 @@ sub rm_nltoks($) {
 
 # ---   *   ---   *   ---
 
+sub exp_open($$) {
+
+  my ($rd,$exp)=@_;
+
+  $exp->{body}=~ s/^\s*//;
+
+  my $body=$exp->{body};
+  my $has_eb=$exp->{has_eb};
+  my $lineno=$exp->{lineno};
+
+  push @{$rd->cooked},$body;
+
+  return ($body,$has_eb,$lineno);
+
+};
+
+sub exp_close($$$) {
+
+  my ($exp,$has_eb,$lineno)=@_;
+
+  $exp->{has_eb}=$has_eb;
+  $exp->{lineno}=$lineno;
+
+};
+
+# ---   *   ---   *   ---
+
+sub exp_hierarchy($$$$$) {
+
+  my (
+
+    $rd,$exp,$anchor,
+    $anchors,$body
+
+  )=@_;
+
+  my $lang=$rd->lang;
+
+  my $sb=$lang->scope_bound;
+  my $ode=$lang->ode;
+  my $cde=$lang->cde;
+
+  my $out=0;
+  my $fr_node=$rd->program->node;
+
+# ---   *   ---   *   ---
+
+  if($body=~ m/${sb}/) {
+
+    $exp=$fr_node->nit($$anchor,$body);
+
+    if($body=~ m/${ode}/) {
+      push @$anchors,$$anchor;
+      $$anchor=$exp;
+
+    } else {
+      $$anchor=pop @$anchors;
+
+    };$out=1;
+
+# ---   *   ---   *   ---
+
+  };return $out;
+
+};
+
+# ---   *   ---   *   ---
+
+sub regular_parse($$$$) {
+
+  my ($rd,$exp,$anchor,$anchors)=@_;
+
+  my $lang=$rd->lang;
+  my $fr_node=$rd->program->node;
+
+  my ($body,$has_eb,$lineno)=exp_open(
+    $rd,$exp
+
+  );
+
+# ---   *   ---   *   ---
+
+  if(!exp_hierarchy(
+
+    $rd,$exp,\$anchor,
+    $anchors,$body
+
+  )) {
+
+    $exp=$fr_node->nit($anchor,'void');
+
+    $exp->tokenize($body);
+    $exp->agroup();
+    $exp->subdiv();
+
+# ---   *   ---   *   ---
+# contextualize, so to speak
+
+    my $f=$exp->fieldn(0);
+    if($lang->is_keyword(
+      $f->leaves->[0]->value
+
+    )) {
+
+      $exp->value($f->leaves->[0]->value);
+      $exp->pluck($f);
+
+      my $i=0;for my $leaf(@{$exp->leaves}) {
+        $leaf->value("field_$i");$i++;
+
+      };
+    };
+
+# ---   *   ---   *   ---
+# remember if node has boundary char
+
+  };exp_close($exp,$has_eb,$lineno);
+  return ($exp,$anchor);
+
+};
+
+# ---   *   ---   *   ---
+
+sub plps_parse($$$$) {
+
+  my ($rd,$exp,$anchor,$anchors)=@_;
+
+  my $lang=$rd->lang;
+  my $fr_node=$rd->program->node;
+
+  my ($body,$has_eb,$lineno)=exp_open(
+    $rd,$exp
+
+  );
+
+# ---   *   ---   *   ---
+
+  if(!exp_hierarchy(
+
+    $rd,$exp,\$anchor,
+    $anchors,$body
+
+  )) {
+
+    $exp=$fr_node->nit($anchor,'void');
+
+    $exp->tokenize($body);
+    $exp->agroup();
+    $exp->subdiv();
+
+    $exp->nocslist();
+    $exp->defield();
+
+$exp->prich();
+
+    for my $key('ptr_decl') {
+      my $cpy=$exp->flatten(depth=>1);
+      $cpy=~ s/^void //;
+
+      my $tree=$lang->plps_match(
+        $key,$cpy
+
+      );if($tree->{full}) {
+        $tree->prich();
+
+      };
+    };
+  };
+
+# ---   *   ---   *   ---
+
+  exp_close($exp,$has_eb,$lineno);
+  return ($exp,$anchor);
+
+};
+
+# ---   *   ---   *   ---
+
 sub parse($$$;@) {
 
   my ($lang,$mode,$src,%opt)=@_;
@@ -854,70 +1033,23 @@ sub parse($$$;@) {
 
 # ---   *   ---   *   ---
 
-  my $sb=$lang->scope_bound;
-  my $ode=$lang->ode;
-  my $cde=$lang->cde;
+  my $parse_fn;
+  if($lang->{-NAME} eq 'plps') {
+    $parse_fn=\&regular_parse;
+
+  } else {
+    $parse_fn=\&plps_parse;
+
+
+  };
+
+# ---   *   ---   *   ---
 
   for my $exp(@{$rd->exps}) {
+    ($exp,$anchor)=$parse_fn->(
+      $rd,$exp,$anchor,\@anchors
 
-    $exp->{body}=~ s/^\s*//;
-
-    my $body=$exp->{body};
-    my $has_eb=$exp->{has_eb};
-    my $lineno=$exp->{lineno};
-
-    push @{$rd->cooked},$body;
-
-# ---   *   ---   *   ---
-
-    if($body=~ m/${sb}/) {
-
-      $exp=$fr_node->nit($anchor,$body);
-
-      if($body=~ m/${ode}/) {
-        push @anchors,$anchor;
-        $anchor=$exp;
-
-      } else {
-        $anchor=pop @anchors;
-
-      };
-
-# ---   *   ---   *   ---
-
-    } else {
-
-      $exp=$fr_node->nit($anchor,'void');
-
-      $exp->tokenize($body);
-      $exp->agroup();
-      $exp->subdiv();
-
-# ---   *   ---   *   ---
-# contextualize, so to speak
-
-      my $f=$exp->fieldn(0);
-      if($lang->is_keyword(
-        $f->leaves->[0]->value
-
-      )) {
-
-        $exp->value($f->leaves->[0]->value);
-        $exp->pluck($f);
-
-        my $i=0;for my $leaf(@{$exp->leaves}) {
-          $leaf->value("field_$i");$i++;
-
-        };
-
-      };
-
-# ---   *   ---   *   ---
-# remember if node has boundary char
-
-    };$exp->{has_eb}=$has_eb;
-      $exp->{lineno}=$lineno;
-
+    );
   };
 
 # ---   *   ---   *   ---
