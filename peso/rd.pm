@@ -20,6 +20,7 @@ package peso::rd;
 
   use lang;
   use peso::program;
+  use peso::fndmtl;
 
 # ---   *   ---   *   ---
 # getters/setters
@@ -959,23 +960,42 @@ sub plps_parse($$$$) {
     $exp->nocslist();
     $exp->defield();
 
-$exp->prich();
+# ---   *   ---   *   ---
 
-    for my $key('ptr_decl') {
+    my $exp_key='';
+    my $tree=undef;
+
+    for my $key(
+      'ptr_decl'
+
+    ) {
+
       my $cpy=$exp->flatten(depth=>1);
       $cpy=~ s/^void //;
+      $cpy=~ s/\s*$//s;
 
-      my $tree=$lang->plps_match(
+print "$cpy\n\n";
+
+      $tree=$lang->plps_match(
         $key,$cpy
 
+# ---   *   ---   *   ---
+
       );if($tree->{full}) {
-        $tree->prich();
+        $exp_key=$key;last;
 
       };
-    };
-  };
 
 # ---   *   ---   *   ---
+
+    };if(length $exp_key) {
+      peso::fndmtl->$exp_key($tree);
+
+    };
+
+# ---   *   ---   *   ---
+
+  };
 
   exp_close($exp,$has_eb,$lineno);
   return ($exp,$anchor);
@@ -990,6 +1010,7 @@ sub parse($$$;@) {
 
   my $keep_comments=$opt{keep_comments};
   my $lineno=$opt{lineno};
+  my $use_plps=$opt{use_plps};
 
   $keep_comments=(!defined $keep_comments)
     ? 0
@@ -1034,7 +1055,14 @@ sub parse($$$;@) {
 # ---   *   ---   *   ---
 
   my $parse_fn;
-  if($lang->{-NAME} eq 'plps') {
+
+  if(
+
+     $lang->{-NAME} eq 'plps'
+  || $opt{use_plps}
+
+  ) {
+
     $parse_fn=\&regular_parse;
 
   } else {

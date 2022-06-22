@@ -163,7 +163,7 @@ lang::def::nit(
     index int ioctl join keys kill
 
     length link listen local localtime
-    log lstat m mkdir
+    log lstat m map mkdir
 
     msgctl msgget msgsnd msgrcv oct open
     opendir ord pack pipe pop print printf

@@ -24,6 +24,11 @@ package peso::node;
 
 # ---   *   ---   *   ---
 
+use constant OPERATOR
+  =>'node_op=HASH\(0x[0-9a-f]+\)';
+
+# ---   *   ---   *   ---
+
 sub valid {
 
   my $node=shift;if(
@@ -647,6 +652,7 @@ sub agroup($) {
 
   my $depth=0;
   my $max_depth=$args{depth};
+  my $only_if=$args{only};
 
   my $lang=$self->frame->master->lang;
   my $op_prec=$lang->op_prec;
@@ -668,11 +674,18 @@ sub agroup($) {
     if(defined $max_depth
     && $depth>=$max_depth) {next;};
 
-    if($self->value=~ m/^node_op=HASH/) {
+    if($self->value=~ m/^${\OPERATOR}/) {
+
+      if(
+
+         defined $only_if
+      && !($self->value->{op}=~ m/^${only_if}/)
+
+      ) {goto SKIP;};
+
       push @solve,$self;
 
-    };
-
+    };SKIP:
     unshift @leaves,1,@{$self->leaves},0;
 
   };
@@ -1181,6 +1194,18 @@ sub plain_arr(@) {
 
 # ---   *   ---   *   ---
 
+sub branch_values($$) {
+
+  my ($self,$pat)=@_;
+  my @ar=$self->branches_in($pat);
+
+  @ar=plain_arr(@ar);
+  return @ar;
+
+};
+
+# ---   *   ---   *   ---
+
 sub nocslist($) {
 
   my $self=shift;
@@ -1199,7 +1224,7 @@ sub nocslist($) {
 
     ) {push @pending,$self;};
 
-  };map {$_->collapse(depth=>1);} @pending;
+  };map {$_->collapse(only=>$sep);} @pending;
 
 };
 
@@ -1321,14 +1346,27 @@ sub prich {
     }$prev_depth=$depth;
 
 # ---   *   ---   *   ---
+# check value is an operator (node_op 'class')
 
-    my $v=($self->value=~
-      m/^node_op=HASH\(0x[0-9a-f]+\)$/
+    my $v=(
 
+       $self->value=~ m/^${\OPERATOR}$/
     && length ref $self->value
 
     ) ? $self->value->{op}
       : $self->value
+      ;
+
+# ---   *   ---   *   ---
+# this is only here so i can debug plps trees!
+
+    $v=(
+
+       $self->value=~ m/^plps_obj/
+    && length ref $self->value
+
+    ) ? $self->value->{name}
+      : $v
       ;
 
 # ---   *   ---   *   ---

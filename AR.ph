@@ -61,6 +61,8 @@ sub update {
   update(
 
     [ '/lang.pm',
+
+      '/peso/fndmtl.pm',
       '/peso/defs.pm',
 
       '/peso/ops.pm',

@@ -631,7 +631,9 @@ sub file_sbl($) {
     lang->$langname,
     peso::rd::FILE,
 
-    $f
+    $f,
+
+    use_plps=>0,
 
   );
 

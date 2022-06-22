@@ -262,7 +262,7 @@ sub decompose($$) {
 # operator found
 
   my @patterns=();
-  if($name=~ m/node_op=HASH/) {
+  if($name=~ m/${\peso::node->OPERATOR}/) {
 
     # alternation
     if($name->{op} eq '|') {
@@ -479,7 +479,6 @@ sub build {
 # tail
 
     };
-
   };
 
   cleanup($program);
@@ -728,9 +727,8 @@ sub nit($$$) {
 
   } elsif(!defined $v) {
 
+    $cpy->{altern}=[];
     for my $p(@{$self->{altern}}) {
-
-      $cpy->{altern}=[];
 
       if(valid $p) {
         push @{$cpy->{altern}},$p->dup();
@@ -739,6 +737,7 @@ sub nit($$$) {
         push @{$cpy->{altern}},$p;
 
       };
+
     };
 
 # ---   *   ---   *   ---
@@ -1187,7 +1186,7 @@ sub run {
 
       );
 
-      my $end=($obj->{altern})
+      my $end=(defined $obj->{altern})
         ? $node eq $node->par->leaves->[-1]
         : 1
         ;
@@ -1229,6 +1228,14 @@ sub run {
 
       } elsif($status&4) {
         next;
+
+      } elsif($status&1 && $obj->{altern}) {
+
+        while($obj->{nxt}) {
+          $obj=$obj->{nxt};
+          shift @leaves;
+
+        };
 
       };
 
@@ -1247,124 +1254,6 @@ sub run {
 
   my $matches=$root->getmatch($program);
   my $full_match=!int(length $string);
-
-  $matches->{full}=$full_match;
-  $root->clean();
-
-  return $matches;
-
-};
-
-# ---   *   ---   *   ---
-# ^same, looks for matches in a tree branch
-
-sub run_tree {
-
-  my ($program,$key,$branch)=@_;
-
-  my $root=$program->{defs}->{$key};
-  my $tree=$root->{tree};
-
-  my $early_exit=0;
-  my $prev_match='';
-
-  my @leaves=($tree);
-  my @lookat=($branch);
-
-  my $look=undef;
-
-# ---   *   ---   *   ---
-# walk the block tree
-
-  while(@leaves) {
-
-    if(!defined $look) {
-      $look=shift @lookat;
-      if(!defined $look) {last;};
-
-      unshift @lookat,@{$look->leaves};
-
-    };
-
-# ---   *   ---   *   ---
-
-    my $node=shift @leaves;
-
-    if(!@{$node->leaves}) {
-
-      my $obj=$node->par->value;
-      my $pat=$node->value;
-
-      my $status=$obj->trymatch(
-
-        $program,
-
-        \$look->value,$pat,\$prev_match,
-
-      );
-
-      my $end=($obj->{altern})
-        ? $node eq $node->par->leaves->[-1]
-        : 1
-        ;
-
-      if($status&1) {$look=undef;};
-
-# ---   *   ---   *   ---
-# dont attempt further matches
-
-      if(!$status && $end) {
-
-        if(!$obj->optional_branch) {
-          $early_exit=1;
-          last;
-
-# ---   *   ---   *   ---
-# field is optional
-
-        } else {
-          while($obj->{nxt}) {
-            $obj->regmatch('');
-            $obj=$obj->{nxt};
-
-            shift @leaves;
-
-          };$obj->regmatch('');
-
-        };
-
-# ---   *   ---   *   ---
-# go to previous field
-
-      } elsif($status&2) {
-        unshift @leaves,(
-          $obj->{prv}->{tree},$node
-
-        );
-
-# ---   *   ---   *   ---
-# go to next field
-
-      } elsif($status&4) {
-        next;
-
-      };
-
-# ---   *   ---   *   ---
-
-    } else {
-      unshift @leaves,@{$node->leaves};
-
-    };
-  };
-
-# ---   *   ---   *   ---
-# return a tree with the matches
-
-  END:
-
-  my $matches=$root->getmatch($program);
-  my $full_match=0;
 
   $matches->{full}=$full_match;
   $root->clean();
