@@ -3,7 +3,7 @@ $:%plps;>
 in lang->peso;
 
 beg pattern vlist;
-  <bare|num|ari>%value ~','?--%cslist;
+  <ari|num|bare>%value ~','?--%cslist;
 
 end;
 

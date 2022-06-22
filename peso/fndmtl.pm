@@ -21,7 +21,6 @@ sub ptr_decl($) {
   my ($self,$tree)=@_;
 
   my $type=($tree->branch_values('^type$'))[0];
-
   print "$type\n";
 
   my @names=$tree->branch_values('^name$');
@@ -55,8 +54,7 @@ sub ptr_decl($) {
 
 # ---   *   ---   *   ---
 
-  my %ptrs;
-  @ptrs{@names}=@values;
+  my %ptrs;@ptrs{@names}=@values;
 
   for my $key(keys %ptrs) {
 

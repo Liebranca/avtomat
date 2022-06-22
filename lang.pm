@@ -679,7 +679,7 @@ sub nxtok($$) {
 
   my ($s,$cutat)=@_;
 
-  $s=~ s/${cutat}.*//sg;
+  $s=~ s/(${cutat}).*//sg;
   return $s;
 
 };
@@ -865,46 +865,29 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
-  -NUMS=>[
+  -NUMS=>{
 
     # hex
     '(((\b0+x[0-9A-F]+[L]*)\b)|'.
     '(((\b0+x[0-9A-F]+\.)+[0-9A-F]+[L]*)\b)'.
 
-    ')\b',
+    ')\b'=>\&lang::pehexnc,
 
     # bin
     '(((\b0+b[0-1]+[L]*)\b)|'.
     '(((\b0+b[0-1]*\.)+[0-1]+[L]*)\b)'.
 
-    ')\b',
+    ')\b'=>\&lang::pebinnc,
 
     # octal
     '(((\b0+0[0-7]+[L]*)\b)|'.
     '(((\b0+0[0-7]+\.)+[0-7]+[L]*)\b)'.
 
-    ')\b',
+    ')\b'=>\&lang::peoctnc,
 
     # decimal
-    '((\b[0-9]*|\.)+[0-9]+f?)\b',
-
-  ],
-
-# ---   *   ---   *   ---
-
-  -NUMCON=>{
-
-    # hex conversion
-    '$:nums 0;>'=>\&lang::pehexnc,
-
-    # ^bin
-    '$:nums 1;>'=>\&lang::pebinnc,
-
-    # ^octal
-    '$:nums 2;>'=>\&lang::peoctnc,
-
-    # decimal notation: as-is
-    '$:nums 3;>'=>sub {return (shift);},
+    '((\b[0-9]*|\.)+[0-9]+f?)\b'
+    =>sub {return (shift);},
 
   },
 
@@ -945,22 +928,9 @@ my %DEFAULTS=(
 
   my $names=$ref->{-NAMES};
   my $drfc=$ref->{-DRFC};
-  my $nums=$ref->{-NUMS};
 
   $$v=~ s/\$:names;>/$names/sg;
   $$v=~ s/\$:drfc;>/$drfc/sg;
-
-  while($$v=~
-     m/\$:nums (\d*);>/
-
-  ) {
-
-    my $idex=$1;
-    my $pat=$nums->[$idex];
-
-    $$v=~ s/\$:nums ${idex};>/$pat/;
-
-  };
 
 };sub arr_vrepl {
 
@@ -1109,14 +1079,19 @@ sub nit {
 
     } else {vrepl($ref,\$ref->{$key});};
 
-  };hash_vrepl($ref,-NUMCON);
+  };
+
+  $ref->{-NUMS_RE}=lang::hashpat(
+    $ref->{-NUMS},1,1
+
+  );
 
 # ---   *   ---   *   ---
 # these are for coderef access from plps
 
-  for my $key('is_ptr&') {
+  for my $key('is_ptr&','is_num&') {
 
-    my $fnkey=$key;
+    my $fnkey='plps_'.$key;
     $fnkey=~ s/&$//;
 
     $ref->{$key}=eval('\&'."$fnkey");
@@ -1189,11 +1164,35 @@ sub directives {return (shift)->{-DIRECTIVES};};
 sub fctls {return (shift)->{-FCTLS};};
 
 sub resnames {return (shift)->{-RESNAMES};};
-
 sub nums {return (shift)->{-NUMS};};
-sub numcon {return (shift)->{-NUMCON};};
 
 sub separators {return (shift)->{-SEP_OPS};};
+
+# ---   *   ---   *   ---
+
+sub is_num {
+
+  my ($self,$s)=@_;
+
+  my $pat=$self->{-NUMS_RE};
+  return int($s=~ m/^${pat}$/);
+
+};sub plps_is_num($$$) {
+
+  my ($self,$s,$program)=@_;
+  my $out=undef;
+
+  my $tok=lang::nxtok($$s,' |,');
+
+  if($self->is_num($tok)) {
+    $$s=~ s/^${tok}//;
+    $out=$tok;
+
+  };
+
+  return ($out);
+
+};
 
 # ---   *   ---   *   ---
 
@@ -1409,15 +1408,15 @@ sub plps_match($$$) {
 
 # ---   *   ---   *   ---
 
-sub is_ptr($$) {
+sub is_ptr($$$) {
 
-  my ($self,$program,$string)=@_;
+  my ($self,$s,$program)=@_;
   my $out=undef;
 
-  my $tok=lang::nxtok($$string,' ');
+  my $tok=lang::nxtok($$s,' ');
 
   if($self->valid_name($tok)) {
-    $$string=~ s/^${tok}//;
+    $$s=~ s/^${tok}//;
     $out=$tok;
 
   };

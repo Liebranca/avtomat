@@ -648,11 +648,12 @@ sub agroup($) {
 };sub collapse {
 
   my $self=shift;
-  my %args=@_;
+  my %opt=@_;
 
   my $depth=0;
-  my $max_depth=$args{depth};
-  my $only_if=$args{only};
+  my $max_depth=$opt{depth};
+  my $only_if=$opt{only};
+  my $no_numcon=$opt{no_numcon};
 
   my $lang=$self->frame->master->lang;
   my $op_prec=$lang->op_prec;
@@ -674,7 +675,7 @@ sub agroup($) {
     if(defined $max_depth
     && $depth>=$max_depth) {next;};
 
-    if($self->value=~ m/^${\OPERATOR}/) {
+    if($self->value=~ m/^${\OPERATOR}$/) {
 
       if(
 
@@ -708,17 +709,18 @@ sub agroup($) {
     my @args=$self->pluck(@{$self->leaves});
     for my $arg(@args) {
 
-      for my $key(keys %{$lang->numcon}) {
+      if(!$opt{no_numcon}) {
+      for my $key(keys %{$lang->nums}) {
 
         if($arg->value=~ m/^${key}/) {
           $arg->value(
-            $lang->numcon->{$key}->($arg->value)
+            $lang->nums->{$key}->($arg->value)
 
           );last;
 
         };
 
-      };$arg=\$arg->value;
+      }};$arg=\$arg->value;
 
     };
 
@@ -1224,7 +1226,11 @@ sub nocslist($) {
 
     ) {push @pending,$self;};
 
-  };map {$_->collapse(only=>$sep);} @pending;
+  };map {$_->collapse(
+    only=>$sep,
+    no_numcon=>1
+
+  );} @pending;
 
 };
 

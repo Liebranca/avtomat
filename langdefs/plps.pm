@@ -21,6 +21,7 @@ use constant TRTAB=>{
 
   'ari'=>'ops',
   'ptr'=>'is_ptr&',
+  'num'=>'is_num&',
 
   'type'=>'types',
   'spec'=>'specifiers',
@@ -1024,6 +1025,7 @@ sub trymatch($$$) {
 # textual pattern
 
   my $matfn=sub {
+
     $match=int($$string=~ s/^(${pat})(${space})?//s);
     $status|=$match!=0;
     $$prev_match=(defined $1) ? $1 : $$prev_match;
@@ -1036,9 +1038,10 @@ sub trymatch($$$) {
   if(lang::is_coderef($pat)) {
 
     $matfn=sub {
+
       $match=$pat->(
         $program->{ext},
-        $program,$string
+        $string,$program
 
       );
 
@@ -1218,6 +1221,7 @@ sub run {
 # go to previous field
 
       } elsif($status&2) {
+
         unshift @leaves,(
           $obj->{prv}->{tree},$node
 
@@ -1229,11 +1233,15 @@ sub run {
       } elsif($status&4) {
         next;
 
-      } elsif($status&1 && $obj->{altern}) {
+      } elsif(
 
-        while($obj->{nxt}) {
-          $obj=$obj->{nxt};
-          shift @leaves;
+           $status&1
+        && defined $obj->{altern}
+
+      ) {
+
+        while($node ne $node->par->leaves->[-1]) {
+          $node=shift @leaves;
 
         };
 
