@@ -640,6 +640,8 @@ sub nit($$$$) {
   $frame->{-BLOCKS}=$frame->{-SOIL}->{-ELEMS};
   $frame->{-PRSTK}=stack::nit(0,[]);
 
+  $frame->setscope($frame->{-SOIL});
+
   return $frame;
 
 };

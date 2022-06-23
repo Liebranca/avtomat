@@ -3,8 +3,11 @@
 Four things:
 
 `<0x0>` A series of data structure models for storing programs as bytecode strings.
+
 `<0x1>` A programming language designed around these structures.
+
 `<0x2>` If definition and translation tables are given, a common IR between languages.
+
 `<0x3>` A design philosophy; a programming paradigm unto itself.
 
 # PESO RULES

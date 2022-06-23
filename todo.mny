@@ -17,6 +17,8 @@ x Overhaul mcut/stich to work with a hash;
 ~ Create a Peso virtual machine in Perl.
 This means, roughly:;
 ~ Using peso::blk for data storage. Manual allocation would be preferred later on;
+~ ^ Type to size tables;
+~ ^ Blueprints;
 ~ Using peso::ptr for, well, pointers;
 ~ reg/clan selective inheritance;
 ~ Miscellaneous parser tweaking c:;

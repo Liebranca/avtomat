@@ -1076,6 +1076,47 @@ TOP:for my $key(keys %$h) {
 };
 
 # ---   *   ---   *   ---
+# gives list of leaves in tree that
+# dont have leaves of their own
+
+sub leafless {
+
+  my ($self,%opt)=@_;
+
+  my @leaves=($self);
+  my @result=();
+
+# ---   *   ---   *   ---
+# walk the hierarchy
+
+  while(@leaves) {
+
+    $self=shift @leaves;
+    if(!@{$self->leaves}) {
+      push @result,$self;
+
+    } else {
+      unshift @leaves,@{$self->leaves};
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+# optionally return a specific element
+# else whole array is given
+
+  my $out=\@result;
+  if(defined $opt{i}) {
+    $out=$result[$opt{i}];
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # gives list of branches holding value
 
 sub branches_with($$) {

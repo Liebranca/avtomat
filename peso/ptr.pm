@@ -28,7 +28,7 @@ package peso::ptr;
     MEMPTR_SZMASK=>0x08<<32,
 
   };use constant {
-    NULL=>MEMPTR|MEMPTR_SZMASK|0x00
+    NULL=>MEMPTR|MEMPTR_SZMASK|0xDEADBEEF
 
   };
 
@@ -515,8 +515,7 @@ sub save($) {
 # JIC metadata for funky scenarios
 
   # save ptr at stringified addr(!!!)
-  $frame->ADDRS->{$self->addr}
-  =$self;
+  $frame->ADDRS->{$self->addr}=$self;
 
   # to help locate scope for anon ptrs
   $frame->TAB->[$self->idex]=$self->scope;
@@ -747,7 +746,7 @@ sub create($) {
 
   my ($master)=@_;
 
-  return bless {
+  my $frame=bless {
 
     -MEM=>[],
     -TAB=>[],
@@ -767,6 +766,10 @@ sub create($) {
     -MASTER=>$master,
 
   },'peso::ptr::frame';
+
+  $frame->declscope('non',0);
+
+  return $frame;
 
 };
 

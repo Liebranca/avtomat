@@ -957,29 +957,29 @@ sub plps_parse($$$$) {
     $exp->agroup();
     $exp->subdiv();
 
-    $exp->nocslist();
-    $exp->defield();
+    my $cpy=$exp->dup();
+
+    $cpy->nocslist();
+    $cpy->defield();
 
 # ---   *   ---   *   ---
 
     my $exp_key='';
     my $tree=undef;
 
+    my $s=$cpy->flatten(depth=>1);
+    $s=~ s/^void //;
+    $s=~ s/\s*$//s;
+
+# ---   *   ---   *   ---
+
     for my $key(
       'ptr_decl'
 
     ) {
 
-      my $cpy=$exp->flatten(depth=>1);
-      $cpy=~ s/^void //;
-      $cpy=~ s/\s*$//s;
-
-print "$cpy\n\n";
-
       $tree=$lang->plps_match(
-        $key,$cpy
-
-# ---   *   ---   *   ---
+        $key,$s
 
       );if($tree->{full}) {
         $exp_key=$key;last;
@@ -989,7 +989,29 @@ print "$cpy\n\n";
 # ---   *   ---   *   ---
 
     };if(length $exp_key) {
-      peso::fndmtl->$exp_key($tree);
+
+      my $btc=peso::fndmtl::take(
+        $rd->program,
+        $exp_key,
+        $tree
+
+      );
+
+      print "$btc\n";
+
+# ---   *   ---   *   ---
+
+    } else {
+
+      print STDERR
+
+        "$body\n".
+
+        "\e[33;1m".
+        "^couldn't match this line\n\n".
+        "\e[0m";
+
+      exit;
 
     };
 

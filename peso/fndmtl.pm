@@ -16,12 +16,25 @@ package peso::fndmtl;
   use strict;
   use warnings;
 
+# ---   *   ---   *   ---
+
 sub ptr_decl($) {
 
-  my ($self,$tree)=@_;
+  my $tree=shift;
 
-  my $type=($tree->branch_values('^type$'))[0];
-  print "$type\n";
+  my %out=(
+    type=>'ptr_decl',
+
+    header=>{},
+    data=>{},
+
+  );
+
+# ---   *   ---   *   ---
+
+  my $header=$out{header};
+  $header->{spec}=[$tree->branch_values('^spec$')];
+  $header->{type}=[$tree->branch_values('^type$')];
 
   my @names=$tree->branch_values('^name$');
   my @values=$tree->branch_values('^value$');
@@ -45,8 +58,11 @@ sub ptr_decl($) {
 
     my $i=@names;
     my $j=1;
+
+    my $k=$#names;
+
     while($i<@values) {
-      push @names,"$names[-1]+$j";
+      push @names,"$names[$k]+$j";
       $i++;$j++;
 
     };
@@ -54,17 +70,61 @@ sub ptr_decl($) {
 
 # ---   *   ---   *   ---
 
-  my %ptrs;@ptrs{@names}=@values;
+  my @data;
+  while(@names) {
 
-  for my $key(keys %ptrs) {
+    my $name=shift @names;
+    my $value=shift @values;
 
-    print "$key=>$ptrs{$key}\n";
+    push @data,[$name,$value];
 
   };
 
+  $out{data}=\@data;
+  return \%out;
+
+};
+
 # ---   *   ---   *   ---
 
-#$tree->prich();
+sub ptr_decl_pack($$) {
+
+  my ($m,$pkg)=@_;
+
+  $m->blk->DST->expand(
+
+    $pkg->{data},
+    $pkg->{header}->{type},
+    0
+
+  );
+
+  $m->blk->DST->setv('x',0x99);
+  $m->blk->DST->prich();
+
+  return '<0x00>';
+
+};
+
+# ---   *   ---   *   ---
+
+use constant CALLTAB=>{
+
+  'ptr_decl'=>\&ptr_decl,
+  'ptr_decl_pack'=>\&ptr_decl_pack,
+
+};
+
+# ---   *   ---   *   ---
+
+sub take($$$) {
+
+  my ($m,$key,$tree)=@_;
+
+  my $pkg=CALLTAB->{$key}->($tree);
+  my $btc=CALLTAB->{$key.'_pack'}->($m,$pkg);
+
+  return $btc;
 
 };
 

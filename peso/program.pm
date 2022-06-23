@@ -47,8 +47,8 @@ sub nit($) {
 
   },'peso::program';
 
-  $self->{-BLK}=peso::blk::new_frame($self);
   $self->{-PTR}=peso::ptr::new_frame($self);
+  $self->{-BLK}=peso::blk::new_frame($self);
   $self->{-NODE}=peso::node::new_frame($self);
 
   $self->nxins(0);

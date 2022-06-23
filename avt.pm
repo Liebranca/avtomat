@@ -17,6 +17,7 @@ package avt;
   use warnings;
 
   use Cwd qw(abs_path getcwd);
+  use File::Spec;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
@@ -1028,11 +1029,14 @@ sub nit {
 
   my \$libfold=avt::dirof(__FILE__);
 
+  my \$olderr=avt::errmute();
   my \$ffi=FFI::Platypus->new(api => 2);
   \$ffi->lib(
     "\$libfold/lib$soname.so"
 
   );
+
+  avt::erropen(\$olderr);
 
   \$ffi->load_custom_type(
     '::WideString'=>'wstring'
@@ -1102,6 +1106,29 @@ sub plext {
 
 # ---   *   ---   *   ---
 # bash utils
+
+# mute stderr
+;;sub errmute {
+
+  my $fh=readlink "/proc/self/fd/2";
+  open STDERR,'>',
+
+    File::Spec->devnull()
+    or die $!
+
+  ;return $fh;
+
+# ---   *   ---   *   ---
+# ^restore
+
+};sub erropen($) {
+
+  my $fh=shift;
+  open(STDERR,">$fh");
+
+};
+
+# ---   *   ---   *   ---
 
 # arg=string any
 # multi-byte ord
