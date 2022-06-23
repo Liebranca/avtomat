@@ -38,8 +38,8 @@ sub fields($) {return (shift)->{-FIELDS};};
 # ---   *   ---   *   ---
 # constructors
 
-sub new_frame($) {
-  return peso::type::frame::create(@_);
+sub new_frame() {
+  return peso::type::frame::create();
 
 };sub nit($$$) {
 
@@ -60,7 +60,7 @@ sub new_frame($) {
 #
 #   >  ];
 
-  if(lang::is_arrayref($elems)) {
+  if(length ref $elems) {
 
     for my $elem(@$elems) {
 
@@ -112,27 +112,16 @@ package peso::type::frame;
 # ---   *   ---   *   ---
 # constructors
 
-sub nit($$) {
+sub nit($$$) {
+  my ($frame,$name,$elems)=@_;
+  return peso::type::nit($frame,$name,$elems);
 
-  my ($frame,$ar)=@_;
+};sub create() {
 
-  while(@$ar) {
-
-    my $name=shift @$ar;
-    my $elems=shift @$ar;
-
-    peso::type::nit($frame,$name,$elems);
-
-  };
-
-};sub create($) {
-
-  my $ar=shift;
   my $frame=bless {
 
   },'peso::type::frame';
 
-  $frame->nit($ar);
   return $frame;
 
 };

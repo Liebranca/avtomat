@@ -94,12 +94,12 @@ sub ptr_decl_pack($$) {
   $m->blk->DST->expand(
 
     $pkg->{data},
-    $pkg->{header}->{type},
+    $pkg->{header}->{type}->[0],
     0
 
   );
 
-  $m->blk->DST->setv('x',0x99);
+  $m->blk->DST->setv('x+2',0x99);
   $m->blk->DST->prich();
 
   return '<0x00>';

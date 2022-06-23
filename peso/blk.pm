@@ -299,16 +299,14 @@ sub expand($$$$) {
   my $bypass=shift;
 
   my $frame=$self->frame;
-if(exists $frame->{-NAME}) {
-print $frame->name."\n";
-};
+
   my $fr_ptr=$frame->master->ptr;
   my $lang=$frame->master->lang;
 
 # ---   *   ---   *   ---
 # get size from type, in bytes
 
-  my $elem_sz=8;#$lang->types->{$type}->size;
+  my $elem_sz=$lang->types->{$type}->size;
   my $inc_size=@$ref*$elem_sz;
 
 # ---   *   ---   *   ---
@@ -316,7 +314,7 @@ print $frame->name."\n";
 # 'unit' is size of a single register
 # we use these as minimum size for blocks
 
-  my $line_sz=16;#$lang->types->{'line'}->size;
+  my $line_sz=$lang->types->{'line'}->size;
   my $gran=(1<<($elem_sz*8))-1;
 
 # ---   *   ---   *   ---

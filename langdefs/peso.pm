@@ -24,6 +24,7 @@ package langdefs::peso;
   use peso::ops;
   use peso::defs;
   use peso::blk;
+  use peso::type;
 
 # ---   *   ---   *   ---
 # leaps and such
@@ -55,11 +56,6 @@ use constant TYPE=>{
   'stark'=>8,     # void(*stark)(void*)
 
   'signal'=>8,    # int(*signal)(int)
-
-# ---   *   ---   *   ---
-# the 'make-a-var' call
-
-  'value_decl'=>[sbl_id,'ptr_decl'],
 
 };
 
@@ -508,145 +504,145 @@ DEFINE 'unwed',INTRINSIC,sub {
 };
 
 # ---   *   ---   *   ---
-
-DEFINE 'value_decl',TYPE,sub {
-
-  my ($inskey,$frame,$names,$values)=@_;
-
-  my $fr_blk=$frame->master->blk;
-  my $fr_ptr=$frame->master->ptr;
-  my $lang=$frame->master->lang;
-
-  my $dst=$fr_blk->DST;
-  my $skey=undef;
-
-  my $intrinsic=$lang->intrinsics;
-
-# ---   *   ---   *   ---
-
-  if($inskey=~ s/${intrinsic}//) {
-    my $ins=$1;
-
-    if($ins eq 'ptr') {
-      $skey='unit';
-
-    };
-  };
-
-  $inskey=~ s/\s+$//;
-
-  my $wed=$fr_ptr->wed('get');
-  $fr_ptr->wed($inskey);
-
-# ---   *   ---   *   ---
-# fill out values with zeroes if need
-
-  my @line=();
-
-  if(!defined $values) {
-
-    $values=[];
-
-    for(my $i=0;$i<@$names;$i++) {
-      push @$values,0;
-
-    };
-
-  };
-
-# ---   *   ---   *   ---
-# make [name,value] ref array
-
-  my $i=0;if(@$names >= @$values) {
-
-    for my $name(@$names) {
-
-      my $value=(defined $values->[$i])
-        ? $values->[$i]
-        : 0
-        ;
-
-      $line[$i]=[$name,$value];$i++;
-
-    };
-
-# ---   *   ---   *   ---
-
-  } else {
-
-    my $j=1;
-    for my $value(@$values) {
-
-      my $name=$names->[$i];
-      if($fr_blk->fpass()) {
-        $name=(defined $name)
-          ? $name
-          : "$names->[-1]+".($j++)
-          ;
-
-# ---   *   ---   *   ---
-
-      } else {
-
-        $name=(defined $name)
-          ? $name
-          : $names->[-1]+($j++)
-          ;
-
-      };$line[$i]=[$name,$value];$i++;
-
-    };
-  };
-
-# ---   *   ---   *   ---
-# alternate storage type
-
-  my $ptrtype=$inskey;
-  if(defined $skey) {
-    $inskey=$skey;
-
-  };$fr_ptr->wed($inskey);
-
-# ---   *   ---   *   ---
-# grow block on first pass
-
-  if($fr_blk->fpass()) {
-
-    # grow the block
-    $dst->expand(\@line,$inskey);
-
-# ---   *   ---   *   ---
-# initialize/overwrite values on second pass
-
-  } else {
-
-    for my $pair(@line) {
-
-      my $ptr=$pair->[0];
-      my $value=$pair->[1];
-
-      $ptr=$fr_ptr->fetch($ptr);
-      $ptr->mask_to($ptrtype);
-
-      if(!$value && $inskey eq 'unit') {
-        $value=$fr_ptr->NULL;
-
-      };
-
-      $ptr->setv($value);
-
-    };
-
-  };$fr_ptr->wed($wed);
-};
-
-# ---   *   ---   *   ---
-# DEFS END
-
-# ---   *   ---   *   ---
-# alternate names for certain calls
-
-ALIAS 'char','value_decl';
+#
+#DEFINE 'value_decl',TYPE,sub {
+#
+#  my ($inskey,$frame,$names,$values)=@_;
+#
+#  my $fr_blk=$frame->master->blk;
+#  my $fr_ptr=$frame->master->ptr;
+#  my $lang=$frame->master->lang;
+#
+#  my $dst=$fr_blk->DST;
+#  my $skey=undef;
+#
+#  my $intrinsic=$lang->intrinsics;
+#
+## ---   *   ---   *   ---
+#
+#  if($inskey=~ s/${intrinsic}//) {
+#    my $ins=$1;
+#
+#    if($ins eq 'ptr') {
+#      $skey='unit';
+#
+#    };
+#  };
+#
+#  $inskey=~ s/\s+$//;
+#
+#  my $wed=$fr_ptr->wed('get');
+#  $fr_ptr->wed($inskey);
+#
+## ---   *   ---   *   ---
+## fill out values with zeroes if need
+#
+#  my @line=();
+#
+#  if(!defined $values) {
+#
+#    $values=[];
+#
+#    for(my $i=0;$i<@$names;$i++) {
+#      push @$values,0;
+#
+#    };
+#
+#  };
+#
+## ---   *   ---   *   ---
+## make [name,value] ref array
+#
+#  my $i=0;if(@$names >= @$values) {
+#
+#    for my $name(@$names) {
+#
+#      my $value=(defined $values->[$i])
+#        ? $values->[$i]
+#        : 0
+#        ;
+#
+#      $line[$i]=[$name,$value];$i++;
+#
+#    };
+#
+## ---   *   ---   *   ---
+#
+#  } else {
+#
+#    my $j=1;
+#    for my $value(@$values) {
+#
+#      my $name=$names->[$i];
+#      if($fr_blk->fpass()) {
+#        $name=(defined $name)
+#          ? $name
+#          : "$names->[-1]+".($j++)
+#          ;
+#
+## ---   *   ---   *   ---
+#
+#      } else {
+#
+#        $name=(defined $name)
+#          ? $name
+#          : $names->[-1]+($j++)
+#          ;
+#
+#      };$line[$i]=[$name,$value];$i++;
+#
+#    };
+#  };
+#
+## ---   *   ---   *   ---
+## alternate storage type
+#
+#  my $ptrtype=$inskey;
+#  if(defined $skey) {
+#    $inskey=$skey;
+#
+#  };$fr_ptr->wed($inskey);
+#
+## ---   *   ---   *   ---
+## grow block on first pass
+#
+#  if($fr_blk->fpass()) {
+#
+#    # grow the block
+#    $dst->expand(\@line,$inskey);
+#
+## ---   *   ---   *   ---
+## initialize/overwrite values on second pass
+#
+#  } else {
+#
+#    for my $pair(@line) {
+#
+#      my $ptr=$pair->[0];
+#      my $value=$pair->[1];
+#
+#      $ptr=$fr_ptr->fetch($ptr);
+#      $ptr->mask_to($ptrtype);
+#
+#      if(!$value && $inskey eq 'unit') {
+#        $value=$fr_ptr->NULL;
+#
+#      };
+#
+#      $ptr->setv($value);
+#
+#    };
+#
+#  };$fr_ptr->wed($wed);
+#};
+#
+## ---   *   ---   *   ---
+## DEFS END
+#
+## ---   *   ---   *   ---
+## alternate names for certain calls
+#
+#ALIAS 'char','value_decl';
 
 # ---   *   ---   *   ---
 
@@ -706,9 +702,26 @@ lang::def::nit(
   -MCUT_TAGS=>[-STRING,-CHAR],
 
 # ---   *   ---   *   ---
+# nit the magic parser
 
 );lang->peso->{-PLPS}
     =langdefs::plps::make(lang->peso);
+
+# ---   *   ---   *   ---
+# load typedata to the type-table
+
+  { my $ref=lang->peso->{-TYPES};
+    my $fr_type=peso::type::new_frame();
+
+    for my $key(keys %$ref) {
+      my $value=TYPE->{$key};
+      $ref->{$key}=$fr_type->nit($key,$value);
+
+    };
+
+    $ref->{-TYPES_FRAME}=$fr_type;
+
+  };
 
 };
 
