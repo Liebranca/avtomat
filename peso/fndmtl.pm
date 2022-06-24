@@ -18,9 +18,9 @@ package peso::fndmtl;
 
 # ---   *   ---   *   ---
 
-sub ptr_decl($) {
+sub ptr_decl($$) {
 
-  my $tree=shift;
+  my ($m,$tree)=@_;
 
   my %out=(
     type=>'ptr_decl',
@@ -76,6 +76,11 @@ sub ptr_decl($) {
     my $name=shift @names;
     my $value=shift @values;
 
+    if(exists $m->{refs}->{$value}) {
+      $value=$m->{refs}->{$value};
+
+    };
+
     push @data,[$name,$value];
 
   };
@@ -91,18 +96,16 @@ sub ptr_decl_pack($$) {
 
   my ($m,$pkg)=@_;
 
-  $m->blk->DST->expand(
+  return
+
+  [ $m->blk->DST,
+    'expand',
 
     $pkg->{data},
     $pkg->{header}->{type}->[0],
-    0
+    0,
 
-  );
-
-  $m->blk->DST->setv('x+2',0x99);
-  $m->blk->DST->prich();
-
-  return '<0x00>';
+  ];
 
 };
 
@@ -121,7 +124,7 @@ sub take($$$) {
 
   my ($m,$key,$tree)=@_;
 
-  my $pkg=CALLTAB->{$key}->($tree);
+  my $pkg=CALLTAB->{$key}->($m,$tree);
   my $btc=CALLTAB->{$key.'_pack'}->($m,$pkg);
 
   return $btc;

@@ -45,6 +45,12 @@ sub nit($) {
     -LANG=>$lang,
     -RUN=>undef,
 
+    tree=>undef,
+    dst=>undef,
+
+    defs=>{},
+    refs=>{},
+
   },'peso::program';
 
   $self->{-PTR}=peso::ptr::new_frame($self);

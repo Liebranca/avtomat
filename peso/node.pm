@@ -1076,6 +1076,76 @@ TOP:for my $key(keys %$h) {
 };
 
 # ---   *   ---   *   ---
+# does/undoes ode to op conversion
+
+sub odeop($$) {
+
+  my ($self,$set)=@_;
+  my @leaves=($self);
+
+  my $lang=$self->frame->master->lang;
+  my $ode=$lang->ode;
+
+  while(@leaves) {
+
+    $self=shift @leaves;
+    unshift @leaves,@{$self->leaves};
+
+    if($set && $self->value=~ m/^${ode}$/) {
+      $self->value(bless {
+        op=>$1,
+        idex=>-1,
+
+      },'node_op');
+
+    } elsif((!$set)
+
+      && $self->value=~ m/${\OPERATOR}/
+      && $self->value->{op}=~ m/^${ode}$/
+
+    ) {
+
+      $self->value($self->value->{op});
+
+    };
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# saves nodes whose values are references
+
+sub branchrefs($$) {
+
+  my ($self,$dst)=@_;
+  my $lang=$self->frame->master->lang;
+  my $ode=$lang->ode;
+
+  my @leaves=($self);
+
+# ---   *   ---   *   ---
+# walk the hierarchy
+
+  while(@leaves) {
+
+    $self=shift @leaves;
+    unshift @leaves,@{$self->leaves};
+
+# ---   *   ---   *   ---
+# use stringified ref as key into value
+
+    if(
+
+        (length ref $self->value)
+    && !(exists $dst->{$self->value})
+
+    ) {$dst->{$self->value}=$self;};
+
+  };
+};
+
+# ---   *   ---   *   ---
 # gives list of leaves in tree that
 # dont have leaves of their own
 
@@ -1281,6 +1351,7 @@ sub flatten {
 
   my $self=shift;
   my %args=@_;
+
   my @leaves=($self);
 
   my $root=$self;

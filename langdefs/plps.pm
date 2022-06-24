@@ -438,9 +438,6 @@ sub build {
   my $program=shift;
   lang->plps->sbl->setdef($program);
 
-  $program->{dst}=undef;
-  $program->{defs}={};
-
   getext($program);
   my $SYMS=lang->plps->sbl->SYMS;
 

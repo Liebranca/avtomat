@@ -169,7 +169,7 @@ lang::def::nit(
     opendir ord pack pipe pop print printf
 
     push q qq qx rand read readdir readlink
-    readline recv rename require
+    readline recv rename require ref
 
     reverse rewinddir rindex rmdir
 

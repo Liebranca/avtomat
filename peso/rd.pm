@@ -957,7 +957,11 @@ sub plps_parse($$$$) {
     $exp->agroup();
     $exp->subdiv();
 
+    $exp->odeop(1);
+    $exp->branchrefs($rd->program->{refs});
+
     my $cpy=$exp->dup();
+    $exp->odeop(0);
 
     $cpy->nocslist();
     $cpy->defield();
@@ -989,7 +993,6 @@ sub plps_parse($$$$) {
 # ---   *   ---   *   ---
 
     };if(length $exp_key) {
-
       my $btc=peso::fndmtl::take(
         $rd->program,
         $exp_key,
@@ -997,7 +1000,13 @@ sub plps_parse($$$$) {
 
       );
 
-      print "$btc\n";
+      my $scope=$btc->[0];
+      my $fn=$btc->[1];
+
+      my @args=@{$btc}[2..@{$btc}-1];
+
+      $scope->$fn(@args);
+      $scope->prich();
 
 # ---   *   ---   *   ---
 
@@ -1089,7 +1098,6 @@ sub parse($$$;@) {
 
   } else {
     $parse_fn=\&plps_parse;
-
 
   };
 
