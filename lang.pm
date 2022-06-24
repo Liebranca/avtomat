@@ -1233,7 +1233,7 @@ sub valid_name {
   my $name=$self->names;
 
   if(defined $s && length $s) {
-    return $s=~ m/^${name}/;
+    return $s=~ m/^${name}$/;
 
   };return 0;
 };

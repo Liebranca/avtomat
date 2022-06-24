@@ -291,17 +291,14 @@ sub haselem($$$) {
 
 # inserts new elements into block
 
-sub expand($$$$) {
+sub expand {
 
-  my $self=shift;
-  my $ref=shift;
-  my $type=shift;
-  my $bypass=shift;
+  my ($self,$ref,$type,$bypass)=@_;
 
   my $frame=$self->frame;
+  my $m=$frame->master;
 
-  my $fr_ptr=$frame->master->ptr;
-  my $lang=$frame->master->lang;
+  my $lang=$m->lang;
 
 # ---   *   ---   *   ---
 # get size from type, in bytes
@@ -320,30 +317,28 @@ sub expand($$$$) {
 # ---   *   ---   *   ---
 # grow block on first pass
 
-  my $j=0;if($frame->fpass()) {
+  my $j=0;if($m->fpass()) {
 
     # save top of stack
-    $j=@{$fr_ptr->MEM()};
+    $j=@{$m->ptr->MEM()};
     $self->{-SIZE}+=$inc_size;
 
     # reserve new unit
-    $fr_ptr->nunit();
+    $m->ptr->nunit();
 
   };
 
 # ---   *   ---   *   ---
 # push elements to data
 
-  my $i=0;while(@$ref) {
-
-    my $ar=shift @$ref;
+  my $i=0;for my $ar(@$ref) {
 
     # name/value pair
     my $k=$ar->[0];
     my $v=$ar->[1];
 
     # prohibit redeclaration
-    if($frame->fpass()) {
+    if($m->fpass()) {
       $self->haselem($k,1);
 
     };
@@ -357,10 +352,10 @@ sub expand($$$$) {
 #  >create ptr instance
 #  >save reference to elems
 
-    if($frame->fpass() || $bypass) {
+    if($m->fpass() || $bypass) {
 
       if(!$bypass) {$v=$self;};
-      $self->elems->{$k}=$fr_ptr->nit(
+      $self->elems->{$k}=$m->ptr->nit(
 
         $k,$self->ances,
         $j,$gran,$shf,$type,
@@ -391,8 +386,8 @@ sub expand($$$$) {
 
       # reserve a new unit
       # grow block on first pass
-      if($frame->fpass()) {
-        $fr_ptr->nunit();
+      if($m->fpass()) {
+        $m->ptr->nunit();
 
       };$j++;$i=0;
 

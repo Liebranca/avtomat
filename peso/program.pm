@@ -45,6 +45,8 @@ sub nit($) {
     -LANG=>$lang,
     -RUN=>undef,
 
+    -PASS=>0,
+
     tree=>undef,
     dst=>undef,
 
@@ -73,6 +75,12 @@ sub nit($) {
 
 # ---   *   ---   *   ---
 # getters/setters
+
+sub fpass($) {
+  my $self=shift;
+  return $self->{-PASS}==0;
+
+};
 
 sub nxins($;$) {
 

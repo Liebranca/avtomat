@@ -31,7 +31,7 @@ my $program=peso::rd::parse(
   lang->peso,
   peso::rd::STR,q(
 
-char x (0+1);
+char x 2*^8-1;
 
 ));
 

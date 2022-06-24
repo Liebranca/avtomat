@@ -131,5 +131,43 @@ sub take($$$) {
 
 };
 
+sub give($$) {
+
+  my ($m,$branch)=@_;
+
+  my $btc=$branch->{btc};
+  my $scope=$btc->[0];
+  my $fn=$btc->[1];
+
+  my @args=@{$btc}[2..@{$btc}-1];
+
+  $scope->$fn(@args);
+
+};
+
+# ---   *   ---   *   ---
+
+sub run($$) {
+
+  my ($m,$branch)=@_;
+
+  my $btc=$branch->{btc};
+  my $scope=$btc->[0];
+  my $fn=$btc->[1];
+
+  my @args=@{$btc}[2..@{$btc}-1];
+  for my $arg(@{$args[0]}) {
+
+    my $n=$arg->[1];
+
+    if(peso::node::valid $n) {
+      $arg->[1]=$n->collapse()->value;
+
+    };
+
+  };$scope->$fn(@args);
+
+};
+
 # ---   *   ---   *   ---
 1; # ret

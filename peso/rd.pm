@@ -943,6 +943,7 @@ sub plps_parse($$$$) {
   );
 
 # ---   *   ---   *   ---
+# break down the expression
 
   if(!exp_hierarchy(
 
@@ -953,29 +954,37 @@ sub plps_parse($$$$) {
 
     $exp=$fr_node->nit($anchor,'void');
 
+    # organize hierarchically
     $exp->tokenize($body);
     $exp->agroup();
     $exp->subdiv();
 
+    # convert delimiters to references
+    # save those to refs hash in program
     $exp->odeop(1);
     $exp->branchrefs($rd->program->{refs});
 
+    # ^duplicate branch and undo conversion
+    # on the original branch
     my $cpy=$exp->dup();
     $exp->odeop(0);
 
+    # collapse hierarchy to a single branch
     $cpy->nocslist();
     $cpy->defield();
 
-# ---   *   ---   *   ---
-
-    my $exp_key='';
-    my $tree=undef;
-
+    # flatten branch into a string
     my $s=$cpy->flatten(depth=>1);
     $s=~ s/^void //;
     $s=~ s/\s*$//s;
 
 # ---   *   ---   *   ---
+# match against plps patterns
+# TODO: find 'likely' patterns to
+# match string rather than iter them all
+
+    my $exp_key='';
+    my $tree=undef;
 
     for my $key(
       'ptr_decl'
@@ -985,30 +994,36 @@ sub plps_parse($$$$) {
       $tree=$lang->plps_match(
         $key,$s
 
+      # terminate loop on full match
       );if($tree->{full}) {
         $exp_key=$key;last;
 
       };
 
 # ---   *   ---   *   ---
+# use plps tree to encode expression
 
     };if(length $exp_key) {
-      my $btc=peso::fndmtl::take(
+
+      $exp->{btc}=peso::fndmtl::take(
         $rd->program,
         $exp_key,
         $tree
 
       );
 
-      my $scope=$btc->[0];
-      my $fn=$btc->[1];
+      $exp->value($exp_key);
 
-      my @args=@{$btc}[2..@{$btc}-1];
+      if($exp_key=~ m/_decl$/) {
+        peso::fndmtl::give(
+          $rd->program,
+          $exp
 
-      $scope->$fn(@args);
-      $scope->prich();
+        );
+      };
 
 # ---   *   ---   *   ---
+# errthrow on match fail
 
     } else {
 
@@ -1053,6 +1068,11 @@ sub parse($$$;@) {
     : $lineno
     ;
 
+  $use_plps=(!defined $use_plps)
+    ? 1
+    : $use_plps
+    ;
+
   my $program=peso::program::nit($lang);
   my $rd=nit($program,$keep_comments);
 
@@ -1086,18 +1106,21 @@ sub parse($$$;@) {
 # ---   *   ---   *   ---
 
   my $parse_fn;
+  my $plps_parsed=0;
 
   if(
 
-     $lang->{-NAME} eq 'plps'
-  || $opt{use_plps}
+      $lang->{-NAME} eq 'plps'
+  || !$use_plps
 
   ) {
 
     $parse_fn=\&regular_parse;
 
   } else {
+
     $parse_fn=\&plps_parse;
+    $plps_parsed=1;
 
   };
 
@@ -1108,6 +1131,22 @@ sub parse($$$;@) {
       $rd,$exp,$anchor,\@anchors
 
     );
+  };
+
+  if($plps_parsed) {
+
+    $root->defield();
+    $root->findptrs();
+
+    $program->{-PASS}++;
+
+    for my $branch(@{$root->leaves}) {
+      peso::fndmtl::run($program,$branch);
+
+    };
+
+    $program->blk->NON->prich();
+
   };
 
 # ---   *   ---   *   ---

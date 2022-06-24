@@ -647,7 +647,7 @@ sub agroup($) {
 
 };sub collapse {
 
-  my $self=shift;
+  my $self=my $root=shift;
   my %opt=@_;
 
   my $depth=0;
@@ -729,10 +729,18 @@ sub agroup($) {
     $self->value($op->[$idex]->[1]->(@args));
 
     if($self->par->value=~ m/^${ode}$/) {
+      if($self->par eq $root) {
+        $root=$self;
+
+      };
+
       $self->par->repl($self);
 
     };
   };
+
+  return $root;
+
 };
 
 # ---   *   ---   *   ---
@@ -1016,25 +1024,27 @@ sub findptrs($) {
 # ---   *   ---   *   ---
 # iter leaves
 
-  for my $leaf(@{$self->leaves}) {
+  my @leaves=($self);
+  while(@leaves) {
 
-    $leaf->findptrs();
+    $self=shift @leaves;
+    unshift @leaves,@{$self->leaves};
 
     # skip $:escaped;>
-    if($leaf->value=~ m/${pesc}/) {
+    if($self->value=~ m/${pesc}/) {
       next;
 
     };
 
     # solve/fetch non-numeric values
     if($lang->valid_name(
-        $leaf->value
+        $self->value
 
-      ) && !(exists $types->{$leaf->value()})
+      ) && !(exists $types->{$self->value})
 
     ) {
 
-      $leaf->value($fr_ptr->fetch($leaf->value));
+      $self->value($fr_ptr->fetch($self->value));
 
     };
   };

@@ -604,7 +604,7 @@ sub nit {
 # ---   *   ---   *   ---
 # ^ same, but for anonymous ptrs
 
-sub anonnit($$) {
+sub anonnit {
 
   my ($frame,$addr)=@_;
 
@@ -741,6 +741,7 @@ sub master {return (shift)->{-MASTER};};
 # constructors
 
 sub nit {peso::ptr::nit(@_);};
+sub anonnit {peso::ptr::anonnit(@_);};
 
 sub create($) {
 
@@ -894,8 +895,10 @@ sub fetch($$) {
   my $lang=$frame->master->lang;
 
   my $ptr;
+  my $lkey=$key;
+  $lkey=~ s/^[^@]+@//;
 
-  if($lang->valid_name($key)) {
+  if($lang->valid_name($lkey)) {
     $ptr=$frame->name_lookup($key);
 
   } else {
@@ -1081,6 +1084,8 @@ sub wedcast($$$$) {
 sub lname_lookup($$) {
 
   my ($frame,$key)=@_;
+
+  my $m=$frame->master;
   my $scope=undef;
 
   if(!defined (
@@ -1088,7 +1093,7 @@ sub lname_lookup($$) {
       $scope
         =$frame->name_in_lscope($key)
 
-  )) {
+  ) && !$m->fpass) {
 
     printf
 
