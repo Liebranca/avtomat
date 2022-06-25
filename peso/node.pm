@@ -710,15 +710,9 @@ sub agroup($) {
     for my $arg(@args) {
 
       if(!$opt{no_numcon}) {
+
       for my $key(keys %{$lang->nums}) {
-
-        if($arg->value=~ m/^${key}/) {
-          $arg->value(
-            $lang->nums->{$key}->($arg->value)
-
-          );last;
-
-        };
+        $lang->numcon(\$arg->{-VALUE});
 
       }};$arg=\$arg->value;
 

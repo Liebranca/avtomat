@@ -16,3 +16,8 @@ beg ptr_decl pe_ptr_decl;
    <value_decl> <vlist>?;
 
 end;
+
+beg type_decl pe_type_decl;
+  'reg'|->%directive <bare>%name;
+
+end;

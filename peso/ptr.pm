@@ -896,7 +896,7 @@ sub fetch($$) {
 
   my $ptr;
   my $lkey=$key;
-  $lkey=~ s/^[^@]+@//;
+  while($lkey=~ s/^[^@]+@//) {;}
 
   if($lang->valid_name($lkey)) {
     $ptr=$frame->name_lookup($key);

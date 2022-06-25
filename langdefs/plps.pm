@@ -590,7 +590,7 @@ lang::def::nit(
 
   -NAME=>'plps',
 
-  -EXT=>'\.pe\.lps',
+  -EXT=>'\.lps',
   -HED=>'\$:%plps;>',
   -MAG=>'Peso-style language patterns',
 
@@ -605,6 +605,7 @@ lang::def::nit(
     ode cde num
 
     fctl sbl_decl ptr_decl pattern
+    type_decl
 
   )],
 

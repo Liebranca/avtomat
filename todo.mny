@@ -18,6 +18,7 @@ x decompose PLPS match trees in parser;
 This means, roughly:;
 ~ Using peso::blk for data storage. Manual allocation would be preferred later on;
 x ^ Type to size tables;
+x ^ Define peso.lps::type_decl;
 ~ ^ Blueprints;
 ~ Using peso::ptr for, well, pointers;
 ~ reg/clan selective inheritance;

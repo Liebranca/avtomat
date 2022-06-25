@@ -987,7 +987,8 @@ sub plps_parse($$$$) {
     my $tree=undef;
 
     for my $key(
-      'ptr_decl'
+      'ptr_decl',
+      'type_decl',
 
     ) {
 
@@ -1141,7 +1142,7 @@ sub parse($$$;@) {
     $program->{-PASS}++;
 
     for my $branch(@{$root->leaves}) {
-      peso::fndmtl::run($program,$branch);
+      peso::fndmtl::give($program,$branch);
 
     };
 

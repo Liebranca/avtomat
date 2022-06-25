@@ -26,7 +26,7 @@ sub ptr_decl($$) {
     type=>'ptr_decl',
 
     header=>{},
-    data=>{},
+    data=>[],
 
   );
 
@@ -111,10 +111,64 @@ sub ptr_decl_pack($$) {
 
 # ---   *   ---   *   ---
 
+sub type_decl($$) {
+
+  my ($m,$tree)=@_;
+
+  my %out=(
+    type=>'type_decl',
+
+    header=>{},
+    data=>[],
+
+  );
+
+# ---   *   ---   *   ---
+
+  my $header=$out{header};
+
+  $header->{type}=[
+    $tree->branch_values('^directive$')
+
+  ];
+
+  $header->{spec}=undef;
+
+# ---   *   ---   *   ---
+
+  my $data=$out{data};
+  push @$data,$tree->branch_values('^name$');
+
+  return \%out;
+
+};
+
+# ---   *   ---   *   ---
+
+sub type_decl_pack($$) {
+
+  my ($m,$pkg)=@_;
+
+  return
+
+  [ $m->blk,
+    'new_data_block',
+
+    $pkg->{data},
+
+  ];
+
+};
+
+# ---   *   ---   *   ---
+
 use constant CALLTAB=>{
 
   'ptr_decl'=>\&ptr_decl,
   'ptr_decl_pack'=>\&ptr_decl_pack,
+
+  'type_decl'=>\&type_decl,
+  'type_decl_pack'=>\&type_decl_pack,
 
 };
 
@@ -131,6 +185,8 @@ sub take($$$) {
 
 };
 
+# ---   *   ---   *   ---
+
 sub give($$) {
 
   my ($m,$branch)=@_;
@@ -139,33 +195,46 @@ sub give($$) {
   my $scope=$btc->[0];
   my $fn=$btc->[1];
 
+# ---   *   ---   *   ---
+# solve pending operations on second pass
+
   my @args=@{$btc}[2..@{$btc}-1];
+  if(!$m->fpass()) {
 
-  $scope->$fn(@args);
+    my @pending=();
+    for my $arg(@{$args[0]}) {
 
-};
+      my $n;
+      if(!length ref $arg) {
+        unshift @pending,\$arg;
+
+      } else {
+        unshift @pending,map {\$_;} @$arg;
+
+      };
+
+# ---   *   ---   *   ---
+# go recursive
+
+      while(@pending) {
+        $n=shift @pending;
+
+        if(peso::node::valid $$n) {
+          $$n=$$n->collapse()->value;
+
+        } else {
+          $m->lang->numcon($n);
+
+        };
+
+      };
 
 # ---   *   ---   *   ---
 
-sub run($$) {
-
-  my ($m,$branch)=@_;
-
-  my $btc=$branch->{btc};
-  my $scope=$btc->[0];
-  my $fn=$btc->[1];
-
-  my @args=@{$btc}[2..@{$btc}-1];
-  for my $arg(@{$args[0]}) {
-
-    my $n=$arg->[1];
-
-    if(peso::node::valid $n) {
-      $arg->[1]=$n->collapse()->value;
-
     };
+  };
 
-  };$scope->$fn(@args);
+  return $scope->$fn(@args);
 
 };
 

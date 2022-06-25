@@ -117,7 +117,7 @@ EOF
 ;
 
 # ---   *   ---   *   ---
-@files='plps';
+
   for my $lang(@files) {
     $script.="  use langdefs::$lang;\n";
 

@@ -1166,6 +1166,21 @@ sub fctls {return (shift)->{-FCTLS};};
 sub resnames {return (shift)->{-RESNAMES};};
 sub nums {return (shift)->{-NUMS};};
 
+sub numcon($$) {
+
+  my ($self,$value)=@_;
+
+  for my $key(keys %{$self->nums}) {
+
+    if($$value=~ m/^${key}/) {
+      $$value=$self->nums->{$key}->($$value);
+      last;
+
+    };
+
+  };
+};
+
 sub separators {return (shift)->{-SEP_OPS};};
 
 # ---   *   ---   *   ---

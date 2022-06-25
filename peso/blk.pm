@@ -595,6 +595,47 @@ sub DST($;$) {
 # ---   *   ---   *   ---
 # constructors
 
+sub new_data_block($) {
+
+  my ($frame,$data)=@_;
+  my $m=$frame->master;
+
+  my $name=$data->[0];
+
+  my $dst=($frame->DST->attrs)
+  ? $frame->DST->par
+  : $frame->DST
+  ;
+
+# ---   *   ---   *   ---
+# append new block to dst on first pass
+
+  my $blk;
+  if($m->fpass()) {
+    $blk=$frame->nit(
+      $dst,$name,peso::blk->O_RDWR,
+
+    );
+
+# ---   *   ---   *   ---
+# second pass: look for block
+
+  } else {
+    $blk=$m->ptr->fetch($name)->blk;
+
+  };
+
+# ---   *   ---   *   ---
+# overwrite dst
+
+  $frame->DST($blk);
+  $frame->setscope($blk);
+  $frame->setcurr($blk);
+
+};
+
+# ---   *   ---   *   ---
+
 sub nit($$$$) {
   peso::blk::nit($_[0],$_[1],$_[2],$_[3]);
 
