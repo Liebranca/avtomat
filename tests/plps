@@ -32,7 +32,8 @@ my $program=peso::rd::parse(
   peso::rd::STR,q(
 
 reg attrs;
-  char x,y 2*^8-1,0x77;
+  wide x 2*^8-1;
+  wide ptr y x;
 
 ));
 

@@ -595,9 +595,11 @@ sub DST($;$) {
 # ---   *   ---   *   ---
 # constructors
 
+# makes reg
+
 sub new_data_block($) {
 
-  my ($frame,$data)=@_;
+  my ($frame,$header,$data)=@_;
   my $m=$frame->master;
 
   my $name=$data->[0];
@@ -621,7 +623,8 @@ sub new_data_block($) {
 # second pass: look for block
 
   } else {
-    $blk=$m->ptr->fetch($name)->blk;
+    my $ptr=$name;
+    $blk=$ptr->blk;
 
   };
 
@@ -631,6 +634,73 @@ sub new_data_block($) {
   $frame->DST($blk);
   $frame->setscope($blk);
   $frame->setcurr($blk);
+
+};
+
+# ---   *   ---   *   ---
+# makes reg entry
+
+sub new_data_ptr($$$$) {
+
+  my ($frame,$header,$data)=@_;
+  my $m=$frame->master;
+
+  my $type=$header->{type}->[-1];
+  my $spec=$header->{spec}->[-1];
+
+# ---   *   ---   *   ---
+# TODO: handle multiple types/specifiers
+# but for now this is sufficient
+
+  my $wed=$type;
+  if($spec eq 'ptr') {
+    $wed='unit';
+
+  };
+
+# ---   *   ---   *   ---
+# open new typing mode
+
+  my $old=$m->ptr->wed('get');
+  $m->ptr->wed($wed);
+
+# ---   *   ---   *   ---
+# grow block on first pass
+
+  if($m->fpass()) {
+    $frame->DST->expand($data,$wed,0);
+
+# ---   *   ---   *   ---
+# overwrite on second pass
+
+  } else {
+
+    for my $pair(@$data) {
+
+      my $ptr=$pair->[0];
+      my $value=$pair->[1];
+
+      $ptr->mask_to($type);
+
+      if(!$value && $wed eq 'unit') {
+        $value=$m->ptr->NULL;
+
+      };
+
+      if(peso::ptr::valid $value) {
+        $value=$value->addr;
+
+      };
+
+      $ptr->setv($value);
+
+    };
+  };
+
+# ---   *   ---   *   ---
+# restore typing mode
+
+  $m->ptr->wed($old);
 
 };
 

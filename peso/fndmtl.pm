@@ -17,22 +17,35 @@ package peso::fndmtl;
   use warnings;
 
 # ---   *   ---   *   ---
+# constructor for pkg hash
 
-sub ptr_decl($$) {
+sub getout($) {
 
-  my ($m,$tree)=@_;
+  my $type=shift;
 
   my %out=(
-    type=>'ptr_decl',
+    type=>$type,
 
     header=>{},
     data=>[],
 
   );
 
-# ---   *   ---   *   ---
+  return $out{header},$out{data},%out;
 
-  my $header=$out{header};
+};
+
+# ---   *   ---   *   ---
+# decomposes a value declaration tree
+
+sub ptr_decl($$) {
+
+  my ($m,$tree)=@_;
+  my ($header,$data,%out)=getout('ptr_decl');
+
+# ---   *   ---   *   ---
+# save block entry descriptors
+
   $header->{spec}=[$tree->branch_values('^spec$')];
   $header->{type}=[$tree->branch_values('^type$')];
 
@@ -69,8 +82,9 @@ sub ptr_decl($$) {
   };
 
 # ---   *   ---   *   ---
+# push key:value to data
 
-  my @data;
+  my $types=$m->lang->types;
   while(@names) {
 
     my $name=shift @names;
@@ -81,11 +95,10 @@ sub ptr_decl($$) {
 
     };
 
-    push @data,[$name,$value];
+    push @$data,[$name,$value];
 
   };
 
-  $out{data}=\@data;
   return \%out;
 
 };
@@ -98,34 +111,25 @@ sub ptr_decl_pack($$) {
 
   return
 
-  [ $m->blk->DST,
-    'expand',
+  [ $m->blk,
+    'new_data_ptr',
 
-    $pkg->{data},
-    $pkg->{header}->{type}->[0],
-    0,
+    $pkg
 
   ];
 
 };
 
 # ---   *   ---   *   ---
+# decomposes class/struct declaration tree
 
 sub type_decl($$) {
 
   my ($m,$tree)=@_;
-
-  my %out=(
-    type=>'type_decl',
-
-    header=>{},
-    data=>[],
-
-  );
+  my ($header,$data,%out)=getout('ptr_decl');
 
 # ---   *   ---   *   ---
-
-  my $header=$out{header};
+# get entry info
 
   $header->{type}=[
     $tree->branch_values('^directive$')
@@ -135,10 +139,9 @@ sub type_decl($$) {
   $header->{spec}=undef;
 
 # ---   *   ---   *   ---
+# push to data
 
-  my $data=$out{data};
   push @$data,$tree->branch_values('^name$');
-
   return \%out;
 
 };
@@ -154,13 +157,14 @@ sub type_decl_pack($$) {
   [ $m->blk,
     'new_data_block',
 
-    $pkg->{data},
+    $pkg,
 
   ];
 
 };
 
 # ---   *   ---   *   ---
+# func table
 
 use constant CALLTAB=>{
 
@@ -173,6 +177,7 @@ use constant CALLTAB=>{
 };
 
 # ---   *   ---   *   ---
+# use tree to build instruction
 
 sub take($$$) {
 
@@ -186,6 +191,7 @@ sub take($$$) {
 };
 
 # ---   *   ---   *   ---
+# ^executes
 
 sub give($$) {
 
@@ -195,14 +201,21 @@ sub give($$) {
   my $scope=$btc->[0];
   my $fn=$btc->[1];
 
+  my $pkg=$btc->[2];
+
+  my ($header,$data)=(
+    $pkg->{header},
+    $pkg->{data}
+
+  );
+
 # ---   *   ---   *   ---
 # solve pending operations on second pass
 
-  my @args=@{$btc}[2..@{$btc}-1];
   if(!$m->fpass()) {
 
     my @pending=();
-    for my $arg(@{$args[0]}) {
+    for my $arg(@{$data}) {
 
       my $n;
       if(!length ref $arg) {
@@ -222,6 +235,15 @@ sub give($$) {
         if(peso::node::valid $$n) {
           $$n=$$n->collapse()->value;
 
+        } elsif(
+
+           $m->lang->valid_name($$n)
+        && !(exists $m->lang->types->{$$n})
+
+        ) {
+
+          $$n=$m->ptr->fetch($$n);
+
         } else {
           $m->lang->numcon($n);
 
@@ -230,11 +252,12 @@ sub give($$) {
       };
 
 # ---   *   ---   *   ---
+# give back call results
 
     };
   };
 
-  return $scope->$fn(@args);
+  return $scope->$fn($header,$data);
 
 };
 

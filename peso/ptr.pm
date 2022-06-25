@@ -812,7 +812,12 @@ sub valid_addr($$) {
 
   my ($frame,$addr)=@_;
 
-  if($addr eq peso::ptr->NULL) {
+  if(
+      $addr eq peso::ptr->NULL
+  || !($addr=~ m/^[0-9]+$/)
+
+  ) {
+
     return 0;
 
   };
@@ -895,14 +900,11 @@ sub fetch($$) {
   my $lang=$frame->master->lang;
 
   my $ptr;
-  my $lkey=$key;
-  while($lkey=~ s/^[^@]+@//) {;}
-
-  if($lang->valid_name($lkey)) {
-    $ptr=$frame->name_lookup($key);
+  if($frame->valid_addr($key)) {
+    $ptr=$frame->addr_lookup($key);
 
   } else {
-    $ptr=$frame->addr_lookup($key);
+    $ptr=$frame->name_lookup($key);
 
   };return $ptr;
 
