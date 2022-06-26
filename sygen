@@ -172,6 +172,7 @@ my %KEYCOLOR=(
 
   -LCOM=>0x02,
   -OPS=>0x0F,
+  -VSTR=>0x03,
 
 );
 
@@ -199,6 +200,9 @@ sub prprops {
 
   if($key eq -OPS) {
     $v='([^\s_A-Za-z0-9]|\\\\)';
+
+  } elsif($key eq -VSTR) {
+    $v="v[0-9\.]+[ab]?";
 
   };
 
@@ -303,11 +307,11 @@ sub glang {
       -BUILTINS,-FCTLS,-TYPES,-SPECIFIERS,
       -INTRINSICS,-DIRECTIVES,-RESNAMES,
 
-      -NUMS,-OPS,-CHAR,-STRING,-PREPROC,
-      -LCOM,-DEV0,-DEV1,-DEV2,-DEV3
+      -NUMS,-VSTR,-OPS,-CHAR,-STRING,
+      -PREPROC,-LCOM,-DEV0,-DEV1,-DEV2,
+      -DEV3
 
     ) {prprops($def,$key);};
-
     close $FH;
 
   };

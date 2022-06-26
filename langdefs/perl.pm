@@ -135,7 +135,7 @@ lang::def::nit(
     bless blessed
 
     caller chdir chmod chop chown chroot close
-    closedir connect cos crypt
+    closedir connect cos crypt croak
 
     dbmclose dbmopen defined delete die dump
     each eof eval exec exists exit exp
@@ -182,6 +182,8 @@ lang::def::nit(
     sort splice split sprintf sqrt srand stat
     study substr symlink syscall sysread system
 
+    say
+
     syswrite tell telldir time tr truncate
 
     umask undef unlink unpack unshift
@@ -194,7 +196,7 @@ lang::def::nit(
 # ---   *   ---   *   ---
 
   -DIRECTIVES=>[qw(
-    use package my our sub
+    use package my our sub state
 
   ),(keys %{langdefs::peso->DIRECTIVE})],
 
