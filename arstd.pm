@@ -120,26 +120,27 @@ sub errout($format,%opt) {
 # ---   *   ---   *   ---
 # handle program exit
 
+
+  my $mess=longmess();
+
+  $mess=join "\n",
+    map {fmat_btrace}
+    split m/\n/,$mess;
+
+  my $header=sprintf
+    "$opt{lvl}#:!;> BACKTRACE\e[0m\n\n".
+    "%-21s%-21s%-12s\n",
+
+    'Module',
+    'File',
+    'Line'
+
+  ;
+
+  print {*STDERR}
+    "$header\n$mess\n\n";
+
   if($opt{lvl} eq FATAL) {
-    my $mess=longmess();
-
-    $mess=join "\n",
-      map {fmat_btrace}
-      split m/\n/,$mess;
-
-    my $header=sprintf
-      "\e[31;1m#:!;> BACKTRACE\e[0m\n\n".
-      "%-21s%-21s%-12s\n",
-
-      'Module',
-      'File',
-      'Line'
-
-    ;
-
-    print {*STDERR}
-      "$header\n$mess\n\n";
-
     exit;
 
   } else {

@@ -13,14 +13,24 @@
 
 # deps
 package peso::node;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
-  use lib $ENV{'ARPATH'}.'/include/';
+  use Scalar::Util qw/blessed/;
+
   use lib $ENV{'ARPATH'}.'/lib/';
 
+  use style;
+  use arstd;
   use lang;
-  use Scalar::Util qw/blessed/;
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION=v3.0;
+  our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 
@@ -29,38 +39,27 @@ use constant OPERATOR
 
 # ---   *   ---   *   ---
 
-sub valid {
-
-  my $node=shift;if(
-
-     blessed($node)
-  && $node->isa('peso::node')
-
-  ) {
-
-    return 1;
-  };return 0;
+sub valid($node) {
+  return blessed($node) && $node->isa('peso::node');
 
 };
 
 # ---   *   ---   *   ---
 # constructors
 
-sub new_frame($) {
-  return peso::node::frame::create(shift);
+sub new_frame(@args) {
+  return peso::node::frame::create(@args);
 
 };
 
 # in: parent,val
 # make child node or create a new tree
-sub nit($$$) {
-
-  my ($frame,$parent,$val)=@_;
+sub nit($frame,$parent,$val) {
 
   # tree/root handle
   my %tree=(
 
-    -ROOT=>undef,
+    root=>undef,
 
   );my $tree_id;
 
@@ -73,7 +72,7 @@ sub nit($$$) {
     $tree_id=@ar;
 
     if(defined $frame->{-ANCHOR}) {
-      $tree{-ROOT}=undef;
+      $tree{root}=undef;
 
     };
 
@@ -83,22 +82,22 @@ sub nit($$$) {
 
   # ... or fetch from id
   } else {
-    $tree_id=$parent->{-ROOT};
+    $tree_id=$parent->{root};
     %tree=%{ $frame->{-TREES}->[$tree_id] };
 
   # make node instance
   };my $node=bless {
 
-    -VALUE=>$val,
-    -VALUE_TYPE=>0x00,
+    value=>$val,
+    value_type=>0x00,
 
-    -LEAVES=>[],
+    leaves=>[],
 
-    -ROOT=>$tree_id,
-    -PAR=>undef,
-    -INDEX=>0,
+    root=>$tree_id,
+    par=>undef,
+    idex=>0,
 
-    -FRAME=>$frame,
+    frame=>$frame,
 
   },'peso::node';
 
@@ -108,12 +107,12 @@ sub nit($$$) {
   if(defined $parent) {
 
     push @{ $parent->leaves },$node;
-    $node->{-PAR}=$parent;
+    $node->{par}=$parent;
 
     $parent->idextrav();
 
   } else {
-    $tree{-ROOT}=$node;
+    $tree{root}=$node;
 
   };return $node;
 
@@ -122,30 +121,25 @@ sub nit($$$) {
 # ---   *   ---   *   ---
 # getters
 
-sub frame {return (shift)->{-FRAME};};
-sub leaves {return (shift)->{-LEAVES};};
-sub par {return (shift)->{-PAR};};
+sub frame($self) {return $self->{frame}};
+sub leaves($self) {return $self->{leaves}};
+sub par($self) {return $self->{par}};
 
-sub value($;$) {
-
-  my $self=shift;
-  my $x=shift;
+sub value($self,$x=undef) {
 
   if(defined $x) {
-    $self->{-VALUE}=$x;
+    $self->{value}=$x;
 
-  };return $self->{-VALUE};
+  };return $self->{value};
 
 };
 
-sub value_type($) {return (shift)->{-VALUE_TYPE};};
+sub value_type($self) {return $self->{value_type}};
 
-sub ances($$) {
-
-  my ($self,$join)=@_;
+sub ances($self,$join) {
 
   my $anchor=$self;
-  my $s='';
+  my $s=NULLSTR;
 
 TOP:
 
@@ -154,6 +148,7 @@ TOP:
 
     $s=$join.$s;
     $anchor=$anchor->par;
+
     goto TOP;
 
   };
@@ -163,29 +158,11 @@ TOP:
 };
 
 # ---   *   ---   *   ---
-
-sub mksep {
-
-  return bless {
-
-    -VALUE=>'$:cut;>',
-    -LEAVES=>[],
-
-    -ROOT=>0,
-    -PAR=>undef,
-
-  },'node';
-
-};
-
-# ---   *   ---   *   ---
 # makes copy of instance
 
-sub dup($$) {
+sub dup($self,$root=undef) {
 
-  my ($self,$root)=@_;
   my $frame=$self->frame;
-
   my @leaves=();
 
   my $copy=$frame->nit($root,$self->value);
@@ -202,40 +179,38 @@ sub dup($$) {
 # ---   *   ---   *   ---
 # returns first match of field_%i
 
-sub fieldn($$) {
-
-  my ($self,$i)=@_;
+sub fieldn($self,$i) {
   my $field=($self->branches_with("field_$i"))[0];
-
   return $field->leaves->[$i];
 
 # ---   *   ---   *   ---
 # ^same, returns whole list
 
-};sub fieldsn($$) {
-
-  my ($self,$i)=@_;
+};sub fieldsn($self,$i) {
   my @fields=$self->branches_in("field_$i");
-
   return @fields;
 
 };
 
 # ---   *   ---   *   ---
 
-sub group($$;$) {
+sub group($self,$idex,$subidex=undef) {
 
-  my ($self,$idex,$sub)=@_;
+  my $out=undef;
 
   # errchk
   if(!@{$self->leaves}) {
 
-    printf
+    arstd::errout(
 
-      "Node <".$self->value.
-      "> has no children\n";
+      "Node <%s> has no children\n",
 
-    exit;
+      args=>[$self->value],
+      lvl=>WARNING,
+
+    );
+
+    goto FAIL;
 
   };
 
@@ -245,25 +220,30 @@ sub group($$;$) {
   my $group=$self->leaves->[$idex];
 
   # get nth element in group
-  if(defined $sub) {
+  if(defined $subidex) {
 
-    my $node=$group->leaves->[$sub];
+    my $node=$group->leaves->[$subidex];
     return $node;
 
-  };return $group;
+  };
+
+# ---   *   ---   *   ---
+
+  $out=$group;
+
+FAIL:
+  return $out;
 
 };
 
 # ---   *   ---   *   ---
 
-sub walkup($;$) {
+sub walkup($self,$top=undef) {
 
-  my ($self,$top)=@_;
+  # opt defaults
+  $top//=-1;
 
-  if(!defined $top) {
-    $top=-1;
-
-  };
+# ---   *   ---   *   ---
 
   my $node=$self->par;
   my $i=0;
@@ -282,9 +262,8 @@ sub walkup($;$) {
 
 # ---   *   ---   *   ---
 
-sub shiftlv {
+sub shiftlv($self,$pos,$sz) {
 
-  my ($self,$pos,$sz)=@_;
   my $frame=$self->frame;
 
   for my $i(0..$sz-1) {
@@ -300,19 +279,18 @@ sub shiftlv {
 
   };$self->idextrav();
 
+  return;
+
 };
 
 # ---   *   ---   *   ---
-
 # in:overwrite,node arr
 # push node array to leaves
-sub pushlv {
 
-  my $self=shift;
-  my $overwrite=shift;
+sub pushlv($self,$overwrite,@pending) {
 
   if($overwrite) {
-    $self->{-LEAVES}=[];
+    $self->{leaves}=[];
 
   };
 
@@ -320,18 +298,16 @@ sub pushlv {
 
   # move nodes
   my %cl=();
-  while(@_) {
+  while(@pending) {
 
-    my $node=shift;
-    if($node eq '$:cut;>') {
-      $node=mksep();
-
-    };
+    my $node=shift @pending;
 
     my $par=$node->par;
 
-    $node->{-ROOT}=$self->{-ROOT};
-    $node->{-PAR}=$self;
+    $node->{root}=$self->{root};
+    $node->{par}=$self;
+
+# ---   *   ---   *   ---
 
     push @{ $self->leaves },$node;
 
@@ -341,29 +317,29 @@ sub pushlv {
 
     };
 
-  };for my $node(keys %cl) {
+  };
+
+# ---   *   ---   *   ---
+
+  for my $node(keys %cl) {
     $node=$cl{$node};
     $node->cllv();
 
   };
+
+  return;
+
 };
 
 # ---   *   ---   *   ---
 
 # discard blank nodes
-sub cllv($) {
+sub cllv($self) {
 
-  my $self=shift;
   my @cpy=();
+  my @leaves=@{$self->leaves};
 
-  for(
-
-    my $i=0;
-
-    $i<@{ $self->leaves };
-    $i++
-
-  ) {
+  for my $i(0..$#leaves) {
 
     # push only nodes that arent plucked
     my $node=$self->leaves->[$i];
@@ -375,6 +351,8 @@ sub cllv($) {
   # overwrite with filtered array
   };$self->pushlv(1,@cpy);
 
+  return;
+
 };
 
 # ---   *   ---   *   ---
@@ -382,9 +360,8 @@ sub cllv($) {
 # in:self,string
 # branch out node from whitespace split
 
-sub tokenize($$) {
+sub tokenize($self,$exp) {
 
-  my ($self,$exp)=@_;
   my $frame=$self->frame;
   my $lang=$frame->master->lang;
 
@@ -403,7 +380,11 @@ sub tokenize($$) {
   my @elems=();
 
   my @ar=split m/([^\s]*)\s+/,$exp;
-  my $i=0;while(@ar) {
+  my $i=0;
+
+# ---   *   ---   *   ---
+
+  while(@ar) {
     my $elem=shift @ar;
 
     if(defined $elem && length $elem) {
@@ -433,19 +414,20 @@ sub tokenize($$) {
 
   for my $leaf(@{$self->leaves}) {
 
-    $leaf->{-VALUE_TYPE}
+    $leaf->{value_type}
       =$lang->classify($leaf->value);
 
   };
+
+  return;
 
 };
 
 # ---   *   ---   *   ---
 # clump fields of arguments together
 
-sub agroup($) {
+sub agroup($self) {
 
-  my $self=shift;
   my $frame=$self->frame;
   my $lang=$frame->master->lang;
 
@@ -462,7 +444,7 @@ sub agroup($) {
   my @leaves=@{$self->leaves};
   TOP:my $leaf=shift @leaves;
 
-  if($leaf->value eq ',') {
+  if($leaf->value eq q{,}) {
     push @trash,$leaf;
     pop @anchors;
 
@@ -493,16 +475,15 @@ sub agroup($) {
   unshift @leaves,@{$leaf->leaves};
 
   if(@leaves) {goto TOP;};
-  END:$self->pluck(@trash);
+  TAIL:$self->pluck(@trash);
 
   $self->delimchk();
+  return;
 
 # ---   *   ---   *   ---
 # expands the tree to solve expressions
 
-};sub subdiv($) {
-
-  my $self=shift;
+};sub subdiv($self) {
 
   my $frame=$self->frame;
   my $lang=$frame->master->lang;
@@ -536,7 +517,7 @@ sub agroup($) {
 
     if($matched{"$leaf"}) {next;};
 
-    my $i=$leaf->{-INDEX};
+    my $i=$leaf->{idex};
 
     my $prev=($i>0) ? $ar[$i-1] : undef;
     my $next=($i<$#ar) ? $ar[$i+1] : undef;
@@ -635,6 +616,8 @@ sub agroup($) {
     $leaf->pushlv(0,$root->pluck(@move));
     goto TOP;
 
+# ---   *   ---   *   ---
+
   };if(@leaves) {
 
     $root=shift @leaves;
@@ -642,15 +625,16 @@ sub agroup($) {
 
   };
 
+  return;
+
 # ---   *   ---   *   ---
 # solves operations across the hierarchy
 
-};sub collapse {
+};sub collapse($self,%opt) {
 
-  my $self=my $root=shift;
-  my %opt=@_;
-
+  my $root=$self;
   my $depth=0;
+
   my $max_depth=$opt{depth};
   my $only_if=$opt{only};
   my $no_numcon=$opt{no_numcon};
@@ -669,8 +653,8 @@ sub agroup($) {
   while(@leaves) {
 
     $self=shift @leaves;
-    if($self eq 0) {$depth--;next;}
-    elsif($self eq 1) {$depth++;next;};
+    if($self == 0) {$depth--;next;}
+    elsif($self == 1) {$depth++;next;};
 
     if(defined $max_depth
     && $depth>=$max_depth) {next;};
@@ -712,7 +696,7 @@ sub agroup($) {
       if(!$opt{no_numcon}) {
 
       for my $key(keys %{$lang->nums}) {
-        $lang->numcon(\$arg->{-VALUE});
+        $lang->numcon(\$arg->{value});
 
       }};$arg=\$arg->value;
 
@@ -731,6 +715,9 @@ sub agroup($) {
       $self->par->repl($self);
 
     };
+
+# ---   *   ---   *   ---
+
   };
 
   return $root;
@@ -740,21 +727,19 @@ sub agroup($) {
 # ---   *   ---   *   ---
 # replaces field_N with it's children
 
-sub defield($) {
-
-  my $self=shift;
-
+sub defield($self) {
   my @ar=$self->branches_in('^field_\d+$');
-  map {$_->contract()} @ar;
+  map {$_->flatten_branch()} @ar;
+
+  return;
 
 };
 
 # ---   *   ---   *   ---
 # check for ([]) delimiters
 
-sub delimchk($) {
+sub delimchk($self) {
 
-  my $self=shift;
   my $frame=$self->frame;
   my $lang=$frame->master->lang;
 
@@ -764,11 +749,11 @@ sub delimchk($) {
   my @leaves=($self);
   TOP:$self=shift @leaves;
 
-  my $i=0;for my $leaf(@{$self->leaves}) {
-
-    if(!defined $leaf) {last;};
-
 # ---   *   ---   *   ---
+
+  my $i=0;
+  for my $leaf(@{$self->leaves}) {
+    if(!defined $leaf) {last;};
 
     if($leaf->value=~ m/${ode}/) {
       $leaf->delimbrk($i);
@@ -777,16 +762,18 @@ sub delimchk($) {
 
   };
 
+# ---   *   ---   *   ---
+
   unshift @leaves,@{$self->leaves};
   if(@leaves) {goto TOP;};
+
+  return;
 
 # ---   *   ---   *   ---
 # makes a node hierarchy from a
 # delimiter-[values]-delimiter sequence
 
-};sub delimbrk($$) {
-
-  my ($self,$i)=@_;
+};sub delimbrk($self,$i) {
 
   my $frame=$self->frame;
   my $lang=$frame->master->lang;
@@ -800,6 +787,8 @@ sub delimchk($) {
   my @ar=@{$self->par->leaves};
   @ar=@ar[$i..$#ar];
 
+# ---   *   ---   *   ---
+
   for my $leaf(@ar) {
 
     if($anchors[-1]) {
@@ -812,6 +801,8 @@ sub delimchk($) {
     if($leaf->value=~ m/${ode}/) {
       push @anchors,$leaf;
       push @moved,[];
+
+# ---   *   ---   *   ---
 
     } elsif(
 
@@ -828,49 +819,24 @@ sub delimchk($) {
 
     };
 
-  };
-
 # ---   *   ---   *   ---
 
-};sub reorder {
+  };
 
-  my $self=shift;
-
-#  my $i=0;while($i<@{$self->leaves}) {
-#    peso::sbl::ndconsume($self,\$i);
-#
-#  };
-
-};sub exwalk {
-
-#  my $self=shift;
-#  my @leaves=($self);
-#
-#TOP:
-#
-#  $self=shift @leaves;
-#
-#  if(peso::sbl::valid($self->value)) {
-#    $self->value->ex($self);
-#
-#  } else {
-#    push @leaves,@{$self->leaves};
-#
-#  };if(@leaves) {goto TOP;};
+  return;
 
 };
 
 # ---   *   ---   *   ---
-
 # in: node to replace self by
 # replaces a node in the hierarchy
 
-sub repl($$) {
-
-  my ($self,$other)=@_;
+sub repl($self,$other) {
 
   my $ref=$self->par->leaves;
   my $i=-1;
+
+# ---   *   ---   *   ---
 
   for my $node(@$ref) {
 
@@ -880,8 +846,10 @@ sub repl($$) {
     };
   };
 
+# ---   *   ---   *   ---
+
   if($i>=0) {
-    $other->{-PARENT}=$self->par;
+    $other->{parent}=$self->par;
     $ref->[$i]=$other;
 
   };
@@ -889,32 +857,32 @@ sub repl($$) {
   $self->par->cllv();
   $self->par->idextrav();
 
+  return;
+
 };
 
 # ---   *   ---   *   ---
 # replaces node with it's leaves
 
-sub contract($) {
+sub flatten_branch($self,%args) {
 
-  my $self=shift;
-  my %args=@_;
+  # opt defaults
+  $args{keep_root}//=0;
 
   my @move=$self->pluck(@{$self->leaves});
   my $par=$self->par;
-
-  my $keep_root=$args{keep_root};
 
   $par->cllv();
   $par->idextrav();
 
 # ---   *   ---   *   ---
 
-  my $idex=$self->{-INDEX};
+  my $idex=$self->{idex};
   my @ar=@{$par->leaves};
 
-  if($keep_root) {unshift @move,$self;};
-  if($idex) {unshift @move,@ar[0..$idex-1];};
-  if($idex<$#ar) {push @move,@ar[$idex+1..$#ar];};
+  if($args{keep_root}) {unshift @move,$self};
+  if($idex) {unshift @move,@ar[0..$idex-1]};
+  if($idex<$#ar) {push @move,@ar[$idex+1..$#ar]};
 
 # ---   *   ---   *   ---
 
@@ -923,57 +891,55 @@ sub contract($) {
   $par->cllv();
   $par->idextrav();
 
+  return;
+
 };
 
 # ---   *   ---   *   ---
-
 # in: node list
 # removes leaves from node
-sub pluck {
 
-  # instance
-  my $self=shift;
-
-  # data
-  my @ar=@_;
+sub pluck($self,@pending) {
 
   # return value
   my @plucked=();
 
 # ---   *   ---   *   ---
+# match nodes in list
 
-  # match nodes in list
-  { my $i=0;for my $leaf(
-    @{ $self->leaves }
+  { my $i=0;
 
-  # skip removed nodes
-  ) { if(!$leaf) {next;};
+  for my $leaf(@{$self->leaves}) {
 
-      # iter node array
-      my $j=0;for my $node(@ar) {
+    # skip removed nodes
+    if(!$leaf) {next;};
 
-        # skip already removed ones
-        if(!$node) {$j++;next;};
+    # iter node array
+    my $j=0;
+    for my $node(@pending) {
+
+      # skip already removed ones
+      if(!$node) {$j++;next;};
 
 # ---   *   ---   *   ---
 
-        # node is in remove list
-        if($leaf eq $node) {
+      # node is in remove list
+      if($leaf eq $node) {
 
-          # save the removed nodes
-          push @plucked,$self->leaves->[$i];
+        # save the removed nodes
+        push @plucked,$self->leaves->[$i];
 
-          # remove from list and leaves
-          $ar[$j]=undef;
-          $self->leaves->[$i]=undef;
+        # remove from list and leaves
+        $pending[$j]=undef;
+        $self->leaves->[$i]=undef;
 
-          # go to next leaf
-          last;
+        # go to next leaf
+        last;
 
-        };$j++; # next in remove list
-      };$i++; # next in leaves
-    };
-  };
+      };$j++; # next in remove list
+    };$i++; # next in leaves
+
+  }};
 
 # ---   *   ---   *   ---
 
@@ -987,16 +953,15 @@ sub pluck {
 
 # ---   *   ---   *   ---
 
-sub idextrav($) {
+sub idextrav($self) {
 
-  my $self=shift;
-  my $fuck=shift;
   my $i=0;
-
   for my $child(@{$self->leaves}) {
-    $child->{-INDEX}=$i;$i++;
+    $child->{idex}=$i;$i++;
 
-  };return $i;
+  };
+
+  return $i;
 
 };
 
@@ -1004,9 +969,8 @@ sub idextrav($) {
 # fetches names from ext module
 # replaces these names with ptr references
 
-sub findptrs($) {
+sub findptrs($self) {
 
-  my $self=shift;
   my $frame=$self->frame;
   my $lang=$frame->master->lang;
 
@@ -1030,7 +994,9 @@ sub findptrs($) {
 
     };
 
-    # solve/fetch non-numeric values
+# ---   *   ---   *   ---
+# solve/fetch non-numeric values
+
     if($lang->valid_name(
         $self->value
 
@@ -1041,15 +1007,18 @@ sub findptrs($) {
       $self->value($fr_ptr->fetch($self->value));
 
     };
+
+# ---   *   ---   *   ---
+
   };
+
+  return;
 
 };
 
 # ---   *   ---   *   ---
 
-sub hashtree {
-
-  my $h=shift;
+sub hashtree($h) {
 
   my $frame=new_frame(undef);
 
@@ -1075,20 +1044,21 @@ TOP:for my $key(keys %$h) {
 
   };
 
-  return $frame->{-TREES}->[-1]->{-ROOT};
+  return $frame->{-TREES}->[-1]->{root};
 
 };
 
 # ---   *   ---   *   ---
 # does/undoes ode to op conversion
 
-sub odeop($$) {
+sub odeop($self,$set) {
 
-  my ($self,$set)=@_;
   my @leaves=($self);
 
   my $lang=$self->frame->master->lang;
   my $ode=$lang->ode;
+
+# ---   *   ---   *   ---
 
   while(@leaves) {
 
@@ -1102,6 +1072,8 @@ sub odeop($$) {
 
       },'node_op');
 
+# ---   *   ---   *   ---
+
     } elsif((!$set)
 
       && $self->value=~ m/${\OPERATOR}/
@@ -1113,16 +1085,19 @@ sub odeop($$) {
 
     };
 
+# ---   *   ---   *   ---
+
   };
+
+  return;
 
 };
 
 # ---   *   ---   *   ---
 # saves nodes whose values are references
 
-sub branchrefs($$) {
+sub branchrefs($self,$dst) {
 
-  my ($self,$dst)=@_;
   my $lang=$self->frame->master->lang;
   my $ode=$lang->ode;
 
@@ -1146,16 +1121,19 @@ sub branchrefs($$) {
 
     ) {$dst->{$self->value}=$self;};
 
+# ---   *   ---   *   ---
+
   };
+
+  return;
+
 };
 
 # ---   *   ---   *   ---
 # gives list of leaves in tree that
 # dont have leaves of their own
 
-sub leafless {
-
-  my ($self,%opt)=@_;
+sub leafless($self,%opt) {
 
   my @leaves=($self);
   my @result=();
@@ -1193,9 +1171,8 @@ sub leafless {
 # ---   *   ---   *   ---
 # gives list of branches holding value
 
-sub branches_with($$) {
+sub branches_with($self,$lookfor) {
 
-  my ($self,$lookfor)=@_;
   my $anchor=$self;
 
   my @leaves=();
@@ -1235,7 +1212,7 @@ SKIP:
 # ---   *   ---   *   ---
 # return matches
 
-END:
+TAIL:
   return @found;
 
 };
@@ -1243,9 +1220,7 @@ END:
 # ---   *   ---   *   ---
 # gives list of branches starting with value
 
-sub branches_in($$) {
-
-  my ($self,$lookfor)=@_;
+sub branches_in($self,$lookfor) {
 
   my @leaves=($self);
   my @found=();
@@ -1273,11 +1248,9 @@ sub branches_in($$) {
 # ---   *   ---   *   ---
 # gives array of values from node array
 
-sub plain_arr(@) {
+sub plain_arr(@tree) {
 
-  my @tree=@_;
   my @result=();
-
   for my $branch(@tree) {
 
     for my $leaf(@{$branch->leaves}) {
@@ -1291,11 +1264,9 @@ sub plain_arr(@) {
 # ---   *   ---   *   ---
 # ^ same, includes root nodes
 
-};sub plain_arr2(@) {
+};sub plain_arr2(@tree) {
 
-  my @tree=@_;
   my @result=();
-
   for my $branch(@tree) {
 
     push @result,$branch->value;
@@ -1311,25 +1282,26 @@ sub plain_arr(@) {
 
 # ---   *   ---   *   ---
 
-sub branch_values($$) {
+sub branch_values($self,$pat) {
 
-  my ($self,$pat)=@_;
   my @ar=$self->branches_in($pat);
-
   @ar=plain_arr(@ar);
+
   return @ar;
 
 };
 
 # ---   *   ---   *   ---
 
-sub nocslist($) {
+sub nocslist($self) {
 
-  my $self=shift;
   my @leaves=($self);
   my @pending=();
 
   my $sep=$self->frame->master->lang->separators;
+
+# ---   *   ---   *   ---
+
   while(@leaves) {
     $self=shift @leaves;
     unshift @leaves,@{$self->leaves};
@@ -1341,37 +1313,41 @@ sub nocslist($) {
 
     ) {push @pending,$self;};
 
-  };map {$_->collapse(
+  };
+
+# ---   *   ---   *   ---
+
+  map {$_->collapse(
     only=>$sep,
     no_numcon=>1
 
   );} @pending;
 
+  return;
+
 };
 
 # ---   *   ---   *   ---
 
-sub flatten {
-
-  my $self=shift;
-  my %args=@_;
+sub flatten($self,%args) {
 
   my @leaves=($self);
-
   my $root=$self;
 
   my $depth=0;
   my $max_depth=$args{depth};
 
-  my $s='';
+  my $s=NULLSTR;
+
+# ---   *   ---   *   ---
 
   while(@leaves) {
 
     $self=shift @leaves;
-    if($self eq 0) {$depth--;next;}
-    elsif($self eq 1) {$depth++;next};
+    if($self == 0) {$depth--;next;}
+    elsif($self == 1) {$depth++;next};
 
-    $s.=$self->value.' ';
+    $s.=$self->value.q{ };
     if(defined $max_depth && $depth>=$max_depth) {
       next;
 
@@ -1379,17 +1355,20 @@ sub flatten {
 
     unshift @leaves,1,@{$self->leaves},0;
 
-  };return $s;
+  };
+
+  return $s;
 
 };
 
 # ---   *   ---   *   ---
 
-sub exp_arr($) {
+sub exp_arr($self) {
 
-  my $self=shift;
   my @leaves=($self);
   my @exps=();
+
+# ---   *   ---   *   ---
 
   while(@leaves) {
     $self=shift @leaves;
@@ -1410,16 +1389,15 @@ sub exp_arr($) {
 # ---   *   ---   *   ---
 
 # print node leaves
-sub prich {
-
-  my $self=shift;
-  my %args=@_;
+sub prich($self,%args) {
 
   my $errout=$args{errout};
   my $prev_depth=0;
 
   my $root=$self;
   my @leaves=($self);
+
+  my $mess=NULLSTR;
 
 # ---   *   ---   *   ---
 
@@ -1456,11 +1434,11 @@ sub prich {
 
     my $branch=($depth)
       ? '.  'x($depth-1).'\-->'
-      : ''
+      : NULLSTR
       ;
 
     if($depth<$prev_depth) {
-      $branch=''.
+      $branch=NULLSTR.
 
         (('.  'x($depth)."\n")x2).
         $branch;
@@ -1493,36 +1471,35 @@ sub prich {
 
 # ---   *   ---   *   ---
 
-    print $FH $branch.$v."\n";
+    $mess.=$branch.$v."\n";
     unshift @leaves,@{$self->leaves};
 
-  };print $FH "\n";
+  };
+
+  return print {$FH} "$mess\n";
 
 };
 
 # ---   *   ---   *   ---
 
 package peso::node::frame;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
 # ---   *   ---   *   ---
 # getters
 
-sub master {return (shift)->{-MASTER};};
+sub master($self) {return $self->{-MASTER}};
 
 # ---   *   ---   *   ---
 # constructors
 
-sub nit($$$) {
-  return peso::node::nit(
-    $_[0],$_[1],$_[2],
+sub nit($frame,@args) {
+  return peso::node::nit($frame,@args);
 
-  );
-
-};sub create($) {
-
-  my $master=shift;
+};sub create($master) {
 
   my $frame=bless {
 
