@@ -62,6 +62,7 @@ sub update {
 
     [ '/lang.pm',
       '/style.pm',
+      '/arstd.pm',
 
       '/peso/fndmtl.pm',
       '/peso/defs.pm',

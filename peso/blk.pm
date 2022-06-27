@@ -163,7 +163,7 @@ sub addchld($$) {
   $blk->{-PAR}=$self;
 
   $frame->master->ptr->declscope(
-    $blk->ances,@{$frame->master->ptr->MEM()}
+    $blk->ances,int(@{$frame->master->ptr->MEM()})
 
   );
 
@@ -357,9 +357,31 @@ sub expand {
       if(!$bypass) {$v=$self;};
       $self->elems->{$k}=$m->ptr->nit(
 
-        $k,$self->ances,
-        $j,$gran,$shf,$type,
-        $elem_sz,$v
+        lname=>$k,
+        scope=>$self->ances,
+        idex=>$j,
+
+        mask=>$gran,
+        shf=>$shf,
+
+        type=>$type,
+        elem_sz=>$elem_sz,
+        blk=>$v
+
+      );
+
+      $self->elems->{$k}=$m->ptr->nit(
+
+        lname=>$k,
+        scope=>$self->ances,
+        idex=>$j,
+
+        mask=>$gran,
+        shf=>$shf,
+
+        type=>$type,
+        elem_sz=>$elem_sz,
+        blk=>$v
 
       );
 
