@@ -12,52 +12,54 @@
 
 # deps
 package peso::sbl;
+
+  use v5.36.0;
+
   use strict;
   use warnings;
 
-  use lib $ENV{'ARPATH'}.'/lib/';
   use Scalar::Util qw/blessed/;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+
+  use style;
+  use arstd;
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION=v1.8;
+  our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # getters
 
-sub name($) {return (shift)->{-NAME};};
-sub args($) {return (shift)->{-ARGS};};
-sub argc($) {return (shift)->{-ARGC};};
+sub name($self) {return $self->{name}};
+sub args($self) {return $self->{args}};
+sub argc($self) {return $self->{argc}};
 
-sub code($) {return (shift)->{-CODE};};
+sub code($self) {return $self->{code}};
 
-sub num_fields($) {return (shift)->{-NUM_FIELDS};};
-sub frame($) {return (shift)->{-FRAME};};
+sub num_fields($self) {return $self->{num_fields}};
+sub frame($self) {return $self->{frame}};
 
 # ---   *   ---   *   ---
 
-sub valid($) {
-
-  my $sym=shift;
-
-  if(blessed($sym) && $sym->isa('peso::sbl')) {
-    return 1;
-
-  };return 0;
+sub valid($sym) {
+  return blessed($sym) && $sym->isa('peso::sbl');
 
 };
 
 # ---   *   ---   *   ---
 # constructors
 
-sub new_frame() {
-  return peso::sbl::frame::create();
-
-};
+sub new_frame {return peso::sbl::frame::create()};
 
 # ---   *   ---   *   ---
 
-sub nit($$$$$) {
+sub nit($frame,$name,$argv,$code,$plps) {
 
-  my ($frame,$name,$argv,$code,$plps)=@_;
   my $sym;
-
   if($plps) {goto USE_PLPS;};
 
 # ---   *   ---   *   ---
@@ -76,12 +78,12 @@ sub nit($$$$$) {
 # format is [*==opt]N==COUNT<TYPES,TYPES>
 # multiple groups separated by : semicolons
 
-  @args=split ':',$argv;
+  @args=split m/[:]/,$argv;
   for my $arg(@args) {
 
     # startswith '*': optional field
     # negative count: varargs
-    my $opt=int($arg=~ s/^\*//);
+    my $opt=int($arg=~ s/^[*]//);
     my $varargs=int($arg=~ s/^-//);
 
     # only allow optional/varargs on
@@ -93,14 +95,17 @@ sub nit($$$$$) {
 
     ) {
 
-      printf
+      arstd::errout(
 
-        "Can't make symbol '$name': ".
+        'Can\'t make symbol \'%s\': '.
 
-        "optional arguments only allowed on ".
-        "last field\n";
+        'optional arguments only allowed on '.
+        "last field\n",
 
-      exit;
+        args=>[$name],
+        lvl=>FATAL,
+
+      )
 
     };
 
@@ -108,7 +113,12 @@ sub nit($$$$$) {
 
     # *minimum* number of values in field
     $arg=~ s/([0-9]+)//;
-    my $count=$1;
+
+    my $count=0;
+    if(defined $1) {
+      $count=$1;
+
+    };
 
     $argc+=$count*!$opt;
     $num_fields+=1*!$opt;
@@ -121,13 +131,19 @@ sub nit($$$$$) {
 
       # get <type0,...typeN>
       $arg=~ s/<(.*)>//;
-      my $types=$1;
+
+      my $types=undef;
+      if(defined $1) {
+        $types=$1;
 
       # skip if no types specified
-      if(!$types) {goto SKIP;};
+      } else {
+        goto SKIP;
+
+      };
 
       # repeat last type if len<count
-      @types=split ',',$types;
+      @types=split m/[,]/,$types;
       while(@types<$count) {
         push @types,$types[-1];
 
@@ -140,12 +156,12 @@ sub nit($$$$$) {
 
     };$arg={
 
-      -OPT=>$opt,
+      opt=>$opt,
 
-      -COUNT=>$count,
-      -TYPES=>[@types],
+      count=>$count,
+      types=>[@types],
 
-      -VARARGS=>$varargs,
+      varargs=>$varargs,
 
     };
   };
@@ -155,14 +171,14 @@ sub nit($$$$$) {
 
   SKIP:$sym=bless {
 
-    -NAME=>$name,
-    -ARGS=>[@args],
-    -ARGC=>$argc,
+    name=>$name,
+    args=>[@args],
+    argc=>$argc,
 
-    -CODE=>$code,
+    code=>$code,
 
-    -NUM_FIELDS=>$num_fields,
-    -FRAME=>$frame,
+    num_fields=>$num_fields,
+    frame=>$frame,
 
   },'peso::sbl';
 
@@ -174,14 +190,14 @@ sub nit($$$$$) {
 
 USE_PLPS:$sym=bless {
 
-    -NAME=>$name,
-    -ARGS=>$argv,
-    -ARGC=>0,
+    name=>$name,
+    args=>$argv,
+    argc=>0,
 
-    -CODE=>$code,
+    code=>$code,
 
-    -NUM_FIELDS=>0,
-    -FRAME=>$frame,
+    num_fields=>0,
+    frame=>$frame,
 
   },'peso::sbl';
 
@@ -192,21 +208,18 @@ USE_PLPS:$sym=bless {
 # ^ creates a duplicate of a symbol
 # under a different name
 
-};sub dup {
-
-  my $src=shift;
-  my $name=shift;
+};sub dup($src,$name) {
 
   my $sym=bless {
 
-    -NAME=>$name,
-    -ARGS=>$src->args,
-    -ARGC=>$src->argc,
+    name=>$name,
+    args=>$src->args,
+    argc=>$src->argc,
 
-    -CODE=>$src->code,
+    code=>$src->code,
 
-    -NUM_FIELDS=>$src->num_fields,
-    -FRAME=>$src->frame,
+    num_fields=>$src->num_fields,
+    frame=>$src->frame,
 
   },'peso::sbl';
 
@@ -218,10 +231,12 @@ USE_PLPS:$sym=bless {
 # check that elements in field correspond
 # to valid argument types for symbol
 
-sub arg_typechk($$$) {
+sub arg_typechk($self,$node,$proto) {
 
-  my ($self,$node,$proto)=@_;
   my $frame=$self->frame;
+  my $out=0;
+
+# ---   *   ---   *   ---
 
   my $master=$frame->master;
   my $fr_ptr=$master->ptr;
@@ -237,21 +252,27 @@ sub arg_typechk($$$) {
   my $tag=$node->value;
   my $valid=0;
 
-  for my $v(split '\|',$proto) {
-
-    if($v eq 'ptr') {
-      $valid=peso::ptr::valid($tag);
-
-    # either a string, number or dereference
-    } elsif($v eq 'bare') {
-      $valid
-        =  int($tag=~ m/${names}/)
-        || int($tag=~ m/-?[0-9]+/);
-
 # ---   *   ---   *   ---
-#:!;> this is a hack
 
-    } elsif($v eq 'path') {
+  my $calltab={
+
+    'ptr'=>sub {
+      return peso::ptr::valid($tag);
+
+    },
+
+    'bare'=>sub {
+
+      return
+
+         int($tag=~ m/${names}/)
+      || int($tag=~ m/-?[0-9]+/)
+
+      ;
+
+    },
+
+    'path'=>sub {
 
       $valid=(
 
@@ -262,64 +283,96 @@ sub arg_typechk($$$) {
       )==-1;
 
       if($valid) {$node->collapse();};
+      return $valid;
 
-# ---   *   ---   *   ---
+    },
 
-    } elsif($v eq 'type') {
+    'type'=>sub {
       my $pat=$lang->types->{re};
-      $valid=int($tag=~ m/^${pat}/);
+      return int($tag=~ m/^${pat}/);
 
-# ---   *   ---   *   ---
+    },
 
-    } elsif($v eq 'op') {
+    'op'=>sub {
       $valid=int($tag=~ m/^node_op=HASH/);
-
       if($valid) {$node->collapse();};
 
-    };
+      return $valid;
 
-# ---   *   ---   *   ---
-
-    if($valid) {
-      return 1;
-
-    };
+    },
 
   };
 
 # ---   *   ---   *   ---
-# errme
 
-  if($fr_blk->fpass) {return 0;};
+  for my $v(split m/[|]/,$proto) {
 
-  printf sprintf
+    # catch bad type
+    if(!exists $calltab->{$v}) {
 
-    "Invalid argument type for symbol '%s'\n".
-    "Valid types are: %s\n",
+      arstd::errout(
 
-    $self->name,
-    (join ' or ',(split '\|',$proto));
+        'Unrecognized type \'%s\'',
 
-  exit;
+        args=>[$v],
+        lvl=>FATAL,
+
+      );
+
+    };
+
+# ---   *   ---   *   ---
+# get value isa type
+
+    $valid=$calltab->{$v}->();
+
+    if($valid) {
+      $out=1;
+      last;
+
+    };
+
+  };$out=$valid;
+
+# ---   *   ---   *   ---
+# catch invalid argument
+
+  if(!$master->fpass()) {
+
+    arstd::errout(
+
+      "Invalid argument type for symbol '%s'\n".
+      "Valid types are: %s\n",
+
+      args=>
+        [$self->name,join ', ',(split m/[|]/,$proto)],
+
+      lvl=>FATAL,
+
+    );
+  };
+
+  return $out;
 
 };
 
 # ---   *   ---   *   ---
 # check passed arguments and execute
 
-sub ex($$) {
-
-  my ($self,$node)=@_;
+sub ex($self,$node) {
 
   # check *enough* fields passed
   if(@{$node->leaves}<$self->num_fields) {
 
-    printf
+    arstd::errout(
 
-      "Bad number of fields for ".
-      "symbol <".$self->name.">\n";
+      'Bad number of fields for '.
+      "symbol <%s>\n",
 
-    exit;
+      args=>[$self->name],
+      lvl=>FATAL,
+
+    );
 
   };
 
@@ -330,13 +383,13 @@ sub ex($$) {
   my @args=();
 
   for my $arg(@{$self->args}) {
-    my $count=$arg->{-COUNT};
+    my $count=$arg->{count};
 
 # ---   *   ---   *   ---
 # get next field
 
     my $field=$node->fieldn($j++);
-    if(!$field && $arg->{-OPT}) {
+    if(!$field && $arg->{opt}) {
       last;
 
     };
@@ -347,17 +400,20 @@ sub ex($$) {
     if(
 
         @{$field->leaves}<$count
-     && !$arg->{-OPT}
+     && !$arg->{opt}
 
     ) {
 
-      printf
+      arstd::errout(
 
-        "Bad number of arguments ".
-        "on field $j for ".
-        "symbol <".$self->name.">\n";
+        'Bad number of arguments '.
+        'on field %i for '.
+        "symbol <%s>\n",
 
-      exit;
+        args=>[$j,$self->name],
+        lvl=>FATAL,
+
+      );
 
     };
 
@@ -369,11 +425,11 @@ sub ex($$) {
     my $consume_arg=sub {
 
       my $leaf=$field->leaves->[$i];
-      my $type=$arg->{-TYPES}->[$i];
+      my $type=$arg->{types}->[$i];
 
       # use last defined type (for varargs)
       if(!$type) {
-        $type=$arg->{-TYPES}->[-1];
+        $type=$arg->{types}->[-1];
 
       # check type is OK
       };if(!$self->arg_typechk($leaf,$type)) {
@@ -387,9 +443,9 @@ sub ex($$) {
 # ---   *   ---   *   ---
 # consume only up to count elements
 
-    if(!$arg->{-VARARGS}) {
+    if(!$arg->{varargs}) {
 
-      for(my $x=0;$x<$count;$x++) {
+      for my $x(0..$count-1) {
         if(!$consume_arg->()) {return;};
 
       };
@@ -414,7 +470,7 @@ sub ex($$) {
 
 # ---   *   ---   *   ---
 
-  $self->code->(
+  return $self->code->(
 
     $self->name,
     $self->frame,
@@ -427,24 +483,28 @@ sub ex($$) {
 # ---   *   ---   *   ---
 
 package peso::sbl::frame;
+
+  use v5.36.0;
   use strict;
   use warnings;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use arstd;
+  use style;
 
 # ---   *   ---   *   ---
 # getters
 
-sub SYMS($) {return (shift)->{-SYMS};};
-sub INS($) {return (shift)->{-INS};};
-sub INSID($) {return (shift)->{-INSID};};
+sub SYMS($self) {return $self->{-SYMS};};
+sub INS($self) {return $self->{-INS};};
+sub INSID($self) {return $self->{-INSID};};
 
-sub master($) {return (shift)->{-MASTER};};
+sub master($self) {return $self->{-MASTER};};
 
 # ---   *   ---   *   ---
 # shorthand for orderly symbol nit
 
-sub DEFINE($$$$$) {
-
-  my ($frame,$key,$src,$code,$plps)=@_;
+sub DEFINE($frame,$key,$src,$code,$plps) {
 
   my $idex=$src->{$key}->[0];
   my $args=$src->{$key}->[1];
@@ -456,12 +516,12 @@ sub DEFINE($$$$$) {
 
   $frame->INSID->{$key}=$idex;
 
+  return;
+
 # ---   *   ---   *   ---
 # shorthand for creating symbol aliases
 
-};sub ALIAS($$$) {
-
-  my ($frame,$key,$src)=@_;
+};sub ALIAS($frame,$key,$src) {
 
   my $sym=$frame->SYMS->{$src}->dup($key);
   my $idex=$frame->INSID->{$src};
@@ -471,19 +531,18 @@ sub DEFINE($$$$$) {
 
   $frame->INSID->{$key}=$idex;
 
+  return;
+
 };
 
 # ---   *   ---   *   ---
 
-sub nit($$$$$) {
-  return peso::sbl::nit(
-    $_[0],$_[1],$_[2],$_[3],$_[4],
-
-  );
+sub nit(@args) {
+  return peso::sbl::nit(@args);
 
 # ---   *   ---   *   ---
 
-};sub create() {
+};sub create {
 
   my $frame=bless {
 
@@ -499,10 +558,9 @@ sub nit($$$$$) {
 
 # ---   *   ---   *   ---
 
-};sub setdef($$) {
-
-  my ($self,$def)=@_;
+};sub setdef($self,$def) {
   $self->{-MASTER}=$def;
+  return;
 
 };
 
@@ -510,9 +568,7 @@ sub nit($$$$$) {
 # go through a list of nodes and consume them
 # as if they were a [command,args] array
 
-sub ndconsume($$$) {
-
-  my ($frame,$node,$i)=@_;
+sub ndconsume($frame,$node,$i) {
 
   my $master=$frame->master;
   my $fr_def=$master->defs;
@@ -524,7 +580,7 @@ sub ndconsume($$$) {
 
   # check that we're not in void context
   if(!$leaf || !exists $keywords->{$key}) {
-    return;
+    goto FAIL;
 
   };
 
@@ -541,7 +597,7 @@ sub ndconsume($$$) {
 
     my $field=$node->leaves->[$$i];
 
-    my $argc=$arg->{-COUNT};
+    my $argc=$arg->{count};
     my $j=0;while($argc>0) {
 
       $leaf=$field->leaves->[$j++];
@@ -552,11 +608,17 @@ sub ndconsume($$$) {
 # ---   *   ---   *   ---
 # handle bad number/order of command args
 
-      if(!$leaf && !$arg->{-OPT}) {
-        printf "Insufficient args for ".
-          "symbol '%s'\n",$anchor->value->name;
+      if(!$leaf && !$arg->{opt}) {
 
-        exit;
+        arstd::errout(
+
+          'Insufficient args for '.
+          "symbol '%s'\n",
+
+          args=>[$anchor->value->name],
+          lvl=>FATAL,
+
+        );
 
       };
     };
@@ -568,6 +630,12 @@ sub ndconsume($$$) {
     $anchor->pushlv(0,$field);
 
   };
+
+# ---   *   ---   *   ---
+
+FAIL:
+  return;
+
 };
 
 # ---   *   ---   *   ---

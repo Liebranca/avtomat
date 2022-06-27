@@ -370,21 +370,6 @@ sub expand {
 
       );
 
-      $self->elems->{$k}=$m->ptr->nit(
-
-        lname=>$k,
-        scope=>$self->ances,
-        idex=>$j,
-
-        mask=>$gran,
-        shf=>$shf,
-
-        type=>$type,
-        elem_sz=>$elem_sz,
-        blk=>$v
-
-      );
-
 # ---   *   ---   *   ---
 # second pass:
 #  >get ptr

@@ -79,16 +79,7 @@ sub mask_to($self,$type) {
 # check value is an instance of this class
 
 sub valid($ptr) {
-
-  if(
-
-     blessed($ptr)
-  && $ptr->isa('peso::ptr')
-
-  ) {
-
-    return 1;
-  };return 0;
+  return blessed($ptr) && $ptr->isa('peso::ptr');
 
 };
 
@@ -781,12 +772,6 @@ package peso::ptr::frame;
 
   use style;
   use arstd;
-
-# ---   *   ---   *   ---
-# info
-
-#  our $VERSION=v2.0;
-#  our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # getters
