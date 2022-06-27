@@ -13,23 +13,36 @@
 
 # deps
 package peso::blk;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
+  use style;
+  use arstd;
+
   use lang;
   use stack;
 
-  use peso::ptr;
+# ---   *   ---   *   ---
+# adds to your namespace
 
   use Exporter 'import';
+
   our @EXPORT=qw(
     O_RD O_WR O_EX
     O_RDWR O_RDEX O_WREX
     O_RDWREX FREEBLOCK
 
   );
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION=v2.8;
+  our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 
@@ -53,17 +66,22 @@ package peso::blk;
   };
 
 # ---   *   ---   *   ---
+# check value is an instance of this class
+
+sub valid($blk) {return arstd::valid($blk)};
+
+# ---   *   ---   *   ---
 # in: name,parent,permissions
 # creates a new data/instruction block
 
-sub new_frame($) {peso::blk::frame::create(shift);};
-sub nit($$$$) {
+sub new_frame(@args) {
+  return peso::blk::frame::create(@args);
 
-  my $frame=shift;
-  my $parent=shift;
+};
 
-  my $name=shift;
-  my $attrs=shift;
+# ---   *   ---   *   ---
+
+sub nit($frame,$parent,$name,$attrs) {
 
   # default to all protected
   if(!defined $attrs) {
@@ -78,24 +96,26 @@ sub nit($$$$) {
 
   my $blk=bless {
 
-    -NAME=>$name,
-    -SIZE=>0,
+    name=>$name,
+    size=>0,
 
-    -PAR=>$parent,
-    -CHILDREN=>[],
-    -STACK=>stack::nit(stack::slidex(0x100)),
-    -SCOPE=>$frame->{-SELF},
+    par=>$parent,
+    children=>[],
+    stack=>stack::nit(stack::slidex(0x100)),
+    scope=>$frame->{-SELF},
 
-    -ELEMS=>{},
-    -ATTRS=>$attrs,
-    -INSID=>$insid,
-    -FRAME=>$frame,
+    elems=>{},
+    attrs=>$attrs,
+    insid=>$insid,
+    frame=>$frame,
 
-    -ID=>undef,
+    id=>undef,
 
   },'peso::blk';
 
-  # initialized from instance
+# ---   *   ---   *   ---
+# initialized from instance
+
   # new->setParent $self
   if(defined $parent) {
     $parent->elems->{$name}=$blk;
@@ -103,25 +123,54 @@ sub nit($$$$) {
   # is root block
   } else {
 
+# ---   *   ---   *   ---
+# redecl guard
+
     if(exists $frame->{-BLOCKS}->{$name}) {
 
-      printf "Ilegal operation: ".
-        "redeclaration of root block '".
-        $name."' at global scope\n";
+      arstd::errout(
 
-      exit;
+        'Ilegal operation: '.
+        'redeclaration of root block '.
+        "'%s' at global scope\n",
 
-    };$parent=$frame->{-SOIL};
+        args=>[$name],
+        lvl=>FATAL,
+
+      );
+
+    };
+
+# ---   *   ---   *   ---
+
+    $parent=$frame->{-SOIL};
 
     $blk->{-ID}=$frame->{-BIDS}->spop();
     $frame->{-BBID}->[$blk->{-ID}]=$blk;
 
 # ---   *   ---   *   ---
+# only non can be orphaned
 
   };if($name ne 'non') {
     $parent->addchld($blk);
 
   };
+
+# ---   *   ---   *   ---
+# NOTE: lyeb@IBN-3DILA on 6/27/22 10:46 AM
+#
+#   this bit is supposed to help out with
+#   fetching blocks that contain executable data
+#   (along with other INSID/BBID-type attrs)
+#
+#   we have deprecated the old format for that,
+#   but the logic *might* still be useful
+#
+#   i believe the system should be redesigned,
+#   however some pieces of the old one could
+#   be needed. i can't say just yet.
+#
+# ---   *   ---   *   ---
 
   if($insid>=0) {
     $frame->{-INS_ARR}->[$insid]=$blk;
@@ -135,13 +184,12 @@ sub nit($$$$) {
 # ---   *   ---   *   ---
 # convenience settings for sub-blocks
 
-sub addchld($$) {
+sub addchld($self,$blk) {
 
-  my ($self,$blk)=@_;
   my $frame=$self->frame;
 
   my $i=$self->sstack->spop();
-  my $j=$self->{-ID};
+  my $j=$self->{id};
 
   # add block data into this line
   my @line=(
@@ -158,37 +206,40 @@ sub addchld($$) {
 
   );
 
+# ---   *   ---   *   ---
+
   $self->expand(\@line,'long',$bypass);
   $self->children->[$i]=$blk;
-  $blk->{-PAR}=$self;
+  $blk->{par}=$self;
 
   $frame->master->ptr->declscope(
-    $blk->ances,int(@{$frame->master->ptr->MEM()})
+    $blk->ances,
+    int(@{$frame->master->ptr->MEM()})
 
   );
+
+  return;
 
 };
 
 # ---   *   ---   *   ---
 # getters
 
-sub name($) {return (shift)->{-NAME};};
-sub elems($) {return (shift)->{-ELEMS};};
-sub par($) {return (shift)->{-PAR};};
-sub children($) {return (shift)->{-CHILDREN};};
-sub sstack($) {return (shift)->{-STACK};};
+sub name($self) {return $self->{name}};
+sub elems($self) {return $self->{elems}};
+sub par($self) {return $self->{par}};
+sub children($self) {return $self->{children}};
+sub sstack($self) {return $self->{stack}};
 
-sub scope($) {return (shift)->{-SCOPE};};
+sub scope($self) {return $self->{scope}};
 
-sub size($) {return (shift)->{-SIZE};};
-sub attrs($) {return (shift)->{-ATTRS};};
+sub size($self) {return $self->{size}};
+sub attrs($self) {return $self->{attrs}};
 
-sub insid($) {return (shift)->{-INSID};};
-sub frame($) {return (shift)->{-FRAME};};
+sub insid($self) {return $self->{insid}};
+sub frame($self) {return $self->{frame}};
 
-sub ins($) {
-
-  my ($self)=@_;
+sub ins($self) {
 
   return
 
@@ -202,18 +253,19 @@ sub ins($) {
 # ---   *   ---   *   ---
 # find ancestors recursively
 
-sub ances($) {
+sub ances($self) {
 
-  my $self=shift;
   my $name=$self->name;
 
   while($self->par) {
-    $name=$self->par->name.'@'.$name;
+    $name=$self->par->name.q{@}.$name;
     $self=$self->par;
 
     if(!defined $self) {last;};
 
-  };return $name;
+  };
+
+  return $name;
 
 };
 
@@ -221,14 +273,19 @@ sub ances($) {
 # in: block, element name
 # lookup errme shorthand
 
-sub no_such_elem($$) {
+sub no_such_elem($self,$name) {
 
-  my ($self,$name)=@_;
+  arstd::errout(
 
-  printf "Block <".$self->ances.'> '.
-  "has no member named '".$name."'\n";
+    'Block <%s> '.
+    "has no member named '%s'\n",
 
-  exit;
+    args=>[$self->ances,$name],
+    lvl=>FATAL,
+
+  );
+
+  return;
 
 };
 
@@ -237,9 +294,8 @@ sub no_such_elem($$) {
 # in: element name, redecl guard
 # errcheck for bad fetch
 
-sub haselem($$$) {
+sub haselem($self,$name,$redecl) {
 
-  my ($self,$name,$redecl)=@_;
   my $fr_ptr=$self->frame->master->ptr;
 
 # ---   *   ---   *   ---
@@ -270,18 +326,29 @@ sub haselem($$$) {
   ) {
 
     # block-as-elem is exempt from redecl
-    if(0>=index $self->elems->{$name},
-      "peso::block"
+    if(valid $self->elems->{$name}) {
+      goto TAIL;
 
-    ) {return;};
+    };
 
-    printf "Redeclaration of '$name' ".
-      'at block <'.$self->ances.">\n";
+# ---   *   ---   *   ---
+# redecl guard
 
-    exit;
+    arstd::errout(
+      'Redeclaration of \'%s\''.
+      "at block <%s>\n",
 
-  # return match
-  };return ($self,$name);
+      args=>[$name,$self->ances],
+      lvl=>FATAL,
+
+    );
+
+# ---   *   ---   *   ---
+
+  };
+
+TAIL:
+  return ($self,$name);
 
 };
 
@@ -291,9 +358,7 @@ sub haselem($$$) {
 
 # inserts new elements into block
 
-sub expand {
-
-  my ($self,$ref,$type,$bypass)=@_;
+sub expand($self,$ref,$type,$bypass) {
 
   my $frame=$self->frame;
   my $m=$frame->master;
@@ -399,7 +464,12 @@ sub expand {
       };$j++;$i=0;
 
     };
+
+# ---   *   ---   *   ---
+
   };
+
+  return;
 
 };
 
@@ -407,12 +477,11 @@ sub expand {
 # in: name,value
 # sets value at offset
 
-sub setv($$$) {
-
-  my ($self,$name,$value)=@_;
-
+sub setv($self,$name,$value) {
   my $fr_ptr=$self->frame->master->ptr;
   $fr_ptr->fetch($name)->setv($value);
+
+  return;
 
 };
 
@@ -420,10 +489,7 @@ sub setv($$$) {
 # in: name to fetch
 # returns stored value
 
-sub getv($$) {
-
-  my ($self,$name)=@_;
-
+sub getv($self,$name) {
   my $fr_ptr=$self->frame->master->ptr;
   return $fr_ptr->fetch($name)->getv();
 
@@ -433,10 +499,7 @@ sub getv($$) {
 # in: name to fetch
 # returns addr assoc with name
 
-sub getloc($$) {
-
-  my ($self,$name)=@_;
-
+sub getloc($self,$name) {
   my $fr_ptr=$self->frame->master->ptr;
   return $fr_ptr->fetch($name)->addr();
 
@@ -445,105 +508,128 @@ sub getloc($$) {
 # ---   *   ---   *   ---
 # prints out block
 
-sub prich($) {
+sub prich($self,%opt) {
 
-  my $self=shift;
+  # opt defaults
+  $opt{errout}//=0;
+
   my $fr_ptr=$self->frame->master->ptr;
+  my $mess=NULLSTR;
 
-  my $v_lines='';
+# ---   *   ---   *   ---
+# select filehandle
 
-  my @data=();
+  my $FH=($opt{errout})
+    ? *STDERR
+    : *STDOUT
+    ;
 
-  printf '<'.$self->ances.">\n";
-  my $wed=$fr_ptr->wed('get');
-  $fr_ptr->wed(undef);
+# ---   *   ---   *   ---
+
+  my @blocks=($self);
+  while(@blocks) {
+
+    my $self=shift @blocks;
+
+    my $v_lines=NULLSTR;
+    my @data=();
+
+    $mess.='<'.$self->ances.">\n";
+    my $wed=$fr_ptr->wed('get');
+    $fr_ptr->wed(undef);
 
 # ---   *   ---   *   ---
 # get names and offsets
 
-  { my %h=%{$self->elems};
-    my @ar=();
+    { my %h=%{$self->elems};
+      my @ar=();
 
-    # iter keys out of order
-    for my $ptr(values %h) {
+      # iter keys out of order
+      for my $ptr(values %h) {
 
-      my $idex=$ptr->idex()*8;
-      $idex=$idex+int($ptr->shf()/8);
+        my $idex=$ptr->idex()*8;
+        $idex=$idex+int($ptr->shf()/8);
 
-      # stack elems & data ordered
-      $ar[$idex]=[
+        # stack elems & data ordered
+        $ar[$idex]=[
 
-        $ptr->lname,
-        $ptr->idex,
-        $ptr->shf,
-        $ptr->bytesz
+          $ptr->lname,
+          $ptr->idex,
+          $ptr->shf,
+          $ptr->bytesz
 
-      ];
-
-    };
-
-# ---   *   ---   *   ---
-# forget undefined (empty) elems
-
-    while(@ar) {
-
-      my $v=shift @ar;
-      if(!defined $v) {next;};
-
-      push @data,$v;
-
-    };
-
-  };
-
-# ---   *   ---   *   ---
-
-  # accumulators
-  my $last_idex=undef;
-  my $unit=0x00;
-  my $unit_names='';
-
-  # iter list
-  while(@data) {
-
-    my $ref=shift @data;
-    my ($name,$i,$shf,$sz)=@{$ref};
-
-# ---   *   ---   *   ---
-# unit switch
-
-    if(defined $last_idex) {
-      if($last_idex!=$i) {
-        $v_lines.=sprintf
-          "  0x%.16X %.32s\n",
-          $unit,$unit_names;
-
-        $unit=0x00;
-        $unit_names='';
+        ];
 
       };
 
 # ---   *   ---   *   ---
+# forget undefined (empty) elems
+
+      while(@ar) {
+
+        my $v=shift @ar;
+        if(!defined $v) {next;};
+
+        push @data,$v;
+
+      };
+
+    };
+
+# ---   *   ---   *   ---
+
+    # accumulators
+    my $last_idex=undef;
+    my $unit=0x00;
+    my $unit_names=NULLSTR;
+
+    # iter list
+    while(@data) {
+
+      my $ref=shift @data;
+      my ($name,$i,$shf,$sz)=@{$ref};
+
+# ---   *   ---   *   ---
+# unit switch
+
+      if(defined $last_idex) {
+        if($last_idex!=$i) {
+          $v_lines.=sprintf
+            "  0x%.16X %.32s\n",
+            $unit,$unit_names;
+
+          $unit=0x00;
+          $unit_names=NULLSTR;
+
+        };
+
+# ---   *   ---   *   ---
 # accumulate
 
-    };$last_idex=$i;
-    $unit=$fr_ptr->MEM->[$i];
-    $unit_names="$name($sz) ".$unit_names;
+      };$last_idex=$i;
+      $unit=$fr_ptr->MEM->[$i];
+      $unit_names="$name($sz) ".$unit_names;
 
-  };
+    };
 
 # ---   *   ---   *   ---
 # append leftovers
 
-  $v_lines.=sprintf
-    "  0x%.16X %.32s\n",
-    $unit,$unit_names;
+    $v_lines.=sprintf
+      "  0x%.16X %.32s\n",
+      $unit,$unit_names;
 
-  printf $v_lines."\n";
-  for my $child(@{$self->children}) {
-    $child->prich();
+    $mess.=$v_lines."\n";
 
-  };$fr_ptr->wed($wed);
+    $fr_ptr->wed($wed);
+    unshift @blocks,@{$self->children};
+
+  };
+
+# ---   *   ---   *   ---
+# spit it out
+
+  return print {$FH} "$mess\n";
 
 };
 
@@ -551,24 +637,29 @@ sub prich($) {
 # mngr class
 
 package peso::blk::frame;
+
+  use v5.36.0;
   use strict;
   use warnings;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+
+  use style;
+  use arstd;
+
+  use peso::ptr;
 
 # ---   *   ---   *   ---
 # getters/setters
 
-sub entry($;$) {
-
-  my ($frame,$new)=@_;
+sub entry($frame,$new=undef) {
 
   if(defined $new) {
     $frame->{-ENTRY}=$new;
 
   };return $frame->{-ENTRY};
 
-};sub nxins($;$) {
-
-  my ($frame,$new)=@_;
+};sub nxins($frame,$new=undef) {
 
   if(defined $new) {
     $frame->{-NXINS}=$new;
@@ -579,36 +670,32 @@ sub entry($;$) {
 
 # ---   *   ---   *   ---
 
-sub INS($) {return (shift)->{-INS_ARR};};
+sub INS($self) {return $self->{-INS_ARR}};
 
-sub incpass($) {(shift)->{-PASS}++;};
-sub fpass($) {return !((shift)->{-PASS});};
-sub master($) {return (shift)->{-MASTER};};
+sub incpass($self) {return $self->{-PASS}++};
+sub fpass($self) {return !($self->{-PASS})};
+sub master($self) {return $self->{-MASTER}};
 
 # ---   *   ---   *   ---
 # adjusts current write-to
 
-sub DST($;$) {
-
-  my ($frame,$new)=@_;
+sub DST($frame,$new=undef) {
 
   if(defined $new) {
     $frame->{-DST}=$new;
 
   };return $frame->{-DST};
 
-};sub NON {return (shift)->{-SOIL};};
+};sub NON($self) {return $self->{-SOIL}};
 
 # ---   *   ---   *   ---
 # constructors
 
 # makes reg
 
-sub new_data_block($) {
+sub new_data_block($frame,$header,$data) {
 
-  my ($frame,$header,$data)=@_;
   my $m=$frame->master;
-
   my $name=$data->[0];
 
   my $dst=($frame->DST->attrs)
@@ -642,14 +729,15 @@ sub new_data_block($) {
   $frame->setscope($blk);
   $frame->setcurr($blk);
 
+  return $blk;
+
 };
 
 # ---   *   ---   *   ---
 # makes reg entry
 
-sub new_data_ptr($$$$) {
+sub new_data_ptr($frame,$header,$data) {
 
-  my ($frame,$header,$data)=@_;
   my $m=$frame->master;
 
   my $type=$header->{type}->[-1];
@@ -687,18 +775,26 @@ sub new_data_ptr($$$$) {
       my $ptr=$pair->[0];
       my $value=$pair->[1];
 
+# ---   *   ---   *   ---
+# mask to size of element at address
+
       $ptr->mask_to($type);
 
+      # use special signature for nullptr
       if(!$value && $wed eq 'unit') {
-        $value=$m->ptr->NULL;
+        $value=NULL;
 
       };
+
+# ---   *   ---   *   ---
+# copy address when not dereferencing
 
       if(peso::ptr::valid $value) {
         $value=$value->addr;
 
       };
 
+      # write value to address
       $ptr->setv($value);
 
     };
@@ -708,17 +804,16 @@ sub new_data_ptr($$$$) {
 # restore typing mode
 
   $m->ptr->wed($old);
+  return $frame->DST;
 
 };
 
 # ---   *   ---   *   ---
 
-sub nit($$$$) {
-  peso::blk::nit($_[0],$_[1],$_[2],$_[3]);
+sub nit(@args) {return peso::blk::nit(@args)};
 
-};sub create($) {
+sub create($master) {
 
-  my $master=shift;
   my $frame=bless {
 
     -SELF=>undef,
@@ -761,21 +856,21 @@ sub nit($$$$) {
 # in: block name
 # errchk and get root block
 
-sub clan($$) {
+sub clan($frame,$key) {
 
-  my ($frame,$key)=@_;
+  my $out=undef;
 
 # ---   *   ---   *   ---
 # return local scope
 
   if($key eq 'self') {
-    return $frame->{-SELF};
+    $out=$frame->{-SELF};
 
 # ---   *   ---   *   ---
 # return base block
 
   } elsif($key eq 'non') {
-    return $frame->{-SOIL};
+    $out=$frame->{-SOIL};
 
 # ---   *   ---   *   ---
 # name lookup
@@ -787,9 +882,9 @@ sub clan($$) {
 
   ) {
 
-    return
+    $out
 
-      $frame->master
+      =$frame->master
       ->ptr->fetch($key)->blk
 
     ;
@@ -798,10 +893,19 @@ sub clan($$) {
 # throw err
 
   } else {
-    printf "No root block named '$key'\n";
-    exit;
+
+    arstd::errout(
+
+      "No root block named '%s'\n",
+
+      args=>[$key],
+      lvl=>FATAL,
+
+    );
 
   };
+
+  return $out;
 
 };
 
@@ -809,14 +913,12 @@ sub clan($$) {
 # in: block instance
 # scope frame to block
 
-sub setscope($$) {
-
-  my ($frame,$blk)=@_;
+sub setscope($frame,$blk) {
 
   $frame->{-SELF}=$blk;
 
-  if(!$blk->{-SCOPE}) {
-    $blk->{-SCOPE}=$blk;
+  if(!$blk->{scope}) {
+    $blk->{scope}=$blk;
 
   };
 
@@ -848,8 +950,12 @@ sub setscope($$) {
     };
   };
 
+# ---   *   ---   *   ---
+
   if(!$hasnon) {push @ar,'non';};
   $frame->master->ptr->setscope(@ar);
+
+  return;
 
 };
 
@@ -857,34 +963,22 @@ sub setscope($$) {
 # in: frame, block instance
 # set current local space
 
-sub setcurr($$) {
-
-  my ($frame,$blk)=@_;
+sub setcurr($frame,$blk) {
   $frame->{-CURR}=$blk;
+  return;
 
 };
 
 # ---   *   ---   *   ---
 # program stack methods
 
-sub prstk($) {
+sub prstk($frame) {return $frame->{-PRSTK}};
 
-  my ($frame)=@_;
-  return $frame->{-PRSTK};
-
-};
-
-sub spush($$) {
-
-  my ($frame,$v)=@_;
+;;sub spush($frame,$v) {
   $frame->prstk->spush($v);
+  return;
 
-};sub spop($) {
-
-  my ($frame)=@_;
-  return $frame->prstk->spop;
-
-};
+};sub spop($frame) {return $frame->prstk->spop};
 
 # ---   *   ---   *   ---
 # in:tree,
@@ -895,9 +989,7 @@ sub spush($$) {
 
 # solve operations in tree
 
-sub treesolve($$$) {
-
-  my ($frame,$node,$type)=@_;
+sub treesolve($frame,$node,$type) {
 
   my $master=$frame->master;
   my $fr_ptr=$master->ptr;
@@ -935,6 +1027,7 @@ sub treesolve($$$) {
   $node->collapse();
 
   $fr_ptr->wed($wed);
+  return;
 
 };
 
@@ -942,9 +1035,7 @@ sub treesolve($$$) {
 # in: tree
 # recursively solve pointer dereferences
 
-sub ptrderef_rec($$) {
-
-  my ($frame,$node)=@_;
+sub ptrderef_rec($frame,$node) {
 
   my $master=$frame->master;
   my $fr_ptr=$master->ptr;
@@ -979,14 +1070,14 @@ sub ptrderef_rec($$) {
     };
   };
 
+  return;
+
 };
 
 # ---   *   ---   *   ---
 # recursive name solver
 
-sub refsolve_rec($$) {
-
-  my ($frame,$node)=@_;
+sub refsolve_rec($frame,$node) {
 
   my $master=$frame->master;
   my $fr_ptr=$master->ptr;
@@ -1018,6 +1109,9 @@ sub refsolve_rec($$) {
     };
 
   };
+
+  return;
+
 };
 
 # ---   *   ---   *   ---

@@ -21,6 +21,8 @@ package arstd;
   use Carp;
   use Carp qw(longmess);
 
+  use Scalar::Util qw(blessed);
+
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -31,6 +33,14 @@ package arstd;
 
   our $VERSION=v0.1;
   our $AUTHOR='IBN-3DILA';
+
+# ---   *   ---   *   ---
+
+sub valid($obj) {
+  my $kind=(caller)[0];
+  return blessed($obj) && $obj->isa($kind);
+
+};
 
 # ---   *   ---   *   ---
 # fixes the horrendous 8-space indented,

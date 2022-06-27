@@ -18,8 +18,6 @@ package peso::ptr;
   use strict;
   use warnings;
 
-  use Scalar::Util qw/blessed/;
-
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use style;
@@ -78,10 +76,7 @@ sub mask_to($self,$type) {
 # ---   *   ---   *   ---
 # check value is an instance of this class
 
-sub valid($ptr) {
-  return blessed($ptr) && $ptr->isa('peso::ptr');
-
-};
+sub valid($ptr) {return arstd::valid($ptr)};
 
 # ---   *   ---   *   ---
 # dereference ptr
@@ -361,7 +356,7 @@ FAIL:
 
   if(!defined $neigh) {
     arstd::errout(
-      "Can't jump to ",
+      'Can\'t jump to ',
 
       calls=>[\&prich,[$self,errout=>1]],
       lvl=>FATAL,
@@ -420,7 +415,7 @@ FAIL:
 
   if(!defined $out) {
     arstd::errout(
-      "Can't jump to ",
+      'Can\'t jump to ',
 
       calls=>[\&prich,[$self,errout=>1]],
       lvl=>FATAL,
@@ -607,7 +602,7 @@ sub new_frame($m) {
 sub nit($frame,%args) {
 
   $args{gname}=($args{scope} ne $args{lname})
-    ? $args{scope}.'@'.$args{lname}
+    ? $args{scope}.q{@}.$args{lname}
     : $args{lname}
     ;
 
@@ -720,7 +715,7 @@ sub prich($self,%opt) {
 # get pointer info
 
   my $refaddr="$self";
-  $refaddr=~ m/HASH\((0x[0-9-a-f]+)\)/;
+  $refaddr=~ m/HASH[(](0x[0-9-a-f]+)[)]/;
   $refaddr=${^CAPTURE[0]};
 
   $refaddr=~ s/0x//;
@@ -751,9 +746,9 @@ sub prich($self,%opt) {
 
     $refaddr,
 
-    ' ',$self->type,
-    ' ',$self->gname,
-    ' ',(sprintf "%016X",$self->addr)
+    q{ },$self->type,
+    q{ },$self->gname,
+    q{ },(sprintf '%016X',$self->addr)
 
   );
 
@@ -1219,7 +1214,7 @@ sub lname_lookup($frame,$key) {
 
 };sub gname_lookup($frame,$key) {
 
-  my @ar=split '@',$key;
+  my @ar=split m/[@]/,$key;
 
   if($ar[0] ne 'non') {
     unshift @ar,'non';
@@ -1227,7 +1222,7 @@ sub lname_lookup($frame,$key) {
   };
 
   my $lname=pop @ar;
-  my $scope=join '@',@ar;
+  my $scope=join q{@},@ar;
 
   return $frame->SCOPES->{$scope}->{$lname};
 
