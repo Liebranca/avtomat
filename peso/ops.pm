@@ -13,11 +13,18 @@
 
 # deps
 package peso::ops;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
   use lang;
+
+# ---   *   ---   *   ---
+
+  our $VERSION=v1.0;
+  our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # format is as follows:
@@ -36,202 +43,198 @@ package peso::ops;
 
 use constant def=>{
 
-  '->'=>[
+  q{->}=>[
 
     undef,
     undef,
 
-    [-1,sub {my ($x,$y)=@_;return ($$x).'@'.($$y);}],
+    [-1,sub($x,$y) {return ($$x).q{@}.($$y)}],
 
-  ],
+  ],q{*^}=>[
+
+    undef,
+    undef,
+
+    [0,sub($x,$y) {return ($$x)**($$y)}],
+
+  ],q{*}=>[
+
+    undef,
+    undef,
+
+    [1,sub($x,$y) {return ($$x)*($$y)}],
+
+  ],q{/}=>[
+
+    undef,
+    undef,
+
+    [2,sub($x,$y) {return ($$x)/($$y)}],
 
 # ---   *   ---   *   ---
 
-  '*^'=>[
+  ],q{++}=>[
+
+    [3,sub($x) {return $$x++}],
+    [3,sub($x) {return ++$$x}],
+
+    undef,
+
+  ],q{+}=>[
 
     undef,
     undef,
 
-    [0,sub {my ($x,$y)=@_;return ($$x)**($$y);}],
-
-  ],'*'=>[
-
-    undef,
-    undef,
-
-    [1,sub {my ($x,$y)=@_;return ($$x)*($$y);}],
-
-  ],'/'=>[
-
-    undef,
-    undef,
-
-    [2,sub {my ($x,$y)=@_;return ($$x)/($$y);}],
+    [4,sub($x,$y) {return ($$x)+($$y)}],
 
 # ---   *   ---   *   ---
 
-  ],'++'=>[
+  ],q{--}=>[
 
-    [3,sub {my ($x)=@_;return ++$$x;}],
-    [3,sub {my ($x)=@_;return $$x++;}],
-
-    undef,
-
-  ],'+'=>[
+    [5,sub($x) {return $$x--}],
+    [5,sub($x) {return --$$x}],
 
     undef,
+
+  ],q{-}=>[
+
+    undef,
     undef,
 
-    [4,sub {my ($x,$y)=@_;return ($$x)+($$y);}],
+    [6,sub($x,$y) {return ($$x)-($$y)}],
 
 # ---   *   ---   *   ---
 
-  ],'--'=>[
+  ],q{?}=>[
 
-    [5,sub {my ($x)=@_;return --$$x;}],
-    [5,sub {my ($x)=@_;return $$x--;}],
+    undef,
+    [7,sub($x) {return ($$x)!=0}],
 
     undef,
 
-  ],'-'=>[
+  ],q{!}=>[
 
     undef,
-    undef,
-
-    [6,sub {my ($x,$y)=@_;return ($$x)-($$y);}],
-
-# ---   *   ---   *   ---
-
-  ],'?'=>[
-
-    undef,
-    [7,sub {my ($x)=@_;return ($$x)!=0;}],
+    [8,sub($x) {return !($$x)}],
 
     undef,
 
-  ],'!'=>[
+  ],q{~}=>[
 
     undef,
-    [8,sub {my ($x)=@_;return !($$x);}],
-
-    undef,
-
-  ],'~'=>[
-
-    undef,
-    [9,sub {my ($x)=@_;return ~($$x);}],
+    [9,sub($x) {return ~($$x)}],
 
     undef,
 
 # ---   *   ---   *   ---
 
-  ],'<<'=>[
+  ],q{<<}=>[
 
     undef,
     undef,
 
-    [10,sub {my ($x,$y)=@_;return $$x<<$$y;}],
+    [10,sub($x,$y) {return $$x<<$$y}],
 
-  ],'>>'=>[
+  ],q{>>}=>[
 
     undef,
     undef,
 
-    [11,sub {my ($x,$y)=@_;return $$x>>$$y;}],
+    [11,sub($x,$y) {return $$x>>$$y}],
 
 # ---   *   ---   *   ---
 
-  ],'|'=>[
+  ],q{|}=>[
 
     undef,
     undef,
 
-    [12,sub {my ($x,$y)=@_;return $$x|$$y;}],
+    [12,sub($x,$y) {return $$x|$$y}],
 
-  ],'&'=>[
-
-    undef,
-    undef,
-
-    [13,sub {my ($x,$y)=@_;return $$x& $$y;}],
-
-  ],'^'=>[
+  ],q{&}=>[
 
     undef,
     undef,
 
-    [14,sub {my ($x,$y)=@_;return $$x^ $$y;}],
+    [13,sub($x,$y) {return $$x& $$y}],
+
+  ],q{^}=>[
+
+    undef,
+    undef,
+
+    [14,sub($x,$y) {return $$x^ $$y}],
 
 # ---   *   ---   *   ---
 
-  ],'<'=>[
+  ],q{<}=>[
 
     undef,
     undef,
 
-    [15,sub {my ($x,$y)=@_;return $$x<$$y;}],
+    [15,sub($x,$y) {return $$x<$$y}],
 
-  ],'<='=>[
+  ],q{<=}=>[
 
     undef,
     undef,
 
-    [15,sub {my ($x,$y)=@_;return $$x<=$$y;}],
+    [15,sub($x,$y) {return $$x<=$$y}],
 
 # ---   *   ---   *   ---
 
-  ],'>'=>[
+  ],q{>}=>[
 
     undef,
     undef,
 
-    [16,sub {my ($x,$y)=@_;return $$x>$$y;}],
+    [16,sub($x,$y) {return $$x>$$y}],
 
-  ],'>='=>[
+  ],q{>=}=>[
 
     undef,
     undef,
 
-    [16,sub {my ($x,$y)=@_;return $$x>=$$y;}],
+    [16,sub($x,$y) {return $$x>=$$y}],
 
 # ---   *   ---   *   ---
 
-  ],'||'=>[
+  ],q{||}=>[
 
     undef,
     undef,
 
-    [17,sub {my ($x,$y)=@_;return $$x||$$y;}],
+    [17,sub($x,$y) {return $$x||$$y}],
 
-  ],'&&'=>[
+  ],q{&&}=>[
 
     undef,
     undef,
 
-    [18,sub {my ($x,$y)=@_;return $$x&& $$y;}],
+    [18,sub($x,$y) {return $$x&& $$y}],
 
 # ---   *   ---   *   ---
 
-  ],'=='=>[
+  ],q{==}=>[
 
     undef,
     undef,
 
-    [19,sub {my ($x,$y)=@_;return $$x==$$y;}],
+    [19,sub($x,$y) {return $$x==$$y}],
 
-  ],'!='=>[
-
-    undef,
-    undef,
-
-    [20,sub {my ($x,$y)=@_;return $$x!=$$y;}],
-
-  ],','=>[
+  ],q{!=}=>[
 
     undef,
     undef,
 
-    [99,sub {my ($x,$y)=@_;return "$$x,$$y";}],
+    [20,sub($x,$y) {return $$x!=$$y}],
+
+  ],q{,}=>[
+
+    undef,
+    undef,
+
+    [99,sub($x,$y) {return "$$x,$$y"}],
 
   ],
 

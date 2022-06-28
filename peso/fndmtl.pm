@@ -13,15 +13,21 @@
 
 # deps
 package peso::fndmtl;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
 # ---   *   ---   *   ---
+# info
+
+  our $VERSION=v0.1;
+  our $AUTHOR='IBN-3DILA';
+
+# ---   *   ---   *   ---
 # constructor for pkg hash
 
-sub getout($) {
-
-  my $type=shift;
+sub getout($type) {
 
   my %out=(
     type=>$type,
@@ -38,9 +44,8 @@ sub getout($) {
 # ---   *   ---   *   ---
 # decomposes a value declaration tree
 
-sub ptr_decl($$) {
+sub ptr_decl($m,$tree) {
 
-  my ($m,$tree)=@_;
   my ($header,$data,%out)=getout('ptr_decl');
 
 # ---   *   ---   *   ---
@@ -105,9 +110,7 @@ sub ptr_decl($$) {
 
 # ---   *   ---   *   ---
 
-sub ptr_decl_pack($$) {
-
-  my ($m,$pkg)=@_;
+sub ptr_decl_pack($m,$pkg) {
 
   return
 
@@ -123,9 +126,8 @@ sub ptr_decl_pack($$) {
 # ---   *   ---   *   ---
 # decomposes class/struct declaration tree
 
-sub type_decl($$) {
+sub type_decl($m,$tree) {
 
-  my ($m,$tree)=@_;
   my ($header,$data,%out)=getout('ptr_decl');
 
 # ---   *   ---   *   ---
@@ -148,9 +150,7 @@ sub type_decl($$) {
 
 # ---   *   ---   *   ---
 
-sub type_decl_pack($$) {
-
-  my ($m,$pkg)=@_;
+sub type_decl_pack($m,$pkg) {
 
   return
 
@@ -179,9 +179,7 @@ use constant CALLTAB=>{
 # ---   *   ---   *   ---
 # use tree to build instruction
 
-sub take($$$) {
-
-  my ($m,$key,$tree)=@_;
+sub take($m,$key,$tree) {
 
   my $pkg=CALLTAB->{$key}->($m,$tree);
   my $btc=CALLTAB->{$key.'_pack'}->($m,$pkg);
@@ -193,9 +191,7 @@ sub take($$$) {
 # ---   *   ---   *   ---
 # ^executes
 
-sub give($$) {
-
-  my ($m,$branch)=@_;
+sub give($m,$branch) {
 
   my $btc=$branch->{btc};
   my $scope=$btc->[0];

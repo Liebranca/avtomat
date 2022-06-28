@@ -14,20 +14,25 @@
 
 # deps
 package queue;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
 # ---   *   ---   *   ---
+# info
+
+  our $VERSION=v1.0;
+  our $AUTHOR='IBN-3DILA';
+
+# ---   *   ---   *   ---
 # getters
 
-sub argc {return (shift)->{-ARGC};};
-sub argv {return (shift)->{-ARGV};};
+sub argc($self) {return $self->{argc}};
+sub argv($self) {return $self->{argv}};
+sub procs($self) {return $self->{procs}};
 
-sub procs {return (shift)->{-PROCS};};
-
-sub pending {
-
-  my $self=shift;
+sub pending($self) {
   return int(@{$self->procs()})!=0;
 
 };
@@ -35,14 +40,13 @@ sub pending {
 # ---   *   ---   *   ---
 # constructor
 
-sub nit {
+sub nit() {
 
   return bless {
 
-    -ARGC=>[],
-    -ARGV=>[],
-
-    -PROCS=>[],
+    argc=>[],
+    argv=>[],
+    procs=>[],
 
   },'queue';
 
@@ -50,52 +54,54 @@ sub nit {
 
 # ---   *   ---   *   ---
 
-sub add {
+sub add($self,$fn,@args) {
+  push @{$self->argc()},int(@args);
+  push @{$self->argv()},@args;
+  push @{$self->procs()},$fn;
 
-  my $self=shift;
+  return;
 
-  my $proc=shift;
-  my @argv=@_;
+};sub clear($self) {
+  $self->{argc}=[];
+  $self->{argv}=[];
+  $self->{procs}=[];
 
-  push @{$self->argc()},int(@argv);
-  push @{$self->argv()},@argv;
-
-  push @{$self->procs()},$proc;
-
-};sub clear {
-
-  my $self=shift;
-
-  $self->{-ARGC}=[];
-  $self->{-ARGV}=[];
-  $self->{-PROCS}=[];
+  return;
 
 };
 
 # ---   *   ---   *   ---
+# do next in list
 
-sub get_next {
-
-  my $self=shift;
+sub get_next($self) {
 
   my $argc=shift @{$self->argc()};
-  my $proc=shift @{$self->procs()};
+  my $fn=shift @{$self->procs()};
 
-  my @argv=();while($argc) {
+  my @argv=();
+
+  while($argc) {
     push @argv,shift @{$self->argv()};
     $argc--;
 
-  };$proc->(@argv);
+  };
+
+  return $fn->(@argv);
 
 };
 
-# ^branchless "do if anything left to do"
-sub ex {
+# ---   *   ---   *   ---
+# do if anything left to do
 
-  my $self=shift;
+sub ex($self) {
+  my $out=undef;
 
-  (sub {;},\&get_next)
-  [$self->pending()]->($self);
+  if($self->pending) {
+    $out=$self->get_next;
+
+  };
+
+  return $out;
 
 };
 

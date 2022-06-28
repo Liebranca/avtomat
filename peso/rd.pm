@@ -1259,8 +1259,7 @@ sub parse(
 
     $root->defield();
     $root->findptrs();
-
-    $program->{-PASS}++;
+    $program->incpass();
 
     for my $branch(@{$root->leaves}) {
       peso::fndmtl::give($program,$branch);

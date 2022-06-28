@@ -480,7 +480,7 @@ sub build {
   };
 
   cleanup($program);
-  $program->{-RUN}=\&plps_obj::run;
+  $program->set_entry(\&plps_obj::run);
 
 };
 

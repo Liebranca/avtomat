@@ -13,6 +13,8 @@
 
 # deps
 package peso::type;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
@@ -20,30 +22,34 @@ package peso::type;
   use lang;
 
 # ---   *   ---   *   ---
+# info
+
+  our $VERSION=v0.2;
+  our $AUTHOR='IBN-3DILA';
+
+# ---   *   ---   *   ---
 # getters
 
-sub size($) {return (shift)->{-SIZE};};
-sub fields($) {return (shift)->{-FIELDS};};
+sub size($self) {return $self->{size}};
+sub fields($self) {return $self->{fields}};
 
 # ---   *   ---   *   ---
 
-;;sub is_prim($) {
-  return exists ((shift)->fields->{'primitive'});
+;;sub is_primitive($self) {
+  return exists $self->fields->{'primitive'};
 
-};sub elem_count($) {
-  return (shift)->{-ELEM_COUNT};
+};sub elem_count($self) {
+  return $self->{elem_count};
 
 };
 
 # ---   *   ---   *   ---
 # constructors
 
-sub new_frame() {
-  return peso::type::frame::create();
+sub new_frame(@args) {
+  return peso::type::frame::create(@args);
 
-};sub nit($$$) {
-
-  my ($frame,$name,$elems)=@_;
+};sub nit($frame,$name,$elems) {
 
   my $size=0;
   my $count=0;
@@ -92,10 +98,10 @@ sub new_frame() {
 
   my $type=$frame->{$name}=bless {
 
-    -SIZE=>$size,
-    -ELEM_COUNT=>$count,
+    size=>$size,
+    elem_count=>$count,
 
-    -FIELDS=>$fields,
+    fields=>$fields,
 
   },'peso::type';
 
@@ -106,17 +112,17 @@ sub new_frame() {
 # ---   *   ---   *   ---
 
 package peso::type::frame;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
 # ---   *   ---   *   ---
 # constructors
 
-sub nit($$$) {
-  my ($frame,$name,$elems)=@_;
-  return peso::type::nit($frame,$name,$elems);
+sub nit(@args) {return peso::type::nit(@args)};
 
-};sub create() {
+sub create() {
 
   my $frame=bless {
 

@@ -14,68 +14,65 @@
 # deps
 package stack;
 
+  use v5.36.0;
   use strict;
   use warnings;
 
 # ---   *   ---   *   ---
+# info
 
-sub slidex {
+  our $VERSION=v1.0;
+  our $AUTHOR='IBN-3DILA';
 
-  my $sz=shift;
+# ---   *   ---   *   ---
+
+sub slidex($sz) {
 
   my $buf=[];
-  for(my $i=$sz-1;$i>-1;$i--) {
+  for my $i($sz-1..0) {
     push @$buf,$i;
 
-  };return ($sz,$buf);
+  };
+
+  return ($sz,$buf);
 
 };
 
 # ---   *   ---   *   ---
 
-sub nit {
+sub nit($top,$buf) {
 
-  my $top=shift;
-  my $buf=shift;
+  return bless {
 
-  return bless(
+    top=>$top,
+    buf=>$buf,
 
-    { -TOP=>$top,
-      -BUF=>$buf,
+  },'stack';
 
-    },"stack"
-
-  );
 };
 
 # ---   *   ---   *   ---
 
-sub top {return (shift)->{-TOP};};
-sub top_plus {(shift)->{-TOP}++;};
-sub top_mins {(shift)->{-TOP}--;};
+sub gtop($self) {return $self->{top}};
+sub top_plus($self) {return $self->{top}++};
+sub top_mins($self) {return $self->{top}--};
 
-sub buf {return (shift)->{-BUF};};
+sub gbuf($self) {return $self->{buf};};
 
 # ---   *   ---   *   ---
 
-sub spush {
-
-  my $self=shift;
-  my $value=shift;
-
-  my $top=$self->top;
-  $self->buf->[$top]=$value;
-
+sub spush($self,$value) {
+  my $top=$self->gtop;
+  $self->gbuf->[$top]=$value;
   $self->top_plus;
 
-};sub spop {
+  return;
 
-  my $self=shift;
-
+};sub spop($self) {
   $self->top_mins;
-  my $top=$self->top;
+  my $top=$self->gtop;
 
-  return $self->buf->[$top];
+  return $self->gbuf->[$top];
 
 };
 
