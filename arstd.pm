@@ -31,8 +31,17 @@ package arstd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.1;
+  our $VERSION=v0.2;
   our $AUTHOR='IBN-3DILA';
+
+# ---   *   ---   *   ---
+# global state
+
+my $CACHE={
+
+  -TEST=>{},
+
+};
 
 # ---   *   ---   *   ---
 
@@ -96,6 +105,232 @@ sub fmat_btrace {
 };
 
 # ---   *   ---   *   ---
+
+sub fstrout($format,$tab,%opt) {
+
+  # opt defaults
+  $opt{args}//=[];
+  $opt{errout}//=0;
+  $opt{pre_fmat}//=NULLSTR;
+  $opt{post_fmat}//=NULLSTR;
+  $opt{endtab}//=NULLSTR;
+
+# ---   *   ---   *   ---
+# apply tab to format
+
+  my @format_lines=split m/\n/,$format;
+  map {$_="$tab$_$opt{endtab}\n"} @format_lines;
+
+# ---   *   ---   *   ---
+# select filehandle
+
+  my $FH=($opt{errout}) ? *STDERR : *STDOUT;
+
+# ---   *   ---   *   ---
+# spit it out
+
+  printf {$FH}
+
+    $opt{pre_fmat}.
+    (join NULLSTR,@format_lines).
+    $opt{post_fmat},
+
+    @{$opt{args}};
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# comparison table because Test is weird
+
+use constant CMPTAB=>{
+
+  'eq'=>sub($a,$b) {
+    $$a//=NULLSTR;
+    $$b//=NULLSTR;
+
+    return $$a eq $$b;
+
+  },
+
+};
+
+# ---   *   ---   *   ---
+
+sub unit_test_start($name) {
+
+  $CACHE->{-TEST}->{current}
+
+  =
+
+  $CACHE->{-TEST}->{$name}
+
+  ={
+
+    id=>$name,
+
+    passed=>0,
+    total=>0,
+
+  };
+
+# ---   *   ---   *   ---
+
+  my $tab="\e[37;1m\::\e[0m";
+
+  my $format=
+    "Test unit ".
+    "\e[36;1m'%s'\e[0m"
+
+  ;
+
+  fstrout(
+    $format,$tab,
+
+    args=>[$name],
+    pre_fmat=>"\n",
+    post_fmat=>"\n",
+
+  );
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+
+sub unit_test_passed() {
+
+  my $t=$CACHE->{-TEST}->{current};
+
+  my $tab="\e[37;1m\::\e[0m";
+  my $status=NULLSTR;
+
+  my $format=
+
+    "\e[33;22m%i\e[0m".
+    "\e[37;1m/\e[0m".
+    "\e[33;22m%i\e[0m ".
+
+    "checks passed\n".
+
+    "Status: %s"
+
+  ;
+
+# ---   *   ---   *   ---
+
+  if($t->{passed} != $t->{total}) {
+    $status="\e[31;22mFAILURE\e[0m";
+
+  } else {
+    $status="\e[32;22mSUCCESS\e[0m";
+
+  };
+
+# ---   *   ---   *   ---
+# spit out results to log
+
+  fstrout(
+    $format,$tab,
+
+    args=>[$t->{passed},$t->{total},$status],
+    pre_fmat=>"\n",
+    post_fmat=>"\n",
+
+  );
+
+  $CACHE->{-TEST}->{current}=undef;
+  return $t->{passed} == $t->{total};
+
+};
+
+# ---   *   ---   *   ---
+# report check results
+
+sub test($cmp,$a,$b,%opt) {
+
+  # opt defaults
+  $opt{name}//='unnamed';
+
+# ---   *   ---   *   ---
+
+  my $tab=sprintf
+    "\e[37;1m<\e[0m".
+    "\e[34;22m%s\e[0m".
+    "\e[37;1m>\e[0m ",
+
+    'test',
+
+  ;
+
+  my $endtab=sprintf
+
+    "\e[37;1m(\e[0m".
+
+    "\e[34;22m%s\e[0m".
+    "\e[37;1m::\e[0m".
+    "\e[33;22m%s\e[0m".
+
+    "\e[37;1m)\e[0m",
+
+    (caller)[1],(caller)[2]
+
+  ;
+
+# ---   *   ---   *   ---
+
+  # placeholders
+  my $format="%-21s %-2s ";
+  my $status=NULLSTR;
+
+  # used to recolor the format
+  my $cfn=undef;
+
+# ---   *   ---   *   ---
+# failure
+
+  if(!CMPTAB->{$cmp}->(\$a,\$b)) {
+    $status='NO';
+    $cfn=sub($f) {return "\e[31;22m$f\e[0m"};
+
+# ---   *   ---   *   ---
+# success
+
+  } else {
+    $status='OK';
+    $cfn=sub($f) {return "\e[32;22m$f\e[0m"};
+
+  };
+
+# ---   *   ---   *   ---
+
+  $CACHE->{-TEST}->{current}->{passed}
+
+  +=
+
+  int($status eq 'OK')
+
+  ;
+
+  $CACHE->{-TEST}->{current}->{total}+=1;
+
+# ---   *   ---   *   ---
+
+  fstrout(
+    $format,$tab,
+    args=>[$opt{name},$cfn->($status)],
+
+    endtab=>$endtab,
+
+  );
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # error prints
 
 sub errout($format,%opt) {
@@ -106,13 +341,18 @@ sub errout($format,%opt) {
   $opt{lvl}//=WARNING;
 
 # ---   *   ---   *   ---
-# get args
+# print initial message
 
-  my @args=@{$opt{args}};
+  my $tab="$opt{lvl}#:!;>\e[0m ";
 
-  printf {*STDERR}
-    "\n$opt{lvl}#:!;> $format\e[0m",
-    @{$opt{args}};
+  fstrout(
+    $format,$tab,
+    args=>$opt{args},
+    errout=>1,
+    pre_fmat=>"\n",
+
+  );
+
 
 # ---   *   ---   *   ---
 # exec calls
@@ -138,7 +378,7 @@ sub errout($format,%opt) {
     split m/\n/,$mess;
 
   my $header=sprintf
-    "$opt{lvl}#:!;> BACKTRACE\e[0m\n\n".
+    "$tab\e[33;1mBACKTRACE\e[0m\n\n".
     "%-21s%-21s%-12s\n",
 
     'Module',
@@ -150,7 +390,17 @@ sub errout($format,%opt) {
   print {*STDERR}
     "$header\n$mess\n\n";
 
-  if($opt{lvl} eq FATAL) {
+# ---   *   ---   *   ---
+# quit on fatal error that doesn't happen
+# during testing
+
+  if(
+
+     $opt{lvl} eq FATAL
+  && !defined $CACHE->{-TEST}->{current}
+
+  ) {
+
     exit;
 
   } else {

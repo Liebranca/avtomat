@@ -13,6 +13,8 @@
 
 # deps
 package avt;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
@@ -21,17 +23,24 @@ package avt;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
+  use style;
+  use arstd;
+
   use lang;
   use langdefs::c;
 
 # ---   *   ---   *   ---
 # info
 
+  our $VERSION=v3.2;
+  our $AUTHOR='IBN-3DILA';
+
+# ---   *   ---   *   ---
+# read-only stuff
+
   use constant {
 
-    VERSION        => 3.0,
     BOXCHAR        => '.',
-
     CONFIG_DEFAULT => '#',
 
     # gcc switches
@@ -81,8 +90,15 @@ package avt;
 
   );
 
-sub root {
-  if(@_) {$CACHE{-ROOT}=abs_path(shift);};
+# ---   *   ---   *   ---
+
+sub root($new=undef) {
+
+  if(defined $new) {
+    $CACHE{-ROOT}=abs_path($new);
+
+  };
+
   return $CACHE{-ROOT};
 
 };
@@ -92,49 +108,53 @@ sub root {
 sub MODULES {return split ' ',$CACHE{-MODULES};};
 
 # ---   *   ---   *   ---
+# add to search path (include)
 
-# add to search path
-sub stinc {
-
-  my $path=shift @ARGV;
-
-  $path=~ s/\-I//;
-
-  $path=abs_path(glob($path));
+sub stinc(@args) {
 
   my $ref=$CACHE{-INCLUDE};
+  for my $path(@args) {
 
-  push @$ref,$path;
+    $path=~ s/\-I//;
+    $path=abs_path(glob($path));
 
-};
+    push @$ref,$path;
 
-# add to search path
-sub stlib {
-
-  my $path=shift @ARGV;
-
-  $path=~ s/\-L//;
-
-  $path=abs_path(glob($path));
-
-  my $ref=$CACHE{-LIB};
-
-  push @$ref,$path;
+  };
 
 };
 
 # ---   *   ---   *   ---
+# add to search path (library)
 
+sub stlib(@args) {
+
+  my $ref=$CACHE{-LIB};
+  for my $path(@args) {
+
+    $path=~ s/\-L//;
+    $path=abs_path(glob($path));
+
+    push @$ref,$path;
+
+  };
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # in:filename
 # sets search path and filelist accto filename
-sub illnames {
 
-  my $fname=shift;
+sub illnames($fname) {
 
   my @files=();
   my $ref;
 
-  # point to lib on -l at strbeg
+# ---   *   ---   *   ---
+# point to lib on -l at strbeg
+
   if($fname=~ m/^\s*\-l/) {
     $ref=$CACHE{-LIB};
     $fname=~ s/^\s*\-l//;
@@ -145,29 +165,33 @@ sub illnames {
 
       );
 
-    };push @files,$fname;
-
-  # common file search
-  } else {
-    $ref=$CACHE{-INCLUDE};
-    #$fname=~ s/^\s*\-f//;
+    };
 
     push @files,$fname;
 
-  };return [$ref,\@files];
+# ---   *   ---   *   ---
+# common file search
+
+  } else {
+    $ref=$CACHE{-INCLUDE};
+    push @files,$fname;
+
+  };
+
+  return [$ref,\@files];
 
 };
 
 # ---   *   ---   *   ---
-
 # find file within search path
-sub ffind {
 
-  my $fname=shift;
+sub ffind($fname) {
+
   if(-e $fname) {return $fname;};
 
-  my ($ref,@files);{
-    my @ret=@{ illnames($fname) };
+  my ($ref,@files);
+
+  { my @ret=@{ illnames($fname) };
 
     $ref=$ret[0];@files=@{ $ret[1] };
     $fname=$files[$#files];
@@ -180,26 +204,40 @@ sub ffind {
   my $path=undef;
 
   # iter search path
-  for $path(@$ref) {
-    if(!$path) {next;};
+  for $path(@$ref,root) {
+    if(!$path) {next};
 
     # iter alt names
     for my $f(@files) {
       if(-e "$path/$f") {
-        $src="$path/$f";last;
+        $src="$path/$f";
+        last;
 
       };
 
-    };if($src) {last;};
+    };
+
+    # early exit on found
+    if(defined $src) {last};
+
   };
 
 # ---   *   ---   *   ---
+# catch no such file
 
-  if(!$src) {
-    print "Could not find $fname\n";
-    return undef;
+  if(!defined $src) {
 
-  };return $src;
+    arstd::errout(
+      "Could not find file '%s' in path\n",
+
+      args=>[$fname],
+      lvl=>ERROR,
+
+    );
+
+  };
+
+  return $src;
 
 };
 
@@ -618,11 +656,9 @@ sub typecon {
 # ---   *   ---   *   ---
 # looks at a single file for symbols
 
-sub file_sbl($) {
+sub file_sbl($f) {
 
-  my $f=shift;
   my $found='';
-
   my $langname=lang::file_ext($f);
 
 # ---   *   ---   *   ---
@@ -744,12 +780,9 @@ sub file_sbl($) {
 # in:modname,[files]
 # write symbol typedata (return,args) to shadow lib
 
-sub symscan {
+sub symscan($mod) {
 
-  my $mod=shift;
-
-  unshift @ARGV,$CACHE{-ROOT}."/$mod/";
-  stinc();
+  stinc($CACHE{-ROOT}."/$mod/");
 
   my @files=();
 
@@ -1121,9 +1154,7 @@ sub plext {
 # ---   *   ---   *   ---
 # ^restore
 
-};sub erropen($) {
-
-  my $fh=shift;
+};sub erropen($fh) {
   open(STDERR,">$fh");
 
 };
@@ -1224,9 +1255,7 @@ sub nxbasename {
 # ^ get dir of filename...
 # or directory's parent
 
-sub dirof {
-
-  my $path=shift;
+sub dirof($path) {
 
   my @tmp=split('/',$path);
   $path=join('/',@tmp[0..($#tmp)-1]);
@@ -2128,23 +2157,20 @@ avt::update_regular(\@FCPY);
 
 # ---   *   ---   *   ---
 
-sub set_build_paths {
+sub set_build_paths($FSWAT,$INCLUDES) {
 
   my $FSWAT=shift;
   my $INCLUDES=shift;
 
+  my @paths=();
   for my $inc(lang::ws_split(' ',$INCLUDES)) {
     if($inc eq "-I".root) {next;};
 
-    unshift @ARGV,$inc;stinc();
+    push @paths,$inc;
 
   };
 
-  unshift @ARGV,'.';
-  unshift @ARGV,"-I".root."/$FSWAT";
-
-  stinc();
-  stinc();
+  stinc(@paths,q{.},'-I'.root."/$FSWAT");
 
 };
 

@@ -1,0 +1,76 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# SYMFIND
+# Looks for names in files
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+# ---   *   ---   *   ---
+
+# deps
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use cli;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+
+  use lang;
+  use langdefs::perl;
+
+  use peso::rd;
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION=v0.1.0;
+  our $AUTHOR='IBN-3DILA';
+
+# ---   *   ---   *   ---
+
+my $m=cli::nit(
+  ['recursive'],
+  ['symbol','-s','--symbol',1],
+
+);
+
+my @files=$m->take(@ARGV);
+
+for my $f(@files) {
+
+  my $program=peso::rd::parse(
+    lang->perl,
+    peso::rd->FILE,
+
+    $f,
+
+    use_plps=>0,
+
+  );
+
+  my $sym=qr{\Q$m->{symbol}};
+  my $i=0;
+
+  $program->{tree}->defield();
+  my @ar=$program->{tree}->branches_with($sym);
+  for my $branch(@ar) {
+    my $s=$branch->flatten;
+    printf "\e[33;22m%4i\e[0m %-54s\n",
+      $branch->{lineno},$s
+
+    ;
+
+  };
+
+};
+
+
+# ---   *   ---   *   ---
+1; # ret

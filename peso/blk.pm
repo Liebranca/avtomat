@@ -145,8 +145,8 @@ sub nit($frame,$parent,$name,$attrs) {
 
     $parent=$frame->{-SOIL};
 
-    $blk->{-ID}=$frame->{-BIDS}->spop();
-    $frame->{-BBID}->[$blk->{-ID}]=$blk;
+    $blk->{id}=$frame->{-BIDS}->spop();
+    #$frame->{-BBID}->[$blk->{id}]=$blk;
 
 # ---   *   ---   *   ---
 # only non can be orphaned

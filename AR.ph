@@ -46,7 +46,17 @@ sub update {
     if(!(-e $basedir)) {
       `mkdir -p $basedir`;
 
-    };if($do_cp) {`cp $og $cp`;};
+    };
+
+    if($do_cp) {
+      `cp $og $cp`;
+
+      print
+
+        "\e[37;1m<\e[34;22mAR\e[37;1m>\e[0m ".
+        "updated \e[32;1m$f\e[0m\n";
+
+    };
 
   };
 

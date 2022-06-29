@@ -1,5 +1,8 @@
 avtomat v4;
 
+~ Refactor helper;
+x ^ Find mentions of a given package or subroutine;
+~ ^^ Make this recursive;
 x Convert peso classes to prototypes;
 x node;
 x blk;
