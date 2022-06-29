@@ -106,7 +106,7 @@ sub nit($frame,$parent,$val) {
   # add leaf if ancestry
   if(defined $parent) {
 
-    push @{ $parent->leaves },$node;
+    push @{ $parent->{leaves} },$node;
     $node->{par}=$parent;
 
     $parent->idextrav();
@@ -121,21 +121,6 @@ sub nit($frame,$parent,$val) {
 # ---   *   ---   *   ---
 # getters
 
-sub frame($self) {return $self->{frame}};
-sub leaves($self) {return $self->{leaves}};
-sub par($self) {return $self->{par}};
-
-sub value($self,$x=undef) {
-
-  if(defined $x) {
-    $self->{value}=$x;
-
-  };return $self->{value};
-
-};
-
-sub value_type($self) {return $self->{value_type}};
-
 sub ances($self,$join) {
 
   my $anchor=$self;
@@ -143,11 +128,11 @@ sub ances($self,$join) {
 
 TOP:
 
-  $s=$anchor->value.$s;
-  if($anchor->par) {
+  $s=$anchor->{value}.$s;
+  if($anchor->{par}) {
 
     $s=$join.$s;
-    $anchor=$anchor->par;
+    $anchor=$anchor->{par};
 
     goto TOP;
 
@@ -162,12 +147,12 @@ TOP:
 
 sub dup($self,$root=undef) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
   my @leaves=();
 
-  my $copy=$frame->nit($root,$self->value);
+  my $copy=$frame->nit($root,$self->{value});
 
-  for my $leaf(@{$self->leaves}) {
+  for my $leaf(@{$self->{leaves}}) {
     $leaf->dup($copy);
 
   };
@@ -181,7 +166,7 @@ sub dup($self,$root=undef) {
 
 sub fieldn($self,$i) {
   my $field=($self->branches_with("field_$i"))[0];
-  return $field->leaves->[$i];
+  return $field->{leaves}->[$i];
 
 # ---   *   ---   *   ---
 # ^same, returns whole list
@@ -199,13 +184,13 @@ sub group($self,$idex,$subidex=undef) {
   my $out=undef;
 
   # errchk
-  if(!@{$self->leaves}) {
+  if(!@{$self->{leaves}}) {
 
     arstd::errout(
 
       "Node <%s> has no children\n",
 
-      args=>[$self->value],
+      args=>[$self->{value}],
       lvl=>WARNING,
 
     );
@@ -217,12 +202,12 @@ sub group($self,$idex,$subidex=undef) {
 # ---   *   ---   *   ---
 # get nth group
 
-  my $group=$self->leaves->[$idex];
+  my $group=$self->{leaves}->[$idex];
 
   # get nth element in group
   if(defined $subidex) {
 
-    my $node=$group->leaves->[$subidex];
+    my $node=$group->{leaves}->[$subidex];
     return $node;
 
   };
@@ -245,11 +230,11 @@ sub walkup($self,$top=undef) {
 
 # ---   *   ---   *   ---
 
-  my $node=$self->par;
+  my $node=$self->{par};
   my $i=0;
 
   while($top<$i) {
-    my $par=$node->par;
+    my $par=$node->{par};
     if($par) {
       $node=$par;
 
@@ -264,18 +249,18 @@ sub walkup($self,$top=undef) {
 
 sub shiftlv($self,$pos,$sz) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
 
   for my $i(0..$sz-1) {
     $frame->nit($self,'BLANK');
 
   };
 
-  my $end=@{$self->leaves}-1;
+  my $end=@{$self->{leaves}}-1;
   for my $i(reverse ($pos..$end)) {
 
-    $self->leaves->[$i]
-      =$self->leaves->[$i-1];
+    $self->{leaves}->[$i]
+      =$self->{leaves}->[$i-1];
 
   };$self->idextrav();
 
@@ -302,16 +287,16 @@ sub pushlv($self,$overwrite,@pending) {
 
     my $node=shift @pending;
 
-    my $par=$node->par;
+    my $par=$node->{par};
 
     $node->{root}=$self->{root};
     $node->{par}=$self;
 
 # ---   *   ---   *   ---
 
-    push @{ $self->leaves },$node;
+    push @{ $self->{leaves} },$node;
 
-    if($par && $par!=$node->par) {
+    if($par && $par!=$node->{par}) {
       $par->pluck($node);
       $cl{$par}=$par;
 
@@ -337,12 +322,12 @@ sub pushlv($self,$overwrite,@pending) {
 sub cllv($self) {
 
   my @cpy=();
-  my @leaves=@{$self->leaves};
+  my @leaves=@{$self->{leaves}};
 
   for my $i(0..$#leaves) {
 
     # push only nodes that arent plucked
-    my $node=$self->leaves->[$i];
+    my $node=$self->{leaves}->[$i];
     if(defined $node) {
       push @cpy,$node;
 
@@ -362,7 +347,7 @@ sub cllv($self) {
 
 sub tokenize($self,$exp) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
   my $lang=$frame->master->lang;
 
   # patterns
@@ -412,10 +397,10 @@ sub tokenize($self,$exp) {
 # ---   *   ---   *   ---
 # classify tokens
 
-  for my $leaf(@{$self->leaves}) {
+  for my $leaf(@{$self->{leaves}}) {
 
     $leaf->{value_type}
-      =$lang->classify($leaf->value);
+      =$lang->classify($leaf->{value});
 
   };
 
@@ -428,7 +413,7 @@ sub tokenize($self,$exp) {
 
 sub agroup($self) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
   my $lang=$frame->master->lang;
 
   my @shifts=();
@@ -441,10 +426,10 @@ sub agroup($self) {
 
   $self->cllv();
 
-  my @leaves=@{$self->leaves};
+  my @leaves=@{$self->{leaves}};
   TOP:my $leaf=shift @leaves;
 
-  if($leaf->value eq q{,}) {
+  if($leaf->{value} eq q{,}) {
     push @trash,$leaf;
     pop @anchors;
 
@@ -457,7 +442,7 @@ sub agroup($self) {
     my $anchor=$anchors[-1]->[0];
     my $argc=\$anchors[-1]->[1];
 
-    $frame->nit($anchor,$leaf->value);
+    $frame->nit($anchor,$leaf->{value});
     push @trash,$leaf;
 
     $$argc--;
@@ -472,7 +457,7 @@ sub agroup($self) {
 # ---   *   ---   *   ---
 
   $leaf->cllv();
-  unshift @leaves,@{$leaf->leaves};
+  unshift @leaves,@{$leaf->{leaves}};
 
   if(@leaves) {goto TOP;};
   TAIL:$self->pluck(@trash);
@@ -485,7 +470,7 @@ sub agroup($self) {
 
 };sub subdiv($self) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
   my $lang=$frame->master->lang;
 
   my $ndel_op=$lang->ops;
@@ -512,7 +497,7 @@ sub agroup($self) {
 
   my @pending=();
 
-  my @ar=@{$root->leaves};
+  my @ar=@{$root->{leaves}};
   for my $leaf(@ar) {
 
     if($matched{"$leaf"}) {next;};
@@ -522,7 +507,7 @@ sub agroup($self) {
     my $prev=($i>0) ? $ar[$i-1] : undef;
     my $next=($i<$#ar) ? $ar[$i+1] : undef;
 
-    if(@{$leaf->leaves}) {
+    if(@{$leaf->{leaves}}) {
       push @leaves,$leaf;
 
     };
@@ -534,7 +519,7 @@ sub agroup($self) {
     my ($j,$k)=(0,1);
 
     # node is operator
-    if(exists $lang->op_prec->{$leaf->value}) {
+    if(exists $lang->op_prec->{$leaf->{value}}) {
 
       # look at previous and next node
       for my $n($prev,$next) {
@@ -543,10 +528,10 @@ sub agroup($self) {
         # n is an operator with leaves
         # or n is not an operator
         my $valid=(
-            ($n->value=~ m/${ndel_op}|${del_op}/)
-         && @{$n->leaves}
+            ($n->{value}=~ m/${ndel_op}|${del_op}/)
+         && @{$n->{leaves}}
 
-        )!=0;$valid|=!($n->value=~
+        )!=0;$valid|=!($n->{value}=~
           m/${del_op}|${ndel_op}/
 
         );
@@ -555,7 +540,7 @@ sub agroup($self) {
 
         if($valid) {
 
-          #if($n=~ m/$cde/) {$n=$n->par;};
+          #if($n=~ m/$cde/) {$n=$n->{par};};
 
           $j|=$k;
           push @move,$n;
@@ -571,7 +556,7 @@ sub agroup($self) {
       my $prio
 
         =$lang->op_prec
-        ->{$leaf->value}
+        ->{$leaf->{value}}
         ->[$j-1]->[0]
 
       ;
@@ -605,12 +590,12 @@ sub agroup($self) {
 
     my @move=@{$ref->[2]};
 
-    $leaf->value(bless {
+    $leaf->{value}=bless {
 
-      op=>$leaf->value,
+      op=>$leaf->{value},
       idex=>$idex,
 
-    },'node_op');
+    },'node_op';
 
     $matched{"$leaf"}=1;
     $leaf->pushlv(0,$root->pluck(@move));
@@ -639,7 +624,7 @@ sub agroup($self) {
   my $only_if=$opt{only};
   my $no_numcon=$opt{no_numcon};
 
-  my $lang=$self->frame->master->lang;
+  my $lang=$self->{frame}->master->lang;
   my $op_prec=$lang->op_prec;
   my $del_op=$lang->del_ops;
   my $ode=$lang->ode;
@@ -659,19 +644,19 @@ sub agroup($self) {
     if(defined $max_depth
     && $depth>=$max_depth) {next;};
 
-    if($self->value=~ m/^${\OPERATOR}$/) {
+    if($self->{value}=~ m/^${\OPERATOR}$/) {
 
       if(
 
          defined $only_if
-      && !($self->value->{op}=~ m/^${only_if}/)
+      && !($self->{value}->{op}=~ m/^${only_if}/)
 
       ) {goto SKIP;};
 
       push @solve,$self;
 
     };SKIP:
-    unshift @leaves,1,@{$self->leaves},0;
+    unshift @leaves,1,@{$self->{leaves}},0;
 
   };
 
@@ -683,14 +668,14 @@ sub agroup($self) {
 
     my $self=pop @solve;
 
-    my $op=$op_prec->{$self->value->{op}};
-    my $idex=$self->value->{idex};
+    my $op=$op_prec->{$self->{value}->{op}};
+    my $idex=$self->{value}->{idex};
 
 # ---   *   ---   *   ---
 # argument conversions
 # TODO: type-checks!
 
-    my @args=$self->pluck(@{$self->leaves});
+    my @args=$self->pluck(@{$self->{leaves}});
     for my $arg(@args) {
 
       if(!$opt{no_numcon}) {
@@ -698,21 +683,27 @@ sub agroup($self) {
       for my $key(keys %{$lang->nums}) {
         $lang->numcon(\$arg->{value});
 
-      }};$arg=\$arg->value;
+      }};$arg=\$arg->{value};
 
     };
 
 # ---   *   ---   *   ---
 
-    $self->value($op->[$idex]->[1]->(@args));
+    $self->{value}=$op->[$idex]->[1]->(@args);
 
-    if($self->par->value=~ m/^${ode}$/) {
-      if($self->par eq $root) {
+    if(
+
+      (defined $self->{par}->{value}) &&
+      $self->{par}->{value}=~ m/^${ode}$/
+
+    ) {
+
+      if($self->{par} eq $root) {
         $root=$self;
 
       };
 
-      $self->par->repl($self);
+      $self->{par}->repl($self);
 
     };
 
@@ -740,7 +731,7 @@ sub defield($self) {
 
 sub delimchk($self) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
   my $lang=$frame->master->lang;
 
   my $ode=$lang->ode;
@@ -752,10 +743,10 @@ sub delimchk($self) {
 # ---   *   ---   *   ---
 
   my $i=0;
-  for my $leaf(@{$self->leaves}) {
+  for my $leaf(@{$self->{leaves}}) {
     if(!defined $leaf) {last;};
 
-    if($leaf->value=~ m/${ode}/) {
+    if($leaf->{value}=~ m/${ode}/) {
       $leaf->delimbrk($i);
 
     };$i++;
@@ -764,7 +755,7 @@ sub delimchk($self) {
 
 # ---   *   ---   *   ---
 
-  unshift @leaves,@{$self->leaves};
+  unshift @leaves,@{$self->{leaves}};
   if(@leaves) {goto TOP;};
 
   return;
@@ -775,7 +766,7 @@ sub delimchk($self) {
 
 };sub delimbrk($self,$i) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
   my $lang=$frame->master->lang;
 
   my @anchors=();
@@ -784,7 +775,7 @@ sub delimchk($self) {
   my $ode=$lang->ode;
   my $cde=$lang->cde;
 
-  my @ar=@{$self->par->leaves};
+  my @ar=@{$self->{par}->{leaves}};
   @ar=@ar[$i..$#ar];
 
 # ---   *   ---   *   ---
@@ -798,7 +789,7 @@ sub delimchk($self) {
 
 # ---   *   ---   *   ---
 
-    if($leaf->value=~ m/${ode}/) {
+    if($leaf->{value}=~ m/${ode}/) {
       push @anchors,$leaf;
       push @moved,[];
 
@@ -806,7 +797,7 @@ sub delimchk($self) {
 
     } elsif(
 
-         $leaf->value=~ m/${cde}/
+         $leaf->{value}=~ m/${cde}/
       && @anchors
 
       ) {
@@ -833,7 +824,7 @@ sub delimchk($self) {
 
 sub repl($self,$other) {
 
-  my $ref=$self->par->leaves;
+  my $ref=$self->{par}->{leaves};
   my $i=-1;
 
 # ---   *   ---   *   ---
@@ -849,13 +840,13 @@ sub repl($self,$other) {
 # ---   *   ---   *   ---
 
   if($i>=0) {
-    $other->{parent}=$self->par;
+    $other->{parent}=$self->{par};
     $ref->[$i]=$other;
 
   };
 
-  $self->par->cllv();
-  $self->par->idextrav();
+  $self->{par}->cllv();
+  $self->{par}->idextrav();
 
   return;
 
@@ -869,8 +860,8 @@ sub flatten_branch($self,%args) {
   # opt defaults
   $args{keep_root}//=0;
 
-  my @move=$self->pluck(@{$self->leaves});
-  my $par=$self->par;
+  my @move=$self->pluck(@{$self->{leaves}});
+  my $par=$self->{par};
 
   $par->cllv();
   $par->idextrav();
@@ -878,7 +869,7 @@ sub flatten_branch($self,%args) {
 # ---   *   ---   *   ---
 
   my $idex=$self->{idex};
-  my @ar=@{$par->leaves};
+  my @ar=@{$par->{leaves}};
 
   if($args{keep_root}) {unshift @move,$self};
   if($idex) {unshift @move,@ar[0..$idex-1]};
@@ -909,7 +900,7 @@ sub pluck($self,@pending) {
 
   { my $i=0;
 
-  for my $leaf(@{$self->leaves}) {
+  for my $leaf(@{$self->{leaves}}) {
 
     # skip removed nodes
     if(!$leaf) {next;};
@@ -927,11 +918,11 @@ sub pluck($self,@pending) {
       if($leaf eq $node) {
 
         # save the removed nodes
-        push @plucked,$self->leaves->[$i];
+        push @plucked,$self->{leaves}->[$i];
 
         # remove from list and leaves
         $pending[$j]=undef;
-        $self->leaves->[$i]=undef;
+        $self->{leaves}->[$i]=undef;
 
         # go to next leaf
         last;
@@ -956,7 +947,7 @@ sub pluck($self,@pending) {
 sub idextrav($self) {
 
   my $i=0;
-  for my $child(@{$self->leaves}) {
+  for my $child(@{$self->{leaves}}) {
     $child->{idex}=$i;$i++;
 
   };
@@ -971,7 +962,7 @@ sub idextrav($self) {
 
 sub findptrs($self) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
   my $lang=$frame->master->lang;
 
   my $fr_ptr=$frame->master->ptr;
@@ -986,10 +977,10 @@ sub findptrs($self) {
   while(@leaves) {
 
     $self=shift @leaves;
-    unshift @leaves,@{$self->leaves};
+    unshift @leaves,@{$self->{leaves}};
 
     # skip $:escaped;>
-    if($self->value=~ m/${pesc}/) {
+    if($self->{value}=~ m/${pesc}/) {
       next;
 
     };
@@ -998,13 +989,13 @@ sub findptrs($self) {
 # solve/fetch non-numeric values
 
     if($lang->valid_name(
-        $self->value
+        $self->{value}
 
-      ) && !(exists $types->{$self->value})
+      ) && !(exists $types->{$self->{value}})
 
     ) {
 
-      $self->value($fr_ptr->fetch($self->value));
+      $self->{value}=$fr_ptr->fetch($self->{value});
 
     };
 
@@ -1055,7 +1046,7 @@ sub odeop($self,$set) {
 
   my @leaves=($self);
 
-  my $lang=$self->frame->master->lang;
+  my $lang=$self->{frame}->master->lang;
   my $ode=$lang->ode;
 
 # ---   *   ---   *   ---
@@ -1063,25 +1054,25 @@ sub odeop($self,$set) {
   while(@leaves) {
 
     $self=shift @leaves;
-    unshift @leaves,@{$self->leaves};
+    unshift @leaves,@{$self->{leaves}};
 
-    if($set && $self->value=~ m/^${ode}$/) {
-      $self->value(bless {
+    if($set && $self->{value}=~ m/^${ode}$/) {
+      $self->{value}=bless {
         op=>$1,
         idex=>-1,
 
-      },'node_op');
+      },'node_op';
 
 # ---   *   ---   *   ---
 
     } elsif((!$set)
 
-      && $self->value=~ m/${\OPERATOR}/
-      && $self->value->{op}=~ m/^${ode}$/
+      && $self->{value}=~ m/${\OPERATOR}/
+      && $self->{value}->{op}=~ m/^${ode}$/
 
     ) {
 
-      $self->value($self->value->{op});
+      $self->{value}=$self->{value}->{op};
 
     };
 
@@ -1098,7 +1089,7 @@ sub odeop($self,$set) {
 
 sub branchrefs($self,$dst) {
 
-  my $lang=$self->frame->master->lang;
+  my $lang=$self->{frame}->master->lang;
   my $ode=$lang->ode;
 
   my @leaves=($self);
@@ -1109,17 +1100,17 @@ sub branchrefs($self,$dst) {
   while(@leaves) {
 
     $self=shift @leaves;
-    unshift @leaves,@{$self->leaves};
+    unshift @leaves,@{$self->{leaves}};
 
 # ---   *   ---   *   ---
 # use stringified ref as key into value
 
     if(
 
-        (length ref $self->value)
-    && !(exists $dst->{$self->value})
+        (length ref $self->{value})
+    && !(exists $dst->{$self->{value}})
 
-    ) {$dst->{$self->value}=$self;};
+    ) {$dst->{$self->{value}}=$self;};
 
 # ---   *   ---   *   ---
 
@@ -1144,11 +1135,11 @@ sub leafless($self,%opt) {
   while(@leaves) {
 
     $self=shift @leaves;
-    if(!@{$self->leaves}) {
+    if(!@{$self->{leaves}}) {
       push @result,$self;
 
     } else {
-      unshift @leaves,@{$self->leaves};
+      unshift @leaves,@{$self->{leaves}};
 
     };
 
@@ -1183,19 +1174,19 @@ sub branches_with($self,$lookfor) {
 
 TOP:
 
-  if(!@{$anchor->leaves}) {goto SKIP;};
+  if(!@{$anchor->{leaves}}) {goto SKIP;};
 
-  for my $leaf(@{$anchor->leaves}) {
+  for my $leaf(@{$anchor->{leaves}}) {
 
     # accept branch if value found in leaves
-    if($leaf->value=~ m/${lookfor}/) {
+    if($leaf->{value}=~ m/${lookfor}/) {
       push @found,$anchor;
       last;
 
     };
   };
 
-  unshift @leaves,@{$anchor->leaves};
+  unshift @leaves,@{$anchor->{leaves}};
 
 # ---   *   ---   *   ---
 # continue if children pending
@@ -1231,12 +1222,12 @@ sub branches_in($self,$lookfor) {
   while(@leaves) {
 
     $self=shift @leaves;
-    if($self->value=~ m/${lookfor}/) {
+    if($self->{value}=~ m/${lookfor}/) {
       push @found,$self;
 
     };
 
-    unshift @leaves,@{$self->leaves};
+    unshift @leaves,@{$self->{leaves}};
 
 # ---   *   ---   *   ---
 # return matching nodes
@@ -1253,8 +1244,8 @@ sub plain_arr(@tree) {
   my @result=();
   for my $branch(@tree) {
 
-    for my $leaf(@{$branch->leaves}) {
-      push @result,$leaf->value;
+    for my $leaf(@{$branch->{leaves}}) {
+      push @result,$leaf->{value};
 
     };
   };
@@ -1269,9 +1260,9 @@ sub plain_arr(@tree) {
   my @result=();
   for my $branch(@tree) {
 
-    push @result,$branch->value;
-    for my $leaf(@{$branch->leaves}) {
-      push @result,$leaf->value;
+    push @result,$branch->{value};
+    for my $leaf(@{$branch->{leaves}}) {
+      push @result,$leaf->{value};
 
     };
   };
@@ -1298,18 +1289,18 @@ sub nocslist($self) {
   my @leaves=($self);
   my @pending=();
 
-  my $sep=$self->frame->master->lang->separators;
+  my $sep=$self->{frame}->master->lang->separators;
 
 # ---   *   ---   *   ---
 
   while(@leaves) {
     $self=shift @leaves;
-    unshift @leaves,@{$self->leaves};
+    unshift @leaves,@{$self->{leaves}};
 
     if(
 
-       $self->value=~ m/node_op/
-    && $self->value->{op}=~ m/${sep}/
+       $self->{value}=~ m/node_op/
+    && $self->{value}->{op}=~ m/${sep}/
 
     ) {push @pending,$self;};
 
@@ -1347,13 +1338,13 @@ sub flatten($self,%args) {
     if($self == 0) {$depth--;next;}
     elsif($self == 1) {$depth++;next};
 
-    $s.=$self->value.q{ };
+    $s.=$self->{value}.q{ };
     if(defined $max_depth && $depth>=$max_depth) {
       next;
 
     };
 
-    unshift @leaves,1,@{$self->leaves},0;
+    unshift @leaves,1,@{$self->{leaves}},0;
 
   };
 
@@ -1378,7 +1369,7 @@ sub exp_arr($self) {
 
     };
 
-    unshift @leaves,@{$self->leaves};
+    unshift @leaves,@{$self->{leaves}};
 
   };
 
@@ -1415,7 +1406,7 @@ sub prich($self,%args) {
     my $depth=0;
     if(!$depth && $self ne $root) {
 
-      my $par=$self->par;
+      my $par=$self->{par};
 
 # ---   *   ---   *   ---
 
@@ -1424,7 +1415,7 @@ sub prich($self,%args) {
         $depth++;
         if($par eq $root) {last;};
 
-        $par=$par->par;
+        $par=$par->{par};
 
       };
 
@@ -1450,11 +1441,11 @@ sub prich($self,%args) {
 
     my $v=(
 
-       $self->value=~ m/^${\OPERATOR}$/
-    && length ref $self->value
+       $self->{value}=~ m/^${\OPERATOR}$/
+    && length ref $self->{value}
 
-    ) ? $self->value->{op}
-      : $self->value
+    ) ? $self->{value}->{op}
+      : $self->{value}
       ;
 
 # ---   *   ---   *   ---
@@ -1462,17 +1453,17 @@ sub prich($self,%args) {
 
     $v=(
 
-       $self->value=~ m/^plps_obj/
-    && length ref $self->value
+       $self->{value}=~ m/^plps_obj/
+    && length ref $self->{value}
 
-    ) ? $self->value->{name}
+    ) ? $self->{value}->{name}
       : $v
       ;
 
 # ---   *   ---   *   ---
 
     $mess.=$branch.$v."\n";
-    unshift @leaves,@{$self->leaves};
+    unshift @leaves,@{$self->{leaves}};
 
   };
 

@@ -23,21 +23,16 @@
 # deps
 
 package lang;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
   use List::Util qw( max );
 
   use lib $ENV{'ARPATH'}.'/lib/';
-
-  sub ws_split {
-
-    my $c=shift;
-    my $s=shift;
-
-    return split m/\s*${c}\s*/,$s;
-
-  };
+  use style;
+  use arstd;
 
 # ---   *   ---   *   ---
 # value type flags
@@ -83,9 +78,8 @@ package lang;
 
 # in:pattern
 # escapes [*]: in pattern
-sub lescap {
+sub lescap($s) {
 
-  my $s=shift;
   for my $c(split '','[*]:') {
     $s=~ s/\Q${ c }/\\${ c }/g;
 
@@ -93,12 +87,25 @@ sub lescap {
 
 };
 
+# ---   *   ---   *   ---
+# in: pattern,string
+#
+#   splits string at given pattern,
+#   eliminating whitespace
+#
+# gives list of split'd tokens
+
+sub ws_split($pat,$s) {
+  return (split m/\s*${pat}\s*/,$s);
+
+};
+
+# ---   *   ---   *   ---
 # in:pattern
 # escapes .^$([{}])+*?/|\: in pattern
-sub rescap {
+sub rescap($s) {
 
-  my $s=shift;$s=~ s/\\/\\\\/g;
-
+  $s=~ s/\\/\\\\/g;
   for my $c(split '','.^$([{}])+*?/|') {
     $s=~ s/\Q${ c }/\\${ c }/g;
 
@@ -117,9 +124,8 @@ sub rescap {
 
 # in: delimiter end
 # returns correct \end support
-};sub UBERSCAP {
+};sub UBERSCAP($o_end) {
 
-  my $o_end=shift;
   my $end="\\\\".$o_end;
 
   my @chars=split '',$end;
@@ -139,17 +145,22 @@ sub rescap {
 
 # in:substr to exclude,allow newlines,do_uber
 # shame on posix regexes, no clean way to do this
-sub neg_lkahead {
+sub neg_lkahead(
 
-  my $string=shift;
-  my $ml=shift;
+  $string,
+  $ml,
+
+  $do_uber=0
+
+) {
+
   $ml=(!$ml) ? '' : '\\x0D\\x0A|';
-
-  my $do_uber=shift;
   my @chars=split '',$string;
 
   my $s=rescap( shift @chars );
   my $re="$ml"."[^$s\\\\]";
+
+# ---   *   ---   *   ---
 
   for my $c(@chars) {
 
@@ -157,15 +168,22 @@ sub neg_lkahead {
     $re.='|'.$s."[^$c\\\\]";
     $s.=$c;
 
-  };if($do_uber) {$re.='|'.UBERSCAP( rescap($string) );};
+  };
+
+# ---   *   ---   *   ---
+
+  if($do_uber) {
+    $re.='|'.UBERSCAP( rescap($string) );
+
+  };
+
   return $re;
 
 # ---   *   ---   *   ---
 
-};sub lkback {
+};sub lkback($pat,$end) {
 
-  my $pat=rescap(shift);
-  my $end=shift;
+  $pat=rescap($pat);
 
   return ('('.
 
@@ -189,21 +207,20 @@ sub neg_lkahead {
 #   > unnested grab ([^end]|\end)*
 #   > end
 
-sub delim {
+sub delim($beg,$end=NULLSTR,$ml=0) {
 
-  my $beg=shift;
-  my $end=shift;
-  if(!$end) {
+  if(!length $end) {
     $end=$beg;
 
   };
 
-  my $allow=( neg_lkahead($end,shift,1) );
+  my $allow=( neg_lkahead($end,$ml,1) );
 
   $beg=rescap($beg);
   $end=rescap($end);
 
-  return "($beg(($allow)*)$end)";
+  my $out="($beg(($allow)*)$end)";
+  return qr{$out};
 
 };
 
@@ -216,24 +233,29 @@ sub delim {
 #   > nested grab ([^end]|end)*
 #   > end[^end]*$
 
-sub delim2 {
+sub delim2($beg,$end=NULLSTR,$ml=0) {
 
-  my $beg=shift;
-  my $end=shift;
   if(!$end) {
     $end=$beg;
 
   };
 
-  my $allow=( neg_lkahead($end,shift,0) );
+  my $allow=( neg_lkahead($end,$ml,0) );
 
   $beg=rescap($beg);
   $end=rescap($end);
 
-  return ''.
+# ---   *   ---   *   ---
+
+  my $out=
+
     "$beg".
     "(($allow|$end)*)$end".
-    "[^$end]*\$";
+    "[^$end]*\$"
+
+  ;
+
+  return qr{$out};
 
 };
 
@@ -242,16 +264,21 @@ sub delim2 {
 
 # in: string,disable escapes
 # matches (char0|...|charN)
-sub eithc {
-
-  my $string=shift;
-  my $disable_escapes=shift;
+sub eithc($string,$disable_escapes) {
 
   my @chars=split '',$string;
+
+# ---   *   ---   *   ---
+
   if(!$disable_escapes) {
     for my $c(@chars) {$c=rescap($c);};
 
-  };return '('.( join '|',@chars).')';
+  };
+
+# ---   *   ---   *   ---
+
+  my $out='('.( join '|',@chars).')';
+  return qr{$out};
 
 };
 
@@ -264,17 +291,21 @@ sub eithc {
 #
 # matches \b(str0|...|strN)\b
 
-sub eiths($;$$) {
+sub eiths(
 
-  my $string=shift;
-  my $disable_escapes=shift;
-  my $disable_bwrap=shift;
+  $string,
+  $disable_escapes=0,
+  $disable_bwrap=0,
+
+) {
 
   my @words=sort {
     (length $a)<=(length $b);
 
   } (split ',',$string);
 
+# ---   *   ---   *   ---
+
   if(!$disable_escapes) {
     for my $s(@words) {
       $s=rescap($s);
@@ -282,26 +313,35 @@ sub eiths($;$$) {
     };
   };
 
+# ---   *   ---   *   ---
+
   my $out='('.(join '|',@words).')';
   if(!$disable_bwrap) {
     $out='\b'.$out.'\b';
 
-  };return $out;
+  };
+
+  return qr{$out};
 
 # ---   *   ---   *   ---
 # ^same, input is array
 
-};sub eiths_l(\@;$$) {
+};sub eiths_l(
 
-  my $ar=shift;
-  my $disable_escapes=shift;
-  my $disable_bwrap=shift;
+  $ar,
+
+  $disable_escapes=0,
+  $disable_bwrap=0
+
+) {
 
   my @words=sort {
     (length $a)<=(length $b);
 
   } @{$ar};
 
+# ---   *   ---   *   ---
+
   if(!$disable_escapes) {
 
     for my $s(@words) {
@@ -310,11 +350,15 @@ sub eiths($;$$) {
     };
   };
 
+# ---   *   ---   *   ---
+
   my $out='('.(join '|',@words).')';
   if(!$disable_bwrap) {
     $out='\b'.$out.'\b';
 
-  };return $out;
+  };
+
+  return qr{$out};
 
 };
 
@@ -330,58 +374,69 @@ sub eiths($;$$) {
 # line_beg=-1 doesnt match if pattern is first non-blank
 # ^ line_beg=0 disregards these two
 
-sub eaf {
+sub eaf(
 
-  my $pat=shift;
-  my $line_beg=shift;
+  $pat,
+  $line_beg,
+  $disable_escapes=1,
 
-  my $disable_escapes=shift;
-  $pat=(!$disable_escapes) ? rescap($pat) : $pat;
+) {
 
-  if(!$line_beg) {
-    ;
+  $pat=(!$disable_escapes)
+    ? rescap($pat) : $pat
 
-  } elsif($line_beg>0) {
+  ;
+
+# ---   *   ---   *   ---
+
+  if($line_beg>0) {
     $pat='^'.$pat;
 
   } elsif($line_beg<0) {
     $pat='^[\s|\n]*'.$pat;
 
-  };return "($pat.*(\\x0D?\\x0A|\$))";
+  };
+
+# ---   *   ---   *   ---
+
+  my $out="($pat.*(\\x0D?\\x0A|\$))";
+  return qr{$out};
 
 };
 
 # ---   *   ---   *   ---
 # type-check utils
 
-;;sub is_coderef {
+use constant {
 
-  my $v=shift;
-  return defined $v
-    && int($v=~ m/^CODE\(0x[0-9a-f]+\)/);
+  CODEREF_RE=>qr{^CODE\(0x[0-9a-f]+\)},
+  ARRAYREF_RE=>qr{^ARRAY\(0x[0-9a-f]+\)},
+  HASHREF_RE=>qr{^HASH\(0x[0-9a-f]+\)},
 
-};sub is_arrayref {
+  QRD_EXP_RE=>qr{\(\?\^u:},
 
-  my $v=shift;
-  return defined $v
-    && int($v=~ m/^ARRAY\(0x[0-9a-f]+\)/);
-
-};sub is_hashref {
-
-  my $v=shift;
-  return defined $v
-    &&  int($v=~ m/^HASH\(0x[0-9a-f]+\)/);
+  CUT_TOKEN_RE=>qr{:__[A-Z]+_CUT_([\dA-F]+)__:},
+  CUT_TOKEN_FMAT=>':__%s_CUT_%X__:',
 
 };
 
 # ---   *   ---   *   ---
-# parse utils
 
-;;sub cut_token_re {
-  return ':__[A-Z]+_CUT_([\dA-F]+)__:';
+;;sub is_coderef($v) {
+  $v//=NULLSTR;
+  return $v=~ CODEREF_RE;
 
-};sub cut_token_f {
-  return ':__%s_CUT_%X__:';
+};sub is_arrayref($v) {
+  $v//=NULLSTR;
+  return $v=~ ARRAYREF_RE;
+
+};sub is_hashref($v) {
+  $v//=NULLSTR;
+  return $v=~ HASHREF_RE;
+
+};sub is_qre($v) {
+  $v//=NULLSTR;
+  return $v=~ QRD_EXP_RE;
 
 };
 
@@ -396,12 +451,7 @@ sub eaf {
 # replace pattern match with a token, to be
 # put back together at a later date
 
-sub cut($$$$) {
-
-  my $s=shift;
-  my $pat=shift;
-  my $id=shift;
-  my $h=shift;
+sub cut($s,$pat,$id,$h) {
 
   my $result='';
   my $i=0;
@@ -412,7 +462,7 @@ sub cut($$$$) {
 # cut at pattern match
 
   my @ar=();
-  while($s=~ s/${pat}/#:cut;>/) {
+  while($s=~ s/$pat/#:cut;>/) {
     push @ar,$1;$i++;
 
   };
@@ -427,17 +477,23 @@ sub cut($$$$) {
     my $v=shift @ar;
     my $token=undef;
 
+# ---   *   ---   *   ---
+
     if(exists $h->{$v}) {
       $token=$h->{$v};
 
     } else {
-      $token=sprintf cut_token_f(),
+      $token=sprintf CUT_TOKEN_FMAT,
         $id,$cnt+($i);
 
       $h->{$v}=$token;
       $h->{$token}=$v;
 
-    };$result.=$elem.$token;
+    };
+
+# ---   *   ---   *   ---
+
+    $result.=$elem.$token;
 
   };
 
@@ -453,7 +509,7 @@ sub cut($$$$) {
 # corner case: single match, whole string
 
     if($s eq '#:cut;>') {
-      $append_match->('');
+      $append_match->(NULLSTR);
 
 # ---   *   ---   *   ---
 # append matches
@@ -487,15 +543,12 @@ sub cut($$$$) {
 #
 # restores a previously cut string
 
-};sub stitch($$) {
-
-  my $s=shift;
-  my $h=shift;
+};sub stitch($s,$h) {
 
 # ---   *   ---   *   ---
 # look for cut tokens
 
-  my $re=cut_token_re();
+  my $re=CUT_TOKEN_RE;
   while($s=~ m/(${re})/) {
 
     my $pat=$1;
@@ -516,13 +569,9 @@ sub cut($$$$) {
 # ---   *   ---   *   ---
 # remove all whitespace
 
-};sub stripline($) {
-
-  my $s=shift;
-  $s=~ s/\s*//sg;
-  $s=~ s/:__NL__://sg;
-
-  return $s;
+};sub stripline($s) {
+  state $re=qr{\s+|:__NL__:};
+  return join NULLSTR,(split /$re/,$s);
 
 };
 
@@ -535,12 +584,7 @@ sub cut($$$$) {
 #
 # cut for multiple patterns, one after the other
 
-;;sub mcut($$@) {
-
-  my $s=shift;
-  my $h=shift;
-
-  my %patterns=@_;
+;;sub mcut($s,$h,%patterns) {
 
   for my $id(keys %patterns) {
 
@@ -559,11 +603,13 @@ sub cut($$$$) {
 # sort keys by length and return
 # a pattern to match them
 
-sub hashpat($;$$) {
+sub hashpat(
+  $h,
 
-  my $h=shift;
-  my $disable_escapes=shift;
-  my $disable_bwrap=shift;
+  $disable_escapes=0,
+  $disable_bwrap=0,
+
+) {
 
   my @keys=sort {
     (length $a)<=(length $b);
@@ -571,7 +617,7 @@ sub hashpat($;$$) {
   } keys %$h;
 
   return eiths_l(
-    @keys,
+    \@keys,
 
     $disable_escapes,
     $disable_bwrap
@@ -583,14 +629,12 @@ sub hashpat($;$$) {
 # ---   *   ---   *   ---
 # hexadecimal conversion
 
-sub pehexnc {
+sub pehexnc($x) {
 
-  my $x=shift;
   my $r=0;
-
   my $i=0;
 
-  for my $c(reverse split '',$x) {
+  for my $c(reverse split NULLSTR,$x) {
 
     if($c=~ m/[hHlL]/) {
       next;
@@ -614,14 +658,12 @@ sub pehexnc {
 # ---   *   ---   *   ---
 # octal conversion
 
-sub peoctnc {
+sub peoctnc($x) {
 
-  my $x=shift;
   my $r=0;
-
   my $i=0;
 
-  for my $c(reverse split '',$x) {
+  for my $c(reverse split NULLSTR,$x) {
 
     if($c=~ m/[oOlL]/) {
       next;
@@ -645,14 +687,12 @@ sub peoctnc {
 # ---   *   ---   *   ---
 # binary conversion
 
-sub pebinnc {
+sub pebinnc($x) {
 
-  my $x=shift;
   my $r=0;
-
   my $i=0;
 
-  for my $c(reverse split '',$x) {
+  for my $c(reverse split NULLSTR,$x) {
 
     if($c=~ m/[bBlL]/) {
       next;
@@ -675,10 +715,7 @@ sub pebinnc {
 
 # ---   *   ---   *   ---
 
-sub nxtok($$) {
-
-  my ($s,$cutat)=@_;
-
+sub nxtok($s,$cutat) {
   $s=~ s/(${cutat}).*//sg;
   return $s;
 
@@ -689,14 +726,11 @@ sub nxtok($$) {
 
 my %LANGUAGES=();
 
-sub register_def($) {
-
-  my $name=shift;
+sub register_def($name) {
   $LANGUAGES{$name}=1;
 
-};sub file_ext($) {
+};sub file_ext($file) {
 
-  my $file=shift;
   my $name=undef;
 
   $file=(split '/',$file)[-1];
@@ -717,11 +751,9 @@ sub register_def($) {
 # ---   *   ---   *   ---
 # for when you just need textual recognition
 
-sub quick_op_prec {
+sub quick_op_prec(%h) {
 
-  my %h=@_;
   my $result={};
-
   for my $op(keys %h) {
 
     my $flags=$h{$op};
@@ -922,9 +954,7 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
-;;sub vrepl {
-
-  my ($ref,$v)=@_;
+;;sub vrepl($ref,$v) {
 
   my $names=$ref->{-NAMES};
   my $drfc=$ref->{-DRFC};
@@ -932,19 +962,15 @@ my %DEFAULTS=(
   $$v=~ s/\$:names;>/$names/sg;
   $$v=~ s/\$:drfc;>/$drfc/sg;
 
-};sub arr_vrepl {
-
-  my ($ref,$key)=@_;
+};sub arr_vrepl($ref,$key) {
 
   for my $v(@{$ref->{$key}}) {
     vrepl($ref,\$v);
 
   };
-};sub hash_vrepl {
+};sub hash_vrepl($ref,$key) {
 
-  my ($ref,$key)=@_;
   my $h=$ref->{$key};
-
   my $result={};
 
   for my $v(keys %$h) {
@@ -961,12 +987,13 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
-sub nit {
+sub nit(%h) {
 
-  my %h=@_;
   my $ref={};
 
-  # set defaults when key not present
+# ---   *   ---   *   ---
+# set defaults when key not present
+
   for my $key(keys %DEFAULTS) {
 
     if(exists $h{$key}) {
@@ -1012,8 +1039,8 @@ sub nit {
 
     my $keypat=lang::hashpat(\%ht,1,0);
 
-    $keypat=($keypat eq '\b()\b')
-      ? '$^' : $keypat;
+    $keypat=($keypat eq qr{\b()\b})
+      ? qr{$^} : $keypat;
 
     $ht{re}=$keypat;
     $ref->{$key}=\%ht;
@@ -1047,11 +1074,11 @@ sub nit {
   my @odes=keys %{$ref->{-DELIMITERS}};
   my @cdes=values %{$ref->{-DELIMITERS}};
 
-  $ref->{-ODE}=lang::eiths_l(@odes,0,1);
-  $ref->{-CDE}=lang::eiths_l(@cdes,0,1);
+  $ref->{-ODE}=lang::eiths_l(\@odes,0,1);
+  $ref->{-CDE}=lang::eiths_l(\@cdes,0,1);
 
   my @del_ops=(@odes,@cdes);
-  $ref->{-DEL_OPS}=lang::eiths_l(@del_ops,0,1);
+  $ref->{-DEL_OPS}=lang::eiths_l(\@del_ops,0,1);
 
   my @seps=@{$ref->{-SEPARATORS}};
   my @ops_plus_seps=(
@@ -1061,12 +1088,12 @@ sub nit {
   );
 
   $ref->{-NDEL_OPS}=lang::eiths_l(
-    @ops_plus_seps,0,1
+    \@ops_plus_seps,0,1
 
   );
 
   $ref->{-SEP_OPS}=lang::eiths_l(
-    @seps,0,1
+    \@seps,0,1
 
   );
 
@@ -1081,10 +1108,54 @@ sub nit {
 
   };
 
+# ---   *   ---   *   ---
+
   $ref->{-NUMS_RE}=lang::hashpat(
     $ref->{-NUMS},1,1
 
   );
+
+# ---   *   ---   *   ---
+
+  { my %tmp=();
+    for my $key(keys %{$ref->{-NUMS}}) {
+      my $value=$ref->{-NUMS}->{$key};
+      $key=qr{$key};
+
+      $tmp{$key}=$value;
+
+    };
+
+    $ref->{-NUMS}=\%tmp;
+
+  };
+
+# ---   *   ---   *   ---
+
+  for my $key(-HIER,-NAMES) {
+    if(lang::is_arrayref $ref->{$key}) {
+      for my $re(@{$ref->{$key}}) {
+        $re=qr{$re};
+
+      };
+
+    } elsif(lang::is_hashref $ref->{$key}) {
+
+      for my $rek(keys %{$ref->{$key}}) {
+        my $re=$ref->{$key}->{$rek};
+        $re=qr{$re};
+
+        $ref->{$key}->{$rek}=$re;
+
+      };
+
+    } else {
+      my $re=$ref->{$key};
+      $ref->{$key}=qr{$re};
+
+    };
+
+  };
 
 # ---   *   ---   *   ---
 # these are for coderef access from plps
@@ -1166,9 +1237,7 @@ sub fctls {return (shift)->{-FCTLS};};
 sub resnames {return (shift)->{-RESNAMES};};
 sub nums {return (shift)->{-NUMS};};
 
-sub numcon($$) {
-
-  my ($self,$value)=@_;
+sub numcon($self,$value) {
 
   for my $key(keys %{$self->nums}) {
 
@@ -1192,11 +1261,9 @@ sub is_num {
   my $pat=$self->{-NUMS_RE};
   return int($s=~ m/^${pat}$/);
 
-};sub plps_is_num($$$) {
+};sub plps_is_num($self,$s,$program) {
 
-  my ($self,$s,$program)=@_;
   my $out=undef;
-
   my $tok=lang::nxtok($$s,' |,');
 
   if($self->is_num($tok)) {
@@ -1229,12 +1296,8 @@ sub is_keyword {
     my $h=$self->{$tag};
     my $pat=$self->{$tag}->{re};
 
-    $x=int(
+    if($s=~ $pat) {$x=1;last};
 
-       (exists $h->{$s})
-    || ($s=~ m/^${pat}$/)
-
-    );if($x) {last;};
   };return $x;
 };
 
@@ -1264,9 +1327,8 @@ sub preproc {return (shift)->{-PREPROC};};
 # ---   *   ---   *   ---
 # prototype: s matches non-code text family
 
-sub is_strtype($$$) {
+sub is_strtype($self,$s,$type) {
 
-  my ($self,$s,$type)=@_;
   my @patterns=$self->{$type};
 
   for my $pat(@patterns) {
@@ -1281,19 +1343,19 @@ sub is_strtype($$$) {
 # ---   *   ---   *   ---
 # ^buncha clones
 
-sub is_shcmd($$) {my ($self,$s)=@_;
+sub is_shcmd($self,$s) {
   return $self->is_strtype($self,$s,-SHCMD);
 
-};sub is_char($$) {my ($self,$s)=@_;
+};sub is_char($self,$s) {
   return $self->is_strtype($self,$s,-CHAR);
 
-};sub is_string($$) {my ($self,$s)=@_;
+};sub is_string($self,$s) {
   return $self->is_strtype($self,$s,-STRING);
 
-};sub is_regex($$) {my ($self,$s)=@_;
+};sub is_regex($self,$s) {
   return $self->is_strtype($self,$s,-REGEX);
 
-};sub is_preproc($$) {my ($self,$s)=@_;
+};sub is_preproc($self,$s) {
   return $self->is_strtype($self,$s,-PREPROC);
 
 };
@@ -1301,12 +1363,11 @@ sub is_shcmd($$) {my ($self,$s)=@_;
 # ---   *   ---   *   ---
 # generates a pattern list for mcut
 
-sub mcut_tags($;$) {
+sub mcut_tags($self,$append=0) {
 
-  my ($self,$append)=@_;
   my $tags=[@{$self->{-MCUT_TAGS}}];
 
-  if(defined $append) {
+  if($append) {
     push @$tags,@{$append};
 
   };
@@ -1345,61 +1406,104 @@ sub mcut_tags($;$) {
 
 # ---   *   ---   *   ---
 
-sub classify($$) {
+use constant CLASS_ORDER=>[
 
-  my ($self,$token)=@_;
+  -TYPES,
+  -SPECIFIERS,
 
-  my @ar=(
+  -INTRINSICS,
+  -DIRECTIVES,
+  -FCTLS,
 
-    -TYPES=>lang->VT_TYPE,
-    -SPECIFIERS=>lang->VT_SPEC,
+  -DEL_OPS,
+  -SEP_OPS,
+  -OPS,
 
-    -INTRINSICS=>lang->VT_ITRI,
-    -DIRECTIVES=>lang->VT_DIR,
-    -FCTLS=>lang->VT_FCTL,
+  #-SBL,
+  -NAMES,
 
-    -DEL_OPS=>lang->VT_DEL,
-    -SEP_OPS=>lang->VT_SEP,
-    -OPS=>lang->VT_ARI,
+  -SHCMD,
+  -CHAR,
+  -STRING,
+  -REGEX,
+  -PREPROC,
+  -NUMS,
 
-    -SBL=>lang->VT_SBL,
-    -NAMES=>lang->VT_PTR,
+];
 
-    -SHCMD=>lang->VT_BARE,
-    -CHAR=>lang->VT_BARE,
-    -STRING=>lang->VT_BARE,
-    -REGEX=>lang->VT_BARE,
-    -PREPROC=>lang->VT_BARE,
-    -NUMS=>lang->VT_BARE,
+# ---   *   ---   *   ---
 
-  );
+use constant CLASS_HASH=>{
 
-  while(@ar) {
+  -TYPES=>lang->VT_TYPE,
+  -SPECIFIERS=>lang->VT_SPEC,
 
-    my $tag=shift @ar;
-    my $value_type=shift @ar;
+  -INTRINSICS=>lang->VT_ITRI,
+  -DIRECTIVES=>lang->VT_DIR,
+  -FCTLS=>lang->VT_FCTL,
+
+  -DEL_OPS=>lang->VT_DEL,
+  -SEP_OPS=>lang->VT_SEP,
+  -OPS=>lang->VT_ARI,
+
+  #-SBL=>lang->VT_SBL,
+  -NAMES=>lang->VT_PTR,
+
+  -SHCMD=>lang->VT_BARE,
+  -CHAR=>lang->VT_BARE,
+  -STRING=>lang->VT_BARE,
+  -REGEX=>lang->VT_BARE,
+  -PREPROC=>lang->VT_BARE,
+  -NUMS=>lang->VT_BARE,
+
+};
+
+# ---   *   ---   *   ---
+
+sub classify($self,$token) {
+
+  state $previous={};
+
+  my $found=0;
+  my $order=CLASS_ORDER;
+
+  if(exists $previous->{$token}) {
+    $found=$previous->{$token};
+    goto TAIL;
+
+  };
+
+# ---   *   ---   *   ---
+
+  for my $tag(@$order) {
+
+    my $value_type=CLASS_HASH->{$tag};
+
+# ---   *   ---   *   ---
 
     my $h=$self->{$tag};
-    my $proc=undef;
+    my $is_re=lang::is_qre($h);
 
-    if(lang::is_hashref($h)) {
+    if(
 
-      $proc=sub {
-        return exists $h->{$token};
+       ( $is_re && ($token=~ $h))
+    || (!$is_re && exists $h->{$token})
 
-      };
+    ) {
 
-    } else {
-      $proc=sub {
-        return $token=~ m/^${h}/;
+      $previous->{$token}=$value_type;
+      $found=$value_type;
 
-      };
+      last;
 
-    };my $found=$proc->();
+    };
 
-    if($found) {return $value_type;};
+  };
 
-  };return 0x00;
+# ---   *   ---   *   ---
+
+TAIL:
+  return $found;
 
 };
 
@@ -1414,20 +1518,16 @@ sub build {
 
 # ---   *   ---   *   ---
 
-sub plps_match($$$) {
-
-  my ($self,$str,$type)=@_;
+sub plps_match($self,$str,$type) {
   return $self->{-PLPS}->run($str,$type);
 
 };
 
 # ---   *   ---   *   ---
 
-sub is_ptr($$$) {
+sub is_ptr($self,$s,$program) {
 
-  my ($self,$s,$program)=@_;
   my $out=undef;
-
   my $tok=lang::nxtok($$s,' ');
 
   if($self->valid_name($tok)) {

@@ -120,7 +120,7 @@ lang::def::nit(
 
     my $rd=shift;
 
-    my $preproc=lang::cut_token_re;
+    my $preproc=\lang::CUT_TOKEN_RE;
     $preproc=~ s/\[A-Z\]\+/PREPROC[A-Z]/;
 
     while($rd->{-LINE}=~ s/^(${preproc})//) {

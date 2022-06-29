@@ -101,7 +101,7 @@ sub nit($frame,$parent,$name,$attrs) {
 
     par=>$parent,
     children=>[],
-    stack=>stack::nit(stack::slidex(0x100)),
+    stk=>stack::nit(stack::slidex(0x100)),
     scope=>$frame->{-SELF},
 
     elems=>{},
@@ -186,35 +186,38 @@ sub nit($frame,$parent,$name,$attrs) {
 
 sub addchld($self,$blk) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
 
-  my $i=$self->sstack->spop();
+  my $i=$self->{stk}->spop();
   my $j=$self->{id};
 
   # add block data into this line
   my @line=(
 
-    [$blk->name,$blk],
+    [$blk->{name},$blk],
 
   );
 
 # ---   *   ---   *   ---
 
   my $bypass=int(
-    $self->name eq 'non'
-  ||!$self->attrs
+
+      $self->{name} eq 'non'
+  || !$self->{attrs}
 
   );
 
 # ---   *   ---   *   ---
 
   $self->expand(\@line,'long',$bypass);
-  $self->children->[$i]=$blk;
+
+  $self->{children}->[$i]=$blk;
   $blk->{par}=$self;
 
-  $frame->master->ptr->declscope(
+  $frame->{-MASTER}->{ptr}->declscope(
+
     $blk->ances,
-    int(@{$frame->master->ptr->MEM()})
+    int(@{$frame->{-MASTER}->{ptr}->MEM()})
 
   );
 
@@ -229,7 +232,6 @@ sub name($self) {return $self->{name}};
 sub elems($self) {return $self->{elems}};
 sub par($self) {return $self->{par}};
 sub children($self) {return $self->{children}};
-sub sstack($self) {return $self->{stack}};
 
 sub scope($self) {return $self->{scope}};
 

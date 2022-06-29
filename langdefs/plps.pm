@@ -4,6 +4,8 @@
 # ---   *   ---   *   ---
 # deps
 package langdefs::plps;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
@@ -35,18 +37,16 @@ use constant TRTAB=>{
 
 use constant plps_ops=>{
 
-  '->'=>[
+  q{->}=>[
 
     undef,
     undef,
 
-    [-1,sub {my ($x,$y)=@_;return "$$x->$$y";}],
+    [-1,sub($x,$y) {return "$$x->$$y"}],
 
-  ],'?'=>[
+  ],q{?}=>[
 
-    [3,sub {
-
-      my ($x)=@_;
+    [3,sub($x) {
 
       $$x->{optional}=1;
       return $$x;
@@ -58,11 +58,9 @@ use constant plps_ops=>{
 
 # ---   *   ---   *   ---
 
-  ],'+'=>[
+  ],q{+}=>[
 
-    [3,sub {
-
-      my ($x)=@_;
+    [3,sub($x) {
 
       $$x->{consume_equal}=1;
       return $$x;
@@ -72,39 +70,37 @@ use constant plps_ops=>{
     undef,
     undef,
 
-  ],'--'=>[
+  ],q{--}=>[
 
-    [3,sub {my ($x)=@_;$$x->{rewind}=1;return $$x;}],
-
-    undef,
-    undef,
-
-# ---   *   ---   *   ---
-
-  ],'|>'=>[
-
-    [4,sub {my ($x)=@_;$$x->{space}=0;return $$x;}],
-
-    undef,
-    undef,
-
-  ],'|->'=>[
-
-    [4,sub {my ($x)=@_;$$x->{space}=2;return $$x;}],
+    [3,sub($x) {$$x->{rewind}=1;return $$x}],
 
     undef,
     undef,
 
 # ---   *   ---   *   ---
 
-  ],'%'=>[
+  ],q{|>}=>[
+
+    [4,sub($x) {$$x->{space}=0;return $$x}],
 
     undef,
     undef,
 
-    [5,sub {
+  ],q{|->}=>[
 
-      my ($x,$y)=@_;
+    [4,sub($x) {$$x->{space}=2;return $$x}],
+
+    undef,
+    undef,
+
+# ---   *   ---   *   ---
+
+  ],q{%}=>[
+
+    undef,
+    undef,
+
+    [5,sub($x,$y) {
 
       $$x->{name}=$$y;
       return $$x;
@@ -113,15 +109,13 @@ use constant plps_ops=>{
 
 # ---   *   ---   *   ---
 
-  ],']'=>[
+  ],q{]}=>[
 
     undef,
     undef,
 
 
-    [5,sub {
-
-      my ($x,$y)=@_;
+    [5,sub($x,$y) {
 
       #:!!;> this is a hack as well
       my $s='int($$prev_match=~ m/^'."$$x".'/);';
@@ -133,13 +127,11 @@ use constant plps_ops=>{
 # ---   *   ---   *   ---
 
 
-  ],'~'=>[
+  ],q{~}=>[
 
     undef,
 
-    [6,sub {
-
-      my ($x)=@_;
+    [6,sub($x) {
 
       $$x->{save_match}=0;
       return $$x;
@@ -149,26 +141,24 @@ use constant plps_ops=>{
     undef,
 
 
-  ],'!'=>[
+  ],q{!}=>[
 
     undef,
     undef,
 
-    [6,sub {
+    [6,sub($x,$y) {
 
-      my ($x,$y)=@_;
       $$y->{on_no_match}=$$x;
-
       return $$y;
 
     }],
 
-  ],'|'=>[
+  ],q{|}=>[
 
     undef,
     undef,
 
-    [7,sub {my ($x,$y)=@_;return "$$x|$$y";}],
+    [7,sub($x,$y) {return "$$x|$$y"}],
 
   ],
 
@@ -189,11 +179,9 @@ use constant plps_ops=>{
 # ---   *   ---   *   ---
 # finds value for a given tag
 
-sub tagv($$) {
+sub tagv($program,$tag) {
 
-  my ($program,$tag)=@_;
-  my $re=lang::cut_token_re;
-
+  my $string_re=lang::CUT_TOKEN_RE;
   my $v=undef;
 
 # ---   *   ---   *   ---
@@ -218,7 +206,7 @@ sub tagv($$) {
 # ---   *   ---   *   ---
 # string token found
 
-  } elsif($tag=~ m/${re}/) {
+  } elsif($tag=~ $string_re) {
 
     $v=lang::stitch($tag,$program->{strings});
 
@@ -253,10 +241,9 @@ sub tagv($$) {
 # ---   *   ---   *   ---
 # breaks down node into tags
 
-sub decompose($$) {
+sub decompose($program,$node) {
 
-  my ($program,$node)=@_;
-  my $name=$node->value;
+  my $name=$node->{value};
   my $altern=0;
 
 # ---   *   ---   *   ---
@@ -270,7 +257,7 @@ sub decompose($$) {
 
       $altern=1;
       $node->collapse();
-      $name=$node->value;
+      $name=$node->{value};
 
       push @patterns,split '\|',$name;
 
@@ -304,9 +291,8 @@ END:
 # ---   *   ---   *   ---
 # converts <tags> into pattern objects
 
-sub detag($$) {
+sub detag($program,$node) {
 
-  my ($program,$node)=@_;
   my $root=$node;
 
   $program->{target_node}=$root;
@@ -333,35 +319,33 @@ sub detag($$) {
 # corner case: <tag0|tag1>
 
       if($altern) {
-        $node->value(
+        $node->{value}=
           plps_obj::nit($name,undef,undef)
 
-        );
+        ;
 
-        $node->value->{altern}=\@patterns;
+        $node->{value}->{altern}=\@patterns;
 
 # ---   *   ---   *   ---
 # compound object
 
-      } elsif(plps_obj::valid $v) {
-        $node->value($v);
+      } elsif(plps_obj::valid($v)) {
+        $node->{value}=$v;
 
 # ---   *   ---   *   ---
 # standard object
 
       } else {
-        $node->value(
-          plps_obj::nit($name,$v,undef)
-
-        );
+        $node->{value}=
+          plps_obj::nit($name,$v,undef);
 
       };
 
 # ---   *   ---   *   ---
 # replace <tag> hierarchy with object instance
 
-      if($node->par->value eq '<') {
-        $node->par->repl($node);
+      if($node->{par}->{value} eq '<') {
+        $node->{par}->repl($node);
 
       };
 
@@ -370,7 +354,7 @@ sub detag($$) {
 # ---   *   ---   *   ---
 # tail
 
-    unshift @leaves,@{$node->leaves};
+    unshift @leaves,@{$node->{leaves}};
   };
 
 };
@@ -378,9 +362,8 @@ sub detag($$) {
 # ---   *   ---   *   ---
 # exec language selection directive
 
-sub getext($) {
+sub getext($program) {
 
-  my $program=shift;
   my $SYMS=lang->plps->sbl->SYMS;
 
 # ---   *   ---   *   ---
@@ -392,7 +375,7 @@ sub getext($) {
 
     my $node=shift @ar;
 
-    $SYMS->{$node->value}->ex($node);
+    $SYMS->{$node->{value}}->ex($node);
     $program->{tree}->pluck($node);
 
   } else {
@@ -411,12 +394,11 @@ sub getext($) {
 # ---   *   ---   *   ---
 # gets rid of executed branches
 
-sub cleanup($) {
+sub cleanup($program) {
 
-  my $program=shift;
   my @tree=();
 
-  for my $node(@{$program->{tree}->leaves}) {
+  for my $node(@{$program->{tree}->{leaves}}) {
 
     my @ar=$node->branches_in('^(beg|end)$');
 
@@ -441,10 +423,10 @@ sub build {
   getext($program);
   my $SYMS=lang->plps->sbl->SYMS;
 
-  for my $node(@{$program->{tree}->leaves}) {
+  for my $node(@{$program->{tree}->{leaves}}) {
 
-    if(exists $SYMS->{$node->value}) {
-      $SYMS->{$node->value}->ex($node);
+    if(exists $SYMS->{$node->{value}}) {
+      $SYMS->{$node->{value}}->ex($node);
 
 # ---   *   ---   *   ---
 # build patterns from tree branches
@@ -462,12 +444,12 @@ sub build {
       my @ar=();
       my ($cath,$name)=@{$program->{dst}};
 
-      for my $leaf(@{$node->leaves}) {
+      for my $leaf(@{$node->{leaves}}) {
 
-        $leaf->value->{parent}
+        $leaf->{value}->{parent}
           =$program->{defs}->{$name};
 
-        push @ar,$leaf->value;
+        push @ar,$leaf->{value};
 
       };
 
@@ -487,9 +469,8 @@ sub build {
 # ---   *   ---   *   ---
 # makes plps program for other langdefs
 
-sub make($) {
+sub make($lang) {
 
-  my $lang=shift;
   my $program=peso::rd::parse(
 
     lang->plps,
@@ -539,7 +520,7 @@ DEFINE 'end',DIRECTIVE,sub {
   my $m=$frame->master;
 
   my ($cath,$name)=@{$m->{dst}};
-  $m->{target_node}->value($name);
+  $m->{target_node}->{value}=$name;
 
 # ---   *   ---   *   ---
 # create new pattern instance from tree
@@ -548,11 +529,10 @@ DEFINE 'end',DIRECTIVE,sub {
 
     $name,
     $m->{target_node_value},
-    $cath,
-    undef
+    $cath
 
   );$obj->walkdown();
-  $obj->{tree}=$obj->mktree();
+  $obj->{tree}=$obj->mktree($m);
 
   $m->{defs}->{$name}=$obj;
   $m->{defs}->{$cath}->[-1]=$obj;
@@ -645,9 +625,9 @@ package plps_obj;
 # ---   *   ---   *   ---
 # typechk
 
-sub valid($) {
+sub valid($obj) {
 
-  my $obj=shift;if(
+  if(
 
      blessed($obj)
   && $obj->isa('plps_obj')
@@ -662,9 +642,7 @@ sub valid($) {
 # ---   *   ---   *   ---
 # constructor
 
-sub nit($$$) {
-
-  my ($name,$value,$par)=@_;
+sub nit($name,$value,$par) {
 
   my $obj=bless {
 
@@ -696,9 +674,8 @@ sub nit($$$) {
 # duplicates a pattern tree
 #:!!!;> does heavy recursion
 
-};sub dup($) {
+};sub dup($self) {
 
-  my $self=shift;
   my $cpy=nit($self->{name},undef,undef);
 
 # ---   *   ---   *   ---
@@ -752,11 +729,9 @@ sub nit($$$) {
 # ---   *   ---   *   ---
 # builds hierarchy from top down
 
-sub walkdown($) {
+sub walkdown($self) {
 
-  my $self=shift;
   my $parent=undef;
-
   my $root=$self;
 
   my @pending=($self);
@@ -788,9 +763,7 @@ sub walkdown($) {
 # ---   *   ---   *   ---
 # breaks down an object into a tree
 
-sub mktree($$) {
-
-  my ($root,$program)=@_;
+sub mktree($root,$program) {
 
   my $frame=peso::node::new_frame($program);
 
@@ -860,8 +833,8 @@ sub mktree($$) {
 
     my $branch=shift @leaves;
 
-    my @ar=(valid $branch->value)
-      ? (@{$branch->leaves})
+    my @ar=(valid $branch->{value})
+      ? (@{$branch->{leaves}})
       : ()
       ;
 
@@ -870,7 +843,7 @@ sub mktree($$) {
 
     my $i=0;while($i<@ar) {
 
-      if(!valid $ar[$i]->value) {
+      if(!valid $ar[$i]->{value}) {
         goto SKIP;
 
       };
@@ -878,28 +851,27 @@ sub mktree($$) {
       my $prv=($i>0) ? $ar[$i-1] : undef;
       my $nxt=($i<$#ar) ? $ar[$i+1] : undef;
 
-      $ar[$i]->value->{prv}=(defined $prv)
-        ? $prv->value : undef;
+      $ar[$i]->{value}->{prv}=(defined $prv)
+        ? $prv->{value} : undef;
 
-      $ar[$i]->value->{nxt}=(defined $nxt)
-        ? $nxt->value : undef;
+      $ar[$i]->{value}->{nxt}=(defined $nxt)
+        ? $nxt->{value} : undef;
 
-      $ar[$i]->value->{tree}=$ar[$i];
+      $ar[$i]->{value}->{tree}=$ar[$i];
 
       SKIP:$i++;
 
 # ---   *   ---   *   ---
 
-    };push @leaves,@{$branch->leaves};
+    };push @leaves,@{$branch->{leaves}};
   };return $tree;
 };
 
 # ---   *   ---   *   ---
 # propagates matches upwards the hierarchy
 
-sub regmatch($$) {
+sub regmatch($self,$match) {
 
-  my ($self,$match)=@_;
   if(!$self->{save_match}) {return;};
 
   while(defined $self) {
@@ -918,11 +890,9 @@ sub regmatch($$) {
 # ---   *   ---   *   ---
 # get matches across the hierarchy
 
-sub getmatch($) {
+sub getmatch($self,$program) {
 
-  my ($self,$program)=@_;
   my @pending=($self);
-
   my $root=$self;
 
   my $fr_node=$program->node;
@@ -935,8 +905,8 @@ sub getmatch($) {
 
     $self=shift @pending;
     if(!$self) {
-      $tree=(defined $tree->par)
-        ? $tree->par
+      $tree=(defined $tree->{par})
+        ? $tree->{par}
         : $tree
         ;
 
@@ -976,9 +946,7 @@ sub getmatch($) {
 # ---   *   ---   *   ---
 # removes match history across the hierarchy
 
-sub clean($) {
-
-  my $self=shift;
+sub clean($self) {
 
   my @pending=($self);
   while(@pending) {
@@ -999,9 +967,9 @@ sub clean($) {
 
 # ---   *   ---   *   ---
 
-sub trymatch($$$) {
+sub trymatch(@args) {
 
-  my ($obj,$program,$string,$pat,$prev_match)=@_;
+  my ($obj,$program,$string,$pat,$prev_match)=@args;
 
   my $match=0;
   my $status=0;
@@ -1129,9 +1097,8 @@ sub trymatch($$$) {
 # fails match if path is not declared optional
 # somewhere upwards the hierarchy
 
-sub optional_branch($) {
+sub optional_branch($self) {
 
-  my $self=shift;
   my $optional=0;
 
   while($self->{parent}) {
@@ -1174,10 +1141,10 @@ sub run {
 
     my $node=shift @leaves;
 
-    if(!@{$node->leaves}) {
+    if(!@{$node->{leaves}}) {
 
-      my $obj=$node->par->value;
-      my $pat=$node->value;
+      my $obj=$node->{par}->{value};
+      my $pat=$node->{value};
 
       my $status=$obj->trymatch(
 
@@ -1188,7 +1155,7 @@ sub run {
       );
 
       my $end=(defined $obj->{altern})
-        ? $node eq $node->par->leaves->[-1]
+        ? $node eq $node->{par}->{leaves}->[-1]
         : 1
         ;
 
@@ -1238,7 +1205,7 @@ sub run {
 
       ) {
 
-        while($node ne $node->par->leaves->[-1]) {
+        while($node ne $node->{par}->{leaves}->[-1]) {
           $node=shift @leaves;
 
         };
@@ -1248,7 +1215,7 @@ sub run {
 # ---   *   ---   *   ---
 
     } else {
-      unshift @leaves,@{$node->leaves};
+      unshift @leaves,@{$node->{leaves}};
 
     };
   };

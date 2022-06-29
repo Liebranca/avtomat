@@ -90,11 +90,16 @@ lang::def::nit(
 
     my $rd=shift;
 
-    my $pesc=lang::cut_token_re;
+    my $pesc=lang::CUT_TOKEN_RE;
     $pesc=~ s/\[A-Z\]\+/PESC/;
 
-    while($rd->{-LINE}=~ s/^(${pesc})//) {
-      push @{$rd->exps},{body=>$1,has_eb=>0};
+    while($rd->{line}=~ s/^(${pesc})//) {
+      push @{$rd->{exps}},{
+        body=>$1,
+        has_eb=>0,
+        lineno=>$rd->{lineno},
+
+      };
 
     };
 

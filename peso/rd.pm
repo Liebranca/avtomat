@@ -45,81 +45,31 @@ use constant {
 };
 
 # ---   *   ---   *   ---
-# getters/setters
-
-;;sub line($self,$new=undef) {
-
-  if(defined $new) {
-    $self->{-LINE}=$new;
-
-  };return $self->{-LINE};
-
-};sub rem($self,$new=undef) {
-
-  if(defined $new) {
-    $self->{-REM}=$new;
-
-  };return $self->{-REM};
-
-# ---   *   ---   *   ---
-
-};sub in_mls_block($self,$new=undef) {
-
-  if(defined $new) {
-    $self->{-IN_MLS}=$new;
-
-  };return $self->{-IN_MLS};
-
-};sub mls_accum($self,$new=undef) {
-
-  if(defined $new) {
-    $self->{-MLS_ACCUM}=$new;
-
-  };return $self->{-MLS_ACCUM};
-
-};
-
-# ---   *   ---   *   ---
-
-sub exps($self) {return $self->{-EXPS};};
-sub program($self) {return $self->{-PROGRAM};};
-sub lang($self) {return $self->program->lang;};
-sub strings($self) {return $self->{-STRINGS};};
-sub raw($self) {return $self->{-RAW};};
-sub cooked($self) {return $self->{-COOKED};};
-
-# ---   *   ---   *   ---
-
-sub keep_comments($self) {
-  return $self->{-KEEP_COMMENTS};
-
-};
-
-# ---   *   ---   *   ---
 # constructor
 
 sub nit($program,$keep_comments) {
 
   return bless {
 
-    -PROGRAM=>$program,
+    program=>$program,
+    lang=>$program->lang,
 
-    -LINE=>NULLSTR,
-    -REM=>NULLSTR,
+    line=>NULLSTR,
+    rem=>NULLSTR,
 
-    -FNAME=>NULLSTR,
-    -FHANDLE=>undef,
+    fname=>NULLSTR,
+    fhandle=>undef,
 
-    -EXPS=>[],
+    exps=>[],
 
-    -MLS_ACCUM=>NULLSTR,
-    -IN_MLS=>undef,
+    mls_accum=>NULLSTR,
+    in_mls=>undef,
 
-    -RAW=>[],
-    -COOKED=>[],
-    -STRINGS=>{},
+    raw=>[],
+    cooked=>[],
+    strings=>{},
 
-    -KEEP_COMMENTS=>$keep_comments,
+    keep_comments=>$keep_comments,
 
   },'peso::rd';
 
@@ -130,24 +80,24 @@ sub nit($program,$keep_comments) {
 
 sub mls_block($self,$first_frame) {
 
-  my $ode=$self->in_mls_block->[0];
-  my $cde=$self->in_mls_block->[1];
-  my $doc=\$self->in_mls_block->[2];
-  my $lvl=\$self->in_mls_block->[3];
+  my $ode=$self->{in_mls}->[0];
+  my $cde=$self->{in_mls}->[1];
+  my $doc=\$self->{in_mls}->[2];
+  my $lvl=\$self->{in_mls}->[3];
 
 # ---   *   ---   *   ---
 # catch keyword on first iteratioon
 
   my ($s,$rem);
   if($first_frame) {
-    ($s,$rem)=split m/:__CUT__/,$self->line;
-    $self->in_mls_block->[4]=$s;
+    ($s,$rem)=split m/:__CUT__/,$self->{line};
+    $self->{in_mls}->[4]=$s;
 
 # ---   *   ---   *   ---
 # use entire line
 
   } else {
-    ($s,$rem)=(NULLSTR,$self->line);
+    ($s,$rem)=(NULLSTR,$self->{line});
 
   };
 
@@ -213,8 +163,8 @@ sub mls_block($self,$first_frame) {
 # ---   *   ---   *   ---
 # use pre-existing id
 
-    if(exists $self->strings->{$v}) {
-      $id=$self->strings->{$v};
+    if(exists $self->{strings}->{$v}) {
+      $id=$self->{strings}->{$v};
 
 # ---   *   ---   *   ---
 # generate new id
@@ -223,23 +173,23 @@ sub mls_block($self,$first_frame) {
 
       $id=sprintf(
         lang::cut_token_f(),
-        'MLS',int(@{$self->strings})
+        'MLS',int(@{$self->{strings}})
 
       );
 
-      $self->strings->{$id}=$v;
-      $self->strings->{$v}=$id;
+      $self->{strings}->{$id}=$v;
+      $self->{strings}->{$v}=$id;
 
     };
 
 # ---   *   ---   *   ---
 # separate non-block sections of string
 
-    $s=$self->in_mls_block->[4].
+    $s=$self->{in_mls}->[4].
       $id.(substr $rem,$i,length $cde);
 
     $accum=join NULLSTR,@ar[$i+length $cde..$#ar];
-    $self->in_mls_block(0);
+    $self->{in_mls}=0;
 
   };
 
@@ -249,8 +199,8 @@ sub mls_block($self,$first_frame) {
 # the end of one block and the beg
 # of another are on the same line
 
-  $self->line($s);
-  $self->rem($accum);
+  $self->{line}=$s;
+  $self->{rem}($accum);
 
   return;
 
@@ -263,52 +213,57 @@ sub mls_block($self,$first_frame) {
 
 sub tokenize_block($self) {
 
-  my $lang=$self->lang;
-  my $matchtab=$lang->del_mt;
+  my $lang=$self->{lang};
+  my $matchtab=$lang->{-DEL_MT};
 
   my $first_frame=0;
 
 # ---   *   ---   *   ---
 # check for mls block beg
 
-  TOP:if(!$self->in_mls_block) {
+  TOP:if(!$self->{in_mls}) {
 
-    my $pat=$lang->mls_rule->($lang,$self->line);
+    my $pat=$lang->{-MLS_RULE}->(
+      $lang,$self->{line}
+
+    );
+
     if(!defined $pat) {goto TAIL;};
 
-    if($self->{-LINE}=~ s/^(.*)${pat}/$1:__CUT__/) {
+    if($self->{line}=~ s/^(.*)${pat}/$1:__CUT__/) {
 
       my $ode=${^CAPTURE[1]};
       my $cde=$matchtab->{$ode};
 
-      $self->in_mls_block([
+      $self->{in_mls}=[
         $ode,$cde,NULLSTR,0
 
-      ]);
+      ];
 
     };$first_frame=1;
 
 # ---   *   ---   *   ---
 # beg found/processing pending
 
-  };if($self->in_mls_block) {
+  };if($self->{in_mls}) {
     $self->mls_block($first_frame);
 
 # ---   *   ---   *   ---
 # new mls beg
 
-    if(!$self->in_mls_block) {
+    if(!$self->{in_mls}) {
 
-      if(length lang::stripline($self->rem)) {
+#      if(length lang::stripline($self->{rem})) {
+if(length join NULLSTR,(split /\s+|:__NL__:/,$self->{rem})) {
 
-        $self->mls_accum(
-          $self->mls_accum.
-          $self->line
+        $self->{mls_accum}=
+          $self->{mls_accum}.
+          $self->{line}
 
-        );
+        ;
 
-        $self->line($self->rem);
-        $self->rem(NULLSTR);
+        $self->{line}=$self->{rem};
+        $self->{rem}=NULLSTR;
 
         goto TOP;
 
@@ -320,19 +275,19 @@ sub tokenize_block($self) {
 
   };TAIL:if(
 
-       !$self->in_mls_block
-    && $self->mls_accum
+       !$self->{in_mls}
+    && $self->{mls_accum}
 
   ) {
 
-    $self->line(
-      $self->mls_accum.
-      $self->line
+    $self->{line}=
+      $self->{mls_accum}.
+      $self->{line}
 
-    );
+    ;
 
-    $self->mls_accum(NULLSTR);
-    $self->rem(NULLSTR);
+    $self->{mls_accum}=NULLSTR;
+    $self->{rem}=NULLSTR;
 
   };
 
@@ -347,30 +302,32 @@ sub tokenize_block($self) {
 sub mangle($self) {
 
   #$self->tokenize_block();
-  if(length lang::stripline($self->line)) {
+#  if(length lang::stripline($self->{line})) {
 
-    $self->{-LINE}=~
+if(join NULLSTR,(split /\s+|:__NL__:/,$self->{line})) {
+
+    $self->{line}=~
       s/([>'])%/${^CAPTURE[0]}\%/sg;
 
     my $append=undef;
-    if($self->keep_comments) {
+    if($self->{keep_comments}) {
       $append=[-LCOM];
 
     };
 
 # ---   *   ---   *   ---
 
-    my @tags=$self->lang->mcut_tags($append);
-    $self->line(lang::mcut(
+    my @tags=$self->{lang}->mcut_tags($append);
+    $self->{line}=lang::mcut(
 
-      $self->line,
-      $self->strings,
+      $self->{line},
+      $self->{strings},
 
       @tags,
 
-    ));
+    );
 
-  };push @{$self->raw},$self->line;
+  };push @{$self->{raw}},$self->{line};
 
   return;
 
@@ -381,33 +338,33 @@ sub mangle($self) {
 
 sub clean($self) {
 
-  my $lang=$self->lang;
+  my $lang=$self->{lang};
 
-  my $com=$lang->com;
-  my $eb=$lang->exp_bound;
+  my $com=$lang->{-COM};
+  my $eb=$lang->{-EXP_BOUND};
 
   # strip comments
-  $self->{-LINE}=~ s/${com}.*//g;
+  $self->{line}=~ s/${com}.*//g;
 
   # remove indent
-  $self->{-LINE}=~ s/^\s+//sg;
+  $self->{line}=~ s/^\s+//sg;
 
   # replace newlines with tokens
-  $self->{-LINE}=~ s/\n/:__NL__:/sg;
+  $self->{line}=~ s/\n/:__NL__:/sg;
 
   # no spaces surrounding commas
-  $self->{-LINE}=~ s/\s*,\s*/,/sg;
+  $self->{line}=~ s/\s*,\s*/,/sg;
 
   # force single spaces
-  $self->{-LINE}=~ s/\s+/\$:rdclpad;>/sg;
-  $self->{-LINE}=~ s/\$:rdclpad;>/ /sg;
+  $self->{line}=~ s/\s+/\$:rdclpad;>/sg;
+  $self->{line}=~ s/\$:rdclpad;>/ /sg;
 
-  $self->{-LINE}=~ s/'.$eb.'\s+/'.$eb.'/sg;
+  $self->{line}=~ s/'.$eb.'\s+/'.$eb.'/sg;
 
 # ---   *   ---   *   ---
 # skip blanks
 
-  if(!length lang::stripline($self->line)) {
+  if(!length lang::stripline($self->{line})) {
     goto TAIL;
 
   };
@@ -417,10 +374,10 @@ sub clean($self) {
 # only if operator takes an operand
 # on a given side
 
-  my $op_prec=$lang->op_prec;
-  my $op=$lang->ops;
+  my $op_prec=$lang->{-OP_PREC};
+  my $op=$lang->{-OPS};
 
-  while($self->{-LINE}=~ m/[^\\\\]${op}/) {
+  while($self->{line}=~ m/[^\\\\]${op}/) {
 
     my $key=$1;
     my $v='('."\Q$key".')';
@@ -445,20 +402,20 @@ sub clean($self) {
 
     ) {
 
-      $self->{-LINE}=~
+      $self->{line}=~
         s/\s*${v}\s*/:__OP\\${key}__:/sg;
 
     # x {op}
     } elsif(defined $op_prec->{$key}->[0]) {
-      $self->{-LINE}=~ s/\s*${v}/:__OP\\${key}__:/sg;
+      $self->{line}=~ s/\s*${v}/:__OP\\${key}__:/sg;
 
     # {op} x
     } elsif(defined $op_prec->{$key}->[1]) {
-      $self->{-LINE}=~ s/${v}\s*/:__OP\\${key}__:/sg;
+      $self->{line}=~ s/${v}\s*/:__OP\\${key}__:/sg;
 
     # undef
     } else {
-      $self->{-LINE}=~ s/${v}/:__OP\\${key}__:/sg;
+      $self->{line}=~ s/${v}/:__OP\\${key}__:/sg;
 
     };
 
@@ -467,7 +424,7 @@ sub clean($self) {
 # ---   *   ---   *   ---
 # restore operators
 
-  while($self->{-LINE}=~ s/:__OP\\([^_]+)__:/$1/) {
+  while($self->{line}=~ s/:__OP\\([^_]+)__:/$1/) {
     ;
 
   };
@@ -475,7 +432,7 @@ sub clean($self) {
 # ---   *   ---   *   ---
 
   TAIL:
-  return (length lang::stripline($self->line))>0;
+  return (length lang::stripline($self->{line}))>0;
 
 };
 
@@ -485,8 +442,8 @@ sub clean($self) {
 
 sub join_rem($self) {
 
-  $self->line($self->rem.$self->line);
-  $self->rem(NULLSTR);
+  $self->{line}=$self->{rem}.$self->{line};;
+  $self->{rem}=NULLSTR;
 
   return;
 
@@ -497,8 +454,8 @@ sub join_rem($self) {
 
 sub expfilt($self,@ar) {
 
-  my $lang=$self->lang;
-  my $eb=$lang->exp_bound;
+  my $lang=$self->{lang};
+  my $eb=$lang->{-EXP_BOUND};
 
   # iter array
   for my $e(@ar) {
@@ -513,8 +470,8 @@ sub expfilt($self,@ar) {
 # catch expression boundary
 
     if($e=~ m/${eb}/) {
-      if(defined $self->exps->[-1]) {
-        $self->exps->[-1]->{has_eb}=1;
+      if(defined $self->{exps}->[-1]) {
+        $self->{exps}->[-1]->{has_eb}=1;
 
       };next;
 
@@ -523,7 +480,7 @@ sub expfilt($self,@ar) {
 # ---   *   ---   *   ---
 # append to expression list
 
-    push @{$self->exps},{
+    push @{$self->{exps}},{
       body=>$e,
       has_eb=>0,
 
@@ -544,16 +501,16 @@ sub slexps($self) {
 
   $self->join_rem();
 
-  my $lang=$self->lang;
-  $lang->exp_rule->($self);
+  my $lang=$self->{lang};
+  $lang->{-EXP_RULE}->($self);
 
-  my $eb=$lang->exp_bound;
-  my $sb=$lang->scope_bound;
+  my $eb=$lang->{-EXP_BOUND};
+  my $sb=$lang->{-SCOPE_BOUND};
 
   my @ar=split
 
     m/(${sb})|(${eb})$|(${eb})/,
-    $self->line
+    $self->{line}
 
   ;$self->expfilt(@ar);
   return;
@@ -565,16 +522,16 @@ sub slexps($self) {
 
 sub mlexps($self) {
 
-  my $lang=$self->lang;
+  my $lang=$self->{lang};
 
-  my $eb=$lang->exp_bound;
-  my $sb=$lang->scope_bound;
+  my $eb=$lang->{-EXP_BOUND};
+  my $sb=$lang->{-SCOPE_BOUND};
 
-  $lang->exp_rule->($self);
+  $lang->{-EXP_RULE}->($self);
   my @ar=split
 
     m/(${sb})|(${eb})/,
-    $self->line
+    $self->{line}
 
   ;
 
@@ -584,7 +541,7 @@ sub mlexps($self) {
   $self->expfilt(@ar);
 
   if($entry) {
-    $self->rem($self->rem.$entry);
+    $self->{rem}=$self->{rem}.$entry;;
 
   };
 
@@ -600,11 +557,11 @@ sub mlexps($self) {
 
 sub wipe($self) {
 
-  $self->line(NULLSTR);
-  $self->rem(NULLSTR);
+  $self->{line}=NULLSTR;
+  $self->{rem}=NULLSTR;
 
   $self->fclose();
-  $self->{-EXPS}=[];
+  $self->{exps}=[];
 
   return;
 
@@ -621,30 +578,30 @@ sub fopen($self,$src) {
 
   $self->wipe();
 
-  my $lang=$self->lang;
-  my $hed=$lang->hed;
+  my $lang=$self->{lang};
+  my $hed=$lang->{-HED};
 
 # ---   *   ---   *   ---
 # open file
 
-  $self->{-FNAME}=$src;open
+  $self->{fname}=$src;
 
-    my $FH,'<',
-    $self->{-FNAME} or croak $ERRNO
+  open my $FH,'<',
+    $self->{fname} or croak $ERRNO;
 
-  ;$self->{-FHANDLE}=$FH;
+  $self->{fhandle}=$FH;
 
 # ---   *   ---   *   ---
 # verify header
 
-  my $line=readline $self->{-FHANDLE};
+  my $line=readline $self->{fhandle};
   if($hed eq 'N/A') {goto SKIP;};
 
   if(!($line=~ m/^${hed}/)) {
     printf {*STDERR}
-      $self->{-FNAME}.": bad header\n";
+      $self->{fname}.": bad header\n";
 
-    fclose();
+    $self->fclose();
     exit;
 
   };
@@ -652,11 +609,11 @@ sub fopen($self,$src) {
 # ---   *   ---   *   ---
 
 SKIP:
-  $self->line($line);
+  $self->{line}=$line;
 
   # get remains
-  $self->{-LINE}=~ s/^${hed}//;
-  $self->rem(NULLSTR);
+  $self->{line}=~ s/^${hed}//;
+  $self->{rem}=NULLSTR;
 
   return;
 
@@ -665,10 +622,10 @@ SKIP:
 
 };sub fclose($self) {
 
-  if(defined $self->{-FHANDLE}) {
-    close $self->{-FHANDLE} or croak $ERRNO;
+  if(defined $self->{fhandle}) {
+    close $self->{fhandle} or croak $ERRNO;
 
-  };$self->{-FHANDLE}=undef;
+  };$self->{fhandle}=undef;
 
   return;
 
@@ -680,13 +637,13 @@ SKIP:
 
 sub expsplit($self) {
 
-  my $lang=$self->lang;
+  my $lang=$self->{lang};
 
-  my $eb=$lang->exp_bound;
-  my $sb=$lang->scope_bound;
+  my $eb=$lang->{-EXP_BOUND};
+  my $sb=$lang->{-SCOPE_BOUND};
 
   $rdprocs
-    ->[$self->line=~ m/([${sb}])|${eb}$|${eb}/]
+    ->[$self->{line}=~ m/([${sb}])|${eb}$|${eb}/]
     ->($self)
 
   ;return;
@@ -720,8 +677,8 @@ sub expsplit($self) {
 # ---   *   ---   *   ---
 # pass body of file through mangler
 
-  while(my $line=readline $self->{-FHANDLE}) {
-    $self->line($line);
+  while(my $line=readline $self->{fhandle}) {
+    $self->{line}=$line;
     $self->mangle();
 
   };
@@ -731,8 +688,8 @@ sub expsplit($self) {
 # ---   *   ---   *   ---
 # iter mangled
 
-  for my $line(@{$self->raw}) {
-    $self->line($line);
+  for my $line(@{$self->{raw}}) {
+    $self->{line}=$line;
     $self->procline();
 
   };
@@ -760,7 +717,7 @@ sub expsplit($self) {
 # pass str through mangler
 
   while(@filtered) {
-    $self->line(shift @filtered);
+    $self->{line}=shift @filtered;
     $self->mangle();
 
   };
@@ -768,8 +725,8 @@ sub expsplit($self) {
 # ---   *   ---   *   ---
 # iter mangled
 
-  for my $line(@{$self->raw}) {
-    $self->line($line);
+  for my $line(@{$self->{raw}}) {
+    $self->{line}=$line;
     $self->procline();
 
   };
@@ -785,7 +742,7 @@ sub no_blanks($self) {
 
   my @ar=();
 
-  for my $exp(@{$self->exps}) {
+  for my $exp(@{$self->{exps}}) {
 
     if(length lang::stripline($exp->{body})) {
       push @ar,$exp;
@@ -793,7 +750,7 @@ sub no_blanks($self) {
     };
   };
 
-  $self->{-EXPS}=\@ar;
+  $self->{exps}=\@ar;
   $self->rm_nltoks();
 
   return;
@@ -805,11 +762,11 @@ sub no_blanks($self) {
 
 sub rm_nltoks($self) {
 
-  my $lang=$self->lang;
+  my $lang=$self->{lang};
 
-  my $ode=$lang->ode;
-  my $cde=$lang->cde;
-  my $ndel_op=$lang->ndel_ops;
+  my $ode=$lang->{-ODE};
+  my $cde=$lang->{-CDE};
+  my $ndel_op=$lang->{-NDEL_OPS};
 
   my $notnl='(^|[^_]|_[^:])';
 
@@ -824,7 +781,7 @@ sub rm_nltoks($self) {
 #   > decides whether to replace the newline
 #     with a space or not
 
-  for my $exp(@{$self->exps}) {
+  for my $exp(@{$self->{exps}}) {
     while($exp->{body}=~
       m/${notnl}:__NL__:${notnl}/
 
@@ -887,7 +844,8 @@ sub exp_open($rd,$exp) {
   my $has_eb=$exp->{has_eb};
   my $lineno=$exp->{lineno};
 
-  push @{$rd->cooked},$body;
+  push @{$rd->{cooked}},
+    $lineno.':__COOKED__:'.$body;
 
   return ($body,$has_eb,$lineno);
 
@@ -927,14 +885,14 @@ sub exp_hierarchy(
 
 ) {
 
-  my $lang=$rd->lang;
+  my $lang=$rd->{lang};
 
-  my $sb=$lang->scope_bound;
-  my $ode=$lang->ode;
-  my $cde=$lang->cde;
+  my $sb=$lang->{-SCOPE_BOUND};
+  my $ode=$lang->{-ODE};
+  my $cde=$lang->{-CDE};
 
   my $out=0;
-  my $fr_node=$rd->program->node;
+  my $fr_node=$rd->{program}->node;
 
 # ---   *   ---   *   ---
 # match against bound open/close
@@ -969,8 +927,8 @@ sub regular_parse(
 
 ) {
 
-  my $lang=$rd->lang;
-  my $fr_node=$rd->program->node;
+  my $lang=$rd->{lang};
+  my $fr_node=$rd->{program}->node;
 
   my ($body,$has_eb,$lineno)=exp_open(
     $rd,$exp
@@ -1002,17 +960,17 @@ sub regular_parse(
 
     my $f=$exp->fieldn(0);
     if($lang->is_keyword(
-      $f->leaves->[0]->value
+      $f->{leaves}->[0]->{value}
 
     )) {
 
       # replace 'void' for found keyword
-      $exp->value($f->leaves->[0]->value);
+      $exp->{value}=$f->{leaves}->[0]->{value};
       $exp->pluck($f);
 
       # reorder leftover fields
-      my $i=0;for my $leaf(@{$exp->leaves}) {
-        $leaf->value("field_$i");$i++;
+      my $i=0;for my $leaf(@{$exp->{leaves}}) {
+        $leaf->{value}="field_$i";$i++;
 
       };
     };
@@ -1034,8 +992,8 @@ sub plps_parse(
 
 ) {
 
-  my $lang=$rd->lang;
-  my $fr_node=$rd->program->node;
+  my $lang=$rd->{lang};
+  my $fr_node=$rd->{program}->node;
 
   my ($body,$has_eb,$lineno)=exp_open(
     $rd,$exp
@@ -1068,7 +1026,7 @@ sub plps_parse(
     # convert delimiters to references
     # save those to refs hash in program
     $exp->odeop(1);
-    $exp->branchrefs($rd->program->{refs});
+    $exp->branchrefs($rd->{program}->{refs});
 
     # ^duplicate branch and undo conversion
     # on the original branch
@@ -1115,14 +1073,14 @@ sub plps_parse(
     };if(length $exp_key) {
 
       $exp->{btc}=peso::fndmtl::take(
-        $rd->program,
+        $rd->{program},
         $exp_key,
         $tree
 
       );
 
       # set expression context
-      $exp->value($exp_key);
+      $exp->{value}=$exp_key;
 
 # ---   *   ---   *   ---
 # run on first pass for declarations
@@ -1137,7 +1095,7 @@ sub plps_parse(
 
       if($exp_key=~ m/_decl$/) {
         peso::fndmtl::give(
-          $rd->program,
+          $rd->{program},
           $exp
 
         );
@@ -1198,9 +1156,9 @@ sub parse(
 # ---   *   ---   *   ---
 # ^handle leftovers from read
 
-  if($rd->rem) {
-    $rd->line($rd->rem);
-    $rd->lang->exp_rule->($rd);
+  if($rd->{rem}) {
+    $rd->{line}=$rd->{rem};
+    $rd->{lang}->{-EXP_RULE}->($rd);
 
   };$rd->no_blanks();
 
@@ -1245,7 +1203,7 @@ sub parse(
 # ---   *   ---   *   ---
 # execute parser
 
-  for my $exp(@{$rd->exps}) {
+  for my $exp(@{$rd->{exps}}) {
     ($exp,$anchor)=$parse_fn->(
       $rd,$exp,$anchor,\@anchors
 
@@ -1261,7 +1219,7 @@ sub parse(
     $root->findptrs();
     $program->incpass();
 
-    for my $branch(@{$root->leaves}) {
+    for my $branch(@{$root->{leaves}}) {
       peso::fndmtl::give($program,$branch);
 
     };
@@ -1275,9 +1233,9 @@ sub parse(
 
   $program->{tree}=$root;
 
-  $program->{strings}=$rd->strings;
-  $program->{raw}=$rd->raw;
-  $program->{cooked}=$rd->cooked;
+  $program->{strings}=$rd->{strings};
+  $program->{raw}=$rd->{raw};
+  $program->{cooked}=$rd->{cooked};
 
   return $program;
 

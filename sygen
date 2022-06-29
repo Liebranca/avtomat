@@ -251,10 +251,24 @@ sub prprops {
       my $top=(@keys>$x+19)
         ? $x+19 : $#keys;
 
-      push @ar,lang::eiths(
-        join(',',@keys[$x..$top])
+      my @slice=(@keys[$x..$top]);
+      for my $re(@slice) {
+        if($re=~ m/\(\?\^u:/) {
+          $re=~ s/\(\?\^u://;
+          $re=~ s/\)$//;
 
-      ,1);
+        };
+
+      };
+
+      @slice=sort {
+        (length $a)<=(length $b);
+
+      } @slice;
+
+      my $re='\b('.(join '|',@slice).')\b';
+
+      push @ar,$re;
 
     };
 
@@ -262,12 +276,18 @@ sub prprops {
 
 # ---   *   ---   *   ---
 
-  for my $pat(@ar) {
+  for my $re(@ar) {
 
-    $pat=join '\n',(split "\n",$pat);
+    $re=join '\n',(split "\n",$re);
 
-    $pat=avt::dqwrap($pat);
-    print $FH "color $color $pat\n";
+    if($re=~ m/\(\?\^u:/s) {
+      $re=~ s/\(\?\^u://s;
+      $re=~ s/\)$//s;;
+
+    };
+
+    $re=avt::dqwrap($re);
+    print $FH "color $color $re\n";
 
   };
 

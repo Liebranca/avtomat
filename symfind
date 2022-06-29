@@ -17,10 +17,15 @@
   use strict;
   use warnings;
 
+  use English qw(-no_match_vars);
+
   use lib $ENV{'ARPATH'}.'/avtomat/';
   use cli;
 
   use lib $ENV{'ARPATH'}.'/lib/';
+
+  use style;
+  use arstd;
 
   use lang;
   use langdefs::perl;
@@ -43,6 +48,24 @@ my $m=cli::nit(
 
 my @files=$m->take(@ARGV);
 
+# ---   *   ---   *   ---
+
+if($m->{recursive}!=NULL) {
+  my @ar=@files;
+  @files=();
+
+  while(@ar) {
+    my $path=shift @ar;
+    my @tmp=split m/\s+/,`ls $path`;
+
+    push @files,(map {$path.q{/}.$ARG} @tmp);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
 for my $f(@files) {
 
   my $program=peso::rd::parse(
@@ -58,14 +81,31 @@ for my $f(@files) {
   my $sym=qr{\Q$m->{symbol}};
   my $i=0;
 
-  $program->{tree}->defield();
-  my @ar=$program->{tree}->branches_with($sym);
-  for my $branch(@ar) {
-    my $s=$branch->flatten;
-    printf "\e[33;22m%4i\e[0m %-54s\n",
-      $branch->{lineno},$s
+  my @data=();
 
-    ;
+# ---   *   ---   *   ---
+
+  for my $s(@{$program->{cooked}}) {
+
+    my ($lineno,$code)=split m/:__COOKED__:/,$s;
+    if($code=~ $sym) {
+
+      push @data,sprintf
+        "\e[33;22m%4i\e[0m %-54s\n",
+        $lineno,$code
+
+      ;
+    };
+  };
+
+# ---   *   ---   *   ---
+
+  if(@data) {
+    printf {*STDOUT}
+      "\e[34;22m%s\e[0m".
+      "\e[37;1m:\e[0m\n%s\n",
+
+      $f,join NULLSTR,@data
 
   };
 

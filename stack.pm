@@ -29,8 +29,8 @@ package stack;
 sub slidex($sz) {
 
   my $buf=[];
-  for my $i($sz-1..0) {
-    push @$buf,$i;
+  for my $i(0..$sz-1) {
+    push @$buf,$sz-1-$i;
 
   };
 
@@ -53,26 +53,12 @@ sub nit($top,$buf) {
 
 # ---   *   ---   *   ---
 
-sub gtop($self) {return $self->{top}};
-sub top_plus($self) {return $self->{top}++};
-sub top_mins($self) {return $self->{top}--};
-
-sub gbuf($self) {return $self->{buf};};
-
-# ---   *   ---   *   ---
-
 sub spush($self,$value) {
-  my $top=$self->gtop;
-  $self->gbuf->[$top]=$value;
-  $self->top_plus;
-
+  $self->{buf}->[$self->{top}++]=$value;
   return;
 
 };sub spop($self) {
-  $self->top_mins;
-  my $top=$self->gtop;
-
-  return $self->gbuf->[$top];
+  return $self->{buf}->[--$self->{top}];
 
 };
 

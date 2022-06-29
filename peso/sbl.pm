@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # ---   *   ---   *   ---
 # SYMBOL
 # Execution as data
@@ -249,7 +250,7 @@ sub arg_typechk($self,$node,$proto) {
 
 # ---   *   ---   *   ---
 
-  my $tag=$node->value;
+  my $tag=$node->{value};
   my $valid=0;
 
 # ---   *   ---   *   ---
@@ -277,8 +278,8 @@ sub arg_typechk($self,$node,$proto) {
       $valid=(
 
         $lang->op_prec
-        ->{$node->value->{op}}
-        ->[$node->value->{idex}]->[0]
+        ->{$node->{value}->{op}}
+        ->[$node->{value}->{idex}]->[0]
 
       )==-1;
 
@@ -362,7 +363,7 @@ sub arg_typechk($self,$node,$proto) {
 sub ex($self,$node) {
 
   # check *enough* fields passed
-  if(@{$node->leaves}<$self->num_fields) {
+  if(@{$node->{leaves}}<$self->num_fields) {
 
     arstd::errout(
 
@@ -399,7 +400,7 @@ sub ex($self,$node) {
 
     if(
 
-        @{$field->leaves}<$count
+        @{$field->{leaves}}<$count
      && !$arg->{opt}
 
     ) {
@@ -424,7 +425,7 @@ sub ex($self,$node) {
     my $i=0;my @field_args=();
     my $consume_arg=sub {
 
-      my $leaf=$field->leaves->[$i];
+      my $leaf=$field->{leaves}->[$i];
       my $type=$arg->{types}->[$i];
 
       # use last defined type (for varargs)
@@ -435,7 +436,7 @@ sub ex($self,$node) {
       };if(!$self->arg_typechk($leaf,$type)) {
         return 0;
 
-      };push @field_args,$leaf->value;$i++;
+      };push @field_args,$leaf->{value};$i++;
       return 1;
 
     };
@@ -455,7 +456,7 @@ sub ex($self,$node) {
 
     } else {
 
-      while($i<@{$field->leaves}) {
+      while($i<@{$field->{leaves}}) {
         if(!$consume_arg->()) {return;};
 
       };
@@ -574,9 +575,9 @@ sub ndconsume($frame,$node,$i) {
   my $fr_def=$master->defs;
 
   my $keywords=$fr_def->SYMS();
-  my $leaf=$node->leaves->[$$i++];
+  my $leaf=$node->{leaves}->[$$i++];
 
-  my $key=$leaf->value;
+  my $key=$leaf->{value};
 
   # check that we're not in void context
   if(!$leaf || !exists $keywords->{$key}) {
@@ -588,20 +589,20 @@ sub ndconsume($frame,$node,$i) {
 # consume nodes according to context
 
   my $anchor=$leaf;
-  $anchor->value($keywords->{$key});
+  $anchor->{value}=$keywords->{$key};
 
-  my $ref=$anchor->value->args;
+  my $ref=$anchor->{value}->args;
   my @args=@{$ref};
 
   for my $arg(@args) {
 
-    my $field=$node->leaves->[$$i];
+    my $field=$node->{leaves}->[$$i];
 
     my $argc=$arg->{count};
     my $j=0;while($argc>0) {
 
-      $leaf=$field->leaves->[$j++];
-      my $value=($leaf) ? $leaf->value : 0;
+      $leaf=$field->{leaves}->[$j++];
+      my $value=($leaf) ? $leaf->{value} : 0;
 
       $argc--;
 
@@ -615,7 +616,7 @@ sub ndconsume($frame,$node,$i) {
           'Insufficient args for '.
           "symbol '%s'\n",
 
-          args=>[$anchor->value->name],
+          args=>[$anchor->{value}->name],
           lvl=>FATAL,
 
         );

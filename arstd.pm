@@ -52,6 +52,19 @@ sub valid($obj) {
 };
 
 # ---   *   ---   *   ---
+# wraps word in tags with cute colors
+
+sub pretty_tag($s) {
+  return sprintf
+    "\e[37;1m<\e[0m".
+    "\e[34;22m%s\e[0m".
+    "\e[37;1m>\e[0m",$s
+
+  ;
+
+};
+
+# ---   *   ---   *   ---
 # fixes the horrendous 8-space indented,
 # non line-wrapped, filename redundant,
 # needlessly wide Carp backtrace

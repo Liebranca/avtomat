@@ -229,7 +229,7 @@ sub give($m,$branch) {
         $n=shift @pending;
 
         if(peso::node::valid $$n) {
-          $$n=$$n->collapse()->value;
+          $$n=$$n->collapse()->{value};
 
         } elsif(
 

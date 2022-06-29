@@ -1,0 +1,38 @@
+#!/usr/bin/perl
+
+# does some automatic profiling
+
+# ---   *   ---   *   ---
+# deps
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/avtomat';
+  use style;
+  use arstd;
+
+# ---   *   ---   *   ---
+
+chdir $ENV{'ARPATH'}.'/avtomat/';
+
+my $tag=arstd::pretty_tag('AR');
+my $sep="\e[37;1m::\e[0m";
+
+print {*STDOUT} "$tag profiling avtomat\n";
+
+my $symlog=`perl -d:NYTProf symfind -s stinc avt.pm`;
+
+print {*STDOUT} "${sep}reading nytprof files\n";
+
+my $nytlog=`nytprofcsv nytprof`;
+
+print {*STDOUT} "${sep}done\n";
+
+my $prof=`./profread --threshold=0.05 nytprof`;
+
+print {*STDOUT} $prof;
+
+# ---   *   ---   *   ---
+1; # ret

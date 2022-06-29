@@ -1,0 +1,111 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# PROFREAD
+# Looks at NYTProf dumps
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+# ---   *   ---   *   ---
+
+# deps
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use English (-no_match_vars);
+
+  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use cli;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use style;
+
+# ---   *   ---   *   ---
+#info
+
+  our $VERSION=v0.1.0;
+  our $AUTHOR='IBN-3DILA';
+
+# ---   *   ---   *   ---
+
+my $m=cli::nit(
+  ['threshold','-t','--threshold',1],
+
+);
+
+my ($path)=($m->take(@ARGV));
+$path=glob("./$path");
+
+my $thresh=$m->{threshold};
+
+if($thresh eq NULL) {
+  $thresh=0.01000;
+
+};
+
+# ---   *   ---   *   ---
+
+my $is_local=qr{^home-};
+my $is_comment=qr{^# };
+
+for my $file(
+  split m/\s+/,`ls $path`
+
+) {
+
+  if(!($file=~ $is_local)) {next};
+  my $lineno=1;
+
+  my @data=();
+
+  open my $FH,'<',"$path/$file" or die $ERRNO;
+  while((my $line=readline $FH)) {
+
+    if($line=~ $is_comment) {next};
+    my ($time,$calls,$avg,$code)
+
+    =
+
+    split m/,/,$line
+
+    ;
+
+    $code=~ s/\n|\s+$//sg;
+
+    if($time>=$thresh) {
+
+      push @data,sprintf
+        "\e[33;22m%4i\e[0m ".
+        "\e[31;22m%8i\e[0m ".
+        "\e[37;1m%.4f\e[0m ".
+        "\e[37;1m%.8f\e[0m ".
+
+        "%-44s\n",
+
+        $lineno,$calls,$time,$avg,$code;
+
+    };
+
+    $lineno++;
+
+  };
+
+  close $FH;
+
+  if(@data) {
+    print
+
+      "\n\e[34;22m$file\e[0m".
+      "\e[37;1m:\e[0m\n".
+      (join NULLSTR,@data)."\n";
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+1; # ret

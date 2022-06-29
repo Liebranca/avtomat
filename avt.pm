@@ -780,16 +780,16 @@ sub file_sbl($f) {
 # in:modname,[files]
 # write symbol typedata (return,args) to shadow lib
 
-sub symscan($mod) {
+sub symscan($mod,@fnames) {
 
   stinc($CACHE{-ROOT}."/$mod/");
 
   my @files=();
 
-  { my @fnames=@{ $_[0] };shift;
+# ---   *   ---   *   ---
+# iter filelist
 
-    # iter filelist
-    for my $fname(@fnames) {
+  { for my $fname(@fnames) {
 
       if( ($fname=~ m/\%/) ) {
         push @files,@{ wfind($fname) };
@@ -2159,9 +2159,6 @@ avt::update_regular(\@FCPY);
 
 sub set_build_paths($FSWAT,$INCLUDES) {
 
-  my $FSWAT=shift;
-  my $INCLUDES=shift;
-
   my @paths=();
   for my $inc(lang::ws_split(' ',$INCLUDES)) {
     if($inc eq "-I".root) {next;};
@@ -2394,7 +2391,7 @@ sub build_binaries {
     my $call="ar -crs $MAIN $OBJS";`$call`;
 
     `echo "$LIBS" > $ILIB`;
-    symscan($FSWAT,$XPRT);
+    symscan($FSWAT,@$XPRT);
 
 # ---   *   ---   *   ---
 # otherwise it's executable or shared object
@@ -2431,7 +2428,7 @@ sub build_binaries {
       $call="ar -crs $MLIB $OBJS";`$call`;
 
       `echo "$LIBS" > $ILIB`;
-      symscan($FSWAT,$XPRT);
+      symscan($FSWAT,@$XPRT);
 
     };
 
