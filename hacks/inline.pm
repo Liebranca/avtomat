@@ -18,44 +18,61 @@ package inline;
 
   use Filter::Util::Call;
 
+# ---   *   ---   *   ---
+
 sub import {
 
   my ($self,$pkg)=@_;
-  shadowlib::take($pkg);
+  my $table=shadowlib::take($pkg);
 
+  filter_add(bless {
 
+    table=>$table,
 
-#  filter_add(sub {
-#
-#  my $caller=caller;
-#  my ($status,$no_seen,$data);
-#
-#  while ($status=filter_read()) {
-#    if (/^\s*no\s+$caller\s*;\s*?$/) {
-#      $no_seen=1;
-#      last;
-#
-#    };
-#
-#    $data .= $_;
-#    $_ = "";
-#
-#  };
-#
-#  $_ = $data;
-#  s/BANG\s+BANG/die 'BANG' if \$BANG/g
-#      unless $status < 0;
-#
-#  $_ .= "no $caller;\n" if $no_seen;
-#  return 1;
-#
-#  });
+  });
 };
 
-#sub unimport {
-#  filter_del();
-#
-#};
+sub unimport {
+  filter_del();
+
+};
+
+sub filter {
+
+  my ($self)=@_;
+
+  my $caller=caller;
+  my $status=filter_read();
+
+# ---   *   ---   *   ---
+
+  my $s=$_;
+  if($s=~ $self->{table}->{re}) {
+
+    my $symname=${^CAPTURE[0]};
+    my $sbl=$self->{table}->{$symname};
+
+# ---   *   ---   *   ---
+
+    my @args=();
+    if($s=~ m/${symname}\s*\((.*?)\)/) {
+      @args=split m/,/,${^CAPTURE[0]};
+
+    };
+
+# ---   *   ---   *   ---
+
+    my $code=$sbl->paste(@args);
+    $s=~ s/${symname}\s*\((.*?)\)/$code/;
+
+    print "$s\n";
+    $_=$s;
+
+  };
+
+  return $status;
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

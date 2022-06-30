@@ -31,6 +31,8 @@ package lang;
   use strict;
   use warnings;
 
+  use Readonly;
+
   use List::Util qw( max );
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -412,8 +414,6 @@ sub eaf(
 
 use constant {
 
-  LINESTRIP_RE=>qr{\s+|:__NL__:},
-
   CODEREF_RE=>qr{^CODE\(0x[0-9a-f]+\)},
   ARRAYREF_RE=>qr{^ARRAY\(0x[0-9a-f]+\)},
   HASHREF_RE=>qr{^HASH\(0x[0-9a-f]+\)},
@@ -574,7 +574,8 @@ sub cut($s,$pat,$id,$h) {
 # remove all whitespace
 
 };sub stripline:inlined ($s) {
-  return join NULLSTR,(split /${\LINESTRIP_RE}/,$s);
+  state $re=qr{\s+|:__NL__:};
+  join NULLSTR,(split m/$re/,$s);
 
 };
 
@@ -799,16 +800,7 @@ sub quick_op_prec(%h) {
 
 END {
 
-  print {*STDERR} "I GOT HERE\n";
-
-  inlining::dumpsbl(
-
-    __FILE__,
-    $ENV{'ARPATH'},
-
-    'avtomat'
-
-  );
+  inlining::dumpsbl(__FILE__);
 
 };
 

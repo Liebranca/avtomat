@@ -10,4 +10,7 @@ use inline {
 
 };
 
+my $s="hi           \n";
+print length (lang::stripline($s))."\n";
+
 # ---   *   ---   *   ---

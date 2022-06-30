@@ -42,23 +42,30 @@ package inlining;
   my $SBL={};
 
 # ---   *   ---   *   ---
+# ROM
+
+  use constant {
+
+    CUT_FMAT=>':__%s_CUT_%i__:',
+    CUT_RE=>':__\w+_CUT_(\d+)__:',
+    END_RE=>qr[(};|;|\})],
+
+  };
+
+# ---   *   ---   *   ---
 # save table to file
 
-sub dumpsbl($src,$root,$module) {
+sub dumpsbl($src) {
 
   my $dst=$src;
 
-  { my $src_base="$root/$module/";
-    my $dst_base="$root/lib/";
+  $dst=~ s/[.].*$//;
+  $dst=~ s/\/([_\w][_\w\d]*)$/\/.$1/;
 
-    $dst=~ s/^${src_base}/$dst_base/;
+  if( (-e $dst)
+  &&  ((-M $dst) < (-M $src))
 
-    if((-e $dst)
-    && ((-M $dst) < (-M $src))
-
-    ) {goto TAIL};
-
-  };
+  ) {goto TAIL};
 
 # ---   *   ---   *   ---
 
@@ -77,18 +84,35 @@ sub dumpsbl($src,$root,$module) {
 # ---   *   ---   *   ---
 
     my $elem=q{};
-    $elem.="$symbol->{pkg}::$key:\n";
+    $elem.="$symbol->{pkg}::$key\n";
+
+    my @mem=();
+    for my $n(keys %{$symbol->{mem}}) {
+      push @mem,"$n*=>$symbol->{mem}->{$n}";
+
+    };
 
     my @args=();
     for my $n(keys %{$symbol->{args}}) {
-      push @args,"$n=$symbol->{args}->{$n}";
+      push @args,"$n*=>$symbol->{args}->{$n}";
 
     };
 
 # ---   *   ---   *   ---
 
-    $elem.="::args ".(join ',',@args)."\n";
-    $elem.="::code ".$symbol->{code}."\n";
+    while($symbol->{code}=~ m/(${\CUT_RE})/) {
+      my $key=${^CAPTURE[0]};
+      my $value=$STRINGS->{$key};
+
+      $symbol->{code}=~ s/${key}/$value/;
+
+    };
+
+# ---   *   ---   *   ---
+
+    $elem.=(join ',',@mem)."\n";
+    $elem.=(join ',',@args)."\n";
+    $elem.=$symbol->{code}."\n";
 
     push @{$files{$f}},$elem;
 
@@ -96,11 +120,14 @@ sub dumpsbl($src,$root,$module) {
 
 # ---   *   ---   *   ---
 
+  open my $FH,'>',$dst or croak $ERRNO;
+
   for my $f(keys %files) {
-    print "<$f>\n";
-    print ''.(join q{},@{$files{$f}})."\n";
+    print $FH ''.(join q{},@{$files{$f}})."\n";
 
   };
+
+  close $FH;
 
 # ---   *   ---   *   ---
 
@@ -109,17 +136,6 @@ TAIL:
   return;
 
 };
-
-# ---   *   ---   *   ---
-# ROM
-
-  use constant {
-
-    CUT_FMAT=>':__%s_CUT_%i__:',
-    CUT_RE=>':__\w+_CUT_(\d+)__:',
-    END_RE=>qr[(};|;|\})],
-
-  };
 
 # ---   *   ---   *   ---
 
@@ -216,8 +232,7 @@ sub tokenize($string) {
 };
 
 # ---   *   ---   *   ---
-
-sub def_my($tokens) {
+# ROM 2
 
   use constant {
 
@@ -225,6 +240,10 @@ sub def_my($tokens) {
     STAGE_END=>0x01,
 
   };
+
+# ---   *   ---   *   ---
+
+sub read_decls($tokens) {
 
   my $stage=0;
 
@@ -262,9 +281,24 @@ sub def_my($tokens) {
 
   };
 
-# ---   *   ---   *   ---
-# save names to table
+  return ($name,$value);
 
+};
+
+# ---   *   ---   *   ---
+# save decls to symbol mem
+
+sub def_state($tokens) {
+  my ($name,$value)=read_decls($tokens);
+  $SBL->{-CURRENT}->{mem}->{$name}=$value;
+
+};
+
+# ---   *   ---   *   ---
+# ^ same thing for args
+
+sub def_my($tokens) {
+  my ($name,$value)=read_decls($tokens);
   $SBL->{-CURRENT}->{args}->{$name}=$value;
 
 };
@@ -274,7 +308,7 @@ sub def_my($tokens) {
 sub BUILD_CALLTAB {
 
   state @KEYWORDS=qw(
-    my
+    my state
 
   );
 
@@ -302,9 +336,13 @@ sub hdepth($tok) {
 
   };
 
+# ---   *   ---   *   ---
+
   my $h=$SBL->{-CURRENT};
   if($tok=~ INC_DEPTH) {
     $h->{depth}++;
+
+# ---   *   ---   *   ---
 
   } elsif ($tok=~ DEC_DEPTH) {
     $h->{depth}--;
@@ -331,6 +369,8 @@ sub defit($tokens) {
       $h->{in_init}=1;
 
     };
+
+# ---   *   ---   *   ---
 
     hdepth($tok);
 
@@ -427,9 +467,6 @@ sub inlined : ATTR(CODE) {
   };
 
 # ---   *   ---   *   ---
-
-  # your tabs span half my screen
-  $rawcode=~ s/\x20\x20\x20\x20/  /sg;
 
   $rawcode=clean($rawcode);
   my $tokens=tokenize($rawcode);
