@@ -127,6 +127,7 @@ lang::def::nit(
   ],
 
   -SPECIFIERS=>[qw(
+      inlined
 
     ),(keys %{langdefs::peso->SPECIFIER})
 

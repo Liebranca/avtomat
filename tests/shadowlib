@@ -1,0 +1,13 @@
+#!/usr/bin/perl
+
+# oh boi
+
+# ---   *   ---   *   ---
+
+use lib $ENV{'ARPATH'}.'/lib/hacks/';
+use inline {
+  $ENV{'ARPATH'}.'/lib/'=>['lang'],
+
+};
+
+# ---   *   ---   *   ---

@@ -24,6 +24,9 @@
 
 package lang;
 
+  use lib $ENV{'ARPATH'}.'/lib/hacks';
+  use base inlining;
+
   use v5.36.0;
   use strict;
   use warnings;
@@ -409,10 +412,11 @@ sub eaf(
 
 use constant {
 
+  LINESTRIP_RE=>qr{\s+|:__NL__:},
+
   CODEREF_RE=>qr{^CODE\(0x[0-9a-f]+\)},
   ARRAYREF_RE=>qr{^ARRAY\(0x[0-9a-f]+\)},
   HASHREF_RE=>qr{^HASH\(0x[0-9a-f]+\)},
-
   QRD_EXP_RE=>qr{\(\?\^u:},
 
   CUT_TOKEN_RE=>qr{:__[A-Z]+_CUT_([\dA-F]+)__:},
@@ -569,9 +573,8 @@ sub cut($s,$pat,$id,$h) {
 # ---   *   ---   *   ---
 # remove all whitespace
 
-};sub stripline($s) {
-  state $re=qr{\s+|:__NL__:};
-  return join NULLSTR,(split /$re/,$s);
+};sub stripline:inlined ($s) {
+  return join NULLSTR,(split /${\LINESTRIP_RE}/,$s);
 
 };
 
@@ -789,6 +792,23 @@ sub quick_op_prec(%h) {
   };
 
   return $result;
+
+};
+
+# ---   *   ---   *   ---
+
+END {
+
+  print {*STDERR} "I GOT HERE\n";
+
+  inlining::dumpsbl(
+
+    __FILE__,
+    $ENV{'ARPATH'},
+
+    'avtomat'
+
+  );
 
 };
 
@@ -1280,8 +1300,20 @@ sub is_num {
 
 sub is_keyword {
 
+  state $previous={};
+
   my ($self,$s)=@_;
   my $x=0;
+
+# ---   *   ---   *   ---
+
+  if(exists $previous->{$s}) {
+    $x=1;
+    goto TAIL;
+
+  };
+
+# ---   *   ---   *   ---
 
   for my $tag(
 
@@ -1296,9 +1328,23 @@ sub is_keyword {
     my $h=$self->{$tag};
     my $pat=$self->{$tag}->{re};
 
-    if($s=~ $pat) {$x=1;last};
+# ---   *   ---   *   ---
 
-  };return $x;
+    if($s=~ $pat) {
+      $previous->{$s}=1;
+      $x=1;
+
+      last
+
+    };
+
+# ---   *   ---   *   ---
+
+  };
+
+TAIL:
+  return $x;
+
 };
 
 # ---   *   ---   *   ---
