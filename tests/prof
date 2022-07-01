@@ -22,7 +22,7 @@ my $sep="\e[37;1m::\e[0m";
 
 print {*STDOUT} "$tag profiling avtomat\n";
 
-my $symlog=`perl -d:NYTProf symfind -s stinc avt.pm`;
+my $symlog=`perl -d:NYTProf symfind -s "use lang" -r avt.pm`;
 
 print {*STDOUT} "${sep}reading nytprof files\n";
 

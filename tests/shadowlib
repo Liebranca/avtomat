@@ -4,11 +4,11 @@
 
 # ---   *   ---   *   ---
 
-use lib $ENV{'ARPATH'}.'/lib/hacks/';
-use inline {
-  $ENV{'ARPATH'}.'/lib/'=>['lang'],
+use lib $ENV{'ARPATH'}.'/lib/';
+use lang;
 
-};
+use lib $ENV{'ARPATH'}.'/lib/hacks/';
+use inline;
 
 my $s="hi           \n";
 print length (lang::stripline($s))."\n";

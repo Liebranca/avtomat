@@ -52,6 +52,26 @@ sub valid($obj) {
 };
 
 # ---   *   ---   *   ---
+
+sub expand_path($src,$dst) {
+
+  my @ar;
+  if(length ref $src) {@ar=(@{$src})}
+  else {@ar=($src)};
+
+  while(@ar) {
+    my $path=shift @ar;
+    if(-f $path) {unshift @$dst,$path;next};
+
+    my @tmp=split m/\s+/,`ls $path`;
+
+    unshift @$dst,(map {$path.q{/}.$ARG} @tmp);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # wraps word in tags with cute colors
 
 sub pretty_tag($s) {

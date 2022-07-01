@@ -28,8 +28,8 @@
   use arstd;
 
   use lang;
-  use langdefs::perl;
 
+  use langdefs::perl;
   use peso::rd;
 
 # ---   *   ---   *   ---
@@ -54,19 +54,30 @@ if($m->{recursive}!=NULL) {
   my @ar=@files;
   @files=();
 
-  while(@ar) {
-    my $path=shift @ar;
-    my @tmp=split m/\s+/,`ls $path`;
-
-    push @files,(map {$path.q{/}.$ARG} @tmp);
-
-  };
+  arstd::expand_path(\@ar,\@files);
 
 };
 
-# ---   *   ---   *   ---
+$m->{symbol}="\Q$m->{symbol}";
 
-for my $f(@files) {
+my $ext_re=qr{\.pmc?$};
+my $sym_re=qr{$m->{symbol}\b};
+
+# ---   *   ---   *   ---
+# walk the file structure
+
+while(@files) {
+
+  my $f=shift @files;
+
+  if(-d $f) {
+
+    arstd::expand_path($f,\@files);
+    next;
+
+  } elsif(!($f=~ $ext_re)) {next};
+
+# ---   *   ---   *   ---
 
   my $program=peso::rd::parse(
     lang->perl,
@@ -78,9 +89,7 @@ for my $f(@files) {
 
   );
 
-  my $sym=qr{\Q$m->{symbol}};
   my $i=0;
-
   my @data=();
 
 # ---   *   ---   *   ---
@@ -88,7 +97,7 @@ for my $f(@files) {
   for my $s(@{$program->{cooked}}) {
 
     my ($lineno,$code)=split m/:__COOKED__:/,$s;
-    if($code=~ $sym) {
+    if($code=~ $sym_re) {
 
       push @data,sprintf
         "\e[33;22m%4i\e[0m %-54s\n",

@@ -26,6 +26,9 @@ package peso::rd;
   use lang;
   use style;
 
+  use lib $ENV{'ARPATH'}.'/lib/hacks/';
+  use inline;
+
   use peso::program;
   use peso::fndmtl;
 
@@ -253,8 +256,7 @@ sub tokenize_block($self) {
 
     if(!$self->{in_mls}) {
 
-#      if(length lang::stripline($self->{rem})) {
-if(length join NULLSTR,(split /\s+|:__NL__:/,$self->{rem})) {
+      if(length lang::stripline($self->{rem})) {
 
         $self->{mls_accum}=
           $self->{mls_accum}.
@@ -302,9 +304,7 @@ if(length join NULLSTR,(split /\s+|:__NL__:/,$self->{rem})) {
 sub mangle($self) {
 
   #$self->tokenize_block();
-#  if(length lang::stripline($self->{line})) {
-
-if(join NULLSTR,(split /\s+|:__NL__:/,$self->{line})) {
+  if(length lang::stripline($self->{line})) {
 
     $self->{line}=~
       s/([>'])%/${^CAPTURE[0]}\%/sg;
@@ -1208,6 +1208,7 @@ sub parse(
       $rd,$exp,$anchor,\@anchors
 
     );
+
   };
 
 # ---   *   ---   *   ---

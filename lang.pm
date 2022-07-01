@@ -25,13 +25,11 @@
 package lang;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks';
-  use base inlining;
+  use inlining;
 
   use v5.36.0;
   use strict;
   use warnings;
-
-  use Readonly;
 
   use List::Util qw( max );
 
@@ -793,14 +791,6 @@ sub quick_op_prec(%h) {
   };
 
   return $result;
-
-};
-
-# ---   *   ---   *   ---
-
-END {
-
-  inlining::dumpsbl(__FILE__);
 
 };
 

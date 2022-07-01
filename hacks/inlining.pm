@@ -27,6 +27,13 @@ package inlining;
   use File::Spec;
   use B::Deparse;
 
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use style;
+  use arstd;
+
+  use lib $ENV{'ARPATH'}.'/lib/hacks/';
+  use shadowlib;
+
 # ---   *   ---   *   ---
 # info
 
@@ -55,17 +62,9 @@ package inlining;
 # ---   *   ---   *   ---
 # save table to file
 
-sub dumpsbl($src) {
+sub dumpsbl() {
 
-  my $dst=$src;
-
-  $dst=~ s/[.].*$//;
-  $dst=~ s/\/([_\w][_\w\d]*)$/\/.$1/;
-
-  if( (-e $dst)
-  &&  ((-M $dst) < (-M $src))
-
-  ) {goto TAIL};
+  my $shadow={};
 
 # ---   *   ---   *   ---
 
@@ -73,11 +72,60 @@ sub dumpsbl($src) {
   for my $key(keys %$SBL) {
 
     my $symbol=$SBL->{$key};
-    my $f=$symbol->{file};
+
+    my $src=$symbol->{file};
+    my $dst=$src;
+
+# ---   *   ---   *   ---
+
+    my $need_update=0;
+    if(!exists $shadow->{$src}) {
+      $dst=shadowlib::darkside_of($src);
+
+      $need_update=(-e $dst)
+        ? ((-M $dst) > (-M $src))
+        : 1
+        ;
+
+      ;
+
+# ---   *   ---   *   ---
+# notify file update
+
+      if($need_update) {
+
+        my @ar=split m/\//,$dst;
+        my $base_name=join '/.',$ar[-1];
+
+        printf {*STDOUT}
+          arstd::pretty_tag('AR').
+          " updated ".
+          "\e[32;1m%s\e[0m\n",
+
+          $base_name;
+
+      };
+
+# ---   *   ---   *   ---
+
+      $shadow->{$src}=$dst;
+      $shadow->{$dst}=$need_update;
+
+# ---   *   ---   *   ---
+
+    } else {
+      $dst=$shadow->{$src};
+      $need_update=$shadow->{$dst};
+
+    };
+
+    if(!$need_update) {next};
+
+# ---   *   ---   *   ---
 
     # ensure we have an array
-    if(!(exists $files{$f})) {
-      $files{$f}=[];
+    if(!(exists $files{$dst})) {
+      $files{$dst}=[];
 
     };
 
@@ -114,24 +162,20 @@ sub dumpsbl($src) {
     $elem.=(join ',',@args)."\n";
     $elem.=$symbol->{code}."\n";
 
-    push @{$files{$f}},$elem;
+    push @{$files{$dst}},$elem;
 
   };
 
 # ---   *   ---   *   ---
 
-  open my $FH,'>',$dst or croak $ERRNO;
+  for my $dst(keys %files) {
+    open my $FH,'>',$dst or croak $ERRNO;
+    print $FH ''.(join q{},@{$files{$dst}})."\n";
 
-  for my $f(keys %files) {
-    print $FH ''.(join q{},@{$files{$f}})."\n";
+    close $FH;
 
   };
 
-  close $FH;
-
-# ---   *   ---   *   ---
-
-TAIL:
   $SBL={};
   return;
 
@@ -418,7 +462,7 @@ BEGIN {
 
 # ---   *   ---   *   ---
 
-sub inlined : ATTR(CODE) {
+sub UNIVERSAL::inlined:ATTR(CODE) {
 
   my (
 
@@ -434,6 +478,8 @@ sub inlined : ATTR(CODE) {
     $linenum
 
   ) = @_;
+
+# ---   *   ---   *   ---
 
   my $name=*{$symbol}{NAME};
 
@@ -487,10 +533,18 @@ sub inlined : ATTR(CODE) {
 
 # ---   *   ---   *   ---
 
-END {
+CHECK {
 
   open STDERR,'>',
   $shutup or croak $ERRNO;
+
+};
+
+# ---   *   ---   *   ---
+
+INIT {
+
+  dumpsbl();
 
 };
 

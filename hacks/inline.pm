@@ -17,25 +17,24 @@ package inline;
   use shadowlib;
 
   use Filter::Util::Call;
+  our $TABLE={};
 
 # ---   *   ---   *   ---
 
 sub import {
 
-  my ($self,$pkg)=@_;
-  my $table=shadowlib::take($pkg);
-
-  filter_add(bless {
-
-    table=>$table,
-
-  });
+  $TABLE=shadowlib::take;
+  filter_add(bless []);
 };
+
+# ---   *   ---   *   ---
 
 sub unimport {
   filter_del();
 
 };
+
+# ---   *   ---   *   ---
 
 sub filter {
 
@@ -45,14 +44,16 @@ sub filter {
   my $status=filter_read();
 
 # ---   *   ---   *   ---
+# look for symbols
 
   my $s=$_;
-  if($s=~ $self->{table}->{re}) {
+  while($s=~ $TABLE->{re}) {
 
     my $symname=${^CAPTURE[0]};
-    my $sbl=$self->{table}->{$symname};
+    my $sbl=$TABLE->{$symname};
 
 # ---   *   ---   *   ---
+# fetch args
 
     my @args=();
     if($s=~ m/${symname}\s*\((.*?)\)/) {
@@ -61,12 +62,13 @@ sub filter {
     };
 
 # ---   *   ---   *   ---
+# expand symbol and insert
 
     my $code=$sbl->paste(@args);
     $s=~ s/${symname}\s*\((.*?)\)/$code/;
-
-    print "$s\n";
     $_=$s;
+
+# ---   *   ---   *   ---
 
   };
 

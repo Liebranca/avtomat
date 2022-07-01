@@ -28,6 +28,26 @@ package shadowlib;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
+# ROM
+
+  use constant {
+
+    EXT_RE=>qr{[.].*$},
+    FNAME_RE=>qr{\/([_\w][_\w\d]*)$},
+
+  };
+
+# ---   *   ---   *   ---
+
+sub darkside_of($the_force) {
+  $the_force=~ s/${\EXT_RE}//;
+  $the_force=~ s/${\FNAME_RE}/\/\.$1/;
+
+  return $the_force;
+
+};
+
+# ---   *   ---   *   ---
 
 sub ipret_decls($line) {
 
@@ -69,68 +89,80 @@ sub ipret_decls($line) {
 
 # ---   *   ---   *   ---
 
-sub take($imports) {
+sub take() {
 
   my $table={};
 
 # ---   *   ---   *   ---
+# filter out %INC
+
+  my @imports=();
+  for my $module(keys %INC) {
+
+    my $fpath=darkside_of($INC{$module});
+    if(-e $fpath) {push @imports,$fpath};
+
+  };
+
+# ---   *   ---   *   ---
 # walk the imports list
 
-  for my $libpath(keys %$imports) {
-    my @modules=@{$imports->{$libpath}};
+  for my $fpath(@imports) {
 
-    for my $module(@modules) {
+    my @ar=split m/\//,$fpath;
+    my $x=join q{/},@ar[0..$#ar-1];
+    my $y=$ar[-1];
 
-      # ensure table is updated
-      `perl -e "use lib '$libpath';use $module;"`;
+    $x.=q{/};
+    $y=~ s/^[.]//;
 
-      my $lib="$libpath.$module";
+    # ensure table is updated
+    my $capture=`perl -e "use lib '$x';use $y;"`;
 
-      # read table
-      open my $FH,'<',
-      $lib or croak $ERRNO;
+    # read table
+    open my $FH,'<',
+    $fpath or croak $ERRNO;
 
 # ---   *   ---   *   ---
 # process entries
 
-      while(my $symname=readline $FH) {
+    while(my $symname=readline $FH) {
 
-        chomp $symname;
-        if(!length $symname) {last};
+      chomp $symname;
+      if(!length $symname) {last};
 
-        my $mem=readline $FH;chomp $mem;
-        my $args=readline $FH;chomp $args;
-        my $code=readline $FH;chomp $code;
+      my $mem=readline $FH;chomp $mem;
+      my $args=readline $FH;chomp $args;
+      my $code=readline $FH;chomp $code;
 
-        $mem=ipret_decls($mem);
-        $args=ipret_decls($args);
+      $mem=ipret_decls($mem);
+      $args=ipret_decls($args);
 
 # ---   *   ---   *   ---
 # save symbol to table
 
-        my $sbl=bless {
+      my $sbl=bless {
 
-          id=>$symname,
+        id=>$symname,
 
-          mem=>$mem,
-          code=>$code,
-          args=>$args,
+        mem=>$mem,
+        code=>$code,
+        args=>$args,
 
-        },'shadowlib::symbol';
+      },'shadowlib::symbol';
 
-        $table->{$symname}=$sbl;
+      $table->{$symname}=$sbl;
 
 # ---   *   ---   *   ---
 # close file and repeat
 
-      };
+    };
 
-      close $FH or croak $ERRNO;
+    close $FH or croak $ERRNO;
 
 # ---   *   ---   *   ---
 # give back symbol table
 
-    };
   };
 
   my @names=sort {
