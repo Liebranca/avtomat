@@ -109,17 +109,6 @@ sub take() {
 
   for my $fpath(@imports) {
 
-    my @ar=split m/\//,$fpath;
-    my $x=join q{/},@ar[0..$#ar-1];
-    my $y=$ar[-1];
-
-    $x.=q{/};
-    $y=~ s/^[.]//;
-
-    # ensure table is updated
-    my $capture=`perl -e "use lib '$x';use $y;"`;
-
-    # read table
     open my $FH,'<',
     $fpath or croak $ERRNO;
 
