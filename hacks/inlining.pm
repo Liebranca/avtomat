@@ -32,7 +32,7 @@ package inlining;
   use arstd;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
-  use shadowlib;
+  use shwl;
 
 # ---   *   ---   *   ---
 # info
@@ -44,17 +44,12 @@ package inlining;
 # global state
 
   my $DEPARSE=B::Deparse->new();
-  my $STRINGS={};
-
   my $SBL={};
 
 # ---   *   ---   *   ---
 # ROM
 
   use constant {
-
-    CUT_FMAT=>':__%s_CUT_%i__:',
-    CUT_RE=>':__\w+_CUT_(\d+)__:',
     END_RE=>qr[(};|;|\})],
 
   };
@@ -80,7 +75,7 @@ sub dumpsbl() {
 
     my $need_update=0;
     if(!exists $shadow->{$src}) {
-      $dst=shadowlib::darkside_of($src);
+      $dst=shwl::darkside_of($src);
 
       $need_update=(-e $dst)
         ? ((-M $dst) > (-M $src))
@@ -147,16 +142,9 @@ sub dumpsbl() {
     };
 
 # ---   *   ---   *   ---
+# do token replacements and append
 
-    while($symbol->{code}=~ m/(${\CUT_RE})/) {
-      my $key=${^CAPTURE[0]};
-      my $value=$STRINGS->{$key};
-
-      $symbol->{code}=~ s/${key}/$value/;
-
-    };
-
-# ---   *   ---   *   ---
+    shwl::stitch(\$symbol->{code});
 
     $elem.=(join ',',@mem)."\n";
     $elem.=(join ',',@args)."\n";
@@ -197,64 +185,14 @@ sub hashpat(@keys) {
 };
 
 # ---   *   ---   *   ---
-# utility funcs
-
-sub mcut($string,$name,$beg,$end=undef) {
-
-  # defaults
-  $end//=$beg;
-
-  $beg=qr{$beg};
-  $end=qr{$end};
-
-# ---   *   ---   *   ---
-# replace pattern with placeholder
-
-  while($string=~ m/$beg/) {
-
-    $string=~ s/($beg(.*?)$end)/#:cut;>/;
-
-    my $v=${^CAPTURE[0]};
-    my $token=q{};
-
-# ---   *   ---   *   ---
-# construct a peso-style :__token__:
-
-    # repeats aren't saved twice
-    if(exists $STRINGS->{$v}) {
-      $token=$STRINGS->{$v};
-
-    # hash->{data}=token
-    # hash->{token}=data
-    } else {
-      $token=sprintf CUT_FMAT,
-        $name,int(keys %$STRINGS);
-
-      $STRINGS->{$v}=$token;
-      $STRINGS->{$token}=$v;
-
-    };
-
-# ---   *   ---   *   ---
-# put the token in place of placeholder
-
-    $string=~ s/#:cut;>/$token/;
-
-  };
-
-  return $string;
-
-};
-
-# ---   *   ---   *   ---
 
 sub clean($string) {
 
   state $cslist=qr{(\s+,)|(,\s+)|(\s+,\s+)};
   $string=~ s/$cslist/,/sg;
 
-  $string=mcut($string,'STR',q{"});
-  $string=mcut($string,'CHR',q{'});
+  shwl::cut(\$string,'STR',shwl::STR_RE);
+  shwl::cut(\$string,'CHR',shwl::CHR_RE);
 
   return $string;
 
@@ -450,15 +388,16 @@ sub defit($tokens) {
 #
 # ---   *   ---   *   ---
 
-my $shutup;
 BEGIN {
+  $SIG{__WARN__}=sub {
+    my $warn=shift;
+    return if $warn=~
+      m/may clash with future reserved/;
 
-  $shutup=readlink "/proc/self/fd/2";
+    warn $warn;
 
-  open STDERR,'>',
-  File::Spec->devnull() or die $ERRNO;
-
-};
+  };
+}
 
 # ---   *   ---   *   ---
 
@@ -528,15 +467,6 @@ sub UNIVERSAL::inlined:ATTR(CODE) {
   delete $h->{in_init};
 
   delete $SBL->{-CURRENT};
-
-};
-
-# ---   *   ---   *   ---
-
-CHECK {
-
-  open STDERR,'>',
-  $shutup or croak $ERRNO;
 
 };
 

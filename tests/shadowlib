@@ -4,13 +4,22 @@
 
 # ---   *   ---   *   ---
 
-use lib $ENV{'ARPATH'}.'/lib/';
-use lang;
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use lang;
 
-use lib $ENV{'ARPATH'}.'/lib/hacks/';
-use inline;
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/lib/hacks/';
+  use inline;
+
+# ---   *   ---   *   ---
 
 my $s="hi           \n";
-print length (lang::stripline($s))."\n";
+print length (lang::stripline(
+
+
+  $s))."\n";
 
 # ---   *   ---   *   ---

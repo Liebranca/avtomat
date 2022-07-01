@@ -70,10 +70,12 @@ sub update {
 
   update(
 
-    [ '/hacks/inlining.pm',
+    [ '/hacks/shwl.pm',
+      '/hacks/lyfil.pm',
+      '/hacks/inlining.pm',
       '/hacks/inline.pm',
-      '/hacks/shadowlib.pm',
 
+      '/cli.pm',
       '/lang.pm',
       '/style.pm',
       '/arstd.pm',

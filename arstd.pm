@@ -72,6 +72,22 @@ sub expand_path($src,$dst) {
 };
 
 # ---   *   ---   *   ---
+
+sub arrshf($ar,$idex) {
+
+  my $max=@{$ar}-1;
+
+  while($idex<$max) {
+    $ar->[$idex+1]=$ar->[$idex];
+    $idex++;
+
+  };
+
+  pop @{$ar};
+
+};
+
+# ---   *   ---   *   ---
 # wraps word in tags with cute colors
 
 sub pretty_tag($s) {
