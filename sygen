@@ -16,9 +16,6 @@
   use strict;
   use warnings;
 
-  use lib $ENV{'ARPATH'}.'/include/';
-  require 'AR.ph';
-
 # ---   *   ---   *   ---
 
 my $srcpath=$ENV{'ARPATH'}.'/avtomat';

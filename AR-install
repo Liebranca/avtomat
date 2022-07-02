@@ -5,31 +5,31 @@
 
 # ---   *   ---   *   ---
 
-BEGIN {
-
-  use Cwd qw(abs_path);
-
-  my @ar=split '/',abs_path(__FILE__);
-  my $d=join '/',@ar[0..$#ar-1];
-
-  push @INC,$d;
-  require 'AR.ph';
-
-  my $dst=$ENV{'ARPATH'}.'/include/AR.ph';
-  my $src=$d.'/AR.ph';
-
-  my $do_copy=!(-e $dst);
-
-  $do_copy=(!$do_copy)
-    ? !((-M $dst)<(-M $src))
-    : $do_copy;
-
-  `cp $src $dst`;
-
-  # regenerate defs
-  print `$ENV{'ARPATH'}./avtomat/sygen`;
-
-};
+#BEGIN {
+#
+#  use Cwd qw(abs_path);
+#
+#  my @ar=split '/',abs_path(__FILE__);
+#  my $d=join '/',@ar[0..$#ar-1];
+#
+#  push @INC,$d;
+#  require 'AR.ph';
+#
+#  my $dst=$ENV{'ARPATH'}.'/include/AR.ph';
+#  my $src=$d.'/AR.ph';
+#
+#  my $do_copy=!(-e $dst);
+#
+#  $do_copy=(!$do_copy)
+#    ? !((-M $dst)<(-M $src))
+#    : $do_copy;
+#
+#  `cp $src $dst`;
+#
+#  # regenerate defs
+#  print `$ENV{'ARPATH'}./avtomat/sygen`;
+#
+#};
 
 # ---   *   ---   *   ---
 # deps
@@ -68,72 +68,13 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 
   'NAME'  =>  'avtomat',
 
-  );$config{'PREB'}=q(
-    my $ex=$ENV{'ARPATH'}.'/avtomat/AR.ph';
-    print `$ex`;
+  );
+
+  $config{'PREB'}=q(
+#    my $ex=$ENV{'ARPATH'}.'/avtomat/AR.ph';
+#    print `$ex`;
 
   );avt::strconfig \%config;
-
-};
-
-# ---   *   ---   *   ---
-# help
-
-{ my %config=(
-
-  'NAME'  =>  'help',
-
-  'XCPY'  =>  'help*,tkmny*',
-  'LCPY'  =>  'cash.pm,board.pm,sector.pm,vec4.pm',
-
-  );avt::strconfig \%config;
-
-};
-
-# ---   *   ---   *   ---
-# ft8
-
-{ my @deps=(
-
-    ['rw-psf',
-      avt->GITHUB.'/talamus/rw-psf',
-      undef
-
-    ],
-
-  );avt::depchk "$root/ft8",\@deps;
-
-  my %config=(
-
-  'NAME'  =>  'ft8',
-
-  'XCPY'  =>  'ft8*,writepsf*',
-  'LCPY'  =>  'jojft.pm',
-
-# ---   *   ---   *   ---
-# post-build calls for ft8
-
-  );$config{'POST'}=q(
-
-    if(!(-e avt::root."/fonts")) {
-
-      avt::ex 'ft8',[
-        '-g','8,16,24',
-
-        avt::root."/ft8/lycon",
-        avt::root."/fonts"
-
-      ],'';
-
-      avt::ex 'ft8',[
-        '-x','8,16,24','lycon',
-
-        avt::root."/fonts/",
-        avt::root."/fonts/X11"
-
-      ],'';
-
-    };);avt::strconfig \%config;
 
 };
 
@@ -148,7 +89,6 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
   'BUILD' =>  'x:ce',
 
   'XCPY'  =>  'wpid',
-  'LCPY'  =>  'genks.pm',
   'XPRT'  =>  'keyboard.h,clock.h,arstd.h',
 
   'GENS'  =>  'chartab.h:chartab*,'.
@@ -183,6 +123,63 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 };
 
 # ---   *   ---   *   ---
+# help
+
+{ my %config=(
+
+  'NAME'  =>  'help',
+  'XCPY'  =>  'help*,tkmny*',
+
+  );avt::strconfig \%config;
+
+};
+
+# ---   *   ---   *   ---
+# ft8
+
+{ my @deps=(
+
+    ['rw-psf',
+      avt->GITHUB.'/talamus/rw-psf',
+      undef
+
+    ],
+
+  );avt::depchk "$root/ft8",\@deps;
+
+  my %config=(
+
+  'NAME'  =>  'ft8',
+  'XCPY'  =>  'ft8*,writepsf*',
+
+# ---   *   ---   *   ---
+# post-build calls for ft8
+
+  );$config{'POST'}=q(
+
+    if(!(-e avt::root."/fonts")) {
+
+      avt::ex 'ft8',[
+        '-g','8,16,24',
+
+        avt::root."/ft8/lycon",
+        avt::root."/fonts"
+
+      ],'';
+
+      avt::ex 'ft8',[
+        '-x','8,16,24','lycon',
+
+        avt::root."/fonts/",
+        avt::root."/fonts/X11"
+
+      ],'';
+
+    };);avt::strconfig \%config;
+
+};
+
+# ---   *   ---   *   ---
 # sin
 
 { my %config=(
@@ -212,19 +209,9 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 };
 
 # ---   *   ---   *   ---
-# test
 
-{ my %config=(
-
-  'NAME'  =>  'test',
-  'BUILD' =>  'x:test',
-
-  'GENS'  =>  'keymap.h:[keymap*,lib/genks.pm]',
-  'LIBS'  =>  'chasm',
-
-  );avt::strconfig \%config;
-
-};
+`rm -r $root/lib/* 2> /dev/null`;
+`rm -r $root/trashcan/* 2> /dev/null`;
 
 # ---   *   ---   *   ---
 # install packages
@@ -233,10 +220,17 @@ avt::scan();
 avt::config();
 avt::make();
 
-exit;
+my $DASH_I=
+  "-I$root/avtomat".q{ }.
+  "-I$root/avtomat/hacks".q{ }.
+  "-I$root/avtomat/peso".q{ }.
+  "-I$root/avtomat/langdefs".q{ }
+
+;
 
 for my $mod(avt::MODULES) {
-  print `$root/$mod/avto`;
+  print `perl $DASH_I $root/$mod/avto`;
+  last;
 
 };
 

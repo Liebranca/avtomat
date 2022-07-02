@@ -46,12 +46,15 @@ package MAM;
     ['no_comments','-nc','--no_comments'],
     ['make_deps','-md','--make_deps'],
 
+    ['rap','-r','--rap']
+
   ];
 
 # ---   *   ---   *   ---
 # global state
 
   my $SETTINGS={};
+  my $KILLSWITCH=0;
 
 # ---   *   ---   *   ---
 
@@ -63,7 +66,6 @@ sub import {
   $SETTINGS->take(@opts);
 
   my ($pkg,$fname,$lineno)=(caller);
-print "$fname\n";
   my $self=lyfil::nit($fname,$lineno);
 
   filter_add($self);
@@ -82,15 +84,55 @@ sub unimport {
 sub filter {
 
   my ($self)=@_;
+  if($KILLSWITCH) {return 0};
 
   my ($pkg,$fname,$lineno)=(caller);
   my $status=filter_read();
 
-  $self->logline($_);
+  $self->logline($_);#$_='';
 
-  if(!$status) {
+  if(!$status && !$KILLSWITCH) {
+
     $self->propagate();
     shwl::stitch(\$self->{chain}->[0]->{raw});
+
+# ---   *   ---   *   ---
+
+    if($SETTINGS->{rap}!=NULL) {
+
+
+      if(!($self->{raw}=~ s{
+
+        \{'ARPATH'\}[.]'/lib
+
+      } {
+
+        \{'ARPATH'\}.'/avtomat
+
+      }sxg))
+
+{exit};
+
+      $_=$self->{raw};
+
+      $KILLSWITCH=1;
+      $status=1;
+
+# ---   *   ---   *   ---
+
+    } else {
+
+      $self->{raw}=~ s{
+
+        \{'ARPATH'\}
+
+        [.]
+
+        '/avtomat'
+
+      } {\{'ARPATH'\}.'/lib'}sxg;
+
+    };
 
     $self->prich();
 
@@ -99,7 +141,7 @@ sub filter {
 
     if($SETTINGS->{make_deps}!=NULL) {
 
-      my $deps=shwl::DEPS_STR;
+      my $deps='>>'.shwl::DEPS_STR;
       my $re=abs_path(glob(q{~}));
 
       $re=qr{$re};
@@ -113,7 +155,7 @@ sub filter {
 
       };
 
-      $deps.=shwl::DEPS_STR;
+      $deps.='>>'.shwl::DEPS_STR;
       print $deps;
 
     };

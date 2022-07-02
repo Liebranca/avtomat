@@ -15,6 +15,8 @@ BEGIN {
 
   };
 
+  chdir $ENV{'ARPATH'}.'/avtomat/';
+
 # ---   *   ---   *   ---
 
 # in: file list,src path,dst path
@@ -25,6 +27,7 @@ sub update {
   my $ref=shift;
   my $src=shift;
   my $dst=shift;
+  my $md=shift;
 
   for my $f(@$ref) {
 
@@ -48,8 +51,75 @@ sub update {
 
     };
 
-    if($do_cp) {
-      `cp $og $cp`;
+    if($do_cp || $md) {
+      if(!$md) {`cp $og $cp`}
+
+# ---   *   ---   *   ---
+
+      else {
+
+        my $ex=
+          "perl -c".q{ }.
+
+          "-I$ENV{ARPATH}/avtomat/".q{ }.
+          "-I$ENV{ARPATH}/avtomat/hacks".q{ }.
+          "-I$ENV{ARPATH}/avtomat/peso".q{ }.
+          "-I$ENV{ARPATH}/avtomat/langdefs".q{ }.
+
+          "-MMAM=-md".q{ }.
+
+          "$og";
+
+        my $out=`$ex`;
+
+# ---   *   ---   *   ---
+
+        my $re=qr{>>:__DEPS__:};
+        my $depstr;
+
+        if($out=~ s/>>$re//) {
+          $depstr=${^CAPTURE[0]};
+
+        } else {
+          print {*STDERR} "Can't procout $og\n";
+
+        };
+
+# ---   *   ---   *   ---
+
+        my $obj=$cp;
+        my $pmd=$og;
+        $pmd=~ s[$src][${src}/trashcan];
+        $pmd.='d';
+
+        for my $fname($obj,$pmd) {
+          if(!(-e $fname)) {
+
+            my @tmp=split m{/},$fname;
+            my $path=join q{/},
+              @tmp[0..$#tmp-1];
+
+            `mkdir -p $path`;
+
+          };
+        };
+
+# ---   *   ---   *   ---
+
+        my $FH;
+        open $FH,'+>',$obj or die "$!";
+        print {$FH} $out;
+
+        close $FH;
+
+        open $FH,'+>',$pmd or die "$!";
+        print {$FH} $depstr;
+
+        close $FH;
+
+# ---   *   ---   *   ---
+
+      };
 
       print
 
@@ -57,9 +127,7 @@ sub update {
         "updated \e[32;1m$f\e[0m\n";
 
     };
-
   };
-
 };
 
 # ---   *   ---   *   ---
@@ -70,7 +138,8 @@ sub update {
 
   update(
 
-    [ '/hacks/shwl.pm',
+    [ '/MAM.pm',
+      '/hacks/shwl.pm',
       '/hacks/lyfil.pm',
       '/hacks/inlining.pm',
       '/hacks/inline.pm',
@@ -97,7 +166,7 @@ sub update {
       '/stack.pm',
       '/avt.pm'
 
-    ],$root.'/avtomat',$path
+    ],$root.'/avtomat',$path,1
 
   );
 
@@ -114,25 +183,17 @@ sub update {
       '/plps/peso.lps',
       '/plps/c.lps',
 
-    ],$root.'/avtomat',$path
+    ],$root.'/avtomat',$path,0
 
   );
 
 # ---   *   ---   *   ---
-# check bins
+# this effen script...
 
-  $path=$ENV{'ARPATH'}.'/bin';
-  if(! (-e $path) ) { `mkdir -p $path`; };
-
-  update(
-
-    [ '/MAM.pm',
-
-    ],$root.'/avtomat',$path
-
-  );
+  print `$ENV{'ARPATH'}'/avtomat/sygen'`;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

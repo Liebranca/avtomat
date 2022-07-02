@@ -1,0 +1,5 @@
+lang::stripline
+$re*=>qr/\s+|:__NL__:/u
+$s*=>$_[0]
+{ join '',split(/$re/u,$s,0); } 
+

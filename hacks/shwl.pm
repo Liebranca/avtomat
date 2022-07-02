@@ -21,6 +21,10 @@ package shwl;
   use English qw(-no_match_vars);
   use Carp;
 
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use style;
+  use arstd;
+
 # ---   *   ---   *   ---
 # info
 

@@ -318,13 +318,12 @@ sub wfind {
 # ---   *   ---   *   ---
 
 # finds .lib files
-sub libsearch {
+sub libsearch($lbins,$lsearch,$deps) {
 
-  my @lbins=@{ $_[0] };
-  my @lsearch=@{ $_[1] };
+  my @lbins=@$lbins;
+  my @lsearch=@$lsearch;
 
-  my $deps=$_[2];
-  my $found='';
+  my $found=NULLSTR;
 
 # ---   *   ---   *   ---
 
@@ -338,8 +337,8 @@ sub libsearch {
 
         )[0];chomp $ndeps;
 
-        $ndeps=join '|',(
-          lang::ws_split(' ',$ndeps)
+        $ndeps=join q{|},(
+          lang::ws_split(SPACE_RE,$ndeps)
 
         );
 
@@ -348,49 +347,63 @@ sub libsearch {
         # filter out the duplicates
         my @matches=grep(
           m/${ ndeps }/,
-          lang::ws_split(' ',$deps)
+          lang::ws_split(SPACE_RE,$deps)
 
         );while(@matches) {
           my $match=shift @matches;
           $ndeps=~ s/${ match }\|?//;
 
         };$ndeps=~ s/\|/ /g;
-        $found.=' '.$ndeps.' ';last;
+
+        $found.=q{ }.$ndeps.q{ };
+        last;
+
+# ---   *   ---   *   ---
 
       };
     };
+  };
 
-  };return $found;
+  return $found;
+
 };
 
 # ---   *   ---   *   ---
 
 # recursively appends lib dependencies to LIBS var
-sub libexpand {
+sub libexpand($LIBS) {
 
-  my $LIBS=shift;
   my $ndeps=$LIBS;
-
   my $deps='';my $i=0;
   my @lsearch=@{ $CACHE{-LIB} };
+
+# ---   *   ---   *   ---
 
   while(1) {
     my @lbins=();
 
+    $ndeps=~ s/^\s+//;
+
     # get search path(s)
-    for my $mlib(split(' ',$ndeps)) {
+    for my $mlib(split(SPACE_RE,$ndeps)) {
 
       if((index $mlib,'-L')==0) {
 
         my $s=substr $mlib,2,length $mlib;
-        my $lsearch=join ' ',@lsearch;
+        my $lsearch=join q{ },@lsearch;
 
-        if(!($lsearch=~ m/${ s }/)) {
+# ---   *   ---   *   ---
+
+        if(!($lsearch=~ m/${s}/)) {
           push @lsearch,$s;
 
-        };next;
+        };
+
+        next;
 
       };
+
+# ---   *   ---   *   ---
 
       # append found libs to bin search
       $mlib=substr $mlib,2,length $mlib;
@@ -404,7 +417,7 @@ sub libexpand {
     $ndeps=libsearch(\@lbins,\@lsearch,$deps);
 
     # stop when none found
-    if(!(length $ndeps)) {last;};
+    if(!(length $ndeps)) {last};
 
     # else append and start over
     $deps=$ndeps.' '.$deps;
@@ -414,19 +427,21 @@ sub libexpand {
 # ---   *   ---   *   ---
 
   # append deps to libs
-  $deps=join '|',(split(' ',$deps));
+  $deps=join q{|},(split(SPACE_RE,$deps));
 
   # filter out the duplicates
   my @matches=grep(
-    m/${ deps }/,split(' ',$LIBS)
+    m/${ deps }/,split(SPACE_RE,$LIBS)
 
-  );while(@matches) {
+  );
+
+  while(@matches) {
     my $match=shift @matches;
     $deps=~ s/${ match }\|?//;
 
   };$deps=~ s/\|/ /g;
 
-  $LIBS.=' '.$deps.' ';
+  $LIBS.=q{ }.$deps.q{ };
   return $LIBS;
 
 };
@@ -863,10 +878,11 @@ sub symrd {
       $line=~ s/\://;
 
       # transform into path to equivalent object file
-      $line=~ s/\.[\w|\d]*/\.o/;
+      $line=~ s/^\./trashcan/;
+      $line=~ s/\.[\w|\d]*$/\.o/;
       $line=~ s/${ CACHE{-ROOT} }//;
 
-      $line= "${ CACHE{-ROOT} }/trashcan/$line";
+      $line= "${ CACHE{-ROOT} }/$line";
 
       push @{ $h{'files'} },$line;
       next;
@@ -1036,15 +1052,14 @@ sub ctopl {
 
     # recursively get dependencies
     my $O_LIBS='-l'.( join ' -l',@libs );
-    unshift @ARGV,"$CACHE{-ROOT}/lib/";
-    stlib();
+    stlib("$CACHE{-ROOT}/lib/");
 
     my $LIBS=avt::libexpand($O_LIBS);
     my $OBJS=join ' ',@o_files;
 
     # link
-    my $call="gcc -shared ".
-      (avt->OFLG.' '.avt->LFLG)." ".
+    my $call='gcc -shared'.q{ }.
+      OFLG.q{ }.LFLG.q{ }.
       "-m64 $OBJS $LIBS -o $sopath";
 
     `$call`;
@@ -2123,7 +2138,6 @@ EOF
           lang::ws_split(COLON_RE,shift @l);
 
         $res=~ s/\\//g;
-
         @l=(@l) ? @l : ();
 
         $gens_res{$src}=[$res,\@l];
@@ -2623,8 +2637,8 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
        "$M->{INCLUDES} $PFLG $OBJS $LIBS ".
        " -o $M->{MAIN}";
 
-      `$call`;
-      `echo "$LIBS" > $M->{ILIB}`;
+#      `$call`;
+#      `echo "$LIBS" > $M->{ILIB}`;
 
 # ---   *   ---   *   ---
 # for executables we spawn a shadow lib
@@ -2705,39 +2719,59 @@ sub pcc($src,$obj,$pmd) {
 
   if($do_build) {
 
-    print "$src\n";
-
     my $ex=
-      "perl".q{ }.
-      "-c -I$ENV{ARPATH}/bin/".q{ }.
-      "-MMAM=-md".q{ }
+      "perl -c".q{ }.
 
-    ;my $out=`$ex $src 2> /dev/null`;
+      "-I$ENV{ARPATH}/avtomat/".q{ }.
+      "-I$ENV{ARPATH}/avtomat/hacks".q{ }.
+      "-I$ENV{ARPATH}/avtomat/peso".q{ }.
+      "-I$ENV{ARPATH}/avtomat/langdefs".q{ }.
+
+      "-MMAM=-md".q{ }.
+
+      "$src";
+
+    my $out=`$ex`;
 
 # ---   *   ---   *   ---
 
     my $re=shwl::DEPS_RE;
-    $out=~ $re;
+    my $depstr;
 
-    my $depstr=${^CAPTURE[0]};
-    if(!defined $depstr) {
+    if($out=~ s/>>$re//) {
+      $depstr=${^CAPTURE[0]};
+
+    } else {
+
+      print "$out\n";
+      print "$src\n";
+      exit;
+
       goto TAIL;
 
     };
 
 # ---   *   ---   *   ---
 
-    $depstr=~ /\A\n/;chomp $depstr;
+    $depstr=~ s/\A\n//;chomp $depstr;
 
-    if(!(-e $pmd)) {
-      my $path=dirof($pmd);
-      `mkdir -p $path`;
+    for my $fname($obj,$pmd) {
+      if(!(-e $fname)) {
+        my $path=dirof($fname);
+        `mkdir -p $path`;
 
+      };
     };
 
 # ---   *   ---   *   ---
 
-    open my $FH,'+>',$pmd or croak "Can't open $pmd";
+    my $FH;
+    open $FH,'+>',$obj or croak STRERR;
+    print {$FH} $out;
+
+    close $FH;
+
+    open $FH,'+>',$pmd or croak STRERR;
     print {$FH} $depstr;
 
     close $FH;
