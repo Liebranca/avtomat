@@ -123,7 +123,7 @@ lang::def::nit(
     my $preproc=\lang::CUT_TOKEN_RE;
     $preproc=~ s/\[A-Z\]\+/PREPROC[A-Z]/;
 
-    while($rd->{-LINE}=~ s/^(${preproc})//) {
+    while($rd->{line}=~ s/^(${preproc})//) {
       push @{$rd->exps},{body=>$1,has_eb=>0};
 
     };

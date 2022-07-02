@@ -19,14 +19,12 @@
 
   use English qw(-no_match_vars);
 
-  use lib $ENV{'ARPATH'}.'/avtomat/';
-  use cli;
-
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use style;
   use arstd;
 
+  use cli;
   use lang;
 
   use langdefs::perl;

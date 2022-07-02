@@ -69,7 +69,7 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
   'NAME'  =>  'avtomat',
 
   );$config{'PREB'}=q(
-    my $ex=avt::dirof(__FILE__).'/AR.ph';`$ex`;
+    my $ex=$ENV{'ARPATH'}.'/avtomat/AR.ph';`$ex`;
 
   );avt::strconfig \%config;
 
@@ -232,8 +232,8 @@ avt::scan();
 avt::config();
 avt::make();
 
-for my $sub(avt::MODULES) {
-  print `$root/$sub/avto`;
+for my $mod(avt::MODULES) {
+  print `$root/$mod/avto`;
 
 };
 

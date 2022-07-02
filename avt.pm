@@ -18,6 +18,9 @@ package avt;
   use strict;
   use warnings;
 
+  use Carp;
+  use English qw(-no_match_vars);
+
   use Cwd qw(abs_path getcwd);
   use File::Spec;
 
@@ -681,13 +684,12 @@ sub file_sbl($f) {
 
   for my $exp(@{$program->{cooked}}) {
 
+    $exp=(split m/:__COOKED__:/,$exp)[1];
+
     # is exp a symbol declaration?
     my $tree=$lang->plps_match(
 
-      $lang->{-PLPS}
-      ->{defs}->{'sbl_decl'},
-
-      $exp
+      'sbl_decl',$exp
 
     );
 
@@ -727,7 +729,9 @@ sub file_sbl($f) {
 
       #if(!$indlvl) {$indlvl='';};
 
-      $indlvl=join '',(split ',',$indlvl);
+      $indlvl=join NULLSTR,
+        (split COMMA_RE,$indlvl);
+
       $spec=(length $spec)
         ? "$spec "
         : ''
@@ -1264,6 +1268,20 @@ sub dirof($path) {
 
 };
 
+# ^ oh yes
+sub parof($path) {
+  return dirof(dirof($path));
+
+};
+
+# ---   *   ---   *   ---
+
+sub relto($par,$to) {
+  my $full="$par$to";
+  return File::Spec->abs2rel($full,$par);
+
+};
+
 # ---   *   ---   *   ---
 # in: path to add to PATH, names to include
 # returns a perl snippet as a string to be eval'd
@@ -1464,7 +1482,7 @@ sub scan {
   while(@ar) {
 
     my $mod=shift @ar;
-    my $excluded;
+    my $excluded=undef;
 
     if(defined $ar[0]) {
 
@@ -1483,17 +1501,19 @@ sub scan {
 
       };
 
+    };
+
 # ---   *   ---   *   ---
 
-      if($excluded) {
+    $excluded//=NULLSTR;
 
-        $excluded=join '|',(
-          lang::ws_split(',',$excluded)
+    $excluded='('.(join q{|},
+      'nytprof','docs','tests',
+      lang::ws_split(COMMA_RE,$excluded)
 
-        );
-      };
+    ).')';
 
-    };
+    $excluded=qr{$excluded};
 
 # ---   *   ---   *   ---
 
@@ -1517,11 +1537,9 @@ sub scan {
     # paths/dir checks
     for my $sub (keys %h) {
 
-      if($excluded) {
-        if(grep m/${ excluded }/,$sub) {
-          $len--;next;
+      if(defined $excluded && $sub=~ m/$excluded/) {
+        $len--;next;
 
-        };
       };
 
       # ensure directores exist
@@ -1708,14 +1726,18 @@ sub getset {
 # ---   *   ---   *   ---
 
 # gives up social life for programming
-sub strlist {
-  my @l=@{ $_[0] };
+sub strlist($ar,$make_ref) {
 
-  if(!@l) {return '();'};
+  my @l=@$ar;
+  my ($beg,$end)=($make_ref)
+    ? ('[',']') : ('(',')');
+
+  if(!@l) {return "$beg$end"};
+
   for(my $x=0;$x<@l;$x++) {
     $l[$x]=sqwrap $l[$x];
 
-  };return '('.( join ',',@l ).');';
+  };return $beg.( join q{,},@l ).$end;
 };
 
 # makes file list out of gcc .d files
@@ -1746,32 +1768,90 @@ sub shpath {
 
 };
 
+my %maker_defaults=(
+
+  FSWAT=>NULLSTR,
+  LMODE=>NULLSTR,
+  ROOT=>NULLSTR,
+  MKWAT=>NULLSTR,
+
+  BIN=>NULLSTR,
+  MAIN=>NULLSTR,
+  MLIB=>NULLSTR,
+  ILIB=>NULLSTR,
+  TRSH=>NULLSTR,
+  LIBS=>NULLSTR,
+  INCLUDES=>NULLSTR,
+  SRCS=>[],
+  XPRT=>[],
+  OBJS=>[],
+  GENS=>[],
+  FCPY=>[],
+
+);
+
+# ---   *   ---   *   ---
+
+sub new_maker(%attrs) {
+
+  for my $key(keys %maker_defaults) {
+    $attrs{$key}//=$maker_defaults{$key};
+
+  };
+
+# ---   *   ---   *   ---
+
+  my $self=bless {
+
+    FSWAT=>$attrs{FSWAT},
+    LMODE=>$attrs{LMODE},
+    ROOT=>$attrs{ROOT},
+    MKWAT=>$attrs{MKWAT},
+
+    BIN=>$attrs{BIN},
+    MAIN=>$attrs{MAIN},
+    MLIB=>$attrs{MLIB},
+    ILIB=>$attrs{ILIB},
+    TRSH=>$attrs{TRSH},
+    LIBS=>$attrs{LIBS},
+    INCLUDES=>$attrs{INCLUDES},
+    SRCS=>$attrs{SRCS},
+    XPRT=>$attrs{XPRT},
+    OBJS=>$attrs{OBJS},
+    GENS=>$attrs{GENS},
+    FCPY=>$attrs{FCPY},
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
 # emits builders
 sub make {
 
   # add these directories to search path
   # ... but only if they exist, obviously
 
-  my $base_lib=(-e $CACHE{-ROOT}.'/lib')
-    ? '-L'.$CACHE{-ROOT}.'/lib'
-    : ''
-    ;
+  my $root=$CACHE{-ROOT};
 
-  my $base_include=(-e $CACHE{-ROOT}.'/include')
-    ? '-I'.$CACHE{-ROOT}.'/include'
-    : ''
-    ;
+  my $base_lib=(-e "$root/lib")
+    ? '-L./lib' : NULLSTR;
 
-  my $bind=$CACHE{-ROOT}.'/bin';
-  my $libd=$CACHE{-ROOT}.'/lib';
+  my $base_include=(-e "$root/include")
+    ? '-I./include' : NULLSTR;
+
+  my $bind='./bin';
+  my $libd='./lib';
 
 # ---   *   ---   *   ---
 
   # fetch dir/file list
-  my %modules=%{ read_modules($CACHE{-ROOT}) };
+  my %modules=%{ read_modules($root) };
 
   # fetch config
-  my @config=split "\n",`cat $CACHE{-ROOT}/.avto-config`;
+  my @config=split "\n",
+    `cat $root/.avto-config`;
 
   # now iter
   while(@config) {
@@ -1790,12 +1870,14 @@ sub make {
 
       $defs
 
-    )=lang::ws_split(' ',shift @config);
+    )=lang::ws_split(SPACE_RE,shift @config);
 
     my @paths=@{ $modules{$name} };
 
-    open FH,'>',"$CACHE{-ROOT}/$name/avto" or die $!;
-    my $FILE='';
+    open FH,'>',
+      "$root/$name/avto" or croak $ERRNO;
+
+    my $FILE=NULLSTR;
 
     $FILE.='#!/usr/bin/perl'."\n";
 
@@ -1815,86 +1897,117 @@ sub make {
     # write notice and vars
     $FILE.=note('IBN-3DILA','#');
 
+# ---   *   ---   *   ---
+
+$FILE.=
+
+'# ---   *   ---   *   ---'.
+
+"\n\n".
+
+'BEGIN {'."\n\n".
+  $CACHE{-PRE_BUILD}->{$name}.';'.
+  "\n\n".
+
+'};';
+
     $FILE.=<<'EOF'
+
+# ---   *   ---   *   ---
+#deps
+
+  use 5.36.0;
   use strict;
   use warnings;
+
   use lib $ENV{'ARPATH'}.'/lib/';
   use avt;
 
-  my $PFLG='-m64';
-  my $DFLG='';
+# ---   *   ---   *   ---
+
+my $PFLG='-m64';
+my $DFLG='';
+
+# ---   *   ---   *   ---
+
+my $M=avt::new_maker(
 
 EOF
-;   $FILE.="\nmy \$FSWAT=\"$name\";\n";
+;   $FILE.="  FSWAT=>\"$name\",\n";
 
     my ($lmode,$mkwat)=($build ne CONFIG_DEFAULT)
-      ? lang::ws_split(':',$build)
-      : ('','')
+      ? lang::ws_split(COLON_RE,$build)
+      : (NULLSTR,NULLSTR)
       ;
 
     if($lmode eq 'so') {
       $lmode='-shared ';
 
     } elsif($lmode ne 'ar') {
-      $lmode='';
+      $lmode=NULLSTR;
 
     };
 
-    $FILE.="my \$LMODE='$lmode';\n";
+    $FILE.="  LMODE=>'$lmode',\n";
 
-    $FILE.="my \$ROOT=\"$ENV{'ARPATH'}\";\n";
-    $FILE.="my \$MKWAT=\"$mkwat\";\n\n";
-    $FILE.="my \$BIN=\"$bind\";\n";
+    $FILE.='  ROOT=>avt::parof(__FILE__)'.",\n";
+
+    $FILE.="  MKWAT=>\"$mkwat\",\n\n";
+    $FILE.="  BIN=>\"$bind\",\n";
 
     if($mkwat) {
 
       if($lmode eq 'ar') {
-        $FILE.="my \$MAIN=\"$libd/lib$mkwat.a\";\n";
-        $FILE.="my \$MLIB=undef;\n";
-        $FILE.="my \$ILIB=\"$libd/.$mkwat\";\n";
+        $FILE.="  MAIN=>\"$libd/lib$mkwat.a\",\n";
+        $FILE.="  MLIB=>undef;\n";
+        $FILE.="  ILIB=>\"$libd/.$mkwat\",\n";
 
       } elsif($lmode eq '-shared ') {
-        $FILE.="my \$MAIN=\"$libd/lib$mkwat.so\";\n";
-        $FILE.="my \$MLIB=undef;\n";
-        $FILE.="my \$ILIB=\"$libd/.$mkwat\";\n";
+        $FILE.="  MAIN=>\"$libd/lib$mkwat.so\",\n";
+        $FILE.="  MLIB=>undef,\n";
+        $FILE.="  ILIB=>\"$libd/.$mkwat\",\n";
 
       } else {
-        $FILE.="my \$MAIN=\"$bind/$mkwat\";\n";
-        $FILE.="my \$MLIB=\"$libd/lib$mkwat.a\";\n";
-        $FILE.="my \$ILIB=\"$libd/.$mkwat\";\n";
+        $FILE.="  MAIN=>\"$bind/$mkwat\",\n";
+        $FILE.="  MLIB=>\"$libd/lib$mkwat.a\",\n";
+        $FILE.="  ILIB=>\"$libd/.$mkwat\",\n";
 
       };
 
     } else {
-      $FILE.="my \$MAIN=undef;\n";
-      $FILE.="my \$MLIB=undef;\n";
-      $FILE.="my \$ILIB=undef;\n";
+      $FILE.="  MAIN=>undef,\n";
+      $FILE.="  MLIB=>undef,\n";
+      $FILE.="  ILIB=>undef,\n";
 
     };
 
-    $FILE.="my \$TRSH=\"$ENV{'ARPATH'}".
-      "/trashcan/$name\";\n";
+    $FILE.="  TRSH=>'.".
+      "/trashcan/$name',\n";
 
 # ---   *   ---   *   ---
 
     # parse libs listing
     { my @libs=($libs ne CONFIG_DEFAULT)
-      ? lang::ws_split(',',$libs)
+      ? lang::ws_split(COMMA_RE,$libs)
       : ()
       ;
 
-      for(my $x=0;$x<@libs;$x++) {
-        if((index $libs[$x],'/')>=0) {
-          $libs[$x]='-L'.$libs[$x];
+      for my $lib(@libs) {
+        if((index $lib,q{/})>=0) {
+          $lib='-L'.$lib;
 
         } else {
-          $libs[$x]='-l'.$libs[$x];
+          $lib='-l'.$lib;
 
         };
       };
 
-      $libs=$base_lib.' '.(join ' ',@libs);
-      $FILE.="my \$LIBS=\"$libs\";\n";
+      $libs=$base_lib.q{ }.(
+        join { },@libs
+
+      );
+
+      $FILE.="  LIBS=>\"$libs\",\n";
 
     };
 
@@ -1902,43 +2015,44 @@ EOF
 
     # parse includes
     $incl=($incl ne CONFIG_DEFAULT)
-      ? '-I'.(join ' -I',
-          (lang::ws_split(',',$incl))
+      ? q{-I./}.(join q{ -I./},
+          (lang::ws_split(COMMA_RE,$incl))
 
         )
 
-      : ''
+      : NULLSTR
       ;
 
     $incl=$base_include." $incl";
-
-    $FILE.="my \$INCLUDES=\"$incl -I\$ROOT\";\n";
+    $FILE.="  INCLUDES=>\"$incl -I".
+      './'."\",\n";
 
 # ---   *   ---   *   ---
 
     # get list copy list A
     $xcpy=($xcpy ne CONFIG_DEFAULT)
-      ? join '|',(lang::ws_split(',',$xcpy))
-      : ''
+      ? join q{|},(lang::ws_split(COMMA_RE,$xcpy))
+      : NULLSTR
       ;
 
     # get list copy list B
     $lcpy=($lcpy ne CONFIG_DEFAULT)
-      ? join '|',(lang::ws_split(',',$lcpy))
-      : ''
+      ? join q{|},(lang::ws_split(COMMA_RE,$lcpy))
+      : NULLSTR
       ;
 
     # get exports list
     $xprt=($xprt ne CONFIG_DEFAULT)
-      ? join '|',(lang::ws_split(',',$xprt))
-      : ''
+      ? join q{|},(lang::ws_split(COMMA_RE,$xprt))
+      : NULLSTR
       ;
 
 # ---   *   ---   *   ---
 
     # get generator list
-    my $gens_src='';
+    my $gens_src=NULLSTR;
     my %gens_res=();
+
     { my @tmp1=($gens ne CONFIG_DEFAULT)
       ? @{ rcsl($gens) }
       : ()
@@ -1948,7 +2062,7 @@ EOF
         my @l=@{ shift @tmp1 };
 
         my ($res,$src)=
-          lang::ws_split(':',shift @l);
+          lang::ws_split(COLON_RE,shift @l);
 
         $res=~ s/\\//g;
 
@@ -1956,7 +2070,7 @@ EOF
 
         $gens_res{$src}=[$res,\@l];
 
-      };$gens_src=join '|',(keys %gens_res);
+      };$gens_src=join q{|},(keys %gens_res);
 
     };
 
@@ -1965,30 +2079,31 @@ EOF
     while(@paths) {
       my @path=@{ shift @paths };
       my $mod=shift @path;
-      my $trsh='';
+      my $trsh=NULLSTR;
 
-      if((index $mod,'/')==0) {
+      if((index $mod,q{/})==0) {
         $mod=substr $mod,1,length $mod;
 
       };
 
       # get path to
       ($mod,$trsh)=($mod eq '<main>')
-        ? ($CACHE{-ROOT}."/$name",
-          $CACHE{-ROOT}."/trashcan/$name")
-
-        : ($CACHE{-ROOT}."/$name/$mod",
-          $CACHE{-ROOT}."/trashcan/$name/$mod")
+        ? ("./$name","./trashcan/$name")
+        : ("./$name/$mod","./trashcan/$name/$mod")
         ;
 
 # ---   *   ---   *   ---
 
       # copy these to bin
-      if($xcpy) { my @matches=grep m/${ xcpy }/,@path;
+      if($xcpy) {
+
+        my @matches=grep
+          m/${ xcpy }/,@path;
+
         while(@matches) {
           my $match=shift @matches;
 
-          if(!$xcpy) {last;};
+          if(!$xcpy) {last};
 
           # pop match+(\*|) from string
           # makes perfect sense to me ;>
@@ -2007,7 +2122,11 @@ EOF
 # ---   *   ---   *   ---
 
       # copy these to lib
-      if($lcpy) { my @matches=grep m/${ lcpy }/,@path;
+      if($lcpy) {
+
+        my @matches=grep
+          m/${ lcpy }/,@path;
+
         while(@matches) {
           my $match=shift @matches;
 
@@ -2016,9 +2135,9 @@ EOF
           $lcpy=~ s/\|?${ match }\|?//;
           $match=~ s/\\//g;
 
-my $lmod=$mod;
-$lmod=~ s/${ CACHE{-ROOT} }\/${name}//;
-$lmod.=($lmod) ? '/' : '';
+          my $lmod=$mod;
+          $lmod=~ s/${root}\/${name}//;
+          $lmod.=($lmod) ? q{/} : NULLSTR;
 
           push @FCPY,(
             "$mod/$match",
@@ -2033,11 +2152,15 @@ $lmod.=($lmod) ? '/' : '';
 # ---   *   ---   *   ---
 
       # copy these to include
-      if($xprt) { my @matches=grep m/${ xprt }/,@path;
+      if($xprt) {
+
+        my @matches=grep
+          m/${ xprt }/,@path;
+
         while(@matches) {
           my $match=shift @matches;
 
-          if(!$xprt) {last;};
+          if(!$xprt) {last};
           $xprt=~ s/\|?${ match }\|?//;
           $match=~ s/\\//g;
 
@@ -2050,17 +2173,22 @@ $lmod.=($lmod) ? '/' : '';
 
       # make generator rules
       if($gens_src) {
-        my @matches=grep m/${ gens_src }/,@path;
+
+        my @matches=grep
+          m/${ gens_src }/,@path;
 
         while(@matches) {
           my $match=shift @matches;
 
-          if(!$gens_src) {last;};
+          if(!$gens_src) {last};
 
           $gens_src=~ s/\|?${ match }\\\*\|?//;
           $match=~ s/\*//;
 
-          my ($res,$srcs)=@{ $gens_res{$match.'\*'} };
+          my ($res,$srcs)=@{
+            $gens_res{$match.'\*'}
+
+          };
 
           push @GENS,(
             "$mod/$match",
@@ -2103,53 +2231,51 @@ $lmod.=($lmod) ? '/' : '';
 
 # ---   *   ---   *   ---
 
-    my $mkvars="my \@SRCS=".( strlist(\@SRCS) );
-    $mkvars.="\nmy \@XPRT=".( strlist(\@XPRT) );
-    $mkvars.="\nmy \@OBJS=".( strlist(\@OBJS) );
-    $mkvars.="\nmy \@GENS=".( strlist(\@GENS) );
-    $mkvars.="\nmy \@FCPY=".( strlist(\@FCPY) );
-    $FILE.="$mkvars\n";
+    my $mkvars="  SRCS=>".strlist(\@SRCS,1).q{,};
+
+    $mkvars.="\n  XPRT=>".strlist(\@XPRT,1).q{,};
+    $mkvars.="\n  OBJS=>".strlist(\@OBJS,1).q{,};
+    $mkvars.="\n  GENS=>".strlist(\@GENS,1).q{,};
+    $mkvars.="\n  FCPY=>".strlist(\@FCPY,1).q{,};
+
+    $FILE.="$mkvars\n\n);\n\n";
+
+$FILE.=<<';;EOF'
+
 
 # ---   *   ---   *   ---
 
-$FILE.='BEGIN {'.$CACHE{-PRE_BUILD}->{$name}.'};';
-$FILE.=<<';;EOF'
+avt::root $M->{ROOT};
+chdir $M->{ROOT};
 
-avt::root $ROOT;
-chdir $ROOT;
+$M->set_build_paths();
+$M->update_generated();
 
-avt::set_build_paths($FSWAT,$INCLUDES);
-avt::update_generated(\@GENS);
+my ($OBJS,$objblt)=$M->update_objects($DFLG,$PFLG);
 
-my ($OBJS,$objblt)=avt::update_objects(
-  \@SRCS,\@OBJS,
-
-  $INCLUDES,
-  $DFLG,$PFLG
-
-);
-
-avt::build_binaries(
-  $MAIN,$LMODE,$FSWAT,
-  $LIBS,$ILIB,$MLIB,
-
-  $INCLUDES,$PFLG,
-
-  $OBJS,$objblt,
-
-  \@XPRT,
-
-);
-
-avt::update_regular(\@FCPY);
+$M->build_binaries($PFLG,$OBJS,$objblt);
+$M->update_regular();
 
 
 ;;EOF
 ;
-    print FH $FILE.'END {'.
-      $CACHE{-POST_BUILD}->{$name}.
+    print FH $FILE.
 
-    '};';
+    #"\n".
+    '# ---   *   ---   *   ---'.
+    "\n\n".
+
+    "END {\n\n".
+      $CACHE{-POST_BUILD}->{$name}.';'.
+
+    "\n\n};".
+
+    "\n\n".
+
+    '# ---   *   ---   *   ---'.
+    "\n\n"
+
+    ;
 
     close FH;`chmod +x "$CACHE{-ROOT}/$name/avto"`
   };
@@ -2157,25 +2283,25 @@ avt::update_regular(\@FCPY);
 
 # ---   *   ---   *   ---
 
-sub set_build_paths($FSWAT,$INCLUDES) {
+sub set_build_paths($M) {
 
   my @paths=();
-  for my $inc(lang::ws_split(' ',$INCLUDES)) {
+  for my $inc(lang::ws_split(q{ },$M->{INCLUDES})) {
     if($inc eq "-I".root) {next;};
 
     push @paths,$inc;
 
   };
 
-  stinc(@paths,q{.},'-I'.root."/$FSWAT");
+  stinc(@paths,q{.},'-I'.root."/$M->{FSWAT}");
 
 };
 
 # ---   *   ---   *   ---
 
-sub update_generated {
+sub update_generated($M) {
 
-  my @GENS=@{(shift)};
+  my @GENS=@{$M->{GENS}};
 
   # iter the list of generator scripts
   # ... and sources/dependencies for them
@@ -2184,7 +2310,10 @@ sub update_generated {
     my $gen=shift @GENS;
     my $res=shift @GENS;
 
-    my @msrcs=lang::ws_split(',',shift @GENS);
+    my @msrcs=lang::ws_split(
+      COMMA_RE,shift @GENS
+
+    );
 
 # ---   *   ---   *   ---
 # make sure we don't need to update
@@ -2243,9 +2372,9 @@ sub update_generated {
 
 # ---   *   ---   *   ---
 
-sub update_regular {
+sub update_regular($M) {
 
-  my @FCPY=@{(shift)};
+  my @FCPY=@{$M->{FCPY}};
 
   while(@FCPY) {
     my $og=shift @FCPY;
@@ -2270,14 +2399,12 @@ sub update_regular {
 
 # ---   *   ---   *   ---
 
-sub update_objects {
+sub update_objects($M,$DFLG,$PFLG) {
 
-  my @SRCS=@{(shift)};
-  my @OBJS=@{(shift)};
+  my @SRCS=@{$M->{SRCS}};
+  my @OBJS=@{$M->{OBJS}};
 
-  my $INCLUDES=shift;
-  my $DFLG=shift;
-  my $PFLG=shift;
+  my $INCLUDES=$M->{INCLUDES};
 
   my $OBJS='';
   my $objblt=0;
@@ -2359,48 +2486,33 @@ sub update_objects {
 # ---   *   ---   *   ---
 # the one we've been waiting for
 
-sub build_binaries {
-
-  my $MAIN=shift;
-  my $LMODE=shift;
-  my $FSWAT=shift;
-
-  my $LIBS=shift;
-  my $ILIB=shift;
-  my $MLIB=shift;
-
-  my $INCLUDES=shift;
-  my $PFLG=shift;
-
-  my $OBJS=shift;
-  my $objblt=shift;
-
-  my $XPRT=shift;
+sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 
 # ---   *   ---   *   ---
 # this sub only builds a new binary IF
 # there is a target defined AND
 # any objects have been updated
 
-  if($MAIN && $objblt) {
+  if($M->{MAIN} && $objblt) {
 
 # ---   *   ---   *   ---
 # build mode is 'static library'
 
-  if($LMODE eq 'ar') {
-    my $call="ar -crs $MAIN $OBJS";`$call`;
+  if($M->{LMODE} eq 'ar') {
+    my $call="ar -crs $M->{MAIN} $OBJS";
+    `$call`;
 
-    `echo "$LIBS" > $ILIB`;
-    symscan($FSWAT,@$XPRT);
+    `echo "$M->{LIBS}" > $M->{ILIB}`;
+    symscan($M->{FSWAT},@{$M->{XPRT}});
 
 # ---   *   ---   *   ---
 # otherwise it's executable or shared object
 
   } else {
-    print ''.( shpath $MAIN) ."\n";
+    print ''.( shpath $M->{MAIN}) ."\n";
 
-    if(-e $MAIN) {
-      `rm $MAIN`;
+    if(-e $M->{MAIN}) {
+      `rm $M->{MAIN}`;
 
     };
 
@@ -2408,27 +2520,28 @@ sub build_binaries {
 # find any additional libraries we might
 # need to link against
 
-    $LIBS=libexpand($LIBS);
+    my $LIBS=libexpand($M->{LIBS});
 
 # ---   *   ---   *   ---
 # build call is the exact same,
 # only difference being the -shared flag
 
-    my $call="gcc $LMODE ".
-      (OFLG.' '.LFLG)." ".
-       "$INCLUDES $PFLG $OBJS $LIBS -o $MAIN";
+    my $call="gcc $M->{LMODE} ".
+      (OFLG.q{ }.LFLG).q{ }.
+       "$M->{INCLUDES} $PFLG $OBJS $LIBS ".
+       " -o $M->{MAIN}";
 
       `$call`;
-      `echo "$LIBS" > $ILIB`;
+      `echo "$LIBS" > $M->{ILIB}`;
 
 # ---   *   ---   *   ---
 # for executables we spawn a shadow lib
 
-    if($LMODE ne '-shared ') {
-      $call="ar -crs $MLIB $OBJS";`$call`;
+    if($M->{LMODE} ne '-shared ') {
+      $call="ar -crs $M->{MLIB} $OBJS";`$call`;
 
-      `echo "$LIBS" > $ILIB`;
-      symscan($FSWAT,@$XPRT);
+      `echo "$LIBS" > $M->{ILIB}`;
+      symscan($M->{FSWAT},@{$M->{XPRT}});
 
     };
 

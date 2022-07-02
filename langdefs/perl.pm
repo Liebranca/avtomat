@@ -202,7 +202,7 @@ lang::def::nit(
 # ---   *   ---   *   ---
 
   -DIRECTIVES=>[qw(
-    use package my our sub state
+    use no package my our sub state
 
   ),(keys %{langdefs::peso->DIRECTIVE})],
 

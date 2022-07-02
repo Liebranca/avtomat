@@ -35,6 +35,10 @@ package style;
     ERROR
     FATAL
 
+    COMMA_RE
+    SPACE_RE
+    COLON_RE
+
   );
 
 # ---   *   ---   *   ---
@@ -44,13 +48,17 @@ package style;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
-# constants
+# ROM
 
 use constant {
 
   WARNING=>"\e[33;22m",
   ERROR=>"\e[35;1m",
   FATAL=>"\e[31;1m",
+
+  COMMA_RE=>qr{,},
+  SPACE_RE=>qr{\s},
+  COLON_RE=>qr{:},
 
   MEMPTR=>0xFFB10C<<40,
 

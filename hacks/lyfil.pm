@@ -32,7 +32,8 @@ package lyfil;
 # ---   *   ---   *   ---
 # global state
 
-  our $M=[];
+  my $M=[];
+  my $ACTIVE={};
 
 # ---   *   ---   *   ---
 
@@ -40,6 +41,8 @@ sub nit($fname,$beg) {
 
   my $class=(caller)[0];
   my $self=bless {
+
+    id=>$class,
 
     fname=>$fname,
     chain=>$M,
@@ -50,9 +53,13 @@ sub nit($fname,$beg) {
 
     lineno=>$beg,
 
+    beg=>qr{(?<!#)use $class},
     end=>qr{(?<!#)no $class},
 
   },$class;
+
+  $ACTIVE->{$class}=$self;
+  if($M->[0]) {$self->pluck_use_line()};
 
   push @$M,$self;
   return $self;
@@ -63,8 +70,30 @@ sub nit($fname,$beg) {
 
 sub del($self) {
 
-  $self->{run}->();
-  arstd::arrshf($M,$self->{idex})
+  $self->pluck_use_line();
+  $self->code_emit();
+
+  arstd::arrshf($M,$self->{idex});
+
+  delete $ACTIVE->{$self->{id}};
+
+};
+
+# ---   *   ---   *   ---
+
+sub pluck_use_line($self) {
+
+  my $line=$self->{chain}->[0]->{data}->[-1];
+  my $raw=\$self->{chain}->[0]->{raw};
+
+  my ($beg,$end)=(
+    $self->{beg},
+    $self->{end},
+
+  );
+
+  $$raw=~ s/$beg//sg;
+  $$raw=~ s/$end//sg;
 
 };
 
