@@ -27,7 +27,7 @@ BEGIN {
   `cp $src $dst`;
 
   # regenerate defs
-  `$ENV{'ARPATH'}./avtomat/sygen`;
+  print `$ENV{'ARPATH'}./avtomat/sygen`;
 
 };
 
@@ -69,7 +69,8 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
   'NAME'  =>  'avtomat',
 
   );$config{'PREB'}=q(
-    my $ex=$ENV{'ARPATH'}.'/avtomat/AR.ph';`$ex`;
+    my $ex=$ENV{'ARPATH'}.'/avtomat/AR.ph';
+    print `$ex`;
 
   );avt::strconfig \%config;
 
@@ -231,6 +232,8 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 avt::scan();
 avt::config();
 avt::make();
+
+exit;
 
 for my $mod(avt::MODULES) {
   print `$root/$mod/avto`;

@@ -41,6 +41,7 @@
 my $m=cli::nit(
   ['recursive'],
   ['symbol','-s','--symbol',1],
+  ['no_escaping','-ne','--no_escaping'],
 
 );
 
@@ -56,10 +57,16 @@ if($m->{recursive}!=NULL) {
 
 };
 
-$m->{symbol}="\Q$m->{symbol}";
+if($m->{no_escaping}==NULL) {
+  $m->{symbol}="\Q$m->{symbol}";
+
+} else {
+  $m->{symbol}=~ s/\$/\\\$/sg;
+
+};
 
 my $ext_re=qr{\.pmc?$};
-my $sym_re=qr{$m->{symbol}\b};
+my $sym_re=qr{$m->{symbol}(?:\b|$|"|')};
 
 # ---   *   ---   *   ---
 # walk the file structure
@@ -95,6 +102,8 @@ while(@files) {
   for my $s(@{$program->{cooked}}) {
 
     my ($lineno,$code)=split m/:__COOKED__:/,$s;
+    $code=lang::stitch($code,$program->{strings});
+
     if($code=~ $sym_re) {
 
       push @data,sprintf

@@ -118,6 +118,20 @@ sub update {
 
   );
 
+# ---   *   ---   *   ---
+# check bins
+
+  $path=$ENV{'ARPATH'}.'/bin';
+  if(! (-e $path) ) { `mkdir -p $path`; };
+
+  update(
+
+    [ '/MAM.pm',
+
+    ],$root.'/avtomat',$path
+
+  );
+
 };
 
 # ---   *   ---   *   ---

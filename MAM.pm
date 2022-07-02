@@ -24,6 +24,8 @@ package MAM;
   use strict;
   use warnings;
 
+  use Cwd qw(abs_path);
+
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
 
   use parent 'lyfil';
@@ -37,26 +39,31 @@ package MAM;
 
   use Filter::Util::Call;
 
-  our $SETTINGS={};
-
 # ---   *   ---   *   ---
 # ROM
 
   use constant OPTIONS=>[
-    ['keep_comments','-kc','--keep_comments'],
+    ['no_comments','-nc','--no_comments'],
+    ['make_deps','-md','--make_deps'],
 
   ];
+
+# ---   *   ---   *   ---
+# global state
+
+  my $SETTINGS={};
 
 # ---   *   ---   *   ---
 
 sub import {
 
   my @opts=@_;
-  my $m=cli::nit(@{&OPTIONS});
 
-  $m->take(@opts);
+  $SETTINGS=cli::nit(@{&OPTIONS});
+  $SETTINGS->take(@opts);
 
   my ($pkg,$fname,$lineno)=(caller);
+print "$fname\n";
   my $self=lyfil::nit($fname,$lineno);
 
   filter_add($self);
@@ -86,6 +93,32 @@ sub filter {
     shwl::stitch(\$self->{chain}->[0]->{raw});
 
     $self->prich();
+
+# ---   *   ---   *   ---
+# emit dependency files
+
+    if($SETTINGS->{make_deps}!=NULL) {
+
+      my $deps=shwl::DEPS_STR;
+      my $re=abs_path(glob(q{~}));
+
+      $re=qr{$re};
+      $deps.="$self->{fname}\n";
+
+      for my $path(values %INC) {
+        if($path=~ $re) {
+          $deps.=$path.q{ };
+
+        };
+
+      };
+
+      $deps.=shwl::DEPS_STR;
+      print $deps;
+
+    };
+
+# ---   *   ---   *   ---
 
   };
 

@@ -32,6 +32,19 @@ package shwl;
 
   use constant {
 
+    DEPS_STR=>":__DEPS__:",
+    DEPS_RE=>qr{
+
+      :__DEPS__:
+
+      (.*?)
+
+      :__DEPS__:
+
+    }sx,
+
+# ---   *   ---   *   ---
+
     EXT_RE=>qr{[.].*$},
     FNAME_RE=>qr{\/([_\w][_\w\d]*)$},
 
@@ -78,7 +91,7 @@ package shwl;
 
 # ---   *   ---   *   ---
 
-    IS_PERLMOD=>qr{[.].pm$},
+    IS_PERLMOD=>qr{[.]pm$},
 
   };
 
@@ -224,7 +237,7 @@ sub getlibs() {
   for my $fpath(@imports) {
 
     open my $FH,'<',
-    $fpath or croak $ERRNO;
+    $fpath or croak STRERR;
 
 # ---   *   ---   *   ---
 # process entries
@@ -261,7 +274,7 @@ sub getlibs() {
 
     };
 
-    close $FH or croak $ERRNO;
+    close $FH or croak STRERR;
 
 # ---   *   ---   *   ---
 # give back symbol table

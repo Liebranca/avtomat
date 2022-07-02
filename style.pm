@@ -18,6 +18,9 @@ package style;
   use strict;
   use warnings;
 
+  use Carp;
+  use English qw(-no_match_vars);
+
 # ---   *   ---   *   ---
 # adds to your namespace
 
@@ -30,6 +33,7 @@ package style;
 
     NULL
     NULLSTR
+    STRERR
 
     WARNING
     ERROR
@@ -70,6 +74,11 @@ use constant {
   NULLSTR=>q(),
 
 };
+
+# ---   *   ---   *   ---
+# utility calls
+
+sub STRERR {return "$ERRNO"};
 
 # ---   *   ---   *   ---
 1; # ret

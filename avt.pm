@@ -24,6 +24,9 @@ package avt;
   use Cwd qw(abs_path getcwd);
   use File::Spec;
 
+  use lib $ENV{'ARPATH'}.'/lib/hacks';
+  use shwl;
+
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use style;
@@ -531,7 +534,7 @@ sub cboil_h {
 
   # create file
   open my $FH,'>',
-    $CACHE{-ROOT}.$dir.$fname.'.h' or die $!;
+    $CACHE{-ROOT}.$dir.$fname.'.h' or die STRERR;
 
   # print a notice
   print $FH note($author,'//');
@@ -811,7 +814,7 @@ sub symscan($mod,@fnames) {
   my $dst=$CACHE{-ROOT}."/lib/.$mod";
   my $deps=(split "\n",`cat $dst`)[0];
 
-  open my $FH,'>',$dst or die $!;
+  open my $FH,'>',$dst or die STRERR;
   print $FH "$deps\n";
 
 # ---   *   ---   *   ---
@@ -972,7 +975,7 @@ EOF
 
   # create file
   open my $FH,'>',
-    $CACHE{-ROOT}.$dir.$fname.'.pm' or die $!;
+    $CACHE{-ROOT}.$dir.$fname.'.pm' or die STRERR;
 
   # generate notice
   my $n=note($author,'#');
@@ -1135,7 +1138,7 @@ sub plext {
   $dst=~ s/1; # ret\n//sg;
 
   $dst.=$src;
-  open FH,'>',$dst_path or die $!;
+  open FH,'>',$dst_path or die STRERR;
   print FH $dst;
   close FH;
 
@@ -1151,7 +1154,7 @@ sub plext {
   open STDERR,'>',
 
     File::Spec->devnull()
-    or die $!
+    or die STRERR
 
   ;return $fh;
 
@@ -1473,7 +1476,7 @@ sub scan {
     mkdir "$CACHE{-ROOT}/trashcan";
 
   };open FH,'>',
-      $CACHE{-ROOT}.'/.avto-modules' or  die $!;
+      $CACHE{-ROOT}.'/.avto-modules' or  die STRERR;
 
 # ---   *   ---   *   ---
 
@@ -1695,7 +1698,7 @@ sub config {
   my @config=();
   my @ar=split '<MOD>',$CACHE{-CONFIG};
 
-  open FH,'>',root."/.avto-config" or die $!;
+  open FH,'>',root."/.avto-config" or die STRERR;
 
   while(@ar) {
     my $mod=shift @ar;
@@ -1726,21 +1729,46 @@ sub getset {
 # ---   *   ---   *   ---
 
 # gives up social life for programming
-sub strlist($ar,$make_ref) {
+sub strlist($ar,$make_ref,%opts) {
 
-  my @l=@$ar;
+  # opt defaults
+  $opts{ident}//=0;
+
+# ---   *   ---   *   ---
+
+  my @list=@$ar;
   my ($beg,$end)=($make_ref)
     ? ('[',']') : ('(',')');
 
-  if(!@l) {return "$beg$end"};
+  if(!@list) {return "$beg$end"};
 
-  for(my $x=0;$x<@l;$x++) {
-    $l[$x]=sqwrap $l[$x];
+# ---   *   ---   *   ---
 
-  };return $beg.( join q{,},@l ).$end;
+  my $ident=q{ } x($opts{ident});
+
+  my $i=0;
+  for my $item(@list) {
+    $item=($ident x 2).sqwrap($item);
+    $item.=",\n";
+
+  };
+
+# ---   *   ---   *   ---
+
+  return
+
+    "$beg\n\n".
+    ( join q{},@list ).
+
+    "\n$ident$end"
+
+  ;
+
 };
 
+# ---   *   ---   *   ---
 # makes file list out of gcc .d files
+
 sub parsemmd {
   my $dep=shift;
 
@@ -1760,7 +1788,39 @@ sub parsemmd {
 
 };
 
+# ---   *   ---   *   ---
+# makes file list out of pcc .pmd files
+
+sub parsepmd {
+  my $dep=shift;
+
+  if(!(-e $dep)) {return [];};
+
+  open my $FH,'<',$dep or croak STRERR;
+
+  my $fname=readline $FH;
+  my $depstr=readline $FH;
+
+  close $FH;
+
+  my @tmp=lang::ws_split(SPACE_RE,$depstr);
+  my @deps=();
+
+  while(@tmp) {
+    my $f=shift @tmp;
+    if($f) {push @deps,$f;
+
+  };
+
+  };exit;
+
+  return \@deps;
+
+};
+
+# ---   *   ---   *   ---
 # shortens pathname for sanity
+
 sub shpath {
   my $path=shift;
   $path=~ s/${ CACHE{-ROOT} }//;
@@ -1875,7 +1935,7 @@ sub make {
     my @paths=@{ $modules{$name} };
 
     open FH,'>',
-      "$root/$name/avto" or croak $ERRNO;
+      "$root/$name/avto" or croak STRERR;
 
     my $FILE=NULLSTR;
 
@@ -1901,15 +1961,13 @@ sub make {
 
 $FILE.=
 
-'# ---   *   ---   *   ---'.
-
 "\n\n".
 
 'BEGIN {'."\n\n".
   $CACHE{-PRE_BUILD}->{$name}.';'.
   "\n\n".
 
-'};';
+"};\n";
 
     $FILE.=<<'EOF'
 
@@ -2025,7 +2083,7 @@ EOF
 
     $incl=$base_include." $incl";
     $FILE.="  INCLUDES=>\"$incl -I".
-      './'."\",\n";
+      './'."\",\n\n";
 
 # ---   *   ---   *   ---
 
@@ -2080,6 +2138,8 @@ EOF
       my @path=@{ shift @paths };
       my $mod=shift @path;
       my $trsh=NULLSTR;
+
+      my $modname=$mod;
 
       if((index $mod,q{/})==0) {
         $mod=substr $mod,1,length $mod;
@@ -2202,8 +2262,11 @@ EOF
       };
 
 # ---   *   ---   *   ---
+# get *.c files
 
-      { my @matches=grep m/.\.c/,@path;
+      { my @matches=grep
+          m/.\.c/,@path;
+
         if(@matches) {
 
           while(@matches) {
@@ -2226,17 +2289,57 @@ EOF
 
           };
         };
+
+# ---   *   ---   *   ---
+# get *.pm files
+
+      };{
+
+        my @matches=grep
+          m/.\.pm/,@path;
+
+        if(@matches) {
+
+          while(@matches) {
+            my $match=shift @matches;
+            $match=~ s/\\//g;
+
+            my $dep=$match;
+            $dep.='d';
+
+            push @SRCS,"$mod/$match";
+
+            my $lmod=$mod;
+            $lmod=~ s/[.]\/${name}//;
+
+            push @OBJS,(
+              "$libd$lmod/$match",
+              "$trsh/$dep"
+
+            );
+
+          };
+        };
+
       };
     };
 
 # ---   *   ---   *   ---
 
-    my $mkvars="  SRCS=>".strlist(\@SRCS,1).q{,};
+    my $mkvars="  SRCS=>".
+      strlist(\@SRCS,1,ident=>2).q{,}."\n";
 
-    $mkvars.="\n  XPRT=>".strlist(\@XPRT,1).q{,};
-    $mkvars.="\n  OBJS=>".strlist(\@OBJS,1).q{,};
-    $mkvars.="\n  GENS=>".strlist(\@GENS,1).q{,};
-    $mkvars.="\n  FCPY=>".strlist(\@FCPY,1).q{,};
+    $mkvars.="\n  XPRT=>".
+      strlist(\@XPRT,1,ident=>2).q{,}."\n";
+
+    $mkvars.="\n  OBJS=>".
+      strlist(\@OBJS,1,ident=>2).q{,}."\n";
+
+    $mkvars.="\n  GENS=>".
+      strlist(\@GENS,1,ident=>2).q{,}."\n";
+
+    $mkvars.="\n  FCPY=>".
+      strlist(\@FCPY,1,ident=>2).q{,}."\n";
 
     $FILE.="$mkvars\n\n);\n\n";
 
@@ -2419,6 +2522,12 @@ sub update_objects($M,$DFLG,$PFLG) {
     my $obj=$OBJS[$j+0];
     my $mmd=$OBJS[$j+1];
 
+    if($src=~ shwl::IS_PERLMOD) {
+      pcc($src,$obj,$mmd);
+      next;
+
+    };
+
     $OBJS.=$obj.' ';
     my @deps=($src);
 
@@ -2428,33 +2537,13 @@ sub update_objects($M,$DFLG,$PFLG) {
     my $do_build=!(-e $obj);if($mmd) {
       @deps=@{ parsemmd $mmd };
 
-# ---   *   ---   *   ---
-# iter deps and check if any are missing
-
-    };for(my $x=0;$x<@deps;$x++) {
-      if($deps[$x] && !(-e $deps[$x])) {
-        print ''.( shpath $src );
-        print " missing dependency $deps[$x]\n";
-        exit;
-
-      };
     };
 
-# ---   *   ---   *   ---
-# make sure we need to update
+    # no missing deps
+    static_depchk($src,\@deps);
 
-    if(!$do_build) {
-      while(@deps) {
-        my $dep=shift @deps;
-        if(!(-e $dep)) {next;};
-
-        # found dep is updated
-        if(ot($obj,$dep)) {
-          $do_build=1;last;
-
-        };
-      };
-    };
+    # make sure we need to update
+    buildchk(\$do_build,$obj,\@deps);
 
 # ---   *   ---   *   ---
 # rebuild the object
@@ -2480,7 +2569,10 @@ sub update_objects($M,$DFLG,$PFLG) {
 # return string containing list of objects
 # + the count of objects built
 
-  };return $OBJS,$objblt;
+  };
+
+  return $OBJS,$objblt;
+
 };
 
 # ---   *   ---   *   ---
@@ -2546,6 +2638,116 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
     };
 
   }};
+
+};
+
+# ---   *   ---   *   ---
+
+sub static_depchk($src,$deps) {
+
+  for(my $x=0;$x<@$deps;$x++) {
+    if($deps->[$x] && !(-e $deps->[$x])) {
+
+      arstd::errout(
+
+        "%s missing dependency %s\n",
+
+        args=>[shpath($src),$deps->[$x]],
+        lvl=>FATAL,
+
+      );
+    };
+  };
+};
+
+# ---   *   ---   *   ---
+
+sub buildchk($do_build,$obj,$deps) {
+
+  if(!$$do_build) {
+    while(@$deps) {
+      my $dep=shift @$deps;
+      if(!(-e $dep)) {next};
+
+      # found dep is updated
+      if(ot($obj,$dep)) {
+        $do_build=1;last;
+
+      };
+    };
+  };
+};
+
+# ---   *   ---   *   ---
+# 0-800-Call MAM
+
+sub pcc($src,$obj,$pmd) {
+
+  my @deps=($src);
+
+# ---   *   ---   *   ---
+# look at *.d files for additional deps
+
+  my $do_build=!(-e $obj);
+
+  if($pmd) {
+    @deps=@{parsepmd($pmd)};
+
+  };
+
+  # no missing deps
+  static_depchk($src,\@deps);
+
+  # make sure we need to update
+  buildchk(\$do_build,$obj,\@deps);
+
+# ---   *   ---   *   ---
+
+  if($do_build) {
+
+    print "$src\n";
+
+    my $ex=
+      "perl".q{ }.
+      "-c -I$ENV{ARPATH}/bin/".q{ }.
+      "-MMAM=-md".q{ }
+
+    ;my $out=`$ex $src 2> /dev/null`;
+
+# ---   *   ---   *   ---
+
+    my $re=shwl::DEPS_RE;
+    $out=~ $re;
+
+    my $depstr=${^CAPTURE[0]};
+    if(!defined $depstr) {
+      goto TAIL;
+
+    };
+
+# ---   *   ---   *   ---
+
+    $depstr=~ /\A\n/;chomp $depstr;
+
+    if(!(-e $pmd)) {
+      my $path=dirof($pmd);
+      `mkdir -p $path`;
+
+    };
+
+# ---   *   ---   *   ---
+
+    open my $FH,'+>',$pmd or croak "Can't open $pmd";
+    print {$FH} $depstr;
+
+    close $FH;
+
+  };
+
+# ---   *   ---   *   ---
+
+TAIL:
+  return;
 
 };
 

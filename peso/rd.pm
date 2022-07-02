@@ -587,7 +587,7 @@ sub fopen($self,$src) {
   $self->{fname}=$src;
 
   open my $FH,'<',
-    $self->{fname} or croak $ERRNO;
+    $self->{fname} or croak STRERR;
 
   $self->{fhandle}=$FH;
 
@@ -623,7 +623,7 @@ SKIP:
 };sub fclose($self) {
 
   if(defined $self->{fhandle}) {
-    close $self->{fhandle} or croak $ERRNO;
+    close $self->{fhandle} or croak STRERR;
 
   };$self->{fhandle}=undef;
 

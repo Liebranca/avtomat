@@ -35,7 +35,11 @@ sub code_emit {
 
     my $str=shwl::STRINGS->{$fn};
 
-    $str=~ $TABLE->{re};
+    if(!($str=~ $TABLE->{re})) {
+      next;
+
+    };
+
     my $symname=${^CAPTURE[0]};
     my $sbl=$TABLE->{$symname};
 
