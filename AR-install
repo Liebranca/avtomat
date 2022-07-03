@@ -210,6 +210,7 @@ avt::make();
 
 for my $mod(avt::MODULES) {
   print `$root/$mod/avto`;
+  exit;
 
 };
 

@@ -582,7 +582,7 @@ sub clist {
   if(!$mode) {
 
     my $is_arr;
-    ($is_arr,$type)=lang::ws_split(':',$type);
+    ($is_arr,$type)=lang::ws_split(COLON_RE,$type);
     $is_arr=$is_arr eq 'arr';
 
     if($is_arr) {
@@ -630,7 +630,7 @@ sub cfunc {
 
   my ($type,$name,$code,$dst)=@{ $_[0] };
 
-  my ($ret,$args)=lang::ws_split(':',$type);
+  my ($ret,$args)=lang::ws_split(COLON_RE,$type);
   $dst.="$ret $name($args) {\n$code\n};\n\n";
 
   return [$type,$name,$code,$dst];
@@ -1362,7 +1362,7 @@ sub rcsl {
       $item=~ s/\\\\\[//g;
       $item=~ s/\\\\\]//g;
 
-      push @ar,[lang::ws_split(',',$item)];
+      push @ar,[lang::ws_split(COMMA_RE,$item)];
       $item='';$is_list&=~3;
 
     # list opened
@@ -1376,7 +1376,7 @@ sub rcsl {
     $item=~ s/\\\\\[//g;
     $item=~ s/\\\\\]//g;
 
-    push @ar,[lang::ws_split(',',$item)];
+    push @ar,[lang::ws_split(COMMA_RE,$item)];
 
   };return \@ar;
 
@@ -1589,12 +1589,12 @@ sub read_modules {
 
     # get parent name
     while(@m) {
-      my ($key,$len)=lang::ws_split(' ',shift @m);
+      my ($key,$len)=lang::ws_split(SPACE_RE,shift @m);
       my @paths;
 
       # store submodules as references
       while($len--) {
-        my @tmp=lang::ws_split(' ',shift @m);
+        my @tmp=lang::ws_split(SPACE_RE,shift @m);
         push @paths,\@tmp;
 
       };
@@ -1794,7 +1794,7 @@ sub parsemmd {
   $dep=~ s/\s/\,/g;
   $dep=~ s/.*\://;
 
-  my @tmp=lang::ws_split(',',$dep);
+  my @tmp=lang::ws_split(COMMA_RE,$dep);
   my @deps=();while(@tmp) {
     my $f=shift @tmp;
     if($f) {push @deps,$f;};
@@ -1807,9 +1807,11 @@ sub parsemmd {
 # makes file list out of pcc .pmd files
 
 sub parsepmd {
-  my $dep=shift;
 
-  if(!(-e $dep)) {return [];};
+  my $dep=shift;
+  my $out=[];
+
+  if(!(-e $dep)) {goto TAIL};
 
   open my $FH,'<',$dep or croak STRERR;
 
@@ -1818,18 +1820,26 @@ sub parsepmd {
 
   close $FH;
 
+  if(!defined $fname || !defined $depstr) {
+    goto TAIL;
+
+  };
+
   my @tmp=lang::ws_split(SPACE_RE,$depstr);
   my @deps=();
 
   while(@tmp) {
     my $f=shift @tmp;
-    if($f) {push @deps,$f;
+    if($f) {push @deps,$f};
 
   };
 
-  };exit;
+# ---   *   ---   *   ---
 
-  return \@deps;
+  $out=\@deps;
+
+TAIL:
+  return $out;
 
 };
 
@@ -2403,7 +2413,7 @@ $M->update_regular();
 sub set_build_paths($M) {
 
   my @paths=();
-  for my $inc(lang::ws_split(q{ },$M->{INCLUDES})) {
+  for my $inc(lang::ws_split(SPACE_RE,$M->{INCLUDES})) {
     if($inc eq "-I".root) {next;};
 
     push @paths,$inc;
@@ -2537,6 +2547,7 @@ sub update_objects($M,$DFLG,$PFLG) {
     my $mmd=$OBJS[$j+1];
 
     if($src=~ shwl::IS_PERLMOD) {
+
       pcc($src,$obj,$mmd);
       next;
 
@@ -2697,6 +2708,11 @@ sub buildchk($do_build,$obj,$deps) {
 
 sub pcc($src,$obj,$pmd) {
 
+  if($src=~ m[MAM\.pm]) {
+    goto TAIL;
+
+  };
+
   my @deps=($src);
 
 # ---   *   ---   *   ---
@@ -2731,29 +2747,28 @@ sub pcc($src,$obj,$pmd) {
 
       "$src";
 
-    my $out=`$ex`;
+    my $out=`$ex 2> $ENV{ARPATH}/avtomat/.errlog`;
+
+    if(!length $out) {
+      my $log=`cat $ENV{ARPATH}/avtomat/.errlog`;
+      print {*STDERR} "$log\n";
+
+    };
 
 # ---   *   ---   *   ---
 
     my $re=shwl::DEPS_RE;
     my $depstr;
 
-    if($out=~ s/>>$re//) {
+    if($out=~ s/$re//sm) {
       $depstr=${^CAPTURE[0]};
 
     } else {
-
-      print "$out\n";
-      print "$src\n";
-      exit;
-
-      goto TAIL;
+      croak "Can't fetch dependencies for $src\n";
 
     };
 
 # ---   *   ---   *   ---
-
-    $depstr=~ s/\A\n//;chomp $depstr;
 
     for my $fname($obj,$pmd) {
       if(!(-e $fname)) {

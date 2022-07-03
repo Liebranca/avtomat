@@ -37,15 +37,7 @@ package shwl;
   use constant {
 
     DEPS_STR=>":__DEPS__:",
-    DEPS_RE=>qr{
-
-      :__DEPS__:
-
-      (.*?)
-
-      :__DEPS__:
-
-    }sx,
+    DEPS_RE=>"^\:__DEPS__\:(.*?)\:__DEPS__\:",
 
 # ---   *   ---   *   ---
 

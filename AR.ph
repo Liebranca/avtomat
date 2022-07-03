@@ -11,82 +11,80 @@ use warnings;
 
 my $clean=0;
 for my $v(@ARGV) {
-  if($v=~ m/\bclean\n/) {
+  if($v=~ m/clean/) {
     $clean=1;
 
   };
 };
 
-BEGIN {
+# check env
+my $root=$ENV{'ARPATH'};if(!$root) {
+  print "ARPATH missing from ENV; aborted\n";
+  exit;
 
-  # check env
-  my $root=$ENV{'ARPATH'};if(!$root) {
-    print "ARPATH missing from ENV; aborted\n";
-    exit;
+};
 
-  };
+chdir $ENV{'ARPATH'}.'/avtomat/';
 
-  chdir $ENV{'ARPATH'}.'/avtomat/';
+my $trashd=$ENV{'ARPATH'}.'/trashcan/avtomat/';
+my $libd=$ENV{'ARPATH'}.'/lib/';
 
-  my $trashd=$ENV{'ARPATH'}.'/trashcan/avtomat/';
-  my $libd=$ENV{'ARPATH'}.'/lib/';
+if($clean) {
+  `rm -r ../trashcan/* &> /dev/null`;
+  `rm -r ../lib/* &> /dev/null`;
+  `mkdir -p $trashd`;
+  `mkdir -p $libd`;
 
-  if($clean) {
-    `rm -r ../trashcan/* &> /dev/null`;
-    `rm -r ../lib/* &> /dev/null`;
-    `mkdir -p $trashd`;
-    `mkdir -p $libd`;
+};
 
-  };
-
-  `./BOOTSTRAP 0 > $trashd/MAM.pm`;
+`./BOOTSTRAP 0 > $trashd/MAM.pm`;
 
 # ---   *   ---   *   ---
 
-  my $FILE_LIST=[
+my $FILE_LIST=[
 
 # ---   *   ---   *   ---
 # filters and hacks first
 
-    '/hacks/shwl.pm',
-    '/hacks/lyfil.pm',
-    '/hacks/inlining.pm',
-    '/hacks/inline.pm',
+  '/hacks/shwl.pm',
+  '/hacks/lyfil.pm',
+  '/hacks/inlining.pm',
+  '/hacks/inline.pm',
 
 # ---   *   ---   *   ---
 # then language and utils
 
-    '/cli.pm',
-    '/lang.pm',
-    '/style.pm',
-    '/arstd.pm',
+  '/cli.pm',
+  '/lang.pm',
+  '/style.pm',
+  '/arstd.pm',
 
-    '/peso/fndmtl.pm',
-    '/peso/defs.pm',
+  '/peso/fndmtl.pm',
+  '/peso/defs.pm',
 
-    '/peso/ops.pm',
-    '/peso/type.pm',
+  '/peso/ops.pm',
+  '/peso/type.pm',
 
-    '/peso/rd.pm',
-    '/peso/node.pm',
-    '/peso/ptr.pm',
-    '/peso/blk.pm',
-    '/peso/sbl.pm',
-    '/peso/program.pm',
+  '/peso/rd.pm',
+  '/peso/node.pm',
+  '/peso/ptr.pm',
+  '/peso/blk.pm',
+  '/peso/sbl.pm',
+  '/peso/program.pm',
 
-    '/langdefs/plps.pm',
-    '/langdefs/peso.pm',
-    '/langdefs/perl.pm',
-    '/langdefs/c.pm',
+  '/langdefs/plps.pm',
+  '/langdefs/peso.pm',
+  '/langdefs/perl.pm',
+  '/langdefs/c.pm',
 
 # ---   *   ---   *   ---
 # then everything else
 
-    '/queue.pm',
-    '/stack.pm',
-    '/avt.pm'
+  '/queue.pm',
+  '/stack.pm',
+  '/avt.pm'
 
-  ];
+];
 
 # ---   *   ---   *   ---
 
@@ -148,7 +146,7 @@ sub update {
 
           $PATH_TAKEN="PATH A";
 
-          $MAM_ARGS='-MMAM=--rap';
+          $MAM_ARGS='-MMAM=-md,--rap';
 
           $pmd=$og;
           $pmd=~ s[$src][$dst];
@@ -184,14 +182,14 @@ sub update {
 
 # ---   *   ---   *   ---
 
-        my $re=qr{>>:__DEPS__:};
+        my $re="^\:__DEPS__\:(.*?)\:__DEPS__\:";
         my $depstr;
 
-        if($out=~ s/$re(.*?)$re//s) {
+        if($out=~ s/$re//sm) {
           $depstr=${^CAPTURE[0]};
 
-        } else {
-          $depstr=q{};
+        } elsif($PATH_TAKEN ne 'PATH B') {
+          die "Can't find deps for $og\n";
 
         };
 
@@ -261,48 +259,46 @@ sub update {
 # ---   *   ---   *   ---
 # check libs
 
-  my $path=$ENV{'ARPATH'}.'/trashcan/avtomat';
-  if(! (-e $path) ) { `mkdir -p $path`; };
+my $path=$ENV{'ARPATH'}.'/trashcan/avtomat';
+if(! (-e $path) ) { `mkdir -p $path`; };
 
-  update(
+update(
 
-    $FILE_LIST,
-    $root.'/avtomat',$path,2
+  $FILE_LIST,
+  $root.'/avtomat',$path,2
 
-  );
+);
 
-  `./BOOTSTRAP 1 > $libd/MAM.pm`;
-  $path=$ENV{'ARPATH'}.'/lib';
-  update(
+`./BOOTSTRAP 1 > $libd/MAM.pm`;
+$path=$ENV{'ARPATH'}.'/lib';
+update(
 
-    $FILE_LIST,
-    $root.'/trashcan/avtomat',$path,1
+  $FILE_LIST,
+  $root.'/trashcan/avtomat',$path,1
 
-  );
+);
 
 # ---   *   ---   *   ---
 # check headers
 
-  $path=$ENV{'ARPATH'}.'/include';
-  if(! (-e $path) ) { `mkdir -p $path`; };
+$path=$ENV{'ARPATH'}.'/include';
+if(! (-e $path) ) { `mkdir -p $path`; };
 
-  update(
+update(
 
-    [ '/AR.ph',
+  [ '/AR.ph',
 
-      '/plps/peso.lps',
-      '/plps/c.lps',
+    '/plps/peso.lps',
+    '/plps/c.lps',
 
-    ],$root.'/avtomat',$path
+  ],$root.'/avtomat',$path
 
-  );
+);
 
 # ---   *   ---   *   ---
 # this effen script...
 
-  print `$ENV{'ARPATH'}'/avtomat/sygen'`;
-
-};
+print `$ENV{'ARPATH'}'/avtomat/sygen'`;
 
 
 # ---   *   ---   *   ---

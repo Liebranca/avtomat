@@ -31,6 +31,8 @@ package lang;
   use strict;
   use warnings;
 
+  use Carp;
+
   use List::Util qw( max );
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -99,6 +101,7 @@ sub lescap($s) {
 # gives list of split'd tokens
 
 sub ws_split($pat,$s) {
+  if(!defined $s) {croak "Undef string"};
   return (split m/\s*${pat}\s*/,$s);
 
 };

@@ -152,7 +152,7 @@ sub filter {
 
     if($SETTINGS->{make_deps}!=NULL) {
 
-      my $deps='>>'.shwl::DEPS_STR;
+      my $deps=shwl::DEPS_STR;
       my $re=abs_path(glob(q{~}));
 
       $re=qr{$re};
@@ -166,7 +166,7 @@ sub filter {
 
       };
 
-      $deps.='>>'.shwl::DEPS_STR;
+      $deps.=shwl::DEPS_STR;
       print $deps;
 
     };

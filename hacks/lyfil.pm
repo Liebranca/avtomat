@@ -64,8 +64,6 @@ sub nit($fname,$beg) {
 
   ) {return NULL};
 
-print {*STDERR} "**** $class\n";
-
   $ACTIVE->{$class}=$self;
   if($M->[0]) {$self->pluck_use_line()};
 
