@@ -58,6 +58,14 @@ sub nit($fname,$beg) {
 
   },$class;
 
+  if(
+
+    $M->[0] && $M->[0]->{fname} ne $self->{fname}
+
+  ) {return NULL};
+
+print {*STDERR} "**** $class\n";
+
   $ACTIVE->{$class}=$self;
   if($M->[0]) {$self->pluck_use_line()};
 
@@ -74,7 +82,6 @@ sub del($self) {
   $self->code_emit();
 
   arstd::arrshf($M,$self->{idex});
-
   delete $ACTIVE->{$self->{id}};
 
 };
@@ -99,24 +106,33 @@ sub pluck_use_line($self) {
 
 # ---   *   ---   *   ---
 
-sub logline($self,$string) {
+sub logline($self,$stringref) {
 
-  if($self eq $self->{chain}->[-1]) {
+  my $out=int($self eq $self->{chain}->[-1]);
+  if($out) {
 
     $self->{chain}->[0]
     ->{data}->[$self->{lineno}++]
 
     =
 
-    $string
+    $$stringref
 
     ;
 
-    $self->{chain}->[0]->{raw}.=$string;
+    $self->{chain}->[0]->{raw}.=$$stringref;
+    $out=1;
 
   };
 
-  if($string=~ $self->{end}) {$self->del()};
+  if($$stringref=~ $self->{end}) {$self->del()};
+
+#  if(!$out) {
+#    $$stringref=q{};
+#
+#  };
+
+  return $out;
 
 };
 
@@ -124,9 +140,14 @@ sub logline($self,$string) {
 
 sub propagate($self) {
 
-  my @ar=@{$M};
-  for my $f(@ar[1..$#ar]) {
-    $f->code_emit();
+  if($self->{chain}) {
+
+    my @ar=@{$self->{chain}};
+    for my $f(@ar[1..$#ar]) {
+      $f->code_emit();
+      $f->del();
+
+    };
 
   };
 

@@ -11,6 +11,9 @@ package langdefs::plps;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
+  use style;
+  use arstd;
+
   use lang;
 
   use peso::rd;

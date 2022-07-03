@@ -40,7 +40,7 @@ use constant OPERATOR
 # ---   *   ---   *   ---
 
 sub valid($node) {
-  return blessed($node) && $node->isa('peso::node');
+  return arstd::valid($node);
 
 };
 

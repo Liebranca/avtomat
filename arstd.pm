@@ -18,7 +18,6 @@ package arstd;
   use strict;
   use warnings;
 
-  use Carp;
   use Carp qw(longmess);
 
   use Scalar::Util qw(blessed);
@@ -193,7 +192,7 @@ sub fstrout($format,$tab,%opt) {
 # ---   *   ---   *   ---
 # comparison table because Test is weird
 
-use constant CMPTAB=>{
+use constant AR_TEST_CMPTAB=>{
 
   'eq'=>sub($a,$b) {
     $$a//=NULLSTR;
@@ -340,7 +339,7 @@ sub test($cmp,$a,$b,%opt) {
 # ---   *   ---   *   ---
 # failure
 
-  if(!CMPTAB->{$cmp}->(\$a,\$b)) {
+  if(!AR_TEST_CMPTAB->{$cmp}->(\$a,\$b)) {
     $status='NO';
     $cfn=sub($f) {return "\e[31;22m$f\e[0m"};
 

@@ -44,9 +44,12 @@ package MAM;
 
   use constant OPTIONS=>[
     ['no_comments','-nc','--no_comments'],
+    ['no_print','-np','--no_print'],
+
     ['make_deps','-md','--make_deps'],
 
-    ['rap','-r','--rap']
+    ['rap','-r','--rap'],
+    ['line_numbers','-ln','--line_numbers'],
 
   ];
 
@@ -54,7 +57,6 @@ package MAM;
 # global state
 
   my $SETTINGS={};
-  my $KILLSWITCH=0;
 
 # ---   *   ---   *   ---
 
@@ -84,14 +86,13 @@ sub unimport {
 sub filter {
 
   my ($self)=@_;
-  if($KILLSWITCH) {return 0};
 
   my ($pkg,$fname,$lineno)=(caller);
   my $status=filter_read();
 
-  $self->logline($_);#$_='';
+  $self->logline(\$_);
 
-  if(!$status && !$KILLSWITCH) {
+  if(!$status) {
 
     $self->propagate();
     shwl::stitch(\$self->{chain}->[0]->{raw});
@@ -101,22 +102,11 @@ sub filter {
     if($SETTINGS->{rap}!=NULL) {
 
 
-      if(!($self->{raw}=~ s{
+      $self->{raw}=~ s{
 
         \{'ARPATH'\}[.]'/lib
 
-      } {
-
-        \{'ARPATH'\}.'/avtomat
-
-      }sxg))
-
-{exit};
-
-      $_=$self->{raw};
-
-      $KILLSWITCH=1;
-      $status=1;
+      } {\{'ARPATH'\}.'/trashcan/avtomat}sxg;
 
 # ---   *   ---   *   ---
 
@@ -128,13 +118,34 @@ sub filter {
 
         [.]
 
-        '/avtomat'
+        '/trashcan/avtomat
 
-      } {\{'ARPATH'\}.'/lib'}sxg;
+      } {\{'ARPATH'\}.'/lib}sxg;
 
     };
 
-    $self->prich();
+# ---   *   ---   *   ---
+
+    if($SETTINGS->{line_numbers}!=NULL) {
+
+      my $x=1;
+      my $whole='';
+
+      for my $line(split m/\n/,$self->{raw}) {
+        $whole.=sprintf "%4i %s\n",$x++,$line;
+
+      };
+
+      $self->{raw}=$whole;
+
+    };
+
+# ---   *   ---   *   ---
+
+    if($SETTINGS->{no_print}==NULL) {
+      $self->prich();
+
+    };
 
 # ---   *   ---   *   ---
 # emit dependency files

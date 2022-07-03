@@ -1,0 +1,39 @@
+#!/usr/bin/perl
+
+# ---   *   ---   *   ---
+# deps
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+# ---   *   ---   *   ---
+
+my $round=shift @ARGV;
+
+chdir $ENV{'ARPATH'}.'/avtomat/';
+open my $FH,'<','MAM.pm' or die "$!";
+
+my $whole=q{};
+while(my $line=readline $FH) {
+
+  my $avtolib="{'ARPATH'}.'/lib";
+
+  my $swaplib="{'ARPATH'}.'/trashcan/avtomat";
+
+  if($round) {
+
+    my $tmp=$avtolib;
+    $avtolib=$swaplib;
+    $swaplib=$tmp;
+
+  };
+
+  $line=~ s[$avtolib] [$swaplib];
+  $whole.=$line;
+
+};
+
+print "$whole\n";
+close $FH or die "$!";
+
+# ---   *   ---   *   ---

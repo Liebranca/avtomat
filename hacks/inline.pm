@@ -22,8 +22,12 @@ package inline;
   use parent 'lyfil';
   use shwl;
 
+  use lib $ENV{'ARPATH'}.'/lib';
+  use style;
+  use arstd;
+
   use Filter::Util::Call;
-  our $TABLE={};
+  my $TABLE={};
 
 # ---   *   ---   *   ---
 
@@ -74,8 +78,12 @@ sub import {
   my ($pkg,$fname,$lineno)=(caller);
   my $self=lyfil::nit($fname,$lineno);
 
-  $TABLE=shwl::getlibs();
-  filter_add($self);
+  if($self!=NULL) {
+    $TABLE=shwl::getlibs();
+    filter_add($self);
+
+  };
+
 };
 
 # ---   *   ---   *   ---
@@ -94,7 +102,7 @@ sub filter {
   my ($pkg,$fname,$lineno)=(caller);
   my $status=filter_read();
 
-  $self->logline($_);
+  $self->logline(\$_);
 
   my $matches=shwl::cut(
     \$self->{chain}->[0]->{raw},

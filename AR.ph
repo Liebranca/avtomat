@@ -6,6 +6,9 @@
 # ---   *   ---   *   ---
 # sanity check
 
+use strict;
+use warnings;
+
 BEGIN {
 
   # check env
@@ -16,6 +19,64 @@ BEGIN {
   };
 
   chdir $ENV{'ARPATH'}.'/avtomat/';
+
+  `rm -r ../trashcan/* &> /dev/null`;
+  `rm -r ../lib/* &> /dev/null`;
+
+  my $trashd=$ENV{'ARPATH'}.'/trashcan/avtomat/';
+  my $libd=$ENV{'ARPATH'}.'/lib/';
+
+  `mkdir -p $trashd`;
+  `mkdir -p $libd`;
+
+  `./BOOTSTRAP 0 > $trashd/MAM.pm`;
+
+# ---   *   ---   *   ---
+
+  my $FILE_LIST=[
+
+# ---   *   ---   *   ---
+# filters and hacks first
+
+    '/hacks/shwl.pm',
+    '/hacks/lyfil.pm',
+    '/hacks/inlining.pm',
+    '/hacks/inline.pm',
+
+# ---   *   ---   *   ---
+# then language and utils
+
+    '/cli.pm',
+    '/lang.pm',
+    '/style.pm',
+    '/arstd.pm',
+
+    '/peso/fndmtl.pm',
+    '/peso/defs.pm',
+
+    '/peso/ops.pm',
+    '/peso/type.pm',
+
+    '/peso/rd.pm',
+    '/peso/node.pm',
+    '/peso/ptr.pm',
+    '/peso/blk.pm',
+    '/peso/sbl.pm',
+    '/peso/program.pm',
+
+    '/langdefs/plps.pm',
+    '/langdefs/peso.pm',
+    '/langdefs/perl.pm',
+    '/langdefs/c.pm',
+
+# ---   *   ---   *   ---
+# then everything else
+
+    '/queue.pm',
+    '/stack.pm',
+    '/avt.pm'
+
+  ];
 
 # ---   *   ---   *   ---
 
@@ -28,6 +89,9 @@ sub update {
   my $src=shift;
   my $dst=shift;
   my $md=shift;
+
+  my $out=q{};
+  my $depstr=q{};
 
   for my $f(@$ref) {
 
@@ -51,48 +115,82 @@ sub update {
 
     };
 
-    if($do_cp || $md) {
-      if(!$md) {`cp $og $cp`}
+    if($do_cp || defined $md) {
+      if(!defined $md) {`cp $og $cp`}
 
 # ---   *   ---   *   ---
 
       else {
 
+        my $MAM_PATH=
+          "-I$src".q{ }.
+          "-I$src/hacks".q{ }.
+          "-I$src/peso".q{ }.
+          "-I$src/langdefs";
+
+# ---   *   ---   *   ---
+
+        my $PATH_TAKEN;
+        my $MAM_ARGS;
+        my ($obj,$pmd);
+
+        if(!($src=~ qr{trashcan/})) {
+
+          $PATH_TAKEN="PATH A";
+
+          $MAM_ARGS='-MMAM=--rap';
+
+          $pmd=$og;
+          $pmd=~ s[$src][$dst];
+
+          $obj=$pmd;
+          $pmd.='d';
+
+        } else {
+
+          $PATH_TAKEN="PATH B";
+
+          $MAM_ARGS='-MMAM';
+
+          $pmd=$og;
+          $obj=$cp;
+
+        };
+
+# ---   *   ---   *   ---
+
         my $ex=
-          "perl -c".q{ }.
+          "perl  -c".q{ }.
 
-          "-I$ENV{ARPATH}/avtomat/".q{ }.
-          "-I$ENV{ARPATH}/avtomat/hacks".q{ }.
-          "-I$ENV{ARPATH}/avtomat/peso".q{ }.
-          "-I$ENV{ARPATH}/avtomat/langdefs".q{ }.
-
-          "-MMAM=-md".q{ }.
+          "$MAM_PATH".q{ }.
+          "$MAM_ARGS".q{ }.
 
           "$og";
 
-        my $out=`$ex`;
+        $out=q{};
+        $depstr=q{};
+
+        $out=`$ex`; # 2> /dev/null
 
 # ---   *   ---   *   ---
 
         my $re=qr{>>:__DEPS__:};
         my $depstr;
 
-        if($out=~ s/>>$re//) {
+        if($out=~ s/$re(.*?)$re//s) {
           $depstr=${^CAPTURE[0]};
 
         } else {
-          print {*STDERR} "Can't procout $og\n";
+          $depstr=q{};
 
         };
 
 # ---   *   ---   *   ---
 
-        my $obj=$cp;
-        my $pmd=$og;
-        $pmd=~ s[$src][${src}/trashcan];
-        $pmd.='d';
+        for my $fname(
+          $obj,$pmd
 
-        for my $fname($obj,$pmd) {
+        ) {
           if(!(-e $fname)) {
 
             my @tmp=split m{/},$fname;
@@ -106,16 +204,30 @@ sub update {
 
 # ---   *   ---   *   ---
 
+if(!length $out) {
+
+print "$PATH_TAKEN\n";
+print "$MAM_PATH\n\n";
+print "$og:\n";
+print "$obj :: $pmd\n\n";
+
+exit;
+
+};
+
         my $FH;
         open $FH,'+>',$obj or die "$!";
         print {$FH} $out;
 
         close $FH;
 
-        open $FH,'+>',$pmd or die "$!";
-        print {$FH} $depstr;
+        if($PATH_TAKEN ne 'PATH B') {
+          open $FH,'+>',$pmd or die "$!";
+          print {$FH} $depstr;
 
-        close $FH;
+          close $FH;
+
+        };
 
 # ---   *   ---   *   ---
 
@@ -133,40 +245,22 @@ sub update {
 # ---   *   ---   *   ---
 # check libs
 
-  my $path=$ENV{'ARPATH'}.'/lib';
+  my $path=$ENV{'ARPATH'}.'/trashcan/avtomat';
   if(! (-e $path) ) { `mkdir -p $path`; };
 
   update(
 
-    [ '/MAM.pm',
-      '/hacks/shwl.pm',
-      '/hacks/lyfil.pm',
-      '/hacks/inlining.pm',
-      '/hacks/inline.pm',
+    $FILE_LIST,
+    $root.'/avtomat',$path,1
 
-      '/cli.pm',
-      '/lang.pm',
-      '/style.pm',
-      '/arstd.pm',
+  );
 
-      '/peso/fndmtl.pm',
-      '/peso/defs.pm',
+  `./BOOTSTRAP 1 > $libd/MAM.pm`;
+  $path=$ENV{'ARPATH'}.'/lib';
+  update(
 
-      '/peso/ops.pm',
-      '/peso/type.pm',
-
-      '/peso/rd.pm',
-      '/peso/node.pm',
-      '/peso/ptr.pm',
-      '/peso/blk.pm',
-      '/peso/sbl.pm',
-      '/peso/program.pm',
-
-      '/queue.pm',
-      '/stack.pm',
-      '/avt.pm'
-
-    ],$root.'/avtomat',$path,1
+    $FILE_LIST,
+    $root.'/trashcan/avtomat',$path,1
 
   );
 
@@ -183,14 +277,14 @@ sub update {
       '/plps/peso.lps',
       '/plps/c.lps',
 
-    ],$root.'/avtomat',$path,0
+    ],$root.'/avtomat',$path
 
   );
 
 # ---   *   ---   *   ---
 # this effen script...
 
-  print `$ENV{'ARPATH'}'/avtomat/sygen'`;
+  #print `$ENV{'ARPATH'}'/avtomat/sygen'`;
 
 };
 

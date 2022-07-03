@@ -228,7 +228,7 @@ sub give($m,$branch) {
       while(@pending) {
         $n=shift @pending;
 
-        if(peso::node::valid $$n) {
+        if(peso::node::valid($$n)) {
           $$n=$$n->collapse()->{value};
 
         } elsif(
