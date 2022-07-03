@@ -5,31 +5,18 @@
 
 # ---   *   ---   *   ---
 
-#BEGIN {
-#
-#  use Cwd qw(abs_path);
-#
-#  my @ar=split '/',abs_path(__FILE__);
-#  my $d=join '/',@ar[0..$#ar-1];
-#
-#  push @INC,$d;
-#  require 'AR.ph';
-#
-#  my $dst=$ENV{'ARPATH'}.'/include/AR.ph';
-#  my $src=$d.'/AR.ph';
-#
-#  my $do_copy=!(-e $dst);
-#
-#  $do_copy=(!$do_copy)
-#    ? !((-M $dst)<(-M $src))
-#    : $do_copy;
-#
-#  `cp $src $dst`;
-#
-#  # regenerate defs
-#  print `$ENV{'ARPATH'}./avtomat/sygen`;
-#
-#};
+BEGIN {
+
+  my $ex=$ENV{'ARPATH'}.'/avtomat/AR.ph';
+  my $me=`$ex`;
+
+  print $me;
+  if($me=~ m/^ARPATH missing/) {
+    exit;
+
+  };
+
+};
 
 # ---   *   ---   *   ---
 # deps
@@ -71,8 +58,14 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
   );
 
   $config{'PREB'}=q(
-#    my $ex=$ENV{'ARPATH'}.'/avtomat/AR.ph';
-#    print `$ex`;
+    my $ex=$ENV{'ARPATH'}.'/avtomat/AR.ph';
+    my $me=`$ex`;
+
+    print $me;
+    if($me=~ m/^ARPATH missing/) {
+      exit;
+
+    };
 
   );avt::strconfig \%config;
 
@@ -209,28 +202,14 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 };
 
 # ---   *   ---   *   ---
-
-`rm -r $root/lib/* 2> /dev/null`;
-`rm -r $root/trashcan/* 2> /dev/null`;
-
-# ---   *   ---   *   ---
 # install packages
 
 avt::scan();
 avt::config();
 avt::make();
 
-my $DASH_I=
-  "-I$root/avtomat".q{ }.
-  "-I$root/avtomat/hacks".q{ }.
-  "-I$root/avtomat/peso".q{ }.
-  "-I$root/avtomat/langdefs".q{ }
-
-;
-
 for my $mod(avt::MODULES) {
-  print `perl $DASH_I $root/$mod/avto`;
-  last;
+  print `$root/$mod/avto`;
 
 };
 

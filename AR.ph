@@ -9,6 +9,14 @@
 use strict;
 use warnings;
 
+my $clean=0;
+for my $v(@ARGV) {
+  if($v=~ m/\bclean\n/) {
+    $clean=1;
+
+  };
+};
+
 BEGIN {
 
   # check env
@@ -20,14 +28,16 @@ BEGIN {
 
   chdir $ENV{'ARPATH'}.'/avtomat/';
 
-  `rm -r ../trashcan/* &> /dev/null`;
-  `rm -r ../lib/* &> /dev/null`;
-
   my $trashd=$ENV{'ARPATH'}.'/trashcan/avtomat/';
   my $libd=$ENV{'ARPATH'}.'/lib/';
 
-  `mkdir -p $trashd`;
-  `mkdir -p $libd`;
+  if($clean) {
+    `rm -r ../trashcan/* &> /dev/null`;
+    `rm -r ../lib/* &> /dev/null`;
+    `mkdir -p $trashd`;
+    `mkdir -p $libd`;
+
+  };
 
   `./BOOTSTRAP 0 > $trashd/MAM.pm`;
 
@@ -120,7 +130,7 @@ sub update {
 
 # ---   *   ---   *   ---
 
-      else {
+      elsif($do_cp) {
 
         my $MAM_PATH=
           "-I$src".q{ }.
@@ -170,7 +180,7 @@ sub update {
         $out=q{};
         $depstr=q{};
 
-        $out=`$ex`; # 2> /dev/null
+        $out=`$ex 2> .errlog`;
 
 # ---   *   ---   *   ---
 
@@ -204,16 +214,19 @@ sub update {
 
 # ---   *   ---   *   ---
 
-if(!length $out) {
+        if(!length $out) {
 
-print "$PATH_TAKEN\n";
-print "$MAM_PATH\n\n";
-print "$og:\n";
-print "$obj :: $pmd\n\n";
+          print {*STDERR} "$PATH_TAKEN\n";
+          print {*STDERR} "$MAM_PATH\n\n";
+          print {*STDERR} "$og:\n";
+          print {*STDERR} "$obj :: $pmd\n\n";
 
-exit;
+          my $log=`cat .errlog`;
+          print {*STDERR} "$log\n";
 
-};
+          exit;
+
+        };
 
         my $FH;
         open $FH,'+>',$obj or die "$!";
@@ -233,10 +246,13 @@ exit;
 
       };
 
-      print
+      if(!defined $md || $do_cp && $md!=2) {
+        print
 
-        "\e[37;1m<\e[34;22mAR\e[37;1m>\e[0m ".
-        "updated \e[32;1m$f\e[0m\n";
+          "\e[37;1m<\e[34;22mAR\e[37;1m>\e[0m ".
+          "updated \e[32;1m$f\e[0m\n";
+
+      };
 
     };
   };
@@ -251,7 +267,7 @@ exit;
   update(
 
     $FILE_LIST,
-    $root.'/avtomat',$path,1
+    $root.'/avtomat',$path,2
 
   );
 
@@ -284,7 +300,7 @@ exit;
 # ---   *   ---   *   ---
 # this effen script...
 
-  #print `$ENV{'ARPATH'}'/avtomat/sygen'`;
+  print `$ENV{'ARPATH'}'/avtomat/sygen'`;
 
 };
 
