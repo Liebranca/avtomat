@@ -39,9 +39,11 @@
 # ---   *   ---   *   ---
 
 my $m=cli::nit(
+
   ['recursive'],
   ['symbol','-s','--symbol',1],
   ['no_escaping','-ne','--no_escaping'],
+  ['regex','-re','--regex'],
 
 );
 
@@ -66,7 +68,15 @@ if($m->{no_escaping}==NULL) {
 };
 
 my $ext_re=qr{\.pmc?$};
-my $sym_re=qr{$m->{symbol}(?:\b|$|"|')};
+
+my $sym_re;
+if($m->{regex}==NULL) {
+  $sym_re=qr{$m->{symbol}(?:\b|$|"|')};
+
+} else {
+  $sym_re=qr{$m->{symbol}};
+
+};
 
 # ---   *   ---   *   ---
 # walk the file structure
@@ -84,34 +94,36 @@ while(@files) {
 
 # ---   *   ---   *   ---
 
-  my $program=peso::rd::parse(
-    lang->perl,
-    peso::rd->FILE,
+  open my $FH,'<',$f or die STRERR;
+  read $FH,my $body,-s $FH;
+  close $FH;
 
-    $f,
+  my $i=1;
 
-    use_plps=>0,
+  $body=join "\n",
 
-  );
+    map {$i++.':__COOKED__:'.$ARG}
+    split m/\n/,$body;
 
-  my $i=0;
   my @data=();
 
 # ---   *   ---   *   ---
 
-  for my $s(@{$program->{cooked}}) {
+  while($body=~
+    s/^(\d+:__COOKED__:(.*?)$sym_re)//m
 
-    my ($lineno,$code)=split m/:__COOKED__:/,$s;
-    $code=lang::stitch($code,$program->{strings});
+  ) {
 
-    if($code=~ $sym_re) {
+    my ($lineno,$code)=
+      split m/:__COOKED__:/,${^CAPTURE[0]};
 
-      push @data,sprintf
-        "\e[33;22m%4i\e[0m %-54s\n",
-        $lineno,$code
+    $code=~ s/^\s*//;
 
-      ;
-    };
+    push @data,sprintf
+      "\e[33;22m%4i\e[0m %-54s\n",
+      $lineno,$code
+
+    ;
   };
 
 # ---   *   ---   *   ---

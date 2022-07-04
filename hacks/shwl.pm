@@ -181,6 +181,7 @@ sub ipret_decls($line) {
 # ---   *   ---   *   ---
 
   for my $elem(@elems) {
+
     my ($key,$value)=split m/$EQUAL/,$elem;
 
     $key="\Q$key";
@@ -311,7 +312,7 @@ sub paste($sbl,@passed) {
 
   for my $key(@{$mem->{order}}) {
     my $value=$mem->{$key};
-    $code=~ s/$key/$value/;
+    $code=~ s/$key/$value/sg;
 
   };
 
@@ -319,13 +320,13 @@ sub paste($sbl,@passed) {
     my $value=$args->{$key};
     $value=$passed[$value];
 
-    $code=~ s/$key/$value/;
+    $code=~ s/$key/$value/sg;
 
   };
 
   $code=~ s/^\{|;?\s*\}\s*;?$//sg;
 
-  return $code;
+  return "$code";
 
 };
 

@@ -17,10 +17,11 @@
 # ---   *   ---   *   ---
 
 my $s="hi           \n";
-print length (lang::stripline(
+print length (lang::stripline($s))."\n";
 
-# some comment
-
-  $s))."\n";
+print lang::is_arrayref([])."\n";
+print lang::is_hashref({})."\n";
+print lang::is_coderef(sub {})."\n";
+print lang::is_qre(qr{magic})."\n";
 
 # ---   *   ---   *   ---

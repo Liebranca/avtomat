@@ -200,7 +200,11 @@ sub update {
           $depstr=${^CAPTURE[0]};
 
         } elsif($PATH_TAKEN ne 'PATH B') {
-          print "$out\n";
+          print {*STDERR} "$out\n";
+
+          my $log=`cat .errlog`;
+          print {*STDERR} "$log\n";
+
           die "Can't find deps for $og\n";
 
         };

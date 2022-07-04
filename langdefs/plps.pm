@@ -16,6 +16,9 @@ package langdefs::plps;
 
   use lang;
 
+  use lib $ENV{'ARPATH'}.'/lib/hacks';
+  use inline;
+
   use peso::rd;
   use peso::defs;
 
@@ -620,6 +623,7 @@ lang::def::nit(
 # utility class
 
 package plps_obj;
+
   use strict;
   use warnings;
 

@@ -69,8 +69,8 @@ sub import {
   $SETTINGS=cli::nit(@{&OPTIONS});
   $SETTINGS->take(@opts);
 
-  if($SETTINGS->{module}==NULL) {
-    $SETTINGS='avtomat';
+  if($SETTINGS->{module} ne NULL) {
+    $SETTINGS->{module}='avtomat';
 
   };
 

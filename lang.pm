@@ -415,10 +415,10 @@ sub eaf(
 
 use constant {
 
-  CODEREF_RE=>qr{^CODE\(0x[0-9a-f]+\)},
   ARRAYREF_RE=>qr{^ARRAY\(0x[0-9a-f]+\)},
+  CODEREF_RE=>qr{^CODE\(0x[0-9a-f]+\)},
   HASHREF_RE=>qr{^HASH\(0x[0-9a-f]+\)},
-  QRD_EXP_RE=>qr{\(\?\^u:},
+  QRE_RE=>qr{\(\?\^u:},
 
   CUT_TOKEN_RE=>qr{:__[A-Z]+_CUT_([\dA-F]+)__:},
   CUT_TOKEN_FMAT=>':__%s_CUT_%X__:',
@@ -427,21 +427,21 @@ use constant {
 
 # ---   *   ---   *   ---
 
-;;sub is_coderef($v) {
-  $v//=NULLSTR;
-  return $v=~ CODEREF_RE;
+;;sub is_coderef:inlined ($v) {
+  state $re=qr{^CODE\(0x[0-9a-f]+\)};
+  return (defined $v && ($v=~ $re));
 
-};sub is_arrayref($v) {
-  $v//=NULLSTR;
-  return $v=~ ARRAYREF_RE;
+};sub is_arrayref:inlined ($v) {
+  state $re=qr{^ARRAY\(0x[0-9a-f]+\)};
+  return (defined $v && ($v=~ $re));
 
-};sub is_hashref($v) {
-  $v//=NULLSTR;
-  return $v=~ HASHREF_RE;
+};sub is_hashref:inlined ($v) {
+  state $re=qr{^HASH\(0x[0-9a-f]+\)};
+  return (defined $v && ($v=~ $re));
 
-};sub is_qre($v) {
-  $v//=NULLSTR;
-  return $v=~ QRD_EXP_RE;
+};sub is_qre:inlined ($v) {
+  state $re=qr{\(\?\^u:};
+  return (defined $v && ($v=~ $re));
 
 };
 
@@ -804,6 +804,11 @@ sub quick_op_prec(%h) {
 # utility class
 
 package lang::def;
+
+#  use lib $ENV{'ARPATH'}.'/lib/hacks';
+#  use inline;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
@@ -1106,7 +1111,7 @@ sub nit(%h) {
 # replace $:tokens;> with values
 
   for my $key(keys %{$ref}) {
-    if( lang::is_arrayref($ref->{$key}) ) {
+    if($ref->{$key}=~ lang::ARRAYREF_RE) {
       arr_vrepl($ref,$key);
 
     } else {vrepl($ref,\$ref->{$key});};
@@ -1138,13 +1143,13 @@ sub nit(%h) {
 # ---   *   ---   *   ---
 
   for my $key(-HIER,-NAMES) {
-    if(lang::is_arrayref $ref->{$key}) {
+    if($ref->{$key}=~ lang::ARRAYREF_RE) {
       for my $re(@{$ref->{$key}}) {
         $re=qr{$re};
 
       };
 
-    } elsif(lang::is_hashref $ref->{$key}) {
+    } elsif($ref->{$key}=~ lang::HASHREF_RE) {
 
       for my $rek(keys %{$ref->{$key}}) {
         my $re=$ref->{$key}->{$rek};
@@ -1417,7 +1422,7 @@ sub mcut_tags($self,$append=0) {
 # ---   *   ---   *   ---
 # either single pattern or arrays of them
 
-    if(lang::is_arrayref($pats)) {
+    if($pats=~ lang::ARRAYREF_RE) {
 
       my $i=0;for my $pat(@$pats) {
 
@@ -1513,7 +1518,7 @@ sub classify($self,$token) {
 # ---   *   ---   *   ---
 
     my $h=$self->{$tag};
-    my $is_re=lang::is_qre($h);
+    my $is_re=int($h=~ lang::QRE_RE);
 
     if(
 

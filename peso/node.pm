@@ -26,6 +26,9 @@ package peso::node;
   use arstd;
   use lang;
 
+  use lib $ENV{'ARPATH'}.'/lib/hacks';
+  use inline;
+
 # ---   *   ---   *   ---
 # info
 

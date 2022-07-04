@@ -120,11 +120,17 @@ lang::def::nit(
 
     my $rd=shift;
 
-    my $preproc=\lang::CUT_TOKEN_RE;
+    my $preproc=lang::CUT_TOKEN_RE;
     $preproc=~ s/\[A-Z\]\+/PREPROC[A-Z]/;
 
     while($rd->{line}=~ s/^(${preproc})//) {
-      push @{$rd->exps},{body=>$1,has_eb=>0};
+
+      push @{$rd->{exps}},{
+        body=>$1,
+        has_eb=>0,
+        lineno=>$rd->{lineno}
+
+      };
 
     };
 

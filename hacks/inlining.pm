@@ -97,7 +97,7 @@ sub dumpsbl() {
           " updated ".
           "\e[32;1m%s\e[0m\n",
 
-          $base_name;
+          $dst;
 
       };
 
@@ -127,6 +127,8 @@ sub dumpsbl() {
 # ---   *   ---   *   ---
 
     my $elem=q{};
+
+    chomp $key;
     $elem.="$symbol->{pkg}::$key\n";
 
     my @mem=();
@@ -158,7 +160,7 @@ sub dumpsbl() {
 
   for my $dst(keys %files) {
     open my $FH,'>',$dst or croak STRERR;
-    print $FH ''.(join q{},@{$files{$dst}})."\n";
+    print $FH ''.(join q{},@{$files{$dst}});
 
     close $FH;
 
@@ -285,12 +287,14 @@ sub def_my($tokens) {
 
 };
 
+sub def_return($tokens) {};
+
 # ---   *   ---   *   ---
 
 sub BUILD_CALLTAB {
 
   state @KEYWORDS=qw(
-    my state
+    my state return
 
   );
 
@@ -366,6 +370,7 @@ sub defit($tokens) {
     };
 
   };
+
 };
 
 # ---   *   ---   *   ---
