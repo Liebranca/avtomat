@@ -46,6 +46,9 @@ package avt;
 
   use constant {
 
+    ARTAG=>arstd::pretty_tag('AR'),
+    ARSEP=>"\e[37;1m::\e[0m",
+
     BOXCHAR        => '.',
     CONFIG_DEFAULT => '#',
 
@@ -2375,6 +2378,9 @@ $FILE.=<<';;EOF'
 avt::root $M->{ROOT};
 chdir $M->{ROOT};
 
+print {*STDERR}
+  avt::ARTAG."upgrading $M->{FSWAT}\n";
+
 $M->set_build_paths();
 $M->update_generated();
 
@@ -2383,6 +2389,8 @@ my ($OBJS,$objblt)=$M->update_objects($DFLG,$PFLG);
 $M->build_binaries($PFLG,$OBJS,$objblt);
 $M->update_regular();
 
+print {*STDERR}
+  avt::ARSEP."done\n\n";
 
 ;;EOF
 ;
@@ -2429,6 +2437,13 @@ sub set_build_paths($M) {
 sub update_generated($M) {
 
   my @GENS=@{$M->{GENS}};
+
+  if(@GENS) {
+
+    print {*STDERR}
+      ARSEP."running generators\n";
+
+  };
 
   # iter the list of generator scripts
   # ... and sources/dependencies for them
@@ -2489,7 +2504,10 @@ sub update_generated($M) {
 # run the generator script
 
     if($do_gen) {
-      print 'Regen '.( shpath $gen )."\n";
+
+      print {*STDERR}
+        shpath($gen)."\n";
+
       `$gen`;
 
     };
@@ -2502,6 +2520,13 @@ sub update_generated($M) {
 sub update_regular($M) {
 
   my @FCPY=@{$M->{FCPY}};
+
+  if(@FCPY) {
+
+    print {*STDERR}
+      ARSEP."copying regular files\n";
+
+  };
 
   while(@FCPY) {
     my $og=shift @FCPY;
@@ -2518,7 +2543,12 @@ sub update_regular($M) {
     my $do_cpy=!(-e $cp);
 
     if(!$do_cpy) {$do_cpy=ot($cp,$og);};
-    if($do_cpy) {`cp $og $cp`;};
+    if($do_cpy) {
+
+      print {*STDERR} "$og\n";
+      `cp $og $cp`;
+
+    };
 
   };
 
@@ -2533,8 +2563,15 @@ sub update_objects($M,$DFLG,$PFLG) {
 
   my $INCLUDES=$M->{INCLUDES};
 
-  my $OBJS='';
+  my $OBJS=NULLSTR;
   my $objblt=0;
+
+  if(@SRCS) {
+
+    print {*STDERR}
+      ARSEP."rebuilding objects\n";
+
+  };
 
 # ---   *   ---   *   ---
 # iter list of source files
@@ -2548,12 +2585,12 @@ sub update_objects($M,$DFLG,$PFLG) {
 
     if($src=~ shwl::IS_PERLMOD) {
 
-      pcc($src,$obj,$mmd);
+      $M->pcc($src,$obj,$mmd);
       next;
 
     };
 
-    $OBJS.=$obj.' ';
+    $OBJS.=$obj.q{ };
     my @deps=($src);
 
 # ---   *   ---   *   ---
@@ -2575,7 +2612,7 @@ sub update_objects($M,$DFLG,$PFLG) {
 
     if($do_build) {
 
-      print ''.( shpath $src )."\n";
+      print {*STDERR} shpath($src)."\n";
       my $asm=$obj;$asm=substr(
         $asm,0,(length $asm)-1
 
@@ -2612,6 +2649,14 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 
   if($M->{MAIN} && $objblt) {
 
+    print {*STDERR }
+      ARSEP.'compiling binary '.
+
+      "\e[32;1m".
+      (shpath $M->{MAIN}).
+
+      "\e[0m\n";
+
 # ---   *   ---   *   ---
 # build mode is 'static library'
 
@@ -2626,7 +2671,6 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 # otherwise it's executable or shared object
 
   } else {
-    print ''.( shpath $M->{MAIN}) ."\n";
 
     if(-e $M->{MAIN}) {
       `rm $M->{MAIN}`;
@@ -2706,7 +2750,7 @@ sub buildchk($do_build,$obj,$deps) {
 # ---   *   ---   *   ---
 # 0-800-Call MAM
 
-sub pcc($src,$obj,$pmd) {
+sub pcc($M,$src,$obj,$pmd) {
 
   if($src=~ m[MAM\.pm]) {
     goto TAIL;
@@ -2735,6 +2779,8 @@ sub pcc($src,$obj,$pmd) {
 
   if($do_build) {
 
+    print {*STDERR} "$src\n";
+
     my $ex=
       "perl -c".q{ }.
 
@@ -2743,7 +2789,10 @@ sub pcc($src,$obj,$pmd) {
       "-I$ENV{ARPATH}/avtomat/peso".q{ }.
       "-I$ENV{ARPATH}/avtomat/langdefs".q{ }.
 
-      "-MMAM=-md".q{ }.
+      "-I$ENV{ARPATH}/$M->{FSWAT}".q{ }.
+      "$M->{INCLUDES}".q{ }.
+
+      "-MMAM=-md,--rap,--module=$M->{FSWAT}".q{ }.
 
       "$src";
 
@@ -2764,7 +2813,7 @@ sub pcc($src,$obj,$pmd) {
       $depstr=${^CAPTURE[0]};
 
     } else {
-      croak "Can't fetch dependencies for $src\n";
+      croak "Can't fetch dependencies for $src";
 
     };
 

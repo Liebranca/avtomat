@@ -43,6 +43,8 @@ package MAM;
 # ROM
 
   use constant OPTIONS=>[
+
+    ['module','-M','--module',1],
     ['no_comments','-nc','--no_comments'],
     ['no_print','-np','--no_print'],
 
@@ -66,6 +68,11 @@ sub import {
 
   $SETTINGS=cli::nit(@{&OPTIONS});
   $SETTINGS->take(@opts);
+
+  if($SETTINGS->{module}==NULL) {
+    $SETTINGS='avtomat';
+
+  };
 
   my ($pkg,$fname,$lineno)=(caller);
   my $self=lyfil::nit($fname,$lineno);
@@ -99,6 +106,7 @@ sub filter {
 
 # ---   *   ---   *   ---
 
+    my $modname=$SETTINGS->{module};
     if($SETTINGS->{rap}!=NULL) {
 
 
@@ -106,7 +114,7 @@ sub filter {
 
         \{'ARPATH'\}[.]'/lib
 
-      } {\{'ARPATH'\}.'/trashcan/avtomat}sxg;
+      } {\{'ARPATH'\}.'/trashcan/$modname}sxg;
 
 # ---   *   ---   *   ---
 
@@ -118,7 +126,7 @@ sub filter {
 
         [.]
 
-        '/trashcan/avtomat
+        '/trashcan/${modname}
 
       } {\{'ARPATH'\}.'/lib}sxg;
 

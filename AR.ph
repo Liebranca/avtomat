@@ -26,6 +26,7 @@ my $root=$ENV{'ARPATH'};if(!$root) {
 
 chdir $ENV{'ARPATH'}.'/avtomat/';
 
+my $ARTAG="\e[37;1m<\e[34;22mAR\e[37;1m>\e[0m";
 my $trashd=$ENV{'ARPATH'}.'/trashcan/avtomat/';
 my $libd=$ENV{'ARPATH'}.'/lib/';
 
@@ -146,7 +147,14 @@ sub update {
 
           $PATH_TAKEN="PATH A";
 
-          $MAM_ARGS='-MMAM=-md,--rap';
+          $MAM_ARGS=
+            '-MMAM'.q{=}.
+            '-md'.q{,}.
+            '--rap'.q{,}.
+
+            '--module=avtomat'
+
+          ;
 
           $pmd=$og;
           $pmd=~ s[$src][$dst];
@@ -154,11 +162,14 @@ sub update {
           $obj=$pmd;
           $pmd.='d';
 
+# ---   *   ---   *   ---
+
         } else {
 
           $PATH_TAKEN="PATH B";
 
-          $MAM_ARGS='-MMAM';
+          $MAM_ARGS='-MMAM'.q{=}.
+            '--module=avtomat';
 
           $pmd=$og;
           $obj=$cp;
@@ -189,6 +200,7 @@ sub update {
           $depstr=${^CAPTURE[0]};
 
         } elsif($PATH_TAKEN ne 'PATH B') {
+          print "$out\n";
           die "Can't find deps for $og\n";
 
         };
@@ -199,6 +211,7 @@ sub update {
           $obj,$pmd
 
         ) {
+
           if(!(-e $fname)) {
 
             my @tmp=split m{/},$fname;
@@ -245,9 +258,10 @@ sub update {
       };
 
       if(!defined $md || $do_cp && $md!=2) {
-        print
 
-          "\e[37;1m<\e[34;22mAR\e[37;1m>\e[0m ".
+        print {*STDERR}
+
+          "\e[37;1m::\e[0m".
           "updated \e[32;1m$f\e[0m\n";
 
       };
@@ -261,6 +275,12 @@ sub update {
 
 my $path=$ENV{'ARPATH'}.'/trashcan/avtomat';
 if(! (-e $path) ) { `mkdir -p $path`; };
+
+
+# pretty out
+print {*STDERR} "$ARTAG starting update\n";
+
+# ---   *   ---   *   ---
 
 update(
 
@@ -298,7 +318,15 @@ update(
 # ---   *   ---   *   ---
 # this effen script...
 
-print `$ENV{'ARPATH'}'/avtomat/sygen'`;
+print {*STDERR}
+  "\e[37;1m::\e[0mrebuilding syntax files\n";
+
+print {*STDERR}
+  `$ENV{'ARPATH'}'/avtomat/sygen'`;
+
+# ---   *   ---   *   ---
+
+print {*STDERR} "\e[37;1m::\e[0mdone\n\n";
 
 
 # ---   *   ---   *   ---

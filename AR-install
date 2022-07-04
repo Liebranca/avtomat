@@ -7,7 +7,14 @@
 
 BEGIN {
 
+  my $clean=shift @ARGV;
+
   my $ex=$ENV{'ARPATH'}.'/avtomat/AR.ph';
+  if($clean eq 'clean') {
+    $ex.=q{ }.'clean';
+
+  };
+
   my $me=`$ex`;
 
   print $me;
@@ -208,9 +215,11 @@ avt::scan();
 avt::config();
 avt::make();
 
-for my $mod(avt::MODULES) {
+my @modules=avt::MODULES;
+shift @modules;
+
+for my $mod(@modules) {
   print `$root/$mod/avto`;
-  exit;
 
 };
 
