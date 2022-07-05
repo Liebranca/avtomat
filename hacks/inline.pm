@@ -27,6 +27,10 @@ package inline;
   use arstd;
 
   use Filter::Util::Call;
+
+# ---   *   ---   *   ---
+# global state
+
   my $TABLE={};
 
 # ---   *   ---   *   ---
@@ -51,7 +55,7 @@ sub code_emit {
 # fetch args
 
     my @args=();
-    my $args_re=shwl::ARGS_RE;
+    my $args_re=shwl::PARENS_RE;
     if($str=~ m/$args_re/s) {
       @args=split m/,/,$+{arg};
 
@@ -109,7 +113,7 @@ sub filter {
 
     "INLINE",
 
-    $TABLE->{re}.shwl::ARGS_RE,
+    $TABLE->{re}.shwl::PARENS_RE,
 
   );
 

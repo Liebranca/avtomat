@@ -51,8 +51,10 @@ package shwl;
 
     STR_RE=>qr{
 
+      (?<! ')
+
       "
-      (?: \\" | [^"] )+
+      (?: \\" | [^"\n] )*
 
       "
 
@@ -62,8 +64,10 @@ package shwl;
 
     CHR_RE=>qr{
 
+      (?<! ")
+
       '
-      (?: \\' | [^'] )+
+      (?: \\' | [^'\n] )*
 
       '
 
@@ -71,19 +75,20 @@ package shwl;
 
 # ---   *   ---   *   ---
 
-    ARGS_RE=>qr{
+    SUB_RE=>qr{(?<whole>
 
-      (?<parens>
+      \bsub\s*
 
-      \s*\(
+      (?<name> [_\w][_\w\d]*)?\s*
+      (?<attrs> :[_\w][_\w\d]*\s*)*
 
-        (?<arg> [^()]* | (?&parens) )
+      (?<scopes> [{]
 
-      \s*\)
+        (?<code> [^{}] | (?&scopes))*
 
-      )
+      [}])
 
-    }x,
+    )}x,
 
 # ---   *   ---   *   ---
 
@@ -99,6 +104,94 @@ package shwl;
 
 # ---   *   ---   *   ---
 # utility funcs
+
+sub delm($beg,$end=undef) {
+
+  $end//=$beg;
+  for my $d($beg,$end) {$d="\Q$d"};
+
+# ---   *   ---   *   ---
+
+  my $re=qr{
+
+    (?<delimiter>
+
+    \s*$beg
+
+      (?<body> [^$beg$end] | (?&delimiter) )*
+
+    \s*$end
+
+    )
+
+  }x;
+
+  return $re;
+
+};
+
+# ---   *   ---   *   ---
+
+sub delm2($beg,$end=undef) {
+
+  $end//=$beg;
+  my ($beg_allow,$end_allow)=($beg,$end);
+
+# ---   *   ---   *   ---
+
+  for my $d($beg_allow,$end_allow) {
+
+
+    my @chars=split NULLSTR,$d;
+    my $i=1;
+
+    my $c=shift @chars;
+    my $allowed=q{[^}."\Q$c".q{]+};
+
+# ---   *   ---   *   ---
+
+    for $c(@chars) {
+
+      my $left=NULLSTR;
+      if($i) {$left=substr $d,0,$i};$i++;
+
+      $allowed.=q{|}.$left.q{[^}."\Q$c".q{]+};
+
+    };
+
+# ---   *   ---   *   ---
+
+    $d=q[(?:].$allowed.q[)];
+
+  };
+
+  for my $d($beg,$end) {$d="\Q$d"};
+
+# ---   *   ---   *   ---
+
+  my $re=qr{
+
+    (?<delimiter>
+
+    \s*$beg
+
+      (?<body>
+
+        $beg_allow | $end_allow | (?&delimiter)
+
+      )*
+
+    \s*$end
+
+    )
+
+  }x;
+
+  return $re;
+
+};
+
+# ---   *   ---   *   ---
 
 sub cut($string_ref,$name,$pat) {
 

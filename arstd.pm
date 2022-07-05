@@ -18,7 +18,7 @@ package arstd;
   use strict;
   use warnings;
 
-  use Carp qw(longmess);
+  use Carp qw(croak longmess);
 
   use Scalar::Util qw(blessed);
 
@@ -83,6 +83,22 @@ sub arrshf($ar,$idex) {
   };
 
   pop @{$ar};
+
+};
+
+# ---   *   ---   *   ---
+
+sub orc($fname) {
+
+  open my $FH,'<',$fname
+    or croak STRERR.q{ }."$fname";
+
+  read $FH,my $body,-s $FH;
+
+  close $FH
+    or croak STRERR.q{ }."$fname";
+
+  return $body;
 
 };
 

@@ -94,12 +94,7 @@ while(@files) {
 
 # ---   *   ---   *   ---
 
-  open my $FH,'<',$f or die STRERR;
-  read $FH,my $body,-s $FH;
-  close $FH;
-
-  my $i=1;
-
+  my $body=arstd::orc($f);
   $body=join "\n",
 
     map {$i++.':__COOKED__:'.$ARG}
