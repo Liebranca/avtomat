@@ -412,6 +412,70 @@ sub tokenize($self,$exp) {
 };
 
 # ---   *   ---   *   ---
+
+sub tokenize2($self) {
+
+  my $body=$self->{value};
+  my $lang=$self->{frame}->{-MASTER}->{lang};
+
+  my $cut_token_re=lang::CUT_TOKEN_RE;
+  my $keyword=$lang->{keyword_re};
+  my $name=$lang->{-NAMES};
+  my $op=$lang->{-OPS};
+
+  my $label=qr{
+
+    [_\w][_\w\d]*:
+    (?! __\w{1,20}_CUT_\d{1,4}__:)
+
+  }x;
+
+# ---   *   ---   *   ---
+
+  my $token_re=qr{
+
+    (?:$cut_token_re)
+  | (?:$keyword)
+  | (?:$label)
+  | (?:$op)
+
+  }x;
+
+# ---   *   ---   *   ---
+
+  $body=~ s/^[\s\n]*//sg;
+  $body=~ s/[\s\n]*$//sg;
+
+  my @elems=();
+
+  while($body=~
+    s/^((?:$token_re)|(?:$name))//sxm
+
+  ) {
+
+    my $elem=${^CAPTURE[0]};
+    $body=~ s/^[\s\n]*//sg;
+
+    if(!length lang::stripline($elem)) {
+      last;
+
+    };
+
+    push @elems,$elem;
+
+  };
+
+# ---   *   ---   *   ---
+
+  $self->{value}=shift @elems;
+  for my $elem(@elems) {
+    $self->{frame}->nit($self,$elem);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # clump fields of arguments together
 
 sub agroup($self) {
@@ -689,7 +753,6 @@ sub agroup($self) {
       }};$arg=\$arg->{value};
 
     };
-
 # ---   *   ---   *   ---
 
     $self->{value}=$op->[$idex]->[1]->(@args);

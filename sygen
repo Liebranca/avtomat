@@ -250,9 +250,8 @@ sub prprops {
 
       my @slice=(@keys[$x..$top]);
       for my $re(@slice) {
-        if($re=~ m/\(\?\^u:/) {
-          $re=~ s/\(\?\^u://;
-          $re=~ s/\)$//;
+        if($re=~ lang::QRE_RE) {
+          lang::qre2re(\$re);
 
         };
 
@@ -275,11 +274,11 @@ sub prprops {
 
   for my $re(@ar) {
 
+    $re=~ s/\s+|\n//sxmg;
     $re=join '\n',(split "\n",$re);
 
-    if($re=~ m/\(\?\^u:/s) {
-      $re=~ s/\(\?\^u://s;
-      $re=~ s/\)$//s;;
+    if($re=~ lang::QRE_RE) {
+      lang::qre2re(\$re);
 
     };
 

@@ -193,7 +193,7 @@ sub neg_lkahead(
 
   return ('('.
 
-    ' '.$end.
+    '\s'.$end.
 
     # well, crap
     #'|[^'.$pat.']'.$end.
@@ -226,7 +226,7 @@ sub delim($beg,$end=NULLSTR,$ml=0) {
   $end=rescap($end);
 
   my $out="($beg(($allow)*)$end)";
-  return qr{$out};
+  return qr{$out}x;
 
 };
 
@@ -253,15 +253,17 @@ sub delim2($beg,$end=NULLSTR,$ml=0) {
 
 # ---   *   ---   *   ---
 
-  my $out=
+  return qr{
 
-    "$beg".
-    "(($allow|$end)*)$end".
-    "[^$end]*\$"
+    $beg
 
-  ;
+    (($allow|$end)*)
 
-  return qr{$out};
+    $end
+
+    [^$end]*\$
+
+  }x;
 
 };
 
@@ -284,7 +286,7 @@ sub eithc($string,$disable_escapes) {
 # ---   *   ---   *   ---
 
   my $out='('.( join '|',@chars).')';
-  return qr{$out};
+  return qr{$out}x;
 
 };
 
@@ -327,7 +329,7 @@ sub eiths(
 
   };
 
-  return qr{$out};
+  return qr{$out}x;
 
 # ---   *   ---   *   ---
 # ^same, input is array
@@ -360,11 +362,11 @@ sub eiths(
 
   my $out='('.(join '|',@words).')';
   if(!$disable_bwrap) {
-    $out='\b'.$out.'\b';
+    $out='(^|\b)'.$out.'(\b|$)';
 
   };
 
-  return qr{$out};
+  return qr{$out}x;
 
 };
 
@@ -405,8 +407,15 @@ sub eaf(
 
 # ---   *   ---   *   ---
 
-  my $out="($pat.*(\\x0D?\\x0A|\$))";
-  return qr{$out};
+  return qr{(
+
+    $pat
+
+    .*
+
+    (\x0D?\x0A|$)
+
+  )}x;
 
 };
 
@@ -415,12 +424,12 @@ sub eaf(
 
 use constant {
 
-  ARRAYREF_RE=>qr{^ARRAY\(0x[0-9a-f]+\)},
-  CODEREF_RE=>qr{^CODE\(0x[0-9a-f]+\)},
-  HASHREF_RE=>qr{^HASH\(0x[0-9a-f]+\)},
-  QRE_RE=>qr{\(\?\^u:},
+  ARRAYREF_RE=>qr{^ARRAY\(0x[0-9a-f]+\)}x,
+  CODEREF_RE=>qr{^CODE\(0x[0-9a-f]+\)}x,
+  HASHREF_RE=>qr{^HASH\(0x[0-9a-f]+\)}x,
+  QRE_RE=>qr{\(\?\^u(?:[xsmg]*):}x,
 
-  CUT_TOKEN_RE=>qr{:__[A-Z]+_CUT_([\dA-F]+)__:},
+  CUT_TOKEN_RE=>qr{:__[A-Z]+_CUT_([\dA-F]+)__:}x,
   CUT_TOKEN_FMAT=>':__%s_CUT_%X__:',
 
 };
@@ -428,20 +437,28 @@ use constant {
 # ---   *   ---   *   ---
 
 ;;sub is_coderef:inlined ($v) {
-  state $re=qr{^CODE\(0x[0-9a-f]+\)};
+  state $re=qr{^CODE\(0x[0-9a-f]+\)}x;
   return (defined $v && ($v=~ $re));
 
 };sub is_arrayref:inlined ($v) {
-  state $re=qr{^ARRAY\(0x[0-9a-f]+\)};
+  state $re=qr{^ARRAY\(0x[0-9a-f]+\)}x;
   return (defined $v && ($v=~ $re));
 
 };sub is_hashref:inlined ($v) {
-  state $re=qr{^HASH\(0x[0-9a-f]+\)};
+  state $re=qr{^HASH\(0x[0-9a-f]+\)}x;
   return (defined $v && ($v=~ $re));
 
 };sub is_qre:inlined ($v) {
-  state $re=qr{\(\?\^u:};
+  state $re=qr{\(\?\^u:}x;
   return (defined $v && ($v=~ $re));
+
+};
+
+# ---   *   ---   *   ---
+
+sub qre2re($ref) {
+  $$ref=~ s/\(\?\^u(?:[xsmg]*)://;
+  $$ref=~ s/\)$//;
 
 };
 
@@ -575,7 +592,7 @@ sub cut($s,$pat,$id,$h) {
 # remove all whitespace
 
 };sub stripline:inlined ($s) {
-  state $re=qr{\s+|:__NL__:};
+  state $re=qr{\s+|:__NL__:}x;
   join NULLSTR,(split m/$re/,$s);
 
 };
@@ -1049,13 +1066,24 @@ sub nit(%h) {
 
     my $keypat=lang::hashpat(\%ht,1,0);
 
-    $keypat=($keypat eq qr{\b()\b})
-      ? qr{$^} : $keypat;
+    $keypat=($keypat eq qr{\b()\b}x)
+      ? qr{$^}x : $keypat;
 
     $ht{re}=$keypat;
     $ref->{$key}=\%ht;
 
   };
+
+  $ref->{keyword_re}=qr{
+
+    $ref->{-TYPES}->{re}
+  | $ref->{-SPECIFIERS}->{re}
+  | $ref->{-BUILTINS}->{re}
+  | $ref->{-FCTLS}->{re}
+  | $ref->{-INTRINSICS}->{re}
+  | $ref->{-DIRECTIVES}->{re}
+
+  }x;
 
 # ---   *   ---   *   ---
 # handle creation of operator pattern
@@ -1130,7 +1158,7 @@ sub nit(%h) {
   { my %tmp=();
     for my $key(keys %{$ref->{-NUMS}}) {
       my $value=$ref->{-NUMS}->{$key};
-      $key=qr{$key};
+      $key=qr{$key}x;
 
       $tmp{$key}=$value;
 
@@ -1145,7 +1173,7 @@ sub nit(%h) {
   for my $key(-HIER,-NAMES) {
     if($ref->{$key}=~ lang::ARRAYREF_RE) {
       for my $re(@{$ref->{$key}}) {
-        $re=qr{$re};
+        $re=qr{$re}x;
 
       };
 
@@ -1153,7 +1181,7 @@ sub nit(%h) {
 
       for my $rek(keys %{$ref->{$key}}) {
         my $re=$ref->{$key}->{$rek};
-        $re=qr{$re};
+        $re=qr{$re}x;
 
         $ref->{$key}->{$rek}=$re;
 
@@ -1161,7 +1189,7 @@ sub nit(%h) {
 
     } else {
       my $re=$ref->{$key};
-      $ref->{$key}=qr{$re};
+      $ref->{$key}=qr{$re}x;
 
     };
 

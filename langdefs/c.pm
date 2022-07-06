@@ -172,7 +172,7 @@ lang::def::nit(
 # ---   *   ---   *   ---
 # build language patterns
 
-);lang->c->{-PLPS}=langdefs::plps::make(lang->c);
+);#lang->c->{-PLPS}=langdefs::plps::make(lang->c);
 
 };
 

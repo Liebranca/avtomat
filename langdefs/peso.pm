@@ -566,8 +566,10 @@ lang::def::nit(
 # ---   *   ---   *   ---
 # nit the magic parser
 
-);lang->peso->{-PLPS}
-    =langdefs::plps::make(lang->peso);
+);
+
+#lang->peso->{-PLPS}
+#    =langdefs::plps::make(lang->peso);
 
 # ---   *   ---   *   ---
 # load typedata to the type-table
