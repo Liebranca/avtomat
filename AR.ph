@@ -179,7 +179,7 @@ sub update {
 # ---   *   ---   *   ---
 
         my $ex=
-          "perl  -c".q{ }.
+          "perl".q{ }.
 
           "$MAM_PATH".q{ }.
           "$MAM_ARGS".q{ }.
@@ -201,6 +201,11 @@ sub update {
 
         } elsif($PATH_TAKEN ne 'PATH B') {
           print {*STDERR} "$out\n";
+
+          print {*STDERR} "$PATH_TAKEN\n";
+          print {*STDERR} "$MAM_PATH\n\n";
+          print {*STDERR} "$og:\n";
+          print {*STDERR} "$obj :: $pmd\n\n";
 
           my $log=`cat .errlog`;
           print {*STDERR} "$log\n";

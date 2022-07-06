@@ -21,6 +21,8 @@ package shwl;
   use English qw(-no_match_vars);
   use Carp;
 
+  use B qw(svref_2object);
+
   use lib $ENV{'ARPATH'}.'/lib/';
   use style;
   use arstd;
@@ -82,9 +84,11 @@ package shwl;
       (?<name> [_\w][_\w\d]*)?\s*
       (?<attrs> :[_\w][_\w\d]*\s*)*
 
-      (?<scopes> [{]
+      \s*(?<args> \(.*?\))?\s*
 
-        (?<code> [^{}] | (?&scopes))*
+      (?<scope> [{]
+
+        (?<code> [^{}] | (?&scope))*
 
       [}])
 
@@ -100,10 +104,26 @@ package shwl;
 # global state
 
   my $STRINGS={};
+
   sub STRINGS {return $STRINGS};
+  sub DUMPSTRINGS {
+
+    my $cpy=arstd::hashcpy($STRINGS);
+    $STRINGS={};
+
+    return $cpy;
+
+  };
 
 # ---   *   ---   *   ---
 # utility funcs
+
+sub coderef_name($ref) {
+  return svref_2object($ref)->GV->NAME;
+
+};
+
+# ---   *   ---   *   ---
 
 sub delm($beg,$end=undef) {
 
@@ -118,9 +138,9 @@ sub delm($beg,$end=undef) {
 
     \s*$beg
 
-      (?<body> [^$beg$end] | (?&delimiter) )*
+      (?<body> [^$beg$end]* | (?&delimiter) )
 
-    \s*$end
+    $end\s*
 
     )
 
@@ -140,7 +160,6 @@ sub delm2($beg,$end=undef) {
 # ---   *   ---   *   ---
 
   for my $d($beg_allow,$end_allow) {
-
 
     my @chars=split NULLSTR,$d;
     my $i=1;
@@ -179,9 +198,9 @@ sub delm2($beg,$end=undef) {
 
         $beg_allow | $end_allow | (?&delimiter)
 
-      )*
+      )
 
-    \s*$end
+    $end\s*
 
     )
 
@@ -200,7 +219,7 @@ sub cut($string_ref,$name,$pat) {
 # ---   *   ---   *   ---
 # replace pattern with placeholder
 
-  while($$string_ref=~ s/($pat)/#:cut;>/s) {
+  while($$string_ref=~ s/($pat)/#:cut;>/smx) {
 
     my $v=${^CAPTURE[0]};
     my $token=q{};
@@ -248,6 +267,35 @@ sub stitch($string_ref) {
   };
 
   return;
+
+};
+
+# ---   *   ---   *   ---
+
+sub mod_to_lib($fname) {
+
+  my $arpath=$ENV{'ARPATH'};
+
+  if(0<=index $fname,q{/}) {
+    $fname=~ s/${arpath}//;
+    my @ar=split m{/},$fname;
+    my $ar0=$ar[0];
+
+    $fname=~ s/${ar0}//;
+
+# ---   *   ---   *   ---
+
+  };if(!($fname=~ m{/lib/})) {
+    $fname="lib/$fname";
+
+  };if(!($fname=~ m{$arpath})) {
+    $fname="$arpath/$fname";
+
+  };
+
+  $fname=~ s{/+} {/}sgx;
+
+  return $fname;
 
 };
 
@@ -316,7 +364,7 @@ sub getlibs() {
   my @imports=();
   for my $module(keys %INC) {
 
-    my $fpath=darkside_of($INC{$module});
+    my $fpath=darkside_of(mod_to_lib($module));
     if(-e $fpath) {push @imports,$fpath};
 
   };
@@ -376,11 +424,95 @@ sub getlibs() {
 
   } keys %$table;
 
-  my $re='\b('.(join '|',@names).')\b';
+  if(!@names) {
+    croak "Empty inlined symbol table";
+
+  };
+
+  my $re='\b('.(join '|',@names).')\b\(.*?\)';
 
   $table->{re}=qr{$re}xs;
 
   return $table;
+
+};
+
+# ---   *   ---   *   ---
+# abstracts away details in
+# every subroutine found in a file
+
+sub codefold($fname) {
+
+  my $body=arstd::orc($fname);
+
+# ---   *   ---   *   ---
+
+  my %dels=(
+
+    q[{]=>q[}],
+    q{[}=>q{]},
+    q[(]=>q[)],
+
+  );
+
+  my %dels_id=(
+
+    q[{]=>'CURLY',
+    q{[}=>'BRACKET',
+    q[(]=>'PARENS',
+
+  );
+
+  my @dels_order=qw'( [ {';
+  my %dels_re=();
+
+  for my $key(@dels_order) {
+    my $re=delm($key,$dels{$key});
+    $dels_re{$key}=$re;
+
+  };
+
+# ---   *   ---   *   ---
+
+  my %blocks=();
+
+  while($body=~ s/${\SUB_RE}//sxm) {
+
+    my $fnbody=$+{scope};
+
+    my $block=shwl::blk::nit();
+
+    $fnbody=~ s/^\s*\{//;
+    $fnbody=~ s/\s*\}$//;
+
+# ---   *   ---   *   ---
+
+    cut(\$fnbody,'STR',STR_RE);
+    cut(\$fnbody,'CHR',CHR_RE);
+
+    for my $key(@dels_order) {
+
+      cut(
+        \$fnbody,
+        $dels_id{$key},
+        $dels_re{$key}
+
+      );
+
+    };
+
+# ---   *   ---   *   ---
+
+    $block->{strings}=DUMPSTRINGS();
+    $block->{body}=$fnbody;
+
+    $blocks{$block->{name}}=$block;
+
+  };
+
+# ---   *   ---   *   ---
+
+  return \%blocks;
 
 };
 
@@ -422,5 +554,44 @@ sub paste($sbl,@passed) {
   return "$code";
 
 };
+
+# ---   *   ---   *   ---
+
+package shwl::blk;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use style;
+
+# ---   *   ---   *   ---
+
+
+sub nit {
+
+  my $block=bless {
+
+    name=>$+{name},
+    attrs=>$+{attrs},
+    body=>$+{code},
+    args=>$+{args},
+
+    strings=>{},
+
+  };
+
+  $block->{name}//=NULLSTR;
+  $block->{attrs}//=NULLSTR;
+  $block->{args}//=NULLSTR;
+  $block->{body}//=NULLSTR;
+
+  return $block;
+
+};
+
+# ---   *   ---   *   ---
+
+
 
 # ---   *   ---   *   ---

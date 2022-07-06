@@ -44,14 +44,14 @@ package MAM;
 
   use constant OPTIONS=>[
 
-    ['module','-M','--module',1],
-    ['no_comments','-nc','--no_comments'],
-    ['no_print','-np','--no_print'],
+    {id=>'module',short=>'-M',argc=>1},
+    {id=>'no_comments',short=>'-nc'},
+    {id=>'no_print',short=>'-np',},
 
-    ['make_deps','-md','--make_deps'],
+    {id=>'make_deps',short=>'-md'},
 
-    ['rap','-r','--rap'],
-    ['line_numbers','-ln','--line_numbers'],
+    {id=>'rap'},
+    {id=>'line_numbers',short=>'-ln'},
 
   ];
 
@@ -69,7 +69,7 @@ sub import {
   $SETTINGS=cli::nit(@{&OPTIONS});
   $SETTINGS->take(@opts);
 
-  if($SETTINGS->{module} ne NULL) {
+  if($SETTINGS->{module} eq NULL) {
     $SETTINGS->{module}='avtomat';
 
   };

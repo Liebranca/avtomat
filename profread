@@ -33,7 +33,7 @@
 # ---   *   ---   *   ---
 
 my $m=cli::nit(
-  ['threshold','-t','--threshold',1],
+  {id=>'threshold',argc=>1},
 
 );
 

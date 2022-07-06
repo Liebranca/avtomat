@@ -21,6 +21,7 @@ package cli;
   use lib $ENV{'ARPATH'}.'/lib/';
   use style;
   use arstd;
+  use lang;
 
 # ---   *   ---   *   ---
 # getters
@@ -52,9 +53,16 @@ sub nit(@args) {
       $id,
       $short_form,
       $long_form,
-      $argc
+      $argc,
 
-    )=@$ref;
+    )=(
+
+      $ref->{id},
+      $ref->{short},
+      $ref->{long},
+      $ref->{argc},
+
+    );
 
 # ---   *   ---   *   ---
 # save id and create arg instance
@@ -90,6 +98,8 @@ sub nit(@args) {
     -ORDER=>\@order,
     -OPTAB=>\%optab,
     -ALIAS=>\%alias,
+
+    -RE=>lang::hashpat(\%alias,1,1),
 
     -ARGV=>[],
 
@@ -135,7 +145,12 @@ sub short_or_long($self,$arg) {
 # ---   *   ---   *   ---
 # catch invalid
 
-  if(!exists $self->{-ALIAS}->{$arg}) {
+  if($arg=~ s/$self->{-RE}//) {
+
+    $value=(defined $' && length $') ? $' : NULL;
+    $arg=$&;
+
+  };if(!exists $self->{-ALIAS}->{$arg}) {
 
     arstd::errout(
       "%s: invalid option '%s'\n",
@@ -154,10 +169,10 @@ sub short_or_long($self,$arg) {
 
 # ---   *   ---   *   ---
 
-  if($option->{argc}) {
+  if($option->{argc} && $value eq NULL) {
     $value=$self->next_arg;
 
-  } else {
+  } elsif(!$option->{argc} && $value eq NULL) {
     $value=1;
 
   };

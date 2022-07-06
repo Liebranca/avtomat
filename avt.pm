@@ -2782,7 +2782,7 @@ sub pcc($M,$src,$obj,$pmd) {
     print {*STDERR} "$src\n";
 
     my $ex=
-      "perl -c".q{ }.
+      "perl".q{ }.
 
       "-I$ENV{ARPATH}/avtomat/".q{ }.
       "-I$ENV{ARPATH}/avtomat/hacks".q{ }.

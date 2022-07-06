@@ -32,6 +32,7 @@ package inline;
 # global state
 
   my $TABLE={};
+  my $PARENS_RE=shwl::delm(q[(],q[)]);
 
 # ---   *   ---   *   ---
 
@@ -55,9 +56,8 @@ sub code_emit {
 # fetch args
 
     my @args=();
-    my $args_re=shwl::PARENS_RE;
-    if($str=~ m/$args_re/s) {
-      @args=split m/,/,$+{arg};
+    if($str=~ m/$PARENS_RE/s) {
+      @args=split m/,/,$+{body};
 
     };
 
@@ -65,7 +65,7 @@ sub code_emit {
 # expand symbol and insert
 
     my $code=$sbl->paste(@args);
-    $str=~ s/${symname}$args_re/$code/;
+    $str=~ s/${symname}$PARENS_RE/$code/;
 
     shwl::STRINGS->{$fn}=$str;
 
@@ -87,6 +87,8 @@ sub import {
     filter_add($self);
 
   };
+
+print {*STDERR} $TABLE->{re}."\n";
 
 };
 
@@ -113,7 +115,7 @@ sub filter {
 
     "INLINE",
 
-    $TABLE->{re}.shwl::PARENS_RE,
+    $TABLE->{re},
 
   );
 

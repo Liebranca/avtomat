@@ -40,10 +40,10 @@
 
 my $m=cli::nit(
 
-  ['recursive'],
-  ['symbol','-s','--symbol',1],
-  ['no_escaping','-ne','--no_escaping'],
-  ['regex','-re','--regex'],
+  {id=>'recursive'},
+  {id=>'symbol',argc=>1},
+  {id=>'no_escaping',short=>'-ne'},
+  {id=>'regex',short=>'-re'},
 
 );
 
@@ -58,6 +58,8 @@ if($m->{recursive}!=NULL) {
   arstd::expand_path(\@ar,\@files);
 
 };
+
+# ---   *   ---   *   ---
 
 if($m->{no_escaping}==NULL) {
   $m->{symbol}="\Q$m->{symbol}";
@@ -90,11 +92,13 @@ while(@files) {
     arstd::expand_path($f,\@files);
     next;
 
-  } elsif(!($f=~ $ext_re)) {next};
+  }; #elsif(!($f=~ $ext_re)) {next};
 
 # ---   *   ---   *   ---
 
   my $body=arstd::orc($f);
+  my $i=0;
+
   $body=join "\n",
 
     map {$i++.':__COOKED__:'.$ARG}

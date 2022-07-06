@@ -1,0 +1,186 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# SLOCN
+# Counts source lines of code
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+# ---   *   ---   *   ---
+
+# deps
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+
+  use style;
+  use arstd;
+  use cli;
+
+  use lang;
+
+# ---   *   ---   *   ---
+
+my $m=cli::nit(
+
+  {id=>'recursive'},
+  {id=>'language',short=>'-L',argc=>1},
+  {id=>'linecount',short=>'-lc'}
+
+);
+
+my @files=$m->take(@ARGV);
+
+# ---   *   ---   *   ---
+
+if($m->{recursive}!=NULL) {
+  my @ar=@files;
+  @files=();
+
+  arstd::expand_path(\@ar,\@files);
+
+};
+
+# ---   *   ---   *   ---
+
+my $defspath="$ENV{'ARPATH'}/lib/langdefs";
+
+my $langname=NULL;
+my $lang=NULL;
+my $ext_re=NULL;
+my $comment_re=NULL;
+
+if($m->{language} ne NULL) {
+  $langname=$m->{language};
+  eval("use langdefs::$langname;");
+
+  $lang=lang->$langname;
+  $ext_re=qr{$lang->{-EXT}};
+  $comment_re=qr{^\s*$lang->{-COM}};
+
+};
+
+# ---   *   ---   *   ---
+
+my $count_type='SLOC';
+my $count_rule=sub ($_line) {int(
+
+  (length join NULLSTR,(split m/\s*|\n/sm,$_line))
+  && !($_line=~ $comment_re)
+
+)};
+
+if($m->{linecount}!=NULL) {
+  $count_type='LINES';
+  $count_rule=sub ($_line) {1};
+
+};
+
+# ---   *   ---   *   ---
+
+my $fcount=0;
+my $total=0;
+
+while(@files) {
+
+  my $f=shift @files;
+
+  if(-d $f) {
+
+    arstd::expand_path($f,\@files);
+    next;
+
+  };
+
+# ---   *   ---   *   ---
+
+  if($m->{language} eq NULL) {
+
+    $langname=lang::file_ext($f);
+    my %table=%lang::;
+
+    if(
+
+       !(defined $langname)
+    || !(-e "$defspath/$langname.pm")
+
+    ) {
+
+      $langname='perl';
+
+# ---   *   ---   *   ---
+
+      if(!exists $table{$langname}) {
+        eval("use langdefs::$langname;");
+
+      };
+
+      $lang=lang->$langname;
+      $ext_re=qr{[.]?[\w\d]?};
+      $comment_re=qr{^\s*$lang->{-COM}};
+
+# ---   *   ---   *   ---
+
+    } else {
+
+      if(!exists $table{$langname}) {
+        eval("use langdefs::$langname;");
+
+      };
+
+      $lang=lang->$langname;
+      $ext_re=qr{$lang->{-EXT}};
+      $comment_re=qr{^\s*$lang->{-COM}};
+
+    };
+
+  };
+
+  if(!($f=~ $ext_re)) {next};
+
+# ---   *   ---   *   ---
+
+  my $body=arstd::orc($f);
+  my $slocn=0;
+
+  for my $line(split m/\n/,$body) {
+    $slocn+=$count_rule->($line);
+
+  };
+
+  $total+=$slocn;
+  $fcount++;
+
+  printf {*STDOUT}
+    "\e[33;22m%4i\e[0m".q{ }.
+    "\e[34;22m%-54s\e[0m\n",
+
+    $slocn,$f
+
+  ;
+
+};
+
+# ---   *   ---   *   ---
+
+printf {*STDOUT}
+
+  "\n".
+
+  "\e[33;22m%4i\e[0m".q{ }.
+  "\e[32;22m%-54s\e[0m".q{ }.
+
+  "(%i files)\n",
+
+  $total,'total'.q{ }.$count_type,$fcount;
+
+;
+
+# ---   *   ---   *   ---
+1; # ret

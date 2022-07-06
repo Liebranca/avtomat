@@ -88,6 +88,20 @@ sub arrshf($ar,$idex) {
 
 # ---   *   ---   *   ---
 
+sub hashcpy($src) {
+
+  my $cpy={};
+  for my $key(keys %$src) {
+    $cpy->{$key}=$src->{$key};
+
+  };
+
+  return $cpy;
+
+};
+
+# ---   *   ---   *   ---
+
 sub orc($fname) {
 
   open my $FH,'<',$fname

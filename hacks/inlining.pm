@@ -26,6 +26,7 @@ package inlining;
 
   use File::Spec;
   use B::Deparse;
+  use B qw(svref_2object);
 
   use lib $ENV{'ARPATH'}.'/lib/';
   use style;
@@ -69,13 +70,15 @@ sub dumpsbl() {
     my $symbol=$SBL->{$key};
 
     my $src=$symbol->{file};
-    my $dst=$src;
+    my $dst=shwl::darkside_of(
+      shwl::mod_to_lib($src)
+
+    );
 
 # ---   *   ---   *   ---
 
     my $need_update=0;
     if(!exists $shadow->{$src}) {
-      $dst=shwl::darkside_of($src);
 
       $need_update=(-e $dst)
         ? ((-M $dst) > (-M $src))
@@ -92,7 +95,7 @@ sub dumpsbl() {
         my @ar=split m/\//,$dst;
         my $base_name=join '/.',$ar[-1];
 
-        printf {*STDOUT}
+        printf {*STDERR}
           arstd::pretty_tag('AR').
           " updated ".
           "\e[32;1m%s\e[0m\n",
@@ -425,11 +428,11 @@ sub UNIVERSAL::inlined:ATTR(CODE) {
 
 # ---   *   ---   *   ---
 
-  my $name=*{$symbol}{NAME};
+  my $name=shwl::coderef_name($referent);
 
   my $code=q{};
   my $rawcode=
-    $DEPARSE->coderef2text(*{$symbol}{CODE});
+    $DEPARSE->coderef2text($referent);
 
 # ---   *   ---   *   ---
 
