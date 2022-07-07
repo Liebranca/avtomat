@@ -310,6 +310,7 @@ sub glang {
     $prop.='header '.avt::dqwrap($def->hed)."\n";
     $prop.='magic '.avt::dqwrap($def->mag)."\n";
 
+    $def->{-COM}=~ s/\\//sg;
     $prop.='comment '.avt::dqwrap($def->com)."\n";
     print $FH "$prop\n";
 

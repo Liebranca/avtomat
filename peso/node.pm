@@ -446,7 +446,7 @@ sub tokenize2($self) {
 
 # ---   *   ---   *   ---
 
-  my $ws_re=qr{^[\s\n]*};
+  my $ws_re=qr{^[\s\n]*|[\s\n]*$};
 
   $body=~ s/$ws_re//sg;
 

@@ -1269,11 +1269,7 @@ sub expand($body) {
 
 # ---   *   ---   *   ---
 
-my $exp_bound_re=qr/
-  ( \{ | \} )
-  |;
-
-/x;
+my $exp_bound_re=qr/({|})|;/x;
 
 sub tokenize($nd_frame,$node,$body) {
 
@@ -1314,27 +1310,34 @@ TAIL:
 
 # ---   *   ---   *   ---
 
-my $cut_token_re=lang::CUT_TOKEN_RE;
+my $cut_re=shwl::CUT_RE;
+my $cut_a_re="$cut_re";
+my $cut_b_re="$cut_re";
+
+$cut_a_re=~ s/\\w\+/(?:CURLY|BRACKET|PARENS)/;
+$cut_b_re=~ s/\\w\+/(?:STR|QSTR|CHR|EXE)/;
+
+$cut_a_re=qr{$cut_a_re};
+$cut_b_re=qr{$cut_b_re};
 
 sub recurse($nd_frame,$block,@pending) {
 
   while(@pending) {
 
     my $node=shift @pending;
-    my $key=$node->{value};
+
 
 # ---   *   ---   *   ---
 
 TOP:
-    if($node->{value}=~
-        m/($cut_token_re)/
 
-    ) {
+    my $key=$node->{value};
+    if($key=~ m/($cut_a_re)/) {
 
       $key=${^CAPTURE[0]};
-      my $repl=$block->{strings}->{$key};
 
-      $node->{value}=~ s/$cut_token_re/$repl/;
+      my $repl=$block->{strings}->{$key};
+      $node->{value}=~ s/${key}/$repl/;
 
 # ---   *   ---   *   ---
 
@@ -1387,7 +1390,30 @@ sub parse2($block,$id) {
   );
 
   recurse($nd_frame,$block,$root);
-  return $root;
+  replstr($block,$root);
+
+  $m->{tree}=$root;
+  return $m;
+
+};
+
+# ---   *   ---   *   ---
+
+sub replstr($block,$root) {
+
+  for my $branch($root->branches_in($cut_b_re)) {
+
+    my $key=$branch->{value};
+    if($key=~ m/($cut_b_re)/) {
+
+      $key=${^CAPTURE[0]};
+      my $repl=$block->{strings}->{$key};
+
+      $branch->{value}=~ s/${key}/$repl/;
+
+    };
+
+  };
 
 };
 

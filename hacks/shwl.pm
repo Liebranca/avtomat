@@ -47,13 +47,13 @@ package shwl;
     FNAME_RE=>qr{\/([_\w][_\w\d]*)$},
 
     CUT_FMAT=>':__%s_CUT_%i__:',
-    CUT_RE=>':__\w+_CUT_(\d+)__:',
+    CUT_RE=>':__\w+_CUT_\d+__:',
 
 # ---   *   ---   *   ---
 
     STR_RE=>qr{
 
-      (?<! ')
+      (?<! ['`])
 
       "
       (?: \\" | [^"\n] )*
@@ -66,12 +66,25 @@ package shwl;
 
     CHR_RE=>qr{
 
-      (?<! ")
+      (?<! ["`])
 
       '
       (?: \\' | [^'\n] )*
 
       '
+
+    }x,
+
+# ---   *   ---   *   ---
+
+    EXE_RE=>qr{
+
+      (?<! ["'])
+
+      `
+      (?: \\` | [^`\n] )*
+
+      `
 
     }x,
 
@@ -143,6 +156,89 @@ sub delm($beg,$end=undef) {
     $end\s*
 
     )
+
+  }x;
+
+  return $re;
+
+};
+
+# ---   *   ---   *   ---
+# ^ similar, but preceded by q|qq|qw|qr|m
+
+sub qdelm($beg,$end=undef) {
+
+  $end//=$beg;
+  for my $d($beg,$end) {$d="\Q$d"};
+
+# ---   *   ---   *   ---
+
+  my $re=qr{
+
+    (?: q|qq|qw|qr|m)
+
+    (?<delimiter>
+
+    \s*$beg
+
+      (?<body> [^$beg$end]* | (?&delimiter) )
+
+    $end\s*
+
+    ) (?: [sxmge]?)
+
+  }x;
+
+  return $re;
+
+};
+
+# ---   *   ---   *   ---
+# ^ fffn perl and it's undending corner cases
+
+sub sdelm($beg,$end=undef) {
+
+  $end//=$beg;
+  for my $d($beg,$end) {$d="\Q$d"};
+
+  my $mid;
+  if($end ne $beg) {
+    $mid=$end.q{\s*}.$beg;
+
+  } else {
+    $mid=$beg;
+
+  };
+
+# ---   *   ---   *   ---
+
+  my $re=qr{
+
+    (?: s)
+
+    (?<delimiter>
+
+    \s*$beg
+
+      (?<body>
+
+        [^$beg$end]*
+      | (?&delimiter)
+
+      )
+
+    $mid
+
+      (?<body>
+
+        [^$beg$end]*
+      | (?&delimiter)
+
+      )
+
+    $end\s*
+
+    ) (?: [sxmge]?)
 
   }x;
 
@@ -466,11 +562,20 @@ sub codefold($fname) {
   my @dels_order=qw'( [ {';
   my %dels_re=();
 
+  my @qstr_re=();
+  my @srgx_re=();
+
   for my $key(@dels_order) {
     my $re=delm($key,$dels{$key});
     $dels_re{$key}=$re;
 
+    push @qstr_re,qdelm($key,$dels{$key});
+    push @srgx_re,sdelm($key,$dels{$key});
+
   };
+
+  my $qstr_re=q[(].( join q{|},@qstr_re ).q[)];
+  my $srgx_re=q[(].( join q{|},@srgx_re ).q[)];
 
 # ---   *   ---   *   ---
 
@@ -489,6 +594,10 @@ sub codefold($fname) {
 
     cut(\$fnbody,'STR',STR_RE);
     cut(\$fnbody,'CHR',CHR_RE);
+    cut(\$fnbody,'EXE',EXE_RE);
+
+    cut(\$fnbody,'QSTR',$qstr_re);
+    cut(\$fnbody,'SRGX',$srgx_re);
 
     for my $key(@dels_order) {
 
