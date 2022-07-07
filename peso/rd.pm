@@ -27,6 +27,7 @@ package peso::rd;
   use style;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
+  use shwl;
   use inline;
 
   use peso::program;
@@ -1239,6 +1240,154 @@ sub parse(
   $program->{cooked}=$rd->{cooked};
 
   return $program;
+
+};
+
+# ---   *   ---   *   ---
+# EXPERIMENTAL STUFF
+# dont touch
+# ---   *   ---   *   ---
+
+my $comment_re=qr{^\s*(\#[^\n]*)?}x;
+
+sub expand($body) {
+
+  my @lines=();
+
+  for my $line(split NEWLINE_RE,$body) {
+    $line=~ s/$comment_re//sg;
+    if(length lang::stripline($line)) {
+      push @lines,$line;
+
+    };
+
+  };
+
+  return join NULLSTR,@lines;
+
+};
+
+# ---   *   ---   *   ---
+
+my $exp_bound_re=qr/
+  ( \{ | \} )
+  |;
+
+/x;
+
+sub tokenize($nd_frame,$node,$body) {
+
+  my @exps=();
+  { my @tmp=split $exp_bound_re,$body;
+    for my $s(@tmp) {
+      if(
+
+         defined $s
+      && length lang::stripline($s)
+
+      ) {
+
+        push @exps,$s;
+
+      };
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+
+  my $out=1;
+
+  if(@exps==1) {$out=0;goto TAIL};
+
+  for my $exp(@exps) {
+    $exp=$nd_frame->nit($node,$exp);
+    $exp->tokenize2();
+
+  };
+
+TAIL:
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+
+my $cut_token_re=lang::CUT_TOKEN_RE;
+
+sub recurse($nd_frame,$block,@pending) {
+
+  while(@pending) {
+
+    my $node=shift @pending;
+    my $key=$node->{value};
+
+# ---   *   ---   *   ---
+
+TOP:
+    if($node->{value}=~
+        m/($cut_token_re)/
+
+    ) {
+
+      $key=${^CAPTURE[0]};
+      my $repl=$block->{strings}->{$key};
+
+      $node->{value}=~ s/$cut_token_re/$repl/;
+
+# ---   *   ---   *   ---
+
+      if(tokenize(
+
+        $nd_frame,
+        $node,
+
+        expand($node->{value})
+
+      )) {
+
+        unshift @pending,@{$node->{leaves}};
+        $node->flatten_branch();
+
+      } else {
+        goto TOP;
+
+      };
+
+# ---   *   ---   *   ---
+
+    } else {
+      unshift @pending,@{$node->{leaves}};
+
+    };
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub parse2($block,$id) {
+
+  my $m=peso::program::nit(lang->perl);
+  my $nd_frame=$m->{node};
+
+  my $root=$nd_frame->nit(undef,$id);
+
+# ---   *   ---   *   ---
+
+  tokenize(
+
+    $nd_frame,
+    $root,
+
+    expand($block->{body})
+
+  );
+
+  recurse($nd_frame,$block,$root);
+  return $root;
 
 };
 

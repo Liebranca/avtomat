@@ -42,6 +42,7 @@ package style;
     COMMA_RE
     SPACE_RE
     COLON_RE
+    NEWLINE_RE
 
   );
 
@@ -63,6 +64,7 @@ use constant {
   COMMA_RE=>qr{,},
   SPACE_RE=>qr{\s},
   COLON_RE=>qr{:},
+  NEWLINE_RE=>qr{\n},
 
   MEMPTR=>0xFFB10C<<40,
 

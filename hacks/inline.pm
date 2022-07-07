@@ -88,8 +88,6 @@ sub import {
 
   };
 
-print {*STDERR} $TABLE->{re}."\n";
-
 };
 
 # ---   *   ---   *   ---

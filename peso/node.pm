@@ -426,40 +426,43 @@ sub tokenize2($self) {
   my $label=qr{
 
     [_\w][_\w\d]*:
-    (?! __\w{1,20}_CUT_\d{1,4}__:)
+    (?! :|__\w{1,20}_CUT_\d{1,4}__:)
 
   }x;
 
 # ---   *   ---   *   ---
 
-  my $token_re=qr{
+  my $token_re=qr{^
 
     (?:$cut_token_re)
   | (?:$keyword)
   | (?:$label)
   | (?:$op)
+  | (?:$name)
+  | (?:[\{\}])
+  | (?:.*)
 
   }x;
 
 # ---   *   ---   *   ---
 
-  $body=~ s/^[\s\n]*//sg;
-  $body=~ s/[\s\n]*$//sg;
+  my $ws_re=qr{^[\s\n]*};
+
+  $body=~ s/$ws_re//sg;
 
   my @elems=();
 
-  while($body=~
-    s/^((?:$token_re)|(?:$name))//sxm
+  while($body=~s/($token_re)//sxm
 
   ) {
 
     my $elem=${^CAPTURE[0]};
-    $body=~ s/^[\s\n]*//sg;
+    $body=~ s/$ws_re//sg;
 
-    if(!length lang::stripline($elem)) {
-      last;
+    if(!defined $elem
+    || !length lang::stripline($elem)
 
-    };
+    ) {last};
 
     push @elems,$elem;
 
@@ -467,9 +470,12 @@ sub tokenize2($self) {
 
 # ---   *   ---   *   ---
 
-  $self->{value}=shift @elems;
-  for my $elem(@elems) {
-    $self->{frame}->nit($self,$elem);
+  if(@elems) {
+    $self->{value}=shift @elems;
+    for my $elem(@elems) {
+      $self->{frame}->nit($self,$elem);
+
+    };
 
   };
 
