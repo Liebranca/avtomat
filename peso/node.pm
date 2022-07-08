@@ -18,6 +18,8 @@ package peso::node;
   use strict;
   use warnings;
 
+  use Readonly;
+
   use Scalar::Util qw/blessed/;
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -168,14 +170,16 @@ sub dup($self,$root=undef) {
 # returns first match of field_%i
 
 sub fieldn($self,$i) {
-  my $field=($self->branches_with("field_$i"))[0];
+  my $re=qr{^fields_$i$};
+  my $field=($self->branches_with($re))[0];
   return $field->{leaves}->[$i];
 
 # ---   *   ---   *   ---
 # ^same, returns whole list
 
 };sub fieldsn($self,$i) {
-  my @fields=$self->branches_in("field_$i");
+  my $re=qr{^fields_$i$};
+  my @fields=$self->branches_in($re);
   return @fields;
 
 };
@@ -791,7 +795,8 @@ sub agroup($self) {
 # replaces field_N with it's children
 
 sub defield($self) {
-  my @ar=$self->branches_in('^field_\d+$');
+  Readonly state $re=>qr{^field_\d+$};
+  my @ar=$self->branches_in($re);
   map {$_->flatten_branch()} @ar;
 
   return;
@@ -1251,7 +1256,7 @@ TOP:
   for my $leaf(@{$anchor->{leaves}}) {
 
     # accept branch if value found in leaves
-    if($leaf->{value}=~ m/${lookfor}/) {
+    if($leaf->{value}=~ $lookfor) {
       push @found,$anchor;
       last;
 
@@ -1294,7 +1299,7 @@ sub branches_in($self,$lookfor) {
   while(@leaves) {
 
     $self=shift @leaves;
-    if($self->{value}=~ m/${lookfor}/) {
+    if($self->{value}=~ $lookfor) {
       push @found,$self;
 
     };

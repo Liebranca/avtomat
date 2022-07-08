@@ -18,11 +18,31 @@ package peso::fndmtl;
   use strict;
   use warnings;
 
+  use Readonly;
+
 # ---   *   ---   *   ---
 # info
 
   our $VERSION=v0.1;
   our $AUTHOR='IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+  Readonly my $BRANCH_RE=>{
+
+    name=>qr{^name$},
+    spec=>qr{^spec$},
+    type=>qr{^type$},
+    vals=>qr{^values$},
+    bare=>qr{^bare$},
+
+    directive=>qr{^directive$},
+    indlvl=>qr{^indlvl$},
+
+  };
+
+  sub BRANCH_RE() {return $BRANCH_RE};
 
 # ---   *   ---   *   ---
 # constructor for pkg hash
@@ -51,11 +71,25 @@ sub ptr_decl($m,$tree) {
 # ---   *   ---   *   ---
 # save block entry descriptors
 
-  $header->{spec}=[$tree->branch_values('^spec$')];
-  $header->{type}=[$tree->branch_values('^type$')];
+  $header->{spec}=[
+    $tree->branch_values($BRANCH_RE->{spec})
 
-  my @names=$tree->branch_values('^name$');
-  my @values=$tree->branch_values('^value$');
+  ];
+
+  $header->{type}=[
+    $tree->branch_values($BRANCH_RE->{type})
+
+  ];
+
+  my @names=$tree->branch_values(
+    $BRANCH_RE->{name}
+
+  );
+
+  my @values=$tree->branch_values(
+    $BRANCH_RE->{vals}
+
+  );
 
 # ---   *   ---   *   ---
 # case A: more names than values
@@ -134,7 +168,7 @@ sub type_decl($m,$tree) {
 # get entry info
 
   $header->{type}=[
-    $tree->branch_values('^directive$')
+    $tree->branch_values($BRANCH_RE->{directive})
 
   ];
 
@@ -143,7 +177,11 @@ sub type_decl($m,$tree) {
 # ---   *   ---   *   ---
 # push to data
 
-  push @$data,$tree->branch_values('^name$');
+  push @$data,$tree->branch_values(
+    $BRANCH_RE->{name}
+
+  );
+
   return \%out;
 
 };

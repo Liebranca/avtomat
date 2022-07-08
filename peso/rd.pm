@@ -1248,11 +1248,13 @@ sub parse(
 # dont touch
 # ---   *   ---   *   ---
 
-my $comment_re=qr{^\s*(\#[^\n]*)?}x;
+# ---   *   ---   *   ---
+# strips comments and blanks
 
-sub expand($body) {
+sub cleaner($self,$body) {
 
   my @lines=();
+  my $comment_re=$self->{lang}->{comment_re};
 
   for my $line(split NEWLINE_RE,$body) {
     $line=~ s/$comment_re//sg;
@@ -1268,12 +1270,16 @@ sub expand($body) {
 };
 
 # ---   *   ---   *   ---
+# branches out node from token
 
-my $exp_bound_re=qr/({|})|;/x;
+sub tokenizer($self,$node,$body) {
 
-sub tokenize($nd_frame,$node,$body) {
-
+  my $exp_bound_re=$self->{lang}->{exp_bound_re};
   my @exps=();
+
+# ---   *   ---   *   ---
+# filter out empties
+
   { my @tmp=split $exp_bound_re,$body;
     for my $s(@tmp) {
       if(
@@ -1292,16 +1298,23 @@ sub tokenize($nd_frame,$node,$body) {
   };
 
 # ---   *   ---   *   ---
+# only attempt tokenization when
+# there is more than one possible token!
 
   my $out=1;
-
   if(@exps==1) {$out=0;goto TAIL};
 
+# ---   *   ---   *   ---
+# convert the string into a tree branch
+
+  my $nd_frame=$self->{program}->{node};
   for my $exp(@exps) {
     $exp=$nd_frame->nit($node,$exp);
     $exp->tokenize2();
 
   };
+
+# ---   *   ---   *   ---
 
 TAIL:
   return $out;
@@ -1309,25 +1322,34 @@ TAIL:
 };
 
 # ---   *   ---   *   ---
+# TODO: move this ROM sec somewhere else
 
-my $cut_re=shwl::CUT_RE;
-my $cut_a_re="$cut_re";
-my $cut_b_re="$cut_re";
+  my $cut_re=shwl::CUT_RE;
+  my $cut_a_re="$cut_re";
+  my $cut_b_re="$cut_re";
 
-$cut_a_re=~ s/\\w\+/(?:CURLY|BRACKET|PARENS)/;
-$cut_b_re=~ s/\\w\+/(?:STR|QSTR|CHR|EXE)/;
+  $cut_a_re=~ s/\\w\+/(?:CURLY|BRACKET|PARENS)/;
+  $cut_b_re=~ s/\\w\+/(?:STR|QSTR|CHR|EXE)/;
 
-$cut_a_re=qr{$cut_a_re};
-$cut_b_re=qr{$cut_b_re};
-
-sub recurse($nd_frame,$block,@pending) {
-
-  while(@pending) {
-
-    my $node=shift @pending;
-
+  $cut_a_re=qr{$cut_a_re};
+  $cut_b_re=qr{$cut_b_re};
 
 # ---   *   ---   *   ---
+# executes expandable tokens across
+# the given tree branch
+
+sub recurse($self,@pending) {
+
+  my $block=$self->{curblk};
+
+# ---   *   ---   *   ---
+# walk the hierarchy
+
+  while(@pending) {
+    my $node=shift @pending;
+
+# ---   *   ---   *   ---
+# check node for expandable tokens
 
 TOP:
 
@@ -1336,22 +1358,21 @@ TOP:
 
       $key=${^CAPTURE[0]};
 
+      # replace token with code string
       my $repl=$block->{strings}->{$key};
       $node->{value}=~ s/${key}/$repl/;
 
+      my $body=$self->cleaner($node->{value});
+
 # ---   *   ---   *   ---
+# multiple expansions, consume root
 
-      if(tokenize(
-
-        $nd_frame,
-        $node,
-
-        expand($node->{value})
-
-      )) {
-
+      if($self->tokenizer($node,$body)) {
         unshift @pending,@{$node->{leaves}};
         $node->flatten_branch();
+
+# ---   *   ---   *   ---
+# single expansion, re-evaluate
 
       } else {
         goto TOP;
@@ -1359,6 +1380,7 @@ TOP:
       };
 
 # ---   *   ---   *   ---
+# nothing to expand
 
     } else {
       unshift @pending,@{$node->{leaves}};
@@ -1371,35 +1393,60 @@ TOP:
 
 # ---   *   ---   *   ---
 
-sub parse2($block,$id) {
+sub new_parser($lang,$fname) {
 
-  my $m=peso::program::nit(lang->perl);
+  my $m=peso::program::nit($lang);
+  my $self=nit2($m,$fname);
+
   my $nd_frame=$m->{node};
+  for my $id(keys %{$self->{blocks}}) {
 
-  my $root=$nd_frame->nit(undef,$id);
+    my $root=$nd_frame->nit(undef,$id);
+    my $block=$self->{blocks}->{$id};
+    my $body=$self->cleaner($block->{body});
+
+    $self->tokenizer($root,$body);
+    $block->{tree}=$root;
+
+  };
+
+  return $self;
+
+};
 
 # ---   *   ---   *   ---
+# set current block from id
 
-  tokenize(
-
-    $nd_frame,
-    $root,
-
-    expand($block->{body})
-
-  );
-
-  recurse($nd_frame,$block,$root);
-  replstr($block,$root);
-
-  $m->{tree}=$root;
-  return $m;
+sub select_block($self,$id) {
+  $self->{curblk}=$self->{blocks}->{$id};
+  return $self->{curblk};
 
 };
 
 # ---   *   ---   *   ---
 
-sub replstr($block,$root) {
+sub expand_branch($self,$root) {
+
+  my $block=$self->{curblk};
+  my $body=$self->cleaner($root->{value});
+
+  $self->tokenizer(
+    $root,
+    $body
+
+  );
+
+  $self->recurse($root);
+  $self->replstr($root);
+
+};
+
+# ---   *   ---   *   ---
+# expands tokens into string literals
+
+sub replstr($self,$root) {
+
+  my $block=$self->{curblk};
 
   for my $branch($root->branches_in($cut_b_re)) {
 
@@ -1407,13 +1454,35 @@ sub replstr($block,$root) {
     if($key=~ m/($cut_b_re)/) {
 
       $key=${^CAPTURE[0]};
-      my $repl=$block->{strings}->{$key};
 
+      # replace token with raw string
+      my $repl=$block->{strings}->{$key};
       $branch->{value}=~ s/${key}/$repl/;
 
     };
 
   };
+
+};
+
+# ---   *   ---   *   ---
+
+sub nit2($program,$fname) {
+
+  my $rd=bless {
+
+    program=>$program,
+
+    lang=>$program->lang,
+
+    blocks=>shwl::codefold($fname),
+    curblk=>undef,
+
+    fname=>$fname,
+
+  },'peso::rd';
+
+  return $rd;
 
 };
 

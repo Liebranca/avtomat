@@ -18,6 +18,8 @@ package avt;
   use strict;
   use warnings;
 
+  use Readonly;
+
   use Carp;
   use English qw(-no_match_vars);
 
@@ -34,6 +36,8 @@ package avt;
 
   use lang;
   use langdefs::c;
+
+  use peso::fndmtl;
 
 # ---   *   ---   *   ---
 # info
@@ -720,23 +724,23 @@ sub file_sbl($f) {
 # ---   *   ---   *   ---
 # decompose the tree
 
-    my @specs=peso::node::plain_arr(
-      $tree->branches_in('^spec$')
+    my @specs=$tree->branch_values(
+      peso::fndmtl::BRANCH_RE()->{spec}
 
     );
 
-    my @types=peso::node::plain_arr(
-      $tree->branches_in('^type$')
+    my @types=$tree->branch_values(
+      peso::fndmtl::BRANCH_RE()->{type}
 
     );
 
-    my @indlvl=peso::node::plain_arr(
-      $tree->branches_in('^indlvl$')
+    my @indlvl=$tree->branch_values(
+      peso::fndmtl::BRANCH_RE()->{indlvl}
 
     );
 
-    my @names=peso::node::plain_arr(
-        $tree->branches_in('^bare$')
+    my @names=$tree->branch_values(
+      peso::fndmtl::BRANCH_RE()->{bare}
 
     );
 

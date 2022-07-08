@@ -1196,6 +1196,31 @@ sub nit(%h) {
   };
 
 # ---   *   ---   *   ---
+# parse2 regexes
+
+  $ref->{comment_re}=qr{
+
+    ^\s*
+
+    (?:
+
+      $ref->{-COM}
+      [^\n]*
+
+    )?
+
+    (?:\n|$)
+
+  }x;
+
+  $ref->{exp_bound_re}=qr{
+
+     ($ref->{-SCOPE_BOUND})
+   | (?:$ref->{-EXP_BOUND})
+
+  }x;
+
+# ---   *   ---   *   ---
 # these are for coderef access from plps
 
   for my $key('is_ptr&','is_num&') {

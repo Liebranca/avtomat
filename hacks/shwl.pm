@@ -687,6 +687,7 @@ sub nit {
     args=>$+{args},
 
     strings=>{},
+    tree=>undef,
 
   };
 
@@ -698,9 +699,5 @@ sub nit {
   return $block;
 
 };
-
-# ---   *   ---   *   ---
-
-
 
 # ---   *   ---   *   ---

@@ -9,6 +9,8 @@ package langdefs::plps;
   use strict;
   use warnings;
 
+  use Readonly;
+
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use style;
@@ -371,11 +373,12 @@ sub detag($program,$node) {
 sub getext($program) {
 
   my $SYMS=lang->plps->sbl->SYMS;
+  Readonly state $re=>qr{^in$};
 
 # ---   *   ---   *   ---
 # iter tree to find 'in lang->$name'
 
-  my @ar=$program->{tree}->branches_in('^in$');
+  my @ar=$program->{tree}->branches_in($re);
 
   if(@ar==1) {
 
@@ -403,10 +406,13 @@ sub getext($program) {
 sub cleanup($program) {
 
   my @tree=();
+  Readonly state $re=>qr{^(?:beg|end)$};
+
+# ---   *   ---   *   ---
 
   for my $node(@{$program->{tree}->{leaves}}) {
 
-    my @ar=$node->branches_in('^(beg|end)$');
+    my @ar=$node->branches_in($re);
 
     if(@ar) {
       $program->{tree}->pluck($node);
@@ -414,6 +420,8 @@ sub cleanup($program) {
     };
 
   };
+
+# ---   *   ---   *   ---
 
   $program->{tree}->cllv();
   $program->{tree}->idextrav();
