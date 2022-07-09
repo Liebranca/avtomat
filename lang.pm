@@ -10,26 +10,34 @@
 # CONTRIBUTORS
 # lyeb,
 # ---   *   ---   *   ---
-
+#
 # NOTE:
 # Most of these regexes were taken from nanorc files!
 # all I did was *manually* collect them to make this
 # syntax file generator
-
+#
 # ^ this note is outdated ;>
 # dirty regexes are at their own language files now
-
+#
+# ^^ more than outdated!
+# almost none of the original regexes remain ;>
+# still leaving this up for acknowledgement
+#
 # ---   *   ---   *   ---
 # deps
 
 package lang;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks';
+
+  use shwl;
   use inlining;
 
   use v5.36.0;
   use strict;
   use warnings;
+
+  use Readonly;
 
   use Carp;
 
@@ -40,43 +48,57 @@ package lang;
   use arstd;
 
 # ---   *   ---   *   ---
+# ROM
+
+  Readonly my $ARRAYREF_RE=>qr{
+    ^ARRAY\(0x[0-9a-f]+\)
+
+  }x;
+
+  Readonly my $CODEREF_RE=>qr{
+    ^CODE\(0x[0-9a-f]+\)
+
+  }x;
+
+  Readonly my $HASHREF_RE=>qr{
+    ^HASH\(0x[0-9a-f]+\)
+
+  }x;
+
+  Readonly my $QRE_RE=>qr{\(\?\^u(?:[xsmg]*):}x;
+
+# ---   *   ---   *   ---
 # value type flags
 
-  ;;use constant {
+  Readonly my $VT_KEY=>0x01;
+  Readonly my $VT_OPR=>0x02;
+  Readonly my $VT_VAL=>0x04;
+  Readonly my $VT_XPR=>0x08;
 
-    VT_KEY=>0x01,
-    VT_OPR=>0x02,
-    VT_VAL=>0x04,
-    VT_XPR=>0x08,
+  Readonly my $VT_TYPE=>0x0100|$VT_KEY;
+  Readonly my $VT_SPEC=>0x0200|$VT_KEY;
+  Readonly my $VT_SBL=>0x0400|$VT_KEY;
 
-  };use constant {
+  Readonly my $VT_ITRI=>0x0800|$VT_KEY;
+  Readonly my $VT_FCTL=>0x1000|$VT_KEY;
+  Readonly my $VT_DIR=>0x1000|$VT_KEY;
 
-    VT_TYPE=>0x0100|VT_KEY,
-    VT_SPEC=>0x0200|VT_KEY,
-    VT_SBL=>0x0400|VT_KEY,
+  Readonly my $VT_SEP=>0x0100|$VT_OPR;
+  Readonly my $VT_DEL=>0x0200|$VT_OPR;
+  Readonly my $VT_ARI=>0x0400|$VT_OPR;
 
-    VT_ITRI=>0x0800|VT_KEY,
-    VT_FCTL=>0x1000|VT_KEY,
-    VT_DIR=>0x1000|VT_KEY,
+  Readonly my $VT_BARE=>0x0100|$VT_VAL;
+  Readonly my $VT_PTR=>0x0200|$VT_VAL;
 
-    VT_SEP=>0x0100|VT_OPR,
-    VT_DEL=>0x0200|VT_OPR,
-    VT_ARI=>0x0400|VT_OPR,
+  Readonly my $VT_SBL_DECL=>0x0100|$VT_XPR;
+  Readonly my $VT_PTR_DECL=>0x0200|$VT_XPR;
+  Readonly my $VT_REG_DECL=>0x0400|$VT_XPR;
+  Readonly my $VT_CLAN_DECL=>0x0800|$VT_XPR;
 
-    VT_BARE=>0x0100|VT_VAL,
-    VT_PTR=>0x0200|VT_VAL,
-
-    VT_SBL_DECL=>0x0100|VT_XPR,
-    VT_PTR_DECL=>0x0200|VT_XPR,
-    VT_REG_DECL=>0x0400|VT_XPR,
-    VT_CLAN_DECL=>0x0800|VT_XPR,
-
-    VT_SBL_DEF=>0x1000|VT_XPR,
-    VT_PTR_DEF=>0x2000|VT_XPR,
-    VT_REG_DEF=>0x4000|VT_XPR,
-    VT_CLAN_DEF=>0x8000|VT_XPR,
-
-  };
+  Readonly my $VT_SBL_DEF=>0x1000|$VT_XPR;
+  Readonly my $VT_PTR_DEF=>0x2000|$VT_XPR;
+  Readonly my $VT_REG_DEF=>0x4000|$VT_XPR;
+  Readonly my $VT_CLAN_DEF=>0x8000|$VT_XPR;
 
 # ---   *   ---   *   ---
 # regex tools
@@ -213,7 +235,7 @@ sub neg_lkahead(
 #   > unnested grab ([^end]|\end)*
 #   > end
 
-sub delim($beg,$end=NULLSTR,$ml=0) {
+sub delim($beg,$end=$NULLSTR,$ml=0) {
 
   if(!length $end) {
     $end=$beg;
@@ -239,7 +261,7 @@ sub delim($beg,$end=NULLSTR,$ml=0) {
 #   > nested grab ([^end]|end)*
 #   > end[^end]*$
 
-sub delim2($beg,$end=NULLSTR,$ml=0) {
+sub delim2($beg,$end=$NULLSTR,$ml=0) {
 
   if(!$end) {
     $end=$beg;
@@ -420,37 +442,20 @@ sub eaf(
 };
 
 # ---   *   ---   *   ---
-# type-check utils
-
-use constant {
-
-  ARRAYREF_RE=>qr{^ARRAY\(0x[0-9a-f]+\)}x,
-  CODEREF_RE=>qr{^CODE\(0x[0-9a-f]+\)}x,
-  HASHREF_RE=>qr{^HASH\(0x[0-9a-f]+\)}x,
-  QRE_RE=>qr{\(\?\^u(?:[xsmg]*):}x,
-
-  CUT_TOKEN_RE=>qr{:__[A-Z]+_CUT_([\dA-F]+)__:}x,
-  CUT_TOKEN_FMAT=>':__%s_CUT_%X__:',
-
-};
-
-# ---   *   ---   *   ---
 
 ;;sub is_coderef:inlined ($v) {
-  state $re=qr{^CODE\(0x[0-9a-f]+\)}x;
-  return (defined $v && ($v=~ $re));
+  return (defined $v && ($v=~ $lang::CODEREF_RE));
 
 };sub is_arrayref:inlined ($v) {
-  state $re=qr{^ARRAY\(0x[0-9a-f]+\)}x;
-  return (defined $v && ($v=~ $re));
+  return (defined $v && ($v=~ $lang::ARRAYREF_RE));
 
 };sub is_hashref:inlined ($v) {
   state $re=qr{^HASH\(0x[0-9a-f]+\)}x;
-  return (defined $v && ($v=~ $re));
+  return (defined $v && ($v=~ $lang::HASHREF_RE));
 
 };sub is_qre:inlined ($v) {
   state $re=qr{\(\?\^u:}x;
-  return (defined $v && ($v=~ $re));
+  return (defined $v && ($v=~ $lang::QRE_RE));
 
 };
 
@@ -464,160 +469,11 @@ sub qre2re($ref) {
 };
 
 # ---   *   ---   *   ---
-# in:
-#
-#   > string
-#   > pattern to match
-#   > a name for this pattern
-#   > arrayref to store matches
-#
-# replace pattern match with a token, to be
-# put back together at a later date
-
-sub cut($s,$pat,$id,$h) {
-
-  my $result='';
-  my $i=0;
-
-  my $cnt=(keys %$h)/2;
-
-# ---   *   ---   *   ---
-# cut at pattern match
-
-  my @ar=();
-  while($s=~ s/$pat/#:cut;>/) {
-    push @ar,$1;$i++;
-
-  };
-
-# ---   *   ---   *   ---
-# utility anon
-
-  my $append_match=sub {
-
-    my $elem=shift;
-
-    my $v=shift @ar;
-    my $token=undef;
-
-# ---   *   ---   *   ---
-
-    if(exists $h->{$v}) {
-      $token=$h->{$v};
-
-    } else {
-      $token=sprintf CUT_TOKEN_FMAT,
-        $id,$cnt+($i);
-
-      $h->{$v}=$token;
-      $h->{$token}=$v;
-
-    };
-
-# ---   *   ---   *   ---
-
-    $result.=$elem.$token;
-
-  };
-
-# ---   *   ---   *   ---
-# put token in place of match
-
-  if($i) {
-
-    my $matchno=$i;
-    $i=0;
-
-# ---   *   ---   *   ---
-# corner case: single match, whole string
-
-    if($s eq '#:cut;>') {
-      $append_match->(NULLSTR);
-
-# ---   *   ---   *   ---
-# append matches
-
-    } else { for my $elem(split '#:cut;>',$s) {
-
-      if($i<$matchno) {
-        $append_match->($elem);
-
-# ---   *   ---   *   ---
-# handle remainder
-
-      } else {
-        $result.=$elem;
-
-      };$i++;
-
-    }};
-
-# ---   *   ---   *   ---
-# no match
-
-  } else {$result=$s;};
-  return $result;
-
-# ---   *   ---   *   ---
-# in:
-#
-#   > string
-#   > array of matches
-#
-# restores a previously cut string
-
-};sub stitch($s,$h) {
-
-# ---   *   ---   *   ---
-# look for cut tokens
-
-  my $re=CUT_TOKEN_RE;
-  while($s=~ m/(${re})/) {
-
-    my $pat=$1;
-
-# ---   *   ---   *   ---
-# use id of token to find the original
-# pattern match
-
-    my $str=(exists $h->{$pat})
-      ? $h->{$pat}
-      : "TOKEN_ERROR($pat)"
-      ;
-
-    $s=~ s/${pat}/$str/;
-
-  };return $s;
-
-# ---   *   ---   *   ---
 # remove all whitespace
 
 };sub stripline:inlined ($s) {
   state $re=qr{\s+|:__NL__:}x;
-  join NULLSTR,(split m/$re/,$s);
-
-};
-
-# ---   *   ---   *   ---
-# in:
-#
-#   > string
-#   > array ref to store matches
-#   > pattern array
-#
-# cut for multiple patterns, one after the other
-
-;;sub mcut($s,$h,%patterns) {
-
-  for my $id(keys %patterns) {
-
-    my $new_id='';
-    ($s,$new_id)=cut(
-      $s,$patterns{$id},$id,$h
-
-    );
-
-  };return $s;
+  join $NULLSTR,(split m/$re/,$s);
 
 };
 
@@ -657,7 +513,7 @@ sub pehexnc($x) {
   my $r=0;
   my $i=0;
 
-  for my $c(reverse split NULLSTR,$x) {
+  for my $c(reverse split $NULLSTR,$x) {
 
     if($c=~ m/[hHlL]/) {
       next;
@@ -686,7 +542,7 @@ sub peoctnc($x) {
   my $r=0;
   my $i=0;
 
-  for my $c(reverse split NULLSTR,$x) {
+  for my $c(reverse split $NULLSTR,$x) {
 
     if($c=~ m/[oOlL]/) {
       next;
@@ -715,7 +571,7 @@ sub pebinnc($x) {
   my $r=0;
   my $i=0;
 
-  for my $c(reverse split NULLSTR,$x) {
+  for my $c(reverse split $NULLSTR,$x) {
 
     if($c=~ m/[bBlL]/) {
       next;
@@ -786,7 +642,7 @@ sub quick_op_prec(%h) {
 
     if($flags&0x01) {
       $ar->[0]
-        =[-1,sub {my ($x)=@_;return $$x.$op;}]
+        =[-1,sub {my ($x)=@_;return $$x.$op}]
 
     };
 
@@ -794,7 +650,7 @@ sub quick_op_prec(%h) {
 
     if($flags&0x02) {
       $ar->[1]
-        =[-1,sub {my ($x)=@_;return $op.$$x;}]
+        =[-1,sub {my ($x)=@_;return $op.$$x}]
 
     };
 
@@ -802,7 +658,7 @@ sub quick_op_prec(%h) {
 
     if($flags&0x04) {
       $ar->[2]
-        =[-1,sub {my ($x,$y)=@_;return $$x.$op.$$y;}]
+        =[-1,sub {my ($x,$y)=@_;return $$x.$op.$$y}]
 
     };
 
@@ -836,104 +692,126 @@ package lang::def;
 
 my %DEFAULTS=(
 
-  -NAME=>'',
+  name=>$NULLSTR,
 
-  -COM=>'#',
-  -EXP_BOUND=>'[;]',
-  -SCOPE_BOUND=>'[\{\}]',
+  com=>q{#},
+  exp_bound=>qr{[;]}x,
+  scope_bound=>qr{[{}]}x,
 
-  -HED=>'N/A',
-  -EXT=>'',
-  -MAG=>'',
-
-# ---   *   ---   *   ---
-
-  -OP_PREC=>{},
-
-  -DELIMITERS=>{
-    '('=>')',
-    '['=>']',
-    '{'=>'}',
-
-  },
-
-  -SEPARATORS=>[','],
-
-  -PESC=>lang::delim('$:',';>'),
+  hed=>'N/A',
+  ext=>'',
+  mag=>'',
 
 # ---   *   ---   *   ---
 
-  -NAMES=>'\b[_A-Za-z][_A-Za-z0-9]*\b',
-  -NAMES_U=>'\b[_A-Z][_A-Z0-9]*\b',
-  -NAMES_L=>'\b[_a-z][_a-z0-9]*\b',
+  op_prec=>{},
 
-  -TYPES=>[],
-  -SPECIFIERS=>[],
-
-  -BUILTINS=>[],
-  -INTRINSICS=>[],
-  -FCTLS=>[],
-
-  -DIRECTIVES=>[],
-  -RESNAMES=>[],
-
-# ---   *   ---   *   ---
-
-  -DRFC=>'(?:->|::|\.)',
-  -COMMON=>'[^[:blank:]]+',
-
-# ---   *   ---   *   ---
-
-  -SHCMD=>[
-    lang::delim('`'),
+  delimiters=>[
+    '('=>')','PARENS',
+    '['=>']','BRACKET',
+    '{'=>'}','CURLY',
 
   ],
 
-  -CHAR=>[
-    lang::delim("'"),
+  separators=>[','],
 
-  ],
-
-  -STRING=>[
-    lang::delim('"'),
-
-  ],
-
-  -REGEX=>[
-
-    '(?:[m|s]+/([^/]|\\\\/)*/'.
-    '(([^/]|\\\\/)*/)?([\w]+)?)',
-
-  ],
-
-  -PREPROC=>[
-
-  ],
-
-  -VSTR=>qr{v[0-9\.]+[ab]?},
+  pesc=>lang::delim('$:',';>'),
 
 # ---   *   ---   *   ---
 
-  -EXP_RULE=>sub {;},
-  -MLS_RULE=>sub {return undef;},
+  names=>'\b[_A-Za-z][_A-Za-z0-9]*\b',
+  names_u=>'\b[_A-Z][_A-Z0-9]*\b',
+  names_l=>'\b[_a-z][_a-z0-9]*\b',
 
-  -MCUT_TAGS=>[],
-  -BUILDER=>sub {;},
+  types=>[],
+  specifiers=>[],
+
+  builtins=>[],
+  intrinsics=>[],
+  fctls=>[],
+
+  directives=>[],
+  resnames=>[],
 
 # ---   *   ---   *   ---
 
-  -HIER_RE=>q{
+  drfc=>'(?:->|::|\.)',
+  common=>'[^[:blank:]]+',
+
+# ---   *   ---   *   ---
+
+  shcmds=>qr{
+
+    (?<! ["'])
+
+    `
+    (?: \\` | [^`\n] )*
+
+    `
+
+  }x,
+
+  chars=>qr{
+
+    (?<! ["`])
+
+    '
+    (?: \\' | [^'\n] )*
+
+    '
+
+  }x,
+
+  strings=>qr{
+
+    (?<! ['`])
+
+    "
+    (?: \\" | [^"\n] )*
+
+    "
+
+  }x,
+
+  regexes=>qr{$^}x,
+  qstrs=>qr{$^}x,
+
+  preproc=>qr{$^}x,
+
+  foldtags=>[qw(
+    chars strings
+
+  )],
+
+  vstr=>qr{\bv[0-9\.]+[ab]?}x,
+
+# ---   *   ---   *   ---
+
+  sbl_decl=>qr{$^}x,
+  ptr_decl=>qr{$^}x,
+
+# ---   *   ---   *   ---
+
+  exp_rule=>$NOOP,
+  _builder=>$NOOP,
+  _plps=>$NULLSTR,
+
+# ---   *   ---   *   ---
+
+  hier_re=>q{
 
     (?:$:names;>$:drfc;>?)+
 
   },
 
-  -HIER=>['$:names;>$:drfc;>','$:drfc;>$:names;>'],
-  -PFUN=>'$:names;>\s*\\(',
+  hier_sort=>$NOOP,
+
+  hier=>['$:names;>$:drfc;>','$:drfc;>$:names;>'],
+  pfun=>'$:names;>\s*\\(',
 
 # ---   *   ---   *   ---
 
-  -NUMS=>{
+  nums=>{
 
     # hex
     '(((\b0+x[0-9A-F]+[L]*)\b)|'.
@@ -962,29 +840,20 @@ my %DEFAULTS=(
 # ---   *   ---   *   ---
 # trailing spaces and notes
 
-  -DEV0=>
+  dev0=>
 
     '('.( lang::eiths('TODO,NOTE') ).':?|#:\*+;>)',
 
-  -DEV1=>
+  dev1=>
 
     '('.( lang::eiths('FIX,BUG') ).':?|#:\!+;>)',
 
-  -DEV2=>'(^[[:space:]]+$)|([[:space:]]+$)',
-
-
-# ---   *   ---   *   ---
-# DEPRECATED
-# maybe we'll repurpose this slot
-
-  -DEV3=>[
-
-  ],
+  dev2=>'(^[[:space:]]+$)|([[:space:]]+$)',
 
 # ---   *   ---   *   ---
 # symbol table is made at nit
 
-  -SBL=>'',
+  symbols=>{},
 
 );
 
@@ -992,8 +861,8 @@ my %DEFAULTS=(
 
 ;;sub vrepl($ref,$v) {
 
-  my $names=$ref->{-NAMES};
-  my $drfc=$ref->{-DRFC};
+  my $names=$ref->{names};
+  my $drfc=$ref->{drfc};
 
   $$v=~ s/\$:names;>/$names/sg;
   $$v=~ s/\$:drfc;>/$drfc/sg;
@@ -1045,18 +914,20 @@ sub nit(%h) {
 # ---   *   ---   *   ---
 # convert keyword lists to hashes
 
-  for my $key(
+  for my $key(qw(
 
-    -TYPES,-SPECIFIERS,
-    -BUILTINS,-FCTLS,
-    -INTRINSICS,-DIRECTIVES,
+    types specifiers
+    builtins fctls
+    intrinsics directives
 
-    -RESNAMES,
+    resnames
 
   ) {
 
     my @ar=@{$ref->{$key}};
-    my %ht;while(@ar) {
+    my %ht;
+
+    while(@ar) {
 
       my $tag=shift @ar;
       vrepl($ref,\$tag);
@@ -1085,12 +956,12 @@ sub nit(%h) {
 
   $ref->{keyword_re}=qr{
 
-    $ref->{-TYPES}->{re}
-  | $ref->{-SPECIFIERS}->{re}
-  | $ref->{-BUILTINS}->{re}
-  | $ref->{-FCTLS}->{re}
-  | $ref->{-INTRINSICS}->{re}
-  | $ref->{-DIRECTIVES}->{re}
+    $ref->{types}->{re}
+  | $ref->{specifiers}->{re}
+  | $ref->{builtins}->{re}
+  | $ref->{fctls}->{re}
+  | $ref->{intrinsics}->{re}
+  | $ref->{directives}->{re}
 
   }x;
 
@@ -1098,48 +969,116 @@ sub nit(%h) {
 # handle creation of operator pattern
 
   my $op_obj='node_op=HASH\(0x[0-9a-f]+\)';
-  if(!keys %{$ref->{-OP_PREC}}) {
-    $ref->{-OPS}="($op_obj)";
+  if(!keys %{$ref->{op_prec}}) {
+    $ref->{ops}="($op_obj)";
 
 # ---   *   ---   *   ---
 
   } else {
-    $ref->{-OPS}=lang::hashpat(
-      $ref->{-OP_PREC},0,1
+    $ref->{ops}=lang::hashpat(
+      $ref->{op_prec},0,1
 
     );
 
-    $ref->{-OPS}=~ s/\)$/|${op_obj})/;
+    $ref->{ops}=~ s/\)$/|${op_obj})/;
 
   };
-
-  $ref->{-LCOM}=lang::eaf($ref->{-COM},0,1);
 
 # ---   *   ---   *   ---
 # make open/close delimiter patterns
 
-  my @odes=keys %{$ref->{-DELIMITERS}};
-  my @cdes=values %{$ref->{-DELIMITERS}};
+  my @odes=();
+  my @cdes=();
 
-  $ref->{-ODE}=lang::eiths_l(\@odes,0,1);
-  $ref->{-CDE}=lang::eiths_l(\@cdes,0,1);
+# ---   *   ---   *   ---
+
+  { my @qstr_re=();
+    my @regex_re=();
+
+    my %del_id=();
+    my %del_re=();
+
+    my $i=0;
+    my $ar=$ref->{delimiters};
+
+    while($i<@$ar) {
+
+      my $beg=$ar->[$i+0];
+      my $end=$ar->[$i+1];
+      my $key=$ar->[$i+2];
+
+      my $re=shwl::delm($beg,$end);
+
+# ---   *   ---   *   ---
+# fnn perl man
+
+      if($ref->{perl_mode}) {
+        push @qstr_re,qdelm($beg,$end);
+        push @regex_re,sdelm($beg,$end);
+
+      };
+
+# ---   *   ---   *   ---
+
+      $del_re{$beg}=$re;
+      $del_id{$beg}=$key;
+
+      push @odes,$beg;
+      push @cdes,$end;
+
+      $i+=3;
+
+    };
+
+# ---   *   ---   *   ---
+
+    if(@qstr_re) {
+      $ref->{qstr_re}='('.(
+        join q{|},@qstr_re
+
+      ).')';
+
+      $ref->{regex_re}='('.(
+        join q{|},@regex_re
+
+      ).')';
+
+    };
+
+# ---   *   ---   *   ---
+
+    $ref->{delimiters}={
+
+      order=>\@odes,
+
+      re=>\%dels_re,
+      id=>\%dels_id,
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+
+  $ref->{ode}=lang::eiths_l(\@odes,0,1);
+  $ref->{cde}=lang::eiths_l(\@cdes,0,1);
 
   my @del_ops=(@odes,@cdes);
-  $ref->{-DEL_OPS}=lang::eiths_l(\@del_ops,0,1);
+  $ref->{del_ops}=lang::eiths_l(\@del_ops,0,1);
 
-  my @seps=@{$ref->{-SEPARATORS}};
+  my @seps=@{$ref->{separators}};
   my @ops_plus_seps=(
-    keys %{$ref->{-OP_PREC}},
+    keys %{$ref->{op_prec}},
     @seps,
 
   );
 
-  $ref->{-NDEL_OPS}=lang::eiths_l(
+  $ref->{ndel_ops}=lang::eiths_l(
     \@ops_plus_seps,0,1
 
   );
 
-  $ref->{-SEP_OPS}=lang::eiths_l(
+  $ref->{sep_ops}=lang::eiths_l(
     \@seps,0,1
 
   );
@@ -1148,47 +1087,54 @@ sub nit(%h) {
 # replace $:tokens;> with values
 
   for my $key(keys %{$ref}) {
-    if($ref->{$key}=~ lang::ARRAYREF_RE) {
+    if($ref->{$key}=~ $lang::ARRAYREF_RE) {
       arr_vrepl($ref,$key);
 
     } else {vrepl($ref,\$ref->{$key});};
 
   };
 
-  $ref->{-HIER_RE}=qr{$ref->{-HIER_RE}}x;
-
 # ---   *   ---   *   ---
 
-  $ref->{-NUMS_RE}=lang::hashpat(
-    $ref->{-NUMS},1,1
+  $ref->{nums_re}=lang::hashpat(
+    $ref->{nums},1,1
 
   );
 
 # ---   *   ---   *   ---
 
   { my %tmp=();
-    for my $key(keys %{$ref->{-NUMS}}) {
-      my $value=$ref->{-NUMS}->{$key};
+    for my $key(keys %{$ref->{nums}}) {
+      my $value=$ref->{nums}->{$key};
       $key=qr{$key}x;
 
       $tmp{$key}=$value;
 
     };
 
-    $ref->{-NUMS}=\%tmp;
+    $ref->{nums}=\%tmp;
 
   };
 
 # ---   *   ---   *   ---
 
-  for my $key(-HIER,-NAMES) {
-    if($ref->{$key}=~ lang::ARRAYREF_RE) {
+  for my $key(qw(
+    drfc hier hier_re
+    names names_l names_u
+
+    sbl_decl
+
+  ) {
+
+    if($ref->{$key}=~ $lang::ARRAYREF_RE) {
       for my $re(@{$ref->{$key}}) {
         $re=qr{$re}x;
 
       };
 
-    } elsif($ref->{$key}=~ lang::HASHREF_RE) {
+# ---   *   ---   *   ---
+
+    } elsif($ref->{$key}=~ $lang::HASHREF_RE) {
 
       for my $rek(keys %{$ref->{$key}}) {
         my $re=$ref->{$key}->{$rek};
@@ -1198,36 +1144,32 @@ sub nit(%h) {
 
       };
 
+# ---   *   ---   *   ---
+
     } else {
       my $re=$ref->{$key};
       $ref->{$key}=qr{$re}x;
 
     };
 
-  };
-
 # ---   *   ---   *   ---
 # parse2 regexes
 
-  $ref->{comment_re}=qr{
+  };
+
+  $ref->{strip_re}=qr{
 
     ^\s*
 
-    (?:
-
-      $ref->{-COM}
-      [^\n]*
-
-    )?
-
+    (?: $ref->{com} [^\n]*)?
     (?:\n|$)
 
   }x;
 
   $ref->{exp_bound_re}=qr{
 
-     ($ref->{-SCOPE_BOUND})
-   | (?:$ref->{-EXP_BOUND})
+     (?: $ref->{scope_bound})
+   | (?: $ref->{exp_bound})
 
   }x;
 
@@ -1254,62 +1196,17 @@ sub nit(%h) {
 
 # ---   *   ---   *   ---
 
-  $def->{-PLPS}=''.
+  $def->{_plps}=''.
     $ENV{'ARPATH'}.'/include/plps/'.
-    $def->{-NAME}.'.lps';
+    $def->{name}.'.lps';
 
-  lang::register_def($def->{-NAME});
+  lang::register_def($def->{name});
 
   return $def;
 
 };
 
 # ---   *   ---   *   ---
-# getters
-
-sub exp_bound {return (shift)->{-EXP_BOUND};};
-sub com {return (shift)->{-COM};};
-
-sub scope_bound {return (shift)->{-SCOPE_BOUND};};
-
-sub hed {return (shift)->{-HED};};
-sub mag {return (shift)->{-MAG};};
-sub ext {return (shift)->{-EXT};};
-
-# ---   *   ---   *   ---
-
-sub del_ops {return (shift)->{-DEL_OPS};};
-sub ndel_ops {return (shift)->{-NDEL_OPS};};
-sub sep_ops {return (shift)->{-SEP_OPS};};
-sub del_mt {return (shift)->{-DEL_MT};};
-sub mls_rule {return (shift)->{-MLS_RULE};};
-sub exp_rule {return (shift)->{-EXP_RULE};};
-
-sub ops {return (shift)->{-OPS};};
-sub op_prec {return (shift)->{-OP_PREC};};
-
-sub sbl {return (shift)->{-SBL};};
-
-# ---   *   ---   *   ---
-
-sub ode {return (shift)->{-ODE};};
-sub cde {return (shift)->{-CDE};};
-sub pesc {return (shift)->{-PESC};};
-
-# ---   *   ---   *   ---
-
-sub names {return (shift)->{-NAMES};};
-
-sub types {return (shift)->{-TYPES};};
-sub specifiers {return (shift)->{-SPECIFIERS};};
-
-sub builtins {return (shift)->{-BUILTINS};};
-sub intrinsics {return (shift)->{-INTRINSICS};};
-sub directives {return (shift)->{-DIRECTIVES};};
-sub fctls {return (shift)->{-FCTLS};};
-
-sub resnames {return (shift)->{-RESNAMES};};
-sub nums {return (shift)->{-NUMS};};
 
 sub numcon($self,$value) {
 
@@ -1324,18 +1221,14 @@ sub numcon($self,$value) {
   };
 };
 
-sub separators {return (shift)->{-SEP_OPS};};
-
 # ---   *   ---   *   ---
 
-sub is_num {
+sub is_num($self,$s) {
+  return int($s=~ m/^$self->{nums_re}$/);
 
-  my ($self,$s)=@_;
+};
 
-  my $pat=$self->{-NUMS_RE};
-  return int($s=~ m/^${pat}$/);
-
-};sub plps_is_num($self,$s,$program) {
+sub plps_is_num($self,$s,$program) {
 
   my $out=undef;
   my $tok=lang::nxtok($$s,' |,');
@@ -1352,58 +1245,7 @@ sub is_num {
 
 # ---   *   ---   *   ---
 
-sub is_keyword {
-
-  state $previous={};
-
-  my ($self,$s)=@_;
-  my $x=0;
-
-# ---   *   ---   *   ---
-
-  if(exists $previous->{$s}) {
-    $x=1;
-    goto TAIL;
-
-  };
-
-# ---   *   ---   *   ---
-
-  for my $tag(
-
-    -TYPES,-SPECIFIERS,
-    -BUILTINS,-FCTLS,
-    -INTRINSICS,-DIRECTIVES,
-
-    -RESNAMES,
-
-  ) {
-
-    my $h=$self->{$tag};
-    my $pat=$self->{$tag}->{re};
-
-# ---   *   ---   *   ---
-
-    if($s=~ $pat) {
-      $previous->{$s}=1;
-      $x=1;
-
-      last
-
-    };
-
-# ---   *   ---   *   ---
-
-  };
-
-TAIL:
-  return $x;
-
-};
-
-# ---   *   ---   *   ---
-
-sub valid_name {
+sub valid_name($self,$s) {
 
   my $self=shift;
   my $s=shift;
@@ -1415,14 +1257,6 @@ sub valid_name {
 
   };return 0;
 };
-
-# ---   *   ---   *   ---
-
-sub char {return (shift)->{-CHAR};};
-sub string {return (shift)->{-STRING};};
-sub shcmd {return (shift)->{-SHCMD};};
-sub regex {return (shift)->{-REGEX};};
-sub preproc {return (shift)->{-PREPROC};};
 
 # ---   *   ---   *   ---
 # prototype: s matches non-code text family
@@ -1444,182 +1278,33 @@ sub is_strtype($self,$s,$type) {
 # ^buncha clones
 
 sub is_shcmd($self,$s) {
-  return $self->is_strtype($self,$s,-SHCMD);
+  return $self->is_strtype($self,$s,'shcmds');
 
 };sub is_char($self,$s) {
-  return $self->is_strtype($self,$s,-CHAR);
+  return $self->is_strtype($self,$s,'chars');
 
 };sub is_string($self,$s) {
-  return $self->is_strtype($self,$s,-STRING);
+  return $self->is_strtype($self,$s,'strings');
 
 };sub is_regex($self,$s) {
-  return $self->is_strtype($self,$s,-REGEX);
+  return $self->is_strtype($self,$s,'regexes');
 
 };sub is_preproc($self,$s) {
-  return $self->is_strtype($self,$s,-PREPROC);
-
-};
-
-# ---   *   ---   *   ---
-# generates a pattern list for mcut
-
-sub mcut_tags($self,$append=0) {
-
-  my $tags=[@{$self->{-MCUT_TAGS}}];
-
-  if($append) {
-    push @$tags,@{$append};
-
-  };
-
-  my @ar=();
-
-# ---   *   ---   *   ---
-# iter the attrs to be used
-
-  for my $key(@$tags) {
-
-    my $pats=$self->{$key};
-    my $cpy=$key;
-    $cpy=~ s/^-//;
-
-# ---   *   ---   *   ---
-# either single pattern or arrays of them
-
-    if($pats=~ lang::ARRAYREF_RE) {
-
-      my $i=0;for my $pat(@$pats) {
-
-        push @ar,($cpy.chr(0x41+$i),$pat);
-        $i++;
-
-      };
-    } else {push @ar,($cpy,$pats);};
-  };
-
-# ---   *   ---   *   ---
-# give back tags=>patterns
-
-  return @ar;
+  return $self->is_strtype($self,$s,'preproc');
 
 };
 
 # ---   *   ---   *   ---
 
-use constant CLASS_ORDER=>[
-
-  -TYPES,
-  -SPECIFIERS,
-
-  -INTRINSICS,
-  -DIRECTIVES,
-  -FCTLS,
-
-  -DEL_OPS,
-  -SEP_OPS,
-  -OPS,
-
-  #-SBL,
-  -NAMES,
-
-  -SHCMD,
-  -CHAR,
-  -STRING,
-  -REGEX,
-  -PREPROC,
-  -NUMS,
-
-];
-
-# ---   *   ---   *   ---
-
-use constant CLASS_HASH=>{
-
-  -TYPES=>lang->VT_TYPE,
-  -SPECIFIERS=>lang->VT_SPEC,
-
-  -INTRINSICS=>lang->VT_ITRI,
-  -DIRECTIVES=>lang->VT_DIR,
-  -FCTLS=>lang->VT_FCTL,
-
-  -DEL_OPS=>lang->VT_DEL,
-  -SEP_OPS=>lang->VT_SEP,
-  -OPS=>lang->VT_ARI,
-
-  #-SBL=>lang->VT_SBL,
-  -NAMES=>lang->VT_PTR,
-
-  -SHCMD=>lang->VT_BARE,
-  -CHAR=>lang->VT_BARE,
-  -STRING=>lang->VT_BARE,
-  -REGEX=>lang->VT_BARE,
-  -PREPROC=>lang->VT_BARE,
-  -NUMS=>lang->VT_BARE,
-
-};
-
-# ---   *   ---   *   ---
-
-sub classify($self,$token) {
-
-  state $previous={};
-
-  my $found=0;
-  my $order=CLASS_ORDER;
-
-  if(exists $previous->{$token}) {
-    $found=$previous->{$token};
-    goto TAIL;
-
-  };
-
-# ---   *   ---   *   ---
-
-  for my $tag(@$order) {
-
-    my $value_type=CLASS_HASH->{$tag};
-
-# ---   *   ---   *   ---
-
-    my $h=$self->{$tag};
-    my $is_re=int($h=~ lang::QRE_RE);
-
-    if(
-
-       ( $is_re && ($token=~ $h))
-    || (!$is_re && exists $h->{$token})
-
-    ) {
-
-      $previous->{$token}=$value_type;
-      $found=$value_type;
-
-      last;
-
-    };
-
-  };
-
-# ---   *   ---   *   ---
-
-TAIL:
-  return $found;
-
-};
-
-# ---   *   ---   *   ---
-
-sub build {
-
-  my ($self,@args)=@_;
-  return $self->{-BUILDER}->(@args);
+sub build($self,@args) {
+  return $self->{_builder}->(@args);
 
 };
 
 # ---   *   ---   *   ---
 
 sub plps_match($self,$str,$type) {
-  return $self->{-PLPS}->run($str,$type);
+  return $self->{_plps}->run($str,$type);
 
 };
 

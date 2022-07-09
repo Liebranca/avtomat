@@ -43,7 +43,7 @@ my $m=cli::nit(
   {id=>'recursive'},
   {id=>'symbol',argc=>1},
   {id=>'no_escaping',short=>'-ne'},
-  {id=>'regex',short=>'-re'},
+  {id=>'regex',short=>'-R'},
 
 );
 
@@ -76,7 +76,7 @@ if($m->{regex}==NULL) {
   $sym_re=qr{$m->{symbol}(?:\b|$|"|')};
 
 } else {
-  $sym_re=qr{$m->{symbol}};
+  $sym_re=qr{$m->{symbol}}x;
 
 };
 

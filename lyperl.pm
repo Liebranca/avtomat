@@ -224,7 +224,7 @@ sub restore($) {
 
     # stringify
     my $s=$branch->flatten();
-    $branch->par->pluck($branch);
+    $branch->{parent}->pluck($branch);
 
     # de-space
     $s=~ s/\x20*(${op})\x20*/$1/sg;

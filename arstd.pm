@@ -18,6 +18,8 @@ package arstd;
   use strict;
   use warnings;
 
+  use Readonly;
+
   use Carp qw(croak longmess);
 
   use Scalar::Util qw(blessed);
@@ -36,11 +38,53 @@ package arstd;
 # ---   *   ---   *   ---
 # global state
 
-my $CACHE={
+  my $CACHE={
 
-  -TEST=>{},
+    test=>{},
 
-};
+  };
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT=qw(
+
+    $O_RD
+    $O_WR
+    $O_EX
+
+    $O_FILE
+    $O_STR
+
+  );
+
+# ---   *   ---   *   ---
+# ROM
+
+  Readonly our $O_RD=>0x3CA49EAD;
+  Readonly our $O_WR=>0x3CA4917E;
+  Readonly our $O_EX=>0x3CA49004;
+
+  # just so we don't have to
+  # -e(name) && -f(name) every single time
+  Readonly our $O_FILE=>0x175AF17E;
+  Readonly our $O_STR=>0x175A571F;
+
+# ---   *   ---   *   ---
+# Test:: is weird
+
+  Readonly my $AR_TEST_CMPTAB=>{
+
+    'eq'=>sub($a,$b) {
+      $$a//=$NULLSTR;
+      $$b//=$NULLSTR;
+
+      return $$a eq $$b;
+
+    },
+
+  };
 
 # ---   *   ---   *   ---
 
@@ -105,12 +149,12 @@ sub hashcpy($src) {
 sub orc($fname) {
 
   open my $FH,'<',$fname
-    or croak STRERR.q{ }."$fname";
+  or croak STRERR($fname);
 
   read $FH,my $body,-s $FH;
 
   close $FH
-    or croak STRERR.q{ }."$fname";
+  or croak STRERR($fname);
 
   return $body;
 
@@ -189,9 +233,9 @@ sub fstrout($format,$tab,%opt) {
   # opt defaults
   $opt{args}//=[];
   $opt{errout}//=0;
-  $opt{pre_fmat}//=NULLSTR;
-  $opt{post_fmat}//=NULLSTR;
-  $opt{endtab}//=NULLSTR;
+  $opt{pre_fmat}//=$NULLSTR;
+  $opt{post_fmat}//=$NULLSTR;
+  $opt{endtab}//=$NULLSTR;
 
 # ---   *   ---   *   ---
 # apply tab to format
@@ -210,7 +254,7 @@ sub fstrout($format,$tab,%opt) {
   printf {$FH}
 
     $opt{pre_fmat}.
-    (join NULLSTR,@format_lines).
+    (join $NULLSTR,@format_lines).
     $opt{post_fmat},
 
     @{$opt{args}};
@@ -220,29 +264,14 @@ sub fstrout($format,$tab,%opt) {
 };
 
 # ---   *   ---   *   ---
-# comparison table because Test is weird
-
-use constant AR_TEST_CMPTAB=>{
-
-  'eq'=>sub($a,$b) {
-    $$a//=NULLSTR;
-    $$b//=NULLSTR;
-
-    return $$a eq $$b;
-
-  },
-
-};
-
-# ---   *   ---   *   ---
 
 sub unit_test_start($name) {
 
-  $CACHE->{-TEST}->{current}
+  $CACHE->{test}->{current}
 
   =
 
-  $CACHE->{-TEST}->{$name}
+  $CACHE->{test}->{$name}
 
   ={
 
@@ -280,10 +309,10 @@ sub unit_test_start($name) {
 
 sub unit_test_passed() {
 
-  my $t=$CACHE->{-TEST}->{current};
+  my $t=$CACHE->{test}->{current};
 
   my $tab="\e[37;1m\::\e[0m";
-  my $status=NULLSTR;
+  my $status=$NULLSTR;
 
   my $format=
 
@@ -319,7 +348,7 @@ sub unit_test_passed() {
 
   );
 
-  $CACHE->{-TEST}->{current}=undef;
+  $CACHE->{test}->{current}=undef;
   return $t->{passed} == $t->{total};
 
 };
@@ -361,7 +390,7 @@ sub test($cmp,$a,$b,%opt) {
 
   # placeholders
   my $format="%-21s %-2s ";
-  my $status=NULLSTR;
+  my $status=$NULLSTR;
 
   # used to recolor the format
   my $cfn=undef;
@@ -369,7 +398,7 @@ sub test($cmp,$a,$b,%opt) {
 # ---   *   ---   *   ---
 # failure
 
-  if(!AR_TEST_CMPTAB->{$cmp}->(\$a,\$b)) {
+  if($AR_TEST_CMPTAB->{$cmp}->(\$a,\$b)) {
     $status='NO';
     $cfn=sub($f) {return "\e[31;22m$f\e[0m"};
 
@@ -384,7 +413,7 @@ sub test($cmp,$a,$b,%opt) {
 
 # ---   *   ---   *   ---
 
-  $CACHE->{-TEST}->{current}->{passed}
+  $CACHE->{test}->{current}->{passed}
 
   +=
 
@@ -392,7 +421,7 @@ sub test($cmp,$a,$b,%opt) {
 
   ;
 
-  $CACHE->{-TEST}->{current}->{total}+=1;
+  $CACHE->{test}->{current}->{total}+=1;
 
 # ---   *   ---   *   ---
 
@@ -416,7 +445,7 @@ sub errout($format,%opt) {
   # opt defaults
   $opt{args}//=[];
   $opt{calls}//=[];
-  $opt{lvl}//=WARNING;
+  $opt{lvl}//=$WARNING;
 
 # ---   *   ---   *   ---
 # print initial message
@@ -474,8 +503,8 @@ sub errout($format,%opt) {
 
   if(
 
-     $opt{lvl} eq FATAL
-  && !defined $CACHE->{-TEST}->{current}
+     $opt{lvl} eq $FATAL
+  && !defined $CACHE->{test}->{current}
 
   ) {
 

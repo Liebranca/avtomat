@@ -6,6 +6,8 @@
 
 # deps
 package langdefs::js;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
@@ -14,32 +16,33 @@ package langdefs::js;
 
 # ---   *   ---   *   ---
 
+BEGIN {
 lang::def::nit(
 
-  -NAME =>'js',
-  -EXT  =>'\.js$',
-  -HED  =>'#!.*node',
+  name=>'js',
+  ext=>'\.js$',
+  hed=>'#!.*node',
 
-  -MAG  =>'JavaScript script',
+  mag=>'JavaScript script',
 
-  -COM  =>'//',
+  com=>'//',
 
 # ---   *   ---   *   ---
 
-  -SPECIFIERS=>[qw(
+  specifiers=>[qw(
     async await export
 
   )],
 
 # ---   *   ---   *   ---
 
-  -INTRINSICS=>[qw(
+  intrinsics=>[qw(
     extends typeof void
     new delete in with
 
   )],
 
-  -DIRECTIVES=>[qw(
+  directives=>[qw(
     import function class var let const
 
   )],
@@ -47,7 +50,7 @@ lang::def::nit(
 # ---   *   ---   *   ---
 
 
-  -FCTLS=>[qw(
+  ftcls=>[qw(
 
     each of yield finally
 
@@ -57,12 +60,13 @@ lang::def::nit(
 
   )],
 
-  -RESNAMES=>[qw(
+  resnames=>[qw(
     true false null undefined this
 
   )],
 
 );
+};
 
 # ---   *   ---   *   ---
 1; # ret

@@ -42,7 +42,7 @@ $path=glob("./$path");
 
 my $thresh=$m->{threshold};
 
-if($thresh eq NULL) {
+if($thresh eq $NULL) {
   $thresh=0.01000;
 
 };
@@ -101,7 +101,7 @@ for my $file(
 
       "\n\e[34;22m$file\e[0m".
       "\e[37;1m:\e[0m\n".
-      (join NULLSTR,@data)."\n";
+      (join $NULLSTR,@data)."\n";
 
   };
 

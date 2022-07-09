@@ -16,6 +16,8 @@ package langdefs::peso;
   use strict;
   use warnings;
 
+  use Readonly;
+
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use lang;
@@ -29,107 +31,107 @@ package langdefs::peso;
 # ---   *   ---   *   ---
 # leaps and such
 
-use constant TYPE=>{
+  Readonly my $TYPE=>{
 
-  # primitives
-  'char'=>1,
-  'wide'=>2,
-  'word'=>4,
-  'long'=>8,
+    # primitives
+    'char'=>1,
+    'wide'=>2,
+    'word'=>4,
+    'long'=>8,
 
 # ---   *   ---   *   ---
 # granularity
 
-  # ptr size
-  'unit'=>0x0008,
+    # ptr size
+    'unit'=>0x0008,
 
-  # pointers align to line
-  # mem buffers align to page
+    # pointers align to line
+    # mem buffers align to page
 
-  'line'=>0x0010, # two units
-  'page'=>0x1000, # 256 lines
+    'line'=>0x0010, # two units
+    'page'=>0x1000, # 256 lines
 
 # ---   *   ---   *   ---
 # function types
 
-  'nihil'=>8,     # void(*nihil)(void)
-  'stark'=>8,     # void(*stark)(void*)
+    'nihil'=>8,     # void(*nihil)(void)
+    'stark'=>8,     # void(*stark)(void*)
 
-  'signal'=>8,    # int(*signal)(int)
+    'signal'=>8,    # int(*signal)(int)
 
-};
+  };
 
 # ---   *   ---   *   ---
 # builtins and functions, group A
 
-use constant BUILTIN=>{
+  Readonly my $BUILTIN=>{
 
-  'cpy'=>[sbl_id,'2<ptr,ptr|bare>'],
-  'mov'=>[sbl_id,'2<ptr,ptr>'],
-  'wap'=>[sbl_id,'2<ptr,ptr>'],
+    'cpy'=>[sbl_id,'2<ptr,ptr|bare>'],
+    'mov'=>[sbl_id,'2<ptr,ptr>'],
+    'wap'=>[sbl_id,'2<ptr,ptr>'],
 
-  'pop'=>[sbl_id,'*1<ptr>'],
-  'push'=>[sbl_id,'1<ptr|bare>'],
+    'pop'=>[sbl_id,'*1<ptr>'],
+    'push'=>[sbl_id,'1<ptr|bare>'],
 
-  'inc'=>[sbl_id,'1<ptr>'],
-  'dec'=>[sbl_id,'1<ptr>'],
-  'clr'=>[sbl_id,'1<ptr>'],
+    'inc'=>[sbl_id,'1<ptr>'],
+    'dec'=>[sbl_id,'1<ptr>'],
+    'clr'=>[sbl_id,'1<ptr>'],
 
-  'exit'=>[sbl_id,'1<ptr|bare>'],
+    'exit'=>[sbl_id,'1<ptr|bare>'],
 
-};
-
-# ---   *   ---   *   ---
-
-use constant DIRECTIVE=>{
-
-  'reg'=>[sbl_id,'1<bare>'],
-  'rom'=>[sbl_id,'1<bare>'],
-
-  'clan'=>[sbl_id,'1<bare>'],
-  'proc'=>[sbl_id,'1<bare>'],
-
-  'entry'=>[sbl_id,'1<ptr>'],
-  'atexit'=>[sbl_id,'1<ptr>'],
-
-};
+  };
 
 # ---   *   ---   *   ---
 
-use constant FCTL=>{
+  Readonly my $DIRECTIVE=>{
 
-  'jmp'=>[sbl_id,'1<ptr>'],
-  'jif'=>[sbl_id,'2<ptr,ptr|bare>'],
-  'eif'=>[sbl_id,'2<ptr,ptr|bare>'],
+    'reg'=>[sbl_id,'1<bare>'],
+    'rom'=>[sbl_id,'1<bare>'],
 
-  #:*;> not yet implemented
-  'call'=>[sbl_id,'1<ptr>'],
-  'ret'=>[sbl_id,'1<ptr>'],
-  'wait'=>[sbl_id,'1<ptr>'],
+    'clan'=>[sbl_id,'1<bare>'],
+    'proc'=>[sbl_id,'1<bare>'],
 
-};
+    'entry'=>[sbl_id,'1<ptr>'],
+    'atexit'=>[sbl_id,'1<ptr>'],
+
+  };
+
+# ---   *   ---   *   ---
+
+  Readonly my $FCTL=>{
+
+    'jmp'=>[sbl_id,'1<ptr>'],
+    'jif'=>[sbl_id,'2<ptr,ptr|bare>'],
+    'eif'=>[sbl_id,'2<ptr,ptr|bare>'],
+
+    #:*;> not yet implemented
+    'call'=>[sbl_id,'1<ptr>'],
+    'ret'=>[sbl_id,'1<ptr>'],
+    'wait'=>[sbl_id,'1<ptr>'],
+
+  };
 
 # ---   *   ---   *   ---
 # missing/needs rethinking:
 # str,buf,fptr,lis,lock
 
-use constant INTRINSIC=>{
+  Readonly my $INTRINSIC=>{
 
-  'wed'=>[sbl_id,'1<bare>'],
-  'unwed'=>[sbl_id,'0'],
+    'wed'=>[sbl_id,'1<bare>'],
+    'unwed'=>[sbl_id,'0'],
 
-};
+  };
 
-use constant SPECIFIER=>{
+  Readonly my $SPECIFIER=>{
 
-  'ptr'=>[sbl_id,'0'],
-  'fptr'=>[sbl_id,'0'],
+    'ptr'=>[sbl_id,'0'],
+    'fptr'=>[sbl_id,'0'],
 
-  'str'=>[sbl_id,'0'],
-  'buf'=>[sbl_id,'0'],
-  'tab'=>[sbl_id,'0'],
+    'str'=>[sbl_id,'0'],
+    'buf'=>[sbl_id,'0'],
+    'tab'=>[sbl_id,'0'],
 
-};
+  };
 
 # ---   *   ---   *   ---
 # UTILS
@@ -187,8 +189,8 @@ sub reorder($) {
 # ---   *   ---   *   ---
 # move node and reset anchor
 
-      };if($leaf->par ne $anchor) {
-        ($leaf)=$leaf->par->pluck($leaf);
+      };if($leaf->{parent} ne $anchor) {
+        ($leaf)=$leaf->{parent}->pluck($leaf);
         $anchor->pushlv(0,$leaf);
 
       };$anchor=$leaf;
@@ -196,8 +198,8 @@ sub reorder($) {
 # ---   *   ---   *   ---
 # node doesn't modify anchor
 
-    } elsif($leaf->par ne $anchor) {
-      ($leaf)=$leaf->par->pluck($leaf);
+    } elsif($leaf->{parent} ne $anchor) {
+      ($leaf)=$leaf->{parent}->pluck($leaf);
       $anchor->pushlv(0,$leaf);
 
     };
@@ -211,15 +213,15 @@ BEGIN {
 
 # ---   *   ---   *   ---
 
-DEFINE 'cpy',BUILTIN,sub {
+DEFINE 'cpy',$BUILTIN,sub {
 
   my ($inskey,$frame,$field)=@_;
   my ($dst,$src)=@$field;
 
-  my $fr_ptr=$frame->master->ptr;
+  my $fr_ptr=$frame->{master}->{ptr};
 
   if($fr_ptr->valid($src)) {
-    $src=$src->addr;
+    $src=$src->{addr};
 
   };if(!$fr_ptr->valid($dst)) {
     $dst=$fr_ptr->fetch($dst);
@@ -230,11 +232,11 @@ DEFINE 'cpy',BUILTIN,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'pop',BUILTIN,sub {
+DEFINE 'pop',$BUILTIN,sub {
 
   my ($inskey,$frame,$dst)=@_;
-  my $fr_ptr=$frame->master->ptr;
-  my $fr_blk=$frame->master->blk;
+  my $fr_ptr=$frame->{master}->{ptr};
+  my $fr_blk=$frame->{master}->{blk};
 
   $dst=$dst->[0];
 
@@ -250,16 +252,16 @@ DEFINE 'pop',BUILTIN,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'push',BUILTIN,sub {
+DEFINE 'push',$BUILTIN,sub {
 
   my ($inskey,$frame,$src)=@_;
-  my $fr_ptr=$frame->master->ptr;
-  my $fr_blk=$frame->master->blk;
+  my $fr_ptr=$frame->{master}->{ptr};
+  my $fr_blk=$frame->{master}->{blk};
 
   $src=$src->[0];
 
   if($fr_ptr->valid($src)) {
-    $src=$src->addr;
+    $src=$src->{addr};
 
   };
 
@@ -269,10 +271,10 @@ DEFINE 'push',BUILTIN,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'inc',BUILTIN,sub {
+DEFINE 'inc',$BUILTIN,sub {
 
   my ($inskey,$frame,$ptr)=@_;
-  my $fr_ptr=$frame->master->ptr;
+  my $fr_ptr=$frame->{master}->{ptr};
 
   $ptr=$ptr->[0];
 
@@ -283,10 +285,10 @@ DEFINE 'inc',BUILTIN,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'dec',BUILTIN,sub {
+DEFINE 'dec',$BUILTIN,sub {
 
   my ($inskey,$frame,$ptr)=@_;
-  my $fr_ptr=$frame->master->ptr;
+  my $fr_ptr=$frame->{master}->{ptr};
 
   $ptr=$ptr->[0];
 
@@ -297,10 +299,10 @@ DEFINE 'dec',BUILTIN,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'clr',BUILTIN,sub {
+DEFINE 'clr',$BUILTIN,sub {
 
   my ($inskey,$frame,$ptr)=@_;
-  my $fr_ptr=$frame->master->ptr;
+  my $fr_ptr=$frame->{master}->{ptr};
 
   $ptr=$ptr->[0];
 
@@ -311,10 +313,10 @@ DEFINE 'clr',BUILTIN,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'exit',BUILTIN,sub {
+DEFINE 'exit',$BUILTIN,sub {
 
   my ($inskey,$frame,$val)=@_;
-  my $master=$frame->master;
+  my $master=$frame->{master};
 
   $val=$val->[0];
 
@@ -326,19 +328,19 @@ DEFINE 'exit',BUILTIN,sub {
 
 # ---   *   ---   *   ---
 
-DEFINE 'reg',DIRECTIVE,sub {
+DEFINE 'reg',$DIRECTIVE,sub {
 
   my ($inskey,$frame,$name)=@_;
 
-  my $fr_ptr=$frame->master->ptr;
-  my $fr_blk=$frame->master->blk;
+  my $fr_ptr=$frame->{master}->{ptr};
+  my $fr_blk=$frame->{master}->{blk};
 
   $name=$name->[0];
 
   # get dst
-  my $dst=($fr_blk->DST->attrs)
-    ? $fr_blk->DST->par
-    : $fr_blk->DST
+  my $dst=($fr_blk->{dst}->{attrs})
+    ? $fr_blk->{dst}->{parent}
+    : $fr_blk->{dst}
     ;
 
 # ---   *   ---   *   ---
@@ -348,20 +350,20 @@ DEFINE 'reg',DIRECTIVE,sub {
   # append new block to dst on first pass
   if($fr_blk->fpass()) {
     $blk=$fr_blk->nit(
-      $dst,$name,O_RDWR,
+      $dst,$name,$O_RD|$O_WR,
 
     );
 
   # second pass: look for block
   } else {
-    $blk=$fr_ptr->fetch($name)->blk;
+    $blk=$fr_ptr->fetch($name)->{blk};
 
   };
 
 # ---   *   ---   *   ---
 # overwrite dst
 
-  $fr_blk->DST($blk);
+  $fr_blk->{dst}=$blk;
   $fr_blk->setscope($blk);
   $fr_blk->setcurr($blk);
 
@@ -373,12 +375,12 @@ DEFINE 'clan',DIRECTIVE,sub {
 
   my ($inskey,$frame,$name)=@_;
 
-  my $fr_ptr=$frame->master->ptr;
-  my $fr_blk=$frame->master->blk;
+  my $fr_ptr=$frame->{master}->{ptr};
+  my $fr_blk=$frame->{master}->{blk};
 
   $name=$name->[0];
 
-  my $dst=$fr_blk->NON;
+  my $dst=$fr_blk->{non};
 
 # ---   *   ---   *   ---
 
@@ -391,7 +393,7 @@ DEFINE 'clan',DIRECTIVE,sub {
 
     # second pass: find block
     } else {
-      $blk=$fr_ptr->fetch($name)->blk;
+      $blk=$fr_ptr->fetch($name)->{blk};
 
     };
 
@@ -400,7 +402,7 @@ DEFINE 'clan',DIRECTIVE,sub {
   # is global scope
   } else {$blk=$dst;};
 
-  $fr_blk->DST($blk);
+  $fr_blk->{dst}=$blk;
   $fr_blk->setcurr($blk);
 
   return $blk;
@@ -413,15 +415,15 @@ DEFINE 'proc',DIRECTIVE,sub {
 
   my ($inskey,$frame,$name)=@_;
 
-  my $fr_ptr=$frame->master->ptr;
-  my $fr_blk=$frame->master->blk;
+  my $fr_ptr=$frame->{master}->{ptr};
+  my $fr_blk=$frame->{master}->{blk};
 
   $name=$name->[0];
 
   # get dst
-  my $dst=($fr_blk->DST->attrs)
-    ? $fr_blk->DST->par
-    : $fr_blk->DST
+  my $dst=($fr_blk->{dst}->{attrs})
+    ? $fr_blk->{dst}->{parent}
+    : $fr_blk->{dst}
     ;
 
 # ---   *   ---   *   ---
@@ -431,20 +433,20 @@ DEFINE 'proc',DIRECTIVE,sub {
   # append new block to dst on first pass
   if($fr_blk->fpass()) {
     $blk=$dst->nit(
-      $dst,$name,O_EX,
+      $dst,$name,$O_EX,
 
     );
 
   # second pass: look for block
   } else {
-    $fr_ptr->fetch($name)->blk;
+    $fr_ptr->fetch($name)->{blk};
 
   };
 
 # ---   *   ---   *   ---
 # overwrite dst
 
-  $fr_blk->DST($blk);
+  $fr_blk->{dst}=$blk;
   $fr_blk->setcurr($blk);
   $fr_blk->setscope($blk->scope);
 
@@ -455,10 +457,10 @@ DEFINE 'proc',DIRECTIVE,sub {
 DEFINE 'entry',DIRECTIVE,sub {
 
   my ($inskey,$frame,$blk)=@_;
-  my $fr_blk=$frame->master->blk;
+  my $m=$frame->{master};
 
   $blk=$blk->[0];
-  $fr_blk->entry($blk);
+  $m->{entry}=$blk;
 
 };
 
@@ -468,16 +470,19 @@ DEFINE 'jmp',FCTL,sub {
 
   my ($inskey,$frame,$ptr)=@_;
 
-  my $master=$frame->master;
-  my $fr_ptr=$master->ptr;
+  my $master=$frame->{master};
+  my $fr_ptr=$master->{ptr};
 
   $ptr=$ptr->[0];
 
-  # set instruction index to ptr loc
-  $master->setnxins(
-    $fr_ptr->fetch($ptr)->blk->insid
+# insid is DEPRECATED
+#
+#  # set instruction index to ptr loc
+#  $master->setnxins(
+#    $fr_ptr->fetch($ptr)->{blk}->insid
+#
+#  );
 
-  );
 };
 
 # ---   *   ---   *   ---
@@ -485,7 +490,7 @@ DEFINE 'jmp',FCTL,sub {
 DEFINE 'wed',INTRINSIC,sub {
 
   my ($inskey,$frame,$type)=@_;
-  my $fr_ptr=$frame->master->ptr;
+  my $fr_ptr=$frame->{master}->{ptr};
 
   $type=$type->[0];
   $fr_ptr->wed($type);
@@ -497,7 +502,7 @@ DEFINE 'wed',INTRINSIC,sub {
 DEFINE 'unwed',INTRINSIC,sub {
 
   my ($inskey,$frame)=@_;
-  my $fr_ptr=$frame->master->ptr;
+  my $fr_ptr=$frame->{master}->{ptr};
 
   $fr_ptr->wed(undef);
 
@@ -510,58 +515,54 @@ DEFINE 'unwed',INTRINSIC,sub {
 
 lang::def::nit(
 
-  -NAME=>'peso',
+  name=>'peso',
 
-  -EXT=>'\.(pe)$',
-  -HED=>'\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$',
-  -MAG=>'$ program',
+  ext=>'\.(pe)$',
+  hed=>'\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$',
+  mag=>'$ program',
 
-  -OP_PREC=>peso::ops->def,
-  -SBL=>$SBL_TABLE,
+  op_prec=>$peso::ops::TABLE,
+  symbols=>$SBL_TABLE,
 
 # ---   *   ---   *   ---
 
-  -TYPES=>[
-    keys %{&TYPE},
+  types=>[
+    keys %$TYPE,
 
   ],
 
-  -SPECIFIERS=>[
-    keys %{&SPECIFIER},
+  specifiers=>[
+    keys %$SPECIFIER,
 
   ],
 
-  -RESNAMES=>[qw(
+  resnames=>[qw(
     self other null non
 
   )],
 
 # ---   *   ---   *   ---
 
-  -INTRINSICS=>[
-    keys %{&INTRINSIC},
+  intrinsics=>[
+    keys %$INTRINSIC,
 
   ],
 
-  -DIRECTIVES=>[
-    keys %{&DIRECTIVE},
+  directives=>[
+    keys %$DIRECTIVE,
 
   ],
 
 # ---   *   ---   *   ---
 
-  -BUILTINS=>[qw(
+  builtins=>[qw(
 
     mem fre shift unshift
     kin sow reap sys stop
 
-  ),keys %{&BUILTIN},
+  ),keys %$BUILTIN,
 
   ],
-
-# ---   *   ---   *   ---
-
-  -MCUT_TAGS=>[-STRING,-CHAR],
 
 # ---   *   ---   *   ---
 # nit the magic parser
@@ -574,16 +575,16 @@ lang::def::nit(
 # ---   *   ---   *   ---
 # load typedata to the type-table
 
-  { my $ref=lang->peso->{-TYPES};
+  { my $ref=lang->peso->{types};
     my $fr_type=peso::type::new_frame();
 
     for my $key(keys %$ref) {
-      my $value=TYPE->{$key};
+      my $value=$TYPE->{$key};
       $ref->{$key}=$fr_type->nit($key,$value);
 
     };
 
-    $ref->{-TYPES_FRAME}=$fr_type;
+    $ref->{types_frame}=$fr_type;
 
   };
 

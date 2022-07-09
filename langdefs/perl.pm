@@ -11,68 +11,67 @@ package langdefs::perl;
   use strict;
   use warnings;
 
-  use lib $ENV{'ARPATH'}.'/lib/';
+  use Readonly;
 
+  use lib $ENV{'ARPATH'}.'/lib/';
   use lang;
-  use langdefs::peso;
 
 # ---   *   ---   *   ---
 
-use constant OPS=>{
+  Readonly my $OPS=>{
 
-  q{->}=>[
+    q{->}=>[
 
-    undef,
-    undef,
+      undef,
+      undef,
 
-    [-1,sub {my ($x,$y)=@_;return "$$x->$$y";}],
+      [-1,sub($x,$y) {return "$$x->$$y"}],
 
-  ],q{!}=>[
+    ],q{!}=>[
 
-    undef,
-    [0,sub {my ($x)=@_;return "!$$x";}],
+      undef,
+      [0,sub($x) {return "!$$x"}],
 
-    undef,
+      undef,
 
-  ],q{.}=>[
+    ],q{.}=>[
 
-    undef,
-    undef,
+      undef,
+      undef,
 
-    [0,sub {my ($x,$y)=@_;return "$$x.$$y";}],
+      [0,sub($x,$y) {return "$$x.$$y"}],
 
-  ],q{=>}=>[
+    ],q{=>}=>[
 
-    undef,
-    undef,
+      undef,
+      undef,
 
-    [97,sub {my ($x,$y)=@_;return "$$x=>$$y";}],
+      [97,sub($x,$y) {return "$$x=>$$y"}],
 
-  ],q{,}=>[
+    ],q{,}=>[
 
-    [98,sub {my ($x,$y)=@_;return "$$x,";}],
-    undef,
+      [98,sub($x,$y) {return "$$x,"}],
+      undef,
 
-    [98,sub {my ($x,$y)=@_;return "$$x,$$y";}],
+      [98,sub($x,$y) {return "$$x,$$y"}],
 
-  ],q{!=}=>[
+    ],q{!=}=>[
 
-    undef,
-    undef,
+      undef,
+      undef,
 
-    [99,sub {my ($x,$y)=@_;return "$$x!=$$y";}],
-  ],
+      [99,sub($x,$y) {return "$$x!=$$y"}],
 
-  q{=}=>[
+    ],q{=}=>[
 
-    undef,
-    undef,
+      undef,
+      undef,
 
-    [99,sub {my ($x,$y)=@_;return "$$x=$$y";}],
+      [99,sub($x,$y) {return "$$x=$$y"}],
 
-  ],
+    ],
 
-};
+  };
 
 # ---   *   ---   *   ---
 
@@ -81,49 +80,46 @@ BEGIN {
 # ---   *   ---   *   ---
 lang::def::nit(
 
-  -NAME => 'perl',
-  -EXT  => '\.p[lm]$',
-  -HED  => '^#!.*perl',
+  name=>'perl',
+  ext=>'\.p[lm]$',
+  hed=>'^#!.*perl',
 
-  -MAG  => 'Perl script',
-  -COM  => '\#',
+  mag=>'Perl script',
+  com=>'\#',
 
-  -DRFC => '(::|->)',
+  drfc=>'(::|->)',
 
 # ---   *   ---   *   ---
 
-  -DEL_OPS=>'[\(\[\{\}\]\)]',
+  op_prec=>$OPS,
 
-  -NDEL_OPS=>''.
-    '[^\s_A-Za-z0-9\.:\{'.
-    '\[\(\)\]\}\\\\@$&]'.
-    '|(^|\s|[^\\\\])[&%]',
+  mcut_tags=>[qw(
+    chars strings shcmd qstrs regexes
 
-  -OP_PREC=>OPS,
-  #-SBL=>,
+  )],
 
-  -MCUT_TAGS=>[-STRING,-CHAR,-PESC],
+# ---   *   ---   *   ---
 
-  -EXP_RULE=>sub ($rd) {
+  sbl_decl=>q{
 
-    my $pesc=lang::CUT_TOKEN_RE;
-    $pesc=~ s/\[A-Z\]\+/PESC/;
+    \bsub\s*
 
-    while($rd->{line}=~ s/^(${pesc})//) {
-      push @{$rd->{exps}},{
-        body=>$1,
-        has_eb=>0,
-        lineno=>$rd->{lineno},
+    (?<name> $:names;>)?\s*
+    (?<attrs> :$:names;>\s*)*
 
-      };
+    \s*(?<args> \(.*?\))?\s*
 
-    };
+    (?<scope> [{]
+
+      (?<code> [^{}] | (?&scope))*
+
+    [}])
 
   },
 
 # ---   *   ---   *   ---
 
-  -TYPES=>[
+  types=>[
 
     '([$%&@][\#]?$:names;>)',
     '([$%&@]\^[A-Z?\^_])',
@@ -138,20 +134,16 @@ lang::def::nit(
 
     '(\$[$%&@])',
 
-    (keys %{langdefs::peso->TYPE}),
-
   ],
 
-  -SPECIFIERS=>[qw(
-      inlined
+  specifiers=>[qw(
+    inlined
 
-    ),(keys %{langdefs::peso->SPECIFIER})
-
-  ],
+  )],
 
 # ---   *   ---   *   ---
 
-  -BUILTINS=>[qw(
+  buildtins=>[qw(
 
     accept alarm atan2 bin bind binmode
     bless blessed
@@ -213,33 +205,33 @@ lang::def::nit(
 
     wantarray warn write
 
-  ),keys %{langdefs::peso->BUILTIN}],
+  )],
 
 # ---   *   ---   *   ---
 
-  -DIRECTIVES=>[qw(
+  directives=>[qw(
     use no package my our sub state
 
-  ),(keys %{langdefs::peso->DIRECTIVE})],
+  )],
 
-  -INTRINSICS=>[qw(
+  intrinsics=>[qw(
     eq ne lt gt le ge cmp x can isa
 
-  ),(keys %{langdefs::peso->INTRINSIC})],
+  )],
 
-  -FCTLS=>[qw(
+  fctls=>[qw(
 
     continue else elsif do for
     foreach if unless until while
     goto next last redo reset return
     try catch finally
 
-  ),(keys %{langdefs::peso->FCTL})],
+  )],
 
 # ---   *   ---   *   ---
 
 # ugh, these effy line comments
-);lang->perl->{-LCOM}=lang::eaf(
+);lang->perl->{lcom}=lang::eaf(
 
   lang::lkback(
     '$%&@\'"',
@@ -250,7 +242,7 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-lang->perl->{-HIER_SORT}=sub($rd) {
+lang->perl->{hier_sort}=sub($rd) {
 
   my $id='-ROOT';
   my $block=$rd->select_block($id);

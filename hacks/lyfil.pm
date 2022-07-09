@@ -49,7 +49,7 @@ sub nit($fname,$beg) {
     idex=>int(@{$M}),
 
     data=>[],
-    raw=>NULLSTR,
+    raw=>$NULLSTR,
 
     lineno=>$beg,
 
@@ -62,7 +62,7 @@ sub nit($fname,$beg) {
 
     $M->[0] && $M->[0]->{fname} ne $self->{fname}
 
-  ) {return NULL};
+  ) {return $NULL};
 
   $ACTIVE->{$class}=$self;
   if($M->[0]) {$self->pluck_use_line()};

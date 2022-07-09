@@ -204,23 +204,23 @@ sub type_decl_pack($m,$pkg) {
 # ---   *   ---   *   ---
 # func table
 
-use constant CALLTAB=>{
+  Readonly my $CALLTAB=>{
 
-  'ptr_decl'=>\&ptr_decl,
-  'ptr_decl_pack'=>\&ptr_decl_pack,
+    'ptr_decl'=>\&ptr_decl,
+    'ptr_decl_pack'=>\&ptr_decl_pack,
 
-  'type_decl'=>\&type_decl,
-  'type_decl_pack'=>\&type_decl_pack,
+    'type_decl'=>\&type_decl,
+    'type_decl_pack'=>\&type_decl_pack,
 
-};
+  };
 
 # ---   *   ---   *   ---
 # use tree to build instruction
 
 sub take($m,$key,$tree) {
 
-  my $pkg=CALLTAB->{$key}->($m,$tree);
-  my $btc=CALLTAB->{$key.'_pack'}->($m,$pkg);
+  my $pkg=$CALLTAB->{$key}->($m,$tree);
+  my $btc=$CALLTAB->{$key.'_pack'}->($m,$pkg);
 
   return $btc;
 

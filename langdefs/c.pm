@@ -6,8 +6,12 @@
 
 # deps
 package langdefs::c;
+
+  use v5.36.0;
   use strict;
   use warnings;
+
+  use Readonly,
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
@@ -15,31 +19,32 @@ package langdefs::c;
   use langdefs::plps;
 
 # ---   *   ---   *   ---
+# ROM
 
-use constant OPS=>lang::quick_op_prec(
+  Readonly my $OPS=>lang::quick_op_prec(
 
-  '*'=>7,
-  '->'=>4,
-  '.'=>6,
+    '*'=>7,
+    '->'=>4,
+    '.'=>6,
 
-);
+  );
 
 # ---   *   ---   *   ---
 
 BEGIN {
 lang::def::nit(
 
-  -NAME=>'c',
+  name=>'c',
 
-  -EXT=>'\.([ch](pp|xx)?|C|cc|c\+\+|cu|H|hh|ii?)$',
-  -MAG=>'^(C|C\+\+) (source|program)',
-  -COM=>'//',
+  ext=>'\.([ch](pp|xx)?|C|cc|c\+\+|cu|H|hh|ii?)$',
+  mag=>'^(C|C\+\+) (source|program)',
+  com=>'//',
 
-  -OP_PREC=>OPS,
+  op_prec=>$OPS,
 
 # ---   *   ---   *   ---
 
-  -TYPES=>[qw(
+  types=>[qw(
 
     bool char short int long
     float double void
@@ -55,7 +60,7 @@ lang::def::nit(
 
   )],
 
-  -SPECIFIERS=>[qw(
+  specifiers=>[qw(
 
     auto extern inline restrict
     const signed unsigned static
@@ -72,7 +77,7 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  -INTRINSICS=>[qw(
+  intrinsics=>[qw(
 
     sizeof offsetof typeof alignof
     typename alignas
@@ -84,12 +89,12 @@ lang::def::nit(
 
   )],
 
-  -DIRECTIVES=>[qw(
+  directives=>[qw(
     class struct union typedef enum
 
   )],
 
-  -FCTLS=>[qw(
+  fctls=>[qw(
 
     if else for while do
     switch case default
@@ -100,79 +105,27 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  -RESNAMES=>[qw(
+  resnames=>[qw(
     this
 
   )],
 
 # ---   *   ---   *   ---
 
-  -PREPROC=>[
+  preproc=>[
     lang::delim2('#',"\n"),
 
   ],
 
-  -MCUT_TAGS=>[-STRING,-CHAR,-PREPROC],
+  foldtags=>[qw(
+    chars strings preproc
 
-# ---   *   ---   *   ---
-
-  -EXP_RULE=>sub ($) {
-
-    my $rd=shift;
-
-    my $preproc=lang::CUT_TOKEN_RE;
-    $preproc=~ s/\[A-Z\]\+/PREPROC[A-Z]/;
-
-    while($rd->{line}=~ s/^(${preproc})//) {
-
-      push @{$rd->{exps}},{
-        body=>$1,
-        has_eb=>0,
-        lineno=>$rd->{lineno}
-
-      };
-
-    };
-
-  },
-
-# ---   *   ---   *   ---
-
-  -MLS_RULE=>sub ($$) {
-
-    my ($self,$s)=@_;
-
-    if($s=~ m/(#\s*if)/) {
-
-      my $open=$1;
-      my $close=$open;
-
-      $close=~ s/(#\s*)//;
-      $close=$1.'endif';
-
-      $self->del_mt->{$open}=$close;
-
-      return "($open)";
-
-# ---   *   ---   *   ---
-
-    } elsif($s=~ m/(#\s*define\s+)/) {
-
-      my $open=$1;
-      my $close="\n";
-
-      $self->del_mt->{$open}=$close;
-
-      return "($open)";
-
-    } else {return undef;};
-
-  },
+  )],
 
 # ---   *   ---   *   ---
 # build language patterns
 
-);#lang->c->{-PLPS}=langdefs::plps::make(lang->c);
+);##lang->c->{_plps}=langdefs::plps::make(lang->c);
 
 };
 

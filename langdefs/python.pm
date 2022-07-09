@@ -6,6 +6,8 @@
 
 # deps
 package langdefs::python;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
@@ -16,34 +18,34 @@ package langdefs::python;
 
 lang::def::nit(
 
-  -NAME =>'python',
-  -EXT  =>'\.py$',
-  -HED  =>'^#!.*python',
+  name=>'python',
+  ext=>'\.py$',
+  hed=>'^#!.*python',
 
-  -MAG  =>'Python script',
+  mag=>'Python script',
 
-  -COM  =>'#',
+  com=>'#',
 
 # ---   *   ---   *   ---
 
-  -TYPES=>[qw(
+  types=>[qw(
     str int float list dict lambda
 
   )],
 
-  -RESNAMES=>[qw(
+  resnames=>[qw(
     False None True __$:names;>__
 
   )],
 
 # ---   *   ---   *   ---
 
-  -INTRINSICS=>[qw(
+  instrinsics=>[qw(
     and as in is as with not or
 
   )],
 
-  -DIRECTIVES=>[qw(
+  directives=>[qw(
     class def del assert async
     import from pass global nonlocal
 
@@ -51,7 +53,7 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  -FCTLS=>[qw(
+  ftcls=>[qw(
 
     await break continue
     if elif else except

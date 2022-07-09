@@ -27,159 +27,161 @@ package langdefs::plps;
 # ---   *   ---   *   ---
 # translation table
 
-use constant TRTAB=>{
+  Readonly my $TRTAB=>{
 
-  'ari'=>'ops',
-  'ptr'=>'is_ptr&',
-  'num'=>'is_num&',
+    'ari'=>'ops',
+    'ptr'=>'is_ptr&',
+    'num'=>'is_num&',
 
-  'type'=>'types',
-  'spec'=>'specifiers',
-  'bare'=>'names',
-  'ode'=>'ode',
-  'cde'=>'cde',
+    'type'=>'types',
+    'spec'=>'specifiers',
+    'bare'=>'names',
+    'ode'=>'ode',
+    'cde'=>'cde',
 
-};
-
-# ---   *   ---   *   ---
-
-use constant plps_ops=>{
-
-  q{->}=>[
-
-    undef,
-    undef,
-
-    [-1,sub($x,$y) {return "$$x->$$y"}],
-
-  ],q{?}=>[
-
-    [3,sub($x) {
-
-      $$x->{optional}=1;
-      return $$x;
-
-    }],
-
-    undef,
-    undef,
+  };
 
 # ---   *   ---   *   ---
 
-  ],q{+}=>[
+  Readonly my $OPS=>{
 
-    [3,sub($x) {
+    q{->}=>[
 
-      $$x->{consume_equal}=1;
-      return $$x;
+      undef,
+      undef,
 
-    }],
+      [-1,sub($x,$y) {return "$$x->$$y"}],
 
-    undef,
-    undef,
+    ],q{?}=>[
 
-  ],q{--}=>[
+      [3,sub($x) {
 
-    [3,sub($x) {$$x->{rewind}=1;return $$x}],
+        $$x->{optional}=1;
+        return $$x;
 
-    undef,
-    undef,
+      }],
 
-# ---   *   ---   *   ---
-
-  ],q{|>}=>[
-
-    [4,sub($x) {$$x->{space}=0;return $$x}],
-
-    undef,
-    undef,
-
-  ],q{|->}=>[
-
-    [4,sub($x) {$$x->{space}=2;return $$x}],
-
-    undef,
-    undef,
+      undef,
+      undef,
 
 # ---   *   ---   *   ---
 
-  ],q{%}=>[
+    ],q{+}=>[
 
-    undef,
-    undef,
+      [3,sub($x) {
 
-    [5,sub($x,$y) {
+        $$x->{consume_equal}=1;
+        return $$x;
 
-      $$x->{name}=$$y;
-      return $$x;
+      }],
 
-    }]
+      undef,
+      undef,
 
-# ---   *   ---   *   ---
+    ],q{--}=>[
 
-  ],q{]}=>[
+      [3,sub($x) {$$x->{rewind}=1;return $$x}],
 
-    undef,
-    undef,
-
-
-    [5,sub($x,$y) {
-
-      #:!!;> this is a hack as well
-      my $s='int($$prev_match=~ m/^'."$$x".'/);';
-
-      return $s;
-
-    }],
+      undef,
+      undef,
 
 # ---   *   ---   *   ---
 
+    ],q{|>}=>[
 
-  ],q{~}=>[
+      [4,sub($x) {$$x->{space}=0;return $$x}],
 
-    undef,
+      undef,
+      undef,
 
-    [6,sub($x) {
+    ],q{|->}=>[
 
-      $$x->{save_match}=0;
-      return $$x;
+      [4,sub($x) {$$x->{space}=2;return $$x}],
 
-    }],
-
-    undef,
-
-
-  ],q{!}=>[
-
-    undef,
-    undef,
-
-    [6,sub($x,$y) {
-
-      $$y->{on_no_match}=$$x;
-      return $$y;
-
-    }],
-
-  ],q{|}=>[
-
-    undef,
-    undef,
-
-    [7,sub($x,$y) {return "$$x|$$y"}],
-
-  ],
+      undef,
+      undef,
 
 # ---   *   ---   *   ---
 
-};use constant DIRECTIVE=>{
+    ],q{%}=>[
 
-  'beg'=>[sbl_id,'1<type>:1<bare>'],
-  'end'=>[sbl_id,'0'],
+      undef,
+      undef,
 
-  'in'=>[sbl_id,'1<path>'],
+      [5,sub($x,$y) {
 
-};
+        $$x->{name}=$$y;
+        return $$x;
+
+      }]
+
+# ---   *   ---   *   ---
+
+    ],q{]}=>[
+
+      undef,
+      undef,
+
+
+      [5,sub($x,$y) {
+
+        #:!!;> this is a hack as well
+        my $s='int($$prev_match=~ m/^'."$$x".'/);';
+
+        return $s;
+
+      }],
+
+# ---   *   ---   *   ---
+
+
+    ],q{~}=>[
+
+      undef,
+
+      [6,sub($x) {
+
+        $$x->{save_match}=0;
+        return $$x;
+
+      }],
+
+      undef,
+
+
+    ],q{!}=>[
+
+      undef,
+      undef,
+
+      [6,sub($x,$y) {
+
+        $$y->{on_no_match}=$$x;
+        return $$y;
+
+      }],
+
+    ],q{|}=>[
+
+      undef,
+      undef,
+
+      [7,sub($x,$y) {return "$$x|$$y"}],
+
+    ],
+
+  };
+
+# ---   *   ---   *   ---
+
+  Readonly my $DIRECTIVE=>{
+
+    'beg'=>[sbl_id,'1<type>:1<bare>'],
+    'end'=>[sbl_id,'0'],
+
+    'in'=>[sbl_id,'1<path>'],
+
+  };
 
 # ---   *   ---   *   ---
 # UTILITY CALLS
@@ -189,14 +191,13 @@ use constant plps_ops=>{
 
 sub tagv($program,$tag) {
 
-  my $string_re=lang::CUT_TOKEN_RE;
   my $v=undef;
 
 # ---   *   ---   *   ---
 # <tag> found
 
-  if(exists TRTAB->{$tag}) {
-    $tag=TRTAB->{$tag};
+  if(exists $TRTAB->{$tag}) {
+    $tag=$TRTAB->{$tag};
 
     if($tag=~ m/&$/) {
       $v=$program->{ext}->{$tag};
@@ -214,7 +215,7 @@ sub tagv($program,$tag) {
 # ---   *   ---   *   ---
 # string token found
 
-  } elsif($tag=~ $string_re) {
+  } elsif($tag=~ $shwl::CUT_RE) {
 
     $v=lang::stitch($tag,$program->{strings});
 
@@ -258,7 +259,7 @@ sub decompose($program,$node) {
 # operator found
 
   my @patterns=();
-  if($name=~ m/${\peso::node->OPERATOR}/) {
+  if($name=~ m/$peso::node::OPERATOR/) {
 
     # alternation
     if($name->{op} eq '|') {
@@ -352,8 +353,8 @@ sub detag($program,$node) {
 # ---   *   ---   *   ---
 # replace <tag> hierarchy with object instance
 
-      if($node->{par}->{value} eq '<') {
-        $node->{par}->repl($node);
+      if($node->{parent}->{value} eq '<') {
+        $node->{parent}->repl($node);
 
       };
 
@@ -920,8 +921,8 @@ sub getmatch($self,$program) {
 
     $self=shift @pending;
     if(!$self) {
-      $tree=(defined $tree->{par})
-        ? $tree->{par}
+      $tree=(defined $tree->{parent})
+        ? $tree->{parent}
         : $tree
         ;
 
@@ -1158,7 +1159,7 @@ sub run {
 
     if(!@{$node->{leaves}}) {
 
-      my $obj=$node->{par}->{value};
+      my $obj=$node->{parent}->{value};
       my $pat=$node->{value};
 
       my $status=$obj->trymatch(
@@ -1170,7 +1171,7 @@ sub run {
       );
 
       my $end=(defined $obj->{altern})
-        ? $node eq $node->{par}->{leaves}->[-1]
+        ? $node eq $node->{parent}->{leaves}->[-1]
         : 1
         ;
 
@@ -1220,7 +1221,7 @@ sub run {
 
       ) {
 
-        while($node ne $node->{par}->{leaves}->[-1]) {
+        while($node ne $node->{parent}->{leaves}->[-1]) {
           $node=shift @leaves;
 
         };

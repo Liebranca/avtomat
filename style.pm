@@ -18,6 +18,8 @@ package style;
   use strict;
   use warnings;
 
+  use Readonly;
+
   use Carp;
   use English qw(-no_match_vars);
 
@@ -27,22 +29,26 @@ package style;
   use Exporter 'import';
   our @EXPORT=qw(
 
-    MEMPTR
-    MEMPTR_SZBYTE
-    MEMPTR_SZMASK
+    $MEMPTR
+    $MEMPTR_SZBYTE
+    $MEMPTR_SZMASK
 
-    NULL
-    NULLSTR
+    $NOOP
+
+    $NULL
+    $NULLSTR
+    $FREEBLOCK
+
+    $WARNING
+    $ERROR
+    $FATAL
+
+    $COMMA_RE
+    $SPACE_RE
+    $COLON_RE
+    $NEWLINE_RE
+
     STRERR
-
-    WARNING
-    ERROR
-    FATAL
-
-    COMMA_RE
-    SPACE_RE
-    COLON_RE
-    NEWLINE_RE
 
   );
 
@@ -55,32 +61,53 @@ package style;
 # ---   *   ---   *   ---
 # ROM
 
-use constant {
+  Readonly our $NOOP=>sub {};
+  Readonly our $FREEBLOCK=0xFEB10C;
 
-  WARNING=>"\e[33;22m",
-  ERROR=>"\e[35;1m",
-  FATAL=>"\e[31;1m",
+  Readonly our $MEMPTR=>$FREEBLOCK<<40;
+  Readonly our $MEMPTR_SZBYTE=>0xFF<<32;
+  Readonly our $MEMPTR_SZMASK=>0x08<<32;
 
-  COMMA_RE=>qr{,},
-  SPACE_RE=>qr{\s},
-  COLON_RE=>qr{:},
-  NEWLINE_RE=>qr{\n},
+  Readonly our $NULL=>
 
-  MEMPTR=>0xFFB10C<<40,
+    $MEMPTR
+  | $MEMPTR_SZMASK
+  | 0xDEADBEEF
+  ;
 
-  MEMPTR_SZBYTE=>0xFF<<32,
-  MEMPTR_SZMASK=>0x08<<32,
+  Readonly our $NULLSTR=>q(),
 
-};use constant {
-  NULL=>MEMPTR|MEMPTR_SZMASK|0xDEADBEEF,
-  NULLSTR=>q(),
+# ---   *   ---   *   ---
 
-};
+  Readonly our $WARNING=>"\e[33;22m";
+  Readonly our $ERROR=>"\e[35;1m";
+  Readonly our $FATAL=>"\e[31;1m";
+
+# ---   *   ---   *   ---
+
+  Readonly our $COMMA_RE=>qr{,};
+  Readonly our $SPACE_RE=>qr{\s};
+  Readonly our $COLON_RE=>qr{:};
+  Readonly our $NEWLINE_RE=>qr{\n};
 
 # ---   *   ---   *   ---
 # utility calls
 
-sub STRERR {return "$ERRNO"};
+sub STRERR($info=$NULLSTR) {
+
+  my $out;
+
+  if(length $info) {
+    $out="$ERRNO $info";
+
+  } else {
+    $out="$ERRNO";
+
+  };
+
+  return $out;
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

@@ -327,11 +327,11 @@ update(
 # ---   *   ---   *   ---
 # this effen script...
 
-print {*STDERR}
-  "\e[37;1m::\e[0mrebuilding syntax files\n";
-
-print {*STDERR}
-  `$ENV{'ARPATH'}'/avtomat/sygen'`;
+#print {*STDERR}
+#  "\e[37;1m::\e[0mrebuilding syntax files\n";
+#
+#print {*STDERR}
+#  `$ENV{'ARPATH'}'/avtomat/sygen'`;
 
 # ---   *   ---   *   ---
 

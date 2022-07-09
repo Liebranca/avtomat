@@ -18,6 +18,8 @@ package inlining;
   use strict;
   use warnings;
 
+  use Readonly;
+
   use English qw(-no_match_vars);
   use Carp;
 

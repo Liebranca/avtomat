@@ -18,6 +18,8 @@ package peso::ops;
   use strict;
   use warnings;
 
+  use Readonly;
+
   use lib $ENV{'ARPATH'}.'/lib/';
   use lang;
 
@@ -41,7 +43,7 @@ package peso::ops;
 
 # ---   *   ---   *   ---
 
-use constant def=>{
+Readonly our $TABLE=>{
 
   q{->}=>[
 

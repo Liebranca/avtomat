@@ -82,7 +82,7 @@ sub import {
   my ($pkg,$fname,$lineno)=(caller);
   my $self=lyfil::nit($fname,$lineno);
 
-  if($self!=NULL) {
+  if($self!=$NULL) {
     $TABLE=shwl::getlibs();
     filter_add($self);
 

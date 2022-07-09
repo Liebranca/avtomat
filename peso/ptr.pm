@@ -30,40 +30,19 @@ package peso::ptr;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
-# getters
-
-sub lname($self) {return $self->{lname}};
-sub gname($self) {return $self->{gname}};
-
-sub type($self) {return $self->{type}};
-sub idex($self) {return $self->{idex}};
-sub mask($self) {return $self->{mask}};
-
-# ---   *   ---   *   ---
-
-sub scope($self) {return $self->{scope}};
-sub slot($self) {return $self->{slot}};
-sub blk($self) {return $self->{blk}};
-
-sub shf($self) {return $self->{shf}};
-sub elem_sz($self) {return $self->{elem_sz}};
-
-sub frame($self) {return $self->{frame}};
-
-# ---   *   ---   *   ---
 # force size params for ptr to value
 
 sub mask_to($self,$type) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
 
   my $wed=$frame->wed('get');
   $frame->wed($type);
 
-  my $mask=$self->mask;
-  my $elem_sz=$self->elem_sz;
+  my $mask=$self->{mask};
+  my $elem_sz=$self->{elem_sz};
 
-  $frame->wedcast($self->shf,\$mask,\$elem_sz);
+  $frame->wedcast($self->{shf},\$mask,\$elem_sz);
   $frame->wed($wed);
 
   $self->{ptr_mask}=$mask;
@@ -83,19 +62,19 @@ sub valid($ptr) {return arstd::valid($ptr)};
 
 sub getv($self) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
   my $out=undef;
 
 # ---   *   ---   *   ---
 # catch nullptr
 
-  if($self->addr eq NULL) {
+  if($self->{addr} eq $NULL) {
 
     arstd::errout(
       "Can't read from %s (null ptr)\n",
 
-      args=>[$self->gname],
-      lvl=>FATAL,
+      args=>[$self->{gname}],
+      lvl=>$FATAL,
 
     );goto FAIL;
 
@@ -105,18 +84,18 @@ sub getv($self) {
 # decode ptr
 
   my $elem_sz=$self->bytesz;
-  my $mask=$self->mask;
+  my $mask=$self->{mask};
 
   # handle type-casts
-  $frame->wedcast($self->shf,\$mask,\$elem_sz);
+  $frame->wedcast($self->{shf},\$mask,\$elem_sz);
 
   # retrieve value
   my $value=(
 
-    $frame->MEM->[$self->idex]
-    &$self->mask
+    $frame->{mem}->[$self->{idex}]
+    &$self->{mask}
 
-  )>>$self->shf;
+  )>>$self->{shf};
 
 # ---   *   ---   *   ---
 # check cross-unit reads
@@ -124,7 +103,7 @@ sub getv($self) {
   while($mask && !($mask&0xFF)) {
     $mask=$mask>>8;
 
-  };my $idex=$self->idex;
+  };my $idex=$self->{idex};
 
   COUNT:my $i=masksz($mask);
 
@@ -137,7 +116,7 @@ sub getv($self) {
 
     # get remain from next unit
     $mask=(1<<($elem_sz*8))-1;
-    my $rem=$frame->MEM->[$idex];
+    my $rem=$frame->{mem}->[$idex];
 
 # ---   *   ---   *   ---
 # no more bytes in data
@@ -148,7 +127,7 @@ sub getv($self) {
         'Out of bounds read at ',
 
         calls=>[\&prich,[$self,errout=>1]],
-        lvl=>FATAL,
+        lvl=>$FATAL,
 
       );goto FAIL;
 
@@ -182,19 +161,19 @@ FAIL:
 
 sub setv($self,$value) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
   my $out=undef;
 
 # ---   *   ---   *   ---
 # catch nullptr
 
-  if($self->addr eq NULL) {
+  if($self->{addr} eq $NULL) {
 
     arstd::errout(
       "Can't write to %s (null ptr)\n",
 
-      args=>[$self->gname],
-      lvl=>FATAL,
+      args=>[$self->{gname}],
+      lvl=>$FATAL,
 
     );goto FAIL;
 
@@ -205,12 +184,12 @@ sub setv($self,$value) {
 # size attributes
 
   my $elem_sz=$self->bytesz;
-  my $mask=$self->mask;
+  my $mask=$self->{mask};
 
   if(
 
      $frame->valid_addr($value)
-  && $self->type eq 'unit'
+  && $self->{type} eq 'unit'
 
   ) {
 
@@ -218,21 +197,21 @@ sub setv($self,$value) {
 
     $value&=0xFFFFFFFF;
     $value|=$elem_sz<<32;
-    $value|=MEMPTR;
+    $value|=$MEMPTR;
 
   };
 
 # ---   *   ---   *   ---
 
   # handle type-casts
-  $frame->wedcast($self->shf,\$mask,\$elem_sz);
+  $frame->wedcast($self->{shf},\$mask,\$elem_sz);
 
   # clear bits at offset
-  $frame->MEM->[$self->idex]&=~$mask;
+  $frame->{mem}->[$self->{idex}]&=~$mask;
 
   # set value
-  $frame->MEM->[$self->idex]|=(
-    ($value<<$self->shf)&$mask
+  $frame->{mem}->[$self->{idex}]|=(
+    ($value<<$self->{shf})&$mask
 
   );
 
@@ -244,7 +223,7 @@ sub setv($self,$value) {
 
   };
 
-  my $idex=$self->idex;
+  my $idex=$self->{idex};
   COUNT:my $i=masksz($mask);
 
 # ---   *   ---   *   ---
@@ -257,7 +236,7 @@ sub setv($self,$value) {
 
     # get remain from next unit
     $mask=(1<<($elem_sz*8))-1;
-    my $addr=\($frame->MEM->[$idex]);
+    my $addr=\($frame->{mem}->[$idex]);
 
 # ---   *   ---   *   ---
 # no more bytes in data
@@ -268,7 +247,7 @@ sub setv($self,$value) {
         'Out of bounds write at ',
 
         calls=>[\&prich,[$self,errout=>1]],
-        lvl=>FATAL,
+        lvl=>$FATAL,
 
       );goto FAIL;
 
@@ -305,12 +284,7 @@ sub addr($self) {
 
   return
 
-    MEMPTR
 
-    |($self->bytesz<<32)
-
-    |($self->idex<<3)
-    |($self->shf/8);
 
 };
 
@@ -319,22 +293,22 @@ sub addr($self) {
 
 sub mprev_scope($self,$step) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
   my $out=undef;
 
 # ---   *   ---   *   ---
 # index into previou scope
 
   my $idex
-    =$frame->SCOPES
-    ->{$self->scope}
-    ->{-BEG}-1;
+    =$frame->{scopes}
+    ->{$self->{scope}}
+    ->{_beg}-1;
 
 # ---   *   ---   *   ---
 # get scope
 
-  my $scope=$frame->SCOPES->{
-    $frame->TAB->[$idex]
+  my $scope=$frame->{scopes}->{
+    $frame->{tab}->[$idex]
 
   };if($idex<0 || !defined $scope) {
     goto FAIL;
@@ -344,8 +318,8 @@ sub mprev_scope($self,$step) {
 # ---   *   ---   *   ---
 # get ptr in scope
 
-  my $neigh=$scope->{-ITAB}->[
-    @{$scope->{-ITAB}}+$step
+  my $neigh=$scope->{_itab}->[
+    @{$scope->{_itab}}+$step
 
   ];
 
@@ -359,7 +333,7 @@ FAIL:
       'Can\'t jump to ',
 
       calls=>[\&prich,[$self,errout=>1]],
-      lvl=>FATAL,
+      lvl=>$FATAL,
 
     );
 
@@ -377,7 +351,7 @@ FAIL:
 
 sub mnext_scope($self,$step)  {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
   my $out=undef;
 
 # ---   *   ---   *   ---
@@ -385,14 +359,14 @@ sub mnext_scope($self,$step)  {
 
   my $idex
 
-    =$frame->SCOPES
-    ->{$self->scope}
-    ->{-END}+1;
+    =$frame->{scopes}
+    ->{$self->{scope}}
+    ->{_end}+1;
 
 # ---   *   ---   *   ---
 # get name of scope
 
-  my $key=$frame->TAB->[$idex];
+  my $key=$frame->{tab}->[$idex];
   if(!defined $key) {
     goto FAIL;
 
@@ -401,12 +375,12 @@ sub mnext_scope($self,$step)  {
 # ---   *   ---   *   ---
 # get scope
 
-  my $scope=$frame->SCOPES->{$key};
+  my $scope=$frame->{scopes}->{$key};
   if(!defined $scope) {
     goto FAIL;
 
   # get ptr in scope
-  };my $neigh=$scope->{-ITAB}->[$step];
+  };my $neigh=$scope->{_itab}->[$step];
 
 # ---   *   ---   *   ---
 # catch out-of-bounds
@@ -418,7 +392,7 @@ FAIL:
       'Can\'t jump to ',
 
       calls=>[\&prich,[$self,errout=>1]],
-      lvl=>FATAL,
+      lvl=>$FATAL,
 
     );
 
@@ -436,11 +410,11 @@ FAIL:
 
 sub move($self,$step) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
 
-  my $idex=$self->slot+$step;
+  my $idex=$self->{slot}+$step;
 
-  my $scope=$frame->SCOPES->{$self->scope};
+  my $scope=$frame->{scopes}->{$self->{scope}};
   my $neigh=undef;
 
 # ---   *   ---   *   ---
@@ -456,7 +430,7 @@ sub move($self,$step) {
 
     =$scope
 
-    ->{-ITAB}
+    ->{_itab}
     ->[$idex];
 
 # ---   *   ---   *   ---
@@ -466,12 +440,12 @@ sub move($self,$step) {
 
     # go to prev scope
     if($idex<0) {
-      $step+=$self->slot;
+      $step+=$self->{slot};
       $neigh=$self->mprev_scope($step);
 
     # go to next scope
     } else {
-      $step-=@{$scope->{-ITAB}}-$self->slot;
+      $step-=@{$scope->{_itab}}-$self->{slot};
       $neigh=$self->mnext_scope($step);
 
     };
@@ -489,7 +463,7 @@ sub mprev($self) {return $self->move(-1)};
 
 # addr +/- offset
 sub leap($self,$step) {
-  return $self->fetch($self->addr+$step);
+  return $self->fetch($self->{addr}+$step);
 
 };
 
@@ -498,7 +472,7 @@ sub leap($self,$step) {
 
 sub save($self) {
 
-  my $frame=$self->frame;
+  my $frame=$self->{frame};
   my $lang=$frame->master->lang;
 
 # ---   *   ---   *   ---
@@ -509,8 +483,8 @@ sub save($self) {
     arstd::errout(
       "Redeclaration of symbol <%s>\n",
 
-      args=>[$self->gname],
-      lvl=>FATAL,
+      args=>[$self->{gname}],
+      lvl=>$FATAL,
 
     );
 
@@ -519,43 +493,43 @@ sub save($self) {
 # ---   *   ---   *   ---
 # create new hash if need
 
-  if(!$frame->scope_declared($self->scope)) {
-    $frame->declscope($self->scope,$self->idex);
+  if(!$frame->scope_declared($self->{scope})) {
+    $frame->declscope($self->{scope},$self->{idex});
 
 
 # ---   *   ---   *   ---
 # append to inner tab if ptr is named
 
   } elsif($lang->valid_name(
-      $self->lname
+      $self->{lname}
 
   )) {
 
     # save top of stack
     $self->{slot}
 
-    =@{$frame->SCOPES
-      ->{$self->scope}
-      ->{-ITAB}
+    =@{$frame->{scopes}
+      ->{$self->{scope}}
+      ->{_itab}
 
     };
 
     # now add to it
     push
 
-    @{$frame->SCOPES
-      ->{$self->scope}
-      ->{-ITAB}
+    @{$frame->{scopes}
+      ->{$self->{scope}}
+      ->{_itab}
 
     },$self;
 
 # ---   *   ---   *   ---
 # save ptr at path@to@ptr
 
-  };$frame->SCOPES
+  };$frame->{scopes}
 
-    ->{$self->scope}
-    ->{$self->lname}
+    ->{$self->{scope}}
+    ->{$self->{lname}}
 
   =$self;
 
@@ -563,27 +537,27 @@ sub save($self) {
 # JIC metadata for funky scenarios
 
   # save ptr at stringified addr(!!!)
-  $frame->ADDRS->{$self->addr}=$self;
+  $frame->{addrs}->{$self->{addr}}=$self;
 
   # to help locate scope for anon ptrs
-  $frame->TAB->[$self->idex]=$self->scope;
+  $frame->{tab}->[$self->{idex}]=$self->{scope};
 
   # check if unit index is higher than
   # the last recorded increment
   if(
 
-    $frame->SCOPES
-      ->{$self->scope}
-      ->{-END}
+    $frame->{scopes}
+      ->{$self->{scope}}
+      ->{_end}
 
-    <$self->idex
+    <$self->{idex}
 
   ) {
 
     # adjust scope boundary
-    $frame->SCOPES
-      ->{$self->scope}
-      ->{-END}=$self->idex+1;
+    $frame->{scopes}
+      ->{$self->{scope}}
+      ->{_end}=$self->{idex}+1;
 
   };
 
@@ -606,6 +580,7 @@ sub nit($frame,%args) {
     : $args{lname}
     ;
 
+  my $bytesz=masksz($args{mask});
   $args{mask}=$args{mask} << $args{shf};
 
 # ---   *   ---   *   ---
@@ -615,6 +590,14 @@ sub nit($frame,%args) {
 
     slot=>0,
     frame=>$frame,
+
+    addr=>
+
+      $MEMPTR
+
+    | ($bytesz<<32)
+    | ($args{idex}<<3)
+    | ($args{shf}/8),
 
     %args,
 
@@ -641,9 +624,9 @@ sub anonnit($frame,$addr) {
   my $scope=$frame->addr_to_scope($addr);
 
   my $blk
-    =$frame->SCOPES
-    ->{$scope}->{-ITAB}
-    ->[0]->blk
+    =$frame->{scopes}
+    ->{$scope}->{_itab}
+    ->[0]->{blk}
 
   ;
 
@@ -652,8 +635,11 @@ sub anonnit($frame,$addr) {
 
   my $ptr=bless {
 
+    # ya right
     lname=>$addr,
     gname=>$addr,
+    addr=>$addr,
+
     scope=>$scope,
 
     slot=>-1,
@@ -674,8 +660,8 @@ sub anonnit($frame,$addr) {
 
   $ptr->save();
 
-  if(!exists $frame->ADDRS->{$addr}) {
-    $frame->ADDRS->{$addr}=$ptr;
+  if(!exists $frame->{addrs}->{$addr}) {
+    $frame->{addrs}->{$addr}=$ptr;
 
   };return $ptr;
 
@@ -699,7 +685,7 @@ sub masksz($mask) {
 sub bytesz($self) {
 
   # shift to start of unit
-  my $mask=$self->mask>>$self->shf;
+  my $mask=$self->{mask}>>$self->{shf};
   return masksz($mask);
 
 };
@@ -746,9 +732,9 @@ sub prich($self,%opt) {
 
     $refaddr,
 
-    q{ },$self->type,
-    q{ },$self->gname,
-    q{ },(sprintf '%016X',$self->addr)
+    q{ },$self->{type},
+    q{ },$self->{gname},
+    q{ },(sprintf '%016X',$self->{addr})
 
   );
 
@@ -769,17 +755,6 @@ package peso::ptr::frame;
   use arstd;
 
 # ---   *   ---   *   ---
-# getters
-
-sub MEM($self) {return $self->{-MEM}};
-sub TAB($self) {return $self->{-TAB}};
-sub ADDRS($self) {return $self->{-ADDRS}};
-sub SCOPES($self) {return $self->{-SCOPES}};
-sub LSCOPE($self) {return $self->{-LSCOPE}};
-
-sub master($self) {return $self->{-MASTER}};
-
-# ---   *   ---   *   ---
 # constructors
 
 ;;sub nit($frame,@args) {
@@ -794,17 +769,17 @@ sub create($master) {
 
   my $frame=bless {
 
-    -MEM=>[],
-    -TAB=>[],
-    -WED=>undef,
+    mem=>[],
+    tab=>[],
+    wed=>undef,
 
-    -ADDRS=>{},
-    -SCOPES=>{},
+    addrs=>{},
+    scopes=>{},
 
-    -LSCOPE=>[],
-    -LSCOPE_NAMES=>[],
+    lscope=>[],
+    lscope_names=>[],
 
-    -MASTER=>$master,
+    master=>$master,
 
   },'peso::ptr::frame';
 
@@ -818,7 +793,7 @@ sub create($master) {
 # memory ops
 
 sub nunit($frame) {
-  push @{$frame->MEM()},0x00;
+  push @{$frame->{mem}()},0x00;
   return;
 
 };
@@ -833,12 +808,12 @@ sub wed($frame,$w) {
   my $types=$lang->types;
 
   if(!defined $w) {
-    $frame->{-WED}=undef;
+    $frame->{wed}=undef;
 
   } elsif(exists $types->{$w}) {
-    $frame->{-WED}=$w;
+    $frame->{wed}=$w;
 
-  };return $frame->{-WED};
+  };return $frame->{wed};
 
 };
 
@@ -853,7 +828,7 @@ sub valid_addr($frame,$addr) {
 # catch nullptr
 
   if(
-      $addr eq NULL
+      $addr eq $NULL
   || !($addr=~ m/^[0-9]+$/)
 
   ) {
@@ -880,7 +855,7 @@ sub valid_addr($frame,$addr) {
 #   AND
 #
 #   > addr has correct signature
-#     (look at MEMPTR under style.pm)
+#     (look at $MEMPTR under style.pm)
 #
 #   AND
 #
@@ -893,11 +868,11 @@ sub valid_addr($frame,$addr) {
   my $data=$frame->decode($addr);
   if(
 
-     (defined $frame->MEM->[$data->[0]])
+     (defined $frame->{mem}->[$data->[0]])
 
-  && (($addr& MEMPTR) eq MEMPTR)
+  && (($addr& $MEMPTR) eq $MEMPTR)
 
-  && ($addr& MEMPTR_SZBYTE)
+  && ($addr& $MEMPTR_SZBYTE)
 
   ) {
 
@@ -918,18 +893,15 @@ TAIL:
 
 sub declscope($frame,$name,$idex) {
 
-  $frame->SCOPES
-    ->{$name}
-
-    ={
+  $frame->{scopes}->{$name}={
 
       # we use these values to navigate
       # pointer arrays through next/prev
 
-      -BEG=>$idex,
-      -END=>$idex+1,
+      _beg=>$idex,
+      _end=>$idex+1,
 
-      -ITAB=>[],
+      _itab=>[],
 
     };
 
@@ -979,7 +951,7 @@ sub fetch($frame,$key) {
 
 sub addr_to_scope($frame,$addr) {
 
-  if($addr eq NULL) {
+  if($addr eq $NULL) {
     return 'non';
 
   };my $idex=($addr&0xFFFFFFFF)>>3;
@@ -987,7 +959,7 @@ sub addr_to_scope($frame,$addr) {
 # ---   *   ---   *   ---
 # backtrack or fail
 
-  while(!defined $frame->TAB->[$idex]) {
+  while(!defined $frame->{tab}->[$idex]) {
 
     $idex--;
 
@@ -996,13 +968,13 @@ sub addr_to_scope($frame,$addr) {
         "Can't find scope for address %016X\n",
 
         args=>[$addr],
-        lvl=>FATAL,
+        lvl=>$FATAL,
 
       );
 
     };
 
-  };return $frame->TAB->[$idex];
+  };return $frame->{tab}->[$idex];
 
 };
 
@@ -1018,11 +990,11 @@ sub name_in_lscope($frame,$name) {
 # ---   *   ---   *   ---
 # iter current namespace
 
-  for my $scope(@{$frame->LSCOPE()}) {
+  for my $scope(@{$frame->{lscope}}) {
 
     # found, save && end loop
     if(exists $scope->{$name}) {
-      $out=$frame->LSCOPE->[$i];
+      $out=$frame->{lscope}->[$i];
       last;
 
     };$i++;
@@ -1040,13 +1012,13 @@ sub name_in_lscope($frame,$name) {
 
   my $out=0;
 
-  if(exists $frame->SCOPES->{$obj->scope}) {
+  if(exists $frame->{scopes}->{$obj->{scope}}) {
 
     $out=exists
 
-      $frame->SCOPES
-        ->{$obj->scope}
-        ->{$obj->lname}
+      $frame->{scopes}
+        ->{$obj->{scope}}
+        ->{$obj->{lname}}
 
     ;
   };
@@ -1057,11 +1029,11 @@ sub name_in_lscope($frame,$name) {
 # check namespace declared
 
 };sub scope_declared($frame,$name) {
-  return exists $frame->SCOPES->{$name};
+  return exists $frame->{scopes}->{$name};
 
 # check name assoc with addr
 };sub is_named_ptr($frame,$addr) {
-  return exists $frame->ADDRS->{$addr};
+  return exists $frame->{addrs}->{$addr};
 
 # ---   *   ---   *   ---
 # THIS ONE LOOKS LIKE ITS LEGACY CODE
@@ -1071,7 +1043,7 @@ sub name_in_lscope($frame,$name) {
 # i'll decide if I still need it later...
 
 };sub is_block_ref($frame,$name) {
-  return exists $frame->SCOPES->{$name};
+  return exists $frame->{scopes}->{$name};
 
 };
 
@@ -1086,7 +1058,7 @@ sub addr_lookup($frame,$key) {
     $out=$frame->anonnit($key);
 
   } else {
-    $out=$frame->ADDRS->{$key};
+    $out=$frame->{addrs}->{$key};
 
   };
 
@@ -1099,8 +1071,8 @@ sub addr_lookup($frame,$key) {
 
 sub setscope($frame,@names) {
 
-  $frame->{-LSCOPE_NAMES}=[];
-  $frame->{-LSCOPE}=[];
+  $frame->{lscope_names}=[];
+  $frame->{lscope}=[];
 
   while(@names) {
     my $name=shift @names;
@@ -1114,7 +1086,7 @@ sub setscope($frame,@names) {
         "Namespace <%s> not declared\n",
 
         args=>[$name],
-        lvl=>FATAL,
+        lvl=>$FATAL,
 
       );
 
@@ -1123,10 +1095,10 @@ sub setscope($frame,@names) {
 # ---   *   ---   *   ---
 # append to local scope list
 
-    push @{$frame->{-LSCOPE}},
-      $frame->SCOPES->{$name};
+    push @{$frame->{lscope}},
+      $frame->{scopes}->{$name};
 
-    push @{$frame->{-LSCOPE_NAMES}},$name;
+    push @{$frame->{lscope_names}},$name;
 
   };return;
 
@@ -1149,7 +1121,7 @@ sub wedcast($frame,$shf,$maskref,$szref) {
 # ---   *   ---   *   ---
 # skip when no casting
 
-  if(!defined $frame->{-WED}) {
+  if(!defined $frame->{wed}) {
     goto TAIL;
 
   };
@@ -1157,7 +1129,7 @@ sub wedcast($frame,$shf,$maskref,$szref) {
 # ---   *   ---   *   ---
 
   # get size from type
-  my $elem_sz=$types->{$frame->{-WED}}->size;
+  my $elem_sz=$types->{$frame->{wed}}->size;
   my $i=$shf/8;
 
   # build mask from size
@@ -1198,12 +1170,12 @@ sub lname_lookup($frame,$key) {
       "Name <%s> not in local scope:\n".
 
       ' >'.
-      (join "\n >",@{$frame->{-LSCOPE_NAMES}}).
+      (join "\n >",@{$frame->{lscope_names}}).
 
       "\n",
 
       args=>[$key],
-      lvl=>FATAL,
+      lvl=>$FATAL,
 
     );
 
@@ -1224,7 +1196,7 @@ sub lname_lookup($frame,$key) {
   my $lname=pop @ar;
   my $scope=join q{@},@ar;
 
-  return $frame->SCOPES->{$scope}->{$lname};
+  return $frame->{scopes}->{$scope}->{$lname};
 
 };
 

@@ -18,6 +18,8 @@ package cli;
   use strict;
   use warnings;
 
+  use Readonly;
+
   use lib $ENV{'ARPATH'}.'/lib/';
   use style;
   use arstd;
@@ -26,10 +28,10 @@ package cli;
 # ---   *   ---   *   ---
 # getters
 
-sub order($self) {return @{$self->{-ORDER}}};
+sub order($self) {return @{$self->{order}}};
 
 sub next_arg($self) {
-  return shift @{$self->{-ARGV}};
+  return shift @{$self->{argv}};
 
 };
 
@@ -95,13 +97,13 @@ sub nit(@args) {
 
     name=>(caller)[1],
 
-    -ORDER=>\@order,
-    -OPTAB=>\%optab,
-    -ALIAS=>\%alias,
+    order=>\@order,
+    optab=>\%optab,
+    alias=>\%alias,
 
-    -RE=>lang::hashpat(\%alias,1,1),
+    re=>lang::hashpat(\%alias,1,1),
 
-    -ARGV=>[],
+    argv=>[],
 
   },'cli';
 
@@ -109,7 +111,7 @@ sub nit(@args) {
 # fill out status vars
 
   for my $id($cli->order) {
-    $cli->{$id}=NULL;
+    $cli->{$id}=$NULL;
 
   };
 
@@ -140,23 +142,23 @@ sub prich($self) {
 
 sub short_or_long($self,$arg) {
 
-  my $value=NULL;
+  my $value=$NULL;
 
 # ---   *   ---   *   ---
 # catch invalid
 
-  if($arg=~ s/$self->{-RE}//) {
+  if($arg=~ s/$self->{re}//) {
 
-    $value=(defined $' && length $') ? $' : NULL;
+    $value=(defined $' && length $') ? $' : $NULL;
     $arg=$&;
 
-  };if(!exists $self->{-ALIAS}->{$arg}) {
+  };if(!exists $self->{alias}->{$arg}) {
 
     arstd::errout(
       "%s: invalid option '%s'\n",
 
       args=>[$self->{name},$arg],
-      lvl=>FATAL,
+      lvl=>$FATAL,
 
     );
 
@@ -164,15 +166,15 @@ sub short_or_long($self,$arg) {
 
 # ---   *   ---   *   ---
 
-  my $id=$self->{-ALIAS}->{$arg};
-  my $option=$self->{-OPTAB}->{$id};
+  my $id=$self->{alias}->{$arg};
+  my $option=$self->{optab}->{$id};
 
 # ---   *   ---   *   ---
 
-  if($option->{argc} && $value eq NULL) {
+  if($option->{argc} && $value eq $NULL) {
     $value=$self->next_arg;
 
-  } elsif(!$option->{argc} && $value eq NULL) {
+  } elsif(!$option->{argc} && $value eq $NULL) {
     $value=1;
 
   };
@@ -186,19 +188,19 @@ sub short_or_long($self,$arg) {
 
 sub long_equal($self,$arg) {
 
-  my $value=NULL;
+  my $value=$NULL;
   ($arg,$value)=split m/=/,$arg;
 
 # ---   *   ---   *   ---
 # catch invalid
 
-  if(!exists $self->{-ALIAS}->{$arg}) {
+  if(!exists $self->{alias}->{$arg}) {
 
     arstd::errout(
       "%s: invalid option '%s'\n",
 
       args=>[$self->{name},$arg],
-      lvl=>FATAL,
+      lvl=>$FATAL,
 
     );
 
@@ -206,8 +208,8 @@ sub long_equal($self,$arg) {
 
 # ---   *   ---   *   ---
 
-  my $id=$self->{-ALIAS}->{$arg};
-  my $option=$self->{-OPTAB}->{$id};
+  my $id=$self->{alias}->{$arg};
+  my $option=$self->{optab}->{$id};
 
 # ---   *   ---   *   ---
 
@@ -218,7 +220,7 @@ sub long_equal($self,$arg) {
       "doesn't take a value",
 
       args=>[$id,$self->{name}],
-      lvl=>WARNING,
+      lvl=>$WARNING,
 
     );
 
@@ -236,38 +238,37 @@ sub long_equal($self,$arg) {
 };
 
 # ---   *   ---   *   ---
+# ROM
 
-use constant PATTERN=>[
+  Readonly my $PATTERN=>[
+    qr{--[_\w][_\w\d]*=}=>\&long_equal,
+    qr{--[_\w][_\w\d]*}=>\&short_or_long,
+    qr{-[_\w][_\w\d]*}=>\&short_or_long,
 
-  qr{--[_\w][_\w\d]*=}=>\&long_equal,
-  qr{--[_\w][_\w\d]*}=>\&short_or_long,
-  qr{-[_\w][_\w\d]*}=>\&short_or_long,
-
-];
+  ];
 
 # ---   *   ---   *   ---
 
 sub take($self,@args) {
 
-  $self->{-ARGV}=\@args;
+  $self->{argv}=\@args;
 
-  my @values=();
-  my $patterns=PATTERN;
+  my @values=();;
 
-  while(@{$self->{-ARGV}}) {
+  while(@{$self->{argv}}) {
 
-    my $arg=shift @{$self->{-ARGV}};
+    my $arg=shift @{$self->{argv}};
     my $fn=undef;
 
 # ---   *   ---   *   ---
 
     my $x=0;
-    while($x<@$patterns-1) {
+    while($x<@$PATTERN-1) {
 
-      my $pat=$patterns->[$x];
+      my $pat=$PATTERN->[$x];
 
       if($arg=~ m/${pat}/) {
-        $fn=$patterns->[$x+1];
+        $fn=$PATTERN->[$x+1];
         last;
 
       };$x+=2;

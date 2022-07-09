@@ -24,6 +24,7 @@ package shwl;
   use B qw(svref_2object);
 
   use lib $ENV{'ARPATH'}.'/lib/';
+
   use style;
   use arstd;
 
@@ -36,82 +37,17 @@ package shwl;
 # ---   *   ---   *   ---
 # ROM
 
-  use constant {
-
-    DEPS_STR=>":__DEPS__:",
-    DEPS_RE=>"^\:__DEPS__\:(.*?)\:__DEPS__\:",
-
-# ---   *   ---   *   ---
-
-    EXT_RE=>qr{[.].*$},
-    FNAME_RE=>qr{\/([_\w][_\w\d]*)$},
-
-    CUT_FMAT=>':__%s_CUT_%i__:',
-    CUT_RE=>':__\w+_CUT_\d+__:',
+  Readonly our $DEPS_STR=>":__DEPS__:";
+  Readonly our $DEPS_RE=>
+    "^\:__DEPS__\:(.*?)\:__DEPS__\:";
 
 # ---   *   ---   *   ---
 
-    STR_RE=>qr{
+  Readonly our $EXT_RE=>qr{[.].*$};
+  Readonly our $FNAME_RE=>qr{\/([_\w][_\w\d]*)$};
 
-      (?<! ['`])
-
-      "
-      (?: \\" | [^"\n] )*
-
-      "
-
-    }x,
-
-# ---   *   ---   *   ---
-
-    CHR_RE=>qr{
-
-      (?<! ["`])
-
-      '
-      (?: \\' | [^'\n] )*
-
-      '
-
-    }x,
-
-# ---   *   ---   *   ---
-
-    EXE_RE=>qr{
-
-      (?<! ["'])
-
-      `
-      (?: \\` | [^`\n] )*
-
-      `
-
-    }x,
-
-# ---   *   ---   *   ---
-
-    SUB_RE=>qr{(?<whole>
-
-      \bsub\s*
-
-      (?<name> [_\w][_\w\d]*)?\s*
-      (?<attrs> :[_\w][_\w\d]*\s*)*
-
-      \s*(?<args> \(.*?\))?\s*
-
-      (?<scope> [{]
-
-        (?<code> [^{}] | (?&scope))*
-
-      [}])
-
-    )}x,
-
-# ---   *   ---   *   ---
-
-    IS_PERLMOD=>qr{[.]pm$},
-
-  };
+  Readonly our $CUT_FMAT=>':__%s_CUT_%i__:';
+  Readonly our $CUT_RE=>':__\w+_CUT_\d+__:';
 
 # ---   *   ---   *   ---
 # global state
@@ -257,7 +193,7 @@ sub delm2($beg,$end=undef) {
 
   for my $d($beg_allow,$end_allow) {
 
-    my @chars=split NULLSTR,$d;
+    my @chars=split $NULLSTR,$d;
     my $i=1;
 
     my $c=shift @chars;
@@ -267,7 +203,7 @@ sub delm2($beg,$end=undef) {
 
     for $c(@chars) {
 
-      my $left=NULLSTR;
+      my $left=$NULLSTR;
       if($i) {$left=substr $d,0,$i};$i++;
 
       $allowed.=q{|}.$left.q{[^}."\Q$c".q{]+};
@@ -330,7 +266,7 @@ sub cut($string_ref,$name,$pat) {
     # hash->{data}=token
     # hash->{token}=data
     } else {
-      $token=sprintf CUT_FMAT,
+      $token=sprintf $CUT_FMAT,
         $name,int(keys %$STRINGS);
 
       $STRINGS->{$v}=$token;
@@ -354,7 +290,7 @@ sub cut($string_ref,$name,$pat) {
 
 sub stitch($string_ref) {
 
-  while($$string_ref=~ m/(${\CUT_RE})/) {
+  while($$string_ref=~ $CUT_RE/) {
     my $key=${^CAPTURE[0]};
     my $value=$STRINGS->{$key};
 
@@ -398,8 +334,8 @@ sub mod_to_lib($fname) {
 # ---   *   ---   *   ---
 
 sub darkside_of($the_force) {
-  $the_force=~ s/${\EXT_RE}//;
-  $the_force=~ s/${\FNAME_RE}/\/\.$1/;
+  $the_force=~ s/$EXT_RE//;
+  $the_force=~ s/$FNAME_RE/\/\.$1/;
 
   return $the_force;
 
@@ -409,17 +345,16 @@ sub darkside_of($the_force) {
 
 sub ipret_decls($line) {
 
-  state $COMMA=qr{,};
   state $EQUAL=qr{\*=>};
 
   my $value_table={order=>[]};
-  my @elems=split m/$COMMA/,$line;
+  my @elems=split $COMMA_RE,$line;
 
 # ---   *   ---   *   ---
 
   for my $elem(@elems) {
 
-    my ($key,$value)=split m/$EQUAL/,$elem;
+    my ($key,$value)=split $EQUAL,$elem;
 
     $key="\Q$key";
     $key=$key.'\b';
@@ -470,8 +405,8 @@ sub getlibs() {
 
   for my $fpath(@imports) {
 
-    open my $FH,'<',
-    $fpath or croak STRERR;
+    open my $FH,'<',$fpath
+    or croak STRERR($fpath);
 
 # ---   *   ---   *   ---
 # process entries
@@ -508,7 +443,7 @@ sub getlibs() {
 
     };
 
-    close $FH or croak STRERR;
+    close $FH or croak STRERR($fpath);
 
 # ---   *   ---   *   ---
 # give back symbol table
@@ -537,45 +472,18 @@ sub getlibs() {
 # abstracts away details in
 # every subroutine found in a file
 
-sub codefold($fname) {
+sub codefold($fname,$lang) {
 
   my $body=arstd::orc($fname);
 
-# ---   *   ---   *   ---
+  my $foldtags=$lang->{foldtags};
+  my $deldata=$lang->{delimiters};
 
-  my %dels=(
+  my $dels_re=$deldata->{re};
+  my $dels_id=$deldata->{id};
+  my $dels_order=$deldata->{order};
 
-    q[{]=>q[}],
-    q{[}=>q{]},
-    q[(]=>q[)],
-
-  );
-
-  my %dels_id=(
-
-    q[{]=>'CURLY',
-    q{[}=>'BRACKET',
-    q[(]=>'PARENS',
-
-  );
-
-  my @dels_order=qw'( [ {';
-  my %dels_re=();
-
-  my @qstr_re=();
-  my @srgx_re=();
-
-  for my $key(@dels_order) {
-    my $re=delm($key,$dels{$key});
-    $dels_re{$key}=$re;
-
-    push @qstr_re,qdelm($key,$dels{$key});
-    push @srgx_re,sdelm($key,$dels{$key});
-
-  };
-
-  my $qstr_re=q[(].( join q{|},@qstr_re ).q[)];
-  my $srgx_re=q[(].( join q{|},@srgx_re ).q[)];
+  my $sbl_decl=$lang->{sbl_decl};
 
 # ---   *   ---   *   ---
 
@@ -583,9 +491,9 @@ sub codefold($fname) {
   my @block_ids=();
 
   my $i=0;
-  my $cut_token=sprintf CUT_FMAT,'BLK',$i++;
+  my $cut_token=sprintf $CUT_FMAT,'BLK',$i++;
 
-  while($body=~ s/${\SUB_RE}/$cut_token/sxm) {
+  while($body=~ s/$sbl_decl/$cut_token/sxm) {
 
     my $fnbody=$+{scope};
     my $block=shwl::blk::nit();
@@ -597,19 +505,19 @@ sub codefold($fname) {
 
 # ---   *   ---   *   ---
 
-    cut(\$fnbody,'STR',STR_RE);
-    cut(\$fnbody,'CHR',CHR_RE);
-    cut(\$fnbody,'EXE',EXE_RE);
+    for my $key(@$foldtags) {
+      cut(\$fnbody,uc $key,$lang->{$key});
 
-    cut(\$fnbody,'QSTR',$qstr_re);
-    cut(\$fnbody,'SRGX',$srgx_re);
+    };
 
-    for my $key(@dels_order) {
+    for my $key(@$dels_order) {
 
       cut(
+
         \$fnbody,
-        $dels_id{$key},
-        $dels_re{$key}
+
+        $dels_id->{$key},
+        $dels_re->{$key}
 
       );
 
@@ -622,25 +530,23 @@ sub codefold($fname) {
 
     $blocks{$block->{name}}=$block;
 
-    $cut_token=sprintf CUT_FMAT,'BLK',$i++;
+    $cut_token=sprintf $CUT_FMAT,'BLK',$i++;
 
   };
 
 # ---   *   ---   *   ---
 
-  cut(\$body,'STR',STR_RE);
-  cut(\$body,'CHR',CHR_RE);
-  cut(\$body,'EXE',EXE_RE);
+  for my $key(@$foldtags) {
+    cut(\$body,uc $key,$lang->{$key});
 
-  cut(\$body,'QSTR',$qstr_re);
-  cut(\$body,'SRGX',$srgx_re);
+  };
 
-  for my $key(@dels_order) {
+  for my $key(@$dels_order) {
 
     cut(
       \$body,
-      $dels_id{$key},
-      $dels_re{$key}
+      $dels_id->{$key},
+      $dels_re->{$key}
 
     );
 
@@ -649,11 +555,11 @@ sub codefold($fname) {
 # ---   *   ---   *   ---
 
   $i=0;
-  $cut_token=sprintf CUT_FMAT,'BLK',$i++;
+  $cut_token=sprintf $CUT_FMAT,'BLK',$i++;
 
   for my $id(@block_ids) {
     $body=~ s/${cut_token}/sub $id;/;
-    $cut_token=sprintf CUT_FMAT,'BLK',$i++;
+    $cut_token=sprintf $CUT_FMAT,'BLK',$i++;
 
   };
 
@@ -662,9 +568,9 @@ sub codefold($fname) {
   my $fblk=bless {
 
     name=>$fname,
-    attrs=>NULLSTR,
+    attrs=>$NULLSTR,
     body=>$body,
-    args=>NULLSTR,
+    args=>$NULLSTR,
 
     strings=>DUMPSTRINGS(),
     tree=>undef,
@@ -742,10 +648,10 @@ sub nit {
 
   };
 
-  $block->{name}//=NULLSTR;
-  $block->{attrs}//=NULLSTR;
-  $block->{args}//=NULLSTR;
-  $block->{body}//=NULLSTR;
+  $block->{name}//=$NULLSTR;
+  $block->{attrs}//=$NULLSTR;
+  $block->{args}//=$NULLSTR;
+  $block->{body}//=$NULLSTR;
 
   return $block;
 

@@ -104,7 +104,7 @@ sub nit($frame,$name,$argv,$code,$plps) {
         "last field\n",
 
         args=>[$name],
-        lvl=>FATAL,
+        lvl=>$FATAL,
 
       )
 
@@ -316,7 +316,7 @@ sub arg_typechk($self,$node,$proto) {
         'Unrecognized type \'%s\'',
 
         args=>[$v],
-        lvl=>FATAL,
+        lvl=>$FATAL,
 
       );
 
@@ -348,7 +348,7 @@ sub arg_typechk($self,$node,$proto) {
       args=>
         [$self->name,join ', ',(split m/[|]/,$proto)],
 
-      lvl=>FATAL,
+      lvl=>$FATAL,
 
     );
   };
@@ -371,7 +371,7 @@ sub ex($self,$node) {
       "symbol <%s>\n",
 
       args=>[$self->name],
-      lvl=>FATAL,
+      lvl=>$FATAL,
 
     );
 
@@ -412,7 +412,7 @@ sub ex($self,$node) {
         "symbol <%s>\n",
 
         args=>[$j,$self->name],
-        lvl=>FATAL,
+        lvl=>$FATAL,
 
       );
 
@@ -494,15 +494,6 @@ package peso::sbl::frame;
   use style;
 
 # ---   *   ---   *   ---
-# getters
-
-sub SYMS($self) {return $self->{-SYMS};};
-sub INS($self) {return $self->{-INS};};
-sub INSID($self) {return $self->{-INSID};};
-
-sub master($self) {return $self->{-MASTER};};
-
-# ---   *   ---   *   ---
 # shorthand for orderly symbol nit
 
 sub DEFINE($frame,$key,$src,$code,$plps) {
@@ -512,10 +503,10 @@ sub DEFINE($frame,$key,$src,$code,$plps) {
 
   my $sym=$frame->nit($key,$args,$code,$plps);
 
-  $frame->INS->[$idex]
-    =$frame->SYMS->{$key}=$sym;
+  $frame->{ins}->[$idex]
+    =$frame->{syms}->{$key}=$sym;
 
-  $frame->INSID->{$key}=$idex;
+  $frame->{insid}->{$key}=$idex;
 
   return;
 
@@ -524,13 +515,13 @@ sub DEFINE($frame,$key,$src,$code,$plps) {
 
 };sub ALIAS($frame,$key,$src) {
 
-  my $sym=$frame->SYMS->{$src}->dup($key);
-  my $idex=$frame->INSID->{$src};
+  my $sym=$frame->{syms}->{$src}->dup($key);
+  my $idex=$frame->{insid}->{$src};
 
-  $frame->INS->[$idex]
-    =$frame->SYMS->{$key}=$sym;
+  $frame->{ins}->[$idex]
+    =$frame->{syms}->{$key}=$sym;
 
-  $frame->INSID->{$key}=$idex;
+  $frame->{insid}->{$key}=$idex;
 
   return;
 
@@ -547,11 +538,11 @@ sub nit(@args) {
 
   my $frame=bless {
 
-    -SYMS=>{},
-    -INS=>[],
-    -INSID=>{},
+    syms=>{},
+    ins=>[],
+    insid=>{},
 
-    -MASTER=>undef,
+    master=>undef,
 
   },'peso::sbl::frame';
 
@@ -560,7 +551,7 @@ sub nit(@args) {
 # ---   *   ---   *   ---
 
 };sub setdef($self,$def) {
-  $self->{-MASTER}=$def;
+  $self->{master}=$def;
   return;
 
 };
@@ -617,7 +608,7 @@ sub ndconsume($frame,$node,$i) {
           "symbol '%s'\n",
 
           args=>[$anchor->{value}->name],
-          lvl=>FATAL,
+          lvl=>$FATAL,
 
         );
 

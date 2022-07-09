@@ -42,7 +42,7 @@ package MAM;
 # ---   *   ---   *   ---
 # ROM
 
-  use constant OPTIONS=>[
+  Readonly my $OPTIONS=>[
 
     {id=>'module',short=>'-M',argc=>1},
     {id=>'no_comments',short=>'-nc'},
@@ -66,10 +66,10 @@ sub import {
 
   my @opts=@_;
 
-  $SETTINGS=cli::nit(@{&OPTIONS});
+  $SETTINGS=cli::nit(@$OPTIONS);
   $SETTINGS->take(@opts);
 
-  if($SETTINGS->{module} eq NULL) {
+  if($SETTINGS->{module} eq $NULL) {
     $SETTINGS->{module}='avtomat';
 
   };
@@ -107,7 +107,7 @@ sub filter {
 # ---   *   ---   *   ---
 
     my $modname=$SETTINGS->{module};
-    if($SETTINGS->{rap}!=NULL) {
+    if($SETTINGS->{rap}!=$NULL) {
 
 
       $self->{raw}=~ s{
@@ -134,7 +134,7 @@ sub filter {
 
 # ---   *   ---   *   ---
 
-    if($SETTINGS->{line_numbers}!=NULL) {
+    if($SETTINGS->{line_numbers}!=$NULL) {
 
       my $x=1;
       my $whole='';
@@ -150,7 +150,7 @@ sub filter {
 
 # ---   *   ---   *   ---
 
-    if($SETTINGS->{no_print}==NULL) {
+    if($SETTINGS->{no_print}==$NULL) {
       $self->prich();
 
     };
@@ -158,9 +158,9 @@ sub filter {
 # ---   *   ---   *   ---
 # emit dependency files
 
-    if($SETTINGS->{make_deps}!=NULL) {
+    if($SETTINGS->{make_deps}!=$NULL) {
 
-      my $deps=shwl::DEPS_STR;
+      my $deps=$shwl::DEPS_STR;
       my $re=abs_path(glob(q{~}));
 
       $re=qr{$re};
@@ -174,7 +174,7 @@ sub filter {
 
       };
 
-      $deps.=shwl::DEPS_STR;
+      $deps.=$shwl::DEPS_STR;
       print $deps;
 
     };

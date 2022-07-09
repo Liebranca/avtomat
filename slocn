@@ -39,7 +39,7 @@ my @files=$m->take(@ARGV);
 
 # ---   *   ---   *   ---
 
-if($m->{recursive}!=NULL) {
+if($m->{recursive}!=$NULL) {
   my @ar=@files;
   @files=();
 
@@ -51,12 +51,12 @@ if($m->{recursive}!=NULL) {
 
 my $defspath="$ENV{'ARPATH'}/lib/langdefs";
 
-my $langname=NULL;
-my $lang=NULL;
-my $ext_re=NULL;
-my $comment_re=NULL;
+my $langname=$NULL;
+my $lang=$NULL;
+my $ext_re=$NULL;
+my $comment_re=$NULL;
 
-if($m->{language} ne NULL) {
+if($m->{language} ne $NULL) {
   $langname=$m->{language};
   eval("use langdefs::$langname;");
 
@@ -71,12 +71,12 @@ if($m->{language} ne NULL) {
 my $count_type='SLOC';
 my $count_rule=sub ($_line) {int(
 
-  (length join NULLSTR,(split m/\s*|\n/sm,$_line))
+  (length join $NULLSTR,(split m/\s*|\n/sm,$_line))
   && !($_line=~ $comment_re)
 
 )};
 
-if($m->{linecount}!=NULL) {
+if($m->{linecount}!=$NULL) {
   $count_type='LINES';
   $count_rule=sub ($_line) {1};
 
@@ -100,7 +100,7 @@ while(@files) {
 
 # ---   *   ---   *   ---
 
-  if($m->{language} eq NULL) {
+  if($m->{language} eq $NULL) {
 
     $langname=lang::file_ext($f);
     my %table=%lang::;
