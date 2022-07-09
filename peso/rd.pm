@@ -1398,6 +1398,9 @@ sub new_parser($lang,$fname) {
   my $m=peso::program::nit($lang);
   my $self=nit2($m,$fname);
 
+# ---   *   ---   *   ---
+# make tree from block data
+
   my $nd_frame=$m->{node};
   for my $id(keys %{$self->{blocks}}) {
 
@@ -1407,6 +1410,19 @@ sub new_parser($lang,$fname) {
 
     $self->tokenizer($root,$body);
     $block->{tree}=$root;
+
+  };
+
+# ---   *   ---   *   ---
+# pluck ending comment if present
+
+  my $root=$self->{blocks}
+    ->{-ROOT}->{tree};
+
+  my $top=$root->{leaves}->[-1];
+
+  if($top->{value}=~ $m->{lang}->{comment_re}) {
+    $root->pluck($top);
 
   };
 
@@ -1438,6 +1454,14 @@ sub expand_branch($self,$root) {
 
   $self->recurse($root);
   $self->replstr($root);
+
+};
+
+# ---   *   ---   *   ---
+# shorthand
+
+sub hier_sort($self) {
+  $self->{lang}->{-HIER_SORT}->($self);
 
 };
 

@@ -580,12 +580,17 @@ sub codefold($fname) {
 # ---   *   ---   *   ---
 
   my %blocks=();
+  my @block_ids=();
 
-  while($body=~ s/${\SUB_RE}//sxm) {
+  my $i=0;
+  my $cut_token=sprintf CUT_FMAT,'BLK',$i++;
+
+  while($body=~ s/${\SUB_RE}/$cut_token/sxm) {
 
     my $fnbody=$+{scope};
-
     my $block=shwl::blk::nit();
+
+    push @block_ids,$block->{name};
 
     $fnbody=~ s/^\s*\{//;
     $fnbody=~ s/\s*\}$//;
@@ -617,10 +622,56 @@ sub codefold($fname) {
 
     $blocks{$block->{name}}=$block;
 
+    $cut_token=sprintf CUT_FMAT,'BLK',$i++;
+
   };
 
 # ---   *   ---   *   ---
 
+  cut(\$body,'STR',STR_RE);
+  cut(\$body,'CHR',CHR_RE);
+  cut(\$body,'EXE',EXE_RE);
+
+  cut(\$body,'QSTR',$qstr_re);
+  cut(\$body,'SRGX',$srgx_re);
+
+  for my $key(@dels_order) {
+
+    cut(
+      \$body,
+      $dels_id{$key},
+      $dels_re{$key}
+
+    );
+
+  };
+
+# ---   *   ---   *   ---
+
+  $i=0;
+  $cut_token=sprintf CUT_FMAT,'BLK',$i++;
+
+  for my $id(@block_ids) {
+    $body=~ s/${cut_token}/sub $id;/;
+    $cut_token=sprintf CUT_FMAT,'BLK',$i++;
+
+  };
+
+# ---   *   ---   *   ---
+
+  my $fblk=bless {
+
+    name=>$fname,
+    attrs=>NULLSTR,
+    body=>$body,
+    args=>NULLSTR,
+
+    strings=>DUMPSTRINGS(),
+    tree=>undef,
+
+  },'shwl::blk';
+
+  $blocks{-ROOT}=$fblk;
   return \%blocks;
 
 };

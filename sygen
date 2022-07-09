@@ -198,9 +198,6 @@ sub prprops {
   if($key eq -OPS) {
     $v='([^\s_A-Za-z0-9]|\\\\)';
 
-  } elsif($key eq -VSTR) {
-    $v="v[0-9\.]+[ab]?";
-
   };
 
   my @ar=($v);

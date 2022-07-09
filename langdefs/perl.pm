@@ -6,6 +6,8 @@
 
 # deps
 package langdefs::perl;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
@@ -102,9 +104,7 @@ lang::def::nit(
 
   -MCUT_TAGS=>[-STRING,-CHAR,-PESC],
 
-  -EXP_RULE=>sub ($) {
-
-    my $rd=shift;
+  -EXP_RULE=>sub ($rd) {
 
     my $pesc=lang::CUT_TOKEN_RE;
     $pesc=~ s/\[A-Z\]\+/PESC/;
@@ -246,8 +246,55 @@ lang::def::nit(
     lang->perl->com
 
   ),0,1
-
 );
+
+# ---   *   ---   *   ---
+
+lang->perl->{-HIER_SORT}=sub($rd) {
+
+  my $id='-ROOT';
+  my $block=$rd->select_block($id);
+  my $tree=$block->{tree};
+
+  my $nd_frame=$rd->{program}->{node};
+  my @branches=$tree->branches_in(qr{^package$});
+
+  my $i=0;
+
+  for my $branch(@branches) {
+
+    my $pkgname=$branch->{leaves}->[0]->{value};
+    my $idex_beg=$branch->{idex}+1;
+    my @children=@{$tree->{leaves}};
+
+# ---   *   ---   *   ---
+
+    my $ahead=$branches[$i+1];
+    my $idex_end;
+
+    if(defined $ahead) {
+      $idex_end=$ahead->{idex};
+
+    } else {
+      $idex_end=$#children;
+
+    };
+
+# ---   *   ---   *   ---
+
+    my $pkgroot=$nd_frame->nit($tree,$pkgname);
+
+    @children=@children[$idex_beg..$idex_end];
+    $pkgroot->pushlv(0,$branch,@children);
+
+    $i++;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
 };
 
 # ---   *   ---   *   ---

@@ -319,13 +319,15 @@ sub pushlv($self,$overwrite,@pending) {
 
   };
 
+  $self->cllv();
+
   return;
 
 };
 
 # ---   *   ---   *   ---
-
 # discard blank nodes
+
 sub cllv($self) {
 
   my @cpy=();
@@ -341,7 +343,10 @@ sub cllv($self) {
     };
 
   # overwrite with filtered array
-  };$self->pushlv(1,@cpy);
+  };
+
+  $self->{leaves}=\@cpy;
+  $self->idextrav();
 
   return;
 
@@ -424,8 +429,15 @@ sub tokenize2($self) {
 
   my $cut_token_re=lang::CUT_TOKEN_RE;
   my $keyword=$lang->{keyword_re};
+
   my $name=$lang->{-NAMES};
+  my $num=$lang->{-NUMS_RE};
+  my $vstr=$lang->{-VSTR};
+  my $hier_re=$lang->{-HIER_RE};
+
   my $op=$lang->{-OPS};
+
+  my $scope_bound=$lang->{-SCOPE_BOUND};
 
   my $label=qr{
 
@@ -441,9 +453,15 @@ sub tokenize2($self) {
     (?:$cut_token_re)
   | (?:$keyword)
   | (?:$label)
-  | (?:$op)
+
+  | (?:$vstr)
+  | (?:$hier_re)
   | (?:$name)
-  | (?:[\{\}])
+
+  | (?:$num)
+  | (?:$op)
+  | (?:$scope_bound)
+
   | (?:.*)
 
   }x;
@@ -1310,6 +1328,84 @@ sub branches_in($self,$lookfor) {
 # return matching nodes
 
   };return @found;
+
+};
+
+# ---   *   ---   *   ---
+# gives list of branches holding value
+
+sub branch_with($self,$lookfor) {
+
+  my $anchor=$self;
+
+  my @leaves=();
+  my $found=undef;
+
+# ---   *   ---   *   ---
+# iter leaves
+
+  while(@leaves) {
+
+    my $anchor=shift @leaves;
+    if(!@{$anchor->{leaves}}) {next};
+
+    for my $leaf(@{$anchor->{leaves}}) {
+
+      # accept branch if value found in leaves
+      if($leaf->{value}=~ $lookfor) {
+        $found=$anchor;
+        last;
+
+      };
+    };
+
+# ---   *   ---   *   ---
+
+    if(!defined $found) {
+      unshift @leaves,@{$anchor->{leaves}};
+
+    } else {
+      last;
+
+    };
+
+# ---   *   ---   *   ---
+# return matches
+
+  };
+
+TAIL:
+  return $found;
+
+};
+
+# ---   *   ---   *   ---
+# gives list of branches starting with value
+
+sub branch_in($self,$lookfor) {
+
+  my @leaves=($self);
+  my $found=undef;
+
+# ---   *   ---   *   ---
+# look for matches recursively
+
+  while(@leaves) {
+
+    $self=shift @leaves;
+    if($self->{value}=~ $lookfor) {
+      $found=$self;
+      last;
+
+    };
+
+    unshift @leaves,@{$self->{leaves}};
+
+
+# ---   *   ---   *   ---
+# return matching nodes
+
+  };return $found;
 
 };
 

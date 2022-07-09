@@ -458,6 +458,7 @@ use constant {
 
 sub qre2re($ref) {
   $$ref=~ s/\(\?\^u(?:[xsmg]*)://;
+  $$ref=~ s/\(\?:/(/;
   $$ref=~ s/\)$//;
 
 };
@@ -878,7 +879,7 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
-  -DRFC=>'(::|->|\.)',
+  -DRFC=>'(?:->|::|\.)',
   -COMMON=>'[^[:blank:]]+',
 
 # ---   *   ---   *   ---
@@ -900,7 +901,7 @@ my %DEFAULTS=(
 
   -REGEX=>[
 
-    '([m|s]+/([^/]|\\\\/)*/'.
+    '(?:[m|s]+/([^/]|\\\\/)*/'.
     '(([^/]|\\\\/)*/)?([\w]+)?)',
 
   ],
@@ -908,6 +909,8 @@ my %DEFAULTS=(
   -PREPROC=>[
 
   ],
+
+  -VSTR=>qr{v[0-9\.]+[ab]?},
 
 # ---   *   ---   *   ---
 
@@ -918,6 +921,12 @@ my %DEFAULTS=(
   -BUILDER=>sub {;},
 
 # ---   *   ---   *   ---
+
+  -HIER_RE=>q{
+
+    (?:$:names;>$:drfc;>?)+
+
+  },
 
   -HIER=>['$:names;>$:drfc;>','$:drfc;>$:names;>'],
   -PFUN=>'$:names;>\s*\\(',
@@ -1145,6 +1154,8 @@ sub nit(%h) {
     } else {vrepl($ref,\$ref->{$key});};
 
   };
+
+  $ref->{-HIER_RE}=qr{$ref->{-HIER_RE}}x;
 
 # ---   *   ---   *   ---
 
