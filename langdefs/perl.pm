@@ -143,7 +143,7 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  buildtins=>[qw(
+  builtins=>[qw(
 
     accept alarm atan2 bin bind binmode
     bless blessed
@@ -235,7 +235,7 @@ lang::def::nit(
 
   lang::lkback(
     '$%&@\'"',
-    lang->perl->com
+    lang->perl->{com}
 
   ),0,1
 );
@@ -252,11 +252,16 @@ lang->perl->{hier_sort}=sub($rd) {
   my @branches=$tree->branches_in(qr{^package$});
 
   my $i=0;
+  my @scopes=();
+
+# ---   *   ---   *   ---
 
   for my $branch(@branches) {
 
+    $branch->{parent}->idextrav();
+
     my $pkgname=$branch->{leaves}->[0]->{value};
-    my $idex_beg=$branch->{idex}+1;
+    my $idex_beg=$branch->{idex};
     my @children=@{$tree->{leaves}};
 
 # ---   *   ---   *   ---
@@ -265,7 +270,7 @@ lang->perl->{hier_sort}=sub($rd) {
     my $idex_end;
 
     if(defined $ahead) {
-      $idex_end=$ahead->{idex};
+      $idex_end=$ahead->{idex}-1;
 
     } else {
       $idex_end=$#children;
@@ -274,14 +279,20 @@ lang->perl->{hier_sort}=sub($rd) {
 
 # ---   *   ---   *   ---
 
-    my $pkgroot=$nd_frame->nit($tree,$pkgname);
-
     @children=@children[$idex_beg..$idex_end];
-    $pkgroot->pushlv(0,$branch,@children);
+    @children=$tree->pluck(@children);
 
+    my $pkgroot=$nd_frame->nit(undef,$pkgname);
+    push @scopes,$pkgroot;
+
+    $pkgroot->pushlv(1,@children);
     $i++;
 
+# ---   *   ---   *   ---
+
   };
+
+  $tree->pushlv(1,@scopes);
 
 };
 

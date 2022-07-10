@@ -905,7 +905,7 @@ sub ptrderef_rec($frame,$node) {
   if($node->{value} eq '[') {
 
     my $leaf=$node->{leaves}->[0];
-    my $is_ptr=$peso::ptr::valid($leaf->{value});
+    my $is_ptr=peso::ptr::valid($leaf->{value});
 
     if($is_ptr) {
       $node->value($leaf->{value}->getv());

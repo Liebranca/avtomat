@@ -56,8 +56,8 @@ sub code_emit {
 # fetch args
 
     my @args=();
-    if($str=~ m/$PARENS_RE/s) {
-      @args=split m/,/,$+{body};
+    if($str=~ m/($PARENS_RE)/s) {
+      @args=split m/,/,${^CAPTURE[0]};
 
     };
 

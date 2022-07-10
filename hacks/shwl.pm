@@ -18,6 +18,8 @@ package shwl;
   use strict;
   use warnings;
 
+  use Readonly;
+
   use English qw(-no_match_vars);
   use Carp;
 
@@ -47,7 +49,34 @@ package shwl;
   Readonly our $FNAME_RE=>qr{\/([_\w][_\w\d]*)$};
 
   Readonly our $CUT_FMAT=>':__%s_CUT_%i__:';
-  Readonly our $CUT_RE=>':__\w+_CUT_\d+__:';
+  Readonly our $CUT_RE=>qr{:__\w+_CUT_\d+__:};
+
+# ---   *   ---   *   ---
+# we need these two DISGUSTING REDUNDANCIES
+# just so that we can bootstrap without making
+# a dependency cycle with the perl langdef
+
+  Readonly our $CHR_RE=>qr{
+
+    (?<! ["`])
+
+    '
+    (?: \\' | [^'\n] )*
+
+    '
+
+  }x;
+
+  Readonly our $STR_RE=>qr{
+
+    (?<! ['`])
+
+    "
+    (?: \\" | [^"\n] )*
+
+    "
+
+  }x;
 
 # ---   *   ---   *   ---
 # global state
@@ -290,7 +319,7 @@ sub cut($string_ref,$name,$pat) {
 
 sub stitch($string_ref) {
 
-  while($$string_ref=~ $CUT_RE/) {
+  while($$string_ref=~ $CUT_RE) {
     my $key=${^CAPTURE[0]};
     my $value=$STRINGS->{$key};
 
@@ -592,6 +621,8 @@ package shwl::sbl;
   use v5.36.0;
   use strict;
   use warnings;
+
+  use Carp;
 
 # ---   *   ---   *   ---
 

@@ -28,7 +28,7 @@ package peso::rd;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
   use shwl;
-  use inline;
+#  use inline;
 
   use peso::program;
   use peso::fndmtl;
@@ -305,7 +305,7 @@ sub mangle($self) {
 
     my $append=undef;
     if($self->{keep_comments}) {
-      $append=['lcom'];
+      $append=['strip_re'];
 
     };
 
@@ -636,7 +636,7 @@ sub expsplit($self) {
 
   my $lang=$self->{lang};
 
-  my $eb=$lang->{exp_bound;
+  my $eb=$lang->{exp_bound};
   my $sb=$lang->{scope_bound};
 
   $rdprocs
@@ -1259,7 +1259,7 @@ sub parse(
 sub cleaner($self,$body) {
 
   my @lines=();
-  my $comment_re=$self->{lang}->{comment_re};
+  my $comment_re=$self->{lang}->{strip_re};
 
   for my $line(split $NEWLINE_RE,$body) {
     $line=~ s/$comment_re//sg;
@@ -1426,7 +1426,7 @@ sub new_parser($lang,$fname) {
 
   my $top=$root->{leaves}->[-1];
 
-  if($top->{value}=~ $m->{lang}->{comment_re}) {
+  if($top->{value}=~ $m->{lang}->{strip_re}) {
     $root->pluck($top);
 
   };
@@ -1504,7 +1504,11 @@ sub nit2($program,$fname) {
 
     lang=>$program->lang,
 
-    blocks=>shwl::codefold($fname),
+    blocks=>shwl::codefold(
+      $fname,$program->{lang}
+
+    ),
+
     curblk=>undef,
 
     fname=>$fname,

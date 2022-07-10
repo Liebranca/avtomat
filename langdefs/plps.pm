@@ -19,7 +19,7 @@ package langdefs::plps;
   use lang;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks';
-  use inline;
+#  use inline;
 
   use peso::rd;
   use peso::defs;
@@ -502,75 +502,75 @@ sub make($lang) {
 # ---   *   ---   *   ---
 
 BEGIN {
-  sbl_new(0);
+#  sbl_new(0);
 
 # ---   *   ---   *   ---
 
-DEFINE 'beg',DIRECTIVE,sub {
-
-  my ($inskey,$frame,@fields)=@_;
-  my ($f0,$f1)=@fields;
-  my $m=$frame->master;
-
-  $f0=$f0->[0];
-  $f1=$f1->[0];
-
-  $m->{defs}->{$f1}=undef;
-
-  if(!exists $m->{defs}->{$f0}) {
-    $m->{defs}->{$f0}=[];
-
-  };
-
-  push @{$m->{defs}->{$f0}},0x00;
-  $m->{dst}=[$f0,$f1];
-
-};
-
-# ---   *   ---   *   ---
-
-DEFINE 'end',DIRECTIVE,sub {
-
-  my ($inskey,$frame,@fields)=@_;
-  my $m=$frame->master;
-
-  my ($cath,$name)=@{$m->{dst}};
-  $m->{target_node}->{value}=$name;
-
-# ---   *   ---   *   ---
-# create new pattern instance from tree
-
-  my $obj=plps_obj::nit(
-
-    $name,
-    $m->{target_node_value},
-    $cath
-
-  );$obj->walkdown();
-  $obj->{tree}=$obj->mktree($m);
-
-  $m->{defs}->{$name}=$obj;
-  $m->{defs}->{$cath}->[-1]=$obj;
-
-  delete $m->{target_node};
-  delete $m->{target_node_value};
-
-};
+#DEFINE 'beg',$DIRECTIVE,sub {
+#
+#  my ($inskey,$frame,@fields)=@_;
+#  my ($f0,$f1)=@fields;
+#  my $m=$frame->master;
+#
+#  $f0=$f0->[0];
+#  $f1=$f1->[0];
+#
+#  $m->{defs}->{$f1}=undef;
+#
+#  if(!exists $m->{defs}->{$f0}) {
+#    $m->{defs}->{$f0}=[];
+#
+#  };
+#
+#  push @{$m->{defs}->{$f0}},0x00;
+#  $m->{dst}=[$f0,$f1];
+#
+#};
 
 # ---   *   ---   *   ---
 
-DEFINE 'in',DIRECTIVE,sub {
+#DEFINE 'end',$DIRECTIVE,sub {
+#
+#  my ($inskey,$frame,@fields)=@_;
+#  my $m=$frame->master;
+#
+#  my ($cath,$name)=@{$m->{dst}};
+#  $m->{target_node}->{value}=$name;
+#
+## ---   *   ---   *   ---
+## create new pattern instance from tree
+#
+#  my $obj=plps_obj::nit(
+#
+#    $name,
+#    $m->{target_node_value},
+#    $cath
+#
+#  );$obj->walkdown();
+#  $obj->{tree}=$obj->mktree($m);
+#
+#  $m->{defs}->{$name}=$obj;
+#  $m->{defs}->{$cath}->[-1]=$obj;
+#
+#  delete $m->{target_node};
+#  delete $m->{target_node_value};
+#
+#};
 
-  my ($inskey,$frame,@fields)=@_;
-  my ($f0)=@fields;
-  my $m=$frame->master;
+# ---   *   ---   *   ---
 
-  $f0=$f0->[0];
-
-  #:!;> also a hack
-  $m->{ext}=eval($f0);
-
-};
+#DEFINE 'in',$DIRECTIVE,sub {
+#
+#  my ($inskey,$frame,@fields)=@_;
+#  my ($f0)=@fields;
+#  my $m=$frame->master;
+#
+#  $f0=$f0->[0];
+#
+#  #:!;> also a hack
+#  $m->{ext}=eval($f0);
+#
+#};
 
 # ---   *   ---   *   ---
 # DEFS END
@@ -583,15 +583,15 @@ DEFINE 'in',DIRECTIVE,sub {
 
 lang::def::nit(
 
-  -NAME=>'plps',
+  name=>'plps',
 
-  -EXT=>'\.lps',
-  -HED=>'\$:%plps;>',
-  -MAG=>'Peso-style language patterns',
+  ext=>'\.lps',
+  hed=>'\$:%plps;>',
+  mag=>'Peso-style language patterns',
 
 # ---   *   ---   *   ---
 
-  -TYPES=>[qw(
+  types=>[qw(
 
     type spec dir itri
 
@@ -604,22 +604,22 @@ lang::def::nit(
 
   )],
 
-  -DIRECTIVES=>[keys %{&DIRECTIVE}],
+  directives=>[keys %$DIRECTIVE],
 
-  -SBL=>$SBL_TABLE,
-  -BUILDER=>\&build,
+#  symbols=>$SBL_TABLE,
+  _builder=>\&build,
 
 # ---   *   ---   *   ---
 
-  -DELIMITERS=>{
+  delimiters=>[
 
-    '<'=>'>',
-    '('=>')',
+    '<'=>'>','ANGLOS',
+    '('=>')','PARENS',
 
-  },
+  ],
 
-  -OP_PREC=>plps_ops,
-  -MCUT_TAGS=>[-CHAR],
+  op_prec=>$OPS,
+  foldtags=>[qw(chars)],
 
 );
 

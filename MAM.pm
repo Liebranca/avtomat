@@ -24,6 +24,8 @@ package MAM;
   use strict;
   use warnings;
 
+  use Readonly;
+
   use Cwd qw(abs_path);
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';

@@ -62,7 +62,7 @@ package style;
 # ROM
 
   Readonly our $NOOP=>sub {};
-  Readonly our $FREEBLOCK=0xFEB10C;
+  Readonly our $FREEBLOCK=>0xFEB10C;
 
   Readonly our $MEMPTR=>$FREEBLOCK<<40;
   Readonly our $MEMPTR_SZBYTE=>0xFF<<32;
@@ -75,7 +75,7 @@ package style;
   | 0xDEADBEEF
   ;
 
-  Readonly our $NULLSTR=>q(),
+  Readonly our $NULLSTR=>q();
 
 # ---   *   ---   *   ---
 

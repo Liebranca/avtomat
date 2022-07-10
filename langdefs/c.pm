@@ -11,12 +11,12 @@ package langdefs::c;
   use strict;
   use warnings;
 
-  use Readonly,
+  use Readonly;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use lang;
-  use langdefs::plps;
+#  use langdefs::plps;
 
 # ---   *   ---   *   ---
 # ROM

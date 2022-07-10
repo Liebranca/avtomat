@@ -50,22 +50,23 @@ package lang;
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly my $ARRAYREF_RE=>qr{
+  Readonly our $ARRAYREF_RE=>qr{
     ^ARRAY\(0x[0-9a-f]+\)
 
   }x;
 
-  Readonly my $CODEREF_RE=>qr{
+  Readonly our $CODEREF_RE=>qr{
     ^CODE\(0x[0-9a-f]+\)
 
   }x;
 
-  Readonly my $HASHREF_RE=>qr{
+  Readonly our $HASHREF_RE=>qr{
     ^HASH\(0x[0-9a-f]+\)
 
   }x;
 
-  Readonly my $QRE_RE=>qr{\(\?\^u(?:[xsmg]*):}x;
+  Readonly our $QRE_RE=>qr{\(\?\^u(?:[xsmg]*):}x;
+  Readonly our $STRIPLINE_RE=>qr{\s+|:__NL__:}x;
 
 # ---   *   ---   *   ---
 # value type flags
@@ -450,11 +451,9 @@ sub eaf(
   return (defined $v && ($v=~ $lang::ARRAYREF_RE));
 
 };sub is_hashref:inlined ($v) {
-  state $re=qr{^HASH\(0x[0-9a-f]+\)}x;
   return (defined $v && ($v=~ $lang::HASHREF_RE));
 
 };sub is_qre:inlined ($v) {
-  state $re=qr{\(\?\^u:}x;
   return (defined $v && ($v=~ $lang::QRE_RE));
 
 };
@@ -471,9 +470,8 @@ sub qre2re($ref) {
 # ---   *   ---   *   ---
 # remove all whitespace
 
-};sub stripline:inlined ($s) {
-  state $re=qr{\s+|:__NL__:}x;
-  join $NULLSTR,(split m/$re/,$s);
+sub stripline:inlined ($s) {
+  join $NULLSTR,(split $lang::STRIPLINE_RE,$s);
 
 };
 
@@ -685,6 +683,9 @@ package lang::def;
   use v5.36.0;
   use strict;
   use warnings;
+
+  use style;
+  use arstd;
 
   use peso::sbl;
 
@@ -922,7 +923,7 @@ sub nit(%h) {
 
     resnames
 
-  ) {
+  )) {
 
     my @ar=@{$ref->{$key}};
     my %ht;
@@ -1051,8 +1052,8 @@ sub nit(%h) {
 
       order=>\@odes,
 
-      re=>\%dels_re,
-      id=>\%dels_id,
+      re=>\%del_re,
+      id=>\%del_id,
 
     };
 
@@ -1124,7 +1125,7 @@ sub nit(%h) {
 
     sbl_decl
 
-  ) {
+  )) {
 
     if($ref->{$key}=~ $lang::ARRAYREF_RE) {
       for my $re(@{$ref->{$key}}) {
@@ -1157,18 +1158,19 @@ sub nit(%h) {
 
   };
 
+  my $comchar="$ref->{com}";
   $ref->{strip_re}=qr{
 
-    ^\s*
+    ^|\s*
 
-    (?: $ref->{com} [^\n]*)?
+    (?: $comchar[^\n]*)?
     (?:\n|$)
 
   }x;
 
   $ref->{exp_bound_re}=qr{
 
-     (?: $ref->{scope_bound})
+     ($ref->{scope_bound})
    | (?: $ref->{exp_bound})
 
   }x;
@@ -1190,7 +1192,7 @@ sub nit(%h) {
   no strict;
 
   my $def=bless $ref,'lang::def';
-  my $hack="lang::$def->{-NAME}";
+  my $hack="lang::$def->{name}";
 
   *$hack=sub {return $def};
 
@@ -1246,9 +1248,6 @@ sub plps_is_num($self,$s,$program) {
 # ---   *   ---   *   ---
 
 sub valid_name($self,$s) {
-
-  my $self=shift;
-  my $s=shift;
 
   my $name=$self->names;
 

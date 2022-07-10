@@ -20,8 +20,11 @@ package langdefs::peso;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
+  use style;
+  use arstd;
+
   use lang;
-  use langdefs::plps;
+#  use langdefs::plps;
 
   use peso::ops;
   use peso::defs;
@@ -209,304 +212,304 @@ sub reorder($) {
 # ---   *   ---   *   ---
 
 BEGIN {
-  sbl_new(1);
+#  sbl_new(1);
 
 # ---   *   ---   *   ---
 
-DEFINE 'cpy',$BUILTIN,sub {
-
-  my ($inskey,$frame,$field)=@_;
-  my ($dst,$src)=@$field;
-
-  my $fr_ptr=$frame->{master}->{ptr};
-
-  if($fr_ptr->valid($src)) {
-    $src=$src->{addr};
-
-  };if(!$fr_ptr->valid($dst)) {
-    $dst=$fr_ptr->fetch($dst);
-
-  };$dst->setv($src);
-
-};
-
-# ---   *   ---   *   ---
-
-DEFINE 'pop',$BUILTIN,sub {
-
-  my ($inskey,$frame,$dst)=@_;
-  my $fr_ptr=$frame->{master}->{ptr};
-  my $fr_blk=$frame->{master}->{blk};
-
-  $dst=$dst->[0];
-
-  my $v=$fr_blk->spop();
-
-  if($fr_ptr->valid($dst)) {
-    $dst=$fr_ptr->fetch($dst);
-    $dst->setv($v);
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-
-DEFINE 'push',$BUILTIN,sub {
-
-  my ($inskey,$frame,$src)=@_;
-  my $fr_ptr=$frame->{master}->{ptr};
-  my $fr_blk=$frame->{master}->{blk};
-
-  $src=$src->[0];
-
-  if($fr_ptr->valid($src)) {
-    $src=$src->{addr};
-
-  };
-
-  $fr_blk->spush($src);
-
-};
-
-# ---   *   ---   *   ---
-
-DEFINE 'inc',$BUILTIN,sub {
-
-  my ($inskey,$frame,$ptr)=@_;
-  my $fr_ptr=$frame->{master}->{ptr};
-
-  $ptr=$ptr->[0];
-
-  $ptr=$fr_ptr->fetch($ptr);
-  $ptr->setv($ptr->getv()+1);
-
-};
-
-# ---   *   ---   *   ---
-
-DEFINE 'dec',$BUILTIN,sub {
-
-  my ($inskey,$frame,$ptr)=@_;
-  my $fr_ptr=$frame->{master}->{ptr};
-
-  $ptr=$ptr->[0];
-
-  $ptr=$fr_ptr->fetch($ptr);
-  $ptr->setv($ptr->getv()-1);
-
-};
-
-# ---   *   ---   *   ---
-
-DEFINE 'clr',$BUILTIN,sub {
-
-  my ($inskey,$frame,$ptr)=@_;
-  my $fr_ptr=$frame->{master}->{ptr};
-
-  $ptr=$ptr->[0];
-
-  $ptr=$fr_ptr->fetch($ptr);
-  $ptr->setv(0);
-
-};
-
-# ---   *   ---   *   ---
-
-DEFINE 'exit',$BUILTIN,sub {
-
-  my ($inskey,$frame,$val)=@_;
-  my $master=$frame->{master};
-
-  $val=$val->[0];
-
-  # placeholder!
-  printf sprintf "Exit code <0x%.2X>\n",$val;
-  $master->setnxins(-2);
-
-};
-
-# ---   *   ---   *   ---
-
-DEFINE 'reg',$DIRECTIVE,sub {
-
-  my ($inskey,$frame,$name)=@_;
-
-  my $fr_ptr=$frame->{master}->{ptr};
-  my $fr_blk=$frame->{master}->{blk};
-
-  $name=$name->[0];
-
-  # get dst
-  my $dst=($fr_blk->{dst}->{attrs})
-    ? $fr_blk->{dst}->{parent}
-    : $fr_blk->{dst}
-    ;
-
-# ---   *   ---   *   ---
-
-  my $blk;
-
-  # append new block to dst on first pass
-  if($fr_blk->fpass()) {
-    $blk=$fr_blk->nit(
-      $dst,$name,$O_RD|$O_WR,
-
-    );
-
-  # second pass: look for block
-  } else {
-    $blk=$fr_ptr->fetch($name)->{blk};
-
-  };
-
-# ---   *   ---   *   ---
-# overwrite dst
-
-  $fr_blk->{dst}=$blk;
-  $fr_blk->setscope($blk);
-  $fr_blk->setcurr($blk);
-
-};
-
-# ---   *   ---   *   ---
-
-DEFINE 'clan',DIRECTIVE,sub {
-
-  my ($inskey,$frame,$name)=@_;
-
-  my $fr_ptr=$frame->{master}->{ptr};
-  my $fr_blk=$frame->{master}->{blk};
-
-  $name=$name->[0];
-
-  my $dst=$fr_blk->{non};
-
-# ---   *   ---   *   ---
-
-  # is not global scope/root
-  my $blk;if($name ne 'non') {
-
-    # first pass: create new block
-    if($fr_blk->fpass()) {
-      $blk=$fr_blk->nit(undef,$name);
-
-    # second pass: find block
-    } else {
-      $blk=$fr_ptr->fetch($name)->{blk};
-
-    };
-
-# ---   *   ---   *   ---
-
-  # is global scope
-  } else {$blk=$dst;};
-
-  $fr_blk->{dst}=$blk;
-  $fr_blk->setcurr($blk);
-
-  return $blk;
-
-};
-
-# ---   *   ---   *   ---
-
-DEFINE 'proc',DIRECTIVE,sub {
-
-  my ($inskey,$frame,$name)=@_;
-
-  my $fr_ptr=$frame->{master}->{ptr};
-  my $fr_blk=$frame->{master}->{blk};
-
-  $name=$name->[0];
-
-  # get dst
-  my $dst=($fr_blk->{dst}->{attrs})
-    ? $fr_blk->{dst}->{parent}
-    : $fr_blk->{dst}
-    ;
-
-# ---   *   ---   *   ---
-
-  my $blk;
-
-  # append new block to dst on first pass
-  if($fr_blk->fpass()) {
-    $blk=$dst->nit(
-      $dst,$name,$O_EX,
-
-    );
-
-  # second pass: look for block
-  } else {
-    $fr_ptr->fetch($name)->{blk};
-
-  };
-
-# ---   *   ---   *   ---
-# overwrite dst
-
-  $fr_blk->{dst}=$blk;
-  $fr_blk->setcurr($blk);
-  $fr_blk->setscope($blk->scope);
-
-};
-
-# ---   *   ---   *   ---
-
-DEFINE 'entry',DIRECTIVE,sub {
-
-  my ($inskey,$frame,$blk)=@_;
-  my $m=$frame->{master};
-
-  $blk=$blk->[0];
-  $m->{entry}=$blk;
-
-};
-
-# ---   *   ---   *   ---
-
-DEFINE 'jmp',FCTL,sub {
-
-  my ($inskey,$frame,$ptr)=@_;
-
-  my $master=$frame->{master};
-  my $fr_ptr=$master->{ptr};
-
-  $ptr=$ptr->[0];
-
-# insid is DEPRECATED
+#DEFINE 'cpy',$BUILTIN,sub {
 #
-#  # set instruction index to ptr loc
-#  $master->setnxins(
-#    $fr_ptr->fetch($ptr)->{blk}->insid
+#  my ($inskey,$frame,$field)=@_;
+#  my ($dst,$src)=@$field;
 #
-#  );
-
-};
-
-# ---   *   ---   *   ---
-
-DEFINE 'wed',INTRINSIC,sub {
-
-  my ($inskey,$frame,$type)=@_;
-  my $fr_ptr=$frame->{master}->{ptr};
-
-  $type=$type->[0];
-  $fr_ptr->wed($type);
-
-};
+#  my $fr_ptr=$frame->{master}->{ptr};
+#
+#  if($fr_ptr->valid($src)) {
+#    $src=$src->{addr};
+#
+#  };if(!$fr_ptr->valid($dst)) {
+#    $dst=$fr_ptr->fetch($dst);
+#
+#  };$dst->setv($src);
+#
+#};
 
 # ---   *   ---   *   ---
 
-DEFINE 'unwed',INTRINSIC,sub {
+#DEFINE 'pop',$BUILTIN,sub {
+#
+#  my ($inskey,$frame,$dst)=@_;
+#  my $fr_ptr=$frame->{master}->{ptr};
+#  my $fr_blk=$frame->{master}->{blk};
+#
+#  $dst=$dst->[0];
+#
+#  my $v=$fr_blk->spop();
+#
+#  if($fr_ptr->valid($dst)) {
+#    $dst=$fr_ptr->fetch($dst);
+#    $dst->setv($v);
+#
+#  };
+#
+#};
 
-  my ($inskey,$frame)=@_;
-  my $fr_ptr=$frame->{master}->{ptr};
+# ---   *   ---   *   ---
 
-  $fr_ptr->wed(undef);
+#DEFINE 'push',$BUILTIN,sub {
+#
+#  my ($inskey,$frame,$src)=@_;
+#  my $fr_ptr=$frame->{master}->{ptr};
+#  my $fr_blk=$frame->{master}->{blk};
+#
+#  $src=$src->[0];
+#
+#  if($fr_ptr->valid($src)) {
+#    $src=$src->{addr};
+#
+#  };
+#
+#  $fr_blk->spush($src);
+#
+#};
 
-};
+# ---   *   ---   *   ---
+
+#DEFINE 'inc',$BUILTIN,sub {
+#
+#  my ($inskey,$frame,$ptr)=@_;
+#  my $fr_ptr=$frame->{master}->{ptr};
+#
+#  $ptr=$ptr->[0];
+#
+#  $ptr=$fr_ptr->fetch($ptr);
+#  $ptr->setv($ptr->getv()+1);
+#
+#};
+
+# ---   *   ---   *   ---
+
+#DEFINE 'dec',$BUILTIN,sub {
+#
+#  my ($inskey,$frame,$ptr)=@_;
+#  my $fr_ptr=$frame->{master}->{ptr};
+#
+#  $ptr=$ptr->[0];
+#
+#  $ptr=$fr_ptr->fetch($ptr);
+#  $ptr->setv($ptr->getv()-1);
+#
+#};
+
+# ---   *   ---   *   ---
+
+#DEFINE 'clr',$BUILTIN,sub {
+#
+#  my ($inskey,$frame,$ptr)=@_;
+#  my $fr_ptr=$frame->{master}->{ptr};
+#
+#  $ptr=$ptr->[0];
+#
+#  $ptr=$fr_ptr->fetch($ptr);
+#  $ptr->setv(0);
+#
+#};
+
+# ---   *   ---   *   ---
+
+#DEFINE 'exit',$BUILTIN,sub {
+#
+#  my ($inskey,$frame,$val)=@_;
+#  my $master=$frame->{master};
+#
+#  $val=$val->[0];
+#
+#  # placeholder!
+#  printf sprintf "Exit code <0x%.2X>\n",$val;
+#  $master->setnxins(-2);
+#
+#};
+
+# ---   *   ---   *   ---
+
+#DEFINE 'reg',$DIRECTIVE,sub {
+#
+#  my ($inskey,$frame,$name)=@_;
+#
+#  my $fr_ptr=$frame->{master}->{ptr};
+#  my $fr_blk=$frame->{master}->{blk};
+#
+#  $name=$name->[0];
+#
+#  # get dst
+#  my $dst=($fr_blk->{dst}->{attrs})
+#    ? $fr_blk->{dst}->{parent}
+#    : $fr_blk->{dst}
+#    ;
+#
+## ---   *   ---   *   ---
+#
+#  my $blk;
+#
+#  # append new block to dst on first pass
+#  if($fr_blk->fpass()) {
+#    $blk=$fr_blk->nit(
+#      $dst,$name,$O_RD|$O_WR,
+#
+#    );
+#
+#  # second pass: look for block
+#  } else {
+#    $blk=$fr_ptr->fetch($name)->{blk};
+#
+#  };
+#
+## ---   *   ---   *   ---
+## overwrite dst
+#
+#  $fr_blk->{dst}=$blk;
+#  $fr_blk->setscope($blk);
+#  $fr_blk->setcurr($blk);
+#
+#};
+
+# ---   *   ---   *   ---
+
+#DEFINE 'clan',$DIRECTIVE,sub {
+#
+#  my ($inskey,$frame,$name)=@_;
+#
+#  my $fr_ptr=$frame->{master}->{ptr};
+#  my $fr_blk=$frame->{master}->{blk};
+#
+#  $name=$name->[0];
+#
+#  my $dst=$fr_blk->{non};
+#
+## ---   *   ---   *   ---
+#
+#  # is not global scope/root
+#  my $blk;if($name ne 'non') {
+#
+#    # first pass: create new block
+#    if($fr_blk->fpass()) {
+#      $blk=$fr_blk->nit(undef,$name);
+#
+#    # second pass: find block
+#    } else {
+#      $blk=$fr_ptr->fetch($name)->{blk};
+#
+#    };
+#
+## ---   *   ---   *   ---
+#
+#  # is global scope
+#  } else {$blk=$dst;};
+#
+#  $fr_blk->{dst}=$blk;
+#  $fr_blk->setcurr($blk);
+#
+#  return $blk;
+#
+#};
+
+# ---   *   ---   *   ---
+
+#DEFINE 'proc',$DIRECTIVE,sub {
+#
+#  my ($inskey,$frame,$name)=@_;
+#
+#  my $fr_ptr=$frame->{master}->{ptr};
+#  my $fr_blk=$frame->{master}->{blk};
+#
+#  $name=$name->[0];
+#
+#  # get dst
+#  my $dst=($fr_blk->{dst}->{attrs})
+#    ? $fr_blk->{dst}->{parent}
+#    : $fr_blk->{dst}
+#    ;
+#
+## ---   *   ---   *   ---
+#
+#  my $blk;
+#
+#  # append new block to dst on first pass
+#  if($fr_blk->fpass()) {
+#    $blk=$dst->nit(
+#      $dst,$name,$O_EX,
+#
+#    );
+#
+#  # second pass: look for block
+#  } else {
+#    $fr_ptr->fetch($name)->{blk};
+#
+#  };
+#
+## ---   *   ---   *   ---
+## overwrite dst
+#
+#  $fr_blk->{dst}=$blk;
+#  $fr_blk->setcurr($blk);
+#  $fr_blk->setscope($blk->scope);
+#
+#};
+
+# ---   *   ---   *   ---
+
+#DEFINE 'entry',$DIRECTIVE,sub {
+#
+#  my ($inskey,$frame,$blk)=@_;
+#  my $m=$frame->{master};
+#
+#  $blk=$blk->[0];
+#  $m->{entry}=$blk;
+#
+#};
+
+# ---   *   ---   *   ---
+
+#DEFINE 'jmp',$FCTL,sub {
+#
+#  my ($inskey,$frame,$ptr)=@_;
+#
+#  my $master=$frame->{master};
+#  my $fr_ptr=$master->{ptr};
+#
+#  $ptr=$ptr->[0];
+#
+## insid is DEPRECATED
+##
+##  # set instruction index to ptr loc
+##  $master->setnxins(
+##    $fr_ptr->fetch($ptr)->{blk}->insid
+##
+##  );
+#
+#};
+
+# ---   *   ---   *   ---
+
+#DEFINE 'wed',$INTRINSIC,sub {
+#
+#  my ($inskey,$frame,$type)=@_;
+#  my $fr_ptr=$frame->{master}->{ptr};
+#
+#  $type=$type->[0];
+#  $fr_ptr->wed($type);
+#
+#};
+
+# ---   *   ---   *   ---
+
+#DEFINE 'unwed',$INTRINSIC,sub {
+#
+#  my ($inskey,$frame)=@_;
+#  my $fr_ptr=$frame->{master}->{ptr};
+#
+#  $fr_ptr->wed(undef);
+#
+#};
 
 # ---   *   ---   *   ---
 # DEFS END

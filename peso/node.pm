@@ -29,7 +29,8 @@ package peso::node;
   use lang;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks';
-  use inline;
+#  use inline;
+  use shwl;
 
 # ---   *   ---   *   ---
 # info
@@ -197,7 +198,7 @@ sub group($self,$idex,$subidex=undef) {
       "Node <%s> has no children\n",
 
       args=>[$self->{value}],
-      lvl=>WARNING,
+      lvl=>$WARNING,
 
     );
 
@@ -429,7 +430,7 @@ sub tokenize2($self) {
   my $body=$self->{value};
   my $lang=$self->{frame}->{master}->{lang};
 
-  my $cut_token_re=$lang::CUT_TOKEN_RE;
+  my $cut_token_re=$shwl::CUT_RE;
   my $keyword=$lang->{keyword_re};
 
   my $name=$lang->{names};
@@ -1043,13 +1044,22 @@ sub pluck($self,@pending) {
 
 sub idextrav($self) {
 
-  my $i=0;
-  for my $child(@{$self->{leaves}}) {
-    $child->{idex}=$i;$i++;
+  my @pending=($self);
+  while(@pending) {
+
+    $self=shift @pending;
+
+    my $i=0;
+    for my $child(@{$self->{leaves}}) {
+      $child->{idex}=$i++;
+
+    };
+
+    unshift @pending,@{$self->{leaves}};
 
   };
 
-  return $i;
+  return;
 
 };
 
@@ -1554,9 +1564,13 @@ sub exp_arr($self) {
 };
 
 # ---   *   ---   *   ---
-
 # print node leaves
+
 sub prich($self,%args) {
+
+  # opt defaults
+  $args{errout}//=0;
+  $args{max_depth}//=0x24;
 
   my $errout=$args{errout};
   my $prev_depth=0;
@@ -1568,7 +1582,7 @@ sub prich($self,%args) {
 
 # ---   *   ---   *   ---
 
-  my $FH=(defined $errout)
+  my $FH=($errout)
     ? *STDERR
     : *STDOUT
     ;
@@ -1617,7 +1631,7 @@ sub prich($self,%args) {
 
     my $v=(
 
-       $self->{value}=~ $OPERATOR/
+       ($self->{value}=~ $OPERATOR)
     && length ref $self->{value}
 
     ) ? $self->{value}->{op}
@@ -1639,7 +1653,10 @@ sub prich($self,%args) {
 # ---   *   ---   *   ---
 
     $mess.=$branch.$v."\n";
-    unshift @leaves,@{$self->{leaves}};
+    if($depth < $args{max_depth}) {
+      unshift @leaves,@{$self->{leaves}};
+
+    };
 
   };
 

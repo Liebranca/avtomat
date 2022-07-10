@@ -44,9 +44,9 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 
 { my @deps=(
 
-    ['help',avt->LYEB.'/help',undef],
-    ['ft8',avt->LYEB.'/ft8',undef],
-    ['ce',avt->LYEB.'/ce',undef],
+    ['help',$avt::LYEB.'/help',undef],
+    ['ft8',$avt::LYEB.'/ft8',undef],
+    ['ce',$avt::LYEB.'/ce',undef],
 
   );avt::depchk $root,\@deps;
 
@@ -140,7 +140,7 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 { my @deps=(
 
     ['rw-psf',
-      avt->GITHUB.'/talamus/rw-psf',
+      $avt::GITHUB.'/talamus/rw-psf',
       undef
 
     ],
@@ -217,6 +217,8 @@ avt::make();
 
 my @modules=avt::MODULES;
 shift @modules;
+
+  exit;
 
 for my $mod(@modules) {
   print `$root/$mod/avto`;

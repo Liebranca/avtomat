@@ -1177,8 +1177,8 @@ EOF
 
 sub plext($dst_path,$src_path) {
 
-  my $dst_path=root().$dst_path;
-  my $src_path=root().$src_path;
+  $dst_path=root().$dst_path;
+  $src_path=root().$src_path;
 
   my $src=arstd::orc($src_path);
   $src=~ s/.+#:CUT;>\n//sg;
@@ -1214,7 +1214,7 @@ sub plext($dst_path,$src_path) {
 # ^restore
 
 };sub erropen($fh) {
-  open STDERR '>',$fh
+  open STDERR,'>',$fh
   or croak STRERR($fh);
 
 };
@@ -1461,14 +1461,11 @@ sub depchk($chkpath,$deps_ref) {
 
 };
 
-# ---   *   ---   *   ---
-
 # args=path
 # recursively list dirs and files in path
 sub walk($path) {
 
-  my %dirs=();
-  Readonly state $EXCLUDED=>qr{
+  Readonly my $EXCLUDED=>qr{
 
      \/
 
@@ -1477,6 +1474,8 @@ sub walk($path) {
    | (?:makefile)
 
   }x;
+
+  my %dirs=();
 
 # ---   *   ---   *   ---
 # dissect recursive ls
@@ -1508,7 +1507,7 @@ sub walk($path) {
 
     while(@tmp) {
       my $entry=shift @tmp;
-      if($entry=~ $EXCLUDE) {next};
+      if($entry=~ $EXCLUDED) {next};
 
       push @files,$entry;
 
@@ -1556,10 +1555,10 @@ sub scan {
 
 # ---   *   ---   *   ---
 
-  my $dst=$CACHE{_root}.'/.avto-modules'
+  my $fpath=$CACHE{_root}.'/.avto-modules';
 
-  open FH,'>',$dst
-  or  die STRERR($dst);
+  open my $FH,'>',$fpath
+  or  die STRERR($fpath);
 
 # ---   *   ---   *   ---
 
@@ -1645,11 +1644,11 @@ sub scan {
 
     };
 
-    print FH "$mod $len\n$list";
+    print $FH "$mod $len\n$list";
 
   };
 
-  close FH;
+  close $FH;
 
 };
 
@@ -2476,7 +2475,7 @@ avt::root $M->{ROOT};
 chdir $M->{ROOT};
 
 print {*STDERR}
-  $ARTAG."upgrading $M->{FSWAT}\n";
+  $avt::ARTAG."upgrading $M->{FSWAT}\n";
 
 $M->set_build_paths();
 $M->update_generated();
@@ -2487,7 +2486,7 @@ $M->build_binaries($PFLG,$OBJS,$objblt);
 $M->update_regular();
 
 print {*STDERR}
-  $ARSEP."done\n\n";
+  $avt::ARSEP."done\n\n";
 
 ;;EOF
 ;
@@ -2510,7 +2509,7 @@ print {*STDERR}
     ;
 
     close $FH;
-    `chmod +x "$CACHE{-ROOT}/$name/avto"`
+    `chmod +x "$CACHE{_root}/$name/avto"`
 
   };
 };
@@ -2700,7 +2699,7 @@ sub update_objects($M,$DFLG,$PFLG) {
 
     my $do_build=!(-e $obj);
     if($mmd) {
-      @deps=@{ parsemmd $mmd };
+      @deps=@{parsemmd($mmd)};
 
     };
 
@@ -2758,7 +2757,7 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
       $ARSEP.'compiling binary '.
 
       "\e[32;1m".
-      (shpath $M->{MAIN}).
+      shpath($M->{MAIN}).
 
       "\e[0m\n";
 
@@ -2912,7 +2911,7 @@ sub pcc($M,$src,$obj,$pmd) {
 
 # ---   *   ---   *   ---
 
-    my $re=$DEPS_RE;
+    my $re=$shwl::DEPS_RE;
     my $depstr;
 
     if($out=~ s/$re//sm) {

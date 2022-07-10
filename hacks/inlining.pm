@@ -198,8 +198,8 @@ sub clean($string) {
   state $cslist=qr{(\s+,)|(,\s+)|(\s+,\s+)};
   $string=~ s/$cslist/,/sg;
 
-  shwl::cut(\$string,'STR',shwl::STR_RE);
-  shwl::cut(\$string,'CHR',shwl::CHR_RE);
+  shwl::cut(\$string,'STR',$shwl::STR_RE);
+  shwl::cut(\$string,'CHR',$shwl::CHR_RE);
 
   return $string;
 
@@ -407,6 +407,7 @@ BEGIN {
     warn $warn;
 
   };
+
 }
 
 # ---   *   ---   *   ---
