@@ -1258,26 +1258,23 @@ sub parse(
 
 sub cleaner($self,$body) {
 
-  my @lines=();
   my $comment_re=$self->{lang}->{strip_re};
 
-  for my $line(split $NEWLINE_RE,$body) {
-    $line=~ s/$comment_re//sg;
-    if(length lang::stripline($line)) {
-      push @lines,$line;
+  $body=~ s/($comment_re)//sg;
 
-    };
+  if(!length lang::stripline($body)) {
+    $body=$NULLSTR;
 
   };
 
-  return join $NULLSTR,@lines;
+  return $body;
 
 };
 
 # ---   *   ---   *   ---
 # branches out node from token
 
-sub tokenizer($self,$node,$body) {
+sub tokenizer($self,$body,$root=undef) {
 
   my $exp_bound_re=$self->{lang}->{exp_bound_re};
   my @exps=();
@@ -1286,6 +1283,7 @@ sub tokenizer($self,$node,$body) {
 # filter out empties
 
   { my @tmp=split $exp_bound_re,$body;
+
     for my $s(@tmp) {
       if(
 
@@ -1305,24 +1303,33 @@ sub tokenizer($self,$node,$body) {
 # ---   *   ---   *   ---
 # only attempt tokenization when
 # there is more than one possible token!
+# ... or if the single token is valid code ;>
 
-  my $out=1;
-  if(@exps==1) {$out=0;goto TAIL};
+  if( (@exps==1)
+  &&  ($exps[0]=~ $exp_bound_re)
+
+  ) {goto TAIL};
 
 # ---   *   ---   *   ---
 # convert the string into a tree branch
 
   my $nd_frame=$self->{program}->{node};
   for my $exp(@exps) {
-    $exp=$nd_frame->nit($node,$exp);
+
+    $exp=$nd_frame->nit($root,$exp);
     $exp->tokenize2();
+
+    if(!defined $root) {
+      $root=$exp;
+
+    };
 
   };
 
 # ---   *   ---   *   ---
 
 TAIL:
-  return $out;
+  return $root;
 
 };
 
@@ -1368,18 +1375,25 @@ TOP:
       $node->{value}=~ s/${key}/$repl/;
 
       my $body=$self->cleaner($node->{value});
+      my $new_branch=$self->tokenizer($body);
 
 # ---   *   ---   *   ---
 # multiple expansions, consume root
 
-      if($self->tokenizer($node,$body)) {
-        unshift @pending,@{$node->{leaves}};
-        $node->flatten_branch();
+      if(@{$new_branch->{leaves}}) {
 
-# ---   *   ---   *   ---
-# single expansion, re-evaluate
+        $node->repl($new_branch);
+        $node=$new_branch;
+
+        unshift @pending,$node,@{$node->{leaves}};
+        $node->flatten_branch(keep_root=>1);
 
       } else {
+        $node->{value}=$new_branch->{value};
+
+        unshift @pending,@{$node->{leaves}};
+        $node->flatten_branch(keep_root=>1);
+
         goto TOP;
 
       };
@@ -1410,10 +1424,11 @@ sub new_parser($lang,$fname) {
   for my $id(keys %{$self->{blocks}}) {
 
     my $root=$nd_frame->nit(undef,$id);
+
     my $block=$self->{blocks}->{$id};
     my $body=$self->cleaner($block->{body});
+    $self->tokenizer($body,$root);
 
-    $self->tokenizer($root,$body);
     $block->{tree}=$root;
 
   };

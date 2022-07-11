@@ -1465,7 +1465,7 @@ sub depchk($chkpath,$deps_ref) {
 # recursively list dirs and files in path
 sub walk($path) {
 
-  Readonly my $EXCLUDED=>qr{
+  Readonly state $EXCLUDED=>qr{
 
      \/
 

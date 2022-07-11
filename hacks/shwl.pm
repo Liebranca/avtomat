@@ -49,7 +49,7 @@ package shwl;
   Readonly our $FNAME_RE=>qr{\/([_\w][_\w\d]*)$};
 
   Readonly our $CUT_FMAT=>':__%s_CUT_%i__:';
-  Readonly our $CUT_RE=>qr{:__\w+_CUT_\d+__:};
+  Readonly our $CUT_RE=>qr{\:__\w+_CUT_\d+__\:};
 
 # ---   *   ---   *   ---
 # we need these two DISGUSTING REDUNDANCIES

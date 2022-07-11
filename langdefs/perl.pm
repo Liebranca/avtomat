@@ -18,6 +18,8 @@ package langdefs::perl;
 
 # ---   *   ---   *   ---
 
+BEGIN {
+
   Readonly my $OPS=>{
 
     q{->}=>[
@@ -30,9 +32,16 @@ package langdefs::perl;
     ],q{!}=>[
 
       undef,
-      [0,sub($x) {return "!$$x"}],
+      [0,sub($x) {return !$$x}],
 
       undef,
+
+    ],q{<=}=>[
+
+      undef,
+      undef,
+
+      [0,sub($x,$y) {return $$x<=$$y}],
 
     ],q{.}=>[
 
@@ -75,9 +84,6 @@ package langdefs::perl;
 
 # ---   *   ---   *   ---
 
-BEGIN {
-
-# ---   *   ---   *   ---
 lang::def::nit(
 
   name=>'perl',
@@ -107,7 +113,7 @@ lang::def::nit(
     (?<name> $:names;>)?\s*
     (?<attrs> :$:names;>\s*)*
 
-    \s*(?<args> \(.*?\))?\s*
+    \s*(?<args> \([\S\s]*?\))?\s*
 
     (?<scope> [{]
 

@@ -457,12 +457,13 @@ sub tokenize2($self) {
   | (?:$keyword)
   | (?:$label)
 
+  | (?:$op)
+
   | (?:$vstr)
   | (?:$hier_re)
   | (?:$name)
 
   | (?:$num)
-  | (?:$op)
   | (?:$scope_bound)
 
   | (?:.*)
@@ -929,7 +930,8 @@ sub repl($self,$other) {
 
   for my $node(@$ref) {
 
-    $i++;if($node eq $self) {
+    $i++;
+    if($node eq $self) {
       last;
 
     };
@@ -941,10 +943,9 @@ sub repl($self,$other) {
     $other->{parent}=$self->{parent};
     $ref->[$i]=$other;
 
-  };
+    $self->{parent}->cllv();
 
-  $self->{parent}->cllv();
-  $self->{parent}->idextrav();
+  };
 
   return;
 
@@ -961,9 +962,6 @@ sub flatten_branch($self,%args) {
   my @move=$self->pluck(@{$self->{leaves}});
   my $par=$self->{parent};
 
-  $par->cllv();
-  $par->idextrav();
-
 # ---   *   ---   *   ---
 
   my $idex=$self->{idex};
@@ -976,9 +974,7 @@ sub flatten_branch($self,%args) {
 # ---   *   ---   *   ---
 
   $par->pushlv(1,@move);
-
   $par->cllv();
-  $par->idextrav();
 
   return;
 
@@ -1464,6 +1460,11 @@ sub branch_values($self,$pat) {
   @ar=plain_arr(@ar);
 
   return @ar;
+
+};
+
+sub leaf_value($self,$idex) {
+  return $self->{leaves}->[$idex]->{value};
 
 };
 

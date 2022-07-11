@@ -695,7 +695,7 @@ my %DEFAULTS=(
 
   name=>$NULLSTR,
 
-  com=>q{#},
+  com=>q{\#},
   exp_bound=>qr{[;]}x,
   scope_bound=>qr{[{}]}x,
 
@@ -969,9 +969,9 @@ sub nit(%h) {
 # ---   *   ---   *   ---
 # handle creation of operator pattern
 
-  my $op_obj='node_op=HASH\(0x[0-9a-f]+\)';
+  #my $op_obj='node_op=HASH\(0x[0-9a-f]+\)';
   if(!keys %{$ref->{op_prec}}) {
-    $ref->{ops}="($op_obj)";
+    $ref->{ops}='$^' #"($op_obj)";
 
 # ---   *   ---   *   ---
 
@@ -981,7 +981,7 @@ sub nit(%h) {
 
     );
 
-    $ref->{ops}=~ s/\)$/|${op_obj})/;
+    #$ref->{ops}=~ s/\)$/|${op_obj})/;
 
   };
 
@@ -1161,17 +1161,16 @@ sub nit(%h) {
   my $comchar="$ref->{com}";
   $ref->{strip_re}=qr{
 
-    ^|\s*
+    (?: ^|\s*)
 
     (?: $comchar[^\n]*)?
-    (?:\n|$)
+    (?: \n|$)
 
   }x;
 
   $ref->{exp_bound_re}=qr{
 
-     ($ref->{scope_bound})
-   | (?: $ref->{exp_bound})
+    ($ref->{scope_bound}|$ref->{exp_bound})
 
   }x;
 
