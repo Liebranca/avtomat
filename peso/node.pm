@@ -1040,10 +1040,10 @@ sub pluck($self,@pending) {
 
 sub idextrav($self) {
 
-  my @pending=($self);
-  while(@pending) {
-
-    $self=shift @pending;
+#  my @pending=($self);
+#  while(@pending) {
+#
+#    $self=shift @pending;
 
     my $i=0;
     for my $child(@{$self->{leaves}}) {
@@ -1051,9 +1051,9 @@ sub idextrav($self) {
 
     };
 
-    unshift @pending,@{$self->{leaves}};
-
-  };
+#    unshift @pending,@{$self->{leaves}};
+#
+#  };
 
   return;
 

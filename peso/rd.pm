@@ -1388,7 +1388,11 @@ TOP:
         unshift @pending,$node,@{$node->{leaves}};
         $node->flatten_branch(keep_root=>1);
 
+# ---   *   ---   *   ---
+# single expansion, consume childless branch
+
       } else {
+
         $node->{value}=$new_branch->{value};
 
         unshift @pending,@{$node->{leaves}};
@@ -1454,6 +1458,7 @@ sub new_parser($lang,$fname) {
 # set current block from id
 
 sub select_block($self,$id) {
+
   $self->{curblk}=$self->{blocks}->{$id};
   return $self->{curblk};
 

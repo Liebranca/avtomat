@@ -21,9 +21,17 @@ package cli;
   use Readonly;
 
   use lib $ENV{'ARPATH'}.'/lib/';
+
   use style;
   use arstd;
+
   use lang;
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION=v0.2.0;
+  our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # getters
@@ -318,6 +326,78 @@ sub nit($id,%attrs) {
   my $arg=bless {id=>$id,%attrs},'cli::arg';
 
   return $arg;
+
+};
+
+# ---   *   ---   *   ---
+# utility class: common file walking
+
+package cli::fstruct;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use Readonly;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+
+  use style;
+  use arstd;
+
+# ---   *   ---   *   ---
+# ROM
+
+  Readonly our $ATTRS=>[
+
+    {id=>'recursive'},
+    {id=>'symbol',argc=>1},
+    {id=>'no_escaping',short=>'-ne'},
+    {id=>'regex',short=>'-R'},
+
+  ];
+
+# ---   *   ---   *   ---
+# whenever you're looking for things
+# across a (possible) multitude of files
+
+sub proto_search($m) {
+
+  my @files=$m->take(@ARGV);
+
+# ---   *   ---   *   ---
+
+  if($m->{recursive}!=$NULL) {
+    my @ar=@files;
+    @files=();
+
+    arstd::expand_path(\@ar,\@files);
+
+  };
+
+# ---   *   ---   *   ---
+
+  if($m->{no_escaping}==$NULL) {
+    $m->{symbol}="\Q$m->{symbol}";
+
+  } else {
+    $m->{symbol}=~ s/\$/\\\$/sg;
+
+  };
+
+# ---   *   ---   *   ---
+
+  if($m->{regex}==$NULL) {
+    $m->{symbol}=qr{$m->{symbol}(?:\b|$|"|')};
+
+  } else {
+    $m->{symbol}=qr{$m->{symbol}}x;
+
+  };
+
+# ---   *   ---   *   ---
+
+  return @files;
 
 };
 

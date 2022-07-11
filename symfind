@@ -33,55 +33,24 @@
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.1.0;
+  our $VERSION=v0.1.1;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
+# initialize fstruct search
 
 my $m=cli::nit(
 
-  {id=>'recursive'},
-  {id=>'symbol',argc=>1},
-  {id=>'no_escaping',short=>'-ne'},
-  {id=>'regex',short=>'-R'},
+  @{$cli::fstruct::ATTRS},
 
 );
 
-my @files=$m->take(@ARGV);
+my @files=cli::fstruct::proto_search($m);
+my $sym_re=$m->{symbol};
+my $ext_re=qr{\.pmc?}x;
 
 # ---   *   ---   *   ---
-
-if($m->{recursive}!=NULL) {
-  my @ar=@files;
-  @files=();
-
-  arstd::expand_path(\@ar,\@files);
-
-};
-
-# ---   *   ---   *   ---
-
-if($m->{no_escaping}==NULL) {
-  $m->{symbol}="\Q$m->{symbol}";
-
-} else {
-  $m->{symbol}=~ s/\$/\\\$/sg;
-
-};
-
-my $ext_re=qr{\.pmc?$};
-
-my $sym_re;
-if($m->{regex}==NULL) {
-  $sym_re=qr{$m->{symbol}(?:\b|$|"|')};
-
-} else {
-  $sym_re=qr{$m->{symbol}}x;
-
-};
-
-# ---   *   ---   *   ---
-# walk the file structure
+# walk the fstruct
 
 while(@files) {
 
@@ -92,7 +61,7 @@ while(@files) {
     arstd::expand_path($f,\@files);
     next;
 
-  }; #elsif(!($f=~ $ext_re)) {next};
+  };if(!($f=~ $ext_re)) {next};
 
 # ---   *   ---   *   ---
 
@@ -132,7 +101,7 @@ while(@files) {
       "\e[34;22m%s\e[0m".
       "\e[37;1m:\e[0m\n%s\n",
 
-      $f,join NULLSTR,@data
+      $f,join $NULLSTR,@data
 
   };
 
