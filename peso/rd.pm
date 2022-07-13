@@ -1521,18 +1521,36 @@ sub find_args($self) {
   my $block=$self->{curblk};
   my $branch=$block->{tree};
 
+  my @out=();
+
   my @args=();
   if(length $block->{args}) {
 
     my $args=$block->{args};
-    $args=~ s/^\s*\(\s*|\s*\)\s*$//sg;
 
+# NOTE: though this works for most languages,
+#       we should really take this re from
+#       a langdef...
+
+    $args=~ s/^\s*\(\s*|\s*\)\s*$//sg;
     @args=split m/\s*,\s*/,$args;
 
   };
 
-  my $args_re=lang::arrpat(\@args);
-  return \@args,$branch->branches_in($args_re);
+  if(@args) {
+
+    @args=map {shwl::arg::nit($ARG)} @args;
+
+    my $args_re=lang::arrpat(
+      [map {$ARG->{name}} @args]
+
+    );
+
+    @out=$branch->branches_in($args_re);
+
+  };
+
+  return \@args,@out;
 
 };
 

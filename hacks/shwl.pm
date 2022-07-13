@@ -689,3 +689,29 @@ sub nit {
 };
 
 # ---   *   ---   *   ---
+
+package shwl::arg;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use style;
+
+# ---   *   ---   *   ---
+
+sub nit($elem) {
+
+  my ($name,$default)=split qr{=},$elem;
+
+  my $arg=bless {
+    name=>$name,
+    default=>$default,
+
+  };
+
+  return $arg;
+
+};
+
+# ---   *   ---   *   ---

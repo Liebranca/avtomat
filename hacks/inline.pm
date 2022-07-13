@@ -116,7 +116,9 @@ sub repl_args($order,@args) {
 # ---   *   ---   *   ---
 
   my $i=0;
-  for my $key(@order) {
+  for my $arg(@order) {
+
+    my $key=$arg->{name};
 
     goto TAIL if !exists$tab{$key};
     my @nodes=@{$tab{$key}};

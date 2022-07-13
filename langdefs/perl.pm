@@ -36,6 +36,27 @@ BEGIN {
 
       undef,
 
+    ],q{++}=>[
+
+      undef,
+      undef,
+
+      undef,
+
+    ],q{+}=>[
+
+      undef,
+      undef,
+
+      undef,
+
+    ],q{--}=>[
+
+      undef,
+      undef,
+
+      undef,
+
     ],q{-}=>[
 
       undef,
@@ -43,7 +64,14 @@ BEGIN {
 
       undef,
 
-    ],,q{*}=>[
+    ],q{**}=>[
+
+      undef,
+      undef,
+
+      undef,
+
+    ],q{*}=>[
 
       undef,
       undef,
