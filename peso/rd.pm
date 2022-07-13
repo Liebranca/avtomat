@@ -1516,6 +1516,58 @@ sub replstr($self,$root) {
 
 # ---   *   ---   *   ---
 
+sub find_args($self) {
+
+  my $block=$self->{curblk};
+  my $branch=$block->{tree};
+
+  my @args=();
+  if(length $block->{args}) {
+
+    my $args=$block->{args};
+    $args=~ s/^\s*\(\s*|\s*\)\s*$//sg;
+
+    @args=split m/\s*,\s*/,$args;
+
+  };
+
+  my $args_re=lang::arrpat(\@args);
+  return \@args,$branch->branches_in($args_re);
+
+};
+
+# ---   *   ---   *   ---
+# find assignment
+
+sub find_asg_ops($self,@branches) {
+
+  my %asg=();
+  for my $branch(@branches) {
+
+    if(exists $asg{$branch->{value}}) {
+      my $ar=$asg{$branch->{value}};
+      push @$ar,$branch;
+
+    };
+
+    next if !@{$branch->{leaves}};
+
+# TODO: build a better pattern
+#       for detecting assignment
+
+    if($branch->leaf_value(0) eq '=') {
+      $asg{$branch->{value}}=[$branch];
+
+    };
+
+  };
+
+  return %asg;
+
+};
+
+# ---   *   ---   *   ---
+
 sub nit2($program,$fname) {
 
   my $rd=bless {

@@ -504,6 +504,32 @@ sub hashpat(
 };
 
 # ---   *   ---   *   ---
+# ^ same thing for an array
+
+sub arrpat(
+  $ar,
+
+  $disable_escapes=0,
+  $disable_bwrap=0,
+
+) {
+
+  my @keys=sort {
+    (length $a)<=(length $b);
+
+  } @$ar;
+
+  return eiths_l(
+    \@keys,
+
+    $disable_escapes,
+    $disable_bwrap
+
+  );
+
+};
+
+# ---   *   ---   *   ---
 # hexadecimal conversion
 
 sub pehexnc($x) {

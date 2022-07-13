@@ -164,7 +164,7 @@ sub dumpsbl() {
 # ---   *   ---   *   ---
 
   for my $dst(keys %files) {
-    open my $FH,'>',$dst or croak STRERR;
+    open my $FH,'>',$dst or croak STRERR($dst);
     print $FH ''.(join q{},@{$files{$dst}});
 
     close $FH;

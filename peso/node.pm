@@ -63,7 +63,7 @@ sub new_frame(@args) {
 
 # in: parent,val
 # make child node or create a new tree
-sub nit($frame,$parent,$val) {
+sub nit($frame,$parent,$val,%opts) {
 
   # tree/root handle
   my %tree=(
@@ -71,6 +71,9 @@ sub nit($frame,$parent,$val) {
     root=>undef,
 
   );my $tree_id;
+
+  # opt defaults
+  $opts{unshift_leaves}//=0;
 
 # ---   *   ---   *   ---
 
@@ -110,10 +113,18 @@ sub nit($frame,$parent,$val) {
   # add leaf if ancestry
   if(defined $parent) {
 
-    push @{ $parent->{leaves} },$node;
-    $node->{parent}=$parent;
+    if($opts{unshift_leaves}) {
+      unshift @{$parent->{leaves}},$node;
 
+    } else {
+      push @{$parent->{leaves}},$node;
+
+    };
+
+    $node->{parent}=$parent;
     $parent->idextrav();
+
+# ---   *   ---   *   ---
 
   } else {
     $tree{root}=$node;
@@ -256,22 +267,41 @@ sub walkup($self,$top=undef) {
 
 sub shiftlv($self,$pos,$sz) {
 
+  state $BLANKS_RE=qr{
+
+    ^\$\:BLANK\;\>$
+
+  }x;
+
   my $frame=$self->{frame};
 
+# ---   *   ---   *   ---
+
   for my $i(0..$sz-1) {
-    $frame->nit($self,'BLANK');
+    $frame->nit($self,'$:BLANK;>');
 
   };
 
   my $end=@{$self->{leaves}}-1;
   for my $i(reverse ($pos..$end)) {
 
+    my $x=$self->{leaves}->[$i];
+
     $self->{leaves}->[$i]
       =$self->{leaves}->[$i-1];
 
+    $self->{leaves}->[$i-1]=$x;
+
   };
 
-  $self->idextrav();
+# ---   *   ---   *   ---
+
+  $self->pluck(
+    $self->branches_in($BLANKS_RE)
+
+  );
+
+  $self->cllv();
   return;
 
 };
@@ -589,7 +619,6 @@ sub agroup($self) {
   TOP:
 
   $root->cllv();
-  $root->idextrav();
 
   my $high_prio=9999;
   my $high_i=0;
@@ -961,6 +990,8 @@ sub flatten_branch($self,%args) {
 
   my @move=$self->pluck(@{$self->{leaves}});
   my $par=$self->{parent};
+
+  $par->idextrav();
 
 # ---   *   ---   *   ---
 
@@ -1509,12 +1540,27 @@ sub nocslist($self) {
 
 sub flatten($self,%args) {
 
-  my @leaves=($self);
-  my $root=$self;
+  # args defaults
+  $args{max_depth}//=0x24;
+  $args{keep_root}//=0;
+
+  my $max_depth=$args{max_depth};
+
+# ---   *   ---   *   ---
+# handle walk array
+
+  my @leaves=();
+  if($args{keep_root}) {
+    push @leaves,$self;
+
+  } else {
+    push @leaves,@{$self->{leaves}};
+
+  };
+
+# ---   *   ---   *   ---
 
   my $depth=0;
-  my $max_depth=$args{depth};
-
   my $s=$NULLSTR;
 
 # ---   *   ---   *   ---
@@ -1526,7 +1572,7 @@ sub flatten($self,%args) {
     elsif($self == 1) {$depth++;next};
 
     $s.=$self->{value}.q{ };
-    if(defined $max_depth && $depth>=$max_depth) {
+    if($depth>=$max_depth) {
       next;
 
     };
