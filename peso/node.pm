@@ -20,6 +20,7 @@ package peso::node;
 
   use Readonly;
 
+  use English qw(-no_match_vars);
   use Scalar::Util qw/blessed/;
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -302,6 +303,47 @@ sub shiftlv($self,$pos,$sz) {
   );
 
   $self->cllv();
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# puts new nodes anywhere on the tree
+
+sub insert($self,$pos,@list) {
+
+  my @ar=@{$self->{leaves}};
+
+  my @head=();
+  my @tail=();
+
+# ---   *   ---   *   ---
+# cut array at position
+
+  if($pos) {
+    @head=@ar[0..$pos-1]
+
+  };
+
+  if($pos<=$#ar) {
+    @tail=@ar[$pos..$#ar];
+
+  };
+
+# ---   *   ---   *   ---
+# insert new elements
+
+  my @insert=map
+    {$self->{frame}->nit($self,$ARG)} @list;
+
+  my @leaves=(@head,@insert,@tail);
+
+# ---   *   ---   *   ---
+# overwrite
+
+  $self->{leaves}=\@leaves;
+  $self->idextrav();
+
   return;
 
 };

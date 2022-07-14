@@ -146,6 +146,18 @@ sub hashcpy($src) {
 
 # ---   *   ---   *   ---
 
+sub nyi($errme) {
+
+  errout(
+    "Not yet implemented: $errme\n",
+    lvl=>$FATAL,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+
 sub orc($fname) {
 
   open my $FH,'<',$fname

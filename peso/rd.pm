@@ -1334,25 +1334,13 @@ TAIL:
 };
 
 # ---   *   ---   *   ---
-# TODO: move this ROM sec somewhere else
-
-  my $cut_re=$shwl::CUT_RE;
-  my $cut_a_re="$cut_re";
-  my $cut_b_re="$cut_re";
-
-  $cut_a_re=~ s/\\w\+/(?:CURLY|BRACKET|PARENS)/;
-  $cut_b_re=~ s/\\w\+/(?:STR|QSTR|CHR|EXE)/;
-
-  $cut_a_re=qr{$cut_a_re};
-  $cut_b_re=qr{$cut_b_re};
-
-# ---   *   ---   *   ---
 # executes expandable tokens across
 # the given tree branch
 
 sub recurse($self,@pending) {
 
   my $block=$self->{curblk};
+  my $cut_a_re=$self->{lang}->{cut_a_re};
 
 # ---   *   ---   *   ---
 # walk the hierarchy
@@ -1416,10 +1404,10 @@ TOP:
 
 # ---   *   ---   *   ---
 
-sub new_parser($lang,$fname) {
+sub new_parser($lang,$fname,%opts) {
 
   my $m=peso::program::nit($lang);
-  my $self=nit2($m,$fname);
+  my $self=nit2($m,$fname,%opts);
 
 # ---   *   ---   *   ---
 # make tree from block data
@@ -1465,24 +1453,6 @@ sub select_block($self,$id) {
 };
 
 # ---   *   ---   *   ---
-
-sub expand_branch($self,$root) {
-
-  my $block=$self->{curblk};
-  my $body=$self->cleaner($root->{value});
-
-  $self->tokenizer(
-    $root,
-    $body
-
-  );
-
-  $self->recurse($root);
-  $self->replstr($root);
-
-};
-
-# ---   *   ---   *   ---
 # shorthand
 
 sub hier_sort($self) {
@@ -1496,6 +1466,7 @@ sub hier_sort($self) {
 sub replstr($self,$root) {
 
   my $block=$self->{curblk};
+  my $cut_b_re=$self->{lang}->{cut_b_re};
 
   for my $branch($root->branches_in($cut_b_re)) {
 
@@ -1586,7 +1557,7 @@ sub find_asg_ops($self,@branches) {
 
 # ---   *   ---   *   ---
 
-sub nit2($program,$fname) {
+sub nit2($program,$fname,%opts) {
 
   my $rd=bless {
 
@@ -1595,7 +1566,7 @@ sub nit2($program,$fname) {
     lang=>$program->lang,
 
     blocks=>shwl::codefold(
-      $fname,$program->{lang}
+      $fname,$program->{lang},%opts
 
     ),
 

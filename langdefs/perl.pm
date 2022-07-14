@@ -120,6 +120,13 @@ BEGIN {
 
       [99,sub($x,$y) {return "$$x=$$y"}],
 
+    ],q{.=}=>[
+
+      undef,
+      undef,
+
+      undef,
+
     ],
 
   };
@@ -162,6 +169,66 @@ lang::def::nit(
       (?<code> [^{}] | (?&scope))*
 
     [}])
+
+  },
+
+# ---   *   ---   *   ---
+# this section is a MESS
+
+  asg_op=>q{
+
+    (?<asg_op>
+
+      (?: \.
+      |   \+
+      |   \-
+
+      |   \/\/
+      |   \/
+
+      |   \*
+      |   \%
+
+      |   \|
+      |   \&
+      |   \^
+
+      )?  \=
+
+    )
+
+    | (?: \=\~)
+
+  },
+
+# ---   *   ---   *   ---
+# ^likewise
+
+  ptr_decl=>q{
+
+    (?<keyw> my|our|state)\s*
+    (?<sigil> [\$@%])
+
+    (?<name> $:names;>)\s*
+    (?<attrs> :$:names;>\s*)*
+
+  },
+
+  ptr_defn=>q{
+
+    (?<sigil> [\$@%])
+    (?<name> $:names;>)?\s*
+
+  },
+
+  ptr_asg=>q{
+
+    (?:
+
+      (?<is_decl> $:ptr_decl;>)
+    | (?<is_defn> $:ptr_defn;>)
+
+    ) (?: $:asg_op;>)\s*
 
   },
 

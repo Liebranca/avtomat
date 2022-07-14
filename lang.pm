@@ -38,7 +38,6 @@ package lang;
   use warnings;
 
   use Readonly;
-
   use Carp;
 
   use List::Util qw( max );
@@ -710,6 +709,8 @@ package lang::def;
   use strict;
   use warnings;
 
+  use English qw(-no_match_vars);
+
   use style;
   use arstd;
 
@@ -815,7 +816,12 @@ my %DEFAULTS=(
 # ---   *   ---   *   ---
 
   sbl_decl=>qr{$^}x,
+
   ptr_decl=>qr{$^}x,
+  ptr_defn=>qr{$^}x,
+  ptr_asg=>qr{$^}x,
+
+  asg_op=>qr{$^}x,
 
 # ---   *   ---   *   ---
 
@@ -886,15 +892,37 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
-;;sub vrepl($ref,$v) {
+sub consume_pesc($sref) {
 
-  my $names=$ref->{names};
-  my $drfc=$ref->{drfc};
+  my $out=undef;
+  if($$sref=~ s/\$\:(.*?);>/\#\:pesc_cut;>/sxm) {
+    $out=${^CAPTURE[0]};
 
-  $$v=~ s/\$:names;>/$names/sg;
-  $$v=~ s/\$:drfc;>/$drfc/sg;
+  };
 
-};sub arr_vrepl($ref,$key) {
+  return $out;
+
+};
+
+sub vrepl($ref,$v) {
+
+  while(defined (my $key=consume_pesc($v))) {
+
+    my $rep=$ref->{$key};
+    if(!defined $rep || !length $rep) {
+      $rep=$key;
+
+    };
+
+    $$v=~ s/\#\:pesc_cut;>/$rep/sxmg;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub arr_vrepl($ref,$key) {
 
   for my $v(@{$ref->{$key}}) {
     vrepl($ref,\$v);
@@ -1086,6 +1114,26 @@ sub nit(%h) {
   };
 
 # ---   *   ---   *   ---
+# token res
+
+  { my $del_ids=join q{|},
+      values %{$ref->{delimiters}->{id}};
+
+    my $str_ids=join q{|},
+      map {uc $ARG} @{$ref->{foldtags}};
+
+    my $a_re=$shwl::CUT_RE;
+    my $b_re=$a_re;
+
+    $a_re=~ s/\\w\+/(?:$del_ids)/;
+    $b_re=~ s/\\w\+/(?:$str_ids)/;
+
+    $ref->{cut_a_re}=$a_re;
+    $ref->{cut_b_re}=$b_re;
+
+  };
+
+# ---   *   ---   *   ---
 
   $ref->{ode}=lang::eiths_l(\@odes,0,1);
   $ref->{cde}=lang::eiths_l(\@cdes,0,1);
@@ -1113,11 +1161,17 @@ sub nit(%h) {
 # ---   *   ---   *   ---
 # replace $:tokens;> with values
 
-  for my $key(keys %{$ref}) {
+  for my $key(keys %$ref) {
     if($ref->{$key}=~ $lang::ARRAYREF_RE) {
       arr_vrepl($ref,$key);
 
-    } else {vrepl($ref,\$ref->{$key});};
+    } elsif($ref->{$key}=~ $lang::HASHREF_RE) {
+      hash_vrepl($ref,$key);
+
+    } else {
+      vrepl($ref,\$ref->{$key});
+
+    };
 
   };
 
@@ -1149,7 +1203,7 @@ sub nit(%h) {
     drfc hier hier_re
     names names_l names_u
 
-    sbl_decl
+    asg_op sbl_decl ptr_decl ptr_defn ptr_asg
 
   )) {
 
@@ -1179,10 +1233,10 @@ sub nit(%h) {
 
     };
 
+  };
+
 # ---   *   ---   *   ---
 # parse2 regexes
-
-  };
 
   my $comchar="$ref->{com}";
   $ref->{strip_re}=qr{

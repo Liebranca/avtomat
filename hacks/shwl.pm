@@ -52,6 +52,14 @@ package shwl;
   Readonly our $CUT_RE=>qr{\:__\w+_CUT_\d+__\:};
 
 # ---   *   ---   *   ---
+
+  Readonly our $ARG_FMAT=>':__ARG_%i__:';
+  Readonly our $ARG_RE=>qr{\:__ARG_\d+__\:};
+
+  Readonly our $RET_STR=>':__RETVAL__:';
+  Readonly our $RET_RE=>qr{\:__RETVAL__\:};
+
+# ---   *   ---   *   ---
 # we need these two DISGUSTING REDUNDANCIES
 # just so that we can bootstrap without making
 # a dependency cycle with the perl langdef
@@ -501,9 +509,20 @@ sub getlibs() {
 # abstracts away details in
 # every subroutine found in a file
 
-sub codefold($fname,$lang) {
+sub codefold($fname,$lang,%opts) {
 
-  my $body=arstd::orc($fname);
+  # opt defaults
+  $opts{-f}//=1;
+
+  my $body;
+  if($opts{-f}) {
+    $body=arstd::orc($fname);
+
+  } else {
+    $body=$fname;
+    $fname='codestr';
+
+  };
 
   my $foldtags=$lang->{foldtags};
   my $deldata=$lang->{delimiters};
