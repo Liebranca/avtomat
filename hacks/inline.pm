@@ -279,8 +279,13 @@ sub process_block($rd,$pkgname) {
 
 sub make_table_re() {
 
-  if(exists $TABLE->{re}) {
-    delete $TABLE->{re};
+  if(exists $TABLE->{re_sbl}) {
+    delete $TABLE->{re_sbl};
+
+  };
+
+  if(exists $TABLE->{re_full}) {
+    delete $TABLE->{re_full};
 
   };
 
@@ -298,10 +303,68 @@ sub make_table_re() {
 
   };
 
-  my $re=q{\b(?<name>}.(join q{|},@names).q{)\b}.
+  my $re_sbl=q{\b(?<name>}.(join q{|},@names).q{)\b};
+
+  my $re_full=$re_sbl.
     q{\s*\(\s* (?<args> .*?) \s*\)\s*};
 
-  $TABLE->{re}=qr{$re}xs;
+  $TABLE->{re_full}=qr{$re_full}xs;
+  $TABLE->{re_sbl}=qr{$re_sbl}xs;
+
+};
+
+# ---   *   ---   *   ---
+
+sub find_args($branch) {
+
+  my $out=$NULLSTR;
+
+  if(@{$branch->{leaves}}) {
+    $out=$branch->flatten();
+    $branch->{leaves}=[];
+
+  } else {
+
+    my $idex=$branch->{idex};
+    my $node=$branch->{parent}->{leaves}->[$idex+1];
+
+    $out=$node->{value};
+    $branch->{parent}->pluck($node);
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+
+sub find_dst($branch) {
+
+  my ($dst,$asg)=($NULLSTR,$NULLSTR);
+
+  my $is_decl=$branch->{parent}->{value}=~
+    m/\b(my|our|state)\b/;
+
+  if($is_decl) {
+    $is_decl=${^CAPTURE[0]};
+
+    my $par=$branch->{parent};
+    my $dst_nd=$par->{leaves}->[0];
+    my $asg_nd=$par->{leaves}->[1];
+
+    $dst=$dst_nd->{value};
+    $asg=$asg_nd->{value};
+
+    $par->{value}='#:cut_dst;>';
+    $par->pluck($dst_nd,$asg_nd);
+
+  } else {
+    $is_decl=$NULLSTR;
+
+  };
+
+  return ($is_decl,$dst,$asg);
 
 };
 
@@ -316,17 +379,41 @@ sub inspect($rd) {
 
 # ---   *   ---   *   ---
 
+$tree->prich();
+
   while(
 
-  my $branch=
-    $tree->branch_in($TABLE->{re})
+     ( my $full_mention=
+       $tree->branch_in($TABLE->{re_full}) )
+
+  || ( my $sbl_mention=
+       $tree->branch_in($TABLE->{re_sbl})  )
 
   ) {
 
-    $branch->{value}=~ s/$TABLE->{re}/#:cut_fn;>/;
+    my ($branch,$re);
+
+    if($full_mention) {
+      $branch=$full_mention;
+      $re=$TABLE->{re_full};
+
+    } else {
+      $branch=$sbl_mention;
+      $re=$TABLE->{re_sbl};
+
+    };
+
+# ---   *   ---   *   ---
+
+    $branch->{value}=~ s/$re/#:cut_fn;>/;
 
     my $id=$+{name};
     my $args=$+{args};
+
+    if(!defined $args) {
+      $args=find_args($branch);
+
+    };
 
     my $block=$TABLE->{$id};
     my $code=$block->{inline_code};
@@ -352,7 +439,7 @@ sub inspect($rd) {
   my $s=$tree->flatten();
 
   print "$s\n";
-  print eval("$s")."\n";
+#  print eval("$s")."\n";
 
 };
 
@@ -476,6 +563,9 @@ sub solve_dst($rd,$block,$branch) {
 
 # ---   *   ---   *   ---
 
+  } else {
+    ($decl,$dst,$asg)=find_dst($branch);
+
   };
 
   $branch->{value}=$line;
@@ -504,35 +594,71 @@ sub apply_strategy($block,$branch,$code,%data) {
 # ---   *   ---   *   ---
 
   if($is_conditional) {
-
-    my $idex=$gran->{idex};
-
-    $gran->insert(
-      $gran->{idex},
-      '#:cut_dst;>#:cut_fn;>'
-
-    );
-
-    $branch->{value}=~ s/\#\:cut_fn;>//;
-
-    my $node=$gran->{leaves}->[$idex];
     my $dst=join q{ },@dst[0..1];
 
-    my $asg=(!$create_scope)
-      ? $dst[2]
-      : q{;}
-      ;
+# ---   *   ---   *   ---
 
-    $code=~ s/$shwl::RET_RE/$dst[1]/;
+    if($create_scope) {
 
-    $node->{value}=~ s/\#\:cut_fn;>/\{$code\}/;
-    $node->{value}=~ s/\#\:cut_dst;>/$dst$asg/;
-    $branch->{value}=~ s/\#\:cut_dst;>/$dst[1]/;
+      my $asg=q{;};
+      $code=~ s/$shwl::RET_RE/$dst[1]/;
+
+      my $idex=$gran->{idex};
+
+      $gran->insert(
+        $gran->{idex},
+        '#:cut_dst;>#:cut_fn;>'
+
+      );
+
+      $branch->{value}=~ s/\#\:cut_fn;>//;
+
+      my $node=$gran->{leaves}->[$idex];
+
+      $node->{value}=~ s/\#\:cut_fn;>/\{$code\}/;
+      $node->{value}=~ s/\#\:cut_dst;>/$dst$asg/;
+      $branch->{value}=~ s/\#\:cut_dst;>/$dst[1]/;
+
+# ---   *   ---   *   ---
+
+    } else {
+
+      my $asg=$dst[2];
+
+      $branch->{value}=~
+        s/\#\:cut_fn;>/$code/;
+
+      $branch->{value}=~
+        s/\#\:cut_dst;>/$dst[1]$asg/;
+
+    };
 
 # ---   *   ---   *   ---
 
   } else {
-    arstd::nyi('inlining outside conditional');
+
+    my $dst=join q{ },@dst[0..1];
+    my $asg=$dst[2];
+
+    if($create_scope) {
+      my $asg=q{;};
+      $code=~ s/$shwl::RET_RE/$dst[1]/;
+
+      $branch->{value}=~
+        s/\#\:cut_fn;>/\{$code\}/;
+
+      $branch->{parent}->{value}=~
+        s/\#\:cut_dst;>/$dst$asg/;
+
+    } else {
+
+      $branch->{value}=~
+        s/\#\:cut_fn;>/$code/;
+
+      $branch->{parent}->{value}=~
+        s/\#\:cut_dst;>/$dst$asg/;
+
+    };
 
   };
 
