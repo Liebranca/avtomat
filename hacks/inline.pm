@@ -247,7 +247,7 @@ sub process_block($rd,$pkgname) {
       $ret->{value}=$shwl::RET_STR;
 
       $nd_frame->nit(
-        $ret,q{=},
+        $ret,$shwl::ASG_STR,
         unshift_leaves=>1,
 
       );
@@ -317,6 +317,8 @@ sub make_table_re() {
 
 sub find_args($branch) {
 
+  state $re=qr{^\s*\(\s*|\s*\)\s*$}x;
+
   my $out=$NULLSTR;
 
   if(@{$branch->{leaves}}) {
@@ -333,6 +335,8 @@ sub find_args($branch) {
 
   };
 
+  $out=~ s/$re//sg;
+
   return $out;
 
 };
@@ -343,24 +347,30 @@ sub find_dst($branch) {
 
   my ($dst,$asg)=($NULLSTR,$NULLSTR);
 
-  my $is_decl=$branch->{parent}->{value}=~
+  my $parent=$branch->{parent};
+  my $is_decl=$parent->{value}=~
     m/\b(my|our|state)\b/;
 
   if($is_decl) {
     $is_decl=${^CAPTURE[0]};
 
-    my $par=$branch->{parent};
-    my $dst_nd=$par->{leaves}->[0];
-    my $asg_nd=$par->{leaves}->[1];
+    my $dst_nd=$parent->{leaves}->[0];
+    my $asg_nd=$parent->{leaves}->[1];
 
     $dst=$dst_nd->{value};
     $asg=$asg_nd->{value};
 
-    $par->{value}='#:cut_dst;>';
-    $par->pluck($dst_nd,$asg_nd);
+    $parent->{value}='#:cut_dst;>';
+    $parent->pluck($dst_nd,$asg_nd);
 
   } else {
+
     $is_decl=$NULLSTR;
+    $dst=$parent->{value};
+    $asg=$parent->leaf_value(0);
+
+    $parent->{value}='#:cut_dst;>';
+    $parent->pluck($parent->{leaves}->[0]);
 
   };
 
@@ -379,7 +389,7 @@ sub inspect($rd) {
 
 # ---   *   ---   *   ---
 
-$tree->prich();
+#$tree->prich();
 
   while(
 
@@ -534,6 +544,7 @@ sub solve_dst($rd,$block,$branch) {
   my $asg=$NULLSTR;
 
 # ---   *   ---   *   ---
+# inside parens
 
   if($line=~ s/($dst_re)/#:cut_dst;>/) {
 
@@ -554,10 +565,22 @@ sub solve_dst($rd,$block,$branch) {
 # ---   *   ---   *   ---
 
     } elsif($+{is_defn}) {
-      arstd::nyi('non-decl dst for inline subs');
+
+      $dst.=$+{sigil};
+      $dst.=$+{name};
+
+      $asg=$+{asg_op};
 
     } else {
-      arstd::nyi('void context for inline subs');
+
+      arstd::errout(
+        'Non-decl and non-defn'.q{ }.
+        ' dst for inline sub %s'."\n",
+
+        args=>[$block->{id}],
+        lvl=>$FATAL,
+
+      );
 
     };
 
@@ -583,13 +606,17 @@ sub apply_strategy($block,$branch,$code,%data) {
 
   ;
 
+  my $tree=$branch->root;
   my $create_scope=
     ($block->{inline_strat} & $CREATE_SCOPE)!=0;
 
   my $gran=$branch->{parent}->{parent};
+  my $parent=$branch->{parent};
 
   my @args=@{$data{args}};
   my @dst=@{$data{dst}};
+
+  my $is_decl=length $dst[0];
 
 # ---   *   ---   *   ---
 
@@ -602,22 +629,34 @@ sub apply_strategy($block,$branch,$code,%data) {
 
       my $asg=q{;};
       $code=~ s/$shwl::RET_RE/$dst[1]/;
+      $code=~ s/$shwl::ASG_RE/$dst[2]/;
 
-      my $idex=$gran->{idex};
+      my $idex=$parent->{idex};
 
       $gran->insert(
-        $gran->{idex},
+        $idex,
         '#:cut_dst;>#:cut_fn;>'
 
       );
+
+# ---   *   ---   *   ---
 
       $branch->{value}=~ s/\#\:cut_fn;>//;
 
       my $node=$gran->{leaves}->[$idex];
 
       $node->{value}=~ s/\#\:cut_fn;>/\{$code\}/;
-      $node->{value}=~ s/\#\:cut_dst;>/$dst$asg/;
-      $branch->{value}=~ s/\#\:cut_dst;>/$dst[1]/;
+
+# ---   *   ---   *   ---
+
+      if($is_decl) {
+        $node->{value}=~ s/\#\:cut_dst;>/$dst$asg/;
+        $branch->{value}=~ s/\#\:cut_dst;>/$dst[1]/;
+
+      } else {
+        $node->{value}=~ s/\#\:cut_dst;>//;
+
+      };
 
 # ---   *   ---   *   ---
 
@@ -642,13 +681,34 @@ sub apply_strategy($block,$branch,$code,%data) {
 
     if($create_scope) {
       my $asg=q{;};
-      $code=~ s/$shwl::RET_RE/$dst[1]/;
 
-      $branch->{value}=~
+      $code=~ s/$shwl::RET_RE/$dst[1]/;
+      $code=~ s/$shwl::ASG_RE/$dst[2]/;
+
+      my $fn_nd=
+        $tree->branch_in(qr{\#:cut_fn;>}x);
+
+      my $dst_nd=
+        $tree->branch_in(qr{\#:cut_dst;>}x);
+
+      $fn_nd->{value}=~
         s/\#\:cut_fn;>/\{$code\}/;
 
-      $branch->{parent}->{value}=~
-        s/\#\:cut_dst;>/$dst$asg/;
+# ---   *   ---   *   ---
+
+      if(defined $dst_nd) {
+
+        if($is_decl) {
+          $dst_nd->{value}=~ s/\#\:cut_dst;>/$dst$asg/
+
+        } else {
+          $dst_nd->{value}=~ s/\#\:cut_dst;>//;
+
+        };
+
+      };
+
+# ---   *   ---   *   ---
 
     } else {
 

@@ -127,6 +127,13 @@ BEGIN {
 
       undef,
 
+    ],q{*=}=>[
+
+      undef,
+      undef,
+
+      undef,
+
     ],
 
   };

@@ -66,42 +66,18 @@ sub new_frame(@args) {
 # make child node or create a new tree
 sub nit($frame,$parent,$val,%opts) {
 
-  # tree/root handle
-  my %tree=(
-
-    root=>undef,
-
-  );my $tree_id;
-
   # opt defaults
   $opts{unshift_leaves}//=0;
 
 # ---   *   ---   *   ---
 
-  # make new tree if no ancestor
-  if(!(defined $parent)) {
-
-    my @ar=@{ $frame->{trees} };
-    $tree_id=@ar;
-
-    push @{ $frame->{trees} },\%tree;
-
-# ---   *   ---   *   ---
-
-  # ... or fetch from id
-  } else {
-    $tree_id=$parent->{root};
-    %tree=%{ $frame->{trees}->[$tree_id] };
-
   # make node instance
-  };my $node=bless {
+  my $node=bless {
 
     value=>$val,
     value_type=>0x00,
 
     leaves=>[],
-
-    root=>$tree_id,
     parent=>undef,
     idex=>0,
 
@@ -127,10 +103,24 @@ sub nit($frame,$parent,$val,%opts) {
 
 # ---   *   ---   *   ---
 
-  } else {
-    $tree{root}=$node;
+  };
 
-  };return $node;
+   return $node;
+
+};
+
+# ---   *   ---   *   ---
+
+sub root($self) {
+
+  my $root=$self;
+
+  while(defined $root->{parent}) {
+    $root=$root->{parent};
+
+  };
+
+  return $root;
 
 };
 
@@ -369,7 +359,6 @@ sub pushlv($self,$overwrite,@pending) {
 
     my $par=$node->{parent};
 
-    $node->{root}=$self->{root};
     $node->{parent}=$self;
 
 # ---   *   ---   *   ---

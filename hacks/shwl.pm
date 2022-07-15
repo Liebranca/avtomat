@@ -59,6 +59,9 @@ package shwl;
   Readonly our $RET_STR=>':__RETVAL__:';
   Readonly our $RET_RE=>qr{\:__RETVAL__\:};
 
+  Readonly our $ASG_STR=>':__ASG__:';
+  Readonly our $ASG_RE=>qr{\:__ASG__\:};
+
 # ---   *   ---   *   ---
 # we need these two DISGUSTING REDUNDANCIES
 # just so that we can bootstrap without making
