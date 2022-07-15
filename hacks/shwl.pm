@@ -699,6 +699,8 @@ sub nit {
     strings=>{},
     tree=>undef,
 
+    cpyn=>0,
+
   };
 
   $block->{name}//=$NULLSTR;

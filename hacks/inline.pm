@@ -367,10 +367,19 @@ sub find_dst($branch) {
 
     $is_decl=$NULLSTR;
     $dst=$parent->{value};
-    $asg=$parent->leaf_value(0);
 
-    $parent->{value}='#:cut_dst;>';
-    $parent->pluck($parent->{leaves}->[0]);
+    if(!$dst=~ m/^[\$@%]+/) {
+
+      $asg=$parent->leaf_value(0);
+
+      $parent->{value}='#:cut_dst;>';
+      $parent->pluck($parent->{leaves}->[0]);
+
+    } else {
+
+      $dst=$NULLSTR;
+
+    };
 
   };
 
@@ -641,11 +650,28 @@ sub apply_strategy($block,$branch,$code,%data) {
 
 # ---   *   ---   *   ---
 
-      $branch->{value}=~ s/\#\:cut_fn;>//;
-
       my $node=$gran->{leaves}->[$idex];
-
       $node->{value}=~ s/\#\:cut_fn;>/\{$code\}/;
+
+# ---   *   ---   *   ---
+
+      my $create_ret=!length join $NULLSTR,@dst;
+
+      if($create_ret) {
+
+        $dst="\$inlined_$block->{name}_$block->{cpyn}";
+        $block->{cpyn}++;
+
+        $branch->{value}=~ s/\#\:cut_fn;>/$dst/;
+
+        $dst='my'.q{ }.$dst;
+        $is_decl=1;
+
+      } else {
+
+        $branch->{value}=~ s/\#\:cut_fn;>//;
+
+      };
 
 # ---   *   ---   *   ---
 
@@ -654,7 +680,9 @@ sub apply_strategy($block,$branch,$code,%data) {
         $branch->{value}=~ s/\#\:cut_dst;>/$dst[1]/;
 
       } else {
+
         $node->{value}=~ s/\#\:cut_dst;>//;
+        $branch->{value}=~ s/\#\:cut_dst;>/$dst/;
 
       };
 
