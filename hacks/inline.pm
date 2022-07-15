@@ -368,7 +368,7 @@ sub find_dst($branch) {
     $is_decl=$NULLSTR;
     $dst=$parent->{value};
 
-    if(!$dst=~ m/^[\$@%]+/) {
+    if($dst=~ m/^[\$\@\%]+/) {
 
       $asg=$parent->leaf_value(0);
 
@@ -376,7 +376,6 @@ sub find_dst($branch) {
       $parent->pluck($parent->{leaves}->[0]);
 
     } else {
-
       $dst=$NULLSTR;
 
     };
@@ -395,6 +394,7 @@ sub inspect($rd) {
   my $tree=$block->{tree};
 
   $rd->recurse($tree);
+  $rd->replstr($tree);
 
 # ---   *   ---   *   ---
 
@@ -457,8 +457,8 @@ sub inspect($rd) {
 
   my $s=$tree->flatten();
 
-  print "$s\n";
-#  print eval("$s")."\n";
+  print "$s\n\n";
+  print eval("$s")."\n";
 
 };
 
@@ -609,18 +609,43 @@ sub solve_dst($rd,$block,$branch) {
 
 sub apply_strategy($block,$branch,$code,%data) {
 
+
+  Readonly state $a_keys=>qr{
+    (?: for|while)
+
+  }x;
+
+  Readonly state $b_keys=>qr{
+    (?: elsif|if|unless)
+
+  }x;
+
+  my $parent=$branch->{parent};
+  my $gran=$parent->{parent};
+
+  my $b_idex=$branch->{idex};
+  my $prev_lv=$parent->{leaves}->[
+    $b_idex-(1*($b_idex>0))
+
+  ];
+
   my $is_conditional=
-    $branch->{parent}->{value}=~
-    m/(?: elsif|if)/x
+
+     ($branch->{parent}->{value}=~ $b_keys)
+  || ($prev_lv->{value}=~ $b_keys)
+
+  ;
+
+  my $is_loop=
+
+     ($branch->{parent}->{value}=~ $a_keys)
+  || ($prev_lv->{value}=~ $a_keys)
 
   ;
 
   my $tree=$branch->root;
   my $create_scope=
     ($block->{inline_strat} & $CREATE_SCOPE)!=0;
-
-  my $gran=$branch->{parent}->{parent};
-  my $parent=$branch->{parent};
 
   my @args=@{$data{args}};
   my @dst=@{$data{dst}};
@@ -629,7 +654,7 @@ sub apply_strategy($block,$branch,$code,%data) {
 
 # ---   *   ---   *   ---
 
-  if($is_conditional) {
+  if($is_conditional || $is_loop) {
     my $dst=join q{ },@dst[0..1];
 
 # ---   *   ---   *   ---
@@ -637,9 +662,6 @@ sub apply_strategy($block,$branch,$code,%data) {
     if($create_scope) {
 
       my $asg=q{;};
-      $code=~ s/$shwl::RET_RE/$dst[1]/;
-      $code=~ s/$shwl::ASG_RE/$dst[2]/;
-
       my $idex=$parent->{idex};
 
       $gran->insert(
@@ -648,10 +670,7 @@ sub apply_strategy($block,$branch,$code,%data) {
 
       );
 
-# ---   *   ---   *   ---
-
       my $node=$gran->{leaves}->[$idex];
-      $node->{value}=~ s/\#\:cut_fn;>/\{$code\}/;
 
 # ---   *   ---   *   ---
 
@@ -659,19 +678,35 @@ sub apply_strategy($block,$branch,$code,%data) {
 
       if($create_ret) {
 
-        $dst="\$inlined_$block->{name}_$block->{cpyn}";
-        $block->{cpyn}++;
+        $dst=
+
+          '$inlined_'.
+          $block->{name}.q{_}.
+          $block->{cpyn}++
+
+        ;
 
         $branch->{value}=~ s/\#\:cut_fn;>/$dst/;
 
+        $dst[1]=$dst;
+
         $dst='my'.q{ }.$dst;
+        $dst[2]='=';
+
         $is_decl=1;
+
+        $code=~ s/$shwl::RET_RE/$dst[1]/;
 
       } else {
 
+        $code=~ s/$shwl::RET_RE/$dst[1]/;
         $branch->{value}=~ s/\#\:cut_fn;>//;
 
       };
+
+
+      $code=~ s/$shwl::ASG_RE/$dst[2]/;
+      $node->{value}=~ s/\#\:cut_fn;>/\{$code\}/;
 
 # ---   *   ---   *   ---
 
@@ -683,6 +718,22 @@ sub apply_strategy($block,$branch,$code,%data) {
 
         $node->{value}=~ s/\#\:cut_dst;>//;
         $branch->{value}=~ s/\#\:cut_dst;>/$dst/;
+
+      };
+
+# ---   *   ---   *   ---
+
+      if($is_loop) {
+
+        $idex=$branch->{idex}+2;
+
+        $parent->insert(
+          $idex,
+          q[{].$code.q[}]
+
+        );
+
+        $node=$parent->{leaves}->[$idex];
 
       };
 

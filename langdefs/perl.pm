@@ -214,7 +214,7 @@ lang::def::nit(
   ptr_decl=>q{
 
     (?<keyw> my|our|state)\s*
-    (?<sigil> [\$@%])
+    (?<sigil> [\\\$@%])
 
     (?<name> $:names;>)\s*
     (?<attrs> :$:names;>\s*)*
@@ -223,7 +223,7 @@ lang::def::nit(
 
   ptr_defn=>q{
 
-    (?<sigil> [\$@%])
+    (?<sigil> [\\\$@%])
     (?<name> $:names;>)?\s*
 
   },
