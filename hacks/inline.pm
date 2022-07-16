@@ -96,7 +96,7 @@ sub decl_args($rd,@args) {
 
 # ---   *   ---   *   ---
 
-sub repl_args($order,@args) {
+sub repl_args($re,$order,@args) {
 
   my %tab;
   my @order=@$order;
@@ -104,7 +104,11 @@ sub repl_args($order,@args) {
 # ---   *   ---   *   ---
 
   for my $node(@args) {
+
     my $key=$node->{value};
+    next if !($key=~ $re);
+
+    $key=${^CAPTURE[0]};
 
 # ---   *   ---   *   ---
 
@@ -132,8 +136,13 @@ sub repl_args($order,@args) {
 
 # ---   *   ---   *   ---
 
+    $key="\\$key";
+
     for my $node(@nodes) {
-      $node->{value}=":__ARG_${i}__:";
+      my $str=":__ARG_${i}__:";
+
+      $node->{value}=~ s/(?<= \$)${key}\b/\{$str\}/sgx;
+      $node->{value}=~ s/${key}\b/$str/sg;
 
     };
 
@@ -198,7 +207,7 @@ sub process_block($rd,$pkgname) {
 # ---   *   ---   *   ---
 # find assignment operations
 
-  my ($order,@args)=$rd->find_args();
+  my ($args_re,$order,@args)=$rd->find_args();
   my %args_asg=$rd->find_asg_ops(@args);
 
   $block->{argc}=int(@$order);
@@ -208,6 +217,7 @@ sub process_block($rd,$pkgname) {
 # handle arg data
 
   for my $arg(@$order) {
+
     $block->{ob_argc}+=
       !defined $arg->{default};
 
@@ -234,7 +244,7 @@ sub process_block($rd,$pkgname) {
 
   };
 
-  repl_args($order,@args);
+  repl_args($args_re,$order,@args);
 
 # ---   *   ---   *   ---
 # handle return values
@@ -270,6 +280,7 @@ sub process_block($rd,$pkgname) {
   };
 
   $rd->replstr($branch);
+
   $block->{inline_code}=$branch->flatten();
 
   $TABLE->{$pkgname.q{::}.$block->{name}}=$block;
@@ -343,7 +354,7 @@ sub find_args($branch) {
 
 # ---   *   ---   *   ---
 
-sub find_dst($branch) {
+sub find_dst($sigil_re,$branch) {
 
   my ($dst,$asg)=($NULLSTR,$NULLSTR);
 
@@ -368,7 +379,7 @@ sub find_dst($branch) {
     $is_decl=$NULLSTR;
     $dst=$parent->{value};
 
-    if($dst=~ m/^[\$\@\%]+/) {
+    if($dst=~ m/^$sigil_re/) {
 
       $asg=$parent->leaf_value(0);
 
@@ -596,7 +607,12 @@ sub solve_dst($rd,$block,$branch) {
 # ---   *   ---   *   ---
 
   } else {
-    ($decl,$dst,$asg)=find_dst($branch);
+    ($decl,$dst,$asg)=find_dst(
+
+      $rd->{lang}->{sigils},
+      $branch
+
+    );
 
   };
 

@@ -1489,31 +1489,39 @@ sub replstr($self,$root) {
 
 sub find_args($self) {
 
-  my $block=$self->{curblk};
-  my $branch=$block->{tree};
-
-  my @out=();
-
-  my @args=();
-  if(length $block->{args}) {
-
-    my $args=$block->{args};
-
 # NOTE: though this works for most languages,
 #       we should really take this re from
 #       a langdef...
 
-    $args=~ s/^\s*\(\s*|\s*\)\s*$//sg;
-    @args=split m/\s*,\s*/,$args;
+  state $parens_re=qr{^\s*\(\s*|\s*\)\s*$}x;
+  state $comma_re=qr{\s*,\s*}x;
+
+# ---   *   ---   *   ---
+
+  my $block=$self->{curblk};
+  my $branch=$block->{tree};
+
+  my @out=();
+  my @args=();
+
+  if(length $block->{args}) {
+
+    my $args=$block->{args};
+
+    $args=~ s/$parens_re//sg;
+    @args=split m/$comma_re/,$args;
 
   };
 
+# ---   *   ---   *   ---
+
+  my $args_re=qr{$^};
   if(@args) {
 
     @args=map {shwl::arg::nit($ARG)} @args;
 
-    my $args_re=lang::arrpat(
-      [map {$ARG->{name}} @args]
+    $args_re=lang::arrpat(
+      [map {$ARG->{name}} @args],0,1
 
     );
 
@@ -1521,7 +1529,7 @@ sub find_args($self) {
 
   };
 
-  return \@args,@out;
+  return $args_re,\@args,@out;
 
 };
 

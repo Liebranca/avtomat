@@ -162,6 +162,10 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
+  sigils=>q{\\?[\$@%&]},
+
+# ---   *   ---   *   ---
+
   sbl_decl=>q{
 
     \bsub\s*
@@ -214,7 +218,7 @@ lang::def::nit(
   ptr_decl=>q{
 
     (?<keyw> my|our|state)\s*
-    (?<sigil> [\\\$@%])
+    (?<sigil> $:sigils;>+)
 
     (?<name> $:names;>)\s*
     (?<attrs> :$:names;>\s*)*
@@ -223,7 +227,7 @@ lang::def::nit(
 
   ptr_defn=>q{
 
-    (?<sigil> [\\\$@%])
+    (?<sigil> $:sigils;>+)
     (?<name> $:names;>)?\s*
 
   },
@@ -254,7 +258,7 @@ lang::def::nit(
 #    '([$%&@][!"\#\'()*+,.:;<=>?`|~-])',
 #    '([$%&@]\{[!-/:-@\`|~]\})',
 
-    '(\$[$%&@])',
+#    '(\$[$%&@])',
 
   ],
 

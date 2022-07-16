@@ -815,6 +815,8 @@ my %DEFAULTS=(
 
 # ---   *   ---   *   ---
 
+  sigils=>q{},
+
   sbl_decl=>qr{$^}x,
 
   ptr_decl=>qr{$^}x,
@@ -1204,6 +1206,7 @@ sub nit(%h) {
     names names_l names_u
 
     asg_op sbl_decl ptr_decl ptr_defn ptr_asg
+    sigils
 
   )) {
 
