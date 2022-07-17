@@ -1259,8 +1259,7 @@ sub parse(
 sub cleaner($self,$body) {
 
   my $comment_re=$self->{lang}->{strip_re};
-
-  $body=~ s/($comment_re)//sg;
+  $body=~ s/($comment_re)//sgmx;
 
   if(!length lang::stripline($body)) {
     $body=$NULLSTR;
@@ -1416,9 +1415,10 @@ sub new_parser($lang,$fname,%opts) {
   for my $id(keys %{$self->{blocks}}) {
 
     my $root=$nd_frame->nit(undef,$id);
-
     my $block=$self->{blocks}->{$id};
+
     my $body=$self->cleaner($block->{body});
+
     $self->tokenizer($body,$root);
 
     $block->{tree}=$root;
@@ -1457,6 +1457,16 @@ sub select_block($self,$id) {
 
 sub hier_sort($self) {
   $self->{lang}->{'hier_sort'}->($self);
+
+};
+
+# ---   *   ---   *   ---
+# eliminates whitespace around ops
+
+sub tighten_ops($self,$ref) {
+
+  my $op=$self->{lang}->{ops};
+  $$ref=~ s/\s*($op)\s*/$1/;
 
 };
 
@@ -1539,6 +1549,8 @@ sub find_args($self) {
 sub find_asg_ops($self,@branches) {
 
   my %asg=();
+  my $asg_op=$self->{lang}->{asg_op};
+
   for my $branch(@branches) {
 
     if(exists $asg{$branch->{value}}) {
@@ -1547,15 +1559,27 @@ sub find_asg_ops($self,@branches) {
 
     };
 
-    next if !@{$branch->{leaves}};
+# ---   *   ---   *   ---
 
-# TODO: build a better pattern
-#       for detecting assignment
+    my $match;
+    if(!@{$branch->{leaves}}) {
+      $match=$branch->{parent}
+        ->branch_in($asg_op);
 
-    if($branch->leaf_value(0) eq '=') {
+    } else {
+      $match=$branch->branch_in($asg_op);
+
+    };
+
+# ---   *   ---   *   ---
+
+    if(defined $match) {
       $asg{$branch->{value}}=[$branch];
 
     };
+
+# ---   *   ---   *   ---
+
 
   };
 

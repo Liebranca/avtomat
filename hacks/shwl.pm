@@ -125,11 +125,11 @@ sub delm($beg,$end=undef) {
 
     (?<delimiter>
 
-    \s*$beg
+    $beg
 
       (?<body> [^$beg$end]* | (?&delimiter) )
 
-    $end\s*
+    $end
 
     )
 

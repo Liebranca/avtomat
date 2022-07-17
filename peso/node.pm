@@ -1463,6 +1463,7 @@ sub branch_in($self,$lookfor) {
   while(@leaves) {
 
     $self=shift @leaves;
+
     if($self->{value}=~ $lookfor) {
       $found=$self;
       last;

@@ -68,6 +68,13 @@ package lang;
   Readonly our $STRIPLINE_RE=>qr{\s+|:__NL__:}x;
 
 # ---   *   ---   *   ---
+
+  Readonly our $OP_L=>0x01;
+  Readonly our $OP_R=>0x02;
+  Readonly our $OP_B=>0x04;
+  Readonly our $OP_A=>0x08;
+
+# ---   *   ---   *   ---
 # value type flags
 
   Readonly my $VT_KEY=>0x01;
@@ -656,38 +663,84 @@ sub register_def($name) {
 sub quick_op_prec(%h) {
 
   my $result={};
+  my $prec=-1;
+
+# ---   *   ---   *   ---
+
+  my $asg_c=undef;
+
+  if(exists $h{asg}) {
+    $asg_c=$h{asg};
+    delete $h{asg};
+
+    my ($sign,$compound,$standalone)=@$asg_c;
+    my @asg_ops=();
+
+    for my $c(@$compound) {
+      push @asg_ops,$c.$sign;
+
+    };
+
+    for my $c(@$standalone) {
+      push @asg_ops,$c;
+
+    };
+
+    for my $op(@asg_ops) {
+      if(!exists $h{$op}) {$h{$op}=$OP_B|$OP_A}
+      else {$h{$op}|=$OP_A};
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+
   for my $op(keys %h) {
 
     my $flags=$h{$op};
-    my $ar=[undef,undef,undef];
+
+    my $ar=[
+
+      undef,  # takes operand on left
+      undef,  # takes operand on right
+      undef,  # ^takes both operands
+
+      0       # is assignment operator
+
+    ];
 
 # ---   *   ---   *   ---
 
-    if($flags&0x01) {
+    if($flags & $OP_L) {
       $ar->[0]
-        =[-1,sub {my ($x)=@_;return $$x.$op}]
+        =[$prec,sub($x) {return $$x.$op}]
 
     };
 
 # ---   *   ---   *   ---
 
-    if($flags&0x02) {
+    if($flags & $OP_R) {
       $ar->[1]
-        =[-1,sub {my ($x)=@_;return $op.$$x}]
+        =[$prec,sub($y) {return $op.$$y}]
 
     };
 
 # ---   *   ---   *   ---
 
-    if($flags&0x04) {
+    if($flags & $OP_B) {
       $ar->[2]
-        =[-1,sub {my ($x,$y)=@_;return $$x.$op.$$y}]
+        =[$prec,sub($x,$y) {return $$x.$op.$$y}]
 
     };
 
 # ---   *   ---   *   ---
 
+    if($flags & $OP_A) {$ar->[3]=1};
+
+    $prec++;
     $result->{$op}=$ar;
+
   };
 
   return $result;
@@ -1025,9 +1078,10 @@ sub nit(%h) {
 # ---   *   ---   *   ---
 # handle creation of operator pattern
 
-  #my $op_obj='node_op=HASH\(0x[0-9a-f]+\)';
+  my $op_obj='node_op=HASH\(0x[0-9a-f]+\)';
   if(!keys %{$ref->{op_prec}}) {
-    $ref->{ops}='$^' #"($op_obj)";
+    $ref->{ops}="($op_obj)";
+    $ref->{asg_op}=qr{($^)};
 
 # ---   *   ---   *   ---
 
@@ -1037,7 +1091,21 @@ sub nit(%h) {
 
     );
 
-    #$ref->{ops}=~ s/\)$/|${op_obj})/;
+    $ref->{ops}=~ s/\)$/|${op_obj})/;
+
+# ---   *   ---   *   ---
+
+    my @asg_ops=();
+    for my $op(keys %{$ref->{op_prec}}) {
+
+      my $data=$ref->{op_prec}->{$op};
+
+      # is assignment op
+      if($data->[3]) {push @asg_ops,$op};
+
+    };
+
+    $ref->{asg_op}=lang::arrpat(\@asg_ops,0,1);
 
   };
 
@@ -1205,8 +1273,8 @@ sub nit(%h) {
     drfc hier hier_re
     names names_l names_u
 
-    asg_op sbl_decl ptr_decl ptr_defn ptr_asg
-    sigils
+    sbl_decl ptr_decl ptr_defn
+    ptr_asg sigils
 
   )) {
 

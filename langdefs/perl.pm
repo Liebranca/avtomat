@@ -20,123 +20,65 @@ package langdefs::perl;
 
 BEGIN {
 
-  Readonly my $OPS=>{
+  Readonly my $OPS=>lang::quick_op_prec(
 
-    q{->}=>[
+    q{->}=>$lang::OP_B,
 
-      undef,
-      undef,
+    q{!}=>$lang::OP_R,
+    q{~}=>$lang::OP_R,
 
-      [-1,sub($x,$y) {return "$$x->$$y"}],
+    q{<<}=>$lang::OP_B,
+    q{>>}=>$lang::OP_B,
 
-    ],q{!}=>[
+    q{|}=>$lang::OP_B,
+    q{&}=>$lang::OP_B,
+    q{^}=>$lang::OP_B,
 
-      undef,
-      [0,sub($x) {return !$$x}],
+    q{**}=>$lang::OP_B,
+    q{*}=>$lang::OP_B,
 
-      undef,
+    q{/}=>$lang::OP_B,
+    q{%}=>$lang::OP_B,
 
-    ],q{++}=>[
+    q{++}=>$lang::OP_L|$lang::OP_R,
+    q{+}=>$lang::OP_B,
 
-      undef,
-      undef,
+    q{--}=>$lang::OP_L|$lang::OP_R,
+    q{-}=>$lang::OP_B,
 
-      undef,
+    q{<}=>$lang::OP_B,
+    q{<=}=>$lang::OP_B,
 
-    ],q{+}=>[
+    q{>}=>$lang::OP_B,
+    q{>=}=>$lang::OP_B,
 
-      undef,
-      undef,
+    q{<=>}=>$lang::OP_B,
 
-      undef,
+    q{!=}=>$lang::OP_B,
+    q{==}=>$lang::OP_B,
 
-    ],q{--}=>[
+    q{||}=>$lang::OP_B,
+    q{&&}=>$lang::OP_B,
 
-      undef,
-      undef,
+    q{.}=>$lang::OP_B,
+    q{=>}=>$lang::OP_B,
+    q{,}=>$lang::OP_B,
 
-      undef,
+# ---   *   ---   *   ---
+# assignment ops
 
-    ],q{-}=>[
+    q{=}=>$lang::OP_B|$lang::OP_A,
 
-      undef,
-      undef,
+    q{asg}=>[
 
-      undef,
+      q{=},
 
-    ],q{**}=>[
+      [qw(. // * / % + - ^ & |)],
+      [qw(=~ ++ --)],
 
-      undef,
-      undef,
+    ]
 
-      undef,
-
-    ],q{*}=>[
-
-      undef,
-      undef,
-
-      undef,
-
-    ],q{<=}=>[
-
-      undef,
-      undef,
-
-      [0,sub($x,$y) {return $$x<=$$y}],
-
-    ],q{.}=>[
-
-      undef,
-      undef,
-
-      [0,sub($x,$y) {return "$$x.$$y"}],
-
-    ],q{=>}=>[
-
-      undef,
-      undef,
-
-      [97,sub($x,$y) {return "$$x=>$$y"}],
-
-    ],q{,}=>[
-
-      [98,sub($x,$y) {return "$$x,"}],
-      undef,
-
-      [98,sub($x,$y) {return "$$x,$$y"}],
-
-    ],q{!=}=>[
-
-      undef,
-      undef,
-
-      [99,sub($x,$y) {return "$$x!=$$y"}],
-
-    ],q{=}=>[
-
-      undef,
-      undef,
-
-      [99,sub($x,$y) {return "$$x=$$y"}],
-
-    ],q{.=}=>[
-
-      undef,
-      undef,
-
-      undef,
-
-    ],q{*=}=>[
-
-      undef,
-      undef,
-
-      undef,
-
-    ],
-
-  };
+  );
 
 # ---   *   ---   *   ---
 
@@ -162,7 +104,7 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  sigils=>q{\\?[\$@%&]},
+  sigils=>q{\\\\?[\$@%&]},
 
 # ---   *   ---   *   ---
 
@@ -184,36 +126,6 @@ lang::def::nit(
   },
 
 # ---   *   ---   *   ---
-# this section is a MESS
-
-  asg_op=>q{
-
-    (?<asg_op>
-
-      (?: \.
-      |   \+
-      |   \-
-
-      |   \/\/
-      |   \/
-
-      |   \*
-      |   \%
-
-      |   \|
-      |   \&
-      |   \^
-
-      )?  \=
-
-    )
-
-    | (?: \=\~)
-
-  },
-
-# ---   *   ---   *   ---
-# ^likewise
 
   ptr_decl=>q{
 

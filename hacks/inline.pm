@@ -45,8 +45,40 @@ package inline;
   my $PARENS_RE=shwl::delm(q[(],q[)]);
 
 # ---   *   ---   *   ---
+# TODO: move this somewhere else
+
+  use Perl::Tidy;
+
+sub tidyup($sref) {
+
+  my $out=$NULLSTR;
+
+  Perl::Tidy::perltidy(
+    source=>$sref,
+    destination=>\$out,
+    argv=>[qw(
+
+      -l=54 -i=2 -cb -nbl -sot -sct
+      -blbc=1 -blbcl=*
+      -mbl=1
+
+    )],
+
+  );
+
+  $out=~ s/(\};?\n)/$1\n/sg;
+  $out=~ s/^(\s*\{)\s*/\n$1 /sgm;
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 
 sub decl_args($rd,@args) {
+
+  my $sigil=$rd->{lang}->{sigils};
+  my $name=$rd->{lang}->{names};
 
   my $nd_frame=$rd->{program}->{node};
   my $block=$rd->{curblk};
@@ -59,7 +91,7 @@ sub decl_args($rd,@args) {
 
   for my $argname(@args) {
 
-    $argname=~ s/^([\$\@\%]+)//sg;
+    $argname=~ s/^($sigil+)//sg;
     my $original=$argname;
 
     if(!defined ${^CAPTURE[0]}) {
@@ -76,7 +108,22 @@ sub decl_args($rd,@args) {
 
 # ---   *   ---   *   ---
 
-    my $sigil=${^CAPTURE[0]};
+    $argname=~ s/^($name+)//sg;
+    if(!defined ${^CAPTURE[0]}) {
+
+      arstd::errout(
+        "Can't match ma,e for var %s\n",
+
+        args=>[$original],
+        lvl=>$FATAL,
+
+      );
+
+    };
+
+    $argname=${^CAPTURE[0]};
+
+# ---   *   ---   *   ---
 
     my $arg=sprintf $shwl::ARG_FMAT,$i;
     my $nd=$nd_frame->nit(
@@ -141,7 +188,12 @@ sub repl_args($re,$order,@args) {
     for my $node(@nodes) {
       my $str=":__ARG_${i}__:";
 
-      $node->{value}=~ s/(?<= \$)${key}\b/\{$str\}/sgx;
+      $node->{value}=~ s{
+
+        (?<= \$)${key}\b
+
+      } {\{$str\}}sgx;
+
       $node->{value}=~ s/${key}\b/$str/sg;
 
     };
@@ -162,26 +214,34 @@ sub rename_args($rd,@args) {
   my $block=$rd->{curblk};
   my $id=$block->{name};
 
+  my $sigil=$rd->{lang}->{sigils};
+  my $name=$rd->{lang}->{names};
+
 # ---   *   ---   *   ---
 
   for my $mention(@args) {
-
     my $key=$mention->{value};
-
-    $key=~ s/^([\$\@\%]+)//sg;
 
 # ---   *   ---   *   ---
 
+    $key=~ s/^($sigil+)//sg;
+
     if(!defined ${^CAPTURE[0]}) {
-      die "Can't match sigil";
+      arstd::errout(
+        "Can't match sigil for var %s\n",
+
+        args=>[$key],
+        lvl=>$FATAL,
+
+      );
 
     };
 
+    my $var_sigil=${^CAPTURE[0]};
+
 # ---   *   ---   *   ---
 
-    my $sigil=${^CAPTURE[0]};
-
-    $mention->{value}=$sigil.
+    $mention->{value}=$var_sigil.
       "inlined_${id}_$key";
 
   };
@@ -282,6 +342,7 @@ sub process_block($rd,$pkgname) {
   $rd->replstr($branch);
 
   $block->{inline_code}=$branch->flatten();
+  $rd->tighten_ops(\$block->{inline_code});
 
   $TABLE->{$pkgname.q{::}.$block->{name}}=$block;
 
@@ -468,8 +529,10 @@ sub inspect($rd) {
 
   my $s=$tree->flatten();
 
-  print "$s\n\n";
-  print eval("$s")."\n";
+  my $out=tidyup(\$s);
+
+  print "$out\n";
+  print eval($out)."\n";
 
 };
 
