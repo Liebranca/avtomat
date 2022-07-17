@@ -24,8 +24,6 @@ lang::def::nit(
 
   mag=>'Python script',
 
-  com=>'#',
-
 # ---   *   ---   *   ---
 
   types=>[qw(

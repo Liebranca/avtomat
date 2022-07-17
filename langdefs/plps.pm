@@ -43,7 +43,7 @@ package langdefs::plps;
 
 # ---   *   ---   *   ---
 
-  Readonly my $OPS=>{
+  my $OPS={
 
     q{->}=>[
 
@@ -174,12 +174,12 @@ package langdefs::plps;
 
 # ---   *   ---   *   ---
 
-  Readonly my $DIRECTIVE=>{
+  my $DIRECTIVE={
 
-    'beg'=>[sbl_id,'1<type>:1<bare>'],
-    'end'=>[sbl_id,'0'],
+    beg=>[sbl_id,'1<type>:1<bare>'],
+    end=>[sbl_id,'0'],
 
-    'in'=>[sbl_id,'1<path>'],
+    in=>[sbl_id,'1<path>'],
 
   };
 

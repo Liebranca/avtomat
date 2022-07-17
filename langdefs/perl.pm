@@ -89,9 +89,13 @@ lang::def::nit(
   hed=>'^#!.*perl',
 
   mag=>'Perl script',
-  com=>'\#',
 
   drfc=>'(::|->)',
+
+  lcom=>lang::eaf(
+    lang::lkback(q{$%&@\'"},q{\#},),0,1
+
+  ),
 
 # ---   *   ---   *   ---
 
@@ -268,14 +272,6 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-# ugh, these effy line comments
-);lang->perl->{lcom}=lang::eaf(
-
-  lang::lkback(
-    '$%&@\'"',
-    lang->perl->{com}
-
-  ),0,1
 );
 
 # ---   *   ---   *   ---

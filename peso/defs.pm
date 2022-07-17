@@ -20,6 +20,10 @@
 
 package peso::defs;
 
+  use v5.36.0;
+  use strict;
+  use warnings;
+
   use Exporter 'import';
   our @EXPORT=qw(
 
@@ -45,21 +49,21 @@ our $USE_PLPS=0;
 
 # ---   *   ---   *   ---
 
-sub DEFINE($$$) {
+sub DEFINE($key,$src,$coderef) {
 
   $SBL_TABLE->DEFINE(
-    $_[0],$_[1],$_[2],$USE_PLPS
+    $key,$src,$coderef,$USE_PLPS
 
   );
 };
 
 # ---   *   ---   *   ---
 
-sub ALIAS($$) {
+sub ALIAS($key,$src) {
 
 
   $SBL_TABLE->ALIAS(
-    $_[0],$_[1]
+    $key,$src
 
   );
 };
@@ -67,9 +71,9 @@ sub ALIAS($$) {
 # ---   *   ---   *   ---
 
 sub sbl_id() {return $SBL_ID++;};
-sub sbl_new($) {
+sub sbl_new($use_plps) {
 
-  ($USE_PLPS)=@_;
+  $USE_PLPS=$use_plps;
   $SBL_TABLE=peso::sbl::new_frame();
 
 };

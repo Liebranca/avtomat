@@ -407,14 +407,10 @@ sub eiths(
 #   > grab everything after pattern until newline
 #   > newline
 
-# line_beg=1 matches only at beggining of line
-# line_beg=-1 doesnt match if pattern is first non-blank
-# ^ line_beg=0 disregards these two
-
 sub eaf(
 
   $pat,
-  $line_beg,
+  $line_beg=1,
   $disable_escapes=1,
 
 ) {
@@ -780,8 +776,10 @@ my %DEFAULTS=(
   scope_bound=>qr{[{}]}x,
 
   hed=>'N/A',
-  ext=>'',
-  mag=>'',
+  ext=>$NULLSTR,
+  mag=>$NULLSTR,
+
+  lcom=>$NULLSTR,
 
 # ---   *   ---   *   ---
 
@@ -1232,6 +1230,7 @@ sub nit(%h) {
 # replace $:tokens;> with values
 
   for my $key(keys %$ref) {
+
     if($ref->{$key}=~ $lang::ARRAYREF_RE) {
       arr_vrepl($ref,$key);
 
@@ -1334,6 +1333,14 @@ sub nit(%h) {
     $fnkey=~ s/&$//;
 
     $ref->{$key}=eval('\&'."$fnkey");
+
+  };
+
+# ---   *   ---   *   ---
+
+  if(!length $ref->{lcom}) {
+
+    $ref->{lcom}=$ref->{com}.q{.*}."\n";
 
   };
 

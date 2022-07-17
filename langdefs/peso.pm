@@ -13,6 +13,8 @@
 
 # deps
 package langdefs::peso;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
@@ -34,40 +36,40 @@ package langdefs::peso;
 # ---   *   ---   *   ---
 # leaps and such
 
-  Readonly my $TYPE=>{
+  my $TYPE={
 
     # primitives
-    'char'=>1,
-    'wide'=>2,
-    'word'=>4,
-    'long'=>8,
+    char=>1,
+    wide=>2,
+    word=>4,
+    long=>8,
 
 # ---   *   ---   *   ---
 # granularity
 
     # ptr size
-    'unit'=>0x0008,
+    unit=>0x0008,
 
     # pointers align to line
     # mem buffers align to page
 
-    'line'=>0x0010, # two units
-    'page'=>0x1000, # 256 lines
+    line=>0x0010, # two units
+    page=>0x1000, # 256 lines
 
 # ---   *   ---   *   ---
 # function types
 
-    'nihil'=>8,     # void(*nihil)(void)
-    'stark'=>8,     # void(*stark)(void*)
+    nihil=>8,     # void(*nihil)(void)
+    stark=>8,     # void(*stark)(void*)
 
-    'signal'=>8,    # int(*signal)(int)
+    signal=>8,    # int(*signal)(int)
 
   };
 
 # ---   *   ---   *   ---
 # builtins and functions, group A
 
-  Readonly my $BUILTIN=>{
+  my $BUILTIN={
 
     'cpy'=>[sbl_id,'2<ptr,ptr|bare>'],
     'mov'=>[sbl_id,'2<ptr,ptr>'],
@@ -86,7 +88,7 @@ package langdefs::peso;
 
 # ---   *   ---   *   ---
 
-  Readonly my $DIRECTIVE=>{
+  my $DIRECTIVE={
 
     'reg'=>[sbl_id,'1<bare>'],
     'rom'=>[sbl_id,'1<bare>'],
@@ -101,7 +103,7 @@ package langdefs::peso;
 
 # ---   *   ---   *   ---
 
-  Readonly my $FCTL=>{
+  my $FCTL={
 
     'jmp'=>[sbl_id,'1<ptr>'],
     'jif'=>[sbl_id,'2<ptr,ptr|bare>'],
@@ -118,14 +120,14 @@ package langdefs::peso;
 # missing/needs rethinking:
 # str,buf,fptr,lis,lock
 
-  Readonly my $INTRINSIC=>{
+  my $INTRINSIC={
 
     'wed'=>[sbl_id,'1<bare>'],
     'unwed'=>[sbl_id,'0'],
 
   };
 
-  Readonly my $SPECIFIER=>{
+  my $SPECIFIER={
 
     'ptr'=>[sbl_id,'0'],
     'fptr'=>[sbl_id,'0'],
@@ -151,9 +153,8 @@ package langdefs::peso;
 # .
 # >clan
 
-sub reorder($) {
+sub reorder($tree) {
 
-  my $tree=shift;
   my $root=$tree;
 
   my $anchor=$root;
@@ -525,7 +526,7 @@ lang::def::nit(
   mag=>'$ program',
 
   op_prec=>$peso::ops::TABLE,
-  symbols=>$SBL_TABLE,
+#  symbols=>$SBL_TABLE,
 
 # ---   *   ---   *   ---
 
@@ -578,18 +579,18 @@ lang::def::nit(
 # ---   *   ---   *   ---
 # load typedata to the type-table
 
-  { my $ref=lang->peso->{types};
-    my $fr_type=peso::type::new_frame();
-
-    for my $key(keys %$ref) {
-      my $value=$TYPE->{$key};
-      $ref->{$key}=$fr_type->nit($key,$value);
-
-    };
-
-    $ref->{types_frame}=$fr_type;
-
-  };
+#  { my $ref=lang->peso->{types};
+#    my $fr_type=peso::type::new_frame();
+#
+#    for my $key(keys %$ref) {
+#      my $value=$TYPE->{$key};
+#      $ref->{$key}=$fr_type->nit($key,$value);
+#
+#    };
+#
+#    $ref->{types_frame}=$fr_type;
+#
+#  };
 
 };
 
