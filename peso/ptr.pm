@@ -473,7 +473,7 @@ sub leap($self,$step) {
 sub save($self) {
 
   my $frame=$self->{frame};
-  my $lang=$frame->master->lang;
+  my $lang=$frame->{master}->{lang};
 
 # ---   *   ---   *   ---
 # redecl guard
@@ -793,7 +793,7 @@ sub create($master) {
 # memory ops
 
 sub nunit($frame) {
-  push @{$frame->{mem}()},0x00;
+  push @{$frame->{mem}},0x00;
   return;
 
 };
@@ -804,8 +804,8 @@ sub nunit($frame) {
 
 sub wed($frame,$w) {
 
-  my $lang=$frame->master->lang;
-  my $types=$lang->types;
+  my $lang=$frame->{master}->{lang};
+  my $types=$lang->{types};
 
   if(!defined $w) {
     $frame->{wed}=undef;

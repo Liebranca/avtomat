@@ -60,7 +60,7 @@ my $FILE_LIST=[
   '/style.pm',
   '/arstd.pm',
 
-  '/peso/fndmtl.pm',
+  '/peso/st.pm',
   '/peso/defs.pm',
 
   '/peso/ops.pm',

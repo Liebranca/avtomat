@@ -31,7 +31,7 @@ package peso::rd;
 #  use inline;
 
   use peso::program;
-  use peso::fndmtl;
+  use peso::st;
 
 # ---   *   ---   *   ---
 # info
@@ -1076,7 +1076,7 @@ sub plps_parse(
 
     };if(length $exp_key) {
 
-      $exp->{btc}=peso::fndmtl::take(
+      $exp->{btc}=peso::st::take(
         $rd->{program},
         $exp_key,
         $tree
@@ -1098,7 +1098,7 @@ sub plps_parse(
 # THEN try to make sense of the program
 
       if($exp_key=~ m/_decl$/) {
-        peso::fndmtl::give(
+        peso::st::give(
           $rd->{program},
           $exp
 
@@ -1227,7 +1227,7 @@ sub parse(
     $program->incpass();
 
     for my $branch(@{$root->{leaves}}) {
-      peso::fndmtl::give($program,$branch);
+      peso::st::give($program,$branch);
 
     };
 
@@ -1290,7 +1290,6 @@ sub tokenizer($self,$body,$root=undef) {
       && length lang::stripline($s)
 
       ) {
-
         push @exps,$s;
 
       };
@@ -1471,6 +1470,75 @@ sub tighten_ops($self,$ref) {
 };
 
 # ---   *   ---   *   ---
+
+sub group_lists($self,$tree) {
+
+  my $separator=$self->{lang}->{sep_ops};
+
+  my $in_list=0;
+  my $prev=undef;
+
+  my @list=();
+  my @result=();
+  my @discard=();
+
+# ---   *   ---   *   ---
+
+  for my $leaf(@{$tree->{leaves}}) {
+
+    if($leaf->{value}=~ $separator) {
+
+      if(!@list) {
+        push @list,$prev;
+
+      };
+
+      push @discard,$leaf;
+      $in_list=1;
+
+# ---   *   ---   *   ---
+
+    } elsif($in_list) {
+
+      push @list,$leaf;
+      $in_list=0;
+
+    } else {
+
+      if(@list) {
+        push @result,[@list];
+
+      };
+
+      @list=();
+
+    };
+
+# ---   *   ---   *   ---
+
+    $prev=$leaf;
+
+  };
+
+# ---   *   ---   *   ---
+
+  if(@list) {
+    push @result,[@list];
+
+  };
+
+  for my $ref(@result) {
+
+    my $list=$tree->{frame}->nit($tree,'list:');
+    $list->pushlv(1,@$ref);
+
+  };
+
+  $tree->pluck(@discard);
+
+};
+
+# ---   *   ---   *   ---
 # expands tokens into string literals
 
 sub replstr($self,$root) {
@@ -1595,7 +1663,7 @@ sub nit2($program,$fname,%opts) {
 
     program=>$program,
 
-    lang=>$program->lang,
+    lang=>$program->{lang},
 
     blocks=>shwl::codefold(
       $fname,$program->{lang},%opts

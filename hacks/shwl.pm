@@ -535,6 +535,7 @@ sub codefold($fname,$lang,%opts) {
   my $dels_order=$deldata->{order};
 
   my $sbl_decl=$lang->{sbl_decl};
+  my $sbl_key=$lang->{sbl_key};
 
 # ---   *   ---   *   ---
 
@@ -609,7 +610,7 @@ sub codefold($fname,$lang,%opts) {
   $cut_token=sprintf $CUT_FMAT,'BLK',$i++;
 
   for my $id(@block_ids) {
-    $body=~ s/${cut_token}/sub $id;/;
+    $body=~ s/${cut_token}/$sbl_key $id;/;
     $cut_token=sprintf $CUT_FMAT,'BLK',$i++;
 
   };

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# FNDMTL
-# It's fundamentals
+# ST
+# Fundamental peso structures
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -12,7 +12,7 @@
 # ---   *   ---   *   ---
 
 # deps
-package peso::fndmtl;
+package peso::st;
 
   use v5.36.0;
   use strict;
@@ -23,7 +23,7 @@ package peso::fndmtl;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.1;
+  our $VERSION=v0.02.0;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -62,34 +62,11 @@ sub getout($type) {
 };
 
 # ---   *   ---   *   ---
-# decomposes a value declaration tree
 
-sub ptr_decl($m,$tree) {
+sub regpad($names,$values) {
 
-  my ($header,$data,%out)=getout('ptr_decl');
-
-# ---   *   ---   *   ---
-# save block entry descriptors
-
-  $header->{spec}=[
-    $tree->branch_values($BRANCH_RE->{spec})
-
-  ];
-
-  $header->{type}=[
-    $tree->branch_values($BRANCH_RE->{type})
-
-  ];
-
-  my @names=$tree->branch_values(
-    $BRANCH_RE->{name}
-
-  );
-
-  my @values=$tree->branch_values(
-    $BRANCH_RE->{vals}
-
-  );
+  my @names=@$names;
+  my @values=@$values;
 
 # ---   *   ---   *   ---
 # case A: more names than values
@@ -120,21 +97,68 @@ sub ptr_decl($m,$tree) {
     };
   };
 
+  return (\@names,\@values);
+
+};
+
 # ---   *   ---   *   ---
-# push key:value to data
+# pushes key:value to array
 
-  my $types=$m->lang->types;
-  while(@names) {
+sub regfmat($dst,$names,$values) {
 
-    my $name=shift @names;
-    my $value=shift @values;
+  while(@$names) {
 
-    if(exists $m->{refs}->{$value}) {
-      $value=$m->{refs}->{$value};
+    my $name=shift @$names;
+    my $value=shift @$values;
 
-    };
+# NOTE: this is a dereference
+#       ill handle it later...
+#
+#    if(exists $m->{refs}->{$value}) {
+#      $value=$m->{refs}->{$value};
+#
+#    };
 
-    push @$data,[$name,$value];
+    push @$dst,[$name,$value];
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# decomposes a value declaration tree
+
+sub ptr_decl($m,$tree) {
+
+  my ($header,$data,%out)=getout('ptr_decl');
+
+# ---   *   ---   *   ---
+# save block entry descriptors
+
+  $header->{spec}=[
+    $tree->branch_values($BRANCH_RE->{spec})
+
+  ];
+
+  $header->{type}=[
+    $tree->branch_values($BRANCH_RE->{type})
+
+  ];
+
+  my @names=$tree->branch_values(
+    $BRANCH_RE->{name}
+
+  );
+
+  my @values=$tree->branch_values(
+    $BRANCH_RE->{vals}
+
+  );
+
+# ---   *   ---   *   ---
+
+  { my ($names,$values)=regpad(\@names,\@values);
+    regfmat($data,$names,$values);
 
   };
 

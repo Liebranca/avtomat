@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
 # PROGRAM
-# Runs a peso blocktree
+# Holds processed blocktrees
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -20,6 +20,9 @@ package peso::program;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
+  use style;
+  use arstd;
+
   use peso::node;
   use peso::blk;
   use peso::sbl;
@@ -27,16 +30,8 @@ package peso::program;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.4;
+  our $VERSION=v0.50.0;
   our $AUTHOR='IBN-3DILA';
-
-# ---   *   ---   *   ---
-# getters
-
-sub ptr($self) {return $self->{ptr};};
-sub blk($self) {return $self->{blk};};
-sub node($self) {return $self->{node};};
-sub lang($self) {return $self->{lang};};
 
 # ---   *   ---   *   ---
 # global kick
@@ -87,6 +82,33 @@ sub nxins($self,$new=undef) {
 };sub incnxins($self) {return $self->{nxins}++};
 
 # ---   *   ---   *   ---
+# peso struct stuff
+
+sub reg($self,$name,@entries) {
+
+  my $bframe=$self->{blk};
+
+  # get clan or non
+  my $dst=($bframe->{dst}->{attrs})
+  ? $bframe->{dst}->{parent}
+  : $bframe->{dst}
+  ;
+
+  # make new block
+  my $blk=$bframe->nit($dst,$name,$O_RD);
+
+# ---   *   ---   *   ---
+# push values to block
+
+  for my $entry(@entries) {
+    my ($type,$attrs,$data)=@$entry;
+    $blk->expand($data,$type,1);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # placeholder
 
 sub run($self,@args) {
@@ -99,6 +121,10 @@ sub set_entry($self,$coderef) {
   return;
 
 };
+
+# ---   *   ---   *   ---
+
+
 
 # ---   *   ---   *   ---
 1; # ret

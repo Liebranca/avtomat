@@ -38,7 +38,7 @@ package avt;
   use langdefs::c;
   use langdefs::perl;
 
-  use peso::fndmtl;
+  use peso::st;
 
 # ---   *   ---   *   ---
 # info
@@ -747,22 +747,22 @@ sub file_sbl($f) {
 # decompose the tree
 
     my @specs=$tree->branch_values(
-      peso::fndmtl::BRANCH_RE()->{spec}
+      peso::st::BRANCH_RE()->{spec}
 
     );
 
     my @types=$tree->branch_values(
-      peso::fndmtl::BRANCH_RE()->{type}
+      peso::st::BRANCH_RE()->{type}
 
     );
 
     my @indlvl=$tree->branch_values(
-      peso::fndmtl::BRANCH_RE()->{indlvl}
+      peso::st::BRANCH_RE()->{indlvl}
 
     );
 
     my @names=$tree->branch_values(
-      peso::fndmtl::BRANCH_RE()->{bare}
+      peso::st::BRANCH_RE()->{bare}
 
     );
 

@@ -112,9 +112,11 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
+  sbl_key=>q{sub},
+
   sbl_decl=>q{
 
-    \bsub\s*
+    \b$:sbl_key;>\s+
 
     (?<name> $:names;>)?\s*
     (?<attrs> :$:names;>\s*)*
@@ -224,7 +226,7 @@ lang::def::nit(
     msgctl msgget msgsnd msgrcv oct open
     opendir ord pack pipe pop print printf
 
-    push q qq qx rand read readdir readlink
+    push q qq qx qr rand read readdir readlink
     readline recv rename require ref
 
     reverse rewinddir rindex rmdir

@@ -19,6 +19,7 @@ package langdefs::peso;
   use warnings;
 
   use Readonly;
+  use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
@@ -34,18 +35,19 @@ package langdefs::peso;
   use peso::type;
 
 # ---   *   ---   *   ---
+
+BEGIN {
+
+# ---   *   ---   *   ---
 # leaps and such
 
-  my $TYPE={
+  Readonly my $TYPE=>{
 
     # primitives
     char=>1,
     wide=>2,
     word=>4,
     long=>8,
-
-# ---   *   ---   *   ---
-# granularity
 
     # ptr size
     unit=>0x0008,
@@ -69,7 +71,7 @@ package langdefs::peso;
 # ---   *   ---   *   ---
 # builtins and functions, group A
 
-  my $BUILTIN={
+  Readonly my $BUILTIN=>{
 
     'cpy'=>[sbl_id,'2<ptr,ptr|bare>'],
     'mov'=>[sbl_id,'2<ptr,ptr>'],
@@ -88,7 +90,7 @@ package langdefs::peso;
 
 # ---   *   ---   *   ---
 
-  my $DIRECTIVE={
+  Readonly my $DIRECTIVE=>{
 
     'reg'=>[sbl_id,'1<bare>'],
     'rom'=>[sbl_id,'1<bare>'],
@@ -103,7 +105,7 @@ package langdefs::peso;
 
 # ---   *   ---   *   ---
 
-  my $FCTL={
+  Readonly my $FCTL=>{
 
     'jmp'=>[sbl_id,'1<ptr>'],
     'jif'=>[sbl_id,'2<ptr,ptr|bare>'],
@@ -120,14 +122,14 @@ package langdefs::peso;
 # missing/needs rethinking:
 # str,buf,fptr,lis,lock
 
-  my $INTRINSIC={
+  Readonly my $INTRINSIC=>{
 
     'wed'=>[sbl_id,'1<bare>'],
     'unwed'=>[sbl_id,'0'],
 
   };
 
-  my $SPECIFIER={
+  Readonly my $SPECIFIER=>{
 
     'ptr'=>[sbl_id,'0'],
     'fptr'=>[sbl_id,'0'],
@@ -212,7 +214,6 @@ sub reorder($tree) {
 
 # ---   *   ---   *   ---
 
-BEGIN {
 #  sbl_new(1);
 
 # ---   *   ---   *   ---
@@ -522,7 +523,7 @@ lang::def::nit(
   name=>'peso',
 
   ext=>'\.(pe)$',
-  hed=>'\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$',
+  hed=>'\$;',
   mag=>'$ program',
 
   op_prec=>$peso::ops::TABLE,
@@ -557,6 +558,11 @@ lang::def::nit(
 
   ],
 
+  fctls=>[
+    keys %$FCTL,
+
+  ],
+
 # ---   *   ---   *   ---
 
   builtins=>[qw(
@@ -569,6 +575,33 @@ lang::def::nit(
   ],
 
 # ---   *   ---   *   ---
+
+  sbl_key=>q{proc},
+
+  sbl_decl=>q{
+
+    \b$:sbl_key;> \s+
+
+    (?<attrs> $:types->re;> \s+)*\s*
+    (?<name> $:names;>)\s*
+
+    [;]+
+
+    (?<scope>
+      (?<code>
+
+        (?: (?:ret|exit) \s+ [^;]+)
+      | (?: \s* [^;]+; \s* (?&scope))
+
+      )*
+
+    )
+
+    \s*[;]+
+
+  },
+
+# ---   *   ---   *   ---
 # nit the magic parser
 
 );
@@ -579,18 +612,75 @@ lang::def::nit(
 # ---   *   ---   *   ---
 # load typedata to the type-table
 
-#  { my $ref=lang->peso->{types};
-#    my $fr_type=peso::type::new_frame();
-#
-#    for my $key(keys %$ref) {
-#      my $value=$TYPE->{$key};
-#      $ref->{$key}=$fr_type->nit($key,$value);
-#
-#    };
-#
-#    $ref->{types_frame}=$fr_type;
-#
-#  };
+  { my $ref=lang->peso->{types};
+    my $fr_type=peso::type::new_frame();
+
+    for my $key(keys %$ref) {
+
+      next if $key eq 're';
+
+      my $value=$TYPE->{$key};
+      $ref->{$key}=$fr_type->nit($key,$value);
+
+    };
+
+    $ref->{types_frame}=$fr_type;
+
+  };
+
+# ---   *   ---   *   ---
+
+lang->peso->{hier_sort}=sub($rd) {
+
+  my $id='-ROOT';
+  my $block=$rd->select_block($id);
+  my $tree=$block->{tree};
+
+  my $nd_frame=$rd->{program}->{node};
+  my @branches=$tree->branches_in(qr{^reg$});
+
+  my $i=0;
+  my @scopes=();
+
+  for my $branch(@branches) {
+
+    $branch->{parent}->idextrav();
+
+    my $pkgname=$branch->{leaves}->[0]->{value};
+    my $idex_beg=$branch->{idex};
+    my @children=@{$tree->{leaves}};
+
+# ---   *   ---   *   ---
+
+    my $ahead=$branches[$i+1];
+    my $idex_end;
+
+    if(defined $ahead) {
+      $idex_end=$ahead->{idex}-1;
+
+    } else {
+      $idex_end=$#children;
+
+    };
+
+# ---   *   ---   *   ---
+
+    @children=@children[$idex_beg..$idex_end];
+    @children=$tree->pluck(@children);
+
+    my $pkgroot=$nd_frame->nit(undef,$pkgname);
+    push @scopes,$pkgroot;
+
+    $pkgroot->pushlv(1,@children);
+    $i++;
+
+# ---   *   ---   *   ---
+
+  };
+
+  $tree->pushlv(0,@scopes);
+
+};
 
 };
 

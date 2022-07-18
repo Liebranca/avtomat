@@ -5,27 +5,187 @@
 # ---   *   ---   *   ---
 # deps
 
+  use v5.36.0;
   use strict;
   use warnings;
 
+  use English qw(-no_match_vars);
+
   use lib $ENV{'ARPATH'}.'/avtomat/';
 
+  use style;
+  use arstd;
+
   use langdefs::peso;
+
   use peso::rd;
+  use peso::st;
 
-my $program=peso::rd::parse(
+# ---   *   ---   *   ---
 
-  lang->peso,
-  peso::rd->STR,q(
+my $rd=peso::rd::new_parser(
+  lang->peso,glob('~/cltest')
 
-1;2;3;
+);
 
-));
+my $lang=$rd->{program}->{lang};
 
-for my$line(@{$program->{cooked}}) {
+my $bframe=$rd->{program}->{blk};
+my $non=$bframe->{non};
 
-  printf "$line\n";
+my $blk=$rd->select_block('-ROOT');
+my $tree=$blk->{tree};
+
+$rd->hier_sort();
+$rd->recurse($tree);
+
+# ---   *   ---   *   ---
+
+sub ptr_decl_ipret($branch) {
+
+  my $name_re=$lang->{names};
+  my $spec_re=$lang->{specifiers}->{re};
+  my $separator=$lang->{sep_ops};
+
+  my $stage=0;
+
+  my @attrs=();
+  my @names=();
+  my @values=();
+
+  $rd->group_lists($branch);
+
+# ---   *   ---   *   ---
+
+  while(@{$branch->{leaves}}) {
+    my $n=shift @{$branch->{leaves}};
+
+# ---   *   ---   *   ---
+# check attrs
+
+    if($stage==0) {
+
+      if($n->{value}=~ m/^$spec_re/) {
+        push @attrs,$n->{value};
+
+      } else {$stage++};
+
+    };
+
+# ---   *   ---   *   ---
+# check name
+
+    if($stage==1) {
+
+      if($n->{value}=~ m{list\:}) {
+
+        push @names,map
+          {$ARG->{value}}
+          @{$n->{leaves}}
+
+        ;
+
+      } else {
+        push @names,$n->{value};
+
+      };
+
+      $stage++;
+      next;
+
+    };
+
+# ---   *   ---   *   ---
+
+    if($stage==2) {
+
+      if($n->{value}=~ m{list\:}) {
+
+        push @values,map
+          {$ARG->{value}}
+          @{$n->{leaves}}
+
+        ;
+
+      } else {
+        push @values,$n->{value};
+
+      };
+
+      $stage++;
+      next;
+
+    };
+
+# ---   *   ---   *   ---
+
+  };
+
+  my $data=[];
+
+  { my ($names,$values)=
+      peso::st::regpad(\@names,\@values);
+
+    peso::st::regfmat($data,$names,$values);
+
+  };
+
+# ---   *   ---   *   ---
+# type,attrs,[name,value]
+
+  return $branch->{value},\@attrs,$data;
 
 };
+
+# ---   *   ---   *   ---
+
+sub clan_ipret($tree) {
+
+  my @regs=();
+
+  for my $branch(@{$tree->{leaves}}) {
+    if(my $lv=$branch->{leaves}->[0]) {
+
+      push @regs,$branch
+      if $lv->{value} eq 'reg';
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+
+  my $type_re=$lang->{types}->{re};
+  my @entries=();
+
+  for my $reg(@regs) {
+
+    my $name=$reg->branch_in(qr{^reg$});
+    $name=$name->leaf_value(0);
+
+    my @decls=$reg->branches_in($type_re);
+
+    for my $decl(@decls) {
+
+      my ($type,$attrs,$data)=
+        ptr_decl_ipret($decl);
+
+      push @entries,[$type,$attrs,$data];
+
+    };
+
+    $rd->{program}->reg($name,@entries);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+clan_ipret($tree);
+$non->prich();
+
+exit;
+$tree->prich();
 
 # ---   *   ---   *   ---

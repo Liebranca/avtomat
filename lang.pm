@@ -868,6 +868,7 @@ my %DEFAULTS=(
 
   sigils=>q{},
 
+  sbl_key=>$NULLSTR,
   sbl_decl=>qr{$^}x,
 
   ptr_decl=>qr{$^}x,
@@ -961,7 +962,23 @@ sub vrepl($ref,$v) {
 
   while(defined (my $key=consume_pesc($v))) {
 
-    my $rep=$ref->{$key};
+    my $rep;
+
+    if($key=~ m/->/) {
+
+      $rep=$ref;
+      for my $x(split m/->/,$key) {
+        $rep=$rep->{$x};
+
+      };
+
+    } else {
+      $rep=$ref->{$key};
+
+    };
+
+# ---   *   ---   *   ---
+
     if(!defined $rep || !length $rep) {
       $rep=$key;
 
@@ -1022,6 +1039,7 @@ sub nit(%h) {
 # ---   *   ---   *   ---
 # convert keyword lists to hashes
 
+  my @keyword_patterns=();
   for my $key(qw(
 
     types specifiers
@@ -1054,24 +1072,23 @@ sub nit(%h) {
 
     my $keypat=lang::hashpat(\%ht,1,0);
 
-    $keypat=($keypat eq qr{\b()\b}x)
-      ? qr{$^}x : $keypat;
+    if($keypat eq qr{(^|\b)()(\b|$)}x) {
+      $keypat=qr{$^}x;
+
+    } else {
+      push @keyword_patterns,$keypat;
+
+    };
 
     $ht{re}=$keypat;
     $ref->{$key}=\%ht;
 
   };
 
-  $ref->{keyword_re}=qr{
+  my $keyword_patterns=
+    join q{|},@keyword_patterns;
 
-    $ref->{types}->{re}
-  | $ref->{specifiers}->{re}
-  | $ref->{builtins}->{re}
-  | $ref->{fctls}->{re}
-  | $ref->{intrinsics}->{re}
-  | $ref->{directives}->{re}
-
-  }x;
+  $ref->{keyword_re}=qr{$keyword_patterns}x;
 
 # ---   *   ---   *   ---
 # handle creation of operator pattern
@@ -1406,7 +1423,7 @@ sub plps_is_num($self,$s,$program) {
 
 sub valid_name($self,$s) {
 
-  my $name=$self->names;
+  my $name=$self->{names};
 
   if(defined $s && length $s) {
     return $s=~ m/^${name}$/;

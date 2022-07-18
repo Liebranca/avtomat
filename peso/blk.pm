@@ -454,8 +454,8 @@ sub prich($self,%opt) {
       # iter keys out of order
       for my $ptr(values %h) {
 
-        my $idex=$ptr->idex()*8;
-        $idex=$idex+int($ptr->shf()/8);
+        my $idex=$ptr->{idex}*8;
+        $idex=$idex+int($ptr->{shf}/8);
 
         # stack elems & data ordered
         $ar[$idex]=[
