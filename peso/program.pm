@@ -87,6 +87,7 @@ sub nxins($self,$new=undef) {
 sub reg($self,$name,@entries) {
 
   my $bframe=$self->{blk};
+  my $types=$self->{lang}->{types};
 
   # get clan or non
   my $dst=($bframe->{dst}->{attrs})

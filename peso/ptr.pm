@@ -1191,7 +1191,7 @@ TAIL:
 
 sub lname_lookup($frame,$key) {
 
-  my $m=$frame->master;
+  my $m=$frame->{master};
   my $scope=undef;
 
 # ---   *   ---   *   ---

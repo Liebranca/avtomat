@@ -93,6 +93,7 @@ sub nit($frame,$parent,$name,$attrs) {
 
     elems=>{},
     elems_i=>{},
+    idex_base=>0,
 
     attrs=>$attrs,
     frame=>$frame,
@@ -134,6 +135,10 @@ sub nit($frame,$parent,$name,$attrs) {
 
   };if($name ne 'non') {
     $parent->addchld($blk);
+    $blk->{idex_base}=int(@{
+      $frame->{master}->{ptr}->{mem}
+
+    });
 
   };
 
@@ -168,7 +173,7 @@ sub addchld($self,$blk) {
 
     \@line,
 
-    type=>'half',
+    type=>'unit',
     bypass=>$bypass
 
   );
@@ -344,7 +349,6 @@ sub expand($self,$ref,%args) {
 
   # save top of stack
   my $j=@{$m->{ptr}->{mem}};
-  $self->{size}+=$inc_size;
 
   # grow MEM
   my $growth=$m->{ptr}->nunit(
@@ -352,6 +356,9 @@ sub expand($self,$ref,%args) {
 
   );
 
+  $self->{size}+=$growth;
+
+  my @names=();
   my $names_at=$self->{elems_i}->{$j}=[];
 
 # ---   *   ---   *   ---
@@ -405,6 +412,7 @@ sub expand($self,$ref,%args) {
 # go to next memory element
 
     $i+=$elem_sz;
+    push @names,$k;
 
     if(($i>=$half_sz) && @$ref) {
 
@@ -448,7 +456,7 @@ sub expand($self,$ref,%args) {
 
   };
 
-  return $growth;
+  return ($growth,@names);
 
 };
 

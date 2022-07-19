@@ -207,7 +207,6 @@ sub run($fname,%args) {
 # post-parse setup stuff
 
   my $bframe=$rd->{program}->{blk};
-  my $non=$bframe->{non};
 
   my $blk=$rd->select_block('-ROOT');
   my $tree=$blk->{tree};
@@ -218,11 +217,114 @@ sub run($fname,%args) {
 # ---   *   ---   *   ---
 
   clan($rd,$tree);
-
   $bframe->resolve_ptrs();
 
-  $non->prich();
-#  $tree->prich();
+  return $rd;
+
+};
+
+# ---   *   ---   *   ---
+
+sub xpile_c($rd) {
+
+  my $m=$rd->{program};
+  my $types=$m->{lang}->{types};
+  my $non=$m->{blk}->{non};
+
+# ---   *   ---   *   ---
+
+  my @blocks=($non);
+  while(@blocks) {
+
+    my $blk=shift @blocks;
+    if($blk->{attrs}!=($O_RD|$O_WR)) {
+      goto TAIL;
+
+    };
+
+    $m->{blk}->setscope($blk);
+
+# ---   *   ---   *   ---
+
+    my @elems=();
+    my $entries=$blk->{elems_i};
+
+    for my $idex(sort {$a<=>$b} keys %$entries) {
+
+      my @names=@{$entries->{$idex}};
+      my $ptr=$m->{ptr}->fetch($names[0]);
+
+      push @elems,[
+
+        $idex,
+        $ptr->{type},
+        \@names
+
+      ];
+
+    };
+
+# ---   *   ---   *   ---
+
+    my @result=();
+    my $cnt=$#elems;
+
+    my ($idex,$type,$names)=@{(pop @elems)};
+    $idex=$idex-$blk->{idex_base};
+    $idex*=8;
+
+    my $sz=$blk->{size}-$idex;
+    my $top=$idex;
+
+    my $elem_sz=$types->{$type}->{size};
+
+    push @result,
+
+      "$type entry$cnt\[".
+      int($sz/$elem_sz).
+      "]\n";
+
+# ---   *   ---   *   ---
+
+    for my $elem(reverse @elems) {
+
+      $cnt--;
+
+      ($idex,$type,$names)=@$elem;
+      $idex=$idex-$blk->{idex_base};
+      $idex*=8;
+
+      $sz=$top-$idex;
+      $top=$idex;
+
+      $elem_sz=$types->{$type}->{size};
+
+      push @result,
+
+        "$type entry$cnt\[".
+        int($sz/$elem_sz).
+        "];\n";
+
+    };
+
+# ---   *   ---   *   ---
+
+    print "typedef struct {\n";
+    for my $field(reverse @result) {
+      print q{ }x2,$field;
+
+    };
+
+    print "\n} $blk->{name};\n";
+
+# ---   *   ---   *   ---
+
+TAIL:
+    unshift @blocks,@{$blk->{children}};
+
+  };
+
+# ---   *   ---   *   ---
 
 };
 
