@@ -355,11 +355,37 @@ sub fstrout($format,$tab,%opt) {
   $opt{post_fmat}//=$NULLSTR;
   $opt{endtab}//=$NULLSTR;
 
+  state $escape="\e[";
+
+# ---   *   ---   *   ---
+# dirty linewrap
+
+  my @ttysz=split qr{\s},`stty size`;
+
+  $format=sprintf $format,@{$opt{args}};
+
+  # descape
+  my $desc_tab=$tab;
+  $desc_tab=~ s/$escape[\d;]+[\w\?]//;
+
+  # now get actual length c:
+  my $tab_len=length $desc_tab;
+  my $xsz=$ttysz[1]-$tab_len-1;
+
+  # split string at X characters
+  my $line_wrap=qr{
+
+    [^\n]{1,$xsz}(?: [\s\n]|$)
+
+  }x;
+
+  $format=~ s/($line_wrap)/$1\n/gsx;
+
 # ---   *   ---   *   ---
 # apply tab to format
 
   my @format_lines=split m/\n/,$format;
-  map {$_="$tab$_$opt{endtab}\n"} @format_lines;
+  map {$ARG="$tab$_$opt{endtab}\n"} @format_lines;
 
 # ---   *   ---   *   ---
 # select filehandle
@@ -369,15 +395,13 @@ sub fstrout($format,$tab,%opt) {
 # ---   *   ---   *   ---
 # spit it out
 
-  printf {$FH}
+  return print {$FH}
 
-    $opt{pre_fmat}.
-    (join $NULLSTR,@format_lines).
+    $opt{pre_fmat},
+    (join $NULLSTR,@format_lines),
     $opt{post_fmat},
 
-    @{$opt{args}};
-
-  return;
+  ;
 
 };
 
@@ -563,7 +587,7 @@ sub errout($format,%opt) {
   # opt defaults
   $opt{args}//=[];
   $opt{calls}//=[];
-  $opt{lvl}//=$WARNING;
+  $opt{lvl}//=$AR_WARNING;
 
 # ---   *   ---   *   ---
 # print initial message
@@ -577,7 +601,6 @@ sub errout($format,%opt) {
     pre_fmat=>"\n",
 
   );
-
 
 # ---   *   ---   *   ---
 # exec calls

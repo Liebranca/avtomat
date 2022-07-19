@@ -228,7 +228,6 @@ sub long_equal($self,$arg) {
       "doesn't take a value",
 
       args=>[$id,$self->{name}],
-      lvl=>$WARNING,
 
     );
 

@@ -589,6 +589,8 @@ sub new_frame($m) {
 
 };
 
+# ---   *   ---   *   ---
+
 sub nit($frame,%args) {
 
   $args{gname}=($args{scope} ne $args{lname})
@@ -812,23 +814,24 @@ sub create($master) {
 # grow MEM by some amount
 # amount is assumed NOT to be aligned
 
-sub nunit($frame,$requested,$mult) {
+sub nunit($frame,$mult) {
 
   my $types=$frame->{master}->{lang}->{types};
 
-  my $unit_sz=$types->{unit}->{size}*$mult;
+  my $alignment=$types->{unit}->{size}*$mult;
   my $half_sz=$types->{half}->{size};
 
-  my $i=0;
-  while($requested>0 || ($i%$unit_sz)) {
-    push @{$frame->{mem}},$FREEBLOCK;
+# ---   *   ---   *   ---
+# grow to a multiple of alignment
 
+  my $i=0;
+  while(!int($i/$alignment)) {
+    push @{$frame->{mem}},$FREEBLOCK;
     $i+=$half_sz;
-    $requested-=$half_sz;
 
   };
 
-  return;
+  return $alignment;
 
 };
 

@@ -39,7 +39,7 @@ package style;
     $NULLSTR
     $FREEBLOCK
 
-    $WARNING
+    $AR_WARNING
     $ERROR
     $FATAL
 
@@ -87,7 +87,7 @@ package style;
 
 # ---   *   ---   *   ---
 
-  Readonly our $WARNING=>"\e[33;22m";
+  Readonly our $AR_WARNING=>"\e[33;22m";
   Readonly our $ERROR=>"\e[35;1m";
   Readonly our $FATAL=>"\e[31;1m";
 

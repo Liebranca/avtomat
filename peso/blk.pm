@@ -300,11 +300,10 @@ TAIL:
 
 sub expand($self,$ref,%args) {
 
-
   # defaults
   $args{type}//='half';
   $args{attrs}//={size=>1};
-  $args{bypass}//=0;
+  $args{bypass}//=1;
 
   my ($type,$attrs,$bypass)=(
     $args{type},
@@ -348,14 +347,20 @@ sub expand($self,$ref,%args) {
   $self->{size}+=$inc_size;
 
   # grow MEM
-  $m->{ptr}->nunit($inc_size,$attrs->{size});
+  my $growth=$m->{ptr}->nunit(
+    $attrs->{size}
+
+  );
+
   my $names_at=$self->{elems_i}->{$j}=[];
 
 # ---   *   ---   *   ---
 # push elements to data
 
   my $i=0;
-  for my $ar(@$ref) {
+  while(@$ref) {
+
+    my $ar=shift @$ref;
 
     # name/value pair
     my $k=$ar->[0];
@@ -406,13 +411,44 @@ sub expand($self,$ref,%args) {
       $j++;$i=0;
       $names_at=$self->{elems_i}->{$j}=[];
 
+# ---   *   ---   *   ---
+# warn about over-args
+
+      if(!defined $m->{ptr}->{mem}->[$j]
+      && @$ref
+
+      ) {
+
+        arstd::errout(
+          'New entry on block <%s> has'.q{ }.
+          'a maximum size of %i bytes;'.q{ }.
+
+          'each element is [%i] bytes wide'.q{ }.
+          'and [%i] were discarded',
+
+          args=>[
+
+            $self->ances,
+            $growth,
+
+            $elem_sz,
+            int(@$ref)
+
+          ],
+
+        );
+
+        last;
+
+      };
+
     };
 
 # ---   *   ---   *   ---
 
   };
 
-  return;
+  return $growth;
 
 };
 
@@ -498,9 +534,10 @@ sub prich($self,%opt) {
   my $mess=$NULLSTR;
 
   for my $names(@names) {
-
     my $mem_idex=shift @idexes;
     my $self=shift @$names;
+
+# ---   *   ---   *   ---
 
     if(!defined $fr_ptr->{mem}->[$mem_idex]) {
       next;
@@ -512,6 +549,8 @@ sub prich($self,%opt) {
 
     };
 
+# ---   *   ---   *   ---
+
     $prev=$self;
 
     my $line=q{ }x2 .
@@ -521,9 +560,11 @@ sub prich($self,%opt) {
 
     ;
 
+# ---   *   ---   *   ---
+
     my $s=$NULLSTR;
 
-    for my $name(@$names) {
+    for my $name(reverse @$names) {
 
       my $ptr=$self->{elems}->{$name};
       $s.=sprintf "%s(%i) ",

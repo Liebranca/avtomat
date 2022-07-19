@@ -78,6 +78,8 @@ my $FILE_LIST=[
   '/langdefs/perl.pm',
   '/langdefs/c.pm',
 
+  '/peso/ipret.pm',
+
 # ---   *   ---   *   ---
 # then everything else
 

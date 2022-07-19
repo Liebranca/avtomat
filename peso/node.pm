@@ -196,11 +196,8 @@ sub group($self,$idex,$subidex=undef) {
   if(!@{$self->{leaves}}) {
 
     arstd::errout(
-
       "Node <%s> has no children\n",
-
       args=>[$self->{value}],
-      lvl=>$WARNING,
 
     );
 
