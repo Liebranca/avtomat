@@ -68,7 +68,10 @@ sub getv($self) {
 # ---   *   ---   *   ---
 # catch nullptr
 
-  if($self->{addr} eq $NULL) {
+  if($self->{addr} eq $NULL
+  || $self->{addr} eq $FREEBLOCK
+
+  ) {
 
     arstd::errout(
       "Can't read from %s (null ptr)\n",
@@ -167,7 +170,10 @@ sub setv($self,$value) {
 # ---   *   ---   *   ---
 # catch nullptr
 
-  if($self->{addr} eq $NULL) {
+  if($self->{addr} eq $NULL
+  || $self->{addr} eq $FREEBLOCK
+
+  ) {
 
     arstd::errout(
       "Can't write to %s (null ptr)\n",
@@ -198,6 +204,19 @@ sub setv($self,$value) {
     $value&=0xFFFFFFFF;
     $value|=$elem_sz<<32;
     $value|=$MEMPTR;
+
+  };
+
+# ---   *   ---   *   ---
+
+  if($value eq $NULL) {
+
+    if($self->{idex}%16) {
+      $frame->{mem}->[$self->{idex}]=$NULL;
+
+    };
+
+    goto DONE;
 
   };
 
@@ -280,11 +299,8 @@ FAIL:
 # ---   *   ---   *   ---
 # get raw address
 
-sub addr($self) {
-
-  return
-
-
+sub byteoff($self) {
+  return $self->{idex}+($self->{shf}/8);
 
 };
 
@@ -724,9 +740,11 @@ sub prich($self,%opt) {
 
     "\n<0x%s>\n\n".
 
-    "  TYPE:%12s%s\n".
-    "  NAME:%12s%s\n\n".
-    "  ADDR:%12s%s\n".
+    "  TYPE %12s%s\n".
+    "  NAME %12s%s\n\n".
+    "  ADDR %12s%s\n\n".
+
+    "  VALUE%12s%s\n".
 
     "\n",
 
@@ -734,7 +752,8 @@ sub prich($self,%opt) {
 
     q{ },$self->{type},
     q{ },$self->{gname},
-    q{ },(sprintf '%016X',$self->{addr})
+    q{ },(sprintf '%016X',$self->{addr}),
+    q{ },$self->{blk},
 
   );
 
@@ -790,10 +809,25 @@ sub create($master) {
 };
 
 # ---   *   ---   *   ---
-# memory ops
+# grow MEM by some amount
+# amount is assumed NOT to be aligned
 
-sub nunit($frame) {
-  push @{$frame->{mem}},0x00;
+sub nunit($frame,$requested,$mult) {
+
+  my $types=$frame->{master}->{lang}->{types};
+
+  my $unit_sz=$types->{unit}->{size}*$mult;
+  my $half_sz=$types->{half}->{size};
+
+  my $i=0;
+  while($requested>0 || ($i%$unit_sz)) {
+    push @{$frame->{mem}},$FREEBLOCK;
+
+    $i+=$half_sz;
+    $requested-=$half_sz;
+
+  };
+
   return;
 
 };
@@ -828,7 +862,10 @@ sub valid_addr($frame,$addr) {
 # catch nullptr
 
   if(
-      $addr eq $NULL
+
+     $addr eq $NULL
+  || $addr eq $FREEBLOCK
+
   || !($addr=~ m/^[0-9]+$/)
 
   ) {
@@ -932,7 +969,7 @@ sub decode($frame,$addr) {
 
 sub fetch($frame,$key) {
 
-  my $lang=$frame->master->lang;
+  my $lang=$frame->{master}->{lang};
 
   my $ptr;
   if($frame->valid_addr($key)) {
@@ -1115,8 +1152,8 @@ sub setscope($frame,@names) {
 
 sub wedcast($frame,$shf,$maskref,$szref) {
 
-  my $lang=$frame->master->lang;
-  my $types=$lang->types;
+  my $lang=$frame->{master}->{lang};
+  my $types=$lang->{types};
 
 # ---   *   ---   *   ---
 # skip when no casting

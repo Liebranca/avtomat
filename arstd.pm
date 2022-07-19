@@ -62,14 +62,14 @@ package arstd;
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $O_RD=>0x3CA49EAD;
-  Readonly our $O_WR=>0x3CA4917E;
-  Readonly our $O_EX=>0x3CA49004;
+  Readonly our $O_RD  =>0x0004;
+  Readonly our $O_WR  =>0x0002;
+  Readonly our $O_EX  =>0x0001;
 
   # just so we don't have to
   # -e(name) && -f(name) every single time
-  Readonly our $O_FILE=>0x175AF17E;
-  Readonly our $O_STR=>0x175A571F;
+  Readonly our $O_FILE=>0x0008;
+  Readonly our $O_STR =>0x0010;
 
 # ---   *   ---   *   ---
 # Test:: is weird
@@ -130,6 +130,22 @@ sub arrshf($ar,$idex) {
 
 };
 
+sub arrfil($ar) {
+
+  my $filtered=[];
+  for my $x(@$ar) {
+
+    if(defined $x) {
+      push @$filtered,$x;
+
+    };
+
+  };
+
+  @$ar=@$filtered;
+
+};
+
 # ---   *   ---   *   ---
 
 sub hashcpy($src) {
@@ -182,6 +198,96 @@ sub pretty_tag($s) {
     "\e[37;1m>\e[0m",$s
 
   ;
+
+};
+
+# ---   *   ---   *   ---
+# does some barebones colorizing
+
+sub color($s) {
+
+  state $escape="\e[";
+  state $cut='___C_U_T___';
+
+  state $tag=qr{
+
+    (?<= \xF7<\xDF)
+    [^_\s]+
+    (?= \xF7>\xDF)
+
+  }x;
+
+  state $num=qr{
+    (?: 0x[0-9a-fA-F]+ L?)
+  | ([0-9]* \.? [0-9]+ f?)
+
+  }x;
+
+  state $bare=qr{\b[^_\s]+\b}x;
+  state $op=qr{(?:[^\s_A-Za-z0-9]|\\\\)}x;
+
+# ---   *   ---   *   ---
+
+  my @ops=();
+  while($s=~ s/($op)/$cut/smx) {
+    push @ops,$1;
+
+  };
+
+  for my $x(@ops) {
+    $s=~ s/$cut/\xF7$x\xDF/;
+
+  };
+
+# ---   *   ---   *   ---
+
+  my @tags=();
+  while($s=~ s/($tag)/$cut/smx) {
+    push @tags,$1;
+
+  };
+
+  for my $x(@tags) {
+    $s=~ s/$cut/\xE4$x\xDF/;
+
+  };
+
+# ---   *   ---   *   ---
+
+  my @bares=();
+  while($s=~ s/($bare)/$cut/smx) {
+    push @bares,$1;
+
+  };
+
+  for my $x(@bares) {
+    $s=~ s/$cut/\xE2$x\xDF/;
+
+  };
+
+# ---   *   ---   *   ---
+
+  my @nums=();
+  while($s=~ s/($num)/$cut/smx) {
+    push @nums,$1;
+
+  };
+
+  for my $x(@nums) {
+    $s=~ s/$cut/\xE3$x\xDF/;
+
+  };
+
+# ---   *   ---   *   ---
+
+  $s=~ s/\xE2/\e[32;22m/sgmx;
+  $s=~ s/\xE3/\e[33;22m/sgmx;
+  $s=~ s/\xE4/\e[34;22m/sgmx;
+  $s=~ s/\xF7/\e[37;1m/sgmx;
+
+  $s=~ s/\xDF/\e[0m/sgmx;
+
+  return $s;
 
 };
 

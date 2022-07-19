@@ -20,6 +20,10 @@ package peso::st;
 
   use Readonly;
 
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use style;
+  use arstd;
+
 # ---   *   ---   *   ---
 # info
 
@@ -43,6 +47,8 @@ package peso::st;
   };
 
   sub BRANCH_RE() {return $BRANCH_RE};
+
+  Readonly our $TYPE_BLOCK=>0x01;
 
 # ---   *   ---   *   ---
 # constructor for pkg hash
@@ -75,7 +81,7 @@ sub regpad($names,$values) {
 
     my $i=@values;
     while($i<@names) {
-      push @values,'null';
+      push @values,$NULL;
       $i++;
 
     };

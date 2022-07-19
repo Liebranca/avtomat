@@ -49,7 +49,7 @@ sub ptr_decl_ipret($branch) {
 
   my $stage=0;
 
-  my @attrs=();
+  my %attrs=(size=>1);
   my @names=();
   my @values=();
 
@@ -65,8 +65,14 @@ sub ptr_decl_ipret($branch) {
 
     if($stage==0) {
 
-      if($n->{value}=~ m/^$spec_re/) {
-        push @attrs,$n->{value};
+      if($n->{value}=~ m/^\(|\)$/sg) {
+        my $mult=$n->{value};
+        $mult=~ s/^\(|\)$//sg;
+
+        $attrs{size}=$mult;
+
+      } elsif($n->{value}=~ m/^$spec_re/) {
+        $attrs{$n->{value}}=1;
 
       } else {$stage++};
 
@@ -133,7 +139,7 @@ sub ptr_decl_ipret($branch) {
 # ---   *   ---   *   ---
 # type,attrs,[name,value]
 
-  return $branch->{value},\@attrs,$data;
+  return $branch->{value},\%attrs,$data;
 
 };
 
@@ -142,7 +148,6 @@ sub ptr_decl_ipret($branch) {
 sub clan_ipret($tree) {
 
   my @regs=();
-
   for my $branch(@{$tree->{leaves}}) {
     if(my $lv=$branch->{leaves}->[0]) {
 
@@ -183,6 +188,7 @@ sub clan_ipret($tree) {
 # ---   *   ---   *   ---
 
 clan_ipret($tree);
+$bframe->resolve_ptrs();
 $non->prich();
 
 exit;

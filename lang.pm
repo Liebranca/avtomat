@@ -1386,10 +1386,10 @@ sub nit(%h) {
 
 sub numcon($self,$value) {
 
-  for my $key(keys %{$self->nums}) {
+  for my $key(keys %{$self->{nums}}) {
 
     if($$value=~ m/^${key}/) {
-      $$value=$self->nums->{$key}->($$value);
+      $$value=$self->{nums}->{$key}->($$value);
       last;
 
     };

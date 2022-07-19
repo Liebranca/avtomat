@@ -19,6 +19,7 @@ package peso::blk;
   use warnings;
 
   use Readonly;
+  use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
@@ -28,16 +29,39 @@ package peso::blk;
   use lang;
   use stack;
 
+  use peso::st;
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v2.80.1;
+  our $VERSION=v2.80.3;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # check value is an instance of this class
 
 sub valid($blk) {return arstd::valid($blk)};
+
+# ---   *   ---   *   ---
+# return 64-bit representation of object
+# not really implemented yet...
+
+sub as_long($blk) {
+
+  my $pframe=$blk->{frame}->{master}->{ptr};
+  my $ptr=$pframe->fetch($blk->ances);
+
+  $ptr=
+
+    ($peso::st::TYPE_BLOCK)
+  | ($blk->{attrs}<<16)
+  | ($ptr->byteoff()<<32)
+
+  ;
+
+  return $ptr;
+
+};
 
 # ---   *   ---   *   ---
 # in: name,parent,permissions
@@ -68,6 +92,8 @@ sub nit($frame,$parent,$name,$attrs) {
     scope=>$frame->{self},
 
     elems=>{},
+    elems_i=>{},
+
     attrs=>$attrs,
     frame=>$frame,
 
@@ -123,13 +149,10 @@ sub addchld($self,$blk) {
   my $frame=$self->{frame};
 
   # add block data into this line
-  my @line=(
-
-    [$blk->{name},$blk],
-
-  );
+  my @line=([$blk->{name},$blk]);
 
 # ---   *   ---   *   ---
+# is root or rom
 
   my $bypass=int(
 
@@ -139,8 +162,19 @@ sub addchld($self,$blk) {
   );
 
 # ---   *   ---   *   ---
+# grow the block
 
-  $self->expand(\@line,'long',$bypass);
+  $self->expand(
+
+    \@line,
+
+    type=>'half',
+    bypass=>$bypass
+
+  );
+
+# ---   *   ---   *   ---
+# book-keeping
 
   push @{$self->{children}},$blk;
   $blk->{parent}=$self;
@@ -264,7 +298,22 @@ TAIL:
 
 # inserts new elements into block
 
-sub expand($self,$ref,$type,$bypass) {
+sub expand($self,$ref,%args) {
+
+
+  # defaults
+  $args{type}//='half';
+  $args{attrs}//={size=>1};
+  $args{bypass}//=0;
+
+  my ($type,$attrs,$bypass)=(
+    $args{type},
+    $args{attrs},
+    $args{bypass},
+
+  );
+
+# ---   *   ---   *   ---
 
   my $frame=$self->{frame};
   my $m=$frame->{master};
@@ -275,29 +324,32 @@ sub expand($self,$ref,$type,$bypass) {
 # get size from type, in bytes
 
   my $elem_sz=$lang->{types}->{$type}->{size};
-  my $inc_size=@$ref*$elem_sz;
+  my $inc_size=(@$ref/2)*$elem_sz;
 
 # ---   *   ---   *   ---
-# 'line' is size of two registers
-# 'unit' is size of a single register
-# we use these as minimum size for blocks
+# 'half' is the register size
+#
+#   > named such because it's half a unit in
+#     our target architechture
+#
+# 'unit' represents element alignment
+#
+# that means:
+#
+#   > *minimum* size of each block entry
+#   > entry size is a multiple of unit size
 
-  my $line_sz=$lang->{types}->{'line'}->{size};
+
+  my $half_sz=$lang->{types}->{half}->{size};
   my $gran=(1<<($elem_sz*8))-1;
 
-# ---   *   ---   *   ---
-# grow block on first pass
+  # save top of stack
+  my $j=@{$m->{ptr}->{mem}};
+  $self->{size}+=$inc_size;
 
-  my $j=0;if($m->fpass()) {
-
-    # save top of stack
-    $j=@{$m->{ptr}->{mem}};
-    $self->{size}+=$inc_size;
-
-    # reserve new unit
-    $m->{ptr}->nunit();
-
-  };
+  # grow MEM
+  $m->{ptr}->nunit($inc_size,$attrs->{size});
+  my $names_at=$self->{elems_i}->{$j}=[];
 
 # ---   *   ---   *   ---
 # push elements to data
@@ -310,8 +362,13 @@ sub expand($self,$ref,$type,$bypass) {
     my $v=$ar->[1];
 
     # prohibit redeclaration
-    if($m->fpass()) {
-      $self->haselem($k,1);
+    $self->haselem($k,1);
+
+    push @$names_at,$k;
+
+    # clear out free slot mark | trash values
+    if(!$i) {
+      $m->{ptr}->{mem}->[$j]=0x00;
 
     };
 
@@ -320,55 +377,34 @@ sub expand($self,$ref,$type,$bypass) {
     my $shf=$i*8;
 
 # ---   *   ---   *   ---
-# first pass || root block decl:
 #  >create ptr instance
 #  >save reference to elems
 
-    if($m->fpass() || $bypass) {
+    if(!$bypass) {$v=$self};
+    $self->{elems}->{$k}=$m->{ptr}->nit(
 
-      if(!$bypass) {$v=$self;};
-      $self->{elems}->{$k}=$m->{ptr}->nit(
+      lname=>$k,
+      scope=>$self->ances,
+      idex=>$j,
 
-        lname=>$k,
-        scope=>$self->ances,
-        idex=>$j,
+      mask=>$gran,
+      shf=>$shf,
 
-        mask=>$gran,
-        shf=>$shf,
+      type=>$type,
+      elem_sz=>$elem_sz,
+      blk=>$v,
 
-        type=>$type,
-        elem_sz=>$elem_sz,
-        blk=>$v
-
-      );
+    );
 
 # ---   *   ---   *   ---
-# second pass:
-#  >get ptr
-#  >assign value
-
-    } else {
-
-      $self->setv(
-        $self->ances."\@$k",$v
-
-      );
-    };
-
-# ---   *   ---   *   ---
-# go to next element when 'i' equals
-# or exceeds 64-bit bound and
-# elems are pending in ref
+# go to next memory element
 
     $i+=$elem_sz;
-    if($i>=($line_sz/2) && @$ref) {
 
-      # reserve a new unit
-      # grow block on first pass
-      if($m->fpass()) {
-        $m->{ptr}->nunit();
+    if(($i>=$half_sz) && @$ref) {
 
-      };$j++;$i=0;
+      $j++;$i=0;
+      $names_at=$self->{elems_i}->{$j}=[];
 
     };
 
@@ -420,121 +456,121 @@ sub prich($self,%opt) {
   # opt defaults
   $opt{errout}//=0;
 
+  my $lang=$self->{frame}->{master}->{lang};
   my $fr_ptr=$self->{frame}->{master}->{ptr};
-  my $mess=$NULLSTR;
 
 # ---   *   ---   *   ---
-# select filehandle
-
-  my $FH=($opt{errout})
-    ? *STDERR
-    : *STDOUT
-    ;
-
-# ---   *   ---   *   ---
+# walk the hierarchy
 
   my @blocks=($self);
+  my @names=();
+  my @idexes=();
+
   while(@blocks) {
 
     my $self=shift @blocks;
 
-    my $v_lines=$NULLSTR;
-    my @data=();
-
-    $mess.='<'.$self->ances.">\n";
-    my $wed=$fr_ptr->wed('get');
-    $fr_ptr->wed(undef);
-
 # ---   *   ---   *   ---
-# get names and offsets
+# get names ordered by index
 
-    { my %h=%{$self->{elems}};
-      my @ar=();
+    my %h=%{$self->{elems}};
+    my @ar=();
 
-      # iter keys out of order
-      for my $ptr(values %h) {
+    my $long_sz=$lang->{types}->{long}->{size};
 
-        my $idex=$ptr->{idex}*8;
-        $idex=$idex+int($ptr->{shf}/8);
+    my @order=sort {$a<=>$b}
+      keys %{$self->{elems_i}};
 
-        # stack elems & data ordered
-        $ar[$idex]=[
+    push @idexes,@order;
+    push @names,map {
 
-          $ptr->{lname},
-          $ptr->{idex},
-          $ptr->{shf},
-          $ptr->bytesz
+      [$self,@{$self->{elems_i}->{$ARG}}]
 
-        ];
+    } @order;
 
-      };
-
-# ---   *   ---   *   ---
-# forget undefined (empty) elems
-
-      while(@ar) {
-
-        my $v=shift @ar;
-        if(!defined $v) {next;};
-
-        push @data,$v;
-
-      };
-
-    };
-
-# ---   *   ---   *   ---
-
-    # accumulators
-    my $last_idex=undef;
-    my $unit=0x00;
-    my $unit_names=$NULLSTR;
-
-    # iter list
-    while(@data) {
-
-      my $ref=shift @data;
-      my ($name,$i,$shf,$sz)=@{$ref};
-
-# ---   *   ---   *   ---
-# unit switch
-
-      if(defined $last_idex) {
-        if($last_idex!=$i) {
-          $v_lines.=sprintf
-            "  0x%.16X %.32s\n",
-            $unit,$unit_names;
-
-          $unit=0x00;
-          $unit_names=$NULLSTR;
-
-        };
-
-# ---   *   ---   *   ---
-# accumulate
-
-      };$last_idex=$i;
-      $unit=$fr_ptr->{mem}->[$i];
-      $unit_names="$name($sz) ".$unit_names;
-
-    };
-
-# ---   *   ---   *   ---
-# append leftovers
-
-    $v_lines.=sprintf
-      "  0x%.16X %.32s\n",
-      $unit,$unit_names;
-
-    $mess.=$v_lines."\n";
-
-    $fr_ptr->wed($wed);
     unshift @blocks,@{$self->{children}};
+
+# ---   *   ---   *   ---
 
   };
 
+  my $prev=undef;
+  my $mess=$NULLSTR;
+
+  for my $names(@names) {
+
+    my $mem_idex=shift @idexes;
+    my $self=shift @$names;
+
+    if(!defined $fr_ptr->{mem}->[$mem_idex]) {
+      next;
+
+    };
+
+    if(!defined $prev || $prev!=$self) {
+      $mess.="\n<".$self->ances.">\n";
+
+    };
+
+    $prev=$self;
+
+    my $line=q{ }x2 .
+
+      "0x%016X".q{ }.
+      "%-54s\n"
+
+    ;
+
+    my $s=$NULLSTR;
+
+    for my $name(@$names) {
+
+      my $ptr=$self->{elems}->{$name};
+      $s.=sprintf "%s(%i) ",
+        $ptr->{lname},
+        $ptr->bytesz
+
+      ;
+
+    };
+
+    $line=sprintf $line,
+      $fr_ptr->{mem}->[$mem_idex],$s;
+
+    $mem_idex++;
+
+# ---   *   ---   *   ---
+# show padding if it's there
+
+    my $ahead=$idexes[0];
+    if(!defined $ahead) {
+      $ahead=@{$fr_ptr->{mem}};
+
+    };
+
+    while($ahead>$mem_idex) {
+
+      $line.=sprintf
+        q{ }x2 . "0x%016X\n",
+
+        $fr_ptr->{mem}->[$mem_idex];
+
+      $mem_idex++;
+
+    };
+
+    $mess.=$line;
+
 # ---   *   ---   *   ---
 # spit it out
+
+  };
+
+  # select filehandle
+  my $FH=($opt{errout})
+    ? *STDERR
+    : *STDOUT
+    ;
 
   return print {$FH} "$mess\n";
 
@@ -602,6 +638,65 @@ sub new_data_block($frame,$header,$data) {
 };
 
 # ---   *   ---   *   ---
+
+sub resolve_ptrs($frame) {
+
+  state $peso_st_re=qr{^peso::}x;
+
+  my $lang=$frame->{master}->{lang};
+  my $blk=$frame->{non};
+
+  my @ar=();
+  my @blocks=($blk);
+  while(@blocks) {
+
+    $blk=shift @blocks;
+
+    for my $ptr(values %{$blk->{elems}}) {
+
+      my $idex=$ptr->byteoff();
+      $ar[$idex]=$ptr;
+
+    };
+
+    unshift @blocks,@{$blk->{children}};
+
+  };
+
+# ---   *   ---   *   ---
+
+  my @ptrs=();
+  while(@ar) {
+
+    my $ptr=shift @ar;
+    if(defined $ptr) {
+      push @ptrs,$ptr;
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+
+  for my $ptr(@ptrs) {
+
+    my $v=$ptr->{blk};
+
+    if($v=~ $peso_st_re) {
+      $v=$v->as_long();
+
+    } elsif($v=~ $lang->{nums_re}) {
+      $lang->numcon(\$v);
+
+    };
+
+    $ptr->setv($v);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # makes reg entry
 
 sub new_data_ptr($frame,$header,$data) {
@@ -631,7 +726,7 @@ sub new_data_ptr($frame,$header,$data) {
 # grow block on first pass
 
   if($m->fpass()) {
-    $frame->{dst}->expand($data,$wed,0);
+    $frame->{dst}->expand($data,type=>$wed);
 
 # ---   *   ---   *   ---
 # overwrite on second pass

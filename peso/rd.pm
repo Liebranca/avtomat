@@ -1529,7 +1529,13 @@ sub group_lists($self,$tree) {
 
   for my $ref(@result) {
 
-    my $list=$tree->{frame}->nit($tree,'list:');
+    my $idex=$ref->[0]->{idex};
+    $tree->insert(
+      $idex,'list:'
+
+    );
+
+    my $list=$tree->{leaves}->[$idex];
     $list->pushlv(1,@$ref);
 
   };

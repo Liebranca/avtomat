@@ -95,14 +95,22 @@ sub reg($self,$name,@entries) {
   ;
 
   # make new block
-  my $blk=$bframe->nit($dst,$name,$O_RD);
+  my $blk=$bframe->nit($dst,$name,$O_RD|$O_WR);
 
 # ---   *   ---   *   ---
 # push values to block
 
   for my $entry(@entries) {
     my ($type,$attrs,$data)=@$entry;
-    $blk->expand($data,$type,1);
+
+    $blk->expand(
+
+      $data,
+
+      type=>$type,
+      attrs=>$attrs,
+
+    );
 
   };
 

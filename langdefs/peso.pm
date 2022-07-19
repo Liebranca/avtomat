@@ -49,14 +49,15 @@ BEGIN {
     word=>4,
     long=>8,
 
-    # ptr size
-    unit=>0x0008,
+    # ptrs align to half
+    # regs align to unit
+    # bufs align to line
+    # mems align to page
 
-    # pointers align to line
-    # mem buffers align to page
-
-    line=>0x0010, # two units
-    page=>0x1000, # 256 lines
+    half=>0x0008, # 1  long
+    unit=>0x0010, # 2  halves
+    line=>0x0040, # 4  units
+    page=>0x1000, # 64 lines
 
 # ---   *   ---   *   ---
 # function types
