@@ -1356,9 +1356,7 @@ sub nit(%h) {
 # ---   *   ---   *   ---
 
   if(!length $ref->{lcom}) {
-
-    $ref->{lcom}=$ref->{com}.q{[^\x0A]*\x0A};
-    $ref->{lcom_re}=qr{$ref->{lcom}}x;
+    $ref->{lcom}=$ref->{com}.q{.*}."\n";
 
   };
 

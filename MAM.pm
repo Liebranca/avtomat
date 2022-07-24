@@ -170,6 +170,8 @@ sub filter {
 
       for my $path(values %INC) {
         if($path=~ $re) {
+
+          $path=~ s{/lib/} {/trashcan/$modname/};
           $deps.=$path.q{ };
 
         };

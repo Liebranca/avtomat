@@ -906,6 +906,60 @@ sub symrd {
 };
 
 # ---   *   ---   *   ---
+# rebuilds shared objects if need be
+
+sub soregen($soname,$libs_ref) {
+
+  my $sopath="$CACHE{_root}/lib/lib$soname.so";
+  my $so_gen=!(-e $sopath);
+
+  my @libs=@{$libs_ref};
+  my %symtab=();
+
+# ---   *   ---   *   ---
+
+  # make symbol table
+  for my $lib(@libs) {
+    %symtab=(%symtab,%{ avt::symrd($lib) });
+
+    # so regen check
+    if(!$so_gen) {
+      $so_gen=ot($sopath,ffind('-l'.$lib));
+
+    };
+
+  };
+
+  # get object file list
+  my @o_files=@{ $symtab{'files'} };
+  delete $symtab{'files'};
+
+# ---   *   ---   *   ---
+
+  # generate so
+  if($so_gen) {
+
+    # recursively get dependencies
+    my $O_LIBS='-l'.( join ' -l',@libs );
+    stlib("$CACHE{_root}/lib/");
+
+    my $LIBS=avt::libexpand($O_LIBS);
+    my $OBJS=join ' ',@o_files;
+
+    # link
+    my $call='gcc -shared'.q{ }.
+      "$OFLG $LFLG ".
+      "-m64 $OBJS $LIBS -o $sopath";
+
+    `$call`;
+
+  };
+
+  return \%symtab;
+
+};
+
+# ---   *   ---   *   ---
 # C to Perl code emitter stuff
 
 # name=what your file is called
@@ -1006,53 +1060,7 @@ EOF
 # reads in symbol tables and generates exports
 sub ctopl($FH,$soname,$libs_ref) {
 
-  my $sopath="$CACHE{_root}/lib/lib$soname.so";
-  my $so_gen=!(-e $sopath);
-
-  my @libs=@{$libs_ref};
-  my %symtab=();
-
-# ---   *   ---   *   ---
-
-  # make symbol table
-  for my $lib(@libs) {
-    %symtab=(%symtab,%{ avt::symrd($lib) });
-
-    # so regen check
-    if(!$so_gen) {
-      $so_gen=ot($sopath,ffind('-l'.$lib));
-
-    };
-
-  };
-
-  # get object file list
-  my @o_files=@{ $symtab{'files'} };
-  delete $symtab{'files'};
-
-# ---   *   ---   *   ---
-
-  # generate so
-  if($so_gen) {
-
-    # recursively get dependencies
-    my $O_LIBS='-l'.( join ' -l',@libs );
-    stlib("$CACHE{_root}/lib/");
-
-    my $LIBS=avt::libexpand($O_LIBS);
-    my $OBJS=join ' ',@o_files;
-
-    # link
-    my $call='gcc -shared'.q{ }.
-      "$OFLG $LFLG ".
-      "-m64 $OBJS $LIBS -o $sopath";
-
-    `$call`;
-
-  };
-
-# ---   *   ---   *   ---
-
+  my %symtab=%{soregen($soname,$libs_ref)};
   my $search=<<"EOF"
 
 my \%CACHE=(
@@ -2795,7 +2803,7 @@ sub buildchk($do_build,$obj,$deps) {
 
       # found dep is updated
       if(ot($obj,$dep)) {
-        $do_build=1;
+        $$do_build=1;
         last;
 
       };
@@ -2886,13 +2894,14 @@ sub pcc($M,$src,$obj,$pmd) {
 # ---   *   ---   *   ---
 
     my $FH;
-    open $FH,'+>',$obj or croak STRERR($obj);
-    print {$FH} $out;
-
-    close $FH;
 
     open $FH,'+>',$pmd or croak STRERR($pmd);
     print {$FH} $depstr;
+
+    close $FH;
+
+    open $FH,'+>',$obj or croak STRERR($obj);
+    print {$FH} $out;
 
     close $FH;
 

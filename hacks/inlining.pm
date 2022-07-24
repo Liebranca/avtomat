@@ -62,6 +62,7 @@ package inlining;
 
 sub dumpsbl() {
 
+  return;
   my $shadow={};
 
 # ---   *   ---   *   ---
