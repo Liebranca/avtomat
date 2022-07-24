@@ -18,6 +18,9 @@ package langdefs::c;
   use lang;
 #  use langdefs::plps;
 
+  use lib $ENV{'ARPATH'}.'/lib/hacks/';
+  use shwl;
+
 # ---   *   ---   *   ---
 # ROM
 
@@ -112,10 +115,7 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  preproc=>[
-    lang::delim2('#',"\n"),
-
-  ],
+  preproc=>shwl::delm('#',"\n"),
 
   foldtags=>[qw(
     chars strings preproc
@@ -123,9 +123,67 @@ lang::def::nit(
   )],
 
 # ---   *   ---   *   ---
+
+  sbl_decl=>q{
+
+    (?<attrs>
+
+      (?: $:specifiers->re;>\s+)*
+      $:types->re;>
+
+      \s*\**\s*
+
+    )\s*
+
+    (?<name> $:names;>)
+
+    \s*(?<args> \([\S\s]*?\))\s*
+
+    (?<scope> [{]
+
+      (?<code> [^{}] | (?&scope))*
+
+    [}] | (;))
+
+  },
+
+# ---   *   ---   *   ---
 # build language patterns
 
 );##lang->c->{_plps}=langdefs::plps::make(lang->c);
+
+lang->c->{hier_sort}=sub($rd) {
+
+  my $block=$rd->select_block(-ROOT);
+  my $tree=$block->{tree};
+
+  for my $sbl($tree->branches_in(qr{^SBL$})) {
+    if(!@{$sbl->{leaves}}) {
+
+      my $idex=$sbl->{idex};
+
+# ---   *   ---   *   ---
+
+      my $ahead=$sbl->{parent}
+        ->{leaves}->[$idex+1];
+
+      if(defined $ahead) {
+        $sbl->pushlv(0,
+          $sbl->{parent}->pluck($ahead)
+
+        );
+
+      };
+
+# ---   *   ---   *   ---
+
+    };
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 
 };
 

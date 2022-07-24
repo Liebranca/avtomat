@@ -641,7 +641,7 @@ sub register_def($name) {
   $file=(split '/',$file)[-1];
 
   for my $key(keys %LANGUAGES) {
-    my $pat=lang->$key->ext;
+    my $pat=lang->$key->{ext};
 
     if($file=~ m/$pat/) {
       $name=$key;last;
@@ -868,7 +868,7 @@ my %DEFAULTS=(
 
   sigils=>q{},
 
-  sbl_key=>$NULLSTR,
+  sbl_key=>'SBL',
   sbl_decl=>qr{$^}x,
 
   ptr_decl=>qr{$^}x,
@@ -1357,7 +1357,8 @@ sub nit(%h) {
 
   if(!length $ref->{lcom}) {
 
-    $ref->{lcom}=$ref->{com}.q{.*}."\n";
+    $ref->{lcom}=$ref->{com}.q{[^\x0A]*\x0A};
+    $ref->{lcom_re}=qr{$ref->{lcom}}x;
 
   };
 

@@ -47,7 +47,7 @@ sub nit($program,$keep_comments) {
   return bless {
 
     program=>$program,
-    lang=>$program->lang,
+    lang=>$program->{lang},
 
     line=>$NULLSTR,
     rem=>$NULLSTR,

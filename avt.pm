@@ -39,6 +39,7 @@ package avt;
   use langdefs::perl;
 
   use peso::st;
+  use peso::rd;
 
 # ---   *   ---   *   ---
 # info
@@ -714,109 +715,59 @@ sub file_sbl($f) {
 # ---   *   ---   *   ---
 # read source file
 
-  my $program=peso::rd::parse(
-    lang->$langname,
-    $O_FILE,
-
-    $f,
-
-    use_plps=>0,
+  my $rd=peso::rd::new_parser(
+    lang->$langname,$f
 
   );
 
-  my $lang=$program->lang;
+  my $block=$rd->select_block(-ROOT);
+  my $tree=$block->{tree};
+
+  $rd->recurse($tree);
+  $rd->hier_sort();
+
+  my $lang=$rd->{lang};
+  my $sbl_key=qr{^$lang->{sbl_key}$};
 
 # ---   *   ---   *   ---
 # iter through expressions
 
-  for my $exp(@{$program->{cooked}}) {
+  for my $sbl($tree->branches_in($sbl_key)) {
 
-    $exp=(split m/:__COOKED__:/,$exp)[1];
+    my $id=$sbl->leaf_value(0);
+    my $src=$rd->select_block($id);
 
-    # is exp a symbol declaration?
-    my $tree=$lang->plps_match(
+    my $attrs=$src->{attrs};
+    my $name=$src->{name};
+    my $args=$src->{args};
 
-      'sbl_decl',$exp
-
-    );
-
-    # ^this means 'no'
-    if(!$tree->{full}) {next;};
-
-# ---   *   ---   *   ---
-# decompose the tree
-
-    my @specs=$tree->branch_values(
-      peso::st::BRANCH_RE()->{spec}
-
-    );
-
-    my @types=$tree->branch_values(
-      peso::st::BRANCH_RE()->{type}
-
-    );
-
-    my @indlvl=$tree->branch_values(
-      peso::st::BRANCH_RE()->{indlvl}
-
-    );
-
-    my @names=$tree->branch_values(
-      peso::st::BRANCH_RE()->{bare}
-
-    );
-
-# ---   *   ---   *   ---
-# apply type conversions across the hierarchy
-
-    for my $type(@types) {
-
-      my $indlvl=shift @indlvl;
-      my $spec=shift @specs;
-
-      #if(!$indlvl) {$indlvl='';};
-
-      $indlvl=join $NULLSTR,
-        (split $COMMA_RE,$indlvl);
-
-      $spec=(length $spec)
-        ? "$spec "
-        : ''
-        ;
-
-      $type=typecon($spec.$type.$indlvl);
-
-    };
-
-# ---   *   ---   *   ---
-# naming for clarity
-
-    my %func=(
-
-      name=>shift @names,
-      type=>shift @types,
-
-    );
+    my $type=typecon($attrs);
 
 # ---   *   ---   *   ---
 # save args
 
-    my $match="$func{name} $func{type}";
-    while(@types) {
+    my $match="$name $type";
 
-      # again, naming for clarity
-      my %arg=(
+    $args=~ s/$lang->{strip_re}//sg;
+    $args=~ s/^\s*\(|\)\s*$//sg;
 
-        name=>shift @names,
-        type=>shift @types,
+    my @args=split $COMMA_RE,$args;
 
-      );
+    while(@args) {
+
+      my $arg=shift @args;
+      $arg=~ s/^\s+|\s+$//;
+
+      my ($arg_attrs,$arg_name)=
+        split $SPACE_RE,$arg;
 
       # is void
-      if(!defined $arg{name}) {last;};
+      if(!defined $arg_name) {last};
+
+      my $arg_type=typecon($arg_attrs);
 
       # has type
-      $match.=" $arg{type} $arg{name}";
+      $match.=" $arg_type $arg_name";
 
 # ---   *   ---   *   ---
 # append results
@@ -1465,7 +1416,7 @@ sub depchk($chkpath,$deps_ref) {
 # recursively list dirs and files in path
 sub walk($path) {
 
-  Readonly state $EXCLUDED=>qr{
+  state $EXCLUDED=qr{
 
      \/
 

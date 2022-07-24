@@ -38,7 +38,7 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  instrinsics=>[qw(
+  intrinsics=>[qw(
     and as in is as with not or
 
   )],
@@ -51,7 +51,7 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  ftcls=>[qw(
+  fctls=>[qw(
 
     await break continue
     if elif else except

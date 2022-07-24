@@ -556,7 +556,29 @@ sub tokenize2($self) {
 
   if(@elems) {
     $self->{value}=shift @elems;
+
     for my $elem(@elems) {
+
+# ---   *   ---   *   ---
+# NOTE: why is this bit here?
+#
+#   ifdef __cplusplus
+#     extern 'C' { be damned };
+#
+#   endif
+#
+# ^that's why
+
+      if($elem=~ qr{^:__PREPROC}) {
+        $self=(defined $self->{parent})
+          ? $self->{parent}
+          : $self
+          ;
+
+      };
+
+# ---   *   ---   *   ---
+
       $self->{frame}->nit($self,$elem);
 
     };

@@ -11,11 +11,14 @@
 
   use lang;
   use langdefs::peso;
+  use langdefs::c;
 
   use peso::rd;
   use avt;
 
-print avt::file_sbl(glob("~/AR/ce/clock.h"));
+
+
+print avt::file_sbl(glob("~/AR/ce/keyboard.h"));
 
 #my $tree=lang->c->plps_match(
 #

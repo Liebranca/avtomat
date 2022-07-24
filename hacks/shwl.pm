@@ -548,6 +548,8 @@ sub codefold($fname,$lang,%opts) {
   while($body=~ s/$sbl_decl/$cut_token/sxm) {
 
     my $fnbody=$+{scope};
+    $fnbody//=$NULLSTR;
+
     my $block=shwl::blk::nit();
 
     push @block_ids,$block->{name};
@@ -588,6 +590,17 @@ sub codefold($fname,$lang,%opts) {
 
 # ---   *   ---   *   ---
 
+  $i=0;
+  $cut_token=sprintf $CUT_FMAT,'BLK',$i++;
+
+  for my $id(@block_ids) {
+    $body=~ s/${cut_token}/$sbl_key $id;/;
+    $cut_token=sprintf $CUT_FMAT,'BLK',$i++;
+
+  };
+
+# ---   *   ---   *   ---
+
   for my $key(@$foldtags) {
     cut(\$body,uc $key,$lang->{$key});
 
@@ -601,17 +614,6 @@ sub codefold($fname,$lang,%opts) {
       $dels_re->{$key}
 
     );
-
-  };
-
-# ---   *   ---   *   ---
-
-  $i=0;
-  $cut_token=sprintf $CUT_FMAT,'BLK',$i++;
-
-  for my $id(@block_ids) {
-    $body=~ s/${cut_token}/$sbl_key $id;/;
-    $cut_token=sprintf $CUT_FMAT,'BLK',$i++;
 
   };
 
