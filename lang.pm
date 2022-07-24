@@ -794,7 +794,7 @@ my %DEFAULTS=(
 
   separators=>[','],
 
-  pesc=>lang::delim('$:',';>'),
+  pesc=>shwl::delm2('$:',';>'),
 
 # ---   *   ---   *   ---
 

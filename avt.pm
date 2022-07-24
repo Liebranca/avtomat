@@ -37,6 +37,7 @@ package avt;
   use lang;
   use langdefs::c;
   use langdefs::perl;
+  use langdefs::peso;
 
   use peso::st;
   use peso::rd;
@@ -526,6 +527,282 @@ sub version {
 };
 
 # ---   *   ---   *   ---
+# Python emitter tools
+
+sub cpyboil($name,$closed) {
+
+  return
+
+    q{#!/usr/bin/python}."\n".
+    q{$:NOTE;>}."\n"
+
+  ;
+
+};
+
+sub wrcpy_boil {
+
+  my $dir=shift;
+  my $fname=shift;
+  my $author=shift;
+  my $call=shift;
+  my $call_args=shift;
+
+  # create file
+  open my $FH,'>',
+    $CACHE{_root}.$dir.$fname.'.py'
+    or croak STRERR($fname);
+
+  # generate notice
+  my $n=note($author,'#');
+
+  # open boiler and subst notice
+  my $op=cpyboil(uc($fname),0);
+  $op=~ s/\$\:NOTE\;\>/${ n }/;
+
+  # write it to file
+  print $FH $op;
+
+  # write the code through the generator
+  $call->($FH,@$call_args);
+
+#  # close boiler
+#  print $FH avt::cplboil_pm uc($fname),1;
+  close $FH;
+
+};
+
+# ---   *   ---   *   ---
+
+sub pytypecon($type) {
+
+  state %types=qw{
+
+    string c_char_p
+    string* POINTER(c_char_p)
+
+    void None
+    void* c_void_p
+
+    size_t c_size_t
+
+    float c_float
+    float* POINTER(c_float)
+
+    char c_int8_t
+    uchar c_uint8_t
+
+    uchar* POINTER(c_uint8_t)
+
+    short c_int16_t
+    ushort c_uint16_t
+
+    short* POINTER(c_int16_t)
+    ushort* POINTER(c_uint16_t)
+
+    int c_int32_t
+    uint c_uint32_t
+
+    int* POINTER(c_int32_t)
+    uint* POINTER(c_uint32_t)
+
+    long c_int64_t
+    ulong c_uint64_t
+
+    long* POINTER(c_int64_t)
+    ulong* POINTER(c_uint64_t)
+
+
+  };
+
+# ---   *   ---   *   ---
+
+  if(exists $types{$type}) {
+    $type=$types{$type};
+
+  };
+
+  return $type;
+
+};
+
+# ---   *   ---   *   ---
+
+sub ctopy($FH,$soname,$libs_ref) {
+  my %symtab=%{soregen($soname,$libs_ref)};
+
+# ---   *   ---   *   ---
+
+my $code=q{
+
+from ctypes import *;
+ROOT='/'.join(__file__.split("/")[0:-1]);
+
+$:iter (x0=>[@names]) "$x0=None;\n";>
+
+class $:soname;>:
+
+  @classmethod
+  def nit():
+    self=cdll.LoadLibrary(
+      ROOT+"lib$:soname;>.so"
+
+    );
+
+$:iter (
+
+      x0=>[@names],
+      x1=>[@rtypes],
+      x2=>[@arg_types],
+
+    )
+
+      "    self.call_$x0=self.__getattr__".
+      "('$x0');\n".
+
+      "    self.call_$x0.restype=$x1;\n".
+      "    self.call_$x0.argtypes=$x2;\n"
+
+    ;>
+
+    return self;
+
+};
+
+# ---   *   ---   *   ---
+
+  my @names=();
+  my @rtypes=();
+  my @arg_types=();
+
+  for my $fn_name(keys %symtab) {
+
+    my $data=$symtab{$fn_name};
+
+    my $rtype=shift @$data;
+    my $arg_types=shift @$data;
+    my $arg_names=shift @$data;
+
+    $rtype=pytypecon($rtype);
+
+    for my $type(@$arg_types) {
+      $type=pytypecon($type);
+
+    };
+
+    push @names,$fn_name;
+    push @rtypes,$rtype;
+
+    push @arg_types,
+      '['.(join q{,},@$arg_types).']';
+
+  };
+
+# ---   *   ---   *   ---
+
+  state $pesc=qr{
+
+    \$:
+
+    (?<body> (?:
+
+      [^;] | ;[^>]
+
+    )+)
+
+    ;>
+
+  }x;
+
+#lang->peso->{pesc};
+
+  while($code=~ s/($pesc)/__CUT__/sm) {
+
+    my $esc=$+{body};
+
+    if(!($esc=~ s/^([^;\s]+)\s*//)) {
+
+      arstd::errout(
+        "Empty peso escape '%s'",
+
+        args=>[$esc],
+        lvl=>$FATAL,
+
+      );
+
+    };
+
+    my $command=${^CAPTURE[0]};
+
+# ---   *   ---   *   ---
+
+    if($command eq 'iter') {
+
+      $esc=~ s/(\([^\)]*\))\s+//xm;
+
+      my %ht=eval(${^CAPTURE[0]}.q{;});
+      my $run=$esc;
+
+      my $repl=$NULLSTR;
+
+      my $ar_cnt=int(keys %ht);
+
+      my $loop_cond='while(';
+      my $loop_head=$NULLSTR;
+      my $loop_body='$repl.=eval($run);};';
+
+# ---   *   ---   *   ---
+
+      my $i=0;
+      for my $key(keys %ht) {
+
+        my $elem=q[@{].'$ht{'.$key.'}'.q[}];
+
+        $loop_cond.=$elem;
+
+        $i++;
+        if($i<$ar_cnt) {
+          $loop_cond.=q{&&};
+
+        };
+
+        $loop_head.=q{my $}."$key".q{=}.
+          'shift '.$elem.';';
+
+      };
+
+      $loop_cond.=q[) {];
+
+# ---   *   ---   *   ---
+
+#      print "$loop_cond\n";
+#      print "$loop_head\n";
+#      print "$loop_body\n";
+#
+#      print "\n>>$run\n";
+#      print "________________\n\n";
+
+      eval($loop_cond.$loop_head.$loop_body);
+      $code=~ s/__CUT__/$repl/sg;
+
+# ---   *   ---   *   ---
+
+    } else {
+
+      my $var=eval(q{$}.$command);
+      $code=~ s/__CUT__/$var/;
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+
+  print "$code\n";
+
+};
+
+# ---   *   ---   *   ---
 # C code emitter tools
 
 # name=what your file is called
@@ -698,7 +975,7 @@ sub typecon {
 
   };
 
-  $s=~ s/unsigned\s/u/;
+  $s=~ s/unsigned\s+/u/;
   return $s;
 
 };
@@ -908,7 +1185,7 @@ sub symrd {
 # ---   *   ---   *   ---
 # rebuilds shared objects if need be
 
-sub soregen($soname,$libs_ref) {
+sub soregen($soname,$libs_ref,$no_regen=0) {
 
   my $sopath="$CACHE{_root}/lib/lib$soname.so";
   my $so_gen=!(-e $sopath);
@@ -937,7 +1214,7 @@ sub soregen($soname,$libs_ref) {
 # ---   *   ---   *   ---
 
   # generate so
-  if($so_gen) {
+  if($so_gen && !$no_regen) {
 
     # recursively get dependencies
     my $O_LIBS='-l'.( join ' -l',@libs );
@@ -2916,3 +3193,4 @@ TAIL:
 
 # ---   *   ---   *   ---
 1; # ret
+

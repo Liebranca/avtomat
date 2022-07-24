@@ -205,7 +205,11 @@ sub prprops {
   # ^he's a double degenerate, the standard
   # string matching patterns are terrible
 
-  if($key=~ m/(?: strings|chars|shcmds|preproc)/x) {
+  if($key=~ m/(?:
+
+    strings|chars|shcmds|preproc|pesc
+
+  )/x) {
 
     if($key eq 'strings') {
       $v=lang::delim(q{"});
@@ -216,8 +220,11 @@ sub prprops {
     } elsif($key eq 'shcmds') {
       $v=lang::delim(q{`});
 
-    } else {
+    } elsif($key eq 'preproc') {
       $v='^\s*#.*$';
+
+    } else {
+      $v='\$\:.*;>';
 
     };
 

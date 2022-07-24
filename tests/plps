@@ -16,9 +16,10 @@
   use peso::rd;
   use avt;
 
+avt::root($ENV{'ARPATH'});
+chdir avt::root;
 
-
-print avt::file_sbl(glob("~/AR/ce/keyboard.h"));
+avt::ctopy(undef,'lycon',['ce']);
 
 #my $tree=lang->c->plps_match(
 #
