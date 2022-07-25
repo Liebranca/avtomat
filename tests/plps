@@ -29,7 +29,7 @@ my $tree=$block->{tree};
 $rd->recurse($tree);
 $rd->hier_sort();
 
-#$tree->prich();
+$tree->prich();
 
 # ---   *   ---   *   ---
 

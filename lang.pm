@@ -135,6 +135,11 @@ sub ws_split($pat,$s) {
 
 };
 
+sub ws_split_re($c) {
+  return qr{\s*$c\s*};
+
+};
+
 # ---   *   ---   *   ---
 # in:pattern
 # escapes .^$([{}])+*?/|\: in pattern

@@ -56,15 +56,12 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 # PACKAGE CONFIGS
 
 # ---   *   ---   *   ---
-# avtomat
 
-{ my %config=(
+avt::set_config(
 
-  'NAME'  =>  'avtomat',
+  name=>'avtomat',
+  pre_build=>q(
 
-  );
-
-  $config{'PREB'}=q(
     my $ex=$ENV{'ARPATH'}.'/avtomat/AR.ph';
     my $me=`$ex`;
 
@@ -74,36 +71,36 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 
     };
 
-  );avt::strconfig \%config;
+  ),
 
-};
-
-# ---   *   ---   *   ---
-# ce
-
-{ my %config=(
-
-  'NAME'  =>  'ce',
-  'SCAN'  =>  '-x keys',
-
-  'BUILD' =>  'x:ce',
-
-  'XCPY'  =>  'wpid',
-  'XPRT'  =>  'keyboard.h,clock.h,arstd.h',
-
-  'GENS'  =>  'chartab.h:chartab*,'.
-              'keymap.h:[keymap*,genks.pm,%.k]',
-
-  'LIBS'  =>  'X11',
+);
 
 # ---   *   ---   *   ---
-# post-build calls for ce
 
-  );$config{'POST'}=q(
+avt::set_config(
 
-    unshift @ARGV,avt::root.'/lib/';
-    avt::stlib();
+  name=>'ce',
+  scan=>'-x keys',
 
+  build=>'x:ce',
+
+  xcpy=>[qw(wpid)],
+  xprt=>[qw(keyboard.h clock.h arstd.h)],
+
+  gens=>{
+
+    'chartab.h'=>[qw(chartab*)],
+    'keymap.h'=>[qw(keymap* genks.pm %.k)],
+
+  },
+
+  libs=>[qw(X11)],
+
+# ---   *   ---   *   ---
+
+  post_build=>q(
+
+    avt::stlib(avt::root().'/lib/');
     avt::wrcplboil_pm(
       '/lib/',
       'lycon',
@@ -118,44 +115,40 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 
     );
 
-  );avt::strconfig \%config;
+  ),
 
-};
-
-# ---   *   ---   *   ---
-# help
-
-{ my %config=(
-
-  'NAME'  =>  'help',
-  'XCPY'  =>  'help*,tkmny*',
-
-  );avt::strconfig \%config;
-
-};
+);
 
 # ---   *   ---   *   ---
-# ft8
 
-{ my @deps=(
+avt::set_config(
 
-    ['rw-psf',
+  name=>'help',
+  xcpy=>[qw(help* tkmny*)],
+
+);
+
+# ---   *   ---   *   ---
+
+avt::set_config(
+
+  name=>'ft8',
+
+  deps=>[
+
+    [ 'rw-psf'
       $avt::GITHUB.'/talamus/rw-psf',
       undef
 
     ],
 
-  );avt::depchk "$root/ft8",\@deps;
+  ],
 
-  my %config=(
-
-  'NAME'  =>  'ft8',
-  'XCPY'  =>  'ft8*,writepsf*',
+  xcpy=>[qw(ft8* writepsf*)],
 
 # ---   *   ---   *   ---
-# post-build calls for ft8
 
-  );$config{'POST'}=q(
+  post_build=>q(
 
     if(!(-e avt::root."/fonts")) {
 
@@ -175,57 +168,52 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 
       ],'';
 
-    };);avt::strconfig \%config;
+    };
+  ),
 
-};
-
-# ---   *   ---   *   ---
-# sin
-
-{ my %config=(
-
-  'NAME'  =>  'sin',
-  'BUILD' =>  'ar:sin',
-
-  'GENS'  =>  'shblk.h:[shblk*,%.glsl]',
-  'LIBS'  =>  'GL,GLEW,ce',
-
-  );avt::strconfig \%config;
-
-};
+);
 
 # ---   *   ---   *   ---
-# chasm
 
-{ my %config=(
+avt::set_config(
 
-  'NAME'  =>  'chasm',
+  name=>'sin',
+  build=>'ar:sin',
 
-  'BUILD' =>  'ar:chasm',
-  'LIBS'  =>  'sin,SDL2,SDL2main',
+  gens=>{
+    'shblk.h'=>[qw(shblk* %.glsl)],
 
-  );avt::strconfig \%config;
+  },
 
-};
+  libs=>[qw(GL GLEW ce)],
 
-# ---   *   ---   *   ---
-# auvilib
-
-{ my %config=(
-
-  'NAME'  =>  'AUVILIB',
-  'BUILD' =>  'ar:AUVILIB',
-
-  'XPRT'  =>  'xforms/im.c',
+);
 
 # ---   *   ---   *   ---
-# post-build calls for auvilib
 
-  );$config{'POST'}=q(
+avt::set_config(
 
-    unshift @ARGV,avt::root.'/lib/';
-    avt::stlib();
+  name=>'chasm',
 
+  build=>'ar:chasm',
+  libs=>[qw(sin SDL2 SDL2main)],
+
+);
+
+# ---   *   ---   *   ---
+
+avt::set_config(
+
+  name=>'AUVILIB',
+
+  build=>'ar:AUVILIB',
+  xprt=>[qw(xforms/im.c)],
+
+# ---   *   ---   *   ---
+
+  post_build=>q(
+
+    avt::stlib(avt::root().'/lib/');
     avt::wrcpyboil(
       '/lib/',
       'AUVILIB',
@@ -235,9 +223,9 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 
     );
 
-  );avt::strconfig \%config;
+  ),
 
-};
+);
 
 # ---   *   ---   *   ---
 # install packages
