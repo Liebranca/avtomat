@@ -16,10 +16,27 @@
   use peso::rd;
   use avt;
 
-avt::root($ENV{'ARPATH'});
-chdir avt::root;
+# ---   *   ---   *   ---
 
-avt::ctopy(undef,'lycon',['ce']);
+my $rd=peso::rd::new_parser(
+  lang->c,$ENV{'ARPATH'}.'/AUVILIB/xforms/im.c'
+
+);
+
+my $block=$rd->select_block(-ROOT);
+my $tree=$block->{tree};
+
+$rd->recurse($tree);
+$rd->hier_sort();
+
+#$tree->prich();
+
+# ---   *   ---   *   ---
+
+#avt::root($ENV{'ARPATH'});
+#chdir avt::root;
+#
+#avt::ctopy(undef,'lycon',['ce']);
 
 #my $tree=lang->c->plps_match(
 #

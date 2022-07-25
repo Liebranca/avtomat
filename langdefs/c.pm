@@ -11,6 +11,7 @@ package langdefs::c;
   use strict;
   use warnings;
 
+  use English qw(-no_match_vars);
   use Readonly;
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -124,6 +125,7 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
+  sbl_key=>q{function},
   sbl_decl=>q{
 
     (?<attrs>
@@ -148,6 +150,27 @@ lang::def::nit(
   },
 
 # ---   *   ---   *   ---
+
+  type_key=>q{struct},
+
+  type_decl=>q{
+
+    (?:typedef\s+)?
+    $:type_key;>\s+
+
+    (?<name> $:names;>\s+)?
+
+    (?<scope> [{]
+
+      (?<code> [^{}] | (?&scope))*
+
+    [}])\s*
+
+    (?<name> $:names;>\s*)? ;?
+
+  },
+
+# ---   *   ---   *   ---
 # build language patterns
 
 );##lang->c->{_plps}=langdefs::plps::make(lang->c);
@@ -157,7 +180,18 @@ lang->c->{hier_sort}=sub($rd) {
   my $block=$rd->select_block(-ROOT);
   my $tree=$block->{tree};
 
-  for my $sbl($tree->branches_in(qr{^SBL$})) {
+  my $lang=$rd->{lang};
+
+  my $re=qr{
+
+    ^(?: $lang->{sbl_key}
+     |   $lang->{type_key}
+
+    )$
+
+  }x;
+
+  for my $sbl($tree->branches_in($re)) {
     if(!@{$sbl->{leaves}}) {
 
       my $idex=$sbl->{idex};
@@ -176,6 +210,15 @@ lang->c->{hier_sort}=sub($rd) {
       };
 
 # ---   *   ---   *   ---
+
+    };
+
+    my $id=$sbl->leaf_value(0);
+    if($sbl->{value} eq $lang->{type_key}) {
+      $id=$shwl::UTYPE_PREFIX.$id;
+
+      $block=$rd->select_block($id);
+      $block->{tree}->prich();
 
     };
 

@@ -63,6 +63,10 @@ package shwl;
   Readonly our $ASG_RE=>qr{\:__ASG__\:};
 
 # ---   *   ---   *   ---
+
+  Readonly our $UTYPE_PREFIX=>'user_type_';
+
+# ---   *   ---   *   ---
 # we need these two DISGUSTING REDUNDANCIES
 # just so that we can bootstrap without making
 # a dependency cycle with the perl langdef
@@ -527,97 +531,49 @@ sub codefold($fname,$lang,%opts) {
 
   };
 
-  my $foldtags=$lang->{foldtags};
-  my $deldata=$lang->{delimiters};
-
-  my $dels_re=$deldata->{re};
-  my $dels_id=$deldata->{id};
-  my $dels_order=$deldata->{order};
+# ---   *   ---   *   ---
 
   my $sbl_decl=$lang->{sbl_decl};
   my $sbl_key=$lang->{sbl_key};
 
-# ---   *   ---   *   ---
+  my %blocks=shwl::blk::extract(
 
-  my %blocks=();
-  my @block_ids=();
+    \$body,
 
-  my $i=0;
-  my $cut_token=sprintf $CUT_FMAT,'BLK',$i++;
+    $sbl_decl,
+    $sbl_key,
+    'BLK',
 
-  while($body=~ s/$sbl_decl/$cut_token/sxm) {
+    $lang
 
-    my $fnbody=$+{scope};
-    $fnbody//=$NULLSTR;
-
-    my $block=shwl::blk::nit();
-
-    push @block_ids,$block->{name};
-
-    $fnbody=~ s/^\s*\{//;
-    $fnbody=~ s/\s*\}$//;
+  );
 
 # ---   *   ---   *   ---
 
-    for my $key(@$foldtags) {
-      cut(\$fnbody,uc $key,$lang->{$key});
+  my $type_decl=$lang->{type_decl};
+  my $type_key=$lang->{type_key};
 
-    };
+  my %types=shwl::blk::extract(
 
-    for my $key(@$dels_order) {
+    \$body,
 
-      cut(
+    $type_decl,
+    $type_key,
+    'TYPE',
 
-        \$fnbody,
+    $lang,
 
-        $dels_id->{$key},
-        $dels_re->{$key}
+  );
 
-      );
+  for my $key(keys %types) {
 
-    };
-
-# ---   *   ---   *   ---
-
-    $block->{strings}=DUMPSTRINGS();
-    $block->{body}=$fnbody;
-
-    $blocks{$block->{name}}=$block;
-
-    $cut_token=sprintf $CUT_FMAT,'BLK',$i++;
+    $blocks{$UTYPE_PREFIX.$key}=$types{$key};
 
   };
 
 # ---   *   ---   *   ---
 
-  $i=0;
-  $cut_token=sprintf $CUT_FMAT,'BLK',$i++;
-
-  for my $id(@block_ids) {
-    $body=~ s/${cut_token}/$sbl_key $id;/;
-    $cut_token=sprintf $CUT_FMAT,'BLK',$i++;
-
-  };
-
-# ---   *   ---   *   ---
-
-  for my $key(@$foldtags) {
-    cut(\$body,uc $key,$lang->{$key});
-
-  };
-
-  for my $key(@$dels_order) {
-
-    cut(
-      \$body,
-      $dels_id->{$key},
-      $dels_re->{$key}
-
-    );
-
-  };
-
-# ---   *   ---   *   ---
+  shwl::blk::fold($lang,\$body);
 
   my $fblk=bless {
 
@@ -712,6 +668,121 @@ sub nit {
   $block->{body}//=$NULLSTR;
 
   return $block;
+
+};
+
+# ---   *   ---   *   ---
+
+sub extract(
+
+  $body_ref,
+
+  $re,
+  $cut_key,
+  $cut_alias,
+
+  $lang
+
+) {
+
+  my $i=0;
+
+  my $cut_token=sprintf
+    $shwl::CUT_FMAT,
+    $cut_alias,$i++
+
+  ;
+
+  my @ids=();
+  my %frame=();
+
+# ---   *   ---   *   ---
+
+  while($$body_ref=~ s/$re/$cut_token/sxm) {
+
+    my $fnbody=$+{scope};
+    $fnbody//=$NULLSTR;
+
+    my $block=nit();
+
+    push @ids,$block->{name};
+
+    $fnbody=~ s/^\s*\{//;
+    $fnbody=~ s/\s*\}$//;
+
+    fold($lang,\$fnbody);
+
+# ---   *   ---   *   ---
+
+    $block->{strings}=shwl::DUMPSTRINGS();
+    $block->{body}=$fnbody;
+
+    $frame{$block->{name}}=$block;
+
+    $cut_token=sprintf
+      $shwl::CUT_FMAT,
+      $cut_alias,$i++
+
+    ;
+
+  };
+
+# ---   *   ---   *   ---
+
+  $i=0;
+  $cut_token=sprintf
+    $shwl::CUT_FMAT,
+    $cut_alias,$i++
+
+  ;
+
+  for my $id(@ids) {
+
+    $$body_ref=~
+      s/${cut_token}/$cut_key $id;/;
+
+    $cut_token=sprintf
+      $shwl::CUT_FMAT,
+      $cut_alias,$i++
+
+    ;
+
+  };
+
+# ---   *   ---   *   ---
+
+  return %frame;
+
+};
+
+# ---   *   ---   *   ---
+
+sub fold($lang,$body_ref) {
+
+  my $foldtags=$lang->{foldtags};
+  my $deldata=$lang->{delimiters};
+
+  my $dels_re=$deldata->{re};
+  my $dels_id=$deldata->{id};
+  my $dels_order=$deldata->{order};
+
+# ---   *   ---   *   ---
+
+  for my $key(@$foldtags) {
+    shwl::cut($body_ref,uc $key,$lang->{$key});
+
+  };
+
+  for my $key(@$dels_order) {
+
+    shwl::cut(
+      $body_ref,
+      $dels_id->{$key},
+      $dels_re->{$key}
+
+    );
+
+  };
 
 };
 

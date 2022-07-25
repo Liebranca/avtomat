@@ -871,6 +871,9 @@ my %DEFAULTS=(
   sbl_key=>'SBL',
   sbl_decl=>qr{$^}x,
 
+  type_key=>'TYPE',
+  type_decl=>qr{$^}x,
+
   ptr_decl=>qr{$^}x,
   ptr_defn=>qr{$^}x,
   ptr_asg=>qr{$^}x,
@@ -1289,8 +1292,8 @@ sub nit(%h) {
     drfc hier hier_re
     names names_l names_u
 
-    sbl_decl ptr_decl ptr_defn
-    ptr_asg sigils
+    sbl_decl type_decl ptr_decl
+    ptr_defn ptr_asg sigils
 
   )) {
 

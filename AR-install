@@ -209,6 +209,37 @@ unshift @ARGV,$root.'/lib/';avt::stlib();
 };
 
 # ---   *   ---   *   ---
+# auvilib
+
+{ my %config=(
+
+  'NAME'  =>  'AUVILIB',
+  'BUILD' =>  'ar:AUVILIB',
+
+  'XPRT'  =>  'xforms/im.c',
+
+# ---   *   ---   *   ---
+# post-build calls for auvilib
+
+  );$config{'POST'}=q(
+
+    unshift @ARGV,avt::root.'/lib/';
+    avt::stlib();
+
+    avt::wrcpyboil(
+      '/lib/',
+      'AUVILIB',
+      'IBN-3DILA',
+
+      \&avt::ctopy,['AUVILIB',['AUVILIB']]
+
+    );
+
+  );avt::strconfig \%config;
+
+};
+
+# ---   *   ---   *   ---
 # install packages
 
 avt::scan();

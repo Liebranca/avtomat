@@ -171,7 +171,10 @@ sub filter {
       for my $path(values %INC) {
         if($path=~ $re) {
 
-          $path=~ s{/lib/} {/trashcan/$modname/};
+          my $alt=$path;
+          $alt=~ s{/lib/} {/trashcan/$modname/};
+
+          if(-e $alt) {$path=$alt};
           $deps.=$path.q{ };
 
         };

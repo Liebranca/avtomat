@@ -357,10 +357,13 @@ sub libsearch($lbins,$lsearch,$deps) {
 
       # .lib file found
       if(-e "$ldir/.$lbin") {
-        my $ndeps.=(split "\n",
-          `cat $ldir/.$lbin`
 
-        )[0];chomp $ndeps;
+        my @ar=split m[\n],`cat $ldir/.$lbin`;
+
+        my $ndeps.=(defined $ar[0])
+          ? $ar[0] : $NULLSTR;
+
+        chomp $ndeps;
 
         $ndeps=join q{|},(
           lang::ws_split($SPACE_RE,$ndeps)
@@ -540,7 +543,7 @@ sub cpyboil($name,$closed) {
 
 };
 
-sub wrcpy_boil {
+sub wrcpyboil {
 
   my $dir=shift;
   my $fname=shift;
@@ -638,8 +641,6 @@ my $code=q{
 from ctypes import *;
 ROOT='/'.join(__file__.split("/")[0:-1]);
 
-$:iter (x0=>[@names]) "$x0=None;\n";>
-
 class $:soname;>:
 
   @classmethod
@@ -661,7 +662,7 @@ $:iter (
       "('$x0');\n".
 
       "    self.call_$x0.restype=$x1;\n".
-      "    self.call_$x0.argtypes=$x2;\n"
+      "    self.call_$x0.argtypes=$x2;\n\n"
 
     ;>
 
@@ -713,8 +714,6 @@ $:iter (
     ;>
 
   }x;
-
-#lang->peso->{pesc};
 
   while($code=~ s/($pesc)/__CUT__/sm) {
 
@@ -775,13 +774,6 @@ $:iter (
 
 # ---   *   ---   *   ---
 
-#      print "$loop_cond\n";
-#      print "$loop_head\n";
-#      print "$loop_body\n";
-#
-#      print "\n>>$run\n";
-#      print "________________\n\n";
-
       eval($loop_cond.$loop_head.$loop_body);
       $code=~ s/__CUT__/$repl/sg;
 
@@ -798,7 +790,7 @@ $:iter (
 
 # ---   *   ---   *   ---
 
-  print "$code\n";
+  print {$FH} "$code\n";
 
 };
 
@@ -1864,11 +1856,11 @@ sub scan {
       };
 
       # ensure directores exist
-      my $tsub=$sub;
-      $tsub=~ s/${ modpath }/${ trsh }/;
+      my $tsub=$trsh.$sub;
+      $tsub=~ s[<main>][/];
 
-      if(!(-e $trsh)) {
-        mkdir $tsub;
+      if(!(-e $tsub)) {
+        `mkdir -p $tsub`;
 
       };
 
@@ -2461,7 +2453,15 @@ EOF
 
     # get exports list
     $xprt=($xprt ne $CONFIG_DEFAULT)
-      ? join q{|},(lang::ws_split($COMMA_RE,$xprt))
+      ? join q{|},(
+
+        map
+
+          {"./$name/$ARG"}
+          lang::ws_split($COMMA_RE,$xprt)
+
+      )
+
       : $NULLSTR
       ;
 
@@ -2573,8 +2573,10 @@ EOF
       # copy these to include
       if($xprt) {
 
+        my @xprt_search=map {"$mod/$ARG"} @path;
+
         my @matches=grep
-          m/${ xprt }/,@path;
+          m/${ xprt }/,@xprt_search;
 
         while(@matches) {
           my $match=shift @matches;
@@ -2583,7 +2585,7 @@ EOF
           $xprt=~ s/\|?${ match }\|?//;
           $match=~ s/\\//g;
 
-          push @XPRT,"$mod/$match";
+          push @XPRT,"$match";
 
         };
       };
@@ -2623,8 +2625,10 @@ EOF
 # ---   *   ---   *   ---
 # get *.c files
 
-      { my @matches=grep
-          m/.\.c/,@path;
+      { my $ext=qr{\.c$};
+
+        my @matches=grep
+          m/${ext}/,@path;
 
         if(@matches) {
 
