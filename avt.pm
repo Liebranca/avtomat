@@ -46,7 +46,7 @@ package avt;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v3.21.0;
+  our $VERSION=v3.21.1;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -100,7 +100,7 @@ package avt;
 # ---   *   ---   *   ---
 # gcc switches
 
-  Readonly my $OFLG=>
+  Readonly our $OFLG=>
     q{-s -Os -fno-unwind-tables}.q{ }.
     q{-fno-asynchronous-unwind-tables}.q{ }.
     q{-ffast-math -fsingle-precision-constant}.q{ }.
@@ -108,7 +108,7 @@ package avt;
 
   ;
 
-  Readonly my $LFLG=>
+  Readonly our $LFLG=>
     q{-flto -ffunction-sections}.q{ }.
     q{-fdata-sections -Wl,--gc-sections}.q{ }.
     q{-Wl,-fuse-ld=bfd}
@@ -153,7 +153,7 @@ sub root($new=undef) {
 
 # ---   *   ---   *   ---
 
-sub MODULES {return split ' ',$CACHE{_modules};};
+sub MODULES {return @{$CACHE{_modules}}};
 
 # ---   *   ---   *   ---
 # add to search path (include)
@@ -1070,7 +1070,8 @@ sub file_sbl($f) {
 
 sub symscan($mod,@fnames) {
 
-  stinc($CACHE{_root}."/$mod/");
+  my $root=abs_path(root());
+  stinc("$root/$mod/");
 
   my @files=();
 
@@ -1092,7 +1093,8 @@ sub symscan($mod,@fnames) {
 
 # ---   *   ---   *   ---
 
-  my $dst=$CACHE{_root}."/lib/.$mod";
+  my $dst="$root/lib/.$mod";
+
   my $deps=(split "\n",`cat $dst`)[0];
 
   open my $FH,'>',$dst or croak STRERR($dst);
@@ -1102,7 +1104,9 @@ sub symscan($mod,@fnames) {
 # iter through files
 
   for my $f(@files) {
-    if(!$f) {next;};
+    if(!$f) {next};
+
+    $f=~ s/^${root}/./;
 
     # save filename
     print $FH "$f:\n";
@@ -1118,8 +1122,10 @@ sub symscan($mod,@fnames) {
 # get symbol typedata from shadow lib
 sub symrd {
 
+  my $root=abs_path(root());
+
   my $mod=shift;
-  my $src=$CACHE{_root}."/lib/.$mod";
+  my $src=$root."/lib/.$mod";
 
   # existence check
   if(!(-e $src)) {
@@ -1146,9 +1152,9 @@ sub symrd {
       # transform into path to equivalent object file
       $line=~ s/^\./trashcan/;
       $line=~ s/\.[\w|\d]*$/\.o/;
-      $line=~ s/${ CACHE{_root} }//;
+      $line=~ s/${root}//;
 
-      $line= "${ CACHE{_root} }/$line";
+      $line= "$root/$line";
 
       push @{ $h{'files'} },$line;
       next;
@@ -1909,6 +1915,8 @@ sub get_config_files($M,$config,$module) {
   $M->{fcpy}=[];
   $M->{xprt}=[];
   $M->{gens}=[];
+  $M->{srcs}=[];
+  $M->{objs}=[];
 
   my $root=root();
 

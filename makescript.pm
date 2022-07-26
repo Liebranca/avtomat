@@ -91,7 +91,7 @@ sub update_generated($M) {
 # make sure we don't need to update
 
     my $do_gen=!(-e $res);
-    if(!$do_gen) {$do_gen=ot($res,$gen);};
+    if(!$do_gen) {$do_gen=avt::ot($res,$gen);};
 
 # ---   *   ---   *   ---
 # make damn sure we don't need to update
@@ -137,7 +137,7 @@ sub update_generated($M) {
     if($do_gen) {
 
       print {*STDERR}
-        shpath($gen)."\n";
+        avt::shpath($gen)."\n";
 
       `$gen`;
 
@@ -188,6 +188,8 @@ sub update_regular($M) {
 # ---   *   ---   *   ---
 
 sub update_objects($M,$DFLG,$PFLG) {
+
+  state $obj_ext=qr{\.o$};
 
   my @SRCS=@{$M->{srcs}};
   my @OBJS=@{$M->{objs}};
@@ -244,19 +246,16 @@ sub update_objects($M,$DFLG,$PFLG) {
     if($do_build) {
 
       print {*STDERR} avt::shpath($src)."\n";
-      my $asm=$obj;$asm=substr(
-        $asm,0,(length $asm)-1
 
-      );$asm.='asm';
+      my $asm=$obj;
+      $asm=~ s[$obj_ext][.asm];
 
       my $call=''.
         'gcc -MMD'.q{ }.$avt::OFLG.q{ }.
         "$INCLUDES $DFLG $PFLG ".
         "-Wa,-a=$asm -c $src -o $obj";
 
-      `$call`;
-
-      $objblt++;
+      `$call`;$objblt++;
 
     };
 
@@ -294,7 +293,7 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 # build mode is 'static library'
 
   if($M->{lmode} eq 'ar') {
-    my $call="ar -crs $M->{MAIN} $OBJS";
+    my $call="ar -crs $M->{main} $OBJS";
     `$call`;
 
     `echo "$M->{libs}" > $M->{ilib}`;
