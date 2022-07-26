@@ -14,16 +14,68 @@ Way it works: you write down short configs for your projects in the form of a Pe
 
 - **Avto-FFI**: if a list of source or header files is provided for the purpose of creating bindings, then those files will be scanned for symbols, and bindings for other languages can later be created through a post build script. Currently, Perl 5 is supported through `FFI::Platypus` and Python support through `ctypes` is being worked on; more languages will be added as needed.
 
+# INSTALLATION
+
+### Windows && Mac
+
+Beat it.
+
+### GNU/Linux
+
+You don't need to install all of my system utils nor match my exact environment just to use avtomat. You DO need to set ARPATH, though. Why? Because it makes the code a thousand times simpler.
+
+To test it out:
+
+```bash
+
+mkdir AR
+cd AR
+ARPATH=$(pwd)
+
+git clone https://github.com/Liebranca/avtomat
+cd avtomat
+./AR.ph
+
+```
+
+And if you're happy with the software then you can just add ARPATH to your environs yourself. Then your perl scripts can just say:
+
+```perl
+
+use lib $ENV{'ARPATH'}.'/lib/';
+use avt; # or anything else from avtomat ;>
+
+```
+
+And because you had to make a topdir so that avtomat could use it's own local lib, bin, include, etcetera now you can uninstall the whole thing in one command:
+
+```bash
+rm -r $ARPATH
+```
+
+Removing `ARPATH` from your environment variables is also left up to you.
+
 # USAGE
 
-First off, understand that avtomat expects to work with one top directory, and will try to find projects and files within that scope.
+First off, understand that avtomat is made for managing multiple modules within the same directory; it expects that you'll pass it one top directory and will do it's thing solely within that scope.
+
+For visual aids, here's what's expected:
+
+```
+>/your/top/dir
+\-->MyModule_a
+\-->MyModule_b
+
+```
+
+Got it? Good.
 
 The following script demonstrates how to write an avtomat setup.
 
 ```perl
 
 # import avtomat
-use lib 'path/to/avtomat';
+use lib $ENV{'ARPATH'}.'/lib/';
 use avt;
 
 # set your top directory
@@ -33,11 +85,37 @@ avt::root('/your/top/dir');
 avt::stlib('/your/lib/path');
 
 # configure your module(s)
-avt::set_config=(
+avt::set_config(
 
   # only this field is mandatory
   # any other field, if skipped, means do nothing
   name=>'MyModule',
+
+  # pre-build hook, passed in as a string
+  # it'll be pasted as-is into an INIT block
+  pre_build=>q{
+    print "hello there\n";
+
+  },
+
+  #^same, goes into an END block
+  post_build=>q{
+    print "see ya!\n";
+
+  },
+
+  # experimental: array of dependencies
+  # will git clone into name if missing from module
+  deps=>[
+
+    [ 'name',
+      'link-to-git-repo',
+
+      undef (reserved for post-clone hooks)
+
+    ],
+
+  ],
 
   # this field is meant for passing arguments
   # to the project files search function;
@@ -83,31 +161,40 @@ avt::set_config=(
 
 );
 
-#^ repeat that for each module
+#^repeat for each module
 
-# looks in module folders for files
+# ---   *   ---   *   ---
+# invoke the triad
+
 avt::scan();
-
-# processes the module configuration
 avt::config();
-
-# outputs a makescript for each module
 avt::make();
+
+# ---   *   ---   *   ---
+# to also run the generated scripts:
+
+my @modules=avt::MODULES;
+my $root=avt::root();
+
+for my $mod(@modules) {
+  print `$root/$mod/avto`;
+
+};
 
 
 ```
 
 The `scan`,`config` and `make` triad will emit the following files:
 
-0. `topdir/.avto-modules`: a serialized Perl hash containing paths and files found by `scan`.
+- **topdir/.avto-modules**: a serialized Perl hash containing paths and files found by `scan`.
 
-1. `topdir/.avto-config`: a serialized Perl hash containing the configurations after being processed by `config`.
+- **topdir/.avto-config**: a serialized Perl hash containing the configurations after being processed by `config`.
 
-2. `topdir/module/avto` the makescript itself, ready to be run.
+- **topdir/module/avto**: the makescript itself, ready to be run.
 
-3. `topdir/module/.avto-cache` a serialized Perl hash containing module metadata used by the makescript.
+- **topdir/module/.avto-cache**: a serialized Perl hash containing module metadata used by the makescript.
 
-4. `topdir/.avto` a plain text file containing a 'last-run-by-user' and timestamp.
+- **topdir/.avto**: a plain text file containing a 'last-run-by-user' and timestamp.
 
 For an example script that sets up an actual project, refer to the `AR-install` file provided with avtomat.
 

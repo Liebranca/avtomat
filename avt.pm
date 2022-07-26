@@ -375,10 +375,11 @@ sub libsearch($lbins,$lsearch,$deps) {
       # .lib file found
       if(-e "$ldir/.$lbin") {
 
-        my @ar=split m[\n],`cat $ldir/.$lbin`;
+        my $f=retrieve("$ldir/.$lbin")
+        or croak STRERR("$ldir/.$lbin");
 
-        my $ndeps.=(defined $ar[0])
-          ? $ar[0] : $NULLSTR;
+        my $ndeps.=(defined $f->{deps})
+          ? $f->{deps} : $NULLSTR;
 
         chomp $ndeps;
 
@@ -693,26 +694,33 @@ $:iter (
   my @rtypes=();
   my @arg_types=();
 
-  for my $fn_name(keys %symtab) {
+  for my $o(keys %{$symtab{objects}}) {
 
-    my $data=$symtab{$fn_name};
+    my $obj=$symtab{objects}->{$o};
+    my $funcs=$obj->{functions};
 
-    my $rtype=shift @$data;
-    my $arg_types=shift @$data;
-    my $arg_names=shift @$data;
+    for my $fn_name(keys %$funcs) {
 
-    $rtype=pytypecon($rtype);
+      my $fn=$funcs->{$fn_name};
 
-    for my $type(@$arg_types) {
-      $type=pytypecon($type);
+      my $rtype=$fn->{type};
+      $rtype=pytypecon($rtype);
+
+      my @arg_names=keys %{$fn->{args}};
+      my @args=values %{$fn->{args}};
+
+      for my $type(@args) {
+        $type=pytypecon($type);
+
+      };
+
+      push @names,$fn_name;
+      push @rtypes,$rtype;
+
+      push @arg_types,
+        '['.(join q{,},@args).']';
 
     };
-
-    push @names,$fn_name;
-    push @rtypes,$rtype;
-
-    push @arg_types,
-      '['.(join q{,},@$arg_types).']';
 
   };
 
@@ -998,6 +1006,16 @@ sub file_sbl($f) {
   my $found='';
   my $langname=lang::file_ext($f);
 
+  my $object={
+
+    types=>{},
+
+    functions=>{},
+    variables=>{},
+    constants=>{},
+
+  };
+
 # ---   *   ---   *   ---
 # read source file
 
@@ -1016,7 +1034,7 @@ sub file_sbl($f) {
   my $sbl_key=qr{^$lang->{sbl_key}$};
 
 # ---   *   ---   *   ---
-# iter through expressions
+# iter through functions
 
   for my $sbl($tree->branches_in($sbl_key)) {
 
@@ -1029,10 +1047,15 @@ sub file_sbl($f) {
 
     my $type=typecon($attrs);
 
+    my $fn=$object->{functions}->{$name}={
+
+      type=>$type,
+      args=>{},
+
+    };
+
 # ---   *   ---   *   ---
 # save args
-
-    my $match="$name $type";
 
     $args=~ s/$lang->{strip_re}//sg;
     $args=~ s/^\s*\(|\)\s*$//sg;
@@ -1048,27 +1071,28 @@ sub file_sbl($f) {
         split $SPACE_RE,$arg;
 
       # is void
-      if(!defined $arg_name) {last};
+      if(!defined $arg_name) {
+        $arg_name=$NULLSTR;
+
+      };
 
       my $arg_type=typecon($arg_attrs);
 
-      # has type
-      $match.=" $arg_type $arg_name";
+      $fn->{args}->{$arg_name}=$arg_type;
 
 # ---   *   ---   *   ---
-# append results
 
-    };$match=~ s/\s+/ /sg;
-    $found.="$match\n";
+    };
 
-  };return $found;
+  };return $object;
+
 };
 
 # ---   *   ---   *   ---
 # in:modname,[files]
 # write symbol typedata (return,args) to shadow lib
 
-sub symscan($mod,@fnames) {
+sub symscan($mod,$dst,$deps,@fnames) {
 
   my $root=abs_path(root());
   stinc("$root/$mod/");
@@ -1093,12 +1117,12 @@ sub symscan($mod,@fnames) {
 
 # ---   *   ---   *   ---
 
-  my $dst="$root/lib/.$mod";
+  my $shwl={
 
-  my $deps=(split "\n",`cat $dst`)[0];
+    deps=>$deps,
+    objects=>{},
 
-  open my $FH,'>',$dst or croak STRERR($dst);
-  print $FH "$deps\n";
+  };
 
 # ---   *   ---   *   ---
 # iter through files
@@ -1107,93 +1131,44 @@ sub symscan($mod,@fnames) {
     if(!$f) {next};
 
     $f=~ s/^${root}/./;
+    my $o=$f;
 
-    # save filename
-    print $FH "$f:\n";
-    print $FH file_sbl($f);
+    # point to equivalent object file
+    $o=~ s/^\./trashcan/;
+    $o=~ s/\.[\w|\d]*$/\.o/;
 
-  };close $FH;
+    $shwl->{objects}->{$o}=file_sbl($f);
+
+  };
+
+  store($shwl,$dst) or croak STRERR($dst);
 
 };
 
 # ---   *   ---   *   ---
-
 # in:modname
 # get symbol typedata from shadow lib
-sub symrd {
+
+sub symrd($mod) {
 
   my $root=abs_path(root());
-
-  my $mod=shift;
   my $src=$root."/lib/.$mod";
+
+  my $out={};
 
   # existence check
   if(!(-e $src)) {
-    print "Can't find $mod shadow lib\n";
-    return undef;
+    print "Can't find shadow lib '$mod'\n";
+    goto TAIL;
 
   };
 
-  # read lib and discard deps
-  my @symbols=split "\n",`cat $src`;
-  shift @symbols;
+  $out=retrieve($src) or croak STRERR($src);
 
 # ---   *   ---   *   ---
 
-  # iter symbols
-  my %h=('files'=>[]);while(@symbols) {
-
-    my $line=shift @symbols;
-
-    # entry is filename
-    if($line=~ m/.*\:/) {
-      $line=~ s/\://;
-
-      # transform into path to equivalent object file
-      $line=~ s/^\./trashcan/;
-      $line=~ s/\.[\w|\d]*$/\.o/;
-      $line=~ s/${root}//;
-
-      $line= "$root/$line";
-
-      push @{ $h{'files'} },$line;
-      next;
-
-    };
-
-    # is symbol data
-    my @symbol=split(' ',$line);
-
-    my $key=shift @symbol;
-    if(!(defined $key)) {next;};
-
-    my $ret=shift @symbol;
-    $ret=(!(defined $ret)) ? 'void' : $ret;
-
-    # h[symbol_name]=return type,(types),(names)
-    if(@symbol) {
-      $h{$key}=[$ret,[],[]];
-
-    # void arguments
-    } else {
-      $h{$key}=[$ret,['void'],['']];
-
-    };
-
-    my $ref0=@{ $h{$key} }[1];
-    my $ref1=@{ $h{$key} }[2];
-
-    # iter through args
-    while(@symbol) {
-      my $arg_type=shift @symbol;
-      my $arg_name=shift @symbol;
-
-      push @$ref0,$arg_type;
-      push @$ref1,$arg_name;
-
-    };
-
-  };return \%h;
+TAIL:
+  return $out;
 
 };
 
@@ -1202,17 +1177,25 @@ sub symrd {
 
 sub soregen($soname,$libs_ref,$no_regen=0) {
 
-  my $sopath="$CACHE{_root}/lib/lib$soname.so";
+  my $root=abs_path(root());
+
+  my $sopath="$root/lib/lib$soname.so";
   my $so_gen=!(-e $sopath);
 
   my @libs=@{$libs_ref};
-  my %symtab=();
+  my %symtab=(
+
+    deps=>[],
+    objects=>{}
+
+  );
 
 # ---   *   ---   *   ---
+# recover symbol table
 
-  # make symbol table
+  my @o_files=();
   for my $lib(@libs) {
-    %symtab=(%symtab,%{ avt::symrd($lib) });
+    my $f=avt::symrd($lib);
 
     # so regen check
     if(!$so_gen) {
@@ -1220,15 +1203,20 @@ sub soregen($soname,$libs_ref,$no_regen=0) {
 
     };
 
+    # append
+    for my $o(keys %{$f->{objects}}) {
+      my $obj=$f->{objects}->{$o};
+      $symtab{objects}->{"$root/$o"}=$obj;
+
+    };
+
+    push @{$symtab{deps}},$f->{deps};
+
   };
 
-  # get object file list
-  my @o_files=@{ $symtab{'files'} };
-  delete $symtab{'files'};
-
 # ---   *   ---   *   ---
+# generate so
 
-  # generate so
   if($so_gen && !$no_regen) {
 
     # recursively get dependencies
@@ -1236,7 +1224,7 @@ sub soregen($soname,$libs_ref,$no_regen=0) {
     stlib("$CACHE{_root}/lib/");
 
     my $LIBS=avt::libexpand($O_LIBS);
-    my $OBJS=join ' ',@o_files;
+    my $OBJS=join ' ',keys %{$symtab{objects}};
 
     # link
     my $call='gcc -shared'.q{ }.
@@ -1385,30 +1373,53 @@ sub nit {
   \$CACHE{ffi}=\$ffi;
 
 EOF
-;print $FH $search;
+;print {$FH} $search;
+
+# ---   *   ---   *   ---
+# attach symbols from table
+
+  my $tab=$NULLSTR;
+
+  for my $o(keys %{$symtab{objects}}) {
+
+    my $obj=$symtab{objects}->{$o};
+    my $funcs=$obj->{functions};
+    $tab.="\n\n".
+
+    '# ---   *   ---   *   ---'."\n".
+    "# $o\n\n";
+
+    for my $fn_name(keys %$funcs) {
+
+      my $fn=$funcs->{$fn_name};
+
+      my @ar=values %{$fn->{args}};
+      for my $s(@ar) {
+        $s=sqwrap($s);
+
+      };
 
 # ---   *   ---   *   ---
 
-  # attach symbols from table
-  my $tab='';
-  for my $name(keys %symtab) {
+      my $arg_types='['.( join(
+        ',',@ar
 
-    my $ar=@{ $symtab{$name} }[1];
-    for my $s(@$ar) {
-      $s=sqwrap($s);
+      )).']';
+
+      my $rtype=$fn->{type};
+
+      $tab.=''.
+        "my \$$fn_name=\'$fn_name\';\n".
+
+        '$ffi->attach('.
+        "\$$fn_name,".
+        "$arg_types,".
+
+        "'$rtype');\n\n";
+
+# ---   *   ---   *   ---
 
     };
-
-    my $arg_types='['.( join(
-      ',',@$ar
-
-    )).']';$tab.=''.
-      "my \$$name=\'$name\';\n".
-
-      '$ffi->attach('.
-      "\$$name,".
-      "$arg_types,".
-      "'$symtab{$name}->[0]');\n\n";
 
   };
 
@@ -1418,7 +1429,7 @@ EOF
     ='(\&nit,$NOOP)'.
     '[$CACHE{nitted}]->();';
 
-  print $FH $tab."\n$nit\n};$callnit\n";
+  print {$FH} $tab."\n$nit\n};$callnit\n";
 
 };
 
@@ -1769,8 +1780,8 @@ sub scan() {
     };
 
 # ---   *   ---   *   ---
+# walk module path
 
-    # walk module path and capture sub count
     my %h=%{ walk($modpath) };
     my $list={};
 
@@ -1791,8 +1802,22 @@ sub scan() {
 
       };
 
-      # capture file list
-      $list->{$dir}=$h{$dir};
+# ---   *   ---   *   ---
+# capture file list
+
+      my $full=$dir;
+      $full=~ s[<main>][];
+      $full=~ s[^/][];
+
+      if(length $full) {$full.=q[/]};
+
+      my $files=[map
+        {$ARG=~ s[^/][];"$full$ARG"}
+        @{$h{$dir}}
+
+      ];
+
+      $list->{$dir}=$files;
 
 # ---   *   ---   *   ---
 
@@ -1935,10 +1960,8 @@ sub get_config_files($M,$config,$module) {
     };
 
     # get path to
-    ($dir,$trsh)=($dir eq '<main>')
-      ? ("./$name","./trashcan/$name")
-      : ("./$name/$dir","./trashcan/$name/$dir")
-      ;
+    $dir="./$name";
+    $trsh="./trashcan/$name";
 
 # ---   *   ---   *   ---
 
@@ -1954,6 +1977,8 @@ sub get_config_files($M,$config,$module) {
 
       delete $config->{gens}->{$match};
       $match=~ s[\*][];
+
+      map {$ARG="$dir/$ARG"} @$srcs;
 
       push @{$M->{gens}},(
         "$dir/$match",
@@ -2016,7 +2041,7 @@ sub get_config_files($M,$config,$module) {
       delete $config->{xprt}->{$match};
 
       $match=~ s[\\][]g;
-      push @{$M->{xprt}},"$match";
+      push @{$M->{xprt}},"$dir/$match";
 
     };
 
@@ -2274,7 +2299,9 @@ sub strlist($ar,$make_ref,%opts) {
 
 sub shpath($path) {
 
-  $path=~ s/${ CACHE{_root} }//;
+  my $root=abs_path(root());
+
+  $path=~ s[^${root}][];
   return $path;
 
 };
@@ -2323,15 +2350,24 @@ sub make {
     $FILE.=note('IBN-3DILA','#');
 
     # paste in the pre-build hook
-    $FILE.=
 
-    "\n\n".
+    if(length $C->{pre_build}) {
+      $FILE.=
 
-    'INIT {'."\n\n".
-      $C->{pre_build}.';'.
       "\n\n".
 
-    "};\n";
+      'INIT {'."\n\n".
+
+        'print "'.
+        $avt::ARSEP.
+        'running pre-build hook... \n";'.
+
+        $C->{pre_build}.';'.
+        "\n\n".
+
+      "};\n";
+
+    };
 
     $FILE.=<<'EOF'
 
@@ -2392,27 +2428,37 @@ EOF
 # ---   *   ---   *   ---
 # paste in the post-build hook
 
-    print $FH $FILE.
+    if(length $C->{post_build}) {
+      $FILE.=
 
-    #"\n".
-    '# ---   *   ---   *   ---'.
-    "\n\n".
+      #"\n".
+      '# ---   *   ---   *   ---'.
+      "\n\n".
 
-    "END {\n\n".
-      $C->{post_build}.';'.
+      "END {\n\n".
 
-    "\n\n};".
+        'print "'.
+        $avt::ARSEP.
+        'running post-build hook... \n\n";'.
 
-    "\n\n".
+        $C->{post_build}.';'.
 
-    '# ---   *   ---   *   ---'.
-    "\n\n"
+      "\n\n};".
 
-    ;
+      "\n\n".
+
+      '# ---   *   ---   *   ---'.
+      "\n\n"
+
+      ;
+
+    };
 
 # ---   *   ---   *   ---
 
+    print {$FH} $FILE;
     close $FH;
+
     `chmod +x "$CACHE{_root}/$name/avto"`
 
   };

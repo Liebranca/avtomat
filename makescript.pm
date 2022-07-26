@@ -36,9 +36,50 @@ package makescript;
   use avt;
 
 # ---   *   ---   *   ---
-# i used to actually need this bit ;>
 
-sub nit($M) {return bless $M};
+  our $VERSION=v0.01.1;
+  our $AUTHOR='IBN-3DILA';
+
+# ---   *   ---   *   ---
+# and now we need this again ;>
+# converts relative paths to absolute
+
+sub nit($M) {
+
+  for my $ref(
+
+    $M->{objs},
+    $M->{srcs},
+    $M->{xprt},
+    $M->{fcpy},
+    $M->{gens},
+
+  ) {
+
+    if(!@$ref) {next};
+
+    map
+
+      {$ARG=~ s[^\./|(?<=,)\./][$M->{root}/]sg}
+      @$ref
+
+    ;
+
+  };
+
+  for my $key(qw(
+    incl libs ilib mlib main trash
+
+  )) {
+
+    $M->{$key}//=$NULLSTR;
+    $M->{$key}=~ s[\./][$M->{root}/]sg;
+
+  };
+
+  return bless $M;
+
+};
 
 # ---   *   ---   *   ---
 
@@ -279,6 +320,9 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 # there is a target defined AND
 # any objects have been updated
 
+  my $LIBS=$NULLSTR;
+  my @CALLS=();
+
   if($M->{main} && $objblt) {
 
     print {*STDERR }
@@ -292,55 +336,66 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 # ---   *   ---   *   ---
 # build mode is 'static library'
 
-  if($M->{lmode} eq 'ar') {
-    my $call="ar -crs $M->{main} $OBJS";
-    `$call`;
-
-    `echo "$M->{libs}" > $M->{ilib}`;
-    avt::symscan($M->{fswat},@{$M->{xprt}});
+    if($M->{lmode} eq 'ar') {
+      push @CALLS,"ar -crs $M->{main} $OBJS";
+      $LIBS=$M->{libs};
 
 # ---   *   ---   *   ---
 # otherwise it's executable or shared object
 
-  } else {
+    } else {
 
-    if(-e $M->{main}) {
-      `rm $M->{main}`;
+      if(-e $M->{main}) {
+        `rm $M->{main}`;
 
-    };
+      };
 
 # ---   *   ---   *   ---
 # find any additional libraries we might
 # need to link against
 
-    my $LIBS=avt::libexpand($M->{libs});
+      $LIBS=avt::libexpand($M->{libs});
 
 # ---   *   ---   *   ---
 # build call is the exact same,
 # only difference being the -shared flag
 
-    my $call="gcc $M->{lmode} ".
+      push @CALLS,"gcc $M->{lmode} ".
 
-      $avt::OFLG.q{ }.$avt::LFLG.q{ }.
+        $avt::OFLG.q{ }.$avt::LFLG.q{ }.
 
-      "$M->{incl} $PFLG $OBJS $LIBS ".
-      " -o $M->{main}";
-
-#      `$call`;
-#      `echo "$LIBS" > $M->{ILIB}`;
+        "$M->{incl} $PFLG $OBJS $LIBS ".
+        " -o $M->{main}";
 
 # ---   *   ---   *   ---
 # for executables we spawn a shadow lib
 
-    if($M->{lmode} ne '-shared ') {
-      $call="ar -crs $M->{mlib} $OBJS";`$call`;
+      if($M->{lmode} ne '-shared ') {
+        push @CALLS,"ar -crs $M->{mlib} $OBJS";
 
-      `echo "$LIBS" > $M->{ilib}`;
-      avt::symscan($M->{fswat},@{$M->{xprt}});
+      };
+
+# ---   *   ---   *   ---
+# run build calls and make symbol tables
 
     };
+  };
 
-  }};
+  if(length $LIBS) {
+
+    for my $call(@CALLS) {`$call`};
+    avt::symscan(
+
+      $M->{fswat},
+      $M->{ilib},
+
+      $LIBS,
+
+      @{$M->{xprt}}
+
+    );
+
+  };
 
 };
 
@@ -486,7 +541,7 @@ sub pcc($M,$src,$obj,$pmd) {
 
   if($do_build) {
 
-    print {*STDERR} "$src\n";
+    print {*STDERR} avt::shpath($src)."\n";
 
     my $ex=
       "perl".q{ }.

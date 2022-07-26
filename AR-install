@@ -235,7 +235,6 @@ avt::config();
 avt::make();
 
 my @modules=avt::MODULES;
-shift @modules;
 
 for my $mod(@modules) {
   print `$root/$mod/avto`;
