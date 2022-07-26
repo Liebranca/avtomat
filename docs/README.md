@@ -12,7 +12,7 @@ Way it works: you write down short configs for your projects in the form of a Pe
 
 - **Generators**: avtomat offers some metaprogramming utilities, among them is a built-in generated files and generator scripts manager. You simply specify the source script or binary, the destination file to be created, and optionally a list of dependencies for the source script or binary -- everything else is handled by the build script.
 
-- **Avto-FFI**: if a list of source or header files is provided for the purpose of creating bindings, then those files those files will be scanned for symbols, and bindings for other languages can later be created through a post build script. Currently, only Perl 5 is supported (through `FFI::Platypus`), but more languages will be added as needed.
+- **Avto-FFI**: if a list of source or header files is provided for the purpose of creating bindings, then those files will be scanned for symbols, and bindings for other languages can later be created through a post build script. Currently, Perl 5 is supported through `FFI::Platypus` and Python support through `ctypes` is being worked on; more languages will be added as needed.
 
 # USAGE
 
@@ -30,59 +30,84 @@ use avt;
 avt::root('/your/top/dir');
 
 # set your library paths
-unshift @ARGV,'/your/lib/path';
-avt::stlib();
+avt::stlib('/your/lib/path');
 
-# configure your projects
-my %config=(
+# configure your module(s)
+avt::set_config=(
 
   # only this field is mandatory
   # any other field, if skipped, means do nothing
-  'NAME'=>'MyProject',
+  name=>'MyModule',
 
   # this field is meant for passing arguments
   # to the project files search function;
   # for now, it's only used to exclude paths
-  'SCAN'=>'-x /path/to/exclude',
+  scan=>'-x /do/not/search/here',
 
   # x:  make an executable
   # so: make a shared object
   # ar: make a static lib
-  'BUILD'=>'x:my_elf',
+  build=>'x:my_elf',
 
   # copy machine;
-  # XCPY moves files into topdir/bin
-  # LCPY moves files into topdir/lib
-  'XCPY'=>'my_executable*,not_an_executable',
-  'LCPY'=>'my_lib.py',
+  # xcpy moves files into topdir/bin
+  # lcpy moves files into topdir/lib
+  xcpy=>[qw(my_executable* not_an_executable)],
+  lcpy=>[qw(my_lib.py)],
 
   # defines files to be scanned for symbols
   # these are used for the avto-FFI
-  'XPRT'=>'some_header.h,other_header.h',
+  xprt=>[qw(some_header.h other_header.h)],
 
   # generated files manager
-  # syntax is: target:source*
-  # alternative: target:[source*,deps,deps]
-  'GENS'=>'my_file:my_script*',
+  # syntax is: 'target'=>[generator,deps]
+  gens=>{
+
+  # additional deps are optional!
+    'file'=>[qw(my_script*)],
+
+  # with dependencies:
+  # % is allowed for wildcards ;>
+    'file'=>[qw(other_script* dep.data %.ext)],
+
+  },
 
   # paths to/names of libraries
-  'LIBS'=>'X11,SDL2,SDL2main,proj/lib/',
+  libs=>[qw(X11 SDL2 SDL2main proj/lib/)],
 
   # self explanatory
-  'INCL'=>'path/to/include/',
+  incl=>[qw(path/to/include/)],
 
   # unused! but reserved for later plans ;>
-  'DEFS'=>'this field is ignore (for now)',
+  defs=>[qw(some_compile_time_define)],
 
-);avt::strconfig \%config;
+);
 
-# invoke the build methods
+#^ repeat that for each module
+
+# looks in module folders for files
 avt::scan();
+
+# processes the module configuration
 avt::config();
+
+# outputs a makescript for each module
 avt::make();
 
 
 ```
+
+The `scan`,`config` and `make` triad will emit the following files:
+
+0. `topdir/.avto-modules`: a serialized Perl hash containing paths and files found by `scan`.
+
+1. `topdir/.avto-config`: a serialized Perl hash containing the configurations after being processed by `config`.
+
+2. `topdir/module/avto` the makescript itself, ready to be run.
+
+3. `topdir/module/.avto-cache` a serialized Perl hash containing module metadata used by the makescript.
+
+4. `topdir/.avto` a plain text file containing a 'last-run-by-user' and timestamp.
 
 For an example script that sets up an actual project, refer to the `AR-install` file provided with avtomat.
 
