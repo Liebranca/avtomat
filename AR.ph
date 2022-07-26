@@ -85,7 +85,8 @@ my $FILE_LIST=[
 
   '/queue.pm',
   '/stack.pm',
-  '/avt.pm'
+  '/avt.pm',
+  '/makescript.pm',
 
 ];
 

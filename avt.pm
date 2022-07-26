@@ -93,8 +93,9 @@ package avt;
 
   };
 
-  Readonly my $BIND='./bin';
-  Readonly my $LIBD='./lib';
+  Readonly my $BIND=>'./bin';
+  Readonly my $LIBD=>'./lib';
+  Readonly my $INCD=>'./include';
 
 # ---   *   ---   *   ---
 # gcc switches
@@ -128,7 +129,7 @@ package avt;
     _include=>[],
     _lib=>[],
 
-    _config=>[],
+    _config=>{},
     _scan=>[],
     _modules=>[],
 
@@ -289,9 +290,9 @@ sub ffind($fname) {
 };
 
 # ---   *   ---   *   ---
-
 # in=pattern
 # wildcard search
+
 sub wfind {
 
   my $in=shift;
@@ -357,8 +358,8 @@ sub wfind {
 };
 
 # ---   *   ---   *   ---
-
 # finds .lib files
+
 sub libsearch($lbins,$lsearch,$deps) {
 
   my @lbins=@$lbins;
@@ -413,8 +414,8 @@ sub libsearch($lbins,$lsearch,$deps) {
 };
 
 # ---   *   ---   *   ---
-
 # recursively appends lib dependencies to LIBS var
+
 sub libexpand($LIBS) {
 
   my $ndeps=$LIBS;
@@ -1588,83 +1589,6 @@ sub reqin($path,@names) {
 };
 
 # ---   *   ---   *   ---
-
-# in=string
-# read comma-separated list
-sub rcsl($in) {
-
-  my @ar=();
-  my $item='';
-
-  my $is_list=0;
-
-# ---   *   ---   *   ---
-# get sub up to comma
-
-  while($in) {
-
-    my $s=substr $in,0,(index $in,',');
-    $item.=$s;
-
-    # on [item,item] format
-    if((index $s,'[')>=0) {
-      $is_list|=1;
-
-    } elsif((index $s,']')>=0) {
-      $is_list|=2;
-
-    };
-
-    # clear s(,)
-    $in=~ s/[\,]?//;
-    $in=substr $in,(length $s)+1,length $in;
-
-# ---   *   ---   *   ---
-# appending
-
-    if(!$is_list) {
-      push @ar,[$item];
-      $item='';
-
-# ---   *   ---   *   ---
-# list close
-
-    } elsif($is_list&2) {
-
-      $item=~ s/\\\\\[//g;
-      $item=~ s/\\\\\]//g;
-
-      push @ar,[lang::ws_split($COMMA_RE,$item)];
-
-      $item=$NULLSTR;
-      $is_list&=~3;
-
-# ---   *   ---   *   ---
-# list opened
-
-    } elsif($is_list) {
-      $item.=',';
-
-    };
-
-# ---   *   ---   *   ---
-# append leftovers
-
-  };
-
-  if($item) {
-    $item=~ s/\\\\\[//g;
-    $item=~ s/\\\\\]//g;
-
-    push @ar,[lang::ws_split($COMMA_RE,$item)];
-
-  };
-
-  return \@ar;
-
-};
-
-# ---   *   ---   *   ---
 # path utils
 
 # args=chkpath,name,repo-url,actions
@@ -1674,7 +1598,6 @@ sub depchk($chkpath,$deps) {
 
   $chkpath=abs_path($chkpath);
 
-  my @deps=@{ $deps_ref };
   my $old_cwd=abs_path(getcwd());
   chdir $chkpath;
 
@@ -1776,7 +1699,7 @@ sub walk($path) {
 
 sub scan() {
 
-  my $module_list='';
+  my $modules={};
   my $fpath=root().'/.avto-modules';
 
   # just ensure we have these standard paths
@@ -1784,8 +1707,8 @@ sub scan() {
 
     root().'/bin',
     root().'/lib',
-    root().'/include'
-    root().'/trashcan'
+    root().'/include',
+    root().'/trashcan',
 
   ) {if(!(-e $path)) {mkdir $path}};
 
@@ -1795,18 +1718,17 @@ sub scan() {
   my @ar=@{$CACHE{_scan}};
   while(@ar) {
 
-    my $mod=shift @ar;
-    my $excluded=undef;
+    my ($mod,$excluded)=split m[\s],shift @ar;
 
-    if(defined $ar[0]) {
+    if(defined $excluded) {
 
       # handle exclude flag short
-      if($ar[0]=~ m/-x/) {
+      if($excluded=~ m/-x/) {
         $excluded=shift @ar;
         $excluded=~ s/-x\s*//;
 
       # handle exclude flag long
-      } elsif($ar[0]=~
+      } elsif($excluded=~
           m/\-\-exclude\=[\w|\d]*/
 
       ) {
@@ -1855,7 +1777,7 @@ sub scan() {
       ) {next};
 
       # ensure directores exist
-      my $tsub=$trsh.$dir;
+      my $tdir=$trsh.$dir;
       $tdir=~ s[<main>][/];
 
       if(!(-e $tdir)) {
@@ -1906,7 +1828,7 @@ sub get_config_build($M,$config) {
   if(length $config->{build}) {
 
     ($lmode,$mkwat)=
-      lang::ws_split($COLON_RE,$build);
+      lang::ws_split($COLON_RE,$config->{build});
 
   };
 
@@ -1956,13 +1878,12 @@ sub get_config_build($M,$config) {
 
 sub get_config_paths($M,$config) {
 
-  $M->{libs}=$LIBD.q{ }.(
+  $M->{libs}=q{-L}.$LIBD.q{ }.(
     join q{ },@{$config->{libs}}
 
   );
 
-  $incl=$INCD.q{ }.$incl;
-  $M->{include}=$INCD.q{ -I./ }.(
+  $M->{incl}=q{-I}.$INCD.q{ -I./ }.(
     join q{ },@{$config->{incl}}
 
   );
@@ -1980,90 +1901,165 @@ sub lfind($search,$l) {
 
 # ---   *   ---   *   ---
 
-sub get_config_files($M,$config) {
+sub get_config_files($M,$config,$module) {
 
-  $M->{xcpy}=[];
-  $M->{lcpy}=[];
+  state $c_ext=qr{\.c$};
+  state $perl_ext=qr{\.pm$};
+
+  $M->{fcpy}=[];
   $M->{xprt}=[];
   $M->{gens}=[];
 
+  my $root=root();
+
 # ---   *   ---   *   ---
 
-  my @$matches=lfind($config->{gens},$files)
+  for my $dir(keys %{$module}) {
 
-  while(@$matches) {
+    my $name=$config->{name};
+    my $trsh=$NULLSTR;
 
-    my $match=shift @$matches;
-    my ($outfile,$srcs)=@{
-      $config->{gens}->{$match}
+    my $files=$module->{$dir};
+
+    if((index $dir,q{/})==0) {
+      $dir=substr $dir,1,length $dir;
 
     };
 
-    delete $config->{gens}->{$match};
-    $match=~ s[\*][];
-
-    push @{$M->{gens}},(
-      "$mod/$match",
-      "$mod/$outfile",
-
-      (join q{,},@$srcs)
-
-    );
-
-  };
+    # get path to
+    ($dir,$trsh)=($dir eq '<main>')
+      ? ("./$name","./trashcan/$name")
+      : ("./$name/$dir","./trashcan/$name/$dir")
+      ;
 
 # ---   *   ---   *   ---
 
-  my $matches=lfind($config->{xcpy},$files);
+    my $matches=lfind($config->{gens},$files);
 
-  while(@$matches) {
+    while(@$matches) {
 
-    my $match=shift @$matches;
-    delete $config->{xcpy}->{$match};
+      my $match=shift @$matches;
+      my ($outfile,$srcs)=@{
+        $config->{gens}->{$match}
 
-    $match=~ s[\*][];
-    $match=~ s[\\][]g;
+      };
 
-    push @{$M->{xcpy}},(
-      "$mod/$match",
-      "$BIND/$match"
+      delete $config->{gens}->{$match};
+      $match=~ s[\*][];
 
-    );
+      push @{$M->{gens}},(
+        "$dir/$match",
+        "$dir/$outfile",
 
-  };
+        (join q{,},@$srcs)
 
-# ---   *   ---   *   ---
+      );
 
-  my $matches=lfind($config->{lcpy},$files);
-
-  while(@$matches) {
-    my $match=shift @$matches;
-    delete $config->{lcpy}->{$match};
-
-    $match=~ s[\\][]g;
-
-    my $lmod=$mod;
-    $lmod=~ s[${root}/${name}][];
-    $lmod.=($lmod) ? q{/} : $NULLSTR;
-
-    push @{$M->{lcpy}},(
-      "$mod/$match",
-      "$LIBD/$lmod$match"
-
-    );
-
-  };
+    };
 
 # ---   *   ---   *   ---
 
-  my $matches=lfind($config->{xprt},$file);
+    $matches=lfind($config->{xcpy},$files);
 
-  while(@$matches) {
-    my $match=shift @$matches;
-    delete $config->{xprt}->{$match};
+    while(@$matches) {
 
-    $match=~ s/\\//g;
-    push @{$M->{xprt}},"$match";
+      my $match=shift @$matches;
+      delete $config->{xcpy}->{$match};
+
+      $match=~ s[\*][];
+      $match=~ s[\\][]g;
+
+      push @{$M->{fcpy}},(
+        "$dir/$match",
+        "$BIND/$match"
+
+      );
+
+    };
+
+# ---   *   ---   *   ---
+
+    $matches=lfind($config->{lcpy},$files);
+
+    while(@$matches) {
+      my $match=shift @$matches;
+      delete $config->{lcpy}->{$match};
+
+      $match=~ s[\\][]g;
+
+      my $lmod=$dir;
+      $lmod=~ s[${root}/${name}][];
+      $lmod.=($lmod) ? q{/} : $NULLSTR;
+
+      push @{$M->{fcpy}},(
+        "$dir/$match",
+        "$LIBD/$lmod$match"
+
+      );
+
+    };
+
+# ---   *   ---   *   ---
+
+    $matches=lfind($config->{xprt},$files);
+
+    while(@$matches) {
+      my $match=shift @$matches;
+      delete $config->{xprt}->{$match};
+
+      $match=~ s[\\][]g;
+      push @{$M->{xprt}},"$match";
+
+    };
+
+# ---   *   ---   *   ---
+
+    my @matches=grep m/$c_ext/,@$files;
+
+    while(@matches) {
+      my $match=shift @matches;
+      $match=~ s[\\][]g;
+
+      my $ob=$match;$ob=(substr $ob,0,
+        (length $ob)-1).'o';
+
+      my $dep=$match;$dep=(substr $dep,0,
+        (length $dep)-1).'d';
+
+      push @{$M->{srcs}},"$dir/$match";
+      push @{$M->{objs}},(
+        "$trsh/$ob",
+        "$trsh/$dep"
+
+      );
+
+    };
+
+# ---   *   ---   *   ---
+
+    @matches=grep m/$perl_ext/,@$files;
+
+    while(@matches) {
+      my $match=shift @matches;
+      $match=~ s[\\][]g;
+
+      my $dep=$match;
+      $dep.='d';
+
+      push @{$M->{srcs}},"$dir/$match";
+
+      my $lmod=$dir;
+      $lmod=~ s([.]/${name})();
+
+      push @{$M->{objs}},(
+        "$LIBD$lmod/$match",
+        "$trsh/$dep"
+
+      );
+
+    };
+
+# ---   *   ---   *   ---
 
   };
 
@@ -2075,7 +2071,7 @@ sub get_config_files($M,$config) {
 sub set_config(%C) {
 
   state $sep_re=lang::ws_split_re(q{,});
-  state $list_to_hash=>qr{(?:
+  state $list_to_hash=qr{(?:
 
     lcpy
   | xcpy
@@ -2085,39 +2081,25 @@ sub set_config(%C) {
 
 # ---   *   ---   *   ---
 
-  $modules=$CACHE{_modules};
-  $scan=$CACHE{_scan};
+  my $modules=$CACHE{_modules};
+  my $scan=$CACHE{_scan};
 
   # ensure all needed fields are there
-  for my $key(@{ $CACHE{_config_fields} }) {
+  for my $key(keys %{$CONFIG_DEFAULT}) {
     if(!(exists $C{$key})) {
-      $C{$key}=$CONFIG_DEFAULT;
+      $C{$key}=$CONFIG_DEFAULT->{$key};
 
     };
   };
 
 # ---   *   ---   *   ---
-# sanitize input
+# convert file lists to hashes
 
   for my $key(keys %C) {
 
-    if($key eq 'scan') {
-      if($C{$key} eq $CONFIG_DEFAULT) {
-        $C{$key}=$NULLSTR;
-
-      };
-
-    } else {
-      $C{$key}=~ s/\s+//;
-
-    };
-
-# ---   *   ---   *   ---
-# convert file lists to hashes
-
     if($key=~ $list_to_hash) {
 
-      if(length $C{$key}) {
+      if(@{$C{$key}}) {
         $C{$key}={
           map {$ARG=>1} @{$C{$key}}
 
@@ -2130,22 +2112,22 @@ sub set_config(%C) {
 
     };
 
+  };
+
 # ---   *   ---   *   ---
 # run dependency checks
-
-  };
 
   depchk(
 
     root().q{/}.$C{name},
-    $C{deps};
+    $C{deps}
 
-  ) if $C{deps} ne $CONFIG_DEFAULT;
+  ) if $C{deps};
 
 # ---   *   ---   *   ---
 # prepare the libs && includes
 
-  for my $lib(@{$C->{libs}}) {
+  for my $lib(@{$C{libs}}) {
     if((index $lib,q{/})>=0) {
       $lib=q{-L}.$lib;
 
@@ -2155,7 +2137,7 @@ sub set_config(%C) {
     };
   };
 
-  for my $include(@{$C->{incl}}) {
+  for my $include(@{$C{incl}}) {
     $include=q{-I./}.$include;
 
   };
@@ -2175,17 +2157,12 @@ sub set_config(%C) {
 
   my %gens=();
 
-  for my $outfile(keys $C{gens}) {
+  for my $outfile(keys %{$C{gens}}) {
 
     my $srcs=$C{gens}->{$outfile};
     my $exec=shift @$srcs;
 
-    for my $src(@$srcs) {
-      $gens->{$src}=$exec;
-
-    };
-
-    $gens{$exec}=[$outfile,\@srcs];
+    $gens{$exec}=[$outfile,$srcs];
 
   };
 
@@ -2285,79 +2262,6 @@ sub strlist($ar,$make_ref,%opts) {
 };
 
 # ---   *   ---   *   ---
-# makes file list out of gcc .d files
-
-sub parsemmd($dep) {
-
-  my $out=[];
-  if(!(-e $dep)) {goto TAIL};
-
-  $dep=arstd::orc($dep);
-  $dep=~ s/\\//g;
-  $dep=~ s/\s/\,/g;
-  $dep=~ s/.*\://;
-
-# ---   *   ---   *   ---
-
-  my @tmp=lang::ws_split($COMMA_RE,$dep);
-  my @deps=();
-
-  while(@tmp) {
-    my $f=shift @tmp;
-    if($f) {push @deps,$f;};
-
-  };
-
-# ---   *   ---   *   ---
-
-  $out=\@deps;
-
-TAIL:
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
-# makes file list out of pcc .pmd files
-
-sub parsepmd {
-
-  my $dep=shift;
-  my $out=[];
-
-  if(!(-e $dep)) {goto TAIL};
-
-  open my $FH,'<',$dep or croak STRERR($dep);
-
-  my $fname=readline $FH;
-  my $depstr=readline $FH;
-
-  close $FH;
-
-  if(!defined $fname || !defined $depstr) {
-    goto TAIL;
-
-  };
-
-  my @tmp=lang::ws_split($SPACE_RE,$depstr);
-  my @deps=();
-
-  while(@tmp) {
-    my $f=shift @tmp;
-    if($f) {push @deps,$f};
-
-  };
-
-# ---   *   ---   *   ---
-
-  $out=\@deps;
-
-TAIL:
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
 # shortens pathname for sanity
 
 sub shpath($path) {
@@ -2374,66 +2278,52 @@ sub make {
 
   my $root=$CACHE{_root};
 
-# ---   *   ---   *   ---
-
   # fetch project data
   my $modules=read_modules();
-  my $config=read_config();
+  my $configs=read_config();
 
   # now iter
-  for my $C(keys %$config) {
+  for my $name(keys %$configs) {
 
-    my (
-      $name,
-      $build,
+    my $C=$configs->{$name};
 
-      $xcpy,
-      $lcpy,
-      $xprt,
-
-      $gens,
-      $libs,
-      $incl,
-
-      $defs
-
-    )=lang::ws_split($SPACE_RE,shift @config);
-
-    my @paths=@{ $modules{$name} };
-
+    my $module=$modules->{$name};
     my $avto_path="$root/$name/avto";
+
+    # build the makescript object
+    my $M={};
+    get_config_build($M,$C);
+    get_config_paths($M,$C);
+    get_config_files($M,$C,$module);
+
+    # save it to disk
+    my $cache_path="$root/$name/.avto-cache";
+
+    store($M,$cache_path)
+    or croak STRERR($cache_path);
+
+# ---   *   ---   *   ---
+# now dump the boiler
 
     open my $FH,'>',$avto_path
     or croak STRERR($avto_path);
 
     my $FILE=$NULLSTR;
 
+    # write notice
     $FILE.='#!/usr/bin/perl'."\n";
-
-    # accumulate to these vars
-    my @SRCS=();
-    my @OBJS=();
-    my @GENS=();
-
-    my $src_rcees='';
-    my $gens_rcees='';
-
-# ---   *   ---   *   ---
-
-    # write notice and vars
     $FILE.=note('IBN-3DILA','#');
 
-# ---   *   ---   *   ---
+    # paste in the pre-build hook
+    $FILE.=
 
-$FILE.=
+    "\n\n".
 
-"\n\n".
+    'INIT {'."\n\n".
+      $C->{pre_build}.';'.
+      "\n\n".
 
-'BEGIN {'."\n\n".
-  $CACHE{_pre_build}->{$name}.';'.
-  "\n\n".
-
-"};\n";
+    "};\n";
 
     $FILE.=<<'EOF'
 
@@ -2444,123 +2334,43 @@ $FILE.=
   use strict;
   use warnings;
 
+  use Storable;
+
   use lib $ENV{'ARPATH'}.'/lib/';
+
   use avt;
+  use makescript;
 
 # ---   *   ---   *   ---
 
 my $PFLG='-m64';
 my $DFLG='';
 
-# ---   *   ---   *   ---
+my $root=avt::parof(__FILE__);
+my $M=retrieve(
 
-my $M=avt::new_maker(
+  avt::dirof(__FILE__).
+  '/.avto-cache'
 
-EOF
-;
+);
 
-# ---   *   ---   *   ---
+chdir $root;
 
-    while(@paths) {
-      my @path=@{ shift @paths };
-      my $mod=shift @path;
-      my $trsh=$NULLSTR;
+$M->{root}=$root;
+$M->{trash}='./trashcan/'.$M->{fswat};
 
-      my $modname=$mod;
-
-      if((index $mod,q{/})==0) {
-        $mod=substr $mod,1,length $mod;
-
-      };
-
-      # get path to
-      ($mod,$trsh)=($mod eq '<main>')
-        ? ("./$name","./trashcan/$name")
-        : ("./$name/$mod","./trashcan/$name/$mod")
-        ;
+$M=makescript::nit($M);
 
 # ---   *   ---   *   ---
-# get *.c files
-
-      { my $ext=qr{\.c$};
-
-        my @matches=grep
-          m/${ext}/,@path;
-
-        if(@matches) {
-
-          while(@matches) {
-            my $match=shift @matches;
-            $match=~ s/\\//g;
-
-            my $ob=$match;$ob=(substr $ob,0,
-              (length $ob)-1).'o';
-
-            my $dep=$match;$dep=(substr $dep,0,
-              (length $dep)-1).'d';
-
-            push @SRCS,"$mod/$match";
-
-            push @OBJS,(
-              "$trsh/$ob",
-              "$trsh/$dep"
-
-            );
-
-          };
-        };
-
-# ---   *   ---   *   ---
-# get *.pm files
-
-      };{
-
-        my @matches=grep
-          m/.\.pm/,@path;
-
-        if(@matches) {
-
-          while(@matches) {
-            my $match=shift @matches;
-            $match=~ s/\\//g;
-
-            my $dep=$match;
-            $dep.='d';
-
-            push @SRCS,"$mod/$match";
-
-            my $lmod=$mod;
-            $lmod=~ s/[.]\/${name}//;
-
-            push @OBJS,(
-              "$LIBD$lmod/$match",
-              "$trsh/$dep"
-
-            );
-
-          };
-        };
-
-      };
-    };
-
-# ---   *   ---   *   ---
-
-$FILE.=<<';;EOF'
-
-
-# ---   *   ---   *   ---
-
-avt::root $M->{ROOT};
-chdir $M->{ROOT};
 
 print {*STDERR}
-  $avt::ARTAG."upgrading $M->{FSWAT}\n";
+  $avt::ARTAG."upgrading $M->{fswat}\n";
 
 $M->set_build_paths();
 $M->update_generated();
 
-my ($OBJS,$objblt)=$M->update_objects($DFLG,$PFLG);
+my ($OBJS,$objblt)=
+  $M->update_objects($DFLG,$PFLG);
 
 $M->build_binaries($PFLG,$OBJS,$objblt);
 $M->update_regular();
@@ -2568,8 +2378,12 @@ $M->update_regular();
 print {*STDERR}
   $avt::ARSEP."done\n\n";
 
-;;EOF
+EOF
 ;
+
+# ---   *   ---   *   ---
+# paste in the post-build hook
+
     print $FH $FILE.
 
     #"\n".
@@ -2577,7 +2391,7 @@ print {*STDERR}
     "\n\n".
 
     "END {\n\n".
-      $CACHE{_post_build}->{$name}.';'.
+      $C->{post_build}.';'.
 
     "\n\n};".
 
@@ -2588,6 +2402,8 @@ print {*STDERR}
 
     ;
 
+# ---   *   ---   *   ---
+
     close $FH;
     `chmod +x "$CACHE{_root}/$name/avto"`
 
@@ -2595,480 +2411,4 @@ print {*STDERR}
 };
 
 # ---   *   ---   *   ---
-
-sub set_build_paths($M) {
-
-  my @paths=();
-  for my $inc(lang::ws_split(
-    $SPACE_RE,$M->{INCLUDES})
-
-  ) {
-
-    if($inc eq "-I".root) {next};
-    push @paths,$inc;
-
-  };
-
-  stinc(@paths,q{.},'-I'.root."/$M->{FSWAT}");
-
-};
-
-# ---   *   ---   *   ---
-
-package makescript;
-
-  use v5.36.0;
-  use strict;
-  use warnings;
-
-  use Carp;
-  use English qw(-no_match_vars);
-
-  use Cwd qw(abs_path getcwd);
-
-  use lib $ENV{'ARPATH'}.'/lib/hacks';
-  use shwl;
-
-  use lib $ENV{'ARPATH'}.'/lib/';
-
-  use style;
-  use arstd;
-
-  use lang;
-  use avt;
-
-# ---   *   ---   *   ---
-
-sub nit(%attrs) {
-
-  # something something run on ./avto
-  $M->{root}=avt::parof(__FILE__);
-  $M->{trash}='./trashcan/'.$M->{fswat};
-
-};
-
-# ---   *   ---   *   ---
-
-sub update_generated($M) {
-
-  my @GENS=@{$M->{GENS}};
-
-  if(@GENS) {
-
-    print {*STDERR}
-      $ARSEP."running generators\n";
-
-  };
-
-  # iter the list of generator scripts
-  # ... and sources/dependencies for them
-  while(@GENS) {
-
-    my $gen=shift @GENS;
-    my $res=shift @GENS;
-
-    my @msrcs=lang::ws_split(
-      $COMMA_RE,shift @GENS
-
-    );
-
-# ---   *   ---   *   ---
-# make sure we don't need to update
-
-    my $do_gen=!(-e $res);
-    if(!$do_gen) {$do_gen=ot($res,$gen);};
-
-# ---   *   ---   *   ---
-# make damn sure we don't need to update
-
-    if(!$do_gen) {
-      while(@msrcs) {
-        my $msrc=shift @msrcs;
-
-        # look for wildcard
-        if($msrc=~ m/\%/) {
-          my @srcs=@{ avt::wfind($msrc) };
-          while(@srcs) {
-            my $src=shift @srcs;
-
-            # found file is updated
-            if(avt::ot($res,$src)) {
-              $do_gen=1;last;
-
-            };
-          };if($do_gen) {last};
-
-# ---   *   ---   *   ---
-
-        # look for specific file
-        } else {
-          $msrc=avt::ffind($msrc);
-          if(!$msrc) {next};
-
-          # found file is updated
-          if(avt::ot($res,$msrc)) {
-            $do_gen=1;
-            last;
-
-          };
-
-        };
-      };
-    };
-
-# ---   *   ---   *   ---
-# run the generator script
-
-    if($do_gen) {
-
-      print {*STDERR}
-        shpath($gen)."\n";
-
-      `$gen`;
-
-    };
-
-  };
-};
-
-# ---   *   ---   *   ---
-
-sub update_regular($M) {
-
-  my @FCPY=@{$M->{FCPY}};
-
-  if(@FCPY) {
-
-    print {*STDERR}
-      $ARSEP."copying regular files\n";
-
-  };
-
-  while(@FCPY) {
-    my $og=shift @FCPY;
-    my $cp=shift @FCPY;
-
-    my @ar=split '/',$cp;
-    my $base_path=join '/',@ar[0..$#ar-1];
-
-    if(!(-e $base_path)) {
-      `mkdir -p $base_path`;
-
-    };
-
-    my $do_cpy=!(-e $cp);
-
-    if(!$do_cpy) {$do_cpy=avt::ot($cp,$og);};
-    if($do_cpy) {
-
-      print {*STDERR} "$og\n";
-      `cp $og $cp`;
-
-    };
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-
-sub update_objects($M,$DFLG,$PFLG) {
-
-  my @SRCS=@{$M->{SRCS}};
-  my @OBJS=@{$M->{OBJS}};
-
-  my $INCLUDES=$M->{INCLUDES};
-
-  my $OBJS=$NULLSTR;
-  my $objblt=0;
-
-  if(@SRCS) {
-
-    print {*STDERR}
-      $ARSEP."rebuilding objects\n";
-
-  };
-
-# ---   *   ---   *   ---
-# iter list of source files
-
-  for(my ($i,$j)=(0,0);$i<@SRCS;$i++,$j+=2) {
-
-    my $src=$SRCS[$i];
-
-    my $obj=$OBJS[$j+0];
-    my $mmd=$OBJS[$j+1];
-
-    if($src=~ lang->perl->{ext}) {
-      $M->pcc($src,$obj,$mmd);
-      next;
-
-    };
-
-    $OBJS.=$obj.q{ };
-    my @deps=($src);
-
-# ---   *   ---   *   ---
-# look at *.d files for additional deps
-
-    my $do_build=!(-e $obj);
-    if($mmd) {
-      @deps=@{parsemmd($mmd)};
-
-    };
-
-    # no missing deps
-    static_depchk($src,\@deps);
-
-    # make sure we need to update
-    buildchk(\$do_build,$obj,\@deps);
-
-# ---   *   ---   *   ---
-# rebuild the object
-
-    if($do_build) {
-
-      print {*STDERR} avt::shpath($src)."\n";
-      my $asm=$obj;$asm=substr(
-        $asm,0,(length $asm)-1
-
-      );$asm.='asm';
-
-      my $call=''.
-        "gcc -MMD $OFLG ".
-        "$INCLUDES $DFLG $PFLG ".
-        "-Wa,-a=$asm -c $src -o $obj";
-
-      `$call`;
-
-      $objblt++;
-
-    };
-
-# ---   *   ---   *   ---
-# return string containing list of objects
-# + the count of objects built
-
-  };
-
-  return $OBJS,$objblt;
-
-};
-
-# ---   *   ---   *   ---
-# the one we've been waiting for
-
-sub build_binaries($M,$PFLG,$OBJS,$objblt) {
-
-# ---   *   ---   *   ---
-# this sub only builds a new binary IF
-# there is a target defined AND
-# any objects have been updated
-
-  if($M->{MAIN} && $objblt) {
-
-    print {*STDERR }
-      $ARSEP.'compiling binary '.
-
-      "\e[32;1m".
-      avt::shpath($M->{MAIN}).
-
-      "\e[0m\n";
-
-# ---   *   ---   *   ---
-# build mode is 'static library'
-
-  if($M->{LMODE} eq 'ar') {
-    my $call="ar -crs $M->{MAIN} $OBJS";
-    `$call`;
-
-    `echo "$M->{LIBS}" > $M->{ILIB}`;
-    avt::symscan($M->{FSWAT},@{$M->{XPRT}});
-
-# ---   *   ---   *   ---
-# otherwise it's executable or shared object
-
-  } else {
-
-    if(-e $M->{MAIN}) {
-      `rm $M->{MAIN}`;
-
-    };
-
-# ---   *   ---   *   ---
-# find any additional libraries we might
-# need to link against
-
-    my $LIBS=avt::libexpand($M->{LIBS});
-
-# ---   *   ---   *   ---
-# build call is the exact same,
-# only difference being the -shared flag
-
-    my $call="gcc $M->{LMODE} ".
-      "$OFLG $LFLG ".
-      "$M->{INCLUDES} $PFLG $OBJS $LIBS ".
-      " -o $M->{MAIN}";
-
-#      `$call`;
-#      `echo "$LIBS" > $M->{ILIB}`;
-
-# ---   *   ---   *   ---
-# for executables we spawn a shadow lib
-
-    if($M->{LMODE} ne '-shared ') {
-      $call="ar -crs $M->{MLIB} $OBJS";`$call`;
-
-      `echo "$LIBS" > $M->{ILIB}`;
-      avt::symscan($M->{FSWAT},@{$M->{XPRT}});
-
-    };
-
-  }};
-
-};
-
-# ---   *   ---   *   ---
-
-sub static_depchk($src,$deps) {
-
-  for(my $x=0;$x<@$deps;$x++) {
-    if($deps->[$x] && !(-e $deps->[$x])) {
-
-      arstd::errout(
-
-        "%s missing dependency %s\n",
-
-        args=>[avt::shpath($src),$deps->[$x]],
-        lvl=>$FATAL,
-
-      );
-    };
-  };
-};
-
-# ---   *   ---   *   ---
-
-sub buildchk($do_build,$obj,$deps) {
-
-  if(!$$do_build) {
-    while(@$deps) {
-      my $dep=shift @$deps;
-      if(!(-e $dep)) {next};
-
-      # found dep is updated
-      if(avt::ot($obj,$dep)) {
-        $$do_build=1;
-        last;
-
-      };
-    };
-  };
-};
-
-# ---   *   ---   *   ---
-# 0-800-Call MAM
-
-sub pcc($M,$src,$obj,$pmd) {
-
-  if($src=~ m[MAM\.pm]) {
-    goto TAIL;
-
-  };
-
-  my @deps=($src);
-
-# ---   *   ---   *   ---
-# look at *.d files for additional deps
-
-  my $do_build=!(-e $obj);
-
-  if($pmd) {
-    @deps=@{parsepmd($pmd)};
-
-  };
-
-  # no missing deps
-  static_depchk($src,\@deps);
-
-  # make sure we need to update
-  buildchk(\$do_build,$obj,\@deps);
-
-# ---   *   ---   *   ---
-
-  if($do_build) {
-
-    print {*STDERR} "$src\n";
-
-    my $ex=
-      "perl".q{ }.
-
-      "-I$ENV{ARPATH}/avtomat/".q{ }.
-      "-I$ENV{ARPATH}/avtomat/hacks".q{ }.
-      "-I$ENV{ARPATH}/avtomat/peso".q{ }.
-      "-I$ENV{ARPATH}/avtomat/langdefs".q{ }.
-
-      "-I$ENV{ARPATH}/$M->{FSWAT}".q{ }.
-      "$M->{INCLUDES}".q{ }.
-
-      "-MMAM=-md,--rap,--module=$M->{FSWAT}".q{ }.
-
-      "$src";
-
-    my $out=`$ex 2> $ENV{ARPATH}/avtomat/.errlog`;
-
-    if(!length $out) {
-      my $log=`cat $ENV{ARPATH}/avtomat/.errlog`;
-      print {*STDERR} "$log\n";
-
-    };
-
-# ---   *   ---   *   ---
-
-    my $re=$shwl::DEPS_RE;
-    my $depstr;
-
-    if($out=~ s/$re//sm) {
-      $depstr=${^CAPTURE[0]};
-
-    } else {
-      croak "Can't fetch dependencies for $src";
-
-    };
-
-# ---   *   ---   *   ---
-
-    for my $fname($obj,$pmd) {
-      if(!(-e $fname)) {
-        my $path=avt::dirof($fname);
-        `mkdir -p $path`;
-
-      };
-    };
-
-# ---   *   ---   *   ---
-
-    my $FH;
-
-    open $FH,'+>',$pmd or croak STRERR($pmd);
-    print {$FH} $depstr;
-
-    close $FH;
-
-    open $FH,'+>',$obj or croak STRERR($obj);
-    print {$FH} $out;
-
-    close $FH;
-
-  };
-
-# ---   *   ---   *   ---
-
-TAIL:
-  return;
-
-};
-
-# ---   *   ---   *   ---
 1; # ret
-

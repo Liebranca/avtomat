@@ -136,7 +136,7 @@ avt::set_config(
 
   deps=>[
 
-    [ 'rw-psf'
+    [ 'rw-psf',
       $avt::GITHUB.'/talamus/rw-psf',
       undef
 
