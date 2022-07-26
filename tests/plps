@@ -16,6 +16,8 @@
   use peso::rd;
   use avt;
 
+  use Data::Dumper;
+
 # ---   *   ---   *   ---
 
 my $rd=peso::rd::new_parser(
@@ -29,7 +31,12 @@ my $tree=$block->{tree};
 $rd->recurse($tree);
 $rd->hier_sort();
 
-$tree->prich();
+my $h={};
+$rd->utype_search($tree,$h,undef);
+
+print Dumper($h)."\n";
+
+#$tree->prich();
 
 # ---   *   ---   *   ---
 

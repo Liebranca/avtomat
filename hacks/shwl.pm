@@ -533,16 +533,16 @@ sub codefold($fname,$lang,%opts) {
 
 # ---   *   ---   *   ---
 
-  my $sbl_decl=$lang->{sbl_decl};
-  my $sbl_key=$lang->{sbl_key};
+  my $fn_decl=$lang->{fn_decl};
+  my $fn_key=$lang->{fn_key};
 
   my %blocks=shwl::blk::extract(
 
     \$body,
 
-    $sbl_decl,
-    $sbl_key,
-    'BLK',
+    $fn_decl,
+    $fn_key,
+    'FN',
 
     $lang
 
@@ -550,23 +550,22 @@ sub codefold($fname,$lang,%opts) {
 
 # ---   *   ---   *   ---
 
-  my $type_decl=$lang->{type_decl};
-  my $type_key=$lang->{type_key};
+  my $utype_decl=$lang->{utype_decl};
+  my $utype_key=$lang->{utype_key};
 
   my %types=shwl::blk::extract(
 
     \$body,
 
-    $type_decl,
-    $type_key,
-    'TYPE',
+    $utype_decl,
+    $utype_key,
+    'UTYPE',
 
     $lang,
 
   );
 
   for my $key(keys %types) {
-
     $blocks{$UTYPE_PREFIX.$key}=$types{$key};
 
   };

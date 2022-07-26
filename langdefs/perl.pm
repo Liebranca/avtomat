@@ -112,11 +112,11 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  sbl_key=>q{sub},
+  fn_key=>q{sub},
 
-  sbl_decl=>q{
+  fn_decl=>q{
 
-    \b$:sbl_key;>\s+
+    \b$:fn_key;>\s+
 
     (?<name> $:names;>)?\s*
     (?<attrs> :$:names;>\s*)*

@@ -1395,10 +1395,23 @@ TAIL:
 # ---   *   ---   *   ---
 # gives list of branches starting with value
 
-sub branches_in($self,$lookfor) {
+sub branches_in($self,$lookfor,%opt) {
 
-  my @leaves=($self);
+  my @leaves=();
   my @found=();
+
+  # defaults
+  $opt{omit_root}//=0;
+  $opt{max_depth}//=0x24;
+
+  my $depth=0;
+  if($opt{omit_root}) {
+    push @leaves,@{$self->{leaves}};
+
+  } else {
+    push @leaves,$self;
+
+  };
 
 # ---   *   ---   *   ---
 # look for matches recursively
@@ -1406,12 +1419,16 @@ sub branches_in($self,$lookfor) {
   while(@leaves) {
 
     $self=shift @leaves;
+    if($self == 0) {$depth--;next}
+    elsif($self == 1) {$depth++;next};
+
     if($self->{value}=~ $lookfor) {
       push @found,$self;
 
     };
 
-    unshift @leaves,@{$self->{leaves}};
+    if($depth>=$opt{max_depth}) {next};
+    unshift @leaves,1,@{$self->{leaves}},0;
 
 # ---   *   ---   *   ---
 # return matching nodes

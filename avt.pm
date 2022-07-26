@@ -595,7 +595,7 @@ sub wrcpyboil {
 
 # ---   *   ---   *   ---
 
-sub pytypecon($type) {
+sub py_typecon($type) {
 
   state %types=qw{
 
@@ -659,6 +659,8 @@ my $code=q{
 from ctypes import *;
 ROOT='/'.join(__file__.split("/")[0:-1]);
 
+$:structs;>
+
 class $:soname;>:
 
   @classmethod
@@ -689,36 +691,80 @@ $:iter (
 };
 
 # ---   *   ---   *   ---
+# walk the symbol table
 
   my @names=();
   my @rtypes=();
   my @arg_types=();
+
+  my $structs=$NULLSTR;
 
   for my $o(keys %{$symtab{objects}}) {
 
     my $obj=$symtab{objects}->{$o};
     my $funcs=$obj->{functions};
 
+# ---   *   ---   *   ---
+# functions in object
+
     for my $fn_name(keys %$funcs) {
 
       my $fn=$funcs->{$fn_name};
 
       my $rtype=$fn->{type};
-      $rtype=pytypecon($rtype);
+      $rtype=py_typecon($rtype);
 
       my @arg_names=keys %{$fn->{args}};
-      my @args=values %{$fn->{args}};
 
-      for my $type(@args) {
-        $type=pytypecon($type);
+      my @args=map
+        {py_typecon($ARG)}
+        values %{$fn->{args}}
 
-      };
+      ;
 
       push @names,$fn_name;
       push @rtypes,$rtype;
 
       push @arg_types,
         '['.(join q{,},@args).']';
+
+    };
+
+# ---   *   ---   *   ---
+# user-defined types in object
+
+    my $utypes=$obj->{utypes};
+
+    for my $ut_name(keys %$utypes) {
+
+      $structs.="class $ut_name(Structure):\n";
+      $structs.="  _fields_=[\n";
+
+      my $utype=$utypes->{$ut_name};
+
+      my @field_names=keys %$utype;
+      my @field_types=map
+
+        {py_typecon($ARG)}
+        values %$utype
+
+      ;
+
+# ---   *   ---   *   ---
+
+      while(@field_names && @field_types) {
+        my $field_name=shift @field_names;
+        my $field_type=shift @field_types;
+
+        $structs.=q{    }.
+          "('$field_name',".
+          "$field_type),\n"
+
+        ;
+
+      };
+
+      $structs.="  ];\n\n";
 
     };
 
@@ -964,7 +1010,7 @@ sub cfunc {
 # ---   *   ---   *   ---
 # C reading
 
-sub typecon {
+sub c_typecon {
 
   my $s=shift;
   my $i=0;
@@ -1008,7 +1054,7 @@ sub file_sbl($f) {
 
   my $object={
 
-    types=>{},
+    utypes=>{},
 
     functions=>{},
     variables=>{},
@@ -1030,61 +1076,28 @@ sub file_sbl($f) {
   $rd->recurse($tree);
   $rd->hier_sort();
 
-  my $lang=$rd->{lang};
-  my $sbl_key=qr{^$lang->{sbl_key}$};
-
 # ---   *   ---   *   ---
-# iter through functions
+# mine the tree
 
-  for my $sbl($tree->branches_in($sbl_key)) {
+  $rd->fn_search(
 
-    my $id=$sbl->leaf_value(0);
-    my $src=$rd->select_block($id);
+    $tree,
 
-    my $attrs=$src->{attrs};
-    my $name=$src->{name};
-    my $args=$src->{args};
+    $object->{functions},
+    \&c_typecon
 
-    my $type=typecon($attrs);
+  );
 
-    my $fn=$object->{functions}->{$name}={
+  $rd->utype_search(
 
-      type=>$type,
-      args=>{},
+    $tree,
 
-    };
+    $object->{utypes},
+    \&c_typecon
 
-# ---   *   ---   *   ---
-# save args
+  );
 
-    $args=~ s/$lang->{strip_re}//sg;
-    $args=~ s/^\s*\(|\)\s*$//sg;
-
-    my @args=split $COMMA_RE,$args;
-
-    while(@args) {
-
-      my $arg=shift @args;
-      $arg=~ s/^\s+|\s+$//;
-
-      my ($arg_attrs,$arg_name)=
-        split $SPACE_RE,$arg;
-
-      # is void
-      if(!defined $arg_name) {
-        $arg_name=$NULLSTR;
-
-      };
-
-      my $arg_type=typecon($arg_attrs);
-
-      $fn->{args}->{$arg_name}=$arg_type;
-
-# ---   *   ---   *   ---
-
-    };
-
-  };return $object;
+  return $object;
 
 };
 

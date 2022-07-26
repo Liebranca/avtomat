@@ -1687,4 +1687,118 @@ sub nit2($program,$fname,%opts) {
 };
 
 # ---   *   ---   *   ---
+# fills out hashref with functions in tree
+
+sub fn_search($self,$tree,$h,$typecon) {
+
+  my $lang=$self->{lang};
+  my $fn_key=qr{^$lang->{fn_key}$};
+
+# ---   *   ---   *   ---
+# iter through functions
+
+  for my $fn($tree->branches_in($fn_key)) {
+
+    my $id=$fn->leaf_value(0);
+    my $src=$self->select_block($id);
+
+    my $attrs=$src->{attrs};
+    my $name=$src->{name};
+    my $args=$src->{args};
+
+    my $type=$typecon->($attrs);
+
+    my $fn=$h->{$name}={
+
+      type=>$type,
+      args=>{},
+
+    };
+
+# ---   *   ---   *   ---
+# save args
+
+    $args=~ s/$lang->{strip_re}//sg;
+    $args=~ s/^\s*\(|\)\s*$//sg;
+
+    my @args=split $COMMA_RE,$args;
+
+    while(@args) {
+
+      my $arg=shift @args;
+      $arg=~ s/^\s+|\s+$//;
+
+      my ($arg_attrs,$arg_name)=
+        split $SPACE_RE,$arg;
+
+      # is void
+      if(!defined $arg_name) {
+        $arg_name=$NULLSTR;
+
+      };
+
+      my $arg_type=$typecon->($arg_attrs);
+
+      $fn->{args}->{$arg_name}=$arg_type;
+
+# ---   *   ---   *   ---
+
+    };
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# fills out hashref with user-defined
+# types in tree
+
+sub utype_search($self,$tree,$h,$typecon) {
+
+  my $lang=$self->{lang};
+  my $utype_key=qr{^$lang->{utype_key}$};
+
+  my $re=qr{[^;]+}x;
+
+# ---   *   ---   *   ---
+# iter through functions
+
+  for my $utype($tree->branches_in($utype_key)) {
+
+    my $id=$utype->leaf_value(0);
+
+    my $src=$self->select_block(
+      $shwl::UTYPE_PREFIX.$id
+
+    );
+
+    $h->{$id}={};
+
+# ---   *   ---   *   ---
+# iter struct fields
+
+    my $nd=$src->{tree};
+    for my $field($nd->branches_in(
+
+      $re,
+
+      max_depth=>0,
+      omit_root=>1,
+
+    )) {
+
+#:!;> this assumes C rules and NO specifiers!
+
+      my $type=$typecon->($field->{value});
+      my $name=$field->leaf_value(0);
+
+      $h->{$id}->{$name}=$type;
+
+    };
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 1; # ret

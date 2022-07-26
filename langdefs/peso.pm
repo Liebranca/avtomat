@@ -577,9 +577,9 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  sbl_key=>q{proc},
+  fn_key=>q{proc},
 
-  sbl_decl=>q{
+  fn_decl=>q{
 
     \b$:sbl_key;> \s+
 

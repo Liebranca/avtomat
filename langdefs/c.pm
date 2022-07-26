@@ -125,8 +125,8 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  sbl_key=>q{function},
-  sbl_decl=>q{
+  fn_key=>q{function},
+  fn_decl=>q{
 
     (?<attrs>
 
@@ -151,12 +151,12 @@ lang::def::nit(
 
 # ---   *   ---   *   ---
 
-  type_key=>q{struct},
+  utype_key=>q{struct},
 
-  type_decl=>q{
+  utype_decl=>q{
 
     (?:typedef\s+)?
-    $:type_key;>\s+
+    $:utype_key;>\s+
 
     (?<name> $:names;>\s+)?
 
@@ -184,8 +184,8 @@ lang->c->{hier_sort}=sub($rd) {
 
   my $re=qr{
 
-    ^(?: $lang->{sbl_key}
-     |   $lang->{type_key}
+    ^(?: $lang->{fn_key}
+     |   $lang->{utype_key}
 
     )$
 
@@ -213,14 +213,14 @@ lang->c->{hier_sort}=sub($rd) {
 
     };
 
-    my $id=$sbl->leaf_value(0);
-    if($sbl->{value} eq $lang->{type_key}) {
-      $id=$shwl::UTYPE_PREFIX.$id;
-
-      $block=$rd->select_block($id);
-      $block->{tree}->prich();
-
-    };
+#    my $id=$sbl->leaf_value(0);
+#    if($sbl->{value} eq $lang->{utype_key}) {
+#      $id=$shwl::UTYPE_PREFIX.$id;
+#
+#      $block=$rd->select_block($id);
+#      $block->{tree}->prich();
+#
+#    };
 
   };
 

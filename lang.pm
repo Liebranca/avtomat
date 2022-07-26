@@ -873,11 +873,11 @@ my %DEFAULTS=(
 
   sigils=>q{},
 
-  sbl_key=>'SBL',
-  sbl_decl=>qr{$^}x,
+  fn_key=>'FN',
+  fn_decl=>qr{$^}x,
 
-  type_key=>'TYPE',
-  type_decl=>qr{$^}x,
+  utype_key=>'UTYPE',
+  utype_decl=>qr{$^}x,
 
   ptr_decl=>qr{$^}x,
   ptr_defn=>qr{$^}x,
@@ -1297,7 +1297,7 @@ sub nit(%h) {
     drfc hier hier_re
     names names_l names_u
 
-    sbl_decl type_decl ptr_decl
+    fn_decl utype_decl ptr_decl
     ptr_defn ptr_asg sigils
 
   )) {
