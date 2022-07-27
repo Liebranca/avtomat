@@ -73,6 +73,9 @@ my $FILE_LIST=[
   '/peso/sbl.pm',
   '/peso/program.pm',
 
+  '/emit/std.pm',
+  '/emit/c.pm',
+
   '/langdefs/plps.pm',
   '/langdefs/peso.pm',
   '/langdefs/perl.pm',

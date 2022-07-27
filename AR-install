@@ -234,6 +234,8 @@ avt::scan();
 avt::config();
 avt::make();
 
+exit;
+
 my @modules=avt::MODULES;
 
 for my $mod(@modules) {

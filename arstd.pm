@@ -32,7 +32,7 @@ package arstd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.2;
+  our $VERSION=v0.02.1;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -345,41 +345,80 @@ sub fmat_btrace {
 };
 
 # ---   *   ---   *   ---
+# get terminal dimentions
+
+sub ttysz_yx() {
+  return (split qr{\s},`stty size`)
+
+};
+
+sub ttysz_xy() {
+  return (reverse split qr{\s},`stty size`)
+
+};
+
+# ---   *   ---   *   ---
+# split string at X characters
+
+sub linewrap($sref,$sz_x,%opt) {
+
+  state $re=qr{
+
+    [^\n]{1,$sz_x}(?: [\s\n]|$)
+
+  }x;
+
+  # defaults
+  $opt{add_newlines}//=1;
+
+  if($opt{add_newlines}) {
+    $$sref=~ s/($re)/$1\n/gsx;
+
+  } else {
+    $$sref=~ s/($re)/$1/gsx;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# give back copy of string without ANSI escapes
+
+sub descape($s) {
+
+  state $escape="\e[";
+  $s=~ s/$escape[\d;]+[\w\?]//;
+
+  return $s;
+
+};
+
+# ---   *   ---   *   ---
+# format string and output
 
 sub fstrout($format,$tab,%opt) {
 
   # opt defaults
   $opt{args}//=[];
   $opt{errout}//=0;
+  $opt{no_print}//=0;
   $opt{pre_fmat}//=$NULLSTR;
   $opt{post_fmat}//=$NULLSTR;
   $opt{endtab}//=$NULLSTR;
 
-  state $escape="\e[";
-
 # ---   *   ---   *   ---
 # dirty linewrap
 
-  my @ttysz=split qr{\s},`stty size`;
-
+  my @ttysz=ttysz_yx();
   $format=sprintf $format,@{$opt{args}};
 
-  # descape
-  my $desc_tab=$tab;
-  $desc_tab=~ s/$escape[\d;]+[\w\?]//;
-
-  # now get actual length c:
+  # get length without escapes
+  my $desc_tab=descape($tab);
   my $tab_len=length $desc_tab;
-  my $xsz=$ttysz[1]-$tab_len-1;
+  my $sz_x=$ttysz[1]-$tab_len-1;
 
-  # split string at X characters
-  my $line_wrap=qr{
-
-    [^\n]{1,$xsz}(?: [\s\n]|$)
-
-  }x;
-
-  $format=~ s/($line_wrap)/$1\n/gsx;
+  # use real length to wrap
+  linewrap(\$format,$sz_x);
 
 # ---   *   ---   *   ---
 # apply tab to format
@@ -395,13 +434,106 @@ sub fstrout($format,$tab,%opt) {
 # ---   *   ---   *   ---
 # spit it out
 
-  return print {$FH}
+  my $out;
 
-    $opt{pre_fmat},
-    (join $NULLSTR,@format_lines),
-    $opt{post_fmat},
+  if($opt{no_print}) {
+    $out=
+      $opt{pre_fmat}.
+      (join $NULLSTR,@format_lines).
+      $opt{post_fmat};
+
+  } else {
+    $out=print {$FH}
+
+      $opt{pre_fmat},
+      (join $NULLSTR,@format_lines),
+      $opt{post_fmat},
+
+    ;
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# box-format string and output
+
+sub box_fstrout($format,%opt) {
+
+  # opt defaults
+  $opt{args}//=[];
+  $opt{errout}//=0;
+  $opt{no_print}//=0;
+  $opt{pre_fmat}//=$NULLSTR;
+  $opt{post_fmat}//=$NULLSTR;
+  $opt{fill}//=q{*};
+
+# ---   *   ---   *   ---
+# dirty linewrap
+
+  my $c=$opt{fill};
+
+  my @ttysz=ttysz_yx();
+  $format=sprintf $format,@{$opt{args}};
+
+  # get length without escapes
+  my $desc_c=descape($c);
+  my $c_len=length $desc_c;
+  my $sz_x=$ttysz[1]-($c_len*2)-3;
+
+  # use real length to wrap
+  linewrap(\$format,$sz_x,add_newlines=>0);
+
+# ---   *   ---   *   ---
+# box in the format
+
+  my @format_lines=split m/\n/,$format;
+
+  map
+
+    {$ARG=sprintf "$c %-${sz_x}s $c\n",$ARG}
+    @format_lines
 
   ;
+
+  unshift @format_lines,
+    ($c x ($ttysz[1]-1))."\n",
+    sprintf "$c %-${sz_x}s $c\n",$NULLSTR;
+
+  push @format_lines,
+    (sprintf "$c %-${sz_x}s $c\n",$NULLSTR),
+    ($c x ($ttysz[1]-1))."\n";
+
+# ---   *   ---   *   ---
+# select filehandle
+
+  my $FH=($opt{errout}) ? *STDERR : *STDOUT;
+
+# ---   *   ---   *   ---
+# spit it out
+
+  my $out;
+
+  if($opt{no_print}) {
+    $out=
+      $opt{pre_fmat}.
+      (join $NULLSTR,@format_lines).
+      $opt{post_fmat};
+
+  } else {
+    $out=print {$FH}
+
+      $opt{pre_fmat},
+      (join $NULLSTR,@format_lines),
+      $opt{post_fmat},
+
+    ;
+
+  };
+
+  return $out;
 
 };
 

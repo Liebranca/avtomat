@@ -32,6 +32,8 @@ package makescript;
   use style;
   use arstd;
 
+  use emit::std;
+
   use lang;
   use avt;
 
@@ -112,7 +114,7 @@ sub update_generated($M) {
   if(@GENS) {
 
     print {*STDERR}
-      $ARSEP."running generators\n";
+      $emit::std::ARSEP."running generators\n";
 
   };
 
@@ -196,7 +198,7 @@ sub update_regular($M) {
   if(@FCPY) {
 
     print {*STDERR}
-      $ARSEP."copying regular files\n";
+      $emit::std::ARSEP."copying regular files\n";
 
   };
 
@@ -243,7 +245,7 @@ sub update_objects($M,$DFLG,$PFLG) {
   if(@SRCS) {
 
     print {*STDERR}
-      $ARSEP."rebuilding objects\n";
+      $emit::std::ARSEP."rebuilding objects\n";
 
   };
 
@@ -326,7 +328,7 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
   if($M->{main} && $objblt) {
 
     print {*STDERR }
-      $ARSEP.'compiling binary '.
+      $emit::std::ARSEP.'compiling binary '.
 
       "\e[32;1m".
       avt::shpath($M->{main}).

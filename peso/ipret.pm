@@ -20,7 +20,7 @@ package peso::ipret;
 
   use English qw(-no_match_vars);
 
-  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use lib $ENV{'ARPATH'}.'/lib/';
 
   use style;
   use arstd;
@@ -29,6 +29,111 @@ package peso::ipret;
 
   use peso::rd;
   use peso::st;
+
+  use lib $ENV{'ARPATH'}.'/lib/hacks/';
+  use shwl;
+
+# ---   *   ---   *   ---
+
+sub pesc($s,%O) {
+
+  state $pesc=qr{
+
+    \$:
+
+    (?<body> (?:
+
+      [^;] | ;[^>]
+
+    )+)
+
+    ;>
+
+  }x;
+
+  state $cut=':__CUT__:';
+  state $cut_re=qr{$cut};
+
+# ---   *   ---   *   ---
+
+  while($s=~ s/($pesc)/$cut/sm) {
+
+    my $esc=$+{body};
+
+    if(!($esc=~ s/^([^;\s]+)\s*//)) {
+
+      arstd::errout(
+        "Empty peso escape '%s'",
+
+        args=>[$esc],
+        lvl=>$FATAL,
+
+      );
+
+    };
+
+    my $command=${^CAPTURE[0]};
+
+# ---   *   ---   *   ---
+
+    if($command eq 'iter') {
+
+      $esc=~ s/(\([^\)]*\))\s+//xm;
+
+      my %ht=eval(${^CAPTURE[0]}.q{;});
+      my $run=$esc;
+
+      my $repl=$NULLSTR;
+
+      my $ar_cnt=int(keys %ht);
+
+      my $loop_cond='while(';
+      my $loop_head=$NULLSTR;
+      my $loop_body='$repl.=eval($run);};';
+
+# ---   *   ---   *   ---
+
+      my $i=0;
+      for my $key(keys %ht) {
+
+        my $elem=q[@{].'$ht{'.$key.'}'.q[}];
+
+        $loop_cond.=$elem;
+
+        $i++;
+        if($i<$ar_cnt) {
+          $loop_cond.=q{&&};
+
+        };
+
+        $loop_head.=q{my $}."$key".q{=}.
+          'shift '.$elem.';';
+
+      };
+
+      $loop_cond.=q[) {];
+
+# ---   *   ---   *   ---
+
+      eval($loop_cond.$loop_head.$loop_body);
+      $s=~ s/${cut}/$repl/s;
+
+# ---   *   ---   *   ---
+
+    } else {
+
+      my $var=eval(q[$O{].$command.q[}]);
+      $s=~ s/${cut}/$var/;
+
+    };
+
+# ---   *   ---   *   ---
+
+  };
+
+  return $s;
+
+};
 
 # ---   *   ---   *   ---
 

@@ -19,37 +19,31 @@ package peso::type;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
+
+  use style;
+  use arstd;
+
   use lang;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.2;
+  our $VERSION=v0.02.1;
   our $AUTHOR='IBN-3DILA';
-
-# ---   *   ---   *   ---
-# getters
-
-sub size($self) {return $self->{size}};
-sub fields($self) {return $self->{fields}};
-
-# ---   *   ---   *   ---
-
-;;sub is_primitive($self) {
-  return exists $self->fields->{'primitive'};
-
-};sub elem_count($self) {
-  return $self->{elem_count};
-
-};
 
 # ---   *   ---   *   ---
 # constructors
 
-sub new_frame(@args) {
-  return peso::type::frame::create(@args);
+sub new_frame(@args) {return bless {}};
 
-};sub nit($frame,$name,$elems) {
+sub nit($frame,$name,$elems,%O) {
+
+  # defaults
+  $O{floating}//=0;
+  $O{unsigned}//=0;
+  $O{memaddr}//=0;
+
+# ---   *   ---   *   ---
 
   my $size=0;
   my $count=0;
@@ -90,45 +84,207 @@ sub new_frame(@args) {
     $count=1;
     $size=$elems;
 
-    $fields->{'primitive'}=$name;
+  };
+
+# ---   *   ---   *   ---
+# the lazy way to do this bit ;>
+
+  if($O{floating}) {
+    $name.=' float';
+
+  } elsif($O{unsigned}) {
+    $name='u'.$name;
+
+  };
+
+  if($O{memaddr}) {
+    $name.=' ptr';
 
   };
 
 # ---   *   ---   *   ---
 
-  my $type=$frame->{$name}=bless {
+  my $type=$frame->{$name}={
 
     size=>$size,
     elem_count=>$count,
 
     fields=>$fields,
 
-  },'peso::type';
+    %O,
+
+  };
 
   return $type;
 
 };
 
 # ---   *   ---   *   ---
+# ROM
 
-package peso::type::frame;
+  our $TABLE;INIT {
 
-  use v5.36.0;
-  use strict;
-  use warnings;
+  my $table={
+
+    # primitives
+    byte=>1,
+    wide=>2,
+    word=>4,
+    long=>8,
+
+    # ptrs align to half
+    # regs align to unit
+    # bufs align to line
+    # mems align to page
+
+    half=>0x0008, # 1  long
+    unit=>0x0010, # 2  halves
+    line=>0x0040, # 4  units
+    page=>0x1000, # 64 lines
 
 # ---   *   ---   *   ---
-# constructors
+# function types
 
-sub nit(@args) {return peso::type::nit(@args)};
+    nihil=>8,     # void(*nihil)(void)
+    stark=>8,     # void(*stark)(void*)
 
-sub create() {
+    signal=>8,    # int(*signal)(int)
 
-  my $frame=bless {
+  };
 
-  },'peso::type::frame';
+# ---   *   ---   *   ---
 
-  return $frame;
+  my $F=new_frame();
+
+  for my $key(keys %$table) {
+
+    my $value=$table->{$key};
+
+    my $fptr=int(
+      $key=~ m[(?: nihil|stark|signal)]x
+
+    );
+
+    my $t=$F->nit($key,$value);
+
+    if($fptr) {
+      $t->{memaddr}=1;
+      $t->{unsigned}=1;
+
+    };
+
+# ---   *   ---   *   ---
+
+    if($key=~ m[(?: word|long)]x) {
+
+      $F->nit($key,$value,floating=>1);
+      $F->nit(
+
+        $key,$value,
+
+        floating=>1,
+        memaddr=>1
+
+      );
+
+    };
+
+# ---   *   ---   *   ---
+
+    if($key=~ m[(?: byte|wide|word|long)]x) {
+
+      $F->nit($key,$value,unsigned=>1);
+      $F->nit(
+
+        $key,$value,
+
+        unsigned=>1,
+        memaddr=>1
+
+      );
+
+    };
+
+# ---   *   ---   *   ---
+
+  };
+
+  $TABLE=$F;
+
+};
+
+# ---   *   ---   *   ---
+# makes a translation table from
+# a language X to peso
+
+sub xltab(%T) {
+
+  state $s_re=qr{\%s}x;
+  state $type_re=qr{\$type}x;
+
+  my $ptr_rules=$T{-PTR_RULES};
+  my $unsig_rules=$T{-UNSIG_RULES};
+
+  delete $T{-PTR_RULES};
+  delete $T{-UNSIG_RULES};
+
+  my $out={};
+
+# ---   *   ---   *   ---
+
+  for my $width(keys %T) {
+
+    my $signed_types=$T{$width}->{sig};
+    my $unsigned_types=$T{$width}->{sig};
+
+    for my $type(@$signed_types) {
+      $out->{$type}=$width;
+
+# ---   *   ---   *   ---
+
+      if($width=~ m/\s float$/x) {
+        my $type_ptr=$ptr_rules->{fmat};
+
+        $type_ptr=~ s/$s_re/$ptr_rules->{key}/;
+        $type_ptr=~ s/$type_re/$type/;
+
+        $out->{$type_ptr}="$width ptr";
+
+        next;
+
+      };
+
+# ---   *   ---   *   ---
+
+      my $type_uptr=$NULLSTR;
+      my $type_unsig=$unsig_rules->{fmat};
+
+      $type_unsig=~ s/$s_re/$unsig_rules->{key}/;
+      $type_unsig=~ s/$type_re/$type/;
+
+      $type_uptr=$type_unsig;
+      $out->{$type_unsig}="u$width";
+
+# ---   *   ---   *   ---
+
+      my $type_ptr=$ptr_rules->{fmat};
+
+      $type_ptr=~ s/$s_re/$ptr_rules->{key}/;
+
+      my $tmp=$type_ptr;
+      $type_ptr=~ s/$type_re/$type/;
+      $tmp=~ s/$type_re/$type_uptr/;
+
+      $type_uptr=$tmp;
+
+      $out->{$type_ptr}="$width ptr";
+      $out->{$type_uptr}="u$width ptr";
+
+    };
+
+  };
+
+  return $out;
 
 };
 

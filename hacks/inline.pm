@@ -45,35 +45,6 @@ package inline;
   my $PARENS_RE=shwl::delm(q[(],q[)]);
 
 # ---   *   ---   *   ---
-# TODO: move this somewhere else
-
-  use Perl::Tidy;
-
-sub tidyup($sref) {
-
-  my $out=$NULLSTR;
-
-  Perl::Tidy::perltidy(
-    source=>$sref,
-    destination=>\$out,
-    argv=>[qw(
-
-      -l=54 -i=2 -cb -nbl -sot -sct
-      -blbc=1 -blbcl=*
-      -mbl=1
-
-    )],
-
-  );
-
-  $out=~ s/(\};?\n)/$1\n/sg;
-  $out=~ s/^(\s*\{)\s*/\n$1 /sgm;
-
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
 
 sub decl_args($rd,@args) {
 
@@ -529,7 +500,7 @@ sub inspect($rd) {
 
   my $s=$tree->flatten();
 
-  my $out=tidyup(\$s);
+  my $out=arstd::tidyup(\$s);
 
   print "$out\n";
   print eval($out)."\n";

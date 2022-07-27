@@ -36,38 +36,7 @@ package langdefs::peso;
 
 # ---   *   ---   *   ---
 
-BEGIN {
-
-# ---   *   ---   *   ---
-# leaps and such
-
-  Readonly my $TYPE=>{
-
-    # primitives
-    char=>1,
-    wide=>2,
-    word=>4,
-    long=>8,
-
-    # ptrs align to half
-    # regs align to unit
-    # bufs align to line
-    # mems align to page
-
-    half=>0x0008, # 1  long
-    unit=>0x0010, # 2  halves
-    line=>0x0040, # 4  units
-    page=>0x1000, # 64 lines
-
-# ---   *   ---   *   ---
-# function types
-
-    nihil=>8,     # void(*nihil)(void)
-    stark=>8,     # void(*stark)(void*)
-
-    signal=>8,    # int(*signal)(int)
-
-  };
+INIT {
 
 # ---   *   ---   *   ---
 # builtins and functions, group A
@@ -533,7 +502,7 @@ lang::def::nit(
 # ---   *   ---   *   ---
 
   types=>[
-    keys %$TYPE,
+    keys %$peso::type::TABLE,
 
   ],
 
@@ -613,21 +582,6 @@ lang::def::nit(
 # ---   *   ---   *   ---
 # load typedata to the type-table
 
-  { my $ref=lang->peso->{types};
-    my $fr_type=peso::type::new_frame();
-
-    for my $key(keys %$ref) {
-
-      next if $key eq 're';
-
-      my $value=$TYPE->{$key};
-      $ref->{$key}=$fr_type->nit($key,$value);
-
-    };
-
-    $ref->{types_frame}=$fr_type;
-
-  };
 
 # ---   *   ---   *   ---
 
