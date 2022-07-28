@@ -21,8 +21,10 @@ package arstd;
   use Readonly;
 
   use Carp qw(croak longmess);
+  use Cwd qw(abs_path);
 
   use Scalar::Util qw(blessed);
+  use File::Spec;
 
   use English qw(-no_match_vars);
 
@@ -91,6 +93,80 @@ package arstd;
 sub valid($obj) {
   my $kind=(caller)[0];
   return blessed($obj) && $obj->isa($kind);
+
+};
+
+# ---   *   ---   *   ---
+# mute stderr
+
+sub errmute {
+
+  my $fh=readlink "/proc/self/fd/2";
+  open STDERR,'>',
+    File::Spec->devnull()
+
+  # you guys kidding me
+  or croak STRERR('/dev/null')
+
+  ;
+
+  return $fh;
+
+};
+
+# ---   *   ---   *   ---
+# ^restore
+
+sub erropen($fh) {
+  open STDERR,'>',$fh
+  or croak STRERR($fh);
+
+};
+
+# ---   *   ---   *   ---
+# in: filepath
+# get name of file without the path
+
+sub basename($name) {
+  my @tmp=split '/',$name;
+  $name=$tmp[$#tmp];
+
+  return $name;
+
+};
+
+# ^ removes extension(s)
+sub nxbasename($path) {
+  my $name=basename($path);
+  $name=~ s/\..*//;
+
+  return $name;
+
+};
+
+# ^ get dir of filename...
+# or directory's parent
+
+sub dirof($path) {
+
+  my @tmp=split('/',$path);
+  $path=join('/',@tmp[0..($#tmp)-1]);
+
+  return abs_path($path);
+
+};
+
+# ^ oh yes
+sub parof($path) {
+  return dirof(dirof($path));
+
+};
+
+# ---   *   ---   *   ---
+
+sub relto($par,$to) {
+  my $full="$par$to";
+  return File::Spec->abs2rel($full,$par);
 
 };
 

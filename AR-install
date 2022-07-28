@@ -121,111 +121,111 @@ avt::set_config(
 
 # ---   *   ---   *   ---
 
-avt::set_config(
-
-  name=>'help',
-  xcpy=>[qw(help* tkmny*)],
-
-);
-
-# ---   *   ---   *   ---
-
-avt::set_config(
-
-  name=>'ft8',
-
-  deps=>[
-
-    [ 'rw-psf',
-      $avt::GITHUB.'/talamus/rw-psf',
-      undef
-
-    ],
-
-  ],
-
-  xcpy=>[qw(ft8* writepsf*)],
-
-# ---   *   ---   *   ---
-
-  post_build=>q(
-
-    if(!(-e avt::root."/fonts")) {
-
-      avt::ex 'ft8',[
-        '-g','8,16,24',
-
-        avt::root."/ft8/lycon",
-        avt::root."/fonts"
-
-      ],'';
-
-      avt::ex 'ft8',[
-        '-x','8,16,24','lycon',
-
-        avt::root."/fonts/",
-        avt::root."/fonts/X11"
-
-      ],'';
-
-    };
-  ),
-
-);
-
-# ---   *   ---   *   ---
-
-avt::set_config(
-
-  name=>'sin',
-  build=>'ar:sin',
-
-  gens=>{
-    'shblk.h'=>[qw(shblk* %.glsl)],
-
-  },
-
-  libs=>[qw(GL GLEW ce)],
-
-);
-
-# ---   *   ---   *   ---
-
-avt::set_config(
-
-  name=>'chasm',
-
-  build=>'ar:chasm',
-  libs=>[qw(sin SDL2 SDL2main)],
-
-);
-
-# ---   *   ---   *   ---
-
-avt::set_config(
-
-  name=>'AUVILIB',
-
-  build=>'ar:AUVILIB',
-  xprt=>[qw(xforms/im.c)],
-
-# ---   *   ---   *   ---
-
-  post_build=>q(
-
-    avt::stlib(avt::root().'/lib/');
-    avt::wrcpyboil(
-      '/lib/',
-      'AUVILIB',
-      'IBN-3DILA',
-
-      \&avt::ctopy,['AUVILIB',['AUVILIB']]
-
-    );
-
-  ),
-
-);
+#avt::set_config(
+#
+#  name=>'help',
+#  xcpy=>[qw(help* tkmny*)],
+#
+#);
+#
+## ---   *   ---   *   ---
+#
+#avt::set_config(
+#
+#  name=>'ft8',
+#
+#  deps=>[
+#
+#    [ 'rw-psf',
+#      $avt::GITHUB.'/talamus/rw-psf',
+#      undef
+#
+#    ],
+#
+#  ],
+#
+#  xcpy=>[qw(ft8* writepsf*)],
+#
+## ---   *   ---   *   ---
+#
+#  post_build=>q(
+#
+#    if(!(-e avt::root."/fonts")) {
+#
+#      avt::ex 'ft8',[
+#        '-g','8,16,24',
+#
+#        avt::root."/ft8/lycon",
+#        avt::root."/fonts"
+#
+#      ],'';
+#
+#      avt::ex 'ft8',[
+#        '-x','8,16,24','lycon',
+#
+#        avt::root."/fonts/",
+#        avt::root."/fonts/X11"
+#
+#      ],'';
+#
+#    };
+#  ),
+#
+#);
+#
+## ---   *   ---   *   ---
+#
+#avt::set_config(
+#
+#  name=>'sin',
+#  build=>'ar:sin',
+#
+#  gens=>{
+#    'shblk.h'=>[qw(shblk* %.glsl)],
+#
+#  },
+#
+#  libs=>[qw(GL GLEW ce)],
+#
+#);
+#
+## ---   *   ---   *   ---
+#
+#avt::set_config(
+#
+#  name=>'chasm',
+#
+#  build=>'ar:chasm',
+#  libs=>[qw(sin SDL2 SDL2main)],
+#
+#);
+#
+## ---   *   ---   *   ---
+#
+#avt::set_config(
+#
+#  name=>'AUVILIB',
+#
+#  build=>'ar:AUVILIB',
+#  xprt=>[qw(xforms/im.c)],
+#
+## ---   *   ---   *   ---
+#
+#  post_build=>q(
+#
+#    avt::stlib(avt::root().'/lib/');
+#    avt::wrcpyboil(
+#      '/lib/',
+#      'AUVILIB',
+#      'IBN-3DILA',
+#
+#      \&avt::ctopy,['AUVILIB',['AUVILIB']]
+#
+#    );
+#
+#  ),
+#
+#);
 
 # ---   *   ---   *   ---
 # install packages

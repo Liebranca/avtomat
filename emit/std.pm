@@ -93,4 +93,21 @@ sub version($name,$version,$author) {
 };
 
 # ---   *   ---   *   ---
+# in: path to add to PATH, names to include
+# returns a perl snippet as a string to be eval'd
+
+sub reqin($path,@names) {
+
+  my $s='push @INC,'."$path;\n";
+
+  for my $name(@names) {
+    $s.="require $name;\n";
+
+  };
+
+  return $s;
+
+};
+
+# ---   *   ---   *   ---
 1; # ret

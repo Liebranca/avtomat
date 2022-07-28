@@ -24,9 +24,6 @@ package avt;
   use Carp;
   use English qw(-no_match_vars);
 
-  use Cwd qw(abs_path getcwd);
-  use File::Spec;
-
   use lib $ENV{'ARPATH'}.'/lib/hacks';
   use shwl;
 
@@ -110,7 +107,6 @@ package avt;
 # global storage
 
   my %CACHE=(
-    _root=>'.',
     _include=>[],
     _lib=>[],
 
@@ -122,19 +118,6 @@ package avt;
     _pre_build=>{},
 
   );
-
-# ---   *   ---   *   ---
-
-sub root($new=undef) {
-
-  if(defined $new) {
-    $CACHE{_root}=abs_path($new);
-
-  };
-
-  return $CACHE{_root};
-
-};
 
 # ---   *   ---   *   ---
 
@@ -237,7 +220,7 @@ sub ffind($fname) {
   my $path=undef;
 
   # iter search path
-  for $path(@$ref,root) {
+  for $path(@$ref,$shb7::root) {
     if(!$path) {next};
 
     # iter alt names
@@ -497,9 +480,12 @@ sub wrcpyboil {
   my $call_args=shift;
 
   # create file
-  open my $FH,'>',
-    $CACHE{_root}.$dir.$fname.'.py'
-    or croak STRERR($fname);
+  my $path=shb7::file($dir."$fname.py");
+
+  open my $FH,'>',$path
+  or croak STRERR($path);
+
+# ---   *   ---   *   ---
 
   # generate notice
   my $n=note($author,'#');
@@ -516,7 +502,7 @@ sub wrcpyboil {
 
 #  # close boiler
 #  print $FH avt::cplboil_pm uc($fname),1;
-  close $FH;
+  close $FH or croak STRERR($path);
 
 };
 
@@ -847,8 +833,7 @@ sub file_sbl($f) {
 
 sub symscan($mod,$dst,$deps,@fnames) {
 
-  my $root=abs_path(root());
-  stinc("$root/$mod/");
+  stinc(shb7::dir($mod));
 
   my @files=();
 
@@ -883,12 +868,8 @@ sub symscan($mod,$dst,$deps,@fnames) {
   for my $f(@files) {
     if(!$f) {next};
 
-    $f=~ s/^${root}/./;
-    my $o=$f;
-
-    # point to equivalent object file
-    $o=~ s/^\./trashcan/;
-    $o=~ s/\.[\w|\d]*$/\.o/;
+    $f=~ s/^${shb7::root}/./;
+    my $o=shb7::obj_from_src($f);
 
     $shwl->{objects}->{$o}=file_sbl($f);
 
@@ -904,8 +885,7 @@ sub symscan($mod,$dst,$deps,@fnames) {
 
 sub symrd($mod) {
 
-  my $root=abs_path(root());
-  my $src=$root."/lib/.$mod";
+  my $src=shb7::lib(".$mod");
 
   my $out={};
 
@@ -930,9 +910,7 @@ TAIL:
 
 sub soregen($soname,$libs_ref,$no_regen=0) {
 
-  my $root=abs_path(root());
-
-  my $sopath="$root/lib/lib$soname.so";
+  my $sopath=shb7::so($soname);
   my $so_gen=!(-e $sopath);
 
   my @libs=@{$libs_ref};
@@ -948,7 +926,7 @@ sub soregen($soname,$libs_ref,$no_regen=0) {
 
   my @o_files=();
   for my $lib(@libs) {
-    my $f=avt::symrd($lib);
+    my $f=symrd($lib);
 
     # so regen check
     if(!$so_gen) {
@@ -959,7 +937,7 @@ sub soregen($soname,$libs_ref,$no_regen=0) {
     # append
     for my $o(keys %{$f->{objects}}) {
       my $obj=$f->{objects}->{$o};
-      $symtab{objects}->{"$root/$o"}=$obj;
+      $symtab{objects}->{$shb7::root.$o}=$obj;
 
     };
 
@@ -974,9 +952,9 @@ sub soregen($soname,$libs_ref,$no_regen=0) {
 
     # recursively get dependencies
     my $O_LIBS='-l'.( join ' -l',@libs );
-    stlib("$CACHE{_root}/lib/");
+    stlib(shb7::lib());
 
-    my $LIBS=avt::libexpand($O_LIBS);
+    my $LIBS=libexpand($O_LIBS);
     my $OBJS=join ' ',keys %{$symtab{objects}};
 
     # link
@@ -1063,15 +1041,14 @@ EOF
   my $call_args=shift;
 
   # create file
-  open my $FH,'>',
-    $CACHE{_root}.$dir.$fname.'.pm'
-    or croak STRERR($fname);
+  open my $FH,'>',shb7::file("$dir/$fname.pm")
+  or croak STRERR($fname);
 
   # generate notice
   my $n=note($author,'#');
 
   # open boiler and subst notice
-  my $op=avt::cplboil_pm uc($fname),0;
+  my $op=avt::cplboil_pm(uc($fname),0);
   $op=~ s/\$\:NOTE\;\>/${ n }/;
 
   # write it to file
@@ -1108,16 +1085,16 @@ sub nit {
 
   if(\$CACHE{nitted}) {return};
 
-  my \$libfold=avt::dirof(__FILE__);
+  my \$libfold=arstd::dirof(__FILE__);
 
-  my \$olderr=avt::errmute();
+  my \$olderr=arstd::errmute();
   my \$ffi=FFI::Platypus->new(api => 2);
   \$ffi->lib(
     "\$libfold/lib$soname.so"
 
   );
 
-  avt::erropen(\$olderr);
+  arstd::erropen(\$olderr);
 
   \$ffi->load_custom_type(
     '::WideString'=>'wstring'
@@ -1192,8 +1169,8 @@ EOF
 
 sub plext($dst_path,$src_path) {
 
-  $dst_path=root().$dst_path;
-  $src_path=root().$src_path;
+  $dst_path=shb7::file($dst_path);
+  $src_path=shb7::file($src_path);
 
   my $src=arstd::orc($src_path);
   $src=~ s/.+#:CUT;>\n//sg;
@@ -1211,33 +1188,9 @@ sub plext($dst_path,$src_path) {
 };
 
 # ---   *   ---   *   ---
-# bash utils
-
-# mute stderr
-;;sub errmute {
-
-  my $fh=readlink "/proc/self/fd/2";
-  open STDERR,'>',
-    File::Spec->devnull()
-
-  # you guys kidding me
-  or croak STRERR('/dev/null')
-
-  ;return $fh;
-
-# ---   *   ---   *   ---
-# ^restore
-
-};sub erropen($fh) {
-  open STDERR,'>',$fh
-  or croak STRERR($fh);
-
-};
-
-# ---   *   ---   *   ---
-
 # arg=string any
 # multi-byte ord
+
 sub mord {
   my @s=split $NULLSTR,shift;
   my $seq=0;
@@ -1265,12 +1218,6 @@ sub mchr(@s) {
     $c=chr($c);
 
   };return @s;
-};
-
-#in: two filepaths to compare
-# Older Than; return a is older than b
-sub ot($a,$b) {
-  return !( (-M $a) < (-M $b) );
 
 };
 
@@ -1291,70 +1238,6 @@ sub ex($name,$opts,$tail) {
   };
 
   return `$ENV{'ARPATH'}/bin/$name @opts $tail`;
-
-};
-
-# ---   *   ---   *   ---
-# in: filepath
-# get name of file without the path
-
-sub basename($name) {
-  my @tmp=split '/',$name;
-  $name=$tmp[$#tmp];
-
-  return $name;
-
-};
-
-# ^ removes extension(s)
-sub nxbasename($path) {
-  my $name=basename($path);
-  $name=~ s/\..*//;
-
-  return $name;
-
-};
-
-# ^ get dir of filename...
-# or directory's parent
-
-sub dirof($path) {
-
-  my @tmp=split('/',$path);
-  $path=join('/',@tmp[0..($#tmp)-1]);
-
-  return abs_path($path);
-
-};
-
-# ^ oh yes
-sub parof($path) {
-  return dirof(dirof($path));
-
-};
-
-# ---   *   ---   *   ---
-
-sub relto($par,$to) {
-  my $full="$par$to";
-  return File::Spec->abs2rel($full,$par);
-
-};
-
-# ---   *   ---   *   ---
-# in: path to add to PATH, names to include
-# returns a perl snippet as a string to be eval'd
-
-sub reqin($path,@names) {
-
-  my $s='push @INC,'."$path;\n";
-
-  for my $name(@names) {
-    $s.="require $name;\n";
-
-  };
-
-  return $s;
 
 };
 
@@ -1470,15 +1353,17 @@ sub walk($path) {
 sub scan() {
 
   my $modules={};
-  my $fpath=root().'/.avto-modules';
+  my $fpath=shb7::cache_file("avto-modules");
 
   # just ensure we have these standard paths
   for my $path(
 
-    root().'/bin',
-    root().'/lib',
-    root().'/include',
-    root().'/trashcan',
+    shb7::dir("bin"),
+    shb7::dir("lib"),
+    shb7::dir("include"),
+
+    $shb7::trash,
+    $shb7::cache,
 
   ) {if(!(-e $path)) {mkdir $path}};
 
@@ -1523,8 +1408,8 @@ sub scan() {
 
 # ---   *   ---   *   ---
 
-    my $trsh=root()."/trashcan/$mod";
-    my $modpath=root()."/$mod";
+    my $trsh=shb7::obj_dir($mod);
+    my $modpath=shb7::dir($mod);
 
     # ensure there is a trashcan
     if(!(-e $trsh)) {
@@ -1590,7 +1475,7 @@ sub scan() {
 
 sub read_modules() {
 
-  my $src=root().'/.avto-modules';
+  my $src=shb7::cache_file("avto-modules");
 
   my $modules=retrieve($src)
     or croak STRERR($src);
@@ -1696,8 +1581,6 @@ sub get_config_files($M,$config,$module) {
   $M->{srcs}=[];
   $M->{objs}=[];
 
-  my $root=root();
-
 # ---   *   ---   *   ---
 
   for my $dir(keys %{$module}) {
@@ -1714,7 +1597,7 @@ sub get_config_files($M,$config,$module) {
 
     # get path to
     $dir="./$name";
-    $trsh="./trashcan/$name";
+    $trsh=shb7::root_rel(shb7::obj_dir($name));
 
 # ---   *   ---   *   ---
 
@@ -1774,7 +1657,7 @@ sub get_config_files($M,$config,$module) {
       $match=~ s[\\][]g;
 
       my $lmod=$dir;
-      $lmod=~ s[${root}/${name}][];
+      $lmod=~ s[${shb7::root}/${name}][];
       $lmod.=($lmod) ? q{/} : $NULLSTR;
 
       push @{$M->{fcpy}},(
@@ -1905,7 +1788,7 @@ sub set_config(%C) {
 
   depchk(
 
-    root().q{/}.$C{name},
+    shb7::dir($C{name}),
     $C{deps}
 
   ) if $C{deps};
@@ -1977,7 +1860,7 @@ sub set_config(%C) {
 
 sub config() {
 
-  my $src=root()."/.avto-config";
+  my $src=shb7::cache_file("avto-config");
   my $config=$CACHE{_config};
 
   store($config,$src) or croak STRERR($src);
@@ -1989,21 +1872,9 @@ sub config() {
 
 sub read_config() {
 
-  my $src=root()."/.avto-config";
+  my $src=shb7::cache_file("avto-config");
   my $config=retrieve($src)
   or croak STRERR($src);
-
-};
-
-# ---   *   ---   *   ---
-# shortens pathname for sanity
-
-sub shpath($path) {
-
-  my $root=abs_path(root());
-
-  $path=~ s[^${root}][];
-  return $path;
 
 };
 
@@ -2011,8 +1882,6 @@ sub shpath($path) {
 # emits builders
 
 sub make {
-
-  my $root=$CACHE{_root};
 
   # fetch project data
   my $modules=read_modules();
@@ -2024,7 +1893,7 @@ sub make {
     my $C=$configs->{$name};
 
     my $module=$modules->{$name};
-    my $avto_path="$root/$name/avto";
+    my $avto_path=shb7::file("$name/avto");
 
     # build the makescript object
     my $M={};
@@ -2033,7 +1902,7 @@ sub make {
     get_config_files($M,$C,$module);
 
     # save it to disk
-    my $cache_path="$root/$name/.avto-cache";
+    my $cache_path=shb7::file("$name/.avto-cache");
 
     store($M,$cache_path)
     or croak STRERR($cache_path);
@@ -2083,7 +1952,9 @@ sub make {
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
+  use shb7;
   use avt;
+
   use makescript;
 
 # ---   *   ---   *   ---
@@ -2091,19 +1962,15 @@ sub make {
 my $PFLG='-m64';
 my $DFLG='';
 
-my $root=avt::parof(__FILE__);
+my $root=arstd::parof(__FILE__);
 my $M=retrieve(
 
-  avt::dirof(__FILE__).
+  arstd::dirof(__FILE__).
   '/.avto-cache'
 
 );
 
-chdir $root;
-
-$M->{root}=$root;
-$M->{trash}='./trashcan/'.$M->{fswat};
-
+chdir shb7::set_root($root);
 $M=makescript::nit($M);
 
 # ---   *   ---   *   ---
@@ -2160,7 +2027,7 @@ EOF
     print {$FH} $FILE;
     close $FH;
 
-    `chmod +x "$CACHE{_root}/$name/avto"`
+    `chmod +x "$avto_path"`;
 
   };
 };

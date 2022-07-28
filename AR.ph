@@ -59,6 +59,7 @@ my $FILE_LIST=[
   '/lang.pm',
   '/style.pm',
   '/arstd.pm',
+  '/shb7.pm',
 
   '/peso/st.pm',
   '/peso/defs.pm',

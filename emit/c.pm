@@ -59,7 +59,9 @@ q[#ifdef __cplusplus
 
 # ---   *   ---   *   ---
 
-  Readonly our $TYPETAB=>peso::type::xltab(
+  our $TYPETAB={};
+
+  peso::type::xltab(
 
     -PTR_RULES=>{
       key=>q{*},

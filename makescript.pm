@@ -22,8 +22,6 @@ package makescript;
   use Carp;
   use English qw(-no_match_vars);
 
-  use Cwd qw(abs_path getcwd);
-
   use lib $ENV{'ARPATH'}.'/lib/hacks';
   use shwl;
 
@@ -31,6 +29,7 @@ package makescript;
 
   use style;
   use arstd;
+  use shb7;
 
   use emit::std;
 
@@ -47,6 +46,9 @@ package makescript;
 # converts relative paths to absolute
 
 sub nit($M) {
+
+  $M->{root}=$shb7::root;
+  $M->{trash}=shb7::obj_dir($M->{fswat});
 
   for my $ref(
 
@@ -93,13 +95,15 @@ sub set_build_paths($M) {
 
   ) {
 
-    if($inc eq "-I".avt::root()) {next};
+    if($inc eq q{-I}.$shb7::root) {next};
     push @paths,$inc;
 
   };
 
   avt::stinc(
-    @paths,q{.},'-I'.avt::root()."/$M->{fswat}"
+
+    @paths,q{.},
+    q{-I}.$shb7::dir($M->{fswat})
 
   );
 
@@ -134,7 +138,7 @@ sub update_generated($M) {
 # make sure we don't need to update
 
     my $do_gen=!(-e $res);
-    if(!$do_gen) {$do_gen=avt::ot($res,$gen);};
+    if(!$do_gen) {$do_gen=shb7::ot($res,$gen);};
 
 # ---   *   ---   *   ---
 # make damn sure we don't need to update
@@ -150,7 +154,7 @@ sub update_generated($M) {
             my $src=shift @srcs;
 
             # found file is updated
-            if(avt::ot($res,$src)) {
+            if(shb7::ot($res,$src)) {
               $do_gen=1;last;
 
             };
@@ -164,7 +168,7 @@ sub update_generated($M) {
           if(!$msrc) {next};
 
           # found file is updated
-          if(avt::ot($res,$msrc)) {
+          if(shb7::ot($res,$msrc)) {
             $do_gen=1;
             last;
 
@@ -180,7 +184,7 @@ sub update_generated($M) {
     if($do_gen) {
 
       print {*STDERR}
-        avt::shpath($gen)."\n";
+        shb7::shpath($gen)."\n";
 
       `$gen`;
 
@@ -216,7 +220,7 @@ sub update_regular($M) {
 
     my $do_cpy=!(-e $cp);
 
-    if(!$do_cpy) {$do_cpy=avt::ot($cp,$og);};
+    if(!$do_cpy) {$do_cpy=shb7::ot($cp,$og);};
     if($do_cpy) {
 
       print {*STDERR} "$og\n";
@@ -288,7 +292,7 @@ sub update_objects($M,$DFLG,$PFLG) {
 
     if($do_build) {
 
-      print {*STDERR} avt::shpath($src)."\n";
+      print {*STDERR} shb7::shpath($src)."\n";
 
       my $asm=$obj;
       $asm=~ s[$obj_ext][.asm];
@@ -331,7 +335,7 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
       $emit::std::ARSEP.'compiling binary '.
 
       "\e[32;1m".
-      avt::shpath($M->{main}).
+      shb7::shpath($M->{main}).
 
       "\e[0m\n";
 
@@ -412,7 +416,7 @@ sub static_depchk($src,$deps) {
 
         "%s missing dependency %s\n",
 
-        args=>[avt::shpath($src),$deps->[$x]],
+        args=>[shb7::shpath($src),$deps->[$x]],
         lvl=>$FATAL,
 
       );
@@ -430,7 +434,7 @@ sub buildchk($do_build,$obj,$deps) {
       if(!(-e $dep)) {next};
 
       # found dep is updated
-      if(avt::ot($obj,$dep)) {
+      if(shb7::ot($obj,$dep)) {
         $$do_build=1;
         last;
 
@@ -543,7 +547,7 @@ sub pcc($M,$src,$obj,$pmd) {
 
   if($do_build) {
 
-    print {*STDERR} avt::shpath($src)."\n";
+    print {*STDERR} shb7::shpath($src)."\n";
 
     my $ex=
       "perl".q{ }.
@@ -585,7 +589,7 @@ sub pcc($M,$src,$obj,$pmd) {
 
     for my $fname($obj,$pmd) {
       if(!(-e $fname)) {
-        my $path=avt::dirof($fname);
+        my $path=arstd::dirof($fname);
         `mkdir -p $path`;
 
       };
