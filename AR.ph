@@ -27,12 +27,15 @@ my $root=$ENV{'ARPATH'};if(!$root) {
 chdir $ENV{'ARPATH'}.'/avtomat/';
 
 my $ARTAG="\e[37;1m<\e[34;22mAR\e[37;1m>\e[0m";
-my $trashd=$ENV{'ARPATH'}.'/trashcan/avtomat/';
+my $trashd=$ENV{'ARPATH'}.'/.trash/avtomat/';
 my $libd=$ENV{'ARPATH'}.'/lib/';
 
 if($clean) {
-  `rm -r ../trashcan/* &> /dev/null`;
+
+  `rm -r ../.trash/* &> /dev/null`;
+  `rm -r ../.cache/* &> /dev/null`;
   `rm -r ../lib/* &> /dev/null`;
+
   `mkdir -p $trashd`;
   `mkdir -p $libd`;
 
@@ -150,7 +153,7 @@ sub update {
         my $MAM_ARGS;
         my ($obj,$pmd);
 
-        if(!($src=~ qr{trashcan/})) {
+        if(!($src=~ qr{.trash/})) {
 
           $PATH_TAKEN="PATH A";
 
@@ -289,7 +292,7 @@ sub update {
 # ---   *   ---   *   ---
 # check libs
 
-my $path=$ENV{'ARPATH'}.'/trashcan/avtomat';
+my $path=$ENV{'ARPATH'}.'/.trash/avtomat';
 if(! (-e $path) ) { `mkdir -p $path`; };
 
 
@@ -310,7 +313,7 @@ $path=$ENV{'ARPATH'}.'/lib';
 update(
 
   $FILE_LIST,
-  $root.'/trashcan/avtomat',$path,1
+  $root.'/.trash/avtomat',$path,1
 
 );
 

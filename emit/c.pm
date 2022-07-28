@@ -59,65 +59,78 @@ q[#ifdef __cplusplus
 
 # ---   *   ---   *   ---
 
-  our $TYPETAB={};
+  our $TYPETAB;INIT {
 
-  peso::type::xltab(
+    my $fpath=shb7::load_cache(
 
-    -PTR_RULES=>{
-      key=>q{*},
-      fmat=>'$type%s'
+      'TYPETAB',
 
-    },
-
-    -UNSIG_RULES=>{
-      key=>'unsigned',
-      fmat=>'%s $type',
-
-    },
+      \$TYPETAB,
+      \&peso::type::xltab,
 
 # ---   *   ---   *   ---
 
-    byte=>{
-      sig=>[qw(char int8_t)],
-      unsig=>[qw(uchar uint8_t)],
+      -PTR_RULES=>{
+        key=>q{*},
+        fmat=>'$type%s'
 
-    },
+      },
 
-    wide=>{
-      sig=>[qw(short int16_t wchar_t)],
-      unsig=>[qw(ushort uint16_t)],
+      -UNSIG_RULES=>{
+        key=>'unsigned',
+        fmat=>'%s $type',
 
-    },
+      },
 
-    word=>{
-      sig=>[qw(int int32_t)],
-      unsig=>[qw(uint uint32_t)],
+# ---   *   ---   *   ---
 
-    },
+      byte=>{
+        sig=>[qw(char int8_t)],
+        unsig=>[qw(uchar uint8_t)],
 
-    long=>{
+      },
 
-      sig=>[qw(long int64_t intptr_t)],
+      wide=>{
+        sig=>[qw(short int16_t wchar_t)],
+        unsig=>[qw(ushort uint16_t)],
 
-      unsig=>[qw(
-        ulong uint64_t
-        size_t uintptr_t
+      },
 
-      )],
+# ---   *   ---   *   ---
 
-    },
+      word=>{
+        sig=>[qw(int int32_t)],
+        unsig=>[qw(uint uint32_t)],
 
-    'word float'=>{sig=>[qw(float)]},
-    'long float'=>{sig=>[qw(double)]},
+      },
 
-  );
+      long=>{
+
+        sig=>[qw(long int64_t intptr_t)],
+
+        unsig=>[qw(
+          ulong uint64_t
+          size_t uintptr_t
+
+        )],
+
+      },
+
+      'word float'=>{sig=>[qw(float)]},
+      'long float'=>{sig=>[qw(double)]},
+
+    );
+
+# ---   *   ---   *   ---
+
+  };
 
 # ---   *   ---   *   ---
 
 sub typecon($type) {
 
-  if(exists $TYPETAB{$type}) {
-    $type=$TYPETAB{$type};
+  if(exists $TYPETAB->{$type}) {
+    $type=$TYPETAB->{$type};
 
   };
 

@@ -28,6 +28,7 @@ package emit::std;
 
   use style;
   use arstd;
+  use shb7;
 
 # ---   *   ---   *   ---
 # ROM

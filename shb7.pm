@@ -18,6 +18,7 @@ package shb7;
   use strict;
   use warnings;
 
+  use Storable;
   use Readonly;
 
   use Cwd qw(abs_path getcwd);
@@ -68,8 +69,8 @@ sub set_root($path) {
 
   };
 
-  $cache="$root/.cache/";
-  $trash="$root/.trash/";
+  $cache="$root.cache/";
+  $trash="$root.trash/";
 
   $root_re=qr{^(?: \./? | $root)}x;
 
@@ -203,13 +204,34 @@ sub ot($a,$b) {
 
 # ^file not found or file needs update
 sub missing_or_older($a,$b) {
+
+  print "$a\n$b\n\n";
+
   return !(-e $a) || ot($a,$b);
 
 };
 
 # ---   *   ---   *   ---
+# loads a file if available
+# else regenerates it from a sub
 
-sub load_cache($f,$x) {
+sub load_cache($name,$dst,$call,@args) {
+
+  my ($pkg,$fname,$line)=(caller);
+  my $path=shb7::cache_file($pkg.q{::}.$name);
+
+  my $out={};
+
+  if(shb7::missing_or_older($path,abs_path($fname))) {
+    $out=$call->(@args);
+    store($out,$path);
+
+  } else {
+    $out=retrieve($path);
+
+  };
+
+  $$dst=$out;
 
 };
 

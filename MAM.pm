@@ -116,7 +116,7 @@ sub filter {
 
         \{'ARPATH'\}[.]'/lib
 
-      } {\{'ARPATH'\}.'/trashcan/$modname}sxg;
+      } {\{'ARPATH'\}.'/.trash/$modname}sxg;
 
 # ---   *   ---   *   ---
 
@@ -128,7 +128,7 @@ sub filter {
 
         [.]
 
-        '/trashcan/${modname}
+        '/.trash/${modname}
 
       } {\{'ARPATH'\}.'/lib}sxg;
 
@@ -172,7 +172,7 @@ sub filter {
         if($path=~ $re) {
 
           my $alt=$path;
-          $alt=~ s{/lib/} {/trashcan/$modname/};
+          $alt=~ s{/lib/} {/.trash/$modname/};
 
           if(-e $alt) {$path=$alt};
           $deps.=$path.q{ };

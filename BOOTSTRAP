@@ -18,7 +18,7 @@ while(my $line=readline $FH) {
 
   my $avtolib="{'ARPATH'}.'/lib";
 
-  my $swaplib="{'ARPATH'}.'/trashcan/avtomat";
+  my $swaplib="{'ARPATH'}.'/.trash/avtomat";
 
   if($round) {
 
