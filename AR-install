@@ -32,12 +32,14 @@ BEGIN {
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
+
+  use shb7;
   use avt;
 
 # ---   *   ---   *   ---
 
-my $root=avt::root($ENV{'ARPATH'});
-unshift @ARGV,$root.'/lib/';avt::stlib();
+my $root=shb7::set_root($ENV{'ARPATH'});
+avt::stlib(shb7::lib());
 
 # ---   *   ---   *   ---
 # fetch missing deps
@@ -77,47 +79,47 @@ avt::set_config(
 
 # ---   *   ---   *   ---
 
-avt::set_config(
-
-  name=>'ce',
-  scan=>'-x keys',
-
-  build=>'x:ce',
-
-  xcpy=>[qw(wpid)],
-  xprt=>[qw(keyboard.h clock.h arstd.h)],
-
-  gens=>{
-
-    'chartab.h'=>[qw(chartab*)],
-    'keymap.h'=>[qw(keymap* genks.pm %.k)],
-
-  },
-
-  libs=>[qw(X11)],
-
-# ---   *   ---   *   ---
-
-  post_build=>q(
-
-    avt::stlib(avt::root().'/lib/');
-    avt::wrcplboil_pm(
-      '/lib/',
-      'lycon',
-      'IBN-3DILA',
-
-      \&avt::ctopl,['lycon',['ce']]
-
-    );avt::plext(
-
-      '/lib/lycon.pm',
-      '/ce/lycon_ext'
-
-    );
-
-  ),
-
-);
+#avt::set_config(
+#
+#  name=>'ce',
+#  scan=>'-x keys',
+#
+#  build=>'x:ce',
+#
+#  xcpy=>[qw(wpid)],
+#  xprt=>[qw(keyboard.h clock.h arstd.h)],
+#
+#  gens=>{
+#
+#    'chartab.h'=>[qw(chartab*)],
+#    'keymap.h'=>[qw(keymap* genks.pm %.k)],
+#
+#  },
+#
+#  libs=>[qw(X11)],
+#
+## ---   *   ---   *   ---
+#
+#  post_build=>q(
+#
+#    avt::stlib(avt::root().'/lib/');
+#    avt::wrcplboil_pm(
+#      '/lib/',
+#      'lycon',
+#      'IBN-3DILA',
+#
+#      \&avt::ctopl,['lycon',['ce']]
+#
+#    );avt::plext(
+#
+#      '/lib/lycon.pm',
+#      '/ce/lycon_ext'
+#
+#    );
+#
+#  ),
+#
+#);
 
 # ---   *   ---   *   ---
 

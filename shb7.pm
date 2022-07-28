@@ -63,7 +63,7 @@ package shb7;
 sub set_root($path) {
   $root=abs_path(pathchk($path));
 
-  if($root=~ $F_SLASH_AT_END) {
+  if(!($root=~ $F_SLASH_AT_END)) {
     $root.=q[/];
 
   };
@@ -84,16 +84,24 @@ INIT {set_root(abs_path($ENV{'ARPATH'}))};
 # we could add checks though...
 
 sub file($path) {return $root.$path};
-sub dir($path) {return $root.$path.q{/}};
+
+sub dir($path=$NULLSTR) {
+  return $root.$path.q{/}
+
+};
 
 sub obj_file($path) {return $trash.$path};
-sub obj_dir($path) {return $trash.$path.q{/}};
+
+sub obj_dir($path=$NULLSTR) {
+  return $trash.$path.q{/}
+
+};
 
 # ---   *   ---   *   ---
 # shortcuts for finding things on main lib dir
 # i'll couple it with a file search later
 
-sub lib($name) {return $root."lib/$name"};
+sub lib($name=$NULLSTR) {return $root."lib/$name"};
 sub so($name) {return $root."lib/lib$name.so"};
 
 sub cache_file($name) {return $cache.$name};
@@ -117,6 +125,27 @@ sub obj_from_src($src) {
 sub pathchk($path) {
 
   my $cpy=glob($path);
+  $cpy//=$path;
+
+  if(!defined $cpy) {
+
+    arstd::errout(
+
+      q{Uninitialized path '%s'}."\n".
+
+      q{cwd   %s}."\n".
+      q{root  %s},
+
+      args=>[$path,getcwd(),$root],
+      lvl=>$FATAL,
+
+    );
+
+  };
+
+# ---   *   ---   *   ---
+
+CHECK:
 
   if( !(-e $cpy)
   &&  !(-e "$root/$cpy")
@@ -158,10 +187,7 @@ sub root_rel($path) {
 # shortens pathname for sanity
 
 sub shpath($path) {
-
-  my $root=abs_path(root());
-
-  $path=~ s[^${root}][];
+  $path=~ s[$root_re][];
   return $path;
 
 };

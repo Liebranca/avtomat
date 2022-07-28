@@ -103,7 +103,7 @@ sub set_build_paths($M) {
   avt::stinc(
 
     @paths,q{.},
-    q{-I}.$shb7::dir($M->{fswat})
+    q{-I}.shb7::dir($M->{fswat})
 
   );
 

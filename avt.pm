@@ -21,6 +21,8 @@ package avt;
   use Readonly;
   use Storable;
 
+  use Cwd qw(abs_path getcwd);
+
   use Carp;
   use English qw(-no_match_vars);
 
@@ -1917,7 +1919,7 @@ sub make {
 
     # write notice
     $FILE.='#!/usr/bin/perl'."\n";
-    $FILE.=note('IBN-3DILA','#');
+    $FILE.=emit::std::note('IBN-3DILA','#');
 
     # paste in the pre-build hook
 
