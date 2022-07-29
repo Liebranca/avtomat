@@ -12,21 +12,16 @@ package test;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
-  use vault;
+  use vault 'ARPATH';
   use pricher;
 
 # ---   *   ---   *   ---
 
-END {
+my $h={hello=>'goodbye'};
+vault::dafwrite('test',$h);
 
-#say __PACKAGE__;
-
-  my $table=$vault::modules;
-  print {*STDERR} pricher::fatdump($table),"\n";
-
-};
-
-
+my @blocks=vault::dafread('test',0);
+say pricher::fatdump($blocks[0]);
 
 # ---   *   ---   *   ---
 1; # ret

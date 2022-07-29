@@ -257,6 +257,7 @@ sub nyi($errme) {
 };
 
 # ---   *   ---   *   ---
+# open,read,close
 
 sub orc($fname) {
 
@@ -269,6 +270,23 @@ sub orc($fname) {
   or croak STRERR($fname);
 
   return $body;
+
+};
+
+# ---   *   ---   *   ---
+# ^open,write,close
+
+sub owc($fname,$bytes) {
+
+  open my $FH,'+>',$fname
+  or croak STRERR($fname);
+
+  my $wr=print {$FH} $bytes;
+
+  close $FH
+  or croak STRERR($fname);
+
+  return $wr;
 
 };
 

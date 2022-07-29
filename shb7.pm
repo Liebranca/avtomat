@@ -139,6 +139,7 @@ sub pathchk($path) {
 # ---   *   ---   *   ---
 
 BEGIN {
+
   set_root(
     abs_path($ENV{'ARPATH'})
 
