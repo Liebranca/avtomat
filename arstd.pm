@@ -138,7 +138,7 @@ sub basename($name) {
 # ^ removes extension(s)
 sub nxbasename($path) {
   my $name=basename($path);
-  $name=~ s/\..*//;
+  $name=~ s/\..*$//;
 
   return $name;
 

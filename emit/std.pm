@@ -111,4 +111,22 @@ sub reqin($path,@names) {
 };
 
 # ---   *   ---   *   ---
+
+sub outf($f,$emitter,%O) {
+
+  my $path=shb7::file($f);
+  my $pkg=caller;
+
+  $O{author}=eval(q{$}.$pkg.q{::AUTHOR});
+
+  open my $FH,'+>',$path
+  or croak STRERR($path);
+
+  print $FH $emitter->(arstd::nxbasename($f),%O);
+
+  close $FH or croak STRERR($path);
+
+};
+
+# ---   *   ---   *   ---
 1; # ret

@@ -205,7 +205,7 @@ sub ot($a,$b) {
 # ^file not found or file needs update
 sub missing_or_older($a,$b) {
 
-  print "$a\n$b\n\n";
+  print {*STDERR} "$a\n$b\n\n";
 
   return !(-e $a) || ot($a,$b);
 

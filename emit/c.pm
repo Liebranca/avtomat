@@ -271,10 +271,53 @@ sub fnwrap($name,$code,%O) {
 
 # ---   *   ---   *   ---
 
-  my $dst="$O{rtype} $name($O{args})".
+  my $s="$O{rtype} $name($O{args})".
     "{\n$code\n\n};\n\n";
 
-  return $dst;
+  return $s;
+
+};
+
+# ---   *   ---   *   ---
+
+sub datasec($name,$type,@items) {
+
+  my $s=$NULLSTR;
+
+  if($type eq 'enum') {
+    $s.="$type {\n";
+
+  } else {
+    $s.="$type ${name}[]={\n";
+
+  };
+
+# ---   *   ---   *   ---
+
+  my $i=0;
+  for my $item(@items) {
+
+    $s.=$item;
+    if($i ne $#items) {
+      $s.=q{,};
+
+    };
+
+    $i++;
+
+  };
+
+# ---   *   ---   *   ---
+
+  if($type eq 'enum') {
+    $s.=",\n $name\n\n};\n\n";
+
+  } else {
+    $s.="\n\n};\n\n";
+
+  };
+
+  return $s;
 
 };
 
