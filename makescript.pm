@@ -64,7 +64,7 @@ sub nit($M) {
 
     map
 
-      {$ARG=~ s[^\./|(?<=,)\./][$M->{root}/]sg}
+      {$ARG=~ s[^\./|(?<=,)\./][$M->{root}]sg}
       @$ref
 
     ;
@@ -77,7 +77,7 @@ sub nit($M) {
   )) {
 
     $M->{$key}//=$NULLSTR;
-    $M->{$key}=~ s[\./][$M->{root}/]sg;
+    $M->{$key}=~ s[\./][$M->{root}]sg;
 
   };
 
@@ -530,9 +530,9 @@ sub pcc($M,$src,$obj,$pmd) {
 # ---   *   ---   *   ---
 # look at *.d files for additional deps
 
-  my $do_build=!(-e $obj);
+  my $do_build=!(-e $obj) || shb7::ot($obj,$src);
 
-  if($pmd) {
+  if(!$do_build && $pmd) {
     @deps=@{parsepmd($pmd)};
 
   };

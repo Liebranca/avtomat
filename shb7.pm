@@ -43,7 +43,17 @@ package shb7;
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $F_SLASH_AT_END=>qr{/$}x;
+  our $F_SLASH_END;
+  our $DOT_BEG;
+
+# ---   *   ---   *   ---
+
+BEGIN {
+
+  $F_SLASH_END=qr{/$}x;
+  $DOT_BEG=qr{^\.}x;
+
+};
 
 # ---   *   ---   *   ---
 # global state
@@ -64,7 +74,7 @@ package shb7;
 sub set_root($path) {
   $root=abs_path(pathchk($path));
 
-  if(!($root=~ $F_SLASH_AT_END)) {
+  if(!($root=~ $F_SLASH_END)) {
     $root.=q[/];
 
   };
@@ -72,13 +82,69 @@ sub set_root($path) {
   $cache="$root.cache/";
   $trash="$root.trash/";
 
-  $root_re=qr{^(?: \./? | $root)}x;
+  $root_re=qr{^(?: $DOT_BEG /? | $root)}x;
 
   return $root;
 
 };
 
-INIT {set_root(abs_path($ENV{'ARPATH'}))};
+# ---   *   ---   *   ---
+
+sub pathchk($path) {
+
+  my $cpy=glob($path);
+  $cpy//=$path;
+
+  if(!defined $cpy) {
+
+    arstd::errout(
+
+      q{Uninitialized path '%s'}."\n".
+
+      q{cwd   %s}."\n".
+      q{root  %s},
+
+      args=>[$path,getcwd(),$root],
+      lvl=>$FATAL,
+
+    );
+
+  };
+
+# ---   *   ---   *   ---
+
+  if( !(-e $cpy)
+  &&  !(-e "$root/$cpy")
+
+  ) {
+
+    arstd::errout(
+
+      q{Invalid file or directory '%s'}."\n".
+
+      q{cwd   %s}."\n".
+      q{root  %s},
+
+      args=>[$path,getcwd(),$root],
+      lvl=>$FATAL,
+
+    );
+
+  };
+
+  return $path;
+
+};
+
+# ---   *   ---   *   ---
+
+BEGIN {
+  set_root(
+    abs_path($ENV{'ARPATH'})
+
+  );
+
+};
 
 # ---   *   ---   *   ---
 # these are just for readability
@@ -87,7 +153,7 @@ INIT {set_root(abs_path($ENV{'ARPATH'}))};
 sub file($path) {return $root.$path};
 
 sub dir($path=$NULLSTR) {
-  return $root.$path.q{/}
+  return $root.$path.q{/};
 
 };
 
@@ -122,59 +188,9 @@ sub obj_from_src($src) {
 };
 
 # ---   *   ---   *   ---
-
-sub pathchk($path) {
-
-  my $cpy=glob($path);
-  $cpy//=$path;
-
-  if(!defined $cpy) {
-
-    arstd::errout(
-
-      q{Uninitialized path '%s'}."\n".
-
-      q{cwd   %s}."\n".
-      q{root  %s},
-
-      args=>[$path,getcwd(),$root],
-      lvl=>$FATAL,
-
-    );
-
-  };
-
-# ---   *   ---   *   ---
-
-CHECK:
-
-  if( !(-e $cpy)
-  &&  !(-e "$root/$cpy")
-
-  ) {
-
-    arstd::errout(
-
-      q{Invalid file or directory '%s'}."\n".
-
-      q{cwd   %s}."\n".
-      q{root  %s},
-
-      args=>[$path,getcwd(),$root],
-      lvl=>$FATAL,
-
-    );
-
-  };
-
-  return $path;
-
-};
-
-# ---   *   ---   *   ---
 # gives path relative to current root
 
-sub root_rel($path) {
+sub rel($path) {
 
 #:!;> dirty way to do it without handling
 #:!;> the obvious corner case of ..
@@ -185,11 +201,101 @@ sub root_rel($path) {
 };
 
 # ---   *   ---   *   ---
+# tells you which module within $root a
+# given file belongs to
+
+sub module_of($file) {
+  return arstd::basedir(shpath($file));
+
+};
+
+# ---   *   ---   *   ---
 # shortens pathname for sanity
 
 sub shpath($path) {
   $path=~ s[$root_re][];
   return $path;
+
+};
+
+# ---   *   ---   *   ---
+# inspects a directory within root
+
+sub walk($path,%O) {
+
+  # defaults
+  $O{-r}//=0;
+  $O{-x}//=q{
+    (?: nytprof | data | docs)
+
+  };
+
+  $O{-x}=qr{$O{-x}}x;
+
+  my $table=[{}];
+
+  my $beg=dir($path);
+  my @pending=($beg,$table->[0]);
+
+# ---   *   ---   *   ---
+# prepend and open
+
+  while(@pending) {
+
+    $path=shift @pending;
+    my $dst=shift @pending;
+
+    # errchk
+    if(!(-d $path)) {
+
+      arstd::errout(
+
+        q{Is not a directory '%s'},
+
+        args=>[$path],
+        lvl=>$FATAL,
+
+      );
+
+    };
+
+# ---   *   ---   *   ---
+# go through the entries
+
+    opendir my $dir,$path or croak STRERR($path);
+
+    my @files=readdir $dir;
+
+    my $key=arstd::basename($path);
+    $dst->{$key}=[{}];
+
+# ---   *   ---   *   ---
+# skip .dotted or excluded
+
+    for my $f(@files) {
+    next if $f=~ m[ $DOT_BEG | $O{-x}]x;
+
+# ---   *   ---   *   ---
+# filter out files from dirs
+
+      if(-f "$path/$f") {
+        push @{$dst->{$key}},$f;
+
+      } elsif(($O{-r}) && (-d $f)) {
+        unshift @pending,
+          $beg.$f,$dst->{$key}->[0];
+
+      };
+
+# ---   *   ---   *   ---
+
+    };
+
+    closedir $dir or croak STRERR($path);
+
+  };
+
+  return $table;
 
 };
 
@@ -204,9 +310,6 @@ sub ot($a,$b) {
 
 # ^file not found or file needs update
 sub missing_or_older($a,$b) {
-
-  print {*STDERR} "$a\n$b\n\n";
-
   return !(-e $a) || ot($a,$b);
 
 };
@@ -222,7 +325,20 @@ sub load_cache($name,$dst,$call,@args) {
 
   my $out={};
 
-  if(shb7::missing_or_older($path,abs_path($fname))) {
+  if(shb7::missing_or_older(
+    $path,abs_path($fname))
+
+  ) {
+
+    print {*STDERR}
+
+      'updated ',"\e[32;1m",
+      shpath($path),
+
+      "\e[0m\n"
+
+    ;
+
     $out=$call->(@args);
     store($out,$path);
 

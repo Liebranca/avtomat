@@ -127,11 +127,9 @@ sub erropen($fh) {
 # in: filepath
 # get name of file without the path
 
-sub basename($name) {
-  my @tmp=split '/',$name;
-  $name=$tmp[$#tmp];
-
-  return $name;
+sub basename($path) {
+  my @names=split m[/],$path;
+  return $names[$#names];
 
 };
 
@@ -149,8 +147,8 @@ sub nxbasename($path) {
 
 sub dirof($path) {
 
-  my @tmp=split('/',$path);
-  $path=join('/',@tmp[0..($#tmp)-1]);
+  my @names=split(m[/],$path);
+  $path=join('/',@names[0..($#names)-1]);
 
   return abs_path($path);
 
@@ -159,6 +157,16 @@ sub dirof($path) {
 # ^ oh yes
 sub parof($path) {
   return dirof(dirof($path));
+
+};
+
+# ---   *   ---   *   ---
+# reverse of basename;
+# gives first name in path
+
+sub basedir($path) {
+  my @names=split '/',$path;
+  return $names[0];
 
 };
 

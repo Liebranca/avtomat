@@ -35,6 +35,7 @@ package avt;
   use arstd;
 
   use emit::std;
+  use emit::c;
 
   use lang;
   use langdefs::c;
@@ -741,12 +742,17 @@ sub file_sbl($f) {
 # ---   *   ---   *   ---
 # mine the tree
 
+  my $typecon=eval(
+    q{\&emit::} . $langname . q{::typecon}
+
+  );
+
   $rd->fn_search(
 
     $tree,
 
     $object->{functions},
-    \&c_typecon
+    $typecon
 
   );
 
@@ -755,7 +761,7 @@ sub file_sbl($f) {
     $tree,
 
     $object->{utypes},
-    \&c_typecon
+    $typecon
 
   );
 
@@ -1315,7 +1321,6 @@ sub scan() {
 
       # handle exclude flag short
       if($excluded=~ m/-x/) {
-        $excluded=shift @ar;
         $excluded=~ s/-x\s*//;
 
       # handle exclude flag long
@@ -1323,7 +1328,6 @@ sub scan() {
           m/\-\-exclude\=[\w|\d]*/
 
       ) {
-        $excluded=shift @ar;
         $excluded=~ s/\-\-exclude\=//;
 
       };
@@ -1533,7 +1537,7 @@ sub get_config_files($M,$config,$module) {
 
     # get path to
     $dir="./$name";
-    $trsh=shb7::root_rel(shb7::obj_dir($name));
+    $trsh=shb7::rel(shb7::obj_dir($name));
 
 # ---   *   ---   *   ---
 

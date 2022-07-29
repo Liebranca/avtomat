@@ -79,27 +79,27 @@ avt::set_config(
 
 # ---   *   ---   *   ---
 
-#avt::set_config(
-#
-#  name=>'ce',
-#  scan=>'-x keys',
-#
-#  build=>'x:ce',
-#
-#  xcpy=>[qw(wpid)],
-#  xprt=>[qw(keyboard.h clock.h arstd.h)],
-#
-#  gens=>{
-#
-#    'chartab.h'=>[qw(chartab*)],
-#    'keymap.h'=>[qw(keymap* genks.pm %.k)],
-#
-#  },
-#
-#  libs=>[qw(X11)],
-#
-## ---   *   ---   *   ---
-#
+avt::set_config(
+
+  name=>'ce',
+  scan=>'-x keys',
+
+  build=>'x:ce',
+
+  xcpy=>[qw(wpid)],
+  xprt=>[qw(keyboard.h clock.h arstd.h)],
+
+  gens=>{
+
+    'chartab.h'=>[qw(chartab*)],
+    'keymap.h'=>[qw(keymap* genks.pm %.k)],
+
+  },
+
+  libs=>[qw(X11)],
+
+# ---   *   ---   *   ---
+
 #  post_build=>q(
 #
 #    avt::stlib(avt::root().'/lib/');
@@ -118,8 +118,8 @@ avt::set_config(
 #    );
 #
 #  ),
-#
-#);
+
+);
 
 # ---   *   ---   *   ---
 
@@ -236,12 +236,9 @@ avt::scan();
 avt::config();
 avt::make();
 
-exit;
-
 my @modules=avt::MODULES;
-
 for my $mod(@modules) {
-  print `$root/$mod/avto`;
+  print `$root/$mod/avto`
 
 };
 

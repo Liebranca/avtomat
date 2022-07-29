@@ -1,0 +1,32 @@
+#!/usr/bin/perl
+
+# Tests caching system
+
+# ---   *   ---   *   ---
+
+# deps
+package test;
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+
+  use vault;
+  use pricher;
+
+# ---   *   ---   *   ---
+
+END {
+
+#say __PACKAGE__;
+
+  my $table=$vault::modules;
+  print {*STDERR} pricher::fatdump($table),"\n";
+
+};
+
+
+
+# ---   *   ---   *   ---
+1; # ret

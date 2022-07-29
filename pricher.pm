@@ -31,6 +31,8 @@ package pricher;
   use style;
   use arstd;
 
+  use Data::Dumper;
+
 # ---   *   ---   *   ---
 
 sub tidyup($sref) {
@@ -50,10 +52,18 @@ sub tidyup($sref) {
 
   );
 
-  $out=~ s/(\}[;,]?\n)/$1\n/sg;
+  $out=~ s/^(\s*[\}\]\)][;,]?\n)/$1\n/sgm;
   $out=~ s/^(\s*\{)\s*/\n$1 /sgm;
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+
+sub fatdump($data) {
+  my $s=Dumper($data);
+  return tidyup(\$s);
 
 };
 
