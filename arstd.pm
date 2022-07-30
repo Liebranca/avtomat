@@ -286,7 +286,7 @@ sub owc($fname,$bytes) {
   close $FH
   or croak STRERR($fname);
 
-  return $wr;
+  return $wr*length $bytes;
 
 };
 

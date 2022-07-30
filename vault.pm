@@ -21,8 +21,10 @@ package vault;
   use Carp;
   use Cwd qw(abs_path);
 
-  use lib $ENV{'ARPATH'}.'/lib/';
   use Storable qw(freeze thaw);
+  use Fcntl qw(SEEK_SET SEEK_CUR);
+
+  use lib $ENV{'ARPATH'}.'/lib/';
 
   use style;
   use arstd;
@@ -37,13 +39,15 @@ package vault;
 # ---   *   ---   *   ---
 # ROM
 
-  our $DAFSIG=pack 'C'x16,
+  my Readonly $DAFSIG=pack 'C'x16,
     0x24,0x24,0x24,0x24,
     0xDE,0xAD,0xBE,0xA7,
     0x24,0x24,0x24,0x24,
     0x71,0xEB,0xDA,0xF0
 
   ;
+
+  my Readonly $DAF_ISIZE=['L'=>4];
 
 # ---   *   ---   *   ---
 # global state
@@ -174,30 +178,66 @@ sub dafread($fname,@requested) {
 # ---   *   ---   *   ---
 # read indices header
 
-  my ($isize,$header,$block);
+  my ($idex_type,$idex_size)=@{$DAF_ISIZE};
+  my ($isize,$header);
 
-  read $FH,$isize,4;
-  $isize=unpack 'L',$isize;
+  read $FH,$isize,$idex_size;
+  $isize=unpack $idex_type,$isize;
 
-  read $FH,$header,$isize*4;
-  my @header=unpack 'L'x$isize,$header;
+  read $FH,$header,$isize*$idex_size;
+
+  my @header=unpack
+    ${idex_type}x$isize,
+    $header;
 
 # ---   *   ---   *   ---
 # fetch requested
 
   my @blocks=();
+  my $adjust=$requested[0] ne 0;
 
-  for my $idex(@requested) {
+  while(@requested) {
+    my @sizes=();
+    my $sizesum=0;
+
+# ---   *   ---   *   ---
+# handle successive reads in one go
+
+FETCH_NEXT:
+    my $idex=shift @requested;
 
     my $start=$header[$idex+0];
     my $ahead=$header[$idex+1];
 
-    my $size=$ahead-$start;
+    if($adjust) {
+      seek $FH,$start,SEEK_SET;
+      $adjust=0;
 
-    read $FH,$block,$size;
-    seek $FH,$size,1;
+    };
 
-    push @blocks,thaw($block);
+    push @sizes,$ahead-$start;
+    $sizesum+=$sizes[-1];
+
+    if(@requested
+    && $requested[0]==$idex+1
+
+    ) {goto FETCH_NEXT};
+
+# ---   *   ---   *   ---
+# read whole chunk and split individual blocks
+
+    my ($chunk,$block);
+    read $FH,$chunk,$sizesum;
+
+    for my $size(@sizes) {
+      $block=substr $chunk,0,$size;
+      $chunk=~ s/^${block}//;
+
+      push @blocks,thaw($block);
+
+    };
+
+    $adjust=1;
 
   };
 
@@ -212,16 +252,25 @@ sub dafread($fname,@requested) {
 
 sub dafwrite($fname,@blocks) {
 
-  my @header=(4+4+length $DAFSIG);
+  my ($idex_type,$idex_size)=@{$DAF_ISIZE};
+
+  my @header=(
+
+    (length $DAFSIG)      # signature
+
+    + $idex_size          # number of elements
+    + $idex_size          # first idex
+    + $idex_size*@blocks  # idex per element
+
+  );
+
   my $body=$NULLSTR;
+  my $i=0;
 
   for my $block(@blocks) {
 
     $block=freeze($block);
     $body.=$block;
-
-    say $header[-1];
-    say length $block;
 
     push @header,$header[-1]+length $block;
 
@@ -232,7 +281,7 @@ sub dafwrite($fname,@blocks) {
   unshift @header,int(@header);
 
   my $header=$DAFSIG.(
-    pack 'L'x@header,@header
+    pack ${idex_type}x@header,@header
 
   );
 
