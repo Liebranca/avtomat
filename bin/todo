@@ -1,0 +1,103 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# TODO
+# Displays *.mny files as
+# trees. Stand-in for cash/board
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+# ---   *   ---   *   ---
+
+# deps
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use English qw(-no_match_vars);
+  use Cwd qw(getcwd);
+
+  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+  use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
+
+  use Style;
+  use Arstd;
+
+  use Tree;
+
+# ---   *   ---   *   ---
+
+my $file=getcwd().'/todo.mny';
+if(!(-f $file)) {
+
+  Arstd::errout(
+    q{No *.mny files in '%s'},
+
+    args=>[getcwd()],
+    lvl=>$AR_ERROR,
+
+  );
+
+  goto TAIL;
+
+};
+
+# ---   *   ---   *   ---
+
+my $body=Arstd::orc($file);
+my @lines=split $NEWLINE_RE,$body;
+
+Arstd::arrfil(\@lines);
+
+# ---   *   ---   *   ---
+
+my $frame=Tree->new_frame();
+
+my $root=$frame->nit(undef,shift @lines);
+my $anchor=$root;
+
+for my $line(@lines) {
+
+  my $done=0;
+  if($line=~ s[(~|x)\s+][]) {
+    $done=$line eq 'x';
+
+  };
+
+  $anchor=$root;
+
+# ---   *   ---   *   ---
+
+  if($line=~ s[(\^+)\s+][]) {
+
+    my $arrows=$1;
+    my $lvl=length $arrows;
+
+    while($lvl) {
+      $anchor=$anchor->{leaves}->[-1];
+      $lvl--;
+
+    };
+
+# ---   *   ---   *   ---
+
+  };
+
+  $frame->nit($anchor,$line);
+
+# ---   *   ---   *   ---
+
+};
+
+$root->prich();
+
+# ---   *   ---   *   ---
+
+TAIL:
+  exit;
+
+# ---   *   ---   *   ---
+1; # ret

@@ -223,7 +223,7 @@ sub arrfil($ar) {
   my $filtered=[];
   for my $x(@$ar) {
 
-    if(defined $x) {
+    if(defined $x && length $x) {
       push @$filtered,$x;
 
     };

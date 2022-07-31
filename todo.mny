@@ -1,39 +1,27 @@
 avtomat v4;
 
-~ Refactor helper;
-x ^ Find mentions of a given package or subroutine;
-x ^^ Make this recursive;
-~ ^ Optimize away regexes and needless fncalls;
-x Convert peso classes to prototypes;
-x node;
-x blk;
-x ptr;
-x sbl;
-x defs;
-x decls;
-x rd;
-x Extend lang && langdefs for basic Perl parse;
-x Hook langdefs::perl to a source filter;
-x Use the filter to change how Perl works;
-x Overhaul mcut/stich to work with a hash;
-x decompose PLPS match trees in parser;
-~ Rework peso::sbl to use PLPS for symbol declarations;
-~ Create a Peso virtual machine in Perl.
-This means, roughly:;
-~ Using peso::blk for data storage. Manual allocation would be preferred later on;
-x ^ Type to size tables;
-x ^ Define peso.lps::type_decl;
-~ ^ Blueprints;
-~ Using peso::ptr for, well, pointers;
-~ reg/clan selective inheritance;
-~ Miscellaneous parser tweaking c:;
-~ PROFIT;
-~ Utils for enforcing AR module standards;
-~ DEFAULTS enforcer for nits;
-~ VERSION && AUTHOR enforcer for modules and executables;
-x Rework ARGV handler (partial help/cash.pm migration);
-~ Standarize module avto-nit;
-x ^ Registering of modules on first include, for a similar purpose;
-~ OOP-ification of $CACHE-type hashes;
-x Subdivide the avt.pm monolith into modules;
-~ Enable/disable loading of optional deps on install scripts;
+~ Refactor helper
+x ^ Find mentions of a given package or subroutine
+x ^^ Make this recursive
+~ ^ Optimize away regexes and needless fncalls
+
+~ Reorder/repurpose Peso into lib/sys
+~ ^ Generalize Blk for serialization
+~ ^ Generalize Ptr for Blk fetches
+
+~ Rework Frame interface
+~ Rework Lang interface
+
+x Extend Lang::Perl for basic (as-doc) parsing
+~ Lang::Plps reimplementation.
+~ Turn Peso into a proper IR
+
+~ Utils for enforcing AR module standards
+~ DEFAULTS enforcer for nits
+~ VERSION && AUTHOR enforcer/tracker for modules and executables
+x Rework ARGV handler (partial help/cash.pm migration)
+~ Standarize module avto-nit
+x ^ Registering of modules on first include, for a similar purpose
+~ OOP-ification of $Cache-type hashes
+x Subdivide the avt.pm monolith into modules
+~ Enable/disable loading of optional deps on install scripts
