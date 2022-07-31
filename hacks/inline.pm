@@ -22,16 +22,14 @@ package inline;
   use Carp;
   use Readonly;
 
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use Style;
+  use Arstd;
+
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
 
-  use parent 'lyfil';
-  use shwl;
-
-  use lib $ENV{'ARPATH'}.'/lib';
-  use style;
-  use arstd;
-
-#  use Filter::Util::Call;
+  use parent 'Lyfil';
+  use Shwl;
 
 # ---   *   ---   *   ---
 # ROM
@@ -67,11 +65,11 @@ sub decl_args($rd,@args) {
 
     if(!defined ${^CAPTURE[0]}) {
 
-      arstd::errout(
+      Arstd::errout(
         "Can't match sigil for var %s\n",
 
         args=>[$original],
-        lvl=>$FATAL,
+        lvl=>$AR_FATAL,
 
       );
 
@@ -82,11 +80,11 @@ sub decl_args($rd,@args) {
     $argname=~ s/^($name+)//sg;
     if(!defined ${^CAPTURE[0]}) {
 
-      arstd::errout(
+      Arstd::errout(
         "Can't match ma,e for var %s\n",
 
         args=>[$original],
-        lvl=>$FATAL,
+        lvl=>$AR_FATAL,
 
       );
 
@@ -198,11 +196,11 @@ sub rename_args($rd,@args) {
     $key=~ s/^($sigil+)//sg;
 
     if(!defined ${^CAPTURE[0]}) {
-      arstd::errout(
+      Arstd::errout(
         "Can't match sigil for var %s\n",
 
         args=>[$key],
-        lvl=>$FATAL,
+        lvl=>$AR_FATAL,
 
       );
 
@@ -284,11 +282,11 @@ sub process_block($rd,$pkgname) {
 
   for my $ret(@rets) {
 
-    if($$strat & $inline::CREATE_SCOPE) {
-      $ret->{value}=$shwl::RET_STR;
+    if($$strat & $Inline::CREATE_SCOPE) {
+      $ret->{value}=$Shwl::RET_STR;
 
       $nd_frame->nit(
-        $ret,$shwl::ASG_STR,
+        $ret,$Shwl::ASG_STR,
         unshift_leaves=>1,
 
       );
@@ -312,7 +310,7 @@ sub process_block($rd,$pkgname) {
 
   $rd->replstr($branch);
 
-  $block->{inline_code}=$branch->flatten();
+  $block->{inline_code}=$branch->to_str();
   $rd->tighten_ops(\$block->{inline_code});
 
   $TABLE->{$pkgname.q{::}.$block->{name}}=$block;
@@ -338,9 +336,9 @@ sub make_table_re() {
   } keys %$TABLE;
 
   if(!@names) {
-    arstd::errout(
+    Arstd::errout(
       "Empty inlined symbol table\n",
-      lvl=>$WARNING,
+      lvl=>$AR_WARNING,
 
     );
 
@@ -365,7 +363,7 @@ sub find_args($branch) {
   my $out=$NULLSTR;
 
   if(@{$branch->{leaves}}) {
-    $out=$branch->flatten();
+    $out=$branch->to_string();
     $branch->{leaves}=[];
 
   } else {
@@ -498,8 +496,7 @@ sub inspect($rd) {
 
 # ---   *   ---   *   ---
 
-  my $s=$tree->flatten();
-
+  my $s=$tree->to_string();
   my $out=arstd::tidyup(\$s);
 
   print "$out\n";
@@ -561,7 +558,7 @@ sub solve_args($block,$code,$args) {
   my $i=0;
   for my $arg(@passed_args) {
 
-    my $arg_re=sprintf $shwl::ARG_FMAT,$i;
+    my $arg_re=sprintf $Shwl::ARG_FMAT,$i;
     $arg_re=qr{$arg_re}x;
 
     $$code=~ s/$arg_re/$arg/sg;
@@ -576,11 +573,11 @@ sub solve_args($block,$code,$args) {
 
 ERR:
 
-  arstd::errout(
+  Arstd::errout(
     "$errme for %s\n",
 
     args=>[$block->{name}],
-    lvl=>$FATAL,
+    lvl=>$AR_FATAL,
 
   );
 
@@ -627,12 +624,12 @@ sub solve_dst($rd,$block,$branch) {
 
     } else {
 
-      arstd::errout(
+      Arstd::errout(
         'Non-decl and non-defn'.q{ }.
         ' dst for inline sub %s'."\n",
 
         args=>[$block->{id}],
-        lvl=>$FATAL,
+        lvl=>$AR_FATAL,
 
       );
 
@@ -745,17 +742,17 @@ sub apply_strategy($block,$branch,$code,%data) {
 
         $is_decl=1;
 
-        $code=~ s/$shwl::RET_RE/$dst[1]/;
+        $code=~ s/$Shwl::RET_RE/$dst[1]/;
 
       } else {
 
-        $code=~ s/$shwl::RET_RE/$dst[1]/;
+        $code=~ s/$Shwl::RET_RE/$dst[1]/;
         $branch->{value}=~ s/\#\:cut_fn;>//;
 
       };
 
 
-      $code=~ s/$shwl::ASG_RE/$dst[2]/;
+      $code=~ s/$Shwl::ASG_RE/$dst[2]/;
       $node->{value}=~ s/\#\:cut_fn;>/\{$code\}/;
 
 # ---   *   ---   *   ---
@@ -811,8 +808,8 @@ sub apply_strategy($block,$branch,$code,%data) {
     if($create_scope) {
       my $asg=q{;};
 
-      $code=~ s/$shwl::RET_RE/$dst[1]/;
-      $code=~ s/$shwl::ASG_RE/$dst[2]/;
+      $code=~ s/$Shwl::RET_RE/$dst[1]/;
+      $code=~ s/$Shwl::ASG_RE/$dst[2]/;
 
       my $fn_nd=
         $tree->branch_in(qr{\#:cut_fn;>}x);

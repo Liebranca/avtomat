@@ -33,7 +33,7 @@ package MAM;
   use parent 'lyfil';
   use shwl;
 
-  use lib $ENV{'ARPATH'}.'/lib/';
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use style;
   use arstd;

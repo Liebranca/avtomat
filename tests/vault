@@ -10,25 +10,43 @@ package test;
   use strict;
   use warnings;
 
-  use lib $ENV{'ARPATH'}.'/lib/';
+  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+  use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
 
-  use vault 'ARPATH';
-  use pricher;
+  use Shwl;
+  use Vault 'ARPATH';
+
+  Vault::modsum();
 
 # ---   *   ---   *   ---
 
-my $h0={hello=>'goodbye'};
-my $h1={xxx=>'yyy'};
-my $h2={zzz=>'zzz'};
-my $h3={key=>'value'};
+#  use shb7;
+#  use fmat;
+#
+#my $object;
+#vault::cached(
+#
+#  'object',
+#  \$object,
+#
+#  sub {return 0}
+#
+#);
 
-vault::dafwrite('test',$h0,$h1,$h2,$h3);
-my @blocks=vault::dafread('test',0,1,3);
+# ---   *   ---   *   ---
 
-for my $block(@blocks) {
-  say pricher::fatdump($block);
-
-};
+#my $h0={hello=>'goodbye'};
+#my $h1={xxx=>'yyy'};
+#my $h2={zzz=>'zzz'};
+#my $h3={key=>'value'};
+#
+#vault::dafwrite('test',$h0,$h1,$h2,$h3);
+#my @blocks=vault::dafread('test',0,1,3);
+#
+#for my $block(@blocks) {
+#  say pricher::fatdump($block);
+#
+#};
 
 # ---   *   ---   *   ---
 1; # ret

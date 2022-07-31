@@ -1,0 +1,394 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# SYGEN
+# Creates syntax files from
+# available definitions
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+# ---   *   ---   *   ---
+
+# deps
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+# ---   *   ---   *   ---
+
+my $srcpath=$ENV{'ARPATH'}.'/avtomat';
+my $dstpath=$ENV{'ARPATH'}.'/lib';
+
+my $do_cp=0;
+
+# first make copy
+$do_cp=!(-e "$dstpath/lang.pm");
+$do_cp=(!$do_cp)
+  ? !((-M "$dstpath/lang.pm")
+    < (-M "$srcpath/lang.pm"))
+
+  : $do_cp
+  ;
+
+# ---   *   ---   *   ---
+
+# check secondary deps to lib
+my @files=split m/\s+/,
+  `ls $srcpath/langdefs`;
+
+if(!$do_cp) {
+
+  my $lfold="$srcpath/langdefs";
+
+  for my $f(@files) {
+
+    if(
+
+      !((-M "$dstpath/lang.pm")
+      < (-M "$lfold/$f"))
+
+    ) {$do_cp=1;last;};
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+if($do_cp) {
+  `cp $srcpath/lang.pm $dstpath/`;
+
+};if(!(-e "$dstpath/langdefs")) {
+  `mkdir -p $dstpath/langdefs`;
+
+};
+
+# ---   *   ---   *   ---
+# iter through addons and copy if need
+
+for my $lang(@files) {
+
+  my $src="$srcpath/langdefs/$lang";
+  my $dst="$dstpath/langdefs/$lang";
+
+  my $up=!(-e $dst);
+  $up=(!$up)
+
+    ? !((-M $dst)
+      < (-M $src))
+
+    : $up
+    ;
+
+  if($up) {
+    `cp $src $dst`;
+
+  };
+};
+
+# ---   *   ---   *   ---
+
+for my $lang(@files) {
+  $lang=~ s/\.pm//;
+
+};
+
+# ---   *   ---   *   ---
+
+sub make_script {
+
+my $script=<<'EOF'
+#!/usr/bin/perl
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+
+  use avt;
+  use lang;
+
+EOF
+;
+
+# ---   *   ---   *   ---
+
+  for my $lang(@files) {
+    $script.="  use langdefs::$lang;\n";
+
+  };
+
+# ---   *   ---   *   ---
+
+$script.=<<'EOF'
+
+my @colors=(
+
+  'black','red','green','yellow',
+  'blue','magenta','cyan','white',
+
+  'grey','red','green','yellow',
+  'blue','magenta','cyan','white',
+
+);for(my $i=9;$i<16;$i++) {
+  $colors[$i]='bright'.$colors[$i];
+
+};my $FH=undef;
+
+my %KEYCOLOR=(
+
+  hier=>0x04,
+
+  shcmds=>0x01,
+  pesc=>0x0E,
+  strings=>0x0E,
+  chars=>0x0E,
+  preproc=>0x0E,
+
+  pfun=>0x01,
+  nums=>0x03,
+
+  dev0=>0x0B,
+  dev1=>0x09,
+  dev2=>0x66,
+
+  common=>0x07,
+  names_u=>0x0D,
+
+  types=>0x04,
+  specifiers=>0x04,
+  resnames=>0x04,
+
+  builtins=>0x01,
+  intrinsics=>0x04,
+  directives=>0x0D,
+  fctls=>0x0D,
+
+  lcom=>0x02,
+  ops=>0x0F,
+  vstr=>0x03,
+
+);
+
+my $EITHS_NOWB={
+
+  'perl'=>{types=>1,},
+
+};
+
+sub prprops {
+
+  my $def=shift;
+  my $key=shift;
+
+  my $color=$KEYCOLOR{$key};{
+    my ($fg,$bg)=($color&0xF,$color>>4);
+    $color=$colors[$fg].','.$colors[$bg];
+
+  };
+
+  my $v=$def->{$key};
+
+
+  # nano syntax re was written by a degenerate
+  # [\[\]] does not match square brackets
+
+  if($key eq 'ops') {
+    $v='([^\s_A-Za-z0-9]|\\\\)';
+
+  };
+
+  # ^he's a double degenerate, the standard
+  # string matching patterns are terrible
+
+  if($key=~ m/(?:
+
+    strings|chars|shcmds|preproc|pesc
+
+  )/x) {
+
+    if($key eq 'strings') {
+      $v=lang::delim(q{"});
+
+    } elsif($key eq 'chars') {
+      $v=lang::delim(q{'});
+
+    } elsif($key eq 'shcmds') {
+      $v=lang::delim(q{`});
+
+    } elsif($key eq 'preproc') {
+      $v='^\s*#.*$';
+
+    } else {
+      $v='\$\:.*;>';
+
+    };
+
+  };
+
+  my @ar=($v);
+
+  if($v=~ m/^ARRAY\(0x/) {
+    @ar=@{$v};
+
+  } elsif($v=~ m/^HASH\(0x/) {
+
+    delete $v->{re};
+    my @keys=keys %{$v};
+    @ar=();
+
+# ---   *   ---   *   ---
+
+    if(exists $EITHS_NOWB
+      ->{$def->{name}}
+      ->{$key}
+
+    ) {
+
+      my @exclude=();
+      my @noproc=();
+
+      for my $elem(@keys) {
+        if(!($elem=~ m/^\(+(\[\$|\\\$)/)) {
+          push @exclude,$elem;
+
+        } else {
+          push @noproc,$elem;
+
+        };
+
+      };
+
+      @ar=@noproc;
+      @keys=@exclude;
+
+    };
+
+# ---   *   ---   *   ---
+
+    for(my $x=0;$x<@keys;$x+=20) {
+
+      my $top=(@keys>$x+19)
+        ? $x+19 : $#keys;
+
+      my @slice=(@keys[$x..$top]);
+      for my $re(@slice) {
+        if($re=~ $lang::QRE_RE) {
+          lang::qre2re(\$re);
+
+        };
+
+      };
+
+      @slice=sort {
+        (length $a)<=(length $b);
+
+      } @slice;
+
+      my $re='\b('.(join '|',@slice).')\b';
+
+      push @ar,$re;
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+
+  for my $re(@ar) {
+
+    $re=~ s/\s+|\n//sxmg;
+    $re=join '\n',(split "\n",$re);
+
+    if($re=~ $lang::QRE_RE) {
+      lang::qre2re(\$re);
+
+    };
+
+    $re=avt::dqwrap($re);
+    print $FH "color $color $re\n";
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub glang {
+
+  while(@_) {
+
+    my $def=shift;
+    my $dst=shift;
+
+    open $FH,'>',$dst or die $!;
+
+    my $prop='syntax '.(
+
+      $def->{name}.' "'.
+      $def->{ext}.'"'
+
+    )."\n";
+
+    $prop.='header '.avt::dqwrap($def->{hed})."\n";
+    $prop.='magic '.avt::dqwrap($def->{mag})."\n";
+
+    $def->{com}=~ s/\\//sg;
+
+    my $com=$def->{com};
+    $def->{lcom}=~ s/\\${com}/$com/sg;
+
+    $prop.='comment '.avt::dqwrap($def->{com})."\n";
+    print $FH "$prop\n";
+
+# ---   *   ---   *   ---
+
+    for my $key(qw(
+
+      common hier
+
+      names_u pfun shcmds pesc
+      builtins fctls types specifiers
+      intrinsics directives resnames
+
+      nums vstr ops chars strings
+      preproc lcom
+
+      dev0 dev1 dev2
+
+    )) {prprops($def,$key);};
+    close $FH;
+
+  };
+};
+
+# ---   *   ---   *   ---
+
+EOF
+;
+
+# ---   *   ---   *   ---
+
+$script.="\nglang(\n";
+
+for my $lang(@files) {
+
+  $script.=
+    "  lang->$lang,\n".
+    "  glob(".'"'."~/.config/nano/".'".'."\n".
+    "  lang->"."$lang->"."{name}".
+    '.".nanorc"),'."\n\n";
+
+};$script.="\n);\n";
+
+# ---   *   ---   *   ---
+
+  eval($script);
+};make_script(@files);
+
+# ---   *   ---   *   ---
+1; # ret
