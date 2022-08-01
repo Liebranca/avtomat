@@ -42,34 +42,6 @@ package Peso::Blk;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
-# ROM
-
-  Readonly our $PACK_SIZES=>Arstd::invert_hash({
-
-    'Q>'=>64,
-    'L>'=>32,
-    'S>'=>16,
-    'C>'=>8,
-
-  },duplicate=>1);
-
-# ---   *   ---   *   ---
-# shut up, I target 64-bit
-
-BEGIN {
-
-  $SIG{__WARN__}=sub {
-    my $warn=shift;
-    return if $warn=~
-      m/32 non-portable/;
-
-    warn $warn;
-
-  };
-
-}
-
-# ---   *   ---   *   ---
 # check value is an instance of this class
 
 sub valid($blk) {return Arstd::valid($blk)};
@@ -261,25 +233,6 @@ sub addchld($self,$blk) {
 };
 
 # ---   *   ---   *   ---
-# find ancestors recursively
-
-sub ances($self) {
-
-  my $name=$self->{name};
-
-  while($self->{parent}) {
-    $name=$self->{parent}->{name}.q{@}.$name;
-    $self=$self->{parent};
-
-    if(!defined $self) {last};
-
-  };
-
-  return $name;
-
-};
-
-# ---   *   ---   *   ---
 # in: block, element name
 # lookup errme shorthand
 
@@ -359,77 +312,6 @@ sub haselem($self,$name,$redecl) {
 
 TAIL:
   return ($self,$name);
-
-};
-
-# ---   *   ---   *   ---
-# grow block by some amount
-# amount is assumed NOT to be aligned
-
-sub grow($self,$cnt) {
-
-  my $types=$self->{frame}->{types};
-  my $half_sz=$types->{half}->{size};
-
-  my $alignment=$types->{unit}->{size};
-  my $mult=1;
-
-  while($cnt>$alignment*$mult) {$mult++};
-  $alignment*=$mult;
-
-# ---   *   ---   *   ---
-# grow to a multiple of alignment
-
-  $self->{mem}.=(
-
-    pack $PACK_SIZES->{$half_sz*8}x($mult*2),
-    map {$FREEBLOCK} (0..($mult*2)-1)
-
-  );
-
-  $self->{size}+=$mult;
-
-  return $alignment;
-
-};
-
-# ---   *   ---   *   ---
-
-sub baptize($self,$offset,$size,$name) {
-
-  my $types=$self->{frame}->{types};
-  my $half_sz=$types->{half}->{size};
-
-  my $elem_sz=($size > $half_sz)
-    ? $half_sz
-    : $size
-    ;
-
-  my $cnt=1;
-  while($size > $half_sz) {
-
-    $size-=$half_sz;
-    $cnt++;
-
-  };
-
-# ---   *   ---   *   ---
-
-  my $ptr=$self->{elems}->{$name}=[];
-
-  for my $i(0..$cnt-1) {
-
-    $ptr->[$i]=\(vec(
-      $self->{mem},$offset,$elem_sz*8
-
-    ));
-
-    $offset++;
-    ${$ptr->[$i]}=0;
-
-  };
-
-  return $ptr;
 
 };
 
@@ -635,42 +517,6 @@ sub getloc($self,$name) {
 # prints out block
 
 sub prich($self,%O) {
-
-  # opt defaults
-  $O{errout}//=0;
-
-  my $mem=$self->{mem};
-  my $sz=$self->{size};
-
-  my @me=();
-
-  for my $i(0..($sz*2)-1) {
-    my $db=substr $mem,$i*8,8;
-    my $str=unpack $PACK_SIZES->{64},$db;
-
-    my $nl=$NULLSTR;
-    my $tab=$NULLSTR;
-
-    my $idex;
-
-    # $i is uneven
-    if($i&0b1) {
-      $tab=q{  0x};
-      $idex=$i-1;
-
-    } else {
-      $nl="\n";
-      $idex=$i+1;
-
-    };
-
-    $me[$idex]=sprintf $tab."%016X ".$nl,$str;
-
-  };
-
-  map {print $ARG} @me;
-
-  return;
 
   my $lang=$self->{frame}->{master}->{lang};
   my $fr_ptr=$self->{frame}->{master}->{ptr};

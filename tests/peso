@@ -19,28 +19,19 @@
   use Arstd;
 
   use Fmat;
-
-  use Peso::Blk;
+  use Blk;
 
 # ---   *   ---   *   ---
 
-my $types={
-
-  unit=>{size=>0x10},
-  half=>{size=>0x08},
-
-};
-
 my $mem=[];
-my $frame=Peso::Blk->new_frame($types);
+my $frame=Blk->new_frame();
+my $non=$frame->nit(undef,'non');
 
-my $non=$frame->{non};
+$non->grow(64);
 
-$non->grow(32);
+my $ptr=$non->baptize('beg',0,2,8);
 
-my $beg=$non->baptize(0,16,'beg');
-
-${$beg->[0]}=0xDEADBEEF;
+$ptr->setv(1,36,1,36);
 
 $non->prich();
 

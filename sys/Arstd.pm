@@ -23,7 +23,6 @@ package Arstd;
   use Carp qw(croak longmess);
   use Cwd qw(abs_path);
 
-  use Scalar::Util qw(blessed);
   use File::Spec;
 
   use English qw(-no_match_vars);
@@ -91,14 +90,6 @@ package Arstd;
 # ---   *   ---   *   ---
 
 sub building() {return exists $INC{'MAM.pm'}};
-
-# ---   *   ---   *   ---
-
-sub valid($obj) {
-  my $kind=(caller)[0];
-  return blessed($obj) && $obj->isa($kind);
-
-};
 
 # ---   *   ---   *   ---
 # mute stderr

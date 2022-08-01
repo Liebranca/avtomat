@@ -28,7 +28,7 @@ package Tree;
   use Arstd;
   use Chk;
 
-  use Frame;
+  use parent 'St';
 
   use lib $ENV{'ARPATH'}.'/lib/hacks';
   use Shwl;
@@ -40,11 +40,13 @@ package Tree;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
+# ROM
 
-sub valid($self) {
-  return Arstd::valid($self);
+  sub Frame_Vars($class) {{
 
-};
+    roots=>{},
+
+  }};
 
 # ---   *   ---   *   ---
 # makes copy of instance
@@ -62,19 +64,6 @@ sub dup($self,$root=undef) {
   };
 
   return $copy;
-
-};
-
-# ---   *   ---   *   ---
-# constructors
-
-sub new_frame($class) {
-
-  return Frame::new(
-    roots=>{},
-    class=>$class
-
-  );
 
 };
 
@@ -175,7 +164,7 @@ sub root($self) {
 };
 
 # ---   *   ---   *   ---
-# getters
+# cats parent values recursively
 
 sub ances($self,$join) {
 
