@@ -36,11 +36,7 @@ package St;
 # ---   *   ---   *   ---
 # ROM
 
-  sub Frame_Vars($class) {{
-
-    key=>'value',
-
-  }};
+  sub Frame_Vars($class) {{}};
 
 # ---   *   ---   *   ---
 # is obj instance of class
@@ -58,7 +54,9 @@ sub new_frame($class,%O) {
   my $vars=$class->Frame_Vars;
   map {$O{$ARG}//=$vars->{$ARG}} keys %$vars;
 
-  my $frame=Frame::new(class=>$class,%O);
+  $O{-class}=$class;
+
+  my $frame=Frame::new(%O);
   return $frame;
 
 };

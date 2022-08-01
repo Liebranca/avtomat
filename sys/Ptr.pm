@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
 # PTR
-# A scope within memory
+# A location in memory
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -37,8 +37,11 @@ package Ptr;
 # ---   *   ---   *   ---
 # ROM
 
-  sub Frame_Vars($class) {{
-    memref=>undef,
+  sub Frame_Vars($class) {
+  return {
+
+    -memref=>undef,
+    -types=>undef,
 
   }};
 
@@ -47,24 +50,56 @@ package Ptr;
 
 sub point($self) {
 
-  my $memref=$self->{frame}->{memref};
+  my $memref=$self->{frame}->{-memref};
   my $offset=$self->{offset};
 
-say $self->{elem_cnt};
-say $self->{elem_sz};
+  my $type=(defined $self->{casted})
+    ? $self->{casted}
+    : $self->{type}
+    ;
 
-  for my $i(0..$self->{elem_cnt}-1) {
+  my $types=$self->{frame}->{-types};
+  my $half_sz=$types->{half}->{size};
 
-    $self->{buff}->[$i]=\(vec(
+# ---   *   ---   *   ---
 
-      $$memref,
+  my @elems=();
 
-      $offset,
-      $self->{elem_sz}*8
+  # is struct
+  if(@{$type->{fields}}) {
+    @elems=(@{$type->{fields}});
 
-    ));
+  # is primitive
+  } else {
 
-    $offset++;
+    @elems=(
+      $type->{size},
+      $type->{name},
+
+    );
+
+  };
+
+# ---   *   ---   *   ---
+
+  for my $i(0..$self->{instance_cnt}-1) {
+    for my $j(0..$type->{elem_count}-1){
+
+      my $size=shift @elems;
+      my $name=shift @elems;
+
+      my $idex=$j+($i*$type->{elem_count});
+
+      $self->{buff}->[$idex]=\(vec(
+
+        $$memref,
+        int(($offset/$size)+0.5),$size*8
+
+      ));
+
+      $offset+=$size;
+
+    };
 
   };
 
@@ -75,24 +110,25 @@ say $self->{elem_sz};
 
 sub nit(
 
-  # passed implicitly
+  # implicit
   $class,$frame,
 
-  # actual args
+  # actual
+  $name,
+  $type,
   $offset,
-  $elem_cnt,
-  $elem_sz,
+  $cnt,
 
 ) {
 
   my $ptr=bless {
 
+    type=>$type,
     casted=>undef,
 
-    elem_cnt=>$elem_cnt,
-    elem_sz=>$elem_sz,
-
     offset=>$offset,
+    instance_cnt=>$cnt,
+
     buff=>[],
 
     frame=>$frame,
@@ -100,6 +136,7 @@ sub nit(
   },$class;
 
   $ptr->point();
+  $frame->{$name}=$ptr;
 
   return $ptr;
 

@@ -219,7 +219,14 @@ sub cached($key,$ptr,$call,@args) {
 
   };
 
-  $mod->prich();
+# ---   *   ---   *   ---
+
+  if(!defined $$ptr) {
+    $$ptr=$call->(@args);
+
+  };
+
+  return $$ptr;
 
 };
 

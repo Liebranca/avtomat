@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
 # BLOCK
-# A scope within memory
+# A handful of memory
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -27,6 +27,8 @@ package Blk;
   use Arstd;
 
   use parent 'St';
+
+  use Type;
   use Ptr;
 
 # ---   *   ---   *   ---
@@ -47,16 +49,11 @@ package Blk;
 
   },duplicate=>1);
 
-  sub Frame_Vars($class) {{
+  sub Frame_Vars($class) {
+  return {
 
-    types=>{
-
-      unit=>{size=>0x10},
-      half=>{size=>0x08},
-
-    },
-
-    blocks=>{},
+    -types=>$Type::Table,
+    -blocks=>{},
 
   }};
 
@@ -118,7 +115,6 @@ sub nit(
     size=>0,
 
     mem=>q{},
-    elems=>{},
     idex=>0,
 
     parent=>$parent,
@@ -129,8 +125,9 @@ sub nit(
 
   },$class;
 
-  $blk->{fr_ptr}=Ptr->new_frame(
-    memref=>\$blk->{mem}
+  $blk->{elems}=Ptr->new_frame(
+    -memref=>\$blk->{mem},
+    -types=>$frame->{-types},
 
   );
 
@@ -139,7 +136,7 @@ sub nit(
 
   my $key=$blk->ances();
 
-  if(exists $frame->{blocks}->{$key}) {
+  if(exists $frame->{-blocks}->{$key}) {
 
     Arstd::errout(
 
@@ -153,7 +150,7 @@ sub nit(
 
   };
 
-  $frame->{blocks}->{$key}=$blk;
+  $frame->{-blocks}->{$key}=$blk;
 
 # ---   *   ---   *   ---
 # initialized from instance
@@ -185,7 +182,8 @@ sub nit(
 
 sub grow($self,$cnt) {
 
-  my $types=$self->{frame}->{types};
+  my $types=$self->{frame}->{-types};
+
   my $half_sz=$types->{half}->{size};
 
   my $alignment=$types->{unit}->{size};
@@ -215,25 +213,22 @@ sub grow($self,$cnt) {
 # ---   *   ---   *   ---
 # gives references to sections in mem
 
-sub baptize($self,$name,$offset,$size,$cnt=1) {
+sub baptize(
 
-  my $types=$self->{frame}->{types};
-  my $half_sz=$types->{half}->{size};
+  # implicit
+  $self,
 
-  my $elem_sz=($size > $half_sz)
-    ? $half_sz
-    : $size
-    ;
+  # actual
+  $name,
+  $type,
 
-  my $total=$size*$cnt;
-  my $elem_cnt=$total/$elem_sz;
+  $offset,
+  $cnt=1
 
-# ---   *   ---   *   ---
+) {
 
-  my $fr_ptr=$self->{fr_ptr};
-
-  my $ptr=$self->{elems}->{$name}=$fr_ptr->nit(
-    $offset,$elem_cnt,$elem_sz
+  my $ptr=$self->{elems}->nit(
+    $name,$type,$offset,$cnt
 
   );
 

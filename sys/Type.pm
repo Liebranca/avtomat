@@ -12,7 +12,7 @@
 # ---   *   ---   *   ---
 
 # deps
-package Peso::Type;
+package Type;
 
   use v5.36.0;
   use strict;
@@ -23,64 +23,99 @@ package Peso::Type;
   use Style;
   use Arstd;
 
-  use Frame;
-
-  use lib $ENV{'ARPATH'}.'/lib/';
-  use Lang;
+  use parent 'St';
+  use Vault 'ARPATH';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.02.2;
+  our $VERSION=v0.03.0;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
-# constructors
+# ROM
 
-sub new_frame($class,@args) {
+  sub Frame_Vars($class) {{}};
+  our $Table=Vault::cached(
 
-  return Frame::new(
-    class=>$class
+    'Table',\$Table,
+
+    \&gen_type_table,
+
+    # primitives
+
+    byte=>1,
+    wide=>2,
+    word=>4,
+    long=>8,
+
+    # measuring
+
+    unit=>0x0010,
+
+    half=>0x0008, # 1/2 unit
+    line=>0x0040, # 4  units
+    page=>0x1000, # 64 lines
+
+    # function types
+
+    nihil=>8,     # void(*nihil)(void)
+    stark=>8,     # void(*stark)(void*)
+
+    signal=>8,    # int(*signal)(int)
 
   );
 
-};
-
 # ---   *   ---   *   ---
+# constructor
 
-sub nit($class,$frame,$name,$elems,%O) {
+sub nit(
+
+  # implicit
+  $class,$frame,
+
+  # actual
+  $name,
+  $elems,
+
+  # options
+  %O
+
+) {
 
   # defaults
-  $O{floating}//=0;
-  $O{unsigned}//=0;
-  $O{memaddr}//=0;
+  $O{real}//=0;
+  $O{sign}//=0;
+  $O{addr}//=0;
 
 # ---   *   ---   *   ---
 
   my $size=0;
   my $count=0;
 
-  my $fields={};
+  my $fields=[];
 
 # ---   *   ---   *   ---
 # struct format:
 #
 #   > 'type_name'=>[
 #
-#   >   ['type_name','elem_name']
+#   >   'type_name'=>'elem_name'
 #   >   ...
 #
 #   >  ];
 
   if(length ref $elems) {
 
-    for my $elem(@$elems) {
+    while(@$elems) {
 
-      my $elem_type=$elem->[0];
-      my $elem_name=$elem->[1];
+      my $elem_type=shift @$elems;
+      my $elem_name=shift @$elems;
 
-      $fields->{$elem_name}=$elem_type;
-      $size+=$frame->{$elem_type}->size;
+      my $elem_sz=$frame->{$elem_type}->{size};
+
+      push @$fields,$elem_sz,$elem_name;
+      $size+=$frame->{$elem_type}->{size};
 
       $count++;
 
@@ -101,15 +136,15 @@ sub nit($class,$frame,$name,$elems,%O) {
 # ---   *   ---   *   ---
 # the lazy way to do this bit ;>
 
-  if($O{floating}) {
+  if($O{real}) {
     $name.=' float';
 
-  } elsif($O{unsigned}) {
-    $name='u'.$name;
+  } elsif($O{sign}) {
+    $name='s'.$name;
 
   };
 
-  if($O{memaddr}) {
+  if($O{addr}) {
     $name.=' ptr';
 
   };
@@ -118,6 +153,7 @@ sub nit($class,$frame,$name,$elems,%O) {
 
   my $type=$frame->{$name}={
 
+    name=>$name,
     size=>$size,
     elem_count=>$count,
 
@@ -128,100 +164,6 @@ sub nit($class,$frame,$name,$elems,%O) {
   };
 
   return $type;
-
-};
-
-# ---   *   ---   *   ---
-# ROM
-
-  our $TABLE;INIT {
-
-  my $table={
-
-    # primitives
-    byte=>1,
-    wide=>2,
-    word=>4,
-    long=>8,
-
-    # ptrs align to half
-    # regs align to unit
-    # bufs align to line
-    # mems align to page
-
-    half=>0x0008, # 1  long
-    unit=>0x0010, # 2  halves
-    line=>0x0040, # 4  units
-    page=>0x1000, # 64 lines
-
-# ---   *   ---   *   ---
-# function types
-
-    nihil=>8,     # void(*nihil)(void)
-    stark=>8,     # void(*stark)(void*)
-
-    signal=>8,    # int(*signal)(int)
-
-  };
-
-# ---   *   ---   *   ---
-
-  my $F=Peso::Type->new_frame();
-
-  for my $key(keys %$table) {
-
-    my $value=$table->{$key};
-
-    my $fptr=int(
-      $key=~ m[(?: nihil|stark|signal)]x
-
-    );
-
-    my $t=$F->nit($key,$value);
-
-    if($fptr) {
-      $t->{memaddr}=1;
-      $t->{unsigned}=1;
-
-    };
-
-# ---   *   ---   *   ---
-
-    if($key=~ m[(?: word|long)]x) {
-
-      $F->nit($key,$value,floating=>1);
-      $F->nit(
-
-        $key,$value,
-
-        floating=>1,
-        memaddr=>1
-
-      );
-
-    };
-
-# ---   *   ---   *   ---
-
-    if($key=~ m[(?: byte|wide|word|long)]x) {
-
-      $F->nit($key,$value,unsigned=>1);
-      $F->nit(
-
-        $key,$value,
-
-        unsigned=>1,
-        memaddr=>1
-
-      );
-
-    };
-
-# ---   *   ---   *   ---
-
-  };
-
-  $TABLE=$F;
 
 };
 
@@ -297,6 +239,74 @@ sub xltab(%T) {
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# fills out table of type variations
+# these exist mostly to ease interfacing
+# with typed languages
+
+sub gen_type_table(%table) {
+
+  my $F=Type->new_frame();
+
+  for my $key(keys %table) {
+
+    my $value=$table{$key};
+
+    my $fptr=int(
+      $key=~ m[(?: nihil|stark|signal)]x
+
+    );
+
+    my $t=$F->nit($key,$value);
+
+    if($fptr) {
+      $t->{addr}=1;
+      $t->{sign}=0;
+
+    };
+
+# ---   *   ---   *   ---
+# generate floating types
+
+    if($key=~ m[(?: word|long)]x) {
+
+      $F->nit($key,$value,real=>1);
+      $F->nit(
+
+        $key,$value,
+
+        real=>1,
+        addr=>1
+
+      );
+
+    };
+
+# ---   *   ---   *   ---
+# generate signed and pointers
+
+    if($key=~ m[(?: byte|wide|word|long)]x) {
+
+      $F->nit($key,$value,sign=>1);
+      $F->nit(
+
+        $key,$value,
+
+        sign=>0,
+        addr=>1
+
+      );
+
+    };
+
+# ---   *   ---   *   ---
+
+  };
+
+  return $F;
 
 };
 

@@ -25,14 +25,31 @@
 
 my $mem=[];
 my $frame=Blk->new_frame();
+
 my $non=$frame->nit(undef,'non');
 
 $non->grow(64);
 
-my $ptr=$non->baptize('beg',0,2,8);
+$Type::Table->nit(
 
-$ptr->setv(1,36,1,36);
+  'struct',[
 
+    byte=>'a',
+    byte=>'b',
+
+    wide=>'c',
+    word=>'d',
+    long=>'e',
+
+  ],
+
+);
+
+my $type=$Type::Table->{struct};
+my $ptr=$non->baptize('beg',$type,0,1);
+
+
+$ptr->setv(0xFF,0xFF,0xFF,0xFF,0xFF);
 $non->prich();
 
 # ---   *   ---   *   ---

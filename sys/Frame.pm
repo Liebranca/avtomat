@@ -22,7 +22,7 @@ package Frame;
 # invokes class constructor
 
 sub nit($frame,@args) {
-  return $frame->{class}->nit(
+  return $frame->{-class}->nit(
     $frame,@args
 
   );
