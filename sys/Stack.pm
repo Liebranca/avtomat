@@ -40,14 +40,14 @@ sub slidex($sz) {
 
 # ---   *   ---   *   ---
 
-sub nit($top,$buf) {
+sub nit($class,$top,$buf) {
 
   return bless {
 
     top=>$top,
     buf=>$buf,
 
-  },'stack';
+  },$class;
 
 };
 

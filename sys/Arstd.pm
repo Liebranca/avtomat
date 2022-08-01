@@ -184,6 +184,27 @@ sub relto($par,$to) {
 
 # ---   *   ---   *   ---
 
+sub invert_hash($h,%O) {
+
+  # defaults
+  $O{duplicate}//=0;
+
+# ---   *   ---   *   ---
+
+  if($O{duplicate}) {
+    %$h=(%$h,reverse %$h);
+
+  } else {
+    %$h=reverse %$h;
+
+  };
+
+  return $h;
+
+};
+
+# ---   *   ---   *   ---
+
 sub expand_path($src,$dst) {
 
   my @ar;

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# test peso execution
+# test peso classes
 
 # ---   *   ---   *   ---
 # deps
@@ -11,16 +11,37 @@
 
   use English qw(-no_match_vars);
 
+  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+  use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
   use lib $ENV{'ARPATH'}.'/avtomat/';
 
-  use style;
-  use arstd;
+  use Style;
+  use Arstd;
 
-  use peso::ipret;
+  use Fmat;
+
+  use Peso::Blk;
 
 # ---   *   ---   *   ---
 
-my $rd=peso::ipret::run(glob('~/cltest'));
-peso::ipret::xpile_c($rd);
+my $types={
+
+  unit=>{size=>0x10},
+  half=>{size=>0x08},
+
+};
+
+my $mem=[];
+my $frame=Peso::Blk->new_frame($types);
+
+my $non=$frame->{non};
+
+$non->grow(32);
+
+my $beg=$non->baptize(0,16,'beg');
+
+${$beg->[0]}=0xDEADBEEF;
+
+$non->prich();
 
 # ---   *   ---   *   ---

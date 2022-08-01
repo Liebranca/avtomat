@@ -22,15 +22,19 @@ package Peso::Ex;
 
   use Style;
   use Arstd;
+  use Frame;
 
-  use Peso::Node;
+  use Tree::Syntax;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+
   use Peso::Blk;
-  use Peso::Sbl;
+  use Peso::Ptr;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.50.1;
+  our $VERSION=v0.50.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -41,28 +45,55 @@ sub nit($class,$lang) {
   my $self=bless {
 
     nxins=>0,
-    nodes=>[],
-
-    lang=>$lang,
-    run=>undef,
-
     pass=>0,
 
+    lang=>$lang,
     tree=>undef,
-    dst=>undef,
 
-    defs=>{},
-    refs=>{},
+    mem=>[],
+
+    ptr=>undef,
+    blk=>undef,
+
+    node=>undef,
 
   },$class;
 
-  $self->{ptr}=Peso::Ptr->new_frame($self);
-  $self->{blk}=Peso::Blk->new_frame($self);
+# ---   *   ---   *   ---
 
-  $self->{node}=Peso::Node->new_frame($self);
-  $self->nxins(0);
+  $self->{ptr}=
+    Peso::Ptr->new_frame($self->{mem});
+
+  $self->{blk}=
+    Peso::Blk->new_frame($self->{mem});
+
+  $self->declscope('non',0);
+
+#  $self->{node}=
+#    Tree::Syntax->new_frame($lang);
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# declare an empty block
+
+sub declscope($self,$name,$idex) {
+
+  $self->{scopes}->{$name}={
+
+    # we use these values to navigate
+    # pointer arrays through next/prev
+
+    _beg=>$idex,
+    _end=>$idex+1,
+
+    _itab=>[],
+
+  };
+
+  return;
 
 };
 
@@ -70,16 +101,6 @@ sub nit($class,$lang) {
 # getters/setters
 
 sub fpass($self) {return $self->{pass}==0};
-sub incpass($self) {return $self->{pass}++};
-
-sub nxins($self,$new=undef) {
-
-  if(defined $new) {
-    $self->{nxins}=$new;
-
-  };return $self->{nxins};
-
-};sub incnxins($self) {return $self->{nxins}++};
 
 # ---   *   ---   *   ---
 # peso struct stuff

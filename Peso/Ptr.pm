@@ -98,7 +98,7 @@ sub getv($self) {
     $frame->{mem}->[$self->{idex}]
     &$self->{mask}
 
-  )>>$self->{shf};
+  ) >> $self->{shf};
 
 # ---   *   ---   *   ---
 # check cross-unit reads
@@ -106,13 +106,16 @@ sub getv($self) {
   while($mask && !($mask&0xFF)) {
     $mask=$mask>>8;
 
-  };my $idex=$self->{idex};
+  };
 
-  COUNT:my $i=masksz($mask);
+  my $idex=$self->{idex};
 
 # ---   *   ---   *   ---
 # bytes read less than expected
 
+COUNT:
+
+  my $i=masksz($mask);
   if($i<$elem_sz) {
 
     $elem_sz-=$i;$idex++;
@@ -132,7 +135,9 @@ sub getv($self) {
         calls=>[\&prich,[$self,errout=>1]],
         lvl=>$AR_FATAL,
 
-      );goto FAIL;
+      );
+
+      goto FAIL;
 
     };
 
@@ -326,7 +331,9 @@ sub mprev_scope($self,$step) {
   my $scope=$frame->{scopes}->{
     $frame->{tab}->[$idex]
 
-  };if($idex<0 || !defined $scope) {
+  };
+
+  if($idex<0 || !defined $scope) {
     goto FAIL;
 
   };
@@ -395,8 +402,10 @@ sub mnext_scope($self,$step)  {
   if(!defined $scope) {
     goto FAIL;
 
+  };
+
   # get ptr in scope
-  };my $neigh=$scope->{_itab}->[$step];
+  my $neigh=$scope->{_itab}->[$step];
 
 # ---   *   ---   *   ---
 # catch out-of-bounds
@@ -585,13 +594,13 @@ sub save($self) {
 # ---   *   ---   *   ---
 # constructors
 
-sub new_frame($class) {
+sub new_frame($class,$mem) {
 
   my $frame=Frame::new(
 
     class=>$class,
+    mem=>$mem,
 
-    mem=>[],
     tab=>[],
     wed=>undef,
 
@@ -603,7 +612,6 @@ sub new_frame($class) {
 
   );
 
-  $frame->declscope('non',0);
   return $frame;
 
 };
@@ -785,7 +793,7 @@ sub prich($self,%opt) {
 # ---   *   ---   *   ---
 # bit of a mngr class
 
-package peso::ptr::frame;
+package Peso::Ptr::Frame;
 
   use v5.36.0;
   use strict;
@@ -799,36 +807,13 @@ package peso::ptr::frame;
 # ---   *   ---   *   ---
 # constructors
 
-;;sub nit($frame,@args) {
+sub nit($frame,@args) {
   return peso::ptr::nit($frame,@args);
-
-};sub anonnit($frame,@args) {
-  return peso::ptr::anonnit($frame,@args);
 
 };
 
-# ---   *   ---   *   ---
-# grow MEM by some amount
-# amount is assumed NOT to be aligned
-
-sub nunit($frame,$mult) {
-
-  my $types=$frame->{master}->{lang}->{types};
-
-  my $alignment=$types->{unit}->{size}*$mult;
-  my $half_sz=$types->{half}->{size};
-
-# ---   *   ---   *   ---
-# grow to a multiple of alignment
-
-  my $i=0;
-  while(!int($i/$alignment)) {
-    push @{$frame->{mem}},$FREEBLOCK;
-    $i+=$half_sz;
-
-  };
-
-  return $alignment;
+sub anonnit($frame,@args) {
+  return peso::ptr::anonnit($frame,@args);
 
 };
 
@@ -921,28 +906,6 @@ sub valid_addr($frame,$addr) {
 
 TAIL:
   return $out;
-
-};
-
-# ---   *   ---   *   ---
-# in: (frame) name,idex
-# declare an empty block
-
-sub declscope($frame,$name,$idex) {
-
-  $frame->{scopes}->{$name}={
-
-      # we use these values to navigate
-      # pointer arrays through next/prev
-
-      _beg=>$idex,
-      _end=>$idex+1,
-
-      _itab=>[],
-
-    };
-
-  return;
 
 };
 
@@ -1042,10 +1005,12 @@ sub name_in_lscope($frame,$name) {
 
   return $out;
 
+};
+
 # ---   *   ---   *   ---
 # check global name declared
 
-};sub gname_declared($frame,$obj) {
+sub gname_declared($frame,$obj) {
 
   my $out=0;
 
@@ -1062,15 +1027,21 @@ sub name_in_lscope($frame,$name) {
 
   return $out;
 
+};
+
 # ---   *   ---   *   ---
 # check namespace declared
 
-};sub scope_declared($frame,$name) {
+sub scope_declared($frame,$name) {
   return exists $frame->{scopes}->{$name};
 
+};
+
 # check name assoc with addr
-};sub is_named_ptr($frame,$addr) {
+sub is_named_ptr($frame,$addr) {
   return exists $frame->{addrs}->{$addr};
+
+};
 
 # ---   *   ---   *   ---
 # THIS ONE LOOKS LIKE ITS LEGACY CODE
@@ -1079,7 +1050,7 @@ sub name_in_lscope($frame,$name) {
 #
 # i'll decide if I still need it later...
 
-};sub is_block_ref($frame,$name) {
+sub is_block_ref($frame,$name) {
   return exists $frame->{scopes}->{$name};
 
 };
@@ -1218,10 +1189,12 @@ sub lname_lookup($frame,$key) {
 
   };return $scope->{$key};
 
+};
+
 # ---   *   ---   *   ---
 # look for full name,ie non@mod@sub...
 
-};sub gname_lookup($frame,$key) {
+sub gname_lookup($frame,$key) {
 
   my @ar=split m/[@]/,$key;
 

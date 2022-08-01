@@ -58,7 +58,7 @@ sub new_frame {return Peso::Sbl::Frame::create()};
 
 # ---   *   ---   *   ---
 
-sub nit($frame,$name,$argv,$code,$plps) {
+sub nit($class,$frame,$name,$argv,$code,$plps) {
 
   my $sym;
   if($plps) {goto USE_PLPS;};
@@ -316,7 +316,7 @@ sub arg_typechk($self,$node,$proto) {
         'Unrecognized type \'%s\'',
 
         args=>[$v],
-        lvl=>$FATAL,
+        lvl=>$AR_FATAL,
 
       );
 
@@ -348,7 +348,7 @@ sub arg_typechk($self,$node,$proto) {
       args=>
         [$self->name,join ', ',(split m/[|]/,$proto)],
 
-      lvl=>$FATAL,
+      lvl=>$AR_FATAL,
 
     );
   };
@@ -371,7 +371,7 @@ sub ex($self,$node) {
       "symbol <%s>\n",
 
       args=>[$self->name],
-      lvl=>$FATAL,
+      lvl=>$AR_FATAL,
 
     );
 
@@ -412,7 +412,7 @@ sub ex($self,$node) {
         "symbol <%s>\n",
 
         args=>[$j,$self->name],
-        lvl=>$FATAL,
+        lvl=>$AR_FATAL,
 
       );
 
@@ -489,9 +489,9 @@ package peso::sbl::frame;
   use strict;
   use warnings;
 
-  use lib $ENV{'ARPATH'}.'/lib/';
-  use arstd;
-  use style;
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use Arstd;
+  use Style;
 
 # ---   *   ---   *   ---
 # shorthand for orderly symbol nit
@@ -608,7 +608,7 @@ sub ndconsume($frame,$node,$i) {
           "symbol '%s'\n",
 
           args=>[$anchor->{value}->name],
-          lvl=>$FATAL,
+          lvl=>$AR_FATAL,
 
         );
 
