@@ -436,6 +436,9 @@ sub leafless($self,%O) {
   # defaults
   $O{i}//=undef;
   $O{give_parent}//=0;
+  $O{max_depth}//=0x24;
+
+  my $depth=0;
 
   my @leaves=($self);
   my @result=();
@@ -446,6 +449,9 @@ sub leafless($self,%O) {
   while(@leaves) {
 
     $self=shift @leaves;
+    if($self eq 0) {$depth--;next}
+    elsif($self eq 1) {$depth++;next};
+
     if(!@{$self->{leaves}}) {
 
       if($O{give_parent}) {
@@ -463,10 +469,10 @@ sub leafless($self,%O) {
 
       };
 
-    } else {
-      unshift @leaves,@{$self->{leaves}};
-
     };
+
+    if($depth>=$O{max_depth}) {next};
+    unshift @leaves,1,@{$self->{leaves}},0;
 
   };
 
@@ -481,6 +487,44 @@ sub leafless($self,%O) {
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# give list of nodes that have children
+
+sub hasleaves($self,%O) {
+
+  $O{max_depth}//=0x24;
+  $O{keep_root}//=0;
+
+  my $depth=0;
+  my @pending=();
+
+  if($O{keep_root}) {
+    push @pending,$self;
+
+  } else {
+    push @pending,@{$self->{leaves}};
+
+  };
+
+  my @result=();
+
+  while(@pending) {
+
+    $self=shift @pending;
+    if($self eq 0) {$depth--;next}
+    elsif($self eq 1) {$depth++;next};
+
+    push @result,$self if(@{$self->{leaves}});
+
+    if($depth>=$O{max_depth}) {next};
+    unshift @pending,1,@{$self->{leaves}},0;
+
+  };
+
+  return (@result);
 
 };
 

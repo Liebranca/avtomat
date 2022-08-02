@@ -61,8 +61,8 @@ package Vault;
 # ---   *   ---   *   ---
 # global state
 
-  my $systems={};
-  my $needs_update={};
+  my $Systems={};
+  my $Needs_Update={};
 
 # ---   *   ---   *   ---
 
@@ -74,20 +74,20 @@ sub import(@args) {
   my $syskey=$args[-1];
   my $syspath=Shb7::set_root($ENV{$syskey});
 
-  if(!exists $systems->{$syspath}) {
-    $systems->{$syspath}=
+  if(!exists $Systems->{$syspath}) {
+    $Systems->{$syspath}=
      Tree->new_frame();
 
   };
 
-  my $frame=$systems->{$syspath};
+  my $frame=$Systems->{$syspath};
 
 # ---   *   ---   *   ---
 # load existing module tree
 
   if(!exists $frame->{-roots}->{$modname}) {
 
-    $needs_update->{$modname}=[];
+    $Needs_Update->{$modname}=[];
 
     my $modf=Shb7::cache_file("$modname$PX_EXT");
 
@@ -96,44 +96,24 @@ sub import(@args) {
       my $mod=retrieve($modf);
       $frame->{-roots}->{$modname}=$mod;
 
-      goto TAIL;
-
 # ---   *   ---   *   ---
-# build/append to tree
+# generate module tree
 
     } else {
 
       $frame->{-roots}->{$modname}=
-        $frame->nit(undef,$modname);
+        Shb7::walk($modname,-r=>1);
 
     };
 
 # ---   *   ---   *   ---
+# checksum the tree
+# new result will be saved if there's changes
+
+    my $table=$frame->{-roots}->{$modname};
+    $Needs_Update->{$modname}=$table->get_cksum();
 
   };
-
-  my $mod=$frame->{-roots}->{$modname};
-
-  if($pkgname eq 'main') {
-    $pkgname=Shb7::shpath(abs_path($file));
-
-  };
-
-  my $pkg=$mod->branch_in(
-    qr{^$pkgname$},
-    max_depth=>1
-
-  );
-
-  if(!defined $pkg) {
-    $pkg=$frame->nit($mod,$pkgname);
-
-  };
-
-# ---   *   ---   *   ---
-
-TAIL:
-  return;
 
 };
 
@@ -142,12 +122,14 @@ TAIL:
 
 END {
 
-  for my $syspath(keys %$systems) {
+  for my $syspath(keys %$Systems) {
 
-    my $frame=$systems->{$syspath};
+    my $frame=$Systems->{$syspath};
     for my $modname(keys %{$frame->{-roots}}) {
 
-      my $updated=$needs_update->{$modname};
+      #$frame->{-roots}->{$modname}->prich();
+
+      my $updated=$Needs_Update->{$modname};
       next unless @$updated;
 
 # ---   *   ---   *   ---
@@ -183,39 +165,26 @@ sub cached($key,$ptr,$call,@args) {
   my ($pkgname,$file,$line)=caller;
   my $modname=Shb7::module_of(abs_path($file));
 
-  $key.=q{:};
-  my $stamp=-M $file;
-
 # ---   *   ---   *   ---
 # get branch object belongs to
 
-  my $frame=$systems->{$Shb7::Root};
+  my $frame=$Systems->{$Shb7::Root};
   my $mod=$frame->{-roots}->{$modname};
 
-  my $pkg=$mod->branch_in(
-    qr{^$pkgname$}x,
-    max_depth=>1
+  my $pkg=$mod->branch_from_path(
+    Shb7::shpath(abs_path($file)),
+    root=>$Shb7::Root,
 
   );
 
 # ---   *   ---   *   ---
 # get object in tree
 
-  my $node=$pkg->branch_in(qr{^$key}x);
+  my @objects=@{$pkg->{objects}};
+  my %h=@objects;
 
-  if(!$node) {
-    $node=$frame->nit($pkg,$key.$stamp);
-
-  };
-
-  my $mdate=(split $COLON_RE,
-    $node->{value})[-1];
-
-  if($mdate > $stamp) {
-    $node->{value}=$key.$stamp;
-
-    push @{$needs_update->{$modname}},
-      $pkg->absidex($node);
+  if(!exists $h{$key}) {
+    push @objects,$key=>1;
 
   };
 
@@ -227,76 +196,6 @@ sub cached($key,$ptr,$call,@args) {
   };
 
   return $$ptr;
-
-};
-
-# ---   *   ---   *   ---
-
-sub table_files($path,$modname) {
-
-  use Fmat;
-
-  my @files=();
-
-  my $table=$systems->{$path};
-  my $module=$table->{$modname};
-
-  my @keys=grep
-
-    {$module->{$ARG}}
-    keys %$module
-
-  ;
-
-# ---   *   ---   *   ---
-
-  while(@keys) {
-
-    my $key=shift @keys;
-
-    my $child=$module->{$key};
-    say fatdump($child);
-
-    push @keys,grep
-
-      {$child->{$ARG}}
-      keys %$child
-
-    ;
-
-  };
-
-# ---   *   ---   *   ---
-
-  exit;
-
-};
-
-# ---   *   ---   *   ---
-
-sub modsum() {
-
-  for my $path(keys %$systems) {
-
-    Shb7::set_root($path);
-    my $modules=$systems->{$path};
-
-    for my $name(keys %{$modules->{-roots}}) {
-
-      my $table=Shb7::walk($name,-r=>1);
-
-      my @submodules=$table->get_dir_list();
-      map {print "$ARG\n"} @submodules;
-
-    };
-
-#    my $files=join q{ },
-#      table_files($path,'avtomat');
-#
-#    my $sum=`cksum $files`;
-#    say $sum;
-
-  };
 
 };
 

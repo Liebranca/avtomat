@@ -5,7 +5,7 @@
 # ---   *   ---   *   ---
 
 # deps
-package test;
+
   use v5.36.0;
   use strict;
   use warnings;
@@ -16,22 +16,17 @@ package test;
   use Shwl;
   use Vault 'ARPATH';
 
-  Vault::modsum();
-
 # ---   *   ---   *   ---
 
-#  use shb7;
-#  use fmat;
-#
-#my $object;
-#vault::cached(
-#
-#  'object',
-#  \$object,
-#
-#  sub {return 0}
-#
-#);
+my $object;
+Vault::cached(
+
+  'object',
+  \$object,
+
+  sub {return 0}
+
+);
 
 # ---   *   ---   *   ---
 
