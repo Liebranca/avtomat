@@ -44,7 +44,7 @@ package Tree;
 
   sub Frame_Vars($class) {{
 
-    roots=>{},
+    -roots=>{},
 
   }};
 

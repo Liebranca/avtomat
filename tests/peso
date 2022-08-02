@@ -28,28 +28,35 @@ my $frame=Blk->new_frame();
 
 my $non=$frame->nit(undef,'non');
 
-$non->grow(64);
-
-$Type::Table->nit(
+my $type=$Type::Table->nit(
 
   'struct',[
 
-    byte=>'a',
-    byte=>'b',
-
-    wide=>'c',
-    word=>'d',
-    long=>'e',
+    byte=>'a(5)',
+    long=>'b',
 
   ],
 
 );
 
-my $type=$Type::Table->{struct};
-my $ptr=$non->baptize('beg',$type,0,1);
+my $ptr=$non->alloc('beg0',$type,1);
+$ptr->setv((0xBB)x5,0xDE74);
+$non->free('beg0');
 
+$type=$Type::Table->nit(
 
-$ptr->setv(0xFF,0xFF,0xFF,0xFF,0xFF);
+  'struct',[
+
+    wide=>'a(8)',
+    long=>'b',
+
+  ],
+
+);
+
+$ptr=$non->alloc('beg0',$type,1);
+$non->shrink(1);
+
 $non->prich();
 
 # ---   *   ---   *   ---

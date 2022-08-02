@@ -76,7 +76,7 @@ sub point($self) {
       $type->{size},
       $type->{name},
 
-    );
+    ) x $self->{instance_cnt};
 
   };
 
@@ -89,11 +89,10 @@ sub point($self) {
       my $name=shift @elems;
 
       my $idex=$j+($i*$type->{elem_count});
-
       $self->{buff}->[$idex]=\(vec(
 
         $$memref,
-        int(($offset/$size)+0.5),$size*8
+        int(($offset/$size)+0.9999),$size*8
 
       ));
 
@@ -102,6 +101,17 @@ sub point($self) {
     };
 
   };
+
+# ---   *   ---   *   ---
+# pad out the size to halves
+
+  $self->{buff_sz}=int(
+
+    (($offset-$self->{offset})/$half_sz)+0.9999
+
+  );
+
+  $self->{buff_sz}+=$self->{buff_sz}&0b1;
 
 };
 
@@ -130,6 +140,7 @@ sub nit(
     instance_cnt=>$cnt,
 
     buff=>[],
+    buff_sz=>0,
 
     frame=>$frame,
 
@@ -156,10 +167,20 @@ sub buf($self,$idex=undef) {
 
 };
 
+# ---   *   ---   *   ---
+# flood fill half-sized chunks
+
 sub flood($self,$value) {
 
-  for my $x(@{$self->{buff}}) {
-    $$x=0;
+  my $memref=$self->{frame}->{-memref};
+  my $types=$self->{frame}->{-types};
+
+  my $half_sz=$types->{half}->{size};
+  my $offset=$self->{offset}/$half_sz;
+
+  for my $half(0..$self->{buff_sz}-1) {
+    vec($$memref,$offset,64)=$value;
+    $offset++;
 
   };
 

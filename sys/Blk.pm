@@ -115,6 +115,7 @@ sub nit(
     size=>0,
 
     mem=>q{},
+    seg=>{},
     idex=>0,
 
     parent=>$parent,
@@ -177,36 +178,68 @@ sub nit(
 };
 
 # ---   *   ---   *   ---
-# grow block by some amount
-# amount is assumed NOT to be aligned
 
-sub grow($self,$cnt) {
+sub align($self,$type,$cnt) {
 
   my $types=$self->{frame}->{-types};
-
   my $half_sz=$types->{half}->{size};
 
   my $alignment=$types->{unit}->{size};
-  my $mult=1;
+  my $total=$type->{size}*$cnt;
 
-  while($cnt>$alignment*$mult) {$mult++};
-  $alignment*=$mult;
+  my $mult=int(($total/$alignment)+0.9999);
+
+  return ($mult,$mult*$alignment);
+
+};
 
 # ---   *   ---   *   ---
-# grow to a multiple of alignment
+# grow block by an aligned amount
 
-  my $size=$PACK_SIZES->{$half_sz*8};
+sub grow($self,$mult) {
+
+  my $types=$self->{frame}->{-types};
+  my $half_sz=$types->{half}->{size};
+  my $alignment=$types->{unit}->{size};
+
+  my $fmat=$PACK_SIZES->{$half_sz*8};
 
   $self->{mem}.=(
 
-    pack "$size>"x($mult*2),
+    pack "$fmat>"x($mult*2),
     map {$FREEBLOCK} (0..($mult*2)-1)
 
   );
 
+  my $prev_top=$self->{size}*$alignment;
   $self->{size}+=$mult;
 
-  return $alignment;
+  return $prev_top;
+
+};
+
+# ---   *   ---   *   ---
+# ^inverse
+
+sub shrink($self,$mult) {
+
+  my $types=$self->{frame}->{-types};
+  my $half_sz=$types->{half}->{size};
+  my $alignment=$types->{unit}->{size};
+
+  my $top=$self->{size};
+
+  $self->{mem}=substr
+
+    $self->{mem},
+    0,$top-($alignment*$mult)
+
+  ;
+
+  $self->{size}-=$mult;
+
+  # give new top
+  return $self->{size};
 
 };
 
@@ -235,6 +268,59 @@ sub baptize(
   $ptr->flood(0);
 
   return $ptr;
+
+};
+
+# ---   *   ---   *   ---
+
+sub alloc($self,$name,$type,$cnt=1) {
+
+  my $seg=$self->{seg};
+  my $offset;
+
+  my ($mult,$aligned_sz)=
+    $self->align($type,$cnt);
+
+  # check existance of free segment of equal size
+  if(exists $seg->{$aligned_sz}) {
+    $offset=pop @{$seg->{$aligned_sz}};
+
+    # discard emptied array
+    delete $seg->{$aligned_sz}
+    unless @{$seg->{$aligned_sz}};
+
+  # ^grow the block if none avail
+  } else {
+    $offset=$self->grow($mult);
+
+  };
+
+  return $self->baptize(
+    $name,$type,$offset,$cnt
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+
+sub free($self,$name) {
+
+  my $ptr=$self->{elems}->{$name};
+  $ptr->flood($FREEBLOCK);
+
+  my ($mult,$aligned_sz)=$self->align(
+    $ptr->{type},
+    $ptr->{instance_cnt}
+
+  );
+
+  $self->{seg}->{$aligned_sz}//=[];
+
+  push @{$self->{seg}->{$aligned_sz}},
+    $ptr->{offset};
+
+  delete $self->{elems}->{$name};
 
 };
 

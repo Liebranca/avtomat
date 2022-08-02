@@ -114,10 +114,25 @@ sub nit(
 
       my $elem_sz=$frame->{$elem_type}->{size};
 
-      push @$fields,$elem_sz,$elem_name;
-      $size+=$frame->{$elem_type}->{size};
+      my $mult=1;
+      if($elem_name=~ s[\((\d+)\)][]) {
+        $mult=$1;
 
-      $count++;
+      };
+
+      for my $i(0..$mult-1) {
+
+        my $n=($i>0)
+          ? "$elem_name+$i"
+          : $elem_name
+          ;
+
+        push @$fields,$elem_sz,$n;
+        $size+=$frame->{$elem_type}->{size};
+
+        $count++;
+
+      };
 
     };
 

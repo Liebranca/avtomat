@@ -85,7 +85,7 @@ sub import(@args) {
 # ---   *   ---   *   ---
 # load existing module tree
 
-  if(!exists $frame->{roots}->{$modname}) {
+  if(!exists $frame->{-roots}->{$modname}) {
 
     $needs_update->{$modname}=[];
 
@@ -94,7 +94,7 @@ sub import(@args) {
     if(-f $modf) {
 
       my $mod=retrieve($modf);
-      $frame->{roots}->{$modname}=$mod;
+      $frame->{-roots}->{$modname}=$mod;
 
       goto TAIL;
 
@@ -103,7 +103,7 @@ sub import(@args) {
 
     } else {
 
-      $frame->{roots}->{$modname}=
+      $frame->{-roots}->{$modname}=
         $frame->nit(undef,$modname);
 
     };
@@ -112,7 +112,7 @@ sub import(@args) {
 
   };
 
-  my $mod=$frame->{roots}->{$modname};
+  my $mod=$frame->{-roots}->{$modname};
 
   if($pkgname eq 'main') {
     $pkgname=Shb7::shpath(abs_path($file));
@@ -145,7 +145,7 @@ END {
   for my $syspath(keys %$systems) {
 
     my $frame=$systems->{$syspath};
-    for my $modname(keys %{$frame->{roots}}) {
+    for my $modname(keys %{$frame->{-roots}}) {
 
       my $updated=$needs_update->{$modname};
       next unless @$updated;
@@ -165,7 +165,7 @@ END {
 
       );
 
-      my $mod=$frame->{roots}->{$modname};
+      my $mod=$frame->{-roots}->{$modname};
       store($mod,$modf);
 
     };
@@ -190,7 +190,7 @@ sub cached($key,$ptr,$call,@args) {
 # get branch object belongs to
 
   my $frame=$systems->{$Shb7::Root};
-  my $mod=$frame->{roots}->{$modname};
+  my $mod=$frame->{-roots}->{$modname};
 
   my $pkg=$mod->branch_in(
     qr{^$pkgname$}x,
@@ -281,7 +281,7 @@ sub modsum() {
     Shb7::set_root($path);
     my $modules=$systems->{$path};
 
-    for my $name(keys %{$modules->{roots}}) {
+    for my $name(keys %{$modules->{-roots}}) {
 
       my $table=Shb7::walk($name,-r=>1);
 
