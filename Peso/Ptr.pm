@@ -968,7 +968,7 @@ sub addr_to_scope($frame,$addr) {
         "Can't find scope for address %016X\n",
 
         args=>[$addr],
-        lvl=>$FATAL,
+        lvl=>$AR_FATAL,
 
       );
 
@@ -1094,7 +1094,7 @@ sub setscope($frame,@names) {
         "Namespace <%s> not declared\n",
 
         args=>[$name],
-        lvl=>$FATAL,
+        lvl=>$AR_FATAL,
 
       );
 
@@ -1183,7 +1183,7 @@ sub lname_lookup($frame,$key) {
       "\n",
 
       args=>[$key],
-      lvl=>$FATAL,
+      lvl=>$AR_FATAL,
 
     );
 

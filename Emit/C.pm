@@ -29,11 +29,11 @@ package Emit::C;
   use Style;
   use Arstd;
 
+  use Type;
+
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Emit::Std;
-
-  use Peso::Type;
   use Peso::Ipret;
 
 # ---   *   ---   *   ---
@@ -68,7 +68,7 @@ q[#ifdef __cplusplus
       'TYPETAB',
 
       \$TYPETAB,
-      \&Peso::Type::xltab,
+      \&Type::xltab,
 
 # ---   *   ---   *   ---
 

@@ -26,9 +26,6 @@ package Shb7;
   use Carp;
   use English qw(-no_match_vars);
 
-  use lib $ENV{'ARPATH'}.'/lib/hacks';
-  use Shwl;
-
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
@@ -228,12 +225,22 @@ sub walk($path,%O) {
 
   # defaults
   $O{-r}//=0;
-  $O{-x}//=q{
-    (?: nytprof | data | docs)
+  $O{-x}//=[];
+
+# ---   *   ---   *   ---
+# build exclusion re
+
+  $O{-x}=join q{|},@{$O{-x}};
+  if(length $O{-x}) {$O{-x}.=q{|}};
+
+  $O{-x}.=q{
+    nytprof | data | docs | tests
 
   };
 
-  $O{-x}=qr{$O{-x}}x;
+  $O{-x}=qr{(?:$O{-x})}x;
+
+# ---   *   ---   *   ---
 
   my $frame=Tree::File->new_frame();
   my $root_node=undef;

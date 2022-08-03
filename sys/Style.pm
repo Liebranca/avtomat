@@ -34,6 +34,7 @@ package Style;
     $MEMPTR_SZMASK
 
     $NOOP
+    $NO_MATCH
 
     $NULL
     $NULLSTR
@@ -97,6 +98,8 @@ package Style;
   Readonly our $SPACE_RE=>qr{\s};
   Readonly our $COLON_RE=>qr{:};
   Readonly our $NEWLINE_RE=>qr{\n};
+
+  Readonly our $NO_MATCH=>q{$^};
 
 # ---   *   ---   *   ---
 # utility calls

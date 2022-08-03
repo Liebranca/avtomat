@@ -33,7 +33,7 @@ package Peso::Rd;
 
   use Lang;
 
-  use Peso::Program;
+  use Peso::Ex;
   use Peso::St;
 
 # ---   *   ---   *   ---

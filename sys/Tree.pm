@@ -30,9 +30,6 @@ package Tree;
 
   use parent 'St';
 
-  use lib $ENV{'ARPATH'}.'/lib/hacks';
-  use Shwl;
-
 # ---   *   ---   *   ---
 # info
 
@@ -153,23 +150,29 @@ sub nit($class,$frame,$parent,$val,%O) {
 sub root($self) {
 
   my $root=$self;
+  my $depth=0;
 
   while(defined $root->{parent}) {
     $root=$root->{parent};
+    $depth++;
 
   };
 
-  return $root;
+  return ($root,$depth);
 
 };
 
 # ---   *   ---   *   ---
 # cats parent values recursively
 
-sub ances($self,$join) {
+sub ances($self,$join,%O) {
+
+  # defaults
+  $O{max_depth}//=0x24;
 
   my $anchor=$self;
   my $s=$NULLSTR;
+  my $depth=0;
 
 TOP:
 
@@ -179,7 +182,9 @@ TOP:
     $s=$join.$s;
     $anchor=$anchor->{parent};
 
-    goto TOP;
+    $depth++;
+
+    goto TOP if $depth<$O{max_depth};
 
   };
 

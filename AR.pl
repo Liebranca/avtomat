@@ -6,6 +6,7 @@
 # ---   *   ---   *   ---
 # sanity check
 
+use v5.36.0;
 use strict;
 use warnings;
 
@@ -50,59 +51,61 @@ my $FILE_LIST=[
 # ---   *   ---   *   ---
 # sys first
 
-  '/sys/style.pm',
-  '/sys/arstd.pm',
+  '/sys/Style.pm',
+  '/sys/Arstd.pm',
 
-  '/sys/queue.pm',
-  '/sys/stack.pm',
-  '/sys/tree.pm',
+  '/sys/Queue.pm',
+  '/sys/Stack.pm',
+  '/sys/Tree.pm',
+  '/sys/Tree/File.pm',
 
-  '/sys/shb7.pm',
-  '/sys/vault.pm',
+  '/sys/Type.pm',
 
-  '/sys/cli.pm',
+  '/sys/Shb7.pm',
+  '/sys/Vault.pm',
+
+  '/sys/Cli.pm',
 
 # ---   *   ---   *   ---
 # then filters and hacks
 
-  '/hacks/shwl.pm',
-  '/hacks/lyfil.pm',
-  '/hacks/inlining.pm',
+  '/hacks/Shwl.pm',
+  '/hacks/Lyfil.pm',
+  '/hacks/Inlining.pm',
   '/hacks/inline.pm',
 
 # ---   *   ---   *   ---
 # then language and utils
 
-  '/lang.pm',
+  '/Lang.pm',
 
-  '/peso/st.pm',
-  '/peso/defs.pm',
+  '/Peso/St.pm',
+  '/Peso/Defs.pm',
 
-  '/peso/ops.pm',
-  '/peso/type.pm',
+  '/Peso/Ops.pm',
 
-  '/peso/rd.pm',
-  '/peso/node.pm',
-  '/peso/ptr.pm',
-  '/peso/blk.pm',
-  '/peso/sbl.pm',
-  '/peso/program.pm',
+  '/Peso/Rd.pm',
+  '/Peso/Node.pm',
+  '/Peso/Ptr.pm',
+  '/Peso/Blk.pm',
+  '/Peso/Sbl.pm',
+  '/Peso/Ex.pm',
 
-  '/emit/std.pm',
-  '/emit/c.pm',
+  '/Emit/Std.pm',
+  '/Emit/C.pm',
 
-  '/langdefs/plps.pm',
-  '/langdefs/peso.pm',
-  '/langdefs/perl.pm',
-  '/langdefs/c.pm',
+  '/Lang/Peso.pm',
+  '/Lang/Plps.pm',
+  '/Lang/C.pm',
 
-  '/peso/ipret.pm',
+  '/Lang/Perl.pm',
+  '/Peso/Ipret.pm',
 
 # ---   *   ---   *   ---
 # then everything else
 
-  '/avt.pm',
-  '/makescript.pm',
+  '/Avt.pm',
+  '/Makescript.pm',
 
 ];
 
@@ -358,11 +361,11 @@ update(
 # ---   *   ---   *   ---
 # this effen script...
 
-print {*STDERR}
-  "\e[37;1m::\e[0mrebuilding syntax files\n";
-
-print {*STDERR}
-  `$ENV{'ARPATH'}'/avtomat/sygen'`;
+#print {*STDERR}
+#  "\e[37;1m::\e[0mrebuilding syntax files\n";
+#
+#print {*STDERR}
+#  `$ENV{'ARPATH'}'/avtomat/sygen'`;
 
 # ---   *   ---   *   ---
 

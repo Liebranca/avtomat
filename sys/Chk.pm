@@ -24,8 +24,8 @@ package Chk;
   use Style;
   use Arstd;
 
-  use lib $ENV{'ARPATH'}.'/lib/hacks/';
-  use Inlining;
+#  use lib $ENV{'ARPATH'}.'/lib/hacks/';
+#  use Inlining;
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -71,16 +71,16 @@ package Chk;
 
 # ---   *   ---   *   ---
 
-;;sub is_coderef :inlined ($v) {
+;;sub is_coderef ($v) {
   length ref $v && ($v=~ $Chk::CODEREF_RE);
 
-};sub is_arrayref :inlined ($v) {
+};sub is_arrayref ($v) {
   length ref $v && ($v=~ $Chk::ARRAYREF_RE);
 
-};sub is_hashref :inlined ($v) {
+};sub is_hashref ($v) {
   length ref $v && ($v=~ $Chk::HASHREF_RE);
 
-};sub is_qre :inlined ($v) {
+};sub is_qre ($v) {
   defined $v && ($v=~ $Chk::QRE_RE);
 
 };
@@ -88,7 +88,7 @@ package Chk;
 # ---   *   ---   *   ---
 # remove all whitespace
 
-sub stripline :inlined ($s) {
+sub stripline ($s) {
   join $NULLSTR,(split $Chk::STRIPLINE_RE,$s);
 
 };

@@ -26,13 +26,16 @@ package Avt;
   use Carp;
   use English qw(-no_match_vars);
 
-  use lib $ENV{'ARPATH'}.'/lib/hacks';
-  use Shwl;
-
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
   use Arstd;
+
+  use Shb7;
+  use Vault 'ARPATH';
+
+  use lib $ENV{'ARPATH'}.'/lib/hacks';
+  use Shwl;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
@@ -40,9 +43,9 @@ package Avt;
   use Emit::C;
 
   use Lang;
-  use Langdefs::C;
-  use Langdefs::Perl;
-  use Langdefs::Peso;
+  use Lang::C;
+  use Lang::Perl;
+  use Lang::Peso;
 
   use Peso::St;
   use Peso::Rd;
@@ -1296,10 +1299,9 @@ sub walk($path) {
 
 sub scan() {
 
-  my $modules={};
   my $fpath=Shb7::cache_file("avto-modules");
 
-  # just ensure we have these standard paths
+  # ensure we have these standard paths
   for my $path(
 
     Shb7::dir("bin"),
@@ -1336,19 +1338,19 @@ sub scan() {
 
     };
 
-# ---   *   ---   *   ---
-
     $excluded//=$NULLSTR;
-
-    $excluded='('.(join q{|},
-      'nytprof','docs','tests','data',
+    $excluded=[
       Lang::ws_split($COMMA_RE,$excluded)
 
-    ).')';
-
-    $excluded=qr{$excluded};
+    ];
 
 # ---   *   ---   *   ---
+# read module tree
+
+    my $tree=Vault::check_module(
+      $mod,$excluded
+
+    );
 
     my $trsh=Shb7::obj_dir($mod);
     my $modpath=Shb7::dir($mod);
@@ -1362,67 +1364,42 @@ sub scan() {
 # ---   *   ---   *   ---
 # walk module path
 
-    my %h=%{ walk($modpath) };
-    my $list={};
+    my @dirs=$tree->get_dir_list(
+      full_path=>0,
+      keep_root=>1
 
-    # paths/dir checks
-    for my $dir (keys %h) {
+    );
 
-      if( defined $excluded
-      &&  $dir=~ m/$excluded/
+# ---   *   ---   *   ---
+# get relative paths
 
-      ) {next};
+    for my $dir(@dirs) {
 
-      # ensure directores exist
-      my $tdir=$trsh.$dir;
-      $tdir=~ s[<main>][/];
+      my ($root,$ddepth)=$dir->root();
+      my $ances=$NULLSTR;
+
+      if($dir ne $root) {
+
+        $ances=$dir->ances(
+          $NULLSTR,max_depth=>$ddepth
+
+        );
+
+      };
+
+# ---   *   ---   *   ---
+# ensure trash directories exist
+
+      my $tdir=$trsh.$ances;
 
       if(!(-e $tdir)) {
         `mkdir -p $tdir`;
 
       };
 
-# ---   *   ---   *   ---
-# capture file list
-
-      my $full=$dir;
-      $full=~ s[<main>][];
-      $full=~ s[^/][];
-
-      if(length $full) {$full.=q[/]};
-
-      my $files=[map
-        {$ARG=~ s[^/][];"$full$ARG"}
-        @{$h{$dir}}
-
-      ];
-
-      $list->{$dir}=$files;
-
-# ---   *   ---   *   ---
-
     };
 
-    $modules->{$mod}=$list;
-
   };
-
-  store($modules,$fpath)
-  or croak STRERR($fpath);
-
-};
-
-# ---   *   ---   *   ---
-# ^read in the file/dir list
-
-sub read_modules() {
-
-  my $src=Shb7::cache_file("avto-modules");
-
-  my $modules=retrieve($src)
-    or croak STRERR($src);
-
-  return $modules;
 
 };
 
@@ -1525,25 +1502,35 @@ sub get_config_files($M,$config,$module) {
 
 # ---   *   ---   *   ---
 
-  for my $dir(keys %{$module}) {
+  my @dirs=$module->get_dir_list(
+    full_path=>0,
+    keep_root=>1
+
+  );
+
+  for my $dir_node(@dirs) {
 
     my $name=$config->{name};
     my $trsh=$NULLSTR;
 
-    my $files=$module->{$dir};
+    my @files=$dir_node->get_file_list(
+      full_path=>1,
+      max_depth=>1,
 
-    if((index $dir,q{/})==0) {
-      $dir=substr $dir,1,length $dir;
+    );
 
-    };
+    map {$ARG=Shb7::shpath($ARG)} @files;
+    map {$ARG=~ s[^${name}/?][]} @files;
+
+    my $dir=$dir_node->{value};
 
     # get path to
     $dir="./$name";
-    $trsh=Shb7::rel(shb7::obj_dir($name));
+    $trsh=Shb7::rel(Shb7::obj_dir($name));
 
 # ---   *   ---   *   ---
 
-    my $matches=lfind($config->{gens},$files);
+    my $matches=lfind($config->{gens},\@files);
 
     while(@$matches) {
 
@@ -1570,7 +1557,7 @@ sub get_config_files($M,$config,$module) {
 
 # ---   *   ---   *   ---
 
-    $matches=lfind($config->{xcpy},$files);
+    $matches=lfind($config->{xcpy},\@files);
 
     while(@$matches) {
 
@@ -1590,7 +1577,7 @@ sub get_config_files($M,$config,$module) {
 
 # ---   *   ---   *   ---
 
-    $matches=lfind($config->{lcpy},$files);
+    $matches=lfind($config->{lcpy},\@files);
 
     while(@$matches) {
       my $match=shift @$matches;
@@ -1612,7 +1599,7 @@ sub get_config_files($M,$config,$module) {
 
 # ---   *   ---   *   ---
 
-    $matches=lfind($config->{xprt},$files);
+    $matches=lfind($config->{xprt},\@files);
 
     while(@$matches) {
       my $match=shift @$matches;
@@ -1625,7 +1612,7 @@ sub get_config_files($M,$config,$module) {
 
 # ---   *   ---   *   ---
 
-    my @matches=grep m/$c_ext/,@$files;
+    my @matches=grep m/$c_ext/,@files;
 
     while(@matches) {
       my $match=shift @matches;
@@ -1648,7 +1635,7 @@ sub get_config_files($M,$config,$module) {
 
 # ---   *   ---   *   ---
 
-    @matches=grep m/$perl_ext/,@$files;
+    @matches=grep m/$perl_ext/,@files;
 
     while(@matches) {
       my $match=shift @matches;
@@ -1664,7 +1651,7 @@ sub get_config_files($M,$config,$module) {
 
       push @{$M->{objs}},(
         "$LIBD$lmod/$match",
-        "$trsh/$dep"
+        "$trsh$dep"
 
       );
 
@@ -1823,18 +1810,17 @@ sub read_config() {
 # ---   *   ---   *   ---
 # emits builders
 
-sub make {
+sub make() {
 
   # fetch project data
-  my $modules=read_modules();
   my $configs=read_config();
 
   # now iter
   for my $name(keys %$configs) {
 
+    my $module=Vault::check_module($name);
     my $C=$configs->{$name};
 
-    my $module=$modules->{$name};
     my $avto_path=Shb7::file("$name/avto");
 
     # build the makescript object
@@ -1871,7 +1857,7 @@ sub make {
       'INIT {'."\n\n".
 
         'print "'.
-        $Smit::Std::ARSEP.
+        $Emit::Std::ARSEP.
         'running pre-build hook... \n";'.
 
         $C->{pre_build}.';'.
@@ -1892,12 +1878,13 @@ sub make {
 
   use Storable;
 
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
   use lib $ENV{'ARPATH'}.'/lib/';
 
-  use shb7;
-  use avt;
+  use Shb7;
+  use Avt;
 
-  use makescript;
+  use Makescript;
 
 # ---   *   ---   *   ---
 

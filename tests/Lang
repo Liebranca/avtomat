@@ -1,0 +1,27 @@
+#!/usr/bin/perl
+#
+# tests Lang && Lang::Def
+#
+# ---   *   ---   *   ---
+# deps
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
+  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+
+  use Lang;
+  use Lang::Peso;
+
+  use Fmat;
+
+# ---   *   ---   *   ---
+
+my $lang=Lang::Peso;
+say fatdump($lang->{types});
+
+# ---   *   ---   *   ---
+1; # ret

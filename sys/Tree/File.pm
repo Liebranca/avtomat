@@ -179,18 +179,14 @@ sub get_dir_list($self,%O) {
 
   # defaults
   $O{full_path}//=1;
-
-  my $dirs=$self->leafless(
-    give_parent=>1,
-
-  );
+  my @dirs=$self->hasleaves(%O);
 
 # ---   *   ---   *   ---
 # skip for plain node list
 
 goto TAIL if(!$O{full_path});
 
-  for my $dir(@$dirs) {
+  for my $dir(@dirs) {
     $dir=$dir->ances($NULLSTR);
 
   };
@@ -198,7 +194,7 @@ goto TAIL if(!$O{full_path});
 # ---   *   ---   *   ---
 
 TAIL:
-  return @$dirs;
+  return @dirs;
 
 };
 

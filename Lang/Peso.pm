@@ -25,6 +25,7 @@ package Lang::Peso;
 
   use Style;
   use Arstd;
+  use Type;
 
   use lib $ENV{'ARPATH'}.'/lib/';
   use Lang;
@@ -34,11 +35,10 @@ package Lang::Peso;
   use Peso::Ops;
   use Peso::Defs;
   use Peso::Blk;
-  use Peso::Type;
 
 # ---   *   ---   *   ---
 
-INIT {
+BEGIN {
 
 # ---   *   ---   *   ---
 # builtins and functions, group A
@@ -503,7 +503,7 @@ Lang::Def::nit(
 # ---   *   ---   *   ---
 
   types=>[
-    keys %$Peso::Type::TABLE,
+    grep {!($ARG=~ m[^-])} keys %$Type::Table,
 
   ],
 

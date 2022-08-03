@@ -62,7 +62,7 @@ package Vault;
 # global state
 
   my $Systems={};
-  my $Needs_Update={};
+  our $Needs_Update={};
 
 # ---   *   ---   *   ---
 
@@ -74,46 +74,76 @@ sub import(@args) {
   my $syskey=$args[-1];
   my $syspath=Shb7::set_root($ENV{$syskey});
 
+  # init project
   if(!exists $Systems->{$syspath}) {
     $Systems->{$syspath}=
      Tree->new_frame();
 
   };
 
+  # init modules in project
+  my $frame=$Systems->{$syspath};
+  if(!exists $frame->{-roots}->{$modname}) {
+    module_tree($modname);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub check_module($name,$exclude=[]) {
+
+  my $syspath=$Shb7::Root;
   my $frame=$Systems->{$syspath};
 
+  my $table;
+
+  if(!exists $frame->{-roots}->{$name}) {
+    $table=module_tree($name,$exclude);
+
+  } else {
+    $table=$frame->{-roots}->{$name};
+
+  };
+
+  return $table;
+
+};
+
 # ---   *   ---   *   ---
-# load existing module tree
 
-  if(!exists $frame->{-roots}->{$modname}) {
+sub module_tree($name,$excluded=[]) {
 
-    $Needs_Update->{$modname}=[];
+  my $syspath=$Shb7::Root;
+  my $frame=$Systems->{$syspath};
 
-    my $modf=Shb7::cache_file("$modname$PX_EXT");
+  $Needs_Update->{$name}=[];
+  my $modf=Shb7::cache_file("$name$PX_EXT");
 
-    if(-f $modf) {
+  # load existing
+  if(-f $modf) {
 
-      my $mod=retrieve($modf);
-      $frame->{-roots}->{$modname}=$mod;
+    my $mod=retrieve($modf);
+    $frame->{-roots}->{$name}=$mod;
 
-# ---   *   ---   *   ---
-# generate module tree
 
-    } else {
+  # generate
+  } else {
 
-      $frame->{-roots}->{$modname}=
-        Shb7::walk($modname,-r=>1);
+    $frame->{-roots}->{$name}=
+      Shb7::walk($name,-r=>1,-x=>$excluded);
 
-    };
+  };
 
 # ---   *   ---   *   ---
 # checksum the tree
 # new result will be saved if there's changes
 
-    my $table=$frame->{-roots}->{$modname};
-    $Needs_Update->{$modname}=$table->get_cksum();
+  my $table=$frame->{-roots}->{$name};
+  $Needs_Update->{$name}=$table->get_cksum();
 
-  };
+  return $table;
 
 };
 

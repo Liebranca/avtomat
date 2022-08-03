@@ -690,7 +690,7 @@ sub apply_strategy($block,$branch,$code,%data) {
 
   ;
 
-  my $tree=$branch->root;
+  my ($tree,$branch_depth)=$branch->root();
   my $create_scope=
     ($block->{inline_strat} & $CREATE_SCOPE)!=0;
 

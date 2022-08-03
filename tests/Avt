@@ -1,0 +1,91 @@
+#!/usr/bin/perl
+
+# tests various avt functions
+
+# ---   *   ---   *   ---
+# deps
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use Cwd qw(abs_path);
+
+  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+
+  use Style;
+  use Arstd;
+
+  use Shb7;
+
+  use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
+  use lib $ENV{'ARPATH'}.'/avtomat/';
+
+  use Avt;
+  use Fmat;
+
+# ---   *   ---   *   ---
+
+Avt::set_config(
+
+  name=>'avtomat',
+  pre_build=>q(
+
+    my $ex=$ENV{'ARPATH'}.'/avtomat/AR.ph';
+    my $me=`$ex`;
+
+    print $me;
+    if($me=~ m/^ARPATH missing/) {
+      exit;
+
+    };
+
+  ),
+
+);
+
+Avt::scan();
+Avt::config();
+Avt::make();
+
+exit;
+
+# ---   *   ---   *   ---
+
+Arstd::unit_test_start('Avt::ffind');
+
+# ---   *   ---   *   ---
+# checks for file-finding
+
+Shb7::set_root($ENV{'ARPATH'});
+Arstd::test(
+
+  'eq',
+
+  Avt::ffind(Shb7::file('avtomat/tests/avt')),
+  Shb7::rel(abs_path(__FILE__)),
+
+  name=>'ffind (root/*)',
+
+);
+
+# ---   *   ---   *   ---
+
+#Avt::stlib($ENV{'ARPATH'}.'/lib/');
+#Arstd::test(
+#
+#  'eq',
+#
+#  Avt::ffind('-llycon'),
+#  $ENV{'ARPATH'}.'/lib/shb7.pm',
+#
+#  name=>'ffind (lib/*)',
+#
+#);
+
+# ---   *   ---   *   ---
+
+Arstd::unit_test_passed();
+
+# ---   *   ---   *   ---
+1; # ret

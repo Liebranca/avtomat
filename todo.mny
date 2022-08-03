@@ -5,12 +5,17 @@ x ^ Find mentions of a given package or subroutine
 x ^^ Make this recursive
 ~ ^ Optimize away regexes and needless fncalls
 
-~ Reorder/repurpose Peso into lib/sys
+~ Reorder/repurpose Peso into lib/sys *
 ~ ^ Generalize Blk for serialization
 ~ ^ Generalize Ptr for Blk fetches
 
-~ Rework Frame interface
-~ Rework Lang interface
+
+~ Avt revision *
+x ^ Use Shb7::Walk instead of Avt implementation
+~ ^ Use Tree::File checksums instead of timestamps for update checks
+x ^ Rework Frame interface
+~ ^ Generate syntax highlighting for *.mny files
+~ ^ Extend *.mny syntax ;>
 
 x Extend Lang::Perl for basic (as-doc) parsing
 ~ Lang::Plps reimplementation.
