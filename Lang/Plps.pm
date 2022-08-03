@@ -585,7 +585,7 @@ BEGIN {
 
 # ---   *   ---   *   ---
 
-Lang::Def::nit(
+Lang::Plps->nit(
 
   name=>'Plps',
 

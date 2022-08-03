@@ -553,7 +553,7 @@ sub codefold($fname,$lang,%opts) {
   my $utype_decl=$lang->{utype_decl};
   my $utype_key=$lang->{utype_key};
 
-  my %types=Shwl::Blk::extract(
+  my %utypes=Shwl::Blk::extract(
 
     \$body,
 
@@ -565,8 +565,8 @@ sub codefold($fname,$lang,%opts) {
 
   );
 
-  for my $key(keys %types) {
-    $blocks{$UTYPE_PREFIX.$key}=$types{$key};
+  for my $key(keys %utypes) {
+    $blocks{$UTYPE_PREFIX.$key}=$utypes{$key};
 
   };
 

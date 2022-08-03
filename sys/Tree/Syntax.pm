@@ -27,11 +27,9 @@ package Tree::Syntax;
 
   use Style;
   use Arstd;
+  use Chk;
 
   use parent 'Tree';
-
-  use lib $ENV{'ARPATH'}.'/lib/';
-  use Lang;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks';
   use Shwl;
@@ -70,7 +68,7 @@ sub nit($class,$frame,@args) {
 sub tokenize($self) {
 
   my $body=$self->{value};
-  my $lang=$self->{frame}->{lang};
+  my $lang=$self->{frame}->{-lang};
 
   my $cut_token_re=$Shwl::CUT_RE;
   my $keyword=$lang->{keyword_re};
@@ -117,14 +115,12 @@ sub tokenize($self) {
   my $ws_re=qr{^[\s\n]*|[\s\n]*$};
 
   $body=~ s/$ws_re//sg;
-
   my @elems=();
 
-  while($body=~s/($token_re)//sxm
-
-  ) {
+  while($body=~ s/($token_re)//sxm) {
 
     my $elem=${^CAPTURE[0]};
+
     $body=~ s/$ws_re//sg;
 
     if(!defined $elem
@@ -177,7 +173,7 @@ sub tokenize($self) {
 sub agroup($self) {
 
   my $frame=$self->{frame};
-  my $lang=$frame->{lang};
+  my $lang=$frame->{-lang};
 
   my @shifts=();
   my $i=0;
@@ -236,7 +232,7 @@ sub agroup($self) {
 sub subdiv($self) {
 
   my $frame=$self->{frame};
-  my $lang=$frame->{lang};
+  my $lang=$frame->{-lang};
 
   my $ndel_op=$lang->{ops};
   my $del_op=$lang->{del_ops};
@@ -390,7 +386,7 @@ sub collapse($self,%opt) {
   my $only_if=$opt{only};
   my $no_numcon=$opt{no_numcon};
 
-  my $lang=$self->{frame}->{lang};
+  my $lang=$self->{frame}->{-lang};
   my $op_prec=$lang->{op_prec};
   my $del_op=$lang->{del_ops};
   my $ode=$lang->{ode};
@@ -492,7 +488,7 @@ SKIP:
 sub delimchk($self) {
 
   my $frame=$self->{frame};
-  my $lang=$frame->{lang};
+  my $lang=$frame->{-lang};
 
   my $ode=$lang->{ode};
   my $cde=$lang->{cde};
@@ -529,7 +525,7 @@ sub delimchk($self) {
 sub delimbrk($self,$i) {
 
   my $frame=$self->{frame};
-  my $lang=$frame->{lang};
+  my $lang=$frame->{-lang};
 
   my @anchors=();
   my @moved=();
@@ -587,7 +583,7 @@ sub delimbrk($self,$i) {
 sub findptrs($self) {
 
   my $frame=$self->{frame};
-  my $lang=$frame->{lang};
+  my $lang=$frame->{-lang};
 
   my $fr_ptr=$frame->{ptr};
 

@@ -84,7 +84,7 @@ BEGIN {
 
 # ---   *   ---   *   ---
 
-Lang::Def::nit(
+Lang::Perl->nit(
 
   name=>'Perl',
   ext=>'\.p[lm]$',

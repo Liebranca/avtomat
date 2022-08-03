@@ -490,7 +490,7 @@ sub reorder($tree) {
 
 # ---   *   ---   *   ---
 
-Lang::Def::nit(
+Lang::Peso->nit(
 
   name=>'Peso',
 

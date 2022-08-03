@@ -215,7 +215,7 @@ TOP:
 
 sub parse($lang,$fname,%opts) {
 
-  my $m=Peso::Program->nit($lang);
+  my $m=Peso::Ex->nit($lang);
   my $self=Peso::Rd->nit($m,$fname,%opts);
 
 # ---   *   ---   *   ---
@@ -467,9 +467,11 @@ sub find_asg_ops($self,@branches) {
 # ---   *   ---   *   ---
 # fills out hashref with functions in tree
 
-sub fn_search($self,$tree,$h,$typecon) {
+sub fn_search($self,$tree,$dst={}) {
 
   my $lang=$self->{lang};
+  my $emitter=q{Emit::}.$lang->{name};
+
   my $fn_key=qr{^$lang->{fn_key}$};
 
 # ---   *   ---   *   ---
@@ -484,9 +486,9 @@ sub fn_search($self,$tree,$h,$typecon) {
     my $name=$src->{name};
     my $args=$src->{args};
 
-    my $type=$typecon->($attrs);
+    my $type=$emitter->typecon($attrs);
 
-    my $fn=$h->{$name}={
+    my $fn=$dst->{$name}={
 
       type=>$type,
       args=>{},
@@ -515,7 +517,7 @@ sub fn_search($self,$tree,$h,$typecon) {
 
       };
 
-      my $arg_type=$typecon->($arg_attrs);
+      my $arg_type=$emitter->typecon($arg_attrs);
 
       $fn->{args}->{$arg_name}=$arg_type;
 
@@ -525,16 +527,20 @@ sub fn_search($self,$tree,$h,$typecon) {
 
   };
 
+  return $dst;
+
 };
 
 # ---   *   ---   *   ---
 # fills out hashref with user-defined
 # types in tree
 
-sub utype_search($self,$tree,$h,$typecon) {
+sub utype_search($self,$tree,$dst={}) {
 
   my $lang=$self->{lang};
-  my $utype_key=qr{^$lang->{utype_key}$};
+  my $emitter=q{Emit::}.$lang->{name};
+
+  my $utype_key=qr{^$lang->{utype_key}};
 
   my $re=qr{[^;]+}x;
 
@@ -550,7 +556,7 @@ sub utype_search($self,$tree,$h,$typecon) {
 
     );
 
-    $h->{$id}={};
+    $dst->{$id}={};
 
 # ---   *   ---   *   ---
 # iter struct fields
@@ -567,14 +573,18 @@ sub utype_search($self,$tree,$h,$typecon) {
 
 #:!;> this assumes C rules and NO specifiers!
 
-      my $type=$typecon->($field->{value});
+      my $type=$emitter->typecon($field->{value});
       my $name=$field->leaf_value(0);
 
-      $h->{$id}->{$name}=$type;
+      $dst->{$id}->{$name}=$type;
 
     };
 
+# ---   *   ---   *   ---
+
   };
+
+  return $dst;
 
 };
 

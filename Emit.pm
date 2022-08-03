@@ -35,6 +35,7 @@ sub get_typetab($class) {return {}};
 sub typecon($class,$type) {
 
   my $tab=$class->get_typetab();
+  $type=~ s[^\s*|\s*$][]sg;
 
   if(exists $tab->{$type}) {
     $type=$tab->{$type};

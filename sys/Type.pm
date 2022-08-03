@@ -204,24 +204,24 @@ sub xltab(%T) {
   for my $width(keys %T) {
 
     my $signed_types=$T{$width}->{sig};
-    my $unsigned_types=$T{$width}->{sig};
+    my $unsigned_types=$T{$width}->{unsig};
 
     for my $type(@$signed_types) {
-      $out->{$type}=$width;
 
-# ---   *   ---   *   ---
-
-      if($width=~ m/\s float$/x) {
+      if($width=~ m/\s real$/x) {
         my $type_ptr=$ptr_rules->{fmat};
 
         $type_ptr=~ s/$s_re/$ptr_rules->{key}/;
         $type_ptr=~ s/$type_re/$type/;
 
+        $out->{$type}=$width;
         $out->{$type_ptr}="$width ptr";
 
         next;
 
       };
+
+      $out->{$type}='s'.$width;
 
 # ---   *   ---   *   ---
 
@@ -232,7 +232,7 @@ sub xltab(%T) {
       $type_unsig=~ s/$type_re/$type/;
 
       $type_uptr=$type_unsig;
-      $out->{$type_unsig}="u$width";
+      $out->{$type_unsig}="$width";
 
 # ---   *   ---   *   ---
 
@@ -246,10 +246,27 @@ sub xltab(%T) {
 
       $type_uptr=$tmp;
 
-      $out->{$type_ptr}="$width ptr";
-      $out->{$type_uptr}="u$width ptr";
+      $out->{$type_ptr}="s$width ptr";
+      $out->{$type_uptr}="$width ptr";
 
     };
+
+# ---   *   ---   *   ---
+
+    for my $type(@$unsigned_types) {
+
+      $out->{$type}=$width;
+
+      my $type_ptr=$ptr_rules->{fmat};
+
+      $type_ptr=~ s/$s_re/$ptr_rules->{key}/;
+      $type_ptr=~ s/$type_re/$type/;
+
+      $out->{$type_ptr}="$width ptr";
+
+    };
+
+# ---   *   ---   *   ---
 
   };
 

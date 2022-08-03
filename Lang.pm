@@ -381,9 +381,9 @@ sub eiths_l(
 
 # ---   *   ---   *   ---
 
-  my $out='(?: '.(join '|',@words).')';
+  my $out='('.(join '|',@words).')';
   if(!$disable_bwrap) {
-    $out='(?: ^|\b)'.$out.'(?: \b|$)';
+    $out='(^|\b)'.$out.'(\b|$)';
 
   };
 
@@ -600,7 +600,7 @@ sub nxtok($s,$cutat) {
 my %LANGUAGES=();
 
 sub register_def($name) {
-  $LANGUAGES{$name}=1;
+  $LANGUAGES{$name}=eval(q{Lang::}.$name);
 
 };
 
@@ -610,11 +610,13 @@ sub file_ext($file) {
 
   $file=(split '/',$file)[-1];
 
-  for my $key(keys %LANGUAGES) {
-    my $pat=lang->$key->{ext};
+  for my $lang(values %LANGUAGES) {
+
+    my $pat=$lang->{ext};
 
     if($file=~ m/$pat/) {
-      $name=$key;last;
+      $name=$lang->{name};
+      last;
 
     };
   };

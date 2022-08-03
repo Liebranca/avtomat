@@ -63,7 +63,7 @@ q[#ifdef __cplusplus
 
 # ---   *   ---   *   ---
 
-  Readonly our $TYPETAB=Vault::cached(
+  our $TYPETAB=Vault::cached(
 
     'TYPETAB',
 
@@ -118,8 +118,8 @@ q[#ifdef __cplusplus
 
     },
 
-    'word float'=>{sig=>[qw(float)]},
-    'long float'=>{sig=>[qw(double)]},
+    'word real'=>{sig=>[qw(float)]},
+    'long real'=>{sig=>[qw(double)]},
 
   );
 

@@ -284,7 +284,7 @@ sub arr_vrepl($ref,$key) {
 
 # ---   *   ---   *   ---
 
-sub nit(%h) {
+sub nit($class,%h) {
 
   my $ref={};
 
@@ -631,7 +631,7 @@ sub nit(%h) {
 
   no strict;
 
-  my $def=bless $ref,'Lang::Def';
+  my $def=bless $ref,$class;
   my $hack="Lang::$def->{name}";
 
   *$hack=sub {return $def};
@@ -763,6 +763,10 @@ sub is_ptr($self,$s,$program) {
   return ($out);
 
 };
+
+# ---   *   ---   *   ---
+
+sub hier_sort($self,$id) {};
 
 # ---   *   ---   *   ---
 1; # ret

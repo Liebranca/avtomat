@@ -720,6 +720,20 @@ sub file_sbl($f) {
   my $found='';
   my $langname=Lang::file_ext($f);
 
+  if(!defined $langname) {
+
+    Arstd::errout(
+
+      q{Can't determine language for file '%s'},
+      args=>[$f],
+      lvl=>$AR_FATAL,
+
+    );
+
+  };
+
+# ---   *   ---   *   ---
+
   my $object={
 
     utypes=>{},
@@ -733,8 +747,9 @@ sub file_sbl($f) {
 # ---   *   ---   *   ---
 # read source file
 
+  my $lang=Lang->$langname;
   my $rd=Peso::Rd::parse(
-    Lang->$langname,$f
+    $lang,$f
 
   );
 
@@ -742,31 +757,22 @@ sub file_sbl($f) {
   my $tree=$block->{tree};
 
   $rd->recurse($tree);
-  $rd->hier_sort();
+  $lang->hier_sort($rd);
 
 # ---   *   ---   *   ---
 # mine the tree
 
-  my $emitter=q{Emit::}.$langname;
-  my $typecon=\&$emitter->typecon;
-
-  );
-
   $rd->fn_search(
 
     $tree,
-
     $object->{functions},
-    $typecon
 
   );
 
   $rd->utype_search(
 
     $tree,
-
     $object->{utypes},
-    $typecon
 
   );
 

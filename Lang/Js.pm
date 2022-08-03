@@ -19,7 +19,7 @@ package Lang::Js;
 # ---   *   ---   *   ---
 
 BEGIN {
-Lang::Def::nit(
+Lang::Js->nit(
 
   name=>'JS',
   ext=>'\.js$',

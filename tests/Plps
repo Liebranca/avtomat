@@ -4,39 +4,26 @@
 
 # ---   *   ---   *   ---
 # deps
+
+  use v5.36.0;
   use strict;
   use warnings;
 
-  use lib $ENV{'ARPATH'}.'/lib/';
+  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+  use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
+  use lib $ENV{'ARPATH'}.'/avtomat/';
 
-  use Lang;
-  use Lang::Peso;
-  use Lang::C;
-
-  use Peso::Rd;
   use Avt;
-
   use Fmat;
 
 # ---   *   ---   *   ---
 
-my $rd=peso::rd::parse(
-  lang->c,$ENV{'ARPATH'}.'/AUVILIB/xforms/im.c'
+my $o=Avt::file_sbl(
+  $ENV{'ARPATH'}.'/AUVILIB/xforms/im.c'
 
 );
 
-my $block=$rd->select_block(-ROOT);
-my $tree=$block->{tree};
-
-$rd->recurse($tree);
-Lang::C->hier_sort($rd);
-
-my $h={};
-$rd->utype_search($tree,$h,undef);
-
-say fatdump($h)."\n";
-
-#$tree->prich();
+say fatdump($o)."\n";
 
 # ---   *   ---   *   ---
 
