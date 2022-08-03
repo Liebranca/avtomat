@@ -64,7 +64,7 @@ avt::set_config(
   name=>'avtomat',
   pre_build=>q(
 
-    my $ex=$ENV{'ARPATH'}.'/avtomat/AR.ph';
+    my $ex=$ENV{'ARPATH'}.'/avtomat/AR.pl';
     my $me=`$ex`;
 
     print $me;

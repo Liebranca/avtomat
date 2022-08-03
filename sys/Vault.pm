@@ -170,7 +170,13 @@ END {
 # ---   *   ---   *   ---
 # save tree to disk
 
-      say "updated \e[32;1m",$modname,"\e[0m\n";
+      say {*STDERR}
+
+        "updated \e[32;1m",
+        $modname,
+        "\e[0m\n"
+
+      ;
 
       my $modf=Shb7::cache_file(
         "$modname$PX_EXT"

@@ -28,18 +28,16 @@ package MAM;
 
   use Cwd qw(abs_path);
 
-  use lib $ENV{'ARPATH'}.'/lib/hacks/';
-
-  use parent 'lyfil';
-  use shwl;
-
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
-  use style;
-  use arstd;
-  use cli;
+  use Style;
+  use Arstd;
+  use Cli;
 
-  use Filter::Util::Call;
+  use lib $ENV{'ARPATH'}.'/lib/hacks/';
+
+  use Shwl;
+  use parent 'Lyfil';
 
 # ---   *   ---   *   ---
 # ROM
@@ -68,7 +66,7 @@ sub import {
 
   my @opts=@_;
 
-  $SETTINGS=cli::nit(@$OPTIONS);
+  $SETTINGS=Cli->nit(@$OPTIONS);
   $SETTINGS->take(@opts);
 
   if($SETTINGS->{module} eq $NULL) {
@@ -77,9 +75,9 @@ sub import {
   };
 
   my ($pkg,$fname,$lineno)=(caller);
-  my $self=lyfil::nit($fname,$lineno);
+  my $self=MAM->nit($fname,$lineno);
 
-  filter_add($self);
+  $self->filter_add($self);
 
 };
 
@@ -97,14 +95,14 @@ sub filter {
   my ($self)=@_;
 
   my ($pkg,$fname,$lineno)=(caller);
-  my $status=filter_read();
+  my $status=Lyfil::filter_read();
 
   $self->logline(\$_);
 
   if(!$status) {
 
     $self->propagate();
-    shwl::stitch(\$self->{chain}->[0]->{raw});
+    Shwl::stitch(\$self->{chain}->[0]->{raw});
 
 # ---   *   ---   *   ---
 
@@ -162,7 +160,7 @@ sub filter {
 
     if($SETTINGS->{make_deps}!=$NULL) {
 
-      my $deps=$shwl::DEPS_STR;
+      my $deps=$Shwl::DEPS_STR;
       my $re=abs_path(glob(q{~}));
 
       $re=qr{$re};
@@ -181,7 +179,7 @@ sub filter {
 
       };
 
-      $deps.=$shwl::DEPS_STR;
+      $deps.=$Shwl::DEPS_STR;
       print $deps;
 
     };

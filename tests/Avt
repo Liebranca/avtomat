@@ -22,33 +22,6 @@
   use lib $ENV{'ARPATH'}.'/avtomat/';
 
   use Avt;
-  use Fmat;
-
-# ---   *   ---   *   ---
-
-Avt::set_config(
-
-  name=>'avtomat',
-  pre_build=>q(
-
-    my $ex=$ENV{'ARPATH'}.'/avtomat/AR.ph';
-    my $me=`$ex`;
-
-    print $me;
-    if($me=~ m/^ARPATH missing/) {
-      exit;
-
-    };
-
-  ),
-
-);
-
-Avt::scan();
-Avt::config();
-Avt::make();
-
-exit;
 
 # ---   *   ---   *   ---
 

@@ -53,11 +53,15 @@ my $FILE_LIST=[
 
   '/sys/Style.pm',
   '/sys/Arstd.pm',
+  '/sys/Chk.pm',
+  '/sys/St.pm',
+  '/sys/Frame.pm',
 
   '/sys/Queue.pm',
   '/sys/Stack.pm',
   '/sys/Tree.pm',
   '/sys/Tree/File.pm',
+  '/sys/Tree/Syntax.pm',
 
   '/sys/Type.pm',
 
@@ -78,6 +82,7 @@ my $FILE_LIST=[
 # then language and utils
 
   '/Lang.pm',
+  '/Lang/Def.pm',
 
   '/Peso/St.pm',
   '/Peso/Defs.pm',
@@ -85,7 +90,6 @@ my $FILE_LIST=[
   '/Peso/Ops.pm',
 
   '/Peso/Rd.pm',
-  '/Peso/Node.pm',
   '/Peso/Ptr.pm',
   '/Peso/Blk.pm',
   '/Peso/Sbl.pm',
@@ -155,9 +159,10 @@ sub update {
 
         my $MAM_PATH=
           "-I$src".q{ }.
+          "-I$src/sys".q{ }.
           "-I$src/hacks".q{ }.
-          "-I$src/peso".q{ }.
-          "-I$src/langdefs";
+          "-I$src/Peso".q{ }.
+          "-I$src/Lang";
 
 # ---   *   ---   *   ---
 

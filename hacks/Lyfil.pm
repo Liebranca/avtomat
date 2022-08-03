@@ -19,7 +19,10 @@ package Lyfil;
   use strict;
   use warnings;
 
+  use Filter::Util::Call;
+
   use lib $ENV{'ARPATH'}.'/lib/sys';
+
   use Style;
   use Arstd;
 
