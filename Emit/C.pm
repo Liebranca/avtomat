@@ -36,6 +36,8 @@ package Emit::C;
   use Emit::Std;
   use Peso::Ipret;
 
+  use parent 'Emit';
+
 # ---   *   ---   *   ---
 
   Readonly my $OPEN_GUARDS=>
@@ -61,84 +63,70 @@ q[#ifdef __cplusplus
 
 # ---   *   ---   *   ---
 
-  our $TYPETAB;INIT {
+  Readonly our $TYPETAB=Vault::cached(
 
-    my $fpath=Shb7::load_cache(
+    'TYPETAB',
 
-      'TYPETAB',
-
-      \$TYPETAB,
-      \&Type::xltab,
+    \$TYPETAB,
+    \&Type::xltab,
 
 # ---   *   ---   *   ---
 
-      -PTR_RULES=>{
-        key=>q{*},
-        fmat=>'$type%s'
+    -PTR_RULES=>{
+      key=>q{*},
+      fmat=>'$type%s'
 
-      },
+    },
 
-      -UNSIG_RULES=>{
-        key=>'unsigned',
-        fmat=>'%s $type',
+    -UNSIG_RULES=>{
+      key=>'unsigned',
+      fmat=>'%s $type',
 
-      },
-
-# ---   *   ---   *   ---
-
-      byte=>{
-        sig=>[qw(char int8_t)],
-        unsig=>[qw(uchar uint8_t)],
-
-      },
-
-      wide=>{
-        sig=>[qw(short int16_t wchar_t)],
-        unsig=>[qw(ushort uint16_t)],
-
-      },
+    },
 
 # ---   *   ---   *   ---
 
-      word=>{
-        sig=>[qw(int int32_t)],
-        unsig=>[qw(uint uint32_t)],
+    byte=>{
+      sig=>[qw(char int8_t)],
+      unsig=>[qw(uchar uint8_t)],
 
-      },
+    },
 
-      long=>{
+    wide=>{
+      sig=>[qw(short int16_t wchar_t)],
+      unsig=>[qw(ushort uint16_t)],
 
-        sig=>[qw(long int64_t intptr_t)],
-
-        unsig=>[qw(
-          ulong uint64_t
-          size_t uintptr_t
-
-        )],
-
-      },
-
-      'word float'=>{sig=>[qw(float)]},
-      'long float'=>{sig=>[qw(double)]},
-
-    );
+    },
 
 # ---   *   ---   *   ---
 
-  };
+    word=>{
+      sig=>[qw(int int32_t)],
+      unsig=>[qw(uint uint32_t)],
+
+    },
+
+    long=>{
+
+      sig=>[qw(long int64_t intptr_t)],
+
+      unsig=>[qw(
+        ulong uint64_t
+        size_t uintptr_t
+
+      )],
+
+    },
+
+    'word float'=>{sig=>[qw(float)]},
+    'long float'=>{sig=>[qw(double)]},
+
+  );
 
 # ---   *   ---   *   ---
+# worse way possible to make SUPER find this var
 
-sub typecon($type) {
-
-  if(exists $TYPETAB->{$type}) {
-    $type=$TYPETAB->{$type};
-
-  };
-
-  return $type;
-
-};
+sub get_typetab($class) {return $TYPETAB};
 
 # ---   *   ---   *   ---
 # header guards

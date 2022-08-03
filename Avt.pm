@@ -349,7 +349,7 @@ sub libsearch($lbins,$lsearch,$deps) {
       if(-e "$ldir/.$lbin") {
 
         my $f=retrieve("$ldir/.$lbin")
-        or croak STRERR("$ldir/.$lbin");
+        or croak strerr("$ldir/.$lbin");
 
         my $ndeps.=(defined $f->{deps})
           ? $f->{deps} : $NULLSTR;
@@ -491,7 +491,7 @@ sub wrcpyboil {
   my $path=Shb7::file($dir."$fname.py");
 
   open my $FH,'>',$path
-  or croak STRERR($path);
+  or croak strerr($path);
 
 # ---   *   ---   *   ---
 
@@ -510,7 +510,7 @@ sub wrcpyboil {
 
 #  # close boiler
 #  print $FH Avt::cplboil_pm uc($fname),1;
-  close $FH or croak STRERR($path);
+  close $FH or croak strerr($path);
 
 };
 
@@ -734,7 +734,7 @@ sub file_sbl($f) {
 # read source file
 
   my $rd=Peso::Rd::parse(
-    lang->$langname,$f
+    Lang->$langname,$f
 
   );
 
@@ -747,8 +747,8 @@ sub file_sbl($f) {
 # ---   *   ---   *   ---
 # mine the tree
 
-  my $typecon=eval(
-    q{\&Emit::} . $langname . q{::typecon}
+  my $emitter=q{Emit::}.$langname;
+  my $typecon=\&$emitter->typecon;
 
   );
 
@@ -822,7 +822,7 @@ sub symscan($mod,$dst,$deps,@fnames) {
 
   };
 
-  store($shwl,$dst) or croak STRERR($dst);
+  store($shwl,$dst) or croak strerr($dst);
 
 };
 
@@ -843,7 +843,7 @@ sub symrd($mod) {
 
   };
 
-  $out=retrieve($src) or croak STRERR($src);
+  $out=retrieve($src) or croak strerr($src);
 
 # ---   *   ---   *   ---
 
@@ -989,7 +989,7 @@ EOF
 
   # create file
   open my $FH,'>',Shb7::file("$dir/$fname.pm")
-  or croak STRERR($fname);
+  or croak strerr($fname);
 
   # generate notice
   my $n=note($author,'#');
@@ -1127,7 +1127,7 @@ sub plext($dst_path,$src_path) {
 
   $dst.=$src;
   open FH,'>',$dst_path
-  or croak STRERR($dst_path);
+  or croak strerr($dst_path);
 
   print FH $dst;
   close FH;
@@ -1792,7 +1792,7 @@ sub config() {
   my $src=Shb7::cache_file("avto-config");
   my $config=$Cache{_config};
 
-  store($config,$src) or croak STRERR($src);
+  store($config,$src) or croak strerr($src);
 
 };
 
@@ -1803,7 +1803,7 @@ sub read_config() {
 
   my $src=Shb7::cache_file("avto-config");
   my $config=retrieve($src)
-  or croak STRERR($src);
+  or croak strerr($src);
 
 };
 
@@ -1833,13 +1833,13 @@ sub make() {
     my $cache_path=Shb7::file("$name/.avto-cache");
 
     store($M,$cache_path)
-    or croak STRERR($cache_path);
+    or croak strerr($cache_path);
 
 # ---   *   ---   *   ---
 # now dump the boiler
 
     open my $FH,'>',$avto_path
-    or croak STRERR($avto_path);
+    or croak strerr($avto_path);
 
     my $FILE=$NULLSTR;
 

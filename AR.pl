@@ -64,6 +64,8 @@ my $FILE_LIST=[
   '/sys/Tree/Syntax.pm',
 
   '/sys/Type.pm',
+  '/sys/Blk.pm',
+  '/sys/Ptr.pm',
 
   '/sys/Shb7.pm',
   '/sys/Vault.pm',

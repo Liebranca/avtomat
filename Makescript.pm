@@ -265,7 +265,7 @@ sub update_objects($M,$DFLG,$PFLG) {
     my $obj=$OBJS[$j+0];
     my $mmd=$OBJS[$j+1];
 
-    if($src=~ lang->perl->{ext}) {
+    if($src=~ Lang::Perl->{ext}) {
       $M->pcc($src,$obj,$mmd);
       next;
 

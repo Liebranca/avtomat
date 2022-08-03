@@ -31,35 +31,36 @@ BEGIN {
   use strict;
   use warnings;
 
-  use lib $ENV{'ARPATH'}.'/lib/';
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use Shb7;
 
-  use shb7;
-  use avt;
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use Avt;
 
 # ---   *   ---   *   ---
 
-my $root=shb7::set_root($ENV{'ARPATH'});
-avt::stlib(shb7::lib());
+my $root=Shb7::set_root($ENV{'ARPATH'});
+Avt::stlib(Shb7::lib());
 
 # ---   *   ---   *   ---
 # fetch missing deps
 
-{ my @deps=(
-
-    ['help',$avt::LYEB.'/help',undef],
-    ['ft8',$avt::LYEB.'/ft8',undef],
-    ['ce',$avt::LYEB.'/ce',undef],
-
-  );avt::depchk $root,\@deps;
-
-};
+#{ my @deps=(
+#
+#    ['help',$Avt::LYEB.'/help',undef],
+#    ['ft8',$Avt::LYEB.'/ft8',undef],
+#    ['ce',$Avt::LYEB.'/ce',undef],
+#
+#  );Avt::depchk $root,\@deps;
+#
+#};
 
 # ---   *   ---   *   ---
 # PACKAGE CONFIGS
 
 # ---   *   ---   *   ---
 
-avt::set_config(
+Avt::set_config(
 
   name=>'avtomat',
   pre_build=>q(
@@ -79,7 +80,7 @@ avt::set_config(
 
 # ---   *   ---   *   ---
 
-avt::set_config(
+Avt::set_config(
 
   name=>'ce',
   scan=>'-x keys',
@@ -100,30 +101,33 @@ avt::set_config(
 
 # ---   *   ---   *   ---
 
-#  post_build=>q(
-#
-#    avt::stlib(avt::root().'/lib/');
-#    avt::wrcplboil_pm(
-#      '/lib/',
-#      'lycon',
-#      'IBN-3DILA',
-#
-#      \&avt::ctopl,['lycon',['ce']]
-#
-#    );avt::plext(
-#
-#      '/lib/lycon.pm',
-#      '/ce/lycon_ext'
-#
-#    );
-#
-#  ),
+  post_build=>q(
+
+    Avt::stlib($Shb7::Root.'/lib/');
+
+    Avt::wrcplboil_pm(
+      '/lib/',
+      'lycon',
+      'IBN-3DILA',
+
+      \&Avt::ctopl,['lycon',['ce']]
+
+    );
+
+    Avt::plext(
+
+      '/lib/lycon.pm',
+      '/ce/lycon_ext'
+
+    );
+
+  ),
 
 );
 
 # ---   *   ---   *   ---
 
-#avt::set_config(
+#Avt::set_config(
 #
 #  name=>'help',
 #  xcpy=>[qw(help* tkmny*)],
@@ -132,14 +136,14 @@ avt::set_config(
 #
 ## ---   *   ---   *   ---
 #
-#avt::set_config(
+#Avt::set_config(
 #
 #  name=>'ft8',
 #
 #  deps=>[
 #
 #    [ 'rw-psf',
-#      $avt::GITHUB.'/talamus/rw-psf',
+#      $Avt::GITHUB.'/talamus/rw-psf',
 #      undef
 #
 #    ],
@@ -152,21 +156,21 @@ avt::set_config(
 #
 #  post_build=>q(
 #
-#    if(!(-e avt::root."/fonts")) {
+#    if(!(-e $Shb7::Root."/fonts")) {
 #
-#      avt::ex 'ft8',[
+#      Avt::ex 'ft8',[
 #        '-g','8,16,24',
 #
-#        avt::root."/ft8/lycon",
-#        avt::root."/fonts"
+#        $Shb7::Root."/ft8/lycon",
+#        $Shb7::Root."/fonts"
 #
 #      ],'';
 #
-#      avt::ex 'ft8',[
+#      Avt::ex 'ft8',[
 #        '-x','8,16,24','lycon',
 #
-#        avt::root."/fonts/",
-#        avt::root."/fonts/X11"
+#        $Shb7::Root."/fonts/",
+#        $Shb7::Root."/fonts/X11"
 #
 #      ],'';
 #
@@ -177,7 +181,7 @@ avt::set_config(
 #
 ## ---   *   ---   *   ---
 #
-#avt::set_config(
+#Avt::set_config(
 #
 #  name=>'sin',
 #  build=>'ar:sin',
@@ -193,7 +197,7 @@ avt::set_config(
 #
 ## ---   *   ---   *   ---
 #
-#avt::set_config(
+#Avt::set_config(
 #
 #  name=>'chasm',
 #
@@ -204,7 +208,7 @@ avt::set_config(
 #
 ## ---   *   ---   *   ---
 #
-#avt::set_config(
+#Avt::set_config(
 #
 #  name=>'AUVILIB',
 #
@@ -215,13 +219,13 @@ avt::set_config(
 #
 #  post_build=>q(
 #
-#    avt::stlib(avt::root().'/lib/');
-#    avt::wrcpyboil(
+#    Avt::stlib($Shb7::Root.'/lib/');
+#    Avt::wrcpyboil(
 #      '/lib/',
 #      'AUVILIB',
 #      'IBN-3DILA',
 #
-#      \&avt::ctopy,['AUVILIB',['AUVILIB']]
+#      \&Avt::ctopy,['AUVILIB',['AUVILIB']]
 #
 #    );
 #
@@ -232,11 +236,11 @@ avt::set_config(
 # ---   *   ---   *   ---
 # install packages
 
-avt::scan();
-avt::config();
-avt::make();
+Avt::scan();
+Avt::config();
+Avt::make();
 
-my @modules=avt::MODULES;
+my @modules=Avt::MODULES;
 for my $mod(@modules) {
   print `$root/$mod/avto`
 

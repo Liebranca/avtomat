@@ -234,7 +234,7 @@ sub walk($path,%O) {
   if(length $O{-x}) {$O{-x}.=q{|}};
 
   $O{-x}.=q{
-    nytprof | data | docs | tests
+    nytprof | data | docs | tests | legacy
 
   };
 

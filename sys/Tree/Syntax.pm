@@ -50,6 +50,12 @@ package Tree::Syntax;
 
   }x;
 
+  sub Frame_Vars($class) {return {
+
+    -lang=>undef,
+
+  }};
+
 # ---   *   ---   *   ---
 
 sub nit($class,$frame,@args) {
@@ -64,7 +70,7 @@ sub nit($class,$frame,@args) {
 sub tokenize($self) {
 
   my $body=$self->{value};
-  my $lang=$self->{frame}->{master}->{lang};
+  my $lang=$self->{frame}->{lang};
 
   my $cut_token_re=$Shwl::CUT_RE;
   my $keyword=$lang->{keyword_re};
@@ -171,7 +177,7 @@ sub tokenize($self) {
 sub agroup($self) {
 
   my $frame=$self->{frame};
-  my $lang=$frame->{master}->{lang};
+  my $lang=$frame->{lang};
 
   my @shifts=();
   my $i=0;
@@ -230,7 +236,7 @@ sub agroup($self) {
 sub subdiv($self) {
 
   my $frame=$self->{frame};
-  my $lang=$frame->{master}->{lang};
+  my $lang=$frame->{lang};
 
   my $ndel_op=$lang->{ops};
   my $del_op=$lang->{del_ops};
@@ -384,7 +390,7 @@ sub collapse($self,%opt) {
   my $only_if=$opt{only};
   my $no_numcon=$opt{no_numcon};
 
-  my $lang=$self->{frame}->{master}->{lang};
+  my $lang=$self->{frame}->{lang};
   my $op_prec=$lang->{op_prec};
   my $del_op=$lang->{del_ops};
   my $ode=$lang->{ode};
@@ -486,7 +492,7 @@ SKIP:
 sub delimchk($self) {
 
   my $frame=$self->{frame};
-  my $lang=$frame->{master}->{lang};
+  my $lang=$frame->{lang};
 
   my $ode=$lang->{ode};
   my $cde=$lang->{cde};
@@ -523,7 +529,7 @@ sub delimchk($self) {
 sub delimbrk($self,$i) {
 
   my $frame=$self->{frame};
-  my $lang=$frame->{master}->{lang};
+  my $lang=$frame->{lang};
 
   my @anchors=();
   my @moved=();
@@ -581,9 +587,9 @@ sub delimbrk($self,$i) {
 sub findptrs($self) {
 
   my $frame=$self->{frame};
-  my $lang=$frame->{master}->{lang};
+  my $lang=$frame->{lang};
 
-  my $fr_ptr=$frame->{master}->{ptr};
+  my $fr_ptr=$frame->{ptr};
 
   my $pesc=$lang->{pesc};
   my $types=$lang->{types};

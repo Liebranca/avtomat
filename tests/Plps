@@ -9,18 +9,18 @@
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
-  use lang;
-  use langdefs::peso;
-  use langdefs::c;
+  use Lang;
+  use Lang::Peso;
+  use Lang::C;
 
-  use peso::rd;
-  use avt;
+  use Peso::Rd;
+  use Avt;
 
-  use Data::Dumper;
+  use Fmat;
 
 # ---   *   ---   *   ---
 
-my $rd=peso::rd::new_parser(
+my $rd=peso::rd::parse(
   lang->c,$ENV{'ARPATH'}.'/AUVILIB/xforms/im.c'
 
 );
@@ -29,12 +29,12 @@ my $block=$rd->select_block(-ROOT);
 my $tree=$block->{tree};
 
 $rd->recurse($tree);
-$rd->hier_sort();
+Lang::C->hier_sort($rd);
 
 my $h={};
 $rd->utype_search($tree,$h,undef);
 
-print Dumper($h)."\n";
+say fatdump($h)."\n";
 
 #$tree->prich();
 

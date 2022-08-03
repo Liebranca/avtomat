@@ -22,14 +22,8 @@ package Peso::Ex;
 
   use Style;
   use Arstd;
-  use Frame;
 
   use Tree::Syntax;
-
-  use lib $ENV{'ARPATH'}.'/lib/';
-
-  use Peso::Blk;
-  use Peso::Ptr;
 
 # ---   *   ---   *   ---
 # info
@@ -48,29 +42,11 @@ sub nit($class,$lang) {
     pass=>0,
 
     lang=>$lang,
+
     tree=>undef,
-
-    mem=>[],
-
-    ptr=>undef,
-    blk=>undef,
-
-    node=>undef,
+    node=>Tree::Syntax->new_frame(-lang=>$lang),
 
   },$class;
-
-# ---   *   ---   *   ---
-
-  $self->{ptr}=
-    Peso::Ptr->new_frame($self->{mem});
-
-  $self->{blk}=
-    Peso::Blk->new_frame($self->{mem});
-
-  $self->declscope('non',0);
-
-#  $self->{node}=
-#    Tree::Syntax->new_frame($lang);
 
   return $self;
 

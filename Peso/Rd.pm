@@ -32,28 +32,26 @@ package Peso::Rd;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Lang;
-
   use Peso::Ex;
-  use Peso::St;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v2.50.1;
+  our $VERSION=v2.50.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # constructor
 
-sub nit($class,$program,$fname,%opts) {
+sub nit($class,$ex,$fname,%opts) {
 
   my $rd=bless {
 
-    program=>$program,
-    lang=>$program->{lang},
+    ex=>$ex,
+    lang=>$ex->{lang},
 
     blocks=>Shwl::codefold(
-      $fname,$program->{lang},%opts
+      $fname,$ex->{lang},%opts
 
     ),
 
@@ -124,7 +122,7 @@ sub tokenizer($self,$body,$root=undef) {
 # ---   *   ---   *   ---
 # convert the string into a tree branch
 
-  my $nd_frame=$self->{program}->{node};
+  my $nd_frame=$self->{ex}->{node};
   for my $exp(@exps) {
 
     $exp=$nd_frame->nit($root,$exp);

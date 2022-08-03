@@ -58,6 +58,18 @@ package Vault;
 
   my Readonly $PX_EXT='.px';
 
+  my Readonly $Std_Dirs=qr{(?:
+
+    bin
+  | lib
+
+  | \.cache
+  | \.trash
+
+  | include
+
+  )}x;
+
 # ---   *   ---   *   ---
 # global state
 
@@ -70,6 +82,8 @@ sub import(@args) {
 
   my ($pkgname,$file,$line)=caller;
   my $modname=Shb7::module_of(abs_path($file));
+
+  goto SKIP if($modname=~ $Std_Dirs);
 
   my $syskey=$args[-1];
   my $syspath=Shb7::set_root($ENV{$syskey});
@@ -87,6 +101,12 @@ sub import(@args) {
     module_tree($modname);
 
   };
+
+# ---   *   ---   *   ---
+
+
+SKIP:
+  return;
 
 };
 
@@ -201,6 +221,8 @@ sub cached($key,$ptr,$call,@args) {
   my ($pkgname,$file,$line)=caller;
   my $modname=Shb7::module_of(abs_path($file));
 
+  goto SKIP if($modname=~ $Std_Dirs);
+
 # ---   *   ---   *   ---
 # get branch object belongs to
 
@@ -225,6 +247,8 @@ sub cached($key,$ptr,$call,@args) {
   };
 
 # ---   *   ---   *   ---
+
+SKIP:
 
   if(!defined $$ptr) {
     $$ptr=$call->(@args);
