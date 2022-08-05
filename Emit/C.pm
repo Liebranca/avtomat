@@ -54,7 +54,7 @@ package Emit::C;
 
 # ---   *   ---   *   ---
 
-    q[sbyte]=>['char','int8_t'],
+    q[sbyte]=>['int8_t'],
 
     q[byte]=>[
       'uchar','uint8_t','unsigned char'
@@ -62,14 +62,19 @@ package Emit::C;
     ],
 
     q[swide]=>[
-      'short','int16_t','wchar_t'
+      'short','int16_t'
 
     ],
 
     q[wide]=>[
-      'ushort','uint16_t','unsigned wchar_t'
+      'ushort','uint16_t'
 
     ],
+
+# ---   *   ---   *   ---
+
+    q[byte_str]=>['char*'],
+    q[wide_str]=>['wchar_t*'],
 
 # ---   *   ---   *   ---
 
@@ -313,16 +318,34 @@ sub datasec($name,$type,@items) {
 
 sub xltab(%table) {
 
+  for my $key(qw(byte_str wide_str)) {
+  for my $indlvl(1..2) {
+
+    my $peso_ind=$Type::Indirection_Key->[$indlvl-1];
+    my $c_ind=q[*] x $indlvl;
+
+    my $subtab=$table{"${key}_$peso_ind"}=[];
+
+    for my $ctype(@{$table{$key}}) {
+      push @$subtab,"$ctype$c_ind";
+
+    };
+
+  }};
+
+# ---   *   ---   *   ---
+
   for my $key(keys %table) {
+  next if $key=~ m[_str_];
+
   for my $indlvl(1..3) {
 
     my $peso_ind=$Type::Indirection_Key->[$indlvl-1];
     my $c_ind=q[*] x $indlvl;
 
-    my $subtab=$table{"$key $peso_ind"}=[];
+    my $subtab=$table{"${key}_$peso_ind"}=[];
 
     for my $ctype(@{$table{$key}}) {
-
       push @$subtab,"$ctype$c_ind";
 
     };
@@ -336,6 +359,36 @@ sub xltab(%table) {
   for my $key(keys %table) {
   for my $ctype(@{$table{$key}}) {
 
+    $result->{$ctype}=$key;
+
+  }};
+
+# ---   *   ---   *   ---
+
+  my %strtypes=(
+
+    byte=>[
+
+      map
+        {$ARG=substr $ARG,0,(length $ARG)-1}
+        @{$table{byte_str}}
+
+    ],
+
+    wide=>[
+
+      map
+        {$ARG=substr $ARG,0,(length $ARG)-1}
+        @{$table{wide_str}}
+
+    ],
+
+  );
+
+# ---   *   ---   *   ---
+
+  for my $key(qw(byte wide)) {
+  for my $ctype(@{$strtypes{$key}}) {
     $result->{$ctype}=$key;
 
   }};

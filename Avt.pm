@@ -1040,20 +1040,12 @@ sub nit {
 
   my \$libfold=Arstd::dirof(__FILE__);
 
-  my \$olderr=Arstd::errmute();
+
   my \$ffi=FFI::Platypus->new(api => 2);
   \$ffi->lib(
     "\$libfold/lib$soname.so"
 
   );
-
-  Arstd::erropen(\$olderr);
-
-  \$ffi->load_custom_type(
-    '::WideString'=>'wstring'
-
-  );\$ffi->type('(void)->void'=>'nihil');
-  \$Cache{ffi}=\$ffi;
 
 EOF
 ;print {$FH} $search;

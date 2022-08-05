@@ -17,14 +17,18 @@
 
   use Type;
   use Emit::C;
+  use Avt::FFI;
 
   use Avt;
   use Fmat;
 
 # ---   *   ---   *   ---
 
-for my $type(keys %{$Emit::C::Typetab}) {
-  say Emit::C->typecon($type),q{ == },$type;
+my $tab=$Avt::FFI::Typetab;
+for my $type(keys %$tab) {
+
+  say sprintf "%-28s %-28s",
+    $type,$tab->{$type};
 
 };
 

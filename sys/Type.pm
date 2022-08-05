@@ -65,7 +65,7 @@ package Type;
     nihil=>8,     # void(*nihil)(void)
     stark=>8,     # void(*stark)(void*)
 
-    signal=>8,    # int(*signal)(int)
+    signal=>8,    # uint64_t(*signal)(uint64_t)
 
   );
 
@@ -163,7 +163,7 @@ sub nit(
 
     my $spec=$Indirection_Key->[$O{addr}-1];
 
-    $name.=" $spec";
+    $name.="_$spec";
 
   };
 
