@@ -18,6 +18,8 @@ package Type;
   use strict;
   use warnings;
 
+  use English qw(-no_match_vars);
+
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
@@ -36,6 +38,9 @@ package Type;
 # ROM
 
   sub Frame_Vars($class) {{}};
+
+  our $Indirection_Key=[qw(ptr pptr xptr)];
+
   our $Table=Vault::cached(
 
     'Table',\$Table,
@@ -46,14 +51,12 @@ package Type;
 
     byte=>1,
     wide=>2,
-    word=>4,
-    long=>8,
+    long=>4,
+    word=>8,
 
     # measuring
 
-    unit=>0x0010,
-
-    half=>0x0008, # 1/2 unit
+    unit=>0x0010, # 2  words
     line=>0x0040, # 4  units
     page=>0x1000, # 64 lines
 
@@ -149,18 +152,18 @@ sub nit(
   };
 
 # ---   *   ---   *   ---
-# the lazy way to do this bit ;>
+# ugly arse specifiers...
 
-  if($O{real}) {
-    $name.=' float';
-
-  } elsif($O{sign}) {
-    $name='s'.$name;
+  if($O{sign}) {
+    $name="s$name";
 
   };
 
   if($O{addr}) {
-    $name.=' ptr';
+
+    my $spec=$Indirection_Key->[$O{addr}-1];
+
+    $name.=" $spec";
 
   };
 
@@ -183,98 +186,6 @@ sub nit(
 };
 
 # ---   *   ---   *   ---
-# makes a translation table from
-# a language X to peso
-
-sub xltab(%T) {
-
-  state $s_re=qr{\%s}x;
-  state $type_re=qr{\$type}x;
-
-  my $ptr_rules=$T{-PTR_RULES};
-  my $unsig_rules=$T{-UNSIG_RULES};
-
-  delete $T{-PTR_RULES};
-  delete $T{-UNSIG_RULES};
-
-  my $out={};
-
-# ---   *   ---   *   ---
-
-  for my $width(keys %T) {
-
-    my $signed_types=$T{$width}->{sig};
-    my $unsigned_types=$T{$width}->{unsig};
-
-    for my $type(@$signed_types) {
-
-      if($width=~ m/\s real$/x) {
-        my $type_ptr=$ptr_rules->{fmat};
-
-        $type_ptr=~ s/$s_re/$ptr_rules->{key}/;
-        $type_ptr=~ s/$type_re/$type/;
-
-        $out->{$type}=$width;
-        $out->{$type_ptr}="$width ptr";
-
-        next;
-
-      };
-
-      $out->{$type}='s'.$width;
-
-# ---   *   ---   *   ---
-
-      my $type_uptr=$NULLSTR;
-      my $type_unsig=$unsig_rules->{fmat};
-
-      $type_unsig=~ s/$s_re/$unsig_rules->{key}/;
-      $type_unsig=~ s/$type_re/$type/;
-
-      $type_uptr=$type_unsig;
-      $out->{$type_unsig}="$width";
-
-# ---   *   ---   *   ---
-
-      my $type_ptr=$ptr_rules->{fmat};
-
-      $type_ptr=~ s/$s_re/$ptr_rules->{key}/;
-
-      my $tmp=$type_ptr;
-      $type_ptr=~ s/$type_re/$type/;
-      $tmp=~ s/$type_re/$type_uptr/;
-
-      $type_uptr=$tmp;
-
-      $out->{$type_ptr}="s$width ptr";
-      $out->{$type_uptr}="$width ptr";
-
-    };
-
-# ---   *   ---   *   ---
-
-    for my $type(@$unsigned_types) {
-
-      $out->{$type}=$width;
-
-      my $type_ptr=$ptr_rules->{fmat};
-
-      $type_ptr=~ s/$s_re/$ptr_rules->{key}/;
-      $type_ptr=~ s/$type_re/$type/;
-
-      $out->{$type_ptr}="$width ptr";
-
-    };
-
-# ---   *   ---   *   ---
-
-  };
-
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
 # fills out table of type variations
 # these exist mostly to ease interfacing
 # with typed languages
@@ -283,6 +194,7 @@ sub gen_type_table(%table) {
 
   my $F=Type->new_frame();
 
+  for my $indlvl(1..3) {
   for my $key(keys %table) {
 
     my $value=$table{$key};
@@ -295,7 +207,7 @@ sub gen_type_table(%table) {
     my $t=$F->nit($key,$value);
 
     if($fptr) {
-      $t->{addr}=1;
+      $t->{addr}=$indlvl;
       $t->{sign}=0;
 
     };
@@ -303,15 +215,20 @@ sub gen_type_table(%table) {
 # ---   *   ---   *   ---
 # generate floating types
 
-    if($key=~ m[(?: word|long)]x) {
+    if($key=~ m[(?: long|word)]x) {
 
-      $F->nit($key,$value,real=>1);
+      my $real_type=(
+        'real','daut'
+
+      )[$key eq 'word'];
+
+      $F->nit($real_type,$value,real=>1);
       $F->nit(
 
-        $key,$value,
+        $real_type,$value,
 
         real=>1,
-        addr=>1
+        addr=>$indlvl
 
       );
 
@@ -320,7 +237,7 @@ sub gen_type_table(%table) {
 # ---   *   ---   *   ---
 # generate signed and pointers
 
-    if($key=~ m[(?: byte|wide|word|long)]x) {
+    if($key=~ m[(?: byte|wide|long|word)]x) {
 
       $F->nit($key,$value,sign=>1);
       $F->nit(
@@ -328,7 +245,7 @@ sub gen_type_table(%table) {
         $key,$value,
 
         sign=>0,
-        addr=>1
+        addr=>$indlvl
 
       );
 
@@ -336,7 +253,7 @@ sub gen_type_table(%table) {
 
 # ---   *   ---   *   ---
 
-  };
+  }};
 
   return $F;
 

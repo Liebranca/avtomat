@@ -9,21 +9,49 @@
   use strict;
   use warnings;
 
+  use English qw(-no_match_vars);
+
   use lib $ENV{'ARPATH'}.'/avtomat/sys/';
   use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
   use lib $ENV{'ARPATH'}.'/avtomat/';
+
+  use Type;
+  use Emit::C;
 
   use Avt;
   use Fmat;
 
 # ---   *   ---   *   ---
 
-my $o=Avt::file_sbl(
-  $ENV{'ARPATH'}.'/AUVILIB/xforms/im.c'
+for my $type(keys %{$Emit::C::Typetab}) {
+  say Emit::C->typecon($type),q{ == },$type;
 
-);
+};
 
-say fatdump($o)."\n";
+say "\n";
+
+# ---   *   ---   *   ---
+
+#my $o=Avt::file_sbl(
+#  $ENV{'ARPATH'}.'/AUVILIB/xforms/im.c'
+#
+#);
+#
+#for my $fn_name(keys %{$o->{functions}}) {
+#
+#  say $fn_name;
+#
+#  my $fn=$o->{functions}->{$fn_name};
+#  for my $arg(values %{$fn->{args}}) {
+#
+#    $arg=$Table->{$arg} if exists $Table->{$arg};
+#    say $arg;
+#
+#  };
+#
+#  say q{};
+#
+#};
 
 # ---   *   ---   *   ---
 

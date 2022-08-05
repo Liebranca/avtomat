@@ -39,6 +39,59 @@ package Emit::C;
   use parent 'Emit';
 
 # ---   *   ---   *   ---
+# info
+
+  our $VERSION=v0.00.2;
+  our $AUTHOR='IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+  our $Typetab=Vault::cached(
+
+    '$Typetab',\$Typetab,
+    \&xltab,
+
+# ---   *   ---   *   ---
+
+    q[sbyte]=>['char','int8_t'],
+
+    q[byte]=>[
+      'uchar','uint8_t','unsigned char'
+
+    ],
+
+    q[swide]=>[
+      'short','int16_t','wchar_t'
+
+    ],
+
+    q[wide]=>[
+      'ushort','uint16_t','unsigned wchar_t'
+
+    ],
+
+# ---   *   ---   *   ---
+
+    q[long]=>['uint','uint32_t'],
+    q[slong]=>['int','int32_t'],
+
+    q[word]=>[
+      'ulong','uint64_t','size_t','uintptr_t',
+
+    ],
+
+    q[sword]=>[
+      'long','int64_t','intptr_t',
+
+    ],
+
+    q[real]=>['float'],
+    q[daut]=>['double'],
+
+  );
+
+# ---   *   ---   *   ---
 
   Readonly my $OPEN_GUARDS=>
 
@@ -63,70 +116,15 @@ q[#ifdef __cplusplus
 
 # ---   *   ---   *   ---
 
-  our $TYPETAB=Vault::cached(
+sub get_typetab($class) {return $Typetab};
+sub typetrim($class,$typeref) {
 
-    'TYPETAB',
+  # until I care enough to handle this spec
+  $$typeref=~ s[\b const \b][]sgx;
 
-    \$TYPETAB,
-    \&Type::xltab,
+  Emit->typetrim($typeref);
 
-# ---   *   ---   *   ---
-
-    -PTR_RULES=>{
-      key=>q{*},
-      fmat=>'$type%s'
-
-    },
-
-    -UNSIG_RULES=>{
-      key=>'unsigned',
-      fmat=>'%s $type',
-
-    },
-
-# ---   *   ---   *   ---
-
-    byte=>{
-      sig=>[qw(char int8_t)],
-      unsig=>[qw(uchar uint8_t)],
-
-    },
-
-    wide=>{
-      sig=>[qw(short int16_t wchar_t)],
-      unsig=>[qw(ushort uint16_t)],
-
-    },
-
-# ---   *   ---   *   ---
-
-    word=>{
-      sig=>[qw(int int32_t)],
-      unsig=>[qw(uint uint32_t)],
-
-    },
-
-    long=>{
-
-      sig=>[qw(long int64_t intptr_t)],
-
-      unsig=>[qw(
-        ulong uint64_t
-        size_t uintptr_t
-
-      )],
-
-    },
-
-    'word real'=>{sig=>[qw(float)]},
-    'long real'=>{sig=>[qw(double)]},
-
-  );
-
-# ---   *   ---   *   ---
-# worse way possible to make SUPER find this var
-
-sub get_typetab($class) {return $TYPETAB};
+};
 
 # ---   *   ---   *   ---
 # header guards
@@ -308,6 +306,41 @@ sub datasec($name,$type,@items) {
   };
 
   return $s;
+
+};
+
+# ---   *   ---   *   ---
+
+sub xltab(%table) {
+
+  for my $key(keys %table) {
+  for my $indlvl(1..3) {
+
+    my $peso_ind=$Type::Indirection_Key->[$indlvl-1];
+    my $c_ind=q[*] x $indlvl;
+
+    my $subtab=$table{"$key $peso_ind"}=[];
+
+    for my $ctype(@{$table{$key}}) {
+
+      push @$subtab,"$ctype$c_ind";
+
+    };
+
+  }};
+
+# ---   *   ---   *   ---
+
+  my $result={};
+
+  for my $key(keys %table) {
+  for my $ctype(@{$table{$key}}) {
+
+    $result->{$ctype}=$key;
+
+  }};
+
+  return $result;
 
 };
 

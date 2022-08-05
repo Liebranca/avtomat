@@ -25,17 +25,18 @@ package Emit;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
-# placeholder
-
-sub get_typetab($class) {return {}};
-
-# ---   *   ---   *   ---
 # transforms type to peso equivalent
+
+sub typetrim($class,$typeref) {
+
+  $$typeref=~ s[^\s*|\s*$][]sg;
+
+};
 
 sub typecon($class,$type) {
 
   my $tab=$class->get_typetab();
-  $type=~ s[^\s*|\s*$][]sg;
+  $class->typetrim(\$type);
 
   if(exists $tab->{$type}) {
     $type=$tab->{$type};
