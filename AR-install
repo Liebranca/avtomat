@@ -40,7 +40,6 @@ BEGIN {
 # ---   *   ---   *   ---
 
 my $root=Shb7::set_root($ENV{'ARPATH'});
-Avt::stlib(Shb7::lib());
 
 # ---   *   ---   *   ---
 # fetch missing deps
@@ -103,14 +102,17 @@ Avt::set_config(
 
   post_build=>q(
 
-    Avt::stlib($Shb7::Root.'/lib/');
+    use Emit::Std;
+    use Emit::Perl;
 
-    Avt::wrcplboil_pm(
-      '/lib/',
-      'lycon',
-      'IBN-3DILA',
+    Emit::Std::outf(
 
-      \&Avt::ctopl,['lycon',['ce']]
+      'Perl','lib/lycon.pm',
+
+      author=>'IBN-3DILA',
+
+      body=>\&Emit::Perl::shwlbind,
+      args=>['lycon',['ce']],
 
     );
 

@@ -88,24 +88,6 @@ package Avt;
   Readonly my $INCD=>'./include';
 
 # ---   *   ---   *   ---
-# gcc switches
-
-  Readonly our $OFLG=>
-    q{-s -Os -fno-unwind-tables}.q{ }.
-    q{-fno-asynchronous-unwind-tables}.q{ }.
-    q{-ffast-math -fsingle-precision-constant}.q{ }.
-    q{-fno-ident -fPIC}
-
-  ;
-
-  Readonly our $LFLG=>
-    q{-flto -ffunction-sections}.q{ }.
-    q{-fdata-sections -Wl,--gc-sections}.q{ }.
-    q{-Wl,-fuse-ld=bfd}
-
-  ;
-
-# ---   *   ---   *   ---
 # lenkz
 
   Readonly our $GITHUB=>q{https://github.com};
@@ -115,8 +97,6 @@ package Avt;
 # global storage
 
   my %Cache=(
-    _include=>[],
-    _lib=>[],
 
     _config=>{},
     _scan=>[],
@@ -130,340 +110,6 @@ package Avt;
 # ---   *   ---   *   ---
 
 sub MODULES {return @{$Cache{_modules}}};
-
-# ---   *   ---   *   ---
-# add to search path (include)
-
-sub stinc(@args) {
-
-  my $ref=$Cache{_include};
-  for my $path(@args) {
-
-    $path=~ s/\-I//;
-    $path=abs_path(glob($path));
-
-    push @$ref,$path;
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# add to search path (library)
-
-sub stlib(@args) {
-
-  my $ref=$Cache{_lib};
-  for my $path(@args) {
-
-    $path=~ s/\-L//;
-    $path=abs_path(glob($path));
-
-    push @$ref,$path;
-
-  };
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# in:filename
-# sets search path and filelist accto filename
-
-sub illnames($fname) {
-
-  my @files=();
-  my $ref;
-
-# ---   *   ---   *   ---
-# point to lib on -l at strbeg
-
-  if($fname=~ m/^\s*\-l/) {
-    $ref=$Cache{_lib};
-    $fname=~ s/^\s*\-l//;
-
-    for my $i(0..1) {
-      push @files,'lib'.$fname.(
-        ('.so','.a')[$i]
-
-      );
-
-    };
-
-    push @files,$fname;
-
-# ---   *   ---   *   ---
-# common file search
-
-  } else {
-    $ref=$Cache{_include};
-    push @files,$fname;
-
-  };
-
-  return [$ref,\@files];
-
-};
-
-# ---   *   ---   *   ---
-# find file within search path
-
-sub ffind($fname) {
-
-  if(-e $fname) {return $fname;};
-
-  my ($ref,@files);
-
-  { my @ret=@{ illnames($fname) };
-
-    $ref=$ret[0];@files=@{ $ret[1] };
-    $fname=$files[$#files];
-
-  };
-
-# ---   *   ---   *   ---
-
-  my $src=undef;
-  my $path=undef;
-
-  # iter search path
-  for $path(@$ref,$Shb7::Root) {
-    if(!$path) {next};
-
-    # iter alt names
-    for my $f(@files) {
-      if(-e "$path/$f") {
-        $src="$path/$f";
-        last;
-
-      };
-
-    };
-
-    # early exit on found
-    if(defined $src) {last};
-
-  };
-
-# ---   *   ---   *   ---
-# catch no such file
-
-  if(!defined $src) {
-
-    Arstd::errout(
-      "Could not find file '%s' in path\n",
-
-      args=>[$fname],
-      lvl=>$AR_ERROR,
-
-    );
-
-  };
-
-  return $src;
-
-};
-
-# ---   *   ---   *   ---
-# wildcard search
-
-sub wfind($in) {
-
-  my $ref=undef;
-  my @patterns=();
-
-  { my @ret=@{ illnames($in) };
-    $ref=$ret[0];@patterns=@{ $ret[1] };
-
-  };
-
-# ---   *   ---   *   ---
-
-  # non wildcard escaping
-  for my $pat(@patterns) {
-    my $beg=substr(
-      $pat,0,
-      index($pat,'%')
-
-    );my $end=substr(
-      $pat,index($pat,'%')+1,
-      length $pat
-
-    );$beg="\Q$beg";
-      $end="\Q$end";
-
-    $pat=$beg.'%'.$end;
-
-    # substitute %
-    $pat=~ s/\%/.*/;
-
-  };$in=join '|',@patterns;
-
-# ---   *   ---   *   ---
-
-  # find files matching pattern
-  my @ar=();
-
-  # iter search path
-  for my $path(@$ref) {
-
-    my %h=%{ walk($path) };
-    for my $dir(keys %h) {
-      my @files=@{ $h{$dir} };
-      my @matches=(grep m/${ in }/,@files);
-
-      $dir=($dir eq '<main>')
-        ? ''
-        : $dir
-        ;
-
-      for my $match(@matches) {
-        $match="$path$dir/$match";
-
-      };push @ar,@matches;
-
-    };
-  };
-
-  return \@ar;
-
-};
-
-# ---   *   ---   *   ---
-# finds .lib files
-
-sub libsearch($lbins,$lsearch,$deps) {
-
-  my @lbins=@$lbins;
-  my @lsearch=@$lsearch;
-
-  my $found=$NULLSTR;
-
-# ---   *   ---   *   ---
-
-  for my $lbin(@lbins) {
-    for my $ldir(@lsearch) {
-
-      # .lib file found
-      if(-e "$ldir/.$lbin") {
-
-        my $f=retrieve("$ldir/.$lbin")
-        or croak strerr("$ldir/.$lbin");
-
-        my $ndeps.=(defined $f->{deps})
-          ? $f->{deps} : $NULLSTR;
-
-        chomp $ndeps;
-
-        $ndeps=join q{|},(
-          Lang::ws_split($SPACE_RE,$ndeps)
-
-        );
-
-# ---   *   ---   *   ---
-
-        # filter out the duplicates
-        my @matches=grep(
-          m/${ ndeps }/,
-          Lang::ws_split($SPACE_RE,$deps)
-
-        );while(@matches) {
-          my $match=shift @matches;
-          $ndeps=~ s/${ match }\|?//;
-
-        };$ndeps=~ s/\|/ /g;
-
-        $found.=q{ }.$ndeps.q{ };
-        last;
-
-# ---   *   ---   *   ---
-
-      };
-    };
-  };
-
-  return $found;
-
-};
-
-# ---   *   ---   *   ---
-# recursively appends lib dependencies to LIBS var
-
-sub libexpand($LIBS) {
-
-  my $ndeps=$LIBS;
-  my $deps='';my $i=0;
-  my @lsearch=@{ $Cache{_lib} };
-
-# ---   *   ---   *   ---
-
-  while(1) {
-    my @lbins=();
-
-    $ndeps=~ s/^\s+//;
-
-    # get search path(s)
-    for my $mlib(split($SPACE_RE,$ndeps)) {
-
-      if((index $mlib,'-L')==0) {
-
-        my $s=substr $mlib,2,length $mlib;
-        my $lsearch=join q{ },@lsearch;
-
-# ---   *   ---   *   ---
-
-        if(!($lsearch=~ m/${s}/)) {
-          push @lsearch,$s;
-
-        };
-
-        next;
-
-      };
-
-# ---   *   ---   *   ---
-
-      # append found libs to bin search
-      $mlib=substr $mlib,2,length $mlib;
-      push @lbins,$mlib;
-
-    };
-
-# ---   *   ---   *   ---
-
-    # find dependencies of found libs
-    $ndeps=libsearch(\@lbins,\@lsearch,$deps);
-
-    # stop when none found
-    if(!(length $ndeps)) {last};
-
-    # else append and start over
-    $deps=$ndeps.' '.$deps;
-
-  };
-
-# ---   *   ---   *   ---
-
-  # append deps to libs
-  $deps=join q{|},(split($SPACE_RE,$deps));
-
-  # filter out the duplicates
-  my @matches=grep(
-    m/${ deps }/,split($SPACE_RE,$LIBS)
-
-  );
-
-  while(@matches) {
-    my $match=shift @matches;
-    $deps=~ s/${ match }\|?//;
-
-  };$deps=~ s/\|/ /g;
-
-  $LIBS.=q{ }.$deps.q{ };
-  return $LIBS;
-
-};
 
 # ---   *   ---   *   ---
 # Python emitter tools
@@ -786,7 +432,7 @@ sub file_sbl($f) {
 
 sub symscan($mod,$dst,$deps,@fnames) {
 
-  stinc(Shb7::dir($mod));
+  Shb7::stinc(Shb7::dir($mod));
 
   my @files=();
 
@@ -796,14 +442,15 @@ sub symscan($mod,$dst,$deps,@fnames) {
   { for my $fname(@fnames) {
 
       if( ($fname=~ m/\%/) ) {
-        push @files,@{ wfind($fname) };
+        push @files,@{ Shb7::wfind($fname) };
 
       } else {
-        push @files,ffind($fname);
+        push @files,Shb7::ffind($fname);
 
       };
 
     };
+
   };
 
 # ---   *   ---   *   ---
@@ -821,290 +468,14 @@ sub symscan($mod,$dst,$deps,@fnames) {
   for my $f(@files) {
     if(!$f) {next};
 
-    $f=~ s/^${Shb7::Root}/./;
     my $o=Shb7::obj_from_src($f);
+    $o=Shb7::shpath($o);
 
     $shwl->{objects}->{$o}=file_sbl($f);
 
   };
 
   store($shwl,$dst) or croak strerr($dst);
-
-};
-
-# ---   *   ---   *   ---
-# in:modname
-# get symbol typedata from shadow lib
-
-sub symrd($mod) {
-
-  my $src=Shb7::lib(".$mod");
-
-  my $out={};
-
-  # existence check
-  if(!(-e $src)) {
-    print "Can't find shadow lib '$mod'\n";
-    goto TAIL;
-
-  };
-
-  $out=retrieve($src) or croak strerr($src);
-
-# ---   *   ---   *   ---
-
-TAIL:
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
-# rebuilds shared objects if need be
-
-sub soregen($soname,$libs_ref,$no_regen=0) {
-
-  my $sopath=Shb7::so($soname);
-  my $so_gen=!(-e $sopath);
-
-  my @libs=@{$libs_ref};
-  my %symtab=(
-
-    deps=>[],
-    objects=>{}
-
-  );
-
-# ---   *   ---   *   ---
-# recover symbol table
-
-  my @o_files=();
-  for my $lib(@libs) {
-    my $f=symrd($lib);
-
-    # so regen check
-    if(!$so_gen) {
-      $so_gen=ot($sopath,ffind('-l'.$lib));
-
-    };
-
-    # append
-    for my $o(keys %{$f->{objects}}) {
-      my $obj=$f->{objects}->{$o};
-      $symtab{objects}->{$Shb7::Root.$o}=$obj;
-
-    };
-
-    push @{$symtab{deps}},$f->{deps};
-
-  };
-
-# ---   *   ---   *   ---
-# generate so
-
-  if($so_gen && !$no_regen) {
-
-    # recursively get dependencies
-    my $O_LIBS='-l'.( join ' -l',@libs );
-    stlib(Shb7::lib());
-
-    my $LIBS=libexpand($O_LIBS);
-    my $OBJS=join ' ',keys %{$symtab{objects}};
-
-    # link
-    my $call='gcc -shared'.q{ }.
-      "$OFLG $LFLG ".
-      "-m64 $OBJS $LIBS -o $sopath";
-
-    `$call`;
-
-  };
-
-  return \%symtab;
-
-};
-
-# ---   *   ---   *   ---
-# C to Perl code emitter stuff
-
-# name=what your file is called
-# x=1==end, 0==beg
-# makes open and close boiler for Platypus modules
-sub cplboil_pm {
-  my $name=uc shift;
-  my $x=shift;
-
-  # guard start
-  if(!$x) {
-    my $s=<<'EOF'
-#!/usr/bin/perl
-$:NOTE;>
-
-EOF
-
-  ;$s.='package '.( lc $name ).";\n";
-  $s.=<<'EOF'
-
-# deps
-
-  use v5.36.0;
-  use strict;
-  use warnings;
-
-  use FFI::Platypus;
-  use FFI::CheckLib;
-
-  use lib $ENV{'ARPATH'}.'/lib/';
-
-  use Style;
-  use Arstd;
-
-  use Avt;
-
-# ---   *   ---   *   ---
-
-EOF
-
-  ;return $s;
-
-  # guard end
-  };my $s=<<'EOF'
-
-# ---   *   ---   *   ---
-1; # ret
-
-EOF
-
-  ;return $s;
-
-# ---   *   ---   *   ---
-
-# dir=where to save the file to
-# fname=fname
-# call=reference to a sub taking filehandle
-
-# author=your name
-
-# wraps sub in Platypus module boilerplate
-};sub wrcplboil_pm {
-
-  my $dir=shift;
-  my $fname=shift;
-  my $author=shift;
-  my $call=shift;
-  my $call_args=shift;
-
-  # create file
-  open my $FH,'>',Shb7::file("$dir/$fname.pm")
-  or croak strerr($fname);
-
-  # generate notice
-  my $n=note($author,'#');
-
-  # open boiler and subst notice
-  my $op=Avt::cplboil_pm(uc($fname),0);
-  $op=~ s/\$\:NOTE\;\>/${ n }/;
-
-  # write it to file
-  print $FH $op;
-
-  # write the code through the generator
-  $call->($FH,@$call_args);
-
-  # close boiler
-  print $FH Avt::cplboil_pm(uc($fname),1);
-  close $FH;
-
-};
-
-# ---   *   ---   *   ---
-# C to Perl binding
-
-# in: file handle,soname,[libraries]
-# reads in symbol tables and generates exports
-sub ctopl($FH,$soname,$libs_ref) {
-
-  my %symtab=%{soregen($soname,$libs_ref)};
-  my $search=<<"EOF"
-
-my \%Cache=(
-  ffi=>undef,
-  nitted=>0,
-
-);
-
-sub ffi {return \$Cache{ffi};};
-
-sub nit {
-
-  if(\$Cache{nitted}) {return};
-
-  my \$libfold=Arstd::dirof(__FILE__);
-
-
-  my \$ffi=FFI::Platypus->new(api => 2);
-  \$ffi->lib(
-    "\$libfold/lib$soname.so"
-
-  );
-
-EOF
-;print {$FH} $search;
-
-# ---   *   ---   *   ---
-# attach symbols from table
-
-  my $tab=$NULLSTR;
-
-  for my $o(keys %{$symtab{objects}}) {
-
-    my $obj=$symtab{objects}->{$o};
-    my $funcs=$obj->{functions};
-    $tab.="\n\n".
-
-    '# ---   *   ---   *   ---'."\n".
-    "# $o\n\n";
-
-    for my $fn_name(keys %$funcs) {
-
-      my $fn=$funcs->{$fn_name};
-
-      my @ar=values %{$fn->{args}};
-      for my $s(@ar) {
-        $s=sqwrap($s);
-
-      };
-
-# ---   *   ---   *   ---
-
-      my $arg_types='['.( join(
-        ',',@ar
-
-      )).']';
-
-      my $rtype=$fn->{type};
-
-      $tab.=''.
-        "my \$$fn_name=\'$fn_name\';\n".
-
-        '$ffi->attach('.
-        "\$$fn_name,".
-        "$arg_types,".
-
-        "'$rtype');\n\n";
-
-# ---   *   ---   *   ---
-
-    };
-
-  };
-
-  my $nit='$Cache{nitted}=1;';
-  my $callnit
-
-    ='(\&nit,$NOOP)'.
-    '[$Cache{nitted}]->();';
-
-  print {$FH} $tab."\n$nit\n};$callnit\n";
 
 };
 
@@ -1139,20 +510,28 @@ sub plext($dst_path,$src_path) {
 sub mord {
   my @s=split $NULLSTR,shift;
   my $seq=0;
+
   my $i=0;while(@s) {
     $seq|=ord(shift @s)<<$i;$i+=8;
 
-  };return $seq;
+  };
+
+  return $seq;
+
 };
 
 # ^ for wide strings
 sub wmord($string) {
   my @s=split $NULLSTR,$string;
   my $seq=0;
+
   my $i=0;while(@s) {
     $seq|=ord(shift @s)<<$i;$i+=16;
 
-  };return $seq;
+  };
+
+  return $seq;
+
 };
 
 # arg=int arr
@@ -1162,7 +541,9 @@ sub mchr(@s) {
   for my $c(@s) {
     $c=chr($c);
 
-  };return @s;
+  };
+
+  return @s;
 
 };
 
@@ -1223,71 +604,6 @@ sub depchk($chkpath,$deps) {
   };
 
   chdir $old_cwd;
-
-};
-
-# ---   *   ---   *   ---
-# args=path
-# recursively list dirs and files in path
-
-sub walk($path) {
-
-  state $EXCLUDED=qr{
-
-     \/
-
-   | (?:GNUmakefile)
-   | (?:Makefile)
-   | (?:makefile)
-
-  }x;
-
-  my %dirs=();
-
-# ---   *   ---   *   ---
-# dissect recursive ls
-
-  my @ls=split "\n\n",`ls -FBR1 $path`;
-  while(@ls) {
-    my @sub=split ":\n",shift @ls;
-
-    # shorten dirnames
-    $sub[0]=~ s/${ path }//;
-    if(!$sub[0]) {$sub[0]='<main>';};
-
-    # exclude hidden folders and documentation
-    if( ($sub[0]=~ m/\./)
-    ||  ($sub[0] eq '/docs')
-    ) {next;};
-
-    # remove ws
-    if(not defined $sub[1]) {next};
-    $sub[1]=~ s/^\s+|\s+$//;
-
-# ---   *   ---   *   ---
-# filter out folders and headers
-
-    my @tmp=split "\n",$sub[1];
-    my @files=();
-
-# ---   *   ---   *   ---
-
-    while(@tmp) {
-      my $entry=shift @tmp;
-      if($entry=~ $EXCLUDED) {next};
-
-      push @files,$entry;
-
-    };
-
-    # dirs{folder}=ref(list of files)
-    $dirs{ $sub[0] }=\@files;
-
-# ---   *   ---   *   ---
-
-  };
-
-  return (\%dirs);
 
 };
 
@@ -1477,15 +793,6 @@ sub get_config_paths($M,$config) {
 };
 
 # ---   *   ---   *   ---
-# find hashkeys in list
-# returns matches ;>
-
-sub lfind($search,$l) {
-  return [grep {exists $search->{$ARG}} @$l];
-
-};
-
-# ---   *   ---   *   ---
 
 sub get_config_files($M,$config,$module) {
 
@@ -1528,7 +835,10 @@ sub get_config_files($M,$config,$module) {
 
 # ---   *   ---   *   ---
 
-    my $matches=lfind($config->{gens},\@files);
+    my $matches=Arstd::lfind(
+      $config->{gens},\@files
+
+    );
 
     while(@$matches) {
 
@@ -1555,7 +865,7 @@ sub get_config_files($M,$config,$module) {
 
 # ---   *   ---   *   ---
 
-    $matches=lfind($config->{xcpy},\@files);
+    $matches=Arstd::lfind($config->{xcpy},\@files);
 
     while(@$matches) {
 
@@ -1575,7 +885,7 @@ sub get_config_files($M,$config,$module) {
 
 # ---   *   ---   *   ---
 
-    $matches=lfind($config->{lcpy},\@files);
+    $matches=Arstd::lfind($config->{lcpy},\@files);
 
     while(@$matches) {
       my $match=shift @$matches;
@@ -1597,7 +907,7 @@ sub get_config_files($M,$config,$module) {
 
 # ---   *   ---   *   ---
 
-    $matches=lfind($config->{xprt},\@files);
+    $matches=Arstd::lfind($config->{xprt},\@files);
 
     while(@$matches) {
       my $match=shift @$matches;

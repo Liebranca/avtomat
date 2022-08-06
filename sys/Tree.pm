@@ -249,6 +249,13 @@ sub pushlv($self,@pending) {
 };
 
 # ---   *   ---   *   ---
+
+sub clear_branches($self) {
+  $self->{leaves}=[];
+
+};
+
+# ---   *   ---   *   ---
 # discard blank nodes
 
 sub cllv($self) {
@@ -365,7 +372,8 @@ sub flatten_branch($self,%args) {
 
 # ---   *   ---   *   ---
 
-  $par->pushlv(@move,overwrite=>1);
+  $par->clear_branches();
+  $par->pushlv(@move);
   $par->cllv();
 
   return;

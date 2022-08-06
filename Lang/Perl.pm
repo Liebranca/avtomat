@@ -323,14 +323,16 @@ sub hier_sort($self,$rd) {
     my $pkgroot=$nd_frame->nit(undef,$pkgname);
     push @scopes,$pkgroot;
 
-    $pkgroot->pushlv(@children,overwrite=>1);
+    $pkgroot->clear_branches();
+    $pkgroot->pushlv(@children);
     $i++;
 
 # ---   *   ---   *   ---
 
   };
 
-  $tree->pushlv(@scopes,overwrite=>1);
+  $tree->clear_branches();
+  $tree->pushlv(@scopes);
 
 };
 

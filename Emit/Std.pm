@@ -36,8 +36,6 @@ package Emit::Std;
   Readonly our $ARTAG=>Arstd::pretty_tag('AR');
   Readonly our $ARSEP=>"\e[37;1m::\e[0m";
 
-  Readonly our $ON_NO_AUTHOR=>'ANON-DEV';
-
   Readonly my $BOXCHAR=>'.';
 
 # ---   *   ---   *   ---
@@ -112,17 +110,22 @@ sub reqin($path,@names) {
 
 # ---   *   ---   *   ---
 
-sub outf($f,$emitter,%O) {
+sub outf($emitter,$f,%O) {
 
-  my $path=shb7::file($f);
+  my $path=Shb7::file($f);
   my $pkg=caller;
 
-  $O{author}=eval(q{$}.$pkg.q{::AUTHOR});
+  $O{author}//=eval(q{$}.$pkg.q{::AUTHOR});
 
   open my $FH,'+>',$path
   or croak strerr($path);
 
-  print $FH $emitter->(arstd::nxbasename($f),%O);
+  $emitter=q{Emit::}.$emitter;
+
+  print $FH $emitter->codewrap(
+    Arstd::nxbasename($f),%O
+
+  );
 
   close $FH or croak strerr($path);
 

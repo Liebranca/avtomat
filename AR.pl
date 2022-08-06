@@ -100,6 +100,7 @@ my $FILE_LIST=[
   '/Emit.pm',
   '/Emit/Std.pm',
   '/Emit/C.pm',
+  '/Emit/Perl.pm',
 
   '/Lang/Peso.pm',
   '/Lang/Plps.pm',

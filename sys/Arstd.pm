@@ -101,7 +101,7 @@ sub errmute {
     File::Spec->devnull()
 
   # you guys kidding me
-  or croak STRERR('/dev/null')
+  or croak strerr('/dev/null')
 
   ;
 
@@ -114,7 +114,7 @@ sub errmute {
 
 sub erropen($fh) {
   open STDERR,'>',$fh
-  or croak STRERR($fh);
+  or croak strerr($fh);
 
 };
 
@@ -174,6 +174,15 @@ sub relto($par,$to) {
 };
 
 # ---   *   ---   *   ---
+# find hashkeys in list
+# returns matches ;>
+
+sub lfind($search,$l) {
+  return [grep {exists $search->{$ARG}} @$l];
+
+};
+
+# ---   *   ---   *   ---
 
 sub invert_hash($h,%O) {
 
@@ -193,6 +202,39 @@ sub invert_hash($h,%O) {
   return $h;
 
 };
+
+# ---   *   ---   *   ---
+# give every nth elem in array
+
+sub array_nth($ar,$n,$i) {
+
+  my @slice=@$ar;
+  @slice=@slice[$i..$#slice];
+
+  $i=0;
+
+  my $matches=[
+
+    (shift @slice),
+    grep {!( ++$i % $n)} @slice
+
+  ];
+
+  $matches//=[];
+  return @$matches;
+
+};
+
+# ---   *   ---   *   ---
+# ^an alias
+# gives @keys where [key=>value,key=>value]
+
+sub array_keys($ar) {return (array_nth($ar,2,0))};
+
+# ^another alias
+# gives @values where [key=>value,key=>value]
+
+sub array_values($ar) {return (array_nth($ar,2,1))};
 
 # ---   *   ---   *   ---
 
@@ -278,12 +320,12 @@ sub nyi($errme) {
 sub orc($fname) {
 
   open my $FH,'<',$fname
-  or croak STRERR($fname);
+  or croak strerr($fname);
 
   read $FH,my $body,-s $FH;
 
   close $FH
-  or croak STRERR($fname);
+  or croak strerr($fname);
 
   return $body;
 
@@ -295,12 +337,12 @@ sub orc($fname) {
 sub owc($fname,$bytes) {
 
   open my $FH,'+>',$fname
-  or croak STRERR($fname);
+  or croak strerr($fname);
 
   my $wr=print {$FH} $bytes;
 
   close $FH
-  or croak STRERR($fname);
+  or croak strerr($fname);
 
   return $wr*length $bytes;
 

@@ -19,9 +19,6 @@ package Emit::C;
   use warnings;
 
   use Readonly;
-  use Storable;
-
-  use Carp;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -100,8 +97,8 @@ package Emit::C;
 
   Readonly my $OPEN_GUARDS=>
 
-q[#ifndef __$:name;>_H__
-#define __$:name;>_H__
+q[#ifndef __$:fname;>_H__
+#define __$:fname;>_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -116,7 +113,7 @@ extern "C" {
 q[#ifdef __cplusplus
 };
 #endif
-#endif // __$:name;>_H__
+#endif // __$:fname;>_H__
 ];
 
 # ---   *   ---   *   ---
@@ -134,9 +131,9 @@ sub typetrim($class,$typeref) {
 # ---   *   ---   *   ---
 # header guards
 
-sub boiler_open($name,%O) {
+sub boiler_open($class,$fname,%O) {
 
-  $name=uc $name;
+  $fname=uc $fname;
 
 # ---   *   ---   *   ---
 
@@ -174,7 +171,7 @@ $:iter (
 
     $s,
 
-    name=>$name,
+    fname=>$fname,
     note=>Emit::Std::note($O{author},q[//]),
 
     include=>$O{include},
@@ -191,9 +188,9 @@ $:iter (
 
 # ---   *   ---   *   ---
 
-sub boiler_close($name,%O) {
+sub boiler_close($fname,%O) {
 
-  $name=uc $name;
+  $fname=uc $fname;
 
 # ---   *   ---   *   ---
 
@@ -210,7 +207,9 @@ $:guards;>
 # ---   *   ---   *   ---
 
   return Peso::Ipret::pesc(
-    $s,name=>$name,
+    $s,
+
+    fname=>$fname,
 
     guards=>($O{add_guards})
       ? $CLOSE_GUARDS
@@ -222,41 +221,9 @@ $:guards;>
 };
 
 # ---   *   ---   *   ---
-# puts code in-between two pieces of boiler
-
-sub codewrap($fname,%O) {
-
-  # defaults
-  $O{add_guards}//=0;
-  $O{include}//=[];
-  $O{define}//={};
-  $O{body}//=$NULLSTR;
-  $O{args}//=[];
-  $O{author}//=$Emit::Std::ON_NO_AUTHOR;
-
-  my $s=$NULLSTR;
-
-  $s.=boiler_open($fname,%O);
-
-  if(length ref $O{body}) {
-    my $call=$O{body};
-    $s.=$call->($fname,@{$O{args}});
-
-  } else {
-    $s.=$O{body};
-
-  };
-
-  $s.=boiler_close($fname,%O);
-
-  return $s;
-
-};
-
-# ---   *   ---   *   ---
 # pastes code inside a function definition
 
-sub fnwrap($name,$code,%O) {
+sub fnwrap($class,$name,$code,%O) {
 
   # defaults
   $O{rtype}//='int';
@@ -273,7 +240,7 @@ sub fnwrap($name,$code,%O) {
 
 # ---   *   ---   *   ---
 
-sub datasec($name,$type,@items) {
+sub datasec($class,$name,$type,@items) {
 
   my $s=$NULLSTR;
 

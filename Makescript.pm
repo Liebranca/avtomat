@@ -102,7 +102,7 @@ sub set_build_paths($M) {
 
   };
 
-  Avt::stinc(
+  Shb7::stinc(
 
     @paths,q{.},
     q{-I}.Shb7::dir($M->{fswat})
@@ -151,7 +151,7 @@ sub update_generated($M) {
 
         # look for wildcard
         if($msrc=~ m/\%/) {
-          my @srcs=@{ Avt::wfind($msrc) };
+          my @srcs=@{ Shb7::wfind($msrc) };
           while(@srcs) {
             my $src=shift @srcs;
 
@@ -166,7 +166,7 @@ sub update_generated($M) {
 
         # look for specific file
         } else {
-          $msrc=Avt::ffind($msrc);
+          $msrc=Shb7::ffind($msrc);
           if(!$msrc) {next};
 
           # found file is updated
@@ -300,7 +300,7 @@ sub update_objects($M,$DFLG,$PFLG) {
       $asm=~ s[$obj_ext][.asm];
 
       my $call=''.
-        'gcc -MMD'.q{ }.$Avt::OFLG.q{ }.
+        'gcc -MMD'.q{ }.$Shb7::OFLG.q{ }.
         "$INCLUDES $DFLG $PFLG ".
         "-Wa,-a=$asm -c $src -o $obj";
 
@@ -362,7 +362,7 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 # find any additional libraries we might
 # need to link against
 
-      $LIBS=Avt::libexpand($M->{libs});
+      $LIBS=Shb7::libexpand($M->{libs});
 
 # ---   *   ---   *   ---
 # build call is the exact same,
@@ -370,7 +370,7 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 
       push @CALLS,"gcc $M->{lmode} ".
 
-        $Avt::OFLG.q{ }.$Avt::LFLG.q{ }.
+        $Shb7::OFLG.q{ }.$Shb7::LFLG.q{ }.
 
         "$M->{incl} $PFLG $OBJS $LIBS ".
         " -o $M->{main}";

@@ -25,6 +25,7 @@ package Cli;
   use Style;
   use Arstd;
 
+  use lib $ENV{'ARPATH'}.'/lib/';
   use Lang;
 
 # ---   *   ---   *   ---

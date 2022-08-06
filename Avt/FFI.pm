@@ -28,7 +28,6 @@ package Avt::FFI;
   use Type;
 
   use Vault 'ARPATH';
-  use parent 'St';
 
 # ---   *   ---   *   ---
 # info
@@ -39,10 +38,6 @@ package Avt::FFI;
 # ---   *   ---   *   ---
 # ROM
 
-  sub Frame_Vars($class) {return {
-
-  }};
-
   our $Typetab=Vault::cached(
 
     '$Typetab',\$Typetab,
@@ -51,17 +46,42 @@ package Avt::FFI;
     q[byte]=>['uint8'],
     q[sbyte]=>['sint8'],
     q[wide]=>['uint16'],
-    q[swide]=>['uint16'],
+    q[swide]=>['sint16'],
 
     q[long]=>['uint32'],
     q[slong]=>['sint32'],
     q[word]=>['uint64'],
-    q[sword]=>['uint64'],
+    q[sword]=>['sint64'],
 
     q[byte_str]=>['string'],
     q[wide_str]=>['wstring'],
 
   );
+
+# ---   *   ---   *   ---
+# global state
+
+  our $Instances=[];
+
+# ---   *   ---   *   ---
+# give FFI object by id
+# create new if missing
+
+sub get_instance($class,$idex=0) {
+
+  my $out=undef;
+
+  if(!defined $Instances[$idex]) {
+    $out=$class->nit();
+
+  } else {
+    $out=$Instances[$idex];
+
+  };
+
+  return $out;
+
+};
 
 # ---   *   ---   *   ---
 
