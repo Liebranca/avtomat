@@ -31,6 +31,7 @@ my $ARTAG="\e[37;1m<\e[34;22mAR\e[37;1m>\e[0m";
 my $trashd=$ENV{'ARPATH'}.'/.trash/avtomat/';
 my $libd=$ENV{'ARPATH'}.'/lib/';
 
+
 if($clean) {
 
   `rm -r ../.trash/* &> /dev/null`;
@@ -61,6 +62,7 @@ my $FILE_LIST=[
   '/sys/Stack.pm',
   '/sys/Tree.pm',
   '/sys/Tree/File.pm',
+  '/sys/Tree/Dep.pm',
   '/sys/Tree/Syntax.pm',
 
   '/sys/Type.pm',
@@ -180,7 +182,6 @@ sub update {
 
           $MAM_ARGS=
             '-MMAM'.q{=}.
-            '-md'.q{,}.
             '--rap'.q{,}.
 
             '--module=avtomat'
@@ -224,29 +225,6 @@ sub update {
 
 # ---   *   ---   *   ---
 
-        my $re="^\:__DEPS__\:(.*?)\:__DEPS__\:";
-        my $depstr;
-
-        if($out=~ s/$re//sm) {
-          $depstr=${^CAPTURE[0]};
-
-        } elsif($PATH_TAKEN ne 'PATH B') {
-          print {*STDERR} "$out\n";
-
-          print {*STDERR} "$PATH_TAKEN\n";
-          print {*STDERR} "$MAM_PATH\n\n";
-          print {*STDERR} "$og:\n";
-          print {*STDERR} "$obj :: $pmd\n\n";
-
-          my $log=`cat .errlog`;
-          print {*STDERR} "$log\n";
-
-          die "Can't find deps for $og\n";
-
-        };
-
-# ---   *   ---   *   ---
-
         for my $fname(
           $obj,$pmd
 
@@ -284,14 +262,6 @@ sub update {
         print {$FH} $out;
 
         close $FH;
-
-        if($PATH_TAKEN ne 'PATH B') {
-          open $FH,'+>',$pmd or die "$!";
-          print {$FH} $depstr;
-
-          close $FH;
-
-        };
 
 # ---   *   ---   *   ---
 

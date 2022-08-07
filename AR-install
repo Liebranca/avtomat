@@ -9,7 +9,7 @@ BEGIN {
 
   my $clean=shift @ARGV;
 
-  my $ex=$ENV{'ARPATH'}.'/avtomat/AR.ph';
+  my $ex=$ENV{'ARPATH'}.'/avtomat/AR.pl';
   if($clean eq 'clean') {
     $ex.=q{ }.'clean';
 
@@ -107,19 +107,13 @@ Avt::set_config(
 
     Emit::Std::outf(
 
-      'Perl','lib/lycon.pm',
+      'Perl','lib/Lycon.pm',
 
       author=>'IBN-3DILA',
+      include=>[qw(Avt::FFI)],
 
       body=>\&Emit::Perl::shwlbind,
-      args=>['lycon',['ce']],
-
-    );
-
-    Avt::plext(
-
-      '/lib/lycon.pm',
-      '/ce/lycon_ext'
+      args=>['Lycon',['ce']],
 
     );
 

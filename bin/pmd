@@ -1,0 +1,29 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+
+use v5.36.0;
+use strict;
+use warnings;
+
+# ---   *   ---   *   ---
+
+my $modname=shift @ARGV;
+my $fname=shift @ARGV;
+
+my $call=q{perl
+
+  -I$ARPATH/avtomat/
+  -MDepsmake=MODNAME
+
+  FNAME
+
+};
+
+$call=~ s[\n|\s+][ ]sxmg;
+$call=~ s[\b MODNAME \b][$modname]sxmg;
+$call=~ s[\b FNAME \b][$fname]sxmg;
+
+my $capture=`$call 2> /dev/null`;
+say $capture;
+
+# ---   *   ---   *   ---

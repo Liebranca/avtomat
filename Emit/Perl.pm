@@ -52,7 +52,7 @@ q[#!/usr/bin/perl
 $:note;>
 
 #deps
-package $:fname;>
+package $:fname;>;
   use v5.36.0;
   use strict;
   use warnings;
@@ -186,7 +186,7 @@ EOF
 
       my @ar=values %{$fn->{args}};
       for my $s(@ar) {
-        $s=q"'$s'";
+        $s="'$s'";
 
       };
 

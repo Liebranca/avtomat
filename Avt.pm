@@ -1247,6 +1247,7 @@ EOF
         'running post-build hook... \n\n";'.
 
         $C->{post_build}.';'.
+        '$M->depsmake();'.
 
       "\n\n};".
 
@@ -1256,6 +1257,9 @@ EOF
       "\n\n"
 
       ;
+
+    } else {
+      $FILE.="\n".'$M->depsmake();';
 
     };
 

@@ -28,6 +28,8 @@ package Makescript;
   use Arstd;
   use Shb7;
 
+  use Tree::Dep;
+
   use lib $ENV{'ARPATH'}.'/lib/hacks';
   use Shwl;
 
@@ -51,6 +53,9 @@ sub nit($class,$M) {
 
   $M->{root}=$Shb7::Root;
   $M->{trash}=Shb7::obj_dir($M->{fswat});
+
+  $M->{pcc_objs}//=[];
+  $M->{pcc_deps}//=[];
 
   for my $ref(
 
@@ -487,7 +492,7 @@ sub parsepmd($dep) {
 
   if(!(-e $dep)) {goto TAIL};
 
-  open my $FH,'<',$dep or croak STRERR($dep);
+  open my $FH,'<',$dep or croak strerr($dep);
 
   my $fname=readline $FH;
   my $depstr=readline $FH;
@@ -518,6 +523,84 @@ TAIL:
 };
 
 # ---   *   ---   *   ---
+# ensures objects are build in the right order
+# only needed for MAM to get it's shit together
+
+sub sort_by_deps($M) {
+
+  my $fsre=qr{$M->{fswat}/};
+
+  my $frame=Tree::Dep->new_frame();
+  my $tree=$frame->nit(undef,$M->{fswat});
+
+  my @SRCS=@{$M->{srcs}};
+  my @OBJS=@{$M->{objs}};
+
+  my %priority=();
+
+  for(my ($i,$j)=(0,0);$i<@SRCS;$i++,$j+=2) {
+
+    my $src=$SRCS[$i];
+
+    my $obj=$OBJS[$j+0];
+    my $mmd=$OBJS[$j+1];
+
+# ---   *   ---   *   ---
+# get dependency list
+
+    my @deps=();
+
+    if($mmd) {
+
+      if($src=~ Lang::Perl->{ext}) {
+        @deps=@{parsepmd($mmd)};
+
+      } else {
+        @deps=@{parsemmd($mmd)};
+
+      };
+
+    };
+
+# ---   *   ---   *   ---
+# filter out external
+
+    my $fnode=$tree->branch_in(qr{^$src$});
+
+    if(!defined $fnode) {
+      $fnode=$frame->nit($tree,$src);
+
+    };
+
+    for my $dep(@deps) {
+
+      $dep=Shb7::shpath($dep);
+      $dep=~ s[^lib/][];
+      $dep=~ s[^\.trash/][];
+      $dep=~ s[$fsre][];
+
+      my $key=Shb7::file("$M->{fswat}/$dep");
+
+      if(-e $key) {
+        $fnode->append($key);
+
+      };
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+
+  $tree->track();
+  $tree->hier_sort();
+#  $tree->prich();
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # 0-800-Call MAM
 
 sub pcc($M,$src,$obj,$pmd) {
@@ -537,13 +620,21 @@ sub pcc($M,$src,$obj,$pmd) {
   if(!$do_build && $pmd) {
     @deps=@{parsepmd($pmd)};
 
-  };
+  } elsif(!$pmd) {$do_build=1};
 
   # no missing deps
   static_depchk($src,\@deps);
 
   # make sure we need to update
   buildchk(\$do_build,$obj,\@deps);
+
+# ---   *   ---   *   ---
+
+  if($M->{fswat} eq 'avtomat' || $do_build) {
+    push @{$M->{pcc_objs}},$obj;
+    push @{$M->{pcc_deps}},$pmd;
+
+  };
 
 # ---   *   ---   *   ---
 
@@ -562,7 +653,7 @@ sub pcc($M,$src,$obj,$pmd) {
       "-I$ENV{ARPATH}/$M->{fswat}".q{ }.
       "$M->{incl}".q{ }.
 
-      "-MMAM=-md,--rap,--module=$M->{fswat}".q{ }.
+      "-MMAM=--rap,--module=$M->{fswat}".q{ }.
 
       "$src";
 
@@ -571,19 +662,6 @@ sub pcc($M,$src,$obj,$pmd) {
     if(!length $out) {
       my $log=`cat $ENV{ARPATH}/avtomat/.errlog`;
       print {*STDERR} "$log\n";
-
-    };
-
-# ---   *   ---   *   ---
-
-    my $re=$Shwl::DEPS_RE;
-    my $depstr;
-
-    if($out=~ s/$re//sm) {
-      $depstr=${^CAPTURE[0]};
-
-    } else {
-      croak "Can't fetch dependencies for $src";
 
     };
 
@@ -599,14 +677,7 @@ sub pcc($M,$src,$obj,$pmd) {
 
 # ---   *   ---   *   ---
 
-    my $FH;
-
-    open $FH,'+>',$pmd or croak STRERR($pmd);
-    print {$FH} $depstr;
-
-    close $FH;
-
-    open $FH,'+>',$obj or croak STRERR($obj);
+    open my $FH,'+>',$obj or croak strerr($obj);
     print {$FH} $out;
 
     close $FH;
@@ -617,6 +688,34 @@ sub pcc($M,$src,$obj,$pmd) {
 
 TAIL:
   return;
+
+};
+
+# ---   *   ---   *   ---
+
+sub depsmake($M) {
+
+  my @objs=@{$M->{pcc_objs}};
+  my @deps=@{$M->{pcc_deps}};
+
+  my $fswat=$M->{fswat};
+
+  while(@objs && @deps) {
+
+    my $obj=shift @objs;
+    my $pmd=shift @deps;
+
+    next if $obj=~ m[Depsmake\.pm$];
+
+    my $depstr=
+      `\$ARPATH/avtomat/bin/pmd $fswat $obj`;
+
+    open my $FH,'+>',$pmd or croak strerr($pmd);
+    print {$FH} $depstr;
+
+    close $FH;
+
+  };
 
 };
 

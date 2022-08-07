@@ -48,13 +48,15 @@ package Avt::FFI;
     q[wide]=>['uint16'],
     q[swide]=>['sint16'],
 
-    q[long]=>['uint32'],
-    q[slong]=>['sint32'],
+    q[_long]=>['uint32'],
+    q[_slong]=>['sint32'],
     q[word]=>['uint64'],
     q[sword]=>['sint64'],
 
     q[byte_str]=>['string'],
     q[wide_str]=>['wstring'],
+
+    q[darc]=>['opaque'],
 
   );
 
@@ -71,11 +73,11 @@ sub get_instance($class,$idex=0) {
 
   my $out=undef;
 
-  if(!defined $Instances[$idex]) {
+  if(!defined $Instances->[$idex]) {
     $out=$class->nit();
 
   } else {
-    $out=$Instances[$idex];
+    $out=$Instances->[$idex];
 
   };
 
@@ -98,17 +100,43 @@ sub nit($class) {
 
   );
 
-  # set type aliases
-  for my $ffi_type(keys %{$Typetab}) {
+  my @keys=Arstd::array_keys($Typetab);
+  my @values=Arstd::array_values($Typetab);
 
-    my $alias=$Typetab->{$ffi_type};
+  # set type aliases
+  while(@keys && @values) {
+
+    my $ffi_type=shift @keys;
+    my $alias=shift @values;
+
+# ---   *   ---   *   ---
+# NOTE; lyeb@IBN-3DILA on 08/06/22 23:31:54
+#
+# we can't point to wstring? what is this?
+#
+# don't even tell me why, I can already tell
+# the reason is monumentally stupid
+
+    if($ffi_type=~ m[^wstring\*+]) {
+      $ffi_type='opaque*'; # suck it
+
+    };
+
+say {*STDERR} '>> ', $ffi_type,q{ },$alias;
+
     $ffi->type($ffi_type=>$alias)
 
   };
 
   # function types
   $ffi->type('(void)->void'=>'nihil');
-  $ffi->type('(void*)->void'=>'stark');
+
+# ---   *   ---   *   ---
+# NODE: lyeb@IBN-3DILA on 08/07/22 00:13:04
+#
+# 'void pointer not allowed'? shame on you...
+
+  $ffi->type('(opaque)->void'=>'stark');
   $ffi->type('(uint64)->uint64'=>'signal');
 
   return $ffi;
@@ -117,20 +145,43 @@ sub nit($class) {
 
 # ---   *   ---   *   ---
 
-sub xltab(%table) {
+sub xltab(@table) {
 
-  my $result={};
+  my $result=[];
 
-  for my $key(keys %table) {
+  my @keys=Arstd::array_keys(\@table);
+  my @values=Arstd::array_values(\@table);
+
+  while(@keys && @values) {
+    my $key=shift @keys;
+    my $value=shift @values;
+
+    for my $ffi_type(@$value) {
+        push @$result,$ffi_type=>$key;
+
+    };
+
+# ---   *   ---   *   ---
+
   for my $indlvl(1..3) {
 
     my $peso_ind=$Type::Indirection_Key->[$indlvl-1];
-    my $c_ind=q[*] x $indlvl;
 
+    my $c_ind=q[*] x $indlvl;
     my $peso_type="${key}_$peso_ind";
-    for my $ffi_type(@{$table{$key}}) {
-      $result->{$ffi_type}=$key;
-      $result->{$ffi_type.$c_ind}=$peso_type;
+
+    for my $ffi_type(@$value) {
+
+      my $ctype;
+      if($indlvl==1) {
+        $ctype="$ffi_type$c_ind";
+
+      } else {
+        $ctype='opaque*';
+
+      };
+
+      push @$result,$ctype=>$peso_type;
 
     };
 

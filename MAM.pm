@@ -26,6 +26,7 @@ package MAM;
 
   use Readonly;
 
+  use English qw(-no_match_vars);
   use Cwd qw(abs_path);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -47,8 +48,6 @@ package MAM;
     {id=>'module',short=>'-M',argc=>1},
     {id=>'no_comments',short=>'-nc'},
     {id=>'no_print',short=>'-np',},
-
-    {id=>'make_deps',short=>'-md'},
 
     {id=>'rap'},
     {id=>'line_numbers',short=>'-ln'},
@@ -109,7 +108,6 @@ sub filter {
     my $modname=$SETTINGS->{module};
     if($SETTINGS->{rap}!=$NULL) {
 
-
       $self->{raw}=~ s{
 
         \{'ARPATH'\}[.]'/lib
@@ -152,35 +150,6 @@ sub filter {
 
     if($SETTINGS->{no_print}==$NULL) {
       $self->prich();
-
-    };
-
-# ---   *   ---   *   ---
-# emit dependency files
-
-    if($SETTINGS->{make_deps}!=$NULL) {
-
-      my $deps=$Shwl::DEPS_STR;
-      my $re=abs_path(glob(q{~}));
-
-      $re=qr{$re};
-      $deps.="$self->{fname}\n";
-
-      for my $path(values %INC) {
-        if($path=~ $re) {
-
-          my $alt=$path;
-          $alt=~ s{/lib/} {/.trash/$modname/};
-
-          if(-e $alt) {$path=$alt};
-          $deps.=$path.q{ };
-
-        };
-
-      };
-
-      $deps.=$Shwl::DEPS_STR;
-      print $deps;
 
     };
 

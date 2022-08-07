@@ -910,7 +910,6 @@ sub errout($format,%opt) {
 # ---   *   ---   *   ---
 # handle program exit
 
-
   my $mess=longmess();
 
   $mess=join "\n",

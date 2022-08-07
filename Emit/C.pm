@@ -75,8 +75,8 @@ package Emit::C;
 
 # ---   *   ---   *   ---
 
-    q[long]=>['uint','uint32_t'],
-    q[slong]=>['int','int32_t'],
+    q[_long]=>['uint','uint32_t'],
+    q[_slong]=>['int','int32_t'],
 
     q[word]=>[
       'ulong','uint64_t','size_t','uintptr_t',
@@ -90,6 +90,8 @@ package Emit::C;
 
     q[real]=>['float'],
     q[daut]=>['double'],
+
+    q[darc]=>['void'],
 
   );
 
