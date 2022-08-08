@@ -21,7 +21,7 @@ package Lang::Js;
 BEGIN {
 Lang::Js->nit(
 
-  name=>'JS',
+  name=>'Js',
   ext=>'\.js$',
   hed=>'#!.*node',
 

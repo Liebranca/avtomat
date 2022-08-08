@@ -156,7 +156,7 @@ sub import {
   if(\$Initialized) {return};
 
   my \$libfold=Arstd::dirof(__FILE__);
-  my \$FFI_Instance=Avt::FFI->get_instance(0);
+  \$FFI_Instance=Avt::FFI->get_instance(0);
 
   \$FFI_Instance->lib(
     "\$libfold/lib$soname.so"

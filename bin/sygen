@@ -17,177 +17,138 @@
   use strict;
   use warnings;
 
-# ---   *   ---   *   ---
+  use English qw(-no_match_vars);
 
-my $srcpath=$ENV{'ARPATH'}.'/avtomat';
-my $dstpath=$ENV{'ARPATH'}.'/lib';
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
 
-my $do_cp=0;
+  use Style;
+  use Arstd;
+  use Chk;
 
-# first make copy
-$do_cp=!(-e "$dstpath/lang.pm");
-$do_cp=(!$do_cp)
-  ? !((-M "$dstpath/lang.pm")
-    < (-M "$srcpath/lang.pm"))
-
-  : $do_cp
-  ;
-
-# ---   *   ---   *   ---
-
-# check secondary deps to lib
-my @files=split m/\s+/,
-  `ls $srcpath/langdefs`;
-
-if(!$do_cp) {
-
-  my $lfold="$srcpath/langdefs";
-
-  for my $f(@files) {
-
-    if(
-
-      !((-M "$dstpath/lang.pm")
-      < (-M "$lfold/$f"))
-
-    ) {$do_cp=1;last;};
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-
-if($do_cp) {
-  `cp $srcpath/lang.pm $dstpath/`;
-
-};if(!(-e "$dstpath/langdefs")) {
-  `mkdir -p $dstpath/langdefs`;
-
-};
-
-# ---   *   ---   *   ---
-# iter through addons and copy if need
-
-for my $lang(@files) {
-
-  my $src="$srcpath/langdefs/$lang";
-  my $dst="$dstpath/langdefs/$lang";
-
-  my $up=!(-e $dst);
-  $up=(!$up)
-
-    ? !((-M $dst)
-      < (-M $src))
-
-    : $up
-    ;
-
-  if($up) {
-    `cp $src $dst`;
-
-  };
-};
-
-# ---   *   ---   *   ---
-
-for my $lang(@files) {
-  $lang=~ s/\.pm//;
-
-};
-
-# ---   *   ---   *   ---
-
-sub make_script {
-
-my $script=<<'EOF'
-#!/usr/bin/perl
-
-  use v5.36.0;
-  use strict;
-  use warnings;
+  use Shb7;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
-  use avt;
-  use lang;
-
-EOF
-;
+  use Lang;
+  use Avt;
 
 # ---   *   ---   *   ---
+# ROM
 
-  for my $lang(@files) {
-    $script.="  use langdefs::$lang;\n";
+  my @COLORS=qw(
+
+    black red green yellow
+    blue magenta cyan white
+
+    grey
+
+    brightred brightgreen
+
+    brightyellow brightblue
+
+    brightmagenta brightcyan
+
+    brightwhite
+
+  );
+
+# ---   *   ---   *   ---
+# ordered list of attrs to use for highlighting
+
+  my @KEYCOLOR=(
+
+    common=>0x07,
+    hier=>0x04,
+    names_u=>0x0D,
+    pfun=>0x01,
+    shcmds=>0x01,
+    pesc=>0x0E,
+
+
+    builtins=>0x01,
+    fctls=>0x0D,
+    types=>0x04,
+    specifiers=>0x04,
+
+    intrinsics=>0x04,
+    directives=>0x0D,
+    resnames=>0x04,
+
+    nums=>0x03,
+    vstr=>0x03,
+    ops=>0x0F,
+    chars=>0x0E,
+    strings=>0x0E,
+    preproc=>0x0E,
+
+    lcom=>0x02,
+    dev0=>0x0B,
+    dev1=>0x09,
+    dev2=>0x66,
+
+  );
+
+  # ^hash-ify for convenience
+  my %KEYCOLOR=@KEYCOLOR;
+
+# ---   *   ---   *   ---
+# remarkable exceptions to the rule
+
+  my $EITHS_NOWB={
+
+    'Perl'=>{types=>1,},
 
   };
 
 # ---   *   ---   *   ---
+# global state
 
-$script.=<<'EOF'
+  my $FH=undef; # one is enough
 
-my @colors=(
+# ---   *   ---   *   ---
+# point to avtomat and retrieve langdefs
 
-  'black','red','green','yellow',
-  'blue','magenta','cyan','white',
+Shb7::set_root($ENV{'ARPATH'});
+my $Tree=Shb7::walk('avtomat/Lang');
 
-  'grey','red','green','yellow',
-  'blue','magenta','cyan','white',
+# these files do not output a syntax file
+my $EXCLUDED=qr{
 
-);for(my $i=9;$i<16;$i++) {
-  $colors[$i]='bright'.$colors[$i];
+  (?: Def[.]pm$)
 
-};my $FH=undef;
+}x;
 
-my %KEYCOLOR=(
+# ^get list of files that do
+my @Files=grep
+  {!($ARG=~ $EXCLUDED)}
+  $Tree->get_file_list()
 
-  hier=>0x04,
+;
 
-  shcmds=>0x01,
-  pesc=>0x0E,
-  strings=>0x0E,
-  chars=>0x0E,
-  preproc=>0x0E,
+# ^import from list
+for my $lang(@Files) {
 
-  pfun=>0x01,
-  nums=>0x03,
+  $lang=Shb7::shpath($lang);
+  $lang=~ s[^avtomat/Lang/][];
+  $lang=~ s/[.]pm$//;
 
-  dev0=>0x0B,
-  dev1=>0x09,
-  dev2=>0x66,
+  # load the package
+  eval(q{use Lang::}.$lang.';');
 
-  common=>0x07,
-  names_u=>0x0D,
-
-  types=>0x04,
-  specifiers=>0x04,
-  resnames=>0x04,
-
-  builtins=>0x01,
-  intrinsics=>0x04,
-  directives=>0x0D,
-  fctls=>0x0D,
-
-  lcom=>0x02,
-  ops=>0x0F,
-  vstr=>0x03,
-
-);
-
-my $EITHS_NOWB={
-
-  'perl'=>{types=>1,},
+  # ^get reference to instance
+  $lang=eval(q{Lang->}.$lang);
 
 };
 
-sub prprops {
+# ---   *   ---   *   ---
+# processes langdef attributes to use
+# in a posix regex
 
-  my $def=shift;
-  my $key=shift;
+sub prprops($def,$key) {
 
   my $color=$KEYCOLOR{$key};{
     my ($fg,$bg)=($color&0xF,$color>>4);
-    $color=$colors[$fg].','.$colors[$bg];
+    $color=$COLORS[$fg].','.$COLORS[$bg];
 
   };
 
@@ -212,13 +173,13 @@ sub prprops {
   )/x) {
 
     if($key eq 'strings') {
-      $v=lang::delim(q{"});
+      $v=Lang::delim(q{"});
 
     } elsif($key eq 'chars') {
-      $v=lang::delim(q{'});
+      $v=Lang::delim(q{'});
 
     } elsif($key eq 'shcmds') {
-      $v=lang::delim(q{`});
+      $v=Lang::delim(q{`});
 
     } elsif($key eq 'preproc') {
       $v='^\s*#.*$';
@@ -230,18 +191,23 @@ sub prprops {
 
   };
 
+# ---   *   ---   *   ---
+# extract patterns
+
   my @ar=($v);
 
-  if($v=~ m/^ARRAY\(0x/) {
+  if(is_arrayref($v)) {
     @ar=@{$v};
 
-  } elsif($v=~ m/^HASH\(0x/) {
+  } elsif(is_hashref($v)) {
 
     delete $v->{re};
+
     my @keys=keys %{$v};
     @ar=();
 
 # ---   *   ---   *   ---
+# this abomination exists to accomodate sigils
 
     if(exists $EITHS_NOWB
       ->{$def->{name}}
@@ -269,126 +235,125 @@ sub prprops {
     };
 
 # ---   *   ---   *   ---
+# output key lists in blocks
+# for some reason this is faster
 
-    for(my $x=0;$x<@keys;$x+=20) {
+    for(my $x=0;$x<@keys;$x+=32) {
 
-      my $top=(@keys>$x+19)
-        ? $x+19 : $#keys;
+      my $top=(@keys>$x+31)
+        ? $x+31 : $#keys;
 
       my @slice=(@keys[$x..$top]);
       for my $re(@slice) {
-        if($re=~ $lang::QRE_RE) {
-          lang::qre2re(\$re);
+        if(is_qre($re)) {
+          Lang::qre2re(\$re);
 
         };
 
       };
 
+
+      # sort keys by length
       @slice=sort {
         (length $a)<=(length $b);
 
       } @slice;
 
+      # join them into a single expression
       my $re='\b('.(join '|',@slice).')\b';
 
       push @ar,$re;
+
 
     };
 
   };
 
 # ---   *   ---   *   ---
+# output patterns
 
   for my $re(@ar) {
 
     $re=~ s/\s+|\n//sxmg;
     $re=join '\n',(split "\n",$re);
 
-    if($re=~ $lang::QRE_RE) {
-      lang::qre2re(\$re);
+    if(is_qre($re)) {
+      Lang::qre2re(\$re);
 
     };
 
-    $re=avt::dqwrap($re);
-    print $FH "color $color $re\n";
+    $re=Avt::dqwrap($re);
+    print {$FH} "color $color $re\n";
 
   };
 
 };
 
 # ---   *   ---   *   ---
+# iters through langdefs
+# outs a nanorc file for each
 
-sub glang {
+sub make_syntax_files(@args) {
+while(@args) {
 
-  while(@_) {
+  my $def=shift @args;
+  my $dst=shift @args;
 
-    my $def=shift;
-    my $dst=shift;
+  open $FH,'>',$dst or die strerr($dst);
 
-    open $FH,'>',$dst or die $!;
+  # nano syntax file boiler
+  my $prop='syntax '.(
 
-    my $prop='syntax '.(
+    $def->{name}.' "'.
+    $def->{ext}.'"'
 
-      $def->{name}.' "'.
-      $def->{ext}.'"'
+  )."\n";
 
-    )."\n";
+  $prop.='header '.Avt::dqwrap($def->{hed})."\n";
+  $prop.='magic '.Avt::dqwrap($def->{mag})."\n";
 
-    $prop.='header '.avt::dqwrap($def->{hed})."\n";
-    $prop.='magic '.avt::dqwrap($def->{mag})."\n";
+  # de-escape comments
+  $def->{com}=~ s/\\//sg;
 
-    $def->{com}=~ s/\\//sg;
+  my $com=$def->{com};
+  $def->{lcom}=~ s/\\${com}/$com/sg;
 
-    my $com=$def->{com};
-    $def->{lcom}=~ s/\\${com}/$com/sg;
+  $prop.='comment '.Avt::dqwrap($def->{com})."\n";
 
-    $prop.='comment '.avt::dqwrap($def->{com})."\n";
-    print $FH "$prop\n";
+  # spit it out
+  print {$FH} "$prop\n";
 
-# ---   *   ---   *   ---
-
-    for my $key(qw(
-
-      common hier
-
-      names_u pfun shcmds pesc
-      builtins fctls types specifiers
-      intrinsics directives resnames
-
-      nums vstr ops chars strings
-      preproc lcom
-
-      dev0 dev1 dev2
-
-    )) {prprops($def,$key);};
-    close $FH;
+  # get patterns list
+  for my $key(Arstd::array_keys(\@KEYCOLOR)) {
+    prprops($def,$key);
 
   };
+
+  close $FH or die strerr($dst);
+
+}};
+
+# ---   *   ---   *   ---
+# run the generator
+
+my @LangData=();
+my $Path=glob("~/.config/nano");
+
+for my $lang(@Files) {
+
+  push @LangData,
+
+    # Lang::Def instance
+    $lang,
+
+    # destination file
+    "$Path/$lang->{name}.nanorc"
+
+  ;
+
 };
 
-# ---   *   ---   *   ---
-
-EOF
-;
-
-# ---   *   ---   *   ---
-
-$script.="\nglang(\n";
-
-for my $lang(@files) {
-
-  $script.=
-    "  lang->$lang,\n".
-    "  glob(".'"'."~/.config/nano/".'".'."\n".
-    "  lang->"."$lang->"."{name}".
-    '.".nanorc"),'."\n\n";
-
-};$script.="\n);\n";
-
-# ---   *   ---   *   ---
-
-  eval($script);
-};make_script(@files);
+make_syntax_files(@LangData);
 
 # ---   *   ---   *   ---
 1; # ret
