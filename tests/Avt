@@ -14,37 +14,15 @@
 
   use lib $ENV{'ARPATH'}.'/avtomat/sys/';
 
-#  use Style;
-#  use Arstd;
-#
-#  use Shb7;
-  use Fmat;
+  use Style;
+  use Arstd;
+
+  use Shb7;
 
   use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
   use lib $ENV{'ARPATH'}.'/avtomat/';
 
-#  use Avt;
-#  use Makescript;
-
-  #use Depsmake;
-
-# ---   *   ---   *   ---
-
-#my $root=Arstd::parof(__FILE__);
-#my $M=retrieve(
-#
-#  "$root/.avto-cache"
-#
-#);
-#
-#$root=Arstd::dirof($root);
-#
-#chdir Shb7::set_root($root);
-#$M=Makescript->nit($M);
-#
-#$M->sort_by_deps();
-
-exit;
+  use Avt;
 
 # ---   *   ---   *   ---
 

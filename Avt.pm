@@ -1164,7 +1164,7 @@ sub make() {
 
       'INIT {'."\n\n".
 
-        'print "'.
+        'print {*STDERR} "'.
         $Emit::Std::ARSEP.
         'running pre-build hook... \n";'.
 
@@ -1242,9 +1242,9 @@ EOF
 
       "END {\n\n".
 
-        'print "'.
+        'print {*STDERR} "'.
         $Emit::Std::ARSEP.
-        'running post-build hook... \n\n";'.
+        'running post-build hook... \n";'.
 
         $C->{post_build}.';'.
         '$M->depsmake();'.

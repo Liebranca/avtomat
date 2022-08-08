@@ -92,72 +92,62 @@ sub unimport {
 sub filter {
 
   my ($self)=@_;
-
   my ($pkg,$fname,$lineno)=(caller);
-  my $status=Lyfil::filter_read();
 
-  $self->logline(\$_);
+  my $body=Arstd::orc($self->{fname});
 
-  if(!$status) {
+  my $modname=$SETTINGS->{module};
+  if($SETTINGS->{rap}!=$NULL) {
 
-    $self->propagate();
-    Shwl::stitch(\$self->{chain}->[0]->{raw});
+    $body=~ s{(
 
-# ---   *   ---   *   ---
+      \{'ARPATH'\}[.]'/lib([^;]+)
 
-    my $modname=$SETTINGS->{module};
-    if($SETTINGS->{rap}!=$NULL) {
-
-      $self->{raw}=~ s{
-
-        \{'ARPATH'\}[.]'/lib
-
-      } {\{'ARPATH'\}.'/.trash/$modname}sxg;
+    )} {$1;
+  use lib \$ENV\{'ARPATH'\}.'/.trash/$modname$2}sxg;
 
 # ---   *   ---   *   ---
 
-    } else {
+  } else {
 
-      $self->{raw}=~ s{
+    $body=~ s{
 
-        \{'ARPATH'\}
+      use \s+ lib \s+ \$ENV
 
-        [.]
+      \{'ARPATH'\}
 
-        '/.trash/${modname}
+      [.]
 
-      } {\{'ARPATH'\}.'/lib}sxg;
+      '/.trash/${modname}[^;]+;
 
-    };
-
-# ---   *   ---   *   ---
-
-    if($SETTINGS->{line_numbers}!=$NULL) {
-
-      my $x=1;
-      my $whole='';
-
-      for my $line(split m/\n/,$self->{raw}) {
-        $whole.=sprintf "%4i %s\n",$x++,$line;
-
-      };
-
-      $self->{raw}=$whole;
-
-    };
-
-# ---   *   ---   *   ---
-
-    if($SETTINGS->{no_print}==$NULL) {
-      $self->prich();
-
-    };
-
-# ---   *   ---   *   ---
+    } {}sxg;
 
   };
 
-  return $status;
+# ---   *   ---   *   ---
+
+  if($SETTINGS->{line_numbers}!=$NULL) {
+
+    my $x=1;
+    my $whole='';
+
+    for my $line(split m/\n/,$body) {
+      $whole.=sprintf "%4i %s\n",$x++,$line;
+
+    };
+
+    $body=$whole;
+
+  };
+
+# ---   *   ---   *   ---
+
+  if($SETTINGS->{no_print}==$NULL) {
+    say $body;
+
+  };
+
+  return 0;
 
 };
 

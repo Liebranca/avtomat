@@ -211,7 +211,7 @@ sub update {
 # ---   *   ---   *   ---
 
         my $ex=
-          "perl".q{ }.
+          "perl -c".q{ }.
 
           "$MAM_PATH".q{ }.
           "$MAM_ARGS".q{ }.

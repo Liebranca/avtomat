@@ -523,84 +523,6 @@ TAIL:
 };
 
 # ---   *   ---   *   ---
-# ensures objects are build in the right order
-# only needed for MAM to get it's shit together
-
-sub sort_by_deps($M) {
-
-  my $fsre=qr{$M->{fswat}/};
-
-  my $frame=Tree::Dep->new_frame();
-  my $tree=$frame->nit(undef,$M->{fswat});
-
-  my @SRCS=@{$M->{srcs}};
-  my @OBJS=@{$M->{objs}};
-
-  my %priority=();
-
-  for(my ($i,$j)=(0,0);$i<@SRCS;$i++,$j+=2) {
-
-    my $src=$SRCS[$i];
-
-    my $obj=$OBJS[$j+0];
-    my $mmd=$OBJS[$j+1];
-
-# ---   *   ---   *   ---
-# get dependency list
-
-    my @deps=();
-
-    if($mmd) {
-
-      if($src=~ Lang::Perl->{ext}) {
-        @deps=@{parsepmd($mmd)};
-
-      } else {
-        @deps=@{parsemmd($mmd)};
-
-      };
-
-    };
-
-# ---   *   ---   *   ---
-# filter out external
-
-    my $fnode=$tree->branch_in(qr{^$src$});
-
-    if(!defined $fnode) {
-      $fnode=$frame->nit($tree,$src);
-
-    };
-
-    for my $dep(@deps) {
-
-      $dep=Shb7::shpath($dep);
-      $dep=~ s[^lib/][];
-      $dep=~ s[^\.trash/][];
-      $dep=~ s[$fsre][];
-
-      my $key=Shb7::file("$M->{fswat}/$dep");
-
-      if(-e $key) {
-        $fnode->append($key);
-
-      };
-
-    };
-
-  };
-
-# ---   *   ---   *   ---
-
-  $tree->track();
-  $tree->hier_sort();
-#  $tree->prich();
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
 # 0-800-Call MAM
 
 sub pcc($M,$src,$obj,$pmd) {
@@ -630,7 +552,7 @@ sub pcc($M,$src,$obj,$pmd) {
 
 # ---   *   ---   *   ---
 
-  if($M->{fswat} eq 'avtomat' || $do_build) {
+  if((!(-e $pmd)) || $do_build) {
     push @{$M->{pcc_objs}},$obj;
     push @{$M->{pcc_deps}},$pmd;
 
@@ -643,7 +565,7 @@ sub pcc($M,$src,$obj,$pmd) {
     print {*STDERR} Shb7::shpath($src)."\n";
 
     my $ex=
-      "perl".q{ }.
+      "perl -c".q{ }.
 
       "-I$ENV{ARPATH}/avtomat/".q{ }.
       "-I$ENV{ARPATH}/avtomat/hacks".q{ }.
@@ -699,6 +621,18 @@ sub depsmake($M) {
   my @deps=@{$M->{pcc_deps}};
 
   my $fswat=$M->{fswat};
+
+  if(@objs && @deps) {
+
+    print {*STDERR }
+      $Emit::Std::ARSEP,
+      'rebuilding dependencies... ',
+
+      "\n\n"
+
+    ;
+
+  };
 
   while(@objs && @deps) {
 

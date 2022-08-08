@@ -1,0 +1,37 @@
+#!/usr/bin/perl
+
+use v5.36.0;
+use strict;
+use warnings;
+
+my $mod=shift @ARGV;
+my $fname=shift @ARGV;
+my $no_rap=shift @ARGV;
+
+my $call=q{perl
+
+  -I$ARPATH/avtomat/sys
+  -I$ARPATH/avtomat/hacks
+
+  -I$ARPATH/avtomat
+
+  -MMAM=--rap,--module=$mod
+
+  $fname
+
+};
+
+$call=~ s[\n][ ]sxmg;
+$call=~ s[\s+][ ]sxmg;
+$call=~ s[\$mod][$mod];
+$call=~ s[\$fname][$fname];
+
+if(defined $no_rap) {
+  $call=~ s[\-\-rap,][];
+
+};
+
+say `$call`;
+
+# ---   *   ---   *   ---
+1; # ret

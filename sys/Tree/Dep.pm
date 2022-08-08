@@ -46,11 +46,13 @@ sub append($self,$value) {
 
 };
 
+# ---   *   ---   *   ---
+
 sub track($self) {
 
   my ($root,$depth)=$self->root();
 
-  my @pending=($self);
+  my @pending=($root);
   while(@pending) {
 
     $self=shift @pending;
@@ -62,7 +64,7 @@ sub track($self) {
 
       my $dep=$root->branch_in(qr{^$value$});
 
-      next if !$dep;
+      next if !$dep || $dep eq $self;
 
       $dep->{needed_by}->{$self->{value}}=$self;
       $tmp->{$dep->{value}}=$dep;
@@ -75,37 +77,95 @@ sub track($self) {
 
   };
 
+# ---   *   ---   *   ---
+
+  $root->hier_sort();
+  return $root->list_by_priority();
+
 };
 
 # ---   *   ---   *   ---
 
 sub hier_sort($self) {
 
-#  my ($root,$depth)=$self->root();
-#
-#  my $i=0;
-#  my @tracked=();
-#
-#  for my $node(@{$root->{leaves}}) {
-#
-#my $needs=$node->{needs};
-#my $needed_by=$node->{needed_by};
-#
-#
-#
-#say $node->{value},":\n";
-#
-#say '  NEED';
-#map {say "    $ARG"} keys %{};
-#
-#say $NULLSTR;
-#
-#say '  NEEDED BY';
-#map {say "    $ARG"} keys %{};
-#
-#say "_______________________\n";
-#
-#  };
+  my ($root,$depth)=$self->root();
+
+  my $i=0;
+
+  my @tracked=();
+  my @pending=(@{$root->{leaves}});
+
+  for my $node(@pending) {
+
+    my $needs=$node->{needs};
+    my $needed_by=$node->{needed_by};
+
+# ---   *   ---   *   ---
+
+    my @deps=values %$needs;
+    my @chld=values %$needed_by;
+
+    for my $c(@chld) {
+
+      my $par=$c->{parent};
+
+      if($par eq $root) {
+        $node->pushlv($c);
+
+      } elsif(grep {$par eq $ARG} @deps) {
+
+        if($par ne $node->{parent}) {
+          $par->pushlv($node);
+
+        };
+
+        $node->pushlv($c);
+
+      };
+
+    };
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub list_by_priority($self) {
+
+  my @pending=(@{$self->{leaves}});
+  my $depth=0;
+
+# ---   *   ---   *   ---
+# walk the tree
+
+  my $priority={};
+  for my $node(@pending) {
+
+    $self=shift @pending;
+    if($self eq 1) {$depth++;next};
+    if($self eq 0) {$depth--;next};
+
+    # save depth of each node
+    $priority->{$depth}//=[];
+    push @{$priority->{$depth}},$node;
+    unshift @pending,1,@{$self->{leaves}},0;
+
+  };
+
+# ---   *   ---   *   ---
+# ^order nodes by depth
+
+  my $result=[];
+  my @order=sort {$a<=>$b} keys %$priority;
+
+  for my $i(@order) {
+    push @$result,@{$priority->{$i}};
+
+  };
+
+  $result=[map {$ARG->{value}} @$result];
+  return $result;
 
 };
 
