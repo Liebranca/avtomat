@@ -45,6 +45,10 @@ package Lang::Def;
 
     lcom=>$NULLSTR,
 
+    # array of plain highlighting rules
+    # these are ignored by the parser
+    highlight=>[],
+
 # ---   *   ---   *   ---
 
     op_prec=>{},
@@ -162,6 +166,8 @@ package Lang::Def;
 
     hier=>['$:names;>$:drfc;>','$:drfc;>$:names;>'],
     pfun=>'$:names;>\s*\\(',
+
+    strip_re=>$NULLSTR,
 
 # ---   *   ---   *   ---
 
@@ -592,15 +598,18 @@ sub nit($class,%h) {
 # ---   *   ---   *   ---
 # parse2 regexes
 
-  my $comchar="$ref->{com}";
-  $ref->{strip_re}=qr{
+  if(!length $ref->{strip_re}) {
+    my $comchar="$ref->{com}";
+    $ref->{strip_re}=qr{
 
-    (?: ^|\s*)
+      (?: ^|\s*)
 
-    (?: $comchar[^\n]*)?
-    (?: \n|$)
+      (?: $comchar[^\n]*)?
+      (?: \n|$)
 
-  }x;
+    }x;
+
+  };
 
   $ref->{exp_bound_re}=qr{
 

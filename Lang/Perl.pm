@@ -277,6 +277,7 @@ Lang::Perl->nit(
 # ---   *   ---   *   ---
 
 );
+};
 
 # ---   *   ---   *   ---
 
@@ -333,10 +334,6 @@ sub hier_sort($self,$rd) {
 
   $tree->clear_branches();
   $tree->pushlv(@scopes);
-
-};
-
-# ---   *   ---   *   ---
 
 };
 

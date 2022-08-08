@@ -64,7 +64,6 @@
     shcmds=>0x01,
     pesc=>0x0E,
 
-
     builtins=>0x01,
     fctls=>0x0D,
     types=>0x04,
@@ -146,14 +145,24 @@ for my $lang(@Files) {
 
 sub prprops($def,$key) {
 
-  my $color=$KEYCOLOR{$key};{
-    my ($fg,$bg)=($color&0xF,$color>>4);
-    $color=$COLORS[$fg].','.$COLORS[$bg];
+  my $color;
+  my $v;
+
+  if($key eq 'highlight') {
+    $v=shift @{$def->{highlight}};
+    $color=shift @{$def->{highlight}};
+
+  } else {
+    $v=$def->{$key};
+    $color=$KEYCOLOR{$key};
 
   };
 
-  my $v=$def->{$key};
+  # decode color
+  { my ($fg,$bg)=($color&0xF,$color>>4);
+    $color=$COLORS[$fg].','.$COLORS[$bg];
 
+  };
 
   # nano syntax re was written by a degenerate
   # [\[\]] does not match square brackets
@@ -326,6 +335,12 @@ while(@args) {
   # get patterns list
   for my $key(Arstd::array_keys(\@KEYCOLOR)) {
     prprops($def,$key);
+
+  };
+
+  # overwrite rules
+  while(@{$def->{highlight}}) {
+    prprops($def,'highlight');
 
   };
 

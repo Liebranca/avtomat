@@ -117,6 +117,8 @@ my $FILE_LIST=[
   '/Avt.pm',
   '/Makescript.pm',
 
+  '/Lang/Mny.pm',
+
 ];
 
 # ---   *   ---   *   ---
@@ -344,7 +346,7 @@ print {*STDERR}
   "\e[37;1m::\e[0mrebuilding syntax files\n";
 
 print {*STDERR}
-  `$ENV{'ARPATH'}'/avtomat/sygen'`;
+  `$ENV{'ARPATH'}'/avtomat/bin/sygen'`;
 
 # ---   *   ---   *   ---
 

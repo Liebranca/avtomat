@@ -1,32 +1,35 @@
-avtomat v4;
+>avtomat v4.00.0
 
-~ Refactor helper
-x ^ Find mentions of a given package or subroutine
-x ^^ Make this recursive
-~ ^ Optimize away regexes and needless fncalls
+*>Refactor helper
+x Find mentions of a given package or subroutine
+x ^ Make this recursive
+~ ^ Combine f:./bin/symfind with mentions on *.mny trees
+~ Find TODO|FIX|BUG etc and append them to these lists
+~ Optimize away regexes and needless fncalls
 
-~ Reorder/repurpose Peso into lib/sys *
-~ ^ Generalize Blk for serialization
-~ ^ Generalize Ptr for Blk fetches
+*>Reorder/repurpose Peso into lib/sys
+~ Generalize Blk for serialization
+~ Generalize Ptr for Blk fetches
 
+*>Avt revision
+x Use Shb7::Walk instead of Avt implementation
+x Use Tree::File checksums instead of timestamps for update checks
+x Rework Frame interface
+x Generate syntax highlighting for *.mny files
+x Extend *.mny syntax
 
-~ Avt revision *
-x ^ Use Shb7::Walk instead of Avt implementation
-~ ^ Use Tree::File checksums instead of timestamps for update checks
-x ^ Rework Frame interface
-~ ^ Generate syntax highlighting for *.mny files
-~ ^ Extend *.mny syntax ;>
-
+*>Peso
 x Extend Lang::Perl for basic (as-doc) parsing
-~ Lang::Plps reimplementation.
+~ Lang::Plps reimplementation
 ~ Turn Peso into a proper IR
 
+*>Backburner
 ~ Utils for enforcing AR module standards
 ~ DEFAULTS enforcer for nits
 ~ VERSION && AUTHOR enforcer/tracker for modules and executables
-x Rework ARGV handler (partial help/cash.pm migration)
+x Rework ARGV handler (partial f:../help/Cash.pm migration)
 ~ Standarize module avto-nit
 x ^ Registering of modules on first include, for a similar purpose
 ~ OOP-ification of $Cache-type hashes
-x Subdivide the avt.pm monolith into modules
+x Subdivide the f:./Avt.pm monolith into modules
 ~ Enable/disable loading of optional deps on install scripts

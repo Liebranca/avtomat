@@ -30,6 +30,9 @@
   use Tree;
   use Cli;
 
+  use Lang::Mny;
+  use Peso::Rd;
+
 # ---   *   ---   *   ---
 
   my $m=Cli->nit(
@@ -59,109 +62,18 @@ if(!(-f $file)) {
 
 # ---   *   ---   *   ---
 
-my $body=Arstd::orc($file);
-my @lines=split $NEWLINE_RE,$body;
+my $rd=Peso::Rd::parse(
+  Lang->Mny,$file,
 
-Arstd::arrfil(\@lines);
+);
 
-# ---   *   ---   *   ---
+Lang->Mny->hier_sort($rd);
 
-my $frame=Tree->new_frame();
+my $block=$rd->select_block(-ROOT);
+my $tree=$block->{tree};
 
-my $root=$frame->nit(undef,shift @lines);
-my $anchor=$root;
-
-for my $line(@lines) {
-
-  my $done=0;
-  if($line=~ s[(~|x)\s+][]) {
-    $done=$1 eq 'x';
-
-  };
-
-# ---   *   ---   *   ---
-
-  if($anchor && $anchor ne $root && $line=~ s[(\^+)\s+][]) {
-
-    my $arrows=$1;
-    my $lvl=length $arrows;
-
-    $anchor=$root;
-
-    while($lvl) {
-      $anchor=$anchor->{leaves}->[-1];
-      $lvl--;
-
-    };
-
-# ---   *   ---   *   ---
-
-  } else {
-
-    $anchor=$root;
-
-  };
-
-# ---   *   ---   *   ---
-
-  my $focus=0;
-  if($line=~ s[\*$][]) {
-    $line="\e[40;5m$line\e[0m";
-    $focus=1;
-
-  };
-
-# ---   *   ---   *   ---
-
-  if($done) {
-
-    $line=
-
-      "\e[37;1m[\e[0m".
-      "\e[32;1mx\e[0m".
-      "\e[37;1m]\e[0m".q{ }.
-
-      $line;
-
-  } else {
-
-    $line=
-
-      "\e[37;1m[\e[0m".
-      "\e[31;22m~\e[0m".
-      "\e[37;1m]\e[0m".q{ }.
-
-      $line;
-
-  };
-
-# ---   *   ---   *   ---
-
-  if(
-
-     !$m->{focus_only} || $focus
-  || (defined $anchor && $anchor->{focus})
-
-  ) {
-
-    my $nd=$frame->nit($anchor,$line);
-
-    $nd->{focus}=$focus;
-    $nd->{done}=$done;
-
-    $anchor=1;
-
-  } else {
-
-    $anchor=undef;
-
-  };
-
-# ---   *   ---   *   ---
-
-};
-
-$root->prich();
+# TODO: proper printing of tasks...
+$tree->prich();
 
 TAIL:
   exit;

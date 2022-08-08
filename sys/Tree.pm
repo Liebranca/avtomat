@@ -753,6 +753,30 @@ sub to_string($self,%O) {
 };
 
 # ---   *   ---   *   ---
+
+sub leaves_between($self,$i0,$i1,@branches) {
+
+  my @leaves=@{$self->{leaves}};
+
+  my $cur=$branches[$i0];
+  my $ahead=$branches[$i1];
+
+  my $beg=$cur->{idex};
+  my $end;
+
+  if(defined $ahead) {
+    $end=$ahead->{idex}-1;
+
+  } else {
+    $end=$#leaves;
+
+  };
+
+  return @leaves[$beg+1..$end];
+
+};
+
+# ---   *   ---   *   ---
 # print node leaves
 
 sub prich($self,%O) {
