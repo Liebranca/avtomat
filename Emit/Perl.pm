@@ -184,7 +184,7 @@ EOF
 
       my $fn=$funcs->{$fn_name};
 
-      my @ar=values %{$fn->{args}};
+      my @ar=Arstd::array_values($fn->{args});
       for my $s(@ar) {
         $s="'$s'";
 

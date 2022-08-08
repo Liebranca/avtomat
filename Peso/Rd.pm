@@ -493,7 +493,7 @@ sub fn_search($self,$tree,$dst={}) {
     my $fn=$dst->{$name}={
 
       type=>$type,
-      args=>{},
+      args=>[],
 
     };
 
@@ -521,7 +521,7 @@ sub fn_search($self,$tree,$dst={}) {
 
       my $arg_type=$emitter->typecon($arg_attrs);
 
-      $fn->{args}->{$arg_name}=$arg_type;
+      push @{$fn->{args}},$arg_name=>$arg_type;
 
 # ---   *   ---   *   ---
 

@@ -122,8 +122,6 @@ sub nit($class) {
 
     };
 
-say {*STDERR} '>> ', $ffi_type,q{ },$alias;
-
     $ffi->type($ffi_type=>$alias)
 
   };
