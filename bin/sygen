@@ -22,7 +22,8 @@
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::String;
+  use Arstd::Array;
   use Chk;
 
   use Shb7;
@@ -30,7 +31,6 @@
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Lang;
-  use Avt;
 
 # ---   *   ---   *   ---
 # ROM
@@ -291,7 +291,7 @@ sub prprops($def,$key) {
 
     };
 
-    $re=Avt::dqwrap($re);
+    $re=dqwrap($re);
     print {$FH} "color $color $re\n";
 
   };
@@ -318,8 +318,8 @@ while(@args) {
 
   )."\n";
 
-  $prop.='header '.Avt::dqwrap($def->{hed})."\n";
-  $prop.='magic '.Avt::dqwrap($def->{mag})."\n";
+  $prop.='header '.dqwrap($def->{hed})."\n";
+  $prop.='magic '.dqwrap($def->{mag})."\n";
 
   # de-escape comments
   $def->{com}=~ s/\\//sg;
@@ -327,13 +327,13 @@ while(@args) {
   my $com=$def->{com};
   $def->{lcom}=~ s/\\${com}/$com/sg;
 
-  $prop.='comment '.Avt::dqwrap($def->{com})."\n";
+  $prop.='comment '.dqwrap($def->{com})."\n";
 
   # spit it out
   print {$FH} "$prop\n";
 
   # get patterns list
-  for my $key(Arstd::array_keys(\@KEYCOLOR)) {
+  for my $key(array_keys(\@KEYCOLOR)) {
     prprops($def,$key);
 
   };

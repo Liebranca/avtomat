@@ -23,20 +23,6 @@
 
 # ---   *   ---   *   ---
 
-sub mord($str) {
-
-  my $word=0;$b=0;
-  for my $c(reverse split $NULLSTR,$str) {
-    $word|=ord($c)<<$b;$b+=8;
-
-  };
-
-  return $word;
-
-};
-
-# ---   *   ---   *   ---
-
 my $frame=Blk->new_frame();
 my $non=$frame->nit(undef,'non');
 

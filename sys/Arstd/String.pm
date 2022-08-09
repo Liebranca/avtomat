@@ -31,6 +31,9 @@ package Arstd::String;
     linewrap
     pretty_tag
 
+    sqwrap
+    dqwrap
+
   );
 
 # ---   *   ---   *   ---
@@ -63,6 +66,12 @@ sub descape($s) {
   return $s;
 
 };
+
+# ---   *   ---   *   ---
+# wrap string in quotes
+
+sub sqwrap($s) {return "'$s'"};
+sub dqwrap($s) {return "\"$s\""};
 
 # ---   *   ---   *   ---
 # builds regex for linewrapping

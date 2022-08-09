@@ -30,8 +30,8 @@ package Avt;
 
   use Style;
 
+  use Arstd::String;
   use Arstd::Hash;
-  use Arstd::Path;
   use Arstd::IO;
 
   use Shb7;
@@ -507,53 +507,6 @@ sub plext($dst_path,$src_path) {
 };
 
 # ---   *   ---   *   ---
-# arg=string any
-# multi-byte ord
-
-sub mord {
-  my @s=split $NULLSTR,shift;
-  my $seq=0;
-
-  my $i=0;while(@s) {
-    $seq|=ord(shift @s)<<$i;$i+=8;
-
-  };
-
-  return $seq;
-
-};
-
-# ^ for wide strings
-sub wmord($string) {
-  my @s=split $NULLSTR,$string;
-  my $seq=0;
-
-  my $i=0;while(@s) {
-    $seq|=ord(shift @s)<<$i;$i+=16;
-
-  };
-
-  return $seq;
-
-};
-
-# arg=int arr
-# multi-byte chr
-sub mchr(@s) {
-
-  for my $c(@s) {
-    $c=chr($c);
-
-  };
-
-  return @s;
-
-};
-
-# ---   *   ---   *   ---
-
-sub sqwrap($s) {return "'$s'"};
-sub dqwrap($s) {return "\"$s\""};
 
 sub ex($name,$opts,$tail) {
 
@@ -1192,9 +1145,9 @@ sub make() {
   use lib $ENV{'ARPATH'}.'/lib/sys/';
   use lib $ENV{'ARPATH'}.'/lib/';
 
-  use Shb7;
-  use Avt;
+  use Arstd::Path;
 
+  use Shb7;
   use Makescript;
 
 # ---   *   ---   *   ---

@@ -54,6 +54,15 @@ my $FILE_LIST=[
 
   '/sys/Style.pm',
   '/sys/Arstd.pm',
+
+  '/sys/Arstd/Bytes.pm',
+  '/sys/Arstd/String.pm',
+  '/sys/Arstd/Array.pm',
+  '/sys/Arstd/Hash.pm',
+  '/sys/Arstd/Path.pm',
+  '/sys/Arstd/IO.pm',
+  '/sys/Arstd/Test.pm',
+
   '/sys/Chk.pm',
   '/sys/St.pm',
   '/sys/Frame.pm',
@@ -118,6 +127,12 @@ my $FILE_LIST=[
   '/Makescript.pm',
 
   '/Lang/Mny.pm',
+  '/Lang/Python.pm',
+
+# ---   *   ---   *   ---
+# trash goes in last
+
+  '/Lang/Js.pm',
 
 ];
 

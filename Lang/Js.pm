@@ -27,7 +27,7 @@ Lang::Js->nit(
 
   mag=>'JavaScript script',
 
-  com=>'//',
+  com=>'\/\/', # toothpickin for life
 
 # ---   *   ---   *   ---
 

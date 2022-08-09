@@ -18,7 +18,9 @@ package Arstd::Path;
   use strict;
   use warnings;
 
+  use English qw(-no_match_vars);
   use Cwd qw(abs_path);
+
   use File::Spec;
 
 # ---   *   ---   *   ---

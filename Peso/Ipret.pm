@@ -24,6 +24,8 @@ package Peso::Ipret;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+
+  use Arstd;
   use Arstd::IO;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
