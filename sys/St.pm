@@ -21,7 +21,7 @@ package St;
   use Readonly;
   use English qw(-no_match_vars);
 
-  use Scalar::Util qw(blessed);
+  use Scalar::Util qw(blessed reftype);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
@@ -45,6 +45,9 @@ sub is_valid($kind,$obj) {
   return blessed($obj) && $obj->isa($kind);
 
 };
+
+# what clas obj is an instance of
+sub get_class($obj) {return reftype($obj)};
 
 # ---   *   ---   *   ---
 # create instance container

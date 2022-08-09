@@ -19,8 +19,10 @@ package Arstd::IO;
   use strict;
   use warnings;
 
-  use Carp;
+  use Carp qw(croak longmess);
   use English qw(-no_match_vars);
+
+  use File::Spec;
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 

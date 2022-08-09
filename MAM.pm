@@ -32,7 +32,7 @@ package MAM;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::IO;
   use Cli;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
@@ -94,7 +94,7 @@ sub filter {
   my ($self)=@_;
   my ($pkg,$fname,$lineno)=(caller);
 
-  my $body=Arstd::orc($self->{fname});
+  my $body=orc($self->{fname});
 
   my $modname=$SETTINGS->{module};
   if($SETTINGS->{rap}!=$NULL) {

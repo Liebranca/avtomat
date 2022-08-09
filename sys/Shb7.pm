@@ -29,7 +29,8 @@ package Shb7;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::IO;
+  use Arstd::Path;
 
   use Tree::File;
 
@@ -123,7 +124,7 @@ sub pathchk($path) {
 
   if(!defined $cpy) {
 
-    Arstd::errout(
+    errout(
 
       q{Uninitialized path '%s'}."\n".
 
@@ -144,7 +145,7 @@ sub pathchk($path) {
 
   ) {
 
-    Arstd::errout(
+    errout(
 
       q{Invalid file or directory '%s'}."\n".
 
@@ -232,7 +233,7 @@ sub rel($path) {
 # given file belongs to
 
 sub module_of($file) {
-  return Arstd::basedir(shpath($file));
+  return based(shpath($file));
 
 };
 
@@ -294,7 +295,7 @@ sub walk($path,%O) {
     # errchk
     if(!(-d $path)) {
 
-      Arstd::errout(
+      errout(
 
         q{Is not a directory '%s'},
 
@@ -312,7 +313,7 @@ sub walk($path,%O) {
 
     my @files=readdir $dir;
 
-    my $key=Arstd::basename($path);
+    my $key=basef($path);
     $dst->{$key}={};
 
 # ---   *   ---   *   ---
@@ -520,7 +521,7 @@ sub ffind($fname) {
 
   if(!defined $src) {
 
-    Arstd::errout(
+    errout(
       "Could not find file '%s' in path\n",
 
       args=>[$fname],

@@ -28,7 +28,9 @@ package Shwl;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+
+  use Arstd::Hash;
+  use Arstd::IO;
 
 # ---   *   ---   *   ---
 # info
@@ -101,7 +103,7 @@ package Shwl;
   sub STRINGS {return $STRINGS};
   sub DUMPSTRINGS {
 
-    my $cpy=Arstd::hashcpy($STRINGS);
+    my $cpy=hash_cpy($STRINGS);
     $STRINGS={};
 
     return $cpy;
@@ -523,7 +525,7 @@ sub codefold($fname,$lang,%opts) {
 
   my $body;
   if($opts{-f}) {
-    $body=Arstd::orc($fname);
+    $body=orc($fname);
 
   } else {
     $body=$fname;

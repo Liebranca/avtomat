@@ -24,7 +24,7 @@ package Peso::Sbl;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::IO;
 
 # ---   *   ---   *   ---
 # info
@@ -96,7 +96,7 @@ sub nit($class,$frame,$name,$argv,$code,$plps) {
 
     ) {
 
-      Arstd::errout(
+      errout(
 
         'Can\'t make symbol \'%s\': '.
 
@@ -106,7 +106,7 @@ sub nit($class,$frame,$name,$argv,$code,$plps) {
         args=>[$name],
         lvl=>$AR_FATAL,
 
-      )
+      );
 
     };
 

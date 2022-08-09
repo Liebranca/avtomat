@@ -24,7 +24,7 @@ package Peso::Blk;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::IO;
 
   use Stack;
   use Frame;
@@ -154,7 +154,7 @@ sub nit($class,$frame,$parent,$name,$attrs) {
     # redecl guard
     if(exists $frame->{blocks}->{$name}) {
 
-      Arstd::errout(
+      errout(
 
         'Ilegal operation: '.
         'redeclaration of root block '.
@@ -238,7 +238,7 @@ sub addchld($self,$blk) {
 
 sub no_such_elem($self,$name) {
 
-  Arstd::errout(
+  errout(
 
     'Block <%s> '.
     "has no member named '%s'\n",
@@ -297,7 +297,7 @@ sub haselem($self,$name,$redecl) {
 # ---   *   ---   *   ---
 # redecl guard
 
-    Arstd::errout(
+    errout(
       'Redeclaration of \'%s\''.
       "at block <%s>\n",
 
@@ -448,7 +448,7 @@ sub expand($self,$ref,%args) {
 
       ) {
 
-        Arstd::errout(
+        errout(
           'New entry on block <%s> has'.q{ }.
           'a maximum size of %i bytes;'.q{ }.
 
@@ -879,7 +879,7 @@ sub prich($self,%O) {
 #
 #  } else {
 #
-#    Arstd::errout(
+#    errout(
 #
 #      "No root block named '%s'\n",
 #

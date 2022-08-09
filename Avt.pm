@@ -29,7 +29,10 @@ package Avt;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+
+  use Arstd::Hash;
+  use Arstd::Path;
+  use Arstd::IO;
 
   use Shb7;
   use Vault 'ARPATH';
@@ -368,7 +371,7 @@ sub file_sbl($f) {
 
   if(!defined $langname) {
 
-    Arstd::errout(
+    errout(
 
       q{Can't determine language for file '%s'},
       args=>[$f],
@@ -488,10 +491,10 @@ sub plext($dst_path,$src_path) {
   $dst_path=Shb7::file($dst_path);
   $src_path=Shb7::file($src_path);
 
-  my $src=Arstd::orc($src_path);
+  my $src=orc($src_path);
   $src=~ s/.+#:CUT;>\n//sg;
 
-  my $dst=Arstd::orc($dst_path);
+  my $dst=orc($dst_path);
   $dst=~ s/1; # ret\n//sg;
 
   $dst.=$src;
@@ -835,7 +838,7 @@ sub get_config_files($M,$config,$module) {
 
 # ---   *   ---   *   ---
 
-    my $matches=Arstd::lfind(
+    my $matches=lfind(
       $config->{gens},\@files
 
     );
@@ -865,7 +868,7 @@ sub get_config_files($M,$config,$module) {
 
 # ---   *   ---   *   ---
 
-    $matches=Arstd::lfind($config->{xcpy},\@files);
+    $matches=lfind($config->{xcpy},\@files);
 
     while(@$matches) {
 
@@ -885,7 +888,7 @@ sub get_config_files($M,$config,$module) {
 
 # ---   *   ---   *   ---
 
-    $matches=Arstd::lfind($config->{lcpy},\@files);
+    $matches=lfind($config->{lcpy},\@files);
 
     while(@$matches) {
       my $match=shift @$matches;
@@ -907,7 +910,7 @@ sub get_config_files($M,$config,$module) {
 
 # ---   *   ---   *   ---
 
-    $matches=Arstd::lfind($config->{xprt},\@files);
+    $matches=lfind($config->{xprt},\@files);
 
     while(@$matches) {
       my $match=shift @$matches;
@@ -1199,10 +1202,10 @@ sub make() {
 my $PFLG='-m64';
 my $DFLG='';
 
-my $root=Arstd::parof(__FILE__);
+my $root=parof(__FILE__);
 my $M=retrieve(
 
-  Arstd::dirof(__FILE__).
+  dirof(__FILE__).
   '/.avto-cache'
 
 );

@@ -23,7 +23,8 @@ package Cli;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::IO;
+  use Arstd::Path;
 
   use lib $ENV{'ARPATH'}.'/lib/';
   use Lang;
@@ -163,7 +164,7 @@ sub short_or_long($self,$arg) {
 
   };if(!exists $self->{alias}->{$arg}) {
 
-    Arstd::errout(
+    errout(
       "%s: invalid option '%s'\n",
 
       args=>[$self->{name},$arg],
@@ -205,7 +206,7 @@ sub long_equal($self,$arg) {
 
   if(!exists $self->{alias}->{$arg}) {
 
-    Arstd::errout(
+    errout(
       "%s: invalid option '%s'\n",
 
       args=>[$self->{name},$arg],
@@ -224,7 +225,7 @@ sub long_equal($self,$arg) {
 
   if(!$option->{argc}) {
 
-    Arstd::errout(
+    errout(
       "Argument '%s' for program '%s' ".
       "doesn't take a value",
 
@@ -371,7 +372,7 @@ sub proto_search($m) {
     my @ar=@files;
     @files=();
 
-    Arstd::expand_path(\@ar,\@files);
+    expand_path(\@ar,\@files);
 
   };
 

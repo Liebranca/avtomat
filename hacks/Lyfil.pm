@@ -24,12 +24,12 @@ package Lyfil;
   use lib $ENV{'ARPATH'}.'/lib/sys';
 
   use Style;
-  use Arstd;
+  use Arstd::Array;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=0.00.1;
+  our $VERSION=0.00.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -81,7 +81,7 @@ sub del($self) {
   $self->pluck_use_line();
   $self->code_emit();
 
-  Arstd::arrshf($M,$self->{idex});
+  array_lshift($M,$self->{idex});
   delete $ACTIVE->{$self->{id}};
 
 };

@@ -31,8 +31,9 @@ package Inlining;
   use B qw(svref_2object);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
+
   use Style;
-  use Arstd;
+  use Arstd::String;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
   use Shwl;
@@ -99,7 +100,9 @@ sub dumpsbl() {
         my $base_name=join '/.',$ar[-1];
 
         printf {*STDERR}
-          Arstd::pretty_tag('AR').
+
+          pretty_tag('AR').
+
           " updated ".
           "\e[32;1m%s\e[0m\n",
 

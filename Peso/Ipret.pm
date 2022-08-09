@@ -24,7 +24,7 @@ package Peso::Ipret;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::IO;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
   use Shwl;
@@ -65,7 +65,7 @@ sub pesc($s,%O) {
 
     if(!($esc=~ s/^([^;\s]+)\s*//)) {
 
-      Arstd::errout(
+      errout(
         "Empty peso escape '%s'",
 
         args=>[$esc],

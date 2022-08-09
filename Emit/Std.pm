@@ -27,13 +27,17 @@ package Emit::Std;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+
+  use Arstd::String;
+  use Arstd::Path;
+  use Arstd::IO;
+
   use Shb7;
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $ARTAG=>Arstd::pretty_tag('AR');
+  Readonly our $ARTAG=>pretty_tag('AR');
   Readonly our $ARSEP=>"\e[37;1m::\e[0m";
 
   Readonly my $BOXCHAR=>'.';
@@ -80,7 +84,7 @@ sub version($name,$version,$author) {
 
 # ---   *   ---   *   ---
 
-  return Arstd::box_fstrout(
+  return box_fstrout(
 
     "$l1\n\n$l2\n$l3",
 
@@ -123,7 +127,7 @@ sub outf($emitter,$f,%O) {
   $emitter=q{Emit::}.$emitter;
 
   print $FH $emitter->codewrap(
-    Arstd::nxbasename($f),%O
+    nxbasef($f),%O
 
   );
 

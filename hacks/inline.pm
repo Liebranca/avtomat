@@ -23,8 +23,9 @@ package inline;
   use Readonly;
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
+
   use Style;
-  use Arstd;
+  use Arstd::IO;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
 
@@ -65,7 +66,7 @@ sub decl_args($rd,@args) {
 
     if(!defined ${^CAPTURE[0]}) {
 
-      Arstd::errout(
+      errout(
         "Can't match sigil for var %s\n",
 
         args=>[$original],
@@ -80,7 +81,7 @@ sub decl_args($rd,@args) {
     $argname=~ s/^($name+)//sg;
     if(!defined ${^CAPTURE[0]}) {
 
-      Arstd::errout(
+      errout(
         "Can't match ma,e for var %s\n",
 
         args=>[$original],
@@ -196,7 +197,7 @@ sub rename_args($rd,@args) {
     $key=~ s/^($sigil+)//sg;
 
     if(!defined ${^CAPTURE[0]}) {
-      Arstd::errout(
+      errout(
         "Can't match sigil for var %s\n",
 
         args=>[$key],
@@ -336,7 +337,7 @@ sub make_table_re() {
   } keys %$TABLE;
 
   if(!@names) {
-    Arstd::errout(
+    errout(
       "Empty inlined symbol table\n",
       lvl=>$AR_WARNING,
 
@@ -573,7 +574,7 @@ sub solve_args($block,$code,$args) {
 
 ERR:
 
-  Arstd::errout(
+  errout(
     "$errme for %s\n",
 
     args=>[$block->{name}],
@@ -624,7 +625,7 @@ sub solve_dst($rd,$block,$branch) {
 
     } else {
 
-      Arstd::errout(
+      errout(
         'Non-decl and non-defn'.q{ }.
         ' dst for inline sub %s'."\n",
 

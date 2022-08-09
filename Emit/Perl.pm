@@ -26,7 +26,8 @@ package Emit::Perl;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::Array;
+
   use Shb7;
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -63,7 +64,7 @@ package $:fname;>;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Style;
-  use Arstd;
+  use Arstd::Path;
 
 # ---   *   ---   *   ---
 
@@ -109,10 +110,10 @@ $:iter (
 ];
 
   my $define_keys=
-    Arstd::array_keys($O{define});
+    array_keys($O{define});
 
   my $define_values=
-    Arstd::array_values($O{define});
+    array_values($O{define});
 
 # ---   *   ---   *   ---
 
@@ -155,7 +156,7 @@ sub import {
 
   if(\$Initialized) {return};
 
-  my \$libfold=Arstd::dirof(__FILE__);
+  my \$libfold=dirof(__FILE__);
   \$FFI_Instance=Avt::FFI->get_instance(0);
 
   \$FFI_Instance->lib(
@@ -184,7 +185,7 @@ EOF
 
       my $fn=$funcs->{$fn_name};
 
-      my @ar=Arstd::array_values($fn->{args});
+      my @ar=array_values($fn->{args});
       for my $s(@ar) {
         $s="'$s'";
 

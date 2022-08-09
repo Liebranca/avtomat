@@ -24,7 +24,9 @@ package Blk;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+
+  use Arstd::Hash;
+  use Arstd::IO;
 
   use parent 'St';
 
@@ -40,7 +42,7 @@ package Blk;
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $PACK_SIZES=>Arstd::invert_hash({
+  Readonly our $PACK_SIZES=>hash_invert({
 
     'Q'=>64,
     'L'=>32,
@@ -139,7 +141,7 @@ sub nit(
 
   if(exists $frame->{-blocks}->{$key}) {
 
-    Arstd::errout(
+    errout(
 
       q{Ilegal operation: }.
       q{redeclaration of block '%s'},

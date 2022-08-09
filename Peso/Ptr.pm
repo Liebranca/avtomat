@@ -21,7 +21,7 @@ package Peso::Ptr;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::IO;
 
 # ---   *   ---   *   ---
 # info
@@ -73,7 +73,7 @@ sub getv($self) {
 
   ) {
 
-    Arstd::errout(
+    errout(
       "Can't read from %s (null ptr)\n",
 
       args=>[$self->{gname}],
@@ -129,7 +129,7 @@ COUNT:
 
     if(!defined $rem) {
 
-      Arstd::errout(
+      errout(
         'Out of bounds read at ',
 
         calls=>[\&prich,[$self,errout=>1]],
@@ -180,13 +180,15 @@ sub setv($self,$value) {
 
   ) {
 
-    Arstd::errout(
+    errout(
       "Can't write to %s (null ptr)\n",
 
       args=>[$self->{gname}],
       lvl=>$AR_FATAL,
 
-    );goto FAIL;
+    );
+
+    goto FAIL;
 
   };
 
@@ -267,13 +269,15 @@ sub setv($self,$value) {
 
     if(!defined $$addr) {
 
-      Arstd::errout(
+      errout(
         'Out of bounds write at ',
 
         calls=>[\&prich,[$self,errout=>1]],
         lvl=>$AR_FATAL,
 
-      );goto FAIL;
+      );
+
+      goto FAIL;
 
     };
 
@@ -352,7 +356,7 @@ sub mprev_scope($self,$step) {
 FAIL:
 
   if(!defined $neigh) {
-    Arstd::errout(
+    errout(
       'Can\'t jump to ',
 
       calls=>[\&prich,[$self,errout=>1]],
@@ -413,7 +417,7 @@ sub mnext_scope($self,$step)  {
 FAIL:
 
   if(!defined $out) {
-    Arstd::errout(
+    errout(
       'Can\'t jump to ',
 
       calls=>[\&prich,[$self,errout=>1]],
@@ -506,7 +510,7 @@ sub save($self) {
 
   if($frame->gname_declared($self)) {
 
-    Arstd::errout(
+    errout(
       "Redeclaration of symbol <%s>\n",
 
       args=>[$self->{gname}],

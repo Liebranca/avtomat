@@ -29,7 +29,7 @@ package Vault;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::IO;
 
   use Tree;
   use Queue;
@@ -274,7 +274,7 @@ sub dafread($fname,@requested) {
   read $FH,my $sig,length $DAFSIG;
 
   if($sig ne $DAFSIG) {
-    Arstd::errout(
+    errout(
       q{Bad DAF signature on cache file '%s'},
 
       args=>[$fname],
@@ -399,7 +399,7 @@ sub dafwrite($fname,@blocks) {
 
   );
 
-  Arstd::owc(
+  owc(
     Shb7::cache_file($fname.$DAF_EXT),
     $header.$body
 

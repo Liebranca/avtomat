@@ -24,7 +24,10 @@ package Avt::FFI;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+
+  use Arstd::Array;
+  use Arstd::IO;
+
   use Type;
 
   use Vault 'ARPATH';
@@ -89,10 +92,10 @@ sub get_instance($class,$idex=0) {
 
 sub nit($class) {
 
-  my $olderr=Arstd::errmute();
+  my $olderr=errmute();
   my $ffi=FFI::Platypus->new(api=>2);
 
-  Arstd::erropen($olderr);
+  erropen($olderr);
 
   # this mess of an edge case
   $ffi->load_custom_type(
@@ -100,8 +103,8 @@ sub nit($class) {
 
   );
 
-  my @keys=Arstd::array_keys($Typetab);
-  my @values=Arstd::array_values($Typetab);
+  my @keys=array_keys($Typetab);
+  my @values=array_values($Typetab);
 
   # set type aliases
   while(@keys && @values) {
@@ -147,8 +150,8 @@ sub xltab(@table) {
 
   my $result=[];
 
-  my @keys=Arstd::array_keys(\@table);
-  my @values=Arstd::array_values(\@table);
+  my @keys=array_keys(\@table);
+  my @values=array_values(\@table);
 
   while(@keys && @values) {
     my $key=shift @keys;

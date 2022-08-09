@@ -25,7 +25,10 @@ package Makescript;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+
+  use Arstd::Path;
+  use Arstd::IO;
+
   use Shb7;
 
   use Tree::Dep;
@@ -419,7 +422,7 @@ sub static_depchk($src,$deps) {
   for(my $x=0;$x<@$deps;$x++) {
     if($deps->[$x] && !(-e $deps->[$x])) {
 
-      Arstd::errout(
+      errout(
 
         "%s missing dependency %s\n",
 
@@ -458,7 +461,7 @@ sub parsemmd($dep) {
   my $out=[];
   if(!(-e $dep)) {goto TAIL};
 
-  $dep=Arstd::orc($dep);
+  $dep=orc($dep);
   $dep=~ s/\\//g;
   $dep=~ s/\s/\,/g;
   $dep=~ s/.*\://;
@@ -591,7 +594,7 @@ sub pcc($M,$src,$obj,$pmd) {
 
     for my $fname($obj,$pmd) {
       if(!(-e $fname)) {
-        my $path=Arstd::dirof($fname);
+        my $path=dirof($fname);
         `mkdir -p $path`;
 
       };

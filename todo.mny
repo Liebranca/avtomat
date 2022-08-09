@@ -1,8 +1,8 @@
 >avtomat v4.00.0
 
 *>De-bloat Arstd
-~ Separate array ops from hash ops
-~ ^ Dump into Arstd::Array && Arstd::Hash, respectively
+x Separate array ops from hash ops
+x ^ Dump into Arstd::Array && Arstd::Hash, respectively
 x Make an Arstd::IO submod
 ~ Make an Arstd::Bytes submod
 x Make an Arstd::String submod
