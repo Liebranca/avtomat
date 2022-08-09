@@ -8,7 +8,12 @@
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+
+
+  use Arstd::String;
   use Arstd::Array;
+
+  use Arstd::IO;
 
   use Fmat;
 
@@ -64,18 +69,23 @@
 # ---   *   ---   *   ---
 # test C1
 
-{ my $ar=Arstd::Array->nit(
-    0,1,2,3,4,5
+#{ my $ar=Arstd::Array->nit(
+#    0,1,2,3,4,5
+#
+#  );
+#
+#  say fatdump($ar);
+#
+#  my @popd=$ar->rshift(2);
+#  say fatdump($ar);
+#  say fatdump(\@popd);
+#
+#};
 
-  );
+# ---   *   ---   *   ---
 
-  say fatdump($ar);
-
-  my @popd=$ar->rshift(2);
-  say fatdump($ar);
-  say fatdump(\@popd);
-
-};
+my $monkas='wololo_%i 'x32;
+box_fstrout($monkas,args=>[0..31]);
 
 # ---   *   ---   *   ---
 1; # ret

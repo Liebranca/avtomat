@@ -60,7 +60,7 @@ package Arstd::Array;
 # constructor
 
 sub nit($class,@values) {
-  return bless [@values];
+  return bless [@values],$class;
 
 };
 

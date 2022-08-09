@@ -3,11 +3,10 @@
 *>De-bloat Arstd
 ~ Separate array ops from hash ops
 ~ ^ Dump into Arstd::Array && Arstd::Hash, respectively
-~ Make an Arstd::File submod
+x Make an Arstd::IO submod
 ~ Make an Arstd::Bytes submod
-~ Make an Arstd::Catch submod
-~ Make an Arstd::String submod
-~ Make an Arstd::Test submod
+x Make an Arstd::String submod
+x Make an Arstd::Test submod
 
 *>Reorder/repurpose Peso into lib/sys
 ~ Generalize Blk for serialization
