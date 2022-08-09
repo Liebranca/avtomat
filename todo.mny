@@ -1,22 +1,24 @@
 >avtomat v4.00.0
 
+*>De-bloat Arstd
+~ Separate array ops from hash ops
+~ ^ Dump into Arstd::Array && Arstd::Hash, respectively
+~ Make an Arstd::File submod
+~ Make an Arstd::Bytes submod
+~ Make an Arstd::Catch submod
+~ Make an Arstd::String submod
+~ Make an Arstd::Test submod
+
+*>Reorder/repurpose Peso into lib/sys
+~ Generalize Blk for serialization
+~ Generalize Ptr for Blk fetches
+
 *>Refactor helper
 x Find mentions of a given package or subroutine
 x ^ Make this recursive
 ~ ^ Combine f:./bin/symfind with mentions on *.mny trees
 ~ Find TODO|FIX|BUG etc and append them to these lists
 ~ Optimize away regexes and needless fncalls
-
-*>Reorder/repurpose Peso into lib/sys
-~ Generalize Blk for serialization
-~ Generalize Ptr for Blk fetches
-
-*>Avt revision
-x Use Shb7::Walk instead of Avt implementation
-x Use Tree::File checksums instead of timestamps for update checks
-x Rework Frame interface
-x Generate syntax highlighting for *.mny files
-x Extend *.mny syntax
 
 *>Peso
 x Extend Lang::Perl for basic (as-doc) parsing
@@ -33,3 +35,10 @@ x ^ Registering of modules on first include, for a similar purpose
 ~ OOP-ification of $Cache-type hashes
 x Subdivide the f:./Avt.pm monolith into modules
 ~ Enable/disable loading of optional deps on install scripts
+
+*>Avt revision
+x Use Shb7::Walk instead of Avt implementation
+x Use Tree::File checksums instead of timestamps for update checks
+x Rework Frame interface
+x Generate syntax highlighting for *.mny files
+x Extend *.mny syntax

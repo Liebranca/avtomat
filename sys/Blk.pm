@@ -182,9 +182,8 @@ sub nit(
 sub align($self,$type,$cnt) {
 
   my $types=$self->{frame}->{-types};
-  my $half_sz=$types->{half}->{size};
-
   my $alignment=$types->{unit}->{size};
+
   my $total=$type->{size}*$cnt;
 
   my $mult=int(($total/$alignment)+0.9999);
@@ -199,10 +198,10 @@ sub align($self,$type,$cnt) {
 sub grow($self,$mult) {
 
   my $types=$self->{frame}->{-types};
-  my $half_sz=$types->{half}->{size};
+  my $word_sz=$types->{word}->{size};
   my $alignment=$types->{unit}->{size};
 
-  my $fmat=$PACK_SIZES->{$half_sz*8};
+  my $fmat=$PACK_SIZES->{$word_sz*8};
 
   $self->{mem}.=(
 
@@ -224,7 +223,6 @@ sub grow($self,$mult) {
 sub shrink($self,$mult) {
 
   my $types=$self->{frame}->{-types};
-  my $half_sz=$types->{half}->{size};
   my $alignment=$types->{unit}->{size};
 
   my $top=$self->{size};

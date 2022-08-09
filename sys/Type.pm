@@ -117,11 +117,16 @@ sub nit(
 
       my $elem_sz=$frame->{$elem_type}->{size};
 
+      my @names=split $COMMA_RE,$elem_name;
+      if(@names>1) {goto MUL_NAMES};
+
       my $mult=1;
       if($elem_name=~ s[\((\d+)\)][]) {
         $mult=$1;
 
       };
+
+MUL_VALUES:
 
       for my $i(0..$mult-1) {
 
@@ -136,6 +141,21 @@ sub nit(
         $count++;
 
       };
+
+      goto DONE;
+
+MUL_NAMES:
+
+      for my $name(@names) {
+
+        push @$fields,$elem_sz,$name;
+        $size+=$frame->{$elem_type}->{size};
+
+        $count++;
+
+      };
+
+DONE:
 
     };
 

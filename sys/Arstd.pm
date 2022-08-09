@@ -204,39 +204,6 @@ sub invert_hash($h,%O) {
 };
 
 # ---   *   ---   *   ---
-# give every nth elem in array
-
-sub array_nth($ar,$n,$i) {
-
-  my @slice=@$ar;
-  @slice=@slice[$i..$#slice];
-
-  $i=0;
-
-  my $matches=[
-
-    (shift @slice),
-    grep {!( ++$i % $n)} @slice
-
-  ];
-
-  $matches//=[];
-  return @$matches;
-
-};
-
-# ---   *   ---   *   ---
-# ^an alias
-# gives @keys where [key=>value,key=>value]
-
-sub array_keys($ar) {return (array_nth($ar,2,0))};
-
-# ^another alias
-# gives @values where [key=>value,key=>value]
-
-sub array_values($ar) {return (array_nth($ar,2,1))};
-
-# ---   *   ---   *   ---
 
 sub expand_path($src,$dst) {
 
@@ -253,38 +220,6 @@ sub expand_path($src,$dst) {
     unshift @$dst,(map {$path.q{/}.$ARG} @tmp);
 
   };
-
-};
-
-# ---   *   ---   *   ---
-
-sub arrshf($ar,$idex) {
-
-  my $max=@{$ar}-1;
-
-  while($idex<$max) {
-    $ar->[$idex+1]=$ar->[$idex];
-    $idex++;
-
-  };
-
-  pop @{$ar};
-
-};
-
-sub arrfil($ar) {
-
-  my $filtered=[];
-  for my $x(@$ar) {
-
-    if(defined $x && length $x) {
-      push @$filtered,$x;
-
-    };
-
-  };
-
-  @$ar=@$filtered;
 
 };
 

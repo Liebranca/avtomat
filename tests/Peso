@@ -23,40 +23,43 @@
 
 # ---   *   ---   *   ---
 
-my $mem=[];
-my $frame=Blk->new_frame();
+sub mord($str) {
 
+  my $word=0;$b=0;
+  for my $c(reverse split $NULLSTR,$str) {
+    $word|=ord($c)<<$b;$b+=8;
+
+  };
+
+  return $word;
+
+};
+
+# ---   *   ---   *   ---
+
+my $frame=Blk->new_frame();
 my $non=$frame->nit(undef,'non');
 
 my $type=$Type::Table->nit(
 
   'struct',[
 
-    byte=>'a(5)',
-    long=>'b',
+    wide=>'a,b',
+    long=>'c',
 
   ],
 
 );
 
-my $ptr=$non->alloc('beg0',$type,1);
-$ptr->setv((0xBB)x5,0xDE74);
-$non->free('beg0');
+my $ptr=$non->alloc('beg0',$type,2);
 
-$type=$Type::Table->nit(
+my $item=$ptr->{by_name}->[0];
 
-  'struct',[
+${$item->{a}}=mord('hl');
+${$item->{b}}=mord('wr');
+${$item->{c}}=mord('$!$!');
 
-    wide=>'a(8)',
-    long=>'b',
-
-  ],
-
-);
-
-$ptr=$non->alloc('beg0',$type,1);
-$non->shrink(1);
-
+say $non->{mem};
 $non->prich();
 
 # ---   *   ---   *   ---

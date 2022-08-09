@@ -59,7 +59,7 @@ sub point($self) {
     ;
 
   my $types=$self->{frame}->{-types};
-  my $half_sz=$types->{half}->{size};
+  my $word_sz=$types->{word}->{size};
 
 # ---   *   ---   *   ---
 
@@ -67,7 +67,10 @@ sub point($self) {
 
   # is struct
   if(@{$type->{fields}}) {
-    @elems=(@{$type->{fields}});
+    @elems=(@{
+      $type->{fields}
+
+  }) x $self->{instance_cnt};
 
   # is primitive
   } else {
@@ -83,11 +86,15 @@ sub point($self) {
 # ---   *   ---   *   ---
 
   for my $i(0..$self->{instance_cnt}-1) {
+
+    my $bn=$self->{by_name}->[$i]={};
+
     for my $j(0..$type->{elem_count}-1){
 
       my $size=shift @elems;
       my $name=shift @elems;
 
+      # point to section in mem
       my $idex=$j+($i*$type->{elem_count});
       $self->{buff}->[$idex]=\(vec(
 
@@ -96,6 +103,10 @@ sub point($self) {
 
       ));
 
+      # save by-name access
+      $bn->{$name}=$self->{buff}->[$idex];
+
+      # go to next chunk
       $offset+=$size;
 
     };
@@ -107,7 +118,7 @@ sub point($self) {
 
   $self->{buff_sz}=int(
 
-    (($offset-$self->{offset})/$half_sz)+0.9999
+    (($offset-$self->{offset})/$word_sz)+0.9999
 
   );
 
@@ -139,8 +150,12 @@ sub nit(
     offset=>$offset,
     instance_cnt=>$cnt,
 
+    # by-index access
     buff=>[],
     buff_sz=>0,
+
+    # by-name access
+    by_name=>[],
 
     frame=>$frame,
 
@@ -168,15 +183,15 @@ sub buf($self,$idex=undef) {
 };
 
 # ---   *   ---   *   ---
-# flood fill half-sized chunks
+# flood fill word-sized chunks
 
 sub flood($self,$value) {
 
   my $memref=$self->{frame}->{-memref};
   my $types=$self->{frame}->{-types};
 
-  my $half_sz=$types->{half}->{size};
-  my $offset=$self->{offset}/$half_sz;
+  my $word_sz=$types->{word}->{size};
+  my $offset=$self->{offset}/$word_sz;
 
   for my $half(0..$self->{buff_sz}-1) {
     vec($$memref,$offset,64)=$value;
