@@ -1,16 +1,15 @@
 >avtomat v4.00.0
 
-*>De-bloat Arstd
-x Separate array ops from hash ops
-x ^ Dump into Arstd::Array && Arstd::Hash, respectively
-x Make an Arstd::IO submod
-~ Make an Arstd::Bytes submod
-x Make an Arstd::String submod
-x Make an Arstd::Test submod
-
 *>Reorder/repurpose Peso into lib/sys
 ~ Generalize Blk for serialization
+~ ^ Writing Blk instances to file
+~ ^ Reading from file into Blk
+~ ^ Messaging through Blks
+~ ^^ Message encrypt
+~ ^^ Message decrypt
+
 ~ Generalize Ptr for Blk fetches
+~ ^ Fetch by ID (cross-scope!)
 
 *>Refactor helper
 x Find mentions of a given package or subroutine
@@ -25,6 +24,8 @@ x Extend Lang::Perl for basic (as-doc) parsing
 ~ Turn Peso into a proper IR
 
 *>Backburner
+~ Move Python stuff from f:./Avt.pm into f:./Emit/Python.pm
+~ Handle structs on f:./Emit/Perl.pm -> shwlbind
 ~ Utils for enforcing AR module standards
 ~ DEFAULTS enforcer for nits
 ~ VERSION && AUTHOR enforcer/tracker for modules and executables
@@ -41,3 +42,11 @@ x Use Tree::File checksums instead of timestamps for update checks
 x Rework Frame interface
 x Generate syntax highlighting for *.mny files
 x Extend *.mny syntax
+
+*>De-bloat Arstd
+x Separate array ops from hash ops
+x ^ Dump into Arstd::Array && Arstd::Hash, respectively
+x Make an Arstd::IO submod
+x Make an Arstd::Bytes submod
+x Make an Arstd::String submod
+x Make an Arstd::Test submod

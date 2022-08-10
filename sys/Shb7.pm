@@ -80,8 +80,9 @@ BEGIN {
 
     $Root,
     $Cache,
-
     $Trash,
+    $Mem,
+
     $Root_Re,
 
     $Lib,
@@ -102,6 +103,7 @@ sub set_root($path) {
 
   $Cache="$Root.cache/";
   $Trash="$Root.trash/";
+  $Trash="$Root.mem/";
 
   $Lib//=[];
   $Include//=[];
@@ -200,6 +202,7 @@ sub so($name) {return $Root."lib/lib$name.so"};
 
 # ^idem, .cache dir
 sub cache_file($name) {return $Cache.$name};
+sub mem_file($name) {return $Mem.$name};
 
 # ---   *   ---   *   ---
 # gives object file path from source file path

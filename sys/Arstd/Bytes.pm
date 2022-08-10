@@ -43,13 +43,19 @@ package Arstd::Bytes;
 # multi-byte ord
 # won't go over a quadword
 
-sub mord($str,$width=8) {
+sub mord($str,%O) {
+
+  # defaults
+  $O{width}//=8;
+  $O{rev}//=1;
+
+  $str=reverse $str if $O{rev};
 
   my $word=0;
   my $b=0;
 
-  for my $c(reverse split $NULLSTR,$str) {
-    $word|=ord($c)<<$b;$b+=$width;
+  for my $c(split $NULLSTR,$str) {
+    $word|=ord($c)<<$b;$b+=$O{width};
     last if $b==64;
 
   };
@@ -62,13 +68,19 @@ sub mord($str,$width=8) {
 # ^fixes that problem
 # by handling you a quadword array ;>
 
-sub lmord($str,$width=8) {
+sub lmord($str,%O) {
+
+  # defaults
+  $O{width}//=8;
+  $O{rev}//=1;
+
+  $str=reverse $str if $O{rev};
 
   my @words=(0);
   my $b=0;
 
-  for my $c(reverse split $NULLSTR,$str) {
-    $words[-1]|=ord($c)<<$b;$b+=$width;
+  for my $c(split $NULLSTR,$str) {
+    $words[-1]|=ord($c)<<$b;$b+=$O{width};
     if($b==64) {push @words,0;$b=0};
 
   };
@@ -81,20 +93,26 @@ sub lmord($str,$width=8) {
 # multi-byte chr
 # assumes array of quadwords
 
-sub mchr($data,$width=8) {
+sub mchr($data,%O) {
+
+  # defaults
+  $O{width}//=8;
+  $O{rev}//=0;
+
+  @$data=reverse @$data if $O{rev};
 
   my $str=$NULLSTR;
   my $word=shift @$data;
 
   my $b=0;
-  my $mask=(1<<$width)-1;
+  my $mask=(1<<$O{width})-1;
 
   while($word || @$data) {
 
     $str.=chr($word & $mask);
-    $word=$word>>$width;
+    $word=$word>>$O{width};
 
-    $b+=$width;
+    $b+=$O{width};
     if($b==64) {$word=shift @$data;$b=0};
 
   };

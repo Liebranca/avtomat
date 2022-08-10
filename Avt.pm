@@ -580,6 +580,7 @@ sub scan() {
 
     $Shb7::Trash,
     $Shb7::Cache,
+    $Shb7::Mem,
 
   ) {if(!(-e $path)) {mkdir $path}};
 

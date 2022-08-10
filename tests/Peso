@@ -11,15 +11,16 @@
 
   use English qw(-no_match_vars);
 
-  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
-  use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
-  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::Bytes;
 
-  use Fmat;
   use Blk;
+  use Type;
+
+  use lib $ENV{'ARPATH'}.'/lib/hacks/';
+  use lib $ENV{'ARPATH'}.'/lib/';
 
 # ---   *   ---   *   ---
 
@@ -30,20 +31,14 @@ my $type=$Type::Table->nit(
 
   'struct',[
 
-    wide=>'a,b',
-    long=>'c',
+    long=>'op,dst,src',
 
   ],
 
 );
 
-my $ptr=$non->alloc('beg0',$type,2);
-
+my $ptr=$non->alloc('beg0',$type,1);
 my $item=$ptr->{by_name}->[0];
-
-${$item->{a}}=mord('hl');
-${$item->{b}}=mord('wr');
-${$item->{c}}=mord('$!$!');
 
 say $non->{mem};
 $non->prich();
