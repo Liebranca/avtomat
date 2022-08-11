@@ -68,7 +68,7 @@ my $FILE_LIST=[
   '/sys/Frame.pm',
 
   '/sys/Queue.pm',
-  '/sys/Stack.pm',
+  '/sys/Cask.pm',
   '/sys/Tree.pm',
   '/sys/Tree/File.pm',
   '/sys/Tree/Dep.pm',

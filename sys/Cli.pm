@@ -24,7 +24,6 @@ package Cli;
 
   use Style;
   use Arstd::IO;
-  use Arstd::Path;
 
   use lib $ENV{'ARPATH'}.'/lib/';
   use Lang;
@@ -344,7 +343,7 @@ package Cli::Fstruct;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::Path;
 
 # ---   *   ---   *   ---
 # ROM

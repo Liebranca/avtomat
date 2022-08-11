@@ -13,37 +13,48 @@
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+
+  use Cask;
+
   use Via;
+  use Via::Harbor;
 
 # ---   *   ---   *   ---
 
 my $frame=Via->new_frame();
-my $via=$frame->nit('uu');
-my $pid=$via->sail();
+my $net=$frame->nit('local');
 
-# vessel
+$net->open();
+
+# ---   *   ---   *   ---
+# manager
+
+my $pid=$net->split();
 if($pid) {
 
-  my $count=1;
-  while(my $harb=$via->arrival()) {
+  # listens for requests
+  # shuts down if all harbors closed
+  $net->arrivals();
+  while(wait!=-1) {};
 
-    $harb->print(
-      "Here's your data".
-      $Via::UNLOAD
-
-    );
-
-    last;
-
-  };
-
-  while (wait!=-1) {};
-
+# ---   *   ---   *   ---
 # harbor
+
 } else {
 
-  my @crates=$via->shipments();
-  map {say $ARG} @crates;
+  # get new instance
+  my $dst=$net->ship(
+    $net->{path}=>'@nit Harbor local@chd'
+
+  );
+
+  # destroy
+  $net->ship(
+    $net->{path}=>'@snk Harbor '.$dst->{idex}
+
+  );
+
+  exit(0);
 
 };
 
