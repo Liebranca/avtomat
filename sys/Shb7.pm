@@ -103,7 +103,7 @@ sub set_root($path) {
 
   $Cache="$Root.cache/";
   $Trash="$Root.trash/";
-  $Trash="$Root.mem/";
+  $Mem="$Root.mem/";
 
   $Lib//=[];
   $Include//=[];

@@ -23,7 +23,7 @@ package Type;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::Array;
 
   use parent 'St';
   use Vault 'ARPATH';
@@ -189,7 +189,7 @@ DONE:
 
 # ---   *   ---   *   ---
 
-  my $type=$frame->{$name}={
+  my $type=$frame->{$name}=bless {
 
     name=>$name,
     size=>$size,
@@ -199,9 +199,72 @@ DONE:
 
     %O,
 
-  };
+  },$class;
 
   return $type;
+
+};
+
+# ---   *   ---   *   ---
+# gives back [key=>value] from byte array
+
+sub decode($self,$data) {
+
+  my $out=[];
+  my $fields=$self->{fields};
+
+  my $total=$self->{size};
+
+  my $x=int(
+    ($total/$Table->{word}->{size})+0.9999
+
+  );
+
+  my @data=unpack "Q<$x",$data;
+
+# ---   *   ---   *   ---
+# struct
+
+  if(@$fields) {
+
+    my @sizes=array_keys($fields);
+    my @names=array_values($fields);
+
+    my $i=0;
+
+    while(@names && @sizes && @data) {
+
+      my $name=shift @names;
+      my $size=shift @sizes;
+      my $value=shift @data;
+
+      push @$out,$name=>$value;
+
+      $value=~ s[\x00][];
+
+      if(length $value) {
+      printf "%-8s %-8s (%2i/%2i) %-32s\n",
+        $name,$value,$i,$size,$data;
+
+      };
+
+      $i+=$size;
+
+    };
+
+# ---   *   ---   *   ---
+# primitive
+
+  } else {
+
+    # TODO: translate to int...
+
+    my $value=substr $data,0,$self->{size};
+    $out=[$self->{name}=>$value];
+
+  };
+
+  return $out;
 
 };
 

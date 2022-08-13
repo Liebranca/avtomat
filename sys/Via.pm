@@ -34,6 +34,11 @@ package Via;
   use Cask;
   use Arstd::Array;
 
+  use Type;
+  use Blk;
+
+  use Shb7;
+
   use parent 'St';
 
 # ---   *   ---   *   ---
@@ -51,20 +56,59 @@ package Via;
     # later on we'll see about mmap'd files...
     host=>$ENV{'ARPATH'}.'/.mem/',
 
+    # path to ctlproc socket
+    net=>$NULLSTR,
+
     # instance containers
     harbors=>Cask->nit(),
     vessels=>Cask->nit(),
 
   }};
 
-  our $UNLOCK='RTMAX';
+  Readonly our $UNLOCK=>'RTMAX';
 
-  our $REQTAB=[
+# ---   *   ---   *   ---
 
-    q[@nit]=>q[nit],
-    q[@snk]=>q[sink],
+  Readonly our $NET_SIGIL=>q[@];
+  Readonly our $NET_RS=>q[:];
+
+  Readonly our $MESS_ST=>$Type::Table->nit(
+
+    'pesonet_header',[
+
+      byte=>'sigil',
+      byte=>'dom(7)',
+      byte=>'id(32)',
+
+      word=>'src,dst,size',
+
+    ],
+
+  );
+
+# ---   *   ---   *   ---
+# RPC table
+
+  Readonly our $REQTAB=>[
+
+    $NET_SIGIL.q[nit]=>q[nit],
+    $NET_SIGIL.q[gpr]=>q[get_peer],
+    $NET_SIGIL.q[snk]=>q[sink],
 
   ];
+
+# ---   *   ---   *   ---
+# global state
+
+  our $Blk_F=Blk->new_frame();
+  our $Non=$Blk_F->nit(undef,'non');
+
+  our $Mess_Pool=$Non->alloc(
+    '@pesonet<Mess_Pool>',
+
+    $MESS_ST,64
+
+  );
 
 # ---   *   ---   *   ---
 # destructor
@@ -108,6 +152,13 @@ sub nit($class,$frame,$name) {
     frame=>$frame,
 
   },$class;
+
+  # first instance assumes the role of master
+  if($frame->{net} eq $NULLSTR) {
+    $frame->{net}=$via->{path};
+    $frame->{name}=$name;
+
+  };
 
   if(-e $via->{path}) {unlink $via->{path}};
   return $via;
@@ -180,7 +231,10 @@ sub ship($self,$path,$pkg) {
   $dst->send($pkg);
   $dst->shutdown(SHUT_WR);
 
-  $dst->recv($pkg, 512);
+  my $header=$NULLSTR;
+  $dst->recv($header,$MESS_ST->{size});
+
+  $header=$MESS_ST->decode($header);
 
   if($pkg ne 'ok') {
     $out=thaw($pkg);
@@ -199,16 +253,14 @@ sub ship($self,$path,$pkg) {
 
 sub arrivals($self) {
 
-
   my %req=@$REQTAB;
-
   my $frame=$self->{frame};
 
   while(my $ship=$self->{co}->accept) {
 
     # get shipment
     my $pkg=$NULLSTR;
-    $ship->recv($pkg, 64);
+    $ship->recv($pkg,$MESS_ST->{size});
 
     say "received $pkg";
     my ($op,$class,@args)=split $SPACE_RE,$pkg;
@@ -224,7 +276,7 @@ sub arrivals($self) {
       my $x=$class->$op(@args);
 
 
-      if($x) {
+      if(length ref $x) {
 
         my $restore=0;
         if(exists $x->{frame}) {
@@ -250,9 +302,48 @@ sub arrivals($self) {
     # notify
     $ship->shutdown(SHUT_WR);
 
+    # is this bit necessary?
+    # the docs are confusing about it
+    $ship->close();
+
     last if($self->{frame}->{harbors}->empty());
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# gets new instance from ctlproc
+
+sub new_harbor($class,$name) {
+
+  my $path=$Shb7::Mem;
+
+  my $via=Via->ship(
+
+    "$path$name.sock",
+
+    $NET_SIGIL."nit Harbor $name$NET_RS$0"
+
+  );
+
+  return $via;
+
+};
+
+# ---   *   ---   *   ---
+# ^same, existing instance
+
+sub get_harbor($self,$name,$idex=0) {
+
+  my $via=Via->ship(
+
+    $self->{net},
+    $NET_SIGIL."gpr Harbor $name $idex"
+
+  );
+
+  return $via;
 
 };
 

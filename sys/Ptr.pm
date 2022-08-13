@@ -24,7 +24,7 @@ package Ptr;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::Bytes;
 
   use parent 'St';
 
@@ -216,6 +216,42 @@ sub setv($self,@data) {
 
     ${$self->{buff}->[$i]}=$data[$i];
     $i++;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub strcpy($self,$data,%O) {
+
+  # defaults
+  $O{wide}//=1;
+  $O{disp}//=0;
+
+# ---   *   ---   *   ---
+
+  my $sz=8+(8*$O{wide});
+  my @chars=lmord(
+
+    $data,
+
+    width=>$sz,
+    elem_sz=>$sz,
+
+    rev=>0
+
+  );
+
+# ---   *   ---   *   ---
+
+  my $memref=$self->{frame}->{-memref};
+  my $offset=$self->{offset};
+
+  $offset+=$O{disp};
+
+  for my $c(@chars) {
+    vec($$memref,$offset++,$sz)=$c;
 
   };
 

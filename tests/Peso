@@ -18,6 +18,7 @@
 
   use Blk;
   use Type;
+  use Fmat;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -31,16 +32,34 @@ my $type=$Type::Table->nit(
 
   'struct',[
 
-    long=>'op,dst,src',
+    byte=>'sigil',
+    byte=>'dom(7)',
+
+    byte=>'id(32)',
+
+    word=>'src,dst,size',
 
   ],
 
 );
 
 my $ptr=$non->alloc('beg0',$type,1);
-my $item=$ptr->{by_name}->[0];
+$ptr->strcpy(
 
-say $non->{mem};
-$non->prich();
+  q[@].'PESONET'.("\x{00}"x24)
+
+);
+
+my $v=$ptr->{by_name}->[0];
+${$v->{src}}=0x1;
+${$v->{dst}}=0x2;
+${$v->{size}}=0x3;
+
+my $d=$type->decode($non->{mem});
+
+#say fatdump($d);
+
+#say $non->{mem};
+#$non->prich();
 
 # ---   *   ---   *   ---

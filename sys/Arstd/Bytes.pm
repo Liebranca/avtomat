@@ -47,6 +47,7 @@ sub mord($str,%O) {
 
   # defaults
   $O{width}//=8;
+  $O{elem_sz}//=64;
   $O{rev}//=1;
 
   $str=reverse $str if $O{rev};
@@ -56,7 +57,7 @@ sub mord($str,%O) {
 
   for my $c(split $NULLSTR,$str) {
     $word|=ord($c)<<$b;$b+=$O{width};
-    last if $b==64;
+    last if $b==$O{elem_sz};
 
   };
 
@@ -72,6 +73,7 @@ sub lmord($str,%O) {
 
   # defaults
   $O{width}//=8;
+  $O{elem_sz}//=64;
   $O{rev}//=1;
 
   $str=reverse $str if $O{rev};
@@ -81,7 +83,7 @@ sub lmord($str,%O) {
 
   for my $c(split $NULLSTR,$str) {
     $words[-1]|=ord($c)<<$b;$b+=$O{width};
-    if($b==64) {push @words,0;$b=0};
+    if($b==$O{elem_sz}) {push @words,0;$b=0};
 
   };
 
@@ -97,6 +99,7 @@ sub mchr($data,%O) {
 
   # defaults
   $O{width}//=8;
+  $O{elem_sz}//=64;
   $O{rev}//=0;
 
   @$data=reverse @$data if $O{rev};
@@ -113,7 +116,7 @@ sub mchr($data,%O) {
     $word=$word>>$O{width};
 
     $b+=$O{width};
-    if($b==64) {$word=shift @$data;$b=0};
+    if($b==$O{elem_sz}) {$word=shift @$data;$b=0};
 
   };
 

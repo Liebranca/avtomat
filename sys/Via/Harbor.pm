@@ -40,12 +40,6 @@ package Via::Harbor;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
-# ROM
-
-  our $UNLOAD="\x{24}\x{17}";
-  our $UNLOAD_RE=qr{\x24\x17$}x;
-
-# ---   *   ---   *   ---
 # (pre)destructor
 
 sub sink($class,$frame,$idex) {
@@ -75,6 +69,7 @@ sub nit($class,$frame,$name) {
 
   my $self=Via::nit($class,$frame,$name);
 
+  # TODO: move directly to net
   # list of other sockets
   $self->{routes}=Cask->nit();
 
@@ -85,9 +80,31 @@ sub nit($class,$frame,$name) {
   $self->{orders}=[];
 
   $self->{idex}=$frame->{harbors}->give($self);
-  $self->{name}.='>>:harbor_'.$self->{idex};
+  $self->{name}.=$Via::NET_RS.$self->{idex};
+
+  $self->{net}=$frame->{net};
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+
+sub get_peer($class,$frame,$name,$idex) {
+
+  my $search=
+
+    $frame->{name}.$Via::NET_RS.
+    $name.$Via::NET_RS.
+
+    $idex
+
+  ;
+
+  my @values=array_values($frame->{harbors});
+  my @found=grep {$ARG->{name} eq $search} @values;
+
+  return $found[0];
 
 };
 

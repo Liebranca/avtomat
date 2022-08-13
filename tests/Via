@@ -15,14 +15,17 @@
   use lib $ENV{'ARPATH'}.'/avtomat/sys/';
 
   use Cask;
+  use Shb7;
 
   use Via;
   use Via::Harbor;
 
 # ---   *   ---   *   ---
 
+my $hostname='local';
+
 my $frame=Via->new_frame();
-my $net=$frame->nit('local');
+my $net=$frame->nit($hostname);
 
 $net->open();
 
@@ -43,14 +46,19 @@ if($pid) {
 } else {
 
   # get new instance
-  my $dst=$net->ship(
-    $net->{path}=>'@nit Harbor local@chd'
+  my $dst=Via->new_harbor($hostname);
 
-  );
+  say "\n",$dst;
+  say $dst->{name},"\n";
+
+  $dst=$dst->get_harbor($0);
+
+  say "\n",$dst;
+  say $dst->{name},"\n";
 
   # destroy
-  $net->ship(
-    $net->{path}=>'@snk Harbor '.$dst->{idex}
+  Via->ship(
+    $dst->{net}=>'@snk Harbor '.$dst->{idex}
 
   );
 

@@ -34,7 +34,7 @@ package Lang::Peso;
 
   use Peso::Ops;
   use Peso::Defs;
-  use Peso::Blk;
+#  use Peso::Blk;
 
 # ---   *   ---   *   ---
 
