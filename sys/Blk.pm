@@ -19,12 +19,16 @@ package Blk;
   use warnings;
 
   use Readonly;
+  use Carp;
+
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
 
+  use Arstd::Bytes;
+  use Arstd::Array;
   use Arstd::Hash;
   use Arstd::IO;
 
@@ -321,6 +325,112 @@ sub free($self,$name) {
     $ptr->{offset};
 
   delete $self->{elems}->{$name};
+
+};
+
+# ---   *   ---   *   ---
+# gives back [key=>value] from ptr name
+
+sub decode($self,$name) {
+
+  my $out=[];
+  my $ptr=$self->{elems}->{$name};
+
+  croak "Name $name not found ".
+    "in scope <$self->{name}>"
+
+  unless defined $ptr;
+
+  my $type=$ptr->{type};
+
+  my $fields=$type->{fields};
+  my $subtypes=$type->{subtypes};
+
+# ---   *   ---   *   ---
+# struct
+
+  if(@$fields) {
+
+    my $types=$self->{frame}->{-types};
+
+    my @sizes=array_keys($fields);
+    my @names=array_values($fields);
+
+    my @types=array_keys($subtypes);
+    my @arrays=array_values($subtypes);
+
+    my $fmat=$NULLSTR;
+
+    # get format for unpacking the struct
+    # from the sizes of it's fields
+    map {
+
+      my $c=$PACK_SIZES->{$ARG*8};
+
+      $fmat.=$c;
+      $fmat.='>' if $c ne 'C';
+
+    } @sizes;
+
+    # grab the slice of memory and unpack
+    my @values=unpack $fmat,$ptr->rawdata();
+
+# ---   *   ---   *   ---
+# make key=>value pairs from unpacked data
+
+    while(@names && @values) {
+
+      my $value_t=shift @types;
+      my $array_sz=shift @arrays;
+
+      my $value;
+      my $name;
+
+# ---   *   ---   *   ---
+# as buffer
+
+      if($array_sz>1) {
+
+        $value=[@values[0..$array_sz-1]];
+        $name=$names[0];
+
+        if($types->{$value_t}->is_str()) {
+          $value=mchr($value);
+
+        };
+
+        @values=@values[$array_sz..$#values];
+        @names=@names[$array_sz..$#names];
+
+# ---   *   ---   *   ---
+# as single value
+
+      } else {
+        $value=shift @values;
+        $name=shift @names;
+
+      };
+
+# ---   *   ---   *   ---
+# append
+
+      push @$out,$name=>$value;
+
+    };
+
+# ---   *   ---   *   ---
+# primitive
+
+  } else {
+
+#    # TODO: translate to int...
+#
+#    my $value=substr $data,0,$self->{size};
+#    $out=[$self->{name}=>$value];
+
+  };
+
+  return $out;
 
 };
 

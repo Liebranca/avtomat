@@ -33,9 +33,9 @@ my $type=$Type::Table->nit(
   'struct',[
 
     byte=>'sigil',
-    byte=>'dom(7)',
 
-    byte=>'id(32)',
+    byte_str=>'dom(7)',
+    byte_str=>'id(32)',
 
     word=>'src,dst,size',
 
@@ -43,10 +43,11 @@ my $type=$Type::Table->nit(
 
 );
 
-my $ptr=$non->alloc('beg0',$type,1);
+my $ptr=$non->alloc('header',$type,1);
+
 $ptr->strcpy(
 
-  q[@].'PESONET'.("\x{00}"x24)
+  q[@].'PESONET'.':test'
 
 );
 
@@ -55,9 +56,9 @@ ${$v->{src}}=0x1;
 ${$v->{dst}}=0x2;
 ${$v->{size}}=0x3;
 
-my $d=$type->decode($non->{mem});
-
-#say fatdump($d);
+my $d=$non->decode('header');
+my %d=@$d;
+say fatdump(\%d);
 
 #say $non->{mem};
 #$non->prich();

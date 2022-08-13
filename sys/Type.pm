@@ -18,6 +18,7 @@ package Type;
   use strict;
   use warnings;
 
+  use Readonly;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -69,6 +70,8 @@ package Type;
 
   );
 
+  Readonly my $STRTYPE_RE=>qr{_str}x;
+
 # ---   *   ---   *   ---
 # constructor
 
@@ -90,6 +93,7 @@ sub nit(
   $O{real}//=0;
   $O{sign}//=0;
   $O{addr}//=0;
+  $O{str}//=0;
 
 # ---   *   ---   *   ---
 
@@ -97,6 +101,7 @@ sub nit(
   my $count=0;
 
   my $fields=[];
+  my $subtypes=[];
 
 # ---   *   ---   *   ---
 # struct format:
@@ -142,6 +147,8 @@ MUL_VALUES:
 
       };
 
+      push @$subtypes,$elem_type=>$mult;
+
       goto DONE;
 
 MUL_NAMES:
@@ -149,6 +156,8 @@ MUL_NAMES:
       for my $name(@names) {
 
         push @$fields,$elem_sz,$name;
+        push @$subtypes,$elem_type=>1;
+
         $size+=$frame->{$elem_type}->{size};
 
         $count++;
@@ -174,10 +183,8 @@ DONE:
 # ---   *   ---   *   ---
 # ugly arse specifiers...
 
-  if($O{sign}) {
-    $name="s$name";
-
-  };
+  if($O{sign}) {$name="s$name"};
+  if($O{str}) {$name.='_str'};
 
   if($O{addr}) {
 
@@ -196,6 +203,7 @@ DONE:
     elem_count=>$count,
 
     fields=>$fields,
+    subtypes=>$subtypes,
 
     %O,
 
@@ -206,65 +214,9 @@ DONE:
 };
 
 # ---   *   ---   *   ---
-# gives back [key=>value] from byte array
 
-sub decode($self,$data) {
-
-  my $out=[];
-  my $fields=$self->{fields};
-
-  my $total=$self->{size};
-
-  my $x=int(
-    ($total/$Table->{word}->{size})+0.9999
-
-  );
-
-  my @data=unpack "Q<$x",$data;
-
-# ---   *   ---   *   ---
-# struct
-
-  if(@$fields) {
-
-    my @sizes=array_keys($fields);
-    my @names=array_values($fields);
-
-    my $i=0;
-
-    while(@names && @sizes && @data) {
-
-      my $name=shift @names;
-      my $size=shift @sizes;
-      my $value=shift @data;
-
-      push @$out,$name=>$value;
-
-      $value=~ s[\x00][];
-
-      if(length $value) {
-      printf "%-8s %-8s (%2i/%2i) %-32s\n",
-        $name,$value,$i,$size,$data;
-
-      };
-
-      $i+=$size;
-
-    };
-
-# ---   *   ---   *   ---
-# primitive
-
-  } else {
-
-    # TODO: translate to int...
-
-    my $value=substr $data,0,$self->{size};
-    $out=[$self->{name}=>$value];
-
-  };
-
-  return $out;
+sub is_str($self) {
+  return $self->{name}=~ m[$STRTYPE_RE];
 
 };
 
@@ -314,6 +266,14 @@ sub gen_type_table(%table) {
         addr=>$indlvl
 
       );
+
+    };
+
+# ---   *   ---   *   ---
+# generate string types
+
+    if($key=~ m[(?: byte|wide)]x) {
+      $F->nit($key,$value,str=>1);
 
     };
 

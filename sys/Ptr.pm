@@ -222,11 +222,12 @@ sub setv($self,@data) {
 };
 
 # ---   *   ---   *   ---
+# writes a string to memory
 
 sub strcpy($self,$data,%O) {
 
   # defaults
-  $O{wide}//=1;
+  $O{wide}//=0;
   $O{disp}//=0;
 
 # ---   *   ---   *   ---
@@ -254,6 +255,41 @@ sub strcpy($self,$data,%O) {
     vec($$memref,$offset++,$sz)=$c;
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# returns a slice of pointed memory
+
+sub rawdata($self,%O) {
+
+  # defaults
+  $O{beg}//=0;
+  $O{end}//=-1;
+
+  my $memref=$self->{frame}->{-memref};
+  my $offset=$self->{offset};
+
+  my $types=$self->{frame}->{-types};
+  my $word_sz=$types->{word}->{size};
+
+  my $size;
+
+  # full read
+  if($O{beg}==0 && $O{end}<0) {
+    $size=$self->{buff_sz}*$word_sz;
+
+  # partial read
+  } else {
+
+    my $elem_sz=$self->{type}->{size};
+
+    $offset+=$O{beg}*$elem_sz;
+    $size=($O{end}-$O{beg})*$elem_sz;
+
+  };
+
+  return substr $$memref,$offset,$size;
 
 };
 
