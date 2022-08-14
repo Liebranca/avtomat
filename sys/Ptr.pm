@@ -53,6 +53,9 @@ sub point($self) {
   my $memref=$self->{frame}->{-memref};
   my $offset=$self->{offset};
 
+  # we'll need this later
+  my $base_offset=$offset;
+
   my $type=(defined $self->{casted})
     ? $self->{casted}
     : $self->{type}
@@ -60,6 +63,7 @@ sub point($self) {
 
   my $types=$self->{frame}->{-types};
   my $word_sz=$types->{word}->{size};
+  my $alignment=$types->{unit}->{size};
 
 # ---   *   ---   *   ---
 
@@ -84,10 +88,13 @@ sub point($self) {
   };
 
 # ---   *   ---   *   ---
+# for each struct
 
   for my $i(0..$self->{instance_cnt}-1) {
-
     my $bn=$self->{by_name}->[$i]={};
+
+# ---   *   ---   *   ---
+# for each primitive
 
     for my $j(0..$type->{elem_count}-1){
 
@@ -99,6 +106,8 @@ sub point($self) {
       $self->{buff}->[$idex]=\(vec(
 
         $$memref,
+
+        # align offset
         int(($offset/$size)+0.9999),$size*8
 
       ));
@@ -111,18 +120,21 @@ sub point($self) {
 
     };
 
-  };
-
 # ---   *   ---   *   ---
-# pad out the size to halves
+# align elements; pads between structs if needed
 
-  $self->{buff_sz}=int(
+    $self->{buff_sz}=int(
 
-    (($offset-$self->{offset})/$word_sz)+0.9999
+      (($offset-$self->{offset})
+      /$alignment
 
-  );
+    )+0.9999);
 
-  $self->{buff_sz}+=$self->{buff_sz}&0b1;
+    # adjust byte offset to top
+    $offset=$base_offset
+      +($self->{buff_sz}*$alignment);
+
+  };
 
 };
 
@@ -173,12 +185,58 @@ sub nit(
 sub buf($self,$idex=undef) {
 
   if(!defined $idex) {
-    return @{$self->{buff}};
+    return (@{$self->{buff}});
 
   } else {
     return $self->{buff}->[$idex];
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# gives each element in buffer as it's own ptr
+
+sub subdiv($self) {
+
+  my $types=$self->{frame}->{-types};
+  my $alignment=$types->{unit}->{size};
+
+  my $elem_sz=$self->{type}->{size};
+
+  my $type=$self->{type};
+  my @buff=@{$self->{buff}};
+
+# ---   *   ---   *   ---
+
+  my @copies=();
+
+  for my $i(0..$self->{instance_cnt}-1) {
+
+    my $beg=$i*$type->{elem_count};
+    my $end=($i+1)*$type->{elem_count};
+
+    push @copies,bless {
+
+      type=>$self->{type},
+      casted=>$self->{casted},
+
+      offset=>$self->{offset}+($elem_sz*$i),
+
+      instance_cnt=>1,
+
+      buff=>[@buff[$beg..$end-1]],
+
+      buff_sz=>int(($elem_sz/$alignment)+0.9999),
+      by_name=>[$self->{by_name}->[$i]],
+
+      frame=>$self->{frame},
+
+    },$self->get_class();
+
+  };
+
+  return @copies;
 
 };
 
@@ -193,8 +251,8 @@ sub flood($self,$value) {
   my $word_sz=$types->{word}->{size};
   my $offset=$self->{offset}/$word_sz;
 
-  for my $half(0..$self->{buff_sz}-1) {
-    vec($$memref,$offset,64)=$value;
+  for my $half(0..($self->{buff_sz}*2)-1) {
+    vec($$memref,$offset,$word_sz*8)=$value;
     $offset++;
 
   };
@@ -249,12 +307,20 @@ sub strcpy($self,$data,%O) {
   my $memref=$self->{frame}->{-memref};
   my $offset=$self->{offset};
 
+  # halve offset for wide strings
+  $offset=int($offset/(1+$O{wide}));
+
+  # displacement assumed relative to char size
   $offset+=$O{disp};
 
-  for my $c(@chars) {
-    vec($$memref,$offset++,$sz)=$c;
+  # copy bytes
+  map {vec(
 
-  };
+    $$memref,
+    $offset++,
+    $sz
+
+  )=$ARG} @chars;
 
 };
 
@@ -270,14 +336,15 @@ sub rawdata($self,%O) {
   my $memref=$self->{frame}->{-memref};
   my $offset=$self->{offset};
 
-  my $types=$self->{frame}->{-types};
-  my $word_sz=$types->{word}->{size};
-
   my $size;
 
   # full read
   if($O{beg}==0 && $O{end}<0) {
-    $size=$self->{buff_sz}*$word_sz;
+
+    my $types=$self->{frame}->{-types};
+    my $alignment=$types->{unit}->{size};
+
+    $size=$self->{buff_sz}*$alignment;
 
   # partial read
   } else {

@@ -18,10 +18,15 @@ package Cask;
   use strict;
   use warnings;
 
+  use Readonly;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
+
+  use Style;
+
   use Arstd::Array;
+  use Arstd::IO;
 
 # ---   *   ---   *   ---
 # info
@@ -32,12 +37,17 @@ package Cask;
 # ---   *   ---   *   ---
 # ROM
 
-  our $SENTINEL=[qw(0x5E47 0x14E7)];
+  Readonly our $SENTINEL=>[0x5E4714E7];
+
+  Readonly our $FIRST_AVAIL=>[0x10577A4E];
+  Readonly our $FIRST_FREE=>[0x10575107];
 
 # ---   *   ---   *   ---
 
-sub nit($class) {
-  return bless [],$class;
+sub nit($class,@data) {
+
+  my $i=0;
+  return bless [map {$i++=>$ARG} @data],$class;
 
 };
 
@@ -63,28 +73,66 @@ sub give($self,$value) {
 };
 
 # ---   *   ---   *   ---
-# replace value
+# get value and replace
 
-sub take($self,$idex,$value=$SENTINEL) {
+sub take(
 
+  # implicit
+  $self,
+
+  # actual
+  $idex=$FIRST_AVAIL,
+  $value=$SENTINEL
+
+) {
+
+  my $out=undef;
+
+  # get any
+  if($idex eq $FIRST_AVAIL) {
+    $idex=(grep {
+
+      defined $ARG && $ARG ne $SENTINEL
+
+    } array_values($self))[0];
+
+
+    # catch none avail
+    errout(
+
+      q{Take from empty cask},
+      lvl=>$AR_WARNING
+
+    ) && goto TAIL unless defined $idex;
+
+  };
+
+# ---   *   ---   *   ---
+
+  # get by index
   if($idex=~ m[^[\d]+$]) {
     $idex=($idex<<1)+1;
 
+  # get by value
   } else {
     my %h=reverse @$self;
     $idex=($h{$idex}<<1)+1;
 
   };
 
-  my $out=$self->[$idex];
+  # replace
+  $out=$self->[$idex];
   $self->[$idex]=$value;
 
+# ---   *   ---   *   ---
+
+TAIL:
   return $out;
 
 };
 
 # ---   *   ---   *   ---
-# get value
+# ^just get value
 
 sub view($self,$idex) {
 

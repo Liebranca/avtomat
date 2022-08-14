@@ -77,8 +77,8 @@ package Via;
     'pesonet_header',[
 
       byte=>'sigil',
-      byte=>'dom(7)',
-      byte=>'id(32)',
+      byte_str=>'dom(7)',
+      byte_str=>'id(32)',
 
       word=>'src,dst,size',
 
@@ -103,12 +103,20 @@ package Via;
   our $Blk_F=Blk->new_frame();
   our $Non=$Blk_F->nit(undef,'non');
 
-  our $Mess_Pool=$Non->alloc(
+  our $Mess_Pool;
+
+INIT {
+
+  my $ptr=$Non->alloc(
     '@pesonet<Mess_Pool>',
 
     $MESS_ST,64
 
   );
+
+  $Mess_Pool=Cask->nit(@{$ptr->buf()});
+
+};
 
 # ---   *   ---   *   ---
 # destructor
@@ -121,8 +129,8 @@ sub DESTROY($self) {
 
   };
 
-  if(defined $self->{co}) {
-    $self->{co}->close();
+  if(defined $self->{sock}) {
+    $self->{sock}->close();
 
   };
 
@@ -147,7 +155,7 @@ sub nit($class,$frame,$name) {
     path=>$frame->{host}."$name.sock",
 
     pid=>undef,
-    co=>undef,
+    sock=>undef,
 
     frame=>$frame,
 
@@ -167,7 +175,7 @@ sub nit($class,$frame,$name) {
 
 sub open($self,$qsz=1) {
 
-  $self->{co}=$self->get_sock(
+  $self->{sock}=$self->get_sock(
 
     Type=>SOCK_STREAM(),
     Local=>$self->{path},
@@ -256,7 +264,7 @@ sub arrivals($self) {
   my %req=@$REQTAB;
   my $frame=$self->{frame};
 
-  while(my $ship=$self->{co}->accept) {
+  while(my $ship=$self->{sock}->accept) {
 
     # get shipment
     my $pkg=$NULLSTR;
@@ -264,6 +272,8 @@ sub arrivals($self) {
 
     say "received $pkg";
     my ($op,$class,@args)=split $SPACE_RE,$pkg;
+
+    my $header=$Mess_Pool->take();
 
     # fetch from request table
     if(exists $req{$op}) {

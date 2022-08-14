@@ -18,6 +18,7 @@
 
   use Blk;
   use Type;
+  use Cask;
   use Fmat;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
@@ -30,37 +31,25 @@ my $non=$frame->nit(undef,'non');
 
 my $type=$Type::Table->nit(
 
-  'struct',[
+  'st',[
 
-    byte=>'sigil',
-
-    byte_str=>'dom(7)',
-    byte_str=>'id(32)',
-
-    word=>'src,dst,size',
+    byte_str=>'buf(16)',
 
   ],
 
 );
 
-my $ptr=$non->alloc('header',$type,1);
+my $ptr=$non->alloc('st',$type,4);
+my $cask=Cask->nit($ptr->subdiv());
 
-$ptr->strcpy(
+$ptr=$cask->take();
+$ptr=$cask->take();
 
-  q[@].'PESONET'.':test'
+$ptr->strcpy('$$$$');
 
-);
+#my $d=$non->full_decode('x');
+#say fatdump($d);
 
-my $v=$ptr->{by_name}->[0];
-${$v->{src}}=0x1;
-${$v->{dst}}=0x2;
-${$v->{size}}=0x3;
-
-my $d=$non->decode('header');
-my %d=@$d;
-say fatdump(\%d);
-
-#say $non->{mem};
-#$non->prich();
+$non->prich();
 
 # ---   *   ---   *   ---

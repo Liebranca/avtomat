@@ -47,7 +47,7 @@ sub is_valid($kind,$obj) {
 };
 
 # what clas obj is an instance of
-sub get_class($obj) {return reftype($obj)};
+sub get_class($obj) {return ref $obj};
 
 # ---   *   ---   *   ---
 # create instance container

@@ -190,9 +190,10 @@ sub align($self,$type,$cnt) {
   my $types=$self->{frame}->{-types};
   my $alignment=$types->{unit}->{size};
 
-  my $total=$type->{size}*$cnt;
+  my $elem_sz=$type->{size};
 
-  my $mult=int(($total/$alignment)+0.9999);
+  my $mult=int(($elem_sz/$alignment)+0.9999);
+  $mult*=$cnt;
 
   return ($mult,$mult*$alignment);
 
@@ -269,7 +270,7 @@ sub baptize(
 
   );
 
-  $ptr->flood(0);
+  $ptr->flood(0x00);
 
   return $ptr;
 
@@ -331,7 +332,7 @@ sub free($self,$name) {
 # ---   *   ---   *   ---
 # gives back [key=>value] from ptr name
 
-sub decode($self,$name) {
+sub decode($self,$name,$idex=0) {
 
   my $out=[];
   my $ptr=$self->{elems}->{$name};
@@ -373,7 +374,10 @@ sub decode($self,$name) {
     } @sizes;
 
     # grab the slice of memory and unpack
-    my @values=unpack $fmat,$ptr->rawdata();
+    my @values=unpack $fmat,$ptr->rawdata(
+      beg=>$idex,end=>$idex+1,
+
+    );
 
 # ---   *   ---   *   ---
 # make key=>value pairs from unpacked data
@@ -423,10 +427,40 @@ sub decode($self,$name) {
 
   } else {
 
-#    # TODO: translate to int...
-#
-#    my $value=substr $data,0,$self->{size};
-#    $out=[$self->{name}=>$value];
+    my $c=$PACK_SIZES->{$type->{size}*8};
+    my $fmat=$c;
+
+    $fmat.='>' if $c ne 'C';
+
+    my $value=unpack $fmat,$ptr->rawdata(
+      beg=>$idex,end=>$idex+1,
+
+    );
+
+    $out=[$type->{name}=>$value];
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^same, runs through all elements
+
+sub full_decode($self,$name) {
+
+  my $out=[];
+  my $ptr=$self->{elems}->{$name};
+
+  croak "Name $name not found ".
+    "in scope <$self->{name}>"
+
+  unless defined $ptr;
+
+  for my $i(0..$ptr->{instance_cnt}-1) {
+
+    push @$out,"$name+$i"=>$self->decode($name,$i);
 
   };
 
