@@ -237,7 +237,10 @@ sub ship($self,$path,%O) {
 
   );
 
+  $O{args}//=$NULLSTR;
   my $pkg=join q{ },@{$O{args}};
+
+  delete $O{args};
 
   # get struct from pool
   my $me=$Mess_Pool->take();
@@ -254,22 +257,23 @@ sub ship($self,$path,%O) {
   $dst->send($me->rawdata().$pkg);
   $dst->shutdown(SHUT_WR);
 
+  # get response
   my $hed=$NULLSTR;
   $dst->recv($hed,$MESS_ST->{size});
-
   $hed={@{$MESS_ST->decode($hed)}};
 
-#  $header=$MESS_ST->decode($header);
-#
-#  if($pkg ne 'ok') {
-#    $out=thaw($pkg);
-#
-#  };
+  # handle object returns
+  $dst->recv($pkg,$hed->{size});
+  if($hed->{fn_key} eq 'obj') {
+    $out=thaw($pkg);
+
+  # plain value/no return
+  } else {
+    $out=$pkg;
+
+  };
 
   say "arrived!";
-
-use Fmat;
-say fatdump($hed);
 
   $dst->close();
 
@@ -306,54 +310,53 @@ sub arrivals($self) {
     my @args=split $SPACE_RE,$pkg;
 
     my $me=$Mess_Pool->take();
-    my $ret={};
+    my $me_attrs={};
 
-    $ret->{sigil}=$hed->{sigil};
-    $ret->{fn_key}='ret';
+    $me_attrs->{sigil}=$hed->{sigil};
 
 # ---   *   ---   *   ---
 # fetch from request table
 
-#    if(exists $req{$op}) {
-#
-#      $op=$req{$op};
-#
-#      $class=$frame->{-class}.q{::}.$class;
-#      unshift @args,$frame;
-#
-#      my $x=$class->$op(@args);
-#
-## ---   *   ---   *   ---
-#
-#      if(length ref $x) {
-#
-#        my $restore=0;
-#        if(exists $x->{frame}) {
-#          $x->{frame}=undef;
-#          $restore=1;
-#
-#        };
-#
-#        $pkg=nfreeze($x);
-#        $x->{frame}=$frame if $restore;
-#
-## ---   *   ---   *   ---
-## TODO: handle non-object returns
-#
-#      } else {
-#
-#        $pkg=$NULLSTR;
-#
-#      };
-#
-#    };
+    if(exists $req{$fn_key}) {
 
-    $ret->{size}=length $pkg;
+      my $op=$req{$fn_key};
+      unshift @args,$frame;
+
+      my $ret=$class->$op(@args);
+
+# ---   *   ---   *   ---
+
+      if(length ref $ret) {
+
+        $me_attrs->{fn_key}='obj';
+
+        my $restore=0;
+        if(exists $ret->{frame}) {
+          $ret->{frame}=undef;
+          $restore=1;
+
+        };
+
+        $pkg=nfreeze($ret);
+        $ret->{frame}=$frame if $restore;
+
+# ---   *   ---   *   ---
+
+      } else {
+
+        $me_attrs->{fn_key}='ret';
+        $pkg=$ret;
+
+      };
+
+    };
+
+    $me_attrs->{size}=length $pkg;
 
 # ---   *   ---   *   ---
 # send response
 
-    $me->encode(%$ret);
+    $me->encode(%$me_attrs);
     $ship->send($me->rawdata().$pkg);
 
     # notify
@@ -363,7 +366,6 @@ sub arrivals($self) {
     $me->flood(0);
     $Mess_Pool->give($me);
 
-    last;
     last if($self->{frame}->{harbors}->empty());
 
   };
@@ -398,14 +400,14 @@ sub new_harbor($class,$name) {
 # ---   *   ---   *   ---
 # ^same, existing instance
 
-sub get_harbor($self,$name,$idex=0) {
+sub get_harbor($self,$name,$idex=1) {
 
   my $via=Via->ship(
 
     $self->{net},
 
     sigil=>$NET_SIGIL,
-    fn_key=>'gpr',
+    fn_key=>'gtpe',
     class=>'Via::Harbor',
 
     dst=>0,

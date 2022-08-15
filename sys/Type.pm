@@ -389,8 +389,10 @@ sub decode($self,$data) {
         $value=[@values[0..$array_sz-1]];
         $name=$names[0];
 
+        # cat string and remove nullbytes
         if($Table->{$value_t}->is_str()) {
           $value=mchr($value);
+          $value=~ s[\x00+][]sg;
 
         };
 

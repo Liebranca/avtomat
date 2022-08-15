@@ -42,23 +42,46 @@ package Via::Harbor;
 # ---   *   ---   *   ---
 # (pre)destructor
 
-sub sink($class,$frame,$idex) {
+sub sink($class,$frame=undef,$idex=1) {
 
-  my $self=$frame->{harbors}->view($idex);
+  # remote call
+  if(length ref $class) {
 
-  # remove file
-  if(-e $self->{path}) {
-    unlink $self->{path};
+    my $self=$class;
+
+    Via->ship(
+
+      $self->{net},
+
+      sigil=>$Via::NET_SIGIL,
+      fn_key=>'sink',
+      class=>$self->get_class(),
+
+      dst=>0,
+
+      args=>[$self->{idex}],
+
+    );
+
+  } else {
+
+    my $self=$frame->{harbors}->view($idex-1);
+
+    # remove file
+    if(-e $self->{path}) {
+      unlink $self->{path};
+
+    };
+
+    # give back slot
+    if($frame && $frame->{harbors}) {
+      $frame->{harbors}->take($idex-1);
+
+    };
 
   };
 
-  # give back slot
-  if($frame && $frame->{harbors}) {
-    $frame->{harbors}->take($idex);
-
-  };
-
-  return undef;
+  return 0;
 
 };
 
