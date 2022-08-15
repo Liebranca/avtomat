@@ -74,11 +74,11 @@ package Via;
 
   Readonly our $MESS_ST=>$Type::Table->nit(
 
-    'pesonet_header',[
+    'pesonet_me_header',[
 
       byte=>'sigil',
-      byte_str=>'dom(7)',
-      byte_str=>'id(32)',
+      byte_str=>'fn_key(7)',
+      byte_str=>'class(32)',
 
       word=>'src,dst,size',
 
@@ -91,9 +91,9 @@ package Via;
 
   Readonly our $REQTAB=>[
 
-    $NET_SIGIL.q[nit]=>q[nit],
-    $NET_SIGIL.q[gpr]=>q[get_peer],
-    $NET_SIGIL.q[snk]=>q[sink],
+    q[nit]=>q[nit],
+    q[gtpe]=>q[get_peer],
+    q[sink]=>q[sink],
 
   ];
 
@@ -114,7 +114,7 @@ INIT {
 
   );
 
-  $Mess_Pool=Cask->nit(@{$ptr->buf()});
+  $Mess_Pool=Cask->nit($ptr->subdiv());
 
 };
 
@@ -156,6 +156,7 @@ sub nit($class,$frame,$name) {
 
     pid=>undef,
     sock=>undef,
+    idex=>0,
 
     frame=>$frame,
 
@@ -226,7 +227,7 @@ sub split($self) {
 
 # ---   *   ---   *   ---
 
-sub ship($self,$path,$pkg) {
+sub ship($self,$path,%O) {
 
   my $out=$NULLSTR;
   my $dst=$self->get_sock(
@@ -236,20 +237,39 @@ sub ship($self,$path,$pkg) {
 
   );
 
-  $dst->send($pkg);
+  my $pkg=join q{ },@{$O{args}};
+
+  # get struct from pool
+  my $me=$Mess_Pool->take();
+  my $me_attrs=$me->{by_name}->[0];
+
+  $O{size}=length $pkg;
+  $O{src}=(ref $self)
+    ? $self->{idex}
+    : 0
+    ;
+
+  $me->encode(%O);
+
+  $dst->send($me->rawdata().$pkg);
   $dst->shutdown(SHUT_WR);
 
-  my $header=$NULLSTR;
-  $dst->recv($header,$MESS_ST->{size});
+  my $hed=$NULLSTR;
+  $dst->recv($hed,$MESS_ST->{size});
 
-  $header=$MESS_ST->decode($header);
+  $hed={@{$MESS_ST->decode($hed)}};
 
-  if($pkg ne 'ok') {
-    $out=thaw($pkg);
-
-  };
+#  $header=$MESS_ST->decode($header);
+#
+#  if($pkg ne 'ok') {
+#    $out=thaw($pkg);
+#
+#  };
 
   say "arrived!";
+
+use Fmat;
+say fatdump($hed);
 
   $dst->close();
 
@@ -266,56 +286,84 @@ sub arrivals($self) {
 
   while(my $ship=$self->{sock}->accept) {
 
-    # get shipment
+    # read package header
+    my $hed=$NULLSTR;
+    $ship->recv($hed,$MESS_ST->{size});
+
+    $hed={@{$MESS_ST->decode($hed)}};
+
+    my ($fn_key,$class)=(
+      $hed->{fn_key},
+      $hed->{class},
+
+    );
+
+    # read package contents
     my $pkg=$NULLSTR;
-    $ship->recv($pkg,$MESS_ST->{size});
+    $ship->recv($pkg,$hed->{size});
 
-    say "received $pkg";
-    my ($op,$class,@args)=split $SPACE_RE,$pkg;
+    say "received $class->$fn_key $pkg";
+    my @args=split $SPACE_RE,$pkg;
 
-    my $header=$Mess_Pool->take();
+    my $me=$Mess_Pool->take();
+    my $ret={};
 
-    # fetch from request table
-    if(exists $req{$op}) {
+    $ret->{sigil}=$hed->{sigil};
+    $ret->{fn_key}='ret';
 
-      $op=$req{$op};
+# ---   *   ---   *   ---
+# fetch from request table
 
-      $class=$frame->{-class}.q{::}.$class;
-      unshift @args,$frame;
+#    if(exists $req{$op}) {
+#
+#      $op=$req{$op};
+#
+#      $class=$frame->{-class}.q{::}.$class;
+#      unshift @args,$frame;
+#
+#      my $x=$class->$op(@args);
+#
+## ---   *   ---   *   ---
+#
+#      if(length ref $x) {
+#
+#        my $restore=0;
+#        if(exists $x->{frame}) {
+#          $x->{frame}=undef;
+#          $restore=1;
+#
+#        };
+#
+#        $pkg=nfreeze($x);
+#        $x->{frame}=$frame if $restore;
+#
+## ---   *   ---   *   ---
+## TODO: handle non-object returns
+#
+#      } else {
+#
+#        $pkg=$NULLSTR;
+#
+#      };
+#
+#    };
 
-      my $x=$class->$op(@args);
+    $ret->{size}=length $pkg;
 
+# ---   *   ---   *   ---
+# send response
 
-      if(length ref $x) {
-
-        my $restore=0;
-        if(exists $x->{frame}) {
-          $x->{frame}=undef;
-          $restore=1;
-
-        };
-
-        $pkg=nfreeze($x);
-
-        $x->{frame}=$frame if $restore;
-
-      } else {
-        $pkg='ok';
-
-      };
-
-    };
-
-    # response
-    $ship->send($pkg);
+    $me->encode(%$ret);
+    $ship->send($me->rawdata().$pkg);
 
     # notify
-    $ship->shutdown(SHUT_WR);
+    $ship->shutdown(SHUT_RDWR);
 
-    # is this bit necessary?
-    # the docs are confusing about it
-    $ship->close();
+    # give struct back to pool
+    $me->flood(0);
+    $Mess_Pool->give($me);
 
+    last;
     last if($self->{frame}->{harbors}->empty());
 
   };
@@ -333,7 +381,13 @@ sub new_harbor($class,$name) {
 
     "$path$name.sock",
 
-    $NET_SIGIL."nit Harbor $name$NET_RS$0"
+    sigil=>$NET_SIGIL,
+    fn_key=>'nit',
+    class=>'Via::Harbor',
+
+    dst=>0,
+
+    args=>["$name$NET_RS$0"],
 
   );
 
@@ -349,7 +403,14 @@ sub get_harbor($self,$name,$idex=0) {
   my $via=Via->ship(
 
     $self->{net},
-    $NET_SIGIL."gpr Harbor $name $idex"
+
+    sigil=>$NET_SIGIL,
+    fn_key=>'gpr',
+    class=>'Via::Harbor',
+
+    dst=>0,
+
+    args=>[$name,$idex],
 
   );
 

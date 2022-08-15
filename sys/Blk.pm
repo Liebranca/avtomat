@@ -46,15 +46,6 @@ package Blk;
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $PACK_SIZES=>hash_invert({
-
-    'Q'=>64,
-    'L'=>32,
-    'S'=>16,
-    'C'=>8,
-
-  },duplicate=>1);
-
   sub Frame_Vars($class) {
   return {
 
@@ -208,7 +199,7 @@ sub grow($self,$mult) {
   my $word_sz=$types->{word}->{size};
   my $alignment=$types->{unit}->{size};
 
-  my $fmat=$PACK_SIZES->{$word_sz*8};
+  my $fmat=$Type::PACK_SIZES->{$word_sz*8};
 
   $self->{mem}.=(
 
@@ -330,145 +321,6 @@ sub free($self,$name) {
 };
 
 # ---   *   ---   *   ---
-# gives back [key=>value] from ptr name
-
-sub decode($self,$name,$idex=0) {
-
-  my $out=[];
-  my $ptr=$self->{elems}->{$name};
-
-  croak "Name $name not found ".
-    "in scope <$self->{name}>"
-
-  unless defined $ptr;
-
-  my $type=$ptr->{type};
-
-  my $fields=$type->{fields};
-  my $subtypes=$type->{subtypes};
-
-# ---   *   ---   *   ---
-# struct
-
-  if(@$fields) {
-
-    my $types=$self->{frame}->{-types};
-
-    my @sizes=array_keys($fields);
-    my @names=array_values($fields);
-
-    my @types=array_keys($subtypes);
-    my @arrays=array_values($subtypes);
-
-    my $fmat=$NULLSTR;
-
-    # get format for unpacking the struct
-    # from the sizes of it's fields
-    map {
-
-      my $c=$PACK_SIZES->{$ARG*8};
-
-      $fmat.=$c;
-      $fmat.='>' if $c ne 'C';
-
-    } @sizes;
-
-    # grab the slice of memory and unpack
-    my @values=unpack $fmat,$ptr->rawdata(
-      beg=>$idex,end=>$idex+1,
-
-    );
-
-# ---   *   ---   *   ---
-# make key=>value pairs from unpacked data
-
-    while(@names && @values) {
-
-      my $value_t=shift @types;
-      my $array_sz=shift @arrays;
-
-      my $value;
-      my $name;
-
-# ---   *   ---   *   ---
-# as buffer
-
-      if($array_sz>1) {
-
-        $value=[@values[0..$array_sz-1]];
-        $name=$names[0];
-
-        if($types->{$value_t}->is_str()) {
-          $value=mchr($value);
-
-        };
-
-        @values=@values[$array_sz..$#values];
-        @names=@names[$array_sz..$#names];
-
-# ---   *   ---   *   ---
-# as single value
-
-      } else {
-        $value=shift @values;
-        $name=shift @names;
-
-      };
-
-# ---   *   ---   *   ---
-# append
-
-      push @$out,$name=>$value;
-
-    };
-
-# ---   *   ---   *   ---
-# primitive
-
-  } else {
-
-    my $c=$PACK_SIZES->{$type->{size}*8};
-    my $fmat=$c;
-
-    $fmat.='>' if $c ne 'C';
-
-    my $value=unpack $fmat,$ptr->rawdata(
-      beg=>$idex,end=>$idex+1,
-
-    );
-
-    $out=[$type->{name}=>$value];
-
-  };
-
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
-# ^same, runs through all elements
-
-sub full_decode($self,$name) {
-
-  my $out=[];
-  my $ptr=$self->{elems}->{$name};
-
-  croak "Name $name not found ".
-    "in scope <$self->{name}>"
-
-  unless defined $ptr;
-
-  for my $i(0..$ptr->{instance_cnt}-1) {
-
-    push @$out,"$name+$i"=>$self->decode($name,$i);
-
-  };
-
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
 
 sub prich($self,%O) {
 
@@ -479,7 +331,7 @@ sub prich($self,%O) {
   my $sz=$self->{size};
 
   my @me=();
-  my $psize=$PACK_SIZES->{64};
+  my $psize=$Type::PACK_SIZES->{64};
 
 # ---   *   ---   *   ---
 

@@ -4,9 +4,9 @@
 ~ Generalize Blk for serialization
 ~ ^ Writing Blk instances to file
 ~ ^ Reading from file into Blk
-~ ^ Messaging through Blks
-~ ^^ Message encrypt
-~ ^^ Message decrypt
+x ^ Messaging through Blks
+x ^^ Message encrypt
+x ^^ Message decrypt
 
 ~ Generalize Ptr for Blk fetches
 ~ ^ Fetch by ID (cross-scope!)

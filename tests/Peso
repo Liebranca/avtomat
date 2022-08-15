@@ -47,9 +47,9 @@ $ptr=$cask->take();
 
 $ptr->strcpy('$$$$');
 
-#my $d=$non->full_decode('x');
-#say fatdump($d);
+my $d=$type->decode($ptr->rawdata());
+say fatdump($d);
 
-$non->prich();
+#$non->prich();
 
 # ---   *   ---   *   ---

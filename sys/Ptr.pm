@@ -280,6 +280,15 @@ sub setv($self,@data) {
 };
 
 # ---   *   ---   *   ---
+
+sub encode($self,%data) {
+
+  my $type=$self->{type};
+  $self->strcpy($type->encode(%data));
+
+};
+
+# ---   *   ---   *   ---
 # writes a string to memory
 
 sub strcpy($self,$data,%O) {
@@ -357,6 +366,26 @@ sub rawdata($self,%O) {
   };
 
   return substr $$memref,$offset,$size;
+
+};
+
+# ---   *   ---   *   ---
+
+sub decode($self) {
+
+  my $out=[];
+  my $type=$self->{type};
+
+  for my $i(0..$self->{instance_cnt}-1) {
+
+    push @$out,$type->decode(
+      $self->rawdata(beg=>$i,end=>$i+1)
+
+    );
+
+  };
+
+  return $out;
 
 };
 

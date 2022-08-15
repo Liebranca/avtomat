@@ -24,7 +24,9 @@ package Type;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Arstd::Bytes;
   use Arstd::Array;
+  use Arstd::Hash;
 
   use parent 'St';
   use Vault 'ARPATH';
@@ -41,6 +43,15 @@ package Type;
   sub Frame_Vars($class) {{}};
 
   our $Indirection_Key=[qw(ptr pptr xptr)];
+
+  Readonly our $PACK_SIZES=>hash_invert({
+
+    'Q'=>64,
+    'L'=>32,
+    'S'=>16,
+    'C'=>8,
+
+  },duplicate=>1);
 
   our $Table=Vault::cached(
 
@@ -217,6 +228,204 @@ DONE:
 
 sub is_str($self) {
   return $self->{name}=~ m[$STRTYPE_RE];
+
+};
+
+# ---   *   ---   *   ---
+# get format for struct pack/unpack
+# from the sizes of it's fields
+
+sub packing_fmat(@sizes) {
+
+  my $fmat=$NULLSTR;
+
+  map {
+
+    my $c=$PACK_SIZES->{$ARG*8};
+
+    $fmat.=$c;
+    $fmat.='<' if $c ne 'C';
+
+  } @sizes;
+
+  return $fmat;
+
+};
+
+# ---   *   ---   *   ---
+# turns [key=>value] array into bytes
+
+sub encode($self,%data) {
+
+  my $out=$NULLSTR;
+
+  my $fields=$self->{fields};
+  my $subtypes=$self->{subtypes};
+
+# ---   *   ---   *   ---
+# struct
+
+  if(@$fields) {
+
+    my @sizes=array_keys($fields);
+    my @names=array_values($fields);
+
+    my @types=array_keys($subtypes);
+    my @arrays=array_values($subtypes);
+
+    @names=grep {!($ARG=~ m[\+\d+])} @names;
+
+    my @data=map {$data{$ARG}} @names;
+    map {$ARG="\x{00}" if !defined $ARG} @data;
+
+# ---   *   ---   *   ---
+# make key=>value pairs from unpacked data
+
+    while(@data) {
+
+      my $value_t=shift @types;
+      my $array_sz=shift @arrays;
+
+# ---   *   ---   *   ---
+
+      my @slice=(shift @data);
+      my @arsz=@sizes[0..$array_sz-1];
+
+      if($Table->{$value_t}->is_str()) {
+
+        my $char_sz=$Table->{$value_t}->{size};
+
+        @slice=lmord(
+
+          $slice[0],
+
+          width=>$char_sz,
+          elem_sz=>$char_sz,
+          rev=>0,
+
+        );
+
+        my $diff=$array_sz-int(@slice);
+        push @slice,(0)x$diff;
+
+        @arsz=($char_sz) x int(@slice);
+
+      } elsif(!($slice[0]=~ m/^\d+/)) {
+        $slice[0]=ord($slice[0]);
+
+      };
+
+      my $fmat=packing_fmat(@arsz);
+      $out.=pack $fmat,@slice;
+
+      # as buffer
+      if($array_sz>1) {
+        @sizes=@sizes[$array_sz..$#sizes];
+
+      # as single value
+      } else {
+        shift @sizes;
+
+      };
+
+    };
+
+# ---   *   ---   *   ---
+# primitive
+
+  } else {
+
+    my $fmat=packing_fmat($self->{size});
+    $out.=pack $fmat,values %data;
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# gives back [key=>value] from bytes
+
+sub decode($self,$data) {
+
+  my $out=[];
+
+  my $fields=$self->{fields};
+  my $subtypes=$self->{subtypes};
+
+# ---   *   ---   *   ---
+# struct
+
+  if(@$fields) {
+
+    my @sizes=array_keys($fields);
+    my @names=array_values($fields);
+
+    my @types=array_keys($subtypes);
+    my @arrays=array_values($subtypes);
+
+    my $fmat=packing_fmat(@sizes);
+
+    # grab the slice of memory and unpack
+    my @values=unpack $fmat,$data;
+
+# ---   *   ---   *   ---
+# make key=>value pairs from unpacked data
+
+    while(@names && @values) {
+
+      my $value_t=shift @types;
+      my $array_sz=shift @arrays;
+
+      my $value;
+      my $name;
+
+# ---   *   ---   *   ---
+# as buffer
+
+      if($array_sz>1) {
+
+        $value=[@values[0..$array_sz-1]];
+        $name=$names[0];
+
+        if($Table->{$value_t}->is_str()) {
+          $value=mchr($value);
+
+        };
+
+        @values=@values[$array_sz..$#values];
+        @names=@names[$array_sz..$#names];
+
+# ---   *   ---   *   ---
+# as single value
+
+      } else {
+        $value=shift @values;
+        $name=shift @names;
+
+      };
+
+# ---   *   ---   *   ---
+# append
+
+      push @$out,$name=>$value;
+
+    };
+
+# ---   *   ---   *   ---
+# primitive
+
+  } else {
+
+    my $fmat=packing_fmat($self->{size});
+
+    my $value=unpack $fmat,$data;
+    $out=[$self->{name}=>$value];
+
+  };
+
+  return $out;
 
 };
 

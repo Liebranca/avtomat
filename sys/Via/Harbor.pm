@@ -79,7 +79,7 @@ sub nit($class,$frame,$name) {
   # scheduled tasks
   $self->{orders}=[];
 
-  $self->{idex}=$frame->{harbors}->give($self);
+  $self->{idex}=1+$frame->{harbors}->give($self);
   $self->{name}.=$Via::NET_RS.$self->{idex};
 
   $self->{net}=$frame->{net};
