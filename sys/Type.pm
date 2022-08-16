@@ -253,7 +253,7 @@ sub packing_fmat(@sizes) {
 };
 
 # ---   *   ---   *   ---
-# turns [key=>value] array into bytes
+# turns hash into bytes array
 
 sub encode($self,%data) {
 

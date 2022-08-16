@@ -32,6 +32,8 @@ package Via;
   use Style;
 
   use Cask;
+  use Strtab;
+
   use Arstd::Array;
 
   use Type;
@@ -69,16 +71,19 @@ package Via;
 
 # ---   *   ---   *   ---
 
-  Readonly our $NET_SIGIL=>q[@];
+  Readonly our $QUEUE_SIZE=>1;
+
+  Readonly our $NET_SIGIL=>ord(q[@]);
   Readonly our $NET_RS=>q[:];
 
   Readonly our $MESS_ST=>$Type::Table->nit(
 
     'pesonet_me_header',[
 
-      byte=>'sigil',
-      byte_str=>'fn_key(7)',
-      byte_str=>'class(32)',
+      wide=>'sigil',
+      wide=>'class',
+
+      long=>'fn_key',
 
       word=>'src,dst,size',
 
@@ -89,13 +94,17 @@ package Via;
 # ---   *   ---   *   ---
 # RPC table
 
-  Readonly our $REQTAB=>[
+  Readonly our $REQTAB=>Strtab->nit(qw(
 
-    q[nit]=>q[nit],
-    q[gtpe]=>q[get_peer],
-    q[sink]=>q[sink],
+    nit get_peer sink
 
-  ];
+  ));
+
+  Readonly our $KLSTAB=>Strtab->nit(qw(
+
+    Via Via::Harbor
+
+  ));
 
 # ---   *   ---   *   ---
 # global state
@@ -110,7 +119,7 @@ INIT {
   my $ptr=$Non->alloc(
     '@pesonet<Mess_Pool>',
 
-    $MESS_ST,64
+    $MESS_ST,$QUEUE_SIZE
 
   );
 
@@ -174,13 +183,13 @@ sub nit($class,$frame,$name) {
 
 };
 
-sub open($self,$qsz=1) {
+sub open($self) {
 
   $self->{sock}=$self->get_sock(
 
     Type=>SOCK_STREAM(),
     Local=>$self->{path},
-    Listen=>$qsz,
+    Listen=>$QUEUE_SIZE,
 
   );
 
@@ -257,6 +266,8 @@ sub ship($self,$path,%O) {
   $dst->send($me->rawdata().$pkg);
   $dst->shutdown(SHUT_WR);
 
+  $Mess_Pool->give($me);
+
   # get response
   my $hed=$NULLSTR;
   $dst->recv($hed,$MESS_ST->{size});
@@ -264,7 +275,7 @@ sub ship($self,$path,%O) {
 
   # handle object returns
   $dst->recv($pkg,$hed->{size});
-  if($hed->{fn_key} eq 'obj') {
+  if($hed->{class}) {
     $out=thaw($pkg);
 
   # plain value/no return
@@ -285,7 +296,6 @@ sub ship($self,$path,%O) {
 
 sub arrivals($self) {
 
-  my %req=@$REQTAB;
   my $frame=$self->{frame};
 
   while(my $ship=$self->{sock}->accept) {
@@ -297,8 +307,8 @@ sub arrivals($self) {
     $hed={@{$MESS_ST->decode($hed)}};
 
     my ($fn_key,$class)=(
-      $hed->{fn_key},
-      $hed->{class},
+      $REQTAB->{name}->{$hed->{fn_key}},
+      $KLSTAB->{name}->{$hed->{class}},
 
     );
 
@@ -317,18 +327,17 @@ sub arrivals($self) {
 # ---   *   ---   *   ---
 # fetch from request table
 
-    if(exists $req{$fn_key}) {
+    if(defined $fn_key) {
 
-      my $op=$req{$fn_key};
       unshift @args,$frame;
 
-      my $ret=$class->$op(@args);
+      my $ret=$class->$fn_key(@args);
 
 # ---   *   ---   *   ---
 
       if(length ref $ret) {
 
-        $me_attrs->{fn_key}='obj';
+        $me_attrs->{class}=0x01;
 
         my $restore=0;
         if(exists $ret->{frame}) {
@@ -344,7 +353,7 @@ sub arrivals($self) {
 
       } else {
 
-        $me_attrs->{fn_key}='ret';
+        $me_attrs->{class}=0x00;
         $pkg=$ret;
 
       };
@@ -373,50 +382,28 @@ sub arrivals($self) {
 };
 
 # ---   *   ---   *   ---
-# gets new instance from ctlproc
 
-sub new_harbor($class,$name) {
+sub request($class,$dst,$fn_key,@args) {
 
-  my $path=$Shb7::Mem;
+  if(length ref $class) {
+    $class=ref $class;
 
-  my $via=Via->ship(
+  };
 
-    "$path$name.sock",
+  $class=~ s[::Remote::][::];
 
-    sigil=>$NET_SIGIL,
-    fn_key=>'nit',
-    class=>'Via::Harbor',
-
-    dst=>0,
-
-    args=>["$name$NET_RS$0"],
-
-  );
-
-  return $via;
-
-};
-
-# ---   *   ---   *   ---
-# ^same, existing instance
-
-sub get_harbor($self,$name,$idex=1) {
-
-  my $via=Via->ship(
-
-    $self->{net},
+  return (
 
     sigil=>$NET_SIGIL,
-    fn_key=>'gtpe',
-    class=>'Via::Harbor',
 
-    dst=>0,
+    fn_key=>$REQTAB->{idex}->{$fn_key},
+    class=>$KLSTAB->{idex}->{$class},
 
-    args=>[$name,$idex],
+    dst=>$dst,
+
+    args=>[@args],
 
   );
-
-  return $via;
 
 };
 

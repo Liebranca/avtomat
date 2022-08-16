@@ -18,7 +18,7 @@
   use Shb7;
 
   use Via;
-  use Via::Harbor;
+  use Via::Remote::Harbor;
 
 # ---   *   ---   *   ---
 
@@ -46,15 +46,14 @@ if($pid) {
 } else {
 
   # get new instance
-  my $dst=Via->new_harbor($hostname);
+  my $dst=Via::Remote::Harbor->nit($hostname);
 
-  say "\n",$dst;
-  say $dst->{name},"\n";
+  $dst=$dst->get_peer($0);
 
-  $dst=$dst->get_harbor($0);
+  my $h=$dst->useless_request(key=>'value');
 
-  say "\n",$dst;
-  say $dst->{name},"\n";
+  use Fmat;
+  say fatdump($h);
 
   # destroy
   $dst->sink();

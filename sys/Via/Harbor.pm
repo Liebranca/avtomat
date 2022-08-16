@@ -44,40 +44,17 @@ package Via::Harbor;
 
 sub sink($class,$frame=undef,$idex=1) {
 
-  # remote call
-  if(length ref $class) {
+  my $self=$frame->{harbors}->view($idex-1);
 
-    my $self=$class;
+  # remove file
+  if(-e $self->{path}) {
+    unlink $self->{path};
 
-    Via->ship(
+  };
 
-      $self->{net},
-
-      sigil=>$Via::NET_SIGIL,
-      fn_key=>'sink',
-      class=>$self->get_class(),
-
-      dst=>0,
-
-      args=>[$self->{idex}],
-
-    );
-
-  } else {
-
-    my $self=$frame->{harbors}->view($idex-1);
-
-    # remove file
-    if(-e $self->{path}) {
-      unlink $self->{path};
-
-    };
-
-    # give back slot
-    if($frame && $frame->{harbors}) {
-      $frame->{harbors}->take($idex-1);
-
-    };
+  # give back slot
+  if($frame && $frame->{harbors}) {
+    $frame->{harbors}->take($idex-1);
 
   };
 
@@ -113,7 +90,16 @@ sub nit($class,$frame,$name) {
 
 # ---   *   ---   *   ---
 
-sub get_peer($class,$frame,$name,$idex) {
+sub get_peer(
+
+  # implicit
+  $class,$frame,
+
+  # actual
+  $name,
+  $idex=1,
+
+) {
 
   my $search=
 
