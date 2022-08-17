@@ -108,8 +108,8 @@ sub set_root($path) {
   $Lib//=[];
   $Include//=[];
 
-  $Lib->[0]="$Root.lib/";
-  $Include->[0]="$Root.include/";
+  $Lib->[0]="${Root}lib/";
+  $Include->[0]="${Root}include/";
 
   $Root_Re=qr{^(?: $DOT_BEG /? | $Root)}x;
 

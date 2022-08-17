@@ -50,11 +50,6 @@ if($pid) {
 
   $dst=$dst->get_peer($0);
 
-  my $h=$dst->useless_request(key=>'value');
-
-  use Fmat;
-  say fatdump($h);
-
   # destroy
   $dst->sink();
 
