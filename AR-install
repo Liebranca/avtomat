@@ -91,8 +91,8 @@ Avt::set_config(
 
   gens=>{
 
-    'chartab.h'=>[qw(chartab*)],
-    'keymap.h'=>[qw(keymap* genks.pm %.k)],
+    'chartab.h'=>[qw(chartab)],
+    'keymap.h'=>[qw(keymap Genks.pm %.k)],
 
   },
 

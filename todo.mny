@@ -23,6 +23,9 @@ x Extend Lang::Perl for basic (as-doc) parsing
 ~ Lang::Plps reimplementation
 ~ Turn Peso into a proper IR
 
+*>Bugs
+~ Investigate the Peso::Ipret::pesc iter command repetition
+
 *>Backburner
 ~ Move Python stuff from f:./Avt.pm into f:./Emit/Python.pm
 ~ Handle structs on f:./Emit/Perl.pm -> shwlbind

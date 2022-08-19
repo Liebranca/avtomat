@@ -34,7 +34,7 @@ ARPATH=$(pwd)
 
 git clone https://github.com/Liebranca/avtomat
 cd avtomat
-./AR.ph
+./AR.pl
 
 ```
 
@@ -43,7 +43,7 @@ And if you're happy with the software then you can just add ARPATH to your envir
 ```perl
 
 use lib $ENV{'ARPATH'}.'/lib/';
-use avt; # or anything else from avtomat ;>
+use Avt; # or anything else from avtomat ;>
 
 ```
 
@@ -74,18 +74,23 @@ The following script demonstrates how to write an avtomat setup.
 
 ```perl
 
+# import ghost
+use lib $ENV{'ARPATH'}.'/lib/sys/';
+use Shb7;
+
 # import avtomat
 use lib $ENV{'ARPATH'}.'/lib/';
-use avt;
+use Avt;
 
 # set your top directory
-avt::root('/your/top/dir');
+Shb7::set_root('/your/top/dir');
 
-# set your library paths
-avt::stlib('/your/lib/path');
+# set your library and include paths
+Shb7::stlib('/your/lib/path');
+Shb7::stinc('/your/include/path');
 
 # configure your module(s)
-avt::set_config(
+Avt::set_config(
 
   # only this field is mandatory
   # any other field, if skipped, means do nothing
@@ -130,7 +135,7 @@ avt::set_config(
   # copy machine;
   # xcpy moves files into topdir/bin
   # lcpy moves files into topdir/lib
-  xcpy=>[qw(my_executable* not_an_executable)],
+  xcpy=>[qw(my_executable)],
   lcpy=>[qw(my_lib.py)],
 
   # defines files to be scanned for symbols
@@ -142,11 +147,11 @@ avt::set_config(
   gens=>{
 
   # additional deps are optional!
-    'file'=>[qw(my_script*)],
+    'file'=>[qw(my_script)],
 
   # with dependencies:
   # % is allowed for wildcards ;>
-    'file'=>[qw(other_script* dep.data %.ext)],
+    'file'=>[qw(other_script dep.data %.ext)],
 
   },
 
@@ -166,15 +171,15 @@ avt::set_config(
 # ---   *   ---   *   ---
 # invoke the triad
 
-avt::scan();
-avt::config();
-avt::make();
+Avt::scan();
+Avt::config();
+Avt::make();
 
 # ---   *   ---   *   ---
 # to also run the generated scripts:
 
-my @modules=avt::MODULES;
-my $root=avt::root();
+my @modules=Avt::MODULES;
+my $root=$Shb7::Root;
 
 for my $mod(@modules) {
   print `$root/$mod/avto`;
@@ -186,15 +191,11 @@ for my $mod(@modules) {
 
 The `scan`,`config` and `make` triad will emit the following files:
 
-- **topdir/.avto-modules**: a serialized Perl hash containing paths and files found by `scan`.
-
-- **topdir/.avto-config**: a serialized Perl hash containing the configurations after being processed by `config`.
+- **topdir/.cache/avto-config**: a serialized Perl hash containing the configurations after being processed by `config`.
 
 - **topdir/module/avto**: the makescript itself, ready to be run.
 
 - **topdir/module/.avto-cache**: a serialized Perl hash containing module metadata used by the makescript.
-
-- **topdir/.avto**: a plain text file containing a 'last-run-by-user' and timestamp.
 
 For an example script that sets up an actual project, refer to the `AR-install` file provided with avtomat.
 

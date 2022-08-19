@@ -26,6 +26,7 @@ package Peso::Ipret;
   use Style;
 
   use Arstd;
+  use Arstd::Array;
   use Arstd::IO;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
@@ -85,6 +86,9 @@ sub pesc($s,%O) {
 
       $esc=~ s/(\([^\)]*\))\s+//xm;
 
+      # i dont know why this happens :c
+      next if ${^CAPTURE[0]} eq $command;
+
       my %ht=eval(${^CAPTURE[0]}.q{;});
       my $run=$esc;
 
@@ -136,6 +140,7 @@ sub pesc($s,%O) {
 
   };
 
+  $s=~ s[$cut_re][]sxgm;
   return $s;
 
 };

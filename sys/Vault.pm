@@ -180,6 +180,8 @@ END {
       #$frame->{-roots}->{$modname}->prich();
 
       my $updated=$Needs_Update->{$modname};
+
+      next if $modname=~ m[\.trash];
       next unless @$updated;
 
 # ---   *   ---   *   ---

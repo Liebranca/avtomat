@@ -276,7 +276,9 @@ sub walk($path,%O) {
   my $frame=Tree::File->new_frame();
   my $root_node=undef;
 
-  my @pending=(dir($path),undef);
+  $path=dir($path) if !(-d $path);
+
+  my @pending=($path,undef);
   my $out=undef;
 
 # ---   *   ---   *   ---
@@ -412,7 +414,7 @@ sub stinc(@args) {
 
   for my $path(@args) {
 
-    $path=~ s/\-I//;
+    $path=~ s[^\s*\-I][];
     $path=abs_path(glob($path));
 
     push @$Include,$path;
@@ -428,7 +430,7 @@ sub stlib(@args) {
 
   for my $path(@args) {
 
-    $path=~ s/\-L//;
+    $path=~ s[^\s*\-L][];
     $path=abs_path(glob($path));
 
     push @$Lib,$path;

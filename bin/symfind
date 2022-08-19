@@ -22,7 +22,8 @@
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::Path;
+  use Arstd::IO;
 
   use Cli;
 
@@ -61,14 +62,14 @@ while(@files) {
 
   if(-d $f) {
 
-    Arstd::expand_path($f,\@files);
+    expand_path($f,\@files);
     next;
 
   };if(!($f=~ $ext_re)) {next};
 
 # ---   *   ---   *   ---
 
-  my $body=Arstd::orc($f);
+  my $body=orc($f);
   my $i=0;
 
   $body=join "\n",

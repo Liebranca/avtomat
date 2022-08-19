@@ -28,6 +28,9 @@ Vault::cached(
 
 );
 
+use Fmat;
+say fatdump($object);
+
 # ---   *   ---   *   ---
 
 #my $h0={hello=>'goodbye'};

@@ -1,0 +1,41 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# THAWOUT
+# Loads a serialized Perl object
+# from disk and prints it out
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+# ---   *   ---   *   ---
+
+# deps
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use Storable qw(store retrieve freeze thaw);
+
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+
+  use Style;
+  use Fmat;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+
+# ---   *   ---   *   ---
+
+my @files=@ARGV;
+for my $f(@files) {
+
+  my $h=retrieve($f) or die strerr($f);
+  say fatdump($h);
+
+};
+
+# ---   *   ---   *   ---
+1; # ret

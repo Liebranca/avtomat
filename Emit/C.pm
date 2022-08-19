@@ -155,8 +155,8 @@ $:iter (path=>$O{include})
 
 $:iter (
 
-  name=>[keys %{$O{define}}],
-  value=>[values %{$O{define}}],
+  name=>[array_keys($O{define})],
+  value=>[array_values($O{define})],
 
 ) q{  }."#define $name $value\n"
 
@@ -190,7 +190,7 @@ $:iter (
 
 # ---   *   ---   *   ---
 
-sub boiler_close($fname,%O) {
+sub boiler_close($class,$fname,%O) {
 
   $fname=uc $fname;
 

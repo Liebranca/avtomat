@@ -49,8 +49,8 @@ package Arstd::String;
 
   my $LINEWRAP_PROTO=q{(
 
-    [^\n]{1,SZ_X} (?: (\n|\s)|$)
-  | [^\n]{1,SZ_X} (?: .|$)
+    [^\n]{1,SZ_X} ((\n|\s)|$)
+  | [^\n]{1,SZ_X} (.|$)
 
   )};
 
@@ -93,10 +93,19 @@ sub __make_linewrap_re($sz_x) {
 
 sub linewrap($sref,$sz_x,%opt) {
 
+  state $last_re=undef;
+  state $last_sz=undef;
+
   # defaults
   $opt{add_newlines}//=1;
 
-  my $re=__make_linewrap_re($sz_x);
+  my $re=(defined $last_re && $sz_x==$last_sz)
+    ? $last_re
+    : __make_linewrap_re($sz_x)
+    ;
+
+  $last_re=$re;
+  $last_sz=$sz_x;
 
   if($opt{add_newlines}) {
     $$sref=~ s/($re)/$1\n/gsx;

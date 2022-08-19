@@ -126,7 +126,7 @@ sub outf($emitter,$f,%O) {
 
   $emitter=q{Emit::}.$emitter;
 
-  print $FH $emitter->codewrap(
+  print {$FH} $emitter->codewrap(
     nxbasef($f),%O
 
   );
