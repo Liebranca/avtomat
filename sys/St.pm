@@ -24,7 +24,6 @@ package St;
   use Scalar::Util qw(blessed reftype);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
-
   use Frame;
 
 # ---   *   ---   *   ---
