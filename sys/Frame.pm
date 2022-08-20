@@ -41,6 +41,15 @@ sub nit($frame,@args) {
 
 sub new(%O) {
 
+  if(exists $O{-autoload}) {
+
+    $O{-autoload}={
+      map {$ARG=>1} @{$O{-autoload}}
+
+    };
+
+  };
+
   my $frame=bless \%O;
   return $frame;
 
@@ -69,8 +78,8 @@ sub AUTOLOAD {
   ) unless defined $self->{-autoload}
   && exists $self->{-autoload}->{$key};
 
-  $self->{-autoload}->{$key}->(
-    $self->{-class},$self,@args
+  $self->{-class}->$key(
+    $self,@args
 
   );
 

@@ -29,11 +29,11 @@ sub hello($class,$frame,@args) {
 
   sub Frame_Vars($class) {return {
 
-    -autoload=>{
+    -autoload=>[
 
-      'hello'=>\&hello,
+      'hello',
 
-    },
+    ],
 
   }};
 
