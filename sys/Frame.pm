@@ -70,8 +70,8 @@ sub AUTOLOAD {
   $key=~ s[^Frame::][];
 
   errout(
-    q[%s frame has no autoload],
-    args=>[$self->{-class}],
+    q[%s frame has no autoload for '%s'],
+    args=>[$self->{-class},$key],
 
     lvl=>$AR_FATAL,
 

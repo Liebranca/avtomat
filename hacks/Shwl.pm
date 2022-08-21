@@ -53,6 +53,9 @@ package Shwl;
   Readonly our $CUT_FMAT=>':__%s_CUT_%i__:';
   Readonly our $CUT_RE=>qr{\:__\w+_CUT_\d+__\:};
 
+  Readonly our $PL_CUT=>':__CUT__:';
+  Readonly our $PL_CUT_RE=>qr{\:__CUT__\:};
+
 # ---   *   ---   *   ---
 
   Readonly our $ARG_FMAT=>':__ARG_%i__:';
@@ -268,9 +271,10 @@ sub delm2($beg,$end=undef) {
 
   my $re=qr{
 
+    \s*
     (?<delimiter>
 
-    \s*$beg
+    $beg
 
       (?<body>
 
@@ -278,9 +282,9 @@ sub delm2($beg,$end=undef) {
 
       )
 
-    $end\s*
+    $end
 
-    )
+    )\s*
 
   }x;
 

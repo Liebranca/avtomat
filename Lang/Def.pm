@@ -62,7 +62,18 @@ package Lang::Def;
 
     separators=>[','],
 
-    pesc=>Shwl::delm2('$:',';>'),
+    pesc=>qr{
+
+      \$\:
+
+      (?<body> (?:
+        [^;] | ;[^>]
+
+      )+)
+
+      ;>
+
+    }x,
 
 # ---   *   ---   *   ---
 

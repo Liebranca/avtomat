@@ -21,6 +21,8 @@ package Arstd::Hash;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
+
+  use Chk;
   use parent 'St';
 
 # ---   *   ---   *   ---
@@ -55,6 +57,12 @@ sub nit($class,%args) {
 # returns matches ;>
 
 sub lfind($h,$l) {
+
+  if(!is_hashref($h)) {
+    $h=map {$ARG=>1} @$h;
+
+  };
+
   return [grep {exists $h->{$ARG}} @$l];
 
 };

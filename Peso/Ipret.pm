@@ -19,6 +19,7 @@ package Peso::Ipret;
   use strict;
   use warnings;
 
+  use Readonly;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -27,6 +28,7 @@ package Peso::Ipret;
 
   use Arstd;
   use Arstd::Array;
+  use Arstd::Hash;
   use Arstd::IO;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
@@ -40,29 +42,132 @@ package Peso::Ipret;
   use Peso::St;
 
 # ---   *   ---   *   ---
+# ROM
 
-sub pesc($s,%O) {
+  my $PE_COM_A={ map {$ARG=>1} qw(
 
-  state $pesc=qr{
+    iter
 
-    \$:
+  )};
 
-    (?<body> (?:
+  my $PE_COM_B={ map {$ARG=>1} qw(
 
-      [^;] | ;[^>]
+    col
 
-    )+)
+  )};
 
-    ;>
+  my $PARENS_ARGS_RE=qr{
+
+    (\([^\)]*\))\s+
 
   }x;
 
-  state $cut=':__CUT__:';
-  state $cut_re=qr{$cut};
+  my $CSLIST_ARGS_RE=qr{
+
+    \s*([^,\s]+)\s*,?\s*
+
+  }x;
 
 # ---   *   ---   *   ---
 
-  while($s=~ s/($pesc)/$cut/sm) {
+sub args_in_parens($args,$esc,$command) {
+
+  $$esc=~ s/$PARENS_ARGS_RE//xm;
+  $$args=${^CAPTURE[0]};
+
+  return ${^CAPTURE[0]} ne $$command;
+
+};
+
+sub args_in_cslist($args,$esc,$command) {
+
+  while($$esc=~ s/$CSLIST_ARGS_RE//xm) {
+    push @$args,${^CAPTURE[0]};
+
+  };
+
+  return 1;
+
+};
+
+# ---   *   ---   *   ---
+
+sub pesc_iter($class,$sref,$esc,$args,%O) {
+
+  my $cut=$Shwl::PL_CUT;
+  my $cut_re=$Shwl::PL_CUT_RE;
+
+  my %ht=eval("$args;");
+  my $run=$esc;
+
+  my $repl=$NULLSTR;
+
+  my $ar_cnt=int(keys %ht);
+
+  my $loop_cond='while(';
+  my $loop_head=$NULLSTR;
+  my $loop_body='$repl.=eval($run);};';
+
+# ---   *   ---   *   ---
+
+  my $i=0;
+  for my $key(keys %ht) {
+
+    my $elem=q[@{].'$ht{'.$key.'}'.q[}];
+
+    $loop_cond.=$elem;
+
+    $i++;
+    if($i<$ar_cnt) {
+      $loop_cond.=q{&&};
+
+    };
+
+    $loop_head.=q{my $}."$key".q{=}.
+      'shift '.$elem.';';
+
+  };
+
+  $loop_cond.=q[) {];
+
+# ---   *   ---   *   ---
+
+  eval($loop_cond.$loop_head.$loop_body);
+  $$sref=~ s/${cut}/$repl/s;
+
+};
+
+# ---   *   ---   *   ---
+
+sub pesc_col($class,$sref,$esc,$args,%O) {
+
+  my $cut=$Shwl::PL_CUT;
+  my $cut_re=$Shwl::PL_CUT_RE;
+
+  my $gd=$O{gd};
+
+  my $c=$gd->color(map {
+
+    $ARG=hex('0x'.$ARG)
+
+  } @$args);
+
+  $$sref=~ s/${cut}/$c/s;
+
+};
+
+# ---   *   ---   *   ---
+
+sub pesc($s,%O) {
+
+  my $cut=$Shwl::PL_CUT;
+  my $cut_re=$Shwl::PL_CUT_RE;
+
+  my $pesc=Lang->Peso->{pesc};
+
+# ---   *   ---   *   ---
+
+  while($s=~ s/$pesc/$cut/sm) {
 
     my $esc=$+{body};
 
@@ -82,50 +187,39 @@ sub pesc($s,%O) {
 
 # ---   *   ---   *   ---
 
-    if($command eq 'iter') {
+    if(@{lfind($PE_COM_A,[$command])}) {
 
-      $esc=~ s/(\([^\)]*\))\s+//xm;
+      my $args=$NULLSTR;
 
-      # i dont know why this happens :c
-      next if ${^CAPTURE[0]} eq $command;
+      next if !args_in_parens(
+        \$args,\$esc,\$command,
 
-      my %ht=eval(${^CAPTURE[0]}.q{;});
-      my $run=$esc;
+      );
 
-      my $repl=$NULLSTR;
+      $command="pesc_$command";
 
-      my $ar_cnt=int(keys %ht);
+      Peso::Ipret->$command(
+        \$s,$esc,$args,%O
 
-      my $loop_cond='while(';
-      my $loop_head=$NULLSTR;
-      my $loop_body='$repl.=eval($run);};';
+      );
 
 # ---   *   ---   *   ---
 
-      my $i=0;
-      for my $key(keys %ht) {
+    } elsif(@{lfind($PE_COM_B,[$command])}) {
 
-        my $elem=q[@{].'$ht{'.$key.'}'.q[}];
+      my $args=[];
 
-        $loop_cond.=$elem;
+      next if !args_in_cslist(
+        $args,\$esc,\$command,
 
-        $i++;
-        if($i<$ar_cnt) {
-          $loop_cond.=q{&&};
+      );
 
-        };
+      $command="pesc_$command";
 
-        $loop_head.=q{my $}."$key".q{=}.
-          'shift '.$elem.';';
+      Peso::Ipret->$command(
+        \$s,$esc,$args,%O
 
-      };
-
-      $loop_cond.=q[) {];
-
-# ---   *   ---   *   ---
-
-      eval($loop_cond.$loop_head.$loop_body);
-      $s=~ s/${cut}/$repl/s;
+      );
 
 # ---   *   ---   *   ---
 
