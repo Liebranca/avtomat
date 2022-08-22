@@ -52,8 +52,6 @@ package Peso::Ipret;
 
   my $PE_COM_B={ map {$ARG=>1} qw(
 
-    col
-
   )};
 
   my $PARENS_ARGS_RE=qr{
@@ -139,26 +137,7 @@ sub pesc_iter($class,$sref,$esc,$args,%O) {
 
 # ---   *   ---   *   ---
 
-sub pesc_col($class,$sref,$esc,$args,%O) {
-
-  my $cut=$Shwl::PL_CUT;
-  my $cut_re=$Shwl::PL_CUT_RE;
-
-  my $gd=$O{gd};
-
-  my $c=$gd->color(map {
-
-    $ARG=hex('0x'.$ARG)
-
-  } @$args);
-
-  $$sref=~ s/${cut}/$c/s;
-
-};
-
-# ---   *   ---   *   ---
-
-sub pesc($s,%O) {
+sub pesc($sref,%O) {
 
   my $cut=$Shwl::PL_CUT;
   my $cut_re=$Shwl::PL_CUT_RE;
@@ -167,7 +146,7 @@ sub pesc($s,%O) {
 
 # ---   *   ---   *   ---
 
-  while($s=~ s/$pesc/$cut/sm) {
+  while($$sref=~ s/$pesc/$cut/sm) {
 
     my $esc=$+{body};
 
@@ -187,7 +166,26 @@ sub pesc($s,%O) {
 
 # ---   *   ---   *   ---
 
-    if(@{lfind($PE_COM_A,[$command])}) {
+    if($command=~ m[^gd_]) {
+
+      my $args=[];
+
+      next if !args_in_cslist(
+        $args,\$esc,\$command,
+
+      );
+
+      my $fn=$command;
+      $fn=~ s[^gd_][];
+
+      $args=[map {eval $ARG} @$args];
+
+      my $repl=$O{gd}->$fn(@$args);
+      $$sref=~ s/${cut}/$repl/s;
+
+# ---   *   ---   *   ---
+
+    } elsif(@{lfind($PE_COM_A,[$command])}) {
 
       my $args=$NULLSTR;
 
@@ -199,7 +197,7 @@ sub pesc($s,%O) {
       $command="pesc_$command";
 
       Peso::Ipret->$command(
-        \$s,$esc,$args,%O
+        $sref,$esc,$args,%O
 
       );
 
@@ -214,10 +212,12 @@ sub pesc($s,%O) {
 
       );
 
+      $args=[map {eval $ARG} @$args];
+
       $command="pesc_$command";
 
       Peso::Ipret->$command(
-        \$s,$esc,$args,%O
+        $sref,$esc,$args,%O
 
       );
 
@@ -226,7 +226,7 @@ sub pesc($s,%O) {
     } else {
 
       my $var=eval(q[$O{].$command.q[}]);
-      $s=~ s/${cut}/$var/;
+      $$sref=~ s/${cut}/$var/;
 
     };
 
@@ -234,8 +234,8 @@ sub pesc($s,%O) {
 
   };
 
-  $s=~ s[$cut_re][]sxgm;
-  return $s;
+  $$sref=~ s[$cut_re][]sxgm;
+  return 0;
 
 };
 

@@ -343,9 +343,9 @@ $:iter (
   };
 
   # replace the $:escapes;>
-  $code=Peso::Ipret::pesc(
+  Peso::Ipret::pesc(
 
-    $code,
+    \$code,
 
     structs=>$structs,
     soname=>$soname,

@@ -169,9 +169,9 @@ $:iter (
 
 # ---   *   ---   *   ---
 
-  return Peso::Ipret::pesc(
+  Peso::Ipret::pesc(
 
-    $s,
+    \$s,
 
     fname=>$fname,
     note=>Emit::Std::note($O{author},q[//]),
@@ -185,6 +185,8 @@ $:iter (
       ,
 
   );
+
+  return $s;
 
 };
 
@@ -208,8 +210,8 @@ $:guards;>
 
 # ---   *   ---   *   ---
 
-  return Peso::Ipret::pesc(
-    $s,
+  Peso::Ipret::pesc(
+    \$s,
 
     fname=>$fname,
 
@@ -219,6 +221,8 @@ $:guards;>
       ,
 
   );
+
+  return $s;
 
 };
 

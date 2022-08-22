@@ -3,51 +3,6 @@
 # test peso classes
 
 # ---   *   ---   *   ---
-# graphics test
-
-package ANSI;
-
-  use v5.36.0;
-  use strict;
-  use warnings;
-
-# ---   *   ---   *   ---
-
-sub color($class,@ar) {
-
-  my $esc=q{};
-
-  for my $c(@ar) {
-
-    my $fg=$c&0xF;
-    my $bg=$c>>4;
-
-    my $bold_fg=$fg>7;
-    my $bold_bg=$bg>7;
-
-    $fg&=7;$fg=30+$fg;
-    $bg&=7;$bg=40+$bg;
-
-    $bold_fg=($bold_fg) ? 1 : 22;
-    $bold_bg=($bold_bg) ? 5 : 25;
-
-    $esc.=
-
-      "\e[$bold_fg;${fg}m".
-      "\e[$bold_bg;${bg}m"
-
-    ;
-
-  };
-
-  return $esc;
-
-};
-
-# ---   *   ---   *   ---
-1; # ret
-
-# ---   *   ---   *   ---
 # deps
 
 package main;

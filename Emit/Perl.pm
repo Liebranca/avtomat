@@ -117,9 +117,9 @@ $:iter (
 
 # ---   *   ---   *   ---
 
-  return Peso::Ipret::pesc(
+  Peso::Ipret::pesc(
 
-    $s,
+    \$s,
 
     fname=>$fname,
     note=>Emit::Std::note($O{author},q[#]),
@@ -130,6 +130,8 @@ $:iter (
     define_values=>$define_values,
 
   );
+
+  return $s;
 
 };
 
