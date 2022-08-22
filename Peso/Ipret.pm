@@ -136,6 +136,18 @@ sub pesc_iter($class,$sref,$esc,$args,%O) {
 };
 
 # ---   *   ---   *   ---
+# give copy of strings without peso escapes
+
+sub depesc($s) {
+
+  my $pesc=Lang->Peso->{pesc};
+  $s=~ s{$pesc}{}sxgm;
+
+  return $s;
+
+};
+
+# ---   *   ---   *   ---
 
 sub pesc($sref,%O) {
 

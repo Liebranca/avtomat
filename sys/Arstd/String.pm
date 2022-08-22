@@ -45,7 +45,7 @@ package Arstd::String;
 # ---   *   ---   *   ---
 # ROM
 
-  our $ESCAPE_RE=qr"\x1B"x;
+  our $ESCAPE_RE=qr"\x1B\[[\?\d;]+[\w]"x;
 
   my $LINEWRAP_PROTO=q{(
 
@@ -62,7 +62,7 @@ package Arstd::String;
 
 sub descape($s) {
 
-  $s=~ s/$ESCAPE_RE[\d;]+[\w\?]//;
+  $s=~ s{$ESCAPE_RE}{}sxgm;
   return $s;
 
 };
