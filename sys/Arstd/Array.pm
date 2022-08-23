@@ -37,6 +37,7 @@ package Arstd::Array;
     array_rshift
 
     array_filter
+    array_insert
 
   );
 
@@ -144,6 +145,30 @@ sub filter($ar,$block=undef) {
 };
 
 # ---   *   ---   *   ---
+# appends subarray at position
+
+sub insert($ar,$pos,@ins) {
+
+  my @ar=@$ar;
+
+  my @head=();
+  my @tail=();
+
+  if($pos>0) {
+    @head=@ar[0..$pos-1];
+
+  };
+
+  if($pos<$#ar) {
+    @tail=@ar[$pos+1..$#ar];
+
+  };
+
+  @$ar=(@head,@ins,@tail);
+
+};
+
+# ---   *   ---   *   ---
 # exporter stuff
 
   *array_nth=*nth;
@@ -154,6 +179,7 @@ sub filter($ar,$block=undef) {
   *array_rshift=*rshift;
 
   *array_filter=*filter;
+  *array_insert=*insert;
 
 # ---   *   ---   *   ---
 1; # ret
