@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+
+# deps
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use English qw(-no_match_vars);
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+
+  use Pilot;
+  use Blk;
+
+# ---   *   ---   *   ---
+
+my $pil=Pilot->nit();
+
+$Blk::Sys_Frame->nit($Blk::Non,'is');
+$Blk::Non->prich();
+
+# ---   *   ---   *   ---
+1; # ret

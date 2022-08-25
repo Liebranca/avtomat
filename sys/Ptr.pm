@@ -31,7 +31,7 @@ package Ptr;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.0;
+  our $VERSION=v0.01.1;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -42,6 +42,11 @@ package Ptr;
 
     -memref=>undef,
     -types=>undef,
+    -autoload=>[qw(
+
+      list_by_offset
+
+    )],
 
   }};
 
@@ -155,6 +160,8 @@ sub nit(
 ) {
 
   my $ptr=bless {
+
+    id=>$name,
 
     type=>$type,
     casted=>undef,
@@ -386,6 +393,105 @@ sub decode($self) {
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+
+sub list_by_offset($class,$frame) {
+
+  my @ptrs=grep {
+
+    Ptr->is_valid($ARG)
+
+  } values %{$frame};
+
+  @ptrs=sort {
+
+    $a->{offset}<=>$b->{offset}
+
+  } @ptrs;
+
+  return @ptrs;
+
+};
+
+# ---   *   ---   *   ---
+
+sub prich($self,%O) {
+
+  # opt defaults
+  $O{errout}//=0;
+
+  my $types=$self->{frame}->{-types};
+  my $alignment=$types->{unit}->{size};
+
+  my $memref=$self->{frame}->{-memref};
+  my $sz=$self->{buff_sz};
+
+  my @me=();
+  my $psize=$Type::PACK_SIZES->{64};
+
+  my $elem_sz=$self->{type}->{size};
+
+  my $elem_i=1;
+  my $offset=0;
+
+# ---   *   ---   *   ---
+
+  for my $i(0..($sz*2)-1) {
+    my $db=substr $$memref,$i*8,8;
+    my $str=unpack "$psize>",$db;
+
+    my $nl=$NULLSTR;
+    my $tab=$NULLSTR;
+
+    # is uneven
+    if($i&0b1) {
+
+      if($i==1) {
+
+        $nl=
+
+          (sprintf ': [%04X]',0).
+
+          " $self->{type}->{name} ".
+          "'$self->{id}'\n"
+
+        ;
+
+      } elsif($offset>=$elem_sz) {
+        $nl=sprintf ": [%04X]\n",$elem_i;
+        $elem_i++;
+        $offset=0;
+
+      } else {
+        $nl="\n";
+
+      };
+
+      $nl.="\n" if !($i%7);
+
+    } else {
+      $tab=q{  0x};
+
+    };
+
+    $offset+=8;
+
+    $me[$i]=sprintf $tab."%016X ".$nl,$str;
+
+  };
+
+# ---   *   ---   *   ---
+
+  # select filehandle
+  my $FH=($O{errout})
+    ? *STDERR
+    : *STDOUT
+    ;
+
+  return print {$FH} (join $NULLSTR,@me);
 
 };
 

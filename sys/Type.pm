@@ -63,7 +63,7 @@ package Type;
 
     byte=>1,
     wide=>2,
-    long=>4,
+    half=>4,
     word=>8,
 
     # measuring
@@ -461,7 +461,7 @@ sub gen_type_table(%table) {
 # ---   *   ---   *   ---
 # generate floating types
 
-    if($key=~ m[(?: long|word)]x) {
+    if($key=~ m[(?: half|word)]x) {
 
       my $real_type=(
         'real','daut'
@@ -491,7 +491,7 @@ sub gen_type_table(%table) {
 # ---   *   ---   *   ---
 # generate signed and pointers
 
-    if($key=~ m[(?: byte|wide|long|word)]x) {
+    if($key=~ m[(?: byte|wide|half|word)]x) {
 
       $F->nit($key,$value,sign=>1);
       $F->nit(

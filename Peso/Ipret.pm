@@ -66,6 +66,9 @@ package Peso::Ipret;
 
   }x;
 
+  my $GD_FN_RE=qr{^gd_}x;
+  my $STRIP_RE=qr{^([^;\s]+)\s*}x;
+
 # ---   *   ---   *   ---
 
 sub args_in_parens($args,$esc,$command) {
@@ -131,7 +134,7 @@ sub pesc_iter($class,$sref,$esc,$args,%O) {
 # ---   *   ---   *   ---
 
   eval($loop_cond.$loop_head.$loop_body);
-  $$sref=~ s/${cut}/$repl/s;
+  $$sref=~ s[$cut_re][$repl]s;
 
 };
 
@@ -162,7 +165,7 @@ sub pesc($sref,%O) {
 
     my $esc=$+{body};
 
-    if(!($esc=~ s/^([^;\s]+)\s*//)) {
+    if(!($esc=~ s/$STRIP_RE//)) {
 
       errout(
         "Empty peso escape '%s'",
@@ -178,7 +181,7 @@ sub pesc($sref,%O) {
 
 # ---   *   ---   *   ---
 
-    if($command=~ m[^gd_]) {
+    if($command=~ m[$GD_FN_RE]) {
 
       my $args=[];
 
@@ -188,12 +191,12 @@ sub pesc($sref,%O) {
       );
 
       my $fn=$command;
-      $fn=~ s[^gd_][];
+      $fn=~ s[$GD_FN_RE][];
 
       $args=[map {eval $ARG} @$args];
 
       my $repl=$O{gd}->$fn(@$args);
-      $$sref=~ s/${cut}/$repl/s;
+      $$sref=~ s[$cut_re][$repl]s;
 
 # ---   *   ---   *   ---
 
@@ -238,7 +241,7 @@ sub pesc($sref,%O) {
     } else {
 
       my $var=eval(q[$O{].$command.q[}]);
-      $$sref=~ s/${cut}/$var/;
+      $$sref=~ s[$cut_re][$var];
 
     };
 

@@ -40,19 +40,43 @@ package Blk;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.0;
+  our $VERSION=v0.01.1;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  sub Frame_Vars($class) {
-  return {
+  sub Frame_Vars($class) {return {
 
     -types=>$Type::Table,
     -blocks=>{},
 
   }};
+
+  Readonly our $HEADER=>$Type::Table->nit(
+
+    'Blk::HEADER',[
+
+      wide=>'dom',
+      wide=>'sigil',
+
+      half=>'idex(3)',
+
+    ]
+
+  );
+
+  Readonly our $BEG_SEQ=>0x2B24;
+  Readonly our $END_SEQ=>0x3E3B;
+
+  Readonly our $DOM=>0x4D45;
+  Readonly our $SIGIL=>0x4D42;
+
+# ---   *   ---   *   ---
+# global state
+
+  our $Non;
+  our $Sys_Frame;
 
 # ---   *   ---   *   ---
 # shut up, I target 64-bit
@@ -65,6 +89,20 @@ BEGIN {
       m/32 non-portable/;
 
     warn $warn;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ensure the existence of non
+
+sub import($class) {
+
+  $Sys_Frame=$class->get_frame();
+
+  if(!defined $Non) {
+    $Non=$Sys_Frame->nit(undef,'non');
 
   };
 
@@ -104,6 +142,29 @@ sub nit(
   $attrs=0b000,
 
 ) {
+
+  # get dom && sigil
+  my $pkg=$frame->{-owner_kls};
+
+  no strict;
+  my $dom=${$pkg.'::DOM'};
+  my $sigil=${$pkg.'::SIGIL'};
+
+  use strict;
+
+  errout(
+
+    q[Can't make Block: ].
+
+    q[ Package '%s' lacks DOM and/or SIGIL].
+    q[ in it's ROM sect],
+
+    args=>[$pkg],
+    lvl=>$AR_FATAL,
+
+  ) unless defined $dom && defined $sigil;
+
+# ---   *   ---   *   ---
 
   my $blk=bless {
 
@@ -161,6 +222,9 @@ sub nit(
     });
 
     push @{$parent->{children}},$blk;
+
+    my $ptr=$parent->alloc($name,$HEADER,4);
+    $ptr->setv($dom,$sigil,0,1,2);
 
 # ---   *   ---   *   ---
 # is root block
@@ -327,43 +391,32 @@ sub prich($self,%O) {
   # opt defaults
   $O{errout}//=0;
 
-  my $mem=$self->{mem};
-  my $sz=$self->{size};
-
-  my @me=();
-  my $psize=$Type::PACK_SIZES->{64};
-
-# ---   *   ---   *   ---
-
-  for my $i(0..($sz*2)-1) {
-    my $db=substr $mem,$i*8,8;
-    my $str=unpack "$psize>",$db;
-
-    my $nl=$NULLSTR;
-    my $tab=$NULLSTR;
-
-    # is uneven
-    if($i&0b1) {
-      $nl="\n";
-
-    } else {
-      $tab=q{  0x};
-
-    };
-
-    $me[$i]=sprintf $tab."%016X ".$nl,$str;
-
-  };
-
-# ---   *   ---   *   ---
-
   # select filehandle
   my $FH=($O{errout})
     ? *STDERR
     : *STDOUT
     ;
 
-  return print {$FH} (join $NULLSTR,@me);
+  my @pending=($self);
+  while(@pending) {
+
+    my $self=shift @pending;
+
+    my $me=q[<].$self->ances().">\n";
+    print {$FH} (join $NULLSTR,$me);
+
+    my @ptrs=$self->{elems}->list_by_offset();
+
+    for my $ptr(@ptrs) {
+      $ptr->prich(%O);
+
+    };
+
+    unshift @pending,@{$self->{children}};
+
+  };
+
+  print {$FH} "\n";
 
 };
 

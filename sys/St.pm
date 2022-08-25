@@ -29,13 +29,18 @@ package St;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.02.1;
+  our $VERSION=v0.02.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
   sub Frame_Vars($class) {{}};
+
+# ---   *   ---   *   ---
+# global state
+
+  my $Frames={};
 
 # ---   *   ---   *   ---
 # is obj instance of class
@@ -53,13 +58,42 @@ sub get_class($obj) {return ref $obj};
 
 sub new_frame($class,%O) {
 
-  my $vars=$class->Frame_Vars;
+  $O{-owner_kls}//=(caller)[0];
+
+  my $vars=$class->Frame_Vars();
   map {$O{$ARG}//=$vars->{$ARG}} keys %$vars;
 
   $O{-class}=$class;
 
   my $frame=Frame::new(%O);
+  $Frames->{$class}//=[];
+
+  push @{$Frames->{$class}},$frame;
+
   return $frame;
+
+};
+
+# ---   *   ---   *   ---
+# ^get existing
+
+sub get_frame($class,$i=0) {
+
+  my $out;
+
+  if(!exists $Frames->{$class}) {
+
+    $out=$class->new_frame(
+      -owner_kls=>(caller)[0]
+
+    );
+
+  } else {
+    $out=$Frames->{$class}->[$i];
+
+  };
+
+  return $out;
 
 };
 
