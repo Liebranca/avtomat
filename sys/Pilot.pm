@@ -25,6 +25,8 @@ package Pilot;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Arstd::Array;
+
   use Cask;
 
   use Type;
@@ -35,7 +37,7 @@ package Pilot;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;
+  our $VERSION=v0.00.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -44,38 +46,78 @@ package Pilot;
   sub Frame_Vars($class) {return {}};
 
   Readonly our $DOM=>0x1BE7;
-  Readonly our $SIGIL=>0x0000;
+  Readonly our $SIGIL=>0xE4EC;
 
-  Readonly our $XKP=>$Type::Table->nit(
 
-    'Pilot::XKP',[
+  Readonly our $FNTAB=>array_key_idex([qw(
 
-      wide=>'dom',
-      wide=>'sigil',
+    cpy
 
-      half=>'id',
-
-    ]
-
-  );
+  )]);
 
 # ---   *   ---   *   ---
 # constructor
 
 sub nit($class) {
 
+  $Blk::Sys_Frame->__ctltake();
+
   my $blk=$Blk::Sys_Frame->nit(
     $Blk::Non,$class
 
   );
 
-  my $pil=bless {
+  $Blk::Sys_Frame->__ctlgive();
 
+# ---   *   ---   *   ---
+
+  my $pil=bless {
     blk=>$blk,
 
   },$class;
 
+  $Blk::Non->set_header(
+
+    $class,
+
+    N=>0xF,
+    ID=>0x1,
+
+  );
+
   return $pil;
+
+};
+
+# ---   *   ---   *   ---
+
+sub stream($self,$data,$call,@args) {
+
+  my $blk=$self->{blk};
+
+  my $id=(int(@args)<<28)|$FNTAB->{$call};
+  my ($cnt,$sz)=$blk->align_sz(length $data);
+
+  my $fmat="$Type::PACK_SIZES->{16}>2";
+  $fmat.="$Type::PACK_SIZES->{32}>";
+  $fmat.="$Type::PACK_SIZES->{64}>";
+
+  my $body=pack $fmat,$DOM,$SIGIL,$id,$cnt;
+  ($cnt,$sz)=$blk->align_sz(
+    length $body.$data
+
+  );
+
+  my $ptr=$blk->alloc(
+
+    'input',
+    $Type::Table->{byte_str},
+
+    $cnt
+
+  );
+
+  $ptr->strcpy($body.$data);
 
 };
 

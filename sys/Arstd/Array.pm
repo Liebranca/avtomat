@@ -39,6 +39,8 @@ package Arstd::Array;
     array_filter
     array_insert
 
+    array_key_idex
+
   );
 
 # ---   *   ---   *   ---
@@ -169,6 +171,15 @@ sub insert($ar,$pos,@ins) {
 };
 
 # ---   *   ---   *   ---
+# makes {key=>idex} from [keys]
+
+sub key_idex($ar) {
+  my $i=0;
+  return {map {$ARG=>$i++} @$ar};
+
+};
+
+# ---   *   ---   *   ---
 # exporter stuff
 
   *array_nth=*nth;
@@ -180,6 +191,8 @@ sub insert($ar,$pos,@ins) {
 
   *array_filter=*filter;
   *array_insert=*insert;
+
+  *array_key_idex=*key_idex;
 
 # ---   *   ---   *   ---
 1; # ret

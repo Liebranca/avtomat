@@ -470,7 +470,7 @@ sub prich($self,%O) {
 
       };
 
-      $nl.="\n" if !($i%7);
+      $nl.="\n" if !(( ($i/2)+1 ) % 4);
 
     } else {
       $tab=q{  0x};

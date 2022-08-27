@@ -15,8 +15,8 @@
 # ---   *   ---   *   ---
 
 my $pil=Pilot->nit();
+$pil->stream('1234'x16,'cpy',0,1);
 
-$Blk::Sys_Frame->nit($Blk::Non,'is');
 $Blk::Non->prich();
 
 # ---   *   ---   *   ---

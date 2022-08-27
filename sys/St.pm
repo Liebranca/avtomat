@@ -59,6 +59,7 @@ sub get_class($obj) {return ref $obj};
 sub new_frame($class,%O) {
 
   $O{-owner_kls}//=(caller)[0];
+  $O{-prev_owners}=[];
 
   my $vars=$class->Frame_Vars();
   map {$O{$ARG}//=$vars->{$ARG}} keys %$vars;

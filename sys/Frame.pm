@@ -86,4 +86,24 @@ sub AUTOLOAD {
 };
 
 # ---   *   ---   *   ---
+
+sub __ctltake($frame) {
+
+  my $pkg=(caller)[0];
+
+  push @{$frame->{-prev_owners}},
+    $frame->{-owner_kls};
+
+  $frame->{-owner_kls}=$pkg;
+
+};
+
+sub __ctlgive($frame) {
+
+  my $pkg=pop @{$frame->{-prev_owners}};
+  $frame->{-owner_kls}=$pkg;
+
+};
+
+# ---   *   ---   *   ---
 1; # ret

@@ -40,7 +40,7 @@ package Blk;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.1;
+  our $VERSION=v0.01.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -60,7 +60,8 @@ package Blk;
       wide=>'dom',
       wide=>'sigil',
 
-      half=>'idex(3)',
+      half=>'NID',
+      word=>'stride',
 
     ]
 
@@ -124,6 +125,22 @@ sub ances($self) {
   };
 
   return $name;
+
+};
+
+# ---   *   ---   *   ---
+# setter/shorthands
+
+sub set_header($self,$name,%O) {
+
+  # defaults
+  $O{N}//=0;
+  $O{ID}//=0;
+
+  my $ptr=$self->{elems}->{$name};
+  $ptr=$ptr->{by_name}->[0];
+
+  ${$ptr->{NID}}|=($O{N}<<28)|$O{ID};
 
 };
 
@@ -223,8 +240,8 @@ sub nit(
 
     push @{$parent->{children}},$blk;
 
-    my $ptr=$parent->alloc($name,$HEADER,4);
-    $ptr->setv($dom,$sigil,0,1,2);
+    my $ptr=$parent->alloc($name,$HEADER);
+    $ptr->setv($dom,$sigil);
 
 # ---   *   ---   *   ---
 # is root block
@@ -239,6 +256,7 @@ sub nit(
 };
 
 # ---   *   ---   *   ---
+# get block size of N instances of type
 
 sub align($self,$type,$cnt) {
 
@@ -249,6 +267,20 @@ sub align($self,$type,$cnt) {
 
   my $mult=int(($elem_sz/$alignment)+0.9999);
   $mult*=$cnt;
+
+  return ($mult,$mult*$alignment);
+
+};
+
+# ---   *   ---   *   ---
+# ^same, precalc'd total
+
+sub align_sz($self,$sz) {
+
+  my $types=$self->{frame}->{-types};
+  my $alignment=$types->{unit}->{size};
+
+  my $mult=int(($sz/$alignment)+0.9999);
 
   return ($mult,$mult*$alignment);
 
@@ -402,7 +434,7 @@ sub prich($self,%O) {
 
     my $self=shift @pending;
 
-    my $me=q[<].$self->ances().">\n";
+    my $me="\n<".$self->ances().">\n";
     print {$FH} (join $NULLSTR,$me);
 
     my @ptrs=$self->{elems}->list_by_offset();
