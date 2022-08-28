@@ -1,0 +1,25 @@
+; flat assembler test
+;
+; ---   *   ---   *   ---
+
+format ELF64
+
+section '.text' executable
+
+  public fn
+
+; ---   *   ---   *   ---
+
+fn:
+
+  push  rbp
+  mov rbp,rsp
+
+  mov rax,rdi
+  add rax,rsi
+
+  pop rbp
+
+  ret
+
+; ---   *   ---   *   ---

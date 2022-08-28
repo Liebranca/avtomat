@@ -37,7 +37,7 @@ package Pilot;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;
+  our $VERSION=v0.00.3;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -45,10 +45,21 @@ package Pilot;
 
   sub Frame_Vars($class) {return {}};
 
-  Readonly our $DOM=>0x1BE7;
+  Readonly our $DOM=>0x9E50;
   Readonly our $SIGIL=>0xE4EC;
 
-  our $FNDAT=>[
+  Readonly our $XKP=>$Type::Table->nit(
+
+    'Pilot::XKP',[
+
+      byte=>'sigil',
+      byte_str=>'id(7)',
+
+    ],
+
+  );
+
+  our $FNDAT=[
 
     cpy=>[qw(word word)],
 
@@ -79,35 +90,44 @@ sub nit($class) {
 # ---   *   ---   *   ---
 
   my $pil=bless {
+
     blk=>$blk,
+    wed=>$Type::Table->{word},
+
+    ins_buf=>[],
 
   },$class;
-
-  $Blk::Non->set_header(
-
-    $class,
-
-    N=>0xF,
-    ID=>0x1,
-
-  );
 
   return $pil;
 
 };
 
 # ---   *   ---   *   ---
+# sets typing mode
 
-sub stream($self,$data,$call,@args) {
+sub wed($self,$name) {
+
+  errout(
+
+    q[Bad typing mode '%s'],
+
+    args=>[$name],
+    lvl=>$AR_FATAL,
+
+  ) unless defined $Type::Table->{$name};
+
+  $self->{wed}=$Type::Table->{$name};
+
+};
+
+# ---   *   ---   *   ---
+
+sub ins($self,$call,@args) {
 
   my $blk=$self->{blk};
+  my $id=$FNTAB->{$call};
 
-  my $id=(int(@args)<<28)|$FNTAB->{$call};
-  my ($cnt,$sz)=$blk->align_sz(length $data);
-
-  my $fmat="$Type::PACK_SIZES->{16}>2";
-  $fmat.="$Type::PACK_SIZES->{32}>";
-  $fmat.="$Type::PACK_SIZES->{64}>";
+  my $fmat="$Type::PACK_SIZES->{64}>";
 
   for my $arg_t(@{$FNDAT->{$call}}) {
 
@@ -119,28 +139,22 @@ sub stream($self,$data,$call,@args) {
 
   };
 
-  my $body=pack $fmat,
+  my $wsig=$self->{wed}->{sigil};
+  my $body=pack $fmat,($wsig<<56)|$id,@args;
 
-    $DOM,$SIGIL,$id,
-    $cnt,@args
-
-  ;
-
-  ($cnt,$sz)=$blk->align_sz(
-    length $body.$data
-
-  );
+  my ($cnt,$sz)=$blk->align_sz(length $body);
 
   my $ptr=$blk->alloc(
 
-    'input',
-    $Type::Table->{byte_str},
+    'ins'.int(@{$self->{ins_buf}}),
 
-    $cnt
+    $Type::Table->{byte_str},$cnt
 
   );
 
-  $ptr->strcpy($body.$data);
+  $ptr->strcpy($body);
+
+  push @{$self->{ins_buf}},$ptr;
 
 };
 

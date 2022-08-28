@@ -777,6 +777,19 @@ TAIL:
 };
 
 # ---   *   ---   *   ---
+
+sub solink($objs,$deps,$libs,$sopath) {
+
+  # link
+  my $call='gcc -shared'.q{ }.
+    "$OFLG $LFLG ".
+    "-m64 $objs $deps $libs -o $sopath";
+
+  `$call`;
+
+};
+
+# ---   *   ---   *   ---
 # rebuilds shared objects if need be
 
 sub soregen($soname,$libs_ref,$no_regen=0) {
@@ -822,19 +835,14 @@ sub soregen($soname,$libs_ref,$no_regen=0) {
   if($so_gen && !$no_regen) {
 
     # recursively get dependencies
-    my $O_LIBS='-l'.( join ' -l',@libs );
+    my $o_libs='-l'.( join ' -l',@libs );
 
     my $deps=join q{ },@{$symtab{deps}};
 
-    my $LIBS=libexpand($O_LIBS);
-    my $OBJS=join q{ },keys %{$symtab{objects}};
+    my $libs=libexpand($o_libs);
+    my $objs=join q{ },keys %{$symtab{objects}};
 
-    # link
-    my $call='gcc -shared'.q{ }.
-      "$OFLG $LFLG ".
-      "-m64 $OBJS $deps $LIBS -o $sopath";
-
-    `$call`;
+    solink($objs,$deps,$libs,$sopath);
 
   };
 

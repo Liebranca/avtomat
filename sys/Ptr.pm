@@ -453,7 +453,7 @@ sub prich($self,%O) {
 
         $nl=
 
-          (sprintf '>%04X',0).
+          (sprintf '#%04X',0).
 
           " $self->{type}->{name} ".
           "'$self->{id}'\n"
@@ -461,7 +461,7 @@ sub prich($self,%O) {
         ;
 
       } elsif($offset>=$elem_sz) {
-        $nl=sprintf ">%04X\n",$elem_i;
+        $nl=sprintf "#%04X\n",$elem_i;
         $elem_i++;
         $offset=0;
 

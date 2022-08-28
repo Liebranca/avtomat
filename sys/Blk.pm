@@ -60,9 +60,6 @@ package Blk;
       wide=>'dom',
       wide=>'sigil',
 
-      half=>'NID',
-      word=>'stride',
-
     ]
 
   );
@@ -125,22 +122,6 @@ sub ances($self) {
   };
 
   return $name;
-
-};
-
-# ---   *   ---   *   ---
-# setter/shorthands
-
-sub set_header($self,$name,%O) {
-
-  # defaults
-  $O{N}//=0;
-  $O{ID}//=0;
-
-  my $ptr=$self->{elems}->{$name};
-  $ptr=$ptr->{by_name}->[0];
-
-  ${$ptr->{NID}}|=($O{N}<<28)|$O{ID};
 
 };
 

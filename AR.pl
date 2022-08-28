@@ -114,6 +114,8 @@ my $FILE_LIST=[
   '/Emit/C.pm',
   '/Emit/Perl.pm',
 
+  '/Lang/fasm.pm',
+
   '/Lang/Peso.pm',
   '/Lang/Plps.pm',
   '/Lang/C.pm',

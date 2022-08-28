@@ -23,25 +23,36 @@
   use lib $ENV{'ARPATH'}.'/avtomat/';
 
   use Avt;
+  use Avt::FFI;
+
+  use Fmat;
 
 # ---   *   ---   *   ---
 
-Arstd::unit_test_start('Avt::ffind');
+my $ffi=Avt::FFI->get_instance();
+$ffi->lib(Shb7::lib('libbase.so'));
+$ffi->attach('fn',['word','word'],'word');
+
+say fn(1,2);
 
 # ---   *   ---   *   ---
-# checks for file-finding
 
-Shb7::set_root($ENV{'ARPATH'});
-Arstd::test(
-
-  'eq',
-
-  Avt::ffind(Shb7::file('avtomat/tests/avt')),
-  Shb7::rel(abs_path(__FILE__)),
-
-  name=>'ffind (root/*)',
-
-);
+#Arstd::unit_test_start('Avt::ffind');
+#
+## ---   *   ---   *   ---
+## checks for file-finding
+#
+#Shb7::set_root($ENV{'ARPATH'});
+#Arstd::test(
+#
+#  'eq',
+#
+#  Avt::ffind(Shb7::file('avtomat/tests/avt')),
+#  Shb7::rel(abs_path(__FILE__)),
+#
+#  name=>'ffind (root/*)',
+#
+#);
 
 # ---   *   ---   *   ---
 
@@ -59,7 +70,7 @@ Arstd::test(
 
 # ---   *   ---   *   ---
 
-Arstd::unit_test_passed();
+#Arstd::unit_test_passed();
 
 # ---   *   ---   *   ---
 1; # ret

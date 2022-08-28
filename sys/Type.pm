@@ -34,7 +34,7 @@ package Type;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.03.0;
+  our $VERSION=v0.03.1;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -110,6 +110,16 @@ sub nit(
 
   my $size=0;
   my $count=0;
+  my $sigil=0;
+
+  my $SIGIL_FLAGS={
+
+    q[sign]=>0x10,
+    q[real]=>0x20,
+    q[ptr]=>0x40,
+    q[str]=>0x80,
+
+  };
 
   my $fields=[];
   my $subtypes=[];
@@ -125,6 +135,8 @@ sub nit(
 #   >  ];
 
   if(length ref $elems) {
+
+    $sigil|=8|$SIGIL_FLAGS->{ptr};
 
     while(@$elems) {
 
@@ -189,6 +201,16 @@ DONE:
     $count=1;
     $size=$elems;
 
+    $sigil=$size
+
+    | ($SIGIL_FLAGS->{sign}*$O{sign})
+    | ($SIGIL_FLAGS->{real}*$O{real})
+
+    | ($SIGIL_FLAGS->{ptr}*$O{addr})
+    | ($SIGIL_FLAGS->{str}*$O{str})
+
+    ;
+
   };
 
 # ---   *   ---   *   ---
@@ -215,6 +237,8 @@ DONE:
 
     fields=>$fields,
     subtypes=>$subtypes,
+
+    sigil=>$sigil,
 
     %O,
 
