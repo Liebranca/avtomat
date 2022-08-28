@@ -453,7 +453,7 @@ sub prich($self,%O) {
 
         $nl=
 
-          (sprintf ': [%04X]',0).
+          (sprintf '>%04X',0).
 
           " $self->{type}->{name} ".
           "'$self->{id}'\n"
@@ -461,7 +461,7 @@ sub prich($self,%O) {
         ;
 
       } elsif($offset>=$elem_sz) {
-        $nl=sprintf ": [%04X]\n",$elem_i;
+        $nl=sprintf ">%04X\n",$elem_i;
         $elem_i++;
         $offset=0;
 
@@ -473,13 +473,14 @@ sub prich($self,%O) {
       $nl.="\n" if !(( ($i/2)+1 ) % 4);
 
     } else {
-      $tab=q{  0x};
+      $tab=q{  };
 
     };
 
     $offset+=8;
 
     $me[$i]=sprintf $tab."%016X ".$nl,$str;
+    substr $me[$i],8+(length $tab),0,q[ ];
 
   };
 

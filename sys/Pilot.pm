@@ -48,12 +48,19 @@ package Pilot;
   Readonly our $DOM=>0x1BE7;
   Readonly our $SIGIL=>0xE4EC;
 
+  our $FNDAT=>[
 
-  Readonly our $FNTAB=>array_key_idex([qw(
+    cpy=>[qw(word word)],
 
-    cpy
+  ];
 
-  )]);
+  Readonly our $FNTAB=>array_key_idex([
+
+    array_keys($FNDAT)
+
+  ]);
+
+  $FNDAT={@$FNDAT};
 
 # ---   *   ---   *   ---
 # constructor
@@ -102,7 +109,23 @@ sub stream($self,$data,$call,@args) {
   $fmat.="$Type::PACK_SIZES->{32}>";
   $fmat.="$Type::PACK_SIZES->{64}>";
 
-  my $body=pack $fmat,$DOM,$SIGIL,$id,$cnt;
+  for my $arg_t(@{$FNDAT->{$call}}) {
+
+    my $elem_sz=$Type::Table
+      ->{$arg_t}->{size};
+
+    $elem_sz*=8;
+    $fmat.="$Type::PACK_SIZES->{$elem_sz}>";
+
+  };
+
+  my $body=pack $fmat,
+
+    $DOM,$SIGIL,$id,
+    $cnt,@args
+
+  ;
+
   ($cnt,$sz)=$blk->align_sz(
     length $body.$data
 
