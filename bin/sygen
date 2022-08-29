@@ -269,7 +269,14 @@ sub prprops($def,$key) {
       } @slice;
 
       # join them into a single expression
-      my $re='\b('.(join '|',@slice).')\b';
+      my $re;
+      if($key eq 'nums') {
+        $re='('.(join '|',@slice).')';
+
+      } else {
+        $re='\b('.(join '|',@slice).')\b';
+
+      };
 
       push @ar,$re;
 

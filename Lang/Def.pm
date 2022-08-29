@@ -31,7 +31,7 @@ package Lang::Def;
 
 # ---   *   ---   *   ---
 
-  our Readonly %DEFAULTS=(
+  our %DEFAULTS=(
 
     name=>$NULLSTR,
 

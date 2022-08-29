@@ -45,16 +45,21 @@ package Lang::fasm;
 # ---   *   ---   *   ---
 
 BEGIN {
+
+my $NUMS=$Lang::Def::DEFAULTS{nums};
+$NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
+
 Lang::fasm->nit(
 
   name=>'fasm',
 
   ext=>'\.fa$',
-  mag=>'^flat assembler file program',
+  mag=>'^flat assembler file',
   com=>';',
 
   op_prec=>$OPS,
   exp_bound=>"\n",
+  nums=>$NUMS,
 
 # ---   *   ---   *   ---
 
@@ -78,6 +83,8 @@ Lang::fasm->nit(
     readable writeable executable
     public extrn
 
+    local
+
   )],
 
 # ---   *   ---   *   ---
@@ -85,12 +92,23 @@ Lang::fasm->nit(
   intrinsics=>[qw(
 
     dup and or xor shl shr
-    bsf bsr not rva plt cmp
+    bsf bsr not rva plt cmp equ
 
   )],
 
   directives=>[qw(
-    label format section
+    label format section segment
+    rept repeat struc macro loop
+
+    irp irps match
+
+    common forward reverse
+
+    if else end
+    load store at from
+
+    include fix define
+    display err
 
   )],
 
@@ -110,6 +128,9 @@ Lang::fasm->nit(
   builtins=>[qw(
 
     mov mod adc add sbb sub push pop imul
+    inc jl jg je jne
+
+    ror rol
 
   )],
 
@@ -118,10 +139,14 @@ Lang::fasm->nit(
   resnames=>[qw(
 
     al cl dl bl ah ch dh bh
+    bpl dil
+
     ax cx dx bx sp bp si di
 
     eax ecx edx ebx esp ebp esi edi
     rax rcx rdx rbx rsp rbp rsi rdi
+
+    r8 r9 r10 r11 r12 r13 r14 r15
 
     es cs ss ds fs gs
 

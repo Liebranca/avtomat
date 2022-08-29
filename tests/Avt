@@ -30,7 +30,7 @@
 # ---   *   ---   *   ---
 
 my $ffi=Avt::FFI->get_instance();
-$ffi->lib(Shb7::lib('libbase.so'));
+$ffi->lib(Shb7::so('base'));
 $ffi->attach('fn',['word','word'],'word');
 
 say fn(1,2);

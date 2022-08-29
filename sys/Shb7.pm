@@ -29,8 +29,10 @@ package Shb7;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd::IO;
+
+  use Arstd::Array;
   use Arstd::Path;
+  use Arstd::IO;
 
   use Tree::File;
 
@@ -778,14 +780,58 @@ TAIL:
 
 # ---   *   ---   *   ---
 
-sub solink($objs,$deps,$libs,$sopath) {
+sub olink($objs,$name,%O) {
+
+  # defaults
+  $O{deps}//=$NULLSTR;
+  $O{libs}//=$NULLSTR;
+  $O{shared}//=0;
+  $O{flat}//=0;
+
+  $O{shared}=q[-shared] if $O{shared};
+
+  my @call=();
+
+  # using gcc
+  if(!$O{flat}) {
+    @call=(
+
+      q(gcc),$O{shared},
+
+      (split $SPACE_RE,$OFLG),
+      (split $SPACE_RE,$LFLG),
+
+      q(-m64),
+
+      $objs,$O{deps},$O{libs},
+
+      q(-o), $name
+
+    );
+
+  # using ld ;>
+  } else {
+    @call=(
+
+      q(ld.bfd),$O{shared},
+
+      qw(--relax --omagic -d),
+      qw(-e _start),
+      q(-soname), $name,
+
+      qw(-m elf_x86_64),
+      qw(--gc-sections -o),
+
+      $name,
+      $objs,$O{libs}
+
+    );
+
+  };
 
   # link
-  my $call='gcc -shared'.q{ }.
-    "$OFLG $LFLG ".
-    "-m64 $objs $deps $libs -o $sopath";
-
-  `$call`;
+  array_filter(\@call);
+  system {$call[0]} @call;
 
 };
 
@@ -842,7 +888,17 @@ sub soregen($soname,$libs_ref,$no_regen=0) {
     my $libs=libexpand($o_libs);
     my $objs=join q{ },keys %{$symtab{objects}};
 
-    solink($objs,$deps,$libs,$sopath);
+    olink(
+
+      $objs,
+      $sopath,
+
+      deps=>$deps,
+      libs=>$libs,
+
+      shared=>1,
+
+    );
 
   };
 
