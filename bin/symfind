@@ -51,7 +51,7 @@ my $m=Cli->nit(
 
 my @files=Cli::Fstruct::proto_search($m);
 my $sym_re=$m->{symbol};
-my $ext_re=qr{\.pmc?}x;
+my $ext_re=$m->{ext_re};
 
 # ---   *   ---   *   ---
 # walk the fstruct

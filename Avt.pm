@@ -57,7 +57,7 @@ package Avt;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v3.21.1;
+  our $VERSION=v3.21.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -1056,6 +1056,13 @@ sub config() {
 
   my $src=Shb7::cache_file("avto-config");
   my $config=$Cache{_config};
+
+  # overwrite old values
+  if(-e $src) {
+    my $h=retrieve($src);
+    $config={%$config,%$h};
+
+  };
 
   store($config,$src) or croak strerr($src);
 

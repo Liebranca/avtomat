@@ -354,6 +354,7 @@ package Cli::Fstruct;
     {id=>'symbol',argc=>1},
     {id=>'no_escaping',short=>'-ne'},
     {id=>'regex',short=>'-R'},
+    {id=>'extension',short=>'-xt',argc=>1},
 
   ];
 
@@ -392,6 +393,16 @@ sub proto_search($m) {
 
   } else {
     $m->{symbol}=qr{$m->{symbol}}x;
+
+  };
+
+# ---   *   ---   *   ---
+
+  if($m->{extension} eq $NULL) {
+    $m->{ext_re}=qr{\.pmc?$}x;
+
+  } else {
+    $m->{ext_re}=qr{\.(?:$m->{extension})$}x;
 
   };
 

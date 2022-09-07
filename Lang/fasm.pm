@@ -53,7 +53,7 @@ Lang::fasm->nit(
 
   name=>'fasm',
 
-  ext=>'\.fa$',
+  ext=>'\.(asm|inc)$',
   mag=>'^flat assembler file',
   com=>';',
 
@@ -78,12 +78,10 @@ Lang::fasm->nit(
     qword tbyte tword dqword xword
     qqword yword dqqword zword
 
-    ptr
-
     readable writeable executable
     public extrn
 
-    local
+    label local virtual public
 
   )],
 
@@ -92,23 +90,33 @@ Lang::fasm->nit(
   intrinsics=>[qw(
 
     dup and or xor shl shr
-    bsf bsr not rva plt cmp equ
+    bsf bsr not rva plt cmp equ eq
+
+    used relativeto in eqtype ptr
+    at from as nop
 
   )],
 
   directives=>[qw(
-    label format section segment
+
+    format section segment
     rept repeat struc macro loop
+
+    purge restruc restore assert
+
+    heap stack neg
 
     irp irps match
 
     common forward reverse
 
-    if else end
-    load store at from
+    if else end while break
+    load store org
 
-    include fix define
-    display err
+    include fix define defined definite
+    display err align times
+
+    postpone
 
   )],
 
@@ -117,6 +125,7 @@ Lang::fasm->nit(
     @[@rb]
 
     jmp near far short
+    jl jg je jne
 
     call syscall
     enter leave
@@ -128,25 +137,35 @@ Lang::fasm->nit(
   builtins=>[qw(
 
     mov mod adc add sbb sub push pop imul
-    inc jl jg je jne
+    inc str lea
 
     ror rol
 
   )],
 
 # ---   *   ---   *   ---
+# registers <3
 
   resnames=>[qw(
 
-    al cl dl bl ah ch dh bh
-    bpl dil
+    rax eax ax ah al
+    rcx ecx cx ch cl
+    rdx edx dx dh dl
+    rbx ebx bx bh bl
+    rsp esp sp spl
+    rbp ebp bp bpl
+    rsi esi si sil
+    rdi edi di dil
 
-    ax cx dx bx sp bp si di
+    r8 r8d r8w r8b
+    r9 r9d r9w r9b
 
-    eax ecx edx ebx esp ebp esi edi
-    rax rcx rdx rbx rsp rbp rsi rdi
-
-    r8 r9 r10 r11 r12 r13 r14 r15
+    r10 r10d r10w r10b
+    r11 r11d r11w r11b
+    r12 r12d r12w r12b
+    r13 r13d r13w r13b
+    r14 r14d r14w r14b
+    r15 r15d r15w r15b
 
     es cs ss ds fs gs
 

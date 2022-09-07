@@ -66,6 +66,17 @@ package Shb7;
 
   ;
 
+  Readonly our $FLATLFLG=>
+    q{-flto -ffunction-sections}.q{ }.
+    q{-fdata-sections -Wl,--gc-sections}.q{ }.
+    q{-Wl,-fuse-ld=bfd}.q{ }.
+
+    q{-Wl,--relax,-d}.q{ }.
+    q{-Wl,--entry=_start}.q{ }.
+    q{-no-pie -nostdlib}
+
+  ;
+
 # ---   *   ---   *   ---
 
 BEGIN {
@@ -209,11 +220,18 @@ sub mem_file($name) {return $Mem.$name};
 # ---   *   ---   *   ---
 # gives object file path from source file path
 
-sub obj_from_src($src) {
+sub obj_from_src($src,%O) {
+
+  # default
+  $O{use_trash}//=1;
 
   my $o=$src;
 
-  $o=~ s/$Root_Re/$Trash/;
+  if($O{use_trash}) {
+    $o=~ s/$Root_Re/$Trash/;
+
+  };
+
   $o=~ s/\.[\w|\d]*$/\.o/;
 
   return $o;
@@ -790,6 +808,16 @@ sub olink($objs,$name,%O) {
 
   $O{shared}=q[-shared] if $O{shared};
 
+  my @LPATH=();
+  for my $lib(@$Lib) {
+    push @LPATH,q{-L}.$lib;
+
+  };
+
+  my @OBJS=split $SPACE_RE,$objs;
+  my @LIBS=split $SPACE_RE,$O{libs};
+  my @DEPS=split $SPACE_RE,$O{deps};
+
   my @call=();
 
   # using gcc
@@ -803,27 +831,41 @@ sub olink($objs,$name,%O) {
 
       q(-m64),
 
-      $objs,$O{deps},$O{libs},
+      @OBJS,@DEPS,@LPATH,@LIBS,
+      q(-o), $name
 
+    );
+
+  # gcc, but fine-tuned
+  } elsif($O{flat} eq '1/2') {
+
+    @call=(
+
+      q(gcc),$O{shared},
+      (split $SPACE_RE,$FLATLFLG),
+
+      q(-m64),
+
+      @OBJS,@DEPS,@LPATH,@LIBS,
       q(-o), $name
 
     );
 
   # using ld ;>
   } else {
+
     @call=(
 
-      q(ld.bfd),$O{shared},
+      q(ld.bfd),
 
       qw(--relax --omagic -d),
       qw(-e _start),
-      q(-soname), $name,
 
       qw(-m elf_x86_64),
-      qw(--gc-sections -o),
+      qw(--gc-sections),
 
-      $name,
-      $objs,$O{libs}
+      q(-o),$name,
+      @OBJS,@LPATH,@LIBS
 
     );
 
