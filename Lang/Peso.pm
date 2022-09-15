@@ -25,6 +25,7 @@ package Lang::Peso;
 
   use Style;
   use Arstd;
+  use Arstd::Array;
   use Type;
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -43,74 +44,81 @@ BEGIN {
 # ---   *   ---   *   ---
 # builtins and functions, group A
 
-  Readonly my $BUILTIN=>{
+  Readonly my $BUILTIN=>[
 
-    'cpy'=>[sbl_id,'2<ptr,ptr|bare>'],
-    'mov'=>[sbl_id,'2<ptr,ptr>'],
-    'wap'=>[sbl_id,'2<ptr,ptr>'],
+    Lang::insens('cpy'),
+    Lang::insens('mov'),
+    Lang::insens('wap'),
 
-    'pop'=>[sbl_id,'*1<ptr>'],
-    'push'=>[sbl_id,'1<ptr|bare>'],
+    Lang::insens('pop'),
+    Lang::insens('push'),
 
-    'inc'=>[sbl_id,'1<ptr>'],
-    'dec'=>[sbl_id,'1<ptr>'],
-    'clr'=>[sbl_id,'1<ptr>'],
+    Lang::insens('inc'),
+    Lang::insens('dec'),
+    Lang::insens('clr'),
 
-    'exit'=>[sbl_id,'1<ptr|bare>'],
+    Lang::insens('exit'),
 
-  };
-
-# ---   *   ---   *   ---
-
-  Readonly my $DIRECTIVE=>{
-
-    'reg'=>[sbl_id,'1<bare>'],
-    'rom'=>[sbl_id,'1<bare>'],
-
-    'clan'=>[sbl_id,'1<bare>'],
-    'proc'=>[sbl_id,'1<bare>'],
-
-    'entry'=>[sbl_id,'1<ptr>'],
-    'atexit'=>[sbl_id,'1<ptr>'],
-
-  };
+  ];
 
 # ---   *   ---   *   ---
 
-  Readonly my $FCTL=>{
+  Readonly my $DIRECTIVE=>[
 
-    'jmp'=>[sbl_id,'1<ptr>'],
-    'jif'=>[sbl_id,'2<ptr,ptr|bare>'],
-    'eif'=>[sbl_id,'2<ptr,ptr|bare>'],
+    Lang::insens('reg'),
+    Lang::insens('rom'),
 
-    #:*;> not yet implemented
-    'call'=>[sbl_id,'1<ptr>'],
-    'ret'=>[sbl_id,'1<ptr>'],
-    'wait'=>[sbl_id,'1<ptr>'],
+    Lang::insens('clan'),
+    Lang::insens('proc'),
 
-  };
+    Lang::insens('entry'),
+    Lang::insens('atexit'),
+
+    Lang::insens('nocase'),
+    Lang::insens('case'),
+
+  ];
+
+# ---   *   ---   *   ---
+
+  Readonly my $FCTL=>[
+
+    Lang::insens('jmp'),
+    Lang::insens('on'),
+    Lang::insens('or'),
+
+    Lang::insens('call'),
+    Lang::insens('ret'),
+    Lang::insens('wait'),
+
+  ];
 
 # ---   *   ---   *   ---
 # missing/needs rethinking:
 # str,buf,fptr,lis,lock
 
-  Readonly my $INTRINSIC=>{
+  Readonly my $INTRINSIC=>[
 
-    'wed'=>[sbl_id,'1<bare>'],
-    'unwed'=>[sbl_id,'0'],
+    Lang::insens('wed'),
+    Lang::insens('unwed'),
+    Lang::insens('ipol'),
 
-  };
+    Lang::insens('in'),
+    Lang::insens('out'),
+    Lang::insens('xform'),
 
-  Readonly my $SPECIFIER=>{
+  ];
 
-    'ptr'=>[sbl_id,'0'],
-    'fptr'=>[sbl_id,'0'],
+  Readonly my $SPECIFIER=>[
 
-    'str'=>[sbl_id,'0'],
-    'buf'=>[sbl_id,'0'],
-    'tab'=>[sbl_id,'0'],
+    Lang::insens('ptr'),
+    Lang::insens('fptr'),
 
-  };
+    Lang::insens('str'),
+    Lang::insens('buf'),
+    Lang::insens('tab'),
+
+  ];
 
 # ---   *   ---   *   ---
 # UTILS
@@ -127,38 +135,39 @@ BEGIN {
 # .
 # >clan
 
-sub reorder($tree) {
+sub reorder($self,$tree) {
 
   my $root=$tree;
 
   my $anchor=$root;
   my @anchors=($root,undef,undef,undef);
 
-  my $scopers=qr/\b(clan|reg|rom|proc)\b/;
+  my $scopers=qr/\b(clan|reg|rom|proc)\b/i;
 
 # ---   *   ---   *   ---
 # iter tree
 
-  for my $leaf(@{$tree->leaves}) {
-    if($leaf->value=~ $scopers) {
+  for my $leaf(@{$tree->{leaves}}) {
+    if($leaf->{value}=~ $scopers) {
       my $match=$1;
 
 # ---   *   ---   *   ---
 
       if(@anchors) {
-        if($match eq 'clan') {
+        if($match=~ m[^clan$]i) {
           $anchors[1]=$leaf;
           $anchor=$root;
 
 # ---   *   ---   *   ---
 
-        } elsif($match eq 'reg') {
+        } elsif($match=~ m[^(?:reg|rom)$]i) {
           $anchor=$anchors[1];
+          $anchor//=$root;
           @anchors[2]=$leaf;
 
 # ---   *   ---   *   ---
 
-        } elsif($match eq 'proc') {
+        } elsif($match=~ m[^proc$]i) {
           $anchor=$anchors[2];
           @anchors[3]=$leaf;
 
@@ -167,11 +176,15 @@ sub reorder($tree) {
 # ---   *   ---   *   ---
 # move node and reset anchor
 
-      };if($leaf->{parent} ne $anchor) {
+      };
+
+      if($leaf->{parent} ne $anchor) {
         ($leaf)=$leaf->{parent}->pluck($leaf);
         $anchor->pushlv($leaf);
 
-      };$anchor=$leaf;
+      };
+
+      $anchor=$leaf;
 
 # ---   *   ---   *   ---
 # node doesn't modify anchor
@@ -181,312 +194,120 @@ sub reorder($tree) {
       $anchor->pushlv($leaf);
 
     };
+
   };
+
 };
 
 # ---   *   ---   *   ---
+# executes a small subset of peso
 
-#  sbl_new(1);
+sub mini_ipret($self,$rd,$tree) {
 
-# ---   *   ---   *   ---
+  state $FN_HED=
 
-#DEFINE 'cpy',$BUILTIN,sub {
-#
-#  my ($inskey,$frame,$field)=@_;
-#  my ($dst,$src)=@$field;
-#
-#  my $fr_ptr=$frame->{master}->{ptr};
-#
-#  if($fr_ptr->valid($src)) {
-#    $src=$src->{addr};
-#
-#  };if(!$fr_ptr->valid($dst)) {
-#    $dst=$fr_ptr->fetch($dst);
-#
-#  };$dst->setv($src);
-#
-#};
+  q{void FN_%FMAT%(}."\n".
+  q[uint64_t tcnt,uint64_t* buff]."\n".
+  q[) {]."\n"
+
+  ;
+
+  my $fmat='""';
+  my $code=$NULLSTR;
+
+  $rd->recurse($tree);
 
 # ---   *   ---   *   ---
 
-#DEFINE 'pop',$BUILTIN,sub {
-#
-#  my ($inskey,$frame,$dst)=@_;
-#  my $fr_ptr=$frame->{master}->{ptr};
-#  my $fr_blk=$frame->{master}->{blk};
-#
-#  $dst=$dst->[0];
-#
-#  my $v=$fr_blk->spop();
-#
-#  if($fr_ptr->valid($dst)) {
-#    $dst=$fr_ptr->fetch($dst);
-#    $dst->setv($v);
-#
-#  };
-#
-#};
+  my @inputs=();
+
+  for my $in_b($tree->branches_in(qr{^in$})) {
+
+    my @l=map {$ARG->{value}} @{$in_b->{leaves}};
+
+    my @data;
+    my $type='bare';
+    my $opt=0;
+
+    while(@l) {
+
+      if($l[0] eq '?') {
+        shift @l;
+        $opt=shift @l;
+
+      } elsif($l[0]=~ s{^\[([\s\S]+)\]$}{}sxgm) {
+        $type=$1;
+        shift @l;
+
+      } else {
+        push @data,@l;
+        last;
+
+      };
+
+    };
+
+    for my $key(@data) {
+      $code.='  uint64_t '.$key.'_id'.
+        q{=*buff++;}."\n";
+
+      $code.='  char* '.$key.'=get_keyw_or_val('.
+        $key."_id);\n";
+
+      push @inputs,$key;
+
+    };
+
+  };
 
 # ---   *   ---   *   ---
 
-#DEFINE 'push',$BUILTIN,sub {
-#
-#  my ($inskey,$frame,$src)=@_;
-#  my $fr_ptr=$frame->{master}->{ptr};
-#  my $fr_blk=$frame->{master}->{blk};
-#
-#  $src=$src->[0];
-#
-#  if($fr_ptr->valid($src)) {
-#    $src=$src->{addr};
-#
-#  };
-#
-#  $fr_blk->spush($src);
-#
-#};
+  if(defined (
+    my $out_b=$tree->branch_in(qr{^out$})
+
+  )) {
+
+    my @leaves=@{$out_b->{leaves}};
+    my @data=map {$ARG->{value}} @leaves;
+
+    map {
+
+      $ARG=~ s[\n][ ]sxgm;
+      $ARG=~ s[\s+][ ]sxgm;
+      $ARG=~ s[^,$][];
+
+      $ARG=~ s[^\(|\)$][]sxmg;
+
+    } @data;
+
+    array_filter(\@data);
+
+    my $data=join '\n',@data;
+
+    $data.='\n\n';
+    $fmat="\"$data\"\n";
+
+  };
 
 # ---   *   ---   *   ---
 
-#DEFINE 'inc',$BUILTIN,sub {
-#
-#  my ($inskey,$frame,$ptr)=@_;
-#  my $fr_ptr=$frame->{master}->{ptr};
-#
-#  $ptr=$ptr->[0];
-#
-#  $ptr=$fr_ptr->fetch($ptr);
-#  $ptr->setv($ptr->getv()+1);
-#
-#};
+  $code.='  printf(%FMAT%_STR'.
+    (','x(@inputs>0)).
+    (join ',',@inputs).
 
-# ---   *   ---   *   ---
+  ');';
 
-#DEFINE 'dec',$BUILTIN,sub {
-#
-#  my ($inskey,$frame,$ptr)=@_;
-#  my $fr_ptr=$frame->{master}->{ptr};
-#
-#  $ptr=$ptr->[0];
-#
-#  $ptr=$fr_ptr->fetch($ptr);
-#  $ptr->setv($ptr->getv()-1);
-#
-#};
+  if(length $code) {
+    $code=$FN_HED.$code;
+    $code.="\n}";
 
-# ---   *   ---   *   ---
+  };
 
-#DEFINE 'clr',$BUILTIN,sub {
-#
-#  my ($inskey,$frame,$ptr)=@_;
-#  my $fr_ptr=$frame->{master}->{ptr};
-#
-#  $ptr=$ptr->[0];
-#
-#  $ptr=$fr_ptr->fetch($ptr);
-#  $ptr->setv(0);
-#
-#};
+  $code.="\n";
 
-# ---   *   ---   *   ---
+  return ($fmat,$code);
 
-#DEFINE 'exit',$BUILTIN,sub {
-#
-#  my ($inskey,$frame,$val)=@_;
-#  my $master=$frame->{master};
-#
-#  $val=$val->[0];
-#
-#  # placeholder!
-#  printf sprintf "Exit code <0x%.2X>\n",$val;
-#  $master->setnxins(-2);
-#
-#};
-
-# ---   *   ---   *   ---
-
-#DEFINE 'reg',$DIRECTIVE,sub {
-#
-#  my ($inskey,$frame,$name)=@_;
-#
-#  my $fr_ptr=$frame->{master}->{ptr};
-#  my $fr_blk=$frame->{master}->{blk};
-#
-#  $name=$name->[0];
-#
-#  # get dst
-#  my $dst=($fr_blk->{dst}->{attrs})
-#    ? $fr_blk->{dst}->{parent}
-#    : $fr_blk->{dst}
-#    ;
-#
-## ---   *   ---   *   ---
-#
-#  my $blk;
-#
-#  # append new block to dst on first pass
-#  if($fr_blk->fpass()) {
-#    $blk=$fr_blk->nit(
-#      $dst,$name,$O_RD|$O_WR,
-#
-#    );
-#
-#  # second pass: look for block
-#  } else {
-#    $blk=$fr_ptr->fetch($name)->{blk};
-#
-#  };
-#
-## ---   *   ---   *   ---
-## overwrite dst
-#
-#  $fr_blk->{dst}=$blk;
-#  $fr_blk->setscope($blk);
-#  $fr_blk->setcurr($blk);
-#
-#};
-
-# ---   *   ---   *   ---
-
-#DEFINE 'clan',$DIRECTIVE,sub {
-#
-#  my ($inskey,$frame,$name)=@_;
-#
-#  my $fr_ptr=$frame->{master}->{ptr};
-#  my $fr_blk=$frame->{master}->{blk};
-#
-#  $name=$name->[0];
-#
-#  my $dst=$fr_blk->{non};
-#
-## ---   *   ---   *   ---
-#
-#  # is not global scope/root
-#  my $blk;if($name ne 'non') {
-#
-#    # first pass: create new block
-#    if($fr_blk->fpass()) {
-#      $blk=$fr_blk->nit(undef,$name);
-#
-#    # second pass: find block
-#    } else {
-#      $blk=$fr_ptr->fetch($name)->{blk};
-#
-#    };
-#
-## ---   *   ---   *   ---
-#
-#  # is global scope
-#  } else {$blk=$dst;};
-#
-#  $fr_blk->{dst}=$blk;
-#  $fr_blk->setcurr($blk);
-#
-#  return $blk;
-#
-#};
-
-# ---   *   ---   *   ---
-
-#DEFINE 'proc',$DIRECTIVE,sub {
-#
-#  my ($inskey,$frame,$name)=@_;
-#
-#  my $fr_ptr=$frame->{master}->{ptr};
-#  my $fr_blk=$frame->{master}->{blk};
-#
-#  $name=$name->[0];
-#
-#  # get dst
-#  my $dst=($fr_blk->{dst}->{attrs})
-#    ? $fr_blk->{dst}->{parent}
-#    : $fr_blk->{dst}
-#    ;
-#
-## ---   *   ---   *   ---
-#
-#  my $blk;
-#
-#  # append new block to dst on first pass
-#  if($fr_blk->fpass()) {
-#    $blk=$dst->nit(
-#      $dst,$name,$O_EX,
-#
-#    );
-#
-#  # second pass: look for block
-#  } else {
-#    $fr_ptr->fetch($name)->{blk};
-#
-#  };
-#
-## ---   *   ---   *   ---
-## overwrite dst
-#
-#  $fr_blk->{dst}=$blk;
-#  $fr_blk->setcurr($blk);
-#  $fr_blk->setscope($blk->scope);
-#
-#};
-
-# ---   *   ---   *   ---
-
-#DEFINE 'entry',$DIRECTIVE,sub {
-#
-#  my ($inskey,$frame,$blk)=@_;
-#  my $m=$frame->{master};
-#
-#  $blk=$blk->[0];
-#  $m->{entry}=$blk;
-#
-#};
-
-# ---   *   ---   *   ---
-
-#DEFINE 'jmp',$FCTL,sub {
-#
-#  my ($inskey,$frame,$ptr)=@_;
-#
-#  my $master=$frame->{master};
-#  my $fr_ptr=$master->{ptr};
-#
-#  $ptr=$ptr->[0];
-#
-## insid is DEPRECATED
-##
-##  # set instruction index to ptr loc
-##  $master->setnxins(
-##    $fr_ptr->fetch($ptr)->{blk}->insid
-##
-##  );
-#
-#};
-
-# ---   *   ---   *   ---
-
-#DEFINE 'wed',$INTRINSIC,sub {
-#
-#  my ($inskey,$frame,$type)=@_;
-#  my $fr_ptr=$frame->{master}->{ptr};
-#
-#  $type=$type->[0];
-#  $fr_ptr->wed($type);
-#
-#};
-
-# ---   *   ---   *   ---
-
-#DEFINE 'unwed',$INTRINSIC,sub {
-#
-#  my ($inskey,$frame)=@_;
-#  my $fr_ptr=$frame->{master}->{ptr};
-#
-#  $fr_ptr->wed(undef);
-#
-#};
-
-# ---   *   ---   *   ---
-# DEFS END
+};
 
 # ---   *   ---   *   ---
 
@@ -508,7 +329,7 @@ Lang::Peso->nit(
   ],
 
   specifiers=>[
-    keys %$SPECIFIER,
+    array_keys($SPECIFIER),
 
   ],
 
@@ -520,17 +341,17 @@ Lang::Peso->nit(
 # ---   *   ---   *   ---
 
   intrinsics=>[
-    keys %$INTRINSIC,
+    array_keys($INTRINSIC),
 
   ],
 
   directives=>[
-    keys %$DIRECTIVE,
+    array_keys($DIRECTIVE),
 
   ],
 
   fctls=>[
-    keys %$FCTL,
+    array_keys($FCTL),
 
   ],
 
@@ -541,13 +362,13 @@ Lang::Peso->nit(
     mem fre shift unshift
     kin sow reap sys stop
 
-  ),keys %$BUILTIN,
+  ),array_keys($BUILTIN),
 
   ],
 
 # ---   *   ---   *   ---
 
-  fn_key=>q{proc},
+  fn_key=>Lang::insens('proc'),
 
   fn_decl=>q{
 
@@ -584,8 +405,11 @@ sub hier_sort($self,$rd) {
   my $block=$rd->select_block($id);
   my $tree=$block->{tree};
 
-  my $nd_frame=$rd->{program}->{node};
-  my @branches=$tree->branches_in(qr{^reg$});
+  my $nd_frame=$tree->{frame};
+  my @branches=$tree->branches_in(
+    qr{^(?: reg|rom)$}xi
+
+  );
 
   my $i=0;
   my @scopes=();
@@ -616,10 +440,15 @@ sub hier_sort($self,$rd) {
     @children=@children[$idex_beg..$idex_end];
     @children=$tree->pluck(@children);
 
-    my $pkgroot=$nd_frame->nit(undef,$pkgname);
+    my $pkgroot=$nd_frame->nit(
+      undef,$branch->{value}
+
+    );
+
     push @scopes,$pkgroot;
 
     $pkgroot->pushlv(@children);
+    $pkgroot->{leaves}->[0]->flatten_branch();
     $i++;
 
 # ---   *   ---   *   ---

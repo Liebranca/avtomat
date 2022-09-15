@@ -125,7 +125,7 @@ Lang::fasm->nit(
     @[@rb]
 
     jmp near far short
-    jl jg je jne
+    jn?[lgez]e?
 
     call syscall
     enter leave

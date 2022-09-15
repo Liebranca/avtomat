@@ -595,6 +595,21 @@ sub nxtok($s,$cutat) {
 };
 
 # ---   *   ---   *   ---
+
+sub insens($s) {
+
+  my $out=$NULLSTR;
+
+  for my $c(split $NULLSTR,$s) {
+    $out.=q{[}.(lc $c).(uc $c).q{]}
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # book-keeping
 
 my %LANGUAGES=();

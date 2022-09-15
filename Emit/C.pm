@@ -289,6 +289,14 @@ sub datasec($class,$name,$type,@items) {
 
 # ---   *   ---   *   ---
 
+sub ifchain($class,$name,%O) {
+
+  
+
+};
+
+# ---   *   ---   *   ---
+
 sub xltab(%table) {
 
   for my $key(qw(byte_str wide_str)) {
