@@ -35,11 +35,13 @@ package Lang::Peso;
 
   use Peso::Ops;
   use Peso::Defs;
-#  use Peso::Blk;
 
 # ---   *   ---   *   ---
 
 BEGIN {
+
+my $NUMS=$Lang::Def::DEFAULTS{nums};
+$NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
 
 # ---   *   ---   *   ---
 # builtins and functions, group A
@@ -212,8 +214,11 @@ sub mini_ipret($self,$rd,$tree) {
 
   ;
 
+  state $QDQ_RE=qr{['"]}x;
+
   my $fmat='""';
   my $code=$NULLSTR;
+  my $code_epi=$NULLSTR;
 
   $rd->recurse($tree);
 
@@ -262,6 +267,24 @@ sub mini_ipret($self,$rd,$tree) {
 
 # ---   *   ---   *   ---
 
+  for my $xform($tree->branches_in(qr{^xform$})) {
+
+    my @data=map {$ARG->{value}} @{
+      $xform->{leaves}
+
+    };
+
+    array_filter(\@data,sub {$ARG ne ','});
+    my $fn=shift @data;
+    my $dst=$data[0];
+
+    $code.=q{  }.
+      $fn.'('.(join ',',@data).");\n";
+
+  };
+
+# ---   *   ---   *   ---
+
   if(defined (
     my $out_b=$tree->branch_in(qr{^out$})
 
@@ -283,9 +306,35 @@ sub mini_ipret($self,$rd,$tree) {
     array_filter(\@data);
 
     my $data=join '\n',@data;
+    $fmat="\"$data".'\n'."\"";
 
-    $data.='\n\n';
-    $fmat="\"$data\"\n";
+  };
+
+# ---   *   ---   *   ---
+
+  my @cuts=split m[%BLK%],$fmat;
+  array_filter(\@cuts);
+
+  if(@cuts) {
+
+    for my $c(@cuts) {
+      $c=~ s{$QDQ_RE}{}sxmg;
+      $c="\"$c".'\n'."\"";
+
+    };
+
+    $code.='  char* cuts[]={'.
+      (join ',',@cuts).
+
+    "};\n";
+
+    $code.='  char* %FMAT%_STR=str_isert('.
+      'pe_blk_name,cuts,'.int(@cuts).
+
+    ");\n";
+
+  } else {
+    $code='char* %FMAT%_STR='.$fmat.";\n";
 
   };
 
@@ -305,7 +354,7 @@ sub mini_ipret($self,$rd,$tree) {
 
   $code.="\n";
 
-  return ($fmat,$code);
+  return $code;
 
 };
 
@@ -320,6 +369,7 @@ Lang::Peso->nit(
   mag=>'$ program',
 
   op_prec=>$Peso::Ops::TABLE,
+  nums=>$NUMS,
 
 # ---   *   ---   *   ---
 
@@ -328,10 +378,7 @@ Lang::Peso->nit(
 
   ],
 
-  specifiers=>[
-    array_keys($SPECIFIER),
-
-  ],
+  specifiers=>[@$SPECIFIER],
 
   resnames=>[qw(
     self other null non
@@ -340,20 +387,11 @@ Lang::Peso->nit(
 
 # ---   *   ---   *   ---
 
-  intrinsics=>[
-    array_keys($INTRINSIC),
+  intrinsics=>[@$INTRINSIC],
 
-  ],
+  directives=>[@$DIRECTIVE],
 
-  directives=>[
-    array_keys($DIRECTIVE),
-
-  ],
-
-  fctls=>[
-    array_keys($FCTL),
-
-  ],
+  fctls=>[@$FCTL],
 
 # ---   *   ---   *   ---
 
@@ -362,7 +400,7 @@ Lang::Peso->nit(
     mem fre shift unshift
     kin sow reap sys stop
 
-  ),array_keys($BUILTIN),
+  ),@$BUILTIN,
 
   ],
 

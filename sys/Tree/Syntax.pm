@@ -65,6 +65,20 @@ sub nit($class,$frame,@args) {
 
 # ---   *   ---   *   ---
 
+sub leaf_list($self,$start=1,$sep=qr{^,$}) {
+
+  my @pending=@{$self->{leaves}};
+  @pending=@pending[$start..$#pending];
+
+  return [grep {!($ARG=~ $sep)} (
+    map {$ARG->{value}} @pending
+
+  )];
+
+};
+
+# ---   *   ---   *   ---
+
 sub tokenize($self) {
 
   my $body=$self->{value};

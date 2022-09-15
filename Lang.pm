@@ -605,7 +605,7 @@ sub insens($s) {
 
   };
 
-  return $out;
+  return '('.$out.')';
 
 };
 
