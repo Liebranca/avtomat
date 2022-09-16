@@ -325,7 +325,9 @@ sub subdiv($self) {
 
 # ---   *   ---   *   ---
 
-    };if(@move) {
+    };
+
+    if(@move) {
 
       my $prio
 
@@ -377,7 +379,9 @@ sub subdiv($self) {
 
 # ---   *   ---   *   ---
 
-  };if(@leaves) {
+  };
+
+  if(@leaves) {
 
     $root=shift @leaves;
     goto TOP;

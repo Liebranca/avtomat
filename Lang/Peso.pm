@@ -79,6 +79,11 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
     Lang::insens('nocase'),
     Lang::insens('case'),
 
+    # ipret layer
+    Lang::insens('def'),
+    Lang::insens('redef'),
+    Lang::insens('undef'),
+
   ];
 
 # ---   *   ---   *   ---
@@ -86,8 +91,13 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
   Readonly my $FCTL=>[
 
     Lang::insens('jmp'),
+    Lang::insens('jif'),
+    Lang::insens('eif'),
+
     Lang::insens('on'),
+    Lang::insens('then'),
     Lang::insens('or'),
+    Lang::insens('off'),
 
     Lang::insens('call'),
     Lang::insens('ret'),
@@ -96,8 +106,6 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
   ];
 
 # ---   *   ---   *   ---
-# missing/needs rethinking:
-# str,buf,fptr,lis,lock
 
   Readonly my $INTRINSIC=>[
 
@@ -108,6 +116,8 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
     Lang::insens('in'),
     Lang::insens('out'),
     Lang::insens('xform'),
+
+    Lang::insens('defd'),
 
   ];
 
@@ -197,6 +207,94 @@ sub reorder($self,$tree) {
 
     };
 
+# ---   *   ---   *   ---
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub expsplit($self,$tree) {
+
+  my $op=$self->{ops};
+  my $keyword=$self->{keyword_re};
+
+  my @pending=@{$tree->{leaves}};
+
+  my $anchor=undef;
+
+  while(@pending) {
+
+    my $nd=shift @pending;
+    my $is_op=$nd->{value}=~ m[^$op$];
+
+# ---   *   ---   *   ---
+
+    if($is_op && defined $anchor) {
+
+      $anchor->{parent}->idextrav();
+
+      my $beg=$anchor->{idex};
+      my $end=$nd->{idex};
+
+      my @ar=$nd->{parent}->leaves_between(
+        $beg,$end
+
+      );
+
+      $anchor->pushlv(@ar);
+      $anchor=undef;
+
+# ---   *   ---   *   ---
+
+    } elsif(
+
+       !defined $anchor
+    || $anchor->{parent} != $nd->{parent}
+
+    ) {
+
+      if(defined $anchor) {
+
+        $anchor->{parent}->idextrav();
+
+        my $beg=$anchor->{idex};
+        my $end=$anchor->{parent}
+          ->match_from($anchor,qr{^;$});
+
+        if(!defined $end) {
+
+          $end=$anchor->{parent}
+            ->{leaves}->[-1];
+
+          $end=$end->{idex}+1;
+
+        } else {
+          $end=$end->{idex};
+
+        };
+
+        my @ar=$anchor->{parent}
+          ->leaves_between($beg,$end);
+
+        $anchor->pushlv(@ar);
+
+      };
+
+# ---   *   ---   *   ---
+
+      if($nd->{value}=~ m[^$keyword$]) {
+        $anchor=$nd;
+
+      };
+
+# ---   *   ---   *   ---
+
+    };
+
+    unshift @pending,@{$nd->{leaves}};
+
   };
 
 };
@@ -221,6 +319,10 @@ sub mini_ipret($self,$rd,$tree) {
   my $code_epi=$NULLSTR;
 
   $rd->recurse($tree);
+  $self->expsplit($tree);
+
+  $tree->subdiv();
+  $tree->prich();
 
 # ---   *   ---   *   ---
 
@@ -232,7 +334,8 @@ sub mini_ipret($self,$rd,$tree) {
 
     my @data;
     my $type='bare';
-    my $opt=0;
+
+    my $opt;
 
     while(@l) {
 
@@ -252,6 +355,10 @@ sub mini_ipret($self,$rd,$tree) {
 
     };
 
+# ---   *   ---   *   ---
+
+    push @data,$opt if !@data && defined $opt;
+
     for my $key(@data) {
       $code.='  uint64_t '.$key.'_id'.
         q{=*buff++;}."\n";
@@ -263,9 +370,9 @@ sub mini_ipret($self,$rd,$tree) {
 
     };
 
-  };
-
 # ---   *   ---   *   ---
+
+  };
 
   for my $xform($tree->branches_in(qr{^xform$})) {
 

@@ -757,6 +757,7 @@ sub to_string($self,%O) {
 sub leaves_between($self,$i0,$i1,@branches) {
 
   my @leaves=@{$self->{leaves}};
+  @branches=@leaves if !@branches;
 
   my $cur=$branches[$i0];
   my $ahead=$branches[$i1];
@@ -773,6 +774,32 @@ sub leaves_between($self,$i0,$i1,@branches) {
   };
 
   return @leaves[$beg+1..$end];
+
+};
+
+# ---   *   ---   *   ---
+# similar to branch_in, except it looks within
+# it's own leaves starting at a child's idex
+
+sub match_from($self,$ch,$pat) {
+
+  my @pending=@{$self->{leaves}};
+  @pending=@pending[$ch->{idex}+1..$#pending];
+
+  my $out=undef;
+
+  while(@pending) {
+
+    $self=shift @pending;
+    if($self->{value}=~ $pat) {
+      $out=$self;
+      last;
+
+    };
+
+  };
+
+  return $out;
 
 };
 
@@ -837,6 +864,11 @@ sub prich($self,%O) {
 # check value is an operator (node_op 'class')
 
     my $v=$self->{value};
+    $v=($v=~ m[node_op=HASH])
+      ? $self->{value}->{op}
+      : $v
+      ;
+
     $mess.=$branch."$v\n";
 
     next if($depth>=$O{max_depth});
