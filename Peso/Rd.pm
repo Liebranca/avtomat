@@ -32,7 +32,7 @@ package Peso::Rd;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Lang;
-  use Peso::Ex;
+  use Tree::Syntax;
 
 # ---   *   ---   *   ---
 # info
@@ -43,15 +43,14 @@ package Peso::Rd;
 # ---   *   ---   *   ---
 # constructor
 
-sub nit($class,$ex,$fname,%opts) {
+sub nit($class,$lang,$fname,%opts) {
 
   my $rd=bless {
 
-    ex=>$ex,
-    lang=>$ex->{lang},
+    lang=>$lang,
 
     blocks=>Shwl::codefold(
-      $fname,$ex->{lang},%opts
+      $fname,$lang,%opts
 
     ),
 
@@ -122,7 +121,7 @@ sub tokenizer($self,$body,$root=undef) {
 # ---   *   ---   *   ---
 # convert the string into a tree branch
 
-  my $nd_frame=$self->{ex}->{node};
+  my $nd_frame=Tree::Syntax->get_frame();
   for my $exp(@exps) {
 
     $exp=$nd_frame->nit($root,$exp);
@@ -215,13 +214,12 @@ TOP:
 
 sub parse($lang,$fname,%opts) {
 
-  my $m=Peso::Ex->nit($lang);
-  my $self=Peso::Rd->nit($m,$fname,%opts);
+  my $self=Peso::Rd->nit($lang,$fname,%opts);
 
 # ---   *   ---   *   ---
 # make tree from block data
 
-  my $nd_frame=$m->{node};
+  my $nd_frame=Tree::Syntax->get_frame();
   for my $id(keys %{$self->{blocks}}) {
 
     my $root=$nd_frame->nit(undef,$id);
@@ -243,7 +241,7 @@ sub parse($lang,$fname,%opts) {
 
   my $top=$root->{leaves}->[-1];
 
-  if($top->{value}=~ $m->{lang}->{strip_re}) {
+  if($top->{value}=~ $lang->{strip_re}) {
     $root->pluck($top);
 
   };

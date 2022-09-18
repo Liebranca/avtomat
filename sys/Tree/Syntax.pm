@@ -431,7 +431,7 @@ sub collapse($self,%opt) {
       if(
 
          defined $only_if
-      && !($self->{value}->{op}=~ m/^$only_if/)
+      && !($self->{value}->{op}=~ m/^$only_if$/)
 
       ) {goto SKIP};
 
@@ -466,7 +466,7 @@ SKIP:
 
       if(!$opt{no_numcon}) {
 
-      for my $key(keys %{$lang->nums}) {
+      for my $key(keys %{$lang->{nums}}) {
         $lang->numcon(\$arg->{value});
 
       }};$arg=\$arg->{value};
