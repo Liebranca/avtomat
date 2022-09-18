@@ -24,8 +24,11 @@ package Lang::Peso;
   use lib $ENV{'ARPATH'}.'/lib/sys';
 
   use Style;
+
   use Arstd;
   use Arstd::Array;
+  use Arstd::IO;
+
   use Type;
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -35,6 +38,8 @@ package Lang::Peso;
 
   use Peso::Ops;
   use Peso::Defs;
+
+  use Peso::Rd;
 
 # ---   *   ---   *   ---
 
@@ -83,6 +88,10 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
     Lang::insens('def'),
     Lang::insens('redef'),
     Lang::insens('undef'),
+
+    # preproc
+    Lang::insens('lib'),
+    Lang::insens('import'),
 
   ];
 
@@ -190,9 +199,15 @@ sub reorder($self,$tree) {
 
       };
 
-      if($leaf->{parent} ne $anchor) {
-        ($leaf)=$leaf->{parent}->pluck($leaf);
-        $anchor->pushlv($leaf);
+      if(
+
+         defined $anchor
+      && $leaf->{parent} ne $anchor
+
+      ) {
+
+#        ($leaf)=$leaf->{parent}->pluck($leaf);
+#        $anchor->pushlv($leaf);
 
       };
 
@@ -207,7 +222,77 @@ sub reorder($self,$tree) {
 
     };
 
+  };
+
+};
+
 # ---   *   ---   *   ---
+
+sub preproc($self,$tree) {
+
+  state $lib_re=qr{^lib$}ix;
+  state $imp_re=qr{^import$}ix;
+  state $dcolon_re=qr{::}x;
+
+  for my $branch($tree->branches_in($lib_re)) {
+
+    my $beg=$branch->{idex};
+    my $par=$branch->{parent};
+
+    my ($env,$subdir)=map {
+      $ARG->{value}
+
+    } @{$branch->{leaves}};
+
+    my $path=$ENV{$env}.rmquotes($subdir);
+
+    my $imp_nd=$par->match_from(
+      $branch,$imp_re
+
+    );
+
+    if(!defined $imp_nd) {
+
+      errout(
+        q{No matching 'import' directive }.
+        q{for lib call on %s},
+
+        args=>[$path],
+        lvl=>$AR_FATAL
+
+      );
+
+      exit(1);
+
+    };
+
+# ---   *   ---   *   ---
+
+    my @uses=$par->leaves_between(
+      $beg,$imp_nd->{idex}
+
+    );
+
+    @uses=grep {$ARG->{value} ne ';'} @uses;
+
+    for my $f(@uses) {
+
+      my ($ext,$name)=(
+        $f->{leaves}->[0]->{value},
+        $f->{leaves}->[1]->{value},
+
+      );
+
+      $name=~ s[$dcolon_re][/]sxmg;
+
+      my $fpath=$path.$name.rmquotes($ext);
+
+      my $rd=Peso::Rd::parse($self,$fpath);
+      my $blk=$rd->select_block(-ROOT);
+
+      $blk->{tree}->prich();
+
+    };
 
   };
 
@@ -216,6 +301,8 @@ sub reorder($self,$tree) {
 # ---   *   ---   *   ---
 
 sub expsplit($self,$tree) {
+
+  state $scopers=qr/\b(clan|reg|rom|proc)\b/i;
 
   my $op=$self->{ops};
   my $keyword=$self->{keyword_re};
@@ -227,11 +314,22 @@ sub expsplit($self,$tree) {
   while(@pending) {
 
     my $nd=shift @pending;
+
+    if($nd->{value}=~ $scopers) {
+      goto TAIL;
+
+    };
+
     my $is_op=$nd->{value}=~ m[^$op$];
 
 # ---   *   ---   *   ---
 
-    if($is_op && defined $anchor) {
+    if(
+
+       $is_op && defined $anchor
+    && $anchor->{parent}==$nd->{parent}
+
+    ) {
 
       $anchor->{parent}->idextrav();
 
@@ -293,6 +391,8 @@ sub expsplit($self,$tree) {
 
     };
 
+TAIL:
+
     unshift @pending,@{$nd->{leaves}};
 
   };
@@ -319,10 +419,13 @@ sub mini_ipret($self,$rd,$tree) {
   my $code_epi=$NULLSTR;
 
   $rd->recurse($tree);
-  $self->expsplit($tree);
 
+  $self->expsplit($tree);
   $tree->subdiv();
-  $tree->prich();
+
+  $self->preproc($tree);
+
+  return;
 
 # ---   *   ---   *   ---
 
@@ -354,6 +457,8 @@ sub mini_ipret($self,$rd,$tree) {
       };
 
     };
+
+
 
 # ---   *   ---   *   ---
 

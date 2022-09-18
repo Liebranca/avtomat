@@ -47,6 +47,18 @@ package Lang;
   use Chk;
 
 # ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT=qw(rmquotes);
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION=v1.02.5;
+  our $AUTHOR='IBN-3DILA';
+
+# ---   *   ---   *   ---
 # ROM
 
   Readonly our $OP_L=>0x01;
@@ -88,6 +100,10 @@ package Lang;
   Readonly my $VT_CLAN_DEF=>0x8000|$VT_XPR;
 
 # ---   *   ---   *   ---
+
+  Readonly my $RM_QUOTES_RE=>qr{^["']+|["']+$}x;
+
+# ---   *   ---   *   ---
 # regex tools
 
 # in:pattern
@@ -98,6 +114,13 @@ sub lescap($s) {
     $s=~ s/\Q${ c }/\\${ c }/g;
 
   };return $s;
+
+};
+
+sub rmquotes($s) {
+
+  $s=~ s[$RM_QUOTES_RE][]sxmg;
+  return $s;
 
 };
 
