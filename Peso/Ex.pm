@@ -25,7 +25,10 @@ package Peso::Ex;
   use Style;
 
   use Arstd;
+  use Arstd::Array;
   use Arstd::IO;
+
+  use Type;
 
   use Tree::Syntax;
   use Peso::Rd;
@@ -45,6 +48,11 @@ package Peso::Ex;
   my $peso=Lang->Peso;
 
 # ---   *   ---   *   ---
+# ROM
+
+  my $Lan={};
+
+# ---   *   ---   *   ---
 # global kick
 
 sub nit($class) {
@@ -52,7 +60,14 @@ sub nit($class) {
   my $self=bless {
 
     loaded=>[],
+
     defs=>{},
+
+    clans=>{},
+    procs=>{},
+
+    regs=>{},
+    roms=>{},
 
     nxins=>undef,
     pass=>0,
@@ -290,6 +305,185 @@ TAIL:
     unshift @pending,@{$nd->{leaves}};
 
   };
+
+};
+
+# ---   *   ---   *   ---
+
+sub lan_blocks($self,$tree) {
+
+  $self->lan_proc($tree);
+
+};
+
+# ---   *   ---   *   ---
+# analize proc body and format it for
+# later execution
+
+sub lan_proc($self,$tree) {
+
+  my $pat=$peso->{exp_bound};
+
+  for my $branch($tree
+    ->branches_in(qr{^proc$}i)
+
+  ) {
+
+    my $i=0;
+    my $j=0;
+
+    my $proc_n;
+    my $proc_t;
+
+    my @proc_b=();
+
+    while(defined (
+      my $leaf=$branch->{leaves}->[$i]
+
+    )) {
+
+      my @input=$branch->match_until(
+        $leaf,$pat,\$i
+
+      );
+
+      if(!$j) {
+        ($proc_n,$proc_t)=map {
+          $ARG->{value}
+
+        } @input;
+
+      } else {
+        push @proc_b,@input;
+
+      };
+
+      $j++;
+
+    };
+
+# ---   *   ---   *   ---
+
+    $self->{procs}->{$proc_n}={
+
+      name=>$proc_n,
+      body=>\@proc_b,
+
+      addr=>undef,
+      args=>[],
+
+    };
+
+  };
+
+  for my $proc_n(keys %{$self->{procs}}) {
+
+    my $proc=$self->{procs}->{$proc_n};
+
+    for my $ins(@{$proc->{body}}) {
+
+      my $sbl=$Lan->{Sbl_Proc}->{$ins->{value}};
+      my @input=@{$ins->{leaves}};
+
+      if(defined $sbl) {
+        $sbl->($self,$proc,@input);
+
+      };
+
+    };
+
+    say $proc_n;
+    if(!@{$proc->{args}}) {
+      say "No inputs\n";
+      next;
+
+    };
+
+    my @keys=array_keys($proc->{args});
+    my @values=array_values($proc->{args});
+
+    while(@keys && @values) {
+
+      my $key=shift @keys;
+      my $vinfo=shift @values;
+
+      my ($type,$value)=@$vinfo;
+
+      $value//='undef';
+
+      printf "%-23s %-16s %-24s\n",
+
+        $key,
+
+        $type->{name},
+        $value
+      ;
+
+    };
+
+    print "\n";
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub test_in($self,$host,@leaves) {
+
+  my $keyw=$peso->{keyword_re};
+  my $spec=$peso->{specifiers}->{re};
+
+  my ($type,$name,$value);
+  my $i=0;
+
+  while(@leaves) {
+
+    my $nd=shift @leaves;
+    my $x=$nd->{value};
+
+    if($i==0) {
+
+      if(!($x=~ m[$keyw])) {$i++} else {
+
+        if(!length $type) {$type=$x} else {
+          $type.="_$x";
+
+        };
+
+      };
+
+    };
+
+    if($i==1) {$name=$x;$i++}
+    elsif($i==2) {$value=$x};
+
+    unshift @leaves,@{$nd->{leaves}};
+
+  };
+
+# ---   *   ---   *   ---
+
+  $type=$Type::Table->{$type};
+
+  errout(
+    q{Invalid type: '%s'},
+
+    args=>[$type],
+    lvl=>$AR_FATAL,
+
+
+  ) unless defined $type;
+
+  push @{$host->{args}},$name=>[$type,$value];
+
+};
+
+# ---   *   ---   *   ---
+
+$Lan->{Sbl_Proc}={
+
+  'in'=>\&test_in,
 
 };
 

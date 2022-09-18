@@ -142,94 +142,6 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
   ];
 
 # ---   *   ---   *   ---
-# UTILS
-
-# ---   *   ---   *   ---
-# sets up nodes such that:
-#
-# >clan
-# \-->reg
-# .  \-->proc
-# .
-# .
-# \-->reg
-# .
-# >clan
-
-sub hier_sort($self,$tree) {
-
-  my $root=$tree;
-
-  my $anchor=$root;
-  my @anchors=($root,undef,undef,undef);
-
-  my $scopers=qr/\b(clan|reg|rom|proc)\b/i;
-
-# ---   *   ---   *   ---
-# iter tree
-
-  for my $leaf(@{$tree->{leaves}}) {
-    if($leaf->{value}=~ $scopers) {
-      my $match=$1;
-
-# ---   *   ---   *   ---
-
-      if(@anchors) {
-        if($match=~ m[^clan$]i) {
-          $anchors[1]=$leaf;
-          $anchor=$root;
-
-# ---   *   ---   *   ---
-
-        } elsif($match=~ m[^(?:reg|rom)$]i) {
-          $anchor=$anchors[1];
-          $anchor//=$anchors[0];
-          @anchors[2]=$leaf;
-
-# ---   *   ---   *   ---
-
-        } elsif($match=~ m[^proc$]i) {
-          $anchor=$anchors[2];
-          $anchor//=$anchors[1];
-          $anchor//=$anchors[0];
-
-          @anchors[3]=$leaf;
-
-        };
-
-# ---   *   ---   *   ---
-# move node and reset anchor
-
-      };
-
-      if(
-
-         defined $anchor
-      && $leaf->{parent} ne $anchor
-
-      ) {
-
-        ($leaf)=$leaf->{parent}->pluck($leaf);
-        $anchor->pushlv($leaf);
-
-      };
-
-      $anchor=$leaf;
-
-# ---   *   ---   *   ---
-# node doesn't modify anchor
-
-    } elsif($leaf->{parent} ne $anchor) {
-      ($leaf)=$leaf->{parent}->pluck($leaf);
-      $anchor->pushlv($leaf);
-
-    };
-
-  };
-
-};
-
-# ---   *   ---   *   ---
 # executes a small subset of peso
 
 sub mini_ipret($self,$rd,$tree) {
@@ -469,6 +381,91 @@ Lang::Peso->nit(
 # ---   *   ---   *   ---
 
 )};
+
+# ---   *   ---   *   ---
+# sets up nodes such that:
+#
+# >clan
+# \-->reg
+# .  \-->proc
+# .
+# .
+# \-->reg
+# .
+# >clan
+
+sub hier_sort($self,$tree) {
+
+  my $root=$tree;
+
+  my $anchor=$root;
+  my @anchors=($root,undef,undef,undef);
+
+  my $scopers=qr/\b(clan|reg|rom|proc)\b/i;
+
+# ---   *   ---   *   ---
+# iter tree
+
+  for my $leaf(@{$tree->{leaves}}) {
+    if($leaf->{value}=~ $scopers) {
+      my $match=$1;
+
+# ---   *   ---   *   ---
+
+      if(@anchors) {
+        if($match=~ m[^clan$]i) {
+          $anchors[1]=$leaf;
+          $anchor=$root;
+
+# ---   *   ---   *   ---
+
+        } elsif($match=~ m[^(?:reg|rom)$]i) {
+          $anchor=$anchors[1];
+          $anchor//=$anchors[0];
+          @anchors[2]=$leaf;
+
+# ---   *   ---   *   ---
+
+        } elsif($match=~ m[^proc$]i) {
+          $anchor=$anchors[2];
+          $anchor//=$anchors[1];
+          $anchor//=$anchors[0];
+
+          @anchors[3]=$leaf;
+
+        };
+
+# ---   *   ---   *   ---
+# move node and reset anchor
+
+      };
+
+      if(
+
+         defined $anchor
+      && $leaf->{parent} ne $anchor
+
+      ) {
+
+        ($leaf)=$leaf->{parent}->pluck($leaf);
+        $anchor->pushlv($leaf);
+
+      };
+
+      $anchor=$leaf;
+
+# ---   *   ---   *   ---
+# node doesn't modify anchor
+
+    } elsif($leaf->{parent} ne $anchor) {
+      ($leaf)=$leaf->{parent}->pluck($leaf);
+      $anchor->pushlv($leaf);
+
+    };
+
+  };
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

@@ -804,6 +804,38 @@ sub match_from($self,$ch,$pat) {
 };
 
 # ---   *   ---   *   ---
+# ^returns range of leaves
+# from child up to match
+
+sub match_until($self,$ch,$pat,$iref) {
+
+  my @pending=@{$self->{leaves}};
+  @pending=@pending[$ch->{idex}..$#pending];
+
+  my @out=();
+  my @path=();
+
+  while(@pending) {
+
+    $self=shift @pending;
+    $$iref++;
+
+    if($self->{value}=~ $pat) {
+      @out=@path;
+      last;
+
+    } else {
+      push @path,$self;
+
+    };
+
+  };
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
 # print node leaves
 
 sub prich($self,%O) {
