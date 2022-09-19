@@ -469,9 +469,25 @@ SKIP:
       for my $key(keys %{$lang->{nums}}) {
         $lang->numcon(\$arg->{value});
 
-      }};$arg=\$arg->{value};
+      }};
+
+# ---   *   ---   *   ---
+# value itself is a reference
+
+      if($arg->{value}=~ m{SCALAR\(
+        0x[0-9A-Fa-f]+
+
+      \)}x) {
+
+        $arg=$arg->{value};
+
+      } else {
+        $arg=\$arg->{value};
+
+      };
 
     };
+
 # ---   *   ---   *   ---
 
     $self->{value}=$op->[$idex]->[1]->(@args);

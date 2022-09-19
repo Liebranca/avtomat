@@ -311,15 +311,50 @@ TAIL:
 
 # ---   *   ---   *   ---
 
-sub run_ins_sl($self,$proc,$H,@body) {
+sub run_ins_sl($self,$proc,$H,$start) {
 
-  for my $ins(@body) {
+  my $i=0;
+  my $root=$start->{parent};
+
+  my @ran=();
+
+  while(defined(
+    my $ins=$root->{leaves}->[$i]
+
+  )) {
 
     my $sbl=$H->{$ins->{value}};
     my @input=@{$ins->{leaves}};
 
     if(defined $sbl) {
       $sbl->($self,$proc,@input);
+      push @ran,$ins;
+
+    };
+
+    $i++;
+
+  };
+
+  return @ran;
+
+};
+
+sub run_blocks_sl($self,$procs,$H,%O) {
+
+  # defaults
+  $O{plucking}//=0;
+
+  for my $proc_n(keys %{$procs}) {
+    my $proc=$procs->{$proc_n};
+
+    my @ran=$self->run_ins_sl(
+      $proc,$H,$proc->{start}
+
+    );
+
+    if($O{plucking}) {
+      $proc->{branch}->pluck(@ran);
 
     };
 
@@ -327,32 +362,82 @@ sub run_ins_sl($self,$proc,$H,@body) {
 
 };
 
-sub run_block_sl($self,$procs,$H) {
+# ---   *   ---   *   ---
 
-  for my $proc_n(keys %{$procs}) {
-    my $proc=$procs->{$proc_n};
+sub call($self,$key,@args) {
 
-    $self->run_ins_sl(
-      $proc,$H,
-      @{$proc->{body}}
+  my $proc=$self->{procs}->{$key};
 
-    );
+  my @keys=array_keys($proc->{args});
+  my @values=array_values($proc->{args});
 
-  };
-
-};
+  my %pass=();
 
 # ---   *   ---   *   ---
 
-sub run_blocks($self,$tree) {
+  while(@keys && @values) {
 
-  $self->run_block_sl(
-    $self->{procs},
-    $Lan->{Sbl_Common},
+    my $arg_n=shift @keys;
+    my ($type,$default)=@{(shift @values)};
+
+    my $value=shift @args;
+
+    # value missing for mandatory arg
+    if(!defined $default && !defined $value) {
+
+      errout(
+        q[Arg '%s' of %s is not optional],
+
+        args=>[$arg_n,$key],
+        lvl=>$AR_FATAL,
+
+      );
+
+    };
+
+    # ^implicit else: assign default value
+    $value//=$default;
+    $pass{$arg_n}=$value;
+
+  };
+
+# ---   *   ---   *   ---
+# replace argname with values
+
+  $proc->{-r_args}=\%pass;
+
+  $proc->{-r_args_re}=Lang::hashpat(
+    $proc->{-r_args}
 
   );
 
-  $tree->prich();
+  for my $mention($proc->{branch}
+    ->branches_in(qr{^$proc->{-r_args_re}$})
+
+  ) {
+
+    my $arg_n=$mention->{value};
+
+    $mention->{value}=
+      \$proc->{-r_args}->{$arg_n};
+
+  };
+
+# ---   *   ---   *   ---
+# execute this branch
+
+  $self->run_ins_sl(
+
+    $proc,
+
+    $Lan->{Sbl_Common},
+    $proc->{start},
+
+  );
+
+  # cleanup
+  delete $proc->{-r_args_re};
+  delete $proc->{-r_args};
 
 };
 
@@ -361,6 +446,7 @@ sub run_blocks($self,$tree) {
 sub lan_blocks($self,$tree) {
 
   $self->lan_proc($tree);
+  $self->{tree}=$tree;
 
 };
 
@@ -383,7 +469,7 @@ sub lan_proc($self,$tree) {
     my $proc_n;
     my $proc_t;
 
-    my @proc_b=();
+    my $proc_s;
 
     while(defined (
       my $leaf=$branch->{leaves}->[$i]
@@ -391,18 +477,21 @@ sub lan_proc($self,$tree) {
     )) {
 
       my @input=$branch->match_until(
-        $leaf,$pat,\$i
+        $leaf,$pat,
+
+        iref=>\$i,
+        inclusive=>0,
 
       );
 
       if(!$j) {
         ($proc_n,$proc_t)=map {
-          $ARG->{value}
+          rmquotes($ARG->{value})
 
         } @input;
 
-      } else {
-        push @proc_b,@input;
+      } elsif($j==1) {
+        $proc_s=$input[0];
 
       };
 
@@ -415,7 +504,7 @@ sub lan_proc($self,$tree) {
     $self->{procs}->{$proc_n}={
 
       name=>$proc_n,
-      body=>\@proc_b,
+      start=>$proc_s,
 
       addr=>undef,
       args=>[],
@@ -437,9 +526,11 @@ sub lan_proc($self,$tree) {
 
 # ---   *   ---   *   ---
 
-  $self->run_block_sl(
+  $self->run_blocks_sl(
     $self->{procs},
     $Lan->{Sbl_Proc},
+
+    plucking=>1,
 
   );
 
@@ -500,8 +591,6 @@ sub proc_in($self,$host,@leaves) {
   $host->{stack_sz}+=$type->{size};
   push @{$host->{args}},$name=>[$type,$value];
 
-  $root->{parent}->pluck($root);
-
 };
 
 # ---   *   ---   *   ---
@@ -519,7 +608,7 @@ sub cm_defd($self,$host,@leaves) {
   my $key=$leaves[0]->{value};
   my $root=$leaves[0]->{parent};
 
-  $root->{value}=exists $self->{$key};
+  $root->{value}=int(exists $self->{defs}->{$key});
   $root->pluck(@{$root->{leaves}});
 
 };
@@ -548,37 +637,68 @@ sub cm_on($self,$host,@leaves) {
   while(@leaves) {
 
     my $nd=pop @leaves;
+
     push @body,$nd if $nd->{value}=~ m[$CM_RE];
     push @leaves,@{$nd->{leaves}};
 
   };
 
-  run_ins_sl(
+  for my $start(@body) {
 
-    $self,$host,
-    $Lan->{Sbl_Common},
+    run_ins_sl(
 
-    @body
+      $self,$host,
+      $Lan->{Sbl_Common},
 
-  );
+      $start,
+
+    );
+
+  };
 
 # ---   *   ---   *   ---
 
   $root->collapse();
 
   my $i=$root->{idex};
+
   my $mfrom=$root->{parent}->{leaves}
     ->[$root->{idex}+1];
 
   my @block=$root->{parent}->match_until(
-    $mfrom,qr{^(?: off|on|or)$}xi,\$i
+
+    $mfrom,qr{^(?: off|on|or)$}xi,
+
+    iref=>\$i,
+    inclusive=>1,
 
   );
 
-  map {$ARG->prich()} @block;
+  if($block[-1]->{value}=~ m[^(?: on|or)$]xi) {
+    pop @block;
+
+  };
 
   if(!$root->leaf_value(0)) {
     $root->{parent}->pluck(@block);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub cm_out($self,$host,@leaves) {
+
+  state $out_parens=qr{^\(|\)$ }x;
+  my @lines=map {$ARG->{value}} @leaves;
+
+  for my $line(@lines) {
+    $line=~ s[$out_parens][]sxgm;
+    $line=~ s[$NEWLINE_RE][ ]sxgm;
+    $line=~ s[$SPACE_RE+][ ]sxgm;
+
+    say $line;
 
   };
 
@@ -594,6 +714,7 @@ $Lan->{Sbl_Common}={
   'undef'=>\&cm_undef,
 
   on=>\&cm_on,
+  out=>\&cm_out,
 
 };
 
@@ -677,3 +798,4 @@ sub set_entry($self,$coderef) {
 
 # ---   *   ---   *   ---
 1; # ret
+

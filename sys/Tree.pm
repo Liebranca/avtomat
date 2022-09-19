@@ -807,7 +807,11 @@ sub match_from($self,$ch,$pat) {
 # ^returns range of leaves
 # from child up to match
 
-sub match_until($self,$ch,$pat,$iref) {
+sub match_until($self,$ch,$pat,%O) {
+
+  # defaults
+  $O{iref}//=0;
+  $O{inclusive}//=0;
 
   my @pending=@{$self->{leaves}};
   @pending=@pending[$ch->{idex}..$#pending];
@@ -815,19 +819,42 @@ sub match_until($self,$ch,$pat,$iref) {
   my @out=();
   my @path=();
 
+# ---   *   ---   *   ---
+# walk the leaves
+
   while(@pending) {
 
     $self=shift @pending;
-    $$iref++;
+
+    # remember idex
+    if($O{iref}) {
+      ${$O{iref}}++;
+
+    };
+
+# ---   *   ---   *   ---
+# cut when pattern found
 
     if($self->{value}=~ m[$pat]) {
       @out=@path;
+
+      # save end token
+      if($O{inclusive}) {
+        push @out,$self;
+
+      };
+
       last;
+
+# ---   *   ---   *   ---
+# save middle token
 
     } else {
       push @path,$self;
 
     };
+
+# ---   *   ---   *   ---
 
   };
 

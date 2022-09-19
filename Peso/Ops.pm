@@ -222,14 +222,14 @@ Readonly our $TABLE=>{
     undef,
     undef,
 
-    [19,sub($x,$y) {return $$x==$$y}],
+    [19,sub($x,$y) {return $$x eq $$y}],
 
   ],q{!=}=>[
 
     undef,
     undef,
 
-    [20,sub($x,$y) {return $$x!=$$y}],
+    [20,sub($x,$y) {return $$x ne $$y}],
 
   ],q{,}=>[
 
