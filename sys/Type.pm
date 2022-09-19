@@ -229,10 +229,12 @@ DONE:
 
 # ---   *   ---   *   ---
 
+  my $ind=$O{addr} || $O{str};
+
   my $type=$frame->{$name}=bless {
 
     name=>$name,
-    size=>$size,
+    size=>($ind) ? 8 : $size,
     elem_count=>$count,
 
     fields=>$fields,

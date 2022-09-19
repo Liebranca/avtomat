@@ -820,7 +820,7 @@ sub match_until($self,$ch,$pat,$iref) {
     $self=shift @pending;
     $$iref++;
 
-    if($self->{value}=~ $pat) {
+    if($self->{value}=~ m[$pat]) {
       @out=@path;
       last;
 

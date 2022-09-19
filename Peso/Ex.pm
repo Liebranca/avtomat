@@ -51,6 +51,7 @@ package Peso::Ex;
 # ROM
 
   my $Lan={};
+  my $CM_RE;
 
 # ---   *   ---   *   ---
 # global kick
@@ -310,6 +311,53 @@ TAIL:
 
 # ---   *   ---   *   ---
 
+sub run_ins_sl($self,$proc,$H,@body) {
+
+  for my $ins(@body) {
+
+    my $sbl=$H->{$ins->{value}};
+    my @input=@{$ins->{leaves}};
+
+    if(defined $sbl) {
+      $sbl->($self,$proc,@input);
+
+    };
+
+  };
+
+};
+
+sub run_block_sl($self,$procs,$H) {
+
+  for my $proc_n(keys %{$procs}) {
+    my $proc=$procs->{$proc_n};
+
+    $self->run_ins_sl(
+      $proc,$H,
+      @{$proc->{body}}
+
+    );
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub run_blocks($self,$tree) {
+
+  $self->run_block_sl(
+    $self->{procs},
+    $Lan->{Sbl_Common},
+
+  );
+
+  $tree->prich();
+
+};
+
+# ---   *   ---   *   ---
+
 sub lan_blocks($self,$tree) {
 
   $self->lan_proc($tree);
@@ -372,70 +420,44 @@ sub lan_proc($self,$tree) {
       addr=>undef,
       args=>[],
 
+      stack_sz=>0,
+
+      branch=>$branch,
+
     };
+
+    $branch->pluck($branch
+      ->branches_in(qr{^;$})
+
+    );
+
+    $branch->idextrav();
 
   };
 
-  for my $proc_n(keys %{$self->{procs}}) {
+# ---   *   ---   *   ---
 
-    my $proc=$self->{procs}->{$proc_n};
+  $self->run_block_sl(
+    $self->{procs},
+    $Lan->{Sbl_Proc},
 
-    for my $ins(@{$proc->{body}}) {
-
-      my $sbl=$Lan->{Sbl_Proc}->{$ins->{value}};
-      my @input=@{$ins->{leaves}};
-
-      if(defined $sbl) {
-        $sbl->($self,$proc,@input);
-
-      };
-
-    };
-
-    say $proc_n;
-    if(!@{$proc->{args}}) {
-      say "No inputs\n";
-      next;
-
-    };
-
-    my @keys=array_keys($proc->{args});
-    my @values=array_values($proc->{args});
-
-    while(@keys && @values) {
-
-      my $key=shift @keys;
-      my $vinfo=shift @values;
-
-      my ($type,$value)=@$vinfo;
-
-      $value//='undef';
-
-      printf "%-23s %-16s %-24s\n",
-
-        $key,
-
-        $type->{name},
-        $value
-      ;
-
-    };
-
-    print "\n";
-
-  };
+  );
 
 };
 
 # ---   *   ---   *   ---
 
-sub test_in($self,$host,@leaves) {
+sub proc_in($self,$host,@leaves) {
 
   my $keyw=$peso->{keyword_re};
   my $spec=$peso->{specifiers}->{re};
 
   my ($type,$name,$value);
   my $i=0;
+
+  my $root=$leaves[0]->{parent};
+
+# ---   *   ---   *   ---
 
   while(@leaves) {
 
@@ -475,7 +497,10 @@ sub test_in($self,$host,@leaves) {
 
   ) unless defined $type;
 
+  $host->{stack_sz}+=$type->{size};
   push @{$host->{args}},$name=>[$type,$value];
+
+  $root->{parent}->pluck($root);
 
 };
 
@@ -483,9 +508,96 @@ sub test_in($self,$host,@leaves) {
 
 $Lan->{Sbl_Proc}={
 
-  'in'=>\&test_in,
+  in=>\&proc_in,
 
 };
+
+# ---   *   ---   *   ---
+
+sub cm_defd($self,$host,@leaves) {
+
+  my $key=$leaves[0]->{value};
+  my $root=$leaves[0]->{parent};
+
+  $root->{value}=exists $self->{$key};
+  $root->pluck(@{$root->{leaves}});
+
+};
+
+sub cm_def($self,$host,@leaves) {
+
+  my ($key,$value)=map {$ARG->{value}} @leaves;
+  $self->{defs}->{$key}=$value;
+
+};
+
+sub cm_undef($self,$host,@leaves) {
+
+  my ($key)=$leaves[0]->{value};
+  delete $self->{defs}->{$key};
+
+};
+
+# ---   *   ---   *   ---
+
+sub cm_on($self,$host,@leaves) {
+
+  my $root=$leaves[0]->{parent};
+  my @body=();
+
+  while(@leaves) {
+
+    my $nd=pop @leaves;
+    push @body,$nd if $nd->{value}=~ m[$CM_RE];
+    push @leaves,@{$nd->{leaves}};
+
+  };
+
+  run_ins_sl(
+
+    $self,$host,
+    $Lan->{Sbl_Common},
+
+    @body
+
+  );
+
+# ---   *   ---   *   ---
+
+  $root->collapse();
+
+  my $i=$root->{idex};
+  my $mfrom=$root->{parent}->{leaves}
+    ->[$root->{idex}+1];
+
+  my @block=$root->{parent}->match_until(
+    $mfrom,qr{^(?: off|on|or)$}xi,\$i
+
+  );
+
+  map {$ARG->prich()} @block;
+
+  if(!$root->leaf_value(0)) {
+    $root->{parent}->pluck(@block);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+$Lan->{Sbl_Common}={
+
+  def=>\&cm_def,
+  defd=>\&cm_defd,
+
+  'undef'=>\&cm_undef,
+
+  on=>\&cm_on,
+
+};
+
+$CM_RE=Lang::hashpat($Lan->{Sbl_Common});
 
 # ---   *   ---   *   ---
 # declare an empty block
