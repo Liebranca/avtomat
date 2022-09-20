@@ -21,6 +21,7 @@ package Tree::Syntax;
   use Readonly;
 
   use English qw(-no_match_vars);
+
   use Scalar::Util qw/blessed/;
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';

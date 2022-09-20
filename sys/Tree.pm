@@ -332,11 +332,13 @@ sub repl($self,$other) {
       last;
 
     };
+
   };
 
 # ---   *   ---   *   ---
 
   if($i>=0) {
+
     $other->{parent}=$self->{parent};
     $ref->[$i]=$other;
 
@@ -345,6 +347,25 @@ sub repl($self,$other) {
   };
 
   return;
+
+};
+
+# ---   *   ---   *   ---
+
+sub deep_repl($self,$other) {
+
+  state $fbid_key_re=qr{^(?: idex|parent)$}x;
+  $self->repl($other);
+
+  for my $key(keys %$self) {
+
+    next if $key=~ m[$fbid_key_re];
+    $self->{$key}=$other->{$key};
+
+  };
+
+  $self->clear_branches();
+  $self->pushlv(@{$other->{leaves}});
 
 };
 

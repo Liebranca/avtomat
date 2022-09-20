@@ -411,6 +411,8 @@ sub call($self,$key,@args) {
 
   );
 
+  my $old_branch=$proc->{branch}->dup();
+
   for my $mention($proc->{branch}
     ->branches_in(qr{^$proc->{-r_args_re}$})
 
@@ -438,6 +440,8 @@ sub call($self,$key,@args) {
   # cleanup
   delete $proc->{-r_args_re};
   delete $proc->{-r_args};
+
+  $proc->{branch}->deep_repl($old_branch);
 
 };
 
