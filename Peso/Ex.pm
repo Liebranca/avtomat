@@ -18,6 +18,7 @@ package Peso::Ex;
   use strict;
   use warnings;
 
+  use Readonly;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys';
@@ -67,6 +68,7 @@ sub nit($class) {
     clans=>{},
     procs=>{},
 
+    mems=>{},
     regs=>{},
     roms=>{},
 
@@ -79,6 +81,8 @@ sub nit($class) {
       -lang=>$peso
 
     ),
+
+    -nocase=>{},
 
   },$class;
 
@@ -311,6 +315,29 @@ TAIL:
 
 # ---   *   ---   *   ---
 
+sub sym_deref($self,$host,$sref) {
+
+  my $defs=$self->{defs};
+  my $rargs=$host->{-r_args};
+
+  # defs first
+  for my $attr_n(keys %$defs) {
+    my $attr_v=$defs->{$attr_n};
+    $$sref=~ s[%${attr_n}%][$attr_v]sxmg;
+
+  };
+
+  # then proc args
+  for my $arg_n(keys %$rargs) {
+    my $arg_v=$rargs->{$arg_n};
+    $$sref=~ s[%${arg_n}%][$arg_v]sxmg;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
 sub run_ins_sl($self,$proc,$H,$start) {
 
   my $i=0;
@@ -364,16 +391,75 @@ sub run_blocks_sl($self,$procs,$H,%O) {
 
 # ---   *   ---   *   ---
 
+sub from($self,$tree) {
+
+  my @pending=(@{$tree->{leaves}});
+
+  my $proc;
+  my @args=();
+
+  while(@pending) {
+
+    my $nd=shift @pending;
+
+    if(!defined $proc) {
+      $proc=$nd->{value};
+
+    } elsif($nd->{value} ne ';') {
+      push @args,$nd->{value};
+
+    } else {
+
+      $self->call($proc,@args);
+
+      $proc=undef;
+      @args=();
+
+    };
+
+    unshift @pending,@{$nd->{leaves}};
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# runs a lan'd branch
+
 sub call($self,$key,@args) {
 
-  my $proc=$self->{procs}->{$key};
+  # case-insensitive check
+  my $uckey=uc $key;
+
+  if(exists $self->{-nocase}->{$uckey}) {
+    $key=$uckey;
+
+  };
+
+  my $proc=$self->{procs}->{"$key"};
+
+  # catch bad keyword
+  errout(
+
+    q[Unrecognized branch: '%s'],
+
+    args=>[$key],
+    lvl=>$AR_FATAL,
+
+  ) unless defined $proc;
+
+# ---   *   ---   *   ---
+# decode args
 
   my @keys=array_keys($proc->{args});
   my @values=array_values($proc->{args});
 
+  array_filter(\@values);
+
   my %pass=();
 
 # ---   *   ---   *   ---
+# handle optional/missing
 
   while(@keys && @values) {
 
@@ -437,7 +523,9 @@ sub call($self,$key,@args) {
 
   );
 
-  # cleanup
+# ---   *   ---   *   ---
+# cleanup
+
   delete $proc->{-r_args_re};
   delete $proc->{-r_args};
 
@@ -446,69 +534,124 @@ sub call($self,$key,@args) {
 };
 
 # ---   *   ---   *   ---
+# lans a whole tree
 
 sub lan_blocks($self,$tree) {
 
-  $self->lan_proc($tree);
+  my @calls=(
+
+    ['procs',qr{^proc$}i,$Lan->{Sbl_Proc}],
+    ['roms',qr{^rom$}i,$Lan->{Sbl_Rom}],
+
+  );
+
+  for my $args(@calls) {
+
+    my ($subset,$pattern,$ex)=@$args;
+
+    $self->lan(
+      $tree,
+
+      $subset,
+      $pattern,
+
+      ex=>$ex
+
+    );
+
+  };
+
   $self->{tree}=$tree;
 
 };
 
 # ---   *   ---   *   ---
-# analize proc body and format it for
-# later execution
+# get basic info from branch
 
-sub lan_proc($self,$tree) {
+sub recon($self,$branch) {
 
-  my $pat=$peso->{exp_bound};
+  state $pat=$peso->{exp_bound};
 
-  for my $branch($tree
-    ->branches_in(qr{^proc$}i)
+  my $i=0;
+  my $j=0;
 
-  ) {
+  my @trash=();
 
-    my $i=0;
-    my $j=0;
+  my $name;
+  my $type;
+  my $start;
 
-    my $proc_n;
-    my $proc_t;
+# ---   *   ---   *   ---
+# get KEYWORD,[inputs];
 
-    my $proc_s;
+  while(defined (
+    my $leaf=$branch->{leaves}->[$i]
 
-    while(defined (
-      my $leaf=$branch->{leaves}->[$i]
+  )) {
 
-    )) {
+    my @input=$branch->match_until(
+      $leaf,$pat,
 
-      my @input=$branch->match_until(
-        $leaf,$pat,
+      iref=>\$i,
+      inclusive=>0,
 
-        iref=>\$i,
-        inclusive=>0,
+    );
 
-      );
+# ---   *   ---   *   ---
+# first group is input of branch itself
 
-      if(!$j) {
-        ($proc_n,$proc_t)=map {
-          rmquotes($ARG->{value})
+    if(!$j) {
 
-        } @input;
+      ($name,$type)=map {
+        rmquotes($ARG->{value})
 
-      } elsif($j==1) {
-        $proc_s=$input[0];
+      } @input;
 
-      };
+      push @trash,@input;
 
-      $j++;
+# ---   *   ---   *   ---
+# second one is block entry
+
+    } elsif($j==1) {
+      $start=$input[0];
 
     };
 
+    $j++;
+
 # ---   *   ---   *   ---
 
-    $self->{procs}->{$proc_n}={
+  };
 
-      name=>$proc_n,
-      start=>$proc_s,
+  return $name,$type,$start,@trash;
+
+};
+
+# ---   *   ---   *   ---
+# analize body of block
+# format it for later execution
+
+sub lan($self,$tree,$subset,$pattern,%O) {
+
+  $O{ex}//=0;
+
+# ---   *   ---   *   ---
+# find nodes matching pattern
+
+  for my $branch($tree
+    ->branches_in($pattern)
+
+  ) {
+
+    # unpack
+    my ($name,$type,$start,@trash)=
+      $self->recon($branch);
+
+    # save gathered data
+    $self->{$subset}->{$name}={
+
+      name=>$name,
+      start=>$start,
 
       addr=>undef,
       args=>[],
@@ -519,24 +662,44 @@ sub lan_proc($self,$tree) {
 
     };
 
-    $branch->pluck($branch
+    # remove lint
+    $branch->pluck(@trash,$branch
       ->branches_in(qr{^;$})
 
     );
 
-    $branch->idextrav();
-
   };
 
 # ---   *   ---   *   ---
+# run the block if requested
 
-  $self->run_blocks_sl(
-    $self->{procs},
-    $Lan->{Sbl_Proc},
+  if($O{ex}) {
 
-    plucking=>1,
+    $self->run_blocks_sl(
 
-  );
+      $self->{$subset},
+      $O{ex},
+
+      plucking=>1,
+
+    );
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub rom_nocase($self,$host,@leaves) {
+
+  my $key=rmquotes(uc $leaves[0]->{value});
+  $self->{-nocase}->{$key}=1;
+
+};
+
+$Lan->{Sbl_Rom}={
+
+  nocase=>\&rom_nocase,
 
 };
 
@@ -620,6 +783,10 @@ sub cm_defd($self,$host,@leaves) {
 sub cm_def($self,$host,@leaves) {
 
   my ($key,$value)=map {$ARG->{value}} @leaves;
+
+  $self->sym_deref($host,\$key);
+  $self->sym_deref($host,\$value);
+
   $self->{defs}->{$key}=$value;
 
 };
@@ -627,6 +794,8 @@ sub cm_def($self,$host,@leaves) {
 sub cm_undef($self,$host,@leaves) {
 
   my ($key)=$leaves[0]->{value};
+  $self->sym_deref($host,\$key);
+
   delete $self->{defs}->{$key};
 
 };
@@ -692,15 +861,20 @@ sub cm_on($self,$host,@leaves) {
 
 # ---   *   ---   *   ---
 
+sub cm_off($self,$host,@leaves) {};
+
+# ---   *   ---   *   ---
+
 sub cm_out($self,$host,@leaves) {
 
   state $out_parens=qr{^\(|\)$ }x;
   my @lines=map {$ARG->{value}} @leaves;
 
   for my $line(@lines) {
-    $line=~ s[$out_parens][]sxgm;
-    $line=~ s[$NEWLINE_RE][ ]sxgm;
-    $line=~ s[$SPACE_RE+][ ]sxgm;
+    $line=~ s[$out_parens][]sxmg;
+    $line=~ s[$SPACE_RE+][ ]sxmg;
+
+    $self->sym_deref($host,\$line);
 
     say $line;
 
@@ -718,6 +892,8 @@ $Lan->{Sbl_Common}={
   'undef'=>\&cm_undef,
 
   on=>\&cm_on,
+  off=>\&cm_off,
+
   out=>\&cm_out,
 
 };
