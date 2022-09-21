@@ -37,6 +37,9 @@ package Peso::Ex;
   use Lang;
   use Lang::Peso;
 
+  use lib $ENV{'ARPATH'}.'/lib/hacks';
+  use Shwl;
+
 # ---   *   ---   *   ---
 # info
 
@@ -91,24 +94,32 @@ sub nit($class) {
 };
 
 # ---   *   ---   *   ---
+# turns a peso file into an instance
+# of this class
 
 sub fopen($self,$fpath) {
 
+  # get raw program tree
   my $rd=Peso::Rd::parse($peso,$fpath);
 
   my $blk=$rd->select_block(-ROOT);
   my $tree=$blk->{tree};
 
+  # sort tree nodes into a block hierarchy
   $peso->hier_sort($tree);
 
+  # expand string/delim tokens
   $rd->replstr($tree);
   $rd->recurse($tree);
 
+  # run the preprocessor
   $self->preproc($tree);
   $self->expsplit($tree);
 
+  # sort operators by priority
   $tree->subdiv();
 
+  # get rid of commas
   $tree->collapse(
     only=>qr{,}x,
     no_numcon=>1
@@ -120,6 +131,9 @@ sub fopen($self,$fpath) {
 };
 
 # ---   *   ---   *   ---
+# yes, this is the entire peso preprocessor
+# it's "short" size due to the fact
+# I'm only handling imports for now
 
 sub preproc($self,$tree) {
 
@@ -127,24 +141,31 @@ sub preproc($self,$tree) {
   state $imp_re=qr{^import$}ix;
   state $dcolon_re=qr{::}x;
 
+# ---   *   ---   *   ---
+# get DIRECTIVE [args]
+
   for my $branch($tree->branches_in($lib_re)) {
 
     my $beg=$branch->{idex};
     my $par=$branch->{parent};
 
+    # arg0,arg1
     my ($env,$subdir)=map {
       $ARG->{value}
 
     } @{$branch->{leaves}};
 
+    # de-stringify (unstirr ;>)
     my $path=$ENV{$env}.rmquotes($subdir);
 
+    # seek to closing directive
     my $imp_nd=$par->match_from(
       $branch,$imp_re
 
     );
 
 # ---   *   ---   *   ---
+# throw missing closer
 
     if(!defined $imp_nd) {
 
@@ -162,13 +183,18 @@ sub preproc($self,$tree) {
     };
 
 # ---   *   ---   *   ---
+# grab nodes between open and close
 
     my @uses=$par->leaves_between(
       $beg,$imp_nd->{idex}
 
     );
 
+    # discard terminators
     @uses=grep {$ARG->{value} ne ';'} @uses;
+
+# ---   *   ---   *   ---
+# break down the inputs
 
     for my $f(@uses) {
 
@@ -181,17 +207,29 @@ sub preproc($self,$tree) {
       $name=~ s[$dcolon_re][/]sxmg;
 
 # ---   *   ---   *   ---
-#:!;> recursive paste
+# cat inputs
 
       my $fpath=$path.$name.rmquotes($ext);
       my $keys={ @{$self->{loaded}} };
 
+      # paste if not already pasted
       if(!exists $keys->{"$fpath"}) {
+
+# ---   *   ---   *   ---
+# fopen calls preproc, thus:
+#:!!!;> recursive paste
 
         my ($btree,$brd)=$self->fopen($fpath);
 
-        push @{$self->{loaded}},
-          $fpath=>1;
+# ^if you know a better way...
+# ... then i'd love to know
+
+# else ~ S H U T  I T ~
+
+# ---   *   ---   *   ---
+# replace directive with generated tree
+
+        push @{$self->{loaded}},$fpath=>1;
 
         $f->repl($btree);
         $btree->flatten_branch();
@@ -199,6 +237,7 @@ sub preproc($self,$tree) {
       };
 
 # ---   *   ---   *   ---
+# wipe directives from tree
 
     };
 
@@ -213,6 +252,25 @@ sub preproc($self,$tree) {
 };
 
 # ---   *   ---   *   ---
+# ufff, jesus christ...
+#
+# this sub takes care of that annoying design
+# compromise **I made** in letting the
+# tokenizer not care for recursive use of
+# keywords, just to avoid messing up the
+# tree structure at the earliest stage;
+#
+# why did I do that? because the structure
+# isn't the same for every language, and Rd IS
+# a MULTI LINGUAL PARSER
+#
+# get that? it has to work for different syntaxes
+# and thus cannot be specific enough: the tree
+# structure must be the most basic possible
+# just for the system to merely function
+#
+# therefore, patches like these are needed
+# in order to provide that specificity
 
 sub expsplit($self,$tree) {
 
@@ -225,18 +283,26 @@ sub expsplit($self,$tree) {
 
   my $anchor=undef;
 
+# ---   *   ---   *   ---
+# walk the hierarchy
+
   while(@pending) {
 
     my $nd=shift @pending;
 
+    # assumed to already be head of branch
     if($nd->{value}=~ $scopers) {
       goto TAIL;
 
     };
 
+    # operators are special cases
     my $is_op=$nd->{value}=~ m[^$op$];
 
 # ---   *   ---   *   ---
+# do not attempt grouping if operator
+# is trying to influence outside of it's
+# own branch
 
     if(
 
@@ -244,6 +310,9 @@ sub expsplit($self,$tree) {
     && $anchor->{parent}==$nd->{parent}
 
     ) {
+
+# ---   *   ---   *   ---
+# get nodes between anchor and current
 
       $anchor->{parent}->idextrav();
 
@@ -255,10 +324,12 @@ sub expsplit($self,$tree) {
 
       );
 
+      # parent nodes to anchor
       $anchor->pushlv(@ar);
       $anchor=undef;
 
 # ---   *   ---   *   ---
+# there's no anchor or moved to a new branch
 
     } elsif(
 
@@ -267,13 +338,28 @@ sub expsplit($self,$tree) {
 
     ) {
 
+# ---   *   ---   *   ---
+# moved to another branch!
+
       if(defined $anchor) {
 
         $anchor->{parent}->idextrav();
 
+        # match from anchor to end of
+        # expression
+
         my $beg=$anchor->{idex};
         my $end=$anchor->{parent}
           ->match_from($anchor,qr{^;$});
+
+# ---   *   ---   *   ---
+# 'end' here being the terminator...
+#
+# or the terminator switched branches,
+# fine because it's meaningless on it's own
+#
+# if not found just get the bottom of the
+# token array, same effect
 
         if(!defined $end) {
 
@@ -282,10 +368,15 @@ sub expsplit($self,$tree) {
 
           $end=$end->{idex}+1;
 
+        # terminator did not wander off branch
         } else {
           $end=$end->{idex};
 
         };
+
+# ---   *   ---   *   ---
+# get nodes between anchor and terminator
+# push them to anchor
 
         my @ar=$anchor->{parent}
           ->leaves_between($beg,$end);
@@ -295,6 +386,7 @@ sub expsplit($self,$tree) {
       };
 
 # ---   *   ---   *   ---
+# current is made anchor IF it's a keyword
 
       if($nd->{value}=~ m[^$keyword$]) {
         $anchor=$nd;
@@ -302,6 +394,7 @@ sub expsplit($self,$tree) {
       };
 
 # ---   *   ---   *   ---
+# the recursive expansion shuffle
 
     };
 
@@ -314,36 +407,55 @@ TAIL:
 };
 
 # ---   *   ---   *   ---
+# looks for %var% and replaces it
+# with its value
 
 sub sym_deref($self,$host,$sref) {
+
+  state $TOKEN_RE=qr{%(?<name>
+    [^%\s]+
+
+  )%}x;
 
   my $defs=$self->{defs};
   my $rargs=$host->{-r_args};
 
-  # defs first
-  for my $attr_n(keys %$defs) {
-    my $attr_v=$defs->{$attr_n};
-    $$sref=~ s[%${attr_n}%][$attr_v]sxmg;
+# ---   *   ---   *   ---
+# replace %var% for constant
 
-  };
+  while($$sref=~ s[$TOKEN_RE][$Shwl::PL_CUT]s) {
 
-  # then proc args
-  for my $arg_n(keys %$rargs) {
-    my $arg_v=$rargs->{$arg_n};
-    $$sref=~ s[%${arg_n}%][$arg_v]sxmg;
+    # capture is identifier
+    # stripped of enclosing %
+    my $name=$+{name};
+
+    # look for dict entries
+    # defd symbols considered first
+    my $value=(exists $defs->{$name})
+      ? $defs->{$name}
+      : $rargs->{$name}
+      ;
+
+    # replace constant with value ;>
+    $$sref=~ s[$Shwl::PL_CUT_RE][$value]s;
 
   };
 
 };
 
 # ---   *   ---   *   ---
+# run subset of instructions provided by $H
+# commence execution at given start node
 
 sub run_ins_sl($self,$proc,$H,$start) {
 
-  my $i=0;
+  my $i=$start->{idex};
   my $root=$start->{parent};
 
   my @ran=();
+
+# ---   *   ---   *   ---
+# iter children from start to undef
 
   while(defined(
     my $ins=$root->{leaves}->[$i]
@@ -353,6 +465,7 @@ sub run_ins_sl($self,$proc,$H,$start) {
     my $sbl=$H->{$ins->{value}};
     my @input=@{$ins->{leaves}};
 
+    # value of node found in table
     if(defined $sbl) {
       $sbl->($self,$proc,@input);
       push @ran,$ins;
@@ -363,25 +476,35 @@ sub run_ins_sl($self,$proc,$H,$start) {
 
   };
 
+# ---   *   ---   *   ---
+# give executed nodes
+
   return @ran;
 
 };
 
-sub run_blocks_sl($self,$procs,$H,%O) {
+# ---   *   ---   *   ---
+# ^repeats for a group of branches
+
+sub run_blocks_sl($self,$order,$H,%O) {
 
   # defaults
   $O{plucking}//=0;
 
-  for my $proc_n(keys %{$procs}) {
-    my $proc=$procs->{$proc_n};
+# ---   *   ---   *   ---
+# walk the array
 
+  for my $blk(@$order) {
+
+    # look for instructions
     my @ran=$self->run_ins_sl(
-      $proc,$H,$proc->{start}
+      $blk,$H,$blk->{start}
 
     );
 
+    # ^pluck executed
     if($O{plucking}) {
-      $proc->{branch}->pluck(@ran);
+      $blk->{branch}->pluck(@ran);
 
     };
 
@@ -390,6 +513,8 @@ sub run_blocks_sl($self,$procs,$H,%O) {
 };
 
 # ---   *   ---   *   ---
+# PROTO: interprets one tree using the
+# definitions in a program
 
 sub from($self,$tree) {
 
@@ -398,16 +523,23 @@ sub from($self,$tree) {
   my $proc;
   my @args=();
 
+# ---   *   ---   *   ---
+# walk the tree
+
   while(@pending) {
 
     my $nd=shift @pending;
 
+    # first token is command
     if(!defined $proc) {
       $proc=$nd->{value};
 
+    # use token as arg
+    # NOTE: this breaks. a lot.
     } elsif($nd->{value} ne ';') {
       push @args,$nd->{value};
 
+    # terminator found
     } else {
 
       $self->call($proc,@args);
@@ -416,6 +548,9 @@ sub from($self,$tree) {
       @args=();
 
     };
+
+# ---   *   ---   *   ---
+# recursive shuffle
 
     unshift @pending,@{$nd->{leaves}};
 
@@ -538,12 +673,18 @@ sub call($self,$key,@args) {
 
 sub lan_blocks($self,$tree) {
 
+  # match name of block-type to pattern
+  # and subset of instructions
+
   my @calls=(
 
     ['procs',qr{^proc$}i,$Lan->{Sbl_Proc}],
     ['roms',qr{^rom$}i,$Lan->{Sbl_Rom}],
 
   );
+
+# ---   *   ---   *   ---
+# ^walk the list and run analyzer
 
   for my $args(@calls) {
 
@@ -560,6 +701,10 @@ sub lan_blocks($self,$tree) {
     );
 
   };
+
+# ---   *   ---   *   ---
+# we set the analyzed tree as
+# the new program tree
 
   $self->{tree}=$tree;
 
@@ -620,6 +765,8 @@ sub recon($self,$branch) {
     $j++;
 
 # ---   *   ---   *   ---
+# specificity of this give:
+# it's only meant to be used by lan ;>
 
   };
 
@@ -634,6 +781,7 @@ sub recon($self,$branch) {
 sub lan($self,$tree,$subset,$pattern,%O) {
 
   $O{ex}//=0;
+  my @order=();
 
 # ---   *   ---   *   ---
 # find nodes matching pattern
@@ -668,6 +816,9 @@ sub lan($self,$tree,$subset,$pattern,%O) {
 
     );
 
+    # to avoid executing out of order
+    push @order,$self->{$subset}->{$name};
+
   };
 
 # ---   *   ---   *   ---
@@ -677,7 +828,7 @@ sub lan($self,$tree,$subset,$pattern,%O) {
 
     $self->run_blocks_sl(
 
-      $self->{$subset},
+      \@order,
       $O{ex},
 
       plucking=>1,
@@ -689,6 +840,9 @@ sub lan($self,$tree,$subset,$pattern,%O) {
 };
 
 # ---   *   ---   *   ---
+# case-insensitive keyword:
+# considered first when looking for matching
+# key during a call to symbol
 
 sub rom_nocase($self,$host,@leaves) {
 
@@ -704,6 +858,7 @@ $Lan->{Sbl_Rom}={
 };
 
 # ---   *   ---   *   ---
+# registers a given input to a procedure
 
 sub proc_in($self,$host,@leaves) {
 
@@ -716,16 +871,21 @@ sub proc_in($self,$host,@leaves) {
   my $root=$leaves[0]->{parent};
 
 # ---   *   ---   *   ---
+# walk the arguments
 
   while(@leaves) {
 
     my $nd=shift @leaves;
     my $x=$nd->{value};
 
+    # first is type
     if($i==0) {
 
+      # stops at non-keyword
       if(!($x=~ m[$keyw])) {$i++} else {
 
+        # keyw after type assumed
+        # to be type specifier
         if(!length $type) {$type=$x} else {
           $type.="_$x";
 
@@ -735,14 +895,19 @@ sub proc_in($self,$host,@leaves) {
 
     };
 
+# ---   *   ---   *   ---
+# second is name of var
+# third (optional) is default value
+
     if($i==1) {$name=$x;$i++}
     elsif($i==2) {$value=$x};
 
     unshift @leaves,@{$nd->{leaves}};
 
-  };
-
 # ---   *   ---   *   ---
+# throw error if type not in table
+
+  };
 
   $type=$Type::Table->{$type};
 
@@ -755,12 +920,24 @@ sub proc_in($self,$host,@leaves) {
 
   ) unless defined $type;
 
+# ---   *   ---   *   ---
+# NOTE:
+#
+# theoretically: it's not mandatory to
+# stack allocate if input is not modified...
+#
+# ... long as registers are avail ;>
+#
+# for inputs that are guaranteed not to need
+# allocation we can special-case later on
+
   $host->{stack_sz}+=$type->{size};
   push @{$host->{args}},$name=>[$type,$value];
 
 };
 
 # ---   *   ---   *   ---
+# instruction sub-table: procedure setup
 
 $Lan->{Sbl_Proc}={
 
@@ -769,6 +946,7 @@ $Lan->{Sbl_Proc}={
 };
 
 # ---   *   ---   *   ---
+# checks existence of a compile-time value
 
 sub cm_defd($self,$host,@leaves) {
 
@@ -779,6 +957,9 @@ sub cm_defd($self,$host,@leaves) {
   $root->pluck(@{$root->{leaves}});
 
 };
+
+# ---   *   ---   *   ---
+# ^nit/set compile-time value
 
 sub cm_def($self,$host,@leaves) {
 
@@ -791,6 +972,9 @@ sub cm_def($self,$host,@leaves) {
 
 };
 
+# ---   *   ---   *   ---
+# ^destroy
+
 sub cm_undef($self,$host,@leaves) {
 
   my ($key)=$leaves[0]->{value};
@@ -801,11 +985,20 @@ sub cm_undef($self,$host,@leaves) {
 };
 
 # ---   *   ---   *   ---
+# rough conditional, wipes branch
+# if condition is false
+#
+# compile-time only. might be worth it to
+# add a run-time variant as I favor this
+# syntax over eif and friends
 
 sub cm_on($self,$host,@leaves) {
 
   my $root=$leaves[0]->{parent};
   my @body=();
+
+# ---   *   ---   *   ---
+# fetch instructions within conditional
 
   while(@leaves) {
 
@@ -815,6 +1008,9 @@ sub cm_on($self,$host,@leaves) {
     push @leaves,@{$nd->{leaves}};
 
   };
+
+# ---   *   ---   *   ---
+# ^execute them
 
   for my $start(@body) {
 
@@ -830,14 +1026,18 @@ sub cm_on($self,$host,@leaves) {
   };
 
 # ---   *   ---   *   ---
+# solve conditional
 
   $root->collapse();
 
+  # start of branch
   my $i=$root->{idex};
 
+  # ^immediate neighbor
   my $mfrom=$root->{parent}->{leaves}
     ->[$root->{idex}+1];
 
+  # walk up to next condition or switch end
   my @block=$root->{parent}->match_until(
 
     $mfrom,qr{^(?: off|on|or)$}xi,
@@ -847,11 +1047,13 @@ sub cm_on($self,$host,@leaves) {
 
   );
 
+  # if condition, leave it alone
   if($block[-1]->{value}=~ m[^(?: on|or)$]xi) {
     pop @block;
 
   };
 
+  # wipe branch on false
   if(!$root->leaf_value(0)) {
     $root->{parent}->pluck(@block);
 
@@ -860,22 +1062,28 @@ sub cm_on($self,$host,@leaves) {
 };
 
 # ---   *   ---   *   ---
+# placeholder
 
 sub cm_off($self,$host,@leaves) {};
 
 # ---   *   ---   *   ---
+# quick and dirty textual output
+# because I'm too lazy at the moment
 
 sub cm_out($self,$host,@leaves) {
 
   state $out_parens=qr{^\(|\)$ }x;
   my @lines=map {$ARG->{value}} @leaves;
 
+  # sanitize
   for my $line(@lines) {
     $line=~ s[$out_parens][]sxmg;
     $line=~ s[$SPACE_RE+][ ]sxmg;
 
+    # replace %vars% for values
     $self->sym_deref($host,\$line);
 
+    # echo
     say $line;
 
   };
@@ -883,6 +1091,7 @@ sub cm_out($self,$host,@leaves) {
 };
 
 # ---   *   ---   *   ---
+# instruction sub-table: standard symbol call
 
 $Lan->{Sbl_Common}={
 
@@ -898,8 +1107,15 @@ $Lan->{Sbl_Common}={
 
 };
 
+# ^matches each key on the subtab
 $CM_RE=Lang::hashpat($Lan->{Sbl_Common});
 
+# ---   *   ---   *   ---
+# LEGACY STUFF
+#
+# deprecated, take whatever is of use
+# from here, repurpose it and delete the rest
+#
 # ---   *   ---   *   ---
 # declare an empty block
 
