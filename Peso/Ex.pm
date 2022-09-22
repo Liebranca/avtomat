@@ -444,6 +444,24 @@ sub sym_deref($self,$host,$sref) {
 };
 
 # ---   *   ---   *   ---
+# ^recursive dereferencing
+
+sub deep_deref($self,$host,$branch) {
+
+  my @pending=(@{$branch->{leaves}});
+
+  while(@pending) {
+
+    my $nd=shift @pending;
+    $self->sym_deref($host,\$nd->{value});
+
+    unshift @pending,@{$nd->{leaves}};
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # run subset of instructions provided by $H
 # commence execution at given start node
 
@@ -963,12 +981,15 @@ sub cm_defd($self,$host,@leaves) {
 
 sub cm_def($self,$host,@leaves) {
 
-  my ($key,$value)=map {$ARG->{value}} @leaves;
+  my ($key,$value)=@leaves;
 
-  $self->sym_deref($host,\$key);
-  $self->sym_deref($host,\$value);
+  $self->sym_deref($host,\$key->{value});
+  $self->deep_deref($host,$value);
 
-  $self->{defs}->{$key}=$value;
+  $value->collapse();
+
+  $self->{defs}->{$key->{value}}=
+    $value->{value};
 
 };
 
@@ -1084,7 +1105,7 @@ sub cm_out($self,$host,@leaves) {
     $self->sym_deref($host,\$line);
 
     # echo
-    say $line;
+#    say $line;
 
   };
 

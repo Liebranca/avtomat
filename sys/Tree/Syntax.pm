@@ -112,6 +112,7 @@ sub tokenize($self) {
   | (?:$keyword)
   | (?:$label)
 
+  | (?:%[^\s%]+%)
   | (?:$op)
 
   | (?:$vstr)
@@ -259,6 +260,8 @@ sub subdiv($self) {
   my $root=$self;
   my @leaves=();
 
+  my $is_op_chk=qr{^(?: $ndel_op|$del_op)$}x;
+
 # ---   *   ---   *   ---
 # iter tree until operator found
 # then restart the loop (!!!)
@@ -303,13 +306,13 @@ sub subdiv($self) {
         # n is an operator with leaves
         # or n is not an operator
         my $valid=(
-            ($n->{value}=~ m/$ndel_op|$del_op/)
-         && @{$n->{leaves}}
 
-        )!=0;$valid|=!($n->{value}=~
-          m/$del_op|$ndel_op/
+           ($n->{value}=~ $is_op_chk)
+        && @{$n->{leaves}}
 
-        );
+        )!=0;
+
+        $valid|=!($n->{value}=~ $is_op_chk);
 
 # ---   *   ---   *   ---
 

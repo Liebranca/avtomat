@@ -20,6 +20,9 @@ package Peso::Ops;
 
   use Readonly;
 
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use Style;
+
   use lib $ENV{'ARPATH'}.'/lib/';
   use Lang;
 
@@ -52,6 +55,8 @@ Readonly our $TABLE=>{
 
     [-1,sub($x,$y) {return ($$x).q{@}.($$y)}],
 
+# ---   *   ---   *   ---
+
   ],q{*^}=>[
 
     undef,
@@ -66,14 +71,19 @@ Readonly our $TABLE=>{
 
     [1,sub($x,$y) {return ($$x)*($$y)}],
 
+  ],q{%}=>[
+
+    undef,
+    undef,
+
+    [2,sub($x,$y) {return ($$x)%($$y)}],
+
   ],q{/}=>[
 
     undef,
     undef,
 
     [2,sub($x,$y) {return ($$x)/($$y)}],
-
-# ---   *   ---   *   ---
 
   ],q{++}=>[
 
