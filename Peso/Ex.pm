@@ -29,6 +29,7 @@ package Peso::Ex;
   use Arstd::Array;
   use Arstd::IO;
 
+  use Chk;
   use Type;
 
   use Tree::Syntax;
@@ -436,6 +437,19 @@ sub sym_deref($self,$host,$sref) {
       : $rargs->{$name}
       ;
 
+    errout(
+
+      q[Invalid token-paste '%s'],
+      args=>[$name],
+      lvl=>$AR_FATAL,
+
+    ) unless defined $value;
+
+    if(is_arrayref($value)) {
+      $value=join "\n",@$value;
+
+    };
+
     # replace constant with value ;>
     $$sref=~ s[$Shwl::PL_CUT_RE][$value]s;
 
@@ -619,7 +633,16 @@ sub call($self,$key,@args) {
     my $arg_n=shift @keys;
     my ($type,$default)=@{(shift @values)};
 
-    my $value=shift @args;
+    my $value;
+
+    if($type eq '-slurp') {
+      $value=[@args];
+      @args=();
+
+    } else {
+      $value=shift @args;
+
+    };
 
     # value missing for mandatory arg
     if(!defined $default && !defined $value) {
@@ -954,12 +977,22 @@ sub proc_in($self,$host,@leaves) {
 
 };
 
+sub proc_slurp($self,$host,@leaves) {
+
+  my $name=$leaves[0]->{value};
+
+  push @{$host->{args}},
+    $name=>['-slurp',q{$00}];
+
+};
+
 # ---   *   ---   *   ---
 # instruction sub-table: procedure setup
 
 $Lan->{Sbl_Proc}={
 
   in=>\&proc_in,
+  slurp=>\&proc_slurp,
 
 };
 
@@ -1093,19 +1126,20 @@ sub cm_off($self,$host,@leaves) {};
 
 sub cm_out($self,$host,@leaves) {
 
-  state $out_parens=qr{^\(|\)$ }x;
+  state $out_parens=qr{^\(+|\)+$}mx;
   my @lines=map {$ARG->{value}} @leaves;
 
   # sanitize
   for my $line(@lines) {
-    $line=~ s[$out_parens][]sxmg;
-    $line=~ s[$SPACE_RE+][ ]sxmg;
 
     # replace %vars% for values
     $self->sym_deref($host,\$line);
 
+    $line=~ s[$out_parens][]gx;
+    $line=~ s[\x20+][ ]sxmg;
+
     # echo
-#    say $line;
+    say $line;
 
   };
 
