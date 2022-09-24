@@ -949,4 +949,32 @@ sub soregen($soname,$libs_ref,$no_regen=0) {
 };
 
 # ---   *   ---   *   ---
+
+sub sofetch($symtab) {
+
+  my $tab={};
+
+  for my $o(keys %{$symtab->{objects}}) {
+
+    my $obj=$symtab->{objects}->{$o};
+    my $funcs=$obj->{functions};
+
+    my $ref=$tab->{$o}=[];
+
+    for my $fn_name(keys %$funcs) {
+
+      my $fn=$funcs->{$fn_name};
+      my $rtype=$fn->{type};
+
+      push @$ref,[$fn,$rtype,@{$fn->{args}}];
+
+    };
+
+  };
+
+  return $tab;
+
+};
+
+# ---   *   ---   *   ---
 1; # ret

@@ -63,6 +63,8 @@ package Peso::Ex;
 
   )%}x;
 
+  my $OUT_PARENS=qr{^\(+|\)+$}mx;
+
 # ---   *   ---   *   ---
 # global kick
 
@@ -73,6 +75,7 @@ sub nit($class) {
     loaded=>[],
 
     defs=>{},
+    tmps=>{},
 
     clans=>{},
     procs=>{},
@@ -85,6 +88,7 @@ sub nit($class) {
     pass=>0,
 
     tree=>undef,
+    tgt=>undef,
 
     node=>Tree::Syntax->new_frame(
       -lang=>$peso
@@ -131,6 +135,8 @@ sub fopen($self,$fpath) {
     no_numcon=>1
 
   );
+
+  $self->{tree}=$tree;
 
   return ($tree,$rd);
 
@@ -413,10 +419,15 @@ TAIL:
 };
 
 # ---   *   ---   *   ---
+# looks for %var% and replaces it
+# with its value
 
 sub tokenpaste($self,$host,$sref) {
 
   my $out=undef;
+
+# ---   *   ---   *   ---
+# replace %var% for constant
 
   if(!($$sref=~
     s[$SYMBOL_DEREF_RE][$Shwl::PL_CUT]s
@@ -424,18 +435,31 @@ sub tokenpaste($self,$host,$sref) {
   )) {goto TAIL};
 
   my $defs=$self->{defs};
+  my $tmps=$self->{tmps};
   my $rargs=$host->{-r_args};
 
   # capture is identifier
   # stripped of enclosing %
   my $name=$+{name};
+  my $value;
 
   # look for dict entries
   # defd symbols considered first
-  my $value=(exists $defs->{$name})
-    ? $defs->{$name}
-    : $rargs->{$name}
-    ;
+  if(exists $defs->{$name}) {
+    $value=$defs->{$name};
+
+  # then local symbols
+  } elsif(exists $tmps->{$name}) {
+    $value=$tmps->{$name};
+
+  # args considered last
+  } else {
+    $value=$rargs->{$name};
+
+  };
+
+# ---   *   ---   *   ---
+# throw not found
 
   errout(
 
@@ -456,13 +480,9 @@ TAIL:
 };
 
 # ---   *   ---   *   ---
-# looks for %var% and replaces it
-# with its value
+# stringified token-paste
 
 sub sym_deref($self,$host,$sref) {
-
-# ---   *   ---   *   ---
-# replace %var% for constant
 
   while(defined(
     my $upck=tokenpaste($self,$host,$sref)
@@ -499,7 +519,7 @@ sub sym_deref($self,$host,$sref) {
 };
 
 # ---   *   ---   *   ---
-# ^recursive dereferencing
+# ^recursive
 
 sub deep_deref($self,$host,$branch) {
 
@@ -517,6 +537,7 @@ sub deep_deref($self,$host,$branch) {
 };
 
 # ---   *   ---   *   ---
+# ^node edge case
 
 sub nd_deref($self,$host,$sref) {
 
@@ -614,49 +635,21 @@ sub run_blocks_sl($self,$order,$H,%O) {
 
 # ---   *   ---   *   ---
 
-sub xlate_on($self,@args) {
+sub peek($self) {
 
-  my ($cond,$label)=@args;
-  $cond=$cond->[0];
+  my @pending=(@{$self->{tree}->{leaves}});
 
-  $cond->prich();
+  while(@pending) {
 
-};
+    my $nd=shift @pending;
+    my $ref=$nd->{-p_rec};
 
-# ---   *   ---   *   ---
+    my ($name,@args)=@$ref;
+    @args=map {@$ARG} @args;
 
-sub peek($self,@rec) {
+    say "$name\n",join "\n",@args;
 
-  for my $entry(@rec) {
-
-    my ($name,$buff)=(
-      $entry->{name},
-      $entry->{outbuff},
-
-    );
-
-    if($name eq 'ON') {
-
-      $self->xlate_on(@$buff);
-      exit;
-
-    };
-
-    for my $ref(@$buff) {
-      map {
-
-        if(Tree->is_valid($ARG)) {
-          $ARG->prich();
-
-        } else {
-          say $ARG
-        }
-
-      } @$ref;
-
-    };
-
-    say "__________________\n";
+    say "_________________\n";
 
   };
 
@@ -666,24 +659,26 @@ sub peek($self,@rec) {
 # PROTO: interprets one tree using the
 # definitions in a program
 
-sub from($self,$tree) {
+sub run_tree($self,$tree) {
 
-  my @rec=();
   my @pending=(@{$tree->{leaves}});
-
-  my $proc;
   my @args=();
+  my @nodes=();
 
 # ---   *   ---   *   ---
 # walk the tree
+
+  my $anchor;
 
   while(@pending) {
 
     my $nd=shift @pending;
 
     # first token is command
-    if(!defined $proc) {
-      $proc=$nd->{value};
+    if(!defined $anchor) {
+
+      $self->{tgt}=$nd;
+      $anchor=$nd;
 
     # use token as arg
     # NOTE: this breaks. a lot.
@@ -693,9 +688,17 @@ sub from($self,$tree) {
     # terminator found
     } else {
 
-      push @rec,$self->call($proc,@args);
+      $self->{defs}->{Nd_Idex}=
+        $anchor->{idex};
 
-      $proc=undef;
+      $anchor->{-p_rec}=$self->call(
+        $anchor->{value},@args
+
+      );
+
+      push @nodes,$anchor;
+
+      $anchor=undef;
       @args=();
 
     };
@@ -707,7 +710,20 @@ sub from($self,$tree) {
 
   };
 
-  return @rec;
+  return @nodes;
+
+};
+
+# ---   *   ---   *   ---
+
+sub run_obj($self,$other) {
+
+  my $tree=$other->{tree};
+  my @nodes=$self->run_tree($tree);
+
+  @nodes=$tree->pluck(@nodes);
+  $tree->clear_branches();
+  $tree->pushlv(@nodes);
 
 };
 
@@ -820,13 +836,14 @@ sub call($self,$key,@args) {
 
   );
 
-  my $ran={
-    name=>$proc->{name},
-    outbuff=>[@{$proc->{outbuff}}],
+  my $ran=[
+    $proc->{name},
+    @{$proc->{outbuff}}
 
-  };
+  ];
 
   $proc->{outbuff}=[];
+  $self->{tmps}={};
 
 # ---   *   ---   *   ---
 # cleanup
@@ -1159,6 +1176,23 @@ sub cm_def($self,$host,@leaves) {
 };
 
 # ---   *   ---   *   ---
+# ^scope-specific
+
+sub cm_tmp($self,$host,@leaves) {
+
+  my ($key,$value)=@leaves;
+
+  $self->sym_deref($host,\$key->{value});
+  $self->deep_deref($host,$value);
+
+  $value->collapse();
+
+  $self->{tmps}->{$key->{value}}=
+    $value->{value};
+
+};
+
+# ---   *   ---   *   ---
 # ^destroy
 
 sub cm_undef($self,$host,@leaves) {
@@ -1258,8 +1292,6 @@ sub cm_off($self,$host,@leaves) {};
 
 sub cm_out($self,$host,@leaves) {
 
-  state $out_parens=qr{^\(+|\)+$}mx;
-
   my @lines=map {$ARG->{value}} @leaves;
   my @ar=();
 
@@ -1269,7 +1301,7 @@ sub cm_out($self,$host,@leaves) {
     # replace %vars% for values
     $self->sym_deref($host,\$line);
 
-    $line=~ s[$out_parens][]gx;
+    $line=~ s[$OUT_PARENS][]gx;
     $line=~ s[\x20+][ ]sxmg;
 
     # echo
@@ -1297,6 +1329,38 @@ sub cm_bout($self,$host,@leaves) {
 };
 
 # ---   *   ---   *   ---
+
+sub cm_bmat($self,$host,@leaves) {
+
+  $self->sym_deref($host,\$leaves[0]->{value});
+
+  my ($idex,$re)=
+    split $COMMA_RE,$leaves[0]->{value};
+
+  $re=~ s[$OUT_PARENS][]sxmg;
+  $re=qr{^(?: $re)$};
+
+  my $branch=$self->{tgt}->{parent};
+  my $beg=$branch->{leaves}->[$idex];
+
+  my @ar=$branch->match_until(
+
+    $beg,$re,
+    inclusive=>1,
+
+  );
+
+  array_filter(\@ar,sub {
+
+    $ARG->{value}=~ $re
+
+  });
+
+  $self->{defs}->{Bmat_Out}=int(@ar);
+
+};
+
+# ---   *   ---   *   ---
 # instruction sub-table: standard symbol call
 
 $Lan->{Sbl_Common}={
@@ -1306,11 +1370,15 @@ $Lan->{Sbl_Common}={
 
   'undef'=>\&cm_undef,
 
+  tmp=>\&cm_tmp,
+
   on=>\&cm_on,
   off=>\&cm_off,
 
   out=>\&cm_out,
+
   bout=>\&cm_bout,
+  bmat=>\&cm_bmat,
 
 };
 
@@ -1382,20 +1450,6 @@ sub reg($self,$name,@entries) {
     );
 
   };
-
-};
-
-# ---   *   ---   *   ---
-# placeholder
-
-sub run($self,@args) {
-  return $self->{run}->($self,@args);
-
-};
-
-sub set_entry($self,$coderef) {
-  $self->{run}=$coderef;
-  return;
 
 };
 

@@ -38,7 +38,7 @@ package Emit::C;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;
+  our $VERSION=v0.00.3;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -51,14 +51,14 @@ package Emit::C;
 
 # ---   *   ---   *   ---
 
-    q[sbyte]=>['int8_t'],
+    q[syte]=>['int8_t'],
 
     q[byte]=>[
       'uchar','uint8_t','unsigned char'
 
     ],
 
-    q[swide]=>[
+    q[side]=>[
       'short','int16_t'
 
     ],
@@ -75,15 +75,15 @@ package Emit::C;
 
 # ---   *   ---   *   ---
 
-    q[half]=>['uint','uint32_t'],
-    q[shalf]=>['int','int32_t'],
+    q[long]=>['uint','uint32_t'],
+    q[song]=>['int','int32_t'],
 
     q[word]=>[
       'ulong','uint64_t','size_t','uintptr_t',
 
     ],
 
-    q[sword]=>[
+    q[sord]=>[
       'long','int64_t','intptr_t',
 
     ],
@@ -91,7 +91,7 @@ package Emit::C;
     q[real]=>['float'],
     q[daut]=>['double'],
 
-    q[darc]=>['void'],
+    q[__pe_void]=>['void'],
 
   );
 
@@ -284,14 +284,6 @@ sub datasec($class,$name,$type,@items) {
   };
 
   return $s;
-
-};
-
-# ---   *   ---   *   ---
-
-sub ifchain($class,$name,%O) {
-
-  
 
 };
 

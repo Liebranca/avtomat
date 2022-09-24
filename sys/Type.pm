@@ -63,7 +63,7 @@ package Type;
 
     byte=>1,
     wide=>2,
-    half=>4,
+    long=>4,
     word=>8,
 
     # measuring
@@ -216,7 +216,7 @@ DONE:
 # ---   *   ---   *   ---
 # ugly arse specifiers...
 
-  if($O{sign}) {$name="s$name"};
+  if($O{sign}) {substr $name,0,1,'s'};
   if($O{str}) {$name.='_str'};
 
   if($O{addr}) {
@@ -487,7 +487,7 @@ sub gen_type_table(%table) {
 # ---   *   ---   *   ---
 # generate floating types
 
-    if($key=~ m[(?: half|word)]x) {
+    if($key=~ m[(?: long|word)]x) {
 
       my $real_type=(
         'real','daut'
@@ -517,7 +517,7 @@ sub gen_type_table(%table) {
 # ---   *   ---   *   ---
 # generate signed and pointers
 
-    if($key=~ m[(?: byte|wide|half|word)]x) {
+    if($key=~ m[(?: byte|wide|long|word)]x) {
 
       $F->nit($key,$value,sign=>1);
       $F->nit(

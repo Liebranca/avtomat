@@ -29,11 +29,33 @@
 
 # ---   *   ---   *   ---
 
-my $ffi=Avt::FFI->get_instance();
-$ffi->lib(Shb7::so('base'));
-$ffi->attach('fn',['word','word'],'word');
+  use Emit::Python;
 
-say fn(1,2);
+  say Emit::Python->boiler_open(
+
+    'test',
+
+    include=>[
+
+      'std',
+
+      ['dir',qw(pyf,pyf2)],
+
+    ],
+
+    author=>'IBN-3DILA',
+
+  );
+
+  say Emit::Python->boiler_close('test');
+
+# ---   *   ---   *   ---
+
+#my $ffi=Avt::FFI->get_instance();
+#$ffi->lib(Shb7::so('base'));
+#$ffi->attach('fn',['word','word'],'word');
+#
+#say fn(1,2);
 
 # ---   *   ---   *   ---
 
