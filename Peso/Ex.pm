@@ -58,6 +58,11 @@ package Peso::Ex;
   my $Lan={};
   my $CM_RE;
 
+  my $SYMBOL_DEREF_RE=qr{%(?<name>
+    [^%\s]+
+
+  )%}x;
+
 # ---   *   ---   *   ---
 # global kick
 
@@ -408,44 +413,80 @@ TAIL:
 };
 
 # ---   *   ---   *   ---
+
+sub tokenpaste($self,$host,$sref) {
+
+  my $out=undef;
+
+  if(!($$sref=~
+    s[$SYMBOL_DEREF_RE][$Shwl::PL_CUT]s
+
+  )) {goto TAIL};
+
+  my $defs=$self->{defs};
+  my $rargs=$host->{-r_args};
+
+  # capture is identifier
+  # stripped of enclosing %
+  my $name=$+{name};
+
+  # look for dict entries
+  # defd symbols considered first
+  my $value=(exists $defs->{$name})
+    ? $defs->{$name}
+    : $rargs->{$name}
+    ;
+
+  errout(
+
+    q[Invalid token-paste '%s'],
+    args=>[$name],
+    lvl=>$AR_FATAL,
+
+  ) unless defined $value;
+
+  $out=[$name,$value];
+
+# ---   *   ---   *   ---
+
+TAIL:
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # looks for %var% and replaces it
 # with its value
 
 sub sym_deref($self,$host,$sref) {
 
-  state $TOKEN_RE=qr{%(?<name>
-    [^%\s]+
-
-  )%}x;
-
-  my $defs=$self->{defs};
-  my $rargs=$host->{-r_args};
-
 # ---   *   ---   *   ---
 # replace %var% for constant
 
-  while($$sref=~ s[$TOKEN_RE][$Shwl::PL_CUT]s) {
+  while(defined(
+    my $upck=tokenpaste($self,$host,$sref)
 
-    # capture is identifier
-    # stripped of enclosing %
-    my $name=$+{name};
+  )) {
 
-    # look for dict entries
-    # defd symbols considered first
-    my $value=(exists $defs->{$name})
-      ? $defs->{$name}
-      : $rargs->{$name}
-      ;
+    my ($name,$value)=@$upck;
 
-    errout(
+    # handle nodes
+    if(Tree->is_valid($value)) {
+      $value=$value->{value}
 
-      q[Invalid token-paste '%s'],
-      args=>[$name],
-      lvl=>$AR_FATAL,
+    };
 
-    ) unless defined $value;
-
+    # ^handle node array
     if(is_arrayref($value)) {
+
+      map {
+
+        $ARG=$ARG->{value}
+        if Tree->is_valid($ARG);
+
+      } @$value;
+
       $value=join "\n",@$value;
 
     };
@@ -472,6 +513,33 @@ sub deep_deref($self,$host,$branch) {
     unshift @pending,@{$nd->{leaves}};
 
   };
+
+};
+
+# ---   *   ---   *   ---
+
+sub nd_deref($self,$host,$sref) {
+
+  my @branch=();
+
+  while(defined(
+    my $upck=tokenpaste($self,$host,$sref)
+
+  )) {
+
+    my ($name,$value)=@$upck;
+
+    if(is_arrayref($value)) {
+      push @branch,@$value;
+
+    } else {
+      push @branch,$value;
+
+    };
+
+  };
+
+  return @branch;
 
 };
 
@@ -545,11 +613,62 @@ sub run_blocks_sl($self,$order,$H,%O) {
 };
 
 # ---   *   ---   *   ---
+
+sub xlate_on($self,@args) {
+
+  my ($cond,$label)=@args;
+  $cond=$cond->[0];
+
+  $cond->prich();
+
+};
+
+# ---   *   ---   *   ---
+
+sub peek($self,@rec) {
+
+  for my $entry(@rec) {
+
+    my ($name,$buff)=(
+      $entry->{name},
+      $entry->{outbuff},
+
+    );
+
+    if($name eq 'ON') {
+
+      $self->xlate_on(@$buff);
+      exit;
+
+    };
+
+    for my $ref(@$buff) {
+      map {
+
+        if(Tree->is_valid($ARG)) {
+          $ARG->prich();
+
+        } else {
+          say $ARG
+        }
+
+      } @$ref;
+
+    };
+
+    say "__________________\n";
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # PROTO: interprets one tree using the
 # definitions in a program
 
 sub from($self,$tree) {
 
+  my @rec=();
   my @pending=(@{$tree->{leaves}});
 
   my $proc;
@@ -569,12 +688,12 @@ sub from($self,$tree) {
     # use token as arg
     # NOTE: this breaks. a lot.
     } elsif($nd->{value} ne ';') {
-      push @args,$nd->{value};
+      push @args,$nd;
 
     # terminator found
     } else {
 
-      $self->call($proc,@args);
+      push @rec,$self->call($proc,@args);
 
       $proc=undef;
       @args=();
@@ -587,6 +706,8 @@ sub from($self,$tree) {
     unshift @pending,@{$nd->{leaves}};
 
   };
+
+  return @rec;
 
 };
 
@@ -699,6 +820,14 @@ sub call($self,$key,@args) {
 
   );
 
+  my $ran={
+    name=>$proc->{name},
+    outbuff=>[@{$proc->{outbuff}}],
+
+  };
+
+  $proc->{outbuff}=[];
+
 # ---   *   ---   *   ---
 # cleanup
 
@@ -706,6 +835,8 @@ sub call($self,$key,@args) {
   delete $proc->{-r_args};
 
   $proc->{branch}->deep_repl($old_branch);
+
+  return $ran;
 
 };
 
@@ -848,6 +979,7 @@ sub lan($self,$tree,$subset,$pattern,%O) {
       stack_sz=>0,
 
       branch=>$branch,
+      outbuff=>[],
 
     };
 
@@ -1127,7 +1259,9 @@ sub cm_off($self,$host,@leaves) {};
 sub cm_out($self,$host,@leaves) {
 
   state $out_parens=qr{^\(+|\)+$}mx;
+
   my @lines=map {$ARG->{value}} @leaves;
+  my @ar=();
 
   # sanitize
   for my $line(@lines) {
@@ -1139,7 +1273,24 @@ sub cm_out($self,$host,@leaves) {
     $line=~ s[\x20+][ ]sxmg;
 
     # echo
-    say $line;
+    push @ar,split m[$NEWLINE_RE+],$line;
+
+  };
+
+  push @{$host->{outbuff}},[@ar];
+
+};
+
+# ---   *   ---   *   ---
+# output nodes rather than their values
+
+sub cm_bout($self,$host,@leaves) {
+
+  my @branch=map {$ARG->{value}} @leaves;
+
+  for my $expr(@branch) {
+    my @ar=$self->nd_deref($host,\$expr);
+    push @{$host->{outbuff}},[@ar];
 
   };
 
@@ -1159,6 +1310,7 @@ $Lan->{Sbl_Common}={
   off=>\&cm_off,
 
   out=>\&cm_out,
+  bout=>\&cm_bout,
 
 };
 
