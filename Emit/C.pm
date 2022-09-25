@@ -75,7 +75,7 @@ package Emit::C;
 
 # ---   *   ---   *   ---
 
-    q[long]=>['uint','uint32_t'],
+    q[__pe_long]=>['uint','uint32_t'],
     q[song]=>['int','int32_t'],
 
     q[word]=>[

@@ -51,7 +51,7 @@ package Avt::FFI;
     q[wide]=>['uint16'],
     q[side]=>['sint16'],
 
-    q[long]=>['uint32'],
+    q[__long]=>['uint32'],
     q[song]=>['sint32'],
     q[word]=>['uint64'],
     q[sord]=>['sint64'],

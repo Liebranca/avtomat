@@ -49,43 +49,6 @@ package Emit::Python;
 # ---   *   ---   *   ---
 # ROM
 
-  our $Typetab=Vault::cached(
-
-    '$Typetab',\$Typetab,
-    \&xltab,
-
-# ---   *   ---   *   ---
-
-    q[byte]=>[q(byte)],
-    q[syte]=>[q(syte)],
-    q[wide]=>[q(wide)],
-    q[side]=>[q(side)],
-
-# ---   *   ---   *   ---
-
-    q[byte_str]=>[q(charstar)],
-    q[wide_str]=>[q{star(wide)}],
-
-# ---   *   ---   *   ---
-
-    q[long]=>[q(long)],
-    q[song]=>[q(song)],
-
-    q[word]=>[q(word)],
-    q[sord]=>[q(sord)],
-
-    q[real]=>[q(real)],
-    q[daut]=>[q(double)],
-
-# ---   *   ---   *   ---
-
-    q[__pe_void_ptr]=>[q(voidstar)],
-    q[__pe_void]=>[q(None)],
-
-  );
-
-# ---   *   ---   *   ---
-
   Readonly my $OPEN_GUARDS=>
 
 q[#!/usr/bin/python
@@ -237,7 +200,7 @@ $:iter (
 "('$name');\n".
 
 "    self.$x0.restype=$rtype;\n".
-"    self.$x0.argtypes=$arg_types;\n\n"
+"    self.$x0.argtypes=[$arg_types];\n\n"
 
 ;>
 
@@ -257,7 +220,7 @@ $:iter (
 )
 
 "def $name($args):\n".
-"  $arg_boiler;\n".
+"$arg_boiler;\n".
 "  $:soname;>X.$name($args);\n\n"
 
 
@@ -267,13 +230,98 @@ $:iter (
 
 # ---   *   ---   *   ---
 
-names
-rtypes
-args
-arg_types
-arg_boiler
+  my (
+
+    @names,
+    @rtypes,
+
+    @args,
+    @arg_types,
+    @arg_boiler,
+
+  );
+
+  for $o(%$objects) {
+  while(@$o) {
+
+    my ($fn,$rtype,@ar)=@{shift @$o};
+
+    my @ar_t=array_keys(\@ar);
+    my @ar_n=array_values(\@ar);
+
+    push @names,$fn;
+    push @rtypes,$rtype;
+    push @args,(join ',',@ar_n);
+    push @arg_types,(join ',',@ar_t);
 
 # ---   *   ---   *   ---
+# type """transform""" calls
+#
+# actually a patch for how terrible
+# python and it's abstractions are
+
+    my $boiler=$NULLSTR;
+
+    while(@ar_n && @ar_t) {
+
+      my $n=shift @ar_n;
+      my $t=shift @ar_t;
+
+# ---   *   ---   *   ---
+# strings are char arrays
+#
+# the conception of them as something else
+# is entirely born out of high-level delusion
+#
+# it's only at and for this level that
+# we even have to make this differentiation
+
+      if(
+
+          Type::is_str($t)
+      && !Type::is_ptr($t)
+
+      ) {
+
+        $boiler.="  $n=mcstr($t,$n);\n";
+
+# ---   *   ---   *   ---
+# again, purely conceptual
+
+      } elsif(
+
+          Type::is_str($t)
+      &&  Type::is_ptr($t)
+
+      } (
+
+        my $t2=$t;
+        $t=~ s[_ptr$][];
+
+        my $xform="[mcstr($t2,v) for v in $n]"
+
+        $boiler.="  $n=mcstar($t,$xform);\n";
+
+# ---   *   ---   *   ---
+# if your arrays are not arrays under the hood,
+# then your language has a serious problem
+
+      } elsif(Type::is_ptr($t)) {
+        $boiler.="  $n=mcstar($t,$n);\n";
+
+      };
+
+    };
+
+# ---   *   ---   *   ---
+# save the """transforms""" for this function
+
+    push @arg_boiler,$boiler;
+
+  }};
+
+# ---   *   ---   *   ---
+# expand the code with the provided data
 
   Peso::Ipret::pesc(
 

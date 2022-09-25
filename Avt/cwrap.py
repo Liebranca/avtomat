@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 # ---   *   ---   *   ---
+# base types/utils
 
 from ctypes import (
 
@@ -8,10 +9,9 @@ from ctypes import (
 
   POINTER   as star,
 
-  c_void_p  as voidstar,
-  c_char_p  as charstar,
-
-  c_size_t  as size_t,
+  c_void_p  as __pe_void_ptr,
+  c_char_p  as byte_str,
+  c_wchar_p as wide_str,
 
   c_int8    as syte,
   c_int16   as side,
@@ -34,9 +34,37 @@ from ctypes import (
 
 );
 
-#   ---     ---     ---     ---     ---
+# ---   *   ---   *   ---
+# some additional types
 
-def cstr (s): return bytes   (s, "utf-8");
-def mcstr(s): return charstar(cstr(s)   );
+__pe_void=None;
+
+syte_ptr=star(syte);
+byte_ptr=star(byte);
+side_ptr=star(side);
+wide_ptr=star(wide);
+
+song_ptr=star(song);
+long_ptr=star(long);
+sord_ptr=star(sord);
+word_ptr=star(word);
+
+real_ptr=star(real);
+daut_ptr=star(daut);
+
+wide_str_ptr=star(wide_str);
+byte_str_ptr=star(byte_str);
+
+#   ---     ---     ---     ---     ---
+# bonus utils
+
+def cstr (s):
+  return bytes(s,"utf-8");
+
+def mcstr(type,s):
+  return type(cstr(s));
+
+def mcstar(type,l):
+  return (type*len(l))(l[:]);
 
 #   ---     ---     ---     ---     ---

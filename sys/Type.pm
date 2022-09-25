@@ -63,7 +63,7 @@ package Type;
 
     byte=>1,
     wide=>2,
-    long=>4,
+    __long=>4,
     word=>8,
 
     # measuring
@@ -82,6 +82,7 @@ package Type;
   );
 
   Readonly my $STRTYPE_RE=>qr{_str}x;
+  Readonly my $PTRTYPE_RE=>qr{_ptr}x;
 
 # ---   *   ---   *   ---
 # constructor
@@ -254,6 +255,11 @@ DONE:
 
 sub is_str($self) {
   return $self->{name}=~ m[$STRTYPE_RE];
+
+};
+
+sub is_ptr($self) {
+  return $self->{name}=~ m[$PTRTYPE_RE];
 
 };
 
@@ -487,7 +493,7 @@ sub gen_type_table(%table) {
 # ---   *   ---   *   ---
 # generate floating types
 
-    if($key=~ m[(?: long|word)]x) {
+    if($key=~ m[(?: __long|word)]x) {
 
       my $real_type=(
         'real','daut'
@@ -517,7 +523,7 @@ sub gen_type_table(%table) {
 # ---   *   ---   *   ---
 # generate signed and pointers
 
-    if($key=~ m[(?: byte|wide|long|word)]x) {
+    if($key=~ m[(?: byte|wide|__long|word)]x) {
 
       $F->nit($key,$value,sign=>1);
       $F->nit(

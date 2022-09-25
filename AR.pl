@@ -34,9 +34,9 @@ my $libd=$ENV{'ARPATH'}.'/lib/';
 
 if($clean) {
 
-  `rm -r ../.trash/* &> /dev/null`;
-  `rm -r ../.cache/* &> /dev/null`;
-  `rm -r ../lib/* &> /dev/null`;
+  `rm -rf ../.trash/* ../.trash/.[!.]* &> /dev/null`;
+  `rm -rf ../.cache/* ../.cache/.[!.]* &> /dev/null`;
+  `rm -rf ../lib/* ../.lib/.[!.]* &> /dev/null`;
 
   `mkdir -p $trashd`;
   `mkdir -p $libd`;

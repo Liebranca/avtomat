@@ -217,9 +217,31 @@ sub parse($lang,$fname,%opts) {
   my $self=Peso::Rd->nit($lang,$fname,%opts);
 
 # ---   *   ---   *   ---
-# make tree from block data
+# get node frame for this language
 
   my $nd_frame=Tree::Syntax->get_frame();
+  my $i=1;
+
+  while(
+
+     !defined $nd_frame->{-lang}
+  || $nd_frame->{-lang}->{name} ne $lang->{name}
+
+  ) {
+
+    if(!defined $nd_frame->{-lang}) {
+      $nd_frame->{-lang}=$lang;
+
+    } else {
+      $nd_frame=Tree::Syntax->get_frame($i++);
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+# make tree from block data
+
   for my $id(keys %{$self->{blocks}}) {
 
     my $root=$nd_frame->nit(undef,$id);
