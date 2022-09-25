@@ -59,7 +59,7 @@ package Avt::FFI;
     q[byte_str]=>['string'],
     q[wide_str]=>['wstring'],
 
-    q[__pe_void]=>['opaque'],
+    q[pe_void]=>['opaque'],
 
   );
 

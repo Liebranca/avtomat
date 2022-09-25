@@ -91,7 +91,7 @@ package Emit::C;
     q[real]=>['float'],
     q[daut]=>['double'],
 
-    q[__pe_void]=>['void'],
+    q[pe_void]=>['void'],
 
   );
 

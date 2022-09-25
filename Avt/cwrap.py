@@ -9,7 +9,7 @@ from ctypes import (
 
   POINTER   as star,
 
-  c_void_p  as __pe_void_ptr,
+  c_void_p  as pe_void_ptr,
   c_char_p  as byte_str,
   c_wchar_p as wide_str,
 
@@ -37,7 +37,7 @@ from ctypes import (
 # ---   *   ---   *   ---
 # some additional types
 
-__pe_void=None;
+pe_void=None;
 
 sbyte_ptr=star(sbyte);
 byte_ptr=star(byte);

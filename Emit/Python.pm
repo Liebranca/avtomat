@@ -59,9 +59,9 @@ $:note;>
 
 import os,sys;
 
-ARPATH:str=os.env('ARPATH');
-if(ARPATH.'/lib/' not in sys.path):
-  sys.path.append(ARPATH.'/lib/');
+ARPATH:str=os.getenv('ARPATH');
+if(ARPATH+'/lib/' not in sys.path):
+  sys.path.append(ARPATH+'/lib/');
 
 # ---   *   ---   *   ---
 # deps
@@ -92,11 +92,19 @@ sub boiler_open($class,$fname,%O) {
 
       my ($src,@flist)=@$path;
 
-      map {$ARG="  $ARG"} @flist;
-      $path="from $src import (\n".(
-        join ",\n",@flist
+      # lone asterisk
+      if($flist[0] eq '*') {
+        $path="from $src import *";
 
-      )."\n\n)";
+      # actual file list
+      } else {
+        map {$ARG="  $ARG"} @flist;
+        $path="from $src import (\n".(
+          join ",\n",@flist
+
+        )."\n\n)";
+
+      };
 
     # format as import X
     } else {
@@ -167,7 +175,7 @@ my $code=q{
 
 class $:soname;>X:
 
-  @classmethod
+  @staticmethod
   def nit():
 
     self=cdll.LoadLibrary(
@@ -216,7 +224,15 @@ $:calpaste;>
       my @ar_n=array_keys(\@ar);
 
       my $arg_names=join ',',@ar_n;
-      my $arg_types=join ',',@ar_t;
+      my $arg_types;
+
+      if($ar_t[0] eq 'pe_void') {
+        $arg_types=$NULLSTR;
+
+      } else {
+        $arg_types=join ',',@ar_t;
+
+      };
 
 $nitpaste.=
 
@@ -293,7 +309,7 @@ $nitpaste.=
 push @calpaste,
 
 "def $fn_name($arg_names):\n".$boiler.
-"  lib\$:soname;>.$fn_name($arg_names);\n\n"
+"  return lib\$:soname;>.$fn_name($arg_names);\n\n"
 
 ;
 
