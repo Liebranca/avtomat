@@ -247,6 +247,7 @@ sub update_regular($M) {
 sub update_objects($M,$DFLG,$PFLG) {
 
   state $obj_ext=qr{\.o$};
+  state $cpp_ext=qr{\.cpp$};
 
   my @SRCS=@{$M->{srcs}};
   my @OBJS=@{$M->{objs}};
@@ -307,9 +308,15 @@ sub update_objects($M,$DFLG,$PFLG) {
       my $asm=$obj;
       $asm=~ s[$obj_ext][.asm];
 
+      my $up=$NULLSTR;
+      if($src=~ $cpp_ext) {
+        $up='-lstdc++';
+
+      };
+
       my $call=''.
         'gcc -MMD'.q{ }.$Shb7::OFLG.q{ }.
-        "$INCLUDES $DFLG $PFLG ".
+        "$INCLUDES $DFLG $PFLG $up".q{ }.
         "-Wa,-a=$asm -c $src -o $obj";
 
       `$call`;$objblt++;

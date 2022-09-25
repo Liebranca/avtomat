@@ -202,33 +202,6 @@ Avt::set_config(
 #
 #);
 #
-## ---   *   ---   *   ---
-#
-#Avt::set_config(
-#
-#  name=>'AUVILIB',
-#
-#  build=>'ar:AUVILIB',
-#  xprt=>[qw(xforms/im.c)],
-#
-## ---   *   ---   *   ---
-#
-#  post_build=>q(
-#
-#    Avt::stlib($Shb7::Root.'/lib/');
-#    Avt::wrcpyboil(
-#      '/lib/',
-#      'AUVILIB',
-#      'IBN-3DILA',
-#
-#      \&Avt::ctopy,['AUVILIB',['AUVILIB']]
-#
-#    );
-#
-#  ),
-#
-#);
-
 # ---   *   ---   *   ---
 # install packages
 

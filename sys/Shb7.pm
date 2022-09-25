@@ -287,6 +287,8 @@ sub walk($path,%O) {
   $O{-x}.=q{
     nytprof | data | docs | tests | legacy
 
+  | __pycache__
+
   };
 
   $O{-x}=qr{(?:$O{-x})}x;
@@ -966,7 +968,7 @@ sub sofetch($symtab) {
       my $fn=$funcs->{$fn_name};
       my $rtype=$fn->{type};
 
-      push @$ref,[$fn,$rtype,@{$fn->{args}}];
+      push @$ref,[$fn_name,$rtype,@{$fn->{args}}];
 
     };
 

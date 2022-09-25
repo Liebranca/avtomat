@@ -19,6 +19,7 @@ package Peso::Ipret;
   use strict;
   use warnings;
 
+  use Carp;
   use Readonly;
   use English qw(-no_match_vars);
 
@@ -30,6 +31,8 @@ package Peso::Ipret;
   use Arstd::Array;
   use Arstd::Hash;
   use Arstd::IO;
+
+  use Chk;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
   use Shwl;
@@ -107,7 +110,8 @@ sub pesc_iter($class,$sref,$esc,$args,%O) {
 
   my $loop_cond='while(';
   my $loop_head=$NULLSTR;
-  my $loop_body='$repl.=eval($run);};';
+
+  my $loop_body="\$repl.=$run;};";
 
 # ---   *   ---   *   ---
 

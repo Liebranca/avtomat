@@ -61,23 +61,24 @@ package Type;
 
     # primitives
 
-    byte=>1,
-    wide=>2,
-    __long=>4,
-    word=>8,
+    byte    =>    1,
+    wide    =>    2,
+    brad    =>    4,
+    word    =>    8,
 
     # measuring
 
-    unit=>0x0010, # 2  words
-    line=>0x0040, # 4  units
-    page=>0x1000, # 64 lines
+    unit    =>   16,
+    half    =>   32,
+    line    =>   64,
+
+    page    => 4096,
 
     # function types
 
-    nihil=>8,     # void(*nihil)(void)
-    stark=>8,     # void(*stark)(void*)
-
-    signal=>8,    # uint64_t(*signal)(uint64_t)
+    nihil   =>    8,
+    stark   =>    8,
+    signal  =>    8,
 
   );
 
@@ -217,7 +218,7 @@ DONE:
 # ---   *   ---   *   ---
 # ugly arse specifiers...
 
-  if($O{sign}) {substr $name,0,1,'s'};
+  if($O{sign}) {$name="s$name"};
   if($O{str}) {$name.='_str'};
 
   if($O{addr}) {
@@ -493,7 +494,7 @@ sub gen_type_table(%table) {
 # ---   *   ---   *   ---
 # generate floating types
 
-    if($key=~ m[(?: __long|word)]x) {
+    if($key=~ m[(?: brad|word)]x) {
 
       my $real_type=(
         'real','daut'
@@ -523,7 +524,7 @@ sub gen_type_table(%table) {
 # ---   *   ---   *   ---
 # generate signed and pointers
 
-    if($key=~ m[(?: byte|wide|__long|word)]x) {
+    if($key=~ m[(?: byte|wide|brad|word)]x) {
 
       $F->nit($key,$value,sign=>1);
       $F->nit(

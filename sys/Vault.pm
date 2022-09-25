@@ -117,10 +117,14 @@ sub check_module($name,$exclude=[]) {
   my $syspath=$Shb7::Root;
   my $frame=$Systems->{$syspath};
 
+  $Systems->{$syspath}//={};
+
   my $table;
 
   if(!exists $frame->{-roots}->{$name}) {
+
     $table=module_tree($name,$exclude);
+    $frame->{-roots}->{$name}=$table;
 
   } else {
     $table=$frame->{-roots}->{$name};
@@ -194,9 +198,12 @@ END {
 
       say {*STDERR}
 
+        "\e[37;1m::\e[0m",
+
         "updated \e[32;1m",
         $modname,
-        "\e[0m\n"
+
+        "\e[0m"
 
       ;
 

@@ -223,6 +223,7 @@ sub symscan($mod,$dst,$deps,@fnames) {
 # iter through files
 
   for my $f(@files) {
+
     if(!$f) {next};
 
     my $o=Shb7::obj_from_src($f);
@@ -344,24 +345,11 @@ sub scan() {
   my @ar=@{$Cache{_scan}};
   while(@ar) {
 
-    my ($mod,$excluded)=split m[\s],shift @ar;
+    my ($mod,$excluded)=split
+      m[\s+(?: -x | --excluded)\s+]x,
+      (shift @ar)
 
-    if(defined $excluded) {
-
-      # handle exclude flag short
-      if($excluded=~ m/-x/) {
-        $excluded=~ s/-x\s*//;
-
-      # handle exclude flag long
-      } elsif($excluded=~
-          m/\-\-exclude\=[\w|\d]*/
-
-      ) {
-        $excluded=~ s/\-\-exclude\=//;
-
-      };
-
-    };
+    ;
 
     $excluded//=$NULLSTR;
     $excluded=[
@@ -507,8 +495,9 @@ sub get_config_paths($M,$config) {
 
 sub get_config_files($M,$config,$module) {
 
-  state $c_ext=qr{\.c$};
+  state $c_ext=qr{\.(?:cpp|c)$}x;
   state $perl_ext=qr{\.pm$};
+  state $python_ext=qr{\.py$};
 
   $M->{fcpy}=[];
   $M->{xprt}=[];
@@ -637,11 +626,13 @@ sub get_config_files($M,$config,$module) {
       my $match=shift @matches;
       $match=~ s[\\][]g;
 
-      my $ob=$match;$ob=(substr $ob,0,
-        (length $ob)-1).'o';
+      my $ob=$match;
+      $ob=~ s[$c_ext][];
+      $ob.='.o';
 
-      my $dep=$match;$dep=(substr $dep,0,
-        (length $dep)-1).'d';
+      my $dep=$match;
+      $dep=~ s[$c_ext][];
+      $dep.='.d';
 
       push @{$M->{srcs}},"$dir/$match";
       push @{$M->{objs}},(
@@ -671,6 +662,25 @@ sub get_config_files($M,$config,$module) {
       push @{$M->{objs}},(
         "$LIBD$lmod/$match",
         "$trsh$dep"
+
+      );
+
+    };
+
+# ---   *   ---   *   ---
+
+    @matches=grep m/$python_ext/,@files;
+
+    while(@matches) {
+      my $match=shift @matches;
+      $match=~ s[\\][]g;
+
+      my $lmod=$dir;
+      $lmod=~ s([.]/${name})();
+
+      push @{$M->{fcpy}},(
+        "$dir/$match",
+        "$LIBD$lmod/$match"
 
       );
 
@@ -813,8 +823,9 @@ sub config() {
 
   # overwrite old values
   if(-e $src) {
+
     my $h=retrieve($src);
-    $config={%$config,%$h};
+    $config={%$h,%$config};
 
   };
 

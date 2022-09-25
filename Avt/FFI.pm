@@ -47,14 +47,14 @@ package Avt::FFI;
     \&xltab,
 
     q[byte]=>['uint8'],
-    q[syte]=>['sint8'],
+    q[sbyte]=>['sint8'],
     q[wide]=>['uint16'],
-    q[side]=>['sint16'],
+    q[swide]=>['sint16'],
 
-    q[__long]=>['uint32'],
-    q[song]=>['sint32'],
+    q[brad]=>['uint32'],
+    q[sbrad]=>['sint32'],
     q[word]=>['uint64'],
-    q[sord]=>['sint64'],
+    q[sword]=>['sint64'],
 
     q[byte_str]=>['string'],
     q[wide_str]=>['wstring'],

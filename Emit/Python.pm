@@ -63,8 +63,6 @@ ARPATH:str=os.env('ARPATH');
 if(ARPATH.'/lib/' not in sys.path):
   sys.path.append(ARPATH.'/lib/');
 
-from Avt.cwrap import *;
-
 # ---   *   ---   *   ---
 # deps
 
@@ -86,7 +84,6 @@ sub boiler_open($class,$fname,%O) {
   state $FROM_RE=qr{from}sxm;
 
   my $s=$OPEN_GUARDS;
-  $O{define}//=[];
 
   for my $path(@{$O{include}}) {
 
@@ -119,8 +116,8 @@ sub boiler_open($class,$fname,%O) {
 
 $:iter (
 
-  name=>$O{define_keys},
-  value=>$O{define_values},
+  name=>[array_keys($O{define})],
+  value=>[array_values($O{define})],
 
 ) "$name=$value;\n"
 
@@ -129,12 +126,6 @@ $:iter (
 # ---   *   ---   *   ---
 
 ];
-
-  my $define_keys=
-    array_keys($O{define});
-
-  my $define_values=
-    array_values($O{define});
 
 # ---   *   ---   *   ---
 
@@ -146,9 +137,7 @@ $:iter (
     note=>Emit::Std::note($O{author},q[#]),
 
     include=>$O{include},
-
-    define_keys=>$define_keys,
-    define_values=>$define_values,
+    define=>$O{define},
 
   );
 
@@ -174,11 +163,9 @@ sub shwlbind($fname,$soname,$libs_ref) {
 
 # ---   *   ---   *   ---
 
-my $code=q[
+my $code=q{
 
 class $:soname;>X:
-
-;>
 
   @classmethod
   def nit():
@@ -188,47 +175,21 @@ class $:soname;>X:
 
     );
 
-$:iter (
-
-  name=>[@$O{names}],
-  rtype=>[@$O{rtypes}],
-  arg_types=>[@$O{arg_types}],
-
-)
-
-"    self.$x0=self.__getattr__".
-"('$name');\n".
-
-"    self.$x0.restype=$rtype;\n".
-"    self.$x0.argtypes=[$arg_types];\n\n"
-
-;>
+$:nitpaste;>
 
     return self;
 
 # ---   *   ---   *   ---
 
 lib$:soname;>=$:soname;>X.nit();
+$:calpaste;>
 
-$:iter (
-
-  name=>[@$O{names}],
-  rtype=>[@$O{rtypes}],
-  args=>[@$O{args}],
-  arg_boiler=>[@$O{arg_boiler}],
-
-)
-
-"def $name($args):\n".
-"$arg_boiler;\n".
-"  $:soname;>X.$name($args);\n\n"
-
-
-;>
-
-];
+};
 
 # ---   *   ---   *   ---
+
+  my $nitpaste=$NULLSTR;
+  my @calpaste=();
 
   my (
 
@@ -241,18 +202,31 @@ $:iter (
 
   );
 
-  for $o(%$objects) {
-  while(@$o) {
+  for my $o(keys %$objects) {
+    my @OB=@{$objects->{$o}};
 
-    my ($fn,$rtype,@ar)=@{shift @$o};
+    while(@OB) {
 
-    my @ar_t=array_keys(\@ar);
-    my @ar_n=array_values(\@ar);
+      my ($fn_name,$rtype,@ar)=@{
+        shift @OB
 
-    push @names,$fn;
-    push @rtypes,$rtype;
-    push @args,(join ',',@ar_n);
-    push @arg_types,(join ',',@ar_t);
+      };
+
+      my @ar_t=array_values(\@ar);
+      my @ar_n=array_keys(\@ar);
+
+      my $arg_names=join ',',@ar_n;
+      my $arg_types=join ',',@ar_t;
+
+$nitpaste.=
+
+"    self.$fn_name=self.__getattr__".
+"('$fn_name');\n".
+
+"    self.$fn_name.restype=$rtype;\n".
+"    self.$fn_name.argtypes=[$arg_types];\n\n"
+
+;
 
 # ---   *   ---   *   ---
 # type """transform""" calls
@@ -260,12 +234,12 @@ $:iter (
 # actually a patch for how terrible
 # python and it's abstractions are
 
-    my $boiler=$NULLSTR;
+      my $boiler=$NULLSTR;
 
-    while(@ar_n && @ar_t) {
+      while(@ar_n && @ar_t) {
 
-      my $n=shift @ar_n;
-      my $t=shift @ar_t;
+        my $n=shift @ar_n;
+        my $t=shift @ar_t;
 
 # ---   *   ---   *   ---
 # strings are char arrays
@@ -276,49 +250,56 @@ $:iter (
 # it's only at and for this level that
 # we even have to make this differentiation
 
-      if(
+        if(
 
-          Type::is_str($t)
-      && !Type::is_ptr($t)
+            ($t=~ m[_str])
+        && !($t=~ m[_ptr])
 
-      ) {
+        ) {
 
-        $boiler.="  $n=mcstr($t,$n);\n";
+          $boiler.="  $n=mcstr($t,$n);\n";
 
 # ---   *   ---   *   ---
 # again, purely conceptual
 
-      } elsif(
+        } elsif(
 
-          Type::is_str($t)
-      &&  Type::is_ptr($t)
+            ($t=~ m[_str])
+        &&  ($t=~ m[_ptr])
 
-      } (
+        ) {
 
-        my $t2=$t;
-        $t=~ s[_ptr$][];
+          my $t2=$t;
+          $t=~ s[_ptr$][];
 
-        my $xform="[mcstr($t2,v) for v in $n]"
+          my $xform="[mcstr($t2,v) for v in $n]";
 
-        $boiler.="  $n=mcstar($t,$xform);\n";
+          $boiler.="  $n=mcstar($t,$xform);\n";
 
 # ---   *   ---   *   ---
 # if your arrays are not arrays under the hood,
 # then your language has a serious problem
 
-      } elsif(Type::is_ptr($t)) {
-        $boiler.="  $n=mcstar($t,$n);\n";
+        } elsif(($t=~ m[_ptr])) {
+          $boiler.="  $n=mcstar($t,$n);\n";
 
-      };
-
-    };
+        };
 
 # ---   *   ---   *   ---
 # save the """transforms""" for this function
 
-    push @arg_boiler,$boiler;
+      };
 
-  }};
+push @calpaste,
+
+"def $fn_name($arg_names):\n".$boiler.
+"  lib\$:soname;>.$fn_name($arg_names);\n\n"
+
+;
+
+    };
+
+  };
 
 # ---   *   ---   *   ---
 # expand the code with the provided data
@@ -328,13 +309,8 @@ $:iter (
     \$code,
 
     soname=>$soname,
-
-    names=>\@names,
-    rtypes=>\@rtypes,
-
-    args=>\@args,
-    arg_types=>\@arg_types,
-    arg_boiler=>\@arg_boiler,
+    nitpaste=>$nitpaste,
+    calpaste=>(join "\n",@calpaste),
 
   );
 
@@ -344,5 +320,3 @@ $:iter (
 
 # ---   *   ---   *   ---
 1; # ret
-
-

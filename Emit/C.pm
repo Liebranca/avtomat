@@ -51,14 +51,14 @@ package Emit::C;
 
 # ---   *   ---   *   ---
 
-    q[syte]=>['int8_t'],
+    q[sbyte]=>['int8_t'],
 
     q[byte]=>[
       'uchar','uint8_t','unsigned char'
 
     ],
 
-    q[side]=>[
+    q[swide]=>[
       'short','int16_t'
 
     ],
@@ -75,15 +75,15 @@ package Emit::C;
 
 # ---   *   ---   *   ---
 
-    q[__pe_long]=>['uint','uint32_t'],
-    q[song]=>['int','int32_t'],
+    q[brad]=>['uint','uint32_t'],
+    q[sbrad]=>['int','int32_t'],
 
     q[word]=>[
       'ulong','uint64_t','size_t','uintptr_t',
 
     ],
 
-    q[sord]=>[
+    q[sword]=>[
       'long','int64_t','intptr_t',
 
     ],

@@ -43,6 +43,9 @@ sub typetrim($class,$typeref) {
 
   $$typeref=~ s[^\s*|\s*$][]sg;
 
+  # temporal patch ;>
+  $$typeref=~ s[inline][];
+
 };
 
 sub typecon($class,$type) {

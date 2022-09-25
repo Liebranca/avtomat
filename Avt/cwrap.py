@@ -13,14 +13,14 @@ from ctypes import (
   c_char_p  as byte_str,
   c_wchar_p as wide_str,
 
-  c_int8    as syte,
-  c_int16   as side,
-  c_int32   as song,
-  c_int64   as sord,
+  c_int8    as sbyte,
+  c_int16   as swide,
+  c_int32   as sbrad,
+  c_int64   as sword,
 
   c_uint8   as byte,
   c_uint16  as wide,
-  c_uint32  as long,
+  c_uint32  as brad,
   c_uint64  as word,
 
   c_float   as real,
@@ -39,14 +39,14 @@ from ctypes import (
 
 __pe_void=None;
 
-syte_ptr=star(syte);
+sbyte_ptr=star(sbyte);
 byte_ptr=star(byte);
-side_ptr=star(side);
+swide_ptr=star(swide);
 wide_ptr=star(wide);
 
-song_ptr=star(song);
-long_ptr=star(long);
-sord_ptr=star(sord);
+sbrad_ptr=star(sbrad);
+brad_ptr=star(brad);
+sword_ptr=star(sword);
 word_ptr=star(word);
 
 real_ptr=star(real);
