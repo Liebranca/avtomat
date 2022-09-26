@@ -251,11 +251,14 @@ $nitpaste.=
 # python and it's abstractions are
 
       my $boiler=$NULLSTR;
+      my $afterboiler='  doowoop_h=[';
 
       while(@ar_n && @ar_t) {
 
         my $n=shift @ar_n;
         my $t=shift @ar_t;
+
+        $afterboiler.="$n,";
 
 # ---   *   ---   *   ---
 # strings are char arrays
@@ -306,10 +309,41 @@ $nitpaste.=
 
       };
 
-push @calpaste,
+$afterboiler.="];\n";
 
-"def $fn_name($arg_names):\n".$boiler.
-"  return lib\$:soname;>.$fn_name($arg_names);\n\n"
+if(length($arg_names)) {
+
+  $boiler=
+
+    "def $fn_name($arg_names,doowoop=0):\n".
+    $boiler
+
+  ;
+
+} else {
+
+  $afterboiler=$NULLSTR;
+  $boiler=
+
+    "def $fn_name(doowoop=0):\n".
+    $boiler
+
+  ;
+
+};
+
+push @calpaste,$boiler.
+
+'  doowoop_fret='.
+  "lib\$:soname;>.$fn_name($arg_names);\n".
+
+$afterboiler.
+
+"  if(doowoop):\n".
+"    return doowoop_h;\n".
+
+"  else:\n".
+"    return doowoop_fret;\n"
 
 ;
 

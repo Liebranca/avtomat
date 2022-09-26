@@ -34,6 +34,8 @@ from ctypes import (
 
 );
 
+import struct;
+
 # ---   *   ---   *   ---
 # some additional types
 
@@ -56,7 +58,60 @@ wide_str_ptr=star(wide_str);
 byte_str_ptr=star(byte_str);
 
 #   ---     ---     ---     ---     ---
+# typing helper
+
+PRIMITIVES={
+
+  byte_str:{'sz':1,'fmat':'s'},
+  wide_str:{'sz':2,'fmat':'ls'},
+
+  sbyte:{'sz':1,'fmat':'b'},
+  swide:{'sz':2,'fmat':'h'},
+  sbrad:{'sz':4,'fmat':'i'},
+  sword:{'sz':8,'fmat':'q'},
+
+  byte:{'sz':1,'fmat':'B'},
+  wide:{'sz':2,'fmat':'H'},
+  brad:{'sz':4,'fmat':'I'},
+  word:{'sz':8,'fmat':'Q'},
+
+  real:{'sz':4,'fmat':'f'},
+  daut:{'sz':8,'fmat':'d'},
+
+# ---   *   ---   *   ---
+
+  pe_void_ptr:{'sz':8,'fmat':'P'},
+
+  byte_str_ptr:{'sz':1,'fmat':'s','deref':byte},
+  wide_str_ptr:{'sz':2,'fmat':'ls','deref':wide},
+
+  sbyte_ptr:{'sz':1,'fmat':'b','deref':sbyte},
+  swide_ptr:{'sz':2,'fmat':'h','deref':swide},
+  sbrad_ptr:{'sz':4,'fmat':'i','deref':sbrad},
+  sword_ptr:{'sz':8,'fmat':'q','deref':sword},
+
+  byte_ptr:{'sz':1,'fmat':'B','deref':byte},
+  wide_ptr:{'sz':2,'fmat':'H','deref':wide},
+  brad_ptr:{'sz':4,'fmat':'I','deref':brad},
+  word_ptr:{'sz':8,'fmat':'Q','deref':word},
+
+  real_ptr:{'sz':4,'fmat':'f','deref':real},
+  daut_ptr:{'sz':8,'fmat':'d','deref':daut},
+
+};
+
+#   ---     ---     ---     ---     ---
 # bonus utils
+
+def ftb(type,arr):
+  return struct.pack(
+
+    ('%s'%len(arr))
+  + PRIMITIVES[type]['fmat'],
+
+    *arr
+
+  );
 
 def cstr (s):
   return bytes(s,"utf-8");
@@ -65,6 +120,12 @@ def mcstr(type,s):
   return type(cstr(s));
 
 def mcstar(type,l):
-  return (type*len(l))(l[:]);
+
+  b=bytearray();b.extend(ftb(type,l));
+
+  if('deref' in PRIMITIVES[type]):
+    type=PRIMITIVES[type]['deref'];
+
+  return (type*len(l)).from_buffer(b);
 
 #   ---     ---     ---     ---     ---
