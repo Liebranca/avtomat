@@ -1,0 +1,82 @@
+#!/usr/bin/perl
+
+# ---   *   ---   *   ---
+# deps
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use English qw(-no_match_vars);
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+
+  use Style;
+  use Cli;
+
+  use Shb7;
+
+# ---   *   ---   *   ---
+
+my $m=Cli->nit(
+
+  @{$Cli::Fstruct::ATTRS},
+
+  {id=>'lib',short=>'-l',argc=>1},
+  {id=>'inc',short=>'-I',argc=>1},
+  {id=>'out',short=>'-o',argc=>1},
+
+  {id=>'-pg',short=>'-pg',argc=>0},
+
+);
+
+my @files=Cli::Fstruct::proto_search($m);
+
+# ---   *   ---   *   ---
+
+for my $v($m->{inc},$m->{lib}) {
+  $v=$NULLSTR if $v eq $NULL
+
+};
+
+$m->{inc}=q[-I].(join q[ -I],
+  (split $COMMA_RE,$m->{inc})
+
+);
+
+$m->{lib}=q[-l].(join q[ -l],
+  (split $COMMA_RE,$m->{lib})
+
+);
+
+# ---   *   ---   *   ---
+
+my $flags=[];
+for my $key(qw(
+
+  -pg
+
+)) {
+
+  if($m->{$key} ne $NULL) {
+    push @$flags,$key;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+Shb7::olink(
+
+  (join q{ },@files),
+
+  $m->{out},
+
+  libs=>$m->{inc}.q{ }.$m->{lib},
+
+  flags=>$flags,
+
+);
+
+# ---   *   ---   *   ---
+1; # ret

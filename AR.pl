@@ -120,6 +120,8 @@ my $FILE_LIST=[
   '/Lang/Plps.pm',
   '/Lang/C.pm',
 
+  '/Lang/SinGL.pm',
+
   '/Lang/Perl.pm',
   '/Peso/Ipret.pm',
 

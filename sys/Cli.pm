@@ -399,7 +399,7 @@ sub proto_search($m) {
 # ---   *   ---   *   ---
 
   if($m->{extension} eq $NULL) {
-    $m->{ext_re}=qr{\.pmc?$}x;
+    $m->{ext_re}=qr{\..*$}x;
 
   } else {
     $m->{ext_re}=qr{\.(?:$m->{extension})$}x;

@@ -805,7 +805,8 @@ sub olink($objs,$name,%O) {
   # defaults
   $O{deps}//=$NULLSTR;
   $O{libs}//=$NULLSTR;
-  $O{shared}//=0;
+  $O{shared}//=$NULLSTR;
+  $O{flags}//=[];
   $O{flat}//=0;
 
   $O{shared}=q[-shared] if $O{shared};
@@ -831,6 +832,7 @@ sub olink($objs,$name,%O) {
       (split $SPACE_RE,$OFLG),
       (split $SPACE_RE,$LFLG),
 
+      @{$O{flags}},
       q(-m64),
 
       @OBJS,@DEPS,@LPATH,@LIBS,

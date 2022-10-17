@@ -49,7 +49,7 @@ Lang::C->nit(
 
   name=>'C',
 
-  ext=>'\.([ch](pp|xx)?|C|cc|c\+\+|cu|H|hh|ii?)$',
+  ext=>'\.([ch](pp|xx)?|sg|glsl|C|cc|c\+\+|cu|H|hh|ii?)$',
   mag=>'^(C|C\+\+) (source|program)',
   com=>'//',
 

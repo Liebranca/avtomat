@@ -484,10 +484,16 @@ sub get_config_paths($M,$config) {
 
   );
 
-  $M->{incl}=q{-I}.$INCD.q{ -I./ }.(
-    join q{ },@{$config->{incl}}
+  $M->{incl}=
 
-  );
+  q{-I}.$INCD.q{ }.
+  q{-I./ }.
+
+  q{-I./}.$config->{name}.q{/ }.
+
+  (join q{ },@{$config->{incl}})
+
+  ;
 
 };
 
