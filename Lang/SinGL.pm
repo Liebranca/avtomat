@@ -115,13 +115,14 @@ sub hier_sort($self,$rd) {
   my $tree=$blk->{tree};
 
   my @move=();
-  $tree->idextrav();
 
   my @pending=@{$tree->{leaves}};
-
   while(@pending) {
 
     my $branch=shift @pending;
+
+# ---   *   ---   *   ---
+# keyword without children
 
     if(
 
@@ -129,6 +130,9 @@ sub hier_sort($self,$rd) {
     && !@{$branch->{leaves}}
 
     ) {
+
+# ---   *   ---   *   ---
+# ^root expression in keyword
 
       my @range=$tree->match_until(
         $branch,qr{;}x
@@ -140,11 +144,30 @@ sub hier_sort($self,$rd) {
 
       for(@range) {shift @pending};
 
+# ---   *   ---   *   ---
+# make "flat out" into single token
+
+    } elsif(
+
+       @{$branch->{leaves}}
+    && $branch->{value} eq 'flat'
+    && $branch->{leaves}->[0]->{value} eq 'out'
+
+    ) {
+
+      my $n=$branch->pluck(
+        $branch->{leaves}->[0]
+
+      );
+
+      $branch->{value}.=' out';
+      $branch->idextrav();
+
     };
 
-  };
-
 # ---   *   ---   *   ---
+
+  };
 
   for my $ref(@move) {
 
@@ -152,6 +175,27 @@ sub hier_sort($self,$rd) {
     $anchor->pushlv(@$ref);
 
   };
+
+  $rd->recurse($tree);
+  $rd->replstr($tree);
+
+# ---   *   ---   *   ---
+
+  state $BEG_RE=qr{^\$\:VERT;>$}x;
+  state $END_RE=qr{^\$\:FRAG;>$}x;
+
+  my $v_beg=$tree->branch_in($BEG_RE);
+  my @vert=$tree->match_until($v_beg,$END_RE);
+  shift @vert;
+
+  my $f_beg=$tree->branch_in($END_RE);
+  my @frag=@{$tree->{leaves}};
+  @frag=@frag[$f_beg->{idex}+1..$#frag];
+
+  $v_beg->pushlv(@vert);
+  $f_beg->pushlv(@frag);
+
+  return ($v_beg,$f_beg);
 
 };
 
