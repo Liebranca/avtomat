@@ -351,6 +351,8 @@ sub repl($self,$other) {
 };
 
 # ---   *   ---   *   ---
+# ^same, fixes some issues when moving
+# large branches around
 
 sub deep_repl($self,$other) {
 
@@ -366,6 +368,18 @@ sub deep_repl($self,$other) {
 
   $self->clear_branches();
   $self->pushlv(@{$other->{leaves}});
+
+};
+
+# ---   *   ---   *   ---
+# ^replaces *just* the values of nodes
+
+sub deep_value_repl($self,$re,$new) {
+
+  for my $branch($self->branches_in($re)) {
+    $branch->{value}=~ s[$re][$new]sxgm;
+
+  };
 
 };
 

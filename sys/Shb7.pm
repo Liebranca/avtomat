@@ -504,9 +504,12 @@ sub illnames($fname) {
 # ---   *   ---   *   ---
 # find file within search path
 
-sub ffind($fname) {
+sub ffind($fname,@exts) {
 
   if(-e $fname) {return $fname};
+
+  map {$ARG=".$ARG"} @exts;
+  push @exts,$NULLSTR;
 
   my ($ref,@files);
 
@@ -530,13 +533,15 @@ sub ffind($fname) {
 
     # iter alt names
     for my $f(@files) {
-      if(-e "$path/$f") {
-        $src="$path/$f";
+    for my $ext(@exts) {
+
+      if(-e "$path/$f$ext") {
+        $src="$path/$f$ext";
         last;
 
       };
 
-    };
+    }};
 
     # early exit on found
     last if defined $src;
@@ -548,10 +553,18 @@ sub ffind($fname) {
 
   if(!defined $src) {
 
-    errout(
-      "Could not find file '%s' in path\n",
+    pop @exts;
+    my $ext_list=join q[,],@exts;
 
-      args=>[$fname],
+    if(length $ext_list) {
+      $ext_list="(exts==$ext_list)";
+
+    };
+
+    errout(
+      q[Could not find file '%s' in path %s],
+
+      args=>[$fname,$ext_list],
       lvl=>$AR_ERROR,
 
     );
