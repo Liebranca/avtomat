@@ -48,6 +48,9 @@ package Shb7;
   our $F_SLASH_END;
   our $DOT_BEG;
 
+  my  $LIBF_RE=qr{^\-l}x;
+  my  $LIBD_RE=qr{^\-L}x;
+
 # ---   *   ---   *   ---
 # gcc switches
 
@@ -661,6 +664,9 @@ sub libsearch($lbins,$lsearch,$deps) {
 # ---   *   ---   *   ---
 
   for my $lbin(@lbins) {
+
+    next if !length $lbin;
+
     for my $ldir(@lsearch) {
 
       # .lib file found
@@ -816,11 +822,12 @@ TAIL:
 sub olink($objs,$name,%O) {
 
   # defaults
-  $O{deps}//=$NULLSTR;
-  $O{libs}//=$NULLSTR;
-  $O{shared}//=$NULLSTR;
-  $O{flags}//=[];
-  $O{flat}//=0;
+  $O{deps}   //= $NULLSTR;
+  $O{libs}   //= $NULLSTR;
+  $O{shared} //= $NULLSTR;
+
+  $O{flat}   //= 0;
+  $O{flags}  //= [];
 
   $O{shared}=q[-shared] if $O{shared};
 
@@ -835,6 +842,47 @@ sub olink($objs,$name,%O) {
   my @DEPS=split $SPACE_RE,$O{deps};
 
   my @call=();
+
+# ---   *   ---   *   ---
+# find dependencies
+
+  my @deps=();
+  for my $lib(@LIBS) {
+
+    # skip directories
+    next if $lib=~ $LIBD_RE;
+
+    my $path=$lib;
+
+    # remove -l and get path to module
+    $path=~ s[$LIBF_RE][];
+    $path=dir($path);
+
+    # retrieve build data if present
+    if(-d $path) {
+
+      my $M=retrieve($path.'/.avto-cache');
+
+      push @deps,(split $SPACE_RE,
+        libexpand($M->{libs})
+
+      );
+
+      push @deps,(split $SPACE_RE,$M->{incl});
+
+    };
+
+  };
+
+  unshift @LIBS,@deps;
+  array_filter(\@LIBS,sub {
+
+     defined $ARG
+  && 2<length $ARG
+
+  });
+
+# ---   *   ---   *   ---
 
   # using gcc
   if(!$O{flat}) {
