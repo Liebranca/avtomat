@@ -137,13 +137,22 @@ sub check_module($name,$exclude=[]) {
 
 # ---   *   ---   *   ---
 
+sub px_file($name) {
+  return Shb7::cache_file("$name$PX_EXT");
+
+};
+
+# ---   *   ---   *   ---
+
 sub module_tree($name,$excluded=[]) {
 
   my $syspath=$Shb7::Root;
   my $frame=$Systems->{$syspath};
 
   $Needs_Update->{$name}=[];
-  my $modf=Shb7::cache_file("$name$PX_EXT");
+
+  my $modf=px_file($name);
+  my $newf=0;
 
   # load existing
   if(-f $modf) {
@@ -158,6 +167,8 @@ sub module_tree($name,$excluded=[]) {
     $frame->{-roots}->{$name}=
       Shb7::walk($name,-r=>1,-x=>$excluded);
 
+    $newf=1;
+
   };
 
 # ---   *   ---   *   ---
@@ -165,7 +176,9 @@ sub module_tree($name,$excluded=[]) {
 # new result will be saved if there's changes
 
   my $table=$frame->{-roots}->{$name};
+
   $Needs_Update->{$name}=$table->get_cksum();
+  push @{$Needs_Update->{$name}},1 if $newf;
 
   return $table;
 

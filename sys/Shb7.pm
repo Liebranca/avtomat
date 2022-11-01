@@ -97,6 +97,7 @@ BEGIN {
     $Root,
     $Cache,
     $Trash,
+    $Config,
     $Mem,
 
     $Root_Re,
@@ -120,12 +121,17 @@ sub set_root($path) {
   $Cache="$Root.cache/";
   $Trash="$Root.trash/";
   $Mem="$Root.mem/";
+  $Config="$Root.config/";
+
+  mkdir $Config if ! -e $Config;
 
   $Lib//=[];
   $Include//=[];
 
   $Lib->[0]="${Root}lib/";
-  $Include->[0]="${Root}include/";
+
+  $Include->[0]=$Root;
+  $Include->[1]="${Root}include/";
 
   $Root_Re=qr{^(?: $DOT_BEG /? | $Root)}x;
 
@@ -199,14 +205,21 @@ BEGIN {
 sub file($path) {return $Root.$path};
 
 sub dir($path=$NULLSTR) {
-  return $Root.$path.q{/};
+  return $Root.$path.q[/];
 
 };
 
 sub obj_file($path) {return $Trash.$path};
 
 sub obj_dir($path=$NULLSTR) {
-  return $Trash.$path.q{/}
+  return $Trash.$path.q[/];
+
+};
+
+sub config_file($path) {return $Config.$path};
+
+sub config_dir($path) {
+  return $Config.$path.q[/];
 
 };
 
@@ -875,6 +888,12 @@ sub olink($objs,$name,%O) {
   };
 
   unshift @LIBS,@deps;
+
+  for my $incl(reverse @$Include) {
+    unshift @LIBS,q[-I].$incl;
+
+  };
+
   array_filter(\@LIBS,sub {
 
      defined $ARG

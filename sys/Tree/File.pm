@@ -26,7 +26,7 @@ package Tree::File;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::Array;
 
   use parent 'Tree';
 
@@ -63,6 +63,8 @@ sub get_cksum($self) {
 
   ));
 
+  array_filter(\@dirs,sub {-d $ARG->{value}});
+
   for my $dir(reverse @dirs) {
 
     my @files=$dir->get_file_list(
@@ -71,8 +73,12 @@ sub get_cksum($self) {
 
     );
 
+    @files=grep {-f $ARG} @files;
+
     my $files=join q{ },
       map {$ARG->ances($NULLSTR)} @files;
+
+    next if !length $files;
 
     my $own_sum=`cksum $files`;
 

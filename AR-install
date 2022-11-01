@@ -13,6 +13,9 @@ BEGIN {
   if($clean eq 'clean') {
     $ex.=q{ }.'clean';
 
+  } elsif(defined $clean && length $clean) {
+    unshift @ARGV,$clean;
+
   };
 
   my $me=`$ex`;
@@ -78,50 +81,50 @@ Avt::set_config(
 );
 
 # ---   *   ---   *   ---
-
-Avt::set_config(
-
-  name=>'ce',
-  scan=>'-x keys',
-
-  build=>'x:ce',
-
-  xcpy=>[qw(wpid)],
-  xprt=>[qw(keyboard.h clock.h arstd.h)],
-
-  gens=>{
-
-    'chartab.h'=>[qw(chartab)],
-    'keymap.h'=>[qw(keymap Genks.pm %.k)],
-
-  },
-
-  libs=>[qw(X11)],
-
-# ---   *   ---   *   ---
-
-  post_build=>q(
-
-    use Emit::Std;
-    use Emit::Perl;
-
-    Emit::Std::outf(
-
-      'Perl','lib/Lycon.pm',
-
-      author=>'IBN-3DILA',
-      include=>[qw(Avt::FFI)],
-
-      body=>\&Emit::Perl::shwlbind,
-      args=>['Lycon',['ce']],
-
-    );
-
-  ),
-
-);
-
-# ---   *   ---   *   ---
+#
+#Avt::set_config(
+#
+#  name=>'ce',
+#  scan=>'-x keys',
+#
+#  build=>'x:ce',
+#
+#  xcpy=>[qw(wpid)],
+#  xprt=>[qw(keyboard.h clock.h arstd.h)],
+#
+#  gens=>{
+#
+#    'chartab.h'=>[qw(chartab)],
+#    'keymap.h'=>[qw(keymap Genks.pm %.k)],
+#
+#  },
+#
+#  libs=>[qw(X11)],
+#
+## ---   *   ---   *   ---
+#
+#  post_build=>q(
+#
+#    use Emit::Std;
+#    use Emit::Perl;
+#
+#    Emit::Std::outf(
+#
+#      'Perl','lib/Lycon.pm',
+#
+#      author=>'IBN-3DILA',
+#      include=>[qw(Avt::FFI)],
+#
+#      body=>\&Emit::Perl::shwlbind,
+#      args=>['Lycon',['ce']],
+#
+#    );
+#
+#  ),
+#
+#);
+#
+## ---   *   ---   *   ---
 
 #Avt::set_config(
 #

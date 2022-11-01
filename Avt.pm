@@ -37,6 +37,8 @@ package Avt;
   use Shb7;
   use Vault 'ARPATH';
 
+  use Cli;
+
   use lib $ENV{'ARPATH'}.'/lib/hacks';
   use Shwl;
 
@@ -57,7 +59,7 @@ package Avt;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v3.21.2;
+  our $VERSION=v3.21.3;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -108,7 +110,35 @@ package Avt;
     _post_build=>{},
     _pre_build=>{},
 
+    cli=>Cli->nit(
+      {id=>'update',short=>'-u',argc=>0}
+
+    ),
+
+    cli_in=>[],
+
   );
+
+# ---   *   ---   *   ---
+# command line interface
+
+sub read_cli($mod) {
+
+  my $c  = $Cache{cli};
+  my $ar = $Cache{cli_in};
+
+  if(!@$ar) {
+    @$ar=$c->take(@ARGV);
+
+  };
+
+  if($c->{update} ne $NULL) {
+    my $fname=Vault::px_file($mod);
+    unlink $fname if -f $fname;
+
+  };
+
+};
 
 # ---   *   ---   *   ---
 
@@ -359,6 +389,8 @@ sub scan() {
 
 # ---   *   ---   *   ---
 # read module tree
+
+    read_cli($mod);
 
     my $tree=Vault::check_module(
       $mod,$excluded
