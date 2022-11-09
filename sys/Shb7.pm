@@ -762,6 +762,8 @@ sub libexpand($LIBS) {
 
 # ---   *   ---   *   ---
 
+      next if !defined $mlib || !length $mlib;
+
       # append found libs to bin search
       $mlib=substr $mlib,2,length $mlib;
       push @lbins,$mlib;
@@ -881,7 +883,21 @@ sub olink($objs,$name,%O) {
 
       );
 
-      push @deps,(split $SPACE_RE,$M->{incl});
+      my $old=getcwd();
+      chdir $Root;
+
+      my @dirs=(split $SPACE_RE,$M->{incl});
+
+      for my $dir(@dirs) {
+        $dir=~ s[^\-I][];
+        $dir=abs_path($dir);
+
+        $dir="-I$dir";
+
+      };
+
+      push @deps,@dirs;
+      chdir $old;
 
     };
 
@@ -900,6 +916,12 @@ sub olink($objs,$name,%O) {
   && 2<length $ARG
 
   });
+
+  my @larg=grep {$ARG=~ m[^\-l]} @LIBS;
+  my @Larg=grep {$ARG=~ m[^\-L]} @LIBS;
+  my @Iarg=grep {$ARG=~ m[^\-I]} @LIBS;
+
+  @LIBS=(@Iarg,@Larg,reverse @larg);
 
 # ---   *   ---   *   ---
 
