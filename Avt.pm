@@ -136,6 +136,8 @@ sub read_cli($mod) {
     my $fname=Vault::px_file($mod);
     unlink $fname if -f $fname;
 
+    Shb7::empty_trash($mod);
+
   };
 
 };
