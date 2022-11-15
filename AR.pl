@@ -119,6 +119,7 @@ my $FILE_LIST=[
   '/Lang/Peso.pm',
   '/Lang/Plps.pm',
   '/Lang/C.pm',
+  '/Lang/Rust.pm',
 
   '/Lang/SinGL.pm',
 
