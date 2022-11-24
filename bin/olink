@@ -25,6 +25,7 @@ my $m=Cli->nit(
   {id=>'inc',short=>'-I',argc=>1},
   {id=>'out',short=>'-o',argc=>1},
 
+  {id=>'-g',short=>'-g',argc=>0},
   {id=>'-pg',short=>'-pg',argc=>0},
 
 );
@@ -53,6 +54,7 @@ $m->{lib}=q[-l].(join q[ -l],
 my $flags=[];
 for my $key(qw(
 
+  -g
   -pg
 
 )) {

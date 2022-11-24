@@ -953,15 +953,32 @@ sub make() {
   use strict;
   use warnings;
 
+  use English qw(-no_match_vars);
   use Storable;
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
-  use lib $ENV{'ARPATH'}.'/lib/';
+
+  use Style;
 
   use Arstd::Path;
-
   use Shb7;
+  use Cli;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
   use Makescript;
+
+# ---   *   ---   *   ---
+
+my $cli=Cli->nit(
+
+  { id=>'debug',short=>'-d',
+    long=>'--debug',argc=>0
+
+  },
+
+);
+
+my @args=$cli->take(@ARGV);
 
 # ---   *   ---   *   ---
 
@@ -977,7 +994,7 @@ my $M=retrieve(
 );
 
 chdir Shb7::set_root($root);
-$M=Makescript->nit($M);
+$M=Makescript->nit($M,$cli);
 
 # ---   *   ---   *   ---
 

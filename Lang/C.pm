@@ -66,6 +66,7 @@ Lang::C->nit(
     uint8_t uint16_t uint32_t uint64_t
 
     wchar_t size_t
+    intptr_t uintptr_t
 
     FILE
 
@@ -104,6 +105,7 @@ Lang::C->nit(
 
   directives=>[qw(
     class struct union typedef enum
+    errchk err endchk
 
   )],
 
@@ -119,7 +121,7 @@ Lang::C->nit(
 # ---   *   ---   *   ---
 
   resnames=>[qw(
-    this
+    this true false
 
   )],
 

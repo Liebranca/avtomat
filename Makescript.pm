@@ -26,6 +26,7 @@ package Makescript;
 
   use Style;
 
+  use Arstd::Array;
   use Arstd::Path;
   use Arstd::IO;
 
@@ -45,14 +46,16 @@ package Makescript;
 
 # ---   *   ---   *   ---
 
-  our $VERSION=v0.01.1;
+  our $VERSION=v0.01.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # and now we need this again ;>
 # converts relative paths to absolute
 
-sub nit($class,$M) {
+sub nit($class,$M,$cli) {
+
+  $M->{debug}=$cli->{debug}!=$NULL;
 
   $M->{root}=$Shb7::Root;
   $M->{trash}=Shb7::obj_dir($M->{fswat});
@@ -249,10 +252,14 @@ sub update_objects($M,$DFLG,$PFLG) {
   state $obj_ext=qr{\.o$};
   state $cpp_ext=qr{\.cpp$};
 
+  my @DFLG=split $SPACE_RE,$DFLG;
+  my @PFLG=split $SPACE_RE,$PFLG;
+  my @OFLG=split $SPACE_RE,$Shb7::OFLG;
+
   my @SRCS=@{$M->{srcs}};
   my @OBJS=@{$M->{objs}};
 
-  my $INCLUDES=$M->{incl};
+  my @INCLUDES=split $SPACE_RE,$M->{incl};
 
   my $OBJS=$NULLSTR;
   my $objblt=0;
@@ -314,12 +321,27 @@ sub update_objects($M,$DFLG,$PFLG) {
 
       };
 
-      my $call=''.
-        'gcc -MMD'.q{ }.$Shb7::OFLG.q{ }.
-        "$INCLUDES $DFLG $PFLG $up".q{ }.
-        "-Wa,-a=$asm -c $src -o $obj";
+      my @call=(
+        qw(gcc -MMD),
 
-      `$call`;$objblt++;
+        ($M->{debug}) ? q[-g] : $NULLSTR,
+
+        @OFLG,
+        @INCLUDES,
+        @DFLG,@PFLG,
+
+        $up,
+
+        q[-Wa,-a=].$asm,
+        q[-c],$src,
+        q[-o],$obj
+
+      );
+
+      array_filter(\@call);
+      system {$call[0]} @call;
+
+      $objblt++;
 
     };
 
@@ -343,6 +365,12 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 # there is a target defined AND
 # any objects have been updated
 
+  my @OFLG=split $SPACE_RE,$Shb7::OFLG;
+  my @LFLG=split $SPACE_RE,$Shb7::LFLG;
+  my @PFLG=split $SPACE_RE,$PFLG;
+
+  my @OBJS=split $SPACE_RE,$OBJS;
+
   my $LIBS=$NULLSTR;
   my @CALLS=();
 
@@ -360,7 +388,13 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 # build mode is 'static library'
 
     if($M->{lmode} eq 'ar') {
-      push @CALLS,"ar -crs $M->{main} $OBJS";
+
+      push @CALLS,[
+        qw(ar -crs),
+        $M->{main},@OBJS
+
+      ];
+
       $LIBS=$M->{libs};
 
 # ---   *   ---   *   ---
@@ -378,23 +412,34 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 # need to link against
 
       $LIBS=Shb7::libexpand($M->{libs});
+      my @LIBS=split $SPACE_RE,$LIBS;
 
 # ---   *   ---   *   ---
 # build call is the exact same,
 # only difference being the -shared flag
 
-      push @CALLS,"gcc $M->{lmode} ".
+      push @CALLS,[
 
-        $Shb7::OFLG.q{ }.$Shb7::LFLG.q{ }.
+        q[gcc],$M->{lmode},
 
-        "$M->{incl} $PFLG $OBJS $LIBS ".
-        " -o $M->{main}";
+        ($M->{debug}) ? q[-g] : $NULLSTR,
+        @PFLG,@OFLG,
+
+        $M->{incl},@PFLG,@OBJS,@LIBS,
+        q[-o],$M->{main}
+
+      ];
 
 # ---   *   ---   *   ---
 # for executables we spawn a shadow lib
 
       if($M->{lmode} ne '-shared ') {
-        push @CALLS,"ar -crs $M->{mlib} $OBJS";
+
+        push @CALLS,[
+          qw(ar -crs),
+          $M->{mlib},@OBJS
+
+        ];
 
       };
 
@@ -406,7 +451,12 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 
   if(length $LIBS) {
 
-    for my $call(@CALLS) {`$call`};
+    for my $call(@CALLS) {
+      array_filter($call);
+      system {$call->[0]} @$call;
+
+    };
+
     Avt::symscan(
 
       $M->{fswat},

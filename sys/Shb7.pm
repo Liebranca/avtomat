@@ -55,7 +55,8 @@ package Shb7;
 # gcc switches
 
   Readonly our $OFLG=>
-    q{-s -Os -fno-unwind-tables}.q{ }.
+    q{-Os -fno-unwind-tables}.q{ }.
+    q{-fno-eliminate-unused-debug-symbols}.q{ }.
     q{-fno-asynchronous-unwind-tables}.q{ }.
     q{-ffast-math -fsingle-precision-constant}.q{ }.
     q{-fno-ident -fPIC}
