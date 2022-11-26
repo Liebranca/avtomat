@@ -155,6 +155,23 @@ Avt::set_config(
 
   },
 
+  # snippets that are compiled individually
+  # syntax is the same for both
+
+  # 'utils' are moved to [topdir]/bin
+  utils=>{
+    'my_app'=>[qw(path/src.cpp,flags)]
+
+  },
+
+  # 'tests' are run automatically
+  # and kept within the module's
+  # own test folder
+  tests=>{
+    'my_app'=>[qw(path/src.c,flags)]
+
+  },
+
   # paths to/names of libraries
   libs=>[qw(X11 SDL2 SDL2main proj/lib/)],
 

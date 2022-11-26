@@ -129,7 +129,9 @@ my $FILE_LIST=[
 # ---   *   ---   *   ---
 # then everything else
 
+  '/Avt/Sieve.pm',
   '/Avt.pm',
+
   '/Makescript.pm',
 
   '/Lang/Mny.pm',

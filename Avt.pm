@@ -56,10 +56,12 @@ package Avt;
   use Peso::Rd;
   use Peso::Ipret;
 
+  use Avt::Sieve;
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v3.21.3;
+  our $VERSION=v3.21.4;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -78,6 +80,9 @@ package Avt;
     libs=>[],
 
     gens=>{},
+
+    tests=>{},
+    utils=>{},
 
     defs=>[],
     xprt=>[],
@@ -532,12 +537,10 @@ sub get_config_paths($M,$config) {
 };
 
 # ---   *   ---   *   ---
+# filters out file list using config
+# writes results to makescript
 
-sub get_config_files($M,$config,$module) {
-
-  state $c_ext=qr{\.(?:cpp|c)$}x;
-  state $perl_ext=qr{\.pm$};
-  state $python_ext=qr{\.py$};
+sub get_config_files($M,$C,$module) {
 
   $M->{fcpy}=[];
   $M->{xprt}=[];
@@ -545,7 +548,8 @@ sub get_config_files($M,$config,$module) {
   $M->{srcs}=[];
   $M->{objs}=[];
 
-# ---   *   ---   *   ---
+  $M->{tests}=[];
+  $M->{utils}=[];
 
   my @dirs=$module->get_dir_list(
     full_path=>0,
@@ -553,182 +557,45 @@ sub get_config_files($M,$config,$module) {
 
   );
 
-  for my $dir_node(@dirs) {
+  my $sieve=Avt::Sieve->nit(
+    makescript => $M,
+    config     => $C,
+    bindir     => $BIND,
+    libdir     => $LIBD,
 
-    my $name=$config->{name};
-    my $trsh=$NULLSTR;
+  );
 
-    my @files=$dir_node->get_file_list(
-      full_path=>1,
-      max_depth=>1,
+  $sieve->iter(\@dirs);
 
-    );
-
-    map {$ARG=Shb7::shpath($ARG)} @files;
-    map {$ARG=~ s[^${name}/?][]} @files;
-
-    my $dir=$dir_node->{value};
-
-    # get path to
-    $dir="./$name";
-    $trsh=Shb7::rel(Shb7::obj_dir($name));
+};
 
 # ---   *   ---   *   ---
+# invert generator hash
+#
+#   > from: generated=>[generator,dependencies]
+#     to: generator=>[generated,dependencies]
+#
+# the reason why is the first form makes more
+# sense visually (at least to me), so that's
+# what i'd rather write to a config file
+#
+# however, the second form is more convenient
+# for a file search, so...
 
-    my $matches=lfind(
-      $config->{gens},\@files
+sub invert_generator($dst) {
 
-    );
+  my %inverted=();
 
-    while(@$matches) {
+  for my $outfile(keys %$dst) {
 
-      my $match=shift @$matches;
-      my ($outfile,$srcs)=@{
-        $config->{gens}->{$match}
+    my $srcs=$dst->{$outfile};
+    my $exec=shift @$srcs;
 
-      };
-
-      delete $config->{gens}->{$match};
-      $match=~ s[\*][];
-
-      map {$ARG="$dir/$ARG"} @$srcs;
-
-      push @{$M->{gens}},(
-        "$dir/$match",
-        "$dir/$outfile",
-
-        (join q{,},@$srcs)
-
-      );
-
-    };
-
-# ---   *   ---   *   ---
-
-    $matches=lfind($config->{xcpy},\@files);
-
-    while(@$matches) {
-
-      my $match=shift @$matches;
-      delete $config->{xcpy}->{$match};
-
-      $match=~ s[\*][];
-      $match=~ s[\\][]g;
-
-      push @{$M->{fcpy}},(
-        "$dir/$match",
-        "$BIND/$match"
-
-      );
-
-    };
-
-# ---   *   ---   *   ---
-
-    $matches=lfind($config->{lcpy},\@files);
-
-    while(@$matches) {
-      my $match=shift @$matches;
-      delete $config->{lcpy}->{$match};
-
-      $match=~ s[\\][]g;
-
-      my $lmod=$dir;
-      $lmod=~ s[${Shb7::Root}/${name}][];
-      $lmod.=($lmod) ? q{/} : $NULLSTR;
-
-      push @{$M->{fcpy}},(
-        "$dir/$match",
-        "$LIBD/$lmod$match"
-
-      );
-
-    };
-
-# ---   *   ---   *   ---
-
-    $matches=lfind($config->{xprt},\@files);
-
-    while(@$matches) {
-      my $match=shift @$matches;
-      delete $config->{xprt}->{$match};
-
-      $match=~ s[\\][]g;
-      push @{$M->{xprt}},"$dir/$match";
-
-    };
-
-# ---   *   ---   *   ---
-
-    my @matches=grep m/$c_ext/,@files;
-
-    while(@matches) {
-      my $match=shift @matches;
-      $match=~ s[\\][]g;
-
-      my $ob=$match;
-      $ob=~ s[$c_ext][];
-      $ob.='.o';
-
-      my $dep=$match;
-      $dep=~ s[$c_ext][];
-      $dep.='.d';
-
-      push @{$M->{srcs}},"$dir/$match";
-      push @{$M->{objs}},(
-        "$trsh/$ob",
-        "$trsh/$dep"
-
-      );
-
-    };
-
-# ---   *   ---   *   ---
-
-    @matches=grep m/$perl_ext/,@files;
-
-    while(@matches) {
-      my $match=shift @matches;
-      $match=~ s[\\][]g;
-
-      my $dep=$match;
-      $dep.='d';
-
-      push @{$M->{srcs}},"$dir/$match";
-
-      my $lmod=$dir;
-      $lmod=~ s([.]/${name})();
-
-      push @{$M->{objs}},(
-        "$LIBD$lmod/$match",
-        "$trsh$dep"
-
-      );
-
-    };
-
-# ---   *   ---   *   ---
-
-    @matches=grep m/$python_ext/,@files;
-
-    while(@matches) {
-      my $match=shift @matches;
-      $match=~ s[\\][]g;
-
-      my $lmod=$dir;
-      $lmod=~ s([.]/${name})();
-
-      push @{$M->{fcpy}},(
-        "$dir/$match",
-        "$LIBD$lmod/$match"
-
-      );
-
-    };
-
-# ---   *   ---   *   ---
+    %inverted{$exec}=[$outfile,$srcs];
 
   };
+
+  $dst=\%inverted;
 
 };
 
@@ -810,30 +677,12 @@ sub set_config(%C) {
   };
 
 # ---   *   ---   *   ---
-# invert generator hash
-#
-#   > from: generated=>[generator,dependencies]
-#     to: generator=>[generated,dependencies]
-#
-# the reason why is the first form makes more
-# sense visually (at least to me), so that's
-# what i'd rather write to a config file
-#
-# however, the second form is more convenient
-# for a file search, so...
+# from result=>[src,deps]
+# to   src=>[result,deps]
 
-  my %gens=();
-
-  for my $outfile(keys %{$C{gens}}) {
-
-    my $srcs=$C{gens}->{$outfile};
-    my $exec=shift @$srcs;
-
-    $gens{$exec}=[$outfile,$srcs];
-
-  };
-
-  $C{gens}=\%gens;
+  invert_generator($C{gens});
+  invert_generator($C{tests});
+  invert_generator($C{utils});
 
 # ---   *   ---   *   ---
 # append
