@@ -588,14 +588,17 @@ sub invert_generator($dst) {
 
   for my $outfile(keys %$dst) {
 
-    my $srcs=$dst->{$outfile};
-    my $exec=shift @$srcs;
+    my @srcs=@{$dst->{$outfile}};
+    my $exec=$srcs[0];
 
-    %inverted{$exec}=[$outfile,$srcs];
+    $inverted{$exec}=[
+      $outfile,@srcs[1..$#srcs]
+
+    ];
 
   };
 
-  $dst=\%inverted;
+  $dst={%inverted};
 
 };
 
@@ -683,6 +686,12 @@ sub set_config(%C) {
   invert_generator($C{gens});
   invert_generator($C{tests});
   invert_generator($C{utils});
+
+map {
+  say {*STDOUT} '>>'.$ARG;
+  map {say {*STDOUT} $ARG} @{$C{utils}->{$ARG}};
+
+} keys %{$C{utils}};
 
 # ---   *   ---   *   ---
 # append
@@ -858,6 +867,8 @@ my ($OBJS,$objblt)=
 
 $M->build_binaries($PFLG,$OBJS,$objblt);
 $M->update_regular();
+
+$M->side_builds($cli->{debug});
 
 print {*STDERR}
   $Emit::Std::ARSEP."done\n\n";

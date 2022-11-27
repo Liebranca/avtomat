@@ -86,6 +86,19 @@ sub iter($self,$dirs) {
 
   };
 
+  # post-build, single-source bins
+  $self->side_build(
+    $self->{M}->{utils},
+    $self->{C}->{utils},
+
+  );
+
+  $self->side_build(
+    $self->{M}->{tests},
+    $self->{C}->{tests},
+
+  );
+
 };
 
 # ---   *   ---   *   ---
@@ -178,6 +191,23 @@ sub arr_dual_out($self,$dst,$src) {
 };
 
 # ---   *   ---   *   ---
+# turns *.ext into (*.o,*.d)
+
+sub gcc_bfiles($key,$ext) {
+
+  my $ob=$key;
+  $ob=~ s[$ext][];
+  $ob.='.o';
+
+  my $dep=$key;
+  $dep=~ s[$ext][];
+  $dep.='.d';
+
+  return ($ob,$dep);
+
+};
+
+# ---   *   ---   *   ---
 # c/cpp to GCC
 
 sub c_files($self,$dst_s,$dst_o) {
@@ -188,15 +218,13 @@ sub c_files($self,$dst_s,$dst_o) {
     @{$self->{files}};
 
   while(@matches) {
+
     my $match=shift @matches;
 
-    my $ob=$match;
-    $ob=~ s[$c_ext][];
-    $ob.='.o';
+    my ($ob,$dep)=gcc_bfiles(
+      $match,$c_ext
 
-    my $dep=$match;
-    $dep=~ s[$c_ext][];
-    $dep.='.d';
+    );
 
     push @$dst_s,"$self->{dir}/$match";
     push @$dst_o,(
@@ -288,12 +316,24 @@ sub single_out($self,$dst,$src) {
 };
 
 # ---   *   ---   *   ---
-# TODO
-#
 # for snippets that require
 # individual compilation
 
-sub side_build($self,$src,$dst) {
+sub side_build($self,$dst,$src) {
+
+  for my $outfile(keys %$src) {
+
+    my $ref=$src->{$outfile};
+    my ($srcfile,@flags)=@$ref;
+
+    push @$dst,[
+      $outfile,
+      $srcfile,
+      @flags,
+
+    ];
+
+  };
 
 };
 

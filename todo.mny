@@ -1,5 +1,16 @@
 >avtomat v4.00.0
 
+*>Makescript
+~ Replace crude gcc wrappers with a class
+~ ^ Dependency checks
+~ ^ Building objects
+~ ^ Linking
+
+*>Avt::Sieve
+x Implement side build sub
+x Generate olink calls from side builds
+x Run calls before post-build hook
+
 *>Reorder/repurpose Peso into lib/sys
 ~ Generalize Blk for serialization
 ~ ^ Writing Blk instances to file
@@ -31,7 +42,7 @@ x Extend Lang::Perl for basic (as-doc) parsing
 ~ Investigate the Peso::Ipret::pesc iter command repetition
 
 *>Backburner
-~ Move Python stuff from f:./Avt.pm into f:./Emit/Python.pm
+x Move Python stuff from f:./Avt.pm into f:./Emit/Python.pm
 ~ Handle structs on f:./Emit/Perl.pm -> shwlbind
 ~ Utils for enforcing AR module standards
 ~ DEFAULTS enforcer for nits
@@ -39,9 +50,11 @@ x Extend Lang::Perl for basic (as-doc) parsing
 x Rework ARGV handler (partial f:help/Cash.pm migration)
 ~ Standarize module avto-nit
 x ^ Registering of modules on first include, for a similar purpose
-~ OOP-ification of $Cache-type hashes
+~ OOP-ification of %Cache-type hashes
 x Subdivide the f:./Avt.pm monolith into modules
 ~ Enable/disable loading of optional deps on install scripts
+~ Write Lang::Elisp
+~ Elisp version of f:./bin/sygen
 
 *>Avt revision
 x Use Shb7::Walk instead of Avt implementation

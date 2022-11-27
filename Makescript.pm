@@ -46,8 +46,8 @@ package Makescript;
 
 # ---   *   ---   *   ---
 
-  our $VERSION=v0.01.2;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = v0.01.3;
+  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # and now we need this again ;>
@@ -249,109 +249,72 @@ sub update_regular($M) {
 
 sub update_objects($M,$DFLG,$PFLG) {
 
-  state $obj_ext=qr{\.o$};
-  state $cpp_ext=qr{\.cpp$};
-
   my @DFLG=split $SPACE_RE,$DFLG;
   my @PFLG=split $SPACE_RE,$PFLG;
   my @OFLG=split $SPACE_RE,$Shb7::OFLG;
-
-  my @SRCS=@{$M->{srcs}};
-  my @OBJS=@{$M->{objs}};
 
   my @INCLUDES=split $SPACE_RE,$M->{incl};
 
   my $OBJS=$NULLSTR;
   my $objblt=0;
 
-  if(@SRCS) {
+  # print notice
+  if(@{$M->{bld}) {
 
-    print {*STDERR}
-      $Emit::Std::ARSEP."rebuilding objects\n";
+    say {*STDERR}
 
-  };
+      $Emit::Std::ARSEP.
+      "rebuilding objects"
 
-# ---   *   ---   *   ---
-# iter list of source files
-
-  for(my ($i,$j)=(0,0);$i<@SRCS;$i++,$j+=2) {
-
-    my $src=$SRCS[$i];
-
-    my $obj=$OBJS[$j+0];
-    my $mmd=$OBJS[$j+1];
-
-    if($src=~ Lang::Perl->{ext}) {
-      $M->pcc($src,$obj,$mmd);
-      next;
-
-    };
-
-    $OBJS.=$obj.q{ };
-    my @deps=($src);
-
-# ---   *   ---   *   ---
-# look at *.d files for additional deps
-
-    my $do_build=!(-e $obj);
-    if($mmd) {
-      @deps=@{parsemmd($mmd)};
-
-    };
-
-    # no missing deps
-    static_depchk($src,\@deps);
-
-    # make sure we need to update
-    buildchk(\$do_build,$obj,\@deps);
-
-# ---   *   ---   *   ---
-# rebuild the object
-
-    if($do_build) {
-
-      print {*STDERR} Shb7::shpath($src)."\n";
-
-      my $asm=$obj;
-      $asm=~ s[$obj_ext][.asm];
-
-      my $up=$NULLSTR;
-      if($src=~ $cpp_ext) {
-        $up='-lstdc++';
-
-      };
-
-      my @call=(
-        qw(gcc -MMD),
-
-        ($M->{debug}) ? q[-g] : $NULLSTR,
-
-        @OFLG,
-        @INCLUDES,
-        @DFLG,@PFLG,
-
-        $up,
-
-        q[-Wa,-a=].$asm,
-        q[-c],$src,
-        q[-o],$obj
-
-      );
-
-      array_filter(\@call);
-      system {$call[0]} @call;
-
-      $objblt++;
-
-    };
-
-# ---   *   ---   *   ---
-# return string containing list of objects
-# + the count of objects built
+    ;
 
   };
 
-  return $OBJS,$objblt;
+  # iter list of source files
+  for my $bfile($M->{bld}) {
+    $OBJS.=$bfile->{obj}.q{ };
+    $objblt+=$bfile->update();
+
+  };
+
+  return ($OBJS,$objblt);
+
+};
+
+# ---   *   ---   *   ---
+# manages utils and tests
+
+sub side_builds($M) {
+
+  my $debug=($M->{debug})
+    ? q[-g]
+    : $NULLSTR
+    ;
+
+  my @calls=();
+
+  for my $ref(@{$M->{utils}}) {
+    my ($outfile,$srcfile,@flags)=@$ref;
+
+    if($rebuild) {
+
+      push @flags,$debug;
+      push @calls,[
+
+        $ENV{'ARPATH'}.
+        q[/avtomat/bin/olink],
+
+        (join q[ ],@flags),
+
+        q[-o],$outfile,
+
+        $srcfile
+
+      ];
+
+    };
+
+  };
 
 };
 
@@ -474,207 +437,6 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 
 # ---   *   ---   *   ---
 
-sub static_depchk($src,$deps) {
-
-  for(my $x=0;$x<@$deps;$x++) {
-    if($deps->[$x] && !(-e $deps->[$x])) {
-
-      errout(
-
-        "%s missing dependency %s\n",
-
-        args=>[Shb7::shpath($src),$deps->[$x]],
-        lvl=>$AR_FATAL,
-
-      );
-    };
-  };
-};
-
-# ---   *   ---   *   ---
-
-sub buildchk($do_build,$obj,$deps) {
-
-  if(!$$do_build) {
-    while(@$deps) {
-      my $dep=shift @$deps;
-      if(!(-e $dep)) {next};
-
-      # found dep is updated
-      if(Shb7::ot($obj,$dep)) {
-        $$do_build=1;
-        last;
-
-      };
-    };
-  };
-};
-
-# ---   *   ---   *   ---
-# makes file list out of gcc .d files
-
-sub parsemmd($dep) {
-
-  my $out=[];
-  if(!(-e $dep)) {goto TAIL};
-
-  $dep=orc($dep);
-  $dep=~ s/\\//g;
-  $dep=~ s/\s/\,/g;
-  $dep=~ s/.*\://;
-
-# ---   *   ---   *   ---
-
-  my @tmp=Lang::ws_split($COMMA_RE,$dep);
-  my @deps=();
-
-  while(@tmp) {
-    my $f=shift @tmp;
-    if($f) {push @deps,$f;};
-
-  };
-
-# ---   *   ---   *   ---
-
-  $out=\@deps;
-
-TAIL:
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
-# makes file list out of pcc .pmd files
-
-sub parsepmd($dep) {
-
-  my $out=[];
-
-  if(!(-e $dep)) {goto TAIL};
-
-  open my $FH,'<',$dep or croak strerr($dep);
-
-  my $fname=readline $FH;
-  my $depstr=readline $FH;
-
-  close $FH;
-
-  if(!defined $fname || !defined $depstr) {
-    goto TAIL;
-
-  };
-
-  my @tmp=Lang::ws_split($SPACE_RE,$depstr);
-  my @deps=();
-
-  while(@tmp) {
-    my $f=shift @tmp;
-    if($f) {push @deps,$f};
-
-  };
-
-# ---   *   ---   *   ---
-
-  $out=\@deps;
-
-TAIL:
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
-# 0-800-Call MAM
-
-sub pcc($M,$src,$obj,$pmd) {
-
-  if($src=~ m[MAM\.pm]) {
-    goto TAIL;
-
-  };
-
-  my @deps=($src);
-
-# ---   *   ---   *   ---
-# look at *.d files for additional deps
-
-  my $do_build=!(-e $obj) || Shb7::ot($obj,$src);
-
-  if(!$do_build && $pmd) {
-    @deps=@{parsepmd($pmd)};
-
-  } elsif(!$pmd) {$do_build=1};
-
-  # no missing deps
-  static_depchk($src,\@deps);
-
-  # make sure we need to update
-  buildchk(\$do_build,$obj,\@deps);
-
-# ---   *   ---   *   ---
-
-  if((!(-e $pmd)) || $do_build) {
-    push @{$M->{pcc_objs}},$obj;
-    push @{$M->{pcc_deps}},$pmd;
-
-  };
-
-# ---   *   ---   *   ---
-
-  if($do_build) {
-
-    print {*STDERR} Shb7::shpath($src)."\n";
-
-    my $ex=
-      "perl -c".q{ }.
-
-      "-I$ENV{ARPATH}/avtomat/".q{ }.
-      "-I$ENV{ARPATH}/avtomat/hacks".q{ }.
-      "-I$ENV{ARPATH}/avtomat/peso".q{ }.
-      "-I$ENV{ARPATH}/avtomat/langdefs".q{ }.
-
-      "-I$ENV{ARPATH}/$M->{fswat}".q{ }.
-      "$M->{incl}".q{ }.
-
-      "-MMAM=--rap,--module=$M->{fswat}".q{ }.
-
-      "$src";
-
-    my $out=`$ex 2> $ENV{ARPATH}/avtomat/.errlog`;
-
-    if(!length $out) {
-      my $log=`cat $ENV{ARPATH}/avtomat/.errlog`;
-      print {*STDERR} "$log\n";
-
-    };
-
-# ---   *   ---   *   ---
-
-    for my $fname($obj,$pmd) {
-      if(!(-e $fname)) {
-        my $path=dirof($fname);
-        `mkdir -p $path`;
-
-      };
-    };
-
-# ---   *   ---   *   ---
-
-    open my $FH,'+>',$obj or croak strerr($obj);
-    print {$FH} $out;
-
-    close $FH;
-
-  };
-
-# ---   *   ---   *   ---
-
-TAIL:
-  return;
-
-};
-
-# ---   *   ---   *   ---
-
 sub depsmake($M) {
 
   my @objs=@{$M->{pcc_objs}};
@@ -684,11 +446,12 @@ sub depsmake($M) {
 
   if(@objs && @deps) {
 
-    print {*STDERR }
+    say {*STDERR}
+
       $Emit::Std::ARSEP,
       'rebuilding dependencies... ',
 
-      "\n\n"
+      "\n"
 
     ;
 

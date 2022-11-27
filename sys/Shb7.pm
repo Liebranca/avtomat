@@ -241,17 +241,23 @@ sub obj_from_src($src,%O) {
 
   # default
   $O{use_trash}//=1;
+  $O{depfile}//=0;
 
-  my $o=$src;
+  my $ext=($O{depfile})
+    ? q[\.d]
+    : q[\.o]
+    ;
+
+  my $out=$src;
 
   if($O{use_trash}) {
-    $o=~ s/$Root_Re/$Trash/;
+    $out=~ s/$Root_Re/$Trash/;
 
   };
 
-  $o=~ s/\.[\w|\d]*$/\.o/;
+  $out=~ s/\.[\w|\d]*$/$ext/;
 
-  return $o;
+  return $out;
 
 };
 

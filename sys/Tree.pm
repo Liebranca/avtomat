@@ -39,7 +39,7 @@ package Tree;
 # ---   *   ---   *   ---
 # ROM
 
-  sub Frame_Vars($class) {{
+  sub Frame_Vars($class) {return {
 
     -roots=>{},
 

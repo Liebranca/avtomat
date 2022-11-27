@@ -78,6 +78,11 @@ Avt::set_config(
 
   ),
 
+  utils=>{
+    'test'=>[qw(src.c -lname)]
+
+  },
+
 );
 
 # ---   *   ---   *   ---
