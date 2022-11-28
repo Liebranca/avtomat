@@ -45,6 +45,8 @@ package Arstd::IO;
     nyi
 
     orc
+    dorc
+
     owc
 
   );
@@ -259,6 +261,25 @@ sub orc($fname) {
   or croak strerr($fname);
 
   return $body;
+
+};
+
+# ---   *   ---   *   ---
+# directory open,read,close
+
+sub dorc($path,$excluded) {
+
+  my @out=();
+
+  opendir my $dir,$path
+  or croak strerr($path);
+
+  @out=grep m[$excluded]x,readdir $dir;
+
+  closedir $dir
+  or croak strerr($path);
+
+  return @out;
 
 };
 

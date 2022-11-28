@@ -60,8 +60,7 @@ sub nit($class,$M,$cli) {
   $M->{root}=$Shb7::Root;
   $M->{trash}=Shb7::obj_dir($M->{fswat});
 
-  $M->{pcc_objs}//=[];
-  $M->{pcc_deps}//=[];
+  Shb7::set_module($M->{fswat});
 
   for my $ref(
 
@@ -94,6 +93,9 @@ sub nit($class,$M,$cli) {
 
   };
 
+  $M->{incl}=[split $SPACE_RE,$M->{incl}];
+  $M->{libs}=[split $SPACE_RE,$M->{libs}];
+
   return bless $M;
 
 };
@@ -103,10 +105,7 @@ sub nit($class,$M,$cli) {
 sub set_build_paths($M) {
 
   my @paths=();
-  for my $inc(Lang::ws_split(
-    $SPACE_RE,$M->{incl})
-
-  ) {
+  for my $inc(@{$M->{incl}}) {
 
     if($inc eq q{-I}.$Shb7::Root) {next};
     push @paths,$inc;
@@ -247,11 +246,7 @@ sub update_regular($M) {
 
 # ---   *   ---   *   ---
 
-sub update_objects($M,$DFLG,$PFLG) {
-
-  my @DFLG=split $SPACE_RE,$DFLG;
-  my @PFLG=split $SPACE_RE,$PFLG;
-  my @OFLG=split $SPACE_RE,$Shb7::OFLG;
+sub update_objects($M) {
 
   my @INCLUDES=split $SPACE_RE,$M->{incl};
 
@@ -339,13 +334,17 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 
   if($M->{main} && $objblt) {
 
-    print {*STDERR }
-      $Emit::Std::ARSEP.'compiling binary '.
+    say {*STDERR }
 
-      "\e[32;1m".
-      Shb7::shpath($M->{main}).
+      $Emit::Std::ARSEP,
+      'compiling binary ',
 
-      "\e[0m\n";
+      "\e[32;1m",
+      Shb7::shpath($M->{main}),
+
+      "\e[0m"
+
+    ;
 
 # ---   *   ---   *   ---
 # build mode is 'static library'
@@ -439,40 +438,37 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 
 sub depsmake($M) {
 
-  my @objs=@{$M->{pcc_objs}};
-  my @deps=@{$M->{pcc_deps}};
+  my $md    = $Shb7::Makedeps;
 
-  my $fswat=$M->{fswat};
+  my @objs  = @{$md->{objs}};
+  my @deps  = @{$md->{deps}};
+
+  my $fswat = $M->{fswat};
 
   if(@objs && @deps) {
 
     say {*STDERR}
 
       $Emit::Std::ARSEP,
-      'rebuilding dependencies... ',
-
-      "\n"
+      'rebuilding dependencies',
 
     ;
 
   };
 
+  my $ex=$AVTOPATH.q[/bin/pmd];
+
   while(@objs && @deps) {
 
     my $obj=shift @objs;
-    my $pmd=shift @deps;
+    my $dep=shift @deps;
 
     next if $obj=~ m[Depsmake\.pm$];
-
-    my $depstr=
-      `\$ARPATH/avtomat/bin/pmd $fswat $obj`;
-
-    open my $FH,'+>',$pmd or croak strerr($pmd);
-    print {$FH} $depstr;
-
-    close $FH;
+    owc($dep,`$ex $fswat $obj`);
 
   };
+
+  Shb7::clear_makedeps();
 
 };
 

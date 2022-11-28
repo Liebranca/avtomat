@@ -840,9 +840,6 @@ my @args=$cli->take(@ARGV);
 
 # ---   *   ---   *   ---
 
-my $PFLG='-m64';
-my $DFLG='';
-
 my $root=parof(__FILE__);
 my $M=retrieve(
 
@@ -862,10 +859,9 @@ print {*STDERR}
 $M->set_build_paths();
 $M->update_generated();
 
-my ($OBJS,$objblt)=
-  $M->update_objects($DFLG,$PFLG);
+my ($OBJS,$objblt)=$M->update_objects();
 
-$M->build_binaries($PFLG,$OBJS,$objblt);
+$M->build_binaries($OBJS,$objblt);
 $M->update_regular();
 
 $M->side_builds($cli->{debug});
@@ -917,6 +913,7 @@ EOF
     `chmod +x "$avto_path"`;
 
   };
+
 };
 
 # ---   *   ---   *   ---

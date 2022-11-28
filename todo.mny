@@ -6,6 +6,13 @@
 ~ ^ Building objects
 ~ ^ Linking
 
+*>Shb7
+~ Break down into packages
+~ ^ Path managing and ops
+~ ^ Find ops
+~ ^ Symbol wrangling
+~ ^ ld,gcc && mam wrappers
+
 *>Avt::Sieve
 x Implement side build sub
 x Generate olink calls from side builds

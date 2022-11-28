@@ -22,6 +22,8 @@ package Avt::Bfile;
   use English qw(-no_match_vars);
   use Readonly;
 
+  use Exporter 'import';
+
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
@@ -37,35 +39,23 @@ package Avt::Bfile;
   use Lang::C;
   use Lang::Perl;
 
-  use parent 'St';
-
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;
+  our $VERSION = v0.00.2;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
+# adds to your namespace
+
+  our @EXPORT=qw(
+
+    $AVTOPATH
+
+  );
+
+# ---   *   ---   *   ---
 # ROM
-
-  sub Frame_Vars($class) {return {
-
-    # build target
-    -fswat => $NULLSTR,
-
-    # lists of flags
-    -oflg  => [],
-    -dflg  => [],
-    -pflg  => [],
-
-    # libs and includes
-    -libs  => [],
-    -incl  => [],
-
-    # dependency maker
-    -md    => {},
-
-  }};
 
   Readonly our $AVTOPATH=
     q[-I].$ENV{'ARPATH'}.'/avtomat/';
@@ -73,7 +63,7 @@ package Avt::Bfile;
 # ---   *   ---   *   ---
 # constructor
 
-sub nit($class,$frame,$fpath) {
+sub nit($class,$fpath) {
 
   my $self=bless {
 
@@ -84,8 +74,6 @@ sub nit($class,$frame,$fpath) {
       $fpath,depfile=>1
 
     ),
-
-    frame => $frame,
 
   },$class;
 
@@ -174,11 +162,11 @@ sub pl_updated($self) {
 
   # depsmake hash needs to know
   # if this one requires attention
-  my $frame=$self->{frame};
-
   if(!(-f $self->{dep}) || $do_build) {
-    push @{$frame->{-md}->{objs}},$self->{obj};
-    push @{$frame->{-md}->{deps}},$self->{dep};
+    Shb7::push_makedeps(
+      $self->{obj},$self->{dep}
+
+    );
 
   };
 
@@ -213,9 +201,7 @@ sub c_build($self) {
 
   say {*STDERR} Shb7::shpath($src);
 
-  my $frame = $self->{frame};
-  my $asm   = $self->{obj};
-
+  my $asm=$self->{obj};
   $asm=~ s[$Lang::C::EXT_OB][.asm];
 
   my $up=$NULLSTR;
@@ -228,11 +214,10 @@ sub c_build($self) {
 
     q[gcc],
     q[-MMD],
+    q[-m64],
 
-    @{$frame->{-oflg}},
-    @{$frame->{-incl}},
-    @{$frame->{-dflg}},
-    @{$frame->{-pflg}},
+    @{$Shb7::OFLG},
+    Shb7::get_includes(),
 
     $up,
 
@@ -258,7 +243,6 @@ sub c_build($self) {
 
 sub pl_build($self) {
 
-  my $frame=$self->{frame};
   print {*STDERR} Shb7::shpath($src)."\n";
 
   my @call=(
@@ -268,12 +252,11 @@ sub pl_build($self) {
     q[-I].$AVTOPATH.q[/Peso/],
     q[-I].$AVTOPATH.q[/Lang/],
 
-    q[-I].$AVTOPATH.q[/].$frame->{fswat},
-    @{$frame->{incl}},
+    q[-I].Shb7::dir($Shb7::Cur_Module),
+    Shb7::get_includes(),
 
     q[-MMAM=--rap,].
-    q[--module=].
-    $frame->{fswat},
+    q[--module=].$Shb7::Cur_Module,
 
     $src
 

@@ -34,12 +34,14 @@ package Arstd::String;
     sqwrap
     dqwrap
 
+    begswith
+
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;
+  our $VERSION=v0.00.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -131,6 +133,14 @@ sub pretty_tag($s) {
     $s
 
   ;
+
+};
+
+# ---   *   ---   *   ---
+# string has prefix
+
+sub begswith($s,$prefix) {
+  return (rindex $s,$prefix,0)==0;
 
 };
 

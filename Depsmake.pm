@@ -44,11 +44,10 @@ sub import(@args) {
 
 INIT {
 
-  my $dst=q{};
-  my $re=abs_path(glob(q{~}));
+  my @dst = ["$Fname\n";
+  my $re  = abs_path(glob(q{~}));
 
   $re=qr{$re};
-  $dst.="$Fname\n";
 
   for my $path(values %INC) {
 
@@ -60,13 +59,13 @@ INIT {
       $alt=~ s{/lib/} {/.trash/$Modname/};
 
       if(-e $alt) {$path=$alt};
-      $dst.=$path.q{ };
+      push @dst,$path;
 
     };
 
   };
 
-  say $dst;
+  say q[],(join q[,],@dst);
 
 };
 

@@ -37,6 +37,7 @@ package Arstd::Array;
     array_rshift
 
     array_filter
+    array_dupop
     array_insert
 
     array_key_idex
@@ -46,7 +47,7 @@ package Arstd::Array;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;
+  our $VERSION=v0.00.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -147,6 +148,21 @@ sub filter($ar,$block=undef) {
 };
 
 # ---   *   ---   *   ---
+# liminates repeats
+
+sub dupop($ar) {
+
+  my %tmp=();
+  for my $x(@$ar) {
+    $tmp{$x}=1;
+
+  };
+
+  @$ar=keys %tmp;
+
+};
+
+# ---   *   ---   *   ---
 # appends subarray at position
 
 sub insert($ar,$pos,@ins) {
@@ -182,17 +198,18 @@ sub key_idex($ar) {
 # ---   *   ---   *   ---
 # exporter stuff
 
-  *array_nth=*nth;
-  *array_keys=*nkeys;
-  *array_values=*nvalues;
+  *array_nth      = *nth;
+  *array_keys     = *nkeys;
+  *array_values   = *nvalues;
 
-  *array_lshift=*lshift;
-  *array_rshift=*rshift;
+  *array_lshift   = *lshift;
+  *array_rshift   = *rshift;
 
-  *array_filter=*filter;
-  *array_insert=*insert;
+  *array_filter   = *filter;
+  *array_dupop    = *dupop;
+  *array_insert   = *insert;
 
-  *array_key_idex=*key_idex;
+  *array_key_idex = *key_idex;
 
 # ---   *   ---   *   ---
 1; # ret
