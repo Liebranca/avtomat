@@ -20,10 +20,13 @@ package Shb7::Find;
   use strict;
   use warnings;
 
+  use Cwd qw(abs_path getcwd);
   use English qw(-no_match_vars);
 
   use Carp;
   use Readonly;
+
+  use Exporter 'import';
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
@@ -40,6 +43,18 @@ package Shb7::Find;
 
   our $VERSION = v0.00.1;
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  our @EXPORT=qw(
+
+    ffind
+    wfind
+
+    libexpand
+
+  );
 
 # ---   *   ---   *   ---
 # sets search path and filelist accto filename
@@ -140,7 +155,7 @@ sub fsearch($search_in,@files) {
 sub ffind($fname,@exts) {
 
   if(-f $fname) {
-    return $fname
+    return abs_path($fname);
 
   };
 
@@ -388,7 +403,7 @@ sub build_meta($path) {
 
   };
 
-  my $old=Shb7::Path::getcwd();
+  my $old=getcwd();
   chdir $Shb7::Path::Root;
 
   libexpand($out->{libs});

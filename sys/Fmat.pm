@@ -75,7 +75,7 @@ sub tidyup($sref) {
 
 sub fatdump($data) {
   my $s=Dumper($data);
-  return tidyup(\$s);
+  say tidyup(\$s);
 
 };
 

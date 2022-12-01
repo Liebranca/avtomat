@@ -52,11 +52,20 @@ sub nit($class,%O) {
 
   },$class;
 
-  # set paths
+  $self->set_paths();
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# directory boiler
+
+sub set_paths($self) {
+
   $self->{name} = $O{config}->{name};
   $self->{dir}  = "./$self->{name}";
   $self->{trsh} = Shb7::rel(
-    Shb7::obj_dir($self->{name})
+    Shb7::trash($self->{name})
 
   );
 
@@ -71,7 +80,15 @@ sub nit($class,%O) {
     : $NULLSTR
     ;
 
-  return $self;
+  # the mampy exception
+  $self->{p_out}=$self->{dir};
+  $self->{p_out}=~ s([.]/${name})();
+
+  $self->{p_out}=
+    $self->{libdir}.
+    $self->{p_out}
+
+  ;
 
 };
 
@@ -82,7 +99,7 @@ sub iter($self,$dirs) {
 
   for my $dir(@$dirs) {
     $self->get_files($dir);
-    $self->take();
+    $self->agroup_files();
 
   };
 
@@ -191,26 +208,9 @@ sub arr_dual_out($self,$dst,$src) {
 };
 
 # ---   *   ---   *   ---
-# turns *.ext into (*.o,*.d)
-
-sub gcc_bfiles($key,$ext) {
-
-  my $ob=$key;
-  $ob=~ s[$ext][];
-  $ob.='.o';
-
-  my $dep=$key;
-  $dep=~ s[$ext][];
-  $dep.='.d';
-
-  return ($ob,$dep);
-
-};
-
-# ---   *   ---   *   ---
 # c/cpp to GCC
 
-sub c_files($self,$dst_s,$dst_o) {
+sub c_files($self,$dst) {
 
   state $c_ext=qr{\.(?:cpp|c)$}x;
 
@@ -220,18 +220,7 @@ sub c_files($self,$dst_s,$dst_o) {
   while(@matches) {
 
     my $match=shift @matches;
-
-    my ($ob,$dep)=gcc_bfiles(
-      $match,$c_ext
-
-    );
-
-    push @$dst_s,"$self->{dir}/$match";
-    push @$dst_o,(
-      "$self->{trsh}/$ob",
-      "$self->{trsh}/$dep"
-
-    );
+    $dst->nit("$self->{dir}/$match");
 
   };
 
@@ -240,7 +229,7 @@ sub c_files($self,$dst_s,$dst_o) {
 # ---   *   ---   *   ---
 # *.pm to MAM
 
-sub pm_files($self,$dst_s,$dst_o,$outdir) {
+sub pm_files($self,$dst) {
 
   state $perl_ext=qr{\.pm$};
 
@@ -250,19 +239,12 @@ sub pm_files($self,$dst_s,$dst_o,$outdir) {
   my $name=$self->{name};
 
   while(@matches) {
+
     my $match=shift @matches;
 
-    my $dep=$match;
-    $dep.='d';
-
-    push @$dst_s,"$self->{dir}/$match";
-
-    my $lmod=$self->{dir};
-    $lmod=~ s([.]/${name})();
-
-    push @$dst_o,(
-      "$outdir$lmod/$match",
-      "$self->{trsh}$dep"
+    $dst->nit(
+      "$self->{dir}/$match",
+      "$self->{p_out}/$match"
 
     );
 
@@ -273,7 +255,7 @@ sub pm_files($self,$dst_s,$dst_o,$outdir) {
 # ---   *   ---   *   ---
 # walrus van rossum
 
-sub py_files($self,$dst,$outdir) {
+sub py_files($self,$dst) {
 
   state $python_ext=qr{\.py$};
   my $name=$self->{name};
@@ -282,14 +264,12 @@ sub py_files($self,$dst,$outdir) {
     @{$self->{files}};
 
   while(@matches) {
-    my $match=shift @matches;
 
-    my $lmod=$self->{dir};
-    $lmod=~ s([.]/${name})();
+    my $match=shift @matches;
 
     push @$dst,(
       "$self->{dir}/$match",
-      "$outdir$lmod/$match"
+      "$self->{p_out}/$match"
 
     );
 
@@ -307,8 +287,8 @@ sub single_out($self,$dst,$src) {
   while(@$matches) {
 
     my $match=shift @$matches;
-    delete $src->{$match};
 
+    delete $src->{$match};
     push @$dst,"$self->{dir}/$match";
 
   };
@@ -340,7 +320,7 @@ sub side_build($self,$dst,$src) {
 # ---   *   ---   *   ---
 # processes file list boiler
 
-sub take($self) {
+sub agroup_files($self) {
 
   # generators
   $self->arr_dual_out(
@@ -375,25 +355,9 @@ sub take($self) {
   );
 
   # selfex
-  $self->c_files(
-    $self->{M}->{srcs},
-    $self->{M}->{objs},
-
-  );
-
-  $self->pm_files(
-    $self->{M}->{srcs},
-    $self->{M}->{objs},
-
-    $self->{libdir},
-
-  );
-
-  $self->py_files(
-    $self->{M}->{fcpy},
-    $self->{libdir},
-
-  );
+  $self->c_files($self->{M}->{gcc});
+  $self->pm_files($self->{M}->{mam});
+  $self->py_files($self->{M}->{fcpy});
 
 };
 

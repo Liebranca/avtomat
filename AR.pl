@@ -80,6 +80,10 @@ my $FILE_LIST=[
   '/sys/Ptr.pm',
 
   '/sys/Shb7.pm',
+  '/sys/Shb7/Path.pm',
+  '/sys/Shb7/Find.pm',
+  '/sys/Shb7/Build.pm',
+
   '/sys/Vault.pm',
 
   '/sys/Cli.pm',
@@ -365,11 +369,11 @@ update(
 # ---   *   ---   *   ---
 # this effen script...
 
-print {*STDERR}
-  "\e[37;1m::\e[0mrebuilding syntax files\n";
-
-print {*STDERR}
-  `$ENV{'ARPATH'}'/avtomat/bin/sygen'`;
+#print {*STDERR}
+#  "\e[37;1m::\e[0mrebuilding syntax files\n";
+#
+#print {*STDERR}
+#  `$ENV{'ARPATH'}'/avtomat/bin/sygen'`;
 
 # ---   *   ---   *   ---
 

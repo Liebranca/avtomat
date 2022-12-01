@@ -274,7 +274,10 @@ sub dorc($path,$excluded) {
   opendir my $dir,$path
   or croak strerr($path);
 
-  @out=grep m[$excluded]x,readdir $dir;
+  @out=grep {
+    !($ARG=~ $excluded)
+
+  } readdir $dir;
 
   closedir $dir
   or croak strerr($path);

@@ -9,7 +9,7 @@
 *>Shb7
 ~ Break down into packages
 ~ ^ Path managing and ops
-~ ^ Find ops
+x ^ Find ops
 ~ ^ Symbol wrangling
 ~ ^ ld,gcc && mam wrappers
 

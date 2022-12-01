@@ -31,6 +31,7 @@ package Makescript;
   use Arstd::IO;
 
   use Shb7;
+  use Shb7::Bk;
 
   use Tree::Dep;
 
@@ -45,92 +46,200 @@ package Makescript;
   use Avt;
 
 # ---   *   ---   *   ---
+# info
 
-  our $VERSION = v0.01.3;
+  our $VERSION = v0.01.4;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# and now we need this again ;>
-# converts relative paths to absolute
+# ROM
 
-sub nit($class,$M,$cli) {
-
-  $M->{debug}=$cli->{debug}!=$NULL;
-
-  $M->{root}=$Shb7::Root;
-  $M->{trash}=Shb7::obj_dir($M->{fswat});
-
-  Shb7::set_module($M->{fswat});
-
-  for my $ref(
-
-    $M->{objs},
-    $M->{srcs},
-    $M->{xprt},
-    $M->{fcpy},
-    $M->{gens},
-
-  ) {
-
-    if(!@$ref) {next};
-
-    map
-
-      {$ARG=~ s[^\./|(?<=,)\./][$M->{root}]sg}
-      @$ref
-
-    ;
-
-  };
-
-  for my $key(qw(
-    incl libs ilib mlib main trash
-
-  )) {
-
-    $M->{$key}//=$NULLSTR;
-    $M->{$key}=~ s[\./][$M->{root}]sg;
-
-  };
-
-  $M->{incl}=[split $SPACE_RE,$M->{incl}];
-  $M->{libs}=[split $SPACE_RE,$M->{libs}];
-
-  return bless $M;
-
-};
+  Readonly my $CWD_RE=>qr{^\./|(?<=,)\./}x;
 
 # ---   *   ---   *   ---
+# shorthand
 
-sub set_build_paths($M) {
+sub get_build_files($self) {
 
-  my @paths=();
-  for my $inc(@{$M->{incl}}) {
+  return (
 
-    if($inc eq q{-I}.$Shb7::Root) {next};
-    push @paths,$inc;
-
-  };
-
-  Shb7::stinc(
-
-    @paths,q{.},
-    q{-I}.Shb7::dir($M->{fswat})
+    @{$self->{fasm}},
+    @{$self->{gcc}},
+    @{$self->{mam}},
 
   );
 
 };
 
 # ---   *   ---   *   ---
+# adjust fpath arrays
 
-sub update_generated($M) {
+sub abspath_arr($self) {
 
-  my @GENS=@{$M->{gens}};
+  for my $ref(
+
+    $self->{xprt},
+    $self->{fcpy},
+    $self->{gens},
+    $self->{incl},
+    $self->{libs},
+
+  ) {
+
+    array_filter($ref);
+
+    map {
+      $ARG=~ s[$CWD_RE][$self->{root}]sxmg;
+
+    } @$ref;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# adjust fpath strings
+
+sub abspath_str($self) {
+
+  for my $ref(
+    $self->{ilib},
+    $self->{mlib},
+    $self->{main},
+    $self->{trash},
+
+  ) {
+
+    map {
+      $ARG=~ s[$CWD_RE][$self->{root}]sxmg;
+
+    } @$ref;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# adjust fpaths on build file objects
+
+sub abspath_bfile($self) {
+
+  for my $bfile(@ar) {
+    $bfile->{src}=~ s[$CWD_RE][$self->{root}]sxmg;
+    $bfile->{obj}=~ s[$CWD_RE][$self->{root}]sxmg;
+    $bfile->{asm}=~ s[$CWD_RE][$self->{root}]sxmg;
+    $bfile->{out}=~ s[$CWD_RE][$self->{root}]sxmg;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^ shorthand for all
+
+sub abspaths($self) {
+  $self->abspath_arr();
+  $self->abspath_str();
+  $self->abspath_bfile();
+
+};
+
+# ---   *   ---   *   ---
+# constructor
+
+sub nit($class) {
+
+  my $self=bless {
+
+    # name of target
+    fswat => $NULLSTR,
+
+    # build file containers
+    fasm  => [],
+    gcc   => [],
+    mam   => [],
+
+    # io paths
+    root  => $NULLSTR,
+    ilib  => $NULLSTR,
+    mlib  => $NULLSTR,
+    main  => $NULLSTR,
+    trash => $NULLSTR,
+
+    # fpath arrays
+    xprt  => [],
+    fcpy  => [],
+    gens  => [],
+    utils => [],
+    tests => [],
+
+    # search paths/deps
+    incl  => [],
+    libs  => [],
+
+    # flags
+    lmode => $NULLSTR,
+    debug => 0,
+
+  },$class;
+
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# ^initialize existing hashref
+
+sub nit_build($class,$self,$cli) {
+
+  $self=bless $self,$class;
+
+  $self->{debug} = $cli->{debug}!=$NULL;
+
+  $self->{root}  = $Shb7::Root;
+  $self->{trash} = Shb7::obj_dir($self->{fswat});
+
+  Shb7::set_module($self->{fswat});
+  $self->abspaths();
+
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# add makescript includes to
+# current search path
+
+sub set_build_paths($self) {
+
+  my @paths=();
+  for my $inc(@{$self->{incl}}) {
+
+    if($inc eq q{-I}.$Shb7::Path::Root) {next};
+    push @paths,$inc;
+
+  };
+
+  push @paths,(
+    Shb7::dir($self->{fswat}),q[.]
+
+  );
+
+  Shb7::set_includes(@paths);
+
+};
+
+# ---   *   ---   *   ---
+# handle code generator scripts
+
+sub update_generated($self) {
+
+  my @GENS=@{$self->{gens}};
 
   if(@GENS) {
 
-    print {*STDERR}
-      $Emit::Std::ARSEP."running generators\n";
+    say {*STDERR}
+      $Emit::Std::ARSEP."running generators";
 
   };
 
@@ -160,9 +269,9 @@ sub update_generated($M) {
         my $msrc=shift @msrcs;
 
         # look for wildcard
-        if($msrc=~ m/\%/) {
-          my @srcs=@{ Shb7::wfind($msrc) };
-          while(@srcs) {
+        if($msrc=~ $Shb7::WILDCARD_RE) {
+
+          while(Shb7::wfind($msrc)) {
             my $src=shift @srcs;
 
             # found file is updated
@@ -170,7 +279,10 @@ sub update_generated($M) {
               $do_gen=1;last;
 
             };
-          };if($do_gen) {last};
+
+          };
+
+          if($do_gen) {last};
 
 # ---   *   ---   *   ---
 
@@ -187,7 +299,9 @@ sub update_generated($M) {
           };
 
         };
+
       };
+
     };
 
 # ---   *   ---   *   ---
@@ -195,9 +309,7 @@ sub update_generated($M) {
 
     if($do_gen) {
 
-      print {*STDERR}
-        Shb7::shpath($gen)."\n";
-
+      say {*STDERR} Shb7::shpath($gen);
       `$gen`;
 
     };
@@ -206,15 +318,19 @@ sub update_generated($M) {
 };
 
 # ---   *   ---   *   ---
+# plain cp
 
-sub update_regular($M) {
+sub update_regular($self) {
 
-  my @FCPY=@{$M->{fcpy}};
+  my @FCPY=@{$self->{fcpy}};
 
   if(@FCPY) {
 
-    print {*STDERR}
-      $Emit::Std::ARSEP."copying regular files\n";
+    say {*STDERR}
+      $Emit::Std::ARSEP,
+      "copying regular files"
+
+    ;
 
   };
 
@@ -235,7 +351,7 @@ sub update_regular($M) {
     if(!$do_cpy) {$do_cpy=Shb7::ot($cp,$og);};
     if($do_cpy) {
 
-      print {*STDERR} "$og\n";
+      say {*STDERR} "$og";
       `cp $og $cp`;
 
     };
@@ -245,16 +361,15 @@ sub update_regular($M) {
 };
 
 # ---   *   ---   *   ---
+# re-run object file compilation
 
-sub update_objects($M) {
+sub update_objects($self) {
 
-  my @INCLUDES=split $SPACE_RE,$M->{incl};
-
-  my $OBJS=$NULLSTR;
-  my $objblt=0;
+  my $objblt = 0;
+  my @files  = $self->get_build_files();
 
   # print notice
-  if(@{$M->{bld}) {
+  if(@files) {
 
     say {*STDERR}
 
@@ -266,29 +381,34 @@ sub update_objects($M) {
   };
 
   # iter list of source files
-  for my $bfile($M->{bld}) {
-    $OBJS.=$bfile->{obj}.q{ };
+  for my $bfile(@files) {
     $objblt+=$bfile->update();
 
   };
 
-  return ($OBJS,$objblt);
+  my $objs=[map {
+    $ARG->{obj}
+
+  } @ar];
+
+  array_filter($objs);
+  return ($objs,$objblt);
 
 };
 
 # ---   *   ---   *   ---
 # manages utils and tests
 
-sub side_builds($M) {
+sub side_builds($self) {
 
-  my $debug=($M->{debug})
+  my $debug=($self->{debug})
     ? q[-g]
     : $NULLSTR
     ;
 
   my @calls=();
 
-  for my $ref(@{$M->{utils}}) {
+  for my $ref(@{$self->{utils}}) {
     my ($outfile,$srcfile,@flags)=@$ref;
 
     if($rebuild) {
@@ -316,23 +436,17 @@ sub side_builds($M) {
 # ---   *   ---   *   ---
 # the one we've been waiting for
 
-sub build_binaries($M,$PFLG,$OBJS,$objblt) {
+sub build_binaries($self,$objs,$objblt) {
 
 # ---   *   ---   *   ---
 # this sub only builds a new binary IF
 # there is a target defined AND
 # any objects have been updated
 
-  my @OFLG=split $SPACE_RE,$Shb7::OFLG;
-  my @LFLG=split $SPACE_RE,$Shb7::LFLG;
-  my @PFLG=split $SPACE_RE,$PFLG;
+  my @calls = ();
+  my @libs  = ();
 
-  my @OBJS=split $SPACE_RE,$OBJS;
-
-  my $LIBS=$NULLSTR;
-  my @CALLS=();
-
-  if($M->{main} && $objblt) {
+  if($self->{main} && $objblt) {
 
     say {*STDERR }
 
@@ -340,7 +454,7 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
       'compiling binary ',
 
       "\e[32;1m",
-      Shb7::shpath($M->{main}),
+      Shb7::shpath($self->{main}),
 
       "\e[0m"
 
@@ -349,23 +463,23 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 # ---   *   ---   *   ---
 # build mode is 'static library'
 
-    if($M->{lmode} eq 'ar') {
+    if($self->{lmode} eq 'ar') {
 
-      push @CALLS,[
+      push @callsALLS,[
         qw(ar -crs),
-        $M->{main},@OBJS
+        $self->{main},@$objs
 
       ];
 
-      $LIBS=$M->{libs};
+      @libs=@{$self->{libs}};
 
 # ---   *   ---   *   ---
 # otherwise it's executable or shared object
 
     } else {
 
-      if(-e $M->{main}) {
-        `rm $M->{main}`;
+      if(-e $self->{main}) {
+        `rm $self->{main}`;
 
       };
 
@@ -373,8 +487,7 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 # find any additional libraries we might
 # need to link against
 
-      $LIBS=Shb7::libexpand($M->{libs});
-      my @LIBS=split $SPACE_RE,$LIBS;
+      @libs=Shb7::libexpand($self->{libs});
 
 # ---   *   ---   *   ---
 # build call is the exact same,
@@ -382,24 +495,24 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 
       push @CALLS,[
 
-        q[gcc],$M->{lmode},
+        q[gcc],$self->{lmode},
 
-        ($M->{debug}) ? q[-g] : $NULLSTR,
+        ($self->{debug}) ? q[-g] : $NULLSTR,
         @PFLG,@OFLG,
 
-        $M->{incl},@PFLG,@OBJS,@LIBS,
-        q[-o],$M->{main}
+        $self->{incl},@PFLG,@OBJS,@LIBS,
+        q[-o],$self->{main}
 
       ];
 
 # ---   *   ---   *   ---
 # for executables we spawn a shadow lib
 
-      if($M->{lmode} ne '-shared ') {
+      if($self->{lmode} ne '-shared ') {
 
         push @CALLS,[
           qw(ar -crs),
-          $M->{mlib},@OBJS
+          $self->{mlib},@OBJS
 
         ];
 
@@ -421,12 +534,12 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 
     Avt::symscan(
 
-      $M->{fswat},
-      $M->{ilib},
+      $self->{fswat},
+      $self->{ilib},
 
       $LIBS,
 
-      @{$M->{xprt}}
+      @{$self->{xprt}}
 
     );
 
@@ -436,14 +549,14 @@ sub build_binaries($M,$PFLG,$OBJS,$objblt) {
 
 # ---   *   ---   *   ---
 
-sub depsmake($M) {
+sub depsmake($self) {
 
   my $md    = $Shb7::Makedeps;
 
   my @objs  = @{$md->{objs}};
   my @deps  = @{$md->{deps}};
 
-  my $fswat = $M->{fswat};
+  my $fswat = $self->{fswat};
 
   if(@objs && @deps) {
 

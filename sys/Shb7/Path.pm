@@ -25,16 +25,68 @@ package Shb7::Path;
   use English qw(-no_match_vars);
   use Readonly;
 
+  use Exporter 'import';
+
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+
+  use Arstd::Path;
   use Arstd::IO;
+
+  use Tree::File;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;
+  our $VERSION = v0.00.2;
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  our @EXPORT=qw(
+
+    set_root
+    set_module
+
+    clear_includes
+    clear_libs
+
+    push_includes
+    push_libs
+
+    set_includes
+    set_libs
+
+    file
+    dir
+
+    lib
+    libdir
+    so
+
+    cache
+    mem
+    trash
+
+    modof
+    shpath
+
+    rel
+    ot
+    moo
+    walk
+
+    obj_from_src
+
+    $INCL_RE
+    $LIBD_RE
+    $LIBF_RE
+    $WILDCARD_RE
+    $ANYEXT_RE
+
+  );
 
 # ---   *   ---   *   ---
 # ROM
@@ -47,6 +99,8 @@ package Shb7::Path;
   Readonly our $LIBF_RE=>qr{^\s*\-l}x;
 
   Readonly our $WILDCARD_RE=>qr{\%};
+
+  Readonly our $ANYEXT_RE=>qr{\.[\w|\d]+$};
 
 # ---   *   ---   *   ---
 
@@ -72,6 +126,8 @@ BEGIN {
 
     $Lib,
     $Include,
+
+    $Cur_Module,
 
   );
 
@@ -103,6 +159,7 @@ sub set_root($path) {
   $Include->[1]="${Root}include/";
 
   $Root_Re=qr{^(?: $DOT_BEG /? | $Root)}x;
+  $Cur_Module=$NULLSTR;
 
   return $Root;
 
@@ -185,7 +242,42 @@ BEGIN {
 };
 
 # ---   *   ---   *   ---
-# add to search path (include)
+# mark mod as current
+
+sub set_module($name) {
+
+  my $path=dir($name);
+
+  errout(
+    q[No such directory <%s>],
+
+    args => [$path],
+    lvl  => $AR_FATAL
+
+  ) unless -d $path;
+
+  $Cur_Module=$name;
+
+};
+
+# ---   *   ---   *   ---
+# SEARCH PATH SETTERS
+
+# ---   *   ---   *   ---
+# wipe out
+
+sub clear_includes(@args) {
+  $Include=[];
+
+};
+
+sub clear_libs(@args) {
+  $Lib=[];
+
+};
+
+# ---   *   ---   *   ---
+# add to
 
 sub push_includes(@args) {
 
@@ -200,9 +292,6 @@ sub push_includes(@args) {
 
 };
 
-# ---   *   ---   *   ---
-# add to search path (library)
-
 sub push_libs(@args) {
 
   for my $path(@args) {
@@ -215,6 +304,114 @@ sub push_libs(@args) {
   };
 
   return;
+
+};
+
+# ---   *   ---   *   ---
+# overwrite
+
+sub set_includes(@args) {
+  clear_includes();
+  push_includes(@args);
+
+};
+
+sub set_libs(@args) {
+  clear_includes();
+  push_includes(@args);
+
+};
+
+# ---   *   ---   *   ---
+# shorthands
+
+sub file($path) {
+  return $Root.$path
+
+};
+
+sub dir($path=$NULLSTR) {
+  return $Root.$path.q[/];
+
+};
+
+sub lib($name) {
+  return $Root."lib/lib$name.a"
+
+};
+
+sub libdir($path=$NULLSTR) {
+  return $Root."lib/$path/";
+
+};
+
+sub so($name) {
+  return $Root."lib/lib$name.so"
+
+};
+
+sub cache($name) {
+  return $Cache.$name
+
+};
+
+sub mem($name) {
+  return $Mem.$name
+
+};
+
+sub trash($name) {
+  return $Trash.$name;
+
+};
+
+
+# ---   *   ---   *   ---
+# tells you which module within $Root a
+# given file belongs to
+
+sub modof($file) {
+  return based(shpath($file));
+
+};
+
+# ---   *   ---   *   ---
+# shortens pathname for sanity
+
+sub shpath($path) {
+  $path=~ s[$Root_Re][];
+  return $path;
+
+};
+
+# ---   *   ---   *   ---
+# gives path relative to current root
+
+sub rel($path) {
+
+#:!;> dirty way to do it without handling
+#:!;> the obvious corner case of ..
+
+  $path=~ s[$Root_Re][./];
+  return $path;
+
+};
+
+# ---   *   ---   *   ---
+#in: two filepaths to compare
+# Older Than; return a is older than b
+
+sub ot($a,$b) {
+  return !( (-M $a) < (-M $b) );
+
+};
+
+# ---   *   ---   *   ---
+# "missing or older"
+# file not found or file needs update
+
+sub moo($a,$b) {
+  return !(-e $a) || ot($a,$b);
 
 };
 
@@ -234,19 +431,6 @@ sub exclude_paths($dashx) {
   };
 
   return qr{(?:$dashx)}x;
-
-};
-
-# ---   *   ---   *   ---
-# shorthands
-
-sub file($path) {
-  return $Root.$path
-
-};
-
-sub dir($path=$NULLSTR) {
-  return $Root.$path.q[/];
 
 };
 
@@ -285,7 +469,6 @@ sub walk($path,%O) {
     my $dst=(!defined $root_node)
       ? $frame->nit($root_node,$path)
       : $root_node
-
       ;
 
     # default out to root
@@ -298,6 +481,7 @@ sub walk($path,%O) {
         $frame->nit($dst,$f);
 
       } elsif(($O{-r}) && (-d "$path$f/")) {
+
         unshift @pending,
 
           "$path$f/",
@@ -308,6 +492,32 @@ sub walk($path,%O) {
       };
 
     };
+
+  };
+
+  return $out;
+
+};
+
+
+# ---   *   ---   *   ---
+# gives object file path from source file path
+
+sub obj_from_src($src,%O) {
+
+  # default
+  $O{use_trash}//=1;
+  $O{ext}//=q[.o];
+
+  my $out=$src;
+
+  if($O{use_trash}) {
+    $out=~ s[$Root_Re][$Trash];
+
+  };
+
+  if(defined $O{ext}) {
+    $out=~ s[$ANYEXT_RE][$O{ext}];
 
   };
 

@@ -42,7 +42,7 @@ package Avt::Bfile;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;
+  our $VERSION = v0.00.3;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -63,15 +63,27 @@ package Avt::Bfile;
 # ---   *   ---   *   ---
 # constructor
 
-sub nit($class,$fpath) {
+sub nit($class,$fpath,%O) {
 
   my $self=bless {
 
-    src   => $fpath,
+    src=>$fpath,
 
-    obj   => Shb7::obj_from_src($fpath),
-    dep   => Shb7::obj_from_src(
-      $fpath,depfile=>1
+    obj=>Shb7::obj_from_src(
+      $fpath,
+      ext=>$O{obj_ext}
+
+    ),
+
+    dep=>Shb7::obj_from_src(
+      $fpath,
+      ext=>$O{dep_ext}
+
+    ),
+
+    asm=>Shb7::obj_from_src(
+      $fpath,
+      ext=>$O{asm_ext}
 
     ),
 
@@ -213,7 +225,7 @@ sub c_build($self) {
   my @call=(
 
     q[gcc],
-    q[-MMD],
+
     q[-m64],
 
     @{$Shb7::OFLG},
@@ -221,7 +233,7 @@ sub c_build($self) {
 
     $up,
 
-    q[-Wa,-a=].$asm,
+
 
     q[-c],$self->{src},
     q[-o],$self->{obj}
