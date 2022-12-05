@@ -23,6 +23,8 @@ package Shb7::Build;
   use Readonly;
   use Carp;
 
+  use Exporter 'import';
+
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
@@ -32,6 +34,8 @@ package Shb7::Build;
   use Shb7::Path;
   use Shb7::Find;
 
+  use Shb7::Bk::gcc;
+
 # ---   *   ---   *   ---
 # info
 
@@ -39,59 +43,25 @@ package Shb7::Build;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
+# adds to your namesopace
+
+  our @EXPORT=qw(
+
+    push_makedeps
+    clear_makedeps
+
+    obj_file
+    obj_dir
+
+  );
+
+# ---   *   ---   *   ---
 # ROM
-
-  Readonly our $OFLG=>[
-    q[-Os],
-    q[-fno-unwind-tables],
-    q[-fno-eliminate-unused-debug-symbols],
-    q[-fno-asynchronous-unwind-tables],
-    q[-ffast-math],
-    q[-fsingle-precision-constant],
-    q[-fno-ident],
-    q[-fPIC],
-
-  ];
-
-  Readonly our $LFLG=>[
-    q[-flto],
-    q[-ffunction-sections],
-    q[-fdata-sections],
-    q[-Wl,--gc-sections],
-    q[-Wl,-fuse-ld=bfd],
-
-  ];
-
-  Readonly our $FLATLFLG=>[
-    q[-flto],
-    q[-ffunction-sections],
-    q[-fdata-sections],
-    q[-Wl,--gc-sections],
-    q[-Wl,-fuse-ld=bfd],
-
-    q[-Wl,--relax,-d],
-    q[-Wl,--entry=_start],
-    q[-no-pie -nostdlib],
-
-  ];
 
   my $FLGCHK=sub {
 
      defined $ARG
   && 2<length $ARG
-
-  };
-
-  Readonly our $BACKEND=>{
-    fasm => 0,
-    gcc  => 1,
-    mam  => 2
-
-  };
-
-  Readonly our $TARGET=>{
-    x64=>0,
-    x32=>1,
 
   };
 
@@ -112,31 +82,36 @@ sub nit($class,%O) {
   # defaults
   $O{name}   //= 'out';
 
+  $O{files}  //= [];
   $O{incl}   //= [];
   $O{libs}   //= [];
 
-  $O{files}  //= [];
   $O{shared} //= 0;
-  $O{back}   //= $BACKEND->{gcc};
   $O{flat}   //= 0;
-  $O{tgt}    //= $TARGET->{x64};
+  $O{debug}  //= 0;
+  $O{tgt}    //= $Shb7::Bk::TARGET->{x64};
+
+# ---   *   ---   *   ---
 
   my $flags=[];
 
   unshift @$flags,q[-shared]
   if $O{shared};
 
+  unshift @$flags,q[-g]
+  if $O{debug};
+
+# ---   *   ---   *   ---
+
   my $self=bless {
 
     name  => $O{name},
-
     files => $O{files},
 
     incl  => $O{incl},
     libs  => $O{libs},
 
     flags => $flags,
-    back  => $O{back},
     flat  => $O{flat},
     tgt   => $O{plat},
 
@@ -241,94 +216,26 @@ sub get_module_paths($self) {
 # return list of build files
 
 sub list_obj($self) {
-  return map {$ARG->{obj}} @{$self->{files}};
+  return map {
+    $ARG->{obj}
+
+  } @{$self->{files}};
 
 };
 
 sub list_src($self) {
-  return map {$ARG->{src}} @{$self->{files}};
+  return map {
+    $ARG->{src}
+
+  } @{$self->{files}};
 
 };
 
 sub list_dep($self) {
-  return map {$ARG->{dep}} @{$self->{files}};
+  return map {
+    $ARG->{dep}
 
-};
-
-# ---   *   ---   *   ---
-# barebones platform switch
-
-sub target($self) {
-
-  state $choice=[
-    undef,
-    \&gcc_target,
-    undef
-
-  ];
-
-  return $choice[$self->{back}]->();
-
-};
-
-# ---   *   ---   *   ---
-# ^backend is gcc
-
-sub gcc_target($self) {
-
-  my $out;
-  if($self->{tgt} eq $TARGET->{x64}) {
-    $out=q[-m64];
-
-  } elsif($self->{tgt} eq $TARGET->{x32}) {
-    $out=q[-m32];
-
-  };
-
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
-# src to [obj|dep|asm]
-
-sub build_obj($self,$idex) {
-
-  state $choice=[
-    undef,
-    \&gcc_build_obj,
-    undef
-
-  ];
-
-  my $bfile=$self->{files}->[$idex];
-  return $choice[$self->{back}]->($bfile);
-
-};
-
-# ---   *   ---   *   ---
-# ^backend is gcc
-
-sub gcc_build_obj($self,$bfile) {
-
-  return (
-
-    q[gcc],
-    q[-MMD],
-    $self->target(),
-
-    @$OFLG,
-
-    @{$self->{flags}},
-    @{$self->{incl}},
-    @{$self->{libs}},
-
-    q[-Wa,-a=].$bfile->{asm},
-
-    q[-c],$bfile->{src},
-    q[-o],$bfile->{obj}
-
-  );
+  } @{$self->{files}};
 
 };
 
@@ -341,11 +248,11 @@ sub link_common($self) {
 
     q[gcc],
 
-    @$OFLG,
-    @$LFLG,
+    @{$Shb7::Bk::gcc::OFLG},
+    @{$Shb7::Bk::gcc::LFLG},
     @{$self->{flags}},
 
-    q[-m64],
+    Shb7::Bk::gcc::target($self->{tgt}),
 
     @{$self->{incl}},
     @{$self->{libs}},
@@ -368,10 +275,10 @@ sub link_hflat($self) {
 
     q[gcc],
 
-    @$FLATLFLG,
+    @{$Shb7::Bk::gcc::FLATLFLG},
     @{$self->{flags}},
 
-    q[-m64],
+    Shb7::Bk::gcc::target($self->{tgt}),
 
     @{$self->{libs}},
     @{$self->{incl}},

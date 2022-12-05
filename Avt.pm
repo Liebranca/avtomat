@@ -57,6 +57,7 @@ package Avt;
   use Peso::Ipret;
 
   use Avt::Sieve;
+  use Makescript;
 
 # ---   *   ---   *   ---
 # info
@@ -361,7 +362,7 @@ sub depchk($chkpath,$deps) {
 
 sub scan() {
 
-  my $fpath=Shb7::cache_file("avto-modules");
+  my $fpath=Shb7::cache("avto-modules");
 
   # ensure we have these standard paths
   for my $path(
@@ -370,11 +371,11 @@ sub scan() {
     Shb7::dir("lib"),
     Shb7::dir("include"),
 
-    $Shb7::Trash,
-    $Shb7::Cache,
-    $Shb7::Mem,
+    $Shb7::Path::Trash,
+    $Shb7::Path::Cache,
+    $Shb7::Path::Mem,
 
-  ) {if(!(-e $path)) {mkdir $path}};
+  ) {if(! -e $path) {mkdir $path}};
 
 # ---   *   ---   *   ---
 # iter provided names
@@ -461,8 +462,6 @@ sub get_config_build($M,$config) {
 
   $M->{fswat}=$config->{name};
 
-# ---   *   ---   *   ---
-
   my ($lmode,$mkwat)=($NULLSTR,$NULLSTR);
 
   if(length $config->{build}) {
@@ -518,21 +517,22 @@ sub get_config_build($M,$config) {
 
 sub get_config_paths($M,$config) {
 
-  $M->{libs}=q{-L}.$LIBD.q{ }.(
-    join q{ },@{$config->{libs}}
+  $M->{libs}=[
+    q{-L}.$LIBD,
+    @{$config->{libs}},
 
-  );
+  ];
 
-  $M->{incl}=
+  $M->{incl}=[
 
-  q{-I}.$INCD.q{ }.
-  q{-I./ }.
+    q{-I}.$INCD.q{ },
+    q{-I./ },
 
-  q{-I./}.$config->{name}.q{/ }.
+    q{-I./}.$config->{name}.q{/ },
 
-  (join q{ },@{$config->{incl}})
+    @{$config->{incl}},
 
-  ;
+  ];
 
 };
 
@@ -541,15 +541,6 @@ sub get_config_paths($M,$config) {
 # writes results to makescript
 
 sub get_config_files($M,$C,$module) {
-
-  $M->{fcpy}=[];
-  $M->{xprt}=[];
-  $M->{gens}=[];
-  $M->{srcs}=[];
-  $M->{objs}=[];
-
-  $M->{tests}=[];
-  $M->{utils}=[];
 
   my @dirs=$module->get_dir_list(
     full_path=>0,
@@ -716,7 +707,7 @@ map {
 
 sub config() {
 
-  my $src=Shb7::cache_file("avto-config");
+  my $src=Shb7::cache("avto-config");
   my $config=$Cache{_config};
 
   # overwrite old values
@@ -736,7 +727,7 @@ sub config() {
 
 sub read_config() {
 
-  my $src=Shb7::cache_file("avto-config");
+  my $src=Shb7::cache("avto-config");
   my $config=retrieve($src)
   or croak strerr($src);
 
@@ -759,7 +750,7 @@ sub make() {
     my $avto_path=Shb7::file("$name/avto");
 
     # build the makescript object
-    my $M={};
+    my $M=Makescript->nit();
     get_config_build($M,$C);
     get_config_paths($M,$C);
     get_config_files($M,$C,$module);
@@ -849,7 +840,7 @@ my $M=retrieve(
 );
 
 chdir Shb7::set_root($root);
-$M=Makescript->nit($M,$cli);
+$M=Makescript->nit_build($M,$cli);
 
 # ---   *   ---   *   ---
 

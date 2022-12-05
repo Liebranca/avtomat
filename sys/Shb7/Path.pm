@@ -59,6 +59,9 @@ package Shb7::Path;
     set_includes
     set_libs
 
+    get_includes
+    get_libs
+
     file
     dir
 
@@ -323,6 +326,19 @@ sub set_libs(@args) {
 };
 
 # ---   *   ---   *   ---
+# get
+
+sub get_includes() {
+  return @$Include;
+
+};
+
+sub get_libs() {
+  return @$Lib;
+
+};
+
+# ---   *   ---   *   ---
 # shorthands
 
 sub file($path) {
@@ -505,9 +521,9 @@ sub walk($path,%O) {
 
 sub obj_from_src($src,%O) {
 
-  # default
-  $O{use_trash}//=1;
-  $O{ext}//=q[.o];
+  # defaults
+  $O{use_trash} //= 1;
+  $O{ext}       //= q[.o];
 
   my $out=$src;
 

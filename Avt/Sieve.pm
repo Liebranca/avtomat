@@ -62,7 +62,7 @@ sub nit($class,%O) {
 
 sub set_paths($self) {
 
-  $self->{name} = $O{config}->{name};
+  $self->{name} = $self->{C}->{name};
   $self->{dir}  = "./$self->{name}";
   $self->{trsh} = Shb7::rel(
     Shb7::trash($self->{name})
@@ -73,7 +73,7 @@ sub set_paths($self) {
 
   # for pasting in subpaths
   $self->{lmod}=$self->{dir};
-  $self->{lmod}=~ s[${Shb7::Root}/${name}][];
+  $self->{lmod}=~ s[${Shb7::Path::Root}/${name}][];
 
   $self->{lmod}.=($self->{lmod})
     ? q{/}
@@ -220,7 +220,7 @@ sub c_files($self,$dst) {
   while(@matches) {
 
     my $match=shift @matches;
-    $dst->nit("$self->{dir}/$match");
+    $dst->push_src("$self->{dir}/$match");
 
   };
 
@@ -242,7 +242,7 @@ sub pm_files($self,$dst) {
 
     my $match=shift @matches;
 
-    $dst->nit(
+    $dst->push_src(
       "$self->{dir}/$match",
       "$self->{p_out}/$match"
 

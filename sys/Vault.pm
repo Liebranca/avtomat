@@ -81,7 +81,7 @@ package Vault;
 sub import(@args) {
 
   my ($pkgname,$file,$line)=caller;
-  my $modname=Shb7::module_of(abs_path($file));
+  my $modname=Shb7::modof(abs_path($file));
 
   goto SKIP if($modname=~ $Std_Dirs);
 
@@ -114,7 +114,7 @@ SKIP:
 
 sub check_module($name,$exclude=[]) {
 
-  my $syspath=$Shb7::Root;
+  my $syspath=$Shb7::Path::Root;
   my $frame=$Systems->{$syspath};
 
   $Systems->{$syspath}//={};
@@ -138,7 +138,7 @@ sub check_module($name,$exclude=[]) {
 # ---   *   ---   *   ---
 
 sub px_file($name) {
-  return Shb7::cache_file("$name$PX_EXT");
+  return Shb7::cache("$name$PX_EXT");
 
 };
 
@@ -146,7 +146,7 @@ sub px_file($name) {
 
 sub module_tree($name,$excluded=[]) {
 
-  my $syspath=$Shb7::Root;
+  my $syspath=$Shb7::Path::Root;
   my $frame=$Systems->{$syspath};
 
   $Needs_Update->{$name}=[];
@@ -220,7 +220,7 @@ END {
 
       ;
 
-      my $modf=Shb7::cache_file(
+      my $modf=Shb7::cache(
         "$modname$PX_EXT"
 
       );
@@ -241,7 +241,7 @@ END {
 sub cached($key,$ptr,$call,@args) {
 
   my ($pkgname,$file,$line)=caller;
-  my $modname=Shb7::module_of(abs_path($file));
+  my $modname=Shb7::modof(abs_path($file));
 
   goto SKIP if($modname=~ $Std_Dirs);
 
@@ -286,7 +286,7 @@ SKIP:
 
 sub dafread($fname,@requested) {
 
-  my $path=Shb7::cache_file($fname.$DAF_EXT);
+  my $path=Shb7::cache($fname.$DAF_EXT);
   my $bytes=$NULLSTR;
 
 # ---   *   ---   *   ---
@@ -422,7 +422,7 @@ sub dafwrite($fname,@blocks) {
   );
 
   owc(
-    Shb7::cache_file($fname.$DAF_EXT),
+    Shb7::cache($fname.$DAF_EXT),
     $header.$body
 
   );

@@ -20,6 +20,7 @@ package Makescript;
   use warnings;
 
   use Carp;
+  use Readonly;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -31,7 +32,11 @@ package Makescript;
   use Arstd::IO;
 
   use Shb7;
-  use Shb7::Bk;
+
+  use Shb7::Bfile;
+  use Shb7::Build;
+  use Shb7::Bk::gcc;
+  use Shb7::Bk::mam;
 
   use Tree::Dep;
 
@@ -41,9 +46,7 @@ package Makescript;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Emit::Std;
-
   use Lang;
-  use Avt;
 
 # ---   *   ---   *   ---
 # info
@@ -63,9 +66,9 @@ sub get_build_files($self) {
 
   return (
 
-    @{$self->{fasm}},
-    @{$self->{gcc}},
-    @{$self->{mam}},
+    $self->{fasm}->bfiles(),
+    $self->{gcc}->bfiles(),
+    $self->{mam}->bfiles(),
 
   );
 
@@ -110,10 +113,8 @@ sub abspath_str($self) {
 
   ) {
 
-    map {
-      $ARG=~ s[$CWD_RE][$self->{root}]sxmg;
-
-    } @$ref;
+    next if !defined $ref;
+    $ref=~ s[$CWD_RE][$self->{root}]sxmg;
 
   };
 
@@ -124,7 +125,7 @@ sub abspath_str($self) {
 
 sub abspath_bfile($self) {
 
-  for my $bfile(@ar) {
+  for my $bfile($self->get_build_files()) {
     $bfile->{src}=~ s[$CWD_RE][$self->{root}]sxmg;
     $bfile->{obj}=~ s[$CWD_RE][$self->{root}]sxmg;
     $bfile->{asm}=~ s[$CWD_RE][$self->{root}]sxmg;
@@ -155,9 +156,9 @@ sub nit($class) {
     fswat => $NULLSTR,
 
     # build file containers
-    fasm  => [],
-    gcc   => [],
-    mam   => [],
+    fasm  => Shb7::Bk->nit(),
+    gcc   => Shb7::Bk::gcc->nit(),
+    mam   => Shb7::Bk::mam->nit(),
 
     # io paths
     root  => $NULLSTR,
@@ -196,11 +197,27 @@ sub nit_build($class,$self,$cli) {
 
   $self->{debug} = $cli->{debug}!=$NULL;
 
-  $self->{root}  = $Shb7::Root;
+  $self->{root}  = $Shb7::Path::Root;
   $self->{trash} = Shb7::obj_dir($self->{fswat});
 
   Shb7::set_module($self->{fswat});
   $self->abspaths();
+
+  $self->{bld}=Shb7::Build->nit(
+
+    files  => [],
+    name   => $self->{main},
+
+    incl   => $self->{incl},
+    incl   => $self->{libs},
+
+    shared => $self->{lmode} eq '-shared',
+    debug  => $self->{debug},
+
+    tgt    => $Shb7::Bk::TARGET->{x64},
+    flat   => 0,
+
+  );
 
   return $self;
 
@@ -271,8 +288,7 @@ sub update_generated($self) {
         # look for wildcard
         if($msrc=~ $Shb7::WILDCARD_RE) {
 
-          while(Shb7::wfind($msrc)) {
-            my $src=shift @srcs;
+          for my $src(Shb7::wfind($msrc)) {
 
             # found file is updated
             if(Shb7::ot($res,$src)) {
@@ -315,6 +331,7 @@ sub update_generated($self) {
     };
 
   };
+
 };
 
 # ---   *   ---   *   ---
@@ -365,7 +382,9 @@ sub update_regular($self) {
 
 sub update_objects($self) {
 
+  my $bfiles = [];
   my $objblt = 0;
+
   my @files  = $self->get_build_files();
 
   # print notice
@@ -382,17 +401,14 @@ sub update_objects($self) {
 
   # iter list of source files
   for my $bfile(@files) {
-    $objblt+=$bfile->update();
+    $objblt+=$bfile->update($self->{bld});
+
+    push @$bfiles,$bfile
+    if $bfile->linkable();
 
   };
 
-  my $objs=[map {
-    $ARG->{obj}
-
-  } @ar];
-
-  array_filter($objs);
-  return ($objs,$objblt);
+  return ($bfiles,$objblt);
 
 };
 
@@ -401,42 +417,42 @@ sub update_objects($self) {
 
 sub side_builds($self) {
 
-  my $debug=($self->{debug})
-    ? q[-g]
-    : $NULLSTR
-    ;
-
-  my @calls=();
-
-  for my $ref(@{$self->{utils}}) {
-    my ($outfile,$srcfile,@flags)=@$ref;
-
-    if($rebuild) {
-
-      push @flags,$debug;
-      push @calls,[
-
-        $ENV{'ARPATH'}.
-        q[/avtomat/bin/olink],
-
-        (join q[ ],@flags),
-
-        q[-o],$outfile,
-
-        $srcfile
-
-      ];
-
-    };
-
-  };
+#  my $debug=($self->{debug})
+#    ? q[-g]
+#    : $NULLSTR
+#    ;
+#
+#  my @calls=();
+#
+#  for my $ref(@{$self->{utils}}) {
+#    my ($outfile,$srcfile,@flags)=@$ref;
+#
+#    if($rebuild) {
+#
+#      push @flags,$debug;
+#      push @calls,[
+#
+#        $ENV{'ARPATH'}.
+#        q[/avtomat/bin/olink],
+#
+#        (join q[ ],@flags),
+#
+#        q[-o],$outfile,
+#
+#        $srcfile
+#
+#      ];
+#
+#    };
+#
+#  };
 
 };
 
 # ---   *   ---   *   ---
 # the one we've been waiting for
 
-sub build_binaries($self,$objs,$objblt) {
+sub build_binaries($self,$bfiles,$objblt) {
 
 # ---   *   ---   *   ---
 # this sub only builds a new binary IF
@@ -445,6 +461,7 @@ sub build_binaries($self,$objs,$objblt) {
 
   my @calls = ();
   my @libs  = ();
+  my @objs  = map {$ARG->{obj}} @$bfiles;
 
   if($self->{main} && $objblt) {
 
@@ -465,9 +482,9 @@ sub build_binaries($self,$objs,$objblt) {
 
     if($self->{lmode} eq 'ar') {
 
-      push @callsALLS,[
+      push @calls,[
         qw(ar -crs),
-        $self->{main},@$objs
+        $self->{main},@objs
 
       ];
 
@@ -478,41 +495,19 @@ sub build_binaries($self,$objs,$objblt) {
 
     } else {
 
-      if(-e $self->{main}) {
-        `rm $self->{main}`;
+      if(-f $self->{main}) {
+        unlink $self->{main};
 
       };
-
-# ---   *   ---   *   ---
-# find any additional libraries we might
-# need to link against
-
-      @libs=Shb7::libexpand($self->{libs});
-
-# ---   *   ---   *   ---
-# build call is the exact same,
-# only difference being the -shared flag
-
-      push @CALLS,[
-
-        q[gcc],$self->{lmode},
-
-        ($self->{debug}) ? q[-g] : $NULLSTR,
-        @PFLG,@OFLG,
-
-        $self->{incl},@PFLG,@OBJS,@LIBS,
-        q[-o],$self->{main}
-
-      ];
 
 # ---   *   ---   *   ---
 # for executables we spawn a shadow lib
 
       if($self->{lmode} ne '-shared ') {
 
-        push @CALLS,[
+        push @calls,[
           qw(ar -crs),
-          $self->{mlib},@OBJS
+          $self->{mlib},@objs
 
         ];
 
@@ -524,24 +519,24 @@ sub build_binaries($self,$objs,$objblt) {
     };
   };
 
-  if(length $LIBS) {
+  if(@libs) {
 
-    for my $call(@CALLS) {
+    for my $call(@calls) {
       array_filter($call);
       system {$call->[0]} @$call;
 
     };
 
-    Avt::symscan(
-
-      $self->{fswat},
-      $self->{ilib},
-
-      $LIBS,
-
-      @{$self->{xprt}}
-
-    );
+#    Avt::symscan(
+#
+#      $self->{fswat},
+#      $self->{ilib},
+#
+#      $LIBS,
+#
+#      @{$self->{xprt}}
+#
+#    );
 
   };
 

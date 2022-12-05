@@ -1,0 +1,46 @@
+#!/usr/bin/perl
+#
+# tests shell utils
+
+# ---   *   ---   *   ---
+# deps
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use English qw(-no_match_vars);
+
+  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+
+  use Style;
+  use Fmat;
+
+  use Arstd::IO;
+
+  use Shb7;
+
+# ---   *   ---   *   ---
+
+#Shb7::push_includes('../bitter/');
+#my @srcs=Shb7::wfind('ff/src/%.cpp');
+#
+#for my $src(@srcs) {
+#  say Shb7::obj_from_src($src);
+#  say Shb7::obj_from_src($src,depfile=>1);
+#
+#};
+#
+
+#my $file=Shb7::ffind('Avt.pm');
+#
+#say $file;
+#say Shb7::modof($file);
+
+# ---   *   ---   *   ---
+
+my $bld=Shb7::Build->nit();
+fatdump($bld);
+
+# ---   *   ---   *   ---
+1; # ret
