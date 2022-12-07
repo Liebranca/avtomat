@@ -113,7 +113,7 @@ sub nit($class,%O) {
 
     flags => $flags,
     flat  => $O{flat},
-    tgt   => $O{plat},
+    tgt   => $O{tgt},
 
   },$class;
 
@@ -121,6 +121,22 @@ sub nit($class,%O) {
   $self->get_module_paths();
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# adds to builder's file array
+
+sub push_files($self,@data) {
+  push @{$self->{files}},@data;
+
+};
+
+# ---   *   ---   *   ---
+# adds to builder's flags array
+
+sub push_flags($self,@data) {
+  push @{$self->{flags}},@data;
 
 };
 
@@ -472,34 +488,6 @@ sub soregen($name,$libs_ref,$no_regen=0) {
   };
 
   return $symtab;
-
-};
-
-# ---   *   ---   *   ---
-# takes out the trash!
-
-sub clear_dir($path,%O) {
-
-  my $tree  = walk($path,%O);
-  my @files = $tree->get_file_list(
-    full_path=>1
-
-  );
-
-  array_filter(\@files);
-
-  for my $f(@files) {
-    unlink $f;
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# ^recursively for module trashcan
-
-sub empty_trash($name) {
-  clear_dir("$Shb7::Path::Trash$name/",-r=>1);
 
 };
 

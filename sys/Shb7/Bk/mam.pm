@@ -25,8 +25,11 @@ package Shb7::Bk::mam;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Arstd::Path;
+  use Arstd::IO;
 
   use Shb7;
+  use Shb7::Path;
   use Shb7::Bfile;
 
   use parent 'Shb7::Bk';
@@ -89,6 +92,7 @@ sub fupdated($self,$bfile) {
   # depsmake hash needs to know
   # if this one requires attention
   if(!(-f $bfile->{dep}) || $do_build) {
+
     Shb7::push_makedeps(
       $bfile->{obj},$bfile->{dep}
 
@@ -118,8 +122,7 @@ sub fdeps($self,$bfile) {
   my $fname = $NULLSTR;
 
   # assign
-  ($fname,$body)=
-    split $NEWLINE_RE,$body;
+  ($fname,$body)=split $NEWLINE_RE,$body;
 
   # skip if blank
   if(!$fname || !$body) {
@@ -145,6 +148,13 @@ sub fbuild($self,$bfile,$bld) {
 
   say {*STDERR} Shb7::shpath($bfile->{src});
 
+  my @libpaths=grep {
+    $ARG=~ $LIBD_RE
+
+  } @{$bld->{libs}};
+
+  map {$ARG=~ s[$LIBD_RE][-I]} @libpaths;
+
   my @call=(
     q[perl],q[-c],
 
@@ -152,13 +162,13 @@ sub fbuild($self,$bfile,$bld) {
     q[-I].$AVTOPATH.q[/Peso/],
     q[-I].$AVTOPATH.q[/Lang/],
 
-    q[-I].Shb7::dir($Shb7::Cur_Module),
-    Shb7::get_includes(),
+    q[-I].Shb7::dir($Shb7::Path::Cur_Module),
+
     @{$bld->{incl}},
-    @{$bld->{libs}},
+    @libpaths,
 
     q[-MMAM=--rap,].
-    q[--module=].$Shb7::Cur_Module,
+    q[--module=].$Shb7::Path::Cur_Module,
 
     $bfile->{src}
 

@@ -52,7 +52,7 @@ package Shb7::Bfile;
 # ROM
 
   Readonly our $AVTOPATH=>
-    q[-I].$ENV{'ARPATH'}.'/avtomat/';
+    $ENV{'ARPATH'}.'/avtomat/';
 
   Readonly our $LDOK_RE=>qr{
 

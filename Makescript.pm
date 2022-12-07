@@ -46,7 +46,10 @@ package Makescript;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Emit::Std;
+
   use Lang;
+  use Lang::C;
+  use Lang::Perl;
 
 # ---   *   ---   *   ---
 # info
@@ -209,7 +212,7 @@ sub nit_build($class,$self,$cli) {
     name   => $self->{main},
 
     incl   => $self->{incl},
-    incl   => $self->{libs},
+    libs   => $self->{libs},
 
     shared => $self->{lmode} eq '-shared',
     debug  => $self->{debug},
@@ -408,7 +411,28 @@ sub update_objects($self) {
 
   };
 
-  return ($bfiles,$objblt);
+  $self->{bld}->push_files(@$bfiles);
+
+  return $objblt;
+
+};
+
+# ---   *   ---   *   ---
+# picks backend from source ext
+
+sub bk_for($self,$src) {
+
+  my $out=undef;
+
+  if($src=~ Lang::C->{ext}) {
+    $out=$self->{gcc};
+
+  } elsif($src=~ Lang::C->{ext}) {
+    $out=$self->{mam};
+
+  };
+
+  return $out;
 
 };
 
@@ -417,42 +441,49 @@ sub update_objects($self) {
 
 sub side_builds($self) {
 
-#  my $debug=($self->{debug})
-#    ? q[-g]
-#    : $NULLSTR
-#    ;
-#
-#  my @calls=();
-#
-#  for my $ref(@{$self->{utils}}) {
-#    my ($outfile,$srcfile,@flags)=@$ref;
-#
-#    if($rebuild) {
-#
-#      push @flags,$debug;
-#      push @calls,[
-#
-#        $ENV{'ARPATH'}.
-#        q[/avtomat/bin/olink],
-#
-#        (join q[ ],@flags),
-#
-#        q[-o],$outfile,
-#
-#        $srcfile
-#
-#      ];
-#
-#    };
-#
-#  };
+  my @calls=();
+
+  for my $ref(@{$self->{utils}}) {
+
+    my ($outfile,$srcfile,@flags)=@$ref;
+
+    my $bld=Shb7::Build->nit(
+
+      files  => [],
+      name   => $outfile,
+
+      incl   => $self->{incl},
+      incl   => $self->{libs},
+
+      shared => 0,
+      debug  => $self->{debug},
+
+      tgt    => $Shb7::Bk::TARGET->{x64},
+      flat   => 0,
+
+    );
+
+    my $bk    = $self->bk_for($srcfile);
+    my $bfile = $bk->push_src($srcfile);
+
+    $bk->fbuild($bfile,$bld);
+
+    $bld->push_files($bfile);
+    $bld->push_flags(@flags);
+
+    if($bfile->linkable()) {
+      $bld->olink();
+
+    };
+
+  };
 
 };
 
 # ---   *   ---   *   ---
 # the one we've been waiting for
 
-sub build_binaries($self,$bfiles,$objblt) {
+sub build_binaries($self,$objblt) {
 
 # ---   *   ---   *   ---
 # this sub only builds a new binary IF
@@ -461,7 +492,7 @@ sub build_binaries($self,$bfiles,$objblt) {
 
   my @calls = ();
   my @libs  = ();
-  my @objs  = map {$ARG->{obj}} @$bfiles;
+  my @objs  = @{$self->{bld}->{files}};
 
   if($self->{main} && $objblt) {
 
@@ -513,30 +544,33 @@ sub build_binaries($self,$bfiles,$objblt) {
 
       };
 
+      $self->{bld}->olink();
+
 # ---   *   ---   *   ---
 # run build calls and make symbol tables
 
     };
+
+  };
+
+  for my $call(@calls) {
+    array_filter($call);
+    system {$call->[0]} @$call;
+
   };
 
   if(@libs) {
 
-    for my $call(@calls) {
-      array_filter($call);
-      system {$call->[0]} @$call;
+    Avt::symscan(
 
-    };
+      $self->{fswat},
+      $self->{ilib},
 
-#    Avt::symscan(
-#
-#      $self->{fswat},
-#      $self->{ilib},
-#
-#      $LIBS,
-#
-#      @{$self->{xprt}}
-#
-#    );
+      \@libs,
+
+      @{$self->{xprt}}
+
+    );
 
   };
 
@@ -546,7 +580,7 @@ sub build_binaries($self,$bfiles,$objblt) {
 
 sub depsmake($self) {
 
-  my $md    = $Shb7::Makedeps;
+  my $md    = $Shb7::Build::Makedeps;
 
   my @objs  = @{$md->{objs}};
   my @deps  = @{$md->{deps}};
@@ -572,7 +606,9 @@ sub depsmake($self) {
     my $dep=shift @deps;
 
     next if $obj=~ m[Depsmake\.pm$];
-    owc($dep,`$ex $fswat $obj`);
+
+    my $body=`$ex $fswat $obj`;
+    owc($dep,$body);
 
   };
 

@@ -76,6 +76,9 @@ package Via;
   Readonly our $NET_SIGIL=>ord(q[@]);
   Readonly our $NET_RS=>q[:];
 
+  Readonly our $SIGIL => $NET_SIGIL;
+  Readonly our $DOM   => 0x5C24;
+
   Readonly our $MESS_ST=>$Type::Table->nit(
 
     'pesonet_me_header',[

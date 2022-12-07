@@ -76,6 +76,8 @@ sub push_src($self,$fpath) {
 
   );
 
+  return $self->{files}->[-1];
+
 };
 
 # ---   *   ---   *   ---

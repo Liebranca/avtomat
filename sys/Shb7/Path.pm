@@ -32,6 +32,7 @@ package Shb7::Path;
   use Style;
 
   use Arstd::Path;
+  use Arstd::Array;
   use Arstd::IO;
 
   use Tree::File;
@@ -82,6 +83,8 @@ package Shb7::Path;
     walk
 
     obj_from_src
+    clear_dir
+    empty_trash
 
     $INCL_RE
     $LIBD_RE
@@ -538,6 +541,34 @@ sub obj_from_src($src,%O) {
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# takes out the trash!
+
+sub clear_dir($path,%O) {
+
+  my $tree  = walk($path,%O);
+  my @files = $tree->get_file_list(
+    full_path=>1
+
+  );
+
+  array_filter(\@files);
+
+  for my $f(@files) {
+    unlink $f;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^recursively for module trashcan
+
+sub empty_trash($name) {
+  clear_dir("$Trash$name/",-r=>1);
 
 };
 

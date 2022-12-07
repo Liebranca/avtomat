@@ -525,10 +525,10 @@ sub get_config_paths($M,$config) {
 
   $M->{incl}=[
 
-    q{-I}.$INCD.q{ },
-    q{-I./ },
+    q{-I}.$INCD,
+    q{-I./},
 
-    q{-I./}.$config->{name}.q{/ },
+    q{-I./}.$config->{name}.q{/},
 
     @{$config->{incl}},
 
@@ -850,12 +850,12 @@ print {*STDERR}
 $M->set_build_paths();
 $M->update_generated();
 
-my ($OBJS,$objblt)=$M->update_objects();
+my $objblt=$M->update_objects();
 
-$M->build_binaries($OBJS,$objblt);
+$M->build_binaries($objblt);
 $M->update_regular();
 
-$M->side_builds($cli->{debug});
+$M->side_builds();
 
 print {*STDERR}
   $Emit::Std::ARSEP."done\n\n";

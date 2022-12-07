@@ -25,6 +25,8 @@ package Shb7::Bk::gcc;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Arstd::Array;
+
   use parent 'Shb7::Bk';
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -122,7 +124,7 @@ TAIL:
 
 # ---   *   ---   *   ---
 
-sub target($tgt) {
+sub target($self,$tgt) {
 
   my $out;
 
@@ -145,9 +147,6 @@ sub fbuild($self,$bfile,$bld) {
 
   say {*STDERR} Shb7::shpath($bfile->{src});
 
-  my $asm=$bfile->{obj};
-  $asm=~ s[$Lang::C::EXT_OB][.asm];
-
   my $up=$NULLSTR;
   if($bfile->{src}=~ $Lang::C::EXT_PP) {
     $up='-lstdc++';
@@ -168,7 +167,6 @@ sub fbuild($self,$bfile,$bld) {
     @{$bld->{flags}},
     @$OFLG,
 
-    Shb7::get_includes(),
     @{$bld->{incl}},
     @{$bld->{libs}},
 

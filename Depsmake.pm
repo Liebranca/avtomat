@@ -44,7 +44,7 @@ sub import(@args) {
 
 INIT {
 
-  my @dst = ["$Fname\n";
+  my @dst = ();
   my $re  = abs_path(glob(q{~}));
 
   $re=qr{$re};
@@ -65,7 +65,7 @@ INIT {
 
   };
 
-  say q[],(join q[,],@dst);
+  say {*STDOUT} $Fname,"\n",(join q[,],@dst);
 
 };
 
