@@ -187,21 +187,21 @@ sub arr_dual_out($self,$dst,$src) {
   while(@$matches) {
 
     my $match=shift @$matches;
-    my ($outfile,$deps)=@{
+    my ($outfile,@deps)=@{
       $src->{$match}
 
     };
 
     delete $src->{$match};
-    map {$ARG="$self->{dir}/$ARG"} @$deps;
+    map {$ARG="$self->{dir}/$ARG"} @deps;
 
-    push @$dst,(
+    push @$dst,[
       "$self->{dir}/$match",
       "$self->{dir}/$outfile",
 
-      (join q{,},@$deps)
+      @deps
 
-    );
+    ];
 
   };
 

@@ -133,10 +133,11 @@ sub buildchk($self,$do_build,$deps) {
     while(@$deps) {
 
       my $dep=shift @$deps;
-      if(!(-f $dep)) {next};
+      next if ! -f $dep;
 
       # found dep is updated
       if(Shb7::ot($self->{obj},$dep)) {
+
         $$do_build=1;
         last;
 

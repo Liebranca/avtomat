@@ -26,9 +26,9 @@ package Emit::Perl;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd::Array;
 
-  use Shb7;
+  use Arstd::Array;
+  use Shb7::Build;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
@@ -145,7 +145,7 @@ sub boiler_close($class,$fname,%O) {
 sub shwlbind($fname,$soname,$libs_ref) {
 
   my %symtab=%{
-    Shb7::soregen($soname,$libs_ref)
+    Shb7::Build::soregen($soname,$libs_ref)
 
   };
 

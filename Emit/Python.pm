@@ -29,7 +29,9 @@ package Emit::Python;
   use Arstd::Array;
 
   use Chk;
+
   use Shb7;
+  use Shb7::Build;
 
   use Vault;
 
@@ -163,7 +165,7 @@ sub boiler_close($class,$fname,%O) {
 sub shwlbind($fname,$soname,$libs_ref) {
 
   my %symtab=%{
-    Shb7::soregen($soname,$libs_ref)
+    Shb7::Build::soregen($soname,$libs_ref)
 
   };
 

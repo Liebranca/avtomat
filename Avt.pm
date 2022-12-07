@@ -227,7 +227,10 @@ sub file_sbl($f) {
 
 sub symscan($mod,$dst,$deps,@fnames) {
 
-  Shb7::stinc(Shb7::dir($mod));
+  Shb7::push_includes(
+    Shb7::dir($mod)
+
+  );
 
   my @files=();
 

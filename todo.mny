@@ -7,10 +7,10 @@ x ^ Building objects
 x ^ Linking
 
 *>Shb7
-~ Break down into packages
+x Break down into packages
 x ^ Path managing and ops
 x ^ Find ops
-~ ^ Symbol wrangling
+x ^ Symbol wrangling
 x ^ ld,gcc && mam wrappers
 
 *>Avt::Sieve

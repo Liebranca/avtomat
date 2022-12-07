@@ -86,8 +86,8 @@ use Avt;
 Shb7::set_root('/your/top/dir');
 
 # set your library and include paths
-Shb7::stlib('/your/lib/path');
-Shb7::stinc('/your/include/path');
+Shb7::push_libs('/your/lib/path');
+Shb7::push_includes('/your/include/path');
 
 # configure your module(s)
 Avt::set_config(
@@ -214,7 +214,7 @@ The `scan`,`config` and `make` triad will emit the following files:
 
 - **topdir/module/.avto-cache**: a serialized Perl hash containing module metadata used by the makescript.
 
-For an example script that sets up an actual project, refer to the `AR-install` file provided with avtomat.
+For example scripts that set up an actual project, refer to the `install.pl` files found in my repos.
 
 # LEGAL
 

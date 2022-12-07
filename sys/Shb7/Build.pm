@@ -20,6 +20,8 @@ package Shb7::Build;
   use warnings;
 
   use English qw(-no_match_vars);
+
+  use Storable;
   use Readonly;
   use Carp;
 
@@ -30,6 +32,7 @@ package Shb7::Build;
   use Style;
 
   use Arstd::Array;
+  use Arstd::IO;
 
   use Shb7::Path;
   use Shb7::Find;
@@ -177,6 +180,9 @@ sub get_module_deps($self) {
   my @found=();
   my @paths=();
 
+  array_filter($self->{libs});
+  array_filter($self->{incl});
+
   while(@{$self->{libs}}) {
 
     # skip -L
@@ -186,6 +192,8 @@ sub get_module_deps($self) {
       next;
 
     };
+
+    my $lib=$path;
 
     # remove -l and get path to module
     $path=~ s[$LIBF_RE][];
@@ -198,6 +206,9 @@ sub get_module_deps($self) {
 
       push @{$self->{incl}},@{$meta->{incl}};
       push @found,@{$meta->{libs}};
+
+    } else {
+      push @found,$lib;
 
     };
 
@@ -361,13 +372,13 @@ sub olink($self) {
 # ---   *   ---   *   ---
 # symrd errme
 
-sub throw_no_shwl($name) {
+sub throw_no_shwl($name,$path) {
 
   errout(
 
-    q[Can't find shadow lib for '%s'],
+    q[Can't find shadow lib for '%s' <%s>],
 
-    args => [$name],
+    args => [$name,$path],
     lvl  => $AR_ERROR,
 
   );
@@ -380,11 +391,11 @@ sub throw_no_shwl($name) {
 sub symrd($mod) {
 
   my $out={};
-  my $src=lib(".$mod");
+  my $src=libdir().".$mod";
 
   # existence check
   if(! -f $src) {
-    throw_no_shwl($mod);
+    throw_no_shwl($mod,$src);
     goto TAIL;
 
   };
@@ -414,7 +425,7 @@ sub symtab_read(
 
   # so regen check
   if(!$$rebuild) {
-    $$rebuild=ot($path,ffile('-l'.$lib));
+    $$rebuild=ot($path,ffind('-l'.$lib));
 
   };
 
@@ -483,7 +494,7 @@ sub soregen($name,$libs_ref,$no_regen=0) {
 
   # generate so
   if($rebuild && !$no_regen) {
-    symtab_regen($symtab,$path,@libs);
+    so_from_symtab($symtab,$path,@libs);
 
   };
 

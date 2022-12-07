@@ -265,15 +265,9 @@ sub update_generated($self) {
 
   # iter the list of generator scripts
   # ... and sources/dependencies for them
-  while(@GENS) {
+  for my $ref(@GENS) {
 
-    my $gen=shift @GENS;
-    my $res=shift @GENS;
-
-    my @msrcs=Lang::ws_split(
-      $COMMA_RE,shift @GENS
-
-    );
+    my ($res,$gen,@msrcs)=@$ref;
 
 # ---   *   ---   *   ---
 # make sure we don't need to update
@@ -492,9 +486,13 @@ sub build_binaries($self,$objblt) {
 
   my @calls = ();
   my @libs  = ();
-  my @objs  = @{$self->{bld}->{files}};
 
-  if($self->{main} && $objblt) {
+  my @objs  = map {
+    $ARG->{obj}
+
+  } @{$self->{bld}->{files}};
+
+  if($self->{main} && $objblt && @objs) {
 
     say {*STDERR }
 

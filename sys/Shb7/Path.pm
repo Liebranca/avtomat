@@ -421,7 +421,14 @@ sub rel($path) {
 # Older Than; return a is older than b
 
 sub ot($a,$b) {
-  return !( (-M $a) < (-M $b) );
+
+  return
+
+     (defined $a && -f $a)
+  && (defined $b && -f $b)
+
+  && !( (-M $a) < (-M $b) )
+  ;
 
 };
 

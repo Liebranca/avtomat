@@ -55,11 +55,15 @@ sub push_src($self,$fpath,$fout) {
     $fpath,
     $self,
 
-    obj_ext=>q[.pm],
-    dep_ext=>q[.pmd],
-    asm_ext=>undef,
+    out     => $fout,
+
+    obj_ext => q[.pm],
+    dep_ext => q[.pmd],
+    asm_ext => undef,
 
   );
+
+  return $self->{files}->[-1];
 
 };
 
@@ -139,14 +143,9 @@ TAIL:
 };
 
 # ---   *   ---   *   ---
-# Perl "building"
-#
-# actually it's applying any
-# custom source filters
+# shorthand for this big ole bashit
 
-sub fbuild($self,$bfile,$bld) {
-
-  say {*STDERR} Shb7::shpath($bfile->{src});
+sub mamcall($self,$bfile,$bld,$rap=1) {
 
   my @libpaths=grep {
     $ARG=~ $LIBD_RE
@@ -154,6 +153,11 @@ sub fbuild($self,$bfile,$bld) {
   } @{$bld->{libs}};
 
   map {$ARG=~ s[$LIBD_RE][-I]} @libpaths;
+
+  $rap=($rap)
+    ? q[--rap,]
+    : $NULLSTR
+    ;
 
   my @call=(
     q[perl],q[-c],
@@ -167,15 +171,34 @@ sub fbuild($self,$bfile,$bld) {
     @{$bld->{incl}},
     @libpaths,
 
-    q[-MMAM=--rap,].
+    q[-MMAM=].$rap.
     q[--module=].$Shb7::Path::Cur_Module,
 
     $bfile->{src}
 
   );
 
-  my $ex  = join q[ ],@call;
-  my $out = `$ex 2> $AVTOPATH/.errlog`;
+  return @call;
+
+};
+
+# ---   *   ---   *   ---
+# Perl "building"
+#
+# actually it's applying any
+# custom source filters
+
+sub fbuild($self,$bfile,$bld,$rap=1) {
+
+  if($rap) {
+    say {*STDERR} Shb7::shpath($bfile->{src})
+
+  };
+
+  my @call = $self->mamcall($bfile,$bld,$rap);
+
+  my $ex   = join q[ ],@call;
+  my $out  = `$ex 2> $AVTOPATH/.errlog`;
 
   if(!length $out) {
     my $log=orc("$AVTOPATH/.errlog");
@@ -198,6 +221,15 @@ sub fbuild($self,$bfile,$bld) {
   };
 
   owc($bfile->{obj},$out);
+
+  if($rap) {
+
+    $bfile->{src}=$bfile->{obj};
+    $bfile->{obj}=$bfile->{out};
+
+    $self->fbuild($bfile,$bld,0);
+
+  };
 
   return 0;
 

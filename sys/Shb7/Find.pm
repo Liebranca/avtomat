@@ -25,12 +25,14 @@ package Shb7::Find;
 
   use Carp;
   use Readonly;
+  use Storable;
 
   use Exporter 'import';
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+
   use Arstd::String;
   use Arstd::Array;
   use Arstd::Hash;
@@ -348,7 +350,7 @@ sub dashl($search_in,@libs) {
 
   for my $lib(@libs) {
     next if is_libpath($search_in,$lib);
-    push @out,substr $lib,2,length $lib;
+    push @out,(substr $lib,2,length $lib);
 
   };
 

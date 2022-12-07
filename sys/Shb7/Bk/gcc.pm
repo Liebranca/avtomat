@@ -25,7 +25,9 @@ package Shb7::Bk::gcc;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+
   use Arstd::Array;
+  use Arstd::IO;
 
   use parent 'Shb7::Bk';
 
@@ -124,7 +126,7 @@ TAIL:
 
 # ---   *   ---   *   ---
 
-sub target($self,$tgt) {
+sub target($tgt) {
 
   my $out;
 
@@ -163,7 +165,8 @@ sub fbuild($self,$bfile,$bld) {
     q[gcc],
 
     q[-MMD],
-    $self->target($bld->{tgt}),
+    target($bld->{tgt}),
+
     @{$bld->{flags}},
     @$OFLG,
 

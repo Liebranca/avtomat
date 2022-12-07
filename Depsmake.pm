@@ -44,8 +44,10 @@ sub import(@args) {
 
 INIT {
 
-  my @dst = ();
-  my $re  = abs_path(glob(q{~}));
+  my @dst      = ();
+
+  my $path_re  = abs_path(glob(q{~}));
+  my $trash_re = qr{/.trash};
 
   $re=qr{$re};
 
@@ -53,12 +55,14 @@ INIT {
 
     next if $path eq __FILE__;
 
-    if($path=~ $re) {
+    if($path=~ $path_re) {
 
       my $alt=$path;
       $alt=~ s{/lib/} {/.trash/$Modname/};
 
-      if(-e $alt) {$path=$alt};
+      if(-d $alt) {$path=$alt};
+
+      $path=~ s[$trash_re][];
       push @dst,$path;
 
     };

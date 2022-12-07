@@ -59,7 +59,7 @@ sub nit($class,%args) {
 sub lfind($h,$l) {
 
   if(!is_hashref($h)) {
-    $h=map {$ARG=>1} @$h;
+    $h={map {$ARG=>1} @$h};
 
   };
 
