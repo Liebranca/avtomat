@@ -26,6 +26,7 @@ package Shb7::Bk;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Arstd::Array;
 
   use Shb7;
   use Shb7::Bfile;

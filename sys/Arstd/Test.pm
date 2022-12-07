@@ -18,6 +18,9 @@ package Arstd::Test;
   use strict;
   use warnings;
 
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use Style;
+
 # ---   *   ---   *   ---
 # info
 

@@ -3,6 +3,7 @@
 - Initial `side_build` implementations for `Avt::Sieve` and `Makescript`.
 - Added `Avt::Bfile` package for managing intermediate files. Whereas before the file lists were managed as a plain string array, now it's been object-fied and made more general.
 - Major `Shb7` cleanup; it's now broken up into various submodules.
+- Install files now take `utils` and `tests` hashes for building single-source apps and runnings tests on each build; compilation of these is handled separately, but using the same methods as the rest of the project.
 
 # v3.21.4
 

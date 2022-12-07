@@ -23,7 +23,7 @@ $call=~ s[\n|\s+][ ]sxmg;
 $call=~ s[\b MODNAME \b][$modname]sxmg;
 $call=~ s[\b FNAME \b][$fname]sxmg;
 
-my $capture=`$call`;
+my $capture=`$call 2> /dev/null`;
 say {*STDOUT} $capture;
 
 # ---   *   ---   *   ---

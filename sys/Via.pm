@@ -86,7 +86,7 @@ package Via;
       wide=>'sigil',
       wide=>'class',
 
-      long=>'fn_key',
+      brad=>'fn_key',
 
       word=>'src,dst,size',
 
@@ -112,23 +112,17 @@ package Via;
 # ---   *   ---   *   ---
 # global state
 
-  our $Blk_F=Blk->new_frame();
-  our $Non=$Blk_F->nit(undef,'non');
+  our $Blk_F     = Blk->new_frame();
+  our $Non       = $Blk_F->nit(undef,'non');
 
-  our $Mess_Pool;
-
-INIT {
-
-  my $ptr=$Non->alloc(
+  my  $Mess_PTR  = $Non->alloc(
     '@pesonet<Mess_Pool>',
 
     $MESS_ST,$QUEUE_SIZE
 
   );
 
-  $Mess_Pool=Cask->nit($ptr->subdiv());
-
-};
+  our $Mess_Pool = Cask->nit($Mess_PTR->subdiv());
 
 # ---   *   ---   *   ---
 # destructor

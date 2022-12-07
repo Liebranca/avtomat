@@ -1,17 +1,17 @@
 >avtomat v4.00.0
 
 *>Makescript
-~ Replace crude gcc wrappers with a class
-~ ^ Dependency checks
-~ ^ Building objects
-~ ^ Linking
+x Replace crude gcc wrappers with a class
+x ^ Dependency checks
+x ^ Building objects
+x ^ Linking
 
 *>Shb7
 ~ Break down into packages
-~ ^ Path managing and ops
+x ^ Path managing and ops
 x ^ Find ops
 ~ ^ Symbol wrangling
-~ ^ ld,gcc && mam wrappers
+x ^ ld,gcc && mam wrappers
 
 *>Avt::Sieve
 x Implement side build sub
@@ -62,6 +62,7 @@ x Subdivide the f:./Avt.pm monolith into modules
 ~ Enable/disable loading of optional deps on install scripts
 ~ Write Lang::Elisp
 ~ Elisp version of f:./bin/sygen
+x Investigate mysterious DOM and SIGIL errors in f:./sys/Via.pm
 
 *>Avt revision
 x Use Shb7::Walk instead of Avt implementation
