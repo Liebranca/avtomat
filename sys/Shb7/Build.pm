@@ -205,7 +205,7 @@ sub get_module_deps($self) {
       my $meta=Shb7::Find::build_meta($path);
 
       push @{$self->{incl}},@{$meta->{incl}};
-      push @found,@{$meta->{libs}};
+      push @found,@{$meta->{libs}},$lib;
 
     } else {
       push @found,$lib;
@@ -236,6 +236,9 @@ sub get_module_paths($self) {
 
   array_filter($self->{incl},$FLGCHK);
   array_filter($self->{libs},$FLGCHK);
+
+  array_dupop($self->{incl});
+  array_dupop($self->{libs});
 
 };
 
@@ -282,11 +285,10 @@ sub link_common($self) {
     Shb7::Bk::gcc::target($self->{tgt}),
 
     @{$self->{incl}},
-    @{$self->{libs}},
-
     $self->list_obj(),
 
-    q[-o],$self->{name}
+    q[-o],$self->{name},
+    @{$self->{libs}},
 
   );
 
@@ -307,12 +309,11 @@ sub link_hflat($self) {
 
     Shb7::Bk::gcc::target($self->{tgt}),
 
-    @{$self->{libs}},
     @{$self->{incl}},
-
     $self->list_obj(),
 
-    q[-o],$self->{name}
+    q[-o],$self->{name},
+    @{$self->{libs}},
 
   );
 

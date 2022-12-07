@@ -57,7 +57,7 @@ package Avt;
   use Peso::Ipret;
 
   use Avt::Sieve;
-  use Makescript;
+  use Avt::Makescript;
 
 # ---   *   ---   *   ---
 # info
@@ -153,132 +153,6 @@ sub read_cli($mod) {
 sub MODULES {return @{$Cache{_modules}}};
 
 # ---   *   ---   *   ---
-# looks at a single file for symbols
-
-sub file_sbl($f) {
-
-  my $found='';
-  my $langname=Lang::file_ext($f);
-
-  if(!defined $langname) {
-
-    errout(
-
-      q{Can't determine language for file '%s'},
-      args=>[$f],
-      lvl=>$AR_FATAL,
-
-    );
-
-  };
-
-# ---   *   ---   *   ---
-
-  my $object={
-
-    utypes=>{},
-
-    functions=>{},
-    variables=>{},
-    constants=>{},
-
-  };
-
-# ---   *   ---   *   ---
-# read source file
-
-  my $lang=Lang->$langname;
-
-  my $rd=Peso::Rd::parse(
-    $lang,$f
-
-  );
-
-  my $block=$rd->select_block(-ROOT);
-  my $tree=$block->{tree};
-
-  $rd->recurse($tree);
-  $lang->hier_sort($rd);
-
-# ---   *   ---   *   ---
-# mine the tree
-
-  $rd->fn_search(
-
-    $tree,
-    $object->{functions},
-
-  );
-
-  $rd->utype_search(
-
-    $tree,
-    $object->{utypes},
-
-  );
-
-  return $object;
-
-};
-
-# ---   *   ---   *   ---
-# in:modname,[files]
-# write symbol typedata (return,args) to shadow lib
-
-sub symscan($mod,$dst,$deps,@fnames) {
-
-  Shb7::push_includes(
-    Shb7::dir($mod)
-
-  );
-
-  my @files=();
-
-# ---   *   ---   *   ---
-# iter filelist
-
-  { for my $fname(@fnames) {
-
-      if( ($fname=~ m/\%/) ) {
-        push @files,@{ Shb7::wfind($fname) };
-
-      } else {
-        push @files,Shb7::ffind($fname);
-
-      };
-
-    };
-
-  };
-
-# ---   *   ---   *   ---
-
-  my $shwl={
-
-    deps=>$deps,
-    objects=>{},
-
-  };
-
-# ---   *   ---   *   ---
-# iter through files
-
-  for my $f(@files) {
-
-    if(!$f) {next};
-
-    my $o=Shb7::obj_from_src($f);
-    $o=Shb7::shpath($o);
-
-    $shwl->{objects}->{$o}=file_sbl($f);
-
-  };
-
-  store($shwl,$dst) or croak strerr($dst);
-
-};
-
-# ---   *   ---   *   ---
 # in: filepaths dst,src
 # extends one perl file with another
 
@@ -360,6 +234,67 @@ sub depchk($chkpath,$deps) {
 };
 
 # ---   *   ---   *   ---
+# mirrors project structure
+# into [root]/.trash/[mod]
+
+sub mirror($mod) {
+
+  my $path=Shb7::dir($mod);
+  my $trsh=Shb7::obj_dir($mod);
+  my $tree=Shb7::walk($path,-r=>1);
+
+  my @dirs=$tree->get_dir_list(
+    full_path=>0,
+    keep_root=>1
+
+  );
+
+  my @call=(
+    q[mkdir],
+    q[-p],
+
+    $trsh
+
+  );
+
+  system {$call[0]} @call
+  if ! -d $trsh;
+
+# ---   *   ---   *   ---
+
+  for my $dir(@dirs) {
+
+    my ($root,$ddepth) = $dir->root();
+    my $ances          = $NULLSTR;
+
+    if($dir ne $root) {
+
+      $ances=$dir->ances(
+        $NULLSTR,
+        max_depth=>$ddepth
+
+      );
+
+    };
+
+    my $tdir=$trsh.$ances;
+
+    @call=(
+      q[mkdir],
+      q[-p],
+
+      $tdir
+
+    );
+
+    system {$call[0]} @call
+    if ! -d $tdir;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # ensures trsh and bin exist
 # outs file/dir list
 
@@ -378,7 +313,7 @@ sub scan() {
     $Shb7::Path::Cache,
     $Shb7::Path::Mem,
 
-  ) {if(! -e $path) {mkdir $path}};
+  ) {mkdir $path if ! -d $path};
 
 # ---   *   ---   *   ---
 # iter provided names
@@ -402,58 +337,25 @@ sub scan() {
 # read module tree
 
     read_cli($mod);
+    mirror($mod);
+
+    unshift @$excluded,qw(
+
+      data
+      docs
+      tests
+      legacy
+      bin
+
+      nytprof
+      __pycache__
+
+    );
 
     my $tree=Vault::check_module(
       $mod,$excluded
 
     );
-
-    my $trsh=Shb7::obj_dir($mod);
-    my $modpath=Shb7::dir($mod);
-
-    # ensure there is a trashcan
-    if(!(-e $trsh)) {
-      system 'mkdir',('-p',"$trsh");
-
-    };
-
-# ---   *   ---   *   ---
-# walk module path
-
-    my @dirs=$tree->get_dir_list(
-      full_path=>0,
-      keep_root=>1
-
-    );
-
-# ---   *   ---   *   ---
-# get relative paths
-
-    for my $dir(@dirs) {
-
-      my ($root,$ddepth)=$dir->root();
-      my $ances=$NULLSTR;
-
-      if($dir ne $root) {
-
-        $ances=$dir->ances(
-          $NULLSTR,max_depth=>$ddepth
-
-        );
-
-      };
-
-# ---   *   ---   *   ---
-# ensure trash directories exist
-
-      my $tdir=$trsh.$ances;
-
-      if(!(-e $tdir)) {
-        `mkdir -p $tdir`;
-
-      };
-
-    };
 
   };
 
@@ -485,7 +387,6 @@ sub get_config_build($M,$config) {
   };
 
   $M->{lmode}=$lmode;
-  $M->{mkwat}=$lmode;
 
 # ---   *   ---   *   ---
 
@@ -507,10 +408,14 @@ sub get_config_build($M,$config) {
 
     };
 
+    $M->{mkwat}=$mkwat;
+
   } else {
     $M->{ilib}=undef;
     $M->{main}=undef;
     $M->{mlib}=undef;
+
+    $M->{mkwat}=$M->{fswat};
 
   };
 
@@ -681,12 +586,6 @@ sub set_config(%C) {
   invert_generator($C{tests});
   invert_generator($C{utils});
 
-map {
-  say {*STDOUT} '>>'.$ARG;
-  map {say {*STDOUT} $ARG} @{$C{utils}->{$ARG}};
-
-} keys %{$C{utils}};
-
 # ---   *   ---   *   ---
 # append
 
@@ -753,7 +652,7 @@ sub make() {
     my $avto_path=Shb7::file("$name/avto");
 
     # build the makescript object
-    my $M=Makescript->nit();
+    my $M=Avt::Makescript->nit();
     get_config_build($M,$C);
     get_config_paths($M,$C);
     get_config_files($M,$C,$module);
@@ -817,7 +716,7 @@ sub make() {
   use Cli;
 
   use lib $ENV{'ARPATH'}.'/lib/';
-  use Makescript;
+  use Avt::Makescript;
 
 # ---   *   ---   *   ---
 
@@ -843,7 +742,7 @@ my $M=retrieve(
 );
 
 chdir Shb7::set_root($root);
-$M=Makescript->nit_build($M,$cli);
+$M=Avt::Makescript->nit_build($M,$cli);
 
 # ---   *   ---   *   ---
 

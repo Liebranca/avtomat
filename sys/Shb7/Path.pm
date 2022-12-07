@@ -446,17 +446,14 @@ sub moo($a,$b) {
 
 sub exclude_paths($dashx) {
 
-  $dashx=join q{|},@{$dashx};
-  if(length $dashx) {$dashx.=q{|}};
+  $dashx=join q{|},@$dashx;
 
-  $dashx.=q{
-    nytprof | data | docs | tests | legacy
+  $dashx=(length $dashx)
+    ? qr{(?:$dashx)}x
+    : $NO_MATCH
+    ;
 
-  | __pycache__
-
-  };
-
-  return qr{(?:$dashx)}x;
+  return $dashx;
 
 };
 

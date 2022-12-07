@@ -138,9 +138,9 @@ my $FILE_LIST=[
 # then everything else
 
   '/Avt/Sieve.pm',
+  '/Avt/Xcav.pm',
+  '/Avt/Makescript.pm',
   '/Avt.pm',
-
-  '/Makescript.pm',
 
   '/Lang/Mny.pm',
   '/Lang/Python.pm',

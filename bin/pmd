@@ -13,7 +13,7 @@ my $fname=shift @ARGV;
 my $call=q{perl
 
   -I$ARPATH/avtomat/
-  -MDepsmake=MODNAME
+  -MAvt::Depsmake=MODNAME
 
   FNAME
 

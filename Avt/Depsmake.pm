@@ -12,7 +12,7 @@
 # ---   *   ---   *   ---
 
 # deps
-package Depsmake;
+package Avt::Depsmake;
 
   use v5.36.0;
   use strict;

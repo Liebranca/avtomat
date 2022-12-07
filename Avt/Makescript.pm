@@ -13,7 +13,7 @@
 
 # deps
 
-package Makescript;
+package Avt::Makescript;
 
   use v5.36.0;
   use strict;
@@ -50,6 +50,8 @@ package Makescript;
   use Lang;
   use Lang::C;
   use Lang::Perl;
+
+  use Avt::Xcav;
 
 # ---   *   ---   *   ---
 # info
@@ -157,6 +159,7 @@ sub nit($class) {
 
     # name of target
     fswat => $NULLSTR,
+    mkwat => $NULLSTR,
 
     # build file containers
     fasm  => Shb7::Bk->nit(),
@@ -435,7 +438,9 @@ sub bk_for($self,$src) {
 
 sub side_builds($self) {
 
-  my @calls=();
+  my @calls  = ();
+  my $bindir = $self->{root}.'bin/';
+  my $srcdir = $self->{root}.$self->{fswat}.q[/];
 
   for my $ref(@{$self->{utils}}) {
 
@@ -444,10 +449,14 @@ sub side_builds($self) {
     my $bld=Shb7::Build->nit(
 
       files  => [],
-      name   => $outfile,
+      name   => $bindir.$outfile,
 
       incl   => $self->{incl},
-      incl   => $self->{libs},
+      libs   => [
+        q[-l].$self->{mkwat},
+        @{$self->{libs}},
+
+      ],
 
       shared => 0,
       debug  => $self->{debug},
@@ -458,9 +467,9 @@ sub side_builds($self) {
     );
 
     my $bk    = $self->bk_for($srcfile);
-    my $bfile = $bk->push_src($srcfile);
+    my $bfile = $bk->push_src($srcdir.$srcfile);
 
-    $bk->fbuild($bfile,$bld);
+    $bfile->update($bld);
 
     $bld->push_files($bfile);
     $bld->push_flags(@flags);
@@ -559,7 +568,7 @@ sub build_binaries($self,$objblt) {
 
   if(@libs) {
 
-    Avt::symscan(
+    Avt::Xcav::symscan(
 
       $self->{fswat},
       $self->{ilib},

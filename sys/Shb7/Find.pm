@@ -412,7 +412,7 @@ sub build_meta($path) {
 
   for my $dir(@{$out->{incl}}) {
     $dir=~ s[$Shb7::Path::INCL_RE][];
-    $dir=Shb7::Path::abs_path($dir);
+    $dir=abs_path($dir);
 
     $dir=q[-I].$dir;
 

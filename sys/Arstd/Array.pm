@@ -152,13 +152,23 @@ sub filter($ar,$block=undef) {
 
 sub dupop($ar) {
 
-  my %tmp=();
+  my %tmp = ();
+  my $i   = 0;
+
   for my $x(@$ar) {
-    $tmp{$x}=1;
+    $tmp{$x}=(exists $tmp{$x})
+      ? $tmp{$x}
+      : $i++
+      ;
 
   };
 
-  @$ar=keys %tmp;
+  @$ar=();
+
+  for my $x(keys %tmp) {
+    $ar->[$tmp{$x}]=$x;
+
+  };
 
 };
 

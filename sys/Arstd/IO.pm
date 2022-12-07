@@ -54,7 +54,7 @@ package Arstd::IO;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;
+  our $VERSION=v0.00.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -253,7 +253,7 @@ sub box_fstrout($format,%opt) {
 sub orc($fname) {
 
   open my $FH,'<',$fname
-  or croak strerr($fname);
+  or errout(strerr($fname),lvl=>$AR_FATAL);
 
   read $FH,my $body,-s $FH;
 
@@ -270,9 +270,10 @@ sub orc($fname) {
 sub dorc($path,$excluded) {
 
   my @out=();
+  goto TAIL if ! -d $path;
 
   opendir my $dir,$path
-  or croak strerr($path);
+  or errout(strerr($path),lvl=>$AR_FATAL);
 
   @out=grep {
     !($ARG=~ $excluded)
@@ -282,6 +283,7 @@ sub dorc($path,$excluded) {
   closedir $dir
   or croak strerr($path);
 
+TAIL:
   return @out;
 
 };
