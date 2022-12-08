@@ -43,12 +43,15 @@ package Avt::Xcav;
   use Lang::Perl;
   use Lang::Peso;
 
+  use Emit::C;
+  use Emit::Perl;
+
   use Peso::Rd;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;
+  our $VERSION = v0.00.2;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---

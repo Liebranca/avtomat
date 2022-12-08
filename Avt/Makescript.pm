@@ -515,6 +515,8 @@ sub build_binaries($self,$objblt) {
 
     ;
 
+    @libs=@{$self->{bld}->{libs}};
+
 # ---   *   ---   *   ---
 # build mode is 'static library'
 
@@ -525,8 +527,6 @@ sub build_binaries($self,$objblt) {
         $self->{main},@objs
 
       ];
-
-      @libs=@{$self->{libs}};
 
 # ---   *   ---   *   ---
 # otherwise it's executable or shared object

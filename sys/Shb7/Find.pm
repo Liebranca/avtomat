@@ -266,24 +266,15 @@ sub get_dotlibs($search_in,@names) {
 
 sub get_dotlib_deps($path) {
 
-  my @out=();
-
   my $f=retrieve($path)
   or croak strerr($path);
 
-  my @ndeps=(defined $f->{deps})
-    ? (split $COMMA_RE,$f->{deps})
+  my @deps=(defined $f->{deps})
+    ? @{$f->{deps}}
     : ()
     ;
 
-  if(@ndeps) {
-
-    chomp $ndeps[-1];
-    push @out,@ndeps;
-
-  };
-
-  return @out;
+  return @deps;
 
 };
 
@@ -305,8 +296,8 @@ sub ldsearch($search_in,@names) {
 
   };
 
-  array_dupop(\@out);
   array_filter(\@out);
+  array_dupop(\@out);
 
   return @out;
 

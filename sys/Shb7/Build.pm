@@ -30,6 +30,7 @@ package Shb7::Build;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Chk;
 
   use Arstd::Array;
   use Arstd::IO;
@@ -42,7 +43,7 @@ package Shb7::Build;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;
+  our $VERSION = v0.00.3;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -453,13 +454,18 @@ sub symtab_read(
 sub so_from_symtab($symtab,$path,@libs) {
 
   map {$ARG="-l$ARG"} @libs;
-  @libs=(@libs,@{$symtab->{deps}});
+  @libs=(@libs,map {@$ARG} @{$symtab->{deps}});
+
+  my @objs=map {
+    {obj=>$ARG}
+
+  } keys %{$symtab->{objects}};
 
   my $bld=Shb7::Build->nit(
 
     name   => $path,
 
-    objs   => $symtab->{objects},
+    files  => \@objs,
     libs   => \@libs,
 
     shared => 1,

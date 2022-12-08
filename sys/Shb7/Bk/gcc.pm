@@ -185,7 +185,7 @@ sub fbuild($self,$bfile,$bld) {
   array_filter(\@call);
   system {$call[0]} @call;
 
-  return -f $bfile->{obj};
+  return int(-f $bfile->{obj});
 
 };
 
