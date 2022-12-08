@@ -43,7 +43,7 @@ package Shb7::Build;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;
+  our $VERSION = v0.00.4;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -206,7 +206,7 @@ sub get_module_deps($self) {
       my $meta=Shb7::Find::build_meta($path);
 
       push @{$self->{incl}},@{$meta->{incl}};
-      push @found,@{$meta->{libs}},$lib;
+      push @found,$lib,@{$meta->{libs}};
 
     } else {
       push @found,$lib;

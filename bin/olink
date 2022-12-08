@@ -7,6 +7,7 @@
   use strict;
   use warnings;
 
+  use Cwd qw(abs_path);
   use English qw(-no_match_vars);
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
@@ -14,6 +15,9 @@
   use Cli;
 
   use Shb7;
+
+  use Shb7::Bk::gcc;
+  use Shb7::Build;
 
 # ---   *   ---   *   ---
 
@@ -25,7 +29,7 @@ my $m=Cli->nit(
   {id=>'inc',short=>'-I',argc=>1},
   {id=>'out',short=>'-o',argc=>1},
 
-  {id=>'-g',short=>'-g',argc=>0},
+  {id=>'debug',short=>'-g',argc=>0},
   {id=>'-pg',short=>'-pg',argc=>0},
 
 );
@@ -39,46 +43,45 @@ for my $v($m->{inc},$m->{lib}) {
 
 };
 
-$m->{inc}=q[-I].(join q[ -I],
+$m->{inc}=[
+
+  q[-I./],
+
+  map {$ARG=q[-I].$ARG}
   (split $COMMA_RE,$m->{inc})
 
-);
+];
 
-$m->{lib}=q[-l].(join q[ -l],
+$m->{lib}=[
+  map {$ARG=q[-l].$ARG}
   (split $COMMA_RE,$m->{lib})
 
-);
+];
 
 # ---   *   ---   *   ---
 
-my $flags=[];
-for my $key(qw(
+my $bld=Shb7::Build->nit(
 
-  -g
-  -pg
+  name  => $m->{out},
 
-)) {
+  libs  => $m->{lib},
+  incl  => $m->{inc},
 
-  if($m->{$key} ne $NULL) {
-    push @$flags,$key;
+  debug => $m->{debug} ne $NULL,
 
-  };
+);
+
+my $bk  = Shb7::Bk::gcc->nit();
+my $blt = 0;
+
+for my $f(@files) {
+  $f=$bk->push_src(abs_path($f));
+  $blt+=$f->update($bld);
 
 };
 
-# ---   *   ---   *   ---
-
-Shb7::olink(
-
-  (join q{ },@files),
-
-  $m->{out},
-
-  libs=>$m->{inc}.q{ }.$m->{lib},
-
-  flags=>$flags,
-
-);
+$bld->push_files(@files);
+$bld->olink();
 
 # ---   *   ---   *   ---
 1; # ret

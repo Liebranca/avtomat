@@ -37,7 +37,7 @@ package Shb7::Bk::gcc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;
+  our $VERSION = v0.00.2;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -171,21 +171,21 @@ sub fbuild($self,$bfile,$bld) {
     @$OFLG,
 
     @{$bld->{incl}},
-    @{$bld->{libs}},
-
     $up,
 
     q[-Wa,-a=].$bfile->{asm},
 
     q[-c],$bfile->{src},
-    q[-o],$bfile->{obj}
+    q[-o],$bfile->{obj},
+
+    @{$bld->{libs}},
 
   );
 
   array_filter(\@call);
   system {$call[0]} @call;
 
-  return int(-f $bfile->{obj});
+  return int(defined -f $bfile->{obj});
 
 };
 

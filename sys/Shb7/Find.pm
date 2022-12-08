@@ -391,8 +391,8 @@ sub build_meta($path) {
 
   my $out={
 
-    include => $M->{incl},
-    libs    => $M->{libs},
+    incl => $M->{incl},
+    libs => $M->{libs},
 
   };
 
