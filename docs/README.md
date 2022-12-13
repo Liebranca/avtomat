@@ -34,7 +34,7 @@ ARPATH=$(pwd)
 
 git clone https://github.com/Liebranca/avtomat
 cd avtomat
-./AR.pl
+./install.pl
 
 ```
 

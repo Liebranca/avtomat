@@ -96,6 +96,7 @@
   my $EITHS_NOWB={
 
     'Perl'=>{types=>1,},
+    'Raku'=>{types=>1,},
 
   };
 

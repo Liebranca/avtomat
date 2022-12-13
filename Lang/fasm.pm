@@ -46,7 +46,7 @@ package Lang::fasm;
 
 BEGIN {
 
-my $NUMS=$Lang::Def::DEFAULTS{nums};
+my $NUMS={%{$Lang::Def::DEFAULTS{nums}}};
 $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
 
 Lang::fasm->nit(

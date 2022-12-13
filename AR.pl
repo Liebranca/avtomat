@@ -132,6 +132,7 @@ my $FILE_LIST=[
   '/Lang/SinGL.pm',
 
   '/Lang/Perl.pm',
+  '/Lang/Raku.pm',
   '/Peso/Ipret.pm',
 
 # ---   *   ---   *   ---
@@ -373,11 +374,11 @@ update(
 # ---   *   ---   *   ---
 # this effen script...
 
-#print {*STDERR}
-#  "\e[37;1m::\e[0mrebuilding syntax files\n";
-#
-#print {*STDERR}
-#  `$ENV{'ARPATH'}'/avtomat/bin/sygen'`;
+print {*STDERR}
+  "\e[37;1m::\e[0mrebuilding syntax files\n";
+
+print {*STDERR}
+  `$ENV{'ARPATH'}'/avtomat/bin/sygen'`;
 
 # ---   *   ---   *   ---
 

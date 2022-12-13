@@ -109,8 +109,8 @@ sub tokenize($self) {
   my $token_re=qr{^
 
     (?:$cut_token_re)
-  | (?:$keyword)
   | (?:$label)
+  | (?:$keyword)
 
   | (?:%[^\s%]+%)
   | (?:$op)

@@ -36,9 +36,10 @@ package Lang::C;
 
   Readonly my $OPS=>Lang::quick_op_prec(
 
-    '*'=>7,
-    '->'=>4,
-    '.'=>6,
+    '*'   => 7,
+    '->'  => 4,
+    '.'   => 6,
+    '='   => 99,
 
   );
 
@@ -192,10 +193,10 @@ Lang::C->nit(
 
 sub hier_sort($self,$rd) {
 
-  my $block=$rd->select_block(-ROOT);
-  my $tree=$block->{tree};
+  my $block = $rd->select_block(-ROOT);
+  my $tree  = $block->{tree};
 
-  my $re=qr{
+  my $re    = qr{
 
     ^(?: $self->{fn_key}
      |   $self->{utype_key}
