@@ -20,13 +20,42 @@
 
 # ---   *   ---   *   ---
 
-my $f   = Tree::Token->get_frame();
-my $top = $f->nit(
+my $f    = Tree::Token->get_frame();
+my $top  = $f->nit(
 
   value  => '<TOP>',
   parent => undef,
 
   action => undef,
+
+);
+
+my $term = $f->nit(
+
+  value  => qr{;},
+  parent => $top,
+
+  action => \&Tree::Token::term,
+
+);
+
+# ---   *   ---   *   ---
+
+my $fn=$f->nit(
+
+  value  => 'fn',
+  parent => $top,
+
+  action => undef,
+
+);
+
+$f->nit(
+
+  value  => qr{\w+},
+  parent => $fn,
+
+  action => \&Tree::Token::push_to_anchor,
 
 );
 
@@ -41,11 +70,9 @@ my $value=$f->nit(
 
 );
 
-# ---   *   ---   *   ---
-
 $f->nit(
 
-  value  => qr{\d},
+  value  => qr{\d+},
   parent => $value,
 
   action => \&Tree::Token::push_to_anchor,
@@ -61,9 +88,15 @@ $f->nit(
 
 );
 
-my $x=$top->match('0,1,2');
+$top->pushlv($term->dup());
 
-map {fatdump $ARG} @$x;
+# ---   *   ---   *   ---
+
+my $prog   = 'name 0,1,2;r 43;';
+my $result = $top->match($prog);
+
+say "in: $prog\n";
+$result->prich();
 
 # ---   *   ---   *   ---
 1; # ret

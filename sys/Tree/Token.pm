@@ -39,10 +39,6 @@ package Tree::Token;
 
 sub nit($class,$frame,%O) {
 
-  # defaults
-  $O{parent}//=undef;
-  $O{action}//=undef;
-
   my $self=Tree::nit(
 
     $class,
@@ -62,38 +58,94 @@ sub nit($class,$frame,%O) {
 };
 
 # ---   *   ---   *   ---
+# clones a node
+
+sub dup($self) {
+
+  my $cpy=$self->{frame}->nit(
+
+    value  => $self->{value},
+    action => $self->{action},
+
+    parent => undef,
+
+  );
+
+  return $cpy;
+
+};
+
+# ---   *   ---   *   ---
 # rewind the tree match
 
-sub rew(
+sub rew($st) {
 
-  $capt,
+  unshift
 
-  $nd,
+    @{$st->{pending}},
+    $st->{nd}->{parent}
 
-  $anchor,
-  $pending
-
-) {
-
-  unshift @$pending,$nd->{parent};
+  ;
 
 };
 
 # ---   *   ---   *   ---
 # saves capture to current container
 
-sub push_to_anchor(
+sub push_to_anchor($st) {
 
-  $capt,
+  $st->{frame}->nit(
+    $st->{anchor},$st->{capt}
 
-  $nd,
+  );
 
-  $anchor,
-  $pending
+};
 
-) {
+# ---   *   ---   *   ---
+# terminates an expression
 
-  push @$anchor,$capt;
+sub term($st) {
+
+  $st->{anchor}     = $st->{nd}->walkup();
+  $st->{expr}       = undef;
+
+  @{$st->{pending}} = @{$st->{anchor}->{leaves}};
+
+};
+
+# ---   *   ---   *   ---
+# makes helper for match
+
+sub match_st($self) {
+
+  my $frame = Tree->get_frame();
+  my $root  = $frame->nit(
+
+    undef,
+    $self->{value}
+
+  );
+
+# ---   *   ---   *   ---
+
+  my $st=bless {
+
+    root    => $root,
+    anchor  => $root,
+    expr    => undef,
+
+    capt    => q[],
+    nd      => undef,
+
+    frame   => $frame,
+    pending => [@{$self->{leaves}}],
+
+    re      => undef,
+    key     => undef,
+
+  },'Tree::Token::Matcher';
+
+  return $st;
 
 };
 
@@ -102,64 +154,113 @@ sub push_to_anchor(
 
 sub match($self,$s) {
 
-  my @pending = ($self);
+  my $st=$self->match_st();
 
-  my $result  = [];
-  my $anchor  = undef;
+  while(@{$st->{pending}}) {
 
-# ---   *   ---   *   ---
+    last if !length $s;
 
-  while(@pending) {
+    $st->get_next();
+    $st->attempt(\$s);
 
-    my $nd    = shift @pending;
-    my $re    = $nd->{value};
+    unshift
 
-    my $valid = is_qre($re);
+      @{$st->{pending}},
+      @{$st->{nd}->{leaves}}
 
-# ---   *   ---   *   ---
-
-    if($valid && $s=~ s[^\s*($re)\s*][]) {
-
-      $nd->{action}->(
-
-        ${^CAPTURE[0]},
-
-        $nd,
-
-        $anchor,
-        \@pending
-
-      ) if $nd->{action};
-
-# ---   *   ---   *   ---
-
-    } elsif(!$valid && !($re=~ m[<])) {
-
-      if(!defined $anchor) {
-
-        push @$result,[$re];
-        $anchor=$result->[-1];
-
-      };
-
-    };
-
-# ---   *   ---   *   ---
-
-    unshift @pending,@{$nd->{leaves}};
+    ;
 
   };
 
+  return $st->{root};
+
+};
+
+# ---   *   ---   *   ---
+# helper methods
+
+package Tree::Token::Matcher;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use English qw(-no_match_vars);
+
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+
+  use Style;
+  use Chk;
+
 # ---   *   ---   *   ---
 
-  for my $entry(@$result) {
+sub get_next($self) {
 
-    my $key=shift @$entry;
-    $entry={$key=>$entry};
+  $self->{nd}  = shift @{$self->{pending}};
+
+  $self->{key} =
+  $self->{re}  = $self->{nd}->{value};
+  $self->{re}  = undef if !is_qre($self->{re});
+  $self->{key} = undef if defined $self->{re};
+
+};
+
+# ---   *   ---   *   ---
+
+sub attempt($self,$sref) {
+
+  if($self->{re}) {
+    $self->attempt_match($sref);
+
+  } elsif($self->{key}) {
+    $self->expand_tree();
 
   };
 
-  return $result;
+};
+
+# ---   *   ---   *   ---
+
+sub attempt_match($self,$sref) {
+
+  my $out = 0;
+  my $re  = $self->{re};
+
+  $self->{capt}=${^CAPTURE[0]}
+  if $$sref=~ s[^\s*($re)\s*][];
+
+  goto TAIL if !defined $self->{capt};
+
+  $out=1+int(defined $self->{nd}->{action});
+
+  $self->{nd}->{action}->($self)
+  if $out==2;
+
+  $self->{capt}=undef;
+
+TAIL:
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+
+sub expand_tree($self) {
+
+  $self->{expr}=$self->{frame}->nit(
+    $self->{root},q[$]
+
+  ) if !defined $self->{expr};
+
+  $self->{anchor}=$self->{frame}->nit(
+    $self->{expr},$self->{key}
+
+  ) unless(
+
+     $self->{key}
+  eq $self->{anchor}->{value}
+
+  );
 
 };
 
