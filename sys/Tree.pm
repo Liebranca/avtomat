@@ -223,6 +223,38 @@ sub walkup($self,$top=undef) {
 };
 
 # ---   *   ---   *   ---
+# return neighboring leaf
+
+sub neigh($self,$offset) {
+
+  my $out  = undef;
+
+  my $par  = $self->{parent};
+  my $idex = $self->{idex}+$offset;
+
+  goto TAIL if !$par;
+
+  $out=$par->{leaves}->[$idex];
+
+TAIL:
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^aliases
+
+sub get_prev($self) {
+  return $self->neigh(-1);
+
+};
+
+sub get_next($self) {
+  return $self->neigh(1);
+
+};
+
+# ---   *   ---   *   ---
 # push node array to leaves
 
 sub pushlv($self,@pending) {
@@ -958,6 +990,7 @@ sub prich($self,%O) {
 # check value is an operator (node_op 'class')
 
     my $v=$self->{value};
+
     $v=($v=~ m[node_op=HASH])
       ? $self->{value}->{op}
       : $v

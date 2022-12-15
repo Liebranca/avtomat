@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+
+# ---   *   ---   *   ---
+# deps
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use English qw(-no_match_vars);
+
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use Style;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+
+  use Peso::Rd;
+  use Lang::C;
+
+# ---   *   ---   *   ---
+
+my $codestr=q(
+
+class B: public A {
+
+private:
+  cxstr CO="Owww!";
+
+public:
+  int var;
+  int boo;
+
+};
+
+);
+
+# ---   *   ---   *   ---
+
+my $rd=Peso::Rd::parse(
+  Lang->C,$codestr,-f=>0,
+
+);
+
+for my $key(keys %{$rd->{blocks}}) {
+
+  my $block = $rd->select_block($key);
+  my $tree  = $block->{tree};
+
+  $rd->recurse($tree);
+  $rd->replstr($tree);
+  $tree->prich();
+
+};
+
+# ---   *   ---   *   ---

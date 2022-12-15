@@ -12,75 +12,58 @@
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/avtomat/sys/';
-  use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
-  use lib $ENV{'ARPATH'}.'/avtomat/';
 
-  use Type;
-  use Emit::C;
-  use Avt::FFI;
-
-  use Avt;
+  use Style;
   use Fmat;
 
-# ---   *   ---   *   ---
-
-#my $tab=$Avt::FFI::Typetab;
-#for my $type(keys %$tab) {
-#
-#  say sprintf "%-28s %-28s",
-#    $type,$tab->{$type};
-#
-#};
-#
-#say "\n";
+  use Tree::Token;
 
 # ---   *   ---   *   ---
 
-my $o=Avt::file_sbl(
-  $ENV{'ARPATH'}.'/AUVILIB/xforms/im.c'
+my $f   = Tree::Token->get_frame();
+my $top = $f->nit(
+
+  value  => '<TOP>',
+  parent => undef,
+
+  action => undef,
 
 );
 
-say fatdump($o);
+# ---   *   ---   *   ---
+
+my $value=$f->nit(
+
+  value  => 'value',
+  parent => $top,
+
+  action => undef,
+
+);
 
 # ---   *   ---   *   ---
 
-#avt::root($ENV{'ARPATH'});
-#chdir avt::root;
-#
-#avt::ctopy(undef,'lycon',['ce']);
+$f->nit(
 
-#my $tree=lang->c->plps_match(
-#
-##  'c_func_decl',
-##  'int var(static int x,const int* y)'
-#
-##  'cdecl',
-##  'int* var'
-#
-#);
+  value  => qr{\d},
+  parent => $value,
 
-#my $program=peso::rd::parse(
-#  lang->peso,
-#  peso::rd::STR,q(
-#
-#reg attrs;
-#  wide x 2*^8-1;
-#  wide ptr y;
-#
-#));
+  action => \&Tree::Token::push_to_anchor,
 
-#$program->{tree}->leaves->[0]->defield();
-#my $s=$program->{tree}->leaves->[0]->flatten();
-#
-#my $tree=lang->peso->plps_match(
-#
-#  'pe_ptr_decl',
-#  $s,
-#
-#);
-#
-#$tree->prich();
+);
+
+$f->nit(
+
+  value  => qr{,},
+  parent => $value,
+
+  action => \&Tree::Token::rew,
+
+);
+
+my $x=$top->match('0,1,2');
+
+map {fatdump $ARG} @$x;
 
 # ---   *   ---   *   ---
 1; # ret

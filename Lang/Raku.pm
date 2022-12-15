@@ -91,10 +91,14 @@ BEGIN {
 Lang::Raku->nit(
 
   name=>'Raku',
-  ext=>'\.raku(mod)?$',
+  ext=>'\.pm?6$',
   hed=>'^#!.*raku',
 
-  mag=>'Raku script',
+  mag=>
+
+    'Program written in '.
+    'the language formerly '.
+    'known as Perl 6',
 
   drfc=>'(::|->|.)',
 

@@ -56,6 +56,7 @@ package Tree::Syntax;
   }};
 
 # ---   *   ---   *   ---
+# constructor
 
 sub nit($class,$frame,@args) {
 
