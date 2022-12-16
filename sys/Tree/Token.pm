@@ -39,6 +39,10 @@ package Tree::Token;
 
 sub nit($class,$frame,%O) {
 
+  # defaults
+  $O{action}   //= $NOOP;
+  $O{optional} //= 0;
+
   my $self=Tree::nit(
 
     $class,
@@ -51,7 +55,8 @@ sub nit($class,$frame,%O) {
 
   );
 
-  $self->{action}=$O{action};
+  $self->{action}   = $O{action};
+  $self->{optional} = $O{optional};
 
   return $self;
 
@@ -109,7 +114,9 @@ sub term($st) {
   $st->{anchor}     = $st->{nd}->walkup();
   $st->{expr}       = undef;
 
-  @{$st->{pending}} = @{$st->{anchor}->{leaves}};
+  @{$st->{pending}} = ();
+
+# @{$st->{anchor}->{leaves}}
 
 };
 
@@ -140,8 +147,13 @@ sub match_st($self) {
     frame   => $frame,
     pending => [@{$self->{leaves}}],
 
+    matches => 0,
+    mint    => 0,
+
     re      => undef,
     key     => undef,
+
+    kls     => $self->{value},
 
   },'Tree::Token::Matcher';
 
@@ -154,7 +166,8 @@ sub match_st($self) {
 
 sub match($self,$s) {
 
-  my $st=$self->match_st();
+  my $st   = $self->match_st();
+  my $fail = 0;
 
   while(@{$st->{pending}}) {
 
@@ -162,6 +175,15 @@ sub match($self,$s) {
 
     $st->get_next();
     $st->attempt(\$s);
+
+    # early exit if no match on
+    # non-optional token
+    if($st->{matches} < $st->{mint}) {
+
+      $fail=1;
+      last;
+
+    };
 
     unshift
 
@@ -172,7 +194,54 @@ sub match($self,$s) {
 
   };
 
-  return $st->{root};
+  my $out=($fail)
+    ? $NULL
+    : $st->{root}
+    ;
+
+  return ($out,$s);
+
+};
+
+# ---   *   ---   *   ---
+# attempt match against all possible
+# branches of a grammar
+
+sub parse($self,$s) {
+
+  my $frame = Tree->get_frame();
+  my $tree  = $frame->nit(undef,$self->{value});
+
+  while(1) {
+
+    my $matched=0;
+
+    # test each branch against string
+    for my $branch(@{$self->{leaves}}) {
+
+      my ($match,$ds)=$branch->match($s);
+
+      # update string and append
+      # to tree on succesful match
+      if($match ne $NULL) {
+
+        $tree->pushlv($match);
+
+        $s=$ds;
+        $matched|=1;
+
+        last if !length $s;
+
+      };
+
+    };
+
+    last if !length $s;
+    last if !$matched;
+
+  };
+
+  return $tree;
 
 };
 
@@ -199,7 +268,9 @@ sub get_next($self) {
   $self->{nd}  = shift @{$self->{pending}};
 
   $self->{key} =
-  $self->{re}  = $self->{nd}->{value};
+  $self->{re}  = $self->{nd}->{value}
+  ;
+
   $self->{re}  = undef if !is_qre($self->{re});
   $self->{key} = undef if defined $self->{re};
 
@@ -223,23 +294,30 @@ sub attempt($self,$sref) {
 
 sub attempt_match($self,$sref) {
 
-  my $out = 0;
-  my $re  = $self->{re};
+  my $re=$self->{re};
+
+  $self->{mint}+=!$self->{nd}->{optional};
 
   $self->{capt}=${^CAPTURE[0]}
   if $$sref=~ s[^\s*($re)\s*][];
 
   goto TAIL if !defined $self->{capt};
 
-  $out=1+int(defined $self->{nd}->{action});
+  $self->{matches}+=1;
+
+  my $has_action=
+
+     defined $self->{nd}->{action}
+  && $self->{nd}->{action} ne $NOOP
+  ;
 
   $self->{nd}->{action}->($self)
-  if $out==2;
+  if $has_action;
 
   $self->{capt}=undef;
 
 TAIL:
-  return $out;
+  return;
 
 };
 
@@ -247,13 +325,13 @@ TAIL:
 
 sub expand_tree($self) {
 
-  $self->{expr}=$self->{frame}->nit(
-    $self->{root},q[$]
-
-  ) if !defined $self->{expr};
+#  $self->{expr}=$self->{frame}->nit(
+#    $self->{root},$self->{kls}
+#
+#  ) if !defined $self->{expr};
 
   $self->{anchor}=$self->{frame}->nit(
-    $self->{expr},$self->{key}
+    $self->{root},$self->{key}
 
   ) unless(
 

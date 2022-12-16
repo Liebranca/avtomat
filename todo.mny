@@ -1,5 +1,15 @@
 >avtomat v4.00.0
 
+*>Peso
+x Extend Lang::Perl for basic (as-doc) parsing
+
+~ Lang::Plps reimplementation
+~ ^ Use Tree::Token to parse plps itself
+~ ^ Make plps files output Tree::Token structs
+~ ^ Tweak Tree::Token for parsing C, C++, Perl and peso
+
+~ Turn Peso into a proper IR
+
 *>Makescript
 x Replace crude gcc wrappers with a class
 x ^ Dependency checks
@@ -39,11 +49,6 @@ x ^ Make this recursive
 *>Bytestream ipret
 ~ Embed call-args-data into strings
 ~ Adapt gd calls to use the Pilot model
-
-*>Peso
-x Extend Lang::Perl for basic (as-doc) parsing
-~ Lang::Plps reimplementation
-~ Turn Peso into a proper IR
 
 *>Bugs
 ~ Investigate the Peso::Ipret::pesc iter command repetition

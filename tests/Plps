@@ -30,9 +30,11 @@ my $top  = $f->nit(
 
 );
 
-my $term = $f->nit(
+# ---   *   ---   *   ---
 
-  value  => qr{;},
+my $expr = $f->nit(
+
+  value  => 'expr',
   parent => $top,
 
   action => \&Tree::Token::term,
@@ -44,7 +46,7 @@ my $term = $f->nit(
 my $fn=$f->nit(
 
   value  => 'fn',
-  parent => $top,
+  parent => $expr,
 
   action => undef,
 
@@ -64,7 +66,7 @@ $f->nit(
 my $value=$f->nit(
 
   value  => 'value',
-  parent => $top,
+  parent => $expr,
 
   action => undef,
 
@@ -81,19 +83,31 @@ $f->nit(
 
 $f->nit(
 
-  value  => qr{,},
-  parent => $value,
+  value    => qr{,},
+  parent   => $value,
 
-  action => \&Tree::Token::rew,
+  action   => \&Tree::Token::rew,
+  optional => 1,
 
 );
 
-$top->pushlv($term->dup());
+# ---   *   ---   *   ---
+
+my $term = $f->nit(
+
+  value  => qr{;},
+  parent => $expr,
+
+  action => \&Tree::Token::term,
+
+);
 
 # ---   *   ---   *   ---
 
+$top->prich();
+
 my $prog   = 'name 0,1,2;r 43;';
-my $result = $top->match($prog);
+my $result = $top->parse($prog);
 
 say "in: $prog\n";
 $result->prich();
