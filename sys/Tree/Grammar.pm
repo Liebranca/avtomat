@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# TOKEN
+# Grammar
 # Halfway mimics p6's
 #
 # LIBRE SOFTWARE
@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package Tree::Token;
+package Tree::Grammar;
 
   use v5.36.0;
   use strict;
@@ -26,13 +26,15 @@ package Tree::Token;
   use Style;
   use Chk;
 
+  use Arstd::IO;
+
   use parent 'Tree';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = v0.00.2;
+  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # constructor
@@ -112,8 +114,6 @@ sub push_to_anchor($st) {
 sub term($st) {
 
   $st->{anchor}     = $st->{nd}->walkup();
-  $st->{expr}       = undef;
-
   @{$st->{pending}} = ();
 
 # @{$st->{anchor}->{leaves}}
@@ -139,7 +139,6 @@ sub match_st($self) {
 
     root    => $root,
     anchor  => $root,
-    expr    => undef,
 
     capt    => q[],
     nd      => undef,
@@ -155,9 +154,29 @@ sub match_st($self) {
 
     kls     => $self->{value},
 
-  },'Tree::Token::Matcher';
+  },'Tree::Grammar::Matcher';
 
   return $st;
+
+};
+
+# ---   *   ---   *   ---
+# parse failure errme
+
+sub throw_no_match($self,$s) {
+
+  my $s_short=substr $s,0,64;
+
+  errout(
+
+    "%s\n\n".
+    q[^^^ Could not parse this bit ].
+    q[with grammar <%s>],
+
+    args => [$s_short,$self->{value}],
+    lvl  => $AR_FATAL,
+
+  );
 
 };
 
@@ -179,8 +198,6 @@ sub match($self,$s) {
     # early exit if no match on
     # non-optional token
     if($st->{matches} < $st->{mint}) {
-
-      $fail=1;
       last;
 
     };
@@ -193,6 +210,8 @@ sub match($self,$s) {
     ;
 
   };
+
+  $fail|=$st->{matches} != $st->{mint};
 
   my $out=($fail)
     ? $NULL
@@ -236,8 +255,10 @@ sub parse($self,$s) {
 
     };
 
+    $self->throw_no_match($s)
+    if !$matched;
+
     last if !length $s;
-    last if !$matched;
 
   };
 
@@ -248,7 +269,7 @@ sub parse($self,$s) {
 # ---   *   ---   *   ---
 # helper methods
 
-package Tree::Token::Matcher;
+package Tree::Grammar::Matcher;
 
   use v5.36.0;
   use strict;
@@ -298,10 +319,15 @@ sub attempt_match($self,$sref) {
 
   $self->{mint}+=!$self->{nd}->{optional};
 
-  $self->{capt}=${^CAPTURE[0]}
-  if $$sref=~ s[^\s*($re)\s*][];
+  $self->{capt}=undef;
 
-  goto TAIL if !defined $self->{capt};
+  if($$sref=~ s[^\s*($re)\s*][]) {
+    $self->{capt}=${^CAPTURE[0]}
+
+  } else {
+    goto TAIL;
+
+  };
 
   $self->{matches}+=1;
 
@@ -324,11 +350,6 @@ TAIL:
 # ---   *   ---   *   ---
 
 sub expand_tree($self) {
-
-#  $self->{expr}=$self->{frame}->nit(
-#    $self->{root},$self->{kls}
-#
-#  ) if !defined $self->{expr};
 
   $self->{anchor}=$self->{frame}->nit(
     $self->{root},$self->{key}

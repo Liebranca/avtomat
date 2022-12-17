@@ -57,33 +57,34 @@
 
   my @KEYCOLOR=(
 
-    common=>0x07,
-    hier=>0x04,
-    names_u=>0x0D,
-    pfun=>0x01,
-    shcmds=>0x01,
-    pesc=>0x0E,
+    common      => [0x07,'non'],
 
-    builtins=>0x01,
-    fctls=>0x0D,
-    types=>0x04,
-    specifiers=>0x04,
+    hier        => [0x04,'identifier.ns'],
+    names_u     => [0x0D,'constant'],
+    pfun        => [0x01,'identifier.fn'],
+    shcmds      => [0x01,'constant.shcmd'],
+    pesc        => [0x0E,'preproc.peso'],
 
-    intrinsics=>0x04,
-    directives=>0x0D,
-    resnames=>0x04,
+    builtins    => [0x01,'identifier.bltn'],
+    fctls       => [0x0D,'statement'],
+    types       => [0x04,'type'],
+    specifiers  => [0x04,'type.spec'],
 
-    nums=>0x03,
-    vstr=>0x03,
-    ops=>0x0F,
-    chars=>0x0E,
-    strings=>0x0E,
-    preproc=>0x0E,
+    intrinsics  => [0x04,'special'],
+    directives  => [0x0D,'identifier.dir'],
+    resnames    => [0x04,'identifier.res'],
 
-    lcom=>0x02,
-    dev0=>0x0B,
-    dev1=>0x09,
-    dev2=>0x66,
+    nums        => [0x03,'constant.number'],
+    vstr        => [0x03,'constant.vstr'],
+    ops         => [0x0F,'symbol.operator'],
+    chars       => [0x0E,'constant.char'],
+    strings     => [0x0E,'constant.string'],
+    preproc     => [0x0E,'preproc'],
+
+    lcom        => [0x02,'comment'],
+    dev0        => [0x0B,'todo'],
+    dev1        => [0x09,'error'],
+    dev2        => [0x66,'special.blank'],
 
   );
 
@@ -103,7 +104,8 @@
 # ---   *   ---   *   ---
 # global state
 
-  my $FH=undef; # one is enough
+  my $FNANO  = undef;
+  my $FMICRO = undef;
 
 # ---   *   ---   *   ---
 # point to avtomat and retrieve langdefs
@@ -146,8 +148,7 @@ for my $lang(@Files) {
 
 sub prprops($def,$key) {
 
-  my $color;
-  my $v;
+  my ($color,$mname,$v);
 
   if($key eq 'highlight') {
     $v=shift @{$def->{highlight}};
@@ -155,7 +156,7 @@ sub prprops($def,$key) {
 
   } else {
     $v=$def->{$key};
-    $color=$KEYCOLOR{$key};
+    ($color,$mname)=@{$KEYCOLOR{$key}};
 
   };
 
@@ -300,7 +301,11 @@ sub prprops($def,$key) {
     };
 
     $re=dqwrap($re);
-    print {$FH} "color $color $re\n";
+
+    print {$FNANO} "color $color $re\n";
+
+    print {$FMICRO} "  - $mname: $re\n"
+    if $mname ne 'non';
 
   };
 
@@ -310,13 +315,18 @@ sub prprops($def,$key) {
 # iters through langdefs
 # outs a nanorc file for each
 
-sub make_syntax_files(@args) {
-while(@args) {
+sub make_syntax_files(%O) {
 
-  my $def=shift @args;
-  my $dst=shift @args;
+  my $def        = $O{def};
 
-  open $FH,'>',$dst or die strerr($dst);
+  my $path_nano  = $O{fnano};
+  my $path_micro = $O{fmicro};
+
+  open $FNANO,'>',$path_nano
+  or die strerr($path_nano);
+
+  open $FMICRO,'>',$path_micro
+  or die strerr($path_micro);
 
   # nano syntax file boiler
   my $prop='syntax '.(
@@ -338,7 +348,7 @@ while(@args) {
   $prop.='comment '.dqwrap($def->{com})."\n";
 
   # spit it out
-  print {$FH} "$prop\n";
+  print {$FNANO} "$prop\n";
 
   # get patterns list
   for my $key(array_keys(\@KEYCOLOR)) {
@@ -346,37 +356,47 @@ while(@args) {
 
   };
 
-  # overwrite rules
-  while(@{$def->{highlight}}) {
-    prprops($def,'highlight');
+#  # overwrite rules
+#  while(@{$def->{highlight}}) {
+#    prprops($def,'highlight');
+#
+#  };
 
-  };
+  close $FNANO or die strerr($path_nano);
+  close $FMICRO or die strerr($path_micro);
 
-  close $FH or die strerr($dst);
+};
 
-}};
+# ---   *   ---   *   ---
+# setup paths
+
+my $Path       = glob("~/.config");
+my $Nano_Path  = "$Path/nano";
+my $Micro_Path = "$Path/micro/syntax";
+
+`mkdir -p $Nano_Path`
+if ! -d $Nano_Path;
+
+`mkdir -p $Micro_Path`
+if ! -d $Micro_Path;
 
 # ---   *   ---   *   ---
 # run the generator
 
-my @LangData=();
-my $Path=glob("~/.config/nano");
-
 for my $lang(@Files) {
 
-  push @LangData,
+  make_syntax_files(
 
     # Lang::Def instance
-    $lang,
+    def    => $lang,
 
-    # destination file
-    "$Path/$lang->{name}.nanorc"
+    # destination files
+    fnano  => "$Nano_Path/$lang->{name}.nanorc",
+    fmicro => "$Micro_Path/$lang->{name}.yaml",
 
-  ;
+  );
 
 };
-
-make_syntax_files(@LangData);
 
 # ---   *   ---   *   ---
 1; # ret

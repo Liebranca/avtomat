@@ -91,7 +91,7 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
 
     # preproc
     Lang::insens('lib'),
-    Lang::insens('import'),
+    Lang::insens('use'),
 
   ];
 
@@ -118,6 +118,9 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
 
   Readonly my $INTRINSIC=>[
 
+    Lang::insens('beq'),
+    Lang::insens('blk'),
+
     Lang::insens('wed'),
     Lang::insens('unwed'),
     Lang::insens('ipol'),
@@ -138,6 +141,8 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
     Lang::insens('str'),
     Lang::insens('buf'),
     Lang::insens('tab'),
+
+    Lang::insens('re'),
 
   ];
 

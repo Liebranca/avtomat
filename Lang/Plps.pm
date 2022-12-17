@@ -178,14 +178,14 @@ package Lang::Plps;
 
 # ---   *   ---   *   ---
 
-  my $DIRECTIVE={
+  my $DIRECTIVE=[
 
-    beg=>[sbl_id,'1<type>:1<bare>'],
-    end=>[sbl_id,'0'],
+    Lang::insens('clan'),
+    Lang::insens('reg'),
+    Lang::insens('rom'),
+    Lang::insens('proc'),
 
-    in=>[sbl_id,'1<path>'],
-
-  };
+  ];
 
 # ---   *   ---   *   ---
 # UTILITY CALLS

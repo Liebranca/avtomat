@@ -1,3 +1,8 @@
+# v3.21.6 (WIP)
+
+- Added the `Tree::Grammar` class; it provides a baseline implementation for Raku-like grammars.
+- Initial implementation of micro syntax files generation through `sygen`.
+
 # v3.21.5
 
 - Initial `side_build` implementations for `Avt::Sieve` and `Makescript`.

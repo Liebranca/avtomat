@@ -16,97 +16,148 @@
   use Style;
   use Fmat;
 
-  use Tree::Token;
+  use Arstd::IO;
+  use Tree::Grammar;
 
 # ---   *   ---   *   ---
 
-my $f    = Tree::Token->get_frame();
+my $f    = Tree::Grammar->get_frame();
 my $top  = $f->nit(
 
-  value  => '<TOP>',
+  value  => 'peso',
   parent => undef,
-
   action => undef,
 
 );
 
 # ---   *   ---   *   ---
 
-my $expr = $f->nit(
+my $header=$f->nit(
 
-  value  => 'expr',
+  value  => 'header',
   parent => $top,
 
-  action => \&Tree::Token::term,
-
-);
-
-# ---   *   ---   *   ---
-
-my $fn=$f->nit(
-
-  value  => 'fn',
-  parent => $expr,
-
   action => undef,
 
 );
 
 $f->nit(
 
-  value  => qr{\w+},
-  parent => $fn,
+  value  => qr{\$|\%}x,
+  parent => $header,
 
-  action => \&Tree::Token::push_to_anchor,
-
-);
-
-# ---   *   ---   *   ---
-
-my $value=$f->nit(
-
-  value  => 'value',
-  parent => $expr,
-
-  action => undef,
+  action => \&Tree::Grammar::push_to_anchor,
 
 );
 
 $f->nit(
 
-  value  => qr{\d+},
-  parent => $value,
+  value    => qr{[^;]+},
+  parent   => $header,
 
-  action => \&Tree::Token::push_to_anchor,
-
-);
-
-$f->nit(
-
-  value    => qr{,},
-  parent   => $value,
-
-  action   => \&Tree::Token::rew,
+  action   => \&Tree::Grammar::push_to_anchor,
   optional => 1,
 
 );
 
-# ---   *   ---   *   ---
-
 my $term = $f->nit(
 
   value  => qr{;},
-  parent => $expr,
+  parent => $header,
 
-  action => \&Tree::Token::term,
+  action => \&Tree::Grammar::term,
 
 );
 
 # ---   *   ---   *   ---
 
-$top->prich();
+my $comment=$f->nit(
 
-my $prog   = 'name 0,1,2;r 43;';
+  value  => 'comment',
+  parent => $top,
+
+  action => undef,
+
+);
+
+$f->nit(
+
+  value  => qr{\x{23}+ [\S\x{20}]* \x{0A}}sx,
+  parent => $comment,
+
+  action => undef,
+
+);
+
+# ---   *   ---   *   ---
+#
+#my $expr=$f->nit(
+#
+#  value  => 'expr',
+#  parent => $top,
+#
+#  action => undef,
+#
+#);
+#
+## ---   *   ---   *   ---
+#
+#my $fn=$f->nit(
+#
+#  value  => 'fn',
+#  parent => $expr,
+#
+#  action => undef,
+#
+#);
+#
+#$f->nit(
+#
+#  value  => qr{\w+},
+#  parent => $fn,
+#
+#  action => \&Tree::Grammar::push_to_anchor,
+#
+#);
+#
+## ---   *   ---   *   ---
+#
+#my $value=$f->nit(
+#
+#  value  => 'value',
+#  parent => $expr,
+#
+#  action => undef,
+#
+#);
+#
+#$f->nit(
+#
+#  value  => qr{\d+},
+#  parent => $value,
+#
+#  action => \&Tree::Grammar::push_to_anchor,
+#
+#);
+#
+#$f->nit(
+#
+#  value    => qr{,},
+#  parent   => $value,
+#
+#  action   => \&Tree::Grammar::rew,
+#  optional => 1,
+#
+#);
+#
+#$expr->pushlv($term->dup());
+
+# ---   *   ---   *   ---
+
+my $prog   = orc('plps/peso.rom');
+$prog      =~ m[([\S\s]+)\s*STOP]x;
+$prog      = ${^CAPTURE[0]};
+
 my $result = $top->parse($prog);
 
 say "in: $prog\n";

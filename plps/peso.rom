@@ -1,0 +1,131 @@
+%;
+
+# ---   *   ---   *   ---
+# PESO
+# Language definitions
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+
+# ---   *   ---   *   ---
+# info
+
+  TITLE     peso;
+STOP
+  VERSION   v0.00.2b;
+  AUTHOR    'IBN-3DILA';
+
+  CLAN      peso;
+
+# ---   *   ---   *   ---
+
+ROM std;
+
+  byte  term $3B;
+  byte  sep  $2C;
+
+  wed   -qwor;
+
+  re    type
+
+    byte wide brad word
+    unit half line page
+
+    nihil stark signal
+
+  ;
+
+  re    spec ptr fptr str buf tab re;
+
+  re    sigil
+
+    $ % * - + ^ & ~ /
+    \\ @ << >>
+
+    : :: -: +: *: $: %:
+    /: &: ^: ~: \\: @:
+    <<: >>:
+
+    ';>'
+
+  ;
+
+  re    op
+
+    -> *^ * % / ++ + -- -
+    ?? ? !! ~ << >> | & ^
+
+    < <= > >= || && == !=
+
+  ;
+
+  unwed;
+
+  re    num
+
+    [\d\.:]+
+  | $[\dA-Fa-f\.:]+
+
+  | 0[0-7\.:]+
+  | 0b[0-1\.:]+
+
+  | v[\d\.:]+[ab]
+  ;
+
+  re    bare [_\w][_\w\d]+;
+  re    sigged [_<sigil>\w][_<sigil>\w\d]+;
+
+  re    ari <sigged|bare>? <op> <sigged|bare>;
+
+# ---   *   ---   *   ---
+
+ROM stmt;
+
+  blk end;
+
+    unwed -recapt;
+
+    def   term std::term;
+    ...;
+
+    case  "%term%";
+
+# ---   *   ---   *   ---
+
+ROM clist;
+
+  beq stmt;
+
+  blk items;
+
+    self std;
+    def  token;
+    ...;
+
+    case "%token%";
+    case "%sep%" <<??;
+
+# ---   *   ---   *   ---
+
+ROM value_decl;
+
+  beq clist;
+
+  blk beg;
+
+    self std;
+
+    case "%<type>%";
+    case "%<spec>%" +?;
+
+  blk items;
+    redef token <bare>;
+
+  blk items;
+    redef token <ari|num|bare>;
+
+# ---   *   ---   *   ---
