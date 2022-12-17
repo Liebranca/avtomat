@@ -213,13 +213,14 @@ package Lang::Def;
 
     dev0=>
 
-      '('.( Lang::eiths('TODO,NOTE') ).':?|#:\*+;>)',
+      '('.( Lang::eiths('TODO,NOTE') ).
+      ':?|#:\*+;>)',
 
     dev1=>
 
       '('.( Lang::eiths('FIX,BUG') ).':?|#:\!+;>)',
 
-    dev2=>'(^[[:space:]]+$)|([[:space:]]+$)',
+    dev2=>'[[:space:]]+$',
 
 # ---   *   ---   *   ---
 # symbol table is made at nit

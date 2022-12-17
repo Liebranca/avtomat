@@ -78,7 +78,7 @@
     vstr        => [0x03,'constant.vstr'],
     ops         => [0x0F,'symbol.operator'],
     chars       => [0x0E,'constant.char'],
-    strings     => [0x0E,'constant.string'],
+    strings     => [0x0E,'constant.nstring'],
     preproc     => [0x0E,'preproc'],
 
     lcom        => [0x02,'comment'],
@@ -104,8 +104,10 @@
 # ---   *   ---   *   ---
 # global state
 
-  my $FNANO  = undef;
-  my $FMICRO = undef;
+  my $FNANO    = undef;
+  my $FMICRO   = undef;
+
+  my $FMICRO_C = undef;
 
 # ---   *   ---   *   ---
 # point to avtomat and retrieve langdefs
@@ -162,6 +164,13 @@ sub prprops($def,$key) {
 
   # decode color
   { my ($fg,$bg)=($color&0xF,$color>>4);
+
+    say {$FMICRO_C}
+      "color-link $mname \"$fg\""
+
+    if $mname ne 'non'
+    ;
+
     $color=$COLORS[$fg].','.$COLORS[$bg];
 
   };
@@ -176,26 +185,55 @@ sub prprops($def,$key) {
 
   # ^he's a double degenerate, the standard
   # string matching patterns are terrible
+  my $strtype_re=qr{(?:
 
-  if($key=~ m/(?:
+    strings
+  | chars
 
-    strings|chars|shcmds|preproc|pesc
+  | shcmds
+  | preproc
+  | pesc
 
-  )/x) {
+  )}x;
+
+  my ($strtype_beg,$strtype_end);
+  my $strtype_skip=q["\\\\\\\\."];
+
+  if($key=~ $strtype_re) {
 
     if($key eq 'strings') {
+
+      $strtype_beg=q["\""];
+      $strtype_end=q["\""];
+
       $v=Lang::delim(q{"});
 
     } elsif($key eq 'chars') {
-      $v=Lang::delim(q{'});
+
+      $strtype_beg=q["'"];
+      $strtype_end=q["'"];
+
+      $v=Lang::delim("'");
 
     } elsif($key eq 'shcmds') {
+
+      $strtype_beg=q["`"];
+      $strtype_end=q["`"];
+
       $v=Lang::delim(q{`});
 
     } elsif($key eq 'preproc') {
+
+      $strtype_beg=q["^[[:space:]]#"];
+      $strtype_end=q["$"];
+
       $v='^\s*#.*$';
 
     } else {
+
+      $strtype_beg=q["\\\\$:"];
+      $strtype_end=q[";>"];
+
       $v='\$\:.*;>';
 
     };
@@ -300,12 +338,47 @@ sub prprops($def,$key) {
 
     };
 
+    my $ore=$re;
     $re=dqwrap($re);
 
     print {$FNANO} "color $color $re\n";
 
-    print {$FMICRO} "  - $mname: $re\n"
-    if $mname ne 'non';
+    $re=~ s[\\][\\\\]sxmg;
+
+    if($key=~ $strtype_re) {
+
+# degenerate micro yaml syntax files
+# have sigws python syndrome, as
+# changes to the identation of this
+# block tend to utterly fuck highlighting
+#
+#      my $rule  = "    - $mname:\n";
+#      $rule    .=
+#        "        start: $strtype_beg\n".
+#        "        end: $strtype_end\n".
+#        "        skip: $strtype_skip\n".
+#        "        rules: []\n"
+#
+#      ;
+#
+# """sane""" standards, eh?
+#
+# I give it a 1/10, go back to school
+#
+# ironically, unholy UBERSCAP regexes
+# are better than this modern shit
+#
+# so, for now, avoid altogether
+
+        $ore=~ s[\\][\\\\]sxmg;
+        $ore=~ s["][\\"]sxmg;
+
+        $re=dqwrap($ore);
+
+      };
+
+      print {$FMICRO} "    - $mname: $re\n\n"
+      if $mname ne 'non';
 
   };
 
@@ -350,6 +423,28 @@ sub make_syntax_files(%O) {
   # spit it out
   print {$FNANO} "$prop\n";
 
+# ---   *   ---   *   ---
+
+  my $ext = $def->{ext};
+  my $hed = $def->{hed};
+  $ext    =~ s[\\][\\\\]sxmg;
+  $hed    =~ s[\\][\\\\]sxmg;
+
+  $prop   = "filetype: $def->{name}\n\n";
+  $prop  .= "detect:\n".
+    "    filename: ".dqwrap($ext)."\n";
+
+  $prop  .=($def->{hed} ne 'N/A')
+  ? "    header: ".dqwrap($hed)."\n"
+  : $NULLSTR
+  ;
+
+  $prop  .= "rules:\n";
+
+  print {$FMICRO} "$prop\n";
+
+# ---   *   ---   *   ---
+
   # get patterns list
   for my $key(array_keys(\@KEYCOLOR)) {
     prprops($def,$key);
@@ -370,15 +465,24 @@ sub make_syntax_files(%O) {
 # ---   *   ---   *   ---
 # setup paths
 
-my $Path       = glob("~/.config");
-my $Nano_Path  = "$Path/nano";
-my $Micro_Path = "$Path/micro/syntax";
+my $Path         = glob("~/.config");
+my $Nano_Path    = "$Path/nano";
+my $Micro_Path   = "$Path/micro/syntax";
+
+my $Micro_C_Path = $Path.
+  "/micro/colorschemes/widower.micro";
 
 `mkdir -p $Nano_Path`
 if ! -d $Nano_Path;
 
 `mkdir -p $Micro_Path`
 if ! -d $Micro_Path;
+
+`mkdir -p $Path/micro/colorschemes/`
+if ! -d "$Path/micro/colorschemes/";
+
+open $FMICRO_C,'>',$Micro_C_Path
+or die strerr($Micro_C_Path);
 
 # ---   *   ---   *   ---
 # run the generator
@@ -395,6 +499,40 @@ for my $lang(@Files) {
     fmicro => "$Micro_Path/$lang->{name}.yaml",
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# complete the micro colorscheme
+
+my %Fmc_Colors=(
+
+  'line-number'         => 'yellow',
+  'current-line-number' => 'red,brightblack',
+  'cursor-line'         => 'brightblack',
+  'status-line'         => 'green,brightblack',
+  'selection'           => 'yellow,magenta',
+  'tabbar'              => 'green,brightblack',
+
+  'message'             =>
+    'brightgreen,brightblack',
+
+  'error-message'       =>
+    'brightyellow,brightred',
+
+);
+
+for my $mname(keys %Fmc_Colors) {
+
+  my $color=$Fmc_Colors{$mname};
+
+  say {$FMICRO_C}
+    'color-link ',
+    "$mname ",
+
+    dqwrap($color)
+
+  ;
 
 };
 
