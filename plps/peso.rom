@@ -14,12 +14,10 @@
 # ---   *   ---   *   ---
 # info
 
-  TITLE     peso;
+  CLAN      peso;
 
   VERSION   v0.00.2b;
   AUTHOR    'IBN-3DILA';
-
-  CLAN      peso;
 
 # ---   *   ---   *   ---
 
@@ -28,10 +26,9 @@ ROM std;
   byte  term $3B;
   byte  sep  $2C;
 
-STOP
-
   wed   -qwor;
-
+  unwed -qwor;
+STOP
   re    type
 
     byte wide brad word

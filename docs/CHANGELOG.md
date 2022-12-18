@@ -1,7 +1,8 @@
 # v3.21.6 (WIP)
 
-- Added the `Tree::Grammar` class; it provides a baseline implementation for Raku-like grammars.
+- Added the `Tree::Grammar` class; it provides a baseline implementation for Raku-inspired grammars.
 - Initial implementation of micro syntax files generation through `sygen`.
+- Basic execution in parse trees, for the reworked `peso/lps`.
 
 # v3.21.5
 

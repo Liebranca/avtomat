@@ -104,16 +104,37 @@ sub init($self,$value,%O) {
 
 sub dup($self) {
 
-  my $cpy=$self->{frame}->nit(
+  my $out     = undef;
 
-    value  => $self->{value},
-    action => $self->{action},
+  my @anchor  = ();
+  my @pending = ($self);
 
-    parent => undef,
+  while(@pending) {
 
-  );
+    my $nd=shift @pending;
 
-  return $cpy;
+    my $cpy=$nd->{frame}->nit(
+
+      value  => $nd->{value},
+      action => $nd->{action},
+
+      parent => (@anchor)
+        ? (shift @anchor)
+        : $out
+        ,
+
+    );
+
+    $cpy->{optional}=$nd->{optional};
+
+    $out//=$cpy;
+
+    unshift @anchor,$cpy;
+    unshift @pending,@{$nd->{leaves}};
+
+  };
+
+  return $out;
 
 };
 
@@ -296,7 +317,7 @@ sub parse($self,$s) {
         $s=$ds;
         $matched|=1;
 
-        last if !length $s;
+        last;
 
       };
 

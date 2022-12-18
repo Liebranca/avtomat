@@ -5,32 +5,33 @@ x Extend Lang::Perl for basic (as-doc) parsing
 
 ~ Lang::Plps reimplementation
 
-~ ^ Use Tree::Grammar to parse plps itself
+~ \--> Use Tree::Grammar to parse plps itself
+~ .  \--> Plps as a package, frames and all
+x .  \--> Unique branch for hierarchicals
+x .  .  \--> Sorting
+~ .  .  \--> Namespaces
 
-x ^^ Unique branch for hierarchicals
-~ ^^^ Sorting
-~ ^^^ Namespaces
+~ .  \--> Unique branches for wed/unwed
+~ .  \--> Unique branch for re
 
-~ ^^ Unique branches for wed/unwed
-~ ^^ Unique branch for re
-
-~ ^ Make plps files output Tree::Grammar structs
-~ ^ Tweak Tree::Grammar for parsing C, C++, Perl and peso
+~ \--> Make plps files output Tree::Grammar structs
+~ \--> Tweak Tree::Grammar for parsing C, C++, Perl and peso
 
 ~ Turn peso into a proper IR
+~ \--> Tree manipulation at ipret layer
 
 *>Makescript
 x Replace crude gcc wrappers with a class
-x ^ Dependency checks
-x ^ Building objects
-x ^ Linking
+x \--> Dependency checks
+x \--> Building objects
+x \--> Linking
 
 *>Shb7
 x Break down into packages
-x ^ Path managing and ops
-x ^ Find ops
-x ^ Symbol wrangling
-x ^ ld,gcc && mam wrappers
+x \--> Path managing and ops
+x \--> Find ops
+x \--> Symbol wrangling
+x \--> ld,gcc && mam wrappers
 
 *>Avt::Sieve
 x Implement side build sub
@@ -39,19 +40,20 @@ x Run calls before post-build hook
 
 *>Reorder/repurpose Peso into lib/sys
 ~ Generalize Blk for serialization
-~ ^ Writing Blk instances to file
-~ ^ Reading from file into Blk
-x ^ Messaging through Blks
-x ^^ Message encrypt
-x ^^ Message decrypt
+~ \--> Writing Blk instances to file
+~ \--> Reading from file into Blk
+x \--> Messaging through Blks
+x .  \--> Message encrypt
+x .  \--> Message decrypt
 
 ~ Generalize Ptr for Blk fetches
-~ ^ Fetch by ID (cross-scope!)
+~ \--> Fetch by ID (cross-scope!)
 
 *>Refactor helper
 x Find mentions of a given package or subroutine
-x ^ Make this recursive
-~ ^ Combine f:./bin/symfind with mentions on *.mny trees
+x \--> Make this recursive
+~ \--> Combine f:./bin/symfind with mentions on *.mny trees
+
 ~ Find TODO|FIX|BUG etc and append them to these lists
 ~ Optimize away regexes and needless fncalls
 
@@ -87,7 +89,8 @@ x Extend *.mny syntax
 
 *>De-bloat Arstd
 x Separate array ops from hash ops
-x ^ Dump into Arstd::Array && Arstd::Hash, respectively
+x \--> Dump into Arstd::Array && Arstd::Hash, respectively
+
 x Make an Arstd::IO submod
 x Make an Arstd::Bytes submod
 x Make an Arstd::String submod

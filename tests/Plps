@@ -21,6 +21,8 @@ package Plps;
   use Arstd::IO;
   use Tree::Grammar;
 
+  use parent 'St';
+
   use lib $ENV{'ARPATH'}.'/avtomat/';
 
   use Lang;
@@ -31,6 +33,40 @@ package Plps;
 
 # ---   *   ---   *   ---
 # ROM
+
+  sub Frame_Vars($class) {return {
+
+    # namespaces
+    -clan=>{
+
+      q[non]=>{
+
+        rom=>{},
+        reg=>{},
+
+        proc=>{},
+
+      },
+
+    },
+
+    # ptrs
+    -clan_c => undef,
+    -proc_c => undef,
+    -reg_c  => undef,
+
+    -anchor => [undef,undef,undef,undef],
+
+    # default switches
+    -flags  => {
+
+      -qwor => 0,
+
+    },
+
+    -wtype  => undef,
+
+  }};
 
   my $PENUM_RE  = qr{
     (?: \$ [0-9A-Fa-f\.:]+ )
@@ -129,14 +165,166 @@ my $term;
 };
 
 # ---   *   ---   *   ---
+
+sub xt3($fr,$ckey,$st,$match) {
+
+  my $nid  = $st->{nid};
+  my @args = @{$st->{args}};
+
+  $fr->{$ckey}=$args[0];
+  $fr->{-clan}->{$fr->{-clan_c}}//={
+
+    rom=>{},
+    reg=>{},
+
+    proc=>{},
+
+  };
+
+  if($ckey ne '-clan_c') {
+
+    $fr->{-clan}
+
+    ->{$fr->{-clan_c}}
+
+    ->{lc $nid}
+    ->{$args[0]}
+
+    = $match;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub xt2($fr,$ckey,$st,$match,$idex) {
+
+  my $nid  = $st->{nid};
+  my @args = @{$st->{args}};
+
+  xt3($fr,$ckey,$st,$match)
+  if defined $ckey;
+
+  $fr->{-anchor}->[3]->pushlv($match)
+  if $nid ne 'CLAN';
+
+  for my $i(@$idex) {
+    $fr->{-anchor}->[$i]=$match;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# :
+
+sub xt($match) {
+
+  my $st   = $match->bhash(0,1);
+  my $fr   = Plps->get_frame();
+
+  my $nid  = uc $st->{nid};
+  my @args = @{$st->{args}};
+
+  my $ckey = undef;
+  my @idex = ();
+
+  if($nid eq 'CLAN') {
+    @idex=(0,3);
+    $ckey='-clan_c';
+
+  } elsif($nid=~ m[ROM|REG]) {
+    @idex=(1,3);
+    $ckey='-reg_c';
+
+  } elsif($nid eq 'PROC') {
+    @idex=(2,3);
+    $ckey='-proc_c';
+
+  };
+
+  xt2($fr,$ckey,$st,$match,\@idex);
+  return ($nid,$fr->{-clan_c},@args);
+
+};
+
+# ---   *   ---   *   ---
 # test post-match action
 
 sub hsort($tree,$branch,$match) {
 
-  my $st=$match->bhash(0,1);
+  my (
 
-  say $st->{nid};
-  say @{$st->{args}};
+    $nid,
+    $clan,
+
+    @args
+
+  )=xt($match);
+
+  if($nid=~ m[REG|ROM|CLAN|PROC]) {
+
+    $match->{value}=$args[0];
+    $match->clear_branches();
+
+    $match->{value}=$branch->{value};
+
+  } else {
+
+    $match->{value}=$branch->{value};
+
+    $match->pluck(
+      $match->branch_in(qr{nid})
+
+    );
+
+    for my $nd(@{$match->{leaves}}) {
+      $nd->flatten_branch();
+
+    };
+
+  };
+
+  $match->{-peso_t}=$nid;
+  return @args;
+
+};
+
+# ---   *   ---   *   ---
+# flips switches
+
+sub wed($tree,$branch,$match) {
+
+  my $fr    = Plps->get_frame();
+
+  my @flags = hsort($tree,$branch,$match);
+  my $flip  = $match->{-peso_t} eq 'WED';
+
+  my @wtype = ();
+
+  for my $switch(@flags) {
+
+    if(exists $fr->{-flags}->{$switch}) {
+      $fr->{-flags}->{$switch}=$flip;
+
+    } else {
+      push @wtype,$switch;
+
+    };
+
+  };
+
+  $fr->{-wtype}=(join q[ ],@wtype)
+  if @wtype ne $NULLSTR;
+
+  if($fr->{-flags}->{-qwor}) {
+    say '-qwor set';
+
+  } else {
+    say '-qwor unset';
+
+  };
 
 };
 
@@ -189,7 +377,14 @@ sub hsort($tree,$branch,$match) {
 
 {
 
-  my $expr = $top->init('expr');
+  my $expr = $top->init(
+
+    'expr',
+
+    dom    => 'Plps',
+    action => 'hsort',
+
+  );
 
   my $nid  = $expr->init('nid');
   my $args = $expr->init('args');
@@ -232,6 +427,24 @@ sub hsort($tree,$branch,$match) {
 
   $args->pushlv($term->dup());
 
+  my $tmp = $expr->dup();
+  my $wed = $expr;
+
+  $wed->{value}  = 'switch';
+  $wed->{action} = \&wed;
+
+  my $wre=join q[|],(
+
+    Lang::insens('wed'),
+    Lang::insens('unwed'),
+
+  );
+
+  $wed->{leaves}->[0]
+  ->{leaves}->[0]->{value}=qr{$wre}x;
+
+  $top->pushlv($tmp);
+
 };
 
 # ---   *   ---   *   ---
@@ -272,7 +485,7 @@ for my $branch(
 
 };
 
-#$result->prich();
+$result->prich();
 
 # ---   *   ---   *   ---
 1; # ret
