@@ -146,6 +146,18 @@ sub nit($class,$frame,$parent,$val,%O) {
 };
 
 # ---   *   ---   *   ---
+# ^nit from instance
+
+sub init($self,@args) {
+
+  return $self->{frame}->nit(
+    $self,@args
+
+  );
+
+};
+
+# ---   *   ---   *   ---
 
 sub root($self) {
 
@@ -251,6 +263,32 @@ sub get_prev($self) {
 
 sub get_next($self) {
   return $self->neigh(1);
+
+};
+
+# ---   *   ---   *   ---
+# clears all branches matching re
+
+sub sweep($self,$re) {
+  $self->pluck($self->branches_in($re));
+
+};
+
+# ---   *   ---   *   ---
+# converts 3-lvl deep branches
+
+sub bhash($self,@type) {
+
+  return { map {
+
+    my @ar=$ARG->branch_values();
+
+    $ARG->{value}=>(!(shift @type))
+      ? $ar[0]
+      : [@ar]
+      ;
+
+  } @{$self->{leaves}} };
 
 };
 
@@ -991,7 +1029,7 @@ sub prich($self,%O) {
 
     my $v=$self->{value};
 
-    $v=($v=~ m[node_op=HASH])
+    $v=($v=~ m[^node_op=HASH])
       ? $self->{value}->{op}
       : $v
       ;

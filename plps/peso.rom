@@ -15,7 +15,7 @@
 # info
 
   TITLE     peso;
-STOP
+
   VERSION   v0.00.2b;
   AUTHOR    'IBN-3DILA';
 
@@ -27,6 +27,8 @@ ROM std;
 
   byte  term $3B;
   byte  sep  $2C;
+
+STOP
 
   wed   -qwor;
 

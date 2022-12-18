@@ -40,7 +40,7 @@
     black red green yellow
     blue magenta cyan white
 
-    grey
+    brightblack
 
     brightred brightgreen
 
@@ -150,11 +150,21 @@ for my $lang(@Files) {
 
 sub prprops($def,$key) {
 
+  state $highlights={};
   my ($color,$mname,$v);
 
   if($key eq 'highlight') {
     $v=shift @{$def->{highlight}};
     $color=shift @{$def->{highlight}};
+
+    $mname=(exists $highlights->{$color})
+      ? $highlights->{$color}
+
+      : 'special.high_'.
+        chr(0x41+int(keys %$highlights))
+      ;
+
+    $highlights->{$color}=$mname;
 
   } else {
     $v=$def->{$key};
@@ -163,15 +173,33 @@ sub prprops($def,$key) {
   };
 
   # decode color
-  { my ($fg,$bg)=($color&0xF,$color>>4);
+  {
 
-    say {$FMICRO_C}
-      "color-link $mname \"$fg\""
+    my ($fg,$bg)=(
+      $COLORS[$color&0xF],
+      $COLORS[$color>>4]
 
-    if $mname ne 'non'
-    ;
+    );
 
-    $color=$COLORS[$fg].','.$COLORS[$bg];
+
+    if(
+
+       exists $highlights->{$color}
+    || $mname eq 'special.blank'
+
+    ) {
+
+      say {$FMICRO_C}
+        "color-link $mname \"$fg,$bg\"";
+
+    } elsif(!($mname=~ m[non|special\.blank])) {
+
+      say {$FMICRO_C}
+        "color-link $mname \"$fg\"";
+
+    };
+
+    $color="$fg,$bg";
 
   };
 
@@ -300,7 +328,6 @@ sub prprops($def,$key) {
         };
 
       };
-
 
       # sort keys by length
       @slice=sort {
@@ -451,11 +478,11 @@ sub make_syntax_files(%O) {
 
   };
 
-#  # overwrite rules
-#  while(@{$def->{highlight}}) {
-#    prprops($def,'highlight');
-#
-#  };
+  # overwrite rules
+  while(@{$def->{highlight}}) {
+    prprops($def,'highlight');
+
+  };
 
   close $FNANO or die strerr($path_nano);
   close $FMICRO or die strerr($path_micro);
@@ -508,8 +535,8 @@ for my $lang(@Files) {
 my %Fmc_Colors=(
 
   'line-number'         => 'yellow',
-  'current-line-number' => 'red,brightblack',
-  'cursor-line'         => 'brightblack',
+  'current-line-number' => 'yellow',
+
   'status-line'         => 'green,brightblack',
   'selection'           => 'yellow,magenta',
   'tabbar'              => 'green,brightblack',

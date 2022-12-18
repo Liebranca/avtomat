@@ -33,7 +33,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;
+  our $VERSION = v0.00.3;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -42,9 +42,11 @@ package Tree::Grammar;
 sub nit($class,$frame,%O) {
 
   # defaults
-  $O{action}   //= $NOOP;
+  $O{action}   //= $NULLSTR;
+  $O{dom}      //= $class;
   $O{optional} //= 0;
 
+  # get instance
   my $self=Tree::nit(
 
     $class,
@@ -57,10 +59,43 @@ sub nit($class,$frame,%O) {
 
   );
 
+# ---   *   ---   *   ---
+# setup post-match actions
+
+  if(!is_coderef($O{action})) {
+
+    if($O{action} ne $NULLSTR) {
+
+      $O{action}=
+        eval '\&'.$O{dom}.'::'.$O{action};
+
+    } else {
+      $O{action}=$NOOP;
+
+    };
+
+  };
+
   $self->{action}   = $O{action};
   $self->{optional} = $O{optional};
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# ^from instance
+
+sub init($self,$value,%O) {
+
+  return $self->{frame}->nit(
+
+    value  => $value,
+    parent => $self,
+
+    %O
+
+  );
 
 };
 
@@ -87,24 +122,29 @@ sub dup($self) {
 
 sub rew($st) {
 
-  unshift
-
-    @{$st->{pending}},
-    $st->{nd}->{parent}
-
-  ;
+  $st->{pending}=[$st->{nd}->{parent}];
 
 };
 
 # ---   *   ---   *   ---
 # saves capture to current container
 
-sub push_to_anchor($st) {
+sub capt($st) {
 
   $st->{frame}->nit(
     $st->{anchor},$st->{capt}
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# ^both capt and rew
+
+sub crew($st) {
+
+  capt($st);
+  rew($st);
 
 };
 
@@ -115,8 +155,6 @@ sub term($st) {
 
   $st->{anchor}     = $st->{nd}->walkup();
   @{$st->{pending}} = ();
-
-# @{$st->{anchor}->{leaves}}
 
 };
 
@@ -246,6 +284,15 @@ sub parse($self,$s) {
 
         $tree->pushlv($match);
 
+        $branch->{action}->(
+
+          $tree,
+
+          $branch,
+          $match,
+
+        ) if $branch->{action} ne $NOOP;
+
         $s=$ds;
         $matched|=1;
 
@@ -322,14 +369,14 @@ sub attempt_match($self,$sref) {
   $self->{capt}=undef;
 
   if($$sref=~ s[^\s*($re)\s*][]) {
-    $self->{capt}=${^CAPTURE[0]}
+    $self->{capt}=${^CAPTURE[0]};
 
   } else {
     goto TAIL;
 
   };
 
-  $self->{matches}+=1;
+  $self->{matches}+=!$self->{nd}->{optional};
 
   my $has_action=
 

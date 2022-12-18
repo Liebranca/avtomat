@@ -4,11 +4,20 @@
 x Extend Lang::Perl for basic (as-doc) parsing
 
 ~ Lang::Plps reimplementation
-~ ^ Use Tree::Token to parse plps itself
-~ ^ Make plps files output Tree::Token structs
-~ ^ Tweak Tree::Token for parsing C, C++, Perl and peso
 
-~ Turn Peso into a proper IR
+~ ^ Use Tree::Grammar to parse plps itself
+
+x ^^ Unique branch for hierarchicals
+~ ^^^ Sorting
+~ ^^^ Namespaces
+
+~ ^^ Unique branches for wed/unwed
+~ ^^ Unique branch for re
+
+~ ^ Make plps files output Tree::Grammar structs
+~ ^ Tweak Tree::Grammar for parsing C, C++, Perl and peso
+
+~ Turn peso into a proper IR
 
 *>Makescript
 x Replace crude gcc wrappers with a class

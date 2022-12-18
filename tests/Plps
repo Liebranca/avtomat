@@ -5,6 +5,8 @@
 # ---   *   ---   *   ---
 # deps
 
+package Plps;
+
   use v5.36.0;
   use strict;
   use warnings;
@@ -19,7 +21,55 @@
   use Arstd::IO;
   use Tree::Grammar;
 
+  use lib $ENV{'ARPATH'}.'/avtomat/';
+
+  use Lang;
+  use Lang::Peso;
+
+  use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
+  use Shwl;
+
 # ---   *   ---   *   ---
+# ROM
+
+  my $PENUM_RE  = qr{
+    (?: \$ [0-9A-Fa-f\.:]+ )
+  | (?: v[0-9]\.[0-9]{2}\.[0-9][ab]? )
+
+  }x;
+
+  my $PEBARE_RE = qr{
+    [_A-Za-z]
+    (?: [_A-Za-z0-9+] | -> | ::)+
+
+  }x;
+
+  my $SIGGED_RE = $PEBARE_RE;
+
+  my $OPS_RE    = Lang->Peso->{ops};
+
+  my $PEARI_RE  = qr{
+
+    (?: $PEBARE_RE|$PENUM_RE)? \s*
+
+    (?: $OPS_RE) \s*
+
+    (?: $PEBARE_RE|$PENUM_RE)?
+
+  }x;
+
+  my $PEVAL_RE  = qr{
+
+    $PEARI_RE
+  | $PENUM_RE
+  | $PEBARE_RE
+
+  | $Shwl::CUT_RE
+
+  }x;
+
+# ---   *   ---   *   ---
+# make tree root
 
 my $f    = Tree::Grammar->get_frame();
 my $top  = $f->nit(
@@ -31,126 +81,158 @@ my $top  = $f->nit(
 );
 
 # ---   *   ---   *   ---
+# branch A: file header
 
-my $header=$f->nit(
+my $term;
 
-  value  => 'header',
-  parent => $top,
+{
 
-  action => undef,
+  my $header=$top->init('header');
 
-);
+  $header->init(
 
-$f->nit(
+    qr{\$|\%}x,
+    action=>'capt',
 
-  value  => qr{\$|\%}x,
-  parent => $header,
+  );
 
-  action => \&Tree::Grammar::push_to_anchor,
+  $header->init(
 
-);
+    qr{[^;]+},
 
-$f->nit(
+    action   => 'capt',
+    optional => 1,
 
-  value    => qr{[^;]+},
-  parent   => $header,
+  );
 
-  action   => \&Tree::Grammar::push_to_anchor,
-  optional => 1,
+  $term=$header->init(
 
-);
+    qr{;},
+    action=>'term'
 
-my $term = $f->nit(
+  );
 
-  value  => qr{;},
-  parent => $header,
-
-  action => \&Tree::Grammar::term,
-
-);
+};
 
 # ---   *   ---   *   ---
+# branch B: line comment
 
-my $comment=$f->nit(
+{
 
-  value  => 'comment',
-  parent => $top,
+  my $comment=$top->init('comment');
 
-  action => undef,
+  $comment->init(
+    qr{\x{23}+ [\S\x{20}]* \x{0A}}sx
 
-);
+  );
 
-$f->nit(
-
-  value  => qr{\x{23}+ [\S\x{20}]* \x{0A}}sx,
-  parent => $comment,
-
-  action => undef,
-
-);
+};
 
 # ---   *   ---   *   ---
-#
-#my $expr=$f->nit(
-#
-#  value  => 'expr',
-#  parent => $top,
-#
-#  action => undef,
-#
-#);
-#
-## ---   *   ---   *   ---
-#
-#my $fn=$f->nit(
-#
-#  value  => 'fn',
-#  parent => $expr,
-#
-#  action => undef,
-#
-#);
-#
-#$f->nit(
-#
-#  value  => qr{\w+},
-#  parent => $fn,
-#
-#  action => \&Tree::Grammar::push_to_anchor,
-#
-#);
-#
-## ---   *   ---   *   ---
-#
-#my $value=$f->nit(
-#
-#  value  => 'value',
-#  parent => $expr,
-#
-#  action => undef,
-#
-#);
-#
-#$f->nit(
-#
-#  value  => qr{\d+},
-#  parent => $value,
-#
-#  action => \&Tree::Grammar::push_to_anchor,
-#
-#);
-#
-#$f->nit(
-#
-#  value    => qr{,},
-#  parent   => $value,
-#
-#  action   => \&Tree::Grammar::rew,
-#  optional => 1,
-#
-#);
-#
-#$expr->pushlv($term->dup());
+# test post-match action
+
+sub hsort($tree,$branch,$match) {
+
+  my $st=$match->bhash(0,1);
+
+  say $st->{nid};
+  say @{$st->{args}};
+
+};
+
+# ---   *   ---   *   ---
+# branch C: hierarchicals
+
+{
+
+  my $hier = $top->init(
+
+    'hier',
+
+    dom    => 'Plps',
+    action => 'hsort',
+
+  );
+
+  my $nid  = $hier->init('nid');
+  my $args = $hier->init('args');
+
+  my $insens=join q[|],
+    Lang::insens('rom'),
+    Lang::insens('reg'),
+    Lang::insens('clan'),
+    Lang::insens('proc'),
+
+  ;
+
+  $nid->init(
+
+    qr{$insens}x,
+    action=>'capt',
+
+  );
+
+
+  $args->init(
+
+    $SIGGED_RE,
+    action=>'capt',
+
+  );
+
+  $hier->pushlv($term->dup());
+
+};
+
+# ---   *   ---   *   ---
+# branch D: default expression
+
+{
+
+  my $expr = $top->init('expr');
+
+  my $nid  = $expr->init('nid');
+  my $args = $expr->init('args');
+
+  $nid->init(
+
+    $SIGGED_RE,
+    action=>'capt',
+
+  );
+
+  my $eterm=$term->dup();
+  $eterm->{optional}=1;
+  $args->pushlv($eterm);
+
+  $args->init(
+
+    $PEVAL_RE,
+    action=>'capt',
+
+  );
+
+  $args->init(
+
+    qr{,},
+
+    action   => 'rew',
+    optional => 1,
+
+  );
+
+  $args->init(
+
+    $PEVAL_RE,
+
+    action   => 'crew',
+    optional => 1,
+
+  );
+
+  $args->pushlv($term->dup());
+
+};
 
 # ---   *   ---   *   ---
 
@@ -158,10 +240,39 @@ my $prog   = orc('plps/peso.rom');
 $prog      =~ m[([\S\s]+)\s*STOP]x;
 $prog      = ${^CAPTURE[0]};
 
+my $strtok={};
+
+for my $key(qw(
+
+  strings
+  chars
+  pesc
+
+)) {
+
+  Shwl::cut(
+    \$prog,(uc $key),Lang->Peso->{$key}
+
+  );
+
+  $strtok={%$strtok,%{Shwl::DUMPSTRINGS()}};
+
+};
+
 my $result = $top->parse($prog);
 
-say "in: $prog\n";
-$result->prich();
+$result->sweep(qr{comment});
+
+for my $branch(
+  $result->branches_in($Shwl::CUT_RE)
+
+) {
+
+  $branch->{value}=$strtok->{$branch->{value}};
+
+};
+
+#$result->prich();
 
 # ---   *   ---   *   ---
 1; # ret
