@@ -80,11 +80,12 @@ package Plps;
 
   }x;
 
-  my $SIGGED_RE = $PEBARE_RE;
+  my $SIGGED_RE  = $PEBARE_RE;
+  my $NONTERM_RE = qr{(?: [^;] | \\; )+}x;
 
-  my $OPS_RE    = Lang->Peso->{ops};
+  my $OPS_RE     = Lang->Peso->{ops};
 
-  my $PEARI_RE  = qr{
+  my $PEARI_RE   = qr{
 
     (?: $PEBARE_RE|$PENUM_RE)? \s*
 
@@ -94,7 +95,7 @@ package Plps;
 
   }x;
 
-  my $PEVAL_RE  = qr{
+  my $PEVAL_RE   = qr{
 
     $PEARI_RE
   | $PENUM_RE
@@ -103,66 +104,6 @@ package Plps;
   | $Shwl::CUT_RE
 
   }x;
-
-# ---   *   ---   *   ---
-# make tree root
-
-my $f    = Tree::Grammar->get_frame();
-my $top  = $f->nit(
-
-  value  => 'peso',
-  parent => undef,
-  action => undef,
-
-);
-
-# ---   *   ---   *   ---
-# branch A: file header
-
-my $term;
-
-{
-
-  my $header=$top->init('header');
-
-  $header->init(
-
-    qr{\$|\%}x,
-    action=>'capt',
-
-  );
-
-  $header->init(
-
-    qr{[^;]+},
-
-    action   => 'capt',
-    optional => 1,
-
-  );
-
-  $term=$header->init(
-
-    qr{;},
-    action=>'term'
-
-  );
-
-};
-
-# ---   *   ---   *   ---
-# branch B: line comment
-
-{
-
-  my $comment=$top->init('comment');
-
-  $comment->init(
-    qr{\x{23}+ [\S\x{20}]* \x{0A}}sx
-
-  );
-
-};
 
 # ---   *   ---   *   ---
 
@@ -219,9 +160,9 @@ sub xt2($fr,$ckey,$st,$match,$idex) {
 # ---   *   ---   *   ---
 # :
 
-sub xt($match) {
+sub xt($match,@bh) {
 
-  my $st   = $match->bhash(0,1);
+  my $st   = $match->bhash(@bh);
   my $fr   = Plps->get_frame();
 
   my $nid  = uc $st->{nid};
@@ -245,37 +186,28 @@ sub xt($match) {
   };
 
   xt2($fr,$ckey,$st,$match,\@idex);
-  return ($nid,$fr->{-clan_c},@args);
+  return ($st,$fr->{-clan_c});
 
 };
 
 # ---   *   ---   *   ---
 # test post-match action
 
-sub hsort($tree,$branch,$match) {
+sub hsort($tree,$branch,$match,$bh=[0,1]) {
 
-  my (
+  my ($st,$clan)=xt($match,@$bh);
 
-    $nid,
-    $clan,
+  if($st->{nid}=~ m[REG|ROM|CLAN|PROC]) {
 
-    @args
-
-  )=xt($match);
-
-  if($nid=~ m[REG|ROM|CLAN|PROC]) {
-
-    $match->{value}=$args[0];
+    $match->{value}=$st->{args}->[0];
     $match->clear_branches();
-
-    $match->{value}=$branch->{value};
 
   } else {
 
-    $match->{value}=$branch->{value};
+    $match->{value}=$st->{nid};
 
     $match->pluck(
-      $match->branch_in(qr{nid})
+      $match->branch_in(qr{$st->{nid}})
 
     );
 
@@ -286,8 +218,7 @@ sub hsort($tree,$branch,$match) {
 
   };
 
-  $match->{-peso_t}=$nid;
-  return @args;
+  return $st;
 
 };
 
@@ -298,9 +229,10 @@ sub wed($tree,$branch,$match) {
 
   my $fr    = Plps->get_frame();
 
-  my @flags = hsort($tree,$branch,$match);
+  my $st    = hsort($tree,$branch,$match);
   my $flip  = $match->{-peso_t} eq 'WED';
 
+  my @flags = @{$st->{args}};
   my @wtype = ();
 
   for my $switch(@flags) {
@@ -316,6 +248,7 @@ sub wed($tree,$branch,$match) {
   };
 
   $fr->{-wtype}=(join q[ ],@wtype)
+
   if @wtype ne $NULLSTR;
 
   if($fr->{-flags}->{-qwor}) {
@@ -329,123 +262,257 @@ sub wed($tree,$branch,$match) {
 };
 
 # ---   *   ---   *   ---
-# branch C: hierarchicals
 
-{
+sub pere($tree,$branch,$match) {
 
-  my $hier = $top->init(
+  my $st = hsort($tree,$branch,$match,[0,0,1]);
+  my $fr = Plps->get_frame();
 
-    'hier',
-
-    dom    => 'Plps',
-    action => 'hsort',
-
-  );
-
-  my $nid  = $hier->init('nid');
-  my $args = $hier->init('args');
-
-  my $insens=join q[|],
-    Lang::insens('rom'),
-    Lang::insens('reg'),
-    Lang::insens('clan'),
-    Lang::insens('proc'),
-
-  ;
-
-  $nid->init(
-
-    qr{$insens}x,
-    action=>'capt',
-
-  );
-
-
-  $args->init(
-
-    $SIGGED_RE,
-    action=>'capt',
-
-  );
-
-  $hier->pushlv($term->dup());
+  $match->prich();
 
 };
 
 # ---   *   ---   *   ---
+# make tree root
+
+BEGIN {
+
+  my $f    = Tree::Grammar->get_frame();
+
+  $Top     = $f->nit(
+
+    value  => 'peso',
+    parent => undef,
+    action => undef,
+
+  );
+
+# ---   *   ---   *   ---
+# branch A: file header
+
+  {
+
+    my $header=$Top->init('header');
+
+    $header->init(
+
+      qr{\$|\%}x,
+      action=>'capt',
+
+    );
+
+    $header->init(
+
+      $NONTERM_RE,
+
+      action   => 'capt',
+      optional => 1,
+
+    );
+
+    $Term=$header->init(
+
+      qr{(?!< \\);},
+      action=>'term'
+
+    );
+
+  };
+
+# ---   *   ---   *   ---
+# branch B: line comment
+
+  {
+
+    my $comment=$Top->init('comment');
+
+    $comment->init(
+      qr{\x{23}+ [\S\x{20}]* \x{0A}}sx
+
+    );
+
+  };
+
+# ---   *   ---   *   ---
+# branch C: hierarchicals
+
+  {
+
+    my $hier = $Top->init(
+
+      'hier',
+
+      dom    => 'Plps',
+      action => 'hsort',
+
+    );
+
+    my $nid  = $hier->init('nid');
+    my $args = $hier->init('args');
+
+    my $insens=join q[|],
+      Lang::insens('rom'),
+      Lang::insens('reg'),
+      Lang::insens('clan'),
+      Lang::insens('proc'),
+
+    ;
+
+    $nid->init(
+
+      qr{$insens}x,
+      action=>'capt',
+
+    );
+
+
+    $args->init(
+
+      $SIGGED_RE,
+      action=>'capt',
+
+    );
+
+    $hier->pushlv($Term->dup());
+
+  };
+
+# ---   *   ---   *   ---
+
+  {
+
+    my $pere=$Top->init(
+
+      'pere',
+
+      dom    => 'Plps',
+      action => 'pere',
+
+    );
+
+    my $nid  = $pere->init('nid');
+    my $name = $pere->init('name');
+    my $args = $pere->init('args');
+
+    my $pat  = Lang::insens('re');
+
+    $nid->init(
+      qr{$pat}x,
+      action=>'capt',
+
+    );
+
+    $name->init(
+
+      $SIGGED_RE,
+      action=>'capt',
+
+    );
+
+    $args->init(
+
+      $NONTERM_RE,
+      action=>'capt',
+
+    );
+
+    $args->pushlv($Term->dup());
+
+  };
+
+# ---   *   ---   *   ---
 # branch D: default expression
 
-{
+  {
 
-  my $expr = $top->init(
+    my $expr = $Top->init(
 
-    'expr',
+      'expr',
 
-    dom    => 'Plps',
-    action => 'hsort',
+      dom    => 'Plps',
+      action => 'hsort',
 
-  );
+    );
 
-  my $nid  = $expr->init('nid');
-  my $args = $expr->init('args');
+    my $nid  = $expr->init('nid');
+    my $args = $expr->init('args');
 
-  $nid->init(
+    $nid->init(
 
-    $SIGGED_RE,
-    action=>'capt',
+      $SIGGED_RE,
+      action=>'capt',
 
-  );
+    );
 
-  my $eterm=$term->dup();
-  $eterm->{optional}=1;
-  $args->pushlv($eterm);
+    my $eterm=$Term->dup();
+    $eterm->{optional}=1;
+    $args->pushlv($eterm);
 
-  $args->init(
+    $args->init(
 
-    $PEVAL_RE,
-    action=>'capt',
+      $PEVAL_RE,
+      action=>'capt',
 
-  );
+    );
 
-  $args->init(
+    $args->init(
 
-    qr{,},
+      qr{(?!< \\) ,}x,
 
-    action   => 'rew',
-    optional => 1,
+      action   => 'rew',
+      optional => 1,
 
-  );
+    );
 
-  $args->init(
+    $args->init(
 
-    $PEVAL_RE,
+      $PEVAL_RE,
 
-    action   => 'crew',
-    optional => 1,
+      action   => 'crew',
+      optional => 1,
 
-  );
+    );
 
-  $args->pushlv($term->dup());
+    $args->pushlv($Term->dup());
 
-  my $tmp = $expr->dup();
-  my $wed = $expr;
+    my $tmp = $expr->dup();
+    my $wed = $expr;
 
-  $wed->{value}  = 'switch';
-  $wed->{action} = \&wed;
+    $wed->{value}  = 'switch';
+    $wed->{action} = \&wed;
 
-  my $wre=join q[|],(
+    my $wre=join q[|],(
 
-    Lang::insens('wed'),
-    Lang::insens('unwed'),
+      Lang::insens('wed'),
+      Lang::insens('unwed'),
 
-  );
+    );
 
-  $wed->{leaves}->[0]
-  ->{leaves}->[0]->{value}=qr{$wre}x;
+    $wed->{leaves}->[0]
+    ->{leaves}->[0]->{value}=qr{$wre}x;
 
-  $top->pushlv($tmp);
+    $Top->pushlv($tmp);
+
+  };
 
 };
+
+# ---   *   ---   *   ---
+
+package main;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use English qw(-no_match_vars);
+
+  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+
+  use Style;
+  use Fmat;
+
+  use Arstd::IO;
 
 # ---   *   ---   *   ---
 
@@ -453,26 +520,8 @@ my $prog   = orc('plps/peso.rom');
 $prog      =~ m[([\S\s]+)\s*STOP]x;
 $prog      = ${^CAPTURE[0]};
 
-my $strtok={};
-
-for my $key(qw(
-
-  strings
-  chars
-  pesc
-
-)) {
-
-  Shwl::cut(
-    \$prog,(uc $key),Lang->Peso->{$key}
-
-  );
-
-  $strtok={%$strtok,%{Shwl::DUMPSTRINGS()}};
-
-};
-
-my $result = $top->parse($prog);
+my $strtok = Plps::codefold(\$prog);
+my $result = Plps->parse($prog);
 
 $result->sweep(qr{comment});
 

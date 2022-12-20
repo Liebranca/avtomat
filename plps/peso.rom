@@ -27,8 +27,6 @@ ROM std;
   byte  sep  $2C;
 
   wed   -qwor;
-  unwed -qwor;
-STOP
   re    type
 
     byte wide brad word
@@ -37,6 +35,8 @@ STOP
     nihil stark signal
 
   ;
+
+STOP
 
   re    spec ptr fptr str buf tab re;
 

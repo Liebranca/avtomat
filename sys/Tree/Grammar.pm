@@ -42,9 +42,9 @@ package Tree::Grammar;
 sub nit($class,$frame,%O) {
 
   # defaults
-  $O{action}   //= $NULLSTR;
-  $O{dom}      //= $class;
-  $O{optional} //= 0;
+  $O{fn}  //= $NULLSTR;
+  $O{dom} //= $class;
+  $O{opt} //= 0;
 
   # get instance
   my $self=Tree::nit(
@@ -62,22 +62,22 @@ sub nit($class,$frame,%O) {
 # ---   *   ---   *   ---
 # setup post-match actions
 
-  if(!is_coderef($O{action})) {
+  if(!is_coderef($O{fn})) {
 
-    if($O{action} ne $NULLSTR) {
+    if($O{fn} ne $NULLSTR) {
 
-      $O{action}=
-        eval '\&'.$O{dom}.'::'.$O{action};
+      $O{fn}=
+        eval '\&'.$O{dom}.'::'.$O{fn};
 
     } else {
-      $O{action}=$NOOP;
+      $O{fn}=$NOOP;
 
     };
 
   };
 
-  $self->{action}   = $O{action};
-  $self->{optional} = $O{optional};
+  $self->{fn}  = $O{fn};
+  $self->{opt} = $O{opt};
 
   return $self;
 
@@ -116,7 +116,7 @@ sub dup($self) {
     my $cpy=$nd->{frame}->nit(
 
       value  => $nd->{value},
-      action => $nd->{action},
+      action => $nd->{fn},
 
       parent => (@anchor)
         ? (shift @anchor)
@@ -125,7 +125,7 @@ sub dup($self) {
 
     );
 
-    $cpy->{optional}=$nd->{optional};
+    $cpy->{opt}=$nd->{opt};
 
     $out//=$cpy;
 
@@ -255,7 +255,7 @@ sub match($self,$s) {
     $st->attempt(\$s);
 
     # early exit if no match on
-    # non-optional token
+    # non-opt token
     if($st->{matches} < $st->{mint}) {
       last;
 
@@ -305,14 +305,14 @@ sub parse($self,$s) {
 
         $tree->pushlv($match);
 
-        $branch->{action}->(
+        $branch->{fn}->(
 
           $tree,
 
           $branch,
           $match,
 
-        ) if $branch->{action} ne $NOOP;
+        ) if $branch->{fn} ne $NOOP;
 
         $s=$ds;
         $matched|=1;
@@ -385,7 +385,7 @@ sub attempt_match($self,$sref) {
 
   my $re=$self->{re};
 
-  $self->{mint}+=!$self->{nd}->{optional};
+  $self->{mint}+=!$self->{nd}->{opt};
 
   $self->{capt}=undef;
 
@@ -397,15 +397,15 @@ sub attempt_match($self,$sref) {
 
   };
 
-  $self->{matches}+=!$self->{nd}->{optional};
+  $self->{matches}+=!$self->{nd}->{opt};
 
   my $has_action=
 
-     defined $self->{nd}->{action}
-  && $self->{nd}->{action} ne $NOOP
+     defined $self->{nd}->{fn}
+  && $self->{nd}->{fn} ne $NOOP
   ;
 
-  $self->{nd}->{action}->($self)
+  $self->{nd}->{fn}->($self)
   if $has_action;
 
   $self->{capt}=undef;
