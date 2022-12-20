@@ -5,31 +5,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package Plps;
 
-  use v5.36.0;
-  use strict;
-  use warnings;
-
-  use English qw(-no_match_vars);
-
-  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
-
-  use Style;
-  use Fmat;
-
-  use Arstd::IO;
-  use Tree::Grammar;
-
-  use parent 'St';
-
-  use lib $ENV{'ARPATH'}.'/avtomat/';
-
-  use Lang;
-  use Lang::Peso;
-
-  use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
-  use Shwl;
 
 # ---   *   ---   *   ---
 # ROM

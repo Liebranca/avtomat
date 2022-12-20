@@ -530,6 +530,8 @@ sub pehexnc($x) {
   my $r=0;
   my $i=0;
 
+  $x=~ s[^\$][];
+
   for my $c(reverse split $NULLSTR,$x) {
 
     if($c=~ m/[hHlL]/) {
@@ -558,6 +560,8 @@ sub peoctnc($x) {
 
   my $r=0;
   my $i=0;
+
+  $x=~ s[^\\][];
 
   for my $c(reverse split $NULLSTR,$x) {
 
@@ -629,6 +633,13 @@ sub insens($s) {
   };
 
   return '('.$out.')';
+
+};
+
+# ---   *   ---   *   ---
+
+sub nonscap($s) {
+  return qr{(?!< \\$s) $s}x;
 
 };
 

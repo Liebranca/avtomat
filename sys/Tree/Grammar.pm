@@ -143,7 +143,10 @@ sub dup($self) {
 
 sub rew($st) {
 
-  $st->{pending}=[$st->{nd}->{parent}];
+  $st->{pending}=[@{
+    $st->{nd}->{parent}->{leaves}
+
+  }];
 
 };
 
@@ -207,11 +210,13 @@ sub match_st($self) {
 
     matches => 0,
     mint    => 0,
+    mlast   => 0,
 
     re      => undef,
     key     => undef,
 
     kls     => $self->{value},
+    fn      => [],
 
   },'Tree::Grammar::Matcher';
 
@@ -251,20 +256,20 @@ sub match($self,$s) {
 
     last if !length $s;
 
-    $st->get_next();
-    $st->attempt(\$s);
-
-    # early exit if no match on
-    # non-opt token
-    if($st->{matches} < $st->{mint}) {
-      last;
+    if(!$st->get_next()) {
+      $st->branch_fn();
+      next;
 
     };
+
+    $st->attempt(\$s);
 
     unshift
 
       @{$st->{pending}},
-      @{$st->{nd}->{leaves}}
+      @{$st->{nd}->{leaves}},
+
+      0
 
     ;
 
@@ -306,11 +311,7 @@ sub parse($self,$s) {
         $tree->pushlv($match);
 
         $branch->{fn}->(
-
-          $tree,
-
-          $branch,
-          $match,
+          $tree,$match
 
         ) if $branch->{fn} ne $NOOP;
 
@@ -355,6 +356,7 @@ package Tree::Grammar::Matcher;
 sub get_next($self) {
 
   $self->{nd}  = shift @{$self->{pending}};
+  goto TAIL if !$self->{nd};
 
   $self->{key} =
   $self->{re}  = $self->{nd}->{value}
@@ -362,6 +364,9 @@ sub get_next($self) {
 
   $self->{re}  = undef if !is_qre($self->{re});
   $self->{key} = undef if defined $self->{re};
+
+TAIL:
+  return $self->{nd};
 
 };
 
@@ -380,6 +385,19 @@ sub attempt($self,$sref) {
 };
 
 # ---   *   ---   *   ---
+# current node has a coderef
+
+sub has_action($self) {
+
+  return
+
+     defined $self->{nd}->{fn}
+  && $self->{nd}->{fn} ne $NOOP
+  ;
+
+};
+
+# ---   *   ---   *   ---
 
 sub attempt_match($self,$sref) {
 
@@ -390,23 +408,21 @@ sub attempt_match($self,$sref) {
   $self->{capt}=undef;
 
   if($$sref=~ s[^\s*($re)\s*][]) {
+
+    $self->{mlast}=1;
     $self->{capt}=${^CAPTURE[0]};
 
   } else {
+
+    $self->{mlast}=0;
     goto TAIL;
 
   };
 
   $self->{matches}+=!$self->{nd}->{opt};
 
-  my $has_action=
-
-     defined $self->{nd}->{fn}
-  && $self->{nd}->{fn} ne $NOOP
-  ;
-
   $self->{nd}->{fn}->($self)
-  if $has_action;
+  if $self->has_action();
 
   $self->{capt}=undef;
 
@@ -417,17 +433,76 @@ TAIL:
 
 # ---   *   ---   *   ---
 
+sub flowop($self) {
+
+  my $out=0;
+
+  if($self->{key} eq q[|]) {
+
+    if(!$self->{lmatch}) {
+      $self->{mint}--;
+
+    };
+
+    $out=1;
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+
 sub expand_tree($self) {
 
-  $self->{anchor}=$self->{frame}->nit(
-    $self->{root},$self->{key}
 
-  ) unless(
+  if($self->flowop()) {
+    ;
 
-     $self->{key}
-  eq $self->{anchor}->{value}
+  } else {
 
-  );
+    if(!(
+
+       $self->{key}
+    eq $self->{anchor}->{value}
+
+    )) {
+
+      $self->{anchor}=$self->{frame}->nit(
+        $self->{root},$self->{key}
+
+      );
+
+    };
+
+    push @{$self->{fn}},[
+      $self->{anchor},
+      $self->{nd}->{fn}
+
+    ] if $self->has_action();
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# execute actions for a non-re branch
+
+sub branch_fn($self) {
+
+  my $ref=pop @{$self->{fn}};
+  goto TAIL if !defined $ref;
+
+  if($self->{matches} == $self->{mint}) {
+
+    my ($branch,$fn)=@$ref;
+    $fn->($self->{root},$branch);
+
+  };
+
+TAIL:
+  return;
 
 };
 

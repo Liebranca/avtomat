@@ -35,15 +35,69 @@ package Grammar::peso;
 
   my $REGEX={
 
-    nhex  => qr{\$ [0-9A-Fa-f\.:]+}x,
-    term  => qr{(?!< \\);}x,
+    hexn  => qr{\$  [0-9A-Fa-f\.:]+}x,
+    octn  => qr{\\ [0-7\.:]+}x,
+    binn  => qr{0b  [0-1\.:]+}x,
+    decn  => qr{[0-9\.:]+}x,
+
+    term  => Lang::nonscap(';'),
+    sep   => Lang::nonscap(','),
+
+  };
+
+  my $HEX={
+
+    name => $REGEX->{hexn},
+    fn   => 'capt',
+
+  };
+
+  my $OCT={
+
+    name => $REGEX->{octn},
+    fn   => 'capt',
+
+  };
+
+  my $BIN={
+
+    name => $REGEX->{binn},
+    fn   => 'capt',
+
+  };
+
+  my $DEC={
+
+    name => $REGEX->{decn},
+    fn   => 'capt',
 
   };
 
   my $NUM={
 
-    name => $REGEX->{nhex},
-    fn   => 'capt',
+    name => 'num',
+    fn   => 'rdnum',
+
+    dom  => 'Grammar::peso',
+
+    chld => [
+
+      $HEX,$Grammar::OR,
+      $OCT,$Grammar::OR,
+      $BIN,$Grammar::OR,
+
+      $DEC
+
+    ],
+
+  };
+
+  my $COMMA={
+
+    name => $REGEX->{sep},
+    fn   => 'rew',
+
+    opt  => 1,
 
   };
 
@@ -61,14 +115,50 @@ package Grammar::peso;
 
 # ---   *   ---   *   ---
 
+sub rdnum($tree,$match) {
+
+  state %converter=(
+
+    hexn=>\&Lang::pehexnc,
+    octn=>\&Lang::peoctnc,
+    binn=>\&Lang::pebinnc,
+
+  );
+
+  for my $type(keys %converter) {
+
+    my $fn=$converter{$type};
+
+    map {
+
+      $ARG->{value}=$fn->(
+        $ARG->{value}
+
+      );
+
+    } $match->branches_in(
+      $REGEX->{$type}
+
+    );
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
   Grammar::peso->mkrules({
 
     name=>'ex',
-    chld=>[$NUM,$TERM],
+    chld=>[$NUM,$COMMA,$TERM],
 
   });
 
-  my $t=Grammar::peso->parse(q[$10;]);
+  my $t=Grammar::peso->parse(q[
+    0b10,\10,$10,10;
+
+  ]);
+
   $t->prich();
 
 # ---   *   ---   *   ---

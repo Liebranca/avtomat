@@ -30,6 +30,14 @@ package Grammar;
   use parent 'St';
 
 # ---   *   ---   *   ---
+# ROM
+
+  our $OR={
+    name=>q[|]
+
+  };
+
+# ---   *   ---   *   ---
 # global state
 
   our $Top;
