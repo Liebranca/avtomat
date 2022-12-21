@@ -556,10 +556,10 @@ sub leafless($self,%O) {
   $O{give_parent}//=0;
   $O{max_depth}//=0x24;
 
-  my $depth=0;
+  my $depth  = 0;
 
-  my @leaves=($self);
-  my @result=();
+  my @leaves = ($self);
+  my @out    = ();
 
 # ---   *   ---   *   ---
 # walk the hierarchy
@@ -567,6 +567,7 @@ sub leafless($self,%O) {
   while(@leaves) {
 
     $self=shift @leaves;
+
     if($self eq 0) {$depth--;next}
     elsif($self eq 1) {$depth++;next};
 
@@ -576,14 +577,14 @@ sub leafless($self,%O) {
 
         my $par=$self->{parent};
 
-        push @result,$par
+        push @out,$par
         if defined $par
-        && !(grep {$par eq $ARG} @result);
+        && !(grep {$par eq $ARG} @out);
 
         next;
 
       } else {
-        push @result,$self;
+        push @out,$self;
 
       };
 
@@ -598,13 +599,8 @@ sub leafless($self,%O) {
 # optionally return a specific element
 # else whole array is given
 
-  my $out=\@result;
-  if(defined $O{i}) {
-    $out=$result[$O{i}];
-
-  };
-
-  return $out;
+  @out=$out[$O{i}] if defined $O{i};
+  return @out;
 
 };
 
@@ -810,6 +806,11 @@ sub branch_values($self) {
 
 sub leaf_value($self,$idex) {
   return $self->{leaves}->[$idex]->{value};
+
+};
+
+sub leafless_values($self,%O) {
+  return map {$ARG->{value}} $self->leafless(%O);
 
 };
 

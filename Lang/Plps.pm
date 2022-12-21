@@ -212,7 +212,7 @@ sub tagv($program,$tag) {
     };
 
     if(is_hashref($v)) {
-      $v=Lang::hashpat($v);
+      $v=Lang::eiths([keys %$v]);
 
     };
 

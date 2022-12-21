@@ -429,8 +429,9 @@ sub find_args($self) {
 
     @args=map {Shwl::Arg->nit($ARG)} @args;
 
-    $args_re=Lang::arrpat(
-      [map {$ARG->{name}} @args],0,1
+    $args_re=Lang::eiths(
+      [map {$ARG->{name}} @args],
+      escape=>1
 
     );
 

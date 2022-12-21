@@ -805,8 +805,8 @@ sub call($self,$key,@args) {
 
   $proc->{-r_args}=\%pass;
 
-  $proc->{-r_args_re}=Lang::hashpat(
-    $proc->{-r_args}
+  $proc->{-r_args_re}=Lang::eiths(
+    [keys %{$proc->{-r_args}}]
 
   );
 
@@ -1383,7 +1383,7 @@ $Lan->{Sbl_Common}={
 };
 
 # ^matches each key on the subtab
-$CM_RE=Lang::hashpat($Lan->{Sbl_Common});
+$CM_RE=Lang::eiths([keys %{$Lan->{Sbl_Common}}]);
 
 # ---   *   ---   *   ---
 # LEGACY STUFF

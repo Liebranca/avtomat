@@ -19,6 +19,7 @@ package Grammar::peso;
   use strict;
   use warnings;
 
+  use Readonly;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/avtomat/sys/';
@@ -33,7 +34,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # ROM
 
-  my $REGEX={
+  Readonly my $REGEX=>{
 
     hexn  => qr{\$  [0-9A-Fa-f\.:]+}x,
     octn  => qr{\\ [0-7\.:]+}x,
@@ -43,37 +44,72 @@ package Grammar::peso;
     term  => Lang::nonscap(';'),
     sep   => Lang::nonscap(','),
 
+    vname => qr{
+
+      [_A-Za-z][_A-Za-z0-9:\.]*
+
+    }x,
+
+    type  => Lang::eiths(
+
+    [qw(
+
+      byte wide brad word
+      unit half line page
+
+      nihil stark signal
+
+    )],
+
+      bwrap=>1
+
+    ),
+
+    spec  => Lang::eiths(
+
+    [qw(
+
+      ptr fptr str buf tab
+
+    )],
+
+      bwrap=>1
+
+    ),
+
   };
 
-  my $HEX={
+# ---   *   ---   *   ---
+# numerical notation
 
+  Readonly my $HEX=>{
     name => $REGEX->{hexn},
     fn   => 'capt',
 
   };
 
-  my $OCT={
-
+  Readonly my $OCT=>{
     name => $REGEX->{octn},
     fn   => 'capt',
 
   };
 
-  my $BIN={
-
+  Readonly my $BIN=>{
     name => $REGEX->{binn},
     fn   => 'capt',
 
   };
 
-  my $DEC={
-
+  Readonly my $DEC=>{
     name => $REGEX->{decn},
     fn   => 'capt',
 
   };
 
-  my $NUM={
+# ---   *   ---   *   ---
+# ^combined into a single rule
+
+  Readonly my $NUM=>{
 
     name => 'num',
     fn   => 'rdnum',
@@ -92,7 +128,10 @@ package Grammar::peso;
 
   };
 
-  my $COMMA={
+# ---   *   ---   *   ---
+# lets call these "syntax ops"
+
+  Readonly my $CLIST=>{
 
     name => $REGEX->{sep},
     fn   => 'rew',
@@ -101,10 +140,79 @@ package Grammar::peso;
 
   };
 
-  my $TERM={
-
+  Readonly my $TERM=>{
     name => $REGEX->{term},
     fn   => 'term',
+
+  };
+
+# ---   *   ---   *   ---
+
+  Readonly my $TYPE=>{
+    name => $REGEX->{type},
+    fn   => 'capt',
+
+  };
+
+  Readonly my $SPEC=>{
+    name => $REGEX->{spec},
+    fn   => 'capt',
+
+    opt  => 1,
+
+  };
+
+  Readonly my $VNAME=>{
+    name => $REGEX->{vname},
+    fn   => 'capt',
+
+  };
+
+# ---   *   ---   *   ---
+
+  Readonly my $FULL_TYPE=>{
+    name => 'type',
+    chld => [$TYPE,$SPEC],
+
+  };
+
+  Readonly my $NLIST=>{
+    name => 'vnames',
+    chld => [$VNAME,$CLIST],
+
+  };
+
+  Readonly my $VLIST=>{
+
+    name => 'values',
+
+    fn   => 'list_flatten',
+    dom  => 'Grammar::peso',
+
+    chld => [$NUM,$CLIST],
+
+  };
+
+# ---   *   ---   *   ---
+# ^combo
+
+  Readonly my $PTR_DECL=>{
+
+    name => 'ptr_decl',
+
+    fn   => 'ptr_decl',
+    dom  => 'Grammar::peso',
+
+    chld => [
+
+      $FULL_TYPE,
+
+      $NLIST,
+      $VLIST,
+
+      $TERM
+
+    ],
 
   };
 
@@ -114,6 +222,8 @@ package Grammar::peso;
   our $Top;
 
 # ---   *   ---   *   ---
+# converts all numerical
+# notations to decimal
 
 sub rdnum($tree,$match) {
 
@@ -146,16 +256,42 @@ sub rdnum($tree,$match) {
 };
 
 # ---   *   ---   *   ---
+# turns trees with the structure:
+#
+# ($match)
+# \-->subtype
+# .  \-->value
+#
+# into:
+#
+# ($match)
+# \-->value
 
-  Grammar::peso->mkrules({
+sub list_flatten($tree,$match) {
 
-    name=>'ex',
-    chld=>[$NUM,$COMMA,$TERM],
+  for my $branch(@{$match->{leaves}}) {
+    $branch->flatten_branch();
 
-  });
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+sub ptr_decl($tree,$match) {
+
+  use Fmat;
+  fatdump($match->bhash(1,1,1));
+
+};
+
+# ---   *   ---   *   ---
+# test
+
+  Grammar::peso->mkrules($PTR_DECL);
 
   my $t=Grammar::peso->parse(q[
-    0b10,\10,$10,10;
+    byte x $00;
 
   ]);
 

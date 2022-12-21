@@ -18,6 +18,7 @@ package Arstd::Array;
   use strict;
   use warnings;
 
+  use Readonly;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys';
@@ -41,6 +42,7 @@ package Arstd::Array;
     array_insert
 
     array_key_idex
+    array_sort
 
   );
 
@@ -53,10 +55,15 @@ package Arstd::Array;
 # ---   *   ---   *   ---
 # ROM
 
-  my $NO_BLANKS=sub {
+  Readonly my $NO_BLANKS=>sub {
 
      defined $ARG
   && length  $ARG
+
+  };
+
+  Readonly my $LEN_SORT=>sub {
+    (length $a)<=(length $b);
 
   };
 
@@ -206,6 +213,16 @@ sub key_idex($ar) {
 };
 
 # ---   *   ---   *   ---
+# sorts by length
+
+sub nsort($ar,$block=undef) {
+
+  $block//=$LEN_SORT;
+  return sort $block,@$ar;
+
+};
+
+# ---   *   ---   *   ---
 # exporter stuff
 
   *array_nth      = *nth;
@@ -220,6 +237,7 @@ sub key_idex($ar) {
   *array_insert   = *insert;
 
   *array_key_idex = *key_idex;
+  *array_sort     = *nsort;
 
 # ---   *   ---   *   ---
 1; # ret

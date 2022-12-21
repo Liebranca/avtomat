@@ -110,7 +110,7 @@ sub nit($class,@args) {
     optab=>\%optab,
     alias=>\%alias,
 
-    re=>Lang::hashpat(\%alias,1,1),
+    re=>Lang::eiths([keys %alias]),
 
     argv=>[],
 

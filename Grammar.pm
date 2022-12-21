@@ -37,6 +37,13 @@ package Grammar;
 
   };
 
+  sub Frame_Vars($class) { return {
+
+    -ns   => [],
+    -cns  => [],
+
+  }};
+
 # ---   *   ---   *   ---
 # global state
 
@@ -64,32 +71,24 @@ sub set_top($class,$name) {
 };
 
 # ---   *   ---   *   ---
-# new instance
+# decon string using rules
 
 sub parse($class,$prog) {
 
-  state @n_frames=reverse (0..63);
-
-  my $id=pop @n_frames;
-
   my $self=bless {
-
-    id    => $id,
-    frame => $class->get_frame($id),
+    frame => $class->new_frame(),
 
   },$class;
 
   my $gram=$class->get_top();
-  my $tree=$gram->parse($prog);
-
-  push @n_frames,$id;
+  my $tree=$gram->parse($self,$prog);
 
   return $tree;
 
 };
 
 # ---   *   ---   *   ---
-# generates branch
+# generates branches from descriptor array
 
 sub mkrules($class,@rules) {
 
@@ -137,6 +136,26 @@ sub mkrules($class,@rules) {
     };
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# add object to specific namespace
+
+sub ns_decl($self,$o,@path) {
+
+  my $ns  = $self->{frame}->{ns};
+
+  my $hns = {@$ns};
+  my $dst = \$hns;
+
+  for my $key(@path) {
+
+    $dst=\( (${$dst})->{$key} );
+
+  };
+
+  $$dst=$o;
 
 };
 

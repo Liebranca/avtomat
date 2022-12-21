@@ -160,14 +160,14 @@ sub get_file_list($self,%O) {
   # defaults
   $O{full_path}//=1;
 
-  my $files=$self->leafless(%O);
+  my @files=$self->leafless(%O);
 
 # ---   *   ---   *   ---
 # skip for plain node list
 
 goto TAIL if(!$O{full_path});
 
-  for my $file(@$files) {
+  for my $file(@files) {
     $file=$file->ances($NULLSTR);
 
   };
@@ -175,7 +175,7 @@ goto TAIL if(!$O{full_path});
 # ---   *   ---   *   ---
 
 TAIL:
-  return @$files;
+  return @files;
 
 };
 

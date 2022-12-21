@@ -290,10 +290,18 @@ sub match($self,$s) {
 # attempt match against all possible
 # branches of a grammar
 
-sub parse($self,$s) {
+sub parse($self,$ctx,$s) {
 
   my $frame = Tree->get_frame();
   my $tree  = $frame->nit(undef,$self->{value});
+
+#:!;> storing a reference to the object that
+#:!;> spawned this tree, within the tree
+#:!;>
+#:!;> frankly, quite terrible, and an outright
+#:!;> dependency loop. but it works.
+
+  $tree->{ctx}=$ctx;
 
   while(1) {
 
@@ -469,8 +477,23 @@ sub expand_tree($self) {
 
     )) {
 
+      my $par=(
+
+         defined $self->{anchor}
+      && defined $self->{anchor}->{parent}
+      && defined $self->{nd}->{parent}
+
+      && (
+
+         $self->{nd}->{parent}->{value}
+      eq $self->{anchor}->{parent}->{value}
+
+      )) ? $self->{root} : $self->{anchor};
+
+      $self->{anchor} //= $self->{root};
+
       $self->{anchor}=$self->{frame}->nit(
-        $self->{root},$self->{key}
+        $par,$self->{key}
 
       );
 
@@ -494,7 +517,7 @@ sub branch_fn($self) {
   my $ref=pop @{$self->{fn}};
   goto TAIL if !defined $ref;
 
-  if($self->{matches} == $self->{mint}) {
+  if($self->{matches} >= $self->{mint}) {
 
     my ($branch,$fn)=@$ref;
     $fn->($self->{root},$branch);

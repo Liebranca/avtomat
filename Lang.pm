@@ -36,6 +36,7 @@ package Lang;
   use warnings;
 
   use Readonly;
+  use English qw(-no_match_vars);
   use Carp;
 
   use List::Util qw( max );
@@ -43,7 +44,10 @@ package Lang;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+
   use Arstd;
+  use Arstd::Array;
+
   use Chk;
 
 # ---   *   ---   *   ---
@@ -160,6 +164,14 @@ sub rescap($s) {
 };
 
 # ---   *   ---   *   ---
+# ^bulk
+
+sub array_rescap($ar) {
+  return map {rescap($ARG)} @$ar;
+
+};
+
+# ---   *   ---   *   ---
 # lyeb@IBN-3DILA on Wed Feb 23 10:58:41 AM -03 2022:
 
 # i apologize for writting this monster,
@@ -188,9 +200,9 @@ sub UBERSCAP($o_end) {
 };
 
 # ---   *   ---   *   ---
-
 # in:substr to exclude,allow newlines,do_uber
 # shame on posix regexes, no clean way to do this
+
 sub neg_lkahead(
 
   $string,
@@ -310,107 +322,36 @@ sub delim2($beg,$end=$NULLSTR,$ml=0) {
 };
 
 # ---   *   ---   *   ---
-# one-of pattern
+# makes re to match elements in ar
 
-# in: string,disable escapes
-# matches (char0|...|charN)
-sub eithc($string,$disable_escapes) {
+sub eiths($ar,%O) {
 
-  my @chars=split '',$string;
+  # defaults
+  $O{escape} //= 0;
+  $O{bwrap}  //= 0;
+  $O{insens} //= 0;
 
-# ---   *   ---   *   ---
+  # force longest pattern first
+  my @words = array_sort($ar);
 
-  if(!$disable_escapes) {
-    for my $c(@chars) {$c=rescap($c);};
+  # conditional processing
+  @words    = array_insens($ar) if $O{insens};
+  @words    = array_rescap($ar) if $O{escape};
 
-  };
+  # ()
+  my $beg   = '(';
+  my $end   = ')';
 
-# ---   *   ---   *   ---
-
-  my $out='('.( join '|',@chars).')';
-  return qr{$out}x;
-
-};
-
-# ---   *   ---   *   ---
-# in:
-#
-#   >"str0,...,strN"
-#   >disable escapes
-#   >disable \bwrap
-#
-# matches \b(str0|...|strN)\b
-
-sub eiths(
-
-  $string,
-  $disable_escapes=0,
-  $disable_bwrap=0,
-
-) {
-
-  my @words=sort {
-    (length $a)<=(length $b);
-
-  } (split ',',$string);
-
-# ---   *   ---   *   ---
-
-  if(!$disable_escapes) {
-    for my $s(@words) {
-      $s=rescap($s);
-
-    };
-  };
-
-# ---   *   ---   *   ---
-
-  my $out='('.(join '|',@words).')';
-  if(!$disable_bwrap) {
-    $out='\b'.$out.'\b';
+  # ^or \b()\b
+  if($O{bwrap}) {
+    $beg = q[\b].$beg;
+    $end = $end.q[\b];
 
   };
 
-  return qr{$out}x;
-
-};
-
-# ---   *   ---   *   ---
-# ^same, input is array
-
-sub eiths_l(
-
-  $ar,
-
-  $disable_escapes=0,
-  $disable_bwrap=0
-
-) {
-
-  my @words=sort {
-    (length $a)<=(length $b);
-
-  } @{$ar};
-
-# ---   *   ---   *   ---
-
-  if(!$disable_escapes) {
-
-    for my $s(@words) {
-      $s=rescap($s);
-
-    };
-  };
-
-# ---   *   ---   *   ---
-
-  my $out='('.(join '|',@words).')';
-  if(!$disable_bwrap) {
-    $out='(^|\b)'.$out.'(\b|$)';
-
-  };
-
-  return qr{$out}x;
+  # give alternation re
+  my $out=join q[|],@words;
+  return qr{$beg$out$end}x;
 
 };
 
@@ -465,60 +406,6 @@ sub qre2re($ref) {
   $$ref=~ s/\(\?\^u(?:[xsmg]*)://;
   $$ref=~ s/\(\?:/(/;
   $$ref=~ s/\)$//;
-
-};
-
-# ---   *   ---   *   ---
-# in: hash reference
-# sort keys by length and return
-# a pattern to match them
-
-sub hashpat(
-  $h,
-
-  $disable_escapes=0,
-  $disable_bwrap=0,
-
-) {
-
-  my @keys=sort {
-    (length $a)<=(length $b);
-
-  } keys %$h;
-
-  return eiths_l(
-    \@keys,
-
-    $disable_escapes,
-    $disable_bwrap
-
-  );
-
-};
-
-# ---   *   ---   *   ---
-# ^ same thing for an array
-
-sub arrpat(
-  $ar,
-
-  $disable_escapes=0,
-  $disable_bwrap=0,
-
-) {
-
-  my @keys=sort {
-    (length $a)<=(length $b);
-
-  } @$ar;
-
-  return eiths_l(
-    \@keys,
-
-    $disable_escapes,
-    $disable_bwrap
-
-  );
 
 };
 
@@ -633,6 +520,11 @@ sub insens($s) {
   };
 
   return '('.$out.')';
+
+};
+
+sub array_insens($ar) {
+  return map {insens($ARG)} @$ar;
 
 };
 

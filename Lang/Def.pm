@@ -213,12 +213,19 @@ package Lang::Def;
 
     dev0=>
 
-      '('.( Lang::eiths('TODO,NOTE') ).
-      ':?|#:\*+;>)',
+      '('.(
+
+      Lang::eiths([qw(TODO NOTE)])
+
+      ).':?|#:\*+;>)',
 
     dev1=>
 
-      '('.( Lang::eiths('FIX,BUG') ).':?|#:\!+;>)',
+      '('.(
+
+      Lang::eiths([qw(FIX BUG)])
+
+      ).':?|#:\!+;>)',
 
     dev2=>'[[:space:]]+$',
 
@@ -355,7 +362,10 @@ sub nit($class,%h) {
 # make keyword-matching pattern
 # then save hash
 
-    my $keypat=Lang::hashpat(\%ht,1,0);
+    my $keypat=Lang::eiths(
+      [keys %ht],bwrap=>1
+
+    );
 
     if($keypat eq qr{(^|\b)()(\b|$)}x) {
       $keypat=qr{$NO_MATCH}x;
@@ -386,8 +396,10 @@ sub nit($class,%h) {
 # ---   *   ---   *   ---
 
   } else {
-    $ref->{ops}=Lang::hashpat(
-      $ref->{op_prec},0,1
+    $ref->{ops}=Lang::eiths(
+
+      [keys %{$ref->{op_prec}}],
+      escape=>1
 
     );
 
@@ -405,7 +417,10 @@ sub nit($class,%h) {
 
     };
 
-    $ref->{asg_op}=Lang::arrpat(\@asg_ops,0,1);
+    $ref->{asg_op}=Lang::eiths(
+      \@asg_ops,escape=>1
+
+    );
 
   };
 
@@ -505,11 +520,15 @@ sub nit($class,%h) {
 
 # ---   *   ---   *   ---
 
-  $ref->{ode}=Lang::eiths_l(\@odes,0,1);
-  $ref->{cde}=Lang::eiths_l(\@cdes,0,1);
+  $ref->{ode}=Lang::eiths(\@odes,escape=>1);
+  $ref->{cde}=Lang::eiths(\@cdes,escape=>1);
 
   my @del_ops=(@odes,@cdes);
-  $ref->{del_ops}=Lang::eiths_l(\@del_ops,0,1);
+
+  $ref->{del_ops}=Lang::eiths(
+    \@del_ops,escape=>1
+
+  );
 
   my @seps=@{$ref->{separators}};
   my @ops_plus_seps=(
@@ -518,13 +537,13 @@ sub nit($class,%h) {
 
   );
 
-  $ref->{ndel_ops}=Lang::eiths_l(
-    \@ops_plus_seps,0,1
+  $ref->{ndel_ops}=Lang::eiths(
+    \@ops_plus_seps,escape=>1
 
   );
 
-  $ref->{sep_ops}=Lang::eiths_l(
-    \@seps,0,1
+  $ref->{sep_ops}=Lang::eiths(
+    \@seps,escape=>1
 
   );
 
@@ -548,8 +567,8 @@ sub nit($class,%h) {
 
 # ---   *   ---   *   ---
 
-  $ref->{nums_re}=Lang::hashpat(
-    $ref->{nums},1,1
+  $ref->{nums_re}=Lang::eiths(
+    [keys %{$ref->{nums}}]
 
   );
 
