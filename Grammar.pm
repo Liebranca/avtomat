@@ -25,6 +25,8 @@ package Grammar;
   use lib $ENV{'ARPATH'}.'/avtomat/sys/';
 
   use Style;
+
+  use Arstd::Array;
   use Tree::Grammar;
 
   use parent 'St';
@@ -39,7 +41,7 @@ package Grammar;
 
   sub Frame_Vars($class) { return {
 
-    -ns   => [],
+    -ns   => {'$decl:order'=>[]},
     -cns  => [],
 
   }};
@@ -144,14 +146,16 @@ sub mkrules($class,@rules) {
 
 sub ns_decl($self,$o,@path) {
 
-  my $ns  = $self->{frame}->{ns};
+  my $ns    = $self->{frame}->{-ns};
+  my $order = $ns->{'$decl:order'};
+  my $dst   = \$ns;
 
-  my $hns = {@$ns};
-  my $dst = \$hns;
+  push @$order,\@path;
 
   for my $key(@path) {
 
-    $dst=\( (${$dst})->{$key} );
+    ${$dst}->{$key}//={};
+    $dst=\(${$dst}->{$key});
 
   };
 

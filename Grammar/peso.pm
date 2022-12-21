@@ -25,6 +25,7 @@ package Grammar::peso;
   use lib $ENV{'ARPATH'}.'/avtomat/sys/';
 
   use Style;
+  use Arstd::IO;
 
   use lib $ENV{'ARPATH'}.'/avtomat/';
 
@@ -32,7 +33,23 @@ package Grammar::peso;
   use parent 'Grammar';
 
 # ---   *   ---   *   ---
+# info
+
+  our $VERSION = v0.00.3;
+  our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
 # ROM
+
+  sub Frame_Vars($class) { return {
+
+    -creg   => undef,
+    -cclan  => 'non',
+    -cproc  => undef,
+
+    %{Grammar->Frame_Vars()}
+
+  }};
 
   Readonly my $REGEX=>{
 
@@ -50,30 +67,46 @@ package Grammar::peso;
 
     }x,
 
+    hier  => Lang::eiths(
+
+      [qw(reg rom clan proc)],
+
+      bwrap  => 1,
+      insens => 1,
+
+    ),
+
+    reg   => Lang::eiths(
+
+      [qw(reg)],
+
+      bwrap  => 1,
+      insens => 1,
+
+    ),
+
     type  => Lang::eiths(
 
-    [qw(
+      [qw(
 
-      byte wide brad word
-      unit half line page
+        byte wide brad word
+        unit half line page
 
-      nihil stark signal
+        nihil stark signal
 
-    )],
+      )],
 
-      bwrap=>1
+      bwrap  => 1,
+      insens => 1,
 
     ),
 
     spec  => Lang::eiths(
 
-    [qw(
+      [qw(ptr fptr str buf tab)],
 
-      ptr fptr str buf tab
-
-    )],
-
-      bwrap=>1
+      bwrap  => 1,
+      insens => 1,
 
     ),
 
@@ -165,6 +198,31 @@ package Grammar::peso;
   Readonly my $VNAME=>{
     name => $REGEX->{vname},
     fn   => 'capt',
+
+  };
+
+# ---   *   ---   *   ---
+
+  Readonly my $HIER=>{
+    name => $REGEX->{hier},
+    fn   => 'capt',
+
+  };
+
+  Readonly my $REG=>{
+    name => $REGEX->{reg},
+    fn   => 'capt',
+
+  };
+
+  Readonly my $UTYPE_DECL=>{
+
+    name => 'utype_decl',
+
+    fn   => 'utype_decl',
+    dom  => 'Grammar::peso',
+
+    chld => [$REG,$VNAME,$TERM],
 
   };
 
@@ -277,25 +335,119 @@ sub list_flatten($tree,$match) {
 };
 
 # ---   *   ---   *   ---
+# pushes declarations to reg
+
+sub utype_decl($tree,$match) {
+
+  # get context
+  my $f    = $tree->{ctx}->{frame};
+  my $name = $match->leaf_value(-1);
+
+  $f->{-creg}=$name;
+
+};
+
+# ---   *   ---   *   ---
+# decl errme
+
+sub throw_invalid_scope(@names) {
+
+  my $s=join q[,],map {'%s'} @names;
+
+  errout(
+
+    q[No valid container for decls ]."<$s>",
+
+    args => [@names],
+    lvl  => $AR_FATAL,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# pushes constructors to current namespace
 
 sub ptr_decl($tree,$match) {
 
-  use Fmat;
-  fatdump($match->bhash(1,1,1));
+  # get context
+  my $f      = $tree->{ctx}->{frame};
+  my $st     = $match->bhash(1,1,1);
+
+  # ^unpack
+  my $type   = shift @{$st->{type}};
+  my @specs  = @{$st->{type}};
+  my @names  = @{$st->{vnames}};
+  my @values = @{$st->{'values'}};
+
+  my @path;
+
+  # errchk
+  throw_invalid_scope(@names)
+  if !$f->{-creg} && !$f->{-cproc};
+
+  # build namespace path
+  if(defined $f->{-cproc}) {
+
+    @path=(
+      $f->{-cclan},'procs',
+      $f->{-cproc},'stk:$00'
+
+    );
+
+  } else {
+
+    @path=(
+      $f->{-cclan},'regs',
+      $f->{-creg}
+
+    );
+
+  };
+
+  # enforce zero as default value
+  for my $i(0..$#names) {
+    $values[$i]//=0;
+
+  };
+
+  # push decls to namespace
+  while(@names && @values) {
+
+    my $name  = shift @names;
+    my $value = shift @values;
+
+    my $o     = {
+
+      type  => $type,
+      flags => \@specs,
+
+      value => $value,
+
+    };
+
+    $tree->{ctx}->ns_decl($o,@path,$name);
+
+  };
 
 };
 
 # ---   *   ---   *   ---
 # test
 
-  Grammar::peso->mkrules($PTR_DECL);
+  Grammar::peso->mkrules($UTYPE_DECL,$PTR_DECL);
 
   my $t=Grammar::peso->parse(q[
-    byte x $00;
+
+reg vars;
+  byte x $00;
+  byte y $10;
 
   ]);
 
-  $t->prich();
+  use Fmat;
+  fatdump($t->{ctx}->{frame}->{-ns});
+
 
 # ---   *   ---   *   ---
 1; # ret
