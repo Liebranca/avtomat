@@ -25,6 +25,8 @@ package Grammar::peso;
   use lib $ENV{'ARPATH'}.'/avtomat/sys/';
 
   use Style;
+  use Fmat;
+
   use Arstd::IO;
 
   use lib $ENV{'ARPATH'}.'/avtomat/';
@@ -87,9 +89,18 @@ package Grammar::peso;
 
 # ---   *   ---   *   ---
 
-    vname=>qr{
+    bare=>qr{
 
       [_A-Za-z][_A-Za-z0-9:\.]*
+
+    }x,
+
+    seal=>qr{
+
+      [_A-Za-z<]
+      [_A-Za-z0-9:\-\.]+
+
+      [_A-Za-z>]
 
     }x,
 
@@ -167,14 +178,26 @@ package Grammar::peso;
 # pe file header
 
   Readonly my $SIGIL=>{
-    name => $REGEX->{sigil},
-    fn   => 'capt',
+
+    name => 'sigil',
+
+    chld => [{
+      name => $REGEX->{sigil},
+      fn   => 'capt',
+
+    }],
 
   };
 
   Readonly my $NONTERM=>{
-    name => $REGEX->{nonterm},
-    fn   => 'capt',
+
+    name => 'nterm',
+
+    chld => [{
+      name => $REGEX->{nonterm},
+      fn   => 'capt',
+
+    }],
 
   };
 
@@ -239,6 +262,47 @@ package Grammar::peso;
   };
 
 # ---   *   ---   *   ---
+# common patterns
+
+  Readonly my $TYPE=>{
+    name => $REGEX->{type},
+    fn   => 'capt',
+
+  };
+
+  Readonly my $SPEC=>{
+    name => $REGEX->{spec},
+    fn   => 'capt',
+
+    opt  => 1,
+
+  };
+
+  Readonly my $BARE=>{
+
+    name => 'bare',
+
+    chld => [{
+      name => $REGEX->{bare},
+      fn   => 'capt',
+
+    }],
+
+  };
+
+  Readonly my $SEAL=>{
+
+    name => 'seal',
+
+    chld => [{
+      name => $REGEX->{seal},
+      fn   => 'capt',
+
+    }],
+
+  };
+
+# ---   *   ---   *   ---
 # string types
 
   Readonly my $QSTR=>{
@@ -268,6 +332,7 @@ package Grammar::peso;
   Readonly my $STR=>{
 
     name => 'str',
+
     chld => [
 
       $QSTR,$Grammar::OR,
@@ -275,6 +340,30 @@ package Grammar::peso;
       $VSTR
 
     ],
+
+  };
+
+# ---   *   ---   *   ---
+# soul of perl!
+
+  Readonly my $FLG=>{
+
+    name => 'flg',
+
+    chld => [
+
+      $SIGIL,
+
+      $BARE,$Grammar::OR,
+      $SEAL
+
+    ],
+
+  };
+
+  Readonly my $FLIST=>{
+    name => 'flags',
+    chld => [$FLG,$CLIST],
 
   };
 
@@ -287,32 +376,11 @@ package Grammar::peso;
     chld => [
 
       $NUM,$Grammar::OR,
-      $STR
+      $STR,$Grammar::OR,
+
+      $FLG
 
     ],
-
-  };
-
-# ---   *   ---   *   ---
-# common patterns
-
-  Readonly my $TYPE=>{
-    name => $REGEX->{type},
-    fn   => 'capt',
-
-  };
-
-  Readonly my $SPEC=>{
-    name => $REGEX->{spec},
-    fn   => 'capt',
-
-    opt  => 1,
-
-  };
-
-  Readonly my $VNAME=>{
-    name => $REGEX->{vname},
-    fn   => 'capt',
 
   };
 
@@ -349,7 +417,7 @@ package Grammar::peso;
 
       {
         name=>'name',
-        chld=>[$VNAME],
+        chld=>[$BARE],
 
       },
 
@@ -369,18 +437,13 @@ package Grammar::peso;
   };
 
   Readonly my $NLIST=>{
-    name => 'vnames',
-    chld => [$VNAME,$CLIST],
+    name => 'names',
+    chld => [$BARE,$CLIST],
 
   };
 
   Readonly my $VLIST=>{
-
     name => 'values',
-
-    fn   => 'list_flatten',
-    dom  => 'Grammar::peso',
-
     chld => [$VALUE,$CLIST],
 
   };
@@ -435,6 +498,37 @@ package Grammar::peso;
   };
 
 # ---   *   ---   *   ---
+# switch flips
+
+  Readonly my $WED=>{
+
+    name => 'type',
+    chld => [{
+
+      name => Lang::eiths(
+        [qw(wed unwed)],
+        insens=>1,
+
+      ),
+
+      fn   => 'capt',
+
+    }],
+
+  };
+
+  Readonly my $SWITCH=>{
+
+    name => 'switch',
+
+    fn   => 'switch',
+    dom  => 'Grammar::peso',
+
+    chld => [$WED,$FLIST,$TERM],
+
+  };
+
+# ---   *   ---   *   ---
 # global state
 
   our $Top;
@@ -442,20 +536,60 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # placeholder for file header
 
-sub rdhed($tree,$match) {
+sub rdhed($match) {
 
 };
 
 # ---   *   ---   *   ---
 # placeholder for special defs
 
-sub sasg($tree,$match) {
+sub sasg($match) {
 
-  list_flatten(
-    $tree,
-    $match->branch_in(qr{^value$})
+  my $v=$match->branch_in(qr{^value$});
+
+  for my $branch(@{$v->{leaves}}) {
+    $v->pluck($branch)
+    if !@{$branch->{leaves}};
+
+  };
+
+  list_flatten($v);
+
+};
+
+# ---   *   ---   *   ---
+# turns you on and off
+
+sub switch($match) {
+
+  my ($tree) = $match->root();
+  my $f      = $tree->{ctx}->{frame};
+
+  my @path   = ns_path($f);
+
+  my $type=uc $match->branch_in(
+    qr{^type$}
+
+  )->leaf_value(0);
+
+  my $flags=$match->branch_in(
+    qr{^flags$}
 
   );
+
+  my $value=int($type eq 'WED');
+
+  for my $branch(@{$flags->{leaves}}) {
+
+    my $h    = $branch->bhash(0,0);
+    my $name = $h->{sigil}.$h->{bare};
+
+    $tree->{ctx}->ns_asg(
+      $value,@path,$name
+
+    );
+
+  };
 
 };
 
@@ -463,7 +597,7 @@ sub sasg($tree,$match) {
 # converts all numerical
 # notations to decimal
 
-sub rdnum($tree,$match) {
+sub rdnum($match) {
 
   state %converter=(
 
@@ -496,8 +630,9 @@ sub rdnum($tree,$match) {
 # ---   *   ---   *   ---
 # forks accto hierarchical type
 
-sub hier_sort($tree,$match) {
+sub hier_sort($match) {
 
+  my ($tree)  = $match->root();
   my $f       = $tree->{ctx}->{frame};
   my $st      = $match->bhash(1,0,0);
 
@@ -534,7 +669,7 @@ sub hier_sort($tree,$match) {
 # ($match)
 # \-->value
 
-sub list_flatten($tree,$match) {
+sub list_flatten($match) {
 
   for my $branch(@{$match->{leaves}}) {
     $branch->flatten_branch();
@@ -562,30 +697,32 @@ sub throw_invalid_scope(@names) {
 };
 
 # ---   *   ---   *   ---
-# pushes constructors to current namespace
+#;
 
-sub ptr_decl($tree,$match) {
+sub nest_flatten($match,$pat) {
 
-  # get context
-  my $f      = $tree->{ctx}->{frame};
-  my $st     = $match->bhash(1,1,1);
+  for my $branch(
+    $match->branches_in(qr{^$pat$})
 
-  # ^unpack
-  my $type   = shift @{$st->{type}};
-  my @specs  = @{$st->{type}};
-  my @names  = @{$st->{vnames}};
-  my @values = @{$st->{'values'}};
+  ) {
 
-  my @path;
+    list_flatten($branch);
+    $branch->flatten_branch();
 
-  # errchk
-  throw_invalid_scope(@names)
-  if !$f->{-crom} && !$f->{-creg} && !$f->{-cproc};
+  };
 
-  # build namespace path
+};
+
+# ---   *   ---   *   ---
+# builds namespace path
+
+sub ns_path($f) {
+
+  my @out=();
+
   if(defined $f->{-cproc}) {
 
-    @path=(
+    @out=(
       $f->{-cclan},'procs',
       $f->{-cproc},'stk:$00'
 
@@ -593,7 +730,7 @@ sub ptr_decl($tree,$match) {
 
   } elsif(defined $f->{-crom}) {
 
-    @path=(
+    @out=(
       $f->{-cclan},'roms',
       $f->{-crom}
 
@@ -601,13 +738,43 @@ sub ptr_decl($tree,$match) {
 
   } else {
 
-    @path=(
+    @out=(
       $f->{-cclan},'regs',
       $f->{-creg}
 
     );
 
   };
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# pushes constructors to current namespace
+
+sub ptr_decl($match) {
+
+  # get context
+  my ($tree) = $match->root();
+  my $f      = $tree->{ctx}->{frame};
+
+  list_flatten($match->branch_in(qr{^names$}));
+  nest_flatten($match,'value');
+
+  my $st     = $match->bhash(1,1,1);
+
+  # ^unpack
+  my $type   = shift @{$st->{type}};
+  my @specs  = @{$st->{type}};
+  my @names  = @{$st->{names}};
+  my @values = @{$st->{'values'}};
+
+  # errchk
+  throw_invalid_scope(@names)
+  if !$f->{-crom} && !$f->{-creg} && !$f->{-cproc};
+
+  my @path=ns_path($f);
 
   # enforce zero as default value
   for my $i(0..$#names) {
@@ -645,6 +812,7 @@ sub ptr_decl($tree,$match) {
     $COMMENT,
 
     $SDEFS,
+    $SWITCH,
 
     $HIER,
     $PTR_DECL
@@ -659,7 +827,6 @@ sub ptr_decl($tree,$match) {
 
   $t->prich();
 
-  use Fmat;
   fatdump($t->{ctx}->{frame}->{-ns});
 
 

@@ -185,8 +185,9 @@ sub term($st) {
 # ---   *   ---   *   ---
 # removes branch
 
-sub discard($tree,$match) {
-  $tree->pluck($match);
+sub discard($match) {
+  my ($root)=$match->root();
+  $root->pluck($match);
 
 };
 
@@ -209,6 +210,8 @@ sub match_st($self) {
 
     root    => $root,
     anchor  => $root,
+
+    an      => [],
 
     capt    => q[],
     nd      => undef,
@@ -265,21 +268,19 @@ sub match($self,$s) {
     last if !length $s;
 
     if(!$st->get_next()) {
+
       $st->branch_fn();
+      $st->pop_anchor();
+
       next;
 
     };
 
+    my @tail=@{$st->{nd}->{leaves}};
+    push @tail,0 if @tail;
+
     $st->attempt(\$s);
-
-    unshift
-
-      @{$st->{pending}},
-      @{$st->{nd}->{leaves}},
-
-      0
-
-    ;
+    unshift @{$st->{pending}},@tail;
 
   };
 
@@ -326,10 +327,8 @@ sub parse($self,$ctx,$s) {
 
         $tree->pushlv($match);
 
-        $branch->{fn}->(
-          $tree,$match
-
-        ) if $branch->{fn} ne $NOOP;
+        $branch->{fn}->($match)
+        if $branch->{fn} ne $NOOP;
 
         $s=$ds;
         $matched|=1;
@@ -417,11 +416,12 @@ sub has_action($self) {
 
 sub attempt_match($self,$sref) {
 
-  my $re=$self->{re};
+  my $re         = $self->{re};
 
-  $self->{mint}+=!$self->{nd}->{opt};
+  $self->{mint} += !$self->{nd}->{opt};
+  $self->{capt}  = undef;
 
-  $self->{capt}=undef;
+# ---   *   ---   *   ---
 
   if($$sref=~ s[^\s*($re)\s*][]) {
 
@@ -434,6 +434,8 @@ sub attempt_match($self,$sref) {
     goto TAIL;
 
   };
+
+# ---   *   ---   *   ---
 
   $self->{matches}+=!$self->{nd}->{opt};
 
@@ -448,19 +450,21 @@ TAIL:
 };
 
 # ---   *   ---   *   ---
+# pattern alternation
 
-sub flowop($self) {
+sub OR($self) {
 
-  my $out=0;
+  my $out=1;
 
-  if($self->{key} eq q[|]) {
+  if(!$self->{mlast}) {
+    $self->{mint}--;
 
-    if(!$self->{lmatch}) {
-      $self->{mint}--;
+  } else {
+
+    while($self->{pending}->[0]) {
+      shift @{$self->{pending}};
 
     };
-
-    $out=1;
 
   };
 
@@ -470,25 +474,30 @@ sub flowop($self) {
 
 # ---   *   ---   *   ---
 
-sub solve_anchor($self) {
+sub flowop($self) {
 
-  my $out = $self->{root};
-
-  my $a   = $self->{anchor}->{parent};
-  my $b   = $self->{nd}->{parent};
-
-  goto TAIL if !defined $a || !defined $b;
-
-  if($a->{value} ne $b->{value}) {
-    $out=$self->{anchor};
-
-  } else {
-    $out=$a;
+  state $tab={
+    q[|]=>\&OR,
 
   };
 
-TAIL:
+  my $out=0;
+  my $key=$self->{key};
+
+  if(exists $tab->{$key}) {
+    $out=$tab->{$key}->($self);
+
+  };
+
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+
+sub pop_anchor($self) {
+  $self->{anchor}=pop @{$self->{an}};
+  $self->{anchor}//=$self->{root};
 
 };
 
@@ -496,11 +505,15 @@ TAIL:
 
 sub expand_tree($self) {
 
-
   if($self->flowop()) {
     ;
 
   } else {
+
+    push @{$self->{an}},$self->{anchor}
+    if @{$self->{nd}->{leaves}}
+    && $self->{anchor} ne $self->{root}
+    ;
 
     if(!(
 
@@ -510,7 +523,7 @@ sub expand_tree($self) {
     )) {
 
       $self->{anchor}=$self->{frame}->nit(
-        $self->solve_anchor(),$self->{key}
+        $self->{anchor},$self->{key}
 
       );
 
@@ -537,7 +550,7 @@ sub branch_fn($self) {
   if($self->{matches} >= $self->{mint}) {
 
     my ($branch,$fn)=@$ref;
-    $fn->($self->{root},$branch);
+    $fn->($branch);
 
   };
 

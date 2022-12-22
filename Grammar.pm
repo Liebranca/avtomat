@@ -148,9 +148,19 @@ sub ns_decl($self,$o,@path) {
 
   my $ns    = $self->{frame}->{-ns};
   my $order = $ns->{'$decl:order'};
-  my $dst   = \$ns;
 
   push @$order,\@path;
+  ns_asg($self,$o,@path);
+
+};
+
+# ---   *   ---   *   ---
+# ^same, assigment without order
+
+sub ns_asg($self,$o,@path) {
+
+  my $ns  = $self->{frame}->{-ns};
+  my $dst = \$ns;
 
   for my $key(@path) {
 
