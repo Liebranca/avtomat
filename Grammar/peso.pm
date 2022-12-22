@@ -35,7 +35,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;
+  our $VERSION = v0.00.4;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -58,16 +58,42 @@ package Grammar::peso;
     binn  => qr{0b  [0-1\.:]+}x,
     decn  => qr{[0-9\.:]+}x,
 
-    term  => Lang::nonscap(';'),
-    sep   => Lang::nonscap(','),
+    term  => Lang::nonscap(q[;]),
+    sep   => Lang::nonscap(q[,]),
+    lcom  => Lang::eaf(q[\#]),
 
-    vname => qr{
+# ---   *   ---   *   ---
+
+    nonterm => qr{[^;]*}x,
+    sigil   => Lang::eiths(
+
+      [qw(
+
+        $ $: $:% $:/
+
+        %% % / // @
+
+        * : -- - ++ + ^ &
+
+        >> >>: << <<:
+
+        |>
+
+      )],
+
+      escape=>1
+
+    ),
+
+# ---   *   ---   *   ---
+
+    vname=>qr{
 
       [_A-Za-z][_A-Za-z0-9:\.]*
 
     }x,
 
-    hier  => Lang::eiths(
+    hier=>Lang::eiths(
 
       [qw(reg rom clan proc)],
 
@@ -76,16 +102,9 @@ package Grammar::peso;
 
     ),
 
-    reg   => Lang::eiths(
+# ---   *   ---   *   ---
 
-      [qw(reg)],
-
-      bwrap  => 1,
-      insens => 1,
-
-    ),
-
-    type  => Lang::eiths(
+    type=>Lang::eiths(
 
       [qw(
 
@@ -101,7 +120,7 @@ package Grammar::peso;
 
     ),
 
-    spec  => Lang::eiths(
+    spec=>Lang::eiths(
 
       [qw(ptr fptr str buf tab)],
 
@@ -109,6 +128,64 @@ package Grammar::peso;
       insens => 1,
 
     ),
+
+  };
+
+# ---   *   ---   *   ---
+# lets call these "syntax ops"
+
+  Readonly my $CLIST=>{
+
+    name => $REGEX->{sep},
+    fn   => 'rew',
+
+    opt  => 1,
+
+  };
+
+  Readonly my $TERM=>{
+    name => $REGEX->{term},
+    fn   => 'term',
+
+  };
+
+  Readonly my $LCOM=>{
+    name => $REGEX->{lcom},
+
+  };
+
+  Readonly my $COMMENT=>{
+
+    name => 'comment',
+    fn   => 'discard',
+
+    chld => [$LCOM],
+
+  };
+
+# ---   *   ---   *   ---
+# pe file header
+
+  Readonly my $SIGIL=>{
+    name => $REGEX->{sigil},
+    fn   => 'capt',
+
+  };
+
+  Readonly my $NONTERM=>{
+    name => $REGEX->{nonterm},
+    fn   => 'capt',
+
+  };
+
+  Readonly my $HEADER=>{
+
+    name => 'header',
+
+    fn   => 'rdhed',
+    dom  => 'Grammar::peso',
+
+    chld => [$SIGIL,$NONTERM,$TERM],
 
   };
 
@@ -162,24 +239,62 @@ package Grammar::peso;
   };
 
 # ---   *   ---   *   ---
-# lets call these "syntax ops"
+# string types
 
-  Readonly my $CLIST=>{
+  Readonly my $QSTR=>{
 
-    name => $REGEX->{sep},
-    fn   => 'rew',
-
-    opt  => 1,
+    name => qr{"([^"]|\\")*?"},
+    fn   => 'capt',
 
   };
 
-  Readonly my $TERM=>{
-    name => $REGEX->{term},
-    fn   => 'term',
+  Readonly my $CSTR=>{
+
+    name => qr{'([^']|\\')*?'},
+    fn   => 'capt',
+
+  };
+
+  Readonly my $VSTR=>{
+
+    name => qr{v[0-9]\.[0-9]{2}\.[0-9][ab]?},
+    fn   => 'capt',
 
   };
 
 # ---   *   ---   *   ---
+# ^combo rule
+
+  Readonly my $STR=>{
+
+    name => 'str',
+    chld => [
+
+      $QSTR,$Grammar::OR,
+      $CSTR,$Grammar::OR,
+      $VSTR
+
+    ],
+
+  };
+
+# ---   *   ---   *   ---
+# all non-bare
+
+  Readonly my $VALUE=>{
+
+    name => 'value',
+    chld => [
+
+      $NUM,$Grammar::OR,
+      $STR
+
+    ],
+
+  };
+
+# ---   *   ---   *   ---
+# common patterns
 
   Readonly my $TYPE=>{
     name => $REGEX->{type},
@@ -202,31 +317,50 @@ package Grammar::peso;
   };
 
 # ---   *   ---   *   ---
+# entry point for all hierarchicals
+
+  Readonly my $THIER=>{
+
+    name => 'type',
+    chld =>[{
+      name =>$REGEX->{hier},
+      fn   => 'capt',
+
+    }],
+
+  };
 
   Readonly my $HIER=>{
-    name => $REGEX->{hier},
-    fn   => 'capt',
 
-  };
+    name => 'hier',
 
-  Readonly my $REG=>{
-    name => $REGEX->{reg},
-    fn   => 'capt',
-
-  };
-
-  Readonly my $UTYPE_DECL=>{
-
-    name => 'utype_decl',
-
-    fn   => 'utype_decl',
+    fn   => 'hier_sort',
     dom  => 'Grammar::peso',
 
-    chld => [$REG,$VNAME,$TERM],
+    chld => [
+
+      {
+        name=>'spec',
+        chld=>[$SPEC],
+
+      },
+
+      $THIER,
+
+      {
+        name=>'name',
+        chld=>[$VNAME],
+
+      },
+
+      $TERM
+
+    ],
 
   };
 
 # ---   *   ---   *   ---
+# ^patterns for declaring members
 
   Readonly my $FULL_TYPE=>{
     name => 'type',
@@ -247,7 +381,7 @@ package Grammar::peso;
     fn   => 'list_flatten',
     dom  => 'Grammar::peso',
 
-    chld => [$NUM,$CLIST],
+    chld => [$VALUE,$CLIST],
 
   };
 
@@ -275,9 +409,55 @@ package Grammar::peso;
   };
 
 # ---   *   ---   *   ---
+# special definitions
+
+  Readonly my $SVARS=>{
+
+    name => 'name',
+
+    chld=>[{
+      name => qr{VERSION|AUTHOR}x,
+      fn   => 'capt',
+
+    }],
+
+  };
+
+  Readonly my $SDEFS=>{
+
+    name => 'sdef',
+
+    fn   => 'sasg',
+    dom  => 'Grammar::peso',
+
+    chld => [$SVARS,$VALUE,$TERM],
+
+  };
+
+# ---   *   ---   *   ---
 # global state
 
   our $Top;
+
+# ---   *   ---   *   ---
+# placeholder for file header
+
+sub rdhed($tree,$match) {
+
+};
+
+# ---   *   ---   *   ---
+# placeholder for special defs
+
+sub sasg($tree,$match) {
+
+  list_flatten(
+    $tree,
+    $match->branch_in(qr{^value$})
+
+  );
+
+};
 
 # ---   *   ---   *   ---
 # converts all numerical
@@ -314,6 +494,35 @@ sub rdnum($tree,$match) {
 };
 
 # ---   *   ---   *   ---
+# forks accto hierarchical type
+
+sub hier_sort($tree,$match) {
+
+  my $f       = $tree->{ctx}->{frame};
+  my $st      = $match->bhash(1,0,0);
+
+  my $ckey    = q[-c].(lc $st->{type});
+
+  $f->{$ckey} = $st->{name};
+
+  if($st->{type} eq 'ROM') {
+    $f->{-creg}=undef;
+    $f->{-cproc}=undef;
+
+  } elsif($st->{type} eq 'REG') {
+    $f->{-crom}=undef;
+    $f->{-cproc}=undef;
+
+  } elsif($st->{type} eq 'CLAN') {
+    $f->{-creg}=undef;
+    $f->{-crom}=undef;
+    $f->{-cproc}=undef;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # turns trees with the structure:
 #
 # ($match)
@@ -331,19 +540,6 @@ sub list_flatten($tree,$match) {
     $branch->flatten_branch();
 
   };
-
-};
-
-# ---   *   ---   *   ---
-# pushes declarations to reg
-
-sub utype_decl($tree,$match) {
-
-  # get context
-  my $f    = $tree->{ctx}->{frame};
-  my $name = $match->leaf_value(-1);
-
-  $f->{-creg}=$name;
 
 };
 
@@ -384,7 +580,7 @@ sub ptr_decl($tree,$match) {
 
   # errchk
   throw_invalid_scope(@names)
-  if !$f->{-creg} && !$f->{-cproc};
+  if !$f->{-crom} && !$f->{-creg} && !$f->{-cproc};
 
   # build namespace path
   if(defined $f->{-cproc}) {
@@ -392,6 +588,14 @@ sub ptr_decl($tree,$match) {
     @path=(
       $f->{-cclan},'procs',
       $f->{-cproc},'stk:$00'
+
+    );
+
+  } elsif(defined $f->{-crom}) {
+
+    @path=(
+      $f->{-cclan},'roms',
+      $f->{-crom}
 
     );
 
@@ -435,15 +639,25 @@ sub ptr_decl($tree,$match) {
 # ---   *   ---   *   ---
 # test
 
-  Grammar::peso->mkrules($UTYPE_DECL,$PTR_DECL);
+  Grammar::peso->mkrules(
 
-  my $t=Grammar::peso->parse(q[
+    $HEADER,
+    $COMMENT,
 
-reg vars;
-  byte x $00;
-  byte y $10;
+    $SDEFS,
 
-  ]);
+    $HIER,
+    $PTR_DECL
+
+  );
+
+  my $prog = orc('plps/peso.rom');
+  $prog    =~ m[([\S\s]+)\s*STOP]x;
+  $prog    = ${^CAPTURE[0]};
+
+  my $t    = Grammar::peso->parse($prog);
+
+  $t->prich();
 
   use Fmat;
   fatdump($t->{ctx}->{frame}->{-ns});

@@ -102,10 +102,10 @@ Lang::Raku->nit(
 
   drfc=>'(::|->|.)',
 
-  lcom=>Lang::eaf(
-    Lang::lkback(q{$%&@\'"},q{\#},),0,1
+  lcom=>Lang::eaf(Lang::lkback(
+    q{$%&@\'"},q{\#}
 
-  ),
+  )),
 
   names=>q{\b[_A-Za-z][_A-Za-z0-9\-\']*\b},
   names_u=>q{\b[_A-Z][_A-Z0-9\-\']*\b},

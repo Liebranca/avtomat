@@ -94,10 +94,10 @@ Lang::Perl->nit(
 
   drfc=>'(::|->)',
 
-  lcom=>Lang::eaf(
-    Lang::lkback(q{$%&@\'"},q{\#},),0,1
+  lcom=>Lang::eaf(Lang::lkback(
+    q{$%&@\'"},q{\#}
 
-  ),
+  )),
 
 # ---   *   ---   *   ---
 

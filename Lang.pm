@@ -363,30 +363,20 @@ sub eiths($ar,%O) {
 #   > grab everything after pattern until newline
 #   > newline
 
-sub eaf(
+sub eaf($pat,%O) {
 
-  $pat,
-  $line_beg=1,
-  $disable_escapes=1,
+  $O{escape} //= 0;
+  $O{lbeg}   //= 0;
 
-) {
+  $pat=rescap($pat) if $O{escape};
 
-  $pat=(!$disable_escapes)
-    ? rescap($pat) : $pat
-
-  ;
-
-# ---   *   ---   *   ---
-
-  if($line_beg>0) {
+  if($O{lbeg} > 0) {
     $pat='^'.$pat;
 
-  } elsif($line_beg<0) {
+  } elsif($O{lbeg} < 0) {
     $pat='^[\s|\n]*'.$pat;
 
   };
-
-# ---   *   ---   *   ---
 
   return qr{(
 

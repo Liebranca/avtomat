@@ -492,10 +492,6 @@ package main;
 
 # ---   *   ---   *   ---
 
-my $prog   = orc('plps/peso.rom');
-$prog      =~ m[([\S\s]+)\s*STOP]x;
-$prog      = ${^CAPTURE[0]};
-
 my $strtok = Plps::codefold(\$prog);
 my $result = Plps->parse($prog);
 

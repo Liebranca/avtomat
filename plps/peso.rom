@@ -26,6 +26,8 @@ ROM std;
   byte  term $3B;
   byte  sep  $2C;
 
+STOP
+
   wed   -qwor;
   re    type
 
@@ -35,8 +37,6 @@ ROM std;
     nihil stark signal
 
   ;
-
-STOP
 
   re    spec ptr fptr str buf tab re;
 

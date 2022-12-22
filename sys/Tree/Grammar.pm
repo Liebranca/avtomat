@@ -183,6 +183,14 @@ sub term($st) {
 };
 
 # ---   *   ---   *   ---
+# removes branch
+
+sub discard($tree,$match) {
+  $tree->pluck($match);
+
+};
+
+# ---   *   ---   *   ---
 # makes helper for match
 
 sub match_st($self) {
@@ -462,6 +470,30 @@ sub flowop($self) {
 
 # ---   *   ---   *   ---
 
+sub solve_anchor($self) {
+
+  my $out = $self->{root};
+
+  my $a   = $self->{anchor}->{parent};
+  my $b   = $self->{nd}->{parent};
+
+  goto TAIL if !defined $a || !defined $b;
+
+  if($a->{value} ne $b->{value}) {
+    $out=$self->{anchor};
+
+  } else {
+    $out=$a;
+
+  };
+
+TAIL:
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+
 sub expand_tree($self) {
 
 
@@ -477,23 +509,8 @@ sub expand_tree($self) {
 
     )) {
 
-      my $par=(
-
-         defined $self->{anchor}
-      && defined $self->{anchor}->{parent}
-      && defined $self->{nd}->{parent}
-
-      && (
-
-         $self->{nd}->{parent}->{value}
-      eq $self->{anchor}->{parent}->{value}
-
-      )) ? $self->{root} : $self->{anchor};
-
-      $self->{anchor} //= $self->{root};
-
       $self->{anchor}=$self->{frame}->nit(
-        $par,$self->{key}
+        $self->solve_anchor(),$self->{key}
 
       );
 
