@@ -500,7 +500,10 @@ sub nxtok($s,$cutat) {
 
 # ---   *   ---   *   ---
 
-sub insens($s) {
+sub insens($s,%O) {
+
+  # defaults
+  $O{mkre}//=0;
 
   my $out=$NULLSTR;
 
@@ -509,7 +512,12 @@ sub insens($s) {
 
   };
 
-  return '('.$out.')';
+  $out=($O{mkre})
+    ? qr{($out)}x
+    : "($out)"
+    ;
+
+  return $out;
 
 };
 
@@ -520,8 +528,18 @@ sub array_insens($ar) {
 
 # ---   *   ---   *   ---
 
-sub nonscap($s) {
-  return qr{(?!< \\$s) $s}x;
+sub nonscap($s,%O) {
+
+  #defaults
+  $O{negate} //= 0;
+  $O{mod}    //= $NULLSTR;
+
+  my $out=($O{negate})
+    ? "((\\\\[^$s]) | [^$s\\\\] | (\\\\ $s))"
+    : "((?!< \\\\ ) $s)"
+    ;
+
+  return qr~$out$O{mod}~x;
 
 };
 

@@ -1,4 +1,4 @@
-%;
+%-;
 
 # ---   *   ---   *   ---
 # PESO
@@ -27,7 +27,10 @@ ROM std;
   byte  sep  $2C;
 
   wed   -qwor;
+
+  re    spec ptr fptr str buf tab re;
 STOP
+
   re    type
 
     byte wide brad word
@@ -36,8 +39,6 @@ STOP
     nihil stark signal
 
   ;
-
-  re    spec ptr fptr str buf tab re;
 
   re    sigil
 

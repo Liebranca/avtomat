@@ -155,9 +155,9 @@ sub ns_decl($self,$o,@path) {
 };
 
 # ---   *   ---   *   ---
-# ^same, assigment without order
+# gets reference from path
 
-sub ns_asg($self,$o,@path) {
+sub ns_fetch($self,@path) {
 
   my $ns  = $self->{frame}->{-ns};
   my $dst = \$ns;
@@ -169,7 +169,27 @@ sub ns_asg($self,$o,@path) {
 
   };
 
-  $$dst=$o;
+  return $dst;
+
+};
+
+# ---   *   ---   *   ---
+# ^same, assigment without order
+
+sub ns_asg($self,$o,@path) {
+
+  my $dst = $self->ns_fetch(@path);
+  $$dst   = $o;
+
+};
+
+# ---   *   ---   *   ---
+# ^fetches value
+
+sub ns_get($self,@path) {
+
+  my $o=$self->ns_fetch(@path);
+  return $$o;
 
 };
 

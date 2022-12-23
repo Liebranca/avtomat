@@ -66,7 +66,15 @@ package Grammar::peso;
 
 # ---   *   ---   *   ---
 
-    nonterm => qr{[^;]*}x,
+    nonterm => Lang::nonscap(
+
+      q[;],
+
+      negate => 1,
+      mod    => '+',
+
+    ),
+
     sigil   => Lang::eiths(
 
       [qw(
@@ -529,6 +537,40 @@ package Grammar::peso;
   };
 
 # ---   *   ---   *   ---
+# regex definitions
+
+  Readonly my $RETYPE=>{
+
+    name => 'type',
+
+    chld =>[{
+      name => Lang::insens('re',mkre=>1),
+      fn   => 'capt',
+
+    }],
+
+  };
+
+  Readonly my $RE=>{
+
+    name => 're',
+
+    fn   => 'rdre',
+    dom  => 'Grammar::peso',
+
+    chld => [
+
+      $RETYPE,
+
+      $SEAL,
+      $NONTERM,
+      $TERM
+
+    ],
+
+  };
+
+# ---   *   ---   *   ---
 # global state
 
   our $Top;
@@ -537,6 +579,44 @@ package Grammar::peso;
 # placeholder for file header
 
 sub rdhed($match) {
+
+};
+
+# ---   *   ---   *   ---
+# interprets regex definitions
+
+sub rdre($match) {
+
+  my ($tree) = $match->root();
+  my $ctx    = $tree->{ctx};
+  my $f      = $ctx->{frame};
+
+  my $st     = $match->bhash(0,0,0);
+  my @path   = ns_path($f);
+
+  my $o      = $st->{nterm};
+  my $qwor   = $ctx->ns_get(@path,'-qwor');
+  my $sigws  = $ctx->ns_get(@path,'-sigws');
+
+  if(!$sigws) {
+    $o=~ s[\s+][ ]sxmg;
+
+  };
+
+  if($qwor) {
+    $o=~ s[\s][|]sxmg;
+
+  };
+
+  $ctx->ns_decl(
+
+    qr{$o},
+
+    @path,
+    $st->{type},
+    $st->{seal}
+
+  );
 
 };
 
@@ -736,7 +816,7 @@ sub ns_path($f) {
 
     );
 
-  } else {
+  } elsif(defined $f->{-creg}) {
 
     @out=(
       $f->{-cclan},'regs',
@@ -815,7 +895,9 @@ sub ptr_decl($match) {
     $SWITCH,
 
     $HIER,
-    $PTR_DECL
+    $PTR_DECL,
+
+    $RE,
 
   );
 
