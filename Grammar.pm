@@ -25,6 +25,7 @@ package Grammar;
   use lib $ENV{'ARPATH'}.'/avtomat/sys/';
 
   use Style;
+  use Chk;
 
   use Arstd::Array;
   use Tree::Grammar;

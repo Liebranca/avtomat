@@ -26,11 +26,10 @@ ROM std;
   byte  term $3B;
   byte  sep  $2C;
 
-  wed   -qwor;
+  wed   -qwor,-insens;
+  unwed -escape;
 
   re    spec ptr fptr str buf tab re;
-STOP
-
   re    type
 
     byte wide brad word
@@ -40,27 +39,31 @@ STOP
 
   ;
 
+  re fulltype <spec> \s+ <type>;
+
+  unwed -insens;
+  wed   -escape;
+
   re    sigil
 
     $ % * - + ^ & ~ /
-    \\ @ << >>
+    \\ @ >> >>: << <<:
 
     : :: -: +: *: $: %:
     /: &: ^: ~: \\: @:
-    <<: >>:
 
   ;
 
-  re    op
+  re    ops
 
     -> *^ * % / ++ + -- -
-    ?? ? !! ~ << >> | & ^
+    ?? ? !! ~ >> > >= | & ^
 
-    < <= > >= || && == !=
+    << < <=  || && == !=
 
   ;
 
-  unwed;
+  unwed -qwor;
 
   re    num
 
@@ -74,9 +77,15 @@ STOP
   ;
 
   re    bare [_\w][_\w\d]+;
-  re    sigged [_<sigil>\w][_<sigil>\w\d]+;
+  re    sigged <sigil><bare>;
 
-  re    ari <sigged|bare>? <op> <sigged|bare>;
+  re    ari
+    (<sigged|num|bare>)? <op>
+    <sigged|num|bare>
+
+  ;
+
+STOP
 
 # ---   *   ---   *   ---
 

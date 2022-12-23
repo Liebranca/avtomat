@@ -154,7 +154,7 @@ sub ws_split_re($c) {
 sub rescap($s) {
 
   $s=~ s/\\/\\\\/g;
-  for my $c(split '','.^$([{}])+*?/|') {
+  for my $c(split $NULLSTR,q[.^$([{}])+-*?/|]) {
     $s=~ s/\Q${ c }/\\${ c }/g;
 
   };
@@ -332,11 +332,11 @@ sub eiths($ar,%O) {
   $O{insens} //= 0;
 
   # force longest pattern first
-  my @words = array_sort($ar);
+  array_sort($ar);
 
   # conditional processing
-  @words    = array_insens($ar) if $O{insens};
-  @words    = array_rescap($ar) if $O{escape};
+  @$ar=array_insens($ar) if $O{insens};
+  @$ar=array_rescap($ar) if $O{escape};
 
   # ()
   my $beg   = '(';
@@ -350,7 +350,7 @@ sub eiths($ar,%O) {
   };
 
   # give alternation re
-  my $out=join q[|],@words;
+  my $out=join q[|],@$ar;
   return qr{$beg$out$end}x;
 
 };

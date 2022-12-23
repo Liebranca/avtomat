@@ -62,11 +62,6 @@ package Arstd::Array;
 
   };
 
-  Readonly my $LEN_SORT=>sub {
-    (length $a)<=(length $b);
-
-  };
-
 # ---   *   ---   *   ---
 # constructor
 
@@ -215,10 +210,12 @@ sub key_idex($ar) {
 # ---   *   ---   *   ---
 # sorts by length
 
-sub nsort($ar,$block=undef) {
+sub nsort($ar) {
 
-  $block//=$LEN_SORT;
-  return sort $block,@$ar;
+  @$ar=sort {
+    (length $a)<=(length $b)
+
+  } @$ar;
 
 };
 

@@ -143,10 +143,10 @@ sub dup($self) {
 
 sub rew($st) {
 
-  $st->{pending}=[@{
+  unshift @{$st->{pending}},@{
     $st->{nd}->{parent}->{leaves}
 
-  }];
+  };
 
 };
 

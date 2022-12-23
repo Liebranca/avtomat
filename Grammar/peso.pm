@@ -27,7 +27,11 @@ package Grammar::peso;
   use Style;
   use Fmat;
 
+  use Arstd::Array;
   use Arstd::IO;
+
+  use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
+  use Shwl;
 
   use lib $ENV{'ARPATH'}.'/avtomat/';
 
@@ -52,6 +56,15 @@ package Grammar::peso;
     %{Grammar->Frame_Vars()}
 
   }};
+
+  Readonly my $PE_FLAGS=>{
+
+    -qwor   => 0,
+    -insens => 0,
+    -escape => 0,
+    -sigws  => 0,
+
+  };
 
   Readonly my $REGEX=>{
 
@@ -587,6 +600,16 @@ sub rdhed($match) {
 
 sub rdre($match) {
 
+  state $tag = qr{
+
+    (?: (?!< \\\\) <)
+
+    ((?: [^>]|\\\\>)+)
+
+    (?: (?!< \\\\) >)
+
+  }x;
+
   my ($tree) = $match->root();
   my $ctx    = $tree->{ctx};
   my $f      = $ctx->{frame};
@@ -597,20 +620,54 @@ sub rdre($match) {
   my $o      = $st->{nterm};
   my $qwor   = $ctx->ns_get(@path,'-qwor');
   my $sigws  = $ctx->ns_get(@path,'-sigws');
+  my $insens = $ctx->ns_get(@path,'-insens');
+  my $escape = $ctx->ns_get(@path,'-escape');
+
+  my @tags   = ();
+
+  while($o=~ s[$tag][$Shwl::PL_CUT]) {
+
+    my @ar=split q[\|],$1;
+
+    for my $name(@ar) {
+      $name=$ctx->ns_get(@path,'re',$name);
+
+    };
+
+    push @tags,(join q[ | ],@ar);
+
+  };
+
+  for my $x(@tags) {
+    $o=~ s[$Shwl::PL_CUT_RE][$x];
+
+  };
 
   if(!$sigws) {
-    $o=~ s[\s+][ ]sxmg;
+    $o=~ s[[\s\n]+][ ]sxmg;
 
   };
 
   if($qwor) {
-    $o=~ s[\s][|]sxmg;
+
+    my @ar=split $SPACE_RE,$o;
+    array_filter(\@ar);
+
+    $o=Lang::eiths(
+      \@ar,
+
+      escape=>$escape,
+      insens=>$insens
+
+    );
 
   };
 
+  $o=(!$sigws) ? qr{$o}x : qr{$o};
+
   $ctx->ns_decl(
 
-    qr{$o},
+    $o,
 
     @path,
     $st->{type},
@@ -713,7 +770,14 @@ sub rdnum($match) {
 sub hier_sort($match) {
 
   my ($tree)  = $match->root();
-  my $f       = $tree->{ctx}->{frame};
+  my $ctx     = $tree->{ctx};
+  my $f       = $ctx->{frame};
+
+  list_flatten(
+    $match->branch_in(qr{^name$})
+
+  );
+
   my $st      = $match->bhash(1,0,0);
 
   my $ckey    = q[-c].(lc $st->{type});
@@ -732,6 +796,17 @@ sub hier_sort($match) {
     $f->{-creg}=undef;
     $f->{-crom}=undef;
     $f->{-cproc}=undef;
+
+  };
+
+  for my $key(keys %$PE_FLAGS) {
+
+    my $value=$PE_FLAGS->{$key};
+
+    $tree->{ctx}->ns_asg(
+      $value,ns_path($f),$key
+
+    );
 
   };
 
@@ -837,7 +912,8 @@ sub ptr_decl($match) {
 
   # get context
   my ($tree) = $match->root();
-  my $f      = $tree->{ctx}->{frame};
+  my $ctx    = $tree->{ctx};
+  my $f      = $ctx->{frame};
 
   list_flatten($match->branch_in(qr{^names$}));
   nest_flatten($match,'value');
@@ -877,7 +953,7 @@ sub ptr_decl($match) {
 
     };
 
-    $tree->{ctx}->ns_decl($o,@path,$name);
+    $ctx->ns_decl($o,@path,$name);
 
   };
 
@@ -907,9 +983,16 @@ sub ptr_decl($match) {
 
   my $t    = Grammar::peso->parse($prog);
 
-  $t->prich();
+#  $t->prich();
+#  fatdump($t->{ctx}->{frame}->{-ns});
 
-  fatdump($t->{ctx}->{frame}->{-ns});
+my @path=qw(peso roms std);
+my $re=$t->{ctx}->ns_get(
+  @path,'re','ari'
+
+);
+
+say int(q[--0]=~ $re);
 
 
 # ---   *   ---   *   ---
