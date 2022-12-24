@@ -195,4 +195,39 @@ sub ns_get($self,@path) {
 };
 
 # ---   *   ---   *   ---
+# dirty and quick backwards evaluating
+# to find across namespaces
+
+sub ns_search($self,$name,$sep,@path) {
+
+  my @out   = ();
+  my @cm    = ();
+
+  my @alt   = split $sep,$name;
+  my $oname = pop @alt;
+
+  for(
+
+    my ($i,$j)=($#path,$#alt);
+
+    $j>=0 && $i>=0;
+    $i--,$j--
+
+
+  ) {
+
+    my $a=\$path[$i];
+    my $b=\$alt[$j];
+
+    $$a=$$b if $$a ne $$b;
+
+  };
+
+  @out=(@path,$oname);
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
 1; # ret

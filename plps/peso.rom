@@ -1,4 +1,4 @@
-%-;
+%;
 
 # ---   *   ---   *   ---
 # PESO
@@ -73,7 +73,7 @@ ROM std;
   | 0[0-7\.:]+
   | 0b[0-1\.:]+
 
-  | v[\d\.:]+[ab]
+  | v[\d\.:]+[ab]?
   ;
 
   re    bare [_\w][_\w\d]+;
@@ -85,11 +85,13 @@ ROM std;
 
   ;
 
-STOP
-
 # ---   *   ---   *   ---
 
 ROM stmt;
+
+  re what <std::num>;
+
+STOP
 
   blk end;
 

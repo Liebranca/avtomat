@@ -77,6 +77,8 @@ package Grammar::peso;
     sep   => Lang::nonscap(q[,]),
     lcom  => Lang::eaf(q[\#]),
 
+    nsop  => qr{::},
+
 # ---   *   ---   *   ---
 
     nonterm => Lang::nonscap(
@@ -222,6 +224,20 @@ package Grammar::peso;
 
   };
 
+  Readonly my $NONTERM_O=>{
+
+    name => 'nterm',
+
+    chld => [{
+      name => $REGEX->{nonterm},
+      fn   => 'capt',
+
+      opt  => 1,
+
+    }],
+
+  };
+
   Readonly my $HEADER=>{
 
     name => 'header',
@@ -229,7 +245,14 @@ package Grammar::peso;
     fn   => 'rdhed',
     dom  => 'Grammar::peso',
 
-    chld => [$SIGIL,$NONTERM,$TERM],
+    chld => [
+
+      $SIGIL,
+
+      $NONTERM_O,
+      $TERM
+
+    ],
 
   };
 
@@ -630,11 +653,26 @@ sub rdre($match) {
     my @ar=split q[\|],$1;
 
     for my $name(@ar) {
-      $name=$ctx->ns_get(@path,'re',$name);
+
+      my @npath = split $REGEX->{nsop},$name;
+      $name     = pop @npath;
+
+      push @npath,'re',$name;
+
+      my @rpath=$ctx->ns_search(
+
+        (join q[::],@npath),
+
+        $REGEX->{nsop},
+        @path,'re'
+
+      );
+
+      $name=$ctx->ns_get(@rpath);
 
     };
 
-    push @tags,(join q[ | ],@ar);
+    push @tags,(join q[|],@ar);
 
   };
 
@@ -985,15 +1023,6 @@ sub ptr_decl($match) {
 
 #  $t->prich();
 #  fatdump($t->{ctx}->{frame}->{-ns});
-
-my @path=qw(peso roms std);
-my $re=$t->{ctx}->ns_get(
-  @path,'re','ari'
-
-);
-
-say int(q[--0]=~ $re);
-
 
 # ---   *   ---   *   ---
 1; # ret
