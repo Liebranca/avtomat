@@ -33,6 +33,12 @@ package Grammar;
   use parent 'St';
 
 # ---   *   ---   *   ---
+# info
+
+  our $VERSION = v0.00.3;
+  our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
 # ROM
 
   our $OR={

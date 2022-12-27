@@ -30,6 +30,8 @@ package Grammar::peso;
   use Arstd::Array;
   use Arstd::IO;
 
+  use Tree::Grammar;
+
   use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
   use Shwl;
 
@@ -87,6 +89,7 @@ package Grammar::peso;
 
       negate => 1,
       mod    => '+',
+      sigws  => 1,
 
     ),
 
@@ -102,7 +105,7 @@ package Grammar::peso;
 
         >> >>: << <<:
 
-        |>
+        |> &>
 
       )],
 
@@ -507,11 +510,30 @@ package Grammar::peso;
       $FULL_TYPE,
 
       $NLIST,
-      $VLIST,
+      {%$VLIST,opt=>1},
 
       $TERM
 
     ],
+
+  };
+
+# ---   *   ---   *   ---
+# proc input
+
+  Readonly my $PE_INPUT=>{
+
+    name => 'input',
+
+    fn   => 'rdin',
+    dom  => 'Grammar::peso',
+
+    chld => [
+
+      {name=>qr{in}},
+      $PTR_DECL,
+
+    ]
 
   };
 
@@ -523,7 +545,13 @@ package Grammar::peso;
     name => 'name',
 
     chld=>[{
-      name => qr{VERSION|AUTHOR}x,
+      name => Lang::eiths(
+
+        [qw(VERSION AUTHOR ENTRY)],
+        -insens=>1,
+
+      ),
+
       fn   => 'capt',
 
     }],
@@ -537,7 +565,7 @@ package Grammar::peso;
     fn   => 'sasg',
     dom  => 'Grammar::peso',
 
-    chld => [$SVARS,$VALUE,$TERM],
+    chld => [$SVARS,$NONTERM,$TERM],
 
   };
 
@@ -607,31 +635,32 @@ package Grammar::peso;
   };
 
 # ---   *   ---   *   ---
-# global state
+# test
 
-  our $Top;
+  Readonly my $MATCH=>{
+
+    name => 'match',
+
+    fn   => 'mtest',
+    dom  => 'Grammar::peso',
+
+    chld => [
+
+      {name=>qr{match}},
+
+      $STR,
+      {name=>$REGEX->{sep}},
+
+      $NONTERM,
+      $TERM
+
+    ],
+
+  };
 
 # ---   *   ---   *   ---
-# placeholder for file header
 
-sub rdhed($match) {
-
-};
-
-# ---   *   ---   *   ---
-# interprets regex definitions
-
-sub rdre($match) {
-
-  state $tag = qr{
-
-    (?: (?!< \\\\) <)
-
-    ((?: [^>]|\\\\>)+)
-
-    (?: (?!< \\\\) >)
-
-  }x;
+sub mtest($match) {
 
   my ($tree) = $match->root();
   my $ctx    = $tree->{ctx};
@@ -646,9 +675,45 @@ sub rdre($match) {
   my $insens = $ctx->ns_get(@path,'-insens');
   my $escape = $ctx->ns_get(@path,'-escape');
 
-  my @tags   = ();
+  $o         = detag($o,$ctx,@path);
 
-  while($o=~ s[$tag][$Shwl::PL_CUT]) {
+  my $s=$st->{str};
+  $s=~ s[^"|"$][]sxmg;
+
+say $s,q[ ],$o;
+
+  say int($s=~ $o);
+  exit;
+
+};
+
+# ---   *   ---   *   ---
+# global state
+
+  our $Top;
+
+# ---   *   ---   *   ---
+# placeholder for file header
+
+sub rdhed($match) {
+
+};
+
+# ---   *   ---   *   ---
+
+sub detag($o,$ctx,@path) {
+
+  state $RETAG_RE=qr{
+
+    (?: (?!< \\\\) <)
+    ((?: [^>]|\\\\>)+)
+    (?: (?!< \\\\) >)
+
+  }x;
+
+  my @tags=();
+
+  while($o=~ s[$RETAG_RE][$Shwl::PL_CUT]) {
 
     my @ar=split q[\|],$1;
 
@@ -680,6 +745,30 @@ sub rdre($match) {
     $o=~ s[$Shwl::PL_CUT_RE][$x];
 
   };
+
+  return $o;
+
+};
+
+# ---   *   ---   *   ---
+# interprets regex definitions
+
+sub rdre($match) {
+
+  my ($tree) = $match->root();
+  my $ctx    = $tree->{ctx};
+  my $f      = $ctx->{frame};
+
+  my $st     = $match->bhash(0,0,0);
+  my @path   = ns_path($f);
+
+  my $o      = $st->{nterm};
+  my $qwor   = $ctx->ns_get(@path,'-qwor');
+  my $sigws  = $ctx->ns_get(@path,'-sigws');
+  my $insens = $ctx->ns_get(@path,'-insens');
+  my $escape = $ctx->ns_get(@path,'-escape');
+
+  $o         = detag($o,$ctx,@path);
 
   if(!$sigws) {
     $o=~ s[[\s\n]+][ ]sxmg;
@@ -720,15 +809,20 @@ sub rdre($match) {
 
 sub sasg($match) {
 
-  my $v=$match->branch_in(qr{^value$});
+  my ($tree) = $match->root();
+  my $ctx    = $tree->{ctx};
+  my $f      = $ctx->{frame};
 
-  for my $branch(@{$v->{leaves}}) {
-    $v->pluck($branch)
-    if !@{$branch->{leaves}};
+  my $st     = $match->bhash(0,0);
+  my @path   = ns_path($f);
 
-  };
+  $ctx->ns_asg(
+    $st->{nterm},
 
-  list_flatten($v);
+    @path,
+    $st->{name}
+
+  );
 
 };
 
@@ -811,7 +905,7 @@ sub hier_sort($match) {
   my $ctx     = $tree->{ctx};
   my $f       = $ctx->{frame};
 
-  list_flatten(
+  Tree::Grammar::list_flatten(
     $match->branch_in(qr{^name$})
 
   );
@@ -851,27 +945,6 @@ sub hier_sort($match) {
 };
 
 # ---   *   ---   *   ---
-# turns trees with the structure:
-#
-# ($match)
-# \-->subtype
-# .  \-->value
-#
-# into:
-#
-# ($match)
-# \-->value
-
-sub list_flatten($match) {
-
-  for my $branch(@{$match->{leaves}}) {
-    $branch->flatten_branch();
-
-  };
-
-};
-
-# ---   *   ---   *   ---
 # decl errme
 
 sub throw_invalid_scope(@names) {
@@ -886,23 +959,6 @@ sub throw_invalid_scope(@names) {
     lvl  => $AR_FATAL,
 
   );
-
-};
-
-# ---   *   ---   *   ---
-#;
-
-sub nest_flatten($match,$pat) {
-
-  for my $branch(
-    $match->branches_in(qr{^$pat$})
-
-  ) {
-
-    list_flatten($branch);
-    $branch->flatten_branch();
-
-  };
 
 };
 
@@ -937,6 +993,13 @@ sub ns_path($f) {
 
     );
 
+  } else {
+
+    @out=(
+      $f->{-cclan},'sdefs'
+
+    );
+
   };
 
   return @out;
@@ -953,8 +1016,17 @@ sub ptr_decl($match) {
   my $ctx    = $tree->{ctx};
   my $f      = $ctx->{frame};
 
-  list_flatten($match->branch_in(qr{^names$}));
-  nest_flatten($match,'value');
+  $tree->prich();
+
+  Tree::Grammar::list_flatten(
+    $match->branch_in(qr{^names$})
+
+  );
+
+  Tree::Grammar::nest_flatten(
+    $match,'value'
+
+  );
 
   my $st     = $match->bhash(1,1,1);
 
@@ -1004,12 +1076,14 @@ sub ptr_decl($match) {
 
     $HEADER,
     $COMMENT,
+    $MATCH,
 
     $SDEFS,
     $SWITCH,
 
     $HIER,
     $PTR_DECL,
+    $PE_INPUT,
 
     $RE,
 
@@ -1021,8 +1095,8 @@ sub ptr_decl($match) {
 
   my $t    = Grammar::peso->parse($prog);
 
-#  $t->prich();
-#  fatdump($t->{ctx}->{frame}->{-ns});
+  $t->prich();
+  fatdump($t->{ctx}->{frame}->{-ns});
 
 # ---   *   ---   *   ---
 1; # ret

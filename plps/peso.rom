@@ -1,4 +1,7 @@
 %;
+STOP
+
+byte str x;
 
 # ---   *   ---   *   ---
 # PESO
@@ -16,8 +19,10 @@
 
   CLAN      peso;
 
-  VERSION   v0.00.2b;
+  VERSION   v0.00.3b;
   AUTHOR    'IBN-3DILA';
+
+  ENTRY     top;
 
 # ---   *   ---   *   ---
 
@@ -87,11 +92,21 @@ ROM std;
 
 # ---   *   ---   *   ---
 
-ROM stmt;
+PROC expr;
 
-  re what <std::num>;
+  in byte str s;
 
-STOP
+  on match <std::any>,s;
+    call isany,s;
+
+  or match <std::re>,s;
+    call isre,s;
+
+  off;
+
+# ---   *   ---   *   ---
+
+PROC stmt;
 
   blk end;
 
@@ -104,7 +119,7 @@ STOP
 
 # ---   *   ---   *   ---
 
-ROM clist;
+PROC clist;
 
   beq stmt;
 
@@ -119,7 +134,7 @@ ROM clist;
 
 # ---   *   ---   *   ---
 
-ROM value_decl;
+PROC value_decl;
 
   beq clist;
 

@@ -533,9 +533,15 @@ sub nonscap($s,%O) {
   #defaults
   $O{negate} //= 0;
   $O{mod}    //= $NULLSTR;
+  $O{sigws}  //= 0;
+
+  my $c=($O{sigws})
+    ? "$s"
+    : "$s\\s"
+    ;
 
   my $out=($O{negate})
-    ? "((\\\\[^$s]) | [^$s\\\\] | (\\\\ $s))"
+    ? "((\\\\[^$c]) | [^$c\\\\] | (\\\\ $s))"
     : "((?!< \\\\ ) $s)"
     ;
 

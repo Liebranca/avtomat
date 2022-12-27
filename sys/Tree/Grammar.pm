@@ -33,7 +33,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;
+  our $VERSION = v0.00.4;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -139,6 +139,44 @@ sub dup($self) {
 };
 
 # ---   *   ---   *   ---
+# turns trees with the structure:
+#
+# ($match)
+# \-->subtype
+# .  \-->value
+#
+# into:
+#
+# ($match)
+# \-->value
+
+sub list_flatten($match) {
+
+  for my $branch(@{$match->{leaves}}) {
+    $branch->flatten_branch();
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^a more complex form of that
+
+sub nest_flatten($match,$pat) {
+
+  for my $branch(
+    $match->branches_in(qr{^$pat$})
+
+  ) {
+
+    list_flatten($branch);
+    $branch->flatten_branch();
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # rewind the tree match
 
 sub rew($st) {
@@ -219,8 +257,11 @@ sub match_st($self) {
     frame   => $frame,
     pending => [@{$self->{leaves}}],
 
-    matches => 0,
-    mint    => 0,
+    matches => [],
+    mint    => [],
+
+    full    => 0,
+    fmint   => 0,
     mlast   => 0,
 
     re      => undef,
@@ -228,6 +269,7 @@ sub match_st($self) {
 
     kls     => $self->{value},
     fn      => [],
+    opts    => [],
 
   },'Tree::Grammar::Matcher';
 
@@ -284,7 +326,7 @@ sub match($self,$s) {
 
   };
 
-  $fail|=$st->{matches} != $st->{mint};
+  $fail|=$st->{full} == $st->{fmint};
 
   my $out=($fail)
     ? $NULL
@@ -304,11 +346,15 @@ sub parse($self,$ctx,$s) {
   my $frame = Tree->get_frame();
   my $tree  = $frame->nit(undef,$self->{value});
 
+#:!;> OHCRAP
+#:!;>
 #:!;> storing a reference to the object that
 #:!;> spawned this tree, within the tree
 #:!;>
-#:!;> frankly, quite terrible, and an outright
-#:!;> dependency loop. but it works.
+#:!;> frankly quite terrible and an outright
+#:!;> dependency loop.
+#:!;>
+#:!;> but it works.
 
   $tree->{ctx}=$ctx;
 
@@ -416,10 +462,14 @@ sub has_action($self) {
 
 sub attempt_match($self,$sref) {
 
-  my $re         = $self->{re};
+  my $re        = $self->{re};
+  $self->{capt} = undef;
 
-  $self->{mint} += !$self->{nd}->{opt};
-  $self->{capt}  = undef;
+  if(!$self->{nd}->{opt}) {
+say int(@{$self->{mint}});
+    $self->{mint}->[-1]++;
+
+  };
 
 # ---   *   ---   *   ---
 
@@ -437,7 +487,8 @@ sub attempt_match($self,$sref) {
 
 # ---   *   ---   *   ---
 
-  $self->{matches}+=!$self->{nd}->{opt};
+  $self->{matches}->[-1]+=
+    !$self->{nd}->{opt};
 
   $self->{nd}->{fn}->($self)
   if $self->has_action();
@@ -457,7 +508,7 @@ sub OR($self) {
   my $out=1;
 
   if(!$self->{mlast}) {
-    $self->{mint}--;
+    $self->{mint}->[-1]--;
 
   } else {
 
@@ -528,12 +579,17 @@ sub expand_tree($self) {
       );
 
     };
-
+say $self->{nd}->{value};
     push @{$self->{fn}},[
       $self->{anchor},
-      $self->{nd}->{fn}
+      $self->{nd}
 
-    ] if $self->has_action();
+    ];
+
+    push @{$self->{matches}},1;
+    push @{$self->{mint}},1;
+
+say q[**],int(@{$self->{mint}});
 
   };
 
@@ -544,18 +600,40 @@ sub expand_tree($self) {
 
 sub branch_fn($self) {
 
-  my $ref=pop @{$self->{fn}};
-  goto TAIL if !defined $ref;
+  my ($branch,$nd)=@{ (pop @{$self->{fn}}) };
 
-  if($self->{matches} >= $self->{mint}) {
+  $self->{fmint}++;
 
-    my ($branch,$fn)=@$ref;
-    $fn->($branch);
+  # on match
+  if(
+
+     $self->{matches}->[-1]
+  >= $self->{mint}->[-1]
+
+  ) {
+
+    $nd->{fn}->($branch)
+    if $nd->{fn} ne $NOOP;
+
+    $self->{full}++;
+
+  # on no match
+  } elsif($nd->{opt}) {
+    $self->{fmint}--;
 
   };
 
-TAIL:
-  return;
+  pop @{$self->{matches}};
+  pop @{$self->{mint}};
+
+if(!@{$self->{matches}}) {
+
+  push @{$self->{matches}},1;
+  push @{$self->{mint}},1;
+
+};
+
+say q[>>],int(@{$self->{mint}});
 
 };
 
