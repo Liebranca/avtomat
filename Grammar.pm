@@ -129,10 +129,11 @@ sub mkrules($class,@rules) {
 
       $value->{name},
 
-      dom => $value->{dom},
-      fn  => $value->{fn},
+      dom   => $value->{dom},
+      fn    => $value->{fn},
 
-      opt => $value->{opt},
+      opt   => $value->{opt},
+      greed => $value->{greed},
 
     );
 

@@ -227,20 +227,6 @@ package Grammar::peso;
 
   };
 
-  Readonly my $NONTERM_O=>{
-
-    name => 'nterm',
-
-    chld => [{
-      name => $REGEX->{nonterm},
-      fn   => 'capt',
-
-      opt  => 1,
-
-    }],
-
-  };
-
   Readonly my $HEADER=>{
 
     name => 'header',
@@ -252,7 +238,7 @@ package Grammar::peso;
 
       $SIGIL,
 
-      $NONTERM_O,
+      {%$NONTERM,opt=>1},
       $TERM
 
     ],
@@ -321,7 +307,14 @@ package Grammar::peso;
     name => $REGEX->{spec},
     fn   => 'capt',
 
-    opt  => 1,
+  };
+
+  Readonly my $SPECS=>{
+
+    name  => 'specs',
+    greed => 1,
+
+    chld  => [$SPEC],
 
   };
 
@@ -455,8 +448,10 @@ package Grammar::peso;
     chld => [
 
       {
-        name=>'spec',
-        chld=>[$SPEC],
+        name => 'spec',
+        opt  => 1,
+
+        chld => [$SPEC],
 
       },
 
@@ -478,8 +473,14 @@ package Grammar::peso;
 # ^patterns for declaring members
 
   Readonly my $FULL_TYPE=>{
+
     name => 'type',
-    chld => [$TYPE,$SPEC],
+    chld => [
+
+      $TYPE,
+      {%$SPECS,opt=>1},
+
+    ],
 
   };
 
@@ -696,6 +697,14 @@ say $s,q[ ],$o;
 # placeholder for file header
 
 sub rdhed($match) {
+
+};
+
+# ---   *   ---   *   ---
+# reads input lines
+
+sub rdin($match) {
+#  $match->prich();
 
 };
 
@@ -929,6 +938,10 @@ sub hier_sort($match) {
     $f->{-crom}=undef;
     $f->{-cproc}=undef;
 
+  } elsif($st->{type} eq 'PROC') {
+    map {say $ARG} ns_path($f);
+#    exit;
+
   };
 
   for my $key(keys %$PE_FLAGS) {
@@ -947,15 +960,16 @@ sub hier_sort($match) {
 # ---   *   ---   *   ---
 # decl errme
 
-sub throw_invalid_scope(@names) {
+sub throw_invalid_scope($names,@path) {
 
-  my $s=join q[,],map {'%s'} @names;
+  my $p=(@path) ? join q[/],@path : $NULLSTR;
+  my $s=join q[,],map {$p.'/%s'} @$names;
 
   errout(
 
     q[No valid container for decls ]."<$s>",
 
-    args => [@names],
+    args => [@$names],
     lvl  => $AR_FATAL,
 
   );
@@ -1016,8 +1030,6 @@ sub ptr_decl($match) {
   my $ctx    = $tree->{ctx};
   my $f      = $ctx->{frame};
 
-  $tree->prich();
-
   Tree::Grammar::list_flatten(
     $match->branch_in(qr{^names$})
 
@@ -1028,6 +1040,13 @@ sub ptr_decl($match) {
 
   );
 
+  $match->branch_in(
+    qr{^specs$}
+
+  )->flatten_branch();
+
+$match->prich();
+
   my $st     = $match->bhash(1,1,1);
 
   # ^unpack
@@ -1036,11 +1055,14 @@ sub ptr_decl($match) {
   my @names  = @{$st->{names}};
   my @values = @{$st->{'values'}};
 
-  # errchk
-  throw_invalid_scope(@names)
-  if !$f->{-crom} && !$f->{-creg} && !$f->{-cproc};
+  my @path   = ns_path($f);
 
-  my @path=ns_path($f);
+  # errchk
+  throw_invalid_scope(\@names,@path)
+  if !$f->{-crom}
+  && !$f->{-creg}
+  && !$f->{-cproc}
+  ;
 
   # enforce zero as default value
   for my $i(0..$#names) {
@@ -1095,8 +1117,8 @@ sub ptr_decl($match) {
 
   my $t    = Grammar::peso->parse($prog);
 
-  $t->prich();
-  fatdump($t->{ctx}->{frame}->{-ns});
+#  $t->prich();
+#  fatdump($t->{ctx}->{frame}->{-ns});
 
 # ---   *   ---   *   ---
 1; # ret

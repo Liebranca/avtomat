@@ -1,7 +1,4 @@
 %;
-STOP
-
-byte str x;
 
 # ---   *   ---   *   ---
 # PESO
@@ -95,7 +92,7 @@ ROM std;
 PROC expr;
 
   in byte str s;
-
+STOP
   on match <std::any>,s;
     call isany,s;
 

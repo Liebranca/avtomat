@@ -42,9 +42,10 @@ package Tree::Grammar;
 sub nit($class,$frame,%O) {
 
   # defaults
-  $O{fn}  //= $NULLSTR;
-  $O{dom} //= $class;
-  $O{opt} //= 0;
+  $O{fn}    //= $NULLSTR;
+  $O{dom}   //= $class;
+  $O{opt}   //= 0;
+  $O{greed} //= 0;
 
   # get instance
   my $self=Tree::nit(
@@ -76,8 +77,9 @@ sub nit($class,$frame,%O) {
 
   };
 
-  $self->{fn}  = $O{fn};
-  $self->{opt} = $O{opt};
+  $self->{fn}    = $O{fn};
+  $self->{opt}   = $O{opt};
+  $self->{greed} = $O{greed};
 
   return $self;
 
@@ -125,12 +127,37 @@ sub dup($self) {
 
     );
 
-    $cpy->{opt}=$nd->{opt};
+    $cpy->{opt}   = $nd->{opt};
+    $cpy->{greed} = $nd->{greed};
 
     $out//=$cpy;
 
     unshift @anchor,$cpy;
     unshift @pending,@{$nd->{leaves}};
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# true if node is part of an
+# optional branch
+
+sub opt_branch($self) {
+
+  my $out=0;
+
+  while(defined $self->{parent}) {
+
+    if($self->{opt}) {
+      $out=1;
+      last;
+
+    };
+
+    $self=$self->{parent};
 
   };
 
@@ -257,8 +284,8 @@ sub match_st($self) {
     frame   => $frame,
     pending => [@{$self->{leaves}}],
 
-    matches => [],
-    mint    => [],
+    matches => [0],
+    mint    => [0],
 
     full    => 0,
     fmint   => 0,
@@ -326,7 +353,20 @@ sub match($self,$s) {
 
   };
 
-  $fail|=$st->{full} == $st->{fmint};
+  while(@{$st->{fn}}) {
+    $st->branch_fn();
+
+  };
+
+  $st->{full}  = $st->{matches}->[0];
+  $st->{fmint} = $st->{mint}->[0];
+
+  $fail|=
+
+       $st->{full} == 0
+    || $st->{full} != $st->{fmint}
+
+  ;
 
   my $out=($fail)
     ? $NULL
@@ -365,7 +405,10 @@ sub parse($self,$ctx,$s) {
     # test each branch against string
     for my $branch(@{$self->{leaves}}) {
 
+#      say $branch->{value};
       my ($match,$ds)=$branch->match($s);
+
+#      say "____________________\n";
 
       # update string and append
       # to tree on succesful match
@@ -465,11 +508,8 @@ sub attempt_match($self,$sref) {
   my $re        = $self->{re};
   $self->{capt} = undef;
 
-  if(!$self->{nd}->{opt}) {
-say int(@{$self->{mint}});
-    $self->{mint}->[-1]++;
-
-  };
+  $self->{mint}->[-1]+=
+    !$self->{nd}->{opt};
 
 # ---   *   ---   *   ---
 
@@ -579,17 +619,15 @@ sub expand_tree($self) {
       );
 
     };
-say $self->{nd}->{value};
+
     push @{$self->{fn}},[
       $self->{anchor},
       $self->{nd}
 
     ];
 
-    push @{$self->{matches}},1;
-    push @{$self->{mint}},1;
-
-say q[**],int(@{$self->{mint}});
+    push @{$self->{matches}},0;
+    push @{$self->{mint}},0;
 
   };
 
@@ -600,40 +638,65 @@ say q[**],int(@{$self->{mint}});
 
 sub branch_fn($self) {
 
-  my ($branch,$nd)=@{ (pop @{$self->{fn}}) };
+  my ($branch,$nd) = @{ (pop @{$self->{fn}}) };
 
-  $self->{fmint}++;
+  my $matches      = $self->{matches};
+  my $mint         = $self->{mint};
+
+  $mint->[-2]++;
+  my $mm=0;
 
   # on match
+
   if(
 
-     $self->{matches}->[-1]
-  >= $self->{mint}->[-1]
+     ($matches->[-1] && $mint->[-1])
+  && ($matches->[-1] >= $mint->[-1])
 
   ) {
 
     $nd->{fn}->($branch)
     if $nd->{fn} ne $NOOP;
 
-    $self->{full}++;
+    $mm=1;
 
-  # on no match
-  } elsif($nd->{opt}) {
-    $self->{fmint}--;
+    $matches->[-2]++;
+
+    # rewind branch on greedy modifier
+    if($nd->{greed}) {
+
+      unshift @{$self->{pending}},$nd;
+
+      push    @{$self->{an}},$branch
+      if $self->{an}->[-1] ne $branch;
+
+      $nd->{opt}|= 0b10;
+
+    };
+
+  # no match, but branch is optional
+  } elsif($nd->opt_branch()) {
+    $mint->[-2]--;
+
+    if($nd->{greed}) {
+
+      $nd->{opt}&= ~0b10;
+
+      pop @{$self->{an}}
+      if $self->{an}->[-1] eq $branch;
+
+    };
 
   };
 
-  pop @{$self->{matches}};
-  pop @{$self->{mint}};
+  pop @$matches;
+  pop @$mint;
 
-if(!@{$self->{matches}}) {
-
-  push @{$self->{matches}},1;
-  push @{$self->{mint}},1;
-
-};
-
-say q[>>],int(@{$self->{mint}});
+#say $nd->{value},q[: ],$mm,q[, ],
+#  $matches->[0],q[/],
+#  $mint->[0]
+#
+#;
 
 };
 
