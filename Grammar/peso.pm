@@ -43,7 +43,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;
+  our $VERSION = v0.00.5;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -431,7 +431,7 @@ package Grammar::peso;
 
     name => 'type',
     chld =>[{
-      name =>$REGEX->{hier},
+      name => $REGEX->{hier},
       fn   => 'capt',
 
     }],
@@ -458,8 +458,8 @@ package Grammar::peso;
       $THIER,
 
       {
-        name=>'name',
-        chld=>[$BARE],
+        name => 'name',
+        chld => [$BARE],
 
       },
 
@@ -660,12 +660,52 @@ package Grammar::peso;
   };
 
 # ---   *   ---   *   ---
+# pop current block
+
+  Readonly my $RET => {
+
+    name  => 'ret',
+
+    'fn'  => sub ($match) {
+      $match->{ctx_fn}=\&ctx_ret
+
+    },
+
+    chld  => [
+
+      {name=>'nid',chld=>[{
+
+        name => Lang::eiths(
+          [qw(ret)],
+          -insens=>1
+
+        ),
+
+        fn   => 'capt',
+
+      }]},
+
+      {%$NONTERM,-opt=>1},
+      $TERM
+
+    ],
+
+  };
+
+# ---   *   ---   *   ---
+
+sub ctx_ret($match) {
+
+  my ($tree,$cutx,$f)=get_ctx($match);
+  ns_path($f,-ret=>1);
+
+};
+
+# ---   *   ---   *   ---
 
 sub mtest($match) {
 
-  my ($tree) = $match->root();
-  my $ctx    = $tree->{ctx};
-  my $f      = $ctx->{frame};
+  my ($tree,$ctx,$f)=get_ctx($match);
 
   my $st     = $match->bhash(0,0,0);
   my @path   = ns_path($f);
@@ -692,6 +732,18 @@ say $s,q[ ],$o;
 # global state
 
   our $Top;
+
+# ---   *   ---   *   ---
+# repeat offenders
+
+sub get_ctx($match) {
+  my ($tree) = $match->root();
+  my $ctx    = $tree->{ctx};
+  my $f      = $ctx->{frame};
+
+  return ($tree,$ctx,$f);
+
+};
 
 # ---   *   ---   *   ---
 # placeholder for file header
@@ -763,10 +815,13 @@ sub detag($o,$ctx,@path) {
 # interprets regex definitions
 
 sub rdre($match) {
+  $match->{ctx_fn}=\&ctx_rdre;
 
-  my ($tree) = $match->root();
-  my $ctx    = $tree->{ctx};
-  my $f      = $ctx->{frame};
+};
+
+sub ctx_rdre($match) {
+
+  my ($tree,$ctx,$f)=get_ctx($match);
 
   my $st     = $match->bhash(0,0,0);
   my @path   = ns_path($f);
@@ -817,10 +872,13 @@ sub rdre($match) {
 # placeholder for special defs
 
 sub sasg($match) {
+  $match->{ctx_fn}=\&ctx_sasg;
 
-  my ($tree) = $match->root();
-  my $ctx    = $tree->{ctx};
-  my $f      = $ctx->{frame};
+};
+
+sub ctx_sasg($match) {
+
+  my ($tree,$ctx,$f)=get_ctx($match);
 
   my $st     = $match->bhash(0,0);
   my @path   = ns_path($f);
@@ -839,9 +897,13 @@ sub sasg($match) {
 # turns you on and off
 
 sub switch($match) {
+  $match->{ctx_fn}=\&ctx_switch;
 
-  my ($tree) = $match->root();
-  my $f      = $tree->{ctx}->{frame};
+};
+
+sub ctx_switch($match) {
+
+  my ($tree,$ctx,$f)=get_ctx($match);
 
   my @path   = ns_path($f);
 
@@ -910,14 +972,18 @@ sub rdnum($match) {
 
 sub hier_sort($match) {
 
-  my ($tree)  = $match->root();
-  my $ctx     = $tree->{ctx};
-  my $f       = $ctx->{frame};
-
   Tree::Grammar::list_flatten(
     $match->branch_in(qr{^name$})
 
   );
+
+  $match->{ctx_fn}=\&ctx_hier_sort;
+
+};
+
+sub ctx_hier_sort($match) {
+
+  my ($tree,$ctx,$f)=get_ctx($match);
 
   my $st      = $match->bhash(1,0,0);
 
@@ -937,10 +1003,6 @@ sub hier_sort($match) {
     $f->{-creg}=undef;
     $f->{-crom}=undef;
     $f->{-cproc}=undef;
-
-  } elsif($st->{type} eq 'PROC') {
-    map {say $ARG} ns_path($f);
-#    exit;
 
   };
 
@@ -977,16 +1039,51 @@ sub throw_invalid_scope($names,@path) {
 };
 
 # ---   *   ---   *   ---
+
+sub ns_ret($f) {
+
+  if(defined $f->{-cproc}) {
+    $f->{-cproc}=undef;
+
+  } elsif(defined $f->{-crom}) {
+    $f->{-crom}=undef;
+
+  } elsif(defined $f->{-creg}) {
+    $f->{-creg}=undef;
+
+  } else {
+    $f->{-cclan}='non';
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # builds namespace path
 
-sub ns_path($f) {
+sub ns_path($f,%O) {
+
+  # defaults
+  $O{-ret}//=0;
 
   my @out=();
 
   if(defined $f->{-cproc}) {
 
+    my $ckey=(defined $f->{-crom})
+      ? q[rom]
+      : q[reg]
+      ;
+
+
+    my @ptr=(
+      $ckey.'s',
+      $f->{q[-c].$ckey},
+
+    );
+
     @out=(
-      $f->{-cclan},'procs',
+      $f->{-cclan},@ptr,'procs',
       $f->{-cproc},'stk:$00'
 
     );
@@ -1010,11 +1107,13 @@ sub ns_path($f) {
   } else {
 
     @out=(
-      $f->{-cclan},'sdefs'
+      $f->{-cclan},'$DEF'
 
     );
 
   };
+
+  ns_ret($f) if $O{-ret};
 
   return @out;
 
@@ -1024,11 +1123,6 @@ sub ns_path($f) {
 # pushes constructors to current namespace
 
 sub ptr_decl($match) {
-
-  # get context
-  my ($tree) = $match->root();
-  my $ctx    = $tree->{ctx};
-  my $f      = $ctx->{frame};
 
   Tree::Grammar::list_flatten(
     $match->branch_in(qr{^names$})
@@ -1045,11 +1139,20 @@ sub ptr_decl($match) {
 
   )->flatten_branch();
 
-$match->prich();
+  $match->{ctx_fn}=\&ctx_ptr_decl;
 
-  my $st     = $match->bhash(1,1,1);
+};
+
+# ---   *   ---   *   ---
+# ^call made when executing tree
+
+sub ctx_ptr_decl($match) {
+
+
+  my ($tree,$ctx,$f)=get_ctx($match);
 
   # ^unpack
+  my $st     = $match->bhash(1,1,1);
   my $type   = shift @{$st->{type}};
   my @specs  = @{$st->{type}};
   my @names  = @{$st->{names}};
@@ -1108,17 +1211,22 @@ $match->prich();
     $PE_INPUT,
 
     $RE,
+    $RET,
 
   );
 
-  my $prog = orc('plps/peso.rom');
+  my $src  = $ARGV[0];
+     $src//= 'plps/peso.rom';
+
+  my $prog = orc($src);
+
   $prog    =~ m[([\S\s]+)\s*STOP]x;
   $prog    = ${^CAPTURE[0]};
 
-  my $t    = Grammar::peso->parse($prog);
+  my $t    = Grammar::peso->parse($prog,-r=>1);
 
 #  $t->prich();
-#  fatdump($t->{ctx}->{frame}->{-ns});
+  fatdump($t->{ctx}->{frame}->{-ns});
 
 # ---   *   ---   *   ---
 1; # ret

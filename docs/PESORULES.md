@@ -218,3 +218,28 @@ reap;
 `wed`, like previously explained, is setting up the typing mode. In this case, we want to make the following calls in string mode; this maintained until we declare another variable, set another mode or exit the current scope.
 
 `sow` writes to a file handle and `reap` flushes. But you already guessed that from the string we are writting, didn't you? ;>
+
+# HIERARCHICALS
+
+Every language has it's favored structures or gimmicks, or their *what if everything was an X?* type affaire. In peso, that would be trees.
+
+For one, hierarchies are inescapable. But more importantly, a language that was born out of the need for parsing and interpreting text needs it more than any other.
+
+The four hierarchicals are `reg`, `rom`, `clan` and `proc`. The first two denote a writeable or read-only section of a program, respectively. `clan` is akin to an instantiable namespace, and `proc` is for executable segments.
+
+Note that, generally speaking, the words "section" and "segment" are not used interchangeably when describing binaries. I, however, will do so since in common english they are very much synonyms, akin to "block" and "chunk".
+
+You might be wondering where are `class` and `struct`; the answer is that's a mere model of writeable memory, thus `reg` fills that role. The way hierarchicals work allow for this. Consider the following tree:
+
+
+```
+clan A
+\-->rom A::const
+.  \-->proc A::const::ins
+.
+\-->reg A::vars
+.  \-->proc A::vars::ins
+
+```
+
+Executable code is always parented to memory descriptors; if you're more comfortable with the nomenclature, you may call them methods.

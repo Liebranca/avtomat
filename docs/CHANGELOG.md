@@ -4,6 +4,8 @@
 - Initial implementation of micro syntax files generation through `sygen`.
 - Basic execution in parse trees, for the reworked `peso/lps`.
 - Added the `Grammar` base class to simplify language definitions.
+- Added `Grammar` docfile.
+- Upped the peso bootstrap layers from one to two.
 
 # v3.21.5
 

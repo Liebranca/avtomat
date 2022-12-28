@@ -1,5 +1,10 @@
-%;
+CLAN ass;
+REG vars;
+ret 1;
+PROC ins;
+STOP
 
+%;
 # ---   *   ---   *   ---
 # PESO
 # Language definitions
@@ -30,6 +35,8 @@ ROM std;
 
   wed   -qwor,-insens;
   unwed -escape;
+
+PROC ins;
 
   re    spec ptr fptr str buf tab re;
   re    type
@@ -92,7 +99,7 @@ ROM std;
 PROC expr;
 
   in byte str s;
-STOP
+
   on match <std::any>,s;
     call isany,s;
 

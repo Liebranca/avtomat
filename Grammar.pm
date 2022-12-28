@@ -35,7 +35,7 @@ package Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -82,7 +82,10 @@ sub set_top($class,$name) {
 # ---   *   ---   *   ---
 # decon string using rules
 
-sub parse($class,$prog) {
+sub parse($class,$prog,%O) {
+
+  # defaults
+  $O{-r}//=0;
 
   my $self=bless {
     frame => $class->new_frame(),
@@ -92,7 +95,30 @@ sub parse($class,$prog) {
   my $gram=$class->get_top();
   my $tree=$gram->parse($self,$prog);
 
+  $class->run($tree) if $O{-r};
+
   return $tree;
+
+};
+
+# ---   *   ---   *   ---
+# ^runs registered ctx subs on
+# whole parse tree
+
+sub run($class,$tree) {
+
+  my @nodes=($tree);
+
+  while(@nodes) {
+
+    my $nd=shift @nodes;
+
+    $nd->{ctx_fn}->($nd)
+    if $nd->{ctx_fn};
+
+    unshift @nodes,@{$nd->{leaves}};
+
+  };
 
 };
 
@@ -171,6 +197,8 @@ sub ns_fetch($self,@path) {
   my $dst = \$ns;
 
   for my $key(@path) {
+
+    next if !$key;
 
     ${$dst}->{$key}//={};
     $dst=\(${$dst}->{$key});
