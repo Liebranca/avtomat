@@ -42,8 +42,7 @@ package Tree::Grammar;
 sub nit($class,$frame,%O) {
 
   # defaults
-  $O{fn}    //= $NULLSTR;
-  $O{dom}   //= $class;
+  $O{fn}    //= $NOOP;
   $O{opt}   //= 0;
   $O{greed} //= 0;
 
@@ -63,23 +62,11 @@ sub nit($class,$frame,%O) {
 # ---   *   ---   *   ---
 # setup post-match actions
 
-  if(!is_coderef($O{fn})) {
-
-    if($O{fn} ne $NULLSTR) {
-
-      $O{fn}=
-        eval '\&'.$O{dom}.'::'.$O{fn};
-
-    } else {
-      $O{fn}=$NOOP;
-
-    };
-
-  };
-
   $self->{fn}    = $O{fn};
   $self->{opt}   = $O{opt};
   $self->{greed} = $O{greed};
+
+  $self->{chain} = $O{chain};
 
   return $self;
 
@@ -88,16 +75,11 @@ sub nit($class,$frame,%O) {
 # ---   *   ---   *   ---
 # ^from instance
 
-sub init($self,$value,%O) {
+sub init($self,$x,%O) {
 
-  return $self->{frame}->nit(
+  $O{parent}//=$self;
 
-    value  => $value,
-    parent => $self,
-
-    %O
-
-  );
+  return $self->{frame}->nit(value=>$x,%O);
 
 };
 
@@ -115,10 +97,13 @@ sub dup($self) {
 
     my $nd=shift @pending;
 
-    my $cpy=$nd->{frame}->nit(
+    my $cpy=$nd->{frame}->init(
 
       value  => $nd->{value},
-      action => $nd->{fn},
+      fn     => $nd->{fn},
+      opt    => $nd->{opt},
+      greed  => $nd->{greed},
+      chain  => $nd->{chain},
 
       parent => (@anchor)
         ? (shift @anchor)
@@ -126,9 +111,6 @@ sub dup($self) {
         ,
 
     );
-
-    $cpy->{opt}   = $nd->{opt};
-    $cpy->{greed} = $nd->{greed};
 
     $out//=$cpy;
 
@@ -138,6 +120,23 @@ sub dup($self) {
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# get next fn in queue
+
+sub shift_chain($self,@chain) {
+
+  $self->{fn}    = undef;
+  $self->{chain} = \@chain;
+
+  $self->{fn}=shift @{
+    $self->{chain}
+
+  };
+
+  $self->{fn}//=$NOOP;
 
 };
 
@@ -219,11 +218,7 @@ sub rew($st) {
 # saves capture to current container
 
 sub capt($st) {
-
-  $st->{frame}->nit(
-    $st->{anchor},$st->{capt}
-
-  );
+  $st->{anchor}->init($st->{capt});
 
 };
 
@@ -261,11 +256,11 @@ sub discard($match) {
 
 sub match_st($self) {
 
-  my $frame = Tree->get_frame();
+  my $frame = Tree::Grammar->get_frame();
   my $root  = $frame->nit(
 
-    undef,
-    $self->{value}
+    parent => undef,
+    value  => $self->{value}
 
   );
 
@@ -383,8 +378,13 @@ sub match($self,$s) {
 
 sub parse($self,$ctx,$s) {
 
-  my $frame = Tree->get_frame();
-  my $tree  = $frame->nit(undef,$self->{value});
+  my $frame = Tree::Grammar->get_frame();
+
+  my $tree  = $frame->nit(
+    parent => undef,
+    value  => $self->{value}
+
+  );
 
 #:!;> OHCRAP
 #:!;>
@@ -405,10 +405,7 @@ sub parse($self,$ctx,$s) {
     # test each branch against string
     for my $branch(@{$self->{leaves}}) {
 
-#      say $branch->{value};
       my ($match,$ds)=$branch->match($s);
-
-#      say "____________________\n";
 
       # update string and append
       # to tree on succesful match
@@ -418,6 +415,9 @@ sub parse($self,$ctx,$s) {
 
         $branch->{fn}->($match)
         if $branch->{fn} ne $NOOP;
+
+        my @chain=(@{$branch->{chain}});
+        $match->shift_chain(@chain);
 
         $s=$ds;
         $matched|=1;
@@ -613,10 +613,14 @@ sub expand_tree($self) {
 
     )) {
 
-      $self->{anchor}=$self->{frame}->nit(
-        $self->{anchor},$self->{key}
+      $self->{anchor}=$self->{anchor}->init(
+        $self->{key},
+        parent=>$self->{anchor}
 
       );
+
+      my @chain=(@{$self->{nd}->{chain}});
+      $self->{anchor}->shift_chain(@chain);
 
     };
 
@@ -691,12 +695,6 @@ sub branch_fn($self) {
 
   pop @$matches;
   pop @$mint;
-
-#say $nd->{value},q[: ],$mm,q[, ],
-#  $matches->[0],q[/],
-#  $mint->[0]
-#
-#;
 
 };
 

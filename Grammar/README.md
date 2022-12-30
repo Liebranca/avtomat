@@ -4,7 +4,7 @@ This document contains heavy ar-speak; competence is adviced.
 
 # SYNOPSIS
 
-The following is a collection of theorycrafting notes and little essays. It may represent experimental models for undergoing of future implementations.
+The following is a collection of theorycrafting notes and little essays. It may represent experimental models for undergoing or future implementations.
 
 # GRAMMAR
 
@@ -125,3 +125,20 @@ Effectively, cells and branches can be added, rewritten, plucked or matched agai
 
 This allows an `%lpsrom` to describe the lex and structure of a deconstructed piece of text. It must guarantee output matches the language it describes, or out `FATAL`.
 
+# PASSES
+
+Let `chain` be a sequence of transform arrays applied to a branch of a program tree.
+
+Each stage in a branch's `chain` is a `cell`.
+
+The implicit, and purely referential list of all cells is a `pass`, or an iteration of the tree.
+
+Each pass is required to provide a certain set of guarantees, and failure to meet these results in termination of the chain. The parse stage only gives the guarantee that a file can be *parsed* as a given language, and it falls on subsequent passes to build context data and make further checks.
+
+Done so the procedures to be applied can be managed as layers; this editing of the tree in steps, so-called lazy approach, allows for a dynamic pipeline. Since the `proc` to be called on the next pass can be rewritten, the tree can make decisions as it's being walked, and thus each step in `chain` after parse can make predictions on top of giving guarantees about the current state of the data.
+
+Any time predictions are made, they should be checked to be true and failure handled then and there. Predictions must apply to a section of data to be read during or after a future point in time, or rather, a `cell` of a `chain` that's still enqueued for execution.
+
+Any `cell` at any level in the hierarchy may rewrite it's own `chain` or that of others, as well as add, modify or pluck branches from the tree.
+
+Note that predictions of removed branches must still be checked if their target hasn't yet been fred.

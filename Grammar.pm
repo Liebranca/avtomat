@@ -48,8 +48,11 @@ package Grammar;
 
   sub Frame_Vars($class) { return {
 
-    -ns   => {'$decl:order'=>[]},
-    -cns  => [],
+    -ns     => {'$decl:order'=>[]},
+    -cns    => [],
+
+    -npass  => 0,
+    -passes => [],
 
   }};
 
@@ -92,6 +95,11 @@ sub parse($class,$prog,%O) {
 
   },$class;
 
+  unshift @{
+    $self->{frame}->{-passes}
+
+  },$NULLSTR;
+
   my $gram=$class->get_top();
   my $tree=$gram->parse($self,$prog);
 
@@ -113,12 +121,70 @@ sub run($class,$tree) {
 
     my $nd=shift @nodes;
 
-    $nd->{ctx_fn}->($nd)
-    if $nd->{ctx_fn};
+    $nd->{fn}->($nd)
+    if $nd->{fn} ne $NOOP;
 
     unshift @nodes,@{$nd->{leaves}};
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# ensure chain slot per pass
+
+sub cnbreak($class,$X,$dom,$name) {
+
+  my $vars   = $class->Frame_Vars();
+  my @passes = (@{$vars->{-passes}});
+
+  my $i=0;
+  $X->{chain}//=[];
+
+  my $valid  = !is_coderef($name);
+
+  for my $ext(@passes) {
+
+    # get context
+    my $r=(undef,\($X->{chain}->[$i]));
+    my $f=codefind($dom,$name.$ext)
+    if $valid;
+
+    # use fptr if no override provided
+    $$r=(defined $f) ? $f : $$r;
+    $$r//=$NOOP;
+
+    $i++;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# branch function search
+
+sub fnbreak($class,$X) {
+
+  my ($name,$dom)=($X->{fn},$X->{dom});
+
+  $name //= $X->{name};
+  $dom  //= 'Tree::Grammar';
+
+  goto SKIP if is_qre($name);
+
+  # get sub matching name
+  $X->{fn}=codefind($dom,$name)
+  if !is_coderef($name);
+
+  # generate chain
+  $class->cnbreak($X,$dom,$name);
+
+SKIP:
+
+  # ^default if none found
+  $X->{fn}//=$NOOP;
+
+  return;
 
 };
 
@@ -150,16 +216,19 @@ sub mkrules($class,@rules) {
     # get parent node
     my $anchor=$anchors[-1];
 
+    $class->fnbreak($value);
+
     # instantiate
     my $nd=$anchor->init(
 
       $value->{name},
 
-      dom   => $value->{dom},
       fn    => $value->{fn},
 
       opt   => $value->{opt},
       greed => $value->{greed},
+
+      chain => $value->{chain},
 
     );
 

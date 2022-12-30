@@ -39,6 +39,7 @@ package Chk;
     is_qre
 
     stripline
+    codefind
 
   );
 
@@ -90,6 +91,25 @@ package Chk;
 
 sub stripline ($s) {
   join $NULLSTR,(split $Chk::STRIPLINE_RE,$s);
+
+};
+
+# ---   *   ---   *   ---
+# evals and checks existance of sub
+
+sub codefind(@names) {
+
+  no strict 'refs';
+
+  my $path  = (join q[::],@names);
+  my $f     = eval '\&'.$path;
+
+  my $valid =
+     is_coderef($f)
+  && defined &{$f}
+  ;
+
+  return ($valid) ? $f : undef;
 
 };
 

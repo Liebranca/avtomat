@@ -1,9 +1,3 @@
-CLAN ass;
-REG vars;
-ret 1;
-PROC ins;
-STOP
-
 %;
 # ---   *   ---   *   ---
 # PESO
@@ -99,7 +93,7 @@ PROC ins;
 PROC expr;
 
   in byte str s;
-
+STOP
   on match <std::any>,s;
     call isany,s;
 

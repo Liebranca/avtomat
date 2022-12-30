@@ -55,7 +55,9 @@ package Grammar::peso;
     -cclan  => 'non',
     -cproc  => undef,
 
-    %{Grammar->Frame_Vars()}
+    %{Grammar->Frame_Vars()},
+
+    -passes => ['_ctx'],
 
   }};
 
@@ -665,11 +667,7 @@ package Grammar::peso;
   Readonly my $RET => {
 
     name  => 'ret',
-
-    'fn'  => sub ($match) {
-      $match->{ctx_fn}=\&ctx_ret
-
-    },
+    dom   => 'Grammar::peso',
 
     chld  => [
 
@@ -694,7 +692,7 @@ package Grammar::peso;
 
 # ---   *   ---   *   ---
 
-sub ctx_ret($match) {
+sub ret_ctx($match) {
 
   my ($tree,$cutx,$f)=get_ctx($match);
   ns_path($f,-ret=>1);
@@ -814,12 +812,7 @@ sub detag($o,$ctx,@path) {
 # ---   *   ---   *   ---
 # interprets regex definitions
 
-sub rdre($match) {
-  $match->{ctx_fn}=\&ctx_rdre;
-
-};
-
-sub ctx_rdre($match) {
+sub re_ctx($match) {
 
   my ($tree,$ctx,$f)=get_ctx($match);
 
@@ -871,12 +864,7 @@ sub ctx_rdre($match) {
 # ---   *   ---   *   ---
 # placeholder for special defs
 
-sub sasg($match) {
-  $match->{ctx_fn}=\&ctx_sasg;
-
-};
-
-sub ctx_sasg($match) {
+sub sasg_ctx($match) {
 
   my ($tree,$ctx,$f)=get_ctx($match);
 
@@ -896,12 +884,7 @@ sub ctx_sasg($match) {
 # ---   *   ---   *   ---
 # turns you on and off
 
-sub switch($match) {
-  $match->{ctx_fn}=\&ctx_switch;
-
-};
-
-sub ctx_switch($match) {
+sub switch_ctx($match) {
 
   my ($tree,$ctx,$f)=get_ctx($match);
 
@@ -977,11 +960,9 @@ sub hier_sort($match) {
 
   );
 
-  $match->{ctx_fn}=\&ctx_hier_sort;
-
 };
 
-sub ctx_hier_sort($match) {
+sub hier_sort_ctx($match) {
 
   my ($tree,$ctx,$f)=get_ctx($match);
 
@@ -1139,14 +1120,12 @@ sub ptr_decl($match) {
 
   )->flatten_branch();
 
-  $match->{ctx_fn}=\&ctx_ptr_decl;
-
 };
 
 # ---   *   ---   *   ---
 # ^call made when executing tree
 
-sub ctx_ptr_decl($match) {
+sub ptr_decl_ctx($match) {
 
 
   my ($tree,$ctx,$f)=get_ctx($match);
@@ -1216,7 +1195,7 @@ sub ctx_ptr_decl($match) {
   );
 
   my $src  = $ARGV[0];
-     $src//= 'plps/peso.rom';
+     $src//= 'lps/peso.rom';
 
   my $prog = orc($src);
 
