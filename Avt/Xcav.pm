@@ -41,7 +41,7 @@ package Avt::Xcav;
   use Lang;
   use Lang::C;
   use Lang::Perl;
-  use Lang::Peso;
+  use Lang::peso;
 
   use Emit::C;
   use Emit::Perl;

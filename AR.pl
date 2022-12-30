@@ -123,9 +123,8 @@ my $FILE_LIST=[
   '/Emit/Perl.pm',
 
   '/Lang/fasm.pm',
+  '/Lang/peso.pm',
 
-  '/Lang/Peso.pm',
-  '/Lang/Plps.pm',
   '/Lang/C.pm',
   '/Lang/Rust.pm',
 

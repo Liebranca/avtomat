@@ -39,7 +39,7 @@ package Peso::Ipret;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
-  use Lang::Peso;
+  use Lang::peso;
 
   use Peso::Rd;
   use Peso::St;
@@ -147,7 +147,7 @@ sub pesc_iter($class,$sref,$esc,$args,%O) {
 
 sub depesc($s) {
 
-  my $pesc=Lang->Peso->{pesc};
+  my $pesc=Lang->peso->{pesc};
   $s=~ s{$pesc}{}sxgm;
 
   return $s;
@@ -161,7 +161,7 @@ sub pesc($sref,%O) {
   my $cut=$Shwl::PL_CUT;
   my $cut_re=$Shwl::PL_CUT_RE;
 
-  my $pesc=Lang->Peso->{pesc};
+  my $pesc=Lang->peso->{pesc};
 
 # ---   *   ---   *   ---
 
@@ -426,7 +426,7 @@ sub run($fname,%args) {
 
   # parse the code
   my $rd=peso::rd::parse(
-    Lang::Peso,$fname,
+    Lang::peso,$fname,
     %args
 
   );

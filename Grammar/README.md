@@ -2,6 +2,10 @@
 
 This document contains heavy ar-speak; competence is adviced.
 
+# SYNOPSIS
+
+The following is a collection of theorycrafting notes and little essays. It may represent experimental models for undergoing of future implementations.
+
 # GRAMMAR
 
 Basic segment can be understood as follows:
@@ -91,5 +95,33 @@ In this new case, a single walk of the branches uses no modifiers. Else, our `pa
 
 This allows for the execution of the tree to be layered across passes. The `mam` tradition is solving symbols only after at least two passes, excluding context data from the very first one.
 
-Furthermore, it is sometimes proper to develop each layer as a separate `clan`, `beg`-ueathing any necessary `ROM` from lib. In this way, the text-processing logic itself can be modularized for later reuse.
+Furthermore, it is sometimes proper to develop each layer as a separate `clan`, `beq`-ueathing any necessary `ROM` from lib. In this way, the text-processing logic itself can be modularized for later reuse.
+
+# PLPS
+
+The original peso language pattern syntax or `plps` is now deprecated; parse logic is written entirely in pure peso, to then `xpile` away into target.
+
+To recognize it's status as legacy, we use the header tag `%lps` for language definition `*.rom` files.
+
+Reason behind this lie in that even the current, rather crude implementation of grammars scales better than the now-legacy `plps`, and can also be expressed with greater ease using a single language.
+
+The extent of `plps` functionality is captured in `re` declarations and `~=` match operations. Given a `rom` block such as:
+
+
+```$
+
+re base   [0-9];
+re prefix [afx];
+re name   [\w][\-0-9\w]+;
+
+re id     <prefix> <base>;
+re c      <id> \s <name>;
+
+```
+
+A `proc` can process it's input, as well as modify the current tree either immediately or by proxy on a future pass by pushing another `proc` into the branch's call stack.
+
+Effectively, cells and branches can be added, rewritten, plucked or matched against for analysis. As this is driven by it's very gears, one may think of it as the program patching itself *as* it's being built.
+
+This allows an `%lpsrom` to describe the lex and structure of a deconstructed piece of text. It must guarantee output matches the language it describes, or out `FATAL`.
 

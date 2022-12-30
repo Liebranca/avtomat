@@ -36,7 +36,7 @@ package Peso::Ex;
   use Peso::Rd;
 
   use Lang;
-  use Lang::Peso;
+  use Lang::peso;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks';
   use Shwl;
@@ -50,7 +50,7 @@ package Peso::Ex;
 # ---   *   ---   *   ---
 # shorthand
 
-  my $peso=Lang->Peso;
+  my $peso=Lang->peso;
 
 # ---   *   ---   *   ---
 # ROM

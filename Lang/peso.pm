@@ -12,7 +12,7 @@
 # ---   *   ---   *   ---
 
 # deps
-package Lang::Peso;
+package Lang::peso;
 
   use v5.36.0;
   use strict;
@@ -312,11 +312,11 @@ sub mini_ipret($self,$rd,$tree) {
 
 # ---   *   ---   *   ---
 
-Lang::Peso->nit(
+Lang::peso->nit(
 
-  name=>'Peso',
+  name=>'peso',
 
-  ext=>'\.(pe|rom)$',
+  ext=>'\.(pe|p3|rom)$',
   hed=>'(\$|\%);',
   mag=>'$ program',
 

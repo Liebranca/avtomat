@@ -50,7 +50,7 @@ package Avt;
   use Lang;
   use Lang::C;
   use Lang::Perl;
-  use Lang::Peso;
+  use Lang::peso;
 
   use Peso::St;
   use Peso::Rd;
