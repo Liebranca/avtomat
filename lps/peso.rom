@@ -1,7 +1,3 @@
-on match 'str',nterm;
-
-STOP
-
 %lps;
 
 # ---   *   ---   *   ---
@@ -98,13 +94,16 @@ PROC expr;
 
   in byte str s;
 
-  on match <std::any>,s;
-    call isany,s;
+  on match 'str',nterm;
 
-  or match <std::re>,s;
-    call isre,s;
+    on 1;
+      wed -qwor;
+
+    off;
 
   off;
+
+STOP;
 
 # ---   *   ---   *   ---
 

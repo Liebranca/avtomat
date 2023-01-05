@@ -33,7 +33,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.0;
+  our $VERSION=v0.01.1;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -275,13 +275,59 @@ sub sweep($self,$re) {
 };
 
 # ---   *   ---   *   ---
-# converts 3-lvl deep branches
+# 
+
+sub deepchk($self,$depth=1) {
+
+  my $out     = 0;
+  my $i       = 0;
+
+  my @pending = @{$self->{leaves}};
+
+  while(@pending) {
+
+    my $nd=shift @pending;
+    next if $i > $depth;
+
+    if($nd eq 0) {
+      $i--;
+      next;
+
+    } elsif($nd eq 1) {
+      $i++;
+      next;
+
+    };
+
+    my @lv=@{$nd->{leaves}};
+
+    if(@lv) {
+      unshift @lv,1;
+      push    @lv,0;
+
+      $out|=1*($i==$depth);
+
+    };
+
+    unshift @pending,@lv;
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# converts branch to nested hash
 
 sub bhash($self,@type) {
 
   return { map {
 
-    my @ar=$ARG->branch_values();
+    my @ar=(!$ARG->deepchk(0))
+      ? $ARG->branch_values()
+      : $ARG->bhash()
+      ;
 
     $ARG->{value}=>(!(shift @type))
       ? $ar[0]

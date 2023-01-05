@@ -168,17 +168,6 @@ package Grammar::peso;
 
     ),
 
-# ---   *   ---   *   ---
-
-    cond=>Lang::eiths(
-
-      [qw(on or off)],
-
-      brwap  => 1,
-      insens => 1,
-
-    ),
-
   };
 
 # ---   *   ---   *   ---
@@ -765,10 +754,12 @@ sub fc_or_v($match) {
 
 # ---   *   ---   *   ---
 
-  Readonly my $COND=>{
+  Readonly my $COND_BEG=>{
 
-    name  => 'branch',
+    name  => 'branch_beg',
+
     dom   => 'Grammar::peso',
+    fn    => 'cond_beg',
 
     chld  => [
 
@@ -776,7 +767,15 @@ sub fc_or_v($match) {
 
         name=>'nid',chld=>[{
 
-          name => $REGEX->{cond},
+          name => Lang::eiths(
+
+            [qw(on or)],
+
+            brwap  => 1,
+            insens => 1,
+
+          ),
+
           fn   => 'capt',
 
         }],
@@ -789,6 +788,81 @@ sub fc_or_v($match) {
     ],
 
   };
+
+# ---   *   ---   *   ---
+
+  Readonly my $COND_END=>{
+
+    name  => 'branch_end',
+
+    dom   => 'Grammar::peso',
+#    fn    => 'cond_end',
+
+    chld  => [
+
+      {
+
+        name=>'nid',chld=>[{
+
+          name => Lang::eiths(
+
+            [qw(off)],
+
+            brwap  => 1,
+            insens => 1,
+
+          ),
+
+          fn   => 'capt',
+
+        }],
+
+      },
+
+      $TERM
+
+    ],
+
+  };
+
+# ---   *   ---   *   ---
+
+sub cond_beg_ctx($match) {
+
+  my $idex  = $match->{idex};
+  my $depth = 0;
+
+  my @lv    = @{$match->{parent}->{leaves}};
+  @lv       = @lv[$idex+1..$#lv];
+
+  $idex     = 0;
+
+  for my $nd(@lv) {
+
+    if($nd->{value} eq 'branch_end') {
+      $depth--;
+
+    } elsif($nd->{value} eq 'branch_beg') {
+      $depth++;
+
+    };
+
+    last if $depth<0;
+    $idex++;
+
+  };
+
+  @lv=@lv[0..$idex-1];
+  $match->{-pest}=$match->bhash();
+
+  $match->pluck($match->branches_in(
+    qr{^nid|eval$}
+
+  ));
+
+  $match->pushlv(@lv);
+
+};
 
 # ---   *   ---   *   ---
 
@@ -1302,21 +1376,22 @@ sub ptr_decl_ctx($match) {
 
   Grammar::peso->mkrules(
 
-    $COND,
+    $HEADER,
+    $COMMENT,
+    $MATCH,
 
-#    $HEADER,
-#    $COMMENT,
-#    $MATCH,
-#
-#    $SDEFS,
-#    $SWITCH,
-#
-#    $HIER,
-#    $PTR_DECL,
-#    $PE_INPUT,
-#
-#    $RE,
-#    $RET,
+    $SDEFS,
+    $SWITCH,
+
+    $HIER,
+    $PTR_DECL,
+    $PE_INPUT,
+
+    $RE,
+    $RET,
+
+    $COND_BEG,
+    $COND_END,
 
   );
 

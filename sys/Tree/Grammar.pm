@@ -482,9 +482,6 @@ TAIL:
 
 sub attempt($self) {
 
-  push @{$self->{tk}},[]
-  if !defined $self->{tk}->[-1];
-
   if($self->{re}) {
     $self->attempt_match();
 
@@ -731,10 +728,6 @@ sub branch_fn($self) {
 
     };
 
-    $self->tkpop();
-
-  # no match
-  } else {
 #    $self->tkpop();
 
   };
