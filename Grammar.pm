@@ -116,6 +116,7 @@ sub parse($class,$prog,%O) {
 sub run($class,$tree) {
 
   my @nodes=($tree);
+  $tree->{ctx}->{frame}->{-npass}++;
 
   while(@nodes) {
 

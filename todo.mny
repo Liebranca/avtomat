@@ -3,6 +3,11 @@
 *>Peso
 x Extend Lang::Perl for basic (as-doc) parsing
 
+~ Make a pemach
+~ \-->reg
+~ \-->stk
+~ \-->mem
+
 ~ Lang::Plps reimplementation
 
 ~ \--> Use Tree::Grammar to parse plps itself

@@ -85,7 +85,7 @@ package Grammar::peso;
 
 # ---   *   ---   *   ---
 
-    nonterm => Lang::nonscap(
+    nonterm=>Lang::nonscap(
 
       q[;],
 
@@ -95,7 +95,7 @@ package Grammar::peso;
 
     ),
 
-    sigil   => Lang::eiths(
+    sigil=>Lang::eiths(
 
       [qw(
 
@@ -164,6 +164,17 @@ package Grammar::peso;
       [qw(ptr fptr str buf tab)],
 
       bwrap  => 1,
+      insens => 1,
+
+    ),
+
+# ---   *   ---   *   ---
+
+    cond=>Lang::eiths(
+
+      [qw(on or off)],
+
+      brwap  => 1,
       insens => 1,
 
     ),
@@ -655,7 +666,6 @@ package Grammar::peso;
       {name=>$REGEX->{sep}},
 
       $NONTERM,
-      $TERM
 
     ],
 
@@ -664,7 +674,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # pop current block
 
-  Readonly my $RET => {
+  Readonly my $RET=>{
 
     name  => 'ret',
     dom   => 'Grammar::peso',
@@ -683,7 +693,7 @@ package Grammar::peso;
 
       }]},
 
-      {%$NONTERM,-opt=>1},
+      {%$NONTERM,opt=>1},
       $TERM
 
     ],
@@ -701,8 +711,90 @@ sub ret_ctx($match) {
 
 # ---   *   ---   *   ---
 
+  Readonly my $FCALL=>{
+
+    name=>'fcall',
+    chld=>[
+      $MATCH
+
+    ],
+
+  };
+
+  Readonly my $FC_OR_V=>{
+
+    name => 'fc_or_v',
+
+    dom  => 'Grammar::peso',
+    fn   => 'fc_or_v',
+
+    chld => [
+
+      $FCALL,$Grammar::OR,
+      $VALUE
+
+    ],
+
+  };
+
+# ---   *   ---   *   ---
+# wat
+
+sub fc_or_v($match) {
+
+  my $par=$match->{parent};
+
+  for my $nd(@{$match->{leaves}}) {
+    $match->pluck($nd) if !$nd->{mfull};
+
+  };
+
+  my $type=\($match->{leaves}->[0]->{value});
+
+  if($$type eq 'value') {
+    $match=$match->flatten_branch();
+
+  } else {
+
+  };
+
+  $match=$match->flatten_branch();
+  $match->{value}='eval';
+
+};
+
+# ---   *   ---   *   ---
+
+  Readonly my $COND=>{
+
+    name  => 'branch',
+    dom   => 'Grammar::peso',
+
+    chld  => [
+
+      {
+
+        name=>'nid',chld=>[{
+
+          name => $REGEX->{cond},
+          fn   => 'capt',
+
+        }],
+
+      },
+
+      $FC_OR_V,
+      $TERM
+
+    ],
+
+  };
+
+# ---   *   ---   *   ---
+
 sub mtest($match) {
 
+return;
   my ($tree,$ctx,$f)=get_ctx($match);
 
   my $st     = $match->bhash(0,0,0);
@@ -812,7 +904,7 @@ sub detag($o,$ctx,@path) {
 # ---   *   ---   *   ---
 # interprets regex definitions
 
-sub re_ctx($match) {
+sub rdre_ctx($match) {
 
   my ($tree,$ctx,$f)=get_ctx($match);
 
@@ -951,7 +1043,8 @@ sub rdnum($match) {
 };
 
 # ---   *   ---   *   ---
-# forks accto hierarchical type
+# preprocesses hierarchicals
+
 
 sub hier_sort($match) {
 
@@ -960,27 +1053,46 @@ sub hier_sort($match) {
 
   );
 
+  my ($type)=$match->pluck(
+    $match->branch_in(qr{^type$})
+
+  );
+
+  $match->{value}=$type->leaf_value(0);
+
+  my $st=$match->bhash(1,0);
+  $match->{-pest}=$st;
+
+  $match->clear_branches();
+
 };
+
+# ---   *   ---   *   ---
+# forks accto hierarchical type
 
 sub hier_sort_ctx($match) {
 
   my ($tree,$ctx,$f)=get_ctx($match);
 
-  my $st      = $match->bhash(1,0,0);
-
-  my $ckey    = q[-c].(lc $st->{type});
+  my $type    = $match->{value};
+  my $ckey    = q[-c].(lc $type);
+  my $st      = $match->{-pest};
 
   $f->{$ckey} = $st->{name};
 
-  if($st->{type} eq 'ROM') {
+  if($type eq 'ROM') {
     $f->{-creg}=undef;
     $f->{-cproc}=undef;
 
-  } elsif($st->{type} eq 'REG') {
+    $type=q[REG|ROM];
+
+  } elsif($type eq 'REG') {
     $f->{-crom}=undef;
     $f->{-cproc}=undef;
 
-  } elsif($st->{type} eq 'CLAN') {
+    $type=q[REG|ROM];
+
+  } elsif($type eq 'CLAN') {
     $f->{-creg}=undef;
     $f->{-crom}=undef;
     $f->{-cproc}=undef;
@@ -997,6 +1109,18 @@ sub hier_sort_ctx($match) {
     );
 
   };
+
+  my @chld=$match->{parent}->match_until(
+    $match,qr{^$type$}
+
+  );
+
+  @chld=$match->{parent}->all_from(
+    $match
+
+  ) if !@chld;
+
+  $match->pushlv(@chld);
 
 };
 
@@ -1178,19 +1302,21 @@ sub ptr_decl_ctx($match) {
 
   Grammar::peso->mkrules(
 
-    $HEADER,
-    $COMMENT,
-    $MATCH,
+    $COND,
 
-    $SDEFS,
-    $SWITCH,
-
-    $HIER,
-    $PTR_DECL,
-    $PE_INPUT,
-
-    $RE,
-    $RET,
+#    $HEADER,
+#    $COMMENT,
+#    $MATCH,
+#
+#    $SDEFS,
+#    $SWITCH,
+#
+#    $HIER,
+#    $PTR_DECL,
+#    $PE_INPUT,
+#
+#    $RE,
+#    $RET,
 
   );
 
@@ -1204,8 +1330,8 @@ sub ptr_decl_ctx($match) {
 
   my $t    = Grammar::peso->parse($prog,-r=>1);
 
-#  $t->prich();
-  fatdump($t->{ctx}->{frame}->{-ns});
+  $t->prich();
+#  fatdump($t->{ctx}->{frame}->{-ns});
 
 # ---   *   ---   *   ---
 1; # ret

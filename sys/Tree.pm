@@ -481,7 +481,7 @@ sub flatten_branch($self,%args) {
   $par->pushlv(@move);
   $par->cllv();
 
-  return;
+  return $par->{leaves}->[$idex];
 
 };
 
@@ -965,6 +965,26 @@ sub match_until($self,$ch,$pat,%O) {
   };
 
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# return all children from node onwards
+
+sub all_from($self,$ch,%O) {
+
+  # defaults
+  $O{inclusive} //= 0;
+  $O{cap}       //= 0;
+
+  my @pending = @{$self->{leaves}};
+
+  my $limit   = ($O{cap} && $O{cap}<=$#pending)
+    ? $O{cap}
+    : $#pending
+    ;
+
+  @pending=@pending[$ch->{idex}+1..$limit];
 
 };
 

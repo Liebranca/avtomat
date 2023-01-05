@@ -33,7 +33,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;
+  our $VERSION = v0.00.5;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -254,7 +254,7 @@ sub discard($match) {
 # ---   *   ---   *   ---
 # makes helper for match
 
-sub match_st($self) {
+sub match_st($self,$sref) {
 
   my $frame = Tree::Grammar->get_frame();
   my $root  = $frame->nit(
@@ -267,6 +267,8 @@ sub match_st($self) {
 # ---   *   ---   *   ---
 
   my $st=bless {
+
+    sref    => $sref,
 
     root    => $root,
     anchor  => $root,
@@ -292,6 +294,8 @@ sub match_st($self) {
     kls     => $self->{value},
     fn      => [],
     opts    => [],
+
+    tk      => [[]],
 
   },'Tree::Grammar::Matcher';
 
@@ -324,12 +328,12 @@ sub throw_no_match($self,$s) {
 
 sub match($self,$s) {
 
-  my $st   = $self->match_st();
+  my $st   = $self->match_st(\$s);
   my $fail = 0;
 
   while(@{$st->{pending}}) {
 
-    last if !length $s;
+#    last if !length $s;
 
     if(!$st->get_next()) {
 
@@ -343,7 +347,7 @@ sub match($self,$s) {
     my @tail=@{$st->{nd}->{leaves}};
     push @tail,0 if @tail;
 
-    $st->attempt(\$s);
+    $st->attempt();
     unshift @{$st->{pending}},@tail;
 
   };
@@ -476,10 +480,13 @@ TAIL:
 
 # ---   *   ---   *   ---
 
-sub attempt($self,$sref) {
+sub attempt($self) {
+
+  push @{$self->{tk}},[]
+  if !defined $self->{tk}->[-1];
 
   if($self->{re}) {
-    $self->attempt_match($sref);
+    $self->attempt_match();
 
   } elsif($self->{key}) {
     $self->expand_tree();
@@ -503,7 +510,7 @@ sub has_action($self) {
 
 # ---   *   ---   *   ---
 
-sub attempt_match($self,$sref) {
+sub attempt_match($self) {
 
   my $re        = $self->{re};
   $self->{capt} = undef;
@@ -513,10 +520,16 @@ sub attempt_match($self,$sref) {
 
 # ---   *   ---   *   ---
 
-  if($$sref=~ s[^\s*($re)\s*][]) {
+  if(${$self->{sref}}=~
+    s[^(\s*($re)\s*)][]x
+
+  ) {
 
     $self->{mlast}=1;
-    $self->{capt}=${^CAPTURE[0]};
+    $self->{capt}=${^CAPTURE[1]};
+
+    push @{$self->{tk}->[-1]},
+      ${^CAPTURE[0]};
 
   } else {
 
@@ -549,6 +562,7 @@ sub OR($self) {
 
   if(!$self->{mlast}) {
     $self->{mint}->[-1]--;
+    $self->tkpop();
 
   } else {
 
@@ -633,6 +647,26 @@ sub expand_tree($self) {
     push @{$self->{matches}},0;
     push @{$self->{mint}},0;
 
+    push @{$self->{tk}},[];
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# walks back modifications to source
+# on current branch
+
+sub tkpop($self) {
+
+  my $ar=pop @{$self->{tk}};
+
+  if(defined $ar) {
+    my $rt=join q[],@$ar;
+
+    my $sref=$self->{sref};
+    $$sref=$rt.$$sref;
+
   };
 
 };
@@ -646,6 +680,9 @@ sub branch_fn($self) {
 
   my $matches      = $self->{matches};
   my $mint         = $self->{mint};
+
+  $branch->{mfull} = 0;
+  $self->{mlast}   = 0;
 
   $mint->[-2]++;
   my $mm=0;
@@ -664,7 +701,10 @@ sub branch_fn($self) {
 
     $mm=1;
 
+    $self->{mlast}=1;
     $matches->[-2]++;
+
+    $branch->{mfull}=1;
 
     # rewind branch on greedy modifier
     if($nd->{greed}) {
@@ -691,7 +731,15 @@ sub branch_fn($self) {
 
     };
 
+    $self->tkpop();
+
+  # no match
+  } else {
+#    $self->tkpop();
+
   };
+
+# ---   *   ---   *   ---
 
   pop @$matches;
   pop @$mint;

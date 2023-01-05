@@ -1,4 +1,9 @@
-%;
+on match 'str',nterm;
+
+STOP
+
+%lps;
+
 # ---   *   ---   *   ---
 # PESO
 # Language definitions
@@ -30,8 +35,6 @@ ROM std;
   wed   -qwor,-insens;
   unwed -escape;
 
-PROC ins;
-
   re    spec ptr fptr str buf tab re;
   re    type
 
@@ -42,9 +45,10 @@ PROC ins;
 
   ;
 
+  unwed -insens;
+
   re fulltype <spec> \s+ <type>;
 
-  unwed -insens;
   wed   -escape;
 
   re    sigil
@@ -93,7 +97,7 @@ PROC ins;
 PROC expr;
 
   in byte str s;
-STOP
+
   on match <std::any>,s;
     call isany,s;
 
