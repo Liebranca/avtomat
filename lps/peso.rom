@@ -83,7 +83,7 @@ ROM std;
   re    sigged <sigil><bare>;
 
   re    ari
-    (<sigged|num|bare>)? <op>
+    (<sigged|num|bare>)? <ops>
     <sigged|num|bare>
 
   ;
@@ -94,16 +94,10 @@ PROC expr;
 
   in byte str s;
 
-  on match 'str',nterm;
-
-    on 1;
-      wed -qwor;
-
-    off;
-
+  on s~=<num>;
   off;
 
-STOP;
+  STOP;
 
 # ---   *   ---   *   ---
 

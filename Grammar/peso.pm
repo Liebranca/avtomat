@@ -25,6 +25,7 @@ package Grammar::peso;
   use lib $ENV{'ARPATH'}.'/avtomat/sys/';
 
   use Style;
+  use Chk;
   use Fmat;
 
   use Arstd::Array;
@@ -108,6 +109,23 @@ package Grammar::peso;
         >> >>: << <<:
 
         |> &>
+
+      )],
+
+      escape=>1
+
+    ),
+
+    ops=>Lang::eiths(
+
+      [qw(
+
+        -> *^ * % / ++ + -- -
+        ?? ? !! ~ >> > >= | & ^
+
+        << < <=  || && == !=
+
+        ~=
 
       )],
 
@@ -415,16 +433,35 @@ package Grammar::peso;
   Readonly my $VALUE=>{
 
     name => 'value',
+
+    dom  => 'Grammar::peso',
+    fn   => 'value_sort',
+
     chld => [
 
       $NUM,$Grammar::OR,
       $STR,$Grammar::OR,
 
-      $FLG
+      $FLG,$Grammar::OR,
+
+      $BARE
 
     ],
 
   };
+
+# ---   *   ---   *   ---
+# ^handler
+
+sub value_sort($match) {
+
+  my $st     = $match->bhash();
+  my ($type) = keys %$st;
+
+  $match->{value}=$st->{$type};
+  $match->clear_branches();
+
+};
 
 # ---   *   ---   *   ---
 # entry point for all hierarchicals
@@ -640,6 +677,19 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # test
 
+  Readonly my $OPERATOR=>{
+
+    name => 'op',
+
+    chld => [{
+
+      name => $REGEX->{ops},
+      fn   => 'capt',
+
+    }],
+
+  };
+
   Readonly my $MATCH=>{
 
     name => 'match',
@@ -649,16 +699,53 @@ package Grammar::peso;
 
     chld => [
 
-      {name=>qr{match}},
-
-      $STR,
-      {name=>$REGEX->{sep}},
+      $VALUE,
+      {name=>qr{~=}},
 
       $NONTERM,
+      $TERM
 
     ],
 
   };
+
+# ---   *   ---   *   ---
+
+sub mtest_ctx($match) {
+
+  my ($tree,$ctx,$f)=get_ctx($match);
+
+  my $st     = $match->bhash(0,0,0);
+  my @path   = ns_path($f);
+
+  my $o      = detag($st->{nterm},$ctx,@path);
+  my $nterm  = $match->branch_in(qr{^nterm$});
+
+  $nterm->{value}=$o;
+  $nterm->clear_branches();
+
+#  my ($tree,$ctx,$f)=get_ctx($match);
+#
+#  my $st     = $match->bhash(0,0,0);
+#  my @path   = ns_path($f);
+#
+#  my $o      = $st->{nterm};
+#  my $qwor   = $ctx->ns_get(@path,'-qwor');
+#  my $sigws  = $ctx->ns_get(@path,'-sigws');
+#  my $insens = $ctx->ns_get(@path,'-insens');
+#  my $escape = $ctx->ns_get(@path,'-escape');
+#
+#  $o         = detag($o,$ctx,@path);
+#
+#  my $s=$st->{str};
+#  $s=~ s[^"|"$][]sxmg;
+#
+#say $s,q[ ],$o;
+#
+#  say int($s=~ $o);
+#  exit;
+
+};
 
 # ---   *   ---   *   ---
 # pop current block
@@ -865,34 +952,6 @@ sub cond_beg_ctx($match) {
 };
 
 # ---   *   ---   *   ---
-
-sub mtest($match) {
-
-return;
-  my ($tree,$ctx,$f)=get_ctx($match);
-
-  my $st     = $match->bhash(0,0,0);
-  my @path   = ns_path($f);
-
-  my $o      = $st->{nterm};
-  my $qwor   = $ctx->ns_get(@path,'-qwor');
-  my $sigws  = $ctx->ns_get(@path,'-sigws');
-  my $insens = $ctx->ns_get(@path,'-insens');
-  my $escape = $ctx->ns_get(@path,'-escape');
-
-  $o         = detag($o,$ctx,@path);
-
-  my $s=$st->{str};
-  $s=~ s[^"|"$][]sxmg;
-
-say $s,q[ ],$o;
-
-  say int($s=~ $o);
-  exit;
-
-};
-
-# ---   *   ---   *   ---
 # global state
 
   our $Top;
@@ -921,6 +980,24 @@ sub rdhed($match) {
 
 sub rdin($match) {
 #  $match->prich();
+
+};
+
+# ---   *   ---   *   ---
+# errme for getting an undefined value
+
+sub throw_undef_get(@path) {
+
+  my $path=join q[::],@path;
+
+  errout(
+
+    q[<%s> is undefined],
+
+    args => [$path],
+    lvl  => $AR_FATAL,
+
+  );
 
 };
 
@@ -959,6 +1036,24 @@ sub detag($o,$ctx,@path) {
       );
 
       $name=$ctx->ns_get(@rpath);
+
+      # proc scope walkback
+      if(
+
+         is_hashref($name)
+      && defined $ctx->{frame}->{-cproc}
+
+      ) {
+
+        @npath=@rpath[-2..-1];
+        @rpath=(@rpath[0..2],@npath);
+
+        $name=$ctx->ns_get(@rpath);
+
+      };
+
+      throw_undef_get(@rpath)
+      if(is_hashref($name));
 
     };
 
@@ -1378,7 +1473,6 @@ sub ptr_decl_ctx($match) {
 
     $HEADER,
     $COMMENT,
-    $MATCH,
 
     $SDEFS,
     $SWITCH,
@@ -1393,6 +1487,8 @@ sub ptr_decl_ctx($match) {
     $COND_BEG,
     $COND_END,
 
+    $MATCH,
+
   );
 
   my $src  = $ARGV[0];
@@ -1405,8 +1501,8 @@ sub ptr_decl_ctx($match) {
 
   my $t    = Grammar::peso->parse($prog,-r=>1);
 
-  $t->prich();
-#  fatdump($t->{ctx}->{frame}->{-ns});
+#  $t->prich();
+  fatdump($t->{ctx}->{frame}->{-ns});
 
 # ---   *   ---   *   ---
 1; # ret

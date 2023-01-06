@@ -33,7 +33,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.1;
+  our $VERSION=v0.01.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -326,7 +326,10 @@ sub bhash($self,@type) {
 
     my @ar=(!$ARG->deepchk(0))
       ? $ARG->branch_values()
-      : $ARG->bhash()
+
+      # just give the branch
+      # to avoid recursion
+      : $ARG #->bhash()
       ;
 
     $ARG->{value}=>(!(shift @type))

@@ -91,7 +91,8 @@ sub parse($class,$prog,%O) {
   $O{-r}//=0;
 
   my $self=bless {
-    frame => $class->new_frame(),
+    frame   => $class->new_frame(),
+    callstk => [],
 
   },$class;
 
@@ -103,29 +104,100 @@ sub parse($class,$prog,%O) {
   my $gram=$class->get_top();
   my $tree=$gram->parse($self,$prog);
 
-  $class->run($tree) if $O{-r};
+  # exec -r number of passes
+  while($O{-r}--) {
+    $class->run($tree);
+
+  };
 
   return $tree;
 
 };
 
 # ---   *   ---   *   ---
-# ^runs registered ctx subs on
-# whole parse tree
+# ^executes tree
 
-sub run($class,$tree) {
+sub run($class,$tree,%O) {
 
-  my @nodes=($tree);
-  $tree->{ctx}->{frame}->{-npass}++;
+  # defaults
+  $O{from_entry}//=0;
 
-  while(@nodes) {
+  my $ctx = $tree->{ctx};
+  my $f   = $ctx->{frame};
 
-    my $nd=shift @nodes;
+  $ctx->{frame}->{-npass}++;
 
-    $nd->{fn}->($nd)
-    if $nd->{fn} ne $NOOP;
+  my $callstk=$tree->{callstk};
 
-    unshift @nodes,@{$nd->{leaves}};
+  # find entry point
+  if($O{from_entry}) {
+
+    # use all entries in tree
+    if($O{from_entry}=~ m[^\d+$]) {
+
+      for my $clan(
+        $tree->branches_in(qr{^CLAN$})
+
+      ) {
+
+        # get name of entry proc
+        my $key=ns_get(
+
+          $clan->{-pest}->{name},
+
+          '$DEF',
+          'ENTRY'
+
+        );
+
+        # find node assoc with name
+        for my $proc(
+          $tree->branches_in(qr{^PROC$})
+
+        ) {
+
+          if($proc->{-pest}->{name} eq $key) {
+            push @$callstk,[$proc,$proc->{fn}];
+            last;
+
+          };
+
+        };
+
+      };
+
+    # TODO: use specific entry point
+    } else {
+
+    };
+
+  # run whole tree
+  } else {
+
+    my @nodes=($tree);
+
+    while(@nodes) {
+
+      my $nd=shift @nodes;
+
+      push @$callstk,[$nd,$nd->{fn}]
+      if $nd->{fn} ne $NOOP;
+
+      $nd->shift_chain();
+
+      unshift @nodes,@{$nd->{leaves}};
+
+    };
+
+  };
+
+  # ^execute
+  while(@$callstk) {
+
+    my $ref=shift @$callstk;
+
+    my ($nd,$fn)=@$ref;
+    $fn->($nd);
 
   };
 

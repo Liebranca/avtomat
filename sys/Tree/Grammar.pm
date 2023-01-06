@@ -33,7 +33,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;
+  our $VERSION = v0.00.6;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -124,9 +124,24 @@ sub dup($self) {
 };
 
 # ---   *   ---   *   ---
+# remove branch if it's not root
+
+sub purge($self) {
+
+  $self->{parent}->pluck($self)
+  if $self->{parent};
+
+};
+
+# ---   *   ---   *   ---
 # get next fn in queue
 
 sub shift_chain($self,@chain) {
+
+  # default to old
+  $self->{chain}//=[];
+  @chain=@{$self->{chain}}
+  if !@chain;
 
   $self->{fn}    = undef;
   $self->{chain} = \@chain;
@@ -561,6 +576,8 @@ sub OR($self) {
     $self->{mint}->[-1]--;
     $self->tkpop();
 
+    push @{$self->{tk}},[];
+
   } else {
 
     while($self->{pending}->[0]) {
@@ -632,6 +649,11 @@ sub expand_tree($self) {
 
       my @chain=(@{$self->{nd}->{chain}});
       $self->{anchor}->shift_chain(@chain);
+
+#say $self->{anchor}->{value},q[ ],
+#  $self->{anchor}->{fn}
+#
+#if $self->{anchor}->{fn} ne $NOOP;
 
     };
 
@@ -728,9 +750,19 @@ sub branch_fn($self) {
 
     };
 
-#    $self->tkpop();
+  # no match
+  } else {
+    $branch->purge();
 
   };
+
+# ---   *   ---   *   ---
+
+#my ($tree)=$branch->root();
+#$tree->prich();
+#
+#map {say $ARG} @{$self->{tk}->[-1]};
+#say q[**],${$self->{sref}};
 
 # ---   *   ---   *   ---
 
@@ -741,3 +773,4 @@ sub branch_fn($self) {
 
 # ---   *   ---   *   ---
 1; # ret
+
