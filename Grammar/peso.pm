@@ -28,6 +28,8 @@ package Grammar::peso;
   use Chk;
   use Fmat;
 
+  use Mach;
+
   use Arstd::Array;
   use Arstd::IO;
 
@@ -58,7 +60,7 @@ package Grammar::peso;
 
     %{Grammar->Frame_Vars()},
 
-    -passes => ['_ctx'],
+    -passes => ['_ctx','_run'],
 
   }};
 
@@ -952,9 +954,12 @@ sub cond_beg_ctx($match) {
 };
 
 # ---   *   ---   *   ---
-# global state
 
-  our $Top;
+sub cond_beg_run($match) {
+
+  say 'yay';
+
+};
 
 # ---   *   ---   *   ---
 # repeat offenders
@@ -1046,7 +1051,7 @@ sub detag($o,$ctx,@path) {
       ) {
 
         @npath=@rpath[-2..-1];
-        @rpath=(@rpath[0..2],@npath);
+        @rpath=(@rpath[0..1],@npath);
 
         $name=$ctx->ns_get(@rpath);
 
@@ -1131,6 +1136,11 @@ sub sasg_ctx($match) {
 
   my $st     = $match->bhash(0,0);
   my @path   = ns_path($f);
+
+  if(uc $st->{name} eq 'ENTRY') {
+    $st->{nterm}=[split q[::],$st->{nterm}];
+
+  };
 
   $ctx->ns_asg(
     $st->{nterm},
@@ -1268,14 +1278,11 @@ sub hier_sort_ctx($match) {
 
   };
 
+  my @path=ns_path($f);
+
   for my $key(keys %$PE_FLAGS) {
-
     my $value=$PE_FLAGS->{$key};
-
-    $tree->{ctx}->ns_asg(
-      $value,ns_path($f),$key
-
-    );
+    $ctx->ns_asg($value,@path,$key);
 
   };
 
@@ -1290,6 +1297,9 @@ sub hier_sort_ctx($match) {
   ) if !@chld;
 
   $match->pushlv(@chld);
+
+  @path=grep {$ARG ne '$DEF'} @path;
+  $ctx->ns_mkbranch($match,@path);
 
 };
 
@@ -1345,38 +1355,21 @@ sub ns_path($f,%O) {
   if(defined $f->{-cproc}) {
 
     my $ckey=(defined $f->{-crom})
-      ? q[rom]
-      : q[reg]
+      ? q[-crom]
+      : q[-creg]
       ;
 
-
-    my @ptr=(
-      $ckey.'s',
-      $f->{q[-c].$ckey},
-
-    );
-
     @out=(
-      $f->{-cclan},@ptr,'procs',
-      $f->{-cproc},'stk:$00'
+      $f->{-cclan},$f->{$ckey},
+      $f->{-cproc}
 
     );
 
   } elsif(defined $f->{-crom}) {
-
-    @out=(
-      $f->{-cclan},'roms',
-      $f->{-crom}
-
-    );
+    @out=($f->{-cclan},$f->{-crom});
 
   } elsif(defined $f->{-creg}) {
-
-    @out=(
-      $f->{-cclan},'regs',
-      $f->{-creg}
-
-    );
+    @out=($f->{-cclan},$f->{-creg});
 
   } else {
 
@@ -1502,7 +1495,16 @@ sub ptr_decl_ctx($match) {
   my $t    = Grammar::peso->parse($prog,-r=>1);
 
 #  $t->prich();
-  fatdump($t->{ctx}->{frame}->{-ns});
+#  fatdump($t->{ctx}->{frame}->{-ns}->{peso});
+
+  Grammar::peso->run(
+
+    $t,
+
+    entry=>1,
+    keepx=>1
+
+  );
 
 # ---   *   ---   *   ---
 1; # ret

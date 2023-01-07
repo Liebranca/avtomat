@@ -19,7 +19,7 @@
   VERSION   v0.00.3b;
   AUTHOR    'IBN-3DILA';
 
-  ENTRY     top;
+  ENTRY     std::expr;
 
 # ---   *   ---   *   ---
 
@@ -97,7 +97,7 @@ PROC expr;
   on s~=<num>;
   off;
 
-  STOP;
+STOP;
 
 # ---   *   ---   *   ---
 

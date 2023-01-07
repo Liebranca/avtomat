@@ -28,6 +28,8 @@ package Grammar;
   use Chk;
 
   use Arstd::Array;
+  use Arstd::IO;
+
   use Tree::Grammar;
 
   use parent 'St';
@@ -120,74 +122,31 @@ sub parse($class,$prog,%O) {
 sub run($class,$tree,%O) {
 
   # defaults
-  $O{from_entry}//=0;
+  $O{entry}//=0;
+  $O{keepx}//=0;
 
   my $ctx = $tree->{ctx};
   my $f   = $ctx->{frame};
 
-  $ctx->{frame}->{-npass}++;
+  $f->{-npass}++;
 
-  my $callstk=$tree->{callstk};
+  my $callstk=$ctx->{callstk};
 
   # find entry point
-  if($O{from_entry}) {
+  my @branches=($O{entry})
+    ? $ctx->get_entry($tree,$O{entry})
+    : $tree
+    ;
 
-    # use all entries in tree
-    if($O{from_entry}=~ m[^\d+$]) {
+  # build callstack
+  for my $branch(@branches) {
 
-      for my $clan(
-        $tree->branches_in(qr{^CLAN$})
+    my @refs=$branch->shift_branch(
+      keepx=>$O{keepx}
 
-      ) {
+    );
 
-        # get name of entry proc
-        my $key=ns_get(
-
-          $clan->{-pest}->{name},
-
-          '$DEF',
-          'ENTRY'
-
-        );
-
-        # find node assoc with name
-        for my $proc(
-          $tree->branches_in(qr{^PROC$})
-
-        ) {
-
-          if($proc->{-pest}->{name} eq $key) {
-            push @$callstk,[$proc,$proc->{fn}];
-            last;
-
-          };
-
-        };
-
-      };
-
-    # TODO: use specific entry point
-    } else {
-
-    };
-
-  # run whole tree
-  } else {
-
-    my @nodes=($tree);
-
-    while(@nodes) {
-
-      my $nd=shift @nodes;
-
-      push @$callstk,[$nd,$nd->{fn}]
-      if $nd->{fn} ne $NOOP;
-
-      $nd->shift_chain();
-
-      unshift @nodes,@{$nd->{leaves}};
-
-    };
+    push @$callstk,@refs;
 
   };
 
@@ -200,6 +159,73 @@ sub run($class,$tree,%O) {
     $fn->($nd);
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# give branches marked for execution
+
+sub get_entry($ctx,$tree,$entry) {
+
+  my @out=(!is_arrayref($entry))
+    ? $ctx->get_clan_entries($tree)
+    : $ctx->ns_get($tree,@$entry,q[$branch])
+    ;
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# finds all branches declared as entry points
+
+sub get_clan_entries($ctx,$tree) {
+
+  my @out=();
+
+  for my $key(keys %{$ctx->{frame}->{-ns}}) {
+
+    next if $key eq q[$decl:order];
+
+    # get name of entry proc
+    my $name=$ctx->ns_get(
+      $key,'$DEF','ENTRY'
+
+    );
+
+    # ^fetch
+    my @path = ($key,@$name,q[$branch]);
+    my $o    = $ctx->ns_get(@path);
+
+    # ^validate
+    throw_invalid_entry(@path)
+    if !%$o || !Tree::Grammar->is_valid($o);
+
+    push @out,$o;
+
+
+  };
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_invalid_entry(@path) {
+
+  my $path=join q[/],@path;
+
+  errout(
+
+    q[Path <%s> points to an invalid branch],
+
+    args => [$path],
+    lvl  => $AR_FATAL,
+
+
+  );
 
 };
 
@@ -342,12 +368,33 @@ sub ns_fetch($self,@path) {
 
     next if !$key;
 
+    throw_bad_fetch(@path)
+    if !is_hashref(${$dst});
+
     ${$dst}->{$key}//={};
     $dst=\(${$dst}->{$key});
 
   };
 
   return $dst;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_bad_fetch(@path) {
+
+  my $path=join q[/],@path;
+
+  errout(
+
+    q[Invalid path; FET <%s>],
+
+    args => [$path],
+    lvl  => $AR_FATAL,
+
+  );
 
 };
 
@@ -403,6 +450,37 @@ sub ns_search($self,$name,$sep,@path) {
   @out=(@path,$oname);
 
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# associates path with a tree node
+
+sub ns_mkbranch($self,$o,@path) {
+
+  throw_invalid_branchref($o,@path)
+  if !Tree::Grammar->is_valid($o);
+
+  ns_decl($self,$o,@path,q[$branch]);
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_invalid_branchref($o,@path) {
+
+  my $path=join q[/],@path;
+
+  errout(
+
+    q[Object at <%s> is not a ].
+    q[Tree::Grammar instance but a %s],
+
+    args => [$path,ref $o],
+    lvl  => $AR_FATAL,
+
+  );
 
 };
 

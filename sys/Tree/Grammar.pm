@@ -156,6 +156,34 @@ sub shift_chain($self,@chain) {
 };
 
 # ---   *   ---   *   ---
+# ^whole branch, no reasg
+
+sub shift_branch($self,%O) {
+
+  # defaults
+  $O{keepx}//=0;
+
+  my @out     = ();
+  my @pending = ($self);
+
+  while(@pending) {
+
+    my $nd=shift @pending;
+
+    push @out,[$nd,$nd->{fn}]
+    if $nd->{fn} ne $NOOP;
+
+    $nd->shift_chain() if !$O{keepx};
+
+    unshift @pending,@{$nd->{leaves}};
+
+  };
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
 # true if node is part of an
 # optional branch
 
