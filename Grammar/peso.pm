@@ -871,35 +871,43 @@ sub mtest_ctx($match) {
 
   my ($tree,$ctx,$f)=get_ctx($match);
 
-  my $st     = $match->bhash(0,0,0);
+  my $st     = $match->bhash(0,0);
   my @path   = ns_path($f);
 
   my $o      = detag($st->{nterm},$ctx,@path);
   my $nterm  = $match->branch_in(qr{^nterm$});
 
-  $nterm->{value}=$o;
-  $nterm->clear_branches();
+  my $lv     = $match->{leaves};
 
-#  my ($tree,$ctx,$f)=get_ctx($match);
-#
-#  my $st     = $match->bhash(0,0,0);
-#  my @path   = ns_path($f);
-#
-#  my $o      = $st->{nterm};
-#  my $qwor   = $ctx->ns_get(@path,'-qwor');
-#  my $sigws  = $ctx->ns_get(@path,'-sigws');
-#  my $insens = $ctx->ns_get(@path,'-insens');
-#  my $escape = $ctx->ns_get(@path,'-escape');
-#
-#  $o         = detag($o,$ctx,@path);
-#
-#  my $s=$st->{str};
-#  $s=~ s[^"|"$][]sxmg;
-#
-#say $s,q[ ],$o;
-#
-#  say int($s=~ $o);
-#  exit;
+  my $v      = $ctx->ns_get(
+
+    @path,
+    $lv->[0]->{value}
+
+  );
+
+  $match->{value}={
+
+    re => $o,
+    v  => $v,
+
+  };
+
+  $match->clear_branches();
+
+};
+
+# ---   *   ---   *   ---
+# ^exec
+
+sub mtest_run($match) {
+
+  my $st = $match->{value};
+
+  my $v  = $st->{v}->{value};
+  my $re = $st->{re};
+
+  return int($v=~ $re);
 
 };
 
@@ -1114,9 +1122,26 @@ sub cond_beg_run($match) {
   my ($tree,$ctx,$f)=get_ctx($match);
 
   my $st=$match->{-pest};
-  $st->{eval}->prich();
+  my $ev=$st->{eval};
 
-  say $ctx->{callstk};
+  my $ok=0;
+
+  for my $nd(@{$ev->{leaves}}) {
+    $ok|=$nd->{chain}->[-1]->($nd);
+
+  };
+
+  if(!$ok) {
+
+    my $callstk = $ctx->{callstk};
+    my $size    = @{$match->{leaves}};
+
+    for(0..$size-1) {
+      shift @$callstk;
+
+    };
+
+  };
 
 };
 
