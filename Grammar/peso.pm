@@ -28,8 +28,6 @@ package Grammar::peso;
   use Chk;
   use Fmat;
 
-  use Mach;
-
   use Arstd::Array;
   use Arstd::IO;
 
@@ -60,7 +58,7 @@ package Grammar::peso;
 
     %{Grammar->Frame_Vars()},
 
-    -passes => ['_ctx','_run'],
+    -passes => ['_ctx','_opz','_run'],
 
   }};
 
@@ -580,6 +578,162 @@ sub value_sort($match) {
   };
 
 # ---   *   ---   *   ---
+# reads input lines
+
+sub rdin_opz($match) {
+
+  my $h=$match->leaf_value(0);
+
+  $match->{value}=$h;
+  $match->clear_branches();
+
+};
+
+sub rdin_run($match) {
+
+  my ($tree,$ctx,$f)=get_ctx($match);
+
+  for my $ptr(@{$match->{value}}) {
+    $$ptr->{value}=$ctx->{mach}->stkpop();
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# buffered IO
+
+  Readonly my $FHANDLE=>{
+
+    name=>'fhandle',
+    chld=>[
+
+      {name=>qr[\{\s*\*]},
+      $VALUE,
+
+      {name=>qr[\}]},
+
+    ],
+
+  };
+
+  Readonly my $SOW=>{
+
+    name => 'sow',
+
+    fn   => 'sow',
+    dom  => 'Grammar::peso',
+
+    chld => [
+
+      {name=>qr{sow}},
+
+      $FHANDLE,
+      $VLIST,
+
+    ]
+
+  };
+
+  Readonly my $REAP=>{
+
+    name => 'reap',
+
+    fn   => 'reap',
+    dom  => 'Grammar::peso',
+
+    chld => [
+
+      {name=>qr{reap}},
+      $FHANDLE,
+
+    ]
+
+  };
+
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub sow($match) {
+
+  my $lv=$match->{leaves};
+  my @ar=$lv->[1]->branch_values();
+
+  $match->{value}={
+
+    fd => $lv->[0]->leaf_value(0),
+    me => \@ar,
+
+  };
+
+  $match->clear_branches();
+
+};
+
+sub reap($match) {
+
+  my $st=$match->bhash(0);
+
+  $match->{value}=$st->{fhandle};
+  $match->clear_branches();
+
+};
+
+# ---   *   ---   *   ---
+# ^bind values
+
+sub sow_opz($match) {
+
+  my ($tree,$ctx,$f)=get_ctx($match);
+  my @path=ns_path($f);
+
+  for my $v(@{$match->{value}->{me}}) {
+
+    if($v=~ $REGEX->{bare}) {
+      $v=$ctx->ns_get(@path,$v);
+
+    };
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^exec
+
+sub sow_run($match) {
+
+  my ($tree,$ctx,$f)=get_ctx($match);
+  my $s=$NULLSTR;
+
+  for my $v(@{$match->{value}->{me}}) {
+
+    my $deref=(is_hashref($v))
+      ? $v->{value}
+      : $v
+      ;
+
+    $s.=$deref;
+
+  };
+
+  $ctx->{mach}->sow(
+    $match->{value}->{fd},$s
+
+  );
+
+};
+
+sub reap_run($match) {
+
+  my ($tree,$ctx,$f)=get_ctx($match);
+  my $fh=$match->{value};
+
+  $ctx->{mach}->reap($fh);
+
+};
+
+# ---   *   ---   *   ---
 # special definitions
 
   Readonly my $SVARS=>{
@@ -957,7 +1111,12 @@ sub cond_beg_ctx($match) {
 
 sub cond_beg_run($match) {
 
-  say 'yay';
+  my ($tree,$ctx,$f)=get_ctx($match);
+
+  my $st=$match->{-pest};
+  $st->{eval}->prich();
+
+  say $ctx->{callstk};
 
 };
 
@@ -977,14 +1136,6 @@ sub get_ctx($match) {
 # placeholder for file header
 
 sub rdhed($match) {
-
-};
-
-# ---   *   ---   *   ---
-# reads input lines
-
-sub rdin($match) {
-#  $match->prich();
 
 };
 
@@ -1397,6 +1548,11 @@ sub ptr_decl($match) {
   );
 
   Tree::Grammar::nest_flatten(
+    $match,'flg'
+
+  );
+
+  Tree::Grammar::nest_flatten(
     $match,'value'
 
   );
@@ -1438,6 +1594,8 @@ sub ptr_decl_ctx($match) {
 
   };
 
+  my $ptrs=[];
+
   # push decls to namespace
   while(@names && @values) {
 
@@ -1455,9 +1613,37 @@ sub ptr_decl_ctx($match) {
 
     $ctx->ns_decl($o,@path,$name);
 
+    push @$ptrs,$ctx->ns_fetch(@path,$name);
+
   };
 
+  $match->clear_branches();
+  $match->{value}=$ptrs;
+
 };
+
+# ---   *   ---   *   ---
+# groups
+
+  Readonly my $BLTN=>{
+
+    name => 'bltn',
+    fn   => 'clip',
+
+    chld=>[
+
+      { name=>'nid',chld=>[
+
+        $REAP,$Grammar::OR,
+        $SOW,
+
+      ]},
+
+      $TERM
+
+    ],
+
+  };
 
 # ---   *   ---   *   ---
 # test
@@ -1481,6 +1667,7 @@ sub ptr_decl_ctx($match) {
     $COND_END,
 
     $MATCH,
+    $BLTN,
 
   );
 
@@ -1492,7 +1679,7 @@ sub ptr_decl_ctx($match) {
   $prog    =~ m[([\S\s]+)\s*STOP]x;
   $prog    = ${^CAPTURE[0]};
 
-  my $t    = Grammar::peso->parse($prog,-r=>1);
+  my $t    = Grammar::peso->parse($prog,-r=>2);
 
 #  $t->prich();
 #  fatdump($t->{ctx}->{frame}->{-ns}->{peso});
@@ -1502,7 +1689,13 @@ sub ptr_decl_ctx($match) {
     $t,
 
     entry=>1,
-    keepx=>1
+    keepx=>1,
+
+    input=>[
+
+      "HLOWRLD\n",
+
+    ],
 
   );
 

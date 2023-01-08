@@ -295,6 +295,14 @@ sub discard($match) {
 };
 
 # ---   *   ---   *   ---
+# replace branch with it's children
+
+sub clip($match) {
+  $match->flatten_branch();
+
+};
+
+# ---   *   ---   *   ---
 # makes helper for match
 
 sub match_st($self,$sref) {
@@ -677,11 +685,6 @@ sub expand_tree($self) {
 
       my @chain=(@{$self->{nd}->{chain}});
       $self->{anchor}->shift_chain(@chain);
-
-#say $self->{anchor}->{value},q[ ],
-#  $self->{anchor}->{fn}
-#
-#if $self->{anchor}->{fn} ne $NOOP;
 
     };
 

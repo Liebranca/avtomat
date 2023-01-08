@@ -24,6 +24,7 @@ package Mach;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Arstd::IO;
 
   use parent 'St';
 
@@ -89,9 +90,24 @@ sub stkpush($self,$x) {
 
 sub stkpop($self) {
   my $x=pop @{$self->{stk}};
-  $self->{stk_top}--;
+
+  --$self->{stk_top} > -1
+  or throw_stack_underflow();
 
   return $x;
+
+};
+
+# ---   *   ---   *   ---
+# ^errmes
+
+sub throw_stack_underflow() {
+
+  errout(
+    q[Stack underflow],
+    lvl=>$AR_FATAL,
+
+  );
 
 };
 
@@ -110,6 +126,8 @@ sub reap($self,$dst) {
   my $buff=\($self->{fd_buff}->[$dst]);
 
   print {$self->{fd}->[$dst]} $$buff;
+
+  $self->{fd}->[$dst]->flush();
   $$buff=$NULLSTR;
 
 };

@@ -94,10 +94,13 @@ PROC expr;
 
   in byte str s;
 
-  on s~=<num>;
-  off;
+  sow  {*1} s;
+  reap {*1};
 
 STOP;
+
+  on s~=<num>;
+  off;
 
 # ---   *   ---   *   ---
 

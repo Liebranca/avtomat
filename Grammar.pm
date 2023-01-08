@@ -27,6 +27,8 @@ package Grammar;
   use Style;
   use Chk;
 
+  use Mach;
+
   use Arstd::Array;
   use Arstd::IO;
 
@@ -90,11 +92,18 @@ sub set_top($class,$name) {
 sub parse($class,$prog,%O) {
 
   # defaults
-  $O{-r}//=0;
+  $O{-r}   //= 0;
+  $O{idex} //= 0;
+  $O{mach} //= {};
+
+  my $mach_f = Mach->get_frame($O{idex});
+  my $mach   = $mach_f->nit(%{$O{mach}});
 
   my $self=bless {
     frame   => $class->new_frame(),
     callstk => [],
+
+    mach    => $mach,
 
   },$class;
 
@@ -124,6 +133,7 @@ sub run($class,$tree,%O) {
   # defaults
   $O{entry}//=0;
   $O{keepx}//=0;
+  $O{input}//=[];
 
   my $ctx = $tree->{ctx};
   my $f   = $ctx->{frame};
@@ -147,6 +157,11 @@ sub run($class,$tree,%O) {
     );
 
     push @$callstk,@refs;
+
+  };
+
+  for my $arg(@{$O{input}}) {
+    $ctx->{mach}->stkpush($arg);
 
   };
 
@@ -219,7 +234,7 @@ sub throw_invalid_entry(@path) {
 
   errout(
 
-    q[Path <%s> points to an invalid branch],
+    q[Path <%s> points to null],
 
     args => [$path],
     lvl  => $AR_FATAL,

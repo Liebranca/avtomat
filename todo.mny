@@ -20,7 +20,10 @@ x .  \--> Unique branches for wed/unwed
 x .  \--> Unique branch for re
 x .  \--> repl <tags> inside re
 
-~ .  \--> reap && sow
+x .  \--> proc inputs
+~ .  .  \--> input type checking
+
+x .  \--> reap && sow
 ~ .  \--> Find across namespaces
 x .  \--> jmp to branch
 ~ .  \--> Defining grammar branches
