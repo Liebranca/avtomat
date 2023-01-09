@@ -94,9 +94,14 @@ PROC expr;
 
   in byte str s;
 
+  sow  {*1} "ENTER\n";
+  reap {*1};
+
   on s~=^<bare>$;
-    sow  {*1} s;
+    sow  {*1} "RECURSE\n";
     reap {*1};
+
+    call expr 0;
 
   off;
 

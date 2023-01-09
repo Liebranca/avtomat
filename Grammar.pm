@@ -39,7 +39,7 @@ package Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -160,7 +160,7 @@ sub run($class,$tree,%O) {
 
   };
 
-  for my $arg(@{$O{input}}) {
+  for my $arg(reverse @{$O{input}}) {
     $ctx->{mach}->stkpush($arg);
 
   };
@@ -184,7 +184,7 @@ sub get_entry($ctx,$tree,$entry) {
 
   my @out=(!is_arrayref($entry))
     ? $ctx->get_clan_entries($tree)
-    : $ctx->ns_get($tree,@$entry,q[$branch])
+    : $ctx->ns_get(@$entry,q[$branch])
     ;
 
   return @out;
@@ -384,16 +384,51 @@ sub ns_fetch($self,@path) {
     next if !$key;
 
     throw_bad_fetch(@path)
-    if !is_hashref(${$dst});
+    if !is_hashref($$dst);
 
-    ${$dst}->{$key}//={};
-    $dst=\(${$dst}->{$key});
+    $$dst->{$key}//={};
+    $dst=\($$dst->{$key});
 
   };
 
   return $dst;
 
 };
+
+# ---   *   ---   *   ---
+# ^similar, returns existance of path
+
+sub ns_exists($self,@path) {
+
+  my $ns  = $self->{frame}->{-ns};
+  my $dst = \$ns;
+
+  my $out = 1;
+
+  for my $key(@path) {
+
+    next if !$key;
+
+    if(
+
+       !is_hashref($$dst)
+    || !exists $$dst->{$key}
+
+    ) {
+
+      $out=0;
+      last;
+
+    };
+
+    $dst=\($$dst->{$key});
+
+  };
+
+  return $out;
+
+};
+
 
 # ---   *   ---   *   ---
 # ^errme
@@ -439,32 +474,50 @@ sub ns_get($self,@path) {
 
 sub ns_search($self,$name,$sep,@path) {
 
-  my @out   = ();
-  my @cm    = ();
+  my @out=$self->ns_search_nc(
+    $name,$sep,@path
 
-  my @alt   = split $sep,$name;
-  my $oname = pop @alt;
+  );
 
-  for(
+  throw_bad_fetch(@out)
+  if !($self->ns_exists(@out));
 
-    my ($i,$j)=($#path,$#alt);
+  return @out;
 
-    $j>=0 && $i>=0;
-    $i--,$j--
+};
 
+# ---   *   ---   *   ---
+# ^no errchk
 
-  ) {
+sub ns_search_nc($self,$name,$sep,@path) {
 
-    my $a=\$path[$i];
-    my $b=\$alt[$j];
+  my @alt=split $sep,$name;
 
-    $$a=$$b if $$a ne $$b;
+  while(@path) {
+    last if $self->ns_exists(@path,@alt);
+    pop @path;
 
   };
 
-  @out=(@path,$oname);
+  return (@path,@alt);
 
-  return @out;
+};
+
+# ---   *   ---   *   ---
+# conditionally dereference
+# the "condition" being existance of value
+
+sub ns_cderef($self,$fet,$sep,$vref,@path) {
+
+  my @rpath = $self->ns_search_nc(
+    $$vref,$sep,@path
+
+  );
+
+  my $valid = $self->ns_exists(@rpath);
+  my $fn    = ($fet) ? \&ns_fetch : \&ns_get;
+
+  $$vref    = $fn->($self,@rpath) if $valid;
 
 };
 

@@ -44,7 +44,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;
+  our $VERSION = v0.00.6;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -367,10 +367,30 @@ package Grammar::peso;
 
   Readonly my $QSTR=>{
 
-    name => qr{"([^"]|\\")*?"},
-    fn   => 'capt',
+    name => 'qstr',
+
+    fn   => 'qstr',
+    dom  => 'Grammar::peso',
+
+    chld => [{
+
+      name => qr{"([^"]|\\")*?"},
+      fn   => 'capt',
+
+    }],
 
   };
+
+# ---   *   ---   *   ---
+# ^rough ipret
+
+sub qstr($match) {
+  $match->{value}=eval($match->leaf_value(0));
+  $match->clear_branches();
+
+};
+
+# ---   *   ---   *   ---
 
   Readonly my $CSTR=>{
 
@@ -688,11 +708,10 @@ sub sow_opz($match) {
   my @path=ns_path($f);
 
   for my $v(@{$match->{value}->{me}}) {
+    $ctx->ns_cderef(
+      0,$REGEX->{nsop},\$v,@path
 
-    if($v=~ $REGEX->{bare}) {
-      $v=$ctx->ns_get(@path,$v);
-
-    };
+    );
 
   };
 
@@ -946,6 +965,103 @@ sub ret_ctx($match) {
 
   my ($tree,$cutx,$f)=get_ctx($match);
   ns_path($f,-ret=>1);
+
+};
+
+# ---   *   ---   *   ---
+# procedure calls
+
+  Readonly my $CALL=>{
+
+    name => 'call',
+
+    dom  => 'Grammar::peso',
+    fn   => 'call',
+
+    chld => [
+
+      {name=>qr{call}},
+
+      $VALUE,
+
+      $VLIST,
+      $TERM,
+
+    ],
+
+  };
+
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub call($match) {
+
+  my $lv   = $match->{leaves};
+
+  my $fn   = $lv->[0]->{value};
+  my @args = $lv->[1]->branch_values();
+
+  $match->clear_branches();
+
+  $match->{value}={
+    fn   => [(split $REGEX->{nsop},$fn)],
+    args => \@args,
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^optimize
+
+sub call_opz($match) {
+
+  my ($tree,$ctx,$f)=get_ctx($match);
+
+  my $st    = $match->{value};
+  my @path  = ns_path($f);
+
+  my @rpath = $ctx->ns_search(
+
+    (join q[::],@{$st->{fn}}),
+
+    $REGEX->{nsop},
+    @path
+
+  );
+
+  $st->{fn}=$ctx->ns_get(
+    @rpath,q[$branch]
+
+  );
+
+  for my $arg(@{$st->{args}}) {
+    next if !($arg=~ $REGEX->{bare});
+    $ctx->ns_cderef(1,$REGEX->{nsop},\$arg,@path);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^exec
+
+sub call_run($match) {
+
+  my ($tree,$ctx,$f)=get_ctx($match);
+
+  my $st   = $match->{value};
+
+  my $fn   = $st->{fn};
+  my @args = @{$st->{args}};
+
+  for my $arg(reverse @args) {
+    $ctx->{mach}->stkpush($arg);
+
+  };
+
+  unshift @{$ctx->{callstk}},
+    $fn->shift_branch(keepx=>1);
 
 };
 
@@ -1692,6 +1808,7 @@ sub ptr_decl_ctx($match) {
     $COND_END,
 
     $MATCH,
+    $CALL,
     $BLTN,
 
   );
