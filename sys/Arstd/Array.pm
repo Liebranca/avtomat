@@ -213,7 +213,8 @@ sub key_idex($ar) {
 sub nsort($ar) {
 
   @$ar=sort {
-    (length $a)<=(length $b)
+
+    (length $b)<=>(length $a);
 
   } @$ar;
 

@@ -94,18 +94,20 @@ PROC expr;
 
   in byte str s;
 
-  sow  {*1} "ENTER\n";
-  reap {*1};
-
-  on s~=^<bare>$;
-    sow  {*1} "RECURSE\n";
-    reap {*1};
-
-    call expr 0;
-
-  off;
+  lis  {/:f} stdout;
+  sow  {/:f} "ENTER\n";
 
 STOP;
+
+  reap {/:f};
+
+#  on s~=^<bare>$;
+#    sow  {*1} "RECURSE\n";
+#    reap {*1};
+#
+#    call expr 0;
+#
+#  off;
 
 # ---   *   ---   *   ---
 

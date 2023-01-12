@@ -127,7 +127,6 @@ sub dup($self) {
 # remove branch if it's not root
 
 sub purge($self) {
-
   $self->{parent}->pluck($self)
   if $self->{parent};
 
@@ -339,6 +338,8 @@ sub match_st($self,$sref) {
     fmint   => 0,
     mlast   => 0,
 
+    depth   => 0,
+
     re      => undef,
     key     => undef,
 
@@ -396,7 +397,13 @@ sub match($self,$s) {
     };
 
     my @tail=@{$st->{nd}->{leaves}};
-    push @tail,0 if @tail;
+
+    if(@tail) {
+
+      $st->{depth}++;
+      push @tail,$st->{depth} if @tail;
+
+    };
 
     $st->attempt();
     unshift @{$st->{pending}},@tail;
@@ -515,7 +522,15 @@ package Tree::Grammar::Matcher;
 sub get_next($self) {
 
   $self->{nd}  = shift @{$self->{pending}};
-  goto TAIL if !$self->{nd};
+
+  if($self->{nd}=~ m[^\d+$]) {
+
+    $self->{nd}=0;
+    $self->{depth}--;
+
+    goto TAIL;
+
+  };
 
   $self->{key} =
   $self->{re}  = $self->{nd}->{value}
@@ -588,6 +603,8 @@ sub attempt_match($self) {
 
 # ---   *   ---   *   ---
 
+#say q[~= ],$self->{capt};
+
   $self->{matches}->[-1]+=
     !$self->{nd}->{opt};
 
@@ -602,6 +619,26 @@ TAIL:
 };
 
 # ---   *   ---   *   ---
+# resumes parent branch
+
+sub walkup($self) {
+
+  my $ar=$self->{pending};
+
+  while(
+
+     $ar->[0]
+  && $ar->[0] ne $self->{depth}
+
+  ) {
+
+    my $shit=shift @$ar;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # pattern alternation
 
 sub OR($self) {
@@ -609,17 +646,14 @@ sub OR($self) {
   my $out=1;
 
   if(!$self->{mlast}) {
+
     $self->{mint}->[-1]--;
     $self->tkpop();
 
     push @{$self->{tk}},[];
 
   } else {
-
-    while($self->{pending}->[0]) {
-      shift @{$self->{pending}};
-
-    };
+    $self->walkup();
 
   };
 
@@ -699,6 +733,8 @@ sub expand_tree($self) {
 
     push @{$self->{tk}},[];
 
+#$self->db_depth_prich();
+
   };
 
 };
@@ -722,6 +758,26 @@ sub tkpop($self) {
 };
 
 # ---   *   ---   *   ---
+
+sub db_depth_prich($self) {
+
+  for my $nd(@{$self->{pending}}) {
+
+    if($nd=~ m[^\d+$]) {
+      say "DEPTH $nd";
+
+    } else {
+      say $nd->{value};
+
+    };
+
+  };
+
+  say "_________________\n";
+
+};
+
+# ---   *   ---   *   ---
 # execute actions for a non-re branch
 
 sub branch_fn($self) {
@@ -732,7 +788,6 @@ sub branch_fn($self) {
   my $mint         = $self->{mint};
 
   $branch->{mfull} = 0;
-  $self->{mlast}   = 0;
 
   $mint->[-2]++;
   my $mm=0;
@@ -755,6 +810,8 @@ sub branch_fn($self) {
     $matches->[-2]++;
 
     $branch->{mfull}=1;
+
+    my $ahead=$self->{pending}->[1];
 
     # rewind branch on greedy modifier
     if($nd->{greed}) {
@@ -784,16 +841,26 @@ sub branch_fn($self) {
   # no match
   } else {
     $branch->purge();
+    $self->{mlast}=0;
+    $self->tkpop();
 
   };
 
 # ---   *   ---   *   ---
 
+#say q[>> ],$matches->[-1],q[/],$mint->[-1],
+#q[ of ],$branch->{value};
+#
+#say q[^> ],$matches->[-2],q[/],$mint->[-2],
+#q[ of ],$branch->{parent}->{value};
+#
 #my ($tree)=$branch->root();
-#$tree->prich();
+##$tree->prich();
 #
 #map {say $ARG} @{$self->{tk}->[-1]};
 #say q[**],${$self->{sref}};
+#
+#$self->db_depth_prich();
 
 # ---   *   ---   *   ---
 

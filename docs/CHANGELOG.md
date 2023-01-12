@@ -1,4 +1,9 @@
-# v3.21.6 (WIP)
+# v3.21.7 (WIP)
+
+- First partreim of peso through an `%lpsrom`.
+- Grammar::OR fixes
+
+# v3.21.6
 
 - Added the `Tree::Grammar` class; it provides a baseline implementation for Raku-inspired grammars.
 - Initial implementation of micro syntax files generation through `sygen`.

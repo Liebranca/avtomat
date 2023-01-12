@@ -102,7 +102,10 @@ package Grammar::peso;
 
         $ $: $:% $:/
 
-        %% % / // @
+        %% %
+
+        / // /: //:
+        @ @:
 
         * : -- - ++ + ^ &
 
@@ -235,7 +238,7 @@ package Grammar::peso;
 
   };
 
-  Readonly my $NONTERM=>{
+  Readonly my $NTERM=>{
 
     name => 'nterm',
 
@@ -258,7 +261,7 @@ package Grammar::peso;
 
       $SIGIL,
 
-      {%$NONTERM,opt=>1},
+      {%$NTERM,opt=>1},
       $TERM
 
     ],
@@ -430,6 +433,9 @@ sub qstr($match) {
 
     name => 'flg',
 
+    dom  => 'Grammar::peso',
+    fn   => 'flg',
+
     chld => [
 
       $SIGIL,
@@ -446,6 +452,30 @@ sub qstr($match) {
     chld => [$FLG,$CLIST],
 
   };
+
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub flg($match) {
+
+  my $st   = $match->bhash();
+  my $type = (exists $st->{seal})
+    ? 'seal'
+    : 'bare'
+    ;
+
+  $match->{value}={
+
+    sigil => $st->{sigil},
+    name  => $st->{$type},
+
+    type  => $type,
+
+  };
+
+  $match->clear_branches();
+
+};
 
 # ---   *   ---   *   ---
 # all non-bare
@@ -621,21 +651,77 @@ sub rdin_run($match) {
 };
 
 # ---   *   ---   *   ---
-# buffered IO
+# soul of perl v2.0
 
-  Readonly my $FHANDLE=>{
+  Readonly my $VGLOB=>{
 
-    name=>'fhandle',
+    name=>'vglob',
     chld=>[
 
-      {name=>qr[\{\s*\*]},
-      $VALUE,
+      {name=>qr[\{]},
+      $FLG,
 
       {name=>qr[\}]},
 
     ],
 
   };
+
+# ---   *   ---   *   ---
+# aliasing
+
+  Readonly my $LIS=>{
+
+    name => 'lis',
+
+    dom  => 'Grammar::peso',
+    fn   => 'lis',
+
+    chld => [
+
+      {name=>qr{lis}},
+
+      $VGLOB,
+      $NTERM
+
+    ],
+
+  };
+
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub lis($match) {
+
+  my $st=$match->bhash();
+
+  $match->{value}={
+
+    from => $st->{nterm},
+    to   => $st->{vglob},
+
+  };
+
+  $match->clear_branches();
+
+};
+
+# ---   *   ---   *   ---
+# ^context build
+
+sub lis_ctx($match) {
+
+  my $st=$match->{value};
+
+  $match->{parent}->prich();
+
+  fatdump($match->{value});
+  exit;
+
+};
+
+# ---   *   ---   *   ---
+# buffered IO
 
   Readonly my $SOW=>{
 
@@ -648,7 +734,7 @@ sub rdin_run($match) {
 
       {name=>qr{sow}},
 
-      $FHANDLE,
+      $VGLOB,
       $VLIST,
 
     ]
@@ -665,7 +751,7 @@ sub rdin_run($match) {
     chld => [
 
       {name=>qr{reap}},
-      $FHANDLE,
+      $VGLOB,
 
     ]
 
@@ -692,9 +778,9 @@ sub sow($match) {
 
 sub reap($match) {
 
-  my $st=$match->bhash(0);
+  my $lv=$match->{leaves};
 
-  $match->{value}=$st->{fhandle};
+  $match->{value}=$lv->[0]->leaf_value(0);
   $match->clear_branches();
 
 };
@@ -714,6 +800,9 @@ sub sow_opz($match) {
     );
 
   };
+
+  my $fd=$match->{value}->{fd};
+say $fd;
 
 };
 
@@ -780,7 +869,7 @@ sub reap_run($match) {
     fn   => 'sasg',
     dom  => 'Grammar::peso',
 
-    chld => [$SVARS,$NONTERM,$TERM],
+    chld => [$SVARS,$NTERM,$TERM],
 
   };
 
@@ -842,7 +931,7 @@ sub reap_run($match) {
       $RETYPE,
 
       $SEAL,
-      $NONTERM,
+      $NTERM,
       $TERM
 
     ],
@@ -877,7 +966,7 @@ sub reap_run($match) {
       $VALUE,
       {name=>qr{~=}},
 
-      $NONTERM,
+      $NTERM,
       $TERM
 
     ],
@@ -952,7 +1041,7 @@ sub mtest_run($match) {
 
       }]},
 
-      {%$NONTERM,opt=>1},
+      {%$NTERM,opt=>1},
       $TERM
 
     ],
@@ -1447,31 +1536,36 @@ sub sasg_ctx($match) {
 # ---   *   ---   *   ---
 # turns you on and off
 
+sub switch($match) {
+
+  my $st=$match->bhash(0,1);
+
+  $match->{value}={
+
+    type  => uc $st->{type},
+    flags => $st->{flags},
+
+  };
+
+  $match->clear_branches();
+
+};
+
 sub switch_ctx($match) {
 
   my ($tree,$ctx,$f)=get_ctx($match);
 
-  my @path   = ns_path($f);
+  my $st   = $match->{value};
+  my @path = ns_path($f);
 
-  my $type=uc $match->branch_in(
-    qr{^type$}
+  my $value=int($st->{type} eq 'WED');
 
-  )->leaf_value(0);
+  for my $f(@{$st->{flags}}) {
 
-  my $flags=$match->branch_in(
-    qr{^flags$}
-
-  );
-
-  my $value=int($type eq 'WED');
-
-  for my $branch(@{$flags->{leaves}}) {
-
-    my $h    = $branch->bhash(0,0);
-    my $name = $h->{sigil}.$h->{bare};
+    my $fname=$f->{sigil}.$f->{name};
 
     $tree->{ctx}->ns_asg(
-      $value,@path,$name
+      $value,@path,$fname
 
     );
 
@@ -1775,8 +1869,10 @@ sub ptr_decl_ctx($match) {
 
       { name=>'nid',chld=>[
 
-        $REAP,$Grammar::OR,
-        $SOW,
+        $LIS,$Grammar::OR,
+
+        $SOW,$Grammar::OR,
+        $REAP,
 
       ]},
 

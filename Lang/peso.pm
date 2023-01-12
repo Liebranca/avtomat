@@ -51,100 +51,120 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
 # ---   *   ---   *   ---
 # builtins and functions, group A
 
-  Readonly my $BUILTIN=>[
+  Readonly my $BUILTIN=>[Lang::eiths(
 
-    Lang::insens('cpy'),
-    Lang::insens('mov'),
-    Lang::insens('wap'),
+    [qw(
 
-    Lang::insens('pop'),
-    Lang::insens('push'),
+      cpy mov wap
 
-    Lang::insens('inc'),
-    Lang::insens('dec'),
-    Lang::insens('clr'),
+      pop push
+      shift unshift
 
-    Lang::insens('exit'),
+      inc dec cl
 
-  ];
+      mem fre kin
+      sow reap
+
+      exit
+
+    )],
+
+    insens => 1,
+    bwrap  => 1,
+
+  )];
+
+# ---   *   ---   *   ---
+# reserved names
+
+  Readonly my $RESNAMES=>[Lang::eiths(
+
+    [qw(
+
+      self other null non
+      stdin stdout stderr
+
+    )],
+
+    insens => 1,
+    bwrap  => 1,
+
+  )];
+
+  Readonly my $DIRECTIVE=>[Lang::eiths(
+
+    [qw(
+
+      reg rom clan proc
+      entry atexit
+
+      case nocase
+
+      def undef redef
+      lib use
+
+    )],
+
+    insens => 1,
+    bwrap  => 1,
+
+  )];
 
 # ---   *   ---   *   ---
 
-  Readonly my $DIRECTIVE=>[
+  Readonly my $FCTL=>[Lang::eiths(
 
-    Lang::insens('reg'),
-    Lang::insens('rom'),
+    [qw(
 
-    Lang::insens('clan'),
-    Lang::insens('proc'),
+      jmp jif eif
+      on then or off
 
-    Lang::insens('entry'),
-    Lang::insens('atexit'),
+      call ret rept
+      wait sys stop
 
-    Lang::insens('nocase'),
-    Lang::insens('case'),
+    )],
 
-    # ipret layer
-    Lang::insens('def'),
-    Lang::insens('redef'),
-    Lang::insens('undef'),
+    insens => 1,
+    bwrap  => 1,
 
-    # preproc
-    Lang::insens('lib'),
-    Lang::insens('use'),
-
-  ];
+  )];
 
 # ---   *   ---   *   ---
 
-  Readonly my $FCTL=>[
+  Readonly my $INTRINSIC=>[Lang::eiths(
 
-    Lang::insens('jmp'),
-    Lang::insens('jif'),
-    Lang::insens('eif'),
+    [qw(
 
-    Lang::insens('on'),
-    Lang::insens('then'),
-    Lang::insens('or'),
-    Lang::insens('off'),
+      beq blk
+      wed unwed
 
-    Lang::insens('call'),
-    Lang::insens('ret'),
-    Lang::insens('wait'),
+      ipol lis
+      in out xform
 
-  ];
+      defd
 
-# ---   *   ---   *   ---
+    )],
 
-  Readonly my $INTRINSIC=>[
+    insens => 1,
+    bwrap  => 1,
 
-    Lang::insens('beq'),
-    Lang::insens('blk'),
+  )];
 
-    Lang::insens('wed'),
-    Lang::insens('unwed'),
-    Lang::insens('ipol'),
+  Readonly my $SPECIFIER=>[Lang::eiths(
 
-    Lang::insens('in'),
-    Lang::insens('out'),
-    Lang::insens('xform'),
+    [qw(
 
-    Lang::insens('defd'),
+      ptr fptr
+      str buf tab
 
-  ];
+      re
 
-  Readonly my $SPECIFIER=>[
+    )],
 
-    Lang::insens('ptr'),
-    Lang::insens('fptr'),
+    insens => 1,
+    bwrap  => 1,
 
-    Lang::insens('str'),
-    Lang::insens('buf'),
-    Lang::insens('tab'),
-
-    Lang::insens('re'),
-
-  ];
+  )];
 
 # ---   *   ---   *   ---
 # executes a small subset of peso
@@ -330,31 +350,12 @@ Lang::peso->nit(
 
   ],
 
-  specifiers=>[@$SPECIFIER],
-
-  resnames=>[qw(
-    self other null non
-
-  )],
-
-# ---   *   ---   *   ---
-
-  intrinsics=>[@$INTRINSIC],
-
-  directives=>[@$DIRECTIVE],
-
-  fctls=>[@$FCTL],
-
-# ---   *   ---   *   ---
-
-  builtins=>[qw(
-
-    mem fre shift unshift
-    kin sow reap sys stop
-
-  ),@$BUILTIN,
-
-  ],
+  specifiers => [@$SPECIFIER],
+  resnames   => [@$RESNAMES],
+  intrinsics => [@$INTRINSIC],
+  directives => [@$DIRECTIVE],
+  fctls      => [@$FCTL],
+  builtins   => [@$BUILTIN],
 
 # ---   *   ---   *   ---
 

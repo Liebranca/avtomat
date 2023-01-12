@@ -3,14 +3,14 @@
 *>Peso
 x Extend Lang::Perl for basic (as-doc) parsing
 
-~ Make a pemach
+~ f:./sys/Mach.pm
 ~ \-->reg
-~ \-->stk
+x \-->stk
 ~ \-->mem
 
 ~ Lang::Plps reimplementation
 
-~ \--> Use Tree::Grammar to parse plps itself
+~ \--> Use Tree::Grammar to parse %lpsrom
 x .  \--> Plps as a package, frames and all
 x .  \--> Unique branch for hierarchicals
 x .  .  \--> Sorting
@@ -24,9 +24,10 @@ x .  \--> proc inputs
 ~ .  .  \--> input type checking
 
 x .  \--> reap && sow
-~ .  \--> Find across namespaces
+x .  \--> Find across namespaces
 x .  \--> jmp to branch
 ~ .  \--> Defining grammar branches
+~ .  \--> subst on ~= match
 
 ~ \--> Make plps files output Tree::Grammar structs
 ~ \--> Tweak Tree::Grammar for parsing C, C++, Perl and peso
