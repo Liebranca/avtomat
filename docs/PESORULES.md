@@ -1,44 +1,489 @@
-# FOREWORD
+## DISCLAIMER
 
 This still-developing document is written in a still-developing language, and thus may contain some still-developing ideas. ;>
 
-I have decided to code the examples in Peso precisely because that's what I'm trying to teach you, nevermind it's nowhere near finished at this point in time. I can only know that the language is actually any good when simple snippets of it can be understood easily by another programmer, therefore this choice serves a deeper purpose to development than just documentation.
+## SYNOPSIS
 
-Now, let's get on with it.
+What follows is a series of snippets written in peso, utilized to illustrate the core rules of the language.
 
-# SYNOPSIS
+Examples still under construction.
 
-`<0x0>` Memory layout should be obvious.
+## THE $10 TENETS
 
-`<0x1>` Readable is better.
+### `<$00>` Memory layout should be obvious
 
-`<0x2>` No significant whitespace.
+```$
 
-`<0x3>` No `fwd decls`.
+unwed --iv-deref;
 
-`<0x4>` No inference; be explicit.
+# peso is addicted to strict alignments;
+#
+# each individual decl takes at
+# least one (by-deft) 16-byte unit
 
-`<0x5>` Recursion is distasteful, not forbidden.
+byte s '$$$$' =>
 
-`<0x6>` Praise `goto` and use it wisely.
+# s   s+2  s+4 s+6    s+8 s+A  s+C s+E
+  24242424 00000000 : 00000000 00000000;
 
-`<0x7>` Minimize entry points.
+# all types are fixed-size; so you can
+# tell how big your structs are and
+# pack accordingly
 
-`<0x8>` Every name is a `ptr`.
+wide a,b,c,d '$$','!!','%%','##' =>
 
-`<0x9>` Every `ptr` can be messed with.
+# a   b    c   d      d+1 d+2  d+3 d+4
+  24242121 25252323 : 00000000 00000000;
 
-`<0xA>` `type` is just default usage.
+```
 
-`<0xB>` `value` is just some number.
+### `<$01>` Readable is better
 
-`<0xC>` `void` is absence of `type`.
+```$
+```
 
-`<0xD>` `null` is absence of `value`.
+### `<$02>` No significant whitespace
 
-`<0xE>` `reap` what you `sow`.
+```$
 
-`<0xF>` Don't write to `non`.
+# I am Liebranca, not Walrus van Rossum
+sow {/:f}
+  'value A','value B',
+  'value C','value D',
+
+;
+
+# ^is the same as writing it all in
+# one line without spaces
+sow{*x}'value A','value B','value C','value D',;
+
+# ^horrible, but neither crashes
+#
+# spaces are just for clarity, you know,
+# since we're not using punchcards anymore...
+#
+# note how you don't need to parenthesize nor escape;
+# the wonders of NOT using $0A as a terminator
+#
+# we do use {} curlies and () parens to
+# enclose nested calls and operations,
+# respectively
+
+cpy x,{fn y} + ((z+w) * x);
+
+# ^which you could rewrite however you want,
+# as breaking it into lines is possible
+#
+# so, you can CHOOSE how you want to format,
+# and without any extra hassle
+
+cpy x,
+
+  {fn y}
++ ((z+w) * x)
+;
+
+# ^if that's your jam, go for it
+# if it's not, do whatever else
+#
+# the language is not going to enforce
+# either style on you
+
+cpy x,{fn y}
+
++
+
+((z+w) * x);
+
+# ^also doesn't crash. I could go on.
+#
+# fctl is done with keywords,
+# not indententation
+
+# A is true
+on condition_A;
+  ...;
+
+# B is true
+or condition_B;
+  ...;
+
+# ^none of them are
+or;
+  ...;
+
+# end of switch
+off;
+
+
+# nesting works like you think it would
+on 1;
+
+  on condition_C;
+    ...;
+
+  off;
+
+off;
+
+# best of all:
+#
+# a single, harmless code formatting anomaly,
+# be it mistake, laziness or deviance,
+# will NOT crash your entire program
+
+cpy x,y;
+ cpy z,w;
+
+# ^that one space will not throw you a
+# traceback, as if that was a sane thing to do
+#
+# whitespace only matters in lexing,
+# because that's the only time it makes sense
+
+cpy xx,y;
+
+# ^is not the same as
+cpyx x,y;
+
+# note that this section does not
+# need such a long explanation
+#
+# however, I enjoy beating this dead horse
+
+```
+
+### `<$03>` No `fwd decls`
+
+```$
+
+# given
+reg vars;
+
+  byte x [y];
+  byte y $00;
+
+# ^the value of x will be the address of y
+# ie, names aren't solved until all names
+# are found
+#
+# likewise for procs
+
+proc ins;
+  io   ins2;
+  call *ins2;
+
+proc ins2;
+  ...;
+
+```
+
+### `<$04>` No inference; be explicit
+
+```$
+
+# as previously mentioned, types are fixed-size;
+# we like to know how wide values are
+#
+# therefore: no anots and no going-walrus;
+# DECL your stuff
+
+real v 0.1; # <- correct
+def  v 0.1; # <- a crime against humanity
+
+# the io keyword exists solely to save typing;
+# it requires that decls are made somewhere
+
+io ins X; # copies in/out decls from proc ins
+
+```
+
+### `<$05>` Recursion is distasteful, not forbidden
+
+```$
+
+# there are things that can't be writen without it
+reg Tree;
+  void ptr value;
+  Tree ptr child;
+
+# worse still
+proc walk;
+
+  # init array of nodes
+  blk decls;
+    Tree buf branch;
+    ...;
+
+    push branch,self;
+
+  # ^iter thru
+  blk loop;
+    on leaf from branch;
+      ...;
+
+      ushf branch,leaf->child;
+      rept;
+
+    off;
+
+  ret;
+
+# eh, just forget about it
+proc dup;
+
+  # inherit
+  beq walk;
+
+  # pasted at "..."
+  blk decls;
+    out Tree new;
+    cpy new,self;
+
+  # ^recurse
+  blk loop;
+    push new->child,*leaf->dup;
+
+  ret;
+  
+
+```
+
+### `<$06>` Praise `goto` and use it wisely
+
+```$
+
+# oh, how woe befell a famous dutchman
+# in the form of "one small title change
+# and suddenly I'm the poster child for
+# one of the most dogmatic, insane stances
+# among computer scientists"
+#
+# except not really.
+#
+# first off, Dijks makes Stack look like
+# a welcoming place. rightfully, these
+# are the lunatics that enshrine him.
+#
+# second: have YOU read the paper?
+# https://www.cs.utexas.edu/~EWD/transcriptions/EWD02xx/EWD215.html
+#
+# for a twister, lets paraphrase the
+# very first paragraph, emphasis mine:
+#
+# "[oh boy] DID I become CONVINCED it [goto]
+# should be ABOLISHED from EVERYTHING
+# except (PERHAPS!) ALL but PLAIN MACHINE CODE"
+#
+# remarkably spicy choice of words.
+# did Wirth change this bit too or what?
+#
+# Dijks was plagued by this for the rest
+# of his life; and decades after his death
+# we are still plagued by his bad-mouthing.
+#
+# anyhoo, this is fine:
+
+proc fn;
+
+  in  byte ptr x;
+  out byte y;
+
+  # throw
+  jif skip,{null x};
+  ...;
+
+  # ^catch
+  blk skip;
+    ...;
+
+  ret;
+
+# a conditional jump-ahead within a
+# single block is harmless; but you
+# might ask:
+#
+# > why not just add keywords for it?
+#
+# and so, the situation is as follows:
+#
+# A) bloating the spec with clauses
+#    that abstract away the more
+#    primitive approach only to then
+#    be largely rejected for their
+#    inherent dullness, ala try-catch
+#    or break in the middle of a single-run
+#    do-while, God have mercy on your soul
+#
+# B) having jumps
+#
+# by itself, goto is no more problematic
+# than inlining and inheritance
+#
+# what do I mean by this?
+#
+# consider the english tongue: one can
+# *certainly* (ab)use it for evil, through
+# witty, malicious remarks amidst Holy Flamewars
+# that greatly diminish an opposing individual's
+# sense of self-worth.
+#
+# well then, are we abolishing language?
+# how about abolishing the internet? ;>
+#
+# this is an easy game to play
+# and you can play it too!
+#
+# let us ban kitchen knives worldwide as
+# they've been known to be good for cutting;
+# they can *literally* be considered harmful
+#
+# or better yet, ban metallurgy. no more knives,
+# axes, spears, shields, swords nor guns.
+#
+# say, rocks are so primitive. too much of
+# an invitation  to grind on a whetstone
+# and get to waging war on neighboring
+# tribes of neanderthals
+#
+# well, DID I become convinced that BUCKETS
+# FULL OF WATER should be abolished since they
+# can be used for drowning living things in
+#
+# once again, I could go on.
+#
+# but maybe "can be misused" calls for discipline
+# rather than elimination, and the contrary
+# is at best fifth a thought.
+#
+# Dijks was either a cleverly disguised fool
+# or the ultimate shitposter, perhaps both.
+#
+# back to the only real problem:
+
+blk loop;
+  on x from ar;
+    ...;
+
+    shf ar;
+    jmp loop;
+
+  off;
+
+# ^is common enough that
+on x from ar;
+  ...;
+  rept;
+
+off;
+ 
+# becomes acceptable, but we *are* falling
+# into the too-many-keywords trap. that's the
+# tradeoff we'll sometimes have to make
+#
+# however, if the only way to loop is using
+# an instruction to "rewind" the program, doesn't
+# that mean omitting an instruction would result
+# in no looping being done?
+#
+# yes. one way or another, you must EXPLICITLY
+# acknowledge that you are, in fact, using goto.
+#
+# is this strictly necessary for any
+# technical reasons? absolutely not, it's
+# just a way to poke fun at computer scientists'
+# long tradition of doctrinaire ignorance
+#
+# there's no need for a more complex clause;
+# this is fine
+
+proc fn;
+
+  in byte buf ar;
+
+  # lvl0
+  on x from ar;
+
+    # lvl1
+    on y from x;
+
+      # nested break
+      jif tail,y<$80;
+
+      # continue
+      rept;
+
+    off;
+
+  off;
+
+  blk tail;
+  ret;
+
+```
+
+### `<$07>` Minimize entry points
+
+```$
+```
+
+### `<$08>` Every `bare` is a `ptr`
+
+```$
+
+# its "inverted asm" syntax
+(x->value) + (y->value)  => x+y;
+(x->addr ) + (y->addr )  => [x+y];
+
+# thus,
+(x->addr ) + (y->value)  => [x]+y;
+
+# this behaviour can be overriden:
+unwed --iv-deref;
+
+# ^such that
+(x->value) + (y->value)  => [x]+[y];
+(x->addr ) + (y->addr )  => x+y;
+
+# and,
+(x->addr ) + (y->value)  => x+[y];
+
+```
+
+### `<$09>` Every `ptr` can be messed with
+
+```$
+```
+
+### `<$0A>` `type` is just default usage
+
+```$
+```
+
+### `<$0B>` `value` is just some number
+
+```$
+```
+
+### `<$0C>` `void` is absence of `type`
+
+```$
+```
+
+### `<$0D>` `null` is absence of `value`
+
+```$
+```
+
+### `<$0E>` `reap` what you `sow`
+
+```$
+```
+
+### `<$0F>` Don't write to `non`
+
+```$
+```
 
 # SO WHAT IS PESO?
 
