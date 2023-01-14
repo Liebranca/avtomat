@@ -96,16 +96,20 @@ sub parse($class,$prog,%O) {
   $O{idex} //= 0;
   $O{mach} //= {};
 
-  my $mach_f = Mach->get_frame($O{idex});
-  my $mach   = $mach_f->nit(%{$O{mach}});
-
   my $self=bless {
     frame   => $class->new_frame(),
     callstk => [],
 
-    mach    => $mach,
+    mach    => undef,
 
   },$class;
+
+  $O{mach}->{ctx}=$self;
+
+  my $mach_f = Mach->get_frame($O{idex});
+  my $mach   = $mach_f->nit(%{$O{mach}});
+
+  $self->{mach}=$mach;
 
   unshift @{
     $self->{frame}->{-passes}
@@ -518,6 +522,8 @@ sub ns_cderef($self,$fet,$sep,$vref,@path) {
   my $fn    = ($fet) ? \&ns_fetch : \&ns_get;
 
   $$vref    = $fn->($self,@rpath) if $valid;
+
+  return $valid;
 
 };
 

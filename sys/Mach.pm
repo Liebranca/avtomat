@@ -71,6 +71,7 @@ sub nit($class,$frame,%O) {
     fd       => $O{fd},
     fd_buff  => $fd_buff,
 
+    ctx      => $O{ctx},
     frame    => $frame,
 
   },$class;
@@ -116,19 +117,52 @@ sub throw_stack_underflow() {
 
 sub sow($self,$dst,$src) {
 
-  my $buff=\($self->{fd_buff}->[$dst]);
+  my ($fd,$buff)=$self->fd_solve($dst);
   $$buff.=$src;
 
 };
 
 sub reap($self,$dst) {
 
-  my $buff=\($self->{fd_buff}->[$dst]);
+  my ($fd,$buff)=$self->fd_solve($dst);
 
-  print {$self->{fd}->[$dst]} $$buff;
+  if(defined $fd) {
+    print {$fd} $$buff;
+    $fd->flush();
 
-  $self->{fd}->[$dst]->flush();
+  };
+
   $$buff=$NULLSTR;
+
+};
+
+sub fd_solve($self,$dst) {
+
+  # out
+  my $fd;
+  my $buff;
+
+  # dst idex OK
+  my $valid=defined $dst
+    && $dst=~ m[^\d+$]
+    && $dst<@{$self->{fd}}
+    ;
+
+  # attempt fetch on fail
+  if(!$valid) {
+    my $ctx  = $self->{ctx};
+    my @path = $ctx->ns_path();
+
+    $buff=$ctx->ns_fetch(@path,$dst);
+
+  # get buff && descriptor
+  } else {
+    $fd   = $self->{fd}->[$dst];
+    $buff = \($self->{fd_buff}->[$dst]);
+
+  };
+
+  return ($fd,$buff);
 
 };
 

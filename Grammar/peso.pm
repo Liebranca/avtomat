@@ -711,12 +711,19 @@ sub lis($match) {
 
 sub lis_ctx($match) {
 
-  my $st=$match->{value};
+  my ($tree,$ctx,$f)=get_ctx($match);
 
-  $match->{parent}->prich();
+  my $st   = $match->{value};
+  my @path = $ctx->ns_path();
 
-  fatdump($match->{value});
-  exit;
+  my $key  = $st->{to};
+  $key     = "$key->{sigil}$key->{name}";
+
+  $ctx->ns_decl(
+    $st->{from},
+    @path,q[$LIS],$key
+
+  );
 
 };
 
@@ -791,18 +798,30 @@ sub reap($match) {
 sub sow_opz($match) {
 
   my ($tree,$ctx,$f)=get_ctx($match);
-  my @path=ns_path($f);
 
-  for my $v(@{$match->{value}->{me}}) {
-    $ctx->ns_cderef(
-      0,$REGEX->{nsop},\$v,@path
+  my $st   = $match->{value};
+  my @path = $ctx->ns_path();
 
-    );
+  my $fd   = $st->{fd};
 
-  };
+  $st->{fd}="$fd->{sigil}$fd->{name}";
 
-  my $fd=$match->{value}->{fd};
-say $fd;
+  $ctx->array_vex(0,$st->{me},@path);
+  $ctx->vex(0,\$st->{fd},@path);
+
+  my ($fd2,$buff)=$ctx->{mach}->fd_solve($st->{fd});
+
+};
+
+sub reap_opz($match) {
+
+  my ($tree,$ctx,$f)=get_ctx($match);
+
+  my @path = $ctx->ns_path();
+  my $fd   = $match->{value};
+
+  $match->{value}="$fd->{sigil}$fd->{name}";
+  $ctx->vex(0,\$match->{value},@path);
 
 };
 
@@ -980,7 +999,7 @@ sub mtest_ctx($match) {
   my ($tree,$ctx,$f)=get_ctx($match);
 
   my $st     = $match->bhash(0,0);
-  my @path   = ns_path($f);
+  my @path   = $ctx->ns_path();
 
   my $o      = detag($st->{nterm},$ctx,@path);
   my $nterm  = $match->branch_in(qr{^nterm$});
@@ -1052,8 +1071,8 @@ sub mtest_run($match) {
 
 sub ret_ctx($match) {
 
-  my ($tree,$cutx,$f)=get_ctx($match);
-  ns_path($f,-ret=>1);
+  my ($tree,$ctx,$f)=get_ctx($match);
+  $ctx->ns_path(-ret=>1);
 
 };
 
@@ -1108,7 +1127,7 @@ sub call_opz($match) {
   my ($tree,$ctx,$f)=get_ctx($match);
 
   my $st    = $match->{value};
-  my @path  = ns_path($f);
+  my @path  = $ctx->ns_path();
 
   my @rpath = $ctx->ns_search(
 
@@ -1363,6 +1382,30 @@ sub get_ctx($match) {
 };
 
 # ---   *   ---   *   ---
+# value expansion
+
+sub vex($ctx,$fet,$vref,@path) {
+
+  $ctx->ns_cderef(
+    $fet,$REGEX->{nsop},$vref,@path,q[$LIS]
+
+  ) or $ctx->ns_cderef(
+    $fet,$REGEX->{nsop},$vref,@path
+
+  );
+
+};
+
+sub array_vex($ctx,$fet,$ar,@path) {
+
+  for my $v(@$ar) {
+    vex($ctx,$fet,\$v,@path);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # placeholder for file header
 
 sub rdhed($match) {
@@ -1464,7 +1507,7 @@ sub rdre_ctx($match) {
   my ($tree,$ctx,$f)=get_ctx($match);
 
   my $st     = $match->bhash(0,0,0);
-  my @path   = ns_path($f);
+  my @path   = $ctx->ns_path();
 
   my $o      = $st->{nterm};
   my $qwor   = $ctx->ns_get(@path,'-qwor');
@@ -1516,7 +1559,7 @@ sub sasg_ctx($match) {
   my ($tree,$ctx,$f)=get_ctx($match);
 
   my $st     = $match->bhash(0,0);
-  my @path   = ns_path($f);
+  my @path   = $ctx->ns_path();
 
   if(uc $st->{name} eq 'ENTRY') {
     $st->{nterm}=[split q[::],$st->{nterm}];
@@ -1556,7 +1599,7 @@ sub switch_ctx($match) {
   my ($tree,$ctx,$f)=get_ctx($match);
 
   my $st   = $match->{value};
-  my @path = ns_path($f);
+  my @path = $ctx->ns_path();
 
   my $value=int($st->{type} eq 'WED');
 
@@ -1664,7 +1707,7 @@ sub hier_sort_ctx($match) {
 
   };
 
-  my @path=ns_path($f);
+  my @path=$ctx->ns_path();
 
   for my $key(keys %$PE_FLAGS) {
     my $value=$PE_FLAGS->{$key};
@@ -1731,12 +1774,13 @@ sub ns_ret($f) {
 # ---   *   ---   *   ---
 # builds namespace path
 
-sub ns_path($f,%O) {
+sub ns_path($self,%O) {
 
   # defaults
   $O{-ret}//=0;
 
-  my @out=();
+  my @out = ();
+  my $f   = $self->{frame};
 
   if(defined $f->{-cproc}) {
 
@@ -1814,7 +1858,7 @@ sub ptr_decl_ctx($match) {
   my @names  = @{$st->{names}};
   my @values = @{$st->{'values'}};
 
-  my @path   = ns_path($f);
+  my @path   = $ctx->ns_path();
 
   # errchk
   throw_invalid_scope(\@names,@path)
@@ -1867,14 +1911,19 @@ sub ptr_decl_ctx($match) {
 
     chld=>[
 
-      { name=>'nid',chld=>[
+      { name => 'nid',
+        fn   => 'clip',
 
-        $LIS,$Grammar::OR,
+        chld => [
 
-        $SOW,$Grammar::OR,
-        $REAP,
+          $LIS,$Grammar::OR,
 
-      ]},
+          $SOW,$Grammar::OR,
+          $REAP,
+
+        ]
+
+      },
 
       $TERM
 
