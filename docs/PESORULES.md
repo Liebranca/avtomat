@@ -8,7 +8,7 @@ What follows is a series of snippets written in peso, utilized to illustrate the
 
 Examples still under construction.
 
-## THE $10 TENETS
+## THE $10 RULES
 
 ### `<$00>` Memory layout should be obvious
 
@@ -195,6 +195,16 @@ def  v 0.1; # <- a crime against humanity
 # it requires that decls are made somewhere
 
 io ins X; # copies in/out decls from proc ins
+
+# if a block utilizes a format with multiple
+# procedures attached, yet only requires calling
+# a few of them, then it's worth being specific
+
+# here, name has access to the full definition
+io [reg] [name];
+
+# ^whereas here name has access to a single proc
+io [reg]->[proc] [name];
 
 ```
 
@@ -455,7 +465,9 @@ unwed --iv-deref;
 ```$
 ```
 
-### `<$0A>` `type` is just default usage
+### `<$0A>` `type eq proc`
+
+Main article: [https://github.com/Liebranca/avtomat/blob/main/docs/on-typing.md](types in the peso headspace)
 
 ```$
 ```
