@@ -329,6 +329,16 @@ sub mkrules($class,@rules) {
       pop @anchors;
       next;
 
+    # grammar incorporates another
+    } elsif(!is_hashref($value)) {
+
+      my $subgram=q[Grammar::].$value;
+         $subgram=$subgram->get_top();
+
+      $top->pushlv(@{$subgram->{leaves}});
+
+      next;
+
     };
 
     # get parent node

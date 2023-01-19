@@ -467,7 +467,7 @@ unwed --iv-deref;
 
 ### `<$0A>` `type eq proc`
 
-Main article: [https://github.com/Liebranca/avtomat/blob/main/docs/on-typing.md](types in the peso headspace)
+Main article: [types in the peso headspace](https://github.com/Liebranca/avtomat/blob/main/docs/on-typing.md)
 
 ```$
 ```

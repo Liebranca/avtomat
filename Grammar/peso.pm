@@ -13,6 +13,36 @@
 # ---   *   ---   *   ---
 # deps
 
+package cvalue;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use Readonly;
+  use English qw(-no_match_vars);
+
+  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+
+  use Style;
+  use Fmat;
+  use parent 'St';
+
+# ---   *   ---   *   ---
+
+sub nit($class,%O) {
+  my $self=bless {%O},$class;
+  return $self;
+
+};
+
+sub deref($self) {
+  return ($self->{sigil},$self->{name});
+
+};
+
+# ---   *   ---   *   ---
+
 package Grammar::peso;
 
   use v5.36.0;
@@ -62,7 +92,9 @@ package Grammar::peso;
 
   }};
 
-  Readonly my $PE_FLAGS=>{
+# ---   *   ---   *   ---
+
+  Readonly our $PE_FLAGS=>{
 
     -qwor   => 0,
     -insens => 0,
@@ -71,7 +103,7 @@ package Grammar::peso;
 
   };
 
-  Readonly my $REGEX=>{
+  Readonly our $REGEX=>{
 
     hexn  => qr{\$  [0-9A-Fa-f\.:]+}x,
     octn  => qr{\\ [0-7\.:]+}x,
@@ -86,11 +118,11 @@ package Grammar::peso;
 
 # ---   *   ---   *   ---
 
-    nonterm=>Lang::nonscap(
+    nterm=>Lang::nonscap(
 
       q[;],
 
-      negate => 1,
+      iv     => 1,
       mod    => '+',
       sigws  => 1,
 
@@ -189,12 +221,22 @@ package Grammar::peso;
 
     ),
 
+# ---   *   ---   *   ---
+
+    tag=>qr{
+
+      (?: (?!< \\\\) <)
+      ((?: [^>]|\\\\>)+)
+      (?: (?!< \\\\) >)
+
+    }x,
+
   };
 
 # ---   *   ---   *   ---
 # lets call these "syntax ops"
 
-  Readonly my $CLIST=>{
+  Readonly our $CLIST=>{
 
     name => $REGEX->{sep},
     fn   => 'rew',
@@ -203,18 +245,18 @@ package Grammar::peso;
 
   };
 
-  Readonly my $TERM=>{
+  Readonly our $TERM=>{
     name => $REGEX->{term},
     fn   => 'term',
 
   };
 
-  Readonly my $LCOM=>{
+  Readonly our $LCOM=>{
     name => $REGEX->{lcom},
 
   };
 
-  Readonly my $COMMENT=>{
+  Readonly our $COMMENT=>{
 
     name => 'comment',
     fn   => 'discard',
@@ -226,7 +268,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # pe file header
 
-  Readonly my $SIGIL=>{
+  Readonly our $SIGIL=>{
 
     name => 'sigil',
 
@@ -238,19 +280,19 @@ package Grammar::peso;
 
   };
 
-  Readonly my $NTERM=>{
+  Readonly our $NTERM=>{
 
     name => 'nterm',
 
     chld => [{
-      name => $REGEX->{nonterm},
+      name => $REGEX->{nterm},
       fn   => 'capt',
 
     }],
 
   };
 
-  Readonly my $HEADER=>{
+  Readonly our $HEADER=>{
 
     name => 'header',
 
@@ -271,25 +313,25 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # numerical notation
 
-  Readonly my $HEX=>{
+  Readonly our $HEX=>{
     name => $REGEX->{hexn},
     fn   => 'capt',
 
   };
 
-  Readonly my $OCT=>{
+  Readonly our $OCT=>{
     name => $REGEX->{octn},
     fn   => 'capt',
 
   };
 
-  Readonly my $BIN=>{
+  Readonly our $BIN=>{
     name => $REGEX->{binn},
     fn   => 'capt',
 
   };
 
-  Readonly my $DEC=>{
+  Readonly our $DEC=>{
     name => $REGEX->{decn},
     fn   => 'capt',
 
@@ -298,7 +340,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # ^combined into a single rule
 
-  Readonly my $NUM=>{
+  Readonly our $NUM=>{
 
     name => 'num',
     fn   => 'rdnum',
@@ -320,19 +362,19 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # common patterns
 
-  Readonly my $TYPE=>{
+  Readonly our $TYPE=>{
     name => $REGEX->{type},
     fn   => 'capt',
 
   };
 
-  Readonly my $SPEC=>{
+  Readonly our $SPEC=>{
     name => $REGEX->{spec},
     fn   => 'capt',
 
   };
 
-  Readonly my $SPECS=>{
+  Readonly our $SPECS=>{
 
     name  => 'specs',
     greed => 1,
@@ -341,7 +383,7 @@ package Grammar::peso;
 
   };
 
-  Readonly my $BARE=>{
+  Readonly our $BARE=>{
 
     name => 'bare',
 
@@ -353,7 +395,7 @@ package Grammar::peso;
 
   };
 
-  Readonly my $SEAL=>{
+  Readonly our $SEAL=>{
 
     name => 'seal',
 
@@ -368,7 +410,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # string types
 
-  Readonly my $QSTR=>{
+  Readonly our $QSTR=>{
 
     name => 'qstr',
 
@@ -395,14 +437,14 @@ sub qstr($match) {
 
 # ---   *   ---   *   ---
 
-  Readonly my $CSTR=>{
+  Readonly our $CSTR=>{
 
     name => qr{'([^']|\\')*?'},
     fn   => 'capt',
 
   };
 
-  Readonly my $VSTR=>{
+  Readonly our $VSTR=>{
 
     name => qr{v[0-9]\.[0-9]{2}\.[0-9][ab]?},
     fn   => 'capt',
@@ -412,7 +454,7 @@ sub qstr($match) {
 # ---   *   ---   *   ---
 # ^combo rule
 
-  Readonly my $STR=>{
+  Readonly our $STR=>{
 
     name => 'str',
 
@@ -429,7 +471,7 @@ sub qstr($match) {
 # ---   *   ---   *   ---
 # soul of perl!
 
-  Readonly my $FLG=>{
+  Readonly our $FLG=>{
 
     name => 'flg',
 
@@ -438,16 +480,18 @@ sub qstr($match) {
 
     chld => [
 
-      $SIGIL,
+      $SIGIL,{name=>'x',fn=>'clip',chld=>[
 
-      $BARE,$Grammar::OR,
-      $SEAL
+        $BARE,$Grammar::OR,
+        $SEAL
+
+      ]},
 
     ],
 
   };
 
-  Readonly my $FLIST=>{
+  Readonly our $FLIST=>{
     name => 'flags',
     chld => [$FLG,$CLIST],
 
@@ -464,23 +508,22 @@ sub flg($match) {
     : 'bare'
     ;
 
-  $match->{value}={
+#  $match->clear_branches();
+  $match->{value}=cvalue->nit(
 
     sigil => $st->{sigil},
     name  => $st->{$type},
 
     type  => $type,
 
-  };
-
-  $match->clear_branches();
+  );
 
 };
 
 # ---   *   ---   *   ---
 # all non-bare
 
-  Readonly my $VALUE=>{
+  Readonly our $VALUE=>{
 
     name => 'value',
 
@@ -508,15 +551,28 @@ sub value_sort($match) {
   my $st     = $match->bhash();
   my ($type) = keys %$st;
 
-  $match->{value}=$st->{$type};
+  my $xx     = $match->leaf_value(0);
+  if(is_hashref($xx)) {
+    $type=$xx;
+
+  };
+
   $match->clear_branches();
+
+  $match->init(
+
+    (defined $st->{$type})
+      ? $st->{$type}
+      : $type,
+
+  );
 
 };
 
 # ---   *   ---   *   ---
 # entry point for all hierarchicals
 
-  Readonly my $THIER=>{
+  Readonly our $THIER=>{
 
     name => 'type',
     chld =>[{
@@ -527,7 +583,7 @@ sub value_sort($match) {
 
   };
 
-  Readonly my $HIER=>{
+  Readonly our $HIER=>{
 
     name => 'hier',
 
@@ -561,7 +617,7 @@ sub value_sort($match) {
 # ---   *   ---   *   ---
 # ^patterns for declaring members
 
-  Readonly my $FULL_TYPE=>{
+  Readonly our $FULL_TYPE=>{
 
     name => 'type',
     chld => [
@@ -573,14 +629,16 @@ sub value_sort($match) {
 
   };
 
-  Readonly my $NLIST=>{
+  Readonly our $NLIST=>{
     name => 'names',
     chld => [$BARE,$CLIST],
 
   };
 
-  Readonly my $VLIST=>{
+  Readonly our $VLIST=>{
     name => 'values',
+    fn   => 'list_flatten',
+
     chld => [$VALUE,$CLIST],
 
   };
@@ -588,7 +646,7 @@ sub value_sort($match) {
 # ---   *   ---   *   ---
 # ^combo
 
-  Readonly my $PTR_DECL=>{
+  Readonly our $PTR_DECL=>{
 
     name => 'ptr_decl',
 
@@ -611,7 +669,7 @@ sub value_sort($match) {
 # ---   *   ---   *   ---
 # proc input
 
-  Readonly my $PE_INPUT=>{
+  Readonly our $PE_INPUT=>{
 
     name => 'input',
 
@@ -653,7 +711,7 @@ sub rdin_run($match) {
 # ---   *   ---   *   ---
 # soul of perl v2.0
 
-  Readonly my $VGLOB=>{
+  Readonly our $VGLOB=>{
 
     name=>'vglob',
     chld=>[
@@ -670,7 +728,7 @@ sub rdin_run($match) {
 # ---   *   ---   *   ---
 # aliasing
 
-  Readonly my $LIS=>{
+  Readonly our $LIS=>{
 
     name => 'lis',
 
@@ -682,7 +740,7 @@ sub rdin_run($match) {
       {name=>qr{lis}},
 
       $VGLOB,
-      $NTERM
+      $VALUE
 
     ],
 
@@ -697,8 +755,8 @@ sub lis($match) {
 
   $match->{value}={
 
-    from => $st->{nterm},
-    to   => $st->{vglob},
+    from => $st->{value},
+    to   => $st->{vglob}->leaf_value(0),
 
   };
 
@@ -730,7 +788,7 @@ sub lis_ctx($match) {
 # ---   *   ---   *   ---
 # buffered IO
 
-  Readonly my $SOW=>{
+  Readonly our $SOW=>{
 
     name => 'sow',
 
@@ -748,7 +806,7 @@ sub lis_ctx($match) {
 
   };
 
-  Readonly my $REAP=>{
+  Readonly our $REAP=>{
 
     name => 'reap',
 
@@ -809,7 +867,10 @@ sub sow_opz($match) {
   $ctx->array_vex(0,$st->{me},@path);
   $ctx->vex(0,\$st->{fd},@path);
 
-  my ($fd2,$buff)=$ctx->{mach}->fd_solve($st->{fd});
+  my ($fd2,$buff)=$ctx->{mach}->fd_solve(
+    $st->{fd}
+
+  );
 
 };
 
@@ -831,14 +892,43 @@ sub reap_opz($match) {
 sub sow_run($match) {
 
   my ($tree,$ctx,$f)=get_ctx($match);
-  my $s=$NULLSTR;
+
+  my $st   = $match->{value};
+  my $s    = $NULLSTR;
+  my @path = $ctx->ns_path();
 
   for my $v(@{$match->{value}->{me}}) {
 
-    my $deref=(is_hashref($v))
+    my $deref;
+
+    if(cvalue->is_valid($v)) {
+      say 'IMPLEMENT DEREF';
+
+      my ($sigil,$name)=$v->deref();
+      exit;
+
+    };
+
+    $deref//=(is_hashref($v))
       ? $v->{value}
       : $v
       ;
+
+    if(Tree::Grammar->is_valid($deref)) {
+      my ($sigil,$name)=$deref->{value}->deref();
+
+      if($sigil eq '*') {
+
+        if($name=~ $REGEX->{tag}) {
+
+          $name  =~ s[^<|>$][]sxmg;
+          $deref =  pop @{$ctx->{-MATX}->{$name}};
+
+        };
+
+      };
+
+    };
 
     $s.=$deref;
 
@@ -863,7 +953,7 @@ sub reap_run($match) {
 # ---   *   ---   *   ---
 # special definitions
 
-  Readonly my $SVARS=>{
+  Readonly our $SVARS=>{
 
     name => 'name',
 
@@ -881,7 +971,56 @@ sub reap_run($match) {
 
   };
 
-  Readonly my $SDEFS=>{
+# ---   *   ---   *   ---
+
+  Readonly our $DEFK=>{
+
+    name=>'nid',
+    chld=>[{
+      name => Lang::eiths(
+        [qw(def redef undef)],
+        -insens => 1,
+
+      ),
+
+      fn   => 'capt',
+
+    }],
+
+  };
+
+  Readonly our $PRIME=>{
+
+    name => 'prime',
+
+    fn   => 'prime',
+    dom  => 'Grammar::peso',
+
+    chld=>[
+
+      $DEFK,
+
+      $VGLOB,
+      $NTERM,
+
+      $TERM
+
+    ],
+
+  };
+
+# ---   *   ---   *   ---
+# ^exec
+
+sub prime($branch) {
+
+  my $st=$branch->bhash();
+
+};
+
+# ---   *   ---   *   ---
+
+  Readonly our $SDEFS=>{
 
     name => 'sdef',
 
@@ -895,7 +1034,7 @@ sub reap_run($match) {
 # ---   *   ---   *   ---
 # switch flips
 
-  Readonly my $WED=>{
+  Readonly our $WED=>{
 
     name => 'type',
     chld => [{
@@ -912,7 +1051,7 @@ sub reap_run($match) {
 
   };
 
-  Readonly my $SWITCH=>{
+  Readonly our $SWITCH=>{
 
     name => 'switch',
 
@@ -926,7 +1065,7 @@ sub reap_run($match) {
 # ---   *   ---   *   ---
 # regex definitions
 
-  Readonly my $RETYPE=>{
+  Readonly our $RETYPE=>{
 
     name => 'type',
 
@@ -938,7 +1077,7 @@ sub reap_run($match) {
 
   };
 
-  Readonly my $RE=>{
+  Readonly our $RE=>{
 
     name => 're',
 
@@ -960,7 +1099,7 @@ sub reap_run($match) {
 # ---   *   ---   *   ---
 # test
 
-  Readonly my $OPERATOR=>{
+  Readonly our $OPERATOR=>{
 
     name => 'op',
 
@@ -973,7 +1112,7 @@ sub reap_run($match) {
 
   };
 
-  Readonly my $MATCH=>{
+  Readonly our $MATCH=>{
 
     name => 'match',
 
@@ -998,25 +1137,23 @@ sub mtest_ctx($match) {
 
   my ($tree,$ctx,$f)=get_ctx($match);
 
-  my $st     = $match->bhash(0,0);
-  my @path   = $ctx->ns_path();
+  my $st         = $match->bhash();
+  my @path       = $ctx->ns_path();
 
-  my $o      = detag($st->{nterm},$ctx,@path);
-  my $nterm  = $match->branch_in(qr{^nterm$});
-
-  my $lv     = $match->{leaves};
-
-  my $v      = $ctx->ns_get(
+  my ($o,%flags) = $ctx->re_vex($st->{nterm});
+  my $v          = $ctx->ns_get(
 
     @path,
-    $lv->[0]->{value}
+    $st->{value}
 
   );
 
   $match->{value}={
 
-    re => $o,
-    v  => $v,
+    re  => $o,
+    v   => $v,
+
+    flg => \%flags,
 
   };
 
@@ -1029,19 +1166,42 @@ sub mtest_ctx($match) {
 
 sub mtest_run($match) {
 
-  my $st = $match->{value};
+  my ($tree,$ctx,$f)=get_ctx($match);
 
-  my $v  = $st->{v}->{value};
-  my $re = $st->{re};
+  my $out = 0;
+  my $st  = $match->{value};
 
-  return int($v=~ $re);
+  my $v   = $st->{v}->{value};
+  my $re  = $st->{re};
+
+  my $chk = ($st->{flg}{-sigws})
+    ? $v=~ m[$re]
+    : $v=~ m[$re]x
+    ;
+
+  if($chk) {
+
+    for my $key(keys %+) {
+
+      $ctx->{-MATX}->{$key}//=[];
+      my $ar=$ctx->{-MATX}->{$key};
+
+      push @$ar,$+{$key};
+
+    };
+
+    $out=1;
+
+  };
+
+  return $out;
 
 };
 
 # ---   *   ---   *   ---
 # pop current block
 
-  Readonly my $RET=>{
+  Readonly our $RET=>{
 
     name  => 'ret',
     dom   => 'Grammar::peso',
@@ -1079,7 +1239,7 @@ sub ret_ctx($match) {
 # ---   *   ---   *   ---
 # procedure calls
 
-  Readonly my $CALL=>{
+  Readonly our $CALL=>{
 
     name => 'call',
 
@@ -1104,16 +1264,12 @@ sub ret_ctx($match) {
 
 sub call($match) {
 
-  my $lv   = $match->{leaves};
-
-  my $fn   = $lv->[0]->{value};
-  my @args = $lv->[1]->branch_values();
-
+  my $st=$match->bhash(0,1);
   $match->clear_branches();
 
   $match->{value}={
-    fn   => [(split $REGEX->{nsop},$fn)],
-    args => \@args,
+    fn   => [(split $REGEX->{nsop},$st->{value})],
+    args => $st->{values},
 
   };
 
@@ -1175,7 +1331,7 @@ sub call_run($match) {
 
 # ---   *   ---   *   ---
 
-  Readonly my $FCALL=>{
+  Readonly our $FCALL=>{
 
     name=>'fcall',
     chld=>[
@@ -1185,7 +1341,7 @@ sub call_run($match) {
 
   };
 
-  Readonly my $FC_OR_V=>{
+  Readonly our $FC_OR_V=>{
 
     name => 'fc_or_v',
 
@@ -1229,7 +1385,7 @@ sub fc_or_v($match) {
 
 # ---   *   ---   *   ---
 
-  Readonly my $COND_BEG=>{
+  Readonly our $COND_BEG=>{
 
     name  => 'branch_beg',
 
@@ -1266,7 +1422,7 @@ sub fc_or_v($match) {
 
 # ---   *   ---   *   ---
 
-  Readonly my $COND_END=>{
+  Readonly our $COND_END=>{
 
     name  => 'branch_end',
 
@@ -1434,17 +1590,9 @@ sub throw_undef_get(@path) {
 
 sub detag($o,$ctx,@path) {
 
-  state $RETAG_RE=qr{
-
-    (?: (?!< \\\\) <)
-    ((?: [^>]|\\\\>)+)
-    (?: (?!< \\\\) >)
-
-  }x;
-
   my @tags=();
 
-  while($o=~ s[$RETAG_RE][$Shwl::PL_CUT]) {
+  while($o=~ s[$REGEX->{tag}][$Shwl::PL_CUT]) {
 
     my @ar=split q[\|],$1;
 
@@ -1500,20 +1648,25 @@ sub detag($o,$ctx,@path) {
 };
 
 # ---   *   ---   *   ---
-# interprets regex definitions
+# regex expansion
 
-sub rdre_ctx($match) {
+sub re_vex($ctx,$o) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
-
-  my $st     = $match->bhash(0,0,0);
   my @path   = $ctx->ns_path();
 
-  my $o      = $st->{nterm};
   my $qwor   = $ctx->ns_get(@path,'-qwor');
   my $sigws  = $ctx->ns_get(@path,'-sigws');
   my $insens = $ctx->ns_get(@path,'-insens');
   my $escape = $ctx->ns_get(@path,'-escape');
+
+  my %flags  = (
+
+    -qwor   => $qwor,
+    -sigws  => $sigws,
+    -insens => $insens,
+    -escape => $escape,
+
+  );
 
   $o         = detag($o,$ctx,@path);
 
@@ -1537,7 +1690,24 @@ sub rdre_ctx($match) {
 
   };
 
-  $o=(!$sigws) ? qr{$o}x : qr{$o};
+  return ($o,%flags);
+
+};
+
+# ---   *   ---   *   ---
+# interprets regex definitions
+
+sub rdre_ctx($match) {
+
+  my ($tree,$ctx,$f)=get_ctx($match);
+
+  my $st         = $match->bhash(0,0,0);
+  my @path       = $ctx->ns_path();
+
+  my ($o,%flags) = $ctx->re_vex($st->{nterm});
+
+  $o=q[(?<].$st->{seal}.q[>].$o.q[)];
+  $o=(!$flags{sigws}) ? qr{$o}x : qr{$o};
 
   $ctx->ns_decl(
 
@@ -1605,7 +1775,8 @@ sub switch_ctx($match) {
 
   for my $f(@{$st->{flags}}) {
 
-    my $fname=$f->{sigil}.$f->{name};
+    my $d=$f->leaf_value(0);
+    my $fname=$d->{sigil}.$d->{name};
 
     $tree->{ctx}->ns_asg(
       $value,@path,$fname
@@ -1904,7 +2075,7 @@ sub ptr_decl_ctx($match) {
 # ---   *   ---   *   ---
 # groups
 
-  Readonly my $BLTN=>{
+  Readonly our $BLTN=>{
 
     name => 'bltn',
     fn   => 'clip',
@@ -1930,6 +2101,33 @@ sub ptr_decl_ctx($match) {
     ],
 
   };
+
+# ---   *   ---   *   ---
+
+  Readonly our $CORE=>[
+
+    $HEADER,
+    $COMMENT,
+    $PRIME,
+
+    $SDEFS,
+    $SWITCH,
+
+    $HIER,
+    $PTR_DECL,
+    $PE_INPUT,
+
+    $RE,
+    $RET,
+
+    $COND_BEG,
+    $COND_END,
+
+    $MATCH,
+    $CALL,
+    $BLTN,
+
+  ];
 
 # ---   *   ---   *   ---
 # test
@@ -1966,25 +2164,22 @@ sub ptr_decl_ctx($match) {
   $prog    =~ m[([\S\s]+)\s*STOP]x;
   $prog    = ${^CAPTURE[0]};
 
-  my $t    = Grammar::peso->parse($prog,-r=>2);
-
-#  $t->prich();
-#  fatdump($t->{ctx}->{frame}->{-ns}->{peso});
-
-  Grammar::peso->run(
-
-    $t,
-
-    entry=>1,
-    keepx=>1,
-
-    input=>[
-
-      "HLOWRLD\n",
-
-    ],
-
-  );
+#  my $t    = Grammar::peso->parse($prog,-r=>2);
+#
+#  Grammar::peso->run(
+#
+#    $t,
+#
+#    entry=>1,
+#    keepx=>1,
+#
+#    input=>[
+#
+#      "HLOWRLD\n",
+#
+#    ],
+#
+#  );
 
 # ---   *   ---   *   ---
 1; # ret

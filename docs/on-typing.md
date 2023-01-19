@@ -12,7 +12,7 @@ You could think of a single program as being itself a type; it maps a structure 
 
 Think of an application that takes a string of words as an input, giving back a series of paragraphs. This application, though sometimes unknowingly so by the author, utilizes pre-compiled libraries that provide adequate access to the input string as handled by the operating system, generally ones native to C or C++.
 
-That, for one, is called portability, small aside. Our application utilizes types of it's own to convert the string of words it receives, then `ipret` the input sequence into a meaningful format for the section that generates the paragraphs, finally writing to output. Along this path, we carry out multiple type conversions from a single string type, mostly independent of how your operating system handles them.
+That, for one, is called portability, small aside. Our application utilizes types of it's own to convert the string of words it receives, then `ipret` the input sequence into a meaningful format for the section that generates the paragraphs, finally writing to output. Along this path, we carry out multiple type conversions from a single string type, but stay mostly independent of how the system handles it's end of it.
 
 So why is the OS involved? It's responsible for providing access to your computer, therefore required for your program to run. Unless we're doing bare metal and defining strings of our own ;>
 
@@ -38,7 +38,7 @@ Inversed, I am referring to type-collections as families of formats and procedur
 
 ## ORGANIZATION REQUIRED
 
-Uppon compilation of an individual source file, it's tree meta must be writ to a location identifyiable by it's declared clan; usage can then be registered separately by a recursive `lib` query.
+Uppon compilation of an individual source file, it's tree meta must be writ to a location identifyiable by it's declared clan; usage can then be made note of separately through recursive `lib` queries.
 
 ```$
 
@@ -160,7 +160,7 @@ Thus, rather than a description of each, I'd offer the following chain of relati
 - Type encapsulates both the structure *and* possible interpretations.
 - Usage is the purpose given to a set of types
 
-However, as previously mentioned, usage does not necessarily encompass all and every interpretation of a structure; it selectively plucks what it needs from each and every type, creating it's own encapsulation.
+However, as previously mentioned, usage does not necessarily encompass all and every interpretation of a structure; it selectively plucks what it needs from each and every type, creating in turn it's own encapsulation.
 
 They are, for all intents and purposes, overlapping classes; __use__ of a type cannot be thought of as not being itself a form of typing, neither can structures.
 
@@ -252,8 +252,8 @@ Our additions are pasted-in after the `...` ellipses. Effectively, `proc eq type
 
 ## CONCLUSION
 
-In one of the very first peso-docs I wrote, I referred to the language as 'non-typed'; this was for different reasons back then, yet in the present it still applies: peso does away with the traditional view of typing and therefore fails to be cathegorized within the frame of that view.
+In one of the very first peso-docs I wrote, I referred to the language as 'non-typed'; this was for different reasons at the time, yet in the present still applies: peso does away with the traditional view of typing and therefore fails to be cathegorized within that frame.
 
-It is not adequate for anyone or anything to be entirely unboxed without first reason and hopefully second a clear and concise explanation.
+It is not adequate for anyone or anything to be entirely unboxed without first reason, and hopefully second, a clear and concise explanation.
 
-Due and despite the foreign nature of my thoughts at this plane of existence, I have attempted to lay down both; mistakes shall be made and corrected as they are found.
+Due to and despite the foreign nature of my thoughts at this plane of existence, I have attempted to lay down both; mistakes shall be made and corrected as they are found.

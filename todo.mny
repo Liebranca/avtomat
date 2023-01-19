@@ -26,6 +26,9 @@ x .  \--> proc inputs
 x .  \--> reap && sow
 x .  \--> Find across namespaces
 x .  \--> jmp to branch
+
+~ .  \--> Define patterns for regexes
+~ .  \--> enchain leaf values for lis solving
 ~ .  \--> Defining grammar branches
 ~ .  \--> subst on ~= match
 

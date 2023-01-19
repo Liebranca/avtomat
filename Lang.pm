@@ -531,16 +531,16 @@ sub array_insens($ar) {
 sub nonscap($s,%O) {
 
   #defaults
-  $O{negate} //= 0;
-  $O{mod}    //= $NULLSTR;
-  $O{sigws}  //= 0;
+  $O{iv}    //= 0;
+  $O{mod}   //= $NULLSTR;
+  $O{sigws} //= 0;
 
   my $c=($O{sigws})
     ? "$s"
     : "$s\\s"
     ;
 
-  my $out=($O{negate})
+  my $out=($O{iv})
     ? "((\\\\[^$c]) | [^$c\\\\] | (\\\\ $s))"
     : "((?!< \\\\ ) $s)"
     ;
