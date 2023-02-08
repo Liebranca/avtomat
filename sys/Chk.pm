@@ -46,11 +46,16 @@ package Chk;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;
+  our $VERSION=v0.00.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
+
+  Readonly our $SCALARREF_RE=>qr{
+    ^SCALAR\(0x[0-9a-f]+\)
+
+  }x;
 
   Readonly our $ARRAYREF_RE=>qr{
     ^ARRAY\(0x[0-9a-f]+\)
@@ -67,22 +72,68 @@ package Chk;
 
   }x;
 
+  Readonly our $BLESSREF_RE=>qr{
+
+    (?: [_\w][_\w\d:])+
+
+    =
+
+    [\s\S]*
+
+    \(0x[0-9a-f]+\)$
+
+  }x;
+
   Readonly our $QRE_RE=>qr{\(\?\^u(?:[xsmg]*):}x;
   Readonly our $STRIPLINE_RE=>qr{\s+|:__NL__:}x;
 
 # ---   *   ---   *   ---
+# type-checking
 
-;;sub is_coderef ($v) {
-  length ref $v && ($v=~ $Chk::CODEREF_RE);
+sub is_scalerref ($v) {
+  defined $v && ($v=~ $Chk::SCALARREF_RE);
 
-};sub is_arrayref ($v) {
+};
+
+sub is_arrayref ($v) {
   length ref $v && ($v=~ $Chk::ARRAYREF_RE);
 
-};sub is_hashref ($v) {
+};
+
+sub is_hashref ($v) {
   length ref $v && ($v=~ $Chk::HASHREF_RE);
 
-};sub is_qre ($v) {
+};
+
+sub is_blessref ($v) {
+  length ref $v && ($v=~ $Chk::BLESSREF_RE);
+
+};
+
+sub is_coderef ($v) {
+  length ref $v && ($v=~ $Chk::CODEREF_RE);
+
+};
+
+sub is_qre ($v) {
   defined $v && ($v=~ $Chk::QRE_RE);
+
+};
+
+# ---   *   ---   *   ---
+# ^WIP
+
+sub is_str($v) {
+
+     defined $v
+
+  && !is_scalarref($v)
+  && !is_arrayref($v)
+  && !is_hashref($v)
+  && !is_blessref($v)
+  && !is_coderef($v)
+  && !is_qre($v)
+  ;
 
 };
 

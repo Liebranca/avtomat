@@ -501,6 +501,8 @@ sub build_binaries($self,$objblt) {
 
   } @{$self->{bld}->{files}};
 
+  @libs=@{$self->{bld}->{libs}};
+
   if($self->{main} && $objblt && @objs) {
 
     say {*STDERR }
@@ -514,8 +516,6 @@ sub build_binaries($self,$objblt) {
       "\e[0m"
 
     ;
-
-    @libs=@{$self->{bld}->{libs}};
 
 # ---   *   ---   *   ---
 # build mode is 'static library'
@@ -566,7 +566,17 @@ sub build_binaries($self,$objblt) {
 
   };
 
-  if(@libs) {
+  if(@libs && $self->{ilib}) {
+
+    say {*STDERR }
+
+      $Emit::Std::ARSEP,
+      'compiling shwl for ',
+
+      "\e[32;1m",$self->{fswat},
+      "\e[0m"
+
+    ;
 
     Avt::Xcav::symscan(
 

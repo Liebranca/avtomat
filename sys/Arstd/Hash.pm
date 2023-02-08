@@ -18,6 +18,7 @@ package Arstd::Hash;
   use strict;
   use warnings;
 
+  use Carp;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -41,7 +42,7 @@ package Arstd::Hash;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;
+  our $VERSION=v0.00.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -107,6 +108,48 @@ sub cpy($h) {
   };
 
   return $cpy;
+
+};
+
+# ---   *   ---   *   ---
+# validate struc
+
+sub validate($h,%O) {
+
+  for my $key(keys %O) {
+    throw_nos('key',$key)
+    if !exists $h->{$key};
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_nos($name,$key) {
+  croak "No such $name: $key";
+
+};
+
+# ---   *   ---   *   ---
+# sets out unset values
+
+sub defaults($h,%O) {
+
+  for my $key(keys %$h) {
+    $O{$key} //= $h->{$key};
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^both
+
+sub vdef($h,%O) {
+  $h->validate(%O);
+  $h->defaults(%O);
 
 };
 

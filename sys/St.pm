@@ -54,6 +54,44 @@ sub is_valid($kind,$obj) {
 sub get_class($obj) {return ref $obj};
 
 # ---   *   ---   *   ---
+# initialize struct elements
+# to default values
+
+sub defnit($class,$href) {
+
+  no strict 'refs';
+
+    my $defs=${"$class\::DEFAULTS"};
+
+    for my $key(keys %$defs) {
+      $href->{$key} //= $defs->{$key};
+
+    };
+
+  use strict 'refs';
+
+};
+
+# ---   *   ---   *   ---
+# return default frame
+# for class or instance
+#
+# always assumed to be at the top
+# of the global state hierarchy
+
+sub get_gframe($class) {
+
+  if(length ref $class) {
+    my $self = $class;
+    $class   = $self->get_class();
+
+  };
+
+  return $class->get_frame(0);
+
+};
+
+# ---   *   ---   *   ---
 # create instance container
 
 sub new_frame($class,%O) {
@@ -76,7 +114,7 @@ sub new_frame($class,%O) {
 };
 
 # ---   *   ---   *   ---
-# ^get existing
+# ^get existing or create new
 
 sub get_frame($class,$i=0) {
 
@@ -95,6 +133,14 @@ sub get_frame($class,$i=0) {
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^get list of existing
+
+sub get_frame_list($class) {
+  return @{$Frames->{$class}};
 
 };
 

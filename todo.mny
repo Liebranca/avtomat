@@ -8,6 +8,18 @@ x Extend Lang::Perl for basic (as-doc) parsing
 x \-->stk
 ~ \-->mem
 
+~ Move Grammar -ns to Mach
+
+~ Generalize Blk for serialization
+~ \--> Writing Blk instances to file
+~ \--> Reading from file into Blk
+x \--> Messaging through Blks
+x .  \--> Message encrypt
+x .  \--> Message decrypt
+
+~ Generalize Ptr for Blk fetches
+~ \--> Fetch by ID (cross-scope!)
+
 ~ Lang::Plps reimplementation
 
 ~ \--> Use Tree::Grammar to parse %lpsrom
@@ -55,17 +67,6 @@ x \--> ld,gcc && mam wrappers
 x Implement side build sub
 x Generate olink calls from side builds
 x Run calls before post-build hook
-
-*>Reorder/repurpose Peso into lib/sys
-~ Generalize Blk for serialization
-~ \--> Writing Blk instances to file
-~ \--> Reading from file into Blk
-x \--> Messaging through Blks
-x .  \--> Message encrypt
-x .  \--> Message decrypt
-
-~ Generalize Ptr for Blk fetches
-~ \--> Fetch by ID (cross-scope!)
 
 *>Refactor helper
 x Find mentions of a given package or subroutine

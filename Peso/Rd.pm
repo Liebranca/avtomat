@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
 # RD
-# PLPS-capable parser frontend
+# Legacy, bug-prone parser
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3

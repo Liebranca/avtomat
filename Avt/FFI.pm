@@ -35,7 +35,7 @@ package Avt::FFI;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;
+  our $VERSION=v0.00.2;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -64,9 +64,10 @@ package Avt::FFI;
   );
 
 # ---   *   ---   *   ---
-# global state
+# GBL
 
-  our $Instances=[];
+  our $Instances = [];
+  our $Closures  = {};
 
 # ---   *   ---   *   ---
 # give FFI object by id
@@ -81,6 +82,29 @@ sub get_instance($class,$idex=0) {
 
   } else {
     $out=$Instances->[$idex];
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# makes persistent closures
+
+sub sticky($class,$coderef) {
+
+  my $out=undef;
+
+  if(!exists $Closures->{$coderef}) {
+    my $ice = $class->get_instance();
+    $out    = $ice->closure($coderef);
+
+    $out->sticky();
+    $Closures->{$coderef}=$out;
+
+  } else {
+    $out=$Closures->{$coderef};
 
   };
 
@@ -133,7 +157,7 @@ sub nit($class) {
   $ffi->type('(void)->void'=>'nihil');
 
 # ---   *   ---   *   ---
-# NODE: lyeb@IBN-3DILA on 08/07/22 00:13:04
+# NOTE: lyeb@IBN-3DILA on 08/07/22 00:13:04
 #
 # 'void pointer not allowed'? shame on you...
 

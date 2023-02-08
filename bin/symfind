@@ -69,6 +69,8 @@ while(@files) {
 
 # ---   *   ---   *   ---
 
+  next if ! -f $f;
+
   my $body=orc($f);
   my $i=0;
 

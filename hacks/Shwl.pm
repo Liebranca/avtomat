@@ -646,6 +646,7 @@ package Shwl::Blk;
   use strict;
   use warnings;
 
+  use English qw(-no_match_vars);
   use Style;
 
 # ---   *   ---   *   ---
@@ -779,6 +780,8 @@ sub fold($lang,$body_ref) {
   };
 
   for my $key(@$dels_order) {
+
+    $key=~ s[^\\][];
 
     Shwl::cut(
       $body_ref,

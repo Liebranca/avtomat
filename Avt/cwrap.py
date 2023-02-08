@@ -23,8 +23,12 @@ from ctypes import (
   c_uint32  as brad,
   c_uint64  as word,
 
+  c_size_t  as size_t,
+
   c_float   as real,
   c_double  as daut,
+
+  py_object as starpy,
 
   byref,
   pointer,

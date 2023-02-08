@@ -417,7 +417,7 @@ sub rel($path) {
 };
 
 # ---   *   ---   *   ---
-#in: two filepaths to compare
+# in: two filepaths to compare
 # Older Than; return a is older than b
 
 sub ot($a,$b) {

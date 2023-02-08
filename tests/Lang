@@ -14,33 +14,11 @@
   use lib $ENV{'ARPATH'}.'/avtomat/sys/';
 
   use Lang;
-
-  use Lang::Perl;
-  use Emit::Perl;
-
   use Fmat;
 
 # ---   *   ---   *   ---
 
-say Emit::Perl->codewrap(
 
-  'test',
-  body=>'heyhey',
-
-  include=>[
-
-    q{Vault 'ARPATH'},
-
-  ],
-
-  define=>[
-
-    q{my $Var}=>0,
-    q{my $Sack}=>q{[dkasda,askhakjhr,asdkhakhr]},
-
-  ],
-
-);
 
 # ---   *   ---   *   ---
 1; # ret
