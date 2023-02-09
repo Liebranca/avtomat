@@ -190,9 +190,9 @@ sub get($self,@path) {
 
   );
 
-  $out=($out->{leaves}->[0])
-    ? $out->{leaves}->[0]
-    : throw_bad_fetch(@path,'[value]')
+  $out=(! $out->{leaves}->[0])
+    ? throw_bad_fetch(@path,'[value]')
+    : $out
     ;
 
   return $out->fvalue();

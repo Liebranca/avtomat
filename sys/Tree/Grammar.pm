@@ -218,7 +218,7 @@ sub opt_branch($self) {
 # ($match)
 # \-->value
 
-sub list_flatten($match) {
+sub list_flatten($ctx,$match) {
 
   for my $branch(@{$match->{leaves}}) {
     $branch->flatten_branch();

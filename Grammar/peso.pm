@@ -103,6 +103,14 @@ package Grammar::peso;
 
   };
 
+  Readonly our $PE_SDEFS=>{
+
+    VERSION => 'v0.00.1b',
+    AUTHOR  => 'anon',
+    ENTRY   => 'crux',
+
+  };
+
   Readonly our $REGEX=>{
 
     hexn  => qr{\$  [0-9A-Fa-f\.:]+}x,
@@ -1542,6 +1550,9 @@ sub array_vex($self,$fet,$ar,@path) {
 
 sub rdhed($self,$branch) {
 
+  my $mach=$self->{mach};
+  my @path=$mach->{scope}->path();
+
 };
 
 # ---   *   ---   *   ---
@@ -1564,10 +1575,12 @@ sub throw_undef_get(@path) {
 
 # ---   *   ---   *   ---
 
-sub detag($self,$o,@path) {
+sub detag($self,$o) {
 
   my @tags=();
+
   my $mach=$self->{mach};
+  my @path=$mach->{scope}->path();
 
   while($o=~ s[$REGEX->{tag}][$Shwl::PL_CUT]) {
 
@@ -1639,7 +1652,7 @@ sub re_vex($self,$o) {
 
   $o=$self->detag($o);
 
-  if(!$sigws) {
+  if(! $flags->{-sigws}) {
     $o=~ s[[\s\n]+][ ]sxmg;
 
   };
@@ -1699,6 +1712,7 @@ sub rdre_ctx($self,$branch) {
 sub sasg_ctx($self,$branch) {
 
   my $mach = $self->{mach};
+
   my $st   = $branch->bhash(0,0);
   my @path = $mach->{scope}->path();
 
@@ -1712,13 +1726,16 @@ sub sasg_ctx($self,$branch) {
 
   };
 
-  $mach->{scope}->asg(
+  my $o=$mach->{scope}->asg(
+
     $st->{nterm},
 
     @path,
     $st->{name}
 
   );
+
+  $branch->{parent}->pluck($branch);
 
 };
 
@@ -1802,7 +1819,7 @@ sub rdnum($self,$branch) {
 sub hier_sort($self,$branch) {
 
   Tree::Grammar::list_flatten(
-    $branch->branch_in(qr{^name$})
+    $self,$branch->branch_in(qr{^name$})
 
   );
 
@@ -1830,17 +1847,23 @@ sub hier_sort_ctx($self,$branch) {
   my $st      = $branch->{-pest};
   my $f       = $self->{frame};
 
+  my @cur     = ();
+
   $f->{$ckey} = $st->{name};
 
   if($type eq 'ROM') {
     $f->{-creg}=undef;
     $f->{-cproc}=undef;
 
+    @cur=($f->{-cclan},$f->{-crom});
+
     $type=q[REG|ROM];
 
   } elsif($type eq 'REG') {
     $f->{-crom}=undef;
     $f->{-cproc}=undef;
+
+    @cur=($f->{-cclan},$f->{-creg});
 
     $type=q[REG|ROM];
 
@@ -1849,14 +1872,39 @@ sub hier_sort_ctx($self,$branch) {
     $f->{-crom}=undef;
     $f->{-cproc}=undef;
 
+    @cur=($f->{-cclan});
+
+  } else {
+
+    if(defined $f->{-creg}) {
+      @cur=($f->{-cclan},$f->{-creg},$f->{-cproc});
+
+    } elsif(defined $f->{-crom}) {
+      @cur=($f->{-cclan},$f->{-crom},$f->{-cproc});
+
+    } else {
+      @cur=($f->{-cclan},$f->{-cproc});
+
+    };
+
   };
 
   my $mach=$self->{mach};
-  my @path=$mach->{scope}->path();
+  my @path=$mach->{scope}->path(@cur);
+
+  if($type eq 'CLAN') {
+
+    for my $key(keys %$PE_SDEFS) {
+      my $value=$PE_SDEFS->{$key};
+      $mach->{scope}->decl($value,@path,$key);
+
+    };
+
+  };
 
   for my $key(keys %$PE_FLAGS) {
     my $value=$PE_FLAGS->{$key};
-    $mach->{scope}->asg($value,@path,$key);
+    $mach->{scope}->decl($value,@path,$key);
 
   };
 
@@ -1921,17 +1969,17 @@ sub ns_ret($f) {
 
 sub ns_path($self,%O) {
 
-  # defaults
-  $O{-ret}//=0;
-
-  my @out = ();
-  my $f   = $self->{frame};
-
-  $mach->{scope}->path($branch->ances());
-
-  ns_ret($f) if $O{-ret};
-
-  return @out;
+#  # defaults
+#  $O{-ret}//=0;
+#
+#  my @out = ();
+#  my $f   = $self->{frame};
+#
+#  $mach->{scope}->path($branch->ances());
+#
+#  ns_ret($f) if $O{-ret};
+#
+#  return @out;
 
 };
 
@@ -1941,7 +1989,7 @@ sub ns_path($self,%O) {
 sub ptr_decl($self,$branch) {
 
   Tree::Grammar::list_flatten(
-    $branch->branch_in(qr{^names$})
+    $self,$branch->branch_in(qr{^names$})
 
   );
 
@@ -1970,6 +2018,8 @@ sub ptr_decl_ctx($self,$branch) {
   my $mach   = $self->{mach};
   my $st     = $branch->bhash(1,1,1);
   my $type   = shift @{$st->{type}};
+
+  my $f      = $self->{frame};
 
   my @specs  = @{$st->{type}};
   my @names  = @{$st->{names}};
@@ -2111,8 +2161,11 @@ sub ptr_decl_ctx($self,$branch) {
   $prog    =~ m[([\S\s]+)\s*STOP]x;
   $prog    = ${^CAPTURE[0]};
 
-#  my $t    = Grammar::peso->parse($prog,-r=>2);
-#
+  my $ice  = Grammar::peso->parse($prog,-r=>2);
+
+  $ice->{tree}->prich();
+  $ice->{mach}->{scope}->prich();
+
 #  Grammar::peso->run(
 #
 #    $t,

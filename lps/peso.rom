@@ -30,6 +30,7 @@ ROM std;
 
   wed   -qwor,-insens;
   unwed -escape;
+STOP;
 
   re    spec ptr fptr str buf tab re;
   re    type
@@ -106,8 +107,6 @@ PROC expr;
     call expr 0;
 
   off;
-
-STOP;
 
 # ---   *   ---   *   ---
 
