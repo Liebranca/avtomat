@@ -33,6 +33,7 @@ package Chk;
   use Exporter 'import';
   our @EXPORT=qw(
 
+    is_blessref
     is_hashref
     is_coderef
     is_arrayref

@@ -81,7 +81,7 @@ x \--> Make this recursive
 ~ Adapt gd calls to use the Pilot model
 
 *>Bugs
-~ Investigate the Peso::Ipret::pesc iter command repetition
+x Investigate the Peso::Ipret::pesc iter command repetition
 
 *>Backburner
 x Move Python stuff from f:./Avt.pm into f:./Emit/Python.pm

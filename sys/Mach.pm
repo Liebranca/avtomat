@@ -26,27 +26,31 @@ package Mach;
   use Style;
   use Arstd::IO;
 
+  use Mach::Scope;
+
   use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# global state
+# GBL
 
-  my $TAB={};
+  my $Ics={};
 
 # ---   *   ---   *   ---
 # constructor
 
-sub nit($class,$frame,%O) {
+sub new($class,%O) {
 
   # defaults
   $O{gpr_cnt}  //= 16;
   $O{ret_idex} //= 0;
+  $O{idex}     //= 0;
+
   $O{fd}       //= [*STDIN,*STDOUT,*STDERR];
 
   my $gpr={};
@@ -60,7 +64,9 @@ sub nit($class,$frame,%O) {
 
   ];
 
-  my $self=bless {
+  my $frame = $class->get_frame($O{idex});
+
+  my $self  = bless {
 
     gpr      => $gpr,
     ret_idex => "r$O{ret_idex}",
@@ -71,12 +77,35 @@ sub nit($class,$frame,%O) {
     fd       => $O{fd},
     fd_buff  => $fd_buff,
 
-    ctx      => $O{ctx},
+    scope    => Mach::Scope->new(),
+
     frame    => $frame,
 
   },$class;
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# ^retrieve or make
+
+sub fetch($class,$id,%O) {
+
+  my $out=undef;
+
+  # create and save
+  if(!exists $Ics->{$id}) {
+    $out=$class->new(%O);
+    $Ics->{$id}=$out;
+
+  # get existing
+  } else {
+    $out=$Ics->{$id};
+
+  };
+
+  return $out;
 
 };
 
@@ -136,6 +165,8 @@ sub reap($self,$dst) {
 
 };
 
+# ---   *   ---   *   ---
+
 sub fd_solve($self,$dst) {
 
   # out
@@ -150,10 +181,9 @@ sub fd_solve($self,$dst) {
 
   # attempt fetch on fail
   if(!$valid) {
-    my $ctx  = $self->{ctx};
-    my @path = $ctx->ns_path();
+    my @path = $self->{scope}->cpath();
 
-    $buff=$ctx->ns_fetch(@path,$dst);
+    $buff=$self->{scope}->fetch(@path,$dst);
 
   # get buff && descriptor
   } else {

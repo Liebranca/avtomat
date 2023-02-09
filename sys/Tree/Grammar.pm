@@ -33,7 +33,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;
+  our $VERSION = v0.00.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -247,7 +247,7 @@ sub nest_flatten($match,$pat) {
 # ---   *   ---   *   ---
 # rewind the tree match
 
-sub rew($st) {
+sub rew($ctx,$st) {
 
   unshift @{$st->{pending}},@{
     $st->{nd}->{parent}->{leaves}
@@ -259,7 +259,7 @@ sub rew($st) {
 # ---   *   ---   *   ---
 # saves capture to current container
 
-sub capt($st) {
+sub capt($ctx,$st) {
   $st->{anchor}->init($st->{capt});
 
 };
@@ -267,7 +267,7 @@ sub capt($st) {
 # ---   *   ---   *   ---
 # ^both capt and rew
 
-sub crew($st) {
+sub crew($ctx,$st) {
 
   capt($st);
   rew($st);
@@ -277,7 +277,7 @@ sub crew($st) {
 # ---   *   ---   *   ---
 # terminates an expression
 
-sub term($st) {
+sub term($ctx,$st) {
 
   $st->{anchor}     = $st->{nd}->walkup();
   @{$st->{pending}} = ();
@@ -287,7 +287,7 @@ sub term($st) {
 # ---   *   ---   *   ---
 # removes branch
 
-sub discard($match) {
+sub discard($ctx,$match) {
   my ($root)=$match->root();
   $root->pluck($match);
 
@@ -296,7 +296,7 @@ sub discard($match) {
 # ---   *   ---   *   ---
 # replace branch with it's children
 
-sub clip($match) {
+sub clip($ctx,$match) {
   $match->flatten_branch();
 
 };
@@ -304,7 +304,7 @@ sub clip($match) {
 # ---   *   ---   *   ---
 # makes helper for match
 
-sub match_st($self,$sref) {
+sub match_st($self,$ctx,$sref) {
 
   my $frame = Tree::Grammar->get_frame();
   my $root  = $frame->nit(
@@ -343,6 +343,7 @@ sub match_st($self,$sref) {
     re      => undef,
     key     => undef,
 
+    ctx     => $ctx,
     kls     => $self->{value},
     fn      => [],
     opts    => [],
@@ -378,9 +379,9 @@ sub throw_no_match($self,$s) {
 # ---   *   ---   *   ---
 # decon string by walking tree branch
 
-sub match($self,$s) {
+sub match($self,$ctx,$s) {
 
-  my $st   = $self->match_st(\$s);
+  my $st   = $self->match_st($ctx,\$s);
   my $fail = 0;
 
   while(@{$st->{pending}}) {
@@ -467,7 +468,7 @@ sub parse($self,$ctx,$s) {
     # test each branch against string
     for my $branch(@{$self->{leaves}}) {
 
-      my ($match,$ds)=$branch->match($s);
+      my ($match,$ds)=$branch->match($ctx,$s);
 
       # update string and append
       # to tree on succesful match
@@ -475,7 +476,7 @@ sub parse($self,$ctx,$s) {
 
         $tree->pushlv($match);
 
-        $branch->{fn}->($match)
+        $branch->{fn}->($ctx,$match)
         if $branch->{fn} ne $NOOP;
 
         my @chain=(@{$branch->{chain}});
@@ -608,7 +609,7 @@ sub attempt_match($self) {
   $self->{matches}->[-1]+=
     !$self->{nd}->{opt};
 
-  $self->{nd}->{fn}->($self)
+  $self->{nd}->{fn}->($self->{ctx},$self)
   if $self->has_action();
 
   $self->{capt}=undef;
@@ -801,7 +802,7 @@ sub branch_fn($self) {
 
   ) {
 
-    $nd->{fn}->($branch)
+    $nd->{fn}->($self->{ctx},$branch)
     if $nd->{fn} ne $NOOP;
 
     $mm=1;

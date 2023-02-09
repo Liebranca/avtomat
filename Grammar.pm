@@ -39,7 +39,7 @@ package Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -61,7 +61,7 @@ package Grammar;
   }};
 
 # ---   *   ---   *   ---
-# global state
+# GBL
 
   our $Top;
 
@@ -94,61 +94,53 @@ sub parse($class,$prog,%O) {
   # defaults
   $O{-r}   //= 0;
   $O{idex} //= 0;
-  $O{mach} //= {};
+  $O{mach} //= {idex=>$O{idex}};
 
+  my $gram=$class->get_top();
   my $self=bless {
     frame   => $class->new_frame(),
     callstk => [],
 
-    mach    => undef,
+    mach    => Mach->new(%{$O{mach}}),
 
   },$class;
-
-  $O{mach}->{ctx}=$self;
-
-  my $mach_f = Mach->get_frame($O{idex});
-  my $mach   = $mach_f->nit(%{$O{mach}});
-
-  $self->{mach}=$mach;
 
   unshift @{
     $self->{frame}->{-passes}
 
   },$NULLSTR;
 
-  my $gram=$class->get_top();
-  my $tree=$gram->parse($self,$prog);
+  $self->{tree}=$gram->parse($self,$prog);
 
   # exec -r number of passes
   while($O{-r}--) {
-    $class->run($tree);
+    $self->run();
 
   };
 
-  return $tree;
+  return $self;
 
 };
 
 # ---   *   ---   *   ---
 # ^executes tree
 
-sub run($class,$tree,%O) {
+sub run($self,%O) {
 
   # defaults
   $O{entry}//=0;
   $O{keepx}//=0;
   $O{input}//=[];
 
-  my $ctx = $tree->{ctx};
-  my $f   = $ctx->{frame};
+  my $tree    = $self->{tree};
+  my $f       = $self->{frame};
+  my $callstk = $self->{callstk};
 
   $f->{-npass}++;
 
-  my $callstk=$ctx->{callstk};
-
   # find entry point
   my @branches=($O{entry})
-    ? $ctx->get_entry($tree,$O{entry})
+    ? $self->get_entry($O{entry})
     : $tree
     ;
 
@@ -165,7 +157,7 @@ sub run($class,$tree,%O) {
   };
 
   for my $arg(reverse @{$O{input}}) {
-    $ctx->{mach}->stkpush($arg);
+    $self->{mach}->stkpush($arg);
 
   };
 
@@ -175,7 +167,7 @@ sub run($class,$tree,%O) {
     my $ref=shift @$callstk;
 
     my ($nd,$fn)=@$ref;
-    $fn->($nd);
+    $fn->($self,$nd);
 
   };
 
@@ -184,11 +176,13 @@ sub run($class,$tree,%O) {
 # ---   *   ---   *   ---
 # give branches marked for execution
 
-sub get_entry($ctx,$tree,$entry) {
+sub get_entry($self,$entry) {
+
+  my $mach=$self->{mach};
 
   my @out=(!is_arrayref($entry))
-    ? $ctx->get_clan_entries($tree)
-    : $ctx->ns_get(@$entry,q[$branch])
+    ? $self->get_clan_entries($self->{tree})
+    : $mach->{scope}->get(@$entry,q[$branch])
     ;
 
   return @out;
@@ -198,29 +192,30 @@ sub get_entry($ctx,$tree,$entry) {
 # ---   *   ---   *   ---
 # finds all branches declared as entry points
 
-sub get_clan_entries($ctx,$tree) {
+sub get_clan_entries($self) {
 
-  my @out=();
+  my @out  = ();
+  my $mach = $self->{mach};
 
-  for my $key(keys %{$ctx->{frame}->{-ns}}) {
+  for my $key(keys %{$mach->{scope}}) {
 
     next if $key eq q[$decl:order];
 
     # get name of entry proc
-    my $name=$ctx->ns_get(
+    my $name=$mach->{scope}->get(
       $key,'$DEF','ENTRY'
 
     );
 
     # ^fetch
     my @path = ($key,@$name,q[$branch]);
-    my $o    = $ctx->ns_get(@path);
+    my $o    = $mach->{scope}->get(@path);
 
     # ^validate
     throw_invalid_entry(@path)
-    if !%$o || !Tree::Grammar->is_valid($o);
+    if ! Tree::Grammar->is_valid($$o);
 
-    push @out,$o;
+    push @out,$$o;
 
 
   };
@@ -259,7 +254,7 @@ sub cnbreak($class,$X,$dom,$name) {
   my $i=0;
   $X->{chain}//=[];
 
-  my $valid  = !is_coderef($name);
+  my $valid=!is_coderef($name);
 
   for my $ext(@passes) {
 
@@ -280,6 +275,9 @@ sub cnbreak($class,$X,$dom,$name) {
 
 # ---   *   ---   *   ---
 # branch function search
+#
+# generates [dom]::[rule]_[pass] fn array
+# ie, chains
 
 sub fnbreak($class,$X) {
 
@@ -369,202 +367,6 @@ sub mkrules($class,@rules) {
     };
 
   };
-
-};
-
-# ---   *   ---   *   ---
-# add object to specific namespace
-
-sub ns_decl($self,$o,@path) {
-
-  my $ns    = $self->{frame}->{-ns};
-  my $order = $ns->{'$decl:order'};
-
-  push @$order,\@path;
-  ns_asg($self,$o,@path);
-
-};
-
-# ---   *   ---   *   ---
-# gets reference from path
-
-sub ns_fetch($self,@path) {
-
-  my $ns  = $self->{frame}->{-ns};
-  my $dst = \$ns;
-
-  for my $key(@path) {
-
-    next if !$key;
-
-    throw_bad_fetch(@path)
-    if !is_hashref($$dst);
-
-    $$dst->{$key}//={};
-    $dst=\($$dst->{$key});
-
-  };
-
-  return $dst;
-
-};
-
-# ---   *   ---   *   ---
-# ^similar, returns existance of path
-
-sub ns_exists($self,@path) {
-
-  my $ns  = $self->{frame}->{-ns};
-  my $dst = \$ns;
-
-  my $out = 1;
-
-  for my $key(@path) {
-
-    next if !$key;
-
-    if(
-
-       !is_hashref($$dst)
-    || !exists $$dst->{$key}
-
-    ) {
-
-      $out=0;
-      last;
-
-    };
-
-    $dst=\($$dst->{$key});
-
-  };
-
-  return $out;
-
-};
-
-
-# ---   *   ---   *   ---
-# ^errme
-
-sub throw_bad_fetch(@path) {
-
-  my $path=join q[/],@path;
-
-  errout(
-
-    q[Invalid path; FET <%s>],
-
-    args => [$path],
-    lvl  => $AR_FATAL,
-
-  );
-
-};
-
-# ---   *   ---   *   ---
-# ^same, assigment without order
-
-sub ns_asg($self,$o,@path) {
-
-  my $dst = $self->ns_fetch(@path);
-  $$dst   = $o;
-
-};
-
-# ---   *   ---   *   ---
-# ^fetches value
-
-sub ns_get($self,@path) {
-
-  my $o=$self->ns_fetch(@path);
-  return $$o;
-
-};
-
-# ---   *   ---   *   ---
-# dirty and quick backwards evaluating
-# to find across namespaces
-
-sub ns_search($self,$name,$sep,@path) {
-
-  my @out=$self->ns_search_nc(
-    $name,$sep,@path
-
-  );
-
-  throw_bad_fetch(@out)
-  if !($self->ns_exists(@out));
-
-  return @out;
-
-};
-
-# ---   *   ---   *   ---
-# ^no errchk
-
-sub ns_search_nc($self,$name,$sep,@path) {
-
-  my @alt=split $sep,$name;
-
-  while(@path) {
-    last if $self->ns_exists(@path,@alt);
-    pop @path;
-
-  };
-
-  return (@path,@alt);
-
-};
-
-# ---   *   ---   *   ---
-# conditionally dereference
-# the "condition" being existance of value
-
-sub ns_cderef($self,$fet,$sep,$vref,@path) {
-
-  my @rpath = $self->ns_search_nc(
-    $$vref,$sep,@path
-
-  );
-
-  my $valid = $self->ns_exists(@rpath);
-  my $fn    = ($fet) ? \&ns_fetch : \&ns_get;
-
-  $$vref    = $fn->($self,@rpath) if $valid;
-
-  return $valid;
-
-};
-
-# ---   *   ---   *   ---
-# associates path with a tree node
-
-sub ns_mkbranch($self,$o,@path) {
-
-  throw_invalid_branchref($o,@path)
-  if !Tree::Grammar->is_valid($o);
-
-  ns_decl($self,$o,@path,q[$branch]);
-
-};
-
-# ---   *   ---   *   ---
-# ^errme
-
-sub throw_invalid_branchref($o,@path) {
-
-  my $path=join q[/],@path;
-
-  errout(
-
-    q[Object at <%s> is not a ].
-    q[Tree::Grammar instance but a %s],
-
-    args => [$path,ref $o],
-    lvl  => $AR_FATAL,
-
-  );
 
 };
 

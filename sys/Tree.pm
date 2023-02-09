@@ -25,8 +25,9 @@ package Tree;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
   use Chk;
+
+  use Arstd::IO;
 
   use parent 'St';
 
@@ -158,6 +159,148 @@ sub init($self,@args) {
 };
 
 # ---   *   ---   *   ---
+# force hierarchy to exist
+# give last node
+
+sub force_get($self,@path) {
+
+  my $out=$self->fetch(
+    path     => \@path,
+    existing => 0,
+
+  );
+
+  # ensure fvalue
+  $out->init($NULL)
+  if ! @{$out->{leaves}};
+
+  # ^give ref
+  return $out->fvalue();
+
+};
+
+# ---   *   ---   *   ---
+# ^only existing
+
+sub get($self,@path) {
+
+  my $out=$self->fetch(
+    path  => \@path,
+    throw => 1,
+
+  );
+
+  $out=($out->{leaves}->[0])
+    ? $out->{leaves}->[0]
+    : throw_bad_fetch(@path,'[value]')
+    ;
+
+  return $out->fvalue();
+
+};
+
+# ---   *   ---   *   ---
+# ^existance check
+
+sub has($self,@path) {
+
+  my $out=$self->fetch(
+    path=>\@path,
+
+  );
+
+  $out=($out && $out->{leaves}->[0])
+    ? $out->fvalue()
+    : undef
+    ;
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^guts of all
+
+sub fetch($self,%O) {
+
+  # defaults
+  $O{existing}  //= 1;
+  $O{throw}     //= 0;
+  $O{max_depth} //= 0;
+  $O{keep_root} //= 0;
+
+  $O{path}      //= [];
+
+  # ^lising
+  my $path=$O{path};
+  delete $O{path};
+
+  # make res for lookup
+  my $out     = $self;
+  my $path_re = [map {qr[^$ARG]x} @$path];
+
+  # get nodes accto path
+  for my $i(0..@$path-1) {
+
+    my $key = $path->[$i];
+    my $re  = $path_re->[$i];
+
+    my $nd  = $out->branch_in($re,%O);
+
+    # create new if needed
+    if(! $O{existing}) {
+      $out=($nd) ? $nd : $out->init($key);
+
+    # abort on missing
+    } elsif(! $O{throw}) {
+      $out=$nd;
+      last if ! $out;
+
+    # throw on missing
+    } else {
+
+      $out=(! $nd)
+        ? throw_bad_fetch(@$path)
+        : $nd
+        ;
+
+    };
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_bad_fetch(@path) {
+
+  my $path=join q[/],@path;
+
+  errout(
+
+    q[Invalid path; FET <%s>],
+
+    args => [$path],
+    lvl  => $AR_FATAL,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# get reference to value of
+# first leaf
+
+sub fvalue($self) {
+  my $out=$self->{leaves}->[0];
+  return \$out->{value};
+
+};
+
+# ---   *   ---   *   ---
 
 sub root($self) {
 
@@ -275,7 +418,7 @@ sub sweep($self,$re) {
 };
 
 # ---   *   ---   *   ---
-# 
+# get branch is N layers deep
 
 sub deepchk($self,$depth=1) {
 

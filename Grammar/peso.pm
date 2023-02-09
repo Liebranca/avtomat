@@ -74,7 +74,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;
+  our $VERSION = v0.00.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -429,9 +429,9 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # ^rough ipret
 
-sub qstr($match) {
-  $match->{value}=eval($match->leaf_value(0));
-  $match->clear_branches();
+sub qstr($self,$branch) {
+  $branch->{value}=eval($branch->leaf_value(0));
+  $branch->clear_branches();
 
 };
 
@@ -500,16 +500,15 @@ sub qstr($match) {
 # ---   *   ---   *   ---
 # ^post-parse
 
-sub flg($match) {
+sub flg($self,$branch) {
 
-  my $st   = $match->bhash();
+  my $st   = $branch->bhash();
   my $type = (exists $st->{seal})
     ? 'seal'
     : 'bare'
     ;
 
-#  $match->clear_branches();
-  $match->{value}=cvalue->nit(
+  $branch->{value}=cvalue->nit(
 
     sigil => $st->{sigil},
     name  => $st->{$type},
@@ -546,20 +545,20 @@ sub flg($match) {
 # ---   *   ---   *   ---
 # ^handler
 
-sub value_sort($match) {
+sub value_sort($self,$branch) {
 
-  my $st     = $match->bhash();
+  my $st     = $branch->bhash();
   my ($type) = keys %$st;
 
-  my $xx     = $match->leaf_value(0);
+  my $xx     = $branch->leaf_value(0);
   if(is_hashref($xx)) {
     $type=$xx;
 
   };
 
-  $match->clear_branches();
+  $branch->clear_branches();
 
-  $match->init(
+  $branch->init(
 
     (defined $st->{$type})
       ? $st->{$type}
@@ -688,21 +687,19 @@ sub value_sort($match) {
 # ---   *   ---   *   ---
 # reads input lines
 
-sub rdin_opz($match) {
+sub rdin_opz($self,$branch) {
 
-  my $h=$match->leaf_value(0);
+  my $h=$branch->leaf_value(0);
 
-  $match->{value}=$h;
-  $match->clear_branches();
+  $branch->{value}=$h;
+  $branch->clear_branches();
 
 };
 
-sub rdin_run($match) {
+sub rdin_run($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
-
-  for my $ptr(@{$match->{value}}) {
-    $$ptr->{value}=$ctx->{mach}->stkpop();
+  for my $ptr(@{$branch->{value}}) {
+    $$ptr->{value}=$self->{mach}->stkpop();
 
   };
 
@@ -749,35 +746,35 @@ sub rdin_run($match) {
 # ---   *   ---   *   ---
 # ^post-parse
 
-sub lis($match) {
+sub lis($self,$branch) {
 
-  my $st=$match->bhash();
+  my $st=$branch->bhash();
 
-  $match->{value}={
+  $branch->{value}={
 
     from => $st->{value},
     to   => $st->{vglob}->leaf_value(0),
 
   };
 
-  $match->clear_branches();
+  $branch->clear_branches();
 
 };
 
 # ---   *   ---   *   ---
 # ^context build
 
-sub lis_ctx($match) {
+sub lis_ctx($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
+  my $st   = $branch->{value};
 
-  my $st   = $match->{value};
-  my @path = $ctx->ns_path();
+  my $mach = $self->{mach};
+  my @path = $mach->{scope}->path();
 
   my $key  = $st->{to};
   $key     = "$key->{sigil}$key->{name}";
 
-  $ctx->ns_decl(
+  $mach->{scope}->decl(
     $st->{from},
     @path,q[$LIS],$key
 
@@ -825,79 +822,77 @@ sub lis_ctx($match) {
 # ---   *   ---   *   ---
 # ^post-parse
 
-sub sow($match) {
+sub sow($self,$branch) {
 
-  my $lv=$match->{leaves};
+  my $lv=$branch->{leaves};
   my @ar=$lv->[1]->branch_values();
 
-  $match->{value}={
+  $branch->{value}={
 
     fd => $lv->[0]->leaf_value(0),
     me => \@ar,
 
   };
 
-  $match->clear_branches();
+  $branch->clear_branches();
 
 };
 
-sub reap($match) {
+sub reap($self,$branch) {
 
-  my $lv=$match->{leaves};
+  my $lv=$branch->{leaves};
 
-  $match->{value}=$lv->[0]->leaf_value(0);
-  $match->clear_branches();
+  $branch->{value}=$lv->[0]->leaf_value(0);
+  $branch->clear_branches();
 
 };
 
 # ---   *   ---   *   ---
 # ^bind values
 
-sub sow_opz($match) {
+sub sow_opz($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
-
-  my $st   = $match->{value};
-  my @path = $ctx->ns_path();
+  my $st   = $branch->{value};
+  my $mach = $self->{mach};
+  my @path = $mach->{scope}->path();
 
   my $fd   = $st->{fd};
 
   $st->{fd}="$fd->{sigil}$fd->{name}";
 
-  $ctx->array_vex(0,$st->{me},@path);
-  $ctx->vex(0,\$st->{fd},@path);
+  $self->array_vex(0,$st->{me},@path);
+  $self->vex(0,\$st->{fd},@path);
 
-  my ($fd2,$buff)=$ctx->{mach}->fd_solve(
+  my ($fd2,$buff)=$mach->fd_solve(
     $st->{fd}
 
   );
 
 };
 
-sub reap_opz($match) {
+sub reap_opz($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
+  my $mach = $self->{mach};
+  my @path = $mach->{scope}->path();
+  my $fd   = $branch->{value};
 
-  my @path = $ctx->ns_path();
-  my $fd   = $match->{value};
-
-  $match->{value}="$fd->{sigil}$fd->{name}";
-  $ctx->vex(0,\$match->{value},@path);
+  $branch->{value}="$fd->{sigil}$fd->{name}";
+  $self->vex(0,\$branch->{value},@path);
 
 };
 
 # ---   *   ---   *   ---
 # ^exec
 
-sub sow_run($match) {
+sub sow_run($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
-
-  my $st   = $match->{value};
+  my $mach = $self->{mach};
+  my $st   = $branch->{value};
   my $s    = $NULLSTR;
-  my @path = $ctx->ns_path();
 
-  for my $v(@{$match->{value}->{me}}) {
+  my @path = $mach->{scope}->path();
+
+  for my $v(@{$branch->{value}->{me}}) {
 
     my $deref;
 
@@ -922,7 +917,7 @@ sub sow_run($match) {
         if($name=~ $REGEX->{tag}) {
 
           $name  =~ s[^<|>$][]sxmg;
-          $deref =  pop @{$ctx->{-MATX}->{$name}};
+          $deref =  pop @{$self->{-MATX}->{$name}};
 
         };
 
@@ -934,19 +929,19 @@ sub sow_run($match) {
 
   };
 
-  $ctx->{mach}->sow(
-    $match->{value}->{fd},$s
+  $mach->sow(
+    $branch->{value}->{fd},$s
 
   );
 
 };
 
-sub reap_run($match) {
+sub reap_run($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
-  my $fh=$match->{value};
+  my $mach = $self->{mach};
+  my $fh   = $branch->{value};
 
-  $ctx->{mach}->reap($fh);
+  $mach->reap($fh);
 
 };
 
@@ -1012,8 +1007,7 @@ sub reap_run($match) {
 # ---   *   ---   *   ---
 # ^exec
 
-sub prime($branch) {
-
+sub prime($self,$branch) {
   my $st=$branch->bhash();
 
 };
@@ -1133,22 +1127,21 @@ sub prime($branch) {
 
 # ---   *   ---   *   ---
 
-sub mtest_ctx($match) {
+sub mtest_ctx($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
+  my $mach       = $self->{mach};
+  my $st         = $branch->bhash();
+  my @path       = $mach->{scope}->path();
 
-  my $st         = $match->bhash();
-  my @path       = $ctx->ns_path();
-
-  my ($o,%flags) = $ctx->re_vex($st->{nterm});
-  my $v          = $ctx->ns_get(
+  my ($o,%flags) = $self->re_vex($st->{nterm});
+  my $v          = $mach->{scope}->get(
 
     @path,
     $st->{value}
 
   );
 
-  $match->{value}={
+  $branch->{value}={
 
     re  => $o,
     v   => $v,
@@ -1157,19 +1150,17 @@ sub mtest_ctx($match) {
 
   };
 
-  $match->clear_branches();
+  $branch->clear_branches();
 
 };
 
 # ---   *   ---   *   ---
 # ^exec
 
-sub mtest_run($match) {
-
-  my ($tree,$ctx,$f)=get_ctx($match);
+sub mtest_run($self,$branch) {
 
   my $out = 0;
-  my $st  = $match->{value};
+  my $st  = $branch->{value};
 
   my $v   = $st->{v}->{value};
   my $re  = $st->{re};
@@ -1183,8 +1174,8 @@ sub mtest_run($match) {
 
     for my $key(keys %+) {
 
-      $ctx->{-MATX}->{$key}//=[];
-      my $ar=$ctx->{-MATX}->{$key};
+      $self->{-MATX}->{$key}//=[];
+      my $ar=$self->{-MATX}->{$key};
 
       push @$ar,$+{$key};
 
@@ -1229,10 +1220,12 @@ sub mtest_run($match) {
 
 # ---   *   ---   *   ---
 
-sub ret_ctx($match) {
+sub ret_ctx($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
-  $ctx->ns_path(-ret=>1);
+  my $mach = $self->{mach};
+  my $n    = 1;
+
+  $mach->{scope}->ret($n);
 
 };
 
@@ -1262,12 +1255,12 @@ sub ret_ctx($match) {
 # ---   *   ---   *   ---
 # ^post-parse
 
-sub call($match) {
+sub call($self,$branch) {
 
-  my $st=$match->bhash(0,1);
-  $match->clear_branches();
+  my $st=$branch->bhash(0,1);
+  $branch->clear_branches();
 
-  $match->{value}={
+  $branch->{value}={
     fn   => [(split $REGEX->{nsop},$st->{value})],
     args => $st->{values},
 
@@ -1278,30 +1271,27 @@ sub call($match) {
 # ---   *   ---   *   ---
 # ^optimize
 
-sub call_opz($match) {
+sub call_opz($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
+  my $mach  = $self->{mach};
+  my $st    = $branch->{value};
 
-  my $st    = $match->{value};
-  my @path  = $ctx->ns_path();
-
-  my @rpath = $ctx->ns_search(
+  my @path  = $mach->{scope}->path();
+  my @rpath = $mach->{scope}->search(
 
     (join q[::],@{$st->{fn}}),
-
-    $REGEX->{nsop},
     @path
 
   );
 
-  $st->{fn}=$ctx->ns_get(
+  $st->{fn}=$mach->{scope}->get(
     @rpath,q[$branch]
 
   );
 
   for my $arg(@{$st->{args}}) {
-    next if !($arg=~ $REGEX->{bare});
-    $ctx->ns_cderef(1,$REGEX->{nsop},\$arg,@path);
+    next if ! ($arg=~ $REGEX->{bare});
+    $mach->{scope}->cderef(1,\$arg,@path);
 
   };
 
@@ -1310,21 +1300,19 @@ sub call_opz($match) {
 # ---   *   ---   *   ---
 # ^exec
 
-sub call_run($match) {
+sub call_run($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
-
-  my $st   = $match->{value};
+  my $st   = $branch->{value};
 
   my $fn   = $st->{fn};
   my @args = @{$st->{args}};
 
   for my $arg(reverse @args) {
-    $ctx->{mach}->stkpush($arg);
+    $self->{mach}->stkpush($arg);
 
   };
 
-  unshift @{$ctx->{callstk}},
+  unshift @{$self->{callstk}},
     $fn->shift_branch(keepx=>1);
 
 };
@@ -1360,26 +1348,26 @@ sub call_run($match) {
 # ---   *   ---   *   ---
 # wat
 
-sub fc_or_v($match) {
+sub fc_or_v($self,$branch) {
 
-  my $par=$match->{parent};
+  my $par=$branch->{parent};
 
-  for my $nd(@{$match->{leaves}}) {
-    $match->pluck($nd) if !$nd->{mfull};
+  for my $nd(@{$branch->{leaves}}) {
+    $branch->pluck($nd) if !$nd->{mfull};
 
   };
 
-  my $type=\($match->{leaves}->[0]->{value});
+  my $type=\($branch->{leaves}->[0]->{value});
 
   if($$type eq 'value') {
-    $match=$match->flatten_branch();
+    $branch=$branch->flatten_branch();
 
   } else {
 
   };
 
-  $match=$match->flatten_branch();
-  $match->{value}='eval';
+  $branch=$branch->flatten_branch();
+  $branch->{value}='eval';
 
 };
 
@@ -1458,12 +1446,12 @@ sub fc_or_v($match) {
 
 # ---   *   ---   *   ---
 
-sub cond_beg_ctx($match) {
+sub cond_beg_ctx($self,$branch) {
 
-  my $idex  = $match->{idex};
+  my $idex  = $branch->{idex};
   my $depth = 0;
 
-  my @lv    = @{$match->{parent}->{leaves}};
+  my @lv    = @{$branch->{parent}->{leaves}};
   @lv       = @lv[$idex+1..$#lv];
 
   $idex     = 0;
@@ -1484,24 +1472,22 @@ sub cond_beg_ctx($match) {
   };
 
   @lv=@lv[0..$idex-1];
-  $match->{-pest}=$match->bhash();
+  $branch->{-pest}=$branch->bhash();
 
-  $match->pluck($match->branches_in(
+  $branch->pluck($branch->branches_in(
     qr{^nid|eval$}
 
   ));
 
-  $match->pushlv(@lv);
+  $branch->pushlv(@lv);
 
 };
 
 # ---   *   ---   *   ---
 
-sub cond_beg_run($match) {
+sub cond_beg_run($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
-
-  my $st=$match->{-pest};
+  my $st=$branch->{-pest};
   my $ev=$st->{eval};
 
   my $ok=0;
@@ -1511,10 +1497,10 @@ sub cond_beg_run($match) {
 
   };
 
-  if(!$ok) {
+  if(! $ok) {
 
-    my $callstk = $ctx->{callstk};
-    my $size    = @{$match->{leaves}};
+    my $callstk = $self->{callstk};
+    my $size    = @{$branch->{leaves}};
 
     for(0..$size-1) {
       shift @$callstk;
@@ -1526,36 +1512,26 @@ sub cond_beg_run($match) {
 };
 
 # ---   *   ---   *   ---
-# repeat offenders
-
-sub get_ctx($match) {
-  my ($tree) = $match->root();
-  my $ctx    = $tree->{ctx};
-  my $f      = $ctx->{frame};
-
-  return ($tree,$ctx,$f);
-
-};
-
-# ---   *   ---   *   ---
 # value expansion
 
-sub vex($ctx,$fet,$vref,@path) {
+sub vex($self,$fet,$vref,@path) {
 
-  $ctx->ns_cderef(
-    $fet,$REGEX->{nsop},$vref,@path,q[$LIS]
+  my $mach=$self->{mach};
 
-  ) or $ctx->ns_cderef(
-    $fet,$REGEX->{nsop},$vref,@path
+  $mach->{scope}->cderef(
+    $fet,$vref,@path,q[$LIS]
+
+  ) or $mach->{scope}->cderef(
+    $fet,$vref,@path
 
   );
 
 };
 
-sub array_vex($ctx,$fet,$ar,@path) {
+sub array_vex($self,$fet,$ar,@path) {
 
   for my $v(@$ar) {
-    vex($ctx,$fet,\$v,@path);
+    $self->vex($fet,\$v,@path);
 
   };
 
@@ -1564,7 +1540,7 @@ sub array_vex($ctx,$fet,$ar,@path) {
 # ---   *   ---   *   ---
 # placeholder for file header
 
-sub rdhed($match) {
+sub rdhed($self,$branch) {
 
 };
 
@@ -1588,9 +1564,10 @@ sub throw_undef_get(@path) {
 
 # ---   *   ---   *   ---
 
-sub detag($o,$ctx,@path) {
+sub detag($self,$o,@path) {
 
   my @tags=();
+  my $mach=$self->{mach};
 
   while($o=~ s[$REGEX->{tag}][$Shwl::PL_CUT]) {
 
@@ -1603,29 +1580,27 @@ sub detag($o,$ctx,@path) {
 
       push @npath,'re',$name;
 
-      my @rpath=$ctx->ns_search(
+      my @rpath=$mach->{scope}->search(
 
         (join q[::],@npath),
-
-        $REGEX->{nsop},
         @path,'re'
 
       );
 
-      $name=$ctx->ns_get(@rpath);
+      $name=$mach->{scope}->get(@rpath);
 
       # proc scope walkback
       if(
 
          is_hashref($name)
-      && defined $ctx->{frame}->{-cproc}
+      && defined $self->{frame}->{-cproc}
 
       ) {
 
         @npath=@rpath[-2..-1];
         @rpath=(@rpath[0..1],@npath);
 
-        $name=$ctx->ns_get(@rpath);
+        $name=$mach->{scope}->get(@rpath);
 
       };
 
@@ -1650,32 +1625,26 @@ sub detag($o,$ctx,@path) {
 # ---   *   ---   *   ---
 # regex expansion
 
-sub re_vex($ctx,$o) {
+sub re_vex($self,$o) {
 
-  my @path   = $ctx->ns_path();
+  my $mach  = $self->{mach};
+  my @path  = $mach->{scope}->path();
+  my $flags = {};
 
-  my $qwor   = $ctx->ns_get(@path,'-qwor');
-  my $sigws  = $ctx->ns_get(@path,'-sigws');
-  my $insens = $ctx->ns_get(@path,'-insens');
-  my $escape = $ctx->ns_get(@path,'-escape');
+  for my $key(keys %$PE_FLAGS) {
+    my $x=$mach->{scope}->get(@path,$key);
+    $flags->{$key}=$x;
 
-  my %flags  = (
+  };
 
-    -qwor   => $qwor,
-    -sigws  => $sigws,
-    -insens => $insens,
-    -escape => $escape,
-
-  );
-
-  $o         = detag($o,$ctx,@path);
+  $o=$self->detag($o);
 
   if(!$sigws) {
     $o=~ s[[\s\n]+][ ]sxmg;
 
   };
 
-  if($qwor) {
+  if($flags->{-qwor}) {
 
     my @ar=split $SPACE_RE,$o;
     array_filter(\@ar);
@@ -1683,33 +1652,36 @@ sub re_vex($ctx,$o) {
     $o=Lang::eiths(
       \@ar,
 
-      escape=>$escape,
-      insens=>$insens
+      escape=>$flags->{-escape},
+      insens=>$flags->{-insens},
 
     );
 
   };
 
-  return ($o,%flags);
+  return ($o,$flags);
 
 };
 
 # ---   *   ---   *   ---
 # interprets regex definitions
 
-sub rdre_ctx($match) {
+sub rdre_ctx($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
+  my $mach = $self->{mach};
+  my $st   = $branch->bhash(0,0,0);
+  my @path = $mach->{scope}->path();
 
-  my $st         = $match->bhash(0,0,0);
-  my @path       = $ctx->ns_path();
-
-  my ($o,%flags) = $ctx->re_vex($st->{nterm});
+  my ($o,$flags)=$self->re_vex($st->{nterm});
 
   $o=q[(?<].$st->{seal}.q[>].$o.q[)];
-  $o=(!$flags{sigws}) ? qr{$o}x : qr{$o};
 
-  $ctx->ns_decl(
+  $o=(! $flags->{-sigws})
+    ? qr{$o}x
+    : qr{$o}
+    ;
+
+  $mach->{scope}->decl(
 
     $o,
 
@@ -1724,19 +1696,23 @@ sub rdre_ctx($match) {
 # ---   *   ---   *   ---
 # placeholder for special defs
 
-sub sasg_ctx($match) {
+sub sasg_ctx($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
-
-  my $st     = $match->bhash(0,0);
-  my @path   = $ctx->ns_path();
+  my $mach = $self->{mach};
+  my $st   = $branch->bhash(0,0);
+  my @path = $mach->{scope}->path();
 
   if(uc $st->{name} eq 'ENTRY') {
-    $st->{nterm}=[split q[::],$st->{nterm}];
+
+    $st->{nterm}=[split
+      $REGEX->{nsop},
+      $st->{nterm}
+
+    ];
 
   };
 
-  $ctx->ns_asg(
+  $mach->{scope}->asg(
     $st->{nterm},
 
     @path,
@@ -1749,36 +1725,35 @@ sub sasg_ctx($match) {
 # ---   *   ---   *   ---
 # turns you on and off
 
-sub switch($match) {
+sub switch($self,$branch) {
 
-  my $st=$match->bhash(0,1);
+  my $st=$branch->bhash(0,1);
 
-  $match->{value}={
+  $branch->{value}={
 
     type  => uc $st->{type},
     flags => $st->{flags},
 
   };
 
-  $match->clear_branches();
+  $branch->clear_branches();
 
 };
 
-sub switch_ctx($match) {
+sub switch_ctx($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
-
-  my $st   = $match->{value};
-  my @path = $ctx->ns_path();
+  my $mach = $self->{mach};
+  my $st   = $branch->{value};
+  my @path = $mach->{scope}->path();
 
   my $value=int($st->{type} eq 'WED');
 
   for my $f(@{$st->{flags}}) {
 
     my $d=$f->leaf_value(0);
-    my $fname=$d->{sigil}.$d->{name};
+    my $fname=$d->{sigil} . $d->{name};
 
-    $tree->{ctx}->ns_asg(
+    $mach->{scope}->asg(
       $value,@path,$fname
 
     );
@@ -1791,7 +1766,7 @@ sub switch_ctx($match) {
 # converts all numerical
 # notations to decimal
 
-sub rdnum($match) {
+sub rdnum($self,$branch) {
 
   state %converter=(
 
@@ -1812,7 +1787,7 @@ sub rdnum($match) {
 
       );
 
-    } $match->branches_in(
+    } $branch->branches_in(
       $REGEX->{$type}
 
     );
@@ -1824,38 +1799,36 @@ sub rdnum($match) {
 # ---   *   ---   *   ---
 # preprocesses hierarchicals
 
-
-sub hier_sort($match) {
+sub hier_sort($self,$branch) {
 
   Tree::Grammar::list_flatten(
-    $match->branch_in(qr{^name$})
+    $branch->branch_in(qr{^name$})
 
   );
 
-  my ($type)=$match->pluck(
-    $match->branch_in(qr{^type$})
+  my ($type)=$branch->pluck(
+    $branch->branch_in(qr{^type$})
 
   );
 
-  $match->{value}=$type->leaf_value(0);
+  $branch->{value}=$type->leaf_value(0);
 
-  my $st=$match->bhash(1,0);
-  $match->{-pest}=$st;
+  my $st=$branch->bhash(1,0);
+  $branch->{-pest}=$st;
 
-  $match->clear_branches();
+  $branch->clear_branches();
 
 };
 
 # ---   *   ---   *   ---
 # forks accto hierarchical type
 
-sub hier_sort_ctx($match) {
+sub hier_sort_ctx($self,$branch) {
 
-  my ($tree,$ctx,$f)=get_ctx($match);
-
-  my $type    = $match->{value};
+  my $type    = $branch->{value};
   my $ckey    = q[-c].(lc $type);
-  my $st      = $match->{-pest};
+  my $st      = $branch->{-pest};
+  my $f       = $self->{frame};
 
   $f->{$ckey} = $st->{name};
 
@@ -1878,28 +1851,29 @@ sub hier_sort_ctx($match) {
 
   };
 
-  my @path=$ctx->ns_path();
+  my $mach=$self->{mach};
+  my @path=$mach->{scope}->path();
 
   for my $key(keys %$PE_FLAGS) {
     my $value=$PE_FLAGS->{$key};
-    $ctx->ns_asg($value,@path,$key);
+    $mach->{scope}->asg($value,@path,$key);
 
   };
 
-  my @chld=$match->{parent}->match_until(
-    $match,qr{^$type$}
+  my @chld=$branch->{parent}->match_until(
+    $branch,qr{^$type$}
 
   );
 
-  @chld=$match->{parent}->all_from(
-    $match
+  @chld=$branch->{parent}->all_from(
+    $branch
 
   ) if !@chld;
 
-  $match->pushlv(@chld);
+  $branch->pushlv(@chld);
 
   @path=grep {$ARG ne '$DEF'} @path;
-  $ctx->ns_mkbranch($match,@path);
+  $mach->{scope}->decl_branch($branch,@path);
 
 };
 
@@ -1953,33 +1927,7 @@ sub ns_path($self,%O) {
   my @out = ();
   my $f   = $self->{frame};
 
-  if(defined $f->{-cproc}) {
-
-    my $ckey=(defined $f->{-crom})
-      ? q[-crom]
-      : q[-creg]
-      ;
-
-    @out=(
-      $f->{-cclan},$f->{$ckey},
-      $f->{-cproc}
-
-    );
-
-  } elsif(defined $f->{-crom}) {
-    @out=($f->{-cclan},$f->{-crom});
-
-  } elsif(defined $f->{-creg}) {
-    @out=($f->{-cclan},$f->{-creg});
-
-  } else {
-
-    @out=(
-      $f->{-cclan},'$DEF'
-
-    );
-
-  };
+  $mach->{scope}->path($branch->ances());
 
   ns_ret($f) if $O{-ret};
 
@@ -1990,24 +1938,24 @@ sub ns_path($self,%O) {
 # ---   *   ---   *   ---
 # pushes constructors to current namespace
 
-sub ptr_decl($match) {
+sub ptr_decl($self,$branch) {
 
   Tree::Grammar::list_flatten(
-    $match->branch_in(qr{^names$})
+    $branch->branch_in(qr{^names$})
 
   );
 
   Tree::Grammar::nest_flatten(
-    $match,'flg'
+    $branch,'flg'
 
   );
 
   Tree::Grammar::nest_flatten(
-    $match,'value'
+    $branch,'value'
 
   );
 
-  $match->branch_in(
+  $branch->branch_in(
     qr{^specs$}
 
   )->flatten_branch();
@@ -2017,19 +1965,17 @@ sub ptr_decl($match) {
 # ---   *   ---   *   ---
 # ^call made when executing tree
 
-sub ptr_decl_ctx($match) {
+sub ptr_decl_ctx($self,$branch) {
 
-
-  my ($tree,$ctx,$f)=get_ctx($match);
-
-  # ^unpack
-  my $st     = $match->bhash(1,1,1);
+  my $mach   = $self->{mach};
+  my $st     = $branch->bhash(1,1,1);
   my $type   = shift @{$st->{type}};
+
   my @specs  = @{$st->{type}};
   my @names  = @{$st->{names}};
   my @values = @{$st->{'values'}};
 
-  my @path   = $ctx->ns_path();
+  my @path   = $mach->{scope}->path();
 
   # errchk
   throw_invalid_scope(\@names,@path)
@@ -2061,14 +2007,15 @@ sub ptr_decl_ctx($match) {
 
     };
 
-    $ctx->ns_decl($o,@path,$name);
+    $mach->{scope}->decl($o,@path,$name);
 
-    push @$ptrs,$ctx->ns_fetch(@path,$name);
+    push @$ptrs,
+      $mach->{scope}->rget(@path,$name);
 
   };
 
-  $match->clear_branches();
-  $match->{value}=$ptrs;
+  $branch->clear_branches();
+  $branch->{value}=$ptrs;
 
 };
 
