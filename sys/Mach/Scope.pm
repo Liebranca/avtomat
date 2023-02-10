@@ -195,7 +195,7 @@ sub cderef($self,$fet,$vref,@path) {
   my @rpath = $self->search_nc($$vref,@path);
 
   my $valid = $self->has(@rpath);
-  my $fn    = ($fet) ? \&fetch : \&get;
+  my $fn    = ($fet) ? \&rget : \&get;
 
   $$vref    = $fn->($self,@rpath) if $valid;
 

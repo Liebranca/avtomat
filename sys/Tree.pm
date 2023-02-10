@@ -237,7 +237,7 @@ sub fetch($self,%O) {
 
   # make res for lookup
   my $out     = $self;
-  my $path_re = [map {qr[^$ARG]x} @$path];
+  my $path_re = [map {qr[^\Q$ARG]x} @$path];
 
   # get nodes accto path
   for my $i(0..@$path-1) {

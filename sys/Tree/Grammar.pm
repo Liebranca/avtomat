@@ -218,27 +218,14 @@ sub opt_branch($self) {
 # ($match)
 # \-->value
 
-sub list_flatten($ctx,$match) {
+sub list_flatten($ctx,@branches) {
 
-  for my $branch(@{$match->{leaves}}) {
-    $branch->flatten_branch();
+  for my $branch(@branches) {
 
-  };
+    for my $nd(@{$branch->{leaves}}) {
+      $nd->flatten_branch();
 
-};
-
-# ---   *   ---   *   ---
-# ^a more complex form of that
-
-sub nest_flatten($match,$pat) {
-
-  for my $branch(
-    $match->branches_in(qr{^$pat$})
-
-  ) {
-
-    list_flatten($branch);
-    $branch->flatten_branch();
+    };
 
   };
 

@@ -181,9 +181,8 @@ sub fd_solve($self,$dst) {
 
   # attempt fetch on fail
   if(!$valid) {
-    my @path = $self->{scope}->cpath();
-
-    $buff=$self->{scope}->fetch(@path,$dst);
+    my @path=$self->{scope}->path();
+    $buff=$self->{scope}->get(@path,$dst);
 
   # get buff && descriptor
   } else {

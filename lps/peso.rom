@@ -30,7 +30,6 @@ ROM std;
 
   wed   -qwor,-insens;
   unwed -escape;
-STOP;
 
   re    spec ptr fptr str buf tab re;
   re    type
@@ -43,9 +42,6 @@ STOP;
   ;
 
   unwed -insens;
-
-  re fulltype <spec> \s+ <type>;
-
   wed   -escape;
 
   re    sigil
@@ -80,33 +76,35 @@ STOP;
   | v[\d\.:]+[ab]?
   ;
 
-  re    bare [_\w][_\w\d]+;
-  re    sigged <sigil><bare>;
+  re bare [_\w][_\w\d]+;
+  re sigged <sigil><bare>;
 
-  re    ari
+  re ari
     (<sigged|num|bare>)? <ops>
     <sigged|num|bare>
 
   ;
 
+  re fulltype <spec> \s+ <type>;
+
 # ---   *   ---   *   ---
 
 PROC expr;
-
   in byte str s;
-
   lis  {/:f} 1;
 
   sow  {/:f} "ENTER\n";
   reap {/:f};
 
   on s~=^<bare>$;
-    sow  {/:f} "RECURSE\n";
+    sow  {/:f} s;
     reap {/:f};
 
-    call expr 0;
+    call expr "infinite\n";
 
   off;
+
+STOP;
 
 # ---   *   ---   *   ---
 

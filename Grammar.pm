@@ -181,7 +181,7 @@ sub get_entry($self,$entry) {
   my $mach=$self->{mach};
 
   my @out=(!is_arrayref($entry))
-    ? $self->get_clan_entries($self->{tree})
+    ? $self->get_clan_entries()
     : $mach->{scope}->get(@$entry,q[$branch])
     ;
 
@@ -195,27 +195,32 @@ sub get_entry($self,$entry) {
 sub get_clan_entries($self) {
 
   my @out  = ();
+
   my $mach = $self->{mach};
+  my $tree = $mach->{scope}->{tree};
 
-  for my $key(keys %{$mach->{scope}}) {
+  for my $branch(@{$tree->{leaves}}) {
 
+    my $key=$branch->{value};
     next if $key eq q[$decl:order];
 
     # get name of entry proc
-    my $name=$mach->{scope}->get(
-      $key,'$DEF','ENTRY'
+    my $procn=$mach->{scope}->has(
+      $key,'ENTRY'
 
     );
 
+    next if ! defined $procn;
+
     # ^fetch
-    my @path = ($key,@$name,q[$branch]);
+    my @path = ($key,@{$$procn},q[$branch]);
     my $o    = $mach->{scope}->get(@path);
 
     # ^validate
     throw_invalid_entry(@path)
-    if ! Tree::Grammar->is_valid($$o);
+    if ! Tree::Grammar->is_valid($o);
 
-    push @out,$$o;
+    push @out,$o;
 
 
   };

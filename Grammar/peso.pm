@@ -13,36 +13,6 @@
 # ---   *   ---   *   ---
 # deps
 
-package cvalue;
-
-  use v5.36.0;
-  use strict;
-  use warnings;
-
-  use Readonly;
-  use English qw(-no_match_vars);
-
-  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
-
-  use Style;
-  use Fmat;
-  use parent 'St';
-
-# ---   *   ---   *   ---
-
-sub nit($class,%O) {
-  my $self=bless {%O},$class;
-  return $self;
-
-};
-
-sub deref($self) {
-  return ($self->{sigil},$self->{name});
-
-};
-
-# ---   *   ---   *   ---
-
 package Grammar::peso;
 
   use v5.36.0;
@@ -516,14 +486,16 @@ sub flg($self,$branch) {
     : 'bare'
     ;
 
-  $branch->{value}=cvalue->nit(
+  $branch->{value}={
 
     sigil => $st->{sigil},
     name  => $st->{$type},
 
     type  => $type,
 
-  );
+  };
+
+  $branch->clear_branches();
 
 };
 
@@ -761,7 +733,7 @@ sub lis($self,$branch) {
   $branch->{value}={
 
     from => $st->{value},
-    to   => $st->{vglob}->leaf_value(0),
+    to   => $st->{vglob},
 
   };
 
@@ -903,14 +875,6 @@ sub sow_run($self,$branch) {
   for my $v(@{$branch->{value}->{me}}) {
 
     my $deref;
-
-    if(cvalue->is_valid($v)) {
-      say 'IMPLEMENT DEREF';
-
-      my ($sigil,$name)=$v->deref();
-      exit;
-
-    };
 
     $deref//=(is_hashref($v))
       ? $v->{value}
@@ -1141,7 +1105,7 @@ sub mtest_ctx($self,$branch) {
   my $st         = $branch->bhash();
   my @path       = $mach->{scope}->path();
 
-  my ($o,%flags) = $self->re_vex($st->{nterm});
+  my ($o,$flags) = $self->re_vex($st->{nterm});
   my $v          = $mach->{scope}->get(
 
     @path,
@@ -1154,7 +1118,7 @@ sub mtest_ctx($self,$branch) {
     re  => $o,
     v   => $v,
 
-    flg => \%flags,
+    flg => $flags,
 
   };
 
@@ -1285,20 +1249,17 @@ sub call_opz($self,$branch) {
   my $st    = $branch->{value};
 
   my @path  = $mach->{scope}->path();
-  my @rpath = $mach->{scope}->search(
+  my $procr = $mach->{scope}->search(
 
-    (join q[::],@{$st->{fn}}),
-    @path
-
-  );
-
-  $st->{fn}=$mach->{scope}->get(
-    @rpath,q[$branch]
+    (join q[::],@{$st->{fn}},q[$branch]),
+    @path,
 
   );
+
+  $st->{fn}=$$procr;
 
   for my $arg(@{$st->{args}}) {
-    next if ! ($arg=~ $REGEX->{bare});
+    next if ! ($arg=~ m[^$REGEX->{bare}$]);
     $mach->{scope}->cderef(1,\$arg,@path);
 
   };
@@ -1501,7 +1462,7 @@ sub cond_beg_run($self,$branch) {
   my $ok=0;
 
   for my $nd(@{$ev->{leaves}}) {
-    $ok|=$nd->{chain}->[-1]->($nd);
+    $ok|=$nd->{chain}->[-1]->($self,$nd);
 
   };
 
@@ -1593,32 +1554,14 @@ sub detag($self,$o) {
 
       push @npath,'re',$name;
 
-      my @rpath=$mach->{scope}->search(
+      my $rer=$mach->{scope}->search(
 
         (join q[::],@npath),
-        @path,'re'
+        @path
 
       );
 
-      $name=$mach->{scope}->get(@rpath);
-
-      # proc scope walkback
-      if(
-
-         is_hashref($name)
-      && defined $self->{frame}->{-cproc}
-
-      ) {
-
-        @npath=@rpath[-2..-1];
-        @rpath=(@rpath[0..1],@npath);
-
-        $name=$mach->{scope}->get(@rpath);
-
-      };
-
-      throw_undef_get(@rpath)
-      if(is_hashref($name));
+      $name=$$rer;
 
     };
 
@@ -1767,8 +1710,7 @@ sub switch_ctx($self,$branch) {
 
   for my $f(@{$st->{flags}}) {
 
-    my $d=$f->leaf_value(0);
-    my $fname=$d->{sigil} . $d->{name};
+    my $fname=$f->{sigil} . $f->{name};
 
     $mach->{scope}->asg(
       $value,@path,$fname
@@ -1988,25 +1930,44 @@ sub ns_path($self,%O) {
 
 sub ptr_decl($self,$branch) {
 
-  Tree::Grammar::list_flatten(
-    $self,$branch->branch_in(qr{^names$})
+  # flatten lists
+  for my $key(qw(names flg value)) {
 
-  );
+    my @ar=$branch->branches_in(
+      qr{^$key$},
+      max_depth=>1,
 
-  Tree::Grammar::nest_flatten(
-    $branch,'flg'
+    );
 
-  );
+    Tree::Grammar::list_flatten($self,@ar);
 
-  Tree::Grammar::nest_flatten(
-    $branch,'value'
-
-  );
+  };
 
   $branch->branch_in(
     qr{^specs$}
 
   )->flatten_branch();
+
+  # hashrefy
+  my $st    = $branch->bhash(1,1,1);
+
+  # first value is type
+  # rest is specifiers
+  my $type  = shift @{$st->{type}};
+  my @specs = @{$st->{type}};
+
+  # ^put together
+  $branch->{value}={
+
+    type   => $type,
+    specs  => \@specs,
+
+    names  => $st->{names},
+    values => $st->{values},
+
+  };
+
+  $branch->clear_branches();
 
 };
 
@@ -2015,15 +1976,15 @@ sub ptr_decl($self,$branch) {
 
 sub ptr_decl_ctx($self,$branch) {
 
+  my $st     = $branch->{value};
   my $mach   = $self->{mach};
-  my $st     = $branch->bhash(1,1,1);
-  my $type   = shift @{$st->{type}};
+  my $type   = $st->{type};
 
   my $f      = $self->{frame};
 
-  my @specs  = @{$st->{type}};
+  my @specs  = @{$st->{specs}};
   my @names  = @{$st->{names}};
-  my @values = @{$st->{'values'}};
+  my @values = @{$st->{values}};
 
   my @path   = $mach->{scope}->path();
 
@@ -2064,7 +2025,6 @@ sub ptr_decl_ctx($self,$branch) {
 
   };
 
-  $branch->clear_branches();
   $branch->{value}=$ptrs;
 
 };
@@ -2163,23 +2123,21 @@ sub ptr_decl_ctx($self,$branch) {
 
   my $ice  = Grammar::peso->parse($prog,-r=>2);
 
-  $ice->{tree}->prich();
-  $ice->{mach}->{scope}->prich();
+#  $ice->{tree}->prich();
+#  $ice->{mach}->{scope}->prich();
 
-#  Grammar::peso->run(
-#
-#    $t,
-#
-#    entry=>1,
-#    keepx=>1,
-#
-#    input=>[
-#
-#      "HLOWRLD\n",
-#
-#    ],
-#
-#  );
+  $ice->run(
+
+    entry=>1,
+    keepx=>1,
+
+    input=>[
+
+      "HLOWRLD\n",
+
+    ],
+
+  );
 
 # ---   *   ---   *   ---
 1; # ret
