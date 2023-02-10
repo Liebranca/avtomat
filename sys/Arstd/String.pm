@@ -18,8 +18,13 @@ package Arstd::String;
   use strict;
   use warnings;
 
+  use Readonly;
+  use English qw(-no_match_vars);
+
   use lib $ENV{'ARPATH'}.'/lib/sys/';
+
   use Style;
+  use Arstd::Array;
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -35,26 +40,35 @@ package Arstd::String;
     dqwrap
 
     begswith
+    charcon
 
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;
+  our $VERSION=v0.00.3;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  our $ESCAPE_RE=qr"\x1B\[[\?\d;]+[\w]"x;
+  Readonly our $ESCAPE_RE=>qr"\x1B\[[\?\d;]+[\w]"x;
 
-  my $LINEWRAP_PROTO=q{(
+  Readonly my $LINEWRAP_PROTO=>q{(
 
     [^\n]{1,SZ_X} ((\n|\s)|$)
   | [^\n]{1,SZ_X} (.|$)
 
   )};
+
+  Readonly our $CHARCON_DEF=>[
+
+    qr{\\n}x => "\n",
+    qr{\\r}x => "\r",
+    qr{\\b}x => "\b",
+
+  ];
 
 # ---   *   ---   *   ---
 # global state
@@ -141,6 +155,29 @@ sub pretty_tag($s) {
 
 sub begswith($s,$prefix) {
   return (rindex $s,$prefix,0)==0;
+
+};
+
+# ---   *   ---   *   ---
+# convert match of seq into char
+
+sub charcon($sref,$table=undef) {
+
+  $table//=$CHARCON_DEF;
+
+  my @pats=Arstd::Array::nkeys($table);
+  my @seqs=Arstd::Array::nvalues($table);
+
+  while(@pats && @seqs) {
+
+    my $pat=shift @pats;
+    my $seq=shift @seqs;
+
+    $$sref=~ s[$pat][$seq]sxmg;
+
+  };
+
+  return;
 
 };
 

@@ -29,6 +29,7 @@ package Grammar::peso;
   use Fmat;
 
   use Arstd::Array;
+  use Arstd::String;
   use Arstd::IO;
 
   use Tree::Grammar;
@@ -206,6 +207,16 @@ package Grammar::peso;
       (?: (?!< \\\\) <)
       ((?: [^>]|\\\\>)+)
       (?: (?!< \\\\) >)
+
+    }x,
+
+    repl=>qr{
+
+      \%\s*
+
+      (?<name> (?: [^%]|\\\\%)+)
+
+      \s*\%
 
     }x,
 
@@ -388,11 +399,11 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # string types
 
-  Readonly our $QSTR=>{
+  Readonly our $DQSTR=>{
 
-    name => 'qstr',
+    name => 'dqstr',
 
-    fn   => 'qstr',
+    fn   => 'dqstr',
     dom  => 'Grammar::peso',
 
     chld => [{
@@ -405,22 +416,75 @@ package Grammar::peso;
   };
 
 # ---   *   ---   *   ---
-# ^rough ipret
+# ^ipret
 
-sub qstr($self,$branch) {
-  $branch->{value}=eval($branch->leaf_value(0));
+sub dqstr($self,$branch) {
+
+  my $ct=$branch->leaf_value(0);
+
+  ($ct=~ s[^"([\s\S]*)"$][$1])
+  or throw_badstr($ct);
+
+  charcon(\$ct);
+
+  $branch->{value}=$ct;
   $branch->clear_branches();
 
 };
 
 # ---   *   ---   *   ---
+# ^errme
 
-  Readonly our $CSTR=>{
+sub throw_badstr($s) {
 
-    name => qr{'([^']|\\')*?'},
-    fn   => 'capt',
+  errout(
+
+    q[Malformed string: %s],
+
+    args => [$s],
+    lvl  => $AR_FATAL,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# single quoted
+
+  Readonly our $SQSTR=>{
+
+    name => 'sqstr',
+
+    fn   => 'sqstr',
+    dom  => 'Grammar::peso',
+
+    chld => [{
+
+      name => qr{'([^']|\\')*?'},
+      fn   => 'capt',
+
+    }],
 
   };
+
+# ---   *   ---   *   ---
+# ^ipret
+
+sub sqstr($self,$branch) {
+
+  my $ct=$branch->leaf_value(0);
+
+  ($ct=~ s[^'([\s\S]*)'$][$1])
+  or throw_badstr($ct);
+
+  $branch->{value}=$ct;
+  $branch->clear_branches();
+
+};
+
+# ---   *   ---   *   ---
+# version strings
+# ie v[major].[minor].[patch]
 
   Readonly our $VSTR=>{
 
@@ -438,8 +502,8 @@ sub qstr($self,$branch) {
 
     chld => [
 
-      $QSTR,$Grammar::OR,
-      $CSTR,$Grammar::OR,
+      $DQSTR,$Grammar::OR,
+      $SQSTR,$Grammar::OR,
       $VSTR
 
     ],
@@ -528,23 +592,32 @@ sub flg($self,$branch) {
 sub value_sort($self,$branch) {
 
   my $st     = $branch->bhash();
-  my ($type) = keys %$st;
-
   my $xx     = $branch->leaf_value(0);
-  if(is_hashref($xx)) {
-    $type=$xx;
 
-  };
+  my ($type) = keys %$st;
 
   $branch->clear_branches();
 
-  $branch->init(
+  my $o=undef;
+  if(defined $st->{$type}) {
 
-    (defined $st->{$type})
-      ? $st->{$type}
-      : $type,
+    $o={
+      type => $type,
+      raw  => $st->{$type}
 
-  );
+    };
+
+  } else {
+
+    $o={
+      type => $type,
+      raw  => $xx,
+
+    };
+
+  };
+
+  $branch->init($o);
 
 };
 
@@ -844,7 +917,7 @@ sub sow_opz($self,$branch) {
   $self->vex(0,\$st->{fd},@path);
 
   my ($fd2,$buff)=$mach->fd_solve(
-    $st->{fd}
+    $st->{fd}->{raw}
 
   );
 
@@ -874,26 +947,14 @@ sub sow_run($self,$branch) {
 
   for my $v(@{$branch->{value}->{me}}) {
 
-    my $deref;
+    my ($type,$deref);
 
-    $deref//=(is_hashref($v))
-      ? $v->{value}
-      : $v
-      ;
+    if(is_hashref($v)) {
+      my $fn = $v->{type} . '_vex';
+      $deref = $self->$fn($v->{raw});
 
-    if(Tree::Grammar->is_valid($deref)) {
-      my ($sigil,$name)=$deref->{value}->deref();
-
-      if($sigil eq '*') {
-
-        if($name=~ $REGEX->{tag}) {
-
-          $name  =~ s[^<|>$][]sxmg;
-          $deref =  pop @{$self->{-MATX}->{$name}};
-
-        };
-
-      };
+    } else {
+      $deref=$v;
 
     };
 
@@ -902,7 +963,7 @@ sub sow_run($self,$branch) {
   };
 
   $mach->sow(
-    $branch->{value}->{fd},$s
+    $branch->{value}->{fd}->{raw},$s
 
   );
 
@@ -913,7 +974,7 @@ sub reap_run($self,$branch) {
   my $mach = $self->{mach};
   my $fh   = $branch->{value};
 
-  $mach->reap($fh);
+  $mach->reap($fh->{raw});
 
 };
 
@@ -1105,11 +1166,13 @@ sub mtest_ctx($self,$branch) {
   my $st         = $branch->bhash();
   my @path       = $mach->{scope}->path();
 
+  my $value      = $st->{value};
+
   my ($o,$flags) = $self->re_vex($st->{nterm});
   my $v          = $mach->{scope}->get(
 
     @path,
-    $st->{value}
+    $value->{raw}
 
   );
 
@@ -1487,6 +1550,10 @@ sub vex($self,$fet,$vref,@path) {
 
   my $mach=$self->{mach};
 
+  # default to current scope
+  @path=$mach->{scope}->path()
+  if ! @path;
+
   $mach->{scope}->cderef(
     $fet,$vref,@path,q[$LIS]
 
@@ -1503,6 +1570,33 @@ sub array_vex($self,$fet,$ar,@path) {
     $self->vex($fet,\$v,@path);
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# name/ptr
+
+sub bare_vex($self,$raw) {
+
+  $self->vex(0,\$raw);
+  return $raw->{value};
+
+};
+
+sub str_vex($self,$raw) {
+
+  my $re=$REGEX->{repl};
+
+  while($raw=~ $re) {
+
+    my $name  = $+{name};
+    my $value = $self->bare_vex($name);
+
+    $raw=~ s[$re][$value];
+
+  };
+
+  return $raw;
 
 };
 

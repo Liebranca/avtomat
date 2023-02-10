@@ -93,14 +93,11 @@ PROC expr;
   in byte str s;
   lis  {/:f} 1;
 
-  sow  {/:f} "ENTER\n";
-  reap {/:f};
-
   on s~=^<bare>$;
-    sow  {/:f} s;
+    sow  {/:f} "%s%",'%s%',s;
     reap {/:f};
 
-    call expr "infinite\n";
+#    call expr "%s%";
 
   off;
 
