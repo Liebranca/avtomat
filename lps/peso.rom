@@ -94,10 +94,9 @@ PROC expr;
   lis  {/:f} 1;
 
   on s~=^<bare>$;
-    sow  {/:f} 'you passed %s%',"\n";
-    reap {/:f};
 
-#    call expr "%s%";
+    sow  {/:f} "%s%\n";
+    reap {/:f};
 
   off;
 

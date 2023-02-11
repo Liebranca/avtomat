@@ -376,4 +376,16 @@ sub mkrules($class,@rules) {
 };
 
 # ---   *   ---   *   ---
+# creates rule alternation
+
+sub ralt(@rules) {
+
+  my @out=map {$ARG,$OR} @rules;
+  pop @out;
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
 1; # ret

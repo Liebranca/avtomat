@@ -82,6 +82,8 @@ package Grammar::peso;
 
   };
 
+# ---   *   ---   *   ---
+
   Readonly our $REGEX=>{
 
     hexn  => qr{\$  [0-9A-Fa-f\.:]+}x,
@@ -225,17 +227,15 @@ package Grammar::peso;
 
   };
 
-  Readonly our $LCOM=>{
-    name => $REGEX->{lcom},
-
-  };
-
   Readonly our $COMMENT=>{
 
     name => 'comment',
     fn   => 'discard',
 
-    chld => [$LCOM],
+    chld => [{
+      name=>$REGEX->{lcom}
+
+    }],
 
   };
 
@@ -276,13 +276,21 @@ package Grammar::peso;
     chld => [
 
       $SIGIL,
-
       {%$NTERM,opt=>1},
-      $TERM
 
     ],
 
   };
+
+# ---   *   ---   *   ---
+# placeholder for file header
+
+sub rdhed($self,$branch) {
+
+  my $mach=$self->{mach};
+  my @path=$mach->{scope}->path();
+
+};
 
 # ---   *   ---   *   ---
 # numerical notation
@@ -321,17 +329,46 @@ package Grammar::peso;
 
     dom  => 'Grammar::peso',
 
-    chld => [
+    chld => [Grammar::ralt(
+      $HEX,$OCT,$BIN,$DEC
 
-      $HEX,$Grammar::OR,
-      $OCT,$Grammar::OR,
-      $BIN,$Grammar::OR,
-
-      $DEC
-
-    ],
+    )],
 
   };
+
+# ---   *   ---   *   ---
+# converts all numerical
+# notations to decimal
+
+sub rdnum($self,$branch) {
+
+  state %converter=(
+
+    hexn=>\&Lang::pehexnc,
+    octn=>\&Lang::peoctnc,
+    binn=>\&Lang::pebinnc,
+
+  );
+
+  for my $type(keys %converter) {
+
+    my $fn=$converter{$type};
+
+    map {
+
+      $ARG->{value}=$fn->(
+        $ARG->{value}
+
+      );
+
+    } $branch->branches_in(
+      $REGEX->{$type}
+
+    );
+
+  };
+
+};
 
 # ---   *   ---   *   ---
 # common patterns
@@ -497,13 +534,10 @@ sub sqstr($self,$branch) {
 
     name => 'str',
 
-    chld => [
+    chld => [Grammar::ralt(
+      $DQSTR,$SQSTR,$VSTR
 
-      $DQSTR,$Grammar::OR,
-      $SQSTR,$Grammar::OR,
-      $VSTR
-
-    ],
+    )],
 
   };
 
@@ -519,12 +553,17 @@ sub sqstr($self,$branch) {
 
     chld => [
 
-      $SIGIL,{name=>'x',fn=>'clip',chld=>[
+      $SIGIL,{
 
-        $BARE,$Grammar::OR,
-        $SEAL
+        name => 'x',
+        fn   => 'clip',
 
-      ]},
+        chld=>[Grammar::ralt(
+          $BARE,$SEAL
+
+        )],
+
+      },
 
     ],
 
@@ -570,16 +609,10 @@ sub flg($self,$branch) {
     dom  => 'Grammar::peso',
     fn   => 'value_sort',
 
-    chld => [
+    chld => [Grammar::ralt(
+      $NUM,$STR,$FLG,$BARE
 
-      $NUM,$Grammar::OR,
-      $STR,$Grammar::OR,
-
-      $FLG,$Grammar::OR,
-
-      $BARE
-
-    ],
+    )],
 
   };
 
@@ -657,14 +690,206 @@ sub value_sort($self,$branch) {
 
       },
 
-      $TERM
-
     ],
 
   };
 
 # ---   *   ---   *   ---
-# ^patterns for declaring members
+# preprocesses hierarchicals
+
+sub hier_sort($self,$branch) {
+
+  Tree::Grammar::list_flatten(
+    $self,$branch->branch_in(qr{^name$})
+
+  );
+
+  my ($type)=$branch->pluck(
+    $branch->branch_in(qr{^type$})
+
+  );
+
+  $branch->{value}=$type->leaf_value(0);
+
+  my $st=$branch->bhash(1,0);
+  $branch->{-pest}=$st;
+
+  $branch->clear_branches();
+
+};
+
+# ---   *   ---   *   ---
+# forks accto hierarchical type
+
+sub hier_sort_ctx($self,$branch) {
+
+  my $type = $branch->{value};
+  my $ckey = q[-c].(lc $type);
+  my $st   = $branch->{-pest};
+  my $f    = $self->{frame};
+
+  # set type of current scope
+  $f->{$ckey}=$st->{name};
+
+  # get altered path
+  my @cur=$self->cpath_change($type);
+  if(!@cur) {
+    @cur=$self->cpath()
+
+  };
+
+  # ^set path
+  my $mach=$self->{mach};
+  my @path=$mach->{scope}->path(@cur);
+
+  # initialize scope
+  $self->hier_nit($type);
+
+  # parent nodes to this branch
+  $self->hier_chld($branch,$type);
+
+  # save pointer to branch
+  # used for jumping later ;>
+  @path=grep {$ARG ne '$DEF'} @path;
+  $mach->{scope}->decl_branch($branch,@path);
+
+};
+
+# ---   *   ---   *   ---
+# alters current path when
+# stepping on a hierarchical
+
+sub cpath_change($self,$type) {
+
+  my @out = ();
+  my $f   = $self->{frame};
+
+  if($type eq 'ROM') {
+    $f->{-creg}=undef;
+    $f->{-cproc}=undef;
+
+    @out=($f->{-cclan},$f->{-crom});
+
+  } elsif($type eq 'REG') {
+    $f->{-crom}=undef;
+    $f->{-cproc}=undef;
+
+    @out=($f->{-cclan},$f->{-creg});
+
+  } elsif($type eq 'CLAN') {
+    $f->{-creg}=undef;
+    $f->{-crom}=undef;
+    $f->{-cproc}=undef;
+
+    @out=($f->{-cclan});
+
+  };
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^get current path from
+# previously stepped hierarchicals
+
+sub cpath($self) {
+
+  my @out = ();
+  my $f   = $self->{frame};
+
+  if(defined $f->{-creg}) {
+    @out=(
+      $f->{-cclan},
+      $f->{-creg},
+      $f->{-cproc}
+
+    );
+
+  } elsif(defined $f->{-crom}) {
+    @out=(
+      $f->{-cclan},
+      $f->{-crom},
+      $f->{-cproc}
+
+    );
+
+  } else {
+    @out=(
+      $f->{-cclan},
+      $f->{-cproc}
+
+    );
+
+  };
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# get children nodes of a hierarchical
+# performs parenting
+
+sub hier_chld($self,$branch,$type) {
+
+  my @out=();
+
+  # alter type for tree search
+  if($type eq 'REG' || $type eq 'ROM') {
+    $type=q[REG|ROM];
+
+  };
+
+  # get nodes up to next hierarchical
+  @out=$branch->{parent}->match_until(
+    $branch,qr{^$type$}
+
+  );
+
+  # ^all remaining on fail
+  @out=$branch->{parent}->all_from(
+    $branch
+
+  ) if ! @out;
+
+  $branch->pushlv(@out);
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# defaults out all flags for
+# current scope
+
+sub hier_nit($self,$type) {
+
+  my $mach=$self->{mach};
+  my @path=$mach->{scope}->path();
+
+  # major scope properties
+  if($type eq 'CLAN') {
+
+    for my $key(keys %$PE_SDEFS) {
+      my $value=$PE_SDEFS->{$key};
+      $mach->{scope}->decl($value,@path,$key);
+
+    };
+
+  };
+
+  # ^minor flags
+  for my $key(keys %$PE_FLAGS) {
+    my $value=$PE_FLAGS->{$key};
+    $mach->{scope}->decl($value,@path,$key);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# patterns for declaring members
 
   Readonly our $FULL_TYPE=>{
 
@@ -709,11 +934,150 @@ sub value_sort($self,$branch) {
       $NLIST,
       {%$VLIST,opt=>1},
 
-      $TERM
-
     ],
 
   };
+
+# ---   *   ---   *   ---
+# pushes constructors to current namespace
+
+sub ptr_decl($self,$branch) {
+
+  # flatten lists
+  for my $key(qw(names flg value)) {
+
+    my @ar=$branch->branches_in(
+      qr{^$key$},
+      max_depth=>1,
+
+    );
+
+    Tree::Grammar::list_flatten($self,@ar);
+
+  };
+
+  $branch->branch_in(
+    qr{^specs$}
+
+  )->flatten_branch();
+
+  # hashrefy
+  my $st    = $branch->bhash(1,1,1);
+
+  # first value is type
+  # rest is specifiers
+  my $type  = shift @{$st->{type}};
+  my @specs = @{$st->{type}};
+
+  # ^put together
+  $branch->{value}={
+
+    type   => $type,
+    specs  => \@specs,
+
+    names  => $st->{names},
+    values => $st->{values},
+
+  };
+
+  $branch->clear_branches();
+
+};
+
+# ---   *   ---   *   ---
+# ^pre-run step
+
+sub ptr_decl_ctx($self,$branch) {
+
+  my $st     = $branch->{value};
+  my $mach   = $self->{mach};
+  my @path   = $mach->{scope}->path();
+  my $type   = $st->{type};
+
+  my $f      = $self->{frame};
+
+  my @names  = @{$st->{names}};
+  my @values = @{$st->{values}};
+
+  # errchk
+  throw_invalid_scope(\@names,@path)
+  if !$f->{-crom}
+  && !$f->{-creg}
+  && !$f->{-cproc}
+  ;
+
+  # enforce zero as default value
+  for my $i(0..$#names) {
+    $values[$i]//=0;
+
+  };
+
+  $self->bind_decls($branch);
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_invalid_scope($names,@path) {
+
+  my $p=(@path) ? join q[/],@path : $NULLSTR;
+  my $s=join q[,],map {$p.'/%s'} @$names;
+
+  errout(
+
+    q[No valid container for decls ]."<$s>",
+
+    args => [@$names],
+    lvl  => $AR_FATAL,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# register decls to current scope
+
+sub bind_decls($self,$branch) {
+
+  # data
+  my $st     = $branch->{value};
+  my $type   = $st->{type};
+  my @specs  = @{$st->{specs}};
+  my @names  = @{$st->{names}};
+  my @values = @{$st->{values}};
+
+  # ctx
+  my $mach=$self->{mach};
+  my @path=$mach->{scope}->path();
+
+  # dst
+  my $ptrs=[];
+
+  while(@names && @values) {
+
+    my $name  = shift @names;
+    my $value = shift @values;
+
+    my $o     = {
+
+      type  => $type,
+      flags => \@specs,
+
+      value => $value,
+
+    };
+
+    $mach->{scope}->decl($o,@path,$name);
+
+    push @$ptrs,
+      $mach->{scope}->rget(@path,$name);
+
+  };
+
+  $branch->{value}=$ptrs;
+
+};
 
 # ---   *   ---   *   ---
 # proc input
@@ -730,7 +1094,7 @@ sub value_sort($self,$branch) {
       {name=>qr{in}},
       $PTR_DECL,
 
-    ]
+    ],
 
   };
 
@@ -969,14 +1333,14 @@ sub reap_run($self,$branch) {
     name => 'name',
 
     chld=>[{
+
+      fn   => 'capt',
       name => Lang::eiths(
 
         [qw(VERSION AUTHOR ENTRY)],
         -insens=>1,
 
       ),
-
-      fn   => 'capt',
 
     }],
 
@@ -988,13 +1352,13 @@ sub reap_run($self,$branch) {
 
     name=>'nid',
     chld=>[{
+
+      fn   => 'capt',
       name => Lang::eiths(
         [qw(def redef undef)],
         -insens => 1,
 
       ),
-
-      fn   => 'capt',
 
     }],
 
@@ -1013,8 +1377,6 @@ sub reap_run($self,$branch) {
 
       $VGLOB,
       $NTERM,
-
-      $TERM
 
     ],
 
@@ -1037,9 +1399,42 @@ sub prime($self,$branch) {
     fn   => 'sasg',
     dom  => 'Grammar::peso',
 
-    chld => [$SVARS,$NTERM,$TERM],
+    chld => [$SVARS,$NTERM],
 
   };
+
+# ---   *   ---   *   ---
+# placeholder for special defs
+
+sub sasg_ctx($self,$branch) {
+
+  my $mach = $self->{mach};
+
+  my $st   = $branch->bhash(0,0);
+  my @path = $mach->{scope}->path();
+
+  if(uc $st->{name} eq 'ENTRY') {
+
+    $st->{nterm}=[split
+      $REGEX->{nsop},
+      $st->{nterm}
+
+    ];
+
+  };
+
+  my $o=$mach->{scope}->asg(
+
+    $st->{nterm},
+
+    @path,
+    $st->{name}
+
+  );
+
+  $branch->{parent}->pluck($branch);
+
+};
 
 # ---   *   ---   *   ---
 # switch flips
@@ -1049,13 +1444,12 @@ sub prime($self,$branch) {
     name => 'type',
     chld => [{
 
+      fn   => 'capt',
       name => Lang::eiths(
         [qw(wed unwed)],
         insens=>1,
 
       ),
-
-      fn   => 'capt',
 
     }],
 
@@ -1068,9 +1462,48 @@ sub prime($self,$branch) {
     fn   => 'switch',
     dom  => 'Grammar::peso',
 
-    chld => [$WED,$FLIST,$TERM],
+    chld => [$WED,$FLIST],
 
   };
+
+# ---   *   ---   *   ---
+# turns you on and off
+
+sub switch($self,$branch) {
+
+  my $st=$branch->bhash(0,1);
+
+  $branch->{value}={
+
+    type  => uc $st->{type},
+    flags => $st->{flags},
+
+  };
+
+  $branch->clear_branches();
+
+};
+
+sub switch_ctx($self,$branch) {
+
+  my $mach = $self->{mach};
+  my $st   = $branch->{value};
+  my @path = $mach->{scope}->path();
+
+  my $value=int($st->{type} eq 'WED');
+
+  for my $f(@{$st->{flags}}) {
+
+    my $fname=$f->{sigil} . $f->{name};
+
+    $mach->{scope}->asg(
+      $value,@path,$fname
+
+    );
+
+  };
+
+};
 
 # ---   *   ---   *   ---
 # regex definitions
@@ -1100,11 +1533,43 @@ sub prime($self,$branch) {
 
       $SEAL,
       $NTERM,
-      $TERM
 
     ],
 
   };
+
+# ---   *   ---   *   ---
+# interprets regex definitions
+
+sub rdre_ctx($self,$branch) {
+
+  my $mach = $self->{mach};
+  my $st   = $branch->bhash(0,0,0);
+  my @path = $mach->{scope}->path();
+
+  my ($o,$flags)=$self->re_vex($st->{nterm});
+
+  $o=q[(?<].$st->{seal}.q[>].$o.q[)];
+
+  $o=(! $flags->{-sigws})
+    ? qr{$o}x
+    : qr{$o}
+    ;
+
+  $mach->{scope}->decl(
+
+    $o,
+
+    @path,
+    $st->{type},
+    $st->{seal}
+
+  );
+
+  $branch->clear_branches();
+  $branch->{value}="$st->{type}:$st->{seal}";
+
+};
 
 # ---   *   ---   *   ---
 # test
@@ -1126,7 +1591,7 @@ sub prime($self,$branch) {
 
     name => 'match',
 
-    fn   => 'mtest',
+    fn   => 'match',
     dom  => 'Grammar::peso',
 
     chld => [
@@ -1135,7 +1600,6 @@ sub prime($self,$branch) {
       {name=>qr{~=}},
 
       $NTERM,
-      $TERM
 
     ],
 
@@ -1143,7 +1607,7 @@ sub prime($self,$branch) {
 
 # ---   *   ---   *   ---
 
-sub mtest_ctx($self,$branch) {
+sub match_ctx($self,$branch) {
 
   my $mach       = $self->{mach};
   my $st         = $branch->bhash();
@@ -1175,7 +1639,7 @@ sub mtest_ctx($self,$branch) {
 # ---   *   ---   *   ---
 # ^exec
 
-sub mtest_run($self,$branch) {
+sub match_run($self,$branch) {
 
   my $out = 0;
   my $st  = $branch->{value};
@@ -1230,7 +1694,6 @@ sub mtest_run($self,$branch) {
       }]},
 
       {%$NTERM,opt=>1},
-      $TERM
 
     ],
 
@@ -1262,9 +1725,7 @@ sub ret_ctx($self,$branch) {
       {name=>qr{call}},
 
       $VALUE,
-
       $VLIST,
-      $TERM,
 
     ],
 
@@ -1351,12 +1812,10 @@ sub call_run($self,$branch) {
     dom  => 'Grammar::peso',
     fn   => 'fc_or_v',
 
-    chld => [
+    chld => [Grammar::ralt(
+      $FCALL,$VALUE
 
-      $FCALL,$Grammar::OR,
-      $VALUE
-
-    ],
+    )],
 
   };
 
@@ -1416,8 +1875,7 @@ sub fc_or_v($self,$branch) {
 
       },
 
-      $FC_OR_V,
-      $TERM
+      $FC_OR_V
 
     ],
 
@@ -1452,8 +1910,6 @@ sub fc_or_v($self,$branch) {
         }],
 
       },
-
-      $TERM
 
     ],
 
@@ -1608,34 +2064,6 @@ sub deref($self,$v) {
 };
 
 # ---   *   ---   *   ---
-# placeholder for file header
-
-sub rdhed($self,$branch) {
-
-  my $mach=$self->{mach};
-  my @path=$mach->{scope}->path();
-
-};
-
-# ---   *   ---   *   ---
-# errme for getting an undefined value
-
-sub throw_undef_get(@path) {
-
-  my $path=join q[::],@path;
-
-  errout(
-
-    q[<%s> is undefined],
-
-    args => [$path],
-    lvl  => $AR_FATAL,
-
-  );
-
-};
-
-# ---   *   ---   *   ---
 
 sub detag($self,$o) {
 
@@ -1721,416 +2149,6 @@ sub re_vex($self,$o) {
 };
 
 # ---   *   ---   *   ---
-# interprets regex definitions
-
-sub rdre_ctx($self,$branch) {
-
-  my $mach = $self->{mach};
-  my $st   = $branch->bhash(0,0,0);
-  my @path = $mach->{scope}->path();
-
-  my ($o,$flags)=$self->re_vex($st->{nterm});
-
-  $o=q[(?<].$st->{seal}.q[>].$o.q[)];
-
-  $o=(! $flags->{-sigws})
-    ? qr{$o}x
-    : qr{$o}
-    ;
-
-  $mach->{scope}->decl(
-
-    $o,
-
-    @path,
-    $st->{type},
-    $st->{seal}
-
-  );
-
-};
-
-# ---   *   ---   *   ---
-# placeholder for special defs
-
-sub sasg_ctx($self,$branch) {
-
-  my $mach = $self->{mach};
-
-  my $st   = $branch->bhash(0,0);
-  my @path = $mach->{scope}->path();
-
-  if(uc $st->{name} eq 'ENTRY') {
-
-    $st->{nterm}=[split
-      $REGEX->{nsop},
-      $st->{nterm}
-
-    ];
-
-  };
-
-  my $o=$mach->{scope}->asg(
-
-    $st->{nterm},
-
-    @path,
-    $st->{name}
-
-  );
-
-  $branch->{parent}->pluck($branch);
-
-};
-
-# ---   *   ---   *   ---
-# turns you on and off
-
-sub switch($self,$branch) {
-
-  my $st=$branch->bhash(0,1);
-
-  $branch->{value}={
-
-    type  => uc $st->{type},
-    flags => $st->{flags},
-
-  };
-
-  $branch->clear_branches();
-
-};
-
-sub switch_ctx($self,$branch) {
-
-  my $mach = $self->{mach};
-  my $st   = $branch->{value};
-  my @path = $mach->{scope}->path();
-
-  my $value=int($st->{type} eq 'WED');
-
-  for my $f(@{$st->{flags}}) {
-
-    my $fname=$f->{sigil} . $f->{name};
-
-    $mach->{scope}->asg(
-      $value,@path,$fname
-
-    );
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# converts all numerical
-# notations to decimal
-
-sub rdnum($self,$branch) {
-
-  state %converter=(
-
-    hexn=>\&Lang::pehexnc,
-    octn=>\&Lang::peoctnc,
-    binn=>\&Lang::pebinnc,
-
-  );
-
-  for my $type(keys %converter) {
-
-    my $fn=$converter{$type};
-
-    map {
-
-      $ARG->{value}=$fn->(
-        $ARG->{value}
-
-      );
-
-    } $branch->branches_in(
-      $REGEX->{$type}
-
-    );
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# preprocesses hierarchicals
-
-sub hier_sort($self,$branch) {
-
-  Tree::Grammar::list_flatten(
-    $self,$branch->branch_in(qr{^name$})
-
-  );
-
-  my ($type)=$branch->pluck(
-    $branch->branch_in(qr{^type$})
-
-  );
-
-  $branch->{value}=$type->leaf_value(0);
-
-  my $st=$branch->bhash(1,0);
-  $branch->{-pest}=$st;
-
-  $branch->clear_branches();
-
-};
-
-# ---   *   ---   *   ---
-# forks accto hierarchical type
-
-sub hier_sort_ctx($self,$branch) {
-
-  my $type    = $branch->{value};
-  my $ckey    = q[-c].(lc $type);
-  my $st      = $branch->{-pest};
-  my $f       = $self->{frame};
-
-  my @cur     = ();
-
-  $f->{$ckey} = $st->{name};
-
-  if($type eq 'ROM') {
-    $f->{-creg}=undef;
-    $f->{-cproc}=undef;
-
-    @cur=($f->{-cclan},$f->{-crom});
-
-    $type=q[REG|ROM];
-
-  } elsif($type eq 'REG') {
-    $f->{-crom}=undef;
-    $f->{-cproc}=undef;
-
-    @cur=($f->{-cclan},$f->{-creg});
-
-    $type=q[REG|ROM];
-
-  } elsif($type eq 'CLAN') {
-    $f->{-creg}=undef;
-    $f->{-crom}=undef;
-    $f->{-cproc}=undef;
-
-    @cur=($f->{-cclan});
-
-  } else {
-
-    if(defined $f->{-creg}) {
-      @cur=($f->{-cclan},$f->{-creg},$f->{-cproc});
-
-    } elsif(defined $f->{-crom}) {
-      @cur=($f->{-cclan},$f->{-crom},$f->{-cproc});
-
-    } else {
-      @cur=($f->{-cclan},$f->{-cproc});
-
-    };
-
-  };
-
-  my $mach=$self->{mach};
-  my @path=$mach->{scope}->path(@cur);
-
-  if($type eq 'CLAN') {
-
-    for my $key(keys %$PE_SDEFS) {
-      my $value=$PE_SDEFS->{$key};
-      $mach->{scope}->decl($value,@path,$key);
-
-    };
-
-  };
-
-  for my $key(keys %$PE_FLAGS) {
-    my $value=$PE_FLAGS->{$key};
-    $mach->{scope}->decl($value,@path,$key);
-
-  };
-
-  my @chld=$branch->{parent}->match_until(
-    $branch,qr{^$type$}
-
-  );
-
-  @chld=$branch->{parent}->all_from(
-    $branch
-
-  ) if !@chld;
-
-  $branch->pushlv(@chld);
-
-  @path=grep {$ARG ne '$DEF'} @path;
-  $mach->{scope}->decl_branch($branch,@path);
-
-};
-
-# ---   *   ---   *   ---
-# decl errme
-
-sub throw_invalid_scope($names,@path) {
-
-  my $p=(@path) ? join q[/],@path : $NULLSTR;
-  my $s=join q[,],map {$p.'/%s'} @$names;
-
-  errout(
-
-    q[No valid container for decls ]."<$s>",
-
-    args => [@$names],
-    lvl  => $AR_FATAL,
-
-  );
-
-};
-
-# ---   *   ---   *   ---
-
-sub ns_ret($f) {
-
-  if(defined $f->{-cproc}) {
-    $f->{-cproc}=undef;
-
-  } elsif(defined $f->{-crom}) {
-    $f->{-crom}=undef;
-
-  } elsif(defined $f->{-creg}) {
-    $f->{-creg}=undef;
-
-  } else {
-    $f->{-cclan}='non';
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# builds namespace path
-
-sub ns_path($self,%O) {
-
-#  # defaults
-#  $O{-ret}//=0;
-#
-#  my @out = ();
-#  my $f   = $self->{frame};
-#
-#  $mach->{scope}->path($branch->ances());
-#
-#  ns_ret($f) if $O{-ret};
-#
-#  return @out;
-
-};
-
-# ---   *   ---   *   ---
-# pushes constructors to current namespace
-
-sub ptr_decl($self,$branch) {
-
-  # flatten lists
-  for my $key(qw(names flg value)) {
-
-    my @ar=$branch->branches_in(
-      qr{^$key$},
-      max_depth=>1,
-
-    );
-
-    Tree::Grammar::list_flatten($self,@ar);
-
-  };
-
-  $branch->branch_in(
-    qr{^specs$}
-
-  )->flatten_branch();
-
-  # hashrefy
-  my $st    = $branch->bhash(1,1,1);
-
-  # first value is type
-  # rest is specifiers
-  my $type  = shift @{$st->{type}};
-  my @specs = @{$st->{type}};
-
-  # ^put together
-  $branch->{value}={
-
-    type   => $type,
-    specs  => \@specs,
-
-    names  => $st->{names},
-    values => $st->{values},
-
-  };
-
-  $branch->clear_branches();
-
-};
-
-# ---   *   ---   *   ---
-# ^call made when executing tree
-
-sub ptr_decl_ctx($self,$branch) {
-
-  my $st     = $branch->{value};
-  my $mach   = $self->{mach};
-  my $type   = $st->{type};
-
-  my $f      = $self->{frame};
-
-  my @specs  = @{$st->{specs}};
-  my @names  = @{$st->{names}};
-  my @values = @{$st->{values}};
-
-  my @path   = $mach->{scope}->path();
-
-  # errchk
-  throw_invalid_scope(\@names,@path)
-  if !$f->{-crom}
-  && !$f->{-creg}
-  && !$f->{-cproc}
-  ;
-
-  # enforce zero as default value
-  for my $i(0..$#names) {
-    $values[$i]//=0;
-
-  };
-
-  my $ptrs=[];
-
-  # push decls to namespace
-  while(@names && @values) {
-
-    my $name  = shift @names;
-    my $value = shift @values;
-
-    my $o     = {
-
-      type  => $type,
-      flags => \@specs,
-
-      value => $value,
-
-    };
-
-    $mach->{scope}->decl($o,@path,$name);
-
-    push @$ptrs,
-      $mach->{scope}->rget(@path,$name);
-
-  };
-
-  $branch->{value}=$ptrs;
-
-};
-
-# ---   *   ---   *   ---
 # groups
 
   Readonly our $BLTN=>{
@@ -2143,76 +2161,57 @@ sub ptr_decl_ctx($self,$branch) {
       { name => 'nid',
         fn   => 'clip',
 
-        chld => [
+        chld => [Grammar::ralt(
+          $LIS,$SOW,$REAP,
 
-          $LIS,$Grammar::OR,
-
-          $SOW,$Grammar::OR,
-          $REAP,
-
-        ]
+        )]
 
       },
-
-      $TERM
 
     ],
 
   };
 
 # ---   *   ---   *   ---
+# non-terminated, non-code
 
-  Readonly our $CORE=>[
-
-    $HEADER,
-    $COMMENT,
-    $PRIME,
-
-    $SDEFS,
-    $SWITCH,
-
-    $HIER,
-    $PTR_DECL,
-    $PE_INPUT,
-
-    $RE,
-    $RET,
-
-    $COND_BEG,
-    $COND_END,
-
-    $MATCH,
-    $CALL,
-    $BLTN,
+  Readonly our $META=>[
+    $COMMENT
 
   ];
 
 # ---   *   ---   *   ---
-# test
+# ^terminated
+
+  Readonly our $NEEDS_TERM=>[
+
+    $HEADER,$SDEFS,$SWITCH,
+    $HIER,$PTR_DECL,$PE_INPUT,
+
+    $RE,$RET,$COND_BEG,$COND_END,
+    $MATCH,$CALL,$BLTN,
+
+  ];
+
+# ---   *   ---   *   ---
+# ^generate rules
+
+  Readonly our $CORE=>[map {{
+
+    name => 'dummy',
+    fn   => 'clip',
+
+    chld => [$ARG,$TERM],
+
+  }} @$NEEDS_TERM];
 
   Grammar::peso->mkrules(
-
-    $HEADER,
-    $COMMENT,
-
-    $SDEFS,
-    $SWITCH,
-
-    $HIER,
-    $PTR_DECL,
-    $PE_INPUT,
-
-    $RE,
-    $RET,
-
-    $COND_BEG,
-    $COND_END,
-
-    $MATCH,
-    $CALL,
-    $BLTN,
+    @$META,@$CORE
 
   );
+
+# ---   *   ---   *   ---
+# test
 
   my $src  = $ARGV[0];
      $src//= 'lps/peso.rom';
@@ -2224,8 +2223,7 @@ sub ptr_decl_ctx($self,$branch) {
 
   my $ice  = Grammar::peso->parse($prog,-r=>2);
 
-#  $ice->{tree}->prich();
-#  $ice->{mach}->{scope}->prich();
+  $ice->{tree}->prich();
 
   $ice->run(
 
