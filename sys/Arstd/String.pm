@@ -41,6 +41,7 @@ package Arstd::String;
 
     begswith
     charcon
+    nobs
 
   );
 
@@ -54,6 +55,7 @@ package Arstd::String;
 # ROM
 
   Readonly our $ESCAPE_RE=>qr"\x1B\[[\?\d;]+[\w]"x;
+  Readonly our $NOBS_RE=>qr{\\(.)}x;
 
   Readonly my $LINEWRAP_PROTO=>q{(
 
@@ -64,9 +66,11 @@ package Arstd::String;
 
   Readonly our $CHARCON_DEF=>[
 
-    qr{\\n}x => "\n",
-    qr{\\r}x => "\r",
-    qr{\\b}x => "\b",
+    qr{\\n}x   => "\n",
+    qr{\\r}x   => "\r",
+    qr{\\b}x   => "\b",
+
+    qr{\\}x    => '\\',
 
   ];
 
@@ -178,6 +182,15 @@ sub charcon($sref,$table=undef) {
   };
 
   return;
+
+};
+
+# ---   *   ---   *   ---
+# hides the backslash in \[char]
+
+sub nobs($sref) {
+
+  $$sref=~ s[$NOBS_RE][$1]sxmg;
 
 };
 

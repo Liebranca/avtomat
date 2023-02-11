@@ -202,23 +202,8 @@ package Grammar::peso;
 
 # ---   *   ---   *   ---
 
-    tag=>qr{
-
-      (?: (?!< \\\\) <)
-      ((?: [^>]|\\\\>)+)
-      (?: (?!< \\\\) >)
-
-    }x,
-
-    repl=>qr{
-
-      \%\s*
-
-      (?<name> (?: [^%]|\\\\%)+)
-
-      \s*\%
-
-    }x,
+    tag  => Lang::delim_capt('<','>'),
+    repl => Lang::delim_capt('%'),
 
   };
 
@@ -427,7 +412,13 @@ sub dqstr($self,$branch) {
 
   charcon(\$ct);
 
-  $branch->{value}=$ct;
+  $branch->{value}={
+
+    ipol => 1,
+    ct   => $ct,
+
+  };
+
   $branch->clear_branches();
 
 };
@@ -477,7 +468,13 @@ sub sqstr($self,$branch) {
   ($ct=~ s[^'([\s\S]*)'$][$1])
   or throw_badstr($ct);
 
-  $branch->{value}=$ct;
+  $branch->{value}={
+
+    ipol => 0,
+    ct   => $ct,
+
+  };
+
   $branch->clear_branches();
 
 };
@@ -945,27 +942,13 @@ sub sow_run($self,$branch) {
 
   my @path = $mach->{scope}->path();
 
-  for my $v(@{$branch->{value}->{me}}) {
+  map {
 
-    my ($type,$deref);
+    $s.=$self->deref($ARG)
 
-    if(is_hashref($v)) {
-      my $fn = $v->{type} . '_vex';
-      $deref = $self->$fn($v->{raw});
+  } @{$st->{me}};
 
-    } else {
-      $deref=$v;
-
-    };
-
-    $s.=$deref;
-
-  };
-
-  $mach->sow(
-    $branch->{value}->{fd}->{raw},$s
-
-  );
+  $mach->sow($st->{fd}->{raw},$s);
 
 };
 
@@ -1586,17 +1569,41 @@ sub bare_vex($self,$raw) {
 sub str_vex($self,$raw) {
 
   my $re=$REGEX->{repl};
+  my $ct=$raw->{ct};
 
-  while($raw=~ $re) {
+  if($raw->{ipol}) {
 
-    my $name  = $+{name};
-    my $value = $self->bare_vex($name);
+    while($ct=~ $re) {
 
-    $raw=~ s[$re][$value];
+      my $name  = $+{capt};
+      my $value = $self->bare_vex($name);
+
+      $ct=~ s[$re][$value];
+
+    };
+
+    nobs(\$ct);
 
   };
 
-  return $raw;
+  return $ct;
+
+};
+
+# ---   *   ---   *   ---
+# applies value expansion when needed
+
+sub deref($self,$v) {
+
+  my $out=$v;
+
+  if(is_hashref($v)) {
+    my $fn = $v->{type} . '_vex';
+    $out   = $self->$fn($v->{raw});
+
+  };
+
+  return $out;
 
 };
 
@@ -1639,7 +1646,7 @@ sub detag($self,$o) {
 
   while($o=~ s[$REGEX->{tag}][$Shwl::PL_CUT]) {
 
-    my @ar=split q[\|],$1;
+    my @ar=split q[\|],$+{capt};
 
     for my $name(@ar) {
 
@@ -2227,7 +2234,7 @@ sub ptr_decl_ctx($self,$branch) {
 
     input=>[
 
-      "HLOWRLD\n",
+      'HLOWRLD',
 
     ],
 

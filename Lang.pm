@@ -550,6 +550,31 @@ sub nonscap($s,%O) {
 };
 
 # ---   *   ---   *   ---
+# get (nscap $beg) <capt> (nscap $end)
+
+sub delim_capt($beg,$end=undef,%O) {
+
+  # defaults
+  $O{key} //= 'capt';
+  $end    //= $beg;
+
+  # make re
+  my $out=
+
+    '(?: (?<! \\\\) ' . $beg . ') \s*' .
+
+    '(?<' . $O{key} . '> (?: [^' . $end . '] ' .
+    '| \\\\ ' . $end . ')+)' .
+
+    '\s* (?: (?<! \\\\) ' . $end . ')'
+
+  ;
+
+  return qr{$out}x;
+
+};
+
+# ---   *   ---   *   ---
 # book-keeping
 
 my %LANGUAGES=();
