@@ -45,7 +45,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#b
+  our $VERSION = v0.00.9;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -119,6 +119,8 @@ package Grammar::peso;
 
         / // /: //:
         @ @:
+
+        ~:
 
         * : -- - ++ + ^ &
 
@@ -206,6 +208,12 @@ package Grammar::peso;
 
     tag  => Lang::delim_capt('<','>'),
     repl => Lang::delim_capt('%'),
+
+    branch => qr{
+      (?<leaf> (.+))?
+      (?: \\ \-* >)
+
+    }x,
 
   };
 
@@ -626,6 +634,11 @@ sub value_sort($self,$branch) {
 
   my ($type) = keys %$st;
 
+  if(is_hashref($xx)) {
+    $type='flg';
+
+  };
+
   $branch->clear_branches();
 
   my $o=undef;
@@ -879,10 +892,20 @@ sub hier_nit($self,$type) {
 
   };
 
-  # ^minor flags
+  # minor flags
   for my $key(keys %$PE_FLAGS) {
     my $value=$PE_FLAGS->{$key};
     $mach->{scope}->decl($value,@path,$key);
+
+  };
+
+  # match stacks
+  if($type eq 'PROC') {
+
+    $mach->{scope}->decl(
+      {},@path,q[~:rematch]
+
+    );
 
   };
 
@@ -1307,7 +1330,6 @@ sub sow_run($self,$branch) {
   my @path = $mach->{scope}->path();
 
   map {
-
     $s.=$self->deref($ARG)
 
   } @{$st->{me}};
@@ -1322,6 +1344,170 @@ sub reap_run($self,$branch) {
   my $fh   = $branch->{value};
 
   $mach->reap($fh->{raw});
+
+};
+
+# ---   *   ---   *   ---
+# for internal/out tree manipulation
+
+  Readonly our $BRANCHES=>{
+
+    name  => 'branches',
+
+    fn    => 'branches',
+    dom   => 'Grammar::peso',
+
+    greed => 1,
+
+    chld  => [{
+
+      name  => $REGEX->{branch},
+      fn    => 'capt',
+
+    },$VLIST],
+
+  };
+
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub branches($self,$branch) {
+
+  # get value list
+  my $lv=$branch->{leaves};
+
+  # BUG:
+  #
+  #   value sort refuses to trigger
+  #   for strings in trees and i
+  #   can't figure out why
+
+  # ^this bit patches it out for now...
+  if($lv->[1]->deepchk(1)) {
+    $self->value_sort($lv->[1]);
+
+  };
+
+  my @values = $lv->[1]->branch_values();
+
+  # get depth
+  my $expr =  $branch->leaf_value(0);
+     $expr =~ $REGEX->{branch};
+  my $leaf = $+{leaf};
+
+  # get dot count
+  $leaf //=  $NULLSTR;
+  $leaf   =~ s[\s+][]sxmg;
+
+  my $lvl=length $leaf;
+
+  $branch->clear_branches();
+
+  my $ar   = $branch->{ar};
+     $ar //= [];
+
+  push @$ar,{
+    lvl   => $lvl,
+    value => (@values > 1)
+      ? \@values
+      : $values[0]
+      ,
+
+  };
+
+  $branch->{ar}=$ar;
+
+};
+
+# ---   *   ---   *   ---
+# branch array
+
+  Readonly our $TREE=>{
+
+    name => 'tree',
+
+    fn   => 'tree',
+    dom  => 'Grammar::peso',
+
+    chld => [
+
+      {name=>qr{tree}},
+
+      $VGLOB,
+      $BRANCHES,
+
+    ],
+
+  };
+
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub tree($self,$branch) {
+
+  # TODO:
+  #
+  #   function calls and derefs
+  #   in tree decls; we have to
+  #   look into expanding $VALUE
+  #   itself...
+  #
+  #   or create different types of
+  #   values, which i'd prefer ;>
+
+  my $st    = $branch->bhash();
+  my $exprs = $branch->branch_in(qr{^branches$});
+  my $ar    = $exprs->{ar};
+
+  $branch->{value}={
+    vglob    => $st->{vglob},
+    branches => $ar,
+
+  };
+
+  $branch->clear_branches();2
+
+};
+
+sub tree_ctx($self,$branch) {
+
+  my $st = $branch->{value};
+  my $ar = $st->{branches};
+
+  my $depth   = 0;
+  my @anchors = ($branch);
+
+  for my $ref(@$ar) {
+
+    my ($lvl,$value)=(
+      $ref->{lvl},
+      $ref->{value}
+
+    );
+
+    my $anchor = $anchors[-1];
+    my $prev   = $anchor->{leaves}->[-1];
+
+    if($lvl > $depth) {
+      push @anchors,$prev;
+      $depth++;
+
+    };
+
+    while($lvl < $depth) {
+      pop @anchors;
+      $depth--;
+
+    };
+
+    $anchors[-1]->init($value);
+
+  };
+
+  $branch->{value}="$st->{vglob}->{name}";
+  $branch->prich();
+
+  exit;
 
 };
 
@@ -1641,25 +1827,31 @@ sub match_ctx($self,$branch) {
 
 sub match_run($self,$branch) {
 
-  my $out = 0;
-  my $st  = $branch->{value};
+  my $out  = 0;
+  my $st   = $branch->{value};
 
-  my $v   = $st->{v}->{value};
-  my $re  = $st->{re};
+  my $mach = $self->{mach};
+  my @path = $mach->{scope}->path();
 
-  my $chk = ($st->{flg}{-sigws})
+  my $v    = $st->{v}->{value};
+  my $re   = $st->{re};
+
+  # use/ignore whitespace
+  my $chk=($st->{flg}->{-sigws})
     ? $v=~ m[$re]
     : $v=~ m[$re]x
     ;
 
+  # ^save matches
   if($chk) {
 
-    for my $key(keys %+) {
+    my $match=$mach->{scope}->get(
+      @path,q[~:rematch]
 
-      $self->{-MATX}->{$key}//=[];
-      my $ar=$self->{-MATX}->{$key};
+    );
 
-      push @$ar,$+{$key};
+    for my $key(keys %-) {
+      $match->{$key}=$-{$key};
 
     };
 
@@ -1831,12 +2023,10 @@ sub fc_or_v($self,$branch) {
 
   };
 
-  my $type=\($branch->{leaves}->[0]->{value});
+  my $type=$branch->{leaves}->[0]->{value};
 
-  if($$type eq 'value') {
+  if($type eq 'value') {
     $branch=$branch->flatten_branch();
-
-  } else {
 
   };
 
@@ -1860,6 +2050,7 @@ sub fc_or_v($self,$branch) {
 
         name=>'nid',chld=>[{
 
+          fn   => 'capt',
           name => Lang::eiths(
 
             [qw(on or)],
@@ -1868,8 +2059,6 @@ sub fc_or_v($self,$branch) {
             insens => 1,
 
           ),
-
-          fn   => 'capt',
 
         }],
 
@@ -1896,6 +2085,7 @@ sub fc_or_v($self,$branch) {
 
         name=>'nid',chld=>[{
 
+          fn   => 'capt',
           name => Lang::eiths(
 
             [qw(off)],
@@ -1904,8 +2094,6 @@ sub fc_or_v($self,$branch) {
             insens => 1,
 
           ),
-
-          fn   => 'capt',
 
         }],
 
@@ -2003,6 +2191,9 @@ sub vex($self,$fet,$vref,@path) {
 
 };
 
+# ---   *   ---   *   ---
+# ^batch
+
 sub array_vex($self,$fet,$ar,@path) {
 
   for my $v(@$ar) {
@@ -2013,7 +2204,7 @@ sub array_vex($self,$fet,$ar,@path) {
 };
 
 # ---   *   ---   *   ---
-# name/ptr
+# ^name/ptr
 
 sub bare_vex($self,$raw) {
 
@@ -2021,6 +2212,35 @@ sub bare_vex($self,$raw) {
   return $raw->{value};
 
 };
+
+# ---   *   ---   *   ---
+# ^unary calls
+
+sub flg_vex($self,$raw) {
+
+  my $out  = $NULLSTR;
+
+  my $mach = $self->{mach};
+  my @path = $mach->{scope}->path();
+
+  if($raw->{sigil} eq q[~:]) {
+
+    my $rem=$mach->{scope}->get(
+      @path,q[~:rematch]
+
+    );
+
+    my $key=$raw->{name};
+    $out=pop @{$rem->{$key}};
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^strings
 
 sub str_vex($self,$raw) {
 
@@ -2054,6 +2274,7 @@ sub deref($self,$v) {
   my $out=$v;
 
   if(is_hashref($v)) {
+
     my $fn = $v->{type} . '_vex';
     $out   = $self->$fn($v->{raw});
 
@@ -2064,6 +2285,7 @@ sub deref($self,$v) {
 };
 
 # ---   *   ---   *   ---
+# solves compound regexes
 
 sub detag($self,$o) {
 
@@ -2149,30 +2371,6 @@ sub re_vex($self,$o) {
 };
 
 # ---   *   ---   *   ---
-# groups
-
-  Readonly our $BLTN=>{
-
-    name => 'bltn',
-    fn   => 'clip',
-
-    chld=>[
-
-      { name => 'nid',
-        fn   => 'clip',
-
-        chld => [Grammar::ralt(
-          $LIS,$SOW,$REAP,
-
-        )]
-
-      },
-
-    ],
-
-  };
-
-# ---   *   ---   *   ---
 # non-terminated, non-code
 
   Readonly our $META=>[
@@ -2189,7 +2387,9 @@ sub re_vex($self,$o) {
     $HIER,$PTR_DECL,$PE_INPUT,
 
     $RE,$RET,$COND_BEG,$COND_END,
-    $MATCH,$CALL,$BLTN,
+    $MATCH,$CALL,
+
+    $LIS,$SOW,$REAP,$TREE,
 
   ];
 
@@ -2223,7 +2423,7 @@ sub re_vex($self,$o) {
 
   my $ice  = Grammar::peso->parse($prog,-r=>2);
 
-  $ice->{tree}->prich();
+#  $ice->{tree}->prich();
 
   $ice->run(
 
@@ -2232,7 +2432,7 @@ sub re_vex($self,$o) {
 
     input=>[
 
-      'HLOWRLD',
+      '-hey',
 
     ],
 

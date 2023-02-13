@@ -87,20 +87,38 @@ ROM std;
 
   re fulltype <spec> \s+ <type>;
 
+  re flg <sigil><bare>;
+
 # ---   *   ---   *   ---
 
 PROC expr;
   in byte str s;
-  lis  {/:f} 1;
+  lis {/:f} 1;
 
-  on s~=^<bare>$;
+  tree {$:BB}
 
-    sow  {/:f} "%s%\n";
+  \-->$24
+  .  \-->*sigged
+  .  .  \-->2
+
+  \-->'test'
+
+  ;
+
+STOP;
+
+  on s~=^<flg>$;
+
+    sow  {/:f}
+      ~:flg,': ',
+      ~:sigil,',',
+      ~:bare,"\n"
+
+    ;
+
     reap {/:f};
 
   off;
-
-STOP;
 
 # ---   *   ---   *   ---
 
