@@ -87,30 +87,58 @@ sub set_top($class,$name) {
 };
 
 # ---   *   ---   *   ---
-# decon string using rules
+# make parser ice
 
-sub parse($class,$prog,%O) {
+sub new($class,%O) {
 
   # defaults
-  $O{-r}   //= 0;
   $O{idex} //= 0;
   $O{mach} //= {idex=>$O{idex}};
 
+  # make new
   my $gram=$class->get_top();
   my $self=bless {
     frame   => $class->new_frame(),
     callstk => [],
 
     mach    => Mach->new(%{$O{mach}}),
+    gram    => $gram,
+
+    anchors => [],
+    pending => [],
 
   },$class;
 
+  # first pass is blank
+  # that means 'parsing stage'
   unshift @{
     $self->{frame}->{-passes}
 
   },$NULLSTR;
 
-  $self->{tree}=$gram->parse($self,$prog);
+  # create parse tree
+  $self->{p3}=$gram->new_p3($self);
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# decon string using rules
+
+sub parse($self,$s,%O) {
+
+  # defaults
+  $O{-r}//=0;
+
+  # invoked as Grammar->parse
+  if(! length ref $self) {
+    my $class = $self;
+       $self  = $class->new(%O);
+
+  };
+
+  # run-through
+  $self->{p3}->parse($s);
 
   # exec -r number of passes
   while($O{-r}--) {
@@ -123,7 +151,7 @@ sub parse($class,$prog,%O) {
 };
 
 # ---   *   ---   *   ---
-# ^executes tree
+# ^execute tree from ice
 
 sub run($self,%O) {
 

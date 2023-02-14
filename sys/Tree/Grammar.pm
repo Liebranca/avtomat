@@ -33,7 +33,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#b
+  our $VERSION = v0.00.8;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -246,8 +246,12 @@ sub rew($ctx,$st) {
 # ---   *   ---   *   ---
 # saves capture to current container
 
-sub capt($ctx,$st) {
-  $st->{anchor}->init($st->{capt});
+sub capt($ctx,$branch) {
+
+  my $anchors = $ctx->{anchors};
+  my $anchor  = $anchors->[-1];
+
+#  $anchor->init($branch->{value});
 
 };
 
@@ -264,10 +268,9 @@ sub crew($ctx,$st) {
 # ---   *   ---   *   ---
 # terminates an expression
 
-sub term($ctx,$st) {
-
-  $st->{anchor}     = $st->{nd}->walkup();
-  @{$st->{pending}} = ();
+sub term($ctx,$branch) {
+  $branch->{parent}->pluck($branch);
+  @{$ctx->{pending}}=();
 
 };
 
@@ -284,7 +287,15 @@ sub discard($ctx,$match) {
 # replace branch with it's children
 
 sub clip($ctx,$match) {
-  $match->flatten_branch();
+
+  if( ! $match->{parent}) {
+    my @lv=@{$match->{leaves}};
+    map {$ARG->flatten_branch()} @lv;
+
+  } else {
+    $match->flatten_branch();
+
+  };
 
 };
 
@@ -344,36 +355,14 @@ sub match_st($self,$ctx,$sref) {
 };
 
 # ---   *   ---   *   ---
-# parse failure errme
-
-sub throw_no_match($self,$s) {
-
-  my $s_short=substr $s,0,64;
-
-  errout(
-
-    "%s\n\n".
-    q[^^^ Could not parse this bit ].
-    q[with grammar <%s>],
-
-    args => [$s_short,$self->{value}],
-    lvl  => $AR_FATAL,
-
-  );
-
-};
-
-# ---   *   ---   *   ---
 # decon string by walking tree branch
 
-sub match($self,$ctx,$s) {
+sub leaf_match($self,$ctx,$s) {
 
   my $st   = $self->match_st($ctx,\$s);
   my $fail = 0;
 
   while(@{$st->{pending}}) {
-
-#    last if !length $s;
 
     if(!$st->get_next()) {
 
@@ -423,69 +412,202 @@ sub match($self,$ctx,$s) {
 };
 
 # ---   *   ---   *   ---
-# attempt match against all possible
-# branches of a grammar
+# exec calls attached to branch
 
-sub parse($self,$ctx,$s) {
+sub on_match($self,$match) {
 
-  my $frame = Tree::Grammar->get_frame();
+  my ($root)=$self->root();
 
-  my $tree  = $frame->nit(
+  $self->{fn}->($root->{ctx},$match)
+  if $self->{fn} ne $NOOP;
+
+  $match->shift_chain(@{$self->{chain}});
+
+};
+
+# ---   *   ---   *   ---
+# regex leaf
+
+sub mre($self,$nd,$sref) {
+
+  my $out = undef;
+  my $re  = $self->{value};
+
+  if($$sref =~ s[^\s*($re)\s*][]) {
+    $out=$nd->init($1);
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+
+sub re_or_branch($self,$ctx,$sref) {
+
+  my $out = undef;
+  my $x   = $self->{value};
+
+  my $ans = $ctx->{anchors};
+  my $an  = $ans->[-1];
+
+  if(is_qre($x)) {
+    $out=$self->mre($an,$sref);
+
+  } else {
+    $out=$an->init($self->{value});
+    push @$ans,$out;
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# recurse
+
+sub match($self,$ctx,$s) {
+
+  my $x     = $self->{value};
+  my $fn    = $self->{fn};
+
+  my $class = $self->{frame}->{-class};
+
+  # parallel
+  my $root=$self->{frame}->nit(
+    parent => undef,
+    value  => $x,
+
+  );
+
+  my @anchors = ($root);
+  my @pending = (@{$self->{leaves}});
+  my $depth   = 0;
+
+  $ctx->{anchors}=\@anchors;
+  $ctx->{pending}=\@pending;
+
+  # ^walk
+  while(@pending) {
+
+    $self=shift @pending;
+
+    if(! $class->is_valid($self)) {
+
+      my $dst=$self;
+      while($dst < $depth) {
+        pop @anchors;
+        $depth--;
+
+      }
+
+      next;
+
+    };
+
+    my $m      = $self->re_or_branch($ctx,\$s);
+    my $fn     = $self->{fn};
+
+    $fn->($ctx,$m) if $m && $fn ne $NOOP;
+
+    my @lv=@{$self->{leaves}};
+    $depth+=0<@lv;
+
+    unshift @pending,@lv,$depth;
+
+  };
+
+  return ($root,$s);
+
+};
+
+# ---   *   ---   *   ---
+# match against all branches
+
+sub hier_match($self,$ctx,$s) {
+
+  my @out=(undef,$s);
+
+  for my $branch(@{$self->{leaves}}) {
+
+    my ($match,$ds)=$branch->match($ctx,$s);
+
+    if($match) {
+      @out=($match,$ds);
+      $branch->on_match($match);
+
+      last;
+
+    };
+
+  };
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# makes new dst for parser ice
+
+sub new_p3($self,$ctx) {
+
+  my $p3=$self->{frame}->nit(
     parent => undef,
     value  => $self->{value}
 
   );
 
-#:!;> OHCRAP
-#:!;>
-#:!;> storing a reference to the object that
-#:!;> spawned this tree, within the tree
-#:!;>
-#:!;> frankly quite terrible and an outright
-#:!;> dependency loop.
-#:!;>
-#:!;> but it works.
+  $p3->{ctx}=$ctx;
 
-  $tree->{ctx}=$ctx;
+  return $p3;
+
+};
+
+# ---   *   ---   *   ---
+# ^breaks down input
+
+sub parse($self,$s) {
+
+  my $ctx  = $self->{ctx};
+  my $gram = $ctx->{gram};
 
   while(1) {
 
-    my $matched=0;
+    my ($match,$ds)=$gram->hier_match($ctx,$s);
 
-    # test each branch against string
-    for my $branch(@{$self->{leaves}}) {
+    throw_no_match($gram,$s)
+    if ! $match;
 
-      my ($match,$ds)=$branch->match($ctx,$s);
+    # push to tree && update string
+    $self->pushlv($match);
+    $s=$ds;
 
-      # update string and append
-      # to tree on succesful match
-      if($match ne $NULL) {
-
-        $tree->pushlv($match);
-
-        $branch->{fn}->($ctx,$match)
-        if $branch->{fn} ne $NOOP;
-
-        my @chain=(@{$branch->{chain}});
-        $match->shift_chain(@chain);
-
-        $s=$ds;
-        $matched|=1;
-
-        last;
-
-      };
-
-    };
-
-    $self->throw_no_match($s)
-    if !$matched;
-
-    last if !length $s;
+    # ^exit when input consumed
+    last if ! length $s;
 
   };
 
-  return $tree;
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_no_match($self,$s) {
+
+  my $s_short=substr $s,0,64;
+
+  errout(
+
+    "%s\n\n".
+    q[^^^ Could not parse this bit ].
+    q[with grammar <%s>],
+
+    args => [$s_short,$self->{value}],
+    lvl  => $AR_FATAL,
+
+  );
 
 };
 
@@ -591,8 +713,6 @@ sub attempt_match($self) {
 
 # ---   *   ---   *   ---
 
-#say q[~= ],$self->{capt};
-
   $self->{matches}->[-1]+=
     !$self->{nd}->{opt};
 
@@ -682,10 +802,7 @@ sub pop_anchor($self) {
 
 sub expand_tree($self) {
 
-  if($self->flowop()) {
-    ;
-
-  } else {
+  if( ! $self->flowop()) {
 
     push @{$self->{an}},$self->{anchor}
     if @{$self->{nd}->{leaves}}
@@ -721,8 +838,6 @@ sub expand_tree($self) {
 
     push @{$self->{tk}},[];
 
-#$self->db_depth_prich();
-
   };
 
 };
@@ -742,26 +857,6 @@ sub tkpop($self) {
     $$sref=$rt.$$sref;
 
   };
-
-};
-
-# ---   *   ---   *   ---
-
-sub db_depth_prich($self) {
-
-  for my $nd(@{$self->{pending}}) {
-
-    if($nd=~ m[^\d+$]) {
-      say "DEPTH $nd";
-
-    } else {
-      say $nd->{value};
-
-    };
-
-  };
-
-  say "_________________\n";
 
 };
 
@@ -806,8 +901,13 @@ sub branch_fn($self) {
 
       unshift @{$self->{pending}},$nd;
 
-      push    @{$self->{an}},$branch
-      if $self->{an}->[-1] ne $branch;
+      my $prev=$self->{an}->[-1];
+
+      push @{$self->{an}},$branch
+
+      if ! $prev
+      ||   $prev ne $branch
+      ;
 
       $nd->{opt}|= 0b10;
 
@@ -821,8 +921,10 @@ sub branch_fn($self) {
 
       $nd->{opt}&= ~0b10;
 
+      my $prev=$self->{an}->[-1];
+
       pop @{$self->{an}}
-      if $self->{an}->[-1] eq $branch;
+      if $prev && $prev eq $branch;
 
     };
 
@@ -833,22 +935,6 @@ sub branch_fn($self) {
     $self->tkpop();
 
   };
-
-# ---   *   ---   *   ---
-
-#say q[>> ],$matches->[-1],q[/],$mint->[-1],
-#q[ of ],$branch->{value};
-#
-#say q[^> ],$matches->[-2],q[/],$mint->[-2],
-#q[ of ],$branch->{parent}->{value};
-#
-#my ($tree)=$branch->root();
-##$tree->prich();
-#
-#map {say $ARG} @{$self->{tk}->[-1]};
-#say q[**],${$self->{sref}};
-#
-#$self->db_depth_prich();
 
 # ---   *   ---   *   ---
 

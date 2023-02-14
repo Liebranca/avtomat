@@ -2072,6 +2072,89 @@ sub fc_or_v($self,$branch) {
 
 # ---   *   ---   *   ---
 
+  Readonly our $IVCALL=>{
+
+    name => 'ivcall',
+    chld => [
+
+      $VLIST,
+      {name=>qr{\-\>\*}},
+
+      $VALUE,
+
+    ],
+
+  };
+
+  Readonly our $DEFCALL=>{
+
+    name => 'defcall',
+    chld => [
+
+      $VALUE,
+      $VLIST,
+
+    ],
+
+  };
+
+# ---   *   ---   *   ---
+
+  Readonly our $FUCK=>{
+
+    name => 'fuck',
+    fn   => 'clip',
+
+    chld => [Grammar::ralt(
+      $IVCALL,$DEFCALL
+
+    )],
+
+  };
+
+# ---   *   ---   *   ---
+
+  Readonly our $EXPR=>{
+
+    name => 'expr',
+
+    chld => [
+
+      {name=>qr[\{]},
+
+      $FUCK,
+
+      {name=>qr[\}]},
+
+    ],
+
+  };
+
+# ---   *   ---   *   ---
+
+  Readonly our $TEST=>{
+
+    name  => 'test',
+
+    fn    => 'sxtest',
+    dom   => 'Grammar::peso',
+
+    chld => [Grammar::ralt(
+      $VLIST,$EXPR
+
+    )],
+
+  };
+
+# ---   *   ---   *   ---
+
+sub sxtest($self,$branch) {
+  $branch->prich();
+
+};
+
+# ---   *   ---   *   ---
+
   Readonly our $COND_END=>{
 
     name  => 'branch_end',
@@ -2383,13 +2466,15 @@ sub re_vex($self,$o) {
 
   Readonly our $NEEDS_TERM=>[
 
-    $HEADER,$SDEFS,$SWITCH,
-    $HIER,$PTR_DECL,$PE_INPUT,
+    $TEST,
 
-    $RE,$RET,$COND_BEG,$COND_END,
-    $MATCH,$CALL,
-
-    $LIS,$SOW,$REAP,$TREE,
+#    $HEADER,$SDEFS,$SWITCH,
+#    $HIER,$PTR_DECL,$PE_INPUT,
+#
+#    $RE,$RET,$COND_BEG,$COND_END,
+#    $MATCH,$CALL,
+#
+#    $LIS,$SOW,$REAP,$TREE,
 
   ];
 
@@ -2425,18 +2510,18 @@ sub re_vex($self,$o) {
 
 #  $ice->{tree}->prich();
 
-  $ice->run(
-
-    entry=>1,
-    keepx=>1,
-
-    input=>[
-
-      '-hey',
-
-    ],
-
-  );
+#  $ice->run(
+#
+#    entry=>1,
+#    keepx=>1,
+#
+#    input=>[
+#
+#      '-hey',
+#
+#    ],
+#
+#  );
 
 # ---   *   ---   *   ---
 1; # ret

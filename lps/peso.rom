@@ -1,3 +1,8 @@
+{x,0 ->* cpy};
+{cpy x};
+
+STOP;
+
 %lps;
 
 # ---   *   ---   *   ---
@@ -104,8 +109,6 @@ PROC expr;
   \-->'test'
 
   ;
-
-STOP;
 
   on s~=^<flg>$;
 

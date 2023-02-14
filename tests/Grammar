@@ -1,0 +1,85 @@
+#!/usr/bin/perl
+
+# ---   *   ---   *   ---
+# deps
+
+package Grammar::test;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use English qw(-no_match_vars);
+
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use Style;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+
+  use Lang;
+  use parent 'Grammar';
+
+# ---   *   ---   *   ---
+
+my $REGEX={
+
+  term=>Lang::nonscap(q[;]),
+  nterm=>Lang::nonscap(
+
+    q[;],
+
+    iv     => 1,
+    mod    => '+',
+    sigws  => 1,
+
+  ),
+
+};
+
+# ---   *   ---   *   ---
+
+my $NTERM={
+
+  name => 'nterm',
+  chld => [{
+
+    name => $REGEX->{nterm},
+    fn   => 'capt',
+
+  }],
+
+};
+
+my $TERM={
+  name => $REGEX->{term},
+  fn   => 'term',
+
+};
+
+# ---   *   ---   *   ---
+
+my $ANY={
+
+  name => 'any',
+  fn   => 'clip',
+
+  chld => [$NTERM,$TERM],
+
+};
+
+# ---   *   ---   *   ---
+
+my $CORE=[$ANY];
+my $prog=q[
+  token;
+  000;
+
+];
+
+Grammar::test->mkrules(@$CORE);
+my $ice=Grammar::test->parse($prog);
+
+$ice->{p3}->prich();
+
+# ---   *   ---   *   ---
+1; # ret

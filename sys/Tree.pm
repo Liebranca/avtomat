@@ -653,15 +653,15 @@ sub flatten_branch($self,%args) {
   # opt defaults
   $args{keep_root}//=0;
 
-  my @move=$self->pluck(@{$self->{leaves}});
-  my $par=$self->{parent};
+  my @move = $self->pluck(@{$self->{leaves}});
+  my $par  = $self->{parent};
 
   $par->idextrav();
 
 # ---   *   ---   *   ---
 
-  my $idex=$self->{idex};
-  my @ar=@{$par->{leaves}};
+  my $idex = $self->{idex};
+  my @ar   = @{$par->{leaves}};
 
   if($args{keep_root}) {unshift @move,$self};
   if($idex) {unshift @move,@ar[0..$idex-1]};
