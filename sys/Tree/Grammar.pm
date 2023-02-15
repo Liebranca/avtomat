@@ -33,7 +33,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#b
+  our $VERSION = v0.00.9;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -213,99 +213,6 @@ sub has_flag($self,$flag) {
 };
 
 # ---   *   ---   *   ---
-# turns trees with the structure:
-#
-# ($match)
-# \-->subtype
-# .  \-->value
-#
-# into:
-#
-# ($match)
-# \-->value
-
-sub list_flatten($ctx,@branches) {
-
-  for my $branch(@branches) {
-
-    for my $nd(@{$branch->{leaves}}) {
-      $nd->flatten_branch();
-
-    };
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# rewind the tree match
-
-sub rew($ctx,$st) {
-
-  unshift @{$st->{pending}},@{
-    $st->{nd}->{parent}->{leaves}
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# saves capture to current container
-
-sub capt($ctx,$branch) {
-
-  my $anchors = $ctx->{anchors}->[-1];
-  my $anchor  = $anchors->[-1];
-
-#  $anchor->init($branch->{value});
-
-};
-
-# ---   *   ---   *   ---
-# ^both capt and rew
-
-sub crew($ctx,$st) {
-
-  capt($st);
-  rew($st);
-
-};
-
-# ---   *   ---   *   ---
-# terminates an expression
-
-sub term($ctx,$branch) {
-  $branch->{parent}->pluck($branch);
-  @{$ctx->{pending}->[-1]}=();
-
-};
-
-# ---   *   ---   *   ---
-# removes branch
-
-sub discard($ctx,$match) {
-  my ($root)=$match->root();
-  $root->pluck($match);
-
-};
-
-# ---   *   ---   *   ---
-# replace branch with it's children
-
-sub clip($ctx,$match) {
-
-  if( ! $match->{parent}) {
-    my @lv=@{$match->{leaves}};
-    map {$ARG->flatten_branch()} @lv;
-
-  } else {
-    $match->flatten_branch();
-
-  };
-
-};
-
-# ---   *   ---   *   ---
 # exec calls attached to branch
 
 sub on_match($self,$match) {
@@ -347,16 +254,21 @@ sub re_or_branch($self,$ctx,$sref) {
   my $anchors = $ctx->{anchors}->[-1];
   my $anchor  = $anchors->[-1];
 
+  my $dst     = undef;
+
   if(is_qre($x)) {
     $out=$self->re_leaf($anchor,$sref);
+    $dst=$anchor->{parent};
 
   } else {
     $out=$anchor->init($self->{value});
+    $dst=$anchor;
+
     push @$anchors,$out;
 
   };
 
-  $anchor->{status}->{total}+=defined $out;
+  $dst->status_add($self);
   return $out;
 
 };
@@ -395,22 +307,10 @@ sub match($self,$ctx,$s) {
 
     ) or next;
 
-    my $alt=$self->has_flag('alt');
+    ! $self->alternation(
+      $ctx,\$s
 
-    if($alt && $alt eq $self) {
-
-      my ($m,$ds)=$self->hier_match($ctx,$s);
-
-      if($m) {
-        $s=$ds;
-        $root->pushlv($m);
-        $root->{status}->{total}++;
-
-      };
-
-      next;
-
-    };
+    ) or next;
 
     my $m  = $self->re_or_branch($ctx,\$s);
     my $fn = $self->{fn};
@@ -432,7 +332,38 @@ sub match($self,$ctx,$s) {
 };
 
 # ---   *   ---   *   ---
-# ^inits 'completion bar' ;>
+
+sub alternation($self,$ctx,$sref) {
+
+  my $out=0;
+  my $alt=$self->has_flag('alt');
+
+  my $anchors = $ctx->{anchors}->[-1];
+  my $root    = $anchors->[0];
+
+  if($alt && $alt eq $self) {
+
+    my ($m,$ds)=$self->hier_match($ctx,$$sref);
+
+    if($m) {
+
+      $$sref=$ds;
+
+      $root->pushlv($m);
+      $root->status_add($self);
+
+    };
+
+    $out=1;
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# inits 'completion bar' ;>
 
 sub init_status($self,$other) {
 
@@ -473,6 +404,15 @@ sub init_status($self,$other) {
 };
 
 # ---   *   ---   *   ---
+# register succesful match
+
+sub status_add($self,$other) {
+  my $status=$self->{status};
+  $status->{total} += ! $other->{opt};
+
+};
+
+# ---   *   ---   *   ---
 # ^get match success
 
 sub status_ok($self) {
@@ -500,7 +440,8 @@ sub shift_pending($class,$ctx,$depthr) {
 
   if(! $class->is_valid($out)) {
 
-    while($out < $$depthr) {
+    while($out <= $$depthr) {
+
       pop @$ans;
       $$depthr--;
 

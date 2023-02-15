@@ -47,7 +47,7 @@ package Chk;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;
+  our $VERSION=v0.00.3;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -161,7 +161,48 @@ sub codefind(@names) {
   && defined &{$f}
   ;
 
+  # deep search on failure
+  ($valid,$f)=__isa_search(@names) if ! $valid;
   return ($valid) ? $f : undef;
+
+};
+
+# ---   *   ---   *   ---
+# ^searches inherited methods
+# before giving up on coderef
+#
+# sometimes it happens ;>
+
+sub __isa_search(@names) {
+
+  no strict 'refs';
+
+  my @out = ();
+
+  my $fn  = pop @names;
+  my $pkg = join q[::],@names;
+
+  my @isa=@{"$pkg\::ISA"};
+
+  for my $class(@isa) {
+
+    my $path  = "$class\::$fn";
+    my $f     = eval '\&'.$path;
+
+    my $valid =
+       is_coderef($f)
+    && defined &{$f}
+    ;
+
+    if($valid) {
+      @out=(1,$f);
+      last;
+
+    };
+
+  };
+
+  return @out;
 
 };
 

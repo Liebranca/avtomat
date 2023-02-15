@@ -20,6 +20,7 @@ package Grammar;
   use strict;
   use warnings;
 
+  use Readonly;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/avtomat/sys/';
@@ -37,18 +38,38 @@ package Grammar;
   use parent 'St';
 
 # ---   *   ---   *   ---
+# adds to your namespace
+
+  my @EXPORT=qw(
+    rule
+
+  );
+
+  sub import {
+
+    my ($pkg)=caller;
+    no strict 'refs';
+
+    for my $sym(@EXPORT) {
+      *{"$pkg\::$sym"}=*{"$sym"};
+
+    };
+
+    push @{"$pkg\::ISA"},'Grammar';
+
+    no warnings;
+    ${"$pkg\::Rules"}={};
+
+  };
+
+# ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.8;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
-
-  our $OR={
-    name=>q[|]
-
-  };
 
   sub Frame_Vars($class) { return {
 
@@ -60,10 +81,37 @@ package Grammar;
 
   }};
 
+  Readonly my $RULE_RE=>qr{
+
+    \s*
+    (?<sign> [\~\|\?\+\*]+ )?
+
+    \s* < \s*
+    (?<name> [^>]+ )
+
+    \s* > \s*
+
+    (?<has_fn>
+
+      \& \s*
+      (?<fn> [\w:]+)?
+
+    )?
+
+    \s*
+    (?<chld> [\S\s]+ )?
+
+    \s*
+
+  }x;
+
 # ---   *   ---   *   ---
 # GBL
 
-  our $Top;
+  our $Top   = undef;
+  our $Rules = {};
+
+  Readonly our $REGEX=>{};
 
 # ---   *   ---   *   ---
 # returns our $Top for calling package
@@ -83,6 +131,36 @@ sub set_top($class,$name) {
   ${"$class\::Top"}=$f->nit(value=>$name);
 
   return ${"$class\::Top"};
+
+};
+
+# ---   *   ---   *   ---
+# get module's regex table
+
+sub get_retab($class) {
+  no strict 'refs';
+  return ${"$class\::REGEX"};
+
+};
+
+# ---   *   ---   *   ---
+# get rules declared by module
+
+sub get_ruletab($class) {
+  no strict 'refs';
+  return ${"$class\::Rules"};
+
+};
+
+sub push_rule($class,$rule) {
+  my $tab=$class->get_ruletab();
+  $tab->{$rule->{name}}=$rule;
+
+};
+
+sub fetch_rule($class,$name) {
+  my $tab=$class->get_ruletab();
+  return $tab->{$name};
 
 };
 
@@ -317,7 +395,7 @@ sub fnbreak($class,$X) {
   my ($name,$dom)=($X->{fn},$X->{dom});
 
   $name //= $X->{name};
-  $dom  //= 'Tree::Grammar';
+  $dom  //= 'Grammar';
 
   goto SKIP if is_qre($name);
 
@@ -405,14 +483,211 @@ sub mkrules($class,@rules) {
 };
 
 # ---   *   ---   *   ---
-# creates rule alternation
+# gives attributes from
+# string repr
 
-sub ralt(@rules) {
+sub rule_attrs($class,$s) {
 
-  my @out=map {$ARG,$OR} @rules;
-  pop @out;
+  throw_bad_rule($s)
+  if ! ($s=~ $RULE_RE);
 
-  return @out;
+  my ($sign,$name,$fn,$chld)=(
+    $+{sign},
+    $+{name},
+    $+{fn},
+    $+{chld}
+
+  );
+
+  $sign  //= $NULLSTR;
+  $fn    //= $NULLSTR;
+  $chld  //= $NULLSTR;
+
+  $chld    = [split $SPACE_RE,$chld];
+
+  my $out={name=>$name};
+
+  $class->rchld($out,$chld);
+  $class->rsign($out,$sign);
+  $class->rfunc($out,$fn);
+  $class->rdef($out,$name);
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^defaults
+
+sub rdef($class,$O,$name) {
+
+  $O->{opt}   //= 0;
+  $O->{alt}   //= 0;
+  $O->{greed} //= 0;
+
+  $O->{fn}    //= $name;
+  $O->{dom}   //= $class;
+
+  $O->{chld}  //= [];
+
+};
+
+# ---   *   ---   *   ---
+# ^set re, alt, greed and opt modifiers
+
+sub rsign($class,$O,$sign) {
+
+  state $IS_OPT   = qr{[\?\*]};
+  state $IS_GREED = qr{[\+\*]};
+  state $IS_ALT   = $BOR_RE;
+  state $IS_RE    = $ATILDE_RE;
+
+  $O->{alt}   = int($sign=~ $IS_ALT);
+  $O->{opt}   = int($sign=~ $IS_OPT);
+  $O->{greed} = int($sign=~ $IS_GREED);
+
+  $class->retab($O) if $sign=~ $IS_RE;
+
+};
+
+# ---   *   ---   *   ---
+# ^make from caller's regex table
+
+sub retab($class,$O) {
+
+  my $retab = $class->get_retab();
+
+  my $name  = $O->{name};
+  my $ar    = $O->{chld};
+  my $c     = {name=>$retab->{$name}};
+
+  push @$ar,$c;
+
+};
+
+# ---   *   ---   *   ---
+# ^alternation
+
+sub rchld($class,$O,$rule_names) {
+  $O->{chld}=[map {
+    $class->fetch_rule($ARG)
+
+  } @$rule_names];
+
+};
+
+# ---   *   ---   *   ---
+# ^sets module::function
+
+sub rfunc($class,$O,$fn) {
+
+  my @ar    = split $DCOLON_RE,$fn;
+
+  my $name  = pop @ar;
+  my $dom   = join q[::],@ar;
+
+  $O->{fn}  = ($name) ? $name : undef;
+  $O->{dom} = ($dom) ? $dom : undef;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_bad_rule($s) {
+
+  errout(
+
+    q[Invalid Grammar rule: '%s'],
+
+    args => [$s],
+    lvl  => $AR_FATAL,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# makes single pattern
+
+sub rule($s) {
+
+  my ($class) = caller;
+  my $out     = $class->rule_attrs($s);
+
+  $class->push_rule($out);
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# rewind current rule
+
+sub rew($self,$branch) {
+
+  my $pending = $self->{pending}->[-1];
+  my $par     = $branch->{parent};
+
+  unshift @$pending,@{$par->{leaves}};
+
+};
+
+# ---   *   ---   *   ---
+# replace branch with it's children
+
+sub clip($self,$branch) {
+
+  my $par = $branch->{parent};
+  my @lv  = @{$branch->{leaves}};
+
+  if(! $par) {
+    map {$ARG->flatten_branch()} @lv;
+
+  } else {
+    $branch->flatten_branch();
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# removes branch
+
+sub discard($self,$branch) {
+  my ($root)=$branch->root();
+  $root->pluck($branch);
+
+};
+
+# ---   *   ---   *   ---
+# terminates an expression
+
+sub term($self,$branch) {
+  $branch->{parent}->pluck($branch);
+  @{$self->{pending}->[-1]}=();
+
+};
+
+# ---   *   ---   *   ---
+# turns trees with the structure:
+#
+# ($match)
+# \-->subtype
+# .  \-->value
+#
+# into:
+#
+# ($match)
+# \-->value
+
+sub list_flatten($self,@branches) {
+
+  # confused yet? ;>
+  map { map {
+    $ARG->flatten_branch();
+
+  } @{$ARG->{leaves}} } @branches;
 
 };
 

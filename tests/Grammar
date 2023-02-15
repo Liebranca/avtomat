@@ -9,87 +9,50 @@ package Grammar::test;
   use strict;
   use warnings;
 
+  use Readonly;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
+
   use Style;
+  use Chk;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Lang;
-  use parent 'Grammar';
+  use Grammar;
+
+# ---   *   ---   *   ---
+# ROM
+
+  Readonly our $REGEX=>{
+
+    term=>Lang::nonscap(q[;]),
+    nterm=>Lang::nonscap(
+
+      q[;],
+
+      iv     => 1,
+      mod    => '+',
+      sigws  => 1,
+
+    ),
+
+    num=>qr{\d+},
+
+  };
 
 # ---   *   ---   *   ---
 
-my $REGEX={
-
-  term=>Lang::nonscap(q[;]),
-  nterm=>Lang::nonscap(
-
-    q[;],
-
-    iv     => 1,
-    mod    => '+',
-    sigws  => 1,
-
-  ),
-
-  num=>qr{\d+},
-
-};
-
-# ---   *   ---   *   ---
-
-my $NTERM={
-
-  name => 'nterm',
-  chld => [{
-    name=>$REGEX->{nterm},
-
-  }],
-
-};
-
-my $TERM={
-  name => $REGEX->{term},
-  fn   => 'term',
-
-};
-
-my $NUM={
-
-  name=>'num',
-  chld=>[{name=>$REGEX->{num}}],
-
-};
-
-# ---   *   ---   *   ---
-
-my $NUM_OR_NTERM={
-
-  name => 'ored',
-  alt  => 1,
-
-  chld => [$NUM,$NTERM],
-
-};
-
-# ---   *   ---   *   ---
-
-my $ANY={
-
-  name => 'any',
-#  fn   => 'clip',
-
-  chld => [$NUM_OR_NTERM,$TERM],
-
-};
+my $NTERM = rule('~<nterm>');
+my $TERM  = rule('~<term> &term');
+my $ANY   = rule('<any> &clip nterm term');
 
 # ---   *   ---   *   ---
 
 my $CORE=[$ANY];
 my $prog=q[
-  0;
+  token;
 
 ];
 

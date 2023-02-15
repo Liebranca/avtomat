@@ -47,6 +47,9 @@ package Style;
     $COMMA_RE
     $SPACE_RE
     $COLON_RE
+    $DCOLON_RE
+    $BOR_RE
+    $ATILDE_RE
     $NEWLINE_RE
 
     strerr
@@ -56,7 +59,7 @@ package Style;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.02.0;
+  our $VERSION=v0.02.1;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -84,22 +87,25 @@ package Style;
 
   ;
 
-  Readonly our $NULLSTR=>q();
+  Readonly our $NULLSTR=>q[];
 
 # ---   *   ---   *   ---
 
-  Readonly our $AR_WARNING=>"\e[33;22m";
-  Readonly our $AR_ERROR=>"\e[35;1m";
-  Readonly our $AR_FATAL=>"\e[31;1m";
+  Readonly our $AR_WARNING => "\e[33;22m";
+  Readonly our $AR_ERROR   => "\e[35;1m";
+  Readonly our $AR_FATAL   => "\e[31;1m";
 
 # ---   *   ---   *   ---
 
-  Readonly our $COMMA_RE=>qr{,};
-  Readonly our $SPACE_RE=>qr{\s};
-  Readonly our $COLON_RE=>qr{:};
-  Readonly our $NEWLINE_RE=>qr{\n};
+  Readonly our $COMMA_RE   => qr{,};
+  Readonly our $SPACE_RE   => qr{\s};
+  Readonly our $COLON_RE   => qr{:};
+  Readonly our $DCOLON_RE  => qr{::};
+  Readonly our $BOR_RE     => qr{\|};
+  Readonly our $ATILDE_RE  => qr{\~};
+  Readonly our $NEWLINE_RE => qr{\n};
 
-  Readonly our $NO_MATCH=>q{$^};
+  Readonly our $NO_MATCH   => q{$^};
 
 # ---   *   ---   *   ---
 # utility calls
