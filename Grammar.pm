@@ -386,6 +386,7 @@ sub mkrules($class,@rules) {
 
       opt   => $value->{opt},
       greed => $value->{greed},
+      alt   => $value->{alt},
 
       chain => $value->{chain},
 

@@ -44,6 +44,7 @@ sub nit($class,$frame,%O) {
   # defaults
   $O{fn}    //= $NOOP;
   $O{opt}   //= 0;
+  $O{alt}   //= 0;
   $O{greed} //= 0;
 
   # get instance
@@ -64,6 +65,7 @@ sub nit($class,$frame,%O) {
 
   $self->{fn}    = $O{fn};
   $self->{opt}   = $O{opt};
+  $self->{alt}   = $O{alt};
   $self->{greed} = $O{greed};
 
   $self->{chain} = $O{chain};
@@ -103,6 +105,7 @@ sub dup($self) {
       fn     => $nd->{fn},
       opt    => $nd->{opt},
       greed  => $nd->{greed},
+      alt    => $nd->{alt},
       chain  => $nd->{chain},
 
       parent => (@anchor)
@@ -183,17 +186,20 @@ sub shift_branch($self,%O) {
 };
 
 # ---   *   ---   *   ---
-# true if node is part of an
-# optional branch
+# true if node is part of
+# a branch with a given flag
 
-sub opt_branch($self) {
+sub has_flag($self,$flag) {
 
-  my $out=0;
+  my $out=($self->{$flag})
+    ? $self
+    : undef
+    ;
 
   while(defined $self->{parent}) {
 
-    if($self->{opt}) {
-      $out=1;
+    if($self->{$flag}) {
+      $out=$self;
       last;
 
     };
@@ -248,7 +254,7 @@ sub rew($ctx,$st) {
 
 sub capt($ctx,$branch) {
 
-  my $anchors = $ctx->{anchors};
+  my $anchors = $ctx->{anchors}->[-1];
   my $anchor  = $anchors->[-1];
 
 #  $anchor->init($branch->{value});
@@ -270,7 +276,7 @@ sub crew($ctx,$st) {
 
 sub term($ctx,$branch) {
   $branch->{parent}->pluck($branch);
-  @{$ctx->{pending}}=();
+  @{$ctx->{pending}->[-1]}=();
 
 };
 
@@ -300,118 +306,6 @@ sub clip($ctx,$match) {
 };
 
 # ---   *   ---   *   ---
-# makes helper for match
-
-sub match_st($self,$ctx,$sref) {
-
-  my $frame = Tree::Grammar->get_frame();
-  my $root  = $frame->nit(
-
-    parent => undef,
-    value  => $self->{value}
-
-  );
-
-# ---   *   ---   *   ---
-
-  my $st=bless {
-
-    sref    => $sref,
-
-    root    => $root,
-    anchor  => $root,
-
-    an      => [],
-
-    capt    => q[],
-    nd      => undef,
-
-    frame   => $frame,
-    pending => [@{$self->{leaves}}],
-
-    matches => [0],
-    mint    => [0],
-
-    full    => 0,
-    fmint   => 0,
-    mlast   => 0,
-
-    depth   => 0,
-
-    re      => undef,
-    key     => undef,
-
-    ctx     => $ctx,
-    kls     => $self->{value},
-    fn      => [],
-    opts    => [],
-
-    tk      => [[]],
-
-  },'Tree::Grammar::Matcher';
-
-  return $st;
-
-};
-
-# ---   *   ---   *   ---
-# decon string by walking tree branch
-
-sub leaf_match($self,$ctx,$s) {
-
-  my $st   = $self->match_st($ctx,\$s);
-  my $fail = 0;
-
-  while(@{$st->{pending}}) {
-
-    if(!$st->get_next()) {
-
-      $st->branch_fn();
-      $st->pop_anchor();
-
-      next;
-
-    };
-
-    my @tail=@{$st->{nd}->{leaves}};
-
-    if(@tail) {
-
-      $st->{depth}++;
-      push @tail,$st->{depth} if @tail;
-
-    };
-
-    $st->attempt();
-    unshift @{$st->{pending}},@tail;
-
-  };
-
-  while(@{$st->{fn}}) {
-    $st->branch_fn();
-
-  };
-
-  $st->{full}  = $st->{matches}->[0];
-  $st->{fmint} = $st->{mint}->[0];
-
-  $fail|=
-
-       $st->{full} == 0
-    || $st->{full} != $st->{fmint}
-
-  ;
-
-  my $out=($fail)
-    ? $NULL
-    : $st->{root}
-    ;
-
-  return ($out,$s);
-
-};
-
-# ---   *   ---   *   ---
 # exec calls attached to branch
 
 sub on_match($self,$match) {
@@ -426,15 +320,15 @@ sub on_match($self,$match) {
 };
 
 # ---   *   ---   *   ---
-# regex leaf
+# run string match
 
-sub mre($self,$nd,$sref) {
+sub re_leaf($self,$anchor,$sref) {
 
   my $out = undef;
   my $re  = $self->{value};
 
   if($$sref =~ s[^\s*($re)\s*][]) {
-    $out=$nd->init($1);
+    $out=$anchor->init($1);
 
   };
 
@@ -443,24 +337,26 @@ sub mre($self,$nd,$sref) {
 };
 
 # ---   *   ---   *   ---
+# determines type of node
 
 sub re_or_branch($self,$ctx,$sref) {
 
   my $out = undef;
   my $x   = $self->{value};
 
-  my $ans = $ctx->{anchors};
-  my $an  = $ans->[-1];
+  my $anchors = $ctx->{anchors}->[-1];
+  my $anchor  = $anchors->[-1];
 
   if(is_qre($x)) {
-    $out=$self->mre($an,$sref);
+    $out=$self->re_leaf($anchor,$sref);
 
   } else {
-    $out=$an->init($self->{value});
-    push @$ans,$out;
+    $out=$anchor->init($self->{value});
+    push @$anchors,$out;
 
   };
 
+  $anchor->{status}->{total}+=defined $out;
   return $out;
 
 };
@@ -482,33 +378,42 @@ sub match($self,$ctx,$s) {
 
   );
 
+  my $status  = $root->init_status($self);
+
   my @anchors = ($root);
   my @pending = (@{$self->{leaves}});
   my $depth   = 0;
 
-  $ctx->{anchors}=\@anchors;
-  $ctx->{pending}=\@pending;
+  push @{$ctx->{anchors}},\@anchors;
+  push @{$ctx->{pending}},\@pending;
 
   # ^walk
   while(@pending) {
 
-    $self=shift @pending;
+    $self=$class->shift_pending(
+      $ctx,\$depth
 
-    if(! $class->is_valid($self)) {
+    ) or next;
 
-      my $dst=$self;
-      while($dst < $depth) {
-        pop @anchors;
-        $depth--;
+    my $alt=$self->has_flag('alt');
 
-      }
+    if($alt && $alt eq $self) {
+
+      my ($m,$ds)=$self->hier_match($ctx,$s);
+
+      if($m) {
+        $s=$ds;
+        $root->pushlv($m);
+        $root->{status}->{total}++;
+
+      };
 
       next;
 
     };
 
-    my $m      = $self->re_or_branch($ctx,\$s);
-    my $fn     = $self->{fn};
+    my $m  = $self->re_or_branch($ctx,\$s);
+    my $fn = $self->{fn};
 
     $fn->($ctx,$m) if $m && $fn ne $NOOP;
 
@@ -519,7 +424,93 @@ sub match($self,$ctx,$s) {
 
   };
 
+  pop @{$ctx->{anchors}};
+  pop @{$ctx->{pending}};
+
   return ($root,$s);
+
+};
+
+# ---   *   ---   *   ---
+# ^inits 'completion bar' ;>
+
+sub init_status($self,$other) {
+
+  my $root     = $self;
+
+  my @pending  = ($self);
+  my @parallel = ($other);
+
+  while(@pending && @parallel) {
+
+    $self    = shift @pending;
+    $other   = shift @parallel;
+
+    my @lv_s = @{$self->{leaves}};
+    my @lv_o = @{$other->{leaves}};
+
+    my $min  = int(grep {! $ARG->{opt}} @lv_o);
+    my $max  =
+      0 + $other->{alt} + $other->{greed}*2;
+
+    $self->{status}={
+
+      min   => $min,
+      max   => $max,
+
+      total => 0,
+      fail  => 0,
+
+    };
+
+    unshift @pending,@lv_s;
+    unshift @parallel,@lv_o;
+
+  };
+
+  return $root->{status};
+
+};
+
+# ---   *   ---   *   ---
+# ^get match success
+
+sub status_ok($self) {
+
+  my $status = $self->{status};
+
+  my $max    = $status->{max};
+  my $min    = $status->{min};
+  my $total  = $status->{total};
+
+  $status->{fail}=int($total < $min);
+
+  return ! $status->{fail};
+
+};
+
+# ---   *   ---   *   ---
+# ^skips non-node steps in
+# the walk array
+
+sub shift_pending($class,$ctx,$depthr) {
+
+  my $out=shift @{$ctx->{pending}->[-1]};
+  my $ans=$ctx->{anchors}->[-1];
+
+  if(! $class->is_valid($out)) {
+
+    while($out < $$depthr) {
+      pop @$ans;
+      $$depthr--;
+
+    }
+
+    $out=undef;
+
+  };
+
+  return $out;
 
 };
 
@@ -532,11 +523,11 @@ sub hier_match($self,$ctx,$s) {
 
   for my $branch(@{$self->{leaves}}) {
 
-    my ($match,$ds)=$branch->match($ctx,$s);
+    my ($m,$ds)=$branch->match($ctx,$s);
 
-    if($match) {
-      @out=($match,$ds);
-      $branch->on_match($match);
+    if($m->status_ok()) {
+      @out=($m,$ds);
+      $branch->on_match($m);
 
       last;
 
@@ -608,338 +599,6 @@ sub throw_no_match($self,$s) {
     lvl  => $AR_FATAL,
 
   );
-
-};
-
-# ---   *   ---   *   ---
-# helper methods
-
-package Tree::Grammar::Matcher;
-
-  use v5.36.0;
-  use strict;
-  use warnings;
-
-  use English qw(-no_match_vars);
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
-  use Style;
-  use Chk;
-
-# ---   *   ---   *   ---
-
-sub get_next($self) {
-
-  $self->{nd}  = shift @{$self->{pending}};
-
-  if($self->{nd}=~ m[^\d+$]) {
-
-    $self->{nd}=0;
-    $self->{depth}--;
-
-    goto TAIL;
-
-  };
-
-  $self->{key} =
-  $self->{re}  = $self->{nd}->{value}
-  ;
-
-  $self->{re}  = undef if !is_qre($self->{re});
-  $self->{key} = undef if defined $self->{re};
-
-TAIL:
-  return $self->{nd};
-
-};
-
-# ---   *   ---   *   ---
-
-sub attempt($self) {
-
-  if($self->{re}) {
-    $self->attempt_match();
-
-  } elsif($self->{key}) {
-    $self->expand_tree();
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# current node has a coderef
-
-sub has_action($self) {
-
-  return
-
-     defined $self->{nd}->{fn}
-  && $self->{nd}->{fn} ne $NOOP
-  ;
-
-};
-
-# ---   *   ---   *   ---
-
-sub attempt_match($self) {
-
-  my $re        = $self->{re};
-  $self->{capt} = undef;
-
-  $self->{mint}->[-1]+=
-    !$self->{nd}->{opt};
-
-# ---   *   ---   *   ---
-
-  if(${$self->{sref}}=~
-    s[^(\s*($re)\s*)][]x
-
-  ) {
-
-    $self->{mlast}=1;
-    $self->{capt}=${^CAPTURE[1]};
-
-    push @{$self->{tk}->[-1]},
-      ${^CAPTURE[0]};
-
-  } else {
-
-    $self->{mlast}=0;
-    goto TAIL;
-
-  };
-
-# ---   *   ---   *   ---
-
-  $self->{matches}->[-1]+=
-    !$self->{nd}->{opt};
-
-  $self->{nd}->{fn}->($self->{ctx},$self)
-  if $self->has_action();
-
-  $self->{capt}=undef;
-
-TAIL:
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# resumes parent branch
-
-sub walkup($self) {
-
-  my $ar=$self->{pending};
-
-  while(
-
-     $ar->[0]
-  && $ar->[0] ne $self->{depth}
-
-  ) {
-
-    my $shit=shift @$ar;
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# pattern alternation
-
-sub OR($self) {
-
-  my $out=1;
-
-  if(!$self->{mlast}) {
-
-    $self->{mint}->[-1]--;
-    $self->tkpop();
-
-    push @{$self->{tk}},[];
-
-  } else {
-    $self->walkup();
-
-  };
-
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
-
-sub flowop($self) {
-
-  state $tab={
-    q[|]=>\&OR,
-
-  };
-
-  my $out=0;
-  my $key=$self->{key};
-
-  if(exists $tab->{$key}) {
-    $out=$tab->{$key}->($self);
-
-  };
-
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
-
-sub pop_anchor($self) {
-  $self->{anchor}=pop @{$self->{an}};
-  $self->{anchor}//=$self->{root};
-
-};
-
-# ---   *   ---   *   ---
-
-sub expand_tree($self) {
-
-  if( ! $self->flowop()) {
-
-    push @{$self->{an}},$self->{anchor}
-    if @{$self->{nd}->{leaves}}
-    && $self->{anchor} ne $self->{root}
-    ;
-
-    if(!(
-
-       $self->{key}
-    eq $self->{anchor}->{value}
-
-    )) {
-
-      $self->{anchor}=$self->{anchor}->init(
-        $self->{key},
-        parent=>$self->{anchor}
-
-      );
-
-      my @chain=(@{$self->{nd}->{chain}});
-      $self->{anchor}->shift_chain(@chain);
-
-    };
-
-    push @{$self->{fn}},[
-      $self->{anchor},
-      $self->{nd}
-
-    ];
-
-    push @{$self->{matches}},0;
-    push @{$self->{mint}},0;
-
-    push @{$self->{tk}},[];
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# walks back modifications to source
-# on current branch
-
-sub tkpop($self) {
-
-  my $ar=pop @{$self->{tk}};
-
-  if(defined $ar) {
-    my $rt=join q[],@$ar;
-
-    my $sref=$self->{sref};
-    $$sref=$rt.$$sref;
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# execute actions for a non-re branch
-
-sub branch_fn($self) {
-
-  my ($branch,$nd) = @{ (pop @{$self->{fn}}) };
-
-  my $matches      = $self->{matches};
-  my $mint         = $self->{mint};
-
-  $branch->{mfull} = 0;
-
-  $mint->[-2]++;
-  my $mm=0;
-
-  # on match
-
-  if(
-
-     ($matches->[-1] && $mint->[-1])
-  && ($matches->[-1] >= $mint->[-1])
-
-  ) {
-
-    $nd->{fn}->($self->{ctx},$branch)
-    if $nd->{fn} ne $NOOP;
-
-    $mm=1;
-
-    $self->{mlast}=1;
-    $matches->[-2]++;
-
-    $branch->{mfull}=1;
-
-    my $ahead=$self->{pending}->[1];
-
-    # rewind branch on greedy modifier
-    if($nd->{greed}) {
-
-      unshift @{$self->{pending}},$nd;
-
-      my $prev=$self->{an}->[-1];
-
-      push @{$self->{an}},$branch
-
-      if ! $prev
-      ||   $prev ne $branch
-      ;
-
-      $nd->{opt}|= 0b10;
-
-    };
-
-  # no match, but branch is optional
-  } elsif($nd->opt_branch()) {
-    $mint->[-2]--;
-
-    if($nd->{greed}) {
-
-      $nd->{opt}&= ~0b10;
-
-      my $prev=$self->{an}->[-1];
-
-      pop @{$self->{an}}
-      if $prev && $prev eq $branch;
-
-    };
-
-  # no match
-  } else {
-    $branch->purge();
-    $self->{mlast}=0;
-    $self->tkpop();
-
-  };
-
-# ---   *   ---   *   ---
-
-  pop @$matches;
-  pop @$mint;
 
 };
 

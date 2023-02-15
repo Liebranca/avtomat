@@ -34,6 +34,8 @@ my $REGEX={
 
   ),
 
+  num=>qr{\d+},
+
 };
 
 # ---   *   ---   *   ---
@@ -42,9 +44,7 @@ my $NTERM={
 
   name => 'nterm',
   chld => [{
-
-    name => $REGEX->{nterm},
-    fn   => 'capt',
+    name=>$REGEX->{nterm},
 
   }],
 
@@ -56,14 +56,32 @@ my $TERM={
 
 };
 
+my $NUM={
+
+  name=>'num',
+  chld=>[{name=>$REGEX->{num}}],
+
+};
+
+# ---   *   ---   *   ---
+
+my $NUM_OR_NTERM={
+
+  name => 'ored',
+  alt  => 1,
+
+  chld => [$NUM,$NTERM],
+
+};
+
 # ---   *   ---   *   ---
 
 my $ANY={
 
   name => 'any',
-  fn   => 'clip',
+#  fn   => 'clip',
 
-  chld => [$NTERM,$TERM],
+  chld => [$NUM_OR_NTERM,$TERM],
 
 };
 
@@ -71,8 +89,7 @@ my $ANY={
 
 my $CORE=[$ANY];
 my $prog=q[
-  token;
-  000;
+  0;
 
 ];
 
