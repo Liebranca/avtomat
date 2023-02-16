@@ -27,6 +27,7 @@ package Grammar;
 
   use Style;
   use Chk;
+  use Queue;
 
   use Mach;
 
@@ -38,34 +39,9 @@ package Grammar;
   use parent 'St';
 
 # ---   *   ---   *   ---
-# adds to your namespace
-
-  my @EXPORT=qw(
-    rule
-
-  );
-
-  sub import {
-
-    my ($pkg)=caller;
-    no strict 'refs';
-
-    for my $sym(@EXPORT) {
-      *{"$pkg\::$sym"}=*{"$sym"};
-
-    };
-
-    push @{"$pkg\::ISA"},'Grammar';
-
-    no warnings;
-    ${"$pkg\::Rules"}={};
-
-  };
-
-# ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#b
+  our $VERSION = v0.00.9;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -81,10 +57,18 @@ package Grammar;
 
   }};
 
+  Readonly my $IS_GRAMMAR=>qr{
+    ^Grammar::
+
+  }x;
+
   Readonly my $RULE_RE=>qr{
 
     \s*
     (?<sign> [\~\|\?\+\*]+ )?
+
+    \s*
+    (?<max> \d+)?
 
     \s* < \s*
     (?<name> [^>]+ )
@@ -108,10 +92,62 @@ package Grammar;
 # ---   *   ---   *   ---
 # GBL
 
-  our $Top   = undef;
-  our $Rules = {};
+  our $Top     = undef;
+  our $Rules   = {};
+  our $Ice_Map = {};
 
   Readonly our $REGEX=>{};
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  my @EXPORT=qw(
+    rule
+
+  );
+
+# ---   *   ---   *   ---
+# custom inheritance mambo
+
+  sub import {
+
+    my ($pkg)=caller;
+
+    return
+
+    if ! ($pkg=~ $IS_GRAMMAR)
+    || exists $Ice_Map->{$pkg}
+    ;
+
+    no strict 'refs';
+
+    for my $sym(@EXPORT) {
+      *{"$pkg\::$sym"}=*{"$sym"};
+
+    };
+
+    push @{"$pkg\::ISA"},'Grammar';
+
+    no warnings;
+    ${"$pkg\::Rules"}={};
+
+    $Ice_Map->{$pkg}=1;
+
+  };
+
+# ---   *   ---   *   ---
+# ^initialize parsers
+
+  INIT {
+
+    no strict 'refs';
+
+    map {
+      $ARG->mkrules(@{"$ARG\::CORE"});
+
+    } keys %$Ice_Map;
+
+  };
 
 # ---   *   ---   *   ---
 # returns our $Top for calling package
@@ -180,6 +216,7 @@ sub new($class,%O) {
     callstk => [],
 
     mach    => Mach->new(%{$O{mach}}),
+    Q       => Queue->nit(),
     gram    => $gram,
 
     anchors => [],
@@ -431,24 +468,27 @@ sub mkrules($class,@rules) {
   # walk
   while(@rules) {
 
-    my $value=shift @rules;
+    my $key   = shift @rules;
 
     # go back one step in hierarchy
-    if($value eq 0) {
+    if($key eq 0) {
       pop @anchors;
       next;
 
     # grammar incorporates another
-    } elsif(!is_hashref($value)) {
+    } elsif($key=~ $IS_GRAMMAR) {
 
-      my $subgram=q[Grammar::].$value;
-         $subgram=$subgram->get_top();
-
+      my $subgram=$key->get_top();
       $top->pushlv(@{$subgram->{leaves}});
 
       next;
 
     };
+
+    my $value = (! is_hashref($key))
+      ? $class->fetch_rule($key)
+      : $key
+      ;
 
     # get parent node
     my $anchor=$anchors[-1];
@@ -464,6 +504,7 @@ sub mkrules($class,@rules) {
 
       opt   => $value->{opt},
       greed => $value->{greed},
+      max   => $value->{max},
       alt   => $value->{alt},
 
       chain => $value->{chain},
@@ -491,8 +532,9 @@ sub rule_attrs($class,$s) {
   throw_bad_rule($s)
   if ! ($s=~ $RULE_RE);
 
-  my ($sign,$name,$fn,$chld)=(
+  my ($sign,$max,$name,$fn,$chld)=(
     $+{sign},
+    $+{max},
     $+{name},
     $+{fn},
     $+{chld}
@@ -500,12 +542,13 @@ sub rule_attrs($class,$s) {
   );
 
   $sign  //= $NULLSTR;
+  $max   //= 0;
   $fn    //= $NULLSTR;
   $chld  //= $NULLSTR;
 
   $chld    = [split $SPACE_RE,$chld];
 
-  my $out={name=>$name};
+  my $out={name=>$name,max=>int($max)};
 
   $class->rchld($out,$chld);
   $class->rsign($out,$sign);
@@ -664,7 +707,11 @@ sub discard($self,$branch) {
 # terminates an expression
 
 sub term($self,$branch) {
-  $branch->{parent}->pluck($branch);
+
+  my $Q     = $self->{Q};
+  my $par   = $branch->{parent};
+
+  $Q->add(sub {$par->pluck($branch)});
   @{$self->{pending}->[-1]}=();
 
 };

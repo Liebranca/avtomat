@@ -33,7 +33,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#b
+  our $VERSION = v0.01.0;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -46,6 +46,7 @@ sub nit($class,$frame,%O) {
   $O{opt}   //= 0;
   $O{alt}   //= 0;
   $O{greed} //= 0;
+  $O{max}   //= 0;
 
   # get instance
   my $self=Tree::nit(
@@ -67,6 +68,7 @@ sub nit($class,$frame,%O) {
   $self->{opt}   = $O{opt};
   $self->{alt}   = $O{alt};
   $self->{greed} = $O{greed};
+  $self->{max}   = $O{max};
 
   $self->{chain} = $O{chain};
 
@@ -105,6 +107,7 @@ sub dup($self) {
       fn     => $nd->{fn},
       opt    => $nd->{opt},
       greed  => $nd->{greed},
+      max    => $nd->{max},
       alt    => $nd->{alt},
       chain  => $nd->{chain},
 
@@ -298,12 +301,12 @@ sub match($self,$ctx,$s) {
   # ^walk
   while(@pending) {
 
+    $anchors[-1]->init_status($self);
+
     $self=$class->shift_pending(
       $ctx,\$depth
 
     ) or next;
-
-    $anchors[-1]->init_status($self);
 
     ! $self->alternation(
       $ctx,\$s
@@ -328,6 +331,32 @@ sub match($self,$ctx,$s) {
   pop @{$ctx->{pending}};
 
   return ($root,$s);
+
+};
+
+# ---   *   ---   *   ---
+# ^skips non-node steps in
+# the walk array
+
+sub shift_pending($class,$ctx,$depthr) {
+
+  my $out=shift @{$ctx->{pending}->[-1]};
+  my $ans=$ctx->{anchors}->[-1];
+
+  if(! $class->is_valid($out)) {
+
+    while($out <= $$depthr) {
+
+      pop @$ans;
+      $$depthr--;
+
+    }
+
+    $out=undef;
+
+  };
+
+  return $out;
 
 };
 
@@ -397,9 +426,15 @@ sub greed($self,$ctx,$sref) {
       $root->pushlv(@$m);
       $root=$m->[0] if $clip;
 
+      $root->status_add($self,1);
+
       $out++;
 
-    } else {last};
+    } else {
+      $root->{status}->{total}--;
+      last;
+
+    };
 
   };
 
@@ -412,52 +447,46 @@ sub greed($self,$ctx,$sref) {
 
 sub init_status($self,$other) {
 
-  my $root     = $self;
+  return {}
 
-  my @pending  = ($self);
-  my @parallel = ($other);
+  if ! $other
+  || $self->{value} ne $other->{value}
+  ;
 
-  while(@pending && @parallel) {
+  my @lv_s = @{$self->{leaves}};
+  my @lv_o = @{$other->{leaves}};
 
-    $self    = shift @pending;
-    $other   = shift @parallel;
+  my $min  = (@lv_o)
+    ? int(@lv_o)
+    : 1
+    ;
 
-    my @lv_s = @{$self->{leaves}};
-    my @lv_o = @{$other->{leaves}};
+  my $max  = $other->{max};
 
-    my $min  = (@lv_o)
-      ? int(grep {! $ARG->{opt}} @lv_o)
-      : 1
-      ;
+  $self->{status}={
 
-    # TODO: implement max matches
-    my $max  = 0;
+    min   => $min,
+    max   => $max,
 
-    $self->{status}={
+    total => 0,
+    fail  => 0,
 
-      min   => $min,
-      max   => $max,
-
-      total => 0,
-      fail  => 0,
-
-    };
-
-    unshift @pending,@lv_s;
-    unshift @parallel,@lv_o;
+    opt   => int($other->{opt} && ! $max),
 
   };
 
-  return $root->{status};
+  return $self->{status};
 
 };
 
 # ---   *   ---   *   ---
 # register succesful match
 
-sub status_add($self,$other) {
+sub status_add($self,$other,$force=0) {
   my $status=$self->{status};
-  $status->{total} += ! $other->{opt};
+  $status->{total} += 1;
+
+#(! $other->{opt}) || $force;
 
 };
 
@@ -470,11 +499,16 @@ sub status_ok($self) {
 
   my $status = $self->{status};
 
+  my $opt    = $status->{opt};
   my $max    = $status->{max};
   my $min    = $status->{min};
   my $total  = $status->{total};
 
-  $status->{fail}=int($total < $min);
+  $status->{fail}=int(
+     ($opt && $total < $min)
+  || ($max && $total > $max)
+
+  );
 
   return ! $status->{fail};
 
@@ -497,28 +531,28 @@ sub status_chk($self) {
 };
 
 # ---   *   ---   *   ---
-# ^skips non-node steps in
-# the walk array
+# ^debug print for branch status
 
-sub shift_pending($class,$ctx,$depthr) {
+sub status_db_out($self) {
 
-  my $out=shift @{$ctx->{pending}->[-1]};
-  my $ans=$ctx->{anchors}->[-1];
+  use Fmat;
 
-  if(! $class->is_valid($out)) {
+  my $status=$self->{status};
 
-    while($out <= $$depthr) {
+  say {*STDERR}
 
-      pop @$ans;
-      $$depthr--;
+    "$status->{total}/" .
+    "$status->{min} " .
+    "< $status->{max} " .
+    "? $status->{fail} -> " .
+    "$self->{value}"
 
-    }
+  ;
 
-    $out=undef;
+  $self->prich();
+  fatdump($status);
 
-  };
-
-  return $out;
+  say {*STDERR} "__________________\n";
 
 };
 
@@ -535,6 +569,8 @@ sub hier_match($self,$ctx,$s) {
 
     if($m->status_ok()) {
       @out=($m,$ds);
+
+      $ctx->{Q}->ex();
       $branch->on_match($m);
 
       last;

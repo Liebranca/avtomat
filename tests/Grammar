@@ -25,6 +25,8 @@ package Grammar::test;
 # ---   *   ---   *   ---
 # ROM
 
+BEGIN {
+
   Readonly our $REGEX=>{
 
     term=>Lang::nonscap(q[;]),
@@ -44,26 +46,29 @@ package Grammar::test;
 
 # ---   *   ---   *   ---
 
-my $NTERM = rule('~<nterm>');
-my $NUM   = rule('~*<num>');
-my $TERM  = rule('~<term> &term');
+  rule('~<nterm>');
+  rule('~*2<num>');
+  rule('~<term> &term');
+
+  rule('<num_or_nterm> num nterm');
+  rule('<any> &clip num_or_nterm term');
+
+  our @CORE=qw(any);
 
 # ---   *   ---   *   ---
-
-my $NUM_OR_NTERM=rule('<num_or_nterm> num nterm');
-my $ANY   = rule('<any> &clip num_or_nterm term');
+}; # BEGIN
 
 # ---   *   ---   *   ---
+# test
 
-my $CORE=[$ANY];
 my $prog=q[
-  1 000 222 00 token;
+  1 000 token;
+  token;
+  1 token;
 
 ];
 
-Grammar::test->mkrules(@$CORE);
 my $ice=Grammar::test->parse($prog);
-
 $ice->{p3}->prich();
 
 # ---   *   ---   *   ---
