@@ -258,17 +258,15 @@ sub re_or_branch($self,$ctx,$sref) {
 
   if(is_qre($x)) {
     $out=$self->re_leaf($anchor,$sref);
-    $dst=$anchor->{parent};
+    $dst=$anchor if $out;
 
   } else {
     $out=$anchor->init($self->{value});
-    $dst=$anchor;
-
     push @$anchors,$out;
 
   };
 
-  $dst->status_add($self);
+  $dst->status_add($self) if $dst;
   return $out;
 
 };
@@ -290,8 +288,6 @@ sub match($self,$ctx,$s) {
 
   );
 
-  my $status  = $root->init_status($self);
-
   my @anchors = ($root);
   my @pending = (@{$self->{leaves}});
   my $depth   = 0;
@@ -307,10 +303,14 @@ sub match($self,$ctx,$s) {
 
     ) or next;
 
+    $anchors[-1]->init_status($self);
+
     ! $self->alternation(
       $ctx,\$s
 
     ) or next;
+
+    ! $self->greed($ctx,\$s) or next;
 
     my $m  = $self->re_or_branch($ctx,\$s);
     my $fn = $self->{fn};
@@ -332,6 +332,8 @@ sub match($self,$ctx,$s) {
 };
 
 # ---   *   ---   *   ---
+# branch must match at most one
+# pattern out of a group
 
 sub alternation($self,$ctx,$sref) {
 
@@ -363,6 +365,49 @@ sub alternation($self,$ctx,$sref) {
 };
 
 # ---   *   ---   *   ---
+# branch keeps matching until
+# failure
+
+sub greed($self,$ctx,$sref) {
+
+  my $greed   = $self->has_flag('greed');
+  my $out     = undef;
+
+  my $anchors = $ctx->{anchors}->[-1];
+  my $root    = $anchors->[-1];
+
+  while($greed && $greed eq $self) {
+
+    $out//=1;
+
+    my ($m,$ds) = $self->match($ctx,$$sref);
+    my $status  = $m->{status};
+
+    my $clip    = $root eq $anchors->[-1];
+
+    if($status->{total} && $m->status_ok()) {
+
+      $$sref=$ds;
+
+      $m=(! $clip)
+        ? $m->{leaves}
+        : [$m]
+        ;
+
+      $root->pushlv(@$m);
+      $root=$m->[0] if $clip;
+
+      $out++;
+
+    } else {last};
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # inits 'completion bar' ;>
 
 sub init_status($self,$other) {
@@ -380,9 +425,13 @@ sub init_status($self,$other) {
     my @lv_s = @{$self->{leaves}};
     my @lv_o = @{$other->{leaves}};
 
-    my $min  = int(grep {! $ARG->{opt}} @lv_o);
-    my $max  =
-      0 + $other->{alt} + $other->{greed}*2;
+    my $min  = (@lv_o)
+      ? int(grep {! $ARG->{opt}} @lv_o)
+      : 1
+      ;
+
+    # TODO: implement max matches
+    my $max  = 0;
 
     $self->{status}={
 
@@ -417,6 +466,8 @@ sub status_add($self,$other) {
 
 sub status_ok($self) {
 
+  $self->status_chk();
+
   my $status = $self->{status};
 
   my $max    = $status->{max};
@@ -426,6 +477,22 @@ sub status_ok($self) {
   $status->{fail}=int($total < $min);
 
   return ! $status->{fail};
+
+};
+
+# ---   *   ---   *   ---
+# ^recurse
+
+sub status_chk($self) {
+
+  my $status  = $self->{status};
+  my @pending = @{$self->{leaves}};
+
+  for my $nd(@pending) {
+    next if ! $nd->{status};
+    $status->{total}+=$nd->status_ok();
+
+  };
 
 };
 

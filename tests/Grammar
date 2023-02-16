@@ -45,14 +45,19 @@ package Grammar::test;
 # ---   *   ---   *   ---
 
 my $NTERM = rule('~<nterm>');
+my $NUM   = rule('~*<num>');
 my $TERM  = rule('~<term> &term');
-my $ANY   = rule('<any> &clip nterm term');
+
+# ---   *   ---   *   ---
+
+my $NUM_OR_NTERM=rule('<num_or_nterm> num nterm');
+my $ANY   = rule('<any> &clip num_or_nterm term');
 
 # ---   *   ---   *   ---
 
 my $CORE=[$ANY];
 my $prog=q[
-  token;
+  1 000 222 00 token;
 
 ];
 
