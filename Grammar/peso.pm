@@ -40,16 +40,18 @@ package Grammar::peso;
   use lib $ENV{'ARPATH'}.'/avtomat/';
 
   use Lang;
-  use parent 'Grammar';
+  use Grammar;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#b
+  our $VERSION = v0.01.0;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
+
+BEGIN {
 
   sub Frame_Vars($class) { return {
 
@@ -92,7 +94,7 @@ package Grammar::peso;
     decn  => qr{[0-9\.:]+}x,
 
     term  => Lang::nonscap(q[;]),
-    sep   => Lang::nonscap(q[,]),
+    clist => Lang::nonscap(q[,]),
     lcom  => Lang::eaf(q[\#]),
 
     nsop  => qr{::},
@@ -103,9 +105,9 @@ package Grammar::peso;
 
       q[;],
 
-      iv     => 1,
-      mod    => '+',
-      sigws  => 1,
+      iv    => 1,
+      mod   => '+',
+      sigws => 1,
 
     ),
 
@@ -168,9 +170,36 @@ package Grammar::peso;
 
     }x,
 
-    hier=>Lang::eiths(
+    q[hier-type]=>Lang::eiths(
 
       [qw(reg rom clan proc)],
+
+      bwrap  => 1,
+      insens => 1,
+
+    ),
+
+    q[io-type]=>Lang::eiths(
+
+      [qw(io in out)],
+
+      bwrap  => 1,
+      insens => 1,
+
+    ),
+
+    q[wed-type]=>Lang::eiths(
+
+      [qw(wed unwed)],
+
+      bwrap  => 1,
+      insens => 1,
+
+    ),
+
+    q[re-type]=>Lang::eiths(
+
+      [qw(re)],
 
       bwrap  => 1,
       insens => 1,
@@ -215,134 +244,59 @@ package Grammar::peso;
 
     }x,
 
+# ---   *   ---   *   ---
+
+    dqstr => qr{"([^"]|\\")*?"},
+    sqstr => qr{'([^']|\\')*?'},
+
+    vstr  => qr{v[0-9]\.[0-9]{2}\.[0-9][ab]?},
+
+    sdefs => Lang::eiths(
+
+      [keys %$PE_SDEFS],
+
+      -insens => 1,
+      -bwrap  => 1,
+
+    ),
+
   };
 
 # ---   *   ---   *   ---
 # lets call these "syntax ops"
 
-  Readonly our $CLIST=>{
-
-    name => $REGEX->{sep},
-    fn   => 'rew',
-
-    opt  => 1,
-
-  };
-
-  Readonly our $TERM=>{
-    name => $REGEX->{term},
-    fn   => 'term',
-
-  };
-
-  Readonly our $COMMENT=>{
-
-    name => 'comment',
-    fn   => 'discard',
-
-    chld => [{
-      name=>$REGEX->{lcom}
-
-    }],
-
-  };
+  rule('~?<clist> &rew');
+  rule('~<term>');
+  rule('~<lcom> &discard');
 
 # ---   *   ---   *   ---
 # pe file header
 
-  Readonly our $SIGIL=>{
+  rule('~<sigil>');
+  rule('~<nterm>');
 
-    name => 'sigil',
-
-    chld => [{
-      name => $REGEX->{sigil},
-      fn   => 'capt',
-
-    }],
-
-  };
-
-  Readonly our $NTERM=>{
-
-    name => 'nterm',
-
-    chld => [{
-      name => $REGEX->{nterm},
-      fn   => 'capt',
-
-    }],
-
-  };
-
-  Readonly our $HEADER=>{
-
-    name => 'header',
-
-    fn   => 'rdhed',
-    dom  => 'Grammar::peso',
-
-    chld => [
-
-      $SIGIL,
-      {%$NTERM,opt=>1},
-
-    ],
-
-  };
+  rule('?<opt-nterm> &clip nterm');
+  rule('<header> &rdhed sigil opt-nterm');
 
 # ---   *   ---   *   ---
 # placeholder for file header
 
 sub rdhed($self,$branch) {
-
   my $mach=$self->{mach};
   my @path=$mach->{scope}->path();
 
 };
 
 # ---   *   ---   *   ---
-# numerical notation
+# numerical notations
 
-  Readonly our $HEX=>{
-    name => $REGEX->{hexn},
-    fn   => 'capt',
+  rule('~<hexn>');
+  rule('~<octn>');
+  rule('~<binn>');
+  rule('~<decn>');
 
-  };
-
-  Readonly our $OCT=>{
-    name => $REGEX->{octn},
-    fn   => 'capt',
-
-  };
-
-  Readonly our $BIN=>{
-    name => $REGEX->{binn},
-    fn   => 'capt',
-
-  };
-
-  Readonly our $DEC=>{
-    name => $REGEX->{decn},
-    fn   => 'capt',
-
-  };
-
-# ---   *   ---   *   ---
-# ^combined into a single rule
-
-  Readonly our $NUM=>{
-
-    name => 'num',
-    fn   => 'rdnum',
-
-    dom  => 'Grammar::peso',
-
-    chld => [Grammar::ralt(
-      $HEX,$OCT,$BIN,$DEC
-
-    )],
-
-  };
+  # ^combined
+  rule('|<num> &rdnum hexn octn binn decn');
 
 # ---   *   ---   *   ---
 # converts all numerical
@@ -381,72 +335,26 @@ sub rdnum($self,$branch) {
 # ---   *   ---   *   ---
 # common patterns
 
-  Readonly our $TYPE=>{
-    name => $REGEX->{type},
-    fn   => 'capt',
+  rule('~<type>');
+  rule('~<spec>');
+  rule('*<specs> &clip spec');
 
-  };
-
-  Readonly our $SPEC=>{
-    name => $REGEX->{spec},
-    fn   => 'capt',
-
-  };
-
-  Readonly our $SPECS=>{
-
-    name  => 'specs',
-    greed => 1,
-
-    chld  => [$SPEC],
-
-  };
-
-  Readonly our $BARE=>{
-
-    name => 'bare',
-
-    chld => [{
-      name => $REGEX->{bare},
-      fn   => 'capt',
-
-    }],
-
-  };
-
-  Readonly our $SEAL=>{
-
-    name => 'seal',
-
-    chld => [{
-      name => $REGEX->{seal},
-      fn   => 'capt',
-
-    }],
-
-  };
+  rule('~<bare>');
+  rule('~<seal>');
 
 # ---   *   ---   *   ---
 # string types
 
-  Readonly our $DQSTR=>{
+  rule('~<dqstr>');
+  rule('~<sqstr>');
 
-    name => 'dqstr',
+  rule('~<vstr>');
 
-    fn   => 'dqstr',
-    dom  => 'Grammar::peso',
-
-    chld => [{
-
-      name => qr{"([^"]|\\")*?"},
-      fn   => 'capt',
-
-    }],
-
-  };
+  # ^combo
+  rule('|<str> dqstr sqstr vstr');
 
 # ---   *   ---   *   ---
-# ^ipret
+# ipret double quoted
 
 sub dqstr($self,$branch) {
 
@@ -460,6 +368,27 @@ sub dqstr($self,$branch) {
   $branch->{value}={
 
     ipol => 1,
+    ct   => $ct,
+
+  };
+
+  $branch->clear_branches();
+
+};
+
+# ---   *   ---   *   ---
+# ^single quoted
+
+sub sqstr($self,$branch) {
+
+  my $ct=$branch->leaf_value(0);
+
+  ($ct=~ s[^'([\s\S]*)'$][$1])
+  or throw_badstr($ct);
+
+  $branch->{value}={
+
+    ipol => 0,
     ct   => $ct,
 
   };
@@ -485,103 +414,11 @@ sub throw_badstr($s) {
 };
 
 # ---   *   ---   *   ---
-# single quoted
-
-  Readonly our $SQSTR=>{
-
-    name => 'sqstr',
-
-    fn   => 'sqstr',
-    dom  => 'Grammar::peso',
-
-    chld => [{
-
-      name => qr{'([^']|\\')*?'},
-      fn   => 'capt',
-
-    }],
-
-  };
-
-# ---   *   ---   *   ---
-# ^ipret
-
-sub sqstr($self,$branch) {
-
-  my $ct=$branch->leaf_value(0);
-
-  ($ct=~ s[^'([\s\S]*)'$][$1])
-  or throw_badstr($ct);
-
-  $branch->{value}={
-
-    ipol => 0,
-    ct   => $ct,
-
-  };
-
-  $branch->clear_branches();
-
-};
-
-# ---   *   ---   *   ---
-# version strings
-# ie v[major].[minor].[patch]
-
-  Readonly our $VSTR=>{
-
-    name => qr{v[0-9]\.[0-9]{2}\.[0-9][ab]?},
-    fn   => 'capt',
-
-  };
-
-# ---   *   ---   *   ---
-# ^combo rule
-
-  Readonly our $STR=>{
-
-    name => 'str',
-
-    chld => [Grammar::ralt(
-      $DQSTR,$SQSTR,$VSTR
-
-    )],
-
-  };
-
-# ---   *   ---   *   ---
 # soul of perl!
 
-  Readonly our $FLG=>{
-
-    name => 'flg',
-
-    dom  => 'Grammar::peso',
-    fn   => 'flg',
-
-    chld => [
-
-      $SIGIL,{
-
-        name => 'x',
-        fn   => 'clip',
-
-        chld=>[Grammar::ralt(
-          $BARE,$SEAL
-
-        )],
-
-      },
-
-    ],
-
-  };
-
-  Readonly our $FLIST=>{
-    name => 'flags',
-    chld => [$FLG,$CLIST],
-
-  };
+  rule('|<flg-name> &clip bare seal');
+  rule('<flg> sigil flg-name');
+  rule('<flist> flg clist');
 
 # ---   *   ---   *   ---
 # ^post-parse
@@ -608,21 +445,16 @@ sub flg($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# all non-bare
+# combo
 
-  Readonly our $VALUE=>{
+  rule(q[
 
-    name => 'value',
+    |<value>
+    &value_sort
 
-    dom  => 'Grammar::peso',
-    fn   => 'value_sort',
+    num str flg bare
 
-    chld => [Grammar::ralt(
-      $NUM,$STR,$FLG,$BARE
-
-    )],
-
-  };
+  ]);
 
 # ---   *   ---   *   ---
 # ^handler
@@ -667,64 +499,30 @@ sub value_sort($self,$branch) {
 # ---   *   ---   *   ---
 # entry point for all hierarchicals
 
-  Readonly our $THIER=>{
+  rule('~<hier-type>');
 
-    name => 'type',
-    chld =>[{
-      name => $REGEX->{hier},
-      fn   => 'capt',
+  rule(q[
 
-    }],
+    <hier>
+    &hier_sort
 
-  };
+    hier-type bare
 
-  Readonly our $HIER=>{
-
-    name => 'hier',
-
-    fn   => 'hier_sort',
-    dom  => 'Grammar::peso',
-
-    chld => [
-
-      {
-        name => 'spec',
-        opt  => 1,
-
-        chld => [$SPEC],
-
-      },
-
-      $THIER,
-
-      {
-        name => 'name',
-        chld => [$BARE],
-
-      },
-
-    ],
-
-  };
+  ]);
 
 # ---   *   ---   *   ---
 # preprocesses hierarchicals
 
 sub hier_sort($self,$branch) {
 
-  Tree::Grammar::list_flatten(
-    $self,$branch->branch_in(qr{^name$})
-
-  );
-
   my ($type)=$branch->pluck(
-    $branch->branch_in(qr{^type$})
+    $branch->branch_in(qr{^hier\-type$})
 
   );
 
   $branch->{value}=$type->leaf_value(0);
 
-  my $st=$branch->bhash(1,0);
+  my $st=$branch->bhash();
   $branch->{-pest}=$st;
 
   $branch->clear_branches();
@@ -914,52 +712,21 @@ sub hier_nit($self,$type) {
 # ---   *   ---   *   ---
 # patterns for declaring members
 
-  Readonly our $FULL_TYPE=>{
+  rule('<full-type> type specs');
+  rule('<nlist> bare clist');
+  rule('<vlist> &list_flatten value clist');
 
-    name => 'type',
-    chld => [
+  rule('?<opt-vlist> &clip vlist');
 
-      $TYPE,
-      {%$SPECS,opt=>1},
+  # ^combo
+  rule(q[
 
-    ],
+    <ptr-decl>
+    &ptr_decl
 
-  };
+    full-type nlist opt-vlist
 
-  Readonly our $NLIST=>{
-    name => 'names',
-    chld => [$BARE,$CLIST],
-
-  };
-
-  Readonly our $VLIST=>{
-    name => 'values',
-    fn   => 'list_flatten',
-
-    chld => [$VALUE,$CLIST],
-
-  };
-
-# ---   *   ---   *   ---
-# ^combo
-
-  Readonly our $PTR_DECL=>{
-
-    name => 'ptr_decl',
-
-    fn   => 'ptr_decl',
-    dom  => 'Grammar::peso',
-
-    chld => [
-
-      $FULL_TYPE,
-
-      $NLIST,
-      {%$VLIST,opt=>1},
-
-    ],
-
-  };
+  ]);
 
 # ---   *   ---   *   ---
 # pushes constructors to current namespace
@@ -1102,27 +869,33 @@ sub bind_decls($self,$branch) {
 
 };
 
+  rule('~<io-type>');
+  rule('<io> &rdio io-type ptr-decl');
+
 # ---   *   ---   *   ---
-# proc input
+# ^forks
 
-  Readonly our $PE_INPUT=>{
+sub rdio($self,$branch) {
 
-    name => 'input',
+  state $table={
+    io  => undef,
 
-    fn   => 'rdin',
-    dom  => 'Grammar::peso',
-
-    chld => [
-
-      {name=>qr{in}},
-      $PTR_DECL,
-
-    ],
+    out => undef,
+    in  => 'rdin',
 
   };
 
+  my $st=$branch->bhash();
+
+  say {*STDERR}
+    "rdio fork not implemented";
+
+  exit;
+
+};
+
 # ---   *   ---   *   ---
-# reads input lines
+# ^proc input
 
 sub rdin_opz($self,$branch) {
 
@@ -1145,40 +918,15 @@ sub rdin_run($self,$branch) {
 # ---   *   ---   *   ---
 # soul of perl v2.0
 
-  Readonly our $VGLOB=>{
-
-    name=>'vglob',
-    chld=>[
-
-      {name=>qr[\{]},
-      $FLG,
-
-      {name=>qr[\}]},
-
-    ],
-
-  };
+  rule('%<beg_curly=\{>');
+  rule('%<end_curly=\}>');
+  rule('<vglob> beg_curly flg end_curly');
 
 # ---   *   ---   *   ---
 # aliasing
 
-  Readonly our $LIS=>{
-
-    name => 'lis',
-
-    dom  => 'Grammar::peso',
-    fn   => 'lis',
-
-    chld => [
-
-      {name=>qr{lis}},
-
-      $VGLOB,
-      $VALUE
-
-    ],
-
-  };
+  rule('%<lis-key=lis>');
+  rule('<lis> lis-key vglob value');
 
 # ---   *   ---   *   ---
 # ^post-parse
@@ -1222,39 +970,11 @@ sub lis_ctx($self,$branch) {
 # ---   *   ---   *   ---
 # buffered IO
 
-  Readonly our $SOW=>{
+  rule('%<sow-key=sow>');
+  rule('%<reap-key=reap>');
 
-    name => 'sow',
-
-    fn   => 'sow',
-    dom  => 'Grammar::peso',
-
-    chld => [
-
-      {name=>qr{sow}},
-
-      $VGLOB,
-      $VLIST,
-
-    ]
-
-  };
-
-  Readonly our $REAP=>{
-
-    name => 'reap',
-
-    fn   => 'reap',
-    dom  => 'Grammar::peso',
-
-    chld => [
-
-      {name=>qr{reap}},
-      $VGLOB,
-
-    ]
-
-  };
+  rule('<sow> sow-key vglob vlist');
+  rule('<reap> reap-key vglob');
 
 # ---   *   ---   *   ---
 # ^post-parse
@@ -1350,23 +1070,8 @@ sub reap_run($self,$branch) {
 # ---   *   ---   *   ---
 # for internal/out tree manipulation
 
-  Readonly our $BRANCHES=>{
-
-    name  => 'branches',
-
-    fn    => 'branches',
-    dom   => 'Grammar::peso',
-
-    greed => 1,
-
-    chld  => [{
-
-      name  => $REGEX->{branch},
-      fn    => 'capt',
-
-    },$VLIST],
-
-  };
+  rule('~<branch>');
+  rule('+<branches> branch vlist');
 
 # ---   *   ---   *   ---
 # ^post-parse
@@ -1422,23 +1127,8 @@ sub branches($self,$branch) {
 # ---   *   ---   *   ---
 # branch array
 
-  Readonly our $TREE=>{
-
-    name => 'tree',
-
-    fn   => 'tree',
-    dom  => 'Grammar::peso',
-
-    chld => [
-
-      {name=>qr{tree}},
-
-      $VGLOB,
-      $BRANCHES,
-
-    ],
-
-  };
+  rule('%<tree-key=tree>');
+  rule('<tree> tree-key vglob branches');
 
 # ---   *   ---   *   ---
 # ^post-parse
@@ -1514,85 +1204,13 @@ sub tree_ctx($self,$branch) {
 # ---   *   ---   *   ---
 # special definitions
 
-  Readonly our $SVARS=>{
-
-    name => 'name',
-
-    chld=>[{
-
-      fn   => 'capt',
-      name => Lang::eiths(
-
-        [qw(VERSION AUTHOR ENTRY)],
-        -insens=>1,
-
-      ),
-
-    }],
-
-  };
-
-# ---   *   ---   *   ---
-
-  Readonly our $DEFK=>{
-
-    name=>'nid',
-    chld=>[{
-
-      fn   => 'capt',
-      name => Lang::eiths(
-        [qw(def redef undef)],
-        -insens => 1,
-
-      ),
-
-    }],
-
-  };
-
-  Readonly our $PRIME=>{
-
-    name => 'prime',
-
-    fn   => 'prime',
-    dom  => 'Grammar::peso',
-
-    chld=>[
-
-      $DEFK,
-
-      $VGLOB,
-      $NTERM,
-
-    ],
-
-  };
-
-# ---   *   ---   *   ---
-# ^exec
-
-sub prime($self,$branch) {
-  my $st=$branch->bhash();
-
-};
-
-# ---   *   ---   *   ---
-
-  Readonly our $SDEFS=>{
-
-    name => 'sdef',
-
-    fn   => 'sasg',
-    dom  => 'Grammar::peso',
-
-    chld => [$SVARS,$NTERM],
-
-  };
+  rule('~<sdefs>');
+  rule('<sdef> sdefs nterm');
 
 # ---   *   ---   *   ---
 # placeholder for special defs
 
-sub sasg_ctx($self,$branch) {
+sub sdef_ctx($self,$branch) {
 
   my $mach = $self->{mach};
 
@@ -1625,37 +1243,13 @@ sub sasg_ctx($self,$branch) {
 # ---   *   ---   *   ---
 # switch flips
 
-  Readonly our $WED=>{
-
-    name => 'type',
-    chld => [{
-
-      fn   => 'capt',
-      name => Lang::eiths(
-        [qw(wed unwed)],
-        insens=>1,
-
-      ),
-
-    }],
-
-  };
-
-  Readonly our $SWITCH=>{
-
-    name => 'switch',
-
-    fn   => 'switch',
-    dom  => 'Grammar::peso',
-
-    chld => [$WED,$FLIST],
-
-  };
+  rule('~<wed-type>');
+  rule('<wed> wed-type flist');
 
 # ---   *   ---   *   ---
-# turns you on and off
+# flips switches
 
-sub switch($self,$branch) {
+sub wed($self,$branch) {
 
   my $st=$branch->bhash(0,1);
 
@@ -1670,7 +1264,7 @@ sub switch($self,$branch) {
 
 };
 
-sub switch_ctx($self,$branch) {
+sub wed_ctx($self,$branch) {
 
   my $mach = $self->{mach};
   my $st   = $branch->{value};
@@ -1694,35 +1288,8 @@ sub switch_ctx($self,$branch) {
 # ---   *   ---   *   ---
 # regex definitions
 
-  Readonly our $RETYPE=>{
-
-    name => 'type',
-
-    chld =>[{
-      name => Lang::insens('re',mkre=>1),
-      fn   => 'capt',
-
-    }],
-
-  };
-
-  Readonly our $RE=>{
-
-    name => 're',
-
-    fn   => 'rdre',
-    dom  => 'Grammar::peso',
-
-    chld => [
-
-      $RETYPE,
-
-      $SEAL,
-      $NTERM,
-
-    ],
-
-  };
+  rule('~<re-type>');
+  rule('<re> &rdre re-type seal nterm');
 
 # ---   *   ---   *   ---
 # interprets regex definitions
@@ -1760,136 +1327,103 @@ sub rdre_ctx($self,$branch) {
 # ---   *   ---   *   ---
 # test
 
-  Readonly our $OPERATOR=>{
+  rule('~<ops>');
 
-    name => 'op',
-
-    chld => [{
-
-      name => $REGEX->{ops},
-      fn   => 'capt',
-
-    }],
-
-  };
-
-  Readonly our $MATCH=>{
-
-    name => 'match',
-
-    fn   => 'match',
-    dom  => 'Grammar::peso',
-
-    chld => [
-
-      $VALUE,
-      {name=>qr{~=}},
-
-      $NTERM,
-
-    ],
-
-  };
-
-# ---   *   ---   *   ---
-
-sub match_ctx($self,$branch) {
-
-  my $mach       = $self->{mach};
-  my $st         = $branch->bhash();
-  my @path       = $mach->{scope}->path();
-
-  my $value      = $st->{value};
-
-  my ($o,$flags) = $self->re_vex($st->{nterm});
-  my $v          = $mach->{scope}->get(
-
-    @path,
-    $value->{raw}
-
-  );
-
-  $branch->{value}={
-
-    re  => $o,
-    v   => $v,
-
-    flg => $flags,
-
-  };
-
-  $branch->clear_branches();
-
-};
-
-# ---   *   ---   *   ---
-# ^exec
-
-sub match_run($self,$branch) {
-
-  my $out  = 0;
-  my $st   = $branch->{value};
-
-  my $mach = $self->{mach};
-  my @path = $mach->{scope}->path();
-
-  my $v    = $st->{v}->{value};
-  my $re   = $st->{re};
-
-  # use/ignore whitespace
-  my $chk=($st->{flg}->{-sigws})
-    ? $v=~ m[$re]
-    : $v=~ m[$re]x
-    ;
-
-  # ^save matches
-  if($chk) {
-
-    my $match=$mach->{scope}->get(
-      @path,q[~:rematch]
-
-    );
-
-    for my $key(keys %-) {
-      $match->{$key}=$-{$key};
-
-    };
-
-    $out=1;
-
-  };
-
-  return $out;
-
-};
+#  Readonly our $MATCH=>{
+#
+#    name => 'match',
+#
+#    fn   => 'match',
+#    dom  => 'Grammar::peso',
+#
+#    chld => [
+#
+#      $VALUE,
+#      {name=>qr{~=}},
+#
+#      $NTERM,
+#
+#    ],
+#
+#  };
+#
+## ---   *   ---   *   ---
+#
+#sub match_ctx($self,$branch) {
+#
+#  my $mach       = $self->{mach};
+#  my $st         = $branch->bhash();
+#  my @path       = $mach->{scope}->path();
+#
+#  my $value      = $st->{value};
+#
+#  my ($o,$flags) = $self->re_vex($st->{nterm});
+#  my $v          = $mach->{scope}->get(
+#
+#    @path,
+#    $value->{raw}
+#
+#  );
+#
+#  $branch->{value}={
+#
+#    re  => $o,
+#    v   => $v,
+#
+#    flg => $flags,
+#
+#  };
+#
+#  $branch->clear_branches();
+#
+#};
+#
+## ---   *   ---   *   ---
+## ^exec
+#
+#sub match_run($self,$branch) {
+#
+#  my $out  = 0;
+#  my $st   = $branch->{value};
+#
+#  my $mach = $self->{mach};
+#  my @path = $mach->{scope}->path();
+#
+#  my $v    = $st->{v}->{value};
+#  my $re   = $st->{re};
+#
+#  # use/ignore whitespace
+#  my $chk=($st->{flg}->{-sigws})
+#    ? $v=~ m[$re]
+#    : $v=~ m[$re]x
+#    ;
+#
+#  # ^save matches
+#  if($chk) {
+#
+#    my $match=$mach->{scope}->get(
+#      @path,q[~:rematch]
+#
+#    );
+#
+#    for my $key(keys %-) {
+#      $match->{$key}=$-{$key};
+#
+#    };
+#
+#    $out=1;
+#
+#  };
+#
+#  return $out;
+#
+#};
 
 # ---   *   ---   *   ---
 # pop current block
 
-  Readonly our $RET=>{
-
-    name  => 'ret',
-    dom   => 'Grammar::peso',
-
-    chld  => [
-
-      {name=>'nid',chld=>[{
-
-        name => Lang::eiths(
-          [qw(ret)],
-          -insens=>1
-
-        ),
-
-        fn   => 'capt',
-
-      }]},
-
-      {%$NTERM,opt=>1},
-
-    ],
-
-  };
+  rule('%<ret-key=ret>');
+  rule('<ret> ret-key opt-nterm');
 
 # ---   *   ---   *   ---
 
@@ -1905,23 +1439,8 @@ sub ret_ctx($self,$branch) {
 # ---   *   ---   *   ---
 # procedure calls
 
-  Readonly our $CALL=>{
-
-    name => 'call',
-
-    dom  => 'Grammar::peso',
-    fn   => 'call',
-
-    chld => [
-
-      {name=>qr{call}},
-
-      $VALUE,
-      $VLIST,
-
-    ],
-
-  };
+  rule('%<call-key=call>');
+  rule('<call> call-key value vlist');
 
 # ---   *   ---   *   ---
 # ^post-parse
@@ -1987,271 +1506,271 @@ sub call_run($self,$branch) {
 
 # ---   *   ---   *   ---
 
-  Readonly our $FCALL=>{
-
-    name=>'fcall',
-    chld=>[
-      $MATCH
-
-    ],
-
-  };
-
-  Readonly our $FC_OR_V=>{
-
-    name => 'fc_or_v',
-
-    dom  => 'Grammar::peso',
-    fn   => 'fc_or_v',
-
-    chld => [Grammar::ralt(
-      $FCALL,$VALUE
-
-    )],
-
-  };
-
-# ---   *   ---   *   ---
-# wat
-
-sub fc_or_v($self,$branch) {
-
-  my $par=$branch->{parent};
-
-  for my $nd(@{$branch->{leaves}}) {
-    $branch->pluck($nd) if !$nd->{mfull};
-
-  };
-
-  my $type=$branch->{leaves}->[0]->{value};
-
-  if($type eq 'value') {
-    $branch=$branch->flatten_branch();
-
-  };
-
-  $branch=$branch->flatten_branch();
-  $branch->{value}='eval';
-
-};
-
-# ---   *   ---   *   ---
-
-  Readonly our $COND_BEG=>{
-
-    name  => 'branch_beg',
-
-    dom   => 'Grammar::peso',
-    fn    => 'cond_beg',
-
-    chld  => [
-
-      {
-
-        name=>'nid',chld=>[{
-
-          fn   => 'capt',
-          name => Lang::eiths(
-
-            [qw(on or)],
-
-            brwap  => 1,
-            insens => 1,
-
-          ),
-
-        }],
-
-      },
-
-      $FC_OR_V
-
-    ],
-
-  };
+#  Readonly our $FCALL=>{
+#
+#    name=>'fcall',
+#    chld=>[
+#      $MATCH
+#
+#    ],
+#
+#  };
+#
+#  Readonly our $FC_OR_V=>{
+#
+#    name => 'fc_or_v',
+#
+#    dom  => 'Grammar::peso',
+#    fn   => 'fc_or_v',
+#
+#    chld => [Grammar::ralt(
+#      $FCALL,$VALUE
+#
+#    )],
+#
+#  };
+#
+## ---   *   ---   *   ---
+## wat
+#
+#sub fc_or_v($self,$branch) {
+#
+#  my $par=$branch->{parent};
+#
+#  for my $nd(@{$branch->{leaves}}) {
+#    $branch->pluck($nd) if !$nd->{mfull};
+#
+#  };
+#
+#  my $type=$branch->{leaves}->[0]->{value};
+#
+#  if($type eq 'value') {
+#    $branch=$branch->flatten_branch();
+#
+#  };
+#
+#  $branch=$branch->flatten_branch();
+#  $branch->{value}='eval';
+#
+#};
 
 # ---   *   ---   *   ---
 
-  Readonly our $IVCALL=>{
-
-    name => 'ivcall',
-    chld => [
-
-      $VLIST,
-      {name=>qr{\-\>\*}},
-
-      $VALUE,
-
-    ],
-
-  };
-
-  Readonly our $DEFCALL=>{
-
-    name => 'defcall',
-    chld => [
-
-      $VALUE,
-      $VLIST,
-
-    ],
-
-  };
-
-# ---   *   ---   *   ---
-
-  Readonly our $FUCK=>{
-
-    name => 'fuck',
-    fn   => 'clip',
-
-    chld => [Grammar::ralt(
-      $IVCALL,$DEFCALL
-
-    )],
-
-  };
-
-# ---   *   ---   *   ---
-
-  Readonly our $EXPR=>{
-
-    name => 'expr',
-
-    chld => [
-
-      {name=>qr[\{]},
-
-      $FUCK,
-
-      {name=>qr[\}]},
-
-    ],
-
-  };
-
-# ---   *   ---   *   ---
-
-  Readonly our $TEST=>{
-
-    name  => 'test',
-
-    fn    => 'sxtest',
-    dom   => 'Grammar::peso',
-
-    chld => [Grammar::ralt(
-      $VLIST,$EXPR
-
-    )],
-
-  };
-
-# ---   *   ---   *   ---
-
-sub sxtest($self,$branch) {
-  $branch->prich();
-
-};
-
-# ---   *   ---   *   ---
-
-  Readonly our $COND_END=>{
-
-    name  => 'branch_end',
-
-    dom   => 'Grammar::peso',
-#    fn    => 'cond_end',
-
-    chld  => [
-
-      {
-
-        name=>'nid',chld=>[{
-
-          fn   => 'capt',
-          name => Lang::eiths(
-
-            [qw(off)],
-
-            brwap  => 1,
-            insens => 1,
-
-          ),
-
-        }],
-
-      },
-
-    ],
-
-  };
-
-# ---   *   ---   *   ---
-
-sub cond_beg_ctx($self,$branch) {
-
-  my $idex  = $branch->{idex};
-  my $depth = 0;
-
-  my @lv    = @{$branch->{parent}->{leaves}};
-  @lv       = @lv[$idex+1..$#lv];
-
-  $idex     = 0;
-
-  for my $nd(@lv) {
-
-    if($nd->{value} eq 'branch_end') {
-      $depth--;
-
-    } elsif($nd->{value} eq 'branch_beg') {
-      $depth++;
-
-    };
-
-    last if $depth<0;
-    $idex++;
-
-  };
-
-  @lv=@lv[0..$idex-1];
-  $branch->{-pest}=$branch->bhash();
-
-  $branch->pluck($branch->branches_in(
-    qr{^nid|eval$}
-
-  ));
-
-  $branch->pushlv(@lv);
-
-};
-
-# ---   *   ---   *   ---
-
-sub cond_beg_run($self,$branch) {
-
-  my $st=$branch->{-pest};
-  my $ev=$st->{eval};
-
-  my $ok=0;
-
-  for my $nd(@{$ev->{leaves}}) {
-    $ok|=$nd->{chain}->[-1]->($self,$nd);
-
-  };
-
-  if(! $ok) {
-
-    my $callstk = $self->{callstk};
-    my $size    = @{$branch->{leaves}};
-
-    for(0..$size-1) {
-      shift @$callstk;
-
-    };
-
-  };
-
-};
+#  Readonly our $COND_BEG=>{
+#
+#    name  => 'branch_beg',
+#
+#    dom   => 'Grammar::peso',
+#    fn    => 'cond_beg',
+#
+#    chld  => [
+#
+#      {
+#
+#        name=>'nid',chld=>[{
+#
+#          fn   => 'capt',
+#          name => Lang::eiths(
+#
+#            [qw(on or)],
+#
+#            brwap  => 1,
+#            insens => 1,
+#
+#          ),
+#
+#        }],
+#
+#      },
+#
+#      $FC_OR_V
+#
+#    ],
+#
+#  };
+#
+## ---   *   ---   *   ---
+#
+#  Readonly our $IVCALL=>{
+#
+#    name => 'ivcall',
+#    chld => [
+#
+#      $VLIST,
+#      {name=>qr{\-\>\*}},
+#
+#      $VALUE,
+#
+#    ],
+#
+#  };
+#
+#  Readonly our $DEFCALL=>{
+#
+#    name => 'defcall',
+#    chld => [
+#
+#      $VALUE,
+#      $VLIST,
+#
+#    ],
+#
+#  };
+#
+## ---   *   ---   *   ---
+#
+#  Readonly our $FUCK=>{
+#
+#    name => 'fuck',
+#    fn   => 'clip',
+#
+#    chld => [Grammar::ralt(
+#      $IVCALL,$DEFCALL
+#
+#    )],
+#
+#  };
+#
+## ---   *   ---   *   ---
+#
+#  Readonly our $EXPR=>{
+#
+#    name => 'expr',
+#
+#    chld => [
+#
+#      {name=>qr[\{]},
+#
+#      $FUCK,
+#
+#      {name=>qr[\}]},
+#
+#    ],
+#
+#  };
+#
+## ---   *   ---   *   ---
+#
+#  Readonly our $TEST=>{
+#
+#    name  => 'test',
+#
+#    fn    => 'sxtest',
+#    dom   => 'Grammar::peso',
+#
+#    chld => [Grammar::ralt(
+#      $VLIST,$EXPR
+#
+#    )],
+#
+#  };
+#
+## ---   *   ---   *   ---
+#
+#sub sxtest($self,$branch) {
+#  $branch->prich();
+#
+#};
+#
+## ---   *   ---   *   ---
+#
+#  Readonly our $COND_END=>{
+#
+#    name  => 'branch_end',
+#
+#    dom   => 'Grammar::peso',
+##    fn    => 'cond_end',
+#
+#    chld  => [
+#
+#      {
+#
+#        name=>'nid',chld=>[{
+#
+#          fn   => 'capt',
+#          name => Lang::eiths(
+#
+#            [qw(off)],
+#
+#            brwap  => 1,
+#            insens => 1,
+#
+#          ),
+#
+#        }],
+#
+#      },
+#
+#    ],
+#
+#  };
+#
+## ---   *   ---   *   ---
+#
+#sub cond_beg_ctx($self,$branch) {
+#
+#  my $idex  = $branch->{idex};
+#  my $depth = 0;
+#
+#  my @lv    = @{$branch->{parent}->{leaves}};
+#  @lv       = @lv[$idex+1..$#lv];
+#
+#  $idex     = 0;
+#
+#  for my $nd(@lv) {
+#
+#    if($nd->{value} eq 'branch_end') {
+#      $depth--;
+#
+#    } elsif($nd->{value} eq 'branch_beg') {
+#      $depth++;
+#
+#    };
+#
+#    last if $depth<0;
+#    $idex++;
+#
+#  };
+#
+#  @lv=@lv[0..$idex-1];
+#  $branch->{-pest}=$branch->bhash();
+#
+#  $branch->pluck($branch->branches_in(
+#    qr{^nid|eval$}
+#
+#  ));
+#
+#  $branch->pushlv(@lv);
+#
+#};
+#
+## ---   *   ---   *   ---
+#
+#sub cond_beg_run($self,$branch) {
+#
+#  my $st=$branch->{-pest};
+#  my $ev=$st->{eval};
+#
+#  my $ok=0;
+#
+#  for my $nd(@{$ev->{leaves}}) {
+#    $ok|=$nd->{chain}->[-1]->($self,$nd);
+#
+#  };
+#
+#  if(! $ok) {
+#
+#    my $callstk = $self->{callstk};
+#    my $size    = @{$branch->{leaves}};
+#
+#    for(0..$size-1) {
+#      shift @$callstk;
+#
+#    };
+#
+#  };
+#
+#};
 
 # ---   *   ---   *   ---
 # value expansion
@@ -2454,46 +1973,37 @@ sub re_vex($self,$o) {
 };
 
 # ---   *   ---   *   ---
-# non-terminated, non-code
+# groups
 
-  Readonly our $META=>[
-    $COMMENT
+  # non-terminated
+  rule('|<meta> &clip lcom');
 
-  ];
+  # ^else
+  rule(q[
 
-# ---   *   ---   *   ---
-# ^terminated
+    |<needs-term-list>
 
-  Readonly our $NEEDS_TERM=>[
+    hier header
 
-    $TEST,
+  ]);
 
-#    $HEADER,$SDEFS,$SWITCH,
-#    $HIER,$PTR_DECL,$PE_INPUT,
-#
-#    $RE,$RET,$COND_BEG,$COND_END,
-#    $MATCH,$CALL,
-#
-#    $LIS,$SOW,$REAP,$TREE,
+  rule(q[
 
-  ];
+    <needs-term>
+    &clip
+
+    needs-term-list term
+
+  ]);
 
 # ---   *   ---   *   ---
 # ^generate rules
 
-  Readonly our $CORE=>[map {{
+  our @CORE=qw(meta needs-term);
 
-    name => 'dummy',
-    fn   => 'clip',
+# ---   *   ---   *   ---
 
-    chld => [$ARG,$TERM],
-
-  }} @$NEEDS_TERM];
-
-  Grammar::peso->mkrules(
-    @$META,@$CORE
-
-  );
+}; # BEGIN
 
 # ---   *   ---   *   ---
 # test
@@ -2506,9 +2016,9 @@ sub re_vex($self,$o) {
   $prog    =~ m[([\S\s]+)\s*STOP]x;
   $prog    = ${^CAPTURE[0]};
 
-  my $ice  = Grammar::peso->parse($prog,-r=>2);
+  my $ice  = Grammar::peso->parse($prog);
 
-#  $ice->{tree}->prich();
+  $ice->{p3}->prich();
 
 #  $ice->run(
 #

@@ -65,7 +65,7 @@ package Grammar;
   Readonly my $RULE_RE=>qr{
 
     \s*
-    (?<sign> [\~\|\?\+\*]+ )?
+    (?<sign> [\%\~\|\?\+\*]+ )?
 
     \s*
     (?<max> \d+)?
@@ -275,7 +275,7 @@ sub run($self,%O) {
   $O{keepx}//=0;
   $O{input}//=[];
 
-  my $tree    = $self->{tree};
+  my $tree    = $self->{p3};
   my $f       = $self->{frame};
   my $callstk = $self->{callstk};
 
@@ -468,7 +468,7 @@ sub mkrules($class,@rules) {
   # walk
   while(@rules) {
 
-    my $key   = shift @rules;
+    my $key=shift @rules;
 
     # go back one step in hierarchy
     if($key eq 0) {
@@ -541,12 +541,12 @@ sub rule_attrs($class,$s) {
 
   );
 
-  $sign  //= $NULLSTR;
-  $max   //= 0;
-  $fn    //= $NULLSTR;
-  $chld  //= $NULLSTR;
+  $sign //= $NULLSTR;
+  $max  //= 0;
+  $fn   //= $NULLSTR;
+  $chld //= $NULLSTR;
 
-  $chld    = [split $SPACE_RE,$chld];
+  $chld   = [split $SPACE_RE,$chld];
 
   my $out={name=>$name,max=>int($max)};
 
@@ -582,14 +582,18 @@ sub rsign($class,$O,$sign) {
 
   state $IS_OPT   = qr{[\?\*]};
   state $IS_GREED = qr{[\+\*]};
+
   state $IS_ALT   = $BOR_RE;
   state $IS_RE    = $ATILDE_RE;
+
+  state $IS_LIT = qr{\%};
 
   $O->{alt}   = int($sign=~ $IS_ALT);
   $O->{opt}   = int($sign=~ $IS_OPT);
   $O->{greed} = int($sign=~ $IS_GREED);
 
   $class->retab($O) if $sign=~ $IS_RE;
+  $class->relit($O) if $sign=~ $IS_LIT;
 
 };
 
@@ -603,6 +607,23 @@ sub retab($class,$O) {
   my $name  = $O->{name};
   my $ar    = $O->{chld};
   my $c     = {name=>$retab->{$name}};
+
+  push @$ar,$c;
+
+};
+
+# ---   *   ---   *   ---
+# ^make regex from name
+
+sub relit($class,$O) {
+
+  my $full = $O->{name};
+  my $ar   = $O->{chld};
+
+  my ($name,$value)=split m[\=],$full;
+
+  $O->{name}=$name;
+  my $c={name=>qr{$value}};
 
   push @$ar,$c;
 
@@ -684,13 +705,9 @@ sub clip($self,$branch) {
   my $par = $branch->{parent};
   my @lv  = @{$branch->{leaves}};
 
-  if(! $par) {
-    map {$ARG->flatten_branch()} @lv;
+  my $Q   = $self->{Q};
 
-  } else {
-    $branch->flatten_branch();
-
-  };
+  $Q->add(sub {$branch->flatten_branch()});
 
 };
 
@@ -698,8 +715,11 @@ sub clip($self,$branch) {
 # removes branch
 
 sub discard($self,$branch) {
-  my ($root)=$branch->root();
-  $root->pluck($branch);
+
+  my $Q     = $self->{Q};
+  my $par   = $branch->{parent};
+
+  $Q->add(sub {$par->pluck($branch)});
 
 };
 
@@ -707,11 +727,7 @@ sub discard($self,$branch) {
 # terminates an expression
 
 sub term($self,$branch) {
-
-  my $Q     = $self->{Q};
-  my $par   = $branch->{parent};
-
-  $Q->add(sub {$par->pluck($branch)});
+  discard($self,$branch);
   @{$self->{pending}->[-1]}=();
 
 };

@@ -619,7 +619,7 @@ sub repl($self,$other) {
 sub deep_repl($self,$other) {
 
   state $fbid_key_re=qr{^(?: idex|parent)$}x;
-  $self->repl($other);
+  $self->repl($other) if $self->{parent};
 
   for my $key(keys %$self) {
 

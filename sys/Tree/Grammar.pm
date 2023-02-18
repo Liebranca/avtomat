@@ -218,14 +218,14 @@ sub has_flag($self,$flag) {
 # ---   *   ---   *   ---
 # exec calls attached to branch
 
-sub on_match($self,$match) {
+sub on_match($self,$branch) {
 
-  my ($root)=$self->root();
+  my ($root)=$branch->root();
 
-  $self->{fn}->($root->{ctx},$match)
+  $self->{fn}->($root->{ctx},$branch)
   if $self->{fn} ne $NOOP;
 
-  $match->shift_chain(@{$self->{chain}});
+  $branch->shift_chain(@{$self->{chain}});
 
 };
 
@@ -239,6 +239,9 @@ sub re_leaf($self,$anchor,$sref) {
 
   if($$sref =~ s[^\s*($re)\s*][]) {
     $out=$anchor->init($1);
+
+  } elsif(! $self->{opt}) {
+    $anchor->status_ffail();
 
   };
 
@@ -290,6 +293,8 @@ sub match($self,$ctx,$s) {
     value  => $x,
 
   );
+
+  $root->{ctx}=$ctx;
 
   my @anchors = ($root);
   my @pending = (@{$self->{leaves}});
@@ -377,7 +382,6 @@ sub alternation($self,$ctx,$sref) {
     my ($m,$ds)=$self->hier_match($ctx,$$sref);
 
     if($m) {
-
       $$sref=$ds;
 
       $root->pushlv($m);
@@ -486,8 +490,6 @@ sub status_add($self,$other,$force=0) {
   my $status=$self->{status};
   $status->{total} += 1;
 
-#(! $other->{opt}) || $force;
-
 };
 
 # ---   *   ---   *   ---
@@ -505,8 +507,9 @@ sub status_ok($self) {
   my $total  = $status->{total};
 
   $status->{fail}=int(
-     ($opt && $total < $min)
+     ($total < $min)
   || ($max && $total > $max)
+  || ($status->{fail})
 
   );
 
@@ -527,6 +530,16 @@ sub status_chk($self) {
     $status->{total}+=$nd->status_ok();
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# force failure
+
+sub status_ffail($self) {
+
+  my $status=$self->{status};
+  $status->{fail}=1;
 
 };
 
@@ -570,7 +583,7 @@ sub hier_match($self,$ctx,$s) {
     if($m->status_ok()) {
       @out=($m,$ds);
 
-      $ctx->{Q}->ex();
+      $ctx->{Q}->wex();
       $branch->on_match($m);
 
       last;
@@ -612,11 +625,14 @@ sub parse($self,$s) {
 
     my ($match,$ds)=$gram->hier_match($ctx,$s);
 
-    throw_no_match($gram,$s)
+    $self->throw_no_match($gram,$s)
     if ! $match;
 
-    # push to tree && update string
+    # push to tree and run queue
     $self->pushlv($match);
+    $ctx->{Q}->wex();
+
+    # update string
     $s=$ds;
 
     # ^exit when input consumed
@@ -629,9 +645,21 @@ sub parse($self,$s) {
 # ---   *   ---   *   ---
 # ^errme
 
-sub throw_no_match($self,$s) {
+sub throw_no_match($self,$gram,$s) {
 
   my $s_short=substr $s,0,64;
+
+  say {*STDERR}
+
+    "_______________\n\n" .
+
+    "PARSE-IRUPT"
+
+  ;
+
+  $self->prich(errout=>1);
+
+  say {*STDERR} "_______________\n";
 
   errout(
 
@@ -639,7 +667,7 @@ sub throw_no_match($self,$s) {
     q[^^^ Could not parse this bit ].
     q[with grammar <%s>],
 
-    args => [$s_short,$self->{value}],
+    args => [$s_short,$gram->{value}],
     lvl  => $AR_FATAL,
 
   );

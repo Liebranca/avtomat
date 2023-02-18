@@ -22,18 +22,14 @@ package Queue;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v1.00.1;
+  our $VERSION=v1.00.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # getters
 
-sub argc($self) {return $self->{argc}};
-sub argv($self) {return $self->{argv}};
-sub procs($self) {return $self->{procs}};
-
 sub pending($self) {
-  return int(@{$self->procs()})!=0;
+  return 0 < @{$self->{procs}};
 
 };
 
@@ -55,9 +51,9 @@ sub nit($class) {
 # ---   *   ---   *   ---
 
 sub add($self,$fn,@args) {
-  push @{$self->argc()},int(@args);
-  push @{$self->argv()},@args;
-  push @{$self->procs()},$fn;
+  push @{$self->{argc}},int(@args);
+  push @{$self->{argv}},@args;
+  push @{$self->{procs}},$fn;
 
   return;
 
@@ -77,13 +73,13 @@ sub clear($self) {
 
 sub get_next($self) {
 
-  my $argc=shift @{$self->argc()};
-  my $fn=shift @{$self->procs()};
+  my $argc = shift @{$self->{argc}};
+  my $fn   = shift @{$self->{procs}};
 
   my @argv=();
 
   while($argc) {
-    push @argv,shift @{$self->argv()};
+    push @argv,shift @{$self->{argv}};
     $argc--;
 
   };
@@ -96,14 +92,31 @@ sub get_next($self) {
 # do if anything left to do
 
 sub ex($self) {
+
   my $out=undef;
 
-  if($self->pending) {
-    $out=$self->get_next;
+  if($self->pending()) {
+    $out=$self->get_next();
 
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^do WHILE ;>
+
+sub wex($self) {
+
+  my @out=();
+
+  while($self->pending()) {
+    push @out,$self->get_next();
+
+  };
+
+  return @out;
 
 };
 
