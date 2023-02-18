@@ -46,6 +46,7 @@ package Style;
 
     $COMMA_RE
     $SPACE_RE
+    $NSPACE_RE
     $COLON_RE
     $DCOLON_RE
     $BOR_RE
@@ -59,7 +60,7 @@ package Style;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.02.1;
+  our $VERSION=v0.02.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -99,6 +100,7 @@ package Style;
 
   Readonly our $COMMA_RE   => qr{,};
   Readonly our $SPACE_RE   => qr{\s};
+  Readonly our $NSPACE_RE  => qr{\s+};
   Readonly our $COLON_RE   => qr{:};
   Readonly our $DCOLON_RE  => qr{::};
   Readonly our $BOR_RE     => qr{\|};

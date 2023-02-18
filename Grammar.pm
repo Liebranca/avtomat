@@ -196,7 +196,28 @@ sub push_rule($class,$rule) {
 
 sub fetch_rule($class,$name) {
   my $tab=$class->get_ruletab();
+
+  throw_bad_rfetch($class,$name)
+  if ! exists $tab->{$name};
+
   return $tab->{$name};
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_bad_rfetch($class,$name) {
+
+  errout(
+
+    q[Cannot find <%s> ] .
+    q[in %s::Rules],
+
+    args => [$name,$class],
+    lvl  => $AR_FATAL,
+
+  );
 
 };
 
@@ -470,6 +491,13 @@ sub mkrules($class,@rules) {
 
     my $key=shift @rules;
 
+    errout(
+
+      q[mkrules encountered NULL CHLD],
+      lvl=>$AR_FATAL,
+
+    ) unless defined $key;
+
     # go back one step in hierarchy
     if($key eq 0) {
       pop @anchors;
@@ -546,13 +574,27 @@ sub rule_attrs($class,$s) {
   $fn   //= $NULLSTR;
   $chld //= $NULLSTR;
 
-  $chld   = [split $SPACE_RE,$chld];
+  $chld   = [split $NSPACE_RE,$chld];
 
-  my $out={name=>$name,max=>int($max)};
+  my $out={
+
+    name => $name,
+    max  => int($max),
+
+    chld => [],
+
+  };
+
+  $class->rfunc(
+
+    $out,
+    $fn,
+
+    $class->rsign($out,$sign)
+
+  );
 
   $class->rchld($out,$chld);
-  $class->rsign($out,$sign);
-  $class->rfunc($out,$fn);
   $class->rdef($out,$name);
 
   return $out;
@@ -592,8 +634,8 @@ sub rsign($class,$O,$sign) {
   $O->{opt}   = int($sign=~ $IS_OPT);
   $O->{greed} = int($sign=~ $IS_GREED);
 
-  $class->retab($O) if $sign=~ $IS_RE;
-  $class->relit($O) if $sign=~ $IS_LIT;
+  return $class->retab($O) if $sign=~ $IS_RE;
+  return $class->relit($O) if $sign=~ $IS_LIT;
 
 };
 
@@ -609,6 +651,8 @@ sub retab($class,$O) {
   my $c     = {name=>$retab->{$name}};
 
   push @$ar,$c;
+
+  return 1;
 
 };
 
@@ -627,28 +671,35 @@ sub relit($class,$O) {
 
   push @$ar,$c;
 
+  return 1;
+
 };
 
 # ---   *   ---   *   ---
-# ^alternation
+# ^sub-rules
 
 sub rchld($class,$O,$rule_names) {
-  $O->{chld}=[map {
+
+  my $ar=$O->{chld};
+
+  push @$ar,map {
     $class->fetch_rule($ARG)
 
-  } @$rule_names];
+  } @$rule_names;
 
 };
 
 # ---   *   ---   *   ---
 # ^sets module::function
 
-sub rfunc($class,$O,$fn) {
+sub rfunc($class,$O,$fn,$got_re=undef) {
 
   my @ar    = split $DCOLON_RE,$fn;
 
   my $name  = pop @ar;
   my $dom   = join q[::],@ar;
+
+  $O=$O->{chld}->[-1] if $got_re;
 
   $O->{fn}  = ($name) ? $name : undef;
   $O->{dom} = ($dom) ? $dom : undef;
@@ -691,9 +742,21 @@ sub rule($s) {
 sub rew($self,$branch) {
 
   my $pending = $self->{pending}->[-1];
-  my $par     = $branch->{parent};
+  my $anchors = $self->{anchors}->[-1];
+  my $other   = $branch->{other};
 
-  unshift @$pending,@{$par->{leaves}};
+  my $par     = (is_qre($other->{value}))
+    ? $other->{parent}->{parent}
+    : $other->{parent}
+    ;
+
+  my $anchor  = $anchors->[-1];
+  my $status  = $anchor->{status};
+
+  unshift @$pending,@{$par->{leaves}}
+  if $status->{total};
+
+  discard($self,$anchor);
 
 };
 
@@ -716,10 +779,18 @@ sub clip($self,$branch) {
 
 sub discard($self,$branch) {
 
-  my $Q     = $self->{Q};
-  my $par   = $branch->{parent};
+  my $Q   = $self->{Q};
+  my $par = \$branch->{parent};
 
-  $Q->add(sub {$par->pluck($branch)});
+  $Q->add(sub {$$par->pluck($branch)});
+
+};
+
+# ---   *   ---   *   ---
+# ^special case
+
+sub lcom($self,$branch) {
+  discard($self,$branch);
 
 };
 
@@ -727,6 +798,7 @@ sub discard($self,$branch) {
 # terminates an expression
 
 sub term($self,$branch) {
+
   discard($self,$branch);
   @{$self->{pending}->[-1]}=();
 
@@ -747,10 +819,17 @@ sub term($self,$branch) {
 sub list_flatten($self,@branches) {
 
   # confused yet? ;>
-  map { map {
-    $ARG->flatten_branch();
+  map {
 
-  } @{$ARG->{leaves}} } @branches;
+    my @lv=@{$ARG->{leaves}};
+    array_filter(\@lv);
+
+    map {
+      $ARG->flatten_branch();
+
+    } @lv;
+
+  } @branches;
 
 };
 

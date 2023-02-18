@@ -323,6 +323,8 @@ sub match($self,$ctx,$s) {
     my $m  = $self->re_or_branch($ctx,\$s);
     my $fn = $self->{fn};
 
+    $m->{other}=$self;
+
     $fn->($ctx,$m) if $m && $fn ne $NOOP;
 
     my @lv=@{$self->{leaves}};
@@ -460,22 +462,18 @@ sub init_status($self,$other) {
   my @lv_s = @{$self->{leaves}};
   my @lv_o = @{$other->{leaves}};
 
-  my $min  = (@lv_o)
-    ? int(@lv_o)
-    : 1
-    ;
-
+  my $ar   = $other->status_array();
   my $max  = $other->{max};
 
   $self->{status}={
 
-    min   => $min,
+    ar    => $ar,
     max   => $max,
 
-    total => 0,
     fail  => 0,
 
     opt   => int($other->{opt} && ! $max),
+    alt   => $other->{alt},
 
   };
 
@@ -484,11 +482,42 @@ sub init_status($self,$other) {
 };
 
 # ---   *   ---   *   ---
+# details matches within a branch
+
+sub status_array($self) {
+
+  my $out=[];
+
+  for my $nd(@{$self->{leaves}}) {
+
+    my $sub_status={
+
+      alt => $nd->{alt},
+      opt => $nd->{opt},
+
+      ok  => 0,
+
+    };
+
+    push @$out,$sub_status;
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # register succesful match
 
-sub status_add($self,$other,$force=0) {
-  my $status=$self->{status};
-  $status->{total} += 1;
+sub status_add($self,$other) {
+
+  my $status = $self->{status};
+
+  my $ar     = $status->{ar};
+  my $idex   = $other->{idex};
+
+  $ar->[$idex]->{ok}=1;
 
 };
 
@@ -500,20 +529,52 @@ sub status_ok($self) {
   $self->status_chk();
 
   my $status = $self->{status};
+  my $subok  = $self->status_subok();
 
   my $opt    = $status->{opt};
+  my $alt    = $status->{alt};
   my $max    = $status->{max};
-  my $min    = $status->{min};
-  my $total  = $status->{total};
+  my $ar     = $status->{ar};
+
+  my $ok=int(
+
+     ($subok eq @$ar)
+  || ($max && $subok <= $max)
+  || ($alt && $subok eq 1)
+  || ($opt)
+
+  );
 
   $status->{fail}=int(
-     ($total < $min)
-  || ($max && $total > $max)
-  || ($status->{fail})
+     (! $ok) || ($status->{fail})
 
   );
 
   return ! $status->{fail};
+
+};
+
+# ---   *   ---   *   ---
+# ^walk children
+
+sub status_subok($self) {
+
+  my $out    = 0;
+
+  my $status = $self->{status};
+  my $ar     = $status->{ar};
+
+  for my $sub_status(@$ar) {
+
+    $out+=
+
+       $sub_status->{ok}
+    || $sub_status->{opt}
+    ;
+
+  };
+
+  return $out;
 
 };
 
@@ -525,9 +586,17 @@ sub status_chk($self) {
   my $status  = $self->{status};
   my @pending = @{$self->{leaves}};
 
+  $status->{total}=0;
+
+  my $i  = 0;
+  my $ar = $status->{ar};
+
   for my $nd(@pending) {
+
     next if ! $nd->{status};
-    $status->{total}+=$nd->status_ok();
+
+    my $sub_status=$ar->[$i++];
+    $sub_status->{ok}=$nd->status_ok();
 
   };
 
@@ -544,32 +613,6 @@ sub status_ffail($self) {
 };
 
 # ---   *   ---   *   ---
-# ^debug print for branch status
-
-sub status_db_out($self) {
-
-  use Fmat;
-
-  my $status=$self->{status};
-
-  say {*STDERR}
-
-    "$status->{total}/" .
-    "$status->{min} " .
-    "< $status->{max} " .
-    "? $status->{fail} -> " .
-    "$self->{value}"
-
-  ;
-
-  $self->prich();
-  fatdump($status);
-
-  say {*STDERR} "__________________\n";
-
-};
-
-# ---   *   ---   *   ---
 # match against all branches
 
 sub hier_match($self,$ctx,$s) {
@@ -581,6 +624,7 @@ sub hier_match($self,$ctx,$s) {
     my ($m,$ds)=$branch->match($ctx,$s);
 
     if($m->status_ok()) {
+
       @out=($m,$ds);
 
       $ctx->{Q}->wex();

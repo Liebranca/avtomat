@@ -251,7 +251,7 @@ BEGIN {
 
     vstr  => qr{v[0-9]\.[0-9]{2}\.[0-9][ab]?},
 
-    sdefs => Lang::eiths(
+    q[sdef-name] => Lang::eiths(
 
       [keys %$PE_SDEFS],
 
@@ -267,7 +267,7 @@ BEGIN {
 
   rule('~?<clist> &rew');
   rule('~<term>');
-  rule('~<lcom> &discard');
+  rule('~<lcom>');
 
 # ---   *   ---   *   ---
 # pe file header
@@ -330,6 +330,8 @@ sub rdnum($self,$branch) {
 
   };
 
+  Grammar::list_flatten($self,$branch);
+
 };
 
 # ---   *   ---   *   ---
@@ -359,6 +361,7 @@ sub rdnum($self,$branch) {
 sub dqstr($self,$branch) {
 
   my $ct=$branch->leaf_value(0);
+  return unless defined $ct;
 
   ($ct=~ s[^"([\s\S]*)"$][$1])
   or throw_badstr($ct);
@@ -382,6 +385,7 @@ sub dqstr($self,$branch) {
 sub sqstr($self,$branch) {
 
   my $ct=$branch->leaf_value(0);
+  return unless defined $ct;
 
   ($ct=~ s[^'([\s\S]*)'$][$1])
   or throw_badstr($ct);
@@ -540,7 +544,7 @@ sub hier_sort_ctx($self,$branch) {
   my $f    = $self->{frame};
 
   # set type of current scope
-  $f->{$ckey}=$st->{name};
+  $f->{$ckey}=$st->{bare};
 
   # get altered path
   my @cur=$self->cpath_change($type);
@@ -713,7 +717,7 @@ sub hier_nit($self,$type) {
 # patterns for declaring members
 
   rule('<full-type> type specs');
-  rule('<nlist> bare clist');
+  rule('<nlist> &list_flatten bare clist');
   rule('<vlist> &list_flatten value clist');
 
   rule('?<opt-vlist> &clip vlist');
@@ -733,44 +737,44 @@ sub hier_nit($self,$type) {
 
 sub ptr_decl($self,$branch) {
 
-  # flatten lists
-  for my $key(qw(names flg value)) {
-
-    my @ar=$branch->branches_in(
-      qr{^$key$},
-      max_depth=>1,
-
-    );
-
-    Tree::Grammar::list_flatten($self,@ar);
-
-  };
-
-  $branch->branch_in(
-    qr{^specs$}
-
-  )->flatten_branch();
-
-  # hashrefy
-  my $st    = $branch->bhash(1,1,1);
-
-  # first value is type
-  # rest is specifiers
-  my $type  = shift @{$st->{type}};
-  my @specs = @{$st->{type}};
-
-  # ^put together
-  $branch->{value}={
-
-    type   => $type,
-    specs  => \@specs,
-
-    names  => $st->{names},
-    values => $st->{values},
-
-  };
-
-  $branch->clear_branches();
+#  # flatten lists
+#  for my $key(qw(names flg value)) {
+#
+#    my @ar=$branch->branches_in(
+#      qr{^$key$},
+#      max_depth=>1,
+#
+#    );
+#
+#    Grammar::list_flatten($self,@ar);
+#
+#  };
+#
+##  $branch->branch_in(
+##    qr{^specs$}
+##
+##  )->flatten_branch();
+#
+#  # hashrefy
+#  my $st    = $branch->bhash(1,1,1);
+#
+#  # first value is type
+#  # rest is specifiers
+#  my $type  = shift @{$st->{type}};
+#  my @specs = @{$st->{type}};
+#
+#  # ^put together
+#  $branch->{value}={
+#
+#    type   => $type,
+#    specs  => \@specs,
+#
+#    names  => $st->{names},
+#    values => $st->{values},
+#
+#  };
+#
+#  $branch->clear_branches();
 
 };
 
@@ -778,6 +782,9 @@ sub ptr_decl($self,$branch) {
 # ^pre-run step
 
 sub ptr_decl_ctx($self,$branch) {
+
+$branch->prich();
+exit;
 
   my $st     = $branch->{value};
   my $mach   = $self->{mach};
@@ -1204,24 +1211,38 @@ sub tree_ctx($self,$branch) {
 # ---   *   ---   *   ---
 # special definitions
 
-  rule('~<sdefs>');
-  rule('<sdef> sdefs nterm');
+  rule('~<sdef-name>');
+  rule('<sdef> sdef-name nterm');
 
 # ---   *   ---   *   ---
 # placeholder for special defs
+
+sub sdef($self,$branch) {
+
+  my $st=$branch->bhash(0,0);
+
+  $branch->{value}={
+    name  => $st->{q[sdef-name]},
+    value => $st->{nterm},
+
+  };
+
+  $branch->clear_branches();
+
+};
 
 sub sdef_ctx($self,$branch) {
 
   my $mach = $self->{mach};
 
-  my $st   = $branch->bhash(0,0);
+  my $st   = $branch->{value};
   my @path = $mach->{scope}->path();
 
   if(uc $st->{name} eq 'ENTRY') {
 
-    $st->{nterm}=[split
+    $st->{value}=[split
       $REGEX->{nsop},
-      $st->{nterm}
+      $st->{value}
 
     ];
 
@@ -1229,7 +1250,7 @@ sub sdef_ctx($self,$branch) {
 
   my $o=$mach->{scope}->asg(
 
-    $st->{nterm},
+    $st->{value},
 
     @path,
     $st->{name}
@@ -1247,7 +1268,7 @@ sub sdef_ctx($self,$branch) {
   rule('<wed> wed-type flist');
 
 # ---   *   ---   *   ---
-# flips switches
+# ^handler
 
 sub wed($self,$branch) {
 
@@ -1983,7 +2004,8 @@ sub re_vex($self,$o) {
 
     |<needs-term-list>
 
-    hier header
+    hier ptr-decl header sdef
+
 
   ]);
 
@@ -1999,7 +2021,7 @@ sub re_vex($self,$o) {
 # ---   *   ---   *   ---
 # ^generate rules
 
-  our @CORE=qw(meta needs-term);
+  our @CORE=qw(ptr-decl);
 
 # ---   *   ---   *   ---
 
@@ -2016,9 +2038,10 @@ sub re_vex($self,$o) {
   $prog    =~ m[([\S\s]+)\s*STOP]x;
   $prog    = ${^CAPTURE[0]};
 
-  my $ice  = Grammar::peso->parse($prog);
+  my $ice  = Grammar::peso->parse($prog,-r=>2);
 
   $ice->{p3}->prich();
+  $ice->{mach}->{scope}->prich();
 
 #  $ice->run(
 #

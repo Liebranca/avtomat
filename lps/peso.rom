@@ -1,3 +1,6 @@
+byte  term $3B
+STOP;
+
 %lps;
 
 # ---   *   ---   *   ---
@@ -15,7 +18,7 @@
 # info
 
   CLAN      peso;
-STOP;
+
   VERSION   v0.00.3b;
   AUTHOR    'IBN-3DILA';
 
