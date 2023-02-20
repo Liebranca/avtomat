@@ -65,7 +65,7 @@ package Grammar;
   Readonly my $RULE_RE=>qr{
 
     \s*
-    (?<sign> [\%\~\|\?\+\*]+ )?
+    (?<sign> [\$ \%\~\|\?\+\*]+ )?
 
     \s*
     (?<max> \d+)?
@@ -529,6 +529,7 @@ sub mkrules($class,@rules) {
       $value->{name},
 
       fn    => $value->{fn},
+      hier  => $value->{hier},
 
       opt   => $value->{opt},
       greed => $value->{greed},
@@ -622,6 +623,8 @@ sub rdef($class,$O,$name) {
 
 sub rsign($class,$O,$sign) {
 
+  state $IS_HIER  = qr{ \$ }x;
+
   state $IS_OPT   = qr{[\?\*]};
   state $IS_GREED = qr{[\+\*]};
 
@@ -630,6 +633,7 @@ sub rsign($class,$O,$sign) {
 
   state $IS_LIT = qr{\%};
 
+  $O->{hier}  = int($sign=~ $IS_HIER);
   $O->{alt}   = int($sign=~ $IS_ALT);
   $O->{opt}   = int($sign=~ $IS_OPT);
   $O->{greed} = int($sign=~ $IS_GREED);
@@ -751,10 +755,13 @@ sub rew($self,$branch) {
     ;
 
   my $anchor  = $anchors->[-1];
-  my $status  = $anchor->{status};
+  my $status  = $anchor->status_ok();
 
-  unshift @$pending,@{$par->{leaves}}
-  if $status->{total};
+  unshift @$pending,
+    @{$par->{leaves}},
+    $branch->depth(),
+
+  if $status;
 
   discard($self,$anchor);
 
@@ -772,6 +779,11 @@ sub clip($self,$branch) {
 
   $Q->add(sub {$branch->flatten_branch()});
 
+  if($par) {
+    $par->status_add($branch);
+
+  };
+
 };
 
 # ---   *   ---   *   ---
@@ -782,7 +794,7 @@ sub discard($self,$branch) {
   my $Q   = $self->{Q};
   my $par = \$branch->{parent};
 
-  $Q->add(sub {$$par->pluck($branch)});
+  $Q->add(sub {$$par->pluck($branch) if $$par});
 
 };
 

@@ -378,6 +378,23 @@ sub walkup($self,$top=undef) {
 };
 
 # ---   *   ---   *   ---
+# ^similar, return distance from root
+
+sub depth($self) {
+
+  my $out=0;
+
+  while($self->{parent}) {
+    $out++;
+    $self=$self->{parent};
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # return neighboring leaf
 
 sub neigh($self,$offset) {
@@ -628,8 +645,10 @@ sub deep_repl($self,$other) {
 
   };
 
+  my @lv=$other->pluck_all();
+
   $self->clear_branches();
-  $self->pushlv(@{$other->{leaves}});
+  $self->pushlv(@lv);
 
 };
 
@@ -649,6 +668,8 @@ sub deep_value_repl($self,$re,$new) {
 # replaces node with it's leaves
 
 sub flatten_branch($self,%args) {
+
+  return if ! $self->{parent};
 
   # opt defaults
   $args{keep_root}//=0;
@@ -696,6 +717,14 @@ sub pluck($self,@pending) {
 
   $self->cllv();
   return @plucked;
+
+};
+
+# ---   *   ---   *   ---
+# ^clear
+
+sub pluck_all($self) {
+  return $self->pluck(@{$self->{leaves}});
 
 };
 

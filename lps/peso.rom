@@ -1,4 +1,4 @@
-byte  term $3B
+a $00
 STOP;
 
 %lps;

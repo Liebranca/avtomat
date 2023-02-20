@@ -43,6 +43,7 @@ sub nit($class,$frame,%O) {
 
   # defaults
   $O{fn}    //= $NOOP;
+  $O{hier}  //= 0;
   $O{opt}   //= 0;
   $O{alt}   //= 0;
   $O{greed} //= 0;
@@ -65,6 +66,7 @@ sub nit($class,$frame,%O) {
 # setup post-match actions
 
   $self->{fn}    = $O{fn};
+  $self->{hier}  = $O{hier};
   $self->{opt}   = $O{opt};
   $self->{alt}   = $O{alt};
   $self->{greed} = $O{greed};
@@ -192,7 +194,7 @@ sub shift_branch($self,%O) {
 # true if node is part of
 # a branch with a given flag
 
-sub has_flag($self,$flag) {
+sub branch_has_flag($self,$flag) {
 
   my $out=($self->{$flag})
     ? $self
@@ -212,6 +214,14 @@ sub has_flag($self,$flag) {
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^had by self
+
+sub has_flag($self,$flag) {
+  return $self->{$flag};
 
 };
 
@@ -272,8 +282,7 @@ sub re_or_branch($self,$ctx,$sref) {
 
   };
 
-  $dst->status_add($self) if $dst;
-  return $out;
+  return ($out,$dst);
 
 };
 
@@ -295,6 +304,7 @@ sub match($self,$ctx,$s) {
   );
 
   $root->{ctx}=$ctx;
+  $root->init_status($self);
 
   my @anchors = ($root);
   my @pending = (@{$self->{leaves}});
@@ -306,12 +316,18 @@ sub match($self,$ctx,$s) {
   # ^walk
   while(@pending) {
 
-    $anchors[-1]->init_status($self);
+    last if ! length $s;
 
     $self=$class->shift_pending(
       $ctx,\$depth
 
     ) or next;
+
+    my ($m,$dst) = $self->re_or_branch($ctx,\$s);
+    my $fn       = $self->{fn};
+
+    $anchors[-1]->init_status($self);
+    $dst->status_add($self) if $dst;
 
     ! $self->alternation(
       $ctx,\$s
@@ -319,12 +335,9 @@ sub match($self,$ctx,$s) {
     ) or next;
 
     ! $self->greed($ctx,\$s) or next;
-
-    my $m  = $self->re_or_branch($ctx,\$s);
-    my $fn = $self->{fn};
+    ! $self->hier_sub($ctx,\$s) or next;
 
     $m->{other}=$self;
-
     $fn->($ctx,$m) if $m && $fn ne $NOOP;
 
     my @lv=@{$self->{leaves}};
@@ -333,6 +346,9 @@ sub match($self,$ctx,$s) {
     unshift @pending,@lv,$depth;
 
   };
+
+$root->prich();
+say "_____________________\n";
 
   pop @{$ctx->{anchors}};
   pop @{$ctx->{pending}};
@@ -352,14 +368,148 @@ sub shift_pending($class,$ctx,$depthr) {
 
   if(! $class->is_valid($out)) {
 
+    my $anchor=undef;
+
     while($out <= $$depthr) {
 
-      pop @$ans;
+      $anchor=pop @$ans;
       $$depthr--;
 
-    }
+    };
 
     $out=undef;
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# wrap parens round branch
+
+sub subtree($self,$ctx,$sref,%O) {
+
+  # defaults
+  $O{-root}//=0;
+  $O{-clip}//=0;
+
+  my $anchors = $ctx->{anchors}->[-1];
+  my $root    = $anchors->[$O{-root}];
+
+  my $out=undef;
+
+say "SUB BEG $self->{value}";
+
+  my ($m,$ds)=$self->hier_match(
+    $ctx,$$sref,-closed=>1
+
+  );
+
+say "SUB END $self->{value}";
+
+  if($O{-clip}) {
+    $out=$self->subtree_clip(
+      $anchors,$root,$m,$ds,$sref
+
+    );
+
+  } else {
+    $out=$self->subtree_noclip(
+      $root,$m,$ds,$sref
+
+    );
+
+  };
+
+  my $nd=pop @$anchors;
+  return $nd;
+
+};
+
+# ---   *   ---   *   ---
+# ^common subtree solve
+
+sub subtree_noclip($self,$root,$m,$ds,$sref) {
+
+  my $out=undef;
+
+  if($m) {
+    $$sref=$ds;
+
+    $root->pushlv($m);
+    $root->flatten_branch();
+
+    $root->status_add($self);
+
+    $out=$root;
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^mess of an edge-case
+
+sub subtree_clip(
+
+  $self,
+
+  $anchors,
+  $root,
+
+  $m,
+  $ds,
+  $sref
+
+) {
+
+  my $out     = undef;
+
+  my $status  = $m->{status};
+  my $clip    = $root eq $anchors->[-1];
+
+  if($status->{total} && $m->status_ok()) {
+
+    $$sref=$ds;
+
+    $m=(! $clip)
+      ? $m->{leaves}
+      : [$m]
+      ;
+
+    $root->pushlv(@$m);
+    $root=$m->[0] if $clip;
+
+    $root->status_add($self);
+
+    $out=$m;
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# branch opens a new scope
+
+sub hier_sub($self,$ctx,$sref) {
+
+  my $out=0;
+
+  if($self->has_flag('hier')) {
+
+    my $nd=$self->subtree(
+      $ctx,$sref,
+
+      -root=>-1
+
+    );
+
+    $out=1;
 
   };
 
@@ -374,22 +524,15 @@ sub shift_pending($class,$ctx,$depthr) {
 sub alternation($self,$ctx,$sref) {
 
   my $out=0;
-  my $alt=$self->has_flag('alt');
 
-  my $anchors = $ctx->{anchors}->[-1];
-  my $root    = $anchors->[0];
+  if($self->has_flag('alt')) {
 
-  if($alt && $alt eq $self) {
+    my $n=$self->subtree(
+      $ctx,$sref,
 
-    my ($m,$ds)=$self->hier_match($ctx,$$sref);
+      -root=>-1,
 
-    if($m) {
-      $$sref=$ds;
-
-      $root->pushlv($m);
-      $root->status_add($self);
-
-    };
+    );
 
     $out=1;
 
@@ -405,40 +548,23 @@ sub alternation($self,$ctx,$sref) {
 
 sub greed($self,$ctx,$sref) {
 
-  my $greed   = $self->has_flag('greed');
-  my $out     = undef;
+  my $out=0;
 
-  my $anchors = $ctx->{anchors}->[-1];
-  my $root    = $anchors->[-1];
+  if($self->has_flag('greed')) {
+    $out=1;
 
-  while($greed && $greed eq $self) {
+    while(1) {
 
-    $out//=1;
+      my $t=$self->subtree(
 
-    my ($m,$ds) = $self->match($ctx,$$sref);
-    my $status  = $m->{status};
+        $ctx,$sref,
 
-    my $clip    = $root eq $anchors->[-1];
+        -root=>-1,
+        -clip=>1,
 
-    if($status->{total} && $m->status_ok()) {
+      );
 
-      $$sref=$ds;
-
-      $m=(! $clip)
-        ? $m->{leaves}
-        : [$m]
-        ;
-
-      $root->pushlv(@$m);
-      $root=$m->[0] if $clip;
-
-      $root->status_add($self,1);
-
-      $out++;
-
-    } else {
-      $root->{status}->{total}--;
-      last;
+      (defined $t) ? $out++ : last;
 
     };
 
@@ -453,11 +579,7 @@ sub greed($self,$ctx,$sref) {
 
 sub init_status($self,$other) {
 
-  return {}
-
-  if ! $other
-  || $self->{value} ne $other->{value}
-  ;
+  return if exists $self->{status};
 
   my @lv_s = @{$self->{leaves}};
   my @lv_o = @{$other->{leaves}};
@@ -613,13 +735,62 @@ sub status_ffail($self) {
 };
 
 # ---   *   ---   *   ---
+# debug print
+
+sub status_db_out($self) {
+
+  my @out    = ();
+
+  my $status = $self->{status};
+  my $ar     = $status->{ar};
+
+  my $i=0;
+  for my $sub_status(@$ar) {
+
+    push @out,int(
+
+       $sub_status->{ok}
+    || $sub_status->{opt}
+
+    );
+
+  };
+
+  $i=0;
+  say int(! $status->{fail}) . " $self->{value}";
+  for my $ok(@out) {
+
+    say "\\-->$ok";
+    $i++;
+
+  };
+
+  say $NULLSTR;
+
+  for my $leaf(@{$self->{leaves}}) {
+    next if ! $leaf->{status};
+    $leaf->status_db_out();
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # match against all branches
 
-sub hier_match($self,$ctx,$s) {
+sub hier_match($self,$ctx,$s,%O) {
+
+  # defaults
+  $O{-closed}//=0;
 
   my @out=(undef,$s);
+  my @pending=($O{-closed})
+    ? $self
+    : @{$self->{leaves}}
+    ;
 
-  for my $branch(@{$self->{leaves}}) {
+  for my $branch(@pending) {
+say "TRY $branch->{value}";
 
     my ($m,$ds)=$branch->match($ctx,$s);
 
@@ -630,7 +801,14 @@ sub hier_match($self,$ctx,$s) {
       $ctx->{Q}->wex();
       $branch->on_match($m);
 
+say "GOT $branch->{value}\n";
+
       last;
+
+    } else {
+say "NGT $branch->{value}\n";
+$m->prich();
+$m->status_db_out();
 
     };
 

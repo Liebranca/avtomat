@@ -717,8 +717,8 @@ sub hier_nit($self,$type) {
 # patterns for declaring members
 
   rule('<full-type> type specs');
-  rule('<nlist> &list_flatten bare clist');
-  rule('<vlist> &list_flatten value clist');
+  rule('$<nlist> &list_flatten bare clist');
+  rule('$<vlist> &list_flatten value clist');
 
   rule('?<opt-vlist> &clip vlist');
 
@@ -2021,7 +2021,8 @@ sub re_vex($self,$o) {
 # ---   *   ---   *   ---
 # ^generate rules
 
-  our @CORE=qw(ptr-decl);
+rule('<snlist> nlist vlist');
+  our @CORE=qw(snlist);
 
 # ---   *   ---   *   ---
 
@@ -2041,7 +2042,7 @@ sub re_vex($self,$o) {
   my $ice  = Grammar::peso->parse($prog,-r=>2);
 
   $ice->{p3}->prich();
-  $ice->{mach}->{scope}->prich();
+#  $ice->{mach}->{scope}->prich();
 
 #  $ice->run(
 #
