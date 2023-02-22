@@ -1,4 +1,4 @@
-a $00
+byte str ptr a $00
 STOP;
 
 %lps;

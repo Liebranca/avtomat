@@ -381,6 +381,8 @@ sub shift_pending($class,$ctx,$depthr) {
 
   };
 
+  $out=(! @$ans) ? undef : $out;
+
   return $out;
 
 };
@@ -397,6 +399,8 @@ sub subtree($self,$ctx,$sref,%O) {
   my $anchors = $ctx->{anchors}->[-1];
   my $root    = $anchors->[$O{-root}];
 
+  return undef if ! $root;
+
   my $out=undef;
 
 say "SUB BEG $self->{value}";
@@ -409,10 +413,12 @@ say "SUB BEG $self->{value}";
 say "SUB END $self->{value}";
 
   if($O{-clip}) {
-    $out=$self->subtree_clip(
-      $anchors,$root,$m,$ds,$sref
+    $self->subtree_clip(
+      $root,$m,$ds,$sref
 
     );
+
+    $out=pop @$anchors;
 
   } else {
     $out=$self->subtree_noclip(
@@ -420,10 +426,11 @@ say "SUB END $self->{value}";
 
     );
 
+    pop @$anchors;
+
   };
 
-  my $nd=pop @$anchors;
-  return $nd;
+  return $out;
 
 };
 
@@ -453,36 +460,26 @@ sub subtree_noclip($self,$root,$m,$ds,$sref) {
 # ---   *   ---   *   ---
 # ^mess of an edge-case
 
-sub subtree_clip(
-
-  $self,
-
-  $anchors,
-  $root,
-
-  $m,
-  $ds,
-  $sref
-
-) {
+sub subtree_clip($self,$root,$m,$ds,$sref) {
 
   my $out     = undef;
+  my $clip    = 1 <= @{$root->{leaves}};
 
-  my $status  = $m->{status};
-  my $clip    = $root eq $anchors->[-1];
+  if($m && $m->status_ok()) {
 
-  if($status->{total} && $m->status_ok()) {
+    $$sref = $ds;
+    my @lv = ($m);
 
-    $$sref=$ds;
+    if($clip) {
 
-    $m=(! $clip)
-      ? $m->{leaves}
-      : [$m]
-      ;
+      $root = $root->{leaves}->[-1];
+      $root = $root->{leaves}->[0];
 
-    $root->pushlv(@$m);
-    $root=$m->[0] if $clip;
+      @lv   = @{$m->{leaves}};
 
+    };
+
+    $root->pushlv(@lv);
     $root->status_add($self);
 
     $out=$m;
@@ -548,7 +545,8 @@ sub alternation($self,$ctx,$sref) {
 
 sub greed($self,$ctx,$sref) {
 
-  my $out=0;
+  my $out  = 0;
+  my $root = undef;
 
   if($self->has_flag('greed')) {
     $out=1;
@@ -564,7 +562,15 @@ sub greed($self,$ctx,$sref) {
 
       );
 
-      (defined $t) ? $out++ : last;
+      if($t && $t->status_ok()) {
+        $root//=$t;
+        $out++;
+
+      } else {
+        $root->flatten_branch() if $root;
+        last;
+
+      };
 
     };
 
@@ -596,6 +602,7 @@ sub init_status($self,$other) {
 
     opt   => int($other->{opt} && ! $max),
     alt   => $other->{alt},
+    greed => $other->{greed},
 
   };
 
@@ -614,8 +621,9 @@ sub status_array($self) {
 
     my $sub_status={
 
-      alt => $nd->{alt},
-      opt => $nd->{opt},
+      alt   => $nd->{alt},
+      opt   => $nd->{opt},
+      greed => $nd->{greed},
 
       ok  => 0,
 
@@ -655,6 +663,7 @@ sub status_ok($self) {
 
   my $opt    = $status->{opt};
   my $alt    = $status->{alt};
+  my $greed  = $status->{greed};
   my $max    = $status->{max};
   my $ar     = $status->{ar};
 
@@ -663,7 +672,7 @@ sub status_ok($self) {
      ($subok eq @$ar)
   || ($max && $subok <= $max)
   || ($alt && $subok eq 1)
-  || ($opt)
+  || ($opt && ! $greed)
 
   );
 
@@ -686,12 +695,12 @@ sub status_subok($self) {
   my $status = $self->{status};
   my $ar     = $status->{ar};
 
-  for my $sub_status(@$ar) {
+  for my $sus(@$ar) {
 
     $out+=
 
-       $sub_status->{ok}
-    || $sub_status->{opt}
+       $sus->{ok}
+    || ($sus->{opt} && ! $sus->{greed})
     ;
 
   };
@@ -717,8 +726,8 @@ sub status_chk($self) {
 
     next if ! $nd->{status};
 
-    my $sub_status=$ar->[$i++];
-    $sub_status->{ok}=$nd->status_ok();
+    my $sus    = $ar->[$i++];
+    $sus->{ok} = $nd->status_ok();
 
   };
 

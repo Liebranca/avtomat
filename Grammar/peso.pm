@@ -45,7 +45,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#b
+  our $VERSION = v0.01.1;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -339,7 +339,7 @@ sub rdnum($self,$branch) {
 
   rule('~<type>');
   rule('~<spec>');
-  rule('*<specs> &clip spec');
+  rule('*<specs> &list_flatten spec');
 
   rule('~<bare>');
   rule('~<seal>');
@@ -716,7 +716,7 @@ sub hier_nit($self,$type) {
 # ---   *   ---   *   ---
 # patterns for declaring members
 
-  rule('<full-type> type specs');
+  rule('$<full-type> type specs');
   rule('$<nlist> &list_flatten bare clist');
   rule('$<vlist> &list_flatten value clist');
 
@@ -2021,8 +2021,7 @@ sub re_vex($self,$o) {
 # ---   *   ---   *   ---
 # ^generate rules
 
-rule('<snlist> nlist vlist');
-  our @CORE=qw(snlist);
+  our @CORE=qw(ptr-decl);
 
 # ---   *   ---   *   ---
 
