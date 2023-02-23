@@ -1270,6 +1270,7 @@ sub prich($self,%O) {
 # check value is an operator (node_op 'class')
 
     my $v=$self->{value};
+    return if ! $v;
 
     $v=($v=~ m[^node_op=HASH])
       ? $self->{value}->{op}

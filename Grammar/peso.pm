@@ -45,7 +45,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#b
+  our $VERSION = v0.01.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -208,7 +208,7 @@ BEGIN {
 
 # ---   *   ---   *   ---
 
-    type=>Lang::eiths(
+    width=>Lang::eiths(
 
       [qw(
 
@@ -276,7 +276,7 @@ BEGIN {
   rule('~<nterm>');
 
   rule('?<opt-nterm> &clip nterm');
-  rule('<header> &rdhed sigil opt-nterm');
+  rule('$<header> &rdhed sigil opt-nterm');
 
 # ---   *   ---   *   ---
 # placeholder for file header
@@ -337,7 +337,7 @@ sub rdnum($self,$branch) {
 # ---   *   ---   *   ---
 # common patterns
 
-  rule('~<type>');
+  rule('~<width>');
   rule('~<spec>');
   rule('*<specs> &list_flatten spec');
 
@@ -507,7 +507,7 @@ sub value_sort($self,$branch) {
 
   rule(q[
 
-    <hier>
+    $<hier>
     &hier_sort
 
     hier-type bare
@@ -716,7 +716,7 @@ sub hier_nit($self,$type) {
 # ---   *   ---   *   ---
 # patterns for declaring members
 
-  rule('$<full-type> type specs');
+  rule('$<type> width specs');
   rule('$<nlist> &list_flatten bare clist');
   rule('$<vlist> &list_flatten value clist');
 
@@ -725,10 +725,10 @@ sub hier_nit($self,$type) {
   # ^combo
   rule(q[
 
-    <ptr-decl>
+    $<ptr-decl>
     &ptr_decl
 
-    full-type nlist opt-vlist
+    type nlist opt-vlist
 
   ]);
 
@@ -737,44 +737,20 @@ sub hier_nit($self,$type) {
 
 sub ptr_decl($self,$branch) {
 
-#  # flatten lists
-#  for my $key(qw(names flg value)) {
-#
-#    my @ar=$branch->branches_in(
-#      qr{^$key$},
-#      max_depth=>1,
-#
-#    );
-#
-#    Grammar::list_flatten($self,@ar);
-#
-#  };
-#
-##  $branch->branch_in(
-##    qr{^specs$}
-##
-##  )->flatten_branch();
-#
-#  # hashrefy
-#  my $st    = $branch->bhash(1,1,1);
-#
-#  # first value is type
-#  # rest is specifiers
-#  my $type  = shift @{$st->{type}};
-#  my @specs = @{$st->{type}};
-#
-#  # ^put together
-#  $branch->{value}={
-#
-#    type   => $type,
-#    specs  => \@specs,
-#
-#    names  => $st->{names},
-#    values => $st->{values},
-#
-#  };
-#
-#  $branch->clear_branches();
+  my $st   = $branch->bhash(0,1,1);
+  my $type = $st->{type}->bhash(0,1);
+
+  # ^lis
+  $branch->{value}={
+
+    type   => $type,
+
+    names  => $st->{nlist},
+    values => $st->{vlist},
+
+  };
+
+  $branch->clear_branches();
 
 };
 
@@ -783,14 +759,10 @@ sub ptr_decl($self,$branch) {
 
 sub ptr_decl_ctx($self,$branch) {
 
-$branch->prich();
-exit;
-
-  my $st     = $branch->{value};
   my $mach   = $self->{mach};
   my @path   = $mach->{scope}->path();
-  my $type   = $st->{type};
 
+  my $st     = $branch->{value};
   my $f      = $self->{frame};
 
   my @names  = @{$st->{names}};
@@ -839,8 +811,7 @@ sub bind_decls($self,$branch) {
 
   # data
   my $st     = $branch->{value};
-  my $type   = $st->{type};
-  my @specs  = @{$st->{specs}};
+
   my @names  = @{$st->{names}};
   my @values = @{$st->{values}};
 
@@ -857,10 +828,7 @@ sub bind_decls($self,$branch) {
     my $value = shift @values;
 
     my $o     = {
-
-      type  => $type,
-      flags => \@specs,
-
+      type  => $st->{type},
       value => $value,
 
     };
@@ -1212,7 +1180,7 @@ sub tree_ctx($self,$branch) {
 # special definitions
 
   rule('~<sdef-name>');
-  rule('<sdef> sdef-name nterm');
+  rule('$<sdef> sdef-name nterm');
 
 # ---   *   ---   *   ---
 # placeholder for special defs
@@ -2003,8 +1971,10 @@ sub re_vex($self,$o) {
   rule(q[
 
     |<needs-term-list>
+    &clip
 
-    hier ptr-decl header sdef
+    header hier sdef
+    ptr-decl
 
 
   ]);
@@ -2021,7 +1991,7 @@ sub re_vex($self,$o) {
 # ---   *   ---   *   ---
 # ^generate rules
 
-  our @CORE=qw(ptr-decl);
+  our @CORE=qw(meta needs-term);
 
 # ---   *   ---   *   ---
 

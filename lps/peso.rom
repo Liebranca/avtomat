@@ -1,8 +1,5 @@
-byte str ptr a $00
-STOP;
-
 %lps;
-
+STOP;
 # ---   *   ---   *   ---
 # PESO
 # Language definitions

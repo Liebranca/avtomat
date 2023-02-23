@@ -33,7 +33,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#b
+  our $VERSION = v0.01.1;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -310,6 +310,8 @@ sub match($self,$ctx,$s) {
   my @pending = (@{$self->{leaves}});
   my $depth   = 0;
 
+  my $branch  = $self;
+
   push @{$ctx->{anchors}},\@anchors;
   push @{$ctx->{pending}},\@pending;
 
@@ -318,7 +320,7 @@ sub match($self,$ctx,$s) {
 
     last if ! length $s;
 
-    $self=$class->shift_pending(
+    $self=$branch->shift_pending(
       $ctx,\$depth
 
     ) or next;
@@ -329,16 +331,24 @@ sub match($self,$ctx,$s) {
     $anchors[-1]->init_status($self);
     $dst->status_add($self) if $dst;
 
-    ! $self->alternation(
-      $ctx,\$s
+    my $altr=$self->alternation($ctx,\$s);
 
-    ) or next;
+    if($altr) {
+      next;
+
+    };
 
     ! $self->greed($ctx,\$s) or next;
     ! $self->hier_sub($ctx,\$s) or next;
 
-    $m->{other}=$self;
-    $fn->($ctx,$m) if $m && $fn ne $NOOP;
+    if($class->is_valid($m)) {
+      $m->{other}=$self;
+      $fn->($ctx,$m) if $fn ne $NOOP;
+
+    } elsif(! $m && ! $self->{opt}) {
+      last;
+
+    };
 
     my @lv=@{$self->{leaves}};
     $depth+=0<@lv;
@@ -347,8 +357,8 @@ sub match($self,$ctx,$s) {
 
   };
 
-$root->prich();
-say "_____________________\n";
+#$root->prich();
+#say "_____________________\n";
 
   pop @{$ctx->{anchors}};
   pop @{$ctx->{pending}};
@@ -361,18 +371,21 @@ say "_____________________\n";
 # ^skips non-node steps in
 # the walk array
 
-sub shift_pending($class,$ctx,$depthr) {
+sub shift_pending($branch,$ctx,$depthr) {
 
-  my $out=shift @{$ctx->{pending}->[-1]};
-  my $ans=$ctx->{anchors}->[-1];
+  my $pending = $ctx->{pending}->[-1];
+  my $anchors = $ctx->{anchors}->[-1];
+
+  my $total   = int(@{$branch->{leaves}});
+  my $current = int(@$pending);
+
+  my $out     = shift @$pending;
+  my $class   = $branch->{frame}->{-class};
 
   if(! $class->is_valid($out)) {
 
-    my $anchor=undef;
-
     while($out <= $$depthr) {
-
-      $anchor=pop @$ans;
+      pop @$anchors;
       $$depthr--;
 
     };
@@ -381,7 +394,21 @@ sub shift_pending($class,$ctx,$depthr) {
 
   };
 
-  $out=(! @$ans) ? undef : $out;
+  # end of alternation
+  my $eoa=int($branch->{alt}
+
+  && ! $$depthr
+  && ! ($total eq $current)
+
+  );
+
+  if($eoa) {
+    @$pending = ();
+    $out      = undef;
+
+  };
+
+  $out=(! @$anchors) ? undef : $out;
 
   return $out;
 
@@ -403,14 +430,10 @@ sub subtree($self,$ctx,$sref,%O) {
 
   my $out=undef;
 
-say "SUB BEG $self->{value}";
-
   my ($m,$ds)=$self->hier_match(
     $ctx,$$sref,-closed=>1
 
   );
-
-say "SUB END $self->{value}";
 
   if($O{-clip}) {
     $self->subtree_clip(
@@ -441,7 +464,7 @@ sub subtree_noclip($self,$root,$m,$ds,$sref) {
 
   my $out=undef;
 
-  if($m) {
+  if($m && $m->status_ok()) {
     $$sref=$ds;
 
     $root->pushlv($m);
@@ -450,6 +473,10 @@ sub subtree_noclip($self,$root,$m,$ds,$sref) {
     $root->status_add($self);
 
     $out=$root;
+
+  } elsif($self->{opt}) {
+    say "NOCLIP OPT-FAIL NOT IMPLEMENTED";
+    exit;
 
   };
 
@@ -483,6 +510,9 @@ sub subtree_clip($self,$root,$m,$ds,$sref) {
     $root->status_add($self);
 
     $out=$m;
+
+  } elsif($self->{opt}) {
+    $root->status_force_ok();
 
   };
 
@@ -652,7 +682,29 @@ sub status_add($self,$other) {
 };
 
 # ---   *   ---   *   ---
-# ^get match success
+# ^force success
+
+sub status_force_ok($self) {
+
+  my $status  = $self->{status};
+  my $ar      = $status->{ar};
+
+  # walk tree and set bools
+  map {$ARG->{ok}=1} @$ar;
+  map {
+
+    $ARG->status_force_ok()
+    if $ARG->{status};
+
+  } @{$self->{leaves}};
+
+  # set bool for self
+  $status->{fail}=0;
+
+};
+
+# ---   *   ---   *   ---
+# get match success
 
 sub status_ok($self) {
 
@@ -716,8 +768,6 @@ sub status_chk($self) {
 
   my $status  = $self->{status};
   my @pending = @{$self->{leaves}};
-
-  $status->{total}=0;
 
   my $i  = 0;
   my $ar = $status->{ar};
@@ -789,6 +839,12 @@ sub status_db_out($self) {
 
 sub hier_match($self,$ctx,$s,%O) {
 
+state $d_depth=undef;
+$d_depth//=-1;
+$d_depth++;
+
+my $s_depth=('.  ' x $d_depth) . '\-->';
+
   # defaults
   $O{-closed}//=0;
 
@@ -799,7 +855,7 @@ sub hier_match($self,$ctx,$s,%O) {
     ;
 
   for my $branch(@pending) {
-say "TRY $branch->{value}";
+say "\n${s_depth}TRY $branch->{value}";
 
     my ($m,$ds)=$branch->match($ctx,$s);
 
@@ -810,18 +866,21 @@ say "TRY $branch->{value}";
       $ctx->{Q}->wex();
       $branch->on_match($m);
 
-say "GOT $branch->{value}\n";
+say "${s_depth}GOT $branch->{value}";
 
       last;
 
     } else {
-say "NGT $branch->{value}\n";
-$m->prich();
-$m->status_db_out();
+say "${s_depth}NGT $branch->{value}";
+#$m->prich();
+#$m->status_db_out();
 
     };
 
   };
+
+say "${s_depth}RET\n";
+$d_depth--;
 
   return @out;
 
