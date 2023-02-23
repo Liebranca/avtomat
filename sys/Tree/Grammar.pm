@@ -74,6 +74,13 @@ sub nit($class,$frame,%O) {
 
   $self->{chain} = $O{chain};
 
+  if(
+
+     $self->{parent}
+  && $self->{parent}->has_flag('alt')
+
+  ) {$self->{hier}=1};
+
   return $self;
 
 };
@@ -375,6 +382,7 @@ sub shift_pending($branch,$ctx,$depthr) {
 
   my $pending = $ctx->{pending}->[-1];
   my $anchors = $ctx->{anchors}->[-1];
+  my $anchor  = $anchors->[-1];
 
   my $total   = int(@{$branch->{leaves}});
   my $current = int(@$pending);
@@ -403,8 +411,15 @@ sub shift_pending($branch,$ctx,$depthr) {
   );
 
   if($eoa) {
-    @$pending = ();
-    $out      = undef;
+
+    if($ctx->{match_ok}) {
+      @$pending = ();
+      $out      = undef;
+
+    } else {
+      $anchor->clear_branches();
+
+    };
 
   };
 
@@ -435,8 +450,10 @@ sub subtree($self,$ctx,$sref,%O) {
 
   );
 
+  my $match;
+
   if($O{-clip}) {
-    $self->subtree_clip(
+    $match=$self->subtree_clip(
       $root,$m,$ds,$sref
 
     );
@@ -444,14 +461,17 @@ sub subtree($self,$ctx,$sref,%O) {
     $out=pop @$anchors;
 
   } else {
-    $out=$self->subtree_noclip(
+    $match=$self->subtree_noclip(
       $root,$m,$ds,$sref
 
     );
 
     pop @$anchors;
+    $out=$match;
 
   };
+
+  $ctx->{match_ok}=defined $match;
 
   return $out;
 

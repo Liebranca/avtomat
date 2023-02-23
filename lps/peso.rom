@@ -1,5 +1,5 @@
 %lps;
-STOP;
+
 # ---   *   ---   *   ---
 # PESO
 # Language definitions
@@ -86,12 +86,12 @@ ROM std;
   ;
 
   re fulltype <spec> \s+ <type>;
-
   re flg <sigil><bare>;
 
 # ---   *   ---   *   ---
 
 PROC expr;
+STOP;
   in byte str s;
   lis {/:f} 1;
 

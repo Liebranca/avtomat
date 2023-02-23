@@ -421,8 +421,8 @@ sub throw_badstr($s) {
 # soul of perl!
 
   rule('|<flg-name> &clip bare seal');
-  rule('<flg> sigil flg-name');
-  rule('<flist> flg clist');
+  rule('$<flg> sigil flg-name');
+  rule('$<flist> &list_pop flg clist');
 
 # ---   *   ---   *   ---
 # ^post-parse
@@ -1233,7 +1233,7 @@ sub sdef_ctx($self,$branch) {
 # switch flips
 
   rule('~<wed-type>');
-  rule('<wed> wed-type flist');
+  rule('$<wed> wed-type flist');
 
 # ---   *   ---   *   ---
 # ^handler
@@ -1244,8 +1244,8 @@ sub wed($self,$branch) {
 
   $branch->{value}={
 
-    type  => uc $st->{type},
-    flags => $st->{flags},
+    type  => uc $st->{q[wed-type]},
+    flags => $st->{flist},
 
   };
 
@@ -1278,15 +1278,33 @@ sub wed_ctx($self,$branch) {
 # regex definitions
 
   rule('~<re-type>');
-  rule('<re> &rdre re-type seal nterm');
+  rule('$<re> &rdre re-type seal nterm');
 
 # ---   *   ---   *   ---
 # interprets regex definitions
 
+sub rdre($self,$branch) {
+
+  my $st=$branch->bhash(0,0,0);
+
+  $branch->{value}={
+
+    type  => $st->{q[re-type]},
+
+    nterm => $st->{nterm},
+    seal  => $st->{seal},
+
+  };
+
+  $branch->clear_branches();
+
+};
+
 sub rdre_ctx($self,$branch) {
 
+  my $st   = $branch->{value};
+
   my $mach = $self->{mach};
-  my $st   = $branch->bhash(0,0,0);
   my @path = $mach->{scope}->path();
 
   my ($o,$flags)=$self->re_vex($st->{nterm});
@@ -1307,9 +1325,6 @@ sub rdre_ctx($self,$branch) {
     $st->{seal}
 
   );
-
-  $branch->clear_branches();
-  $branch->{value}="$st->{type}:$st->{seal}";
 
 };
 
@@ -1974,7 +1989,9 @@ sub re_vex($self,$o) {
     &clip
 
     header hier sdef
-    ptr-decl
+    wed
+
+    re ptr-decl
 
 
   ]);
@@ -2011,7 +2028,7 @@ sub re_vex($self,$o) {
   my $ice  = Grammar::peso->parse($prog,-r=>2);
 
   $ice->{p3}->prich();
-#  $ice->{mach}->{scope}->prich();
+  $ice->{mach}->{scope}->prich();
 
 #  $ice->run(
 #

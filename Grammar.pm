@@ -846,4 +846,15 @@ sub list_flatten($self,@branches) {
 };
 
 # ---   *   ---   *   ---
+# removes terminator from a
+# rew-ed down branch
+
+sub list_pop($self,$branch) {
+
+  $branch->pluck($branch->{leaves}->[-1])
+  if 1 < @{$branch->{leaves}};
+
+};
+
+# ---   *   ---   *   ---
 1; # ret
