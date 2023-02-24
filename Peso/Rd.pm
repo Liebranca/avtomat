@@ -360,7 +360,7 @@ sub group_lists($self,$tree) {
 
     my $list=$tree->{leaves}->[$idex];
 
-    $list->clear_branches();
+    $list->clear();
     $list->pushlv(@$ref);
 
   };

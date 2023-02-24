@@ -34,7 +34,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.2;
+  our $VERSION=v0.01.3;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -528,9 +528,22 @@ sub pushlv($self,@pending) {
 };
 
 # ---   *   ---   *   ---
+# removes all children from self
+
+sub clear($self) {
+  $self->{leaves}=[];
+
+};
+
+# ---   *   ---   *   ---
+# ^removes children from leaves
 
 sub clear_branches($self) {
-  $self->{leaves}=[];
+
+  for my $leaf(@{$self->{leaves}}) {
+    $leaf->clear();
+
+  };
 
 };
 
@@ -647,7 +660,7 @@ sub deep_repl($self,$other) {
 
   my @lv=$other->pluck_all();
 
-  $self->clear_branches();
+  $self->clear();
   $self->pushlv(@lv);
 
 };
@@ -690,7 +703,7 @@ sub flatten_branch($self,%args) {
 
 # ---   *   ---   *   ---
 
-  $par->clear_branches();
+  $par->clear();
   $par->pushlv(@move);
   $par->cllv();
 
@@ -1019,6 +1032,7 @@ sub branch_in($self,$lookfor,%O) {
 };
 
 # ---   *   ---   *   ---
+# ^shorthands
 
 sub branch_values($self) {
   return map {$ARG->{value}} @{$self->{leaves}};
@@ -1032,6 +1046,35 @@ sub leaf_value($self,$idex) {
 
 sub leafless_values($self,%O) {
   return map {$ARG->{value}} $self->leafless(%O);
+
+};
+
+# ---   *   ---   *   ---
+# reverse walk
+#
+# for the weird edge-cases when
+# you need to apply a function to
+# the whole tree, but backwards
+#
+# absolutely inefficient,
+# use with care
+
+sub rwalk($self) {
+
+  my @out     = ();
+  my @pending = ($self);
+
+  while(@pending) {
+
+    my $nd=shift @pending;
+    my @lv=@{$nd->{leaves}};
+
+    push    @out,$nd;
+    unshift @pending,@lv;
+
+  };
+
+  return reverse @out;
 
 };
 

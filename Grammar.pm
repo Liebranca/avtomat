@@ -423,20 +423,20 @@ sub cnbreak($class,$X,$dom,$name) {
   my $i=0;
   $X->{chain}//=[];
 
-  my $valid=!is_coderef($name);
+  my $valid=! is_coderef($name);
 
   for my $ext(@passes) {
 
-    # get context
-    my $r=(undef,\($X->{chain}->[$i]));
+    # point to slot
+    my $r=\$X->{chain}->[$i++];
+
+    # attempt fetch
     my $f=codefind($dom,$name.$ext)
     if $valid;
 
     # use fptr if no override provided
     $$r=(defined $f) ? $f : $$r;
     $$r//=$NOOP;
-
-    $i++;
 
   };
 

@@ -722,7 +722,7 @@ sub run_obj($self,$other) {
   my @nodes=$self->run_tree($tree);
 
   @nodes=$tree->pluck(@nodes);
-  $tree->clear_branches();
+  $tree->clear();
   $tree->pushlv(@nodes);
 
 };

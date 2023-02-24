@@ -392,7 +392,7 @@ sub hier_sort($self,$rd) {
     my $pkgroot=$nd_frame->nit(undef,$pkgname);
     push @scopes,$pkgroot;
 
-    $pkgroot->clear_branches();
+    $pkgroot->clear();
     $pkgroot->pushlv(@children);
     $i++;
 
@@ -400,7 +400,7 @@ sub hier_sort($self,$rd) {
 
   };
 
-  $tree->clear_branches();
+  $tree->clear();
   $tree->pushlv(@scopes);
 
 };

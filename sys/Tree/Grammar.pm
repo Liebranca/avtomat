@@ -33,7 +33,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#b
+  our $VERSION = v0.01.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -155,10 +155,10 @@ sub shift_chain($self,@chain) {
   # default to old
   $self->{chain}//=[];
   @chain=@{$self->{chain}}
-  if !@chain;
+  if ! @chain;
 
   $self->{fn}    = undef;
-  $self->{chain} = \@chain;
+  $self->{chain} = [@chain];
 
   $self->{fn}=shift @{
     $self->{chain}
@@ -187,13 +187,68 @@ sub shift_branch($self,%O) {
     push @out,[$nd,$nd->{fn}]
     if $nd->{fn} ne $NOOP;
 
-    $nd->shift_chain() if !$O{keepx};
+    $nd->shift_chain() if ! $O{keepx};
 
     unshift @pending,@{$nd->{leaves}};
 
   };
 
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# for modifying the callstack
+# from within a post-parse proc
+
+sub fork_chain($self,%O) {
+
+  # get context
+  my ($root) = $self->root();
+  my $ctx    = $root->{ctx};
+  my $class  = $ctx->{frame}->{-class};
+
+  # defaults
+  $O{dom}  //= $class;
+  $O{name} //= $self->{value};
+
+  # ^get coderefs
+  $class->fnbreak(\%O);
+  $self->{chain}=[@{ $O{chain} }];
+
+  # exec fn for current pass
+  $O{fn}->($ctx,$self)
+  if $O{fn} ne $NOOP;
+
+};
+
+# ---   *   ---   *   ---
+# recursively clears children
+# that do not have pending
+# procs in callstack
+
+sub clear_nproc($self) {
+
+  map {
+
+    my $par   = $ARG->{parent};
+    my $chain = $ARG->{chain};
+
+    if($par) {
+
+      my @has=grep {$ARG ne $NOOP} @$chain;
+
+      unshift @has,$ARG->{fn}
+
+      if $ARG->{fn}
+      && $ARG->{fn} ne $NOOP
+      ;
+
+      $par->pluck($ARG) if ! @has;
+
+    };
+
+  } $self->rwalk();
 
 };
 
@@ -237,12 +292,20 @@ sub has_flag($self,$flag) {
 
 sub on_match($self,$branch) {
 
-  my ($root)=$branch->root();
+  my ($root) = $branch->root();
 
   $self->{fn}->($root->{ctx},$branch)
   if $self->{fn} ne $NOOP;
 
-  $branch->shift_chain(@{$self->{chain}});
+  # ^detect if post-parse proc
+  # is setting the callstack for
+  # this branch
+  my $chain=($branch->{chain})
+    ? $branch->{chain}
+    : $self->{chain}
+    ;
+
+  $branch->shift_chain(@$chain);
 
 };
 
@@ -417,7 +480,7 @@ sub shift_pending($branch,$ctx,$depthr) {
       $out      = undef;
 
     } else {
-      $anchor->clear_branches();
+      $anchor->clear();
 
     };
 

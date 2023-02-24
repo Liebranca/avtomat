@@ -91,8 +91,8 @@ ROM std;
 # ---   *   ---   *   ---
 
 PROC expr;
-STOP;
   in byte str s;
+STOP;
   lis {/:f} 1;
 
   tree {$:BB}

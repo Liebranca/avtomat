@@ -45,7 +45,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.2;#b
+  our $VERSION = v0.01.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -375,7 +375,7 @@ sub dqstr($self,$branch) {
 
   };
 
-  $branch->clear_branches();
+  $branch->clear();
 
 };
 
@@ -397,7 +397,7 @@ sub sqstr($self,$branch) {
 
   };
 
-  $branch->clear_branches();
+  $branch->clear();
 
 };
 
@@ -444,7 +444,7 @@ sub flg($self,$branch) {
 
   };
 
-  $branch->clear_branches();
+  $branch->clear();
 
 };
 
@@ -475,7 +475,7 @@ sub value_sort($self,$branch) {
 
   };
 
-  $branch->clear_branches();
+  $branch->clear();
 
   my $o=undef;
   if(defined $st->{$type}) {
@@ -529,7 +529,7 @@ sub hier_sort($self,$branch) {
   my $st=$branch->bhash();
   $branch->{-pest}=$st;
 
-  $branch->clear_branches();
+  $branch->clear();
 
 };
 
@@ -750,7 +750,7 @@ sub ptr_decl($self,$branch) {
 
   };
 
-  $branch->clear_branches();
+  $branch->clear();
 
 };
 
@@ -766,7 +766,6 @@ sub ptr_decl_ctx($self,$branch) {
   my $f      = $self->{frame};
 
   my @names  = @{$st->{names}};
-  my @values = @{$st->{values}};
 
   # errchk
   throw_invalid_scope(\@names,@path)
@@ -777,7 +776,7 @@ sub ptr_decl_ctx($self,$branch) {
 
   # enforce zero as default value
   for my $i(0..$#names) {
-    $values[$i]//=0;
+    $st->{values}->[$i]//=0;
 
   };
 
@@ -824,8 +823,8 @@ sub bind_decls($self,$branch) {
 
   while(@names && @values) {
 
-    my $name  = shift @names;
-    my $value = shift @values;
+    my $name    = shift @names;
+    my $value   = shift @values;
 
     my $o     = {
       type  => $st->{type},
@@ -845,7 +844,7 @@ sub bind_decls($self,$branch) {
 };
 
   rule('~<io-type>');
-  rule('<io> &rdio io-type ptr-decl');
+  rule('$<io> &rdio io-type ptr-decl');
 
 # ---   *   ---   *   ---
 # ^forks
@@ -860,12 +859,23 @@ sub rdio($self,$branch) {
 
   };
 
-  my $st=$branch->bhash();
+  my @lv    = @{$branch->{leaves}};
+  my $class = $self->{frame}->{-class};
 
-  say {*STDERR}
-    "rdio fork not implemented";
+  my $st={
+    type  => $lv[0]->leaf_value(0),
+    value => $lv[1],
 
-  exit;
+  };
+
+  $branch->{value}=$st;
+  $branch->clear_nproc();
+
+  $branch->fork_chain(
+    dom  => $class,
+    name => $table->{$st->{type}},
+
+  );
 
 };
 
@@ -873,11 +883,6 @@ sub rdio($self,$branch) {
 # ^proc input
 
 sub rdin_opz($self,$branch) {
-
-  my $h=$branch->leaf_value(0);
-
-  $branch->{value}=$h;
-  $branch->clear_branches();
 
 };
 
@@ -917,7 +922,7 @@ sub lis($self,$branch) {
 
   };
 
-  $branch->clear_branches();
+  $branch->clear();
 
 };
 
@@ -966,7 +971,7 @@ sub sow($self,$branch) {
 
   };
 
-  $branch->clear_branches();
+  $branch->clear();
 
 };
 
@@ -975,7 +980,7 @@ sub reap($self,$branch) {
   my $lv=$branch->{leaves};
 
   $branch->{value}=$lv->[0]->leaf_value(0);
-  $branch->clear_branches();
+  $branch->clear();
 
 };
 
@@ -1081,7 +1086,7 @@ sub branches($self,$branch) {
 
   my $lvl=length $leaf;
 
-  $branch->clear_branches();
+  $branch->clear();
 
   my $ar   = $branch->{ar};
      $ar //= [];
@@ -1130,7 +1135,7 @@ sub tree($self,$branch) {
 
   };
 
-  $branch->clear_branches();2
+  $branch->clear();2
 
 };
 
@@ -1195,7 +1200,7 @@ sub sdef($self,$branch) {
 
   };
 
-  $branch->clear_branches();
+  $branch->clear();
 
 };
 
@@ -1249,7 +1254,7 @@ sub wed($self,$branch) {
 
   };
 
-  $branch->clear_branches();
+  $branch->clear();
 
 };
 
@@ -1296,7 +1301,7 @@ sub rdre($self,$branch) {
 
   };
 
-  $branch->clear_branches();
+  $branch->clear();
 
 };
 
@@ -1378,7 +1383,7 @@ sub rdre_ctx($self,$branch) {
 #
 #  };
 #
-#  $branch->clear_branches();
+#  $branch->clear();
 #
 #};
 #
@@ -1452,7 +1457,7 @@ sub ret_ctx($self,$branch) {
 sub call($self,$branch) {
 
   my $st=$branch->bhash(0,1);
-  $branch->clear_branches();
+  $branch->clear();
 
   $branch->{value}={
     fn   => [(split $REGEX->{nsop},$st->{value})],
@@ -1991,7 +1996,7 @@ sub re_vex($self,$o) {
     header hier sdef
     wed
 
-    re ptr-decl
+    re io ptr-decl
 
 
   ]);
