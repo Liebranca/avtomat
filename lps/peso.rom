@@ -1,3 +1,8 @@
+CLAN dide;
+lis {-r} 1;
+
+
+STOP;
 %lps;
 
 # ---   *   ---   *   ---
@@ -91,8 +96,8 @@ ROM std;
 # ---   *   ---   *   ---
 
 PROC expr;
+
   in byte str s;
-STOP;
   lis {/:f} 1;
 
   tree {$:BB}

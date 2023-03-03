@@ -548,10 +548,7 @@ sub hier_sort_ctx($self,$branch) {
 
   # get altered path
   my @cur=$self->cpath_change($type);
-  if(!@cur) {
-    @cur=$self->cpath()
-
-  };
+  @cur=$self->cpath() if ! @cur;
 
   # ^set path
   my $mach=$self->{mach};
@@ -900,13 +897,13 @@ sub rdin_run($self,$branch) {
 
   rule('%<beg_curly=\{>');
   rule('%<end_curly=\}>');
-  rule('<vglob> beg_curly flg end_curly');
+  rule('$<vglob> beg_curly flg end_curly');
 
 # ---   *   ---   *   ---
 # aliasing
 
   rule('%<lis-key=lis>');
-  rule('<lis> lis-key vglob value');
+  rule('$<lis> lis-key vglob value');
 
 # ---   *   ---   *   ---
 # ^post-parse
@@ -914,15 +911,29 @@ sub rdin_run($self,$branch) {
 sub lis($self,$branch) {
 
   my $st=$branch->bhash();
+  $self->{Q}->add(sub {
 
-  $branch->{value}={
+    $branch->{value}={
+      from => $st->{value},
+      to   => $st->{vglob},
 
-    from => $st->{value},
-    to   => $st->{vglob},
+    };
 
-  };
+    $branch->clear();
+
+  });
+
+};
+
+# ---   *   ---   *   ---
+
+sub vglob($self,$branch) {
+
+  my @ar  = $branch->branch_values();
+  my $out = $ar[1];
 
   $branch->clear();
+  $branch->init($out);
 
 };
 
@@ -1994,7 +2005,7 @@ sub re_vex($self,$o) {
     &clip
 
     header hier sdef
-    wed
+    wed lis
 
     re io ptr-decl
 
@@ -2022,10 +2033,15 @@ sub re_vex($self,$o) {
 # ---   *   ---   *   ---
 # test
 
-  my $src  = $ARGV[0];
-     $src//= 'lps/peso.rom';
+  my $src=$ARGV[0];
+  $src//='lps/peso.rom';
 
-  my $prog = orc($src);
+  my $prog=($src=~qr{\.rom$})
+    ? orc($src)
+    : $src
+    ;
+
+  return if ! $src;
 
   $prog    =~ m[([\S\s]+)\s*STOP]x;
   $prog    = ${^CAPTURE[0]};
