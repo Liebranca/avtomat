@@ -33,7 +33,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.2;#b
+  our $VERSION = v0.01.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -317,7 +317,13 @@ sub re_leaf($self,$anchor,$sref) {
   my $out = undef;
   my $re  = $self->{value};
 
-  if($$sref =~ s[^\s*($re)\s*][]) {
+  if(
+
+     $$sref =~ s[^\s*($re)][]
+  || $$sref =~ s[^($re)][]
+
+  ) {
+
     $out=$anchor->init($1);
 
   } elsif(! $self->{opt}) {
@@ -388,7 +394,7 @@ sub match($self,$ctx,$s) {
   # ^walk
   while(@pending) {
 
-    last if ! length $s;
+#    last if ! length $s;
 
     $self=$branch->shift_pending(
       $ctx,\$depth
@@ -521,7 +527,13 @@ sub subtree($self,$ctx,$sref,%O) {
 
     );
 
-    $out=pop @$anchors;
+    if($match) {
+      $out=(@$anchors > 1)
+        ? pop @$anchors
+        : $anchors->[-1]
+        ;
+
+    };
 
   } else {
     $match=$self->subtree_noclip(
@@ -558,8 +570,7 @@ sub subtree_noclip($self,$root,$m,$ds,$sref) {
     $out=$root;
 
   } elsif($self->{opt}) {
-    say "NOCLIP OPT-FAIL NOT IMPLEMENTED";
-    exit;
+    $root->status_force_ok();
 
   };
 

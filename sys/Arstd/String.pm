@@ -43,17 +43,20 @@ package Arstd::String;
     charcon
     nobs
 
+    strip
+
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.3;#b
+  our $VERSION=v0.00.4;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
+  Readonly our $STRIP_RE=>qr{^\s*|\s*$}x;
   Readonly our $ESCAPE_RE=>qr"\x1B\[[\?\d;]+[\w]"x;
   Readonly our $NOBS_RE=>qr{\\(.)}x;
 
@@ -191,6 +194,14 @@ sub charcon($sref,$table=undef) {
 sub nobs($sref) {
 
   $$sref=~ s[$NOBS_RE][$1]sxmg;
+
+};
+
+# ---   *   ---   *   ---
+# remove outer whitespace
+
+sub strip($sref) {
+  $$sref=~ s[$STRIP_RE][]sxmg;
 
 };
 

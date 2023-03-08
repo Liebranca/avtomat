@@ -812,7 +812,9 @@ sub lcom($self,$branch) {
 sub term($self,$branch) {
 
   discard($self,$branch);
-  @{$self->{pending}->[-1]}=();
+
+  @{$self->{pending}->[-1]}=()
+  unless ! defined $self->{pending}->[-1];
 
 };
 
