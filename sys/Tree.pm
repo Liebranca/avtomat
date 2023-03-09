@@ -1183,11 +1183,11 @@ sub match_until($self,$ch,$pat,%O) {
   $O{iref}//=0;
   $O{inclusive}//=0;
 
-  my @pending=@{$self->{leaves}};
-  @pending=@pending[$ch->{idex}..$#pending];
+  my @out  = ();
+  my @path = ();
 
-  my @out=();
-  my @path=();
+  my @pending = @{$self->{leaves}};
+  @pending    = @pending[$ch->{idex}+1..$#pending];
 
 # ---   *   ---   *   ---
 # walk the leaves

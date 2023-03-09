@@ -88,6 +88,11 @@ package Chk;
   Readonly our $QRE_RE=>qr{\(\?\^u(?:[xsmg]*):}x;
   Readonly our $STRIPLINE_RE=>qr{\s+|:__NL__:}x;
 
+  Readonly our $CODENAME_RE=>qr{
+    ^ (?<codename> [_\w:][_\w:\d]+) $
+
+  }x;
+
 # ---   *   ---   *   ---
 # type-checking
 
@@ -154,7 +159,10 @@ sub codefind(@names) {
   no strict 'refs';
 
   my $path  = (join q[::],@names);
-  my $f     = eval '\&'.$path;
+  my $f     = ($path=~ $CODENAME_RE)
+    ? eval '\&'.$path
+    : undef
+    ;
 
   my $valid =
      is_coderef($f)
@@ -187,7 +195,10 @@ sub __isa_search(@names) {
   for my $class(@isa) {
 
     my $path  = "$class\::$fn";
-    my $f     = eval '\&'.$path;
+    my $f     = ($path=~ $CODENAME_RE)
+      ? eval '\&'.$path
+      : undef
+      ;
 
     my $valid =
        is_coderef($f)
