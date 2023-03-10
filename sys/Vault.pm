@@ -85,7 +85,11 @@ sub import(@args) {
 
   goto SKIP if($modname=~ $Std_Dirs);
 
-  my $syskey=$args[-1];
+  my $syskey=(defined $args[-1])
+    ? $args[-1]
+    : 'ARPATH'
+    ;
+
   my $syspath=Shb7::set_root($ENV{$syskey});
 
   # init project

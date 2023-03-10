@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# PESO GRAMMAR
-# Recursive swan song
+# C GRAMMAR
+# Don't cast the RET of malloc!
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -39,16 +39,18 @@ package Grammar::C;
   use lib $ENV{'ARPATH'}.'/avtomat/';
 
   use Lang;
-  use parent 'Grammar';
+  use Grammar;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
+
+BEGIN {
 
   Readonly our $REGEX=>{
 
@@ -63,58 +65,185 @@ package Grammar::C;
 
     ),
 
+    clist => Lang::nonscap(q[,]),
+
+# ---   *   ---   *   ---
+
+    prim=>Lang::eiths(
+
+      [qw(
+
+        bool char short int long
+        float double void
+
+        int8_t int16_t int32_t int64_t
+        uint8_t uint16_t uint32_t uint64_t
+
+        wchar_t size_t
+        intptr_t uintptr_t
+
+        FILE
+
+        nihil stark signal
+
+      )],
+
+      bwrap=>1,
+
+    ),
+
+# ---   *   ---   *   ---
+
+    spec=>Lang::eiths(
+
+      [qw(
+
+        auto extern inline restrict
+        const signed unsigned static
+
+        explicit friend mutable
+        namespace override private
+        protected public register
+
+        template using virtual volatile
+        noreturn _Atomic complex imaginary
+        thread_local operator
+
+      )],
+
+      bwrap=>1,
+
+    ),
+
+    name=>qr{[_\w][_\w\d]*},
+
   };
 
 # ---   *   ---   *   ---
 
-  Readonly our $NTERM=>{
-    name => $REGEX->{nterm},
-    fn   => 'capt',
+  rule('~<term>');
 
-  };
+  rule('*~<spec>');
+  rule('~<prim>');
+  rule('~<name>');
+  rule('?~<clist> &rew');
 
-  Readonly our $TERM=>{
-    name => $REGEX->{term},
-    fn   => 'term',
+  rule('$<decl> spec prim name');
+  rule('$<decl-list> &decl_list decl clist');
 
-  };
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub decl($self,$branch) {
+
+  my $st=$branch->bhash();
+  $st->{spec}//='$NULLSTR';
+
+  $branch->clear();
+  $branch->{value}=$st;
+
+};
+
+sub decl_list($self,$branch) {
+
+  my @ar=$branch->branch_values();
+  pop @ar if $ar[-1] eq 'clist';
+
+  $branch->{value}=\@ar;
+  $branch->clear();
+
+};
 
 # ---   *   ---   *   ---
 
-  Readonly our $ANY=>{
-    name => 'any',
-    fn   => 'clip',
+  rule('%<beg_parens=\(>');
+  rule('%<end_parens=\)>');
 
-    chld => [
-      $NTERM
+  rule(q[
 
-    ],
+    $<args>
+    &args_rd
 
-  };
+    beg_parens
+    decl-list
+    end_parens
 
-  Readonly our $EXPR=>{
-
-    name => 'expr',
-    chld => [
-      $ANY,
-      $TERM,
-
-    ],
-
-  };
+  ]);
 
 # ---   *   ---   *   ---
-# GBL
+# ^post-parse
 
-  Grammar::C->mkrules($EXPR);
+sub args_rd($self,$branch) {
+
+  my $lv=$branch->{leaves};
+  my $ar=$lv->[1]->{value};
+
+  $branch->{value}=$ar;
+  $branch->clear();
+
+};
+
+# ---   *   ---   *   ---
+# ^combo
+
+  rule('$<fn-decl> &fn_decl decl args');
+
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub fn_decl($self,$branch) {
+
+  my @ar=$branch->branch_values();
+
+  my $st={
+
+    name  => $ar[0]->{name},
+
+    spec  => $ar[0]->{spec},
+    rtype => $ar[0]->{prim},
+
+    args  => $ar[1],
+
+  };
+
+  $branch->clear();
+  $branch->init($st);
+
+};
+
+# ---   *   ---   *   ---
+
+  rule(q[
+    |<needs-term-list>
+    &clip
+
+    fn-decl
+
+  ]);
+
+  rule(q[
+
+    <needs-term>
+    &clip
+
+    needs-term-list
+    term
+
+  ]);
+
+  our @CORE=qw(needs-term);
+
+# ---   *   ---   *   ---
+
+}; # BEGIN
 
 # ---   *   ---   *   ---
 # test
 
-  my $prog = q[hello;];
+  my $prog = q[static int holy(int y,int z);];
   my $ice  = Grammar::C->parse($prog);
 
-  $ice->{tree}->prich();
+  $ice->{p3}->prich();
 
 # ---   *   ---   *   ---
 1; # ret

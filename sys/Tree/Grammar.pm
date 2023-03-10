@@ -326,7 +326,7 @@ sub re_leaf($self,$anchor,$sref) {
 
     $out=$anchor->init($1);
 
-  } elsif(! $self->{opt}) {
+  } elsif(! $self->{parent}->{opt}) {
     $anchor->status_ffail();
 
   };
@@ -407,21 +407,23 @@ sub match($self,$ctx,$s) {
     $anchors[-1]->init_status($self);
     $dst->status_add($self) if $dst;
 
-    my $altr=$self->alternation($ctx,\$s);
+    ! $self->alternation($ctx,\$s)
+    or next;
 
-    if($altr) {
-      next;
+    ! $self->greed($ctx,\$s)
+    or next;
 
-    };
+    ! $self->hier_sub($ctx,\$s)
+    or next;
 
-    ! $self->greed($ctx,\$s) or next;
-    ! $self->hier_sub($ctx,\$s) or next;
+    my $opt_branch=
+      $self->branch_has_flag('opt');
 
     if($class->is_valid($m)) {
       $m->{other}=$self;
       $fn->($ctx,$m) if $fn ne $NOOP;
 
-    } elsif(! $m && ! $self->{opt}) {
+    } elsif(! $m && ! $opt_branch) {
       last;
 
     };
@@ -527,13 +529,16 @@ sub subtree($self,$ctx,$sref,%O) {
 
     );
 
-    if($match) {
-      $out=(@$anchors > 1)
-        ? pop @$anchors
-        : $anchors->[-1]
-        ;
+    $out=pop @$anchors if @$anchors > 1;
 
-    };
+#    if($match) {
+#
+#      $out=(@$anchors > 1)
+#        ? pop @$anchors
+#        : $anchors->[-1]
+#        ;
+#
+#    };
 
   } else {
     $match=$self->subtree_noclip(
@@ -846,7 +851,8 @@ sub status_subok($self) {
     $out+=
 
        $sus->{ok}
-    || ($sus->{opt} && ! $sus->{greed})
+#    || ($sus->{opt} && ! $sus->{greed})
+    || $sus->{opt}
     ;
 
   };
@@ -898,6 +904,7 @@ sub status_db_out($self) {
   my $ar     = $status->{ar};
 
   my $i=0;
+
   for my $sub_status(@$ar) {
 
     push @out,int(
@@ -910,6 +917,7 @@ sub status_db_out($self) {
   };
 
   $i=0;
+
   say int(! $status->{fail}) . " $self->{value}";
   for my $ok(@out) {
 
@@ -966,8 +974,8 @@ say "${s_depth}GOT $branch->{value}";
 
     } else {
 say "${s_depth}NGT $branch->{value}";
-#$m->prich();
-#$m->status_db_out();
+$m->prich();
+$m->status_db_out();
 
     };
 
