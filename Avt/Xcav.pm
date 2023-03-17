@@ -105,14 +105,21 @@ sub file_sbl($f) {
   $gram->strip(\$prog);
 
   # get symbols
-  my $o    = $gram->mine($prog);
-  my $args = $o->{args};
+  my $o=$gram->mine($prog);
 
-  # apply type conversions
-  $emit->typecon($o->{rtype});
-  for my $i(0..(@$args/2)-1) {
-    my $t=$emit->typecon($args->[$i*2]);
-    $args->[$i*2]=$t;
+  # ^apply type conversions
+  for my $key(keys %{$o->{functions}}) {
+
+    my $fn   = $o->{functions}->{$key};
+    my $args = $fn->{args};
+
+    $emit->typecon($fn->{rtype});
+
+    for my $i(0..(@$args/2)-1) {
+      my $t=$emit->typecon($args->[1+$i*2]);
+      $args->[1+$i*2]=$t;
+
+    };
 
   };
 

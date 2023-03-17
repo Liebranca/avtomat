@@ -200,7 +200,7 @@ EOF
 
       )).']';
 
-      my $rtype=$fn->{type};
+      my $rtype=$fn->{rtype};
 
       $tab.=''.
         "my \$$fn_name=\'$fn_name\';\n".
