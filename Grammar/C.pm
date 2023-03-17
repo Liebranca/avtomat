@@ -44,7 +44,7 @@ package Grammar::C;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -66,6 +66,23 @@ BEGIN {
     ),
 
     clist => Lang::nonscap(q[,]),
+    line  => qr{(\\ \n | [^\n])+}x,
+
+    nline => Lang::nonscap("\n"),
+    lcom  => Lang::eaf(q[\/\/]),
+
+    q[preproc-key]=>Lang::eiths(
+
+      [qw(
+
+        define if ifndef
+        ifdef include
+
+      )],
+
+      bwrap => 1,
+
+    ),
 
 # ---   *   ---   *   ---
 
@@ -88,7 +105,8 @@ BEGIN {
 
       )],
 
-      bwrap=>1,
+      bwrap => 1,
+      mod   => q[\**],
 
     ),
 
@@ -213,11 +231,204 @@ sub fn_decl($self,$branch) {
 
 # ---   *   ---   *   ---
 
+  rule('?<opt-name> &clip name');
+
+  rule('%<struct-key=struct>');
+  rule('%<typedef-key=typedef>');
+
+  rule('%<beg_scope=\{>');
+  rule('%<end_scope=\}>');
+
+  rule('+<struct-elems> decl term');
+
+  rule(q[
+
+    $<struct-body>
+    &struct_body
+
+    beg_scope
+    struct-elems
+
+    end_scope
+
+  ]);
+
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub struct_body($self,$branch) {
+
+  my @lv    = @{$branch->{leaves}};
+  my @elems = $lv[1]->branch_values();
+
+  $branch->clear();
+  $branch->{value}='elems';
+  $branch->init(\@elems);
+
+};
+
+# ---   *   ---   *   ---
+# ^combo
+
+  rule(q[
+
+    $<typedef-struct>
+    &clip
+
+    typedef-key
+    struct-key
+
+    opt-name
+
+    struct-body
+    name
+
+  ]);
+
+  rule(q[
+
+    $<c-struct>
+    &clip
+
+    struct-key
+    name
+
+    struct-body
+
+  ]);
+
+  rule('|<struct> &clip typedef-struct c-struct');
+  rule('$<utype-decl> &utype_decl struct');
+
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub utype_decl($self,$branch) {
+  $branch->pluck($branch->{leaves}->[0]);
+
+};
+
+# ---   *   ---   *   ---
+
+  rule('~<line>');
+  rule('~<nline> &discard');
+  rule('~<nclist>');
+
+  rule('~<preproc-key>');
+  rule('%<endif-key=endif>');
+
+  rule(q[
+
+    $<preproc-macro-args-elems>
+    &list_flatten
+
+    name clist
+
+  ]);
+
+  rule(q[
+
+    ?$<preproc-macro-args>
+    &tween_clip
+
+    beg_parens
+    preproc-macro-args-elems
+
+    end_parens
+
+  ]);
+
+  rule('%<hashtag=\#>');
+
+  rule(q[
+
+    $<preproc-macro>
+    &preproc_macro
+
+    hashtag preproc-key
+    name preproc-macro-args
+
+    line nline
+
+  ]);
+
+  rule(q[
+
+    $<preproc-dir>
+    &preproc_dir
+
+    hashtag preproc-key
+    line nline
+
+  ]);
+
+  rule(q[
+
+    $<preproc-endif>
+    &preproc_dir
+
+    hashtag endif-key nline
+
+  ]);
+
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub preproc_macro($self,$branch) {
+
+  $self->tween($branch);
+
+  my $st=$branch->bhash();
+
+  my $o={
+    args  => $st->{q[macro-args]},
+    value => $st->{line},
+
+  };
+
+  $branch->clear();
+  $branch->init($o);
+
+  $branch->{value}=$st->{name};
+
+};
+
+sub preproc_dir($self,$branch) {
+
+  $self->tween($branch);
+
+  my $st=$branch->bhash();
+
+  $branch->clear();
+  $branch->{value}=$st->{q[preproc-key]};
+  $branch->{value}//='endif';
+
+  $branch->init($st->{line})
+  if $st->{line};
+
+};
+
+# ---   *   ---   *   ---
+# ^combo
+
+  rule(q[
+
+    |<preproc>
+    &clip
+
+    preproc-macro preproc-endif preproc-dir
+
+  ]);
+
+# ---   *   ---   *   ---
+
+  rule('|<meta> &clip preproc');
+
   rule(q[
     |<needs-term-list>
     &clip
 
-    fn-decl
+    fn-decl utype-decl decl
 
   ]);
 
@@ -231,7 +442,7 @@ sub fn_decl($self,$branch) {
 
   ]);
 
-  our @CORE=qw(needs-term);
+  our @CORE=qw(meta);
 
 # ---   *   ---   *   ---
 
@@ -240,7 +451,16 @@ sub fn_decl($self,$branch) {
 # ---   *   ---   *   ---
 # test
 
-  my $prog = q[static int holy(int y,int z);];
+  my $prog = q[
+
+#endif
+#include <stdio.h>
+
+#define m(aa,aaa) hi \
+hiii
+
+];
+
   my $ice  = Grammar::C->parse($prog);
 
   $ice->{p3}->prich();

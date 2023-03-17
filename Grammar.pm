@@ -859,4 +859,33 @@ sub list_pop($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# removes first and last leaf
+
+sub tween($self,$branch) {
+
+  my @lv=@{$branch->{leaves}};
+
+  # throw if lv < 3
+
+  $branch->pluck($lv[0],$lv[-1]);
+
+};
+
+# ---   *   ---   *   ---
+# ^for nested rules
+
+sub tween_clip($self,$branch) {
+
+  tween($self,$branch);
+
+  for my $nd(@{$branch->{leaves}}) {
+    clip($self,$nd);
+
+  };
+
+  $branch->prich();
+
+};
+
+# ---   *   ---   *   ---
 1; # ret

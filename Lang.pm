@@ -330,6 +330,7 @@ sub eiths($ar,%O) {
   $O{escape} //= 0;
   $O{bwrap}  //= 0;
   $O{insens} //= 0;
+  $O{mod}    //= $NULLSTR;
 
   # force longest pattern first
   array_sort($ar);
@@ -351,7 +352,7 @@ sub eiths($ar,%O) {
 
   # give alternation re
   my $out=join q[|],@$ar;
-  return qr{$beg$out$end}x;
+  return qr{$beg$out$O{mod}$end}x;
 
 };
 

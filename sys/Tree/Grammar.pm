@@ -317,13 +317,13 @@ sub re_leaf($self,$anchor,$sref) {
   my $out = undef;
   my $re  = $self->{value};
 
-  if(
+  my $jmp=qr{(?:
+    (?: ^\s* )
+  | (?: ^    )
 
-     $$sref =~ s[^\s*($re)][]
-  || $$sref =~ s[^($re)][]
+  )}x;
 
-  ) {
-
+  if($$sref =~ s[$jmp($re)][]) {
     $out=$anchor->init($1);
 
   } elsif(! $self->{parent}->{opt}) {
@@ -1015,8 +1015,17 @@ sub parse($self,$s) {
 
   while(1) {
 
-    my ($match,$ds)=$gram->hier_match($ctx,$s);
+say "\n${s}\n________________\n";
 
+    # exit when input consumed
+    last if (! length $s)
+         || ($s=~ m{^\s+$});
+
+    # ^attempt
+    my ($match,$ds)=
+      $gram->hier_match($ctx,$s);
+
+    # ^errchk
     $self->throw_no_match($gram,$s)
     if ! $match;
 
@@ -1026,9 +1035,6 @@ sub parse($self,$s) {
 
     # update string
     $s=$ds;
-
-    # ^exit when input consumed
-    last if ! length $s;
 
   };
 
