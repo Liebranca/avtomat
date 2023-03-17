@@ -29,6 +29,7 @@ package Vault;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Arstd::String;
   use Arstd::IO;
 
   use Tree;
@@ -78,7 +79,7 @@ package Vault;
 
 # ---   *   ---   *   ---
 
-sub import(@args) {
+sub import($class,@args) {
 
   my ($pkgname,$file,$line)=caller;
   my $modname=Shb7::modof(abs_path($file));
@@ -90,7 +91,17 @@ sub import(@args) {
     : 'ARPATH'
     ;
 
-  my $syspath=Shb7::set_root($ENV{$syskey});
+  croak (sprintf
+
+    q[Invalid syskey <%s> passed in ] .
+    q[to Vault from %s],
+
+    $syskey,$file,
+
+  ) unless $ENV{$syskey};
+
+  my $syspath=Shb7::set_root($ENV{$syskey})
+  if $ENV{$syskey} ne $Shb7::Path::Root;
 
   # init project
   if(! exists $Systems->{$syspath}) {
