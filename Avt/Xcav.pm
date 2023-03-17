@@ -38,10 +38,11 @@ package Avt::Xcav;
 
   use Lang;
 
-  use Lang;
   use Lang::C;
   use Lang::Perl;
   use Lang::peso;
+
+  use Grammar::C;
 
   use Emit::C;
   use Emit::Perl;
@@ -51,7 +52,7 @@ package Avt::Xcav;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -89,35 +90,56 @@ sub file_sbl($f) {
 # ---   *   ---   *   ---
 # read source file
 
-  my $lang=Lang->$langname;
+#  my $lang=Lang->$langname;
+#
+#  my $rd=Peso::Rd::parse(
+#    $lang,$f
+#
+#  );
 
-  my $rd=Peso::Rd::parse(
-    $lang,$f
+  my $gram="Grammar\::$langname";
+  my $emit="Emit\::$langname";
 
-  );
+  # read file and strip comments
+  my $prog=orc($f);
+  $gram->strip(\$prog);
 
-  my $block=$rd->select_block(-ROOT);
-  my $tree=$block->{tree};
+  # get symbols
+  my $o    = $gram->mine($prog);
+  my $args = $o->{args};
 
-  $rd->recurse($tree);
-  $lang->hier_sort($rd);
+  # apply type conversions
+  $emit->typecon($o->{rtype});
+  for my $i(0..(@$args/2)-1) {
+    my $t=$emit->typecon($args->[$i*2]);
+    $args->[$i*2]=$t;
+
+  };
+
+  return $o;
+
+#  my $block=$rd->select_block(-ROOT);
+#  my $tree=$block->{tree};
+#
+#  $rd->recurse($tree);
+#  $lang->hier_sort($rd);
 
 # ---   *   ---   *   ---
 # mine the tree
 
-  $rd->fn_search(
-
-    $tree,
-    $object->{functions},
-
-  );
-
-  $rd->utype_search(
-
-    $tree,
-    $object->{utypes},
-
-  );
+#  $rd->fn_search(
+#
+#    $tree,
+#    $object->{functions},
+#
+#  );
+#
+#  $rd->utype_search(
+#
+#    $tree,
+#    $object->{utypes},
+#
+#  );
 
   return $object;
 

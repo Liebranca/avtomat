@@ -117,6 +117,9 @@ my $FILE_LIST=[
   '/Peso/Sbl.pm',
   '/Peso/Ex.pm',
 
+  '/Grammar.pm',
+  '/Grammar/C.pm',
+
   '/Emit.pm',
   '/Emit/Std.pm',
   '/Emit/C.pm',

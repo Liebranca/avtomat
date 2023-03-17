@@ -93,7 +93,7 @@ sub import(@args) {
   my $syspath=Shb7::set_root($ENV{$syskey});
 
   # init project
-  if(!exists $Systems->{$syspath}) {
+  if(! exists $Systems->{$syspath}) {
     $Systems->{$syspath}=
      Tree->new_frame();
 
@@ -101,13 +101,12 @@ sub import(@args) {
 
   # init modules in project
   my $frame=$Systems->{$syspath};
-  if(!exists $frame->{-roots}->{$modname}) {
+  if(! exists $frame->{-roots}->{$modname}) {
     module_tree($modname);
 
   };
 
 # ---   *   ---   *   ---
-
 
 SKIP:
   return;
@@ -125,7 +124,7 @@ sub check_module($name,$exclude=[]) {
 
   my $table;
 
-  if(!exists $frame->{-roots}->{$name}) {
+  if(! exists $frame->{-roots}->{$name}) {
 
     $table=module_tree($name,$exclude);
     $frame->{-roots}->{$name}=$table;
@@ -252,12 +251,24 @@ sub cached($key,$ptr,$call,@args) {
 # ---   *   ---   *   ---
 # get branch object belongs to
 
-  my $frame=$Systems->{$Shb7::Root};
+  my $frame=$Systems->{$Shb7::Path::Root};
   my $mod=$frame->{-roots}->{$modname};
+
+  if(! $mod) {
+    say {*STDERR} "[$file] Missing treedata for $modname";
+
+    map {say {*STDERR} $ARG} keys %{
+      $frame->{-roots}
+
+    };
+
+    return;
+
+  };
 
   my $pkg=$mod->branch_from_path(
     Shb7::shpath(abs_path($file)),
-    root=>$Shb7::Root,
+    root=>$Shb7::Path::Root,
 
   );
 

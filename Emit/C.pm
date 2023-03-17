@@ -25,6 +25,7 @@ package Emit::C;
 
   use Style;
   use Arstd;
+  use Vault;
 
   use Type;
 

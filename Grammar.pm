@@ -41,7 +41,7 @@ package Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#b
+  our $VERSION = v0.01.0;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -130,7 +130,6 @@ package Grammar;
 
     no warnings;
     ${"$pkg\::Rules"}={};
-
     $Ice_Map->{$pkg}=1;
 
   };
@@ -143,7 +142,7 @@ package Grammar;
     no strict 'refs';
 
     map {
-      $ARG->mkrules(@{"$ARG\::CORE"});
+      $ARG->mkrules(@{"$ARG\::CORE"})
 
     } keys %$Ice_Map;
 
@@ -243,7 +242,7 @@ sub new($class,%O) {
     anchors => [],
     pending => [],
 
-  },$class;
+ },$class;
 
   # first pass is blank
   # that means 'parsing stage'

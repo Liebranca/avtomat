@@ -44,7 +44,7 @@ package Grammar::C;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -159,10 +159,22 @@ BEGIN {
 sub decl($self,$branch) {
 
   my $st=$branch->bhash();
-  $st->{spec}//='$NULLSTR';
+  $st->{spec}   //= $NULLSTR;
+  $st->{indlvl} //= $NULLSTR;
+  $st->{name}   //= $NULLSTR;
+
+  return if ! $st->{prim};
+
+  $branch->{value}={
+
+    name => $st->{name},
+    type => "$st->{prim}$st->{indlvl}",
+
+    spec => $st->{spec},
+
+  };
 
   $branch->clear();
-  $branch->{value}=$st;
 
 };
 
@@ -219,12 +231,13 @@ sub fn_decl($self,$branch) {
 
   my $st={
 
-    name  => $ar[0]->{name},
+#    name  => $ar[0]->{name},
+#
+#    spec  => $ar[0]->{spec},
+#    rtype => $ar[0]->{prim},
 
-    spec  => $ar[0]->{spec},
-    rtype => $ar[0]->{prim},
-
-    args  => $ar[1],
+    %{$ar[0]},
+    args=>$ar[1],
 
   };
 
@@ -454,23 +467,68 @@ sub preproc_dir($self,$branch) {
 }; # BEGIN
 
 # ---   *   ---   *   ---
-# test
+# removes meta/annoyances
 
-  my $prog=orc(q[../ce/keyboard.h]);
-  $prog=~ s[$REGEX->{lcom}][]sxmg;
+sub strip($class,$progr) {
+  $$progr=~ s[$REGEX->{lcom}][]sxmg;
 
-  my $ice=Grammar::C->parse($prog,skip=>1);
-  my @fns=$ice->{p3}->branches_in(qr{^fn\-decl$});
+};
 
-  use Fmat;
-  for my $fn(@fns) {
+# ---   *   ---   *   ---
+# grab symbols from file
 
-    my $st=$fn->leaf_value(0);
-    fatdump($st);
+sub mine($class,$prog) {
 
-    exit;
+  state $fn_re    = qr{^fn\-decl$};
+  state $utype_re = qr{^utype$};
+
+  my $o={
+
+    utypes    => {},
+    functions => {},
+    variables => {},
+    constants => {},
 
   };
+
+  my $ice  = $class->parse($prog,skip=>1);
+  my @data = $ice->{p3}->branches_in($fn_re);
+
+  # walk function decls
+  for my $nd(@data) {
+
+    my $st   = $nd->leaf_value(0);
+    my $name = $st->{name};
+
+    my $ref  = \$o->{functions}->{$name};
+    my $args = [];
+
+    # build fn argument array
+    map { push @$args,
+
+      $ARG->{name},
+      $ARG->{type}
+
+    } @{$st->{args}};
+
+    # write table entry
+    $$ref={
+      rtype => $st->{type},
+      args  => $args,
+
+    };
+
+  };
+
+  return $o;
+
+};
+
+# ---   *   ---   *   ---
+# test
+
+#  my $prog=orc(q[../ce/keyboard.h]);
+#  Grammar::C->mine($prog); 
 
 # ---   *   ---   *   ---
 1; # ret

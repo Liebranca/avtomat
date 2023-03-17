@@ -174,7 +174,7 @@ sub set_root($path) {
 # ---   *   ---   *   ---
 # pathchk errme n0
 
-sub throw_undef_path($path) {
+sub throw_undef_path() {
 
   errout(
 
