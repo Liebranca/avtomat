@@ -50,9 +50,11 @@ package Grammar::C;
 # ---   *   ---   *   ---
 # ROM
 
+  our $REGEX;
+
 BEGIN {
 
-  Readonly our $REGEX=>{
+  $REGEX={
 
     term  => Lang::nonscap(q[;]),
     nterm => Lang::nonscap(
@@ -106,9 +108,10 @@ BEGIN {
       )],
 
       bwrap => 1,
-      mod   => q[\**],
 
     ),
+
+    indlvl=>qr{\*+},
 
 # ---   *   ---   *   ---
 
@@ -143,10 +146,11 @@ BEGIN {
 
   rule('*~<spec>');
   rule('~<prim>');
+  rule('~?<indlvl>');
   rule('~<name>');
   rule('?~<clist> &rew');
 
-  rule('$<decl> spec prim name');
+  rule('$<decl> spec prim indlvl name');
   rule('$<decl-list> &decl_list decl clist');
 
 # ---   *   ---   *   ---
@@ -422,7 +426,8 @@ sub preproc_dir($self,$branch) {
 
 # ---   *   ---   *   ---
 
-  rule('|<meta> &clip preproc');
+  rule('~<lcom>');
+  rule('|<meta> &clip lcom preproc');
 
   rule(q[
     |<needs-term-list>
@@ -442,7 +447,7 @@ sub preproc_dir($self,$branch) {
 
   ]);
 
-  our @CORE=qw(meta);
+  our @CORE=qw(meta needs-term);
 
 # ---   *   ---   *   ---
 
@@ -451,19 +456,21 @@ sub preproc_dir($self,$branch) {
 # ---   *   ---   *   ---
 # test
 
-  my $prog = q[
+  my $prog=orc(q[../ce/keyboard.h]);
+  $prog=~ s[$REGEX->{lcom}][]sxmg;
 
-#endif
-#include <stdio.h>
+  my $ice=Grammar::C->parse($prog,skip=>1);
+  my @fns=$ice->{p3}->branches_in(qr{^fn\-decl$});
 
-#define m(aa,aaa) hi \
-hiii
+  use Fmat;
+  for my $fn(@fns) {
 
-];
+    my $st=$fn->leaf_value(0);
+    fatdump($st);
 
-  my $ice  = Grammar::C->parse($prog);
+    exit;
 
-  $ice->{p3}->prich();
+  };
 
 # ---   *   ---   *   ---
 1; # ret

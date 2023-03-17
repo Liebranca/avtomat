@@ -264,7 +264,8 @@ sub new($class,%O) {
 sub parse($self,$s,%O) {
 
   # defaults
-  $O{-r}//=0;
+  $O{-r}   //= 0;
+  $O{skip} //= 0;
 
   # invoked as Grammar->parse
   if(! length ref $self) {
@@ -274,7 +275,7 @@ sub parse($self,$s,%O) {
   };
 
   # run-through
-  $self->{p3}->parse($s);
+  $self->{p3}->parse($s,%O);
 
   # exec -r number of passes
   while($O{-r}--) {
@@ -882,8 +883,6 @@ sub tween_clip($self,$branch) {
     clip($self,$nd);
 
   };
-
-  $branch->prich();
 
 };
 

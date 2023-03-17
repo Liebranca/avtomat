@@ -941,11 +941,11 @@ sub status_db_out($self) {
 
 sub hier_match($self,$ctx,$s,%O) {
 
-state $d_depth=undef;
-$d_depth//=-1;
-$d_depth++;
+#state $d_depth=undef;
+#$d_depth//=-1;
+#$d_depth++;
 
-my $s_depth=('.  ' x $d_depth) . '\-->';
+#my $s_depth=('.  ' x $d_depth) . '\-->';
 
   # defaults
   $O{-closed}//=0;
@@ -957,7 +957,7 @@ my $s_depth=('.  ' x $d_depth) . '\-->';
     ;
 
   for my $branch(@pending) {
-say "\n${s_depth}TRY $branch->{value}";
+#say "\n${s_depth}TRY $branch->{value}";
 
     my ($m,$ds)=$branch->match($ctx,$s);
 
@@ -968,21 +968,21 @@ say "\n${s_depth}TRY $branch->{value}";
       $ctx->{Q}->wex();
       $branch->on_match($m);
 
-say "${s_depth}GOT $branch->{value}";
+#say "${s_depth}GOT $branch->{value}";
 
       last;
 
     } else {
-say "${s_depth}NGT $branch->{value}";
-$m->prich();
-$m->status_db_out();
+#say "${s_depth}NGT $branch->{value}";
+#$m->prich();
+#$m->status_db_out();
 
     };
 
   };
 
-say "${s_depth}RET\n";
-$d_depth--;
+#say "${s_depth}RET\n";
+#$d_depth--;
 
   return @out;
 
@@ -1008,14 +1008,17 @@ sub new_p3($self,$ctx) {
 # ---   *   ---   *   ---
 # ^breaks down input
 
-sub parse($self,$s) {
+sub parse($self,$s,%O) {
+
+  # defaults
+  $O{skip}//=0;
 
   my $ctx  = $self->{ctx};
   my $gram = $ctx->{gram};
 
   while(1) {
 
-say "\n${s}\n________________\n";
+#say "\n${s}\n________________\n";
 
     # exit when input consumed
     last if (! length $s)
@@ -1026,8 +1029,16 @@ say "\n${s}\n________________\n";
       $gram->hier_match($ctx,$s);
 
     # ^errchk
-    $self->throw_no_match($gram,$s)
-    if ! $match;
+    if(! $match) {
+
+      ($O{skip})
+        ? $s=~ s[^[^\n]*\n?][]
+        : $self->throw_no_match($gram,$s)
+        ;
+
+      next;
+
+    };
 
     # push to tree and run queue
     $self->pushlv($match);
