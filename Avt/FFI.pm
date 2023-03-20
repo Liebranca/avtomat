@@ -96,7 +96,7 @@ sub sticky($class,$coderef) {
 
   my $out=undef;
 
-  if(!exists $Closures->{$coderef}) {
+  if(! exists $Closures->{$coderef}) {
     my $ice = $class->get_instance();
     $out    = $ice->closure($coderef);
 

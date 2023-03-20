@@ -653,17 +653,8 @@ sub hier_chld($self,$branch,$type) {
 
   };
 
-  # get nodes up to next hierarchical
-  @out=$branch->{parent}->match_until(
-    $branch,qr{^$type$}
-
-  );
-
-  # ^all remaining on fail
-  @out=$branch->{parent}->all_from(
-    $branch
-
-  ) if ! @out;
+  my @out=
+    $branch->match_up_to(qr{^$type$});
 
   $branch->pushlv(@out);
 

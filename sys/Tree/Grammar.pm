@@ -110,7 +110,7 @@ sub dup($self) {
 
     my $nd=shift @pending;
 
-    my $cpy=$nd->{frame}->init(
+    my $cpy=$nd->{frame}->nit(
 
       value  => $nd->{value},
       fn     => $nd->{fn},
@@ -118,7 +118,7 @@ sub dup($self) {
       greed  => $nd->{greed},
       max    => $nd->{max},
       alt    => $nd->{alt},
-      chain  => $nd->{chain},
+      chain  => [@{$nd->{chain}}],
 
       parent => (@anchor)
         ? (shift @anchor)

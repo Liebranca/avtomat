@@ -592,8 +592,7 @@ sub insert($self,$pos,@list) {
 # ---   *   ---   *   ---
 # insert new elements
 
-  my @insert=map
-    {$self->{frame}->nit($self,$ARG)} @list;
+  my @insert=map {$self->init($ARG)} @list;
 
   my @leaves=(@head,@insert,@tail);
 
@@ -730,6 +729,17 @@ sub pluck($self,@pending) {
 
   $self->cllv();
   return @plucked;
+
+};
+
+# ---   *   ---   *   ---
+# ^by idex
+
+sub ipluck($self,@pending) {
+  return $self->pluck(
+    map {$self->{leaves}->[$ARG]} @pending
+
+  );
 
 };
 
@@ -1249,6 +1259,30 @@ sub all_from($self,$ch,%O) {
     ;
 
   @pending=@pending[$ch->{idex}+1..$limit];
+
+};
+
+# ---   *   ---   *   ---
+# get all nodes from self
+# up to pattern,
+#
+# or all nodes from self
+# to end if that fails
+
+sub match_up_to($self,$pattern) {
+
+  my @out=$self->{parent}->match_until(
+    $self,$pattern
+
+  );
+
+  # ^on fail
+  @out=$self->{parent}->all_from(
+    $self
+
+  ) if ! @out;
+
+  return @out;
 
 };
 

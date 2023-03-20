@@ -787,6 +787,18 @@ sub clip($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# ^applied to children
+
+sub cclip($self,$branch) {
+
+  for my $nd(@{$branch->{leaves}}) {
+    clip($self,$nd);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # removes branch
 
 sub discard($self,$branch) {
