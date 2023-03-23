@@ -43,8 +43,7 @@ package Avt::FFI;
 
   our $Typetab=Vault::cached(
 
-    '$Typetab',\$Typetab,
-    \&xltab,
+    'Typetab',\&xltab,
 
     q[byte]=>['uint8'],
     q[sbyte]=>['sint8'],

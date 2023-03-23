@@ -18,7 +18,9 @@ package Type;
   use strict;
   use warnings;
 
+  use Carp;
   use Readonly;
+
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -40,7 +42,15 @@ package Type;
 # ---   *   ---   *   ---
 # ROM
 
-  sub Frame_Vars($class) {{}};
+  sub Frame_Vars($class) {return {
+
+    -autoload=>[qw(
+
+      pevec
+
+    )],
+
+  }};
 
   our $Indirection_Key=[qw(ptr pptr xptr)];
 
@@ -55,9 +65,7 @@ package Type;
 
   our $Table=Vault::cached(
 
-    'Table',\$Table,
-
-    \&gen_type_table,
+    'Table',\&gen_type_table,
 
     # primitives
 
@@ -82,6 +90,56 @@ package Type;
 
   );
 
+# ---   *   ---   *   ---
+# vector types
+# i blame glsl ;>
+
+sub pevec($class,$frame,$name) {
+
+  state $re=qr{^
+    (?<type> [A-Za-z]+)
+    (?<size> \d+)
+
+  $}x;
+
+  ($name=~ $re) or goto ERR;
+
+  my $type  = $+{type};
+  my $size  = $+{size};
+
+  ! ($size % 4) or goto ERR;
+
+  my @names=();
+
+  if($size == 4) {
+    @names=qw(x y z w);
+
+  } else {
+
+    my $i    = 0;
+    my $cols = $size/4;
+
+    @names = map {
+      "$ARG" . int(($i++)/4)
+
+    } (qw(x y z w) x $cols);
+
+  };
+
+  my $elems=[map {$type=>$ARG} @names];
+
+# ---   *   ---   *   ---
+
+OK:
+  return $frame->nit($name,$elems);
+
+ERR:
+  croak "$name is not a valid pevec";
+
+};
+
+# ---   *   ---   *   ---
+
   Readonly my $STRTYPE_RE=>qr{_str}x;
   Readonly my $PTRTYPE_RE=>qr{_ptr}x;
 
@@ -103,28 +161,28 @@ sub nit(
 ) {
 
   # defaults
-  $O{real}//=0;
-  $O{sign}//=0;
-  $O{addr}//=0;
-  $O{str}//=0;
+  $O{real} //= 0;
+  $O{sign} //= 0;
+  $O{addr} //= 0;
+  $O{str}  //= 0;
 
 # ---   *   ---   *   ---
 
-  my $size=0;
-  my $count=0;
-  my $sigil=0;
+  my $size  = 0;
+  my $count = 0;
+  my $sigil = 0;
 
   my $SIGIL_FLAGS={
 
-    q[sign]=>0x10,
-    q[real]=>0x20,
-    q[ptr]=>0x40,
-    q[str]=>0x80,
+    q[sign] => 0x10,
+    q[real] => 0x20,
+    q[ptr]  => 0x40,
+    q[str]  => 0x80,
 
   };
 
-  my $fields=[];
-  my $subtypes=[];
+  my $fields   = [];
+  my $subtypes = [];
 
 # ---   *   ---   *   ---
 # struct format:
@@ -540,7 +598,16 @@ sub gen_type_table(%table) {
 
 # ---   *   ---   *   ---
 
-  }};
+  }}; # top loop
+
+# ---   *   ---   *   ---
+# make vector types
+
+  $F->pevec('brad4');
+  $F->pevec('sbrad4');
+
+  $F->pevec('real4');
+  $F->pevec('real16');
 
   return $F;
 

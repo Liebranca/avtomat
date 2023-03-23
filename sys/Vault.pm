@@ -29,6 +29,8 @@ package Vault;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Chk;
+
   use Arstd::String;
   use Arstd::IO;
 
@@ -252,7 +254,7 @@ END {
 # either executes a generator
 # or loads whatever it generates
 
-sub cached($key,$ptr,$call,@args) {
+sub cached($key,$call,@args) {
 
   my ($pkgname,$file,$line)=caller;
   my $modname=Shb7::modof(abs_path($file));
@@ -262,22 +264,10 @@ sub cached($key,$ptr,$call,@args) {
 # ---   *   ---   *   ---
 # get branch object belongs to
 
-  my $frame=$Systems->{$Shb7::Path::Root};
-  my $mod=$frame->{-roots}->{$modname};
+  my $frame = $Systems->{$Shb7::Path::Root};
+  my $mod   = $frame->{-roots}->{$modname};
 
-  if(! $mod) {
-    say {*STDERR} "[$file] Missing treedata for $modname";
-
-    map {say {*STDERR} $ARG} keys %{
-      $frame->{-roots}
-
-    };
-
-    return;
-
-  };
-
-  my $pkg=$mod->branch_from_path(
+  my $pkg   = $mod->branch_from_path(
     Shb7::shpath(abs_path($file)),
     root=>$Shb7::Path::Root,
 
@@ -289,7 +279,7 @@ sub cached($key,$ptr,$call,@args) {
   my @objects=@{$pkg->{objects}};
   my %h=@objects;
 
-  if(!exists $h{$key}) {
+  if(! exists $h{$key}) {
     push @objects,$key=>1;
 
   };
@@ -298,7 +288,12 @@ sub cached($key,$ptr,$call,@args) {
 
 SKIP:
 
-  if(!defined $$ptr) {
+  no strict 'refs';
+  my $ptr=\${"$pkgname\::$key"};
+
+  use strict 'refs';
+
+  if(! defined $$ptr) {
     $$ptr=$call->(@args);
 
   };
@@ -452,6 +447,43 @@ sub dafwrite($fname,@blocks) {
     $header.$body
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# retrieve file if passed var
+# is a valid path
+
+sub fchk($var) {
+
+  my $out=(is_hashref($var))
+    ? $var
+    : undef
+    ;
+
+  # early ret
+  goto SKIP if $out;
+
+# ---   *   ---   *   ---
+
+  # validate input
+  ! length ref $var or errout(
+
+    q[Non-scalar, non-hashref var ] .
+    q[passed in to fchk],
+
+    lvl => $AR_FATAL,
+
+  );
+
+  # ^fetch
+  my $path=Shb7::ffind($var) or croak;
+  $out=retrieve($path);
+
+# ---   *   ---   *   ---
+
+SKIP:
+  return $out;
 
 };
 

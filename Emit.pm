@@ -48,6 +48,17 @@ sub typetrim($class,$typeref) {
 
 };
 
+sub get_typetab($class) {
+
+  no strict 'refs';
+  my $out=${"$class\::Typetab"};
+
+  use strict 'refs';
+
+  return $out;
+
+};
+
 sub typecon($class,$type) {
 
   my $tab=$class->get_typetab();

@@ -96,7 +96,7 @@ package Chk;
 # ---   *   ---   *   ---
 # type-checking
 
-sub is_scalerref ($v) {
+sub is_scalarref ($v) {
   defined $v && ($v=~ $Chk::SCALARREF_RE);
 
 };

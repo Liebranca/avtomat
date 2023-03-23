@@ -47,10 +47,7 @@ package Emit::C;
 
   our $Typetab=Vault::cached(
 
-    '$Typetab',\$Typetab,
-    \&xltab,
-
-# ---   *   ---   *   ---
+    'Typetab',\&xltab,
 
     q[sbyte]=>['int8_t'],
 
@@ -121,7 +118,6 @@ q[#ifdef __cplusplus
 
 # ---   *   ---   *   ---
 
-sub get_typetab($class) {return $Typetab};
 sub typetrim($class,$typeref) {
 
   # until I care enough to handle this spec
@@ -370,6 +366,9 @@ sub xltab(%table) {
   return $result;
 
 };
+
+#use Fmat;
+#fatdump({reverse %$Typetab});
 
 # ---   *   ---   *   ---
 1; # ret

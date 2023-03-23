@@ -60,43 +60,18 @@ package Avt::Xcav;
 
 sub file_sbl($f) {
 
-  my $found='';
   my $langname=Lang::file_ext($f);
 
-  if(!defined $langname) {
+  errout(
 
-    errout(
+    q[Can't determine language for file '%s'],
 
-      q{Can't determine language for file '%s'},
-      args=>[$f],
-      lvl=>$AR_FATAL,
+    args => [$f],
+    lvl  => $AR_FATAL,
 
-    );
+  ) unless defined $langname;
 
-  };
-
-# ---   *   ---   *   ---
-
-  my $object={
-
-    utypes=>{},
-
-    functions=>{},
-    variables=>{},
-    constants=>{},
-
-  };
-
-# ---   *   ---   *   ---
-# read source file
-
-#  my $lang=Lang->$langname;
-#
-#  my $rd=Peso::Rd::parse(
-#    $lang,$f
-#
-#  );
-
+  # get modules
   my $gram="Grammar\::$langname";
   my $emit="Emit\::$langname";
 
@@ -105,16 +80,17 @@ sub file_sbl($f) {
   $gram->strip(\$prog);
 
   # get symbols
-  my $o=$gram->mine($prog);
+  my $out=$gram->mine($prog);
 
   # ^apply type conversions
-  for my $key(keys %{$o->{functions}}) {
+  for my $key(keys %{$out->{functions}}) {
 
-    my $fn   = $o->{functions}->{$key};
+    my $fn   = $out->{functions}->{$key};
     my $args = $fn->{args};
 
-    $emit->typecon($fn->{rtype});
+    $fn->{rtype}=$emit->typecon($fn->{rtype});
 
+    # ^same for every arg
     for my $i(0..(@$args/2)-1) {
       my $t=$emit->typecon($args->[1+$i*2]);
       $args->[1+$i*2]=$t;
@@ -123,32 +99,7 @@ sub file_sbl($f) {
 
   };
 
-  return $o;
-
-#  my $block=$rd->select_block(-ROOT);
-#  my $tree=$block->{tree};
-#
-#  $rd->recurse($tree);
-#  $lang->hier_sort($rd);
-
-# ---   *   ---   *   ---
-# mine the tree
-
-#  $rd->fn_search(
-#
-#    $tree,
-#    $object->{functions},
-#
-#  );
-#
-#  $rd->utype_search(
-#
-#    $tree,
-#    $object->{utypes},
-#
-#  );
-
-  return $object;
+  return $out;
 
 };
 
