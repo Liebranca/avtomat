@@ -32,6 +32,7 @@ package Vault;
   use Chk;
 
   use Arstd::String;
+  use Arstd::Path;
   use Arstd::IO;
 
   use Tree;
@@ -42,7 +43,7 @@ package Vault;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;
+  our $VERSION=v0.00.3;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -76,8 +77,10 @@ package Vault;
 # ---   *   ---   *   ---
 # global state
 
-  my $Systems={};
-  our $Needs_Update={};
+  my  $Systems      = {};
+
+  our $Needs_Update = {};
+  our $Cache_Regen  = {};
 
 # ---   *   ---   *   ---
 
@@ -201,6 +204,23 @@ sub module_tree($name,$excluded=[]) {
 };
 
 # ---   *   ---   *   ---
+
+sub update_notify($name) {
+
+  say {*STDERR}
+
+    "\e[37;1m::\e[0m",
+
+    "updated \e[32;1m",
+    $name,
+
+    "\e[0m"
+
+  ;
+
+};
+
+# ---   *   ---   *   ---
 # dump trees to cache
 
 END {
@@ -217,25 +237,7 @@ END {
       next if $modname=~ m[\.trash];
       next unless @$updated;
 
-# ---   *   ---   *   ---
-# update objects in daf
-
-      ;
-
-# ---   *   ---   *   ---
-# save tree to disk
-
-      say {*STDERR}
-
-        "\e[37;1m::\e[0m",
-
-        "updated \e[32;1m",
-        $modname,
-
-        "\e[0m"
-
-      ;
-
+      # save tree to disk
       my $modf=Shb7::cache(
         "$modname$PX_EXT"
 
@@ -244,7 +246,22 @@ END {
       my $mod=$frame->{-roots}->{$modname};
       store($mod,$modf);
 
+      update_notify($modname);
+
     };
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^similar, cached objects
+
+END {
+
+  for my $file(keys %{$Cache_Regen}) {
+    store($Cache_Regen->{$file},$file);
+    update_notify($file);
 
   };
 
@@ -259,46 +276,44 @@ sub cached($key,$call,@args) {
   my ($pkgname,$file,$line)=caller;
   my $modname=Shb7::modof(abs_path($file));
 
-  goto SKIP if($modname=~ $Std_Dirs);
+  my $out=undef;
 
-# ---   *   ---   *   ---
-# get branch object belongs to
+  # get path
+  $file=Shb7::shpath($file);
+  $file=~ s[$modname/?][];
+  $file.= q[.st];
 
-  my $frame = $Systems->{$Shb7::Path::Root};
-  my $mod   = $frame->{-roots}->{$modname};
+  my $path = Shb7::cache($file);
+  my $dir  = dirof($path);
 
-  my $pkg   = $mod->branch_from_path(
-    Shb7::shpath(abs_path($file)),
-    root=>$Shb7::Path::Root,
+  my $rbld =
 
-  );
+     Shb7::moo($path,$file)
+  or exists $Cache_Regen->{$path}
+  ;
 
-# ---   *   ---   *   ---
-# get object in tree
+  # get entry or make new
+  -e $dir or `mkdir -p $dir`;
 
-  my @objects=@{$pkg->{objects}};
-  my %h=@objects;
+  my $h=(-f $path)
+    ? retrieve($path)
+    : $Cache_Regen->{$path}
+    ;
 
-  if(! exists $h{$key}) {
-    push @objects,$key=>1;
+  $h//={};
 
-  };
+  # regenerate and update
+  if(! exists $h->{$key} or $rbld) {
+    $out=$h->{$key}=$call->(@args);
+    $Cache_Regen->{$path}=$h;
 
-# ---   *   ---   *   ---
-
-SKIP:
-
-  no strict 'refs';
-  my $ptr=\${"$pkgname\::$key"};
-
-  use strict 'refs';
-
-  if(! defined $$ptr) {
-    $$ptr=$call->(@args);
+  # ^fetch existing
+  } else {
+    $out=$h->{$key};
 
   };
 
-  return $$ptr;
+  return $out;
 
 };
 

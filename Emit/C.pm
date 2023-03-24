@@ -52,17 +52,17 @@ package Emit::C;
     q[sbyte]=>['int8_t'],
 
     q[byte]=>[
-      'uchar','uint8_t','unsigned char'
+      'uint8_t','uchar','unsigned char'
 
     ],
 
     q[swide]=>[
-      'short','int16_t'
+      'int16_t','short',
 
     ],
 
     q[wide]=>[
-      'ushort','uint16_t'
+      'uint16_t','ushort',
 
     ],
 
@@ -73,16 +73,16 @@ package Emit::C;
 
 # ---   *   ---   *   ---
 
-    q[brad]=>['uint','uint32_t'],
-    q[sbrad]=>['int','int32_t'],
+    q[brad]=>['uint32_t','uint'],
+    q[sbrad]=>['int32_t','int'],
 
     q[word]=>[
-      'ulong','uint64_t','size_t','uintptr_t',
+      'uint64_t','ulong','size_t','uintptr_t',
 
     ],
 
     q[sword]=>[
-      'long','int64_t','intptr_t',
+      'int64_t','long','intptr_t',
 
     ],
 
@@ -327,11 +327,19 @@ sub xltab(%table) {
   my $result={};
 
   for my $key(keys %table) {
-  for my $ctype(@{$table{$key}}) {
+    for my $ctype(@{$table{$key}}) {
+      $result->{$ctype}=$key;
 
-    $result->{$ctype}=$key;
+    };
 
-  }};
+    # make first ctype the
+    # preferred one for reverse
+    # typecon ops
+
+    my $pref=$table{$key}->[0];
+    $result->{$key}=$pref;
+
+  };
 
 # ---   *   ---   *   ---
 
@@ -366,9 +374,6 @@ sub xltab(%table) {
   return $result;
 
 };
-
-#use Fmat;
-#fatdump({reverse %$Typetab});
 
 # ---   *   ---   *   ---
 1; # ret
