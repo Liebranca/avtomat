@@ -427,7 +427,7 @@ sub ot($a,$b) {
      (defined $a && -f $a)
   && (defined $b && -f $b)
 
-  && !( (-M $a) < (-M $b) )
+  && ! ( (-M $a) < (-M $b) )
   ;
 
 };
@@ -437,7 +437,7 @@ sub ot($a,$b) {
 # file not found or file needs update
 
 sub moo($a,$b) {
-  return !(-e $a) || ot($a,$b);
+  return ! (-e $a) || ot($a,$b);
 
 };
 

@@ -74,7 +74,10 @@ sub dirof($path) {
   my @names=split(m[/],$path);
   $path=join(q[/],@names[0..($#names)-1]);
 
-  return abs_path($path);
+  my $out=abs_path($path);
+  $out//=$path;
+
+  return $out;
 
 };
 

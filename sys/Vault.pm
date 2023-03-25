@@ -43,7 +43,7 @@ package Vault;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.3;#b
+  our $VERSION=v0.00.4;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -268,32 +268,31 @@ END {
 };
 
 # ---   *   ---   *   ---
-# either executes a generator
-# or loads whatever it generates
 
-sub cached($key,$call,@args) {
+sub cached_dir($file) {
 
-  my ($pkgname,$file,$line)=caller;
-  my $modname=Shb7::modof(abs_path($file));
-
-  my $out=undef;
-
-  # get path
-  $file=Shb7::shpath($file);
-  $file=~ s[$modname/?][];
-  $file.= q[.st];
-
-  my $path = Shb7::cache($file);
+  my $path = cashof($file);
   my $dir  = dirof($path);
 
   my $rbld =
-
      Shb7::moo($path,$file)
   or exists $Cache_Regen->{$path}
   ;
 
   # get entry or make new
   -e $dir or `mkdir -p $dir`;
+
+  return ($path,$rbld);
+
+};
+
+# ---   *   ---   *   ---
+# regen or fetch
+
+sub rof($file,$key,$call,@args) {
+
+  my ($path,$rbld)=
+    cached_dir($file);
 
   my $h=(-f $path)
     ? retrieve($path)
@@ -302,18 +301,98 @@ sub cached($key,$call,@args) {
 
   $h//={};
 
-  # regenerate and update
+  my $out=undef;
+
+  # regen entry
   if(! exists $h->{$key} or $rbld) {
     $out=$h->{$key}=$call->(@args);
-    $Cache_Regen->{$path}=$h;
+    $out->{q[$:VLT REGEN;>]}=1;
+
+    cashreg($path,$h);
 
   # ^fetch existing
   } else {
     $out=$h->{$key};
+    $out->{q[$:VLT REGEN;>]}=0;
 
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^keyless variant
+
+sub frof($file,$call,@args) {
+
+  my ($path,$rbld)=
+    cached_dir($file);
+
+  my $h=(-f $path)
+    ? retrieve($path)
+    : $Cache_Regen->{$path}
+    ;
+
+  my $out=undef;
+
+  # regen entry
+  if(! $h or $rbld) {
+    $out=$h=$call->(@args);
+    $out->{q[$:VLT REGEN;>]}=1;
+
+    cashreg($path,$h);
+
+  # ^fetch existing
+  } else {
+    $out=$h;
+    $out->{q[$:VLT REGEN;>]}=0;
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# either executes a generator
+# or loads whatever it generates
+
+sub cached($key,$call,@args) {
+  my $file=(caller)[1];
+  return rof($file,$key,$call,@args);
+
+};
+
+# ---   *   ---   *   ---
+# ^key *IS* file
+
+sub fcached($file,$call,@args) {
+  return frof($file,$call,@args);
+
+};
+
+# ---   *   ---   *   ---
+# ^builds path to stash
+
+sub cashof($file) {
+
+  my $modname=
+    Shb7::modof(abs_path($file));
+
+  $file=Shb7::shpath($file);
+  $file=~ s[$modname/?][];
+  $file.= q[.st];
+
+  return Shb7::cache($file);
+
+};
+
+# ---   *   ---   *   ---
+# ^register stash for update
+
+sub cashreg($path,$h) {
+  $Cache_Regen->{$path}=$h;
 
 };
 
