@@ -44,6 +44,7 @@ package Arstd::String;
     nobs
 
     strip
+    vstr
 
   );
 
@@ -202,6 +203,21 @@ sub nobs($sref) {
 
 sub strip($sref) {
   $$sref=~ s[$STRIP_RE][]sxmg;
+
+};
+
+# ---   *   ---   *   ---
+# force vstr to v0.00.0 format
+
+sub vstr($in) {
+
+  my $v=(sprintf 'v%vd',$in);
+  my @v=split m[\.],$v;
+
+  $v[1]='0'.$v[1] if length $v[1]==1;
+  $v=join q[.],@v;
+
+  return $v;
 
 };
 

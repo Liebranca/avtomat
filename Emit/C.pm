@@ -91,6 +91,12 @@ package Emit::C;
 
     q[pe_void]=>['void'],
 
+    # ogl stuff ;>
+    q[real4]  => ['glm::vec4'],
+    q[brad4]  => ['glm::uvec4'],
+    q[sbrad4] => ['glm::ivec4'],
+    q[real16] => ['glm::mat4'],
+
   );
 
 # ---   *   ---   *   ---

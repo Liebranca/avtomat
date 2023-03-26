@@ -582,4 +582,12 @@ SKIP:
 };
 
 # ---   *   ---   *   ---
+# selfex
+
+sub deepcpy($o) {
+  return thaw(freeze($o));
+
+};
+
+# ---   *   ---   *   ---
 1; # ret
