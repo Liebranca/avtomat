@@ -18,6 +18,8 @@ package Arstd::Bytes;
   use strict;
   use warnings;
 
+  use English qw(-no_match_vars);
+
   use lib $ENV{'ARPATH'}.'/lib/sys/';
   use Style;
 
@@ -31,12 +33,14 @@ package Arstd::Bytes;
     mord
     lmord
 
+    pastr
+
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;
+  our $VERSION=v0.00.2;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -121,6 +125,24 @@ sub mchr($data,%O) {
   };
 
   return $str;
+
+};
+
+# ---   *   ---   *   ---
+# encodes strings the boring way
+
+sub pastr($s,%O) {
+
+  # default
+  $O{size}  //= 'C';
+  $O{width} //= 'C';
+
+  my $len  = length $s;
+  my @bs   = lmord($s,rev=>0,elem_sz=>8);
+
+  my $fmat = "$O{size}$O{width}$len";
+
+  return pack $fmat,$len,@bs;
 
 };
 

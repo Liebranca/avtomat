@@ -37,14 +37,32 @@ package Shb7::Bk::gcc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
   Readonly our $OFLG=>[
-    q[-Os],
+
+# NOTE
+#
+# testing if -O3 gives us
+# better performance
+#
+# ftree-vectorize and other
+# flags would then be on by
+# default, but afaik *not*
+# if we use -Os instead
+#
+# so, i'll leave the flags in
+# case we switch back
+#
+#    q[-Os],
+
+    q[-O3],
+
+    q[-ftree-vectorize],
     q[-fno-unwind-tables],
     q[-fno-eliminate-unused-debug-symbols],
     q[-fno-asynchronous-unwind-tables],

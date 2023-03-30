@@ -390,9 +390,9 @@ sub encode($self,%data) {
 
           $slice[0],
 
-          width=>$char_sz,
-          elem_sz=>$char_sz,
-          rev=>0,
+          width   => $char_sz,
+          elem_sz => $char_sz,
+          rev     => 0,
 
         );
 
