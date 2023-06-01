@@ -198,7 +198,7 @@ sub get_module_deps($self) {
 
     # remove -l and get path to module
     $path=~ s[$LIBF_RE][];
-    $path=dir($path);
+    $path=Shb7::Find::build_path($path);
 
     # retrieve build data if present
     if(-d $path) {

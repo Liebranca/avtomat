@@ -384,6 +384,7 @@ sub libexpand($libs) {
 };
 
 # ---   *   ---   *   ---
+# retrieve makescript cache
 
 sub build_meta($path) {
 
@@ -414,6 +415,27 @@ sub build_meta($path) {
 
 };
 
+# ---   *   ---   *   ---
+# find path to build folder
+# from name of library
+
+sub build_path($name) {
+
+  my $path=dir($name);
+
+  if(! -d $path) {
+
+    my $libmeta=shwl($name);
+    $path=(-f $libmeta)
+      ? dir(retrieve($libmeta)->{fswat})
+      : $NULLSTR
+      ;
+
+  };
+
+  return $path;
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

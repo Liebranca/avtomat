@@ -137,8 +137,10 @@ sub symscan($mod,$dst,$deps,@fnames) {
 
   my $shwl={
 
-    deps=>$deps,
-    objects=>{},
+    deps    => $deps,
+    fswat   => $mod,
+
+    objects => {},
 
   };
 

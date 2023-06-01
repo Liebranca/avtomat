@@ -67,6 +67,7 @@ package Shb7::Path;
     dir
 
     lib
+    shwl
     libdir
     so
 
@@ -345,7 +346,7 @@ sub get_libs() {
 # shorthands
 
 sub file($path) {
-  return $Root.$path
+  return $Root.$path;
 
 };
 
@@ -355,7 +356,12 @@ sub dir($path=$NULLSTR) {
 };
 
 sub lib($name) {
-  return $Root."lib/lib$name.a"
+  return $Root."lib/lib$name.a";
+
+};
+
+sub shwl($name) {
+  return $Root."lib/.$name";
 
 };
 
@@ -365,17 +371,17 @@ sub libdir($path=$NULLSTR) {
 };
 
 sub so($name) {
-  return $Root."lib/lib$name.so"
+  return $Root."lib/lib$name.so";
 
 };
 
 sub cache($name) {
-  return $Cache.$name
+  return $Cache.$name;
 
 };
 
 sub mem($name) {
-  return $Mem.$name
+  return $Mem.$name;
 
 };
 
