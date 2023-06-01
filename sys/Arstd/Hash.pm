@@ -154,10 +154,19 @@ sub vdef($h,%O) {
 };
 
 # ---   *   ---   *   ---
+# give key=>value from key
+
+sub kv($h,$key) {
+  return $key=>$h->{$key};
+
+};
+
+# ---   *   ---   *   ---
 # exporter names
 
   *hash_cpy=*cpy;
   *hash_invert=*invert;
+  *hash_kv=*kv;
 
 # ---   *   ---   *   ---
 1; # ret

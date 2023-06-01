@@ -18,6 +18,7 @@ package Lang::Def;
   use strict;
   use warnings;
 
+  use Readonly;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -28,6 +29,38 @@ package Lang::Def;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Lang;
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = v1.00.1;
+  our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT=qw(
+
+    $PESC_RE
+
+  );
+
+# ---   *   ---   *   ---
+# ROM
+
+  Readonly our $PESC_RE=>qr{
+
+    \$\:
+
+    (?<body> (?:
+      [^;] | ;[^>]
+
+    )+)
+
+    ;>
+
+  }x;
 
 # ---   *   ---   *   ---
 
@@ -62,18 +95,7 @@ package Lang::Def;
 
     separators=>[','],
 
-    pesc=>qr{
-
-      \$\:
-
-      (?<body> (?:
-        [^;] | ;[^>]
-
-      )+)
-
-      ;>
-
-    }x,
+    pesc=>$PESC_RE,
 
 # ---   *   ---   *   ---
 

@@ -39,7 +39,7 @@ package Emit::C;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.3;
+  our $VERSION=v0.00.4;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -176,13 +176,13 @@ $:iter (
 
     \$s,
 
-    fname=>$fname,
-    note=>Emit::Std::note($O{author},q[//]),
+    fname   => $fname,
+    note    => Emit::Std::note($O{author},q[//]),
 
-    include=>$O{include},
-    define=>$O{define},
+    include => $O{include},
+    define  => $O{define},
 
-    guards=>($O{add_guards})
+    guards  => ($O{add_guards})
       ? $OPEN_GUARDS
       : $NULLSTR
       ,
@@ -378,6 +378,21 @@ sub xltab(%table) {
   }};
 
   return $result;
+
+};
+
+# ---   *   ---   *   ---
+# clears C stuff from hpp guards
+
+sub cpptrim($class,$sref) {
+
+  $$sref=~ s[
+
+    \#ifdef \s+ __cplusplus
+    [^\#]+
+    \#endif
+
+  ][]sxmg;
 
 };
 

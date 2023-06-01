@@ -117,19 +117,32 @@ def ftb(type,arr):
 
   );
 
-def cstr (s):
+def cstr(s):
   return bytes(s,"utf-8");
 
-def mcstr(type,s):
-  return type(cstr(s));
+def cstr8(s):
+  return bytes(s,"ascii");
 
-def mcstar(type,l):
+def pastr8(s,t=byte):
 
-  b=bytearray();b.extend(ftb(type,l));
+  buf=bytearray();
 
-  if('deref' in PRIMITIVES[type]):
-    type=PRIMITIVES[type]['deref'];
+  buf.extend(ftb(t,[len(s)]));
+  buf.extend(cstr8(s));
 
-  return (type*len(l)).from_buffer(b);
+  return buf;
+
+def mcstr(t,s):
+  return t(cstr(s));
+
+def mcstar(t,l):
+
+  b=bytearray();
+  b.extend(ftb(t,l));
+
+  if('deref' in PRIMITIVES[t]):
+    t=PRIMITIVES[t]['deref'];
+
+  return (t*len(l)).from_buffer(b);
 
 #   ---     ---     ---     ---     ---
