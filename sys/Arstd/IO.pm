@@ -20,6 +20,8 @@ package Arstd::IO;
   use warnings;
 
   use Carp qw(croak longmess);
+  use Readonly;
+
   use English qw(-no_match_vars);
 
   use File::Spec;
@@ -49,16 +51,43 @@ package Arstd::IO;
 
     owc
 
+    csume
+    rtate
+
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;
+  our $VERSION=v0.00.3;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
-# global state
+# ROM
+
+  Readonly our $FMAT_SIZE=>{
+
+    'Q' => 8, 'L' => 4,
+    'q' => 8, 'l' => 4,
+
+    'S' => 2, 'C' => 1,
+    's' => 2, 'c' => 1,
+
+    'V' => 4, 'A' => 1,
+    'v' => 2, 'a' => 1,
+
+    'f' => 4,
+
+  };
+
+  Readonly our $FMAT_RE=>qr{
+    (?<type> [aAvVqQlLsScCf])
+    (?<cnt>  \d*)
+
+  }x;
+
+# ---   *   ---   *   ---
+# GBL
 
   our $Testing=0;
 
@@ -123,12 +152,12 @@ sub fstrout($format,$tab,%opt) {
   $format=sprintf $format,@{$opt{args}};
 
   # get length without escapes
-  my $desc_tab=descape($tab);
+  my $desc_tab=Arstd::String::descape($tab);
   my $tab_len=length $desc_tab;
   my $sz_x=$ttysz[1]-$tab_len-1;
 
   # use real length to wrap
-  linewrap(\$format,$sz_x);
+  Arstd::String::linewrap(\$format,$sz_x);
 
 # ---   *   ---   *   ---
 # apply tab to format
@@ -189,12 +218,15 @@ sub box_fstrout($format,%opt) {
   $format=sprintf $format,@{$opt{args}};
 
   # get length without escapes
-  my $desc_c=descape($c);
+  my $desc_c=Arstd::String::descape($c);
   my $c_len=length $desc_c;
   my $sz_x=$ttysz[1]-($c_len*2)-3;
 
   # use real length to wrap
-  linewrap(\$format,$sz_x,add_newlines=>1);
+  Arstd::String::linewrap(
+    \$format,$sz_x,add_newlines=>1
+
+  );
 
 # ---   *   ---   *   ---
 # box in the format
@@ -302,6 +334,63 @@ sub owc($fname,$bytes) {
   or croak strerr($fname);
 
   return $wr*length $bytes;
+
+};
+
+# ---   *   ---   *   ---
+# get pack/unpack format
+# element width in bytes
+
+sub fmat_size($fmat) {
+
+  my $out=0;
+
+  while($fmat=~ s[$FMAT_RE][]) {
+
+    my $type = $+{type};
+    my $cnt  = (! length $+{cnt})
+      ? 1
+      : $+{cnt}
+      ;
+
+    my $sz   = $FMAT_SIZE->{$type};
+
+    $out+=$sz*$cnt;
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# consume
+#
+# cut bytes from string
+# push to array
+
+sub csume($sref,$dst,@fmat) {
+
+  map {
+    push @$dst,unpack $ARG,$$sref;
+    $$sref=substr $$sref,fmat_size($ARG);
+
+  } @fmat;
+
+};
+
+# ---   *   ---   *   ---
+# ^iv, regurgitate
+#
+# cat bytes to string
+# pop from array
+
+sub rtate($sref,$values,@fmat) {
+
+  map {
+    $$sref.=pack $ARG,(shift @$values);
+
+  } @fmat;
 
 };
 

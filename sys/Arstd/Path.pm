@@ -18,6 +18,7 @@ package Arstd::Path;
   use strict;
   use warnings;
 
+  use Carp;
   use English qw(-no_match_vars);
   use Cwd qw(abs_path);
 
@@ -39,14 +40,15 @@ package Arstd::Path;
     relto
 
     expand_path
+    force_path
 
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = v0.00.2;#b
+  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # get name of file without the path
@@ -57,7 +59,9 @@ sub basef($path) {
 
 };
 
+# ---   *   ---   *   ---
 # ^ removes extension(s)
+
 sub nxbasef($path) {
   my $name=basef($path);
   $name=~ s/\..*$//;
@@ -66,6 +70,7 @@ sub nxbasef($path) {
 
 };
 
+# ---   *   ---   *   ---
 # ^ get dir of filename...
 # or directory's parent
 
@@ -81,7 +86,9 @@ sub dirof($path) {
 
 };
 
+# ---   *   ---   *   ---
 # ^ oh yes
+
 sub parof($path) {
   return dirof(dirof($path));
 
@@ -98,6 +105,7 @@ sub based($path) {
 };
 
 # ---   *   ---   *   ---
+# get relative from absolute
 
 sub relto($par,$to) {
   my $full="$par$to";
@@ -106,6 +114,7 @@ sub relto($par,$to) {
 };
 
 # ---   *   ---   *   ---
+# turns dots into dirs
 
 sub expand_path($src,$dst) {
 
@@ -122,6 +131,16 @@ sub expand_path($src,$dst) {
     unshift @$dst,(map {$path.q{/}.$ARG} @tmp);
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# ensures a given directory
+# path exists
+
+sub force_path($path) {
+  ! -f $path or croak "<$path> is a file\n";
+  `mkdir -p $path` if ! -d $path;
 
 };
 

@@ -33,7 +33,10 @@ package Arstd::String;
   our @EXPORT=qw(
 
     descape
+
     linewrap
+    lineident
+
     pretty_tag
 
     sqwrap
@@ -138,6 +141,19 @@ sub linewrap($sref,$sz_x,%opt) {
     $$sref=~ s/($re)/$1/gsx;
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# ^adds ws padding on a
+# per-line basis
+
+sub lineident($sref,$x) {
+
+  my $pad="\n" . (q[  ] x $x);
+
+  $$sref=~ s[$NEWLINE_RE][$pad]sxmg;
+  $$sref=(q[  ] x $x) . "$$sref";
 
 };
 

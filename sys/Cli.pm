@@ -413,3 +413,30 @@ sub proto_search($m) {
 };
 
 # ---   *   ---   *   ---
+# ^expands filepaths
+
+sub proto_search_ex($m) {
+
+  my @out   = ();
+  my @files = Cli::Fstruct::proto_search($m);
+
+  while(@files) {
+
+    my $f=shift @files;
+
+    if(-d $f) {
+      expand_path($f,\@files);
+      next;
+
+    };
+
+    next if ! ($f=~ $m->{ext_re});
+    push @out,$f;
+
+  };
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---

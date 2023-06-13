@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Type;
 
   use v5.36.0;
@@ -36,8 +37,8 @@ package Type;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.03.1;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = v0.03.1;
+  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM

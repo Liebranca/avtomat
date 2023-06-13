@@ -235,15 +235,89 @@ $:guards;>
 sub fnwrap($class,$name,$code,%O) {
 
   # defaults
-  $O{rtype}//='int';
-  $O{args}//='void';
+  $O{rtype} //= 'int';
+  $O{args}  //= 'void';
 
-# ---   *   ---   *   ---
-
-  my $s="$O{rtype} $name($O{args})".
+  my $s="$O{rtype} $name($O{args}) ".
     "{\n$code\n\n};\n\n";
 
   return $s;
+
+};
+
+# ---   *   ---   *   ---
+# ^gives decl
+
+sub fnwrap_decl($class,$name,%O) {
+
+  # defaults
+  $O{rtype} //= 'int';
+  $O{args}  //= 'void';
+
+  return "$O{rtype} $name($O{args});\n";
+
+};
+
+# ---   *   ---   *   ---
+# ^gives both as array
+
+sub fnwrap_ar($class,$name,$code,%O) {
+
+  my $out=[];
+
+  # defaults
+  $O{rtype} //= 'int';
+  $O{args}  //= [];
+
+  $O{class} //= $NULLSTR;
+
+  my $args=
+
+    "\n  "
+  . (join ",\n  ",@{$O{args}})
+
+  . "\n\n"
+  ;
+
+  my $cname     = $O{class};
+
+  my $decl_args = $args;
+  my $decl_type = $O{rtype};
+  my $decl_name = $name;
+
+  # remove class name from decl
+  if(length $cname) {
+
+    $cname="$cname\::";
+    my $re=qr{$cname};
+
+    $decl_name=~ s[$re][];
+    $decl_type=~ s[$re][];
+    $decl_args=~ s[$re][]sxmg;
+
+  };
+
+  # make decl
+  push @$out,$class->fnwrap_decl(
+
+    $decl_name,
+
+    rtype => $decl_type,
+    args  => $decl_args,
+
+  );
+
+  # make def
+  push @$out,$class->fnwrap(
+
+    "$cname$name",$code,
+
+    rtype => $O{rtype},
+    args  => $args,
+
+  );
+
+  return $out;
 
 };
 
@@ -287,6 +361,37 @@ sub datasec($class,$name,$type,@items) {
   };
 
   return $s;
+
+};
+
+# ---   *   ---   *   ---
+# paste case [value]: [code]
+
+sub switch_case($class,$value,$code) {
+
+  my $out=($value eq 'default')
+    ? "default:\n  $code\n\n"
+    : "case $value:\n  $code\n\n"
+    ;
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^paste case [key]: [value]
+# for [key => value] in %O
+
+sub switch_tab($class,$x,%O) {
+
+  my $out=$NULLSTR;
+
+  map {
+    $out.=$class->switch_case($ARG,$O{$ARG})
+
+  } keys %O;
+
+  return "switch($x) {\n\n$out\n};\n";
 
 };
 

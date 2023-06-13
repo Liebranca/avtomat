@@ -1,0 +1,74 @@
+#!/usr/bin/perl
+
+# ---   *   ---   *   ---
+# deps
+
+package main;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use English qw(-no_match_vars);
+
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+
+  use Style;
+  use Arstd::IO;
+
+# ---   *   ---   *   ---
+# write binary dump
+
+sub rwt($fpath) {
+
+  my @values = qw(fuck shit);
+  my $dump   = $NULLSTR;
+
+  rtate(\$dump,\@values,qw(a4 a4));
+  owc($fpath,$dump);
+
+};
+
+# ---   *   ---   *   ---
+# ^retrieve
+
+sub rrd($fpath) {
+
+  my @values = ();
+  my $dump   = orc($fpath);
+
+  csume(\$dump,\@values,qw(a4 a4));
+
+  return @values;
+
+};
+
+# ---   *   ---   *   ---
+# test 0 results
+
+sub t0r() {
+
+  my $fpath='./rdbin.dump';
+  rwt($fpath);
+
+  my @values=rrd($fpath);
+
+  printf
+
+    "%s %s\n",
+    @values
+
+  ;
+
+};
+
+# ---   *   ---   *   ---
+# ^run
+
+my $ar=[];
+$ar->[0][0]=1;
+
+say $ar->[0][0];
+
+# ---   *   ---   *   ---
+
