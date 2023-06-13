@@ -37,9 +37,6 @@ package Emit::Std;
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $ARTAG=>pretty_tag('AR');
-  Readonly our $ARSEP=>"\e[37;1m::\e[0m";
-
   Readonly my $BOXCHAR=>'.';
 
 # ---   *   ---   *   ---

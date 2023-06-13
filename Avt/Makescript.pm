@@ -31,6 +31,8 @@ package Avt::Makescript;
   use Arstd::Path;
   use Arstd::IO;
 
+  use Arstd::WLog;
+
   use Shb7;
 
   use Shb7::Bfile;
@@ -257,14 +259,11 @@ sub set_build_paths($self) {
 
 sub update_generated($self) {
 
-  my @GENS=@{$self->{gens}};
+  my @GENS = @{$self->{gens}};
+  my $done = 0;
 
-  if(@GENS) {
-
-    say {*STDERR}
-      $Emit::Std::ARSEP."running generators";
-
-  };
+  $WLog->step("running generators")
+  if @GENS;
 
   # iter the list of generator scripts
   # ... and sources/dependencies for them
@@ -275,13 +274,16 @@ sub update_generated($self) {
 # ---   *   ---   *   ---
 # make sure we don't need to update
 
-    my $do_gen=!(-e $res);
-    if(!$do_gen) {$do_gen=Shb7::ot($res,$gen);};
+    my $do_gen=(-e $res)
+      ? Shb7::ot($res,$gen)
+      : 1
+      ;
 
 # ---   *   ---   *   ---
 # make damn sure we don't need to update
 
-    if(!$do_gen) {
+    if(! $do_gen) {
+
       while(@msrcs) {
         my $msrc=shift @msrcs;
 
@@ -292,20 +294,21 @@ sub update_generated($self) {
 
             # found file is updated
             if(Shb7::ot($res,$src)) {
-              $do_gen=1;last;
+              $do_gen=1;
+              last;
 
             };
 
           };
 
-          if($do_gen) {last};
+          last if $do_gen;
 
 # ---   *   ---   *   ---
 
         # look for specific file
         } else {
           $msrc=Shb7::ffind($msrc);
-          if(!$msrc) {next};
+          next if !$msrc;
 
           # found file is updated
           if(Shb7::ot($res,$msrc)) {
@@ -325,12 +328,16 @@ sub update_generated($self) {
 
     if($do_gen) {
 
-      say {*STDERR} Shb7::shpath($gen);
+      $WLog->ex(Shb7::shpath($gen));
       `$gen`;
+
+      $done=1;
 
     };
 
   };
+
+  $WLog->line() if $done;
 
 };
 
@@ -339,17 +346,11 @@ sub update_generated($self) {
 
 sub update_regular($self) {
 
-  my @FCPY=@{$self->{fcpy}};
+  my @FCPY = @{$self->{fcpy}};
+  my $done = 0;
 
-  if(@FCPY) {
-
-    say {*STDERR}
-      $Emit::Std::ARSEP,
-      "copying regular files"
-
-    ;
-
-  };
+  $WLog->step("copying regular files")
+  if @FCPY;
 
   while(@FCPY) {
     my $og=shift @FCPY;
@@ -365,15 +366,23 @@ sub update_regular($self) {
 
     my $do_cpy=!(-e $cp);
 
-    if(!$do_cpy) {$do_cpy=Shb7::ot($cp,$og);};
+    $do_cpy=(! $do_cpy)
+      ? Shb7::ot($cp,$og)
+      : $do_cpy
+      ;
+
     if($do_cpy) {
 
-      say {*STDERR} "$og";
+      $WLog->substep($og);
       `cp $og $cp`;
+
+      $done=1;
 
     };
 
   };
+
+  $WLog->line() if $done;
 
 };
 
@@ -387,17 +396,8 @@ sub update_objects($self) {
 
   my @files  = $self->get_build_files();
 
-  # print notice
-  if(@files) {
-
-    say {*STDERR}
-
-      $Emit::Std::ARSEP.
-      "rebuilding objects"
-
-    ;
-
-  };
+  $WLog->step("rebuilding objects")
+  if @files;
 
   # iter list of source files
   for my $bfile(@files) {
@@ -409,6 +409,7 @@ sub update_objects($self) {
   };
 
   $self->{bld}->push_files(@$bfiles);
+  $WLog->line() if $objblt;
 
   return $objblt;
 
@@ -439,6 +440,8 @@ sub bk_for($self,$src) {
 sub side_builds($self) {
 
   my @calls  = ();
+  my $done   = 0;
+
   my $bindir = $self->{root}.'bin/';
   my $srcdir = $self->{root}.$self->{fswat}.q[/];
 
@@ -469,7 +472,7 @@ sub side_builds($self) {
     my $bk    = $self->bk_for($srcfile);
     my $bfile = $bk->push_src($srcdir.$srcfile);
 
-    $bfile->update($bld);
+    $done|=$bfile->update($bld);
 
     $bld->push_files($bfile);
     $bld->push_flags(@flags);
@@ -480,6 +483,8 @@ sub side_builds($self) {
     };
 
   };
+
+  $WLog->line() if $done;
 
 };
 
@@ -505,17 +510,11 @@ sub build_binaries($self,$objblt) {
 
   if($self->{main} && $objblt && @objs) {
 
-    say {*STDERR }
-
-      $Emit::Std::ARSEP,
-      'compiling binary ',
-
-      "\e[32;1m",
+    $WLog->fupdate(
       Shb7::shpath($self->{main}),
+      'compiling binary'
 
-      "\e[0m"
-
-    ;
+    );
 
 # ---   *   ---   *   ---
 # build mode is 'static library'
@@ -568,15 +567,11 @@ sub build_binaries($self,$objblt) {
 
   if(@libs && $self->{ilib}) {
 
-    say {*STDERR }
+    $WLog->fupdate(
+      $self->{fswat},
+      'compiling shwl for'
 
-      $Emit::Std::ARSEP,
-      'compiling shwl for ',
-
-      "\e[32;1m",$self->{fswat},
-      "\e[0m"
-
-    ;
+    );
 
     Avt::Xcav::symscan(
 
@@ -604,16 +599,8 @@ sub depsmake($self) {
 
   my $fswat = $self->{fswat};
 
-  if(@objs && @deps) {
-
-    say {*STDERR}
-
-      $Emit::Std::ARSEP,
-      'rebuilding dependencies',
-
-    ;
-
-  };
+  $WLog->step('rebuilding dependencies')
+  if @objs && @deps;
 
   my $ex=$AVTOPATH.q[/bin/pmd];
 

@@ -61,6 +61,7 @@ my $FILE_LIST=[
   '/sys/Arstd/Hash.pm',
   '/sys/Arstd/Path.pm',
   '/sys/Arstd/IO.pm',
+  '/sys/Arstd/WLog.pm',
   '/sys/Arstd/Test.pm',
 
   '/sys/Chk.pm',

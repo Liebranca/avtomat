@@ -34,6 +34,8 @@ package Avt;
   use Arstd::Hash;
   use Arstd::IO;
 
+  use Arstd::WLog;
+
   use Shb7;
   use Vault 'ARPATH';
 
@@ -62,8 +64,8 @@ package Avt;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v3.21.4;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = v3.21.5;
+  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
@@ -101,8 +103,8 @@ package Avt;
 # ---   *   ---   *   ---
 # lenkz
 
-  Readonly our $GITHUB=>q{https://github.com};
-  Readonly our $LYEB=>$GITHUB.q{/Liebranca};
+  Readonly our $GITHUB => q{https://github.com};
+  Readonly our $LYEB   => $GITHUB.q{/Liebranca};
 
 # ---   *   ---   *   ---
 # global storage
@@ -675,30 +677,12 @@ sub make() {
     $FILE.='#!/usr/bin/perl'."\n";
     $FILE.=Emit::Std::note('IBN-3DILA','#');
 
-    # paste in the pre-build hook
+# ---   *   ---   *   ---
 
-    if(length $C->{pre_build}) {
-      $FILE.=
-
-      "\n\n".
-
-      'INIT {'."\n\n".
-
-        'print {*STDERR} "'.
-        $Emit::Std::ARSEP.
-        'running pre-build hook... \n";'.
-
-        $C->{pre_build}.';'.
-        "\n\n".
-
-      "};\n";
-
-    };
-
-    $FILE.=<<'EOF'
+$FILE.=<<'EOF'
 
 # ---   *   ---   *   ---
-#deps
+# deps
 
   use 5.36.0;
   use strict;
@@ -712,11 +696,41 @@ sub make() {
   use Style;
 
   use Arstd::Path;
+  use Arstd::WLog;
+
   use Shb7;
   use Cli;
 
   use lib $ENV{'ARPATH'}.'/lib/';
   use Avt::Makescript;
+
+EOF
+;
+
+# ---   *   ---   *   ---
+# paste in the pre-build hook
+
+    if(length $C->{pre_build}) {
+
+      $FILE.=
+
+        "\n\n"
+      . "INIT {\n\n"
+
+      . '$WLog->step('
+      . q["running pre-build hook... \n"]
+
+      . ');'
+
+      . "$C->{pre_build};"
+      . "\n\n"
+
+      . "};\n"
+      ;
+
+    };
+
+$FILE.=<<'EOF'
 
 # ---   *   ---   *   ---
 
@@ -746,8 +760,7 @@ $M=Avt::Makescript->nit_build($M,$cli);
 
 # ---   *   ---   *   ---
 
-print {*STDERR}
-  $Emit::Std::ARTAG."upgrading $M->{fswat}\n";
+$WLog->mupdate($M->{fswat});
 
 $M->set_build_paths();
 $M->update_generated();
@@ -759,9 +772,6 @@ $M->update_regular();
 
 $M->side_builds();
 
-print {*STDERR}
-  $Emit::Std::ARSEP."done\n\n";
-
 EOF
 ;
 
@@ -771,34 +781,36 @@ EOF
     if(length $C->{post_build}) {
       $FILE.=
 
-      #"\n".
-      '# ---   *   ---   *   ---'.
-      "\n\n".
+        '# ---   *   ---   *   ---'
+      . "\n\n"
 
-      "END {\n\n".
+      . "END {\n\n"
 
-        'print {*STDERR} "'.
-        $Emit::Std::ARSEP.
-        'running post-build hook... \n";'.
+      . '$WLog->step('
+      . q["running post-build hook... \n"]
 
-        $C->{post_build}.';'.
-        '$M->depsmake();'.
+      . ');'
 
-      "\n\n};".
+      . "$C->{post_build};"
+      . '$M->depsmake();'
 
-      "\n\n".
+      . "\n\n};"
 
-      '# ---   *   ---   *   ---'.
-      "\n\n"
+      . "\n\n"
+
+      . '# ---   *   ---   *   ---'
+      . "\n\n"
 
       ;
 
     } else {
-      $FILE.="\n".'$M->depsmake();';
+      $FILE.="\n\$M->depsmake();";
 
     };
 
 # ---   *   ---   *   ---
+
+    $FILE.=q[$WLog->step("done\n\n");];
 
     print {$FH} $FILE;
     close $FH;

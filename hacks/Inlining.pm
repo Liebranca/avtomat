@@ -101,7 +101,7 @@ sub dumpsbl() {
 
         printf {*STDERR}
 
-          pretty_tag('AR').
+          strtag('AR').
 
           " updated ".
           "\e[32;1m%s\e[0m\n",

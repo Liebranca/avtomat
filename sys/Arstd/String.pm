@@ -37,7 +37,8 @@ package Arstd::String;
     linewrap
     lineident
 
-    pretty_tag
+    ansim
+    strtag
 
     sqwrap
     dqwrap
@@ -81,8 +82,18 @@ package Arstd::String;
 
   ];
 
-# ---   *   ---   *   ---
-# global state
+  Readonly our $COLOR=>{
+
+    op     => "\e[37;1m",
+
+    good   => "\e[34;22m",
+    err    => "\e[31;22m",
+
+    ctl    => "\e[35;1m",
+    update => "\e[32;1m",
+    ex     => "\e[36;1m",
+
+  };
 
 # ---   *   ---   *   ---
 # give back copy of string without ANSI escapes
@@ -158,17 +169,30 @@ sub lineident($sref,$x) {
 };
 
 # ---   *   ---   *   ---
-# wraps word in tags with cute colors
+# wrap string in ansi color escapes
 
-sub pretty_tag($s) {
+sub ansim($s,$id) {
 
-  return sprintf
+  my $color=(defined $COLOR->{$id})
+    ? $COLOR->{$id}
+    : "\e[30;1m"
+    ;
 
-    "\e[37;1m<\e[0m".
-    "\e[34;22m%s\e[0m".
-    "\e[37;1m>\e[0m",
+  return "$color$s\e[0m";
 
-    $s
+};
+
+# ---   *   ---   *   ---
+# wraps word in <braces> with colors
+
+sub strtag($s,$err=0) {
+
+  return
+
+    ansim('<','op')
+  . ansim($s,($err) ? 'err' : 'good')
+
+  . ansim('>','op')
 
   ;
 

@@ -35,6 +35,8 @@ package Vault;
   use Arstd::Path;
   use Arstd::IO;
 
+  use Arstd::WLog;
+
   use Tree;
   use Queue;
 
@@ -204,19 +206,29 @@ sub module_tree($name,$excluded=[]) {
 };
 
 # ---   *   ---   *   ---
+# get list of updated trees
 
-sub update_notify($name) {
+sub get_module_update() {
 
-  say {*STDERR}
+  my @out=();
 
-    "\e[37;1m::\e[0m",
+  for my $syspath(keys %$Systems) {
 
-    "updated \e[32;1m",
-    $name,
+    my $frame=$Systems->{$syspath};
+    for my $modname(keys %{$frame->{-roots}}) {
 
-    "\e[0m"
+      my $updated=$Needs_Update->{$modname};
 
-  ;
+      next if $modname=~ m[\.trash];
+      next unless @$updated;
+
+      push @out,[$modname,$frame];
+
+    };
+
+  };
+
+  return @out;
 
 };
 
@@ -225,32 +237,32 @@ sub update_notify($name) {
 
 END {
 
-  for my $syspath(keys %$Systems) {
+  my @updated=get_module_update();
 
-    my $frame=$Systems->{$syspath};
-    for my $modname(keys %{$frame->{-roots}}) {
+  $WLog->mprich(
+    'AR/Vault',
+    'updating module cache'
 
-      #$frame->{-roots}->{$modname}->prich();
+  ) if @updated;
 
-      my $updated=$Needs_Update->{$modname};
+  for my $ref(@updated) {
 
-      next if $modname=~ m[\.trash];
-      next unless @$updated;
+    my ($modname,$frame)=@$ref;
 
-      # save tree to disk
-      my $modf=Shb7::cache(
-        "$modname$PX_EXT"
+    # save tree to disk
+    my $modf=Shb7::cache(
+      "$modname$PX_EXT"
 
-      );
+    );
 
-      my $mod=$frame->{-roots}->{$modname};
-      store($mod,$modf);
+    my $mod=$frame->{-roots}->{$modname};
+    store($mod,$modf);
 
-      update_notify($modname);
-
-    };
+    $WLog->fupdate($modname);
 
   };
+
+  $WLog->line() if @updated;
 
 };
 
@@ -259,11 +271,21 @@ END {
 
 END {
 
+  my $done=int(%{$Cache_Regen});
+
+  $WLog->mprich(
+    'AR/Vault',
+    'updating object cache'
+
+  ) if $done;
+
   for my $file(keys %{$Cache_Regen}) {
     store($Cache_Regen->{$file},$file);
-    update_notify($file);
+    $WLog->fupdate($file);
 
   };
+
+  $WLog->line() if $done;
 
 };
 

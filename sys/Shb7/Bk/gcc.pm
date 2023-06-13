@@ -29,6 +29,8 @@ package Shb7::Bk::gcc;
   use Arstd::Array;
   use Arstd::IO;
 
+  use Arstd::WLog;
+
   use parent 'Shb7::Bk';
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -37,7 +39,7 @@ package Shb7::Bk::gcc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -165,7 +167,7 @@ sub target($tgt) {
 
 sub fbuild($self,$bfile,$bld) {
 
-  say {*STDERR} Shb7::shpath($bfile->{src});
+  $WLog->substep(Shb7::shpath($bfile->{src}));
 
   my $up=$NULLSTR;
   if($bfile->{src}=~ $Lang::C::EXT_PP) {

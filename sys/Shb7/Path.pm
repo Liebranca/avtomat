@@ -81,6 +81,7 @@ package Shb7::Path;
     rel
     ot
     moo
+    cpmac
     walk
 
     obj_from_src
@@ -444,6 +445,21 @@ sub ot($a,$b) {
 
 sub moo($a,$b) {
   return ! (-e $a) || ot($a,$b);
+
+};
+
+# ---   *   ---   *   ---
+# batch-copy missing/updated
+# for $O eq (dst => src)
+
+sub cpmac(%O) {
+
+  map {
+
+    `cp $O{$ARG} $ARG`
+    if moo($ARG,$O{$ARG});
+
+  } keys %O;
 
 };
 

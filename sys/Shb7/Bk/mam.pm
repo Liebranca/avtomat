@@ -25,8 +25,11 @@ package Shb7::Bk::mam;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+
   use Arstd::Path;
   use Arstd::IO;
+
+  use Arstd::WLog;
 
   use Shb7;
   use Shb7::Path;
@@ -40,7 +43,7 @@ package Shb7::Bk::mam;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;
+  our $VERSION = v0.00.2;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -190,19 +193,28 @@ sub mamcall($self,$bfile,$bld,$rap=1) {
 
 sub fbuild($self,$bfile,$bld,$rap=1) {
 
-  if($rap) {
-    say {*STDERR} Shb7::shpath($bfile->{src})
+  $WLog->substep(
+    Shb7::shpath($bfile->{src})
 
-  };
+  ) if $rap;
 
   my @call = $self->mamcall($bfile,$bld,$rap);
 
   my $ex   = join q[ ],@call;
   my $out  = `$ex 2> $AVTOPATH/.errlog`;
 
-  if(!length $out) {
+  if(! length $out) {
+
     my $log=orc("$AVTOPATH/.errlog");
-    say {*STDERR} $log;
+
+    $WLog->err(
+
+      'failed to apply filters',
+
+      from    => 'MAM',
+      details => $log,
+
+    );
 
   };
 
