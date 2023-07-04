@@ -28,13 +28,14 @@ package Emit;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;
+  our $VERSION=v0.00.2;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $ON_NO_AUTHOR=>'ANON-DEV';
+  Readonly our $ON_NO_VERSION => 'v0.00.1b';
+  Readonly our $ON_NO_AUTHOR  => 'ANON';
 
 # ---   *   ---   *   ---
 # transforms type to peso equivalent
@@ -96,25 +97,44 @@ sub datasec($class,$name,$type,@items) {
 sub codewrap($class,$fname,%O) {
 
   # defaults
-  $O{add_guards}//=0;
-  $O{include}//=[];
-  $O{define}//=[];
-  $O{body}//=$NULLSTR;
-  $O{args}//=[];
-  $O{author}//=$ON_NO_AUTHOR;
+  $O{add_guards} //= 0;
 
+  $O{include}    //= [];
+  $O{define}     //= [];
+  $O{args}       //= [];
+
+  $O{body}       //= $NULLSTR;
+
+  $O{author}     //= $ON_NO_AUTHOR;
+  $O{version}    //= $ON_NO_VERSION;
+
+  # run code generation
   my $s=$NULLSTR;
-
   $s.=$class->boiler_open($fname,%O);
 
-  if(length ref $O{body}) {
-    my $call=$O{body};
-    $s.=$call->($fname,@{$O{args}});
+  my @code=(is_arrayref($O{body}))
+    ? @{$O{body}}
+    : $O{body}
+    ;
 
-  } else {
-    $s.=$O{body};
+  my @args=(is_arrayref($O{args}))
+    ? @{$O{args}}
+    : [@{$O{args}}]
+    ;
 
-  };
+#  for my $bit(@code) {
+#
+#    my $c_args=shift @args;
+#
+#    if(length ref $bit) {
+#      $s.=$bit->(@$c_args);
+#
+#    } else {
+#      $s.=$bit;
+#
+#    };
+#
+#  };
 
   $s.=$class->boiler_close($fname,%O);
 

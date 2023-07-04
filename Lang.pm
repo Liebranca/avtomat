@@ -333,7 +333,7 @@ sub eiths($ar,%O) {
   $O{mod}    //= $NULLSTR;
 
   # force longest pattern first
-  array_sort($ar);
+  array_lsort($ar);
 
   # conditional processing
   @$ar=array_insens($ar) if $O{insens};

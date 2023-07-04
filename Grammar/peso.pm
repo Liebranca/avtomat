@@ -59,6 +59,12 @@ BEGIN {
     -cclan  => 'non',
     -cproc  => undef,
 
+    -nest   => {
+
+      parens=>0,
+
+    },
+
     %{Grammar->Frame_Vars()},
 
     -passes => ['_ctx','_opz','_run'],
@@ -260,7 +266,16 @@ BEGIN {
 
     ),
 
+# ---   *   ---   *   ---
+# switch cases
+
+    q[on-key]  => Lang::insens('on',mkre=>1),
+    q[or-key]  => Lang::insens('or',mkre=>1),
+    q[off-key] => Lang::insens('off',mkre=>1),
+
   };
+
+  $REGEX->{q[rew-ops]}=$REGEX->{ops};
 
 # ---   *   ---   *   ---
 # lets call these "syntax ops"
@@ -645,8 +660,6 @@ sub cpath($self) {
 
 sub hier_chld($self,$branch,$type) {
 
-  my @out=();
-
   # alter type for tree search
   if($type eq 'REG' || $type eq 'ROM') {
     $type=q[REG|ROM];
@@ -886,9 +899,9 @@ sub rdin_run($self,$branch) {
 # ---   *   ---   *   ---
 # soul of perl v2.0
 
-  rule('%<beg_curly=\{>');
-  rule('%<end_curly=\}>');
-  rule('$<vglob> beg_curly flg end_curly');
+  rule('%<beg-curly=\{>');
+  rule('%<end-curly=\}>');
+  rule('$<vglob> beg-curly flg end-curly');
 
 # ---   *   ---   *   ---
 # aliasing
@@ -1336,9 +1349,201 @@ sub rdre_ctx($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# test
+# soul of lisp
 
-  rule('~<ops>');
+  rule('%<beg-parens=\(> &erew');
+  rule('%<end-parens=\)> &erew');
+
+  rule('$?<fbeg-parens> &nest_parens beg-parens');
+  rule('$?<fend-parens> &nest_parens end-parens');
+
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub nest_parens($self,$branch) {
+
+  state $is_beg = qr{beg\-parens}x;
+
+  # no match
+  my $lv=$branch->{leaves}->[0];
+  if(! @{$lv->{leaves}}) {
+    Grammar::discard($self,$branch);
+    return;
+
+  };
+
+  # ^its a trap
+  my $f   = $self->{frame};
+  my $top = \$f->{-nest}->{parens};
+
+  # go up one recursion level
+  if($branch->{value}=~ $is_beg) {
+    $branch->{value}=$$top++;
+
+  # ^mark end
+  } else {
+    $branch->{value}=--$$top . '<';
+
+  };
+
+  $branch->clear();
+
+};
+
+# ---   *   ---   *   ---
+# ^context pass
+
+sub nest_parens_ctx($self,$branch) {
+
+  state $re = qr{
+    (?<num> \d+)
+    (?<end> \< )?
+
+  }x;
+
+  my $f    = $self->{frame};
+  my $nest = $f->{-nest}->{parens};
+
+  $branch->{value}=~ $re;
+
+  my $num=$+{num};
+  my $end=$+{end};
+
+  # get all nodes from beg+1 to end
+  if(! defined $end) {
+
+    my $pat=qr{$branch->{value} \<}x;
+
+    my @lv=$branch->match_up_to($pat);
+
+    # ^parent to beg
+    $branch->pushlv(@lv);
+    $branch->{value}="()";
+
+  } else {
+    $branch->{parent}->pluck($branch);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+  rule('~?<ops> &erew');
+
+  rule(q[
+
+    $<value-op-value>
+    &value_ops
+
+    fbeg-parens
+    value ops
+
+    fend-parens
+
+  ]);
+
+  rule(q[
+
+    $<ari>
+    &erew
+
+    value-op-value ops
+
+  ]);
+
+  rule(q[
+
+    |<expr>
+    &expr
+
+    ari
+    value
+
+  ]);
+
+  rule('?<opt-expr> &clip expr');
+
+# ---   *   ---   *   ---
+# value operation
+
+sub value_ops($self,$branch) {};
+sub value_ops_ctx($self,$branch) {
+
+  my $lv=$branch->{leaves}->[-1];
+  $branch->pluck($lv) if ! @{$lv->{leaves}};
+
+};
+
+# ---   *   ---   *   ---
+# recursive sequence
+
+sub expr($self,$branch) {};
+sub expr_ctx($self,$branch) {
+
+  my $lv=$branch->{leaves}->[-1];
+
+  if(lc $lv->{value} eq 'ari') {
+    $lv->pluck($lv->{leaves}->[-1]);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+  rule('~<on-key>');
+  rule('~<or-key>');
+  rule('~<off-key>');
+
+  rule('$<on> &switch_on on-key');
+  rule('$<or> &switch_or or-key');
+  rule('$<off> &switch_off off-key');
+
+  rule('|<switch-type> &clip on or off');
+  rule('$<switch> switch-type opt-expr');
+
+# ---   *   ---   *   ---
+# cases of a switch
+
+sub switch_on($self,$branch) {
+  $self->switch_case($branch);
+
+};
+
+sub switch_or($self,$branch) {
+  $self->switch_case($branch);
+
+};
+
+sub switch_off($self,$branch) {
+  $self->switch_case($branch);
+
+};
+
+# ---   *   ---   *   ---
+# ^common to all
+
+sub switch_case($self,$branch) {
+  $branch->clear();
+
+};
+
+# ---   *   ---   *   ---
+
+sub switch($self,$branch) {
+  $branch->{value}=$branch->leaf_value(0);
+
+};
+
+# ---   *   ---   *   ---
+
+sub switch_ctx($self,$branch) {
+  $branch->pluck($branch->{leaves}->[0]);
+
+};
+
+# ---   *   ---   *   ---
 
 #  Readonly our $MATCH=>{
 #
@@ -1995,10 +2200,13 @@ sub re_vex($self,$o) {
     |<needs-term-list>
     &clip
 
+    expr
+
     header hier sdef
     wed lis
 
     re io ptr-decl
+    switch
 
 
   ]);
@@ -2034,13 +2242,13 @@ sub re_vex($self,$o) {
 
   return if ! $src;
 
-  $prog    =~ m[([\S\s]+)\s*STOP]x;
-  $prog    = ${^CAPTURE[0]};
+  $prog =~ m[([\S\s]+)\s*STOP]x;
+  $prog = ${^CAPTURE[0]};
 
-  my $ice  = Grammar::peso->parse($prog,-r=>2);
+  my $ice=Grammar::peso->parse($prog,-r=>2);
 
   $ice->{p3}->prich();
-  $ice->{mach}->{scope}->prich();
+#  $ice->{mach}->{scope}->prich();
 
 #  $ice->run(
 #

@@ -24,10 +24,10 @@ package Emit::C;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
   use Vault;
-
   use Type;
+
+  use Arstd::Array;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
@@ -39,15 +39,13 @@ package Emit::C;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.4;#b
+  our $VERSION=v0.00.5;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  our $Typetab=Vault::cached(
-
-    'Typetab',\&xltab,
+  Readonly our $TYPES=>[
 
     q[sbyte]=>['int8_t'],
 
@@ -66,12 +64,8 @@ package Emit::C;
 
     ],
 
-# ---   *   ---   *   ---
-
     q[byte_str]=>['char*'],
     q[wide_str]=>['wchar_t*'],
-
-# ---   *   ---   *   ---
 
     q[brad]=>['uint32_t','uint'],
     q[sbrad]=>['int32_t','int'],
@@ -91,17 +85,11 @@ package Emit::C;
 
     q[pe_void]=>['void'],
 
-    # ogl stuff ;>
-    q[real4]  => ['glm::vec4'],
-    q[brad4]  => ['glm::uvec4'],
-    q[sbrad4] => ['glm::ivec4'],
-    q[real16] => ['glm::mat4'],
-
-  );
+  ];
 
 # ---   *   ---   *   ---
 
-  Readonly my $OPEN_GUARDS=>
+  Readonly our $OPEN_GUARDS=>
 
 q[#ifndef __$:fname;>_H__
 #define __$:fname;>_H__
@@ -114,13 +102,25 @@ extern "C" {
 
 # ---   *   ---   *   ---
 
-  Readonly my $CLOSE_GUARDS=>
+  Readonly our $CLOSE_GUARDS=>
 
 q[#ifdef __cplusplus
 };
 #endif
 #endif // __$:fname;>_H__
 ];
+
+# ---   *   ---   *   ---
+# GBL
+
+  our $Typetab=Vault::cached(
+
+    'Typetab',
+
+    \&xltab,
+    @$TYPES
+
+  );
 
 # ---   *   ---   *   ---
 
@@ -172,6 +172,8 @@ $:iter (
 
 # ---   *   ---   *   ---
 
+  no strict 'refs';
+
   Peso::Ipret::pesc(
 
     \$s,
@@ -183,7 +185,7 @@ $:iter (
     define  => $O{define},
 
     guards  => ($O{add_guards})
-      ? $OPEN_GUARDS
+      ? ${"$class\::OPEN_GUARDS"}
       : $NULLSTR
       ,
 
@@ -213,19 +215,49 @@ $:guards;>
 
 # ---   *   ---   *   ---
 
+  no strict 'refs';
+
   Peso::Ipret::pesc(
     \$s,
 
     fname=>$fname,
 
     guards=>($O{add_guards})
-      ? $CLOSE_GUARDS
+      ? ${"$class\::CLOSE_GUARDS"}
       : $NULLSTR
       ,
 
   );
 
   return $s;
+
+};
+
+# ---   *   ---   *   ---
+# turn list of args into string
+
+sub arglist_str($class,$args,%O) {
+
+  # defaults
+  $O{nl}//=0;
+
+  my $out=$NULLSTR;
+
+  if($O{nl}) {
+
+    $out=
+      "\n  "
+    . (join ",\n  ",@$args)
+
+    . "\n\n"
+    ;
+
+  } else {
+    $out=join q[,],@$args;
+
+  };
+
+  return $out;
 
 };
 
@@ -266,18 +298,16 @@ sub fnwrap_ar($class,$name,$code,%O) {
   my $out=[];
 
   # defaults
-  $O{rtype} //= 'int';
-  $O{args}  //= [];
+  $O{rtype}   //= 'int';
+  $O{args}    //= [];
+  $O{args_nl} //= 1;
 
   $O{class} //= $NULLSTR;
 
-  my $args=
+  my $args=$class->arglist_str(
+    $O{args},nl=>$O{args_nl}
 
-    "\n  "
-  . (join ",\n  ",@{$O{args}})
-
-  . "\n\n"
-  ;
+  );
 
   my $cname     = $O{class};
 
@@ -322,6 +352,46 @@ sub fnwrap_ar($class,$name,$code,%O) {
 };
 
 # ---   *   ---   *   ---
+# ^sugar for main
+
+sub mfwrap($class,$code) {
+
+  return $class->fnwrap(
+
+    'main',$code,
+
+    rtype => 'int',
+    args  => 'int argc,char** argv',
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# give list of attributes
+# sorted by size (wider first)
+
+sub attrlist($class,@vars) {
+
+  my %vars  = @vars;
+  my @names = array_keys(\@vars);
+
+  my @sorted=sort {
+
+    sizeof($class->typecon($vars{$a}))
+  < sizeof($class->typecon($vars{$b}))
+
+  } @names;
+
+  return join "\n",map {
+    "$vars{$ARG} $ARG;"
+
+  } @sorted;
+
+};
+
+# ---   *   ---   *   ---
+# outdated "data section" generator
 
 sub datasec($class,$name,$type,@items) {
 
@@ -396,6 +466,9 @@ sub switch_tab($class,$x,%O) {
 };
 
 # ---   *   ---   *   ---
+# makes peso-C translation table
+# saves you from typing pointer
+# types manually
 
 sub xltab(%table) {
 
@@ -487,6 +560,8 @@ sub xltab(%table) {
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED: use Emit::Cpp
+#
 # clears C stuff from hpp guards
 
 sub cpptrim($class,$sref) {

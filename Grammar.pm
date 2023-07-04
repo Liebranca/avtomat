@@ -459,7 +459,7 @@ sub fnbreak($class,$X) {
 
   # get sub matching name
   $X->{fn}=codefind($dom,$name)
-  if !is_coderef($name);
+  if ! is_coderef($name);
 
   # generate chain
   $class->cnbreak($X,$dom,$name);
@@ -764,6 +764,30 @@ sub rew($self,$branch) {
   if $status;
 
   discard($self,$anchor);
+
+};
+
+# ---   *   ---   *   ---
+
+sub erew($self,$branch) {
+
+  my $pending = $self->{pending}->[-1];
+  my $anchors = $self->{anchors}->[-1];
+  my $other   = $branch->{other};
+
+  my $par     = (is_qre($other->{value}))
+    ? $other->{parent}->{parent}
+    : $other->{parent}
+    ;
+
+  my $anchor  = $anchors->[-1];
+  my $status  = $anchor->status_ok();
+
+  unshift @$pending,
+    @{$par->{leaves}},
+    $branch->depth(),
+
+  if $status;
 
 };
 

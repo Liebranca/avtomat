@@ -47,7 +47,7 @@ package Arstd::Path;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -74,12 +74,18 @@ sub nxbasef($path) {
 # ^ get dir of filename...
 # or directory's parent
 
-sub dirof($path) {
+sub dirof($path,%O) {
+
+  $O{abs} //= 1;
 
   my @names=split(m[/],$path);
   $path=join(q[/],@names[0..($#names)-1]);
 
-  my $out=abs_path($path);
+  my $out=($O{abs})
+    ? abs_path($path)
+    : $path
+    ;
+
   $out//=$path;
 
   return $out;

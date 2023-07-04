@@ -35,6 +35,12 @@ package Emit::Std;
   use Shb7;
 
 # ---   *   ---   *   ---
+# info
+
+  our $VERSION = v0.00.5;#b
+  our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
 # ROM
 
   Readonly my $BOXCHAR=>'.';
@@ -110,13 +116,44 @@ sub reqin($path,@names) {
 };
 
 # ---   *   ---   *   ---
+# gets $AUTHOR from package
+
+sub get_author($pkg) {
+
+  no strict 'refs';
+  my $out=${"$pkg\::AUTHOR"};
+
+  return (! defined $out)
+    ? 'ANON'
+    : $out
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# ^$VERSION
+
+sub get_version($pkg) {
+
+  no strict 'refs';
+  my $out=${"$pkg\::VERSION"};
+
+  return (! defined $out)
+    ? 'v0.00.1b'
+    : vstr($out)
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# wraps over emitter output F
 
 sub outf($emitter,$f,%O) {
 
   my $path=Shb7::file($f);
   my $pkg=caller;
 
-  $O{author}//=eval(q{$}.$pkg.q{::AUTHOR});
+  $O{author}//=get_author($pkg);
 
   open my $FH,'+>',$path
   or croak strerr($path);

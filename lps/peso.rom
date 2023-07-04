@@ -1,8 +1,8 @@
-CLAN dide;
-lis {-r} 1;
 
+b+(b*2);
 
 STOP;
+
 %lps;
 
 # ---   *   ---   *   ---
@@ -100,15 +100,15 @@ PROC expr;
   in byte str s;
   lis {/:f} 1;
 
-  tree {$:BB}
-
-  \-->$24
-  .  \-->*sigged
-  .  .  \-->2
-
-  \-->'test'
-
-  ;
+#  tree {$:BB}
+#
+#  \-->$24
+#  .  \-->*sigged
+#  .  .  \-->2
+#
+#  \-->'test'
+#
+#  ;
 
   on s~=^<flg>$;
 

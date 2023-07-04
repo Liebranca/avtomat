@@ -1,7 +1,20 @@
 #!/usr/bin/perl
+# ---   *   ---   *   ---
+# OLINK
+# Wraps over compiling and
+# linking C files with gcc
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
 
 # ---   *   ---   *   ---
 # deps
+
+package main;
 
   use v5.36.0;
   use strict;
@@ -12,14 +25,24 @@
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Cli;
+  use Arstd::WLog;
 
+  use Cli;
   use Shb7;
 
   use Shb7::Bk::gcc;
   use Shb7::Build;
 
+  use Avt::CRun;
+
 # ---   *   ---   *   ---
+# info
+
+  our $VERSION = v1.00.2;
+  our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# define arguments for commandline
 
 my $m=Cli->nit(
 
@@ -37,30 +60,25 @@ my $m=Cli->nit(
 my @files=Cli::Fstruct::proto_search($m);
 
 # ---   *   ---   *   ---
+# sanitize input
 
 for my $v($m->{inc},$m->{lib}) {
   $v=$NULLSTR if $v eq $NULL
 
 };
 
-$m->{inc}=[
+$m->{out}=($m->{out} eq $NULL)
+  ? undef
+  : $m->{out}
+  ;
 
-  q[-I./],
-
-  map {$ARG=q[-I].$ARG}
-  (split $COMMA_RE,$m->{inc})
-
-];
-
-$m->{lib}=[
-  map {$ARG=q[-l].$ARG}
-  (split $COMMA_RE,$m->{lib})
-
-];
+#$m->{inc}=Avt::CRun->inc_list($m->{inc});
+#$m->{lib}=Avt::CRun->lib_list($m->{lib});
 
 # ---   *   ---   *   ---
+# cstruc builder ice
 
-my $bld=Shb7::Build->nit(
+my $crun=Avt::CRun->new(
 
   name  => $m->{out},
 
@@ -68,20 +86,16 @@ my $bld=Shb7::Build->nit(
   incl  => $m->{inc},
 
   debug => $m->{debug} ne $NULL,
+  files => \@files,
 
 );
 
-my $bk  = Shb7::Bk::gcc->nit();
-my $blt = 0;
+# ---   *   ---   *   ---
+# compile files and link them
 
-for my $f(@files) {
-  $f=$bk->push_src(abs_path($f));
-  $blt+=$f->update($bld);
-
-};
-
-$bld->push_files(@files);
-$bld->olink();
+$WLog->mprich('AR','running olink');
+$crun->compile();
+$crun->link();
 
 # ---   *   ---   *   ---
 1; # ret

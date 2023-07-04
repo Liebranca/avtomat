@@ -52,6 +52,7 @@ package Style;
     $BOR_RE
     $ATILDE_RE
     $NEWLINE_RE
+    $FSLASH_RE
 
     strerr
 
@@ -60,7 +61,7 @@ package Style;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.02.2;
+  our $VERSION=v0.02.3;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -106,6 +107,7 @@ package Style;
   Readonly our $BOR_RE     => qr{\|};
   Readonly our $ATILDE_RE  => qr{\~};
   Readonly our $NEWLINE_RE => qr{\n};
+  Readonly our $FSLASH_RE  => qr{/};
 
   Readonly our $NO_MATCH   => q{$^};
 

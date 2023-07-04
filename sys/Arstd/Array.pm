@@ -43,13 +43,14 @@ package Arstd::Array;
 
     array_key_idex
     array_sort
+    array_lsort
 
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;
+  our $VERSION=v0.00.3;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -208,9 +209,17 @@ sub key_idex($ar) {
 };
 
 # ---   *   ---   *   ---
-# sorts by length
+# sorts by value
 
 sub nsort($ar) {
+  @$ar=sort {$b<=>$a} @$ar;
+
+};
+
+# ---   *   ---   *   ---
+# ^sorts by length
+
+sub nlsort($ar) {
 
   @$ar=sort {
 
@@ -236,6 +245,7 @@ sub nsort($ar) {
 
   *array_key_idex = *key_idex;
   *array_sort     = *nsort;
+  *array_lsort    = *nlsort;
 
 # ---   *   ---   *   ---
 1; # ret

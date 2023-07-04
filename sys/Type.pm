@@ -35,6 +35,12 @@ package Type;
   use Vault 'ARPATH';
 
 # ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT=qw(sizeof);
+
+# ---   *   ---   *   ---
 # info
 
   our $VERSION = v0.03.1;
@@ -108,7 +114,7 @@ sub pevec($class,$frame,$name) {
   my $type  = $+{type};
   my $size  = $+{size};
 
-  ! ($size % 4) or goto ERR;
+#  ! ($size % 4) or goto ERR;
 
   my @names=();
 
@@ -143,6 +149,18 @@ ERR:
 
   Readonly my $STRTYPE_RE=>qr{_str}x;
   Readonly my $PTRTYPE_RE=>qr{_ptr}x;
+
+# ---   *   ---   *   ---
+# get bytesize of type
+
+sub sizeof($name) {
+
+  croak "$name not in peso typetab\n"
+  if ! defined $Table->{$name};
+
+  return $Table->{$name}->{size};
+
+};
 
 # ---   *   ---   *   ---
 # constructor
@@ -604,11 +622,17 @@ sub gen_type_table(%table) {
 # ---   *   ---   *   ---
 # make vector types
 
-  $F->pevec('brad4');
-  $F->pevec('sbrad4');
+  my @vectypes=qw(brad sbrad real);
 
-  $F->pevec('real4');
-  $F->pevec('real16');
+  @vectypes=map {
+    $ARG.'2',
+    $ARG.'3',
+    $ARG.'4',
+
+  } @vectypes;
+
+  push @vectypes,'real16','real9';
+  map {$F->pevec($ARG)} @vectypes;
 
   return $F;
 

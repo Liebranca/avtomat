@@ -24,6 +24,8 @@ package Arstd::String;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Chk;
+
   use Arstd::Array;
 
 # ---   *   ---   *   ---
@@ -50,12 +52,14 @@ package Arstd::String;
     strip
     vstr
 
+    deref_clist
+
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.4;#b
+  our $VERSION=v0.00.5;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -258,6 +262,19 @@ sub vstr($in) {
   $v=join q[.],@v;
 
   return $v;
+
+};
+
+# ---   *   ---   *   ---
+# gets array from arrayref
+# or comma-separated string
+
+sub deref_clist($list) {
+
+  return (is_arrayref($list))
+    ? @$list
+    : (split $COMMA_RE,$list)
+    ;
 
 };
 

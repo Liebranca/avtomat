@@ -1243,6 +1243,43 @@ sub match_until($self,$ch,$pat,%O) {
 };
 
 # ---   *   ---   *   ---
+# ^all nodes from one
+# child up to another
+
+sub match_until_other($self,$a,$b,%O) {
+
+  # defaults
+  $O{inclusive} //= 1;
+
+  # get range of elements
+  my @out     = ();
+  my $idex    = $a->{idex};
+
+  my @pending = @{$self->{leaves}};
+     @pending = @pending[$idex+1..$#pending];
+
+  # ^walk
+  while(@pending) {
+
+    my $nd=shift @pending;
+
+    # exit 1 element early if exclusive
+    if($nd eq $b && ! $O{inclusive}) {
+      last;
+
+    };
+
+    # else push all elems
+    push @out,$nd;
+    last if $nd eq $b;
+
+  };
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
 # return all children from node onwards
 
 sub all_from($self,$ch,%O) {

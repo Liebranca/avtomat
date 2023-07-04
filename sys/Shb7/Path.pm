@@ -289,10 +289,14 @@ sub clear_libs(@args) {
 
 sub push_includes(@args) {
 
+  state $PROPER=qr{ /$ }x;
+
   for my $path(@args) {
 
     $path=~ s[$INCL_RE][];
     $path=abs_path(glob($path));
+
+    $path .= '/' if ! ($path=~ $PROPER);
 
     push @$Include,$path;
 

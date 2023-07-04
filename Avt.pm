@@ -712,20 +712,29 @@ EOF
 
     if(length $C->{pre_build}) {
 
+      $FILE.=q[
+INIT {
+
+  $WLog->mupdate("] . $M->{fswat} . q[");
+  $WLog->step("running pre-build hook\n");
+
+] . $C->{pre_build} . q[
+
+};
+
+];
+
+# ---   *   ---   *   ---
+
+    } else {
+
       $FILE.=
 
-        "\n\n"
-      . "INIT {\n\n"
+        q[$WLog->mupdate("]
+      . $M->{fswat}
 
-      . '$WLog->step('
-      . q["running pre-build hook... \n"]
+      . q[");]
 
-      . ');'
-
-      . "$C->{pre_build};"
-      . "\n\n"
-
-      . "};\n"
       ;
 
     };
@@ -760,8 +769,6 @@ $M=Avt::Makescript->nit_build($M,$cli);
 
 # ---   *   ---   *   ---
 
-$WLog->mupdate($M->{fswat});
-
 $M->set_build_paths();
 $M->update_generated();
 
@@ -787,7 +794,7 @@ EOF
       . "END {\n\n"
 
       . '$WLog->step('
-      . q["running post-build hook... \n"]
+      . q["running post-build hook\n"]
 
       . ');'
 

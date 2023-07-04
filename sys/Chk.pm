@@ -22,7 +22,6 @@ package Chk;
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
   use Style;
-  use Arstd;
 
 #  use lib $ENV{'ARPATH'}.'/lib/hacks/';
 #  use Inlining;

@@ -1,0 +1,170 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# FSTACK
+# Remembers your calls
+#
+# TEST FILE
+# jmp EOF for bits
+#
+# CONTRIBUTORS
+# lyeb,
+
+# ---   *   ---   *   ---
+# deps
+
+package main;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use Readonly;
+  use English qw(-no_match_vars);
+
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+
+  use Style;
+  use Fmat;
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = v0.00.2;#b
+  our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+  Readonly our $F_X0=>{
+
+    name  => 'x0',
+    args  => ['float','float'],
+
+    rtype => ['float'],
+
+  };
+
+  Readonly our $F_X1=>{
+
+    name  => 'x1',
+    args  => ['float','uint8_t'],
+
+    rtype => [],
+
+  };
+
+# ---   *   ---   *   ---
+# cstruc
+
+sub new($class) {
+  my $self=bless {},$class;
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# push to args reg
+
+sub pushreg($self,$key,$f) {
+
+  $self->{"${key}_reg"} //= {};
+
+  my @args = @{$f->{$key}};
+  my $reg  = $self->{"${key}_reg"};
+
+  my $cnt  = {};
+
+  map {
+    $cnt->{$ARG}//=0;
+    $cnt->{$ARG}++;
+
+  } @args;
+
+  map {
+
+    $reg->{$ARG}//=0;
+
+    $reg->{$ARG}=$cnt->{$ARG}
+    if $reg->{$ARG} < $cnt->{$ARG};
+
+  } keys %$cnt;
+
+};
+
+# ---   *   ---   *   ---
+# make struc for calling F
+
+sub mkcst($self,$f) {
+
+  $self->{freg} //= {};
+
+  my $freg = $self->{freg};
+  my $dst  = $freg->{$f->{name}} = {};
+
+  my $cnt  = {};
+
+  my $i    = 0;
+  my $j    = 0;
+
+  my @dst_keys=qw(push ret);
+  my @src_keys=qw(args rtype);
+
+  map {
+
+    map {
+
+      $cnt->{$ARG} //= 0;
+
+      # match F push/ret to slot in struc
+      $dst->{$dst_keys[$j]}->[$i++]={
+        type=>$ARG,
+        idex=>$cnt->{$ARG},
+
+      };
+
+      # count values of same type
+      $cnt->{$ARG}++;
+
+    } @{$f->{$ARG}};
+
+    # ^reset
+    $j++;
+    $i=0;
+
+    $cnt={};
+
+  } @src_keys;
+
+};
+
+# ---   *   ---   *   ---
+# add F to wraps
+
+sub fpush($self,$f) {
+
+  $self->mkcst($f);
+
+  $self->pushreg('args',$f);
+  $self->pushreg('rtype',$f);
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub bat_fpush($self,@fs) {
+  map {$self->fpush($ARG)} @fs;
+
+};
+
+# ---   *   ---   *   ---
+# the bit
+
+my $ice=main->new();
+
+$ice->bat_fpush($F_X0,$F_X1);
+
+fatdump($ice);
+
+# ---   *   ---   *   ---
+1; # ret
