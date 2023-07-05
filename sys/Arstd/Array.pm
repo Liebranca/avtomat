@@ -45,6 +45,8 @@ package Arstd::Array;
     array_sort
     array_lsort
 
+    array_iof
+
   );
 
 # ---   *   ---   *   ---
@@ -230,6 +232,20 @@ sub nlsort($ar) {
 };
 
 # ---   *   ---   *   ---
+# give idex of element
+
+sub iof($ar,$elem) {
+
+  my ($idex)=grep {
+    $ar->[$ARG] eq $elem
+
+  } 0..int(@$ar)-1;
+
+  return $idex;
+
+};
+
+# ---   *   ---   *   ---
 # exporter stuff
 
   *array_nth      = *nth;
@@ -246,6 +262,8 @@ sub nlsort($ar) {
   *array_key_idex = *key_idex;
   *array_sort     = *nsort;
   *array_lsort    = *nlsort;
+
+  *array_iof      = *iof;
 
 # ---   *   ---   *   ---
 1; # ret

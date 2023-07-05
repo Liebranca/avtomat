@@ -332,12 +332,15 @@ sub eiths($ar,%O) {
   $O{insens} //= 0;
   $O{mod}    //= $NULLSTR;
 
+  # make copy
+  my @ar=@$ar;
+
   # force longest pattern first
-  array_lsort($ar);
+  array_lsort(\@ar);
 
   # conditional processing
-  @$ar=array_insens($ar) if $O{insens};
-  @$ar=array_rescap($ar) if $O{escape};
+  @ar=array_insens(\@ar) if $O{insens};
+  @ar=array_rescap(\@ar) if $O{escape};
 
   # ()
   my $beg   = '(';
@@ -351,7 +354,7 @@ sub eiths($ar,%O) {
   };
 
   # give alternation re
-  my $out=join q[|],@$ar;
+  my $out=join q[|],@ar;
   return qr{$beg$out$O{mod}$end}x;
 
 };

@@ -91,8 +91,131 @@ BEGIN {
   };
 
 # ---   *   ---   *   ---
+# op => F
+# precedence given by array idex
 
-  Readonly our $REGEX=>{
+  Readonly our $OPERATORS=>[
+
+    q[->*] => 'm_call',
+    q[->]  => 'm_attr',
+
+    q[*^]  => 'pow',
+    q[*]   => 'mul',
+    q[%]   => 'mod',
+    q[/]   => 'div',
+
+    q[+]   => 'add',
+    q[-]   => 'sub',
+
+    q[<<]  => 'lshift',
+    q[>>]  => 'rshift',
+
+    q[&]   => 'b_and',
+    q[|]   => 'b_or',
+    q[^]   => 'b_xor',
+    q[~]   => 'b_not',
+
+    q[!]   => 'not',
+
+    q[<]   => 'lt',
+    q[<=]  => 'e_lt',
+    q[>]   => 'gt',
+    q[>=]  => 'e_gt',
+
+    q[&&]  => 'and',
+    q[||]  => 'or',
+    q[^^]  => 'xor',
+
+    q[~=]  => 'match',
+    q[==]  => 'eq',
+    q[!=]  => 'ne',
+
+  ];
+
+  Readonly our $OPHASH=>{@$OPERATORS};
+  Readonly our $OP_KEYS=>[array_keys($OPERATORS)];
+
+# ---   *   ---   *   ---
+# ^makes note of unary ops
+
+  Readonly our $OP_UNARY=>{
+    q[!]=>1,
+    q[~]=>1,
+
+  };
+
+# ---   *   ---   *   ---
+# ^makes note of ops taking slurp args
+
+  Readonly our $OP_SLURP=>{
+    q[->*] => 1,
+    q[->]  => 1,
+
+  };
+
+# ---   *   ---   *   ---
+# call member F/getset member var
+
+sub op_m_call($lhs,$rhs,@args) {};
+sub op_m_attr($lhs,$rhs,@args) {};
+
+# ---   *   ---   *   ---
+# math
+
+sub op_pow($lhs,$rhs) {return $lhs ** $rhs};
+
+sub op_mul($lhs,$rhs) {return $lhs * $rhs};
+sub op_mod($lhs,$rhs) {return $lhs % $rhs};
+sub op_div($lhs,$rhs) {return $lhs / $rhs};
+sub op_add($lhs,$rhs) {return $lhs + $rhs};
+sub op_sub($lhs,$rhs) {return $lhs - $rhs};
+
+# ---   *   ---   *   ---
+# bits
+
+sub op_lshift($lhs,$rhs) {return $lhs << $rhs};
+sub op_rshift($lhs,$rhs) {return $lhs >> $rhs};
+
+sub op_b_and($lhs,$rhs) {return $lhs & $rhs};
+sub op_b_or($lhs,$rhs) {return $lhs | $rhs};
+sub op_b_xor($lhs,$rhs) {return $lhs ^ $rhs};
+
+sub op_b_not($rhs) {return ~ $rhs};
+
+# ---   *   ---   *   ---
+# logic
+
+sub op_not($rhs) {return ! $rhs};
+
+sub op_lt($lhs,$rhs) {return $lhs < $rhs};
+sub op_e_lt($lhs,$rhs) {return $lhs <= $rhs};
+sub op_gt($lhs,$rhs) {return $lhs > $rhs};
+sub op_e_gt($lhs,$rhs) {return $lhs >= $rhs};
+
+sub op_and($lhs,$rhs) {return $lhs && $rhs};
+sub op_or($lhs,$rhs) {return $lhs || $rhs};
+
+sub op_xor($lhs,$rhs) {
+
+  my $a=($lhs) ? 1 : 0;
+  my $b=($rhs) ? 1 : 0;
+
+  return $lhs ^ $rhs;
+
+};
+
+# ---   *   ---   *   ---
+# equality
+
+sub op_match($lhs,$rhs) {};
+
+sub op_eq($lhs,$rhs) {return $lhs eq $rhs};
+sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
+
+# ---   *   ---   *   ---
+# GBL
+
+  our $REGEX={
 
     hexn  => qr{\$  [0-9A-Fa-f\.:]+}x,
     octn  => qr{\\ [0-7\.:]+}x,
@@ -144,17 +267,7 @@ BEGIN {
 
     ops=>Lang::eiths(
 
-      [qw(
-
-        -> *^ * % / ++ + -- -
-        ?? ? !! ~ >> > >= | & ^
-
-        << < <=  || && == !=
-
-        ~=
-
-      )],
-
+      $OP_KEYS,
       escape=>1
 
     ),
@@ -274,8 +387,6 @@ BEGIN {
     q[off-key] => Lang::insens('off',mkre=>1),
 
   };
-
-  $REGEX->{q[rew-ops]}=$REGEX->{ops};
 
 # ---   *   ---   *   ---
 # lets call these "syntax ops"
@@ -474,6 +585,20 @@ sub flg($self,$branch) {
     num str flg bare
 
   ]);
+
+# ---   *   ---   *   ---
+# get values in branch
+
+sub find_values($self,$branch) {
+
+  state $re=qr{^value$};
+
+  return $branch->branches_in(
+    $re,keep_root=>0
+
+  );
+
+};
 
 # ---   *   ---   *   ---
 # ^handler
@@ -1428,6 +1553,7 @@ sub nest_parens_ctx($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# operations
 
   rule('~?<ops> &erew');
 
@@ -1452,26 +1578,187 @@ sub nest_parens_ctx($self,$branch) {
 
   ]);
 
-  rule(q[
-
-    |<expr>
-    &expr
-
-    ari
-    value
-
-  ]);
-
+  rule('$<expr> &expr ari');
   rule('?<opt-expr> &clip expr');
 
 # ---   *   ---   *   ---
-# value operation
+# get operators in branch
 
-sub value_ops($self,$branch) {};
+sub find_ops($self,$branch) {
+
+  state $re=qr{^ops$};
+
+  return $branch->branches_in(
+    $re,keep_root=>0
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# get descriptor for operator
+# from the parsed symbol
+
+sub opnit($self,$branch) {
+
+  # remove childless branches
+  if(! @{$branch->{leaves}}) {
+    Grammar::discard($self,$branch);
+    return;
+
+  };
+
+  # get function matching operator
+  my $key  = $branch->leaf_value(0);
+  my $name = $OPHASH->{$key};
+
+  my $fn   = codefind(
+    'Grammar::peso',
+    "op_$name"
+
+  );
+
+  my $st={
+
+    fn    => $fn,
+
+    name  => $name,
+    key   => $key,
+
+    unary => exists $OP_UNARY->{$key},
+    slurp => exists $OP_SLURP->{$key},
+
+    idex  => array_iof($OP_KEYS,$key),
+
+  };
+
+  $branch->{leaves}->[0]->{value}=$st;
+
+};
+
+# ---   *   ---   *   ---
+# ^post-parse
+#
+# find execution data for
+# operators in tree
+
+sub value_ops($self,$branch) {
+
+  my @ops=$self->find_ops($branch);
+  map {$self->opnit($ARG)} @ops;
+
+};
+
+# ---   *   ---   *   ---
+# ^sort operators by precedence
+
+sub opsort($self,$branch) {
+
+  my $st     = $branch->leaf_value(0);
+  my $idex   = $branch->{idex};
+  my $lv     = $branch->{parent}->{leaves};
+
+  # get operands
+  my @move=($st->{unary})
+    ? ($lv->[$idex+1])
+    : ($lv->[$idex-1],$lv->[$idex+1])
+    ;
+
+  my ($st_lv)=$branch->pluck(
+    $branch->{leaves}->[0]
+
+  );
+
+  my $st_br=$branch->init('D');
+  $st_br->pushlv($st_lv);
+
+  my $v_br=$branch->init('V');
+  $v_br->pushlv(@move);
+
+  $branch->{parent}->idextrav();
+
+};
+
+# ---   *   ---   *   ---
+# ^bat-crux
+
 sub value_ops_ctx($self,$branch) {
 
-  my $lv=$branch->{leaves}->[-1];
-  $branch->pluck($lv) if ! @{$lv->{leaves}};
+  my @ops=sort {
+
+     $a->leaf_value(0)->{idex}
+  >= $b->leaf_value(0)->{idex}
+
+  } $self->find_ops($branch);
+
+  map {$self->opsort($ARG)} @ops;
+
+};
+
+# ---   *   ---   *   ---
+# ^optimize away constants
+
+sub opsolve($self,$branch) {
+
+  my ($D,$V) = @{$branch->{leaves}};
+
+  my $st     = $D->leaf_value(0);
+  my $len    = ($st->{unary}) ? 1 : 2;
+
+  my @values = @{$V->{leaves}};
+
+  my $valid=int(map {
+    $ARG->{value} eq 'value';
+
+  } @values) eq $len;
+
+  if($valid) {
+
+    my $type=$values[0]->leaf_value(0)->{type};
+
+    my @deref=map {
+      $ARG->leaf_value(0)->{raw}
+
+    } @values;
+
+    my $out=$st->{fn}->(@deref);
+
+    $branch->clear();
+    $branch->{value}='value';
+
+    my $o={
+      raw  => $out,
+      type => $type
+
+    };
+
+    $branch->init($o);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^bat-crux
+
+sub value_ops_opz($self,$branch) {
+
+  my @ops=$self->find_ops($branch);
+  map {$self->opsolve($ARG)} reverse @ops;
+
+  map {
+
+    $ARG->{value}=$ARG->leaf_value(0)->{raw};
+    $ARG->clear();
+
+  } $self->find_values($branch);
+
+  my @lv=@{$branch->{leaves}};
+
+  if(@lv == 1) {
+    $branch->flatten_branch();
+
+  };
 
 };
 
@@ -2199,8 +2486,6 @@ sub re_vex($self,$o) {
 
     |<needs-term-list>
     &clip
-
-    expr
 
     header hier sdef
     wed lis
