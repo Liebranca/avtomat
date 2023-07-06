@@ -27,6 +27,7 @@ package Tree::Grammar;
   use Chk;
 
   use Arstd::IO;
+  use Tree::Exec;
 
   use parent 'Tree';
 
@@ -175,25 +176,52 @@ sub shift_chain($self,@chain) {
 sub shift_branch($self,%O) {
 
   # defaults
-  $O{keepx}//=0;
+  $O{keepx}  //= 0;
+  $O{frame}  //= Tree::Exec->get_frame();
 
-  my @out     = ();
+  my $dst     = undef;
   my @pending = ($self);
 
   while(@pending) {
 
     my $nd=shift @pending;
 
-    push @out,[$nd,$nd->{fn}]
-    if $nd->{fn} ne $NOOP;
+    if(! $nd) {
+
+      $dst=$dst->{parent}
+
+      if defined $dst
+      && defined $dst->{parent}
+
+      ;
+
+      next;
+
+    };
+
+    if($nd->{fn} ne $NOOP) {
+
+      $dst=$O{frame}->nit(
+        $dst,$nd->{fn},$nd
+
+      );
+
+      $nd->{xbranch}=$dst;
+
+    };
 
     $nd->shift_chain() if ! $O{keepx};
 
-    unshift @pending,@{$nd->{leaves}};
+    unshift @pending,@{$nd->{leaves}},0;
 
   };
 
-  return @out;
+  my ($out)=(defined $dst)
+    ? $dst->root()
+    : undef
+    ;
+
+  return $out;
 
 };
 

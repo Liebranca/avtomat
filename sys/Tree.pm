@@ -679,12 +679,12 @@ sub deep_value_repl($self,$re,$new) {
 # ---   *   ---   *   ---
 # replaces node with it's leaves
 
-sub flatten_branch($self,%args) {
+sub flatten_branch($self,%O) {
 
   return if ! $self->{parent};
 
   # opt defaults
-  $args{keep_root}//=0;
+  $O{keep_root}//=0;
 
   my @move = $self->pluck(@{$self->{leaves}});
   my $par  = $self->{parent};
@@ -696,7 +696,7 @@ sub flatten_branch($self,%args) {
   my $idex = $self->{idex};
   my @ar   = @{$par->{leaves}};
 
-  if($args{keep_root}) {unshift @move,$self};
+  if($O{keep_root}) {unshift @move,$self};
   if($idex) {unshift @move,@ar[0..$idex-1]};
   if($idex<$#ar) {push @move,@ar[$idex+1..$#ar]};
 
@@ -707,6 +707,18 @@ sub flatten_branch($self,%args) {
   $par->cllv();
 
   return $par->{leaves}->[$idex];
+
+};
+
+# ---   *   ---   *   ---
+# ^bat, for all immediate children
+
+sub flatten_branches($self,%O) {
+
+  map {
+    $ARG->flatten_branch()
+
+  } @{$self->{leaves}};
 
 };
 
@@ -1320,6 +1332,43 @@ sub match_up_to($self,$pattern) {
   ) if ! @out;
 
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# get next leaf in a cannonical walk
+
+sub next_leaf($self) {
+
+  my $ahead=(@{$self->{leaves}})
+    ? $self->{leaves}->[0]
+    : $self->next_branch()
+    ;
+
+  return $ahead;
+
+};
+
+# ---   *   ---   *   ---
+# ^get neighboring branch
+
+sub next_branch($self) {
+
+  my $idex  = $self->{idex}+1;
+  my $pool  = $self->{parent};
+
+  my $ahead = $pool->{leaves}->[$idex];
+
+  if(! defined $ahead) {
+
+    $ahead=($self->{parent})
+      ? $self->{parent}->next_branch()
+      : undef
+      ;
+
+  };
+
+  return $ahead;
 
 };
 

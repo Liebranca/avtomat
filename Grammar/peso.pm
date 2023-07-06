@@ -67,7 +67,7 @@ BEGIN {
 
     %{Grammar->Frame_Vars()},
 
-    -passes => ['_ctx','_opz','_run'],
+    -passes => ['_ctx','_opz','_cl','_run'],
 
   }};
 
@@ -1010,6 +1010,11 @@ sub rdio($self,$branch) {
 
 sub rdin_opz($self,$branch) {
 
+  my $st=$branch->{value};
+  my $ar=$st->{value};
+
+  $branch->{value}=$ar->{value};
+
 };
 
 sub rdin_run($self,$branch) {
@@ -1106,7 +1111,7 @@ sub sow($self,$branch) {
 
   $branch->{value}={
 
-    fd => $lv->[0]->leaf_value(0),
+    fd => $lv->[1]->leaf_value(0),
     me => \@ar,
 
   };
@@ -1119,7 +1124,7 @@ sub reap($self,$branch) {
 
   my $lv=$branch->{leaves};
 
-  $branch->{value}=$lv->[0]->leaf_value(0);
+  $branch->{value}=$lv->[1]->leaf_value(0);
   $branch->clear();
 
 };
@@ -1696,9 +1701,9 @@ sub value_ops_ctx($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# ^optimize away constants
+# ^execute operation
 
-sub opsolve($self,$branch) {
+sub opsolve($self,$branch,$is_run) {
 
   my ($D,$V) = @{$branch->{leaves}};
 
@@ -1707,21 +1712,40 @@ sub opsolve($self,$branch) {
 
   my @values = @{$V->{leaves}};
 
-  my $valid=int(map {
-    $ARG->{value} eq 'value';
+  my $valid=int(grep {
+   $ARG->{value} eq 'value';
 
   } @values) eq $len;
 
+  @values=map {$ARG->leaf_value(0)} @values;
+
+  # early exit if not executing
+  # and operation has run-time values
+  if($valid &&! $is_run) {
+
+    $valid=(grep {
+      ! $self->needs_deref($ARG)
+
+    } @values) eq @values;
+
+  };
+
   if($valid) {
 
-    my $type=$values[0]->leaf_value(0)->{type};
+    my $type=$values[0]->{type};
 
-    my @deref=map {
-      $ARG->leaf_value(0)->{raw}
+    # apply deref to @values
+    # filter out undef from result of map
+    my @deref=grep {defined $ARG} map {
+      $self->deref($ARG)
 
     } @values;
 
-    my $out=$st->{fn}->(@deref);
+    # ^early exit if values cant
+    # be all dereferenced
+    return 0 if @deref ne $len;
+
+    my $out=$st->{fn}->(map {$ARG->{raw}} @deref);
 
     $branch->clear();
     $branch->{value}='value';
@@ -1736,29 +1760,44 @@ sub opsolve($self,$branch) {
 
   };
 
+  return $valid;
+
 };
 
 # ---   *   ---   *   ---
-# ^bat-crux
+# ^bat
 
-sub value_ops_opz($self,$branch) {
+sub array_opsolve($self,$branch,$is_run) {
 
   my @ops=$self->find_ops($branch);
-  map {$self->opsolve($ARG)} reverse @ops;
 
-  map {
+  my $all_valid=int(grep {
+    $ARG eq 1
 
-    $ARG->{value}=$ARG->leaf_value(0)->{raw};
-    $ARG->clear();
+  } map {
+    $self->opsolve($ARG,$is_run)
 
-  } $self->find_values($branch);
+  } reverse @ops) == @ops;
 
-  my @lv=@{$branch->{leaves}};
+  return $all_valid;
 
-  if(@lv == 1) {
-    $branch->flatten_branch();
+};
 
-  };
+# ---   *   ---   *   ---
+# ^non-runtime crux
+
+sub value_ops_opz($self,$branch) {
+  my $flatten=$self->array_opsolve($branch,0);
+  $branch->flatten_branch() if $flatten;
+
+};
+
+# ---   *   ---   *   ---
+# ^runtime
+
+sub value_ops_run($self,$branch) {
+  my $flatten=$self->array_opsolve($branch,1);
+  $branch->flatten_branch() if $flatten;
 
 };
 
@@ -1769,11 +1808,15 @@ sub expr($self,$branch) {};
 sub expr_ctx($self,$branch) {
 
   my $lv=$branch->{leaves}->[-1];
+  $lv->pluck($lv->{leaves}->[-1]);
 
-  if(lc $lv->{value} eq 'ari') {
-    $lv->pluck($lv->{leaves}->[-1]);
+  $branch->flatten_branches();
 
-  };
+};
+
+sub expr_cl($self,$branch) {
+  $branch->flatten_branch()
+  if @{$branch->{leaves}} eq 1;
 
 };
 
@@ -1798,6 +1841,29 @@ sub switch_on($self,$branch) {
 
 };
 
+sub switch_on_run($self,$branch) {
+
+  map {
+    $self->value_ops_run($ARG)
+
+  } @{$branch->{leaves}};
+
+  my $lv  = $branch->{leaves}->[0];
+  my $o   = $lv->leaf_value(0);
+
+  my $out = $o->{raw};
+
+  if(! $out) {
+
+  };
+
+# jump itself works, breaks are
+# due to runtime tree mods ;>
+#
+#  $self->{c3}->jmp($branch);
+
+};
+
 sub switch_or($self,$branch) {
   $self->switch_case($branch);
 
@@ -1805,6 +1871,7 @@ sub switch_or($self,$branch) {
 
 sub switch_off($self,$branch) {
   $self->switch_case($branch);
+  $branch->clear();
 
 };
 
@@ -1812,21 +1879,25 @@ sub switch_off($self,$branch) {
 # ^common to all
 
 sub switch_case($self,$branch) {
-  $branch->clear();
+  my $lv=$branch->{leaves}->[0];
+  $branch->pluck($lv);
 
 };
 
 # ---   *   ---   *   ---
 
 sub switch($self,$branch) {
-  $branch->{value}=$branch->leaf_value(0);
 
-};
+  my $lv  = $branch->{leaves}->[0];
+  my $key = $lv->{value};
 
-# ---   *   ---   *   ---
+  $branch->fork_chain(
+    dom  => $self->{frame}->{-class},
+    name => "switch_${key}",
 
-sub switch_ctx($self,$branch) {
-  $branch->pluck($branch->{leaves}->[0]);
+  );
+
+  $branch->{value}=$key;
 
 };
 
@@ -2286,13 +2357,15 @@ sub vex($self,$fet,$vref,@path) {
   @path=$mach->{scope}->path()
   if ! @path;
 
-  $mach->{scope}->cderef(
+  my $out=$mach->{scope}->cderef(
     $fet,$vref,@path,q[$LIS]
 
   ) or $mach->{scope}->cderef(
     $fet,$vref,@path
 
   );
+
+  return $out;
 
 };
 
@@ -2301,10 +2374,24 @@ sub vex($self,$fet,$vref,@path) {
 
 sub array_vex($self,$fet,$ar,@path) {
 
-  for my $v(@$ar) {
+  my @ar=@$ar;
+
+  for my $v(@ar) {
     $self->vex($fet,\$v,@path);
 
   };
+
+  my $valid=int(
+    grep {defined $ARG} @ar
+
+  ) eq @ar;
+
+  my @out=($valid)
+    ? @ar
+    : ()
+    ;
+
+  return @out;
 
 };
 
@@ -2313,8 +2400,12 @@ sub array_vex($self,$fet,$ar,@path) {
 
 sub bare_vex($self,$raw) {
 
-  $self->vex(0,\$raw);
-  return $raw->{value};
+  my $out=($self->vex(0,\$raw))
+    ? $raw->{value}
+    : undef
+    ;
+
+  return $out;
 
 };
 
@@ -2378,14 +2469,27 @@ sub deref($self,$v) {
 
   my $out=$v;
 
-  if(is_hashref($v)) {
-
+  if($self->needs_deref($v)) {
     my $fn = $v->{type} . '_vex';
     $out   = $self->$fn($v->{raw});
 
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^check value can be derefenced
+
+sub needs_deref($self,$v) {
+
+  state $re=qr{(?:bare|str|flg|re)};
+
+  return
+     is_hashref($v)
+  && $v->{type}=~ $re
+  ;
 
 };
 
@@ -2478,6 +2582,9 @@ sub re_vex($self,$o) {
 # ---   *   ---   *   ---
 # groups
 
+  # default F
+  rule('|<bltn> &clip sow reap');
+
   # non-terminated
   rule('|<meta> &clip lcom');
 
@@ -2492,6 +2599,7 @@ sub re_vex($self,$o) {
 
     re io ptr-decl
     switch
+    bltn
 
 
   ]);
@@ -2530,23 +2638,23 @@ sub re_vex($self,$o) {
   $prog =~ m[([\S\s]+)\s*STOP]x;
   $prog = ${^CAPTURE[0]};
 
-  my $ice=Grammar::peso->parse($prog,-r=>2);
+  my $ice=Grammar::peso->parse($prog,-r=>3);
 
-  $ice->{p3}->prich();
+#  $ice->{p3}->prich();
 #  $ice->{mach}->{scope}->prich();
 
-#  $ice->run(
-#
-#    entry=>1,
-#    keepx=>1,
-#
-#    input=>[
-#
-#      '-hey',
-#
-#    ],
-#
-#  );
+  $ice->run(
+
+    entry=>1,
+    keepx=>1,
+
+    input=>[
+
+      '-hey',
+
+    ],
+
+  );
 
 # ---   *   ---   *   ---
 1; # ret

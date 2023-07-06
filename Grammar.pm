@@ -34,6 +34,7 @@ package Grammar;
   use Arstd::Array;
   use Arstd::IO;
 
+  use Tree::Exec;
   use Tree::Grammar;
 
   use parent 'St';
@@ -232,8 +233,9 @@ sub new($class,%O) {
   # make new
   my $gram=$class->get_top();
   my $self=bless {
+
     frame   => $class->new_frame(),
-    callstk => [],
+    c3      => Tree::Exec->new_root(),
 
     mach    => Mach->new(%{$O{mach}}),
     Q       => Queue->nit(),
@@ -296,11 +298,12 @@ sub run($self,%O) {
   $O{keepx}//=0;
   $O{input}//=[];
 
-  my $tree    = $self->{p3};
-  my $f       = $self->{frame};
-  my $callstk = $self->{callstk};
+  my $tree  = $self->{p3};
+  my $f     = $self->{frame};
+  my $ctree = $self->{c3};
 
   $f->{-npass}++;
+  $ctree->clear();
 
   # find entry point
   my @branches=($O{entry})
@@ -311,12 +314,14 @@ sub run($self,%O) {
   # build callstack
   for my $branch(@branches) {
 
-    my @refs=$branch->shift_branch(
-      keepx=>$O{keepx}
+    my $calls=$branch->shift_branch(
+      keepx => $O{keepx},
+      frame => $ctree->{frame}
 
     );
 
-    push @$callstk,@refs;
+    $ctree->pushlv($calls)
+    if defined $calls;
 
   };
 
@@ -325,15 +330,7 @@ sub run($self,%O) {
 
   };
 
-  # ^execute
-  while(@$callstk) {
-
-    my $ref=shift @$callstk;
-
-    my ($nd,$fn)=@$ref;
-    $fn->($self,$nd);
-
-  };
+  $ctree->walk($self);
 
 };
 
