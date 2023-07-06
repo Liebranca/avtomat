@@ -141,8 +141,6 @@ sub jmp($self,$to) {
 
   };
 
-  $to->prich() if defined $to;
-
   $self->{jmp}=(defined $to)
     ? $to->{xbranch}
     : $NULL

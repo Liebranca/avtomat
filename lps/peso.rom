@@ -97,12 +97,8 @@ PROC expr;
 
   byte x $00;
 
-  on x;
-#    sow  {/:f} s;
-#    reap {/:f};
-
+  on x+1;
   or 1;
-
   off;
 
 STOP;
@@ -116,19 +112,19 @@ STOP;
 #  \-->'test'
 #
 #  ;
-
-  on s~=^<flg>$;
-
-    sow  {/:f}
-      ~:flg,': ',
-      ~:sigil,',',
-      ~:bare,"\n"
-
-    ;
-
-    reap {/:f};
-
-  off;
+#
+#  on s~=^<flg>$;
+#
+#    sow  {/:f}
+#      ~:flg,': ',
+#      ~:sigil,',',
+#      ~:bare,"\n"
+#
+#    ;
+#
+#    reap {/:f};
+#
+#  off;
 
 # ---   *   ---   *   ---
 

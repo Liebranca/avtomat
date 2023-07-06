@@ -62,6 +62,7 @@ BEGIN {
     -nest   => {
 
       parens=>0,
+      switch=>0,
 
     },
 
@@ -1893,9 +1894,9 @@ sub expr_cl($self,$branch) {
   rule('~<or-key>');
   rule('~<off-key>');
 
-  rule('$<on> &switch_on on-key');
-  rule('$<or> &switch_or or-key');
-  rule('$<off> &switch_off off-key');
+  rule('$<on> on-key');
+  rule('$<or> or-key');
+  rule('$<off> off-key');
 
   rule('|<switch-type> &clip on or off');
   rule('$<switch> switch-type opt-expr');
@@ -1904,7 +1905,17 @@ sub expr_cl($self,$branch) {
 # if
 
 sub switch_on($self,$branch) {
+
+  my $f    = $self->{frame};
+  my $nest = \$f->{-nest}->{switch};
+
+  $$nest++;
   $self->switch_case($branch);
+
+};
+
+sub switch_on_ctx($self,$branch) {
+  $self->switch_sort($branch);
 
 };
 
@@ -1913,10 +1924,10 @@ sub switch_on_run($self,$branch) {
   my $lv  = $branch->{leaves}->[0];
   my $out = $self->opres($lv);
 
-  if(! $out) {
-    $self->{c3}->jmp($branch->next_branch());
+  $self->{c3}->jmp(
+    $branch->next_branch()
 
-  };
+  ) if ! $out;
 
 };
 
@@ -1924,7 +1935,16 @@ sub switch_on_run($self,$branch) {
 # ^else/else if
 
 sub switch_or($self,$branch) {
+
+  my $f    = $self->{frame};
+  my $nest = \$f->{-nest}->{switch};
+
   $self->switch_case($branch);
+
+};
+
+sub switch_or_ctx($self,$branch) {
+  $self->switch_sort($branch);
 
 };
 
@@ -1936,8 +1956,44 @@ sub switch_or_run($self,$branch) {
     : 1
     ;
 
-  if(! $out) {
-    $self->{c3}->jmp($branch->next_branch());
+  $self->{c3}->jmp(
+    $branch->next_branch()
+
+  ) if ! $out;
+
+};
+
+# ---   *   ---   *   ---
+# adds jmp off at end of switch case
+
+sub switch_end($self,$branch) {
+
+  state $re=qr{^off$};
+
+  my $stop=$branch->next_branch();
+
+  if(
+
+     $branch->{value} ne 'off'
+  && $stop->{value} ne 'off'
+
+  ) {
+
+    my $jmp = $branch->init('jmp');
+    my $par = $branch->{parent};
+    my $f   = $self->{frame};
+
+    $stop=$par->match_from($branch,$re);
+    $jmp->init($stop);
+
+    $jmp->fork_chain(
+
+      dom  => 'Grammar::peso',
+      name => 'jmp',
+
+      skip => $f->{-npass}+1
+
+    );
 
   };
 
@@ -1947,7 +2003,18 @@ sub switch_or_run($self,$branch) {
 # end of switch
 
 sub switch_off($self,$branch) {
+
+  my $f    = $self->{frame};
+  my $nest = \$f->{-nest}->{switch};
+
+  $branch->clear();
   $self->switch_case($branch);
+
+  $$nest--;
+
+};
+
+sub switch_off_cl($self,$branch) {
   $branch->clear();
 
 };
@@ -1956,8 +2023,56 @@ sub switch_off($self,$branch) {
 # ^common to all
 
 sub switch_case($self,$branch) {
-  my $lv=$branch->{leaves}->[0];
-  $branch->pluck($lv);
+
+  my $f    = $self->{frame};
+  my $nest = \$f->{-nest}->{switch};
+
+  $branch->init({
+    lvl  => $$nest-1,
+    type => $branch->{value},
+
+  });
+
+};
+
+# ---   *   ---   *   ---
+# find next case in switch
+# parent in-between nodes to branch
+
+sub switch_sort($self,$branch) {
+
+  state $re=qr{^(?:or|off)$}x;
+
+  my $par    = $branch->{parent};
+  my $anchor = $branch;
+
+  my @lv     = ();
+  my $helper = $branch->{leaves}->[1];
+  my $lvl    = $helper->{value}->{lvl};
+
+REPEAT:
+
+  push @lv,$par->match_until(
+    $anchor,$re,
+    inclusive=>1
+
+  );
+
+  my $stop = pop @lv;
+  my $idex = ($stop->{value} eq 'off')
+    ? 0
+    : 1
+    ;
+
+  my $st=$stop->leaf_value($idex);
+
+  $anchor=$stop;
+  goto REPEAT if $st->{lvl} != $lvl;
+
+  $branch->pushlv(@lv);
+  $self->switch_end($branch);
+
+  $branch->pluck($helper);
 
 };
 
@@ -1968,13 +2083,25 @@ sub switch($self,$branch) {
   my $lv  = $branch->{leaves}->[0];
   my $key = $lv->{value};
 
+  $branch->pluck($lv);
+  $branch->{value}=$key;
+
   $branch->fork_chain(
     dom  => $self->{frame}->{-class},
     name => "switch_${key}",
 
   );
 
-  $branch->{value}=$key;
+};
+
+# ---   *   ---   *   ---
+# jump to node
+
+sub jmp($self,$branch) {};
+
+sub jmp_run($self,$branch) {
+  my $to=$branch->leaf_value(0);
+  $self->{c3}->jmp($to);
 
 };
 
@@ -2752,7 +2879,7 @@ sub re_vex($self,$o) {
 
   my $ice=Grammar::peso->parse($prog,-r=>3);
 
-#  $ice->{p3}->prich();
+  $ice->{p3}->prich();
 #  $ice->{mach}->{scope}->prich();
 
   $ice->run(

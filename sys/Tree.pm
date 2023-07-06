@@ -34,7 +34,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.3;
+  our $VERSION=v0.01.4;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -66,6 +66,7 @@ sub dup($self,$root=undef) {
 };
 
 # ---   *   ---   *   ---
+# cstruc from hash
 
 sub from_hashref($frame,$h) {
 
@@ -301,6 +302,7 @@ sub fvalue($self) {
 };
 
 # ---   *   ---   *   ---
+# get first node in tree
 
 sub root($self) {
 
@@ -593,7 +595,6 @@ sub insert($self,$pos,@list) {
 # insert new elements
 
   my @insert=map {$self->init($ARG)} @list;
-
   my @leaves=(@head,@insert,@tail);
 
 # ---   *   ---   *   ---
@@ -602,7 +603,7 @@ sub insert($self,$pos,@list) {
   $self->{leaves}=\@leaves;
   $self->idextrav();
 
-  return;
+  return @insert;
 
 };
 
@@ -1352,9 +1353,9 @@ sub next_leaf($self) {
 # ---   *   ---   *   ---
 # ^get neighboring branch
 
-sub next_branch($self) {
+sub next_branch($self,$step=1) {
 
-  my $idex  = $self->{idex}+1;
+  my $idex  = $self->{idex}+$step;
   my $pool  = $self->{parent};
 
   my $ahead = $pool->{leaves}->[$idex];

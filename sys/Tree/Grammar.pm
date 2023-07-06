@@ -34,7 +34,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.3;#b
+  our $VERSION = v0.01.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -239,10 +239,14 @@ sub fork_chain($self,%O) {
   # defaults
   $O{dom}  //= $class;
   $O{name} //= $self->{value};
+  $O{skip} //= 0;
 
   # ^get coderefs
   $class->fnbreak(\%O);
   $self->{chain}=[@{ $O{chain} }];
+
+  # discard previous passes
+  map {$self->shift_chain()} 0..$O{skip}-1;
 
   # exec fn for current pass
   $O{fn}->($ctx,$self)
