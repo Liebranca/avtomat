@@ -101,10 +101,12 @@ sub walk($self,$ctx) {
     # ptr was overwritten
     if($self->{jmp}) {
 
-      $self->{rip}=($self->{jmp} ne $NULL)
+      $rip=$self->{rip}=($self->{jmp} ne $NULL)
         ? $self->{jmp}
         : undef
         ;
+
+      $self->{jmp}=undef;
 
     # ^no jmp, go to next
     } else {
@@ -138,6 +140,8 @@ sub jmp($self,$to) {
     $to=$to->next_leaf();
 
   };
+
+  $to->prich() if defined $to;
 
   $self->{jmp}=(defined $to)
     ? $to->{xbranch}

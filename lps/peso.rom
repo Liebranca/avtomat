@@ -97,9 +97,11 @@ PROC expr;
 
   byte x $00;
 
-  on x+1;
+  on x;
 #    sow  {/:f} s;
 #    reap {/:f};
+
+  or 1;
 
   off;
 

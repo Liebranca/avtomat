@@ -601,6 +601,26 @@ sub find_values($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# branch is value
+
+sub is_value($self,$branch) {
+  return $branch->{value} eq 'value';
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub array_is_value($self,@ar) {
+
+  return int(grep {
+   $self->is_value($ARG)
+
+  } @ar) eq @ar;
+
+};
+
+# ---   *   ---   *   ---
 # ^handler
 
 sub value_sort($self,$branch) {
@@ -1685,10 +1705,152 @@ sub opsort($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# ^bat-crux
+# ^pre-run solve operation
+#
+# ops that are unsolvable at
+# this stage are collapsed
+# to ease solving them later
 
-sub value_ops_ctx($self,$branch) {
+sub opsolve($self,$branch) {
 
+  # remove parens
+  my $par=$branch->{parent};
+  $par->flatten_branch()
+  if $par->{value} eq '()';
+
+  # decompose
+  my ($D,$V) = @{$branch->{leaves}};
+
+  my @leaves = @{$V->{leaves}};
+  my @values = map {$ARG->leaf_value(0)} @leaves;
+
+  # get op is solvable at this stage
+  my $valid=
+
+     $self->array_is_value(@leaves)
+  && $self->array_needs_deref(@values)
+  ;
+
+  # restruc
+  $self->op_simplify($branch,@values);
+
+  # attempt solving
+  $valid=($valid)
+    ? $self->op_to_value($branch,@values)
+    : $valid
+    ;
+
+  return $valid;
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub array_opsolve($self,$branch) {
+  my @ops=$self->find_ops($branch);
+  map {$self->opsolve($ARG)} reverse @ops;
+
+};
+
+# ---   *   ---   *   ---
+# ^collapse op tree branch
+# into value node
+
+sub op_to_value($self,$branch,@values) {
+
+  my $type=$values[0]->{type};
+
+  $branch->{value}='value';
+
+  my $o={
+    raw  => $self->opres($branch),
+    type => $type,
+
+    %{$branch->leaf_value(0)}
+
+  };
+
+  $branch->clear();
+  $branch->init($o);
+
+  return 1;
+
+};
+
+# ---   *   ---   *   ---
+# ^ease eventual solving of op
+
+sub op_simplify($self,$branch,@values) {
+
+  my ($D,$V) = @{$branch->{leaves}};
+  my $st     = $D->leaf_value(0);
+
+  my $o={
+
+    D    => $st,
+    V    => \@values,
+
+    type => 'ops',
+
+  };
+
+  $branch->clear();
+  $branch->init($o);
+
+};
+
+# ---   *   ---   *   ---
+# get result of operation
+
+sub opres($self,$branch,@values) {
+
+  my $o=$branch->leaf_value(0);
+
+  return ($self->is_value($branch))
+    ? $self->deref($o)->{raw}
+    : $self->opres_flat($o,@values)
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# ^no branch
+
+sub opres_flat($self,$o,@values) {
+
+  my $st=$o->{D};
+
+  @values=(! @values)
+    ? @{$o->{V}}
+    : @values
+    ;
+
+  # apply deref to @values
+  # filter out undef from result of map
+  my @deref=grep {defined $ARG} map {
+    $self->deref($ARG)
+
+  } @values;
+
+  # ^early exit if values cant
+  # be all dereferenced
+  return $NULL if @deref ne @values;
+
+  # call func with derefenced args
+  return $st->{fn}->(map {
+    $ARG->{raw}
+
+  } @deref);
+
+};
+
+# ---   *   ---   *   ---
+# ^non-runtime crux
+
+sub value_ops_opz($self,$branch) {
+
+  # sort by priority
   my @ops=sort {
 
      $a->leaf_value(0)->{idex}
@@ -1698,106 +1860,9 @@ sub value_ops_ctx($self,$branch) {
 
   map {$self->opsort($ARG)} @ops;
 
-};
-
-# ---   *   ---   *   ---
-# ^execute operation
-
-sub opsolve($self,$branch,$is_run) {
-
-  my ($D,$V) = @{$branch->{leaves}};
-
-  my $st     = $D->leaf_value(0);
-  my $len    = ($st->{unary}) ? 1 : 2;
-
-  my @values = @{$V->{leaves}};
-
-  my $valid=int(grep {
-   $ARG->{value} eq 'value';
-
-  } @values) eq $len;
-
-  @values=map {$ARG->leaf_value(0)} @values;
-
-  # early exit if not executing
-  # and operation has run-time values
-  if($valid &&! $is_run) {
-
-    $valid=(grep {
-      ! $self->needs_deref($ARG)
-
-    } @values) eq @values;
-
-  };
-
-  if($valid) {
-
-    my $type=$values[0]->{type};
-
-    # apply deref to @values
-    # filter out undef from result of map
-    my @deref=grep {defined $ARG} map {
-      $self->deref($ARG)
-
-    } @values;
-
-    # ^early exit if values cant
-    # be all dereferenced
-    return 0 if @deref ne $len;
-
-    my $out=$st->{fn}->(map {$ARG->{raw}} @deref);
-
-    $branch->clear();
-    $branch->{value}='value';
-
-    my $o={
-      raw  => $out,
-      type => $type
-
-    };
-
-    $branch->init($o);
-
-  };
-
-  return $valid;
-
-};
-
-# ---   *   ---   *   ---
-# ^bat
-
-sub array_opsolve($self,$branch,$is_run) {
-
-  my @ops=$self->find_ops($branch);
-
-  my $all_valid=int(grep {
-    $ARG eq 1
-
-  } map {
-    $self->opsolve($ARG,$is_run)
-
-  } reverse @ops) == @ops;
-
-  return $all_valid;
-
-};
-
-# ---   *   ---   *   ---
-# ^non-runtime crux
-
-sub value_ops_opz($self,$branch) {
-  my $flatten=$self->array_opsolve($branch,0);
-  $branch->flatten_branch() if $flatten;
-
-};
-
-# ---   *   ---   *   ---
-# ^runtime
-
-sub value_ops_run($self,$branch) {
-  my $flatten=$self->array_opsolve($branch,1);
-  $branch->flatten_branch() if $flatten;
+  # ^solve from bottom up
+  $self->array_opsolve($branch);
+  $branch->flatten_branch();
 
 };
 
@@ -1813,6 +1878,8 @@ sub expr_ctx($self,$branch) {
   $branch->flatten_branches();
 
 };
+
+sub expr_opz($self,$branch) {};
 
 sub expr_cl($self,$branch) {
   $branch->flatten_branch()
@@ -1834,7 +1901,7 @@ sub expr_cl($self,$branch) {
   rule('$<switch> switch-type opt-expr');
 
 # ---   *   ---   *   ---
-# cases of a switch
+# if
 
 sub switch_on($self,$branch) {
   $self->switch_case($branch);
@@ -1843,31 +1910,41 @@ sub switch_on($self,$branch) {
 
 sub switch_on_run($self,$branch) {
 
-  map {
-    $self->value_ops_run($ARG)
-
-  } @{$branch->{leaves}};
-
   my $lv  = $branch->{leaves}->[0];
-  my $o   = $lv->leaf_value(0);
-
-  my $out = $o->{raw};
+  my $out = $self->opres($lv);
 
   if(! $out) {
+    $self->{c3}->jmp($branch->next_branch());
 
   };
 
-# jump itself works, breaks are
-# due to runtime tree mods ;>
-#
-#  $self->{c3}->jmp($branch);
-
 };
+
+# ---   *   ---   *   ---
+# ^else/else if
 
 sub switch_or($self,$branch) {
   $self->switch_case($branch);
 
 };
+
+sub switch_or_run($self,$branch) {
+
+  my $lv  = $branch->{leaves}->[0];
+  my $out = (defined $lv)
+    ? $self->opres($lv)
+    : 1
+    ;
+
+  if(! $out) {
+    $self->{c3}->jmp($branch->next_branch());
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# end of switch
 
 sub switch_off($self,$branch) {
   $self->switch_case($branch);
@@ -2398,8 +2475,9 @@ sub array_vex($self,$fet,$ar,@path) {
 # ---   *   ---   *   ---
 # ^name/ptr
 
-sub bare_vex($self,$raw) {
+sub bare_vex($self,$o) {
 
+  my $raw=$o->{raw};
   my $out=($self->vex(0,\$raw))
     ? $raw->{value}
     : undef
@@ -2412,8 +2490,9 @@ sub bare_vex($self,$raw) {
 # ---   *   ---   *   ---
 # ^unary calls
 
-sub flg_vex($self,$raw) {
+sub flg_vex($self,$o) {
 
+  my $raw  = $o->{raw};
   my $out  = $NULLSTR;
 
   my $mach = $self->{mach};
@@ -2438,10 +2517,12 @@ sub flg_vex($self,$raw) {
 # ---   *   ---   *   ---
 # ^strings
 
-sub str_vex($self,$raw) {
+sub str_vex($self,$o) {
 
-  my $re=$REGEX->{repl};
-  my $ct=$raw->{ct};
+  my $raw = $o->{raw};
+
+  my $re  = $REGEX->{repl};
+  my $ct  = $raw->{ct};
 
   if($raw->{ipol}) {
 
@@ -2463,6 +2544,25 @@ sub str_vex($self,$raw) {
 };
 
 # ---   *   ---   *   ---
+# ^operations
+
+sub ops_vex($self,$o) {
+
+  my @values=map {
+    $self->deref($ARG)
+
+  } @{$o->{V}};
+
+  return {
+
+    raw  => $self->opres_flat($o,@values),
+    type => $values[0]->{type}
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # applies value expansion when needed
 
 sub deref($self,$v) {
@@ -2471,7 +2571,7 @@ sub deref($self,$v) {
 
   if($self->needs_deref($v)) {
     my $fn = $v->{type} . '_vex';
-    $out   = $self->$fn($v->{raw});
+    $out   = $self->$fn($v);
 
   };
 
@@ -2484,12 +2584,24 @@ sub deref($self,$v) {
 
 sub needs_deref($self,$v) {
 
-  state $re=qr{(?:bare|str|flg|re)};
+  state $re=qr{(?:bare|str|flg|re|ops)};
 
   return
      is_hashref($v)
   && $v->{type}=~ $re
   ;
+
+};
+
+# ---   *   ---   *   ---
+# ^batch
+
+sub array_needs_deref($self,@ar) {
+
+  return int(grep {
+    $self->needs_deref($ARG)
+
+  } @ar) eq @ar;
 
 };
 
