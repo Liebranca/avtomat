@@ -260,12 +260,26 @@ sub new($class,%O) {
 };
 
 # ---   *   ---   *   ---
+# get number of post-parse passes
+
+sub num_passes($self) {
+
+  my $ar=(! length ref $self)
+    ? $self->Frame_Vars()->{-passes}
+    : $self->{frame}->{-passes};
+    ;
+
+  return @$ar;
+
+};
+
+# ---   *   ---   *   ---
 # decon string using rules
 
 sub parse($self,$s,%O) {
 
   # defaults
-  $O{-r}   //= 0;
+  $O{-r}   //= $self->num_passes()-1;
   $O{skip} //= 0;
 
   # invoked as Grammar->parse

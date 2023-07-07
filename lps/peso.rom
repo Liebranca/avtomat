@@ -97,8 +97,12 @@ PROC expr;
 
   byte x $00;
 
-  on x+1;
-  or 1;
+  on 1;
+    wed -escape;
+
+  or;
+    wed -escape;
+
   off;
 
 STOP;

@@ -89,6 +89,8 @@ sub walk($self,$ctx) {
   $self->{rip} = $self->{leaves}->[0];
   $self->{jmp} = undef;
 
+  return if ! defined $self->{rip};
+
   my @pending  = $self->{rip};
 
   while(@pending) {

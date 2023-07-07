@@ -68,7 +68,14 @@ BEGIN {
 
     %{Grammar->Frame_Vars()},
 
-    -passes => ['_ctx','_opz','_cl','_run'],
+    -passes => [
+
+      '_ctx','_opz','_cl',
+      '_pre','_ipret',
+
+      '_run'
+
+    ],
 
   }};
 
@@ -1612,7 +1619,7 @@ sub nest_parens_ctx($self,$branch) {
 
 sub find_ops($self,$branch) {
 
-  state $re=qr{^ops$};
+  state $re=qr{^(?:ops|ops2)$};
 
   return $branch->branches_in(
     $re,keep_root=>0
@@ -1668,12 +1675,7 @@ sub opnit($self,$branch) {
 # find execution data for
 # operators in tree
 
-sub value_ops($self,$branch) {
-
-  my @ops=$self->find_ops($branch);
-  map {$self->opnit($ARG)} @ops;
-
-};
+sub value_ops($self,$branch) {};
 
 # ---   *   ---   *   ---
 # ^sort operators by precedence
@@ -1714,7 +1716,7 @@ sub opsort($self,$branch) {
 
 sub opsolve($self,$branch) {
 
-  # remove parens
+  # remove paens
   my $par=$branch->{parent};
   $par->flatten_branch()
   if $par->{value} eq '()';
@@ -1723,7 +1725,10 @@ sub opsolve($self,$branch) {
   my ($D,$V) = @{$branch->{leaves}};
 
   my @leaves = @{$V->{leaves}};
-  my @values = map {$ARG->leaf_value(0)} @leaves;
+  my @values = map {
+    $self->opvalue($ARG)
+
+  } @leaves;
 
   # get op is solvable at this stage
   my $valid=
@@ -1755,7 +1760,21 @@ sub array_opsolve($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# ^collapse op tree branch
+# fetch elements from ops V array
+
+sub opvalue($self,$branch) {
+
+  $branch=($branch->{value} eq '()')
+    ? $branch->{leaves}->[0]
+    : $branch
+    ;
+
+  return $branch->leaf_value(0);
+
+};
+
+# ---   *   ---   *   ---
+# collapse op tree branch
 # into value node
 
 sub op_to_value($self,$branch,@values) {
@@ -1788,7 +1807,6 @@ sub op_simplify($self,$branch,@values) {
   my $st     = $D->leaf_value(0);
 
   my $o={
-
     D    => $st,
     V    => \@values,
 
@@ -1804,13 +1822,14 @@ sub op_simplify($self,$branch,@values) {
 # ---   *   ---   *   ---
 # get result of operation
 
-sub opres($self,$branch,@values) {
+sub opres($self,$branch) {
 
-  my $o=$branch->leaf_value(0);
+  my $o=$branch->{value};
 
-  return ($self->is_value($branch))
-    ? $self->deref($o)->{raw}
-    : $self->opres_flat($o,@values)
+  return 1 if $o->{type} eq $NULL;
+  return ($o->{type} eq 'value')
+    ? $self->deref($o->{tree})->{raw}
+    : $self->opres_flat($o->{tree})
     ;
 
 };
@@ -1868,21 +1887,91 @@ sub value_ops_opz($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# recursive op values need deref
+
+sub opconst_flat($self,$o) {
+
+  my $out     = 0;
+
+  my @chk     = ();
+  my @pending = ($o);
+
+  while(@pending) {
+
+    my $op     = shift @pending;
+    my @values = @{$op->{V}};
+
+    for my $v(@values) {
+
+      if($v->{type} eq 'ops') {
+        push @pending,$v;
+
+      } else {
+        push @chk,$self->needs_deref($v);
+
+      };
+
+    };
+
+  };
+
+  map {$out|=$ARG} @chk;
+
+  return ! $out;
+
+};
+
+# ---   *   ---   *   ---
 # recursive sequence
 
-sub expr($self,$branch) {};
+sub expr($self,$branch) {
+
+  my @ops   = $self->find_ops($branch);
+  my @empty = grep {
+    ! defined $ARG->{leaves}->[0]
+
+  } @ops;
+
+  # filter out empty tokens
+  map {$ARG->{parent}->pluck($ARG)} @empty;
+  @ops=grep {defined $ARG->{leaves}->[0]} @ops;
+
+  # ^nit non-empty branches
+  map {$self->opnit($ARG)} @ops;
+
+  # merge value-op-value branches
+  my $ari    = $branch->{leaves}->[0];
+  my @lv     = @{$ari->{leaves}};
+
+  my $anchor = shift @lv;
+
+  for my $x(@lv) {
+
+    my @merge=($x);
+
+    if($x->{value} eq 'value-op-value') {
+      @merge=$x->pluck(@{$x->{leaves}});
+      $ari->pluck($x);
+
+    };
+
+    $anchor->pushlv(@merge);
+
+  };
+
+};
+
 sub expr_ctx($self,$branch) {
 
-  my $lv=$branch->{leaves}->[-1];
-  $lv->pluck($lv->{leaves}->[-1]);
+#  my $lv=$branch->{leaves}->[-1];
+#  $lv->pluck($lv->{leaves}->[-1]);
 
   $branch->flatten_branches();
 
 };
 
-sub expr_opz($self,$branch) {};
-
 sub expr_cl($self,$branch) {
+
   $branch->flatten_branch()
   if @{$branch->{leaves}} eq 1;
 
@@ -1919,10 +2008,19 @@ sub switch_on_ctx($self,$branch) {
 
 };
 
+sub switch_on_pre($self,$branch) {
+  $self->switch_case_pre($branch);
+
+};
+
+sub switch_on_ipret($self,$branch) {
+  $self->switch_simplify($branch);
+
+};
+
 sub switch_on_run($self,$branch) {
 
-  my $lv  = $branch->{leaves}->[0];
-  my $out = $self->opres($lv);
+  my $out=$self->opres($branch);
 
   $self->{c3}->jmp(
     $branch->next_branch()
@@ -1948,11 +2046,15 @@ sub switch_or_ctx($self,$branch) {
 
 };
 
+sub switch_or_pre($self,$branch) {
+  $self->switch_case_pre($branch);
+
+};
+
 sub switch_or_run($self,$branch) {
 
-  my $lv  = $branch->{leaves}->[0];
-  my $out = (defined $lv)
-    ? $self->opres($lv)
+  my $out=($branch->{value}->{type} ne $NULL)
+    ? $self->opres($branch)
     : 1
     ;
 
@@ -2000,6 +2102,84 @@ sub switch_end($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# det if case can be resolved
+# before runtime
+
+sub switch_const($self,$branch) {
+
+  my $st    = $branch->{value};
+  my $tree  = $st->{tree};
+  my $type  = $st->{type};
+
+  my $const = ($type eq 'value')
+    ? ! $self->needs_deref($st->{tree})
+    :   $self->opconst_flat($st->{tree})
+    ;
+
+  return $const;
+
+};
+
+# ---   *   ---   *   ---
+# ^optimize out constant branches
+
+sub switch_simplify($self,$branch) {
+
+  my $cur   = 0;
+  my $prev  = 0;
+
+  my $ahead = $branch;
+
+  return if ! $self->switch_const($branch);
+
+my $i=0;
+REPEAT:
+
+  $cur  = $self->opres($ahead);
+  $prev = ($cur &&! $prev);
+
+  $ahead=($prev)
+    ? $self->switch_flatten($ahead)
+    : $self->switch_pluck($ahead)
+    ;
+
+  goto REPEAT if $ahead->{value} ne 'off';
+
+};
+
+# ---   *   ---   *   ---
+# ^replace evaluation with
+# branch leaves
+
+sub switch_flatten($self,$branch) {
+
+  my $ahead=$branch->next_branch();
+
+  if($ahead->{value} ne 'off') {
+    my $jmp=$branch->{leaves}->[-1];
+    $branch->pluck($jmp);
+
+  };
+
+  $branch->flatten_branch();
+
+  return $ahead;
+
+};
+
+# ---   *   ---   *   ---
+# ^removes entire branch
+
+sub switch_pluck($self,$branch) {
+
+  my $ahead=$branch->next_branch();
+  $branch->{parent}->pluck($branch);
+
+  return $ahead;
+
+};
+
+# ---   *   ---   *   ---
 # end of switch
 
 sub switch_off($self,$branch) {
@@ -2032,6 +2212,38 @@ sub switch_case($self,$branch) {
     type => $branch->{value},
 
   });
+
+};
+
+sub switch_case_pre($self,$branch) {
+
+  my $lv=$branch->{leaves}->[0];
+  my ($type,$tree);
+
+  if(
+
+     defined $lv
+  && defined $lv->{leaves}->[0]
+
+  ) {
+
+    $type=$lv->{value};
+    $tree=$lv->leaf_value(0);
+    $branch->pluck($lv);
+
+  } else {
+    $type=$NULL;
+    $tree=$NULL;
+
+  };
+
+  my $st={
+    tree => $tree,
+    type => $type,
+
+  };
+
+  $branch->{value}=$st;
 
 };
 
@@ -2099,9 +2311,14 @@ sub switch($self,$branch) {
 
 sub jmp($self,$branch) {};
 
+sub jmp_pre($self,$branch) {
+  $branch->{value}=$branch->leaf_value(0);
+  $branch->clear();
+
+};
+
 sub jmp_run($self,$branch) {
-  my $to=$branch->leaf_value(0);
-  $self->{c3}->jmp($to);
+  $self->{c3}->jmp($branch->{value});
 
 };
 
@@ -2877,23 +3094,23 @@ sub re_vex($self,$o) {
   $prog =~ m[([\S\s]+)\s*STOP]x;
   $prog = ${^CAPTURE[0]};
 
-  my $ice=Grammar::peso->parse($prog,-r=>3);
+  my $ice=Grammar::peso->parse($prog);
 
   $ice->{p3}->prich();
 #  $ice->{mach}->{scope}->prich();
-
-  $ice->run(
-
-    entry=>1,
-    keepx=>1,
-
-    input=>[
-
-      '-hey',
-
-    ],
-
-  );
+#
+#  $ice->run(
+#
+#    entry=>1,
+#    keepx=>1,
+#
+#    input=>[
+#
+#      '-hey',
+#
+#    ],
+#
+#  );
 
 # ---   *   ---   *   ---
 1; # ret
