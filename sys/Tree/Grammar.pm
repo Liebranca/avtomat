@@ -34,7 +34,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.4;#a
+  our $VERSION = v0.01.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -344,7 +344,7 @@ sub on_match($self,$branch) {
 # ---   *   ---   *   ---
 # run string match
 
-sub re_leaf($self,$anchor,$sref) {
+sub re_leaf($self,$anchor,$sref,%O) {
 
   my $out = undef;
   my $re  = $self->{value};
@@ -355,9 +355,22 @@ sub re_leaf($self,$anchor,$sref) {
 
   )}x;
 
+  my $scope = $O{mach}->{scope};
+  my $cdef  = $scope->cdef_re();
+
+  # match against pattern
   if($$sref =~ s[$jmp($re)][]) {
     $out=$anchor->init($1);
 
+  # ^match against macro expansion (!!)
+  } elsif($$sref =~ s[$jmp($cdef)][]) {
+
+    if($scope->cdef_get($1) =~ m[($re)]) {
+      $out=$anchor->init($1);
+
+    };
+
+  # ^accept defeat
   } elsif(! $self->{parent}->{opt}) {
     $anchor->status_ffail();
 
@@ -370,7 +383,7 @@ sub re_leaf($self,$anchor,$sref) {
 # ---   *   ---   *   ---
 # determines type of node
 
-sub re_or_branch($self,$ctx,$sref) {
+sub re_or_branch($self,$ctx,$sref,%O) {
 
   my $out = undef;
   my $x   = $self->{value};
@@ -381,7 +394,7 @@ sub re_or_branch($self,$ctx,$sref) {
   my $dst     = undef;
 
   if(is_qre($x)) {
-    $out=$self->re_leaf($anchor,$sref);
+    $out=$self->re_leaf($anchor,$sref,%O);
     $dst=$anchor if $out;
 
   } else {
@@ -397,7 +410,7 @@ sub re_or_branch($self,$ctx,$sref) {
 # ---   *   ---   *   ---
 # recurse
 
-sub match($self,$ctx,$s) {
+sub match($self,$ctx,$s,%O) {
 
   my $x     = $self->{value};
   my $fn    = $self->{fn};
@@ -426,26 +439,24 @@ sub match($self,$ctx,$s) {
   # ^walk
   while(@pending) {
 
-#    last if ! length $s;
-
     $self=$branch->shift_pending(
       $ctx,\$depth
 
     ) or next;
 
-    my ($m,$dst) = $self->re_or_branch($ctx,\$s);
+    my ($m,$dst) = $self->re_or_branch($ctx,\$s,%O);
     my $fn       = $self->{fn};
 
     $anchors[-1]->init_status($self);
     $dst->status_add($self) if $dst;
 
-    ! $self->alternation($ctx,\$s)
+    ! $self->alternation($ctx,\$s,%O)
     or next;
 
-    ! $self->greed($ctx,\$s)
+    ! $self->greed($ctx,\$s,%O)
     or next;
 
-    ! $self->hier_sub($ctx,\$s)
+    ! $self->hier_sub($ctx,\$s,%O)
     or next;
 
     my $opt_branch=
@@ -466,9 +477,6 @@ sub match($self,$ctx,$s) {
     unshift @pending,@lv,$depth;
 
   };
-
-#$root->prich();
-#say "_____________________\n";
 
   pop @{$ctx->{anchors}};
   pop @{$ctx->{pending}};
@@ -541,6 +549,8 @@ sub subtree($self,$ctx,$sref,%O) {
   $O{-root}//=0;
   $O{-clip}//=0;
 
+  $O{-closed}=1;
+
   my $anchors = $ctx->{anchors}->[-1];
   my $root    = $anchors->[$O{-root}];
 
@@ -549,7 +559,7 @@ sub subtree($self,$ctx,$sref,%O) {
   my $out=undef;
 
   my ($m,$ds)=$self->hier_match(
-    $ctx,$$sref,-closed=>1
+    $ctx,$$sref,%O
 
   );
 
@@ -562,15 +572,6 @@ sub subtree($self,$ctx,$sref,%O) {
     );
 
     $out=pop @$anchors if @$anchors > 1;
-
-#    if($match) {
-#
-#      $out=(@$anchors > 1)
-#        ? pop @$anchors
-#        : $anchors->[-1]
-#        ;
-#
-#    };
 
   } else {
     $match=$self->subtree_noclip(
@@ -654,16 +655,15 @@ sub subtree_clip($self,$root,$m,$ds,$sref) {
 # ---   *   ---   *   ---
 # branch opens a new scope
 
-sub hier_sub($self,$ctx,$sref) {
+sub hier_sub($self,$ctx,$sref,%O) {
 
   my $out=0;
+  $O{-root}=-1;
 
   if($self->has_flag('hier')) {
 
     my $nd=$self->subtree(
-      $ctx,$sref,
-
-      -root=>-1
+      $ctx,$sref,%O
 
     );
 
@@ -679,16 +679,15 @@ sub hier_sub($self,$ctx,$sref) {
 # branch must match at most one
 # pattern out of a group
 
-sub alternation($self,$ctx,$sref) {
+sub alternation($self,$ctx,$sref,%O) {
 
   my $out=0;
+  $O{-root}=-1;
 
   if($self->has_flag('alt')) {
 
     my $n=$self->subtree(
-      $ctx,$sref,
-
-      -root=>-1,
+      $ctx,$sref,%O,
 
     );
 
@@ -704,10 +703,13 @@ sub alternation($self,$ctx,$sref) {
 # branch keeps matching until
 # failure
 
-sub greed($self,$ctx,$sref) {
+sub greed($self,$ctx,$sref,%O) {
 
   my $out  = 0;
   my $root = undef;
+
+  $O{-root}=-1;
+  $O{-clip}=1;
 
   if($self->has_flag('greed')) {
     $out=1;
@@ -715,11 +717,7 @@ sub greed($self,$ctx,$sref) {
     while(1) {
 
       my $t=$self->subtree(
-
-        $ctx,$sref,
-
-        -root=>-1,
-        -clip=>1,
+        $ctx,$sref,%O
 
       );
 
@@ -883,7 +881,6 @@ sub status_subok($self) {
     $out+=
 
        $sus->{ok}
-#    || ($sus->{opt} && ! $sus->{greed})
     || $sus->{opt}
     ;
 
@@ -973,12 +970,6 @@ sub status_db_out($self) {
 
 sub hier_match($self,$ctx,$s,%O) {
 
-#state $d_depth=undef;
-#$d_depth//=-1;
-#$d_depth++;
-
-#my $s_depth=('.  ' x $d_depth) . '\-->';
-
   # defaults
   $O{-closed}//=0;
 
@@ -989,9 +980,11 @@ sub hier_match($self,$ctx,$s,%O) {
     ;
 
   for my $branch(@pending) {
-#say "\n${s_depth}TRY $branch->{value}";
 
-    my ($m,$ds)=$branch->match($ctx,$s);
+    my ($m,$ds)=$branch->match(
+      $ctx,$s,%O
+
+    );
 
     if($m->status_ok()) {
 
@@ -1000,21 +993,11 @@ sub hier_match($self,$ctx,$s,%O) {
       $ctx->{Q}->wex();
       $branch->on_match($m);
 
-#say "${s_depth}GOT $branch->{value}";
-
       last;
-
-    } else {
-#say "${s_depth}NGT $branch->{value}";
-#$m->prich();
-#$m->status_db_out();
 
     };
 
   };
-
-#say "${s_depth}RET\n";
-#$d_depth--;
 
   return @out;
 
@@ -1050,15 +1033,13 @@ sub parse($self,$s,%O) {
 
   while(1) {
 
-#say "\n${s}\n________________\n";
-
     # exit when input consumed
     last if (! length $s)
          || ($s=~ m{^\s+$});
 
     # ^attempt
     my ($match,$ds)=
-      $gram->hier_match($ctx,$s);
+      $gram->hier_match($ctx,$s,%O);
 
     # ^errchk
     if(! $match) {

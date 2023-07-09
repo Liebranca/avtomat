@@ -97,6 +97,13 @@ PROC expr;
 
   byte x $00;
 
+  blk why;
+  def T byte;
+  ...;
+  T y $01;
+
+STOP;
+
   on 1;
     wed -escape;
 
@@ -104,8 +111,6 @@ PROC expr;
     wed -escape;
 
   off;
-
-STOP;
 
 #  tree {$:BB}
 #

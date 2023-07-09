@@ -394,6 +394,13 @@ sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
     q[or-key]  => Lang::insens('or',mkre=>1),
     q[off-key] => Lang::insens('off',mkre=>1),
 
+# ---   *   ---   *   ---
+# compile-time values
+
+    q[def-key]   => Lang::insens('def',mkre=>1),
+    q[undef-key] => Lang::insens('undef',mkre=>1),
+    q[redef-key] => Lang::insens('redef',mkre=>1),
+
   };
 
 # ---   *   ---   *   ---
@@ -669,6 +676,43 @@ sub value_sort($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# compile-time definitions
+
+  rule('~<def-key> &discard');
+  rule('~<redef-key> &discard');
+  rule('~<undef-key> &discard');
+
+  rule('$<def> &cdef def-key bare nterm');
+  rule('$<redef> &credef redef-key bare nterm');
+  rule('$<undef> &cundef undef-key bare nterm');
+
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub cdef($self,$branch) {
+
+  $self->cdef_common($branch);
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+  my $st    = $branch->bhash();
+
+  $scope->cdef_decl($st->{nterm},$st->{bare});
+  $scope->cdef_recache();
+
+};
+
+# ---   *   ---   *   ---
+# ^selfex
+
+sub cdef_common($self,$branch) {
+  my $key_lv=$branch->{leaves}->[0];
+  $branch->pluck($key_lv);
+
+};
+
+# ---   *   ---   *   ---
 # entry point for all hierarchicals
 
   rule('~<hier-type>');
@@ -871,7 +915,7 @@ sub hier_nit($self,$type) {
 # patterns for declaring members
 
   rule('$<type> width specs');
-  rule('$<nlist> &list_flatten bare clist');
+  rule('$<bare-list> &list_flatten bare clist');
   rule('$<vlist> &list_flatten value clist');
 
   rule('?<opt-vlist> &clip vlist');
@@ -882,7 +926,7 @@ sub hier_nit($self,$type) {
     $<ptr-decl>
     &ptr_decl
 
-    type nlist opt-vlist
+    type bare-list opt-vlist
 
   ]);
 
@@ -899,7 +943,7 @@ sub ptr_decl($self,$branch) {
 
     type   => $type,
 
-    names  => $st->{nlist},
+    names  => $st->{q[bare-list]},
     values => $st->{vlist},
 
   };
@@ -3040,6 +3084,7 @@ sub re_vex($self,$o) {
 
   # default F
   rule('|<bltn> &clip sow reap');
+  rule('|<cdef> &clip def redef undef');
 
   # non-terminated
   rule('|<meta> &clip lcom');
@@ -3051,7 +3096,7 @@ sub re_vex($self,$o) {
     &clip
 
     header hier sdef
-    wed lis
+    wed cdef lis
 
     re io ptr-decl
     switch

@@ -289,6 +289,9 @@ sub parse($self,$s,%O) {
 
   };
 
+  # pass own context
+  $O{mach}=$self->{mach};
+
   # run-through
   $self->{p3}->parse($s,%O);
 

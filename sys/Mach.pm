@@ -39,7 +39,7 @@ package Mach;
 # ---   *   ---   *   ---
 # GBL
 
-  my $Ics={};
+  my $Icemap={};
 
 # ---   *   ---   *   ---
 # constructor
@@ -95,13 +95,13 @@ sub fetch($class,$id,%O) {
   my $out=undef;
 
   # create and save
-  if(!exists $Ics->{$id}) {
+  if(! exists $Icemap->{$id}) {
     $out=$class->new(%O);
-    $Ics->{$id}=$out;
+    $Icemap->{$id}=$out;
 
   # get existing
   } else {
-    $out=$Ics->{$id};
+    $out=$Icemap->{$id};
 
   };
 
@@ -166,28 +166,30 @@ sub reap($self,$dst) {
 };
 
 # ---   *   ---   *   ---
+# work out file descriptor
+# from a relative ptr
 
-sub fd_solve($self,$dst) {
+sub fd_solve($self,$ptr) {
 
   # out
   my $fd;
   my $buff;
 
   # dst idex OK
-  my $valid=defined $dst
-    && $dst=~ m[^\d+$]
-    && $dst<@{$self->{fd}}
+  my $valid=defined $ptr
+    && $ptr =~ m[^\d+$]
+    && $ptr <  @{$self->{fd}}
     ;
 
   # attempt fetch on fail
-  if(!$valid) {
+  if(! $valid) {
     my @path=$self->{scope}->path();
-    $buff=$self->{scope}->get(@path,$dst);
+    $buff=$self->{scope}->get(@path,$ptr);
 
   # get buff && descriptor
   } else {
-    $fd   = $self->{fd}->[$dst];
-    $buff = \($self->{fd_buff}->[$dst]);
+    $fd   = $self->{fd}->[$ptr];
+    $buff = \($self->{fd_buff}->[$ptr]);
 
   };
 

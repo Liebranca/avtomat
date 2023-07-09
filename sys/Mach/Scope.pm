@@ -35,7 +35,7 @@ package Mach::Scope;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -49,11 +49,13 @@ sub new($class,%O) {
   my $tree_f = Tree->new_frame();
   my $self   = bless {
 
-    tree  => $tree_f->nit(undef,'non'),
-    sep   => $O{sep},
+    tree    => $tree_f->nit(undef,'non'),
+    sep     => $O{sep},
 
-    order => [],
-    path  => [],
+    order   => [],
+    path    => [],
+
+    recache => {},
 
   },$class;
 
@@ -281,6 +283,116 @@ sub prich($self,%O) {
   };
 
   say {$fh} $out;
+
+};
+
+# ---   *   ---   *   ---
+# compile-time defines
+#
+# used to check for parse-time
+# macro expansions
+#
+# a horrible idea in theory,
+# with alternatives being even
+# worse in practice
+
+# ---   *   ---   *   ---
+# generate regex for matching
+# against defs in current path
+
+sub cdef_recache($self) {
+
+  my @path   = $self->cdef_path();
+  my $branch = $self->{tree}->fetch(path=>\@path);
+
+  my @names  = $branch->branch_values();
+
+  my $pat    = join q[|],@names;
+  my $o      = qr{$pat}x;
+
+  if(! $self->cdef_has('~:recache')) {
+    $self->cdef_decl($NO_MATCH,'~:recache');
+
+  };
+
+  $self->cdef_call('asg',['~:recache'],$o);
+  $branch->prich();
+
+};
+
+# ---   *   ---   *   ---
+# ^fetch
+
+sub cdef_re($self) {
+
+  if(! $self->cdef_has('~:recache')) {
+    $self->cdef_decl($NO_MATCH,'~:recache');
+
+  };
+
+  $self->cdef_get('~:recache');
+
+};
+
+# ---   *   ---   *   ---
+# boilerplate for cdef wraps
+
+sub cdef_path($self) {
+  return @{$self->{path}},q[$CDEF];
+
+};
+
+sub cdef_call($self,$f,$name,@args) {
+  my @path=($self->cdef_path(),@$name);
+  return $self->$f(@args,@path);
+
+};
+
+# ---   *   ---   *   ---
+# cdef wraps over all other methods
+
+sub cdef_decl($self,$o,@name) {
+  $self->cdef_call('decl',\@name,$o);
+
+};
+
+sub cdef_decl_branch($self,$o,@name) {
+  $self->cdef_call('decl_branch',\@name,$o);
+
+};
+
+sub cdef_asg($self,$o,@name) {
+  $self->cdef_call('asg',\@name,$o);
+
+};
+
+sub cdef_rget($self,@name) {
+  $self->cdef_call('rget',\@name);
+
+};
+
+sub cdef_get($self,@name) {
+  $self->cdef_call('get',\@name);
+
+};
+
+sub cdef_has($self,@name) {
+  $self->cdef_call('has',\@name);
+
+};
+
+sub cdef_search($self,@name) {
+  $self->cdef_call('search',[],@name);
+
+};
+
+sub cdef_search_nc($self,@name) {
+  $self->cdef_call('search_nc',[],@name);
+
+};
+
+sub cdef_cderef($self,$fet,$vref,@name) {
+  $self->cdef_call('cderef',\@name,$fet,$vref);
 
 };
 
