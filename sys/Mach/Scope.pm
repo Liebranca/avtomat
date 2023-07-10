@@ -32,6 +32,8 @@ package Mach::Scope;
   use Tree;
   use Tree::Grammar;
 
+  use Lang;
+
 # ---   *   ---   *   ---
 # info
 
@@ -307,8 +309,7 @@ sub cdef_recache($self) {
 
   my @names  = $branch->branch_values();
 
-  my $pat    = join q[|],@names;
-  my $o      = qr{$pat}x;
+  my $o      = Lang::eiths(\@names,bwrap=>1);
 
   if(! $self->cdef_has('~:recache')) {
     $self->cdef_decl($NO_MATCH,'~:recache');
@@ -316,7 +317,6 @@ sub cdef_recache($self) {
   };
 
   $self->cdef_call('asg',['~:recache'],$o);
-  $branch->prich();
 
 };
 
@@ -330,7 +330,74 @@ sub cdef_re($self) {
 
   };
 
-  $self->cdef_get('~:recache');
+  return $self->cdef_get('~:recache');
+
+};
+
+# ---   *   ---   *   ---
+# get F corresponding to type
+# of reference passed for expansion
+
+sub poly_crepl($self,$vref) {
+
+  state $tab=[
+
+    'value_crepl',
+    'array_crepl',
+    'deep_crepl',
+
+  ];
+
+  my $idex=
+    (is_arrayref($$vref))
+  | (is_hashref($$vref)*2)
+  ;
+
+  my $f=$tab->[$idex];
+
+  return ($idex)
+    ? $self->$f($$vref)
+    : $self->$f($vref)
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# replace value for macro expansion
+# if value matches cdef_re
+
+sub value_crepl($self,$vref) {
+
+  my $re=$self->cdef_re();
+
+  if($$vref=~ m[($re)]) {
+    $$vref=$self->cdef_get($1);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^for all levels of a hash
+
+sub deep_crepl($self,$o) {
+  map {$self->poly_crepl(\$o->{$ARG})} keys %$o;
+
+};
+
+# ---   *   ---   *   ---
+# ^arrayrefs
+
+sub array_crepl($self,$ar) {
+  map {$self->poly_crepl(\$ARG)} @$ar;
+
+};
+
+# ---   *   ---   *   ---
+# ^lists
+
+sub crepl($self,@refs) {
+  map {$self->poly_crepl($ARG)} @refs;
 
 };
 

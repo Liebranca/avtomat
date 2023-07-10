@@ -359,18 +359,32 @@ sub re_leaf($self,$anchor,$sref,%O) {
   my $cdef  = $scope->cdef_re();
 
   # match against pattern
-  if($$sref =~ s[$jmp($re)][]) {
+  if($$sref=~ s[$jmp($re)][]) {
     $out=$anchor->init($1);
 
   # ^match against macro expansion (!!)
   } elsif($$sref =~ s[$jmp($cdef)][]) {
 
-    if($scope->cdef_get($1) =~ m[($re)]) {
-      $out=$anchor->init($1);
+    my $token=$1;
+
+    # expansion is valid for rule
+    if($scope->cdef_get($token) =~ m[($re)]) {
+      $out=$anchor->init($token);
+
+    # ^nope
+    } else {
+
+      # non-optional means failure
+      # else keep going
+      $anchor->status_ffail()
+      if ! $self->{parent}->{opt};
+
+      # push token back into source
+      $$sref="$token$$sref";
 
     };
 
-  # ^accept defeat
+  # ^accept defeat if non-optional
   } elsif(! $self->{parent}->{opt}) {
     $anchor->status_ffail();
 

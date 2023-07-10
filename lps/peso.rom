@@ -23,84 +23,84 @@
 
 # ---   *   ---   *   ---
 
-ROM std;
-
-  byte  term $3B;
-  byte  sep  $2C;
-
-  wed   -qwor,-insens;
-  unwed -escape;
-
-  re    spec ptr fptr str buf tab re;
-  re    type
-
-    byte wide brad word
-    unit half line page
-
-    nihil stark signal
-
-  ;
-
-  unwed -insens;
-  wed   -escape;
-
-  re    sigil
-
-    $ % * - + ^ & ~ /
-    \\ @ >> >>: << <<:
-
-    : :: -: +: *: $: %:
-    /: &: ^: ~: \\: @:
-
-  ;
-
-  re    ops
-
-    -> *^ * % / ++ + -- -
-    ?? ? !! ~ >> > >= | & ^
-
-    << < <=  || && == !=
-
-  ;
-
-  unwed -qwor;
-
-  re    num
-
-    [\d\.:]+
-  | $[\dA-Fa-f\.:]+
-
-  | 0[0-7\.:]+
-  | 0b[0-1\.:]+
-
-  | v[\d\.:]+[ab]?
-  ;
-
-  re bare [_\w][_\w\d]+;
-  re sigged <sigil><bare>;
-
-  re ari
-    (<sigged|num|bare>)? <ops>
-    <sigged|num|bare>
-
-  ;
-
-  re fulltype <spec> \s+ <type>;
-  re flg <sigil><bare>;
+#ROM std;
+#
+#  byte  term $3B;
+#  byte  sep  $2C;
+#
+#  wed   -qwor,-insens;
+#  unwed -escape;
+#
+#  re    spec ptr fptr str buf tab re;
+#  re    type
+#
+#    byte wide brad word
+#    unit half line page
+#
+#    nihil stark signal
+#
+#  ;
+#
+#  unwed -insens;
+#  wed   -escape;
+#
+#  re    sigil
+#
+#    $ % * - + ^ & ~ /
+#    \\ @ >> >>: << <<:
+#
+#    : :: -: +: *: $: %:
+#    /: &: ^: ~: \\: @:
+#
+#  ;
+#
+#  re    ops
+#
+#    -> *^ * % / ++ + -- -
+#    ?? ? !! ~ >> > >= | & ^
+#
+#    << < <=  || && == !=
+#
+#  ;
+#
+#  unwed -qwor;
+#
+#  re    num
+#
+#    [\d\.:]+
+#  | $[\dA-Fa-f\.:]+
+#
+#  | 0[0-7\.:]+
+#  | 0b[0-1\.:]+
+#
+#  | v[\d\.:]+[ab]?
+#  ;
+#
+#  re bare [_\w][_\w\d]+;
+#  re sigged <sigil><bare>;
+#
+#  re ari
+#    (<sigged|num|bare>)? <ops>
+#    <sigged|num|bare>
+#
+#  ;
+#
+#  re fulltype <spec> \s+ <type>;
+#  re flg <sigil><bare>;
 
 # ---   *   ---   *   ---
 
 PROC expr;
 
-  in byte str s;
-  lis {/:f} 1;
+#  in byte str s;
+#  lis {/:f} 1;
+#
+#  byte x $00;
 
-  byte x $00;
-
-  blk why;
+  def V $97;
   def T byte;
-  ...;
-  T y $01;
+
+  T y V;
 
 STOP;
 

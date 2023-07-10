@@ -701,6 +701,24 @@ sub cdef($self,$branch) {
   $scope->cdef_decl($st->{nterm},$st->{bare});
   $scope->cdef_recache();
 
+  $branch->clear();
+  $branch->{value}=$st;
+
+};
+
+# ---   *   ---   *   ---
+# ^move global to local scope
+
+sub cdef_ctx($self,$branch) {
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+  my $st    = $branch->{value};
+
+  $scope->cdef_decl($st->{nterm},$st->{bare});
+  $scope->cdef_recache();
+
 };
 
 # ---   *   ---   *   ---
@@ -1013,33 +1031,40 @@ sub bind_decls($self,$branch) {
   my @values = @{$st->{values}};
 
   # ctx
-  my $mach=$self->{mach};
-  my @path=$mach->{scope}->path();
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+  my @path  = $scope->path();
 
   # dst
   my $ptrs=[];
 
+fatdump($st);
+  $scope->crepl(\$st);
+fatdump($st);
+
+say "___________________________\n";
+
   while(@names && @values) {
 
-    my $name    = shift @names;
-    my $value   = shift @values;
+    my $name  = shift @names;
+    my $value = shift @values;
 
-    my $o     = {
+    my $o={
       type  => $st->{type},
       value => $value,
 
     };
 
-    $mach->{scope}->decl($o,@path,$name);
-
-    push @$ptrs,
-      $mach->{scope}->rget(@path,$name);
+    $scope->decl($o,@path,$name);
+    push @$ptrs,$scope->rget(@path,$name);
 
   };
 
   $branch->{value}=$ptrs;
 
 };
+
+# ---   *   ---   *   ---
 
   rule('~<io-type>');
   rule('$<io> &rdio io-type ptr-decl');
@@ -3141,7 +3166,7 @@ sub re_vex($self,$o) {
 
   my $ice=Grammar::peso->parse($prog);
 
-  $ice->{p3}->prich();
+#  $ice->{p3}->prich();
 #  $ice->{mach}->{scope}->prich();
 #
 #  $ice->run(
