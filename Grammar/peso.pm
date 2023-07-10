@@ -40,12 +40,15 @@ package Grammar::peso;
   use lib $ENV{'ARPATH'}.'/avtomat/';
 
   use Lang;
+
   use Grammar;
+  use Grammar::peso::common;
+  use Grammar::peso::value;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.3;#b
+  our $VERSION = v0.01.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -99,204 +102,16 @@ BEGIN {
   };
 
 # ---   *   ---   *   ---
-# op => F
-# precedence given by array idex
-
-  Readonly our $OPERATORS=>[
-
-    q[->*] => 'm_call',
-    q[->]  => 'm_attr',
-
-    q[*^]  => 'pow',
-    q[*]   => 'mul',
-    q[%]   => 'mod',
-    q[/]   => 'div',
-
-    q[+]   => 'add',
-    q[-]   => 'sub',
-
-    q[<<]  => 'lshift',
-    q[>>]  => 'rshift',
-
-    q[&]   => 'b_and',
-    q[|]   => 'b_or',
-    q[^]   => 'b_xor',
-    q[~]   => 'b_not',
-
-    q[!]   => 'not',
-
-    q[<]   => 'lt',
-    q[<=]  => 'e_lt',
-    q[>]   => 'gt',
-    q[>=]  => 'e_gt',
-
-    q[&&]  => 'and',
-    q[||]  => 'or',
-    q[^^]  => 'xor',
-
-    q[~=]  => 'match',
-    q[==]  => 'eq',
-    q[!=]  => 'ne',
-
-  ];
-
-  Readonly our $OPHASH=>{@$OPERATORS};
-  Readonly our $OP_KEYS=>[array_keys($OPERATORS)];
-
-# ---   *   ---   *   ---
-# ^makes note of unary ops
-
-  Readonly our $OP_UNARY=>{
-    q[!]=>1,
-    q[~]=>1,
-
-  };
-
-# ---   *   ---   *   ---
-# ^makes note of ops taking slurp args
-
-  Readonly our $OP_SLURP=>{
-    q[->*] => 1,
-    q[->]  => 1,
-
-  };
-
-# ---   *   ---   *   ---
-# call member F/getset member var
-
-sub op_m_call($lhs,$rhs,@args) {};
-sub op_m_attr($lhs,$rhs,@args) {};
-
-# ---   *   ---   *   ---
-# math
-
-sub op_pow($lhs,$rhs) {return $lhs ** $rhs};
-
-sub op_mul($lhs,$rhs) {return $lhs * $rhs};
-sub op_mod($lhs,$rhs) {return $lhs % $rhs};
-sub op_div($lhs,$rhs) {return $lhs / $rhs};
-sub op_add($lhs,$rhs) {return $lhs + $rhs};
-sub op_sub($lhs,$rhs) {return $lhs - $rhs};
-
-# ---   *   ---   *   ---
-# bits
-
-sub op_lshift($lhs,$rhs) {return $lhs << $rhs};
-sub op_rshift($lhs,$rhs) {return $lhs >> $rhs};
-
-sub op_b_and($lhs,$rhs) {return $lhs & $rhs};
-sub op_b_or($lhs,$rhs) {return $lhs | $rhs};
-sub op_b_xor($lhs,$rhs) {return $lhs ^ $rhs};
-
-sub op_b_not($rhs) {return ~ $rhs};
-
-# ---   *   ---   *   ---
-# logic
-
-sub op_not($rhs) {return ! $rhs};
-
-sub op_lt($lhs,$rhs) {return $lhs < $rhs};
-sub op_e_lt($lhs,$rhs) {return $lhs <= $rhs};
-sub op_gt($lhs,$rhs) {return $lhs > $rhs};
-sub op_e_gt($lhs,$rhs) {return $lhs >= $rhs};
-
-sub op_and($lhs,$rhs) {return $lhs && $rhs};
-sub op_or($lhs,$rhs) {return $lhs || $rhs};
-
-sub op_xor($lhs,$rhs) {
-
-  my $a=($lhs) ? 1 : 0;
-  my $b=($rhs) ? 1 : 0;
-
-  return $lhs ^ $rhs;
-
-};
-
-# ---   *   ---   *   ---
-# equality
-
-sub op_match($lhs,$rhs) {};
-
-sub op_eq($lhs,$rhs) {return $lhs eq $rhs};
-sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
-
-# ---   *   ---   *   ---
 # GBL
 
   our $REGEX={
 
-    hexn  => qr{\$  [0-9A-Fa-f\.:]+}x,
-    octn  => qr{\\ [0-7\.:]+}x,
-    binn  => qr{0b  [0-1\.:]+}x,
-    decn  => qr{[0-9\.:]+}x,
+    # imports
+    %{$PE_COMMON->get_retab()},
+    %{$PE_VALUE->get_retab()},
+    %{$PE_OPS->get_retab()},
 
-    term  => Lang::nonscap(q[;]),
-    clist => Lang::nonscap(q[,]),
-    lcom  => Lang::eaf(q[\#]),
-
-    nsop  => qr{::},
-
-# ---   *   ---   *   ---
-
-    nterm=>Lang::nonscap(
-
-      q[;],
-
-      iv    => 1,
-      mod   => '+',
-      sigws => 1,
-
-    ),
-
-    sigil=>Lang::eiths(
-
-      [qw(
-
-        $ $: $:% $:/
-
-        %% %
-
-        / // /: //:
-        @ @:
-
-        ~:
-
-        * : -- - ++ + ^ &
-
-        >> >>: << <<:
-
-        |> &>
-
-      )],
-
-      escape=>1
-
-    ),
-
-    ops=>Lang::eiths(
-
-      $OP_KEYS,
-      escape=>1
-
-    ),
-
-# ---   *   ---   *   ---
-
-    bare=>qr{
-
-      [_A-Za-z][_A-Za-z0-9:\.]*
-
-    }x,
-
-    seal=>qr{
-
-      [_A-Za-z<]
-      [_A-Za-z0-9:\-\.]+
-
-      [_A-Za-z>]
-
-    }x,
-
+    # ^new
     q[hier-type]=>Lang::eiths(
 
       [qw(reg rom clan proc)],
@@ -333,8 +148,6 @@ sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
 
     ),
 
-# ---   *   ---   *   ---
-
     width=>Lang::eiths(
 
       [qw(
@@ -360,10 +173,7 @@ sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
 
     ),
 
-# ---   *   ---   *   ---
 
-    tag  => Lang::delim_capt('<','>'),
-    repl => Lang::delim_capt('%'),
 
     branch => qr{
       (?<leaf> (.+))?
@@ -372,11 +182,6 @@ sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
     }x,
 
 # ---   *   ---   *   ---
-
-    dqstr => qr{"([^"]|\\")*?"},
-    sqstr => qr{'([^']|\\')*?'},
-
-    vstr  => qr{v[0-9]\.[0-9]{2}\.[0-9][ab]?},
 
     q[sdef-name] => Lang::eiths(
 
@@ -404,19 +209,35 @@ sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
   };
 
 # ---   *   ---   *   ---
-# lets call these "syntax ops"
+# rule imports
 
-  rule('~?<clist> &rew');
-  rule('~<term>');
-  rule('~<lcom>');
+  ext_rules(
+
+    $PE_COMMON,qw(
+
+    clist lcom
+    term nterm opt-nterm
+
+    beg-curly end-curly
+    fbeg-parens fend-parens
+
+  ));
+
+  ext_rules(
+
+    $PE_VALUE,qw(
+
+    bare seal bare-list
+    sigil flg flg-list
+    num
+
+    value vlist opt-vlist
+
+  ));
 
 # ---   *   ---   *   ---
 # pe file header
 
-  rule('~<sigil>');
-  rule('~<nterm>');
-
-  rule('?<opt-nterm> &clip nterm');
   rule('$<header> &rdhed sigil opt-nterm');
 
 # ---   *   ---   *   ---
@@ -425,253 +246,6 @@ sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
 sub rdhed($self,$branch) {
   my $mach=$self->{mach};
   my @path=$mach->{scope}->path();
-
-};
-
-# ---   *   ---   *   ---
-# numerical notations
-
-  rule('~<hexn>');
-  rule('~<octn>');
-  rule('~<binn>');
-  rule('~<decn>');
-
-  # ^combined
-  rule('|<num> &rdnum hexn octn binn decn');
-
-# ---   *   ---   *   ---
-# converts all numerical
-# notations to decimal
-
-sub rdnum($self,$branch) {
-
-  state %converter=(
-
-    hexn=>\&Lang::pehexnc,
-    octn=>\&Lang::peoctnc,
-    binn=>\&Lang::pebinnc,
-
-  );
-
-  for my $type(keys %converter) {
-
-    my $fn=$converter{$type};
-
-    map {
-
-      $ARG->{value}=$fn->(
-        $ARG->{value}
-
-      );
-
-    } $branch->branches_in(
-      $REGEX->{$type}
-
-    );
-
-  };
-
-  Grammar::list_flatten($self,$branch);
-
-};
-
-# ---   *   ---   *   ---
-# common patterns
-
-  rule('~<width>');
-  rule('~<spec>');
-  rule('*<specs> &list_flatten spec');
-
-  rule('~<bare>');
-  rule('~<seal>');
-
-# ---   *   ---   *   ---
-# string types
-
-  rule('~<dqstr>');
-  rule('~<sqstr>');
-
-  rule('~<vstr>');
-
-  # ^combo
-  rule('|<str> dqstr sqstr vstr');
-
-# ---   *   ---   *   ---
-# ipret double quoted
-
-sub dqstr($self,$branch) {
-
-  my $ct=$branch->leaf_value(0);
-  return unless defined $ct;
-
-  ($ct=~ s[^"([\s\S]*)"$][$1])
-  or throw_badstr($ct);
-
-  charcon(\$ct);
-
-  $branch->{value}={
-
-    ipol => 1,
-    ct   => $ct,
-
-  };
-
-  $branch->clear();
-
-};
-
-# ---   *   ---   *   ---
-# ^single quoted
-
-sub sqstr($self,$branch) {
-
-  my $ct=$branch->leaf_value(0);
-  return unless defined $ct;
-
-  ($ct=~ s[^'([\s\S]*)'$][$1])
-  or throw_badstr($ct);
-
-  $branch->{value}={
-
-    ipol => 0,
-    ct   => $ct,
-
-  };
-
-  $branch->clear();
-
-};
-
-# ---   *   ---   *   ---
-# ^errme
-
-sub throw_badstr($s) {
-
-  errout(
-
-    q[Malformed string: %s],
-
-    args => [$s],
-    lvl  => $AR_FATAL,
-
-  );
-
-};
-
-# ---   *   ---   *   ---
-# soul of perl!
-
-  rule('|<flg-name> &clip bare seal');
-  rule('$<flg> sigil flg-name');
-  rule('$<flist> &list_pop flg clist');
-
-# ---   *   ---   *   ---
-# ^post-parse
-
-sub flg($self,$branch) {
-
-  my $st   = $branch->bhash();
-  my $type = (exists $st->{seal})
-    ? 'seal'
-    : 'bare'
-    ;
-
-  $branch->{value}={
-
-    sigil => $st->{sigil},
-    name  => $st->{$type},
-
-    type  => $type,
-
-  };
-
-  $branch->clear();
-
-};
-
-# ---   *   ---   *   ---
-# combo
-
-  rule(q[
-
-    |<value>
-    &value_sort
-
-    num str flg bare
-
-  ]);
-
-# ---   *   ---   *   ---
-# get values in branch
-
-sub find_values($self,$branch) {
-
-  state $re=qr{^value$};
-
-  return $branch->branches_in(
-    $re,keep_root=>0
-
-  );
-
-};
-
-# ---   *   ---   *   ---
-# branch is value
-
-sub is_value($self,$branch) {
-  return $branch->{value} eq 'value';
-
-};
-
-# ---   *   ---   *   ---
-# ^bat
-
-sub array_is_value($self,@ar) {
-
-  return int(grep {
-   $self->is_value($ARG)
-
-  } @ar) eq @ar;
-
-};
-
-# ---   *   ---   *   ---
-# ^handler
-
-sub value_sort($self,$branch) {
-
-  my $st     = $branch->bhash();
-  my $xx     = $branch->leaf_value(0);
-
-  my ($type) = keys %$st;
-
-  if(is_hashref($xx)) {
-    $type='flg';
-
-  };
-
-  $branch->clear();
-
-  my $o=undef;
-  if(defined $st->{$type}) {
-
-    $o={
-      type => $type,
-      raw  => $st->{$type}
-
-    };
-
-  } else {
-
-    $o={
-      type => $type,
-      raw  => $xx,
-
-    };
-
-  };
-
-  $branch->init($o);
 
 };
 
@@ -932,11 +506,11 @@ sub hier_nit($self,$type) {
 # ---   *   ---   *   ---
 # patterns for declaring members
 
-  rule('$<type> width specs');
-  rule('$<bare-list> &list_flatten bare clist');
-  rule('$<vlist> &list_flatten value clist');
+  rule('~<width>');
+  rule('~<spec>');
+  rule('*<specs> &list_flatten spec');
 
-  rule('?<opt-vlist> &clip vlist');
+  rule('$<type> width specs');
 
   # ^combo
   rule(q[
@@ -1038,16 +612,17 @@ sub bind_decls($self,$branch) {
   # dst
   my $ptrs=[];
 
-fatdump($st);
+  # struct-wise macro expansion
   $scope->crepl(\$st);
-fatdump($st);
 
-say "___________________________\n";
-
+  # iter
   while(@names && @values) {
 
     my $name  = shift @names;
     my $value = shift @values;
+
+    # reparse element after macro expansion
+    $self->value_expand(\$value);
 
     my $o={
       type  => $st->{type},
@@ -1061,6 +636,32 @@ say "___________________________\n";
   };
 
   $branch->{value}=$ptrs;
+
+};
+
+# ---   *   ---   *   ---
+# re-parse string attached
+# to value descriptor
+
+sub value_expand($self,$vref) {
+
+  my $type = $$vref->{type};
+  my $raw  = $$vref->{raw};
+
+  # ipret nums and bares
+  if(! is_hashref($raw)) {
+
+    my $t=$PE_VALUE->parse($raw,-r=>0);
+
+    $t=$t->{p3}->{leaves}->[0];
+    $$vref=$t->leaf_value(0);
+
+  # ^an sre is enough for strings
+  } elsif($type eq 'str') {
+    $raw->{ct}=~ s[^(?:['"])|(?:['"])$][]sxmg;
+    $$vref->{raw}=$raw;
+
+  };
 
 };
 
@@ -1126,8 +727,6 @@ sub rdin_run($self,$branch) {
 # ---   *   ---   *   ---
 # soul of perl v2.0
 
-  rule('%<beg-curly=\{>');
-  rule('%<end-curly=\}>');
   rule('$<vglob> beg-curly flg end-curly');
 
 # ---   *   ---   *   ---
@@ -1480,7 +1079,7 @@ sub sdef_ctx($self,$branch) {
 # switch flips
 
   rule('~<wed-type>');
-  rule('$<wed> wed-type flist');
+  rule('$<wed> wed-type flg-list');
 
 # ---   *   ---   *   ---
 # ^handler
@@ -1492,7 +1091,7 @@ sub wed($self,$branch) {
   $branch->{value}={
 
     type  => uc $st->{q[wed-type]},
-    flags => $st->{flist},
+    flags => $st->{q[flg-list]},
 
   };
 
@@ -1572,477 +1171,6 @@ sub rdre_ctx($self,$branch) {
     $st->{seal}
 
   );
-
-};
-
-# ---   *   ---   *   ---
-# soul of lisp
-
-  rule('%<beg-parens=\(> &erew');
-  rule('%<end-parens=\)> &erew');
-
-  rule('$?<fbeg-parens> &nest_parens beg-parens');
-  rule('$?<fend-parens> &nest_parens end-parens');
-
-# ---   *   ---   *   ---
-# ^post-parse
-
-sub nest_parens($self,$branch) {
-
-  state $is_beg = qr{beg\-parens}x;
-
-  # no match
-  my $lv=$branch->{leaves}->[0];
-  if(! @{$lv->{leaves}}) {
-    Grammar::discard($self,$branch);
-    return;
-
-  };
-
-  # ^its a trap
-  my $f   = $self->{frame};
-  my $top = \$f->{-nest}->{parens};
-
-  # go up one recursion level
-  if($branch->{value}=~ $is_beg) {
-    $branch->{value}=$$top++;
-
-  # ^mark end
-  } else {
-    $branch->{value}=--$$top . '<';
-
-  };
-
-  $branch->clear();
-
-};
-
-# ---   *   ---   *   ---
-# ^context pass
-
-sub nest_parens_ctx($self,$branch) {
-
-  state $re = qr{
-    (?<num> \d+)
-    (?<end> \< )?
-
-  }x;
-
-  my $f    = $self->{frame};
-  my $nest = $f->{-nest}->{parens};
-
-  $branch->{value}=~ $re;
-
-  my $num=$+{num};
-  my $end=$+{end};
-
-  # get all nodes from beg+1 to end
-  if(! defined $end) {
-
-    my $pat=qr{$branch->{value} \<}x;
-
-    my @lv=$branch->match_up_to($pat);
-
-    # ^parent to beg
-    $branch->pushlv(@lv);
-    $branch->{value}="()";
-
-  } else {
-    $branch->{parent}->pluck($branch);
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# operations
-
-  rule('~?<ops> &erew');
-
-  rule(q[
-
-    $<value-op-value>
-    &value_ops
-
-    fbeg-parens
-    value ops
-
-    fend-parens
-
-  ]);
-
-  rule(q[
-
-    $<ari>
-    &erew
-
-    value-op-value ops
-
-  ]);
-
-  rule('$<expr> &expr ari');
-  rule('?<opt-expr> &clip expr');
-
-# ---   *   ---   *   ---
-# get operators in branch
-
-sub find_ops($self,$branch) {
-
-  state $re=qr{^(?:ops|ops2)$};
-
-  return $branch->branches_in(
-    $re,keep_root=>0
-
-  );
-
-};
-
-# ---   *   ---   *   ---
-# get descriptor for operator
-# from the parsed symbol
-
-sub opnit($self,$branch) {
-
-  # remove childless branches
-  if(! @{$branch->{leaves}}) {
-    Grammar::discard($self,$branch);
-    return;
-
-  };
-
-  # get function matching operator
-  my $key  = $branch->leaf_value(0);
-  my $name = $OPHASH->{$key};
-
-  my $fn   = codefind(
-    'Grammar::peso',
-    "op_$name"
-
-  );
-
-  my $st={
-
-    fn    => $fn,
-
-    name  => $name,
-    key   => $key,
-
-    unary => exists $OP_UNARY->{$key},
-    slurp => exists $OP_SLURP->{$key},
-
-    idex  => array_iof($OP_KEYS,$key),
-
-  };
-
-  $branch->{leaves}->[0]->{value}=$st;
-
-};
-
-# ---   *   ---   *   ---
-# ^post-parse
-#
-# find execution data for
-# operators in tree
-
-sub value_ops($self,$branch) {};
-
-# ---   *   ---   *   ---
-# ^sort operators by precedence
-
-sub opsort($self,$branch) {
-
-  my $st     = $branch->leaf_value(0);
-  my $idex   = $branch->{idex};
-  my $lv     = $branch->{parent}->{leaves};
-
-  # get operands
-  my @move=($st->{unary})
-    ? ($lv->[$idex+1])
-    : ($lv->[$idex-1],$lv->[$idex+1])
-    ;
-
-  my ($st_lv)=$branch->pluck(
-    $branch->{leaves}->[0]
-
-  );
-
-  my $st_br=$branch->init('D');
-  $st_br->pushlv($st_lv);
-
-  my $v_br=$branch->init('V');
-  $v_br->pushlv(@move);
-
-  $branch->{parent}->idextrav();
-
-};
-
-# ---   *   ---   *   ---
-# ^pre-run solve operation
-#
-# ops that are unsolvable at
-# this stage are collapsed
-# to ease solving them later
-
-sub opsolve($self,$branch) {
-
-  # remove paens
-  my $par=$branch->{parent};
-  $par->flatten_branch()
-  if $par->{value} eq '()';
-
-  # decompose
-  my ($D,$V) = @{$branch->{leaves}};
-
-  my @leaves = @{$V->{leaves}};
-  my @values = map {
-    $self->opvalue($ARG)
-
-  } @leaves;
-
-  # get op is solvable at this stage
-  my $valid=
-
-     $self->array_is_value(@leaves)
-  && $self->array_needs_deref(@values)
-  ;
-
-  # restruc
-  $self->op_simplify($branch,@values);
-
-  # attempt solving
-  $valid=($valid)
-    ? $self->op_to_value($branch,@values)
-    : $valid
-    ;
-
-  return $valid;
-
-};
-
-# ---   *   ---   *   ---
-# ^bat
-
-sub array_opsolve($self,$branch) {
-  my @ops=$self->find_ops($branch);
-  map {$self->opsolve($ARG)} reverse @ops;
-
-};
-
-# ---   *   ---   *   ---
-# fetch elements from ops V array
-
-sub opvalue($self,$branch) {
-
-  $branch=($branch->{value} eq '()')
-    ? $branch->{leaves}->[0]
-    : $branch
-    ;
-
-  return $branch->leaf_value(0);
-
-};
-
-# ---   *   ---   *   ---
-# collapse op tree branch
-# into value node
-
-sub op_to_value($self,$branch,@values) {
-
-  my $type=$values[0]->{type};
-
-  $branch->{value}='value';
-
-  my $o={
-    raw  => $self->opres($branch),
-    type => $type,
-
-    %{$branch->leaf_value(0)}
-
-  };
-
-  $branch->clear();
-  $branch->init($o);
-
-  return 1;
-
-};
-
-# ---   *   ---   *   ---
-# ^ease eventual solving of op
-
-sub op_simplify($self,$branch,@values) {
-
-  my ($D,$V) = @{$branch->{leaves}};
-  my $st     = $D->leaf_value(0);
-
-  my $o={
-    D    => $st,
-    V    => \@values,
-
-    type => 'ops',
-
-  };
-
-  $branch->clear();
-  $branch->init($o);
-
-};
-
-# ---   *   ---   *   ---
-# get result of operation
-
-sub opres($self,$branch) {
-
-  my $o=$branch->{value};
-
-  return 1 if $o->{type} eq $NULL;
-  return ($o->{type} eq 'value')
-    ? $self->deref($o->{tree})->{raw}
-    : $self->opres_flat($o->{tree})
-    ;
-
-};
-
-# ---   *   ---   *   ---
-# ^no branch
-
-sub opres_flat($self,$o,@values) {
-
-  my $st=$o->{D};
-
-  @values=(! @values)
-    ? @{$o->{V}}
-    : @values
-    ;
-
-  # apply deref to @values
-  # filter out undef from result of map
-  my @deref=grep {defined $ARG} map {
-    $self->deref($ARG)
-
-  } @values;
-
-  # ^early exit if values cant
-  # be all dereferenced
-  return $NULL if @deref ne @values;
-
-  # call func with derefenced args
-  return $st->{fn}->(map {
-    $ARG->{raw}
-
-  } @deref);
-
-};
-
-# ---   *   ---   *   ---
-# ^non-runtime crux
-
-sub value_ops_opz($self,$branch) {
-
-  # sort by priority
-  my @ops=sort {
-
-     $a->leaf_value(0)->{idex}
-  >= $b->leaf_value(0)->{idex}
-
-  } $self->find_ops($branch);
-
-  map {$self->opsort($ARG)} @ops;
-
-  # ^solve from bottom up
-  $self->array_opsolve($branch);
-  $branch->flatten_branch();
-
-};
-
-# ---   *   ---   *   ---
-# recursive op values need deref
-
-sub opconst_flat($self,$o) {
-
-  my $out     = 0;
-
-  my @chk     = ();
-  my @pending = ($o);
-
-  while(@pending) {
-
-    my $op     = shift @pending;
-    my @values = @{$op->{V}};
-
-    for my $v(@values) {
-
-      if($v->{type} eq 'ops') {
-        push @pending,$v;
-
-      } else {
-        push @chk,$self->needs_deref($v);
-
-      };
-
-    };
-
-  };
-
-  map {$out|=$ARG} @chk;
-
-  return ! $out;
-
-};
-
-# ---   *   ---   *   ---
-# recursive sequence
-
-sub expr($self,$branch) {
-
-  my @ops   = $self->find_ops($branch);
-  my @empty = grep {
-    ! defined $ARG->{leaves}->[0]
-
-  } @ops;
-
-  # filter out empty tokens
-  map {$ARG->{parent}->pluck($ARG)} @empty;
-  @ops=grep {defined $ARG->{leaves}->[0]} @ops;
-
-  # ^nit non-empty branches
-  map {$self->opnit($ARG)} @ops;
-
-  # merge value-op-value branches
-  my $ari    = $branch->{leaves}->[0];
-  my @lv     = @{$ari->{leaves}};
-
-  my $anchor = shift @lv;
-
-  for my $x(@lv) {
-
-    my @merge=($x);
-
-    if($x->{value} eq 'value-op-value') {
-      @merge=$x->pluck(@{$x->{leaves}});
-      $ari->pluck($x);
-
-    };
-
-    $anchor->pushlv(@merge);
-
-  };
-
-};
-
-sub expr_ctx($self,$branch) {
-
-#  my $lv=$branch->{leaves}->[-1];
-#  $lv->pluck($lv->{leaves}->[-1]);
-
-  $branch->flatten_branches();
-
-};
-
-sub expr_cl($self,$branch) {
-
-  $branch->flatten_branch()
-  if @{$branch->{leaves}} eq 1;
 
 };
 
@@ -3127,7 +2255,6 @@ sub re_vex($self,$o) {
     switch
     bltn
 
-
   ]);
 
   rule(q[
@@ -3140,7 +2267,7 @@ sub re_vex($self,$o) {
   ]);
 
 # ---   *   ---   *   ---
-# ^generate rules
+# ^generate parser tree
 
   our @CORE=qw(meta needs-term);
 
@@ -3166,9 +2293,10 @@ sub re_vex($self,$o) {
 
   my $ice=Grammar::peso->parse($prog);
 
-#  $ice->{p3}->prich();
+  $ice->{p3}->prich();
 #  $ice->{mach}->{scope}->prich();
-#
+
+
 #  $ice->run(
 #
 #    entry=>1,

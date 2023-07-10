@@ -97,7 +97,7 @@ PROC expr;
 #
 #  byte x $00;
 
-  def V $97;
+  def V -ff;
   def T byte;
 
   T y V;

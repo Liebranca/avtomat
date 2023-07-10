@@ -103,7 +103,10 @@ package Grammar;
 # adds to your namespace
 
   my @EXPORT=qw(
+
     rule
+    ext_rule
+    ext_rules
 
   );
 
@@ -281,6 +284,12 @@ sub parse($self,$s,%O) {
   # defaults
   $O{-r}   //= $self->num_passes()-1;
   $O{skip} //= 0;
+
+  # clamp post-parse num passes
+  $O{-r}=($O{-r} < 0)
+    ? 0
+    : $O{-r}
+    ;
 
   # invoked as Grammar->parse
   if(! length ref $self) {
@@ -751,6 +760,38 @@ sub rule($s) {
   $class->push_rule($out);
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^import from other
+
+sub ext_rule($other,$name) {
+
+  my ($class) = caller;
+  my $out     = $other->fetch_rule($name);
+
+  $class->push_rule($out);
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub ext_rules($other,@names) {
+
+  my ($class) = caller;
+
+  my @out     = map {
+    $other->fetch_rule($ARG)
+
+  } @names;
+
+  map {$class->push_rule($ARG)} @out;
+
+  return @out;
 
 };
 

@@ -369,7 +369,11 @@ sub re_leaf($self,$anchor,$sref,%O) {
 
     # expansion is valid for rule
     if($scope->cdef_get($token) =~ m[($re)]) {
+
+      my $idex=@{$anchor->{leaves}};
+
       $out=$anchor->init($token);
+      $anchor->{is_cdef}->[$idex]=1;
 
     # ^nope
     } else {
@@ -404,6 +408,9 @@ sub re_or_branch($self,$ctx,$sref,%O) {
 
   my $anchors = $ctx->{anchors}->[-1];
   my $anchor  = $anchors->[-1];
+
+  $anchor->{is_cdef}//=[];
+  map {$ARG//=0} @{$anchor->{is_cdef}};
 
   my $dst     = undef;
 
