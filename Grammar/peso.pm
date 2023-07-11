@@ -31,6 +31,7 @@ package Grammar::peso;
   use Arstd::Array;
   use Arstd::String;
   use Arstd::IO;
+  use Arstd::PM;
 
   use Tree::Grammar;
 
@@ -44,6 +45,7 @@ package Grammar::peso;
   use Grammar;
   use Grammar::peso::common;
   use Grammar::peso::value;
+  use Grammar::peso::ops;
 
 # ---   *   ---   *   ---
 # info
@@ -55,6 +57,24 @@ package Grammar::peso;
 # ROM
 
 BEGIN {
+
+  # inherits from
+  submerge(
+
+    [qw(
+
+      Grammar::peso::value
+      Grammar::peso::ops
+
+    )],
+
+    xdeps=>1,
+    subex=>qr{^throw_},
+
+  );
+
+# ---   *   ---   *   ---
+# class attrs
 
   sub Frame_Vars($class) { return {
 
@@ -69,20 +89,12 @@ BEGIN {
 
     },
 
-    %{Grammar->Frame_Vars()},
-
-    -passes => [
-
-      '_ctx','_opz','_cl',
-      '_pre','_ipret',
-
-      '_run'
-
-    ],
+    %{$PE_COMMON->Frame_Vars()},
 
   }};
 
 # ---   *   ---   *   ---
+# mach/file stuff
 
   Readonly our $PE_FLAGS=>{
 
@@ -232,6 +244,14 @@ BEGIN {
     num
 
     value vlist opt-vlist
+
+  ));
+
+  ext_rules(
+
+    $PE_OPS,qw(
+
+    expr opt-expr
 
   ));
 
@@ -1963,188 +1983,6 @@ sub call_run($self,$branch) {
 #  };
 #
 #};
-
-# ---   *   ---   *   ---
-# value expansion
-
-sub vex($self,$fet,$vref,@path) {
-
-  my $mach=$self->{mach};
-
-  # default to current scope
-  @path=$mach->{scope}->path()
-  if ! @path;
-
-  my $out=$mach->{scope}->cderef(
-    $fet,$vref,@path,q[$LIS]
-
-  ) or $mach->{scope}->cderef(
-    $fet,$vref,@path
-
-  );
-
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
-# ^batch
-
-sub array_vex($self,$fet,$ar,@path) {
-
-  my @ar=@$ar;
-
-  for my $v(@ar) {
-    $self->vex($fet,\$v,@path);
-
-  };
-
-  my $valid=int(
-    grep {defined $ARG} @ar
-
-  ) eq @ar;
-
-  my @out=($valid)
-    ? @ar
-    : ()
-    ;
-
-  return @out;
-
-};
-
-# ---   *   ---   *   ---
-# ^name/ptr
-
-sub bare_vex($self,$o) {
-
-  my $raw=$o->{raw};
-  my $out=($self->vex(0,\$raw))
-    ? $raw->{value}
-    : undef
-    ;
-
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
-# ^unary calls
-
-sub flg_vex($self,$o) {
-
-  my $raw  = $o->{raw};
-  my $out  = $NULLSTR;
-
-  my $mach = $self->{mach};
-  my @path = $mach->{scope}->path();
-
-  if($raw->{sigil} eq q[~:]) {
-
-    my $rem=$mach->{scope}->get(
-      @path,q[~:rematch]
-
-    );
-
-    my $key=$raw->{name};
-    $out=pop @{$rem->{$key}};
-
-  };
-
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
-# ^strings
-
-sub str_vex($self,$o) {
-
-  my $raw = $o->{raw};
-
-  my $re  = $REGEX->{repl};
-  my $ct  = $raw->{ct};
-
-  if($raw->{ipol}) {
-
-    while($ct=~ $re) {
-
-      my $name  = $+{capt};
-      my $value = $self->bare_vex($name);
-
-      $ct=~ s[$re][$value];
-
-    };
-
-    nobs(\$ct);
-
-  };
-
-  return $ct;
-
-};
-
-# ---   *   ---   *   ---
-# ^operations
-
-sub ops_vex($self,$o) {
-
-  my @values=map {
-    $self->deref($ARG)
-
-  } @{$o->{V}};
-
-  return {
-
-    raw  => $self->opres_flat($o,@values),
-    type => $values[0]->{type}
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# applies value expansion when needed
-
-sub deref($self,$v) {
-
-  my $out=$v;
-
-  if($self->needs_deref($v)) {
-    my $fn = $v->{type} . '_vex';
-    $out   = $self->$fn($v);
-
-  };
-
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
-# ^check value can be derefenced
-
-sub needs_deref($self,$v) {
-
-  state $re=qr{(?:bare|str|flg|re|ops)};
-
-  return
-     is_hashref($v)
-  && $v->{type}=~ $re
-  ;
-
-};
-
-# ---   *   ---   *   ---
-# ^batch
-
-sub array_needs_deref($self,@ar) {
-
-  return int(grep {
-    $self->needs_deref($ARG)
-
-  } @ar) eq @ar;
-
-};
 
 # ---   *   ---   *   ---
 # solves compound regexes

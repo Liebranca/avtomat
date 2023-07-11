@@ -57,6 +57,21 @@ package Grammar::peso::common;
 # ---   *   ---   *   ---
 # ROM
 
+  sub Frame_Vars($class) { return {
+
+    %{Grammar->Frame_Vars()},
+
+    -passes => [
+
+      '_ctx','_opz','_cl',
+      '_pre','_ipret',
+
+      '_run'
+
+    ],
+
+  }};
+
   Readonly our $PE_COMMON=>
     'Grammar::peso::common';
 

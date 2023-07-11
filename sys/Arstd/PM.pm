@@ -19,15 +19,22 @@ package Arstd::PM;
   use strict;
   use warnings;
 
+  use Devel::Peek;
   use English qw(-no_match_vars);
 
-  use lib $ENV{'ARPATH'}.'/lib/';
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Chk;
+  use Arstd::IO;
 
-  use Mach;
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use Lang;
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT=qw(submerge);
 
 # ---   *   ---   *   ---
 # info
@@ -79,43 +86,116 @@ sub subsof_merge($main,@classes) {
 # ---   *   ---   *   ---
 # ^actually add them to main
 
-sub submerge($main,$classes,%O) {
+sub submerge($classes,%O) {
+
+  if($O{xdeps}) {
+
+    my %filt = map {$ARG=>1} @$classes;
+    my @deps = grep {
+      ! exists $filt{$ARG}
+
+    } array_depsof(@$classes);
+
+    my $re=Lang::eiths(\@deps,bwrap=>1);
+    $O{modex}=qr{^$re$};
+
+  };
 
   # defaults
-  $O{-x} //= $NO_MATCH;
+  $O{subex} //= $NO_MATCH;
+  $O{modex} //= $NO_MATCH;
+
+  my ($main)=caller;
 
   # get [symbol=>module]
   my %subs=subsof_merge($main,@$classes);
 
   # ^filter out excluded subs
+  # and subs from excluded mods
   my @filt=grep {
-    ! ($ARG=~ $O{-x})
+
+    my $ref = "$subs{$ARG}\::$ARG";
+    my $gv  = Devel::Peek::CvGV(\&$ref);
+
+    ! ($ARG=~ $O{subex})
+  &&! (*$gv{PACKAGE}=~ $O{modex})
 
   } keys %subs;
 
-  # ^add symbols to namespace
-  no strict 'refs';
+  # ^bat-xfer
+  map {add_symbol(
+    "$main\::$ARG",
+    "$subs{$ARG}\::$ARG"
 
-  map {
-    *{"$main\::$ARG"}=*{"{$subs{$ARG}\::$ARG"};
-
-  } @filt;
+  )} @filt;
 
   return @filt;
 
 };
 
 # ---   *   ---   *   ---
-# test
+# adds symbol from one
+# namespace to another
 
-map {say $ARG} submerge(
+sub add_symbol($dst,$src) {
+  no strict 'refs';
+  *{$dst}=*{$src};
 
-  'Arstd::PM',
-  [qw(Mach)],
+};
 
-  -x=>qr{^(?:throw_|err)}x,
+# ---   *   ---   *   ---
+# get immediate deps of module
 
-);
+sub depsof($class,$fmain=undef) {
+
+  $class=~ s[::][/]sxmg;
+
+  my $re    = qr{^$class\.pm};
+
+  my @keys  = grep {$ARG=~ $re} keys %INC;
+  my @files = map {$INC{$ARG}} @keys;
+
+  return map {depsof_file($ARG)} @files;
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub array_depsof(@classes) {
+
+  my %tab=map {
+    map {$ARG=>1} depsof($ARG)
+
+  } @classes;
+
+  return keys %tab;
+
+};
+
+# ---   *   ---   *   ---
+# ^get 'use [name]' directives in file
+
+sub depsof_file($fname) {
+
+  state $re=qr{
+
+  \n\s* use \s+
+  (?<name> [^\s]+) ;
+
+  }x;
+
+  my @out  = ();
+  my $body = orc($fname);
+
+  while($body=~ s[$re][]) {
+    push @out,$+{name};
+
+  };
+
+  return @out;
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

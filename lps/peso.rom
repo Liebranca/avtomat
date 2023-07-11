@@ -102,15 +102,15 @@ PROC expr;
 
   T y V;
 
-STOP;
-
-  on 1;
+  on 1+y;
     wed -escape;
 
   or;
     wed -escape;
 
   off;
+
+STOP;
 
 #  tree {$:BB}
 #

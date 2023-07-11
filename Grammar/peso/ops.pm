@@ -31,6 +31,7 @@ package Grammar::peso::ops;
   use Arstd::Array;
   use Arstd::String;
   use Arstd::IO;
+  use Arstd::PM;
 
   use Tree::Grammar;
 
@@ -43,12 +44,13 @@ package Grammar::peso::ops;
 
   use Grammar;
   use Grammar::peso::common;
+  use Grammar::peso::value;
 
 # ---   *   ---   *   ---
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT=qw($PE_VALUE);
+  our @EXPORT=qw($PE_OPS);
 
 # ---   *   ---   *   ---
 # info
@@ -58,6 +60,23 @@ package Grammar::peso::ops;
 
 # ---   *   ---   *   ---
 # ROM
+
+BEGIN {
+
+  # inherits from
+  submerge(
+    [qw(Grammar::peso::value)],
+    xdeps=>1,
+
+  );
+
+# ---   *   ---   *   ---
+# class attrs
+
+  sub Frame_Vars($class) { return {
+    %{$PE_COMMON->Frame_Vars()},
+
+  }};
 
   Readonly our $PE_OPS=>
     'Grammar::peso::ops';
@@ -186,8 +205,6 @@ sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
 
 # ---   *   ---   *   ---
 # GBL
-
-BEGIN {
 
   our $REGEX={
 
@@ -603,6 +620,25 @@ sub expr_cl($self,$branch) {
 
   $branch->flatten_branch()
   if @{$branch->{leaves}} eq 1;
+
+};
+
+# ---   *   ---   *   ---
+# extends $PE_VALUE->vex
+
+sub ops_vex($self,$o) {
+
+  my @values=map {
+    $self->deref($ARG)
+
+  } @{$o->{V}};
+
+  return {
+
+    raw  => $self->opres_flat($o,@values),
+    type => $values[0]->{type}
+
+  };
 
 };
 
