@@ -52,7 +52,7 @@ package Grammar::peso::ops;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -142,6 +142,14 @@ BEGIN {
   };
 
 # ---   *   ---   *   ---
+# ^makes note of ops requiring ctx access
+
+  Readonly our $OP_CTX=>{
+    q[~=] => 1,
+
+  };
+
+# ---   *   ---   *   ---
 # call member F/getset member var
 
 sub op_m_call($lhs,$rhs,@args) {};
@@ -195,7 +203,13 @@ sub op_xor($lhs,$rhs) {
 # ---   *   ---   *   ---
 # equality
 
-sub op_match($lhs,$rhs) {};
+sub op_match($self,$lhs,$rhs) {
+
+  say $self;
+  map {say $ARG} keys %+;
+  say "$lhs,$rhs";
+
+};
 
 sub op_eq($lhs,$rhs) {return $lhs eq $rhs};
 sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
@@ -230,7 +244,6 @@ sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
 # operations
 
   rule('~?<ops> &erew');
-
   rule(q[
 
     $<value-op-value>
@@ -301,6 +314,7 @@ sub opnit($self,$branch) {
 
     unary => exists $OP_UNARY->{$key},
     slurp => exists $OP_SLURP->{$key},
+    ctx   => exists $OP_CTX->{$key},
 
     idex  => array_iof($OP_KEYS,$key),
 
@@ -374,8 +388,8 @@ sub opsolve($self,$branch) {
   # get op is solvable at this stage
   my $valid=
 
-     $self->array_is_value(@leaves)
-  && $self->array_needs_deref(@values)
+      $self->array_is_value(@leaves)
+  &&! $self->array_needs_deref(@values)
   ;
 
   # restruc
@@ -461,16 +475,36 @@ sub op_simplify($self,$branch,@values) {
 };
 
 # ---   *   ---   *   ---
+# unwraps value whenever
+# it is a nested set of ops
+
+sub denest($self,$o) {
+
+  my $out=(exists $o->{tree})
+    ? $o->{tree}
+    : $o
+    ;
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # get result of operation
 
 sub opres($self,$branch) {
 
-  my $o=$branch->{value};
+  my $o=($self->is_value($branch))
+    ? $branch->leaf_value(0)
+    : $branch->{value}
+    ;
+
+  my $tree=$self->denest($o);
 
   return 1 if $o->{type} eq $NULL;
   return ($o->{type} eq 'value')
-    ? $self->deref($o->{tree})->{raw}
-    : $self->opres_flat($o->{tree})
+    ? $self->deref($o)->{raw}
+    : $self->opres_flat($o)
     ;
 
 };
@@ -480,10 +514,11 @@ sub opres($self,$branch) {
 
 sub opres_flat($self,$o,@values) {
 
-  my $st=$o->{D};
+  my $tree = $self->denest($o);
+  my $st   = $tree->{D};
 
   @values=(! @values)
-    ? @{$o->{V}}
+    ? @{$tree->{V}}
     : @values
     ;
 
@@ -498,11 +533,15 @@ sub opres_flat($self,$o,@values) {
   # be all dereferenced
   return $NULL if @deref ne @values;
 
-  # call func with derefenced args
-  return $st->{fn}->(map {
-    $ARG->{raw}
+  my @args=map {
+    (is_hashref($ARG)) ? $ARG->{raw} : $ARG
 
-  } @deref);
+  } @deref;
+
+  unshift @args,$self if $st->{ctx};
+
+  # call func with derefenced args
+  return $st->{fn}->(@args);
 
 };
 

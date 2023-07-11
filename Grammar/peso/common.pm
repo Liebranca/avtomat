@@ -62,6 +62,7 @@ package Grammar::peso::common;
 
     -nest => {
       parens => 0,
+      curly  => 0,
       switch => 0,
 
     },
@@ -97,6 +98,52 @@ BEGIN {
     tag   => Lang::delim_capt('<','>'),
     repl  => Lang::delim_capt('%'),
 
+# ---   *   ---   *   ---
+# [^{]+ | [^}]+
+
+    q[nbeg-curly] => Lang::nonscap(
+
+      q[\{],
+
+      iv    => 1,
+      mod   => '+',
+      sigws => 1,
+
+    ),
+
+    q[nend-curly] => Lang::nonscap(
+
+      q[\}],
+
+      iv    => 1,
+      mod   => '+',
+      sigws => 1,
+
+    ),
+
+# ---   *   ---   *   ---
+# [^(]+ | [^)]+
+
+    q[nbeg-parens] => Lang::nonscap(
+
+      q[\(],
+
+      iv    => 1,
+      mod   => '+',
+      sigws => 1,
+
+    ),
+
+    q[nend-parens] => Lang::nonscap(
+
+      q[\)],
+
+      iv    => 1,
+      mod   => '+',
+      sigws => 1,
+
+    ),
+
   };
 
 # ---   *   ---   *   ---
@@ -115,33 +162,31 @@ BEGIN {
 # ---   *   ---   *   ---
 # open/close
 
-  rule('%<beg-curly=\{>');
-  rule('%<end-curly=\}>');
-
+  rule('%<beg-curly=\{> &erew');
+  rule('%<end-curly=\}> &erew');
   rule('%<beg-parens=\(> &erew');
   rule('%<end-parens=\)> &erew');
 
   rule('$?<fbeg-parens> &nest_parens beg-parens');
   rule('$?<fend-parens> &nest_parens end-parens');
+  rule('$?<fbeg-curly> &nest_curly beg-curly');
+  rule('$?<fend-curly> &nest_curly end-curly');
 
 # ---   *   ---   *   ---
-# ^post-parse
+# ^post parse
 
-sub nest_parens($self,$branch) {
-
-  state $is_beg = qr{beg\-parens}x;
+sub nest_delim($self,$branch,$key,$is_beg) {
 
   # no match
   my $lv=$branch->{leaves}->[0];
   if(! @{$lv->{leaves}}) {
     Grammar::discard($self,$branch);
-    return;
+    return 0;
 
   };
 
-  # ^its a trap
   my $f   = $self->{frame};
-  my $top = \$f->{-nest}->{parens};
+  my $top = \$f->{-nest}->{$key};
 
   # go up one recursion level
   if($branch->{value}=~ $is_beg) {
@@ -153,14 +198,14 @@ sub nest_parens($self,$branch) {
 
   };
 
-  $branch->clear();
+  return 1;
 
 };
 
 # ---   *   ---   *   ---
 # ^context pass
 
-sub nest_parens_ctx($self,$branch) {
+sub nest_delim_ctx($self,$branch,$key,$repl) {
 
   state $re = qr{
     (?<num> \d+)
@@ -169,7 +214,7 @@ sub nest_parens_ctx($self,$branch) {
   }x;
 
   my $f    = $self->{frame};
-  my $nest = $f->{-nest}->{parens};
+  my $nest = $f->{-nest}->{$key};
 
   $branch->{value}=~ $re;
 
@@ -179,18 +224,57 @@ sub nest_parens_ctx($self,$branch) {
   # get all nodes from beg+1 to end
   if(! defined $end) {
 
-    my $pat=qr{$branch->{value} \<}x;
-
-    my @lv=$branch->match_up_to($pat);
+    my $pat = qr{$branch->{value} \<}x;
+    my @lv  = $branch->match_up_to($pat);
 
     # ^parent to beg
     $branch->pushlv(@lv);
-    $branch->{value}="()";
+    $branch->{value}=$repl;
 
   } else {
     $branch->{parent}->pluck($branch);
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# ^curly ice
+
+sub nest_curly($self,$branch) {
+
+  state $is_beg = qr{beg\-curly}x;
+  return if ! $self->nest_delim(
+    $branch,'curly',$is_beg
+
+  );
+
+  $branch->clear();
+
+};
+
+sub nest_curly_ctx($self,$branch) {
+  $self->nest_delim_ctx($branch,'curly','{}');
+
+};
+
+# ---   *   ---   *   ---
+# ^parens ice
+
+sub nest_parens($self,$branch) {
+
+  state $is_beg = qr{beg\-parens}x;
+  return if ! $self->nest_delim(
+    $branch,'parens',$is_beg
+
+  );
+
+  $branch->clear();
+
+};
+
+sub nest_parens_ctx($self,$branch) {
+  $self->nest_delim_ctx($branch,'parens','()');
 
 };
 

@@ -77,6 +77,12 @@ BEGIN {
 
   };
 
+  Readonly our $RE_FN=>[
+    -qwor   => q[qwor],
+    -sigws  => q[sigws],
+
+  ];
+
   Readonly our $PE_RE=>
     'Grammar::peso::re';
 
@@ -121,7 +127,7 @@ sub rdre($self,$branch) {
 
     type  => $st->{q[re-type]},
 
-    nterm => $st->{nterm},
+    raw   => $st->{nterm},
     seal  => $st->{seal},
 
   };
@@ -135,32 +141,45 @@ sub rdre($self,$branch) {
 
 sub rdre_ctx($self,$branch) {
 
-  my $st   = $branch->{value};
+  my $st=$branch->{value};
 
-  my $mach = $self->{mach};
-  my @path = $mach->{scope}->path();
+  # ^expand and write to mem
+  $st->{re}=$self->re_vex($st);
+  $self->bind_re($branch);
 
-  # dereference
-  my ($o,$flags)=$self->re_vex($st->{nterm});
+};
+
+# ---   *   ---   *   ---
+# ^write expanded regex to mem
+
+sub bind_re($self,$branch) {
+
+  my $st    = $branch->{value};
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+  my $re    = $st->{re};
 
   # use expr name for capture
   # ie (?<name> expr)
-  $o=q[(?<].$st->{seal}.q[>].$o.q[)];
+  $re=q[(?<].$st->{seal}.q[>].$re.q[)];
 
-  # re is whitespace intolerant
-  $o=(! $flags->{-sigws})
-    ? qr{$o}x
-    : qr{$o}
+  # is whitespace intolerant
+  $re=(! $st->{flags}->{-sigws})
+    ? qr{$re}x
+    : qr{$re}
     ;
 
-  # push to current namespace
-  $mach->{scope}->decl(
+  # ^push to current namespace
+  $scope->decl(
 
-    $o,
+    $re,
 
-    @path,
+    $scope->path(),
+
     $st->{type},
-    $st->{seal}
+    $st->{seal},
 
   );
 
@@ -171,58 +190,33 @@ sub rdre_ctx($self,$branch) {
 
 sub re_vex($self,$o) {
 
-  my $mach  = $self->{mach};
-  my @path  = $mach->{scope}->path();
-  my $flags = {};
+  # copy raw
+  my $raw=$o->{raw};
 
-  # fetch flags from ctx
-  for my $key(keys %$PE_RE_FLAGS) {
-    my $x=$mach->{scope}->get(@path,$key);
-    $flags->{$key}=$x;
+  # ^transform
+  my $out   = $self->detag($raw);
+  my $flags = $self->apply_re_flags(
+    $o->{seal},\$out
 
-  };
+  );
 
-  # expand <exprs> in re
-  $o=$self->detag($o);
+  $o->{re}    = $out;
+  $o->{flags} = $flags;
 
-  # significant whitespace turned off
-  if(! $flags->{-sigws}) {
-    $o=~ s[[\s\n]+][ ]sxmg;
-
-  };
-
-  # perl qw() style lists
-  if($flags->{-qwor}) {
-
-    my @ar=split $SPACE_RE,$o;
-    array_filter(\@ar);
-
-    $o=Lang::eiths(
-
-      \@ar,
-
-      escape=>$flags->{-escape},
-      insens=>$flags->{-insens},
-
-    );
-
-  };
-
-  return ($o,$flags);
+  return $out;
 
 };
 
 # ---   *   ---   *   ---
-# ^solves compound regexes
+# ^expand <exprs> in re
 
-sub detag($self,$o) {
+sub detag($self,$raw) {
 
   my @tags=();
-  my $mach=$self->{mach};
 
   # fetch every <expr> from scope
   # replace <expr> with placeholder token
-  while($o=~ s[$REGEX->{tag}][$Shwl::PL_CUT]) {
+  while($raw=~ s[$REGEX->{tag}][$Shwl::PL_CUT]) {
 
     push @tags,(join q[|],map {
       $self->fetch_re($ARG)
@@ -234,11 +228,11 @@ sub detag($self,$o) {
   # ^replace placeholder with
   # the expansion of <expr>
   for my $x(@tags) {
-    $o=~ s[$Shwl::PL_CUT_RE][$x];
+    $raw=~ s[$Shwl::PL_CUT_RE][$x];
 
   };
 
-  return $o;
+  return $raw;
 
 };
 
@@ -264,6 +258,82 @@ sub fetch_re($self,$name) {
   );
 
   return $$rer;
+
+};
+
+# ---   *   ---   *   ---
+# fetch regex parse flags from ctx
+
+sub get_re_flags($self) {
+
+  my $out   = {};
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+  my @path  = $scope->path();
+
+  map {
+    $out->{$ARG}=$scope->get(@path,$ARG)
+
+  } keys %$PE_RE_FLAGS;
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# apply transforms to regex
+# accto parser flags
+
+sub apply_re_flags($self,$id,$sref) {
+
+  state %tab=@$RE_FN;
+
+  my $flags=$self->get_re_flags();
+
+  map {
+
+    my $f="re_flags_$tab{$ARG}";
+    $self->$f($sref,$flags);
+
+  } array_keys($RE_FN);
+
+  return $flags;
+
+};
+
+# ---   *   ---   *   ---
+# significant whitespace turned off
+
+sub re_flags_sigws($self,$sref,$flags) {
+
+  state $re=qr{[\s\n]+};
+
+  $$sref=~ s[$re][ ]sxmg
+  if ! $flags->{-sigws};
+
+};
+
+# ---   *   ---   *   ---
+# perl qw() style lists
+
+sub re_flags_qwor($self,$sref,$flags) {
+
+  if($flags->{-qwor}) {
+
+    my @ar=split $SPACE_RE,$$sref;
+    array_filter(\@ar);
+
+    $$sref=Lang::eiths(
+
+      \@ar,
+
+      escape=>$flags->{-escape},
+      insens=>$flags->{-insens},
+
+    );
+
+  };
 
 };
 

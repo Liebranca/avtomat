@@ -93,7 +93,7 @@ ROM std;
 PROC expr;
 
   in byte str s;
-  lis {/:f} 1;
+#  lis {/:f} 1;
 
   byte x $00;
 
@@ -102,12 +102,7 @@ PROC expr;
 
   T y V;
 
-  on 1+y;
-    wed -escape;
-
-  or (2*y);
-    unwed -escape;
-
+  on s ~= { ^<bare> };
   off;
 
 STOP;

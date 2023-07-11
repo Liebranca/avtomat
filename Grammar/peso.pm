@@ -61,6 +61,7 @@ BEGIN {
 
     [qw(
 
+      Grammar::peso::common
       Grammar::peso::value
       Grammar::peso::re
 
@@ -641,34 +642,7 @@ sub bind_decls($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# re-parse string attached
-# to value descriptor
-
-sub value_expand($self,$vref) {
-
-  return if ! is_hashref($$vref);
-
-  my $type = $$vref->{type};
-  my $raw  = $$vref->{raw};
-
-  # ipret nums and bares
-  if(! is_hashref($raw)) {
-
-    my $t=$PE_VALUE->parse($raw,-r=>0);
-
-    $t=$t->{p3}->{leaves}->[0];
-    $$vref=$t->leaf_value(0);
-
-  # ^an sre is enough for strings
-  } elsif($type eq 'str') {
-    $raw->{ct}=~ s[^(?:['"])|(?:['"])$][]sxmg;
-    $$vref->{raw}=$raw;
-
-  };
-
-};
-
-# ---   *   ---   *   ---
+# in/out ctl
 
   rule('~<io-type>');
   rule('$<io> &rdio io-type ptr-decl');
@@ -1472,26 +1446,6 @@ sub jmp_run($self,$branch) {
 
 # ---   *   ---   *   ---
 
-#  Readonly our $MATCH=>{
-#
-#    name => 'match',
-#
-#    fn   => 'match',
-#    dom  => 'Grammar::peso',
-#
-#    chld => [
-#
-#      $VALUE,
-#      {name=>qr{~=}},
-#
-#      $NTERM,
-#
-#    ],
-#
-#  };
-#
-## ---   *   ---   *   ---
-#
 #sub match_ctx($self,$branch) {
 #
 #  my $mach       = $self->{mach};
@@ -1520,7 +1474,7 @@ sub jmp_run($self,$branch) {
 #  $branch->clear();
 #
 #};
-#
+
 ## ---   *   ---   *   ---
 ## ^exec
 #
@@ -1976,22 +1930,22 @@ sub call_run($self,$branch) {
 
   my $ice=Grammar::peso->parse($prog);
 
-  $ice->{p3}->prich();
+#  $ice->{p3}->prich();
 #  $ice->{mach}->{scope}->prich();
 
 
-#  $ice->run(
-#
-#    entry=>1,
-#    keepx=>1,
-#
-#    input=>[
-#
-#      '-hey',
-#
-#    ],
-#
-#  );
+  $ice->run(
+
+    entry=>1,
+    keepx=>1,
+
+    input=>[
+
+      '-hey',
+
+    ],
+
+  );
 
 # ---   *   ---   *   ---
 1; # ret

@@ -48,7 +48,7 @@ package Grammar::peso::value;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -284,7 +284,7 @@ sub flg($self,$branch) {
     |<value>
     &value_sort
 
-    num str flg bare
+    num str flg seal bare
 
   ]);
 
@@ -292,6 +292,8 @@ sub flg($self,$branch) {
 # ^handler
 
 sub value_sort($self,$branch) {
+
+  state $is_re=qr{^\< (?<id> [^>]+) \>$}x;
 
   my $st     = $branch->bhash();
   my $xx     = $branch->leaf_value(0);
@@ -305,12 +307,30 @@ sub value_sort($self,$branch) {
 
   $branch->clear();
 
-  my $o=undef;
+  my $o={};
+
   if(defined $st->{$type}) {
 
-    $o={
-      type => $type,
-      raw  => $st->{$type}
+    my $raw=$st->{$type};
+
+    if($type eq 'seal' && $raw=~ $is_re) {
+
+      $o={
+
+        type => 're',
+
+        seal => $+{id},
+        raw  => $raw,
+
+      };
+
+    } else {
+
+      $o={
+        type => $type,
+        raw  => $st->{$type}
+
+      };
 
     };
 
@@ -384,7 +404,7 @@ sub deref($self,$v) {
 
 sub needs_deref($self,$v) {
 
-  state $re=qr{(?:bare|str|flg|re|ops)};
+  state $re=qr{(?:seal|bare|str|flg|re|ops)};
 
   return
      is_hashref($v)
@@ -470,6 +490,18 @@ sub bare_vex($self,$o) {
 };
 
 # ---   *   ---   *   ---
+# ^ptr to complex
+
+sub seal_vex($self,$o) {
+
+  use Fmat;
+  
+
+  return $o;
+
+};
+
+# ---   *   ---   *   ---
 # ^unary calls
 
 sub flg_vex($self,$o) {
@@ -522,6 +554,34 @@ sub str_vex($self,$o) {
   };
 
   return $ct;
+
+};
+
+# ---   *   ---   *   ---
+# re-parse string attached
+# to value descriptor
+
+sub value_expand($self,$vref) {
+
+  return if ! is_hashref($$vref);
+
+  my $type = $$vref->{type};
+  my $raw  = $$vref->{raw};
+
+  # ipret nums and bares
+  if(! is_hashref($raw)) {
+
+    my $t=$PE_VALUE->parse($raw,-r=>0);
+
+    $t=$t->{p3}->{leaves}->[0];
+    $$vref=$t->leaf_value(0);
+
+  # ^an sre is enough for strings
+  } elsif($type eq 'str') {
+    $raw->{ct}=~ s[^(?:['"])|(?:['"])$][]sxmg;
+    $$vref->{raw}=$raw;
+
+  };
 
 };
 
