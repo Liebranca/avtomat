@@ -22,7 +22,7 @@ package Grammar::peso::ops;
   use Readonly;
   use English qw(-no_match_vars);
 
-  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
   use Chk;
@@ -35,10 +35,7 @@ package Grammar::peso::ops;
 
   use Tree::Grammar;
 
-  use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
-  use Shwl;
-
-  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use lib $ENV{'ARPATH'}.'/lib/';
 
   use Lang;
 
@@ -55,7 +52,7 @@ package Grammar::peso::ops;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -645,7 +642,7 @@ sub ops_vex($self,$o) {
 # ---   *   ---   *   ---
 # ^generate parser tree
 
-  our @CORE=qw();
+  our @CORE=qw(expr);
 
 # ---   *   ---   *   ---
 

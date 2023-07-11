@@ -22,7 +22,7 @@ package Grammar::peso;
   use Readonly;
   use English qw(-no_match_vars);
 
-  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
   use Chk;
@@ -35,22 +35,20 @@ package Grammar::peso;
 
   use Tree::Grammar;
 
-  use lib $ENV{'ARPATH'}.'/avtomat/hacks/';
-  use Shwl;
-
-  use lib $ENV{'ARPATH'}.'/avtomat/';
+  use lib $ENV{'ARPATH'}.'/lib/';
 
   use Lang;
-
   use Grammar;
+
   use Grammar::peso::common;
   use Grammar::peso::value;
   use Grammar::peso::ops;
+  use Grammar::peso::re;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.4;#b
+  our $VERSION = v0.01.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -64,6 +62,8 @@ BEGIN {
     [qw(
 
       Grammar::peso::value
+      Grammar::peso::re
+
       Grammar::peso::ops
 
     )],
@@ -82,13 +82,6 @@ BEGIN {
     -cclan  => 'non',
     -cproc  => undef,
 
-    -nest   => {
-
-      parens=>0,
-      switch=>0,
-
-    },
-
     %{$PE_COMMON->Frame_Vars()},
 
   }};
@@ -97,11 +90,7 @@ BEGIN {
 # mach/file stuff
 
   Readonly our $PE_FLAGS=>{
-
-    -qwor   => 0,
-    -insens => 0,
-    -escape => 0,
-    -sigws  => 0,
+    %{$PE_RE_FLAGS},
 
   };
 
@@ -122,6 +111,7 @@ BEGIN {
     %{$PE_COMMON->get_retab()},
     %{$PE_VALUE->get_retab()},
     %{$PE_OPS->get_retab()},
+    %{$PE_RE->get_retab()},
 
     # ^new
     q[hier-type]=>Lang::eiths(
@@ -145,15 +135,6 @@ BEGIN {
     q[wed-type]=>Lang::eiths(
 
       [qw(wed unwed)],
-
-      bwrap  => 1,
-      insens => 1,
-
-    ),
-
-    q[re-type]=>Lang::eiths(
-
-      [qw(re)],
 
       bwrap  => 1,
       insens => 1,
@@ -184,8 +165,6 @@ BEGIN {
       insens => 1,
 
     ),
-
-
 
     branch => qr{
       (?<leaf> (.+))?
@@ -254,6 +233,8 @@ BEGIN {
     expr opt-expr
 
   ));
+
+  ext_rules($PE_RE,qw(re));
 
 # ---   *   ---   *   ---
 # pe file header
@@ -664,6 +645,8 @@ sub bind_decls($self,$branch) {
 # to value descriptor
 
 sub value_expand($self,$vref) {
+
+  return if ! is_hashref($$vref);
 
   my $type = $$vref->{type};
   my $raw  = $$vref->{raw};
@@ -1141,60 +1124,7 @@ sub wed_ctx($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# regex definitions
-
-  rule('~<re-type>');
-  rule('$<re> &rdre re-type seal nterm');
-
-# ---   *   ---   *   ---
-# interprets regex definitions
-
-sub rdre($self,$branch) {
-
-  my $st=$branch->bhash(0,0,0);
-
-  $branch->{value}={
-
-    type  => $st->{q[re-type]},
-
-    nterm => $st->{nterm},
-    seal  => $st->{seal},
-
-  };
-
-  $branch->clear();
-
-};
-
-sub rdre_ctx($self,$branch) {
-
-  my $st   = $branch->{value};
-
-  my $mach = $self->{mach};
-  my @path = $mach->{scope}->path();
-
-  my ($o,$flags)=$self->re_vex($st->{nterm});
-
-  $o=q[(?<].$st->{seal}.q[>].$o.q[)];
-
-  $o=(! $flags->{-sigws})
-    ? qr{$o}x
-    : qr{$o}
-    ;
-
-  $mach->{scope}->decl(
-
-    $o,
-
-    @path,
-    $st->{type},
-    $st->{seal}
-
-  );
-
-};
-
-# ---   *   ---   *   ---
+# switches
 
   rule('~<on-key>');
   rule('~<or-key>');
@@ -1506,6 +1436,7 @@ REPEAT:
 };
 
 # ---   *   ---   *   ---
+# ^all others fork from here
 
 sub switch($self,$branch) {
 
@@ -1983,92 +1914,6 @@ sub call_run($self,$branch) {
 #  };
 #
 #};
-
-# ---   *   ---   *   ---
-# solves compound regexes
-
-sub detag($self,$o) {
-
-  my @tags=();
-
-  my $mach=$self->{mach};
-  my @path=$mach->{scope}->path();
-
-  while($o=~ s[$REGEX->{tag}][$Shwl::PL_CUT]) {
-
-    my @ar=split q[\|],$+{capt};
-
-    for my $name(@ar) {
-
-      my @npath = split $REGEX->{nsop},$name;
-      $name     = pop @npath;
-
-      push @npath,'re',$name;
-
-      my $rer=$mach->{scope}->search(
-
-        (join q[::],@npath),
-        @path
-
-      );
-
-      $name=$$rer;
-
-    };
-
-    push @tags,(join q[|],@ar);
-
-  };
-
-  for my $x(@tags) {
-    $o=~ s[$Shwl::PL_CUT_RE][$x];
-
-  };
-
-  return $o;
-
-};
-
-# ---   *   ---   *   ---
-# regex expansion
-
-sub re_vex($self,$o) {
-
-  my $mach  = $self->{mach};
-  my @path  = $mach->{scope}->path();
-  my $flags = {};
-
-  for my $key(keys %$PE_FLAGS) {
-    my $x=$mach->{scope}->get(@path,$key);
-    $flags->{$key}=$x;
-
-  };
-
-  $o=$self->detag($o);
-
-  if(! $flags->{-sigws}) {
-    $o=~ s[[\s\n]+][ ]sxmg;
-
-  };
-
-  if($flags->{-qwor}) {
-
-    my @ar=split $SPACE_RE,$o;
-    array_filter(\@ar);
-
-    $o=Lang::eiths(
-      \@ar,
-
-      escape=>$flags->{-escape},
-      insens=>$flags->{-insens},
-
-    );
-
-  };
-
-  return ($o,$flags);
-
-};
 
 # ---   *   ---   *   ---
 # groups
