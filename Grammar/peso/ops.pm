@@ -62,7 +62,14 @@ BEGIN {
 
   # inherits from
   submerge(
-    [qw(Grammar::peso::value)],
+
+    [qw(
+
+      Grammar::peso::common
+      Grammar::peso::value
+
+    )],
+
     xdeps=>1,
 
   );
@@ -205,9 +212,27 @@ sub op_xor($lhs,$rhs) {
 
 sub op_match($self,$lhs,$rhs) {
 
-  say $self;
-  map {say $ARG} keys %+;
-  say "$lhs,$rhs";
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+  my $out=int($lhs=~ $rhs);
+
+  if($out) {
+
+    my $matches=$scope->get(
+      $scope->path(),q[~:rematch]
+
+    );
+
+    map {
+      $matches->{$ARG}//=[];
+      push @{$matches->{$ARG}},%+{$ARG};
+
+    } keys %+;
+
+  };
+
+  return $out;
 
 };
 
@@ -234,15 +259,160 @@ sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
   ext_rules(
 
     $PE_COMMON,qw(
+    fbeg-curly  fend-curly
     fbeg-parens fend-parens
+
+    opt-ncurly
 
   ));
 
-  ext_rules($PE_VALUE,qw(value));
+  ext_rules(
+
+    $PE_VALUE,qw(
+    value flg sigil seal bare
+
+  ));
+
+# ---   *   ---   *   ---
+# sub-scopes within expressions
+
+  rule(q[
+
+    $<invoke>
+
+    fbeg-curly
+    value opt-ncurly
+
+    fend-curly
+
+  ]);
+
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub invoke($self,$branch) {
+
+  if(@{$branch->{leaves}} < 3) {
+    Grammar::discard($self,$branch);
+    return;
+
+  };
+
+  my $depth=$branch->leaf_value(0);
+  my $value=$branch->{leaves}->[1];
+  my $nterm=$branch->{leaves}->[2];
+
+  my $st={
+
+    depth => $depth,
+
+    type  => $value->leaf_value(0)->{raw},
+    raw   => $nterm->leaf_value(0),
+
+  };
+
+  $branch->clear();
+  $branch->init($st);
+
+  $branch->{value}='unsorted_invoke';
+
+};
+
+# ---   *   ---   *   ---
+# ^parents one invoke to another
+# accto their depth
+
+sub invoke_ctx($self,$branch) {
+
+  return if $branch->{value} eq 'invoke';
+
+  my $st  = $branch->leaf_value(0);
+  my $par = $branch->{parent};
+
+  my @lv  = $self->find_invokes($par);
+
+  goto SKIP if ! $st->{depth} ||! @lv;
+
+  # get nearest invoke
+  my @lower=sort {
+    $a->leaf_value(0)->{depth}
+  > $b->leaf_value(0)->{depth}
+
+  } grep {
+
+    $ARG->leaf_value(0)->{depth}
+  < $st->{depth};
+
+  } reverse @lv;
+
+  # ^anchor to it
+  my $other=pop @lower;
+  $other->pushlv($branch) if defined $other;
+
+
+SKIP:
+
+  $branch->{value}='invoke';
+
+};
+
+# ---   *   ---   *   ---
+# ^converts invoke to value
+
+sub invoke_ord($self,$branch) {
+
+  my $lv=$branch->{leaves}->[0];
+  my $st=$lv->{value};
+
+  delete $st->{depth};
+
+  $branch->pluck($lv);
+
+  # solve nested
+  map {
+    $self->invoke_ord($ARG)
+
+  } @{$branch->{leaves}};
+
+  # ^TODO: actually solve ;>
+  $branch->clear();
+  $branch->{value}='value';
+  $branch->init($st);
+
+};
+
+# ---   *   ---   *   ---
+# get invokes in branch
+
+sub find_invokes($self,$branch) {
+
+  state $re=qr{^invoke$};
+
+  return $branch->branches_in(
+    $re,keep_root=>0
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^unsorted
+
+sub find_uinvokes($self,$branch) {
+
+  state $re=qr{^unsorted invoke$};
+
+  return $branch->branches_in(
+    $re,keep_root=>0
+
+  );
+
+};
 
 # ---   *   ---   *   ---
 # operations
 
+  rule('|<value-or-invoke> &clip value invoke');
   rule('~?<ops> &erew');
   rule(q[
 
@@ -250,7 +420,7 @@ sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
     &value_ops
 
     fbeg-parens
-    value ops
+    value-or-invoke ops
 
     fend-parens
 
@@ -265,15 +435,19 @@ sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
 
   ]);
 
+# ---   *   ---   *   ---
+# ^all together
+
   rule('$<expr> &expr ari');
   rule('?<opt-expr> &clip expr');
+  rule('?<rec-expr> &erew expr');
 
 # ---   *   ---   *   ---
 # get operators in branch
 
 sub find_ops($self,$branch) {
 
-  state $re=qr{^(?:ops)$};
+  state $re=qr{^ops$};
 
   return $branch->branches_in(
     $re,keep_root=>0
@@ -323,14 +497,6 @@ sub opnit($self,$branch) {
   $branch->{leaves}->[0]->{value}=$st;
 
 };
-
-# ---   *   ---   *   ---
-# ^post-parse
-#
-# find execution data for
-# operators in tree
-
-sub value_ops($self,$branch) {};
 
 # ---   *   ---   *   ---
 # ^sort operators by precedence
@@ -621,10 +787,17 @@ sub expr($self,$branch) {
   # ^nit non-empty branches
   map {$self->opnit($ARG)} @ops;
 
-  # merge value-op-value branches
-  my $ari    = $branch->{leaves}->[0];
-  my @lv     = @{$ari->{leaves}};
+  my $ari=$branch->{leaves}->[0];
+  $self->expr_merge($ari);
 
+};
+
+# ---   *   ---   *   ---
+# merge value-op-value branches
+
+sub expr_merge($self,$branch) {
+
+  my @lv     = @{$branch->{leaves}};
   my $anchor = shift @lv;
 
   # ^walk
@@ -634,7 +807,7 @@ sub expr($self,$branch) {
 
     if($x->{value} eq 'value-op-value') {
       @merge=$x->pluck(@{$x->{leaves}});
-      $ari->pluck($x);
+      $branch->pluck($x);
 
     };
 
@@ -648,14 +821,47 @@ sub expr($self,$branch) {
 # ^cleanup
 
 sub expr_ctx($self,$branch) {
+
+  state $re=qr{^rec\-expr$};
+
+  my $par=$branch->{parent};
+
   $branch->flatten_branches();
+  $branch->flatten_branch();
 
-};
+  if(
 
-sub expr_cl($self,$branch) {
+     defined $par
+  && defined $par->{parent}
 
-  $branch->flatten_branch()
-  if @{$branch->{leaves}} eq 1;
+  ) {
+
+    my $root=$par->{parent};
+
+    if(! defined $root->{done}) {
+
+      $root->{done}=1;
+
+      my @rec = $root->branches_in($re);
+      my $beg = shift @rec;
+
+      map {
+
+        my @lv=map {
+          $ARG->flatten_branches();
+
+        } @{$ARG->{leaves}};
+
+        $beg->pushlv(@lv);
+        $root->pluck($ARG);
+
+      } @rec;
+
+      $self->expr_merge($par);
+
+    };
+
+  };
 
 };
 
@@ -681,7 +887,7 @@ sub ops_vex($self,$o) {
 # ---   *   ---   *   ---
 # ^generate parser tree
 
-  our @CORE=qw(expr);
+  our @CORE=qw(rec-expr);
 
 # ---   *   ---   *   ---
 

@@ -284,7 +284,7 @@ sub flg($self,$branch) {
     |<value>
     &value_sort
 
-    num str flg seal bare
+    num str flg sigil seal bare
 
   ]);
 
@@ -493,10 +493,6 @@ sub bare_vex($self,$o) {
 # ^ptr to complex
 
 sub seal_vex($self,$o) {
-
-  use Fmat;
-  
-
   return $o;
 
 };

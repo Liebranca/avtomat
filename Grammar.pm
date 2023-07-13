@@ -835,14 +835,18 @@ sub erew($self,$branch) {
     : $other->{parent}
     ;
 
-  my $anchor  = $anchors->[-1];
+  my $anchor  = (defined $anchors->[-1])
+    ? $anchors->[-1]
+    : $branch
+    ;
+
   my $status  = $anchor->status_ok();
 
   unshift @$pending,
     @{$par->{leaves}},
     $branch->depth(),
 
-  if $status;
+  if $status && defined $par;
 
 };
 

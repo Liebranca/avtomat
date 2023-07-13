@@ -48,7 +48,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.5;#b
+  our $VERSION = v0.01.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -1930,7 +1930,7 @@ sub call_run($self,$branch) {
 
   my $ice=Grammar::peso->parse($prog);
 
-#  $ice->{p3}->prich();
+  $ice->{p3}->prich();
 #  $ice->{mach}->{scope}->prich();
 
 

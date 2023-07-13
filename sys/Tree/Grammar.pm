@@ -34,7 +34,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.5;#a
+  our $VERSION = v0.01.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -460,6 +460,8 @@ sub match($self,$ctx,$s,%O) {
   # ^walk
   while(@pending) {
 
+    last if ! length $s;
+
     $self=$branch->shift_pending(
       $ctx,\$depth
 
@@ -487,7 +489,7 @@ sub match($self,$ctx,$s,%O) {
       $m->{other}=$self;
       $fn->($ctx,$m) if $fn ne $NOOP;
 
-    } elsif(! $m && ! $opt_branch) {
+    } elsif(! $m &&! $opt_branch) {
       last;
 
     };
@@ -780,7 +782,7 @@ sub init_status($self,$other) {
 
     fail  => 0,
 
-    opt   => int($other->{opt} && ! $max),
+    opt   => int($other->{opt} &&! $max),
     alt   => $other->{alt},
     greed => $other->{greed},
 
@@ -805,7 +807,7 @@ sub status_array($self) {
       opt   => $nd->{opt},
       greed => $nd->{greed},
 
-      ok  => 0,
+      ok    => 0,
 
     };
 
@@ -894,16 +896,39 @@ sub status_subok($self) {
 
   my $out    = 0;
 
+  my $lv     = $self->{leaves};
   my $status = $self->{status};
   my $ar     = $status->{ar};
 
+  my $i      = 0;
+
   for my $sus(@$ar) {
+
+    if(
+
+      ! defined $sus
+    ||! defined $sus->{ok}
+    ||! defined $sus->{opt}
+
+    ) {
+
+      next if ! defined $lv->[$i];
+
+      $sus={
+        opt => $lv->[$i]->{opt},
+        ok  => 1,
+
+      };
+
+    };
 
     $out+=
 
        $sus->{ok}
     || $sus->{opt}
     ;
+
+    $i++;
 
   };
 

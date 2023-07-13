@@ -53,7 +53,9 @@ package Grammar::peso::common;
 
     -passes => [
 
-      '_ctx','_opz','_cl',
+      '_ctx','_ord',
+
+      '_cl','_opz',
       '_pre','_ipret',
 
       '_run'
@@ -121,6 +123,16 @@ BEGIN {
 
     ),
 
+    q[ncurly] => Lang::nonscap(
+
+      q[(?:\{|\})],
+
+      iv    => 1,
+      mod   => '+',
+      sigws => 1,
+
+    ),
+
 # ---   *   ---   *   ---
 # [^(]+ | [^)]+
 
@@ -144,6 +156,16 @@ BEGIN {
 
     ),
 
+    q[nparens] => Lang::nonscap(
+
+      q[(?:\(|\))],
+
+      iv    => 1,
+      mod   => '+',
+      sigws => 1,
+
+    ),
+
   };
 
 # ---   *   ---   *   ---
@@ -158,6 +180,25 @@ BEGIN {
 
   rule('~<nterm>');
   rule('?<opt-nterm> &clip nterm');
+
+# ---   *   ---   *   ---
+# n[delim]: anything if its NOT [delimiter]
+
+  rule('~<nbeg-curly>');
+  rule('~<nend-curly>');
+  rule('~<ncurly>');
+
+  rule('$?<opt-nbeg-curly> &clip nbeg-curly');
+  rule('$?<opt-nend-curly> &clip nend-curly');
+  rule('$?<opt-ncurly> &clip ncurly');
+
+  rule('~<nbeg-parens>');
+  rule('~<nend-parens>');
+  rule('~<nparens>');
+
+  rule('$?<opt-nbeg-parens> &clip nbeg-parens');
+  rule('$?<opt-nend-parens> &clip nend-parens');
+  rule('$?<opt-parens> &clip nparens');
 
 # ---   *   ---   *   ---
 # open/close
@@ -177,9 +218,14 @@ BEGIN {
 
 sub nest_delim($self,$branch,$key,$is_beg) {
 
+  # leaves of branch's leaves
+  my @lv=map {
+    @{$ARG->{leaves}}
+
+  } @{$branch->{leaves}};
+
   # no match
-  my $lv=$branch->{leaves}->[0];
-  if(! @{$lv->{leaves}}) {
+  if(! @lv) {
     Grammar::discard($self,$branch);
     return 0;
 
@@ -190,11 +236,13 @@ sub nest_delim($self,$branch,$key,$is_beg) {
 
   # go up one recursion level
   if($branch->{value}=~ $is_beg) {
-    $branch->{value}=$$top++;
+    $branch->{value}=$$top;
+    $$top+=@lv
 
   # ^mark end
   } else {
-    $branch->{value}=--$$top . '<';
+    $$top-=@lv;
+    $branch->{value}=$$top . '<';
 
   };
 

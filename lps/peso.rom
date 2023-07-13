@@ -102,7 +102,7 @@ PROC expr;
 
   T y V;
 
-  on s ~= { ^<bare> };
+  on s ~= {re ^<bare>};
   off;
 
 STOP;
