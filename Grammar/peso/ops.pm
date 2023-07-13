@@ -306,8 +306,10 @@ sub invoke($self,$branch) {
 
     depth => $depth,
 
-    type  => $value->leaf_value(0)->{raw},
-    raw   => $nterm->leaf_value(0),
+    $self->invoke_sort(
+      $value,$nterm
+
+    ),
 
   };
 
@@ -319,7 +321,83 @@ sub invoke($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# ^parents one invoke to another
+# resolve type of processing
+# to be applied to an invoke
+# by evaluating its args
+
+sub invoke_sort($self,$value,$nterm) {
+
+  # get value hashref
+  my $st=$value->leaf_value(0);
+
+  # ^first arg assumed value of invoke
+  # if opt-nterm was not passed
+  my $raw=(defined $nterm->{leaves}->[0])
+    ? $nterm->leaf_value(0)
+    : $st->{raw}
+    ;
+
+  # ^run type-chk on hashref
+  my $type=$self->get_invoke_type($st);
+
+  return (
+
+    type => $type,
+    raw  => $raw
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# dets type of invoke
+
+sub get_invoke_type($self,$st) {
+
+  state @chk_list=(
+    'is_invoke_lit',
+
+  );
+
+  my $type=undef;
+
+  # ^run chks from array
+  for my $f(@chk_list) {
+    $type=$self->$f($st);
+    last if $type;
+
+  };
+
+  # ^default to type of value hashref
+  $type=$st->{type} if ! $type;
+  return $type;
+
+};
+
+# ---   *   ---   *   ---
+# ^get invokes type is given
+# by its value hashref
+
+sub is_invoke_lit($self,$st) {
+
+  state $lit_type  = qr{^(flg|seal|bare)$}x;
+  state $lit_value = qr{^(re)$}x;
+
+  my $out=undef;
+
+  # ^non-numeric/non-str/non-op
+  if($st->{type} =~ $lit_type
+  && $st->{raw}  =~ $lit_value) {
+    $out=$st->{raw};
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# parents one invoke to another
 # accto their depth
 
 sub invoke_ctx($self,$branch) {
@@ -554,8 +632,8 @@ sub opsolve($self,$branch) {
   # get op is solvable at this stage
   my $valid=
 
-      $self->array_is_value(@leaves)
-  &&! $self->array_needs_deref(@values)
+     $self->array_is_value(@leaves)
+  && $self->array_const_deref(@values)
   ;
 
   # restruc
@@ -646,7 +724,7 @@ sub op_simplify($self,$branch,@values) {
 
 sub denest($self,$o) {
 
-  my $out=(exists $o->{tree})
+  my $out=(defined $o->{tree})
     ? $o->{tree}
     : $o
     ;
@@ -668,10 +746,21 @@ sub opres($self,$branch) {
   my $tree=$self->denest($o);
 
   return 1 if $o->{type} eq $NULL;
-  return ($o->{type} eq 'value')
-    ? $self->deref($o)->{raw}
-    : $self->opres_flat($o)
-    ;
+
+  my $out;
+  if($o->{type} eq 'value') {
+    $out=$self->deref($o);
+    $out=(defined $out)
+      ? $out->{raw}
+      : undef
+      ;
+
+  } else {
+    $out=$self->opres_flat($o);
+
+  };
+
+  return $out;
 
 };
 
@@ -755,7 +844,7 @@ sub opconst_flat($self,$o) {
         push @pending,$v;
 
       } else {
-        push @chk,$self->needs_deref($v);
+        push @chk,$self->const_deref($v);
 
       };
 
@@ -877,8 +966,13 @@ sub ops_vex($self,$o) {
 
   return {
 
-    raw  => $self->opres_flat($o,@values),
-    type => $values[0]->{type}
+    raw   => $self->opres_flat($o,@values),
+    type  => (is_hashref($values[0]))
+      ? $values[0]->{type}
+      : $NULL
+      ,
+
+    const => 1
 
   };
 

@@ -506,6 +506,20 @@ sub hier_nit($self,$type) {
 };
 
 # ---   *   ---   *   ---
+# get currently looking at ROM sec
+
+sub inside_ROM($self) {
+
+  my $f=$self->{frame};
+
+  return
+      defined $f->{-crom}
+  &&! defined $f->{-cproc}
+  ;
+
+};
+
+# ---   *   ---   *   ---
 # patterns for declaring members
 
   rule('~<width>');
@@ -607,9 +621,10 @@ sub bind_decls($self,$branch) {
   my @values = @{$st->{values}};
 
   # ctx
-  my $mach  = $self->{mach};
-  my $scope = $mach->{scope};
-  my @path  = $scope->path();
+  my $f      = $self->{frame};
+  my $mach   = $self->{mach};
+  my $scope  = $mach->{scope};
+  my @path   = $scope->path();
 
   # dst
   my $ptrs=[];
@@ -627,8 +642,11 @@ sub bind_decls($self,$branch) {
     $self->value_expand(\$value);
 
     my $o={
+
       type  => $st->{type},
-      value => $value,
+      raw   => $value,
+
+      const => $self->inside_ROM()
 
     };
 
@@ -1233,8 +1251,8 @@ sub switch_const($self,$branch) {
   my $type  = $st->{type};
 
   my $const = ($type eq 'value')
-    ? ! $self->needs_deref($st->{tree})
-    :   $self->opconst_flat($st->{tree})
+    ? $self->const_deref($st->{tree})
+    : $self->opconst_flat($st->{tree})
     ;
 
   return $const;
@@ -1930,7 +1948,7 @@ sub call_run($self,$branch) {
 
   my $ice=Grammar::peso->parse($prog);
 
-  $ice->{p3}->prich();
+#  $ice->{p3}->prich();
 #  $ice->{mach}->{scope}->prich();
 
 

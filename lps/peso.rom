@@ -102,7 +102,9 @@ PROC expr;
 
   T y V;
 
-  on s ~= {re ^<bare>};
+  on "--hello" ~= <bare>;
+    wed -sigws;
+
   off;
 
 STOP;

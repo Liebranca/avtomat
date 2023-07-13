@@ -64,6 +64,8 @@ BEGIN {
 
   our $REGEX={
 
+    %{$PE_COMMON->get_retab()},
+
     bare=>qr{
 
       [_A-Za-z][_A-Za-z0-9:\.]*
@@ -284,7 +286,7 @@ sub flg($self,$branch) {
     |<value>
     &value_sort
 
-    num str flg sigil seal bare
+    num str flg sigil bare seal
 
   ]);
 
@@ -385,7 +387,10 @@ sub array_is_value($self,@ar) {
 # ---   *   ---   *   ---
 # applies value expansion when needed
 
-sub deref($self,$v) {
+sub deref($self,$v,%O) {
+
+  # defaults
+  $O{give_raw}//=1;
 
   my $out=$v;
 
@@ -395,7 +400,10 @@ sub deref($self,$v) {
 
   };
 
-  return $out;
+  return ($O{give_raw} && is_hashref($v))
+    ? $out->{raw}
+    : $out
+    ;
 
 };
 
@@ -420,6 +428,33 @@ sub array_needs_deref($self,@ar) {
 
   return int(grep {
     $self->needs_deref($ARG)
+
+  } @ar) eq @ar;
+
+};
+
+# ---   *   ---   *   ---
+# check value is const
+
+sub const_deref($self,$v) {
+
+
+  return 1 if ! $self->needs_deref($v);
+
+  my $o=$self->deref($v,give_raw=>0);
+  return (defined $o->{const})
+    ? $o->{const}
+    : 0
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub array_const_deref($self,@ar) {
+  return int(grep {
+    $self->const_deref($ARG)
 
   } @ar) eq @ar;
 
@@ -478,22 +513,19 @@ sub array_vex($self,$fet,$ar,@path) {
 # ^name/ptr
 
 sub bare_vex($self,$o) {
-
   my $raw=$o->{raw};
-  my $out=($self->vex(0,\$raw))
-    ? $raw->{value}
-    : undef
-    ;
+  my $out=$self->vex(0,\$raw);
 
-  return $out;
+  return ($out) ? $$out : undef;
 
 };
 
 # ---   *   ---   *   ---
 # ^ptr to complex
+# placeholder for now ;>
 
 sub seal_vex($self,$o) {
-  return $o;
+  return {%$o};
 
 };
 
@@ -520,7 +552,7 @@ sub flg_vex($self,$o) {
 
   };
 
-  return $out;
+  return {%$o,raw=>$out};
 
 };
 
@@ -529,19 +561,21 @@ sub flg_vex($self,$o) {
 
 sub str_vex($self,$o) {
 
-  my $raw = $o->{raw};
+  my $raw   = $o->{raw};
+  my $const = 1;
 
-  my $re  = $REGEX->{repl};
-  my $ct  = $raw->{ct};
+  my $re    = $REGEX->{repl};
+  my $ct    = $raw->{ct};
 
   if($raw->{ipol}) {
 
     while($ct=~ $re) {
 
       my $name  = $+{capt};
-      my $value = $self->bare_vex($name);
+      my $value = $self->bare_vex($name)->{raw};
 
-      $ct=~ s[$re][$value];
+      $ct     =~ s[$re][$value];
+      $const &=~ 1;
 
     };
 
@@ -549,7 +583,7 @@ sub str_vex($self,$o) {
 
   };
 
-  return $ct;
+  return {%$o,const=>$const,raw=>$ct};
 
 };
 

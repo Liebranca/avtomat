@@ -144,37 +144,45 @@ sub rdre_ctx($self,$branch) {
   my $st=$branch->{value};
 
   # ^expand and write to mem
-  $st->{re}=$self->re_vex($st);
-  $self->bind_re($branch);
+  my $o=$self->re_vex($st,is_fetch=>0);
+  $self->bind_re($branch,$o);
 
 };
 
 # ---   *   ---   *   ---
 # ^write expanded regex to mem
 
-sub bind_re($self,$branch) {
+sub bind_re($self,$branch,$o) {
 
   my $st    = $branch->{value};
 
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
 
-  my $re    = $st->{re};
-
   # use expr name for capture
   # ie (?<name> expr)
-  $re=q[(?<].$st->{seal}.q[>].$re.q[)];
+  $o->{raw}=
+    q[(?<]
+  . $st->{seal}
+
+  . q[>]
+  . $o->{raw}
+
+  . q[)]
+  ;
 
   # is whitespace intolerant
-  $re=(! $st->{flags}->{-sigws})
-    ? qr{$re}x
-    : qr{$re}
+  $o->{raw}=(! $st->{flags}->{-sigws})
+    ? qr{$o->{raw}}x
+    : qr{$o->{raw}}
     ;
+
+  $o->{const}=$self->inside_ROM();
 
   # ^push to current namespace
   $scope->decl(
 
-    $re,
+    $o,
 
     $scope->path(),
 
@@ -188,20 +196,53 @@ sub bind_re($self,$branch) {
 # ---   *   ---   *   ---
 # ^value expansion
 
-sub re_vex($self,$o) {
+sub re_vex($self,$o,%O) {
 
-  # copy raw
-  my $raw=$o->{raw};
+  # defaults
+  $O{is_fetch}//=1;
+
+  my $out={};
+
+  # fetch from mem
+  if($O{is_fetch}) {
+
+    my $seal  = join q[::],(
+      $o->{type},
+      $o->{seal},
+
+    );
+
+    my $mach  = $self->{mach};
+    my $scope = $mach->{scope};
+
+    my $fet=$scope->cderef(
+
+      0,\$seal,
+
+      $scope->path(),
+      $o->{type},
+      $o->{seal},
+
+    );
+
+    $out=($fet) ? $$fet : undef;
 
   # ^transform
-  my $out   = $self->detag($raw);
-  my $flags = $self->apply_re_flags(
-    $o->{seal},\$out
+  } else {
 
-  );
+    my $raw   = $o->{raw};
 
-  $o->{re}    = $out;
-  $o->{flags} = $flags;
+    my $re    = $self->detag($raw);
+    my $flags = $self->apply_re_flags(
+      $o->{seal},\$re
+
+    );
+
+    $out->{raw}   = $re;
+    $out->{type}  = 're';
+    $out->{flags} = $flags;
+
+  };
 
   return $out;
 
@@ -257,7 +298,7 @@ sub fetch_re($self,$name) {
 
   );
 
-  return $$rer;
+  return $$rer->{raw};
 
 };
 
