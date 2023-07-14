@@ -29,7 +29,9 @@ package Fmat;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Chk;
+
+  use Arstd::String;
 
   use Data::Dumper;
 
@@ -42,7 +44,7 @@ package Fmat;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.4;
+  our $VERSION=v0.00.5;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -51,31 +53,113 @@ sub tidyup($sref) {
 
   my $out=$NULLSTR;
 
+  # we have to wrap to 54 columns ourselves
+  # because perltidy cant get its effn
+  # sheeeit together
+  linewrap($sref,54,add_newlines=>1);
+
+  # ^there, doing your job for you
   Perl::Tidy::perltidy(
     source=>$sref,
     destination=>\$out,
     argv=>[qw(
 
-      -l=54 -i=2 -cb -nbl -sot -sct
+      -q
+
+      -cb -nbl -sot -sct
       -blbc=1 -blbcl=*
       -mbl=1
+
+      -l=54 -i=2
 
     )],
 
   );
 
-  $out=~ s/^(\s*[\}\]\)][;,]?\n)/$1\n/sgm;
   $out=~ s/^(\s*\{)\s*/\n$1 /sgm;
+  $out=~ s/(\}|\]|\));(?:\n|$)/\n\n$1;\n/sgm;
 
   return $out;
 
 };
 
 # ---   *   ---   *   ---
+# deconstruct value
 
-sub fatdump($data) {
-  my $s=Dumper($data);
+sub polydump($vref) {
+
+  state $tab=[
+
+    \&valuedump,
+    \&arraydump,
+    \&deepdump,
+
+  ];
+
+  my $idex=
+    (is_arrayref($$vref))
+  | (is_hashref($$vref)*2)
+  ;
+
+  my $f=$tab->[$idex];
+
+  return ($idex)
+    ? $f->($$vref)
+    : $f->($vref)
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# ^ice for hashes
+
+sub deepdump($h) {
+
+  '{' . ( join q[,],
+
+    map {
+
+      "$ARG => "
+    . polydump(\$h->{$ARG})
+
+    } keys %$h
+
+  ) . '}';
+
+};
+
+# ---   *   ---   *   ---
+# ^ice for arrays
+
+sub arraydump($ar) {
+
+  '[' . ( join q[,],
+    map {polydump(\$ARG)} @$ar
+
+  ) . ']';
+
+};
+
+# ---   *   ---   *   ---
+# ^single value
+
+sub valuedump($vref) {
+  $$vref;
+
+};
+
+# ---   *   ---   *   ---
+# ^crux
+
+sub fatdump(@refs) {
+
+  my $s=(join ",\n",map {
+    map {$ARG} polydump($ARG)
+
+  } @refs ) . q[;];
+
   say tidyup(\$s);
+  say $NULLSTR;
 
 };
 

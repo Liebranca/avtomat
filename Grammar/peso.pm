@@ -544,12 +544,12 @@ sub inside_ROM($self) {
 sub ptr_decl($self,$branch) {
 
   my $st   = $branch->bhash(0,1,1);
-  my $type = $st->{type}->bhash(0,1);
+  my $type = $st->{type}->bhash();
 
   # ^lis
   $branch->{value}={
 
-    type   => $type,
+    width  => $type->{width},
 
     names  => $st->{q[bare-list]},
     values => $st->{vlist},
@@ -643,8 +643,8 @@ sub bind_decls($self,$branch) {
 
     my $o={
 
-      type  => $st->{type},
-      raw   => $value,
+      width => $st->{width},
+      value => $value,
 
       const => $self->inside_ROM()
 

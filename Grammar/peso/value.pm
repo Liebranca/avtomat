@@ -200,7 +200,7 @@ sub dqstr($self,$branch) {
   $branch->{value}={
 
     ipol => 1,
-    ct   => $ct,
+    raw  => $ct,
 
   };
 
@@ -224,7 +224,7 @@ sub sqstr($self,$branch) {
   $branch->{value}={
 
     ipol => 0,
-    ct   => $ct,
+    raw  => $ct,
 
   };
 
@@ -286,7 +286,7 @@ sub flg($self,$branch) {
     |<value>
     &value_sort
 
-    num str flg sigil bare seal
+    num str flg bare seal sigil
 
   ]);
 
@@ -303,6 +303,17 @@ sub value_sort($self,$branch) {
   my ($type) = keys %$st;
 
   if(is_hashref($xx)) {
+
+    my $flg_type=$xx->{type};
+    delete $xx->{type};
+
+    $xx->{q[flg-type]}=$flg_type;
+
+    $xx->{raw}=
+      $xx->{sigil}
+    . $xx->{name}
+    ;
+
     $type='flg';
 
   };
@@ -330,7 +341,7 @@ sub value_sort($self,$branch) {
 
       $o={
         type => $type,
-        raw  => $st->{$type}
+        raw  => $st->{$type},
 
       };
 
@@ -340,9 +351,18 @@ sub value_sort($self,$branch) {
 
     $o={
       type => $type,
-      raw  => $xx,
+      %$xx,
 
     };
+
+  };
+
+  if(is_hashref($o->{raw})) {
+
+    my $raw=$o->{raw};
+    delete $o->{raw};
+
+    $o={%$o,%$raw};
 
   };
 
@@ -390,7 +410,7 @@ sub array_is_value($self,@ar) {
 sub deref($self,$v,%O) {
 
   # defaults
-  $O{give_raw}//=1;
+  $O{give_value}//=1;
 
   my $out=$v;
 
@@ -400,8 +420,8 @@ sub deref($self,$v,%O) {
 
   };
 
-  return ($O{give_raw} && is_hashref($v))
-    ? $out->{raw}
+  return ($O{give_value} && is_hashref($out))
+    ? $out->{value}
     : $out
     ;
 
@@ -438,10 +458,9 @@ sub array_needs_deref($self,@ar) {
 
 sub const_deref($self,$v) {
 
-
   return 1 if ! $self->needs_deref($v);
 
-  my $o=$self->deref($v,give_raw=>0);
+  my $o=$self->deref($v,give_value=>0);
   return (defined $o->{const})
     ? $o->{const}
     : 0
@@ -525,7 +544,7 @@ sub bare_vex($self,$o) {
 # placeholder for now ;>
 
 sub seal_vex($self,$o) {
-  return {%$o};
+  return {value=>{%$o}};
 
 };
 
@@ -552,7 +571,7 @@ sub flg_vex($self,$o) {
 
   };
 
-  return {%$o,raw=>$out};
+  return {value=>{%$o,raw=>$out}};
 
 };
 
@@ -565,25 +584,35 @@ sub str_vex($self,$o) {
   my $const = 1;
 
   my $re    = $REGEX->{repl};
-  my $ct    = $raw->{ct};
 
-  if($raw->{ipol}) {
+  if($o->{ipol}) {
 
-    while($ct=~ $re) {
+    while($raw=~ $re) {
 
-      my $name  = $+{capt};
-      my $value = $self->bare_vex($name)->{raw};
+      my $name = $+{capt};
+      my $ref  = $self->bare_vex({raw=>$name});
 
-      $ct     =~ s[$re][$value];
-      $const &=~ 1;
+      if(defined $ref) {
+
+        my $value = $ref->{value};
+        my $s     = $value->{raw};
+
+        $raw    =~ s[$re][$s];
+        $const &=~ ! $ref->{const};
+
+      } else {last};
 
     };
 
-    nobs(\$ct);
+    nobs(\$raw);
 
   };
 
-  return {%$o,const=>$const,raw=>$ct};
+  return {
+    value=>{%$o,raw=>$raw},
+    const=>$const,
+
+  };
 
 };
 
@@ -608,7 +637,7 @@ sub value_expand($self,$vref) {
 
   # ^an sre is enough for strings
   } elsif($type eq 'str') {
-    $raw->{ct}=~ s[^(?:['"])|(?:['"])$][]sxmg;
+    $raw->{raw}=~ s[^(?:['"])|(?:['"])$][]sxmg;
     $$vref->{raw}=$raw;
 
   };

@@ -215,6 +215,9 @@ sub op_match($self,$lhs,$rhs) {
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
 
+say "$lhs ~= $rhs";
+exit;
+
   my $out=int($lhs=~ $rhs);
 
   if($out) {
@@ -745,20 +748,24 @@ sub opres($self,$branch) {
 
   my $tree=$self->denest($o);
 
-  return 1 if $o->{type} eq $NULL;
+  return 1 if $tree->{type} eq $NULL;
 
   my $out;
-  if($o->{type} eq 'value') {
-    $out=$self->deref($o);
+
+  if($tree->{type} eq 'value') {
+
+    $out=$self->deref($tree);
     $out=(defined $out)
       ? $out->{raw}
       : undef
       ;
 
   } else {
-    $out=$self->opres_flat($o);
+    $out=$self->opres_flat($tree);
 
   };
+
+say $out;
 
   return $out;
 
@@ -966,13 +973,16 @@ sub ops_vex($self,$o) {
 
   return {
 
-    raw   => $self->opres_flat($o,@values),
-    type  => (is_hashref($values[0]))
-      ? $values[0]->{type}
-      : $NULL
-      ,
+    const=>1,
+    value=>{
 
-    const => 1
+      raw   => $self->opres_flat($o,@values),
+      type  => (is_hashref($values[0]))
+        ? $values[0]->{type}
+        : $NULL
+        ,
+
+    },
 
   };
 

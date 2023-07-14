@@ -77,6 +77,7 @@ sub decl($self,$o,@path) {
 
   # set and give
   $$out=$o;
+
   return $out
 
 };
@@ -199,9 +200,9 @@ sub cderef($self,$fet,$vref,@path) {
   my @rpath = $self->search_nc($$vref,@path);
 
   my $valid = $self->has(@rpath);
-  my $fn    = ($fet) ? \&rget : \&get;
+  my $fn    = ($fet) ? 'rget' : 'get';
 
-  $$vref    = $fn->($self,@rpath) if $valid;
+  $$vref    = $self->$fn(@rpath) if $valid;
 
   return $valid;
 

@@ -155,26 +155,27 @@ sub rdre_ctx($self,$branch) {
 sub bind_re($self,$branch,$o) {
 
   my $st    = $branch->{value};
+  my $v     = $o->{value};
 
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
 
   # use expr name for capture
   # ie (?<name> expr)
-  $o->{raw}=
+  $v->{raw}=
     q[(?<]
   . $st->{seal}
 
   . q[>]
-  . $o->{raw}
+  . $v->{raw}
 
   . q[)]
   ;
 
   # is whitespace intolerant
-  $o->{raw}=(! $st->{flags}->{-sigws})
-    ? qr{$o->{raw}}x
-    : qr{$o->{raw}}
+  $v->{raw}=(! $st->{flags}->{-sigws})
+    ? qr{$v->{raw}}x
+    : qr{$v->{raw}}
     ;
 
   $o->{const}=$self->inside_ROM();
@@ -242,6 +243,8 @@ sub re_vex($self,$o,%O) {
     $out->{type}  = 're';
     $out->{flags} = $flags;
 
+    $out={value=>{%$out}};
+
   };
 
   return $out;
@@ -298,7 +301,7 @@ sub fetch_re($self,$name) {
 
   );
 
-  return $$rer->{raw};
+  return $$rer->{value}->{raw};
 
 };
 
