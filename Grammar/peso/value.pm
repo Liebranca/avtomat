@@ -454,6 +454,14 @@ sub array_needs_deref($self,@ar) {
 };
 
 # ---   *   ---   *   ---
+# const marker present in value hashref
+
+sub is_const($self,$o) {
+  return defined $o->{const} && $o->{const};
+
+};
+
+# ---   *   ---   *   ---
 # check value is const
 
 sub const_deref($self,$v) {
@@ -461,10 +469,14 @@ sub const_deref($self,$v) {
   return 1 if ! $self->needs_deref($v);
 
   my $o=$self->deref($v,give_value=>0);
-  return (defined $o->{const})
-    ? $o->{const}
-    : 0
-    ;
+
+  if($self->is_const($o)) {
+    return $o->{value};
+
+  } else {
+    return undef;
+
+  };
 
 };
 
@@ -472,10 +484,16 @@ sub const_deref($self,$v) {
 # ^bat
 
 sub array_const_deref($self,@ar) {
-  return int(grep {
+
+  my @results=map {
     $self->const_deref($ARG)
 
-  } @ar) eq @ar;
+  } @ar;
+
+  return (@results == @ar)
+    ? @results
+    : ()
+    ;
 
 };
 

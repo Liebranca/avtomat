@@ -215,9 +215,6 @@ sub op_match($self,$lhs,$rhs) {
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
 
-say "$lhs ~= $rhs";
-exit;
-
   my $out=int($lhs=~ $rhs);
 
   if($out) {
@@ -633,22 +630,31 @@ sub opsolve($self,$branch) {
   } @leaves;
 
   # get op is solvable at this stage
-  my $valid=
+  my $const=0;
+  if($self->array_is_value(@leaves)) {
 
-     $self->array_is_value(@leaves)
-  && $self->array_const_deref(@values)
-  ;
+    my @consts=
+      $self->array_const_deref(@values);
+
+    if(@consts) {
+      @values = @consts;
+      $const  = 1;
+
+    };
+
+  };
 
   # restruc
   $self->op_simplify($branch,@values);
 
   # attempt solving
-  $valid=($valid)
-    ? $self->op_to_value($branch,@values)
-    : $valid
-    ;
+  if($const) {
+    $D->leaf_value(0)->{const}=1;
+    $self->op_to_value($branch,@values)
 
-  return $valid;
+  };
+
+  return $const;
 
 };
 
@@ -656,8 +662,14 @@ sub opsolve($self,$branch) {
 # ^bat
 
 sub array_opsolve($self,$branch) {
+
   my @ops=$self->find_ops($branch);
-  map {$self->opsolve($ARG)} reverse @ops;
+  my $valid=int(grep {$ARG} map {
+    $self->opsolve($ARG)
+
+  } reverse @ops) == @ops;
+
+  return $valid;
 
 };
 
@@ -749,6 +761,7 @@ sub opres($self,$branch) {
   my $tree=$self->denest($o);
 
   return 1 if $tree->{type} eq $NULL;
+  return $tree->{raw} if $tree->{type} eq 'const';
 
   my $out;
 
@@ -764,8 +777,6 @@ sub opres($self,$branch) {
     $out=$self->opres_flat($tree);
 
   };
-
-say $out;
 
   return $out;
 
@@ -784,16 +795,25 @@ sub opres_flat($self,$o,@values) {
     : @values
     ;
 
+  my @deref=();
+
   # apply deref to @values
   # filter out undef from result of map
-  my @deref=grep {defined $ARG} map {
-    $self->deref($ARG)
+  if(! $self->is_const($st)) {
+    my @deref=grep {defined $ARG} map {
+      $self->deref($ARG)
 
-  } @values;
+    } @values;
+
+  # ^values already dereferenced
+  } else {
+    @deref=@values;
+
+  };
 
   # ^early exit if values cant
   # be all dereferenced
-  return $NULL if @deref ne @values;
+  return undef if @deref ne @values;
 
   my @args=map {
     (is_hashref($ARG)) ? $ARG->{raw} : $ARG
@@ -823,7 +843,23 @@ sub value_ops_opz($self,$branch) {
   map {$self->opsort($ARG)} @ops;
 
   # ^solve from bottom up
-  $self->array_opsolve($branch);
+  my $const=$self->array_opsolve($branch);
+
+  # ^collapse if constant
+  if($const) {
+
+    my $lv   = $branch->{leaves}->[0];
+
+    my $o    = $lv->leaf_value(0);
+
+    my $type = 'const';
+    my $raw  = $o->{raw};
+
+    $lv->{leaves}->[0]->{value}=
+      {type=>$type,raw=>$raw};
+
+  };
+
   $branch->flatten_branch();
 
 };
@@ -928,6 +964,8 @@ sub expr_ctx($self,$branch) {
   if(
 
      defined $par
+  && $par->{value} eq 'rec-expr'
+
   && defined $par->{parent}
 
   ) {

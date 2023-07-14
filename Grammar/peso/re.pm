@@ -25,6 +25,7 @@ package Grammar::peso::re;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Chk;
 
   use Arstd::Array;
   use Arstd::String;
@@ -207,26 +208,33 @@ sub re_vex($self,$o,%O) {
   # fetch from mem
   if($O{is_fetch}) {
 
-    my $seal  = join q[::],(
-      $o->{type},
-      $o->{seal},
+    if(is_qre($o->{raw})) {
+      $out=$o;
 
-    );
+    } else {
 
-    my $mach  = $self->{mach};
-    my $scope = $mach->{scope};
+      my $seal  = join q[::],(
+        $o->{type},
+        $o->{seal},
 
-    my $fet=$scope->cderef(
+      );
 
-      0,\$seal,
+      my $mach  = $self->{mach};
+      my $scope = $mach->{scope};
 
-      $scope->path(),
-      $o->{type},
-      $o->{seal},
+      my $fet=$scope->cderef(
 
-    );
+        0,\$seal,
 
-    $out=($fet) ? $$fet : undef;
+        $scope->path(),
+        $o->{type},
+        $o->{seal},
+
+      );
+
+      $out=($fet) ? $$fet : undef;
+
+    };
 
   # ^transform
   } else {
