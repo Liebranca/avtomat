@@ -231,7 +231,7 @@ BEGIN {
 
     $PE_OPS,qw(
 
-    expr opt-expr
+    expr opt-expr invoke
 
   ));
 
@@ -728,25 +728,26 @@ sub rdin_run($self,$branch) {
 # aliasing
 
   rule('%<lis-key=lis>');
-  rule('$<lis> lis-key vglob value');
+  rule('$<lis> lis-key value value');
 
 # ---   *   ---   *   ---
 # ^post-parse
 
 sub lis($self,$branch) {
 
-  my $st=$branch->bhash();
-  $self->{Q}->add(sub {
+  my $lv    = $branch->{leaves};
 
-    $branch->{value}={
-      from => $st->{value},
-      to   => $st->{vglob},
+  my $name  = $lv->[1]->leaf_value(0);
+  my $value = $lv->[2]->leaf_value(0);
 
-    };
+  my $o={
+    to   => $name,
+    from => $value,
 
-    $branch->clear();
+  };
 
-  });
+  $branch->{value}=$o;
+  $branch->clear();
 
 };
 
@@ -767,15 +768,16 @@ sub vglob($self,$branch) {
 
 sub lis_ctx($self,$branch) {
 
-  my $st   = $branch->{value};
+  my $st    = $branch->{value};
 
-  my $mach = $self->{mach};
-  my @path = $mach->{scope}->path();
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+  my @path  = $scope->path();
 
-  my $key  = $st->{to};
-  $key     = "$key->{sigil}$key->{name}";
+  my $key   = $st->{to};
+     $key   = "$key->{raw}";
 
-  $mach->{scope}->decl(
+  $scope->decl(
     $st->{from},
     @path,q[$LIS],$key
 
@@ -789,33 +791,31 @@ sub lis_ctx($self,$branch) {
   rule('%<sow-key=sow>');
   rule('%<reap-key=reap>');
 
-  rule('<sow> sow-key vglob vlist');
-  rule('<reap> reap-key vglob');
+  rule('<sow> sow-key invoke vlist');
+  rule('<reap> reap-key invoke');
 
 # ---   *   ---   *   ---
 # ^post-parse
 
 sub sow($self,$branch) {
 
-  my $lv=$branch->{leaves};
-  my @ar=$lv->[1]->branch_values();
+  # convert {invoke} to plain value
+  $self->invokes_solve($branch);
+
+  # ^dissect tree
+  my $lv    = $branch->{leaves};
+  my $value = $lv->[1]->leaf_value(0);
+  my @vlist = $lv->[2]->branch_values();
 
   $branch->{value}={
 
-    fd => $lv->[1]->leaf_value(0),
-    me => \@ar,
+    fd    => $value,
+    vlist => \@vlist,
+
+    const => [],
 
   };
 
-  $branch->clear();
-
-};
-
-sub reap($self,$branch) {
-
-  my $lv=$branch->{leaves};
-
-  $branch->{value}=$lv->[1]->leaf_value(0);
   $branch->clear();
 
 };
@@ -825,32 +825,47 @@ sub reap($self,$branch) {
 
 sub sow_opz($self,$branch) {
 
-  my $st   = $branch->{value};
-  my $mach = $self->{mach};
-  my @path = $mach->{scope}->path();
+  my $st=$branch->{value};
 
-  my $fd   = $st->{fd};
+  # get fd is const
+  $self->io_const_fd($st);
 
-  $st->{fd}="$fd->{sigil}$fd->{name}";
+  # ^same for args
+  @{$st->{const_vlist}}=map {
+    $self->const_deref($ARG);
 
-  $self->array_vex(0,$st->{me},@path);
-  $self->vex(0,\$st->{fd},@path);
+  } @{$st->{vlist}};
 
-  my ($fd2,$buff)=$mach->fd_solve(
-    $st->{fd}->{raw}
+  my $i=0;map {
 
-  );
+    $ARG=(defined $st->{const_vlist}->[$i++])
+      ? undef
+      : $ARG
+      ;
+
+  } @{$st->{vlist}};
 
 };
 
-sub reap_opz($self,$branch) {
+# ---   *   ---   *   ---
+# get file descriptor is const
 
-  my $mach = $self->{mach};
-  my @path = $mach->{scope}->path();
-  my $fd   = $branch->{value};
+sub io_const_fd($self,$st) {
 
-  $branch->{value}="$fd->{sigil}$fd->{name}";
-  $self->vex(0,\$branch->{value},@path);
+  my $mach=$self->{mach};
+
+  $st->{const_fd}=
+    $self->const_deref($st->{fd});
+
+  # ^it is, get handle
+  if($st->{const_fd}) {
+
+    ($st->{fd},$st->{buff})=$mach->fd_solve(
+      $st->{const_fd}->{value}->{raw}
+
+    );
+
+  };
 
 };
 
@@ -861,25 +876,93 @@ sub sow_run($self,$branch) {
 
   my $mach = $self->{mach};
   my $st   = $branch->{value};
-  my $s    = $NULLSTR;
 
   my @path = $mach->{scope}->path();
 
+  # get message
+  my $s=$NULLSTR;
+  my $i=0;
+
   map {
-    $s.=$self->deref($ARG)
 
-  } @{$st->{me}};
+    my $x=(! defined $ARG)
+      ? $self->deref($st->{vlist}->[$i])
+      : $ARG
+      ;
 
-  $mach->sow($st->{fd}->{raw},$s);
+    $s.=(is_hashref($x)) ? $x->{raw} : $x;
+    $i++;
+
+  } @{$st->{const_vlist}};
+
+  # ^write to dst
+  my ($fd,$buff);
+  if($st->{const_fd}) {
+
+    $fd   = $st->{fd};
+    $buff = $st->{buff};
+
+    $$buff.=$s;
+
+  } else {
+    $fd=$self->deref($st->{fd})->{raw};
+    $mach->sow($fd,$s);
+
+  };
 
 };
+
+# ---   *   ---   *   ---
+# ^similar story, flushes buffer writes
+
+sub reap($self,$branch) {
+
+  # convert {invoke} to plain value
+  $self->invokes_solve($branch);
+
+  # ^dissect tree
+  my $lv=$branch->{leaves};
+  my $fd=$lv->[1]->leaf_value(0);
+
+  $branch->{value}={fd=>$fd};
+  $branch->clear();
+
+};
+
+# ---   *   ---   *   ---
+# ^binding
+
+sub reap_opz($self,$branch) {
+  my $st=$branch->{value};
+  $self->io_const_fd($st);
+
+};
+
+# ---   *   ---   *   ---
+# ^exec
 
 sub reap_run($self,$branch) {
 
   my $mach = $self->{mach};
-  my $fh   = $branch->{value};
+  my $st   = $branch->{value};
 
-  $mach->reap($fh->{raw});
+  # ^write to dst
+  my ($fd,$buff);
+  if($st->{const_fd}) {
+
+    $fd   = $st->{fd};
+    $buff = $st->{buff};
+
+    print {$fd} $$buff;
+    $fd->flush();
+
+    $$buff=$NULLSTR;
+
+  } else {
+    $fd=$self->deref($st->{fd})->{raw};
+    $mach->reap($fd);
+
+  };
 
 };
 
@@ -1012,8 +1095,6 @@ sub tree_ctx($self,$branch) {
 
   $branch->{value}="$st->{vglob}->{name}";
   $branch->prich();
-
-  exit;
 
 };
 
@@ -1159,7 +1240,7 @@ sub switch_on_ipret($self,$branch) {
 
 sub switch_on_run($self,$branch) {
 
-  my $out=$self->opres($branch);
+  my $out=defined $self->opres($branch);
 
   $self->{c3}->jmp(
     $branch->next_branch()
@@ -1959,7 +2040,7 @@ sub call_run($self,$branch) {
 
     input=>[
 
-      '-hey',
+      'hey',
 
     ],
 

@@ -420,8 +420,14 @@ sub deref($self,$v,%O) {
 
   };
 
-  return ($O{give_value} && is_hashref($out))
-    ? $out->{value}
+  return (
+
+     $O{give_value}
+
+  && is_hashref($out)
+  && defined $out->{value}
+
+  ) ? $out->{value}
     : $out
     ;
 
@@ -436,6 +442,7 @@ sub needs_deref($self,$v) {
 
   return
      is_hashref($v)
+  && exists $v->{type}
   && $v->{type}=~ $re
   ;
 
@@ -466,7 +473,7 @@ sub is_const($self,$o) {
 
 sub const_deref($self,$v) {
 
-  return 1 if ! $self->needs_deref($v);
+  return {value=>$v} if ! $self->needs_deref($v);
 
   my $o=$self->deref($v,give_value=>0);
 
@@ -485,7 +492,7 @@ sub const_deref($self,$v) {
 
 sub array_const_deref($self,@ar) {
 
-  my @results=map {
+  my @results=grep {defined $ARG} map {
     $self->const_deref($ARG)
 
   } @ar;
@@ -502,19 +509,35 @@ sub array_const_deref($self,@ar) {
 
 sub vex($self,$fet,$vref,@path) {
 
-  my $mach=$self->{mach};
+  my $out   = undef;
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
 
   # default to current scope
-  @path=$mach->{scope}->path()
+  @path=$scope->path()
   if ! @path;
 
-  my $out=$mach->{scope}->cderef(
-    $fet,$vref,@path,q[$LIS]
+  # check vref is runtime alias
+  my $lis=q[$LIS::].$$vref;
+     $lis=$scope->cderef($fet,\$lis,@path);
 
-  ) or $mach->{scope}->cderef(
-    $fet,$vref,@path
+  # ^matching alias found, recurse
+  if($lis) {
 
-  );
+    $out=\$self->deref(
+      $$lis,give_value=>0
+
+    );
+
+  # ^nope, look up common table
+  } else {
+    $out=$scope->cderef(
+      $fet,$vref,@path
+
+    );
+
+  };
 
   return $out;
 
@@ -550,6 +573,7 @@ sub array_vex($self,$fet,$ar,@path) {
 # ^name/ptr
 
 sub bare_vex($self,$o) {
+
   my $raw=$o->{raw};
   my $out=$self->vex(0,\$raw);
 
@@ -572,24 +596,29 @@ sub seal_vex($self,$o) {
 sub flg_vex($self,$o) {
 
   my $raw  = $o->{raw};
-  my $out  = $NULLSTR;
+  my $out  = $self->vex(0,\$raw);
 
-  my $mach = $self->{mach};
-  my @path = $mach->{scope}->path();
+# old stuff, needs rewrit
+#
+#  my $mach = $self->{mach};
+#  my @path = $mach->{scope}->path();
+#
+#  if($o->{sigil} eq q[~:]) {
+#
+#    my $rem=$mach->{scope}->get(
+#      @path,q[~:rematch]
+#
+#    )->{value};
+#
+#    my $key=$o->{name};
+#    $out=pop @{$rem->{$key}};
+#
+#  } else {
+#    $out=$raw;
+#
+#  };
 
-  if($raw->{sigil} eq q[~:]) {
-
-    my $rem=$mach->{scope}->get(
-      @path,q[~:rematch]
-
-    );
-
-    my $key=$raw->{name};
-    $out=pop @{$rem->{$key}};
-
-  };
-
-  return {value=>{%$o,raw=>$out}};
+  return ($out) ? $$out : undef;
 
 };
 

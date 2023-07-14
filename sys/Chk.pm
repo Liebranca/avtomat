@@ -38,6 +38,8 @@ package Chk;
     is_arrayref
     is_qre
 
+    is_scalarref
+
     stripline
     codefind
 

@@ -95,44 +95,15 @@ ROM std;
 PROC expr;
 
   in byte str s;
-#  lis {/:f} 1;
+  lis /:f 1;
 
-  byte x $00;
-
-  def V -ff;
-  def T byte;
-
-  T y V;
-
-  on "%test%" ~= <bare>;
-    wed -sigws;
+  on s ~= <bare>;
+    sow  {/:f} "HLOWLRD",s,"\n";
+    reap {/:f};
 
   off;
 
 STOP;
-
-#  tree {$:BB}
-#
-#  \-->$24
-#  .  \-->*sigged
-#  .  .  \-->2
-#
-#  \-->'test'
-#
-#  ;
-#
-#  on s~=^<flg>$;
-#
-#    sow  {/:f}
-#      ~:flg,': ',
-#      ~:sigil,',',
-#      ~:bare,"\n"
-#
-#    ;
-#
-#    reap {/:f};
-#
-#  off;
 
 # ---   *   ---   *   ---
 

@@ -478,12 +478,30 @@ sub find_invokes($self,$branch) {
 
 sub find_uinvokes($self,$branch) {
 
-  state $re=qr{^unsorted invoke$};
+  state $re=qr{^unsorted_invoke$};
 
   return $branch->branches_in(
     $re,keep_root=>0
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# prematurely solve invokes
+# of a branch
+
+sub invokes_solve($self,$branch) {
+
+  map {
+    $self->invoke_ctx($ARG)
+
+  } $self->find_uinvokes($branch);
+
+  map {
+    $self->invoke_ord($ARG)
+
+  } $self->find_invokes($branch);
 
 };
 
@@ -800,7 +818,7 @@ sub opres_flat($self,$o,@values) {
   # apply deref to @values
   # filter out undef from result of map
   if(! $self->is_const($st)) {
-    my @deref=grep {defined $ARG} map {
+    @deref=grep {defined $ARG} map {
       $self->deref($ARG)
 
     } @values;
@@ -887,7 +905,8 @@ sub opconst_flat($self,$o) {
         push @pending,$v;
 
       } else {
-        push @chk,$self->const_deref($v);
+        my $const=$self->const_deref($v);
+        push @chk,(defined $const && $const);
 
       };
 
