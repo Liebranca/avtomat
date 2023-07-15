@@ -97,14 +97,13 @@ PROC expr;
   in byte str s;
   lis /:f 1;
 
-  on s ~= {re ^<bare>};
-    sow  {/:f} "HLOWLRD",s,"\n";
-
-  or;
-    sow {/:f} s," is NOT a bare!\n";
+  on c from s;
+    sow {/:f} c;
+    rept;
 
   off;
 
+  sow  {/:f} "\nRET\n";
   reap {/:f};
 
 STOP;

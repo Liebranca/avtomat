@@ -514,10 +514,6 @@ sub vex($self,$fet,$vref,@path) {
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
 
-  # default to current scope
-  @path=$scope->path()
-  if ! @path;
-
   # check vref is runtime alias
   my $lis=q[$LIS::].$$vref;
      $lis=$scope->cderef($fet,\$lis,@path);
@@ -688,6 +684,20 @@ sub value_expand($self,$vref) {
     $$vref->{raw}=$raw;
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# get pointer to value
+
+sub vstar($self,$o,@path) {
+
+  my $raw=(is_hashref($o))
+    ? $o->{raw}
+    : $o
+    ;
+
+  return $self->vex(1,\$raw,@path);
 
 };
 

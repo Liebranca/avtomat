@@ -586,7 +586,18 @@ sub ptr_decl_ctx($self,$branch) {
 
   };
 
-  $self->bind_decls($branch);
+  # struct-wise macro expansion
+  $mach->{scope}->crepl(\$st);
+
+  # bind and save ptrs
+  $branch->{value}=$self->bind_decls(
+
+    $st->{width},
+
+    $st->{names},
+    $st->{values},
+
+  );
 
 };
 
@@ -612,13 +623,7 @@ sub throw_invalid_scope($names,@path) {
 # ---   *   ---   *   ---
 # register decls to current scope
 
-sub bind_decls($self,$branch) {
-
-  # data
-  my $st     = $branch->{value};
-
-  my @names  = @{$st->{names}};
-  my @values = @{$st->{values}};
+sub bind_decls($self,$width,$names,$values) {
 
   # ctx
   my $f      = $self->{frame};
@@ -629,21 +634,18 @@ sub bind_decls($self,$branch) {
   # dst
   my $ptrs=[];
 
-  # struct-wise macro expansion
-  $scope->crepl(\$st);
-
   # iter
-  while(@names && @values) {
+  while(@$names && @$values) {
 
-    my $name  = shift @names;
-    my $value = shift @values;
+    my $name  = shift @$names;
+    my $value = shift @$values;
 
     # reparse element after macro expansion
     $self->value_expand(\$value);
 
     my $o={
 
-      width => $st->{width},
+      width => $width,
       value => $value,
 
       const => $self->inside_ROM()
@@ -655,7 +657,7 @@ sub bind_decls($self,$branch) {
 
   };
 
-  $branch->{value}=$ptrs;
+  return $ptrs;
 
 };
 
@@ -1208,7 +1210,112 @@ sub wed_ctx($self,$branch) {
   rule('$<off> off-key');
 
   rule('|<switch-type> &clip on or off');
-  rule('$<switch> switch-type opt-expr');
+
+# ---   *   ---   *   ---
+# ^args of a switch
+
+  rule('%<from=from>');
+  rule('$<iter-expr> &iter_expr vlist from value');
+  rule('|<switch-args> &clip iter-expr opt-expr');
+
+  rule('$<switch> switch-type switch-args');
+
+# ---   *   ---   *   ---
+# vars from iter
+
+sub iter_expr($self,$branch) {
+
+  my $lv  = $branch->{leaves};
+  my $key = $lv->[1];
+
+  $branch->pluck($key);
+  $lv=$branch->{leaves};
+
+  my @vlist = $lv->[0]->branch_values();
+  my $iter  = $lv->[1]->leaf_value(0);
+
+  my $st={
+    vlist => \@vlist,
+    iter  => $iter,
+
+  };
+
+  $branch->clear();
+  $branch->{value}=$st;
+
+};
+
+# ---   *   ---   *   ---
+# ^bind vars
+
+sub iter_expr_ctx($self,$branch) {
+
+  # get ctx
+  my $mach  = $self->{mach};
+  my $scope = $self->{scope};
+
+  my $st    = $branch->{value};
+
+  # ^unpack
+  my @vlist = @{$st->{vlist}};
+  my $iter  = $st->{iter};
+
+  # get element size
+  my $ref   = $self->deref($iter,give_value=>0);
+  my $width = $ref->{width};
+
+  # ^bind vars
+  my @names  = map {$ARG->{raw}} @vlist;
+  my @values = map {$NULL} @vlist;
+
+  my $ptrs=$self->bind_decls(
+    $width,\@names,\@values
+
+  );
+
+#  $st->{ptrs}=$ptrs;
+
+};
+
+# ---   *   ---   *   ---
+# ^xform to operator
+
+sub iter_expr_ord($self,$branch) {
+
+  my $st=$branch->{value};
+  my $fn=codefind(
+    'Grammar::peso',
+    'op_walk_fwd',
+
+  );
+
+  $st->{iter}={
+    o=>$st->{iter},
+    i=>0,
+
+  };
+
+  $branch->init({
+
+    D=>{
+      fn   => $fn,
+      ctx  => 1,
+
+    },
+
+    V=>[
+      $st->{iter},
+      @{$st->{vlist}},
+
+    ],
+
+    type => 'iter',
+
+  });
+
+  $branch->{value}='ops';
+
+};
 
 # ---   *   ---   *   ---
 # if
@@ -1240,7 +1347,7 @@ sub switch_on_ipret($self,$branch) {
 
 sub switch_on_run($self,$branch) {
 
-  my $out=defined $self->opres($branch);
+  my $out=$self->opres($branch);
 
   $self->{c3}->jmp(
     $branch->next_branch()
@@ -1330,6 +1437,8 @@ sub switch_const($self,$branch) {
   my $st    = $branch->{value};
   my $tree  = $st->{tree};
   my $type  = $st->{type};
+
+  return 0 if $tree->{type} eq 'iter';
 
   my $const = ($type eq 'value')
     ? $self->const_deref($st->{tree})
@@ -1532,6 +1641,12 @@ sub switch($self,$branch) {
 # ---   *   ---   *   ---
 # jump to node
 
+  rule('%<jmp-key=jmp>');
+  rule('<jmp> jmp-key value');
+
+# ---   *   ---   *   ---
+# ^post-parse
+
 sub jmp($self,$branch) {};
 
 sub jmp_pre($self,$branch) {
@@ -1546,76 +1661,34 @@ sub jmp_run($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# ^jump to top of branch
 
-#sub match_ctx($self,$branch) {
-#
-#  my $mach       = $self->{mach};
-#  my $st         = $branch->bhash();
-#  my @path       = $mach->{scope}->path();
-#
-#  my $value      = $st->{value};
-#
-#  my ($o,$flags) = $self->re_vex($st->{nterm});
-#  my $v          = $mach->{scope}->get(
-#
-#    @path,
-#    $value->{raw}
-#
-#  );
-#
-#  $branch->{value}={
-#
-#    re  => $o,
-#    v   => $v,
-#
-#    flg => $flags,
-#
-#  };
-#
-#  $branch->clear();
-#
-#};
+  rule('%<rept-key=rept>');
+  rule('<rept> rept-key');
 
-## ---   *   ---   *   ---
-## ^exec
-#
-#sub match_run($self,$branch) {
-#
-#  my $out  = 0;
-#  my $st   = $branch->{value};
-#
-#  my $mach = $self->{mach};
-#  my @path = $mach->{scope}->path();
-#
-#  my $v    = $st->{v}->{value};
-#  my $re   = $st->{re};
-#
-#  # use/ignore whitespace
-#  my $chk=($st->{flg}->{-sigws})
-#    ? $v=~ m[$re]
-#    : $v=~ m[$re]x
-#    ;
-#
-#  # ^save matches
-#  if($chk) {
-#
-#    my $match=$mach->{scope}->get(
-#      @path,q[~:rematch]
-#
-#    );
-#
-#    for my $key(keys %-) {
-#      $match->{$key}=$-{$key};
-#
-#    };
-#
-#    $out=1;
-#
-#  };
-#
-#  return $out;
-#
-#};
+# ---   *   ---   *   ---
+# ^post-parse
+
+sub rept($self,$branch) {
+  $branch->clear();
+
+};
+
+sub rept_ctx($self,$branch) {
+
+  my $f=$self->{frame};
+  $branch->init($branch->{parent});
+
+  $branch->fork_chain(
+
+    dom  => 'Grammar::peso',
+    name => 'jmp',
+
+    skip => $f->{-npass}+1
+
+  );
+
+};
 
 # ---   *   ---   *   ---
 # pop current block
@@ -1703,274 +1776,6 @@ sub call_run($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-
-#  Readonly our $FCALL=>{
-#
-#    name=>'fcall',
-#    chld=>[
-#      $MATCH
-#
-#    ],
-#
-#  };
-#
-#  Readonly our $FC_OR_V=>{
-#
-#    name => 'fc_or_v',
-#
-#    dom  => 'Grammar::peso',
-#    fn   => 'fc_or_v',
-#
-#    chld => [Grammar::ralt(
-#      $FCALL,$VALUE
-#
-#    )],
-#
-#  };
-#
-## ---   *   ---   *   ---
-## wat
-#
-#sub fc_or_v($self,$branch) {
-#
-#  my $par=$branch->{parent};
-#
-#  for my $nd(@{$branch->{leaves}}) {
-#    $branch->pluck($nd) if !$nd->{mfull};
-#
-#  };
-#
-#  my $type=$branch->{leaves}->[0]->{value};
-#
-#  if($type eq 'value') {
-#    $branch=$branch->flatten_branch();
-#
-#  };
-#
-#  $branch=$branch->flatten_branch();
-#  $branch->{value}='eval';
-#
-#};
-
-# ---   *   ---   *   ---
-
-#  Readonly our $COND_BEG=>{
-#
-#    name  => 'branch_beg',
-#
-#    dom   => 'Grammar::peso',
-#    fn    => 'cond_beg',
-#
-#    chld  => [
-#
-#      {
-#
-#        name=>'nid',chld=>[{
-#
-#          fn   => 'capt',
-#          name => Lang::eiths(
-#
-#            [qw(on or)],
-#
-#            brwap  => 1,
-#            insens => 1,
-#
-#          ),
-#
-#        }],
-#
-#      },
-#
-#      $FC_OR_V
-#
-#    ],
-#
-#  };
-#
-## ---   *   ---   *   ---
-#
-#  Readonly our $IVCALL=>{
-#
-#    name => 'ivcall',
-#    chld => [
-#
-#      $VLIST,
-#      {name=>qr{\-\>\*}},
-#
-#      $VALUE,
-#
-#    ],
-#
-#  };
-#
-#  Readonly our $DEFCALL=>{
-#
-#    name => 'defcall',
-#    chld => [
-#
-#      $VALUE,
-#      $VLIST,
-#
-#    ],
-#
-#  };
-#
-## ---   *   ---   *   ---
-#
-#  Readonly our $FUCK=>{
-#
-#    name => 'fuck',
-#    fn   => 'clip',
-#
-#    chld => [Grammar::ralt(
-#      $IVCALL,$DEFCALL
-#
-#    )],
-#
-#  };
-#
-## ---   *   ---   *   ---
-#
-#  Readonly our $EXPR=>{
-#
-#    name => 'expr',
-#
-#    chld => [
-#
-#      {name=>qr[\{]},
-#
-#      $FUCK,
-#
-#      {name=>qr[\}]},
-#
-#    ],
-#
-#  };
-#
-## ---   *   ---   *   ---
-#
-#  Readonly our $TEST=>{
-#
-#    name  => 'test',
-#
-#    fn    => 'sxtest',
-#    dom   => 'Grammar::peso',
-#
-#    chld => [Grammar::ralt(
-#      $VLIST,$EXPR
-#
-#    )],
-#
-#  };
-#
-## ---   *   ---   *   ---
-#
-#sub sxtest($self,$branch) {
-#  $branch->prich();
-#
-#};
-#
-## ---   *   ---   *   ---
-#
-#  Readonly our $COND_END=>{
-#
-#    name  => 'branch_end',
-#
-#    dom   => 'Grammar::peso',
-##    fn    => 'cond_end',
-#
-#    chld  => [
-#
-#      {
-#
-#        name=>'nid',chld=>[{
-#
-#          fn   => 'capt',
-#          name => Lang::eiths(
-#
-#            [qw(off)],
-#
-#            brwap  => 1,
-#            insens => 1,
-#
-#          ),
-#
-#        }],
-#
-#      },
-#
-#    ],
-#
-#  };
-#
-## ---   *   ---   *   ---
-#
-#sub cond_beg_ctx($self,$branch) {
-#
-#  my $idex  = $branch->{idex};
-#  my $depth = 0;
-#
-#  my @lv    = @{$branch->{parent}->{leaves}};
-#  @lv       = @lv[$idex+1..$#lv];
-#
-#  $idex     = 0;
-#
-#  for my $nd(@lv) {
-#
-#    if($nd->{value} eq 'branch_end') {
-#      $depth--;
-#
-#    } elsif($nd->{value} eq 'branch_beg') {
-#      $depth++;
-#
-#    };
-#
-#    last if $depth<0;
-#    $idex++;
-#
-#  };
-#
-#  @lv=@lv[0..$idex-1];
-#  $branch->{-pest}=$branch->bhash();
-#
-#  $branch->pluck($branch->branches_in(
-#    qr{^nid|eval$}
-#
-#  ));
-#
-#  $branch->pushlv(@lv);
-#
-#};
-#
-## ---   *   ---   *   ---
-#
-#sub cond_beg_run($self,$branch) {
-#
-#  my $st=$branch->{-pest};
-#  my $ev=$st->{eval};
-#
-#  my $ok=0;
-#
-#  for my $nd(@{$ev->{leaves}}) {
-#    $ok|=$nd->{chain}->[-1]->($self,$nd);
-#
-#  };
-#
-#  if(! $ok) {
-#
-#    my $callstk = $self->{callstk};
-#    my $size    = @{$branch->{leaves}};
-#
-#    for(0..$size-1) {
-#      shift @$callstk;
-#
-#    };
-#
-#  };
-#
-#};
-
-# ---   *   ---   *   ---
 # groups
 
   # default F
@@ -1991,7 +1796,7 @@ sub call_run($self,$branch) {
 
     re io ptr-decl
 
-    switch bltn
+    switch jmp rept bltn
 
   ]);
 

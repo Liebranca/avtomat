@@ -125,6 +125,9 @@ BEGIN {
     q[==]  => 'eq',
     q[!=]  => 'ne',
 
+    q[:>]  => 'walk_fwd',
+    q[:<]  => 'walk_bak',
+
   ];
 
   Readonly our $OPHASH=>{@$OPERATORS};
@@ -238,6 +241,43 @@ sub op_match($self,$lhs,$rhs) {
 
 sub op_eq($lhs,$rhs) {return $lhs eq $rhs};
 sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
+
+# ---   *   ---   *   ---
+# loops
+
+sub op_walk_fwd($self,$iter,@args) {
+
+  my $out=undef;
+
+  if($iter) {
+
+    my $o     = $self->deref($iter->{o});
+    my $i     = \$iter->{i};
+
+    my @ar    = split $NULLSTR,$o;
+    my $limit = int(@ar);
+
+    # get stop
+    $out  = $$i < $limit;
+    $$i  *= $out;
+
+    goto SKIP if ! $out;
+
+    my @have  = map {$self->vstar($ARG)} @args;
+    map {$$ARG->{value}=$ar[$$i++]} @have;
+
+  };
+
+
+SKIP:
+
+  return $out;
+
+};
+
+sub op_walk_bak($lhs,$rhs) {
+
+};
 
 # ---   *   ---   *   ---
 # GBL
@@ -779,7 +819,6 @@ sub opres($self,$branch) {
   my $tree=$self->denest($o);
 
   return 1 if $tree eq $NULL;
-
   return 1 if $tree->{type} eq $NULL;
   return $tree->{raw} if $tree->{type} eq 'const';
 
@@ -819,7 +858,13 @@ sub opres_flat($self,$o,@values) {
 
   # apply deref to @values
   # filter out undef from result of map
-  if(! $self->is_const($st)) {
+  if(
+
+    ! $self->is_const($st)
+  &&! $tree->{type} eq 'iter'
+
+  ) {
+
     @deref=grep {defined $ARG} map {
       $self->deref($ARG)
 
@@ -835,10 +880,18 @@ sub opres_flat($self,$o,@values) {
   # be all dereferenced
   return undef if @deref ne @values;
 
-  my @args=map {
-    (is_hashref($ARG)) ? $ARG->{raw} : $ARG
+  my @args=();
 
-  } @deref;
+  if($tree->{type} eq 'iter') {
+    @args=@deref;
+
+  } else {
+    @args=map {
+      (is_hashref($ARG)) ? $ARG->{raw} : $ARG
+
+    } @deref;
+
+  };
 
   unshift @args,$self if $st->{ctx};
 
@@ -868,11 +921,7 @@ sub value_ops_opz($self,$branch) {
   # ^collapse if constant
   if($const) {
 
-$branch->prich();
-exit;
-
     my $lv   = $branch->{leaves}->[0];
-
     my $o    = $lv->leaf_value(0);
 
     my $type = 'const';
