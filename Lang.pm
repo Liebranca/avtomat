@@ -538,10 +538,17 @@ sub nonscap($s,%O) {
   $O{iv}    //= 0;
   $O{mod}   //= $NULLSTR;
   $O{sigws} //= 0;
+  $O{kls}   //= 0;
+  $O{-x}    //= $NULLSTR;
 
   my $c=($O{sigws})
-    ? "$s"
-    : "$s\\s"
+    ? "$s$O{-x}"
+    : "$s$O{-x}\\s"
+    ;
+
+  $s=($O{kls})
+    ? "[$s]"
+    : $s
     ;
 
   my $out=($O{iv})

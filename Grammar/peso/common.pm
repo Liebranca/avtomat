@@ -105,31 +105,40 @@ BEGIN {
 
     q[nbeg-curly] => Lang::nonscap(
 
-      q[\{],
+      q[{],
 
       iv    => 1,
       mod   => '+',
+      kls   => 1,
       sigws => 1,
+
+      -x    => q[;],
 
     ),
 
     q[nend-curly] => Lang::nonscap(
 
-      q[\}],
+      q[}],
 
       iv    => 1,
       mod   => '+',
+      kls   => 1,
       sigws => 1,
+
+      -x    => q[;],
 
     ),
 
     q[ncurly] => Lang::nonscap(
 
-      q[(?:\{|\})],
+      q[{}],
 
       iv    => 1,
       mod   => '+',
+      kls   => 1,
       sigws => 1,
+
+      -x    => q[;],
 
     ),
 
@@ -138,31 +147,40 @@ BEGIN {
 
     q[nbeg-parens] => Lang::nonscap(
 
-      q[\(],
+      q[(],
 
       iv    => 1,
       mod   => '+',
+      kls   => 1,
       sigws => 1,
+
+      -x    => q[;],
 
     ),
 
     q[nend-parens] => Lang::nonscap(
 
-      q[\)],
+      q[)],
 
       iv    => 1,
       mod   => '+',
+      kls   => 1,
       sigws => 1,
+
+      -x    => q[;],
 
     ),
 
     q[nparens] => Lang::nonscap(
 
-      q[(?:\(|\))],
+      q[()],
 
       iv    => 1,
       mod   => '+',
+      kls   => 1,
       sigws => 1,
+
+      -x    => q[;],
 
     ),
 

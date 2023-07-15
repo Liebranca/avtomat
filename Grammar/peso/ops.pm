@@ -778,6 +778,8 @@ sub opres($self,$branch) {
 
   my $tree=$self->denest($o);
 
+  return 1 if $tree eq $NULL;
+
   return 1 if $tree->{type} eq $NULL;
   return $tree->{raw} if $tree->{type} eq 'const';
 
@@ -866,6 +868,9 @@ sub value_ops_opz($self,$branch) {
   # ^collapse if constant
   if($const) {
 
+$branch->prich();
+exit;
+
     my $lv   = $branch->{leaves}->[0];
 
     my $o    = $lv->leaf_value(0);
@@ -925,6 +930,8 @@ sub opconst_flat($self,$o) {
 
 sub expr($self,$branch) {
 
+  $self->expr_pluck_empty($branch);
+
   my @ops   = $self->find_ops($branch);
   my @empty = grep {
     ! defined $ARG->{leaves}->[0]
@@ -965,6 +972,28 @@ sub expr_merge($self,$branch) {
     $anchor->pushlv(@merge);
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# ^get rid of failed matches
+
+sub expr_pluck_empty($self,$branch) {
+
+  state $re=qr{(?:
+    value\-or\-invoke
+  | value\-op\-value
+  | ops
+
+  )}x;
+
+  map {
+    my @ar=$branch->leafless();
+
+    map  {$ARG->{parent}->pluck($ARG)}
+    grep {$ARG->{value}=~ $re} reverse @ar
+
+  } 0..1;
 
 };
 

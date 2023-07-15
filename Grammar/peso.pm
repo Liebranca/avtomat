@@ -1419,6 +1419,8 @@ sub switch_off_cl($self,$branch) {
 
 };
 
+sub switch_off_run($self,$branch) {};
+
 # ---   *   ---   *   ---
 # ^common to all
 
@@ -1988,8 +1990,8 @@ sub call_run($self,$branch) {
     wed cdef lis
 
     re io ptr-decl
-    switch
-    bltn
+
+    switch bltn
 
   ]);
 
@@ -2040,7 +2042,7 @@ sub call_run($self,$branch) {
 
     input=>[
 
-      'hey',
+      '-hey',
 
     ],
 

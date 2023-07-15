@@ -206,7 +206,7 @@ sub re_vex($self,$o,%O) {
   my $out={};
 
   # fetch from mem
-  if($O{is_fetch}) {
+  if($O{is_fetch} && defined $o->{seal}) {
 
     if(is_qre($o->{raw})) {
       $out=$o;

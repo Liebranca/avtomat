@@ -180,6 +180,7 @@ sub shift_branch($self,%O) {
   $O{frame}  //= Tree::Exec->get_frame();
 
   my $dst     = undef;
+  my $prev    = undef;
   my @pending = ($self);
 
   while(@pending) {
@@ -210,6 +211,7 @@ sub shift_branch($self,%O) {
 
     };
 
+    $prev=$nd;
     $nd->shift_chain() if ! $O{keepx};
 
     unshift @pending,@{$nd->{leaves}},0;
@@ -900,35 +902,13 @@ sub status_subok($self) {
   my $status = $self->{status};
   my $ar     = $status->{ar};
 
-  my $i      = 0;
-
   for my $sus(@$ar) {
-
-    if(
-
-      ! defined $sus
-    ||! defined $sus->{ok}
-    ||! defined $sus->{opt}
-
-    ) {
-
-      next if ! defined $lv->[$i];
-
-      $sus={
-        opt => $lv->[$i]->{opt},
-        ok  => 1,
-
-      };
-
-    };
 
     $out+=
 
        $sus->{ok}
     || $sus->{opt}
     ;
-
-    $i++;
 
   };
 
