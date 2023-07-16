@@ -37,11 +37,11 @@ package Mach::Scope;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# constructor
+# cstruc
 
 sub new($class,%O) {
 
@@ -79,6 +79,18 @@ sub decl($self,$o,@path) {
   $$out=$o;
 
   return $out
+
+};
+
+# ---   *   ---   *   ---
+# ^retraction of it
+
+sub rm($self,@path) {
+
+  my $nd=$self->{tree}->has(@path)
+  or Tree::throw_bad_fetch(@path);
+
+  $nd->{parent}->pluck($nd);
 
 };
 

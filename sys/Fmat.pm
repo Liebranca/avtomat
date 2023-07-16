@@ -86,7 +86,7 @@ sub tidyup($sref) {
 # ---   *   ---   *   ---
 # deconstruct value
 
-sub polydump($vref) {
+sub polydump($vref,$blessed=undef) {
 
   state $tab=[
 
@@ -100,6 +100,11 @@ sub polydump($vref) {
     (is_arrayref($$vref))
   | (is_hashref($$vref)*2)
   ;
+
+  if(! $idex && $blessed) {
+    $idex=is_blessref($$vref)*2;
+
+  };
 
   my $f=$tab->[$idex];
 
@@ -144,19 +149,22 @@ sub arraydump($ar) {
 # ^single value
 
 sub valuedump($vref) {
-  $$vref;
+  (defined $$vref) ? $$vref : 'undef';
 
 };
 
 # ---   *   ---   *   ---
 # ^crux
 
-sub fatdump(@refs) {
+sub fatdump($vref,%O) {
+
+  # defaults
+  $O{blessed} //= 0;
 
   my $s=(join ",\n",map {
-    map {$ARG} polydump($ARG)
+    map {$ARG} polydump($ARG,$O{blessed})
 
-  } @refs ) . q[;];
+  } $vref ) . q[;];
 
   say tidyup(\$s);
   say $NULLSTR;

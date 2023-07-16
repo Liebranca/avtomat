@@ -25,7 +25,7 @@
 
 ROM std;
 
-  byte  term,ass $3B;
+  byte  term $3B;
   byte  sep  $2C;
 
   byte str test 'xpand';
@@ -94,6 +94,8 @@ ROM std;
 
 PROC expr;
 
+STOP;
+
   in byte str s;
   lis /:f 1;
 
@@ -105,8 +107,6 @@ PROC expr;
 
   sow  {/:f} "\nRET\n";
   reap {/:f};
-
-STOP;
 
 # ---   *   ---   *   ---
 

@@ -27,13 +27,14 @@ package Mach;
   use Arstd::IO;
 
   use Mach::Scope;
+  use Mach::Value;
 
   use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -138,6 +139,84 @@ sub throw_stack_underflow() {
     lvl=>$AR_FATAL,
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# blank value
+
+sub null($self) {
+  return $self->vice('void',raw=>$NULL);
+
+};
+
+# ---   *   ---   *   ---
+# make unbound value ice
+
+sub vice($self,$type,%O) {
+
+  return Mach::Value->new(
+    $type,$NULLSTR,%O
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^declare
+
+sub decl($self,$type,$id,%O) {
+
+  my @path  = decl_prologue(\%O);
+  my $value = Mach::Value->new($type,$id,%O);
+
+  my $ptr   = $value->bind($self->{scope},@path);
+
+  return $ptr;
+
+};
+
+# ---   *   ---   *   ---
+# ^shorthand for existing values
+
+sub bind($self,$value,%O) {
+
+  my @path = decl_prologue(\%O);
+  my $ptr  = $value->bind($self->{scope},@path);
+
+  return $ptr;
+
+};
+
+# ---   *   ---   *   ---
+# ^alias
+
+sub lis($self,$to,$from,%O) {
+
+  $O{raw}=$from;
+
+  my @path  = (decl_prologue(\%O),q[$LIS]);
+  my $value = Mach::Value->new('lis',$to,%O);
+
+  $value->bind($self->{scope},@path);
+
+  return $value;
+
+};
+
+# ---   *   ---   *   ---
+# ^common chore
+
+sub decl_prologue($o) {
+
+  # defaults
+  $o->{path} //= [];
+
+  # ^lis and pop
+  my @path=@{$o->{path}};
+  delete $o->{path};
+
+  return @path;
 
 };
 

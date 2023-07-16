@@ -48,7 +48,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.6;#b
+  our $VERSION = v0.01.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -167,13 +167,8 @@ BEGIN {
 
     ),
 
-    branch => qr{
-      (?<leaf> (.+))?
-      (?: \\ \-* >)
-
-    }x,
-
 # ---   *   ---   *   ---
+# meta
 
     q[sdef-name] => Lang::eiths(
 
@@ -543,16 +538,32 @@ sub inside_ROM($self) {
 
 sub ptr_decl($self,$branch) {
 
-  my $st   = $branch->bhash(0,1,1);
-  my $type = $st->{type}->bhash();
+  my $lv   = $branch->{leaves};
+  my $type = $lv->[0];
 
-  # ^lis
+  # ^unpack type
+  my $type_lv = $type->{leaves};
+  my $width   = $type_lv->[0]->leaf_value(0);
+  my @spec    = (defined $type_lv->[1])
+    ? $type_lv->[1]->branch_values()
+    : ()
+    ;
+
+  # ^unpack values
+  my @names   = $lv->[1]->branch_values();
+  my @values  = (defined $lv->[2])
+    ? $lv->[2]->branch_values()
+    : ()
+    ;
+
+  # ^repack ;>
   $branch->{value}={
 
-    width  => $type->{width},
+    width  => $width,
+    spec   => \@spec,
 
-    names  => $st->{q[bare-list]},
-    values => $st->{vlist},
+    names  => \@names,
+    values => \@values,
 
   };
 
@@ -580,11 +591,11 @@ sub ptr_decl_ctx($self,$branch) {
   && !$f->{-cproc}
   ;
 
-  # enforce zero as default value
-  for my $i(0..$#names) {
-    $st->{values}->[$i]//=0;
+  # enforce default value
+  map {
+    $st->{values}->[$ARG]//=$mach->null()
 
-  };
+  } 0..$#names;
 
   # struct-wise macro expansion
   $mach->{scope}->crepl(\$st);
@@ -626,10 +637,8 @@ sub throw_invalid_scope($names,@path) {
 sub bind_decls($self,$width,$names,$values) {
 
   # ctx
-  my $f      = $self->{frame};
-  my $mach   = $self->{mach};
-  my $scope  = $mach->{scope};
-  my @path   = $scope->path();
+  my $mach = $self->{mach};
+  my $rom  = $self->inside_ROM();
 
   # dst
   my $ptrs=[];
@@ -643,17 +652,14 @@ sub bind_decls($self,$width,$names,$values) {
     # reparse element after macro expansion
     $self->value_expand(\$value);
 
-    my $o={
+    # set ctx attrs
+    $value->{id}    = $name;
+    $value->{width} = $width;
+    $value->{const} = $rom;
 
-      width => $width,
-      value => $value,
-
-      const => $self->inside_ROM()
-
-    };
-
-    $scope->decl($o,@path,$name);
-    push @$ptrs,$scope->rget(@path,$name);
+    # write to mem
+    my $ptr=$mach->bind($value);
+    push @$ptrs,$ptr;
 
   };
 
@@ -722,11 +728,6 @@ sub rdin_run($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# soul of perl v2.0
-
-  rule('$<vglob> beg-curly flg end-curly');
-
-# ---   *   ---   *   ---
 # aliasing
 
   rule('%<lis-key=lis>');
@@ -754,36 +755,17 @@ sub lis($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-
-sub vglob($self,$branch) {
-
-  my @ar  = $branch->branch_values();
-  my $out = $ar[1];
-
-  $branch->clear();
-  $branch->init($out);
-
-};
-
-# ---   *   ---   *   ---
 # ^context build
 
 sub lis_ctx($self,$branch) {
 
   my $st    = $branch->{value};
-
   my $mach  = $self->{mach};
-  my $scope = $mach->{scope};
-  my @path  = $scope->path();
 
   my $key   = $st->{to};
      $key   = "$key->{raw}";
 
-  $scope->decl(
-    $st->{from},
-    @path,q[$LIS],$key
-
-  );
+  $mach->lis($key,$st->{from});
 
 };
 
@@ -969,138 +951,6 @@ sub reap_run($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# for internal/out tree manipulation
-
-  rule('~<branch>');
-  rule('+<branches> branch vlist');
-
-# ---   *   ---   *   ---
-# ^post-parse
-
-sub branches($self,$branch) {
-
-  # get value list
-  my $lv=$branch->{leaves};
-
-  # BUG:
-  #
-  #   value sort refuses to trigger
-  #   for strings in trees and i
-  #   can't figure out why
-
-  # ^this bit patches it out for now...
-  if($lv->[1]->deepchk(1)) {
-    $self->value_sort($lv->[1]);
-
-  };
-
-  my @values = $lv->[1]->branch_values();
-
-  # get depth
-  my $expr =  $branch->leaf_value(0);
-     $expr =~ $REGEX->{branch};
-  my $leaf = $+{leaf};
-
-  # get dot count
-  $leaf //=  $NULLSTR;
-  $leaf   =~ s[\s+][]sxmg;
-
-  my $lvl=length $leaf;
-
-  $branch->clear();
-
-  my $ar   = $branch->{ar};
-     $ar //= [];
-
-  push @$ar,{
-    lvl   => $lvl,
-    value => (@values > 1)
-      ? \@values
-      : $values[0]
-      ,
-
-  };
-
-  $branch->{ar}=$ar;
-
-};
-
-# ---   *   ---   *   ---
-# branch array
-
-  rule('%<tree-key=tree>');
-  rule('<tree> tree-key vglob branches');
-
-# ---   *   ---   *   ---
-# ^post-parse
-
-sub tree($self,$branch) {
-
-  # TODO:
-  #
-  #   function calls and derefs
-  #   in tree decls; we have to
-  #   look into expanding $VALUE
-  #   itself...
-  #
-  #   or create different types of
-  #   values, which i'd prefer ;>
-
-  my $st    = $branch->bhash();
-  my $exprs = $branch->branch_in(qr{^branches$});
-  my $ar    = $exprs->{ar};
-
-  $branch->{value}={
-    vglob    => $st->{vglob},
-    branches => $ar,
-
-  };
-
-  $branch->clear();2
-
-};
-
-sub tree_ctx($self,$branch) {
-
-  my $st = $branch->{value};
-  my $ar = $st->{branches};
-
-  my $depth   = 0;
-  my @anchors = ($branch);
-
-  for my $ref(@$ar) {
-
-    my ($lvl,$value)=(
-      $ref->{lvl},
-      $ref->{value}
-
-    );
-
-    my $anchor = $anchors[-1];
-    my $prev   = $anchor->{leaves}->[-1];
-
-    if($lvl > $depth) {
-      push @anchors,$prev;
-      $depth++;
-
-    };
-
-    while($lvl < $depth) {
-      pop @anchors;
-      $depth--;
-
-    };
-
-    $anchors[-1]->init($value);
-
-  };
-
-  $branch->{value}="$st->{vglob}->{name}";
-  $branch->prich();
-
-};
-
-# ---   *   ---   *   ---
 # special definitions
 
   rule('~<sdef-name>');
@@ -1186,11 +1036,8 @@ sub wed_ctx($self,$branch) {
   my $value=int($st->{type} eq 'WED');
 
   for my $f(@{$st->{flags}}) {
-
-    my $fname=$f->{sigil} . $f->{name};
-
     $mach->{scope}->asg(
-      $value,@path,$fname
+      $value,@path,$f->{raw}
 
     );
 
@@ -1252,8 +1099,6 @@ sub iter_expr_ctx($self,$branch) {
 
   # get ctx
   my $mach  = $self->{mach};
-  my $scope = $self->{scope};
-
   my $st    = $branch->{value};
 
   # ^unpack
@@ -1266,14 +1111,12 @@ sub iter_expr_ctx($self,$branch) {
 
   # ^bind vars
   my @names  = map {$ARG->{raw}} @vlist;
-  my @values = map {$NULL} @vlist;
+  my @values = map {$mach->null()} @vlist;
 
   my $ptrs=$self->bind_decls(
     $width,\@names,\@values
 
   );
-
-#  $st->{ptrs}=$ptrs;
 
 };
 
@@ -1837,21 +1680,21 @@ sub call_run($self,$branch) {
   my $ice=Grammar::peso->parse($prog);
 
 #  $ice->{p3}->prich();
-#  $ice->{mach}->{scope}->prich();
+  $ice->{mach}->{scope}->prich();
 
 
-  $ice->run(
-
-    entry=>1,
-    keepx=>1,
-
-    input=>[
-
-      '-hey',
-
-    ],
-
-  );
+#  $ice->run(
+#
+#    entry=>1,
+#    keepx=>1,
+#
+#    input=>[
+#
+#      '-hey',
+#
+#    ],
+#
+#  );
 
 # ---   *   ---   *   ---
 1; # ret

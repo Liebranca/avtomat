@@ -48,7 +48,7 @@ package Grammar::peso::value;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -143,23 +143,24 @@ sub rdnum($self,$branch) {
 
   );
 
-  for my $type(keys %converter) {
+  # ^match branches to subs
+  map {
 
-    my $fn=$converter{$type};
+    # ^run on branch
+    my $fn=$converter{$ARG};
 
     map {
-
       $ARG->{value}=$fn->(
         $ARG->{value}
 
       );
 
     } $branch->branches_in(
-      $REGEX->{$type}
+      $REGEX->{$ARG}
 
     );
 
-  };
+  } keys %converter;
 
   Grammar::list_flatten($self,$branch);
 
@@ -265,12 +266,15 @@ sub flg($self,$branch) {
     : 'bare'
     ;
 
+  my $raw  = "$st->{sigil}$st->{$type}";
+
   $branch->{value}={
 
-    sigil => $st->{sigil},
-    name  => $st->{$type},
+    q[flg-name] => $st->{$type},
+    q[flg-type] => $type,
 
-    type  => $type,
+    sigil       => $st->{sigil},
+    raw         => $raw,
 
   };
 
@@ -297,32 +301,19 @@ sub value_sort($self,$branch) {
 
   state $is_re=qr{^\< (?<id> [^>]+) \>$}x;
 
-  my $st     = $branch->bhash();
-  my $xx     = $branch->leaf_value(0);
+  my $st = $branch->bhash();
+  my $xx = $branch->leaf_value(0);
+  my $o  = {};
 
-  my ($type) = keys %$st;
-
-  if(is_hashref($xx)) {
-
-    my $flg_type=$xx->{type};
-    delete $xx->{type};
-
-    $xx->{q[flg-type]}=$flg_type;
-
-    $xx->{raw}=
-      $xx->{sigil}
-    . $xx->{name}
-    ;
-
-    $type='flg';
-
-  };
+  my ($type)=keys %$st;
 
   $branch->clear();
 
-  my $o={};
+  if(is_hashref($xx)) {
+    $type = 'flg';
+    $o    = {%$xx};
 
-  if(defined $st->{$type}) {
+  } elsif(defined $st->{$type}) {
 
     my $raw=$st->{$type};
 
@@ -330,28 +321,15 @@ sub value_sort($self,$branch) {
 
       $o={
 
-        type => 're',
-
         seal => $+{id},
         raw  => $raw,
 
       };
 
+      $type='re';
+
     } else {
-
-      $o={
-        type => $type,
-        raw  => $st->{$type},
-
-      };
-
-    };
-
-  } else {
-
-    $o={
-      type => $type,
-      %$xx,
+      $o={raw => $st->{$type}};
 
     };
 
@@ -366,6 +344,7 @@ sub value_sort($self,$branch) {
 
   };
 
+  $o=$self->{mach}->vice($type,%$o);
   $branch->init($o);
 
 };
@@ -409,9 +388,6 @@ sub array_is_value($self,@ar) {
 
 sub deref($self,$v,%O) {
 
-  # defaults
-  $O{give_value}//=1;
-
   my $out=$v;
 
   if($self->needs_deref($v)) {
@@ -420,16 +396,7 @@ sub deref($self,$v,%O) {
 
   };
 
-  return (
-
-     $O{give_value}
-
-  && is_hashref($out)
-  && defined $out->{value}
-
-  ) ? $out->{value}
-    : $out
-    ;
+  return $out;
 
 };
 
@@ -442,7 +409,6 @@ sub needs_deref($self,$v) {
 
   return
      is_hashref($v)
-  && exists $v->{type}
   && $v->{type}=~ $re
   ;
 
@@ -461,24 +427,16 @@ sub array_needs_deref($self,@ar) {
 };
 
 # ---   *   ---   *   ---
-# const marker present in value hashref
-
-sub is_const($self,$o) {
-  return defined $o->{const} && $o->{const};
-
-};
-
-# ---   *   ---   *   ---
 # check value is const
 
 sub const_deref($self,$v) {
 
-  return {value=>$v} if ! $self->needs_deref($v);
+  return $v if ! $self->needs_deref($v);
 
-  my $o=$self->deref($v,give_value=>0);
+  my $o=$self->deref($v);
 
-  if($self->is_const($o)) {
-    return $o->{value};
+  if($o->{const}) {
+    return $o;
 
   } else {
     return undef;
@@ -520,11 +478,7 @@ sub vex($self,$fet,$vref,@path) {
 
   # ^matching alias found, recurse
   if($lis) {
-
-    $out=\$self->deref(
-      $$lis,give_value=>0
-
-    );
+    $out=\$self->deref($$lis);
 
   # ^nope, look up common table
   } else {
@@ -536,32 +490,6 @@ sub vex($self,$fet,$vref,@path) {
   };
 
   return $out;
-
-};
-
-# ---   *   ---   *   ---
-# ^bat
-
-sub array_vex($self,$fet,$ar,@path) {
-
-  my @ar=@$ar;
-
-  for my $v(@ar) {
-    $self->vex($fet,\$v,@path);
-
-  };
-
-  my $valid=int(
-    grep {defined $ARG} @ar
-
-  ) eq @ar;
-
-  my @out=($valid)
-    ? @ar
-    : ()
-    ;
-
-  return @out;
 
 };
 
@@ -582,7 +510,7 @@ sub bare_vex($self,$o) {
 # placeholder for now ;>
 
 sub seal_vex($self,$o) {
-  return {value=>{%$o}};
+  return $o;
 
 };
 
@@ -628,22 +556,22 @@ sub str_vex($self,$o) {
 
   my $re    = $REGEX->{repl};
 
+  # do string interpolation
   if($o->{ipol}) {
 
     while($raw=~ $re) {
 
+      # get value of var
       my $name = $+{capt};
       my $ref  = $self->bare_vex({raw=>$name});
 
-      if(defined $ref) {
+      last if ! defined $ref;
 
-        my $value = $ref->{value};
-        my $s     = $value->{raw};
+      # ^replace name with value
+      my $s=$ref->{raw};
 
-        $raw    =~ s[$re][$s];
-        $const &=~ ! $ref->{const};
-
-      } else {last};
+      $raw    =~ s[$re][$s];
+      $const &=~ ! $ref->{const};
 
     };
 
@@ -651,11 +579,11 @@ sub str_vex($self,$o) {
 
   };
 
-  return {
-    value=>{%$o,raw=>$raw},
-    const=>$const,
+  return $o->dup(
+    raw   => $raw,
+    const => $const,
 
-  };
+  );
 
 };
 

@@ -52,7 +52,7 @@ package Grammar::peso::ops;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -264,7 +264,7 @@ sub op_walk_fwd($self,$iter,@args) {
     goto SKIP if ! $out;
 
     my @have  = map {$self->vstar($ARG)} @args;
-    map {$$ARG->{value}=$ar[$$i++]} @have;
+    map {$$ARG->{raw}=$ar[$$i++]} @have;
 
   };
 
@@ -342,16 +342,10 @@ sub invoke($self,$branch) {
   my $value=$branch->{leaves}->[1];
   my $nterm=$branch->{leaves}->[2];
 
-  my $st={
+  my $st=$self->invoke_sort(
+    $value,$nterm,$depth
 
-    depth => $depth,
-
-    $self->invoke_sort(
-      $value,$nterm
-
-    ),
-
-  };
+  );
 
   $branch->clear();
   $branch->init($st);
@@ -365,7 +359,7 @@ sub invoke($self,$branch) {
 # to be applied to an invoke
 # by evaluating its args
 
-sub invoke_sort($self,$value,$nterm) {
+sub invoke_sort($self,$value,$nterm,$depth) {
 
   # get value hashref
   my $st=$value->leaf_value(0);
@@ -380,10 +374,14 @@ sub invoke_sort($self,$value,$nterm) {
   # ^run type-chk on hashref
   my $type=$self->get_invoke_type($st);
 
-  return (
+  return $self->{mach}->vice(
 
-    type => $type,
-    raw  => $raw
+    'voke',
+
+    raw   => $raw,
+    depth => $depth,
+
+    spec  => [$type],
 
   );
 
@@ -482,8 +480,7 @@ sub invoke_ord($self,$branch) {
   my $lv=$branch->{leaves}->[0];
   my $st=$lv->{value};
 
-  delete $st->{depth};
-
+  $st->type_pop('voke');
   $branch->pluck($lv);
 
   # solve nested
@@ -615,20 +612,19 @@ sub opnit($self,$branch) {
 
   );
 
-  my $st={
+  my $st=$self->{mach}->vice(
+
+    'ops',
 
     fn    => $fn,
-
-    name  => $name,
-    key   => $key,
 
     unary => exists $OP_UNARY->{$key},
     slurp => exists $OP_SLURP->{$key},
     ctx   => exists $OP_CTX->{$key},
 
-    idex  => array_iof($OP_KEYS,$key),
+    prio  => array_iof($OP_KEYS,$key),
 
-  };
+  );
 
   $branch->{leaves}->[0]->{value}=$st;
 
@@ -654,13 +650,20 @@ sub opsort($self,$branch) {
 
   );
 
+$st_lv->prich();
+exit;
+
   my $st_br=$branch->init('D');
   $st_br->pushlv($st_lv);
 
   my $v_br=$branch->init('V');
   $v_br->pushlv(@move);
 
+  $st->{V}=\@move;
+
   $branch->{parent}->idextrav();
+
+exit;
 
 };
 
@@ -755,13 +758,14 @@ sub op_to_value($self,$branch,@values) {
 
   $branch->{value}='value';
 
-  my $o={
-    raw  => $self->opres($branch),
-    type => $type,
+  my $o=$self->{mach}->vice(
 
+    $type,
+
+    raw=>$self->opres($branch),
     %{$branch->leaf_value(0)}
 
-  };
+  );
 
   $branch->clear();
   $branch->init($o);
@@ -779,6 +783,7 @@ sub op_simplify($self,$branch,@values) {
   my $st     = $D->leaf_value(0);
 
   my $o={
+
     D    => $st,
     V    => \@values,
 
@@ -860,7 +865,7 @@ sub opres_flat($self,$o,@values) {
   # filter out undef from result of map
   if(
 
-    ! $self->is_const($st)
+    ! $st->{const}
   &&! $tree->{type} eq 'iter'
 
   ) {
@@ -908,8 +913,8 @@ sub value_ops_opz($self,$branch) {
   # sort by priority
   my @ops=sort {
 
-     $a->leaf_value(0)->{idex}
-  >= $b->leaf_value(0)->{idex}
+     $a->leaf_value(0)->{prio}
+  >= $b->leaf_value(0)->{prio}
 
   } $self->find_ops($branch);
 

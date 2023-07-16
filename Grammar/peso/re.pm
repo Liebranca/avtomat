@@ -54,7 +54,7 @@ package Grammar::peso::re;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -124,14 +124,14 @@ sub rdre($self,$branch) {
 
   my $st=$branch->bhash(0,0,0);
 
-  $branch->{value}={
+  $branch->{value}=$self->{mach}->vice(
 
-    type  => $st->{q[re-type]},
+    $st->{q[re-type]},
 
     raw   => $st->{nterm},
     seal  => $st->{seal},
 
-  };
+  );
 
   $branch->clear();
 
@@ -155,43 +155,34 @@ sub rdre_ctx($self,$branch) {
 
 sub bind_re($self,$branch,$o) {
 
-  my $st    = $branch->{value};
-  my $v     = $o->{value};
-
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
 
   # use expr name for capture
   # ie (?<name> expr)
-  $v->{raw}=
+  $o->{raw}=
     q[(?<]
-  . $st->{seal}
+  . $o->{seal}
 
   . q[>]
-  . $v->{raw}
+  . $o->{raw}
 
   . q[)]
   ;
 
   # is whitespace intolerant
-  $v->{raw}=(! $st->{flags}->{-sigws})
-    ? qr{$v->{raw}}x
-    : qr{$v->{raw}}
+  $o->{raw}=(! $o->{flags}->{-sigws})
+    ? qr{$o->{raw}}x
+    : qr{$o->{raw}}
     ;
 
-  $o->{const}=$self->inside_ROM();
+  # set ctx attrs
+  $o->{id}    = $o->{seal};
+  $o->{const} = $self->inside_ROM();
 
-  # ^push to current namespace
-  $scope->decl(
-
-    $o,
-
-    $scope->path(),
-
-    $st->{type},
-    $st->{seal},
-
-  );
+  # ^push to current namespace::re
+  my @path=($scope->path(),$o->{type});
+  $mach->bind($o,path=>\@path);
 
 };
 
@@ -203,17 +194,23 @@ sub re_vex($self,$o,%O) {
   # defaults
   $O{is_fetch}//=1;
 
-  my $out={};
+  my $out  = {};
+  my $type = (defined $o->{type})
+    ? $o->{type}
+    : 're'
+    ;
 
   # fetch from mem
   if($O{is_fetch} && defined $o->{seal}) {
 
+    # raw is re
     if(is_qre($o->{raw})) {
       $out=$o;
 
+    # ^needs deref
     } else {
 
-      my $seal  = join q[::],(
+      my $seal=join q[::],(
         $o->{type},
         $o->{seal},
 
@@ -232,7 +229,7 @@ sub re_vex($self,$o,%O) {
 
       );
 
-      $out=($fet) ? $$fet : undef;
+      $out=($fet) ? $$fet : {};
 
     };
 
@@ -248,14 +245,11 @@ sub re_vex($self,$o,%O) {
     );
 
     $out->{raw}   = $re;
-    $out->{type}  = 're';
     $out->{flags} = $flags;
-
-    $out={value=>{%$out}};
 
   };
 
-  return $out;
+  return $o->dup(%$out);
 
 };
 
@@ -309,7 +303,7 @@ sub fetch_re($self,$name) {
 
   );
 
-  return $$rer->{value}->{raw};
+  return $$rer->{raw};
 
 };
 
