@@ -218,7 +218,7 @@ sub op_match($self,$lhs,$rhs) {
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
 
-  my $out=int($lhs=~ $rhs);
+  my $out=int($lhs->{raw}=~ $rhs->{raw});
 
   if($out) {
 
@@ -645,25 +645,8 @@ sub opsort($self,$branch) {
     : ($lv->[$idex-1],$lv->[$idex+1])
     ;
 
-  my ($st_lv)=$branch->pluck(
-    $branch->{leaves}->[0]
-
-  );
-
-$st_lv->prich();
-exit;
-
-  my $st_br=$branch->init('D');
-  $st_br->pushlv($st_lv);
-
-  my $v_br=$branch->init('V');
-  $v_br->pushlv(@move);
-
-  $st->{V}=\@move;
-
-  $branch->{parent}->idextrav();
-
-exit;
+  $st->{V}=[map {$self->opvalue($ARG)} @move];
+  $branch->{parent}->pluck(@move);
 
 };
 
@@ -682,17 +665,17 @@ sub opsolve($self,$branch) {
   if $par->{value} eq '()';
 
   # decompose
-  my ($D,$V) = @{$branch->{leaves}};
+  my $st     = $branch->leaf_value(0);
+  my @values = @{$st->{V}};
 
-  my @leaves = @{$V->{leaves}};
-  my @values = map {
-    $self->opvalue($ARG)
+  my $flat   = map {
+    $ARG->{type} ne 'ops'
 
-  } @leaves;
+  } @values;
 
   # get op is solvable at this stage
   my $const=0;
-  if($self->array_is_value(@leaves)) {
+  if($flat) {
 
     my @consts=
       $self->array_const_deref(@values);
@@ -701,20 +684,13 @@ sub opsolve($self,$branch) {
       @values = @consts;
       $const  = 1;
 
+      $self->op_to_value($branch);
+
     };
 
   };
 
-  # restruc
-  $self->op_simplify($branch,@values);
-
-  # attempt solving
-  if($const) {
-    $D->leaf_value(0)->{const}=1;
-    $self->op_to_value($branch,@values)
-
-  };
-
+  $st->{const}=$const;
   return $const;
 
 };
@@ -752,47 +728,27 @@ sub opvalue($self,$branch) {
 # collapse op tree branch
 # into value node
 
-sub op_to_value($self,$branch,@values) {
+sub op_to_value($self,$branch) {
 
-  my $type=$values[0]->{type};
+  my $st     = $branch->leaf_value(0);
+
+  my $values = $st->{V};
+  my $type   = $values->[0]->{type};
 
   $branch->{value}='value';
 
-  my $o=$self->{mach}->vice(
-
-    $type,
-
+  my $o=$st->dup(
     raw=>$self->opres($branch),
     %{$branch->leaf_value(0)}
 
   );
 
+  $o->type_pop('ops');
+
   $branch->clear();
   $branch->init($o);
 
   return 1;
-
-};
-
-# ---   *   ---   *   ---
-# ^ease eventual solving of op
-
-sub op_simplify($self,$branch,@values) {
-
-  my ($D,$V) = @{$branch->{leaves}};
-  my $st     = $D->leaf_value(0);
-
-  my $o={
-
-    D    => $st,
-    V    => \@values,
-
-    type => 'ops',
-
-  };
-
-  $branch->clear();
-  $branch->init($o);
 
 };
 
@@ -852,7 +808,6 @@ sub opres($self,$branch) {
 sub opres_flat($self,$o,@values) {
 
   my $tree = $self->denest($o);
-  my $st   = $tree->{D};
 
   @values=(! @values)
     ? @{$tree->{V}}
@@ -865,8 +820,8 @@ sub opres_flat($self,$o,@values) {
   # filter out undef from result of map
   if(
 
-    ! $st->{const}
-  &&! $tree->{type} eq 'iter'
+    ! $tree->{const}
+  &&! ($tree->{type} eq 'iter')
 
   ) {
 
@@ -898,10 +853,10 @@ sub opres_flat($self,$o,@values) {
 
   };
 
-  unshift @args,$self if $st->{ctx};
+  unshift @args,$self if $tree->{ctx};
 
   # call func with derefenced args
-  return $st->{fn}->(@args);
+  return $tree->{fn}->(@args);
 
 };
 
@@ -928,12 +883,15 @@ sub value_ops_opz($self,$branch) {
 
     my $lv   = $branch->{leaves}->[0];
     my $o    = $lv->leaf_value(0);
+       $lv   = $lv->{leaves}->[0];
 
     my $type = 'const';
     my $raw  = $o->{raw};
 
-    $lv->{leaves}->[0]->{value}=
-      {type=>$type,raw=>$raw};
+    $lv->{value}=$self->{mach}->vice(
+      'const',raw=>$raw
+
+    );
 
   };
 

@@ -591,9 +591,16 @@ sub ptr_decl_ctx($self,$branch) {
   && !$f->{-cproc}
   ;
 
-  # enforce default value
+  # select default cstruc
+  my $dtype=(defined $st->{spec}->[-1])
+    ? $st->{spec}->[-1]
+    : 'void'
+    ;
+
+  # ^enforce on uninitialized
   map {
-    $st->{values}->[$ARG]//=$mach->null()
+    $st->{values}->[$ARG]//=
+      $mach->null($dtype)
 
   } 0..$#names;
 
@@ -845,7 +852,7 @@ sub io_const_fd($self,$st) {
   if($st->{const_fd}) {
 
     ($st->{fd},$st->{buff})=$mach->fd_solve(
-      $st->{const_fd}->{value}->{raw}
+      $st->{const_fd}->deref()
 
     );
 
@@ -874,7 +881,11 @@ sub sow_run($self,$branch) {
       : $ARG
       ;
 
-    $s.=(is_hashref($x)) ? $x->{raw} : $x;
+    $s.=(Mach::Value->is_valid($x))
+      ? $x->{raw}
+      : $x
+      ;
+
     $i++;
 
   } @{$st->{const_vlist}};
@@ -1680,21 +1691,21 @@ sub call_run($self,$branch) {
   my $ice=Grammar::peso->parse($prog);
 
 #  $ice->{p3}->prich();
-  $ice->{mach}->{scope}->prich();
+#  $ice->{mach}->{scope}->prich();
 
 
-#  $ice->run(
-#
-#    entry=>1,
-#    keepx=>1,
-#
-#    input=>[
-#
-#      '-hey',
-#
-#    ],
-#
-#  );
+  $ice->run(
+
+    entry=>1,
+    keepx=>1,
+
+    input=>[
+
+      'hey',
+
+    ],
+
+  );
 
 # ---   *   ---   *   ---
 1; # ret

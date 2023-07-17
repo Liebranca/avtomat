@@ -408,7 +408,8 @@ sub needs_deref($self,$v) {
   state $re=qr{(?:seal|bare|str|flg|re|ops)};
 
   return
-     is_hashref($v)
+
+     Mach::Value->is_valid($v)
   && $v->{type}=~ $re
   ;
 

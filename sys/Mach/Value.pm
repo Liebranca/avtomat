@@ -30,6 +30,7 @@ package Mach::Value;
   use Arstd::IO;
 
   use lib $ENV{'ARPATH'}.'/lib/';
+  use parent 'St';
 
 # ---   *   ---   *   ---
 # info
@@ -80,21 +81,20 @@ package Mach::Value;
 
     prio  => 0,
 
+    V     => [],
+
   };
 
 # ---   *   ---   *   ---
 # GBL
 
-  my $Attrs=>{
+  my $Attrs={
 
     str  => $STR_ATTRS,
     re   => $RE_ATTRS,
 
     voke => $VOKE_ATTRS,
     ops  => $OPS_ATTRS,
-
-    D    => undef,
-    V    => [],
 
   };
 
@@ -135,7 +135,7 @@ sub new($class,$type,$id,%O) {
   my %attrs = map {
     $class->getattrs($ARG)
 
-  } @$spec,$type;
+  } ($type,@$spec);
 
   # ^set attrs
   map {$attrs{$ARG}=$O{$ARG}} keys %O;
@@ -259,6 +259,26 @@ sub unbind($self) {
 
   $self->{scope} = undef;
   $self->{path}  = [];
+
+};
+
+# ---   *   ---   *   ---
+# recursive $self->{raw}
+
+sub deref($self,$lvl=-1) {
+
+  my $out   = undef;
+
+  my $src   = $self;
+  my $class = ref $src;
+
+  while($lvl != 0 && $class->is_valid($src)) {
+    $out=$src=$src->{raw};
+    $lvl--;
+
+  };
+
+  return $out;
 
 };
 

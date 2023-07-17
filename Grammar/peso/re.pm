@@ -200,40 +200,28 @@ sub re_vex($self,$o,%O) {
     : 're'
     ;
 
-  # fetch from mem
-  if($O{is_fetch} && defined $o->{seal}) {
+  # fetch existing
+  if($O{is_fetch} && $o->{seal}) {
 
-    # raw is re
+    # already dereferenced!
     if(is_qre($o->{raw})) {
       $out=$o;
 
     # ^needs deref
     } else {
 
+      # get (path)::re::name
       my $seal=join q[::],(
-        $o->{type},
-        $o->{seal},
+        $o->{type},$o->{seal},
 
       );
 
-      my $mach  = $self->{mach};
-      my $scope = $mach->{scope};
-
-      my $fet=$scope->cderef(
-
-        0,\$seal,
-
-        $scope->path(),
-        $o->{type},
-        $o->{seal},
-
-      );
-
-      $out=($fet) ? $$fet : {};
+      my $fet=$self->vex(0,\$seal);
+         $out=($fet) ? $$fet : {};
 
     };
 
-  # ^transform
+  # ^make new
   } else {
 
     my $raw   = $o->{raw};

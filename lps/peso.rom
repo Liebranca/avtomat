@@ -94,10 +94,20 @@ ROM std;
 
 PROC expr;
 
-STOP;
-
   in byte str s;
   lis /:f 1;
+
+  sow {/:f} ':>';
+
+  on s ~= <bare>;
+    sow {/:f} 'entered!';
+
+  off;
+
+  sow {/:f} "\n";
+  reap {/:f};
+
+STOP;
 
   on c from s;
     sow {/:f} c;

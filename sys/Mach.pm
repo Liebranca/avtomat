@@ -145,8 +145,8 @@ sub throw_stack_underflow() {
 # ---   *   ---   *   ---
 # blank value
 
-sub null($self) {
-  return $self->vice('void',raw=>$NULL);
+sub null($self,$type='void') {
+  return $self->vice($type,raw=>$NULL);
 
 };
 
