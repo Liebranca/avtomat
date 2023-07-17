@@ -299,7 +299,7 @@ sub orc($fname) {
 # ---   *   ---   *   ---
 # directory open,read,close
 
-sub dorc($path,$excluded) {
+sub dorc($path,$excluded=$NO_MATCH) {
 
   my @out=();
   goto TAIL if ! -d $path;

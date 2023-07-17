@@ -248,13 +248,14 @@ sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
 sub op_walk_fwd($self,$iter,@args) {
 
   my $out=undef;
+  my $src=shift @args;
 
-  if($iter) {
+  if($src) {
 
-    my $o     = $self->deref($iter->{o});
+    my $o     = $self->deref($src);
     my $i     = \$iter->{i};
 
-    my @ar    = split $NULLSTR,$o;
+    my @ar    = split $NULLSTR,$o->{raw};
     my $limit = int(@ar);
 
     # get stop
@@ -263,11 +264,10 @@ sub op_walk_fwd($self,$iter,@args) {
 
     goto SKIP if ! $out;
 
-    my @have  = map {$self->vstar($ARG)} @args;
+    my @have=map {$self->vstar($ARG)} @args;
     map {$$ARG->{raw}=$ar[$$i++]} @have;
 
   };
-
 
 SKIP:
 
@@ -843,7 +843,7 @@ sub opres_flat($self,$o,@values) {
   my @args=();
 
   if($tree->{type} eq 'iter') {
-    @args=@deref;
+    @args=($tree,@deref);
 
   } else {
     @args=map {

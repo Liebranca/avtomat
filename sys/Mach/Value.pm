@@ -85,6 +85,13 @@ package Mach::Value;
 
   };
 
+  Readonly our $ITER_ATTRS=>{
+
+    src  => undef,
+    i    => 0,
+
+  };
+
 # ---   *   ---   *   ---
 # GBL
 
@@ -95,6 +102,7 @@ package Mach::Value;
 
     voke => $VOKE_ATTRS,
     ops  => $OPS_ATTRS,
+    iter => $ITER_ATTRS,
 
   };
 

@@ -97,17 +97,7 @@ PROC expr;
   in byte str s;
   lis /:f 1;
 
-  sow {/:f} ':>';
-
-  on s ~= <bare>;
-    sow {/:f} 'entered!';
-
-  off;
-
-  sow {/:f} "\n";
-  reap {/:f};
-
-STOP;
+  sow {/:f} '$:';
 
   on c from s;
     sow {/:f} c;
@@ -117,6 +107,8 @@ STOP;
 
   sow  {/:f} "\nRET\n";
   reap {/:f};
+
+STOP;
 
 # ---   *   ---   *   ---
 

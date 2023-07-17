@@ -728,7 +728,7 @@ sub rdin_opz($self,$branch) {
 sub rdin_run($self,$branch) {
 
   for my $ptr(@{$branch->{value}}) {
-    $$ptr->{value}=$self->{mach}->stkpop();
+    $$ptr->{raw}=$self->{mach}->stkpop();
 
   };
 
@@ -1092,11 +1092,16 @@ sub iter_expr($self,$branch) {
   my @vlist = $lv->[0]->branch_values();
   my $iter  = $lv->[1]->leaf_value(0);
 
-  my $st={
-    vlist => \@vlist,
-    iter  => $iter,
+  my $st=$self->{mach}->vice(
 
-  };
+    'iter',
+
+    spec => ['ops'],
+
+    V    => \@vlist,
+    src  => $iter,
+
+  );
 
   $branch->clear();
   $branch->{value}=$st;
@@ -1113,18 +1118,21 @@ sub iter_expr_ctx($self,$branch) {
   my $st    = $branch->{value};
 
   # ^unpack
-  my @vlist = @{$st->{vlist}};
-  my $iter  = $st->{iter};
+  my @vars = @{$st->{V}};
+  my $src  = $st->{src};
 
   # get element size
-  my $ref   = $self->deref($iter,give_value=>0);
+  my $ref   = $self->deref($src);
   my $width = $ref->{width};
 
   # ^bind vars
-  my @names  = map {$ARG->{raw}} @vlist;
-  my @values = map {$mach->null()} @vlist;
+  my @names  = map {$ARG->{raw}} @vars;
+  my @values = map {
+    $mach->null($ref->{type})
 
-  my $ptrs=$self->bind_decls(
+  } @vars;
+
+  $self->bind_decls(
     $width,\@names,\@values
 
   );
@@ -1143,30 +1151,16 @@ sub iter_expr_ord($self,$branch) {
 
   );
 
-  $st->{iter}={
-    o=>$st->{iter},
-    i=>0,
+  $st->{fn}  = $fn;
+  $st->{ctx} = 1;
 
-  };
+  $st->{V}   = [
+    $st->{src},
+    @{$st->{V}},
 
-  $branch->init({
+  ];
 
-    D=>{
-      fn   => $fn,
-      ctx  => 1,
-
-    },
-
-    V=>[
-      $st->{iter},
-      @{$st->{vlist}},
-
-    ],
-
-    type => 'iter',
-
-  });
-
+  $branch->init($st);
   $branch->{value}='ops';
 
 };

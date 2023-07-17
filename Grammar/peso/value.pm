@@ -621,7 +621,7 @@ sub value_expand($self,$vref) {
 
 sub vstar($self,$o,@path) {
 
-  my $raw=(is_hashref($o))
+  my $raw=(is_blessref($o))
     ? $o->{raw}
     : $o
     ;
