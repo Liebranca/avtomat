@@ -1180,7 +1180,7 @@ sub switch_on($self,$branch) {
 };
 
 sub switch_on_ctx($self,$branch) {
-  $self->switch_sort($branch);
+  $self->switch_case_ctx($branch);
 
 };
 
@@ -1214,7 +1214,7 @@ sub switch_or($self,$branch) {
 };
 
 sub switch_or_ctx($self,$branch) {
-  $self->switch_sort($branch);
+  $self->switch_case_ctx($branch);
 
 };
 
@@ -1384,18 +1384,6 @@ sub switch_off_run($self,$branch) {};
 
 sub switch_case($self,$branch) {
 
-  # parse nterm if present
-  my $lv=$branch->{leaves}->[0];
-  if($lv->{leaves}->[0]) {
-    my ($nterm)=$branch->leafless();
-    my @expr=$PE_OPS->take($nterm);
-
-    # ^merge trees
-    $branch->clear();
-    $branch->pushlv(@expr);
-
-  };
-
   # add nesting helper
   my $f    = $self->{frame};
   my $nest = \$f->{-nest}->{switch};
@@ -1407,6 +1395,41 @@ sub switch_case($self,$branch) {
   });
 
 };
+
+# ---   *   ---   *   ---
+# ^expand branch
+
+sub switch_case_ctx($self,$branch) {
+
+  # parse nterm if present
+  my $lv=$branch->{leaves}->[0];
+
+  if(
+
+     $lv->{leaves}->[0]
+  && $lv->{value} eq 'nterm'
+
+  ) {
+
+    # make subtree for parsing expr
+    my $nterm = $lv->{leaves}->[0];
+    my @expr  = $PE_OPS->recurse(
+      $nterm,$self->{mach}
+
+    );
+
+    # ^merge trees
+    $branch->pluck($lv);
+    $branch->insertlv(0,@expr);
+
+  };
+
+  $self->switch_sort($branch)
+
+};
+
+# ---   *   ---   *   ---
+# ^collapse
 
 sub switch_case_pre($self,$branch) {
 

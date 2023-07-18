@@ -34,7 +34,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.5;
+  our $VERSION=v0.01.6;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -573,14 +573,55 @@ sub cllv($self) {
 
 sub insert($self,$pos,@list) {
 
+  my ($head,$tail)=$self->insert_prologue($pos);
+  my @insert=map {$self->init($ARG)} @list;
+
+  $self->insert_epilogue(
+
+    head   => $head,
+    insert => \@insert,
+
+    tail   => $tail,
+
+  );
+
+  return @insert;
+
+};
+
+# ---   *   ---   *   ---
+# ^same, merges with subtrees
+
+sub insertlv($self,$pos,@list) {
+
+  my ($head,$tail)=$self->insert_prologue($pos);
+
+  map {$ARG->{parent}=$self} @list;
+
+  $self->insert_epilogue(
+
+    head   => $head,
+    insert => \@list,
+
+    tail   => $tail,
+
+  );
+
+  return @list;
+
+};
+
+# ---   *   ---   *   ---
+# ^repeated for both
+
+sub insert_prologue($self,$pos) {
+
   my @ar=@{$self->{leaves}};
 
   my @head=();
   my @tail=();
 
-# ---   *   ---   *   ---
-# cut array at position
-
+  # cut array at position
   if($pos) {
     @head=@ar[0..$pos-1]
 
@@ -591,19 +632,27 @@ sub insert($self,$pos,@list) {
 
   };
 
-# ---   *   ---   *   ---
-# insert new elements
+  return \@head,\@tail;
 
-  my @insert=map {$self->init($ARG)} @list;
-  my @leaves=(@head,@insert,@tail);
+};
 
 # ---   *   ---   *   ---
-# overwrite
+# ^end-of
 
+sub insert_epilogue($self,%h) {
+
+  my @leaves=(
+
+    @{$h{head}},
+    @{$h{insert}},
+
+    @{$h{tail}},
+
+  );
+
+  # ^overwrite
   $self->{leaves}=\@leaves;
   $self->idextrav();
-
-  return @insert;
 
 };
 

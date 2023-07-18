@@ -260,7 +260,7 @@ sub op_subscript($self,$ar,$idex) {
 
   my $out=undef;
 
-  if($ar) {
+  if($ar && $ar->{scope}) {
 
     # get ctx
     my $scope = $ar->{scope};
@@ -717,10 +717,10 @@ sub opsolve($self,$branch) {
   my $st     = $branch->leaf_value(0);
   my @values = @{$st->{V}};
 
-  my $flat   = map {
-    $ARG->{type} ne 'ops'
+  my $flat   = int(
+    map {$ARG->{const}
 
-  } @values;
+  } @values) == @values;
 
   # get op is solvable at this stage
   my $const=0;
@@ -730,8 +730,8 @@ sub opsolve($self,$branch) {
       $self->array_const_deref(@values);
 
     if(@consts) {
-      @values = @consts;
-      $const  = 1;
+      @{$st->{V}}=@consts;
+      $const=1;
 
       $self->op_to_value($branch);
 
@@ -1227,13 +1227,21 @@ sub ops_vex($self,$o) {
 # ---   *   ---   *   ---
 # crux
 
-sub take($class,$nterm) {
+sub recurse($class,$branch,$mach=undef) {
 
   state $re=qr{^rec\-expr$};
 
-  my $ice   = $class->parse($nterm->{value});
-  my @expr  = $ice->{p3}->branches_in($re);
+  # make subtree from branch
+  my $ice=$class->parse(
+    $branch->{value},
+    mach=>$mach
 
+  );
+
+  # ^trim
+  my @expr=$ice->{p3}->branches_in($re);
+
+  # ^give leaves
   return map {$ARG->pluck_all()} @expr;
 
 };

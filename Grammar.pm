@@ -233,6 +233,12 @@ sub new($class,%O) {
   $O{idex} //= 0;
   $O{mach} //= {idex=>$O{idex}};
 
+  # arg is cstruc or ice
+  my $mach=(! Mach->is_valid($O{mach}))
+    ? Mach->new(%{$O{mach}})
+    : $O{mach}
+    ;
+
   # make new
   my $gram=$class->get_top();
   my $self=bless {
@@ -240,7 +246,7 @@ sub new($class,%O) {
     frame   => $class->new_frame(),
     c3      => Tree::Exec->new_root(),
 
-    mach    => Mach->new(%{$O{mach}}),
+    mach    => $mach,
     Q       => Queue->nit(),
     gram    => $gram,
 
