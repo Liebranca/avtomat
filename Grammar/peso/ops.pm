@@ -52,7 +52,7 @@ package Grammar::peso::ops;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -170,7 +170,11 @@ sub op_m_attr($lhs,$rhs,@args) {};
 
 sub op_pow($lhs,$rhs) {return $lhs ** $rhs};
 
-sub op_mul($lhs,$rhs) {return $lhs * $rhs};
+sub op_mul($lhs,$rhs) {
+  return $lhs->{raw} * $rhs->{raw}
+
+};
+
 sub op_mod($lhs,$rhs) {return $lhs % $rhs};
 sub op_div($lhs,$rhs) {return $lhs / $rhs};
 sub op_add($lhs,$rhs) {return $lhs + $rhs};
@@ -243,6 +247,22 @@ sub op_eq($lhs,$rhs) {return $lhs eq $rhs};
 sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
 
 # ---   *   ---   *   ---
+# array fetch
+
+sub op_subscript($self,$ar,$idex) {
+
+  my $out=undef;
+
+  if(is_arrayref($ar)) {
+    $out=$ar->{raw}->[$idex];
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # loops
 
 sub op_walk_fwd($self,$iter,@args) {
@@ -299,8 +319,10 @@ sub op_walk_bak($lhs,$rhs) {
   ext_rules(
 
     $PE_COMMON,qw(
+
     fbeg-curly  fend-curly
     fbeg-parens fend-parens
+    fbeg-brak fend-brak
 
     opt-ncurly
 
@@ -552,10 +574,10 @@ sub invokes_solve($self,$branch) {
     $<value-op-value>
     &value_ops
 
-    fbeg-parens
+    fbeg-parens fbeg-brak
     value-or-invoke ops
 
-    fend-parens
+    fend-brak fend-parens
 
   ]);
 
@@ -607,7 +629,7 @@ sub opnit($self,$branch) {
   my $name = $OPHASH->{$key};
 
   my $fn   = codefind(
-    'Grammar::peso',
+    'Grammar::peso::ops',
     "op_$name"
 
   );
@@ -645,8 +667,12 @@ sub opsort($self,$branch) {
     : ($lv->[$idex-1],$lv->[$idex+1])
     ;
 
-  $st->{V}=[map {$self->opvalue($ARG)} @move];
-  $branch->{parent}->pluck(@move);
+  # ^perform move if operands not set
+  if(! @{$st->{V}}) {
+    $st->{V}=[map {$self->opvalue($ARG)} @move];
+    $branch->{parent}->pluck(@move);
+
+  };
 
 };
 
@@ -701,26 +727,40 @@ sub opsolve($self,$branch) {
 sub array_opsolve($self,$branch) {
 
   my @ops=$self->find_ops($branch);
-  my $valid=int(grep {$ARG} map {
+
+  # solve from bottom up
+  my @const = map {
     $self->opsolve($ARG)
 
-  } reverse @ops) == @ops;
+  } reverse @ops;
 
-  return $valid;
+  # ^give all ops can be solved
+  return int(grep {$ARG} @const) == @ops;
 
 };
 
 # ---   *   ---   *   ---
-# fetch elements from ops V array
+# fetch value branch of value-op-value
 
-sub opvalue($self,$branch) {
+sub opleaf($self,$branch) {
 
-  $branch=($branch->{value} eq '()')
+  state $nested=qr{
+    (?: \{\} | \(\) | \[\] )
+
+  }x;
+
+  return ($branch->{value}=~ $nested)
     ? $branch->{leaves}->[0]
     : $branch
     ;
 
-  return $branch->leaf_value(0);
+};
+
+# ---   *   ---   *   ---
+# ^get value of branch itself
+
+sub opvalue($self,$branch) {
+  return $self->opleaf($branch)->leaf_value(0);
 
 };
 
@@ -865,7 +905,81 @@ sub opres_flat($self,$o,@values) {
 
 sub value_ops_opz($self,$branch) {
 
-  # sort by priority
+  # group subscript ops with their
+  # corresponding values
+  $self->subscript_sort($branch);
+
+  # sort ops && operands by priority
+  $self->value_ops_sort($branch);
+
+  # ^collapse into value branch
+  # if op is solvable at this stage
+  $self->opconst_collapse($branch)
+  if $self->array_opsolve($branch);
+
+  $branch->flatten_branch();
+
+};
+
+# ---   *   ---   *   ---
+# pairs value to matching subscript
+
+sub subscript_sort($self,$branch) {
+
+  state $brak=qr{^\[\]$}x;
+
+  map {
+
+    my $value=$ARG->next_branch(-1);
+    $ARG->pushlv($value);
+
+    $self->subscript_to_ops($ARG);
+
+  } $branch->branches_in($brak);
+
+};
+
+# ---   *   ---   *   ---
+# ^transforms name[idex] into
+# an operator branch
+
+sub subscript_to_ops($self,$branch) {
+
+  my @values=map {
+    $ARG->leaf_value(0)
+
+  } reverse @{$branch->{leaves}};
+
+  my $st=$self->{mach}->vice(
+
+    'ops',
+
+    V     => \@values,
+
+    ctx   => 1,
+    prio  => 0,
+
+    fn  => codefind(
+      'Grammar::peso::ops',
+      'op_subscript'
+
+    ),
+
+  );
+
+  $branch->{value}='ops';
+
+  $branch->clear();
+  $branch->init($st);
+
+};
+
+# ---   *   ---   *   ---
+# sort ops of an expression
+# by their priority
+
+sub value_ops_sort($self,$branch) {
+
   my @ops=sort {
 
      $a->leaf_value(0)->{prio}
@@ -875,27 +989,32 @@ sub value_ops_opz($self,$branch) {
 
   map {$self->opsort($ARG)} @ops;
 
-  # ^solve from bottom up
-  my $const=$self->array_opsolve($branch);
+};
 
-  # ^collapse if constant
-  if($const) {
+# ---   *   ---   *   ---
+# collapses operator tree
+# when operation is solved
 
-    my $lv   = $branch->{leaves}->[0];
-    my $o    = $lv->leaf_value(0);
-       $lv   = $lv->{leaves}->[0];
+sub opconst_collapse($self,$branch) {
 
-    my $type = 'const';
-    my $raw  = $o->{raw};
+  # get leaf holding value
+  my $lv   = $self->opleaf(
+    $branch->{leaves}->[0]
 
-    $lv->{value}=$self->{mach}->vice(
-      'const',raw=>$raw
+  );
 
-    );
+  # ^get value
+  my $o    = $lv->leaf_value(0);
+  my $dst  = $lv->{leaves}->[0];
 
-  };
+  my $type = $o->{type};
+  my $spec = $o->{spec};
+  my $raw  = $o->{raw};
 
-  $branch->flatten_branch();
+  $dst->{value}=$self->{mach}->vice(
+    $type,raw=>$raw
+
+  );
 
 };
 
@@ -1069,20 +1188,26 @@ sub ops_vex($self,$o) {
 
   } @{$o->{V}};
 
-  return {
+  my $type=(defined $values[0]->{type})
+    ? $values[0]->{type}
+    : $NULLSTR
+    ;
 
-    const=>1,
-    value=>{
+  my $raw=$self->opres_flat($o,@values);
 
-      raw   => $self->opres_flat($o,@values),
-      type  => (is_hashref($values[0]))
-        ? $values[0]->{type}
-        : $NULL
-        ,
+  $raw=(defined $raw && $raw ne $NULL)
+    ? $raw
+    : undef
+    ;
 
-    },
+  return $self->{mach}->vice(
 
-  };
+    $type,
+
+    const => defined $raw,
+    raw   => $raw,
+
+  );
 
 };
 

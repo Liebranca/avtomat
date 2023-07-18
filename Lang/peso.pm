@@ -117,7 +117,7 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
     [qw(
 
       jmp jif eif
-      on then or off
+      on from or off
 
       call ret rept
       wait sys stop

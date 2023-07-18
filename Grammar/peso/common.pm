@@ -65,6 +65,7 @@ package Grammar::peso::common;
     -nest => {
       parens => 0,
       curly  => 0,
+      brak   => 0,
       switch => 0,
 
     },
@@ -184,6 +185,48 @@ BEGIN {
 
     ),
 
+# ---   *   ---   *   ---
+# [^\[]+ | [^\]]+
+
+    q[nbeg-brak] => Lang::nonscap(
+
+      q{[},
+
+      iv    => 1,
+      mod   => '+',
+      kls   => 1,
+      sigws => 1,
+
+      -x    => q[;],
+
+    ),
+
+    q[nend-brak] => Lang::nonscap(
+
+      q{]},
+
+      iv    => 1,
+      mod   => '+',
+      kls   => 1,
+      sigws => 1,
+
+      -x    => q[;],
+
+    ),
+
+    q[nbrak] => Lang::nonscap(
+
+      q{[]},
+
+      iv    => 1,
+      mod   => '+',
+      kls   => 1,
+      sigws => 1,
+
+      -x    => q[;],
+
+    ),
+
   };
 
 # ---   *   ---   *   ---
@@ -218,6 +261,14 @@ BEGIN {
   rule('$?<opt-nend-parens> &clip nend-parens');
   rule('$?<opt-parens> &clip nparens');
 
+  rule('~<nbeg-brak>');
+  rule('~<nend-brak>');
+  rule('~<nbrak>');
+
+  rule('$?<opt-nbeg-brak> &clip nbeg-brak');
+  rule('$?<opt-nend-brak> &clip nend-brak');
+  rule('$?<opt-brak> &clip nbrak');
+
 # ---   *   ---   *   ---
 # open/close
 
@@ -225,11 +276,15 @@ BEGIN {
   rule('%<end-curly=\}> &erew');
   rule('%<beg-parens=\(> &erew');
   rule('%<end-parens=\)> &erew');
+  rule('%<beg-brak=\[> &erew');
+  rule('%<end-brak=\]> &erew');
 
   rule('$?<fbeg-parens> &nest_parens beg-parens');
   rule('$?<fend-parens> &nest_parens end-parens');
   rule('$?<fbeg-curly> &nest_curly beg-curly');
   rule('$?<fend-curly> &nest_curly end-curly');
+  rule('$?<fbeg-brak> &nest_brak beg-brak');
+  rule('$?<fend-brak> &nest_brak end-brak');
 
 # ---   *   ---   *   ---
 # ^post parse
@@ -263,6 +318,8 @@ sub nest_delim($self,$branch,$key,$is_beg) {
     $branch->{value}=$$top . '<';
 
   };
+
+  $branch->{is_delim}=$key;
 
   return 1;
 
@@ -341,6 +398,26 @@ sub nest_parens($self,$branch) {
 
 sub nest_parens_ctx($self,$branch) {
   $self->nest_delim_ctx($branch,'parens','()');
+
+};
+
+# ---   *   ---   *   ---
+# ^brak ice
+
+sub nest_brak($self,$branch) {
+
+  state $is_beg = qr{beg\-brak}x;
+  return if ! $self->nest_delim(
+    $branch,'brak',$is_beg
+
+  );
+
+  $branch->clear();
+
+};
+
+sub nest_brak_ctx($self,$branch) {
+  $self->nest_delim_ctx($branch,'brak','[]');
 
 };
 

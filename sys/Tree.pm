@@ -34,7 +34,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.4;
+  our $VERSION=v0.01.5;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -1351,6 +1351,20 @@ sub next_leaf($self) {
 };
 
 # ---   *   ---   *   ---
+# ^iv-of
+
+sub prev_leaf($self) {
+
+  my $ahead=(@{$self->{leaves}})
+    ? $self->{leaves}->[-1]
+    : $self->next_branch(-1)
+    ;
+
+  return $ahead;
+
+};
+
+# ---   *   ---   *   ---
 # ^get neighboring branch
 
 sub next_branch($self,$step=1) {
@@ -1358,12 +1372,15 @@ sub next_branch($self,$step=1) {
   my $idex  = $self->{idex}+$step;
   my $pool  = $self->{parent};
 
-  my $ahead = $pool->{leaves}->[$idex];
+  my $ahead = ($idex >= 0)
+    ? $pool->{leaves}->[$idex]
+    : undef
+    ;
 
   if(! defined $ahead) {
 
     $ahead=($self->{parent})
-      ? $self->{parent}->next_branch()
+      ? $self->{parent}->next_branch($step)
       : undef
       ;
 

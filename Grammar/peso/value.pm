@@ -432,8 +432,6 @@ sub array_needs_deref($self,@ar) {
 
 sub const_deref($self,$v) {
 
-  return $v if ! $self->needs_deref($v);
-
   my $o=$self->deref($v);
 
   if($o->{const}) {
