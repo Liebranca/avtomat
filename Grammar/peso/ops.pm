@@ -171,13 +171,20 @@ sub op_m_attr($lhs,$rhs,@args) {};
 sub op_pow($lhs,$rhs) {return $lhs ** $rhs};
 
 sub op_mul($lhs,$rhs) {
-  return $lhs->{raw} * $rhs->{raw}
+
+my $x=$lhs->{raw} * $rhs->{raw};
+  return $lhs->{raw} * $rhs->{raw};
 
 };
 
 sub op_mod($lhs,$rhs) {return $lhs % $rhs};
 sub op_div($lhs,$rhs) {return $lhs / $rhs};
-sub op_add($lhs,$rhs) {return $lhs + $rhs};
+
+sub op_add($lhs,$rhs) {
+  return $lhs->{raw} + $rhs->{raw};
+
+};
+
 sub op_sub($lhs,$rhs) {return $lhs - $rhs};
 
 # ---   *   ---   *   ---
@@ -253,8 +260,24 @@ sub op_subscript($self,$ar,$idex) {
 
   my $out=undef;
 
-  if(is_arrayref($ar)) {
-    $out=$ar->{raw}->[$idex];
+  if($ar) {
+
+    # get ctx
+    my $scope = $ar->{scope};
+    my $path  = $ar->{path};
+
+    # get node storing var
+    my $base=$scope->{tree}->fetch(
+      path=>$path
+
+    );
+
+    # ^get nebor node at offset
+    my $ahead=$base->neigh($idex->{raw});
+
+    # ^deref
+    $out=$ahead->leaf_value(0)->{raw}
+    if $ahead;
 
   };
 
@@ -793,31 +816,14 @@ sub op_to_value($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# unwraps value whenever
-# it is a nested set of ops
-
-sub denest($self,$o) {
-
-  my $out=(defined $o->{tree})
-    ? $o->{tree}
-    : $o
-    ;
-
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
 # get result of operation
 
 sub opres($self,$branch) {
 
-  my $o=($self->is_value($branch))
+  my $tree=($self->is_value($branch))
     ? $branch->leaf_value(0)
     : $branch->{value}
     ;
-
-  my $tree=$self->denest($o);
 
   return 1 if $tree eq $NULL;
   return 1 if $tree->{type} eq $NULL;
@@ -825,7 +831,7 @@ sub opres($self,$branch) {
 
   my $out;
 
-  if($tree->{type} eq 'value') {
+  if($tree->{type} ne 'ops') {
 
     $out=$self->deref($tree);
     $out=(defined $out)
@@ -845,9 +851,7 @@ sub opres($self,$branch) {
 # ---   *   ---   *   ---
 # ^no branch
 
-sub opres_flat($self,$o,@values) {
-
-  my $tree = $self->denest($o);
+sub opres_flat($self,$tree,@values) {
 
   @values=(! @values)
     ? @{$tree->{V}}
@@ -896,7 +900,10 @@ sub opres_flat($self,$o,@values) {
   unshift @args,$self if $tree->{ctx};
 
   # call func with derefenced args
-  return $tree->{fn}->(@args);
+  my $out=$tree->{fn}->(@args);
+  $tree->{raw}=$out;
+
+  return $out;
 
 };
 
@@ -1010,6 +1017,9 @@ sub opconst_collapse($self,$branch) {
   my $type = $o->{type};
   my $spec = $o->{spec};
   my $raw  = $o->{raw};
+
+  # ^defaults for undef
+  $type//='const';
 
   $dst->{value}=$self->{mach}->vice(
     $type,raw=>$raw
@@ -1190,10 +1200,13 @@ sub ops_vex($self,$o) {
 
   my $type=(defined $values[0]->{type})
     ? $values[0]->{type}
-    : $NULLSTR
+    : 'const'
     ;
 
-  my $raw=$self->opres_flat($o,@values);
+  my $raw=(! $o->{const})
+    ? $self->opres_flat($o,@values)
+    : $o->{raw}
+    ;
 
   $raw=(defined $raw && $raw ne $NULL)
     ? $raw
@@ -1208,6 +1221,20 @@ sub ops_vex($self,$o) {
     raw   => $raw,
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# crux
+
+sub take($class,$nterm) {
+
+  state $re=qr{^rec\-expr$};
+
+  my $ice   = $class->parse($nterm->{value});
+  my @expr  = $ice->{p3}->branches_in($re);
+
+  return map {$ARG->pluck_all()} @expr;
 
 };
 

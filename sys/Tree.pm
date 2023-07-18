@@ -406,7 +406,7 @@ sub neigh($self,$offset) {
   my $par  = $self->{parent};
   my $idex = $self->{idex}+$offset;
 
-  goto TAIL if !$par;
+  goto TAIL if ! $par;
 
   $out=$par->{leaves}->[$idex];
 

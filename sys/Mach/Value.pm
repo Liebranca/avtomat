@@ -111,6 +111,12 @@ package Mach::Value;
 
 sub getattrs($class,$spec) {
 
+  defined $spec or errout(
+    q[Undefined type],
+    lvl => $AR_FATAL
+
+  );
+
   my %out=(exists $Attrs->{$spec})
     ? %{$Attrs->{$spec}}
     : ()

@@ -179,7 +179,7 @@ sub subscript($self,$branch) {
 
 $PE_OPS->parse(q{
 
-  1 * name[0]
+  name[0]
 
 })->{p3}->prich();
 

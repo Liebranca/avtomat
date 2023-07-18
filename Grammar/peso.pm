@@ -1076,7 +1076,7 @@ sub wed_ctx($self,$branch) {
   rule('$<iter-expr> &iter_expr vlist from value');
   rule('|<switch-args> &clip iter-expr opt-expr');
 
-  rule('$<switch> switch-type switch-args');
+  rule('$<switch> switch-type opt-nterm');
 
 # ---   *   ---   *   ---
 # vars from iter
@@ -1170,6 +1170,7 @@ sub iter_expr_ord($self,$branch) {
 
 sub switch_on($self,$branch) {
 
+  # inc nesting lvl
   my $f    = $self->{frame};
   my $nest = \$f->{-nest}->{switch};
 
@@ -1208,10 +1209,6 @@ sub switch_on_run($self,$branch) {
 # ^else/else if
 
 sub switch_or($self,$branch) {
-
-  my $f    = $self->{frame};
-  my $nest = \$f->{-nest}->{switch};
-
   $self->switch_case($branch);
 
 };
@@ -1228,7 +1225,7 @@ sub switch_or_pre($self,$branch) {
 
 sub switch_or_run($self,$branch) {
 
-  my $out=($branch->{value}->{type} ne $NULL)
+  my $out=($branch->{value} ne $NULL)
     ? $self->opres($branch)
     : 1
     ;
@@ -1282,18 +1279,22 @@ sub switch_end($self,$branch) {
 
 sub switch_const($self,$branch) {
 
-  my $st    = $branch->{value};
-  my $tree  = $st->{tree};
-  my $type  = $st->{type};
+  my $st   = $branch->{value};
+  my $type = $st->{type};
 
-  return 0 if $tree->{type} eq 'iter';
+  return 0 if ! defined $type || $type eq 'iter';
 
-  my $const = ($type eq 'value')
-    ? $self->const_deref($st->{tree})
-    : $self->opconst_flat($st->{tree})
+  my $const=($type eq 'ops')
+    ? $self->opconst_flat($st)
+    : $self->const_deref($st)
     ;
 
-  return $const;
+  $const=(is_blessref($const))
+    ? $const->{raw}
+    : $const
+    ;
+
+  return $const && $const != $NULL;
 
 };
 
@@ -1383,6 +1384,19 @@ sub switch_off_run($self,$branch) {};
 
 sub switch_case($self,$branch) {
 
+  # parse nterm if present
+  my $lv=$branch->{leaves}->[0];
+  if($lv->{leaves}->[0]) {
+    my ($nterm)=$branch->leafless();
+    my @expr=$PE_OPS->take($nterm);
+
+    # ^merge trees
+    $branch->clear();
+    $branch->pushlv(@expr);
+
+  };
+
+  # add nesting helper
   my $f    = $self->{frame};
   my $nest = \$f->{-nest}->{switch};
 
@@ -1397,7 +1411,7 @@ sub switch_case($self,$branch) {
 sub switch_case_pre($self,$branch) {
 
   my $lv=$branch->{leaves}->[0];
-  my ($type,$tree);
+  my $st=$NULL;
 
   if(
 
@@ -1406,19 +1420,8 @@ sub switch_case_pre($self,$branch) {
 
   ) {
 
-    $type=$lv->{value};
-    $tree=$lv->leaf_value(0);
+    $st=$lv->leaf_value(0);
     $branch->pluck($lv);
-
-  } else {
-    $type=$NULL;
-    $tree=$NULL;
-
-  };
-
-  my $st={
-    tree => $tree,
-    type => $type,
 
   };
 

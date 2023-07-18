@@ -99,9 +99,9 @@ PROC expr;
 
   sow {/:f} '$:';
 
-  on c from s;
-    sow {/:f} c;
-    rept;
+  on term[1];
+    sow {/:f} s;
+#    rept;
 
   off;
 
