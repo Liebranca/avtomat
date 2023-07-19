@@ -34,7 +34,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.6;
+  our $VERSION=v0.01.7;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -109,25 +109,22 @@ sub nit($class,$frame,$parent,$val,%O) {
   # opt defaults
   $O{unshift_leaves}//=0;
 
-# ---   *   ---   *   ---
-
   # make node instance
   my $node=bless {
 
-    value=>$val,
-    value_type=>0x00,
+    value      => $val,
+    value_type => 0x00,
 
-    leaves=>[],
-    parent=>undef,
-    idex=>0,
+    leaves     => [],
+    parent     => undef,
+    idex       => 0,
 
-    frame=>$frame,
+    frame      => $frame,
+    fcache     => {},
 
   },$class;
 
-# ---   *   ---   *   ---
-# add leaf if ancestry
-
+  # add leaf if ancestry
   if(defined $parent) {
 
     if($O{unshift_leaves}) {
@@ -243,10 +240,13 @@ sub fetch($self,%O) {
   # get nodes accto path
   for my $i(0..@$path-1) {
 
-    my $key = $path->[$i];
-    my $re  = $path_re->[$i];
+    my $key   = $path->[$i];
+    my $re    = $path_re->[$i];
 
-    my $nd  = $out->branch_in($re,%O);
+    my $cache = $out->{fcache};
+
+    # perform lookup and store results
+    my $nd=$out->cached_fetch($key,$re,%O);
 
     # create new if needed
     if(! $O{existing}) {
@@ -288,6 +288,40 @@ sub throw_bad_fetch(@path) {
     lvl  => $AR_FATAL,
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# ^store and reuse fetch results
+
+sub cached_fetch($self,$key,$re,%O) {
+
+  my $cache=$self->{fcache};
+
+  # key in cache points to leaf
+  my $have =
+     exists  $cache->{$key}
+  && defined $cache->{$key}
+  ;
+
+  # ^leaf is indeed within branch
+  my $valid =
+     $have
+  && $cache->{$key}->{parent} eq $self
+  ;
+
+  # ^remove invalid entries
+  delete $cache->{$key} if ! $valid && $have;
+
+  # ^run lookup for invalidated keys
+  my $out=(! $valid)
+    ? $self->branch_in($re,%O)
+    : $cache->{$key}
+    ;
+
+  # ^store and give result
+  $cache->{$key}=$out;
+  return $out;
 
 };
 
@@ -515,9 +549,9 @@ sub pushlv($self,@pending) {
 
     $node->{parent}=$self;
 
-    push @{ $self->{leaves} },$node;
+    push @{$self->{leaves}},$node;
 
-    if($par && $par!=$node->{parent}) {
+    if($par && $par != $node->{parent}) {
       $par->pluck($node);
 
     };
@@ -596,8 +630,10 @@ sub insertlv($self,$pos,@list) {
 
   my ($head,$tail)=$self->insert_prologue($pos);
 
+  # relocate leaves to new branch
   map {$ARG->{parent}=$self} @list;
 
+  # ^update self leaves
   $self->insert_epilogue(
 
     head   => $head,
@@ -741,17 +777,15 @@ sub flatten_branch($self,%O) {
 
   $par->idextrav();
 
-# ---   *   ---   *   ---
-
   my $idex = $self->{idex};
   my @ar   = @{$par->{leaves}};
 
+  # get leaves to move
   if($O{keep_root}) {unshift @move,$self};
   if($idex) {unshift @move,@ar[0..$idex-1]};
   if($idex<$#ar) {push @move,@ar[$idex+1..$#ar]};
 
-# ---   *   ---   *   ---
-
+  # wipe branch and reset its leaves
   $par->clear();
   $par->pushlv(@move);
   $par->cllv();
