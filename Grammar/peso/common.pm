@@ -23,8 +23,8 @@ package Grammar::peso::common;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
-  use Style;
 
+  use Style;
   use Tree::Grammar;
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -41,11 +41,13 @@ package Grammar::peso::common;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
+
+BEGIN {
 
   sub Frame_Vars($class) { return {
 
@@ -77,8 +79,6 @@ package Grammar::peso::common;
 
 # ---   *   ---   *   ---
 # GBL
-
-BEGIN {
 
   our $REGEX={
 
@@ -224,6 +224,15 @@ BEGIN {
       sigws => 1,
 
       -x    => q[;],
+
+    ),
+
+# ---   *   ---   *   ---
+# captures delimiter-enclosed terms
+
+    q[sep-delim] => Lang::array_rec_delim(
+      [['{','}'],['(',')'],['[',']']],
+      capt=>1
 
     ),
 

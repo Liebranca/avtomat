@@ -174,8 +174,8 @@ BEGIN {
 
       [keys %$PE_SDEFS],
 
-      -insens => 1,
-      -bwrap  => 1,
+      insens => 1,
+      bwrap  => 1,
 
     ),
 

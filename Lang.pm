@@ -182,6 +182,7 @@ sub array_rescap($ar) {
 
 # in: delimiter end
 # returns correct \end support
+
 sub UBERSCAP($o_end) {
 
   my $end="\\\\".$o_end;
@@ -318,6 +319,65 @@ sub delim2($beg,$end=$NULLSTR,$ml=0) {
     [^$end]*\$
 
   }x;
+
+};
+
+# ---   *   ---   *   ---
+# ^similar, done with recursive pattern
+# fairly more accurate
+
+sub rec_delim($beg,$end,%O) {
+
+  # defaults
+  $O{mkre} //= 0;
+
+  # escape input
+  $beg="\Q$beg";
+  $end="\Q$end";
+
+  # compose pattern
+  my $out=
+    "(?: $beg"
+  .   "(?: [^$beg$end]+ | (?R))*"
+
+  . "$end)"
+  ;
+
+  return ($O{mkre}) ? qr{$out}x : $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^generate compound pattern
+
+sub array_rec_delim($ar,%O) {
+
+  return qre_or([map {
+    rec_delim(@$ARG)
+
+  } @$ar],%O);
+
+};
+
+# ---   *   ---   *   ---
+# or patterns together
+
+sub qre_or($ar,%O) {
+
+  # defaults
+  $O{capt} //= 0;
+
+  my $capt=(! $O{capt})
+    ? q[?:]
+    : $NULLSTR
+    ;
+
+  my $out = "($capt".(
+    join '|',@$ar
+
+  ).')';
+
+  return qr{$out}x;
 
 };
 
