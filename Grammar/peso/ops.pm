@@ -935,14 +935,55 @@ sub subscript_sort($self,$branch) {
 
   state $brak=qr{^\[\]$}x;
 
+  # [N] switches meaning when
+  # used inside a declaration
+  my $f    = $self->{frame};
+  my $decl = (defined $f->{-cdecl})
+    ? defined $f->{-cdecl}->[-1]
+    : undef
+    ;
+
   map {
 
     my $value=$ARG->next_branch(-1);
     $ARG->pushlv($value);
 
-    $self->subscript_to_ops($ARG);
+    ($decl)
+      ? $self->subscript_to_value($ARG)
+      : $self->subscript_to_ops($ARG)
+      ;
 
   } $branch->branches_in($brak);
+
+};
+
+# ---   *   ---   *   ---
+# ^transforms name[idex] into
+# an array declaration
+
+sub subscript_to_value($self,$branch) {
+
+  my $lv    = $branch->{leaves};
+
+  my $size  = $lv->[0]->leaf_value(0);
+  my $bare  = $lv->[1]->leaf_value(0);
+
+  my $names = [$bare->{raw},map {
+    "$bare->{raw}+$ARG"
+
+  } 1..$size->{raw}-1];
+
+  my $st=$self->{mach}->vice(
+
+    'array_decl',
+    raw=>$names,
+
+  );
+
+  $branch->{value}='value';
+
+  $branch->clear();
+  $branch->init($st);
 
 };
 
@@ -953,7 +994,7 @@ sub subscript_sort($self,$branch) {
 sub subscript_to_ops($self,$branch) {
 
   my @values=map {
-    $ARG->leaf_value(0)
+    $ARG->leaf_value(0);
 
   } reverse @{$branch->{leaves}};
 
@@ -966,7 +1007,7 @@ sub subscript_to_ops($self,$branch) {
     ctx   => 1,
     prio  => 0,
 
-    fn  => codefind(
+    fn    => codefind(
       'Grammar::peso::ops',
       'op_subscript'
 
@@ -1227,16 +1268,12 @@ sub ops_vex($self,$o) {
 # ---   *   ---   *   ---
 # crux
 
-sub recurse($class,$branch,$mach=undef) {
+sub recurse($class,$branch,%O) {
 
   state $re=qr{^(?:rec\-expr)$};
 
   # make subtree from branch
-  my $ice=$class->parse(
-    $branch->{value},
-    mach=>$mach
-
-  );
+  my $ice=$class->parse($branch->{value},%O);
 
   # ^trim
   my @expr=$ice->{p3}->branches_in($re);

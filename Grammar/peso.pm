@@ -49,7 +49,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.8;#b
+  our $VERSION = v0.01.9;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -84,7 +84,14 @@ BEGIN {
     -cclan  => 'non',
     -cproc  => undef,
 
+    -cdecl  => [],
+
     %{$PE_COMMON->Frame_Vars()},
+
+  }};
+
+  sub Shared_FVars($self) { return {
+    %{Grammar::peso::eye::Shared_FVars($self)},
 
   }};
 
@@ -516,6 +523,15 @@ sub inside_ROM($self) {
 };
 
 # ---   *   ---   *   ---
+# ^current statement is a decl
+
+sub inside_decl($self) {
+  my $f=$self->{frame};
+  return defined $f->{-cdecl}->[-1];
+
+};
+
+# ---   *   ---   *   ---
 # patterns for declaring members
 
   rule('~<width>');
@@ -539,6 +555,9 @@ sub inside_ROM($self) {
 
 sub ptr_decl($self,$branch) {
 
+  my $f=$self->{frame};
+  push @{$f->{-cdecl}},1;
+
   my $lv   = $branch->{leaves};
   my $type = $lv->[0];
 
@@ -552,14 +571,24 @@ sub ptr_decl($self,$branch) {
 
   # parse nterm
   my @eye=$PE_EYE->recurse(
+
     $lv->[1]->{leaves}->[0],
-    $self->{mach}
+
+    mach       => $self->{mach},
+    frame_vars => $self->Shared_FVars(),
 
   );
 
-  # ^unpack values
-  my @names   = $eye[0]->branch_values_raw();
-  my @values  = (defined $eye[1])
+  # ^unpack
+  my @names=map {
+    ($ARG->{type} eq 'array_decl')
+      ? @{$ARG->{raw}}
+      : $ARG->{raw}
+      ;
+
+  } $eye[0]->branch_values();
+
+  my @values=(defined $eye[1])
     ? $eye[1]->branch_values()
     : ()
     ;
@@ -576,6 +605,7 @@ sub ptr_decl($self,$branch) {
   };
 
   $branch->clear();
+  pop @{$f->{-cdecl}};
 
 };
 
@@ -1422,7 +1452,7 @@ sub switch_case_ctx($self,$branch) {
     # make subtree for parsing expr
     my $nterm = $lv->{leaves}->[0];
     my @expr  = $PE_OPS->recurse(
-      $nterm,$self->{mach}
+      $nterm,mach=>$self->{mach}
 
     );
 
@@ -1719,21 +1749,21 @@ sub call_run($self,$branch) {
   my $ice=Grammar::peso->parse($prog);
 
 #  $ice->{p3}->prich();
-#  $ice->{mach}->{scope}->prich();
+  $ice->{mach}->{scope}->prich();
 
 
-  $ice->run(
-
-    entry=>1,
-    keepx=>1,
-
-    input=>[
-
-      'hey',
-
-    ],
-
-  );
+#  $ice->run(
+#
+#    entry=>1,
+#    keepx=>1,
+#
+#    input=>[
+#
+#      'hey',
+#
+#    ],
+#
+#  );
 
 # ---   *   ---   *   ---
 1; # ret

@@ -232,6 +232,7 @@ sub new($class,%O) {
   # defaults
   $O{idex} //= 0;
   $O{mach} //= {idex=>$O{idex}};
+  $O{frame_vars} //= {};
 
   # arg is cstruc or ice
   my $mach=(! Mach->is_valid($O{mach}))
@@ -261,6 +262,13 @@ sub new($class,%O) {
     $self->{frame}->{-passes}
 
   },$NULLSTR;
+
+  # sync frame values to external
+  map {
+    $self->{frame}->{$ARG}=
+      $O{frame_vars}->{$ARG}
+
+  } keys %{$O{frame_vars}};
 
   # create parse tree
   $self->{p3}=$gram->new_p3($self);

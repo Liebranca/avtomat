@@ -25,10 +25,9 @@
 
 ROM std;
 
-  byte  term $3B;
+  byte  term[2] $3B;
+STOP;
   byte  sep  $2C;
-
-  byte str test 'xpand';
 
   wed   -qwor,-insens;
   unwed -escape;
@@ -107,8 +106,6 @@ PROC expr;
 
   sow  {/:f} "\nRET\n";
   reap {/:f};
-
-STOP;
 
 # ---   *   ---   *   ---
 

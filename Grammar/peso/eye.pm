@@ -47,7 +47,7 @@ package Grammar::peso::eye;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -60,6 +60,11 @@ BEGIN {
 
   }};
 
+  sub Shared_FVars($self) {return { map {
+    $ARG=>$self->{frame}->{$ARG}
+
+  } qw(-creg -cclan -cproc -cdecl) }};
+
   Readonly our $PE_EYE=>
     'Grammar::peso::eye';
 
@@ -71,13 +76,15 @@ BEGIN {
     %{$PE_COMMON->get_retab()},
     %{$PE_OPS->get_retab()},
 
+    subs=>qr{\[},
+
   };
 
   # operator or subscript
   $REGEX->{q[op-or-subs]}=qr{(?:
 
     $REGEX->{ops}
-  | ^\[
+  | $REGEX->{subs}
 
   )}x;
 
@@ -141,13 +148,18 @@ sub clist_split($self,$sref) {
 sub clist_join($self,@ar) {
 
   state $comma = qr{^\s* , \s*}x;
-  state $ops   = qr{$REGEX->{ops} \s* $}x;
+  state $ops   = qr{(?:
+    $REGEX->{ops} \s* $
+  | $REGEX->{q[op-or-subs]}
+
+  )}x;
 
   my @out     = ();
 
   my $idex    = 0;
   my $ahead   = 0;
   my $pending = 0;
+  my $subs    = 0;
 
   array_filter(\@ar);
 
@@ -158,15 +170,18 @@ sub clist_join($self,@ar) {
 
     my $have = int($s=~ s[$comma][]);
     my $cat  = int($s=~ $ops);
+    my $subs = int($s=~ $REGEX->{subs});
 
     my $skip = ! length $s;
 
     # current begs/prev ends with
     # comma or operator
     if($pending || $have || $cat) {
+
       $pending = int(
-         ($have && $skip)
-      || ($cat)
+          ($have && $skip)
+      ||  ($cat)
+      &&! $subs
 
       );
 
@@ -238,6 +253,7 @@ sub tree_grow($self,$branch) {
   my $anchor  = undef;
   my @pending = @{$branch->{leaves}};
 
+  my $subs   = 0;
   my $expand = 0;
   my $i      = 0;
 
@@ -259,6 +275,7 @@ sub tree_grow($self,$branch) {
     $expand=
       $ahead->{value}=~ $REGEX->{q[op-or-subs]};
 
+    $subs=$ahead->{value}=~ $REGEX->{subs};
 
 SKIP:
 
@@ -279,7 +296,7 @@ SKIP:
       $anchor->pushlv($lv,$ahead);
 
     # ^end of sub-branch
-    } elsif($anchor) {
+    } elsif($anchor &&! $subs) {
       $anchor->pushlv($lv);
       $anchor=undef;
 
@@ -318,7 +335,11 @@ sub tree_solve($self,$branch) {
     #       before recursing
 
     my @expr=$PE_OPS->recurse(
-      $lv,$self->{mach}
+
+      $lv,
+
+      mach       => $self->{mach},
+      frame_vars => $self->Shared_FVars(),
 
     );
 
@@ -332,10 +353,13 @@ sub tree_solve($self,$branch) {
 # ---   *   ---   *   ---
 # crux
 
-sub recurse($class,$branch,$mach=undef) {
+sub recurse($class,$branch,%O) {
 
-  my $ice  = $class->new(mach=>$mach);
-  my @expr = $ice->expr_split($branch->{value});
+  my $ice  = $class->new(%O);
+  my @expr = $ice->expr_split(
+    $branch->{value}
+
+  );
 
   return map {eye->new($ARG->pluck_all())} @expr;
 
@@ -402,6 +426,14 @@ sub branch_values($self) {
 
 sub branch_values_raw($self) {
   return map {$ARG->{raw}} $self->branch_values();
+
+};
+
+# ---   *   ---   *   ---
+# debug out
+
+sub dbout($self) {
+  map {$ARG->prich()} @$self;
 
 };
 

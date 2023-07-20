@@ -86,7 +86,6 @@ package Mach::Value;
   };
 
   Readonly our $ITER_ATTRS=>{
-
     src  => undef,
     i    => 0,
 
