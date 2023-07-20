@@ -44,11 +44,12 @@ package Grammar::peso;
   use Grammar::peso::value;
   use Grammar::peso::ops;
   use Grammar::peso::re;
+  use Grammar::peso::eye;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.7;#b
+  our $VERSION = v0.01.8;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -529,7 +530,7 @@ sub inside_ROM($self) {
     $<ptr-decl>
     &ptr_decl
 
-    type bare-list opt-vlist
+    type nterm
 
   ]);
 
@@ -549,10 +550,17 @@ sub ptr_decl($self,$branch) {
     : ()
     ;
 
+  # parse nterm
+  my @eye=$PE_EYE->recurse(
+    $lv->[1]->{leaves}->[0],
+    $self->{mach}
+
+  );
+
   # ^unpack values
-  my @names   = $lv->[1]->branch_values();
-  my @values  = (defined $lv->[2])
-    ? $lv->[2]->branch_values()
+  my @names   = $eye[0]->branch_values_raw();
+  my @values  = (defined $eye[1])
+    ? $eye[1]->branch_values()
     : ()
     ;
 

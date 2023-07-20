@@ -47,7 +47,7 @@ package Grammar::peso::eye;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -113,13 +113,10 @@ sub expr_split($self,$s) {
   my @lists = $self->clist_join(@ar);
   my $root  = $self->lists_to_tree(@lists);
 
-# TODO: recursive token to branch
-# TODO: cast token array to tree
-
-  $self->tree_grow($root->{leaves}->[0]);
   map {$self->tree_grow($ARG)} @{$root->{leaves}};
+  map {$self->tree_solve($ARG)} @{$root->{leaves}};
 
-  $root->prich();
+  return @{$root->{leaves}};
 
 };
 
@@ -164,7 +161,7 @@ sub clist_join($self,@ar) {
 
     my $skip = ! length $s;
 
-    # current/last begs with
+    # current begs/prev ends with
     # comma or operator
     if($pending || $have || $cat) {
       $pending = int(
@@ -253,14 +250,17 @@ sub tree_grow($self,$branch) {
 
     # end of branch
     if(! $ahead) {
-      $anchor->pushlv($lv) if $anchor;
-      last;
+      $expand=undef;
+      goto SKIP;
 
     };
 
     # next is operator, cat to current
     $expand=
       $ahead->{value}=~ $REGEX->{q[op-or-subs]};
+
+
+SKIP:
 
     if($expand) {
 
@@ -283,9 +283,61 @@ sub tree_grow($self,$branch) {
       $anchor->pushlv($lv);
       $anchor=undef;
 
+    # ^one-node sub-branch
+    } else {
+
+      ($anchor)=$branch->insert(
+        $lv->{idex},(sprintf "\$%04X",$i++)
+
+      );
+
+      $anchor->pushlv($lv);
+      $anchor=undef;
+
     };
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# ^collapse
+
+sub tree_solve($self,$branch) {
+
+  my @pending=@{$branch->{leaves}};
+
+  while(@pending) {
+
+    my $lv   = shift @pending;
+    my $idex = $lv->{idex};
+
+    $lv->flatten_to_string();
+
+    # TODO: apply cdef expansion
+    #       before recursing
+
+    my @expr=$PE_OPS->recurse(
+      $lv,$self->{mach}
+
+    );
+
+    $branch->pluck($lv);
+    $branch->pushlv(@expr);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# crux
+
+sub recurse($class,$branch,$mach=undef) {
+
+  my $ice  = $class->new(mach=>$mach);
+  my @expr = $ice->expr_split($branch->{value});
+
+  return map {eye->new($ARG->pluck_all())} @expr;
 
 };
 
@@ -299,16 +351,59 @@ sub tree_grow($self,$branch) {
 }; # BEGIN
 
 # ---   *   ---   *   ---
-# test
+# helper class
 
-my $ice=Grammar::peso::eye->new();
-$ice->expr_split(q~
-  a,b,c
-+ (expr,expr),{fn args}
+package eye;
 
-1+1,2*3
+  use v5.36.0;
+  use strict;
+  use warnings;
 
-~);
+  use Readonly;
+  use English qw(-no_match_vars);
+
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+
+  use Style;
+  use Arstd::PM;
+
+# ---   *   ---   *   ---
+# inherits from
+
+  submerge(
+
+    [qw(Grammar::peso::ops)],
+
+    xdeps=>1,
+    subex=>qr{^throw_},
+
+  );
+
+# ---   *   ---   *   ---
+# cstruc
+
+sub new($class,@ar) {
+  my $self=bless [@ar],$class;
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# extract branch values from
+# eye array
+
+sub branch_values($self) {
+  return map {$self->opvalue($ARG)} @$self;
+
+};
+
+# ---   *   ---   *   ---
+# ^get raw of branch values
+
+sub branch_values_raw($self) {
+  return map {$ARG->{raw}} $self->branch_values();
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

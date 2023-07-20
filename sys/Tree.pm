@@ -27,6 +27,7 @@ package Tree;
   use Style;
   use Chk;
 
+  use Arstd::String;
   use Arstd::IO;
 
   use parent 'St';
@@ -34,7 +35,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.7;
+  our $VERSION=v0.01.8;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -1193,9 +1194,7 @@ sub to_string($self,%O) {
   $O{max_depth}//=0x24;
   $O{keep_root}//=0;
 
-# ---   *   ---   *   ---
-# handle walk array
-
+  # handle walk array
   my @leaves=();
   if($O{keep_root}) {
     push @leaves,$self;
@@ -1205,9 +1204,7 @@ sub to_string($self,%O) {
 
   };
 
-# ---   *   ---   *   ---
-# recurse and cat to string
-
+  # recurse and cat to string
   my $depth=0;
   my $s=$NULLSTR;
 
@@ -1224,7 +1221,17 @@ sub to_string($self,%O) {
 
   };
 
+  strip(\$s);
   return $s;
+
+};
+
+# ---   *   ---   *   ---
+# ^inplace
+
+sub flatten_to_string($self,%O) {
+  $self->{value}=$self->to_string(%O);
+  $self->clear();
 
 };
 

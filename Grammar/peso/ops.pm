@@ -618,7 +618,7 @@ sub invokes_solve($self,$branch) {
 
   rule('$<expr> &expr ari');
   rule('?<opt-expr> &clip expr');
-  rule('?<rec-expr> &erew expr');
+  rule('|<rec-expr> &erew expr value-or-invoke');
 
 # ---   *   ---   *   ---
 # get operators in branch
@@ -1229,7 +1229,7 @@ sub ops_vex($self,$o) {
 
 sub recurse($class,$branch,$mach=undef) {
 
-  state $re=qr{^rec\-expr$};
+  state $re=qr{^(?:rec\-expr)$};
 
   # make subtree from branch
   my $ice=$class->parse(
