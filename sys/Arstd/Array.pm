@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Arstd::Array;
 
   use v5.36.0;
@@ -66,7 +67,7 @@ package Arstd::Array;
   };
 
 # ---   *   ---   *   ---
-# constructor
+# cstruc
 
 sub nit($class,@values) {
   return bless [@values],$class;
@@ -246,7 +247,7 @@ sub iof($ar,$elem) {
 };
 
 # ---   *   ---   *   ---
-# exporter stuff
+# exporter names
 
   *array_nth      = *nth;
   *array_keys     = *nkeys;

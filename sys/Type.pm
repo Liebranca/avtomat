@@ -367,86 +367,104 @@ sub packing_fmat(@sizes) {
 
 sub encode($self,%data) {
 
-  my $out=$NULLSTR;
+  my $out      = $NULLSTR;
 
-  my $fields=$self->{fields};
-  my $subtypes=$self->{subtypes};
+  my $fields   = $self->{fields};
+  my $subtypes = $self->{subtypes};
 
-# ---   *   ---   *   ---
-# struct
-
+  # struct
   if(@$fields) {
+    $out=$self->encode_struc(%data);
 
-    my @sizes=array_keys($fields);
-    my @names=array_values($fields);
+  # primitive
+  } else {
+    my $fmat=packing_fmat($self->{size});
+    $out.=pack $fmat,values %data;
 
-    my @types=array_keys($subtypes);
-    my @arrays=array_values($subtypes);
+  };
 
-    @names=grep {!($ARG=~ m[\+\d+])} @names;
+  return $out;
 
-    my @data=map {$data{$ARG}} @names;
-    map {$ARG="\x{00}" if !defined $ARG} @data;
-
-# ---   *   ---   *   ---
-# make key=>value pairs from unpacked data
-
-    while(@data) {
-
-      my $value_t=shift @types;
-      my $array_sz=shift @arrays;
+};
 
 # ---   *   ---   *   ---
+# ^crux for brevity
 
-      my @slice=(shift @data);
-      my @arsz=@sizes[0..$array_sz-1];
+sub encode_struc($self,%data) {
 
-      if($Table->{$value_t}->is_str()) {
+  state $array_re = qr{\+\d+$};
+  state $num_re   = qr{^\d+};
 
-        my $char_sz=$Table->{$value_t}->{size};
+  my $out      = $NULLSTR;
 
-        @slice=lmord(
+  my $fields   = $self->{fields};
+  my $subtypes = $self->{subtypes};
 
-          $slice[0],
+  # unpack fields
+  my @sizes  = array_keys($fields);
+  my @names  = grep {
+    ! ($ARG=~ $array_re)
 
-          width   => $char_sz,
-          elem_sz => $char_sz,
-          rev     => 0,
+  } array_values($fields);
 
-        );
+  # unpack fields' types
+  my @types  = array_keys($subtypes);
+  my @arrays = array_values($subtypes);
 
-        my $diff=$array_sz-int(@slice);
-        push @slice,(0)x$diff;
+  my @data   = map {(! defined $data{$ARG})
+    ? "\x{00}"
+    : $data{$ARG}
+    ;
 
-        @arsz=($char_sz) x int(@slice);
+  } @names;
 
-      } elsif(!($slice[0]=~ m/^\d+/)) {
-        $slice[0]=ord($slice[0]);
+  # make key=>value pairs from unpacked data
+  while(@data) {
 
-      };
+    my $value_t  = shift @types;
+    my $array_sz = shift @arrays;
 
-      my $fmat=packing_fmat(@arsz);
-      $out.=pack $fmat,@slice;
+    my @slice    = (shift @data);
+    my @arsz     = @sizes[0..$array_sz-1];
 
-      # as buffer
-      if($array_sz>1) {
-        @sizes=@sizes[$array_sz..$#sizes];
+    # string to bytes
+    if($Table->{$value_t}->is_str()) {
 
-      # as single value
-      } else {
-        shift @sizes;
+      my $char_sz=$Table->{$value_t}->{size};
 
-      };
+      @slice=lmord(
+
+        $slice[0],
+
+        width   => $char_sz,
+        elem_sz => $char_sz,
+        rev     => 0,
+
+      );
+
+      my $diff=$array_sz-int(@slice);
+      push @slice,(0)x$diff;
+
+      @arsz=($char_sz) x int(@slice);
+
+    # ^single char
+    } elsif(! ($slice[0]=~ $num_re)) {
+      $slice[0]=ord($slice[0]);
 
     };
 
-# ---   *   ---   *   ---
-# primitive
+    my $fmat=packing_fmat(@arsz);
+    $out.=pack $fmat,@slice;
 
-  } else {
+    # as buffer
+    if($array_sz > 1) {
+      @sizes=@sizes[$array_sz..$#sizes];
 
-    my $fmat=packing_fmat($self->{size});
-    $out.=pack $fmat,values %data;
+    # as single value
+    } else {
+      shift @sizes;
+
+    };
 
   };
 

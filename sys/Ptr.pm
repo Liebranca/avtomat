@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Ptr;
 
   use v5.36.0;
@@ -25,28 +26,25 @@ package Ptr;
 
   use Style;
   use Arstd::Bytes;
+  use Arstd::Int;
 
   use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.1;
+  our $VERSION=v0.01.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  sub Frame_Vars($class) {
-  return {
+  sub Frame_Vars($class) {return {
 
-    -memref=>undef,
-    -types=>undef,
-    -autoload=>[qw(
+    -memref   => undef,
+    -types    => undef,
 
-      list_by_offset
-
-    )],
+    -autoload => [qw(list_by_offset)],
 
   }};
 
@@ -66,20 +64,19 @@ sub point($self) {
     : $self->{type}
     ;
 
-  my $types=$self->{frame}->{-types};
-  my $word_sz=$types->{word}->{size};
-  my $alignment=$types->{unit}->{size};
+  my $types   = $self->{frame}->{-types};
+  my $word_sz = $types->{word}->{size};
+  my $align   = $types->{unit}->{size};
 
-# ---   *   ---   *   ---
-
-  my @elems=();
+  my @elems   = ();
 
   # is struct
   if(@{$type->{fields}}) {
+
     @elems=(@{
       $type->{fields}
 
-  }) x $self->{instance_cnt};
+    }) x $self->{ice_cnt};
 
   # is primitive
   } else {
@@ -88,32 +85,28 @@ sub point($self) {
       $type->{size},
       $type->{name},
 
-    ) x $self->{instance_cnt};
+    ) x $self->{ice_cnt};
 
   };
 
-# ---   *   ---   *   ---
-# for each struct
-
-  for my $i(0..$self->{instance_cnt}-1) {
+  # for each struct
+  for my $i(0..$self->{ice_cnt}-1) {
     my $bn=$self->{by_name}->[$i]={};
 
-# ---   *   ---   *   ---
-# for each primitive
-
+    # for each primitive
     for my $j(0..$type->{elem_count}-1){
 
       my $size=shift @elems;
       my $name=shift @elems;
 
-      # point to section in mem
+      # point to (aligned) section in mem
       my $idex=$j+($i*$type->{elem_count});
       $self->{buff}->[$idex]=\(vec(
 
         $$memref,
 
-        # align offset
-        int(($offset/$size)+0.9999),$size*8
+        int_urdiv($offset,$size),
+        $size*8
 
       ));
 
@@ -125,19 +118,19 @@ sub point($self) {
 
     };
 
-# ---   *   ---   *   ---
-# align elements; pads between structs if needed
+    # align elements
+    # pads between structs if needed
+    $self->{buff_sz}=int_urdiv(
+      $offset-$self->{offset},
+      $align
 
-    $self->{buff_sz}=int(
-
-      (($offset-$self->{offset})
-      /$alignment
-
-    )+0.9999);
+    );
 
     # adjust byte offset to top
-    $offset=$base_offset
-      +($self->{buff_sz}*$alignment);
+    $offset=
+      $base_offset
+    + ($self->{buff_sz}*$align)
+    ;
 
   };
 
@@ -161,22 +154,22 @@ sub nit(
 
   my $ptr=bless {
 
-    id=>$name,
+    id      => $name,
 
-    type=>$type,
-    casted=>undef,
+    type    => $type,
+    casted  => undef,
 
-    offset=>$offset,
-    instance_cnt=>$cnt,
+    offset  => $offset,
+    ice_cnt => $cnt,
 
     # by-index access
-    buff=>[],
-    buff_sz=>0,
+    buff    => [],
+    buff_sz => 0,
 
     # by-name access
-    by_name=>[],
+    by_name => [],
 
-    frame=>$frame,
+    frame   => $frame,
 
   },$class;
 
@@ -188,16 +181,14 @@ sub nit(
 };
 
 # ---   *   ---   *   ---
+# give whole buff or buff elem
 
 sub buf($self,$idex=undef) {
 
-  if(!defined $idex) {
-    return (@{$self->{buff}});
-
-  } else {
-    return $self->{buff}->[$idex];
-
-  };
+  return (! defined $idex)
+    ? (@{$self->{buff}})
+    : $self->{buff}->[$idex]
+    ;
 
 };
 
@@ -206,38 +197,38 @@ sub buf($self,$idex=undef) {
 
 sub subdiv($self) {
 
-  my $types=$self->{frame}->{-types};
-  my $alignment=$types->{unit}->{size};
+  # lis
+  my $types   = $self->{frame}->{-types};
+  my $align   = $types->{unit}->{size};
 
-  my $elem_sz=$self->{type}->{size};
+  my $elem_sz = $self->{type}->{size};
 
-  my $type=$self->{type};
-  my @buff=@{$self->{buff}};
+  my $type    = $self->{type};
+  my @buff    = @{$self->{buff}};
 
-# ---   *   ---   *   ---
+  my @copies  = ();
 
-  my @copies=();
-
-  for my $i(0..$self->{instance_cnt}-1) {
+  # walk elems
+  for my $i(0..$self->{ice_cnt}-1) {
 
     my $beg=$i*$type->{elem_count};
     my $end=($i+1)*$type->{elem_count};
 
     push @copies,bless {
 
-      type=>$self->{type},
-      casted=>$self->{casted},
+      type    => $self->{type},
+      casted  => $self->{casted},
 
-      offset=>$self->{offset}+($elem_sz*$i),
+      offset  => $self->{offset}+($elem_sz*$i),
 
-      instance_cnt=>1,
+      ice_cnt => 1,
 
-      buff=>[@buff[$beg..$end-1]],
+      buff    => [@buff[$beg..$end-1]],
 
-      buff_sz=>int(($elem_sz/$alignment)+0.9999),
-      by_name=>[$self->{by_name}->[$i]],
+      buff_sz => int_urdiv($elem_sz,$align),
+      by_name => [$self->{by_name}->[$i]],
 
-      frame=>$self->{frame},
+      frame   => $self->{frame},
 
     },$self->get_class();
 
@@ -252,11 +243,11 @@ sub subdiv($self) {
 
 sub flood($self,$value) {
 
-  my $memref=$self->{frame}->{-memref};
-  my $types=$self->{frame}->{-types};
+  my $memref  = $self->{frame}->{-memref};
+  my $types   = $self->{frame}->{-types};
 
-  my $word_sz=$types->{word}->{size};
-  my $offset=$self->{offset}/$word_sz;
+  my $word_sz = $types->{word}->{size};
+  my $offset  = $self->{offset}/$word_sz;
 
   for my $half(0..($self->{buff_sz}*2)-1) {
     vec($$memref,$offset,$word_sz*8)=$value;
@@ -267,6 +258,7 @@ sub flood($self,$value) {
 };
 
 # ---   *   ---   *   ---
+# write N contiguous values to mem
 
 sub setv($self,@data) {
 
@@ -287,9 +279,10 @@ sub setv($self,@data) {
 };
 
 # ---   *   ---   *   ---
+# make bytearray from hash
+# write to mem
 
 sub encode($self,%data) {
-
   my $type=$self->{type};
   $self->strcpy($type->encode(%data));
 
@@ -304,8 +297,7 @@ sub strcpy($self,$data,%O) {
   $O{wide}//=0;
   $O{disp}//=0;
 
-# ---   *   ---   *   ---
-
+  # string to bytes
   my $sz=8+(8*$O{wide});
   my @chars=lmord(
 
@@ -318,8 +310,7 @@ sub strcpy($self,$data,%O) {
 
   );
 
-# ---   *   ---   *   ---
-
+  # get ctx
   my $memref=$self->{frame}->{-memref};
   my $offset=$self->{offset};
 
@@ -358,9 +349,9 @@ sub rawdata($self,%O) {
   if($O{beg}==0 && $O{end}<0) {
 
     my $types=$self->{frame}->{-types};
-    my $alignment=$types->{unit}->{size};
+    my $align=$types->{unit}->{size};
 
-    $size=$self->{buff_sz}*$alignment;
+    $size=$self->{buff_sz}*$align;
 
   # partial read
   } else {
@@ -377,18 +368,22 @@ sub rawdata($self,%O) {
 };
 
 # ---   *   ---   *   ---
+# give back array of hashrefs
+# matching pointed memory
 
 sub decode($self) {
 
-  my $out=[];
-  my $type=$self->{type};
+  my $out  = [];
+  my $type = $self->{type};
 
-  for my $i(0..$self->{instance_cnt}-1) {
+  for my $i(0..$self->{ice_cnt}-1) {
 
-    push @$out,$type->decode(
+    my $ice=$type->decode(
       $self->rawdata(beg=>$i,end=>$i+1)
 
     );
+
+    push @$out,{@$ice};
 
   };
 
@@ -397,17 +392,16 @@ sub decode($self) {
 };
 
 # ---   *   ---   *   ---
+# sorts icebox accto addresses
 
 sub list_by_offset($class,$frame) {
 
   my @ptrs=grep {
-
     Ptr->is_valid($ARG)
 
   } values %{$frame};
 
   @ptrs=sort {
-
     $a->{offset}<=>$b->{offset}
 
   } @ptrs;
@@ -417,38 +411,41 @@ sub list_by_offset($class,$frame) {
 };
 
 # ---   *   ---   *   ---
+# debug print
 
 sub prich($self,%O) {
 
   # opt defaults
   $O{errout}//=0;
 
-  my $types=$self->{frame}->{-types};
-  my $alignment=$types->{unit}->{size};
+  # lis
+  my $types   = $self->{frame}->{-types};
+  my $align   = $types->{unit}->{size};
 
-  my $memref=$self->{frame}->{-memref};
-  my $sz=$self->{buff_sz};
+  my $memref  = $self->{frame}->{-memref};
+  my $sz      = $self->{buff_sz};
 
-  my @me=();
-  my $psize=$Type::PACK_SIZES->{64};
+  my $psize   = $Type::PACK_SIZES->{64};
+  my $elem_sz = $self->{type}->{size};
 
-  my $elem_sz=$self->{type}->{size};
+  # loop vars
+  my @me     = ();
+  my $elem_i = 1;
+  my $offset = 0;
 
-  my $elem_i=1;
-  my $offset=0;
-
-# ---   *   ---   *   ---
-
+  # walk pointed mem
   for my $i(0..($sz*2)-1) {
-    my $db=substr $$memref,$i*8,8;
-    my $str=unpack "$psize>",$db;
 
-    my $nl=$NULLSTR;
-    my $tab=$NULLSTR;
+    my $db  = substr $$memref,$i*8,8;
+    my $str = unpack "$psize>",$db;
+
+    my $nl  = $NULLSTR;
+    my $tab = $NULLSTR;
 
     # is uneven
     if($i&0b1) {
 
+      # write label at end of first unit
       if($i==1) {
 
         $nl=
@@ -460,18 +457,23 @@ sub prich($self,%O) {
 
         ;
 
-      } elsif($offset>=$elem_sz) {
+      # ^only iceN at end of subsequent
+      # unit, where a new element begins
+      } elsif($offset >= $elem_sz) {
         $nl=sprintf "#%04X\n",$elem_i;
         $elem_i++;
         $offset=0;
 
+      # ^common unit, nothing to note ;>
       } else {
         $nl="\n";
 
       };
 
+      # visual padding between cache lines
       $nl.="\n" if !(( ($i/2)+1 ) % 4);
 
+    # ^visual padding between words
     } else {
       $tab=q{  };
 
@@ -479,12 +481,11 @@ sub prich($self,%O) {
 
     $offset+=8;
 
+    # write word to screen
     $me[$i]=sprintf $tab."%016X ".$nl,$str;
     substr $me[$i],8+(length $tab),0,q[ ];
 
   };
-
-# ---   *   ---   *   ---
 
   # select filehandle
   my $FH=($O{errout})

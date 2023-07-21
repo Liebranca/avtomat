@@ -31,18 +31,19 @@ package Cask;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v1.00.3;
+  our $VERSION=v1.00.4;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $SENTINEL=>[0x5E4714E7];
+  Readonly our $SENTINEL    => [0x5E4714E7];
 
-  Readonly our $FIRST_AVAIL=>[0x10577A4E];
-  Readonly our $FIRST_FREE=>[0x10575107];
+  Readonly our $FIRST_AVAIL => [0x10577A4E];
+  Readonly our $FIRST_FREE  => [0x10575107];
 
 # ---   *   ---   *   ---
+# cstruc
 
 sub nit($class,@data) {
 
@@ -56,10 +57,10 @@ sub nit($class,@data) {
 
 sub give($self,$value) {
 
-  my %h=reverse @$self;
-  my $avail=$h{$SENTINEL};
+  my %h     = reverse @$self;
+  my $avail = $h{$SENTINEL};
 
-  if(!defined $avail) {
+  if(! defined $avail) {
     $avail=@$self>>1;
     push @$self,$avail=>$value;
 
@@ -81,8 +82,8 @@ sub take(
   $self,
 
   # actual
-  $idex=$FIRST_AVAIL,
-  $value=$SENTINEL
+  $idex  = $FIRST_AVAIL,
+  $value = $SENTINEL
 
 ) {
 
@@ -91,7 +92,6 @@ sub take(
   # get any
   if($idex eq $FIRST_AVAIL) {
     $idex=(grep {
-
       defined $ARG && $ARG ne $SENTINEL
 
     } array_values($self))[0];
@@ -106,8 +106,6 @@ sub take(
     ) && goto TAIL unless defined $idex;
 
   };
-
-# ---   *   ---   *   ---
 
   # get by index
   if($idex=~ m[^[\d]+$]) {
@@ -124,9 +122,9 @@ sub take(
   $out=$self->[$idex];
   $self->[$idex]=$value;
 
-# ---   *   ---   *   ---
 
 TAIL:
+
   return $out;
 
 };
@@ -150,12 +148,12 @@ sub view($self,$idex) {
 };
 
 # ---   *   ---   *   ---
+# array depleted
 
 sub empty($self) {
 
   my $x=int(grep {
-
-    !defined $ARG || $ARG eq $SENTINEL
+    ! defined $ARG || $ARG eq $SENTINEL
 
   } array_values($self));
 

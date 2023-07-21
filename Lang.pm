@@ -44,8 +44,6 @@ package Lang;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-
-  use Arstd;
   use Arstd::Array;
 
   use Chk;

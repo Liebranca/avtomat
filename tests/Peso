@@ -10,6 +10,7 @@ package main;
   use strict;
   use warnings;
 
+  use Readonly;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -17,7 +18,7 @@ package main;
   use Style;
   use Arstd::Bytes;
 
-  use Blk;
+  use Mem;
   use Type;
   use Cask;
   use Fmat;
@@ -28,40 +29,43 @@ package main;
   use Peso::Ipret;
 
 # ---   *   ---   *   ---
+# ROM
 
-my $s=q{$:col 82;>hello$:col 07;>};
-
-say Peso::Ipret::pesc(
-  $s,gd=>'ANSI',
-
-);
+  Readonly our $DOM   => 0x0000;
+  Readonly our $SIGIL => 0x0000;
 
 # ---   *   ---   *   ---
 
-#my $frame=Blk->new_frame();
-#my $non=$frame->nit(undef,'non');
+#my $s=q{$:col 82;>hello$:col 07;>};
 #
-#my $type=$Type::Table->nit(
-#
-#  'st',[
-#
-#    byte_str=>'buf(16)',
-#
-#  ],
+#say Peso::Ipret::pesc(
+#  $s,gd=>'ANSI',
 #
 #);
-#
-#my $ptr=$non->alloc('st',$type,4);
-#my $cask=Cask->nit($ptr->subdiv());
-#
-#$ptr=$cask->take();
-#$ptr=$cask->take();
-#
-#$ptr->strcpy('$$$$');
-#
-#my $d=$type->decode($ptr->rawdata());
-#say fatdump($d);
 
-#$non->prich();
+# ---   *   ---   *   ---
+
+my $type=$Type::Table->nit(
+
+  'st',[
+
+    byte_str=>'buf(8)',
+
+  ],
+
+);
+
+my $blk  = Mem->new('test');
+
+my $ptrs = $blk->alloc('st',$type,2);
+my $cask = Cask->nit($ptrs->subdiv());
+
+my $ptr=$cask->view(0);
+$ptr->strcpy('HLOWRLD!');
+
+$ptr=$cask->view(1);
+$ptr->strcpy('BYEWRLD!');
+
+$Mem::Non->prich();
 
 # ---   *   ---   *   ---

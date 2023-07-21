@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# BLOCK
-# A handful of memory
+# MEM
+# Memory!
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -9,10 +9,11 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
-package Blk;
+
+package Mem;
 
   use v5.36.0;
   use strict;
@@ -28,19 +29,20 @@ package Blk;
   use Style;
 
   use Arstd::Bytes;
+  use Arstd::Int;
   use Arstd::Array;
   use Arstd::Hash;
   use Arstd::IO;
 
-  use parent 'St';
-
   use Type;
   use Ptr;
+
+  use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.2;
+  our $VERSION=v0.01.3;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -48,14 +50,16 @@ package Blk;
 
   sub Frame_Vars($class) {return {
 
-    -types=>$Type::Table,
-    -blocks=>{},
+    -types    => $Type::Table,
+    -blocks   => {},
+
+    -autoload => [qw(get_pkg_info)],
 
   }};
 
   Readonly our $HEADER=>$Type::Table->nit(
 
-    'Blk::HEADER',[
+    'Mem::HEADER',[
 
       wide=>'dom',
       wide=>'sigil',
@@ -64,17 +68,29 @@ package Blk;
 
   );
 
-  Readonly our $BEG_SEQ=>0x2B24;
-  Readonly our $END_SEQ=>0x3E3B;
+  Readonly our $BEG_SEQ => 0x2B24;
+  Readonly our $END_SEQ => 0x3E3B;
 
-  Readonly our $DOM=>0x4D45;
-  Readonly our $SIGIL=>0x4D42;
+  Readonly our $DOM     => 0x4D45;
+  Readonly our $SIGIL   => 0x4D42;
 
 # ---   *   ---   *   ---
-# global state
+# GBL
 
   our $Non;
   our $Sys_Frame;
+
+# ---   *   ---   *   ---
+# ^get reference to root blk
+
+sub get_nref($class) {
+
+  no strict 'refs';
+  my $nref=\${"$class\::Non"};
+
+  return $nref;
+
+};
 
 # ---   *   ---   *   ---
 # shut up, I target 64-bit
@@ -83,8 +99,7 @@ BEGIN {
 
   $SIG{__WARN__}=sub {
     my $warn=shift;
-    return if $warn=~
-      m/32 non-portable/;
+    return if $warn=~ m[32 non-portable];
 
     warn $warn;
 
@@ -98,9 +113,10 @@ BEGIN {
 sub import($class) {
 
   $Sys_Frame=$class->get_frame();
+  my $nref=$class->get_nref();
 
-  if(!defined $Non) {
-    $Non=$Sys_Frame->nit(undef,'non');
+  if(! defined $$nref) {
+    $$nref=$Sys_Frame->nit(undef,'non');
 
   };
 
@@ -114,10 +130,10 @@ sub ances($self) {
   my $name=$self->{name};
 
   while($self->{parent}) {
-    $name=$self->{parent}->{name}.q{@}.$name;
+    $name=$self->{parent}->{name}.q{::}.$name;
     $self=$self->{parent};
 
-    if(!defined $self) {last};
+    last if ! defined $self;
 
   };
 
@@ -126,14 +142,14 @@ sub ances($self) {
 };
 
 # ---   *   ---   *   ---
-# constructor
+# cstruc
 
 sub nit(
 
-  # passed implicitly
+  # implicit
   $class,$frame,
 
-  # actual args
+  # actual
   $parent,
   $name,
 
@@ -141,15 +157,64 @@ sub nit(
 
 ) {
 
+  # make ice
+  my $self=bless {
+
+    name     => $name,
+
+    size     => 0,
+
+    mem      => q{},
+    seg      => {},
+    idex     => 0,
+
+    parent   => $parent,
+    children => [],
+
+    attrs    => $attrs,
+    frame    => $frame,
+
+  },$class;
+
+  $self->register();
+
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# ^from ice
+
+sub init($self,$name,$attrs=0b0000) {
+  $self->{frame}->nit($self,$name,$attrs);
+
+};
+
+# ---   *   ---   *   ---
+# ^crux
+
+sub new($class,$name,$attrs=0b0000) {
+  my $nref=$class->get_nref();
+  return $$nref->init($name,$attrs);
+
+};
+
+# ---   *   ---   *   ---
+# retrieve and validate Mem
+# vars from pkg ROM
+
+sub get_pkg_info($class,$frame) {
+
   # get dom && sigil
   my $pkg=$frame->{-owner_kls};
 
   no strict;
-  my $dom=${$pkg.'::DOM'};
-  my $sigil=${$pkg.'::SIGIL'};
+  my $dom   = ${"$pkg\::DOM"};
+  my $sigil = ${"$pkg\::SIGIL"};
 
   use strict;
 
+  # ^validate
   errout(
 
     q[Can't make Block: ].
@@ -157,82 +222,79 @@ sub nit(
     q[ Package '%s' lacks DOM and/or SIGIL].
     q[ in it's ROM sect],
 
-    args=>[$pkg],
-    lvl=>$AR_FATAL,
+    args => [$pkg],
+    lvl  => $AR_FATAL,
 
   ) unless defined $dom && defined $sigil;
 
+  return ($dom,$sigil);
+
+};
+
 # ---   *   ---   *   ---
+# put reference to block
+# within frame
+#
+# also ensures a block with
+# this name cannot be redeclared
 
-  my $blk=bless {
+sub register($self) {
 
-    name=>$name,
+  my $f   = $self->{frame};
+  my $key = $self->ances();
 
-    size=>0,
+  # validate && write blk header
+  my ($dom,$sigil)=$f->get_pkg_info();
+  $self->validate_ances($dom,$sigil);
 
-    mem=>q{},
-    seg=>{},
-    idex=>0,
+  # redecl guard
+  errout(
 
-    parent=>$parent,
-    children=>[],
+    q{Ilegal operation: }.
+    q{redeclaration of block '%s'},
 
-    attrs=>$attrs,
-    frame=>$frame,
+    args => [$key],
+    lvl  => $AR_FATAL,
 
-  },$class;
+  ) if exists $f->{-blocks}->{$key};
 
-  $blk->{elems}=Ptr->new_frame(
-    -memref=>\$blk->{mem},
-    -types=>$frame->{-types},
+  # save reference
+  $f->{-blocks}->{$key}=$self;
+
+  # enable ptrs for block
+  $self->{elems}=Ptr->new_frame(
+    -memref => \$self->{mem},
+    -types  => $f->{-types},
 
   );
 
-# ---   *   ---   *   ---
-# redecl guard
-
-  my $key=$blk->ances();
-
-  if(exists $frame->{-blocks}->{$key}) {
-
-    errout(
-
-      q{Ilegal operation: }.
-      q{redeclaration of block '%s'},
-
-      args=>[$key],
-      lvl=>$AR_FATAL,
-
-    );
-
-  };
-
-  $frame->{-blocks}->{$key}=$blk;
+};
 
 # ---   *   ---   *   ---
-# initialized from instance
+# ^validaes a blks ancestry
 
-  if(defined $parent) {
+sub validate_ances($self,$dom,$sigil) {
 
-    $blk->{idex}=int(@{
-      $parent->{children}
+  my $par=$self->{parent};
+
+  # nit from ice
+  if(defined $self->{parent}) {
+
+    $self->{idex}=int(@{
+      $par->{children}
 
     });
 
-    push @{$parent->{children}},$blk;
+    push @{$par->{children}},$self;
 
-    my $ptr=$parent->alloc($name,$HEADER);
+    my $ptr=$par->alloc($self->{name},$HEADER);
     $ptr->setv($dom,$sigil);
 
-# ---   *   ---   *   ---
-# is root block
-
+  # ^is root block
   } else {
     ;
 
   };
-
-  return $blk;
 
 };
 
@@ -241,15 +303,17 @@ sub nit(
 
 sub align($self,$type,$cnt) {
 
-  my $types=$self->{frame}->{-types};
-  my $alignment=$types->{unit}->{size};
+  my $types   = $self->{frame}->{-types};
+  my $align   = $types->{unit}->{size};
 
-  my $elem_sz=$type->{size};
+  my $elem_sz = $type->{size};
 
-  my $mult=int(($elem_sz/$alignment)+0.9999);
-  $mult*=$cnt;
+  my $mult=int_urdiv(
+    $elem_sz,$align
 
-  return ($mult,$mult*$alignment);
+  ) * $cnt;
+
+  return ($mult,$mult*$align);
 
 };
 
@@ -258,12 +322,12 @@ sub align($self,$type,$cnt) {
 
 sub align_sz($self,$sz) {
 
-  my $types=$self->{frame}->{-types};
-  my $alignment=$types->{unit}->{size};
+  my $types = $self->{frame}->{-types};
+  my $align = $types->{unit}->{size};
 
-  my $mult=int(($sz/$alignment)+0.9999);
+  my $mult  = int_urdiv($sz,$align);
 
-  return ($mult,$mult*$alignment);
+  return ($mult,$mult*$align);
 
 };
 
@@ -272,20 +336,19 @@ sub align_sz($self,$sz) {
 
 sub grow($self,$mult) {
 
-  my $types=$self->{frame}->{-types};
-  my $word_sz=$types->{word}->{size};
-  my $alignment=$types->{unit}->{size};
+  my $types   = $self->{frame}->{-types};
+  my $word_sz = $types->{word}->{size};
+  my $align   = $types->{unit}->{size};
 
-  my $fmat=$Type::PACK_SIZES->{$word_sz*8};
+  my $fmat    = $Type::PACK_SIZES->{$word_sz*8};
 
   $self->{mem}.=(
-
     pack "$fmat>"x($mult*2),
     map {$FREEBLOCK} (0..($mult*2)-1)
 
   );
 
-  my $prev_top=$self->{size}*$alignment;
+  my $prev_top=$self->{size}*$align;
   $self->{size}+=$mult;
 
   return $prev_top;
@@ -293,19 +356,18 @@ sub grow($self,$mult) {
 };
 
 # ---   *   ---   *   ---
-# ^inverse
+# ^iv
 
 sub shrink($self,$mult) {
 
-  my $types=$self->{frame}->{-types};
-  my $alignment=$types->{unit}->{size};
+  my $types = $self->{frame}->{-types};
+  my $align = $types->{unit}->{size};
 
-  my $top=$self->{size};
+  my $top   = $self->{size};
 
   $self->{mem}=substr
-
     $self->{mem},
-    0,$top-($alignment*$mult)
+    0,$top-($align*$mult)
 
   ;
 
@@ -345,6 +407,10 @@ sub baptize(
 };
 
 # ---   *   ---   *   ---
+# hand sect of mem
+#
+# reuses free ones if avail
+# else grow the block
 
 sub alloc($self,$name,$type,$cnt=1) {
 
@@ -376,6 +442,8 @@ sub alloc($self,$name,$type,$cnt=1) {
 };
 
 # ---   *   ---   *   ---
+# ^mark previously alloc'd sect
+# as avail for reuse
 
 sub free($self,$name) {
 
@@ -398,6 +466,7 @@ sub free($self,$name) {
 };
 
 # ---   *   ---   *   ---
+# debug print
 
 sub prich($self,%O) {
 
@@ -415,16 +484,15 @@ sub prich($self,%O) {
 
     my $self=shift @pending;
 
+    # put name of blk on screen
     my $me="\n<".$self->ances().">\n";
     print {$FH} (join $NULLSTR,$me);
 
+    # prich out ptrs to blk
     my @ptrs=$self->{elems}->list_by_offset();
+    map {$ARG->prich(%O)} @ptrs;
 
-    for my $ptr(@ptrs) {
-      $ptr->prich(%O);
-
-    };
-
+    # ^put sub-blocks in Q
     unshift @pending,@{$self->{children}};
 
   };

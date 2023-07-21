@@ -949,7 +949,7 @@ sub subscript_sort($self,$branch) {
     $ARG->pushlv($value);
 
     ($decl)
-      ? $self->subscript_to_value($ARG)
+      ? $self->subscript_to_decl($ARG)
       : $self->subscript_to_ops($ARG)
       ;
 
@@ -961,7 +961,7 @@ sub subscript_sort($self,$branch) {
 # ^transforms name[idex] into
 # an array declaration
 
-sub subscript_to_value($self,$branch) {
+sub subscript_to_decl($self,$branch) {
 
   my $lv    = $branch->{leaves};
 
@@ -969,7 +969,7 @@ sub subscript_to_value($self,$branch) {
   my $bare  = $lv->[1]->leaf_value(0);
 
   my $names = [$bare->{raw},map {
-    "$bare->{raw}+$ARG"
+    "$bare->{raw}\[$ARG]"
 
   } 1..$size->{raw}-1];
 

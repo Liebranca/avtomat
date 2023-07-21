@@ -37,7 +37,7 @@ package Via;
   use Arstd::Array;
 
   use Type;
-  use Blk;
+  use Mem;
 
   use Shb7;
 
@@ -112,8 +112,8 @@ package Via;
 # ---   *   ---   *   ---
 # global state
 
-  our $Blk_F     = Blk->new_frame();
-  our $Non       = $Blk_F->nit(undef,'non');
+  our $Mem_F     = Mem->new_frame();
+  our $Non       = $Mem_F->nit(undef,'non');
 
   my  $Mess_PTR  = $Non->alloc(
     '@pesonet<Mess_Pool>',

@@ -56,6 +56,7 @@ my $FILE_LIST=[
   '/sys/Arstd.pm',
 
   '/sys/Arstd/Bytes.pm',
+  '/sys/Arstd/Int.pm',
   '/sys/Arstd/String.pm',
   '/sys/Arstd/Array.pm',
   '/sys/Arstd/Hash.pm',
@@ -77,7 +78,7 @@ my $FILE_LIST=[
   '/sys/Tree/Syntax.pm',
 
   '/sys/Type.pm',
-  '/sys/Blk.pm',
+  '/sys/Mem.pm',
   '/sys/Ptr.pm',
 
   '/sys/Shb7.pm',

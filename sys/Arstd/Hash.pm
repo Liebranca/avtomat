@@ -164,9 +164,9 @@ sub kv($h,$key) {
 # ---   *   ---   *   ---
 # exporter names
 
-  *hash_cpy=*cpy;
-  *hash_invert=*invert;
-  *hash_kv=*kv;
+  *hash_cpy    = *cpy;
+  *hash_invert = *invert;
+  *hash_kv     = *kv;
 
 # ---   *   ---   *   ---
 1; # ret

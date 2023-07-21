@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
 # FRAME
-# Instance containers
+# Icebox
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Frame;
 
   use v5.36.0;
@@ -26,13 +27,16 @@ package Frame;
   use Arstd::IO;
 
 # ---   *   ---   *   ---
+# info
+
+  our $VERSION = v2.00.1;
+  our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
 # invokes class constructor
 
 sub nit($frame,@args) {
-  return $frame->{-class}->nit(
-    $frame,@args
-
-  );
+  return $frame->{-class}->nit($frame,@args);
 
 };
 
@@ -44,9 +48,12 @@ sub new(%O) {
   if(exists $O{-autoload}) {
 
     $O{-autoload}={
-      map {$ARG=>1} @{$O{-autoload}}
+      map {$ARG=>0} @{$O{-autoload}}
 
     };
+
+  } else {
+    $O{-autoload}={};
 
   };
 
@@ -56,36 +63,37 @@ sub new(%O) {
 };
 
 # ---   *   ---   *   ---
+# load sub when called from
+# icebox rather than ice
 
 sub AUTOLOAD {
 
   our $AUTOLOAD;
 
-  my $key=$AUTOLOAD;
-  my @args=@_;
+  my $key  = $AUTOLOAD;
+  my @args = @_;
 
-  my $self=shift @args;
+  my $self = shift @args;
+  my $auto = $self->{-autoload};
 
   return if $key=~ m[::DESTROY$];
   $key=~ s[^Frame::][];
 
   errout(
+
     q[%s frame has no autoload for '%s'],
-    args=>[$self->{-class},$key],
 
-    lvl=>$AR_FATAL,
+    args => [$self->{-class},$key],
+    lvl  => $AR_FATAL,
 
-  ) unless defined $self->{-autoload}
-  && exists $self->{-autoload}->{$key};
+  ) unless exists $auto->{$key};
 
-  $self->{-class}->$key(
-    $self,@args
-
-  );
+  return $self->{-class}->$key($self,@args);
 
 };
 
 # ---   *   ---   *   ---
+# transfer of ownership
 
 sub __ctltake($frame) {
 

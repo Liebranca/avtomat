@@ -30,7 +30,7 @@ package Pilot;
   use Cask;
 
   use Type;
-  use Blk;
+  use Mem;
 
   use parent 'St';
 
@@ -78,14 +78,14 @@ package Pilot;
 
 sub nit($class) {
 
-  $Blk::Sys_Frame->__ctltake();
+  $Mem::Sys_Frame->__ctltake();
 
-  my $blk=$Blk::Sys_Frame->nit(
-    $Blk::Non,$class
+  my $blk=$Mem::Sys_Frame->nit(
+    $Mem::Non,$class
 
   );
 
-  $Blk::Sys_Frame->__ctlgive();
+  $Mem::Sys_Frame->__ctlgive();
 
 # ---   *   ---   *   ---
 
