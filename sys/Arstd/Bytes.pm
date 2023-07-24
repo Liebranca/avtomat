@@ -18,6 +18,7 @@ package Arstd::Bytes;
   use strict;
   use warnings;
 
+  use Readonly;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -41,8 +42,19 @@ package Arstd::Bytes;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+  Readonly our $PACK_FMAT=>{
+    8  => 'C',
+    16 => 'S',
+    32 => 'L',
+    64 => 'Q',
+
+  };
 
 # ---   *   ---   *   ---
 # multi-byte ord
@@ -51,9 +63,9 @@ package Arstd::Bytes;
 sub mord($str,%O) {
 
   # defaults
-  $O{width}//=8;
-  $O{elem_sz}//=64;
-  $O{rev}//=1;
+  $O{width}   //= 8;
+  $O{elem_sz} //= 64;
+  $O{rev}     //= 1;
 
   $str=reverse $str if $O{rev};
 
@@ -84,23 +96,54 @@ sub lmord($str,%O) {
   $O{elem_sz} //= 64;
   $O{rev}     //= 1;
 
-  $str=reverse $str if $O{rev};
-
   my @words = ();
   my $b     = $O{elem_sz};
 
+  my $step  = int($O{elem_sz}/8);
+
+  # get word count
+  my $cnt   = int(
+    ((length $str) / $step)
+  + 0.9999
+
+  );
+
+  if($O{rev}) {
+
+    my @chars = split $NULLSTR,$str;
+    my $beg   = 0;
+    my $end   = $step;
+
+    $str=join $NULLSTR,map {
+
+      my $x=join $NULLSTR,@chars[$beg..$end-1];
+
+      $beg += $step;
+      $end += $step;
+
+      $x=reverse $x;
+      $x;
+
+    } 0..$cnt-1;
+
+  };
+
+  my $fmat  = $PACK_FMAT->{$O{width}};
+     $fmat  = $fmat x $cnt;
+
   # walk chars in str
-  for my $c(split $NULLSTR,$str) {
+  for my $c(unpack $fmat,$str) {
 
     # elem is full, add new
     if($b == $O{elem_sz}) {
+
       push @words,0;
       $b=0;
 
     };
 
     # set bits and move to next char
-    $words[-1] |= ord($c) << $b;
+    $words[-1] |= $c << $b;
     $b         += $O{width};
 
   };
@@ -120,22 +163,26 @@ sub mchr($data,%O) {
   $O{elem_sz} //= 64;
   $O{rev}     //= 0;
   $O{unprint} //= "\x{00}";
+  $O{noprint} //= 0;
 
   @$data=reverse @$data if $O{rev};
 
+  my $fmat = $PACK_FMAT->{$O{width}};
   my $str  = $NULLSTR;
   my $word = shift @$data;
 
   my $b    = 0;
   my $mask = (1 << $O{width})-1;
 
-  while($word || @$data) {
+  while(defined $word) {
 
     # catch unprintable chars
-    my $c=$word & $mask;
-    $str.=($c < 0x20 || $c > 0x7E)
+    my $c  = $word & $mask;
+    my $up = $c < 0x20 || $c > 0x7E;
+
+    $str.=($up &&! $O{noprint})
       ? $O{unprint}
-      : chr($c)
+      : pack $fmat,$c
       ;
 
     # move to next
@@ -144,8 +191,8 @@ sub mchr($data,%O) {
 
     # element completed
     if($b == $O{elem_sz}) {
-      $word=shift @$data;
-      $b=0
+      $word = shift @$data;
+      $b    = 0;
 
     };
 
@@ -226,7 +273,8 @@ sub xe($bytes,%O) {
     if($i < 0) {
 
       # optionally add chars matching bytes
-      $me.=q[ | ].(join $NULLSTR,mchr(
+      my $asstr=$NULLSTR;
+      $asstr.=q[ | ].(join $NULLSTR,mchr(
 
         \@accum,
 
@@ -235,6 +283,9 @@ sub xe($bytes,%O) {
 
       )) if $O{decode};
 
+      $asstr=~ s[$MODULO_RE][%%]sxmg;
+
+      $me.=$asstr;
       push @fmat,$me;
 
       $me    = $NULLSTR;

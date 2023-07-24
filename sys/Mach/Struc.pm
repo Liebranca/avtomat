@@ -38,7 +38,7 @@ package Mach::Struc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -121,7 +121,13 @@ sub new($class,$name,@fields) {
   ) unless ! exists $Icebox->{$name};
 
   # make tab from array
-  my %fields=@fields;
+  my %fields = @fields;
+
+  # ^pop special flags
+  my $attrs=$fields{-attrs};
+
+  delete $fields{-attrs};
+  @fields=grep {$ARG ne '-attrs'} @fields;
 
   # ^walk
   my ($sizes,$total)=
@@ -131,8 +137,9 @@ sub new($class,$name,@fields) {
   my $cstruc={
 
     name   => $name,
+    attrs  => $attrs,
 
-    fields => \%fields,
+    fields => \@fields,
     sizes  => $sizes,
     total  => $total,
 
@@ -186,9 +193,10 @@ sub ice($class,$name) {
   # ^make ice
   my $self=bless {
 
-    q[$SEG]    => $seg,
-    q[$TYPE]   => $name,
-    q[$FIELDS] => [keys %$labels],
+    -seg    => $seg,
+    -type   => $name,
+    -fields => [keys %$labels],
+    -attrs  => [@{$cstruc->{attrs}}],
 
     %$labels,
 
@@ -225,24 +233,38 @@ sub calc_segment($class,$cstruc) {
 
   } keys %{$cstruc->{sizes}}};
 
-  # ^recurse
-  for my $key(keys %{$cstruc->{fields}}) {
+  # make tab from array
+  my %fields=@{$cstruc->{fields}};
 
-    my $ptr  = $labels->{$key};
-    my $type = $cstruc->{fields}->{$key};
+  # ^recurse
+  for my $key(keys %fields) {
 
     # skip primitives
-    next if exists $PESZ->{$key};
+    my $type=$fields{$key};
+    next if exists $PESZ->{$type};
 
     # copy sub-segments of a sub-struc
-    my $base = $icebox->{$type}->[0];
-    my $info = $base->{q[$SEG]};
-
-    $ptr->copy_labels($info);
+    $labels->{$key}=$class->ice($type);
 
   };
 
   return $seg,$labels;
+
+};
+
+# ---   *   ---   *   ---
+# partial, manual beq from Mach::Seg
+#
+# done so sub-structures can
+# be treated as segments
+
+sub to_bytes($self) {
+  return $self->{-seg}->to_bytes();
+
+};
+
+sub set($self,%O) {
+  $self->{-seg}->set(%O);
 
 };
 
@@ -254,23 +276,39 @@ sub prich($self,%O) {
   # defaults
   $O{errout}//=0;
 
-  # detail fields
   my $me=$NULLSTR;
 
-  for my $key(@{$self->{q[$FIELDS]}}) {
+  # detail struc
+  my $seg  = $self->{-seg};
+  my @info = (
+
+    $self->{-type},"\n\n",
+
+    (sprintf
+      "%-8s \$%04X",
+      'SIZE',$seg->{cap},
+
+    ),"\n",
+
+    "\n\n",
+
+    "Segments:\n\n",
+
+  );
+
+  $me.=join $NULLSTR,@info;
+
+  # ^detail fields
+  for my $key(@{$self->{-fields}}) {
 
     my @bytes = $self->{$key}->to_bytes();
     my $fmat  = xe(\@bytes);
 
-    say "$key\n$fmat\n";
+    $me.=".$key\n$fmat\n\n";
 
   };
 
-  # ^raw block as footer
-  say "\n<".$self->{q[$TYPE]}.'>';
-  $self->{q[$SEG]}->prich();
-
-  # select
+  # select and spit
   my $fh=($O{errout})
     ? *STDERR
     : *STDOUT
@@ -305,8 +343,8 @@ my $struc1=Mach::Struc->new(
 
 );
 
-my $t1=Mach::Struc->ice('Not-Test');
-my $nest=$t1->{nest}->{tab};
+my $t1   = Mach::Struc->ice('Not-Test');
+my $nest = $t1->{nest};
 
 $nest->{a}->set(str=>'HLOWRLD!');
 $nest->{b}->set(num=>0x7E7F0000);

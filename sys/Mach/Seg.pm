@@ -21,6 +21,7 @@ package Mach::Seg;
 
   use Readonly;
   use English qw(-no_match_vars);
+  use List::Util qw(min);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
@@ -209,52 +210,102 @@ sub cat($class,@segs) {
 };
 
 # ---   *   ---   *   ---
-# write to segment
+# pads value with zeroes to
+# match size of segment
 
-sub _set($self,$s) {
+sub vpad($self,$s,%O) {
+
+  # defaults
+  $O{rev}   //= 0;
+  $O{width} //= $self->{cap};
 
   my $len   = length $s;
-  my $cap   = $self->{cap};
 
   # get padding size
-  my $diff  = $cap - $len;
+  my $diff  = $O{width} - $len;
      $diff *= $diff > 0;
 
   # ^put padding
-  $s=("\x00" x $diff) . $s;
+  my $pad=("\x00" x $diff);
+  $s=(! $O{rev})
+    ? "$pad$s"
+    : "$s$pad"
+    ;
 
-  # ^write up to cap bytes
-  ${$self->{buf}}=substr $s,0,$cap;
+  return $s;
 
 };
 
 # ---   *   ---   *   ---
-# ^type converters
+# converts numbers to bytes
+
+sub xsized($self,$width,$raw) {
+
+  my $s=mchr(
+
+    [$raw],
+
+    width   => $width,
+    elem_sz => $width,
+    noprint => 1,
+
+    rev     => 1,
+
+  );
+
+  return $s;
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub array_xsized($self,$width,@raw) {
+  return map {$self->xsized($width,$ARG)} @raw;
+
+};
+
+# ---   *   ---   *   ---
+# write to segment
+
+sub _set($self,$s) {
+  ${$self->{buf}}=substr $s,0,$self->{cap};
+
+};
+
+# ---   *   ---   *   ---
+# ^plain number
 
 sub set_num($self,$raw) {
 
-  my @bytes=();
+  my $width = min(64,$self->{cap}*8);
 
-  # ^convert to byte array
-  while($raw) {
-    my $b=sprintf "%02X",$raw & 0xFF;
-    push @bytes,eval(q["].'\x{'.$b.'}'.q["]);
+  my $s     = $self->xsized($width,$raw);
+     $s     = reverse $s;
+     $s     = $self->vpad($s,rev=>0);
 
-    $raw >>= 8;
-
-  };
-
-  # ^commit
-  my $s=join $NULLSTR,reverse @bytes;
   $self->_set($s);
 
 };
 
 # ---   *   ---   *   ---
-# ^no transform
+# ^non-reversed string
 
 sub set_str($self,$raw) {
-  $self->_set($raw);
+
+  my $s=reverse $raw;
+     $s=$self->vpad($raw,rev=>1);
+
+  $self->_set($s);
+
+};
+
+# ---   *   ---   *   ---
+# ^already reversed
+
+sub set_rstr($self,$raw) {
+  my $s=$self->vpad($raw,rev=>1);
+  $self->_set($s);
 
 };
 
@@ -366,6 +417,7 @@ sub copy_labels($self,$other) {
 
 # ---   *   ---   *   ---
 # ptr++
+
 sub inc($self,$step=1) {
 
   errout(
@@ -410,17 +462,51 @@ sub dec($self,$step=1) {
 # ---   *   ---   *   ---
 # get buf as a bytearray
 
-sub to_bytes($self) {
+sub to_bytes($self,$width=undef) {
+
+  $width//=8;
 
   return lmord(
 
     ${$self->{buf}},
 
-    width   => 8,
-    elem_sz => 8,
-    rev     => 0,
+    width   => $width,
+    elem_sz => $width,
+
+    rev     => 1,
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# ^set buf from bytearray
+
+sub from_bytes($self,$bytes,$width=undef) {
+
+  $width//=8;
+
+  my @ar=map {
+
+    my $x=$self->vpad(
+
+      $ARG,
+
+      rev   => 0,
+      width => int($width/8),
+
+    );
+
+    $x=reverse $x;
+    $x;
+
+  } $self->array_xsized(
+    $width,@$bytes
+
+  );
+
+  my $s=join $NULLSTR,@ar;
+  $self->set(rstr=>$s);
 
 };
 
@@ -438,10 +524,10 @@ sub prich($self,%O) {
   ;
 
   # convert buf to hexdump
-  my @bytes= $self->to_bytes();
+  my @bytes = $self->to_bytes();
 
-  my $cnt  = @bytes;
-  my $diff = ($cnt % $UNIT_SZ)
+  my $cnt   = @bytes;
+  my $diff  = ($cnt % $UNIT_SZ)
     ? (int_urdiv($cnt,$UNIT_SZ) * $UNIT_SZ) - $cnt
     : 0
     ;
@@ -458,6 +544,43 @@ sub prich($self,%O) {
   say {$fh} "$me\n";
 
 };
+
+# ---   *   ---   *   ---
+# test
+
+use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+use Mach::Micro;
+
+my $seg0=Mach::Seg->new(64);
+my $seg1=Mach::Seg->new(32);
+
+#$seg0->set(rstr=>'$$$$$$$ $$$$$$$ ');
+#$seg0->set(num=>$NULL);
+
+#my $ptr=$seg0->point(8,2);
+#$ptr->set(num=>0x02);
+
+my $width=64;
+
+my @a=$seg0->to_bytes($width);
+my @b=$seg1->to_bytes($width);
+
+$a[0]=0x0C;
+$b[0]=0x0A;
+
+$seg0->from_bytes(\@a,$width);
+$seg0->prich();
+
+$seg1->from_bytes(\@b,$width);
+$seg1->prich();
+
+Mach::Micro::bnand($seg1,$seg0);
+
+say ">>\n";
+
+$seg1->prich();
+
+say $b[0] &~ $a[0];
 
 # ---   *   ---   *   ---
 1; # ret
