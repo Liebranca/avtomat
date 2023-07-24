@@ -43,7 +43,7 @@ package Type;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.1;
+  our $VERSION = v0.03.3;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -57,7 +57,7 @@ package Type;
 
     )],
 
-  }};
+   }};
 
   our $Indirection_Key=[qw(ptr pptr xptr)];
 
@@ -137,8 +137,10 @@ sub pevec($class,$frame,$name) {
 
 # ---   *   ---   *   ---
 
+
 OK:
   return $frame->nit($name,$elems);
+
 
 ERR:
   croak "$name is not a valid pevec";
@@ -225,13 +227,14 @@ sub nit(
       my $elem_sz=$frame->{$elem_type}->{size};
 
       my @names=split $COMMA_RE,$elem_name;
-      if(@names>1) {goto MUL_NAMES};
+      if(@names > 1) {goto MUL_NAMES};
 
       my $mult=1;
       if($elem_name=~ s[\((\d+)\)][]) {
         $mult=$1;
 
       };
+
 
 MUL_VALUES:
 
@@ -253,6 +256,7 @@ MUL_VALUES:
 
       goto DONE;
 
+
 MUL_NAMES:
 
       for my $name(@names) {
@@ -265,6 +269,7 @@ MUL_NAMES:
         $count++;
 
       };
+
 
 DONE:
 
@@ -443,9 +448,9 @@ sub encode_struc($self,%data) {
       );
 
       my $diff=$array_sz-int(@slice);
-      push @slice,(0)x$diff;
+      push @slice,(0) x $diff;
 
-      @arsz=($char_sz) x int(@slice);
+      @arsz=($char_sz/8) x int(@slice);
 
     # ^single char
     } elsif(! ($slice[0]=~ $num_re)) {

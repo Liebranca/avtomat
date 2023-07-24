@@ -164,7 +164,7 @@ sub nit(
 
     size     => 0,
 
-    mem      => q{},
+    buf      => q{},
     seg      => {},
     idex     => 0,
 
@@ -263,7 +263,7 @@ sub register($self) {
 
   # enable ptrs for block
   $self->{elems}=Ptr->new_frame(
-    -memref => \$self->{mem},
+    -memref => \$self->{buf},
     -types  => $f->{-types},
 
   );
@@ -342,7 +342,7 @@ sub grow($self,$mult) {
 
   my $fmat    = $Type::PACK_SIZES->{$word_sz*8};
 
-  $self->{mem}.=(
+  $self->{buf}.=(
     pack "$fmat>"x($mult*2),
     map {$FREEBLOCK} (0..($mult*2)-1)
 
@@ -365,8 +365,8 @@ sub shrink($self,$mult) {
 
   my $top   = $self->{size};
 
-  $self->{mem}=substr
-    $self->{mem},
+  $self->{buf}=substr
+    $self->{buf},
     0,$top-($align*$mult)
 
   ;

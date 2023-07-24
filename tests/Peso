@@ -49,7 +49,8 @@ my $type=$Type::Table->nit(
 
   'st',[
 
-    byte_str=>'buf(8)',
+    byte_str=>'b0(1)',
+    byte_str=>'b1(1)',
 
   ],
 
@@ -57,14 +58,14 @@ my $type=$Type::Table->nit(
 
 my $blk  = Mem->new('test');
 
-my $ptrs = $blk->alloc('st',$type,2);
+my $ptrs = $blk->alloc('st',$type,1);
 my $cask = Cask->nit($ptrs->subdiv());
 
 my $ptr=$cask->view(0);
-$ptr->strcpy('HLOWRLD!');
+$ptr->encode(b0=>'HEY',b1=>'THERE');
 
-$ptr=$cask->view(1);
-$ptr->strcpy('BYEWRLD!');
+my $raw=$ptr->decode();
+fatdump(\$raw);
 
 $Mem::Non->prich();
 

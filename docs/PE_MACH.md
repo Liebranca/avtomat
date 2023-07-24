@@ -12,20 +12,55 @@ These trees are themselves programs right from the parsing step, as `Grammar` wo
 
 Likewise, making it so multiple trees can share the same state was born out of a similar, organic process: allowing a parse tree to recurse simplifies a handful of operations when dealing with complex, nested patterns, and having access to certain contextual data at each level of recursion in turn allows for more informed decisions to be made when solving the exact semantics of the parsed tokens.
 
-However, the jump from 'auxiliary container' to 'virtual machine', though still a natural progression when looked at surface level, is a much more pronounced transition.
+However, the jump from 'auxiliary container' to 'virtual machine', though still a natural progression when looked at surface level, is a much more pronounced transition. A kind of emulation on which the programs themselves can run rather than be coupled to is a wholly fascinating topic, and given that we have no need to recreate any particular real-world system we can delve into entirely theoretical models, which is always exciting, yet we are very much constrained in what we can do by the assurance of worse performance.
 
-For one, a 'box' on which the programs themselves can run rather than be coupled to is an incredibly attractive idea, but we have no real need of a faithful recreation of any particular system -- merely achieving the same effect is sufficient.
+But even then: it's initial, high-level implementation must only serve as an abstraction layer that facilitates the production of it's next iteration; a bootstrap. Hope thus lies not in the design of the virtual machine providing performance at that first stage, but convenience for the design and eventual generation of more optimized low-level code.
 
-And so, what we're looking at is a shallow simulation: though wholly fascinating, building an *emulator* is in this case altogether unnecessary, much more work, less convenient, and guaranteed to perform worse -- what we require is a general purpose abstraction, not a true to life replica.
+As such, a so-called 'lazy' approach is utilized: because the design exists at multiple stages, every component must only implement enough functionality to output itself plus the next degree of complexity. In other words: we begin with macro-instructions and expand them through a series of processing steps.
 
-## COMPONENTS
+This parallels with `Grammar`, where parse trees are interpreted through a similar series of transformations, with execution being the very last step in a tree's chain; the first stage of `Mach` has the only requirement of serving as the runtime environment for this initial program tree, which then outputs the next version of the virtual machine.
 
-As mentioned, this purely a software construct, imitating a generously high-level view of a computer. Thus, we can define it in looser terms by naming it's foremost classes:
+What follows is a description of the many moving pieces that make up that first stage.
 
-* `Mem`: a nested array of strings, unifying registers, stack and heap under a single abstraction.
+## SEGMENTS
 
-* `Ptr`: a __labeled__ section of memory, always corresponding to a locatable address within an existing `Mem` instance.
+`Mach::Seg` implements a high-level view of unstructured memory: it allows allocating blocks of bytes that are aligned to a `unit`-sized boundary, with all subsequent sizes calculated as such:
 
-* `Value`: a dynamic structure describing some data, constructed by composition of multiple types. Not *necessarily* locatable.
+```$
 
-* `Scope`: a tree of keys, where every leaf node corresponds to a `Value` or `Ptr`, and every sub-branch to a namespace; used as index for all parse, compile and run-time symbols.
+default X,16;
+
+unit eq X;
+
+byte eq unit/unit;
+word eq unit/2;
+
+wide eq word/4;
+brad eq word/2;
+
+half eq unit*2;
+line eq unit*4;
+
+page eq line*64;
+
+```
+
+Segments prohibit OOB reads and writes by way of truncating inputs and clamping of offsets to the segment's maximum capacity. This also applies to sub-segments, or *slices* of a block, which utilize their own size as boundary.
+
+The starting addresses of sub-segments, however, have no requirements for their aligment -- they only need to be within the boundaries of the base segment. This works recursively.
+
+At every level of a segment tree, labels can be utilized: these simply provide a correlation between a name and an address into the segment, with the previously mentioned rules applying to them as well.
+
+Furthermore, new trees can be created by concatenation; each program can define it's memory layout individually and larger programs can be built by composition -- the name of each program is utilized as a label in a larger segment, with each label matching the exact layout of the corresponding program, which again, works recursively.
+
+## STRUCTURES
+
+`Mach::Struc` details the recursive sub-divisions of any particular level of a segment tree: it is, in essence, a segment factory.
+
+Additionally, structures can give functionality to a segment via attributes.
+
+(TODO: detail this out, of course!)
+
+Previously defined structures may be bequeathed by new ones for the purpose of separately extending or specializing their definition, and as with segments, composition may also be utilized.
+
+
