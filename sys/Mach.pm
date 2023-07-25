@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
 # MACH
-# Barebones simulation
+# Barebones emulator
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -26,6 +26,7 @@ package Mach;
   use Style;
   use Arstd::IO;
 
+#  use Mach::Struc;
   use Mach::Scope;
   use Mach::Value;
 
@@ -34,8 +35,28 @@ package Mach;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+#  Mach::Struc->new(
+#
+#    'seg-ptr',
+#
+#    addr   => 'word',
+#    subdiv => 'word',
+#
+#  );
+#
+#  Mach::Struc->new(
+#
+#    'Anima',
+#
+#    XS => 'xseg-reg',
+#
+#  );
 
 # ---   *   ---   *   ---
 # GBL
@@ -48,17 +69,17 @@ package Mach;
 sub new($class,%O) {
 
   # defaults
-  $O{gpr_cnt}  //= 16;
-  $O{ret_idex} //= 0;
-  $O{idex}     //= 0;
+#  $O{gpr_struc} //= 'Anima';
+  $O{ret_idex}  //= 0;
+  $O{idex}      //= 0;
 
-  $O{fd}       //= [*STDIN,*STDOUT,*STDERR];
+  $O{fd}        //= [*STDIN,*STDOUT,*STDERR];
 
-  my $gpr={};
-  for my $i(0..$O{gpr_cnt}-1) {
-    $gpr->{"r$i"}=0;
-
-  };
+#  my $gpr={};
+#  for my $i(0..$O{gpr_cnt}-1) {
+#    $gpr->{"r$i"}=0;
+#
+#  };
 
   my $fd_buff=[
     ($NULLSTR) x int(@{$O{fd}})
@@ -69,7 +90,7 @@ sub new($class,%O) {
 
   my $self  = bless {
 
-    gpr      => $gpr,
+#    gpr      => $gpr,
     ret_idex => "r$O{ret_idex}",
 
     stk      => [],

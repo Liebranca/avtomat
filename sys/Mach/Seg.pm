@@ -140,6 +140,7 @@ sub new($class,$cap,%O) {
     buf => $s,
 
     tab => {},
+    div => [],
 
   },$class;
 
@@ -169,9 +170,10 @@ sub cat($class,@segs) {
   my $bytes  = $NULLSTR;
 
   my %segs   = @segs;
+  my @keys   = array_keys(\@segs);
 
   # make [name=>sub-segment]
-  my %labels=map {
+  my @labels=map {
 
     # ^accum
     $offset  = $total;
@@ -185,18 +187,17 @@ sub cat($class,@segs) {
 
     ];
 
-  } array_keys(\@segs);
+  } @keys;
 
   # make ice
   my $self=$class->new($total);
 
   # ^populate
   $self->set(str=>$bytes);
-  $self->put_labels(%labels);
+  $self->put_labels(@labels);
 
   # subdivide segment tree
-  my @pending=values %segs;
-  for my $key(keys %segs) {
+  for my $key(@keys) {
 
     my $info = $segs{$key};
     my $ptr  = $self->{tab}->{$key};
@@ -278,11 +279,12 @@ sub _set($self,$s) {
 
 sub set_num($self,$raw) {
 
-  my $width = min(64,$self->{cap}*8);
+  # get chunk size
+  my $width=min(64,$self->{cap}*8);
 
-  my $s     = $self->xsized($width,$raw);
-     $s     = reverse $s;
-     $s     = $self->vpad($s,rev=>0);
+  # convert to bytestr and pad
+  my $s=$self->xsized($width,$raw);
+     $s=$self->vpad($s,rev=>1);
 
   $self->_set($s);
 
@@ -294,7 +296,7 @@ sub set_num($self,$raw) {
 sub set_str($self,$raw) {
 
   my $s=reverse $raw;
-     $s=$self->vpad($raw,rev=>1);
+     $s=$self->vpad($s,rev=>0);
 
   $self->_set($s);
 
@@ -304,7 +306,7 @@ sub set_str($self,$raw) {
 # ^already reversed
 
 sub set_rstr($self,$raw) {
-  my $s=$self->vpad($raw,rev=>1);
+  my $s=$self->vpad($raw,rev=>0);
   $self->_set($s);
 
 };
@@ -373,6 +375,8 @@ sub point($self,$offset,$width) {
 sub put_label($self,$name,$offset,$width) {
 
   my $ptr=$self->point($offset,$width);
+
+  push @{$self->{div}},$name=>$ptr;
   $self->{tab}->{$name}=$ptr;
 
   return $ptr;
@@ -382,13 +386,19 @@ sub put_label($self,$name,$offset,$width) {
 # ---   *   ---   *   ---
 # ^bat
 
-sub put_labels($self,%labels) {
+sub put_labels($self,@labels) {
+
+  my @names=array_keys(\@labels);
+  my @sizes=array_values(\@labels);
 
   return map {
-    my $data=$labels{$ARG};
-    $self->put_label($ARG,@$data);
 
-  } keys %labels;
+    my $name=$names[$ARG];
+    my $args=$sizes[$ARG];
+
+    $self->put_label($name,@$args);
+
+  } 0..$#names;
 
 };
 
@@ -397,7 +407,10 @@ sub put_labels($self,%labels) {
 
 sub copy_labels($self,$other) {
 
-  for my $key(keys %{$other->{tab}}) {
+  my @names=array_keys($other->{div});
+  my @sizes=array_values($other->{div});
+
+  for my $key(@names) {
 
     my $info = $other->{tab}->{$key};
     my $ptr  = $self->put_label(
@@ -466,14 +479,14 @@ sub to_bytes($self,$width=undef) {
 
   $width//=8;
 
-  return lmord(
+  return reverse lmord(
 
     ${$self->{buf}},
 
     width   => $width,
     elem_sz => $width,
 
-    rev     => 1,
+    brev    => 1,
 
   );
 
@@ -488,7 +501,7 @@ sub from_bytes($self,$bytes,$width=undef) {
 
   my @ar=map {
 
-    my $x=$self->vpad(
+    $self->vpad(
 
       $ARG,
 
@@ -497,15 +510,12 @@ sub from_bytes($self,$bytes,$width=undef) {
 
     );
 
-    $x=reverse $x;
-    $x;
-
   } $self->array_xsized(
     $width,@$bytes
 
   );
 
-  my $s=join $NULLSTR,@ar;
+  my $s=join $NULLSTR,reverse @ar;
   $self->set(rstr=>$s);
 
 };
@@ -524,16 +534,8 @@ sub prich($self,%O) {
   ;
 
   # convert buf to hexdump
-  my @bytes = $self->to_bytes();
-
-  my $cnt   = @bytes;
-  my $diff  = ($cnt % $UNIT_SZ)
-    ? (int_urdiv($cnt,$UNIT_SZ) * $UNIT_SZ) - $cnt
-    : 0
-    ;
-
-  push @bytes,(0) x $diff;
-  my $me=xe(\@bytes);
+  my @bytes = $self->to_bytes(64);
+  my $me    = xe(\@bytes);
 
   # select
   my $fh=($O{errout})
@@ -544,43 +546,6 @@ sub prich($self,%O) {
   say {$fh} "$me\n";
 
 };
-
-# ---   *   ---   *   ---
-# test
-
-use lib $ENV{'ARPATH'}.'/avtomat/sys/';
-use Mach::Micro;
-
-my $seg0=Mach::Seg->new(64);
-my $seg1=Mach::Seg->new(32);
-
-#$seg0->set(rstr=>'$$$$$$$ $$$$$$$ ');
-#$seg0->set(num=>$NULL);
-
-#my $ptr=$seg0->point(8,2);
-#$ptr->set(num=>0x02);
-
-my $width=64;
-
-my @a=$seg0->to_bytes($width);
-my @b=$seg1->to_bytes($width);
-
-$a[0]=0x0C;
-$b[0]=0x0A;
-
-$seg0->from_bytes(\@a,$width);
-$seg0->prich();
-
-$seg1->from_bytes(\@b,$width);
-$seg1->prich();
-
-Mach::Micro::bnand($seg1,$seg0);
-
-say ">>\n";
-
-$seg1->prich();
-
-say $b[0] &~ $a[0];
 
 # ---   *   ---   *   ---
 1; # ret

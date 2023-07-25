@@ -57,6 +57,40 @@ package Arstd::Bytes;
   };
 
 # ---   *   ---   *   ---
+# byte-wise reversal
+#
+# ivs the byte ordering of each
+# N-sized chunk in a string
+
+sub bstr_reverse($str,$step,$cnt) {
+
+  my @chars = split $NULLSTR,$str;
+
+  my $beg   = 0;
+  my $end   = $step;
+
+  # generate [cnt] chunks
+  # and join them
+  my $out=join $NULLSTR,map {
+
+    # take N-chars as individual chunk
+    my $x=join $NULLSTR,@chars[$beg..$end-1];
+
+    # go next
+    $beg += $step;
+    $end += $step;
+
+    # ^reverse chunk
+    $x=reverse $x;
+    $x;
+
+  } 0..$cnt-1;
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # multi-byte ord
 # won't go over a quadword
 
@@ -87,7 +121,7 @@ sub mord($str,%O) {
 
 # ---   *   ---   *   ---
 # ^fixes that problem
-# by handling you a quadword array ;>
+# by handling you an array ;>
 
 sub lmord($str,%O) {
 
@@ -95,6 +129,7 @@ sub lmord($str,%O) {
   $O{width}   //= 8;
   $O{elem_sz} //= 64;
   $O{rev}     //= 1;
+  $O{brev}    //= 0;
 
   my @words = ();
   my $b     = $O{elem_sz};
@@ -108,30 +143,18 @@ sub lmord($str,%O) {
 
   );
 
-  if($O{rev}) {
+  # conditional string reversal
+  $str=reverse $str if $O{rev};
 
-    my @chars = split $NULLSTR,$str;
-    my $beg   = 0;
-    my $end   = $step;
+  # ^conditional *byte-wise* reversal
+  $str=bstr_reverse($str,$step,$cnt)
+  if $O{brev};
 
-    $str=join $NULLSTR,map {
+  # make format for splitting string
+  my $fmat=$PACK_FMAT->{$O{width}};
+     $fmat=$fmat x $cnt;
 
-      my $x=join $NULLSTR,@chars[$beg..$end-1];
-
-      $beg += $step;
-      $end += $step;
-
-      $x=reverse $x;
-      $x;
-
-    } 0..$cnt-1;
-
-  };
-
-  my $fmat  = $PACK_FMAT->{$O{width}};
-     $fmat  = $fmat x $cnt;
-
-  # walk chars in str
+  # ^walk split chars
   for my $c(unpack $fmat,$str) {
 
     # elem is full, add new
@@ -162,6 +185,7 @@ sub mchr($data,%O) {
   $O{width}   //= 8;
   $O{elem_sz} //= 64;
   $O{rev}     //= 0;
+  $O{brev}    //= 0;
   $O{unprint} //= "\x{00}";
   $O{noprint} //= 0;
 
@@ -197,6 +221,19 @@ sub mchr($data,%O) {
     };
 
   };
+
+  my $step  = int($O{elem_sz}/8);
+
+  # get word count
+  my $cnt   = int(
+    ((length $str) / $step)
+  + 0.9999
+
+  );
+
+  # ^conditional *byte-wise* reversal
+  $str=bstr_reverse($str,$step,$cnt)
+  if $O{brev};
 
   return $str;
 
@@ -236,23 +273,20 @@ sub xe($bytes,%O) {
 
   my @accum = ();
   my @fmat  = ();
+  my @xlate = ();
 
+  my $zcnt  = $O{word} * 2;
   my $me    = $NULLSTR;
   my $pad   = q[ ] x $O{pad};
 
   my $width = int(@$bytes);
-  my $steps = int(($width/$O{word})+0.9999);
 
-  # break down into words
+  # break down into X words per strline
   my $i=0;map {
 
     # set printf format for this word
-    my $beg   = ($ARG+0)*$O{word};
-    my $end   = ($ARG+1)*$O{word};
-    my @ar    = @{$bytes}[$beg..$end-1];
-       @accum = (@accum,@ar);
-
-    map {$me.="%02X"} @ar;
+    push @accum,$bytes->[$ARG];
+    $me.="%0${zcnt}X";
 
     # EOL
     if(! (($i+1) % $O{line})) {
@@ -278,16 +312,22 @@ sub xe($bytes,%O) {
 
         \@accum,
 
-        elem_sz=>8,
-        unprint=>$O{unprint},
+        elem_sz => $O{word}*8,
+        unprint => $O{unprint},
+
+        rev     => 1,
+        brev    => 1,
 
       )) if $O{decode};
 
+      # ^escape modulo for sprintf
       $asstr=~ s[$MODULO_RE][%%]sxmg;
 
-      $me.=$asstr;
+      # ^save separately
       push @fmat,$me;
+      push @xlate,$asstr;
 
+      # ^clear
       $me    = $NULLSTR;
       @accum = ();
 
@@ -295,11 +335,28 @@ sub xe($bytes,%O) {
 
     $i++;
 
-  } 0..$steps-1;
+  } 0..$width-1;
+
+  # ^apply formats
+  my @bt=reverse @$bytes;
+  $i=0;@fmat=map {
+
+    my $s=sprintf
+      $ARG,@bt[$i..$i+$O{line}-1];
+
+    $i+=$O{line};
+    $s;
+
+  } @fmat;
+
+  # uneff byte ordering
+  @xlate=reverse @xlate;
 
   # ^cat it all together
-  $me=join $O{catchar},@fmat;
-  return sprintf $me,@$bytes;
+  return join$O{catchar},map {
+    $fmat[$ARG] . $xlate[$ARG];
+
+  } 0..$#xlate;
 
 };
 

@@ -124,7 +124,8 @@ sub new($class,$name,@fields) {
   my %fields = @fields;
 
   # ^pop special flags
-  my $attrs=$fields{-attrs};
+  my $attrs   = $fields{-attrs};
+     $attrs //= [];
 
   delete $fields{-attrs};
   @fields=grep {$ARG ne '-attrs'} @fields;
@@ -149,7 +150,7 @@ sub new($class,$name,@fields) {
   $class->_cstruc_tab()->{$name}=$cstruc;
   $class->_sizeof_tab()->{$name}=$total;
 
-  return $class->ice($name);
+  return $cstruc;
 
 };
 
@@ -180,15 +181,15 @@ sub calc_size($class,$h,$ar) {
 # ---   *   ---   *   ---
 # make copy of struc for usage
 
-sub ice($class,$name) {
+sub ice($class,$name,%O) {
 
   my $icebox = $class->_icebox_tab();
   my $tab    = $class->_cstruc_tab();
   my $cstruc = $tab->{$name};
 
   # ^run constructor
-  my ($seg,$labels)=
-    $class->calc_segment($cstruc);
+  my ($seg,$div,$labels)=
+    $class->calc_segment($cstruc,%O);
 
   # ^make ice
   my $self=bless {
@@ -197,6 +198,8 @@ sub ice($class,$name) {
     -type   => $name,
     -fields => [keys %$labels],
     -attrs  => [@{$cstruc->{attrs}}],
+
+    -div    => $div,
 
     %$labels,
 
@@ -214,41 +217,79 @@ sub ice($class,$name) {
 # make new segment and apply
 # recursive subdivisions
 
-sub calc_segment($class,$cstruc) {
+sub calc_segment($class,$cstruc,%O) {
 
-  my $icebox=$class->_icebox_tab();
+  # defaults
+  $O{offset} //= 0;
 
-  # make new segment
-  my $seg=Mach::Seg->new($cstruc->{total});
+
+  my $seg;
+
+  # make new segment if none provided
+  if(! exists $O{segref}) {
+    $seg=Mach::Seg->new($cstruc->{total})
+
+  # ^else point
+  } else {
+    $seg=$O{segref}->point(
+      $O{offset},
+      $cstruc->{total}
+
+    );
+
+  };
 
   # ^subdivide
-  my $labels={map {
+  my @names  = array_keys($cstruc->{fields});
+
+  my %stride = ();
+  my $prev   = 0;
+
+  my $div=[map {
+
+    # adjust offsets into seg
+    my ($offset,$width)=
+      @{$cstruc->{sizes}->{$ARG}};
+
+    $offset+=$O{offset};
+    $stride{$ARG}=$prev;
+
+    $prev=$offset;
 
     # from [name => type]
     # to   [name => ptr]
     $ARG=>$seg->put_label(
-      $ARG,@{$cstruc->{sizes}->{$ARG}}
+      $ARG,$offset,$width
 
-    ),
+    );
 
-  } keys %{$cstruc->{sizes}}};
+  } @names];
+
+  my $labels={@$div};
 
   # make tab from array
   my %fields=@{$cstruc->{fields}};
 
   # ^recurse
-  for my $key(keys %fields) {
+  for my $key(@names) {
 
     # skip primitives
     my $type=$fields{$key};
     next if exists $PESZ->{$type};
 
     # copy sub-segments of a sub-struc
-    $labels->{$key}=$class->ice($type);
+    $labels->{$key}=$class->ice(
+
+      $type,
+
+      segref=>$seg,
+      offset=>$stride{$key},
+
+    );
 
   };
 
-  return $seg,$labels;
+  return $seg,$div,$labels;
 
 };
 
@@ -258,8 +299,13 @@ sub calc_segment($class,$cstruc) {
 # done so sub-structures can
 # be treated as segments
 
-sub to_bytes($self) {
-  return $self->{-seg}->to_bytes();
+sub to_bytes($self,@args) {
+  return $self->{-seg}->to_bytes(@args);
+
+};
+
+sub from_bytes($self,@args) {
+  $self->{-seg}->from_bytes(@args);
 
 };
 
@@ -299,9 +345,10 @@ sub prich($self,%O) {
   $me.=join $NULLSTR,@info;
 
   # ^detail fields
-  for my $key(@{$self->{-fields}}) {
+  my @keys=array_keys($self->{-div});
+  for my $key(@keys) {
 
-    my @bytes = $self->{$key}->to_bytes();
+    my @bytes = $self->{$key}->to_bytes(64);
     my $fmat  = xe(\@bytes);
 
     $me.=".$key\n$fmat\n\n";
@@ -346,10 +393,19 @@ my $struc1=Mach::Struc->new(
 my $t1   = Mach::Struc->ice('Not-Test');
 my $nest = $t1->{nest};
 
-$nest->{a}->set(str=>'HLOWRLD!');
-$nest->{b}->set(num=>0x7E7F0000);
+$t1->{pad}->set(str=>'HEY');
+$nest->set(num=>$NULL);
+
+#my @ar=$t1->to_bytes(64);
+#$ar[1]=$NULL;
+#
+#$t1->from_bytes(\@ar,64);
+
+#$t1->{nest}->set(str=>'HLOWRLD!');
+#$t1->{pad}->set (str=>'BYEWRLD!');
 
 $t1->prich();
+$t1->{-seg}->prich();
 
 # ---   *   ---   *   ---
 1; # ret
