@@ -42,7 +42,7 @@ package Arstd::Bytes;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -271,9 +271,10 @@ sub xe($bytes,%O) {
   $O{word}    //= 8;
   $O{line}    //= 2;
 
-  my @accum = ();
-  my @fmat  = ();
-  my @xlate = ();
+  my @accum  = ();
+  my @fmat   = ();
+  my @xlate  = ();
+  my @chunks = ();
 
   my $zcnt  = $O{word} * 2;
   my $me    = $NULLSTR;
@@ -290,6 +291,9 @@ sub xe($bytes,%O) {
 
     # EOL
     if(! (($i+1) % $O{line})) {
+
+      push @chunks,$i;
+
       $i  = -1;
       $me = "$me";
 
@@ -303,8 +307,10 @@ sub xe($bytes,%O) {
 
     };
 
-    # ^catch EOL
-    if($i < 0) {
+    # ^catch EOL|EOF
+    if($i < 0 || $ARG == $width-1) {
+
+      push @chunks,$i if ! ($i < 0);
 
       # optionally add chars matching bytes
       my $asstr=$NULLSTR;
@@ -341,8 +347,10 @@ sub xe($bytes,%O) {
   my @bt=reverse @$bytes;
   $i=0;@fmat=map {
 
+    my $chunk=shift @chunks;
+
     my $s=sprintf
-      $ARG,@bt[$i..$i+$O{line}-1];
+      $ARG,@bt[$i..$i+$chunk];
 
     $i+=$O{line};
     $s;

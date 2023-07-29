@@ -18,6 +18,7 @@ package St;
   use strict;
   use warnings;
 
+  use Carp;
   use Readonly;
   use English qw(-no_match_vars);
 
@@ -120,7 +121,7 @@ sub get_frame($class,$i=0) {
 
   my $out;
 
-  if(!exists $Frames->{$class}) {
+  if(! exists $Frames->{$class}) {
 
     $out=$class->new_frame(
       -owner_kls=>(caller)[0]
@@ -133,6 +134,23 @@ sub get_frame($class,$i=0) {
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^get idex of existing
+
+sub iof_frame($class,$frame) {
+
+  my $ar=$Frames->{$class}
+  or croak "No frames avail for $class";
+
+  my ($idex)=grep {
+    $ar->[$ARG] eq $frame
+
+  } 0..int(@$ar)-1;
+
+  return $idex;
 
 };
 

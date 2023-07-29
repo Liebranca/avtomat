@@ -66,7 +66,8 @@ BEGIN {
 
   sub Frame_Vars($class) {return {
 
-    -autoload=>[qw()],
+    -icebox   => [],
+    -autoload => [qw()],
 
   }};
 
@@ -109,14 +110,15 @@ BEGIN {
 sub new($class,$cap,%O) {
 
   # defaults
-  $O{pos} //= 0;
-  $O{par} //= undef;
+  $O{pos}  //= 0;
+  $O{par}  //= undef;
 
   # defined if taking pointer to base
-  my $s=$O{sref};
+  my $s     = $O{sref};
+  my $frame = undef;
 
   # ^else make new base
-  if(! $s) {
+  if(! $s &&! $O{par}) {
 
     # force size of base segment
     # to a multiple of UNIT_SZ
@@ -126,23 +128,34 @@ sub new($class,$cap,%O) {
     ;
 
     # ^alloc
-    $s=\("\x{00}" x $cap);
+    $s     = \("\x{00}" x $cap);
+    $frame = $class->new_frame();
+
+  # ^pointer to base
+  } else {
+    $frame=$O{par}->{frame};
 
   };
 
   # make ice
   my $self=bless {
 
-    par => $O{par},
-    pos => $O{pos},
+    id    => int(@{$frame->{-icebox}}),
 
-    cap => $cap,
-    buf => $s,
+    par   => $O{par},
+    pos   => $O{pos},
 
-    tab => {},
-    div => [],
+    cap   => $cap,
+    buf   => $s,
+
+    tab   => {},
+    div   => [],
+
+    frame => $frame,
 
   },$class;
+
+  push @{$frame->{-icebox}},$self;
 
   return $self;
 
@@ -207,6 +220,35 @@ sub cat($class,@segs) {
   };
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# get base segment from subseg
+
+sub root($self,$depth=-1) {
+
+  while($self->{par} && $depth != 0) {
+    $self=$self->{par};
+    $depth--;
+
+  };
+
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# get numerical indexes of seg
+
+sub iof($self) {
+
+  my $class = ref $self;
+
+  my $frame = $class->iof_frame($self->{frame});
+  my $addr  = $self->{id};
+
+  return ($frame,$addr);
 
 };
 
@@ -376,6 +418,7 @@ sub put_label($self,$name,$offset,$width) {
 
   my $ptr=$self->point($offset,$width);
 
+  # update table
   push @{$self->{div}},$name=>$ptr;
   $self->{tab}->{$name}=$ptr;
 
@@ -511,7 +554,7 @@ sub from_bytes($self,$bytes,$width=undef) {
     );
 
   } $self->array_xsized(
-    $width,@$bytes
+    $width,reverse @$bytes
 
   );
 
@@ -528,13 +571,8 @@ sub prich($self,%O) {
   # defaults
   $O{errout} //= 0;
 
-  state $fmat=
-    q[  ]
-  . (join q[ ],(("%02X" x 8) x 2))
-  ;
-
   # convert buf to hexdump
-  my @bytes = $self->to_bytes(64);
+  my @bytes = reverse $self->to_bytes(64);
   my $me    = xe(\@bytes);
 
   # select

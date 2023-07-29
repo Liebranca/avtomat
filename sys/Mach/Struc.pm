@@ -20,17 +20,20 @@ package Mach::Struc;
   use warnings;
 
   use Readonly;
-  use Storable qw(thaw freeze);
   use English qw(-no_match_vars);
 
-  use List::Util qw(sum);
+  use List::Util qw(min);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Chk;
 
   use Arstd::Bytes;
   use Arstd::Array;
+  use Arstd::IO;
+  use Arstd::PM;
+
   use Mach::Seg;
 
   use parent 'St';
@@ -38,7 +41,7 @@ package Mach::Struc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -121,7 +124,8 @@ sub new($class,$name,@fields) {
   ) unless ! exists $Icebox->{$name};
 
   # make tab from array
-  my %fields = @fields;
+  my %methods = $class->split_fields(\@fields);
+  my %fields  = @fields;
 
   # ^pop special flags
   my $attrs   = $fields{-attrs};
@@ -137,12 +141,14 @@ sub new($class,$name,@fields) {
   # ^make icewraps
   my $cstruc={
 
-    name   => $name,
-    attrs  => $attrs,
+    name    => $name,
+    attrs   => $attrs,
 
-    fields => \@fields,
-    sizes  => $sizes,
-    total  => $total,
+    methods => \%methods,
+    fields  => \@fields,
+
+    sizes   => $sizes,
+    total   => $total,
 
   };
 
@@ -151,6 +157,60 @@ sub new($class,$name,@fields) {
   $class->_sizeof_tab()->{$name}=$total;
 
   return $cstruc;
+
+};
+
+# ---   *   ---   *   ---
+# separates methods from
+# struc fields
+
+sub split_fields($class,$ar) {
+
+  my %out  = ();
+  my @move = ();
+
+  my $i=0;map {
+
+    my $value=$ar->[$i+1];
+
+    if(is_coderef($value)) {
+      $out{$ARG}=$value;
+
+    } else {
+      push @move,$ARG=>$value;
+
+    };
+
+    $i+=2;
+
+  } array_keys($ar);
+
+  @$ar=@move;
+  return %out;
+
+};
+
+# ---   *   ---   *   ---
+# ^invokes methods of struc
+
+sub AUTOLOAD($self,@args) {
+
+  our $AUTOLOAD;
+
+  my $key    = $AUTOLOAD;
+  my $class  = ref $self;
+
+  # abort if dstruc
+  return if ! autoload_prologue(\$key);
+
+  my $tab    = $class->_cstruc_tab();
+  my $cstruc = $tab->{$self->{-type}};
+
+  # abort if method not found
+  my $fn=$cstruc->{methods}->{$key}
+  or throw_bad_autoload($self->{-type},$key);
+
+  return $fn->($self,@args);
 
 };
 
@@ -231,6 +291,7 @@ sub calc_segment($class,$cstruc,%O) {
 
   # ^else point
   } else {
+
     $seg=$O{segref}->point(
       $O{offset},
       $cstruc->{total}
@@ -251,10 +312,8 @@ sub calc_segment($class,$cstruc,%O) {
     my ($offset,$width)=
       @{$cstruc->{sizes}->{$ARG}};
 
-    $offset+=$O{offset};
-    $stride{$ARG}=$prev;
-
-    $prev=$offset;
+    $stride{$ARG}=$offset+$prev;
+    $prev+=$offset;
 
     # from [name => type]
     # to   [name => ptr]
@@ -314,6 +373,11 @@ sub set($self,%O) {
 
 };
 
+sub iof($self) {
+  return $self->{-seg}->iof();
+
+};
+
 # ---   *   ---   *   ---
 # debug out
 
@@ -322,34 +386,31 @@ sub prich($self,%O) {
   # defaults
   $O{errout}//=0;
 
-  my $me=$NULLSTR;
+  # get ctx
+  my $class  = ref $self;
+  my $tab    = $class->_cstruc_tab();
+  my $cstruc = $tab->{$self->{-type}};
+  my $sizes  = $cstruc->{sizes};
 
-  # detail struc
-  my $seg  = $self->{-seg};
-  my @info = (
+  # detail fields
+  my @keys = array_keys($self->{-div});
+  my $me   = $NULLSTR;
 
-    $self->{-type},"\n\n",
-
-    (sprintf
-      "%-8s \$%04X",
-      'SIZE',$seg->{cap},
-
-    ),"\n",
-
-    "\n\n",
-
-    "Segments:\n\n",
-
-  );
-
-  $me.=join $NULLSTR,@info;
-
-  # ^detail fields
-  my @keys=array_keys($self->{-div});
   for my $key(@keys) {
 
-    my @bytes = $self->{$key}->to_bytes(64);
-    my $fmat  = xe(\@bytes);
+    my $width = min(8,$sizes->{$key}->[1]);
+    my $cpl   = int(16/$width);
+    my $ice   =  $self->{$key};
+
+    my @bytes = reverse $ice->to_bytes($width*8);
+    my $fmat  = xe(
+
+      \@bytes,
+
+      word=>$width,
+      line=>$cpl
+
+    );
 
     $me.=".$key\n$fmat\n\n";
 
@@ -368,44 +429,95 @@ sub prich($self,%O) {
 # ---   *   ---   *   ---
 # test
 
-my $struc0=Mach::Struc->new(
+Mach::Struc->new(
+
+  'reg8',
+
+  a=>'byte'
+
+);
+
+Mach::Struc->new(
+
+  'reg16',
+
+  low  => 'byte',
+  high => 'byte',
+
+);
+
+Mach::Struc->new(
+
+  'reg32',
+
+  low  => 'reg16',
+  high => 'reg16',
+
+);
+
+Mach::Struc->new(
+
+  'reg64',
+
+  low  => 'reg32',
+  high => 'reg32',
+
+);
+
+# ---   *   ---   *   ---
+
+Mach::Struc->new(
+
+  'seg-ptr',
+
+  loc  => 'reg64',
+  addr => 'reg64',
+
+  cpy => sub ($self,$other) {
+
+    my ($loc,$addr)=$other->iof();
+
+    $self->{loc}->set(num=>$loc);
+    $self->{addr}->set(num=>$addr);
+
+  },
+
+  deref => sub ($self) {
+
+    my ($loc,$addr)=$self->to_bytes(64);
+
+    my $class = ref $self->{-seg};
+    my $frame = $class->get_frame($loc);
+    my $out   = $frame->{-icebox}->[$addr];
+
+    return $out;
+
+  },
+
+);
+
+
+# ---   *   ---   *   ---
+
+Mach::Struc->new(
 
   'Test',
 
-  a=>'word',
-
-  b=>'brad',
-  c=>'wide',
-  d=>'byte',
-  e=>'byte',
+  xs => 'seg-ptr',
 
 );
 
-my $struc1=Mach::Struc->new(
+# ---   *   ---   *   ---
 
-  'Not-Test',
+my $ptr=Mach::Struc->ice('Test');
+my $mem=Mach::Seg->new(0x20);
 
-  nest => 'Test',
-  pad  => 'unit',
+say $mem;
+$ptr->{xs}->cpy($mem);
+say $ptr->{xs}->deref();
 
-);
-
-my $t1   = Mach::Struc->ice('Not-Test');
-my $nest = $t1->{nest};
-
-$t1->{pad}->set(str=>'HEY');
-$nest->set(num=>$NULL);
-
-#my @ar=$t1->to_bytes(64);
-#$ar[1]=$NULL;
-#
-#$t1->from_bytes(\@ar,64);
-
-#$t1->{nest}->set(str=>'HLOWRLD!');
-#$t1->{pad}->set (str=>'BYEWRLD!');
-
-$t1->prich();
-$t1->{-seg}->prich();
+$ptr->{xs}->prich();
+$ptr->prich();
 
 # ---   *   ---   *   ---
 1; # ret

@@ -34,7 +34,14 @@ package Arstd::PM;
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT=qw(submerge);
+  our @EXPORT=qw(
+
+    submerge
+
+    autoload_prologue
+    throw_bad_autoload
+
+  );
 
 # ---   *   ---   *   ---
 # info
@@ -194,6 +201,31 @@ sub depsof_file($fname) {
   };
 
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# autoload helpers
+
+sub autoload_prologue($kref) {
+
+  state $re=qr{^.*::};
+  $$kref=~ s[$re][];
+
+  return $$kref ne 'DESTROY';
+
+};
+
+sub throw_bad_autoload($pkg,$key) {
+
+  errout(
+
+    q['%s' has no autoload for '%s'],
+
+    args => [$pkg,$key],
+    lvl  => $AR_FATAL,
+
+  );
 
 };
 
