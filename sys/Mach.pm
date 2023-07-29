@@ -26,7 +26,10 @@ package Mach;
   use Style;
   use Arstd::IO;
 
-#  use Mach::Struc;
+  use Mach::Seg;
+  use Mach::Struc;
+  use Mach::Reg;
+
   use Mach::Scope;
   use Mach::Value;
 
@@ -41,22 +44,13 @@ package Mach;
 # ---   *   ---   *   ---
 # ROM
 
-#  Mach::Struc->new(
-#
-#    'seg-ptr',
-#
-#    addr   => 'word',
-#    subdiv => 'word',
-#
-#  );
-#
-#  Mach::Struc->new(
-#
-#    'Anima',
-#
-#    XS => 'xseg-reg',
-#
-#  );
+  strucs(q[
+
+    <Anima>
+
+    seg-ptr xs;
+
+  ]);
 
 # ---   *   ---   *   ---
 # GBL
@@ -69,17 +63,11 @@ package Mach;
 sub new($class,%O) {
 
   # defaults
-#  $O{gpr_struc} //= 'Anima';
+  $O{gpr_struc} //= 'Anima';
   $O{ret_idex}  //= 0;
   $O{idex}      //= 0;
 
   $O{fd}        //= [*STDIN,*STDOUT,*STDERR];
-
-#  my $gpr={};
-#  for my $i(0..$O{gpr_cnt}-1) {
-#    $gpr->{"r$i"}=0;
-#
-#  };
 
   my $fd_buff=[
     ($NULLSTR) x int(@{$O{fd}})
@@ -90,7 +78,7 @@ sub new($class,%O) {
 
   my $self  = bless {
 
-#    gpr      => $gpr,
+    gpr      => Mach::Struc->ice($O{gpr_struc}),
     ret_idex => "r$O{ret_idex}",
 
     stk      => [],

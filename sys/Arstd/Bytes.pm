@@ -30,6 +30,11 @@ package Arstd::Bytes;
   use Exporter 'import';
   our @EXPORT=qw(
 
+    $PACK_FMAT
+
+    bitsize
+    bitmask
+
     mchr
     mord
     lmord
@@ -55,6 +60,35 @@ package Arstd::Bytes;
     64 => 'Q',
 
   };
+
+# ---   *   ---   *   ---
+# get bitsize of number
+
+sub bitsize($x) {
+
+  my $out=0;
+  my $bit=1;
+
+  while($x) {
+
+    $out  += $bit * ($x & 1);
+    $x   >>= 1;
+
+    $bit++;
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^get a bitmask for n number of bits
+
+sub bitmask($x) {
+  return (1 << $x)-1;
+
+};
 
 # ---   *   ---   *   ---
 # byte-wise reversal

@@ -39,9 +39,15 @@ package Mach::Struc;
   use parent 'St';
 
 # ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT=qw(struc strucs);
+
+# ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -52,6 +58,25 @@ package Mach::Struc;
     -autoload=>[qw()],
 
   }};
+
+  Readonly our $FIELD_RE=>qr{
+    (?<type> [^<\s]+) \s+
+    (?<bare> [^;]+) \s* ; \s*
+
+  }x;
+
+  Readonly our $NAME_RE=>qr{
+    < (?<name> [^>]+) > \s*
+
+  }x;
+
+  Readonly our $STRUC_RE=>qr{(?<struc>
+
+    ^ \s*
+      $NAME_RE
+      $FIELD_RE+
+
+  )}x;
 
 # ---   *   ---   *   ---
 # GBL
@@ -157,6 +182,104 @@ sub new($class,$name,@fields) {
   $class->_sizeof_tab()->{$name}=$total;
 
   return $cstruc;
+
+};
+
+# ---   *   ---   *   ---
+# ^sweetcrux
+
+sub struc($expr,$pkg=undef) {
+
+  # defaults
+  $pkg //= caller;
+
+  # throw if expr doesn't match re
+  errout(
+
+    q[BADSTRUC: "%s"],
+
+    lvl  => $AR_FATAL,
+    args => [$expr],
+
+  ) unless $expr=~ $STRUC_RE;
+
+  # accum vars
+  my $name  = $NULLSTR;
+  my $type  = [];
+  my $bare  = [];
+
+  # get <name-of-struc>
+  $expr=~ s[$NAME_RE][];
+  $name=$+{name};
+
+  # get type field;type field;
+  while($expr=~ s[$FIELD_RE][]) {
+    push @$type,$+{type};
+    push @$bare,$+{bare};
+
+  };
+
+  # ^pack
+  my @fields=map {
+
+    my $t=shift @$type;
+    my $b=shift @$bare;
+
+    # arg is method
+    if(0 == index $b,'&') {
+
+      my $fn=codefind(
+        $pkg,substr $b,1,length $b
+
+      # ^throw if not found
+      ) or errout(
+
+        q[No '%s' in pkg <%s>],
+
+        lvl  => $AR_FATAL,
+        args => [$b,$pkg],
+
+      );
+
+      $t=>$fn;
+
+    # ^arg is data field
+    } else {
+      $b=>$t;
+
+    };
+
+  } 0..int(@$type)-1;
+
+  return Mach::Struc->new($name,@fields);
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub strucs($expr) {
+
+  my @out=();
+  my $pkg=caller;
+
+  # manually recurse pattern
+  while($expr=~ s[$STRUC_RE][]) {
+    push @out,struc($+{struc},$pkg);
+
+  };
+
+  # ^throw if expr not fully consumed
+  errout(
+
+    q[BADSTRUCS: "%s"],
+
+    lvl  => $AR_FATAL,
+    args => [$expr],
+
+  ) unless ! length $expr;
+
+  return @out;
 
 };
 
@@ -425,99 +548,6 @@ sub prich($self,%O) {
   say {$fh} $me;
 
 };
-
-# ---   *   ---   *   ---
-# test
-
-Mach::Struc->new(
-
-  'reg8',
-
-  a=>'byte'
-
-);
-
-Mach::Struc->new(
-
-  'reg16',
-
-  low  => 'byte',
-  high => 'byte',
-
-);
-
-Mach::Struc->new(
-
-  'reg32',
-
-  low  => 'reg16',
-  high => 'reg16',
-
-);
-
-Mach::Struc->new(
-
-  'reg64',
-
-  low  => 'reg32',
-  high => 'reg32',
-
-);
-
-# ---   *   ---   *   ---
-
-Mach::Struc->new(
-
-  'seg-ptr',
-
-  loc  => 'reg64',
-  addr => 'reg64',
-
-  cpy => sub ($self,$other) {
-
-    my ($loc,$addr)=$other->iof();
-
-    $self->{loc}->set(num=>$loc);
-    $self->{addr}->set(num=>$addr);
-
-  },
-
-  deref => sub ($self) {
-
-    my ($loc,$addr)=$self->to_bytes(64);
-
-    my $class = ref $self->{-seg};
-    my $frame = $class->get_frame($loc);
-    my $out   = $frame->{-icebox}->[$addr];
-
-    return $out;
-
-  },
-
-);
-
-
-# ---   *   ---   *   ---
-
-Mach::Struc->new(
-
-  'Test',
-
-  xs => 'seg-ptr',
-
-);
-
-# ---   *   ---   *   ---
-
-my $ptr=Mach::Struc->ice('Test');
-my $mem=Mach::Seg->new(0x20);
-
-say $mem;
-$ptr->{xs}->cpy($mem);
-say $ptr->{xs}->deref();
-
-$ptr->{xs}->prich();
-$ptr->prich();
 
 # ---   *   ---   *   ---
 1; # ret
