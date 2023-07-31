@@ -99,9 +99,34 @@ BEGIN {
   };
 
 # ---   *   ---   *   ---
+# TODO
+#
+# "fast" memory should be capped to N
+# bits wide, depending on how a Mach ice
+# is set up; more caches and regs would
+# mean a higher cap
+#
+# however, this requires that all subsystems
+# are working and fully integrated into core,
+# which is not (yet) the case!
+#
+# we'll have to hardcode this for now...
+
+  Readonly our $FAST_BITS => 3;
+  Readonly our $FAST_MASK => bitmask($FAST_BITS);
+
+# ---   *   ---   *   ---
 # GBL
 
   our $Fast_Seg=[];
+
+# ---   *   ---   *   ---
+# ^get global block at addr
+
+sub ffetch($class,$addr) {
+  return $Fast_Seg->[$addr];
+
+};
 
 # ---   *   ---   *   ---
 # cstruc
@@ -193,7 +218,7 @@ sub calc_addr($self) {
 
   # short form avail (register or cache)
   if(exists $self->{fast}) {
-    @elems=($self->{fast} => 16);
+    @elems=($self->{fast} => $FAST_BITS);
 
   # ^regular memory operand, use long form
   } else {
@@ -219,7 +244,7 @@ sub calc_addr($self) {
 
        $slow  = 1;
 
-    # [bits => bitsize] array for encoder
+    # [bits => bitsize]
     @elems=(
 
       $locw  => 2,
@@ -233,12 +258,9 @@ sub calc_addr($self) {
   };
 
 
-  # ^run encoder
+  # ^save field list
   unshift @elems,$slow=>1;
-  $self->{addr}=bitcat(@elems);
-
-use Fmat;
-fatdump(\[@elems]);
+  $self->{addr}=\@elems;
 
 };
 
@@ -359,6 +381,7 @@ sub xsized($self,$width,$raw) {
     elem_sz => $width,
     noprint => 1,
 
+    brev    => 1,
     rev     => 1,
 
   );
@@ -393,7 +416,7 @@ sub set_num($self,$raw) {
 
   # convert to bytestr and pad
   my $s=$self->xsized($width,$raw);
-     $s=$self->vpad($s,rev=>1);
+     $s=$self->vpad($s,rev=>0);
 
   $self->_set($s);
 
@@ -405,7 +428,7 @@ sub set_num($self,$raw) {
 sub set_str($self,$raw) {
 
   my $s=reverse $raw;
-     $s=$self->vpad($s,rev=>0);
+     $s=$self->vpad($s,rev=>1);
 
   $self->_set($s);
 
@@ -415,7 +438,7 @@ sub set_str($self,$raw) {
 # ^already reversed
 
 sub set_rstr($self,$raw) {
-  my $s=$self->vpad($raw,rev=>0);
+  my $s=$self->vpad($raw,rev=>1);
   $self->_set($s);
 
 };

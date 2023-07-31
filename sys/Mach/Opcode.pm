@@ -21,7 +21,7 @@ package Mach::Opcode;
 
   use Readonly;
   use English qw(-no_match_vars);
-  use List::Util qw(min);
+  use List::Util qw(min max);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
@@ -29,6 +29,7 @@ package Mach::Opcode;
 
   use Arstd::Bytes;
   use Arstd::Int;
+  use Arstd::IO;
   use Arstd::PM;
 
   use Mach::Seg;
@@ -59,9 +60,8 @@ package Mach::Opcode;
 
   }};
 
-  Readonly our $ARG_BITS  => 3;
+  Readonly our $ARG_BITS  => 2;
   Readonly our $ARG_MASK  => bitmask($ARG_BITS);
-  Readonly our $FAST_MASK => 0b111;
 
 # ---   *   ---   *   ---
 # generate descriptor for instruction
@@ -125,43 +125,19 @@ sub add($class,$frame,$name,%O) {
 
 # ---   *   ---   *   ---
 # transform descriptor to numerical repr
-#
-# this first step provides only
-# enough information to encode the
-# *final* instruction
 
-sub encode_base($class,$frame,$d) {
+sub encode($self,$key,@args) {
 
-  return
+  my $id   = $self->{base}->{$key};
+  my $info = $self->{info}->{$id};
 
-    ($d->{id}  << (0))
-  | ($d->{cnt} << ($frame->{-opbits}))
+  # ^unpack
+  my $cnt = $info->{cnt};
+  my $stk = $info->{stk};
+  my $tab = $info->{tab};
 
-  | ($d->{stk} << ($frame->{-opbits}+$ARG_BITS))
-  | ($d->{tab} << ($frame->{-opbits}+$ARG_BITS+1))
-
-  ;
-
-};
-
-# ---   *   ---   *   ---
-# ^expands base encoding, taking
-# args into account
-
-sub encode($self,$base,@args) {
-
-  # unpack base
-  my ($id,$cnt,$stk,$tab);
-
-  $id     = $base & $self->{opmask};
-  $base <<= $self->{opbits};
-
-  $cnt    = $base & $ARG_MASK;
-  $base <<= $ARG_BITS;
-
-  $stk    = $base & 1;
-  $tab    = $base & 2;
-
+  $cnt == int @args
+  or throw_badargs($key,$cnt,int @args);
 
   # encode args
   my @pack = ();
@@ -170,49 +146,24 @@ sub encode($self,$base,@args) {
 
   for my $arg(@args) {
 
-# ---   *   ---   *   ---
-# TODO
-#
-# "fast" memory should be capped to N
-# bits wide, depending on how a Mach ice
-# is set up; more caches and regs would
-# mean a higher cap
-#
-# however, this requires that all subsystems
-# are working and fully integrated into core,
-# which is not (yet) the case!
-#
-# we'll have to hardcode this for now...
-
-my $mask=$FAST_MASK;
-
-# ---   *   ---   *   ---
-
     my $x=0x00;
 
     # register/memory operand
     if(Mach::Seg->is_valid($arg)) {
-
-      my @bytes=lmord(
-
-        $arg->{addr},
-
-        width => 64,
-        rev   => 0,
-
-      );
-
-      if($arg->{fast}) {
-        $bytes[0] &= ($mask<<1);
-
-      };
-
-      push @pack,@bytes;
+      push @pack,@{$arg->{addr}};
 
     # ^immediate
     } else {
       $mode |= 1<<$i;
-      push @pack,$arg;
+
+      my $width = max(8,bitsize($arg));
+         $width = int_npow($width,2,1)-3;
+
+      push @pack,(
+        $width => 2,
+        $arg   => 2**$width,
+
+      );
 
     };
 
@@ -220,17 +171,109 @@ my $mask=$FAST_MASK;
 
   };
 
-  map {say $ARG} @pack;
+  # run encoder
+  unshift @pack,(
+
+    $id   => $self->{opbits},
+
+    $cnt  => $ARG_BITS,
+    $mode => $ARG_BITS,
+
+  );
+
+  return bitcat(@pack);
 
 };
 
 # ---   *   ---   *   ---
-# ^bat-crux
+# ^reads back instruction from mem
+
+sub decode($self,$opcode) {
+
+  # unpack base
+  my ($id,$cnt,$mode)=bitsume(
+
+    \$opcode,
+
+    $self->{opbits},
+    ($ARG_BITS) x 2
+
+  );
+
+
+  # ^walk args
+  my @out=();
+
+  while($cnt) {
+
+    my $imm=$mode & 1;
+
+    # immediate value
+    if($imm) {
+
+      my ($width)=bitsume(\$opcode,2);
+      my ($value)=bitsume(\$opcode,2**$width);
+
+      push @out,$value;
+
+    # memory operand
+    } else {
+
+      my ($slow)=bitsume(\$opcode,1);
+
+      # register or cache
+      if(! $slow) {
+
+        my ($addr)=bitsume(
+          \$opcode,$Mach::Seg::FAST_BITS
+
+        );
+
+        push @out,Mach::Seg->ffetch($addr);
+
+      # regular segment
+      } else {
+        say 'SLOW SEG NYI';
+        exit;
+
+      };
+
+    };
+
+    $mode >>= 1;
+    $cnt--;
+
+  };
+
+  unshift @out,$self->{info}->{$id}->{fn};
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_badargs($key,$cnt,$have) {
+
+  errout(
+
+    q[BADARGS: %u/%u args for '%s'],
+
+    lvl  => $AR_FATAL,
+    args => [$have,$cnt,$key],
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# creates helper object
+# from frame data
 
 sub regen($class,$frame) {
 
-  my $keys  = {};
-  my $xlate = {};
+  my $base = {};
+  my $info = {};
 
   # width of instruction bits
   $frame->{-opbits}=bitsize(
@@ -244,27 +287,35 @@ sub regen($class,$frame) {
 
   );
 
+  my $opmask=bitmask($frame->{-opbits});
+
   # run through loaded descriptors
   map {
 
-    my $base=$frame->encode_base($ARG);
+    # pair [key  => base]
+    # and  [base => info]
+    $base->{$ARG->{key}} = $ARG->{id};
+    $info->{$ARG->{id}} = {
 
-    # pair [fn   => base]
-    # and  [base => coderef]
-    $keys->{$ARG->{key}} = $base;
-    $xlate->{$base}      = $ARG->{fn};
+      fn  => $ARG->{fn},
+
+      cnt => $ARG->{cnt},
+      stk => $ARG->{stk},
+      tab => $ARG->{tab},
+
+    };
 
   } @{$frame->{-cstruc}};
 
   # make ice
   my $out=bless {
 
-    keys   => $keys,
-    xlate  => $xlate,
+    base   => $base,
+    info   => $info,
 
     opbits => $frame->{-opbits},
     opsize => $frame->{-opsize},
-    opmask => bitmask($frame->{-opbits}),
+    opmask => $opmask,
 
   },$class;
 
@@ -306,22 +357,35 @@ sub ldi($self,$ptr,$ins,@args) {
 # test
 
 use Fmat;
-sub fn($a,$b) {};
+sub fn($a,$b) {say "$a,$b"};
 
+# generate opcode table
 my $f=Mach::Opcode->new_frame();
 $f->add('fn');
 
-my $mem=Mach::Seg->new(0x10,fast=>1);
 my $tab=$f->regen();
 
-fatdump(\$tab,blessed=>1);
 
-$tab->encode(
+# ^store in memory
+my $mem    = Mach::Seg->new(0x20,fast=>1);
+my $opcode = $tab->encode('fn',$mem,1);
 
-  $tab->{keys}->{'fn'},
-  $mem,1
+$mem->set(rstr=>$opcode);
 
-);
+
+# ^read
+my $x    = ${$mem->{buf}};
+my @call = $tab->decode($x);
+
+# ^exec
+my $fn   = shift @call;
+$fn->(@call);
+
+exit;
+
+# ---   *   ---   *   ---
+
+$mem->prich();
 
 # ---   *   ---   *   ---
 1; # ret

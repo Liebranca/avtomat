@@ -34,9 +34,12 @@ package Arstd::Bytes;
 
     $PACK_FMAT
 
+    brev
+
     bitsize
     bitmask
     bitcat
+    bitsume
 
     mchr
     mord
@@ -159,7 +162,96 @@ sub bitcat(@elems) {
 
   };
 
-  return mchr(\@str,noprint=>1);
+  return mchr(
+
+    \@str,
+
+    rev     => 0,
+    brev    => 0,
+    noprint => 1,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^consume bits of bytestr
+
+sub bitsume($sref,@steps) {
+
+  state $limit=64;
+
+  my @out   = ();
+  my $i     = 0;
+
+  my @bytes = lmord(
+
+    $$sref,
+
+    width => $limit,
+    rev   => 0,
+
+  );
+
+  for my $size(@steps) {
+
+    # get bits fit in current word
+    my $step=$i+$size;
+
+    # ^they dont, perform two reads
+    if($step >= $limit) {
+
+      my $low  = $limit - $i;
+      my $high = $size  - $low;
+
+      # take first half
+      my $x=$bytes[0] & bitmask($low);
+      shift @bytes;
+
+      # ^join second with first
+      $x|=
+         ($bytes[0] & bitmask($high))
+      << $low
+      ;
+
+      push @out,$x;
+
+      # substract bits and go next
+      $bytes[0] >>= $high;
+      $i          = $high;
+
+    # ^single read
+    } else {
+
+      push @out,$bytes[0] & bitmask($size);
+
+      $bytes[0] >>= $size;
+      $i         += $size;
+
+      # word is empty, go next
+      if($i == $limit) {
+        shift @bytes;
+        $i=0;
+
+      };
+
+
+    };
+
+  };
+
+  $$sref=mchr(
+
+    \@bytes,
+
+    width   => $limit,
+
+    brev    => 0,
+    noprint => 1,
+
+  );
+
+  return @out;
 
 };
 
@@ -169,12 +261,14 @@ sub bitcat(@elems) {
 # ivs the byte ordering of each
 # N-sized chunk in a string
 
-sub bstr_reverse($str,$step,$cnt) {
+sub brev($str,$step,$cnt) {
 
   my @chars = split $NULLSTR,$str;
 
   my $beg   = 0;
   my $end   = $step;
+
+  return $str if @chars > $end;
 
   # generate [cnt] chunks
   # and join them
@@ -254,7 +348,7 @@ sub lmord($str,%O) {
   $str=reverse $str if $O{rev};
 
   # ^conditional *byte-wise* reversal
-  $str=bstr_reverse($str,$step,$cnt)
+  $str=brev($str,$step,$cnt)
   if $O{brev};
 
   # make format for splitting string
@@ -339,7 +433,7 @@ sub mchr($data,%O) {
   );
 
   # ^conditional *byte-wise* reversal
-  $str=bstr_reverse($str,$step,$cnt)
+  $str=brev($str,$step,$cnt)
   if $O{brev};
 
   return $str;
@@ -421,17 +515,17 @@ sub xe($bytes,%O) {
 
       # optionally add chars matching bytes
       my $asstr=$NULLSTR;
-      $asstr.=q[ | ].(join $NULLSTR,mchr(
+      $asstr.=(join $NULLSTR,mchr(
 
         \@accum,
 
         elem_sz => $O{word}*8,
         unprint => $O{unprint},
 
-        rev     => 1,
+        rev     => 0,
         brev    => 1,
 
-      )) if $O{decode};
+      )).q[ | ] if $O{decode};
 
       # ^escape modulo for sprintf
       $asstr=~ s[$MODULO_RE][%%]sxmg;
@@ -469,7 +563,7 @@ sub xe($bytes,%O) {
 
   # ^cat it all together
   return join$O{catchar},map {
-    $fmat[$ARG] . $xlate[$ARG];
+    $fmat[$ARG] . reverse $xlate[$ARG];
 
   } 0..$#xlate;
 
