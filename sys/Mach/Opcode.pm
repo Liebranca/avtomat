@@ -31,12 +31,14 @@ package Mach::Opcode;
   use Arstd::Int;
   use Arstd::PM;
 
+  use Mach::Seg;
+
   use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -45,7 +47,7 @@ package Mach::Opcode;
   sub Frame_Vars($class) { return {
 
     -autoload=>[qw(
-      add regen
+      add encode_base regen
 
     )],
 
@@ -56,6 +58,10 @@ package Mach::Opcode;
     -opbits=>0,
 
   }};
+
+  Readonly our $ARG_BITS  => 3;
+  Readonly our $ARG_MASK  => bitmask($ARG_BITS);
+  Readonly our $FAST_MASK => 0b111;
 
 # ---   *   ---   *   ---
 # generate descriptor for instruction
@@ -119,25 +125,104 @@ sub add($class,$frame,$name,%O) {
 
 # ---   *   ---   *   ---
 # transform descriptor to numerical repr
+#
+# this first step provides only
+# enough information to encode the
+# *final* instruction
 
-sub encode_base($d) {
+sub encode_base($class,$frame,$d) {
 
   return
 
-    ($d->{cnt} << 0)
+    ($d->{id}  << (0))
+  | ($d->{cnt} << ($frame->{-opbits}))
 
-  | ($d->{stk} << 3)
-  | ($d->{tab} << 4)
-
-  | ($d->{id}  << 5)
+  | ($d->{stk} << ($frame->{-opbits}+$ARG_BITS))
+  | ($d->{tab} << ($frame->{-opbits}+$ARG_BITS+1))
 
   ;
 
 };
 
 # ---   *   ---   *   ---
+# ^expands base encoding, taking
+# args into account
 
-sub encode_args(
+sub encode($self,$base,@args) {
+
+  # unpack base
+  my ($id,$cnt,$stk,$tab);
+
+  $id     = $base & $self->{opmask};
+  $base <<= $self->{opbits};
+
+  $cnt    = $base & $ARG_MASK;
+  $base <<= $ARG_BITS;
+
+  $stk    = $base & 1;
+  $tab    = $base & 2;
+
+
+  # encode args
+  my @pack = ();
+  my $mode = 0x00;
+  my $i    = 0;
+
+  for my $arg(@args) {
+
+# ---   *   ---   *   ---
+# TODO
+#
+# "fast" memory should be capped to N
+# bits wide, depending on how a Mach ice
+# is set up; more caches and regs would
+# mean a higher cap
+#
+# however, this requires that all subsystems
+# are working and fully integrated into core,
+# which is not (yet) the case!
+#
+# we'll have to hardcode this for now...
+
+my $mask=$FAST_MASK;
+
+# ---   *   ---   *   ---
+
+    my $x=0x00;
+
+    # register/memory operand
+    if(Mach::Seg->is_valid($arg)) {
+
+      my @bytes=lmord(
+
+        $arg->{addr},
+
+        width => 64,
+        rev   => 0,
+
+      );
+
+      if($arg->{fast}) {
+        $bytes[0] &= ($mask<<1);
+
+      };
+
+      push @pack,@bytes;
+
+    # ^immediate
+    } else {
+      $mode |= 1<<$i;
+      push @pack,$arg;
+
+    };
+
+    $i++;
+
+  };
+
+  map {say $ARG} @pack;
+
+};
 
 # ---   *   ---   *   ---
 # ^bat-crux
@@ -147,31 +232,39 @@ sub regen($class,$frame) {
   my $keys  = {};
   my $xlate = {};
 
+  # width of instruction bits
+  $frame->{-opbits}=bitsize(
+    $frame->{-opidex}
+
+  );
+
+  # ^width of opcode base
+  $frame->{-opsize}=int_align(
+    $frame->{-opbits},8
+
+  );
+
   # run through loaded descriptors
   map {
 
-    my $opcode=encode_base($ARG);
+    my $base=$frame->encode_base($ARG);
 
-    # pair [fn => opcode]
-    # and  [opcode => coderef]
-    $keys->{$ARG->{key}} = $opcode;
-    $xlate->{$opcode}    = $ARG->{fn};
+    # pair [fn   => base]
+    # and  [base => coderef]
+    $keys->{$ARG->{key}} = $base;
+    $xlate->{$base}      = $ARG->{fn};
 
   } @{$frame->{-cstruc}};
 
-  my $opbits = bitsize($frame->{-opidex});
-  my $opsize = int_urdiv($opbits+5,8)*8;
-
-  my $out    = bless {
+  # make ice
+  my $out=bless {
 
     keys   => $keys,
     xlate  => $xlate,
 
-    opbits => $opbits,
-    opsize => $opsize,
-
-    opmask => bitmask($opbits+5),
-    frame  => $frame,
+    opbits => $frame->{-opbits},
+    opsize => $frame->{-opsize},
+    opmask => bitmask($frame->{-opbits}),
 
   },$class;
 
@@ -208,6 +301,27 @@ sub ldi($self,$ptr,$ins,@args) {
   );
 
 };
+
+# ---   *   ---   *   ---
+# test
+
+use Fmat;
+sub fn($a,$b) {};
+
+my $f=Mach::Opcode->new_frame();
+$f->add('fn');
+
+my $mem=Mach::Seg->new(0x10,fast=>1);
+my $tab=$f->regen();
+
+fatdump(\$tab,blessed=>1);
+
+$tab->encode(
+
+  $tab->{keys}->{'fn'},
+  $mem,1
+
+);
 
 # ---   *   ---   *   ---
 1; # ret

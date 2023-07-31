@@ -29,7 +29,13 @@ package Arstd::Int;
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT=qw(int_urdiv);
+
+  our @EXPORT=qw(
+    int_urdiv
+    int_align
+    int_npow
+
+  );
 
 # ---   *   ---   *   ---
 # info
@@ -57,9 +63,28 @@ sub urdiv($a,$b) {
 };
 
 # ---   *   ---   *   ---
+# ^force A to nearest multiple of B
+
+sub align($a,$b) {
+  return urdiv($a,$b) * $b;
+
+};
+
+# ---   *   ---   *   ---
+# ^force A to nearest pow of B
+
+sub npow($a,$b,$give_exp=0) {
+  my $x=int(log $a**$b)-1;
+  return ($give_exp) ? $x : $a**$x;
+
+};
+
+# ---   *   ---   *   ---
 # exporter names
 
-  *int_urdiv=*urdiv;
+  *int_urdiv = *urdiv;
+  *int_align = *align;
+  *int_npow  = *npow;
 
 # ---   *   ---   *   ---
 1; # ret

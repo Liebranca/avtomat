@@ -18,7 +18,9 @@ package Arstd::Bytes;
   use strict;
   use warnings;
 
+  use Carp;
   use Readonly;
+
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -34,6 +36,7 @@ package Arstd::Bytes;
 
     bitsize
     bitmask
+    bitcat
 
     mchr
     mord
@@ -68,17 +71,20 @@ sub bitsize($x) {
 
   my $out=0;
   my $bit=1;
+  my $set=0;
 
   while($x) {
 
-    $out  += $bit * ($x & 1);
+    $set   = $bit * ($x & 1);
+    $out   = ($set) ? $set : $out;
+
     $x   >>= 1;
 
     $bit++;
 
   };
 
-  return $out;
+  return (! $out) ? 1 : $out;
 
 };
 
@@ -87,6 +93,73 @@ sub bitsize($x) {
 
 sub bitmask($x) {
   return (1 << $x)-1;
+
+};
+
+# ---   *   ---   *   ---
+# cats bit fields to make str
+
+sub bitcat(@elems) {
+
+  state $limit=64;
+
+  # validate input
+  !  (@elems % 2)
+  or croak "Uneven arg count for bitcat";
+
+  my $i    = 0;
+  my @str  = (0x00);
+
+  # walk
+  while(@elems) {
+
+    # get [key => value]
+    my $bits=shift @elems;
+    my $size=shift @elems;
+
+    # get bits fit in current word
+    my $step=$i+$size;
+
+    # ^they dont, perform two writes
+    if($step >= $limit) {
+
+      my $low  = $limit - $i;
+      my $high = $size  - $low;
+
+      # first write:
+      # whatever fits in current word
+      $str[-1] |=
+         ($bits & bitmask($low))
+      << $i
+      ;
+
+      # ^go next
+      push @str,0x00;
+
+      # second write:
+      # put leftovers in new word
+      # set bit idex to end position
+      $str[-1] |= $bits & bitmask($high);
+      $i        = $high;
+
+    # ^single write
+    } else {
+
+      $str[-1] |= $bits << $i;
+      $i       += $size;
+
+      # word is full, go next
+      if($i == $limit) {
+        push @str,0x00;
+        $i=0;
+
+      };
+
+    };
+
+  };
+
+  return mchr(\@str,noprint=>1);
 
 };
 

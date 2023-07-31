@@ -21,7 +21,7 @@ package Mach::Seg;
 
   use Readonly;
   use English qw(-no_match_vars);
-  use List::Util qw(min);
+  use List::Util qw(min max);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
@@ -43,7 +43,7 @@ package Mach::Seg;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -65,7 +65,6 @@ BEGIN {
 # ROM
 
   sub Frame_Vars($class) {return {
-
     -icebox   => [],
     -autoload => [qw()],
 
@@ -102,7 +101,7 @@ BEGIN {
 # ---   *   ---   *   ---
 # GBL
 
-  our $Icebox;
+  our $Fast_Seg=[];
 
 # ---   *   ---   *   ---
 # cstruc
@@ -112,6 +111,7 @@ sub new($class,$cap,%O) {
   # defaults
   $O{pos}  //= 0;
   $O{par}  //= undef;
+  $O{fast} //= undef;
 
   # defined if taking pointer to base
   my $s     = $O{sref};
@@ -140,7 +140,7 @@ sub new($class,$cap,%O) {
   # make ice
   my $self=bless {
 
-    id    => int(@{$frame->{-icebox}}),
+    addr  => $NULL,
 
     par   => $O{par},
     pos   => $O{pos},
@@ -155,14 +155,95 @@ sub new($class,$cap,%O) {
 
   },$class;
 
-  push @{$frame->{-icebox}},$self;
+  $self->assign_fast() if $O{fast};
+  $self->calc_addr();
 
   return $self;
 
 };
 
 # ---   *   ---   *   ---
-# ^shallow copy of existing
+# assigns unique identifier to segment,
+# in a frame-independent manner;
+#
+# ie, addr without loc
+#
+# note that "fast" is an euphemism
+# for "treat it as a register or cache"
+#
+# although the unique id provides
+# a somewhat  faster way to fetch
+# the segment ref, it's just as slow
+# as a regular segment would be for
+# reads and writes
+
+sub assign_fast($self) {
+  $self->{fast}=int @$Fast_Seg;
+  push @$Fast_Seg,$self;
+
+};
+
+# ---   *   ---   *   ---
+# ^cache numerical repr
+
+sub calc_addr($self) {
+
+  my @elems = ();
+  my $slow  = 0;
+
+  # short form avail (register or cache)
+  if(exists $self->{fast}) {
+    @elems=($self->{fast} => 16);
+
+  # ^regular memory operand, use long form
+  } else {
+
+    my $class  = ref $self;
+
+    my $frame  = $self->{frame};
+    my $icebox = $frame->{-icebox};
+
+    # get base indices
+    my $loc  = $class->iof_frame($frame);
+    my $addr = int @$icebox;
+
+    push @$icebox,$self;
+
+    # get width as (exp of 2) - 3
+    # ie map [0,1,2,3] to [8,16,32,64]
+    my $locw  = max(8,bitsize($loc));
+       $locw  = int_npow($locw,2,1)-3;
+
+    my $addrw = max(8,bitsize($addr));
+       $addrw = int_npow($addrw,2,1)-3;
+
+       $slow  = 1;
+
+    # [bits => bitsize] array for encoder
+    @elems=(
+
+      $locw  => 2,
+      $addrw => 2,
+
+      $loc   => 2**($locw+3),
+      $addr  => 2**($addrw+3),
+
+    );
+
+  };
+
+
+  # ^run encoder
+  unshift @elems,$slow=>1;
+  $self->{addr}=bitcat(@elems);
+
+use Fmat;
+fatdump(\[@elems]);
+
+};
+
+# ---   *   ---   *   ---
+# shallow copy of existing
 
 sub cpy($self) {
 
@@ -235,20 +316,6 @@ sub root($self,$depth=-1) {
   };
 
   return $self;
-
-};
-
-# ---   *   ---   *   ---
-# get numerical indexes of seg
-
-sub iof($self) {
-
-  my $class = ref $self;
-
-  my $frame = $class->iof_frame($self->{frame});
-  my $addr  = $self->{id};
-
-  return ($frame,$addr);
 
 };
 

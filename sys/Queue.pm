@@ -19,19 +19,24 @@ package Queue;
   use strict;
   use warnings;
 
+  use English qw(-no_match_vars);
+
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use Style;
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v1.00.2;
+  our $VERSION=v1.00.3;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # getters
 
-sub pending($self) {
-  return 0 < @{$self->{procs}};
-
-};
+#sub pending($self) {
+#  return 0 < @{$self->{procs}};
+#
+#};
 
 # ---   *   ---   *   ---
 # constructor
@@ -40,15 +45,16 @@ sub nit($class) {
 
   return bless {
 
-    argc=>[],
-    argv=>[],
-    procs=>[],
+    argc  => [],
+    argv  => [],
+    procs => [],
 
   },$class;
 
 };
 
 # ---   *   ---   *   ---
+# push subs to Q
 
 sub add($self,$fn,@args) {
   push @{$self->{argc}},int(@args);
@@ -59,10 +65,14 @@ sub add($self,$fn,@args) {
 
 };
 
+# ---   *   ---   *   ---
+# ^remove all
+
 sub clear($self) {
-  $self->{argc}=[];
-  $self->{argv}=[];
-  $self->{procs}=[];
+
+  $self->{argc}  = [];
+  $self->{argv}  = [];
+  $self->{procs} = [];
 
   return;
 
@@ -95,7 +105,7 @@ sub ex($self) {
 
   my $out=undef;
 
-  if($self->pending()) {
+  if(0 < @{$self->{procs}}) {
     $out=$self->get_next();
 
   };
@@ -111,7 +121,7 @@ sub wex($self) {
 
   my @out=();
 
-  while($self->pending()) {
+  while(0 < @{$self->{procs}}) {
     push @out,$self->get_next();
 
   };
