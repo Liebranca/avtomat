@@ -56,7 +56,7 @@ sub tidyup($sref) {
   # we have to wrap to 54 columns ourselves
   # because perltidy cant get its effn
   # sheeeit together
-  linewrap($sref,54,add_newlines=>1);
+  linewrap($sref,54);
 
   # ^there, doing your job for you
   Perl::Tidy::perltidy(
@@ -160,14 +160,21 @@ sub fatdump($vref,%O) {
 
   # defaults
   $O{blessed} //= 0;
+  $O{errout}  //= 0;
 
   my $s=(join ",\n",map {
     map {$ARG} polydump($ARG,$O{blessed})
 
   } $vref ) . q[;];
 
-  say tidyup(\$s);
-  say $NULLSTR;
+  # select
+  my $fh=($O{errout})
+    ? *STDERR
+    : *STDOUT
+    ;
+
+  say {$fh} tidyup(\$s);
+  say {$fh} $NULLSTR;
 
 };
 

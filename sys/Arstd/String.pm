@@ -21,6 +21,8 @@ package Arstd::String;
   use Readonly;
   use English qw(-no_match_vars);
 
+  use List::Util qw(sum);
+
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
@@ -41,6 +43,8 @@ package Arstd::String;
 
     ansim
     strtag
+    sansi
+    fsansi
 
     sqwrap
     dqwrap
@@ -54,25 +58,34 @@ package Arstd::String;
 
     deref_clist
 
+    descape
+    popscape
+    pushscape
+    lenscape
+
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.5;#b
+  our $VERSION=v0.00.6;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $STRIP_RE=>qr{^\s*|\s*$}x;
-  Readonly our $ESCAPE_RE=>qr"\x1B\[[\?\d;]+[\w]"x;
-  Readonly our $NOBS_RE=>qr{\\(.)}x;
+  Readonly our $STRIP_RE  => qr{^\s*|\s*$}x;
+  Readonly our $NOBS_RE   => qr{\\(.)}x;
 
-  Readonly my $LINEWRAP_PROTO=>q{(
+  Readonly our $ESCAPE_RE =>
+    qr"\x{1B}\[[\?\d;]+[\w]"x;
 
-    [^\n]{1,SZ_X} ((\n|\s)|$)
-  | [^\n]{1,SZ_X} (.|$)
+  Readonly my $LINEWRAP_PROTO=>q{
+
+  (?<mess>
+
+    [^\n]{1,SZ_X} (?: (?: \n|\s) | $)
+  | [^\n]{1,SZ_X} (?: .|$)
 
   )};
 
@@ -104,8 +117,57 @@ package Arstd::String;
 
 sub descape($s) {
 
-  $s=~ s{$ESCAPE_RE}{}sxgm;
+  $s=~ s[$ESCAPE_RE][]sxgm;
   return $s;
+
+};
+
+# ---   *   ---   *   ---
+# ^get [escape=>position]
+
+sub popscape($sref) {
+
+  my @out=();
+
+  while($$sref=~ s[($ESCAPE_RE)][]) {
+    push @out,[$1,$-[0]];
+
+  };
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub pushscape($sref,@ar) {
+
+  my $out   = $NULLSTR;
+  my $accum = 0;
+
+  for my $ref(@ar) {
+
+    my ($escape,$pos)=@$ref;
+
+    my $head=substr $$sref,$accum,$pos-$accum;
+
+    $out.=$head.$escape;
+
+    $accum=$accum+(length $head);
+
+  };
+
+  $$sref=$out;
+
+};
+
+# ---   *   ---   *   ---
+# ^get length of ANSI escapes in str
+
+sub lenscape($s) {
+  my @ar=split $ESCAPE_RE,$s;
+  return sum(map {length $ARG} @ar);
 
 };
 
@@ -126,21 +188,19 @@ sub __make_linewrap_re($sz_x) {
   $re=~ s[$SZ_X_RE][$sz_x]x;$sz_x--;
   $re=~ s[$SZ_X_RE][$sz_x]x;
 
-  return $re;
+  return qr{$re}x;
 
 };
 
 # ---   *   ---   *   ---
 # split string at X characters
 
-sub linewrap($sref,$sz_x,%opt) {
+sub linewrap($sref,$sz_x) {
 
   state $last_re=undef;
   state $last_sz=undef;
 
-  # defaults
-  $opt{add_newlines}//=1;
-
+  # ^re-use last re if identical
   my $re=(defined $last_re && $sz_x==$last_sz)
     ? $last_re
     : __make_linewrap_re($sz_x)
@@ -149,13 +209,17 @@ sub linewrap($sref,$sz_x,%opt) {
   $last_re=$re;
   $last_sz=$sz_x;
 
-  if($opt{add_newlines}) {
-    $$sref=~ s/($re)/$1\n/gsx;
+  # ^cut
+  $$sref=join $NULLSTR,map {
 
-  } else {
-    $$sref=~ s/($re)/$1/gsx;
+    my $c=("\n" ne substr $ARG,-1)
+      ? "\n"
+      : $NULLSTR
+      ;
 
-  };
+    $ARG . $c;
+
+  } resplit($sref,$re);
 
 };
 
@@ -169,6 +233,30 @@ sub lineident($sref,$x) {
 
   $$sref=~ s[$NEWLINE_RE][$pad]sxmg;
   $$sref=(q[  ] x $x) . "$$sref";
+
+};
+
+# ---   *   ---   *   ---
+# split string with a capturing regex,
+# correcting common junk results
+
+sub resplit($sref,$re) {
+
+  my @out   = ();
+  my @lines = split $re,$$sref;
+
+  # strip trailing spaces
+  map {
+    $ARG=~ s[^\x{20}+|\x{20}+$][]
+    if defined $ARG
+
+  } @lines;
+
+  # ^filter out blanks
+  return grep {
+    defined $ARG && length $ARG
+
+  } @lines;
 
 };
 
@@ -199,6 +287,65 @@ sub strtag($s,$err=0) {
   . ansim('>','op')
 
   ;
+
+};
+
+# ---   *   ---   *   ---
+# applies common color scheme to
+# specific patterns inside a format
+
+sub fsansi($fmat) {
+
+  state $dqstr_re  = qr{"%s"}x;
+  state $dqstr_col = ansim('"%s"','ex');
+
+  state $sqstr_re  = qr{'%s'}x;
+  state $sqstr_col = ansim("'%s'",'ex');
+
+  state $tag_re    = qr{<%s>}x;
+  state $tag_col   =
+
+    ansim('<','op')
+  . '%s'
+
+  . ansim('>','op')
+
+  ;
+
+  $fmat=~ s[$dqstr_re][$dqstr_col]sxmg;
+  $fmat=~ s[$sqstr_re][$sqstr_col]sxmg;
+  $fmat=~ s[$tag_re][$tag_col]sxmg;
+
+  return $fmat;
+
+};
+
+# ---   *   ---   *   ---
+# ^similar, applies color to strarr
+
+sub sansi(@ar) {
+
+  state $path_re = qr{(
+    (?: \w+ :: \w+)+
+
+  )}x;
+
+  state $dcolon  = ansim('::','op');
+
+  my @path=();
+
+  map {
+
+    if($ARG=~ m[$path_re]sxmg) {
+
+      $ARG=~ s{(\w+)}{\x1B[34;22m$1\x1B[0m}sxmg;
+      $ARG=~ s[$DCOLON_RE][$dcolon]sxmg;
+
+    };
+
+  } @ar;
+
+  return @ar;
 
 };
 
@@ -280,3 +427,4 @@ sub deref_clist($list) {
 
 # ---   *   ---   *   ---
 1; # ret
+

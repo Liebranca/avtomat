@@ -536,6 +536,13 @@ sub put_labels($self,@labels) {
 };
 
 # ---   *   ---   *   ---
+# moves pointer by an arbitrary offset
+
+sub repoint($self) {
+
+};
+
+# ---   *   ---   *   ---
 # duplicate subdivisions recursively
 
 sub copy_labels($self,$other) {

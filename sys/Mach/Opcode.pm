@@ -39,7 +39,7 @@ package Mach::Opcode;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -188,12 +188,12 @@ sub encode($self,$key,@args) {
 # ---   *   ---   *   ---
 # ^reads back instruction from mem
 
-sub decode($self,$opcode) {
+sub decode($self,$sref) {
 
   # unpack base
   my ($id,$cnt,$mode)=bitsume(
 
-    \$opcode,
+    $sref,
 
     $self->{opbits},
     ($ARG_BITS) x 2
@@ -211,21 +211,21 @@ sub decode($self,$opcode) {
     # immediate value
     if($imm) {
 
-      my ($width)=bitsume(\$opcode,2);
-      my ($value)=bitsume(\$opcode,2**$width);
+      my ($width)=bitsume($sref,2);
+      my ($value)=bitsume($sref,2**$width);
 
       push @out,$value;
 
     # memory operand
     } else {
 
-      my ($slow)=bitsume(\$opcode,1);
+      my ($slow)=bitsume($sref,1);
 
       # register or cache
       if(! $slow) {
 
         my ($addr)=bitsume(
-          \$opcode,$Mach::Seg::FAST_BITS
+          $sref,$Mach::Seg::FAST_BITS
 
         );
 
@@ -233,8 +233,7 @@ sub decode($self,$opcode) {
 
       # regular segment
       } else {
-        say 'SLOW SEG NYI';
-        exit;
+        nyi('SLOW SEG');
 
       };
 
@@ -374,7 +373,7 @@ $mem->set(rstr=>$opcode);
 
 
 # ^read
-my $x    = ${$mem->{buf}};
+my $x    = $mem->{buf};
 my @call = $tab->decode($x);
 
 # ^exec

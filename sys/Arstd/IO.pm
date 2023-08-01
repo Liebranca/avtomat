@@ -59,7 +59,7 @@ package Arstd::IO;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.3;#a
+  our $VERSION=v0.00.4;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -135,60 +135,56 @@ sub erropen($fh) {
 # ---   *   ---   *   ---
 # format string and output
 
-sub fstrout($format,$tab,%opt) {
+sub fstrout($fmat,$tab,%O) {
 
-  # opt defaults
-  $opt{args}//=[];
-  $opt{errout}//=0;
-  $opt{no_print}//=0;
-  $opt{pre_fmat}//=$NULLSTR;
-  $opt{post_fmat}//=$NULLSTR;
-  $opt{endtab}//=$NULLSTR;
+  # defaults
+  $O{args}      //= [];
 
-# ---   *   ---   *   ---
-# dirty linewrap
+  $O{errout}    //= 0;
+  $O{no_print}  //= 0;
 
-  my @ttysz=ttysz_yx();
-  $format=sprintf $format,@{$opt{args}};
+  $O{pre_fmat}  //= $NULLSTR;
+  $O{post_fmat} //= $NULLSTR;
+  $O{endtab}    //= $NULLSTR;
 
-  # get length without escapes
-  my $desc_tab=Arstd::String::descape($tab);
-  my $tab_len=length $desc_tab;
-  my $sz_x=$ttysz[1]-$tab_len-1;
+  my $out=$NULLSTR;
 
-  # use real length to wrap
-  Arstd::String::linewrap(\$format,$sz_x);
+  # get line length
+  my @ttysz    = ttysz_yx();
+  my $desc_tab = descape($tab);
+  my $tab_len  = length $desc_tab;
+  my $llen     = $ttysz[1]-$tab_len-1;
 
-# ---   *   ---   *   ---
-# apply tab to format
+  # ^apply format
+  my @lines=
+    _fstrout_wrap($fmat,$llen,$O{args});
 
-  my @format_lines=split m/\n/,$format;
-  map {$ARG="$tab$_$opt{endtab}\n"} @format_lines;
+  map {
+    $ARG="$tab$_$O{endtab}\n"
 
-# ---   *   ---   *   ---
-# select filehandle
+  } @lines;
 
-  my $FH=($opt{errout}) ? *STDERR : *STDOUT;
 
-# ---   *   ---   *   ---
-# spit it out
+  # get final string
+  $out=
 
-  my $out;
+    $O{pre_fmat}
+  . (join $NULLSTR,@lines)
 
-  if($opt{no_print}) {
-    $out=
-      $opt{pre_fmat}.
-      (join $NULLSTR,@format_lines).
-      $opt{post_fmat};
+  . $O{post_fmat}
+  ;
 
-  } else {
-    $out=print {$FH}
 
-      $opt{pre_fmat},
-      (join $NULLSTR,@format_lines),
-      $opt{post_fmat},
+  # ^printing requested
+  if(! $O{no_print}) {
 
-    ;
+    # select and spit
+    my $fh=($O{errout})
+      ? *STDERR
+      : *STDOUT
+      ;
+
+    $out=print {$fh} $out;
 
   };
 
@@ -197,81 +193,99 @@ sub fstrout($format,$tab,%opt) {
 };
 
 # ---   *   ---   *   ---
-# box-format string and output
+# applies linewrapping
+# to a format string
+#
+# guts v
 
-sub box_fstrout($format,%opt) {
+sub _fstrout_wrap($fmat,$len,$args) {
 
-  # opt defaults
-  $opt{args}//=[];
-  $opt{errout}//=0;
-  $opt{no_print}//=0;
-  $opt{pre_fmat}//=$NULLSTR;
-  $opt{post_fmat}//=$NULLSTR;
-  $opt{fill}//=q{*};
+  # expand args
+  my @args = sansi(@$args);
+     $fmat = sprintf fsansi($fmat),@args;
 
-# ---   *   ---   *   ---
-# dirty linewrap
+  # ^use real length to wrap
+  my @escapes=popscape(\$fmat);
+  Arstd::String::linewrap(\$fmat,$len);
 
-  my $c=$opt{fill};
+  # ^then re-insert escapes!
+  pushscape(\$fmat,@escapes);
 
-  my @ttysz=ttysz_yx();
-  $format=sprintf $format,@{$opt{args}};
-
-  # get length without escapes
-  my $desc_c=Arstd::String::descape($c);
-  my $c_len=length $desc_c;
-  my $sz_x=$ttysz[1]-($c_len*2)-3;
-
-  # use real length to wrap
-  Arstd::String::linewrap(
-    \$format,$sz_x,add_newlines=>1
+  # apply tab to format
+  my @out=(
+    (split $NEWLINE_RE,$fmat),
+    $NULLSTR
 
   );
 
+  return @out;
+
+};
+
 # ---   *   ---   *   ---
-# box in the format
+# box-format string and output
 
-  my @format_lines=split m/\n/,$format;
+sub box_fstrout($fmat,%O) {
 
-  map
+  # opt defaults
+  $O{args}      //= [];
 
-    {$ARG=sprintf "$c %-${sz_x}s $c\n",$ARG}
-    @format_lines
+  $O{errout}    //= 0;
+  $O{no_print}  //= 0;
 
-  ;
+  $O{pre_fmat}  //= $NULLSTR;
+  $O{post_fmat} //= $NULLSTR;
 
-  unshift @format_lines,
+  $O{fill}      //= q{*};
+
+  my $out=$NULLSTR;
+
+  # dirty linewrap
+  my $c     = $O{fill};
+  my @ttysz = ttysz_yx();
+
+  # get length without escapes
+  my $desc_c = Arstd::String::descape($c);
+  my $c_len  = length $desc_c;
+  my $llen   = $ttysz[1]-($c_len*2)-3;
+
+  # ^apply format
+  my @lines=
+    _fstrout_wrap($fmat,$llen,$O{args});
+
+  # ^box it in
+  map {
+    $ARG=sprintf "$c %-${llen}s $c\n",$ARG
+
+  } @lines;
+
+  # get final string
+  unshift @lines,
     ($c x ($ttysz[1]-1))."\n",
-    sprintf "$c %-${sz_x}s $c\n",$NULLSTR;
+    sprintf "$c %-${llen}s $c\n",$NULLSTR;
 
-  push @format_lines,
-    (sprintf "$c %-${sz_x}s $c\n",$NULLSTR),
+  push @lines,
+    (sprintf "$c %-${llen}s $c\n",$NULLSTR),
     ($c x ($ttysz[1]-1))."\n";
 
-# ---   *   ---   *   ---
-# select filehandle
+  $out=
 
-  my $FH=($opt{errout}) ? *STDERR : *STDOUT;
+    $O{pre_fmat}
+  . (join $NULLSTR,@lines)
 
-# ---   *   ---   *   ---
-# spit it out
+  . $O{post_fmat}
+  ;
 
-  my $out;
+  # ^printing requested
+  if(! $O{no_print}) {
 
-  if($opt{no_print}) {
-    $out=
-      $opt{pre_fmat}.
-      (join $NULLSTR,@format_lines).
-      $opt{post_fmat};
+    # select and spit
+    my $fh=($O{errout})
+      ? *STDERR
+      : *STDOUT
+      ;
 
-  } else {
-    $out=print {$FH}
-
-      $opt{pre_fmat},
-      (join $NULLSTR,@format_lines),
-      $opt{post_fmat},
-
-    ;
+    $out=print {$fh} $out;
 
   };
 
@@ -395,12 +409,23 @@ sub rtate($sref,$values,@fmat) {
 };
 
 # ---   *   ---   *   ---
+# short for "not yet implemented"
+#
+# the lazy way: halt execution
+# and spit notice at placeholders
 
 sub nyi($errme) {
 
+  state $tab=ansim('NYI:','err');
+
+  my $src=(caller 1)[3];
+
   errout(
-    "Not yet implemented: $errme\n",
-    lvl=>$AR_FATAL,
+
+    "%s '%s' at <%s>\n",
+
+    lvl  => $AR_FATAL,
+    args => [$tab,$errme,$src],
 
   );
 
@@ -417,9 +442,8 @@ sub fmat_btrace {
   my $line=${^CAPTURE[0]};
   $line="\e[33;22m$line\e[0m";
 
-# ---   *   ---   *   ---
-# isolate the file path
 
+  # isolate the file path
   my $bs=q{[/]};
 
   $ARG=~ s/.+called at //;
@@ -441,9 +465,8 @@ sub fmat_btrace {
 
   my ($dir,$file)=split m{/},$ARG;
 
-# ---   *   ---   *   ---
-# add some colors c:
 
+  # add some colors c:
   my $s=sprintf
     "\e[35;1m%-21s\e[0m".
     "\e[34;22m%-21s\e[0m".
@@ -464,27 +487,29 @@ sub fmat_btrace {
 
 sub errout($format,%opt) {
 
-  # opt defaults
-  $opt{args}//=[];
-  $opt{calls}//=[];
-  $opt{lvl}//=$AR_WARNING;
+  # defaults
+  $opt{args}  //= [];
+  $opt{calls} //= [];
+  $opt{lvl}   //= $AR_WARNING;
 
-# ---   *   ---   *   ---
-# print initial message
 
+  # print initial message
   my $tab="$opt{lvl}#:!;>\e[0m ";
 
   fstrout(
-    $format,$tab,
-    args=>$opt{args},
-    errout=>1,
-    pre_fmat=>"\n",
+
+    $format,
+    $tab,
+
+    args     => $opt{args},
+
+    errout   => 1,
+    pre_fmat => "\n",
 
   );
 
-# ---   *   ---   *   ---
-# exec calls
 
+  # exec calls
   my @calls=@{$opt{calls}};
 
   while(@calls) {
@@ -495,14 +520,14 @@ sub errout($format,%opt) {
 
   };
 
-# ---   *   ---   *   ---
-# handle program exit
 
+  # handle program exit
   my $mess=longmess();
 
-  $mess=join "\n",
-    map {fmat_btrace}
-    split m/\n/,$mess;
+  $mess=join "\n", map {
+    fmat_btrace
+
+  } split m/\n/,$mess;
 
   my $header=sprintf
     "$tab\e[33;1mBACKTRACE\e[0m\n\n".
@@ -517,10 +542,9 @@ sub errout($format,%opt) {
   print {*STDERR}
     "$header\n$mess\n\n";
 
-# ---   *   ---   *   ---
-# quit on fatal error that doesn't happen
-# during testing
 
+  # quit on fatal error that doesn't happen
+  # during testing
   if(
 
      $opt{lvl} eq $AR_FATAL
