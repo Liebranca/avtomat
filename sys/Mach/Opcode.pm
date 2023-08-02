@@ -190,6 +190,8 @@ sub encode($self,$key,@args) {
 
 sub decode($self,$sref) {
 
+  my $br=0;
+
   # unpack base
   my ($id,$cnt,$mode)=bitsume(
 
@@ -199,6 +201,11 @@ sub decode($self,$sref) {
     ($ARG_BITS) x 2
 
   );
+
+  $br+=
+    $self->{opbits}
+  + ($ARG_BITS * 2)
+  ;
 
 
   # ^walk args
@@ -214,12 +221,15 @@ sub decode($self,$sref) {
       my ($width)=bitsume($sref,2);
       my ($value)=bitsume($sref,2**$width);
 
+      $br+=2 + (2**$width);
+
       push @out,$value;
 
     # memory operand
     } else {
 
       my ($slow)=bitsume($sref,1);
+      $br++;
 
       # register or cache
       if(! $slow) {
@@ -228,6 +238,8 @@ sub decode($self,$sref) {
           $sref,$Mach::Seg::FAST_BITS
 
         );
+
+        $br+=$Mach::Seg::FAST_BITS;
 
         push @out,Mach::Seg->ffetch($addr);
 
@@ -244,6 +256,16 @@ sub decode($self,$sref) {
 
   };
 
+
+  # consume byte leftovers
+  my $diff=int_align($br,8);
+     $diff=$diff - $br;
+
+  bitsume($sref,$diff) if $diff;
+  $br+=$diff;
+
+
+  # give bits read + decoded instruction
   unshift @out,$self->{info}->{$id}->{fn};
   return @out;
 
@@ -325,30 +347,33 @@ sub regen($class,$frame) {
 # ---   *   ---   *   ---
 # read instructions from segment
 
-sub rdi($self,$ptr) {
+sub load($self,$ptr) {
 
-  my @ins=map {
-    $self->{xlate}->{$ARG}
+  my @out = ();
+  my $mem = ${$ptr->{buf}};
 
-  } $ptr->to_bytes($self->{opsize});
+  # first byte is set means
+  # instruction in Q
+  while(ord substr $mem,0) {
+    push @out,[$self->decode(\$mem)];
 
-  $ptr->inc();
+  };
 
-  return @ins;
+  return @out;
 
 };
 
 # ---   *   ---   *   ---
 # ^write to seg
 
-sub ldi($self,$ptr,$ins,@args) {
+sub store($self,$ptr,$ins,@args) {
 
-  my ($opcode)=$self->{keys}->{$ins};
+  my ($opcode,$width)=$self->encode($ins,@args);
 
-  $ptr->from_bytes(
-    [$opcode],$self->{opsize}
+  $width=int_urdiv($width,8);
 
-  );
+  $ptr->set(rstr=>$opcode);
+  $ptr->brush($width,repl=>1);
 
 };
 
@@ -366,21 +391,22 @@ my $tab=$f->regen();
 
 
 # ^store in memory
-my $mem    = Mach::Seg->new(0x20,fast=>1);
-my $opcode = $tab->encode('fn',$mem,1);
+my $mem=Mach::Seg->new(0x20,fast=>1);
+my $ptr=$mem->brush();
 
-$mem->set(rstr=>$opcode);
-
+$tab->store($ptr,'fn',1,2);
+$tab->store($ptr,'fn',2,1);
 
 # ^read
-my $x    = $mem->{buf};
-my @call = $tab->decode($x);
+my @calls=$tab->load($mem);
 
 # ^exec
-my $fn   = shift @call;
-$fn->(@call);
+map {
 
-exit;
+  my ($fn,@args)=@$ARG;
+  $fn->(@args);
+
+} @calls;
 
 # ---   *   ---   *   ---
 

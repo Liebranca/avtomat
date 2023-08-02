@@ -536,9 +536,22 @@ sub put_labels($self,@labels) {
 };
 
 # ---   *   ---   *   ---
-# moves pointer by an arbitrary offset
+# gives pointer to whole segment,
+# substracting offset from size
 
-sub repoint($self) {
+sub brush($self,$offset=0,%O) {
+
+  # defaults
+  $O{repl} //= 0;
+
+  # make ice
+  my $width = $self->{cap} - $offset;
+  my $ptr   = $self->point($offset,$width);
+
+  # ^optionally replace self for new
+  %$self=%$ptr if $O{repl};
+
+  return $ptr;
 
 };
 

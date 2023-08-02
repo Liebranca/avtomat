@@ -110,8 +110,10 @@ sub bitcat(@elems) {
   !  (@elems % 2)
   or croak "Uneven arg count for bitcat";
 
-  my $i    = 0;
-  my @str  = (0x00);
+  my $i     = 0;
+  my $total = 0;
+
+  my @str   = (0x00);
 
   # walk
   while(@elems) {
@@ -119,6 +121,8 @@ sub bitcat(@elems) {
     # get [key => value]
     my $bits=shift @elems;
     my $size=shift @elems;
+
+    $total+=$size;
 
     # get bits fit in current word
     my $step=$i+$size;
@@ -170,7 +174,7 @@ sub bitcat(@elems) {
     brev    => 0,
     noprint => 1,
 
-  );
+  ),$total;
 
 };
 
