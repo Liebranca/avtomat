@@ -161,7 +161,7 @@ sub encode($self,$key,@args) {
 
       push @pack,(
         $width => 2,
-        $arg   => 2**$width,
+        $arg   => 2**($width+3),
 
       );
 
@@ -219,9 +219,11 @@ sub decode($self,$sref) {
     if($imm) {
 
       my ($width)=bitsume($sref,2);
-      my ($value)=bitsume($sref,2**$width);
+      $width=2**($width+3);
 
-      $br+=2 + (2**$width);
+      my ($value)=bitsume($sref,$width);
+
+      $br+=2+$width;
 
       push @out,$value;
 

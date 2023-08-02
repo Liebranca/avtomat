@@ -48,6 +48,8 @@ package Arstd::Bytes;
     pastr
     xe
 
+    machxe
+
   );
 
 # ---   *   ---   *   ---
@@ -570,6 +572,56 @@ sub xe($bytes,%O) {
     $fmat[$ARG] . reverse $xlate[$ARG];
 
   } 0..$#xlate;
+
+};
+
+# ---   *   ---   *   ---
+# ^"micro" form
+#
+# prints out two rows for a bytestr:
+# * first row is each byte
+# * second row is bits of each byte
+#
+# mostly used to inspect machine code ;>
+
+sub machxe($s,%O) {
+
+  # defaults
+  $O{beg}   //= 0;
+  $O{end}   //= 1;
+  $O{line}  //= 4;
+
+  my $out=$NULLSTR;
+
+  # cut
+  my $full = substr $s,$O{beg},$O{end};
+  my $line = $O{line};
+
+  my @ar   = split m[(.{1,$line})],$full;
+
+  # do N chunks per line
+  map {
+
+    # ^walk bytes
+    map {
+      $out.=sprintf "%02X       ",ord($ARG)
+
+    } split $NULLSTR,$ARG;
+
+    $out.="\n";
+
+    # ^walk bits
+    map {
+      $out.=sprintf "%08B ",ord($ARG)
+
+    } split $NULLSTR,$ARG;
+
+    $out.="\n";
+
+  } @ar;
+
+  # ^spit
+  say $out;
 
 };
 
