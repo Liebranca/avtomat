@@ -39,7 +39,7 @@ package Mach::Opcode;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -59,9 +59,6 @@ package Mach::Opcode;
     -opbits=>0,
 
   }};
-
-  Readonly our $ARG_BITS  => 2;
-  Readonly our $ARG_MASK  => bitmask($ARG_BITS);
 
 # ---   *   ---   *   ---
 # generate descriptor for instruction
@@ -136,6 +133,10 @@ sub encode($self,$key,@args) {
   my $stk = $info->{stk};
   my $tab = $info->{tab};
 
+  # TODO:
+  # also check that argument types
+  # are valid for current instruction!
+
   $cnt == int @args
   or throw_badargs($key,$cnt,int @args);
 
@@ -175,9 +176,7 @@ sub encode($self,$key,@args) {
   unshift @pack,(
 
     $id   => $self->{opbits},
-
-    $cnt  => $ARG_BITS,
-    $mode => $ARG_BITS,
+    $mode => $cnt,
 
   );
 
@@ -188,24 +187,20 @@ sub encode($self,$key,@args) {
 # ---   *   ---   *   ---
 # ^reads back instruction from mem
 
-sub decode($self,$sref) {
+sub decode($self,$mem) {
 
   my $br=0;
 
   # unpack base
-  my ($id,$cnt,$mode)=bitsume(
+  my ($id)=bitsume($mem,$self->{opbits});
 
-    $sref,
+  # get argcount
+  my $tab     = $self->{info};
+  my $cnt     = $tab->{$id}->{cnt};
 
-    $self->{opbits},
-    ($ARG_BITS) x 2
-
-  );
-
-  $br+=
-    $self->{opbits}
-  + ($ARG_BITS * 2)
-  ;
+  # get arg types
+  my ($mode)=bitsume($mem,$cnt);
+  $br+=$self->{opbits} + $cnt;
 
 
   # ^walk args
@@ -218,10 +213,10 @@ sub decode($self,$sref) {
     # immediate value
     if($imm) {
 
-      my ($width)=bitsume($sref,2);
+      my ($width)=bitsume($mem,2);
       $width=2**($width+3);
 
-      my ($value)=bitsume($sref,$width);
+      my ($value)=bitsume($mem,$width);
 
       $br+=2+$width;
 
@@ -230,14 +225,14 @@ sub decode($self,$sref) {
     # memory operand
     } else {
 
-      my ($slow)=bitsume($sref,1);
+      my ($slow)=bitsume($mem,1);
       $br++;
 
       # register or cache
       if(! $slow) {
 
         my ($addr)=bitsume(
-          $sref,$Mach::Seg::FAST_BITS
+          $mem,$Mach::Seg::FAST_BITS
 
         );
 
@@ -258,14 +253,12 @@ sub decode($self,$sref) {
 
   };
 
-
   # consume byte leftovers
   my $diff=int_align($br,8);
      $diff=$diff - $br;
 
-  bitsume($sref,$diff) if $diff;
+  bitsume($mem,$diff) if $diff;
   $br+=$diff;
-
 
   # give bits read + decoded instruction
   unshift @out,$self->{info}->{$id}->{fn};
@@ -352,12 +345,12 @@ sub regen($class,$frame) {
 sub load($self,$ptr) {
 
   my @out = ();
-  my $mem = ${$ptr->{buf}};
+  my $mem = bitsume_unpack($ptr->{buf});
 
-  # first byte is set means
+  # first byte set means
   # instruction in Q
-  while(ord substr $mem,0) {
-    push @out,[$self->decode(\$mem)];
+  while($mem->{bytes}->[0]) {
+    push @out,[$self->decode($mem)];
 
   };
 
@@ -383,7 +376,7 @@ sub store($self,$ptr,$ins,@args) {
 # test
 
 use Fmat;
-sub fn($a,$b) {say "$a,$b"};
+sub fn($a,$b,$c) {say "$a,$b,$c"};
 
 # generate opcode table
 my $f=Mach::Opcode->new_frame();
@@ -396,8 +389,8 @@ my $tab=$f->regen();
 my $mem=Mach::Seg->new(0x20,fast=>1);
 my $ptr=$mem->brush();
 
-$tab->store($ptr,'fn',1,2);
-$tab->store($ptr,'fn',2,1);
+$tab->store($ptr,'fn',1,2,3);
+$tab->store($ptr,'fn',2,1,4);
 
 # ^read
 my @calls=$tab->load($mem);

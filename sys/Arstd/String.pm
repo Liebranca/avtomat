@@ -158,7 +158,7 @@ sub pushscape($sref,@ar) {
 
   };
 
-  $$sref=$out;
+  $$sref=$out.substr $$sref,$accum,length $$sref;
 
 };
 

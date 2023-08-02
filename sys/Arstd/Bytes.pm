@@ -39,7 +39,12 @@ package Arstd::Bytes;
     bitsize
     bitmask
     bitcat
+
     bitsume
+    bitsumex
+
+    bitsume_pack
+    bitsume_unpack
 
     mchr
     mord
@@ -68,6 +73,8 @@ package Arstd::Bytes;
     64 => 'Q',
 
   };
+
+  Readonly our $BITOPS_LIMIT=>64;
 
 # ---   *   ---   *   ---
 # get bitsize of number
@@ -106,8 +113,6 @@ sub bitmask($x) {
 
 sub bitcat(@elems) {
 
-  state $limit=64;
-
   # validate input
   !  (@elems % 2)
   or croak "Uneven arg count for bitcat";
@@ -130,9 +135,9 @@ sub bitcat(@elems) {
     my $step=$i+$size;
 
     # ^they dont, perform two writes
-    if($step >= $limit) {
+    if($step >= $BITOPS_LIMIT) {
 
-      my $low  = $limit - $i;
+      my $low  = $BITOPS_LIMIT - $i;
       my $high = $size  - $low;
 
       # first write:
@@ -158,7 +163,7 @@ sub bitcat(@elems) {
       $i       += $size;
 
       # word is full, go next
-      if($i == $limit) {
+      if($i == $BITOPS_LIMIT) {
         push @str,0x00;
         $i=0;
 
@@ -181,63 +186,94 @@ sub bitcat(@elems) {
 };
 
 # ---   *   ---   *   ---
-# ^consume bits of bytestr
+# open/close bytestr for reading
 
-sub bitsume($sref,@steps) {
+sub bitsume_pack($mem) {
 
-  state $limit=64;
+  return mchr(
 
-  my @out   = ();
-  my $i     = 0;
+    $mem->{bytes},
 
-  my @bytes = lmord(
+    width   => $BITOPS_LIMIT,
+
+    brev    => 0,
+    noprint => 1,
+
+  );
+
+};
+
+sub bitsume_unpack($sref) {
+
+  my @bytes=lmord(
 
     $$sref,
 
-    width => $limit,
+    width => $BITOPS_LIMIT,
     rev   => 0,
 
   );
 
+  return {
+
+    bit   => 0,
+    bytes => \@bytes,
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^consume bits of bytestr
+#
+# guts v
+
+sub bitsume($mem,@steps) {
+
+  my @out   = ();
+
+  my $bit   = \$mem->{bit};
+  my $bytes = $mem->{bytes};
+
   for my $size(@steps) {
 
     # get bits fit in current word
-    my $step=$i+$size;
+    my $step=$$bit+$size;
 
     # ^they dont, perform two reads
-    if($step >= $limit) {
+    if($step >= $BITOPS_LIMIT) {
 
-      my $low  = $limit - $i;
+      my $low  = $BITOPS_LIMIT - $$bit;
       my $high = $size  - $low;
 
       # take first half
-      my $x=$bytes[0] & bitmask($low);
-      shift @bytes;
+      my $x=$bytes->[0] & bitmask($low);
+      shift @$bytes;
 
       # ^join second with first
       $x|=
-         ($bytes[0] & bitmask($high))
+         ($bytes->[0] & bitmask($high))
       << $low
       ;
 
       push @out,$x;
 
       # substract bits and go next
-      $bytes[0] >>= $high;
-      $i          = $high;
+      $bytes->[0] >>= $high;
+      $$bit         = $high;
 
     # ^single read
     } else {
 
-      push @out,$bytes[0] & bitmask($size);
+      push @out,$bytes->[0] & bitmask($size);
 
-      $bytes[0] >>= $size;
-      $i         += $size;
+      $bytes->[0] >>= $size;
+      $$bit        += $size;
 
       # word is empty, go next
-      if($i == $limit) {
-        shift @bytes;
-        $i=0;
+      if($$bit == $BITOPS_LIMIT) {
+        shift @$bytes;
+        $$bit=0;
 
       };
 
@@ -246,16 +282,19 @@ sub bitsume($sref,@steps) {
 
   };
 
-  $$sref=mchr(
+  return @out;
 
-    \@bytes,
+};
 
-    width   => $limit,
+# ---   *   ---   *   ---
+# ^crux
 
-    brev    => 0,
-    noprint => 1,
+sub bitsumex($sref,@steps) {
 
-  );
+  my $mem = bitsume_unpack($sref);
+  my @out = bitsume_bytes($mem,@steps);
+
+  $$sref=bitsume_pack($mem);
 
   return @out;
 
