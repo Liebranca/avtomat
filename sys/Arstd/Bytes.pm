@@ -192,7 +192,7 @@ sub bitsume_pack($mem) {
 
   return mchr(
 
-    $mem->{bytes},
+    [@{$mem->{bytes}}],
 
     width   => $BITOPS_LIMIT,
 

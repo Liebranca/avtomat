@@ -251,22 +251,22 @@ sub calc_addr($self) {
     # to  [ 4, 8,12,16,20,24,28,32]
 
     my $locw  = max(4,bitsize($loc));
-       $locw  = int_align($locw,4);
+       $locw  = int_align($locw,4)-4;
 
     my $addrw = max(4,bitsize($addr));
-       $addrw = int_align($addrw,4);
+       $addrw = int_align($addrw,4)-4;
 
        $slow  = 1;
 
     # ^encode using largest
     my $width = max($locw,$addrw);
-    my $value = $loc | ($addr << $width);
+    my $value = $loc | ($addr << (4+$width*4));
 
     # [bits => bitsize]
     @elems=(
 
-      $width/4 => 3,
-      $value   => $width*2,
+      $width => 3,
+      $value => (4+$width*4)*2,
 
     );
 
@@ -455,6 +455,15 @@ sub set_str($self,$raw) {
 sub set_rstr($self,$raw) {
   my $s=$self->vpad($raw,rev=>1);
   $self->_set($s);
+
+};
+
+# ---   *   ---   *   ---
+# ^seg-to-seg
+# cats write to self size
+
+sub set_seg($self,$other) {
+  $self->_set(${$other->{buf}});
 
 };
 

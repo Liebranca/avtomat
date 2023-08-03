@@ -21,7 +21,9 @@ package Mach::Opcode;
 
   use Readonly;
   use English qw(-no_match_vars);
+
   use List::Util qw(min max sum);
+  use Module::Load;
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
@@ -39,7 +41,7 @@ package Mach::Opcode;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -48,7 +50,7 @@ package Mach::Opcode;
   sub Frame_Vars($class) { return {
 
     -autoload=>[qw(
-      add encode_base regen
+      add engrave encode_base regen
 
     )],
 
@@ -116,6 +118,16 @@ sub new($class,$frame,$name,%O) {
 sub add($class,$frame,$name,%O) {
   $O{pkg}//=$frame->{-class};
   $class->new($frame,$name,%O);
+
+};
+
+# ---   *   ---   *   ---
+# ^add instruction package to table
+
+sub engrave($class,$frame,$pkg) {
+
+  load $pkg if ! $pkg->isa($pkg);
+  $pkg->engrave($frame);
 
 };
 
@@ -258,8 +270,6 @@ sub throw_argtype($key,$i,$type_a,$type_b) {
 
 sub decode($self,$mem) {
 
-  my $br=0;
-
   # unpack base
   my ($id)=bitsume($mem,$self->{opbits});
 
@@ -269,7 +279,6 @@ sub decode($self,$mem) {
 
   # get arg types
   my ($mode)=bitsume($mem,$cnt);
-  $br+=$self->{opbits} + $cnt;
 
 
   # ^walk args
@@ -281,14 +290,13 @@ sub decode($self,$mem) {
 
     # immediate value
     if($imm) {
-      my ($value)=rdimm($mem,\$br);
+      my ($value)=rdimm($mem);
       push @out,$value;
 
     # memory operand
     } else {
 
       my ($slow)=bitsume($mem,1);
-      $br++;
 
       # register or cache
       if(! $slow) {
@@ -298,13 +306,11 @@ sub decode($self,$mem) {
 
         );
 
-        $br+=$Mach::Seg::FAST_BITS;
-
         push @out,Mach::Seg->fetch($addr);
 
       # regular segment
       } else {
-        my ($loc,$addr)=rdmem($mem,\$br);
+        my ($loc,$addr)=rdmem($mem);
         push @out,Mach::Seg->fetch($loc,$addr);
 
       };
@@ -317,11 +323,10 @@ sub decode($self,$mem) {
   };
 
   # consume byte leftovers
-  my $diff=int_align($br,8);
-     $diff=$diff - $br;
+  my $diff=int_align($mem->{bit},8);
+     $diff=$diff - $mem->{bit};
 
   bitsume($mem,$diff) if $diff;
-  $br+=$diff;
 
   # give bits read + decoded instruction
   unshift @out,$self->{info}->{$id}->{fn};
@@ -333,14 +338,12 @@ sub decode($self,$mem) {
 # read width of immediate
 # then it's actual value
 
-sub rdimm($mem,$ptr,$cnt=1) {
+sub rdimm($mem,$cnt=1) {
 
   my (@width)=bitsume($mem,(2) x $cnt);
   map {$ARG=2**($ARG+3)} @width;
 
   my @value=bitsume($mem,@width);
-
-  $$ptr+=(2 * $cnt)+sum(@width);
 
   return @value;
 
@@ -350,16 +353,16 @@ sub rdimm($mem,$ptr,$cnt=1) {
 # ^read width of memory operand
 # then it's actual value
 
-sub rdmem($mem,$ptr) {
+sub rdmem($mem) {
 
   my ($width)=bitsume($mem,3);
-  $width*=4;
+  $width=4+$width*4;
 
-  my $raw  = bitsume($mem,$width*2);
-  my $mask = bitmask($width);
+  my ($raw) = bitsume($mem,$width*2);
+  my $mask  = bitmask($width);
 
-  my $loc  = $raw & $mask;
-  my $addr = $raw >> $width;
+  my $loc   = $raw & $mask;
+  my $addr  = $raw >> $width;
 
   return ($loc,$addr);
 
@@ -423,7 +426,7 @@ sub regen($class,$frame) {
 # ---   *   ---   *   ---
 # read instructions from segment
 
-sub load($self,$ptr) {
+sub read($self,$ptr) {
 
   my @out = ();
   my $mem = bitsume_unpack($ptr->{buf});
@@ -442,11 +445,9 @@ sub load($self,$ptr) {
 # ---   *   ---   *   ---
 # ^write to seg
 
-sub store($self,$ptr,$ins,@args) {
+sub write($self,$ptr,$ins,@args) {
 
   my ($opcode,$width)=$self->encode($ins,@args);
-
-machxe($opcode,beg=>0,end=>8,line=>4);
 
   $width=int_urdiv($width,8);
 
@@ -460,27 +461,26 @@ machxe($opcode,beg=>0,end=>8,line=>4);
 
 use Fmat;
 
-sub fn($mem,$a) {
-  say "$mem,$a";
-};
-
 # generate opcode table
 my $f=Mach::Opcode->new_frame();
-$f->add('fn');
+$f->engrave("Mach::Micro");
 
 my $tab=$f->regen();
-
 
 # ^store in memory
 my $mem=Mach::Seg->new(0x20,fast=>1);
 my $ptr=$mem->brush();
 
-my $m2=Mach::Seg->new(0x10,fast=>0);
+my $m1=Mach::Seg->new(0x10,fast=>1);
+my $m2=Mach::Seg->new(0x10,fast=>1);
 
-$tab->store($ptr,'fn',$m2,2);
+$m2->set(num=>0b1100);
+$m1->set(num=>0b10);
+
+$tab->write($ptr,'bshl',$m2,$m1);
 
 # ^read
-my @calls=$tab->load($mem);
+my @calls=$tab->read($mem);
 
 # ^exec
 map {
@@ -490,9 +490,7 @@ map {
 
 } @calls;
 
-# ---   *   ---   *   ---
-
-$mem->prich();
+machxe(${$m2->{buf}},beg=>15,end=>16,line=>1);
 
 # ---   *   ---   *   ---
 1; # ret

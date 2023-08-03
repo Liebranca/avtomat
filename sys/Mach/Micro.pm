@@ -21,57 +21,78 @@ package Mach::Micro;
 
   use Readonly;
   use English qw(-no_match_vars);
+
   use List::Util qw(min);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use parent 'St';
+  use Mach::Seg;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  sub Frame_Vars($class) {return {
+  Readonly our $INS=>[qw(
 
-    -autoload=>[qw()],
+    cpy   mov
+    wap
 
-  }};
+    bor   bxor
+    band  bnand
+    bshl  bshr
+
+  )];
 
 # ---   *   ---   *   ---
-# GBL
+# adds instructions to table
 
-# ---   *   ---   *   ---
-# copy value from src to dst
+sub engrave($class,$frame) {
 
-sub cpy($dst,$src) {
-  $dst->set(str=>${$src->{buf}});
+  no strict 'refs';
+  my $ins=${"$class\::INS"};
+
+  map {$frame->add($ARG,pkg=>$class)} @$ins;
 
 };
 
 # ---   *   ---   *   ---
-# ^idem, but clear src
+# copy seg or imm to reg
 
-sub mov($dst,$src) {
-  $dst->set(str=>${$src->{buf}});
-  $src->set(num=>0x00);
+sub cpy($reg,$any) {
+
+  my $type=(Mach::Seg->is_valid($any))
+    ? 'seg'
+    : 'num'
+    ;
+
+  $reg->set($type=>$any);
+
+};
+
+# ---   *   ---   *   ---
+# ^reg to reg, clears src operand
+
+sub mov($reg0,$reg1) {
+  $reg0->set(seg=>$reg1);
+  $reg1->set(num=>0x00);
 
 };
 
 # ---   *   ---   *   ---
 # ^swap them out
 
-sub wap($dst,$src) {
+sub wap($reg0,$reg1) {
 
-  my $tmp=${$dst->{buf}};
+  my $tmp=${$reg0->{buf}};
 
-  $dst->set(str=>${$src->{buf}});
-  $src->set(str=>$tmp);
+  $reg0->set(seg  => $reg1);
+  $reg1->set(rstr => $tmp);
 
 };
 
@@ -81,6 +102,36 @@ sub wap($dst,$src) {
 
 sub _impbin_temple($dst,$src,$op) {
 
+  state $tab={
+
+    q[|=]  => sub {$_[0] |  $_[1]},
+    q[^=]  => sub {$_[0] ^  $_[1]},
+
+    q[&=]  => sub {$_[0] &  $_[1]},
+    q[&=~] => sub {$_[0] &~ $_[1]},
+
+    q[<<=] => sub {$_[0] << $_[1]},
+    q[>>=] => sub {$_[0] >> $_[1]},
+
+  };
+
+  $op=$tab->{$op};
+
+  if(Mach::Seg->is_valid($src)) {
+    _impbin_temple_seg($dst,$src,$op);
+
+  } else {
+    _impbin_temple_imm($dst,$src,$op);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^source operand is memory segment
+
+sub _impbin_temple_seg($dst,$src,$op) {
+
   # get operand word size
   my $width=min(
     $dst->{cap},
@@ -88,14 +139,15 @@ sub _impbin_temple($dst,$src,$op) {
 
   ) * 8;
 
+  # ^cap to word and extract
   $width=min($width,64);
 
-  # ^extract words
   my @a=$dst->to_bytes($width);
   my @b=$src->to_bytes($width);
 
-  map {eval
-    '$a[$ARG]' . $op . '$b[$ARG];'
+  # ^map passed fn to array
+  map {
+    $a[$ARG]=$op->($a[$ARG],$b[$ARG])
 
   } 0..min($#a,$#b);
 
@@ -104,41 +156,65 @@ sub _impbin_temple($dst,$src,$op) {
 };
 
 # ---   *   ---   *   ---
-# ^bin or/xor
+# ^source operand is immediate value
 
-sub bor($dst,$src) {
-  _impbin_temple($dst,$src,'|=');
+sub _impbin_temple_imm($dst,$src,$op) {
+
+  # get size in bits
+  my $alt   = bitsize($src);
+  my $width = int_align(
+    min($dst->{cap},$alt),8
+
+  );
+
+  # ^cap to word and extract
+  $width=min($width,64);
+
+  my @a=$dst->to_bytes($width);
+
+  # ^apply passed fn
+  $a[0]=$op->($a[0],$src);
+
+  $dst->from_bytes(\@a,$width);
 
 };
 
-sub bxor($dst,$src) {
-  _impbin_temple($dst,$src,'^=');
+# ---   *   ---   *   ---
+# ^bin or/xor
+
+sub bor($reg,$any) {
+  _impbin_temple($reg,$any,'|=');
+
+};
+
+sub bxor($reg,$any) {
+  _impbin_temple($reg,$any,'^=');
 
 };
 
 # ---   *   ---   *   ---
 # ^bin and/nand
 
-sub band($dst,$src) {
-  _impbin_temple($dst,$src,'&=');
+sub band($reg,$any) {
+  _impbin_temple($reg,$any,'&=');
 
 };
 
-sub bnand($dst,$src) {
-  _impbin_temple($dst,$src,'&=~');
+sub bnand($reg,$any) {
+  _impbin_temple($reg,$any,'&=~');
 
 };
 
 # ---   *   ---   *   ---
 # shift left/right
 
-sub bshl($dst,$src) {
-  _impbin_temple($dst,$src,'<<=');
+sub bshl($reg,$any) {
+  _impbin_temple($reg,$any,'<<=');
 
 };
 
-sub bshr($dst,$src) {
-  _impbin_temple($dst,$src,'>>=');
+sub bshr($reg,$any) {
+  _impbin_temple($reg,$any,'>>=');
 
 };
 
