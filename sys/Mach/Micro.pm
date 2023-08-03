@@ -22,11 +22,15 @@ package Mach::Micro;
   use Readonly;
   use English qw(-no_match_vars);
 
-  use List::Util qw(min);
+  use List::Util qw(min max);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+
+  use Arstd::Bytes;
+  use Arstd::Int;
+
   use Mach::Seg;
 
 # ---   *   ---   *   ---
@@ -40,12 +44,16 @@ package Mach::Micro;
 
   Readonly our $INS=>[qw(
 
-    cpy   mov
+    cpy     mov
     wap
 
-    bor   bxor
-    band  bnand
-    bshl  bshr
+    bor     bxor
+    band    bnand
+    bshl    bshr
+
+    mod
+
+    xorkey  rev
 
   )];
 
@@ -113,6 +121,8 @@ sub _impbin_temple($dst,$src,$op) {
     q[<<=] => sub {$_[0] << $_[1]},
     q[>>=] => sub {$_[0] >> $_[1]},
 
+    q[%=]  => sub {$_[0] %  $_[1]},
+
   };
 
   $op=$tab->{$op};
@@ -162,10 +172,7 @@ sub _impbin_temple_imm($dst,$src,$op) {
 
   # get size in bits
   my $alt   = bitsize($src);
-  my $width = int_align(
-    min($dst->{cap},$alt),8
-
-  );
+  my $width = int_align($dst->{cap}*8,8);
 
   # ^cap to word and extract
   $width=min($width,64);
@@ -173,7 +180,7 @@ sub _impbin_temple_imm($dst,$src,$op) {
   my @a=$dst->to_bytes($width);
 
   # ^apply passed fn
-  $a[0]=$op->($a[0],$src);
+  @a=map {$op->($ARG,$src)} @a;
 
   $dst->from_bytes(\@a,$width);
 
@@ -206,7 +213,7 @@ sub bnand($reg,$any) {
 };
 
 # ---   *   ---   *   ---
-# shift left/right
+# ^shift left/right
 
 sub bshl($reg,$any) {
   _impbin_temple($reg,$any,'<<=');
@@ -215,6 +222,81 @@ sub bshl($reg,$any) {
 
 sub bshr($reg,$any) {
   _impbin_temple($reg,$any,'>>=');
+
+};
+
+# ---   *   ---   *   ---
+# ^inplace modulo
+
+sub mod($reg,$any) {
+  _impbin_temple($reg,$any,'%=');
+
+};
+
+# ---   *   ---   *   ---
+# generates key by xoring
+# words of value together
+#
+# saves result to first operand
+#
+# see: bitter/tests/xortile
+
+sub xorkey($reg,$any) {
+
+  my $out=0;
+
+  my @bytes=(Mach::Seg->is_valid($any))
+    ? $any->to_bytes(min(64,$any->{cap}*8))
+    : $any
+    ;
+
+  map {$out^=$ARG} @bytes;
+
+  $reg->set(num=>$out);
+
+};
+
+# ---   *   ---   *   ---
+# byte-wise invert register
+
+sub rev($reg) {
+
+  my $width = min(64,$reg->{cap}*8);
+  my @bytes = $reg->to_bytes($width);
+
+  # ^walk elems
+  @bytes=map {
+
+    my $x    = $ARG;
+
+    my $i    = 0;
+    my $word = 0;
+
+    my @back = ();
+
+    # save head
+    map {
+      push @back,($x >> $ARG) & 0xFF
+
+    } (0,8,16,24);
+
+    # ^iv with tail
+    map {
+
+      my $y=($x >> $ARG) & 0xFF;
+      my $n=shift @back;
+
+      $word |= ($y << $i) | ($n << $ARG);
+
+      $i+=8;
+
+    } (56,48,40,32);
+
+    $word;
+
+  } @bytes;
+
+  $reg->from_bytes(\@bytes,$width);
 
 };
 

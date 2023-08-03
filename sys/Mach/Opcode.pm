@@ -183,6 +183,7 @@ sub encode($self,$key,@args) {
       $mode |= 1<<$i;
 
       my $width = max(8,bitsize($arg));
+         $width = int_align($width,8);
          $width = int_npow($width,2,1)-3;
 
       push @pack,(
@@ -474,23 +475,32 @@ my $ptr=$mem->brush();
 my $m1=Mach::Seg->new(0x10,fast=>1);
 my $m2=Mach::Seg->new(0x10,fast=>1);
 
-$m2->set(num=>0b1100);
-$m1->set(num=>0b10);
-
-$tab->write($ptr,'bshl',$m2,$m1);
+$tab->write($ptr,'xorkey',$m2,$m1);
+$tab->write($ptr,'rev',$m2);
+$tab->write($ptr,'mod',$m2,0xFFF);
 
 # ^read
 my @calls=$tab->read($mem);
 
 # ^exec
-map {
+for my $key(qw(
 
-  my ($fn,@args)=@$ARG;
-  $fn->(@args);
+  veriverylonglon0
+  vezyverylonglon1
 
-} @calls;
+)) {
 
-machxe(${$m2->{buf}},beg=>15,end=>16,line=>1);
+  $m1->set(rstr=>$key);
+  my @out=map {
+
+    my ($fn,@args)=@$ARG;
+    $fn->(@args);
+
+  } @calls;
+
+  $m2->prich();
+
+};
 
 # ---   *   ---   *   ---
 1; # ret
