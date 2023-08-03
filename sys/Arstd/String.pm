@@ -102,6 +102,7 @@ package Arstd::String;
   Readonly our $COLOR=>{
 
     op     => "\e[37;1m",
+    num    => "\e[33;22m",
 
     good   => "\e[34;22m",
     err    => "\e[31;22m",
@@ -109,6 +110,8 @@ package Arstd::String;
     ctl    => "\e[35;1m",
     update => "\e[32;1m",
     ex     => "\e[36;1m",
+
+    off    => "\e[0m",
 
   };
 
@@ -265,6 +268,13 @@ sub resplit($sref,$re) {
 
 sub ansim($s,$id) {
 
+  state $re=qr{tag$};
+
+  if($id=~ s[$re][]) {
+    return strtag($s,$id);
+
+  };
+
   my $color=(defined $COLOR->{$id})
     ? $COLOR->{$id}
     : "\e[30;1m"
@@ -277,16 +287,19 @@ sub ansim($s,$id) {
 # ---   *   ---   *   ---
 # wraps word in <braces> with colors
 
-sub strtag($s,$err=0) {
+sub strtag($s,$id=0) {
 
-  return
+  state $beg=ansim('<','op');
+  state $end=ansim('>','op');
 
-    ansim('<','op')
-  . ansim($s,($err) ? 'err' : 'good')
+  $id=(! exists $COLOR->{$id})
+    ? ('good','err')[$id]
+    : $id
+    ;
 
-  . ansim('>','op')
+  my $color=ansim($s,$id);
 
-  ;
+  return "$beg$color$end";
 
 };
 
@@ -312,9 +325,55 @@ sub fsansi($fmat) {
 
   ;
 
+  state $custom_re_col=qr{
+    \[ (?<col> \w+) \] :
+
+  }x;
+
+  state $custom_re_tok=qr{
+    (?<tok> %[\-\d]*[suiXB])
+
+  }x;
+
+  state $custom_re=qr{
+    $custom_re_col
+    $custom_re_tok
+
+  }x;
+
+  state $num_re=qr{
+    \(: $custom_re_tok \)
+
+  }x;
+
   $fmat=~ s[$dqstr_re][$dqstr_col]sxmg;
   $fmat=~ s[$sqstr_re][$sqstr_col]sxmg;
   $fmat=~ s[$tag_re][$tag_col]sxmg;
+
+  # color embedded in format
+  while($fmat=~ $custom_re) {
+
+    my $col=$+{col};
+    my $tok=$+{tok};
+
+    $col=ansim($tok,$col);
+
+    $fmat=~ s[$custom_re][$col];
+
+  };
+
+  while($fmat=~ $num_re) {
+
+    my $col='num';
+    my $tok=$+{tok};
+
+    $col=ansim($tok,$col);
+
+    $fmat=~ s[$num_re][$col];
+
+  };
+
+  sansi_ops(\$fmat);
 
   return $fmat;
 
@@ -325,12 +384,12 @@ sub fsansi($fmat) {
 
 sub sansi(@ar) {
 
-  state $path_re = qr{(
+  state $path_re=qr{(
     (?: \w+ :: \w+)+
 
   )}x;
 
-  state $dcolon  = ansim('::','op');
+  state $dcolon=ansim('::','op');
 
   my @path=();
 
@@ -346,6 +405,56 @@ sub sansi(@ar) {
   } @ar;
 
   return @ar;
+
+};
+
+# ---   *   ---   *   ---
+# ^adds color to operators
+
+sub sansi_ops($sref) {
+
+  state $short_escape_re=qr"
+
+    \x{1B} \[
+    [\?\d;]{0,64} [^\w0] [\w]
+
+  "x;
+
+  # bracket not preceded by escape
+  state $brak_re=qr{
+    (?<! \x{1B})
+    ([ \[\] ])
+
+  }x;
+
+  # ^semi/quest
+  state $semi_re=qr{
+
+    (?<!
+      \x{1B} \[
+      [\?\d;]{1,64}
+
+    ) ([\?;])
+
+  }x;
+
+  state $allowed=qr{
+    [ \! ,\.:\^ \{\} \(\) \+\*\-\/ \\\$\@ ]+
+
+  }x;
+
+  state $nscap_re = qr{
+    (?<! $short_escape_re)
+    (\s* (?: %% | $allowed))
+
+  }x;
+
+  state $beg=$COLOR->{op};
+  state $end=$COLOR->{off};
+
+  $$sref=~ s[$nscap_re][$beg$1$end]sxmg;
+  $$sref=~ s[$brak_re][$beg$1$end]sxmg;
+  $$sref=~ s[$semi_re][$beg$1$end]sxmg;
 
 };
 

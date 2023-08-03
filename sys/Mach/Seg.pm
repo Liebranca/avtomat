@@ -121,10 +121,21 @@ BEGIN {
   our $Fast_Seg=[];
 
 # ---   *   ---   *   ---
-# ^get global block at addr
+# get block at addr
 
-sub ffetch($class,$addr) {
-  return $Fast_Seg->[$addr];
+sub fetch($class,@at) {
+
+  # register or cache
+  return $Fast_Seg->[$at[0]]
+  if 1 eq int @at;
+
+  # ^ regular memory
+  my ($loc,$addr)=@at;
+
+  my $frame  = $class->get_frame($loc);
+  my $icebox = $frame->{-icebox};
+
+  return $icebox->[$addr];
 
 };
 
@@ -234,24 +245,28 @@ sub calc_addr($self) {
 
     push @$icebox,$self;
 
-    # get width as (exp of 2) - 3
-    # ie map [0,1,2,3] to [8,16,32,64]
-    my $locw  = max(8,bitsize($loc));
-       $locw  = int_npow($locw,2,1)-3;
+    # get width as multiple of nibble
+    #
+    # map [ 0, 1, 2, 3, 4, 5, 6, 7]
+    # to  [ 4, 8,12,16,20,24,28,32]
 
-    my $addrw = max(8,bitsize($addr));
-       $addrw = int_npow($addrw,2,1)-3;
+    my $locw  = max(4,bitsize($loc));
+       $locw  = int_align($locw,4);
+
+    my $addrw = max(4,bitsize($addr));
+       $addrw = int_align($addrw,4);
 
        $slow  = 1;
+
+    # ^encode using largest
+    my $width = max($locw,$addrw);
+    my $value = $loc | ($addr << $width);
 
     # [bits => bitsize]
     @elems=(
 
-      $locw  => 2,
-      $addrw => 2,
-
-      $loc   => 2**($locw+3),
-      $addr  => 2**($addrw+3),
+      $width/4 => 3,
+      $value   => $width*2,
 
     );
 

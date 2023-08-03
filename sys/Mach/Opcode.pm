@@ -21,7 +21,7 @@ package Mach::Opcode;
 
   use Readonly;
   use English qw(-no_match_vars);
-  use List::Util qw(min max);
+  use List::Util qw(min max sum);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
@@ -67,11 +67,9 @@ package Mach::Opcode;
 
 sub new($class,$frame,$name,%O) {
 
-  state $re=qr{^(?:
-    (?<stk> \@)
-  | (?<tab> \%)
-
-  )}x;
+  state $is_reg=qr{\$reg};
+  state $is_mem=qr{\$mem};
+  state $is_imm=qr{\$imm};
 
   # defaults
   $O{lis} //= $name;
@@ -81,27 +79,28 @@ sub new($class,$frame,$name,%O) {
   my $fn  = join q[::],$O{pkg},$name;
   my $out = {
 
-    key => $O{lis},
+    key   => $O{lis},
 
-    id  => $frame->{-opidex}++,
-    fn  => \&$fn,
+    id    => $frame->{-opidex}++,
+    fn    => \&$fn,
 
-    stk => 0,
-    tab => 0,
-    cnt => 0,
+    cnt   => 0,
+
+    arg_t => [],
 
   };
 
   # get signature
   my @sig=argsof($O{pkg},$name);
-  my $end=$sig[-1];
 
-  # get last argument is special
-  if($end && $end=~ $re) {
-    $out->{stk}=defined $+{stk};
-    $out->{tab}=defined $+{tab};
+  # ^det arg type from name
+  for my $arg(@sig) {
 
-    pop @sig;
+    push @{$out->{arg_t}},
+      (int($arg=~ $is_reg) << 0)
+    | (int($arg=~ $is_mem) << 1)
+    | (int($arg=~ $is_imm) << 2)
+    ;
 
   };
 
@@ -129,16 +128,12 @@ sub encode($self,$key,@args) {
   my $info = $self->{info}->{$id};
 
   # ^unpack
-  my $cnt = $info->{cnt};
-  my $stk = $info->{stk};
-  my $tab = $info->{tab};
+  my $cnt   = $info->{cnt};
+  my $types = $info->{arg_t};
 
-  # TODO:
-  # also check that argument types
-  # are valid for current instruction!
-
+  # check passed arguments match decl
   $cnt == int @args
-  or throw_badargs($key,$cnt,int @args);
+  or throw_argcnt($key,$cnt,int @args);
 
   # encode args
   my @pack = ();
@@ -147,14 +142,32 @@ sub encode($self,$key,@args) {
 
   for my $arg(@args) {
 
-    my $x=0x00;
+    my $x    = 0x00;
+    my $type = $types->[$i];
 
     # register/memory operand
     if(Mach::Seg->is_valid($arg)) {
+
+      my $have=(exists $arg->{fast})
+        ? 0b001
+        : 0b010
+        ;
+
+      # typechk
+      ($have eq $type) || (! $type)
+      or throw_argtype($key,$i,$have,$type);
+
       push @pack,@{$arg->{addr}};
 
     # ^immediate
     } else {
+
+      my $have=0b100;
+
+      # typechk
+      ($have eq $type) || (! $type)
+      or throw_argtype($key,$i,$have,$type);
+
       $mode |= 1<<$i;
 
       my $width = max(8,bitsize($arg));
@@ -181,6 +194,62 @@ sub encode($self,$key,@args) {
   );
 
   return bitcat(@pack);
+
+};
+
+# ---   *   ---   *   ---
+# ^errme for argument number
+
+sub throw_argcnt($key,$cnt,$have) {
+
+  errout(
+
+    q[Invalid arg-count for '%s':]."\n"
+  . q[have (:%u), expected (:%u)],
+
+    lvl  => $AR_FATAL,
+    args => [$key,$have,$cnt],
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^errme for arg type check
+
+sub throw_argtype($key,$i,$type_a,$type_b) {
+
+  state $tab={
+
+    0b000=>'reg,mem or imm',
+
+    0b001=>'reg',
+    0b010=>'mem',
+
+    0b100=>'imm',
+
+  };
+
+  errout(
+
+    q[Invalid type for arg ]
+  . q[(:%u) of '%s':]."\n"
+
+  . q[have [err]:%s, ]
+  . q[expected [good]:%s],
+
+    lvl  => $AR_FATAL,
+
+    args => [
+
+      $i,$key,
+
+      $tab->{$type_a},
+      $tab->{$type_b}
+
+    ],
+
+  );
 
 };
 
@@ -212,14 +281,7 @@ sub decode($self,$mem) {
 
     # immediate value
     if($imm) {
-
-      my ($width)=bitsume($mem,2);
-      $width=2**($width+3);
-
-      my ($value)=bitsume($mem,$width);
-
-      $br+=2+$width;
-
+      my ($value)=rdimm($mem,\$br);
       push @out,$value;
 
     # memory operand
@@ -238,11 +300,12 @@ sub decode($self,$mem) {
 
         $br+=$Mach::Seg::FAST_BITS;
 
-        push @out,Mach::Seg->ffetch($addr);
+        push @out,Mach::Seg->fetch($addr);
 
       # regular segment
       } else {
-        nyi('SLOW SEG');
+        my ($loc,$addr)=rdmem($mem,\$br);
+        push @out,Mach::Seg->fetch($loc,$addr);
 
       };
 
@@ -267,18 +330,38 @@ sub decode($self,$mem) {
 };
 
 # ---   *   ---   *   ---
-# ^errme
+# read width of immediate
+# then it's actual value
 
-sub throw_badargs($key,$cnt,$have) {
+sub rdimm($mem,$ptr,$cnt=1) {
 
-  errout(
+  my (@width)=bitsume($mem,(2) x $cnt);
+  map {$ARG=2**($ARG+3)} @width;
 
-    q[BADARGS: %u/%u args for '%s'],
+  my @value=bitsume($mem,@width);
 
-    lvl  => $AR_FATAL,
-    args => [$have,$cnt,$key],
+  $$ptr+=(2 * $cnt)+sum(@width);
 
-  );
+  return @value;
+
+};
+
+# ---   *   ---   *   ---
+# ^read width of memory operand
+# then it's actual value
+
+sub rdmem($mem,$ptr) {
+
+  my ($width)=bitsume($mem,3);
+  $width*=4;
+
+  my $raw  = bitsume($mem,$width*2);
+  my $mask = bitmask($width);
+
+  my $loc  = $raw & $mask;
+  my $addr = $raw >> $width;
+
+  return ($loc,$addr);
 
 };
 
@@ -313,11 +396,9 @@ sub regen($class,$frame) {
     $base->{$ARG->{key}} = $ARG->{id};
     $info->{$ARG->{id}} = {
 
-      fn  => $ARG->{fn},
-
-      cnt => $ARG->{cnt},
-      stk => $ARG->{stk},
-      tab => $ARG->{tab},
+      fn    => $ARG->{fn},
+      cnt   => $ARG->{cnt},
+      arg_t => $ARG->{arg_t},
 
     };
 
@@ -365,6 +446,8 @@ sub store($self,$ptr,$ins,@args) {
 
   my ($opcode,$width)=$self->encode($ins,@args);
 
+machxe($opcode,beg=>0,end=>8,line=>4);
+
   $width=int_urdiv($width,8);
 
   $ptr->set(rstr=>$opcode);
@@ -376,7 +459,10 @@ sub store($self,$ptr,$ins,@args) {
 # test
 
 use Fmat;
-sub fn($a,$b,$c) {say "$a,$b,$c"};
+
+sub fn($mem,$a) {
+  say "$mem,$a";
+};
 
 # generate opcode table
 my $f=Mach::Opcode->new_frame();
@@ -389,8 +475,9 @@ my $tab=$f->regen();
 my $mem=Mach::Seg->new(0x20,fast=>1);
 my $ptr=$mem->brush();
 
-$tab->store($ptr,'fn',1,2,3);
-$tab->store($ptr,'fn',2,1,4);
+my $m2=Mach::Seg->new(0x10,fast=>0);
+
+$tab->store($ptr,'fn',$m2,2);
 
 # ^read
 my @calls=$tab->load($mem);

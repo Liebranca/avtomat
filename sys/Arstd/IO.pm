@@ -485,23 +485,23 @@ sub fmat_btrace {
 # ---   *   ---   *   ---
 # error prints
 
-sub errout($format,%opt) {
+sub errout($format,%O) {
 
   # defaults
-  $opt{args}  //= [];
-  $opt{calls} //= [];
-  $opt{lvl}   //= $AR_WARNING;
+  $O{args}  //= [];
+  $O{calls} //= [];
+  $O{lvl}   //= $AR_WARNING;
 
 
   # print initial message
-  my $tab="$opt{lvl}#:!;>\e[0m ";
+  my $tab="$O{lvl}#:!;>\e[0m ";
 
   fstrout(
 
     $format,
     $tab,
 
-    args     => $opt{args},
+    args     => $O{args},
 
     errout   => 1,
     pre_fmat => "\n",
@@ -510,7 +510,7 @@ sub errout($format,%opt) {
 
 
   # exec calls
-  my @calls=@{$opt{calls}};
+  my @calls=@{$O{calls}};
 
   while(@calls) {
     my $call=shift @calls;
@@ -527,7 +527,7 @@ sub errout($format,%opt) {
   $mess=join "\n", map {
     fmat_btrace
 
-  } split m/\n/,$mess;
+  } split $NEWLINE_RE,$mess;
 
   my $header=sprintf
     "$tab\e[33;1mBACKTRACE\e[0m\n\n".
@@ -547,7 +547,7 @@ sub errout($format,%opt) {
   # during testing
   if(
 
-     $opt{lvl} eq $AR_FATAL
+     $O{lvl} eq $AR_FATAL
   && !$Testing
 
   ) {
