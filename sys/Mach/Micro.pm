@@ -241,14 +241,14 @@ sub mod($reg,$any) {
 #
 # see: bitter/tests/xortile
 
-sub xorkey($reg,$any) {
+sub xorkey($reg,$seg) {
 
   my $out=0;
 
-  my @bytes=(Mach::Seg->is_valid($any))
-    ? $any->to_bytes(min(64,$any->{cap}*8))
-    : $any
-    ;
+  my @bytes=$seg->to_bytes(
+    min(64,$seg->{cap}*8)
+
+  );
 
   map {$out^=$ARG} @bytes;
 
@@ -258,6 +258,9 @@ sub xorkey($reg,$any) {
 
 # ---   *   ---   *   ---
 # byte-wise invert register
+#
+# out-stretches the definition
+# of "doing little" ;>
 
 sub rev($reg) {
 

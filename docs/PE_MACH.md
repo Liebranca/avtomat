@@ -1,8 +1,10 @@
 # THE PESO MACHINE
 
+
 ## SYNOPSIS
 
 (WIP) Formal description of a virtual machine.
+
 
 ## FOREWORD
 
@@ -21,6 +23,7 @@ As such, a so-called 'lazy' approach is utilized: because the design exists at m
 This parallels with `Grammar`, where parse trees are interpreted through a similar series of transformations, with execution being the very last step in a tree's chain; the first stage of `Mach` has the only requirement of serving as the runtime environment for this initial program tree, which then outputs the next version of the virtual machine.
 
 What follows is a description of the many moving pieces that make up that first stage.
+
 
 ## SEGMENTS
 
@@ -53,14 +56,141 @@ At every level of a segment tree, labels can be utilized: these simply provide a
 
 Furthermore, new trees can be created by concatenation; each program can define it's memory layout individually and larger programs can be built by composition -- the name of each program is utilized as a label in a larger segment, with each label matching the exact layout of the corresponding program, which again, works recursively.
 
-## STRUCTURES
+`Mach::Struc`, in turn, details the recursive sub-divisions of any particular level of a segment tree: it is, in essence, a segment factory.
 
-`Mach::Struc` details the recursive sub-divisions of any particular level of a segment tree: it is, in essence, a segment factory.
+Additionally, structures can assign the usual read, write and exec access attributes to further cathegorize segments, done through the usual peso hierarchicals:
 
-Additionally, structures can give functionality to a segment via attributes.
+* `reg` denotes instantiable, read-write segments.
 
-(TODO: detail this out, of course!)
+* `rom` denotes fixed, read-only memory.
 
-Previously defined structures may be bequeathed by new ones for the purpose of separately extending or specializing their definition, and as with segments, composition may also be utilized.
+* `proc` denotes executable segments.
 
+* `clan` denotes a segment containing a mix of these access attributes within it's subdivisions.
+
+The `blk` keyword can then be used to mark a specific subdivision as independently inheritable or instantiable; previously defined structures may be `beq`-ueathed by new ones for the purpose of separately extending or specializing their definition, and as with segments, composition may also be utilized.
+
+## (TODO: REGISTERS)
+
+
+## (TODO: STACKS)
+
+
+## (TODO: SCOPES)
+
+
+## ENCODING MACHINE INSTRUCTIONS
+
+Way execution works is fairly simple: opcodes containing both a small instruction and it's arguments can be writ to a segment, then read back and ran uppon `jmp` or `call`.
+
+Opcodes work via `engrave`: the details of a subroutine are saved to a table, which can then be utilized to encode an instruction into numerical representation, with type-restrictions being deduced from the argument names:
+
+* Arguments beggining with `$reg` must correspond to a read-write memory segment that's been initialized with the `fast` flag set to one.
+
+* Arguments beggining with `$mem` must correspond to a regular, so called "slow" memory segment.
+
+* Arguments beggining with `$imm` denote an immediate value, that is, a fixed value that is converted into a sequence of bytes and encoded into the instruction itself. 
+
+* All other arguments are considered `$any`, that is, they can be one of either.
+
+Uppon `encode`, an instruction and it's arguments are typechecked, then fixed and writ to executable memory; `decode` reads the bits of the virtual machine code through a series of steps to retrieve it.
+
+Theoretically, defining different instruction sets for two instances of `Mach` is possible: different instructions will be inscribed on an instance's opcode table depending on which modules it's initialized to require -- and because of this, the opcodes need to be of variable length.
+
+The first step in decoding an instruction would look like so:
+
+```$
+
+(b)   00   00
+      ~^   ~^
+       |    |
+       |    |
+       | (CNT mode bits)
+       |
+       |
+    (N id bits)
+
+```
+
+Where `N` corresponds to the `opbits` field of an opcode table, which holds the first `N` number of bits that must be read from any encoded instruction.
+
+From this id, the decoder obtains the types and count of arguments, together with any other relevant metadata. This `CNT` denotes the number of bits required for the `mode` field of the instruction, which is used to know if an argument is an immediate or segment.
+
+For immediate values, the read looks like so:
+
+```$
+
+(b)   00   00000000
+      ~^   ~~~~~~~^
+       |          |
+       |          |
+       |   (2^W+3 value bits)
+       |
+    (2-bit W)
+
+```
+
+With `W` being the bit-size of the operand, given by either exponentiation or table, where:
+
+* `00 => 8`
+
+* `01 => 16`
+
+* `10 => 32`
+
+* `11 => 64`
+
+And the following read giving the value of the immediate.
+
+The process is similar in the case of a memory segment, with the first bit determining if it's a register ("fast") or regular ("slow") memory.
+
+In the case of a register, that translates to:
+
+```$
+
+(b)   0   000
+      ^   ~~^
+      |     |
+      |     |
+      |  (FAST addr bits)
+      |
+  (1-bit slow)
+
+```
+
+Where `FAST` denotes an instance-dependant bit-count, corresponding to the total number of user-accessible registers. `addr` is, in this case, sufficient to fetch the segment.
+
+For a regular segment, the read requires an additional step for width:
+
+```$
+
+                 (4+W*4 loc bits)
+                    |
+                 ~~~v
+(b)   1   000    0000   0000
+      ^   ~~^           ~~~^
+      |     |              |
+      |     |              |
+      |  (3-bit W)         |
+      |                    |
+  (1-bit slow)         (4+W*4 addr bits)
+
+```
+
+With `W` in this case translating to a multiple of four bits, up to thirty-two; the bit-size applies to both `loc` and `addr`, which correspond to base segment and subdivision indexes, respectively.
+
+
+## MACHINE CODE SIZE OPTIMIZATIONS
+
+Because more reading steps mean higher decoder overhead, instructions *should* be written with certain things in mind:
+
+* The `mode` and `slow` bits can be dropped from the encoding entirely if all operands are segments or immediates.
+
+* Similarly, `W` bits used for an operand's width can also be dropped if the argument type specifies a fixed bit-size in it's name, e.g. `$imm4` for a 4-bit immediate value, `$mem8` for a 16-bit segment pointer (8-bit `loc`, 8-bit `addr`), or `$mem4y16` for a 20-bit pointer (4-bit `loc`, 16-bit `addr`).
+
+* For non-fixed size operands, and if the user-accessible register indices fit in three to seven bits, then it'll always be more size-efficient for instruction arguments to be all registers.
+
+The reason why we optimize for code size is very straightforward: it's generally much faster to decode a multitude of instructions packed within a small memory block, than fewer instructions of greater size; though the implementation will happilly encode and decode opcodes of any size, performance-wise that will be much more slow.
+
+And so, the process of designing efficient instructions and programs for a `Mach` instance is, essentially, a higher form of machine code golfing. The `Arstd::Bytes` module provides the `xe` subroutine for printing out bytes in memory (accessible through `seg->prich()`) as well as the more fine-grain `machxe` which inspects a buffer bit-by-bit.
 

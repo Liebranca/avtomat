@@ -43,7 +43,7 @@ package Mach::Seg;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -234,33 +234,14 @@ sub calc_addr($self) {
   # ^regular memory operand, use long form
   } else {
 
-    my $class  = ref $self;
-
+    # store self
     my $frame  = $self->{frame};
     my $icebox = $frame->{-icebox};
 
-    # get base indices
-    my $loc  = $class->iof_frame($frame);
-    my $addr = int @$icebox;
-
     push @$icebox,$self;
 
-    # get width as multiple of nibble
-    #
-    # map [ 0, 1, 2, 3, 4, 5, 6, 7]
-    # to  [ 4, 8,12,16,20,24,28,32]
-
-    my $locw  = max(4,bitsize($loc));
-       $locw  = int_align($locw,4)-4;
-
-    my $addrw = max(4,bitsize($addr));
-       $addrw = int_align($addrw,4)-4;
-
-       $slow  = 1;
-
-    # ^encode using largest
-    my $width = max($locw,$addrw);
-    my $value = $loc | ($addr << (4+$width*4));
+    # get addr
+    my ($width,$value)=$self->encode_ptr();
 
     # [bits => bitsize]
     @elems=(
@@ -270,12 +251,136 @@ sub calc_addr($self) {
 
     );
 
+    $slow=1;
+
   };
 
 
   # ^save field list
   unshift @elems,$slow=>1;
   $self->{addr}=\@elems;
+
+};
+
+# ---   *   ---   *   ---
+# encodes a segment pointer
+
+sub encode_ptr($self,%O) {
+
+  # defaults
+  $O{alx}   //= 4;
+  $O{aly}   //= 4;
+  $O{fixed} //= 0;
+
+  my @out    = ();
+  my $class  = ref $self;
+
+  my $frame  = $self->{frame};
+  my $icebox = $frame->{-icebox};
+
+  # get base indices
+  my $loc  = $class->iof_frame($frame);
+  my $addr = int @$icebox;
+
+  # get widths as multiple of alignment
+  my $locw  = get_ptr_w($loc,$O{alx},%O);
+  my $addrw = get_ptr_w($addr,$O{aly},%O);
+
+  # ^encode using largest
+  if($O{alx} == $O{aly}) {
+
+    my $width = max($locw,$addrw);
+    my $step  = (! $O{fixed})
+      ? $O{alx} + $width * $O{alx}
+      : $width
+      ;
+
+    my $value = $loc | ($addr << $step);
+
+    # ^width dropped from encoding
+    # when ptr size is fixed
+    @out=(! $O{fixed})
+      ? ($width,$value)
+      : ($value)
+      ;
+
+  # ^use both widths
+  } elsif($O{fixed}) {
+    @out=($loc | ($addr << $locw));
+
+  # ^bad encoding passed
+  } else {
+    throw_ptrenc($O{alx},$O{aly});
+
+  };
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^quick shorthand for getting width
+
+sub get_ptr_w($addr,$align,%O) {
+
+  my $req=bitsize($addr);
+
+  throw_fixed_width($req,%O)
+  if $O{fixed} && $req > $align;
+
+  my $addrw=max($align,$req);
+
+  return (! $O{fixed})
+    ? int_align($addrw,$align)-$align
+    : $addrw
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme for width mismatch
+
+sub throw_fixed_width($req,%O) {
+
+  errout(
+
+    q[Invalid width for arg ]
+  . q[(:%u) of '%s':]."\n"
+
+  . q[Passed [err]:%s value for ]
+  . q[a ptr of type [good]:%s],
+
+    lvl  => $AR_FATAL,
+
+    args => [
+
+      $O{arg_i},
+      $O{key},
+
+      "${req}-bit",
+      "mem$O{fixed}",
+
+    ],
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^errme for bogus encodings
+
+sub throw_ptrenc($alx,$aly) {
+
+  errout(
+
+    q[Ptr of type [good]:%s must ]
+  . q[be fixed-size],
+
+    lvl  => $AR_FATAL,
+    args => ["mem${alx}y${aly}"],
+
+  );
 
 };
 

@@ -41,7 +41,7 @@ package Mach::Opcode;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -62,6 +62,12 @@ package Mach::Opcode;
 
   }};
 
+  Readonly our $REG_T=>0b001;
+  Readonly our $MEM_T=>0b010;
+  Readonly our $IMM_T=>0b100;
+
+  Readonly our $SEG_T=>$MEM_T | $REG_T;
+
 # ---   *   ---   *   ---
 # generate descriptor for instruction
 #
@@ -69,9 +75,32 @@ package Mach::Opcode;
 
 sub new($class,$frame,$name,%O) {
 
-  state $is_reg=qr{\$reg};
-  state $is_mem=qr{\$mem};
-  state $is_imm=qr{\$imm};
+  # operand types
+  state $is_reg=qr{^\$reg};
+  state $is_mem=qr{^\$mem};
+  state $is_imm=qr{^\$imm};
+  state $is_seg=qr{^\$seg};
+
+  # ^fixed-sized operands
+  state $imm_size=qr{
+    $is_imm (?<size> [1-64])
+
+  }x;
+
+  state $mem_size=qr{
+
+    $is_mem
+
+    (?:
+
+      (?<loc>  [1-64])
+    y (?<addr> [1-64])
+
+    | (?<solo> [1-64])
+
+    )
+
+  }x;
 
   # defaults
   $O{lis} //= $name;
@@ -87,26 +116,81 @@ sub new($class,$frame,$name,%O) {
     fn    => \&$fn,
 
     cnt   => 0,
+    mode  => undef,
 
     arg_t => [],
+    arg_s => [],
 
   };
 
   # get signature
   my @sig=argsof($O{pkg},$name);
 
-  # ^det arg type from name
+  $out->{cnt}=int @sig;
+
+  # ^det arg type && size from name
   for my $arg(@sig) {
 
-    push @{$out->{arg_t}},
-      (int($arg=~ $is_reg) << 0)
-    | (int($arg=~ $is_mem) << 1)
-    | (int($arg=~ $is_imm) << 2)
+    my $type=
+      (int($arg=~ $is_reg) * $REG_T)
+    | (int($arg=~ $is_mem) * $MEM_T)
+    | (int($arg=~ $is_imm) * $IMM_T)
+    | (int($arg=~ $is_seg) * $SEG_T)
     ;
+
+    my $size=[];
+
+    # register
+    if($type eq $REG_T) {
+      $size=[0];
+
+    # ^fixed-size segment pointer
+    } elsif($type eq $MEM_T && $arg=~ $mem_size) {
+
+      $size=(! defined $+{solo})
+        ? [$+{loc},$+{addr}]
+        : [$+{solo},$+{solo}]
+        ;
+
+    # ^fixed-size immediate
+    } elsif($type eq $IMM_T && $imm_size) {
+      $size=[$+{size}];
+
+    };
+
+    push @{$out->{arg_t}},$type;
+    push @{$out->{arg_s}},$size;
 
   };
 
-  $out->{cnt}=int @sig;
+
+  # det if mode bits are necessary
+  my $mode=0;
+  my $slow=0;
+
+  # ^if only compat flags set, mode is fixed
+  map {
+    $mode |= $ARG - (1 *! $ARG)
+
+  } @{$out->{arg_t}};
+
+  # ^fixed, immediates
+  if($mode == $IMM_T) {
+    $mode=bitmask($out->{cnt});
+
+  # ^fixed, memory or registers
+  } elsif($mode && $mode <= $SEG_T) {
+    $mode=0;
+
+  # ^else mode must be encoded for
+  # each variant of instruction
+  } else {
+    $mode=undef;
+
+  };
+
+  $out->{mode}=$mode;
+
 
   push @{$frame->{-cstruc}},$out;
 
@@ -142,6 +226,7 @@ sub encode($self,$key,@args) {
   # ^unpack
   my $cnt   = $info->{cnt};
   my $types = $info->{arg_t};
+  my $sizes = $info->{arg_s};
 
   # check passed arguments match decl
   $cnt == int @args
@@ -155,21 +240,26 @@ sub encode($self,$key,@args) {
   for my $arg(@args) {
 
     my $x    = 0x00;
+
     my $type = $types->[$i];
+    my $size = $sizes->[$i];
 
     # register/memory operand
     if(Mach::Seg->is_valid($arg)) {
 
       my $have=(exists $arg->{fast})
-        ? 0b001
-        : 0b010
+        ? $REG_T
+        : $MEM_T
         ;
 
       # typechk
-      ($have eq $type) || (! $type)
+      ($have & $type) || (! $type)
       or throw_argtype($key,$i,$have,$type);
 
-      push @pack,@{$arg->{addr}};
+      push @pack,get_seg_width(
+        $arg,$type,$size,$key,$i
+
+      );
 
     # ^immediate
     } else {
@@ -182,13 +272,8 @@ sub encode($self,$key,@args) {
 
       $mode |= 1<<$i;
 
-      my $width = max(8,bitsize($arg));
-         $width = int_align($width,8);
-         $width = int_npow($width,2,1)-3;
-
-      push @pack,(
-        $width => 2,
-        $arg   => 2**($width+3),
+      push @pack,get_imm_width(
+        $arg,$size,$key,$i
 
       );
 
@@ -198,15 +283,97 @@ sub encode($self,$key,@args) {
 
   };
 
+
+  # skip mode bits if hardcoded
+  my @hed=($id=>$self->{opbits});
+
+  push @hed,$mode=>$cnt
+  if ! defined $info->{mode};
+
   # run encoder
-  unshift @pack,(
+  return bitcat(@hed,@pack);
 
-    $id   => $self->{opbits},
-    $mode => $cnt,
+};
 
-  );
+# ---   *   ---   *   ---
+# ^handles fixed-width segment operands
 
-  return bitcat(@pack);
+sub get_seg_width($arg,$type,$size,$key,$i) {
+
+  my @addr=@{$arg->{addr}};
+
+  # drop the slow bit from the encoding
+  # when segment type is known
+  if(@$size || $type eq $MEM_T) {
+
+    shift @addr;
+    shift @addr;
+
+    # in the case of a fixed-size
+    # segment pointer, we also re-encode
+    # it's address
+    if(@$size && $type eq $MEM_T) {
+
+      my ($alx,$aly)=@$size;
+
+      @addr=($arg->encode_ptr(
+
+        alx   => $alx,
+        aly   => $aly,
+
+        # these are just for debug
+        fixed => "${alx}y${aly}",
+        key   => $key,
+        arg_i => $i,
+
+      ) => $alx+$aly);
+
+    };
+
+  };
+
+
+  return @addr;
+
+};
+
+# ---   *   ---   *   ---
+# ^fixed-size immediates
+
+sub get_imm_width($arg,$size,$key,$i) {
+
+  my @out=();
+  my $req=bitsize($arg);
+
+  # width of immediate is hardcoded
+  # for this instruction
+  if(@$size) {
+
+    my ($width)=@$size;
+
+    throw_fixed_imm($key,$i,$arg,$width)
+    if $req > $width;
+
+    @out=($arg=>$width);
+
+  # ^nope, must be encoded alongside
+  # the value itself
+  } else {
+
+    my $width = max(8,$req);
+       $width = int_align($width,8);
+       $width = int_npow($width,2,1)-3;
+
+    @out=(
+      $width => 2,
+      $arg   => 2**($width+3),
+
+    );
+
+  };
+
+
+  return @out;
 
 };
 
@@ -234,7 +401,7 @@ sub throw_argtype($key,$i,$type_a,$type_b) {
 
   state $tab={
 
-    0b000=>'reg,mem or imm',
+    0b000=>'any',
 
     0b001=>'reg',
     0b010=>'mem',
@@ -257,8 +424,37 @@ sub throw_argtype($key,$i,$type_a,$type_b) {
 
       $i,$key,
 
-      $tab->{$type_a},
-      $tab->{$type_b}
+      "$tab->{$type_a}",
+      "$tab->{$type_b}"
+
+    ],
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^errme for immediate width mismatch
+
+sub throw_fixed_imm($key,$i,$arg,$width) {
+
+  errout(
+
+    q[Invalid width for arg ]
+  . q[(:%u) of '%s':]."\n"
+
+  . q[Passed [err]:%s value for ]
+  . q[a ptr of type [good]:%s],
+
+    lvl  => $AR_FATAL,
+
+    args => [
+
+      $i,
+      $key,
+
+      bitsize($arg),
+      "imm$width",
 
     ],
 
@@ -275,53 +471,49 @@ sub decode($self,$mem) {
   my ($id)=bitsume($mem,$self->{opbits});
 
   # get argcount
-  my $tab     = $self->{info};
-  my $cnt     = $tab->{$id}->{cnt};
+  my $tab     = $self->{info}->{$id};
+  my $cnt     = $tab->{cnt};
 
   # get arg types
-  my ($mode)=bitsume($mem,$cnt);
+  my $types = $tab->{arg_t};
+  my $sizes = $tab->{arg_s};
+
+  # skip mode bits if hardcoded
+  my ($mode)=(! defined $tab->{mode})
+    ? bitsume($mem,$cnt)
+    : $tab->{mode}
+    ;
 
 
   # ^walk args
-  my @out=();
+  my @out = ();
+  my $i   = 0;
 
   while($cnt) {
 
-    my $imm=$mode & 1;
+    my $type = $types->[$i];
+    my $size = $sizes->[$i];
+
+    my $imm  = $mode & 1;
 
     # immediate value
     if($imm) {
-      my ($value)=rdimm($mem);
-      push @out,$value;
+      push @out,rdimm($mem,$size);
 
     # memory operand
     } else {
-
-      my ($slow)=bitsume($mem,1);
-
-      # register or cache
-      if(! $slow) {
-
-        my ($addr)=bitsume(
-          $mem,$Mach::Seg::FAST_BITS
-
-        );
-
-        push @out,Mach::Seg->fetch($addr);
-
-      # regular segment
-      } else {
-        my ($loc,$addr)=rdmem($mem);
-        push @out,Mach::Seg->fetch($loc,$addr);
-
-      };
+      push @out,rdseg($mem,$type,$size);
 
     };
 
+    # go next
     $mode >>= 1;
+
     $cnt--;
+    $i++;
 
   };
+
 
   # consume byte leftovers
   my $diff=int_align($mem->{bit},8);
@@ -339,14 +531,57 @@ sub decode($self,$mem) {
 # read width of immediate
 # then it's actual value
 
-sub rdimm($mem,$cnt=1) {
+sub rdimm($mem,$size=[]) {
 
-  my (@width)=bitsume($mem,(2) x $cnt);
-  map {$ARG=2**($ARG+3)} @width;
+  my $width=0;
 
-  my @value=bitsume($mem,@width);
+  # fixed-width
+  if(@$size) {
+    $width=$size->[0];
 
-  return @value;
+  # ^width inside instruction
+  } else {
+    $width=bitsume($mem,2);
+    $width=2**($width+3);
+
+  };
+
+
+  return bitsume($mem,$width);
+
+};
+
+# ---   *   ---   *   ---
+# ^read segment ptr
+
+sub rdseg($mem,$type,$size) {
+
+  my $out=undef;
+
+  # skip slow bit if hardcoded
+  my ($slow)=(! $type || $type eq $SEG_T)
+    ? bitsume($mem,1)
+    : $type eq $MEM_T
+    ;
+
+  # register or cache
+  if(! $slow) {
+
+    my ($addr)=bitsume(
+      $mem,$Mach::Seg::FAST_BITS
+
+    );
+
+    $out=Mach::Seg->fetch($addr);
+
+  # regular segment
+  } else {
+    my ($loc,$addr)=rdmem($mem,$size);
+    $out=Mach::Seg->fetch($loc,$addr);
+
+  };
+
+  return $out;
 
 };
 
@@ -354,16 +589,29 @@ sub rdimm($mem,$cnt=1) {
 # ^read width of memory operand
 # then it's actual value
 
-sub rdmem($mem) {
+sub rdmem($mem,$size=[]) {
 
-  my ($width)=bitsume($mem,3);
-  $width=4+$width*4;
 
-  my ($raw) = bitsume($mem,$width*2);
-  my $mask  = bitmask($width);
+  my ($loc,$addr)=(0x00,0x00);
 
-  my $loc   = $raw & $mask;
-  my $addr  = $raw >> $width;
+  # fixed-width pointer
+  if(@$size) {
+    my ($x,$y)=@$size;
+    ($loc,$addr)=bitsume($mem,$x,$y);
+
+  # ^nope, must be read
+  } else {
+
+    my ($width)=bitsume($mem,3);
+    $width=4+$width*4;
+
+    my ($raw) = bitsume($mem,$width*2);
+    my $mask  = bitmask($width);
+
+    $loc  = $raw & $mask;
+    $addr = $raw >> $width;
+
+  };
 
   return ($loc,$addr);
 
@@ -402,7 +650,11 @@ sub regen($class,$frame) {
 
       fn    => $ARG->{fn},
       cnt   => $ARG->{cnt},
+
       arg_t => $ARG->{arg_t},
+      arg_s => $ARG->{arg_s},
+
+      mode  => $ARG->{mode},
 
     };
 
@@ -469,7 +721,7 @@ $f->engrave("Mach::Micro");
 my $tab=$f->regen();
 
 # ^store in memory
-my $mem=Mach::Seg->new(0x20,fast=>1);
+my $mem=Mach::Seg->new(0x20,fast=>0);
 my $ptr=$mem->brush();
 
 my $m1=Mach::Seg->new(0x10,fast=>1);
