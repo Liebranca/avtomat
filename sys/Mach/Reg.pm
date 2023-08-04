@@ -25,12 +25,14 @@ package Mach::Reg;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+
+  use Arstd::Array;
   use Mach::Struc;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -41,21 +43,29 @@ package Mach::Reg;
     <reg8>
       byte a;
 
+
     <reg16>
       byte low;
       byte high;
+
 
     <reg32>
       reg16 low;
       reg16 high;
 
+
     <reg64>
       reg32 low;
       reg32 high;
 
+      wed   fast;
+
+
     <seg-ptr>
-      reg64 loc;
-      reg64 addr;
+      reg32 loc;
+      reg32 addr;
+
+      wed   fast;
 
       cpy   &ptr_cpy;
       deref &ptr_deref;
@@ -67,7 +77,7 @@ package Mach::Reg;
 
 sub ptr_cpy($self,$other) {
 
-  my ($loc,$addr)=$other->iof();
+  my ($loc,$addr)=array_keys($other->{addr});
 
   $self->{loc}->set(num=>$loc);
   $self->{addr}->set(num=>$addr);
@@ -79,11 +89,10 @@ sub ptr_cpy($self,$other) {
 
 sub ptr_deref($self) {
 
-  my ($loc,$addr)=$self->to_bytes(64);
+  my ($loc,$addr)=$self->to_bytes(32);
 
   my $class = ref $self->{-seg};
-  my $frame = $class->get_frame($loc);
-  my $out   = $frame->{-icebox}->[$addr];
+  my $out   = $class->fetch($loc,$addr);
 
   return $out;
 

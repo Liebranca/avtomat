@@ -31,6 +31,7 @@ package Mach::Struc;
 
   use Arstd::Bytes;
   use Arstd::Array;
+  use Arstd::String;
   use Arstd::IO;
   use Arstd::PM;
 
@@ -47,7 +48,7 @@ package Mach::Struc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -77,6 +78,24 @@ package Mach::Struc;
       $FIELD_RE+
 
   )}x;
+
+# ---   *   ---   *   ---
+# partial beq from Mach::Seg
+#
+# done so sub-structures can
+# be treated as segments
+
+  beqwraps('-seg',qw(
+
+    encode_ptr
+
+    to_bytes
+    from_bytes
+
+    set
+    iof
+
+  ));
 
 # ---   *   ---   *   ---
 # GBL
@@ -157,7 +176,11 @@ sub new($class,$name,@fields) {
      $attrs //= [];
 
   delete $fields{-attrs};
-  @fields=grep {$ARG ne '-attrs'} @fields;
+  @fields=grep {
+      $ARG ne '-attrs'
+  &&! is_arrayref($ARG)
+
+  } @fields;
 
   # ^walk
   my ($sizes,$total)=
@@ -193,6 +216,10 @@ sub struc($expr,$pkg=undef) {
   # defaults
   $pkg //= caller;
 
+  # remove comments
+  strip(\$expr);
+  comstrip(\$expr);
+
   # throw if expr doesn't match re
   errout(
 
@@ -203,14 +230,17 @@ sub struc($expr,$pkg=undef) {
 
   ) unless $expr=~ $STRUC_RE;
 
+
   # accum vars
   my $name  = $NULLSTR;
   my $type  = [];
   my $bare  = [];
+  my $attrs = [];
 
   # get <name-of-struc>
   $expr=~ s[$NAME_RE][];
   $name=$+{name};
+
 
   # get type field;type field;
   while($expr=~ s[$FIELD_RE][]) {
@@ -229,7 +259,7 @@ sub struc($expr,$pkg=undef) {
     if(0 == index $b,'&') {
 
       my $fn=codefind(
-        $pkg,substr $b,1,length $b
+        $pkg,(substr $b,1,length $b)
 
       # ^throw if not found
       ) or errout(
@@ -243,6 +273,16 @@ sub struc($expr,$pkg=undef) {
 
       $t=>$fn;
 
+    # ^arg is attribute
+    } elsif($t eq 'wed') {
+
+      my ($name,$value)=(split q[ ],$b);
+
+      $value//=1;
+
+      push @$attrs,$name=>$value;
+      undef;
+
     # ^arg is data field
     } else {
       $b=>$t;
@@ -250,6 +290,11 @@ sub struc($expr,$pkg=undef) {
     };
 
   } 0..int(@$type)-1;
+
+
+  # cat attributes as special field
+  array_filter(\@fields);
+  push @fields,'-attrs'=>$attrs;
 
   return Mach::Struc->new($name,@fields);
 
@@ -262,6 +307,10 @@ sub strucs($expr) {
 
   my @out=();
   my $pkg=caller;
+
+  # remove comments
+  strip(\$expr);
+  comstrip(\$expr);
 
   # manually recurse pattern
   while($expr=~ s[$STRUC_RE][]) {
@@ -370,6 +419,8 @@ sub ice($class,$name,%O) {
   my $tab    = $class->_cstruc_tab();
   my $cstruc = $tab->{$name};
 
+  $O{attrs}=$cstruc->{attrs};
+
   # ^run constructor
   my ($seg,$div,$labels)=
     $class->calc_segment($cstruc,%O);
@@ -415,9 +466,14 @@ sub calc_segment($class,$cstruc,%O) {
   # ^else point
   } else {
 
+    my %attrs=@{$O{attrs}};
+
     $seg=$O{segref}->point(
+
       $O{offset},
-      $cstruc->{total}
+      $cstruc->{total},
+
+      %attrs,
 
     );
 
@@ -472,32 +528,6 @@ sub calc_segment($class,$cstruc,%O) {
   };
 
   return $seg,$div,$labels;
-
-};
-
-# ---   *   ---   *   ---
-# partial, manual beq from Mach::Seg
-#
-# done so sub-structures can
-# be treated as segments
-
-sub to_bytes($self,@args) {
-  return $self->{-seg}->to_bytes(@args);
-
-};
-
-sub from_bytes($self,@args) {
-  $self->{-seg}->from_bytes(@args);
-
-};
-
-sub set($self,%O) {
-  $self->{-seg}->set(%O);
-
-};
-
-sub iof($self) {
-  return $self->{-seg}->iof();
 
 };
 

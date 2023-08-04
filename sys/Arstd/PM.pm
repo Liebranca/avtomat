@@ -45,6 +45,8 @@ package Arstd::PM;
     autoload_prologue
     throw_bad_autoload
 
+    beqwraps
+
   );
 
 # ---   *   ---   *   ---
@@ -190,6 +192,29 @@ sub add_symbol($dst,$src) {
 };
 
 # ---   *   ---   *   ---
+# akin to selective inheritance
+# defines methods of attribute to wrap
+
+sub beqwraps($attr,@names) {
+
+  no strict 'refs';
+  my $pkg=caller;
+
+  map {
+
+    my $name = $ARG;
+    my $fn   = sub ($self,@args) {
+      $self->{$attr}->$name(@args);
+
+    };
+
+    *{"$pkg\::$name"}=$fn;
+
+  } @names;
+
+};
+
+# ---   *   ---   *   ---
 # get arguments of subroutine
 # by deparsing it's signature (!!)
 
@@ -293,10 +318,12 @@ sub depsof_file($fname) {
 
 sub autoload_prologue($kref) {
 
+  return 0 if ($$kref=~ m[DESTROY$]);
+
   state $re=qr{^.*::};
   $$kref=~ s[$re][];
 
-  return $$kref ne 'DESTROY';
+  return 1;
 
 };
 

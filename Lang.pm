@@ -453,6 +453,8 @@ sub eaf($pat,%O) {
 };
 
 # ---   *   ---   *   ---
+# halfway conversion of compiled
+# perl regex to unix regex
 
 sub qre2re($ref) {
   $$ref=~ s/\(\?\^u(?:[xsmg]*)://;

@@ -589,7 +589,7 @@ sub set($self,%O) {
 # ---   *   ---   *   ---
 # take reference to a sub-segment
 
-sub point($self,$offset,$width) {
+sub point($self,$offset,$width,%O) {
 
   my $req=$offset+$width;
 
@@ -617,7 +617,7 @@ sub point($self,$offset,$width) {
   my $class = ref $self;
   my $ptr   = $class->new(
 
-    $width,
+    $width,%O,
 
     pos  => $offset,
     sref => $sref,

@@ -62,6 +62,7 @@ my $FILE_LIST=[
   '/sys/Arstd/Hash.pm',
   '/sys/Arstd/Path.pm',
   '/sys/Arstd/IO.pm',
+  '/sys/Arstd/PM.pm',
   '/sys/Arstd/WLog.pm',
   '/sys/Arstd/Test.pm',
 
@@ -91,8 +92,19 @@ my $FILE_LIST=[
   '/sys/Shb7/Build.pm',
 
   '/sys/Vault.pm',
-
   '/sys/Cli.pm',
+  '/sys/Fmat.pm',
+
+# ---   *   ---   *   ---
+# then build Mach
+
+  '/sys/Mach/Seg.pm',
+  '/sys/Mach/Struc.pm',
+  '/sys/Mach/Reg.pm',
+  '/sys/Mach/Micro.pm',
+  '/sys/Mach/Opcode.pm',
+
+  '/sys/Mach.pm',
 
 # ---   *   ---   *   ---
 # then filters and hacks

@@ -54,6 +54,7 @@ package Arstd::String;
     nobs
 
     strip
+    comstrip
     vstr
 
     deref_clist
@@ -68,7 +69,7 @@ package Arstd::String;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.6;#b
+  our $VERSION=v0.00.7;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -88,6 +89,12 @@ package Arstd::String;
   | [^\n]{1,SZ_X} (?: .|$)
 
   )};
+
+  # TODO: catch strings, maybe
+  Readonly my $COMMENT_PROTO=>q[
+    ([^\$COMCHAR]*) \$COMCHAR [^\n]* (?: \n|$ )
+
+  ];
 
   Readonly our $CHARCON_DEF=>[
 
@@ -503,6 +510,28 @@ sub nobs($sref) {
 
 sub strip($sref) {
   $$sref=~ s[$STRIP_RE][]sxmg;
+
+};
+
+# ---   *   ---   *   ---
+# remove comments
+
+sub comstrip($sref,$c='#') {
+
+  state $tab={};
+
+  # regenerate regex
+  if(! exists $tab->{$c}) {
+    $tab->{$c}=$COMMENT_PROTO;
+    $tab->{$c}=~ s[\$COMCHAR][$c]sxmg;
+
+    $tab->{$c}=qr{$tab->{$c}}x;
+
+  };
+
+  # ^apply
+  my $re=$tab->{$c};
+  $$sref=~ s[$re][$1\n]sxmg;
 
 };
 
