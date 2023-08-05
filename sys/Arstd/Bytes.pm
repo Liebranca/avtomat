@@ -241,7 +241,7 @@ sub bitsume($mem,@steps) {
     my $step=$$bit+$size;
 
     # ^they dont, perform two reads
-    if($step >= $BITOPS_LIMIT) {
+    if($step > $BITOPS_LIMIT) {
 
       my $low  = $BITOPS_LIMIT - $$bit;
       my $high = $size  - $low;
@@ -292,7 +292,7 @@ sub bitsume($mem,@steps) {
 sub bitsumex($sref,@steps) {
 
   my $mem = bitsume_unpack($sref);
-  my @out = bitsume_bytes($mem,@steps);
+  my @out = bitsume($mem,@steps);
 
   $$sref=bitsume_pack($mem);
 
@@ -509,6 +509,7 @@ sub pastr($s,%O) {
 sub xe($bytes,%O) {
 
   $O{decode}  //= 1;
+  $O{drev}    //= 0;
 
   $O{unprint} //= q[.];
   $O{catchar} //= "\n";
@@ -568,7 +569,7 @@ sub xe($bytes,%O) {
         unprint => $O{unprint},
 
         rev     => 0,
-        brev    => 1,
+        brev    => ! $O{drev},
 
       )).q[ | ] if $O{decode};
 

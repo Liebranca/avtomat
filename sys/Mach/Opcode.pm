@@ -35,13 +35,14 @@ package Mach::Opcode;
   use Arstd::PM;
 
   use Mach::Seg;
+  use Mach::Struc;
 
   use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -54,11 +55,12 @@ package Mach::Opcode;
 
     )],
 
-    -cstruc=>[],
+    -mach   => undef,
+    -cstruc => [],
 
-    -opidex=>0,
-    -opsize=>0,
-    -opbits=>0,
+    -opidex => 0,
+    -opsize => 0,
+    -opbits => 0,
 
   }};
 
@@ -206,12 +208,18 @@ sub add($class,$frame,$name,%O) {
 };
 
 # ---   *   ---   *   ---
-# ^add instruction package to table
+# ^add instruction packages to table
+#
+# dynamically loads in package
+# if required
 
-sub engrave($class,$frame,$pkg) {
+sub engrave($class,$frame,@pkg) {
 
-  load $pkg if ! $pkg->isa($pkg);
-  $pkg->engrave($frame);
+  map {
+    load $ARG if ! $ARG->isa($ARG);
+    $ARG->engrave($frame);
+
+  } @pkg;
 
 };
 
@@ -244,10 +252,12 @@ sub encode($self,$key,@args) {
     my $type = $types->[$i];
     my $size = $sizes->[$i];
 
-    # register/memory operand
-    if(Mach::Seg->is_valid($arg)) {
+    my $seg  = Mach::Struc->validate($arg);
 
-      my $have=(exists $arg->{fast})
+    # register/memory operand
+    if($seg) {
+
+      my $have=(exists $seg->{fast})
         ? $REG_T
         : $MEM_T
         ;
@@ -257,7 +267,7 @@ sub encode($self,$key,@args) {
       or throw_argtype($key,$i,$have,$type);
 
       push @pack,get_seg_width(
-        $arg,$type,$size,$key,$i
+        $seg,$type,$size,$key,$i
 
       );
 
@@ -331,7 +341,6 @@ sub get_seg_width($arg,$type,$size,$key,$i) {
     };
 
   };
-
 
   return @addr;
 
@@ -502,7 +511,7 @@ sub decode($self,$mem) {
 
     # memory operand
     } else {
-      push @out,rdseg($mem,$type,$size);
+      push @out,$self->rdseg($mem,$type,$size);
 
     };
 
@@ -554,9 +563,10 @@ sub rdimm($mem,$size=[]) {
 # ---   *   ---   *   ---
 # ^read segment ptr
 
-sub rdseg($mem,$type,$size) {
+sub rdseg($self,$mem,$type,$size) {
 
-  my $out=undef;
+  my $out  = undef;
+  my $mach = $self->{frame}->{-mach};
 
   # skip slow bit if hardcoded
   my ($slow)=(! $type || $type eq $SEG_T)
@@ -566,18 +576,13 @@ sub rdseg($mem,$type,$size) {
 
   # register or cache
   if(! $slow) {
-
-    my ($addr)=bitsume(
-      $mem,$Mach::Seg::FAST_BITS
-
-    );
-
-    $out=Mach::Seg->fetch($addr);
+    my ($addr)=bitsume($mem,$mach->{regmask});
+    $out=$mach->segfetch($addr);
 
   # regular segment
   } else {
     my ($loc,$addr)=rdmem($mem,$size);
-    $out=Mach::Seg->fetch($loc,$addr);
+    $out=$mach->segfetch($loc,$addr);
 
   };
 
@@ -670,6 +675,8 @@ sub regen($class,$frame) {
     opsize => $frame->{-opsize},
     opmask => $opmask,
 
+    frame  => $frame,
+
   },$class;
 
   return $out;
@@ -706,51 +713,6 @@ sub write($self,$ptr,$ins,@args) {
 
   $ptr->set(rstr=>$opcode);
   $ptr->brush($width,repl=>1);
-
-};
-
-# ---   *   ---   *   ---
-# test
-
-use Fmat;
-
-# generate opcode table
-my $f=Mach::Opcode->new_frame();
-$f->engrave("Mach::Micro");
-
-my $tab=$f->regen();
-
-# ^store in memory
-my $mem=Mach::Seg->new(0x20,fast=>0);
-my $ptr=$mem->brush();
-
-my $m1=Mach::Seg->new(0x10,fast=>1);
-my $m2=Mach::Seg->new(0x10,fast=>1);
-
-$tab->write($ptr,'xorkey',$m2,$m1);
-$tab->write($ptr,'rev',$m2);
-$tab->write($ptr,'mod',$m2,0xFFF);
-
-# ^read
-my @calls=$tab->read($mem);
-
-# ^exec
-for my $key(qw(
-
-  veriverylonglon0
-  vezyverylonglon1
-
-)) {
-
-  $m1->set(rstr=>$key);
-  my @out=map {
-
-    my ($fn,@args)=@$ARG;
-    $fn->(@args);
-
-  } @calls;
-
-  $m2->prich();
 
 };
 

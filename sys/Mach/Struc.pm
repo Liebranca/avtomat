@@ -90,6 +90,7 @@ package Mach::Struc;
     encode_ptr
 
     to_bytes
+    get
     from_bytes
 
     set
@@ -149,6 +150,19 @@ sub sizeof($class,$key) {
   ) unless exists $tab->{$key};
 
   return $tab->{$key};
+
+};
+
+# ---   *   ---   *   ---
+# get ice is valid seg or struc
+# return seg or struc->{-seg} if so
+
+sub validate($class,$ice) {
+
+  return $ice if Mach::Seg->is_valid($ice);
+  return $ice->{-seg} if $class->is_valid($ice);
+
+  return undef;
 
 };
 
@@ -411,6 +425,20 @@ sub calc_size($class,$h,$ar) {
 };
 
 # ---   *   ---   *   ---
+# get field count for structure
+
+sub field_cnt($class,$name) {
+
+  my $tab    = $class->_cstruc_tab();
+  my $cstruc = $tab->{$name};
+
+  my $fields = $cstruc->{fields};
+
+  return int @$fields;
+
+};
+
+# ---   *   ---   *   ---
 # make copy of struc for usage
 
 sub ice($class,$name,%O) {
@@ -461,7 +489,12 @@ sub calc_segment($class,$cstruc,%O) {
 
   # make new segment if none provided
   if(! exists $O{segref}) {
-    $seg=Mach::Seg->new($cstruc->{total})
+
+    $seg=Mach::Seg->new(
+      $cstruc->{total},
+      mach=>$O{mach},
+
+    );
 
   # ^else point
   } else {
@@ -483,7 +516,7 @@ sub calc_segment($class,$cstruc,%O) {
   my @names  = array_keys($cstruc->{fields});
 
   my %stride = ();
-  my $prev   = 0;
+  my $prev   = $O{offset};
 
   my $div=[map {
 
@@ -491,8 +524,8 @@ sub calc_segment($class,$cstruc,%O) {
     my ($offset,$width)=
       @{$cstruc->{sizes}->{$ARG}};
 
-    $stride{$ARG}=$offset+$prev;
-    $prev+=$offset;
+    $stride{$ARG}=$offset;
+    $prev=$offset;
 
     # from [name => type]
     # to   [name => ptr]
@@ -555,13 +588,18 @@ sub prich($self,%O) {
     my $cpl   = int(16/$width);
     my $ice   =  $self->{$key};
 
-    my @bytes = reverse $ice->to_bytes($width*8);
+    my @bytes = ($width >= 16)
+      ? reverse $ice->to_bytes($width*8)
+      : $ice->get()
+      ;
+
     my $fmat  = xe(
 
       \@bytes,
 
       word=>$width,
-      line=>$cpl
+      line=>$cpl,
+      drev=>$width < 16,
 
     );
 

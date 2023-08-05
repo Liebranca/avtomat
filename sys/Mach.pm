@@ -24,11 +24,14 @@ package Mach;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+
+  use Arstd::Bytes;
   use Arstd::IO;
 
   use Mach::Seg;
   use Mach::Struc;
   use Mach::Reg;
+  use Mach::Opcode;
 
   use Mach::Scope;
   use Mach::Value;
@@ -48,7 +51,19 @@ package Mach;
 
     <Anima>
 
-    seg-ptr xs;
+      # IO struc ptrs
+      seg-ptr in;
+      seg-ptr out;
+
+      # ptr to exec blk
+      seg-ptr xs;
+
+      # GPR
+      reg64   ar;
+      reg64   br;
+      reg64   cr;
+      reg64   dr;
+      reg64   er;
 
   ]);
 
@@ -63,23 +78,32 @@ package Mach;
 sub new($class,%O) {
 
   # defaults
-  $O{gpr_struc} //= 'Anima';
-  $O{ret_idex}  //= 0;
+  $O{reg_struc} //= 'Anima';
+  $O{optab}     //= ['Mach::Micro'];
+
   $O{idex}      //= 0;
 
   $O{fd}        //= [*STDIN,*STDOUT,*STDERR];
 
+
+  # nit buffs for each standard
+  # file descriptor
   my $fd_buff=[
     ($NULLSTR) x int(@{$O{fd}})
 
   ];
 
-  my $frame = $class->get_frame($O{idex});
 
+  # make ice
+  my $frame = $class->get_frame($O{idex});
   my $self  = bless {
 
-    gpr      => Mach::Struc->ice($O{gpr_struc}),
-    ret_idex => "r$O{ret_idex}",
+    reg      => undef,
+    regmask  => 0,
+
+    fast_seg => [],
+
+    optab    => undef,
 
     stk      => [],
     stk_top  => 0,
@@ -92,6 +116,30 @@ sub new($class,%O) {
     frame    => $frame,
 
   },$class;
+
+
+  # nit registers
+  $self->{regmask}=bitsize(
+    Mach::Struc->field_cnt($O{reg_struc})
+
+  );
+
+  $self->{reg}=Mach::Struc->ice(
+    $O{reg_struc},
+    mach=>$self,
+
+  );
+
+
+  # nit instruction table
+  my $opframe=Mach::Opcode->new_frame(
+    -mach=>$self
+
+  );
+
+  $opframe->engrave(@{$O{optab}});
+  $self->{optab}=$opframe->regen();
+
 
   return $self;
 
@@ -116,6 +164,97 @@ sub fetch($class,$id,%O) {
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^retrieve memory segment
+
+sub segfetch($self,@at) {
+
+  my $out    = undef;
+  my $icebox = undef;
+
+  my $loc    = 0x00;
+  my $addr   = 0x00;
+
+  # register or cache
+  if(1 eq int @at) {
+
+    $addr   = $at[0];
+    $icebox = $self->{fast_seg};
+
+  # ^ regular memory
+  } else {
+
+    ($loc,$addr)=@at;
+
+    my $frame  = Mach::Seg->get_frame($loc);
+       $icebox = $frame->{-icebox};
+
+  };
+
+  return $icebox->[$addr];
+
+};
+
+# ---   *   ---   *   ---
+# ^make new segment
+
+sub segnew($self,$size,%O) {
+  return Mach::Seg->new($size,%O,mach=>$self);
+
+};
+
+# ---   *   ---   *   ---
+# write instructions to executable segment
+
+sub xs_write($self,@ins) {
+
+  my $tab=$self->{optab};
+  my $reg=$self->{reg};
+
+  my $mem=$reg->{xs}->deref();
+  my $ptr=$mem->brush();
+
+  map {$tab->write($ptr,@$ARG)} @ins;
+
+};
+
+# ---   *   ---   *   ---
+# ^read
+
+sub xs_read($self) {
+
+  my $tab=$self->{optab};
+  my $reg=$self->{reg};
+
+  my $mem=$reg->{xs}->deref();
+
+  return $tab->read($mem);
+
+};
+
+# ---   *   ---   *   ---
+# ^exec
+
+sub xs_run($self,%O) {
+
+  # defaults
+  $O{prologue} //= $NOOP;
+  $O{epilogue} //= $NOOP;
+
+  # ^wrap around instructions
+  $O{prologue}->();
+
+  # ^load ins from xseg
+  map {
+    my ($fn,@args)=@$ARG;
+    $fn->(@args);
+
+  } $self->xs_read();
+
+  $O{epilogue}->();
 
 };
 

@@ -43,7 +43,7 @@ package Mach::Seg;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -65,7 +65,10 @@ BEGIN {
 # ROM
 
   sub Frame_Vars($class) {return {
+
+    -mach     => [],
     -icebox   => [],
+
     -autoload => [qw()],
 
   }};
@@ -99,47 +102,6 @@ BEGIN {
   };
 
 # ---   *   ---   *   ---
-# TODO
-#
-# "fast" memory should be capped to N
-# bits wide, depending on how a Mach ice
-# is set up; more caches and regs would
-# mean a higher cap
-#
-# however, this requires that all subsystems
-# are working and fully integrated into core,
-# which is not (yet) the case!
-#
-# we'll have to hardcode this for now...
-
-  Readonly our $FAST_BITS => 3;
-  Readonly our $FAST_MASK => bitmask($FAST_BITS);
-
-# ---   *   ---   *   ---
-# GBL
-
-  our $Fast_Seg=[];
-
-# ---   *   ---   *   ---
-# get block at addr
-
-sub fetch($class,@at) {
-
-  # register or cache
-  return $Fast_Seg->[$at[0]]
-  if 1 eq int @at;
-
-  # ^ regular memory
-  my ($loc,$addr)=@at;
-
-  my $frame  = $class->get_frame($loc);
-  my $icebox = $frame->{-icebox};
-
-  return $icebox->[$addr];
-
-};
-
-# ---   *   ---   *   ---
 # cstruc
 
 sub new($class,$cap,%O) {
@@ -148,6 +110,7 @@ sub new($class,$cap,%O) {
   $O{pos}  //= 0;
   $O{par}  //= undef;
   $O{fast} //= undef;
+  $O{mach} //= undef;
 
   # defined if taking pointer to base
   my $s     = $O{sref};
@@ -165,7 +128,7 @@ sub new($class,$cap,%O) {
 
     # ^alloc
     $s     = \("\x{00}" x $cap);
-    $frame = $class->new_frame();
+    $frame = $class->new_frame(-mach=>$O{mach});
 
   # ^pointer to base
   } else {
@@ -191,6 +154,12 @@ sub new($class,$cap,%O) {
 
   },$class;
 
+
+  # ^catch incomplete frame
+  exists $frame->{-mach}
+  or throw_no_mach($self);
+
+  # ^register ice
   $self->assign_fast() if $O{fast};
   $self->calc_addr();
 
@@ -214,8 +183,15 @@ sub new($class,$cap,%O) {
 # reads and writes
 
 sub assign_fast($self) {
-  $self->{fast}=int @$Fast_Seg;
-  push @$Fast_Seg,$self;
+
+  my $frame = $self->{frame};
+  my $mach  = $frame->{-mach};
+
+  # add segment to reg/cache list
+  my $fast=$mach->{fast_seg};
+
+  $self->{fast}=int @$fast;
+  push @$fast,$self;
 
 };
 
@@ -224,21 +200,30 @@ sub assign_fast($self) {
 
 sub calc_addr($self) {
 
+  # catch incomplete frame
+  my $frame = $self->{frame};
+  my $mach  = $frame->{-mach};
+
   my @elems = ();
   my $slow  = 0;
 
+
   # short form avail (register or cache)
   if(exists $self->{fast}) {
-    @elems=($self->{fast} => $FAST_BITS);
+    @elems=($self->{fast} => $mach->{regmask});
 
   # ^regular memory operand, use long form
   } else {
 
     # store self
-    my $frame  = $self->{frame};
+    my $class  = ref $self;
     my $icebox = $frame->{-icebox};
+    my $loc    = $class->iof_frame($frame);
+    my $addr   = int @$icebox;
 
     push @$icebox,$self;
+
+    $self->{slow}=[$loc,$addr];
 
     # get addr
     my ($width,$value)=$self->encode_ptr();
@@ -263,6 +248,31 @@ sub calc_addr($self) {
 };
 
 # ---   *   ---   *   ---
+# warn of bad init
+
+sub throw_no_mach($self) {
+
+  my $class = ref $self;
+  my $fn    = (caller 2)[3];
+
+  my $frame = $self->{frame};
+  my $idex  = $class->iof_frame($frame);
+
+  errout(
+
+    q[[ctl]:%s <%s>;] . "\n\n"
+
+  . q[Segment frame $(:%08X) lacks a ]
+  . q[[goodtag]:%s reference],
+
+    lvl  => $AR_FATAL,
+    args => ['IRUPT',$fn,$class,$idex],
+
+  );
+
+};
+
+# ---   *   ---   *   ---
 # encodes a segment pointer
 
 sub encode_ptr($self,%O) {
@@ -273,14 +283,10 @@ sub encode_ptr($self,%O) {
   $O{fixed} //= 0;
 
   my @out    = ();
-  my $class  = ref $self;
-
   my $frame  = $self->{frame};
-  my $icebox = $frame->{-icebox};
 
   # get base indices
-  my $loc  = $class->iof_frame($frame);
-  my $addr = int @$icebox;
+  my ($loc,$addr)=@{$self->{slow}};
 
   # get widths as multiple of alignment
   my $locw  = get_ptr_w($loc,$O{alx},%O);
@@ -399,7 +405,7 @@ sub cpy($self) {
 # ---   *   ---   *   ---
 # merge segments into new
 
-sub cat($class,@segs) {
+sub cat($class,$mach,@segs) {
 
   my $total  = 0;
   my $offset = 0;
@@ -426,7 +432,7 @@ sub cat($class,@segs) {
   } @keys;
 
   # make ice
-  my $self=$class->new($total);
+  my $self=$class->new($total,mach=>$mach);
 
   # ^populate
   $self->set(str=>$bytes);
@@ -595,11 +601,11 @@ sub point($self,$offset,$width,%O) {
 
   errout(
 
-    q[Ptr exceeds segment capacity; ]
-  . q[offset '$%02X' out of bounds],
+    q[[good]:%s exceeds segment capacity;] . "\n"
+  . q[offset $(:%04X) out of bounds],
 
     lvl  => $AR_FATAL,
-    args => [$req],
+    args => ['ptr',$req],
 
   ) unless $req <= $self->{cap};
 
@@ -771,6 +777,24 @@ sub to_bytes($self,$width=undef) {
     brev    => 1,
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# ^does the same but in
+# a less confussing way
+
+sub get($self) {
+
+  my $width = min(8,$self->{cap});
+  my @steps = map {
+    $width*8
+
+  } 0..int_urdiv($self->{cap},$width)-1;
+
+  my $s=reverse ${$self->{buf}};
+
+  return bitsumex(\$s,@steps);
 
 };
 

@@ -32,7 +32,7 @@ package Mach::Reg;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -91,8 +91,10 @@ sub ptr_deref($self) {
 
   my ($loc,$addr)=$self->to_bytes(32);
 
-  my $class = ref $self->{-seg};
-  my $out   = $class->fetch($loc,$addr);
+  my $frame = $self->{-seg}->{frame};
+  my $mach  = $frame->{-mach};
+
+  my $out   = $mach->segfetch($loc,$addr);
 
   return $out;
 

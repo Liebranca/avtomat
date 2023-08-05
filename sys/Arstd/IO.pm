@@ -43,6 +43,7 @@ package Arstd::IO;
     errmute
     erropen
 
+    errme
     errout
     nyi
 
@@ -485,15 +486,8 @@ sub fmat_btrace {
 # ---   *   ---   *   ---
 # error prints
 
-sub errout($format,%O) {
+sub errme($format,%O) {
 
-  # defaults
-  $O{args}  //= [];
-  $O{calls} //= [];
-  $O{lvl}   //= $AR_WARNING;
-
-
-  # print initial message
   my $tab="$O{lvl}#:!;>\e[0m ";
 
   fstrout(
@@ -508,6 +502,23 @@ sub errout($format,%O) {
 
   );
 
+  return $tab;
+
+};
+
+# ---   *   ---   *   ---
+# ^coupled with backtrace
+# plus exit on fatal
+
+sub errout($format,%O) {
+
+  # defaults
+  $O{args}  //= [];
+  $O{calls} //= [];
+  $O{lvl}   //= $AR_WARNING;
+
+  # print initial message
+  my $tab=errme($format,%O);
 
   # exec calls
   my @calls=@{$O{calls}};

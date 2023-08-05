@@ -423,16 +423,16 @@ sub sansi_ops($sref) {
   state $short_escape_re=qr"
 
     \x{1B} \[
-    [\?\d;]{0,64} [^\w0] [\w]
+    [\?\d;]{0,64} [^\w0]{0,1} [\w]
 
   "x;
 
   # bracket not preceded by escape
-  state $brak_re=qr{
+  state $brak_re=qr"
     (?<! \x{1B})
-    ([ \[\] ])
+    ( \[ | \] )
 
-  }x;
+  "x;
 
   # ^semi/quest
   state $semi_re=qr{
@@ -446,9 +446,11 @@ sub sansi_ops($sref) {
   }x;
 
   state $allowed=qr{
-    [ \! ,\.:\^ \{\} \(\) \+\*\-\/ \\\$\@ ]+
+    [ \! ,\.:\^ \{\} \(\) \+\*\-\/ \\ \$ \@ ]+
 
   }x;
+
+    #
 
   state $nscap_re = qr{
     (?<! $short_escape_re)
@@ -458,6 +460,7 @@ sub sansi_ops($sref) {
 
   state $beg=$COLOR->{op};
   state $end=$COLOR->{off};
+
 
   $$sref=~ s[$nscap_re][$beg$1$end]sxmg;
   $$sref=~ s[$brak_re][$beg$1$end]sxmg;

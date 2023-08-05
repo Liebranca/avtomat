@@ -17,30 +17,24 @@ package Mach::Reg;
 
   use Style;
 
-  use Mach::Struc;
-  use Mach::Reg;
-
-# ---   *   ---   *   ---
-# decl
-
-struc(q[
-
-  <Anima>
-    seg-ptr xs;
-    reg64   pad;
-
-]);
+  use Mach;
 
 # ---   *   ---   *   ---
 # the bit
 
-my $anima = Mach::Struc->ice('Anima');
-my $mem   = Mach::Seg->new(0x10);
+my $mach = Mach->new();
+my $mem  = $mach->segnew(0x20);
 
-my $xs    = $anima->{xs};
+my $xs   = $mach->{reg}->{xs};
+my $ar   = $mach->{reg}->{ar};
 
 $xs->cpy($mem);
-$anima->prich();
+
+$mach->xs_write(['cpy',$ar,0xFFF]);
+$mach->xs_run();
+
+$mach->{reg}->prich();
+$mach->{reg}->{-seg}->prich();
 
 # ---   *   ---   *   ---
 1; # ret
