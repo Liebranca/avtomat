@@ -25,6 +25,8 @@ package Grammar::peso::common;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+
+  use Arstd::Re;
   use Tree::Grammar;
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -82,13 +84,13 @@ BEGIN {
 
   our $REGEX={
 
-    term  => Lang::nonscap(q[;]),
-    clist => Lang::nonscap(q[,]),
-    lcom  => Lang::eaf(q[\#]),
+    term  => re_nonscaped(q[;]),
+    clist => re_nonscaped(q[,]),
+    lcom  => re_eaf(q[\#]),
 
     nsop  => qr{::},
 
-    nterm => Lang::nonscap(
+    nterm => re_nonscaped(
 
       q[;],
 
@@ -104,7 +106,7 @@ BEGIN {
 # ---   *   ---   *   ---
 # [^{]+ | [^}]+
 
-    q[nbeg-curly] => Lang::nonscap(
+    q[nbeg-curly] => re_nonscaped(
 
       q[{],
 
@@ -117,7 +119,7 @@ BEGIN {
 
     ),
 
-    q[nend-curly] => Lang::nonscap(
+    q[nend-curly] => re_nonscaped(
 
       q[}],
 
@@ -130,7 +132,7 @@ BEGIN {
 
     ),
 
-    q[ncurly] => Lang::nonscap(
+    q[ncurly] => re_nonscaped(
 
       q[{}],
 
@@ -146,7 +148,7 @@ BEGIN {
 # ---   *   ---   *   ---
 # [^(]+ | [^)]+
 
-    q[nbeg-parens] => Lang::nonscap(
+    q[nbeg-parens] => re_nonscaped(
 
       q[(],
 
@@ -159,7 +161,7 @@ BEGIN {
 
     ),
 
-    q[nend-parens] => Lang::nonscap(
+    q[nend-parens] => re_nonscaped(
 
       q[)],
 
@@ -172,7 +174,7 @@ BEGIN {
 
     ),
 
-    q[nparens] => Lang::nonscap(
+    q[nparens] => re_nonscaped(
 
       q[()],
 
@@ -188,7 +190,7 @@ BEGIN {
 # ---   *   ---   *   ---
 # [^\[]+ | [^\]]+
 
-    q[nbeg-brak] => Lang::nonscap(
+    q[nbeg-brak] => re_nonscaped(
 
       q{[},
 
@@ -201,7 +203,7 @@ BEGIN {
 
     ),
 
-    q[nend-brak] => Lang::nonscap(
+    q[nend-brak] => re_nonscaped(
 
       q{]},
 
@@ -214,7 +216,7 @@ BEGIN {
 
     ),
 
-    q[nbrak] => Lang::nonscap(
+    q[nbrak] => re_nonscaped(
 
       q{[]},
 
@@ -230,7 +232,7 @@ BEGIN {
 # ---   *   ---   *   ---
 # captures delimiter-enclosed terms
 
-    q[sep-delim] => Lang::array_rec_delim(
+    q[sep-delim] => array_re_delim(
       [['{','}'],['(',')'],['[',']']],
       capt=>1
 

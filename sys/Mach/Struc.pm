@@ -571,6 +571,7 @@ sub prich($self,%O) {
 
   # defaults
   $O{errout}//=0;
+  $O{fields}//=[];
 
   # get ctx
   my $class  = ref $self;
@@ -580,6 +581,23 @@ sub prich($self,%O) {
 
   # detail fields
   my @keys = array_keys($self->{-div});
+  my $req  = $O{fields};
+
+  # catch non-existent keys
+  # if specific fields requested
+  if(@$req) {
+
+    @keys=map {
+
+      throw_no_field($self->{-type},$ARG)
+      if ! exists $self->{$ARG};
+
+      $ARG;
+
+    } @$req;
+
+  };
+
   my $me   = $NULLSTR;
 
   for my $key(@keys) {
@@ -614,6 +632,22 @@ sub prich($self,%O) {
     ;
 
   say {$fh} $me;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_no_field($name,$key) {
+
+  errout(
+
+    q[Struc [ctl]:%s has no field [err]:%s],
+
+    lvl  => $AR_FATAL,
+    args => [$name,$key],
+
+  );
 
 };
 

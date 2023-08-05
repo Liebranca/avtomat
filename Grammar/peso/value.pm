@@ -28,6 +28,7 @@ package Grammar::peso::value;
   use Chk;
 
   use Arstd::String;
+  use Arstd::Re;
   use Arstd::IO;
 
   use Tree::Grammar;
@@ -91,7 +92,7 @@ BEGIN {
 
     vstr  => qr{v[0-9]\.[0-9]{2}\.[0-9][ab]?},
 
-    sigil=>Lang::eiths(
+    sigil=>re_eiths(
 
       [qw(
 

@@ -24,7 +24,7 @@ package Lang::Def;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Arstd::Re;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
@@ -237,7 +237,7 @@ package Lang::Def;
 
       '('.(
 
-      Lang::eiths([qw(TODO NOTE)])
+      re_eiths([qw(TODO NOTE)])
 
       ).':?|#:\*+;>)',
 
@@ -245,7 +245,7 @@ package Lang::Def;
 
       '('.(
 
-      Lang::eiths([qw(FIX BUG)])
+      re_eiths([qw(FIX BUG)])
 
       ).':?|#:\!+;>)',
 
@@ -384,7 +384,7 @@ sub nit($class,%h) {
 # make keyword-matching pattern
 # then save hash
 
-    my $keypat=Lang::eiths(
+    my $keypat=re_eiths(
       [keys %ht],bwrap=>1
 
     );
@@ -418,7 +418,7 @@ sub nit($class,%h) {
 # ---   *   ---   *   ---
 
   } else {
-    $ref->{ops}=Lang::eiths(
+    $ref->{ops}=re_eiths(
 
       [keys %{$ref->{op_prec}}],
       escape=>1
@@ -439,7 +439,7 @@ sub nit($class,%h) {
 
     };
 
-    $ref->{asg_op}=Lang::eiths(
+    $ref->{asg_op}=re_eiths(
       \@asg_ops,escape=>1
 
     );
@@ -542,12 +542,12 @@ sub nit($class,%h) {
 
 # ---   *   ---   *   ---
 
-  $ref->{ode}=Lang::eiths(\@odes,escape=>1);
-  $ref->{cde}=Lang::eiths(\@cdes,escape=>1);
+  $ref->{ode}=re_eiths(\@odes,escape=>1);
+  $ref->{cde}=re_eiths(\@cdes,escape=>1);
 
   my @del_ops=(@odes,@cdes);
 
-  $ref->{del_ops}=Lang::eiths(
+  $ref->{del_ops}=re_eiths(
     \@del_ops,escape=>1
 
   );
@@ -559,12 +559,12 @@ sub nit($class,%h) {
 
   );
 
-  $ref->{ndel_ops}=Lang::eiths(
+  $ref->{ndel_ops}=re_eiths(
     \@ops_plus_seps,escape=>1
 
   );
 
-  $ref->{sep_ops}=Lang::eiths(
+  $ref->{sep_ops}=re_eiths(
     \@seps,escape=>1
 
   );
@@ -589,7 +589,7 @@ sub nit($class,%h) {
 
 # ---   *   ---   *   ---
 
-  $ref->{nums_re}=Lang::eiths(
+  $ref->{nums_re}=re_eiths(
     [keys %{$ref->{nums}}]
 
   );

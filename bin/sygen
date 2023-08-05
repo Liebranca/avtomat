@@ -322,10 +322,7 @@ sub prprops($def,$key) {
 
       my @slice=(@keys[$x..$top]);
       for my $re(@slice) {
-        if(is_qre($re)) {
-          Lang::qre2re(\$re);
-
-        };
+        Lang::qre2re(\$re);
 
       };
 

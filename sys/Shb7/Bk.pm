@@ -26,7 +26,9 @@ package Shb7::Bk;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+
   use Arstd::Array;
+  use Arstd::Re;
 
   use Shb7;
   use Shb7::Bfile;
@@ -87,8 +89,8 @@ sub push_src($self,$fpath) {
 sub depstr_to_array($self,$depstr) {
 
   # make list
-  my @out=Lang::ws_split(
-    $COMMA_RE,$depstr
+  my @out=Lang::re_sursplit(
+    $COMMA_RE,$depstr,sur=>'\s*'
 
   );
 

@@ -12,10 +12,14 @@
 
   use Arstd::String;
   use Arstd::Array;
-
+  use Arstd::Re;
   use Arstd::IO;
 
   use Fmat;
+
+# ---   *   ---   *   ---
+
+
 
 # ---   *   ---   *   ---
 # test A0
@@ -83,9 +87,9 @@
 #};
 
 # ---   *   ---   *   ---
-
-my $monkas='wololo_%i 'x32;
-box_fstrout($monkas,args=>[0..31]);
+#
+#my $monkas='wololo_%i 'x32;
+#box_fstrout($monkas,args=>[0..31]);
 
 # ---   *   ---   *   ---
 1; # ret

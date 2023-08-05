@@ -60,6 +60,7 @@ my $FILE_LIST=[
   '/sys/Arstd/String.pm',
   '/sys/Arstd/Array.pm',
   '/sys/Arstd/Hash.pm',
+  '/sys/Arstd/Re.pm',
   '/sys/Arstd/Path.pm',
   '/sys/Arstd/IO.pm',
   '/sys/Arstd/PM.pm',

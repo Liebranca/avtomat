@@ -13,6 +13,9 @@ package Lang::Raku;
 
   use Readonly;
 
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use Arstd::Re;
+
   use lib $ENV{'ARPATH'}.'/lib/';
   use Lang;
 
@@ -102,10 +105,7 @@ Lang::Raku->nit(
 
   drfc=>'(::|->|.)',
 
-  lcom=>Lang::eaf(Lang::lkback(
-    q{$%&@\'"},q{\#}
-
-  )),
+  lcom=>re_eaf(re_lbeg('#'),escape=>0),
 
   names=>q{\b[_A-Za-z][_A-Za-z0-9\-\']*\b},
   names_u=>q{\b[_A-Z][_A-Z0-9\-\']*\b},

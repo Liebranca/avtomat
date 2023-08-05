@@ -28,6 +28,7 @@ package Mach::Scope;
   use Chk;
 
   use Arstd::IO;
+  use Arstd::Re;
 
   use Tree;
   use Tree::Grammar;
@@ -322,7 +323,7 @@ sub cdef_recache($self) {
 
   my @names  = $branch->branch_values();
 
-  my $o      = Lang::eiths(\@names,bwrap=>1);
+  my $o      = re_eiths(\@names,bwrap=>1);
 
   if(! $self->cdef_has('~:recache')) {
     $self->cdef_decl($NO_MATCH,'~:recache');

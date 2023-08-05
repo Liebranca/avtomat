@@ -29,6 +29,7 @@ package Grammar::C;
   use Fmat;
 
   use Arstd::Array;
+  use Arstd::Re;
   use Arstd::IO;
 
   use Tree::Grammar;
@@ -56,8 +57,8 @@ BEGIN {
 
   $REGEX={
 
-    term  => Lang::nonscap(q[;]),
-    nterm => Lang::nonscap(
+    term  => re_nonscaped(q[;]),
+    nterm => re_nonscaped(
 
       q[;],
 
@@ -67,13 +68,13 @@ BEGIN {
 
     ),
 
-    clist => Lang::nonscap(q[,]),
+    clist => re_nonscaped(q[,]),
     line  => qr{(\\ \n | [^\n])+}x,
 
-    nline => Lang::nonscap("\n"),
-    lcom  => Lang::eaf(q[\/\/]),
+    nline => re_nonscaped("\n"),
+    lcom  => re_eaf(q[\/\/]),
 
-    q[preproc-key]=>Lang::eiths(
+    q[preproc-key]=>re_eiths(
 
       [qw(
 
@@ -88,7 +89,7 @@ BEGIN {
 
 # ---   *   ---   *   ---
 
-    prim=>Lang::eiths(
+    prim=>re_eiths(
 
       [qw(
 
@@ -115,7 +116,7 @@ BEGIN {
 
 # ---   *   ---   *   ---
 
-    spec=>Lang::eiths(
+    spec=>re_eiths(
 
       [qw(
 

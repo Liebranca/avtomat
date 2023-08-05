@@ -30,6 +30,7 @@ package Grammar::peso;
 
   use Arstd::Array;
   use Arstd::String;
+  use Arstd::Re;
   use Arstd::IO;
   use Arstd::PM;
 
@@ -123,7 +124,7 @@ BEGIN {
     %{$PE_RE->get_retab()},
 
     # ^new
-    q[hier-type]=>Lang::eiths(
+    q[hier-type]=>re_eiths(
 
       [qw(reg rom clan proc)],
 
@@ -132,7 +133,7 @@ BEGIN {
 
     ),
 
-    q[io-type]=>Lang::eiths(
+    q[io-type]=>re_eiths(
 
       [qw(io in out)],
 
@@ -141,7 +142,7 @@ BEGIN {
 
     ),
 
-    q[wed-type]=>Lang::eiths(
+    q[wed-type]=>re_eiths(
 
       [qw(wed unwed)],
 
@@ -150,7 +151,7 @@ BEGIN {
 
     ),
 
-    width=>Lang::eiths(
+    width=>re_eiths(
 
       [qw(
 
@@ -166,7 +167,7 @@ BEGIN {
 
     ),
 
-    spec=>Lang::eiths(
+    spec=>re_eiths(
 
       [qw(ptr fptr str buf tab)],
 
@@ -178,7 +179,7 @@ BEGIN {
 # ---   *   ---   *   ---
 # meta
 
-    q[sdef-name] => Lang::eiths(
+    q[sdef-name] => re_eiths(
 
       [keys %$PE_SDEFS],
 
@@ -190,16 +191,16 @@ BEGIN {
 # ---   *   ---   *   ---
 # switch cases
 
-    q[on-key]  => Lang::insens('on',mkre=>1),
-    q[or-key]  => Lang::insens('or',mkre=>1),
-    q[off-key] => Lang::insens('off',mkre=>1),
+    q[on-key]  => re_insens('on',mkre=>1),
+    q[or-key]  => re_insens('or',mkre=>1),
+    q[off-key] => re_insens('off',mkre=>1),
 
 # ---   *   ---   *   ---
 # compile-time values
 
-    q[def-key]   => Lang::insens('def',mkre=>1),
-    q[undef-key] => Lang::insens('undef',mkre=>1),
-    q[redef-key] => Lang::insens('redef',mkre=>1),
+    q[def-key]   => re_insens('def',mkre=>1),
+    q[undef-key] => re_insens('undef',mkre=>1),
+    q[redef-key] => re_insens('redef',mkre=>1),
 
   };
 

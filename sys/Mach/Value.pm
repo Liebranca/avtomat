@@ -27,6 +27,7 @@ package Mach::Value;
   use Style;
   use Chk;
 
+  use Arstd::Re;
   use Arstd::IO;
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -181,7 +182,7 @@ sub new($class,$type,$id,%O) {
 sub type_pop($self,@types) {
 
   # make pattern for removed types
-  my $re=Lang::eiths(\@types,bwrap=>1);
+  my $re=re_eiths(\@types,bwrap=>1);
 
   # mask non-popped types
   my @full = ($self->{type},@{$self->{spec}});

@@ -33,7 +33,7 @@ $xs->cpy($mem);
 $mach->xs_write(['cpy',$ar,0xFFF]);
 $mach->xs_run();
 
-$mach->{reg}->prich();
+$mach->{reg}->prich(fields=>['ax']);
 $mach->{reg}->{-seg}->prich();
 
 # ---   *   ---   *   ---

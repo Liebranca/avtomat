@@ -30,6 +30,7 @@ package Grammar::peso::ops;
 
   use Arstd::Array;
   use Arstd::String;
+  use Arstd::Re;
   use Arstd::IO;
   use Arstd::PM;
 
@@ -327,7 +328,7 @@ sub op_walk_bak($lhs,$rhs) {
 
   our $REGEX={
 
-    ops=>Lang::eiths(
+    ops=>re_eiths(
 
       $OP_KEYS,
       escape=>1

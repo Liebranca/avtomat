@@ -23,6 +23,7 @@ package Cli;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Arstd::Re;
   use Arstd::IO;
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -104,15 +105,15 @@ sub nit($class,@args) {
 
   my $cli=bless {
 
-    name=>(caller)[1],
+    name  => (caller)[1],
 
-    order=>\@order,
-    optab=>\%optab,
-    alias=>\%alias,
+    order => \@order,
+    optab => \%optab,
+    alias => \%alias,
 
-    re=>Lang::eiths([keys %alias]),
+    re    => re_eiths([keys %alias]),
 
-    argv=>[],
+    argv  => [],
 
   },$class;
 

@@ -25,8 +25,8 @@ package Lang::peso;
 
   use Style;
 
-  use Arstd;
   use Arstd::Array;
+  use Arstd::Re;
   use Arstd::IO;
 
   use Type;
@@ -51,7 +51,7 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
 # ---   *   ---   *   ---
 # builtins and functions, group A
 
-  Readonly my $BUILTIN=>[Lang::eiths(
+  Readonly my $BUILTIN=>[re_eiths(
 
     [qw(
 
@@ -77,7 +77,7 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
 # ---   *   ---   *   ---
 # reserved names
 
-  Readonly my $RESNAMES=>[Lang::eiths(
+  Readonly my $RESNAMES=>[re_eiths(
 
     [qw(
 
@@ -91,7 +91,7 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
 
   )];
 
-  Readonly my $DIRECTIVE=>[Lang::eiths(
+  Readonly my $DIRECTIVE=>[re_eiths(
 
     [qw(
 
@@ -112,7 +112,7 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
 
 # ---   *   ---   *   ---
 
-  Readonly my $FCTL=>[Lang::eiths(
+  Readonly my $FCTL=>[re_eiths(
 
     [qw(
 
@@ -131,7 +131,7 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
 
 # ---   *   ---   *   ---
 
-  Readonly my $INTRINSIC=>[Lang::eiths(
+  Readonly my $INTRINSIC=>[re_eiths(
 
     [qw(
 
@@ -150,7 +150,7 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
 
   )];
 
-  Readonly my $SPECIFIER=>[Lang::eiths(
+  Readonly my $SPECIFIER=>[re_eiths(
 
     [qw(
 
@@ -359,7 +359,7 @@ Lang::peso->nit(
 
 # ---   *   ---   *   ---
 
-  fn_key=>Lang::insens('proc'),
+  fn_key=>re_insens('proc'),
 
   fn_decl=>q{
 

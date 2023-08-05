@@ -1,5 +1,15 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
+# (probably) DEPRECATED PACKAGE
+# Common regex operations moved
+# to Arstd::Re
+#
+# This file is left as it is
+# to avoid breaking other legacy
+# packages; it will be (eventually)
+# either retired or repurposed
+#
+# ---   *   ---   *   ---
 # LANG
 # Syntax wrangler
 #
@@ -9,9 +19,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 #
+# ---   *   ---   *   ---
 # NOTE:
+#
 # Most of these regexes were taken from nanorc files!
 # all I did was *manually* collect them to make this
 # syntax file generator
@@ -45,6 +56,7 @@ package Lang;
 
   use Style;
   use Arstd::Array;
+  use Arstd::Re;
 
   use Chk;
 
@@ -57,7 +69,7 @@ package Lang;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v1.02.5;
+  our $VERSION=v1.02.6;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -69,47 +81,8 @@ package Lang;
   Readonly our $OP_A=>0x08;
 
 # ---   *   ---   *   ---
-# value type flags
-
-  Readonly my $VT_KEY=>0x01;
-  Readonly my $VT_OPR=>0x02;
-  Readonly my $VT_VAL=>0x04;
-  Readonly my $VT_XPR=>0x08;
-
-  Readonly my $VT_TYPE=>0x0100|$VT_KEY;
-  Readonly my $VT_SPEC=>0x0200|$VT_KEY;
-  Readonly my $VT_SBL=>0x0400|$VT_KEY;
-
-  Readonly my $VT_ITRI=>0x0800|$VT_KEY;
-  Readonly my $VT_FCTL=>0x1000|$VT_KEY;
-  Readonly my $VT_DIR=>0x1000|$VT_KEY;
-
-  Readonly my $VT_SEP=>0x0100|$VT_OPR;
-  Readonly my $VT_DEL=>0x0200|$VT_OPR;
-  Readonly my $VT_ARI=>0x0400|$VT_OPR;
-
-  Readonly my $VT_BARE=>0x0100|$VT_VAL;
-  Readonly my $VT_PTR=>0x0200|$VT_VAL;
-
-  Readonly my $VT_SBL_DECL=>0x0100|$VT_XPR;
-  Readonly my $VT_PTR_DECL=>0x0200|$VT_XPR;
-  Readonly my $VT_REG_DECL=>0x0400|$VT_XPR;
-  Readonly my $VT_CLAN_DECL=>0x0800|$VT_XPR;
-
-  Readonly my $VT_SBL_DEF=>0x1000|$VT_XPR;
-  Readonly my $VT_PTR_DEF=>0x2000|$VT_XPR;
-  Readonly my $VT_REG_DEF=>0x4000|$VT_XPR;
-  Readonly my $VT_CLAN_DEF=>0x8000|$VT_XPR;
-
-# ---   *   ---   *   ---
-
-  Readonly my $RM_QUOTES_RE=>qr{^["']+|["']+$}x;
-
-# ---   *   ---   *   ---
-# regex tools
-
-# in:pattern
 # escapes [*]: in pattern
+
 sub lescap($s) {
 
   for my $c(split '','[*]:') {
@@ -119,152 +92,21 @@ sub lescap($s) {
 
 };
 
+# ---   *   ---   *   ---
+# removes double and single quotes
+# at end and beggining of string
+
 sub rmquotes($s) {
 
-  $s=~ s[$RM_QUOTES_RE][]sxmg;
+  state $re=qr{^["']+|["']+$}x;
+
+  $s=~ s[$re][]sxmg;
   return $s;
-
-};
-
-# ---   *   ---   *   ---
-# in: pattern,string
-#
-#   splits string at given pattern,
-#   eliminating whitespace
-#
-# gives list of split'd tokens
-
-sub ws_split($pat,$s) {
-  if(!defined $s) {croak "Undef string"};
-  return (split m/\s*${pat}\s*/,$s);
-
-};
-
-sub ws_split_re($c) {
-  return qr{\s*$c\s*};
-
-};
-
-# ---   *   ---   *   ---
-# in:pattern
-# escapes .^$([{}])+*?/|\: in pattern
-
-sub rescap($s) {
-
-  $s=~ s/\\/\\\\/g;
-  for my $c(split $NULLSTR,q[.^$([{}])+-*?/|]) {
-    $s=~ s/\Q${ c }/\\${ c }/g;
-
-  };
-
-  return $s;
-
-};
-
-# ---   *   ---   *   ---
-# ^bulk
-
-sub array_rescap($ar) {
-  return map {rescap($ARG)} @$ar;
-
-};
-
-# ---   *   ---   *   ---
-# lyeb@IBN-3DILA on Wed Feb 23 10:58:41 AM -03 2022:
-
-# i apologize for writting this monster,
-# but it had to be done
-
-# it matches *** \[end]*** when [beg]*** \[end]*** [end]
-# but it does NOT match when [beg]*** \[end]***
-
-# in: delimiter end
-# returns correct \end support
-
-sub UBERSCAP($o_end) {
-
-  my $end="\\\\".$o_end;
-
-  my @chars=split '',$end;
-  my $s=rescap( shift @chars );
-  my $re="[^$s$o_end]";
-
-  my $i=0;for my $c(@chars) {
-
-    $c=($i<1) ? rescap($c.$o_end) : rescap($c);
-    $re.='|'.$s."[^$c]";$i++;
-
-  };return "$end|$re";
-
-};
-
-# ---   *   ---   *   ---
-# in:substr to exclude,allow newlines,do_uber
-# shame on posix regexes, no clean way to do this
-
-sub neg_lkahead(
-
-  $string,
-  $ml,
-
-  $do_uber=0
-
-) {
-
-  $ml=(!$ml) ? '' : '\\x0D\\x0A|';
-  my @chars=split '',$string;
-
-  my $s=rescap( shift @chars );
-  my $re="$ml"."[^$s\\\\]";
-
-# ---   *   ---   *   ---
-
-  for my $c(@chars) {
-
-    $c=rescap($c);
-    $re.='|'.$s."[^$c\\\\]";
-    $s.=$c;
-
-  };
-
-# ---   *   ---   *   ---
-
-  if($do_uber) {
-    $re.='|'.UBERSCAP( rescap($string) );
-
-  };
-
-  return $re;
-
-};
-
-# ---   *   ---   *   ---
-
-sub lkback($pat,$end) {
-
-  $pat=rescap($pat);
-
-  return ('('.
-
-    '\s'.$end.
-
-    # well, crap
-    #'|[^'.$pat.']'.$end.
-    '|^'.$end.
-
-  ')');
 
 };
 
 # ---   *   ---   *   ---
 # delimiter patterns
-
-# in: beg,end,is_multiline
-
-# matches:
-#   > beg
-#   > unnested grab ([^end]|\end)*
-#   > end
 
 sub delim($beg,$end=$NULLSTR,$ml=0) {
 
@@ -273,10 +115,17 @@ sub delim($beg,$end=$NULLSTR,$ml=0) {
 
   };
 
-  my $allow=( neg_lkahead($end,$ml,1) );
+  my $allow=re_neg_lkahead(
 
-  $beg=rescap($beg);
-  $end=rescap($end);
+    $end,
+
+    multiline=>$ml,
+    uberscape=>1,
+
+  );
+
+  $beg=re_opscape($beg);
+  $end=re_opscape($end);
 
   my $out="($beg(($allow)*)$end)";
   return qr{$out}x;
@@ -284,13 +133,7 @@ sub delim($beg,$end=$NULLSTR,$ml=0) {
 };
 
 # ---   *   ---   *   ---
-
-# in: beg,end,is_multiline
-
-# matches:
-#   > ^[^beg]*beg
-#   > nested grab ([^end]|end)*
-#   > end[^end]*$
+# ^multiline
 
 sub delim2($beg,$end=$NULLSTR,$ml=0) {
 
@@ -299,12 +142,17 @@ sub delim2($beg,$end=$NULLSTR,$ml=0) {
 
   };
 
-  my $allow=( neg_lkahead($end,$ml,0) );
+  my $allow=re_neg_lkahead(
 
-  $beg=rescap($beg);
-  $end=rescap($end);
+    $end,
 
-# ---   *   ---   *   ---
+    multiline=>$ml,
+    uberscape=>0,
+
+  );
+
+  $beg=re_opscape($beg);
+  $end=re_opscape($end);
 
   return qr{
 
@@ -321,145 +169,13 @@ sub delim2($beg,$end=$NULLSTR,$ml=0) {
 };
 
 # ---   *   ---   *   ---
-# ^similar, done with recursive pattern
-# fairly more accurate
-
-sub rec_delim($beg,$end,%O) {
-
-  # defaults
-  $O{mkre} //= 0;
-
-  # escape input
-  $beg="\Q$beg";
-  $end="\Q$end";
-
-  # compose pattern
-  my $out=
-    "(?: $beg"
-  .   "(?: [^$beg$end]+ | (?R))*"
-
-  . "$end)"
-  ;
-
-  return ($O{mkre}) ? qr{$out}x : $out;
-
-};
-
-# ---   *   ---   *   ---
-# ^generate compound pattern
-
-sub array_rec_delim($ar,%O) {
-
-  return qre_or([map {
-    rec_delim(@$ARG)
-
-  } @$ar],%O);
-
-};
-
-# ---   *   ---   *   ---
-# or patterns together
-
-sub qre_or($ar,%O) {
-
-  # defaults
-  $O{capt} //= 0;
-
-  my $capt=(! $O{capt})
-    ? q[?:]
-    : $NULLSTR
-    ;
-
-  my $out = "($capt".(
-    join '|',@$ar
-
-  ).')';
-
-  return qr{$out}x;
-
-};
-
-# ---   *   ---   *   ---
-# makes re to match elements in ar
-
-sub eiths($ar,%O) {
-
-  # defaults
-  $O{escape} //= 0;
-  $O{bwrap}  //= 0;
-  $O{insens} //= 0;
-  $O{mod}    //= $NULLSTR;
-
-  # make copy
-  my @ar=@$ar;
-
-  # force longest pattern first
-  array_lsort(\@ar);
-
-  # conditional processing
-  @ar=array_insens(\@ar) if $O{insens};
-  @ar=array_rescap(\@ar) if $O{escape};
-
-  # ()
-  my $beg   = '(';
-  my $end   = ')';
-
-  # ^or \b()\b
-  if($O{bwrap}) {
-    $beg = q[\b].$beg;
-    $end = $end.q[\b];
-
-  };
-
-  # give alternation re
-  my $out=join q[|],@ar;
-  return qr{$beg$out$O{mod}$end}x;
-
-};
-
-# ---   *   ---   *   ---
-
-# in: pattern,line_beg,disable_escapes
-# matches:
-#   > pattern
-#   > grab everything after pattern until newline
-#   > newline
-
-sub eaf($pat,%O) {
-
-  $O{escape} //= 0;
-  $O{lbeg}   //= 0;
-
-  $pat=rescap($pat) if $O{escape};
-
-  if($O{lbeg} > 0) {
-    $pat='^'.$pat;
-
-  } elsif($O{lbeg} < 0) {
-    $pat='^[\s|\n]*'.$pat;
-
-  };
-
-  return qr{(
-
-    $pat
-
-    .*
-
-    (\x0D?\x0A|$)
-
-  )}x;
-
-};
-
-# ---   *   ---   *   ---
 # halfway conversion of compiled
 # perl regex to unix regex
 
-sub qre2re($ref) {
-  $$ref=~ s/\(\?\^u(?:[xsmg]*)://;
-  $$ref=~ s/\(\?:/(/;
-  $$ref=~ s/\)$//;
+sub qre2re($sref) {
+  $$sref=~ s[\(\?\^u(?:[xsmg]*):][]sxmg;
+  $$sref=~ s[\(\?:][(]sxmg;
+  $$sref=~ s[\)$][];
 
 };
 
@@ -559,64 +275,6 @@ sub pebinnc($x) {
 sub nxtok($s,$cutat) {
   $s=~ s/(${cutat}).*//sg;
   return $s;
-
-};
-
-# ---   *   ---   *   ---
-
-sub insens($s,%O) {
-
-  # defaults
-  $O{mkre}//=0;
-
-  my $out=$NULLSTR;
-
-  for my $c(split $NULLSTR,$s) {
-    $out.=q{[}.(lc $c).(uc $c).q{]}
-
-  };
-
-  $out=($O{mkre})
-    ? qr{($out)}x
-    : "($out)"
-    ;
-
-  return $out;
-
-};
-
-sub array_insens($ar) {
-  return map {insens($ARG)} @$ar;
-
-};
-
-# ---   *   ---   *   ---
-
-sub nonscap($s,%O) {
-
-  #defaults
-  $O{iv}    //= 0;
-  $O{mod}   //= $NULLSTR;
-  $O{sigws} //= 0;
-  $O{kls}   //= 0;
-  $O{-x}    //= $NULLSTR;
-
-  my $c=($O{sigws})
-    ? "$s$O{-x}"
-    : "$s$O{-x}\\s"
-    ;
-
-  $s=($O{kls})
-    ? "[$s]"
-    : $s
-    ;
-
-  my $out=($O{iv})
-    ? "((\\\\[^$c]) | [^$c\\\\] | (\\\\ $s))"
-    : "((?!< \\\\ ) $s)"
-    ;
-
-  return qr~$out$O{mod}~x;
 
 };
 

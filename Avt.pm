@@ -320,20 +320,26 @@ sub scan() {
 # ---   *   ---   *   ---
 # iter provided names
 
+  state $split_mod=re_sursplit_new(
+    '(?: -x | --excluded)','\s+'
+
+  );
+
   my @ar=@{$Cache{_scan}};
   while(@ar) {
 
-    my ($mod,$excluded)=split
-      m[\s+(?: -x | --excluded)\s+]x,
-      (shift @ar)
-
-    ;
+    my ($mod,$excluded)=
+      split $split_mod,(shift @ar);
 
     $excluded//=$NULLSTR;
-    $excluded=[
-      Lang::ws_split($COMMA_RE,$excluded)
+    $excluded=[re_sursplit(
 
-    ];
+      $COMMA_RE,
+      $excluded,
+
+      sur=>'\s*'
+
+    )];
 
 # ---   *   ---   *   ---
 # read module tree
@@ -373,8 +379,14 @@ sub get_config_build($M,$config) {
 
   if(length $config->{build}) {
 
-    ($lmode,$mkwat)=
-      Lang::ws_split($COLON_RE,$config->{build});
+    ($lmode,$mkwat)=re_sursplit(
+
+      $COLON_RE,
+      $config->{build},
+
+      sur=>'\s*',
+
+    );
 
   };
 
@@ -508,7 +520,7 @@ sub invert_generator($dst) {
 
 sub set_config(%C) {
 
-  state $sep_re=Lang::ws_split_re(q{,});
+  state $sep_re=re_sursplit_new(q{,},'\s*');
   state $list_to_hash=qr{(?:
 
     lcpy

@@ -29,6 +29,7 @@ package Grammar::peso::re;
 
   use Arstd::Array;
   use Arstd::String;
+  use Arstd::Re;
   use Arstd::IO;
   use Arstd::PM;
 
@@ -94,7 +95,7 @@ BEGIN {
 
     %{$PE_COMMON->get_retab()},
 
-    q[re-type]=>Lang::eiths(
+    q[re-type]=>re_eiths(
 
       [qw(re)],
 
@@ -358,7 +359,7 @@ sub re_flags_qwor($self,$sref,$flags) {
     my @ar=split $SPACE_RE,$$sref;
     array_filter(\@ar);
 
-    $$sref=Lang::eiths(
+    $$sref=re_eiths(
 
       \@ar,
 

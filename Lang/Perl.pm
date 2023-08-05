@@ -13,6 +13,9 @@ package Lang::Perl;
 
   use Readonly;
 
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use Arstd::Re;
+
   use lib $ENV{'ARPATH'}.'/lib/';
   use Lang;
 
@@ -94,10 +97,7 @@ Lang::Perl->nit(
 
   drfc=>'(::|->)',
 
-  lcom=>Lang::eaf(Lang::lkback(
-    q{$%&@\'"},q{\#}
-
-  )),
+  lcom=>re_eaf(re_lbeg('#'),escape=>0),
 
 # ---   *   ---   *   ---
 

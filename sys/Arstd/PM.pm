@@ -26,6 +26,7 @@ package Arstd::PM;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Arstd::Re;
   use Arstd::IO;
 
   use lib $ENV{'ARPATH'}.'/lib/';
@@ -110,7 +111,7 @@ sub subsof_filter_nit($classes,$O) {
 
     } array_depsof(@$classes);
 
-    my $re=Lang::eiths(\@deps,bwrap=>1);
+    my $re=re_eiths(\@deps,bwrap=>1);
     $O->{modex}=qr{^$re$};
 
   };
