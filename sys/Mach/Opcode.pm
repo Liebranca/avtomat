@@ -31,6 +31,8 @@ package Mach::Opcode;
 
   use Arstd::Bytes;
   use Arstd::Int;
+  use Arstd::Re;
+
   use Arstd::IO;
   use Arstd::PM;
 
@@ -646,7 +648,7 @@ sub regen($class,$frame) {
   my $opmask=bitmask($frame->{-opbits});
 
   # run through loaded descriptors
-  map {
+  my @keys=map {
 
     # pair [key  => base]
     # and  [base => info]
@@ -663,6 +665,8 @@ sub regen($class,$frame) {
 
     };
 
+    $ARG->{key};
+
   } @{$frame->{-cstruc}};
 
   # make ice
@@ -674,6 +678,20 @@ sub regen($class,$frame) {
     opbits => $frame->{-opbits},
     opsize => $frame->{-opsize},
     opmask => $opmask,
+
+    # make pattern to detect
+    # valid instructions
+    re     => re_eiths(
+
+      \@keys,
+
+      bwrap   => 1,
+      opscape => 1,
+
+      insens  => -1,
+      capt    => 'ins',
+
+    ),
 
     frame  => $frame,
 

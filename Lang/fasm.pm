@@ -15,8 +15,9 @@ package Lang::fasm;
   use Readonly;
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
+
   use Style;
-  use Arstd;
+  use Arstd::String;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
   use Shwl;
@@ -47,7 +48,7 @@ package Lang::fasm;
 BEGIN {
 
 my $NUMS={%{$Lang::Def::DEFAULTS{nums}}};
-$NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
+$NUMS->{'(\$[0-9A-F]+)'}=\&hstoi;
 
 Lang::fasm->nit(
 

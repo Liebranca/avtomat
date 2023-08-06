@@ -62,12 +62,14 @@ package Arstd::Re;
     re_neg_lkahead
     re_lbeg
 
+    qre2re
+
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;
+  our $VERSION=v0.00.3;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -76,15 +78,22 @@ package Arstd::Re;
 sub alt($ar,%O) {
 
   # defaults
-  $O{capt}  //= 0;
-  $O{bwrap} //= 0;
+  $O{capt}   //= 0;
+  $O{bwrap}  //= 0;
+  $O{insens} //= 0;
 
+  # optional proc
+  if($O{insens} > 0) {
+    @$ar=array_insens($ar);
+    $O{insens}=0;
+
+  };
 
   # make alternation
   my $out=join '|',@$ar;
 
   # ^run optional procs
-  $out=capt($out,$O{capt});
+  $out=capt($out,$O{capt},insens=>$O{insens});
   $out=bwrap($out) if $O{bwrap};
 
 
@@ -167,7 +176,10 @@ sub array_opscape($ar) {
 # ---   *   ---   *   ---
 # makes capturing or non-capturing group
 
-sub capt($pat,$name=0) {
+sub capt($pat,$name=0,%O) {
+
+  # defaults
+  $O{insens} //= 0;
 
   my $out=$NULLSTR;
   my $beg='(';
@@ -183,9 +195,22 @@ sub capt($pat,$name=0) {
 
   };
 
+  # case-insenstive perl re
+  if($O{insens} < 0) {
+    $out=qr{$beg$pat$end}xi;
+
+  # ^posix re
+  } elsif($O{insens} > 0) {
+    $pat=insens($pat);
+    $out=qr{$beg$pat$end}x;
+
+  } else {
+    $out=qr{$beg$pat$end}x;
+
+  };
 
   # ^give (pattern)
-  return qr{$beg$pat$end}x;
+  return $out;
 
 };
 
@@ -263,18 +288,18 @@ sub eiths($ar,%O) {
   # force longest pattern first
   array_lsort(\@ar);
 
-  # conditional processing
-  @ar=array_insens(\@ar) if $O{insens};
+  # conditionally escape operators
   @ar=array_opscape(\@ar) if $O{opscape};
-
 
   # ^compose re
   my $out=alt(
 
     \@ar,
 
-    capt  => $O{capt},
-    bwrap => $O{bwrap},
+    insens => $O{insens},
+
+    capt   => $O{capt},
+    bwrap  => $O{bwrap},
 
   ) . $O{mod};
 
@@ -609,6 +634,45 @@ sub sursplit($pat,$s,%O) {
 
 sub sursplit_new($pat,$sur) {
   return qr{$sur$pat$sur}x;
+
+};
+
+# ---   *   ---   *   ---
+# halfway conversion of compiled
+# perl regex to posix regex
+#
+# note this is only textual subst;
+# posix re is *still* posix re
+
+sub qre2re($sref) {
+
+  state $body_re=qr{
+    (?<body> [^\)]+ | (?R))*
+
+  }x;
+
+  state $inner_re=qr{
+
+    \(\? (?: <\w+> | [:<=\!]+)
+
+    $body_re
+
+    \)
+
+  }x;
+
+  state $outer_re=qr{
+
+    \(\?\^u (?:[xsmg]*) :
+
+    $body_re
+
+    \)
+
+  }x;
+
+  while($$sref=~ s[$outer_re][($+{body})]sxmg) {};
+  while($$sref=~ s[$inner_re][($+{body})]sxmg) {};
 
 };
 

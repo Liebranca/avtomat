@@ -138,9 +138,9 @@ sub rdnum($self,$branch) {
 
   state %converter=(
 
-    hexn=>\&Lang::pehexnc,
-    octn=>\&Lang::peoctnc,
-    binn=>\&Lang::pebinnc,
+    hexn=>\&hstoi,
+    octn=>\&ostoi,
+    binn=>\&bstoi,
 
   );
 

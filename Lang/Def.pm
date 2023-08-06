@@ -24,7 +24,9 @@ package Lang::Def;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+
   use Arstd::Re;
+  use Arstd::String;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
@@ -210,19 +212,19 @@ package Lang::Def;
       '(((\b0+x[0-9A-F]+[L]*)\b)|'.
       '(((\b0+x[0-9A-F]+\.)+[0-9A-F]+[L]*)\b)'.
 
-      ')\b'=>\&Lang::pehexnc,
+      ')\b'=>\&hstoi,
 
       # bin
       '(((\b0+b[0-1]+[L]*)\b)|'.
       '(((\b0+b[0-1]*\.)+[0-1]+[L]*)\b)'.
 
-      ')\b'=>\&Lang::pebinnc,
+      ')\b'=>\&bstoi,
 
       # octal
       '(((\b0+0[0-7]+[L]*)\b)|'.
       '(((\b0+0[0-7]+\.)+[0-7]+[L]*)\b)'.
 
-      ')\b'=>\&Lang::peoctnc,
+      ')\b'=>\&ostoi,
 
       # decimal
       '((\b[0-9]*|\.)+[0-9]+f?)\b'

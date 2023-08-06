@@ -32,6 +32,7 @@ package Avt;
 
   use Arstd::String;
   use Arstd::Hash;
+  use Arstd::Re;
   use Arstd::IO;
 
   use Arstd::WLog;

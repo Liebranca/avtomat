@@ -92,6 +92,8 @@ package Mach::Value;
 
   };
 
+  Readonly our $SEG_ATTRS=>{};
+
 # ---   *   ---   *   ---
 # GBL
 
@@ -103,6 +105,8 @@ package Mach::Value;
     voke => $VOKE_ATTRS,
     ops  => $OPS_ATTRS,
     iter => $ITER_ATTRS,
+
+    seg  => $SEG_ATTRS,
 
   };
 

@@ -26,6 +26,8 @@ package Mach;
   use Style;
 
   use Arstd::Bytes;
+  use Arstd::String;
+  use Arstd::Re;
   use Arstd::IO;
 
   use Mach::Seg;
@@ -129,6 +131,27 @@ sub new($class,%O) {
     mach=>$self,
 
   );
+
+
+  # ^add registers to non::SYS
+  map {
+
+    $self->decl(
+
+      'seg',
+      $ARG,
+
+      raw   => $self->{reg}->{$ARG},
+      path  => ['SYS'],
+
+      const => 0,
+
+    )
+
+  } grep {
+    0 > index $ARG,'-'
+
+  } keys %{$self->{reg}};
 
 
   # nit instruction table
@@ -255,6 +278,63 @@ sub xs_run($self,%O) {
   } $self->xs_read();
 
   $O{epilogue}->();
+
+};
+
+# ---   *   ---   *   ---
+# transform string to instructions
+
+sub ipret($self,$s) {
+
+  state $nterm=re_escaped(
+
+    ';',
+
+    mod   => '*',
+    sigws => 1,
+
+  );
+
+  state $sep=re_sursplit_new($COMMA_RE,'\s*');
+
+  my @out = ();
+
+  my $ins = $self->{optab}->{re};
+  my $re  = qr{$ins \s+ (?<nterm> $nterm) ;}x;
+
+  strip(\$s);
+  comstrip(\$s);
+
+  my $fet=sub ($s) {
+
+    my $cpy=$s;
+
+    my $out=
+
+       $self->{scope}->cderef(0,\$cpy,'SYS')
+    or $self->{scope}->cderef(0,\$cpy)
+
+    ;
+
+    return (! $out)
+      ? sstoi($cpy)
+      : $$out->deref()
+      ;
+
+  };
+
+  while($s=~ s[$re][]) {
+
+    my @args=map {
+      $fet->($ARG);
+
+    } split $sep,$+{nterm};
+
+    push @out,[$+{ins},@args];
+
+  };
+
+  return @out;
 
 };
 

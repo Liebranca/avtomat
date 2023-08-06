@@ -16,24 +16,28 @@ package Mach::Reg;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-
   use Mach;
 
 # ---   *   ---   *   ---
 # the bit
 
-my $mach = Mach->new();
+my $mach  = Mach->new();
+my $scope = $mach->{scope};
+
 my $mem  = $mach->segnew(0x20);
 
 my $xs   = $mach->{reg}->{xs};
-my $ar   = $mach->{reg}->{ar};
+
+my @ins=$mach->ipret(q[
+  cpy ar,$FFF;
+
+]);
 
 $xs->cpy($mem);
-
-$mach->xs_write(['cpy',$ar,0xFFF]);
+$mach->xs_write(@ins);
 $mach->xs_run();
 
-$mach->{reg}->prich(fields=>['ax']);
+$mach->{reg}->prich();
 $mach->{reg}->{-seg}->prich();
 
 # ---   *   ---   *   ---

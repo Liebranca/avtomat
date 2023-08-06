@@ -36,6 +36,12 @@ package Arstd::String;
   use Exporter 'import';
   our @EXPORT=qw(
 
+    stoi
+    hstoi
+    ostoi
+    bstoi
+    sstoi
+
     descape
 
     linewrap
@@ -121,6 +127,145 @@ package Arstd::String;
     off    => "\e[0m",
 
   };
+
+# ---   *   ---   *   ---
+# common string to integer transforms
+
+sub stoi($x,$base) {
+
+  state $tab={
+
+    2  => {
+      allow => qr{[\.0-1]},
+      mul   => 1,
+
+    },
+
+    8  => {
+      allow => qr{[\.0-7]},
+      mul   => 3,
+
+    },
+
+    16 => {
+      allow => qr{[\.0-9a-fA-F]},
+      mul   => 4,
+
+    },
+
+  };
+
+
+  # ^get ctx
+  my $mode  = $tab->{$base}
+  or throw_stoi_base($base);
+
+  my $allow = $mode->{allow};
+  my $mul   = $mode->{mul};
+
+
+  # accumulate to
+  my $r=0;
+  my $i=0;
+
+  # walk chars in str
+  map {
+
+    # fraction part
+    if($ARG=~ $DOT_RE) {
+
+      my $bit = 1 << ($i * $mul);
+
+      $r *= 1/$bit;
+      $i  = 0;
+
+    # ^integer part
+    } else {
+
+      my $v=ord($ARG);
+
+      $v -= ($v > 0x39) ? 55 : 0x30;
+      $r += $v << ($i * $mul);
+
+      $i++;
+
+    };
+
+  # ^chars are filtered accto base
+  } grep {
+    $ARG=~ $allow
+
+  } reverse split $NULLSTR,$x;
+
+
+  return $r;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_stoi_base($base) {
+
+  my $fn=(caller 2)[3];
+
+  errout(
+
+    q[Invalid base (:%u) for [ctl]:%s] . "\n"
+  . q[passed from [errtag]:%s],
+
+    lvl  => $AR_FATAL,
+    args => [$base,'stoi',$fn],
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^sugar
+
+sub hstoi($x) {stoi($x,16)};
+sub ostoi($x) {stoi($x,8)};
+sub bstoi($x) {stoi($x,2)};
+
+# ---   *   ---   *   ---
+# ^infer base from string
+
+sub sstoi($s) {
+
+  state $hex=qr{
+    ^(?: 0x | \$ )
+  |  (?: h       ) $
+
+  }x;
+
+  state $oct=qr{
+    ^(?: \\)
+  |  (?: o ) $
+
+  }x;
+
+  state $bin=qr{
+    ^(?: 0b)
+  |  (?: b ) $
+
+  }x;
+
+  state $tab={
+    $hex=>16,
+    $oct=>8,
+    $bin=>2,
+
+  };
+
+  my ($key)=grep {$s=~ $ARG} keys %$tab;
+
+  return (defined $key)
+    ? stoi($s,$tab->{$key})
+    : undef
+    ;
+
+};
 
 # ---   *   ---   *   ---
 # give back copy of string without ANSI escapes

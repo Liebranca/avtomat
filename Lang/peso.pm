@@ -46,7 +46,7 @@ package Lang::peso;
 BEGIN {
 
 my $NUMS=$Lang::Def::DEFAULTS{nums};
-$NUMS->{'(\$[0-9A-F]+)'}=\&Lang::pehexnc;
+$NUMS->{'(\$[0-9A-F]+)'}=\&hstoi;
 
 # ---   *   ---   *   ---
 # builtins and functions, group A
