@@ -97,7 +97,7 @@ Lang::Perl->nit(
 
   drfc=>'(::|->)',
 
-  lcom=>re_eaf(re_lbeg('#'),escape=>0),
+  lcom=>re_eaf(re_lbeg('#',0),opscape=>0),
 
 # ---   *   ---   *   ---
 

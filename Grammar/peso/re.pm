@@ -363,8 +363,8 @@ sub re_flags_qwor($self,$sref,$flags) {
 
       \@ar,
 
-      escape=>$flags->{-escape},
-      insens=>$flags->{-insens},
+      opscape => $flags->{-escape},
+      insens  => $flags->{-insens},
 
     );
 

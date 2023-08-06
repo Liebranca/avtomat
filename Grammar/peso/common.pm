@@ -84,148 +84,138 @@ BEGIN {
 
   our $REGEX={
 
-    term  => re_nonscaped(q[;]),
-    clist => re_nonscaped(q[,]),
-    lcom  => re_eaf(q[\#]),
+    term  => re_nonscaped(';'),
+    clist => re_nonscaped(','),
+    lcom  => re_eaf('#'),
 
     nsop  => qr{::},
 
-    nterm => re_nonscaped(
+    nterm => re_escaped(
 
-      q[;],
+      ';',
 
-      iv    => 1,
       mod   => '+',
       sigws => 1,
 
     ),
 
-    tag   => Lang::delim_capt('<','>'),
-    repl  => Lang::delim_capt('%'),
+    tag   => Lang::re_dcapt('<','>'),
+    repl  => Lang::re_dcapt('%','%'),
 
 # ---   *   ---   *   ---
 # [^{]+ | [^}]+
 
-    q[nbeg-curly] => re_nonscaped(
+    q[nbeg-curly] => re_escaped(
 
-      q[{],
+      '{',
 
-      iv    => 1,
       mod   => '+',
       kls   => 1,
       sigws => 1,
 
-      -x    => q[;],
+      -x    => ';',
 
     ),
 
-    q[nend-curly] => re_nonscaped(
+    q[nend-curly] => re_escaped(
 
-      q[}],
+      '}',
 
-      iv    => 1,
       mod   => '+',
       kls   => 1,
       sigws => 1,
 
-      -x    => q[;],
+      -x    => ';',
 
     ),
 
-    q[ncurly] => re_nonscaped(
+    q[ncurly] => re_escaped(
 
-      q[{}],
+      '{}',
 
-      iv    => 1,
       mod   => '+',
       kls   => 1,
       sigws => 1,
 
-      -x    => q[;],
+      -x    => ';',
 
     ),
 
 # ---   *   ---   *   ---
 # [^(]+ | [^)]+
 
-    q[nbeg-parens] => re_nonscaped(
+    q[nbeg-parens] => re_escaped(
 
-      q[(],
+      '(',
 
-      iv    => 1,
       mod   => '+',
       kls   => 1,
       sigws => 1,
 
-      -x    => q[;],
+      -x    => ';',
 
     ),
 
-    q[nend-parens] => re_nonscaped(
+    q[nend-parens] => re_escaped(
 
-      q[)],
+      ')',
 
-      iv    => 1,
       mod   => '+',
       kls   => 1,
       sigws => 1,
 
-      -x    => q[;],
+      -x    => ';',
 
     ),
 
-    q[nparens] => re_nonscaped(
+    q[nparens] => re_escaped(
 
-      q[()],
+      '()',
 
-      iv    => 1,
       mod   => '+',
       kls   => 1,
       sigws => 1,
 
-      -x    => q[;],
+      -x    => ';',
 
     ),
 
 # ---   *   ---   *   ---
 # [^\[]+ | [^\]]+
 
-    q[nbeg-brak] => re_nonscaped(
+    q[nbeg-brak] => re_escaped(
 
-      q{[},
+      '[',
 
-      iv    => 1,
       mod   => '+',
       kls   => 1,
       sigws => 1,
 
-      -x    => q[;],
+      -x    => ';',
 
     ),
 
-    q[nend-brak] => re_nonscaped(
+    q[nend-brak] => re_escaped(
 
-      q{]},
+      ']',
 
-      iv    => 1,
       mod   => '+',
       kls   => 1,
       sigws => 1,
 
-      -x    => q[;],
+      -x    => ';',
 
     ),
 
-    q[nbrak] => re_nonscaped(
+    q[nbrak] => re_escaped(
 
-      q{[]},
+      '[]',
 
-      iv    => 1,
       mod   => '+',
       kls   => 1,
       sigws => 1,
 
-      -x    => q[;],
+      -x    => ';',
 
     ),
 

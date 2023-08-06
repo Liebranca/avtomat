@@ -37,12 +37,21 @@ package Arstd::Re;
   use Exporter 'import';
   our @EXPORT=qw(
 
+    re_alt
+    re_capt
+    re_dcapt
+    re_bwrap
+
     re_insens
     re_opscape
     re_eiths
     re_eaf
 
     re_nonscaped
+    re_escaped
+
+    re_lkback
+    re_lkahead
 
     re_delim
     array_re_delim
@@ -53,33 +62,31 @@ package Arstd::Re;
     re_neg_lkahead
     re_lbeg
 
-    qre_or
-
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;
+  our $VERSION=v0.00.2;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # or patterns together
 
-sub qre_or($ar,%O) {
+sub alt($ar,%O) {
 
   # defaults
-  $O{capt} //= 0;
+  $O{capt}  //= 0;
+  $O{bwrap} //= 0;
 
-  my $capt=(! $O{capt})
-    ? q[?:]
-    : $NULLSTR
-    ;
 
-  my $out = "($capt".(
-    join '|',@$ar
+  # make alternation
+  my $out=join '|',@$ar;
 
-  ).')';
+  # ^run optional procs
+  $out=capt($out,$O{capt});
+  $out=bwrap($out) if $O{bwrap};
+
 
   return qr{$out}x;
 
@@ -158,15 +165,97 @@ sub array_opscape($ar) {
 };
 
 # ---   *   ---   *   ---
+# makes capturing or non-capturing group
+
+sub capt($pat,$name=0) {
+
+  my $out=$NULLSTR;
+  my $beg='(';
+  my $end=')';
+
+  # make (?: non-capturing)
+  if($name eq 0) {
+    $beg .= '?:';
+
+  # make (?<named> capture)
+  } elsif($name) {
+    $beg .= "?<$name>";
+
+  };
+
+
+  # ^give (pattern)
+  return qr{$beg$pat$end}x;
+
+};
+
+# ---   *   ---   *   ---
+# get non-recursive <capt>
+# between delimiters
+
+sub dcapt($beg,$end,%O) {
+
+  # defaults
+  $O{capt} //= 'capt';
+
+
+  # ^shorten subpatterns
+  my $nslash = lkback('\\\\',-1);
+
+  my $open   = capt("$nslash$beg");
+  my $close  = capt("$nslash$end");
+
+  my $body   = escaped(
+
+    $end,
+
+    capt => 0,
+    mod  => '+',
+
+  );
+
+  # ^compose re
+  my $out=
+
+    $open . '\s*'
+  . capt($body,$O{capt})
+
+  . '\s*' . $end
+
+  ;
+
+  return qr{$out}x;
+
+};
+
+# ---   *   ---   *   ---
+# wraps in word delimiter
+
+sub bwrap($pat) {
+  return '\b' . $pat . '\b';
+
+};
+
+# ---   *   ---   *   ---
+# get next match of re
+
+sub nxtok($s,$re) {
+  $s=~ s[($re)][]sg;
+  return $s;
+
+};
+
+# ---   *   ---   *   ---
 # makes re to match elements in ar
 
 sub eiths($ar,%O) {
 
   # defaults
-  $O{escape} //= 0;
-  $O{bwrap}  //= 0;
-  $O{insens} //= 0;
-  $O{mod}    //= $NULLSTR;
+  $O{opscape}  //= 0;
+  $O{capt}     //= 0;
+  $O{bwrap}    //= 0;
+  $O{insens}   //= 0;
+  $O{mod}      //= $NULLSTR;
 
   # make copy
   my @ar=@$ar;
@@ -176,20 +265,20 @@ sub eiths($ar,%O) {
 
   # conditional processing
   @ar=array_insens(\@ar) if $O{insens};
-  @ar=array_opscape(\@ar) if $O{escape};
-
-  # () or \b()\b
-  my $beg=($O{bwrap}) ? '\b(?:' : '(?:';
-  my $end=($O{bwrap}) ? ')\b'   : ')';
+  @ar=array_opscape(\@ar) if $O{opscape};
 
 
-  # give alternation re
-  my $out=join q[|],@ar;
+  # ^compose re
+  my $out=alt(
 
-  return qr{
-    $beg $out $O{mod} $end
+    \@ar,
 
-  }x;
+    capt  => $O{capt},
+    bwrap => $O{bwrap},
+
+  ) . $O{mod};
+
+  return qr{$out}x;
 
 };
 
@@ -199,28 +288,22 @@ sub eiths($ar,%O) {
 
 sub eaf($pat,%O) {
 
-  $O{escape} //= 1;
-  $O{lbeg}   //= 0;
+  # defaults
+  $O{opscape} //= 1;
+  $O{capt}    //= 0;
 
-  $pat=opscape($pat) if $O{escape};
+  # optional procs
+  $pat=opscape($pat) if $O{opscape};
+  $O{opscape}=0;
 
-  if($O{lbeg} > 0) {
-    $pat='^'.$pat;
+  $pat=lbeg($pat,$O{lbeg})
+  if exists $O{lbeg};
 
-  } elsif($O{lbeg} < 0) {
-    $pat='^[\s|\n]*'.$pat;
+  return capt(
+    $pat . '.*(?:\x0D?\x0A|$)',
+    $O{capt}
 
-  };
-
-  return qr{(
-
-    $pat
-
-    .*
-
-    (\x0D?\x0A|$)
-
-  )}x;
+  );
 
 };
 
@@ -228,19 +311,106 @@ sub eaf($pat,%O) {
 # pattern is preceded by blank
 # or is beg of line
 
-sub lbeg($pat,%O) {
+sub lbeg($pat,$mode,%O) {
 
   # defaults
-  $O{escape}=1;
+  $O{opscape} //= 1;
+  $O{capt}    //= 0;
 
-  $pat=opscape($pat) if $O{escape};
+  $pat=opscape($pat) if $O{opscape};
 
-  return
-    '(\s+' . $pat
-  . '|^'   . $pat
+  # force beg of line
+  if($mode > 0) {
+    $pat='^'.$pat;
 
-  . ')'
-  ;
+  # beg of line, allow whitespace
+  } elsif($mode < 0) {
+    $pat='^[\s|\n]*'.$pat;
+
+  # ^either whitespace OR beg of line
+  } else {
+
+    $pat=
+      '\s+' . $pat
+    . '|^'  . $pat
+    ;
+
+  };
+
+  return capt($pat,$O{capt});
+
+};
+
+# ---   *   ---   *   ---
+# wraps pattern in positive
+# or negative look ahead or behind
+
+sub look($pat,%O) {
+
+  # defaults
+  $O{behind}   //= 0;
+  $O{negative} //= 0;
+
+  my $a=(! $O{behind})
+    ? $NULLSTR
+    : '<'
+    ;
+
+  my $b=($O{negative})
+    ? '!'
+    : '='
+    ;
+
+  return "(?${a}${b}" . "$pat)";
+
+};
+
+# ---   *   ---   *   ---
+# ^sugar wraps
+
+sub lkback($pat,$i) {
+  return look($pat,behind=>1,negative=>$i<0);
+
+};
+
+sub lkahead($pat,$i) {
+  return look($pat,behind=>0,negative=>$i<0);
+
+};
+
+# ---   *   ---   *   ---
+# exclude substrings from match
+
+sub exclude(@ar) {
+
+};
+
+# ---   *   ---   *   ---
+# procs options for escaped/nonscaped
+
+sub _escaping_prologue($sref,$O) {
+
+  # defaults
+  $O->{mod}   //= $NULLSTR;
+  $O->{sigws} //= 0;
+  $O->{kls}   //= 0;
+  $O->{-x}    //= $NULLSTR;
+  $O->{capt}  //= 0;
+
+
+  # ^unsignificant space by default
+  my $excl=($O->{sigws})
+    ? "$$sref$O->{-x}"
+    : "$$sref$O->{-x}\\s"
+    ;
+
+  # ^pattern is character class
+  my $pat=($O->{kls})
+    ? "[$$sref]"
+    : $$sref
+    ;
+
+  return ($pat,$excl);
 
 };
 
@@ -250,32 +420,39 @@ sub lbeg($pat,%O) {
 
 sub nonscaped($s,%O) {
 
-  # defaults
-  $O{iv}    //= 0;
-  $O{mod}   //= $NULLSTR;
-  $O{sigws} //= 0;
-  $O{kls}   //= 0;
-  $O{-x}    //= $NULLSTR;
+  my ($pat,$excl)=
+    _escaping_prologue(\$s,\%O);
 
 
-  # ^unsignificant space by default
-  my $c=($O{sigws})
-    ? "$s$O{-x}"
-    : "$s$O{-x}\\s"
-    ;
-
-  # ^pattern is character class
-  $s=($O{kls})
-    ? "[$s]"
-    : $s
-    ;
+  my $out=lkback('\\\\',-1) . $pat;
+     $out=capt($out,$O{capt});
 
 
-  # optionally match everything BUT pattern
-  my $out=($O{iv})
-    ? "((\\\\[^$c]) | [^$c\\\\] | (\\\\ $s))"
-    : "((?!< \\\\ ) $s)"
-    ;
+  return qr~$out$O{mod}~x;
+
+};
+
+# ---   *   ---   *   ---
+# ^iv, match \\\\ escaped pattern
+#
+# OR escaped excluded pattern
+# OR anything that's not excluded...
+
+sub escaped($s,%O) {
+
+  my ($pat,$excl)=
+    _escaping_prologue(\$s,\%O);
+
+  my $out=
+
+    "(?:\\\\[^$excl])"
+
+  . "|[^$excl\\\\]"
+  . "|(?:\\\\$pat)"
+
+  ;
+
+  $out=capt($out,$O{capt});
 
   return qr~$out$O{mod}~x;
 
@@ -288,7 +465,7 @@ sub nonscaped($s,%O) {
 sub delim($beg,$end,%O) {
 
   # defaults
-  $O{mkre} //= 0;
+  $O{capt} //= 0;
 
 
   # escape input
@@ -297,14 +474,17 @@ sub delim($beg,$end,%O) {
 
   # compose pattern
   my $out=
-    "(?: $beg"
-  .   "(?: [^$beg$end]+ | (?R))*"
 
-  . "$end)"
+    $beg
+
+  . '(?:' . "[^$beg$end]+"
+  . '|(?R))*'
+
+  . $end
   ;
 
 
-  return ($O{mkre}) ? qr{$out}x : $out;
+  return capt($out,$O{capt});
 
 };
 
@@ -435,12 +615,21 @@ sub sursplit_new($pat,$sur) {
 # ---   *   ---   *   ---
 # exporter names
 
+  *re_alt          = *alt;
+  *re_capt         = *capt;
+  *re_dcapt        = *dcapt;
+  *re_bwrap        = *bwrap;
+
   *re_insens       = *insens;
   *re_opscape      = *opscape;
   *re_eiths        = *eiths;
   *re_eaf          = *eaf;
 
   *re_nonscaped    = *nonscaped;
+  *re_escaped      = *escaped;
+
+  *re_lkback       = *lkback;
+  *re_lkahead      = *lkahead;
 
   *re_delim        = *delim;
   *array_re_delim  = *array_delim;

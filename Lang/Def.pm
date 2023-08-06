@@ -421,7 +421,7 @@ sub nit($class,%h) {
     $ref->{ops}=re_eiths(
 
       [keys %{$ref->{op_prec}}],
-      escape=>1
+      opscape=>1
 
     );
 
@@ -440,7 +440,7 @@ sub nit($class,%h) {
     };
 
     $ref->{asg_op}=re_eiths(
-      \@asg_ops,escape=>1
+      \@asg_ops,opscape=>1
 
     );
 
@@ -542,13 +542,13 @@ sub nit($class,%h) {
 
 # ---   *   ---   *   ---
 
-  $ref->{ode}=re_eiths(\@odes,escape=>1);
-  $ref->{cde}=re_eiths(\@cdes,escape=>1);
+  $ref->{ode}=re_eiths(\@odes,opscape=>1);
+  $ref->{cde}=re_eiths(\@cdes,opscape=>1);
 
   my @del_ops=(@odes,@cdes);
 
   $ref->{del_ops}=re_eiths(
-    \@del_ops,escape=>1
+    \@del_ops,opscape=>1
 
   );
 
@@ -560,12 +560,12 @@ sub nit($class,%h) {
   );
 
   $ref->{ndel_ops}=re_eiths(
-    \@ops_plus_seps,escape=>1
+    \@ops_plus_seps,opscape=>1
 
   );
 
   $ref->{sep_ops}=re_eiths(
-    \@seps,escape=>1
+    \@seps,opscape=>1
 
   );
 

@@ -113,7 +113,7 @@ BEGIN {
 
       )],
 
-      escape=>1
+      opscape=>1
 
     ),
 

@@ -357,10 +357,7 @@ sub prprops($def,$key) {
     $re=~ s/\s+|\n//sxmg;
     $re=join '\n',(split "\n",$re);
 
-    if(is_qre($re)) {
-      Lang::qre2re(\$re);
-
-    };
+    Lang::qre2re(\$re);
 
     my $ore=$re;
     $re=dqwrap($re);

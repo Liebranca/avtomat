@@ -65,10 +65,9 @@ while(@files) {
     expand_path($f,\@files);
     next;
 
-  };if(!($f=~ $ext_re)) {next};
+  };
 
-# ---   *   ---   *   ---
-
+  next if ! ($f=~ $ext_re);
   next if ! -f $f;
 
   my $body=orc($f);

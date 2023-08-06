@@ -327,13 +327,7 @@ sub op_walk_bak($lhs,$rhs) {
 # GBL
 
   our $REGEX={
-
-    ops=>re_eiths(
-
-      $OP_KEYS,
-      escape=>1
-
-    ),
+    ops=>re_eiths($OP_KEYS,opscape=>1),
 
   };
 

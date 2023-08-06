@@ -57,22 +57,21 @@ BEGIN {
 
   $REGEX={
 
-    term  => re_nonscaped(q[;]),
-    nterm => re_nonscaped(
+    term  => re_nonscaped(';'),
+    nterm => re_escaped(
 
-      q[;],
+      ';',
 
-      iv     => 1,
       mod    => '+',
       sigws  => 1,
 
     ),
 
-    clist => re_nonscaped(q[,]),
+    clist => re_nonscaped(','),
     line  => qr{(\\ \n | [^\n])+}x,
 
     nline => re_nonscaped("\n"),
-    lcom  => re_eaf(q[\/\/]),
+    lcom  => re_eaf('//'),
 
     q[preproc-key]=>re_eiths(
 

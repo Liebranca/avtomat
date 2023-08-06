@@ -170,12 +170,40 @@ sub delim2($beg,$end=$NULLSTR,$ml=0) {
 
 # ---   *   ---   *   ---
 # halfway conversion of compiled
-# perl regex to unix regex
+# perl regex to posix regex
+#
+# note this is only textual subst;
+# posix re is *still* posix re
 
 sub qre2re($sref) {
-  $$sref=~ s[\(\?\^u(?:[xsmg]*):][]sxmg;
-  $$sref=~ s[\(\?:][(]sxmg;
-  $$sref=~ s[\)$][];
+
+  state $body_re=qr{
+    (?<body> [^\)]+ | (?R))*
+
+  }x;
+
+  state $inner_re=qr{
+
+    \(\? (?: <\w+> | [:<=\!]+)
+
+    $body_re
+
+    \)
+
+  }x;
+
+  state $outer_re=qr{
+
+    \(\?\^u (?:[xsmg]*) :
+
+    $body_re
+
+    \)
+
+  }x;
+
+  while($$sref=~ s[$outer_re][($+{body})]sxmg) {};
+  while($$sref=~ s[$inner_re][($+{body})]sxmg) {};
 
 };
 
@@ -267,39 +295,6 @@ sub pebinnc($x) {
     $r+=$v<<($i);$i++;
 
   };return $r;
-
-};
-
-# ---   *   ---   *   ---
-
-sub nxtok($s,$cutat) {
-  $s=~ s/(${cutat}).*//sg;
-  return $s;
-
-};
-
-# ---   *   ---   *   ---
-# get (nscap $beg) <capt> (nscap $end)
-
-sub delim_capt($beg,$end=undef,%O) {
-
-  # defaults
-  $O{key} //= 'capt';
-  $end    //= $beg;
-
-  # make re
-  my $out=
-
-    '(?: (?<! \\\\) ' . $beg . ') \s*' .
-
-    '(?<' . $O{key} . '> (?: [^' . $end . '] ' .
-    '| \\\\ ' . $end . ')+)' .
-
-    '\s* (?: (?<! \\\\) ' . $end . ')'
-
-  ;
-
-  return qr{$out}x;
 
 };
 

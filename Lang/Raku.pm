@@ -105,7 +105,7 @@ Lang::Raku->nit(
 
   drfc=>'(::|->|.)',
 
-  lcom=>re_eaf(re_lbeg('#'),escape=>0),
+  lcom=>re_eaf(re_lbeg('#',0),opscape=>0),
 
   names=>q{\b[_A-Za-z][_A-Za-z0-9\-\']*\b},
   names_u=>q{\b[_A-Z][_A-Z0-9\-\']*\b},
