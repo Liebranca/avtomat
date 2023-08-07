@@ -58,17 +58,12 @@ package Mach::Reg;
       reg32 low;
       reg32 high;
 
+      # attrs
       wed   fast;
 
-
-    <seg-ptr>
-      reg32 loc;
-      reg32 addr;
-
-      wed   fast;
-
-      cpy   &ptr_cpy;
-      deref &ptr_deref;
+      # methods
+      ptr_cpy   &ptr_cpy;
+      ptr_deref &ptr_deref;
 
   ]);
 
@@ -76,11 +71,8 @@ package Mach::Reg;
 # copy addr of seg to ptr
 
 sub ptr_cpy($self,$other) {
-
   my ($loc,$addr)=array_keys($other->{addr});
-
-  $self->{loc}->set(num=>$loc);
-  $self->{addr}->set(num=>$addr);
+  $self->set(num=>$addr | ($loc << 32));
 
 };
 

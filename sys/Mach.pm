@@ -26,6 +26,7 @@ package Mach;
   use Style;
 
   use Arstd::Bytes;
+  use Arstd::Array;
   use Arstd::String;
   use Arstd::Re;
   use Arstd::IO;
@@ -54,18 +55,18 @@ package Mach;
     <Anima>
 
       # IO struc ptrs
-      seg-ptr in;
-      seg-ptr out;
+      reg64 in;
+      reg64 out;
 
       # ptr to exec blk
-      seg-ptr xs;
+      reg64 xs;
 
       # GPR
-      reg64   ar;
-      reg64   br;
-      reg64   cr;
-      reg64   dr;
-      reg64   er;
+      reg64 ar;
+      reg64 br;
+      reg64 cr;
+      reg64 dr;
+      reg64 er;
 
   ]);
 
@@ -122,7 +123,7 @@ sub new($class,%O) {
 
   # nit registers
   $self->{regmask}=bitsize(
-    Mach::Struc->field_cnt($O{reg_struc})
+    Mach::Struc->field_cnt($O{reg_struc})-1
 
   );
 
@@ -224,8 +225,27 @@ sub segfetch($self,@at) {
 # ---   *   ---   *   ---
 # ^make new segment
 
-sub segnew($self,$size,%O) {
-  return Mach::Seg->new($size,%O,mach=>$self);
+sub segnew($self,$name,$size,%O) {
+
+  my $seg=Mach::Seg->new(
+
+    $size,
+
+    %O,
+    mach=>$self
+
+  );
+
+  $self->decl(
+
+    seg   => $name,
+
+    path  => ['SYS'],
+    raw   => $seg,
+
+  );
+
+  return $seg;
 
 };
 
@@ -237,7 +257,7 @@ sub xs_write($self,@ins) {
   my $tab=$self->{optab};
   my $reg=$self->{reg};
 
-  my $mem=$reg->{xs}->deref();
+  my $mem=$reg->{xs}->ptr_deref();
   my $ptr=$mem->brush();
 
   map {$tab->write($ptr,@$ARG)} @ins;
@@ -252,7 +272,7 @@ sub xs_read($self) {
   my $tab=$self->{optab};
   my $reg=$self->{reg};
 
-  my $mem=$reg->{xs}->deref();
+  my $mem=$reg->{xs}->ptr_deref();
 
   return $tab->read($mem);
 
@@ -307,19 +327,35 @@ sub ipret($self,$s) {
 
   my $fet=sub ($s) {
 
+    state $re=qr{^\[|\]$}x;
+
+    my $ind=int($s=~ s[$re][]sxmg);
     my $cpy=$s;
 
-    my $out=
+    my $ptr=
 
        $self->{scope}->cderef(0,\$cpy,'SYS')
     or $self->{scope}->cderef(0,\$cpy)
 
     ;
 
-    return (! $out)
-      ? sstoi($cpy)
-      : $$out->deref()
-      ;
+    # immediate
+    return sstoi($cpy) if ! $ptr;
+
+
+    # ^segment
+    my $out=Mach::Struc->validate(
+      $$ptr->deref()
+
+    );
+
+    if($ind) {
+      my ($loc,$addr)=array_keys($out->{addr});
+      $out=$addr | ($loc << 32);
+
+    };
+
+    return $out;
 
   };
 

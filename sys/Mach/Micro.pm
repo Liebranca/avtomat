@@ -36,7 +36,7 @@ package Mach::Micro;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -45,7 +45,7 @@ package Mach::Micro;
   Readonly our $INS=>[qw(
 
     cpy     mov
-    wap
+    wap     cl
 
     bor     bxor
     band    bnand
@@ -101,6 +101,30 @@ sub wap($reg0,$reg1) {
 
   $reg0->set(seg  => $reg1);
   $reg1->set(rstr => $tmp);
+
+};
+
+# ---   *   ---   *   ---
+# ^clear
+
+sub cl($any) {
+
+  my $dst=$any;
+
+  # raw ptr passed in, decode
+  if(! Mach::Seg->is_valid($any)) {
+
+    my @addr  = ($any >> 32, $any & bitmask(32));
+
+    my $frame = Mach::Seg->get_frame($addr[0]);
+    my $mach  = $frame->{-mach};
+
+       $dst   = $mach->segfetch(@addr);
+
+  };
+
+
+  $dst->set(num=>0x00);
 
 };
 

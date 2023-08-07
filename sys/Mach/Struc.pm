@@ -434,7 +434,7 @@ sub field_cnt($class,$name) {
 
   my $fields = $cstruc->{fields};
 
-  return int @$fields;
+  return (int @$fields)/2;
 
 };
 

@@ -20,8 +20,10 @@ package Arstd::Bytes;
 
   use Carp;
   use Readonly;
+  use Module::Load;
 
   use English qw(-no_match_vars);
+  use List::Util qw(max min);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
   use Style;
@@ -188,13 +190,15 @@ sub bitcat(@elems) {
 # ---   *   ---   *   ---
 # open/close bytestr for reading
 
-sub bitsume_pack($mem) {
+sub bitsume_pack($mem,%O) {
+
+  $O{width} //= $BITOPS_LIMIT;
 
   return mchr(
 
     [@{$mem->{bytes}}],
 
-    width   => $BITOPS_LIMIT,
+    width   => min($BITOPS_LIMIT,$O{width}),
 
     brev    => 0,
     noprint => 1,
@@ -203,13 +207,15 @@ sub bitsume_pack($mem) {
 
 };
 
-sub bitsume_unpack($sref) {
+sub bitsume_unpack($sref,%O) {
+
+  $O{width} //= $BITOPS_LIMIT;
 
   my @bytes=lmord(
 
     $$sref,
 
-    width => $BITOPS_LIMIT,
+    width => min($BITOPS_LIMIT,$O{width}),
     rev   => 0,
 
   );
@@ -235,6 +241,8 @@ sub bitsume($mem,@steps) {
   my $bit   = \$mem->{bit};
   my $bytes = $mem->{bytes};
 
+  my $old   = int @$bytes;
+
   for my $size(@steps) {
 
     # get bits fit in current word
@@ -246,9 +254,15 @@ sub bitsume($mem,@steps) {
       my $low  = $BITOPS_LIMIT - $$bit;
       my $high = $size  - $low;
 
+      throw_oob_bit($$bit,$old-int @$bytes)
+      unless defined $bytes->[0];
+
       # take first half
       my $x=$bytes->[0] & bitmask($low);
       shift @$bytes;
+
+      throw_oob_bit($$bit,$old-int @$bytes)
+      unless defined $bytes->[0];
 
       # ^join second with first
       $x|=
@@ -264,6 +278,9 @@ sub bitsume($mem,@steps) {
 
     # ^single read
     } else {
+
+      throw_oob_bit($$bit,$old-int @$bytes)
+      unless defined $bytes->[0];
 
       push @out,$bytes->[0] & bitmask($size);
 
@@ -291,12 +308,37 @@ sub bitsume($mem,@steps) {
 
 sub bitsumex($sref,@steps) {
 
-  my $mem = bitsume_unpack($sref);
-  my @out = bitsume($mem,@steps);
+  my $width = int((max(@steps)/8)+0.9999)*8;
 
-  $$sref=bitsume_pack($mem);
+  my $mem   = bitsume_unpack($sref,width=>$width);
+  my @out   = bitsume($mem,@steps);
+
+  $$sref=bitsume_pack($mem,width=>$width);
 
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme for OOB reads
+
+sub throw_oob_bit($i,$j) {
+
+  # dynamically load in IO module to
+  # avoid messing up build order
+  state $class='Arstd::IO';
+  load $class if ! $class->isa($class);
+
+  # ^throw
+  Arstd::IO::errout(
+
+    q[Bit (:%u) of byte (:%u) ]
+  . q[exceeds bytearray cap],
+
+    lvl  => $AR_FATAL,
+    args => [$i,$j],
+
+  );
 
 };
 

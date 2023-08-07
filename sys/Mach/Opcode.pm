@@ -552,11 +552,10 @@ sub rdimm($mem,$size=[]) {
 
   # ^width inside instruction
   } else {
-    $width=bitsume($mem,2);
+    ($width)=bitsume($mem,2);
     $width=2**($width+3);
 
   };
-
 
   return bitsume($mem,$width);
 

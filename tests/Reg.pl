@@ -19,26 +19,43 @@ package Mach::Reg;
   use Mach;
 
 # ---   *   ---   *   ---
+# ROM
+
+Readonly my $PROGRAMS=>[
+
+  # set executable segment
+  q'cl  $00;'
+. q'cpy xs,[insblk];',
+
+  # ^write to it
+  q'cpy ar,$FFF;',
+
+];
+
+# ---   *   ---   *   ---
 # the bit
 
 my $mach  = Mach->new();
 my $scope = $mach->{scope};
 
-my $mem  = $mach->segnew(0x20);
+my $mem  = $mach->segnew('insblk',0x20);
 
 my $xs   = $mach->{reg}->{xs};
+my $ar   = $mach->{reg}->{ar};
 
-my @ins=$mach->ipret(q[
-  cpy ar,$FFF;
+map {
 
-]);
+  my @ins=$mach->ipret($ARG);
 
-$xs->cpy($mem);
-$mach->xs_write(@ins);
-$mach->xs_run();
+  $mach->xs_write(@ins);
+  $mach->xs_run();
 
-$mach->{reg}->prich();
+} @$PROGRAMS;
+
+$mem->prich();
 $mach->{reg}->{-seg}->prich();
+
+$ar->prich();
 
 # ---   *   ---   *   ---
 1; # ret

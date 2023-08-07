@@ -1,6 +1,15 @@
 >avtomat v4.00.0
 
+*>Mach::Macro::Meta
+
+~ Design of metaprogramming instructions
+  for use by Emit modules
+
+~ \--> 'wraps': describe wrapper prototype
+
+
 *>Peso
+
 x Extend Lang::Perl for basic (as-doc) parsing
 
 x Lang::Plps reimplementation (done: see Grammar && Grammar::Tree)
@@ -33,7 +42,20 @@ x .  \--> Defining grammar branches
 ~ Turn peso into a proper IR
 ~ \--> Tree manipulation at ipret layer
 
+
+*>Emit::Cpp
+
+~ Dependency solver
+~ \--> 'use' keyword for batch imports
+
+~ Class builder
+~ \--> Automatic wraps for getters/setters
+~ \--> VIC override handler
+~ \--> Template handler
+
+
 *>Refactor helper
+
 x Find mentions of a given package or subroutine
 x \--> Make this recursive
 ~ \--> Combine f:./bin/symfind with mentions on *.mny trees
@@ -41,7 +63,9 @@ x \--> Make this recursive
 ~ Find TODO|FIX|BUG etc and append them to these lists
 ~ Optimize away regexes and needless fncalls
 
+
 *>Backburner
+
 x Move Python stuff from f:./Avt.pm into f:./Emit/Python.pm
 ~ Handle structs on f:./Emit/Perl.pm -> shwlbind
 
@@ -60,6 +84,7 @@ x \--> Registering of modules on first include, for a similar purpose
 ~ Write Lang::Elisp
 ~ Elisp version of f:./bin/sygen
 
+
 # ---   *   ---   *   ---
 # these tasks need to be repurposed
 # due to design changes
@@ -67,6 +92,7 @@ x \--> Registering of modules on first include, for a similar purpose
 # leaving them as footnotes
 
 *> (OLD) Initial Mach implementation
+
 x f:./sys/Mach.pm
 x \-->reg
 ~ \-->stk
@@ -84,20 +110,26 @@ x .  \--> Message decrypt
 ~ Generalize Ptr for Blk fetches
 ~ \--> Fetch by ID (cross-scope!)
 
+
 *>Bytestream ipret
+
 ~ Embed call-args-data into strings
 ~ Adapt gd calls to use the Pilot model
+
 
 # ---   *   ---   *   ---
 # These ones are complete ;>
 
 *>Makescript
+
 x Replace crude gcc wrappers with a class
 x \--> Dependency checks
 x \--> Building objects
 x \--> Linking
 
+
 *>Shb7
+
 x Break down into packages
 x \--> Path managing and ops
 x \--> Find ops
@@ -105,11 +137,14 @@ x \--> Symbol wrangling
 x \--> ld,gcc && mam wrappers
 
 *>Avt::Sieve
+
 x Implement side build sub
 x Generate olink calls from side builds
 x Run calls before post-build hook
 
+
 *>Avt revision
+
 x Subdivide the f:./Avt.pm monolith into modules
 x \-->Use Shb7::Walk instead of Avt implementation
 x \-->Use Tree::File checksums instead of timestamps for update checks
@@ -117,7 +152,9 @@ x \-->Rework Frame interface
 x \-->Generate syntax highlighting for *.mny files
 x \-->Extend *.mny syntax
 
+
 *>De-bloat Arstd
+
 x Separate array ops from hash ops
 x \--> Dump into Arstd::Array && Arstd::Hash, respectively
 
@@ -126,12 +163,15 @@ x Make an Arstd::Bytes submod
 x Make an Arstd::String submod
 x Make an Arstd::Test submod
 
+
 # ---   *   ---   *   ---
 # solved bughunts
 
 *>Bugs
+
 x Investigate the Peso::Ipret::pesc iter command repetition
 
 x Investigate mysterious DOM and SIGIL errors in f:./sys/Via.pm
+
 
 # ---   *   ---   *   ---
