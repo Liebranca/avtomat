@@ -48,8 +48,8 @@ my $m=Cli->nit(
 
   @{$Cli::Fstruct::ATTRS},
 
-  {id=>'lib',short=>'-l',argc=>1},
-  {id=>'inc',short=>'-I',argc=>1},
+  {id=>'libs',short=>'-l',argc=>1},
+  {id=>'incl',short=>'-I',argc=>1},
   {id=>'out',short=>'-o',argc=>1},
 
   {id=>'debug',short=>'-g',argc=>0},
@@ -62,7 +62,7 @@ my @files=Cli::Fstruct::proto_search($m);
 # ---   *   ---   *   ---
 # sanitize input
 
-for my $v($m->{inc},$m->{lib}) {
+for my $v($m->{incl},$m->{libs}) {
   $v=$NULLSTR if $v eq $NULL
 
 };
@@ -72,9 +72,6 @@ $m->{out}=($m->{out} eq $NULL)
   : $m->{out}
   ;
 
-#$m->{inc}=Avt::CRun->inc_list($m->{inc});
-#$m->{lib}=Avt::CRun->lib_list($m->{lib});
-
 # ---   *   ---   *   ---
 # cstruc builder ice
 
@@ -82,8 +79,8 @@ my $crun=Avt::CRun->new(
 
   name  => $m->{out},
 
-  libs  => $m->{lib},
-  incl  => $m->{inc},
+  libs  => $m->{libs},
+  incl  => $m->{incl},
 
   debug => $m->{debug} ne $NULL,
   files => \@files,

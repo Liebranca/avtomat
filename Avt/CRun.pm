@@ -81,8 +81,15 @@ sub new($class,%O) {
   } @{$O{gens}};
 
   # ^cat generated files and includes
+  my %lists=$class->mklists(
+    $O{incl},$O{libs}
+
+  );
+
   push @{$O{files}},array_keys(\@gens);
-  push @{$O{inc}},array_values(\@gens);
+  push @{$lists{incl}},array_values(\@gens);
+
+  array_filter($O{files});
 
   # make builder ice
   my $bk  = Shb7::Bk::gcc->nit();
@@ -91,10 +98,7 @@ sub new($class,%O) {
     name  => $O{out},
     debug => $O{debug},
 
-    $class->mklists(
-      $O{inc},$O{libs}
-
-    ),
+    %lists,
 
   );
 
@@ -260,8 +264,11 @@ sub incl_deduce($class,@inc) {
 
 sub mklists($class,$incl,$libs) {
 
-  $incl=$class->lib_list($incl);
-  $libs=$class->inc_list($libs);
+  array_filter($incl) if is_arrayref($incl);
+  array_filter($libs) if is_arrayref($libs);
+
+  $incl=$class->inc_list($incl);
+  $libs=$class->lib_list($libs);
 
   array_dupop($incl);
   array_dupop($libs);

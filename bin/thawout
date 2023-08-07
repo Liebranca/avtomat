@@ -33,7 +33,7 @@ my @files=@ARGV;
 for my $f(@files) {
 
   my $h=retrieve($f) or die strerr($f);
-  say fatdump($h);
+  fatdump(\$h,blessed=>1);
 
 };
 
