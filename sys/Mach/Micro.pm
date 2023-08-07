@@ -30,6 +30,7 @@ package Mach::Micro;
 
   use Arstd::Bytes;
   use Arstd::Int;
+  use Arstd::Re;
 
   use Mach::Seg;
 
@@ -45,7 +46,10 @@ package Mach::Micro;
   Readonly our $INS=>[qw(
 
     cpy     mov
-    wap     cl
+    wap     clr
+
+    push    pop
+    alloc
 
     bor     bxor
     band    bnand
@@ -65,7 +69,24 @@ sub engrave($class,$frame) {
   no strict 'refs';
   my $ins=${"$class\::INS"};
 
-  map {$frame->add($ARG,pkg=>$class)} @$ins;
+  state $lissed=re_eiths([qw(
+    push pop
+
+  )]);
+
+  map {
+
+    my %O=();
+
+    if($ARG=~ $lissed) {
+      $O{lis}=$ARG;
+      $ARG="_$ARG";
+
+    };
+
+    $frame->add($ARG,%O,pkg=>$class);
+
+  } @$ins;
 
 };
 
@@ -107,7 +128,7 @@ sub wap($reg0,$reg1) {
 # ---   *   ---   *   ---
 # ^clear
 
-sub cl($any) {
+sub clr($any) {
 
   my $dst=$any;
 
@@ -119,12 +140,40 @@ sub cl($any) {
     my $frame = Mach::Seg->get_frame($addr[0]);
     my $mach  = $frame->{-mach};
 
-       $dst   = $mach->segfetch(@addr);
+    $dst=$mach->segfetch(@addr);
 
   };
 
 
   $dst->set(num=>0x00);
+
+};
+
+# ---   *   ---   *   ---
+# stack control
+
+sub _push($mach,$any) {
+  $mach->stkpush($any);
+
+};
+
+sub _pop($mach,$reg) {
+  my $x=$mach->stkpop();
+  $reg->set(num=>$x);
+
+};
+
+# ---   *   ---   *   ---
+# request memory
+
+sub alloc($reg_a,$reg_b,$imm) {
+
+  my $frame  = $reg_a->{frame};
+  my $mach   = $frame->{-mach};
+
+  my $name   = $reg_b->get_str();
+
+  $reg_a->set(ptr=>$mach->segnew($name,$imm));
 
 };
 

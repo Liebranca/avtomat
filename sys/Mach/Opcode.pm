@@ -120,6 +120,7 @@ sub new($class,$frame,$name,%O) {
     fn    => \&$fn,
 
     cnt   => 0,
+    mach  => 0,
     mode  => undef,
 
     arg_t => [],
@@ -127,10 +128,20 @@ sub new($class,$frame,$name,%O) {
 
   };
 
+
   # get signature
   my @sig=argsof($O{pkg},$name);
 
+  # special case instructions that
+  # require access to internals
+  if($sig[0] eq '$mach') {
+    $out->{mach}=1;
+    shift @sig;
+
+  };
+
   $out->{cnt}=int @sig;
+
 
   # ^det arg type && size from name
   for my $arg(@sig) {
@@ -157,7 +168,7 @@ sub new($class,$frame,$name,%O) {
         ;
 
     # ^fixed-size immediate
-    } elsif($type eq $IMM_T && $imm_size) {
+    } elsif($type eq $IMM_T && $arg=~ $imm_size) {
       $size=[$+{size}];
 
     };
@@ -464,7 +475,7 @@ sub throw_fixed_imm($key,$i,$arg,$width) {
       $i,
       $key,
 
-      bitsize($arg),
+      bitsize($arg) . '-bit',
       "imm$width",
 
     ],
@@ -531,6 +542,12 @@ sub decode($self,$mem) {
      $diff=$diff - $mem->{bit};
 
   bitsume($mem,$diff) if $diff;
+
+
+  # instructions that request access to
+  # internals get mach as first arg
+  unshift @out,$self->{frame}->{-mach}
+  if $tab->{mach};
 
   # give bits read + decoded instruction
   unshift @out,$self->{info}->{$id}->{fn};
@@ -661,6 +678,7 @@ sub regen($class,$frame) {
       arg_s => $ARG->{arg_s},
 
       mode  => $ARG->{mode},
+      mach  => $ARG->{mach},
 
     };
 

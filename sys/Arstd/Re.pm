@@ -64,6 +64,8 @@ package Arstd::Re;
 
     qre2re
 
+    $UNPRINT_RE
+
   );
 
 # ---   *   ---   *   ---
@@ -703,6 +705,18 @@ sub qre2re($sref) {
 
   *re_neg_lkahead  = *neg_lkahead;
   *re_lbeg         = *lbeg;
+
+# ---   *   ---   *   ---
+# ROM II
+
+  Readonly our $UNPRINT_RE=>eiths([
+
+    map {
+      '\x{' . $ARG . '}'
+
+    } (0x00..0x19),(0x7F..0xFF)
+
+  ]);
 
 # ---   *   ---   *   ---
 1; # ret

@@ -71,8 +71,7 @@ package Mach::Reg;
 # copy addr of seg to ptr
 
 sub ptr_cpy($self,$other) {
-  my ($loc,$addr)=array_keys($other->{addr});
-  $self->set(num=>$addr | ($loc << 32));
+  $self->set(ptr=>$other);
 
 };
 

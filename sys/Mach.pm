@@ -327,9 +327,9 @@ sub ipret($self,$s) {
 
   my $fet=sub ($s) {
 
-    state $re=qr{^\[|\]$}x;
+    state $is_addr=qr{^\[|\]$}x;
 
-    my $ind=int($s=~ s[$re][]sxmg);
+    my $ind=int($s=~ s[$is_addr][]sxmg);
     my $cpy=$s;
 
     my $ptr=
@@ -361,7 +361,10 @@ sub ipret($self,$s) {
 
   while($s=~ s[$re][]) {
 
-    my @args=map {
+    my @args=grep {
+      defined $ARG
+
+    } map {
       $fet->($ARG);
 
     } split $sep,$+{nterm};

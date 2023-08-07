@@ -30,6 +30,7 @@ package Mach::Seg;
   use Arstd::Bytes;
   use Arstd::Int;
   use Arstd::Array;
+  use Arstd::Re;
   use Arstd::IO;
 
   use parent 'St';
@@ -579,6 +580,15 @@ sub set_seg($self,$other) {
 };
 
 # ---   *   ---   *   ---
+# ^stores seg addr
+
+sub set_ptr($self,$other) {
+  my ($loc,$addr)=array_keys($other->{addr});
+  $self->set(num=>$addr | ($loc << 32));
+
+};
+
+# ---   *   ---   *   ---
 # ^crux
 
 sub set($self,%O) {
@@ -589,6 +599,43 @@ sub set($self,%O) {
   my $f      = "set_$type";
 
   $self->$f($value);
+
+};
+
+# ---   *   ---   *   ---
+# get un-reversed buf as a string
+
+sub get_str($self) {
+
+  my $s=${$self->{buf}};
+  $s=~ s[$UNPRINT_RE][]sxmg;
+
+  return $s;
+
+};
+
+# ---   *   ---   *   ---
+# ^reversed
+
+sub get_rstr($self) {
+  return reverse $self->get_str();
+
+};
+
+# ---   *   ---   *   ---
+# ^to_bytes alternative
+
+sub get($self) {
+
+  my $width = min(8,$self->{cap});
+  my @steps = map {
+    $width*8
+
+  } 0..int_urdiv($self->{cap},$width)-1;
+
+  my $s=reverse ${$self->{buf}};
+
+  return bitsumex(\$s,@steps);
 
 };
 
@@ -777,24 +824,6 @@ sub to_bytes($self,$width=undef) {
     brev    => 1,
 
   );
-
-};
-
-# ---   *   ---   *   ---
-# ^does the same but in
-# a less confussing way
-
-sub get($self) {
-
-  my $width = min(8,$self->{cap});
-  my @steps = map {
-    $width*8
-
-  } 0..int_urdiv($self->{cap},$width)-1;
-
-  my $s=reverse ${$self->{buf}};
-
-  return bitsumex(\$s,@steps);
 
 };
 

@@ -21,14 +21,31 @@ package Mach::Reg;
 # ---   *   ---   *   ---
 # ROM
 
+# TODO:
+#
+# * char/str imm to num
+
 Readonly my $PROGRAMS=>[
 
-  # set executable segment
-  q'cl  $00;'
-. q'cpy xs,[insblk];',
+  # setup executable segment
+  q[
 
-  # ^write to it
-  q'cpy ar,$FFF;',
+    # clear root block
+    clr   $00;
+
+    # get mem for next program
+    cpy   ar,$696E73;
+    alloc xs,ar,$20;
+
+  ],
+
+  # ^write instructions to
+  # the allocated block
+  q[
+
+    cpy ar,$FFF;
+
+  ],
 
 ];
 
@@ -37,8 +54,6 @@ Readonly my $PROGRAMS=>[
 
 my $mach  = Mach->new();
 my $scope = $mach->{scope};
-
-my $mem  = $mach->segnew('insblk',0x20);
 
 my $xs   = $mach->{reg}->{xs};
 my $ar   = $mach->{reg}->{ar};
@@ -52,10 +67,10 @@ map {
 
 } @$PROGRAMS;
 
-$mem->prich();
 $mach->{reg}->{-seg}->prich();
 
-$ar->prich();
+my $mem=$scope->get(qw(SYS ins))->deref();
+$mem->prich();
 
 # ---   *   ---   *   ---
 1; # ret
