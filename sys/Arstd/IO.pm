@@ -152,7 +152,7 @@ sub fstrout($fmat,$tab,%O) {
 
   # get line length
   my @ttysz    = ttysz_yx();
-  my $desc_tab = descape($tab);
+  my $desc_tab = Arstd::String::descape($tab);
   my $tab_len  = length $desc_tab;
   my $llen     = $ttysz[1]-$tab_len-1;
 
@@ -202,15 +202,17 @@ sub fstrout($fmat,$tab,%O) {
 sub _fstrout_wrap($fmat,$len,$args) {
 
   # expand args
-  my @args = sansi(@$args);
-     $fmat = sprintf fsansi($fmat),@args;
+  my @args=Arstd::String::sansi(@$args);
+
+  $fmat=
+    sprintf Arstd::String::fsansi($fmat),@args;
 
   # ^use real length to wrap
-  my @escapes=popscape(\$fmat);
+  my @escapes=Arstd::String::popscape(\$fmat);
   Arstd::String::linewrap(\$fmat,$len);
 
   # ^then re-insert escapes!
-  pushscape(\$fmat,@escapes);
+  Arstd::String::pushscape(\$fmat,@escapes);
 
   # apply tab to format
   my @out=(

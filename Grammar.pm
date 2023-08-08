@@ -42,7 +42,7 @@ package Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#b
+  our $VERSION = v0.01.1;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -93,9 +93,9 @@ package Grammar;
 # ---   *   ---   *   ---
 # GBL
 
-  our $Top     = undef;
-  our $Rules   = {};
-  our $Ice_Map = {};
+  our $Top    = undef;
+  our $Rules  = {};
+  our $Icemap = {};
 
   Readonly our $REGEX=>{};
 
@@ -108,21 +108,36 @@ package Grammar;
     ext_rule
     ext_rules
 
+    drule
+    dext_rule
+    dext_rules
+
   );
 
 # ---   *   ---   *   ---
 # custom inheritance mambo
 
-  sub import {
+  sub import(@args) {
 
     my ($pkg)=caller;
 
     return
 
     if ! ($pkg=~ $IS_GRAMMAR)
-    || exists $Ice_Map->{$pkg}
+    || exists $Icemap->{$pkg}
     ;
 
+
+    # get passed switches
+    my $O={
+      dynamic => 0
+
+    };
+
+    map {$O->{$ARG}=1} @args;
+
+
+    # make subclass
     no strict 'refs';
 
     for my $sym(@EXPORT) {
@@ -132,9 +147,19 @@ package Grammar;
 
     push @{"$pkg\::ISA"},'Grammar';
 
+
+    # ^register
     no warnings;
-    ${"$pkg\::Rules"}={};
-    $Ice_Map->{$pkg}=1;
+
+    if($O->{dynamic}) {
+      $O->{icemap}={};
+
+    } else {
+      ${"$pkg\::Rules"} = {};
+
+    };
+
+    $Icemap->{$pkg}=$O;
 
   };
 
@@ -146,9 +171,13 @@ package Grammar;
     no strict 'refs';
 
     map {
-      $ARG->mkrules(@{"$ARG\::CORE"})
 
-    } keys %$Ice_Map;
+      my $class=$Icemap->{$ARG};
+
+      $ARG->mkrules(@{"$ARG\::CORE"})
+      if ! $class->{dynamic};
+
+    } keys %$Icemap;
 
   };
 
@@ -157,19 +186,40 @@ package Grammar;
 
 sub get_top($class) {
 
-  no strict 'refs';
-  return ${"$class\::Top"};
+  # dynamic
+  if(length ref $class) {
+    return $class->{top};
+
+  # static
+  } else {
+    no strict 'refs';
+    return ${"$class\::Top"};
+
+  };
 
 };
 
+# ---   *   ---   *   ---
+# ^set
+
 sub set_top($class,$name) {
 
-  no strict 'refs';
-
   my $f=Tree::Grammar->get_frame();
-  ${"$class\::Top"}=$f->nit(value=>$name);
 
-  return ${"$class\::Top"};
+  # dynamic
+  if(length ref $class) {
+    $class->{top}=$f->nit(value=>$name);
+    return $class->{top};
+
+  # static
+  } else {
+
+    no strict 'refs';
+
+    ${"$class\::Top"}=$f->nit(value=>$name);
+    return ${"$class\::Top"};
+
+  };
 
 };
 
@@ -177,8 +227,17 @@ sub set_top($class,$name) {
 # get module's regex table
 
 sub get_retab($class) {
-  no strict 'refs';
-  return ${"$class\::REGEX"};
+
+  # dynamic
+  if(length ref $class) {
+    return $class->{regex};
+
+  # static
+  } else {
+    no strict 'refs';
+    return ${"$class\::REGEX"};
+
+  };
 
 };
 
@@ -186,10 +245,22 @@ sub get_retab($class) {
 # get rules declared by module
 
 sub get_ruletab($class) {
-  no strict 'refs';
-  return ${"$class\::Rules"};
+
+  # dynamic
+  if(length ref $class) {
+    return $class->{rules};
+
+  # static
+  } else {
+    no strict 'refs';
+    return ${"$class\::Rules"};
+
+  }
 
 };
+
+# ---   *   ---   *   ---
+# ^add rule to list
 
 sub push_rule($class,$rule) {
   my $tab=$class->get_ruletab();
@@ -197,7 +268,11 @@ sub push_rule($class,$rule) {
 
 };
 
+# ---   *   ---   *   ---
+# ^get from list
+
 sub fetch_rule($class,$name) {
+
   my $tab=$class->get_ruletab();
 
   throw_bad_rfetch($class,$name)
@@ -211,6 +286,9 @@ sub fetch_rule($class,$name) {
 # ^errme
 
 sub throw_bad_rfetch($class,$name) {
+
+  $class=$class->{pkg}
+  if length ref $class;
 
   errout(
 
@@ -230,6 +308,7 @@ sub throw_bad_rfetch($class,$name) {
 sub new($class,%O) {
 
   # defaults
+  $O{iced} //= undef;
   $O{idex} //= 0;
   $O{mach} //= {idex=>$O{idex}};
   $O{frame_vars} //= {};
@@ -240,8 +319,33 @@ sub new($class,%O) {
     : $O{mach}
     ;
 
-  # make new
-  my $gram=$class->get_top();
+
+  # chk class attrs
+  my $gram  = undef;
+  my $attrs = $Icemap->{$class};
+
+  # ^is dynamic
+  if($attrs->{dynamic}) {
+
+    # get cstruc
+    my $icemap = $attrs->{icemap};
+    my $ice    = $icemap->{$O{iced}}
+
+    or throw_dynamic_new(
+      $class,$icemap,$O{iced}
+
+    );
+
+    $gram=$ice->get_top();
+
+  # ^static
+  } else {
+    $gram=$class->get_top();
+
+  };
+
+
+  # ^make parser ice
   my $self=bless {
 
     frame   => $class->new_frame(),
@@ -254,7 +358,8 @@ sub new($class,%O) {
     anchors => [],
     pending => [],
 
- },$class;
+  },$class;
+
 
   # first pass is blank
   # that means 'parsing stage'
@@ -270,8 +375,58 @@ sub new($class,%O) {
 
   } keys %{$O{frame_vars}};
 
+
   # create parse tree
   $self->{p3}=$gram->new_p3($self);
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# ^dynamic new errme
+
+sub throw_dynamic_new($class,$icemap,$iced) {
+
+  $iced='undef' if ! defined $iced;
+
+  my $list=join q[,],keys %$icemap;
+
+  errout(
+
+    q[Invalid iced '%s' for class <%s>] . "\n"
+  . q[Avail: %s],
+
+    lvl  => $AR_FATAL,
+    args => [$iced,$class,$list],
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# make subclass of dynamic grammar
+
+sub dnew($class,$name,%O) {
+
+  # defaults
+  $O{dom} //= $class;
+
+  my $self=bless {
+
+    iced  => $name,
+    pkg   => "$class\::$name",
+
+    top   => undef,
+    regex => {},
+    rules => {},
+
+    dom   => $O{dom},
+
+  },$class;
+
+  my $attrs=$Icemap->{$class};
+  $attrs->{icemap}->{$name}=$self;
+
   return $self;
 
 };
@@ -516,8 +671,13 @@ SKIP:
 sub mkrules($class,@rules) {
 
   # shorten subclass name
-  my $name    = $class;
-  $name       =~ s[^Grammar\::][];
+  my $name=(length ref $class)
+    ? $class->{pkg}
+    : $class
+    ;
+
+  $name=~ s[^Grammar\::][];
+
 
   # build root
   my $top     = $class->set_top($name);
@@ -649,7 +809,10 @@ sub rdef($class,$O,$name) {
   $O->{greed} //= 0;
 
   $O->{fn}    //= $name;
-  $O->{dom}   //= $class;
+  $O->{dom}   //= (length ref $class)
+    ? $class->{dom}
+    : $class
+    ;
 
   $O->{chld}  //= [];
 
@@ -764,7 +927,7 @@ sub throw_bad_rule($s) {
 };
 
 # ---   *   ---   *   ---
-# makes single pattern
+# makes single pattern for static
 
 sub rule($s) {
 
@@ -778,7 +941,19 @@ sub rule($s) {
 };
 
 # ---   *   ---   *   ---
-# ^import from other
+# ^dynamic
+
+sub drule($class,$s) {
+
+  my $out=$class->rule_attrs($s);
+  $class->push_rule($out);
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^import from other static
 
 sub ext_rule($other,$name) {
 
@@ -792,13 +967,41 @@ sub ext_rule($other,$name) {
 };
 
 # ---   *   ---   *   ---
-# ^bat
+# ^dynamic
+
+sub dext_rule($class,$other,$name) {
+
+  my $out=$other->fetch_rule($name);
+  $class->push_rule($out);
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^bat static
 
 sub ext_rules($other,@names) {
 
   my ($class) = caller;
 
   my @out     = map {
+    $other->fetch_rule($ARG)
+
+  } @names;
+
+  map {$class->push_rule($ARG)} @out;
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^dynamic
+
+sub dext_rules($class,$other,@names) {
+
+  my @out=map {
     $other->fetch_rule($ARG)
 
   } @names;

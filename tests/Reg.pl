@@ -16,6 +16,8 @@ package Mach::Reg;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Arstd::Array;
+
   use Mach;
 
 # ---   *   ---   *   ---
@@ -25,25 +27,26 @@ package Mach::Reg;
 #
 # * char/str imm to num
 
-Readonly my $PROGRAMS=>[
+Readonly my $PROGRAM=>[
 
   # setup executable segment
-  q[
+  boot=>q[
 
     # clear root block
     clr   $00;
 
-    # get mem for next program
-    cpy   ar,$696E73;
+    # get mem for next block
+    cpy   ar,'crux';
     alloc xs,ar,$20;
 
   ],
 
   # ^write instructions to
   # the allocated block
-  q[
+  crux=>q[
 
-    cpy ar,$FFF;
+    push $FF2;
+    pop  ar;
 
   ],
 
@@ -55,17 +58,19 @@ Readonly my $PROGRAMS=>[
 my $mach  = Mach->new();
 my $scope = $mach->{scope};
 
-my $xs   = $mach->{reg}->{xs};
-my $ar   = $mach->{reg}->{ar};
+my $xs    = $mach->{reg}->{xs};
+my $ar    = $mach->{reg}->{ar};
+
+my $tab   = {@$PROGRAM};
 
 map {
 
-  my @ins=$mach->ipret($ARG);
+  my @ins=$mach->ipret($tab->{$ARG});
 
-  $mach->xs_write(@ins);
-  $mach->xs_run();
+  $mach->xs_write($ARG,@ins);
+  $mach->xs_run() if $ARG eq 'boot';
 
-} @$PROGRAMS;
+} array_keys($PROGRAM);
 
 $mach->{reg}->{-seg}->prich();
 

@@ -252,7 +252,7 @@ sub segnew($self,$name,$size,%O) {
 # ---   *   ---   *   ---
 # write instructions to executable segment
 
-sub xs_write($self,@ins) {
+sub xs_write($self,$key,@ins) {
 
   my $tab=$self->{optab};
   my $reg=$self->{reg};
@@ -327,9 +327,10 @@ sub ipret($self,$s) {
 
   my $fet=sub ($s) {
 
-    state $is_addr=qr{^\[|\]$}x;
+    state $is_addr = qr{^\[|\]$}x;
 
     my $ind=int($s=~ s[$is_addr][]sxmg);
+
     my $cpy=$s;
 
     my $ptr=

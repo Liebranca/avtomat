@@ -45,6 +45,7 @@ package Style;
     $AR_FATAL
 
     $DOT_RE
+    $SEMI_RE
     $COMMA_RE
     $SPACE_RE
     $NSPACE_RE
@@ -102,6 +103,7 @@ package Style;
 # ---   *   ---   *   ---
 
   Readonly our $DOT_RE     => qr{\.};
+  Readonly our $SEMI_RE    => qr{;};
   Readonly our $COMMA_RE   => qr{,};
   Readonly our $SPACE_RE   => qr{\s};
   Readonly our $NSPACE_RE  => qr{\s+};
