@@ -252,7 +252,7 @@ sub segnew($self,$name,$size,%O) {
 # ---   *   ---   *   ---
 # write instructions to executable segment
 
-sub xs_write($self,$key,@ins) {
+sub xs_write($self,@ins) {
 
   my $tab=$self->{optab};
   my $reg=$self->{reg};
@@ -298,83 +298,6 @@ sub xs_run($self,%O) {
   } $self->xs_read();
 
   $O{epilogue}->();
-
-};
-
-# ---   *   ---   *   ---
-# transform string to instructions
-
-sub ipret($self,$s) {
-
-  state $nterm=re_escaped(
-
-    ';',
-
-    mod   => '*',
-    sigws => 1,
-
-  );
-
-  state $sep=re_sursplit_new($COMMA_RE,'\s*');
-
-  my @out = ();
-
-  my $ins = $self->{optab}->{re};
-  my $re  = qr{$ins \s+ (?<nterm> $nterm) ;}x;
-
-  strip(\$s);
-  comstrip(\$s);
-
-  my $fet=sub ($s) {
-
-    state $is_addr = qr{^\[|\]$}x;
-
-    my $ind=int($s=~ s[$is_addr][]sxmg);
-
-    my $cpy=$s;
-
-    my $ptr=
-
-       $self->{scope}->cderef(0,\$cpy,'SYS')
-    or $self->{scope}->cderef(0,\$cpy)
-
-    ;
-
-    # immediate
-    return sstoi($cpy) if ! $ptr;
-
-
-    # ^segment
-    my $out=Mach::Struc->validate(
-      $$ptr->deref()
-
-    );
-
-    if($ind) {
-      my ($loc,$addr)=array_keys($out->{addr});
-      $out=$addr | ($loc << 32);
-
-    };
-
-    return $out;
-
-  };
-
-  while($s=~ s[$re][]) {
-
-    my @args=grep {
-      defined $ARG
-
-    } map {
-      $fet->($ARG);
-
-    } split $sep,$+{nterm};
-
-    push @out,[$+{ins},@args];
-
-  };
-
-  return @out;
 
 };
 

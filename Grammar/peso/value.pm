@@ -389,11 +389,17 @@ sub array_is_value($self,@ar) {
 
 sub deref($self,$v,%O) {
 
+  # defaults
+  $O{ptr} //= 0;
+
   my $out=$v;
 
   if($self->needs_deref($v)) {
+
     my $fn = $v->{type} . '_vex';
+
     $out   = $self->$fn($v);
+    $out   = ($O{ptr}) ? $out->deref() : $out;
 
   };
 
@@ -472,20 +478,30 @@ sub vex($self,$fet,$vref,@path) {
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
 
-  # check vref is runtime alias
-  my $lis=q[$LIS::].$$vref;
-     $lis=$scope->cderef($fet,\$lis,@path);
+  # check vref in SYS
+  my $sys=$scope->cderef($fet,$vref,'SYS');
+  if($sys) {
+    $out=$sys;
 
-  # ^matching alias found, recurse
-  if($lis) {
-    $out=\$self->deref($$lis);
-
-  # ^nope, look up common table
+  # ^nope, lookup in path
   } else {
-    $out=$scope->cderef(
-      $fet,$vref,@path
 
-    );
+    # check vref is runtime alias
+    my $lis=q[$LIS::].$$vref;
+       $lis=$scope->cderef($fet,\$lis,@path);
+
+    # ^matching alias found, recurse
+    if($lis) {
+      $out=\$self->deref($$lis);
+
+    # ^nope, look up common table
+    } else {
+      $out=$scope->cderef(
+        $fet,$vref,@path
+
+      );
+
+    };
 
   };
 

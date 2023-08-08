@@ -193,6 +193,12 @@ sub capt($pat,$name=0,%O) {
 
   # make (?<named> capture)
   } elsif($name) {
+
+    $name=($name =~ m[^\d])
+      ? 'capt'
+      : $name
+      ;
+
     $beg .= "?<$name>";
 
   };
@@ -519,7 +525,7 @@ sub delim($beg,$end,%O) {
 # ^generate compound pattern
 
 sub array_delim($ar,%O) {
-  return qre_or([map {delim(@$ARG)} @$ar],%O);
+  return alt([map {delim(@$ARG)} @$ar],%O);
 
 };
 

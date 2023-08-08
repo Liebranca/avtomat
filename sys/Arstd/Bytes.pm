@@ -422,7 +422,7 @@ sub lmord($str,%O) {
   my @words = ();
   my $b     = $O{elem_sz};
 
-  my $step  = int($O{elem_sz}/8);
+  my $step  = int($O{width}/8);
 
   # get word count
   my $cnt   = int(

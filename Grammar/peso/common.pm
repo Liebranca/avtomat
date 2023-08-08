@@ -224,7 +224,7 @@ BEGIN {
 
     q[sep-delim] => array_re_delim(
       [['{','}'],['(',')'],['[',']']],
-      capt=>1
+      capt=>1,
 
     ),
 
