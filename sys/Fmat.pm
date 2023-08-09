@@ -33,8 +33,6 @@ package Fmat;
 
   use Arstd::String;
 
-  use Data::Dumper;
-
 # ---   *   ---   *   ---
 # adds to your namespace
 
@@ -56,7 +54,7 @@ sub tidyup($sref) {
   # we have to wrap to 54 columns ourselves
   # because perltidy cant get its effn
   # sheeeit together
-  linewrap($sref,54);
+  Arstd::String::linewrap($sref,54);
 
   # ^there, doing your job for you
   Perl::Tidy::perltidy(

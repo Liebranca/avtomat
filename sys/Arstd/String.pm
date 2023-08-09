@@ -116,6 +116,7 @@ package Arstd::String;
 
     op     => "\e[37;1m",
     num    => "\e[33;22m",
+    warn   => "\e[33;1m",
 
     good   => "\e[34;22m",
     err    => "\e[31;22m",

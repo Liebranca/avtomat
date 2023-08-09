@@ -34,6 +34,7 @@ package Grammar::peso::mach;
   use Arstd::PM;
 
   use Tree::Grammar;
+  use Mach;
 
   use lib $ENV{'ARPATH'}.'/lib/';
 
@@ -52,7 +53,7 @@ package Grammar::peso::mach;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -96,6 +97,24 @@ package Grammar::peso::mach;
 
   Readonly our $REGEX=>{};
 
+  # cstruc attrs of default parser
+  Readonly my $DEF_CSTRUC=>{
+
+    ext=>{
+      $PE_COMMON=>[qw(lcom opt-nterm term)],
+
+    },
+
+    rules=>[
+      '~<inskey>',
+      '<ins> inskey opt-nterm term',
+
+    ],
+
+    core=>[qw(lcom ins)],
+
+  };
+
   # test program
   Readonly our $BOOT=>q[
 
@@ -107,9 +126,9 @@ package Grammar::peso::mach;
   ];
 
 # ---   *   ---   *   ---
-# make dynamic grammar from mach ice
+# make dynamic grammar from mach model
 
-sub from_ice($class,$mach,$name,%O) {
+sub from_model($class,$name,%O) {
 
   # defaults
   $O{dom}   //= $class;
@@ -117,7 +136,9 @@ sub from_ice($class,$mach,$name,%O) {
   $O{rules} //= [];
   $O{core}  //= [];
 
+  my $mach=Mach->fetch(0,model=>$name);
   my $self=$class->dnew($name,dom=>$O{dom});
+
 
   # ^nit retab
   $self->{regex}={
@@ -140,6 +161,7 @@ sub from_ice($class,$mach,$name,%O) {
   # ^nit local rules
   map {$self->drule($ARG)} @{$O{rules}};
   $self->mkrules(@{$O{core}});
+
 
   return $self;
 
@@ -276,50 +298,21 @@ sub ins_ipret($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# test
+# ensure existance of default parser
 
-use Mach;
-use Fmat;
+  $PE_MACH->from_model(
+    'default',%$DEF_CSTRUC
 
-my $ext={
-  $PE_COMMON=>[qw(lcom opt-nterm term)],
-
-};
-
-my $rules=[
-
-  '~<inskey>',
-  '<ins> inskey opt-nterm term',
-
-];
-
-my $core  = [qw(lcom ins)];
-my $mach  = Mach->new();
-
-$PE_MACH->from_ice(
-
-  $mach,'default',
-
-  ext   => $ext,
-  rules => $rules,
-  core  => $core,
-
-);
+  ) unless $PE_MACH->dhave('default');
 
 # ---   *   ---   *   ---
-# ^run parser
+# ^test
 
-$PE_MACH->parse(
-
-  $BOOT,
-
-  mach => $mach,
-  iced => 'default',
-
-);
+my $mach=Mach->new();
+$mach->parse($BOOT);
 
 $mach->xs_run();
-$mach->{reg}->prich();
+$mach->{reg}->{-seg}->prich();
 
 my $mem=$mach->{scope}->get('SYS','crux');
    $mem=$mem->deref();

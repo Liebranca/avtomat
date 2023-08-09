@@ -29,6 +29,8 @@ package Arstd::IO;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Fmat;
+
   use Arstd::String;
 
 # ---   *   ---   *   ---
@@ -45,6 +47,7 @@ package Arstd::IO;
 
     errme
     errout
+    errcaller
     nyi
 
     orc
@@ -147,6 +150,7 @@ sub fstrout($fmat,$tab,%O) {
   $O{pre_fmat}  //= $NULLSTR;
   $O{post_fmat} //= $NULLSTR;
   $O{endtab}    //= $NULLSTR;
+  $O{nopad}     //= 0;
 
   my $out=$NULLSTR;
 
@@ -165,6 +169,7 @@ sub fstrout($fmat,$tab,%O) {
 
   } @lines;
 
+  pop @lines if $O{nopad};
 
   # get final string
   $out=
@@ -497,10 +502,7 @@ sub errme($format,%O) {
     $format,
     $tab,
 
-    args     => $O{args},
-
-    errout   => 1,
-    pre_fmat => "\n",
+    %O,errout=>1,
 
   );
 
@@ -571,6 +573,64 @@ sub errout($format,%O) {
     return;
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# ^gives caller info
+
+sub errcaller(%O) {
+
+  # defaults
+  $O{depth}   //= 3;
+  $O{fatdump} //= 0;
+  $O{lvl}     //= $AR_FATAL;
+
+
+  # get caller info
+  my (@call) = (caller $O{depth});
+
+  my $pkg    = $call[0];
+  my $line   = $call[2];
+
+  my $fn     = (! defined $call[3])
+    ? '(non)'
+    : $call[3]
+    ;
+
+
+  # ^prepare message
+  my @text=(
+    q[[ctl]:%s on [err]:%s, ]
+  . q[[goodtag]:%s at line (:%u)] . "\n\n"
+
+  );
+
+  my @args=('IRUPT',$fn,$pkg,$line);
+
+
+  # optionally provide an objdump
+  if($O{fatdump}) {
+    push @text,q[[warn]:%s];
+    push @args,"FATDUMP\b";
+
+  };
+
+
+  # ^spit it out
+  errme(
+
+    (join $NULLSTR,@text),
+
+    lvl   => $O{lvl},
+    args  => \@args,
+
+    nopad => 1,
+
+  );
+
+  fatdump(\$O{fatdump},errout=>1)
+  if $O{fatdump};
 
 };
 

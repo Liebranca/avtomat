@@ -21,6 +21,8 @@ package Arstd::PM;
 
   use B::Deparse;
   use Devel::Peek;
+  use Module::Load;
+
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -47,6 +49,8 @@ package Arstd::PM;
     throw_bad_autoload
 
     beqwraps
+    get_static
+    cload
 
   );
 
@@ -338,6 +342,34 @@ sub throw_bad_autoload($pkg,$key) {
     lvl  => $AR_FATAL,
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# fetch global our $Var
+
+sub get_static($class,$name) {
+
+  if(length ref $class) {
+    $class=ref $class;
+
+  };
+
+  no strict 'refs';
+  return ${"$class\::$name"};
+
+};
+
+# ---   *   ---   *   ---
+# conditionally load packages
+# if they're not already loaded
+
+sub cload(@pkg) {
+
+  map {
+    load $ARG if ! $ARG->isa($ARG)
+
+  } @pkg;
 
 };
 

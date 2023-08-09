@@ -24,12 +24,14 @@ package Mach;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Fmat;
 
   use Arstd::Bytes;
   use Arstd::Array;
   use Arstd::String;
   use Arstd::Re;
   use Arstd::IO;
+  use Arstd::PM;
 
   use Mach::Seg;
   use Mach::Struc;
@@ -44,7 +46,7 @@ package Mach;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -73,20 +75,108 @@ package Mach;
 # ---   *   ---   *   ---
 # GBL
 
-  my $Icemap={};
+  our $Icemap={};
+  our $Models={};
 
 # ---   *   ---   *   ---
-# constructor
+# ^get class statics
 
-sub new($class,%O) {
+sub get_icemap($class) {
+  return get_static($class,'Icemap');
+
+};
+
+sub get_modeltab($class) {
+  return get_static($class,'Models');
+
+};
+
+# ---   *   ---   *   ---
+# defines set of configs
+# for a given key
+
+sub new_model($class,$name,%O) {
 
   # defaults
   $O{reg_struc} //= 'Anima';
   $O{optab}     //= ['Mach::Micro'];
 
-  $O{idex}      //= 0;
-
   $O{fd}        //= [*STDIN,*STDOUT,*STDERR];
+
+
+  # ^write new to table
+  my $tab=$class->get_modeltab();
+
+  throw_model('redecl',$name,$tab->{$name})
+  unless ! exists $tab->{$name};
+
+  $tab->{$name}=\%O;
+
+};
+
+# ---   *   ---   *   ---
+# ^ensure existance of
+
+  Mach->new_model('default')
+  unless exists $Models->{default};
+
+# ---   *   ---   *   ---
+# ^fetches model config
+
+sub get_model($class,$name) {
+
+  my $tab=$class->get_modeltab();
+
+  throw_model('badfet',$name,undef)
+  unless exists $tab->{$name};
+
+  return $tab->{$name};
+
+};
+
+# ---   *   ---   *   ---
+# ^multi-purpose errme
+
+sub throw_model($type,$name,$h=undef) {
+
+  state $tab={
+
+    redecl=>q[Mach model '%s' already declared],
+    badfet=>q[Mach model '%s' doesn't exist],
+
+    grammar=>
+      q[No Grammar found for Mach model '%s'],
+
+  };
+
+  errcaller(
+    fatdump=>$h,
+
+  );
+
+  errout(
+
+    $tab->{$type},
+
+    lvl  => $AR_FATAL,
+    args => [$name],
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# cstruc
+
+sub new($class,%O) {
+
+  # defaults
+  $O{model} //= 'default';
+  $O{frame} //= 0;
+
+  # ^cat config to options
+  my $model=$class->get_model($O{model});
+  %O=(%O,%$model);
 
 
   # nit buffs for each standard
@@ -98,8 +188,11 @@ sub new($class,%O) {
 
 
   # make ice
-  my $frame = $class->get_frame($O{idex});
+  my $frame = $class->get_frame($O{frame});
   my $self  = bless {
+
+    id       => 0,
+    model    => $O{model},
 
     reg      => undef,
     regmask  => 0,
@@ -165,6 +258,16 @@ sub new($class,%O) {
   $self->{optab}=$opframe->regen();
 
 
+  # register ice
+  my $icemap=$class->get_icemap();
+  $icemap->{$O{model}} //= [];
+
+  my $box=$icemap->{$O{model}};
+  $self->{id}=int @$box;
+
+  push @$box,$self;
+
+
   return $self;
 
 };
@@ -174,16 +277,22 @@ sub new($class,%O) {
 
 sub fetch($class,$id,%O) {
 
-  my $out=undef;
+  # defaults
+  $O{model} //= 'default';
 
-  # create and save
-  if(! exists $Icemap->{$id}) {
+
+  my $out    = undef;
+
+  my $icemap = $class->get_icemap();
+  my $box    = $icemap->{$O{model}};
+
+  # make new
+  if(! $box ||! $box->[$id]) {
     $out=$class->new(%O);
-    $Icemap->{$id}=$out;
 
   # get existing
   } else {
-    $out=$Icemap->{$id};
+    $out=$box->[$id];
 
   };
 
@@ -408,6 +517,32 @@ sub decl_prologue($o) {
   delete $o->{path};
 
   return @path;
+
+};
+
+# ---   *   ---   *   ---
+# use Grammar matching own
+# model to parse instructions
+#
+# pure sugar!
+
+sub parse($self,$s) {
+
+  my $class='Grammar::peso::mach';
+  cload($class);
+
+  # check that a parser exists
+  $class->dhave($self->{model})
+  or throw_model('grammar',$self->{model});
+
+  return $class->parse(
+
+    $s,
+
+    mach => $self,
+    iced => $self->{model},
+
+  );
 
 };
 

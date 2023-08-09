@@ -432,6 +432,15 @@ sub dnew($class,$name,%O) {
 };
 
 # ---   *   ---   *   ---
+# ^get sub-grammar initialized
+
+sub dhave($class,$name) {
+  my $attrs=$Icemap->{$class};
+  return $attrs->{icemap}->{$name};
+
+};
+
+# ---   *   ---   *   ---
 # get number of post-parse passes
 
 sub num_passes($self) {
