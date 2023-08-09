@@ -98,7 +98,8 @@ sub walk($self,$ctx) {
     my $f   = shift @pending;
     my $rip = $self->{rip};
 
-    $f->{value}->($ctx,$f->{nd});
+    $f->{value}->($ctx,$f->{nd})
+    unless ! $f->{parent} && $f->{plucked};
 
     # ptr was overwritten
     if($self->{jmp}) {

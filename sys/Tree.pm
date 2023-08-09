@@ -35,8 +35,8 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.8;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = v0.01.9;#a
+  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
@@ -122,6 +122,8 @@ sub nit($class,$frame,$parent,$val,%O) {
 
     frame      => $frame,
     fcache     => {},
+
+    plucked    => 0,
 
   },$class;
 
@@ -818,6 +820,8 @@ sub pluck($self,@pending) {
 
     if(grep {$leaf eq $ARG} @pending) {
       push @plucked,$leaf;
+      $leaf->{plucked}=1;
+
       $leaf=undef;
 
     };
@@ -856,6 +860,7 @@ sub idextrav($self) {
   my $i=0;
   for my $child(@{$self->{leaves}}) {
     $child->{idex}=$i++;
+    $child->{-plucked}=0;
 
   };
 

@@ -49,7 +49,7 @@ package Grammar::peso::value;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -82,10 +82,10 @@ BEGIN {
 
     }x,
 
-    hexn  => qr{\$  [0-9A-Fa-f\.:]+}x,
-    octn  => qr{\\ [0-7\.:]+}x,
-    binn  => qr{0b  [0-1\.:]+}x,
-    decn  => qr{[0-9\.:]+}x,
+    hexn  => qr{\$ [0-9A-Fa-f][0-9A-Fa-f\.:]*}x,
+    octn  => qr{\\ [0-7][0-7\.:]*}x,
+    binn  => qr{0b  [0-1][0-1\.:]*}x,
+    decn  => qr{[0-9][0-9\.:]*}x,
 
     dqstr => qr{"([^"]|\\")*?"},
     sqstr => qr{'([^']|\\')*?'},
@@ -105,7 +105,7 @@ BEGIN {
 
         ~:
 
-        * : -- - ++ + ^ &
+        * : -- - ++ + ^ & .
 
         >> >>: << <<:
 
@@ -392,14 +392,28 @@ sub deref($self,$v,%O) {
   # defaults
   $O{ptr} //= 0;
 
+
+  # skip non-blessed values
   my $out=$v;
 
   if($self->needs_deref($v)) {
 
-    my $fn = $v->{type} . '_vex';
+    # call expansion F accto type
+    my $fn  = $v->{type} . '_vex';
+       $out = $self->$fn($v);
 
-    $out   = $self->$fn($v);
-    $out   = ($O{ptr}) ? $out->deref() : $out;
+    # value expansion failed
+    if(! $out) {
+      $out=$v;
+
+    # ^succesful
+    } else {
+      $out=($O{ptr})
+        ? $out->deref()
+        : $out
+        ;
+
+    };
 
   };
 

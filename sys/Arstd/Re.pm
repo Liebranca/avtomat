@@ -412,13 +412,6 @@ sub lkahead($pat,$i) {
 };
 
 # ---   *   ---   *   ---
-# exclude substrings from match
-
-sub exclude(@ar) {
-
-};
-
-# ---   *   ---   *   ---
 # procs options for escaped/nonscaped
 
 sub _escaping_prologue($sref,$O) {

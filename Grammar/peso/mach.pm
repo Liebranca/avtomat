@@ -132,10 +132,10 @@ package Grammar::peso::mach;
 
   .boot:
 
-    clr   $00;
+    clr   .boot;
 
-    cpy   ar,'crux';
-    alloc xs,ar,$40;
+#    cpy   ar,'crux';
+#    alloc xs,ar,$40;
 
   ];
 
@@ -206,6 +206,8 @@ sub label($self,$branch) {
 
     lvl  => 0,
 
+    pen  => [],
+
   };
 
   $branch->clear();
@@ -239,7 +241,16 @@ sub label_ctx($self,$branch) {
 # ---   *   ---   *   ---
 # ^set byte offset for next label
 
-sub label_opz($self,$branch) {
+sub label_ord($self,$branch) {
+  $self->label_get_pos($branch);
+  $self->label_tmp_asg($branch);
+
+};
+
+# ---   *   ---   *   ---
+# ^calculate offset for next label
+
+sub label_get_pos($self,$branch) {
 
   my $st    = $branch->{value};
   my $ahead = $branch->next_branch();
@@ -257,7 +268,96 @@ sub label_opz($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# ^store label value in tmp
+
+sub label_tmp_asg($self,$branch) {
+
+  my $st    = $branch->{value};
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+  my @path  = ('$tmp',$st->{name});
+
+  (! $scope->has(@path))
+    ? $scope->decl(\$st->{pos},@path)
+    : $scope->asg(\$st->{pos},@path)
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# adjust label pos as
+# codesize shrinks
+
+sub label_cl($self,$branch) {
+
+  my $st    = $branch->{value};
+  my $pen   = $st->{pen};
+
+  my $i=0;
+
+REPEAT:
+
+  map {$self->blk_repl($ARG)} @$pen;
+
+  goto REPEAT if $i++ < 1;
+
+  exit;
+
+};
+
+# ---   *   ---   *   ---
+# re-encodes instructions in
+# block after value expansion
+
+sub blk_repl($self,$branch) {
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+  my $cst   = $branch->{value};
+  my @raw   = @{$cst->{raw}};
+
+  my @new   = @{$cst->{pen}};
+  my @old   = @new;
+
+
+  # fetch previously unresolved symbols
+  @new=map {
+    $scope->get('$tmp',$ARG->{raw})
+
+  } @new;
+
+  # ^replace within instruction array
+  my @cooked=map {[
+
+    map {
+      my $x=$ARG;
+
+      # if X refers to one of those
+      # previoulsy unresolved...
+      map {
+        $x=${$new[$ARG]}
+        if $x eq $old[$ARG];
+
+      } 0..$#new;
+
+      $x;
+
+    } @$ARG
+
+  ]} @raw;
+
+
+  # ^encode with the updated instructions
+  $self->ins_encode($branch,@cooked);
+
+};
+
+# ---   *   ---   *   ---
 # instruction post-parse
+# solve flat args at this stage
 
 sub ins($self,$branch) {
 
@@ -274,29 +374,16 @@ sub ins($self,$branch) {
 
   );
 
-  # overwrite
-  my $st={
-    key  => $key,
-    args => [$eye[0]->branch_values()],
 
-  };
+  # ^proc args
+  my @args = $eye[0]->branch_values();
+     @args = $self->ins_unpack_args(@args);
 
+  my @ins  = $self->ins_expand($key,@args);
+
+
+  # ^store
   $branch->clear();
-  $branch->{value}=$st;
-
-};
-
-# ---   *   ---   *   ---
-# ^solve args
-
-sub ins_ctx($self,$branch) {
-
-  my $par   = $branch->{parent};
-  my $st    = $branch->{value};
-  my $key   = $st->{key};
-
-  my @args  = $self->ins_unpack_args($branch);
-  my @ins   = $self->ins_expand($key,@args);
 
   $branch->{value}='ins';
   $branch->init(\@ins);
@@ -306,9 +393,7 @@ sub ins_ctx($self,$branch) {
 # ---   *   ---   *   ---
 # ^unpack instruction args
 
-sub ins_unpack_args($self,$branch) {
-
-  my $st=$branch->{value};
+sub ins_unpack_args($self,@args) {
 
   return map {
 
@@ -327,7 +412,7 @@ sub ins_unpack_args($self,$branch) {
 
     };
 
-  } @{$st->{args}};
+  } @args;
 
 };
 
@@ -358,22 +443,47 @@ sub ins_expand($self,$key,@args) {
 # ^encode instructions
 # then merge branches
 
-sub ins_cl($self,$branch) {
+sub ins_ctx($self,$branch) {
+
+  my @ins=$self->ins_merge($branch);
+  my @pen=$self->ins_pending($branch,@ins);
+
+  # save initial state
+  $branch->{value}={
+
+    raw=>\@ins,
+    enc=>undef,
+
+    pen=>\@pen,
+
+  };
+
+  my $st=$branch->{value};
+
+
+  # notify parent of recalcs in Q
+  my $par=$branch->{parent};
+  my $pst=$par->{value};
+
+  push @{$pst->{pen}},$branch
+  if @{$st->{pen}};
+
+
+  # run first encoding pass
+  $self->ins_encode($branch,@ins);
+
+};
+
+# ---   *   ---   *   ---
+# ^does the merging
+
+sub ins_merge($self,$branch) {
 
   state $re=qr{^ins$};
 
   # get ins branches in block
   my $par=$branch->{parent};
   my @blk=$par->branches_in($re);
-
-  # TODO:
-  #
-  #   forbid plucked branches
-  #   from execution
-  #
-  #   for now this patch does the trick ;>
-
-  return if ! @blk;
 
   # ^merge values
   my @ins=map {
@@ -384,16 +494,46 @@ sub ins_cl($self,$branch) {
   # ^pop all but first from block
   $par->pluck(grep {$ARG ne $branch} @blk);
 
+  return @ins;
 
-  # ^encode and store merged
-  my $mach = $self->{mach};
-  my $st   = $par->{value};
+};
+
+# ---   *   ---   *   ---
+# ^get value expansions pending
+
+sub ins_pending($self,$branch,@ins) {
+
+  return grep {$ARG} map {
+
+    grep {
+      Mach::Value->is_valid($ARG);
+
+    } @$ARG
+
+  } @ins;
+
+};
+
+# ---   *   ---   *   ---
+# ^encode and store merged
+# ins branches
+
+sub ins_encode($self,$branch,@ins) {
+
+  my $par  = $branch->{parent};
+  my $pst  = $par->{value};
+  my $st   = $branch->{value};
+
+
+  # run encoder
+  my $mach=$self->{mach};
 
   my ($cap,@opcodes)=
     $mach->xs_encode(@ins);
 
-  $branch->{value} = \@opcodes;
-  $st->{cap}       = $cap;
+  # ^store encoded and size
+  $st->{enc}  = \@opcodes;
+  $pst->{cap} = $cap;
 
 };
 
