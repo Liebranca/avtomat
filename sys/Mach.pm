@@ -46,7 +46,7 @@ package Mach;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -359,17 +359,38 @@ sub segnew($self,$name,$size,%O) {
 };
 
 # ---   *   ---   *   ---
-# write instructions to executable segment
+# generae machine instructions
+# from [key => args]
 
-sub xs_write($self,@ins) {
+sub xs_encode($self,@ins) {
 
-  my $tab=$self->{optab};
+  my $total = 0;
+  my $tab   = $self->{optab};
+
+  my @out=map {
+
+    my ($opcode,$width)=
+      $tab->get_opcode(@$ARG);
+
+    $total+=$width;
+    substr $opcode,0,$width;
+
+  } @ins;
+
+  return ($total,@out);
+
+};
+
+# ---   *   ---   *   ---
+# ^write encoded to current
+# executable segment
+
+sub xs_write($self,@opcodes) {
+
   my $reg=$self->{reg};
-
   my $mem=$reg->{xs}->ptr_deref();
-  my $ptr=$mem->brush();
 
-  map {$tab->write($ptr,@$ARG)} @ins;
+  $mem->set(rstr=>(join $NULLSTR,@opcodes));
 
 };
 

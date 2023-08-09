@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
 # PESO MACH
-# Low-level subset
+# Low-level core
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -26,6 +26,7 @@ package Grammar::peso::mach;
 
   use Style;
   use Chk;
+  use Fmat;
 
   use Arstd::Bytes;
   use Arstd::String;
@@ -53,7 +54,7 @@ package Grammar::peso::mach;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -95,7 +96,12 @@ package Grammar::peso::mach;
   Readonly our $PE_MACH=>
     'Grammar::peso::mach';
 
-  Readonly our $REGEX=>{};
+  Readonly our $REGEX=>{
+
+    colon  => re_nonscaped(':'),
+    ncolon => re_escaped(':',mod=>'+'),
+
+  };
 
   # cstruc attrs of default parser
   Readonly my $DEF_CSTRUC=>{
@@ -106,17 +112,25 @@ package Grammar::peso::mach;
     },
 
     rules=>[
+
+      '~<colon> &term',
+      '~<ncolon>',
+
+      '<label> &label ncolon colon',
+
       '~<inskey>',
       '<ins> inskey opt-nterm term',
 
     ],
 
-    core=>[qw(lcom ins)],
+    core=>[qw(lcom label ins)],
 
   };
 
   # test program
   Readonly our $BOOT=>q[
+
+  .boot:
 
     clr   $00;
 
@@ -168,6 +182,81 @@ sub from_model($class,$name,%O) {
 };
 
 # ---   *   ---   *   ---
+# ^ensure existance of default parser
+
+  $PE_MACH->from_model(
+    'default',%$DEF_CSTRUC
+
+  ) unless $PE_MACH->dhave('default');
+
+# ---   *   ---   *   ---
+# post-parse for [not-colon] :
+
+sub label($self,$branch) {
+
+  my $lv   = $branch->{leaves};
+  my $name = $lv->[0]->leaf_value(0);
+
+  my $st={
+
+    name => $name,
+
+    cap  => 0,
+    pos  => 0,
+
+    lvl  => 0,
+
+  };
+
+  $branch->clear();
+  $branch->init($st);
+
+};
+
+# ---   *   ---   *   ---
+# ^hierarchical sort
+
+sub label_ctx($self,$branch) {
+
+  state $re=qr{^label$};
+
+  my $par = $branch->{parent};
+  my $st  = $branch->leaf_value(0);
+
+  $branch->clear();
+
+
+  # get every node from self
+  # up to next label, exclusive
+  my @lv=$branch->match_up_to($re);
+
+  # ^parent nodes
+  $branch->pushlv(@lv);
+  $branch->{value}=$st;
+
+};
+
+# ---   *   ---   *   ---
+# ^set byte offset for next label
+
+sub label_opz($self,$branch) {
+
+  my $st    = $branch->{value};
+  my $ahead = $branch->next_branch();
+
+  # do nothing on last label
+  if(defined $ahead) {
+
+    $ahead->{value}->{pos}=
+      $st->{cap}
+    + $st->{pos}
+    ;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # instruction post-parse
 
 sub ins($self,$branch) {
@@ -202,15 +291,26 @@ sub ins($self,$branch) {
 
 sub ins_ctx($self,$branch) {
 
+  my $par   = $branch->{parent};
   my $st    = $branch->{value};
+  my $key   = $st->{key};
 
-  my $mach  = $self->{mach};
-  my $scope = $mach->{scope};
+  my @args  = $self->ins_unpack_args($branch);
+  my @ins   = $self->ins_expand($key,@args);
 
-  my @path  = $scope->path();
+  $branch->{value}='ins';
+  $branch->init(\@ins);
 
-  # unpack args
-  @{$st->{args}}=map {
+};
+
+# ---   *   ---   *   ---
+# ^unpack instruction args
+
+sub ins_unpack_args($self,$branch) {
+
+  my $st=$branch->{value};
+
+  return map {
 
     my $value=$self->deref($ARG,ptr=>1);
 
@@ -234,42 +334,46 @@ sub ins_ctx($self,$branch) {
 # ---   *   ---   *   ---
 # ^expand multi-part instructions
 
-sub ins_opz($self,$branch) {
+sub ins_expand($self,$key,@args) {
 
-  my $st   = $branch->{value};
-
-  my $key  = $st->{key};
-  my @args = @{$st->{args}};
-
-  my @ins  = ();
+  my @out=();
 
   # last argument is slurped into
   # multiple copies of instruction
   if(is_arrayref($args[-1])) {
     my $data=pop @args;
-    @ins=map {[$key,@args,$ARG]} @$data;
+    @out=map {[$key,@args,$ARG]} @$data;
 
   # ^single instruction
   } else {
-    @ins=([$key,@args]);
+    @out=([$key,@args]);
 
   };
 
-  $branch->{value}='ins';
-  $branch->init(\@ins);
+  return @out;
 
 };
 
 # ---   *   ---   *   ---
-# ^merge branches
+# ^encode instructions
+# then merge branches
 
-sub ins_pre($self,$branch) {
+sub ins_cl($self,$branch) {
 
   state $re=qr{^ins$};
 
   # get ins branches in block
   my $par=$branch->{parent};
   my @blk=$par->branches_in($re);
+
+  # TODO:
+  #
+  #   forbid plucked branches
+  #   from execution
+  #
+  #   for now this patch does the trick ;>
+
+  return if ! @blk;
 
   # ^merge values
   my @ins=map {
@@ -280,30 +384,18 @@ sub ins_pre($self,$branch) {
   # ^pop all but first from block
   $par->pluck(grep {$ARG ne $branch} @blk);
 
-  # ^store merged
-  $branch->{value}=\@ins;
 
-};
-
-# ---   *   ---   *   ---
-# ^write instructions to segment
-
-sub ins_ipret($self,$branch) {
-
+  # ^encode and store merged
   my $mach = $self->{mach};
-  my @ins  = @{$branch->{value}};
+  my $st   = $par->{value};
 
-  $mach->xs_write(@ins);
+  my ($cap,@opcodes)=
+    $mach->xs_encode(@ins);
+
+  $branch->{value} = \@opcodes;
+  $st->{cap}       = $cap;
 
 };
-
-# ---   *   ---   *   ---
-# ensure existance of default parser
-
-  $PE_MACH->from_model(
-    'default',%$DEF_CSTRUC
-
-  ) unless $PE_MACH->dhave('default');
 
 # ---   *   ---   *   ---
 # ^test
@@ -314,10 +406,10 @@ $mach->parse($BOOT);
 $mach->xs_run();
 $mach->{reg}->{-seg}->prich();
 
-my $mem=$mach->{scope}->get('SYS','crux');
-   $mem=$mem->deref();
-
-$mem->prich();
+#my $mem=$mach->{scope}->get('SYS','crux');
+#   $mem=$mem->deref();
+#
+#$mem->prich();
 
 # ---   *   ---   *   ---
 1; # ret

@@ -44,7 +44,7 @@ package Mach::Opcode;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#b
+  our $VERSION = v0.00.8;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -742,12 +742,23 @@ sub read($self,$ptr) {
 
 sub write($self,$ptr,$ins,@args) {
 
-  my ($opcode,$width)=$self->encode($ins,@args);
-
-  $width=int_urdiv($width,8);
+  my ($opcode,$width)=
+    $self->get_opcode($ins,@args);
 
   $ptr->set(rstr=>$opcode);
   $ptr->brush($width,repl=>1);
+
+};
+
+# ---   *   ---   *   ---
+# ^just give opcode + byte size
+
+sub get_opcode($self,$ins,@args) {
+
+  my ($opcode,$width)=$self->encode($ins,@args);
+  $width=int_urdiv($width,8);
+
+  return ($opcode,$width);
 
 };
 
