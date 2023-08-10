@@ -27,16 +27,8 @@ package Queue;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v1.00.3;
+  our $VERSION=v1.00.4;
   our $AUTHOR='IBN-3DILA';
-
-# ---   *   ---   *   ---
-# getters
-
-#sub pending($self) {
-#  return 0 < @{$self->{procs}};
-#
-#};
 
 # ---   *   ---   *   ---
 # constructor
@@ -60,6 +52,18 @@ sub add($self,$fn,@args) {
   push @{$self->{argc}},int(@args);
   push @{$self->{argv}},@args;
   push @{$self->{procs}},$fn;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^unshift
+
+sub skip($self,$fn,@args) {
+  unshift @{$self->{argc}},int(@args);
+  unshift @{$self->{argv}},@args;
+  unshift @{$self->{procs}},$fn;
 
   return;
 
@@ -95,6 +99,14 @@ sub get_next($self) {
   };
 
   return $fn->(@argv);
+
+};
+
+# ---   *   ---   *   ---
+# ops in Q
+
+sub pending($self) {
+  return 0 < @{$self->{procs}}
 
 };
 

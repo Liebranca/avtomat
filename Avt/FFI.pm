@@ -35,15 +35,15 @@ package Avt::FFI;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;#a
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = v0.00.2;#a
+  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
   our $Typetab=Vault::cached(
 
-    'Typetab',\&xltab,
+    'Typetab' => \&xltab,
 
     q[byte]=>['uint8'],
     q[sbyte]=>['sint8'],
@@ -126,8 +126,8 @@ sub nit($class) {
 
   );
 
-  my @keys=array_keys($Typetab);
-  my @values=array_values($Typetab);
+  my @keys   = array_keys($Typetab);
+  my @values = array_values($Typetab);
 
   # set type aliases
   while(@keys && @values) {

@@ -313,29 +313,24 @@ sub cached_dir($file) {
 
 sub rof($file,$key,$call,@args) {
 
-  my ($path,$rbld)=
-    cached_dir($file);
+  my ($path,$rbld)=cached_dir($file);
 
   my $h=(-f $path)
     ? retrieve($path)
     : $Cache_Regen->{$path}
     ;
 
-  $h//={};
-
+  $h //= {};
   my $out=undef;
 
   # regen entry
   if(! exists $h->{$key} or $rbld) {
     $out=$h->{$key}=$call->(@args);
-    $out->{q[$:VLT REGEN;>]}=1;
-
     cashreg($path,$h);
 
   # ^fetch existing
   } else {
     $out=$h->{$key};
-    $out->{q[$:VLT REGEN;>]}=0;
 
   };
 
@@ -361,14 +356,11 @@ sub frof($file,$call,@args) {
   # regen entry
   if(! $h or $rbld) {
     $out=$h=$call->(@args);
-    $out->{q[$:VLT REGEN;>]}=1;
-
     cashreg($path,$h);
 
   # ^fetch existing
   } else {
     $out=$h;
-    $out->{q[$:VLT REGEN;>]}=0;
 
   };
 
