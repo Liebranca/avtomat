@@ -161,7 +161,6 @@ sub exgen($class,$info,$O) {
 
   # defaults
   $O->{lang}   //= 'C';
-  $O->{args}   //= [];
   $O->{syshed} //= [];
   $O->{usrhed} //= [];
 
@@ -182,7 +181,6 @@ sub exgen($class,$info,$O) {
     include    => $heds,
 
     body       => $O->{body},
-    args       => $O->{args},
 
     add_guards => 1,
 

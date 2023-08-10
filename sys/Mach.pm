@@ -469,15 +469,29 @@ sub xs_run($self,%O) {
 
 
   # ^load ins from xseg
+  my $reg = $self->{reg};
+  my $old = $reg->{xs}->ptr_deref();
+  my @blk = $self->xs_read();
 
-TOP:
 
-  for my $ins($self->xs_read()) {
+REPEAT:
+
+  # ^re-read xseg on jumps
+  my $new=$reg->{xs}->ptr_deref();
+
+  @blk=($new ne $old)
+    ? $self->xs_read()
+    : @blk
+    ;
+
+
+  # ^exec loaded instructions
+  for my $ins(@blk) {
 
     my ($fn,@args)=@$ins;
     my $irupt=$fn->(@args);
 
-    ! $irupt or goto TOP;
+    ! $irupt or goto REPEAT;
 
   };
 

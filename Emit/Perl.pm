@@ -142,7 +142,7 @@ sub boiler_close($class,$fname,%O) {
 
 # ---   *   ---   *   ---
 
-sub shwlbind($fname,$soname,$libs_ref) {
+sub shwlbind($soname,$libs_ref) {
 
   my %symtab=%{
     Shb7::Build::soregen($soname,$libs_ref)
@@ -165,6 +165,8 @@ sub import {
     "\$libfold/lib$soname.so"
 
   );
+
+};
 
 EOF
 ;

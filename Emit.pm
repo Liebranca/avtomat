@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Emit;
 
   use v5.36.0;
@@ -19,16 +20,20 @@ package Emit;
   use warnings;
 
   use Readonly;
+  use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd;
+  use Chk;
+
+  use Arstd::Array;
+  use Arstd::IO;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;#b
+  our $VERSION=v0.00.3;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -101,9 +106,8 @@ sub codewrap($class,$fname,%O) {
 
   $O{include}    //= [];
   $O{define}     //= [];
-  $O{args}       //= [];
 
-  $O{body}       //= $NULLSTR;
+  $O{body}       //= [$NULLSTR=>[]];
 
   $O{author}     //= $ON_NO_AUTHOR;
   $O{version}    //= $ON_NO_VERSION;
@@ -112,33 +116,44 @@ sub codewrap($class,$fname,%O) {
   my $s=$NULLSTR;
   $s.=$class->boiler_open($fname,%O);
 
-  my @code=(is_arrayref($O{body}))
-    ? @{$O{body}}
-    : $O{body}
-    ;
+  is_arrayref($O{body})
+  or throw_genbody();
 
-  my @args=(is_arrayref($O{args}))
-    ? @{$O{args}}
-    : [@{$O{args}}]
-    ;
+  my @code=array_keys($O{body});
+  my @args=array_values($O{body});
 
-#  for my $bit(@code) {
-#
-#    my $c_args=shift @args;
-#
-#    if(length ref $bit) {
-#      $s.=$bit->(@$c_args);
-#
-#    } else {
-#      $s.=$bit;
-#
-#    };
-#
-#  };
+  for my $bit(@code) {
+
+    my $args=shift @args;
+
+    $s.=(is_coderef($bit))
+      ? $bit->(@$args)
+      : $bit
+      ;
+
+  };
 
   $s.=$class->boiler_close($fname,%O);
 
   return $s;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_genbody() {
+
+  errcaller();
+  errout(
+
+    q[Body of [ctl]:%s must be an ]
+  . q[array of [F=>ARGS]],
+
+    lvl  => $AR_FATAL,
+    args => ['outf'],
+
+  );
 
 };
 
