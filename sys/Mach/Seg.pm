@@ -584,8 +584,10 @@ sub set_seg($self,$other) {
 
 sub set_ptr($self,$other) {
 
-  my ($slow,$loc,$addr)=
-    array_keys($other->{addr});
+  my ($loc,$addr)=($other->{fast})
+    ? ($other->{fast})
+    : @{$other->{slow}}
+    ;
 
   $self->set(num=>$addr | ($loc << 32));
 

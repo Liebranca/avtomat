@@ -43,6 +43,7 @@ package Arstd::PM;
     subsof
     submerge
 
+    codeof
     argsof
 
     autoload_prologue
@@ -223,7 +224,7 @@ sub beqwraps($attr,@names) {
 # get arguments of subroutine
 # by deparsing it's signature (!!)
 
-sub argsof($pkg,$name) {
+sub argsof($pkg,$name=undef) {
 
   state $decl=qr{
     my \s+ (?<var> \W\w+) \s* =
@@ -242,9 +243,13 @@ sub argsof($pkg,$name) {
 
   my @out  = ();
 
-  # get codestr for sub
-  my $fn   = join q[::],$pkg,$name;
-  my $body = B::Deparse->new->coderef2text(\&$fn);
+  # avoid re-deparse if body
+  # passed in pkg
+  my $body = (defined $name)
+    ? codeof($pkg,$name)
+    : $pkg
+    ;
+
   my $blk  = $NULLSTR;
 
   # ^pop do {} block
@@ -261,6 +266,18 @@ sub argsof($pkg,$name) {
   };
 
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# get codestr for sub
+
+sub codeof($pkg,$name) {
+
+  my $fn   = join q[::],$pkg,$name;
+  my $body = B::Deparse->new->coderef2text(\&$fn);
+
+  return $body;
 
 };
 

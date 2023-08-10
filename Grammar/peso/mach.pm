@@ -127,7 +127,7 @@ package Grammar::peso::mach;
 
   };
 
-  # test program
+  # test programs
   Readonly our $BOOT=>q[
 
   .boot:
@@ -136,6 +136,17 @@ package Grammar::peso::mach;
 
     cpy   ar,'crux';
     alloc xs,ar,$40;
+
+  ];
+
+  Readonly our $CRUX=>q[
+
+  .top:
+    jmp .bot;
+    cpy br,$DEAD;
+
+  .bot:
+    cpy ar,$FFF;
 
   ];
 
@@ -206,6 +217,7 @@ sub label($self,$branch) {
 
     lvl  => 0,
 
+    ins  => [],
     pen  => [],
 
   };
@@ -242,7 +254,6 @@ sub label_ctx($self,$branch) {
 # ^set byte offset for next label
 
 sub label_ord($self,$branch) {
-  $self->label_get_pos($branch);
   $self->label_tmp_asg($branch);
 
 };
@@ -292,7 +303,6 @@ sub label_tmp_asg($self,$branch) {
 
 sub label_cl($self,$branch) {
   $self->rec_blk_repl($branch);
-  $self->label_get_pos($branch);
 
 };
 
@@ -308,13 +318,15 @@ sub blk_repl($self,$branch) {
   my $cst   = $branch->{value};
   my @raw   = @{$cst->{raw}};
 
+  return if ! @raw;
+
   my @new   = @{$cst->{pen}};
   my @old   = @new;
 
 
   # fetch previously unresolved symbols
   @new=map {
-    $scope->get('$tmp',$ARG->{raw})
+    $scope->get('$tmp',$ARG->{raw});
 
   } @new;
 
@@ -337,7 +349,6 @@ sub blk_repl($self,$branch) {
     } @$ARG
 
   ]} @raw;
-
 
   # ^encode with the updated instructions
   $self->ins_encode($branch,@cooked);
@@ -370,6 +381,30 @@ sub rec_blk_repl($self,$branch) {
 
   };
 
+
+};
+
+# ---   *   ---   *   ---
+# merge blocks
+
+sub label_pre($self,$branch) {
+
+  # get all branches in block
+  my $par=$branch->{parent};
+  my @blk=@{$par->{leaves}};
+
+  # ^merge instructions and write
+  # to executable segment
+  my @ins=map {
+    @{$ARG->{value}->{ins}}
+
+  } @blk;
+
+  $self->{mach}->xs_write(@ins);
+
+
+  # ^pop all but first from block
+  $par->pluck(grep {$ARG ne $branch} @blk);
 
 };
 
@@ -463,28 +498,23 @@ sub ins_expand($self,$key,@args) {
 
 sub ins_ctx($self,$branch) {
 
+  # get instruction list plus
+  # list of unsolved symbols
   my @ins=$self->ins_merge($branch);
   my @pen=$self->ins_pending($branch,@ins);
 
-  # save initial state
+  # ^save initial state
   $branch->{value}={
-
     raw=>\@ins,
-    enc=>undef,
-
     pen=>\@pen,
 
   };
 
-  my $st=$branch->{value};
-
-
-  # notify parent of recalcs in Q
+  # ^give ref to block
   my $par=$branch->{parent};
   my $pst=$par->{value};
 
-  push @{$pst->{pen}},$branch
-  if @{$st->{pen}};
+  push @{$pst->{pen}},$branch;
 
 
   # run first encoding pass
@@ -550,26 +580,12 @@ sub ins_encode($self,$branch,@ins) {
     $mach->xs_encode(@ins);
 
   # ^store encoded and size
-  $st->{enc}  = \@opcodes;
-  $pst->{cap} = $cap;
+  $pst->{cap}=$cap;
+  $pst->{ins}=\@opcodes;
 
-};
-
-# ---   *   ---   *   ---
-# ^write to segment
-
-sub ins_pre($self,$branch) {
-
-  my $st   = $branch->{value};
-  my $mach = $self->{mach};
-
-  map {
-    machxe($ARG,beg=>0,end=>length $ARG);
-    say "...";
-
-  } @{$st->{enc}};
-
-  $mach->xs_write(@{$st->{enc}});
+  # ^recalc block offsets
+  $self->label_get_pos($par)
+  if $self->{frame}->{-npass} > 1;
 
 };
 
@@ -577,16 +593,14 @@ sub ins_pre($self,$branch) {
 # ^test
 
 my $mach=Mach->new();
-$mach->parse($BOOT);
-
-#$mach->xs_run();
+$mach->ipret($BOOT,$CRUX);
 
 $mach->{reg}->{-seg}->prich();
 
-#my $mem=$mach->{scope}->get('SYS','crux');
-#   $mem=$mem->deref();
-#
-#$mem->prich();
+my $mem=$mach->{scope}->get('SYS','crux');
+   $mem=$mem->deref();
+
+$mem->prich();
 
 # ---   *   ---   *   ---
 1; # ret

@@ -44,7 +44,7 @@ package Mach::Opcode;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#b
+  our $VERSION = v0.00.9;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -78,6 +78,12 @@ package Mach::Opcode;
 # guts v
 
 sub new($class,$frame,$name,%O) {
+
+  # detect branching
+  state $has_jmp=qr{
+    \$mach\->xs_branch\(
+
+  }x;
 
   # operand types
   state $is_reg=qr{^\$reg};
@@ -126,11 +132,19 @@ sub new($class,$frame,$name,%O) {
     arg_t => [],
     arg_s => [],
 
+    jmp   => 0,
+
   };
 
 
   # get signature
-  my @sig=argsof($O{pkg},$name);
+  my $code = codeof($O{pkg},$name);
+  my @sig  = argsof($code);
+
+
+  # mark instructions that can
+  # produce branches
+  $out->{jmp}=$code=~ $has_jmp;
 
   # special case instructions that
   # require access to internals
@@ -493,12 +507,12 @@ sub decode($self,$mem) {
   my ($id)=bitsume($mem,$self->{opbits});
 
   # get argcount
-  my $tab     = $self->{info}->{$id};
-  my $cnt     = $tab->{cnt};
+  my $tab=$self->{info}->{$id};
+  my $cnt=$tab->{cnt};
 
   # get arg types
-  my $types = $tab->{arg_t};
-  my $sizes = $tab->{arg_s};
+  my $types=$tab->{arg_t};
+  my $sizes=$tab->{arg_s};
 
   # skip mode bits if hardcoded
   my ($mode)=(! defined $tab->{mode})
@@ -680,6 +694,8 @@ sub regen($class,$frame) {
       mode  => $ARG->{mode},
       mach  => $ARG->{mach},
 
+      jmp   => $ARG->{jmp},
+
     };
 
     $ARG->{key};
@@ -759,6 +775,59 @@ sub get_opcode($self,$ins,@args) {
   $width=int_urdiv($width,8);
 
   return ($opcode,$width);
+
+};
+
+# ---   *   ---   *   ---
+# ensures jumps can only be
+# placed at the end or beg
+# of an instruction block
+
+sub branch_ok($self,@ins) {
+
+  my $info = $self->{info};
+  my @old  = @ins;
+
+  # discard beg and end
+  shift @ins;
+  pop   @ins;
+
+  # ^throw if instructions in
+  # the middle the block cause
+  # a branch
+  ! int grep {
+
+    my $key = $ARG->[0];
+
+    my $id  = $self->{base}->{$key};
+    my $tab = $info->{$id};
+
+    $tab->{jmp};
+
+  } @ins or throw_strict_jmp(@old);
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_strict_jmp(@ins) {
+
+  errcaller(
+
+    depth   => 4,
+    fatdump => \@ins,
+
+  );
+
+  errout(
+
+    q[Peso standard forbids branching ]
+  . q[in the middle of a block],
+
+    lvl => $AR_FATAL,
+
+  );
 
 };
 

@@ -424,7 +424,8 @@ sub rtate($sref,$values,@fmat) {
 
 sub nyi($errme) {
 
-  state $tab=ansim('NYI:','err');
+  state $tab=
+    Arstd::String::ansim('NYI:','err');
 
   my $src=(caller 1)[3];
 
@@ -612,7 +613,7 @@ sub errcaller(%O) {
   # optionally provide an objdump
   if($O{fatdump}) {
     push @text,q[[warn]:%s];
-    push @args,"FATDUMP\b";
+    push @args,"FATDUMP";
 
   };
 
@@ -629,7 +630,9 @@ sub errcaller(%O) {
 
   );
 
-  fatdump(\$O{fatdump},errout=>1)
+  say $NULLSTR;
+
+  Fmat::fatdump(\$O{fatdump},errout=>1)
   if $O{fatdump};
 
 };

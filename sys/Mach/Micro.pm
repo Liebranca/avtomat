@@ -58,6 +58,7 @@ package Mach::Micro;
     mod
 
     xorkey  rev
+    jmp
 
   )];
 
@@ -102,6 +103,8 @@ sub cpy($reg,$any) {
 
   $reg->set($type=>$any);
 
+  return 0;
+
 };
 
 # ---   *   ---   *   ---
@@ -110,6 +113,8 @@ sub cpy($reg,$any) {
 sub mov($reg0,$reg1) {
   $reg0->set(seg=>$reg1);
   $reg1->set(num=>0x00);
+
+  return 0;
 
 };
 
@@ -123,29 +128,32 @@ sub wap($reg0,$reg1) {
   $reg0->set(seg  => $reg1);
   $reg1->set(rstr => $tmp);
 
+  return 0;
+
 };
 
 # ---   *   ---   *   ---
 # ^clear
 
-sub clr($any) {
-
-  my $dst=$any;
-
-  # raw ptr passed in, decode
-  if(! Mach::Seg->is_valid($any)) {
-
-    my @addr  = ($any >> 32, $any & bitmask(32));
-
-    my $frame = Mach::Seg->get_frame($addr[0]);
-    my $mach  = $frame->{-mach};
-
-    $dst=$mach->segfetch(@addr);
-
-  };
-
-
+sub clr($mach,$any) {
+  my $dst=$mach->decode_ptr($any);
   $dst->set(num=>0x00);
+
+  return 0;
+
+};
+
+# ---   *   ---   *   ---
+# reset executable segment
+
+sub jmp($mach,$any) {
+
+  my $pos=(Mach::Seg->is_valid($any))
+    ? ($any->get())[0]
+    : $any
+    ;
+
+  return $mach->xs_branch($pos);
 
 };
 
@@ -154,12 +162,15 @@ sub clr($any) {
 
 sub _push($mach,$any) {
   $mach->stkpush($any);
+  return 0;
 
 };
 
 sub _pop($mach,$reg) {
   my $x=$mach->stkpop();
   $reg->set(num=>$x);
+
+  return 0;
 
 };
 
@@ -174,6 +185,8 @@ sub alloc($reg_a,$reg_b,$imm) {
   my $name   = $reg_b->get_str();
 
   $reg_a->set(ptr=>$mach->new_seg($name,$imm));
+
+  return 0;
 
 };
 
@@ -207,6 +220,8 @@ sub _impbin_temple($dst,$src,$op) {
     _impbin_temple_imm($dst,$src,$op);
 
   };
+
+  return 0;
 
 };
 
@@ -327,6 +342,8 @@ sub xorkey($reg,$seg) {
 
   $reg->set(num=>$out);
 
+  return 0;
+
 };
 
 # ---   *   ---   *   ---
@@ -373,6 +390,8 @@ sub rev($reg) {
   } @bytes;
 
   $reg->from_bytes(\@bytes,$width);
+
+  return 0;
 
 };
 

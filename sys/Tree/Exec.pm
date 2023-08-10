@@ -33,7 +33,7 @@ package Tree::Exec;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -96,10 +96,11 @@ sub walk($self,$ctx) {
   while(@pending) {
 
     my $f   = shift @pending;
+    my $nd  = $f->{nd};
     my $rip = $self->{rip};
 
     $f->{value}->($ctx,$f->{nd})
-    unless ! $f->{parent} && $f->{plucked};
+    unless $nd->{plucked};
 
     # ptr was overwritten
     if($self->{jmp}) {

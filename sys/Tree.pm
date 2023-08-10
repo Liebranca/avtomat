@@ -819,9 +819,10 @@ sub pluck($self,@pending) {
   for my $leaf(@{$self->{leaves}}) {
 
     if(grep {$leaf eq $ARG} @pending) {
-      push @plucked,$leaf;
-      $leaf->{plucked}=1;
 
+      push @plucked,$leaf;
+
+      $leaf->{plucked}=1;
       $leaf=undef;
 
     };
@@ -860,7 +861,7 @@ sub idextrav($self) {
   my $i=0;
   for my $child(@{$self->{leaves}}) {
     $child->{idex}=$i++;
-    $child->{-plucked}=0;
+    $child->{plucked}=0;
 
   };
 

@@ -337,6 +337,23 @@ sub fetch_seg($self,@at) {
 };
 
 # ---   *   ---   *   ---
+# ^converts raw addr to segment
+
+sub decode_ptr($self,$ptr) {
+
+  my $out=$ptr;
+
+  if(! Mach::Seg->is_valid($ptr)) {
+    my @addr=($ptr >> 32, $ptr & bitmask(32));
+    $out=$self->fetch_seg(@addr);
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # ^make new segment
 
 sub new_seg($self,$name,$size,%O) {
@@ -358,6 +375,7 @@ sub new_seg($self,$name,$size,%O) {
     raw   => $seg,
 
   );
+
 
   return $seg;
 
@@ -393,6 +411,8 @@ sub xs_encode($self,@ins) {
   my $total = 0;
   my $tab   = $self->{optab};
 
+  $tab->branch_ok(@ins);
+
   my @out=map {
 
     my ($opcode,$width)=
@@ -415,6 +435,7 @@ sub xs_write($self,@opcodes) {
 
   my $reg=$self->{reg};
   my $mem=$reg->{xs}->ptr_deref();
+  my $tab=$self->{optab};
 
   $mem->set(rstr=>(join $NULLSTR,@opcodes));
 
@@ -446,14 +467,38 @@ sub xs_run($self,%O) {
   # ^wrap around instructions
   $O{prologue}->();
 
-  # ^load ins from xseg
-  map {
-    my ($fn,@args)=@$ARG;
-    $fn->(@args);
 
-  } $self->xs_read();
+  # ^load ins from xseg
+
+TOP:
+
+  for my $ins($self->xs_read()) {
+
+    my ($fn,@args)=@$ins;
+    my $irupt=$fn->(@args);
+
+    ! $irupt or goto TOP;
+
+  };
+
 
   $O{epilogue}->();
+
+};
+
+# ---   *   ---   *   ---
+# ^subdivide block into
+# execution paths
+
+sub xs_branch($self,$pos) {
+
+  my $reg=$self->{reg};
+  my $seg=$reg->{xs}->ptr_deref();
+
+  my $ptr=$seg->brush($pos);
+  $reg->{xs}->ptr_cpy($ptr);
+
+  return 'IRUPT';
 
 };
 
@@ -590,6 +635,19 @@ sub parse($self,$s) {
     iced => $self->{model},
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# ^parse and exec program list
+
+sub ipret($self,@ar) {
+
+  map {
+    $self->parse($ARG);
+    $self->xs_run();
+
+  } @ar;
 
 };
 

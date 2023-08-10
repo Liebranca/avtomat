@@ -116,16 +116,18 @@ sub give($self,$value) {
   my %h     = reverse @$self;
   my $avail = $h{$SENTINEL};
 
+
+  # ^push new if none avail
   if(! defined $avail) {
-    my $top=@$self >> 1;
-    push @$self,$top=>$value;
+    $avail=@$self >> 1;
+    push @$self,$avail=>$value;
 
-    $avail=$top >> 1;
-
+  # ^reuse free slot
   } else {
     $self->[($avail << 1)+1]=$value;
 
   };
+
 
   return $avail;
 
