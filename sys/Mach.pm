@@ -33,6 +33,8 @@ package Mach;
   use Arstd::IO;
   use Arstd::PM;
 
+  use Cask;
+
   use Mach::Seg;
   use Mach::Struc;
   use Mach::Reg;
@@ -46,7 +48,7 @@ package Mach;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -198,6 +200,7 @@ sub new($class,%O) {
     regmask  => 0,
 
     fast_seg => [],
+    seg_cask => Cask->new(),
 
     optab    => undef,
 
@@ -303,7 +306,7 @@ sub fetch($class,$id,%O) {
 # ---   *   ---   *   ---
 # ^retrieve memory segment
 
-sub segfetch($self,@at) {
+sub fetch_seg($self,@at) {
 
   my $out    = undef;
   my $icebox = undef;
@@ -322,7 +325,9 @@ sub segfetch($self,@at) {
 
     ($loc,$addr)=@at;
 
-    my $frame  = Mach::Seg->get_frame($loc);
+    my $cask   = $self->{seg_cask};
+
+    my $frame  = $cask->view($loc);
        $icebox = $frame->{-icebox};
 
   };
@@ -334,7 +339,7 @@ sub segfetch($self,@at) {
 # ---   *   ---   *   ---
 # ^make new segment
 
-sub segnew($self,$name,$size,%O) {
+sub new_seg($self,$name,$size,%O) {
 
   my $seg=Mach::Seg->new(
 
@@ -355,6 +360,27 @@ sub segnew($self,$name,$size,%O) {
   );
 
   return $seg;
+
+};
+
+# ---   *   ---   *   ---
+# ^spawns frame for base segments
+
+sub new_baseg($self) {
+
+  my $cask=$self->{seg_cask};
+
+  # make new frame
+  my $frame=Mach::Seg->new_frame(
+    -mach=>$self
+
+  );
+
+  # ^automatically re-utilize free id
+  # or crate new if non avail
+  $frame->{-id}=$cask->give($frame);
+
+  return $frame;
 
 };
 

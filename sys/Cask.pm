@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Cask;
 
   use v5.36.0;
@@ -29,9 +30,19 @@ package Cask;
   use Arstd::IO;
 
 # ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT=qw(
+    $FIRST_VALUE
+    $FIRST_AVAIL
+
+  );
+
+# ---   *   ---   *   ---
 # info
 
-  our $VERSION=v1.00.4;
+  our $VERSION=v1.00.5;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -39,13 +50,15 @@ package Cask;
 
   Readonly our $SENTINEL    => [0x5E4714E7];
 
-  Readonly our $FIRST_AVAIL => [0x10577A4E];
-  Readonly our $FIRST_FREE  => [0x10575107];
+  Readonly our $FIRST_VALUE => [0xCA547A4E];
+  Readonly our $FIRST_AVAIL => [0xCA5461BE];
+
+  Readonly our $IDEX_RE     => qr{^[\d]+$};
 
 # ---   *   ---   *   ---
 # cstruc
 
-sub nit($class,@data) {
+sub new($class,@data) {
 
   my $i=0;
   return bless [map {$i++=>$ARG} @data],$class;
@@ -53,7 +66,50 @@ sub nit($class,@data) {
 };
 
 # ---   *   ---   *   ---
-# add value
+# get non-deleted values
+
+sub value($self) {
+
+  return grep {
+     defined $ARG
+  && $ARG ne $SENTINEL
+
+  } array_values($self);
+
+};
+
+# ---   *   ---   *   ---
+# ^get free slots
+
+sub avail($self) {
+
+  return grep {
+   ! defined $ARG
+  || $ARG eq $SENTINEL
+
+  } array_values($self);
+
+};
+
+# ---   *   ---   *   ---
+# ^first non-deleted
+
+sub first_value($self) {
+  return ($self->value())[0];
+
+};
+
+# ---   *   ---   *   ---
+# ^first deleted
+
+sub first_avail($self) {
+  return ($self->avail())[0];
+
+};
+
+# ---   *   ---   *   ---
+# replace avail slot or
+# push new one
 
 sub give($self,$value) {
 
@@ -61,11 +117,13 @@ sub give($self,$value) {
   my $avail = $h{$SENTINEL};
 
   if(! defined $avail) {
-    $avail=@$self>>1;
-    push @$self,$avail=>$value;
+    my $top=@$self >> 1;
+    push @$self,$top=>$value;
+
+    $avail=$top >> 1;
 
   } else {
-    $self->[($avail<<1)+1]=$value;
+    $self->[($avail << 1)+1]=$value;
 
   };
 
@@ -74,76 +132,95 @@ sub give($self,$value) {
 };
 
 # ---   *   ---   *   ---
-# get value and replace
+# get un-adjusted idex into array
 
-sub take(
-
-  # implicit
-  $self,
-
-  # actual
-  $idex  = $FIRST_AVAIL,
-  $value = $SENTINEL
-
-) {
+sub iof($self,$lkup=$FIRST_AVAIL) {
 
   my $out=undef;
 
-  # get any
-  if($idex eq $FIRST_AVAIL) {
-    $idex=(grep {
-      defined $ARG && $ARG ne $SENTINEL
 
-    } array_values($self))[0];
+  # get idex of non-deleted slot
+  if($lkup eq $FIRST_VALUE) {
+    $out=$self->first_value();
+
+  # ^get idex of free slot
+  } elsif($lkup eq $FIRST_AVAIL) {
+    $out=$self->first_avail();
 
 
-    # catch none avail
-    errout(
-
-      q{Take from empty cask},
-      lvl=>$AR_WARNING
-
-    ) && goto TAIL unless defined $idex;
-
-  };
-
-  # get by index
-  if($idex=~ m[^[\d]+$]) {
-    $idex=($idex<<1)+1;
-
-  # get by value
-  } else {
+  # ^get by value
+  } elsif(! ($lkup=~ $IDEX_RE)) {
     my %h=reverse @$self;
-    $idex=($h{$idex}<<1)+1;
+    $out=$h{$lkup};
+
+  # ^numerical idex as-is
+  } else {
+    $out=$lkup;
 
   };
-
-  # replace
-  $out=$self->[$idex];
-  $self->[$idex]=$value;
-
-
-TAIL:
 
   return $out;
 
 };
 
 # ---   *   ---   *   ---
+# ^apply adjustment
+
+sub iofa($self,$lkup=$FIRST_AVAIL) {
+
+  my $idex=$self->iof($lkup);
+
+  return (defined $idex)
+    ? ($idex << 1)+1
+    : $idex
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# get value and replace
+
+sub take($self,%O) {
+
+  # defaults
+  $O{idex} //= $FIRST_VALUE;
+  $O{repl} //= $SENTINEL;
+
+
+  # get idex
+  my $out  = undef;
+  my $idex = $self->iofa($O{idex});
+
+  defined $idex or throw_empty();
+
+
+  # ^replace and give old
+  $out           = $self->[$idex];
+  $self->[$idex] = $O{repl};
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^errmes
+
+sub throw_empty() {
+
+  errcaller();
+  errout(
+    q[Take from empty cask],
+    lvl=>$AR_FATAL,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
 # ^just get value
 
-sub view($self,$idex) {
-
-  if($idex=~ m[^[\d]+$]) {
-    $idex=($idex<<1)+1;
-
-  } else {
-    my %h=reverse @$self;
-    $idex=($h{$idex}<<1)+1;
-
-  };
-
-  return $self->[$idex];
+sub view($self,$idex=$FIRST_AVAIL) {
+  return $self->[$self->iofa($idex)];
 
 };
 
@@ -151,13 +228,17 @@ sub view($self,$idex) {
 # array depleted
 
 sub empty($self) {
+  my $x=int $self->avail();
+  return $x == (int @$self) >> 1;
 
-  my $x=int(grep {
-    ! defined $ARG || $ARG eq $SENTINEL
+};
 
-  } array_values($self));
+# ---   *   ---   *   ---
+# ^array has no free slots
 
-  return $x == int(@$self)>>1;
+sub full($self) {
+  my $x=int $self->value();
+  return $x == (int @$self) >> 1;
 
 };
 

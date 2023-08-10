@@ -173,7 +173,7 @@ sub alloc($reg_a,$reg_b,$imm) {
 
   my $name   = $reg_b->get_str();
 
-  $reg_a->set(ptr=>$mach->segnew($name,$imm));
+  $reg_a->set(ptr=>$mach->new_seg($name,$imm));
 
 };
 

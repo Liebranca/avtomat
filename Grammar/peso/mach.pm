@@ -54,7 +54,7 @@ package Grammar::peso::mach;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -134,8 +134,8 @@ package Grammar::peso::mach;
 
     clr   .boot;
 
-#    cpy   ar,'crux';
-#    alloc xs,ar,$40;
+    cpy   ar,'crux';
+    alloc xs,ar,$40;
 
   ];
 
@@ -291,19 +291,8 @@ sub label_tmp_asg($self,$branch) {
 # codesize shrinks
 
 sub label_cl($self,$branch) {
-
-  my $st    = $branch->{value};
-  my $pen   = $st->{pen};
-
-  my $i=0;
-
-REPEAT:
-
-  map {$self->blk_repl($ARG)} @$pen;
-
-  goto REPEAT if $i++ < 1;
-
-  exit;
+  $self->rec_blk_repl($branch);
+  $self->label_get_pos($branch);
 
 };
 
@@ -352,6 +341,35 @@ sub blk_repl($self,$branch) {
 
   # ^encode with the updated instructions
   $self->ins_encode($branch,@cooked);
+
+};
+
+# ---   *   ---   *   ---
+# ^repeats this process up
+# to N times or until the
+# instruction size doesn't
+# shrink anymore
+
+sub rec_blk_repl($self,$branch) {
+
+  state $limit=8;
+
+  my $st    = $branch->{value};
+  my $pen   = $st->{pen};
+
+  my $i     = 0;
+
+  while($i < $limit) {
+
+    # attempt getting shorter instructions
+    my $old=$st->{cap};
+    map {$self->blk_repl($ARG)} @$pen;
+
+    # ^quit if no success
+    last if $st->{cap} eq $old;
+
+  };
+
 
 };
 
@@ -538,12 +556,31 @@ sub ins_encode($self,$branch,@ins) {
 };
 
 # ---   *   ---   *   ---
+# ^write to segment
+
+sub ins_pre($self,$branch) {
+
+  my $st   = $branch->{value};
+  my $mach = $self->{mach};
+
+  map {
+    machxe($ARG,beg=>0,end=>length $ARG);
+    say "...";
+
+  } @{$st->{enc}};
+
+  $mach->xs_write(@{$st->{enc}});
+
+};
+
+# ---   *   ---   *   ---
 # ^test
 
 my $mach=Mach->new();
 $mach->parse($BOOT);
 
-$mach->xs_run();
+#$mach->xs_run();
+
 $mach->{reg}->{-seg}->prich();
 
 #my $mem=$mach->{scope}->get('SYS','crux');

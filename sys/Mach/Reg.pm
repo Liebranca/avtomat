@@ -85,7 +85,7 @@ sub ptr_deref($self) {
   my $frame = $self->{-seg}->{frame};
   my $mach  = $frame->{-mach};
 
-  my $out   = $mach->segfetch($loc,$addr);
+  my $out   = $mach->fetch_seg($loc,$addr);
 
   return $out;
 

@@ -595,12 +595,12 @@ sub rdseg($self,$mem,$type,$size) {
   # register or cache
   if(! $slow) {
     my ($addr)=bitsume($mem,$mach->{regmask});
-    $out=$mach->segfetch($addr);
+    $out=$mach->fetch_seg($addr);
 
   # regular segment
   } else {
     my ($loc,$addr)=rdmem($mem,$size);
-    $out=$mach->segfetch($loc,$addr);
+    $out=$mach->fetch_seg($loc,$addr);
 
   };
 

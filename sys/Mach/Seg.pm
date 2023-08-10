@@ -67,6 +67,7 @@ BEGIN {
 
   sub Frame_Vars($class) {return {
 
+    -id       => 0,
     -mach     => [],
     -icebox   => [],
 
@@ -129,7 +130,7 @@ sub new($class,$cap,%O) {
 
     # ^alloc
     $s     = \("\x{00}" x $cap);
-    $frame = $class->new_frame(-mach=>$O{mach});
+    $frame = $O{mach}->new_baseg();
 
   # ^pointer to base
   } else {
@@ -217,9 +218,8 @@ sub calc_addr($self) {
   } else {
 
     # store self
-    my $class  = ref $self;
     my $icebox = $frame->{-icebox};
-    my $loc    = $class->iof_frame($frame);
+    my $loc    = $frame->{-id};
     my $addr   = int @$icebox;
 
     push @$icebox,$self;
@@ -257,7 +257,7 @@ sub throw_no_mach($self) {
   my $fn    = (caller 2)[3];
 
   my $frame = $self->{frame};
-  my $idex  = $class->iof_frame($frame);
+  my $id    = $frame->{-id};
 
   errout(
 
@@ -267,7 +267,7 @@ sub throw_no_mach($self) {
   . q[[goodtag]:%s reference],
 
     lvl  => $AR_FATAL,
-    args => ['IRUPT',$fn,$class,$idex],
+    args => ['IRUPT',$fn,$class,$id],
 
   );
 
@@ -583,7 +583,10 @@ sub set_seg($self,$other) {
 # ^stores seg addr
 
 sub set_ptr($self,$other) {
-  my ($loc,$addr)=array_keys($other->{addr});
+
+  my ($slow,$loc,$addr)=
+    array_keys($other->{addr});
+
   $self->set(num=>$addr | ($loc << 32));
 
 };
