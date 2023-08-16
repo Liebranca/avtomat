@@ -415,6 +415,16 @@ sub deref($self,$v,%O) {
 
     };
 
+
+  # ^ptr to non-complex type
+  } elsif(
+
+     Mach::Value->is_valid($v)
+  && $O{ptr}
+
+  ) {
+    $out=$v->deref();
+
   };
 
   return $out;

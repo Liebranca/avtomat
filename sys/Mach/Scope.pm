@@ -161,8 +161,15 @@ sub get($self,@path) {
 # returns existance of path
 
 sub has($self,@path) {
-  my $out=$self->{tree}->has(@path);
-  return $out;
+  return $self->{tree}->has(@path);
+
+};
+
+# ---   *   ---   *   ---
+# ^return path itself
+
+sub haslv($self,@path) {
+  return $self->{tree}->haslv(@path);
 
 };
 

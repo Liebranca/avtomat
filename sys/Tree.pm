@@ -220,6 +220,18 @@ sub has($self,@path) {
 };
 
 # ---   *   ---   *   ---
+# ^get leaf in scope
+
+sub haslv($self,@path) {
+
+  return $self->fetch(
+    path=>\@path,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
 # ^guts of all
 
 sub fetch($self,%O) {
