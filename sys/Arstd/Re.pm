@@ -45,6 +45,7 @@ package Arstd::Re;
     re_insens
     re_opscape
     re_eiths
+    re_pekey
     re_eaf
 
     re_nonscaped
@@ -312,6 +313,24 @@ sub eiths($ar,%O) {
   ) . $O{mod};
 
   return qr{$out}x;
+
+};
+
+# ---   *   ---   *   ---
+# ^shorthand for peso-style
+# keyword arrays
+
+sub pekey(@ar) {
+
+  # defaults
+  my %O=(
+    opscape => 1,
+    insens  => 1,
+    bwrap   => 1,
+
+  );
+
+  return eiths(\@ar,%O);
 
 };
 
@@ -688,6 +707,7 @@ sub qre2re($sref) {
   *re_insens       = *insens;
   *re_opscape      = *opscape;
   *re_eiths        = *eiths;
+  *re_pekey        = *pekey;
   *re_eaf          = *eaf;
 
   *re_nonscaped    = *nonscaped;

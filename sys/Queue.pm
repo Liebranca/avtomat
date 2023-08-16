@@ -143,4 +143,23 @@ sub wex($self) {
 };
 
 # ---   *   ---   *   ---
+# ^methods added to Q from
+# within the Q itself will
+# not be executed
+
+sub immwex($self) {
+
+  my @out     = ();
+  my @pending = @{$self->{procs}};
+
+  map {
+    push @out,$self->get_next();
+
+  } 0..$#pending;
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
 1; # ret

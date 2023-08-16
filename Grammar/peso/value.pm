@@ -404,7 +404,7 @@ sub deref($self,$v,%O) {
 
     # value expansion failed
     if(! $out) {
-      $out=$v;
+      $out=undef;
 
     # ^succesful
     } else {

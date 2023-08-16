@@ -43,22 +43,25 @@ package Avt::FFI;
 
   our $Typetab=Vault::cached(
 
-    'Typetab' => \&xltab,
+    'Typetab'   => \&xltab,
 
-    q[byte]=>['uint8'],
-    q[sbyte]=>['sint8'],
-    q[wide]=>['uint16'],
-    q[swide]=>['sint16'],
+    q[byte]     => ['uint8'],
+    q[sbyte]    => ['sint8'],
+    q[wide]     => ['uint16'],
+    q[swide]    => ['sint16'],
 
-    q[brad]=>['uint32'],
-    q[sbrad]=>['sint32'],
-    q[word]=>['uint64'],
-    q[sword]=>['sint64'],
+    q[brad]     => ['uint32'],
+    q[sbrad]    => ['sint32'],
+    q[word]     => ['uint64'],
+    q[sword]    => ['sint64'],
 
-    q[byte_str]=>['string'],
-    q[wide_str]=>['wstring'],
+    q[byte_str] => ['string'],
+    q[wide_str] => ['wstring'],
 
-    q[pe_void]=>['opaque'],
+    q[real]     => ['float'],
+    q[daut]     => ['double'],
+
+    q[pe_void]  => ['opaque'],
 
   );
 
@@ -89,15 +92,27 @@ sub get_instance($class,$idex=0) {
 };
 
 # ---   *   ---   *   ---
-# makes persistent closures
+# make closure
+
+sub closure($class,$coderef) {
+
+  my $ice=$class->get_instance();
+  my $out=$ice->closure($coderef);
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^makes persistent closures
 
 sub sticky($class,$coderef) {
 
   my $out=undef;
 
   if(! exists $Closures->{$coderef}) {
-    my $ice = $class->get_instance();
-    $out    = $ice->closure($coderef);
+
+    $out=$class->closure($coderef);
 
     $out->sticky();
     $Closures->{$coderef}=$out;

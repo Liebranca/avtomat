@@ -81,7 +81,7 @@ BEGIN {
   };
 
   # operator or subscript
-  $REGEX->{q[op-or-subs]}=qr{(?:
+  $REGEX->{q[op-or-subs]}=qr{(
 
     $REGEX->{ops}
   | $REGEX->{subs}
@@ -150,7 +150,7 @@ sub clist_join($self,@ar) {
   state $comma = qr{^\s* , \s*}x;
   state $ops   = qr{(?:
     $REGEX->{ops} \s* $
-  | $REGEX->{q[op-or-subs]}
+  | ^$REGEX->{q[op-or-subs]}
 
   )}x;
 
