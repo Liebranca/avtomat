@@ -193,26 +193,27 @@ sub new($class,%O) {
   my $frame = $class->get_frame($O{frame});
   my $self  = bless {
 
-    id       => 0,
-    model    => $O{model},
+    id        => 0,
+    model     => $O{model},
 
-    reg      => undef,
-    regmask  => 0,
+    reg       => undef,
+    regmask   => 0,
 
-    fast_seg => [],
-    seg_cask => Cask->new(),
+    fast_seg  => [],
+    seg_cask  => Cask->new(),
 
-    optab    => undef,
+    optab     => undef,
 
-    stk      => [],
-    stk_top  => 0,
+    stk       => [],
+    stk_top   => 0,
+    stk_frame => [],
 
-    fd       => $O{fd},
-    fd_buff  => $fd_buff,
+    fd        => $O{fd},
+    fd_buff   => $fd_buff,
 
-    scope    => Mach::Scope->new(),
+    scope     => Mach::Scope->new(),
 
-    frame    => $frame,
+    frame     => $frame,
 
   },$class;
 
@@ -545,6 +546,39 @@ sub throw_stack_underflow() {
     lvl=>$AR_FATAL,
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# pass args through stack
+
+sub set_args($self,@input) {
+
+  my $beg=$self->{stk_top};
+
+  map {
+    $self->stkpush($ARG);
+
+  } reverse @input;
+
+  my $end=$self->{stk_top}-1;
+
+  push @{$self->{stk_frame}},[$beg,$end];
+
+};
+
+# ---   *   ---   *   ---
+# ^retrieve
+
+sub get_args($self) {
+
+  my $range      = pop @{$self->{stk_frame}};
+  my ($beg,$end) = @$range;
+
+  return map {
+    $self->stkpop()
+
+  } $beg..$end;
 
 };
 

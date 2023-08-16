@@ -502,38 +502,52 @@ sub run($self,%O) {
   $O{keepx}//=0;
   $O{input}//=[];
 
-  my $tree  = $self->{p3};
+
   my $f     = $self->{frame};
+
+  my $ptree = $self->{p3};
   my $ctree = $self->{c3};
 
   $f->{-npass}++;
-  $ctree->clear();
+
 
   # find entry point
   my @branches=($O{entry})
     ? $self->get_entry($O{entry})
-    : $tree
+    : $ptree
     ;
 
-  # build callstack
-  for my $branch(@branches) {
+  # ^build callstack
+  $ctree->cstack($O{keepx},@branches);
 
-    my $calls=$branch->shift_branch(
-      keepx => $O{keepx},
-      frame => $ctree->{frame}
 
-    );
+  # ^exec
+  $self->{mach}->set_args(@{$O{input}});
+  $ctree->walk($self);
 
-    $ctree->pushlv($calls)
-    if defined $calls;
+};
 
-  };
+# ---   *   ---   *   ---
+# ^similar, single branch
 
-  for my $arg(reverse @{$O{input}}) {
-    $self->{mach}->stkpush($arg);
+sub run_branch($self,$path,@input) {
 
-  };
+  my $ptree = $self->{p3};
+  my $ctree = $self->{c3};
 
+
+  # get entry point
+  my @branches=$self->get_entry(
+    [split $DCOLON_RE,$path]
+
+  );
+
+  # ^build callstack
+  $ctree->cstack(1,@branches);
+
+
+  # ^exec
+  $self->{mach}->set_args(@input);
   $ctree->walk($self);
 
 };
@@ -545,7 +559,7 @@ sub get_entry($self,$entry) {
 
   my $mach=$self->{mach};
 
-  my @out=(!is_arrayref($entry))
+  my @out=(! is_arrayref($entry))
     ? $self->get_clan_entries()
     : $mach->{scope}->get(@$entry,q[$branch])
     ;

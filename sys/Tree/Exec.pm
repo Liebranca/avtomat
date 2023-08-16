@@ -82,6 +82,31 @@ sub new_root($class) {
 };
 
 # ---   *   ---   *   ---
+# ^from Tree::Grammar array
+
+sub cstack($self,$keepx,@branches) {
+
+  # get next method for each branch
+  my @calls=map {
+
+    $ARG->shift_branch(
+      keepx => $keepx,
+      frame => $self->{frame}
+
+    )
+
+  } @branches;
+
+  # ^filter out undef
+  @calls=grep {defined $ARG} @calls;
+
+  # ^clear tree and set new callstack
+  $self->clear();
+  $self->pushlv(@calls);
+
+};
+
+# ---   *   ---   *   ---
 # executes functions
 
 sub walk($self,$ctx) {
