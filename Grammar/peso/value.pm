@@ -49,7 +49,7 @@ package Grammar::peso::value;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -403,12 +403,18 @@ sub deref($self,$v,%O) {
        $out = $self->$fn($v);
 
     # value expansion failed
-    if(! $out) {
+    if(! defined $out) {
       $out=undef;
 
     # ^succesful
     } else {
-      $out=($O{ptr})
+
+      my $lvl=
+         $O{ptr}
+      && Mach::Value->is_valid($out)
+      ;
+
+      $out=($lvl)
         ? $out->deref()
         : $out
         ;
@@ -423,6 +429,7 @@ sub deref($self,$v,%O) {
   && $O{ptr}
 
   ) {
+
     $out=$v->deref();
 
   };
@@ -436,7 +443,7 @@ sub deref($self,$v,%O) {
 
 sub needs_deref($self,$v) {
 
-  state $re=qr{(?:seal|bare|str|flg|re|ops)};
+  state $re=qr{(?:seal|bare|str|flg|re|ops|fcall)};
 
   return
 
@@ -562,27 +569,24 @@ sub flg_vex($self,$o) {
   my $raw  = $o->{raw};
   my $out  = $self->vex(0,\$raw);
 
-# old stuff, needs rewrit
-#
-#  my $mach = $self->{mach};
-#  my @path = $mach->{scope}->path();
-#
-#  if($o->{sigil} eq q[~:]) {
-#
-#    my $rem=$mach->{scope}->get(
-#      @path,q[~:rematch]
-#
-#    )->{value};
-#
-#    my $key=$o->{name};
-#    $out=pop @{$rem->{$key}};
-#
-#  } else {
-#    $out=$raw;
-#
-#  };
+  return undef if ! $out;
 
-  return ($out) ? $$out : undef;
+
+  # flg is a catch-all for
+  # special-cased vars
+  #
+  # pretty much a mess ;>
+
+  if($o->{sigil} eq '*') {
+    my $stk=$$out->{raw};
+    $out=pop @$stk;
+
+  } else {
+    $out=$$out;
+
+  };
+
+  return $out;
 
 };
 

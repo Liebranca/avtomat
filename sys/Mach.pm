@@ -48,7 +48,7 @@ package Mach;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#b
+  our $VERSION = v0.00.8;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -603,7 +603,36 @@ sub vice($self,$type,%O) {
 };
 
 # ---   *   ---   *   ---
-# ^declare
+# ^shorthand for flg
+
+sub flg($self,$raw) {
+
+  state $re=qr{[^\w\d]};
+
+  my $sigil = substr $raw,0,1,$NULLSTR;
+  my $name  = $raw;
+
+  my $type  = ($name=~ $re)
+    ? 'seal'
+    : 'bare'
+    ;
+
+  return $self->vice(
+
+    'flg',
+
+    raw   => "$sigil$name",
+    sigil => $sigil,
+
+    q[flg-type] => $type,
+    q[flg-name] => $name,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# declare bound value
 
 sub decl($self,$type,$id,%O) {
 
@@ -617,7 +646,7 @@ sub decl($self,$type,$id,%O) {
 };
 
 # ---   *   ---   *   ---
-# ^shorthand for existing values
+# ^shorthand for existing ones
 
 sub bind($self,$value,%O) {
 

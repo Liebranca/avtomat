@@ -42,7 +42,7 @@ package Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#b
+  our $VERSION = v0.01.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -518,7 +518,7 @@ sub run($self,%O) {
     ;
 
   # ^build callstack
-  $ctree->cstack($O{keepx},@branches);
+  $ctree->new_cstack($O{keepx},@branches);
 
 
   # ^exec
@@ -543,12 +543,18 @@ sub run_branch($self,$path,@input) {
   );
 
   # ^build callstack
-  $ctree->cstack(1,@branches);
+  $ctree->push_cstack();
+  $ctree->new_cstack(1,@branches);
 
 
-  # ^exec
+  # ^exec and restore
   $self->{mach}->set_args(@input);
-  $ctree->walk($self);
+  my $out=$ctree->walk($self);
+
+  $ctree->pop_cstack();
+
+
+  return $out;
 
 };
 

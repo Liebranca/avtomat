@@ -33,7 +33,7 @@ package Tree::Exec;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -77,6 +77,8 @@ sub new_root($class) {
   my $frame = $class->new_frame();
   my $self  = $frame->nit(undef,'ROOT',undef);
 
+  $self->{prev} = [];
+
   return $self;
 
 };
@@ -84,7 +86,7 @@ sub new_root($class) {
 # ---   *   ---   *   ---
 # ^from Tree::Grammar array
 
-sub cstack($self,$keepx,@branches) {
+sub new_cstack($self,$keepx,@branches) {
 
   # get next method for each branch
   my @calls=map {
@@ -107,16 +109,82 @@ sub cstack($self,$keepx,@branches) {
 };
 
 # ---   *   ---   *   ---
-# executes functions
+# ^store current
+
+sub push_cstack($self) {
+
+  my $hist   = $self->{prev};
+  my @cstack = $self->walk_cstack();
+
+  @cstack=map {
+    my $par=$ARG->{parent};
+    $par->pluck($ARG);
+
+  } @cstack;
+
+  push @$hist,[@cstack];
+
+};
+
+# ---   *   ---   *   ---
+# ^load
+
+sub pop_cstack($self) {
+
+  my $hist   = $self->{prev};
+  my @cstack = @{(pop @$hist)};
+
+  $self->clear();
+  $self->pushlv(@cstack);
+
+};
+
+# ---   *   ---   *   ---
+# goes through remaining
+# nodes without execution
+
+sub walk_cstack($self) {
+
+  my @out=();
+  my $rip=$self->{rip};
+
+  return () if ! defined $rip;
+
+
+  # go through child nodes
+  my @pending=$rip;
+
+  while(@pending) {
+
+    my $f=shift @pending;
+    push @out,$f;
+
+    $rip=$rip->next_leaf();
+    last if ! defined $rip;
+
+    push @pending,$rip;
+
+  };
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^executes
 
 sub walk($self,$ctx) {
+
+  my $out=$NULLSTR;
 
   $self->{rip} = $self->{leaves}->[0];
   $self->{jmp} = undef;
 
   return if ! defined $self->{rip};
 
-  my @pending  = $self->{rip};
+
+  # go through child nodes
+  my @pending=$self->{rip};
 
   while(@pending) {
 
@@ -124,7 +192,7 @@ sub walk($self,$ctx) {
     my $nd  = $f->{nd};
     my $rip = $self->{rip};
 
-    $f->{value}->($ctx,$f->{nd})
+    $out=$f->{value}->($ctx,$f->{nd})
     unless $nd->{plucked};
 
     # ptr was overwritten
@@ -150,9 +218,10 @@ sub walk($self,$ctx) {
 
   };
 
+
+  return $out;
+
 };
-
-
 
 # ---   *   ---   *   ---
 # go to specific node
@@ -161,8 +230,8 @@ sub jmp($self,$to) {
 
   while(
 
-       defined $to
-  && ! defined $to->{xbranch}
+      defined $to
+  &&! defined $to->{xbranch}
 
   ) {
 

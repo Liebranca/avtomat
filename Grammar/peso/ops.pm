@@ -327,7 +327,9 @@ sub op_walk_bak($lhs,$rhs) {
 # GBL
 
   our $REGEX={
-    ops=>re_eiths($OP_KEYS,opscape=>1),
+
+    ops   => re_eiths($OP_KEYS,opscape=>1),
+    lit_t => qr{^(?: flg|seal|bare) $}x,
 
   };
 
@@ -378,6 +380,7 @@ sub invoke($self,$branch) {
 
   };
 
+
   my $depth=$branch->leaf_value(0);
   my $value=$branch->{leaves}->[1];
   my $nterm=$branch->{leaves}->[2];
@@ -411,9 +414,18 @@ sub invoke_sort($self,$value,$nterm,$depth) {
     : $st->{raw}
     ;
 
+
   # ^run type-chk on hashref
   my $type=$self->get_invoke_type($st);
 
+  # ^fcalls are special ;>
+  if($type eq 'fcall') {
+    $raw=[$st->{raw},$raw];
+
+  };
+
+
+  # ^repack
   return $self->{mach}->vice(
 
     'voke',
@@ -434,6 +446,7 @@ sub get_invoke_type($self,$st) {
 
   state @chk_list=(
     'is_invoke_lit',
+    'is_invoke_fcall',
 
   );
 
@@ -445,6 +458,7 @@ sub get_invoke_type($self,$st) {
     last if $type;
 
   };
+
 
   # ^default to type of value hashref
   $type=$st->{type} if ! $type;
@@ -458,15 +472,31 @@ sub get_invoke_type($self,$st) {
 
 sub is_invoke_lit($self,$st) {
 
-  state $lit_type  = qr{^(flg|seal|bare)$}x;
-  state $lit_value = qr{^(re)$}x;
+  state $lit_value=qr{^(re)$}x;
 
   my $out=undef;
 
   # ^non-numeric/non-str/non-op
-  if($st->{type} =~ $lit_type
+  if($st->{type} =~ $REGEX->{lit_t}
   && $st->{raw}  =~ $lit_value) {
     $out=$st->{raw};
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^ipret invoke type as a
+# user-def fcall
+
+sub is_invoke_fcall($self,$st) {
+
+  my $out=undef;
+
+  if($st->{type}=~ $REGEX->{lit_t}) {
+    $out='fcall';
 
   };
 

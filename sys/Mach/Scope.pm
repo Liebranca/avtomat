@@ -198,14 +198,19 @@ sub search_nc($self,$name,@path) {
   @path=@{$self->{path}}
   if ! @path;
 
+  # cat name to path
   my $tree = $self->{tree};
   my @alt  = split $self->{sep},$name;
 
+
+  # ^pop from namespace until
+  # symbol is found
   while(@path) {
     last if $self->has(@path,@alt);
     pop @path;
 
   };
+
 
   return (@path,@alt);
 

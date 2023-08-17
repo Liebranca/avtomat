@@ -36,7 +36,7 @@ package Mach::Value;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -72,6 +72,12 @@ package Mach::Value;
 
   };
 
+  Readonly our $FCALL_ATTRS=>{
+    proc=>$NULLSTR,
+    args=>[],
+
+  };
+
   Readonly our $OPS_ATTRS=>{
 
     fn    => $NOOP,
@@ -93,20 +99,23 @@ package Mach::Value;
   };
 
   Readonly our $SEG_ATTRS=>{};
+  Readonly our $STK_ATTRS=>{};
 
 # ---   *   ---   *   ---
 # GBL
 
   my $Attrs={
 
-    str  => $STR_ATTRS,
-    re   => $RE_ATTRS,
+    str   => $STR_ATTRS,
+    re    => $RE_ATTRS,
 
-    voke => $VOKE_ATTRS,
-    ops  => $OPS_ATTRS,
-    iter => $ITER_ATTRS,
+    voke  => $VOKE_ATTRS,
+    fcall => $FCALL_ATTRS,
+    ops   => $OPS_ATTRS,
+    iter  => $ITER_ATTRS,
 
-    seg  => $SEG_ATTRS,
+    seg   => $SEG_ATTRS,
+    stk   => $STK_ATTRS,
 
   };
 
@@ -150,13 +159,24 @@ sub new($class,$type,$id,%O) {
   delete $O{spec};
 
   # unpack type
-  my %attrs = map {
+  my %attrs=map {
     $class->getattrs($ARG)
 
   } ($type,@$spec);
 
   # ^set attrs
   map {$attrs{$ARG}=$O{$ARG}} keys %O;
+
+  # ^fcalls are special ;>
+  if($type eq 'fcall') {
+
+    $attrs{proc} = shift @$raw;
+    $attrs{raw}  = $raw;
+
+    $raw         = $NULL;
+
+  };
+
 
   # make ice
   my $self=bless {
@@ -211,6 +231,17 @@ sub type_pop($self,@types) {
   # ^change type fields for filtered
   $self->{type}=pop @full;
   $self->{spec}=\@full;
+
+
+  # fcalls are special ;>
+  if($self->{type} eq 'fcall') {
+
+    $self->{proc} = shift @{$self->{raw}};
+    $self->{args} = $self->{raw};
+
+    $self->{raw}  = $NULL;
+
+  };
 
 };
 
