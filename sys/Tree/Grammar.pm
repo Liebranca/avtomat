@@ -251,8 +251,8 @@ sub fork_chain($self,%O) {
   map {$self->shift_chain()} 0..$O{skip}-1;
 
   # exec fn for current pass
-  $O{fn}->($ctx,$self)
-  if $O{fn} ne $NOOP;
+  $self->{fn}->($ctx,$self)
+  if $self->{fn} ne $NOOP;
 
 };
 
