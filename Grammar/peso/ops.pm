@@ -164,7 +164,10 @@ BEGIN {
 # call member F/getset member var
 
 sub op_m_call($lhs,$rhs,@args) {};
-sub op_m_attr($lhs,$rhs,@args) {};
+sub op_m_attr($lhs,$rhs,@args) {
+  return \$lhs->{raw}->{$rhs->{raw}};
+
+};
 
 # ---   *   ---   *   ---
 # math
@@ -895,7 +898,7 @@ sub opres_flat($self,$tree,@values) {
   ) {
 
     @deref=grep {defined $ARG} map {
-      $self->deref($ARG)
+      $self->deref($ARG,key=>1)
 
     } @values;
 
@@ -1260,9 +1263,10 @@ sub expr_ctx($self,$branch) {
 sub ops_vex($self,$o) {
 
   my @values=map {
-    $self->deref($ARG)
+    $self->deref($ARG,key=>1)
 
   } @{$o->{V}};
+
 
   my $type=(defined $values[0]->{type})
     ? $values[0]->{type}
@@ -1273,6 +1277,7 @@ sub ops_vex($self,$o) {
     ? $self->opres_flat($o,@values)
     : $o->{raw}
     ;
+
 
   $raw=(defined $raw && $raw ne $NULL)
     ? $raw

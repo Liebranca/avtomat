@@ -391,6 +391,7 @@ sub deref($self,$v,%O) {
 
   # defaults
   $O{ptr} //= 0;
+  $O{key} //= 0;
 
 
   # skip non-blessed values
@@ -404,7 +405,7 @@ sub deref($self,$v,%O) {
 
     # value expansion failed
     if(! defined $out) {
-      $out=undef;
+      $out=($O{key}) ? $v : undef;
 
     # ^succesful
     } else {
@@ -518,15 +519,48 @@ sub vex($self,$fet,$vref,@path) {
   } else {
 
     # check vref is runtime alias
-    my $lis=q[$LIS::].$$vref;
-       $lis=$scope->cderef($fet,\$lis,@path);
+    # or shorthand for IO var
+    my $lis = undef;
+    my $io  = undef;
+
+    for my $key(qw($LIS in out)) {
+
+      my $name="$key\::$$vref";
+      my $have=$scope->cderef(
+        $fet,\$name,@path
+
+      );
+
+      # ^value found
+      if($have) {
+
+        # is runtime alias
+        if($key eq '$LIS') {
+          $lis=$have;
+
+        # ^is IO var
+        } else {
+          $io=$have;
+
+        };
+
+        last;
+
+      };
+
+    };
 
     # ^matching alias found, recurse
     if($lis) {
       $out=\$self->deref($$lis);
 
+    # ^IO var found
+    } elsif($io) {
+      $out=$io;
+
     # ^nope, look up common table
     } else {
+
       $out=$scope->cderef(
         $fet,$vref,@path
 

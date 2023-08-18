@@ -101,6 +101,8 @@ package Mach::Value;
   Readonly our $SEG_ATTRS=>{};
   Readonly our $STK_ATTRS=>{};
 
+  Readonly our $OBJ_ATTRS=>{};
+
 # ---   *   ---   *   ---
 # GBL
 
@@ -116,6 +118,7 @@ package Mach::Value;
 
     seg   => $SEG_ATTRS,
     stk   => $STK_ATTRS,
+    obj   => $OBJ_ATTRS,
 
   };
 
@@ -328,6 +331,40 @@ sub deref($self,$lvl=-1) {
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^handles setting of
+# ref-to-ref values
+
+sub set($self,$other) {
+
+  my $class=ref $self;
+
+  # get referenced value of B
+  my $x=($class->is_valid($other))
+    ? $other->get()
+    : $other->{raw}
+    ;
+
+  # ^set referenced value of A
+  (is_scalarref($self->{raw}))
+    ? ${$self->{raw}}=$x
+    : $self->{raw}=$x
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# ^getter
+
+sub get($self) {
+
+  return (is_scalarref($self))
+    ? ${$self->{raw}}
+    : $self->{raw}
+    ;
 
 };
 
