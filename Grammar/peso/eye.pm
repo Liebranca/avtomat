@@ -366,7 +366,70 @@ sub recurse($class,$branch,%O) {
 };
 
 # ---   *   ---   *   ---
-# ^do not generate a parser tree!
+# get [names,values] from nterm
+
+sub rd_nterm($self,$lv) {
+
+  my @eye=$PE_EYE->recurse(
+
+    $lv,
+
+    mach       => $self->{mach},
+    frame_vars => $self->Shared_FVars(),
+
+  );
+
+  return map {[
+    map {$ARG} $ARG->branch_values()
+
+  ]} @eye;
+
+}
+
+# ---   *   ---   *   ---
+# ^shorthand for common pattern
+
+sub rd_name_nterm($self,$branch) {
+
+  my $lv    = $branch->{leaves};
+
+  my $name  = $lv->[0]->leaf_value(0);
+  my $nterm = $lv->[1]->{leaves}->[0];
+
+  my @nterm = (defined $nterm)
+    ? $self->rd_nterm($nterm)
+    : ()
+    ;
+
+  return ($name,@nterm);
+
+};
+
+# ---   *   ---   *   ---
+# ^slightly less common
+
+sub rd_beg_nterm($self,$branch,$x) {
+
+  my $lv    = $branch->{leaves};
+
+  my @beg   = map {
+    $lv->[$ARG]->leaf_value(0)
+
+  } 0..$x-1;
+
+  my $nterm = $lv->[1]->{leaves}->[0];
+
+  my @nterm = (defined $nterm)
+    ? $self->rd_nterm($nterm)
+    : ()
+    ;
+
+  return (@beg,@nterm);
+
+};
+
+# ---   *   ---   *   ---
+# do not generate a parser tree!
 
   our @CORE=qw();
 

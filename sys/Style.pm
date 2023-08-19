@@ -35,6 +35,7 @@ package Style;
 
     $NOOP
     $NO_MATCH
+    $ANY_MATCH
 
     $NULL
     $NULLSTR
@@ -116,6 +117,7 @@ package Style;
   Readonly our $MODULO_RE  => qr{\%};
 
   Readonly our $NO_MATCH   => q{$^};
+  Readonly our $ANY_MATCH  => qr{.+};
 
 # ---   *   ---   *   ---
 # utility calls

@@ -559,6 +559,24 @@ sub run_branch($self,$path,@input) {
 };
 
 # ---   *   ---   *   ---
+# runs translation methods
+# for a specific language
+
+sub xlate($self,$lang) {
+
+  my $ctree=$self->{c3};
+  my $ptree=$self->{p3};
+
+  # ^build callstack
+  $ctree->new_cstack($lang,$ptree);
+
+
+  # ^exec
+  $ctree->walk($self);
+
+};
+
+# ---   *   ---   *   ---
 # give branches marked for execution
 
 sub get_entry($self,$entry) {
@@ -671,6 +689,8 @@ sub cnbreak($class,$X,$dom,$name) {
 
 sub fnbreak($class,$X) {
 
+  state @xlate=qw(pe pl c cpp asm);
+
   my ($name,$dom)=($X->{fn},$X->{dom});
 
   $name //= $X->{name};
@@ -684,6 +704,17 @@ sub fnbreak($class,$X) {
 
   # generate chain
   $class->cnbreak($X,$dom,$name);
+
+
+  # get avail translation methods
+  $X->{xlate} //= {};
+
+  map {
+    my $fn=codefind($dom,"${name}_${ARG}_xlate");
+    $X->{xlate}->{$ARG}=($fn) ? $fn : $NOOP;
+
+  } @xlate;
+
 
 SKIP:
 
@@ -763,6 +794,7 @@ sub mkrules($class,@rules) {
       alt   => $value->{alt},
 
       chain => $value->{chain},
+      xlate => $value->{xlate},
 
     );
 

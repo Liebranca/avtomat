@@ -34,7 +34,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.6;#a
+  our $VERSION = v0.01.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -44,13 +44,16 @@ sub nit($class,$frame,%O) {
 
   # defaults
   $O{fn}    //= $NOOP;
+
   $O{hier}  //= 0;
   $O{opt}   //= 0;
   $O{alt}   //= 0;
   $O{greed} //= 0;
   $O{max}   //= 0;
 
-  # get instance
+  $O{xlate} //= {};
+
+  # get ice
   my $self=Tree::nit(
 
     $class,
@@ -63,9 +66,8 @@ sub nit($class,$frame,%O) {
 
   );
 
-# ---   *   ---   *   ---
-# setup post-match actions
 
+  # setup post-match actions
   $self->{fn}    = $O{fn};
   $self->{hier}  = $O{hier};
   $self->{opt}   = $O{opt};
@@ -74,6 +76,7 @@ sub nit($class,$frame,%O) {
   $self->{max}   = $O{max};
 
   $self->{chain} = $O{chain};
+  $self->{xlate} = $O{xlate};
 
   if(
 
@@ -119,7 +122,9 @@ sub dup($self) {
       greed  => $nd->{greed},
       max    => $nd->{max},
       alt    => $nd->{alt},
+
       chain  => [@{$nd->{chain}}],
+      xlate  => {%{$nd->{xlate}}},
 
       parent => (@anchor)
         ? (shift @anchor)
@@ -175,35 +180,50 @@ sub shift_chain($self,@chain) {
 
 sub shift_branch($self,%O) {
 
+  state $xlate_re=qr{^[0-1]$}x;
+
   # defaults
   $O{keepx}  //= 0;
   $O{frame}  //= Tree::Exec->get_frame();
 
+  # ^target lang for translation passed
+  # rather than an actual chain shift
+  my $xlate=! ($O{keepx}=~ $xlate_re);
+
+
   my $dst     = undef;
-  my $prev    = undef;
   my @pending = ($self);
 
+
+  # walk the tree
   while(@pending) {
 
     my $nd=shift @pending;
 
+
+    # signal to go up one level
     if(! $nd) {
 
       $dst=$dst->{parent}
 
       if defined $dst
-      && defined $dst->{parent}
-
-      ;
+      && defined $dst->{parent};
 
       next;
 
     };
 
-    if($nd->{fn} ne $NOOP) {
+    # ^get F to assoc with branch
+    my $fn=($xlate)
+      ? $nd->{xlate}->{$O{keepx}}
+      : $nd->{fn}
+      ;
+
+    # ^skip blank methods
+    if($fn && $fn ne $NOOP) {
 
       $dst=$O{frame}->nit(
-        $dst,$nd->{fn},$nd
+        $dst,$fn,$nd
 
       );
 
@@ -211,13 +231,20 @@ sub shift_branch($self,%O) {
 
     };
 
-    $prev=$nd;
-    $nd->shift_chain() if ! $O{keepx};
 
+    # ^go to next pass when not
+    # executing or translating
+    $nd->shift_chain()
+    if ! $O{keepx} &&! $xlate;
+
+
+    # get next node
     unshift @pending,@{$nd->{leaves}},0;
 
   };
 
+
+  # give top of hierarchy
   my ($out)=(defined $dst)
     ? $dst->root()
     : undef
@@ -326,7 +353,7 @@ sub has_flag($self,$flag) {
 
 sub on_match($self,$branch) {
 
-  my ($root) = $branch->root();
+  my ($root)=$branch->root();
 
   $self->{fn}->($root->{ctx},$branch)
   if $self->{fn} ne $NOOP;
@@ -339,7 +366,9 @@ sub on_match($self,$branch) {
     : $self->{chain}
     ;
 
+
   $branch->shift_chain(@$chain);
+  $branch->{xlate}={%{$self->{xlate}}};
 
 };
 
@@ -464,13 +493,17 @@ sub match($self,$ctx,$s,%O) {
 
     last if ! length $s;
 
+
     $self=$branch->shift_pending(
       $ctx,\$depth
 
     ) or next;
 
-    my ($m,$dst) = $self->re_or_branch($ctx,\$s,%O);
-    my $fn       = $self->{fn};
+    my ($m,$dst)=
+       $self->re_or_branch($ctx,\$s,%O);
+
+    my $fn=$self->{fn};
+
 
     $anchors[-1]->init_status($self);
     $dst->status_add($self) if $dst;

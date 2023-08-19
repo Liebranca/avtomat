@@ -30,6 +30,8 @@ package Emit::Perl;
   use Arstd::Array;
   use Shb7::Build;
 
+  use Tree;
+
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Emit::Std;
@@ -40,8 +42,8 @@ package Emit::Perl;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = v0.00.4;
+  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
@@ -141,6 +143,7 @@ sub boiler_close($class,$fname,%O) {
 };
 
 # ---   *   ---   *   ---
+# generates shadowlib
 
 sub shwlbind($soname,$libs_ref) {
 

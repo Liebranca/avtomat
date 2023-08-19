@@ -125,6 +125,7 @@ sub subsof_filter_nit($classes,$O) {
   # defaults
   $O->{subex} //= $NO_MATCH;
   $O->{modex} //= $NO_MATCH;
+  $O->{subok} //= $ANY_MATCH;
 
 };
 
@@ -139,8 +140,13 @@ sub subsof_filter($subs,%O) {
     my $ref = "$subs->{$ARG}\::$ARG";
     my $gv  = Devel::Peek::CvGV(\&$ref);
 
-    ! ($ARG=~ $O{subex})
+  # accept entry if:
+      ($ARG=~ $O{subok})
+
+  &&! ($ARG=~ $O{subex})
   &&! (*$gv{PACKAGE}=~ $O{modex})
+
+  ;
 
   } keys %$subs;
 
@@ -242,11 +248,12 @@ sub argsof($pkg,$name=undef) {
 
   }x;
 
-  my @out  = ();
+  my @out=();
+
 
   # avoid re-deparse if body
   # passed in pkg
-  my $body = (defined $name)
+  my $body=(defined $name)
     ? codeof($pkg,$name)
     : $pkg
     ;
@@ -257,6 +264,7 @@ sub argsof($pkg,$name=undef) {
   $body =~ s[$doblk][];
   $blk  =$+{blk};
 
+
   # notify of signature-less sub
   return -1 if ! $blk;
 
@@ -266,6 +274,7 @@ sub argsof($pkg,$name=undef) {
 
   };
 
+
   return @out;
 
 };
@@ -273,10 +282,17 @@ sub argsof($pkg,$name=undef) {
 # ---   *   ---   *   ---
 # get codestr for sub
 
-sub codeof($pkg,$name) {
+sub codeof($pkg,$name=undef) {
 
-  my $fn   = join q[::],$pkg,$name;
-  my $body = B::Deparse->new->coderef2text(\&$fn);
+  my $fn=$pkg;
+
+  if(defined $name) {
+    $fn=join q[::],$pkg,$name;
+    $fn=\&$fn;
+
+  };
+
+  my $body = B::Deparse->new->coderef2text($fn);
 
   return $body;
 

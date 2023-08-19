@@ -35,7 +35,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.9;#a
+  our $VERSION = v0.02.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -481,7 +481,12 @@ sub get_next($self) {
 # clears all branches matching re
 
 sub sweep($self,$re) {
-  $self->pluck($self->branches_in($re));
+
+  map {
+    $ARG->{parent}->pluck($ARG)
+    if $ARG->{parent}
+
+  } $self->branches_in($re);
 
 };
 
@@ -911,37 +916,43 @@ sub absidex($self,$leaf) {
 sub leafless($self,%O) {
 
   # defaults
-  $O{i}//=undef;
-  $O{give_parent}//=0;
-  $O{max_depth}//=0x24;
+  $O{i}           //= undef;
+  $O{give_parent} //= 0;
+  $O{max_depth}   //= 0x24;
+
 
   my $depth  = 0;
 
   my @leaves = ($self);
   my @out    = ();
 
-# ---   *   ---   *   ---
-# walk the hierarchy
 
+  # walk the hierarchy
   while(@leaves) {
 
     $self=shift @leaves;
 
+    # manage depth
     if($self eq 0) {$depth--;next}
     elsif($self eq 1) {$depth++;next};
 
-    if(!@{$self->{leaves}}) {
 
+    # consider elem if it has no leaves
+    if(! @{$self->{leaves}}) {
+
+      # ^gets *par* of elem
       if($O{give_parent}) {
 
         my $par=$self->{parent};
 
         push @out,$par
-        if defined $par
-        && !(grep {$par eq $ARG} @out);
+
+        if  defined $par
+        &&! int grep {$par eq $ARG} @out;
 
         next;
 
+      # ^elem itself
       } else {
         push @out,$self;
 
@@ -949,15 +960,16 @@ sub leafless($self,%O) {
 
     };
 
-    if($depth>=$O{max_depth}) {next};
+
+    # cap at max depth
+    next if $depth >= $O{max_depth};
     unshift @leaves,1,@{$self->{leaves}},0;
 
   };
 
-# ---   *   ---   *   ---
-# optionally return a specific element
-# else whole array is given
 
+  # optionally return a specific element
+  # else whole array is given
   @out=$out[$O{i}] if defined $O{i};
   return @out;
 
@@ -1091,16 +1103,18 @@ sub branches_with($self,$lookfor,%O) {
 sub branches_in($self,$lookfor,%O) {
 
   # defaults
-  $O{keep_root}//=1;
-  $O{max_depth}//=0x24;
-  $O{first_match}//=0;
+  $O{keep_root}   //= 1;
+  $O{max_depth}   //= 0x24;
+  $O{first_match} //= 0;
 
-# ---   *   ---   *   ---
 
-  my @leaves=();
-  my @found=();
+  my @leaves = ();
+  my @found  = ();
 
-  my $depth=0;
+  my $depth  = 0;
+
+
+  # keep or discard root node
   if($O{keep_root}) {
     push @leaves,$self;
 
@@ -1109,29 +1123,29 @@ sub branches_in($self,$lookfor,%O) {
 
   };
 
-# ---   *   ---   *   ---
-# look for matches recursively
 
+  # look for matches recursively
   while(@leaves) {
 
     $self=shift @leaves;
-    if($self eq 0) {$depth--;next}
-    elsif($self eq 1) {$depth++;next};
 
-# ---   *   ---   *   ---
-# accept all matches ;>
+    # ^manage recursion depth
+    $depth--,next if $self eq 0;
+    $depth++,next if $self eq 1;
 
+
+    # match found
     if($self->{value}=~ $lookfor) {
       push @found,$self;
       last if $O{first_match};
 
     };
 
-    if($depth>=$O{max_depth}) {next};
+
+    # ^stop at max depth
+    next if $depth >= $O{max_depth};
     unshift @leaves,1,@{$self->{leaves}},0;
 
-# ---   *   ---   *   ---
-# return matches
 
   };
 
@@ -1495,6 +1509,31 @@ sub next_branch($self,$step=1) {
   };
 
   return $ahead;
+
+};
+
+# ---   *   ---   *   ---
+# push filtered leaves of
+# one tree to another
+
+sub filter($self,$other,%O) {
+
+  # defaults
+  $O{discard} //= $NO_MATCH;
+
+  my @pending = @{$self->{leaves}};
+  my @move    = ();
+
+  while(@pending) {
+
+    my $lv=shift @pending;
+
+    push @move,$lv
+    if ! ($lv->{value}=~ $O{discard});
+
+  };
+
+  $other->pushlv(@move);
 
 };
 

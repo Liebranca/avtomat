@@ -26,6 +26,7 @@ package Mach::Value;
 
   use Style;
   use Chk;
+  use Fmat;
 
   use Arstd::Re;
   use Arstd::IO;
@@ -365,6 +366,29 @@ sub get($self) {
     ? ${$self->{raw}}
     : $self->{raw}
     ;
+
+};
+
+# ---   *   ---   *   ---
+# give string repr of a
+# perl decl of value
+
+sub pl_xlate($self) {
+
+  my $id  = $self->{id};
+  my $raw = $self->get();
+
+  $raw //= 'undef';
+
+  if(is_hashref($raw)) {
+    $raw=Fmat::deepdump($raw);
+
+  } elsif($raw eq $NULL) {
+    $raw='$NULL';
+
+  };
+
+  return "\$$id=$raw";
 
 };
 

@@ -144,6 +144,16 @@ BEGIN {
   };
 
 # ---   *   ---   *   ---
+# ^makes note of ops that
+# cannot be const'd
+
+  Readonly our $OP_NCONST=>{
+    q[->]  => 1,
+    q[->*] => 1,
+
+  };
+
+# ---   *   ---   *   ---
 # ^makes note of ops taking slurp args
 
   Readonly our $OP_SLURP=>{};
@@ -700,13 +710,14 @@ sub opnit($self,$branch) {
 
     'ops',
 
-    fn    => $fn,
+    fn     => $fn,
 
-    unary => exists $OP_UNARY->{$key},
-    slurp => exists $OP_SLURP->{$key},
-    ctx   => exists $OP_CTX->{$key},
+    unary  => exists $OP_UNARY->{$key},
+    slurp  => exists $OP_SLURP->{$key},
+    ctx    => exists $OP_CTX->{$key},
+    nconst => exists $OP_NCONST->{$key},
 
-    prio  => array_iof($OP_KEYS,$key),
+    prio   => array_iof($OP_KEYS,$key),
 
   );
 
@@ -719,9 +730,10 @@ sub opnit($self,$branch) {
 
 sub opsort($self,$branch) {
 
-  my $st     = $branch->leaf_value(0);
-  my $idex   = $branch->{idex};
-  my $lv     = $branch->{parent}->{leaves};
+  my $st   = $branch->leaf_value(0);
+  my $idex = $branch->{idex};
+  my $lv   = $branch->{parent}->{leaves};
+
 
   # get operands
   my @move=($st->{unary})
@@ -764,7 +776,7 @@ sub opsolve($self,$branch) {
 
   # get op is solvable at this stage
   my $const=0;
-  if($flat) {
+  if($flat &&! $st->{nconst}) {
 
     my @consts=
       $self->array_const_deref(@values);
@@ -780,7 +792,7 @@ sub opsolve($self,$branch) {
   };
 
   $st->{const}=$const;
-  return $const;
+  return $const &&! $st->{nconst};
 
 };
 
@@ -959,12 +971,14 @@ sub value_ops_opz($self,$branch) {
   # sort ops && operands by priority
   $self->value_ops_sort($branch);
 
+
   # ^collapse into value branch
   # if op is solvable at this stage
   $self->opconst_collapse($branch)
   if $self->array_opsolve($branch);
 
-  $branch->flatten_branch();
+
+  return $branch->flatten_branch();
 
 };
 
@@ -1071,7 +1085,7 @@ sub value_ops_sort($self,$branch) {
   my @ops=sort {
 
      $a->leaf_value(0)->{prio}
-  >= $b->leaf_value(0)->{prio}
+  >  $b->leaf_value(0)->{prio}
 
   } $self->find_ops($branch);
 
@@ -1090,6 +1104,7 @@ sub opconst_collapse($self,$branch) {
     $branch->{leaves}->[0]
 
   );
+
 
   # ^get value
   my $o    = $lv->leaf_value(0);
@@ -1285,12 +1300,10 @@ sub ops_vex($self,$o) {
     : 'const'
     ;
 
-  my $raw=$self->opres_flat($o,@values);
-
-#(! $o->{const})
-#    ? $self->opres_flat($o,@values)
-#    : $o->{raw}
-#    ;
+  my $raw=(! $o->{const})
+    ? $self->opres_flat($o,@values)
+    : $o->{raw}
+    ;
 
   $raw=(defined $raw && $raw ne $NULL)
     ? $raw
@@ -1320,9 +1333,19 @@ sub recurse($class,$branch,%O) {
 
   # ^trim
   my @expr=$ice->{p3}->branches_in($re);
+     @expr=map {$ARG->pluck_all()} @expr;
 
-  # ^give leaves
-  return map {$ARG->pluck_all()} @expr;
+  # ^ensure all subtrees solved
+  return map {
+
+    if($ARG->{value} eq 'value-op-value') {
+      $ARG=$ice->value_ops_opz($ARG);
+
+    };
+
+    $ARG;
+
+  } @expr;
 
 };
 
