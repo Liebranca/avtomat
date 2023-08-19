@@ -572,8 +572,10 @@ sub set_args($self,@input) {
 
 sub get_args($self) {
 
-  my $range      = pop @{$self->{stk_frame}};
-  my ($beg,$end) = @$range;
+  my $range=pop @{$self->{stk_frame}}
+  or return ();
+
+  my ($beg,$end)=@$range;
 
   return map {
     $self->stkpop()

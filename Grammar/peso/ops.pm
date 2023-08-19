@@ -53,7 +53,7 @@ package Grammar::peso::ops;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -92,8 +92,8 @@ BEGIN {
 
   Readonly our $OPERATORS=>[
 
-    q[->*] => 'm_call',
     q[->]  => 'm_attr',
+    q[->*] => 'm_call',
 
     q[*^]  => 'pow',
     q[*]   => 'mul',
@@ -146,11 +146,7 @@ BEGIN {
 # ---   *   ---   *   ---
 # ^makes note of ops taking slurp args
 
-  Readonly our $OP_SLURP=>{
-    q[->*] => 1,
-    q[->]  => 1,
-
-  };
+  Readonly our $OP_SLURP=>{};
 
 # ---   *   ---   *   ---
 # ^makes note of ops requiring ctx access
@@ -161,11 +157,26 @@ BEGIN {
   };
 
 # ---   *   ---   *   ---
-# call member F/getset member var
+# get ref to member var
 
-sub op_m_call($lhs,$rhs,@args) {};
-sub op_m_attr($lhs,$rhs,@args) {
+sub op_m_attr($lhs,$rhs) {
+
+  my $valid=length ref $lhs->{raw};
+
+  return undef if ! $valid;
   return \$lhs->{raw}->{$rhs->{raw}};
+
+};
+
+# ---   *   ---   *   ---
+# get wraps around member F call
+
+sub op_m_call($lhs,$rhs) {
+
+  my $obj = $lhs->get();
+  my $fn  = $rhs->get();
+
+  return sub (@args) {$obj->$fn(@args)};
 
 };
 
@@ -738,6 +749,7 @@ sub opsolve($self,$branch) {
 
   # remove paens
   my $par=$branch->{parent};
+
   $par->flatten_branch()
   if $par->{value} eq '()';
 
@@ -785,7 +797,7 @@ sub array_opsolve($self,$branch) {
 
   } reverse @ops;
 
-  # ^give all ops can be solved
+  # give all ops were solved
   return int(grep {$ARG} @const) == @ops;
 
 };
@@ -1273,11 +1285,12 @@ sub ops_vex($self,$o) {
     : 'const'
     ;
 
-  my $raw=(! $o->{const})
-    ? $self->opres_flat($o,@values)
-    : $o->{raw}
-    ;
+  my $raw=$self->opres_flat($o,@values);
 
+#(! $o->{const})
+#    ? $self->opres_flat($o,@values)
+#    : $o->{raw}
+#    ;
 
   $raw=(defined $raw && $raw ne $NULL)
     ? $raw
@@ -1310,6 +1323,23 @@ sub recurse($class,$branch,%O) {
 
   # ^give leaves
   return map {$ARG->pluck_all()} @expr;
+
+};
+
+# ---   *   ---   *   ---
+# ^indirect
+
+sub expr_collapse($self,$branch,$idex=0) {
+
+  $self->expr_ctx(
+    $branch->{leaves}->[$idex]
+
+  );
+
+  $self->value_ops_opz(
+    $branch->{leaves}->[$idex]
+
+  );
 
 };
 

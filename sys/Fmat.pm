@@ -22,6 +22,7 @@ package Fmat;
   use Perl::Tidy;
   use Readonly;
 
+  use B qw(svref_2object);
   use Carp;
 
   use English qw(-no_match_vars);
@@ -37,7 +38,12 @@ package Fmat;
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT=qw(fatdump);
+  our @EXPORT=qw(
+
+    codename
+    fatdump
+
+  );
 
 # ---   *   ---   *   ---
 # info
@@ -46,6 +52,7 @@ package Fmat;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
+# messes up formatting
 
 sub tidyup($sref) {
 
@@ -91,24 +98,32 @@ sub polydump($vref,$blessed=undef) {
     \&valuedump,
     \&arraydump,
     \&deepdump,
+    \&codedump,
 
   ];
 
   my $idex=
     (is_arrayref($$vref))
   | (is_hashref($$vref)*2)
+  | (is_coderef($$vref)*3)
   ;
+
 
   if(! $idex && $blessed) {
     $idex=is_blessref($$vref)*2;
 
   };
 
+  my $rec=($blessed && $blessed == 2)
+    ? $blessed
+    : undef
+    ;
+
   my $f=$tab->[$idex];
 
   return ($idex)
-    ? $f->($$vref)
-    : $f->($vref)
+    ? $f->($$vref,$rec)
+    : $f->($vref,$rec)
     ;
 
 };
@@ -116,14 +131,14 @@ sub polydump($vref,$blessed=undef) {
 # ---   *   ---   *   ---
 # ^ice for hashes
 
-sub deepdump($h) {
+sub deepdump($h,$blessed=undef) {
 
   '{' . ( join q[,],
 
     map {
 
       "$ARG => "
-    . polydump(\$h->{$ARG})
+    . polydump(\$h->{$ARG},$blessed)
 
     } keys %$h
 
@@ -134,10 +149,10 @@ sub deepdump($h) {
 # ---   *   ---   *   ---
 # ^ice for arrays
 
-sub arraydump($ar) {
+sub arraydump($ar,$blessed=undef) {
 
   '[' . ( join q[,],
-    map {polydump(\$ARG)} @$ar
+    map {polydump(\$ARG,$blessed)} @$ar
 
   ) . ']';
 
@@ -146,8 +161,16 @@ sub arraydump($ar) {
 # ---   *   ---   *   ---
 # ^single value
 
-sub valuedump($vref) {
+sub valuedump($vref,$blessed=undef) {
   (defined $$vref) ? $$vref : 'undef';
+
+};
+
+# ---   *   ---   *   ---
+# ^placeholder for coderefs
+
+sub codedump($vref,$blessed=undef) {
+  return '\&' . codename($vref);
 
 };
 
@@ -158,8 +181,17 @@ sub fatdump($vref,%O) {
 
   # defaults
   $O{blessed} //= 0;
+  $O{recurse} //= 0;
   $O{errout}  //= 0;
 
+  # ^make setting apply recursively
+  $O{blessed}=($O{recurse})
+    ? $O{blessed} * 2
+    : $O{blessed} * 1
+    ;
+
+
+  # get repr for vref
   my $s=(join ",\n",map {
     map {$ARG} polydump($ARG,$O{blessed})
 
@@ -173,6 +205,18 @@ sub fatdump($vref,%O) {
 
   say {$fh} tidyup(\$s);
   say {$fh} $NULLSTR;
+
+};
+
+# ---   *   ---   *   ---
+# gets name of coderef
+#
+# should be in Arstd::PM
+# but that would complicate
+# the dependency chain
+
+sub codename($ref) {
+  return svref_2object($ref)->GV->NAME;
 
 };
 

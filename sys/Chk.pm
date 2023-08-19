@@ -55,7 +55,7 @@ package Chk;
 # ROM
 
   Readonly our $SCALARREF_RE=>qr{
-    ^SCALAR\(0x[0-9a-f]+\)
+    ^(?: SCALAR|REF) \(0x[0-9a-f]+\)
 
   }x;
 

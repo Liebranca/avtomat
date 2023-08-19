@@ -27,9 +27,9 @@ package Arstd::Re;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Arstd::Array;
-
   use Chk;
+
+  use Arstd::Array;
 
 # ---   *   ---   *   ---
 # adds to your namespace

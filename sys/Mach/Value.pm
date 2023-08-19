@@ -361,7 +361,7 @@ sub set($self,$other) {
 
 sub get($self) {
 
-  return (is_scalarref($self))
+  return (is_scalarref($self->{raw}))
     ? ${$self->{raw}}
     : $self->{raw}
     ;
