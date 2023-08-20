@@ -567,12 +567,17 @@ sub xlate($self,$lang) {
   my $ctree=$self->{c3};
   my $ptree=$self->{p3};
 
-  # ^build callstack
+
+  # run [lang]_xlate methods for
+  # the whole tree
   $ctree->new_cstack($lang,$ptree);
-
-
-  # ^exec
   $ctree->walk($self);
+
+  # ^cat results and give
+  return $ptree->to_string(
+    value=>"${lang}_xlate"
+
+  );
 
 };
 

@@ -81,15 +81,17 @@ package Mach::Value;
 
   Readonly our $OPS_ATTRS=>{
 
-    fn    => $NOOP,
+    fn     => $NOOP,
+    key    => $NULLSTR,
 
-    unary => 0,
-    slurp => 0,
-    ctx   => 0,
+    unary  => 0,
+    slurp  => 0,
+    ctx    => 0,
+    nconst => 0,
 
-    prio  => 0,
+    prio   => 0,
 
-    V     => [],
+    V      => [],
 
   };
 
@@ -373,22 +375,72 @@ sub get($self) {
 # give string repr of a
 # perl decl of value
 
-sub pl_xlate($self) {
+sub pl_xlate($self,%O) {
 
-  my $id  = $self->{id};
-  my $raw = $self->get();
+  # defaults
+  $O{id}    //= 1;
+  $O{value} //= 1;
 
+
+  # ^run assoc F
+  my @out=();
+
+  push @out,$self->pl_xlate_id()
+  if $O{id};
+
+  push @out,$self->pl_xlate_value()
+  if $O{value};
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^translates id
+
+sub pl_xlate_id($self) {
+
+  my $id=$self->{id};
+
+  # TODO: transform SEAL/FLG
+
+  return "\$$id";
+
+};
+
+# ---   *   ---   *   ---
+# ^translates value
+
+sub pl_xlate_value($self) {
+
+  my $raw=$self->get();
   $raw //= 'undef';
+
 
   if(is_hashref($raw)) {
     $raw=Fmat::deepdump($raw);
+
+  } elsif($self->{type} eq 'bare') {
+    $raw="\$$raw";
+
+  } elsif($self->{type} eq 'ops') {
+
+    my $key = $self->{key};
+    my @V   = map {
+      $ARG->pl_xlate_value()
+
+    } @{$self->{V}};
+
+    $raw='(' . (join $key,@V) . ')';
 
   } elsif($raw eq $NULL) {
     $raw='$NULL';
 
   };
 
-  return "\$$id=$raw";
+
+  return $raw;
 
 };
 

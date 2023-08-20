@@ -35,7 +35,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.0;#a
+  our $VERSION = v0.02.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -1223,10 +1223,11 @@ sub rwalk($self) {
 sub to_string($self,%O) {
 
   # args defaults
-  $O{max_depth}//=0x24;
-  $O{keep_root}//=0;
+  $O{max_depth} //= 0x24;
+  $O{keep_root} //= 0;
+  $O{value}     //= 'value';
 
-  # handle walk array
+  # ^handle walk array
   my @leaves=();
   if($O{keep_root}) {
     push @leaves,$self;
@@ -1236,6 +1237,7 @@ sub to_string($self,%O) {
 
   };
 
+
   # recurse and cat to string
   my $depth=0;
   my $s=$NULLSTR;
@@ -1243,15 +1245,23 @@ sub to_string($self,%O) {
   while(@leaves) {
 
     $self=shift @leaves;
-    if($self == 0) {$depth--;next}
-    elsif($self == 1) {$depth++;next};
 
-    $s.=$self->{value}.q{ };
 
-    if($depth>=$O{max_depth}) {next};
+    # manage depth
+    $depth--,next if $self eq 0;
+    $depth++,next if $self eq 1;
+
+    # ^cat
+    $self->{$O{value}} //= $NULLSTR;
+    $s.=$self->{$O{value}} . q[ ];
+
+
+    # stop at max depth
+    next if $depth >= $O{max_depth};
     unshift @leaves,1,@{$self->{leaves}},0;
 
   };
+
 
   strip(\$s);
   return $s;

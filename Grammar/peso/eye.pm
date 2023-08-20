@@ -235,6 +235,7 @@ sub lists_to_tree($self,@lists) {
         : ($tok)
         ;
 
+      array_filter(\@s);
       map {$anchor->init($ARG)} @s;
 
     };

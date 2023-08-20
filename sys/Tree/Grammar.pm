@@ -273,6 +273,7 @@ sub fork_chain($self,%O) {
   # ^get coderefs
   $class->fnbreak(\%O);
   $self->{chain}=[@{ $O{chain} }];
+  $self->{xlate}={%{ $O{xlate} }};
 
   # discard previous passes
   map {$self->shift_chain()} 0..$O{skip}-1;
@@ -492,7 +493,6 @@ sub match($self,$ctx,$s,%O) {
   while(@pending) {
 
     last if ! length $s;
-
 
     $self=$branch->shift_pending(
       $ctx,\$depth
@@ -1090,6 +1090,7 @@ sub parse($self,$s,%O) {
   my $ctx  = $self->{ctx};
   my $gram = $ctx->{gram};
 
+
   while(1) {
 
     # exit when input consumed
@@ -1111,6 +1112,7 @@ sub parse($self,$s,%O) {
       next;
 
     };
+
 
     # push to tree and run queue
     $self->pushlv($match);

@@ -54,6 +54,8 @@ package Arstd::PM;
     get_static
     cload
 
+    fvars
+
   );
 
 # ---   *   ---   *   ---
@@ -423,6 +425,23 @@ sub is_loaded($pkg) {
     $ARG eq "$fname.pm"
 
   } keys %INC;
+
+};
+
+# ---   *   ---   *   ---
+# makes local fvars hook
+
+sub fvars($class,%O) {
+
+  my $dst=caller;
+     $dst="$dst\::Frame_Vars";
+
+  no strict 'refs';
+
+  *{$dst}=sub ($class2) { return {
+    %{$class->Frame_Vars()},%O
+
+  }} if ! *{$dst};
 
 };
 

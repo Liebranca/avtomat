@@ -641,6 +641,7 @@ sub invokes_solve($self,$branch) {
 
   rule('|<value-or-invoke> &clip value invoke');
   rule('~?<ops> &erew');
+
   rule(q[
 
     $<value-op-value>
@@ -711,6 +712,7 @@ sub opnit($self,$branch) {
     'ops',
 
     fn     => $fn,
+    key    => $key,
 
     unary  => exists $OP_UNARY->{$key},
     slurp  => exists $OP_SLURP->{$key},
@@ -734,15 +736,16 @@ sub opsort($self,$branch) {
   my $idex = $branch->{idex};
   my $lv   = $branch->{parent}->{leaves};
 
-
   # get operands
   my @move=($st->{unary})
     ? ($lv->[$idex+1])
     : ($lv->[$idex-1],$lv->[$idex+1])
     ;
 
+
   # ^perform move if operands not set
   if(! @{$st->{V}}) {
+
     $st->{V}=[map {$self->opvalue($ARG)} @move];
     $branch->{parent}->pluck(@move);
 
@@ -1082,12 +1085,28 @@ sub subscript_to_ops($self,$branch) {
 
 sub value_ops_sort($self,$branch) {
 
-  my @ops=sort {
+  my @ops=map {
+    ($ARG->{_vos_root},$ARG->{_vos_depth})=
+      $ARG->root();
 
-     $a->leaf_value(0)->{prio}
-  >  $b->leaf_value(0)->{prio}
+    $ARG;
 
   } $self->find_ops($branch);
+
+  @ops=sort {(
+
+  (  $a->{_vos_depth}
+  == $b->{_vos_depth} )
+
+  && $a->leaf_value(0)->{prio}
+  >  $b->leaf_value(0)->{prio}
+
+  ) || (
+
+     $a->{_vos_depth}
+  <  $b->{_vos_depth}
+
+  )} @ops;
 
   map {$self->opsort($ARG)} @ops;
 
@@ -1241,19 +1260,25 @@ sub expr_ctx($self,$branch) {
 
   state $re=qr{^rec\-expr$};
 
-  my $par=$branch->{parent};
+  my $par=$self->{parent};
 
   $branch->flatten_branches();
   $branch->flatten_branch();
 
-  if(
+  my @rec    = $self->{p3}->branches_in($re);
 
-     defined $par
-  && $par->{value} eq 'rec-expr'
+  my $first  = shift @rec;
+  my $anchor = $first->{leaves}->[0];
 
-  && defined $par->{parent}
+  map {
+    $anchor->pushlv($ARG->pluck_all());
+    $self->{p3}->pluck($ARG);
 
-  ) {
+  } @rec;
+
+
+  if(defined $par
+  && defined $par->{parent}) {
 
     my $root=$par->{parent};
 
