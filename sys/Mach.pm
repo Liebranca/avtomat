@@ -593,6 +593,21 @@ sub null($self,$type='void') {
 };
 
 # ---   *   ---   *   ---
+# ^bat
+
+sub defnull($self,$type,$aref,@src) {
+
+  $$aref //= [];
+
+  map {
+    $$aref->[$ARG]//=
+      $self->null($type)
+
+  } 0..$#src;
+
+};
+
+# ---   *   ---   *   ---
 # make unbound value ice
 
 sub vice($self,$type,%O) {

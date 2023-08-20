@@ -72,7 +72,7 @@ sub _subsof($class) {
 
   my %tab   = %{"$class\::"};
   my @names = grep {
-    defined &{$tab{$ARG}}
+    defined &{$tab{$ARG}};
 
   } keys %tab;
 
@@ -180,7 +180,9 @@ sub subsof($classes,%O) {
 
 sub submerge($classes,%O) {
 
-  my $main=caller;
+  $O{main} //= caller;
+
+  my $main=$O{main};
   my %subs=subsof($classes,%O,main=>$main);
 
   # ^bat-xfer
@@ -400,10 +402,27 @@ sub get_static($class,$name) {
 
 sub cload(@pkg) {
 
+  no strict 'refs';
+
   map {
-    load $ARG if ! $ARG->isa($ARG)
+    load $ARG if ! is_loaded($ARG);
 
   } @pkg;
+
+};
+
+# ---   *   ---   *   ---
+# ^checks INC
+
+sub is_loaded($pkg) {
+
+  my $fname=  $pkg;
+     $fname=~ s[$DCOLON_RE][/]g;
+
+  return grep {
+    $ARG eq "$fname.pm"
+
+  } keys %INC;
 
 };
 

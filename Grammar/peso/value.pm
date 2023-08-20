@@ -440,6 +440,26 @@ sub deref($self,$v,%O) {
 };
 
 # ---   *   ---   *   ---
+# ^bat
+
+sub array_deref($self,$ar,%O) {
+
+  return map {
+    $self->deref($ARG,%O)
+
+  } @$ar;
+
+};
+
+# ---   *   ---   *   ---
+# ^shorthands
+
+sub array_ptr_deref($self,@ar) {
+  return $self->array_deref(\@ar,ptr=>1);
+
+};
+
+# ---   *   ---   *   ---
 # ^check value can be derefenced
 
 sub needs_deref($self,$v) {
