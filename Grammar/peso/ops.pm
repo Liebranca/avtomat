@@ -53,7 +53,7 @@ package Grammar::peso::ops;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---

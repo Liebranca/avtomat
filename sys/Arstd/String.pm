@@ -164,6 +164,15 @@ sub stoi($x,$base) {
   my $allow = $mode->{allow};
   my $mul   = $mode->{mul};
 
+  # ^get negative
+  my $sign=1;
+
+  if(begswith($x,'-')) {
+    $x    = substr $x,1,(length $x)-1;
+    $sign = -1;
+
+  };
+
 
   # accumulate to
   my $r=0;
@@ -199,7 +208,7 @@ sub stoi($x,$base) {
   } reverse split $NULLSTR,$x;
 
 
-  return $r;
+  return $r*$sign;
 
 };
 

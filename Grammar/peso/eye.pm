@@ -36,6 +36,7 @@ package Grammar::peso::eye;
   use Grammar;
 
   use Grammar::peso::common;
+  use Grammar::peso::value;
   use Grammar::peso::ops;
 
 # ---   *   ---   *   ---
@@ -74,6 +75,7 @@ BEGIN {
   our $REGEX={
 
     %{$PE_COMMON->get_retab()},
+    %{$PE_VALUE->get_retab()},
     %{$PE_OPS->get_retab()},
 
     subs=>qr{\[},
@@ -160,6 +162,7 @@ sub clist_join($self,@ar) {
   my $ahead   = 0;
   my $pending = 0;
   my $subs    = 0;
+  my $clast   = 0;
 
   array_filter(\@ar);
 
@@ -172,6 +175,16 @@ sub clist_join($self,@ar) {
     my $cat  = int($s=~ $ops);
     my $subs = int($s=~ $REGEX->{subs});
 
+
+    # comma before operator
+    if($cat && $clast) {
+#      $cat     = 0;
+      $pending = 0;
+
+    };
+
+
+    $clast   = $have;
     my $skip = ! length $s;
 
     # current begs/prev ends with
@@ -194,10 +207,15 @@ sub clist_join($self,@ar) {
 
     };
 
+    # save commas for later
+    $out[$ahead+$idex]//=[];
+    push @{$out[$ahead+$idex]},','
+    if $have && $skip;
+
     next if $skip;
 
+
     # push token to list
-    $out[$ahead+$idex]//=[];
     push @{$out[$ahead+$idex]},$s;
 
     $ahead +=! $idex;
@@ -242,6 +260,7 @@ sub lists_to_tree($self,@lists) {
 
   };
 
+
   return $branch;
 
 };
@@ -258,6 +277,18 @@ sub tree_grow($self,$branch) {
   my $expand = 0;
   my $i      = 0;
 
+  # handle sigil-beg edge-case
+  if($pending[0]->{value}=~ $REGEX->{sigil}) {
+
+    $pending[0]->{value}.=
+      $pending[1]->{value};
+
+    $branch->pluck($pending[1]);
+    @pending=@{$branch->{leaves}};
+
+  };
+
+
   # walk branch
   while(@pending) {
 
@@ -271,6 +302,7 @@ sub tree_grow($self,$branch) {
       goto SKIP;
 
     };
+
 
     # next is operator, cat to current
     $expand=
@@ -316,6 +348,8 @@ SKIP:
     };
 
   };
+
+  $branch->sweep(qr{^,$});
 
 };
 
