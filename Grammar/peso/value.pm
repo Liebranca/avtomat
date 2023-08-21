@@ -291,7 +291,7 @@ sub flg($self,$branch) {
     |<value>
     &value_sort
 
-    num str flg bare seal sigil
+    flg num str bare seal sigil
 
   ]);
 

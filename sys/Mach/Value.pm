@@ -154,15 +154,18 @@ sub new($class,$type,$id,%O) {
   $O{spec}  //= [];
   $O{raw}   //= $NULL;
   $O{const} //= 1;
+  $O{mach}  //= undef;
 
   # pop args
   my $spec  = $O{spec};
   my $raw   = $O{raw};
   my $const = $O{const};
+  my $mach  = $O{mach};
 
   delete $O{raw};
   delete $O{const};
   delete $O{spec};
+  delete $O{mach};
 
   # unpack type
   my %attrs=map {
@@ -184,6 +187,12 @@ sub new($class,$type,$id,%O) {
   };
 
 
+  $const=(defined $attrs{nconst})
+    ? $const *! $attrs{nconst}
+    : $const
+    ;
+
+
   # make ice
   my $self=bless {
 
@@ -197,6 +206,8 @@ sub new($class,$type,$id,%O) {
 
     raw   => $raw,
     const => $const,
+
+    mach  => $mach,
 
     %attrs,
 
@@ -287,6 +298,7 @@ sub bind($self,$scope,@path) {
 
   # remove previous, then set
   $self->unbind() if $self->{scope};
+
   my $ptr=$scope->decl($self,@path,$self->{id});
 
   $self->{scope} = $scope;
@@ -427,10 +439,27 @@ sub pl_xlate_value($self) {
   } elsif($self->{type} eq 'ops') {
 
     my $key = $self->{key};
-    my @V   = map {
-      $ARG->pl_xlate_value()
+    my @V   = ();
 
-    } @{$self->{V}};
+    if($key eq '->') {
+
+      my $attr=$self->{V}->[1]->get();
+
+      @V=(
+
+        $self->{V}->[0]->pl_xlate_value(),
+        "{$attr}",
+
+      );
+
+    } else {
+
+      @V=map {
+        $ARG->pl_xlate_value()
+
+      } @{$self->{V}};
+
+    };
 
     $raw='(' . (join $key,@V) . ')';
 

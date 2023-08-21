@@ -171,10 +171,13 @@ BEGIN {
 
 sub op_m_attr($lhs,$rhs) {
 
-  my $valid=length ref $lhs->{raw};
+  my $a=$lhs->get();
+  my $b=$rhs->get();
 
-  return undef if ! $valid;
-  return \$lhs->{raw}->{$rhs->{raw}};
+  return (is_hashref($a))
+    ? \$a->{$b}
+    : undef
+    ;
 
 };
 
@@ -974,7 +977,6 @@ sub value_ops_opz($self,$branch) {
   # sort ops && operands by priority
   $self->value_ops_sort($branch);
 
-
   # ^collapse into value branch
   # if op is solvable at this stage
   $self->opconst_collapse($branch)
@@ -1314,11 +1316,12 @@ sub expr_ctx($self,$branch) {
 
 sub ops_vex($self,$o) {
 
+  my $mach=$self->{mach};
+
   my @values=map {
     $self->deref($ARG,key=>1)
 
   } @{$o->{V}};
-
 
   my $type=(defined $values[0]->{type})
     ? $values[0]->{type}
@@ -1330,7 +1333,7 @@ sub ops_vex($self,$o) {
     : $o->{raw}
     ;
 
-  $raw=(defined $raw && $raw ne $NULL)
+  $o->{raw}=$raw=(defined $raw && $raw ne $NULL)
     ? $raw
     : undef
     ;

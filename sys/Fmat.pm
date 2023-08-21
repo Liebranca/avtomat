@@ -109,8 +109,9 @@ sub polydump($vref,$blessed=undef) {
   ;
 
 
-  if(! $idex && $blessed) {
-    $idex=is_blessref($$vref)*2;
+  if(! $idex && $$vref && $blessed) {
+    my $mod =! int($$vref=~ qr{=ARRAY});
+    $idex=is_blessref($$vref)*(1+$mod);
 
   };
 
@@ -120,6 +121,7 @@ sub polydump($vref,$blessed=undef) {
     ;
 
   my $f=$tab->[$idex];
+
 
   return ($idex)
     ? $f->($$vref,$rec)

@@ -363,7 +363,11 @@ sub recurse($class,$branch,%O) {
 
   );
 
-  return map {eye->new($ARG->pluck_all())} @expr;
+
+  return map {
+    eye->new($ARG->pluck_all())
+
+  } @expr;
 
 };
 
