@@ -1226,6 +1226,7 @@ sub to_string($self,%O) {
   $O{max_depth} //= 0x24;
   $O{keep_root} //= 0;
   $O{value}     //= 'value';
+  $O{join_char} //= q[ ];
 
   # ^handle walk array
   my @leaves=();
@@ -1239,8 +1240,8 @@ sub to_string($self,%O) {
 
 
   # recurse and cat to string
-  my $depth=0;
-  my $s=$NULLSTR;
+  my @out   = ();
+  my $depth = 0;
 
   while(@leaves) {
 
@@ -1253,7 +1254,7 @@ sub to_string($self,%O) {
 
     # ^cat
     $self->{$O{value}} //= $NULLSTR;
-    $s.=$self->{$O{value}} . q[ ];
+    push @out,$self->{$O{value}};
 
 
     # stop at max depth
@@ -1262,6 +1263,8 @@ sub to_string($self,%O) {
 
   };
 
+
+  my $s=join $O{join_char},@out;
 
   strip(\$s);
   return $s;

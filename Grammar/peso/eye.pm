@@ -331,7 +331,7 @@ sub tree_solve($self,$branch) {
     my $lv   = shift @pending;
     my $idex = $lv->{idex};
 
-    $lv->flatten_to_string();
+    $lv->flatten_to_string(join_char=>$NULLSTR);
 
     # TODO: apply cdef expansion
     #       before recursing

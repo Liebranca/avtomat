@@ -196,56 +196,113 @@ sub op_m_call($lhs,$rhs) {
 # ---   *   ---   *   ---
 # math
 
-sub op_pow($lhs,$rhs) {return $lhs ** $rhs};
+sub op_pow($lhs,$rhs) {
+  $lhs->get() ** $rhs->get()
+
+};
 
 sub op_mul($lhs,$rhs) {
-
-my $x=$lhs->{raw} * $rhs->{raw};
-  return $lhs->{raw} * $rhs->{raw};
+  $lhs->get() * $rhs->get();
 
 };
 
-sub op_mod($lhs,$rhs) {return $lhs % $rhs};
-sub op_div($lhs,$rhs) {return $lhs / $rhs};
+sub op_mod($lhs,$rhs) {
+  $lhs->get() % $rhs->get()
+
+};
+
+sub op_div($lhs,$rhs) {
+  return $lhs->get() / $rhs->get()
+
+};
 
 sub op_add($lhs,$rhs) {
-  return $lhs->{raw} + $rhs->{raw};
+  return $lhs->get() + $rhs->get();
 
 };
 
-sub op_sub($lhs,$rhs) {return $lhs - $rhs};
+sub op_sub($lhs,$rhs) {
+  $lhs->get() - $rhs->get()
+
+};
 
 # ---   *   ---   *   ---
 # bits
 
-sub op_lshift($lhs,$rhs) {return $lhs << $rhs};
-sub op_rshift($lhs,$rhs) {return $lhs >> $rhs};
+sub op_lshift($lhs,$rhs) {
+  $lhs->get() << $rhs->get()
 
-sub op_b_and($lhs,$rhs) {return $lhs & $rhs};
-sub op_b_or($lhs,$rhs) {return $lhs | $rhs};
-sub op_b_xor($lhs,$rhs) {return $lhs ^ $rhs};
+};
 
-sub op_b_not($rhs) {return ~ $rhs};
+sub op_rshift($lhs,$rhs) {
+  $lhs->get() >> $rhs->get()
+
+};
+
+sub op_b_and($lhs,$rhs) {
+  $lhs->get() & $rhs->get()
+
+};
+
+sub op_b_or($lhs,$rhs) {
+  $lhs->get() | $rhs->get()
+
+};
+
+sub op_b_xor($lhs,$rhs) {
+  $lhs->get() ^ $rhs->get()
+
+};
+
+sub op_b_not($rhs) {
+  ~ $rhs->get()
+
+};
 
 # ---   *   ---   *   ---
 # logic
 
-sub op_not($rhs) {return ! $rhs};
+sub op_not($rhs) {
+  ! $rhs->get()
 
-sub op_lt($lhs,$rhs) {return $lhs < $rhs};
-sub op_e_lt($lhs,$rhs) {return $lhs <= $rhs};
-sub op_gt($lhs,$rhs) {return $lhs > $rhs};
-sub op_e_gt($lhs,$rhs) {return $lhs >= $rhs};
+};
 
-sub op_and($lhs,$rhs) {return $lhs && $rhs};
-sub op_or($lhs,$rhs) {return $lhs || $rhs};
+sub op_lt($lhs,$rhs) {
+  $lhs->get() < $rhs->get()
+
+};
+
+sub op_e_lt($lhs,$rhs) {
+  $lhs->get() <= $rhs->get()
+
+};
+
+sub op_gt($lhs,$rhs) {
+  $lhs->get() > $rhs->get()
+
+};
+
+sub op_e_gt($lhs,$rhs) {
+  $lhs->get() >= $rhs->get()
+
+};
+
+sub op_and($lhs,$rhs) {
+  $lhs->get() && $rhs->get()
+
+};
+
+sub op_or($lhs,$rhs) {
+  $lhs->get() || $rhs->get()
+
+};
 
 sub op_xor($lhs,$rhs) {
 
-  my $a=($lhs) ? 1 : 0;
-  my $b=($rhs) ? 1 : 0;
+  my $a=($lhs->get()) ? 1 : 0;
+  my $b=($rhs->get()) ? 1 : 0;
 
-  return $lhs ^ $rhs;
+  return $a ^ $b;
 
 };
 
@@ -257,7 +314,7 @@ sub op_match($self,$lhs,$rhs) {
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
 
-  my $out=int($lhs->{raw}=~ $rhs->{raw});
+  my $out=int($lhs->get()=~ $rhs->get());
 
   if($out) {
 
@@ -278,8 +335,15 @@ sub op_match($self,$lhs,$rhs) {
 
 };
 
-sub op_eq($lhs,$rhs) {return $lhs eq $rhs};
-sub op_ne($lhs,$rhs) {return $lhs ne $rhs};
+sub op_eq($lhs,$rhs) {
+  $lhs->get() eq $rhs->get()
+
+};
+
+sub op_ne($lhs,$rhs) {
+  $lhs->get() ne $rhs->get()
+
+};
 
 # ---   *   ---   *   ---
 # array fetch
@@ -887,18 +951,20 @@ sub opres($self,$branch) {
   return 1 if $tree->{type} eq $NULL;
   return $tree->{raw} if $tree->{type} eq 'const';
 
-  my $out;
+
+  my ($type,$out);
 
   if($tree->{type} ne 'ops') {
 
     $out=$self->deref($tree);
-    $out=(defined $out)
-      ? $out->{raw}
-      : undef
+
+    ($type,$out)=(defined $out)
+      ? ($out->{type},$out->{raw})
+      : (undef,undef)
       ;
 
   } else {
-    $out=$self->opres_flat($tree);
+    ($type,$out)=$self->opres_flat($tree);
 
   };
 
@@ -909,44 +975,32 @@ sub opres($self,$branch) {
 # ---   *   ---   *   ---
 # ^no branch
 
-sub opres_flat($self,$tree,@values) {
+sub opres_flat($self,$tree) {
 
-  @values=(! @values)
-    ? @{$tree->{V}}
-    : @values
-    ;
+  # filter out undef from deref'd
+  my @values = $self->opargs($tree);
+  my @deref  = grep {defined $ARG} @values;
 
-  my @deref=();
-
-  # apply deref to @values
-  # filter out undef from result of map
-  if(
-
-    ! $tree->{const}
-  &&! ($tree->{type} eq 'iter')
-
-  ) {
-
-    @deref=grep {defined $ARG} map {
-      $self->deref($ARG,key=>1)
-
-    } @values;
-
-  # ^values already dereferenced
-  } else {
-    @deref=@values;
-
-  };
 
   # ^early exit if values cant
   # be all dereferenced
   return undef if @deref ne @values;
 
+
+  # base result type on first operand
+  my $type=(defined $values[0]->{type})
+    ? $values[0]->{type}
+    : 'const'
+    ;
+
   my @args=();
 
+  # nevermind this, deprecated iter logic
+  # 100% needs rewrit
   if($tree->{type} eq 'iter') {
     @args=($tree,@deref);
 
+  # ^get value from args
   } else {
     @args=map {
       (is_hashref($ARG)) ? $ARG->{raw} : $ARG
@@ -961,7 +1015,8 @@ sub opres_flat($self,$tree,@values) {
   my $out=$tree->{fn}->(@args);
   $tree->{raw}=$out;
 
-  return $out;
+
+  return $type=>$out;
 
 };
 
@@ -1316,21 +1371,9 @@ sub expr_ctx($self,$branch) {
 
 sub ops_vex($self,$o) {
 
-  my $mach=$self->{mach};
-
-  my @values=map {
-    $self->deref($ARG,key=>1)
-
-  } @{$o->{V}};
-
-  my $type=(defined $values[0]->{type})
-    ? $values[0]->{type}
-    : 'const'
-    ;
-
-  my $raw=(! $o->{const})
-    ? $self->opres_flat($o,@values)
-    : $o->{raw}
+  my ($type,$raw)=(! $o->{const})
+    ? $self->opres_flat($o)
+    : ($o->{type},$o->{raw})
     ;
 
   $o->{raw}=$raw=(defined $raw && $raw ne $NULL)
@@ -1346,6 +1389,65 @@ sub ops_vex($self,$o) {
     raw   => $raw,
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# ^dereferences operands
+
+sub opargs($self,$o) {
+
+  state $explicit=qr{^(?:
+    ->* | ->
+
+  )$}x;
+
+  state $explicit_allow=qr{^(?:
+    flg | str | ops | obj
+
+  )$}x;
+
+
+  # values already dereferenced,
+  # return as-is
+  return @{$o->{V}}
+
+  if $o->{const}
+  && $o->{type} ne 'iter';
+
+
+  # ^else dereference
+  my @out=();
+
+
+  # for -> m_attr and ->* m_call:
+  # righthand operand should not be
+  # deref'd unless explicitly stated
+  if($o->{key}=~ $explicit) {
+
+    my ($lhs,$rhs)=@{$o->{V}};
+
+    @out    = (0,0);
+
+    $out[0] = $self->deref($lhs,key=>1);
+    $out[1] = ($rhs->{type}=~ $explicit_allow)
+      ? $self->deref($rhs,key=>1)
+      : $rhs
+      ;
+
+
+  # ^all operands deref'd
+  } else {
+
+    @out=map {
+      $self->deref($ARG,key=>1)
+
+    } @{$o->{V}};
+
+  };
+
+
+  return @out;
 
 };
 

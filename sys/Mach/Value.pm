@@ -249,6 +249,9 @@ sub type_pop($self,@types) {
   $self->{type}=pop @full;
   $self->{spec}=\@full;
 
+  # ^fallback if no type
+  $self->{type}='const';
+
 
   # fcalls are special ;>
   if($self->{type} eq 'fcall') {
