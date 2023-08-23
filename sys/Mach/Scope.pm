@@ -88,7 +88,7 @@ sub decl($self,$o,@path) {
 
 sub rm($self,@path) {
 
-  my $nd=$self->{tree}->has(@path)
+  my $nd=$self->{tree}->haslv(@path)
   or Tree::throw_bad_fetch(@path);
 
   $nd->{parent}->pluck($nd);

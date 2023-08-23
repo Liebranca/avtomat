@@ -29,6 +29,8 @@ package Arstd::PM;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Chk;
+
   use Arstd::Re;
   use Arstd::IO;
 
@@ -431,15 +433,26 @@ sub is_loaded($pkg) {
 # ---   *   ---   *   ---
 # makes local fvars hook
 
-sub fvars($class,%O) {
+sub fvars($classes,%O) {
 
   my $dst=caller;
      $dst="$dst\::Frame_Vars";
 
   no strict 'refs';
 
-  *{$dst}=sub ($class2) { return {
-    %{$class->Frame_Vars()},%O
+  $classes=(! is_arrayref($classes))
+    ? [$classes]
+    : $classes
+    ;
+
+  *{$dst}=sub ($class) { return {
+
+    (map {
+      %{$ARG->Frame_Vars()}
+
+    } @$classes),
+
+    %O,
 
   }} if ! *{$dst};
 

@@ -450,14 +450,18 @@ sub depth($self) {
 
 sub neigh($self,$offset) {
 
-  my $out  = undef;
+  my $out   = undef;
 
-  my $par  = $self->{parent};
-  my $idex = $self->{idex}+$offset;
+  my $par   = $self->{parent};
+  my $idex  = $self->{idex}+$offset;
+  my $limit = int @{$par->{leaves}};
 
   goto TAIL if ! $par;
 
-  $out=$par->{leaves}->[$idex];
+  $out=($idex >= 0 && $idex < $limit)
+    ? $par->{leaves}->[$idex]
+    : undef
+    ;
 
 TAIL:
   return $out;

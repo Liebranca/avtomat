@@ -81,7 +81,44 @@ sub use_value($class) {
 
 
   $dst->dext_rules($pkg,qw(
-    value num str flg bare seal sigil
+
+    value
+
+    num str
+
+    flg bare seal
+    sigil
+
+    vlist
+
+  ));
+
+};
+
+# ---   *   ---   *   ---
+# beqs for peso::switch
+
+sub use_switch($class) {
+
+  my $dst=caller;
+  my $pkg='Grammar::peso::switch';
+
+  cload($pkg);
+
+  submerge(
+
+    [$pkg],
+
+    xdeps => 1,
+    subex => qr{^throw_},
+
+    main  => $dst,
+
+  );
+
+
+  $dst->dext_rules($pkg,qw(
+    switch jmp rept
 
   ));
 

@@ -54,14 +54,14 @@ package Fmat;
 # ---   *   ---   *   ---
 # messes up formatting
 
-sub tidyup($sref) {
+sub tidyup($sref,$nofilt=1) {
 
   my $out=$NULLSTR;
 
   # we have to wrap to 54 columns ourselves
   # because perltidy cant get its effn
   # sheeeit together
-  Arstd::String::linewrap($sref,54);
+  Arstd::String::linewrap(\$out,54);
 
   # ^there, doing your job for you
   Perl::Tidy::perltidy(
@@ -81,8 +81,12 @@ sub tidyup($sref) {
 
   );
 
-  $out=~ s/^(\s*\{)\s*/\n$1 /sgm;
-  $out=~ s/(\}|\]|\));(?:\n|$)/\n\n$1;\n/sgm;
+
+  if(! $nofilt) {
+    $out=~ s/^(\s*\{)\s*/\n$1 /sgm;
+    $out=~ s/(\}|\]|\));(?:\n|$)/\n\n$1;\n/sgm;
+
+  };
 
   return $out;
 
@@ -205,7 +209,7 @@ sub fatdump($vref,%O) {
     : *STDOUT
     ;
 
-  say {$fh} tidyup(\$s);
+  say {$fh} tidyup(\$s,0);
   say {$fh} $NULLSTR;
 
 };

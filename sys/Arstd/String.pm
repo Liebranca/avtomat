@@ -137,19 +137,19 @@ sub stoi($x,$base) {
   state $tab={
 
     2  => {
-      allow => qr{[\.0-1]},
+      allow => qr{[\:\.0-1]},
       mul   => 1,
 
     },
 
     8  => {
-      allow => qr{[\.0-7]},
+      allow => qr{[\:\.0-7]},
       mul   => 3,
 
     },
 
     16 => {
-      allow => qr{[\.0-9a-fA-F]},
+      allow => qr{[\:\.0-9A-F]},
       mul   => 4,
 
     },
@@ -188,6 +188,9 @@ sub stoi($x,$base) {
 
       $r *= 1/$bit;
       $i  = 0;
+
+    # ':' separator ignored
+    } elsif($ARG=~ $COLON_RE) {
 
     # ^integer part
     } else {

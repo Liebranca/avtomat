@@ -417,10 +417,35 @@ sub pl_xlate($self,%O) {
 sub pl_xlate_id($self) {
 
   my $id=$self->{id};
-
-  # TODO: transform SEAL/FLG
+  $self->pl_xlate_flg(\$id);
 
   return "\$$id";
+
+};
+
+# ---   *   ---   *   ---
+# ^transforms flgs into barewords
+
+sub pl_xlate_flg($self,$sref) {
+
+  state $tab={
+
+    '$'=>'s',
+    '*'=>'x',
+
+  };
+
+  state $re=re_eiths([keys %$tab],opscape=>1);
+
+  my $out=0;
+
+  if($$sref=~ s[^($re)][]) {
+    $$sref="$tab->{$1}flg_$$sref";
+    $out=1;
+
+  };
+
+  return $out;
 
 };
 
@@ -439,6 +464,9 @@ sub pl_xlate_value($self) {
   } elsif($self->{type} eq 'bare') {
     $raw="\$$raw";
 
+  } elsif($self->{type} eq 'str') {
+    $raw="'$raw'";
+
   } elsif($self->{type} eq 'ops') {
 
     my $key = $self->{key};
@@ -446,7 +474,10 @@ sub pl_xlate_value($self) {
 
     if($key eq '->') {
 
-      my $attr=$self->{V}->[1]->get();
+      my $attr = $self->{V}->[1]->get();
+      my $sig  = $self->pl_xlate_flg(\$attr);
+
+      $attr=($sig) ? "\$$attr" : $attr;
 
       @V=(
 
@@ -455,6 +486,8 @@ sub pl_xlate_value($self) {
 
       );
 
+      $raw=join $key,@V;
+
     } else {
 
       @V=map {
@@ -462,9 +495,9 @@ sub pl_xlate_value($self) {
 
       } @{$self->{V}};
 
-    };
+      $raw='(' . (join $key,@V) . ')';
 
-    $raw='(' . (join $key,@V) . ')';
+    };
 
   } elsif($raw eq $NULL) {
     $raw='$NULL';

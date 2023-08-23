@@ -260,7 +260,7 @@ sub shift_branch($self,%O) {
 
 sub fork_chain($self,%O) {
 
-  # get context
+  # get ctx
   my ($root) = $self->root();
   my $ctx    = $root->{ctx};
   my $class  = $ctx->{frame}->{-class};
@@ -270,10 +270,13 @@ sub fork_chain($self,%O) {
   $O{name} //= $self->{value};
   $O{skip} //= 0;
 
+
   # ^get coderefs
   $class->fnbreak(\%O);
-  $self->{chain}=[@{ $O{chain} }];
-  $self->{xlate}={%{ $O{xlate} }};
+  $self->{chain} = [@{ $O{chain} }];
+  $self->{xlate} = {%{ $O{xlate} }};
+  $self->{fn}    = $O{fn};
+
 
   # discard previous passes
   map {$self->shift_chain()} 0..$O{skip}-1;
@@ -281,6 +284,8 @@ sub fork_chain($self,%O) {
   # exec fn for current pass
   $self->{fn}->($ctx,$self)
   if $self->{fn} ne $NOOP;
+
+  $self->shift_chain() if $O{skip} >= 0;
 
 };
 

@@ -82,7 +82,7 @@ BEGIN {
 
     }x,
 
-    hexn  => qr{-? \$ [0-9A-Fa-f][0-9A-Fa-f\.:]*}x,
+    hexn  => qr{-? \$ [0-9A-F][0-9A-F\.:]*}x,
     octn  => qr{-? \\ [0-7][0-7\.:]*}x,
     binn  => qr{-? 0b  [0-1][0-1\.:]*}x,
     decn  => qr{-? [0-9][0-9\.:]*}x,
@@ -291,7 +291,7 @@ sub flg($self,$branch) {
     |<value>
     &value_sort
 
-    flg num str bare seal sigil
+    num str flg bare seal sigil
 
   ]);
 
@@ -623,20 +623,35 @@ sub flg_vex($self,$o) {
   my $raw  = $o->{raw};
   my $out  = $self->vex(0,\$raw);
 
-  return undef if ! $out;
-
 
   # flg is a catch-all for
   # special-cased vars
   #
   # pretty much a mess ;>
 
-  if($o->{sigil} eq '*') {
+  if($out && $o->{sigil} eq '*') {
     my $stk=$$out->{raw};
     $out=pop @$stk;
 
-  } else {
+  } elsif(! $out && $o->{sigil} eq '-') {
+
+    $raw=$o->{q[flg-name]};
+    my $alt=$self->vex(0,\$raw);
+
+    if($alt) {
+
+      $out=$self->{mach}->vice(
+        'num',raw=>-($$alt->get())
+
+      );
+
+    };
+
+  } elsif($out) {
     $out=$$out;
+
+  } else {
+    $out=undef;
 
   };
 

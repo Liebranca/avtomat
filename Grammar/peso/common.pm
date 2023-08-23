@@ -57,9 +57,9 @@ BEGIN {
 
     -passes => [
 
-      '_ctx','_ord',
+      '_ctx','_walk',
 
-      '_cl','_opz',
+      '_ord','_cl','_opz',
       '_pre','_ipret',
 
       '_run'

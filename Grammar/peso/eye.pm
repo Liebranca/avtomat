@@ -172,14 +172,13 @@ sub clist_join($self,@ar) {
     my $s    = $ar[$j];
 
     my $have = int($s=~ s[$comma][]);
-    my $cat  = int($s=~ $ops);
+    my $cat  = int($s=~ m[^$ops$]);
     my $subs = int($s=~ $REGEX->{subs});
 
 
     # comma before operator
     if($cat && $clast) {
-#      $cat     = 0;
-      $pending = 0;
+      $pending=0;
 
     };
 
@@ -198,7 +197,7 @@ sub clist_join($self,@ar) {
 
       );
 
-      $idex    = -1;
+      $idex    = -1 * ($ahead > 0);
 
     # ^none, consider it another list
     } else {
@@ -275,10 +274,15 @@ sub tree_grow($self,$branch) {
 
   my $subs   = 0;
   my $expand = 0;
+  my $duo    = 0;
   my $i      = 0;
 
+
   # handle sigil-beg edge-case
-  if($pending[0]->{value}=~ $REGEX->{sigil}) {
+  if(@pending >= 2
+  && $pending[0]->{value}=~ m[^$REGEX->{sigil}$]
+
+  ) {
 
     $pending[0]->{value}.=
       $pending[1]->{value};
@@ -292,9 +296,11 @@ sub tree_grow($self,$branch) {
   # walk branch
   while(@pending) {
 
-    # get current + next
+    # get current + next + faar away...
     my $lv    = shift @pending;
     my $ahead = $lv->neigh(1);
+    my $far   = $lv->neigh(2);
+    my $ffar  = undef;
 
     # end of branch
     if(! $ahead) {
@@ -311,9 +317,35 @@ sub tree_grow($self,$branch) {
     $subs=$ahead->{value}=~ $REGEX->{subs};
 
 
+    # ^two operators in a row
+    if($far) {
+
+      $duo=
+         $far->{value}=~ $REGEX->{q[op-or-subs]}
+      && $expand
+      ;
+
+      $ffar=$lv->neigh(3);
+
+    } else {
+      $duo=0;
+
+    };
+
+
 SKIP:
 
-    if($expand) {
+    if($anchor && $duo && $ffar) {
+
+      $far->{value}=
+        "$far->{value}$ffar->{value}";
+
+      $anchor->pushlv($lv,$ahead,$far);
+      map {shift @pending} 0..3;
+
+      $ffar->{parent}->pluck($ffar);
+
+    } elsif($expand) {
 
       # make new sub-branch if not present
       if(! $anchor) {
@@ -328,6 +360,7 @@ SKIP:
       # ^cat current and next to sub-branch
       shift @pending;
       $anchor->pushlv($lv,$ahead);
+
 
     # ^end of sub-branch
     } elsif($anchor &&! $subs) {
@@ -348,6 +381,7 @@ SKIP:
     };
 
   };
+
 
   $branch->sweep(qr{^,$});
 
@@ -391,11 +425,13 @@ sub tree_solve($self,$branch) {
 
 sub recurse($class,$branch,%O) {
 
-  my $ice  = $class->new(%O);
-  my @expr = $ice->expr_split(
-    $branch->{value}
+  my $s=(Tree::Grammar->is_valid($branch))
+    ? $branch->{value}
+    : $branch
+    ;
 
-  );
+  my $ice  = $class->new(%O);
+  my @expr = $ice->expr_split($s);
 
 
   return map {
