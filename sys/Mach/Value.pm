@@ -387,6 +387,36 @@ sub get($self) {
 };
 
 # ---   *   ---   *   ---
+# value is an indirection layer
+
+sub is_ptr($self) {
+
+  return
+     $self->{type} eq 'ops'
+  && $self->{key}  eq '->'
+  ;
+
+};
+
+# ---   *   ---   *   ---
+# ^doubly so
+
+sub is_varref($self,$s,$scope=undef) {
+
+  my $out=0;
+
+  if($scope) {
+    my $x=$scope->getvar($s);
+    $out=$x && $x->is_ptr();
+
+  };
+
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # give string repr of a
 # perl decl of value
 
@@ -395,15 +425,16 @@ sub pl_xlate($self,%O) {
   # defaults
   $O{id}    //= 1;
   $O{value} //= 1;
+  $O{scope} //= undef;
 
 
   # ^run assoc F
   my @out=();
 
-  push @out,$self->pl_xlate_id()
+  push @out,$self->pl_xlate_id($O{scope})
   if $O{id};
 
-  push @out,$self->pl_xlate_value()
+  push @out,$self->pl_xlate_value($O{scope})
   if $O{value};
 
 
@@ -414,10 +445,10 @@ sub pl_xlate($self,%O) {
 # ---   *   ---   *   ---
 # ^translates id
 
-sub pl_xlate_id($self) {
+sub pl_xlate_id($self,$scope=undef) {
 
   my $id=$self->{id};
-  $self->pl_xlate_flg(\$id);
+  $self->pl_xlate_flg(\$id,$scope);
 
   return "\$$id";
 
@@ -426,7 +457,7 @@ sub pl_xlate_id($self) {
 # ---   *   ---   *   ---
 # ^transforms flgs into barewords
 
-sub pl_xlate_flg($self,$sref) {
+sub pl_xlate_flg($self,$sref,$scope=undef) {
 
   state $tab={
 
@@ -436,12 +467,24 @@ sub pl_xlate_flg($self,$sref) {
   };
 
   state $re=re_eiths([keys %$tab],opscape=>1);
+  state $negative=qr{^\-};
+
 
   my $out=0;
 
   if($$sref=~ s[^($re)][]) {
     $$sref="$tab->{$1}flg_$$sref";
     $out=1;
+
+  } elsif($$sref=~ s[$negative][]) {
+
+    my $pre=($self->is_varref($$sref,$scope))
+      ? '$$'
+      : '$'
+      ;
+
+    $$sref="-$pre$$sref";
+    $out=0;
 
   };
 
@@ -452,17 +495,25 @@ sub pl_xlate_flg($self,$sref) {
 # ---   *   ---   *   ---
 # ^translates value
 
-sub pl_xlate_value($self) {
+sub pl_xlate_value($self,$scope=undef) {
 
   my $raw=$self->get();
-  $raw //= 'undef';
+  $raw//='undef';
 
 
   if(is_hashref($raw)) {
     $raw=Fmat::deepdump($raw);
 
   } elsif($self->{type} eq 'bare') {
-    $raw="\$$raw";
+
+    $raw=($self->is_varref($raw,$scope))
+      ? "\$\$$raw"
+      : "\$$raw"
+      ;
+
+  } elsif($self->{type} eq 'flg') {
+    my $sig=$self->pl_xlate_flg(\$raw,$scope);
+    $raw=($sig) ? "\$$raw" : $raw ;
 
   } elsif($self->{type} eq 'str') {
     $raw="'$raw'";
@@ -474,14 +525,20 @@ sub pl_xlate_value($self) {
 
     if($key eq '->') {
 
-      my $attr = $self->{V}->[1]->get();
-      my $sig  = $self->pl_xlate_flg(\$attr);
+      my $other = $self->{V}->[1];
+      my $attr  = $other->get();
+      my $sig   = $self->pl_xlate_flg(\$attr);
 
       $attr=($sig) ? "\$$attr" : $attr;
+      $attr=($other->is_ptr) ? "\$$attr" : $attr;
 
       @V=(
 
-        $self->{V}->[0]->pl_xlate_value(),
+        $self->{V}->[0]->pl_xlate_value(
+          $scope
+
+        ),
+
         "{$attr}",
 
       );
@@ -490,8 +547,11 @@ sub pl_xlate_value($self) {
 
     } else {
 
+      $key = ' eq ' if $key eq '==';
+      $key = ' ne ' if $key eq '!=';
+
       @V=map {
-        $ARG->pl_xlate_value()
+        $ARG->pl_xlate_value($scope)
 
       } @{$self->{V}};
 

@@ -234,6 +234,36 @@ sub cderef($self,$fet,$vref,@path) {
 };
 
 # ---   *   ---   *   ---
+# ^user friendly wraps
+# looks within current scope
+
+sub getvar($self,$name,%O) {
+
+  # defaults
+  $O{as_ptr} //= 0;
+  $O{path}   //= [];
+
+
+  # perform lookup
+  my $out  = $name;
+  my $have = $self->cderef(
+    $O{as_ptr},
+    \$out,
+
+    @{$O{path}}
+
+  );
+
+
+  # ^give on success
+  return ($have)
+    ? $out
+    : undef
+    ;
+
+};
+
+# ---   *   ---   *   ---
 # set/get current path
 
 sub path($self,@set) {

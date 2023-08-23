@@ -133,7 +133,7 @@ sub switch($self,$branch) {
     dom  => ref $self,
     name => $fn,
 
-    skip => -1,
+    skip => 0,
 
   );
 
@@ -185,7 +185,6 @@ sub switch_on($self,$branch) {
 
   };
 
-
   $self->switch_case($branch);
 
 };
@@ -222,6 +221,33 @@ sub switch_on_run($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# xlate on/or
+
+sub switch_on_pl_xlate($self,$branch) {
+
+  my $st    = $branch->{value};
+
+  my $type  = $st->{type};
+  my $expr  = $st->{expr};
+
+  my $mach  = $self->{mach};
+  my $scope = $self->{scope};
+
+
+  # is if/else if
+  my $hed  = ($type eq 'or')
+    ? '} elsif'
+    : 'if'
+    ;
+
+  # ^translate expresion
+  my ($e)=$expr->pl_xlate(id=>0,scope=>$scope);
+
+  $branch->{pl_xlate}="$hed ($e) {";
+
+};
+
+# ---   *   ---   *   ---
 # fi
 
 sub switch_off($self,$branch) {
@@ -237,6 +263,11 @@ sub switch_off($self,$branch) {
 sub switch_off_ctx($self,$branch) {
   $branch->{value}=$branch->leaf_value(0);
   $branch->clear();
+
+};
+
+sub switch_off_pl_xlate($self,$branch) {
+  $branch->{pl_xlate}='};';
 
 };
 

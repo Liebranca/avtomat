@@ -285,7 +285,7 @@ sub fork_chain($self,%O) {
   $self->{fn}->($ctx,$self)
   if $self->{fn} ne $NOOP;
 
-  $self->shift_chain() if $O{skip} >= 0;
+  $self->shift_chain() if $O{skip} > 0;
 
 };
 
@@ -372,9 +372,14 @@ sub on_match($self,$branch) {
     : $self->{chain}
     ;
 
+  my $xlate=(%{$branch->{xlate}})
+    ? $branch->{xlate}
+    : $self->{xlate}
+    ;
+
 
   $branch->shift_chain(@$chain);
-  $branch->{xlate}={%{$self->{xlate}}};
+  $branch->{xlate}={%$xlate};
 
 };
 
