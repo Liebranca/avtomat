@@ -45,7 +45,7 @@ package Vault;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.4;#b
+  our $VERSION=v0.00.5;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -85,6 +85,8 @@ package Vault;
   our $Cache_Regen  = {};
 
 # ---   *   ---   *   ---
+# marks package as utilizing
+# the cache directory
 
 sub import($class,@args) {
 
@@ -124,14 +126,14 @@ sub import($class,@args) {
 
   };
 
-# ---   *   ---   *   ---
 
-SKIP:
-  return;
+  SKIP:
+    return;
 
 };
 
 # ---   *   ---   *   ---
+# ^gets module tree of registered
 
 sub check_module($name,$exclude=[]) {
 
@@ -157,6 +159,7 @@ sub check_module($name,$exclude=[]) {
 };
 
 # ---   *   ---   *   ---
+# ^finds a project cache file
 
 sub px_file($name) {
   return Shb7::cache("$name$PX_EXT");
@@ -164,6 +167,8 @@ sub px_file($name) {
 };
 
 # ---   *   ---   *   ---
+# creates file tree for
+# a module, used for building
 
 sub module_tree($name,$excluded=[]) {
 
@@ -192,14 +197,14 @@ sub module_tree($name,$excluded=[]) {
 
   };
 
-# ---   *   ---   *   ---
-# checksum the tree
-# new result will be saved if there's changes
 
+  # checksum the tree
+  # new result will be saved if there's changes
   my $table=$frame->{-roots}->{$name};
 
   $Needs_Update->{$name}=$table->get_cksum();
   push @{$Needs_Update->{$name}},1 if $newf;
+
 
   return $table;
 
@@ -245,6 +250,7 @@ END {
 
   ) if @updated;
 
+
   for my $ref(@updated) {
 
     my ($modname,$frame)=@$ref;
@@ -261,6 +267,7 @@ END {
     $WLog->fupdate($modname);
 
   };
+
 
   $WLog->line() if @updated;
 
@@ -279,17 +286,23 @@ END {
 
   ) if $done;
 
+
   for my $file(keys %{$Cache_Regen}) {
     store($Cache_Regen->{$file},$file);
     $WLog->fupdate($file);
 
   };
 
+
   $WLog->line() if $done;
 
 };
 
 # ---   *   ---   *   ---
+# get object needs update
+#
+# forces make/regen of
+# cache sub directory
 
 sub cached_dir($file) {
 
@@ -301,8 +314,10 @@ sub cached_dir($file) {
   or exists $Cache_Regen->{$path}
   ;
 
+
   # get entry or make new
   -e $dir or `mkdir -p $dir`;
+
 
   return ($path,$rbld);
 
@@ -343,6 +358,10 @@ sub rof($file,$key,$call,@args) {
 
 sub frof($file,$call,@args) {
 
+  my $out=undef;
+
+
+  # get rebuild necessary
   my ($path,$rbld)=
     cached_dir($file);
 
@@ -351,9 +370,8 @@ sub frof($file,$call,@args) {
     : $Cache_Regen->{$path}
     ;
 
-  my $out=undef;
 
-  # regen entry
+  # ^regen entry
   if(! $h or $rbld) {
     $out=$h=$call->(@args);
     cashreg($path,$h);

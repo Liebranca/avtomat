@@ -10,6 +10,12 @@
 
 *>Peso
 
+~ Optimize pass count for Grammar::peso::eye
+  and it's dependencies
+
+~ Separate Grammar::peso into smaller submodules
+
+
 x Extend Lang::Perl for basic (as-doc) parsing
 
 x Lang::Plps reimplementation (done: see Grammar && Grammar::Tree)

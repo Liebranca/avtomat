@@ -875,6 +875,15 @@ sub pluck_all($self) {
 };
 
 # ---   *   ---   *   ---
+# ^ask parent for retirement
+
+sub discard($self) {
+  $self->{parent}->pluck($self)
+  if $self->{parent};
+
+};
+
+# ---   *   ---   *   ---
 # resets indices in branch
 
 sub idextrav($self) {

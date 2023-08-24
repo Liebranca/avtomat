@@ -218,6 +218,17 @@ sub new($class,%O) {
   },$class;
 
 
+  # add ENV to non
+  $self->decl(
+
+    str   => 'ARPATH',
+
+    raw   => $ENV{'ARPATH'},
+    const => 1,
+
+  );
+
+
   # nit registers
   $self->{regmask}=bitsize(
     Mach::Struc->field_cnt($O{reg_struc})-1

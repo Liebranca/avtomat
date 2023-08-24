@@ -575,9 +575,38 @@ sub xlate($self,$lang) {
 
   # ^cat results and give
   return $ptree->to_string(
-    value=>"${lang}_xlate"
+    value     => "${lang}_xlate",
+    join_char => $NULLSTR,
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# ^orc -> parse -> xlate
+
+sub xpile($class,$fname,$lang,%O) {
+
+  # defaults
+  $O{-o} //= 0;
+
+
+  # read file
+  my $prog = orc($fname);
+
+  # ^parse and translate
+  my $self = $class->parse($prog);
+  my $out  = $self->xlate($lang);
+
+
+  # optionally write to file
+  if($O{-o}) {
+    $out=owc($O{-o},$out);
+
+  };
+
+
+  return $out;
 
 };
 

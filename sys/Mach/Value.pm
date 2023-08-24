@@ -37,7 +37,7 @@ package Mach::Value;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -523,7 +523,9 @@ sub pl_xlate_value($self,$scope=undef) {
     my $key = $self->{key};
     my @V   = ();
 
-    if($key eq '->') {
+
+    # member attr or fcall
+    if($key eq '->' || $key eq '->*') {
 
       my $other = $self->{V}->[1];
       my $attr  = $other->get();
@@ -532,6 +534,17 @@ sub pl_xlate_value($self,$scope=undef) {
       $attr=($sig) ? "\$$attr" : $attr;
       $attr=($other->is_ptr) ? "\$$attr" : $attr;
 
+      # fcall adjust
+      if($key eq '->*') {
+        $key='->';
+
+      # ^attr fetch
+      } else {
+        $attr="{$attr}";
+
+      };
+
+
       @V=(
 
         $self->{V}->[0]->pl_xlate_value(
@@ -539,12 +552,14 @@ sub pl_xlate_value($self,$scope=undef) {
 
         ),
 
-        "{$attr}",
+        $attr,
 
       );
 
       $raw=join $key,@V;
 
+
+    # ^common ops
     } else {
 
       $key = ' eq ' if $key eq '==';

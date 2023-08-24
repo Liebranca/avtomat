@@ -90,7 +90,7 @@ BEGIN {
     dqstr => qr{"([^"]|\\")*?"},
     sqstr => qr{'([^']|\\')*?'},
 
-    vstr  => qr{v[0-9]\.[0-9]{2}\.[0-9][ab]?},
+    _vstr => qr{v[0-9]\.[0-9]{2}\.[0-9][ab]?},
 
     sigil=>re_eiths(
 
@@ -179,10 +179,10 @@ sub rdnum($self,$branch) {
 
   rule('~<dqstr>');
   rule('~<sqstr>');
-  rule('~<vstr>');
+  rule('~<_vstr>');
 
   # ^combo
-  rule('|<str> dqstr sqstr vstr');
+  rule('|<str> dqstr sqstr _vstr');
 
 # ---   *   ---   *   ---
 # ipret double quoted
@@ -225,6 +225,24 @@ sub sqstr($self,$branch) {
 
   $branch->{value}={
 
+    ipol => 0,
+    raw  => $ct,
+
+  };
+
+  $branch->clear();
+
+};
+
+# ---   *   ---   *   ---
+# ^version string
+
+sub _vstr($self,$branch) {
+
+  my $ct=$branch->leaf_value(0);
+  return unless defined $ct;
+
+  $branch->{value}={
     ipol => 0,
     raw  => $ct,
 

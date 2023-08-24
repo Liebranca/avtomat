@@ -243,7 +243,7 @@ sub switch_on_pl_xlate($self,$branch) {
   # ^translate expresion
   my ($e)=$expr->pl_xlate(id=>0,scope=>$scope);
 
-  $branch->{pl_xlate}="$hed ($e) {";
+  $branch->{pl_xlate}="$hed ($e) {\n";
 
 };
 
@@ -267,7 +267,7 @@ sub switch_off_ctx($self,$branch) {
 };
 
 sub switch_off_pl_xlate($self,$branch) {
-  $branch->{pl_xlate}='};';
+  $branch->{pl_xlate}="};\n";
 
 };
 
