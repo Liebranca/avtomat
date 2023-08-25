@@ -39,13 +39,22 @@ package Grammar::peso::meta;
   use Grammar::peso::ops;
 
 # ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT=qw($PE_META);
+
+# ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
+
+  Readonly our $PE_META=>
+    'Grammar::peso::meta';
 
 BEGIN {
 
@@ -96,10 +105,17 @@ sub header($self,$branch) {
   };
 
 
+  # ensure header is first statement
+  ! $self->{p3}->{leaves}->[0]
+  or throw_header();
+
+
+  # unpack
   my ($sigil,$lang)=
     $self->rd_name_nterm($branch);
 
 
+  # ^repack
   $branch->{value}={
 
     mode => $tab->{$sigil},
@@ -108,6 +124,57 @@ sub header($self,$branch) {
   };
 
   $branch->clear();
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_header($self) {
+
+  errout(
+
+    q[Peso header must be first ]
+  . q[statement in file],
+
+    lvl=>$AR_FATAL,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^bind
+
+sub header_ctx($self,$branch) {
+
+  my $st    = $branch->{value};
+
+  my $mode  = $st->{mode};
+  my $lang  = $st->{lang};
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+
+  # make value ice
+  $mode=$mach->vice('str',raw=>$mode);
+  $lang=$mach->vice('str',raw=>$lang);
+
+  # reset path
+  $scope->path('meta');
+
+
+  # ^add ids and bind
+  $mode->{id}='src-mode';
+  $lang->{id}='src-lang';
+
+  $mode->bind($scope);
+  $lang->bind($scope);
+
+
+  # retire node
+  $branch->discard();
 
 };
 
@@ -255,21 +322,11 @@ sub _xlate_ctx($self,$branch) {
 
 sub lib($self,$branch) {
 
-  my ($type,@paths)=
-    $self->rd_name_nterm($branch);
+  my ($type,$nterm)=$branch->leafless_values();
 
-
-  # ^unpack
-  map {$ARG//=[]} @paths;
-  @paths=map {@$ARG} @paths;
-
-  $type=lc $type;
-
-
-  # ^repack
   $branch->{value}={
-    type => $type,
-    lib  => \@paths,
+    type => lc $type,
+    data => $nterm,
 
   };
 
@@ -285,10 +342,7 @@ sub lib_ctx($self,$branch) {
   my $st   = $branch->{value};
 
   my $type = $st->{type};
-  my $lib  = $st->{lib};
-
-  # expand paths to libraries
-  my @lib=map {$self->deref($ARG,key=>1)} @$lib;
+  my $data = $st->{data};
 
   # ^get ctx
   my $mach  = $self->{mach};
@@ -316,8 +370,27 @@ sub lib_ctx($self,$branch) {
 
 
   # ^save data and retire node
-  push @{$$dst->{raw}},@lib;
+  push @{$$dst->{raw}},$data;
   $branch->discard();
+
+};
+
+# ---   *   ---   *   ---
+# crux
+
+sub recurse($class,$branch,%O) {
+
+  my $s=(Tree::Grammar->is_valid($branch))
+    ? $branch->to_string()
+    : $branch
+    ;
+
+
+  $O{skip}=1;
+  my $ice=$class->parse($s,%O);
+
+
+  return $ice->{sremain};
 
 };
 
@@ -329,27 +402,6 @@ sub lib_ctx($self,$branch) {
 # ---   *   ---   *   ---
 
 }; # BEGIN
-
-# ---   *   ---   *   ---
-# test
-
-my $ice=Grammar::peso::meta->parse(q[
-
-%marauder;
-
-  VERSION   v0.00.1b;
-  AUTHOR    'IBN-3DILA';
-
-
-xlate perl 'pm';
-
-  lib "%ARPATH%/THRONE/";
-  use RPG::Magic;
-
-
-]);
-
-$ice->{mach}->{scope}->prich();
 
 # ---   *   ---   *   ---
 1; # ret

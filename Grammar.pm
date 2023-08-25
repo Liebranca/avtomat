@@ -30,6 +30,7 @@ package Grammar;
   use Queue;
 
   use Mach;
+  use Emit;
 
   use Arstd::Array;
   use Arstd::IO;
@@ -42,7 +43,7 @@ package Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.2;#b
+  our $VERSION = v0.01.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -358,6 +359,8 @@ sub new($class,%O) {
     anchors => [],
     pending => [],
 
+    sremain => $NULLSTR,
+
   },$class;
 
 
@@ -480,13 +483,16 @@ sub parse($self,$s,%O) {
   $O{mach}=$self->{mach};
 
   # run-through
-  $self->{p3}->parse($s,%O);
+  $self->{sremain}=
+    $self->{p3}->parse($s,%O);
+
 
   # exec -r number of passes
   while($O{-r}--) {
     $self->run();
 
   };
+
 
   return $self;
 
@@ -588,16 +594,44 @@ sub xlate($self,$lang) {
 sub xpile($class,$fname,$lang,%O) {
 
   # defaults
-  $O{-o} //= 0;
+  $O{-o}    //= 0;
+  $O{-meta} //= $NULLSTR;
 
+
+  # make ice
+  my $self=$class->new();
 
   # read file
-  my $prog = orc($fname);
+  my $prog=orc($fname);
+
+  $prog=$O{-meta}->recurse(
+    $prog,mach=>$self->{mach}
+
+  ) if $O{-meta};
 
   # ^parse and translate
-  my $self = $class->parse($prog);
-  my $out  = $self->xlate($lang);
+  $self->parse($prog,-r=>$self->num_passes()-2);
+  my $out=$self->xlate($lang);
 
+
+  # make boiler from meta if present
+  if($O{-meta}) {
+
+    my $emit=Emit->get_class($lang);
+
+    $out=$emit->codewrap(
+
+      '',
+
+      body => [$out=>[]],
+      $self->{mach}->get_meta($lang),
+
+    );
+
+    say $out;
+    exit;
+
+  };
 
   # optionally write to file
   if($O{-o}) {
@@ -723,7 +757,7 @@ sub cnbreak($class,$X,$dom,$name) {
 
 sub fnbreak($class,$X) {
 
-  state @xlate=qw(pe pl c cpp asm);
+  state @xlate=qw(fasm c cpp perl peso);
 
   my ($name,$dom)=($X->{fn},$X->{dom});
 

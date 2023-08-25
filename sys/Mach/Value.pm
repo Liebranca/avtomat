@@ -420,7 +420,7 @@ sub is_varref($self,$s,$scope=undef) {
 # give string repr of a
 # perl decl of value
 
-sub pl_xlate($self,%O) {
+sub perl_xlate($self,%O) {
 
   # defaults
   $O{id}    //= 1;
@@ -431,10 +431,10 @@ sub pl_xlate($self,%O) {
   # ^run assoc F
   my @out=();
 
-  push @out,$self->pl_xlate_id($O{scope})
+  push @out,$self->perl_xlate_id($O{scope})
   if $O{id};
 
-  push @out,$self->pl_xlate_value($O{scope})
+  push @out,$self->perl_xlate_value($O{scope})
   if $O{value};
 
 
@@ -445,10 +445,10 @@ sub pl_xlate($self,%O) {
 # ---   *   ---   *   ---
 # ^translates id
 
-sub pl_xlate_id($self,$scope=undef) {
+sub perl_xlate_id($self,$scope=undef) {
 
   my $id=$self->{id};
-  $self->pl_xlate_flg(\$id,$scope);
+  $self->perl_xlate_flg(\$id,$scope);
 
   return "\$$id";
 
@@ -457,7 +457,7 @@ sub pl_xlate_id($self,$scope=undef) {
 # ---   *   ---   *   ---
 # ^transforms flgs into barewords
 
-sub pl_xlate_flg($self,$sref,$scope=undef) {
+sub perl_xlate_flg($self,$sref,$scope=undef) {
 
   state $tab={
 
@@ -495,7 +495,7 @@ sub pl_xlate_flg($self,$sref,$scope=undef) {
 # ---   *   ---   *   ---
 # ^translates value
 
-sub pl_xlate_value($self,$scope=undef) {
+sub perl_xlate_value($self,$scope=undef) {
 
   my $raw=$self->get();
   $raw//='undef';
@@ -512,7 +512,7 @@ sub pl_xlate_value($self,$scope=undef) {
       ;
 
   } elsif($self->{type} eq 'flg') {
-    my $sig=$self->pl_xlate_flg(\$raw,$scope);
+    my $sig=$self->perl_xlate_flg(\$raw,$scope);
     $raw=($sig) ? "\$$raw" : $raw ;
 
   } elsif($self->{type} eq 'str') {
@@ -529,7 +529,7 @@ sub pl_xlate_value($self,$scope=undef) {
 
       my $other = $self->{V}->[1];
       my $attr  = $other->get();
-      my $sig   = $self->pl_xlate_flg(\$attr);
+      my $sig   = $self->perl_xlate_flg(\$attr);
 
       $attr=($sig) ? "\$$attr" : $attr;
       $attr=($other->is_ptr) ? "\$$attr" : $attr;
@@ -547,7 +547,7 @@ sub pl_xlate_value($self,$scope=undef) {
 
       @V=(
 
-        $self->{V}->[0]->pl_xlate_value(
+        $self->{V}->[0]->perl_xlate_value(
           $scope
 
         ),
@@ -566,7 +566,7 @@ sub pl_xlate_value($self,$scope=undef) {
       $key = ' ne ' if $key eq '!=';
 
       @V=map {
-        $ARG->pl_xlate_value($scope)
+        $ARG->perl_xlate_value($scope)
 
       } @{$self->{V}};
 

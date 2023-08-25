@@ -235,11 +235,6 @@ BEGIN {
   ext_rules($PE_RE,qw(re));
 
 # ---   *   ---   *   ---
-# pe file header
-
-  rule('$<header> &rdhed sigil opt-nterm');
-
-# ---   *   ---   *   ---
 # placeholder for file header
 
 sub rdhed($self,$branch) {

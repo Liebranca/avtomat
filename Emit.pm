@@ -28,12 +28,15 @@ package Emit;
   use Chk;
 
   use Arstd::Array;
+  use Arstd::Path;
+  use Arstd::Re;
   use Arstd::IO;
+  use Arstd::PM;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.3;#b
+  our $VERSION=v0.00.5;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -41,6 +44,29 @@ package Emit;
 
   Readonly our $ON_NO_VERSION => 'v0.00.1b';
   Readonly our $ON_NO_AUTHOR  => 'ANON';
+
+# ---   *   ---   *   ---
+# find emitter subclass matching name
+# (c-)load it in if found
+
+sub get_class($class,$name) {
+
+  my $out=$NULLSTR;
+
+  # nocase Emit::$name lookup
+  my $fname=find_subpkg('Emit',$name);
+
+  # ^make classname from filename
+  if($fname) {
+    $out=fname_to_pkg($fname);
+    cload($out);
+
+  };
+
+
+  return $out;
+
+};
 
 # ---   *   ---   *   ---
 # transforms type to peso equivalent
@@ -104,13 +130,15 @@ sub codewrap($class,$fname,%O) {
   # defaults
   $O{add_guards} //= 0;
 
-  $O{include}    //= [];
-  $O{define}     //= [];
+  $O{lib}        //= [];
+  $O{inc}        //= [];
+  $O{def}        //= [];
 
   $O{body}       //= [$NULLSTR=>[]];
 
   $O{author}     //= $ON_NO_AUTHOR;
   $O{version}    //= $ON_NO_VERSION;
+
 
   # run code generation
   my $s=$NULLSTR;
@@ -122,16 +150,16 @@ sub codewrap($class,$fname,%O) {
   my @code=array_keys($O{body});
   my @args=array_values($O{body});
 
-  for my $bit(@code) {
+  map {
 
     my $args=shift @args;
 
-    $s.=(is_coderef($bit))
-      ? $bit->(@$args)
-      : $bit
+    $s.=(is_coderef($ARG))
+      ? $ARG->(@$args)
+      : $ARG
       ;
 
-  };
+  } @code;
 
   $s.=$class->boiler_close($fname,%O);
 
@@ -151,7 +179,7 @@ sub throw_genbody() {
   . q[array of [F=>ARGS]],
 
     lvl  => $AR_FATAL,
-    args => ['outf'],
+    args => ['codewrap'],
 
   );
 

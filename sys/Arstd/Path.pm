@@ -22,6 +22,9 @@ package Arstd::Path;
   use English qw(-no_match_vars);
   use Cwd qw(abs_path);
 
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use Style;
+
   use File::Spec;
 
 # ---   *   ---   *   ---
@@ -42,12 +45,15 @@ package Arstd::Path;
     expand_path
     force_path
 
+    find_subpkg
+    fname_to_pkg
+
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -147,6 +153,55 @@ sub expand_path($src,$dst) {
 sub force_path($path) {
   ! -f $path or croak "<$path> is a file\n";
   `mkdir -p $path` if ! -d $path;
+
+};
+
+# ---   *   ---   *   ---
+# looks for pkg/*.pm in path
+
+sub find_subpkg($base,$name,@path) {
+
+  state $ext=qr{\.pm$};
+
+  @path=@INC if ! @path;
+
+  my $out = $NULLSTR;
+
+  my $beg = qr{^.*/?$base};
+
+  my $end = qr{$name}i;
+  my $re  = qr{$beg/?.*/$end$ext};
+
+  # case-insensitive filename search!
+  my ($fpath)=
+    grep {"$ARG"=~ $re}
+    map  {<$ARG$base/*>} @path
+
+  ;
+
+
+  if($fpath) {
+    $fpath=~ s[$beg][$base];
+    $fpath=~ s[$ext][];
+
+  };
+
+  return $fpath;
+
+};
+
+# ---   *   ---   *   ---
+# pkg/name to pkg::name
+
+sub fname_to_pkg($fname,$base=$NULLSTR) {
+
+  my $beg=qr{^.*/?$base};
+
+  $fname=~ s[$beg][$base] if $base;
+  $fname=~ s[$FSLASH_RE][::]sxmg;
+
+
+  return $fname;
 
 };
 

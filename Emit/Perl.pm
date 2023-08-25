@@ -88,9 +88,16 @@ package $:fname;>;
 sub boiler_open($class,$fname,%O) {
 
   my $s=$OPEN_GUARDS;
-  $O{define}//=[];
+  $O{def}//=[];
 
-  $s.=q[$:iter (path=>$O{include})
+  $s.=q[
+
+$:iter (path=>$O{lib})
+  q{  }."use lib $path;\n"
+
+;>
+
+$:iter (path=>$O{inc})
   q{  }."use $path;\n"
 
 ;>
@@ -100,8 +107,8 @@ sub boiler_open($class,$fname,%O) {
 
 $:iter (
 
-  name=>$O{define_keys},
-  value=>$O{define_values},
+  name  => $O{defk},
+  value => $O{defv},
 
 ) q{  }."Readonly $name=>$value;\n"
 
@@ -111,11 +118,8 @@ $:iter (
 
 ];
 
-  my $define_keys=
-    array_keys($O{define});
-
-  my $define_values=
-    array_values($O{define});
+  my $defk=array_keys($O{def});
+  my $defv=array_values($O{def});
 
 # ---   *   ---   *   ---
 
@@ -123,13 +127,14 @@ $:iter (
 
     \$s,
 
-    fname=>$fname,
-    note=>Emit::Std::note($O{author},q[#]),
+    fname => $fname,
+    note  => Emit::Std::note($O{author},q[#]),
 
-    include=>$O{include},
+    lib   => $O{lib},
+    inc   => $O{inc},
 
-    define_keys=>$define_keys,
-    define_values=>$define_values,
+    defk  => $defk,
+    defv  => $defv,
 
   );
 

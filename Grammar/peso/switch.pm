@@ -223,7 +223,7 @@ sub switch_on_run($self,$branch) {
 # ---   *   ---   *   ---
 # xlate on/or
 
-sub switch_on_pl_xlate($self,$branch) {
+sub switch_on_perl_xlate($self,$branch) {
 
   my $st    = $branch->{value};
 
@@ -241,9 +241,9 @@ sub switch_on_pl_xlate($self,$branch) {
     ;
 
   # ^translate expresion
-  my ($e)=$expr->pl_xlate(id=>0,scope=>$scope);
+  my ($e)=$expr->perl_xlate(id=>0,scope=>$scope);
 
-  $branch->{pl_xlate}="$hed ($e) {\n";
+  $branch->{perl_xlate}="$hed ($e) {\n";
 
 };
 
@@ -266,8 +266,8 @@ sub switch_off_ctx($self,$branch) {
 
 };
 
-sub switch_off_pl_xlate($self,$branch) {
-  $branch->{pl_xlate}="};\n";
+sub switch_off_perl_xlate($self,$branch) {
+  $branch->{perl_xlate}="};\n";
 
 };
 

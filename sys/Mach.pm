@@ -813,4 +813,50 @@ sub fd_solve($self,$ptr) {
 };
 
 # ---   *   ---   *   ---
+# looks for 'meta' decls
+# inside scope
+
+sub get_meta($self,$xlate=$NULLSTR) {
+
+  my %out   = (inc=>[],lib=>[]);
+  my $scope = $self->{scope};
+
+
+  # reset path
+  my @path=$scope->path();
+  $scope->path('meta');
+
+  # ^scan base values
+  map {
+
+    my $x=$scope->getvar($ARG);
+    $out{$ARG}=$x->get() if $x;
+
+  } qw(version author);
+
+
+  # ^get translation deps
+  if($xlate) {
+
+    # reset path
+    $scope->path('meta','xlate',$xlate);
+
+    # ^fetch
+    my $lib = $scope->getvar('lib');
+    my $inc = $scope->getvar('use');
+
+    # ^cat
+    push @{$out{lib}},@{$lib->get()} if $lib;
+    push @{$out{inc}},@{$inc->get()} if $inc;
+
+  };
+
+
+  # restore path and give meta
+  $scope->path(@path);
+  return %out;
+
+};
+
+# ---   *   ---   *   ---
 1; # ret

@@ -1097,6 +1097,8 @@ sub parse($self,$s,%O) {
   # defaults
   $O{skip}//=0;
 
+
+  my $out  = $NULLSTR;
   my $ctx  = $self->{ctx};
   my $gram = $ctx->{gram};
 
@@ -1114,10 +1116,13 @@ sub parse($self,$s,%O) {
     # ^errchk
     if(! $match) {
 
-      ($O{skip})
-        ? $s=~ s[^[^\n]*\n?][]
-        : $self->throw_no_match($gram,$s)
-        ;
+      if($O{skip}) {
+        $out.=$1 if $s=~ s[^([^\n]*\n?)][];
+
+      } else {
+        $self->throw_no_match($gram,$s);
+
+      };
 
       next;
 
@@ -1132,6 +1137,9 @@ sub parse($self,$s,%O) {
     $s=$ds;
 
   };
+
+
+  return $out;
 
 };
 
