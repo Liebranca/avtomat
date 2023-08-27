@@ -122,22 +122,29 @@ sub datasec($class,$name,$type,@items) {
 
 };
 
+sub tidy($class,$sref) {
+  return $$sref;
+
+};
+
 # ---   *   ---   *   ---
 # puts code in-between two pieces of boiler
 
 sub codewrap($class,$fname,%O) {
 
   # defaults
-  $O{add_guards} //= 0;
+  $O{guards}  //= 0;
 
-  $O{lib}        //= [];
-  $O{inc}        //= [];
-  $O{def}        //= [];
+  $O{lib}     //= [];
+  $O{inc}     //= [];
+  $O{def}     //= [];
 
-  $O{body}       //= [$NULLSTR=>[]];
+  $O{body}    //= [$NULLSTR=>[]];
 
-  $O{author}     //= $ON_NO_AUTHOR;
-  $O{version}    //= $ON_NO_VERSION;
+  $O{author}  //= $ON_NO_AUTHOR;
+  $O{version} //= $ON_NO_VERSION;
+
+  $O{tidy}    //= 0;
 
 
   # run code generation
@@ -162,6 +169,11 @@ sub codewrap($class,$fname,%O) {
   } @code;
 
   $s.=$class->boiler_close($fname,%O);
+
+  $s=($O{tidy})
+    ? $class->tidy(\$s)
+    : $s
+    ;
 
   return $s;
 

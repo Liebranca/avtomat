@@ -231,7 +231,7 @@ sub switch_on_perl_xlate($self,$branch) {
   my $expr  = $st->{expr};
 
   my $mach  = $self->{mach};
-  my $scope = $self->{scope};
+  my $scope = $mach->{scope};
 
 
   # is if/else if

@@ -195,11 +195,14 @@ sub find_subpkg($base,$name,@path) {
 
 sub fname_to_pkg($fname,$base=$NULLSTR) {
 
+  state $ext=qr{\.pm$};
+
   my $beg=qr{^.*/?$base};
 
   $fname=~ s[$beg][$base] if $base;
   $fname=~ s[$FSLASH_RE][::]sxmg;
 
+  $fname=~ s[$ext][];
 
   return $fname;
 

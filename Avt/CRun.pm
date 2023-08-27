@@ -178,11 +178,11 @@ sub exgen($class,$info,$O) {
     $O->{lang},
     $O->{fname},
 
-    include    => $heds,
+    inc        => $heds,
 
     body       => $O->{body},
 
-    add_guards => 1,
+    guards     => 1,
 
     version    => $version,
     author     => $author,

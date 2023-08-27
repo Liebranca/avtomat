@@ -26,8 +26,12 @@ package Emit::Perl;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Fmat;
 
+  use Arstd::Path;
   use Arstd::Array;
+
+  use Shb7::Path;
   use Shb7::Build;
 
   use Tree;
@@ -42,7 +46,7 @@ package Emit::Perl;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -144,6 +148,24 @@ $:iter (
 
 sub boiler_close($class,$fname,%O) {
   return $CLOSE_GUARDS;
+
+};
+
+# ---   *   ---   *   ---
+# applies formatting to code
+
+sub tidy($class,$sref) {
+  return Fmat::tidyup($sref);
+
+};
+
+# ---   *   ---   *   ---
+# derive package name from
+# name of file
+
+sub get_pkg($class,$fname) {
+  my $dir=parof($fname);
+  return fname_to_pkg($fname,shpath($dir));
 
 };
 

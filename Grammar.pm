@@ -595,6 +595,7 @@ sub xpile($class,$fname,$lang,%O) {
 
   # defaults
   $O{-o}    //= 0;
+  $O{-pkg}  //= $NULLSTR;
   $O{-meta} //= $NULLSTR;
 
 
@@ -617,19 +618,31 @@ sub xpile($class,$fname,$lang,%O) {
   # make boiler from meta if present
   if($O{-meta}) {
 
-    my $emit=Emit->get_class($lang);
+    my $emit = Emit->get_class($lang);
+    my $pkg  = $NULLSTR;
+
+
+    # derive package name from
+    # output file if not specified
+    if($O{-o}) {
+
+      $pkg=(! $O{-pkg})
+        ? $emit->get_pkg($O{-o})
+        : $O{-pkg}
+        ;
+
+    };
 
     $out=$emit->codewrap(
 
-      '',
+      $pkg,
 
       body => [$out=>[]],
+      tidy => 1,
+
       $self->{mach}->get_meta($lang),
 
     );
-
-    say $out;
-    exit;
 
   };
 
