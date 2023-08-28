@@ -127,7 +127,7 @@ sub subsof_filter_nit($classes,$O) {
   };
 
   # defaults
-  $O->{subex} //= $NO_MATCH;
+  $O->{subex} //= qr{^throw_};
   $O->{modex} //= $NO_MATCH;
   $O->{subok} //= $ANY_MATCH;
 
@@ -184,7 +184,8 @@ sub subsof($classes,%O) {
 
 sub submerge($classes,%O) {
 
-  $O{main} //= caller;
+  $O{main}  //= caller;
+  $O{xdeps} //= 1;
 
   my $main=$O{main};
   my %subs=subsof($classes,%O,main=>$main);

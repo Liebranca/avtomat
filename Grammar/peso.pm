@@ -81,10 +81,6 @@ BEGIN {
 
   sub Frame_Vars($class) { return {
 
-    -creg   => undef,
-    -cclan  => 'non',
-    -cproc  => undef,
-
     -cdecl  => [],
 
     %{$PE_COMMON->Frame_Vars()},
@@ -95,22 +91,6 @@ BEGIN {
     %{Grammar::peso::eye::Shared_FVars($self)},
 
   }};
-
-# ---   *   ---   *   ---
-# mach/file stuff
-
-  Readonly our $PE_FLAGS=>{
-    %{$PE_RE_FLAGS},
-
-  };
-
-  Readonly our $PE_SDEFS=>{
-
-    VERSION => 'v0.00.1b',
-    AUTHOR  => 'anon',
-    ENTRY   => 'crux',
-
-  };
 
 # ---   *   ---   *   ---
 # GBL
@@ -124,27 +104,9 @@ BEGIN {
     %{$PE_RE->get_retab()},
 
     # ^new
-    q[hier-type]=>re_eiths(
-
-      [qw(reg rom clan proc)],
-
-      bwrap  => 1,
-      insens => 1,
-
-    ),
-
     q[io-type]=>re_eiths(
 
       [qw(io in out)],
-
-      bwrap  => 1,
-      insens => 1,
-
-    ),
-
-    q[wed-type]=>re_eiths(
-
-      [qw(wed unwed)],
 
       bwrap  => 1,
       insens => 1,
@@ -173,18 +135,6 @@ BEGIN {
 
       bwrap  => 1,
       insens => 1,
-
-    ),
-
-# ---   *   ---   *   ---
-# meta
-
-    q[sdef-name] => re_eiths(
-
-      [keys %$PE_SDEFS],
-
-      insens => 1,
-      bwrap  => 1,
 
     ),
 
@@ -233,15 +183,6 @@ BEGIN {
   ));
 
   ext_rules($PE_RE,qw(re));
-
-# ---   *   ---   *   ---
-# placeholder for file header
-
-sub rdhed($self,$branch) {
-  my $mach=$self->{mach};
-  my @path=$mach->{scope}->path();
-
-};
 
 # ---   *   ---   *   ---
 # compile-time definitions
@@ -295,205 +236,6 @@ sub cdef_ctx($self,$branch) {
 sub cdef_common($self,$branch) {
   my $key_lv=$branch->{leaves}->[0];
   $branch->pluck($key_lv);
-
-};
-
-# ---   *   ---   *   ---
-# entry point for all hierarchicals
-
-  rule('~<hier-type>');
-
-  rule(q[
-
-    $<hier>
-    &hier_sort
-
-    hier-type bare
-
-  ]);
-
-# ---   *   ---   *   ---
-# preprocesses hierarchicals
-
-sub hier_sort($self,$branch) {
-
-  my ($type)=$branch->pluck(
-    $branch->branch_in(qr{^hier\-type$})
-
-  );
-
-  $branch->{value}=$type->leaf_value(0);
-
-  my $st=$branch->bhash();
-  $branch->{-pest}=$st;
-
-  $branch->clear();
-
-};
-
-# ---   *   ---   *   ---
-# forks accto hierarchical type
-
-sub hier_sort_ctx($self,$branch) {
-
-  my $type = $branch->{value};
-  my $ckey = q[-c].(lc $type);
-  my $st   = $branch->{-pest};
-  my $f    = $self->{frame};
-
-  # set type of current scope
-  $f->{$ckey}=$st->{bare};
-
-  # get altered path
-  my @cur=$self->cpath_change($type);
-  @cur=$self->cpath() if ! @cur;
-
-  # ^set path
-  my $mach=$self->{mach};
-  my @path=$mach->{scope}->path(@cur);
-
-  # initialize scope
-  $self->hier_nit($type);
-
-  # parent nodes to this branch
-  $self->hier_chld($branch,$type);
-
-  # save pointer to branch
-  # used for jumping later ;>
-  @path=grep {$ARG ne '$DEF'} @path;
-  $mach->{scope}->decl_branch($branch,@path);
-
-};
-
-# ---   *   ---   *   ---
-# alters current path when
-# stepping on a hierarchical
-
-sub cpath_change($self,$type) {
-
-  my @out = ();
-  my $f   = $self->{frame};
-
-  if($type eq 'ROM') {
-    $f->{-creg}=undef;
-    $f->{-cproc}=undef;
-
-    @out=($f->{-cclan},$f->{-crom});
-
-  } elsif($type eq 'REG') {
-    $f->{-crom}=undef;
-    $f->{-cproc}=undef;
-
-    @out=($f->{-cclan},$f->{-creg});
-
-  } elsif($type eq 'CLAN') {
-    $f->{-creg}=undef;
-    $f->{-crom}=undef;
-    $f->{-cproc}=undef;
-
-    @out=($f->{-cclan});
-
-  };
-
-  return @out;
-
-};
-
-# ---   *   ---   *   ---
-# ^get current path from
-# previously stepped hierarchicals
-
-sub cpath($self) {
-
-  my @out = ();
-  my $f   = $self->{frame};
-
-  if(defined $f->{-creg}) {
-    @out=(
-      $f->{-cclan},
-      $f->{-creg},
-      $f->{-cproc}
-
-    );
-
-  } elsif(defined $f->{-crom}) {
-    @out=(
-      $f->{-cclan},
-      $f->{-crom},
-      $f->{-cproc}
-
-    );
-
-  } else {
-    @out=(
-      $f->{-cclan},
-      $f->{-cproc}
-
-    );
-
-  };
-
-  return @out;
-
-};
-
-# ---   *   ---   *   ---
-# get children nodes of a hierarchical
-# performs parenting
-
-sub hier_chld($self,$branch,$type) {
-
-  # alter type for tree search
-  if($type eq 'REG' || $type eq 'ROM') {
-    $type=q[REG|ROM];
-
-  };
-
-  my @out=
-    $branch->match_up_to(qr{^$type$});
-
-  $branch->pushlv(@out);
-
-  return @out;
-
-};
-
-# ---   *   ---   *   ---
-# defaults out all flags for
-# current scope
-
-sub hier_nit($self,$type) {
-
-  my $mach=$self->{mach};
-  my @path=$mach->{scope}->path();
-
-  # major scope properties
-  if($type eq 'CLAN') {
-
-    for my $key(keys %$PE_SDEFS) {
-      my $value=$PE_SDEFS->{$key};
-      $mach->{scope}->decl($value,@path,$key);
-
-    };
-
-  };
-
-  # minor flags
-  for my $key(keys %$PE_FLAGS) {
-    my $value=$PE_FLAGS->{$key};
-    $mach->{scope}->decl($value,@path,$key);
-
-  };
-
-  # match stacks
-  if($type eq 'PROC') {
-
-    $mach->{scope}->decl(
-      {},@path,q[~:rematch]
-
-    );
-
-  };
 
 };
 
@@ -989,99 +731,12 @@ sub reap_run($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# special definitions
-
-  rule('~<sdef-name>');
-  rule('$<sdef> sdef-name nterm');
-
-# ---   *   ---   *   ---
-# placeholder for special defs
-
-sub sdef($self,$branch) {
-
-  my $st=$branch->bhash(0,0);
-
-  $branch->{value}={
-    name  => $st->{q[sdef-name]},
-    value => $st->{nterm},
-
-  };
-
-  $branch->clear();
-
-};
-
-sub sdef_ctx($self,$branch) {
-
-  my $mach = $self->{mach};
-
-  my $st   = $branch->{value};
-  my @path = $mach->{scope}->path();
-
-  if(uc $st->{name} eq 'ENTRY') {
-
-    $st->{value}=[split
-      $REGEX->{nsop},
-      $st->{value}
-
-    ];
-
-  };
-
-  my $o=$mach->{scope}->asg(
-
-    $st->{value},
-
-    @path,
-    $st->{name}
-
-  );
-
-  $branch->{parent}->pluck($branch);
-
-};
-
-# ---   *   ---   *   ---
 # switch flips
 
   rule('~<wed-type>');
   rule('$<wed> wed-type flg-list');
 
-# ---   *   ---   *   ---
-# ^handler
 
-sub wed($self,$branch) {
-
-  my $st=$branch->bhash(0,1);
-
-  $branch->{value}={
-
-    type  => uc $st->{q[wed-type]},
-    flags => $st->{q[flg-list]},
-
-  };
-
-  $branch->clear();
-
-};
-
-sub wed_ctx($self,$branch) {
-
-  my $mach = $self->{mach};
-  my $st   = $branch->{value};
-  my @path = $mach->{scope}->path();
-
-  my $value=int($st->{type} eq 'WED');
-
-  for my $f(@{$st->{flags}}) {
-    $mach->{scope}->asg(
-      $value,@path,$f->{raw}
-
-    );
-
-  };
-
-};
 
 # ---   *   ---   *   ---
 # pop current block

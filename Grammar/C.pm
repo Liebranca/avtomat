@@ -525,10 +525,4 @@ sub mine($class,$prog) {
 };
 
 # ---   *   ---   *   ---
-# test
-
-#  my $prog=orc(q[../ce/keyboard.h]);
-#  Grammar::C->mine($prog); 
-
-# ---   *   ---   *   ---
 1; # ret

@@ -71,7 +71,10 @@ BEGIN {
 
   our $REGEX={
 
-    q[info-key]  => re_pekey(qw(version author)),
+    q[info-key]  => re_pekey(qw(
+      version author entry
+
+    )),
 
     q[xlate-key] => re_pekey(qw(xlate)),
     q[lib-key]   => re_pekey(qw(lib use)),

@@ -52,17 +52,34 @@ package Grammar::peso::std;
     'Grammar::peso::std';
 
 # ---   *   ---   *   ---
+# import prototypes, guts v
+
+sub _merge_uses($pkg,@rules) {
+
+  my $dst=(caller 1)[0];
+
+  cload($pkg);
+  submerge([$pkg],main=>$dst);
+
+  $dst->dext_rules($pkg,@rules);
+
+};
+
+sub _uses($pkg,@rules) {
+
+  my $dst=(caller 1)[0];
+
+  cload($pkg);
+  $dst->dext_rules($pkg,@rules);
+
+};
+
+# ---   *   ---   *   ---
 # beqs for peso::common
 
 sub use_common($class) {
 
-  my $dst=caller;
-  my $pkg='Grammar::peso::common';
-
-  cload($pkg);
-
-
-  $dst->dext_rules($pkg,qw(
+  _uses('Grammar::peso::common',qw(
     lcom nterm opt-nterm term
 
   ));
@@ -70,20 +87,13 @@ sub use_common($class) {
 };
 
 # ---   *   ---   *   ---
-# beqs for peso::value
+# ^peso::value
 
 sub use_value($class) {
 
-  my $dst=caller;
-  my $pkg='Grammar::peso::value';
-
-  cload($pkg);
-
-
-  $dst->dext_rules($pkg,qw(
+  _uses('Grammar::peso::value',qw(
 
     value
-
     num str
 
     flg bare seal
@@ -96,31 +106,30 @@ sub use_value($class) {
 };
 
 # ---   *   ---   *   ---
-# beqs for peso::switch
+# ^peso::switch
 
 sub use_switch($class) {
 
-  my $dst=caller;
-  my $pkg='Grammar::peso::switch';
-
-  cload($pkg);
-
-  submerge(
-
-    [$pkg],
-
-    xdeps => 1,
-    subex => qr{^throw_},
-
-    main  => $dst,
-
-  );
-
-
-  $dst->dext_rules($pkg,qw(
+  _merge_uses('Grammar::peso::switch',qw(
     switch jmp rept
 
   ));
+
+};
+
+# ---   *   ---   *   ---
+# ^peso::wed
+
+sub use_wed($class) {
+  _merge_uses('Grammar::peso::wed',qw(wed));
+
+};
+
+# ---   *   ---   *   ---
+# ^peso::hier
+
+sub use_hier($class) {
+  _merge_uses('Grammar::peso::hier',qw(hier));
 
 };
 
@@ -150,24 +159,12 @@ sub use_eye($class) {
 
 
   # manual selective inheritance
-  submerge(
-
-    \@deps,
-
-    xdeps => 1,
-    subex => qr{^throw_},
-
-    main  => $dst,
-
-  );
-
+  submerge(\@deps,main=>$dst);
   submerge(
 
     \@pkg,
 
-    xdeps => 1,
     subok => qr{(?: rd_\w+_nterm|rd_nterm)}x,
-
     main  => $dst,
 
   );
