@@ -138,13 +138,6 @@ BEGIN {
 
     ),
 
-# ---   *   ---   *   ---
-# compile-time values
-
-    q[def-key]   => re_insens('def',mkre=>1),
-    q[undef-key] => re_insens('undef',mkre=>1),
-    q[redef-key] => re_insens('redef',mkre=>1),
-
   };
 
 # ---   *   ---   *   ---
@@ -183,61 +176,6 @@ BEGIN {
   ));
 
   ext_rules($PE_RE,qw(re));
-
-# ---   *   ---   *   ---
-# compile-time definitions
-
-  rule('~<def-key> &discard');
-  rule('~<redef-key> &discard');
-  rule('~<undef-key> &discard');
-
-  rule('$<def> &cdef def-key bare nterm');
-  rule('$<redef> &credef redef-key bare nterm');
-  rule('$<undef> &cundef undef-key bare nterm');
-
-# ---   *   ---   *   ---
-# ^post-parse
-
-sub cdef($self,$branch) {
-
-  $self->cdef_common($branch);
-
-  my $mach  = $self->{mach};
-  my $scope = $mach->{scope};
-
-  my $st    = $branch->bhash();
-
-  $scope->cdef_decl($st->{nterm},$st->{bare});
-  $scope->cdef_recache();
-
-  $branch->clear();
-  $branch->{value}=$st;
-
-};
-
-# ---   *   ---   *   ---
-# ^move global to local scope
-
-sub cdef_ctx($self,$branch) {
-
-  my $mach  = $self->{mach};
-  my $scope = $mach->{scope};
-
-  my $st    = $branch->{value};
-
-  $scope->cdef_decl($st->{nterm},$st->{bare});
-  $scope->cdef_recache();
-
-};
-
-# ---   *   ---   *   ---
-# ^selfex
-
-sub cdef_common($self,$branch) {
-  my $key_lv=$branch->{leaves}->[0];
-  $branch->pluck($key_lv);
-
-};
 
 # ---   *   ---   *   ---
 # get currently looking at ROM sec
@@ -729,14 +667,6 @@ sub reap_run($self,$branch) {
   };
 
 };
-
-# ---   *   ---   *   ---
-# switch flips
-
-  rule('~<wed-type>');
-  rule('$<wed> wed-type flg-list');
-
-
 
 # ---   *   ---   *   ---
 # pop current block

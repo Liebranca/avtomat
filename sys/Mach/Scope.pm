@@ -91,7 +91,7 @@ sub rm($self,@path) {
   my $nd=$self->{tree}->haslv(@path)
   or Tree::throw_bad_fetch(@path);
 
-  $nd->{parent}->pluck($nd);
+  $nd->discard();
 
 };
 
@@ -496,6 +496,11 @@ sub cdef_rget($self,@name) {
 
 sub cdef_get($self,@name) {
   $self->cdef_call('get',\@name);
+
+};
+
+sub cdef_rm($self,@name) {
+  $self->cdef_call('rm',\@name);
 
 };
 

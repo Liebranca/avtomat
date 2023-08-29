@@ -1351,8 +1351,8 @@ sub match_from($self,$ch,$pat) {
 sub match_until($self,$ch,$pat,%O) {
 
   # defaults
-  $O{iref}//=0;
-  $O{inclusive}//=0;
+  $O{iref}      //=0;
+  $O{inclusive} //=0;
 
   my @out  = ();
   my @path = ();
@@ -1360,9 +1360,8 @@ sub match_until($self,$ch,$pat,%O) {
   my @pending = @{$self->{leaves}};
   @pending    = @pending[$ch->{idex}+1..$#pending];
 
-# ---   *   ---   *   ---
-# walk the leaves
 
+  # walk the leaves
   while(@pending) {
 
     $self=shift @pending;
@@ -1373,10 +1372,8 @@ sub match_until($self,$ch,$pat,%O) {
 
     };
 
-# ---   *   ---   *   ---
-# cut when pattern found
-
-    if($self->{value}=~ m[$pat]) {
+    # cut when pattern found
+    if($self->{value}=~ $pat) {
       @out=@path;
 
       # save end token
@@ -1387,15 +1384,12 @@ sub match_until($self,$ch,$pat,%O) {
 
       last;
 
-# ---   *   ---   *   ---
-# save middle token
 
+    # save middle token
     } else {
       push @path,$self;
 
     };
-
-# ---   *   ---   *   ---
 
   };
 

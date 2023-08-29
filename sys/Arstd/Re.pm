@@ -46,6 +46,7 @@ package Arstd::Re;
     re_opscape
     re_eiths
     re_pekey
+    re_npekey
     re_eaf
 
     re_nonscaped
@@ -331,6 +332,15 @@ sub pekey(@ar) {
   );
 
   return eiths(\@ar,%O);
+
+};
+
+# ---   *   ---   *   ---
+# ^anything BUT
+
+sub npekey(@ar) {
+  my $ex=pekey(@ar);
+  return lkahead($ex,-1);
 
 };
 
@@ -708,6 +718,7 @@ sub qre2re($sref) {
   *re_opscape      = *opscape;
   *re_eiths        = *eiths;
   *re_pekey        = *pekey;
+  *re_npekey       = *npekey;
   *re_eaf          = *eaf;
 
   *re_nonscaped    = *nonscaped;

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# PESO WED
-# Flagged for spam
+# PESO CDEF
+# Compile-time defines
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package Grammar::peso::wed;
+package Grammar::peso::cdef;
 
   use v5.36.0;
   use strict;
@@ -56,132 +56,101 @@ BEGIN {
   # class attrs
   fvars('Grammar::peso::common');
 
-  # cat [flag=>default] lists
-  Readonly my $PE_FLAGS=>{
-    %{$PE_RE_FLAGS},
-
-  };
-
 # ---   *   ---   *   ---
 # GBL
 
   our $REGEX={
-    q[wed-key]=>re_pekey(qw(wed unwed)),
+
+    q[cdef-key]=>re_pekey(qw(
+      def undef redef
+
+    )),
+
+    q[cdef-name]=>qr{@[^;\s\#]+},
 
   };
 
 # ---   *   ---   *   ---
 # parser rules
 
-  rule('~<wed-key>');
-  rule('$<wed> wed-key nterm term');
+  rule('~<cdef-key>');
+  rule('~<cdef-name>');
+
+  rule('$<cdef> cdef-key cdef-name nterm term');
 
 # ---   *   ---   *   ---
 # ^post-parse
 
-sub wed($self,$branch) {
+sub cdef($self,$branch) {
 
   # unpack
-  my ($type,@flags)=
-    $self->rd_name_nterm($branch);
+  my ($type,$name,$value)=
+    $branch->leafless_values();
 
-  $type=lc $type;
+  $type  = lc $type;
+  $value = join
 
-
-  # ^repack
   $branch->{value}={
 
     type  => $type,
 
-    flags => [map {@$ARG} @flags],
-    ptr   => [],
+    name  => $name,
+    value => $value,
 
   };
 
   $branch->clear();
+  $self->cdef_walk($branch);
 
 };
 
 # ---   *   ---   *   ---
 # ^bind
 
-sub wed_ctx($self,$branch) {
+sub cdef_ctx($self,$branch) {
 
   my $st    = $branch->{value};
 
   my $type  = $st->{type};
-  my $flags = $st->{flags};
-  my $ptr   = $st->{ptr};
+  my $name  = $st->{name};
+  my $value = $st->{value};
 
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
 
-  my $value = $type eq 'wed';
-
-
-  # retrieve ptr to lexical
-  # then set/unset var
-  map {
-    push @$ptr,$scope->getvar($ARG->get());
-    $ptr->[-1]->set($value);
-
-  } @$flags;
-
 };
 
 # ---   *   ---   *   ---
-# ^step-over
+# handle cdef type
 
-sub wed_walk($self,$branch) {
+sub cdef_walk($self,$branch) {
 
   my $st    = $branch->{value};
 
   my $type  = $st->{type};
-  my $ptr   = $st->{ptr};
-
-  my $value = $type eq 'wed';
-
-  map {$ARG->set($value)} @$ptr;
-
-};
-
-sub wed_run($self,$branch) {
-  $self->wed_walk($branch);
-
-};
-
-# ---   *   ---   *   ---
-# get default values
-
-sub flags_default($class) {
-
-  $class=(length ref $class)
-    ? ref $class
-    : $class
-    ;
-
-  no strict 'refs';
-  my $flags=${"$class\::PE_FLAGS"};
-
-  return $flags;
-
-};
-
-# ---   *   ---   *   ---
-# ^retrieve current
-
-sub flags_get($self) {
+  my $name  = $st->{name};
+  my $value = $st->{value};
 
   my $mach  = $self->{mach};
-  my $scope = $self->{scope};
-
-  my $flags = $self->flags_default();
+  my $scope = $mach->{scope};
 
 
-  return { map {
-    $ARG=>$scope->getvar($ARG)->get()
+  # make new
+  if($type eq 'def') {
+    $scope->cdef_decl($value,$name);
 
-  } keys %$flags };
+  # ^reset existing
+  } elsif($type eq 'redef') {
+    $scope->cdef_asg($value,$name);
+
+  # ^remove
+  } else {
+    $scope->cdef_rm($name);
+
+  };
+
+
+  $scope->cdef_recache();
 
 };
 

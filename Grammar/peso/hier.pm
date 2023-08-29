@@ -32,6 +32,8 @@ package Grammar::peso::hier;
   use Arstd::IO;
   use Arstd::PM;
 
+  use Tree::Grammar;
+
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Grammar;
@@ -40,7 +42,7 @@ package Grammar::peso::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -62,21 +64,24 @@ BEGIN {
     -creg    => undef,
     -crom    => undef,
     -cproc   => undef,
+    -cblk    => undef,
 
     -chier_t => 'clan',
     -chier_n => 'non',
 
   );
 
+  Readonly my $PE_HIER=>[qw(
+    clan reg rom proc blk
+
+  )];
+
 # ---   *   ---   *   ---
 # GBL
 
   our $REGEX={
-
-    q[hier-key]=>re_pekey(qw(
-      reg rom clan proc
-
-    )),
+    q[hier-key]  => re_pekey(@$PE_HIER),
+    q[nhier-key] => re_npekey(@$PE_HIER),
 
   };
 
@@ -85,6 +90,9 @@ BEGIN {
 
   rule('~<hier-key>');
   rule('$<hier> hier-key nterm term');
+
+  rule('~<nhier-key>');
+  rule('$<nhier> nhier-key nterm term');
 
 # ---   *   ---   *   ---
 # ^post-parse
@@ -102,7 +110,7 @@ sub hier($self,$branch) {
   $branch->clear();
 
   $branch->{value}=$type;
-  $branch->init($name);
+  $branch->init($name->[0]->get());
 
 };
 
@@ -111,28 +119,12 @@ sub hier($self,$branch) {
 
 sub hier_ctx($self,$branch) {
 
-  my $name=$branch->leaf_value(0);
-  my $type=$branch->{value};
-
-  # ^re-repack ;>
-  $branch->{value}={
-
-    type  => $type,
-
-    name  => $name,
-    flptr => {},
-
-  };
-
-  $branch->clear();
-
-
-  # reset path
-  my @path=$self->hier_path($branch,1);
-  $self->hier_flags_nit($branch);
-
   # initialize block
   $self->hier_sort($branch);
+
+  # reset path
+  my @path=$self->hier_path($branch);
+  $self->hier_flags_nit($branch);
 
   # ^save pointer to branch
   my $mach  = $self->{mach};
@@ -147,7 +139,7 @@ sub hier_ctx($self,$branch) {
 # alters current path when
 # stepping on a hierarchical
 
-sub hier_path($self,$branch,$clear=0) {
+sub hier_path($self,$branch) {
 
   # get ctx
   my $f    = $self->{frame};
@@ -164,67 +156,38 @@ sub hier_path($self,$branch,$clear=0) {
   $f->{$ckey}    = $name;
 
 
-  # ^get clear/set from table
-  my ($unset,$set)=$self->hier_path_tab($type);
+  # ^get fields to clear
+  my @unset=qw(-cblk);
 
-  # ^apply
-  map {$f->{$ARG}=undef} (@$unset) x $clear;
-  my @path=grep {$ARG} map {$f->{$ARG}} @$set;
+  if($type eq 'clan') {
+    push @unset,qw(-creg -crom -cproc);
+
+  } elsif($type eq 'reg') {
+    push @unset,qw(-crom -cproc);
+
+  } elsif($type eq 'rom') {
+    push @unset,qw(-creg -cproc);
+
+  };
+
+  # ^clear
+  map {$f->{$ARG}=undef} @unset;
+
+  # ^filter out cleared
+  my @path=grep {$ARG} map {
+    $f->{$ARG}
+
+  } qw(-cclan -creg -crom -cproc -cblk);
+
 
   # ^reset path
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
 
-  $scope->path(@path,$name);
+  $scope->path(@path);
 
 
   return @path;
-
-};
-
-# ---   *   ---   *   ---
-# ^get path keys to clear/set
-
-sub hier_path_tab($self,$type) {
-
-  state $tab=[
-
-    # rom
-    [ [qw(-creg -cproc)],
-      [qw(-cclan)],
-
-    ],
-
-    # reg
-    [ [qw(-crom -cproc)],
-      [qw(-cclan)],
-
-    ],
-
-    # clan
-    [ [qw(-creg -crom -cproc)],
-      [qw()],
-
-    ],
-
-    # proc
-    [ [qw()],
-      [qw(-cclan -creg -crom)]
-
-    ],
-
-  ];
-
-
-  # get index of type into table
-  my $idex=
-    (($type eq 'reg' ) * 1)
-  | (($type eq 'clan') * 2)
-  | (($type eq 'proc') * 3)
-  ;
-
-
-  return @{$tab->[$idex]};
 
 };
 
@@ -234,24 +197,98 @@ sub hier_path_tab($self,$type) {
 
 sub hier_sort($self,$branch) {
 
-  state $re=qr{^(?:reg|rom)$};
+  # nodes already sorted
+  return if is_hashref($branch->{value});
+
+  # ^nope, perform for whole tree
+  my $root=$self->{p3};
 
 
-  # alter type for tree search
-  my $type=$self->{frame}->{-chier_t};
+  # walk node types
+  map {
 
-  $type=($type=~ $re)
-    ? q[(?:reg|rom)]
-    : $type
-    ;
+    my $type = $ARG;
+    my @ar   = $root->branches_in(qr{^$type$});
 
-  # ^get child nodes
-  my @out=$branch->match_up_to(
-    qr{^$type$}
+    # ^get stop pattern
+    my $re=$self->hier_typere($type);
 
-  );
+    # ^walk all nodes of type
+    map {
 
-  $branch->pushlv(@out);
+      # get child nodes and push
+      my @out=$ARG->match_up_to($re);
+      $ARG->pushlv(@out);
+
+    } @ar;
+
+  } qw(clan reg rom proc blk);
+
+
+  # ^repeat to nit sorted
+  map {
+
+    my $type = $ARG;
+    my @ar   = $root->branches_in(qr{^$type$});
+
+    map {$self->hier_pack($ARG)} @ar;
+
+  } qw(clan reg rom proc blk);
+
+};
+
+# ---   *   ---   *   ---
+# ^get hierarchical types
+# a node may not be a parent of
+
+sub hier_typere($self,$type) {
+
+  state $is_data=qr{^(?:reg|rom)$};
+
+
+  my $out=$ANY_MATCH;
+
+  if($type eq 'clan') {
+    $out=qr{^clan$};
+
+  } elsif($type=~ $is_data) {
+    $out=qr{^(?:clan|reg|rom)$};
+
+  } elsif($type eq 'proc') {
+    $out=qr{^(?:clan|reg|rom|proc)$};
+
+  } else {
+    $out=qr{^(?:clan|reg|rom|proc|blk)$};
+
+  };
+
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^packs node value as hash
+# once sorting is done
+
+sub hier_pack($self,$branch) {
+
+  my $name=$branch->leaf_value(0);
+  my $type=$branch->{value};
+
+  my $st={
+
+    type  => $type,
+
+    name  => $name,
+    body  => $NULLSTR,
+
+    flptr => {},
+
+  };
+
+  $branch->{value}=$st;
+  $branch->{leaves}->[0]->discard();
 
 };
 
@@ -325,9 +362,56 @@ sub hier_run($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# do not make a parser tree!
+# post parse for anything
+# that is NOT a hierarchical
 
-  our @CORE=qw();
+sub nhier($self,$branch) {
+
+  my $body=join $NULLSTR,
+    $branch->leafless_values();
+
+  $branch->{value}="  $body;\n";
+  $branch->clear();
+
+};
+
+# ---   *   ---   *   ---
+# ^cat contents to parent
+
+sub nhier_ctx($self,$branch) {
+
+  my $body = $branch->{value};
+
+  my $par  = $branch->{parent};
+  my $st   = $par->{value};
+
+  $st->{body} .= $body;
+
+  $branch->discard();
+
+};
+
+# ---   *   ---   *   ---
+# crux
+
+sub recurse($class,$branch,%O) {
+
+  my $s=(Tree::Grammar->is_valid($branch))
+    ? $branch->{value}
+    : $branch
+    ;
+
+  my $ice = $class->parse($s,%O);
+  my @top = $ice->{p3}->pluck_all();
+
+  return @top;
+
+};
+
+# ---   *   ---   *   ---
+# make a parser tree
+
+  our @CORE=qw(hier nhier);
 
 # ---   *   ---   *   ---
 
