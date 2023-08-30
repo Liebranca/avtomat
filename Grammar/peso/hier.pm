@@ -80,8 +80,13 @@ BEGIN {
 # GBL
 
   our $REGEX={
+
+    q[ellipses]  => qr{\x{20}*\.\.\.\s*;\n?},
+
     q[hier-key]  => re_pekey(@$PE_HIER),
     q[nhier-key] => re_npekey(@$PE_HIER),
+
+    q[beq-key]   => re_pekey(qw(beq)),
 
   };
 
@@ -93,6 +98,9 @@ BEGIN {
 
   rule('~<nhier-key>');
   rule('$<nhier> nhier-key nterm term');
+
+  rule('~<beq-key>');
+  rule('$<beq> beq-key nterm term');
 
 # ---   *   ---   *   ---
 # ^post-parse
@@ -148,15 +156,8 @@ sub hier_path($self,$branch) {
   my $name = $st->{name};
   my $type = $st->{type};
 
-  my $ckey = "-c$type";
 
-  # ^reset ctx
-  $f->{-chier_t} = $type;
-  $f->{-chier_n} = $name;
-  $f->{$ckey}    = $name;
-
-
-  # ^get fields to clear
+  # get fields to clear
   my @unset=qw(-cblk);
 
   if($type eq 'clan') {
@@ -172,6 +173,12 @@ sub hier_path($self,$branch) {
 
   # ^clear
   map {$f->{$ARG}=undef} @unset;
+
+  # ^reset ctx
+  my $ckey="-c$type";
+  $f->{-chier_t} = $type;
+  $f->{-chier_n} = $name;
+  $f->{$ckey}    = $name;
 
   # ^filter out cleared
   my @path=grep {$ARG} map {
@@ -283,7 +290,10 @@ sub hier_pack($self,$branch) {
     name  => $name,
     body  => $NULLSTR,
 
+    beqs  => [],
     flptr => {},
+
+    oidex => $branch->{idex},
 
   };
 
@@ -392,6 +402,45 @@ sub nhier_ctx($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# post-parse inheritor
+
+sub beq($self,$branch) {
+
+  # unpack
+  my ($type,$name)=
+    $self->rd_name_nterm($branch);
+
+  $type=lc $type;
+
+
+  # ^repack
+  $branch->{value}={
+    type=>$type,
+    name=>$name->[0]->get(),
+
+  };
+
+  $branch->clear();
+
+};
+
+# ---   *   ---   *   ---
+# ^bind
+
+sub beq_ctx($self,$branch) {
+
+  my $st  = $branch->{value};
+
+  my $par = $branch->{parent};
+  my $pst = $par->{value};
+
+  push @{$pst->{beqs}},$st->{name};
+
+  $branch->discard();
+
+};
+
+# ---   *   ---   *   ---
 # crux
 
 sub recurse($class,$branch,%O) {
@@ -409,13 +458,417 @@ sub recurse($class,$branch,%O) {
 };
 
 # ---   *   ---   *   ---
+# find all blocks of type
+# within a hierarchy
+
+sub hier_search($self,$branch,@types) {
+
+  my $out     = {map {$ARG=>[]} @types};
+  my @pending = ($branch);
+
+
+  # ^walk branch
+  while(@pending) {
+
+    my $nd=shift @pending;
+    my $st=$nd->{value};
+
+    # type-chk node
+    if(is_hashref($st) && exists $st->{type}) {
+
+      map {
+
+        my $type=$types[$ARG];
+
+        push @{$out->{$type}},$nd
+        if $st->{type} eq $type;
+
+      } 0..$#types;
+
+    };
+
+    # ^go next
+    unshift @pending,@{$nd->{leaves}};
+
+  };
+
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# perform inheritance
+
+sub hier_beq($self,$branch) {
+
+  $self->hier_walk($branch);
+
+  my $st    = $branch->{value};
+  my $beqs  = $st->{beqs};
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+  my $tab   = {};
+
+  # expand path::to and make search
+  my @cpy=map {
+
+    # locate inherited block
+    my $path = $ARG;
+    my $src  = $scope->cderef_branch(
+      0,\$path
+
+    );
+
+    # ^validate
+    throw_beqpath($ARG) if ! $src;
+
+    my ($a,$b)=(
+      $$src->{value}->{type},
+      $st->{type},
+
+    );
+
+    throw_beqtype($ARG,$a,$b) if $a ne $b;
+
+
+    # store [type=>[nodes]]
+    my $cpy=$$src->dup();
+    my $bst=$cpy->{value};
+
+    $tab->{$bst->{type}} //= [];
+
+    my $ar=$tab->{$bst->{type}};
+    push @$ar,$cpy;
+
+    # merge node contents
+    $self->hier_beq_replcat(
+      $branch,$cpy
+
+    );
+
+    $cpy;
+
+  } @$beqs;
+
+
+  # get current nodes
+  my $local=$self->hier_search(
+    $branch,@$PE_HIER
+
+  );
+
+  # ^get full list of inherited
+  my @extern=map {
+
+    $self->hier_beq_expand(
+      $tab,$ARG
+
+    )
+
+  } @$PE_HIER;
+
+  # ^flatten
+  map {
+
+    my $h=$ARG;
+
+    map {
+      push @{$tab->{$ARG}},@{$h->{$ARG}};
+
+    } keys %$h;
+
+  } @extern;
+
+
+  # ^walk inherited
+  map {
+
+    my $type=$ARG;
+
+    $self->hier_beq_array_merge(
+      $local,$tab,$type
+
+    );
+
+  } @$PE_HIER;
+
+
+  $branch->rec_hvarsort(qw(value oidex));
+
+};
+
+# ---   *   ---   *   ---
+# ^errme for blk not found
+
+sub throw_beqpath($path) {
+
+  errout(
+
+    q[Block [err]:%s not found in scope],
+
+    lvl  => $AR_FATAL,
+    args => [$path],
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^errme for type mismatch
+
+sub throw_beqtype($path,$a,$b) {
+
+  errout(
+
+    q[Block of type [good]:%s ]
+  . q[cannot inherit [err]:%s of type [err]:%s],
+
+    lvl  => $AR_FATAL,
+    args => [$b,$path,$a],
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^recursively mine beq'd
+
+sub hier_beq_expand($self,$extern,$type) {
+
+  return map {
+
+    # get inherited nodes
+    my $src   = $ARG;
+    my $entry = $self->hier_search(
+      $src,@$PE_HIER
+
+    );
+
+    # filter out base node
+    map {
+
+      @{$entry->{$ARG}}=grep {
+        $ARG ne $src
+
+      } @{$entry->{$ARG}}
+
+    } keys %$entry;
+
+    # ^pop base from result
+    $extern->{$type}=[];
+    $entry;
+
+  } @{$extern->{$type}};
+
+};
+
+# ---   *   ---   *   ---
+# merges nodes with matching
+# name and type
+
+sub hier_beq_merge(
+
+  $self,
+
+  $src_nd,$local,
+  $type
+
+) {
+
+  # get nodes with matching
+  # name and type
+  my $src    = $src_nd->{value};
+  my @match  = grep {
+
+    my $dst_nd = $ARG;
+    my $dst    = $dst_nd->{value};
+
+    $src->{name} eq $dst->{name};
+
+  } @{$local->{$type}};
+
+
+  # ^merge
+  map {
+
+    my $dst_nd=$ARG;
+
+    $self->hier_beq_replcat($dst_nd,$src_nd);
+    $src_nd->discard();
+
+  } @match;
+
+
+  # ^filter out merged
+  return (! @match)
+    ? ($src_nd)
+    : ()
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub hier_beq_array_merge(
+
+  $self,
+
+  $local,$extern,
+  $type
+
+) {
+
+  my $i=0;
+
+  # merge all nodes of type
+  map {
+
+    my @out=$self->hier_beq_merge(
+      $ARG,$local,$type
+
+    );
+
+    $extern->{$type}->[$i]=undef
+    if ! @out;
+
+    $i++;
+
+
+  } @{$extern->{$type}};
+
+
+  # ^filter out merged from table
+  my @rem=@{$extern->{$type}}=grep {
+    defined $ARG
+
+  } @{$extern->{$type}};
+
+
+  # ^push leftovers
+  my $dst=$local->{$type}->[0];
+  if($dst) {
+    $dst->{parent}->pushlv(@rem);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# repls '...' or cats the
+# bodies of two blocks
+
+sub hier_beq_replcat($self,$dst_nd,$src_nd) {
+
+  my $dst=$dst_nd->{value};
+  my $src=$src_nd->{value};
+
+  my ($a,$b)=(
+    $src->{body},
+    $dst->{body},
+
+  );
+
+  my $re=$REGEX->{ellipses};
+
+  # repl '...' with codestr
+  if($a=~ $re) {
+    $a=~ s[$re][$b];
+    $dst->{body}=$a;
+
+  # ^simply cat
+  } else {
+    $dst->{body}="$a$b";
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# debug out
+
+sub hier_prich($self,$branch) {
+
+  my @pending=($branch);
+
+  while(@pending) {
+
+    my $nd=shift @pending;
+
+    say
+
+      $nd->{value}->{type},q[ ],
+      $nd->{value}->{name},q[;]
+
+    ;
+
+    say $nd->{value}->{body};
+
+    unshift @pending,@{$nd->{leaves}};
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # make a parser tree
 
-  our @CORE=qw(hier nhier);
+  our @CORE=qw(hier beq nhier);
 
 # ---   *   ---   *   ---
 
 }; # BEGIN
+
+# ---   *   ---   *   ---
+# test
+
+my $prog=q[
+
+reg A;
+
+proc ins;
+
+  blk input;
+    ...;
+    in byte str ibs;
+    in byte str obs;
+
+
+  blk loop;
+
+    on c from ibs;
+      put c;
+      rept;
+
+    off;
+
+    ...;
+
+reg B;
+  beq A;
+
+proc ins;
+
+  blk loop;
+    in wide ouch;
+
+];
+
+# ---   *   ---   *   ---
+# ^parse and dbout
+
+my $ice=Grammar::peso::hier->parse($prog);
+
+map {
+  $ice->hier_beq($ARG);
+  $ice->hier_prich($ARG);
+
+say "_______________\n";
+
+} @{$ice->{p3}->{leaves}};
 
 # ---   *   ---   *   ---
 1; # ret

@@ -35,7 +35,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.1;#a
+  our $VERSION = v0.02.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -250,7 +250,11 @@ sub fetch($self,%O) {
 
   # make res for lookup
   my $out     = $self;
-  my $path_re = [map {qr[^\Q$ARG]x} @$path];
+  my $path_re = [map {
+    my $s="\Q$ARG";
+    qr[^$s$]x;
+
+  } @$path];
 
   # get nodes accto path
   for my $i(0..@$path-1) {
@@ -919,6 +923,62 @@ sub absidex($self,$leaf) {
   $i+=$leaf->{idex};
 
   return $i;
+
+};
+
+# ---   *   ---   *   ---
+# sorts leaves in tree
+# accto some variable buried
+# deep into the hashmap
+
+sub hvarsort($self,@path) {
+
+
+  # get table of [node=>var]
+  my %tab=map {
+
+    my $nd  = $ARG;
+    my $dst = \$nd;
+
+    map {$dst=\$$dst->{$ARG}} @path;
+
+    $nd=>[$$dst,$nd];
+
+  } @{$self->{leaves}};
+
+  # ^sort nodes based on var
+  my @leaves=map {
+    $tab{$ARG}->[1]
+
+  } sort {
+    $tab{$a}->[0]
+  > $tab{$b}->[0]
+
+  } keys %tab;
+
+  # ^reset
+  $self->{leaves}=\@leaves;
+  $self->idextrav();
+
+};
+
+# ---   *   ---   *   ---
+# ^recursive
+
+sub rec_hvarsort($self,@path) {
+
+  $self->hvarsort(@path);
+
+  my @pending=@{$self->{leaves}};
+
+  while(@pending) {
+
+    my $nd=shift @pending;
+    $nd->hvarsort(@path);
+
+    unshift @pending,@{$nd->{leaves}};
+
+  };
 
 };
 

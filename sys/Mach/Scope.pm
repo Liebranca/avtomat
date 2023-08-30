@@ -20,6 +20,7 @@ package Mach::Scope;
   use strict;
   use warnings;
 
+  use Readonly;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -38,8 +39,13 @@ package Mach::Scope;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+  Readonly my $BRANCH_PATH=>q[$branch];
 
 # ---   *   ---   *   ---
 # cstruc
@@ -104,7 +110,7 @@ sub decl_branch($self,$o,@path) {
   throw_invalid_branchref($o,@path)
   if ! Tree::Grammar->is_valid($o);
 
-  return $self->decl($o,@path,q[$branch]);
+  return $self->decl($o,@path,$BRANCH_PATH);
 
 };
 
@@ -170,6 +176,50 @@ sub has($self,@path) {
 
 sub haslv($self,@path) {
   return $self->{tree}->haslv(@path);
+
+};
+
+# ---   *   ---   *   ---
+# ^branch wraps
+
+sub asg_branch($self,$o,@path) {
+
+  throw_invalid_branchref($o,@path)
+  if ! Tree::Grammar->is_valid($o);
+
+
+  return $self->asg($o,@path,$BRANCH_PATH);
+
+};
+
+# ---   *   ---   *   ---
+# ^getters
+
+sub rget_branch($self,@path) {
+  return $self->rget(@path,$BRANCH_PATH);
+
+};
+
+sub get_branch($self,@path) {
+  return $self->get(@path,$BRANCH_PATH);
+
+};
+
+sub has_branch($self,@path) {
+  return $self->has(@path,$BRANCH_PATH);
+
+};
+
+sub haslv_branch($self,@path) {
+  return $self->haslv(@path,$BRANCH_PATH);
+
+};
+
+# ---   *   ---   *   ---
+# branch removal
+
+sub rm_branch($self,@path) {
+  $self->rm(@path,$BRANCH_PATH);
 
 };
 
@@ -260,6 +310,36 @@ sub getvar($self,$name,%O) {
     ? $out
     : undef
     ;
+
+};
+
+# ---   *   ---   *   ---
+# ^branch wraps
+
+sub search_branch($self,$name,@path) {
+  return $self->search(
+    $name,@path,$BRANCH_PATH
+
+  );
+
+};
+
+sub search_nc_branch($self,$name,@path) {
+  return $self->search_nc(
+    $name,@path,$BRANCH_PATH
+
+  );
+
+};
+
+sub cderef_branch($self,$fet,$vref,@path) {
+
+  $$vref.="\::$BRANCH_PATH";
+
+  return $self->cderef(
+    $fet,$vref,@path
+
+  );
 
 };
 
