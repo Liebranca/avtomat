@@ -788,6 +788,36 @@ sub hier_beq_replcat($self,$dst_nd,$src_nd) {
 };
 
 # ---   *   ---   *   ---
+# calls preproc F for all
+# nodes in hierarchy
+
+sub hier_proc($self,$branch,$o,@args) {
+
+  my $mach    = $self->{mach};
+  my @pending = ($branch);
+
+  while(@pending) {
+
+    my $nd=shift @pending;
+    my $st=$nd->{value};
+
+    $self->hier_walk($nd);
+    $st->{body}=$o->recurse(
+
+      $st->{body},
+      @args,
+
+      mach=>$mach,
+
+    );
+
+    unshift @pending,@{$nd->{leaves}};
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # debug out
 
 sub hier_prich($self,$branch) {
@@ -821,54 +851,6 @@ sub hier_prich($self,$branch) {
 # ---   *   ---   *   ---
 
 }; # BEGIN
-
-# ---   *   ---   *   ---
-# test
-
-my $prog=q[
-
-reg A;
-
-proc ins;
-
-  blk input;
-    ...;
-    in byte str ibs;
-    in byte str obs;
-
-
-  blk loop;
-
-    on c from ibs;
-      put c;
-      rept;
-
-    off;
-
-    ...;
-
-reg B;
-  beq A;
-
-proc ins;
-
-  blk loop;
-    in wide ouch;
-
-];
-
-# ---   *   ---   *   ---
-# ^parse and dbout
-
-my $ice=Grammar::peso::hier->parse($prog);
-
-map {
-  $ice->hier_beq($ARG);
-  $ice->hier_prich($ARG);
-
-say "_______________\n";
-
-} @{$ice->{p3}->{leaves}};
 
 # ---   *   ---   *   ---
 1; # ret

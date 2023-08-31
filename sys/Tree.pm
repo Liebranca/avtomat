@@ -206,7 +206,8 @@ sub get($self,@path) {
 sub has($self,@path) {
 
   my $out=$self->fetch(
-    path=>\@path,
+    path  => \@path,
+    throw => 0,
 
   );
 
@@ -225,7 +226,8 @@ sub has($self,@path) {
 sub haslv($self,@path) {
 
   return $self->fetch(
-    path=>\@path,
+    path  => \@path,
+    throw => 0,
 
   );
 

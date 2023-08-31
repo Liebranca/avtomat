@@ -32,6 +32,8 @@ package Grammar::peso::cdef;
   use Arstd::IO;
   use Arstd::PM;
 
+  use Tree::Grammar;
+
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Grammar;
@@ -41,7 +43,7 @@ package Grammar::peso::cdef;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -66,7 +68,7 @@ BEGIN {
 
     )),
 
-    q[cdef-name]=>qr{@[^;\s\#]+},
+    q[cdef-name]=>qr{\@[^;\s\#]+}x,
 
   };
 
@@ -105,22 +107,6 @@ sub cdef($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# ^bind
-
-sub cdef_ctx($self,$branch) {
-
-  my $st    = $branch->{value};
-
-  my $type  = $st->{type};
-  my $name  = $st->{name};
-  my $value = $st->{value};
-
-  my $mach  = $self->{mach};
-  my $scope = $mach->{scope};
-
-};
-
-# ---   *   ---   *   ---
 # handle cdef type
 
 sub cdef_walk($self,$branch) {
@@ -133,7 +119,6 @@ sub cdef_walk($self,$branch) {
 
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
-
 
   # make new
   if($type eq 'def') {
@@ -149,15 +134,38 @@ sub cdef_walk($self,$branch) {
 
   };
 
-
   $scope->cdef_recache();
 
 };
 
 # ---   *   ---   *   ---
-# do not make a parser tree!
+# crux
 
-  our @CORE=qw();
+sub recurse($class,$branch,%O) {
+
+  my $s=(Tree::Grammar->is_valid($branch))
+    ? $branch->{value}
+    : $branch
+    ;
+
+  my $ice   = $class->parse($s,%O,skip=>1);
+
+  my $mach  = $ice->{mach};
+  my $scope = $mach->{scope};
+
+  # ^apply
+  my $vref=\$ice->{sremain};
+  while($scope->value_crepl($vref)) {};
+
+
+  return $ice->{sremain};
+
+};
+
+# ---   *   ---   *   ---
+# make parser tree
+
+  our @CORE=qw(cdef);
 
 # ---   *   ---   *   ---
 

@@ -443,9 +443,17 @@ sub cdef_recache($self) {
   my @path   = $self->cdef_path();
   my $branch = $self->{tree}->fetch(path=>\@path);
 
-  my @names  = $branch->branch_values();
+  my @names  = grep {
+    $ARG ne '~:recache'
 
-  my $o      = re_eiths(\@names,bwrap=>1);
+  } $branch->branch_values();
+
+  my $o      = re_eiths(
+
+    \@names,
+    opscape => 1,
+
+  );
 
   if(! $self->cdef_has('~:recache')) {
     $self->cdef_decl($NO_MATCH,'~:recache');
@@ -505,11 +513,19 @@ sub poly_crepl($self,$vref) {
 sub value_crepl($self,$vref) {
 
   my $re=$self->cdef_re();
+  return 0 if $re eq $NO_MATCH;
+
 
   if($$vref=~ m[($re)]) {
-    $$vref=$self->cdef_get($1);
+
+    my $s=$self->cdef_get($1);
+    $$vref=~ s[$re][$s];
+
+    return int($$vref=~ $re);
 
   };
+
+  return 0;
 
 };
 
