@@ -47,6 +47,8 @@ proc ins;
   blk input;
     redef @T wide;
 
+    io A::ins rec;
+
 ];
 
 # ---   *   ---   *   ---
@@ -66,6 +68,8 @@ map {
 say "_______________\n";
 
 } @{$ice->{p3}->{leaves}};
+
+$ice->{mach}->{scope}->prich();
 
 # ---   *   ---   *   ---
 1; # ret

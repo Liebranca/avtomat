@@ -28,6 +28,7 @@ package Grammar::peso::var;
   use Chk;
   use Fmat;
 
+  use Arstd::Array;
   use Arstd::Re;
   use Arstd::IO;
   use Arstd::PM;
@@ -40,7 +41,7 @@ package Grammar::peso::var;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -99,7 +100,7 @@ BEGIN {
     $<blk-ice>
     &blk_ice
 
-    value value nterm term
+    value value opt-nterm term
 
   ]);
 
@@ -203,7 +204,7 @@ sub ptr_decl_ctx($self,$branch) {
   $mach->defnull($dtype,\$st->{values},@names);
 
   # bind and save ptrs
-  $self->bind_decls($branch);
+  $self->bind_decls($st);
 
 };
 
@@ -231,9 +232,7 @@ sub throw_invalid_scope($names,@path) {
 # ---   *   ---   *   ---
 # register decls to current scope
 
-sub bind_decls($self,$branch) {
-
-  my $st     = $branch->{value};
+sub bind_decls($self,$st) {
 
   my $width  = $st->{width};
   my $names  = $st->{names};
@@ -276,17 +275,17 @@ sub blk_ice($self,$branch) {
 
 
   # get leaves
-  my $lv   = $branch->{leaves};
+  my $lv    = $branch->{leaves};
 
-  my $blk  = $lv->[0]->leaf_value(0);
-  my $name = $lv->[1]->leaf_value(0);
-
+  my $blk   = $lv->[0]->leaf_value(0);
+  my $name  = $lv->[1]->leaf_value(0);
+  my $nterm = $lv->[2]->{leaves}->[0];
 
   # parse nterm
-  my ($args)=$self->rd_nterm(
-    $lv->[2]->{leaves}->[0],
-
-  );
+  my ($args)=($nterm)
+    ? $self->rd_nterm($nterm)
+    : []
+    ;
 
   $args //= [];
 
@@ -294,10 +293,13 @@ sub blk_ice($self,$branch) {
   # ^repack ;>
   $branch->{value}={
 
-    blk  => $blk,
+    blk  => $blk->get(),
 
-    name => $name,
+    name => $name->get(),
     args => $args,
+
+    in   => [],
+    out  => [],
 
     ptr  => [],
 
@@ -307,6 +309,119 @@ sub blk_ice($self,$branch) {
   # terminate declaration
   $branch->clear();
   pop @{$f->{-cdecl}};
+
+};
+
+# ---   *   ---   *   ---
+# ^get in/out fmat for blk
+
+sub blk_ice_ctx($self,$branch) {
+
+  return if ! $branch->{value};
+
+  my $st=$branch->{value};
+
+  map {
+
+    $st->{$ARG}=
+      $self->blk_ice_io($branch,$ARG);
+
+  } qw(in out);
+
+};
+
+# ---   *   ---   *   ---
+# ^process IO branch in scope
+
+sub blk_ice_io($self,$branch,$key) {
+
+  my $out   = [];
+  my $st    = $branch->{value};
+
+  my $name  = $st->{name};
+  my $blk   = $st->{blk};
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+
+  # get IO branch
+  my @path = $scope->search_nc($blk);
+  my $io   = $scope->haslv(@path,$key);
+
+
+  # ^proc found
+  goto SKIP if ! $io;
+
+  $out=[ map {(
+
+    "$name.$ARG->{value}"=>
+      $ARG->leaf_value(0)
+
+  )} @{$io->{leaves}} ];
+
+
+SKIP:
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# binds all IO vars
+
+sub blk_ice_walk($self,$branch) {
+  $self->blk_ice_bind($branch,'in');
+  $self->blk_ice_bind($branch,'out');
+
+};
+
+# ---   *   ---   *   ---
+# ^binds IO vars for field
+
+sub blk_ice_bind($self,$branch,$key) {
+
+  my $st     = $branch->{value};
+
+  my $ptr    = $st->{ptr};
+  my $args   = $st->{args};
+
+
+  # get field
+  my @names  = array_keys($st->{$key});
+  my @values = array_values($st->{$key});
+
+
+  # apply new defaults if avail
+  map {
+    $values[$ARG]=$args->[$ARG];
+
+  } 0..@$args-1;
+
+  @values=grep {$ARG} @values;
+
+
+  # ^bind values as new decls
+  push @$ptr,map {
+
+    my $name  = $names[$ARG];
+    my $value = $values[$ARG]->dup();
+
+    $value->{scope}=undef;
+
+    my $o={
+
+      width  => $value->{width},
+
+      names  => [$name],
+      values => [$value],
+
+      ptr    => [],
+
+    };
+
+    @{$self->bind_decls($o)};
+
+  } 0..$#values;
 
 };
 

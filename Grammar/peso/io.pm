@@ -70,8 +70,8 @@ BEGIN {
 # parser rules
 
   rule('~<io-key>');
-  rule('|<io-value> ptr-decl blk-ice');
-  rule('$<io> &io io-key ptr-decl');
+  rule('|<io-value> &clip ptr-decl blk-ice');
+  rule('$<io> &io io-key io-value');
 
 # ---   *   ---   *   ---
 # ^post-parse
@@ -119,12 +119,31 @@ sub io_ctx($self,$branch) {
   map {
 
     my $key=$ARG;
-    $scope->path(@path,$key);
+    $scope->path(@path,$key) if $key ne 'io';
 
     # bind values
     map {
 
-      $self->ptr_decl_ctx($ARG);
+
+      # F struc
+      if($key eq 'io') {
+
+        $self->blk_ice_ctx($ARG);
+
+        $scope->path(@path,'in');
+        $self->blk_ice_bind($ARG,'in');
+
+        $scope->path(@path,'out');
+        $self->blk_ice_bind($ARG,'out');
+
+
+      # ^plain ptr
+      } else {
+        $self->ptr_decl_ctx($ARG);
+
+      };
+
+
       my $ptr=$ARG->{value}->{ptr};
 
       $ARG->{value}=0;
@@ -142,7 +161,7 @@ sub io_ctx($self,$branch) {
     } @{$st->{$key}};
 
 
-  } qw(in out);
+  } qw(in out io);
 
 
   # restore previous path
