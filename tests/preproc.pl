@@ -20,6 +20,7 @@ package Grammar::peso::hier;
 
   use Grammar::peso::hier;
   use Grammar::peso::cdef;
+  use Grammar::peso::io;
 
 # ---   *   ---   *   ---
 
@@ -60,6 +61,7 @@ map {
 
 map {
   $ice->hier_proc($ARG,'Grammar::peso::cdef');
+  $ice->hier_proc($ARG,'Grammar::peso::io');
   $ice->hier_prich($ARG);
 say "_______________\n";
 

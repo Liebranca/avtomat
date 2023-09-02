@@ -493,8 +493,7 @@ sub get_next($self) {
 sub sweep($self,$re) {
 
   map {
-    $ARG->{parent}->pluck($ARG)
-    if $ARG->{parent}
+    $ARG->discard()
 
   } $self->branches_in($re);
 

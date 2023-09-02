@@ -127,7 +127,7 @@ sub subsof_filter_nit($classes,$O) {
   };
 
   # defaults
-  $O->{subex} //= qr{^throw_};
+  $O->{subex} //= qr{^(?:throw_|Frame_Vars$)};
   $O->{modex} //= $NO_MATCH;
   $O->{subok} //= $ANY_MATCH;
 
@@ -436,8 +436,8 @@ sub is_loaded($pkg) {
 
 sub fvars($classes,%O) {
 
-  my $dst=caller;
-     $dst="$dst\::Frame_Vars";
+  my $dst  = caller;
+  my %have = _subsof($dst);
 
   no strict 'refs';
 
@@ -446,7 +446,8 @@ sub fvars($classes,%O) {
     : $classes
     ;
 
-  *{$dst}=sub ($class) { return {
+
+  *{"$dst\::Frame_Vars"}=sub ($class) { return {
 
     (map {
       %{$ARG->Frame_Vars()}
@@ -455,7 +456,7 @@ sub fvars($classes,%O) {
 
     %O,
 
-  }} if ! *{$dst};
+  }} if ! exists $have{Frame_Vars};
 
 };
 

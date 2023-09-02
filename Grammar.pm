@@ -183,6 +183,32 @@ package Grammar;
   };
 
 # ---   *   ---   *   ---
+# get frame vars specific
+# to this package
+
+sub get_fvars($class) {
+
+  if(length ref $class) {
+
+    my $self  = $class;
+       $class = ref $self;
+
+    my $fvars = $class->Frame_Vars();
+    my $frame = $self->{frame};
+
+    return { map {
+      $ARG=>$frame->{$ARG}
+
+    } keys %$fvars};
+
+  } else {
+    return $class->Frame_Vars();
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # returns our $Top for calling package
 
 sub get_top($class) {

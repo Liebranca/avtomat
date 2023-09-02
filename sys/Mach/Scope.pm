@@ -479,6 +479,15 @@ sub cdef_re($self) {
 };
 
 # ---   *   ---   *   ---
+# clear all definitions
+
+sub cdef_clear($self) {
+  state $re=qr{^\$CDEF$};
+  $self->{tree}->sweep($re);
+
+};
+
+# ---   *   ---   *   ---
 # get F corresponding to type
 # of reference passed for expansion
 

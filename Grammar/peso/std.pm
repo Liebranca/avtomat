@@ -134,6 +134,17 @@ sub use_hier($class) {
 };
 
 # ---   *   ---   *   ---
+# ^peso::var
+
+sub use_var($class) {
+  _merge_uses('Grammar::peso::var',qw(
+    lis blk-ice ptr-decl
+
+  ));
+
+};
+
+# ---   *   ---   *   ---
 # beqs for peso::eye
 
 sub use_eye($class) {

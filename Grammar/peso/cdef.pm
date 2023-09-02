@@ -102,14 +102,14 @@ sub cdef($self,$branch) {
   };
 
   $branch->clear();
-  $self->cdef_walk($branch);
+  $self->cdef_run($branch);
 
 };
 
 # ---   *   ---   *   ---
 # handle cdef type
 
-sub cdef_walk($self,$branch) {
+sub cdef_run($self,$branch) {
 
   my $st    = $branch->{value};
 
@@ -156,6 +156,9 @@ sub recurse($class,$branch,%O) {
   # ^apply
   my $vref=\$ice->{sremain};
   while($scope->value_crepl($vref)) {};
+
+  # ^clear macros
+  $scope->cdef_clear();
 
 
   return $ice->{sremain};

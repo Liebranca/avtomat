@@ -42,7 +42,7 @@ package Grammar::peso::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -68,6 +68,8 @@ BEGIN {
 
     -chier_t => 'clan',
     -chier_n => 'non',
+
+    -cdecl   => [],
 
   );
 
@@ -794,6 +796,8 @@ sub hier_beq_replcat($self,$dst_nd,$src_nd) {
 sub hier_proc($self,$branch,$o,@args) {
 
   my $mach    = $self->{mach};
+  my $fvars   = $self->get_fvars();
+
   my @pending = ($branch);
 
   while(@pending) {
@@ -807,7 +811,8 @@ sub hier_proc($self,$branch,$o,@args) {
       $st->{body},
       @args,
 
-      mach=>$mach,
+      mach       => $mach,
+      frame_vars => $fvars,
 
     );
 
@@ -840,6 +845,29 @@ sub hier_prich($self,$branch) {
     unshift @pending,@{$nd->{leaves}};
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# get currently looking at ROM sec
+
+sub inside_ROM($self) {
+
+  my $f=$self->{frame};
+
+  return
+      defined $f->{-crom}
+  &&! defined $f->{-cproc}
+  ;
+
+};
+
+# ---   *   ---   *   ---
+# ^current statement is a decl
+
+sub inside_decl($self) {
+  my $f=$self->{frame};
+  return defined $f->{-cdecl}->[-1];
 
 };
 
