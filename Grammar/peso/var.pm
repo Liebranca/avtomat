@@ -41,7 +41,7 @@ package Grammar::peso::var;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -315,18 +315,23 @@ sub blk_ice($self,$branch) {
 # ---   *   ---   *   ---
 # ^get in/out fmat for blk
 
-sub blk_ice_ctx($self,$branch) {
+sub blk_ice_ctx($self,$branch,@keys) {
 
   return if ! $branch->{value};
 
-  my $st=$branch->{value};
+
+  my $st   = $branch->{value};
+     @keys = qw(in out) if ! @keys;
+
 
   map {
 
     $st->{$ARG}=
       $self->blk_ice_io($branch,$ARG);
 
-  } qw(in out);
+    $self->blk_ice_bind($branch,$ARG);
+
+  } @keys;
 
 };
 
@@ -363,15 +368,6 @@ sub blk_ice_io($self,$branch,$key) {
 
 SKIP:
   return $out;
-
-};
-
-# ---   *   ---   *   ---
-# binds all IO vars
-
-sub blk_ice_walk($self,$branch) {
-  $self->blk_ice_bind($branch,'in');
-  $self->blk_ice_bind($branch,'out');
 
 };
 

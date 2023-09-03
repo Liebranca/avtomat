@@ -49,6 +49,9 @@ proc ins;
 
     io A::ins rec;
 
+A::ins %call arg,arg;
+B::ins %call,arg,arg;
+
 ];
 
 # ---   *   ---   *   ---

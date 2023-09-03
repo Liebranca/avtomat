@@ -34,7 +34,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.7;#a
+  our $VERSION = v0.01.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -44,6 +44,7 @@ sub nit($class,$frame,%O) {
 
   # defaults
   $O{fn}    //= $NOOP;
+  $O{pfn}   //= $NOOP;
 
   $O{hier}  //= 0;
   $O{opt}   //= 0;
@@ -69,6 +70,7 @@ sub nit($class,$frame,%O) {
 
   # setup post-match actions
   $self->{fn}    = $O{fn};
+  $self->{pfn}   = $O{pfn};
   $self->{hier}  = $O{hier};
   $self->{opt}   = $O{opt};
   $self->{alt}   = $O{alt};
@@ -118,6 +120,7 @@ sub dup($self) {
 
       value  => $nd->{value},
       fn     => $nd->{fn},
+      pfn    => $nd->{pfn},
       opt    => $nd->{opt},
       greed  => $nd->{greed},
       max    => $nd->{max},
@@ -163,6 +166,7 @@ sub shift_chain($self,@chain) {
   @chain=@{$self->{chain}}
   if ! @chain;
 
+  $self->{pfn}   = $self->{fn};
   $self->{fn}    = undef;
   $self->{chain} = [@chain];
 

@@ -28,6 +28,7 @@ package Grammar::peso::io;
   use Chk;
   use Fmat;
 
+  use Arstd::String;
   use Arstd::Re;
   use Arstd::IO;
   use Arstd::PM;
@@ -40,7 +41,7 @@ package Grammar::peso::io;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -125,21 +126,25 @@ sub io_ctx($self,$branch) {
     map {
 
 
-      # F struc
+      # copy in/out fmat from F
       if($key eq 'io') {
 
-        $self->blk_ice_ctx($ARG);
-
         $scope->path(@path,'in');
-        $self->blk_ice_bind($ARG,'in');
+        $self->blk_ice_ctx($ARG,'in');
 
         $scope->path(@path,'out');
-        $self->blk_ice_bind($ARG,'out');
+        $self->blk_ice_ctx($ARG,'out');
 
 
-      # ^plain ptr
+      # ^plain ptr, copy either
       } else {
-        $self->ptr_decl_ctx($ARG);
+
+        my $fn=codename($ARG->{pfn});
+
+        (begswith($fn,'blk_ice'))
+          ? $self->$fn($ARG,$key)
+          : $self->$fn($ARG)
+          ;
 
       };
 
