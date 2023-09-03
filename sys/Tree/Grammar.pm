@@ -34,7 +34,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.8;#a
+  our $VERSION = v0.02.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -1101,11 +1101,19 @@ sub parse($self,$s,%O) {
   # defaults
   $O{skip}//=0;
 
+  my $out   = $NULLSTR;
+  my $ctx   = $self->{ctx};
+  my $gram  = $ctx->{gram};
 
-  my $out  = $NULLSTR;
-  my $ctx  = $self->{ctx};
-  my $gram = $ctx->{gram};
+  my $retab = (ref $ctx)->get_retab();
+  my $nterm = (
+     exists $retab->{nterm}
+  && exists $retab->{term}
+  )
 
+    ? qr{$retab->{nterm} \s* $retab->{term}}x
+    : qr{[^\n]*\n?}
+    ;
 
   while(1) {
 
@@ -1121,7 +1129,7 @@ sub parse($self,$s,%O) {
     if(! $match) {
 
       if($O{skip}) {
-        $out.=$1 if $s=~ s[^([^\n]*\n?)][];
+        $out.=$1 if $s=~ s[^($nterm)][];
 
       } else {
         $self->throw_no_match($gram,$s);

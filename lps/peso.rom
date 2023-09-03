@@ -25,8 +25,7 @@
 
 ROM std;
 
-  byte  term[2] $3B;
-STOP;
+  byte  term $3B;
   byte  sep  $2C;
 
   wed   -qwor,-insens;
@@ -65,6 +64,7 @@ STOP;
   ;
 
   unwed -qwor;
+  unwed -escape;
 
   re    num
 
@@ -98,7 +98,7 @@ PROC expr;
 
   sow {/:f} '$:';
 
-  on term[1];
+  on 1;
     sow {/:f} s;
 #    rept;
 
@@ -106,6 +106,8 @@ PROC expr;
 
   sow  {/:f} "\nRET\n";
   reap {/:f};
+
+STOP;
 
 # ---   *   ---   *   ---
 

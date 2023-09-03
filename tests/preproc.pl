@@ -46,11 +46,7 @@ proc ins;
 
   blk input;
     redef @T wide;
-
     io A::ins rec;
-
-A::ins %call arg,arg;
-B::ins %call,arg,arg;
 
 ];
 
@@ -72,7 +68,7 @@ say "_______________\n";
 
 } @{$ice->{p3}->{leaves}};
 
-$ice->{mach}->{scope}->prich();
+$ice->{p3}->prich();
 
 # ---   *   ---   *   ---
 1; # ret

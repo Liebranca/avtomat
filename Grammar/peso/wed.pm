@@ -155,15 +155,17 @@ sub wed_run($self,$branch) {
 
 sub flags_default($class) {
 
-  $class=(length ref $class)
-    ? ref $class
-    : $class
-    ;
+# TODO: inherit this like framevars
+#
+#  $class=(length ref $class)
+#    ? ref $class
+#    : $class
+#    ;
+#
+#  no strict 'refs';
+#  my $flags=${"$class\::PE_FLAGS"};
 
-  no strict 'refs';
-  my $flags=${"$class\::PE_FLAGS"};
-
-  return $flags;
+  return $PE_FLAGS;
 
 };
 

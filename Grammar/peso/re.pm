@@ -109,14 +109,14 @@ BEGIN {
 # ---   *   ---   *   ---
 # rule imports
 
-  ext_rule($PE_COMMON,qw(nterm));
+  ext_rules($PE_COMMON,qw(nterm term));
   ext_rule($PE_VALUE,qw(seal));
 
 # ---   *   ---   *   ---
 # regex definitions
 
   rule('~<re-type>');
-  rule('$<re> &rdre re-type seal nterm');
+  rule('$<re> &rdre re-type seal nterm term');
 
 # ---   *   ---   *   ---
 # ^ipret
@@ -345,7 +345,7 @@ sub re_flags_sigws($self,$sref,$flags) {
   state $re=qr{[\s\n]+};
 
   $$sref=~ s[$re][ ]sxmg
-  if ! $flags->{-sigws};
+  if ! $flags->{-sigws}->get();
 
 };
 
@@ -354,7 +354,7 @@ sub re_flags_sigws($self,$sref,$flags) {
 
 sub re_flags_qwor($self,$sref,$flags) {
 
-  if($flags->{-qwor}) {
+  if($flags->{-qwor}->get()) {
 
     my @ar=split $SPACE_RE,$$sref;
     array_filter(\@ar);
@@ -363,8 +363,8 @@ sub re_flags_qwor($self,$sref,$flags) {
 
       \@ar,
 
-      opscape => $flags->{-escape},
-      insens  => $flags->{-insens},
+      opscape => $flags->{-escape}->get(),
+      insens  => -1 * $flags->{-insens}->get(),
 
     );
 

@@ -51,6 +51,11 @@ package Grammar::peso::std;
   Readonly our $PE_STD=>
     'Grammar::peso::std';
 
+  Readonly our $SUBEX=>qr{^(?:
+    throw_|Frame_Vars$|recurse
+
+  )}x;
+
 # ---   *   ---   *   ---
 # import prototypes, guts v
 
@@ -59,7 +64,14 @@ sub _merge_uses($pkg,@rules) {
   my $dst=(caller 1)[0];
 
   cload($pkg);
-  submerge([$pkg],main=>$dst);
+
+  submerge(
+    [$pkg],
+
+    main  => $dst,
+    subex => $SUBEX,
+
+  );
 
   $dst->dext_rules($pkg,@rules);
 
@@ -80,7 +92,7 @@ sub _uses($pkg,@rules) {
 sub use_common($class) {
 
   _uses('Grammar::peso::common',qw(
-    lcom nterm opt-nterm term
+    lcom nterm opt-nterm term ellipses
 
   ));
 
@@ -102,6 +114,26 @@ sub use_value($class) {
     vlist
 
   ));
+
+};
+
+# ---   *   ---   *   ---
+# ^peso::ops
+
+sub use_ops($class) {
+
+  _uses('Grammar::peso::ops',qw(
+    expr opt-expr invoke
+
+  ));
+
+};
+
+# ---   *   ---   *   ---
+# ^peso::re
+
+sub use_re($class) {
+  _merge_uses('Grammar::peso::re',qw(re));
 
 };
 
@@ -145,6 +177,14 @@ sub use_var($class) {
 };
 
 # ---   *   ---   *   ---
+# ^peso::file
+
+sub use_file($class) {
+  _merge_uses('Grammar::peso::file',qw(file));
+
+};
+
+# ---   *   ---   *   ---
 # beqs for peso::eye
 
 sub use_eye($class) {
@@ -170,7 +210,7 @@ sub use_eye($class) {
 
 
   # manual selective inheritance
-  submerge(\@deps,main=>$dst);
+  submerge(\@deps,main=>$dst,subex=>$SUBEX);
   submerge(
 
     \@pkg,

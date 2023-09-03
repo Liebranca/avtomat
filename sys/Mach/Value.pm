@@ -363,7 +363,7 @@ sub set($self,$other) {
   # get referenced value of B
   my $x=($class->is_valid($other))
     ? $other->get()
-    : $other->{raw}
+    : $other
     ;
 
   # ^set referenced value of A

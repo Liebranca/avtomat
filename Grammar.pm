@@ -43,7 +43,7 @@ package Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.4;#b
+  our $VERSION = v0.01.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -335,15 +335,22 @@ sub throw_bad_rfetch($class,$name) {
 sub new($class,%O) {
 
   # defaults
-  $O{iced} //= undef;
-  $O{idex} //= 0;
-  $O{mach} //= {idex=>$O{idex}};
+  $O{iced}  //= undef;
+  $O{idex}  //= 0;
+  $O{mach}  //= {idex=>$O{idex}};
+  $O{frame} //= {};
+
   $O{frame_vars} //= {};
 
   # arg is cstruc or ice
   my $mach=(! Mach->is_valid($O{mach}))
     ? Mach->new(%{$O{mach}})
     : $O{mach}
+    ;
+
+  my $frame=(! Frame->is_valid($O{frame}))
+    ? $class->new_frame(%{$O{frame}})
+    : $O{frame}
     ;
 
 
@@ -375,7 +382,7 @@ sub new($class,%O) {
   # ^make parser ice
   my $self=bless {
 
-    frame   => $class->new_frame(),
+    frame   => $frame,
     c3      => Tree::Exec->new_root(),
 
     mach    => $mach,

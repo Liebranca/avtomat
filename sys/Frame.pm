@@ -20,6 +20,7 @@ package Frame;
   use warnings;
 
   use English qw(-no_match_vars);
+  use Scalar::Util qw(blessed);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
@@ -29,7 +30,7 @@ package Frame;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v2.00.1;
+  our $VERSION = v2.00.2;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -37,6 +38,14 @@ package Frame;
 
 sub nit($frame,@args) {
   return $frame->{-class}->nit($frame,@args);
+
+};
+
+# ---   *   ---   *   ---
+# dupli of St's version
+
+sub is_valid($kind,$obj) {
+  return blessed($obj) && $obj->isa($kind);
 
 };
 

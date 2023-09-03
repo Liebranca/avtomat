@@ -102,6 +102,9 @@ BEGIN {
     tag   => Lang::re_dcapt('<','>'),
     repl  => Lang::re_dcapt('%','%'),
 
+
+    q[ellipses-key] => qr{\.\.\.},
+
 # ---   *   ---   *   ---
 # [^{]+ | [^}]+
 
@@ -242,6 +245,12 @@ BEGIN {
 
   rule('~<nterm>');
   rule('?<opt-nterm> &clip nterm');
+
+# ---   *   ---   *   ---
+# blk paste-here trick
+
+  rule('~<ellipses-key>');
+  rule('$<ellipses> ellipses-key term');
 
 # ---   *   ---   *   ---
 # n[delim]: anything if its NOT [delimiter]
@@ -420,6 +429,14 @@ sub nest_brak($self,$branch) {
 
 sub nest_brak_ctx($self,$branch) {
   $self->nest_delim_ctx($branch,'brak','[]');
+
+};
+
+# ---   *   ---   *   ---
+# post-parse trash
+
+sub ellipses($self,$branch) {
+  $branch->discard();
 
 };
 

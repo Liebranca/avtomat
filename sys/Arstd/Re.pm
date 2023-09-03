@@ -326,7 +326,7 @@ sub pekey(@ar) {
   # defaults
   my %O=(
     opscape => 1,
-    insens  => 1,
+    insens  => -1,
     bwrap   => 1,
 
   );

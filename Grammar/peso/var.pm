@@ -455,11 +455,18 @@ sub lis_ctx($self,$branch) {
 
   my $st    = $branch->{value};
   my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
 
   my $key   = $st->{to};
      $key   = $key->get();
 
-  $mach->lis($key=>$st->{from});
+  my @path  = $scope->path();
+
+  $mach->lis(
+
+    $key => $st->{from},
+    path => \@path,
+  );
 
 };
 

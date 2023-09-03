@@ -36,6 +36,7 @@ package Grammar::peso::meta;
 
   use Grammar;
   use Grammar::peso::std;
+  use Grammar::peso::common;
   use Grammar::peso::ops;
 
 # ---   *   ---   *   ---
@@ -70,6 +71,8 @@ BEGIN {
 # GBL
 
   our $REGEX={
+
+    %{$PE_COMMON->get_retab()},
 
     q[info-key]  => re_pekey(qw(
       version author entry
@@ -133,7 +136,7 @@ sub header($self,$branch) {
 # ---   *   ---   *   ---
 # ^errme
 
-sub throw_header($self) {
+sub throw_header() {
 
   errout(
 

@@ -216,27 +216,6 @@ sub io_merge($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# ^proc input
-
-#sub io_walk($self,$branch) {
-#
-#  my $st=$branch->{value};
-#  my $ar=$st->{value};
-#
-#  $branch->{value}=$ar->{value};
-#
-#};
-#
-#sub io_run($self,$branch) {
-#
-#  for my $ptr(@{$branch->{value}}) {
-#    $$ptr->{raw}=$self->{mach}->stkpop();
-#
-#  };
-#
-#};
-
-# ---   *   ---   *   ---
 # crux
 
 sub recurse($class,$branch,%O) {

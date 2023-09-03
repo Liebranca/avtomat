@@ -40,6 +40,12 @@ package Grammar::peso::hier;
   use Grammar::peso::std;
 
 # ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT=qw($PE_HIER);
+
+# ---   *   ---   *   ---
 # info
 
   our $VERSION = v0.00.3;#b
@@ -73,7 +79,10 @@ BEGIN {
 
   );
 
-  Readonly my $PE_HIER=>[qw(
+  Readonly our $PE_HIER=>
+    'Grammar::peso::hier';
+
+  Readonly my $PE_HIER_KEY=>[qw(
     clan reg rom proc blk
 
   )];
@@ -85,8 +94,8 @@ BEGIN {
 
     q[ellipses]  => qr{\x{20}*\.\.\.\s*;\n?},
 
-    q[hier-key]  => re_pekey(@$PE_HIER),
-    q[nhier-key] => re_npekey(@$PE_HIER),
+    q[hier-key]  => re_pekey(@$PE_HIER_KEY),
+    q[nhier-key] => re_npekey(@$PE_HIER_KEY),
 
     q[beq-key]   => re_pekey(qw(beq)),
 
@@ -314,9 +323,6 @@ sub hier_flags_nit($self,$branch) {
   my $ptr   = $st->{flptr};
 
   my $mach  = $self->{mach};
-  my $scope = $mach->{scope};
-  my @path  = $scope->path();
-
   my $flags = $self->flags_default();
 
 
@@ -353,7 +359,7 @@ sub hier_flags($self,$branch) {
   # ^resets values
   map {
     my $value=$flags->{$ARG};
-    $ptr->{$ARG}->set($value);
+    ${$ptr->{$ARG}}->set($value);
 
   } keys %$ptr;
 
@@ -558,7 +564,7 @@ sub hier_beq($self,$branch) {
 
   # get current nodes
   my $local=$self->hier_search(
-    $branch,@$PE_HIER
+    $branch,@$PE_HIER_KEY
 
   );
 
@@ -570,7 +576,7 @@ sub hier_beq($self,$branch) {
 
     )
 
-  } @$PE_HIER;
+  } @$PE_HIER_KEY;
 
   # ^flatten
   map {
@@ -595,7 +601,7 @@ sub hier_beq($self,$branch) {
 
     );
 
-  } @$PE_HIER;
+  } @$PE_HIER_KEY;
 
 
   $branch->rec_hvarsort(qw(value oidex));
@@ -645,7 +651,7 @@ sub hier_beq_expand($self,$extern,$type) {
     # get inherited nodes
     my $src   = $ARG;
     my $entry = $self->hier_search(
-      $src,@$PE_HIER
+      $src,@$PE_HIER_KEY
 
     );
 
@@ -790,35 +796,74 @@ sub hier_beq_replcat($self,$dst_nd,$src_nd) {
 };
 
 # ---   *   ---   *   ---
-# calls preproc F for all
-# nodes in hierarchy
+# template: walk hierarchy
+# and apply some F to body
 
-sub hier_proc($self,$branch,$o,@args) {
+sub _temple_branch_fn($self,$branch,$fn) {
 
-  my $mach    = $self->{mach};
-  my $fvars   = $self->get_fvars();
-
-  my @pending = ($branch);
+  my @pending=($branch);
 
   while(@pending) {
 
     my $nd=shift @pending;
     my $st=$nd->{value};
 
+    unshift @pending,@{$nd->{leaves}};
+
     $self->hier_walk($nd);
-    $st->{body}=$o->recurse(
+    $st->{body}=$fn->($self,$nd);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^ice of, call recurse
+
+sub branch_recurse($self,$branch,$o,@args) {
+
+  my $fn=sub ($self2,$branch2) {
+
+    my $st=$branch2->{value};
+
+    return $o->recurse(
 
       $st->{body},
       @args,
 
-      mach       => $mach,
-      frame_vars => $fvars,
+      mach       => $self->{mach},
+      frame_vars => $self->get_fvars(),
 
     );
 
-    unshift @pending,@{$nd->{leaves}};
+  };
+
+  $self->_temple_branch_fn($branch,$fn);
+
+};
+
+# ---   *   ---   *   ---
+# ^parser
+
+sub branch_parse($self,$branch,$ice) {
+
+  my $fn=sub ($self2,$branch2) {
+
+    my $st  = $branch2->{value};
+    my $out = $ice->parse($st->{body});
+
+
+    # ^fuse trees
+    my @lv  = $ice->{p3}->pluck_all();
+    $branch2->pushlv(@lv);
+
+
+    return $out->{sremain};
 
   };
+
+
+  $self->_temple_branch_fn($branch,$fn);
 
 };
 
