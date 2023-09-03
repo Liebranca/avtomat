@@ -56,13 +56,8 @@ BEGIN {
     %{Grammar->Frame_Vars()},
 
     -passes => [
-
-      '_ctx','_walk',
-
-      '_ord','_cl','_opz',
-      '_pre','_ipret',
-
-      '_run'
+      '_ctx','_cl',
+      '_walk','_run',
 
     ],
 

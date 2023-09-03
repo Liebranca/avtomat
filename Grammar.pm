@@ -43,7 +43,7 @@ package Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.5;#b
+  our $VERSION = v0.01.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -348,10 +348,32 @@ sub new($class,%O) {
     : $O{mach}
     ;
 
-  my $frame=(! Frame->is_valid($O{frame}))
-    ? $class->new_frame(%{$O{frame}})
-    : $O{frame}
-    ;
+
+  # create new frame if none avail
+  my $frame;
+  if(! Frame->is_valid($O{frame})) {
+
+    $frame=$class->new_frame(%{$O{frame}});
+
+    # first pass is blank
+    # that means 'parsing stage'
+    unshift @{
+      $frame->{-passes}
+
+    },$NULLSTR;
+
+    # sync frame values to external
+    map {
+      $frame->{$ARG}=
+        $O{frame_vars}->{$ARG}
+
+    } keys %{$O{frame_vars}};
+
+  # ^use existing
+  } else {
+    $frame=$O{frame};
+
+  };
 
 
   # chk class attrs
@@ -395,21 +417,6 @@ sub new($class,%O) {
     sremain => $NULLSTR,
 
   },$class;
-
-
-  # first pass is blank
-  # that means 'parsing stage'
-  unshift @{
-    $self->{frame}->{-passes}
-
-  },$NULLSTR;
-
-  # sync frame values to external
-  map {
-    $self->{frame}->{$ARG}=
-      $O{frame_vars}->{$ARG}
-
-  } keys %{$O{frame_vars}};
 
 
   # create parse tree
@@ -481,12 +488,19 @@ sub dhave($class,$name) {
 
 sub num_passes($self) {
 
-  my $ar=(! length ref $self)
-    ? $self->Frame_Vars()->{-passes}
-    : $self->{frame}->{-passes};
-    ;
+  my $out=0;
 
-  return @$ar;
+  if(! length ref $self) {
+    my $ar=$self->Frame_Vars()->{-passes};
+    $out=int @$ar-1;
+
+  } else {
+    my $ar=$self->{frame}->{-passes};
+    $out=int @$ar-2;
+
+  };
+
+  return $out;
 
 };
 
@@ -496,7 +510,7 @@ sub num_passes($self) {
 sub parse($self,$s,%O) {
 
   # defaults
-  $O{-r}   //= $self->num_passes()-1;
+  $O{-r}   //= $self->num_passes();
   $O{skip} //= 0;
 
   # clamp post-parse num passes
@@ -698,7 +712,7 @@ sub get_entry($self,$entry) {
   my $mach=$self->{mach};
 
   my @out=(! is_arrayref($entry))
-    ? $self->get_clan_entries()
+    ? $self->get_meta_entry()
     : $mach->{scope}->get(@$entry,q[$branch])
     ;
 
@@ -707,47 +721,59 @@ sub get_entry($self,$entry) {
 };
 
 # ---   *   ---   *   ---
-# finds all branches declared as entry points
+# find branch declared as
+# entry point
 
-sub get_clan_entries($self) {
+sub get_meta_entry($self) {
 
-  my @out  = ();
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+  my $tree  = $scope->{tree};
 
-  my $mach = $self->{mach};
-  my $tree = $mach->{scope}->{tree};
+  my @path  = $scope->path();
 
-  for my $branch(@{$tree->{leaves}}) {
+  while(@path > 1) {pop @path};
 
-    my $key=$branch->{value};
-    next if $key eq q[$decl:order];
-
-    # get name of entry proc
-    my $procn=$mach->{scope}->has(
-      $key,'ENTRY'
-
-    );
-
-    next if ! defined $procn;
-
-    # ^fetch
-    my @path = ($key,@{$$procn},q[$branch]);
-    my $o    = $mach->{scope}->get(@path);
-
-    # ^validate
-    throw_invalid_entry(@path)
-    if ! Tree::Grammar->is_valid($o);
-
-    push @out,$o;
+  # get name of entry proc
+  my $procn=$scope->has(qw(meta entry));
+  my $entry=(! $procn)
+    ? throw_no_entry()
+    : $$procn->get()
+    ;
 
 
-  };
+  # ^fetch
+  my @found=$scope->search_nc_branch(
+    $entry,@path
 
-  return @out;
+  );
+
+  push @found,q[$branch];
+
+  # ^validate
+  throw_invalid_entry(@path,$entry)
+  if ! $scope->has(@found);
+
+
+  return $scope->get(@found);
 
 };
 
 # ---   *   ---   *   ---
-# ^errme
+# ^errme for no entry
+
+sub throw_no_entry() {
+
+  errout(
+    q[No entry point found],
+    lvl=>$AR_FATAL,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^errme for bad entry
 
 sub throw_invalid_entry(@path) {
 

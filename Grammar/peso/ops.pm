@@ -636,7 +636,7 @@ SKIP:
 # ---   *   ---   *   ---
 # ^converts invoke to value
 
-sub invoke_ord($self,$branch) {
+sub invoke_cl($self,$branch) {
 
   my $lv=$branch->{leaves}->[0];
   my $st=$lv->{value};
@@ -646,7 +646,7 @@ sub invoke_ord($self,$branch) {
 
   # solve nested
   map {
-    $self->invoke_ord($ARG)
+    $self->invoke_cl($ARG)
 
   } @{$branch->{leaves}};
 
@@ -697,7 +697,7 @@ sub invokes_solve($self,$branch) {
   } $self->find_uinvokes($branch);
 
   map {
-    $self->invoke_ord($ARG)
+    $self->invoke_cl($ARG)
 
   } $self->find_invokes($branch);
 
@@ -1023,7 +1023,7 @@ sub opres_flat($self,$tree) {
 # ---   *   ---   *   ---
 # ^non-runtime crux
 
-sub value_ops_opz($self,$branch) {
+sub value_ops_walk($self,$branch) {
 
   # group subscript ops with their
   # corresponding values

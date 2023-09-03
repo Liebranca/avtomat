@@ -113,7 +113,7 @@ sub sow($self,$branch) {
 # ---   *   ---   *   ---
 # ^bind values
 
-sub sow_opz($self,$branch) {
+sub sow_walk($self,$branch) {
 
   my $st=$branch->{value};
 
@@ -232,7 +232,7 @@ sub reap($self,$branch) {
 # ---   *   ---   *   ---
 # ^binding
 
-sub reap_opz($self,$branch) {
+sub reap_walk($self,$branch) {
   my $st=$branch->{value};
   $self->io_const_fd($st);
 

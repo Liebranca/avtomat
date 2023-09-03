@@ -176,18 +176,18 @@ sub recurse($class,$branch,%O) {
 #  $ice->{mach}->{scope}->prich();
 
 
-#  $ice->run(
-#
-#    entry=>1,
-#    keepx=>1,
-#
-#    input=>[
-#
-#      'hey',
-#
-#    ],
-#
-#  );
+  $ice->run(
+
+    entry=>1,
+    keepx=>1,
+
+    input=>[
+
+      'hey',
+
+    ],
+
+  );
 
 # ---   *   ---   *   ---
 1; # ret

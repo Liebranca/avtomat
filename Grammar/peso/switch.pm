@@ -471,7 +471,7 @@ REPEAT:
 
 sub jmp($self,$branch) {};
 
-sub jmp_ord($self,$branch) {
+sub jmp_walk($self,$branch) {
   $branch->{value}=$branch->leaf_value(0);
   $branch->clear();
 
