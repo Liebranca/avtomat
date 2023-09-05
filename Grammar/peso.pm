@@ -147,8 +147,10 @@ sub recurse($class,$branch,%O) {
 
   } @{$$lv};
 
+
   my @lv=$st->{p3}->pluck_all();
   $ice->{p3}->pushlv(@lv);
+
 
   return $ice;
 

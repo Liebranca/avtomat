@@ -302,15 +302,16 @@ sub hier_pack($self,$branch) {
     body  => $NULLSTR,
 
     beqs  => [],
+    from  => [],
     flptr => {},
 
     in    => [],
     out   => [],
     stk   => [],
 
-    cin   => [],
-    cout  => [],
-    cstk  => [],
+    prin  => [],
+    prout => [],
+    prstk => [],
 
     oidex => $branch->{idex},
 
@@ -384,18 +385,126 @@ sub hier_walk($self,$branch) {
 
 sub hier_run($self,$branch) {
 
+  $self->hier_save($branch);
   $self->hier_walk($branch);
 
-  my $st   = $branch->{value};
-  my $in   = $st->{in};
+  my $mach=$self->{mach};
 
-  my $mach = $self->{mach};
-  my @stk  = $mach->get_args();
 
+  # get input binds
+  my $st=$branch->{value};
+  my $in=$st->{in};
+
+  # get passed inputs
+  my @stk=$mach->get_args();
+
+  # ^reset
   map {
-    $in->[$ARG]->set($stk[$ARG])
+    $in->[$ARG]->set($stk[$ARG]);
 
   } 0..$#stk;
+
+};
+
+# ---   *   ---   *   ---
+# stores current stack frame
+
+sub hier_stk_save($self,$dst,$src) {
+
+  push @$dst,[];
+  my $old=$dst->[-1];
+
+  map {push @$old,$ARG->get()} @$src;
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub hier_save($self,$branch) {
+
+  my $st    = $branch->{value};
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+
+  # remember origin path
+  push @{$st->{from}},[$scope->path()];
+
+  # ^remember state
+  map {
+
+    my $dst=$st->{"pr$ARG"};
+    my $src=$st->{$ARG};
+
+    $self->hier_stk_save($dst,$src);
+
+  } qw(in out stk);
+
+};
+
+# ---   *   ---   *   ---
+# ^restores
+
+sub hier_stk_load($self,$dst,$src) {
+
+  my $old=pop @$src;
+  map {$ARG->set(pop @$old)} @$dst;
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub hier_load($self,$branch) {
+
+  my $st    = $branch->{value};
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+
+  # restore origin path
+  my $path=pop @{$st->{from}};
+  $scope->path(@$path);
+
+  # ^restore state
+  map {
+
+    my $src=$st->{"pr$ARG"};
+    my $dst=$st->{$ARG};
+
+    $self->hier_stk_load($dst,$src);
+
+  } qw(in out stk);
+
+};
+
+# ---   *   ---   *   ---
+# end of block
+
+sub ret_run($self,$branch) {
+  my $par=$branch->{parent};
+  $self->hier_load($par);
+
+};
+
+# ---   *   ---   *   ---
+# ^adds at bottom of branch
+
+sub ret_add($self,$branch) {
+
+  my $ret=$branch->init('ret');
+
+  $ret->fork_chain(
+
+    dom  => ref $self,
+    name => 'ret',
+
+    skip => $self->num_passes(),
+
+  );
 
 };
 
@@ -828,6 +937,8 @@ sub _temple_branch_fn($self,$branch,$fn) {
     my $nd=shift @pending;
     my $st=$nd->{value};
 
+    next if $st eq 'ret';
+
     unshift @pending,@{$nd->{leaves}};
 
     $self->hier_walk($nd);
@@ -875,7 +986,9 @@ sub branch_parse($self,$branch,$ice) {
 
     # ^fuse trees
     my @lv  = $ice->{p3}->pluck_all();
+
     $branch2->pushlv(@lv);
+    $self2->ret_add($branch2);
 
 
     return $out->{sremain};
