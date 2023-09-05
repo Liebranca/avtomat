@@ -41,7 +41,7 @@ package Grammar::peso::var;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -112,10 +112,8 @@ BEGIN {
 
 sub ptr_decl($self,$branch) {
 
-  # signal that this is a decl
-  # to subtrees when recursing
-  my $f=$self->{frame};
-  push @{$f->{-cdecl}},1;
+
+  $self->decl_prologue($branch);
 
   my $lv   = $branch->{leaves};
   my $type = $lv->[0];
@@ -154,6 +152,8 @@ sub ptr_decl($self,$branch) {
   # ^repack ;>
   $branch->{value}={
 
+    io     => 0,
+
     width  => $width,
     spec   => \@spec,
 
@@ -164,9 +164,31 @@ sub ptr_decl($self,$branch) {
 
   };
 
+  $branch->clear();
+  $self->decl_epilogue($branch);
+
+};
+
+# ---   *   ---   *   ---
+# ^open boiler
+
+sub decl_prologue($self,$branch) {
+
+
+  # signal that this is a decl
+  # to subtrees when recursing
+  my $f=$self->{frame};
+  push @{$f->{-cdecl}},1;
+
+};
+
+# ---   *   ---   *   ---
+# ^close boiler
+
+sub decl_epilogue($self,$branch) {
 
   # terminate declaration
-  $branch->clear();
+  my $f=$self->{frame};
   pop @{$f->{-cdecl}};
 
 };
@@ -259,7 +281,47 @@ sub bind_decls($self,$st) {
 
   } 0..@$names-1;
 
+  $self->bind_decl_ptrs($st);
+
   return $ptr;
+
+};
+
+# ---   *   ---   *   ---
+# ^further step
+
+sub bind_decl_ptrs($self,$st) {
+
+
+  # get ctx
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+  # get mode
+  my @path = $scope->path();
+  my $key  = 'stk';
+
+  if($st->{io}) {
+    my @cpy=@path;
+    $key=pop @cpy;
+
+    $scope->path(@cpy);
+
+  };
+
+
+  # get hier
+  my $blk=$scope->curblk();
+  my $bst=$blk->{value};
+
+  # ^push names to hier
+  my $stk=$bst->{$key};
+  my $ptr=$st->{ptr};
+
+
+  push @$stk,map {$$ARG} @$ptr;
+
+  $scope->path(@path);
 
 };
 
@@ -268,11 +330,7 @@ sub bind_decls($self,$st) {
 
 sub blk_ice($self,$branch) {
 
-  # signal that this is a decl
-  # to subtrees when recursing
-  my $f=$self->{frame};
-  push @{$f->{-cdecl}},1;
-
+  $self->decl_prologue($branch);
 
   # get leaves
   my $lv    = $branch->{leaves};
@@ -306,9 +364,7 @@ sub blk_ice($self,$branch) {
   };
 
 
-  # terminate declaration
-  $branch->clear();
-  pop @{$f->{-cdecl}};
+  $self->decl_epilogue($branch);
 
 };
 

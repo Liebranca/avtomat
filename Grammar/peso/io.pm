@@ -41,7 +41,7 @@ package Grammar::peso::io;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -124,6 +124,8 @@ sub io_ctx($self,$branch) {
 
     # bind values
     map {
+
+      $ARG->{value}->{io}=1;
 
 
       # copy in/out fmat from F

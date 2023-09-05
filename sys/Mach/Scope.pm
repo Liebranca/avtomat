@@ -390,6 +390,19 @@ sub throw_nonret() {
 };
 
 # ---   *   ---   *   ---
+# get current branch
+
+sub curblk($self) {
+
+  return $self->get(
+    $self->path(),
+    $BRANCH_PATH
+
+  );
+
+};
+
+# ---   *   ---   *   ---
 # debug out
 
 sub prich($self,%O) {

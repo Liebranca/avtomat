@@ -304,6 +304,14 @@ sub hier_pack($self,$branch) {
     beqs  => [],
     flptr => {},
 
+    in    => [],
+    out   => [],
+    stk   => [],
+
+    cin   => [],
+    cout  => [],
+    cstk  => [],
+
     oidex => $branch->{idex},
 
   };
@@ -375,7 +383,19 @@ sub hier_walk($self,$branch) {
 };
 
 sub hier_run($self,$branch) {
+
   $self->hier_walk($branch);
+
+  my $st   = $branch->{value};
+  my $in   = $st->{in};
+
+  my $mach = $self->{mach};
+  my @stk  = $mach->get_args();
+
+  map {
+    $in->[$ARG]->set($stk[$ARG])
+
+  } 0..$#stk;
 
 };
 
