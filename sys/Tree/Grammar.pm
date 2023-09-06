@@ -34,7 +34,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.0;#a
+  our $VERSION = v0.02.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -393,7 +393,7 @@ sub on_match($self,$branch) {
 sub re_leaf($self,$anchor,$sref,%O) {
 
   my $out = undef;
-  my $re  = $self->{value};
+  my $re  = ${$self->{value}};
 
   my $jmp=qr{(?:
     (?: ^\s* )
@@ -403,6 +403,7 @@ sub re_leaf($self,$anchor,$sref,%O) {
 
   my $scope = $O{mach}->{scope};
   my $cdef  = $scope->cdef_re();
+
 
   # match against pattern
   if($$sref=~ s[$jmp($re)][]) {
@@ -460,7 +461,7 @@ sub re_or_branch($self,$ctx,$sref,%O) {
 
   my $dst     = undef;
 
-  if(is_qre($x)) {
+  if(is_qreref($x)) {
     $out=$self->re_leaf($anchor,$sref,%O);
     $dst=$anchor if $out;
 
@@ -1020,10 +1021,14 @@ sub status_db_out($self) {
 
   $i=0;
 
-  say int(! $status->{fail}) . " $self->{value}";
+  say {*STDERR}
+    int(! $status->{fail})
+  . " $self->{value}"
+  ;
+
   for my $ok(@out) {
 
-    say "\\-->$ok";
+    say {*STDERR} "\\-->$ok";
     $i++;
 
   };
@@ -1071,6 +1076,7 @@ sub hier_match($self,$ctx,$s,%O) {
     };
 
   };
+
 
   return @out;
 

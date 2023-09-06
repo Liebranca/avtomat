@@ -836,7 +836,7 @@ sub fnbreak($class,$X) {
   $name //= $X->{name};
   $dom  //= 'Grammar';
 
-  goto SKIP if is_qre($name);
+  goto SKIP if is_qreref($name);
 
   # get sub matching name
   $X->{fn}=codefind($dom,$name)
@@ -1053,7 +1053,7 @@ sub retab($class,$O) {
 
   my $name  = $O->{name};
   my $ar    = $O->{chld};
-  my $c     = {name=>$retab->{$name}};
+  my $c     = {name=>\$retab->{$name}};
 
   push @$ar,$c;
 
@@ -1066,13 +1066,21 @@ sub retab($class,$O) {
 
 sub relit($class,$O) {
 
+  state $cache={};
+
   my $full = $O->{name};
   my $ar   = $O->{chld};
 
   my ($name,$value)=split m[\=],$full;
 
   $O->{name}=$name;
-  my $c={name=>qr{$value}};
+
+  # make new re if need
+  $cache->{$value}=qr{$value}
+  if ! exists $cache->{$value};
+
+  # ^reuse
+  my $c={name=>\$cache->{$value}};
 
   push @$ar,$c;
 
@@ -1222,7 +1230,7 @@ sub rew($self,$branch) {
   my $anchors = $self->{anchors}->[-1];
   my $other   = $branch->{other};
 
-  my $par     = (is_qre($other->{value}))
+  my $par     = (is_qreref($other->{value}))
     ? $other->{parent}->{parent}
     : $other->{parent}
     ;
@@ -1248,7 +1256,7 @@ sub erew($self,$branch) {
   my $anchors = $self->{anchors}->[-1];
   my $other   = $branch->{other};
 
-  my $par     = (is_qre($other->{value}))
+  my $par     = (is_qreref($other->{value}))
     ? $other->{parent}->{parent}
     : $other->{parent}
     ;

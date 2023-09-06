@@ -160,16 +160,16 @@ sub recurse($class,$branch,%O) {
 # test
 
   my $src=$ARGV[0];
-  $src//='lps/peso.rom';
+  $src//='tests/implicit.pe';
 
-  my $prog=($src=~qr{\.rom$})
+  my $prog=($src=~qr{\.(?:pe|p3|rom)$})
     ? orc($src)
     : $src
     ;
 
   return if ! $src;
 
-  $prog =~ m[([\S\s]+)\s*STOP]x;
+  $prog =~ m[([\S\s]+)\s*(?:STOP)?]x;
   $prog = ${^CAPTURE[0]};
 
   my $ice=Grammar::peso->recurse($prog);
@@ -179,15 +179,8 @@ sub recurse($class,$branch,%O) {
 
 
   $ice->run(
-
     entry=>1,
     keepx=>1,
-
-    input=>[
-
-      'hey',
-
-    ],
 
   );
 

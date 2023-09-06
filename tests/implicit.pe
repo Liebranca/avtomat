@@ -1,0 +1,42 @@
+$;
+
+# ---   *   ---   *   ---
+# IMPLICIT
+# Args passed but nothing writ
+#
+# TEST FILE
+# jmp EOF for bits
+#
+# CONTRIBUTORS
+# lyeb,
+
+# ---   *   ---   *   ---
+# info
+
+clan test;
+
+  version   v0.00.1b;
+  author    'ibn3dila';
+
+  entry     non::crux;
+
+# ---   *   ---   *   ---
+# base struc
+
+reg vars;
+  word x0 $24;
+
+proc ins;
+
+# ---   *   ---   *   ---
+# ^the bit
+
+clan non;
+proc crux;
+
+  lis /:f 1;
+
+  sow   {/:f} test::vars::x0,"\n";
+  reap  {/:f};
+
+# ---   *   ---   *   ---

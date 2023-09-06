@@ -37,6 +37,7 @@ package Chk;
     is_coderef
     is_arrayref
     is_qre
+    is_qreref
 
     is_scalarref
 
@@ -48,7 +49,7 @@ package Chk;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.3;#a
+  our $VERSION=v0.00.4;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -124,6 +125,11 @@ sub is_coderef ($v) {
 
 sub is_qre ($v) {
   defined $v && ($v=~ $Chk::QRE_RE);
+
+};
+
+sub is_qreref($v) {
+  return is_scalarref($v) && is_qre($$v);
 
 };
 
