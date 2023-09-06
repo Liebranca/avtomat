@@ -93,7 +93,6 @@ BEGIN {
   rule('*<specs> &list_flatten spec');
 
   rule('$<type> width specs');
-
   rule('$<ptr-decl> &ptr_decl type nterm term');
 
   rule(q[
@@ -112,12 +111,10 @@ BEGIN {
 
 sub ptr_decl($self,$branch) {
 
-
   $self->decl_prologue($branch);
 
   my $lv   = $branch->{leaves};
   my $type = $lv->[0];
-
 
   # ^unpack specs
   my $type_lv = $type->{leaves};
@@ -379,7 +376,6 @@ sub blk_ice_ctx($self,$branch,@keys) {
   my $st   = $branch->{value};
      @keys = qw(in out) if ! @keys;
 
-
   map {
 
     $st->{$ARG}=
@@ -474,6 +470,43 @@ sub blk_ice_bind($self,$branch,$key) {
     @{$self->bind_decls($o)};
 
   } 0..$#values;
+
+};
+
+# ---   *   ---   *   ---
+# handle instancing of local vars
+
+sub blk_ice_cl($self,$branch) {
+
+  my $st=$branch->{value};
+
+  # find path to blk
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+  my @path  = $scope->search_nc_branch(
+    $st->{blk}
+
+  );
+
+  # fetch def
+  my $blk     = $scope->get_branch(@path);
+  my $icepath = [$scope->path(),$st->{name}];
+
+  # ^walk vars
+  my %raw=map {
+
+    $ARG->{id}=>$ARG->rdup($icepath);
+
+  } @{$blk->{value}->{stk}};
+
+
+  # ^make ice
+  my $obj=$mach->decl(
+    obj=>$st->{name},
+    raw=>\%raw,
+
+  );
 
 };
 

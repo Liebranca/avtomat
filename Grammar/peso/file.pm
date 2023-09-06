@@ -74,7 +74,7 @@ BEGIN {
   rule('~<sow-key>');
   rule('~<reap-key>');
 
-  rule('$<sow> sow-key invoke vlist term');
+  rule('$<sow> sow-key invoke nterm term');
   rule('$<reap> reap-key invoke term');
 
   rule('|<file> &clip sow reap');
@@ -90,17 +90,24 @@ sub sow($self,$branch) {
   # ^dissect tree
   my $lv    = $branch->{leaves};
   my $fd    = $lv->[1]->leaf_value(0);
-  my @vlist = $lv->[2]->branch_values();
+  my $nterm = $lv->[2]->leaf_value(0);
 
+
+  # ^make value from invoke
   $fd=$self->{mach}->vice(
     'bare',raw=>$fd->get()->[0]
 
   );
 
+  # ^parse nterm
+  my ($vlist)=$self->rd_nterm($nterm);
+
+
+  # repack
   $branch->{value}={
 
     fd    => $fd,
-    vlist => \@vlist,
+    vlist => $vlist,
 
     const => [],
 
@@ -182,7 +189,7 @@ sub sow_run($self,$branch) {
       ;
 
     $s.=(Mach::Value->is_valid($x))
-      ? $x->{raw}
+      ? $x->rget()
       : $x
       ;
 

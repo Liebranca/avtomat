@@ -35,8 +35,9 @@ clan non;
 proc crux;
 
   lis /:f 1;
+  test::vars ice;
 
-  sow   {/:f} test::vars::x0,"\n";
+  sow   {/:f} ice->x0,"\n";
   reap  {/:f};
 
 # ---   *   ---   *   ---

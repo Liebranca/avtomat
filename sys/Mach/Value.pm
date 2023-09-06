@@ -284,6 +284,32 @@ sub dup($self,%attrs) {
 };
 
 # ---   *   ---   *   ---
+# ^recursively rewrites path
+
+sub rdup($self,$path,%attrs) {
+
+  # copy and reset path
+  my $cpy = $self->dup(%attrs);
+  my $x   = $cpy->get();
+
+  $cpy->{path}=[@$path,$cpy->{id}];
+
+
+  # ^recurse for each child
+  if(is_hashref($x)) {
+
+    map {
+      $ARG=$ARG->rdup($cpy->{path});
+
+    } values %$x;
+
+  };
+
+  return $cpy;
+
+};
+
+# ---   *   ---   *   ---
 # ^save value to scope
 
 sub bind($self,$scope,@path) {
@@ -383,6 +409,24 @@ sub get($self) {
     ? ${$self->{raw}}
     : $self->{raw}
     ;
+
+};
+
+# ---   *   ---   *   ---
+# ^recursive
+
+sub rget($self) {
+
+  my $class = ref $self;
+  my $out   = $self->get();
+
+  while($class->is_valid($out)) {
+    $out=$out->get();
+
+  };
+
+
+  return $out;
 
 };
 
