@@ -127,20 +127,20 @@ sub sow_walk($self,$branch) {
   # get fd is const
   $self->io_const_fd($st);
 
-  # ^same for args
-  @{$st->{const_vlist}}=map {
-    $self->const_deref($ARG);
-
-  } @{$st->{vlist}};
-
-  my $i=0;map {
-
-    $ARG=(defined $st->{const_vlist}->[$i++])
-      ? undef
-      : $ARG
-      ;
-
-  } @{$st->{vlist}};
+#  # ^same for args
+#  @{$st->{const_vlist}}=map {
+#    $self->const_deref($ARG);
+#
+#  } @{$st->{vlist}};
+#
+#  my $i=0;map {
+#
+#    $ARG=(defined $st->{const_vlist}->[$i++])
+#      ? undef
+#      : $ARG
+#      ;
+#
+#  } @{$st->{vlist}};
 
 };
 
@@ -183,19 +183,24 @@ sub sow_run($self,$branch) {
 
   map {
 
-    my $x=(! defined $ARG)
-      ? $self->deref($st->{vlist}->[$i])
-      : $ARG
-      ;
+#    my $x=(! defined $ARG)
+#      ? $self->deref($st->{vlist}->[$i])
+#      : $ARG
+#      ;
 
-    $s.=(Mach::Value->is_valid($x))
+    my $x=$self->deref($ARG);
+    my $c=(Mach::Value->is_valid($x))
       ? $x->rget()
       : $x
       ;
 
+
+    $c//='[null]';
+    $s.=$c;
+
     $i++;
 
-  } @{$st->{const_vlist}};
+  } @{$st->{vlist}};
 
   # ^write to dst
   my ($fd,$buff);

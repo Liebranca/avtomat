@@ -37,7 +37,7 @@ package Mach::Value;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -104,7 +104,11 @@ package Mach::Value;
   Readonly our $SEG_ATTRS=>{};
   Readonly our $STK_ATTRS=>{};
 
-  Readonly our $OBJ_ATTRS=>{};
+  Readonly our $OBJ_ATTRS=>{
+    opath=>[],
+    procs=>[],
+
+  };
 
 # ---   *   ---   *   ---
 # GBL
@@ -426,7 +430,10 @@ sub rget($self) {
   };
 
 
-  return $out;
+  return (is_coderef($out))
+    ? $out->()
+    : $out
+    ;
 
 };
 

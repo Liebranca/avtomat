@@ -53,7 +53,7 @@ package Grammar::peso::ops;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#b
+  our $VERSION = v0.00.8;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -162,14 +162,17 @@ BEGIN {
 # ^makes note of ops requiring ctx access
 
   Readonly our $OP_CTX=>{
-    q[~=] => 1,
+
+    q[->]  => 1,
+    q[->*] => 1,
+    q[~=]  => 1,
 
   };
 
 # ---   *   ---   *   ---
 # get ref to member var
 
-sub op_m_attr($lhs,$rhs) {
+sub op_m_attr($self,$lhs,$rhs) {
 
   my $a=$lhs->get();
   my $b=$rhs->get();
@@ -184,12 +187,19 @@ sub op_m_attr($lhs,$rhs) {
 # ---   *   ---   *   ---
 # get wraps around member F call
 
-sub op_m_call($lhs,$rhs) {
+sub op_m_call($self,$lhs,$rhs) {
 
   my $obj = $lhs->get();
   my $fn  = $rhs->get();
 
-  return sub (@args) {$obj->$fn(@args)};
+  if(exists $lhs->{procs}->{$fn}) {
+    $fn=$lhs->{procs}->{$fn};
+    return sub (@args) {$fn->($obj,@args)};
+
+  } else {
+    return sub (@args) {$obj->$fn(@args)};
+
+  };
 
 };
 

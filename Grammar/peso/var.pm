@@ -41,7 +41,7 @@ package Grammar::peso::var;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -404,21 +404,26 @@ sub blk_ice_io($self,$branch,$key) {
 
   # get IO branch
   my @path = $scope->search_nc($blk);
+
   my $io   = $scope->haslv(@path,$key);
+     $blk  = $scope->haslv(@path);
+
+  my $bst  = $blk->{value};
 
 
-  # ^proc found
-  goto SKIP if ! $io;
+  # ^proc with inputs found
+  if($io && $bst->{type} eq 'proc') {
 
-  $out=[ map {(
+    $out=[ map {(
 
-    "$name.$ARG->{value}"=>
-      $ARG->leaf_value(0)
+      "$name.$ARG->{value}"=>
+        $ARG->leaf_value(0)
 
-  )} @{$io->{leaves}} ];
+    )} @{$io->{leaves}} ];
+
+  };
 
 
-SKIP:
   return $out;
 
 };
@@ -476,7 +481,7 @@ sub blk_ice_bind($self,$branch,$key) {
 # ---   *   ---   *   ---
 # handle instancing of local vars
 
-sub blk_ice_cl($self,$branch) {
+sub blk_ice_cl($self,$branch,@keys) {
 
   my $st=$branch->{value};
 
@@ -491,6 +496,8 @@ sub blk_ice_cl($self,$branch) {
 
   # fetch def
   my $blk     = $scope->get_branch(@path);
+  my $bst     = $blk->{value};
+
   my $icepath = [$scope->path(),$st->{name}];
 
   # ^walk vars
@@ -498,15 +505,23 @@ sub blk_ice_cl($self,$branch) {
 
     $ARG->{id}=>$ARG->rdup($icepath);
 
-  } @{$blk->{value}->{stk}};
+  } @{$bst->{stk}};
 
 
   # ^make ice
   my $obj=$mach->decl(
-    obj=>$st->{name},
-    raw=>\%raw,
+
+    obj   => $st->{name},
+
+    opath => $bst->{opath},
+    procs => $bst->{procs},
+
+    raw   => \%raw,
 
   );
+
+
+  push @{$st->{ptr}},$obj if @keys;
 
 };
 

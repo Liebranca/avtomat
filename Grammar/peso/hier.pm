@@ -48,7 +48,7 @@ package Grammar::peso::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -86,6 +86,11 @@ BEGIN {
     clan reg rom proc blk
 
   )];
+
+  Readonly my $PE_HIER_CKEY=>[map {
+    "-c$ARG"
+
+  } @$PE_HIER_KEY];
 
 # ---   *   ---   *   ---
 # GBL
@@ -164,6 +169,7 @@ sub hier_path($self,$branch) {
   my $f    = $self->{frame};
   my $st   = $branch->{value};
 
+
   my $name = $st->{name};
   my $type = $st->{type};
 
@@ -191,11 +197,25 @@ sub hier_path($self,$branch) {
   $f->{-chier_n} = $name;
   $f->{$ckey}    = $name;
 
+
+  # ^reuse pre-calc'd path
+  if(@{$st->{opath}}) {
+
+    my $cpath=$st->{cpath};
+
+    map  {
+      $f->{$ARG}=$cpath->{$ARG};
+
+    } @$PE_HIER_CKEY;
+
+  };
+
+
   # ^filter out cleared
   my @path=grep {$ARG} map {
     $f->{$ARG}
 
-  } qw(-cclan -creg -crom -cproc -cblk);
+  } @$PE_HIER_CKEY;
 
 
   # ^reset path
@@ -313,6 +333,11 @@ sub hier_pack($self,$branch) {
     prout => [],
     prstk => [],
 
+    procs => [],
+
+    opath => [],
+    cpath => {},
+
     oidex => $branch->{idex},
 
   };
@@ -375,6 +400,85 @@ sub hier_flags($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# further sorting
+
+sub hier_cl($self,$branch) {
+  $self->hier_walk($branch);
+  $self->hier_vars($branch);
+
+};
+
+# ---   *   ---   *   ---
+# ^get implicit values accto type
+
+sub hier_vars($self,$branch) {
+
+  my $f     = $self->{frame};
+  my $st    = $branch->{value};
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+  $st->{opath}=[$scope->path()];
+  $st->{cpath}={map {
+    $ARG=>$f->{$ARG}
+
+  } @$PE_HIER_CKEY};
+
+
+  # get class methods
+  if($st->{type} eq 'reg') {
+
+    my $procs={map {
+
+      my $nst=$ARG->{value};
+
+      $nst->{name} => sub ($o,@args) {
+
+        my $path=join q[::],
+          @{$st->{opath}},
+          $nst->{name}
+        ;
+
+        $self->run_branch(
+          $path,$o,@args,
+
+        );
+
+      };
+
+    } grep {
+      my $nst=$ARG->{value};
+      $nst->{type} eq 'proc';
+
+    } @{$branch->{leaves}} };
+
+    $st->{procs}=$procs;
+
+
+  # ^add implicit args for methods
+  } elsif($st->{type} eq 'proc') {
+
+    my $par  = $branch->{parent};
+    my $pst  = $par->{value};
+
+    if($pst->{type} eq 'reg') {
+
+      my $type = join q[::],
+        @{$pst->{opath}};
+
+      $st->{body}=
+        "  in $type self;\n"
+      . $st->{body}
+      ;
+
+    };
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # step-on
 
 sub hier_walk($self,$branch) {
@@ -390,19 +494,43 @@ sub hier_run($self,$branch) {
 
   my $mach=$self->{mach};
 
-
   # get input binds
   my $st=$branch->{value};
   my $in=$st->{in};
 
+
   # get passed inputs
   my @stk=$mach->get_args();
 
+  throw_overargs($st,int @stk)
+  if @stk > @$in;
+
   # ^reset
   map {
-    $in->[$ARG]->set($stk[$ARG]);
+    ${$in->[$ARG]}->set($stk[$ARG]);
 
   } 0..$#stk;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_overargs($st,$cnt) {
+
+  my $diff=$cnt - @{$st->{in}};
+  my $path=join q[::],@{$st->{opath}};
+
+
+  errout(
+
+    q[(:%u) extra argument(s) for blk ]
+  . q[[goodtag]:%s],
+
+    lvl   => $AR_FATAL,
+    args  => [$diff,$path]
+
+  );
 
 };
 
@@ -414,7 +542,7 @@ sub hier_stk_save($self,$dst,$src) {
   push @$dst,[];
   my $old=$dst->[-1];
 
-  map {push @$old,$ARG->get()} @$src;
+  map {push @$old,$$ARG->get()} @$src;
 
 };
 
@@ -450,7 +578,7 @@ sub hier_save($self,$branch) {
 sub hier_stk_load($self,$dst,$src) {
 
   my $old=pop @$src;
-  map {$ARG->set(pop @$old)} @$dst;
+  map {$$ARG->set(pop @$old)} @$dst;
 
 };
 
@@ -487,6 +615,8 @@ sub hier_load($self,$branch) {
 sub ret_run($self,$branch) {
   my $par=$branch->{parent};
   $self->hier_load($par);
+
+  return 'WAT';
 
 };
 

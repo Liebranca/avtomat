@@ -41,7 +41,7 @@ package Grammar::peso::io;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -143,10 +143,14 @@ sub io_ctx($self,$branch) {
 
         my $fn=codename($ARG->{pfn});
 
-        (begswith($fn,'blk_ice'))
-          ? $self->$fn($ARG,$key)
-          : $self->$fn($ARG)
-          ;
+        if(begswith($fn,'blk_ice')) {
+          $self->$fn($ARG,$key);
+          $self->blk_ice_cl($ARG,$key);
+
+        } else {
+          $self->$fn($ARG);
+
+        };
 
       };
 
@@ -169,6 +173,16 @@ sub io_ctx($self,$branch) {
 
 
   } qw(in out io);
+
+
+  # add entries to parent
+  my $blk=$scope->get_branch(@path);
+  my $bst=$blk->{value};
+
+  map {
+    $bst->{$ARG}=$st->{$ARG};
+
+  } qw(in out);
 
 
   # restore previous path
