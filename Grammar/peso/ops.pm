@@ -53,7 +53,7 @@ package Grammar::peso::ops;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#b
+  our $VERSION = v0.00.9;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -207,32 +207,32 @@ sub op_m_call($self,$lhs,$rhs) {
 # math
 
 sub op_pow($lhs,$rhs) {
-  $lhs->get() ** $rhs->get()
+  $lhs->rget() ** $rhs->rget()
 
 };
 
 sub op_mul($lhs,$rhs) {
-  $lhs->get() * $rhs->get();
+  $lhs->rget() * $rhs->rget();
 
 };
 
 sub op_mod($lhs,$rhs) {
-  $lhs->get() % $rhs->get()
+  $lhs->rget() % $rhs->rget()
 
 };
 
 sub op_div($lhs,$rhs) {
-  return $lhs->get() / $rhs->get()
+  return $lhs->rget() / $rhs->rget()
 
 };
 
 sub op_add($lhs,$rhs) {
-  return $lhs->get() + $rhs->get();
+  return $lhs->rget() + $rhs->rget();
 
 };
 
 sub op_sub($lhs,$rhs) {
-  $lhs->get() - $rhs->get()
+  $lhs->rget() - $rhs->rget()
 
 };
 
@@ -240,32 +240,32 @@ sub op_sub($lhs,$rhs) {
 # bits
 
 sub op_lshift($lhs,$rhs) {
-  $lhs->get() << $rhs->get()
+  $lhs->rget() << $rhs->rget()
 
 };
 
 sub op_rshift($lhs,$rhs) {
-  $lhs->get() >> $rhs->get()
+  $lhs->rget() >> $rhs->rget()
 
 };
 
 sub op_b_and($lhs,$rhs) {
-  $lhs->get() & $rhs->get()
+  $lhs->rget() & $rhs->rget()
 
 };
 
 sub op_b_or($lhs,$rhs) {
-  $lhs->get() | $rhs->get()
+  $lhs->rget() | $rhs->rget()
 
 };
 
 sub op_b_xor($lhs,$rhs) {
-  $lhs->get() ^ $rhs->get()
+  $lhs->rget() ^ $rhs->rget()
 
 };
 
 sub op_b_not($rhs) {
-  ~ $rhs->get()
+  ~ $rhs->rget()
 
 };
 
@@ -273,44 +273,44 @@ sub op_b_not($rhs) {
 # logic
 
 sub op_not($rhs) {
-  ! $rhs->get()
+  ! $rhs->rget()
 
 };
 
 sub op_lt($lhs,$rhs) {
-  $lhs->get() < $rhs->get()
+  $lhs->rget() < $rhs->rget()
 
 };
 
 sub op_e_lt($lhs,$rhs) {
-  $lhs->get() <= $rhs->get()
+  $lhs->rget() <= $rhs->rget()
 
 };
 
 sub op_gt($lhs,$rhs) {
-  $lhs->get() > $rhs->get()
+  $lhs->rget() > $rhs->rget()
 
 };
 
 sub op_e_gt($lhs,$rhs) {
-  $lhs->get() >= $rhs->get()
+  $lhs->rget() >= $rhs->rget()
 
 };
 
 sub op_and($lhs,$rhs) {
-  $lhs->get() && $rhs->get()
+  $lhs->rget() && $rhs->rget()
 
 };
 
 sub op_or($lhs,$rhs) {
-  $lhs->get() || $rhs->get()
+  $lhs->rget() || $rhs->rget()
 
 };
 
 sub op_xor($lhs,$rhs) {
 
-  my $a=($lhs->get()) ? 1 : 0;
-  my $b=($rhs->get()) ? 1 : 0;
+  my $a=($lhs->rget()) ? 1 : 0;
+  my $b=($rhs->rget()) ? 1 : 0;
 
   return $a ^ $b;
 
@@ -346,12 +346,12 @@ sub op_match($self,$lhs,$rhs) {
 };
 
 sub op_eq($lhs,$rhs) {
-  $lhs->get() eq $rhs->get()
+  $lhs->rget() eq $rhs->rget()
 
 };
 
 sub op_ne($lhs,$rhs) {
-  $lhs->get() ne $rhs->get()
+  $lhs->rget() ne $rhs->rget()
 
 };
 
@@ -849,8 +849,8 @@ sub opsolve($self,$branch) {
   my $st     = $branch->leaf_value(0);
   my @values = @{$st->{V}};
 
-  my $flat   = int(
-    map {$ARG->{const}
+  my $flat   = int( grep {
+    $ARG->{const} &&! $ARG->{nconst};
 
   } @values) == @values;
 

@@ -48,7 +48,7 @@ package Grammar::peso::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -578,7 +578,12 @@ sub hier_save($self,$branch) {
 sub hier_stk_load($self,$dst,$src) {
 
   my $old=pop @$src;
+  my @out=map {$$ARG->rget()} @$dst;
+
   map {$$ARG->set(pop @$old)} @$dst;
+
+
+  return $out[0];
 
 };
 
@@ -605,7 +610,14 @@ sub hier_load($self,$branch) {
 
     $self->hier_stk_load($dst,$src);
 
-  } qw(in out stk);
+  } qw(in stk);
+
+
+  # ^give output
+  my $src=$st->{prout};
+  my $dst=$st->{out};
+
+  return $self->hier_stk_load($dst,$src);
 
 };
 
@@ -614,9 +626,7 @@ sub hier_load($self,$branch) {
 
 sub ret_run($self,$branch) {
   my $par=$branch->{parent};
-  $self->hier_load($par);
-
-  return 'WAT';
+  return $self->hier_load($par);
 
 };
 

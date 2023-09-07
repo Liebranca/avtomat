@@ -66,6 +66,7 @@ BEGIN {
   $PE_STD->use_re();
   $PE_STD->use_wed();
   $PE_STD->use_var();
+  $PE_STD->use_cmwc();
   $PE_STD->use_file();
 
   # class attrs
@@ -87,10 +88,10 @@ BEGIN {
 
     wed lis re
 
+    cmwc
     ptr-decl blk-ice
 
     switch jmp rept file
-
     ellipses
 
   );

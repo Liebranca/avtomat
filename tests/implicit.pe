@@ -28,11 +28,8 @@ reg vars;
   word x0 $24;
 
 proc ins;
-
-  lis /:f 1;
-
-  sow  {/:f} self->x0;
-  reap {/:f};
+  out word y0;
+  cpy y0,self->x0+1;
 
 
 # ---   *   ---   *   ---

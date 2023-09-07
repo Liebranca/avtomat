@@ -177,6 +177,14 @@ sub use_var($class) {
 };
 
 # ---   *   ---   *   ---
+# ^peso::var
+
+sub use_cmwc($class) {
+  _merge_uses('Grammar::peso::cmwc',qw(cmwc));
+
+};
+
+# ---   *   ---   *   ---
 # ^peso::file
 
 sub use_file($class) {

@@ -511,7 +511,7 @@ sub const_deref($self,$v) {
 
   my $o=$self->deref($v);
 
-  if($o->{const}) {
+  if($o->{const} &&! $o->{nconst}) {
     return $o;
 
   } else {
