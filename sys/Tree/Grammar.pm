@@ -34,7 +34,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.1;#a
+  our $VERSION = v0.02.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -365,6 +365,7 @@ sub on_match($self,$branch) {
 
   my ($root)=$branch->root();
 
+
   $self->{fn}->($root->{ctx},$branch)
   if $self->{fn} ne $NOOP;
 
@@ -376,14 +377,35 @@ sub on_match($self,$branch) {
     : $self->{chain}
     ;
 
+  $branch->shift_chain(@$chain);
+
+
+  # ^similar, translation procs
   my $xlate=(%{$branch->{xlate}})
     ? $branch->{xlate}
     : $self->{xlate}
     ;
 
+  # ^manual search if all fails!
+  my @have=grep {
+    $ARG ne $NOOP
 
-  $branch->shift_chain(@$chain);
-  $branch->{xlate}={%$xlate};
+  } values %$xlate;
+
+  if(! @have) {
+
+    my $ctx    = $root->{ctx};
+    my $class  = $ctx->{frame}->{-class};
+
+    $class->xbreak(
+      $branch,$class,$self->{value}
+
+    );
+
+  } else {
+    $branch->{xlate}={%$xlate};
+
+  };
 
 };
 

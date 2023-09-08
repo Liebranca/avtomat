@@ -832,7 +832,7 @@ sub get_meta($self,$xlate=$NULLSTR) {
     my $x=$scope->getvar($ARG);
     $out{$ARG}=$x->get() if $x;
 
-  } qw(version author);
+  } qw(version author entry);
 
 
   # ^get translation deps
@@ -848,6 +848,13 @@ sub get_meta($self,$xlate=$NULLSTR) {
     # ^cat
     push @{$out{lib}},@{$lib->get()} if $lib;
     push @{$out{inc}},@{$inc->get()} if $inc;
+
+
+    # edge-case: fasm 'namespaces' ;>
+    if($out{entry} && $xlate eq 'fasm') {
+      $out{entry}=~ s[$DCOLON_RE][.]sxmg;
+
+    };
 
   };
 

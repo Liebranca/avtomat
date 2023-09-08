@@ -316,29 +316,30 @@ sub hier_pack($self,$branch) {
 
   my $st={
 
-    type  => $type,
+    type    => $type,
 
-    name  => $name,
-    body  => $NULLSTR,
+    name    => $name,
+    body    => $NULLSTR,
 
-    beqs  => [],
-    from  => [],
-    flptr => {},
+    beqs    => [],
+    from    => [],
+    flptr   => {},
 
-    in    => [],
-    out   => [],
-    stk   => [],
+    in      => [],
+    out     => [],
+    stk     => [],
 
-    prin  => [],
-    prout => [],
-    prstk => [],
+    prin    => [],
+    prout   => [],
+    prstk   => [],
 
-    procs => [],
+    stkoff  => 0,
+    procs   => [],
 
-    opath => [],
-    cpath => {},
+    opath   => [],
+    cpath   => {},
 
-    oidex => $branch->{idex},
+    oidex   => $branch->{idex},
 
   };
 
@@ -482,8 +483,10 @@ sub hier_vars($self,$branch) {
 # step-on
 
 sub hier_walk($self,$branch) {
-  $self->hier_path($branch);
+  my @path=$self->hier_path($branch);
   $self->hier_flags($branch);
+
+  return @path;
 
 };
 
@@ -714,6 +717,68 @@ sub beq_ctx($self,$branch) {
   push @{$pst->{beqs}},$st->{name};
 
   $branch->discard();
+
+};
+
+# ---   *   ---   *   ---
+# outs asm codestr
+
+sub hier_fasm_xlate($self,$branch) {
+
+  my @path = $self->hier_walk($branch);
+
+  my $st   = $branch->{value};
+  my @out  = ();
+
+
+  # get label name
+  if($st->{type} ne 'clan') {
+    shift @path;
+    $path[0]=".$path[0]";
+
+  };
+
+  my $name = join '_',@path;
+
+
+  # add stack frame for procs
+  if($st->{type} eq 'proc') {
+
+    push @out,
+
+      q[  push rbp],
+      q[  mov  rbp,rsp],
+
+      "  sub  rsp,$st->{stkoff}",
+
+    if $st->{stkoff};
+
+  };
+
+  $branch->{fasm_xlate}=join "\n",
+
+    'align $10',
+    "$name:",
+
+    @out,"\n"
+
+  ;
+
+};
+
+# ---   *   ---   *   ---
+# ^ret
+
+sub ret_fasm_xlate($self,$branch) {
+
+  my $st  = $branch->{parent}->{value};
+  my @out = ($st->{stkoff})
+    ? qw(leave ret)
+    : qw(ret)
+    ;
+
+  $branch->{fasm_xlate}=join "\n",@out,"\n"
+  if $st->{type} eq 'proc';
 
 };
 

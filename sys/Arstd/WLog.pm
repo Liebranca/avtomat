@@ -182,9 +182,16 @@ sub err($self,$me,%O) {
 # ---   *   ---   *   ---
 # creates logtree root
 
-INIT {
+{
 
-  $WLog=Arstd::WLog->genesis();
+  # we don't care if it's too late
+  no warnings;
+
+  INIT {
+
+    $WLog=Arstd::WLog->genesis();
+
+  };
 
 };
 

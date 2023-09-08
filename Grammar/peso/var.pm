@@ -28,6 +28,7 @@ package Grammar::peso::var;
   use Chk;
   use Fmat;
 
+  use Arstd::Int;
   use Arstd::Array;
   use Arstd::Re;
   use Arstd::IO;
@@ -41,7 +42,7 @@ package Grammar::peso::var;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -224,6 +225,7 @@ sub ptr_decl_ctx($self,$branch) {
 
   # bind and save ptrs
   $self->bind_decls($st);
+  $self->alias_decl($branch) if ! $st->{io};
 
 };
 
@@ -319,6 +321,42 @@ sub bind_decl_ptrs($self,$st) {
   push @$stk,map {$$ARG} @$ptr;
 
   $scope->path(@path);
+
+};
+
+# ---   *   ---   *   ---
+# generate translation aliases
+# mostly used for asm xlate
+
+sub alias_decl($self,$branch) {
+
+  # get values && type
+  my $st    = $branch->{value};
+
+  my $ptr   = $st->{ptr};
+  my $width = ${$ptr->[-1]}->get_bwidth();
+
+
+  # get current block and offset
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+  my $blk   = $scope->curblk();
+  my $bst   = $blk->{value};
+
+  my $pos   = $bst->{stkoff};
+     $pos   = int_align($pos,$width);
+
+
+  # set stack position for asm vars
+  map {
+    $$ARG->set_fasm_lis($pos);
+    $pos+=$width;
+
+  } @$ptr;
+
+  # ^reset offset
+  $bst->{stkoff}=$pos;
 
 };
 
@@ -499,10 +537,11 @@ sub blk_ice_cl($self,$branch,@keys) {
   my $bst     = $blk->{value};
 
   my $icepath = [$scope->path(),$st->{name}];
+  my $width   = 0;
 
   # ^walk vars
   my %raw=map {
-
+    $width+=$ARG->get_bwidth();
     $ARG->{id}=>$ARG->rdup($icepath);
 
   } @{$bst->{stk}};
@@ -515,13 +554,15 @@ sub blk_ice_cl($self,$branch,@keys) {
 
     opath => $bst->{opath},
     procs => $bst->{procs},
+    width => $width,
 
     raw   => \%raw,
 
   );
 
 
-  push @{$st->{ptr}},$obj if @keys;
+  push @{$st->{ptr}},$obj;
+  $self->alias_decl($branch) if ! $st->{io};
 
 };
 

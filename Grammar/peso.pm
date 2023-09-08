@@ -51,7 +51,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.1;#b
+  our $VERSION = v0.02.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -70,7 +70,7 @@ BEGIN {
   $PE_STD->use_file();
 
   # class attrs
-  fvars('Grammar::peso::var');
+  fvars('Grammar::peso::file');
 
 # ---   *   ---   *   ---
 # GBL
@@ -89,9 +89,9 @@ BEGIN {
     wed lis re
 
     cmwc
-    ptr-decl blk-ice
-
     switch jmp rept file
+
+    ptr-decl blk-ice
     ellipses
 
   );
@@ -177,13 +177,16 @@ sub recurse($class,$branch,%O) {
 
 #  $ice->{p3}->prich();
 #  $ice->{mach}->{scope}->prich();
+#
+#
+#  $ice->run(
+#    entry=>1,
+#    keepx=>1,
+#
+#  );
 
-
-  $ice->run(
-    entry=>1,
-    keepx=>1,
-
-  );
+  my $xprog=$ice->xlate('fasm');
+  say $ice->metaboil($xprog,'fasm',-o=>'implicit');
 
 # ---   *   ---   *   ---
 1; # ret

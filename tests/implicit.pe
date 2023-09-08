@@ -13,36 +13,25 @@ $;
 # ---   *   ---   *   ---
 # info
 
-clan test;
+clan non;
 
   version   v0.00.1b;
   author    'ibn3dila';
 
   entry     non::crux;
 
-
-# ---   *   ---   *   ---
-# base struc
-
-reg vars;
-  word x0 $24;
-
-proc ins;
-  out word y0;
-  cpy y0,self->x0+1;
-
-
 # ---   *   ---   *   ---
 # ^the bit
 
-clan non;
 proc crux;
 
-  lis /:f 1;
-  test::vars ice;
+  word money $000A24;
 
-  sow   {/:f} ice->*ins,"\n";
-  reap  {/:f};
+  fto stdout;
+
+  sow money,"\n";
+
+  reap;
 
 
 # ---   *   ---   *   ---

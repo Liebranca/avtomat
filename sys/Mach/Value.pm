@@ -31,13 +31,15 @@ package Mach::Value;
   use Arstd::Re;
   use Arstd::IO;
 
+  use Mach::Seg;
+
   use lib $ENV{'ARPATH'}.'/lib/';
   use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -201,6 +203,11 @@ sub new($class,$type,$id,%O) {
   my $self=bless {
 
     id    => $id,
+
+    lis   => {
+      fasm=>$NULLSTR
+
+    },
 
     scope => undef,
     path  => undef,
@@ -464,6 +471,44 @@ sub is_varref($self,$s,$scope=undef) {
 
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# get bytesize of var
+
+sub get_bwidth($self) {
+
+  my $width=$self->{width};
+
+
+  # ^value found
+  if(defined $width) {
+
+    return (exists $PESZ->{$width})
+      ? $PESZ->{$width}
+      : $width
+      ;
+
+  # ^nope, recalc
+  } else {
+    nyi('OBJ-WIDTH CALC');
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# get/set fasm alias of var
+
+sub get_fasm_lis($self) {
+  return $self->{lis}->{fasm};
+
+};
+
+sub set_fasm_lis($self,$off) {
+  my $pos=$off + $self->get_bwidth();
+  $self->{lis}->{fasm}="rbp-$pos";
 
 };
 

@@ -43,7 +43,7 @@ package Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.6;#b
+  our $VERSION = v0.01.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -658,49 +658,61 @@ sub xpile($class,$fname,$lang,%O) {
   ) if $O{-meta};
 
   # ^parse and translate
-  $self->parse($prog,-r=>$self->num_passes()-2);
+  $self->parse($prog);
   my $out=$self->xlate($lang);
 
 
   # make boiler from meta if present
-  if($O{-meta}) {
+  $self->metaboil($out,$lang,%O)
+  if $O{-meta};
 
-    my $emit = Emit->get_class($lang);
-    my $pkg  = $NULLSTR;
-
-
-    # derive package name from
-    # output file if not specified
-    if($O{-o}) {
-
-      $pkg=(! $O{-pkg})
-        ? $emit->get_pkg($O{-o})
-        : $O{-pkg}
-        ;
-
-    };
-
-    $out=$emit->codewrap(
-
-      $pkg,
-
-      body => [$out=>[]],
-      tidy => 1,
-
-      $self->{mach}->get_meta($lang),
-
-    );
-
-  };
 
   # optionally write to file
-  if($O{-o}) {
-    $out=owc($O{-o},$out);
-
-  };
+  $out=owc($O{-o},$out) if $O{-o};
 
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^generate meta-based boiler
+
+sub metaboil($self,$src,$lang,%O) {
+
+  # defaults
+  $O{-o}   //= 0;
+  $O{-pkg} //= $NULLSTR;
+
+
+  # get emitter
+  my $emit = Emit->get_class($lang);
+  my $pkg  = $NULLSTR;
+
+
+  # derive package name from
+  # output file if not specified
+  if($O{-o}) {
+
+    $pkg=(! $O{-pkg})
+      ? $emit->get_pkg($O{-o})
+      : $O{-pkg}
+      ;
+
+  };
+
+
+  # out code wrapped in boiler
+  return $emit->codewrap(
+
+    $pkg,
+
+    body => [$src=>[]],
+    tidy => 1,
+
+    $self->{mach}->get_meta($lang),
+
+  );
 
 };
 
@@ -829,8 +841,6 @@ sub cnbreak($class,$X,$dom,$name) {
 
 sub fnbreak($class,$X) {
 
-  state @xlate=qw(fasm c cpp perl peso);
-
   my ($name,$dom)=($X->{fn},$X->{dom});
 
   $name //= $X->{name};
@@ -844,16 +854,7 @@ sub fnbreak($class,$X) {
 
   # generate chain
   $class->cnbreak($X,$dom,$name);
-
-
-  # get avail translation methods
-  $X->{xlate} //= {};
-
-  map {
-    my $fn=codefind($dom,"${name}_${ARG}_xlate");
-    $X->{xlate}->{$ARG}=($fn) ? $fn : $NOOP;
-
-  } @xlate;
+  $class->xbreak($X,$dom,$name);
 
 
 SKIP:
@@ -862,6 +863,24 @@ SKIP:
   $X->{fn}//=$NOOP;
 
   return;
+
+};
+
+# ---   *   ---   *   ---
+# ^get avail translation methods
+
+sub xbreak($class,$X,$dom,$name) {
+
+  state @xlate=qw(fasm c cpp perl peso);
+
+
+  $X->{xlate} //= {};
+
+  map {
+    my $fn=codefind($dom,"${name}_${ARG}_xlate");
+    $X->{xlate}->{$ARG}=($fn) ? $fn : $NOOP;
+
+  } @xlate;
 
 };
 

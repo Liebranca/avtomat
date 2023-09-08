@@ -41,7 +41,7 @@ package Grammar::peso::file;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -56,13 +56,18 @@ BEGIN {
   $PE_STD->use_eye();
 
   # class attrs
-  fvars('Grammar::peso::common');
+  fvars(
+    'Grammar::peso::var',
+    -fto=>1,
+
+  );
 
 # ---   *   ---   *   ---
 # GBL
 
   our $REGEX={
 
+    q[fto-key]  => re_pekey(qw(fto)),
     q[sow-key]  => re_pekey(qw(sow)),
     q[reap-key] => re_pekey(qw(reap)),
 
@@ -71,42 +76,113 @@ BEGIN {
 # ---   *   ---   *   ---
 # parser rules
 
+  rule('~<fto-key>');
   rule('~<sow-key>');
   rule('~<reap-key>');
 
-  rule('$<sow> sow-key invoke nterm term');
-  rule('$<reap> reap-key invoke term');
+  rule('$<fto> fto-key nterm term');
+  rule('$<sow> sow-key nterm term');
+  rule('$<reap> reap-key term');
 
-  rule('|<file> &clip sow reap');
+  rule('|<file> &clip fto sow reap');
+
+# ---   *   ---   *   ---
+# ^post-parse file select
+
+sub fto($self,$branch) {
+
+  my ($type,$expr)=
+    $self->rd_name_nterm($branch);
+
+  $type=lc $type;
+  $expr//=[];
+
+
+  $branch->{value}={
+
+    type => $type,
+    expr => $expr->[0],
+
+    fd   => undef,
+
+  };
+
+  $branch->clear();
+
+};
+
+# ---   *   ---   *   ---
+# ^bind
+
+sub fto_ctx($self,$branch) {
+
+  my $st   = $branch->{value};
+  my $expr = $st->{expr};
+
+  # save expr as solving F
+  $st->{fd}=sub () {return $self->deref(
+    $expr,key=>1
+
+  )};
+
+  $self->fto_walk($branch);
+
+};
+
+# ---   *   ---   *   ---
+# ^step-on
+
+sub fto_cl($self,$branch) {
+  $self->fto_walk($branch);
+
+};
+
+sub fto_run($self,$branch) {
+  $self->fto_walk($branch);
+
+};
+
+sub fto_walk($self,$branch) {
+
+  state $tab={
+
+    stdin  => 0,
+    stdout => 1,
+    stderr => 2,
+
+  };
+
+
+  # run expr
+  my $st  = $branch->{value};
+
+  my $key = $st->{fd}->();
+  my $f   = $self->{frame};
+
+  # ^reset
+  $f->{-fto}=(exists $tab->{$key})
+    ? $tab->{$key}
+    : $key
+    ;
+
+};
 
 # ---   *   ---   *   ---
 # ^post-parse file write
 
 sub sow($self,$branch) {
 
-  # convert {invoke} to plain value
-  $self->invokes_solve($branch);
+  my ($type,$vlist)=
+    $self->rd_name_nterm($branch);
 
-  # ^dissect tree
-  my $lv    = $branch->{leaves};
-  my $fd    = $lv->[1]->leaf_value(0);
-  my $nterm = $lv->[2]->leaf_value(0);
-
-
-  # ^make value from invoke
-  $fd=$self->{mach}->vice(
-    'bare',raw=>$fd->get()->[0]
-
-  );
-
-  # ^parse nterm
-  my ($vlist)=$self->rd_nterm($nterm);
+  $type=lc $type;
+  $vlist//=[];
 
 
   # repack
   $branch->{value}={
 
-    fd    => $fd,
+    type  => $type,
     vlist => $vlist,
 
     const => [],
@@ -124,27 +200,29 @@ sub sow_walk($self,$branch) {
 
   my $st=$branch->{value};
 
-  # get fd is const
-  $self->io_const_fd($st);
+# DEPRECATED
+#  # get fd is const
+#  $self->io_const_fd($st);
 
-#  # ^same for args
-#  @{$st->{const_vlist}}=map {
-#    $self->const_deref($ARG);
-#
-#  } @{$st->{vlist}};
-#
-#  my $i=0;map {
-#
-#    $ARG=(defined $st->{const_vlist}->[$i++])
-#      ? undef
-#      : $ARG
-#      ;
-#
-#  } @{$st->{vlist}};
+  # ^same for args
+  @{$st->{const_vlist}}=map {
+    $self->const_deref($ARG);
+
+  } @{$st->{vlist}};
+
+  my $i=0;map {
+
+    $ARG=(defined $st->{const_vlist}->[$i++])
+      ? undef
+      : $ARG
+      ;
+
+  } @{$st->{vlist}};
 
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED
 # get file descriptor is const
 
 sub io_const_fd($self,$st) {
@@ -183,12 +261,13 @@ sub sow_run($self,$branch) {
 
   map {
 
-#    my $x=(! defined $ARG)
-#      ? $self->deref($st->{vlist}->[$i])
-#      : $ARG
-#      ;
+    my $x=(! defined $ARG)
+      ? $self->deref($st->{vlist}->[$i])
+      : $ARG
+      ;
 
-    my $x=$self->deref($ARG);
+#    my $x=$self->deref($ARG);
+
     my $c=(Mach::Value->is_valid($x))
       ? $x->rget()
       : $x
@@ -202,20 +281,12 @@ sub sow_run($self,$branch) {
 
   } @{$st->{vlist}};
 
-  # ^write to dst
-  my ($fd,$buff);
-  if($st->{const_fd}) {
 
-    $fd   = $st->{fd};
-    $buff = $st->{buff};
+  # TODO: const fd
+  my $f  = $self->{frame};
+  my $fd = $self->deref($f->{-fto})->get();
 
-    $$buff.=$s;
-
-  } else {
-    $fd=$self->deref($st->{fd})->get();
-    $mach->sow($fd,$s);
-
-  };
+  $mach->sow($fd,$s);
 
 };
 
@@ -223,30 +294,8 @@ sub sow_run($self,$branch) {
 # post-parse file flush
 
 sub reap($self,$branch) {
-
-  # convert {invoke} to plain value
-  $self->invokes_solve($branch);
-
-  # ^dissect tree
-  my $lv=$branch->{leaves};
-  my $fd=$lv->[1]->leaf_value(0);
-
-  $fd=$self->{mach}->vice(
-    'bare',raw=>$fd->get()->[0]
-
-  );
-
-  $branch->{value}={fd=>$fd};
+  $branch->{value}='reap';
   $branch->clear();
-
-};
-
-# ---   *   ---   *   ---
-# ^binding
-
-sub reap_walk($self,$branch) {
-  my $st=$branch->{value};
-  $self->io_const_fd($st);
 
 };
 
@@ -256,25 +305,28 @@ sub reap_walk($self,$branch) {
 sub reap_run($self,$branch) {
 
   my $mach = $self->{mach};
-  my $st   = $branch->{value};
 
-  # ^write to dst
-  my ($fd,$buff);
-  if($st->{const_fd}) {
+  # TODO: const fd
+  my $f  = $self->{frame};
+  my $fd = $self->deref($f->{-fto})->get();
 
-    $fd   = $st->{fd};
-    $buff = $st->{buff};
+  $mach->reap($fd);
 
-    print {$fd} $$buff;
-    $fd->flush();
+};
 
-    $$buff=$NULLSTR;
+# ---   *   ---   *   ---
+# codestr for file select
 
-  } else {
-    $fd=$self->deref($st->{fd})->get();
-    $mach->reap($fd);
+sub fto_fasm_xlate($self,$branch) {
+  $branch->{fasm_xlate}="[TODO: set fto]\n";
 
-  };
+};
+
+# ---   *   ---   *   ---
+# codestr for file write
+
+sub sow_fasm_xlate($self,$branch) {
+  $branch->{fasm_xlate}="[TODO: fwrite]\n";
 
 };
 
