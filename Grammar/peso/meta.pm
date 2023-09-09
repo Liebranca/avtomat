@@ -48,7 +48,7 @@ package Grammar::peso::meta;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -65,7 +65,12 @@ BEGIN {
   $PE_STD->use_eye();
 
   # class attrs
-  fvars('Grammar::peso::common');
+  fvars(
+
+    'Grammar::peso::common',
+    -lib_order=>[],
+
+  );
 
 # ---   *   ---   *   ---
 # GBL
@@ -365,7 +370,7 @@ sub lib_ctx($self,$branch) {
 
 
   # ^add entry to scope
-  if(! $scope->haslv($type)) {
+  if(! $scope->haslv(@path,$type)) {
     $dst=$mach->decl(stk=>$type,raw=>[]);
 
   # ^get existing
@@ -377,7 +382,78 @@ sub lib_ctx($self,$branch) {
 
   # ^save data and retire node
   push @{$$dst->{raw}},$data;
+
+  $self->lib_order($branch);
   $branch->discard();
+
+};
+
+# ---   *   ---   *   ---
+# ^make note of load order
+
+sub lib_order($self,$branch) {
+
+  my $st   = $branch->{value};
+
+  my $type = $st->{type};
+  my $data = $st->{data};
+
+
+  # get cache
+  my $f   = $self->{frame};
+  my $ar  = $f->{-lib_order};
+
+  # ^add new entry
+  if($type eq 'lib') {
+    push @$ar,$data=>[];
+
+  # ^cat to last
+  } else {
+    throw_nolib($data) if ! @$ar;
+    push @{$ar->[-1]},$data;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^retrieve
+
+sub get_lib_order($self) {
+
+  my $f     = $self->{frame};
+  my $ar    = $f->{-lib_order};
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+
+  # write results to scope
+  my @path=$scope->path();
+
+  $scope->path('meta');
+  $mach->decl(stk=>'ldo',raw=>$ar);
+
+
+  # ^reset old path
+  $scope->path(@path);
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_nolib($data) {
+
+  errout(
+
+    q[[ctl]:%s { %s } without ]
+  . q[preceding [ctl]:%s statement],
+
+    lvl  => $AR_FATAL,
+    args => ['use',$data,'lib'],
+
+  );
 
 };
 
@@ -393,8 +469,9 @@ sub recurse($class,$branch,%O) {
 
 
   $O{skip}=1;
-  my $ice=$class->parse($s,%O);
 
+  my $ice=$class->parse($s,%O);
+  $ice->get_lib_order();
 
   return $ice->{sremain};
 

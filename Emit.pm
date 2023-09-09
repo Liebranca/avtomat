@@ -135,6 +135,7 @@ sub codewrap($class,$fname,%O) {
   # defaults
   $O{guards}  //= 0;
 
+  $O{ldo}     //= [];
   $O{lib}     //= [];
   $O{inc}     //= [];
   $O{def}     //= [];

@@ -20,6 +20,16 @@ clan non;
 
   entry     non::crux;
 
+
+# ---   *   ---   *   ---
+# deps
+
+xlate fasm;
+
+lib ARPATH '/forge/';
+  use '.inc' OS;
+
+
 # ---   *   ---   *   ---
 # ^the bit
 

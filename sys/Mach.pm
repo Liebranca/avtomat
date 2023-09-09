@@ -48,7 +48,7 @@ package Mach;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#b
+  our $VERSION = v0.00.9;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -818,7 +818,7 @@ sub fd_solve($self,$ptr) {
 
 sub get_meta($self,$xlate=$NULLSTR) {
 
-  my %out   = (inc=>[],lib=>[]);
+  my %out   = (inc=>[],lib=>[],ldo=>[]);
   my $scope = $self->{scope};
 
 
@@ -828,27 +828,20 @@ sub get_meta($self,$xlate=$NULLSTR) {
 
   # ^scan base values
   map {
-
     my $x=$scope->getvar($ARG);
     $out{$ARG}=$x->get() if $x;
 
   } qw(version author entry);
 
 
-  # ^get translation deps
+  # get deps load order
+  my $ldo=$scope->getvar('ldo');
+
+  # ^translation adjustments
   if($xlate) {
 
     # reset path
     $scope->path('meta','xlate',$xlate);
-
-    # ^fetch
-    my $lib = $scope->getvar('lib');
-    my $inc = $scope->getvar('use');
-
-    # ^cat
-    push @{$out{lib}},@{$lib->get()} if $lib;
-    push @{$out{inc}},@{$inc->get()} if $inc;
-
 
     # edge-case: fasm 'namespaces' ;>
     if($out{entry} && $xlate eq 'fasm') {
@@ -857,6 +850,16 @@ sub get_meta($self,$xlate=$NULLSTR) {
     };
 
   };
+
+
+  # ^fetch
+  my $lib = $scope->getvar('lib');
+  my $inc = $scope->getvar('use');
+
+  # ^cat
+  push @{$out{ldo}},@{$ldo->get()} if $ldo;
+  push @{$out{lib}},@{$lib->get()} if $lib;
+  push @{$out{inc}},@{$inc->get()} if $inc;
 
 
   # restore path and give meta
