@@ -616,6 +616,49 @@ sub lis_ctx($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# codestr out for primitive decls
+
+sub ptr_decl_fasm_xlate($self,$branch) {
+
+
+  my $st    = $branch->{value};
+  my $ptr   = $st->{ptr};
+
+  my @out   = ();
+
+
+  # get current block attrs
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+  my $blk   = $scope->curblk();
+  my $bst   = $blk->{value};
+
+  my $type  = $bst->{type};
+  my $attr  = $bst->{attr};
+
+  # remove clan from path
+  my @path=$scope->path();
+  shift @path;
+
+
+  # ^decl static vars
+  if($type eq 'reg' && $attr->{static}) {
+
+    push @out,map {
+      $$ARG->fasm_data_decl(@path)
+
+    } @$ptr;
+
+  };
+
+
+  # ^write
+  $branch->{fasm_xlate}=join "\n",@out,"\n";
+
+};
+
+# ---   *   ---   *   ---
 # do not make a parser tree!
 
   our @CORE=qw();

@@ -8,42 +8,12 @@
 ~ \--> 'wraps': describe wrapper prototype
 
 
-*>Peso
+*>peso
 
-~ Optimize pass count for Grammar::peso::eye
+x attr keyw to set static block flags
+
+x Optimize pass count for Grammar::peso::eye
   and it's dependencies
-
-~ Separate Grammar::peso into smaller submodules
-
-
-x Extend Lang::Perl for basic (as-doc) parsing
-
-x Lang::Plps reimplementation (done: see Grammar && Grammar::Tree)
-
-~ \--> Use Tree::Grammar to parse %lpsrom
-x .  \--> Plps as a package, frames and all
-x .  \--> Unique branch for hierarchicals
-x .  .  \--> Sorting
-x .  .  \--> Namespaces
-
-x .  \--> Unique branches for wed/unwed
-x .  \--> Unique branch for re
-x .  \--> repl <tags> inside re
-
-x .  \--> proc inputs
-~ .  .  \--> input type checking
-
-x .  \--> reap && sow
-x .  \--> Find across namespaces
-x .  \--> jmp to branch
-
-x .  \--> Define patterns for regexes
-x .  \--> enchain leaf values for lis solving
-x .  \--> Defining grammar branches
-~ .  \--> subst on ~= match
-
-~ \--> Make plps files output Tree::Grammar structs
-~ \--> Tweak Tree::Grammar for parsing C, C++, Perl and peso
 
 ~ Turn peso into a proper IR
 ~ \--> Tree manipulation at ipret layer
@@ -125,6 +95,39 @@ x .  \--> Message decrypt
 
 # ---   *   ---   *   ---
 # These ones are complete ;>
+
+*>plps rework
+
+x Lang::Plps reimplementation (done: see Grammar && Grammar::Tree)
+
+x \--> Use Tree::Grammar to parse %lpsrom
+x .  \--> Plps as a package, frames and all
+x .  \--> Unique branch for hierarchicals
+x .  .  \--> Sorting
+x .  .  \--> Namespaces
+
+x .  \--> Unique branches for wed/unwed
+x .  \--> Unique branch for re
+x .  \--> repl <tags> inside re
+
+x .  \--> proc inputs
+x .  .  \--> input type checking
+
+x .  \--> reap && sow
+x .  \--> Find across namespaces
+x .  \--> jmp to branch
+
+x .  \--> Define patterns for regexes
+x .  \--> enchain leaf values for lis solving
+x .  \--> Defining grammar branches
+x .  \--> subst on ~= match
+
+x \--> Make plps files output Tree::Grammar structs
+x \--> Tweak Tree::Grammar for parsing C, C++, Perl and peso
+
+x Separate Grammar::peso into smaller submodules
+x Extend Lang::Perl for basic (as-doc) parsing
+
 
 *>Makescript
 

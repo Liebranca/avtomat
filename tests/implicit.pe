@@ -31,6 +31,12 @@ lib ARPATH '/forge/';
 
 
 # ---   *   ---   *   ---
+
+reg vars;
+  attr static;
+  word test $00;
+
+# ---   *   ---   *   ---
 # ^the bit
 
 proc crux;

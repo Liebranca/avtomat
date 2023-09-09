@@ -25,6 +25,7 @@ package Tree::Grammar;
 
   use Style;
   use Chk;
+  use Fmat;
 
   use Arstd::IO;
   use Tree::Exec;
@@ -34,7 +35,7 @@ package Tree::Grammar;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.2;#a
+  our $VERSION = v0.02.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -377,8 +378,6 @@ sub on_match($self,$branch) {
     : $self->{chain}
     ;
 
-  $branch->shift_chain(@$chain);
-
 
   # ^similar, translation procs
   my $xlate=(%{$branch->{xlate}})
@@ -398,14 +397,19 @@ sub on_match($self,$branch) {
     my $class  = $ctx->{frame}->{-class};
 
     $class->xbreak(
-      $branch,$class,$self->{value}
+      $branch,$class,codename($self->{fn})
 
     );
 
+  # ^no search needed ;>
   } else {
     $branch->{xlate}={%$xlate};
 
   };
+
+
+  # advance to next step
+  $branch->shift_chain(@$chain);
 
 };
 
@@ -1149,6 +1153,7 @@ sub parse($self,$s,%O) {
     last if (! length $s)
          || ($s=~ m{^\s+$});
 
+
     # ^attempt
     my ($match,$ds)=
       $gram->hier_match($ctx,$s,%O);
@@ -1157,7 +1162,15 @@ sub parse($self,$s,%O) {
     if(! $match) {
 
       if($O{skip}) {
-        $out.=$1 if $s=~ s[^($nterm)][];
+
+        ($s=~ s[^($nterm)][])
+
+          ? $out.=$1
+
+          : throw_linebug($s,$retab)
+            && last
+
+          ;
 
       } else {
         $self->throw_no_match($gram,$s);
@@ -1212,6 +1225,44 @@ sub throw_no_match($self,$gram,$s) {
     lvl  => $AR_FATAL,
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# ^further
+
+sub throw_linebug($s,$retab) {
+
+
+  my $nterm = $retab->{nterm};
+  my $term  = $retab->{term};
+
+  my $re    = qr{(
+    (?: $nterm)?
+    $term
+
+  )}x;
+
+
+  my $line  = ! ($s=~ $re)
+    ? $s
+    : $1
+    ;
+
+
+  errout(
+
+    q[Linebug encountered at ]
+  . q[[err]:%s -- possibly missing an ]
+  . q[[good]:%s char before [err]:%s],
+
+    lvl  => $AR_FATAL,
+    args => [$line,'nterm','term']
+
+  ) if length $s;
+
+
+  return 1;
 
 };
 

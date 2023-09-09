@@ -469,7 +469,6 @@ sub recurse($class,$branch,%O) {
 
 
   $O{skip}=1;
-
   my $ice=$class->parse($s,%O);
   $ice->get_lib_order();
 

@@ -513,6 +513,22 @@ sub set_fasm_lis($self,$off) {
 };
 
 # ---   *   ---   *   ---
+# ^gives var declaration
+
+sub fasm_data_decl($self,@path) {
+
+  my $cnt  = $self->get_bwidth();
+  my $name = join '.',@path,$self->{id};
+
+  return join "\n",
+    ".$name:",
+    "  db \$00 dup $cnt"
+
+  ;
+
+};
+
+# ---   *   ---   *   ---
 # give string repr of a
 # perl decl of value
 

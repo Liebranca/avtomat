@@ -48,7 +48,7 @@ package Grammar::peso::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -76,6 +76,8 @@ BEGIN {
     -chier_n => 'non',
 
     -cdecl   => [],
+
+    -seg_t   => $NULLSTR,
 
   );
 
@@ -317,6 +319,7 @@ sub hier_pack($self,$branch) {
   my $st={
 
     type    => $type,
+    attr    => {},
 
     name    => $name,
     body    => $NULLSTR,
@@ -725,14 +728,53 @@ sub beq_ctx($self,$branch) {
 
 sub hier_fasm_xlate($self,$branch) {
 
-  my @path = $self->hier_walk($branch);
+  my $st    = $branch->{value};
 
-  my $st   = $branch->{value};
+  my $type  = $st->{type};
+  my $attr  = $st->{attr};
+
+
+  # get segment type
+  my $f     = $self->{frame};
+  my $seg_t = \$f->{-seg_t};
+  my $hed   = 'align $10';
+
+  # ^readable exectuable
+  if($type   eq 'proc'
+  && $$seg_t ne 'rx') {
+
+    $hed    = "segment readable executable\n$hed";
+    $$seg_t = 'rx';
+
+
+  # ^readable
+  } elsif(
+     $type   eq 'rom'
+  && $$seg_t ne 'r') {
+
+    $hed    = "segment readable\n$hed";
+    $$seg_t = 'r';
+
+  # ^readable writeable
+  } elsif(
+     $type   eq 'reg'
+  && $$seg_t ne 'rw'
+
+  && $attr->{static}
+
+  ) {
+
+    $hed    = "segment readable writeable\n$hed";
+    $$seg_t = 'rw';
+
+  };
+
+  my @path = $self->hier_walk($branch);
   my @out  = ();
 
 
   # get label name
-  if($st->{type} ne 'clan') {
+  if($type ne 'clan') {
     shift @path;
     $path[0]=".$path[0]";
 
@@ -742,7 +784,7 @@ sub hier_fasm_xlate($self,$branch) {
 
 
   # add stack frame for procs
-  if($st->{type} eq 'proc') {
+  if($type eq 'proc') {
 
     push @out,
 
@@ -757,7 +799,7 @@ sub hier_fasm_xlate($self,$branch) {
 
   $branch->{fasm_xlate}=join "\n",
 
-    'align $10',
+    $hed,
     "$name:",
 
     @out,"\n"
@@ -1192,7 +1234,7 @@ sub branch_parse($self,$branch,$ice) {
     # ^fuse trees
     my @lv  = $ice->{p3}->pluck_all();
 
-    $branch2->pushlv(@lv);
+    $branch2->insertlv(0,@lv);
     $self2->ret_add($branch2);
 
 

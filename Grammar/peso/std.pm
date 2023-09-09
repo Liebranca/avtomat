@@ -37,7 +37,7 @@ package Grammar::peso::std;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -154,6 +154,14 @@ sub use_switch($class) {
 
 sub use_wed($class) {
   _merge_uses('Grammar::peso::wed',qw(wed));
+
+};
+
+# ---   *   ---   *   ---
+# ^peso::attr
+
+sub use_attr($class) {
+  _merge_uses('Grammar::peso::attr',qw(attr));
 
 };
 

@@ -51,7 +51,7 @@ package Grammar::peso;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.2;#b
+  our $VERSION = v0.02.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -65,6 +65,7 @@ BEGIN {
   $PE_STD->use_switch();
   $PE_STD->use_re();
   $PE_STD->use_wed();
+  $PE_STD->use_attr();
   $PE_STD->use_var();
   $PE_STD->use_cmwc();
   $PE_STD->use_file();
@@ -86,7 +87,7 @@ BEGIN {
 
   our @CORE=qw(
 
-    wed lis re
+    wed attr lis re
 
     cmwc
     switch jmp rept file
