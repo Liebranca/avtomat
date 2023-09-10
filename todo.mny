@@ -10,13 +10,15 @@
 
 *>peso
 
-x attr keyw to set static block flags
+~ Missing features
+x \--> 'sys' keyw for common syscalls
+x \--> 'attr' keyw to set static block flags
 
 x Optimize pass count for Grammar::peso::eye
   and it's dependencies
 
-~ Turn peso into a proper IR
-~ \--> Tree manipulation at ipret layer
+x Tree manipulation at ipret layer,already
+  done through Tree::Grammar chains
 
 
 *>Emit::Cpp

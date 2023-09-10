@@ -91,7 +91,7 @@ BEGIN {
   rule('$<attr> attr-key nterm term');
 
 # ---   *   ---   *   ---
-# ^post-parse file select
+# ^post-parse
 
 sub attr($self,$branch) {
 

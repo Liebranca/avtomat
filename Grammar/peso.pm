@@ -68,6 +68,7 @@ BEGIN {
   $PE_STD->use_attr();
   $PE_STD->use_var();
   $PE_STD->use_cmwc();
+  $PE_STD->use_sys();
   $PE_STD->use_file();
 
   # class attrs
@@ -89,7 +90,7 @@ BEGIN {
 
     wed attr lis re
 
-    cmwc
+    cmwc sys
     switch jmp rept file
 
     ptr-decl blk-ice

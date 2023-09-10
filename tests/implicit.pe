@@ -27,7 +27,7 @@ clan non;
 xlate fasm;
 
 lib ARPATH '/forge/';
-  use '.inc' OS;
+  use '.asm' peso::file;
 
 
 # ---   *   ---   *   ---
@@ -43,9 +43,12 @@ proc crux;
 
   word money $000A24;
 
-  fto stdout;
+  sys 'alloc'   money,$10;
+  sys 'dealloc' money,$10;
 
-  sow money,"\n";
+#  fto stdout;
+#
+#  sow money,"\n";
 
   reap;
 

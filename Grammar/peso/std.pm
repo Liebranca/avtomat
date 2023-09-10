@@ -193,6 +193,14 @@ sub use_cmwc($class) {
 };
 
 # ---   *   ---   *   ---
+# ^peso::sys
+
+sub use_sys($class) {
+  _merge_uses('Grammar::peso::sys',qw(sys));
+
+};
+
+# ---   *   ---   *   ---
 # ^peso::file
 
 sub use_file($class) {
