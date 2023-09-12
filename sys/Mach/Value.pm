@@ -39,7 +39,7 @@ package Mach::Value;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -475,6 +475,39 @@ sub is_varref($self,$s,$scope=undef) {
 };
 
 # ---   *   ---   *   ---
+# makes id by catting all
+# elements of structure
+
+sub data_id($self) {
+
+  my $out=$NULLSTR;
+
+
+  # paste existing name
+  if($self->{id}) {
+    $out.="$self->{id}";
+
+  # A (operator) B
+  } elsif($self->{type} eq 'ops') {
+
+    my @args=map {$ARG->data_id()} @{$self->{V}};
+    $out.=(@args > 1)
+      ? join $self->{key},@args
+      : $self->{key} . $args[0]
+      ;
+
+  # basically NYI
+  } else {
+    $out.=$self->get();
+
+  };
+
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # get bytesize of var
 
 sub get_bwidth($self) {
@@ -509,6 +542,8 @@ sub get_fasm_lis($self) {
 sub set_fasm_lis($self,$off) {
   my $pos=$off + $self->get_bwidth();
   $self->{lis}->{fasm}="rbp-$pos";
+
+  return $self->{lis}->{fasm};
 
 };
 

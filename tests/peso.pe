@@ -1,8 +1,8 @@
 $;
 
 # ---   *   ---   *   ---
-# IMPLICIT
-# Args passed but nothing writ
+# PESO TEST
+# Let's see how the xpile does!
 #
 # TEST FILE
 # jmp EOF for bits
@@ -15,42 +15,26 @@ $;
 
 clan non;
 
-  version   v0.00.1b;
-  author    'ibn3dila';
+  VERSION   v0.00.2b;
+  AUTHOR    'IBN-3DILA';
 
-  entry     non::crux;
+  ENTRY     non::crux;
 
+  XLATE     fasm;
 
 # ---   *   ---   *   ---
 # deps
-
-xlate fasm;
 
 lib ARPATH '/forge/';
   use '.asm' peso::file;
 
 
 # ---   *   ---   *   ---
-
-reg vars;
-  attr static;
-  word test $00;
-
-# ---   *   ---   *   ---
 # ^the bit
 
 proc crux;
-
   word money $000A24;
-
-  sys 'alloc'   money,$10;
-  sys 'dealloc' money,$10;
-
-#  fto stdout;
-#
-#  sow money,"\n";
-
-  reap;
+  cpy  money,$00-money;
 
 
 # ---   *   ---   *   ---

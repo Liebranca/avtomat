@@ -59,16 +59,16 @@ sub boiler_open($class,$fname,%O) {
 
   state $imphed=q[
 
-# ---   *   ---   *   ---
-# get importer
+; ---   *   ---   *   ---
+; get importer
 
 if ~ defined loaded?Imp
   include '%ARPATH%/forge/Imp.inc'
 
 end if
 
-# ---   *   ---   *   ---
-# deps
+; ---   *   ---   *   ---
+; deps
 
 ];
 
@@ -87,17 +87,19 @@ end if
 
     } @$inc)
 
-    . "\n\nimport\n"
-    . "\n# ---   *   ---   *   ---\n";
+    . "\n\nimport\n\n"
+    ;
 
   } 0..(@$ldo/2)-1;
 
 
   # TODO: settable format
-  my $fmat = "format ELF64 executable 3";
+  my $fmat=
+    "format ELF64 executable 3\n"
+  . "entry _start"
+  ;
 
-  my $out  = "$fmat\n$imphed$imps";
-     $out .= "\nentry _start\n";
+  my $out="$fmat$imphed$imps";
 
   return $out;
 
@@ -110,12 +112,15 @@ sub boiler_close($class,$fname,%O) {
 
   return join "\n",
 
-  "\n\nalign \$10",
-  "_start:",
-  "  call $O{entry}",
-  "  exit",
+    "\n\n; ---   *   ---   *   ---",
+    "; cruxwraps\n",
 
-;
+    "align \$10",
+    "_start:",
+    "  call $O{entry}",
+    "  exit",
+
+  ;
 
 };
 

@@ -126,6 +126,10 @@ sub polydump($vref,$blessed=undef) {
 
   my $f=$tab->[$idex];
 
+  if(is_qreref($vref)) {
+    return "'$$vref'";
+
+  };
 
   return ($idex)
     ? $f->($$vref,$rec)

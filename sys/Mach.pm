@@ -43,12 +43,14 @@ package Mach;
   use Mach::Scope;
   use Mach::Value;
 
+  use Mach::x86_64;
+
   use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#b
+  our $VERSION = v0.01.0;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -214,6 +216,8 @@ sub new($class,%O) {
     scope     => Mach::Scope->new(),
 
     frame     => $frame,
+
+    x86_64    => Mach::x86_64->new(),
 
   },$class;
 

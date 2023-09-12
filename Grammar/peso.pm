@@ -147,6 +147,7 @@ sub recurse($class,$branch,%O) {
   # now parse each block individually
   map {
     $st->branch_parse($ARG,$ice);
+    $ice->hier_x86_nit($ARG);
 
   } @{$$lv};
 
@@ -154,6 +155,9 @@ sub recurse($class,$branch,%O) {
   my @lv=$st->{p3}->pluck_all();
   $ice->{p3}->pushlv(@lv);
 
+
+#fatdump(\$ice->{mach}->{x86_64},blessed=>1);
+exit;
 
   return $ice;
 
@@ -163,7 +167,7 @@ sub recurse($class,$branch,%O) {
 # test
 
   my $src=$ARGV[0];
-  $src//='tests/implicit.pe';
+  $src//='tests/peso.pe';
 
   my $prog=($src=~qr{\.(?:pe|p3|rom)$})
     ? orc($src)
@@ -175,17 +179,8 @@ sub recurse($class,$branch,%O) {
   $prog =~ m[([\S\s]+)\s*(?:STOP)?]x;
   $prog = ${^CAPTURE[0]};
 
-  my $ice=Grammar::peso->recurse($prog);
 
-#  $ice->{p3}->prich();
-#  $ice->{mach}->{scope}->prich();
-#
-#
-#  $ice->run(
-#    entry=>1,
-#    keepx=>1,
-#
-#  );
+  my $ice=Grammar::peso->recurse($prog);
 
   my $xprog=$ice->xlate('fasm');
   say $ice->metaboil($xprog,'fasm',-o=>'implicit');

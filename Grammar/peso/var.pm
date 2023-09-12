@@ -225,7 +225,6 @@ sub ptr_decl_ctx($self,$branch) {
 
   # bind and save ptrs
   $self->bind_decls($st);
-  $self->alias_decl($branch) if ! $st->{io};
 
 };
 
@@ -309,54 +308,21 @@ sub bind_decl_ptrs($self,$st) {
   };
 
 
-  # get hier
+  # register vars to block
   my $blk=$scope->curblk();
-  my $bst=$blk->{value};
-
-  # ^push names to hier
-  my $stk=$bst->{$key};
   my $ptr=$st->{ptr};
 
+  map {
 
-  push @$stk,map {$$ARG} @$ptr;
+    $self->hier_stktab_set(
+      $blk,$$ARG->data_id(),$$ARG
+
+    )
+
+  } @$ptr if ! $st->{io};
+
 
   $scope->path(@path);
-
-};
-
-# ---   *   ---   *   ---
-# generate translation aliases
-# mostly used for asm xlate
-
-sub alias_decl($self,$branch) {
-
-  # get values && type
-  my $st    = $branch->{value};
-
-  my $ptr   = $st->{ptr};
-  my $width = ${$ptr->[-1]}->get_bwidth();
-
-
-  # get current block and offset
-  my $mach  = $self->{mach};
-  my $scope = $mach->{scope};
-
-  my $blk   = $scope->curblk();
-  my $bst   = $blk->{value};
-
-  my $pos   = $bst->{stkoff};
-     $pos   = int_align($pos,$width);
-
-
-  # set stack position for asm vars
-  map {
-    $$ARG->set_fasm_lis($pos);
-    $pos+=$width;
-
-  } @$ptr;
-
-  # ^reset offset
-  $bst->{stkoff}=$pos;
 
 };
 
@@ -562,7 +528,6 @@ sub blk_ice_cl($self,$branch,@keys) {
 
 
   push @{$st->{ptr}},$obj;
-  $self->alias_decl($branch) if ! $st->{io};
 
 };
 

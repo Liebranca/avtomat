@@ -133,6 +133,36 @@ sub throw_cmwc($type) {
 };
 
 # ---   *   ---   *   ---
+# determines if register/stack
+# space required by op
+
+sub cmwc_ctx($self,$branch) {
+
+  my $st   = $branch->{value};
+
+  my $type = $st->{type};
+  my $vars = $st->{vars};
+
+  return if $type eq 'clr';
+
+
+  # get current block
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+  my $blk   = $scope->curblk();
+
+
+  # ^register vars if need
+  map {
+    my $id=$ARG->data_id();
+    $self->hier_stktab_set($blk,$id,$ARG);
+
+  } @$vars;
+
+};
+
+# ---   *   ---   *   ---
 # ^execute
 
 sub cmwc_run($self,$branch) {
@@ -174,7 +204,39 @@ sub cmwc_run($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# out codestr
+# out fasm codestr
+
+sub cmwc_fasm_xlate($self,$branch) {
+
+  my $st    = $branch->{value};
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+
+  my $type  = $st->{type};
+  my $vars  = $st->{vars};
+
+  my @out   = ();
+
+
+  # copy A to B
+  if($type eq 'cpy') {
+
+    map {
+
+      $ARG->{scope}=undef;
+      fatdump(\$ARG,blessed=>1,recurse=>1);
+
+    } @$vars;
+
+  };
+
+  exit;
+
+};
+
+# ---   *   ---   *   ---
+# out perl codestr
 
 sub cmwc_perl_xlate($self,$branch) {
 

@@ -48,7 +48,7 @@ package Grammar::peso::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#b
+  our $VERSION = v0.00.8;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -223,8 +223,10 @@ sub hier_path($self,$branch) {
   # ^reset path
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
+  my $x86   = $mach->{x86_64};
 
   $scope->path(@path);
+  $x86->set_blk(join q[::],@path);
 
 
   return @path;
@@ -332,6 +334,8 @@ sub hier_pack($self,$branch) {
     out     => [],
     stk     => [],
 
+    stktab  => {},
+
     prin    => [],
     prout   => [],
     prstk   => [],
@@ -348,6 +352,28 @@ sub hier_pack($self,$branch) {
 
   $branch->{value}=$st;
   $branch->{leaves}->[0]->discard();
+
+};
+
+# ---   *   ---   *   ---
+# ^"overly complicated" way
+# of (lit) registering
+# all values used by block
+
+sub hier_stktab_set($self,$branch,$id,$value) {
+
+  my $st  = $branch->{value};
+
+  my $tab = $st->{stktab};
+  my $stk = $st->{stk};
+
+
+  # ^add non-registered
+  if(! exists $tab->{$id}) {
+    $tab->{$id}=$value;
+    push @$stk,$value;
+
+  };
 
 };
 
@@ -479,6 +505,62 @@ sub hier_vars($self,$branch) {
     };
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# kick aramaic helper
+
+sub hier_x86_nit ($self,$branch) {
+
+  $self->hier_walk($branch);
+
+  my $st    = $branch->{value};
+
+  my $mach  = $self->{mach};
+  my $scope = $mach->{scope};
+  my $x86   = $mach->{x86_64};
+
+  my @path  = $scope->path();
+
+
+  # register scope
+  $x86->new_blk(
+
+    (join q[::],@path),
+
+    arg=>$st->{in},
+    stk=>$st->{stk},
+    ret=>$st->{out},
+
+  );
+
+  # ^recurse
+  map {
+    $self->hier_x86_nit($ARG)
+
+  } $self->hier_filt($branch);
+
+};
+
+# ---   *   ---   *   ---
+# filters out non-hier nodes
+# from leaves
+
+sub hier_filt($self,$branch) {
+
+  my $re=$REGEX->{q[hier-key]};
+
+  return grep {
+
+     exists $ARG->{value}
+  && is_hashref($ARG->{value})
+
+  && exists $ARG->{value}->{type}
+
+  && $ARG->{value}->{type}=~ $re
+
+  } @{$branch->{leaves}};
 
 };
 
@@ -737,13 +819,13 @@ sub hier_fasm_xlate($self,$branch) {
   # get segment type
   my $f     = $self->{frame};
   my $seg_t = \$f->{-seg_t};
-  my $hed   = 'align $10';
+  my $hed   = $NULLSTR;
 
   # ^readable exectuable
   if($type   eq 'proc'
   && $$seg_t ne 'rx') {
 
-    $hed    = "segment readable executable\n$hed";
+    $hed    = "segment readable executable\n";
     $$seg_t = 'rx';
 
 
@@ -752,7 +834,7 @@ sub hier_fasm_xlate($self,$branch) {
      $type   eq 'rom'
   && $$seg_t ne 'r') {
 
-    $hed    = "segment readable\n$hed";
+    $hed    = "segment readable\n";
     $$seg_t = 'r';
 
   # ^readable writeable
@@ -764,11 +846,15 @@ sub hier_fasm_xlate($self,$branch) {
 
   ) {
 
-    $hed    = "segment readable writeable\n$hed";
+    $hed    = "segment readable writeable\n";
     $$seg_t = 'rw';
 
   };
 
+  $hed.='align $10';
+
+
+  # step-on
   my @path = $self->hier_walk($branch);
   my @out  = ();
 
@@ -799,10 +885,13 @@ sub hier_fasm_xlate($self,$branch) {
 
   $branch->{fasm_xlate}=join "\n",
 
+    "\n; ---   *   ---   *   ---\n",
     $hed,
-    "$name:",
 
-    @out,"\n"
+    "$name:",
+    @out,
+
+    "\n"
 
   ;
 
