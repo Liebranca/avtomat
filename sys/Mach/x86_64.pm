@@ -164,6 +164,7 @@ sub new_blk($self,$name,%O) {
     using    => [],
 
     using_re => $NO_MATCH,
+    xtab     => {},
 
   };
 

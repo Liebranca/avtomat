@@ -212,6 +212,8 @@ sub cmwc_fasm_xlate($self,$branch) {
 
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
+  my $x86   = $mach->{x86_64};
+  my $blk   = $scope->curblk();
 
   my $type  = $st->{type};
   my $vars  = $st->{vars};
@@ -222,16 +224,28 @@ sub cmwc_fasm_xlate($self,$branch) {
   # copy A to B
   if($type eq 'cpy') {
 
+    my @args=();
+    my @prev=();
+
     map {
 
-      $ARG->{scope}=undef;
-      fatdump(\$ARG,blessed=>1,recurse=>1);
+      my ($a,@b)=
+        $ARG->fasm_xlate($x86,$scope);
 
-    } @$vars;
+      push @args,$a;
+      push @prev,@b;
+
+    } reverse @$vars;
+
+    push @out,@prev,"mov " . (
+      join q[,],reverse @args
+
+    );
 
   };
 
-  exit;
+
+  $branch->{fasm_xlate}=join "\n",@out,"\n";
 
 };
 

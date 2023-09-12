@@ -28,6 +28,7 @@ package Mach::Value;
   use Chk;
   use Fmat;
 
+  use Arstd::String;
   use Arstd::Re;
   use Arstd::IO;
 
@@ -39,7 +40,7 @@ package Mach::Value;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -560,6 +561,135 @@ sub fasm_data_decl($self,@path) {
     "  db \$00 dup $cnt"
 
   ;
+
+};
+
+# ---   *   ---   *   ---
+# give string repr for fasm
+
+sub fasm_xlate($self,$x86,$scope) {
+
+  my $id     = $self->data_id();
+
+  my $out    = $NULLSTR;
+  my @prev   = ();
+
+  my $xcur   = $x86->{cur};
+
+  my $blk    = $scope->curblk();
+  my $bst    = $blk->{value};
+  my $stktab = $bst->{stktab};
+
+
+  # value was registered
+  if(exists $stktab->{$id}) {
+
+    my $stk={ reverse @{$xcur->{stk}} };
+
+    # operation
+    if($self->{type} eq 'ops') {
+      @prev=$self->fasm_xlate_ops($x86,$scope);
+
+    # negation
+    } elsif(
+       $self->{type}  eq 'flg'
+    && $self->{sigil} =~ qr{\-} ) {
+
+      my $alias=$stk->{$self->{q[flg-name]}};
+
+      @prev = $self->fasm_xlate_flg($alias);
+      $out  = $alias;
+
+    # plain barefetch
+    } else {
+      $out=$stk->{$id};
+
+    };
+
+
+    $out=(begswith($out,'rbp-'))
+      ? "[$out]"
+      : $out
+      ;
+
+
+  # ^just throw if not for now
+  } else {
+
+    $self->{scope}=undef;
+    fatdump(\$self,blessed=>1);
+
+    NYI("^UNREG FASM XLATE FOR");
+
+  };
+
+  return $out,@prev;
+
+};
+
+# ---   *   ---   *   ---
+# ^decomposes operations
+# into instructions
+
+sub fasm_xlate_ops($self,$x86,$scope) {
+
+  state $tab={
+
+    '-'=>['sub','fasm_xlate_ops_simple'],
+
+  };
+
+  # ^fetch instruction name and
+  # codestr generator
+  my ($ins,$fn)=@{ $tab->{$self->{key}} };
+
+
+  # recurse to solve args
+  my @args=();
+  my @prev=();
+
+  map {
+
+    my ($a,@b)=
+      $ARG->fasm_xlate($x86,$scope);
+
+    push @args,$a;
+    push @prev,@b;
+
+  } @{$self->{V}};
+
+
+  # ^out ins list
+  return @prev,$self->$fn($ins,@args);
+
+};
+
+# ---   *   ---   *   ---
+# ^for unary flg
+
+sub fasm_xlate_flg($self,$alias) {
+
+  state $tab={
+
+    '-'=>['neg','fasm_xlate_ops_simple'],
+
+  };
+
+  # ^fetch instruction name and
+  # codestr generator
+  my ($ins,$fn)=@{ $tab->{$self->{sigil}} };
+
+  # ^out ins
+  return $self->$fn($ins,$alias);
+
+};
+
+# ---   *   ---   *   ---
+# ^([key] arg0,..argN) with
+# no weird caveats
+
+sub fasm_xlate_ops_simple($self,$ins,@args) {
+  return "$ins " . (join q[,],@args);
 
 };
 

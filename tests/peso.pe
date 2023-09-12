@@ -33,8 +33,11 @@ lib ARPATH '/forge/';
 # ^the bit
 
 proc crux;
-  word money $000A24;
-  cpy  money,$00-money;
+
+  word x $24;
+  word y $25;
+
+  cpy  x,-y;
 
 
 # ---   *   ---   *   ---

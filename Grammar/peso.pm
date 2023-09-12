@@ -156,9 +156,6 @@ sub recurse($class,$branch,%O) {
   $ice->{p3}->pushlv(@lv);
 
 
-#fatdump(\$ice->{mach}->{x86_64},blessed=>1);
-exit;
-
   return $ice;
 
 };
