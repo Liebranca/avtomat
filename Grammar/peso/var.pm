@@ -42,7 +42,7 @@ package Grammar::peso::var;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#b
+  our $VERSION = v0.00.8;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -135,6 +135,7 @@ sub ptr_decl($self,$branch) {
     $lv->[1]->{leaves}->[0],
 
   );
+
 
   # ^unpack values
   my @names=map {
@@ -269,6 +270,7 @@ sub bind_decls($self,$st) {
     my $name  = $names->[$ARG];
     my $value = $values->[$ARG];
 
+
     # set ctx attrs
     $value->{id}    = $name;
     $value->{width} = $width;
@@ -313,11 +315,7 @@ sub bind_decl_ptrs($self,$st) {
   my $ptr=$st->{ptr};
 
   map {
-
-    $self->hier_stktab_set(
-      $blk,$$ARG->data_id(),$$ARG
-
-    )
+    $self->hier_stktab_set($blk,$$ARG)
 
   } @$ptr if ! $st->{io};
 
@@ -595,6 +593,7 @@ sub ptr_decl_fasm_xlate($self,$branch) {
   # get current block attrs
   my $mach  = $self->{mach};
   my $scope = $mach->{scope};
+  my $x86   = $mach->{x86_64};
 
   my $blk   = $scope->curblk();
   my $bst   = $blk->{value};
@@ -612,6 +611,22 @@ sub ptr_decl_fasm_xlate($self,$branch) {
 
     push @out,map {
       $$ARG->fasm_data_decl(@path)
+
+    } @$ptr;
+
+
+  # ^proc vars
+  } elsif($type eq 'proc') {
+
+    map {
+
+      my ($a,@b)=
+        $$ARG->fasm_xlate($self);
+
+      my $v=$self->deref($$ARG,key=>1)->get();
+      $v=($v eq $NULL) ? 0 : $v;
+
+      push @out,@b,"  mov $a,$v";
 
     } @$ptr;
 

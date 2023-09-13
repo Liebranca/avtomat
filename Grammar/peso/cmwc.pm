@@ -22,7 +22,7 @@ package Grammar::peso::cmwc;
   use Readonly;
   use English qw(-no_match_vars);
 
-  use lib $ENV{'ARPATH'}.'/avtomat/sys/';
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
   use Chk;
@@ -40,7 +40,7 @@ package Grammar::peso::cmwc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -155,8 +155,7 @@ sub cmwc_ctx($self,$branch) {
 
   # ^register vars if need
   map {
-    my $id=$ARG->data_id();
-    $self->hier_stktab_set($blk,$id,$ARG);
+    $self->hier_stktab_set($blk,$ARG)
 
   } @$vars;
 
@@ -230,14 +229,14 @@ sub cmwc_fasm_xlate($self,$branch) {
     map {
 
       my ($a,@b)=
-        $ARG->fasm_xlate($x86,$scope);
+        $ARG->fasm_xlate($self);
 
       push @args,$a;
       push @prev,@b;
 
     } reverse @$vars;
 
-    push @out,@prev,"mov " . (
+    push @out,@prev,"  mov " . (
       join q[,],reverse @args
 
     );

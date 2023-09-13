@@ -76,7 +76,7 @@ sub _get_avail($self,$ar,$avail) {
 
     push @out,
        (shift @$avail)
-    => (shift @$ar)->data_id()
+    => (shift @$ar)->{c_data_id}
     ;
 
   };
@@ -92,7 +92,7 @@ sub _get_avail($self,$ar,$avail) {
 
     my $id    = $v->set_fasm_lis($self->{size});
 
-    push @out,$id=>$v->data_id();
+    push @out,$id=>$v->{c_data_id};
 
     $self->{size}=$pos+$width;
 

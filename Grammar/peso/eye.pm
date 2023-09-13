@@ -48,7 +48,7 @@ package Grammar::peso::eye;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -125,6 +125,7 @@ sub expr_split($self,$s) {
   map {$self->tree_grow($ARG)} @{$root->{leaves}};
   map {$self->tree_solve($ARG)} @{$root->{leaves}};
 
+
   return @{$root->{leaves}};
 
 };
@@ -172,6 +173,7 @@ sub clist_join($self,@ar) {
     my $s    = $ar[$j];
 
     my $have = int($s=~ s[$comma][]);
+    my $fore = int($s=~ m[$ops$]);
     my $cat  = int($s=~ m[^$ops$]);
     my $subs = int($s=~ $REGEX->{subs});
 
@@ -198,6 +200,10 @@ sub clist_join($self,@ar) {
       );
 
       $idex    = -1 * ($ahead > 0);
+
+    # ^operator at end
+    } elsif($fore &&! $cat) {
+      $pending = 1;
 
     # ^none, consider it another list
     } else {
@@ -394,6 +400,7 @@ sub tree_solve($self,$branch) {
 
   my @pending=@{$branch->{leaves}};
 
+
   while(@pending) {
 
     my $lv   = shift @pending;
@@ -455,10 +462,8 @@ sub rd_nterm($self,$lv) {
 
   );
 
-  return map {[
-    map {$ARG} $ARG->branch_values()
 
-  ]} @eye;
+  return map {[$ARG->branch_values()]} @eye;
 
 }
 
@@ -564,7 +569,7 @@ sub branch_values($self) {
 # ^get raw of branch values
 
 sub branch_values_raw($self) {
-  return map {$ARG->{raw}} $self->branch_values();
+  return map {$ARG->get()} $self->branch_values();
 
 };
 

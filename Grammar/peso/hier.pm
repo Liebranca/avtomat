@@ -48,7 +48,7 @@ package Grammar::peso::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#b
+  our $VERSION = v0.00.9;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -340,7 +340,6 @@ sub hier_pack($self,$branch) {
     prout   => [],
     prstk   => [],
 
-    stkoff  => 0,
     procs   => [],
 
     opath   => [],
@@ -360,16 +359,30 @@ sub hier_pack($self,$branch) {
 # of (lit) registering
 # all values used by block
 
-sub hier_stktab_set($self,$branch,$id,$value) {
+sub hier_stktab_set($self,$branch,$value) {
 
   my $st  = $branch->{value};
 
   my $tab = $st->{stktab};
   my $stk = $st->{stk};
 
+  my $id  = $value->data_id($self);
+
 
   # ^add non-registered
   if(! exists $tab->{$id}) {
+
+    # recurse to decompose ops
+    if( $value->{type} eq 'ops'
+    &&! $value->{const}) {
+
+      map {
+        $self->hier_stktab_set($branch,$ARG)
+
+      } @{$value->{V}};
+
+    };
+
     $tab->{$id}=$value;
     push @$stk,$value;
 
@@ -511,7 +524,7 @@ sub hier_vars($self,$branch) {
 # ---   *   ---   *   ---
 # kick aramaic helper
 
-sub hier_x86_nit ($self,$branch) {
+sub hier_x86_nit($self,$branch) {
 
   $self->hier_walk($branch);
 
@@ -869,19 +882,21 @@ sub hier_fasm_xlate($self,$branch) {
   my $name = join '_',@path;
 
 
-  # add stack frame for procs
-  if($type eq 'proc') {
-
-    push @out,
-
-      q[  push rbp],
-      q[  mov  rbp,rsp],
-
-      "  sub  rsp,$st->{stkoff}",
-
-    if $st->{stkoff};
-
-  };
+# DEPRECATED in favor of mach->{x86_64}
+#
+#  # add stack frame for procs
+#  if($type eq 'proc') {
+#
+#    push @out,
+#
+#      q[  push rbp],
+#      q[  mov  rbp,rsp],
+#
+#      "  sub  rsp,$st->{stkoff}",
+#
+#    if $st->{stkoff};
+#
+#  };
 
   $branch->{fasm_xlate}=join "\n",
 

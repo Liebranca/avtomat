@@ -479,23 +479,34 @@ sub is_varref($self,$s,$scope=undef) {
 # makes id by catting all
 # elements of structure
 
-sub data_id($self) {
+sub data_id($self,$ice) {
 
   my $out=$NULLSTR;
 
+  # skip if solvable at compile-time
+  if($self->{const}) {
+    $out=$ice->deref($self,key=>1)->get();
+    goto SKIP;
 
-  # paste existing name
-  if($self->{id}) {
-    $out.="$self->{id}";
+  };
+
 
   # A (operator) B
-  } elsif($self->{type} eq 'ops') {
+  if($self->{type} eq 'ops') {
 
-    my @args=map {$ARG->data_id()} @{$self->{V}};
+    my @args=map {
+      $ARG->data_id($ice)
+
+    } @{$self->{V}};
+
     $out.=(@args > 1)
       ? join $self->{key},@args
       : $self->{key} . $args[0]
       ;
+
+  # paste existing name
+  } elsif($self->{id}) {
+    $out.="$self->{id}";
 
   # basically NYI
   } else {
@@ -504,6 +515,9 @@ sub data_id($self) {
   };
 
 
+SKIP:
+
+  $self->{c_data_id}=$out;
   return $out;
 
 };
@@ -567,9 +581,13 @@ sub fasm_data_decl($self,@path) {
 # ---   *   ---   *   ---
 # give string repr for fasm
 
-sub fasm_xlate($self,$x86,$scope) {
+sub fasm_xlate($self,$ice) {
 
-  my $id     = $self->data_id();
+  my $mach   = $ice->{mach};
+  my $scope  = $mach->{scope};
+  my $x86    = $mach->{x86_64};
+
+  my $id     = $self->data_id($ice);
 
   my $out    = $NULLSTR;
   my @prev   = ();
@@ -588,7 +606,8 @@ sub fasm_xlate($self,$x86,$scope) {
 
     # operation
     if($self->{type} eq 'ops') {
-      @prev=$self->fasm_xlate_ops($x86,$scope);
+      @prev = $self->fasm_xlate_ops($ice);
+      $out  = $stk->{$id};
 
     # negation
     } elsif(
@@ -613,13 +632,9 @@ sub fasm_xlate($self,$x86,$scope) {
       ;
 
 
-  # ^just throw if not for now
+  # ^just give raw for now
   } else {
-
-    $self->{scope}=undef;
-    fatdump(\$self,blessed=>1);
-
-    NYI("^UNREG FASM XLATE FOR");
+    $out=$ice->deref($self,key=>1)->get();
 
   };
 
@@ -631,11 +646,12 @@ sub fasm_xlate($self,$x86,$scope) {
 # ^decomposes operations
 # into instructions
 
-sub fasm_xlate_ops($self,$x86,$scope) {
+sub fasm_xlate_ops($self,$ice) {
 
   state $tab={
 
     '-'=>['sub','fasm_xlate_ops_simple'],
+    '+'=>['add','fasm_xlate_ops_simple'],
 
   };
 
@@ -651,7 +667,7 @@ sub fasm_xlate_ops($self,$x86,$scope) {
   map {
 
     my ($a,@b)=
-      $ARG->fasm_xlate($x86,$scope);
+      $ARG->fasm_xlate($ice);
 
     push @args,$a;
     push @prev,@b;
@@ -689,7 +705,7 @@ sub fasm_xlate_flg($self,$alias) {
 # no weird caveats
 
 sub fasm_xlate_ops_simple($self,$ins,@args) {
-  return "$ins " . (join q[,],@args);
+  return "  $ins " . (join q[,],@args);
 
 };
 

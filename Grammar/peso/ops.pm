@@ -53,7 +53,7 @@ package Grammar::peso::ops;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#b
+  our $VERSION = v0.01.0;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -822,7 +822,6 @@ sub opsort($self,$branch) {
 
   # ^perform move if operands not set
   if(! @{$st->{V}}) {
-
     $st->{V}=[map {$self->opvalue($ARG)} @move];
     $branch->{parent}->pluck(@move);
 
@@ -839,17 +838,32 @@ sub opsort($self,$branch) {
 
 sub opsolve($self,$branch) {
 
-  # remove paens
+  # remove parens
   my $par=$branch->{parent};
 
   $par->flatten_branch()
   if $par->{value} eq '()';
 
-  # decompose
-  my $st     = $branch->leaf_value(0);
-  my @values = @{$st->{V}};
+  # give decomposed
+  my $st=$branch->leaf_value(0);
+  return $self->opsolve_flat($st,$branch);
 
+};
+
+# ---   *   ---   *   ---
+# ^reqs no branch to solve
+
+sub opsolve_flat($self,$st,$branch=undef) {
+
+
+  my @values = @{$st->{V}};
   my $flat   = int( grep {
+
+    # recurse if arg itself is operation
+    $self->opsolve_flat($ARG)
+    if $ARG->{type} eq 'ops';
+
+    # ^get const status
     $ARG->{const} &&! $ARG->{nconst};
 
   } @values) == @values;
@@ -861,16 +875,23 @@ sub opsolve($self,$branch) {
     my @consts=
       $self->array_const_deref(@values);
 
+    # ^collapse into value if so
     if(@consts) {
+
       @{$st->{V}}=@consts;
       $const=1;
 
-      $self->op_to_value($branch);
+      ($branch)
+        ? $self->op_to_value($branch)
+        : $self->op_to_value_flat($st)
+        ;
 
     };
 
   };
 
+
+  # ^notify of collapse
   $st->{const}=$const;
   return $const &&! $st->{nconst};
 
@@ -885,7 +906,7 @@ sub array_opsolve($self,$branch) {
 
   # solve from bottom up
   my @const = map {
-    $self->opsolve($ARG)
+    $self->opsolve($ARG);
 
   } reverse @ops;
 
@@ -943,7 +964,14 @@ sub op_to_value($self,$branch) {
   $branch->clear();
   $branch->init($o);
 
-  return 1;
+};
+
+# ---   *   ---   *   ---
+# ^collapse op node to value
+
+sub op_to_value_flat($self,$st) {
+  $st->set($self->deref($st,key=>1));
+  $st->type_pop('ops');
 
 };
 
@@ -1041,6 +1069,7 @@ sub value_ops_walk($self,$branch) {
 
   # sort ops && operands by priority
   $self->value_ops_sort($branch);
+
 
   # ^collapse into value branch
   # if op is solvable at this stage
@@ -1381,8 +1410,12 @@ sub expr_ctx($self,$branch) {
 
 sub ops_vex($self,$o) {
 
-  my ($type,$raw)=(! $o->{const})
-    ? $self->opres_flat($o)
+  my ($type,$raw)=(
+
+   ! $o->{const}
+  || $o->{raw} eq $NULL
+
+  ) ? $self->opres_flat($o)
     : ($o->{type},$o->{raw})
     ;
 
@@ -1479,7 +1512,7 @@ sub recurse($class,$branch,%O) {
   return map {
 
     if($ARG->{value} eq 'value-op-value') {
-      $ARG=$ice->value_ops_opz($ARG);
+      $ARG=$ice->value_ops_walk($ARG);
 
     };
 
