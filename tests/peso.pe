@@ -34,7 +34,7 @@ lib ARPATH '/forge/';
 
 proc crux;
   word x 1;
-  word y x+(2+3);
+  word y x+2;
 
 
 # ---   *   ---   *   ---

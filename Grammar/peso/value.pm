@@ -50,7 +50,7 @@ package Grammar::peso::value;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#b
+  our $VERSION = v0.00.8;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -370,7 +370,8 @@ sub value_sort($self,$branch) {
 
   )}x;
 
-  $o->{const}=! ($type=~ $nconst_type);
+
+  $o->{const} =! ($type=~ $nconst_type);
 
   $o=$self->{mach}->vice($type,%$o);
   $branch->init($o);
@@ -519,6 +520,10 @@ sub array_needs_deref($self,@ar) {
 sub const_deref($self,$v) {
 
   my $o=$self->deref($v,key=>1);
+  $o->{const}=($o->get() ne $NULL)
+    ? $o->{const}
+    : 0
+    ;
 
   if($o->{const} &&! $o->{nconst}) {
     return $o;

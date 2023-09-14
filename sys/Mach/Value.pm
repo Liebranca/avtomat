@@ -479,12 +479,12 @@ sub is_varref($self,$s,$scope=undef) {
 # makes id by catting all
 # elements of structure
 
-sub data_id($self,$ice) {
+sub data_id($self,$ice,$nconst=0) {
 
   my $out=$NULLSTR;
 
   # skip if solvable at compile-time
-  if($self->{const}) {
+  if($self->{const} &&! $nconst) {
     $out=$ice->deref($self,key=>1)->get();
     goto SKIP;
 
@@ -506,7 +506,7 @@ sub data_id($self,$ice) {
 
   # paste existing name
   } elsif($self->{id}) {
-    $out.="$self->{id}";
+    $out.=$self->{id};
 
   # basically NYI
   } else {
@@ -581,13 +581,13 @@ sub fasm_data_decl($self,@path) {
 # ---   *   ---   *   ---
 # give string repr for fasm
 
-sub fasm_xlate($self,$ice) {
+sub fasm_xlate($self,$ice,$lvl=0) {
 
   my $mach   = $ice->{mach};
   my $scope  = $mach->{scope};
   my $x86    = $mach->{x86_64};
 
-  my $id     = $self->data_id($ice);
+  my $id     = $self->data_id($ice,1);
 
   my $out    = $NULLSTR;
   my @prev   = ();
@@ -604,10 +604,20 @@ sub fasm_xlate($self,$ice) {
 
     my $stk={ reverse @{$xcur->{stk}} };
 
+    my $dst=$stk->{$id};
+       $out=$dst;
+
     # operation
     if($self->{type} eq 'ops') {
-      @prev = $self->fasm_xlate_ops($ice);
-      $out  = $stk->{$id};
+
+      # translate as instruction list
+      # if operation can't be solved and
+      # turned into an immediate
+      if(! $ice->const_deref($self)) {
+        @prev=$self->fasm_xlate_ops($ice,$dst);
+
+      };
+
 
     # negation
     } elsif(
@@ -619,9 +629,6 @@ sub fasm_xlate($self,$ice) {
       @prev = $self->fasm_xlate_flg($alias);
       $out  = $alias;
 
-    # plain barefetch
-    } else {
-      $out=$stk->{$id};
 
     };
 
@@ -634,9 +641,13 @@ sub fasm_xlate($self,$ice) {
 
   # ^just give raw for now
   } else {
-    $out=$ice->deref($self,key=>1)->get();
+    $out=($lvl)
+      ? $ice->deref($self,key=>1)->get()
+      : $id
+      ;
 
   };
+
 
   return $out,@prev;
 
@@ -646,7 +657,7 @@ sub fasm_xlate($self,$ice) {
 # ^decomposes operations
 # into instructions
 
-sub fasm_xlate_ops($self,$ice) {
+sub fasm_xlate_ops($self,$ice,$dst) {
 
   state $tab={
 
@@ -664,19 +675,21 @@ sub fasm_xlate_ops($self,$ice) {
   my @args=();
   my @prev=();
 
+
   map {
 
-    my ($a,@b)=
-      $ARG->fasm_xlate($ice);
+    my ($dst,@r_prev)=
+      $ARG->fasm_xlate($ice,1);
 
-    push @args,$a;
-    push @prev,@b;
+    push @args,$dst;
+    push @prev,@r_prev;
 
   } @{$self->{V}};
 
 
   # ^out ins list
-  return @prev,$self->$fn($ins,@args);
+  my $mid="  mov $dst," . (pop @args);
+  return @prev,$mid,$self->$fn($ins,$dst,@args);
 
 };
 

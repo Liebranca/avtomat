@@ -860,13 +860,20 @@ sub opsolve_flat($self,$st,$branch=undef) {
   my $flat   = int( grep {
 
     # recurse if arg itself is operation
-    $self->opsolve_flat($ARG)
-    if $ARG->{type} eq 'ops';
+    if($ARG->{type} eq 'ops') {
+      $self->opsolve_flat($ARG)
+
+    # ^mark null as nconst
+    } elsif($ARG->get() eq $NULL) {
+      $ARG->{nconst}=1;
+
+    };
 
     # ^get const status
     $ARG->{const} &&! $ARG->{nconst};
 
   } @values) == @values;
+
 
   # get op is solvable at this stage
   my $const=0;
@@ -1021,8 +1028,16 @@ sub opres_flat($self,$tree) {
 
 
   # ^early exit if values cant
-  # be all dereferenced
+  # all dereferenced
   return undef if @deref ne @values;
+
+  # forbid null operands at runtime
+  if($self->{frame}->{-npass}
+  >= $self->num_passes()) {
+    throw_nullops($self,$tree)
+    if grep {$ARG->get() eq $NULL} @deref;
+
+  };
 
 
   # base result type on first operand
@@ -1031,19 +1046,12 @@ sub opres_flat($self,$tree) {
     : 'const'
     ;
 
-  my @args=();
+  my @args=@deref;
 
   # nevermind this, deprecated iter logic
   # 100% needs rewrit
   if($tree->{type} eq 'iter') {
     @args=($tree,@deref);
-
-  # ^get value from args
-  } else {
-    @args=map {
-      (is_hashref($ARG)) ? $ARG->{raw} : $ARG
-
-    } @deref;
 
   };
 
@@ -1059,7 +1067,26 @@ sub opres_flat($self,$tree) {
 };
 
 # ---   *   ---   *   ---
-# ^non-runtime crux
+# ^errme
+
+sub throw_nullops($self,$tree) {
+
+  my $id=$tree->data_id($self,1);
+
+  errout(
+
+    q[Operation with null operands] . "\n"
+  . q[>> (%s)],
+
+    lvl  => $AR_FATAL,
+    args => [$id],
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# compile-time crux
 
 sub value_ops_walk($self,$branch) {
 

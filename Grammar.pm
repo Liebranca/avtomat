@@ -529,6 +529,8 @@ sub parse($self,$s,%O) {
   # pass own context
   $O{mach}=$self->{mach};
 
+  my $pass=$self->{frame}->{-npass};
+
   # run-through
   $self->{sremain}=
     $self->{p3}->parse($s,%O);
@@ -540,6 +542,9 @@ sub parse($self,$s,%O) {
 
   };
 
+
+  $self->{frame}->{-npass}=
+    $pass if $pass;
 
   return $self;
 

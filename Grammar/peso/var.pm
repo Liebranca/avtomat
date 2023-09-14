@@ -270,11 +270,15 @@ sub bind_decls($self,$st) {
     my $name  = $names->[$ARG];
     my $value = $values->[$ARG];
 
+    my $const =
+       $value->{const}
+    && $value->get() ne $NULL
+    ;
 
     # set ctx attrs
     $value->{id}    = $name;
     $value->{width} = $width;
-    $value->{const} = $rom;
+    $value->{const} = $rom | $const;
 
     # write to mem
     push @$ptr,$mach->bind($value);
@@ -620,13 +624,31 @@ sub ptr_decl_fasm_xlate($self,$branch) {
 
     map {
 
-      my ($a,@b)=
-        $$ARG->fasm_xlate($self);
+      # get destination + setup ins
+      my ($dst,@prev)=
+          $$ARG->fasm_xlate($self);
 
-      my $v=$self->deref($$ARG,key=>1)->get();
-      $v=($v eq $NULL) ? 0 : $v;
+      # get value is immediate
+      my $src=$self->const_deref($$ARG);
 
-      push @out,@b,"  mov $a,$v";
+      # ^it is!
+      if($src) {
+        $src=$src->get();
+
+      # ^nope, must be calc'd
+      } else {
+        $src=$NULLSTR;
+
+      };
+
+
+      my $end=($$ARG->get() ne $NULL)
+        ? "  mov $dst,$src" x (0 < length $src)
+        : "  xor $dst,$dst"
+        ;
+
+      push @out,@prev,$end;
+
 
     } @$ptr;
 

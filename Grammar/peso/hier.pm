@@ -366,23 +366,28 @@ sub hier_stktab_set($self,$branch,$value) {
   my $tab = $st->{stktab};
   my $stk = $st->{stk};
 
-  my $id  = $value->data_id($self);
+  my $id  = $value->data_id($self,1);
 
 
   # ^add non-registered
-  if(! exists $tab->{$id}) {
+  if(
 
-    # recurse to decompose ops
-    if( $value->{type} eq 'ops'
-    &&! $value->{const}) {
+    ! exists $tab->{$id}
 
-      map {
-        $self->hier_stktab_set($branch,$ARG)
+  ) {
 
-      } @{$value->{V}};
 
-    };
+#    # recurse to decompose ops
+#    if($value->{type} eq 'ops') {
+#
+#      map {
+#        $self->hier_stktab_set($branch,$ARG)
+#
+#      } @{$value->{V}};
+#
+#    };
 
+    # ^write top-level
     $tab->{$id}=$value;
     push @$stk,$value;
 
@@ -535,7 +540,6 @@ sub hier_x86_nit($self,$branch) {
   my $x86   = $mach->{x86_64};
 
   my @path  = $scope->path();
-
 
   # register scope
   $x86->new_blk(
