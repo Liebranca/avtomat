@@ -172,7 +172,7 @@ sub arraydump($ar,$blessed=undef) {
 # ^single value
 
 sub valuedump($vref,$blessed=undef) {
-  (defined $$vref) ? $$vref : 'undef';
+  (defined $$vref) ? "'$$vref'" : 'undef';
 
 };
 

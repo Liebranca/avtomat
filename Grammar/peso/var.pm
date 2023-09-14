@@ -278,7 +278,7 @@ sub bind_decls($self,$st) {
     # set ctx attrs
     $value->{id}    = $name;
     $value->{width} = $width;
-    $value->{const} = $rom | $const;
+    $value->{const} = $rom && $const;
 
     # write to mem
     push @$ptr,$mach->bind($value);
@@ -637,13 +637,17 @@ sub ptr_decl_fasm_xlate($self,$branch) {
 
       # ^nope, must be calc'd
       } else {
-        $src=$NULLSTR;
+        $src=$self->deref(
+          $$ARG,key=>1
+
+        )->get();
 
       };
 
 
-      my $end=($$ARG->get() ne $NULL)
-        ? "  mov $dst,$src" x (0 < length $src)
+      # cpy [dst],null eq clr
+      my $end=($src ne $NULL)
+        ? "  mov $dst,$src" x (defined $src)
         : "  xor $dst,$dst"
         ;
 

@@ -229,17 +229,18 @@ sub cmwc_fasm_xlate($self,$branch) {
     map {
 
       my ($a,@b)=
-        $ARG->fasm_xlate($self);
+        $ARG->fasm_xlate($self,0,$args[0]);
 
       push @args,$a;
       push @prev,@b;
 
-    } reverse @$vars;
+    } @$vars;
 
-    push @out,@prev,"  mov " . (
-      join q[,],reverse @args
+    push @out,@prev;
+    push @out,"  mov " . (
+      join q[,], @args
 
-    );
+    ) if $args[0] ne $args[1];
 
   };
 

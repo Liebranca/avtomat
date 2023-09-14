@@ -581,7 +581,7 @@ sub fasm_data_decl($self,@path) {
 # ---   *   ---   *   ---
 # give string repr for fasm
 
-sub fasm_xlate($self,$ice,$lvl=0) {
+sub fasm_xlate($self,$ice,$lvl=0,$r_dst=undef) {
 
   my $mach   = $ice->{mach};
   my $scope  = $mach->{scope};
@@ -613,8 +613,13 @@ sub fasm_xlate($self,$ice,$lvl=0) {
       # translate as instruction list
       # if operation can't be solved and
       # turned into an immediate
+
       if(! $ice->const_deref($self)) {
-        @prev=$self->fasm_xlate_ops($ice,$dst);
+
+        @prev=$self->fasm_xlate_ops(
+          $ice,$dst
+
+        );
 
       };
 
@@ -639,6 +644,26 @@ sub fasm_xlate($self,$ice,$lvl=0) {
       ;
 
 
+  # decompose id-less op
+  # same as what happens on top
+  } elsif($self->{type} eq 'ops') {
+
+    my $scratch=(! $r_dst)
+      ? $x86->get_scratch()
+      : $r_dst
+      ;
+
+    @prev=$self->fasm_xlate_ops(
+      $ice,$scratch
+
+    );
+
+    $out=$scratch;
+
+    $x86->free_scratch($scratch)
+    if ! $r_dst;
+
+
   # ^just give raw for now
   } else {
     $out=($lvl)
@@ -657,7 +682,7 @@ sub fasm_xlate($self,$ice,$lvl=0) {
 # ^decomposes operations
 # into instructions
 
-sub fasm_xlate_ops($self,$ice,$dst) {
+sub fasm_xlate_ops($self,$ice,$r_dst) {
 
   state $tab={
 
@@ -675,11 +700,10 @@ sub fasm_xlate_ops($self,$ice,$dst) {
   my @args=();
   my @prev=();
 
-
   map {
 
     my ($dst,@r_prev)=
-      $ARG->fasm_xlate($ice,1);
+      $ARG->fasm_xlate($ice,1,$r_dst);
 
     push @args,$dst;
     push @prev,@r_prev;
@@ -688,8 +712,10 @@ sub fasm_xlate_ops($self,$ice,$dst) {
 
 
   # ^out ins list
-  my $mid="  mov $dst," . (pop @args);
-  return @prev,$mid,$self->$fn($ins,$dst,@args);
+  return @prev,map {
+    $self->$fn($ins,$r_dst,$ARG)
+
+  } grep {$ARG ne $r_dst} @args;
 
 };
 

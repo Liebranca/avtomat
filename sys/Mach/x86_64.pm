@@ -34,7 +34,7 @@ package Mach::x86_64;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -197,6 +197,27 @@ sub new_blk($self,$name,%O) {
 sub set_blk($self,$name) {
   $self->{cur}=$self->{tab}->{$name}
   if exists $self->{tab}->{$name};
+
+};
+
+# ---   *   ---   *   ---
+# allocate register
+
+sub get_scratch($self) {
+
+  my $cur=$self->{cur};
+  my $out=shift @{$cur->{avail}};
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^give back
+
+sub free_scratch($self,$name) {
+  my $cur=$self->{cur};
+  unshift @{$cur->{avail}},$name;
 
 };
 

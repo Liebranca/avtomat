@@ -33,8 +33,9 @@ lib ARPATH '/forge/';
 # ^the bit
 
 proc crux;
-  word x 1;
-  word y x+2;
+
+  word  x;
+  cpy   x,x+3;
 
 
 # ---   *   ---   *   ---

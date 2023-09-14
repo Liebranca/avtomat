@@ -361,21 +361,23 @@ sub hier_pack($self,$branch) {
 
 sub hier_stktab_set($self,$branch,$value) {
 
-  my $st  = $branch->{value};
+  my $st    = $branch->{value};
 
-  my $tab = $st->{stktab};
-  my $stk = $st->{stk};
+  my $tab   = $st->{stktab};
+  my $stk   = $st->{stk};
 
-  my $id  = $value->data_id($self,1);
+  my $id    = $value->data_id($self,1);
 
 
   # ^add non-registered
   if(
 
-    ! exists $tab->{$id}
+      $value->{id}
+
+  &&! $value->{const}
+  &&! exists $tab->{$id}
 
   ) {
-
 
 #    # recurse to decompose ops
 #    if($value->{type} eq 'ops') {

@@ -1030,14 +1030,18 @@ sub opres_flat($self,$tree) {
   # ^early exit if values cant
   # all dereferenced
   return undef if @deref ne @values;
+  return $NULL if grep {$ARG eq $NULL} @deref;
 
-  # forbid null operands at runtime
-  if($self->{frame}->{-npass}
-  >= $self->num_passes()) {
-    throw_nullops($self,$tree)
-    if grep {$ARG->get() eq $NULL} @deref;
-
-  };
+# this kinda messes up xlate
+# ill see about it later ;>
+#
+#  # forbid null operands at runtime
+#  if($self->{frame}->{-npass}
+#  >= $self->num_passes()) {
+#    throw_nullops($self,$tree)
+#    if grep {$ARG->get() eq $NULL} @deref;
+#
+#  };
 
 
   # base result type on first operand
