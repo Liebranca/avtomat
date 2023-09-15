@@ -31,10 +31,12 @@ package Mach::x86_64;
   use Arstd::Int;
   use Arstd::Re;
 
+  use Tree;
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -58,6 +60,7 @@ sub new($class) {
     tab  => {},
 
     size => 0,
+    tf   => Tree->new_frame(),
 
   },$class;
 
@@ -154,11 +157,15 @@ sub new_blk($self,$name,%O) {
   my $old   = $self->{reg}->[-1];
   my @avail = ();
 
+  my $tf    = $self->{tf};
 
   # ^make tables
   my $reg={
 
     $self->get_avail_all(\@avail,%O),
+
+    sct      => {},
+    sctk     => [],
 
     avail    => \@avail,
     using    => [],
@@ -166,28 +173,48 @@ sub new_blk($self,$name,%O) {
     using_re => $NO_MATCH,
     xtab     => {},
 
+    size     => 0,
+    insroot  => $tf->nit(
+      undef,"$name\::insroot"
+
+    ),
+
   };
-
-
-  # ^get full list of
-  # registers in use
-  @{$reg->{using}}=map {
-    @{$reg->{$ARG}}
-
-  } qw(arg stk ret);
-
-  # ^as regex
-  $reg->{using_re}=re_eiths(
-    [array_keys($reg->{using})]
-
-  ) if @{$reg->{using}};
 
 
   # add to table and give
   $self->{tab}->{$name} = $reg;
   $self->{cur}          = $reg;
 
+  $self->{cur}->{size}  = $self->{size};
+  $self->{size}         = 0;
+
+  $self->reset_using();
+
   return $reg;
+
+};
+
+# ---   *   ---   *   ---
+# make re for finding used
+# registers
+
+sub reset_using($self) {
+
+  my $cur=$self->{cur};
+
+  # ^get full list of
+  # registers in use
+  @{$cur->{using}}=map {
+    @{$cur->{$ARG}}
+
+  } qw(arg stk ret sctk);
+
+  # ^as regex
+  $cur->{using_re}=re_eiths(
+    [array_keys($cur->{using})]
+
+  ) if @{$cur->{using}};
 
 };
 
@@ -208,6 +235,11 @@ sub get_scratch($self) {
   my $cur=$self->{cur};
   my $out=shift @{$cur->{avail}};
 
+  $cur->{sct}->{$out}=1;
+  $cur->{sctk}=[keys %{$cur->{sct}}];
+
+  $self->reset_using();
+
   return $out;
 
 };
@@ -216,8 +248,14 @@ sub get_scratch($self) {
 # ^give back
 
 sub free_scratch($self,$name) {
+
   my $cur=$self->{cur};
   unshift @{$cur->{avail}},$name;
+
+  delete $cur->{sct}->{$name};
+  $cur->{sctk}=[keys %{$cur->{sct}}];
+
+  $self->reset_using();
 
 };
 
@@ -237,6 +275,15 @@ sub get_used_by($self,$name) {
     grep {$ARG=~ $re} @{$cur->{$ARG}};
 
   } qw(arg stk ret);
+
+};
+
+# ---   *   ---   *   ---
+# ^used by cur
+
+sub in_use($self,$name) {
+  my $cur=$self->{cur};
+  return int($name=~ $cur->{using_re});
 
 };
 
@@ -307,6 +354,64 @@ sub throw_no_blk($name) {
     args => [$name],
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# make new instruction branch
+
+sub new_ins($self,$dst) {
+
+  my $cur  = $self->{cur};
+  my $root = $cur->{insroot};
+
+  $root->init($dst);
+
+};
+
+# ---   *   ---   *   ---
+# ^sub-branch
+
+sub new_insblk($self,$dst) {
+
+  my $cur  = $self->{cur};
+  my $root = $cur->{insroot}->{leaves}->[-1];
+
+  $root->init($dst);
+
+};
+
+# ---   *   ---   *   ---
+# ^add instruction to top
+
+sub push_insblk($self,$ins,@args) {
+
+  my $cur  = $self->{cur};
+  my $root = $cur->{insroot}->{leaves}->[-1];
+
+  my $blk  = $root->{leaves}->[-1];
+  my $top  = $blk->{leaves}->[-1];
+
+  my $nd   = ($top && $top->{value} eq $ins)
+    ? $top
+    : $blk->init($ins)
+    ;
+
+  map  {$nd->init($ARG)}
+  grep {$ARG} @args;
+
+};
+
+# ---   *   ---   *   ---
+# ^debug out
+
+sub prich_insblk($self) {
+
+  my $cur  = $self->{cur};
+  my $root = $cur->{insroot};
+
+  $root->prich();
+  exit;
 
 };
 

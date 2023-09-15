@@ -625,8 +625,8 @@ sub ptr_decl_fasm_xlate($self,$branch) {
     map {
 
       # get destination + setup ins
-      my ($dst,@prev)=
-          $$ARG->fasm_xlate($self);
+      my $dst=$$ARG->fasm_xlate($self);
+      $x86->new_ins($dst);
 
       # get value is immediate
       my $src=$self->const_deref($$ARG);
@@ -645,13 +645,15 @@ sub ptr_decl_fasm_xlate($self,$branch) {
       };
 
 
-      # cpy [dst],null eq clr
-      my $end=($src ne $NULL)
-        ? "  mov $dst,$src" x (defined $src)
-        : "  xor $dst,$dst"
+      # [dst],null eq clr
+      my ($ins,@args)=($src ne $NULL)
+        ? ('mov',$dst,$src)
+        : ('xor',$dst,$dst)
         ;
 
-      push @out,@prev,$end;
+
+      $x86->new_insblk($dst);
+      $x86->push_insblk($ins,@args);
 
 
     } @$ptr;

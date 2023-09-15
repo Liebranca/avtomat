@@ -929,6 +929,9 @@ sub ret_fasm_xlate($self,$branch) {
     : qw(ret)
     ;
 
+  my $x86=$self->{mach}->{x86_64};
+  $x86->prich_insblk();
+
   $branch->{fasm_xlate}=join "\n",@out,"\n"
   if $st->{type} eq 'proc';
 

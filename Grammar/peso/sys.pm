@@ -202,28 +202,53 @@ sub throw_sysargs($fn,$args,$src) {
 
 sub _temple_fargs($self,@args) {
 
-  my @out = ();
-  my @r   = qw(rdi rsi rdx r10 r8 r9);
+  my $mach = $self->{mach};
+  my $x86  = $mach->{x86_64};
 
-  while(@args) {
+  my @load = ();
+  my @r    = qw(rdi rsi rdx r10 r8 r9);
 
-    my $dst=shift @r;
-    my $src;
+  # ^save registers in use
+  for my $i(0..$#r) {
 
-    if($dst) {
-      $src=shift @args;
-      push @out,"  mov $dst,$src";
+    my $dst=$r[$i];
 
-    } else {
-      $src=pop @args;
-      push @out,"  push $src";
+    last if $i == $#args;
+    next if ! $x86->in_use($dst);
 
-    };
+    $x86->new_insblk($dst);
+    $x86->push_insblk('push',$dst);
+
+    push @load,$dst;
 
   };
 
 
-  return @out;
+  # ^load new values
+  $x86->new_insblk('save');
+  while(@args) {
+
+    my $dst=shift @r;
+
+    my $src;
+    my $ins;
+
+    if($dst) {
+      $src=shift @args;
+      $ins='mov';
+
+    } else {
+      $src=pop @args;
+      $ins='push';
+
+    };
+
+    $x86->push_insblk($ins,$dst,$src);
+
+  };
+
+
+  return @load;
 
 };
 
@@ -232,34 +257,16 @@ sub _temple_fargs($self,@args) {
 
 sub _temple_syscall($self,$id,@args) {
 
-  return
+  my @load = $self->_temple_fargs(@args);
 
-    $self->_temple_fargs(@args),
+  my $mach = $self->{mach};
+  my $x86  = $mach->{x86_64};
 
-    "  mov rax,$id",
-    "  syscall"
+  $x86->new_insblk('syscall');
+  $x86->push_insblk('mov','rax',$id);
 
-  ;
 
-};
-
-# ---   *   ---   *   ---
-# alloc args proto
-
-sub _alloc_args($self,$ptr,$size) {
-
-  # align size to page
-  $size=$self->deref($size,-key=>1)->get();
-  $size=int_align($size,0x1000);
-
-  # get destination addr
-  $ptr=$self->deref($ptr);
-  $ptr=(Mach::Value->is_valid($ptr))
-    ? $ptr->get_fasm_lis()
-    : $ptr
-    ;
-
-  return ($ptr,$size);
+  return @load;
 
 };
 
@@ -269,10 +276,11 @@ sub _alloc_args($self,$ptr,$size) {
 sub sysf_alloc($self,$ptr,$size) {
 
   # deref
-  ($ptr,$size)=$self->_alloc_args($ptr,$size);
+  $ptr  = $ptr->fasm_xlate($self);
+  $size = $size->fasm_xlate($self);
 
   # pass args
-  my @out=$self->_temple_syscall(
+  my @load=$self->_temple_syscall(
 
     '$09',
 
@@ -282,12 +290,20 @@ sub sysf_alloc($self,$ptr,$size) {
   );
 
 
-  # ^cat
-  push    @out,"  mov [$ptr],rax";
-  unshift @out,'  ; mmap N pages';
+  # ^save ptr
+  my $mach = $self->{mach};
+  my $x86  = $mach->{x86_64};
 
+  $x86->new_insblk("[$ptr]");
+  $x86->push_insblk('mov',"[$ptr]",'rax');
 
-  return join "\n",@out,"\n";
+  # ^restore
+  $x86->new_insblk("load");
+
+  map {
+    $x86->push_insblk('pop',$ARG);
+
+  } reverse @load;
 
 };
 
@@ -297,19 +313,25 @@ sub sysf_alloc($self,$ptr,$size) {
 sub sysf_dealloc($self,$ptr,$size) {
 
   # deref
-  ($ptr,$size)=$self->_alloc_args($ptr,$size);
+  $ptr  = $ptr->fasm_xlate($self);
+  $size = $size->fasm_xlate($self);
 
   # pass args
-  my @out=$self->_temple_syscall(
+  my @load=$self->_temple_syscall(
     '$0B',"[$ptr]",$size
 
   );
 
+  # ^restore
+  my $mach = $self->{mach};
+  my $x86  = $mach->{x86_64};
 
-  # ^cat
-  unshift @out,'  ; munmap N pages';
+  $x86->new_insblk("load");
 
-  return join "\n",@out,"\n";
+  map {
+    $x86->push_insblk('pop',$ARG);
+
+  } reverse @load;
 
 };
 
@@ -325,7 +347,14 @@ sub sys_fasm_xlate($self,$branch) {
 
   my $args = $st->{args};
 
-  $branch->{fasm_xlate}=$self->$fn(@$args);
+
+  # get ctx
+  my $mach = $self->{mach};
+  my $x86  = $mach->{x86_64};
+
+  # ^make instruction block
+  $x86->new_ins('rax');
+  $self->$fn(@$args);
 
 };
 

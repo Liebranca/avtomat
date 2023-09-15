@@ -174,7 +174,7 @@ sub clist_join($self,@ar) {
 
     my $have = int($s=~ s[$comma][]);
     my $fore = int($s=~ m[$ops$]);
-    my $cat  = int($s=~ m[^$ops$]);
+    my $cat  = int($s=~ m[^$ops]);
     my $subs = int($s=~ $REGEX->{subs});
 
 
@@ -318,7 +318,10 @@ sub tree_grow($self,$branch) {
 
     # next is operator, cat to current
     $expand=
-      $ahead->{value}=~ $REGEX->{q[op-or-subs]};
+       $lv->{value}=~ $REGEX->{q[op-or-subs]}
+    || $ahead->{value}=~ $REGEX->{q[op-or-subs]}
+
+    ;
 
     $subs=$ahead->{value}=~ $REGEX->{subs};
 
@@ -388,7 +391,6 @@ SKIP:
 
   };
 
-
   $branch->sweep(qr{^,$});
 
 };
@@ -399,7 +401,6 @@ SKIP:
 sub tree_solve($self,$branch) {
 
   my @pending=@{$branch->{leaves}};
-
 
   while(@pending) {
 

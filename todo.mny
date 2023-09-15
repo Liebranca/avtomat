@@ -1,16 +1,25 @@
 >avtomat v4.00.0
 
-*>Mach::Macro::Meta
-
-~ Design of metaprogramming instructions
-  for use by Emit modules
-
-~ \--> 'wraps': describe wrapper prototype
-
 
 *>peso
 
+~ fasm xlate
+
+~ \--> use lea for add && mul when applicable
+
+~ \--> branch lookahead
+~ \--> branch lookbehind
+
+~ \--> building xlate ctx with Mach::x86_64
+x .  \--> alloc/free registers
+~ .  \--> alloc/free stack
+
+
 ~ Missing features
+
+~ \--> single-rule solution to generic
+       ins like align,inc,dec,etc.
+
 x \--> 'sys' keyw for common syscalls
 x \--> 'attr' keyw to set static block flags
 
@@ -19,6 +28,14 @@ x Optimize pass count for Grammar::peso::eye
 
 x Tree manipulation at ipret layer,already
   done through Tree::Grammar chains
+
+
+*>Mach::Macro::Meta
+
+~ Design of metaprogramming instructions
+  for use by Emit modules
+
+~ \--> 'wraps': describe wrapper prototype
 
 
 *>Emit::Cpp

@@ -581,7 +581,7 @@ sub fasm_data_decl($self,@path) {
 # ---   *   ---   *   ---
 # give string repr for fasm
 
-sub fasm_xlate($self,$ice,$lvl=0,$r_dst=undef) {
+sub fasm_xlate($self,$ice,$r_dst=undef,$lvl=0) {
 
   my $mach   = $ice->{mach};
   my $scope  = $mach->{scope};
@@ -616,8 +616,8 @@ sub fasm_xlate($self,$ice,$lvl=0,$r_dst=undef) {
 
       if(! $ice->const_deref($self)) {
 
-        @prev=$self->fasm_xlate_ops(
-          $ice,$dst
+        $self->fasm_xlate_ops(
+          $ice,$dst,$lvl
 
         );
 
@@ -631,8 +631,12 @@ sub fasm_xlate($self,$ice,$lvl=0,$r_dst=undef) {
 
       my $alias=$stk->{$self->{q[flg-name]}};
 
-      @prev = $self->fasm_xlate_flg($alias);
-      $out  = $alias;
+      $self->fasm_xlate_flg(
+        $ice,$alias,$lvl
+
+      );
+
+      $out=$alias;
 
 
     };
@@ -653,12 +657,12 @@ sub fasm_xlate($self,$ice,$lvl=0,$r_dst=undef) {
       : $r_dst
       ;
 
-    @prev=$self->fasm_xlate_ops(
-      $ice,$scratch
+    $self->fasm_xlate_ops(
+      $ice,$scratch,$lvl
 
     );
 
-    $out=$scratch;
+    $out=$scratch if ! $lvl;
 
     $x86->free_scratch($scratch)
     if ! $r_dst;
@@ -674,7 +678,7 @@ sub fasm_xlate($self,$ice,$lvl=0,$r_dst=undef) {
   };
 
 
-  return $out,@prev;
+  return $out;
 
 };
 
@@ -682,69 +686,133 @@ sub fasm_xlate($self,$ice,$lvl=0,$r_dst=undef) {
 # ^decomposes operations
 # into instructions
 
-sub fasm_xlate_ops($self,$ice,$r_dst) {
+sub fasm_xlate_ops($self,$ice,$r_dst,$lvl) {
 
-  state $tab={
+  # beg instruction block
+  my $ins=$self->fasm_xlate_ops_prologue(
+    $ice,$r_dst,$lvl,'ops'
 
-    '-'=>['sub','fasm_xlate_ops_simple'],
-    '+'=>['add','fasm_xlate_ops_simple'],
-
-  };
-
-  # ^fetch instruction name and
-  # codestr generator
-  my ($ins,$fn)=@{ $tab->{$self->{key}} };
+  );
 
 
   # recurse to solve args
   my @args=();
-  my @prev=();
 
   map {
 
-    my ($dst,@r_prev)=
-      $ARG->fasm_xlate($ice,1,$r_dst);
+    my $dst=$ARG->fasm_xlate(
+      $ice,$r_dst,$lvl+1
+
+    );
 
     push @args,$dst;
-    push @prev,@r_prev;
 
   } @{$self->{V}};
 
 
-  # ^out ins list
-  return @prev,map {
-    $self->$fn($ins,$r_dst,$ARG)
+  # ^save to instruction block
+  $self->fasm_xlate_ops_epilogue(
+    $ice,$r_dst,$lvl,$ins,@args
 
-  } grep {$ARG ne $r_dst} @args;
+  );
 
 };
 
 # ---   *   ---   *   ---
 # ^for unary flg
 
-sub fasm_xlate_flg($self,$alias) {
+sub fasm_xlate_flg($self,$ice,$r_dst,$lvl) {
 
-  state $tab={
 
-    '-'=>['neg','fasm_xlate_ops_simple'],
+  # beg instruction block
+  my $ins=$self->fasm_xlate_ops_prologue(
+    $ice,$r_dst,$lvl,'flg'
 
-  };
+  );
 
-  # ^fetch instruction name and
-  # codestr generator
-  my ($ins,$fn)=@{ $tab->{$self->{sigil}} };
+  # ^save to instruction block
+  $self->fasm_xlate_ops_epilogue(
+    $ice,$r_dst,$lvl,$ins,$r_dst
 
-  # ^out ins
-  return $self->$fn($ins,$alias);
+  );
 
 };
 
 # ---   *   ---   *   ---
-# ^([key] arg0,..argN) with
-# no weird caveats
+# ^begwraps
 
-sub fasm_xlate_ops_simple($self,$ins,@args) {
-  return "  $ins " . (join q[,],@args);
+sub fasm_xlate_ops_prologue(
+
+  $self,
+  $ice,
+
+  $r_dst,$lvl,
+
+  $mode
+
+) {
+
+  state $ops_tab={
+
+    '-'=>'sub',
+    '+'=>'add',
+
+  };
+
+  state $flg_tab={
+
+    '-'=>'neg',
+
+  };
+
+
+  # get ctx
+  my $mach = $ice->{mach};
+  my $x86  = $mach->{x86_64};
+
+
+  # ^fetch instruction name
+  my $key  = ($mode eq 'ops')
+    ? $self->{key}
+    : $self->{sigil}
+    ;
+
+  my $ins  = ($mode eq 'ops')
+    ? $ops_tab->{$key}
+    : $flg_tab->{$key}
+    ;
+
+
+  # start instruction block
+  # if not recursing
+  $x86->new_insblk($r_dst) if ! $lvl;
+
+
+  return $ins;
+
+};
+
+# ---   *   ---   *   ---
+# ^endwraps
+
+sub fasm_xlate_ops_epilogue(
+
+  $self,
+  $ice,
+
+  $r_dst,$lvl,
+  $ins,
+
+  @args
+
+) {
+
+  # get ctx
+  my $mach = $ice->{mach};
+  my $x86  = $mach->{x86_64};
+
+  # ^push to instruction block
+  $x86->push_insblk($ins,@args);
 
 };
 

@@ -217,35 +217,23 @@ sub cmwc_fasm_xlate($self,$branch) {
   my $type  = $st->{type};
   my $vars  = $st->{vars};
 
-  my @out   = ();
 
+  # make new instruction branch
+  my $dst=$vars->[0]->fasm_xlate($self);
+  $x86->new_ins($dst);
 
-  # copy A to B
+  # ^build sub-branch
+  my @args=($type ne 'clr')
+    ? ($dst,$vars->[1]->fasm_xlate($self))
+    : ($dst,$dst)
+    ;
+
+  # ^copy B to A
   if($type eq 'cpy') {
-
-    my @args=();
-    my @prev=();
-
-    map {
-
-      my ($a,@b)=
-        $ARG->fasm_xlate($self,0,$args[0]);
-
-      push @args,$a;
-      push @prev,@b;
-
-    } @$vars;
-
-    push @out,@prev;
-    push @out,"  mov " . (
-      join q[,], @args
-
-    ) if $args[0] ne $args[1];
+    $x86->new_insblk($args[0]);
+    $x86->push_insblk('mov',@args);
 
   };
-
-
-  $branch->{fasm_xlate}=join "\n",@out,"\n";
 
 };
 
