@@ -403,15 +403,272 @@ sub push_insblk($self,$ins,@args) {
 };
 
 # ---   *   ---   *   ---
-# ^debug out
+# generate translation for
+# a single instruction block
 
-sub prich_insblk($self) {
+sub xlate_insblk($self,$dst,$blk) {
+
+  my @out=();
+
+  # directives as-is
+  if($dst eq 'meta') {
+
+    push @out,map {
+
+      "$ARG->{value} "
+    . (join q[ ],$ARG->branch_values())
+
+    } @{$blk->{leaves}};
+
+  # ^proc machine instructions
+  } else {
+
+    my $ins=$blk->leaf_value(0);
+
+    if($ins eq 'add') {
+      push @out,$self->xlate_add($dst,$blk);
+
+    };
+
+  };
+
+  $blk->prich();
+
+  say join "\n",@out;
+  say "___________________\n";
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub xlate_ins($self) {
+
+  my @out  = ();
+
+  my $cur  = $self->{cur};
+  my $root = $cur->{insroot};
+
+  # walk the tree
+  map {
+
+    my $dst=$ARG;
+
+    push @out,map {
+      $self->xlate_insblk($dst->{value},$ARG)
+
+    } @{$dst->{leaves}};
+
+  } @{$root->{leaves}};
+
+  exit;
+
+  return join "\n",@out,"\n";
+
+};
+
+# ---   *   ---   *   ---
+# optimize multiple adds
+# into lea
+
+sub xlate_add($self,$dst,$blk) {
+
+  state $is_imm=qr{^\d+$};
+
+
+  my @out   = ();
+  my @args  = ();
+
+
+  # filter out immediates
+  my $imm=0;map {
+
+    if($ARG=~ $is_imm) {
+      $imm+=$ARG;
+
+    } else {
+      push @args,$ARG;
+
+    };
+
+  } $blk->leafless_values();
+
+  push @args,$imm if $imm;
+
+
+  # ^combine duplicates
+  @args=$self->xlate_add_dupop_sort(
+    $dst,@args
+
+  );
+
+
+  # generate ins
+  map {
+
+    push @out,"  lea $dst,["
+    . (join '+',@$ARG)
+    . ']'
+    ;
+
+  } @args;
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^combine repeats into scale
+
+sub xlate_add_dupop($self,@args) {
+
+
+  state $is_scale = qr{^[248]$};
+
+
+  my $duped={};
+  my @dupop=();
+
+
+  for my $base(@args) {
+
+    next if exists $duped->{$base};
+
+
+    # get repeats of name
+    my @dup=grep {$ARG eq $base} @args;
+
+
+    # ^build array of repeats
+    while(@dup) {
+
+      my $limit=(@dup < 8)
+        ? @dup
+        : 8
+        ;
+
+      # 2,4 or 8
+      if($limit=~ $is_scale) {
+        push @dupop,$base=>$limit;
+
+      # ^3 or 5
+      } elsif($limit eq 3 || $limit eq 5) {
+
+        push @dupop,
+          $base => $limit-1,
+          $base => 1,
+
+        ;
+
+      # ^6 or 7
+      } elsif($limit eq 6 || $limit eq 7) {
+
+        my $cnt=$limit-4;
+
+        push @dupop,
+          $base => 4,
+          $base => $cnt,
+
+        ;
+
+      # ^single
+      } else {
+        push @dupop,$base=>1;
+
+      };
+
+
+      map {shift @dup} 0..$limit;
+
+    };
+
+    $duped->{$base}=1;
+
+  };
+
+
+  return @dupop;
+
+};
+
+# ---   *   ---   *   ---
+# ^wrap and sort repeats
+
+sub xlate_add_dupop_sort($self,$dst,@old) {
+
+  my @dupop = $self->xlate_add_dupop(@old);
+
+
+  my @out = ([]);
+  my $has = {};
+
+  my @arg = array_keys(\@dupop);
+  my @cnt = array_values(\@dupop);
+
+
+  # ^walk
+  my $j=0;for my $i(0..$#cnt) {
+
+
+    # get arg fits in instruction
+    my $arg   = $arg[$i];
+    my $cnt   = $cnt[$i];
+    my $have  = $cnt > 1;
+
+
+    # get free slot
+    my ($slot)=grep {
+
+        @$ARG < 3
+    && (! $has->{$ARG} ||! $have)
+
+    } @out;
+
+    # ^make new if none
+    if(! $slot) {
+      push @out,($j) ? [$dst] : [];
+      $slot=$out[-1];
+
+    };
+
+
+    # ^push to Q
+    push @$slot,($have)
+      ? "$arg*$cnt"
+      : "$arg"
+      ;
+
+    $has->{$slot} |= $have;
+    $j++;
+
+  };
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# debug out
+
+sub prich_ins($self) {
 
   my $cur  = $self->{cur};
   my $root = $cur->{insroot};
 
   $root->prich();
-  exit;
+
+};
+
+sub prich_insblk($self) {
+
+  my $cur  = $self->{cur};
+  my $root = $cur->{insroot}->{leaves}->[-1];
+
+  $root->prich();
 
 };
 

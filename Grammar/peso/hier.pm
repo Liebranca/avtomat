@@ -48,7 +48,7 @@ package Grammar::peso::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#b
+  our $VERSION = v0.01.0;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -834,6 +834,9 @@ sub hier_fasm_xlate($self,$branch) {
   my $type  = $st->{type};
   my $attr  = $st->{attr};
 
+  my $mach  = $self->{mach};
+  my $x86   = $mach->{x86_64};
+
 
   # get segment type
   my $f     = $self->{frame};
@@ -844,7 +847,7 @@ sub hier_fasm_xlate($self,$branch) {
   if($type   eq 'proc'
   && $$seg_t ne 'rx') {
 
-    $hed    = "segment readable executable\n";
+    $hed    = 'readable executable';
     $$seg_t = 'rx';
 
 
@@ -853,7 +856,7 @@ sub hier_fasm_xlate($self,$branch) {
      $type   eq 'rom'
   && $$seg_t ne 'r') {
 
-    $hed    = "segment readable\n";
+    $hed    = 'readable';
     $$seg_t = 'r';
 
   # ^readable writeable
@@ -865,12 +868,10 @@ sub hier_fasm_xlate($self,$branch) {
 
   ) {
 
-    $hed    = "segment readable writeable\n";
+    $hed    = 'readable writeable';
     $$seg_t = 'rw';
 
   };
-
-  $hed.='align $10';
 
 
   # step-on
@@ -887,34 +888,12 @@ sub hier_fasm_xlate($self,$branch) {
 
   my $name = join '_',@path;
 
-
-# DEPRECATED in favor of mach->{x86_64}
-#
-#  # add stack frame for procs
-#  if($type eq 'proc') {
-#
-#    push @out,
-#
-#      q[  push rbp],
-#      q[  mov  rbp,rsp],
-#
-#      "  sub  rsp,$st->{stkoff}",
-#
-#    if $st->{stkoff};
-#
-#  };
-
-  $branch->{fasm_xlate}=join "\n",
-
-    "\n; ---   *   ---   *   ---\n",
-    $hed,
-
-    "$name:",
-    @out,
-
-    "\n"
-
-  ;
+  # ^add directives
+  $x86->new_ins('meta');
+  $x86->new_insblk('setup');
+  $x86->push_insblk('segment',$hed) if $hed;
+  $x86->push_insblk('align','$10');
+  $x86->push_insblk('label',$name);
 
 };
 
@@ -930,7 +909,7 @@ sub ret_fasm_xlate($self,$branch) {
     ;
 
   my $x86=$self->{mach}->{x86_64};
-  $x86->prich_insblk();
+  $x86->xlate_ins();
 
   $branch->{fasm_xlate}=join "\n",@out,"\n"
   if $st->{type} eq 'proc';
