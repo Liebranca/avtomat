@@ -581,7 +581,13 @@ sub fasm_data_decl($self,@path) {
 # ---   *   ---   *   ---
 # give string repr for fasm
 
-sub fasm_xlate($self,$ice,$r_dst=undef,$lvl=0) {
+sub fasm_xlate($self,$ice,%O) {
+
+  # defaults
+  $O{attrs} //= [];
+  $O{r_dst} //= undef;
+  $O{lvl}   //= 0;
+
 
   my $mach   = $ice->{mach};
   my $scope  = $mach->{scope};
@@ -617,7 +623,7 @@ sub fasm_xlate($self,$ice,$r_dst=undef,$lvl=0) {
       if(! $ice->const_deref($self)) {
 
         $self->fasm_xlate_ops(
-          $ice,$dst,$lvl
+          $ice,%O,r_dst=>$dst,
 
         );
 
@@ -632,7 +638,7 @@ sub fasm_xlate($self,$ice,$r_dst=undef,$lvl=0) {
       my $alias=$stk->{$self->{q[flg-name]}};
 
       $self->fasm_xlate_flg(
-        $ice,$alias,$lvl
+        $ice,%O,r_dst=>$alias,
 
       );
 
@@ -652,25 +658,25 @@ sub fasm_xlate($self,$ice,$r_dst=undef,$lvl=0) {
   # same as what happens on top
   } elsif($self->{type} eq 'ops') {
 
-    my $scratch=(! $r_dst)
+    my $scratch=(! $O{r_dst})
       ? $x86->get_scratch()
-      : $r_dst
+      : $O{r_dst}
       ;
 
     $self->fasm_xlate_ops(
-      $ice,$scratch,$lvl
+      $ice,%O,r_dst=>$scratch,
 
     );
 
-    $out=$scratch if ! $lvl;
+    $out=$scratch if ! $O{lvl};
 
     $x86->free_scratch($scratch)
-    if ! $r_dst;
+    if ! $O{r_dst};
 
 
   # ^just give raw for now
   } else {
-    $out=($lvl)
+    $out=($O{lvl})
       ? $ice->deref($self,key=>1)->get()
       : $id
       ;
@@ -686,11 +692,11 @@ sub fasm_xlate($self,$ice,$r_dst=undef,$lvl=0) {
 # ^decomposes operations
 # into instructions
 
-sub fasm_xlate_ops($self,$ice,$r_dst,$lvl) {
+sub fasm_xlate_ops($self,$ice,%O) {
 
   # beg instruction block
   my $ins=$self->fasm_xlate_ops_prologue(
-    $ice,$r_dst,$lvl,'ops'
+    $ice,'ops',%O
 
   );
 
@@ -701,7 +707,7 @@ sub fasm_xlate_ops($self,$ice,$r_dst,$lvl) {
   map {
 
     my $dst=$ARG->fasm_xlate(
-      $ice,$r_dst,$lvl+1
+      $ice,%O,lvl=>$O{lvl}+1
 
     );
 
@@ -712,7 +718,7 @@ sub fasm_xlate_ops($self,$ice,$r_dst,$lvl) {
 
   # ^save to instruction block
   $self->fasm_xlate_ops_epilogue(
-    $ice,$r_dst,$lvl,$ins,@args
+    $ice,$ins,\@args,%O
 
   );
 
@@ -721,18 +727,18 @@ sub fasm_xlate_ops($self,$ice,$r_dst,$lvl) {
 # ---   *   ---   *   ---
 # ^for unary flg
 
-sub fasm_xlate_flg($self,$ice,$r_dst,$lvl) {
+sub fasm_xlate_flg($self,$ice,%O) {
 
 
   # beg instruction block
   my $ins=$self->fasm_xlate_ops_prologue(
-    $ice,$r_dst,$lvl,'flg'
+    $ice,'flg',%O
 
   );
 
   # ^save to instruction block
   $self->fasm_xlate_ops_epilogue(
-    $ice,$r_dst,$lvl,$ins,$r_dst
+    $ice,$ice,$ins,$O{r_dst},%O
 
   );
 
@@ -746,9 +752,7 @@ sub fasm_xlate_ops_prologue(
   $self,
   $ice,
 
-  $r_dst,$lvl,
-
-  $mode
+  $mode,%O
 
 ) {
 
@@ -785,7 +789,17 @@ sub fasm_xlate_ops_prologue(
 
   # start instruction block
   # if not recursing
-  $x86->new_insblk($r_dst) if ! $lvl;
+  $x86->new_insblk($O{r_dst}) if ! $O{lvl};
+
+
+  # tie attrs to ins and give
+
+  my $attrs=$O{attrs};
+
+  $ins.=
+    (':' x (int @$attrs))
+  . (join ':',@$attrs)
+  ;
 
 
   return $ins;
@@ -800,10 +814,9 @@ sub fasm_xlate_ops_epilogue(
   $self,
   $ice,
 
-  $r_dst,$lvl,
-  $ins,
+  $ins,$args,
 
-  @args
+  %O
 
 ) {
 
@@ -812,7 +825,7 @@ sub fasm_xlate_ops_epilogue(
   my $x86  = $mach->{x86_64};
 
   # ^push to instruction block
-  $x86->push_insblk($ins,@args);
+  $x86->push_insblk($ins,@$args);
 
 };
 

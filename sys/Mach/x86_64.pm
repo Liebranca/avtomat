@@ -37,7 +37,7 @@ package Mach::x86_64;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -418,7 +418,18 @@ sub push_insblk($self,$ins,@args) {
 
 sub xlate_insblk($self,$dst,$blk) {
 
-  my @out=();
+  my @out   = ();
+
+  my $ins   = $blk->leaf_value(0);
+  my @attrs = split ':',$ins;
+
+  $ins=(@attrs)
+    ? shift @attrs
+    : $ins
+    ;
+
+  my %attrs=map {$ARG=>1} @attrs;
+
 
   # directives as-is
   if($dst eq 'meta') {
@@ -433,19 +444,16 @@ sub xlate_insblk($self,$dst,$blk) {
   # ^proc machine instructions
   } else {
 
-    my $ins=$blk->leaf_value(0);
-       $dst=$blk->{value};
+    $dst=$blk->{value};
 
-    if(begswith($ins,'add')) {
-
-      my %attrs=map {$ARG=>1} split ':',$ins;
+    if($ins eq 'add') {
 
       $attrs{set} //= 1;
       $attrs{set} &=! $blk->{idex};
 
       push @out,$self->xlate_add($dst,$blk,%attrs);
 
-    } elsif(begswith($ins,'mov')) {
+    } elsif($ins eq 'mov') {
       push @out,$self->xlate_mov($dst,$blk);
 
     };
@@ -518,10 +526,6 @@ sub opz_insblk($self,$blk) {
 
     # ^result of add is source of mov
     if($idst[-2] eq $nd->leaf_value(-1)) {
-
-      $lv->[-2]->{leaves}->[0]->{value}=
-        'add:set';
-
       $lv->[-2]->{value}=$idst[-1];
       $lv->[-1]->discard();
 

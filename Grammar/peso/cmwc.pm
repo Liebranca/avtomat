@@ -217,6 +217,9 @@ sub cmwc_fasm_xlate($self,$branch) {
   my $type  = $st->{type};
   my $vars  = $st->{vars};
 
+  # TODO: tune attrs by op
+  my $attrs = [qw(set)];
+
 
   # make new instruction branch
   my $dst=$vars->[0]->fasm_xlate($self);
@@ -224,7 +227,12 @@ sub cmwc_fasm_xlate($self,$branch) {
 
   # ^build sub-branch
   my @args=($type ne 'clr')
-    ? ($dst,$vars->[1]->fasm_xlate($self))
+
+    ? ($dst,$vars->[1]->fasm_xlate(
+      $self,attrs=>$attrs)
+
+    )
+
     : ($dst,$dst)
     ;
 
