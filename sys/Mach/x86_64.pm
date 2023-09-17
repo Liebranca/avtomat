@@ -28,6 +28,7 @@ package Mach::x86_64;
   use Fmat;
 
   use Arstd::Array;
+  use Arstd::String;
   use Arstd::Int;
   use Arstd::Re;
 
@@ -36,7 +37,7 @@ package Mach::x86_64;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -48,6 +49,15 @@ package Mach::x86_64;
     ret=>[qw(rax)],
 
   };
+
+  Readonly my $REGISTERS_RE=>re_eiths(
+
+    [map {@$ARG} values %$REGISTERS],
+
+    bwrap  => 1,
+    insens => 0,
+
+  );
 
 # ---   *   ---   *   ---
 # cstruc
@@ -424,9 +434,19 @@ sub xlate_insblk($self,$dst,$blk) {
   } else {
 
     my $ins=$blk->leaf_value(0);
+       $dst=$blk->{value};
 
-    if($ins eq 'add') {
-      push @out,$self->xlate_add($dst,$blk);
+    if(begswith($ins,'add')) {
+
+      my %attrs=map {$ARG=>1} split ':',$ins;
+
+      $attrs{set} //= 1;
+      $attrs{set} &=! $blk->{idex};
+
+      push @out,$self->xlate_add($dst,$blk,%attrs);
+
+    } elsif(begswith($ins,'mov')) {
+      push @out,$self->xlate_mov($dst,$blk);
 
     };
 
@@ -454,18 +474,69 @@ sub xlate_ins($self) {
   # walk the tree
   map {
 
-    my $dst=$ARG;
+    my $blk=$ARG;
+
+    $self->opz_insblk($blk);
 
     push @out,map {
-      $self->xlate_insblk($dst->{value},$ARG)
+      $self->xlate_insblk($blk->{value},$ARG)
 
-    } @{$dst->{leaves}};
+    } @{$blk->{leaves}};
 
   } @{$root->{leaves}};
 
-  exit;
 
   return join "\n",@out,"\n";
+
+};
+
+# ---   *   ---   *   ---
+# ^clears out redundancies
+
+sub opz_insblk($self,$blk) {
+
+  my $dst = $blk->{value};
+  my $lv  = $blk->{leaves};
+
+  # chk blk qualifies for optimization
+  return if
+    ! ($dst =~ $REGISTERS_RE)
+  ||  @$lv  == 1
+  ;
+
+
+  # get intermediate destinations
+  # and the instructions on each
+  my @idst = map {$ARG->{value}} @$lv;
+  my @ins  = map {$ARG->leaf_value(0)} @$lv;
+
+
+  # ^chk if mov at end of blk is redundant
+  if($ins[-1] eq 'mov') {
+
+    my $nd=$lv->[-1]->{leaves}->[0];
+
+    # ^result of add is source of mov
+    if($idst[-2] eq $nd->leaf_value(-1)) {
+
+      $lv->[-2]->{leaves}->[0]->{value}=
+        'add:set';
+
+      $lv->[-2]->{value}=$idst[-1];
+      $lv->[-1]->discard();
+
+    };
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# placeholder: plain ow
+
+sub xlate_mov($self,$dst,$blk) {
+  my @args=$blk->leafless_values();
+  return "  mov $args[0],$args[1]";
 
 };
 
@@ -473,7 +544,7 @@ sub xlate_ins($self) {
 # optimize multiple adds
 # into lea
 
-sub xlate_add($self,$dst,$blk) {
+sub xlate_add($self,$dst,$blk,%O) {
 
   state $is_imm=qr{^\d+$};
 
@@ -500,7 +571,7 @@ sub xlate_add($self,$dst,$blk) {
 
   # ^combine duplicates
   @args=$self->xlate_add_dupop_sort(
-    $dst,@args
+    $dst,\@args,%O
 
   );
 
@@ -523,7 +594,7 @@ sub xlate_add($self,$dst,$blk) {
 # ---   *   ---   *   ---
 # ^combine repeats into scale
 
-sub xlate_add_dupop($self,@args) {
+sub xlate_add_dupop($self,$args) {
 
 
   state $is_scale = qr{^[248]$};
@@ -533,13 +604,13 @@ sub xlate_add_dupop($self,@args) {
   my @dupop=();
 
 
-  for my $base(@args) {
+  for my $base(@$args) {
 
     next if exists $duped->{$base};
 
 
     # get repeats of name
-    my @dup=grep {$ARG eq $base} @args;
+    my @dup=grep {$ARG eq $base} @$args;
 
 
     # ^build array of repeats
@@ -597,12 +668,12 @@ sub xlate_add_dupop($self,@args) {
 # ---   *   ---   *   ---
 # ^wrap and sort repeats
 
-sub xlate_add_dupop_sort($self,$dst,@old) {
+sub xlate_add_dupop_sort($self,$dst,$old,%O) {
 
-  my @dupop = $self->xlate_add_dupop(@old);
+  my @dupop = $self->xlate_add_dupop($old);
 
 
-  my @out = ([]);
+  my @out = ($O{set}) ? ([]) : ([$dst]);
   my $has = {};
 
   my @arg = array_keys(\@dupop);

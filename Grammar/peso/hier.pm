@@ -48,7 +48,7 @@ package Grammar::peso::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#b
+  our $VERSION = v0.01.1;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -909,7 +909,7 @@ sub ret_fasm_xlate($self,$branch) {
     ;
 
   my $x86=$self->{mach}->{x86_64};
-  $x86->xlate_ins();
+  unshift @out,$x86->xlate_ins();
 
   $branch->{fasm_xlate}=join "\n",@out,"\n"
   if $st->{type} eq 'proc';
