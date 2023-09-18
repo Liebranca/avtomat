@@ -238,8 +238,11 @@ sub cmwc_fasm_xlate($self,$branch) {
 
   # ^copy B to A
   if($type eq 'cpy') {
+
+    my $ins=$x86->attr_tie('mov',$attrs);
+
     $x86->new_insblk($args[0]);
-    $x86->push_insblk('mov',@args);
+    $x86->push_insblk($ins,@args);
 
   };
 

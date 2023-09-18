@@ -53,7 +53,7 @@ package Grammar::peso::ops;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#b
+  our $VERSION = v0.01.1;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -855,7 +855,6 @@ sub opsolve($self,$branch) {
 
 sub opsolve_flat($self,$st,$branch=undef) {
 
-
   my @values = @{$st->{V}};
   my $flat   = int( grep {
 
@@ -919,6 +918,49 @@ sub array_opsolve($self,$branch) {
 
   # give all ops were solved
   return int(grep {$ARG} @const) == @ops;
+
+};
+
+# ---   *   ---   *   ---
+# get op is signed|real
+
+sub opsign_flat($self,$st) {
+
+  my @values = @{$st->{V}};
+
+  my $sign   = 0;
+  my $real   = 0;
+
+  map {
+
+    if($ARG->{type} eq 'ops') {
+      $self->opsign_flat($ARG);
+
+    } else {
+      $self->vsign_flat($ARG);
+
+    };
+
+    $sign |= $ARG->{sign};
+    $real |= $ARG->{real};
+
+  } @values;
+
+
+  $st->{sign}=$sign;
+  $st->{real}=$real;
+
+};
+
+# ---   *   ---   *   ---
+# ^single value
+
+sub vsign_flat($self,$st) {
+
+  my $pst=$self->deref($st,key=>1);
+
+  $st->{sign}=$pst->{sign};
+  $st->{real}=$pst->{real};
 
 };
 

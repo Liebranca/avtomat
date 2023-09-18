@@ -39,12 +39,12 @@ package Mach::Seg;
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT=qw($PESZ);
+  our @EXPORT=qw($PESZ $PESIGN $PEREAL);
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -89,19 +89,34 @@ BEGIN {
   Readonly my $PAGE_SZ => int($UNIT_SZ*64);
 
   # ^as table
-  Readonly our $PESZ   => {
+  Readonly our $PESZ=>{
 
-    byte=>$BYTE_SZ,
-    wide=>$WIDE_SZ,
-    brad=>$BRAD_SZ,
-    word=>$WORD_SZ,
+    byte  => $BYTE_SZ,
+    wide  => $WIDE_SZ,
+    brad  => $BRAD_SZ,
+    word  => $WORD_SZ,
 
-    unit=>$UNIT_SZ,
-    half=>$HALF_SZ,
-    line=>$LINE_SZ,
-    page=>$PAGE_SZ,
+    sbyte => $BYTE_SZ,
+    swide => $WIDE_SZ,
+    sbrad => $BRAD_SZ,
+    sword => $WORD_SZ,
+
+    real  => $BRAD_SZ,
+    daut  => $WORD_SZ,
+
+    unit  => $UNIT_SZ,
+    half  => $HALF_SZ,
+    line  => $LINE_SZ,
+    page  => $PAGE_SZ,
 
   };
+
+  Readonly our $PESIGN=>qr{(?:
+    sbyte | swide | sbrad | sword
+
+  )}x;
+
+  Readonly our $PEREAL=>qr{(?:real|daut)};
 
 # ---   *   ---   *   ---
 # cstruc

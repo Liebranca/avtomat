@@ -40,7 +40,7 @@ package Mach::Value;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#b
+  our $VERSION = v0.00.8;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -160,11 +160,15 @@ sub new($class,$type,$id,%O) {
   # defaults
   $O{spec}  //= [];
   $O{raw}   //= $NULL;
+  $O{sign}  //= 0;
+  $O{real}  //= 0;
   $O{const} //= 1;
   $O{mach}  //= undef;
 
   # pop args
   my $spec  = $O{spec};
+  my $sign  = $O{sign};
+  my $real  = $O{real};
   my $raw   = $O{raw};
   my $const = $O{const};
   my $mach  = $O{mach};
@@ -172,6 +176,8 @@ sub new($class,$type,$id,%O) {
   delete $O{raw};
   delete $O{const};
   delete $O{spec};
+  delete $O{sign};
+  delete $O{real};
   delete $O{mach};
 
   # unpack type
@@ -213,6 +219,8 @@ sub new($class,$type,$id,%O) {
     scope => undef,
     path  => undef,
 
+    sign  => $sign,
+    real  => $real,
     type  => $type,
     spec  => $spec,
 
@@ -485,7 +493,13 @@ sub data_id($self,$ice,$nconst=0) {
 
   # skip if solvable at compile-time
   if($self->{const} &&! $nconst) {
-    $out=$ice->deref($self,key=>1)->get();
+
+    my $ptr=$ice->deref($self,key=>1);
+    $self->{sign} |= $ptr->{sign};
+    $self->{real} |= $ptr->{real};
+
+    $out=$ptr->get();
+
     goto SKIP;
 
   };
@@ -493,6 +507,14 @@ sub data_id($self,$ice,$nconst=0) {
 
   # A (operator) B
   if($self->{type} eq 'ops') {
+
+    # get sign|real
+    $ice->opsign_flat($self)
+
+    if ! $self->{sign}
+    || ! $self->{real}
+    ;
+
 
     my @args=map {
       $ARG->data_id($ice)
@@ -594,6 +616,14 @@ sub fasm_xlate($self,$ice,%O) {
   my $x86    = $mach->{x86_64};
 
   my $id     = $self->data_id($ice,1);
+
+  map {
+
+    push @{$O{attrs}},$ARG
+    if $self->{$ARG}
+
+  } qw(sign real);
+
 
   my $out    = $NULLSTR;
   my @prev   = ();
@@ -760,6 +790,8 @@ sub fasm_xlate_ops_prologue(
 
     '-'=>'sub',
     '+'=>'add',
+    '*'=>'mul',
+    '/'=>'div',
 
   };
 
@@ -791,18 +823,7 @@ sub fasm_xlate_ops_prologue(
   # if not recursing
   $x86->new_insblk($O{r_dst}) if ! $O{lvl};
 
-
-  # tie attrs to ins and give
-
-  my $attrs=$O{attrs};
-
-  $ins.=
-    (':' x (int @$attrs))
-  . (join ':',@$attrs)
-  ;
-
-
-  return $ins;
+  return $x86->attr_tie($ins,$O{attrs});
 
 };
 

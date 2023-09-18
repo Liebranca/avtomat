@@ -34,6 +34,8 @@ package Grammar::peso::var;
   use Arstd::IO;
   use Arstd::PM;
 
+  use Mach::Seg;
+
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Grammar;
@@ -42,7 +44,7 @@ package Grammar::peso::var;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#b
+  our $VERSION = v0.00.9;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -72,8 +74,12 @@ BEGIN {
 
     width=>re_pekey(qw(
 
-      byte wide brad word
-      unit half line page
+      byte  wide  brad  word
+      sbyte swide sbrad sword
+
+      real  daut
+
+      unit  half  line  page
 
       nihil stark signal
 
@@ -155,6 +161,9 @@ sub ptr_decl($self,$branch) {
 
     width  => $width,
     spec   => \@spec,
+
+    sign   => int($width=~ $PESIGN),
+    real   => int($width=~ $PEREAL),
 
     names  => \@names,
     values => $values,
@@ -256,6 +265,9 @@ sub throw_invalid_scope($names,@path) {
 sub bind_decls($self,$st) {
 
   my $width  = $st->{width};
+  my $sign   = $st->{sign};
+  my $real   = $st->{real};
+
   my $names  = $st->{names};
   my $values = $st->{values};
   my $ptr    = $st->{ptr};
@@ -279,6 +291,8 @@ sub bind_decls($self,$st) {
     $value->{id}    = $name;
     $value->{width} = $width;
     $value->{const} = $rom && $const;
+    $value->{sign}  = $sign;
+    $value->{real}  = $real;
 
     # write to mem
     push @$ptr,$mach->bind($value);
@@ -624,12 +638,17 @@ sub ptr_decl_fasm_xlate($self,$branch) {
 
     map {
 
+      my $var   = $$ARG;
+      my $attrs = [];
+
+
       # get destination + setup ins
-      my $dst=$$ARG->fasm_xlate($self);
+      my $dst=$var->fasm_xlate($self,attrs=>$attrs);
+
       $x86->new_ins($dst);
 
       # get value is immediate
-      my $src=$self->const_deref($$ARG);
+      my $src=$self->const_deref($var);
 
       # ^it is!
       if($src) {
@@ -638,7 +657,7 @@ sub ptr_decl_fasm_xlate($self,$branch) {
       # ^nope, must be calc'd
       } else {
         $src=$self->deref(
-          $$ARG,key=>1
+          $var,key=>1
 
         )->get();
 
@@ -651,6 +670,9 @@ sub ptr_decl_fasm_xlate($self,$branch) {
         : ('xor',$dst,$dst)
         ;
 
+
+      # modify ins for sign|real
+      $ins=$x86->attr_tie($ins,$attrs);
 
       $x86->new_insblk($dst);
       $x86->push_insblk($ins,@args);

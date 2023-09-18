@@ -37,7 +37,7 @@ package Mach::x86_64;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -413,6 +413,22 @@ sub push_insblk($self,$ins,@args) {
 };
 
 # ---   *   ---   *   ---
+# ^add attrs to instruction
+
+sub attr_tie($self,$ins,$attrs) {
+
+  array_dupop($attrs);
+
+  $ins.=
+    (':' x (@$attrs != 0))
+  . (join ':',@$attrs)
+  ;
+
+  return $ins;
+
+};
+
+# ---   *   ---   *   ---
 # generate translation for
 # a single instruction block
 
@@ -478,6 +494,9 @@ sub xlate_ins($self) {
 
   my $cur  = $self->{cur};
   my $root = $cur->{insroot};
+
+$root->prich();
+exit;
 
   # walk the tree
   map {
