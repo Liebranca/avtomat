@@ -37,7 +37,7 @@ package Mach::x86_64;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#b
+  our $VERSION = v0.00.8;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -429,14 +429,24 @@ sub attr_tie($self,$ins,$attrs) {
 };
 
 # ---   *   ---   *   ---
-# generate translation for
-# a single instruction block
+# translates single instruction
 
-sub xlate_insblk($self,$dst,$blk) {
+sub xlate_sins($self,$dst,$branch) {
 
-  my @out   = ();
+  state $tab={
 
-  my $ins   = $blk->leaf_value(0);
+    'add'=>'xlate_add',
+    'mul'=>'xlate_mul',
+    'sub'=>'xlate_sub',
+    'div'=>'xlate_div',
+
+    'mov'=>'xlate_mov',
+
+  };
+
+
+  # fetch attributes from instruction
+  my $ins   = $branch->{value};
   my @attrs = split ':',$ins;
 
   $ins=(@attrs)
@@ -446,40 +456,48 @@ sub xlate_insblk($self,$dst,$blk) {
 
   my %attrs=map {$ARG=>1} @attrs;
 
+  # ^set defaults
+  $attrs{set}  //= 0;
+  $attrs{sign} //= 0;
+  $attrs{real} //= 0;
+
+  # ^invoke
+  my $fn=$tab->{$ins};
+  return $self->$fn($dst,$branch,%attrs);
+
+};
+
+# ---   *   ---   *   ---
+# generate translation for
+# a single instruction block
+
+sub xlate_insblk($self,$dst,$blk) {
+
+  my @out   = ();
 
   # directives as-is
   if($dst eq 'meta') {
 
-    push @out,map {
+    push @out,(map {
 
       "$ARG->{value} "
     . (join q[ ],$ARG->branch_values())
 
-    } @{$blk->{leaves}};
+    } @{$blk->{leaves}}),"\n";
+
 
   # ^proc machine instructions
   } else {
 
-    $dst=$blk->{value};
+    my $r_dst=$blk->{value};
 
-    if($ins eq 'add') {
+    push @out,map {
+      $self->xlate_sins($r_dst,$ARG);
 
-      $attrs{set} //= 1;
-      $attrs{set} &=! $blk->{idex};
-
-      push @out,$self->xlate_add($dst,$blk,%attrs);
-
-    } elsif($ins eq 'mov') {
-      push @out,$self->xlate_mov($dst,$blk);
-
-    };
+    } @{$blk->{leaves}};
 
   };
 
-  $blk->prich();
-
-  say join "\n",@out;
-  say "___________________\n";
 
   return @out;
 
@@ -495,8 +513,6 @@ sub xlate_ins($self) {
   my $cur  = $self->{cur};
   my $root = $cur->{insroot};
 
-$root->prich();
-exit;
 
   # walk the tree
   map {
@@ -555,10 +571,53 @@ sub opz_insblk($self,$blk) {
 };
 
 # ---   *   ---   *   ---
+# placeholder: div
+
+sub xlate_div($self,$dst,$branch,%O) {
+
+  my @args=$branch->leafless_values();
+     @args=($args[0] eq $dst)
+      ? @args[1..$#args]
+      : @args
+      ;
+
+  return
+
+    ($dst ne 'rax')
+      ? "  mov rax,$dst"
+      : ()
+      ,
+
+    "  xor rdx,rdx",
+    "  div $args[0]",
+
+  ;
+
+};
+
+# ---   *   ---   *   ---
+# placeholder: mul
+
+sub xlate_mul($self,$dst,$branch,%O) {
+
+  my @args=$branch->leafless_values();
+     @args=($args[0] eq $dst)
+      ? @args[1..$#args]
+      : @args
+      ;
+
+  return
+    "  imul $dst,$args[0]",
+
+  ;
+
+};
+
+# ---   *   ---   *   ---
 # placeholder: plain ow
 
-sub xlate_mov($self,$dst,$blk) {
-  my @args=$blk->leafless_values();
+sub xlate_mov($self,$dst,$branch,%O) {
+  my @args=$branch->leafless_values();
   return "  mov $args[0],$args[1]";
 
 };
@@ -567,13 +626,16 @@ sub xlate_mov($self,$dst,$blk) {
 # optimize multiple adds
 # into lea
 
-sub xlate_add($self,$dst,$blk,%O) {
+sub xlate_add($self,$dst,$branch,%O) {
 
-  state $is_imm=qr{^\d+$};
+  state $is_imm=qr{^[\d\.\:]+f?$};
 
 
   my @out   = ();
   my @args  = ();
+
+
+  $O{set} &=! $branch->{idex};
 
 
   # filter out immediates
@@ -587,7 +649,7 @@ sub xlate_add($self,$dst,$blk,%O) {
 
     };
 
-  } $blk->leafless_values();
+  } $branch->leafless_values();
 
   push @args,$imm if $imm;
 

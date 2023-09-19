@@ -46,7 +46,7 @@ package Emit::fasm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -82,7 +82,7 @@ end if
     my $lib=$ldo->[($ARG*2)+0];
     my $inc=$ldo->[($ARG*2)+1];
 
-    "lib $lib\n" . (join "\n",map {
+    "library $lib\n" . (join "\n",map {
       "  use $ARG"
 
     } @$inc)
@@ -128,7 +128,101 @@ sub boiler_close($class,$fname,%O) {
 # placeholder: code formatting
 
 sub tidy($class,$sref) {
-  return $$sref;
+
+  state $re=qr{(?<!\\)\n};
+
+
+  my @lines = split $re,$$sref;
+
+  my @beg   = ();
+  my @len   = ();
+  my @tok   = ();
+  my @max   = map {0} 0..16;
+
+  for my $line(@lines) {
+
+    my @blank = split m[[^\s]+],$line;
+    my @token = split $NSPACE_RE,$line;
+
+    my $s     = ($line=~ m[^\s])
+      ? ' '
+      : $NULLSTR
+      ;
+
+
+    if(length $s) {
+
+      push @len,0;
+
+      map {
+        my $x=length $token[$ARG];
+        $max[$ARG]=$x if $x > length $max[$ARG];
+
+      } 0..$#token;
+
+    } else {
+      push @len,\@blank;
+
+    };
+
+    push @beg,$s;
+    push @tok,\@token;
+
+  };
+
+  for my $line(@lines) {
+
+    my $beg = shift @beg;
+    my $len = shift @len;
+    my $tok = shift @tok;
+
+    my $s   = $beg;
+    my $i   = 0;
+
+    if(! $len) {
+
+      map {
+
+        my $l=$max[$i++]+1;
+
+        my $b=$l-(length $ARG);
+
+        $b=($b > 0)
+          ? ' ' x $b
+          : $NULLSTR
+          ;
+
+
+        $s.="$ARG$b";
+
+      } @$tok;
+
+    } else {
+
+      while(@$tok || @$len) {
+
+        my $t=shift @$tok;
+        my $b=shift @$len;
+
+        $b   = (! length $b)
+          ? ' '
+          : $b
+          ;
+
+        $t //= $NULLSTR;
+        $s  .= "$t$b";
+
+      };
+
+    };
+
+    $s=~ s[\s+$][];
+    $line=$s;
+
+  };
+
+
+  return join "\n",@lines;
 
 };
 

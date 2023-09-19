@@ -48,7 +48,7 @@ package Grammar::peso::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#b
+  our $VERSION = v0.01.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -76,6 +76,8 @@ BEGIN {
     -chier_n => 'non',
 
     -cdecl   => [],
+    -retstk  => [],
+    -rip     => undef,
 
     -seg_t   => $NULLSTR,
 
@@ -174,6 +176,11 @@ sub hier_path($self,$branch) {
 
   my $name = $st->{name};
   my $type = $st->{type};
+
+  push @{$f->{-retstk}},$f->{-rip}
+  if $f->{-rip};
+
+  $f->{-rip}=$branch;
 
 
   # get fields to clear
@@ -732,6 +739,9 @@ sub hier_load($self,$branch) {
 # end of block
 
 sub ret_run($self,$branch) {
+
+  $self->ret_walk($branch);
+
   my $par=$branch->{parent};
   return $self->hier_load($par);
 
@@ -752,6 +762,18 @@ sub ret_add($self,$branch) {
     skip => $self->num_passes(),
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# ^step-on
+
+sub ret_walk($self,$branch) {
+
+  my $f=$self->{frame};
+
+  $f->{-rip}=pop @{$f->{-retstk}};
+  $self->hier_walk($f->{-rip}) if $f->{-rip};
 
 };
 
@@ -902,17 +924,32 @@ sub hier_fasm_xlate($self,$branch) {
 
 sub ret_fasm_xlate($self,$branch) {
 
-  my $st  = $branch->{parent}->{value};
-  my @out = ($st->{stkoff})
-    ? qw(leave ret)
-    : qw(ret)
-    ;
+  my $par = $branch->{parent};
+  my $pst = $par->{value};
+
+  my @out = ();
+
 
   my $x86=$self->{mach}->{x86_64};
-  unshift @out,$x86->xlate_ins();
 
-  $branch->{fasm_xlate}=join "\n",@out,"\n"
-  if $st->{type} eq 'proc';
+  push @out,$x86->xlate_ins();
+  push @out,($pst->{stkoff})
+    ? qw(leave ret)
+    : qw(ret)
+
+  if $pst->{type} eq 'proc';
+
+  $par->{fasm_xlate}=join "\n",
+
+    "; ---   *   ---   *   ---\n",
+    @out,
+
+    "\n"
+
+  ;
+
+
+  $self->ret_walk($branch);
 
 };
 
