@@ -34,13 +34,14 @@ package Arstd::Int;
     int_urdiv
     int_align
     int_npow
+    int_ispow
 
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.3;#b
+  our $VERSION=v0.00.4;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -80,11 +81,28 @@ sub npow($a,$b,$give_exp=0) {
 };
 
 # ---   *   ---   *   ---
+# ^get A is pow B
+
+sub ispow($a,$b) {
+
+  return 0 if ! $a ||! $b;
+
+
+  my $x=log($a);
+  my $y=log($b);
+  my $z=$x/$y;
+
+  return ($z-int $z) ? 0 : $z;
+
+};
+
+# ---   *   ---   *   ---
 # exporter names
 
   *int_urdiv = *urdiv;
   *int_align = *align;
   *int_npow  = *npow;
+  *int_ispow = *ispow;
 
 # ---   *   ---   *   ---
 1; # ret

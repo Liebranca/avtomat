@@ -37,7 +37,7 @@ package Mach::x86_64;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#b
+  our $VERSION = v0.00.9;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -58,6 +58,8 @@ package Mach::x86_64;
     insens => 0,
 
   );
+
+  Readonly my $IS_IMM=>qr{^[\d\.\:]+f?$};
 
 # ---   *   ---   *   ---
 # cstruc
@@ -575,23 +577,95 @@ sub opz_insblk($self,$blk) {
 
 sub xlate_div($self,$dst,$branch,%O) {
 
-  my @args=$branch->leafless_values();
-     @args=($args[0] eq $dst)
-      ? @args[1..$#args]
-      : @args
-      ;
+$branch->prich();
+
+  my @args=();
+
+
+  # filter out immediates
+  my $imm=1;map {
+
+    if($ARG=~ $IS_IMM) {
+      $imm*=$ARG;
+
+    } else {
+
+      if($imm > 1) {
+        push @args,$imm;
+        $imm=1;
+
+      };
+
+      push @args,$ARG;
+
+    };
+
+  } $branch->leafless_values();
+
+
+  push @args,$imm if $imm > 1;
+
+
+  my $limit  = int(@args/2);
+     $limit += 1 * ($limit & 1);
+
+
+  my @out=map {
+
+    my $a=$args[0+$ARG*2];
+    my $b=$args[1+$ARG*2];
+
+    # shift missing arg
+    if(! defined $b) {
+      $b=$a;
+      $a=$dst;
+
+    };
+
+    # optimize division by constant
+    if($b=~ $IS_IMM) {
+
+      # div by pow2 is shift
+      if(my $shf=int_ispow($b,2)) {
+        "  shr $a,$shf";
+
+      # ^the imul trick ;>
+      } else {
+
+        $b=int_urdiv(1 << 32,$b);
+
+        ( "  mov  rdx,$b",
+          "  imul $a,rdx",
+          "  shr  $a,32"
+
+        );
+
+      };
+
+    # ^sadface
+    } else {
+
+
+      ( ($a ne 'rax')
+          ? "  mov rax,$a"
+          : ()
+          ,
+
+        "  xor rdx,rdx",
+        "  div $b",
+
+      );
+
+    };
+
+  } 0..$limit-1;
+
+say join "\n",@out;
+exit;
 
   return
 
-    ($dst ne 'rax')
-      ? "  mov rax,$dst"
-      : ()
-      ,
 
-    "  xor rdx,rdx",
-    "  div $args[0]",
-
-  ;
 
 };
 
@@ -628,8 +702,6 @@ sub xlate_mov($self,$dst,$branch,%O) {
 
 sub xlate_add($self,$dst,$branch,%O) {
 
-  state $is_imm=qr{^[\d\.\:]+f?$};
-
 
   my @out   = ();
   my @args  = ();
@@ -641,7 +713,7 @@ sub xlate_add($self,$dst,$branch,%O) {
   # filter out immediates
   my $imm=0;map {
 
-    if($ARG=~ $is_imm) {
+    if($ARG=~ $IS_IMM) {
       $imm+=$ARG;
 
     } else {

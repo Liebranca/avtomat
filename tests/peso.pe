@@ -37,7 +37,7 @@ proc crux;
   word  x $11;
   word  y $24;
 
-  cpy   x,(x+y)*2;
+  cpy   x,(x/(x/16));
 
 
 # ---   *   ---   *   ---
