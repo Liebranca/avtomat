@@ -463,6 +463,8 @@ sub xlate_sins($self,$dst,$branch) {
   $attrs{sign} //= 0;
   $attrs{real} //= 0;
 
+  $attrs{set} &=! $branch->{idex};
+
   # ^invoke
   my $fn=$tab->{$ins};
   return $self->$fn($dst,$branch,%attrs);
@@ -573,29 +575,31 @@ sub opz_insblk($self,$blk) {
 };
 
 # ---   *   ---   *   ---
-# placeholder: div
+# combine successive immediates
+# by multiplying
 
-sub xlate_div($self,$dst,$branch,%O) {
+sub imm_mul($self,$branch) {
 
-$branch->prich();
+  my @args = ();
+  my $imm  = 1;
 
-  my @args=();
+  map {
 
-
-  # filter out immediates
-  my $imm=1;map {
-
+    # combine immediates
     if($ARG=~ $IS_IMM) {
       $imm*=$ARG;
 
+    # ^arg is reg or mem
     } else {
 
+      # ^pending combo
       if($imm > 1) {
         push @args,$imm;
         $imm=1;
 
       };
 
+      # ^then current arg
       push @args,$ARG;
 
     };
@@ -603,38 +607,97 @@ $branch->prich();
   } $branch->leafless_values();
 
 
+  # cat pending
   push @args,$imm if $imm > 1;
 
+  # ^get number of iterations
+  my $limit=int_urdiv(int(@args),2);
 
-  my $limit  = int(@args/2);
-     $limit += 1 * ($limit & 1);
+
+  return ($limit,@args);
+
+};
+
+# ---   *   ---   *   ---
+# ^get [dst,src] pairs
+
+sub despair($self,$dst,$args,$i,%O) {
+
+  my @pro=();
+
+  # index with pair offset
+  my $a=$args->[0+$ARG*2];
+  my $b=$args->[1+$ARG*2];
+
+  # ^shift missing arg (implicit dst)
+  if(! defined $b) {
+    $b=$a;
+    $a=$dst;
+
+  };
+
+  # ^dst switcheroo for cpy
+  if($O{set}) {
+    @pro = ("  mov $dst,$b") if ! $i;
+    $a   = $dst;
+
+  };
 
 
-  my @out=map {
+  return ($a,$b,@pro);
 
-    my $a=$args[0+$ARG*2];
-    my $b=$args[1+$ARG*2];
+};
 
-    # shift missing arg
-    if(! defined $b) {
-      $b=$a;
-      $a=$dst;
+# ---   *   ---   *   ---
+# halfway optimized division
 
-    };
+sub xlate_div($self,$dst,$branch,%O) {
+
+
+  # get processed list of args
+  # plus number of iterations
+  my ($limit,@args)=$self->imm_mul($branch);
+
+  # ^walk [dst,src] pairs
+  return map {
+
+    my ($a,$b,@pro)=$self->despair(
+      $dst,\@args,$ARG,%O
+
+    );
+
+    my @ins=();
 
     # optimize division by constant
     if($b=~ $IS_IMM) {
 
       # div by pow2 is shift
       if(my $shf=int_ispow($b,2)) {
-        "  shr $a,$shf";
+        @ins=("  shr $a,$shf");
 
-      # ^the imul trick ;>
+      # NOTE:
+      #
+      #   Y=(2^32)/B   rounded up
+      #   (A*Y) >> 32  gives divide
+      #
+      #   this is the only formula I can
+      #   wrap my head around, but it doesn't
+      #   work for bigger numbers
+      #
+      #   gcc does a similar trick but I'm
+      #   not sure how they calculate the
+      #   constants, so I can't use it
+      #
+      #   in any case, i can make do with
+      #   16 bits so this is already overkill
+
+      # ^32-bit imul trick ;>
       } else {
 
         $b=int_urdiv(1 << 32,$b);
 
-        ( "  mov  rdx,$b",
+        @ins=(
+          "  mov  rdx,$b",
           "  imul $a,rdx",
           "  shr  $a,32"
 
@@ -646,7 +709,9 @@ $branch->prich();
     } else {
 
 
-      ( ($a ne 'rax')
+      @ins=(
+
+        ($a ne 'rax')
           ? "  mov rax,$a"
           : ()
           ,
@@ -658,32 +723,71 @@ $branch->prich();
 
     };
 
+
+    (@pro,@ins);
+
   } 0..$limit-1;
-
-say join "\n",@out;
-exit;
-
-  return
-
-
 
 };
 
+
+
 # ---   *   ---   *   ---
-# placeholder: mul
+# halfway optimized multiplication
 
 sub xlate_mul($self,$dst,$branch,%O) {
 
-  my @args=$branch->leafless_values();
-     @args=($args[0] eq $dst)
-      ? @args[1..$#args]
-      : @args
-      ;
+  # ^same as previous F
+  my ($limit,@args)=$self->imm_mul($branch);
 
-  return
-    "  imul $dst,$args[0]",
+  return map {
 
-  ;
+    my ($a,$b,@pro)=$self->despair(
+      $dst,\@args,$ARG,%O
+
+    );
+
+    my @ins=();
+
+
+    # optimize multiplication by constant
+    if($b=~ $IS_IMM) {
+
+      # mul by pow2 is shift
+      if(my $shf=int_ispow($b,2)) {
+        @ins=("  shl $a,$shf");
+
+      # ^attempt lea
+      } else {
+
+        $b-- if ! $O{set};
+        my @dupop=$self->xlate_add_dupop_sort(
+          $dst,[($a) x $b],%O
+
+        );
+
+        @ins=map {
+
+            "  lea $dst,["
+
+          . (join '+',@$ARG)
+          . ']'
+          ;
+
+        } @dupop;
+
+      };
+
+    # ^no optimization
+    } else {
+        @ins=("  imul $a,$b");
+
+    };
+
+
+    (@pro,@ins);
+
+  } 0..$limit-1;
 
 };
 
@@ -705,9 +809,6 @@ sub xlate_add($self,$dst,$branch,%O) {
 
   my @out   = ();
   my @args  = ();
-
-
-  $O{set} &=! $branch->{idex};
 
 
   # filter out immediates
