@@ -653,8 +653,8 @@ sub nit($class,%h) {
 # ---   *   ---   *   ---
 # parse2 regexes
 
-  if(!length $ref->{strip_re}) {
-    my $comchar="$ref->{com}";
+  if(! length $ref->{strip_re}) {
+    my $comchar=$ref->{com};
     $ref->{strip_re}=qr{
 
       (?: ^|\s*)
@@ -686,7 +686,7 @@ sub nit($class,%h) {
 
 # ---   *   ---   *   ---
 
-  if(!length $ref->{lcom}) {
+  if(! length $ref->{lcom}) {
     $ref->{lcom}=$ref->{com}.q{.*}."\n";
 
   };

@@ -17,6 +17,7 @@ package Lang::fasm;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Arstd::Re;
   use Arstd::String;
 
   use lib $ENV{'ARPATH'}.'/lib/hacks/';
@@ -37,9 +38,9 @@ package Lang::fasm;
 
   my $OPS=Lang::quick_op_prec(
 
-    '*'=>7,
-    '->'=>4,
-    '.'=>6,
+    '*'  => 7,
+    '->' => 4,
+    '.'  => 6,
 
   );
 
@@ -52,15 +53,16 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&hstoi;
 
 Lang::fasm->nit(
 
-  name=>'fasm',
+  name      => 'fasm',
+  ext       => '\.(asm|inc)$',
+  mag       => '^flat assembler file',
 
-  ext=>'\.(asm|inc)$',
-  mag=>'^flat assembler file',
-  com=>';',
+  com       => ';',
+  lcom      => re_eaf(re_lbeg(';',0),opscape=>0),
 
-  op_prec=>$OPS,
-  exp_bound=>"\n",
-  nums=>$NUMS,
+  op_prec   => $OPS,
+  exp_bound => "\n",
+  nums      => $NUMS,
 
 # ---   *   ---   *   ---
 
@@ -138,7 +140,7 @@ Lang::fasm->nit(
   builtins=>[qw(
 
     mov mod adc add sbb sub push pop imul
-    inc str lea
+    inc dec str lea
 
     ror rol
 
@@ -190,3 +192,6 @@ Lang::fasm->nit(
 # ---   *   ---   *   ---
 
 )};
+
+# ---   *   ---   *   ---
+1; # ret

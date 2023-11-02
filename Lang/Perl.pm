@@ -89,15 +89,15 @@ BEGIN {
 
 Lang::Perl->nit(
 
-  name=>'Perl',
-  ext=>'\.p[lm]$',
-  hed=>'^#!.*perl',
+  name  => 'Perl',
+  ext   => '\.p[lm]$',
+  hed   => '^#!.*perl',
 
-  mag=>'Perl script',
+  mag   => 'Perl script',
 
-  drfc=>'(::|->)',
+  drfc  => '(::|->)',
 
-  lcom=>re_eaf(re_lbeg('#',0),opscape=>0),
+  lcom  => re_eaf(re_lbeg('#',0),opscape=>0),
 
 # ---   *   ---   *   ---
 
