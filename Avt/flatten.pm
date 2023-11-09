@@ -25,18 +25,9 @@ package Avt::flatten;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
-
   use Style;
-  use Chk;
 
-  use Arstd::String;
-  use Arstd::Path;
-  use Arstd::Array;
-
-  use Shb7::Bk::gcc;
-  use Shb7::Build;
-
-  use Emit::Std;
+  use parent 'Shb7::Bk::front';
 
 # ---   *   ---   *   ---
 # info
@@ -45,6 +36,25 @@ package Avt::flatten;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
+# cstruc
+
+sub new($class,%O) {
+
+  return Shb7::Bk::front::new(
+
+    $class,
+
+    lang  => 'fasm',
+
+    bk    => 'flat',
+    entry => 'crux',
+    flat  => 1,
+
+    %O
+
+  );
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

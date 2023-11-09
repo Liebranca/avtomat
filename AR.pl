@@ -88,6 +88,7 @@ my $FILE_LIST=[
   '/sys/Shb7/Find.pm',
   '/sys/Shb7/Bfile.pm',
   '/sys/Shb7/Bk.pm',
+  '/sys/Shb7/Bk/flat.pm',
   '/sys/Shb7/Bk/gcc.pm',
   '/sys/Shb7/Bk/mam.pm',
   '/sys/Shb7/Build.pm',

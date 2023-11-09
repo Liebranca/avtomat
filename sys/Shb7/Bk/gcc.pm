@@ -103,7 +103,7 @@ package Shb7::Bk::gcc;
 
 sub fupdated($self,$bfile) {
 
-  my $do_build = !(-f $bfile->{obj});
+  my $do_build = ! -f $bfile->{obj};
   my @deps     = $self->fdeps($bfile);
 
   # no missing deps
@@ -123,10 +123,8 @@ sub fdeps($self,$bfile) {
 
   my @out=($bfile->{src});
 
-  if(!(-f $bfile->{dep})) {
-    goto TAIL
+  goto TAIL if ! -f $bfile->{dep};
 
-  };
 
   # read file
   my $body=orc($bfile->{dep});
@@ -139,12 +137,14 @@ sub fdeps($self,$bfile) {
   # make
   @out=$self->depstr_to_array($body);
 
+
 TAIL:
   return @out;
 
 };
 
 # ---   *   ---   *   ---
+# get variant of arch flag
 
 sub target($tgt) {
 
@@ -163,23 +163,29 @@ sub target($tgt) {
 };
 
 # ---   *   ---   *   ---
+# get variant of entry flag
+
+sub entry($name) {return "-Wl,--entry=$name"};
+
+# ---   *   ---   *   ---
 # C-style object file boiler
 
 sub fbuild($self,$bfile,$bld) {
 
   $WLog->substep(Shb7::shpath($bfile->{src}));
 
-  my $up=$NULLSTR;
-  if($bfile->{src}=~ $Lang::C::EXT_PP) {
-    $up='-lstdc++';
 
-  };
+  # conditionally use octopus
+  my $up=($bfile->{src}=~ $Lang::C::EXT_PP)
+    ? '-lstdc++'
+    : $NULLSTR
+    ;
 
-  if(-f $bfile->{obj}) {
-    unlink $bfile->{obj};
+  # clear existing
+  $bfile->prebuild();
 
-  };
 
+  # cstruc cmd
   my @call=(
 
     q[gcc],
@@ -202,9 +208,12 @@ sub fbuild($self,$bfile,$bld) {
 
   );
 
+
+  # ^cleanup and invoke
   array_filter(\@call);
   system {$call[0]} @call;
 
+  # ^give on success
   return int(defined -f $bfile->{obj});
 
 };

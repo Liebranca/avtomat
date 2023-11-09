@@ -45,6 +45,9 @@ package Arstd::Path;
     expand_path
     force_path
 
+    extof
+    extwap
+
     find_subpkg
     fname_to_pkg
 
@@ -53,7 +56,7 @@ package Arstd::Path;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -153,6 +156,30 @@ sub expand_path($src,$dst) {
 sub force_path($path) {
   ! -f $path or croak "<$path> is a file\n";
   `mkdir -p $path` if ! -d $path;
+
+};
+
+# ---   *   ---   *   ---
+# get file extension
+
+sub extof($name) {
+
+  state $re=qr{.+\.(.+)$};
+  $name=~ s[$re][$1]sxmg;
+
+  return $name;
+
+};
+
+# ---   *   ---   *   ---
+# ^swap extensions
+
+sub extwap($fpath,$to) {
+
+  state $re=qr{[^\.]+$};
+  $fpath=~ s[$re][$to]sxmg;
+
+  return $fpath;
 
 };
 

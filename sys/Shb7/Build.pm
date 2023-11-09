@@ -39,6 +39,7 @@ package Shb7::Build;
   use Shb7::Find;
 
   use Shb7::Bk::gcc;
+  use Shb7::Bk::flat;
 
 # ---   *   ---   *   ---
 # info
@@ -79,12 +80,13 @@ package Shb7::Build;
   };
 
 # ---   *   ---   *   ---
-# constructor
+# cstruc
 
-sub nit($class,%O) {
+sub new($class,%O) {
 
   # defaults
   $O{name}   //= 'out';
+  $O{entry}  //= '_start';
 
   $O{files}  //= [];
   $O{incl}   //= [];
@@ -95,8 +97,8 @@ sub nit($class,%O) {
   $O{debug}  //= 0;
   $O{tgt}    //= $Shb7::Bk::TARGET->{x64};
 
-# ---   *   ---   *   ---
 
+  # condtionally add extra flags
   my $flags=[];
 
   unshift @$flags,q[-shared]
@@ -105,12 +107,13 @@ sub nit($class,%O) {
   unshift @$flags,q[-g]
   if $O{debug};
 
-# ---   *   ---   *   ---
 
+  # make ice
   my $self=bless {
 
     name  => $O{name},
     files => $O{files},
+    entry => $O{entry},
 
     incl  => $O{incl},
     libs  => $O{libs},
@@ -121,8 +124,10 @@ sub nit($class,%O) {
 
   },$class;
 
+  # ^build meta
   $self->get_module_deps();
   $self->get_module_paths();
+
 
   return $self;
 
@@ -308,6 +313,7 @@ sub link_hflat($self) {
     @{$Shb7::Bk::gcc::FLATLFLG},
     @{$self->{flags}},
 
+    Shb7::Bk::gcc::entry($self->{entry}),
     Shb7::Bk::gcc::target($self->{tgt}),
 
     @{$self->{incl}},
@@ -331,10 +337,10 @@ sub link_flat($self) {
     q[ld.bfd],
 
     qw(--relax --omagic -d),
-    qw(-e _start),
-
-    qw(-m elf_x86_64),
     qw(--gc-sections),
+
+    Shb7::Bk::flat::entry($self->{entry}),
+    Shb7::Bk::flat::target($self->{tgt}),
 
     q[-o],$self->{name},
 
@@ -353,7 +359,7 @@ sub olink($self) {
   my @call=();
 
   # using gcc
-  if(!$self->{flat}) {
+  if(! $self->{flat}) {
     @call=$self->link_common();
 
   # gcc, but fine-tuned

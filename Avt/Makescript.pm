@@ -164,9 +164,9 @@ sub nit($class) {
     mkwat => $NULLSTR,
 
     # build file containers
-    fasm  => Shb7::Bk->nit(),
-    gcc   => Shb7::Bk::gcc->nit(),
-    mam   => Shb7::Bk::mam->nit(),
+    fasm  => Shb7::Bk->new(),
+    gcc   => Shb7::Bk::gcc->new(),
+    mam   => Shb7::Bk::mam->new(),
 
     # io paths
     root  => $NULLSTR,
@@ -211,7 +211,7 @@ sub nit_build($class,$self,$cli) {
   Shb7::set_module($self->{fswat});
   $self->abspaths();
 
-  $self->{bld}=Shb7::Build->nit(
+  $self->{bld}=Shb7::Build->new(
 
     files  => [],
     name   => $self->{main},
@@ -449,7 +449,7 @@ sub side_builds($self) {
 
     my ($outfile,$srcfile,@flags)=@$ref;
 
-    my $bld=Shb7::Build->nit(
+    my $bld=Shb7::Build->new(
 
       files  => [],
       name   => $bindir.$outfile,

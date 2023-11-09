@@ -54,6 +54,7 @@ sub new($class,%O) {
   $O{entry}  //= '_start';
   $O{bk}     //= 'flat';
   $O{lang}   //= 'fasm';
+  $O{flat}   //= 1;
 
   $O{files}  //= [];
   $O{gens}   //= [];
@@ -92,11 +93,13 @@ sub new($class,%O) {
   my $bkn=q[Shb7::Bk::].$O{bk};
   cload($bkn);
 
-  my $bk  = $bkn->nit();
-  my $bld = Shb7::Build->nit(
+  my $bk  = $bkn->new();
+  my $bld = Shb7::Build->new(
 
     name  => $O{name},
     debug => $O{debug},
+    flat  => $O{flat},
+    entry => $O{entry},
 
     %lists,
 

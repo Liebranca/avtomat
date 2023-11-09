@@ -23,23 +23,24 @@ package main;
   use Cwd qw(abs_path);
   use English qw(-no_match_vars);
   use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use lib $ENV{'ARPATH'}.'/lib/';
 
   use Style;
+  use Arstd::Path;
+  use Arstd::Array;
   use Arstd::WLog;
+  use Arstd::PM;
 
   use Cli;
-  use Shb7;
-
-  use Shb7::Bk::gcc;
-  use Shb7::Build;
-
   use Avt::CRun;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v1.00.2;
+  our $VERSION = v1.00.3;
   our $AUTHOR  = 'IBN-3DILA';
+
+  $WLog->mprich('AR','running olink');
 
 # ---   *   ---   *   ---
 # define arguments for commandline
@@ -73,26 +74,83 @@ $m->{out}=($m->{out} eq $NULL)
   ;
 
 # ---   *   ---   *   ---
-# cstruc builder ice
+# separate files by extension
 
-my $crun=Avt::CRun->new(
+my $by_ext={};
 
-  name  => $m->{out},
+map {
 
-  libs  => $m->{libs},
-  incl  => $m->{incl},
+  my $ext=lc extof($ARG);
+  $by_ext->{$ext} //= [];
 
-  debug => $m->{debug} ne $NULL,
-  files => \@files,
+  push @{$by_ext->{$ext}},$ARG;
 
-);
+} @files;
 
 # ---   *   ---   *   ---
-# compile files and link them
+# ^roll files together accto
+# required frontend
 
-$WLog->mprich('AR','running olink');
-$crun->compile();
-$crun->link();
+my $fend={
+  'Avt::CRun'    => [qw(c cpp)],
+  'Avt::flatten' => [qw(s asm)],
+
+};
+
+my $by_fend={};
+
+map {
+
+  # ^map [files by ext]
+  # ^to  [files by frontend]
+  my $key=$ARG;
+  my $ext=$fend->{$key};
+
+  $by_fend->{$key}=[map {
+    @{$by_ext->{$ARG}}
+    if exists $by_ext->{$ARG}
+
+  } @$ext];
+
+  array_filter($by_fend->{$key});
+
+} keys %$fend;
+
+# ---   *   ---   *   ---
+# ^invoke frontend
+
+map {
+
+  # include builder class
+  my $class = $ARG;
+  my $flist = $by_fend->{$class};
+
+  cload($class);
+
+  # ^cstruc builder ice
+  my $exe = $class->new(
+
+    name  => $m->{out},
+
+    libs  => $m->{libs},
+    incl  => $m->{incl},
+
+    debug => $m->{debug} ne $NULL,
+    files => $flist,
+
+  );
+
+
+  # ^run
+  $exe->compile();
+  $exe->link();
+
+
+# ^skip if no files avail
+} grep {
+  @{$by_fend->{$ARG}}
+
+} keys %$by_fend;
 
 # ---   *   ---   *   ---
 1; # ret

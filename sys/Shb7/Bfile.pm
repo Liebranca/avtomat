@@ -29,6 +29,7 @@ package Shb7::Bfile;
   use Style;
 
   use Arstd::Array;
+  use Arstd::Path;
   use Arstd::IO;
 
   use Shb7;
@@ -56,7 +57,7 @@ package Shb7::Bfile;
 
   Readonly our $LDOK_RE=>qr{
 
-    Shb7\:\:Bk\:\:(?: gcc|fasm)
+    Shb7\:\:Bk\:\:(?: gcc|flat)
 
   }x;
 
@@ -94,6 +95,11 @@ sub nit($class,$fpath,$bk,%O) {
 
   },$class;
 
+
+  my $trash=dirof($self->{obj});
+  `mkdir -p $trash` if ! -d $trash;
+
+
   return $self;
 
 };
@@ -129,7 +135,7 @@ sub update($self,$bld) {
 
 sub buildchk($self,$do_build,$deps) {
 
-  if(!$$do_build) {
+  if(! $$do_build) {
     while(@$deps) {
 
       my $dep=shift @$deps;
@@ -156,7 +162,7 @@ sub depchk($self,$deps) {
 
   for my $dep(@$deps) {
 
-    if($dep && !(-f $dep)) {
+    if($dep &&! -f $dep) {
 
       errout(
 
@@ -177,6 +183,14 @@ sub depchk($self,$deps) {
   };
 
 };
+
+# ---   *   ---   *   ---
+# pre-build step
+
+sub prebuild($self) {
+  unlink $self->{obj} if -f $self->{obj};
+
+}
 
 # ---   *   ---   *   ---
 1; # ret

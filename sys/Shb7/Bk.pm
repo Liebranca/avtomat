@@ -36,7 +36,7 @@ package Shb7::Bk;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;
+  our $VERSION = v0.00.3;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -51,7 +51,7 @@ package Shb7::Bk;
 # ---   *   ---   *   ---
 # constructor
 
-sub nit($class) {
+sub new($class) {
 
   my $self=bless {
 
@@ -123,7 +123,12 @@ sub fbuild($self,$bfile,$bld) {
 };
 
 sub fupdated($self,$bfile) {
-  return 0;
+  return 1;
+
+};
+
+sub fdeps($self,$bfile) {
+  return ();
 
 };
 
@@ -131,6 +136,7 @@ sub fupdated($self,$bfile) {
 # shorthands
 
 sub get_updated($self) {
+
   return grep {
     $self->fupdated($ARG);
 

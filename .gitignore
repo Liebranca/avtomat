@@ -5,3 +5,5 @@ ex_sygen
 nytprof*
 .errlog
 *.save
+
+tests/scratch.pl

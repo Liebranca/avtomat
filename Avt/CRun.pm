@@ -55,6 +55,7 @@ sub new($class,%O) {
 
     bk    => 'gcc',
     entry => 'main',
+    flat  => 0,
 
     %O
 
