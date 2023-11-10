@@ -55,6 +55,7 @@ sub new($class,%O) {
   $O{bk}     //= 'flat';
   $O{lang}   //= 'fasm';
   $O{flat}   //= 1;
+  $O{pproc}  //= undef;
 
   $O{files}  //= [];
   $O{gens}   //= [];
@@ -93,7 +94,7 @@ sub new($class,%O) {
   my $bkn=q[Shb7::Bk::].$O{bk};
   cload($bkn);
 
-  my $bk  = $bkn->new();
+  my $bk  = $bkn->new(pproc=>$O{pproc});
   my $bld = Shb7::Build->new(
 
     name  => $O{name},

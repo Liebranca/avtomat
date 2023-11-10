@@ -40,7 +40,7 @@ package Avt::flatten;
 
 sub new($class,%O) {
 
-  return Shb7::Bk::front::new(
+  my $self=Shb7::Bk::front::new(
 
     $class,
 
@@ -49,6 +49,8 @@ sub new($class,%O) {
     bk    => 'flat',
     entry => 'crux',
     flat  => 1,
+
+    pproc => 'Avt::flatten::pproc',
 
     %O
 
@@ -59,7 +61,7 @@ sub new($class,%O) {
 # ---   *   ---   *   ---
 # ^fasm preprocessor
 
-package Avt::flatten::preproc;
+package Avt::flatten::pproc;
 
   use v5.36.0;
   use strict;
@@ -193,17 +195,27 @@ package Avt::flatten::preproc;
     $PROC_BODY
 
     (?: $WS*)
-    (?: ret|exit \s*[^\s]*)?
+    (?: ret|exit [^\n]*\n)?
 
   }x;
 
 
 
-  Readonly my $LCOM => re_eaf(';');
+  Readonly my $LCOM => qr{
+
+    ;
+
+    (?: .*)
+    (?: \n|$)
+
+  }x;
+
   Readonly my $SEG  => qr{(?:
 
     (?: (?:ROM|RAM|EXE) SEG)
-  | (?: (?:section|segment) )
+  | (?: (?:section|segment))
+
+  | (?: constr \s+ (?: ROM|RAM))
 
   ) $NTERM}x;
 
@@ -230,20 +242,19 @@ package Avt::flatten::preproc;
 
   }x;
 
-
-  Readonly my $PREIMP => q[
-
-    MAM.xmode='__MODE__'
-    MAM.head __ENTRY__
-
-  ];
-
   Readonly my $GETIMP => q[
 
 if ~ defined loaded?Imp
   include '%ARPATH%/forge/Imp.inc'
 
 end if
+
+];
+
+  Readonly my $PREIMP => q[
+
+MAM.xmode='__MODE__'
+MAM.head __ENTRY__
 
 ];
 
@@ -262,7 +273,7 @@ sub get_nonbin($fpath) {
 
   my $body   = orc($fpath);
   my $macros = strip_macros(\$body);
-  my $extrn  = get_exported($fpath,'extrn');
+  my $extrn  = get_extrn($fpath);
 
   strip_codestr(\$body);
 
@@ -292,9 +303,9 @@ sub strip_macros($sref) {
 # ---   *   ---   *   ---
 # get exported symbols
 
-sub get_exported($fpath,$type) {
+sub get_extrn($fpath) {
 
-  state $re = qr{^$type};
+  state $re = qr{^extrn};
 
   # get symbol file
   my @out=();
@@ -308,7 +319,7 @@ sub get_exported($fpath,$type) {
      @out  = grep {$ARG=~ $re} split "\n",$body;
 
 TAIL:
-  return join "\n",@ar;
+  return join "\n",@out;
 
 };
 
@@ -316,12 +327,22 @@ TAIL:
 # ^remove private data
 
 sub strip_codestr($sref) {
-  $$sref=~ s[$LCOM][]sxmg;
+
   $$sref=~ s[$SEG][]sxmg;
   $$sref=~ s[$REG][]sxmg;
   $$sref=~ s[$REGICE][]sxmg;
   $$sref=~ s[$PROC][]sxmg;
-  $$sref=~ s[^\s*$TERM][]sxmg;
+
+  strip_meta($sref);
+
+};
+
+# ---   *   ---   *   ---
+# ^remove metadata
+
+sub strip_meta($sref) {
+  $$sref=~ s[$LCOM][]xg;
+  $$sref=~ s[^\s*$TERM$][]sxmg;
 
 };
 
@@ -424,7 +445,12 @@ sub get_deps($fpath) {
 # ---   *   ---   *   ---
 # make pre-build trashfile
 
-sub prebuild($fpath,%O) {
+sub prebuild($class,$bfile,%O) {
+
+  # defaults
+  $O{mode}  //= 'obj';
+  $O{entry} //= $NULLSTR;
+
 
   # get build mode
   my $pre=$PREIMP;
@@ -432,12 +458,16 @@ sub prebuild($fpath,%O) {
   $pre=~ s[__MODE__][$O{mode}];
   $pre=~ s[__ENTRY__][$O{entry}];
 
-  # get symbols
-  my $public=get_exported($fpath,'public');
+
+  # get src
+  my $fpath = $bfile->{src};
+  my $body  = orc($fpath);
+
+  strip_meta(\$body);
+
 
   # ^cat chunks
-  my $body=orc($fpath);
-     $body="$pre$GETIMP$public$body$FOOT";
+  my $out="$GETIMP$pre$body$FOOT";
 
 
   # emit
@@ -446,14 +476,13 @@ sub prebuild($fpath,%O) {
     $fpath,
 
     ext       => '.asmx3',
-    use_trash => 0,
+    use_trash => 1,
 
   );
 
-  say $out;
-  say $dst;
-
-#  owc($dst,$out);
+  $bfile->{_pproc_src} = $fpath;
+  $bfile->{src}        = $dst;
+  owc($dst,$out);
 
   return $dst;
 
@@ -462,11 +491,16 @@ sub prebuild($fpath,%O) {
 # ---   *   ---   *   ---
 # ^make post-build header
 
-sub postbuild($fpath) {
+sub postbuild($class,$bfile) {
 
   state $get_author=qr{AUTHOR  \s+ ($NTERM)}x;
 
   my $out=$NULLSTR;
+  $bfile->{src}=$bfile->{_pproc_src};
+
+  # get src
+  my $fpath = $bfile->{src};
+  my $body  = orc($fpath);
 
   # scrap info
      $body     =~ $get_author;
@@ -474,7 +508,7 @@ sub postbuild($fpath) {
      $author //=  $Emit::ON_NO_AUTHOR;
 
   # ^make src
-  $out.=Emit::Std::note($author,';');
+  $out.=Emit::Std::note($author,';')."\n";
   $out.=get_nonbin($fpath);
 
 
@@ -488,11 +522,7 @@ sub postbuild($fpath) {
 
   );
 
-  say $out;
-  say $dst;
-
-#  owc($dst,$out);
-
+  owc($dst,$out);
   return $dst;
 
 };

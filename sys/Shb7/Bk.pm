@@ -51,11 +51,16 @@ package Shb7::Bk;
 # ---   *   ---   *   ---
 # constructor
 
-sub new($class) {
+sub new($class,%O) {
 
+  # defaults
+  $O{pproc} //= undef;
+
+  # make ice
   my $self=bless {
 
     files=>[],
+    pproc=>$O{pproc},
 
   },$class;
 

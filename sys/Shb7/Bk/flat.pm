@@ -115,7 +115,14 @@ MEM_RECALC:
 
 
   # ^give on success
-  return int(defined -f $bfile->{obj});
+  if(-f $bfile->{obj}) {
+    $bfile->postbuild();
+    return 1;
+
+  } else {
+    return 0;
+
+  };
 
 };
 

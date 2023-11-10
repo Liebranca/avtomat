@@ -188,9 +188,28 @@ sub depchk($self,$deps) {
 # pre-build step
 
 sub prebuild($self) {
+
   unlink $self->{obj} if -f $self->{obj};
 
-}
+
+  my $pproc=$self->{bk}->{pproc};
+
+  $pproc->prebuild($self)
+  if defined $pproc;
+
+};
+
+# ---   *   ---   *   ---
+# ^post-build
+
+sub postbuild($self) {
+
+  my $pproc=$self->{bk}->{pproc};
+
+  $pproc->postbuild($self)
+  if defined $pproc;
+
+};
 
 # ---   *   ---   *   ---
 1; # ret
