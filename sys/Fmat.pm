@@ -147,7 +147,7 @@ sub deepdump($h,$blessed=undef) {
 
     map {
 
-      "$ARG => "
+      "'$ARG' => "
     . polydump(\$h->{$ARG},$blessed)
 
     } keys %$h

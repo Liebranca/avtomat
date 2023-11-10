@@ -527,13 +527,15 @@ sub delim($beg,$end,%O) {
   $beg="\Q$beg";
   $end="\Q$end";
 
+  # make expr for negative match
+  my $ex="(?:(?!$beg|$end)(?:.|\\s))+";
+
   # compose pattern
   my $out=
 
     $beg
 
-  . '(?:' . "[^$beg$end]+"
-  . '|(?R))*'
+  . "(?:$ex|(?R))*"
 
   . $end
   ;

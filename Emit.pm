@@ -42,6 +42,7 @@ package Emit;
 # ---   *   ---   *   ---
 # ROM
 
+  Readonly our $ON_NO_TITLE   => 'SCRATCH';
   Readonly our $ON_NO_VERSION => 'v0.00.1b';
   Readonly our $ON_NO_AUTHOR  => 'ANON';
 

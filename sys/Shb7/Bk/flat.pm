@@ -111,6 +111,8 @@ MEM_RECALC:
   my $out=extwap($bfile->{src},'o');
   rename $out,$bfile->{obj} if -f $out;
 
+  say {*STDERR} $mess if length $mess;
+
 
   # ^give on success
   return int(defined -f $bfile->{obj});
