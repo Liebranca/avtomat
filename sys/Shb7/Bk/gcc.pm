@@ -99,20 +99,10 @@ package Shb7::Bk::gcc;
   ];
 
 # ---   *   ---   *   ---
-# rebuild check
+# rebuild chk
 
 sub fupdated($self,$bfile) {
-
-  my $do_build = ! -f $bfile->{obj};
-  my @deps     = $self->fdeps($bfile);
-
-  # no missing deps
-  $bfile->depchk(\@deps);
-
-  # make sure we need to update
-  $bfile->buildchk(\$do_build,\@deps);
-
-  return $do_build;
+  $self->chkfdeps($bfile);
 
 };
 

@@ -141,6 +141,24 @@ sub fdeps($self,$bfile) {
 };
 
 # ---   *   ---   *   ---
+# common fupdated proto
+
+sub chkfdeps($self,$bfile) {
+
+  my $do_build = ! -f $bfile->{obj};
+  my @deps     = $self->fdeps($bfile);
+
+  # no missing deps
+  $bfile->depchk(\@deps);
+
+  # make sure we need to update
+  $bfile->buildchk(\$do_build,\@deps);
+
+  return $do_build;
+
+};
+
+# ---   *   ---   *   ---
 # shorthands
 
 sub get_updated($self) {

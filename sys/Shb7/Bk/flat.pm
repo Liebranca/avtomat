@@ -38,8 +38,30 @@ package Shb7::Bk::flat;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# add entry to build files
+
+sub push_src($self,$fpath) {
+
+  push @{$self->{files}},
+
+  Shb7::Bfile->nit(
+
+    $fpath,
+    $self,
+
+    obj_ext=>q[.o],
+    dep_ext=>q[.asmd],
+    asm_ext=>undef,
+
+  );
+
+  return $self->{files}->[-1];
+
+};
 
 # ---   *   ---   *   ---
 # get variant of arch flag
@@ -56,6 +78,33 @@ sub target($tgt) {
 
   };
 
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# rebuild chk
+
+sub fupdated($self,$bfile) {
+  $self->chkfdeps($bfile);
+
+};
+
+# ---   *   ---   *   ---
+# get file dependencies
+
+sub fdeps($self,$bfile) {
+
+  my @out=($bfile->{src});
+
+  goto TAIL if ! -f $bfile->{dep};
+
+  # read file
+  my $body=orc($bfile->{dep});
+  @out=split $NEWLINE_RE,$body;
+
+
+TAIL:
   return @out;
 
 };
