@@ -189,6 +189,8 @@ sub short_or_long($self,$arg) {
 
   };
 
+  # TODO: validate this input
+
   $self->{$id}=$value;
   return;
 

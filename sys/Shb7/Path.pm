@@ -428,17 +428,17 @@ sub rel($path) {
 };
 
 # ---   *   ---   *   ---
-# in: two filepaths to compare
-# Older Than; return a is older than b
+# "older than"
+# return a is older than b
 
 sub ot($a,$b) {
 
   return
 
-     (defined $a && -f $a)
-  && (defined $b && -f $b)
+      (defined $a && -f $a)
+  &&  (defined $b && -f $b)
 
-  && ! ( (-M $a) < (-M $b) )
+  &&! ( (-M $a) < (-M $b) )
   ;
 
 };
@@ -448,7 +448,7 @@ sub ot($a,$b) {
 # file not found or file needs update
 
 sub moo($a,$b) {
-  return ! (-e $a) || ot($a,$b);
+  return (-e $a) || ot($a,$b);
 
 };
 

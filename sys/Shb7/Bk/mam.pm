@@ -77,6 +77,7 @@ sub fupdated($self,$bfile) {
 
   state $is_mam=qr{MAM\.pm$};
 
+
   my $do_build=
      !(-f $bfile->{obj})
   || Shb7::ot($bfile->{obj},$bfile->{src})

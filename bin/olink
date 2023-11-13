@@ -30,6 +30,7 @@ package main;
   use Arstd::Array;
   use Arstd::WLog;
   use Arstd::PM;
+  use Arstd::IO;
 
   use Cli;
   use Avt::CRun;
@@ -37,10 +38,10 @@ package main;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v1.00.3;
+  our $VERSION = v1.00.4;
   our $AUTHOR  = 'IBN-3DILA';
 
-  $WLog->mprich('AR','running olink');
+  $WLog->mprich('olink','reading files');
 
 # ---   *   ---   *   ---
 # define arguments for commandline
@@ -69,7 +70,7 @@ for my $v($m->{incl},$m->{libs}) {
 };
 
 $m->{out}=($m->{out} eq $NULL)
-  ? undef
+  ? dirof($files[0]) .'/'. nxbasef($files[0])
   : $m->{out}
   ;
 
@@ -119,6 +120,8 @@ map {
 # ---   *   ---   *   ---
 # ^invoke frontend
 
+my @bld=();
+
 map {
 
   # include builder class
@@ -141,16 +144,49 @@ map {
   );
 
 
-  # ^run
+  # ^make objects and save
   $exe->compile();
-  $exe->link();
+  push @bld,$exe;
 
 
 # ^skip if no files avail
 } grep {
   @{$by_fend->{$ARG}}
 
-} keys %$by_fend;
+} qw(Avt::flatten Avt::CRun);
+
+# ---   *   ---   *   ---
+# ^something went wrong!
+
+if(! @bld) {
+
+  map {
+
+    $WLog->step(
+      "unrecognized FF *.$ARG",
+
+    );
+
+  } map {extof($ARG)} @files;
+
+
+  $WLog->err('aborted',from=>'olink');
+  exit -1;
+
+};
+
+# ---   *   ---   *   ---
+# ^select linking method
+
+@{$bld[-1]->{files}}=map {
+  @{$ARG->{files}}
+
+} @bld[0..$#bld];
+
+$bld[-1]->link();
+
+
+$WLog->step('done');
 
 # ---   *   ---   *   ---
 1; # ret

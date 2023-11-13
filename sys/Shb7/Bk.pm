@@ -64,6 +64,9 @@ sub new($class,%O) {
 
   },$class;
 
+
+  return $self;
+
 };
 
 # ---   *   ---   *   ---

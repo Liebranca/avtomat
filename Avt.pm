@@ -712,7 +712,6 @@ $FILE.=<<'EOF'
   use Arstd::WLog;
 
   use Shb7;
-  use Cli;
 
   use lib $ENV{'ARPATH'}.'/lib/';
   use Avt::Makescript;
@@ -756,19 +755,6 @@ $FILE.=<<'EOF'
 
 # ---   *   ---   *   ---
 
-my $cli=Cli->nit(
-
-  { id=>'debug',short=>'-d',
-    long=>'--debug',argc=>0
-
-  },
-
-);
-
-my @args=$cli->take(@ARGV);
-
-# ---   *   ---   *   ---
-
 my $root=parof(__FILE__);
 my $M=retrieve(
 
@@ -778,7 +764,7 @@ my $M=retrieve(
 );
 
 chdir Shb7::set_root($root);
-$M=Avt::Makescript->nit_build($M,$cli);
+$M=Avt::Makescript->nit_build($M,@ARGV);
 
 # ---   *   ---   *   ---
 

@@ -34,6 +34,7 @@ package Shb7::Build;
 
   use Arstd::Array;
   use Arstd::IO;
+  use Arstd::WLog;
 
   use Shb7::Path;
   use Shb7::Find;
@@ -44,7 +45,7 @@ package Shb7::Build;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -278,7 +279,7 @@ sub list_dep($self) {
 # ---   *   ---   *   ---
 # standard call to link object files
 
-sub link_common($self) {
+sub link_common($self,@obj) {
 
   return (
 
@@ -291,7 +292,7 @@ sub link_common($self) {
     Shb7::Bk::gcc::target($self->{tgt}),
 
     @{$self->{incl}},
-    $self->list_obj(),
+    @obj,
 
     q[-o],$self->{name},
     @{$self->{libs}},
@@ -304,7 +305,7 @@ sub link_common($self) {
 # ^similar, but fine-tuned for nostdlib
 # what I *usually* use with assembler *.o files
 
-sub link_hflat($self) {
+sub link_hflat($self,@obj) {
 
   return (
 
@@ -317,7 +318,7 @@ sub link_hflat($self) {
     Shb7::Bk::gcc::target($self->{tgt}),
 
     @{$self->{incl}},
-    $self->list_obj(),
+    @obj,
 
     q[-o],$self->{name},
     @{$self->{libs}},
@@ -330,7 +331,7 @@ sub link_hflat($self) {
 # extreme ld-only setup
 # meant for teensy assembler binaries
 
-sub link_flat($self) {
+sub link_flat($self,@obj) {
 
   return (
 
@@ -344,7 +345,7 @@ sub link_flat($self) {
 
     q[-o],$self->{name},
 
-    $self->list_obj(),
+    @obj,
     @{$self->{libs}},
 
   );
@@ -356,22 +357,43 @@ sub link_flat($self) {
 
 sub olink($self) {
 
-  my @call=();
+  # get object file names
+  my @obj  = $self->list_obj();
+  my @miss = grep { ! -f $ARG} @obj;
 
-  # using gcc
-  if(! $self->{flat}) {
-    @call=$self->link_common();
 
-  # gcc, but fine-tuned
-  } elsif($self->{flat} eq '1/2') {
-    @call=$self->link_hflat();
+  # ^chk all exist
+  if(@miss) {
 
-  # using ld ;>
-  } else {
-    @call=$self->link_flat();
+    map {
+      $WLog->step("missing file $ARG");
+
+    } @miss;
+
+    exit -1;
 
   };
 
+
+  # select cmd generator
+  my @call=();
+
+  # ^using gcc
+  if(! $self->{flat}) {
+    @call=$self->link_common(@obj);
+
+  # ^gcc, but fine-tuned
+  } elsif($self->{flat} eq '1/2') {
+    @call=$self->link_hflat(@obj);
+
+  # ^using ld ;>
+  } else {
+    @call=$self->link_flat(@obj);
+
+  };
+
+
+  # ^issue cmd
   array_filter(\@call);
   system {$call[0]} @call;
 

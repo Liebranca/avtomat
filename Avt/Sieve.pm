@@ -208,72 +208,81 @@ sub arr_dual_out($self,$dst,$src) {
 };
 
 # ---   *   ---   *   ---
-# c/cpp to GCC
+# filter by extension
+# single out
 
-sub c_files($self,$dst) {
+sub by_ext_s($self,$tab) {
 
-  state $c_ext=qr{\.(?:cpp|c)$}x;
+  map {
 
-  my @matches=grep m/$c_ext/,
-    @{$self->{files}};
+    my $ext=$ARG;
+    my $dst=$tab->{$ext};
 
-  while(@matches) {
+    map {
+      $dst->push_src("$self->{dir}/$ARG");
 
-    my $match=shift @matches;
-    $dst->push_src("$self->{dir}/$match");
+    } grep m/$ext/,@{$self->{files}};
+
+
+  } keys %$tab;
+
+}
+
+# ---   *   ---   *   ---
+# ^s/asm to fasm
+# ^c/cpp to gcc
+
+sub s_files($self) {
+
+  state $tab={
+    qr{\.(?:s|asm)$}x => $self->{M}->{flat},
+    qr{\.(?:cpp|c)$}x => $self->{M}->{gcc},
 
   };
+
+  $self->by_ext_s($tab);
 
 };
 
 # ---   *   ---   *   ---
-# *.pm to MAM
+# filter by extension
+# dual out
 
-sub pm_files($self,$dst) {
-
-  state $perl_ext=qr{\.pm$};
-
-  my @matches=grep m/$perl_ext/,
-    @{$self->{files}};
+sub by_ext_d($self,$tab) {
 
   my $name=$self->{name};
 
-  while(@matches) {
+  map {
 
-    my $match=shift @matches;
+    my $ext=$ARG;
+    my $dst=$tab->{$ext};
 
-    $dst->push_src(
-      "$self->{dir}/$match",
-      "$self->{p_out}/$match"
+    map {
 
-    );
+      $dst->push_src(
+        "$self->{dir}/$ARG",
+        "$self->{p_out}/$ARG"
 
-  };
+      );
+
+    } grep m/$ext/,@{$self->{files}};
+
+  } keys %$tab;
 
 };
 
 # ---   *   ---   *   ---
 # walrus van rossum
 
-sub py_files($self,$dst) {
+sub d_files($self) {
 
-  state $python_ext=qr{\.py$};
-  my $name=$self->{name};
-
-  my @matches=grep m/$python_ext/,
-    @{$self->{files}};
-
-  while(@matches) {
-
-    my $match=shift @matches;
-
-    push @$dst,(
-      "$self->{dir}/$match",
-      "$self->{p_out}/$match"
-
-    );
+  state $tab={
+    qr{\.pm$} => $self->{M}->{mam},
+    qr{\.py$} => $self->{M}->{fcpy},
 
   };
+
+  $self->by_ext_d($tab);
 
 };
 
@@ -354,10 +363,9 @@ sub agroup_files($self) {
 
   );
 
-  # selfex
-  $self->c_files($self->{M}->{gcc});
-  $self->pm_files($self->{M}->{mam});
-  $self->py_files($self->{M}->{fcpy});
+  # push source to builders
+  $self->s_files();
+  $self->d_files();
 
 };
 

@@ -71,7 +71,7 @@ sub entry($name) {return ('-e',$name)};
 sub fbuild($self,$bfile,$bld) {
 
   state $oomre=qr{error: out of memory\.};
-  state $messf='./.bkflat.tmp';
+  state $merrf='./.bkflat.tmp';
 
 
   $WLog->substep(Shb7::shpath($bfile->{src}));
@@ -99,19 +99,19 @@ MEM_RECALC:
   $mem='-m '.(2 ** $size++);
 
   # invoke cmd and save error to tmp file
-  `fasm $mem $bfile->{src} 2> $messf`;
-  my $mess=orc($messf);
+  `fasm $mem $bfile->{src} &> $merrf`;
+  my $merr=orc($merrf);
 
   # ^catch "out of memory" errme
   goto MEM_RECALC
-  if ($size < 18) && ($mess=~ $oomre);
+  if ($size < 18) && ($merr=~ $oomre);
 
 
   # ^reloc out if exists
   my $out=extwap($bfile->{src},'o');
   rename $out,$bfile->{obj} if -f $out;
 
-  say {*STDERR} $mess if length $mess;
+  say {*STDERR} $merr if length $merr;
 
 
   # ^give on success

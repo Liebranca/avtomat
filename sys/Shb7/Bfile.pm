@@ -34,6 +34,8 @@ package Shb7::Bfile;
 
   use Shb7;
 
+  use parent 'St';
+
 # ---   *   ---   *   ---
 # info
 
@@ -191,10 +193,9 @@ sub prebuild($self) {
 
   unlink $self->{obj} if -f $self->{obj};
 
-
   my $pproc=$self->{bk}->{pproc};
 
-  $pproc->prebuild($self)
+  say $pproc->prebuild($self)
   if defined $pproc;
 
 };
@@ -208,6 +209,14 @@ sub postbuild($self) {
 
   $pproc->postbuild($self)
   if defined $pproc;
+
+};
+
+# ---   *   ---   *   ---
+# give list of paths
+
+sub unroll($self,@keys) {
+  return map {$self->{$ARG}} @keys;
 
 };
 

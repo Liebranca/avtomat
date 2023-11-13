@@ -32,7 +32,7 @@ package Avt::flatten;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -74,6 +74,7 @@ package Avt::flatten::pproc;
 
   use Style;
 
+  use Arstd::Array;
   use Arstd::Path;
   use Arstd::Re;
   use Arstd::IO;
@@ -161,6 +162,8 @@ package Avt::flatten::pproc;
 
 
   Readonly my $USE => qr{
+
+    \s*
 
     use
     (?:$WS+)
@@ -350,7 +353,7 @@ sub strip_meta($sref) {
 # scrap deps meta from
 # importer cmd
 
-sub read_deps($base,$deps) {
+sub read_deps($class,$base,$deps) {
 
   my @out=();
 
@@ -379,7 +382,7 @@ sub read_deps($base,$deps) {
 # ---   *   ---   *   ---
 # ^read in importer cmd
 
-sub get_file_deps($body) {
+sub get_file_deps($class,$body) {
 
   my @out=();
 
@@ -402,7 +405,7 @@ sub get_file_deps($body) {
 
     my $base="$env$path";
 
-    push @out,read_deps($base,$uses);
+    push @out,$class->read_deps($base,$uses);
 
   };
 
@@ -414,16 +417,15 @@ sub get_file_deps($body) {
 # ---   *   ---   *   ---
 # ^recursively expand deps
 
-sub get_deps($fpath) {
+sub get_deps($class,@flist) {
 
-  my @out     = ();
-  my @pending = ($fpath);
+  my @out=();
 
 
-  while(@pending) {
+  while(@flist) {
 
     # open new file
-    my $elem=shift @pending;
+    my $elem=shift @flist;
     my $body=orc($elem);
 
     # ^keep track of deps
@@ -431,13 +433,13 @@ sub get_deps($fpath) {
 
 
     # recurse
-    unshift @pending,get_file_deps($body);
+    unshift @flist,
+      $class->get_file_deps($body);
 
   };
 
 
   # cleanup and give
-  shift  @out;
   return @out;
 
 };
@@ -465,12 +467,7 @@ sub prebuild($class,$bfile,%O) {
 
   strip_meta(\$body);
 
-
-  # ^cat chunks
-  my $out="$GETIMP$pre$body$FOOT";
-
-
-  # emit
+  # get out path in trashfold
   my $dst=obj_from_src(
 
     $fpath,
@@ -480,6 +477,27 @@ sub prebuild($class,$bfile,%O) {
 
   );
 
+  # get deps file
+  my $depsf=extwap($dst,'asmd');
+
+  # ^recursive depscrap chk
+  if(moo($dst,$depsf)) {
+
+    my @deps=$class->get_file_deps($body);
+    push @deps,$class->get_deps(@deps);
+
+    array_dupop(\@deps);
+
+    owc($depsf,join "\n",@deps);
+
+  };
+
+
+  # ^cat chunks
+  my $out="$GETIMP$pre$body$FOOT";
+
+
+  # emit
   $bfile->{_pproc_src} = $fpath;
   $bfile->{src}        = $dst;
   owc($dst,$out);

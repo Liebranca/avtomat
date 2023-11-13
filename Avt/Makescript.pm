@@ -26,6 +26,7 @@ package Avt::Makescript;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Chk;
 
   use Arstd::Array;
   use Arstd::Path;
@@ -34,11 +35,14 @@ package Avt::Makescript;
   use Arstd::WLog;
 
   use Shb7;
+  use Cli;
 
   use Shb7::Bfile;
   use Shb7::Build;
   use Shb7::Bk::gcc;
   use Shb7::Bk::mam;
+  use Shb7::Bk::flat;
+  use Shb7::Bk::fake;
 
   use Tree::Dep;
 
@@ -58,7 +62,7 @@ package Avt::Makescript;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.4;
+  our $VERSION = v0.01.5;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -73,7 +77,7 @@ sub get_build_files($self) {
 
   return (
 
-    $self->{fasm}->bfiles(),
+    $self->{flat}->bfiles(),
     $self->{gcc}->bfiles(),
     $self->{mam}->bfiles(),
 
@@ -143,7 +147,7 @@ sub abspath_bfile($self) {
 };
 
 # ---   *   ---   *   ---
-# ^ shorthand for all
+# ^shorthand for all
 
 sub abspaths($self) {
   $self->abspath_arr();
@@ -164,7 +168,7 @@ sub nit($class) {
     mkwat => $NULLSTR,
 
     # build file containers
-    fasm  => Shb7::Bk->new(),
+    flat  => Shb7::Bk::flat->new(),
     gcc   => Shb7::Bk::gcc->new(),
     mam   => Shb7::Bk::mam->new(),
 
@@ -177,7 +181,7 @@ sub nit($class) {
 
     # fpath arrays
     xprt  => [],
-    fcpy  => [],
+    fcpy  => Shb7::Bk::fake->new(),
     gens  => [],
     utils => [],
     tests => [],
@@ -199,7 +203,9 @@ sub nit($class) {
 # ---   *   ---   *   ---
 # ^initialize existing hashref
 
-sub nit_build($class,$self,$cli) {
+sub nit_build($class,$self,@cmd) {
+
+  my ($cli,@args)=$class->read_cli(@cmd);
 
   $self=bless $self,$class;
 
@@ -221,13 +227,50 @@ sub nit_build($class,$self,$cli) {
 
     shared => $self->{lmode} eq '-shared',
     debug  => $self->{debug},
-
     tgt    => $Shb7::Bk::TARGET->{x64},
-    flat   => 0,
+
+    flat   => ($cli->{flat} ne $NULL)
+      ? 1
+      : 0
+      ,
 
   );
 
+
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# ^iface
+
+sub read_cli($class,@cmd) {
+
+  state @tab=(
+
+    { id    => 'debug',
+      short => '-d',
+      long  => '--debug',
+      argc  => 0
+
+    },
+
+    { id    => 'flat',
+      short => '-f',
+      long  => '--flat',
+      argc  => 0
+
+    },
+
+  );
+
+
+  # ^make ice and run
+  my $cli  = Cli->nit(@tab);
+  my @args = $cli->take(@cmd);
+
+  # ^give
+  return ($cli,@args);
 
 };
 
@@ -346,7 +389,16 @@ sub update_generated($self) {
 
 sub update_regular($self) {
 
-  my @FCPY = @{$self->{fcpy}};
+  my @FCPY = map {
+
+    (Shb7::Bfile->is_valid($ARG))
+      ? $ARG->unroll('src','out')
+      : $ARG
+      ;
+
+  } @{$self->{fcpy}};
+
+
   my $done = 0;
 
   $WLog->step("copying regular files")
@@ -359,7 +411,7 @@ sub update_regular($self) {
     my @ar=split '/',$cp;
     my $base_path=join '/',@ar[0..$#ar-1];
 
-    if(!(-e $base_path)) {
+    if(! -e $base_path) {
       `mkdir -p $base_path`;
 
     };
@@ -411,6 +463,7 @@ sub update_objects($self) {
   $self->{bld}->push_files(@$bfiles);
   $WLog->line() if $objblt;
 
+
   return $objblt;
 
 };
@@ -425,7 +478,7 @@ sub bk_for($self,$src) {
   if($src=~ Lang::C->{ext}) {
     $out=$self->{gcc};
 
-  } elsif($src=~ Lang::C->{ext}) {
+  } elsif($src=~ Lang::Perl->{ext}) {
     $out=$self->{mam};
 
   };
@@ -589,6 +642,7 @@ sub build_binaries($self,$objblt) {
 };
 
 # ---   *   ---   *   ---
+# writes *.pm dependency files
 
 sub depsmake($self) {
 

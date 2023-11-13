@@ -422,12 +422,12 @@ sub rtate($sref,$values,@fmat) {
 # the lazy way: halt execution
 # and spit notice at placeholders
 
-sub nyi($errme) {
+sub nyi($errme,$src=undef) {
 
   state $tab=
     Arstd::String::ansim('NYI:','err');
 
-  my $src=(caller 1)[3];
+  $src //= (caller 1)[3];
 
   errout(
 
