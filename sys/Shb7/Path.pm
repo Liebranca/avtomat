@@ -72,6 +72,7 @@ package Shb7::Path;
     so
 
     cache
+    config
     mem
     trash
 
@@ -382,6 +383,11 @@ sub so($name) {
 
 sub cache($name) {
   return $Cache.$name;
+
+};
+
+sub config($name) {
+  return $Config.$name;
 
 };
 

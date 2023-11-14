@@ -112,12 +112,13 @@ package Avt;
 
   my %Cache=(
 
-    _config=>{},
-    _scan=>[],
-    _modules=>[],
+    _config     => {},
+    _scan       => [],
+    _modules    => [],
 
-    _post_build=>{},
-    _pre_build=>{},
+    _post_build => {},
+    _pre_build  => {},
+
 
     cli=>Cli->nit(
       {id=>'update',short=>'-u',argc=>0}
@@ -302,8 +303,6 @@ sub mirror($mod) {
 # outs file/dir list
 
 sub scan() {
-
-  my $fpath=Shb7::cache("avto-modules");
 
   # ensure we have these standard paths
   for my $path(
@@ -617,6 +616,9 @@ sub set_config(%C) {
 
   $Cache{_config}->{$C{name}}=\%C;
 
+  $Cache{_config}->{_current} //= [];
+  push @{$Cache{_config}->{_current}},$C{name};
+
 };
 
 # ---   *   ---   *   ---
@@ -624,8 +626,8 @@ sub set_config(%C) {
 
 sub config() {
 
-  my $src=Shb7::cache("avto-config");
-  my $config=$Cache{_config};
+  my $config = $Cache{_config};
+  my $src    = Shb7::cache('avto-config');
 
   # overwrite old values
   if(-e $src) {
@@ -656,10 +658,11 @@ sub read_config() {
 sub make() {
 
   # fetch project data
-  my $configs=read_config();
+  my $configs = read_config();
+  my @names   = @{$Cache{_config}->{_current}};
 
   # now iter
-  for my $name(keys %$configs) {
+  for my $name(@names) {
 
     my $module=Vault::check_module($name);
     my $C=$configs->{$name};
@@ -673,7 +676,10 @@ sub make() {
     get_config_files($M,$C,$module);
 
     # save it to disk
-    my $cache_path=Shb7::file("$name/.avto-cache");
+    my $cache_path=Shb7::file(
+      "$name/.avto-cache"
+
+    );
 
     store($M,$cache_path)
     or croak strerr($cache_path);
