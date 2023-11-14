@@ -79,7 +79,7 @@ sub fupdated($self,$bfile) {
 
 
   my $do_build=
-     !(-f $bfile->{obj})
+     (! -f $bfile->{obj})
   || Shb7::ot($bfile->{obj},$bfile->{src})
   ;
 
@@ -99,7 +99,7 @@ sub fupdated($self,$bfile) {
 
   # depsmake hash needs to know
   # if this one requires attention
-  if(!(-f $bfile->{dep}) || $do_build) {
+  if((! -f $bfile->{dep}) || $do_build) {
 
     Shb7::push_makedeps(
       $bfile->{obj},$bfile->{dep}

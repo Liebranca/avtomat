@@ -59,6 +59,14 @@ sub new($class,%O) {
 };
 
 # ---   *   ---   *   ---
+# invoke pproc
+
+sub cpproc($class,$f,@args) {
+  return Avt::flatten::pproc->$f(@args);
+
+}
+
+# ---   *   ---   *   ---
 # ^fasm preprocessor
 
 package Avt::flatten::pproc;
@@ -254,7 +262,7 @@ end if
 
 ];
 
-  Readonly my $PREIMP => q[
+  Readonly our $PREIMP => q[
 
 MAM.xmode='__MODE__'
 MAM.head __ENTRY__
@@ -433,7 +441,7 @@ sub get_deps($class,@flist) {
 
 
     # recurse
-    unshift @flist,
+    push @flist,
       $class->get_file_deps($body);
 
   };
@@ -441,6 +449,64 @@ sub get_deps($class,@flist) {
 
   # cleanup and give
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# build dependency files
+
+sub build_deps($class,@flist) {
+
+  my @order=();
+
+  for my $bfile(@flist) {
+
+    # get src
+    my $fpath = $bfile->{src};
+    my $dst   = $class->get_altsrc($fpath);
+    my $body  = orc($fpath);
+
+
+    # get deps file
+    my $depsf=extwap($dst,'asmd');
+
+    # ^recursive depscrap chk
+    if(moo($dst,$depsf)) {
+
+      my @deps=$class->get_file_deps($body);
+      push @deps,$class->get_deps(@deps);
+
+      array_dupop(\@deps);
+      push @order,@deps;
+
+      owc($depsf,join "\n",@deps);
+
+    } else {
+      push @order,split $NEWLINE_RE,orc($depsf);
+
+    };
+
+  };
+
+
+  array_dupop(\@order);
+  return reverse @order;
+
+};
+
+# ---   *   ---   *   ---
+# get out path in trashfold
+
+sub get_altsrc($class,$fpath) {
+
+  return obj_from_src(
+
+    $fpath,
+
+    ext       => '.asmx3',
+    use_trash => 1,
+
+  );
 
 };
 
@@ -463,35 +529,10 @@ sub prebuild($class,$bfile,%O) {
 
   # get src
   my $fpath = $bfile->{src};
+  my $dst   = $class->get_altsrc($fpath);
   my $body  = orc($fpath);
 
   strip_meta(\$body);
-
-  # get out path in trashfold
-  my $dst=obj_from_src(
-
-    $fpath,
-
-    ext       => '.asmx3',
-    use_trash => 1,
-
-  );
-
-  # get deps file
-  my $depsf=extwap($dst,'asmd');
-
-  # ^recursive depscrap chk
-  if(moo($dst,$depsf)) {
-
-    my @deps=$class->get_file_deps($body);
-    push @deps,$class->get_deps(@deps);
-
-    array_dupop(\@deps);
-
-    owc($depsf,join "\n",@deps);
-
-  };
-
 
   # ^cat chunks
   my $out="$GETIMP$pre$body$FOOT";

@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Vault;
 
   use v5.36.0;
@@ -313,7 +314,6 @@ sub cached_dir($file) {
      Shb7::moo($path,$file)
   or exists $Cache_Regen->{$path}
   ;
-
 
   # get entry or make new
   -e $dir or `mkdir -p $dir`;

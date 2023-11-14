@@ -22,6 +22,7 @@ package Avt::Makescript;
   use Carp;
   use Readonly;
   use English qw(-no_match_vars);
+  use Cwd qw(abs_path);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
@@ -71,13 +72,44 @@ package Avt::Makescript;
   Readonly my $CWD_RE=>qr{^\./|(?<=,)\./}x;
 
 # ---   *   ---   *   ---
-# shorthand
+# get bfiles of all containers
 
 sub get_build_files($self) {
 
+  use Avt::flatten;
+
+# ---   *   ---   *   ---
+# NOTE:
+#
+# fasm headers can't be included
+# out of order as they are generated
+# by the build itself!
+#
+# due to this, we have to sort this
+# flist accto the dependency list
+
+  my @src  = $self->{flat}->bfiles();
+  my %keys = map {abs_path($ARG->{src})=>$ARG} @src;
+
+  my @flat = map {
+    $keys{$ARG}
+
+  } grep {
+    exists $keys{$ARG};
+
+  } Avt::flatten->cpproc(
+    'build_deps',
+    @src
+
+  );
+
+# ---   *   ---   *   ---
+
+
   return (
 
-    $self->{flat}->bfiles(),
+    @flat,
+
     $self->{gcc}->bfiles(),
     $self->{mam}->bfiles(),
 
@@ -168,7 +200,11 @@ sub nit($class) {
     mkwat => $NULLSTR,
 
     # build file containers
-    flat  => Shb7::Bk::flat->new(),
+    flat  => Shb7::Bk::flat->new(
+      pproc=>'Avt::flatten::pproc',
+
+    ),
+
     gcc   => Shb7::Bk::gcc->new(),
     mam   => Shb7::Bk::mam->new(),
 

@@ -223,7 +223,6 @@ sub by_ext_s($self,$tab) {
 
     } grep m/$ext/,@{$self->{files}};
 
-
   } keys %$tab;
 
 }

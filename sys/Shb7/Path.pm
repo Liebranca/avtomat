@@ -448,7 +448,11 @@ sub ot($a,$b) {
 # file not found or file needs update
 
 sub moo($a,$b) {
-  return (-e $a) || ot($a,$b);
+
+  return
+     (defined $a &&! -f $a)
+  || ot($a,$b)
+  ;
 
 };
 
