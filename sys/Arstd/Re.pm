@@ -528,7 +528,11 @@ sub delim($beg,$end,%O) {
   $end="\Q$end";
 
   # make expr for negative match
-  my $ex="(?:(?!$beg|$end)(?:.|\\s))+";
+  my $nslash="(?:\\\\{1,16}(?:$beg|$end))";
+  my $ndelim="(?!$beg|$end)(?:.|\\s)";
+
+  my $ex="(?:$nslash|$ndelim)+";
+
 
   # compose pattern
   my $out=

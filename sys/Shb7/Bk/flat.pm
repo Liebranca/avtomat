@@ -148,7 +148,7 @@ MEM_RECALC:
   $mem='-m '.(2 ** $size++);
 
   # invoke cmd and save error to tmp file
-  `fasm $mem $bfile->{src} &> $merrf`;
+  `fasm $mem $bfile->{src} 2> $merrf`;
   my $merr=orc($merrf);
 
   # ^catch "out of memory" errme
@@ -169,6 +169,7 @@ MEM_RECALC:
     return 1;
 
   } else {
+    errout("FLAT: build fail",lvl=>$AR_FATAL);
     return 0;
 
   };

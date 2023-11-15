@@ -88,14 +88,14 @@ sub get_build_files($self) {
 # due to this, we have to sort this
 # flist accto the dependency list
 
-  my @src  = $self->{flat}->bfiles();
-  my %keys = map {abs_path($ARG->{src})=>$ARG} @src;
+  my @src   = $self->{flat}->bfiles();
+  my %keys  = map {abs_path($ARG->{src})=>$ARG} @src;
 
-  my @flat = map {
-    $keys{$ARG}
+  my @flatk = map {
+    $ARG
 
   } grep {
-    exists $keys{$ARG};
+    exists $keys{$ARG}
 
   } Avt::flatten->cpproc(
     'build_deps',
@@ -103,8 +103,10 @@ sub get_build_files($self) {
 
   );
 
-# ---   *   ---   *   ---
+  array_dupop(\@flatk);
+  my @flat=map {$keys{$ARG}} @flatk;
 
+# ---   *   ---   *   ---
 
   return (
 

@@ -195,7 +195,7 @@ sub prebuild($self) {
 
   my $pproc=$self->{bk}->{pproc};
 
-  say $pproc->prebuild($self)
+  $pproc->prebuild($self)
   if defined $pproc;
 
 };

@@ -77,6 +77,7 @@ package Avt::flatten::pproc;
 
   use Readonly;
 
+  use Cwd qw(abs_path);
   use English qw(-no_match_vars);
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
@@ -206,7 +207,32 @@ package Avt::flatten::pproc;
     $PROC_BODY
 
     (?: $WS*)
-    (?: ret|exit [^\n]*\n)?
+    (?:
+
+      (?: (?! ret|exit)(.|\s)+)
+      (?: ret|exit [^\n]*\n)
+
+    )?
+
+  }x;
+
+  Readonly my $IPROC => qr{
+
+    proc.new
+
+    (?:
+
+      (?: (?! inline)(.|\s)+)
+      (?: inline [^\n]*\n)
+
+    )?
+
+    (?:
+
+      (?: (?! ret|exit)(.|\s)+)
+      (?: ret|exit [^\n]*\n)
+
+    )?
 
   }x;
 
@@ -280,15 +306,18 @@ MAM.foot
 # scrap non-binary data
 # (ie code) from file
 
-sub get_nonbin($fpath) {
+sub get_nonbin($class,$fpath) {
 
   my $body   = orc($fpath);
-  my $macros = strip_macros(\$body);
-  my $extrn  = get_extrn($fpath);
+  my $macros = $class->strip_macros(\$body);
+  my $extrn  = $class->get_extrn($fpath);
 
-  strip_codestr(\$body);
+  $class->strip_codestr(\$body);
 
-  return "$extrn\n$body";
+  return "$extrn\n$body\n".(
+    join "\n",@$macros
+
+  );
 
 };
 
@@ -296,13 +325,13 @@ sub get_nonbin($fpath) {
 # ^remove macros from codestr
 # save them to out
 
-sub strip_macros($sref) {
+sub strip_macros($class,$sref) {
 
   my $out=[];
 
-  while($$sref=~ s[$MACRO][]sxm) {
+  while($$sref=~ s[$MACRO][]) {
     push @$out,
-      "macro $+{name} $+{args} $+{body}"
+      "macro $+{name} $+{args} $+{body}";
 
   };
 
@@ -314,13 +343,20 @@ sub strip_macros($sref) {
 # ---   *   ---   *   ---
 # get exported symbols
 
-sub get_extrn($fpath) {
+sub get_extrn($class,$fpath) {
 
   state $re = qr{^extrn};
 
   # get symbol file
   my @out=();
-  my $src=extwap($fpath,'preshwl');
+  my $src=obj_from_src(
+
+    $fpath,
+
+    ext       => '.preshwl',
+    use_trash => 1,
+
+  );
 
   # ^skip if non-existent
   goto TAIL if ! -f $src;
@@ -337,21 +373,22 @@ TAIL:
 # ---   *   ---   *   ---
 # ^remove private data
 
-sub strip_codestr($sref) {
+sub strip_codestr($class,$sref) {
 
   $$sref=~ s[$SEG][]sxmg;
   $$sref=~ s[$REG][]sxmg;
   $$sref=~ s[$REGICE][]sxmg;
   $$sref=~ s[$PROC][]sxmg;
+  $$sref=~ s[$IPROC][]sxmg;
 
-  strip_meta($sref);
+  $class->strip_meta($sref);
 
 };
 
 # ---   *   ---   *   ---
 # ^remove metadata
 
-sub strip_meta($sref) {
+sub strip_meta($class,$sref) {
   $$sref=~ s[$LCOM][]xg;
   $$sref=~ s[^\s*$TERM$][]sxmg;
 
@@ -392,6 +429,8 @@ sub read_deps($class,$base,$deps) {
 
 sub get_file_deps($class,$body) {
 
+  state $is_fake=qr{\.hed$};
+
   my @out=();
 
   while($body=~ s[$LIB][]sxm) {
@@ -418,6 +457,13 @@ sub get_file_deps($class,$body) {
   };
 
 
+  # cleanup and give
+  map {
+     $ARG =  extwap($ARG,'asm')
+  if $ARG =~ $is_fake;
+
+  } @out;
+
   return @out;
 
 };
@@ -437,11 +483,11 @@ sub get_deps($class,@flist) {
     my $body=orc($elem);
 
     # ^keep track of deps
-    push @out,$elem;
+    unshift @out,$elem;
 
 
     # recurse
-    push @flist,
+    unshift @flist,
       $class->get_file_deps($body);
 
   };
@@ -474,23 +520,24 @@ sub build_deps($class,@flist) {
     if(moo($dst,$depsf)) {
 
       my @deps=$class->get_file_deps($body);
-      push @deps,$class->get_deps(@deps);
+      unshift @deps,$class->get_deps(@deps);
 
       array_dupop(\@deps);
-      push @order,@deps;
+      unshift @order,@deps;
 
       owc($depsf,join "\n",@deps);
 
     } else {
-      push @order,split $NEWLINE_RE,orc($depsf);
+      unshift @order,split $NEWLINE_RE,orc($depsf);
 
     };
 
   };
 
 
+  # cleanup and give
   array_dupop(\@order);
-  return reverse @order;
+  return @order;
 
 };
 
@@ -532,7 +579,7 @@ sub prebuild($class,$bfile,%O) {
   my $dst   = $class->get_altsrc($fpath);
   my $body  = orc($fpath);
 
-  strip_meta(\$body);
+  $class->strip_meta(\$body);
 
   # ^cat chunks
   my $out="$GETIMP$pre$body$FOOT";
@@ -568,7 +615,7 @@ sub postbuild($class,$bfile) {
 
   # ^make src
   $out.=Emit::Std::note($author,';')."\n";
-  $out.=get_nonbin($fpath);
+  $out.=$class->get_nonbin($fpath);
 
 
   # emit
