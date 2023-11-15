@@ -32,7 +32,7 @@ package Avt::flatten;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -200,6 +200,8 @@ package Avt::flatten::pproc;
     'proc.new',
     'proc.leave',
 
+    capt=>'body',
+
   );
 
   Readonly my $PROC => qr{
@@ -218,14 +220,14 @@ package Avt::flatten::pproc;
 
   Readonly my $IPROC => qr{
 
-    proc.new
+    (?<body>
 
-    (?:
-
+      proc.new
       (?: (?! inline)(.|\s)+)
-      (?: inline [^\n]*\n)
 
-    )?
+    )
+
+    (?: inline [^\n]*\n)
 
     (?:
 
@@ -310,14 +312,20 @@ sub get_nonbin($class,$fpath) {
 
   my $body   = orc($fpath);
   my $macros = $class->strip_macros(\$body);
+  my $procs  = $class->strip_procs(\$body);
   my $extrn  = $class->get_extrn($fpath);
 
   $class->strip_codestr(\$body);
 
-  return "$extrn\n$body\n".(
-    join "\n",@$macros
 
-  );
+  return
+
+    "$extrn\n$body\n"
+
+  . (join "\n",@$procs)  . "\n"
+  . (join "\n",@$macros) . "\n"
+
+  ;
 
 };
 
@@ -378,10 +386,40 @@ sub strip_codestr($class,$sref) {
   $$sref=~ s[$SEG][]sxmg;
   $$sref=~ s[$REG][]sxmg;
   $$sref=~ s[$REGICE][]sxmg;
-  $$sref=~ s[$PROC][]sxmg;
-  $$sref=~ s[$IPROC][]sxmg;
 
   $class->strip_meta($sref);
+
+};
+
+# ---   *   ---   *   ---
+# ^remove code, but leave
+# proc macros for inlining
+
+sub strip_procs($class,$sref) {
+
+  state $line_re=qr{^\s*proc\.};
+  state $keep_re=qr{^\s*proc\.new};
+
+  my $out=[];
+
+
+  $$sref=~ s[$PROC][]sxmg;
+
+  while($$sref=~ s[$IPROC][]sxm) {
+
+    my $s=$+{body};
+
+    push @$out,grep {
+      $ARG=~ $line_re
+
+    } split $NEWLINE_RE,$s;
+
+  };
+
+
+  map {$ARG=~ s[$keep_re][proc._ns_new]} @$out;
+
+  return $out;
 
 };
 
