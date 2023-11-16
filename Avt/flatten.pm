@@ -32,7 +32,7 @@ package Avt::flatten;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -94,12 +94,6 @@ package Avt::flatten::pproc;
 
   use Emit;
   use Emit::Std;
-
-# ---   *   ---   *   ---
-# info
-
-  our $VERSION = v0.00.1;#b
-  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
@@ -196,25 +190,31 @@ package Avt::flatten::pproc;
   }x;
 
 
-  Readonly my $PROC_BODY => re_delim(
-    'proc.new',
-    'proc.leave',
+  Readonly my $PROC_BODY => qr{
 
-    capt=>'body',
+  (?<body>
 
-  );
+    (?:proc\.new)
+
+    (?:
+
+      (?!proc\.leave)
+      (?:.|\s)
+
+    )*
+
+    (?:proc\.leave)
+
+  )
+
+  }x;
 
   Readonly my $PROC => qr{
 
     $PROC_BODY
 
     (?: $WS*)
-    (?:
-
-      (?: (?! ret|exit)(.|\s)+)
-      (?: ret|exit [^\n]*\n)
-
-    )?
+    (?: ret|exit [^\n]*\n)?
 
   }x;
 
@@ -242,7 +242,7 @@ package Avt::flatten::pproc;
 
   Readonly my $LCOM => qr{
 
-    ;
+    ^ \s* ;
 
     (?: .*)
     (?: \n|$)
@@ -311,6 +311,9 @@ MAM.foot
 sub get_nonbin($class,$fpath) {
 
   my $body   = orc($fpath);
+
+  $class->strip_meta(\$body);
+
   my $macros = $class->strip_macros(\$body);
   my $procs  = $class->strip_procs(\$body);
   my $extrn  = $class->get_extrn($fpath);
@@ -320,10 +323,12 @@ sub get_nonbin($class,$fpath) {
 
   return
 
-    "$extrn\n$body\n"
+    "$extrn\n"
+
+  . (join "\n",@$macros) . "\n"
+  . "$body\n"
 
   . (join "\n",@$procs)  . "\n"
-  . (join "\n",@$macros) . "\n"
 
   ;
 
@@ -383,11 +388,13 @@ TAIL:
 
 sub strip_codestr($class,$sref) {
 
+  state $constr_re=qr{constr\.new};
+
   $$sref=~ s[$SEG][]sxmg;
   $$sref=~ s[$REG][]sxmg;
   $$sref=~ s[$REGICE][]sxmg;
 
-  $class->strip_meta($sref);
+  $$sref=~ s[$constr_re][constr._ns_new]sxmg;
 
 };
 
@@ -402,10 +409,9 @@ sub strip_procs($class,$sref) {
 
   my $out=[];
 
-
   $$sref=~ s[$PROC][]sxmg;
 
-  while($$sref=~ s[$IPROC][]sxm) {
+  while($$sref=~ s[$IPROC][]) {
 
     my $s=$+{body};
 
@@ -415,7 +421,6 @@ sub strip_procs($class,$sref) {
     } split $NEWLINE_RE,$s;
 
   };
-
 
   map {$ARG=~ s[$keep_re][proc._ns_new]} @$out;
 
@@ -427,8 +432,14 @@ sub strip_procs($class,$sref) {
 # ^remove metadata
 
 sub strip_meta($class,$sref) {
-  $$sref=~ s[$LCOM][]xg;
-  $$sref=~ s[^\s*$TERM$][]sxmg;
+
+  my @out=grep {
+    ! ($ARG=~ m[$LCOM]sxm)
+  &&! ($ARG=~ m[^\s*$]sxm)
+
+  } split "\n",$$sref;
+
+  $$sref=join "\n",@out;
 
 };
 
@@ -639,6 +650,7 @@ sub postbuild($class,$bfile) {
 
   state $get_author=qr{AUTHOR  \s+ ($NTERM)}x;
 
+
   my $out=$NULLSTR;
   $bfile->{src}=$bfile->{_pproc_src};
 
@@ -654,7 +666,6 @@ sub postbuild($class,$bfile) {
   # ^make src
   $out.=Emit::Std::note($author,';')."\n";
   $out.=$class->get_nonbin($fpath);
-
 
   # emit
   my $dst=obj_from_src(
