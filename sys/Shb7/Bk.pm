@@ -145,7 +145,11 @@ sub fdeps($self,$bfile) {
 
 sub chkfdeps($self,$bfile) {
 
-  my $do_build = ! -f $bfile->{obj};
+  my $do_build =
+     (! -f $bfile->{obj})
+  || Shb7::ot($bfile->{obj},$bfile->{src})
+  ;
+
   my @deps     = $self->fdeps($bfile);
 
   # no missing deps
