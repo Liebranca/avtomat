@@ -89,10 +89,15 @@ sub get_build_files($self) {
 # flist accto the dependency list
 
   my @src   = $self->{flat}->bfiles();
-  my %keys  = map {abs_path($ARG->{src})=>$ARG} @src;
+  my %keys  = map {
+    abs_path($ARG->{src})=>$ARG
 
+  } @src;
+
+  # ^get sorted deps that are
+  # part of this compilation
   my @flatk = map {
-    $ARG
+    $ARG;
 
   } grep {
     exists $keys{$ARG}
@@ -103,10 +108,23 @@ sub get_build_files($self) {
 
   );
 
+  # ^remove duplicates
   array_dupop(\@flatk);
   my @flat=map {$keys{$ARG}} @flatk;
 
+  map {delete $keys{$ARG}} @flatk;
+
+  # ^add remaining files
+  my @rem=grep {
+    exists $keys{abs_path($ARG->{src})}
+
+  } @src;
+
+  push @flat,@rem;
+
+
 # ---   *   ---   *   ---
+# give full list of files to build
 
   return (
 
