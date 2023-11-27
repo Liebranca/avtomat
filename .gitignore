@@ -6,4 +6,5 @@ nytprof*
 .errlog
 *.save
 
-tests/scratch.pl
+# tmp test
+scratch*

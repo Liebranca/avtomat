@@ -31,6 +31,7 @@ package Avt;
   use Style;
 
   use Arstd::String;
+  use Arstd::Array;
   use Arstd::Hash;
   use Arstd::Re;
   use Arstd::IO;
@@ -359,6 +360,8 @@ sub scan() {
       __pycache__
 
     );
+
+    array_dupop($excluded);
 
     my $tree=Vault::check_module(
       $mod,$excluded
