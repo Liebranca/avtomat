@@ -489,7 +489,7 @@ sub so_from_symtab($symtab,$path,@libs) {
 
   } keys %{$symtab->{objects}};
 
-  my $bld=Shb7::Build->nit(
+  my $bld=Shb7::Build->new(
 
     name   => $path,
 

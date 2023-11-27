@@ -157,21 +157,21 @@ sub nit($class,$frame,$name) {
 
   my $via=bless {
 
-    name=>$name,
-    path=>$frame->{host}."$name.sock",
+    name  => $name,
+    path  => $frame->{host}."$name.sock",
 
-    pid=>undef,
-    sock=>undef,
-    idex=>0,
+    pid   => undef,
+    sock  => undef,
+    idex  => 0,
 
-    frame=>$frame,
+    frame => $frame,
 
   },$class;
 
   # first instance assumes the role of master
   if($frame->{net} eq $NULLSTR) {
-    $frame->{net}=$via->{path};
-    $frame->{name}=$name;
+    $frame->{net}  = $via->{path};
+    $frame->{name} = $name;
 
   };
 
@@ -184,9 +184,9 @@ sub open($self) {
 
   $self->{sock}=$self->get_sock(
 
-    Type=>SOCK_STREAM(),
-    Local=>$self->{path},
-    Listen=>$QUEUE_SIZE,
+    Type   => SOCK_STREAM(),
+    Local  => $self->{path},
+    Listen => $QUEUE_SIZE,
 
   );
 

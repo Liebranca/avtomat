@@ -38,10 +38,10 @@ package main;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v1.00.4;
+  our $VERSION = v1.00.5;
   our $AUTHOR  = 'IBN-3DILA';
 
-  $WLog->mprich('olink','reading files');
+  $WLog->ex('olink');
 
 # ---   *   ---   *   ---
 # define arguments for commandline
@@ -56,6 +56,8 @@ my $m=Cli->nit(
 
   {id=>'debug',short=>'-g',argc=>0},
   {id=>'-pg',short=>'-pg',argc=>0},
+  {id=>'run',short=>'-r',argc=>1},
+  {id=>'runrm',short=>'-xr',argc=>1},
 
 );
 
@@ -178,13 +180,41 @@ if(! @bld) {
 # ---   *   ---   *   ---
 # ^select linking method
 
-@{$bld[-1]->{files}}=map {
+my $obj=$bld[-1];
+
+@{$obj->{files}}=map {
   @{$ARG->{files}}
 
 } @bld[0..$#bld];
 
-$bld[-1]->link();
+$obj->link();
 
+# ---   *   ---   *   ---
+# ^get exec [args,flags]
+
+my $rargs = undef;
+my $rdel  = 0;
+
+if($m->{run} ne $NULL) {
+  $rargs=$m->{run};
+
+} elsif($m->{runrm} ne $NULL) {
+  $rargs = $m->{runrm};
+  $rdel  = 1;
+
+};
+
+# ---   *   ---   *   ---
+# ^exec
+
+if(defined $rargs) {
+
+  $WLog->ex($obj->{bld}->{name});
+
+  $obj->run(split $COMMA_RE,$rargs);
+  $obj->rmout() if $rdel;
+
+};
 
 $WLog->step('done');
 

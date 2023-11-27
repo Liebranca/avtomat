@@ -36,7 +36,7 @@ package Via::Harbor;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;
+  our $VERSION=v0.00.2;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -73,14 +73,20 @@ sub nit($class,$frame,$name) {
   # list of other sockets
   $self->{routes}=Cask->nit();
 
+
   # received shipments
   $self->{stock}=[];
 
   # scheduled tasks
   $self->{orders}=[];
 
-  $self->{idex}=1+$frame->{harbors}->give($self);
-  $self->{name}.=$Via::NET_RS.$self->{idex};
+  # id
+  $self->{idex}=
+    1+$frame->{harbors}->give($self);
+
+  $self->{name}.=
+    $Via::NET_RS.$self->{idex};
+
 
   $self->{net}=$frame->{net};
 
@@ -110,8 +116,11 @@ sub get_peer(
 
   ;
 
-  my @values=array_values($frame->{harbors});
-  my @found=grep {$ARG->{name} eq $search} @values;
+  my @values = array_values($frame->{harbors});
+  my @found  = grep {
+    $ARG->{name} eq $search
+
+  } @values;
 
   return $found[0];
 
@@ -124,8 +133,8 @@ sub open_route($self,$path) {
 
   my $dst=$self->get_sock(
 
-    Type=>SOCK_STREAM(),
-    Peer=>$path,
+    Type => SOCK_STREAM(),
+    Peer => $path,
 
   );
 

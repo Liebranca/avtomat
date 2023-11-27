@@ -40,7 +40,7 @@ package Shb7::Bk::front;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -147,14 +147,81 @@ sub link($self) {
 };
 
 # ---   *   ---   *   ---
+# variants of execution
+
+sub captrun($self,@args) {
+  return `$self->{bld}->{name} @args`;
+
+};
+
+sub sysrun($self,@args) {
+  return system {$self->{bld}->{name}} @args;
+
+};
+
+sub xrun($self,@args) {
+  return exec {$self->{bld}->{name}} @args;
+
+};
+
+# ---   *   ---   *   ---
+# ^crux
+
+sub run($self,@args) {
+
+  state $invalid=qr{(?:mode)};
+
+  my %O=@args;
+
+  # defaults
+  $O{_xmode} //= 'sys';
+
+  # ^select F
+  my $fn="$O{_xmode}run";
+
+  # ^discard mode
+  delete $O{_xmode};
+
+
+  # rebuild args
+  my $i=0;
+  @args=grep {defined $ARG} map {
+
+    # get [key=>value]
+    my ($x,$y)=@args[$i*2+0..$i*2+1];
+
+    # remove args for $this
+    $x=undef if defined $x && $x=~ $invalid;
+    $y=undef if defined $y && $y=~ $invalid;
+
+    # ^go next
+    $i++;
+    $x,$y;
+
+  } array_keys(\@args);
+
+  # ^invoke
+  $self->$fn(@args);
+
+};
+
+# ---   *   ---   *   ---
 # ^compile, link and run
 
-sub go($self) {
+sub go($self,@args) {
 
   $self->compile();
   $self->link();
 
-  return `$self->{bld}->{name}`;
+  return $self->run(@args);
+
+};
+
+# ---   *   ---   *   ---
+# remove output file
+
+sub rmout($self) {
+  unlink $self->{bld}->{name};
 
 };
 
