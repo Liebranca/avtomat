@@ -32,7 +32,7 @@ package Avt::flatten;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -198,7 +198,7 @@ package Avt::flatten::pproc;
 
     (?:
 
-      (?!proc\.leave)
+      (?!proc\.leave|proc.new)
       (?:.|\s)
 
     )*
