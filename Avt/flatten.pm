@@ -316,6 +316,7 @@ sub get_nonbin($class,$fpath) {
 
   my $macros = $class->strip_macros(\$body);
   my $procs  = $class->strip_procs(\$body);
+  my $deps   = $class->get_imp_deps(\$body);
   my $extrn  = $class->get_extrn($fpath);
 
   $class->strip_codestr(\$body);
@@ -323,7 +324,8 @@ sub get_nonbin($class,$fpath) {
 
   return
 
-    "$extrn\n"
+    "$deps\n"
+  . "$extrn\n"
 
   . (join "\n",@$macros) . "\n"
   . "$body\n"
@@ -350,6 +352,22 @@ sub strip_macros($class,$sref) {
 
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# separate dependency blocks
+
+sub get_imp_deps($clas,$sref) {
+
+  my $out=[];
+
+  while($$sref=~ s[($LIB)][]) {
+    push @$out,$1
+
+  };
+
+  return join "\n",@$out;
 
 };
 
