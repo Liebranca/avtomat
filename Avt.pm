@@ -242,11 +242,11 @@ sub depchk($chkpath,$deps) {
 # mirrors project structure
 # into [root]/.trash/[mod]
 
-sub mirror($mod) {
+sub mirror($mod,$excluded) {
 
   my $path=Shb7::dir($mod);
   my $trsh=Shb7::obj_dir($mod);
-  my $tree=Shb7::walk($path,-r=>1);
+  my $tree=Shb7::walk($path,-r=>1,-x=>$excluded);
 
   my $modrept=qr{$mod/$mod/};
 
@@ -267,7 +267,6 @@ sub mirror($mod) {
   system {$call[0]} @call
   if ! -d $trsh;
 
-# ---   *   ---   *   ---
 
   for my $dir(@dirs) {
 
@@ -282,7 +281,7 @@ sub mirror($mod) {
 
       );
 
-    };
+    } else {next};
 
     $ances=Shb7::shpath($ances);
 
@@ -323,9 +322,8 @@ sub scan() {
 
   ) {mkdir $path if ! -d $path};
 
-# ---   *   ---   *   ---
-# iter provided names
 
+  # iter provided names
   state $split_mod=re_sursplit_new(
     '(?: -x | --excluded)','\s+'
 
@@ -337,8 +335,8 @@ sub scan() {
     my ($mod,$excluded)=
       split $split_mod,(shift @ar);
 
-    $excluded//=$NULLSTR;
-    $excluded=[re_sursplit(
+    $excluded //= $NULLSTR;
+    $excluded   = [re_sursplit(
 
       $COMMA_RE,
       $excluded,
@@ -347,12 +345,9 @@ sub scan() {
 
     )];
 
-# ---   *   ---   *   ---
-# read module tree
 
+    # read module tree
     read_cli($mod);
-    mirror($mod);
-
     unshift @$excluded,qw(
 
       data
@@ -367,11 +362,14 @@ sub scan() {
     );
 
     array_dupop($excluded);
+    mirror($mod,$excluded);
 
     my $tree=Vault::check_module(
       $mod,$excluded
 
     );
+
+    $tree->prich(errout=>1);
 
   };
 

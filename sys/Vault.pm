@@ -138,15 +138,14 @@ sub import($class,@args) {
 
 sub check_module($name,$exclude=[]) {
 
-  my $syspath=$Shb7::Path::Root;
-  my $frame=$Systems->{$syspath};
+  my $syspath = $Shb7::Path::Root;
+  my $frame   = $Systems->{$syspath};
 
   $Systems->{$syspath}//={};
 
   my $table;
 
   if(! exists $frame->{-roots}->{$name}) {
-
     $table=module_tree($name,$exclude);
     $frame->{-roots}->{$name}=$table;
 
@@ -173,8 +172,8 @@ sub px_file($name) {
 
 sub module_tree($name,$excluded=[]) {
 
-  my $syspath=$Shb7::Path::Root;
-  my $frame=$Systems->{$syspath};
+  my $syspath = $Shb7::Path::Root;
+  my $frame   = $Systems->{$syspath};
 
   $Needs_Update->{$name}=[];
 
@@ -187,14 +186,29 @@ sub module_tree($name,$excluded=[]) {
     my $mod=retrieve($modf);
     $frame->{-roots}->{$name}=$mod;
 
+    say 'LOAD';
+    $frame->{-roots}->{$name}->prich(errout=>1);
+
 
   # generate
   } else {
 
-    $frame->{-roots}->{$name}=
-      Shb7::walk($name,-r=>1,-x=>$excluded);
+    my $path =  "$syspath/$name/";
+       $path =~ s[$FSLASH_RE+][/]sxmg;
+
+    $frame->{-roots}->{$name}=Shb7::walk(
+
+      $path,
+
+      -r=>1,
+      -x=>$excluded,
+
+    );
 
     $newf=1;
+
+    say 'MAKE';
+    $frame->{-roots}->{$name}->prich(errout=>1);
 
   };
 

@@ -502,23 +502,24 @@ sub walk($path,%O) {
   $O{-r}//=0;
   $O{-x}//=[];
 
+  my $_opath=$path;
+
   # filetree obj
   my $frame     = Tree::File->get_frame();
   my $root_node = undef;
 
   # sanitize input
-  $path         = dir($path) if !(-d $path);
+  $path         = dir($path) if ! -d $path;
   $O{-x}        = exclude_paths($O{-x});
 
   # what we care about
   my @pending   = ($path,undef);
   my $out       = undef;
 
-  my $excluded  = qr{$DOT_BEG|$O{-x}};
+  my $excluded  = qr{(?:$DOT_BEG|$O{-x})/?};
 
-# ---   *   ---   *   ---
-# prepend and open
 
+  # prepend and open
   while(@pending) {
 
     $path      = shift @pending;
@@ -554,6 +555,14 @@ sub walk($path,%O) {
 
   };
 
+  say "WALK\n",
+    '  ',getcwd(),"\n"
+  , "  $_opath\n",
+  , '  ',join ',',caller
+
+  ;
+
+  $out->prich(errout=>1);
   return $out;
 
 };

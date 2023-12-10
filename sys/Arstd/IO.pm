@@ -330,14 +330,16 @@ sub dorc($path,$excluded=$NO_MATCH) {
   or errout(strerr($path),lvl=>$AR_FATAL);
 
   @out=grep {
-    ! (-d $ARG && $ARG=~ $excluded)
+    ! (-d "$dir/$ARG")
+  &&! ($ARG=~ $excluded);
 
   } readdir $dir;
 
   closedir $dir
   or croak strerr($path);
 
-TAIL:
+
+  TAIL:
   return @out;
 
 };
