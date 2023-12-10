@@ -76,7 +76,7 @@ sub get_cksum($self) {
     @files=grep {-f $ARG} @files;
 
     my $files=join q{ },
-      map {$ARG->ances($NULLSTR)} @files;
+      map {$ARG->ances(join_char=>$NULLSTR)} @files;
 
     next if !length $files;
 
@@ -109,7 +109,10 @@ sub get_cksum($self) {
       `echo "$own_sum$children" | cksum`;
 
     chomp $dir->{cksum};
-    $dir->{cksum}.=q{ }.$dir->ances($NULLSTR);
+    $dir->{cksum}.=q{ }.$dir->ances(
+      join_char=>$NULLSTR
+
+    );
 
     push @new_sums,$dir->{cksum};
 
@@ -162,19 +165,18 @@ sub get_file_list($self,%O) {
 
   my @files=$self->leafless(%O);
 
-# ---   *   ---   *   ---
-# skip for plain node list
+  # skip for plain node list
+  goto TAIL if ! $O{full_path};
 
-goto TAIL if(!$O{full_path});
 
   for my $file(@files) {
-    $file=$file->ances($NULLSTR);
+    $file=$file->ances(join_char=>'/');
+    $file=~ s[/+][/]sxmg;
 
   };
 
-# ---   *   ---   *   ---
 
-TAIL:
+  TAIL:
   return @files;
 
 };
@@ -187,19 +189,18 @@ sub get_dir_list($self,%O) {
   $O{full_path}//=1;
   my @dirs=$self->hasleaves(%O);
 
-# ---   *   ---   *   ---
-# skip for plain node list
+  # skip for plain node list
+  goto TAIL if ! $O{full_path};
 
-goto TAIL if(!$O{full_path});
 
   for my $dir(@dirs) {
-    $dir=$dir->ances($NULLSTR);
+    $dir=$dir->ances(join_char=>'/');
+    $dir=~ s[/+][/]sxmg;
 
   };
 
-# ---   *   ---   *   ---
 
-TAIL:
+  TAIL:
   return @dirs;
 
 };

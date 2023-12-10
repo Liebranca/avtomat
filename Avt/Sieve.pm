@@ -19,6 +19,7 @@ package Avt::Sieve;
   use strict;
   use warnings;
 
+  use Cwd qw(abs_path);
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -132,14 +133,11 @@ sub get_files($self,$node) {
   );
 
   # shorten paths
+  # pop mod from start
   map {
-    $ARG=Shb7::shpath($ARG)
-
-  } @{$self->{files}};
-
-  # pop module name
-  map {
-    $ARG=~ s[^${name}/?][]
+    $ARG=  abs_path($ARG);
+    $ARG=  Shb7::shpath($ARG);
+    $ARG=~ s[^${name}/?][];
 
   } @{$self->{files}};
 
@@ -221,7 +219,7 @@ sub by_ext_s($self,$tab) {
     map {
       $dst->push_src("$self->{dir}/$ARG");
 
-    } grep m/$ext/,@{$self->{files}};
+    } grep m[$ext],@{$self->{files}};
 
   } keys %$tab;
 
@@ -264,7 +262,7 @@ sub by_ext_d($self,$tab) {
 
       );
 
-    } grep m/$ext/,@{$self->{files}};
+    } grep m[$ext],@{$self->{files}};
 
   } keys %$tab;
 

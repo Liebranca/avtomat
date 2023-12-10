@@ -38,7 +38,7 @@ package Arstd::WLog;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -161,21 +161,25 @@ sub err($self,$me,%O) {
 
   $O{details} //= $NULLSTR;
   $O{from}    //= 'AR';
+  $O{lvl}     //= $AR_WARNING;
+
 
   $self->line(
 
-    strtag($O{from},1)
-  . "$me",
+    "\n"
+
+  . strtag($O{from},1)
+  . "$me\n",
 
     1
 
   );
 
-  if($O{details}) {
-    $self->line("\nDetails:\n\n",1);
-    $self->line($O{details},1);
+  errout(
+    $O{details},
+    lvl=>$O{lvl}
 
-  };
+  ) if $O{details};
 
 };
 

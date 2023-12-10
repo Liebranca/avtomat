@@ -43,7 +43,7 @@ package Shb7::Bk::mam;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;
+  our $VERSION = v0.00.3;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -156,6 +156,7 @@ sub mamcall($self,$bfile,$bld,$rap=1) {
 
   } @{$bld->{libs}};
 
+
   map {$ARG=~ s[$LIBD_RE][-I]} @libpaths;
 
   $rap=($rap)
@@ -214,6 +215,8 @@ sub fbuild($self,$bfile,$bld,$rap=1) {
 
       from    => 'MAM',
       details => $log,
+
+      lvl     => $AR_FATAL,
 
     );
 

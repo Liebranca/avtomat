@@ -248,6 +248,8 @@ sub mirror($mod) {
   my $trsh=Shb7::obj_dir($mod);
   my $tree=Shb7::walk($path,-r=>1);
 
+  my $modrept=qr{$mod/$mod/};
+
   my @dirs=$tree->get_dir_list(
     full_path=>0,
     keep_root=>1
@@ -275,14 +277,17 @@ sub mirror($mod) {
     if($dir ne $root) {
 
       $ances=$dir->ances(
-        $NULLSTR,
+        join_char=>$NULLSTR,
         max_depth=>$ddepth
 
       );
 
     };
 
-    my $tdir=$trsh.$ances;
+    $ances=Shb7::shpath($ances);
+
+    my $tdir =  $trsh.$ances;
+       $tdir =~ s[$modrept][$mod/];
 
     @call=(
       q[mkdir],

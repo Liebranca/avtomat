@@ -64,7 +64,7 @@ package Shb7::Bfile;
   }x;
 
 # ---   *   ---   *   ---
-# constructor
+# cstruc
 
 sub nit($class,$fpath,$bk,%O) {
 

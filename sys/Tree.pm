@@ -377,30 +377,33 @@ sub root($self) {
 # ---   *   ---   *   ---
 # cats parent values recursively
 
-sub ances($self,$join,%O) {
+sub ances($self,%O) {
 
   # defaults
   $O{max_depth}//=0x24;
+  $O{join_char}//=$NULLSTR;
 
-  my $anchor=$self;
-  my $s=$NULLSTR;
-  my $depth=0;
 
-TOP:
+  # walk upwards
+  my $anchor = $self;
+  my $depth  = 0;
+  my @out    = ($anchor->{value});
 
-  $s=$anchor->{value}.$s;
-  if($anchor->{parent}) {
+  while($anchor->{parent}) {
 
-    $s=$join.$s;
     $anchor=$anchor->{parent};
+    unshift @out,$anchor->{value};
 
     $depth++;
 
-    goto TOP if $depth<$O{max_depth};
+
+    last if $depth >= $O{max_depth};
 
   };
 
-  return $s;
+
+  # give catted
+  return join $O{join_char},@out;
 
 };
 
