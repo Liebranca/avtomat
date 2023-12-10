@@ -186,9 +186,6 @@ sub module_tree($name,$excluded=[]) {
     my $mod=retrieve($modf);
     $frame->{-roots}->{$name}=$mod;
 
-    say 'LOAD';
-    $frame->{-roots}->{$name}->prich(errout=>1);
-
 
   # generate
   } else {
@@ -206,9 +203,6 @@ sub module_tree($name,$excluded=[]) {
     );
 
     $newf=1;
-
-    say 'MAKE';
-    $frame->{-roots}->{$name}->prich(errout=>1);
 
   };
 

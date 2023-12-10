@@ -555,14 +555,6 @@ sub walk($path,%O) {
 
   };
 
-  say "WALK\n",
-    '  ',getcwd(),"\n"
-  , "  $_opath\n",
-  , '  ',join ',',caller
-
-  ;
-
-  $out->prich(errout=>1);
   return $out;
 
 };

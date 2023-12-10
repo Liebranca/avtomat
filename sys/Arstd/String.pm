@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Arstd::String;
 
   use v5.36.0;
@@ -70,12 +71,16 @@ package Arstd::String;
     pushscape
     lenscape
 
+    $PL_CUT
+    $PL_CUT_RE
+    cutid
+
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.7;#b
+  our $VERSION=v0.00.8;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -128,6 +133,27 @@ package Arstd::String;
     off    => "\e[0m",
 
   };
+
+
+  Readonly our $CUT_FMAT=>q[;__%s_CUT_%i__?];
+  Readonly our $CUT_RE=>qr{\;__\w+_CUT_\d+__\?};
+
+  Readonly our $PL_CUT=>q[;__CUT__?];
+  Readonly our $PL_CUT_RE=>qr{\;__CUT__\?};
+
+# ---   *   ---   *   ---
+# ^generate unique id for repl
+
+sub cutid($s='N',$i=0) {
+
+  my $fmat = $CUT_FMAT;
+  my $out  = sprintf $fmat,$s,$i;
+
+  my $re   = qr"\Q$out";
+
+  return ($out,$re);
+
+};
 
 # ---   *   ---   *   ---
 # common string to integer transforms
@@ -515,6 +541,8 @@ sub fsansi($fmat) {
   $fmat=~ s[$sqstr_re][$sqstr_col]sxmg;
   $fmat=~ s[$tag_re][$tag_col]sxmg;
 
+  sansi_ops(\$fmat);
+
   # color embedded in format
   while($fmat=~ $custom_re) {
 
@@ -537,8 +565,6 @@ sub fsansi($fmat) {
     $fmat=~ s[$num_re][$col];
 
   };
-
-  sansi_ops(\$fmat);
 
   return $fmat;
 
@@ -581,7 +607,9 @@ sub sansi_ops($sref) {
   state $short_escape_re=qr"
 
     \x{1B} \[
-    [\?\d;]{0,64} [^\w0]{0,1} [\w]
+
+    [\?\d;]{0,64}
+    [^\w0]? [\w]
 
   "x;
 
@@ -591,6 +619,8 @@ sub sansi_ops($sref) {
     ( \[ | \] )
 
   "x;
+
+  state $custom=qr{(\[\w{1,16}\]:)};
 
   # ^semi/quest
   state $semi_re=qr{
@@ -604,11 +634,9 @@ sub sansi_ops($sref) {
   }x;
 
   state $allowed=qr{
-    [ \! ,\.:\^ \{\} \(\) \+\*\-\/ \\ \$ \@ ]+
+    [ \! ,\.:\^ \{\} \= \(\) \+\*\-\/ \\ \$ \@ ]+
 
   }x;
-
-    #
 
   state $nscap_re = qr{
     (?<! $short_escape_re)
@@ -620,8 +648,21 @@ sub sansi_ops($sref) {
   state $end=$COLOR->{off};
 
 
+  my @custom_capt=();
+  while($$sref=~ s[$custom][$PL_CUT]) {
+    push @custom_capt,$1;
+
+  };
+
   $$sref=~ s[$nscap_re][$beg$1$end]sxmg;
   $$sref=~ s[$brak_re][$beg$1$end]sxmg;
+
+  while(@custom_capt) {
+    my $x=shift @custom_capt;
+    $$sref=~ s[$PL_CUT_RE][$x];
+
+  };
+
   $$sref=~ s[$semi_re][$beg$1$end]sxmg;
 
 };

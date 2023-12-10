@@ -369,8 +369,6 @@ sub scan() {
 
     );
 
-    $tree->prich(errout=>1);
-
   };
 
 };
