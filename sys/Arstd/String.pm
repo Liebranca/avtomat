@@ -522,7 +522,7 @@ sub fsansi($fmat) {
   }x;
 
   state $custom_re_tok=qr{
-    (?<tok> %[\-\d]*[suiXB])
+    (?<tok> %[\-\d]*[suifXB])
 
   }x;
 
