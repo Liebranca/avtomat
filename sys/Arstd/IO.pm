@@ -330,7 +330,7 @@ sub dorc($path,$excluded=$NO_MATCH) {
   or errout(strerr($path),lvl=>$AR_FATAL);
 
   @out=grep {
-    ! (-d "$dir/$ARG")
+    ! (-d "$dir/$ARG/")
   &&! ($ARG=~ $excluded);
 
   } readdir $dir;

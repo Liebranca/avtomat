@@ -32,7 +32,7 @@ package Avt::flatten;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -97,6 +97,8 @@ package Avt::flatten::pproc;
 
 # ---   *   ---   *   ---
 # ROM
+
+  Readonly my $INCFILE => qr{\.inc$};
 
   Readonly my $NTERM => re_escaped(
     '\n',
@@ -258,6 +260,15 @@ package Avt::flatten::pproc;
 
   ) $NTERM}x;
 
+  Readonly my $SEGR => qr{(?:
+
+    (?: (?: ROM|RAM) SEG)
+    (?: (?! EXESEG) (?: .|\s)+ )
+
+    EXESEG?
+
+  )}x;
+
   Readonly my $REG => qr{
 
     (?: reg\.new) $NTERM
@@ -408,6 +419,7 @@ sub strip_codestr($class,$sref) {
 
   state $constr_re=qr{constr\.new};
 
+  $$sref=~ s[$SEGR][]sxmg;
   $$sref=~ s[$SEG][]sxmg;
   $$sref=~ s[$REG][]sxmg;
   $$sref=~ s[$REGICE][]sxmg;
@@ -625,6 +637,22 @@ sub get_altsrc($class,$fpath) {
 };
 
 # ---   *   ---   *   ---
+# get out path in own fold
+
+sub get_altout($class,$fpath) {
+
+  return obj_from_src(
+
+    $fpath,
+
+    ext       => '.bin',
+    use_trash => 1,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
 # make pre-build trashfile
 
 sub prebuild($class,$bfile,%O) {
@@ -649,7 +677,17 @@ sub prebuild($class,$bfile,%O) {
   $class->strip_meta(\$body);
 
   # ^cat chunks
-  my $out="$GETIMP$pre$body$FOOT";
+  my $inc=int ($fpath=~ $INCFILE);
+
+  $bfile->{__alt_out}=($inc)
+    ? $class->get_altout($fpath)
+    : undef
+    ;
+
+  my $out=($inc)
+    ? "$GETIMP$body"
+    : "$GETIMP$pre$body$FOOT"
+    ;
 
 
   # emit
@@ -697,6 +735,68 @@ sub postbuild($class,$bfile) {
 
   owc($dst,$out);
   return $dst;
+
+};
+
+# ---   *   ---   *   ---
+# fasm rules ;>
+#
+# because we can generate any
+# kind of code with it, we
+# add this additional step
+#
+# it sifts through non-pproc
+# files and moves them to
+# the base folder
+
+sub binfilter($class,$bfile) {
+
+  # get dir
+  my $fpath = $bfile->{__alt_out};
+  my $base  = dirof($fpath);
+
+  # ^get bins
+  my $tree = Shb7::walk(
+
+    $base,
+
+    -x=>[qw(
+      .+\.asmx3$
+      .+\.preshwl$
+      .+\.asmd$
+
+    )],
+
+  );
+
+
+  # ^separate empty
+  my @ar=$tree->get_file_list(
+    fullpath=>1
+
+  );
+
+  my @trash = ();
+  my @keep  = ();
+
+  map {
+
+    if(! -s $ARG) {
+      push @trash,$ARG
+
+    } else {
+      push @keep,$ARG
+
+    };
+
+  } @ar;
+
+
+  # ^remove empty bins
+  map {unlink $ARG} @trash;
+
+  # ^relocate the others
+  map {rename $ARG,src_from_obj($ARG)} @keep;
 
 };
 

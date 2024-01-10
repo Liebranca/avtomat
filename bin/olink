@@ -96,7 +96,7 @@ map {
 
 my $fend={
   'Avt::CRun'    => [qw(c cpp)],
-  'Avt::flatten' => [qw(s asm)],
+  'Avt::flatten' => [qw(s asm inc)],
 
 };
 

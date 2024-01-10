@@ -213,6 +213,18 @@ sub postbuild($self) {
 };
 
 # ---   *   ---   *   ---
+# ^filters out multi-out source
+
+sub binfilter($self) {
+
+  my $pproc=$self->{bk}->{pproc};
+
+  $pproc->binfilter($self)
+  if defined $pproc;
+
+};
+
+# ---   *   ---   *   ---
 # give list of paths
 
 sub unroll($self,@keys) {

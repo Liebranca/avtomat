@@ -38,7 +38,7 @@ package Shb7::Bk::flat;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -162,10 +162,26 @@ MEM_RECALC:
 
   say {*STDERR} $merr if length $merr;
 
+  my $chk=(defined $bfile->{__alt_out})
+    ? $bfile->{__alt_out}
+    : $bfile->{obj}
+    ;
+
 
   # ^give on success
-  if(-f $bfile->{obj}) {
-    $bfile->postbuild();
+  if(-f $chk) {
+
+    # standard binary generated
+    if($chk eq $bfile->{obj}) {
+      $bfile->postbuild();
+
+    # ^else it's fun stuff!
+    } else {
+      $bfile->binfilter();
+      $bfile->postbuild();
+
+    };
+
     return 1;
 
   } else {

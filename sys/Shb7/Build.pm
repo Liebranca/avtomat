@@ -253,8 +253,12 @@ sub get_module_paths($self) {
 # return list of build files
 
 sub list_obj($self) {
+
   return map {
     $ARG->{obj}
+
+  } grep {
+    ! defined $ARG->{__alt_out}
 
   } @{$self->{files}};
 
@@ -360,6 +364,13 @@ sub olink($self) {
   # get object file names
   my @obj  = $self->list_obj();
   my @miss = grep { ! -f $ARG} @obj;
+
+  # nothing to do?
+  if(! @obj) {
+    $WLog->step("no linking needed");
+    return;
+
+  };
 
 
   # ^chk all exist

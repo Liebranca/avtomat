@@ -40,7 +40,7 @@ package Shb7::Path;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -86,6 +86,7 @@ package Shb7::Path;
     walk
 
     obj_from_src
+    src_from_obj
     clear_dir
     empty_trash
 
@@ -485,7 +486,7 @@ sub exclude_paths($dashx) {
   $dashx=join q{|},@$dashx;
 
   $dashx=(length $dashx)
-    ? qr{(?:$dashx)}x
+    ? qr{^(?:$dashx)$}x
     : $NO_MATCH
     ;
 
@@ -516,7 +517,7 @@ sub walk($path,%O) {
   my @pending   = ($path,undef);
   my $out       = undef;
 
-  my $excluded  = qr{(?:$DOT_BEG|$O{-x})/?};
+  my $excluded  = qr{(?:$DOT_BEG|$O{-x})};
 
 
   # prepend and open
@@ -526,7 +527,7 @@ sub walk($path,%O) {
     $root_node = shift @pending;
 
     # nit root on first run
-    my $dst=(!defined $root_node)
+    my $dst=(! defined $root_node)
       ? $frame->nit($root_node,$path)
       : $root_node
       ;
@@ -571,11 +572,35 @@ sub obj_from_src($src,%O) {
 
   my $out=$src;
 
+  # swap folder?
   if($O{use_trash}) {
     $out=~ s[$Root_Re][$Trash];
 
   };
 
+  # swap extension
+  if(defined $O{ext}) {
+    $out=~ s[$ANYEXT_RE][$O{ext}];
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^kind of the inverse
+
+sub src_from_obj($src,%O) {
+
+  state $untrash=qr{\.trash/};
+
+  my $out=$src;
+
+  # swap folder!
+  $out=~ s[$untrash][];
+
+  # swap extension
   if(defined $O{ext}) {
     $out=~ s[$ANYEXT_RE][$O{ext}];
 
