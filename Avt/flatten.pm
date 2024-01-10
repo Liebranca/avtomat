@@ -755,12 +755,28 @@ sub binfilter($class,$bfile) {
   my $fpath = $bfile->{__alt_out};
   my $base  = dirof($fpath);
 
-  # ^get bins
+
+  # ^relocate the others
+  my @keep=$class->ffilter($base);
+  map {rename $ARG,src_from_obj($ARG)} @keep;
+
+
+};
+
+# ---   *   ---   *   ---
+# ^filters out unwanted files
+
+sub ffilter($class,$base,$wanted=undef) {
+
   my $tree = Shb7::walk(
 
     $base,
 
     -x=>[qw(
+
+      .+\.hed$
+      .+\.asm$
+
       .+\.asmx3$
       .+\.preshwl$
       .+\.asmd$
@@ -795,8 +811,13 @@ sub binfilter($class,$bfile) {
   # ^remove empty bins
   map {unlink $ARG} @trash;
 
-  # ^relocate the others
-  map {rename $ARG,src_from_obj($ARG)} @keep;
+
+  # apply a second filter?
+  @keep=grep {$ARG=~ $wanted} @keep
+  if defined $wanted;
+
+  # give filtered list
+  return @keep;
 
 };
 

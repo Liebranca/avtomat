@@ -38,7 +38,7 @@ package Shb7::Bk::flat;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -128,45 +128,20 @@ sub fbuild($self,$bfile,$bld) {
   # clear existing
   $bfile->prebuild();
 
-# ---   *   ---   *   ---
-# NOTE:
-#
-#   no good way to estimate memory
-#   req for assembling a file, afaik
-#
-#   so we just iter and increase
-#   the ammout from the default 16K
 
-  my $size = 14;
-  my $mem  = $NULLSTR;
-
-# ---   *   ---   *   ---
-# ^top
-
-MEM_RECALC:
-
-  $mem='-m '.(2 ** $size++);
-
-  # invoke cmd and save error to tmp file
-  `fasm $mem $bfile->{src} 2> $merrf`;
-  my $merr=orc($merrf);
-
-  # ^catch "out of memory" errme
-  goto MEM_RECALC
-  if ($size < 18) && ($merr=~ $oomre);
-
+  # assemble
+  $self->asm($bfile->{src},$merrf);
 
   # ^reloc out if exists
   my $out=extwap($bfile->{src},'o');
   rename $out,$bfile->{obj} if -f $out;
 
-  say {*STDERR} $merr if length $merr;
 
+  # using standard output format?
   my $chk=(defined $bfile->{__alt_out})
     ? $bfile->{__alt_out}
     : $bfile->{obj}
     ;
-
 
   # ^give on success
   if(-f $chk) {
@@ -191,5 +166,53 @@ MEM_RECALC:
   };
 
 };
+
+# ---   *   ---   *   ---
+# invokes fasm!
+
+sub asm($class,$src,$merrf,@args) {
+
+# ---   *   ---   *   ---
+# NOTE:
+#
+#   no good way to estimate memory
+#   req for assembling a file, afaik
+#
+#   so we just iter and increase
+#   the ammout from the default 16K
+
+  state $oomre = qr{error: out of memory\.};
+
+  my $size = 14;
+  my $mem  = $NULLSTR;
+
+# ---   *   ---   *   ---
+# ^top
+
+MEM_RECALC:
+
+  $mem='-m '.(2 ** $size++);
+
+  # invoke cmd and save error to tmp file
+  `fasm $mem @args $src 2> $merrf`;
+  my $merr=orc($merrf);
+
+  # ^catch "out of memory" errme
+  goto MEM_RECALC
+  if ($size < 18) && ($merr=~ $oomre);
+
+
+  # ^unsolved err
+  if(length $merr) {
+    say {*STDERR} $merr;
+    return 0;
+
+  # ^all good ;>
+  } else {
+    return 1;
+
+  };
+
+}
 
 # ---   *   ---   *   ---
