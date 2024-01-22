@@ -24,7 +24,9 @@ package Arstd::Bitformat;
   use English qw(-no_match_words);
 
   use lib $ENV{ARPATH}.'/lib/sys/';
+
   use Style;
+  use Arstd::Array;
 
 # ---   *   ---   *   ---
 # info
@@ -39,7 +41,8 @@ sub new($class,@order) {
 
   # out attrs
   my $size = {};
-  my $mask = {};
+
+  my $mask = {'$:top;>'=>0};
   my $pos  = {'$:top;>'=>0};
 
 
@@ -61,6 +64,10 @@ sub new($class,@order) {
     $pos->{'$:top;>'} += $bits;
 
   } @keys;
+
+  # calc mask for total size
+  $mask->{'$:top;>'}=
+    (1 << $pos->{'$:top;>'})-1;
 
 
   # make ice
