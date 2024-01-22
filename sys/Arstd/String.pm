@@ -71,6 +71,8 @@ package Arstd::String;
     pushscape
     lenscape
 
+    joinfilt
+
     $PL_CUT
     $PL_CUT_RE
     cutid
@@ -80,7 +82,7 @@ package Arstd::String;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.8;#b
+  our $VERSION=v0.00.9;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -762,6 +764,14 @@ sub deref_clist($list) {
     ? @$list
     : (split $COMMA_RE,$list)
     ;
+
+};
+
+# ---   *   ---   *   ---
+# join grepped
+
+sub joinfilt($char,@args) {
+  return join $char,grep {length $ARG} @args;
 
 };
 

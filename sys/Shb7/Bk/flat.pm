@@ -27,6 +27,7 @@ package Shb7::Bk::flat;
   use Style;
 
   use Arstd::Array;
+  use Arstd::String;
   use Arstd::Path;
   use Arstd::IO;
 
@@ -182,8 +183,14 @@ sub asm($class,$src,$merrf,@args) {
 #   the ammout from the default 16K
 
   state $oomre = qr{error: out of memory\.};
+  state @sztab = (
 
-  my $size = 14;
+#    map {1024 + (1024*$ARG)} 0..127
+    2 ** 13 , 2 ** 14 , 2 ** 16 , 2 ** 17
+
+  );
+
+  my $attp = 0;
   my $mem  = $NULLSTR;
 
 # ---   *   ---   *   ---
@@ -191,15 +198,32 @@ sub asm($class,$src,$merrf,@args) {
 
 MEM_RECALC:
 
-  $mem='-m '.(2 ** $size++);
+  $mem="-m $sztab[$attp]";
+
+use Benchmark;
+my $t0 = Benchmark->new;
 
   # invoke cmd and save error to tmp file
-  `fasm $mem @args $src 2> $merrf`;
+  `fasm $mem @args $src &> $merrf`;
+
+my $t1 = Benchmark->new;
+my $td = timediff($t1,$t0);
+
+my $tt = timestr($td,'nop','8.16f');
+strip(\$tt);
+
+$tt=~ s[.+([0-9]+\.[0-9]+) \s CPU.+$][$1]x;
+$tt= sprintf "%8.2f",$tt*1000;
+
+$WLog->substep("took $tt ms\n");
+
   my $merr=orc($merrf);
 
   # ^catch "out of memory" errme
+  $attp++;
+
   goto MEM_RECALC
-  if ($size < 18) && ($merr=~ $oomre);
+  if ($attp < @sztab) && ($merr=~ $oomre);
 
 
   # ^unsolved err

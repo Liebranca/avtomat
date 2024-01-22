@@ -337,7 +337,7 @@ Lang::peso->nit(
   name=>'peso',
 
   ext=>'\.(pe|p3|rom)$',
-  hed=>'(\$|\%);',
+  hed=>'[^A-Za-z0-9_]+[A-Za-z0-9_]*;',
   mag=>'$ program',
 
   op_prec=>$Peso::Ops::TABLE,

@@ -1,0 +1,45 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# AR/PERL
+# Bash on steroids
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+
+# ---   *   ---   *   ---
+# deps
+
+package main;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use Module::Load;
+
+# ---   *   ---   *   ---
+# the bit
+
+do {
+
+  # validate input
+  my ($par,$pack,@args)=@ARGV;
+
+  -d $ENV{ARPATH}."/$par/"
+  or die "Not found: 'AR/$par'";
+
+  # ^import module
+  use lib $ENV{ARPATH}."/$ARGV[0]/";
+
+  (@args)
+    ? load $pack,@args,undef
+    : load $pack,undef
+    ;
+
+};
+
+# ---   *   ---   *   ---
