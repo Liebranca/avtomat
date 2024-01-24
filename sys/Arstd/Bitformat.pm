@@ -27,11 +27,12 @@ package Arstd::Bitformat;
 
   use Style;
   use Arstd::Array;
+  use Arstd::Int;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -102,9 +103,51 @@ sub bor($self,%data) {
 
   } keys %data;
 
+
   return $out;
 
 };
+
+# ---   *   ---   *   ---
+# ^for strucs larger than 64
+
+sub array_bor($self,%data) {
+
+  my @out=map {0} 0..$self->bytesize() >> 3;
+
+  map {
+
+    my $idex=int_urdiv(
+      $self->{pos}->{$ARG},8
+
+    ) >> 3;
+
+    $out[$idex] |=(
+
+      $data{$ARG}
+    & $self->{mask}->{$ARG}
+
+    ) << ($self->{pos}->{$ARG} & 0x3F);
+
+  } keys %data;
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# get bytesize of format
+
+sub bytesize($self) {
+
+  return int_urdiv(
+    $self->{pos}->{'$:top;>'},8
+
+  );
+
+};
+
 
 # ---   *   ---   *   ---
 1; # ret

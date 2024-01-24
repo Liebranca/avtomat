@@ -38,12 +38,16 @@ package Type;
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT=qw(sizeof);
+  our @EXPORT=qw(
+    sizeof packof bpack
+    array_typeof
+
+  );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.3;
+  our $VERSION = v0.03.4;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -161,6 +165,120 @@ sub sizeof($name) {
   if ! defined $Table->{$name};
 
   return $Table->{$name}->{size};
+
+};
+
+# ---   *   ---   *   ---
+# ^get packing char for type ;>
+
+sub packof($name) {
+
+  my $tab={
+    'cstr'   => 'Z',
+    'plcstr' => '$Z',
+
+  };
+
+  return (! exists $tab->{$name})
+    ? $PACK_SIZES->{sizeof($name)  << 3}
+    : $tab->{$name}
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# pack using peso types
+
+sub bpack($ezy,@data) {
+
+  my @out   = ($NULLSTR);
+  my $idex  = 0;
+
+  my @types = split $COMMA_RE,$ezy;
+
+  # have multiple types?
+  if(@types > 1) {
+
+    push @out,map {0} 0..$#types;
+
+    # get type of each elem,
+    # then pack individual elems
+    map {
+
+      my $fmat    = packof($types[$idex]);
+         $out[0] .= _bpack($fmat,$ARG);
+
+      $out[$idex+1]++;
+
+
+      # go next, wrap-around types
+      $idex++;
+      $idex&=$idex * ($idex < @types);
+
+
+    } @data;
+
+
+  # ^nope, single type
+  } else {
+
+    my $fmat   = packof($types[0]).'*';
+       $out[0] = _bpack($fmat,@data);
+
+    push @out,int @data;
+
+  };
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^gutsof
+
+sub _bpack($fmat,@data) {
+
+  Readonly my $re=>qr{\$Z};
+
+  # handle perl string to cstring!
+  if($fmat=~ $re) {
+
+    @data=map {(
+      (map {ord($ARG)} split $NULLSTR,$ARG),0x00
+
+    )} @data;
+
+    $fmat='Z*';
+
+  };
+
+  return pack $fmat,@data;
+
+};
+
+# ---   *   ---   *   ---
+# get type-list for bpack
+# accto provided bytesize
+
+sub array_typeof($size) {
+
+  my @out=();
+
+  map {
+
+    my $ezy=sizeof($ARG);
+
+    while ($size >= $ezy) {
+      push @out,$ARG;
+      $size-=$ezy;
+
+    };
+
+  } qw(word brad wide byte);
+
+
+  return @out;
 
 };
 

@@ -257,7 +257,7 @@ END {
     'AR/Vault',
     'updating module cache'
 
-  ) if @updated;
+  ) if @updated && $WLog;
 
 
   for my $ref(@updated) {
@@ -293,17 +293,17 @@ END {
     'AR/Vault',
     'updating object cache'
 
-  ) if $done;
+  ) if $done && $WLog;
 
 
   for my $file(keys %{$Cache_Regen}) {
     store($Cache_Regen->{$file},$file);
-    $WLog->fupdate($file);
+    $WLog->fupdate($file) if $WLog;
 
   };
 
 
-  $WLog->line() if $done;
+  $WLog->line() if $done && $WLog;
 
 };
 
