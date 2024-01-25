@@ -66,7 +66,7 @@ package Avt;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v3.21.5;
+  our $VERSION = v3.21.6;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -122,6 +122,7 @@ package Avt;
 
 
     cli=>Cli->nit(
+      {id=>'clean',short=>'-c',argc=>0},
       {id=>'update',short=>'-u',argc=>0}
 
     ),
@@ -143,10 +144,18 @@ sub read_cli($mod) {
 
   };
 
+
+  # delete scan/config cache
+  # to force partial re-install
   if($c->{update} ne $NULL) {
     my $fname=Vault::px_file($mod);
     unlink $fname if -f $fname;
 
+  };
+
+  # ^delete compilation cache
+  # triggers full recompilation!
+  if($c->{clean} ne $NULL) {
     Shb7::empty_trash($mod);
 
   };
