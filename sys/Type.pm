@@ -39,7 +39,13 @@ package Type;
 
   use Exporter 'import';
   our @EXPORT=qw(
-    sizeof packof bpack
+
+    sizeof
+    packof
+
+    bpack
+    bunpack
+
     array_typeof
 
   );
@@ -47,7 +53,7 @@ package Type;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.4;
+  our $VERSION = v0.03.5;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -187,73 +193,197 @@ sub packof($name) {
 };
 
 # ---   *   ---   *   ---
-# pack using peso types
+# pack/unpack using peso types
 
-sub bpack($ezy,@data) {
+sub _bpack_proto($f,$ezy,@data) {
 
-  my @out   = ($NULLSTR);
-  my $idex  = 0;
+  my @out   = ([]);
+  my $total = 0;
 
   my @types = split $COMMA_RE,$ezy;
 
-  # have multiple types?
-  if(@types > 1) {
 
-    push @out,map {0} 0..$#types;
+  # make sub ref
+  $f = "_array$f";
+  $f = \&$f;
 
-    # get type of each elem,
-    # then pack individual elems
-    map {
+  # ^call
+  (@out)=$f->(
+    \@types,@data
 
-      my $fmat    = packof($types[$idex]);
-         $out[0] .= _bpack($fmat,$ARG);
+  );
 
-      $out[$idex+1]++;
-
-
-      # go next, wrap-around types
-      $idex++;
-      $idex&=$idex * ($idex < @types);
+  $total=pop @out;
 
 
-    } @data;
-
-
-  # ^nope, single type
-  } else {
-
-    my $fmat   = packof($types[0]).'*';
-       $out[0] = _bpack($fmat,@data);
-
-    push @out,int @data;
-
-  };
-
-
-  return @out;
+  return (@out,$total);
 
 };
 
 # ---   *   ---   *   ---
-# ^gutsof
+# ^bat
+#
+# it *is* terrible
+#
+# however, this spares us having
+# to duplicate two almost identical
+# subroutines
+
+sub _array_bpack_proto(
+
+  $f,
+
+  $types,
+  $data,
+
+  $iref,
+  $tref,
+  $oref
+
+) {
+
+  # get format chars
+  my $fmat=packof($types->[$$iref]);
+
+  # ^call F with format,data
+  push @{$oref->[0]},$f->($fmat,$data);
+  $oref->[$$iref+1]++;
+
+  $$tref+=sizeof($types->[$$iref]);
+
+
+  # go next, wrap-around types
+  $$iref++;
+  $$iref&=$$iref * ($$iref < @$types);
+
+};
+
+# ---   *   ---   *   ---
+# ^packing guts
 
 sub _bpack($fmat,@data) {
+  ($fmat,@data)=_fmat_data_break(1,$fmat,@data);
+  return pack $fmat,@data;
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub _array_bpack($types,@data) {
+
+  my @out   = ([],map {0} 0..@$types-1);
+
+  my $idex  = 0;
+  my $total = 0;
+
+  # get type of each elem,
+  # then pack individual elems
+  map { _array_bpack_proto(
+
+    \&_bpack,
+
+    $types,
+    $ARG,
+
+    \$idex,
+    \$total,
+    \@out,
+
+  )} @data;
+
+
+  return (@out,$total);
+
+};
+
+# ---   *   ---   *   ---
+# plain iface wraps
+
+sub bpack($ezy,@data) {
+  return _bpack_proto('_bpack',$ezy,@data);
+
+};
+
+# ---   *   ---   *   ---
+# unpacking guts
+
+sub _bunpack($fmat,$buf) {
+  ($fmat,$buf)=_fmat_data_break(0,$fmat,$buf);
+  return unpack $fmat,$buf;
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub _array_bunpack($types,$buf,$cnt) {
+
+  my @out   = ([],map {0} 0..@$types-1);
+
+  my $idex  = 0;
+  my $total = 0;
+
+  # get type of each elem,
+  # then pack individual elems
+  map { _array_bpack_proto(
+
+    \&_bunpack,
+
+    $types,
+    (substr $buf,$total,(length $buf)-$total),
+
+    \$idex,
+    \$total,
+    \@out,
+
+  )} 0..$cnt-1;
+
+
+  return (@out,$total);
+
+};
+
+# ---   *   ---   *   ---
+# ^iface wraps
+# unpacks and consumes bpack'd
+
+sub bunpack($ezy,$sref,$cnt) {
+
+  my ($ct,@cnt)=_bpack_proto(
+    '_bunpack',$ezy,$$sref,$cnt
+
+  );
+
+  my $total=$cnt[-1];
+  substr $$sref,0,$total,$NULLSTR;
+
+
+  return ($ct,@cnt);
+
+};
+
+# ---   *   ---   *   ---
+# handle perl string to cstring
+# and other edge-cases, maybe...
+
+sub _fmat_data_break($packing,$fmat,@data) {
 
   Readonly my $re=>qr{\$Z};
 
-  # handle perl string to cstring!
-  if($fmat=~ $re) {
+  if($packing && $fmat=~ $re) {
 
     @data=map {(
-      (map {ord($ARG)} split $NULLSTR,$ARG),0x00
+      (map {ord($ARG)} split $NULLSTR,$ARG),
+      0x00
 
     )} @data;
 
-    $fmat='Z*';
+    $fmat='C*';
 
   };
 
-  return pack $fmat,@data;
+  return $fmat,@data;
 
 };
 

@@ -20,19 +20,23 @@ package Arstd::Bitformat;
   use strict;
   use warnings;
 
-  use Readonly;
   use English qw(-no_match_words);
 
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Type;
+
   use Arstd::Array;
+  use Arstd::Bytes;
   use Arstd::Int;
+
+  use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -74,10 +78,11 @@ sub new($class,@order) {
   # make ice
   my $self=bless {
 
-    size => $size,
-    mask => $mask,
+    size  => $size,
+    mask  => $mask,
 
-    pos  => $pos,
+    pos   => $pos,
+    order => \@keys,
 
   };
 
@@ -109,7 +114,7 @@ sub bor($self,%data) {
 };
 
 # ---   *   ---   *   ---
-# ^for strucs larger than 64
+# ^for strucs larger than 64 bits
 
 sub array_bor($self,%data) {
 
@@ -148,6 +153,123 @@ sub bytesize($self) {
 
 };
 
+# ---   *   ---   *   ---
+# (b)packs struc
+
+sub to_bytes($self,%data) {
+
+  my $len  = $self->bytesize();
+  my @data = map {
+
+    my $word=$ARG;
+    map {($word >> ($ARG << 3)) & 0xFF} 0..7;
+
+  } $self->array_bor(%data);
+
+  @data=@data[0..$len-1];
+
+  my ($ct,@cnt)=bpack(byte=>@data);
+
+
+  return ($len,$ct);
+
+};
+
+# ---   *   ---   *   ---
+# ^inserts result in buff
+
+sub write($self,$sref,$pos,%data) {
+  my ($len,$ct)=$self->to_bytes(%data);
+  substr $$sref,$pos,$len,$ct;
+
+  return $len;
+
+};
+
+# ---   *   ---   *   ---
+# consume previously packed
+# bytes into new struc
+
+sub from_bytes($self,$sref,$pos) {
+
+  # get bytearray at pos
+  my $len=$self->bytesize();
+  my $raw=substr $$sref,$pos,$len,$NULLSTR;
+
+  # ^break down into chunks
+  my @types = array_typeof($len);
+  my $fmat  = join $NULLSTR,map {
+    packof($ARG)
+
+  } @types;
+
+  my @data=unpack $fmat,$raw;
+
+
+  # ^read chunks into new struc
+  my $have   = 0;
+  my @chunks = ();
+
+  my %out=map {
+
+
+    # get required size
+    my $need = $self->{size}->{$ARG};
+    my $mask = bitmask($need);
+
+    while($have < $need) {
+
+      my $ezy=sizeof(shift @types);
+
+      push @chunks,$ezy,(shift @data);
+      $have += $ezy << 3;
+
+    };
+
+
+    # consume chunks as needed
+    my $pos   = 0;
+    my $value = 0;
+
+    while($need) {
+
+      my $ezy   = shift @chunks;
+      my $bytes = shift @chunks;
+
+      $value |= ($bytes & $mask) << $pos;
+
+      # partially consumed
+      # give back remain
+      if(($ezy << 3) > $need) {
+
+        $have   -= $need;
+        $ezy    -= $need >> 3;
+
+        $bytes >>= $need;
+        $need    = 0;
+
+        unshift @chunks,$ezy,$bytes;
+
+      # ^wholly consumed
+      } else {
+        $need -= $ezy << 3;
+        $have -= $ezy << 3;
+
+        $pos  += $ezy << 3;
+
+      };
+
+    };
+
+
+    $ARG=>$value;
+
+  } @{$self->{order}};
+
+
+  return $len,%out;
+
+};
 
 # ---   *   ---   *   ---
 1; # ret
