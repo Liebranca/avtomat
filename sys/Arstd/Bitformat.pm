@@ -36,7 +36,7 @@ package Arstd::Bitformat;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -169,7 +169,7 @@ sub to_bytes($self,%data) {
   @data=@data[0..$len-1];
 
   my ($ct,@cnt)=bpack(byte=>@data);
-
+  $ct=join $NULLSTR,@$ct;
 
   return ($len,$ct);
 

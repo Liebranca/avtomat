@@ -53,7 +53,7 @@ package Type;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.5;
+  our $VERSION = v0.03.6;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -249,7 +249,10 @@ sub _array_bpack_proto(
   push @{$oref->[0]},$f->($fmat,$data);
   $oref->[$$iref+1]++;
 
-  $$tref+=sizeof($types->[$$iref]);
+  $$tref+=(exists $Table->{$types->[$$iref]})
+    ? sizeof($types->[$$iref])
+    : 1+length $oref->[0]->[-1]
+    ;
 
 
   # go next, wrap-around types
@@ -371,15 +374,16 @@ sub _fmat_data_break($packing,$fmat,@data) {
 
   Readonly my $re=>qr{\$Z};
 
-  if($packing && $fmat=~ $re) {
+  if($fmat=~ $re) {
 
     @data=map {(
+
       (map {ord($ARG)} split $NULLSTR,$ARG),
       0x00
 
-    )} @data;
+    )} @data if $packing;
 
-    $fmat='C*';
+    $fmat=($packing) ? 'C*' : 'Z*';
 
   };
 
