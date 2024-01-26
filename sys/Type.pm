@@ -167,6 +167,10 @@ ERR:
 
 sub sizeof($name) {
 
+  state $re=qr{(pl)?cstr$ }x;
+  return 1 if $name=~ $re;
+
+
   croak "$name not in peso typetab\n"
   if ! defined $Table->{$name};
 

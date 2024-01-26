@@ -22,6 +22,8 @@ package Arstd::Struc;
   use Readonly;
   use English qw(-no_match_words);
 
+  use List::Util qw(sum);
+
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
@@ -35,7 +37,7 @@ package Arstd::Struc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -118,8 +120,25 @@ sub new($class,@order) {
   } @values;
 
 
+  # get sizeof (minus strings!)
+  my $basesize=sum(map {
+
+    if(Arstd::Bitformat->is_valid($ARG)) {
+      $ARG->{bytesize};
+
+    } else {
+      sizeof($ARG);
+
+    };
+
+  } @values);
+
+
   # make ice
   my $self=bless {
+
+    # save total sizeof
+    basesize => $basesize,
 
     #   size fields to read
     # / size fields to reuse
@@ -133,13 +152,36 @@ sub new($class,@order) {
 
   },$class;
 
-
   return $self;
 
 };
 
 # ---   *   ---   *   ---
-# ^read from buff
+# proto: run F with elem
+
+sub _proc_elem(
+
+  $self,
+  $on_struc,$on_prims,
+
+  $e,$idex
+
+) {
+
+  # get ctx vars
+  $e->{key}  = $self->{order}->[$idex];
+  $e->{fmat} = $self->{fmat}->[$idex];
+
+  # ^exec
+  return ($self->{proc}->[$idex])
+    ? $self->$on_struc($e)
+    : $self->$on_prims($e)
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# read from buff
 
 sub from_bytes($self,$sref,$pos) {
 
@@ -193,33 +235,9 @@ sub from_bytes($self,$sref,$pos) {
 
       $e,$idex++
 
-    );
+    ),
 
   } @{$self->{order}};
-
-};
-
-# ---   *   ---   *   ---
-# proto: run F with elem
-
-sub _proc_elem(
-
-  $self,
-  $on_struc,$on_prims,
-
-  $e,$idex
-
-) {
-
-  # get ctx vars
-  $e->{key}  = $self->{order}->[$idex];
-  $e->{fmat} = $self->{fmat}->[$idex];
-
-  # ^exec
-  return ($self->{proc}->[$idex])
-    ? $self->$on_struc($e)
-    : $self->$on_prims($e)
-    ;
 
 };
 
@@ -266,12 +284,119 @@ sub _unpack_prims($self,$e) {
 };
 
 # ---   *   ---   *   ---
+# write to buff
+
+sub to_bytes($self,%data) {
+
+  # bind ctx
+  my $e={
+
+    key   => $NULLSTR,
+    fmat  => $NULLSTR,
+
+    src   => \%data,
+    dst   => $NULLSTR,
+
+    cnt   => {},
+    total => 0,
+
+  };
+
+  # load header keys
+  my @keys=@{$self->{head}};
+  shift @keys;
+
+  # ^pass to counter
+  $e->{cnt}={map {$ARG=>0} @keys};
+
+
+  # walk elems
+  my $idex=0;
+
+  map { $self->_proc_elem(
+
+    \&_pack_struc,
+    \&_pack_prims,
+
+    $e,$idex++
+
+  )} @{$self->{order}};
+
+
+  # get ordered counters
+  my @cnt=map {$e->{cnt}->{$ARG}} @keys;
+
+  # ^pre-pend counters as header
+  my ($ct,@len)=bpack(
+    $self->{head}->[0] => @cnt
+
+  );
+
+
+  # ^cat to final
+  $e->{total} += $len[-1];
+  $e->{dst}    = join $NULLSTR,@$ct,$e->{dst};
+
+
+  return ($e->{dst},$e->{total});
+
+};
+
+# ---   *   ---   *   ---
+# ^Arstd::Bitformat guts
+
+sub _pack_struc($self,$e) {
+
+  # record elem count writ
+  my @data = @{$e->{src}->{$e->{key}}};
+  my $cnt  = int @data;
+
+  if(exists $e->{cnt}->{$e->{key}}) {
+    $e->{cnt}->{$e->{key}}=$cnt;
+
+  };
+
+
+  # ^get bytearray for elem
+  my ($ct,$len)=$e->{fmat}->to_bytes(@data);
+
+  $e->{total} += $len;
+  $e->{dst}   .= $ct;
+
+};
+
+# ---   *   ---   *   ---
+# ^prim guts
+
+sub _pack_prims($self,$e) {
+
+  # record elem count writ
+  my @data = @{$e->{src}->{$e->{key}}};
+  my $cnt  = int @data;
+
+  if(exists $e->{cnt}->{$e->{key}}) {
+    $e->{cnt}->{$e->{key}}=$cnt;
+
+  };
+
+
+  # ^get bytearray for elem
+  my ($ct,@len)=bpack(
+    $e->{fmat} => @data
+
+  );
+
+  $e->{total} += $len[-1];
+  $e->{dst}   .= join $NULLSTR,@$ct;
+
+};
+
+# ---   *   ---   *   ---
 # test
 
 use Fmat;
 
 my $bfmat=Arstd::Bitformat->new(
-
   b0 => 7,
   b1 => 1,
 
@@ -283,9 +408,19 @@ my $ice=Arstd::Struc->new(
 
 );
 
-my $buf=pack 'C*',0x2,0x24,0x24,0x8F,0x20;
-my @ar=$ice->from_bytes(\$buf,0);
+my ($buf,$len) = $ice->to_bytes(
 
+  f1=>[
+    {b0=>0x3F,b1=>0x00},
+    {b0=>0x20,b1=>0x01},
+
+  ],
+
+  f0=>[0x24,0x24],
+
+);
+
+my @ar = $ice->from_bytes(\$buf,0);
 fatdump(\[@ar]);
 
 # ---   *   ---   *   ---

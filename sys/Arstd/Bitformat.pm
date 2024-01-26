@@ -36,7 +36,7 @@ package Arstd::Bitformat;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -78,10 +78,19 @@ sub new($class,@order) {
   # make ice
   my $self=bless {
 
+    # save total sizeof
+    bytesize  => int_urdiv(
+      $pos->{'$:top;>'},8
+
+    ),
+
+    # ^attrs
     size  => $size,
     mask  => $mask,
-
     pos   => $pos,
+
+
+    # used for walking
     order => \@keys,
 
   };
@@ -118,7 +127,7 @@ sub bor($self,%data) {
 
 sub array_bor($self,%data) {
 
-  my @out=map {0} 0..$self->bytesize() >> 3;
+  my @out=map {0} 0..$self->{bytesize} >> 3;
 
   map {
 
@@ -142,24 +151,12 @@ sub array_bor($self,%data) {
 };
 
 # ---   *   ---   *   ---
-# get bytesize of format
-
-sub bytesize($self) {
-
-  return int_urdiv(
-    $self->{pos}->{'$:top;>'},8
-
-  );
-
-};
-
-# ---   *   ---   *   ---
 # (b)packs struc
 
 sub to_bytes($self,@data) {
 
   # elem size / elem count
-  my $ezy = $self->bytesize();
+  my $ezy = $self->{bytesize};
   my $cnt = int @data;
 
   # ^total
@@ -217,7 +214,7 @@ sub write($self,$sref,$pos,%data) {
 sub from_bytes($self,$sref,$pos,$cnt=1) {
 
   # get bytearray at pos
-  my $len=$self->bytesize();
+  my $len=$self->{bytesize};
   my $raw=substr $$sref,$pos,$len*$cnt,$NULLSTR;
 
   # ^break down into chunks
