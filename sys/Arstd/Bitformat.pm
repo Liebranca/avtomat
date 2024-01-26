@@ -36,7 +36,7 @@ package Arstd::Bitformat;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -156,22 +156,46 @@ sub bytesize($self) {
 # ---   *   ---   *   ---
 # (b)packs struc
 
-sub to_bytes($self,%data) {
+sub to_bytes($self,@data) {
 
-  my $len  = $self->bytesize();
-  my @data = map {
+  # elem size / elem count
+  my $ezy = $self->bytesize();
+  my $cnt = int @data;
 
-    my $word=$ARG;
-    map {($word >> ($ARG << 3)) & 0xFF} 0..7;
+  # ^total
+  my $cap = $ezy*$cnt;
 
-  } $self->array_bor(%data);
 
-  @data=@data[0..$len-1];
+  # get strucs as bytearrays
+  #
+  # final size if each element gets
+  # padded to a multiple of eight bits!
+  my @bytes = map { map {
 
-  my ($ct,@cnt)=bpack(byte=>@data);
+    # split 64-bit elem into 8-bit
+    my $word = $ARG;
+    my @out  = map {
+      ($word >> ($ARG << 3)) & 0xFF
+
+    } 0..7;
+
+    # ^discard padding bytes
+    @out[0..$ezy-1]
+
+  # get each bit struc as an array,
+  # 64-bits per elem
+  } $self->array_bor(%$ARG) } @data;
+
+
+  # ^discard padding bytes (again!)
+  @bytes=@bytes[0..$cap-1];
+
+  # ^give peso-bytepack'd ;>
+  my ($ct,@cnt)=bpack(byte=>@bytes);
   $ct=join $NULLSTR,@$ct;
 
-  return ($len,$ct);
+
+  return ($ct,$cap);
 
 };
 
@@ -179,7 +203,7 @@ sub to_bytes($self,%data) {
 # ^inserts result in buff
 
 sub write($self,$sref,$pos,%data) {
-  my ($len,$ct)=$self->to_bytes(%data);
+  my ($ct,$len)=$self->to_bytes(%data);
   substr $$sref,$pos,$len,$ct;
 
   return $len;
@@ -190,11 +214,11 @@ sub write($self,$sref,$pos,%data) {
 # consume previously packed
 # bytes into new struc
 
-sub from_bytes($self,$sref,$pos) {
+sub from_bytes($self,$sref,$pos,$cnt=1) {
 
   # get bytearray at pos
   my $len=$self->bytesize();
-  my $raw=substr $$sref,$pos,$len,$NULLSTR;
+  my $raw=substr $$sref,$pos,$len*$cnt,$NULLSTR;
 
   # ^break down into chunks
   my @types = array_typeof($len);
@@ -203,14 +227,15 @@ sub from_bytes($self,$sref,$pos) {
 
   } @types;
 
-  my @data=unpack $fmat,$raw;
+  my @data=unpack "$fmat\[$cnt]",$raw;
 
 
-  # ^read chunks into new struc
+  # ^read chunks into new struc(s)
   my $have   = 0;
+  my $idex   = 0;
   my @chunks = ();
 
-  my %out=map {
+  my $out=[ map {{ map {
 
 
     # get required size
@@ -219,10 +244,10 @@ sub from_bytes($self,$sref,$pos) {
 
     while($have < $need) {
 
-      my $ezy=sizeof(shift @types);
+      my $ezy=sizeof($types[$idex++]) << 3;
 
       push @chunks,$ezy,(shift @data);
-      $have += $ezy << 3;
+      $have += $ezy;
 
     };
 
@@ -233,41 +258,53 @@ sub from_bytes($self,$sref,$pos) {
 
     while($need) {
 
+      # get next
       my $ezy   = shift @chunks;
       my $bytes = shift @chunks;
 
       $value |= ($bytes & $mask) << $pos;
 
-      # partially consumed
-      # give back remain
-      if(($ezy << 3) > $need) {
+
+      # ^partially consumed
+      # give back leftovers
+      if(($ezy) > $need) {
 
         $have   -= $need;
-        $ezy    -= $need >> 3;
+        $ezy    -= $need;
 
         $bytes >>= $need;
         $need    = 0;
 
         unshift @chunks,$ezy,$bytes;
 
-      # ^wholly consumed
-      } else {
-        $need -= $ezy << 3;
-        $have -= $ezy << 3;
 
-        $pos  += $ezy << 3;
+        # backtrack type
+        $idex=($idex > 0)
+          ? $idex-1
+          : $#types
+          ;
+
+
+      # ^wholly consumed
+      # nothing saved for next
+      } else {
+        $need -= $ezy;
+        $have -= $ezy;
+
+        $pos  += $ezy;
 
       };
 
     };
 
+    # wrap type, go next and give
+    $idex &= $idex * ($idex < @types);
+    $ARG  => $value;
 
-    $ARG=>$value;
-
-  } @{$self->{order}};
+  } @{$self->{order}} }} 0..$cnt-1];
 
 
-  return $len,%out;
+  return $out,$len*$cnt;
 
 };
 

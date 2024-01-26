@@ -35,7 +35,7 @@ package Arstd::Struc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = v0.00.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -43,37 +43,56 @@ package Arstd::Struc;
 
 sub new($class,@order) {
 
-  Readonly my $re=>qr{\s*\*\s*\[(.+)\]};
+  # static patterns
+  state $head_re   = qr{\s*\*\s*\[(.+)\]};
+  state $rehead_re = qr{^\^};
+
 
   # array as hash
   my $idex   = 0;
   my @keys   = array_keys(\@order);
   my @values = array_values(\@order);
 
-
   # build header
-  my @head_keys=();
-  my @head_fmat=();
+  my @head_keys = ();
+  my @head_fmat = ();
+  my $rehead    = {};
 
-  @values=map {
+  # header read/reuse filter
+  state $rehead_chk = sub ($cntsz,$idex) {
 
-    if(is_arrayref($ARG)) {
-      my ($fmat,$cntsz)=@$ARG;
+    if($cntsz=~ s[$rehead_re][]) {
+      $rehead->{$keys[$idex]}=$cntsz;
 
-      if(defined $cntsz) {
-        push @head_keys,$keys[$idex];
-        push @head_fmat,$cntsz;
-
-      };
-
-      $ARG=$fmat;
-
-    } elsif($ARG=~ s[$re][]) {
+    } else {
       push @head_keys,$keys[$idex];
-      push @head_fmat,$1;
+      push @head_fmat,$cntsz;
 
     };
 
+  };
+
+
+  # apply filter to struc format
+  @values=map {
+
+    # value is [Arstd::Bitformat,cntsize]
+    if(is_arrayref($ARG)) {
+
+      my ($fmat,$cntsz)=@$ARG;
+
+      $rehead_chk->($cntsz,$idex)
+      if defined $cntsz;
+
+      $ARG=$fmat;
+
+    # value is "fmat * [cntsize]"
+    } elsif($ARG=~ s[$head_re][]) {
+      $rehead_chk->($1,$idex);
+
+    };
+
+    # go next and give
     $idex++;
     $ARG;
 
@@ -102,11 +121,15 @@ sub new($class,@order) {
   # make ice
   my $self=bless {
 
-    head  => \@head_keys,
+    #   size fields to read
+    # / size fields to reuse
+    head    => \@head_keys,
+    rehead  => $rehead,
 
-    order => \@keys,
-    fmat  => \@values,
-    proc  => \@procs,
+    # the actual fields
+    order   => \@keys,
+    fmat    => \@values,
+    proc    => \@procs,
 
   },$class;
 
@@ -143,11 +166,19 @@ sub from_bytes($self,$sref,$pos) {
 
   );
 
+  # ^get read sizes
   map {
     $e->{cnt}->{$ARG}
   = shift @$ct
 
   } @{$self->{order}};
+
+  # ^get reused sizes
+  map {
+    $e->{cnt}->{$ARG}
+  = $e->{cnt}{$self->{rehead}->{$ARG}}
+
+  } keys %{$self->{rehead}};
 
 
   # walk elems
@@ -193,7 +224,7 @@ sub _proc_elem(
 };
 
 # ---   *   ---   *   ---
-# ^guts
+# ^Arstd::Bitformat guts
 
 sub _unpack_struc($self,$e) {
 
@@ -204,15 +235,17 @@ sub _unpack_struc($self,$e) {
 
   };
 
-  my ($len,%out)=$e->{fmat}->from_bytes(
-    \$e->{src},0
+  my ($out,$len)=$e->{fmat}->from_bytes(
+    $e->{src},0,$cnt
 
   );
+
+  return $out;
 
 };
 
 # ---   *   ---   *   ---
-# ^~
+# ^prim guts
 
 sub _unpack_prims($self,$e) {
 
@@ -235,16 +268,22 @@ sub _unpack_prims($self,$e) {
 # ---   *   ---   *   ---
 # test
 
-my $ice=Arstd::Struc->new(
-  f0 => 'byte * [byte]',
-  f1 => 'byte * [byte]',
+use Fmat;
+
+my $bfmat=Arstd::Bitformat->new(
+
+  b0 => 7,
+  b1 => 1,
 
 );
 
-use Fmat;
-fatdump(\$ice,blessed=>1,recurse=>1);
+my $ice=Arstd::Struc->new(
+  f0 => 'byte * [byte]',
+  f1 => [$bfmat => '^f0'],
 
-my $buf=pack 'C*',0x2,0x1,0x24,0x24,0x21;
+);
+
+my $buf=pack 'C*',0x2,0x24,0x24,0x8F,0x20;
 my @ar=$ice->from_bytes(\$buf,0);
 
 fatdump(\[@ar]);
