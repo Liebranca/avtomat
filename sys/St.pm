@@ -30,7 +30,7 @@ package St;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.02.2;
+  our $VERSION=v0.02.3;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -47,11 +47,34 @@ package St;
 # is obj instance of class
 
 sub is_valid($kind,$obj) {
-  return blessed($obj) && $obj->isa($kind);
+
+  return
+     defined blessed($obj)
+  && int $obj->isa($kind)
+
+  ;
 
 };
 
+# ---   *   ---   *   ---
+# ^same, but in the strict sense!
+#
+# obj must be *exactly*
+# an ice of type -- derived
+# classes won' pass this test
+
+sub is_iceof($kind,$obj) {
+
+  return
+     $kind->is_valid($obj)
+  && $kind eq ref $obj
+  ;
+
+};
+
+# ---   *   ---   *   ---
 # what clas obj is an instance of
+
 sub get_class($obj) {return ref $obj};
 
 # ---   *   ---   *   ---

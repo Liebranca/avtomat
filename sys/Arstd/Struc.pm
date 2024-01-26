@@ -34,10 +34,12 @@ package Arstd::Struc;
   use Arstd::String;
   use Arstd::Bitformat;
 
+  use parent 'St';
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = v0.00.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -61,7 +63,7 @@ sub new($class,@order) {
   my $rehead    = {};
 
   # header read/reuse filter
-  state $rehead_chk = sub ($cntsz,$idex) {
+  my $rehead_chk = sub ($cntsz,$idex) {
 
     if($cntsz=~ s[$rehead_re][]) {
       $rehead->{$keys[$idex]}=$cntsz;
@@ -78,21 +80,13 @@ sub new($class,@order) {
   # apply filter to struc format
   @values=map {
 
-    # value is [Arstd::Bitformat,cntsize]
-    if(is_arrayref($ARG)) {
+    my ($fmat,$cntsz)=@$ARG;
 
-      my ($fmat,$cntsz)=@$ARG;
+    # have counter?
+    $rehead_chk->($cntsz,$idex)
+    if defined $cntsz;
 
-      $rehead_chk->($cntsz,$idex)
-      if defined $cntsz;
-
-      $ARG=$fmat;
-
-    # value is "fmat * [cntsize]"
-    } elsif($ARG=~ s[$head_re][]) {
-      $rehead_chk->($1,$idex);
-
-    };
+    $ARG=$fmat;
 
     # go next and give
     $idex++;
@@ -109,15 +103,29 @@ sub new($class,@order) {
   };
 
 
-  # get value=>fptr
+  # get value=>(rel fptr)
   my @procs=map {
 
     (Arstd::Bitformat->is_valid($ARG))
-      ? 1
-      : 0
-      ;
+  | ($class->is_valid($ARG) << 1)
+  ;
 
   } @values;
+
+
+  # get fields that are themselves
+  # instances of this class
+  my $substruc = {};
+     $idex     = 0;
+
+  map {
+
+    $substruc->{$ARG}=$values[$idex]
+    if $procs[$idex] & 0x2;
+
+    $idex++;
+
+  } @keys;
 
 
   # get sizeof (minus strings!)
@@ -125,6 +133,9 @@ sub new($class,@order) {
 
     if(Arstd::Bitformat->is_valid($ARG)) {
       $ARG->{bytesize};
+
+    } elsif($class->is_valid($ARG)) {
+      $ARG->{basesize};
 
     } else {
       sizeof($ARG);
@@ -137,7 +148,7 @@ sub new($class,@order) {
   # make ice
   my $self=bless {
 
-    # save total sizeof
+    # save base sizeof
     basesize => $basesize,
 
     #   size fields to read
@@ -146,9 +157,12 @@ sub new($class,@order) {
     rehead  => $rehead,
 
     # the actual fields
-    order   => \@keys,
     fmat    => \@values,
     proc    => \@procs,
+
+    # used for walking
+    order    => \@keys,
+    substruc => $substruc,
 
   },$class;
 
@@ -157,33 +171,51 @@ sub new($class,@order) {
 };
 
 # ---   *   ---   *   ---
-# proto: run F with elem
+# makes ordered array from
+# data hashref
 
-sub _proc_elem(
+sub ordered($self,$data) {
 
-  $self,
-  $on_struc,$on_prims,
+  return [map {
+    $ARG=>$data->{$ARG}
 
-  $e,$idex
+  } '$:head;>',@{$self->{order}}];
 
-) {
+};
+
+# ---   *   ---   *   ---
+# proto: run F with elem,
+# accto elem type
+
+sub _proc_elem($self,$farray,$e,$idex) {
 
   # get ctx vars
   $e->{key}  = $self->{order}->[$idex];
   $e->{fmat} = $self->{fmat}->[$idex];
 
+  # get func to run
+  my $f=$self->{proc}->[$idex];
+     $f=$farray->[$f];
+
   # ^exec
-  return ($self->{proc}->[$idex])
-    ? $self->$on_struc($e)
-    : $self->$on_prims($e)
-    ;
+  return $self->$f($e);
 
 };
 
 # ---   *   ---   *   ---
-# read from buff
+# read from bytestr
 
-sub from_bytes($self,$sref,$pos) {
+sub from_bytes($self,$rawref) {
+
+  # self->proc[X] is idex to one of
+  # these functions
+  state $farray=[
+    '_unpack_prims',
+    '_unpack_bitformat',
+    '_unpack_struc',
+
+  ];
+
 
   # bind ctx
   my $e={
@@ -191,22 +223,29 @@ sub from_bytes($self,$sref,$pos) {
     key  => $NULLSTR,
     fmat => $NULLSTR,
 
-    src  => \(substr $$sref,
-      $pos,(length $$sref) - $pos
-
-    ),
+    src  => $rawref,
 
     cnt  => {},
+    ezy  => {},
 
   };
 
 
   # read header
-  my ($ct,@cnt)=bunpack(
-    $self->{head}->[0],$e->{src},
-    int @{$self->{head}}-1
+  my ($ct,@len)=([]);
 
-  );
+  if(@{$self->{head}}) {
+
+    ($ct,@len)=bunpack(
+      $self->{head}->[0],$e->{src},
+      int @{$self->{head}}-1
+
+    );
+
+    $e->{ezy}->{'$:head;>'} = $len[-1];
+
+  };
+
 
   # ^get read sizes
   map {
@@ -226,39 +265,26 @@ sub from_bytes($self,$sref,$pos) {
   # walk elems
   my $idex=0;
 
-  return map {
+  return ({map {
 
-    $e->{key} => $self->_proc_elem(
+     $e->{key}
+  => $self->_proc_elem($farray,$e,$idex++),
 
-      \&_unpack_struc,
-      \&_unpack_prims,
-
-      $e,$idex++
-
-    ),
-
-  } @{$self->{order}};
+  } @{$self->{order}}},$e->{ezy});
 
 };
 
 # ---   *   ---   *   ---
-# ^Arstd::Bitformat guts
+# ^consume bytes
 
-sub _unpack_struc($self,$e) {
+sub from_strm($self,$sref,$pos) {
 
-  my $cnt=1;
-
-  if(exists $e->{cnt}->{$e->{key}}) {
-    $cnt=$e->{cnt}->{$e->{key}};
-
-  };
-
-  my ($out,$len)=$e->{fmat}->from_bytes(
-    $e->{src},0,$cnt
+  my $rawref=\(substr $$sref,
+    $pos,(length $$sref) - $pos
 
   );
 
-  return $out;
+  return $self->from_bytes($rawref);
 
 };
 
@@ -274,10 +300,58 @@ sub _unpack_prims($self,$e) {
 
   };
 
-  my ($ct,@cnt)=bunpack(
+  my ($ct,@len)=bunpack(
     $e->{fmat},$e->{src},$cnt
 
   );
+
+  $e->{ezy}->{$e->{key}}=$len[-1];
+
+  return $ct;
+
+};
+
+# ---   *   ---   *   ---
+# ^Arstd::Bitformat guts
+
+sub _unpack_bitformat($self,$e) {
+
+  my $cnt=1;
+
+  if(exists $e->{cnt}->{$e->{key}}) {
+    $cnt=$e->{cnt}->{$e->{key}};
+
+  };
+
+  my ($ct,$len)=$e->{fmat}->from_strm(
+    $e->{src},0,$cnt
+
+  );
+
+  $e->{ezy}->{$e->{key}}=$len;
+
+  return $ct;
+
+};
+
+# ---   *   ---   *   ---
+# ^recurse guts
+
+sub _unpack_struc($self,$e) {
+
+  my $cnt=1;
+
+  if(exists $e->{cnt}->{$e->{key}}) {
+    $cnt=$e->{cnt}->{$e->{key}};
+
+  };
+
+  my ($ct,$len)=$e->{fmat}->from_strm(
+    $e->{src},0,$cnt
+
+  );
+
+  $e->{ezy}->{$e->{key}}=$len;
 
   return $ct;
 
@@ -287,6 +361,17 @@ sub _unpack_prims($self,$e) {
 # write to buff
 
 sub to_bytes($self,%data) {
+
+
+  # self->proc[X] is idex to one of
+  # these functions
+  state $farray=[
+    '_pack_prims',
+    '_pack_bitformat',
+    '_pack_struc'
+
+  ];
+
 
   # bind ctx
   my $e={
@@ -298,7 +383,7 @@ sub to_bytes($self,%data) {
     dst   => $NULLSTR,
 
     cnt   => {},
-    total => 0,
+    ezy   => {},
 
   };
 
@@ -313,55 +398,46 @@ sub to_bytes($self,%data) {
   # walk elems
   my $idex=0;
 
-  map { $self->_proc_elem(
+  map {
+    $self->_proc_elem($farray,$e,$idex++)
 
-    \&_pack_struc,
-    \&_pack_prims,
-
-    $e,$idex++
-
-  )} @{$self->{order}};
+  } @{$self->{order}};
 
 
   # get ordered counters
   my @cnt=map {$e->{cnt}->{$ARG}} @keys;
 
+
   # ^pre-pend counters as header
-  my ($ct,@len)=bpack(
-    $self->{head}->[0] => @cnt
+  if(@{$self->{head}}) {
 
-  );
+    my ($ct,@len)=bpack(
+      $self->{head}->[0] => @cnt
 
-
-  # ^cat to final
-  $e->{total} += $len[-1];
-  $e->{dst}    = join $NULLSTR,@$ct,$e->{dst};
+    );
 
 
-  return ($e->{dst},$e->{total});
-
-};
-
-# ---   *   ---   *   ---
-# ^Arstd::Bitformat guts
-
-sub _pack_struc($self,$e) {
-
-  # record elem count writ
-  my @data = @{$e->{src}->{$e->{key}}};
-  my $cnt  = int @data;
-
-  if(exists $e->{cnt}->{$e->{key}}) {
-    $e->{cnt}->{$e->{key}}=$cnt;
+    # ^cat to final
+    $e->{ezy}->{'$:head;>'} = $len[-1];
+    $e->{dst} = join $NULLSTR,@$ct,$e->{dst};
 
   };
 
 
-  # ^get bytearray for elem
-  my ($ct,$len)=$e->{fmat}->to_bytes(@data);
+  return ($e->{dst},$e->{ezy});
 
-  $e->{total} += $len;
-  $e->{dst}   .= $ct;
+};
+
+# ---   *   ---   *   ---
+# ^inserts result in existing
+# bytestr
+
+sub to_strm($self,$sref,$pos,%data) {
+
+  my ($ct,$len)=$self->to_bytes(%data);
+  substr $$sref,$pos,$len,$ct;
+
+  return $len;
 
 };
 
@@ -386,42 +462,61 @@ sub _pack_prims($self,$e) {
 
   );
 
-  $e->{total} += $len[-1];
-  $e->{dst}   .= join $NULLSTR,@$ct;
+
+  $e->{ezy}->{$e->{key}} = $len[-1];
+  $e->{dst} .= join $NULLSTR,@$ct;
 
 };
 
 # ---   *   ---   *   ---
-# test
+# ^Arstd::Bitformat guts
 
-use Fmat;
+sub _pack_bitformat($self,$e) {
 
-my $bfmat=Arstd::Bitformat->new(
-  b0 => 7,
-  b1 => 1,
+  # record elem count writ
+  my @data = @{$e->{src}->{$e->{key}}};
+  my $cnt  = int @data;
 
-);
+  if(exists $e->{cnt}->{$e->{key}}) {
+    $e->{cnt}->{$e->{key}}=$cnt;
 
-my $ice=Arstd::Struc->new(
-  f0 => 'byte * [byte]',
-  f1 => [$bfmat => '^f0'],
+  };
 
-);
 
-my ($buf,$len) = $ice->to_bytes(
+  # ^get bytearray for elem
+  my ($ct,$len)=$e->{fmat}->to_bytes(@data);
 
-  f1=>[
-    {b0=>0x3F,b1=>0x00},
-    {b0=>0x20,b1=>0x01},
+  $e->{ezy}->{$e->{key}} = $len;
+  $e->{dst} .= $ct;
 
-  ],
+};
 
-  f0=>[0x24,0x24],
+# ---   *   ---   *   ---
+# ^recurse guts
 
-);
+sub _pack_struc($self,$e) {
 
-my @ar = $ice->from_bytes(\$buf,0);
-fatdump(\[@ar]);
+  # record elem count writ
+  my @data = @{$e->{src}->{$e->{key}}};
+  my $cnt  = int @data;
+
+  if(exists $e->{cnt}->{$e->{key}}) {
+    $e->{cnt}->{$e->{key}}=$cnt;
+
+  };
+
+
+  # ^get bytearray for elem
+  map {
+
+    my ($ct,$len)=$e->{fmat}->to_bytes(%$ARG);
+
+    $e->{ezy}->{$e->{key}} = $len;
+    $e->{dst} .= $ct;
+
+  } @data;
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

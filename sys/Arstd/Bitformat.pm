@@ -151,7 +151,7 @@ sub array_bor($self,%data) {
 };
 
 # ---   *   ---   *   ---
-# (b)packs struc
+# (b)packs struc to bytestr
 
 sub to_bytes($self,@data) {
 
@@ -197,10 +197,12 @@ sub to_bytes($self,@data) {
 };
 
 # ---   *   ---   *   ---
-# ^inserts result in buff
+# ^inserts result in existing
+# bytestr
 
-sub write($self,$sref,$pos,%data) {
-  my ($ct,$len)=$self->to_bytes(%data);
+sub to_strm($self,$sref,$pos,@data) {
+
+  my ($ct,$len)=$self->to_bytes(@data);
   substr $$sref,$pos,$len,$ct;
 
   return $len;
@@ -208,17 +210,14 @@ sub write($self,$sref,$pos,%data) {
 };
 
 # ---   *   ---   *   ---
-# consume previously packed
-# bytes into new struc
+# read bytestr into new struc
 
-sub from_bytes($self,$sref,$pos,$cnt=1) {
+sub from_bytes($self,$raw,$cnt=1) {
 
-  # get bytearray at pos
-  my $len=$self->{bytesize};
-  my $raw=substr $$sref,$pos,$len*$cnt,$NULLSTR;
-
-  # ^break down into chunks
+  # break down into chunks
+  my $len   = $self->{bytesize};
   my @types = array_typeof($len);
+
   my $fmat  = join $NULLSTR,map {
     packof($ARG)
 
@@ -302,6 +301,18 @@ sub from_bytes($self,$sref,$pos,$cnt=1) {
 
 
   return $out,$len*$cnt;
+
+};
+
+# ---   *   ---   *   ---
+# ^consumes bytes
+
+sub from_strm($self,$sref,$pos,$cnt=1) {
+
+  my $len=$self->{bytesize};
+  my $raw=substr $$sref,$pos,$len*$cnt,$NULLSTR;
+
+  return $self->from_bytes($raw,$cnt);
 
 };
 
