@@ -128,28 +128,8 @@ sub new($class,@order) {
   } @keys;
 
 
-  # get sizeof (minus strings!)
-  my $basesize=sum(map {
-
-    if(Arstd::Bitformat->is_valid($ARG)) {
-      $ARG->{bytesize};
-
-    } elsif($class->is_valid($ARG)) {
-      $ARG->{basesize};
-
-    } else {
-      sizeof($ARG);
-
-    };
-
-  } @values);
-
-
   # make ice
   my $self=bless {
-
-    # save base sizeof
-    basesize => $basesize,
 
     #   size fields to read
     # / size fields to reuse

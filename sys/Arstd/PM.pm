@@ -58,12 +58,14 @@ package Arstd::PM;
 
     fvars
 
+    IMP
+
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -457,6 +459,35 @@ sub fvars($classes,%O) {
     %O,
 
   }} if ! exists $have{Frame_Vars};
+
+};
+
+# ---   *   ---   *   ---
+# AR/IMP:
+#
+# * runs 'crux' with provided
+#   input if ran as executable
+#
+# * if imported as a module,
+#   execute some subroutine
+
+sub IMP($class,$on_use,$on_exe,@req) {
+
+  # imported as exec via arperl
+  if(defined $req[0]
+  &&  $req[0] eq '*crux'
+
+  ) {
+
+    shift @req;
+    return $on_exe->($class,@req);
+
+
+  # imported as module via use
+  } else {
+    return $on_use->($class,(caller 1)[0],@req);
+
+  };
 
 };
 

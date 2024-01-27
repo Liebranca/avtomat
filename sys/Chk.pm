@@ -40,6 +40,7 @@ package Chk;
     is_qreref
 
     is_scalarref
+    is_filepath
 
     stripline
     codefind
@@ -49,7 +50,7 @@ package Chk;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.4;#a
+  our $VERSION=v0.00.5;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -221,6 +222,22 @@ sub __isa_search(@names) {
   };
 
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# AR/approved filepath validate
+
+sub is_filepath($fpath) {
+
+  return
+
+  !   ($fpath=~ $NEWLINE_RE)
+
+  &&  (256 > length $fpath)
+  &&  (-f $fpath)
+
+  ;
 
 };
 

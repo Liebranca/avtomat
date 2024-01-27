@@ -49,12 +49,15 @@ package Arstd::xd;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Chk;
+
   use Arstd::IO;
+  use Arstd::PM;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -62,28 +65,7 @@ package Arstd::xd;
 
 sub from_file($fpath) {
   my $body = orc($fpath);
-  draw($fpath);
-
-};
-
-# ---   *   ---   *   ---
-# when ran as executable
-
-sub crux($input=undef) {
-
-  # have input?
-  my $src = defined $input
-  or die "xd: no input";
-
-  # ^select accto input type
-  if(-f $src) {
-    from_file($src)
-
-  } else {
-    draw($src)
-
-  };
-
+  draw($body);
 
 };
 
@@ -201,30 +183,59 @@ sub draw($body) {
 
 sub import($class,@req) {
 
-  # imported as exec via arperl
-  if( defined $req[0]
-  &&  $req[0] eq '*crux'
+  return IMP(
 
-  ) {
+    $class,
 
-    return crux($req[1]);
+    \&ON_USE,
+    \&ON_EXE,
+
+    @req
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^imported as exec via arperl
+
+sub ON_EXE($class,$input=undef,@nullarg) {
+
+  # have input?
+  my $src=(defined $input)
+    ? $input
+    : die "xd: no input"
+    ;
 
 
-  # imported as module via use
+  # ^select accto input type
+  if(is_filepath($src)) {
+    from_file($src)
+
   } else {
-
-    use Arstd::PM;
-    *xd=*draw;
-
-    submerge(
-
-      ['Arstd::xd'],
-      main  => caller,
-      subok => qr{^xd$},
-
-    );
+    draw($src)
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# ^imported as module via use
+
+sub ON_USE($class,$from,@nullarg) {
+
+  *xd=*draw;
+
+  submerge(
+
+    ['Arstd::xd'],
+
+    main  => $from,
+    subok => qr{^xd$},
+
+  );
+
+  return;
 
 };
 
