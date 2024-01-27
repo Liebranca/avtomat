@@ -65,7 +65,7 @@ package Arstd::PM;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -210,6 +210,12 @@ sub submerge($classes,%O) {
 sub add_symbol($dst,$src) {
   no strict 'refs';
   *{$dst}=*{$src};
+
+};
+
+sub add_scalar($dst,$src) {
+  no strict 'refs';
+  ${$dst}=${$src};
 
 };
 
