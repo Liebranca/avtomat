@@ -528,7 +528,7 @@ sub walk($path,%O) {
 
     # nit root on first run
     my $dst=(! defined $root_node)
-      ? $frame->nit($root_node,$path)
+      ? $frame->new($root_node,$path)
       : $root_node
       ;
 
@@ -539,14 +539,14 @@ sub walk($path,%O) {
     for my $f(dorc($path,$excluded)) {
 
       if(-f "$path/$f") {
-        $frame->nit($dst,$f);
+        $frame->new($dst,$f);
 
       } elsif(($O{-r}) && (-d "$path$f/")) {
 
         unshift @pending,
 
           "$path$f/",
-          $frame->nit($dst,"$f/")
+          $frame->new($dst,"$f/")
 
         ;
 

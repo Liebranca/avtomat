@@ -45,7 +45,7 @@ package Lang::Rust;
 # ---   *   ---   *   ---
 
 BEGIN {
-Lang::Rust->nit(
+Lang::Rust->new(
 
   name=>'Rust',
 

@@ -18,7 +18,7 @@ package Lang::Python;
 
 # ---   *   ---   *   ---
 
-Lang::Python->nit(
+Lang::Python->new(
 
   name=>'Python',
   ext=>'\.py$',

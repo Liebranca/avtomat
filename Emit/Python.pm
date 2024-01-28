@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Emit::Python;
 
   use v5.36.0;
@@ -38,7 +39,6 @@ package Emit::Python;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Emit::Std;
-  use Peso::Ipret;
 
   use parent 'Emit';
 
@@ -49,43 +49,51 @@ package Emit::Python;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
-# ROM
+# open boiler
 
-  Readonly my $OPEN_GUARDS=>
+sub open_guards($class,$fname) {
 
-q[#!/usr/bin/python
-$:note;>
+return join "\n",
 
-# ---   *   ---   *   ---
-# get system stuff
+"# ---   *   ---   *   ---",
+"# get system stuff",
 
-import os,sys;
+"import os,sys;",
 
-ARPATH:str=os.getenv('ARPATH');
-if(ARPATH+'/lib/' not in sys.path):
-  sys.path.append(ARPATH+'/lib/');
+"ARPATH:str=os.getenv('ARPATH');",
+"if(ARPATH+'/lib/' not in sys.path):",
+"  sys.path.append(ARPATH+'/lib/');",
 
-# ---   *   ---   *   ---
-# deps
+"# ---   *   ---   *   ---",
+"# deps",
 
-];
+"\n"
+;
 
-
-# ---   *   ---   *   ---
-
-  Readonly my $CLOSE_GUARDS=>q[
-# ---   *   ---   *   ---
-# snek is awful :c
-
-];
+};
 
 # ---   *   ---   *   ---
+# no closer here
+# putting this just for beqs
+
+sub close_guards($class,$fname) {
+  return $NULLSTR;
+
+};
+
+# ---   *   ---   *   ---
+# selfex
 
 sub boiler_open($class,$fname,%O) {
 
   state $FROM_RE=qr{from}sxm;
 
-  my $s=$OPEN_GUARDS;
+  my $note=Emit::Std::note($O{author},q[#]);
+
+  my $defi=0;
+  my $defk=array_keys($O{define});
+  my $defv=array_values($O{define})
+
 
   for my $path(@{$O{include}}) {
 
@@ -116,44 +124,38 @@ sub boiler_open($class,$fname,%O) {
 
   };
 
-  $s.=q[$:iter (path=>$O{include})
-  "$path;\n"
 
-;>
+return join "\n",
 
-# ---   *   ---   *   ---
-# ROM
+"#!/usr/bin/python"
+$class->open_guards($fname),
 
-$:iter (
+(join "\n",map {
+"$path;\n"
 
-  name=>[array_keys($O{define})],
-  value=>[array_values($O{define})],
+} @{$O{include}} ),
 
-) "$name=$value;\n"
+"# ---   *   ---   *   ---",
+"# ROM",
 
-;>
+(join "\n",map {
 
-# ---   *   ---   *   ---
+my $name  = $ARG
+my $value = $defv[$defi++];
 
-];
+"$name=$value;\n"
 
-# ---   *   ---   *   ---
+} @$defk),
 
-  Peso::Ipret::pesc(
+"# ---   *   ---   *   ---",
+"\n"
 
-    \$s,
-
-    fname=>$fname,
-    note=>Emit::Std::note($O{author},q[#]),
-
-    include=>$O{include},
-    define=>$O{define},
-
-  );
-
-  return $s;
+;
 
 };
+
+# ---   *   ---   *   ---
+# ^closer
 
 sub boiler_close($class,$fname,%O) {
   return $CLOSE_GUARDS;
@@ -161,6 +163,7 @@ sub boiler_close($class,$fname,%O) {
 };
 
 # ---   *   ---   *   ---
+# makes shadow lib
 
 sub shwlbind($fname,$soname,$libs_ref) {
 
@@ -171,32 +174,6 @@ sub shwlbind($fname,$soname,$libs_ref) {
 
   my $objects=Shb7::sofetch(\%symtab);
 
-# ---   *   ---   *   ---
-
-my $code=q{
-
-class $:soname;>X:
-
-  @staticmethod
-  def nit():
-
-    self=cdll.LoadLibrary(
-      ARPATH+'/lib/lib$:soname;>.so'
-
-    );
-
-$:nitpaste;>
-
-    return self;
-
-# ---   *   ---   *   ---
-
-lib$:soname;>=$:soname;>X.nit();
-$:calpaste;>
-
-};
-
-# ---   *   ---   *   ---
 
   my $nitpaste=$NULLSTR;
   my @calpaste=();
@@ -336,16 +313,19 @@ if(length($arg_names)) {
 
 push @calpaste,$boiler.
 
-'  doowoop_fret='.
-  "lib\$:soname;>.$fn_name($arg_names);\n".
+'  doowoop_fret='
 
-$afterboiler.
+# << NOT IDENT
+. "lib${soname}.$fn_name($arg_names);\n",
 
-"  if(doowoop):\n".
-"    return doowoop_h;\n".
+$afterboiler,
 
-"  else:\n".
-"    return doowoop_fret;\n"
+# YES IDENT
+"  if(doowoop):",
+"    return doowoop_h;",
+
+"  else:",
+"    return doowoop_fret;",
 
 ;
 
@@ -353,20 +333,29 @@ $afterboiler.
 
   };
 
-# ---   *   ---   *   ---
-# expand the code with the provided data
 
-  Peso::Ipret::pesc(
+return join "\n",
 
-    \$code,
+"class ${soname}X:",
 
-    soname=>$soname,
-    nitpaste=>$nitpaste,
-    calpaste=>(join "\n",@calpaste),
+"  \@staticmethod",
+"  def nit():",
 
-  );
+"    self=cdll.LoadLibrary(",
+"      ARPATH+'/lib/lib${soname}.so'",
 
-  return $code;
+"    );",
+
+$nitpaste,
+"    return self;",
+
+
+"lib${soname}=${soname}X.nit();",
+@calpaste,
+
+"\n"
+
+;
 
 };
 

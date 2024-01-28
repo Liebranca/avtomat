@@ -214,8 +214,11 @@ sub add_symbol($dst,$src) {
 };
 
 sub add_scalar($dst,$src) {
+
   no strict 'refs';
-  ${$dst}=${$src};
+
+  add_symbol($dst,$src);
+  ${$dst}=${$dst};
 
 };
 

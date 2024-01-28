@@ -36,11 +36,6 @@ package Lang::peso;
 
   use parent 'Lang::Def';
 
-  use Peso::Ops;
-  use Peso::Defs;
-
-  use Peso::Rd;
-
 # ---   *   ---   *   ---
 
 BEGIN {
@@ -332,7 +327,7 @@ sub mini_ipret($self,$rd,$tree) {
 
 # ---   *   ---   *   ---
 
-Lang::peso->nit(
+Lang::peso->new(
 
   name=>'peso',
 
@@ -340,7 +335,6 @@ Lang::peso->nit(
   hed=>'[^A-Za-z0-9_]+[A-Za-z0-9_]*;',
   mag=>'$ program',
 
-  op_prec=>$Peso::Ops::TABLE,
   nums=>$NUMS,
 
 # ---   *   ---   *   ---

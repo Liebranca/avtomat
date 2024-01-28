@@ -51,7 +51,7 @@ BEGIN {
 my $NUMS={%{$Lang::Def::DEFAULTS{nums}}};
 $NUMS->{'(\$[0-9A-F]+)'}=\&hstoi;
 
-Lang::fasm->nit(
+Lang::fasm->new(
 
   name      => 'fasm',
   ext       => '\.(asm|inc)$',

@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Emit::C;
 
   use v5.36.0;
@@ -32,14 +33,13 @@ package Emit::C;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Emit::Std;
-  use Peso::Ipret;
 
   use parent 'Emit';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.5;#b
+  our $VERSION=v0.00.6;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -47,68 +47,76 @@ package Emit::C;
 
   Readonly our $TYPES=>[
 
-    q[sbyte]=>['int8_t'],
-
-    q[byte]=>[
+    q[sbyte] => ['int8_t'],
+    q[byte]  => [
       'uint8_t','uchar','unsigned char'
 
     ],
 
-    q[swide]=>[
-      'int16_t','short',
+    q[sword]    => ['int16_t','short'],
+    q[word]     => ['uint16_t','ushort'],
 
-    ],
+    q[byte_str] => ['char*'],
+    q[word_str] => ['wchar_t*'],
 
-    q[wide]=>[
-      'uint16_t','ushort',
+    q[dword]    => ['uint32_t','uint'],
+    q[sdword]   => ['int32_t','int'],
 
-    ],
-
-    q[byte_str]=>['char*'],
-    q[wide_str]=>['wchar_t*'],
-
-    q[brad]=>['uint32_t','uint'],
-    q[sbrad]=>['int32_t','int'],
-
-    q[word]=>[
+    q[qword]    =>[
       'uint64_t','ulong','size_t','uintptr_t',
 
     ],
 
-    q[sword]=>[
+    q[sqword] => [
       'int64_t','long','intptr_t',
 
     ],
 
-    q[real]=>['float'],
-    q[daut]=>['double'],
+    q[real]     => ['float'],
+    q[daut]     => ['double'],
 
-    q[pe_void]=>['void'],
+    q[pe_void]  => ['void'],
 
   ];
 
-# ---   *   ---   *   ---
-
-  Readonly our $OPEN_GUARDS=>
-
-q[#ifndef __$:fname;>_H__
-#define __$:fname;>_H__
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-];
-
 
 # ---   *   ---   *   ---
+# open boiler template
 
-  Readonly our $CLOSE_GUARDS=>
+sub open_guards($class,$fname) {
 
-q[#ifdef __cplusplus
+  return join "\n",
+
+    "#ifndef __${fname}_H__",
+    "#define __${fname}_H__",
+
+    "#ifdef __cplusplus",
+    'extern "C" {',
+    "#endif",
+
+    "\n"
+
+  ;
+
 };
-#endif
-#endif // __$:fname;>_H__
-];
+
+# ---   *   ---   *   ---
+# ^close boiler template
+
+sub close_guards($class,$fname) {
+
+  return
+
+    "#ifdef __cplusplus",
+    "};\n",
+    "#endif",
+    "#endif // __${fname}_H__",
+
+    "\n"
+
+  ;
+
+};
 
 # ---   *   ---   *   ---
 # GBL
@@ -123,6 +131,7 @@ q[#ifdef __cplusplus
   );
 
 # ---   *   ---   *   ---
+# removes "cruft", so to speak ;>
 
 sub typetrim($class,$typeref) {
 
@@ -140,95 +149,84 @@ sub boiler_open($class,$fname,%O) {
 
   $fname=uc $fname;
 
-# ---   *   ---   *   ---
+  # array as hash
+  my $defi = 0;
+  my @defk = array_keys($O{define});
+  my @defv = array_values($O{define});
 
+  # add guards?
+  my $guards=($O{add_guards})
+    ? $class->open_guards($fname)
+    : $NULLSTR
+    ;
 
-  my $s=q[$:note;>
-$:guards;>
+  # open boilerpaste
+  my $s=
+
+    Emit::Std::note($O{author},q[//])
+  . "\n$guards"
+
+  .q[
+
 // ---   *   ---   *   ---
 // deps
 
-$:iter (path=>$O{include})
-  q{  }."#include $path\n"
+]
 
-;>
+. (join "\n",map {
+
+    "  #include $ARG\n"
+
+  } @{$O{include}})
+
+. "\n" . q[
 
 // ---   *   ---   *   ---
 // ROM
 
-$:iter (
+] . (join "\n",map {
 
-  name=>[array_keys($O{define})],
-  value=>[array_values($O{define})],
+    my $name  = $ARG;
+    my $value = $defv[$defi++];
 
-) q{  }."#define $name $value\n"
+    "  #define $name $value\n";
 
-;>
+  } @defk) . "\n" . q[
 
 // ---   *   ---   *   ---
 
 ];
 
 
-# ---   *   ---   *   ---
-
-  no strict 'refs';
-
-  Peso::Ipret::pesc(
-
-    \$s,
-
-    fname   => $fname,
-    note    => Emit::Std::note($O{author},q[//]),
-
-    include => $O{include},
-    define  => $O{define},
-
-    guards  => ($O{add_guards})
-      ? ${"$class\::OPEN_GUARDS"}
-      : $NULLSTR
-      ,
-
-  );
-
+  # ^back to perl
+  # give boilerpaste
   return $s;
 
 };
 
 # ---   *   ---   *   ---
+# ^endof
 
 sub boiler_close($class,$fname,%O) {
 
   $fname=uc $fname;
 
-# ---   *   ---   *   ---
 
+  my $guards=($O{add_guards})
+    ? $class->close_guards($fname)
+    : $NULLSTR
+    ;
 
+  # close boilerpaste
   my $s=q[
 
 // ---   *   ---   *   ---
 
-$:guards;>
-
-];
+] . "\n$guards";
 
 
-# ---   *   ---   *   ---
-
-  no strict 'refs';
-
-  Peso::Ipret::pesc(
-    \$s,
-
-    fname=>$fname,
-
-    guards=>($O{add_guards})
-      ? ${"$class\::CLOSE_GUARDS"}
-      : $NULLSTR
-      ,
-
-  );
-
+  # ^back to perl
+  # give boilerpaste
   return $s;
 
 };
@@ -472,13 +470,16 @@ sub switch_tab($class,$x,%O) {
 
 sub xltab(%table) {
 
-  for my $key(qw(byte_str wide_str)) {
+
+  # make string types
+  for my $key(qw(byte_str word_str)) {
   for my $indlvl(1..2) {
 
-    my $peso_ind=$Type::Indirection_Key->[$indlvl-1];
-    my $c_ind=q[*] x $indlvl;
+    my $peso_ind=
+      $Type::Indirection_Key->[$indlvl-1];
 
-    my $subtab=$table{"${key}_$peso_ind"}=[];
+    my $c_ind  = q[*] x $indlvl;
+    my $subtab = $table{"${key}_$peso_ind"}=[];
 
     for my $ctype(@{$table{$key}}) {
       push @$subtab,"$ctype$c_ind";
@@ -487,17 +488,18 @@ sub xltab(%table) {
 
   }};
 
-# ---   *   ---   *   ---
 
+  # batmake pointer types
   for my $key(keys %table) {
   next if $key=~ m[_str_];
 
   for my $indlvl(1..3) {
 
-    my $peso_ind=$Type::Indirection_Key->[$indlvl-1];
-    my $c_ind=q[*] x $indlvl;
+    my $peso_ind=
+      $Type::Indirection_Key->[$indlvl-1];
 
-    my $subtab=$table{"${key}_$peso_ind"}=[];
+    my $c_ind  = q[*] x $indlvl;
+    my $subtab = $table{"${key}_$peso_ind"}=[];
 
     for my $ctype(@{$table{$key}}) {
       push @$subtab,"$ctype$c_ind";
@@ -506,8 +508,8 @@ sub xltab(%table) {
 
   }};
 
-# ---   *   ---   *   ---
 
+  # collect results
   my $result={};
 
   for my $key(keys %table) {
@@ -516,17 +518,29 @@ sub xltab(%table) {
 
     };
 
+
     # make first ctype the
     # preferred one for reverse
     # typecon ops
+    #
+    # which makes no sense, as
+    # these are all aliasing the
+    # exact same data size
+    #
+    # IIRC this is just so the
+    # compiler doesn't implode uppon
+    # reading the "wrong" typedef
+    #
+    # so bullsheezels through and through
 
     my $pref=$table{$key}->[0];
     $result->{$key}=$pref;
 
   };
 
-# ---   *   ---   *   ---
 
+  # something something weren't we
+  # done with needless pointer """types"""?
   my %strtypes=(
 
     byte=>[
@@ -537,23 +551,26 @@ sub xltab(%table) {
 
     ],
 
-    wide=>[
+    word=>[
 
       map
         {$ARG=substr $ARG,0,(length $ARG)-1}
-        @{$table{wide_str}}
+        @{$table{word_str}}
 
     ],
 
   );
 
-# ---   *   ---   *   ---
 
-  for my $key(qw(byte wide)) {
+  # something something why the heck
+  # do you even need all these aliases
+  # for numbers of the same width
+  for my $key(qw(byte word)) {
   for my $ctype(@{$strtypes{$key}}) {
     $result->{$ctype}=$key;
 
   }};
+
 
   return $result;
 

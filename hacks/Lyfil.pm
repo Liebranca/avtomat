@@ -10,9 +10,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Lyfil;
 
   use v5.36.0;
@@ -29,42 +30,47 @@ package Lyfil;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=0.00.2;
+  our $VERSION=0.00.3;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # global state
 
-  my $M=[];
-  my $ACTIVE={};
+  my $M      = [];
+  my $ACTIVE = {};
 
 # ---   *   ---   *   ---
+# cstruc
 
-sub nit($class,$fname,$beg) {
+sub new($class,$fname,$beg) {
 
   my $self=bless {
 
-    id=>$class,
+    id      => $class,
 
-    fname=>$fname,
-    chain=>$M,
-    idex=>int(@{$M}),
+    fname   => $fname,
+    chain   => $M,
+    idex    => int(@{$M}),
 
-    data=>[],
-    raw=>$NULLSTR,
+    data    => [],
+    raw     => $NULLSTR,
 
-    lineno=>$beg,
+    lineno  => $beg,
 
-    beg=>qr{(?<!#)use $class},
-    end=>qr{(?<!#)no $class},
+    beg     => qr{(?<!#)use $class},
+    end     => qr{(?<!#)no $class},
 
   },$class;
 
   if(
 
-    $M->[0] && $M->[0]->{fname} ne $self->{fname}
+     $M->[0]
+
+  && $M->[0]->{fname}
+  ne $self->{fname}
 
   ) {return $NULL};
+
 
   $ACTIVE->{$class}=$self;
   if($M->[0]) {$self->pluck_use_line()};
@@ -75,6 +81,7 @@ sub nit($class,$fname,$beg) {
 };
 
 # ---   *   ---   *   ---
+# remove self
 
 sub del($self) {
 
@@ -87,6 +94,7 @@ sub del($self) {
 };
 
 # ---   *   ---   *   ---
+# removes 'use' from file
 
 sub pluck_use_line($self) {
 
@@ -105,6 +113,7 @@ sub pluck_use_line($self) {
 };
 
 # ---   *   ---   *   ---
+# adds line to own buff
 
 sub logline($self,$stringref) {
 
@@ -132,6 +141,7 @@ sub logline($self,$stringref) {
 };
 
 # ---   *   ---   *   ---
+# executes children nodes
 
 sub propagate($self) {
 
@@ -149,6 +159,7 @@ sub propagate($self) {
 };
 
 # ---   *   ---   *   ---
+# dbout
 
 sub prich($self,%opt) {
 
@@ -158,7 +169,6 @@ sub prich($self,%opt) {
   # select filehandle
   my $FH=($opt{errout}) ? *STDERR : *STDOUT;
 
-# ---   *   ---   *   ---
 
   return print {$FH} $self->{raw};
 

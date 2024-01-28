@@ -21,7 +21,7 @@ package Lang::Mny;
 # ---   *   ---   *   ---
 
 BEGIN {
-Lang::Mny->nit(
+Lang::Mny->new(
 
   name=>'Mny',
   ext=>'\.mny$',

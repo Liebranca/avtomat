@@ -58,7 +58,7 @@ sub new($class,%O) {
   my $tree_f = Tree->new_frame();
   my $self   = bless {
 
-    tree    => $tree_f->nit(undef,'non'),
+    tree    => $tree_f->new(undef,'non'),
     sep     => $O{sep},
 
     order   => [],

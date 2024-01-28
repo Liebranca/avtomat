@@ -223,7 +223,7 @@ sub label($self,$branch) {
   };
 
   $branch->clear();
-  $branch->init($st);
+  $branch->inew($st);
 
 };
 
@@ -439,7 +439,7 @@ sub ins($self,$branch) {
   $branch->clear();
 
   $branch->{value}='ins';
-  $branch->init(\@ins);
+  $branch->inew(\@ins);
 
 };
 

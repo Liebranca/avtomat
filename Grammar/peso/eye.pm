@@ -236,7 +236,7 @@ sub clist_join($self,@ar) {
 
 sub lists_to_tree($self,@lists) {
 
-  my $branch = $self->{p3}->init('TOP');
+  my $branch = $self->{p3}->inew('TOP');
   my $anchor = undef;
 
   my $i      = 0;
@@ -244,7 +244,7 @@ sub lists_to_tree($self,@lists) {
   # walk arrays of tokens
   for my $ar(@lists) {
 
-    $anchor=$branch->init(
+    $anchor=$branch->inew(
       sprintf "\$%04X",$i++
 
     );
@@ -259,7 +259,7 @@ sub lists_to_tree($self,@lists) {
         ;
 
       array_filter(\@s);
-      map {$anchor->init($ARG)} @s;
+      map {$anchor->inew($ARG)} @s;
 
     };
 

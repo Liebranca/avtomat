@@ -73,15 +73,11 @@ my $FILE_LIST=[
 
   '/sys/Queue.pm',
   '/sys/Cask.pm',
-  '/sys/Strtab.pm',
   '/sys/Tree.pm',
   '/sys/Tree/File.pm',
   '/sys/Tree/Dep.pm',
-  '/sys/Tree/Syntax.pm',
 
   '/sys/Type.pm',
-  '/sys/Mem.pm',
-  '/sys/Ptr.pm',
 
   '/sys/Shb7.pm',
   '/sys/Shb7/Path.pm',
@@ -114,8 +110,6 @@ my $FILE_LIST=[
 
   '/hacks/Shwl.pm',
   '/hacks/Lyfil.pm',
-  '/hacks/Inlining.pm',
-  '/hacks/inline.pm',
 
 # ---   *   ---   *   ---
 # then language and utils
@@ -123,16 +117,6 @@ my $FILE_LIST=[
   '/Lang.pm',
   '/Lang/Def.pm',
 
-  '/Peso/St.pm',
-  '/Peso/Defs.pm',
-
-  '/Peso/Ops.pm',
-
-  '/Peso/Rd.pm',
-  '/Peso/Ptr.pm',
-  '/Peso/Blk.pm',
-  '/Peso/Sbl.pm',
-  '/Peso/Ex.pm',
 
   '/Grammar.pm',
   '/Grammar/C.pm',
@@ -152,7 +136,6 @@ my $FILE_LIST=[
 
   '/Lang/Perl.pm',
   '/Lang/Raku.pm',
-  '/Peso/Ipret.pm',
 
 # ---   *   ---   *   ---
 # then everything else
@@ -173,7 +156,6 @@ my $FILE_LIST=[
 ];
 
 # ---   *   ---   *   ---
-
 # in: file list,src path,dst path
 # check dates, update older files
 
@@ -212,7 +194,6 @@ sub update {
     if($do_cp || defined $md) {
       if(!defined $md) {`cp $og $cp`}
 
-# ---   *   ---   *   ---
 
       elsif($do_cp) {
 
@@ -220,10 +201,8 @@ sub update {
           "-I$src".q{ }.
           "-I$src/sys".q{ }.
           "-I$src/hacks".q{ }.
-          "-I$src/Peso".q{ }.
           "-I$src/Lang";
 
-# ---   *   ---   *   ---
 
         my $PATH_TAKEN;
         my $MAM_ARGS;
@@ -247,7 +226,6 @@ sub update {
           $obj=$pmd;
           $pmd.='d';
 
-# ---   *   ---   *   ---
 
         } else {
 
@@ -261,7 +239,6 @@ sub update {
 
         };
 
-# ---   *   ---   *   ---
 
         my $ex=
           "perl -c".q{ }.
@@ -276,7 +253,6 @@ sub update {
 
         $out=`$ex 2> .errlog`;
 
-# ---   *   ---   *   ---
 
         for my $fname(
           $obj,$pmd
@@ -294,7 +270,6 @@ sub update {
           };
         };
 
-# ---   *   ---   *   ---
 
         if(!length $out) {
 
@@ -316,7 +291,6 @@ sub update {
 
         close $FH;
 
-# ---   *   ---   *   ---
 
       };
 
@@ -330,7 +304,9 @@ sub update {
       };
 
     };
+
   };
+
 };
 
 # ---   *   ---   *   ---

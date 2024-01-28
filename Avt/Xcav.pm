@@ -47,8 +47,6 @@ package Avt::Xcav;
   use Emit::C;
   use Emit::Perl;
 
-  use Peso::Rd;
-
 # ---   *   ---   *   ---
 # info
 

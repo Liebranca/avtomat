@@ -39,7 +39,7 @@ package Tree::Exec;
 # ---   *   ---   *   ---
 # leaf cstruc
 
-sub nit(
+sub new(
 
   # implicit
   $class,
@@ -53,7 +53,7 @@ sub nit(
 ) {
 
   # get ice
-  my $self=Tree::nit(
+  my $self=Tree::new(
 
     $class,
     $frame,
@@ -75,7 +75,7 @@ sub nit(
 sub new_root($class) {
 
   my $frame = $class->new_frame();
-  my $self  = $frame->nit(undef,'ROOT',undef);
+  my $self  = $frame->new(undef,'ROOT',undef);
 
   $self->{prev} = [];
 

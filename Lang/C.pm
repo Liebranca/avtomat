@@ -51,7 +51,7 @@ package Lang::C;
 # ---   *   ---   *   ---
 
 BEGIN {
-Lang::C->nit(
+Lang::C->new(
 
   name=>'C',
 

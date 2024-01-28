@@ -9,8 +9,8 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
 
   use v5.36.0;
@@ -30,9 +30,7 @@
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Lang;
-
   use Lang::Perl;
-  use Peso::Rd;
 
 # ---   *   ---   *   ---
 # info
@@ -43,7 +41,7 @@
 # ---   *   ---   *   ---
 # initialize fstruct search
 
-my $m=Cli->nit(
+my $m=Cli->new(
 
   @{$Cli::Fstruct::ATTRS},
 

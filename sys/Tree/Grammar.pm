@@ -39,9 +39,9 @@ package Tree::Grammar;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# constructor
+# cstruc
 
-sub nit($class,$frame,%O) {
+sub new($class,$frame,%O) {
 
   # defaults
   $O{fn}    //= $NOOP;
@@ -56,7 +56,7 @@ sub nit($class,$frame,%O) {
   $O{xlate} //= {};
 
   # get ice
-  my $self=Tree::nit(
+  my $self=Tree::new(
 
     $class,
     $frame,
@@ -95,11 +95,11 @@ sub nit($class,$frame,%O) {
 # ---   *   ---   *   ---
 # ^from instance
 
-sub init($self,$x,%O) {
+sub inew($self,$x,%O) {
 
   $O{parent}//=$self;
 
-  return $self->{frame}->nit(value=>$x,%O);
+  return $self->{frame}->new(value=>$x,%O);
 
 };
 
@@ -117,7 +117,7 @@ sub dup($self) {
 
     my $nd=shift @pending;
 
-    my $cpy=$nd->{frame}->nit(
+    my $cpy=$nd->{frame}->new(
 
       value  => $nd->{value},
       fn     => $nd->{fn},
@@ -227,7 +227,7 @@ sub shift_branch($self,%O) {
     # ^skip blank methods
     if($fn && $fn ne $NOOP) {
 
-      $dst=$O{frame}->nit(
+      $dst=$O{frame}->new(
         $dst,$fn,$nd
 
       );
@@ -433,7 +433,7 @@ sub re_leaf($self,$anchor,$sref,%O) {
 
   # match against pattern
   if($$sref=~ s[$jmp($re)][]) {
-    $out=$anchor->init($1);
+    $out=$anchor->inew($1);
 
   # ^match against macro expansion (!!)
   } elsif($$sref =~ s[$jmp($cdef)][]) {
@@ -445,7 +445,7 @@ sub re_leaf($self,$anchor,$sref,%O) {
 
       my $idex=@{$anchor->{leaves}};
 
-      $out=$anchor->init($token);
+      $out=$anchor->inew($token);
       $anchor->{is_cdef}->[$idex]=1;
 
     # ^nope
@@ -492,7 +492,7 @@ sub re_or_branch($self,$ctx,$sref,%O) {
     $dst=$anchor if $out;
 
   } else {
-    $out=$anchor->init($self->{value});
+    $out=$anchor->inew($self->{value});
     push @$anchors,$out;
 
   };
@@ -512,7 +512,7 @@ sub match($self,$ctx,$s,%O) {
   my $class = $self->{frame}->{-class};
 
   # parallel
-  my $root=$self->{frame}->nit(
+  my $root=$self->{frame}->new(
     parent => undef,
     value  => $x,
 
@@ -1113,7 +1113,7 @@ sub hier_match($self,$ctx,$s,%O) {
 
 sub new_p3($self,$ctx) {
 
-  my $p3=$self->{frame}->nit(
+  my $p3=$self->{frame}->new(
     parent => undef,
     value  => $self->{value}
 

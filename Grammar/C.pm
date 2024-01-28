@@ -242,7 +242,7 @@ sub fn_decl($self,$branch) {
   };
 
   $branch->clear();
-  $branch->init($st);
+  $branch->inew($st);
 
 };
 
@@ -280,7 +280,7 @@ sub struct_body($self,$branch) {
 
   $branch->clear();
   $branch->{value}='elems';
-  $branch->init(\@elems);
+  $branch->inew(\@elems);
 
 };
 
@@ -404,7 +404,7 @@ sub preproc_macro($self,$branch) {
   };
 
   $branch->clear();
-  $branch->init($o);
+  $branch->inew($o);
 
   $branch->{value}=$st->{name};
 
@@ -420,7 +420,7 @@ sub preproc_dir($self,$branch) {
   $branch->{value}=$st->{q[preproc-key]};
   $branch->{value}//='endif';
 
-  $branch->init($st->{line})
+  $branch->inew($st->{line})
   if $st->{line};
 
 };

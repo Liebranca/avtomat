@@ -9,8 +9,25 @@
 #
 # CONTRIBUTORS
 # lyeb,
+
 # ---   *   ---   *   ---
-# utility class
+# NOTE
+#
+# the only reason i don't
+# delete this right now
+# is because it's compiling
+# the entirety of my syntax
+# highlighting library,
+#
+# and i don't feel like
+# writing another compiler
+# to replace it just yet ;>
+#
+# in any case,
+# it's ** DEPRECATED **
+
+# ---   *   ---   *   ---
+# deps
 
 package Lang::Def;
 
@@ -64,7 +81,6 @@ package Lang::Def;
 
   }x;
 
-# ---   *   ---   *   ---
 
   our %DEFAULTS=(
 
@@ -84,7 +100,6 @@ package Lang::Def;
     # these are ignored by the parser
     highlight=>[],
 
-# ---   *   ---   *   ---
 
     op_prec=>{},
 
@@ -99,7 +114,6 @@ package Lang::Def;
 
     pesc=>$PESC_RE,
 
-# ---   *   ---   *   ---
 
     names=>'\b[_A-Za-z][_A-Za-z0-9]*\b',
     names_u=>'\b[_A-Z][_A-Z0-9]*\b',
@@ -115,12 +129,10 @@ package Lang::Def;
     directives=>[],
     resnames=>[],
 
-# ---   *   ---   *   ---
 
     drfc=>'(?:->|::|\.)',
     common=>'[^[:blank:]]+',
 
-# ---   *   ---   *   ---
 
     shcmds=>qr{
 
@@ -167,7 +179,6 @@ package Lang::Def;
 
     vstr=>qr{\bv[0-9\.]+[ab]?}x,
 
-# ---   *   ---   *   ---
 
     sigils=>q{},
 
@@ -183,13 +194,11 @@ package Lang::Def;
 
     asg_op=>qr{$NO_MATCH}x,
 
-# ---   *   ---   *   ---
 
     exp_rule=>$NOOP,
     _builder=>$NOOP,
     _plps=>$NULLSTR,
 
-# ---   *   ---   *   ---
 
     hier_re=>q{
 
@@ -204,7 +213,6 @@ package Lang::Def;
 
     strip_re=>$NULLSTR,
 
-# ---   *   ---   *   ---
 
     nums=>{
 
@@ -232,9 +240,8 @@ package Lang::Def;
 
     },
 
-# ---   *   ---   *   ---
-# trailing spaces and notes
 
+    # trailing spaces and notes
     dev0=>
 
       '('.(
@@ -253,14 +260,14 @@ package Lang::Def;
 
     dev2=>'[[:space:]]+$',
 
-# ---   *   ---   *   ---
-# symbol table is made at nit
 
+    # symbol table is made at cstruc
     symbols=>{},
 
   );
 
 # ---   *   ---   *   ---
+# gets $:thing;>
 
 sub consume_pesc($sref) {
 
@@ -273,6 +280,9 @@ sub consume_pesc($sref) {
   return $out;
 
 };
+
+# ---   *   ---   *   ---
+# value replace
 
 sub vrepl($ref,$v) {
 
@@ -293,7 +303,6 @@ sub vrepl($ref,$v) {
 
     };
 
-# ---   *   ---   *   ---
 
     if(!defined $rep || !length $rep) {
       $rep=$key;
@@ -307,6 +316,7 @@ sub vrepl($ref,$v) {
 };
 
 # ---   *   ---   *   ---
+# ^from array
 
 sub arr_vrepl($ref,$key) {
 
@@ -314,7 +324,12 @@ sub arr_vrepl($ref,$key) {
     vrepl($ref,\$v);
 
   };
-};sub hash_vrepl($ref,$key) {
+};
+
+# ---   *   ---   *   ---
+# ^from hash
+
+sub hash_vrepl($ref,$key) {
 
   my $h=$ref->{$key};
   my $result={};
@@ -329,17 +344,18 @@ sub arr_vrepl($ref,$key) {
   };
 
   $ref->{$key}=$result;
+
 };
 
 # ---   *   ---   *   ---
+# cstruc
 
-sub nit($class,%h) {
+sub new($class,%h) {
 
   my $ref={};
 
-# ---   *   ---   *   ---
-# set defaults when key not present
 
+  # set defaults when key not present
   for my $key(keys %DEFAULTS) {
 
     if(exists $h{$key}) {
@@ -352,9 +368,8 @@ sub nit($class,%h) {
 
   };
 
-# ---   *   ---   *   ---
-# convert keyword lists to hashes
 
+  # convert keyword lists to hashes
   my @keyword_patterns=();
   for my $key(qw(
 
@@ -374,18 +389,16 @@ sub nit($class,%h) {
       my $tag=shift @ar;
       vrepl($ref,\$tag);
 
-# ---   *   ---   *   ---
-# definitions to be loaded in later
-# if available/applicable
 
+      # definitions to be loaded in later
+      # if available/applicable
       $ht{$tag}=0;
 
     };
 
-# ---   *   ---   *   ---
-# make keyword-matching pattern
-# then save hash
 
+    # make keyword-matching pattern
+    # then save hash
     my $keypat=re_eiths(
       [keys %ht],bwrap=>1
 
@@ -409,15 +422,13 @@ sub nit($class,%h) {
 
   $ref->{keyword_re}=qr{$keyword_patterns}x;
 
-# ---   *   ---   *   ---
-# handle creation of operator pattern
 
+  # handle making of operator pattern
   my $op_obj='node_op=HASH\(0x[0-9a-f]+\)';
   if(!keys %{$ref->{op_prec}}) {
     $ref->{ops}="($op_obj)";
     $ref->{asg_op}=qr{($NO_MATCH)};
 
-# ---   *   ---   *   ---
 
   } else {
     $ref->{ops}=re_eiths(
@@ -429,7 +440,6 @@ sub nit($class,%h) {
 
     $ref->{ops}=~ s/\)$/|${op_obj})/;
 
-# ---   *   ---   *   ---
 
     my @asg_ops=();
     for my $op(keys %{$ref->{op_prec}}) {
@@ -448,13 +458,11 @@ sub nit($class,%h) {
 
   };
 
-# ---   *   ---   *   ---
-# make open/close delimiter patterns
 
+  # make open/close delimiter patterns
   my @odes=();
   my @cdes=();
 
-# ---   *   ---   *   ---
 
   { my @qstr_re=();
     my @regex_re=();
@@ -473,16 +481,14 @@ sub nit($class,%h) {
 
       my $re=Shwl::delm($beg,$end);
 
-# ---   *   ---   *   ---
-# fnn perl man
 
+      # fnn perl man
       if($ref->{perl_mode}) {
         push @qstr_re,qdelm($beg,$end);
         push @regex_re,sdelm($beg,$end);
 
       };
 
-# ---   *   ---   *   ---
 
       $del_re{$beg}=$re;
       $del_id{$beg}=$key;
@@ -494,7 +500,6 @@ sub nit($class,%h) {
 
     };
 
-# ---   *   ---   *   ---
 
     if(@qstr_re) {
       $ref->{qstr_re}='('.(
@@ -509,7 +514,6 @@ sub nit($class,%h) {
 
     };
 
-# ---   *   ---   *   ---
 
     $ref->{delimiters}={
 
@@ -522,9 +526,8 @@ sub nit($class,%h) {
 
   };
 
-# ---   *   ---   *   ---
-# token res
 
+  # token res
   { my $del_ids=join q{|},
       values %{$ref->{delimiters}->{id}};
 
@@ -542,7 +545,6 @@ sub nit($class,%h) {
 
   };
 
-# ---   *   ---   *   ---
 
   $ref->{ode}=re_eiths(\@odes,opscape=>1);
   $ref->{cde}=re_eiths(\@cdes,opscape=>1);
@@ -571,9 +573,8 @@ sub nit($class,%h) {
 
   );
 
-# ---   *   ---   *   ---
-# replace $:tokens;> with values
 
+  # replace $:tokens;> with values
   for my $key(keys %$ref) {
 
     if($ref->{$key}=~ $Chk::ARRAYREF_RE) {
@@ -589,14 +590,12 @@ sub nit($class,%h) {
 
   };
 
-# ---   *   ---   *   ---
 
   $ref->{nums_re}=re_eiths(
     [keys %{$ref->{nums}}]
 
   );
 
-# ---   *   ---   *   ---
 
   { my %tmp=();
     for my $key(keys %{$ref->{nums}}) {
@@ -611,7 +610,6 @@ sub nit($class,%h) {
 
   };
 
-# ---   *   ---   *   ---
 
   for my $key(qw(
     drfc hier hier_re
@@ -628,7 +626,6 @@ sub nit($class,%h) {
 
       };
 
-# ---   *   ---   *   ---
 
     } elsif($ref->{$key}=~ $Chk::HASHREF_RE) {
 
@@ -640,7 +637,6 @@ sub nit($class,%h) {
 
       };
 
-# ---   *   ---   *   ---
 
     } else {
       my $re=$ref->{$key};
@@ -650,9 +646,8 @@ sub nit($class,%h) {
 
   };
 
-# ---   *   ---   *   ---
-# parse2 regexes
 
+  # parse2 regexes
   if(! length $ref->{strip_re}) {
     my $comchar=$ref->{com};
     $ref->{strip_re}=qr{
@@ -672,9 +667,8 @@ sub nit($class,%h) {
 
   }x;
 
-# ---   *   ---   *   ---
-# these are for coderef access from plps
-
+  # MASSIVELY DEPRECATED
+  # these are for coderef access from plps
   for my $key('is_ptr&','is_num&') {
 
     my $fnkey='plps_'.$key;
@@ -684,14 +678,12 @@ sub nit($class,%h) {
 
   };
 
-# ---   *   ---   *   ---
 
   if(! length $ref->{lcom}) {
     $ref->{lcom}=$ref->{com}.q{.*}."\n";
 
   };
 
-# ---   *   ---   *   ---
 
   no strict;
 
@@ -700,7 +692,6 @@ sub nit($class,%h) {
 
   *$hack=sub {return $def};
 
-# ---   *   ---   *   ---
 
   $def->{_plps}=''.
     $ENV{'ARPATH'}.'/include/plps/'.
@@ -713,6 +704,8 @@ sub nit($class,%h) {
 };
 
 # ---   *   ---   *   ---
+# convert from numerical
+# notation to (i assume) decimal
 
 sub numcon($self,$value) {
 
@@ -728,11 +721,15 @@ sub numcon($self,$value) {
 };
 
 # ---   *   ---   *   ---
+# selfex
 
 sub is_num($self,$s) {
   return int($s=~ m/^$self->{nums_re}$/);
 
 };
+
+# ---   *   ---   *   ---
+# DEPRECATED
 
 sub plps_is_num($self,$s,$program) {
 
@@ -750,6 +747,7 @@ sub plps_is_num($self,$s,$program) {
 };
 
 # ---   *   ---   *   ---
+# get value passes a re
 
 sub valid_name($self,$s) {
 
@@ -758,7 +756,10 @@ sub valid_name($self,$s) {
   if(defined $s && length $s) {
     return $s=~ m/^${name}$/;
 
-  };return 0;
+  };
+
+  return 0;
+
 };
 
 # ---   *   ---   *   ---
@@ -774,7 +775,10 @@ sub is_strtype($self,$s,$type) {
 
     };
 
-  };return 0;
+  };
+
+  return 0;
+
 };
 
 # ---   *   ---   *   ---
@@ -783,21 +787,30 @@ sub is_strtype($self,$s,$type) {
 sub is_shcmd($self,$s) {
   return $self->is_strtype($self,$s,'shcmds');
 
-};sub is_char($self,$s) {
+};
+
+sub is_char($self,$s) {
   return $self->is_strtype($self,$s,'chars');
 
-};sub is_string($self,$s) {
+};
+
+sub is_string($self,$s) {
   return $self->is_strtype($self,$s,'strings');
 
-};sub is_regex($self,$s) {
+};
+
+sub is_regex($self,$s) {
   return $self->is_strtype($self,$s,'regexes');
 
-};sub is_preproc($self,$s) {
+};
+
+sub is_preproc($self,$s) {
   return $self->is_strtype($self,$s,'preproc');
 
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED
 
 sub build($self,@args) {
   return $self->{_builder}->(@args);
@@ -805,6 +818,7 @@ sub build($self,@args) {
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED
 
 sub plps_match($self,$str,$type) {
   return $self->{_plps}->run($str,$type);
@@ -812,6 +826,7 @@ sub plps_match($self,$str,$type) {
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED
 
 sub is_ptr($self,$s,$program) {
 
@@ -829,6 +844,7 @@ sub is_ptr($self,$s,$program) {
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED
 
 sub hier_sort($self,$id) {};
 

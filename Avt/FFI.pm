@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Avt::FFI;
 
   use v5.36.0;
@@ -35,7 +36,7 @@ package Avt::FFI;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -47,19 +48,19 @@ package Avt::FFI;
 
     q[byte]     => ['uint8'],
     q[sbyte]    => ['sint8'],
-    q[wide]     => ['uint16'],
-    q[swide]    => ['sint16'],
+    q[word]     => ['uint16'],
+    q[sword]    => ['sint16'],
 
-    q[brad]     => ['uint32'],
-    q[sbrad]    => ['sint32'],
-    q[word]     => ['uint64'],
-    q[sword]    => ['sint64'],
+    q[dword]    => ['uint32'],
+    q[sdword]   => ['sint32'],
+    q[qword]    => ['uint64'],
+    q[sqword]   => ['sint64'],
 
     q[byte_str] => ['string'],
-    q[wide_str] => ['wstring'],
+    q[word_str] => ['wstring'],
 
     q[real]     => ['float'],
-    q[daut]     => ['double'],
+    q[dreal]    => ['double'],
 
     q[pe_void]  => ['opaque'],
 
@@ -80,7 +81,7 @@ sub get_instance($class,$idex=0) {
   my $out=undef;
 
   if(!defined $Instances->[$idex]) {
-    $out=$class->nit();
+    $out=$class->new();
 
   } else {
     $out=$Instances->[$idex];
@@ -127,8 +128,9 @@ sub sticky($class,$coderef) {
 };
 
 # ---   *   ---   *   ---
+# cstruc
 
-sub nit($class) {
+sub new($class) {
 
   my $olderr=errmute();
   my $ffi=FFI::Platypus->new(api=>2);
@@ -183,6 +185,7 @@ sub nit($class) {
 };
 
 # ---   *   ---   *   ---
+# make translation table
 
 sub xltab(@table) {
 
@@ -200,8 +203,8 @@ sub xltab(@table) {
 
     };
 
-# ---   *   ---   *   ---
 
+  # make pointer types
   for my $indlvl(1..3) {
 
     my $peso_ind=$Type::Indirection_Key->[$indlvl-1];
@@ -225,6 +228,7 @@ sub xltab(@table) {
     };
 
   }};
+
 
   return $result;
 

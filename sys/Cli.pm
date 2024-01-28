@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Cli;
 
   use v5.36.0;
@@ -32,7 +33,7 @@ package Cli;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.2.0;
+  our $VERSION=v0.2.1;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -47,18 +48,18 @@ sub next_arg($self) {
 
 # ---   *   ---   *   ---
 # frame constructor
+#
 # TODO: reserve -bat,--batch_file
 # TODO: ^handle this special case
 
-sub nit($class,@args) {
+sub new($class,@args) {
 
   my @order=();
   my %optab=();
   my %alias=();
 
-# ---   *   ---   *   ---
-# unpack
 
+  # unpack
   for my $ref(@args) {
     my (
 
@@ -76,11 +77,10 @@ sub nit($class,@args) {
 
     );
 
-# ---   *   ---   *   ---
-# save id and create arg instance
 
+    # save id and make arg instance
     push @order,$id;
-    my $arg=Cli::Arg->nit(
+    my $arg=Cli::Arg->new(
 
       $id,
 
@@ -92,17 +92,14 @@ sub nit($class,@args) {
 
     $optab{$id}=$arg;
 
-# ---   *   ---   *   ---
-# create aliases
-
+    # make aliases
     $alias{$arg->{short_form}}=$id;
     $alias{$arg->{long_form}}=$id;
 
   };
 
-# ---   *   ---   *   ---
-# create new instance
 
+  # make new instance
   my $cli=bless {
 
     name  => (caller)[1],
@@ -117,13 +114,13 @@ sub nit($class,@args) {
 
   },$class;
 
-# ---   *   ---   *   ---
-# fill out status vars
 
+  # fill out status vars
   for my $id($cli->order) {
     $cli->{$id}=$NULL;
 
   };
+
 
   return $cli;
 
@@ -149,20 +146,23 @@ sub prich($self) {
 };
 
 # ---   *   ---   *   ---
+# get form used by arg
 
 sub short_or_long($self,$arg) {
 
   my $value=$NULL;
 
-# ---   *   ---   *   ---
-# catch invalid
 
+  # catch invalid
   if($arg=~ s/$self->{re}//) {
 
     $value=(defined $' && length $') ? $' : $NULL;
     $arg=$&;
 
-  };if(!exists $self->{alias}->{$arg}) {
+  };
+
+
+  if(! exists $self->{alias}->{$arg}) {
 
     errout(
       "%s: invalid option '%s'\n",
@@ -174,12 +174,9 @@ sub short_or_long($self,$arg) {
 
   };
 
-# ---   *   ---   *   ---
-
   my $id=$self->{alias}->{$arg};
   my $option=$self->{optab}->{$id};
 
-# ---   *   ---   *   ---
 
   if($option->{argc} && $value eq $NULL) {
     $value=$self->next_arg;
@@ -197,15 +194,15 @@ sub short_or_long($self,$arg) {
 };
 
 # ---   *   ---   *   ---
+# --option=value
 
 sub long_equal($self,$arg) {
 
   my $value=$NULL;
   ($arg,$value)=split m/=/,$arg;
 
-# ---   *   ---   *   ---
-# catch invalid
 
+  # catch invalid
   if(!exists $self->{alias}->{$arg}) {
 
     errout(
@@ -218,16 +215,15 @@ sub long_equal($self,$arg) {
 
   };
 
-# ---   *   ---   *   ---
 
   my $id=$self->{alias}->{$arg};
   my $option=$self->{optab}->{$id};
 
-# ---   *   ---   *   ---
 
-  if(!$option->{argc}) {
+  if(! $option->{argc}) {
 
     errout(
+
       "Argument '%s' for program '%s' ".
       "doesn't take a value",
 
@@ -237,7 +233,6 @@ sub long_equal($self,$arg) {
 
     $self->{$id}=1;
 
-# ---   *   ---   *   ---
 
   } else {
     $self->{$id}=$value;
@@ -259,6 +254,7 @@ sub long_equal($self,$arg) {
   ];
 
 # ---   *   ---   *   ---
+# reads input
 
 sub take($self,@args) {
 
@@ -271,7 +267,6 @@ sub take($self,@args) {
     my $arg=shift @{$self->{argv}};
     my $fn=undef;
 
-# ---   *   ---   *   ---
 
     my $x=0;
     while($x<@$PATTERN-1) {
@@ -285,7 +280,6 @@ sub take($self,@args) {
       };$x+=2;
     };
 
-# ---   *   ---   *   ---
 
     if(defined $fn) {
       $fn->($self,$arg);
@@ -295,7 +289,6 @@ sub take($self,@args) {
 
     };
 
-# ---   *   ---   *   ---
 
   };
 
@@ -316,14 +309,14 @@ package Cli::Arg;
   use warnings;
 
 # ---   *   ---   *   ---
-# constructor
+# cstruc
 
-sub nit($class,$id,%attrs) {
+sub new($class,$id,%attrs) {
 
   # set defaults
-  $attrs{short_form}//=q{-}.substr $id,0,1;
-  $attrs{long_form}//=q{--}.$id;
-  $attrs{argc}//=0;
+  $attrs{short_form} //= q{-}.substr $id,0,1;
+  $attrs{long_form}  //= q{--}.$id;
+  $attrs{argc}       //= 0;
 
   # create new instance
   my $arg=bless {id=>$id,%attrs},$class;
@@ -369,7 +362,6 @@ sub proto_search($m) {
 
   my @files=$m->take(@ARGV);
 
-# ---   *   ---   *   ---
 
   if($m->{recursive}!=$NULL) {
     my @ar=@files;
@@ -379,7 +371,6 @@ sub proto_search($m) {
 
   };
 
-# ---   *   ---   *   ---
 
   if($m->{no_escaping}==$NULL) {
     $m->{symbol}="\Q$m->{symbol}";
@@ -389,7 +380,6 @@ sub proto_search($m) {
 
   };
 
-# ---   *   ---   *   ---
 
   if($m->{regex}==$NULL) {
     $m->{symbol}=qr{$m->{symbol}(?:\b|$|"|')};
@@ -399,7 +389,6 @@ sub proto_search($m) {
 
   };
 
-# ---   *   ---   *   ---
 
   if($m->{extension} eq $NULL) {
     $m->{ext_re}=qr{\..*$}x;
@@ -409,7 +398,6 @@ sub proto_search($m) {
 
   };
 
-# ---   *   ---   *   ---
 
   return @files;
 

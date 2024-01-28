@@ -91,7 +91,7 @@ sub io($self,$branch) {
   $branch->{value}='io';
   $branch->clear_nproc();
 
-  $branch->init($st);
+  $branch->inew($st);
 
 };
 

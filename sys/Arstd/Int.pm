@@ -45,12 +45,9 @@ package Arstd::Int;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
-# ROM
-
-# ---   *   ---   *   ---
 # cstruc
 
-sub nit($class,$value) {
+sub new($class,$value) {
   return bless \$value,$class;
 
 };

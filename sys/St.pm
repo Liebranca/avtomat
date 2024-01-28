@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package St;
 
   use v5.36.0;
@@ -116,7 +117,7 @@ sub get_gframe($class) {
 };
 
 # ---   *   ---   *   ---
-# create instance container
+# make instance container
 
 sub new_frame($class,%O) {
 
@@ -128,7 +129,7 @@ sub new_frame($class,%O) {
 
   $O{-class}=$class;
 
-  my $frame=Frame::new(%O);
+  my $frame=Frame->_new(%O);
   $Frames->{$class}//=[];
 
   push @{$Frames->{$class}},$frame;

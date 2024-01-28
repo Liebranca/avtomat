@@ -56,7 +56,7 @@ sub dup($self,$root=undef) {
   my $frame=$self->{frame};
   my @leaves=();
 
-  my $copy=$frame->nit($root,$self->{value});
+  my $copy=$frame->new($root,$self->{value});
 
   for my $leaf(@{$self->{leaves}}) {
     $leaf->dup($copy);
@@ -77,7 +77,6 @@ sub from_hashref($frame,$h) {
 
   my @pending=($self,$h);
 
-# ---   *   ---   *   ---
 
   while(@pending) {
 
@@ -86,7 +85,7 @@ sub from_hashref($frame,$h) {
     for my $key(keys %$h) {
 
       my $value=$h->{$key};
-      my $node=$frame->nit($self,$key);
+      my $node=$frame->new($self,$key);
 
       $root//=$self;
 
@@ -106,7 +105,7 @@ sub from_hashref($frame,$h) {
 # ---   *   ---   *   ---
 # make child node or create a new tree
 
-sub nit($class,$frame,$parent,$val,%O) {
+sub new($class,$frame,$parent,$val,%O) {
 
   # opt defaults
   $O{unshift_leaves}//=0;
@@ -149,11 +148,11 @@ sub nit($class,$frame,$parent,$val,%O) {
 };
 
 # ---   *   ---   *   ---
-# ^nit from instance
+# ^from instance
 
-sub init($self,@args) {
+sub inew($self,@args) {
 
-  return $self->{frame}->nit(
+  return $self->{frame}->new(
     $self,@args
 
   );
@@ -173,7 +172,7 @@ sub force_get($self,@path) {
   );
 
   # ensure fvalue
-  $out->init($NULL)
+  $out->inew($NULL)
   if ! @{$out->{leaves}};
 
   # ^give ref
@@ -272,7 +271,7 @@ sub fetch($self,%O) {
 
     # create new if needed
     if(! $O{existing}) {
-      $out=($nd) ? $nd : $out->init($key);
+      $out=($nd) ? $nd : $out->inew($key);
 
     # abort on missing
     } elsif(! $O{throw}) {
@@ -416,7 +415,6 @@ sub walkup($self,$top=undef) {
   # opt defaults
   $top//=-1;
 
-# ---   *   ---   *   ---
 
   my $node=$self->{parent};
   my $i=0;
@@ -641,7 +639,7 @@ sub cllv($self) {
 sub insert($self,$pos,@list) {
 
   my ($head,$tail)=$self->insert_prologue($pos);
-  my @insert=map {$self->init($ARG)} @list;
+  my @insert=map {$self->inew($ARG)} @list;
 
   $self->insert_epilogue(
 
@@ -733,7 +731,6 @@ sub repl($self,$other) {
   my $ref=$self->{parent}->{leaves};
   my $i=-1;
 
-# ---   *   ---   *   ---
 
   for my $node(@$ref) {
 
@@ -745,7 +742,6 @@ sub repl($self,$other) {
 
   };
 
-# ---   *   ---   *   ---
 
   if($i>=0) {
 
@@ -1125,7 +1121,6 @@ sub branches_with($self,$lookfor,%O) {
   $O{max_depth}//=0x24;
   $O{first_match}//=0;
 
-# ---   *   ---   *   ---
 
   my @found=();
   my @leaves=();
@@ -1139,18 +1134,16 @@ sub branches_with($self,$lookfor,%O) {
 
   };
 
-# ---   *   ---   *   ---
-# look for matches recursively
 
+  # look for matches recursively
   while(@leaves) {
 
     $self=shift @leaves;
     if($self eq 0) {$depth--;next}
     elsif($self eq 1) {$depth++;next};
 
-# ---   *   ---   *   ---
-# only accept matches *within* a branch
 
+    # only accept matches *within* a branch
     for my $leaf(@{$self->{leaves}}) {
 
       if($leaf->{value}=~ $lookfor) {
@@ -1166,11 +1159,10 @@ sub branches_with($self,$lookfor,%O) {
     if($depth>=$O{max_depth}) {next};
     unshift @leaves,1,@{$self->{leaves}},0;
 
-# ---   *   ---   *   ---
-# return matches
-
   };
 
+
+  # return matches
   return @found;
 
 };
@@ -1638,7 +1630,6 @@ sub prich($self,%O) {
 
   my $mess=$NULLSTR;
 
-# ---   *   ---   *   ---
 
   while(@leaves) {
 
@@ -1649,7 +1640,6 @@ sub prich($self,%O) {
 
       my $par=$self->{parent};
 
-# ---   *   ---   *   ---
 
       while(defined $par) {
 
@@ -1662,7 +1652,6 @@ sub prich($self,%O) {
 
     };
 
-# ---   *   ---   *   ---
 
     my $branch=($depth)
       ? '.  'x($depth-1).'\-->'
@@ -1679,9 +1668,8 @@ sub prich($self,%O) {
 
     $prev_depth=$depth;
 
-# ---   *   ---   *   ---
-# check value is an operator (node_op 'class')
 
+    # check value is an operator (node_op 'class')
     my $v=$self->{value};
     $v//=sprintf "%016X",$NULL;
 
@@ -1697,9 +1685,8 @@ sub prich($self,%O) {
 
   };
 
-# ---   *   ---   *   ---
-# select filehandle
 
+  # select filehandle
   my $FH=($O{errout})
     ? *STDERR
     : *STDOUT

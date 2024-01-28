@@ -87,7 +87,7 @@ BEGIN {
 
 # ---   *   ---   *   ---
 
-Lang::Perl->nit(
+Lang::Perl->new(
 
   name  => 'Perl',
   ext   => '\.p[lm]$',
@@ -321,7 +321,7 @@ sub hier_sort($self,$rd) {
     @children=@children[$idex_beg..$idex_end];
     @children=$tree->pluck(@children);
 
-    my $pkgroot=$nd_frame->nit(undef,$pkgname);
+    my $pkgroot=$nd_frame->new(undef,$pkgname);
     push @scopes,$pkgroot;
 
     $pkgroot->clear();

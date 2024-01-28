@@ -235,7 +235,7 @@ sub set_top($class,$name) {
 
   # dynamic
   if(length ref $class) {
-    $class->{top}=$f->nit(value=>$name);
+    $class->{top}=$f->new(value=>$name);
     return $class->{top};
 
   # static
@@ -243,7 +243,7 @@ sub set_top($class,$name) {
 
     no strict 'refs';
 
-    ${"$class\::Top"}=$f->nit(value=>$name);
+    ${"$class\::Top"}=$f->new(value=>$name);
     return ${"$class\::Top"};
 
   };
@@ -408,7 +408,7 @@ sub new($class,%O) {
     c3      => Tree::Exec->new_root(),
 
     mach    => $mach,
-    Q       => Queue->nit(),
+    Q       => Queue->new(),
     gram    => $gram,
 
     anchors => [],
@@ -945,7 +945,7 @@ sub mkrules($class,@rules) {
     $class->fnbreak($value);
 
     # instantiate
-    my $nd=$anchor->init(
+    my $nd=$anchor->inew(
 
       $value->{name},
 

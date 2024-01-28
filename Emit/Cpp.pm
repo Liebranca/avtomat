@@ -30,14 +30,12 @@ package Emit::Cpp;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Emit::Std;
-  use Peso::Ipret;
-
   use parent 'Emit::C';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;#b
+  our $VERSION=v0.00.2;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -45,37 +43,47 @@ package Emit::Cpp;
 
   Readonly our $TYPES=>[
 
-    q[real2]  => ['glm::vec2','vec2'],
-    q[real3]  => ['glm::vec3','vec3'],
-    q[real4]  => ['glm::vec4','vec4'],
+    q[real2]   => ['glm::vec2','vec2'],
+    q[real3]   => ['glm::vec3','vec3'],
+    q[real4]   => ['glm::vec4','vec4'],
 
-    q[brad2]  => ['glm::uvec2','uvec2'],
-    q[brad3]  => ['glm::uvec3','uvec3'],
-    q[brad4]  => ['glm::uvec4','uvec4'],
+    q[dword2]  => ['glm::uvec2','uvec2'],
+    q[dword3]  => ['glm::uvec3','uvec3'],
+    q[dword4]  => ['glm::uvec4','uvec4'],
 
-    q[sbrad2] => ['glm::ivec2','ivec2'],
-    q[sbrad3] => ['glm::ivec3','ivec3'],
-    q[sbrad4] => ['glm::ivec4','ivec4'],
+    q[sdword2] => ['glm::ivec2','ivec2'],
+    q[sdword3] => ['glm::ivec3','ivec3'],
+    q[sdword4] => ['glm::ivec4','ivec4'],
 
-    q[real9]  => ['glm::mat3','mat3'],
-    q[real16] => ['glm::mat4','mat4'],
+    q[real9]   => ['glm::mat3','mat3'],
+    q[real16]  => ['glm::mat4','mat4'],
 
   ];
 
-# ---   *   ---   *   ---
-
-  Readonly our $OPEN_GUARDS=>
-
-q[#ifndef __$:fname;>_H__
-#define __$:fname;>_H__
-];
-
 
 # ---   *   ---   *   ---
+# boilerpaste open
 
-  Readonly our $CLOSE_GUARDS=>
-q[#endif // __$:fname;>_H__
-];
+sub open_guards($class,$fname) {
+
+  return join "\n",
+
+    "#ifndef __${fname}_H__",
+    "#define __${fname}_H__",
+
+    "\n"
+
+  ;
+
+};
+
+# ---   *   ---   *   ---
+# boilerpaste close
+
+sub close_guards($class,$fname) {
+  return "#endif // __${fname}_H__\n";
+
+};
 
 # ---   *   ---   *   ---
 # GBL
@@ -88,58 +96,6 @@ q[#endif // __$:fname;>_H__
     (@{$Emit::C::TYPES},@$TYPES)
 
   );
-
-# ---   *   ---   *   ---
-# test
-
-use Avt::CRun;
-use Fmat;
-
-my $gen={
-
-  fname => './cpptest',
-  lang  => 'Cpp',
-
-# ---   *   ---   *   ---
-# PROTO-SCRATCH
-
-calls => [
-
-  # TODO: class-wraps for hashref
-  {
-
-    kls  => 'codestr',
-    fn   => 'ident',
-
-    args => [],
-
-  }
-
-];
-
-# ---   *   ---   *   ---
-
-  body  => \&Emit::C::mfwrap,
-
-  args  => [q[
-    printf("HELLO\n");
-
-  ]],
-
-  syshed=>[qw(
-    cstdio
-
-  )],
-
-  usrhed=>[qw(
-    gaoler/Plane.hpp
-    sin/mesh/Frame.hpp
-
-  )],
-
-};
-
-Avt::CRun->exgen(['f','f'],$gen);
 
 # ---   *   ---   *   ---
 1; #ret

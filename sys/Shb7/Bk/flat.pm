@@ -49,7 +49,7 @@ sub push_src($self,$fpath) {
 
   push @{$self->{files}},
 
-  Shb7::Bfile->nit(
+  Shb7::Bfile->new(
 
     $fpath,
     $self,

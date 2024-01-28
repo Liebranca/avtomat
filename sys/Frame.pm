@@ -36,8 +36,8 @@ package Frame;
 # ---   *   ---   *   ---
 # invokes class constructor
 
-sub nit($frame,@args) {
-  return $frame->{-class}->nit($frame,@args);
+sub new($frame,@args) {
+  return $frame->{-class}->new($frame,@args);
 
 };
 
@@ -52,7 +52,7 @@ sub is_valid($kind,$obj) {
 # ---   *   ---   *   ---
 # builds a new container
 
-sub new(%O) {
+sub _new($class,%O) {
 
   if(exists $O{-autoload}) {
 
@@ -66,7 +66,7 @@ sub new(%O) {
 
   };
 
-  my $frame=bless \%O;
+  my $frame=bless \%O,$class;
   return $frame;
 
 };

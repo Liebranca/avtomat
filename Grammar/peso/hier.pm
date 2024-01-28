@@ -138,7 +138,7 @@ sub hier($self,$branch) {
   $branch->clear();
 
   $branch->{value}=$type;
-  $branch->init($name->[0]->get());
+  $branch->inew($name->[0]->get());
 
 };
 
@@ -752,7 +752,7 @@ sub ret_run($self,$branch) {
 
 sub ret_add($self,$branch) {
 
-  my $ret=$branch->init('ret');
+  my $ret=$branch->inew('ret');
 
   $ret->fork_chain(
 

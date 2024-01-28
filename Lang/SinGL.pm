@@ -45,7 +45,7 @@ package Lang::SinGL;
 # ---   *   ---   *   ---
 
 BEGIN {
-Lang::SinGL->nit(
+Lang::SinGL->new(
 
   name=>'SinGL',
 

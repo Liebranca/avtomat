@@ -10,9 +10,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Tree::File;
 
   use v5.36.0;
@@ -37,10 +38,11 @@ package Tree::File;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
+# cstruc
 
-sub nit($class,$frame,@args) {
+sub new($class,$frame,@args) {
 
-  my $tree=Tree::nit($class,$frame,@args);
+  my $tree=Tree::new($class,$frame,@args);
 
   $tree->{cksum}=0;
   $tree->{updated}=0;
@@ -82,9 +84,8 @@ sub get_cksum($self) {
 
     my $own_sum=`cksum $files`;
 
-# ---   *   ---   *   ---
-# sum files in directory
 
+    # sum files in directory
     my @file_sums=split $NEWLINE_RE,$own_sum;
     for my $file(@files) {
 
@@ -97,9 +98,8 @@ sub get_cksum($self) {
 
     };
 
-# ---   *   ---   *   ---
-# ^sum all results for directory's sum
 
+    # ^sum all results for directory's sum
     my @children=map {$ARG->{cksum}} @files;
     my $children=join "\n",@children;
 
@@ -116,11 +116,11 @@ sub get_cksum($self) {
 
     push @new_sums,$dir->{cksum};
 
-# ---   *   ---   *   ---
-# return list of detected changes
 
   };
 
+
+  # return list of detected changes
   return [grep {
 
     (shift @old_sums) ne $ARG
@@ -157,6 +157,7 @@ sub branch_from_path($self,$path,%O) {
 };
 
 # ---   *   ---   *   ---
+# selfex
 
 sub get_file_list($self,%O) {
 
@@ -182,6 +183,7 @@ sub get_file_list($self,%O) {
 };
 
 # ---   *   ---   *   ---
+# ^also selfex
 
 sub get_dir_list($self,%O) {
 

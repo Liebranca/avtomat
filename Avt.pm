@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Avt;
 
   use v5.36.0;
@@ -55,10 +56,6 @@ package Avt;
   use Lang::C;
   use Lang::Perl;
   use Lang::peso;
-
-  use Peso::St;
-  use Peso::Rd;
-  use Peso::Ipret;
 
   use Avt::Sieve;
   use Avt::Makescript;
@@ -121,7 +118,7 @@ package Avt;
     _pre_build  => {},
 
 
-    cli=>Cli->nit(
+    cli=>Cli->new(
       {id=>'clean',short=>'-c',argc=>0},
       {id=>'update',short=>'-u',argc=>0}
 
@@ -483,7 +480,7 @@ sub get_config_files($M,$C,$module) {
 
   );
 
-  my $sieve=Avt::Sieve->nit(
+  my $sieve=Avt::Sieve->new(
     makescript => $M,
     config     => $C,
     bindir     => $BIND,
@@ -683,7 +680,7 @@ sub make() {
     my $avto_path=Shb7::file("$name/avto");
 
     # build the makescript object
-    my $M=Avt::Makescript->nit();
+    my $M=Avt::Makescript->new();
     get_config_build($M,$C);
     get_config_paths($M,$C);
     get_config_files($M,$C,$module);

@@ -69,7 +69,7 @@ package Arstd::Array;
 # ---   *   ---   *   ---
 # cstruc
 
-sub nit($class,@values) {
+sub new($class,@values) {
   return bless [@values],$class;
 
 };

@@ -186,7 +186,7 @@ sub new_blk($self,$name,%O) {
     xtab     => {},
 
     size     => 0,
-    insroot  => $tf->nit(
+    insroot  => $tf->new(
       undef,"$name\::insroot"
 
     ),
@@ -377,7 +377,7 @@ sub new_ins($self,$dst) {
   my $cur  = $self->{cur};
   my $root = $cur->{insroot};
 
-  $root->init($dst);
+  $root->inew($dst);
 
 };
 
@@ -389,7 +389,7 @@ sub new_insblk($self,$dst) {
   my $cur  = $self->{cur};
   my $root = $cur->{insroot}->{leaves}->[-1];
 
-  $root->init($dst);
+  $root->inew($dst);
 
 };
 
@@ -406,10 +406,10 @@ sub push_insblk($self,$ins,@args) {
 
   my $nd   = ($top && $top->{value} eq $ins)
     ? $top
-    : $blk->init($ins)
+    : $blk->inew($ins)
     ;
 
-  map  {$nd->init($ARG)}
+  map  {$nd->inew($ARG)}
   grep {$ARG} @args;
 
 };

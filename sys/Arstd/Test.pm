@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Arstd::Test;
 
   use v5.36.0;
@@ -43,8 +44,9 @@ package Arstd::Test;
   };
 
 # ---   *   ---   *   ---
+# cstruc
 
-sub nit($class,$name) {
+sub new($class,$name) {
 
   my $tab="\e[37;1m\::\e[0m";
 
@@ -93,7 +95,6 @@ sub passed($t) {
 
   ;
 
-# ---   *   ---   *   ---
 
   if($t->{passed} != $t->{total}) {
     $status="\e[31;22mFAILURE\e[0m";
@@ -103,9 +104,8 @@ sub passed($t) {
 
   };
 
-# ---   *   ---   *   ---
-# spit out results to log
 
+  # spit out results to log
   fstrout(
     $format,$tab,
 
@@ -127,7 +127,6 @@ sub test($t,$cmp,$a,$b,%opt) {
   # opt defaults
   $opt{name}//='unnamed';
 
-# ---   *   ---   *   ---
 
   my $tab=sprintf
     "\e[37;1m<\e[0m".
@@ -152,7 +151,6 @@ sub test($t,$cmp,$a,$b,%opt) {
 
   ;
 
-# ---   *   ---   *   ---
 
   # placeholders
   my $format="%-21s %-2s ";
@@ -161,28 +159,23 @@ sub test($t,$cmp,$a,$b,%opt) {
   # used to recolor the format
   my $cfn=$NULLSTR;
 
-# ---   *   ---   *   ---
-# failure
 
+  # failure
   if($CMPTAB->{$cmp}->(\$a,\$b)) {
     $status='NO';
     $cfn="\e[31;22m";
 
-# ---   *   ---   *   ---
-# success
-
+  # success
   } else {
     $status='OK';
     $cfn="\e[32;22m";
 
   };
 
-# ---   *   ---   *   ---
 
   $t->{passed}+=int($status eq 'OK');
   $t->{total}+=1;
 
-# ---   *   ---   *   ---
 
   fstrout(
     $format,$tab,
@@ -192,8 +185,10 @@ sub test($t,$cmp,$a,$b,%opt) {
 
   );
 
+
   return;
 
 };
 
 # ---   *   ---   *   ---
+1; # ret

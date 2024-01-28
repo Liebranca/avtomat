@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Arstd::Hash;
 
   use v5.36.0;
@@ -48,7 +49,7 @@ package Arstd::Hash;
 # ---   *   ---   *   ---
 # constructor
 
-sub nit($class,%args) {
+sub new($class,%args) {
   return bless {%args},$class;
 
 };

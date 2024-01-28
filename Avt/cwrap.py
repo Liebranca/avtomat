@@ -11,22 +11,22 @@ from ctypes import (
 
   c_void_p  as pe_void_ptr,
   c_char_p  as byte_str,
-  c_wchar_p as wide_str,
+  c_wchar_p as word_str,
 
   c_int8    as sbyte,
-  c_int16   as swide,
-  c_int32   as sbrad,
-  c_int64   as sword,
+  c_int16   as sword,
+  c_int32   as sdword,
+  c_int64   as sqword,
 
   c_uint8   as byte,
-  c_uint16  as wide,
-  c_uint32  as brad,
-  c_uint64  as word,
+  c_uint16  as word,
+  c_uint32  as dword,
+  c_uint64  as qword,
 
   c_size_t  as size_t,
 
   c_float   as real,
-  c_double  as daut,
+  c_double  as dreal,
 
   py_object as starpy,
 
@@ -43,64 +43,64 @@ import struct;
 # ---   *   ---   *   ---
 # some additional types
 
-pe_void=None;
+pe_void       = None;
 
-sbyte_ptr=star(sbyte);
-byte_ptr=star(byte);
-swide_ptr=star(swide);
-wide_ptr=star(wide);
+sbyte_ptr     = star(sbyte);
+byte_ptr      = star(byte);
+sword_ptr     = star(sword);
+word_ptr      = star(word);
 
-sbrad_ptr=star(sbrad);
-brad_ptr=star(brad);
-sword_ptr=star(sword);
-word_ptr=star(word);
+sdword_ptr    = star(sdword);
+dword_ptr     = star(dword);
+sqword_ptr    = star(sqword);
+qword_ptr     = star(qword);
 
-real_ptr=star(real);
-daut_ptr=star(daut);
+real_ptr      = star(real);
+dreal_ptr     = star(dreal);
 
-wide_str_ptr=star(wide_str);
-byte_str_ptr=star(byte_str);
+word_str_ptr  = star(word_str);
+byte_str_ptr  = star(byte_str);
 
 #   ---     ---     ---     ---     ---
 # typing helper
 
 PRIMITIVES={
 
-  byte_str:{'sz':1,'fmat':'s'},
-  wide_str:{'sz':2,'fmat':'ls'},
+  byte_str  :{'sz':1,'fmat':'s'},
+  word_str  :{'sz':2,'fmat':'ls'},
 
-  sbyte:{'sz':1,'fmat':'b'},
-  swide:{'sz':2,'fmat':'h'},
-  sbrad:{'sz':4,'fmat':'i'},
-  sword:{'sz':8,'fmat':'q'},
+  sbyte     :{'sz':1,'fmat':'b'},
+  sword     :{'sz':2,'fmat':'h'},
+  sdword    :{'sz':4,'fmat':'i'},
+  sqword    :{'sz':8,'fmat':'q'},
 
-  byte:{'sz':1,'fmat':'B'},
-  wide:{'sz':2,'fmat':'H'},
-  brad:{'sz':4,'fmat':'I'},
-  word:{'sz':8,'fmat':'Q'},
+  byte      :{'sz':1,'fmat':'B'},
+  word      :{'sz':2,'fmat':'H'},
+  dword     :{'sz':4,'fmat':'I'},
+  qword     :{'sz':8,'fmat':'Q'},
 
-  real:{'sz':4,'fmat':'f'},
-  daut:{'sz':8,'fmat':'d'},
+  real      :{'sz':4,'fmat':'f'},
+  dreal     :{'sz':8,'fmat':'d'},
 
 # ---   *   ---   *   ---
 
   pe_void_ptr:{'sz':8,'fmat':'P'},
 
   byte_str_ptr:{'sz':1,'fmat':'s','deref':byte},
-  wide_str_ptr:{'sz':2,'fmat':'ls','deref':wide},
+  word_str_ptr:{'sz':2,'fmat':'ls','deref':word},
 
   sbyte_ptr:{'sz':1,'fmat':'b','deref':sbyte},
-  swide_ptr:{'sz':2,'fmat':'h','deref':swide},
-  sbrad_ptr:{'sz':4,'fmat':'i','deref':sbrad},
-  sword_ptr:{'sz':8,'fmat':'q','deref':sword},
+  sword_ptr:{'sz':2,'fmat':'h','deref':sword},
+  sdword_ptr:{'sz':4,'fmat':'i','deref':sdword},
+  sqword_ptr:{'sz':8,'fmat':'q','deref':sqword},
 
   byte_ptr:{'sz':1,'fmat':'B','deref':byte},
-  wide_ptr:{'sz':2,'fmat':'H','deref':wide},
-  brad_ptr:{'sz':4,'fmat':'I','deref':brad},
-  word_ptr:{'sz':8,'fmat':'Q','deref':word},
+  word_ptr:{'sz':2,'fmat':'H','deref':word},
+  dword_ptr:{'sz':4,'fmat':'I','deref':dword},
+  qword_ptr:{'sz':8,'fmat':'Q','deref':qword},
 
   real_ptr:{'sz':4,'fmat':'f','deref':real},
-  daut_ptr:{'sz':8,'fmat':'d','deref':daut},
+  dreal_ptr:{'sz':8,'fmat':'d','deref':dreal},
 
 };
 

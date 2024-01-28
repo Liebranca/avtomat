@@ -374,7 +374,7 @@ sub value_sort($self,$branch) {
   $o->{const} =! ($type=~ $nconst_type);
 
   $o=$self->{mach}->vice($type,%$o);
-  $branch->init($o);
+  $branch->inew($o);
 
 };
 

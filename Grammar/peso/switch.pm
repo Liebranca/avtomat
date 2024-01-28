@@ -125,7 +125,7 @@ sub switch($self,$branch) {
   $branch->{value}=$type;
   $branch->clear();
 
-  $branch->init($st);
+  $branch->inew($st);
 
   # ^fork into new node type
   $branch->fork_chain(
@@ -287,13 +287,13 @@ sub switch_end($self,$branch) {
 
   ) {
 
-    my $jmp = $branch->init('jmp');
+    my $jmp = $branch->inew('jmp');
     my $par = $branch->{parent};
     my $f   = $self->{frame};
 
     $stop=$par->match_from($branch,$re);
 
-    $jmp->init($stop);
+    $jmp->inew($stop);
     $jmp->fork_chain(
 
       dom  => ref $self,
@@ -499,7 +499,7 @@ sub rept($self,$branch) {
 sub rept_ctx($self,$branch) {
 
   my $f=$self->{frame};
-  $branch->init($branch->{parent});
+  $branch->inew($branch->{parent});
 
   $branch->fork_chain(
 
@@ -598,7 +598,7 @@ sub rept_ctx($self,$branch) {
 #
 #  ];
 #
-#  $branch->init($st);
+#  $branch->inew($st);
 #  $branch->{value}='ops';
 #
 #};

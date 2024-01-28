@@ -30,9 +30,9 @@ package Avt::Sieve;
   use Shb7;
 
 # ---   *   ---   *   ---
-# constructor
+# cstruc
 
-sub nit($class,%O) {
+sub new($class,%O) {
 
   my $self=bless {
 

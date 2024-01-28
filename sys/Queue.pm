@@ -10,9 +10,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Queue;
 
   use v5.36.0;
@@ -33,7 +34,7 @@ package Queue;
 # ---   *   ---   *   ---
 # constructor
 
-sub nit($class) {
+sub new($class) {
 
   return bless {
 

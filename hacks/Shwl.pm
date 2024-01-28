@@ -9,9 +9,26 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
+# NOTE:
+#
+# this entire module is an
+# embarrassment, the only
+# sane thing to do with it
+# is purging it from the
+# codebase
+#
+# but because it's so old,
+# i can't just take it out!
+#
+# so it'll stay here for a
+# while until it's safe to
+# shred it entirely
+
+# ---   *   ---   *   ---
 # deps
+
 package Shwl;
 
   use v5.36.0;
@@ -35,7 +52,7 @@ package Shwl;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.1;
+  our $VERSION=v0.00.2;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -45,7 +62,6 @@ package Shwl;
   Readonly our $DEPS_RE=>
     "^\:__DEPS__\:(.*?)\:__DEPS__\:";
 
-# ---   *   ---   *   ---
 
   Readonly our $EXT_RE=>qr{[.].*$};
   Readonly our $FNAME_RE=>qr{\/([_\w][_\w\d]*)$};
@@ -56,7 +72,6 @@ package Shwl;
   Readonly our $PL_CUT=>':__CUT__:';
   Readonly our $PL_CUT_RE=>qr{\:__CUT__\:};
 
-# ---   *   ---   *   ---
 
   Readonly our $ARG_FMAT=>':__ARG_%i__:';
   Readonly our $ARG_RE=>qr{\:__ARG_\d+__\:};
@@ -67,7 +82,6 @@ package Shwl;
   Readonly our $ASG_STR=>':__ASG__:';
   Readonly our $ASG_RE=>qr{\:__ASG__\:};
 
-# ---   *   ---   *   ---
 
   Readonly our $UTYPE_PREFIX=>'user_type_';
 
@@ -99,7 +113,7 @@ package Shwl;
   }x;
 
 # ---   *   ---   *   ---
-# global state
+# GBL
 
   my $STRINGS={};
 
@@ -114,6 +128,7 @@ package Shwl;
   };
 
 # ---   *   ---   *   ---
+# DEPRECATED
 # utility funcs
 
 sub coderef_name($ref) {
@@ -122,13 +137,14 @@ sub coderef_name($ref) {
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED
+# makes delimiter re
 
 sub delm($beg,$end=undef) {
 
   $end//=$beg;
   for my $d($beg,$end) {$d="\Q$d"};
 
-# ---   *   ---   *   ---
 
   my $re=qr{
 
@@ -149,14 +165,14 @@ sub delm($beg,$end=undef) {
 };
 
 # ---   *   ---   *   ---
-# ^ similar, but preceded by q|qq|qw|qr|m
+# DEPRECATED
+# similar, but preceded by q|qq|qw|qr|m
 
 sub qdelm($beg,$end=undef) {
 
   $end//=$beg;
   for my $d($beg,$end) {$d="\Q$d"};
 
-# ---   *   ---   *   ---
 
   my $re=qr{
 
@@ -179,7 +195,8 @@ sub qdelm($beg,$end=undef) {
 };
 
 # ---   *   ---   *   ---
-# ^ fffn perl and it's undending corner cases
+# DEPRECATED
+# fffn perl and it's undending corner cases
 
 sub sdelm($beg,$end=undef) {
 
@@ -195,7 +212,6 @@ sub sdelm($beg,$end=undef) {
 
   };
 
-# ---   *   ---   *   ---
 
   my $re=qr{
 
@@ -232,13 +248,14 @@ sub sdelm($beg,$end=undef) {
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED
+# same deal as delm
 
 sub delm2($beg,$end=undef) {
 
   $end//=$beg;
   my ($beg_allow,$end_allow)=($beg,$end);
 
-# ---   *   ---   *   ---
 
   for my $d($beg_allow,$end_allow) {
 
@@ -248,7 +265,6 @@ sub delm2($beg,$end=undef) {
     my $c=shift @chars;
     my $allowed=q{[^}."\Q$c".q{]+};
 
-# ---   *   ---   *   ---
 
     for $c(@chars) {
 
@@ -259,7 +275,6 @@ sub delm2($beg,$end=undef) {
 
     };
 
-# ---   *   ---   *   ---
 
     $d=q[(?:].$allowed.q[)];
 
@@ -267,7 +282,6 @@ sub delm2($beg,$end=undef) {
 
   for my $d($beg,$end) {$d="\Q$d"};
 
-# ---   *   ---   *   ---
 
   my $re=qr{
 
@@ -293,29 +307,31 @@ sub delm2($beg,$end=undef) {
 };
 
 # ---   *   ---   *   ---
+# cut *all* matches of pattern
+# then insert an ID for the match
+#
+# the matches themselves are
+# saved for later replacing
 
 sub cut($string_ref,$name,$pat) {
 
   my $matches=[];
 
-# ---   *   ---   *   ---
-# replace pattern with placeholder
-
+  # replace pattern with placeholder
   while($$string_ref=~ s/($pat)/#:cut;>/smx) {
 
-    my $v=${^CAPTURE[0]};
-    my $token=q{};
+    my $v     = ${^CAPTURE[0]};
+    my $token = q{};
 
-# ---   *   ---   *   ---
-# construct a peso-style :__token__:
-
+    # construct a peso-style :__token__:
     # repeats aren't saved twice
     if(exists $STRINGS->{$v}) {
       $token=$STRINGS->{$v};
 
-    # hash->{data}=token
-    # hash->{token}=data
+    # hash->{data}  = token
+    # hash->{token} = data
     } else {
+
       $token=sprintf $CUT_FMAT,
         $name,int(keys %$STRINGS);
 
@@ -324,11 +340,11 @@ sub cut($string_ref,$name,$pat) {
 
     };
 
-# ---   *   ---   *   ---
-# put the token in place of placeholder
 
+    # put the token in place of placeholder
     $$string_ref=~ s/#:cut;>/$token/;
     push @$matches,$token;
+
 
   };
 
@@ -337,6 +353,7 @@ sub cut($string_ref,$name,$pat) {
 };
 
 # ---   *   ---   *   ---
+# ^puts the matches back!
 
 sub stitch($string_ref) {
 
@@ -353,6 +370,8 @@ sub stitch($string_ref) {
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED
+# weird mam shit
 
 sub mod_to_lib($fname) {
 
@@ -365,7 +384,6 @@ sub mod_to_lib($fname) {
 
     $fname=~ s/${ar0}//;
 
-# ---   *   ---   *   ---
 
   };if(!($fname=~ m{/lib/})) {
     $fname="lib/$fname";
@@ -382,6 +400,8 @@ sub mod_to_lib($fname) {
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED
+# i couldn't resist ;>
 
 sub darkside_of($the_force) {
   $the_force=~ s/$EXT_RE//;
@@ -392,6 +412,7 @@ sub darkside_of($the_force) {
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED
 
 sub ipret_decls($line) {
 
@@ -400,7 +421,6 @@ sub ipret_decls($line) {
   my $value_table={order=>[]};
   my @elems=split $COMMA_RE,$line;
 
-# ---   *   ---   *   ---
 
   for my $elem(@elems) {
 
@@ -410,7 +430,6 @@ sub ipret_decls($line) {
     $key=$key.'\b';
     $key=qr{$key};
 
-# ---   *   ---   *   ---
 
     if($value=~ m/\$_\[(\d)\]/) {
       $value=${^CAPTURE[0]};
@@ -420,18 +439,20 @@ sub ipret_decls($line) {
 
     };
 
-# ---   *   ---   *   ---
 
     $value_table->{$key}=$value;
     push @{$value_table->{order}},$key;
 
   };
 
+
   return $value_table;
 
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED
+#
 # fetches symbol table from %INC
 # by reading /.lib files
 
@@ -439,9 +460,7 @@ sub getlibs() {
 
   my $table={};
 
-# ---   *   ---   *   ---
-# filter out %INC
-
+  # filter out %INC
   my @imports=();
   for my $module(keys %INC) {
 
@@ -450,17 +469,15 @@ sub getlibs() {
 
   };
 
-# ---   *   ---   *   ---
-# walk the imports list
 
+  # walk the imports list
   for my $fpath(@imports) {
 
     open my $FH,'<',$fpath
     or croak STRERR($fpath);
 
-# ---   *   ---   *   ---
-# process entries
 
+    # process entries
     while(my $symname=readline $FH) {
 
       chomp $symname;
@@ -473,9 +490,8 @@ sub getlibs() {
       $mem=ipret_decls($mem);
       $args=ipret_decls($args);
 
-# ---   *   ---   *   ---
-# save symbol to table
 
+      # save symbol to table
       my $sbl=bless {
 
         id=>$symname,
@@ -488,18 +504,14 @@ sub getlibs() {
 
       $table->{$symname}=$sbl;
 
-# ---   *   ---   *   ---
-# close file and repeat
-
     };
 
+    # close file and repeat
     close $FH or croak STRERR($fpath);
-
-# ---   *   ---   *   ---
-# give back symbol table
 
   };
 
+  # give back symbol table
   my @names=sort {
     (length $a)<=(length $b)
 
@@ -519,6 +531,8 @@ sub getlibs() {
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED
+#
 # abstracts away details in
 # every subroutine found in a file
 
@@ -537,7 +551,6 @@ sub codefold($fname,$lang,%opts) {
 
   };
 
-# ---   *   ---   *   ---
 
   my $fn_decl=$lang->{fn_decl};
   my $fn_key=$lang->{fn_key};
@@ -554,7 +567,6 @@ sub codefold($fname,$lang,%opts) {
 
   );
 
-# ---   *   ---   *   ---
 
   my $utype_decl=$lang->{utype_decl};
   my $utype_key=$lang->{utype_key};
@@ -576,7 +588,6 @@ sub codefold($fname,$lang,%opts) {
 
   };
 
-# ---   *   ---   *   ---
 
   Shwl::Blk::fold($lang,\$body);
 
@@ -601,6 +612,7 @@ sub codefold($fname,$lang,%opts) {
 1; # ret
 
 # ---   *   ---   *   ---
+# DEPRECATED
 
 package Shwl::Sbl;
 
@@ -611,6 +623,7 @@ package Shwl::Sbl;
   use Carp;
 
 # ---   *   ---   *   ---
+# DEPRECATED
 
 sub paste($sbl,@passed) {
 
@@ -639,6 +652,7 @@ sub paste($sbl,@passed) {
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED
 
 package Shwl::Blk;
 
@@ -650,9 +664,9 @@ package Shwl::Blk;
   use Style;
 
 # ---   *   ---   *   ---
+# DEPRECATED
 
-
-sub nit($class) {
+sub new($class) {
 
   my $block=bless {
 
@@ -678,6 +692,7 @@ sub nit($class) {
 };
 
 # ---   *   ---   *   ---
+# DEPRECATED like this whole module
 
 sub extract(
 
@@ -702,14 +717,13 @@ sub extract(
   my @ids=();
   my %frame=();
 
-# ---   *   ---   *   ---
 
   while($$body_ref=~ s/$re/$cut_token/sxm) {
 
     my $fnbody=$+{scope};
     $fnbody//=$NULLSTR;
 
-    my $block=Shwl::Blk->nit();
+    my $block=Shwl::Blk->new();
 
     push @ids,$block->{name};
 
@@ -718,7 +732,6 @@ sub extract(
 
     fold($lang,\$fnbody);
 
-# ---   *   ---   *   ---
 
     $block->{strings}=Shwl::DUMPSTRINGS();
     $block->{body}=$fnbody;
@@ -733,7 +746,6 @@ sub extract(
 
   };
 
-# ---   *   ---   *   ---
 
   $i=0;
   $cut_token=sprintf
@@ -755,13 +767,13 @@ sub extract(
 
   };
 
-# ---   *   ---   *   ---
 
   return %frame;
 
 };
 
 # ---   *   ---   *   ---
+# DOUBLY DEPRECATED
 
 sub fold($lang,$body_ref) {
 
@@ -772,7 +784,6 @@ sub fold($lang,$body_ref) {
   my $dels_id=$deldata->{id};
   my $dels_order=$deldata->{order};
 
-# ---   *   ---   *   ---
 
   for my $key(@$foldtags) {
     Shwl::cut($body_ref,uc $key,$lang->{$key});
@@ -795,6 +806,7 @@ sub fold($lang,$body_ref) {
 };
 
 # ---   *   ---   *   ---
+# EVEN MORE DEPRECATED
 
 package Shwl::Arg;
 
@@ -804,9 +816,7 @@ package Shwl::Arg;
 
   use Style;
 
-# ---   *   ---   *   ---
-
-sub nit($class,$elem) {
+sub new($class,$elem) {
 
   my ($name,$default)=split qr{=},$elem;
 

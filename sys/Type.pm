@@ -87,9 +87,9 @@ package Type;
     # primitives
 
     byte    =>    1,
-    wide    =>    2,
-    brad    =>    4,
-    word    =>    8,
+    word    =>    2,
+    dword   =>    4,
+    qword   =>    8,
 
     # measuring
 
@@ -149,7 +149,7 @@ sub pevec($class,$frame,$name) {
 
 
 OK:
-  return $frame->nit($name,$elems);
+  return $frame->new($name,$elems);
 
 
 ERR:
@@ -413,7 +413,7 @@ sub array_typeof($size) {
 
     };
 
-  } qw(word brad wide byte);
+  } qw(qword dword word byte);
 
 
   return @out;
@@ -421,9 +421,9 @@ sub array_typeof($size) {
 };
 
 # ---   *   ---   *   ---
-# constructor
+# cstruc
 
-sub nit(
+sub new(
 
   # implicit
   $class,$frame,
@@ -443,7 +443,6 @@ sub nit(
   $O{addr} //= 0;
   $O{str}  //= 0;
 
-# ---   *   ---   *   ---
 
   my $size  = 0;
   my $count = 0;
@@ -461,19 +460,19 @@ sub nit(
   my $fields   = [];
   my $subtypes = [];
 
-# ---   *   ---   *   ---
-# struct format:
-#
-#   > 'type_name'=>[
-#
-#   >   'type_name'=>'elem_name'
-#   >   ...
-#
-#   >  ];
+
+  # struct:
+  #
+  # 'type_name'=>[
+  #
+  #   'type_name'=>'elem_name'
+  #   ...
+  #
+  # ];
 
   if(length ref $elems) {
 
-    $sigil|=8|$SIGIL_FLAGS->{ptr};
+    $sigil |= 8 | $SIGIL_FLAGS->{ptr};
 
     while(@$elems) {
 
@@ -531,31 +530,27 @@ DONE:
 
     };
 
-# ---   *   ---   *   ---
-# primitive format:
-#
-#   > 'type_name'=>size
 
+  # primitive: [type_name=>size]
   } else {
 
-    $count=1;
-    $size=$elems;
+    $count = 1;
+    $size  = $elems;
 
-    $sigil=$size
+    $sigil = $size
 
-    | ($SIGIL_FLAGS->{sign}*$O{sign})
-    | ($SIGIL_FLAGS->{real}*$O{real})
+    | ($SIGIL_FLAGS->{sign} * $O{sign})
+    | ($SIGIL_FLAGS->{real} * $O{real})
 
-    | ($SIGIL_FLAGS->{ptr}*$O{addr})
-    | ($SIGIL_FLAGS->{str}*$O{str})
+    | ($SIGIL_FLAGS->{ptr}  * $O{addr})
+    | ($SIGIL_FLAGS->{str}  * $O{str} )
 
     ;
 
   };
 
-# ---   *   ---   *   ---
-# ugly arse specifiers...
 
+  # ugly arse specifiers...
   if($O{sign}) {$name="s$name"};
   if($O{str}) {$name.='_str'};
 
@@ -567,20 +562,20 @@ DONE:
 
   };
 
-# ---   *   ---   *   ---
 
-  my $ind=$O{addr} || $O{str};
 
-  my $type=$frame->{$name}=bless {
+  my $ind  = $O{addr} || $O{str};
 
-    name=>$name,
-    size=>($ind) ? 8 : $size,
-    elem_count=>$count,
+  my $type = $frame->{$name}=bless {
 
-    fields=>$fields,
-    subtypes=>$subtypes,
+    name        => $name,
+    size        => ($ind) ? 8 : $size,
+    elem_count  => $count,
 
-    sigil=>$sigil,
+    fields      => $fields,
+    subtypes    => $subtypes,
+
+    sigil       => $sigil,
 
     %O,
 
@@ -839,7 +834,7 @@ sub gen_type_table(%table) {
 
     );
 
-    my $t=$F->nit($key,$value);
+    my $t=$F->new($key,$value);
 
     if($fptr) {
       $t->{addr}=$indlvl;
@@ -847,18 +842,17 @@ sub gen_type_table(%table) {
 
     };
 
-# ---   *   ---   *   ---
-# generate floating types
 
-    if($key=~ m[(?: brad|word)]x) {
+    # generate floating types
+    if($key=~ m[(?: dword|qword)]x) {
 
       my $real_type=(
-        'real','daut'
+        'real','dreal'
 
-      )[$key eq 'word'];
+      )[$key eq 'qword'];
 
-      $F->nit($real_type,$value,real=>1);
-      $F->nit(
+      $F->new($real_type,$value,real=>1);
+      $F->new(
 
         $real_type,$value,
 
@@ -869,21 +863,19 @@ sub gen_type_table(%table) {
 
     };
 
-# ---   *   ---   *   ---
-# generate string types
 
-    if($key=~ m[(?: byte|wide)]x) {
-      $F->nit($key,$value,str=>1);
+    # generate string types
+    if($key=~ m[(?: byte|word)]x) {
+      $F->new($key,$value,str=>1);
 
     };
 
-# ---   *   ---   *   ---
-# generate signed and pointers
 
-    if($key=~ m[(?: byte|wide|brad|word)]x) {
+    # generate signed and pointers
+    if($key=~ m[(?: byte|word|dword|qword)]x) {
 
-      $F->nit($key,$value,sign=>1);
-      $F->nit(
+      $F->new($key,$value,sign=>1);
+      $F->new(
 
         $key,$value,
 
@@ -894,21 +886,17 @@ sub gen_type_table(%table) {
 
     };
 
-# ---   *   ---   *   ---
-
   }}; # top loop
 
-# ---   *   ---   *   ---
-# make vector types
 
-  my @vectypes=qw(brad sbrad real);
+  # make vector types
+  my @vectypes=qw(
 
-  @vectypes=map {
-    $ARG.'2',
-    $ARG.'3',
-    $ARG.'4',
+    real2   real3   real4
+    dword2  dword3  dword4
+    sdword2 sdword3 sdword4
 
-  } @vectypes;
+  );
 
   push @vectypes,'real16','real9';
   map {$F->pevec($ARG)} @vectypes;

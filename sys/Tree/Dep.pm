@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Tree::Dep;
   use v5.36.0;
   use strict;
@@ -27,10 +28,11 @@ package Tree::Dep;
   use parent 'Tree';
 
 # ---   *   ---   *   ---
+# cstruc
 
-sub nit($class,$frame,@args) {
+sub new($class,$frame,@args) {
 
-  my $tree=Tree::nit($class,$frame,@args);
+  my $tree=Tree::new($class,$frame,@args);
 
   $tree->{needs}={};
   $tree->{needed_by}={};
@@ -40,6 +42,7 @@ sub nit($class,$frame,@args) {
 };
 
 # ---   *   ---   *   ---
+# add dependency
 
 sub append($self,$value) {
   $self->{needs}->{$value}=1;
@@ -47,6 +50,7 @@ sub append($self,$value) {
 };
 
 # ---   *   ---   *   ---
+# get necessary files for build
 
 sub track($self) {
 
@@ -64,7 +68,7 @@ sub track($self) {
 
       my $dep=$root->branch_in(qr{^$value$});
 
-      next if !$dep || $dep eq $self;
+      next if ! $dep || $dep eq $self;
 
       $dep->{needed_by}->{$self->{value}}=$self;
       $tmp->{$dep->{value}}=$dep;
@@ -77,7 +81,6 @@ sub track($self) {
 
   };
 
-# ---   *   ---   *   ---
 
   $root->hier_sort();
   return $root->list_by_priority();
@@ -85,6 +88,7 @@ sub track($self) {
 };
 
 # ---   *   ---   *   ---
+# reorganize self
 
 sub hier_sort($self) {
 
@@ -100,7 +104,6 @@ sub hier_sort($self) {
     my $needs=$node->{needs};
     my $needed_by=$node->{needed_by};
 
-# ---   *   ---   *   ---
 
     my @deps=values %$needs;
     my @chld=values %$needed_by;
@@ -130,15 +133,15 @@ sub hier_sort($self) {
 };
 
 # ---   *   ---   *   ---
+# selfex
 
 sub list_by_priority($self) {
 
   my @pending=(@{$self->{leaves}});
   my $depth=0;
 
-# ---   *   ---   *   ---
-# walk the tree
 
+  # walk the tree
   my $priority={};
   for my $node(@pending) {
 
@@ -153,9 +156,8 @@ sub list_by_priority($self) {
 
   };
 
-# ---   *   ---   *   ---
-# ^order nodes by depth
 
+  # ^order nodes by depth
   my $result=[];
   my @order=sort {$a<=>$b} keys %$priority;
 

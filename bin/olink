@@ -46,7 +46,7 @@ package main;
 # ---   *   ---   *   ---
 # define arguments for commandline
 
-my $m=Cli->nit(
+my $m=Cli->new(
 
   @{$Cli::Fstruct::ATTRS},
 

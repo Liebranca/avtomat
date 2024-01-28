@@ -39,7 +39,6 @@ package Emit::Perl;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Emit::Std;
-  use Peso::Ipret;
 
   use parent 'Emit';
 
@@ -50,104 +49,93 @@ package Emit::Perl;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# ROM
+# the stuff you paste up top
 
+sub open_guards($class,$fname) {
 
-  Readonly my $OPEN_GUARDS=>
+  return join "\n",
 
-q[#!/usr/bin/perl
-$:note;>
+    "package $fname;",
+    "  use v5.36.0;",
+    "  use strict;",
+    "  use warnings;",
 
-#deps
-package $:fname;>;
-  use v5.36.0;
-  use strict;
-  use warnings;
+    "  use English qw(-no_match_vars);",
 
-  use English qw(-no_match_vars);
+    "  use lib \$ENV{'ARPATH'}.'/lib/sys/';",
+    "  use lib \$ENV{'ARPATH'}.'/lib/';",
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-  use lib $ENV{'ARPATH'}.'/lib/';
+    "  use Style;",
+    "  use Arstd::Path;",
 
-  use Style;
-  use Arstd::Path;
+    "\n"
 
-# ---   *   ---   *   ---
-
-];
-
-
-# ---   *   ---   *   ---
-
-
-  Readonly my $CLOSE_GUARDS=>q[
-
-# ---   *   ---   *   ---
-1; # ret
-];
-
-
-# ---   *   ---   *   ---
-
-sub boiler_open($class,$fname,%O) {
-
-  my $s=$OPEN_GUARDS;
-  $O{def}//=[];
-
-  $s.=q[
-
-$:iter (path=>$O{lib})
-  q{  }."use lib $path;\n"
-
-;>
-
-$:iter (path=>$O{inc})
-  q{  }."use $path;\n"
-
-;>
-
-# ---   *   ---   *   ---
-# ROM
-
-$:iter (
-
-  name  => $O{defk},
-  value => $O{defv},
-
-) q{  }."Readonly $name=>$value;\n"
-
-;>
-
-# ---   *   ---   *   ---
-
-];
-
-  my $defk=array_keys($O{def});
-  my $defv=array_values($O{def});
-
-# ---   *   ---   *   ---
-
-  Peso::Ipret::pesc(
-
-    \$s,
-
-    fname => $fname,
-    note  => Emit::Std::note($O{author},q[#]),
-
-    lib   => $O{lib},
-    inc   => $O{inc},
-
-    defk  => $defk,
-    defv  => $defv,
-
-  );
-
-  return $s;
+  ;
 
 };
 
+# ---   *   ---   *   ---
+# ^on steroids
+
+sub boiler_open($class,$fname,%O) {
+
+  $O{def}//=[];
+
+  my $note = Emit::Std::note($O{author},q[#]);
+
+  my $defi = 0;
+  my @defk = array_keys($O{def});
+  my @defv = array_values($O{def});
+
+
+  return join "\n",
+
+
+    "#!/usr/bin/perl",
+
+    $note,
+    $class->open_guards($fname),
+
+
+    (join "\n",map {
+      "  use lib $ARG;"
+
+    } @{$O{lib}}),
+
+    (join "\n",map {
+      "  use $ARG;"
+
+    } @{$O{inc}}),
+
+
+    (join "\n",map {
+
+      my $name  = $ARG;
+      my $value = $defv[$defi++];
+
+      "Readonly $name=>$value;";
+
+    } @defk),
+
+    "\n"
+
+  ;
+
+};
+
+# ---   *   ---   *   ---
+# ^closer
+
 sub boiler_close($class,$fname,%O) {
-  return $CLOSE_GUARDS;
+
+  return join "\n",
+
+    "\n# ---   *   ---   *   ---",
+    "1; # ret",
+
+    "\n"
+
+  ;
 
 };
 
@@ -199,9 +187,8 @@ sub import {
 EOF
 ;
 
-# ---   *   ---   *   ---
-# attach symbols from table
 
+  # attach symbols from table
   my $tab=$NULLSTR;
 
   for my $o(keys %{$symtab{objects}}) {
@@ -223,7 +210,6 @@ EOF
 
       };
 
-# ---   *   ---   *   ---
 
       my $arg_types='['.( join(
         ',',@ar
@@ -241,7 +227,6 @@ EOF
 
         "  '$rtype'\n);\n\n";
 
-# ---   *   ---   *   ---
 
     };
 

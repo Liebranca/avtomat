@@ -66,7 +66,7 @@ package Shb7::Bfile;
 # ---   *   ---   *   ---
 # cstruc
 
-sub nit($class,$fpath,$bk,%O) {
+sub new($class,$fpath,$bk,%O) {
 
   $O{out}//=$NULLSTR;
 

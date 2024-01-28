@@ -65,7 +65,7 @@ sub import {
 
   my @opts=@_;
 
-  $SETTINGS=Cli->nit(@$OPTIONS);
+  $SETTINGS=Cli->new(@$OPTIONS);
   $SETTINGS->take(@opts);
 
   if($SETTINGS->{module} eq $NULL) {
@@ -74,7 +74,7 @@ sub import {
   };
 
   my ($pkg,$fname,$lineno)=(caller);
-  my $self=MAM->nit($fname,$lineno);
+  my $self=MAM->new($fname,$lineno);
 
   $self->filter_add($self);
 

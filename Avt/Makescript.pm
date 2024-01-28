@@ -9,8 +9,8 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
 
 package Avt::Makescript;
@@ -209,9 +209,9 @@ sub abspaths($self) {
 };
 
 # ---   *   ---   *   ---
-# constructor
+# cstruc
 
-sub nit($class) {
+sub new($class) {
 
   my $self=bless {
 
@@ -322,7 +322,7 @@ sub read_cli($class,@cmd) {
 
 
   # ^make ice and run
-  my $cli  = Cli->nit(@tab);
+  my $cli  = Cli->new(@tab);
   my @args = $cli->take(@cmd);
 
   # ^give

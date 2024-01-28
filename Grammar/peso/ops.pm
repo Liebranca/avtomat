@@ -492,7 +492,7 @@ sub invoke($self,$branch) {
   );
 
   $branch->clear();
-  $branch->init($st);
+  $branch->inew($st);
 
   $branch->{value}='unsorted_invoke';
 
@@ -663,7 +663,7 @@ sub invoke_cl($self,$branch) {
   # ^TODO: actually solve ;>
   $branch->clear();
   $branch->{value}='value';
-  $branch->init($st);
+  $branch->inew($st);
 
 };
 
@@ -1011,7 +1011,7 @@ sub op_to_value($self,$branch) {
   $o->type_pop('ops');
 
   $branch->clear();
-  $branch->init($o);
+  $branch->inew($o);
 
 };
 
@@ -1209,7 +1209,7 @@ sub subscript_to_decl($self,$branch) {
   $branch->{value}='value';
 
   $branch->clear();
-  $branch->init($st);
+  $branch->inew($st);
 
 };
 
@@ -1244,7 +1244,7 @@ sub subscript_to_ops($self,$branch) {
   $branch->{value}='ops';
 
   $branch->clear();
-  $branch->init($st);
+  $branch->inew($st);
 
 };
 
