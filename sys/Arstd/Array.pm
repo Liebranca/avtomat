@@ -48,12 +48,15 @@ package Arstd::Array;
 
     array_iof
 
+    IDEXUP
+    IDEXUP_P2
+
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.3;#b
+  our $VERSION=v0.00.4;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -245,6 +248,20 @@ sub iof($ar,$elem) {
   return $idex;
 
 };
+
+# ---   *   ---   *   ---
+# ~
+
+sub IDEXUP($idex,$f,@list) {
+  return map {$f->($ARG,$idex++)} @list;
+
+};
+
+sub IDEXUP_P2($idex,$f,@list) {
+  return map {$f->($ARG,1 << $idex++)} @list;
+
+};
+
 
 # ---   *   ---   *   ---
 # exporter names

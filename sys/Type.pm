@@ -30,6 +30,7 @@ package Type;
   use Arstd::Bytes;
   use Arstd::Array;
   use Arstd::Hash;
+  use Arstd::Re;
 
   use parent 'St';
   use Vault 'ARPATH';
@@ -53,7 +54,7 @@ package Type;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.6;
+  our $VERSION = v0.03.7;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -80,27 +81,39 @@ package Type;
 
   },duplicate=>1);
 
+
+  # for matching widths
+  Readonly our $EZY_LIST=>
+    [qw(byte word dword qword)];
+
+  Readonly our $PTR_LIST=>
+    [qw(thin short wide long)];
+
+
+  Readonly our $EZY_RE=>re_eiths($EZY_LIST);
+  Readonly our $PTR_RE=>re_eiths($PTR_LIST);
+
+
+  # make/load table
   our $Table=Vault::cached(
 
     'Table',\&gen_type_table,
 
-    # primitives
 
-    byte    =>    1,
-    word    =>    2,
-    dword   =>    4,
-    qword   =>    8,
+    # paste (name) => 1 << N
+    IDEXUP_P2(0,sub {$_[0]=>$_[1]},@$EZY_LIST),
+    IDEXUP_P2(0,sub {$_[0]=>$_[1]},@$PTR_LIST),
+
 
     # measuring
-
     unit    =>   16,
     half    =>   32,
     line    =>   64,
 
     page    => 4096,
 
-    # function types
 
+    # function types
     nihil   =>    8,
     stark   =>    8,
     signal  =>    8,

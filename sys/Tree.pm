@@ -36,7 +36,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.3;#a
+  our $VERSION = v0.02.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -1532,6 +1532,54 @@ sub match_up_to($self,$pattern) {
   ) if ! @out;
 
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# tree leaves match a specific
+# sequence of patterns
+
+sub match_sequence($self,@seq) {
+
+  # early exit if sizes don't match
+  my @pending=@{$self->{leaves}};
+  return 0 if @pending < @seq;
+
+
+  # ^else walk
+  my $idex=0;
+
+  # true if all matched
+  return @seq == int grep {
+    $pending[$idex++]->{value}=~ $ARG;
+
+  } @seq;
+
+};
+
+# ---   *   ---   *   ---
+# ^attempt a *series* of
+# sequences
+
+sub match_series($self,@series) {
+
+  my $idex=0;
+
+  # attempt all sequences in series
+  #
+  # break and give sequence idex
+  # on first match
+  for my $seq(@series) {
+
+    return $idex
+    if $self->match_sequence(@$seq);
+
+    $idex++;
+
+  };
+
+  # else fail
+  return -1;
 
 };
 
