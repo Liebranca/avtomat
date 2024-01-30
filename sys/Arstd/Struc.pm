@@ -39,7 +39,7 @@ package Arstd::Struc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -212,13 +212,14 @@ sub from_bytes($self,$rawref) {
 
 
   # read header
-  my ($ct,@len)=([]);
+  my ($ct,@len) = ([]);
+  my @head      = @{$self->{head}};
 
-  if(@{$self->{head}}) {
+  if(@head) {
 
     ($ct,@len)=bunpack(
-      $self->{head}->[0],$e->{src},
-      int @{$self->{head}}-1
+      $head[0],$e->{src},
+      int @head-1
 
     );
 
@@ -232,7 +233,7 @@ sub from_bytes($self,$rawref) {
     $e->{cnt}->{$ARG}
   = shift @$ct
 
-  } @{$self->{order}};
+  } @head[1..$#head];
 
   # ^get reused sizes
   map {
@@ -269,16 +270,29 @@ sub from_strm($self,$sref,$pos) {
 };
 
 # ---   *   ---   *   ---
-# ^prim guts
+# get element count for
+# unpacking subroutines
 
-sub _unpack_prims($self,$e) {
+sub _u_get_elem_cnt($e) {
 
   my $cnt=1;
 
   if(exists $e->{cnt}->{$e->{key}}) {
-    $cnt=$e->{cnt}->{$e->{key}};
+    $cnt   = $e->{cnt}->{$e->{key}};
+    $cnt //= 1;
 
   };
+
+  return $cnt;
+
+};
+
+# ---   *   ---   *   ---
+# ^prim guts
+
+sub _unpack_prims($self,$e) {
+
+  my $cnt=_u_get_elem_cnt($e);
 
   my ($ct,@len)=bunpack(
     $e->{fmat},$e->{src},$cnt
@@ -296,12 +310,7 @@ sub _unpack_prims($self,$e) {
 
 sub _unpack_bitformat($self,$e) {
 
-  my $cnt=1;
-
-  if(exists $e->{cnt}->{$e->{key}}) {
-    $cnt=$e->{cnt}->{$e->{key}};
-
-  };
+  my $cnt=_u_get_elem_cnt($e);
 
   my ($ct,$len)=$e->{fmat}->from_strm(
     $e->{src},0,$cnt
@@ -319,12 +328,7 @@ sub _unpack_bitformat($self,$e) {
 
 sub _unpack_struc($self,$e) {
 
-  my $cnt=1;
-
-  if(exists $e->{cnt}->{$e->{key}}) {
-    $cnt=$e->{cnt}->{$e->{key}};
-
-  };
+  my $cnt=_u_get_elem_cnt($e);
 
   my ($ct,$len)=$e->{fmat}->from_strm(
     $e->{src},0,$cnt
@@ -422,19 +426,30 @@ sub to_strm($self,$sref,$pos,%data) {
 };
 
 # ---   *   ---   *   ---
-# ^prim guts
+# get element count and
+# data for packing subroutines
 
-sub _pack_prims($self,$e) {
+sub _p_get_elem_cnt($e) {
 
-  # record elem count writ
   my @data = @{$e->{src}->{$e->{key}}};
   my $cnt  = int @data;
 
   if(exists $e->{cnt}->{$e->{key}}) {
     $e->{cnt}->{$e->{key}}=$cnt;
+    $cnt //= 1;
 
   };
 
+  return ($cnt,@data);
+
+};
+
+# ---   *   ---   *   ---
+# ^prim guts
+
+sub _pack_prims($self,$e) {
+
+  my ($cnt,@data)=_p_get_elem_cnt($e);
 
   # ^get bytearray for elem
   my ($ct,@len)=bpack(
@@ -453,15 +468,7 @@ sub _pack_prims($self,$e) {
 
 sub _pack_bitformat($self,$e) {
 
-  # record elem count writ
-  my @data = @{$e->{src}->{$e->{key}}};
-  my $cnt  = int @data;
-
-  if(exists $e->{cnt}->{$e->{key}}) {
-    $e->{cnt}->{$e->{key}}=$cnt;
-
-  };
-
+  my ($cnt,@data)=_p_get_elem_cnt($e);
 
   # ^get bytearray for elem
   my ($ct,$len)=$e->{fmat}->to_bytes(@data);
@@ -476,15 +483,7 @@ sub _pack_bitformat($self,$e) {
 
 sub _pack_struc($self,$e) {
 
-  # record elem count writ
-  my @data = @{$e->{src}->{$e->{key}}};
-  my $cnt  = int @data;
-
-  if(exists $e->{cnt}->{$e->{key}}) {
-    $e->{cnt}->{$e->{key}}=$cnt;
-
-  };
-
+  my ($cnt,@data)=_p_get_elem_cnt($e);
 
   # ^get bytearray for elem
   map {
