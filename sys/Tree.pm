@@ -1549,11 +1549,16 @@ sub match_sequence($self,@seq) {
   # ^else walk
   my $idex=0;
 
-  # true if all matched
-  return @seq == int grep {
-    $pending[$idex++]->{value}=~ $ARG;
+  for my $re(@seq) {
+    return 0 if ! (
+      $pending[$idex++]->{value}=~ $re
 
-  } @seq;
+    );
+
+  };
+
+  # true if all matched
+  return 1;
 
 };
 

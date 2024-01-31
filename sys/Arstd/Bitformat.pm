@@ -84,6 +84,9 @@ sub new($class,@order) {
 
     ),
 
+    bitsize => $pos->{'$:top;>'},
+
+
     # ^attrs
     size  => $size,
     mask  => $mask,

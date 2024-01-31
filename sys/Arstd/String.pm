@@ -301,10 +301,18 @@ sub sstoi($s) {
 
   my ($key)=grep {$s=~ $ARG} keys %$tab;
 
-  return (defined $key)
-    ? stoi($s,$tab->{$key})
-    : undef
-    ;
+  # give conversion if valid
+  if(defined $key) {
+    return stoi($s,$tab->{$key});
+
+  # else give back input if it's a number!
+  } else {
+    return ($s=~ qr{\d+})
+      ? $s
+      : undef
+      ;
+
+  };
 
 };
 
