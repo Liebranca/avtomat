@@ -36,7 +36,7 @@ package Arstd::Bitformat;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -221,12 +221,14 @@ sub from_bytes($self,$raw,$cnt=1) {
   my $len   = $self->{bytesize};
   my @types = array_typeof($len);
 
+
   my $fmat  = join $NULLSTR,map {
     packof($ARG)
 
   } @types;
 
-  my @data=unpack "$fmat\[$cnt]",$raw;
+
+  my @data=unpack "$fmat" x $cnt,$raw;
 
 
   # ^read chunks into new struc(s)
@@ -234,73 +236,83 @@ sub from_bytes($self,$raw,$cnt=1) {
   my $idex   = 0;
   my @chunks = ();
 
-  my $out=[ map {{ map {
+  my $out=[ map {
+
+    my $out_elem={ map {
 
 
-    # get required size
-    my $need = $self->{size}->{$ARG};
-    my $mask = bitmask($need);
+      # get required size
+      my $need = $self->{size}->{$ARG};
+      my $mask = bitmask($need);
 
-    while($have < $need) {
+      while($have < $need) {
 
-      my $ezy=sizeof($types[$idex++]) << 3;
+        my $ezy=sizeof($types[$idex++]) << 3;
 
-      push @chunks,$ezy,(shift @data);
-      $have += $ezy;
-
-    };
-
-
-    # consume chunks as needed
-    my $pos   = 0;
-    my $value = 0;
-
-    while($need) {
-
-      # get next
-      my $ezy   = shift @chunks;
-      my $bytes = shift @chunks;
-
-      $value |= ($bytes & $mask) << $pos;
-
-
-      # ^partially consumed
-      # give back leftovers
-      if(($ezy) > $need) {
-
-        $have   -= $need;
-        $ezy    -= $need;
-
-        $bytes >>= $need;
-        $need    = 0;
-
-        unshift @chunks,$ezy,$bytes;
-
-
-        # backtrack type
-        $idex=($idex > 0)
-          ? $idex-1
-          : $#types
-          ;
-
-
-      # ^wholly consumed
-      # nothing saved for next
-      } else {
-        $need -= $ezy;
-        $have -= $ezy;
-
-        $pos  += $ezy;
+        push @chunks,$ezy,(shift @data);
+        $have += $ezy;
 
       };
 
-    };
 
-    # wrap type, go next and give
-    $idex &= $idex * ($idex < @types);
-    $ARG  => $value;
+      # consume chunks as needed
+      my $pos   = 0;
+      my $value = 0;
 
-  } @{$self->{order}} }} 0..$cnt-1];
+      while($need) {
+
+        # get next
+        my $ezy   = shift @chunks;
+        my $bytes = shift @chunks;
+
+        $value |= ($bytes & $mask) << $pos;
+
+
+        # ^partially consumed
+        # give back leftovers
+        if(($ezy) > $need) {
+
+          $have   -= $need;
+          $ezy    -= $need;
+
+          $bytes >>= $need;
+          $need    = 0;
+
+          unshift @chunks,$ezy,$bytes;
+
+
+          # backtrack type
+          $idex=($idex > 0)
+            ? $idex-1
+            : $#types
+            ;
+
+
+        # ^wholly consumed
+        # nothing saved for next
+        } else {
+          $need -= $ezy;
+          $have -= $ezy;
+
+          $pos  += $ezy;
+
+        };
+
+      };
+
+      # wrap type, go next and give
+      $idex &= $idex * ($idex < @types);
+      $ARG  => $value;
+
+    } @{$self->{order}} };
+
+    $have   = 0;
+    $idex   = 0;
+    @chunks = ();
+
+    $out_elem;
+
+  } 0..$cnt-1];
 
 
   return $out,$len*$cnt;

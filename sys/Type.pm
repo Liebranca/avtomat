@@ -54,7 +54,7 @@ package Type;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.7;
+  our $VERSION = v0.03.8;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -357,7 +357,7 @@ sub _array_bunpack($types,$buf,$cnt) {
     \$total,
     \@out,
 
-  )} 0..$cnt-1;
+  )} 0..($cnt*int @$types)-1;
 
 
   return (@out,$total);
