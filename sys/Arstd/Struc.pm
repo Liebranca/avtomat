@@ -216,13 +216,7 @@ sub from_bytes($self,$rawref) {
   my @head      = @{$self->{head}};
 
   if(@head) {
-
-    ($ct,@len)=bunpack(
-      $head[0],$e->{src},
-      int @head-1
-
-    );
-
+    ($ct,@len)=bunpack($head[0],$e->{src},1);
     $e->{ezy}->{'$:head;>'} = $len[-1];
 
   };
