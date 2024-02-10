@@ -39,7 +39,7 @@ package Shb7::Bk::gcc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -113,22 +113,22 @@ sub fdeps($self,$bfile) {
 
   my @out=($bfile->{src});
 
-  goto TAIL if ! -f $bfile->{dep};
+  # read file if it exists
+  if(-f $bfile->{dep}) {
+
+    my $body=orc($bfile->{dep});
+
+    # sanitize
+    $body=~ s/\\//g;
+    $body=~ s/\s/\,/g;
+    $body=~ s/.*\://;
+
+    # make array from gcc depsfile
+    @out=$self->depstr_to_array($body);
+
+  };
 
 
-  # read file
-  my $body=orc($bfile->{dep});
-
-  # sanitize
-  $body=~ s/\\//g;
-  $body=~ s/\s/\,/g;
-  $body=~ s/.*\://;
-
-  # make
-  @out=$self->depstr_to_array($body);
-
-
-TAIL:
   return @out;
 
 };

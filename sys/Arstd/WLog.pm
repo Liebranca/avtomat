@@ -38,13 +38,14 @@ package Arstd::WLog;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
   Readonly our $LINE_BEG  => ansim('::','op');
+  Readonly our $EXE       => ansim('*:','op');
   Readonly our $DOPEN     => ansim('>>','op');
   Readonly our $DCLOSE    => ansim('<<','op');
 
@@ -77,12 +78,12 @@ sub new($class) {
 
 sub genesis($class) {
 
-  my $out=(defined $WLog)
-    ? $WLog
-    : $class->new()
+  $WLog=(! defined $WLog)
+    ? $class->new()
+    : $WLog
     ;
 
-  return $out;
+  return $WLog;
 
 };
 
@@ -136,7 +137,7 @@ sub ex($self,$name,$me=$NULLSTR) {
   $me=(length $me) ? "$me " : $me;
 
   my $s=$me . ansim($name,'ex');
-  $self->line($DOPEN . $s,1);
+  $self->line($EXE . $s,1);
 
 };
 
@@ -184,7 +185,7 @@ sub err($self,$me,%O) {
 };
 
 # ---   *   ---   *   ---
-# creates logtree root
+# make logtree root
 
 {
 
@@ -192,8 +193,7 @@ sub err($self,$me,%O) {
   no warnings;
 
   INIT {
-
-    $WLog=Arstd::WLog->genesis();
+    Arstd::WLog->genesis();
 
   };
 

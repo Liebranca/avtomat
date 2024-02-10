@@ -40,7 +40,7 @@ package Shb7::Bk::front;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -49,19 +49,19 @@ package Shb7::Bk::front;
 sub new($class,%O) {
 
   # defaults
-  $O{name}   //= './out';
-  $O{debug}  //= 0;
-  $O{entry}  //= '_start';
-  $O{bk}     //= 'flat';
-  $O{lang}   //= 'fasm';
-  $O{flat}   //= 1;
-  $O{pproc}  //= undef;
+  $O{name}    //= './out';
+  $O{debug}   //= 0;
+  $O{entry}   //= '_start';
+  $O{bk}      //= 'flat';
+  $O{lang}    //= 'fasm';
+  $O{linking} //= 'flat';
+  $O{pproc}   //= undef;
 
-  $O{files}  //= [];
-  $O{gens}   //= [];
+  $O{files}   //= [];
+  $O{gens}    //= [];
 
-  $O{incl}   //= [];
-  $O{libs}   //= [];
+  $O{incl}    //= [];
+  $O{libs}    //= [];
 
   # determine author/version
   # for generators
@@ -97,10 +97,12 @@ sub new($class,%O) {
   my $bk  = $bkn->new(pproc=>$O{pproc});
   my $bld = Shb7::Build->new(
 
-    name  => $O{name},
-    debug => $O{debug},
-    flat  => $O{flat},
-    entry => $O{entry},
+    name    => $O{name},
+    debug   => $O{debug},
+    linking => $O{linking},
+    entry   => $O{entry},
+
+    lang    => $O{lang},
 
     %lists,
 

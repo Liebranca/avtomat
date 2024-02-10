@@ -275,19 +275,19 @@ sub nit_build($class,$self,@cmd) {
 
   $self->{bld}=Shb7::Build->new(
 
-    files  => [],
-    name   => $self->{main},
+    files   => [],
+    name    => $self->{main},
 
-    incl   => $self->{incl},
-    libs   => $self->{libs},
+    incl    => $self->{incl},
+    libs    => $self->{libs},
 
-    shared => $self->{lmode} eq '-shared',
-    debug  => $self->{debug},
-    tgt    => $Shb7::Bk::TARGET->{x64},
+    shared  => $self->{lmode} eq '-shared',
+    debug   => $self->{debug},
+    tgt     => $Shb7::Bk::TARGET->{x64},
 
-    flat   => ($cli->{flat} ne $NULL)
-      ? 1
-      : 0
+    linking => ($cli->{flat} ne $NULL)
+      ? 'flat'
+      : 'cstd'
       ,
 
   );
@@ -570,11 +570,11 @@ sub side_builds($self) {
 
       ],
 
-      shared => 0,
-      debug  => $self->{debug},
+      shared  => 0,
+      debug   => $self->{debug},
 
-      tgt    => $Shb7::Bk::TARGET->{x64},
-      flat   => 0,
+      tgt     => $Shb7::Bk::TARGET->{x64},
+      linking => 'cstd',
 
     );
 

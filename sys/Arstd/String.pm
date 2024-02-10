@@ -82,7 +82,7 @@ package Arstd::String;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.9;#b
+  our $VERSION=v0.01.0;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -160,7 +160,7 @@ sub cutid($s='N',$i=0) {
 # ---   *   ---   *   ---
 # common string to integer transforms
 
-sub stoi($x,$base) {
+sub stoi($x,$base,$filter=1) {
 
   state $tab={
 
@@ -201,6 +201,23 @@ sub stoi($x,$base) {
 
   };
 
+  # filter invalid chars accto base?
+  my @chars=reverse split $NULLSTR,$x;
+
+  if($filter) {
+    @chars=grep {$ARG=~ $allow} @chars;
+
+  # ^nope, give undef if invalid chars
+  # found in source
+  } else {
+
+    my @tmp=grep {$ARG=~ $allow} @chars;
+    return undef if int @tmp < int @chars;
+
+    @chars=@tmp;
+
+  };
+
 
   # accumulate to
   my $r=0;
@@ -232,11 +249,7 @@ sub stoi($x,$base) {
 
     };
 
-  # ^chars are filtered accto base
-  } grep {
-    $ARG=~ $allow
-
-  } reverse split $NULLSTR,$x;
+  } @chars;
 
 
   return $r*$sign;
@@ -272,7 +285,7 @@ sub bstoi($x) {stoi($x,2)};
 # ---   *   ---   *   ---
 # ^infer base from string
 
-sub sstoi($s) {
+sub sstoi($s,$filter=1) {
 
   state $hex=qr{
     ^(?: 0x | \$ )
@@ -303,11 +316,12 @@ sub sstoi($s) {
 
   # give conversion if valid
   if(defined $key) {
-    return stoi($s,$tab->{$key});
+    $s=~ s[$key][]sxmg;
+    return stoi($s,$tab->{$key},$filter);
 
   # else give back input if it's a number!
   } else {
-    return ($s=~ qr{\d+})
+    return ($s=~ qr{^\d+$})
       ? $s
       : undef
       ;

@@ -358,12 +358,18 @@ package Cli::Fstruct;
 # whenever you're looking for things
 # across a (possible) multitude of files
 
-sub proto_search($m) {
+sub proto_search($m,@cmd) {
 
-  my @files=$m->take(@ARGV);
+  # default to commandline args
+  @cmd=@ARGV if ! @cmd;
+
+  # ^parse options
+  my @files=$m->take(@cmd);
 
 
-  if($m->{recursive}!=$NULL) {
+  # dig into the folders?
+  if($m->{recursive} ne $NULL) {
+
     my @ar=@files;
     @files=();
 
@@ -372,6 +378,7 @@ sub proto_search($m) {
   };
 
 
+  # enable/disable auto-backslashing
   if($m->{no_escaping}==$NULL) {
     $m->{symbol}="\Q$m->{symbol}";
 
@@ -381,6 +388,7 @@ sub proto_search($m) {
   };
 
 
+  # enable/disable symbol as regex
   if($m->{regex}==$NULL) {
     $m->{symbol}=qr{$m->{symbol}(?:\b|$|"|')};
 
@@ -390,6 +398,7 @@ sub proto_search($m) {
   };
 
 
+  # set extension filter?
   if($m->{extension} eq $NULL) {
     $m->{ext_re}=qr{\..*$}x;
 
@@ -406,10 +415,10 @@ sub proto_search($m) {
 # ---   *   ---   *   ---
 # ^expands filepaths
 
-sub proto_search_ex($m) {
+sub proto_search_ex($m,@cmd) {
 
   my @out   = ();
-  my @files = Cli::Fstruct::proto_search($m);
+  my @files = Cli::Fstruct::proto_search($m,@cmd);
 
   while(@files) {
 

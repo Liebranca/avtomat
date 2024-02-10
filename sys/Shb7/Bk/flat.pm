@@ -98,14 +98,13 @@ sub fdeps($self,$bfile) {
 
   my @out=($bfile->{src});
 
-  goto TAIL if ! -f $bfile->{dep};
+  # read file if it exists
+  if(-f $bfile->{dep}) {
+    my $body=orc($bfile->{dep});
+    @out=split $NEWLINE_RE,$body;
 
-  # read file
-  my $body=orc($bfile->{dep});
-  @out=split $NEWLINE_RE,$body;
+  };
 
-
-TAIL:
   return @out;
 
 };

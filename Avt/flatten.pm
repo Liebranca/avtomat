@@ -32,7 +32,7 @@ package Avt::flatten;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -44,13 +44,13 @@ sub new($class,%O) {
 
     $class,
 
-    lang  => 'fasm',
+    lang    => 'fasm',
 
-    bk    => 'flat',
-    entry => 'crux',
-    flat  => 1,
+    bk      => 'flat',
+    entry   => 'crux',
+    linking => 'flat',
 
-    pproc => 'Avt::flatten::pproc',
+    pproc   => 'Avt::flatten::pproc',
 
     %O
 

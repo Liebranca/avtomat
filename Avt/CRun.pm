@@ -33,7 +33,7 @@ package Avt::CRun;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#b
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -51,11 +51,11 @@ sub new($class,%O) {
 
     $class,
 
-    lang  => 'C',
+    lang    => 'C',
 
-    bk    => 'gcc',
-    entry => 'main',
-    flat  => 0,
+    bk      => 'gcc',
+    entry   => 'main',
+    linking => 'cstd',
 
     %O
 

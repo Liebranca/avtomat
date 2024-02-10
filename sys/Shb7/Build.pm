@@ -19,6 +19,7 @@ package Shb7::Build;
   use strict;
   use warnings;
 
+  use Cwd qw(getcwd);
   use English qw(-no_match_vars);
 
   use Storable;
@@ -33,6 +34,7 @@ package Shb7::Build;
   use Chk;
 
   use Arstd::Array;
+  use Arstd::Path;
   use Arstd::IO;
   use Arstd::WLog;
 
@@ -45,11 +47,11 @@ package Shb7::Build;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# adds to your namesopace
+# adds to your namespace
 
   our @EXPORT=qw(
 
@@ -72,7 +74,7 @@ package Shb7::Build;
   };
 
 # ---   *   ---   *   ---
-# global state
+# GBL
 
   our $Makedeps={
     objs=>[],
@@ -86,17 +88,18 @@ package Shb7::Build;
 sub new($class,%O) {
 
   # defaults
-  $O{name}   //= 'out';
-  $O{entry}  //= '_start';
+  $O{name}    //= 'out';
+  $O{entry}   //= '_start';
 
-  $O{files}  //= [];
-  $O{incl}   //= [];
-  $O{libs}   //= [];
+  $O{lang}    //= 'fasm';
+  $O{files}   //= [];
+  $O{incl}    //= [];
+  $O{libs}    //= [];
 
-  $O{shared} //= 0;
-  $O{flat}   //= 0;
-  $O{debug}  //= 0;
-  $O{tgt}    //= $Shb7::Bk::TARGET->{x64};
+  $O{shared}  //= 0;
+  $O{linking} //= 0;
+  $O{debug}   //= 0;
+  $O{tgt}     //= $Shb7::Bk::TARGET->{x64};
 
 
   # condtionally add extra flags
@@ -112,16 +115,18 @@ sub new($class,%O) {
   # make ice
   my $self=bless {
 
-    name  => $O{name},
-    files => $O{files},
-    entry => $O{entry},
+    name    => $O{name},
+    files   => $O{files},
+    entry   => $O{entry},
 
-    incl  => $O{incl},
-    libs  => $O{libs},
+    incl    => $O{incl},
+    libs    => $O{libs},
 
-    flags => $flags,
-    flat  => $O{flat},
-    tgt   => $O{tgt},
+    flags   => $flags,
+    linking => $O{linking},
+    tgt     => $O{tgt},
+
+    lang    => $O{lang},
 
   },$class;
 
@@ -283,7 +288,7 @@ sub list_dep($self) {
 # ---   *   ---   *   ---
 # standard call to link object files
 
-sub link_common($self,@obj) {
+sub link_cstd($self,@obj) {
 
   return (
 
@@ -309,7 +314,7 @@ sub link_common($self,@obj) {
 # ^similar, but fine-tuned for nostdlib
 # what I *usually* use with assembler *.o files
 
-sub link_hflat($self,@obj) {
+sub link_half_flat($self,@obj) {
 
   return (
 
@@ -357,6 +362,196 @@ sub link_flat($self,@obj) {
 };
 
 # ---   *   ---   *   ---
+# fake linking for java!
+
+sub link_jar($self,@obj) {
+
+  # building lib?
+  my $shared=defined array_iof(
+    $self->{flags},'-shared'
+
+  );
+
+  my $manipath = 'META-INF/MANIFEST.MF';
+
+
+  # remember current path
+  my $old_path=getcwd();
+
+
+  # walk objects
+  my @jar=map {
+
+
+    # get file and extraction folder
+    my $jar    = $ARG;
+    my $jardir = dirof($jar);
+
+    mkdir "$jardir/.linking"
+    if ! -d "$jardir/.linking";
+
+
+    # get all *.class files in *.jar
+    my @classes=
+      grep  {$ARG=~ qr{\.class$}}
+      split "\n",`jar -tf $jar`
+
+    ;
+
+
+    # extract classes+manifest in jar dir
+    chdir "$jardir/.linking";
+
+    my $classes=join ' ',@classes;
+    `jar -xf $jar $classes $manipath`;
+
+
+    # read manifest into hash
+    my $manifest={
+
+      map   {split ': ',$ARG}
+      grep  {length $ARG}
+
+      split "\r\n",orc($manipath)
+
+    };
+
+
+    { manifest => $manifest,
+
+      linkpath => "$jardir/.linking",
+      classes  => \@classes,
+
+    };
+
+
+  } @obj;
+
+
+  # reset path
+  chdir $old_path;
+
+  my $dst=(! ($self->{name}=~ qr{\.jar$}))
+    ? "$self->{name}.jar"
+    : $self->{name}
+    ;
+
+
+  # roll jars together
+  my $manifest={
+    'Created-By' => [],
+    'Class-Path' => [],
+
+  };
+
+  map {
+
+    my $src=$ARG;
+
+    # combine manifest
+    map {
+
+      # list fields
+      if($ARG=~ qr{(?:
+        Created\-By
+      | Class-Path
+
+      )}x) {
+
+        push @{$manifest->{$ARG}},
+          $src->{manifest}->{$ARG};
+
+      # catch multiple main
+      } elsif($ARG eq 'Main-Class'
+      && exists $manifest->{$ARG}) {
+
+        say {*STDERR}
+          'link_jar: multiple main classes';
+
+        exit -1;
+
+
+      # all OK, just paste
+      } else {
+
+        $manifest->{$ARG} //= $NULLSTR;
+        $manifest->{$ARG}  .=
+          $src->{manifest}->{$ARG};
+
+      };
+
+
+    } keys %{$src->{manifest}};
+
+  } @jar;
+
+
+  # credit the AR/bois
+  push @{$manifest->{'Created-By'}},
+    'AR/avtomat';
+
+  $manifest->{'Created-By'}=join ',',
+    @{$manifest->{'Created-By'}};
+
+
+  # stringify manifest
+  $manifest=join "\r\n",grep {
+    length $ARG
+
+  # proc each field
+  } map {
+
+      my $value   = $manifest->{$ARG};
+         $value //= $NULLSTR;
+
+
+      # stringify arrays
+      if(is_arrayref($value)) {
+        $value=join ' ',@$value;
+
+      };
+
+      # skip blank fields
+      (length $value)
+        ? join ': ',$ARG,$value
+        : $NULLSTR
+        ;
+
+  } qw(
+
+    Manifest-Version
+    Created-By
+    Main-Class
+    Class-Path
+
+  );
+
+
+  # put manifest in archive
+  owc(".manifest","$manifest\r\n\r\n");
+  `jar -cfm $dst .manifest`;
+
+  unlink '.manifest';
+
+
+  # put classes in archive
+  map {
+
+    my $src   = $ARG;
+
+    my $path  = $src->{linkpath};
+    my $files = join ' ',@{$src->{classes}};
+
+    `jar -ufv $dst -C $path $files`;
+
+  } @jar;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # object file linking
 
 sub olink($self) {
@@ -390,23 +585,26 @@ sub olink($self) {
   my @call=();
 
   # ^using gcc
-  if(! $self->{flat}) {
-    @call=$self->link_common(@obj);
+  if($self->{linking} eq 'cstd') {
+    @call=$self->link_cstd(@obj);
 
   # ^gcc, but fine-tuned
-  } elsif($self->{flat} eq '1/2') {
-    @call=$self->link_hflat(@obj);
+  } elsif($self->{linking} eq 'half-flat') {
+    @call=$self->link_half_flat(@obj);
 
   # ^using ld ;>
-  } else {
+  } elsif($self->{linking} eq 'flat') {
     @call=$self->link_flat(@obj);
+
+  } elsif($self->{linking} eq 'jar') {
+    @call=$self->link_jar(@obj);
 
   };
 
 
   # ^issue cmd
   array_filter(\@call);
-  system {$call[0]} @call;
+  system {$call[0]} @call if @call;
 
 };
 
@@ -437,14 +635,13 @@ sub symrd($mod) {
   # existence check
   if(! -f $src) {
     throw_no_shwl($mod,$src);
-    goto TAIL;
+
+  } else {
+    $out=retrieve($src)
+    or croak strerr($src);
 
   };
 
-  $out=retrieve($src)
-  or croak strerr($src);
-
-TAIL:
   return $out;
 
 };
@@ -502,13 +699,13 @@ sub so_from_symtab($symtab,$path,@libs) {
 
   my $bld=Shb7::Build->new(
 
-    name   => $path,
+    name    => $path,
 
-    files  => \@objs,
-    libs   => \@libs,
+    files   => \@objs,
+    libs    => \@libs,
 
-    shared => 1,
-    flat   => 0,
+    shared  => 1,
+    linking => 'cstd',
 
   );
 
