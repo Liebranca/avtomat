@@ -22,6 +22,12 @@ package main;
   use Module::Load;
 
 # ---   *   ---   *   ---
+# info
+
+  our $VERSION = v0.00.1;
+  our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
 # the bit
 
 do {
@@ -43,3 +49,4 @@ do {
 };
 
 # ---   *   ---   *   ---
+1; # ret

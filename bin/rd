@@ -1,0 +1,6 @@
+#!/usr/bin/perl
+
+my @input=map {"\Q$_"} @ARGV;
+print `arperl lib/sys rd "\*crux" @input`;
+
+1; # ret

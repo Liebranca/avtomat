@@ -20,7 +20,7 @@ BEGIN {
 
   print $me;
   if($me=~ m/^ARPATH missing/) {
-    exit;
+    exit -1;
 
   };
 
@@ -45,8 +45,10 @@ BEGIN {
 
 Avt::set_config(
 
-  name=>'avtomat',
-  pre_build=>q(
+  name      => 'avtomat',
+  xcpy      => [qw(arperl olink rd symfind)],
+
+  pre_build => q(
 
     my $ex=$ENV{'ARPATH'}.'/avtomat/AR.pl';
     my $me=`$ex`;

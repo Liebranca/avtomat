@@ -162,6 +162,8 @@ sub dual_out(
     my $match=shift @$matches;
     delete $src->{$match};
 
+say {*STDERR} $match;
+
     push @$dst,(
       "$self->{dir}/$match",
       "$outdir/$outmod$match"
@@ -334,6 +336,7 @@ sub agroup_files($self) {
     $self->{C}->{gens},
 
   );
+
 
   # project ./bin copy
   $self->dual_out(

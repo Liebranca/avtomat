@@ -38,7 +38,7 @@ package Arstd::WLog;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -170,17 +170,22 @@ sub err($self,$me,%O) {
     "\n"
 
   . strtag($O{from},1)
-  . "$me\n",
+  . " $me\n",
 
     1
 
   );
 
+
+  # give backtrace?
   errout(
     $O{details},
     lvl=>$O{lvl}
 
   ) if $O{details};
+
+  # exit without errout?
+  exit -1 if $O{lvl} eq $AR_FATAL;
 
 };
 

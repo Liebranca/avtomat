@@ -1,0 +1,4 @@
+#!/usr/bin/perl
+
+my @input=map {"\Q$_"} @ARGV;
+print `arperl lib Avt::olink "*crux" @input`;

@@ -1,0 +1,97 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# AR/PERL:WRAP
+# Makes shell call wrapper
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+
+# ---   *   ---   *   ---
+# deps
+
+package main;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use lib $ENV{ARPATH}.'/lib/sys/';
+
+  use Style;
+
+  use Arstd::IO;
+  use Arstd::WLog;
+
+  use Shb7::Path;
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = v0.00.1;#a
+  our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# the bit
+
+$WLog->ex('arperl-wrap');
+
+while(@ARGV) {
+
+  # arperl-wrap ../bin/rd sub/path sys::rd
+
+
+  # get [fpath to new => class to wrap]
+  my $fpath = shift @ARGV;
+  my $cpath = shift @ARGV;
+  my $class = shift @ARGV;
+
+  die "arperl-wrap: incomplete input"
+  if! defined $fpath
+  ||! defined $cpath
+  ||! defined $class
+  ;
+
+
+  # get class source file
+  my $fsrc =  "$cpath/$class";
+     $fsrc =~ s[$DCOLON_RE][/]sxmg;
+     $fsrc =  "$ENV{ARPATH}/$fsrc.pm";
+
+  die "arperl-wrap: class '$fsrc' not found"
+  if ! -f $fsrc;
+
+
+  # need update?
+  if(moo($fpath,$fsrc)) {
+
+    $WLog->substep(shpath($fsrc));
+
+    # regen script
+    owc($fpath,join "\n",
+
+      "#!/usr/bin/perl",
+
+
+      'my @input=map {"\Q$_"} @ARGV;',
+
+      'print `arperl ' . "$cpath $class "
+    . '"*crux" @input`;',
+
+      '1; # ret',
+
+    );
+
+    # ^add exec flag if not set
+    `chmod +x $fpath`
+    if ! ((-l $fpath)=~ m[x]);
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+1; # ret

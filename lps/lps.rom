@@ -1,0 +1,12 @@
+%;
+
+# nevermind this file!
+# just testing the parser ;>
+
+
+cmd name {
+
+  in  s;
+  out *paste "name=>%s%";
+
+};
