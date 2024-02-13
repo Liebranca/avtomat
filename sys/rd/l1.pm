@@ -25,12 +25,12 @@ package rd::l1;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
-  use Arstd::WLog;
+  use Arstd::String;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -56,18 +56,42 @@ package rd::l1;
 
   )} (
 
-    ['*' => 'OPERA'],
+    ['*' => 'CMD'],
+
+    ['`' => 'OPERA'],
     ['%' => 'STRING'],
     ['i' => 'IDEX'],
     ['b' => 'BRANCH'],
+    ['n' => 'NUM'],
 
   )};
 
 # ---   *   ---   *   ---
 # make tag regex
 
-sub tagre($class,$type,$value) {
-  return qr{^\[$type$value\]\s};
+sub tagre($class,$rd,$type,$value) {
+
+  my $tag_t = $TAG_T->{$type};
+
+  throw_invalid_type($rd,$type)
+  if ! defined $tag_t;
+
+
+  $tag_t="\Q$tag_t";
+  return qr{^\[$tag_t$value\]\s};
+
+};
+
+# ---   *   ---   *   ---
+# errmes
+
+sub throw_invalid_type($rd,$type) {
+
+  $rd->perr(
+    "invalid tag-type '%s'",
+    args=>[$type],
+
+  );
 
 };
 
@@ -80,11 +104,9 @@ sub make_tag($class,$rd,$type,$src=undef) {
   # get/validate sigil
   my $tag_t=$TAG_T->{$type};
 
-  $rd->perr(
-    "invalid tag-type '%s'",
-    args=>[$type],
+  throw_invalid_type($rd,$type)
+  if ! defined $tag_t;
 
-  ) if ! defined $tag_t;
 
   $rd->perr(
 
@@ -101,7 +123,7 @@ sub make_tag($class,$rd,$type,$src=undef) {
 
   # give and forget?
   if(defined $src) {
-    return "[$tag_t$src]";
+    return "[$tag_t$src] ";
 
   # ^nope, overwrite token
   } else {
@@ -200,6 +222,32 @@ sub read_tag_v($class,$rd,$which) {
 
 sub operator($class,$rd) {
   return $class->read_tag_v($rd,'OPERA');
+
+};
+
+# ---   *   ---   *   ---
+# entry point
+#
+# classifies token if not
+# already sorted!
+
+sub proc($class,$rd) {
+
+  # get ctx
+  my $CMD=$rd->{lx}->load_CMD();
+  my $key=$rd->{token};
+
+
+  # is command?
+  if($key=~ $CMD->{-re}) {
+    $class->make_tag($rd,'CMD');
+
+  # is number?
+  } elsif(defined (my $is_num=sstoi($key,0))) {
+    $rd->{token}=$is_num;
+    $class->make_tag($rd,'NUM');
+
+  };
 
 };
 

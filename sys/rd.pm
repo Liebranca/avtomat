@@ -40,7 +40,7 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -52,6 +52,7 @@ package rd;
     string  => 0x0002,
     comment => 0x0004,
     term    => 0x0008,
+    nterm   => 0x0010,
 
   };
 
@@ -105,10 +106,14 @@ sub new($class,$src) {
     nest    => [],
 
 
-    # subclass reading char/token/branch
+    # parse layers: char/token/branch
     l0      => $class->get_l0(),
     l1      => $class->get_l1(),
     l2      => $class->get_l2(),
+
+    # execution layer
+    lx      => $class->get_lx(),
+    pass    => 0,
 
 
     # shared vars
@@ -146,9 +151,12 @@ sub crux($src) {
   # select sub-class
   $self->solve_ipret();
 
-  # parse string
+  # parse
   $self->{l0}->proc($self);
-  $self->{l2}->proc($self);
+
+  # ^expr pending?
+  $self->unset('blank');
+  $self->{l0}->term($self);
 
 
   # dbout
@@ -310,6 +318,11 @@ sub comment($self) {
 
 };
 
+sub nterm($self) {
+  return $self->status(nterm=>1);
+
+};
+
 # ---   *   ---   *   ---
 # check for terminator and
 # unset if non-blank passed
@@ -318,13 +331,32 @@ sub term($self) {
 
   my $out=$self->status(term=>1);
 
-  if($out &&! $self->blank()) {
+  if($out && $self->nterm()) {
     $self->unset('term');
     $out=0;
 
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^set terminator flags
+
+sub set_termf($self) {
+  $self->set('blank');
+  $self->set('term');
+  $self->unset('nterm');
+
+};
+
+# ---   *   ---   *   ---
+# ^set *non* terminator flags
+
+sub set_ntermf($self) {
+  $self->unset('blank');
+  $self->set('nterm');
 
 };
 
@@ -378,6 +410,15 @@ sub get_l1($class) {
 sub get_l2($class) {
   cload('rd::l2');
   return 'rd::l2';
+
+};
+
+# ---   *   ---   *   ---
+# get execution layer
+
+sub get_lx($class) {
+  cload('rd::lx');
+  return 'rd::lx';
 
 };
 

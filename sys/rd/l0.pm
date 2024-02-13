@@ -28,7 +28,7 @@ package rd::l0;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -49,9 +49,9 @@ sub charset($class) { return {
 
 
   (map {$ARG=>'operator_single'} qw(
-    $ % : + - * < >
-    = ! ? ~ & | ^ /
-    @ ` .
+    % : + - * < > =
+    ! ? ~ & | ^ / @
+    ` .
 
   ),','),
 
@@ -135,7 +135,7 @@ sub proc($class,$rd) {
 
 sub default($class,$rd) {
   $rd->{token} .= $rd->{char};
-  $rd->unset('blank');
+  $rd->set_ntermf();
 
 };
 
@@ -168,7 +168,7 @@ sub line($class,$rd) {
 
 sub string($class,$rd,$term=undef) {
 
-  $rd->unset('blank');
+  $rd->set_ntermf();
 
   $term //= $rd->{char};
 
@@ -211,8 +211,7 @@ sub nest_down($class,$rd) {
 
 sub delim_beg($class,$rd) {
 
-  $rd->set('blank');
-  $rd->set('term');
+  $rd->set_termf();
 
   $class->commit($rd);
 
@@ -240,9 +239,7 @@ sub delim_end($class,$rd) {
   };
 
   $class->nest_down($rd);
-
-  $rd->set('blank');
-  $rd->set('term');
+  $rd->set_termf();
 
 };
 
@@ -252,13 +249,15 @@ sub delim_end($class,$rd) {
 sub term($class,$rd) {
 
   if(! $rd->term()) {
+
     $class->commit($rd);
+    $rd->{l2}->proc($rd);
+
     $class->new_branch($rd);
 
   };
 
-  $rd->set('term');
-  $rd->set('blank');
+  $rd->set_termf();
 
 };
 
@@ -300,6 +299,7 @@ sub operator_single($class,$rd) {
   $rd->{l1}->make_tag($rd,'OPERA');
 
   $class->commit($rd);
+  $rd->set_ntermf();
 
 };
 
@@ -312,6 +312,10 @@ sub commit($class,$rd) {
   my $have=0;
 
   if(length $rd->{token}) {
+
+    # classify
+    $rd->{l1}->proc($rd);
+
 
     # start of new branch?
     if(! defined $rd->{branch}) {
@@ -335,13 +339,12 @@ sub commit($class,$rd) {
 };
 
 # ---   *   ---   *   ---
-# generates l0 jump table
+# generate/fetch l0 jump table
 
 sub load_JMP($class) {
 
-  my $charset=$class->charset();
-
-  return [map {
+  state $charset = $class->charset();
+  state $JMP     = [map {
 
     my $key   = chr($ARG);
     my $value = (exists $charset->{$key})
@@ -352,6 +355,9 @@ sub load_JMP($class) {
     $value;
 
   } 0..127];
+
+
+  return $JMP;
 
 };
 

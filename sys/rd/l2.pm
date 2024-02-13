@@ -28,7 +28,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -36,22 +36,43 @@ package rd::l2;
 
 sub proc($class,$rd) {
 
-  my @pending=@{$rd->{tree}->{leaves}};
 
+  # get nodes of branch
+  my @cmd     = ();
+  my @pending = $rd->{tree}->{leaves}->[-1];
+  my $old     = $rd->{branch};
+
+
+  # ^walk
   while(@pending) {
 
     my $nd=shift @pending;
 
+    # proc sub-branch
     $rd->{branch}=$nd;
 
+    $class->dopera($rd);
     $class->symbol($rd);
     $class->cslist($rd);
-    $class->dopera($rd);
 
 
+    # enqueue exec layer and go next
+    push    @cmd,$class->cmd($rd);
     unshift @pending,@{$nd->{leaves}};
 
   };
+
+
+  # commands in queue?
+  map {
+    my ($fn,$branch)=@$ARG;
+    $fn->($rd,$branch);
+
+  } reverse @cmd;
+
+
+  # restore starting branch
+  $rd->{branch}=$old;
 
 };
 
@@ -78,8 +99,8 @@ sub _seq_temple($fn,$branch,@seq) {
 
 sub symbol($class,$rd) {
 
-  state $re  = $rd->{l1}->tagre('\*',':');
-  state @seq = ($ANY_MATCH,$re,$re,$ANY_MATCH);
+  state $re  = $rd->{l1}->tagre($rd,OPERA=>'::');
+  state @seq = ($ANY_MATCH,$re,$ANY_MATCH);
 
 
   my $branch=$rd->{branch};
@@ -88,11 +109,13 @@ sub symbol($class,$rd) {
   _seq_temple(sub ($idex) {
 
     my @lv=@{$branch->{leaves}};
-       @lv=@lv[$idex..$idex+3];
+       @lv=@lv[$idex..$idex+2];
 
-    $lv[0]{value} .="\::$lv[3]->{value}";
+    # cat next to first
+    $lv[0]{value} .="\::$lv[2]->{value}";
+
+    # drop first and discard the rest
     shift @lv;
-
     $branch->pluck(@lv);
 
 
@@ -105,7 +128,7 @@ sub symbol($class,$rd) {
 
 sub cslist($class,$rd) {
 
-  state $re  = $rd->{l1}->tagre('\*',',');
+  state $re  = $rd->{l1}->tagre($rd,OPERA=>',');
   state @seq = ($ANY_MATCH,$re,$ANY_MATCH);
 
 
@@ -122,8 +145,10 @@ sub cslist($class,$rd) {
     my @lv=@{$branch->{leaves}};
        @lv=@lv[$idex..$idex+2];
 
+    # have [list] COMMA [value]?
     ($anchor)=(! $anchor || $idex > $pos)
 
+      # make new list
       ? $branch->insert(
 
           $idex,$rd->{l1}->make_tag(
@@ -133,16 +158,19 @@ sub cslist($class,$rd) {
 
         )
 
+      # ^else cat to existing
       : $anchor
       ;
 
 
+    # remove the comma
     $lv[1]->discard();
     @lv=($lv[0],$lv[2]);
 
+    # ^drop the list if catting to existing
     shift @lv if $lv[0] eq $anchor;
 
-
+    # ^add nodes to list
     $anchor->pushlv(@lv);
     $pos=$idex;
 
@@ -158,12 +186,12 @@ sub cslist($class,$rd) {
 sub dopera($class,$rd) {
 
   state $left  = $rd->{l1}->tagre(
-    '\*','['."\Q=<>!&|^-+*/".']'
+    $rd,OPERA => '['."\Q=<>!&|^-+*/.:".']'
 
   );
 
   state $right = $rd->{l1}->tagre(
-    '\*','['."\Q=<>!&|^-+*/".']'
+    $rd,OPERA => '['."\Q=<>!&|^-+*/.:".']'
 
   );
 
@@ -179,7 +207,7 @@ sub dopera($class,$rd) {
     my @lv=@{$branch->{leaves}};
        @lv=@lv[$idex..$idex+1];
 
-
+    # join both operators into first
     $lv[0]->{value}=$rd->{l1}->cat_tags(
 
       $rd,
@@ -189,10 +217,38 @@ sub dopera($class,$rd) {
 
     );
 
+    # ^remove second
     $lv[1]->discard();
 
 
   },$branch,@seq);
+
+};
+
+# ---   *   ---   *   ---
+# solve command tags
+
+sub cmd($class,$rd) {
+
+  state $re=$rd->{l1}->tagre($rd,CMD=>'.+');
+
+  my $key=$rd->{branch}->{value};
+  my $CMD=$rd->{lx}->load_CMD();
+
+  if($key=~ $re) {
+
+    my ($type,$value)=
+      $rd->{l1}->read_tag($rd,$key);
+
+    my $pass = $rd->{lx}->passname($rd);
+    my $fn   = $CMD->{$value}->{$pass};
+
+    return [$fn=>$rd->{branch}] if defined $fn;
+
+  };
+
+
+  return ();
 
 };
 

@@ -82,7 +82,7 @@ package Arstd::String;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.0;#a
+  our $VERSION=v0.01.1;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -158,6 +158,13 @@ sub cutid($s='N',$i=0) {
 };
 
 # ---   *   ---   *   ---
+# ROM II
+
+  Readonly my $BIN_DIGITS=>qr{[\:\.0-1]};
+  Readonly my $OCT_DIGITS=>qr{[\:\.0-7]};
+  Readonly my $HEX_DIGITS=>qr{[\:\.0-9A-F]};
+
+# ---   *   ---   *   ---
 # common string to integer transforms
 
 sub stoi($x,$base,$filter=1) {
@@ -165,19 +172,19 @@ sub stoi($x,$base,$filter=1) {
   state $tab={
 
     2  => {
-      allow => qr{[\:\.0-1]},
+      allow => $BIN_DIGITS,
       mul   => 1,
 
     },
 
     8  => {
-      allow => qr{[\:\.0-7]},
+      allow => $OCT_DIGITS,
       mul   => 3,
 
     },
 
     16 => {
-      allow => qr{[\:\.0-9A-F]},
+      allow => $HEX_DIGITS,
       mul   => 4,
 
     },
@@ -288,20 +295,20 @@ sub bstoi($x) {stoi($x,2)};
 sub sstoi($s,$filter=1) {
 
   state $hex=qr{
-    ^(?: 0x | \$ )
-  |  (?: h       ) $
+    ^(?:(?:0x|\$)($HEX_DIGITS))
+  |  (?:($HEX_DIGITS)(?:h)$)
 
   }x;
 
   state $oct=qr{
-    ^(?: \\)
-  |  (?: o ) $
+    ^(?:(?:\\)($OCT_DIGITS))
+  |  (?:($OCT_DIGITS)(?:o)$)
 
   }x;
 
   state $bin=qr{
-    ^(?: 0b)
-  |  (?: b ) $
+    ^(?:(?:0b)($BIN_DIGITS))
+  |  (?:($BIN_DIGITS)(?:b)$)
 
   }x;
 
@@ -316,7 +323,7 @@ sub sstoi($s,$filter=1) {
 
   # give conversion if valid
   if(defined $key) {
-    $s=~ s[$key][]sxmg;
+    $s=~ s[$key][$1]sxmg;
     return stoi($s,$tab->{$key},$filter);
 
   # else give back input if it's a number!

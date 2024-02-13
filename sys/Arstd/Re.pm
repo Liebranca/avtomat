@@ -73,7 +73,7 @@ package Arstd::Re;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.3;
+  our $VERSION=v0.00.4;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -289,6 +289,7 @@ sub eiths($ar,%O) {
   $O{opscape}  //= 0;
   $O{capt}     //= 0;
   $O{bwrap}    //= 0;
+  $O{whole}    //= 0;
   $O{insens}   //= 0;
   $O{mod}      //= $NULLSTR;
 
@@ -313,6 +314,8 @@ sub eiths($ar,%O) {
 
   ) . $O{mod};
 
+
+  $out="^$out\$" if $O{whole};
   return qr{$out}x;
 
 };

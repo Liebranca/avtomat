@@ -3,5 +3,7 @@
 # nevermind this file!
 # just testing the parser ;>
 
-lists a,b,c => 1,0,2
+echo "yeah!";
+stop;
 
+echo "never echoed ;>";
