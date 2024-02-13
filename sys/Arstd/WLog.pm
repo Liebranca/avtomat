@@ -38,7 +38,7 @@ package Arstd::WLog;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -160,21 +160,31 @@ sub substep($self,$me) {
 
 sub err($self,$me,%O) {
 
+  # defaults
   $O{details} //= $NULLSTR;
   $O{from}    //= 'AR';
   $O{lvl}     //= $AR_WARNING;
+  $O{args}    //= [];
 
 
-  $self->line(
+  # fit long message into screen
+  $me=fstrout(
 
-    "\n"
+    strtag($O{from},1) . " $me",
+    $NULLSTR,
 
-  . strtag($O{from},1)
-  . " $me\n",
-
-    1
+    args     => $O{args},
+    no_print => 1,
 
   );
+
+  my @me   = split $NEWLINE_RE,$me;
+  my $head = shift @me;
+
+  $self->line("\n$head",1);
+
+  map {$self->step($ARG)} @me;
+  say $NULLSTR;
 
 
   # give backtrace?
@@ -186,6 +196,7 @@ sub err($self,$me,%O) {
 
   # exit without errout?
   exit -1 if $O{lvl} eq $AR_FATAL;
+
 
 };
 

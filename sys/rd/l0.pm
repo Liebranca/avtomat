@@ -28,7 +28,7 @@ package rd::l0;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -49,9 +49,11 @@ sub charset($class) { return {
 
 
   (map {$ARG=>'operator_single'} qw(
-    $ % : + - *),','
+    $ % : + - * < >
+    = ! ? ~ & | ^ /
+    @ ` .
 
-  ),
+  ),','),
 
   (map {$ARG=>'delim_beg'} qw~( [ {~),
   (map {$ARG=>'delim_end'} qw~) ] }~),
@@ -93,10 +95,10 @@ sub read($class,$rd,$JMP,$c) {
 # ---   *   ---   *   ---
 # read single expression
 
-sub proc_single($class,$rd,$srcref) {
+sub proc_single($class,$rd) {
 
   my $JMP   = $class->load_JMP();
-  my @chars = split $NULLSTR,$$srcref;
+  my @chars = split $NULLSTR,$rd->{buf};
 
   # consume up to term
   while(@chars) {
@@ -109,19 +111,19 @@ sub proc_single($class,$rd,$srcref) {
   };
 
   # re-assemble string without consumed
-  $$srcref=join $NULLSTR,@chars;
+  $rd->{buf}=join $NULLSTR,@chars;
 
 };
 
 # ---   *   ---   *   ---
 # ^read whole
 
-sub proc($class,$rd,$src) {
+sub proc($class,$rd) {
 
   my $JMP=$class->load_JMP();
 
   map   {$class->read($rd,$JMP,$ARG)}
-  split $NULLSTR,$src;
+  split $NULLSTR,$rd->{buf};
 
 
   return;
@@ -171,7 +173,9 @@ sub string($class,$rd,$term=undef) {
   $term //= $rd->{char};
 
   $class->commit($rd);
-  $rd->{token}="[\%$rd->{char}] ";
+
+  $rd->{token}=$rd->{char};
+  $rd->{l1}->make_tag($rd,'STRING');
 
   $rd->set('string');
   $rd->{strterm}=$term;
@@ -212,9 +216,10 @@ sub delim_beg($class,$rd) {
 
   $class->commit($rd);
 
-  $rd->{token}="[\*$rd->{char}]";
-  $class->commit($rd);
+  $rd->{token}=$rd->{char};
+  $rd->{l1}->make_tag($rd,'OPERA');
 
+  $class->commit($rd);
   $class->nest_up($rd);
 
 };
@@ -233,7 +238,6 @@ sub delim_end($class,$rd) {
     ;
 
   };
-
 
   $class->nest_down($rd);
 
@@ -275,7 +279,7 @@ sub new_branch($class,$rd) {
     my $idex   = int @{$anchor->{leaves}};
 
     $rd->{branch}=$anchor->inew(
-      "[$idex]"
+      $rd->{l1}->make_tag($rd,'BRANCH'=>$idex)
 
     );
 
@@ -292,7 +296,8 @@ sub operator_single($class,$rd) {
   if $rd->cmd_name_rule();
 
   $class->commit($rd);
-  $rd->{token}="[*$rd->{char}] ";
+  $rd->{token}=$rd->{char};
+  $rd->{l1}->make_tag($rd,'OPERA');
 
   $class->commit($rd);
 

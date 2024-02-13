@@ -3,10 +3,5 @@
 # nevermind this file!
 # just testing the parser ;>
 
+lists a,b,c => 1,0,2
 
-cmd name {
-
-  in  s;
-  out *paste "name=>%s%";
-
-};

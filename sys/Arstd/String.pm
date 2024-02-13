@@ -534,7 +534,7 @@ sub fsansi($fmat) {
   state $tag_col   =
 
     ansim('<','op')
-  . '%s'
+  . ansim('%s','good')
 
   . ansim('>','op')
 

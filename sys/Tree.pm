@@ -1543,22 +1543,41 @@ sub match_sequence($self,@seq) {
 
   # early exit if sizes don't match
   my @pending=@{$self->{leaves}};
-  return 0 if @pending < @seq;
+  return undef if @pending < @seq;
+
+
+  # current/first
+  my $idex = 0;
+  my $pos  = 0;
 
 
   # ^else walk
-  my $idex=0;
+  top:
 
   for my $re(@seq) {
-    return 0 if ! (
-      $pending[$idex++]->{value}=~ $re
 
-    );
+    my $nd=$pending[$idex++];
+
+    # no match
+    if(! ($nd->{value}=~ $re)) {
+
+      # retry with new position?
+      $pos++;
+      $idex=$pos;
+
+      my $left=$#pending - $pos;
+      goto top if $left >= $#seq;
+
+      # ^nope, fail
+      return undef;
+
+    };
 
   };
 
-  # true if all matched
-  return 1;
+
+  # give pos if all matched
+  return $pos;
 
 };
 
@@ -1575,16 +1594,15 @@ sub match_series($self,@series) {
   # break and give sequence idex
   # on first match
   for my $seq(@series) {
-
-    return $idex
-    if $self->match_sequence(@$seq);
+    my $pos=$self->match_sequence(@$seq);
+    return ($idex,$pos) if defined $pos;
 
     $idex++;
 
   };
 
   # else fail
-  return -1;
+  return undef;
 
 };
 

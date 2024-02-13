@@ -33,12 +33,14 @@ package rd;
   use Arstd::PM;
   use Arstd::WLog;
 
+  use Shb7::Path;
+
   $WLog //= Arstd::WLog->genesis();
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -65,11 +67,25 @@ package rd;
 # ---   *   ---   *   ---
 # cstruc
 
-sub new($class) {
+sub new($class,$src) {
 
   # make parse tree root
   my $frame = Tree->new_frame();
   my $root  = $frame->new(undef,$NULLSTR);
+
+
+  # file or string passed?
+  my $body=$NULLSTR;
+
+  if(is_filepath($src)) {
+    $body = orc($src);
+    $src  = shpath($src);
+
+  } else {
+    $body = $src;
+    $src  = '(%$)';
+
+  };
 
 
   # make ice
@@ -92,7 +108,7 @@ sub new($class) {
     # subclass reading char/token/branch
     l0      => $class->get_l0(),
     l1      => $class->get_l1(),
-    l2      => $NULLSTR,
+    l2      => $class->get_l2(),
 
 
     # shared vars
@@ -105,8 +121,10 @@ sub new($class) {
     strterm => $NULLSTR,
 
 
-    # output config
+    # I/O
     fmode   => $FMODE->{rom},
+    fpath   => $src,
+    buf     => $body,
 
 
   },$class;
@@ -121,21 +139,19 @@ sub new($class) {
 
 sub crux($src) {
 
-  # file or string passed?
-  my $body=(is_filepath($src))
-    ? orc($src)
-    : $src
-    ;
-
   # make ice
-  my $self=rd->new();
+  my $self=rd->new($src);
+
 
   # select sub-class
-  $self->solve_ipret(\$body);
-
+  $self->solve_ipret();
 
   # parse string
-  $self->{l0}->proc($self,$body);
+  $self->{l0}->proc($self);
+  $self->{l2}->proc($self);
+
+
+  # dbout
   $self->{tree}->prich();
 
 };
@@ -162,10 +178,10 @@ sub cmd_name_rule($self) {
 # this mutates the parser into
 # a derived class!
 
-sub solve_ipret($self,$srcref) {
+sub solve_ipret($self) {
 
   # parse first expression
-  $self->{l0}->proc_single($self,$srcref);
+  $self->{l0}->proc_single($self);
 
   # ^decompose
   my $cmd  = $self->{tree}->{leaves}->[-1];
@@ -178,20 +194,13 @@ sub solve_ipret($self,$srcref) {
   # is first token operator?
   if($have=$self->{l1}->operator($self)) {
 
-
     # validate sigil
-    if(! exists $FMODE->{$have}) {
+    $self->perr(
+      "fmode '%s' not in table",
+      args=>[$have],
 
-      $WLog->err(
-          "fmode "
-        . "'$have' not in table",
+    ) if ! exists $FMODE->{$have};
 
-        from => 'rd',
-        lvl  => $AR_FATAL,
-
-      );
-
-    };
 
     # set output mode from table
     my $fmode=$FMODE->{$have};
@@ -210,13 +219,12 @@ sub solve_ipret($self,$srcref) {
     my $fpath="lps/$cmd->{value}.rom";
 
     # ^validate
-    $WLog->err(
-      "could not find '$fpath'",
-
-      from => 'rd',
-      lvl  => $AR_FATAL,
+    $self->perr(
+      "could not find '%s'",
+      args=>[$fpath],
 
     ) if ! -f $fpath;
+
 
     # [INSERT SUBCLASS-MUTATE]
 
@@ -365,6 +373,15 @@ sub get_l1($class) {
 };
 
 # ---   *   ---   *   ---
+# get expression logic
+
+sub get_l2($class) {
+  cload('rd::l2');
+  return 'rd::l2';
+
+};
+
+# ---   *   ---   *   ---
 # AR/IMP:
 #
 # * runs crux with provided
@@ -427,6 +444,27 @@ sub ON_USE($class,$from,@nullarg) {
     subok => qr{^crux$},
 
   );
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# parse error
+
+sub perr($self,$me,%O) {
+
+  # defaults
+  $O{lvl}  //= $AR_FATAL;
+  $O{args} //= [];
+
+
+  # give "(errme) at lineno"
+  my $loc="<%s> line [num]:%u";
+  unshift @{$O{args}},$self->{fpath},$self->{lineno};
+
+  $WLog->err("at $loc:\n$me",%O,from=>'rd');
+
 
   return;
 
