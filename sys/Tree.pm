@@ -36,7 +36,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.4;#a
+  our $VERSION = v0.02.5;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -619,14 +619,12 @@ sub clear_branches($self) {
 
 sub cllv($self) {
 
-  my @clean=();
+  $self->{leaves}=[grep {
+     defined $ARG
+  && defined $ARG->{value}
 
-  for my $node(@{$self->{leaves}}) {
-    push @clean,$node if defined $node;
+  } @{$self->{leaves}}];
 
-  };
-
-  $self->{leaves}=\@clean;
   $self->idextrav();
 
   return;

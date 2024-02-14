@@ -30,7 +30,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -70,6 +70,12 @@ package rd::l1;
 # make tag regex
 
 sub tagre($class,$rd,$type,$value) {
+
+  # ANY:  any token, tag or not
+  # BARE: any non-tagged token
+  return qr{^[^\[].*}x if $type eq 'BARE';
+
+  return $ANY_MATCH if $type eq 'ANY';
 
   my $tag_t = $TAG_T->{$type};
 
@@ -195,9 +201,9 @@ sub read_tag($class,$rd,$src=undef) {
 # ---   *   ---   *   ---
 # ^give tag type/value if correct type
 
-sub read_tag_t($class,$rd,$which) {
+sub read_tag_t($class,$rd,$which,$src=undef) {
 
-  my ($type,$value)=$class->read_tag($rd);
+  my ($type,$value)=$class->read_tag($rd,$src);
 
   return ($type && $TAG_T->{$type} eq $which)
     ? $type
@@ -206,9 +212,9 @@ sub read_tag_t($class,$rd,$which) {
 
 };
 
-sub read_tag_v($class,$rd,$which) {
+sub read_tag_v($class,$rd,$which,$src=undef) {
 
-  my ($type,$value)=$class->read_tag($rd);
+  my ($type,$value)=$class->read_tag($rd,$src);
 
   return ($type && $TAG_T->{$type} eq $which)
     ? $value

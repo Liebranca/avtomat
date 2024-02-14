@@ -32,7 +32,7 @@ package rd::lx;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -44,11 +44,38 @@ sub passes($class) { return qw(
 )};
 
 # ---   *   ---   *   ---
+# makes command args
+
+sub cmdarg($type,%O) {
+
+  # defaults
+  $O{opt}   //= 0;
+  $O{value} //= '.+';
+
+  # give descriptor
+  return {%O,type=>$type};
+
+};
+
+# ---   *   ---   *   ---
 # default set of commands
 
 sub cmdset($class) { return {
-  echo => 1,
-  stop => 1,
+
+  echo => [
+    cmdarg(['IDEX','ANY'])
+
+  ],
+
+  stop => [],
+
+  cmd  => [
+
+    cmdarg(['BARE']),
+    cmdarg(['IDEX','ANY'],opt=>1),
+    cmdarg(['OPERA'],value=>'\{'),
+
+  ],
 
 }};
 
@@ -61,21 +88,102 @@ sub passname($class,$rd) {
 };
 
 # ---   *   ---   *   ---
-# test commands
-
-sub echo_parse($rd,$branch) {
-
-  map {
-    print {*STDERR} $ARG->{value};
-
-  } @{$branch->{leaves}};
-
-  say $NULLSTR;
-
-};
+# selfex
 
 sub stop_parse($rd,$branch) {
   $rd->perr('STOP');
+
+};
+
+# ---   *   ---   *   ---
+# makes new command!
+
+sub cmd_parse($rd,$branch) {
+
+  $branch->prich();
+
+};
+
+# ---   *   ---   *   ---
+# type-checks command arguments
+
+sub argchk($class,$rd) {
+
+  # get command meta
+  my $CMD  = $rd->{lx}->load_CMD();
+  my $key  = $rd->{branch}->{cmdkey};
+  my $args = $CMD->{$key}->{-args};
+  my $pos  = 0;
+
+
+  # walk child nodes and type-check them
+  for my $arg(@$args) {
+
+    my $have=$class->argtypechk($rd,$arg,$pos);
+
+    throw_badargs($rd,$key,$arg,$pos)
+    if ! $have &&! $arg->{opt};
+
+    $pos++;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^guts, looks at single
+# type option for arg
+
+sub argtypechk($class,$rd,$arg,$pos) {
+
+  # get anchor
+  my $nd  = $rd->{branch};
+  my $par = $nd->{parent};
+
+  # walk possible types
+  for my $type(@{$arg->{type}}) {
+
+    # get pattern for type
+    my $re=$rd->{l1}->tagre(
+      $rd,$type => $arg->{value}
+
+    );
+
+    # return node on pattern match
+    my $idex = $pos-1;
+    my $chd  = $nd->{leaves}->[$pos];
+
+    return $chd if $chd->{value}=~ $re;
+
+  };
+
+
+  return undef;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_badargs($rd,$key,$arg,$pos) {
+
+  my $value = $rd->{branch}->{leaves};
+     $value = $value->[$pos]->{value};
+
+  my @types = @{$arg->{type}};
+
+
+  $rd->perr(
+
+    "invalid argtype for command '%s'\n"
+  . "position [num]:%u: '%s'\n"
+
+  . "need '%s' of type "
+  . (join ",","'%s'" x int @types),
+
+    args=>[$key,$pos,$value,$arg->{value},@types],
+
+  );
 
 };
 
@@ -92,18 +200,21 @@ sub load_CMD($class) {
     ( map {
 
       # get name of command
-      my $key   = $ARG;
-      my $value = ($cmdset->{$key} ne 1)
-        ? $cmdset->{$key}
-        : $key
-        ;
+      my $key  = $ARG;
+      my $args = $cmdset->{$key};
 
       # get subroutine variants of
       # command per execution layer
-      $key => { map { $ARG => codefind(
-        $class,"${key}_$ARG"
+      $key => {
 
-      )} $class->passes() },
+        -args=>$args,
+
+        map { $ARG => codefind(
+          $class,"${key}_$ARG"
+
+        )} $class->passes()
+
+      };
 
 
     } @keys ),

@@ -28,7 +28,7 @@ package rd::l0;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -43,7 +43,7 @@ sub charset($class) { return {
   ' '   => 'blank',
   "\t"  => 'blank',
   "\r"  => 'blank',
-  "\n"  => 'line',
+  "\n"  => 'blank',
 
   '#'   => 'comment',
 
@@ -70,10 +70,18 @@ sub read($class,$rd,$JMP,$c) {
   $rd->{char}=$c;
 
 
+  # tick the line counter
+  $rd->{lineno} += int($c eq "\n");
+
+  # track beggining of first
+  # nterm char in expr
+  $rd->{lineat} = $rd->{lineno}
+  if $rd->exprbeg();
+
+
   # reader set to stringmode?
   if($rd->string()) {
     $class->default($rd);
-
     return 'default';
 
   # ^nope, process normally
@@ -141,25 +149,13 @@ sub default($class,$rd) {
 
 # ---   *   ---   *   ---
 # whitespace
+#
+# terminates *token* if first
+# blank, non-term character
 
 sub blank($class,$rd) {
-
-  # terminate *token* if first blank
-  if(! $rd->blank()) {
-    $class->commit($rd);
-
-  };
-
+  $rd->commit() if ! $rd->blank();
   $rd->set('blank');
-
-};
-
-# ---   *   ---   *   ---
-# ^tick line counter
-
-sub line($class,$rd) {
-  $rd->{lineno}++;
-  $class->blank($rd);
 
 };
 
@@ -172,7 +168,7 @@ sub string($class,$rd,$term=undef) {
 
   $term //= $rd->{char};
 
-  $class->commit($rd);
+  $rd->commit();
 
   $rd->{token}=$rd->{char};
   $rd->{l1}->make_tag($rd,'STRING');
@@ -197,7 +193,7 @@ sub comment($class,$rd) {
 
 sub nest_up($class,$rd) {
   push @{$rd->{nest}},$rd->{branch};
-  $class->new_branch($rd);
+  $rd->new_branch();
 
 };
 
@@ -213,12 +209,12 @@ sub delim_beg($class,$rd) {
 
   $rd->set_termf();
 
-  $class->commit($rd);
+  $rd->commit();
 
   $rd->{token}=$rd->{char};
   $rd->{l1}->make_tag($rd,'OPERA');
 
-  $class->commit($rd);
+  $rd->commit();
   $class->nest_up($rd);
 
 };
@@ -226,7 +222,7 @@ sub delim_beg($class,$rd) {
 sub delim_end($class,$rd) {
 
   # no token?
-  if(! $class->commit($rd)) {
+  if(! $rd->commit()) {
 
     # clear if last expr is empty!
     $rd->{branch}->discard()
@@ -248,41 +244,11 @@ sub delim_end($class,$rd) {
 
 sub term($class,$rd) {
 
-  if(! $rd->term()) {
-
-    $class->commit($rd);
-    $rd->{l2}->proc($rd);
-
-    $class->new_branch($rd);
-
-  };
+  $rd->commit();
+  $rd->{l2}->proc($rd);
+  $rd->new_branch();
 
   $rd->set_termf();
-
-};
-
-# ---   *   ---   *   ---
-# clear current if not nesting
-# else make sub-branch
-
-sub new_branch($class,$rd) {
-
-  if(! @{$rd->{nest}}) {
-    $rd->{branch}=undef;
-
-  } else {
-
-    my $anchor = $rd->{nest}->[-1];
-       $anchor = $anchor->{leaves}->[-1];
-
-    my $idex   = int @{$anchor->{leaves}};
-
-    $rd->{branch}=$anchor->inew(
-      $rd->{l1}->make_tag($rd,'BRANCH'=>$idex)
-
-    );
-
-  };
 
 };
 
@@ -294,47 +260,12 @@ sub operator_single($class,$rd) {
   return $class->default($rd)
   if $rd->cmd_name_rule();
 
-  $class->commit($rd);
+  $rd->commit();
   $rd->{token}=$rd->{char};
   $rd->{l1}->make_tag($rd,'OPERA');
 
-  $class->commit($rd);
+  $rd->commit();
   $rd->set_ntermf();
-
-};
-
-# ---   *   ---   *   ---
-# push token to tree
-
-sub commit($class,$rd) {
-
-  # have token?
-  my $have=0;
-
-  if(length $rd->{token}) {
-
-    # classify
-    $rd->{l1}->proc($rd);
-
-
-    # start of new branch?
-    if(! defined $rd->{branch}) {
-      $rd->{branch}=$rd->{tree}->inew($rd->{token});
-
-    # ^cat to existing
-    } else {
-      $rd->{branch}->inew($rd->{token});
-
-    };
-
-    $have |= 1;
-
-  };
-
-
-  # give true if token added
-  $rd->{token}=$NULLSTR;
-  return $have;
 
 };
 

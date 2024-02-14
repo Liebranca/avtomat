@@ -23,13 +23,25 @@ package rd::l2;
   use English qw(-no_match-vars);
 
   use lib $ENV{ARPATH}.'/lib/sys/';
+
   use Style;
+  use Arstd::Array;
 
 # ---   *   ---   *   ---
 # info
 
   our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+  Readonly my $OPERA_UNARY => {
+    map {$ARG=>1} qw(~ ? ! ++ --)
+
+  };
+
+  Readonly my $OPERA_PRIO  => "&|^*/-+.:<>~?!=";
 
 # ---   *   ---   *   ---
 # entry point
@@ -39,8 +51,16 @@ sub proc($class,$rd) {
 
   # get nodes of branch
   my @cmd     = ();
-  my @pending = $rd->{tree}->{leaves}->[-1];
-  my $old     = $rd->{branch};
+  my @pending = (@{$rd->{nest}})
+
+    ? $rd->{nest}->[-1]->{leaves}->[-1]
+
+    : $rd->{tree}->{leaves}->[-1]
+
+    ;
+
+  # save current
+  my $old=$rd->{branch};
 
 
   # ^walk
@@ -51,9 +71,16 @@ sub proc($class,$rd) {
     # proc sub-branch
     $rd->{branch}=$nd;
 
+    # sort operators
     $class->dopera($rd);
+    $class->opera($rd);
+
+    # join [token] :: [token]
     $class->symbol($rd);
+
+    # sort lists and sub-branches
     $class->cslist($rd);
+    $class->nested($rd);
 
 
     # enqueue exec layer and go next
@@ -64,9 +91,22 @@ sub proc($class,$rd) {
 
 
   # commands in queue?
+  state $walked={};
+
   map {
+
     my ($fn,$branch)=@$ARG;
+
+    $rd->{branch}=$branch;
+    $rd->{lx}->argchk($rd);
+
     $fn->($rd,$branch);
+
+
+  # avoid processing the same node twice
+  } grep {
+      $walked->{$ARG->[1]}//=0;
+    ! $walked->{$ARG->[1]}++
 
   } reverse @cmd;
 
@@ -186,12 +226,12 @@ sub cslist($class,$rd) {
 sub dopera($class,$rd) {
 
   state $left  = $rd->{l1}->tagre(
-    $rd,OPERA => '['."\Q=<>!&|^-+*/.:".']'
+    $rd,OPERA => '['."\Q$OPERA_PRIO".']'
 
   );
 
   state $right = $rd->{l1}->tagre(
-    $rd,OPERA => '['."\Q=<>!&|^-+*/.:".']'
+    $rd,OPERA => '['."\Q$OPERA_PRIO".']'
 
   );
 
@@ -226,6 +266,166 @@ sub dopera($class,$rd) {
 };
 
 # ---   *   ---   *   ---
+# make sub-branch from
+# [token] opera [token]
+
+sub opera($class,$rd) {
+
+  state $re=$rd->{l1}->tagre(
+    $rd,OPERA => '['."\Q$OPERA_PRIO".']+'
+
+  );
+
+  state $prio=[split $NULLSTR,$OPERA_PRIO];
+
+
+  # get tagged operators in branch
+  my $branch = $rd->{branch};
+  my @ops    = map {
+
+    # get characters/priority for this operator
+    my $char = $rd->{l1}->read_tag_v(
+        $rd,OPERA=>$ARG->{value}
+
+    );
+
+    my $idex = array_iof(
+      $prio,(substr $char,-1,1)
+
+    );
+
+    # ^record
+    $ARG->{opera_char}=$char;
+    $ARG->{opera_prio}=$idex;
+
+    $ARG;
+
+  # ^that havent been already handled ;>
+  } grep {
+    ! exists $ARG->{opera_prio}
+
+  } $branch->branches_in($re);
+
+  # leave if no operators found!
+  return if ! @ops;
+
+
+  # sort operators by priority... manually
+  #
+  # builtin sort can't handle this
+  # for some reason
+  my @sops=();
+
+  map {
+    $sops[$ARG->{opera_prio}] //= [];
+    push @{$sops[$ARG->{opera_prio}]},$ARG;
+
+  } @ops;
+
+  # ^flatten sorted array of arrays!
+  @ops=map {@$ARG} grep {$ARG} @sops;
+
+
+  # restruc the tree
+  map {
+
+    my $char = $ARG->{opera_char};
+    my $idex = $ARG->{idex};
+
+    my $par  = $ARG->{parent};
+    my $rh   = $par->{leaves}->[$idex+1];
+    my $lh   = $par->{leaves}->[$idex-1];
+
+
+    # have unary operator?
+    if($OPERA_UNARY->{$char}) {
+
+      throw_no_operands($rd,$char)
+      if ! defined $rh &&! defined $lh;
+
+      # assume ++X
+      if(defined $rh) {
+        $ARG->pushlv($rh);
+        $ARG->{value}.='right';
+
+      # ^else X++
+      } else {
+        $ARG->pushlv($lh);
+        $ARG->{value}.='left';
+
+      };
+
+
+    # ^nope, good times
+    } else {
+
+      throw_no_operands($rd,$char)
+      if ! defined $rh ||! defined $lh;
+
+      $ARG->pushlv($lh,$rh);
+
+    };
+
+  } @ops;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_no_operands($rd,$char) {
+
+$rd->{branch}->prich();
+
+  $rd->perr(
+    "no operands for `[op]:%s`",
+    args=>[$char]
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# sorts nested branches
+
+sub nested($class,$rd) {
+
+  state $re=$rd->{l1}->tagre(
+    $rd,BRANCH=>'.+'
+
+  );
+
+
+  my $branch = $rd->{branch};
+  my @left   = ();
+
+  # split at [any] , [any]
+  _seq_temple(sub ($idex) {
+
+    my $par    = $branch->{leaves}->[$idex];
+    my $anchor = $par->{leaves}->[0];
+
+    my @have   = $par->all_from($anchor);
+
+    $anchor->pushlv(@have);
+
+
+    push @left,[$idex=>$branch->pluck($par)];
+
+
+  },$branch,$re);
+
+
+  map {
+    my ($idex,$sbranch)=@$ARG;
+    $branch->insertlv($idex,$sbranch);
+
+  } reverse @left;
+
+
+};
+
+# ---   *   ---   *   ---
 # solve command tags
 
 sub cmd($class,$rd) {
@@ -243,7 +443,11 @@ sub cmd($class,$rd) {
     my $pass = $rd->{lx}->passname($rd);
     my $fn   = $CMD->{$value}->{$pass};
 
-    return [$fn=>$rd->{branch}] if defined $fn;
+    if(defined $fn) {
+      $rd->{branch}->{cmdkey}=$value;
+      return [$fn=>$rd->{branch}];
+
+    };
 
   };
 

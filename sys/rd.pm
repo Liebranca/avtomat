@@ -40,7 +40,7 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -53,6 +53,7 @@ package rd;
     comment => 0x0004,
     term    => 0x0008,
     nterm   => 0x0010,
+    exprbeg => 0x0020,
 
   };
 
@@ -64,6 +65,11 @@ package rd;
     (map {$ARG=>0x08} qw(^ gfi)),
 
   };
+
+
+  Readonly my $SF_DEFAULT=>
+    $SF->{exprbeg};
+
 
 # ---   *   ---   *   ---
 # cstruc
@@ -117,10 +123,11 @@ sub new($class,$src) {
 
 
     # shared vars
-    status  => 0x0000,
+    status  => $SF_DEFAULT,
 
     # line number!
     lineno  => 1,
+    lineat  => 1,
 
     # stringmode term
     strterm => $NULLSTR,
@@ -158,9 +165,80 @@ sub crux($src) {
   $self->unset('blank');
   $self->{l0}->term($self);
 
+};
 
-  # dbout
-  $self->{tree}->prich();
+# ---   *   ---   *   ---
+# push token to tree
+
+sub commit($self) {
+
+  # have token?
+  my $have=0;
+
+  if(length $self->{token}) {
+
+    # classify
+    $self->unset('exprbeg');
+    $self->{l1}->proc($self);
+
+
+    # start of new branch?
+    if(! defined $self->{branch}) {
+
+      $self->{branch}=
+        $self->{tree}->inew($self->{token});
+
+      $self->{branch}->{lineno}=
+        $self->{lineat};
+
+    # ^cat to existing
+    } else {
+
+      my $branch=
+        $self->{branch}->inew($self->{token});
+
+      $branch->{lineno}=$self->{lineat};
+
+    };
+
+
+    $self->{lineat}=$self->{lineno};
+    $have |= 1;
+
+  };
+
+
+  # give true if token added
+  $self->{token}=$NULLSTR;
+  return $have;
+
+};
+
+# ---   *   ---   *   ---
+# clear current if not nesting
+# else make sub-branch
+
+sub new_branch($self) {
+
+  if(! @{$self->{nest}}) {
+    $self->{branch}=undef;
+
+  } else {
+
+    my $anchor = $self->{nest}->[-1];
+       $anchor = $anchor->{leaves}->[-1];
+
+    my $idex   = int @{$anchor->{leaves}};
+
+    $self->{branch}=$anchor->inew(
+      $self->{l1}->make_tag($self,'BRANCH'=>$idex)
+
+    );
+
+  };
+
+
+  $self->set('exprbeg');
 
 };
 
@@ -323,6 +401,11 @@ sub nterm($self) {
 
 };
 
+sub exprbeg($self) {
+  return $self->status(exprbeg=>1);
+
+};
+
 # ---   *   ---   *   ---
 # check for terminator and
 # unset if non-blank passed
@@ -369,15 +452,12 @@ sub string($self) {
   my $out=$self->status(string=>1);
 
   if($out && $self->{char} eq $self->{strterm}) {
+
     $self->{char}=$NULLSTR;
     $self->unset('string');
 
-    $self->{l0}->commit($self);
-
-    if($self->comment()) {
-      $self->{l0}->new_branch($self);
-
-    };
+    $self->commit();
+    $self->new_branch() if $self->comment();
 
   };
 
@@ -500,9 +580,17 @@ sub perr($self,$me,%O) {
   $O{args} //= [];
 
 
+  # each branch saves at which line
+  # it was spawned; use that if avail
+  my $lineno=($self->{branch})
+    ? $self->{branch}->{lineno}
+    : $self->{lineat}
+    ;
+
+
   # give "(errme) at lineno"
   my $loc="<%s> line [num]:%u";
-  unshift @{$O{args}},$self->{fpath},$self->{lineno};
+  unshift @{$O{args}},$self->{fpath},$lineno;
 
   $WLog->err("at $loc:\n$me",%O,from=>'rd');
 
