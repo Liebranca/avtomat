@@ -39,10 +39,10 @@ package Cli;
 # ---   *   ---   *   ---
 # getters
 
-sub order($self) {return @{$self->{order}}};
+sub order($self) {return @{$self->{-order}}};
 
 sub next_arg($self) {
-  return shift @{$self->{argv}};
+  return shift @{$self->{-argv}};
 
 };
 
@@ -61,12 +61,14 @@ sub new($class,@args) {
 
   # unpack
   for my $ref(@args) {
+
     my (
 
       $id,
       $short_form,
       $long_form,
       $argc,
+      $default
 
     )=(
 
@@ -74,6 +76,7 @@ sub new($class,@args) {
       $ref->{short},
       $ref->{long},
       $ref->{argc},
+      $ref->{default},
 
     );
 
@@ -84,17 +87,19 @@ sub new($class,@args) {
 
       $id,
 
-      short_form=>$short_form,
-      long_form=>$long_form,
-      argc=>$argc,
+      short_form => $short_form,
+      long_form  => $long_form,
+      argc       => $argc,
+      default    => $default,
 
     );
 
     $optab{$id}=$arg;
 
+
     # make aliases
-    $alias{$arg->{short_form}}=$id;
-    $alias{$arg->{long_form}}=$id;
+    $alias{$arg->{short_form}} = $id;
+    $alias{$arg->{long_form}}  = $id;
 
   };
 
@@ -102,22 +107,27 @@ sub new($class,@args) {
   # make new instance
   my $cli=bless {
 
-    name  => (caller)[1],
+    -name  => (caller)[1],
 
-    order => \@order,
-    optab => \%optab,
-    alias => \%alias,
+    -order => \@order,
+    -optab => \%optab,
+    -alias => \%alias,
 
-    re    => re_eiths([keys %alias]),
+    -re    => re_eiths([keys %alias]),
 
-    argv  => [],
+    -argv  => [],
 
   },$class;
 
 
   # fill out status vars
   for my $id($cli->order) {
-    $cli->{$id}=$NULL;
+
+    my $default=$cli->{-optab}->{$id}->{default};
+    $cli->{$id}=(defined $default)
+      ? $default
+      : $NULL
+      ;
 
   };
 
@@ -154,34 +164,38 @@ sub short_or_long($self,$arg) {
 
 
   # catch invalid
-  if($arg=~ s/$self->{re}//) {
+  if($arg=~ s/$self->{-re}//) {
 
-    $value=(defined $' && length $') ? $' : $NULL;
-    $arg=$&;
+    $value = (defined $' && length $')
+      ? $'
+      : $NULL
+      ;
+
+    $arg   = $&;
 
   };
 
 
-  if(! exists $self->{alias}->{$arg}) {
+  if(! exists $self->{-alias}->{$arg}) {
 
     errout(
       "%s: invalid option '%s'\n",
 
-      args=>[$self->{name},$arg],
-      lvl=>$AR_FATAL,
+      args => [$self->{-name},$arg],
+      lvl  => $AR_FATAL,
 
     );
 
   };
 
-  my $id=$self->{alias}->{$arg};
-  my $option=$self->{optab}->{$id};
+  my $id     = $self->{-alias}->{$arg};
+  my $option = $self->{-optab}->{$id};
 
 
   if($option->{argc} && $value eq $NULL) {
     $value=$self->next_arg;
 
-  } elsif(!$option->{argc} && $value eq $NULL) {
+  } elsif(! $option->{argc} && $value eq $NULL) {
     $value=1;
 
   };
@@ -203,21 +217,21 @@ sub long_equal($self,$arg) {
 
 
   # catch invalid
-  if(!exists $self->{alias}->{$arg}) {
+  if(! exists $self->{-alias}->{$arg}) {
 
     errout(
       "%s: invalid option '%s'\n",
 
-      args=>[$self->{name},$arg],
-      lvl=>$AR_FATAL,
+      args => [$self->{-name},$arg],
+      lvl  => $AR_FATAL,
 
     );
 
   };
 
 
-  my $id=$self->{alias}->{$arg};
-  my $option=$self->{optab}->{$id};
+  my $id     = $self->{-alias}->{$arg};
+  my $option = $self->{-optab}->{$id};
 
 
   if(! $option->{argc}) {
@@ -227,7 +241,7 @@ sub long_equal($self,$arg) {
       "Argument '%s' for program '%s' ".
       "doesn't take a value",
 
-      args=>[$id,$self->{name}],
+      args=>[$id,$self->{-name}],
 
     );
 
@@ -247,9 +261,11 @@ sub long_equal($self,$arg) {
 # ROM
 
   Readonly my $PATTERN=>[
-    qr{--[_\w][_\w\d]*=}=>\&long_equal,
-    qr{--[_\w][_\w\d]*}=>\&short_or_long,
-    qr{-[_\w][_\w\d]*}=>\&short_or_long,
+
+    qr{--[_\w][_\w\d]*=} => \&long_equal,
+
+    qr{--[_\w][_\w\d]*}  => \&short_or_long,
+    qr{-[_\w][_\w\d]*}   => \&short_or_long,
 
   ];
 
@@ -258,18 +274,18 @@ sub long_equal($self,$arg) {
 
 sub take($self,@args) {
 
-  $self->{argv}=\@args;
+  $self->{-argv}=\@args;
 
   my @values=();;
 
-  while(@{$self->{argv}}) {
+  while(@{$self->{-argv}}) {
 
-    my $arg=shift @{$self->{argv}};
-    my $fn=undef;
+    my $arg = shift @{$self->{-argv}};
+    my $fn  = undef;
 
 
     my $x=0;
-    while($x<@$PATTERN-1) {
+    while($x < @$PATTERN-1) {
 
       my $pat=$PATTERN->[$x];
 
@@ -277,7 +293,10 @@ sub take($self,@args) {
         $fn=$PATTERN->[$x+1];
         last;
 
-      };$x+=2;
+      };
+
+      $x+=2;
+
     };
 
 
@@ -291,6 +310,7 @@ sub take($self,@args) {
 
 
   };
+
 
   return @values;
 
@@ -317,8 +337,9 @@ sub new($class,$id,%attrs) {
   $attrs{short_form} //= q{-}.substr $id,0,1;
   $attrs{long_form}  //= q{--}.$id;
   $attrs{argc}       //= 0;
+  $attrs{default}    //= undef;
 
-  # create new instance
+  # make ice
   my $arg=bless {id=>$id,%attrs},$class;
 
   return $arg;

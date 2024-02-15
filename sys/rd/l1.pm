@@ -25,12 +25,14 @@ package rd::l1;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+
   use Arstd::String;
+  use Arstd::PM;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -57,47 +59,63 @@ package rd::l1;
   )} (
 
     ['*' => 'CMD'],
+    ['x' => 'UCMD'],
 
     ['`' => 'OPERA'],
     ['%' => 'STRING'],
-    ['i' => 'IDEX'],
+    ['i' => 'LIST'],
     ['b' => 'BRANCH'],
     ['n' => 'NUM'],
 
   )};
 
 # ---   *   ---   *   ---
-# make tag regex
+# cstruc
 
-sub tagre($class,$rd,$type,$value) {
-
-  # ANY:  any token, tag or not
-  # BARE: any non-tagged token
-  return qr{^[^\[].*}x if $type eq 'BARE';
-
-  return $ANY_MATCH if $type eq 'ANY';
-
-  my $tag_t = $TAG_T->{$type};
-
-  throw_invalid_type($rd,$type)
-  if ! defined $tag_t;
-
-
-  $tag_t="\Q$tag_t";
-  return qr{^\[$tag_t$value\]\s};
+sub new($class,$rd) {
+  return bless {rd=>$rd},$class;
 
 };
 
 # ---   *   ---   *   ---
-# errmes
+# make tag regex
 
-sub throw_invalid_type($rd,$type) {
+sub tagre($self,$type,$value) {
 
-  $rd->perr(
-    "invalid tag-type '%s'",
-    args=>[$type],
 
-  );
+  # remember previously generated
+  state $tab={
+    BARE => qr{^[^\[].*}x,
+    ANY  => $ANY_MATCH,
+
+  };
+
+  # ^so we can exit early ;>
+  return $tab->{"$type:$value"}
+  if exists $tab->{"$type:$value"};
+
+  # ANY:  any token, tag or not
+  # BARE: any non-tagged token
+  return $tab->{BARE} if $type eq 'BARE';
+  return $tab->{ANY}  if $type eq 'ANY';
+
+
+  # type-check
+  my $tag_t=$TAG_T->{$type};
+
+  $self->throw_invalid_type($type)
+  if ! defined $tag_t;
+
+
+  # do escaping and build new regex
+  $tag_t="\Q$tag_t";
+  my $re=qr{^\[$tag_t$value\]\s};
+
+  # ^save to table and give
+  $tab->{"$type:$value"}=$re;
+
+
+  return $re;
 
 };
 
@@ -105,12 +123,14 @@ sub throw_invalid_type($rd,$type) {
 # turn current token into
 # a tag of type
 
-sub make_tag($class,$rd,$type,$src=undef) {
+sub make_tag($self,$type,$src=undef) {
+
+  my $rd=$self->{rd};
 
   # get/validate sigil
   my $tag_t=$TAG_T->{$type};
 
-  throw_invalid_type($rd,$type)
+  $self->throw_invalid_type($type)
   if ! defined $tag_t;
 
 
@@ -127,16 +147,25 @@ sub make_tag($class,$rd,$type,$src=undef) {
   ) if 1 < length $tag_t;
 
 
-  # give and forget?
-  if(defined $src) {
-    return "[$tag_t$src] ";
+  # default to token if no src
+  # default to char if no token!
+  $src //= $rd->{token};
+  $src //= $rd->{char};
 
-  # ^nope, overwrite token
-  } else {
-    $rd->{token}="[$tag_t$rd->{token}] ";
-    return $rd->{token};
+  return "[$tag_t$src] ";
 
-  };
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_invalid_type($self,$type) {
+
+  $self->{rd}->perr(
+    "invalid tag-type '%s'",
+    args=>[$type],
+
+  );
 
 };
 
@@ -147,7 +176,7 @@ sub make_tag($class,$rd,$type,$src=undef) {
 # gives a new tag holding all
 # values joined together
 
-sub cat_tags($class,$rd,@ar) {
+sub cat_tags($self,@ar) {
 
   my $otype  = undef;
   my $ovalue = $NULLSTR;
@@ -155,10 +184,7 @@ sub cat_tags($class,$rd,@ar) {
   map {
 
     # disassemble tag
-    my ($type,$value)=$class->read_tag(
-      $rd,$ARG
-
-    );
+    my ($type,$value)=$self->read_tag($ARG);
 
 
     # cat value to result
@@ -166,7 +192,7 @@ sub cat_tags($class,$rd,@ar) {
     $ovalue  .= $value;
 
     # enforce equal types
-    $rd->perr(
+    $self->{rd}->perr(
       "non-matching tag-types "
     . "cannot be catted!"
 
@@ -180,16 +206,16 @@ sub cat_tags($class,$rd,@ar) {
   $otype=$TAG_T->{$otype};
 
   # make new and give
-  return $class->make_tag($rd,$otype,$ovalue);
+  return $self->make_tag($otype,$ovalue);
 
 };
 
 # ---   *   ---   *   ---
 # token has [$tag] format?
 
-sub read_tag($class,$rd,$src=undef) {
+sub read_tag($self,$src=undef) {
 
-  $src //= $rd->{token};
+  $src //= $self->{rd}->{token};
 
   return ($src=~ $TAG)
     ? ($+{type},$+{value})
@@ -201,9 +227,9 @@ sub read_tag($class,$rd,$src=undef) {
 # ---   *   ---   *   ---
 # ^give tag type/value if correct type
 
-sub read_tag_t($class,$rd,$which,$src=undef) {
+sub read_tag_t($self,$which,$src=undef) {
 
-  my ($type,$value)=$class->read_tag($rd,$src);
+  my ($type,$value)=$self->read_tag($src);
 
   return ($type && $TAG_T->{$type} eq $which)
     ? $type
@@ -212,9 +238,9 @@ sub read_tag_t($class,$rd,$which,$src=undef) {
 
 };
 
-sub read_tag_v($class,$rd,$which,$src=undef) {
+sub read_tag_v($self,$which,$src=undef) {
 
-  my ($type,$value)=$class->read_tag($rd,$src);
+  my ($type,$value)=$self->read_tag($src);
 
   return ($type && $TAG_T->{$type} eq $which)
     ? $value
@@ -224,10 +250,44 @@ sub read_tag_v($class,$rd,$which,$src=undef) {
 };
 
 # ---   *   ---   *   ---
-# ^iceof
+# ^icef*ck
 
-sub operator($class,$rd) {
-  return $class->read_tag_v($rd,'OPERA');
+subwraps(
+
+  q[$self->read_tag_v],
+  q[$self,$src=undef],
+
+  map {[
+    "is_$ARG" => q['] . (uc $ARG) . q[',$src]
+
+  ]} qw  (opera list string ucmd)
+
+);
+
+# ---   *   ---   *   ---
+# comments are just a special
+# kind of string ;>
+
+sub is_comment($self,$src=undef) {
+
+  # get ctx
+  my $rd      = $self->{rd};
+  my $l0      = $rd->{l0};
+  my $charset = $l0->charset();
+
+  # have string?
+  my $value = $self->read_tag_v('STRING',$src);
+
+
+  # ^if so, check that the string is marked
+  # as a comment!
+  return (
+     defined $value
+  && exists  $charset->{$value}
+
+  && $charset->{$value} eq 'comment'
+
+  ) ? $value : undef ;
 
 };
 
@@ -237,23 +297,39 @@ sub operator($class,$rd) {
 # classifies token if not
 # already sorted!
 
-sub proc($class,$rd) {
+sub proc($self,$src=undef) {
+
+  # default src to current token
+  my $rd    = $self->{rd};
+     $src //= $rd->{token};
 
   # get ctx
-  my $CMD=$rd->{lx}->load_CMD();
-  my $key=$rd->{token};
+  my $CMD  = $rd->{lx}->load_CMD();
+  my $ucmd = $rd->{xns}->{ucmd};
+  my $key  = $src;
 
 
   # is command?
   if($key=~ $CMD->{-re}) {
-    $class->make_tag($rd,'CMD');
+    $key='CMD';
+
+  # is *user* command? ;>
+  } elsif(exists $ucmd->{$key}) {
+    $key='UCMD';
 
   # is number?
   } elsif(defined (my $is_num=sstoi($key,0))) {
-    $rd->{token}=$is_num;
-    $class->make_tag($rd,'NUM');
+    $src=$is_num;
+    $key='NUM';
+
+  # ^no modification
+  } else {
+    return $src;
 
   };
+
+
+  return $self->make_tag($key,$src);
 
 };
 

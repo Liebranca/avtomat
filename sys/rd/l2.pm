@@ -30,7 +30,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -44,13 +44,31 @@ package rd::l2;
   Readonly my $OPERA_PRIO  => "&|^*/-+.:<>~?!=";
 
 # ---   *   ---   *   ---
+# cstruc
+
+sub new($class,$rd) {
+
+  return bless {
+    rd     => $rd,
+    walked => {},
+
+  },$class;
+
+};
+
+# ---   *   ---   *   ---
 # entry point
 
-sub proc($class,$rd) {
+sub proc($self) {
+
+  my $rd=$self->{rd};
+
+  # execution queues
+  my @cmd     = ();
+  my @cmdarg  = ();
 
 
   # get nodes of branch
-  my @cmd     = ();
   my @pending = (@{$rd->{nest}})
 
     ? $rd->{nest}->[-1]->{leaves}->[-1]
@@ -59,7 +77,7 @@ sub proc($class,$rd) {
 
     ;
 
-  # save current
+  # ^save current
   my $old=$rd->{branch};
 
 
@@ -72,47 +90,108 @@ sub proc($class,$rd) {
     $rd->{branch}=$nd;
 
     # sort operators
-    $class->dopera($rd);
-    $class->opera($rd);
+    $self->dopera();
+    $self->opera();
 
     # join [token] :: [token]
-    $class->symbol($rd);
+    $self->symbol();
 
     # sort lists and sub-branches
-    $class->cslist($rd);
-    $class->nested($rd);
+    $self->cslist();
+    $self->nested();
 
 
-    # enqueue exec layer and go next
-    push    @cmd,$class->cmd($rd);
+    # get head of branch is a command
+    my $cmd = $self->cmd();
+    my $l1  = $rd->{l1};
+
+    # ^enqueue exec layer
+    if($cmd) {
+      push @cmdarg,$nd;
+      push @cmd,$cmd if $cmd ne 1;
+
+    # ^no *builtin* cmd, but user-defined one?
+    } elsif(defined ($cmd=$l1->is_ucmd(
+      $nd->{value}
+
+    ))) {$nd->{cmdkey}=$cmd};
+
+
+    # go next
     unshift @pending,@{$nd->{leaves}};
 
   };
 
 
   # commands in queue?
-  state $walked={};
+  my $walked=$self->{walked};
 
+  # check arguments for all commands
+  map {
+    $rd->{branch}=$ARG;
+    $rd->{lx}->argchk();
+
+  } @cmdarg;
+
+
+  # ^only run commands that are defined
+  # for the parsing stage!
   map {
 
     my ($fn,$branch)=@$ARG;
 
     $rd->{branch}=$branch;
-    $rd->{lx}->argchk($rd);
-
-    $fn->($rd,$branch);
+    $fn->($rd->{lx},$branch);
 
 
   # avoid processing the same node twice
   } grep {
-      $walked->{$ARG->[1]}//=0;
-    ! $walked->{$ARG->[1]}++
+    $walked->{$ARG->[1]}//=0;
+  ! $walked->{$ARG->[1]}++
 
   } reverse @cmd;
 
 
   # restore starting branch
   $rd->{branch}=$old;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# remove comments from branch
+
+sub strip_comments($self,$src=undef) {
+
+
+  # get ctx
+  my $rd = $self->{rd};
+  my $l1 = $rd->{l1};
+
+
+  # default to current branch
+  $src //= $rd->{branch};
+
+  # ^walk
+  my @pending=$src;
+  while(@pending) {
+
+    my $nd=shift @pending;
+
+    if(defined $l1->is_comment($nd->{value})) {
+      $nd->discard();
+
+    } else {
+      unshift @pending,@{$nd->{leaves}};
+
+    };
+
+  };
+
+
+  return;
 
 };
 
@@ -137,13 +216,19 @@ sub _seq_temple($fn,$branch,@seq) {
 # identify token sequences
 # matching [any] :: [any]
 
-sub symbol($class,$rd) {
+sub symbol($self) {
 
-  state $re  = $rd->{l1}->tagre($rd,OPERA=>'::');
-  state @seq = ($ANY_MATCH,$re,$ANY_MATCH);
+  # get ctx
+  my $rd  = $self->{rd};
+  my $l1  = $rd->{l1};
+
+  # build/fetch regex sequence
+  my $re  = $l1->tagre(OPERA=>'::');
+  my @seq = ($ANY_MATCH,$re,$ANY_MATCH);
 
 
   my $branch=$rd->{branch};
+
 
   # roll [any] :: [any]
   _seq_temple(sub ($idex) {
@@ -166,10 +251,15 @@ sub symbol($class,$rd) {
 # ---   *   ---   *   ---
 # identify comma-separated lists
 
-sub cslist($class,$rd) {
+sub cslist($self) {
 
-  state $re  = $rd->{l1}->tagre($rd,OPERA=>',');
-  state @seq = ($ANY_MATCH,$re,$ANY_MATCH);
+  # get ctx
+  my $rd  = $self->{rd};
+  my $l1  = $rd->{l1};
+
+  # build/fetch regex sequence
+  my $re  = $l1->tagre(OPERA=>',');
+  my @seq = ($ANY_MATCH,$re,$ANY_MATCH);
 
 
   my $branch = $rd->{branch};
@@ -190,16 +280,13 @@ sub cslist($class,$rd) {
 
       # make new list
       ? $branch->insert(
-
-          $idex,$rd->{l1}->make_tag(
-            $rd,'IDEX'=>$cnt++
-
-          )
+          $idex,$l1->make_tag('LIST'=>$cnt++)
 
         )
 
       # ^else cat to existing
       : $anchor
+
       ;
 
 
@@ -223,20 +310,19 @@ sub cslist($class,$rd) {
 # ---   *   ---   *   ---
 # join double operators
 
-sub dopera($class,$rd) {
+sub dopera($self) {
 
-  state $left  = $rd->{l1}->tagre(
-    $rd,OPERA => '['."\Q$OPERA_PRIO".']'
+  # get ctx
+  my $rd  = $self->{rd};
+  my $l1  = $rd->{l1};
+
+  # build/fetch regex sequence
+  my $re=$l1->tagre(
+    OPERA => '['."\Q$OPERA_PRIO".']'
 
   );
 
-  state $right = $rd->{l1}->tagre(
-    $rd,OPERA => '['."\Q$OPERA_PRIO".']'
-
-  );
-
-
-  state @seq=($left,$right);
+  my @seq=($re,$re);
 
 
   my $branch = $rd->{branch};
@@ -248,10 +334,7 @@ sub dopera($class,$rd) {
        @lv=@lv[$idex..$idex+1];
 
     # join both operators into first
-    $lv[0]->{value}=$rd->{l1}->cat_tags(
-
-      $rd,
-
+    $lv[0]->{value}=$l1->cat_tags(
       $lv[0]->{value},
       $lv[1]->{value},
 
@@ -269,10 +352,15 @@ sub dopera($class,$rd) {
 # make sub-branch from
 # [token] opera [token]
 
-sub opera($class,$rd) {
+sub opera($self) {
 
-  state $re=$rd->{l1}->tagre(
-    $rd,OPERA => '['."\Q$OPERA_PRIO".']+'
+  # get ctx
+  my $rd  = $self->{rd};
+  my $l1  = $rd->{l1};
+
+  # build/fetch regex
+  my $re=$l1->tagre(
+    OPERA => '['."\Q$OPERA_PRIO".']+'
 
   );
 
@@ -284,8 +372,8 @@ sub opera($class,$rd) {
   my @ops    = map {
 
     # get characters/priority for this operator
-    my $char = $rd->{l1}->read_tag_v(
-        $rd,OPERA=>$ARG->{value}
+    my $char = $l1->read_tag_v(
+        OPERA=>$ARG->{value}
 
     );
 
@@ -300,11 +388,13 @@ sub opera($class,$rd) {
 
     $ARG;
 
+
   # ^that havent been already handled ;>
   } grep {
     ! exists $ARG->{opera_prio}
 
   } $branch->branches_in($re);
+
 
   # leave if no operators found!
   return if ! @ops;
@@ -340,7 +430,7 @@ sub opera($class,$rd) {
     # have unary operator?
     if($OPERA_UNARY->{$char}) {
 
-      throw_no_operands($rd,$char)
+      $self->throw_no_operands($char)
       if ! defined $rh &&! defined $lh;
 
       # assume ++X
@@ -359,7 +449,7 @@ sub opera($class,$rd) {
     # ^nope, good times
     } else {
 
-      throw_no_operands($rd,$char)
+      $self->throw_no_operands($char)
       if ! defined $rh ||! defined $lh;
 
       $ARG->pushlv($lh,$rh);
@@ -373,11 +463,9 @@ sub opera($class,$rd) {
 # ---   *   ---   *   ---
 # ^errme
 
-sub throw_no_operands($rd,$char) {
+sub throw_no_operands($self,$char) {
 
-$rd->{branch}->prich();
-
-  $rd->perr(
+  $self->{rd}->perr(
     "no operands for `[op]:%s`",
     args=>[$char]
 
@@ -388,16 +476,19 @@ $rd->{branch}->prich();
 # ---   *   ---   *   ---
 # sorts nested branches
 
-sub nested($class,$rd) {
+sub nested($self) {
 
-  state $re=$rd->{l1}->tagre(
-    $rd,BRANCH=>'.+'
+  # get ctx
+  my $rd  = $self->{rd};
+  my $l1  = $rd->{l1};
 
-  );
+  # build/fetch regex
+  my $re=$l1->tagre(BRANCH=>'.+');
 
 
   my $branch = $rd->{branch};
   my @left   = ();
+
 
   # split at [any] , [any]
   _seq_temple(sub ($idex) {
@@ -428,31 +519,39 @@ sub nested($class,$rd) {
 # ---   *   ---   *   ---
 # solve command tags
 
-sub cmd($class,$rd) {
+sub cmd($self) {
 
-  state $re=$rd->{l1}->tagre($rd,CMD=>'.+');
+  # get ctx
+  my $rd  = $self->{rd};
+  my $l1  = $rd->{l1};
+  my $lx  = $rd->{lx};
 
-  my $key=$rd->{branch}->{value};
-  my $CMD=$rd->{lx}->load_CMD();
+  my $key = $rd->{branch}->{value};
+  my $CMD = $lx->load_CMD();
+
+  # build/fetch regex
+  my $re=$l1->tagre(CMD=>'.+');
+
 
   if($key=~ $re) {
 
-    my ($type,$value)=
-      $rd->{l1}->read_tag($rd,$key);
+    my ($type,$value)=$l1->read_tag($key);
 
-    my $pass = $rd->{lx}->passname($rd);
+    my $pass = $lx->passname();
     my $fn   = $CMD->{$value}->{$pass};
 
-    if(defined $fn) {
-      $rd->{branch}->{cmdkey}=$value;
-      return [$fn=>$rd->{branch}];
+    $rd->{branch}->{cmdkey}=$value;
 
-    };
+
+    return (defined $fn)
+      ? [$fn=>$rd->{branch}]
+      : 1
+      ;
 
   };
 
 
-  return ();
+  return 0;
 
 };
 

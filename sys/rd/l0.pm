@@ -32,9 +32,17 @@ package rd::l0;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
+# cstruc
+
+sub new($class,$rd) {
+  return bless {rd=>$rd},$class;
+
+};
+
+# ---   *   ---   *   ---
 # what to do with chars
 
-sub charset($class) { return {
+sub charset($self) { return {
 
   ';'   => 'term',
   '"'   => 'string',
@@ -64,24 +72,17 @@ sub charset($class) { return {
 # ---   *   ---   *   ---
 # read input char
 
-sub read($class,$rd,$JMP,$c) {
-
-  # save current char
-  $rd->{char}=$c;
+sub read($self,$JMP,$c) {
 
 
-  # tick the line counter
-  $rd->{lineno} += int($c eq "\n");
-
-  # track beggining of first
-  # nterm char in expr
-  $rd->{lineat} = $rd->{lineno}
-  if $rd->exprbeg();
+  # consume char
+  my $rd=$self->{rd};
+  $self->csume($c);
 
 
   # reader set to stringmode?
   if($rd->string()) {
-    $class->default($rd);
+    $self->default();
     return 'default';
 
   # ^nope, process normally
@@ -91,7 +92,7 @@ sub read($class,$rd,$JMP,$c) {
     my $fn=$JMP->[ord($c)];
 
     # ^invoke and go next
-    $class->$fn($rd);
+    $self->$fn();
 
 
     return $fn;
@@ -101,18 +102,43 @@ sub read($class,$rd,$JMP,$c) {
 };
 
 # ---   *   ---   *   ---
+# consume character
+
+sub csume($self,$c) {
+
+  my $rd=$self->{rd};
+
+  # save current char
+  $rd->{char}=$c;
+
+  # tick the line counter
+  $rd->{lineno} += int($c eq "\n");
+
+
+  # track beggining of first
+  # nterm char in expr
+  $rd->{lineat}=$rd->{lineno}
+  if $rd->exprbeg();
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # read single expression
 
-sub proc_single($class,$rd) {
+sub proc_single($self) {
 
-  my $JMP   = $class->load_JMP();
+  my $rd    = $self->{rd};
+  my $JMP   = $self->load_JMP();
   my @chars = split $NULLSTR,$rd->{buf};
 
   # consume up to term
   while(@chars) {
 
     my $c  = shift @chars;
-    my $fn = $class->read($rd,$JMP,$c);
+    my $fn = $self->read($JMP,$c);
 
     last if $fn eq 'term';
 
@@ -126,12 +152,12 @@ sub proc_single($class,$rd) {
 # ---   *   ---   *   ---
 # ^read whole
 
-sub proc($class,$rd) {
+sub proc($self) {
 
-  my $JMP=$class->load_JMP();
+  my $JMP=$self->load_JMP();
 
-  map   {$class->read($rd,$JMP,$ARG)}
-  split $NULLSTR,$rd->{buf};
+  map   {$self->read($JMP,$ARG)}
+  split $NULLSTR,$self->{rd}->{buf};
 
 
   return;
@@ -139,9 +165,12 @@ sub proc($class,$rd) {
 };
 
 # ---   *   ---   *   ---
-# standard char proc
+# cat to current token and set flags
 
-sub default($class,$rd) {
+sub default($self) {
+
+  my $rd=$self->{rd};
+
   $rd->{token} .= $rd->{char};
   $rd->set_ntermf();
 
@@ -149,12 +178,16 @@ sub default($class,$rd) {
 
 # ---   *   ---   *   ---
 # whitespace
-#
-# terminates *token* if first
-# blank, non-term character
 
-sub blank($class,$rd) {
+sub blank($self) {
+
+  my $rd=$self->{rd};
+
+  # save token if last char
+  # *wasn't* also blank
   $rd->commit() if ! $rd->blank();
+
+  # ^remember this one was blank
   $rd->set('blank');
 
 };
@@ -162,18 +195,30 @@ sub blank($class,$rd) {
 # ---   *   ---   *   ---
 # begin stringmode
 
-sub string($class,$rd,$term=undef) {
+sub string($self,$term=undef) {
 
-  $rd->set_ntermf();
+  # default EOS to current char
+  my $rd     = $self->{rd};
+     $term //= $rd->{char};
 
-  $term //= $rd->{char};
 
+  # save current
   $rd->commit();
 
-  $rd->{token}=$rd->{char};
-  $rd->{l1}->make_tag($rd,'STRING');
 
+  # make new, marked as string
+  my $l1=$rd->{l1};
+
+  $rd->{token}=$l1->make_tag(
+    'STRING',$rd->{char}
+
+  );
+
+
+  # ^set flags and EOS char
   $rd->set('string');
+  $rd->set_ntermf();
+
   $rd->{strterm}=$term;
 
 };
@@ -182,59 +227,59 @@ sub string($class,$rd,$term=undef) {
 # ^same mechanic, but terminator
 # is a newline
 
-sub comment($class,$rd) {
-  $class->string($rd,"\n");
-  $rd->set('comment');
+sub comment($self) {
+  $self->string("\n");
+  $self->{rd}->set('comment');
 
 };
 
 # ---   *   ---   *   ---
-# nesting
+# begin new scope
 
-sub nest_up($class,$rd) {
-  push @{$rd->{nest}},$rd->{branch};
-  $rd->new_branch();
+sub delim_beg($self) {
 
-};
+  my $rd=$self->{rd};
 
-sub nest_down($class,$rd) {
-  $rd->{branch}=pop @{$rd->{nest}};
-
-};
-
-# ---   *   ---   *   ---
-# delimiters
-
-sub delim_beg($class,$rd) {
-
+  # set flags and save current
   $rd->set_termf();
-
   $rd->commit();
 
-  $rd->{token}=$rd->{char};
-  $rd->{l1}->make_tag($rd,'OPERA');
 
+  # ^make new
+  my $l1=$rd->{l1};
+
+  $rd->{token}=$l1->make_tag(
+    'OPERA',$rd->{char}
+
+  );
+
+  # go up one nesting level
   $rd->commit();
-  $class->nest_up($rd);
+  $rd->nest_up();
 
 };
 
-sub delim_end($class,$rd) {
+# ---   *   ---   *   ---
+# ^undo
+
+sub delim_end($self) {
+
+  my $rd=$self->{rd};
 
   # no token?
   if(! $rd->commit()) {
 
     # clear if last expr is empty!
-    $rd->{branch}->discard()
+    my $branch=$rd->{branch};
 
-    if  $rd->{branch}
-    &&! @{$rd->{branch}->{leaves}}
-
-    ;
+    $branch->discard()
+    if $branch &&! @{$branch->{leaves}};
 
   };
 
-  $class->nest_down($rd);
+
+  # go down one nesting level and set flags
+  $rd->nest_down();
   $rd->set_termf();
 
 };
@@ -242,28 +287,35 @@ sub delim_end($class,$rd) {
 # ---   *   ---   *   ---
 # expression terminator
 
-sub term($class,$rd) {
-
-  $rd->commit();
-  $rd->{l2}->proc($rd);
-  $rd->new_branch();
-
-  $rd->set_termf();
+sub term($self) {
+  $self->{rd}->term();
 
 };
 
 # ---   *   ---   *   ---
 # argument separator
 
-sub operator_single($class,$rd) {
+sub operator_single($self) {
 
-  return $class->default($rd)
+  my $rd=$self->{rd};
+
+  # cat operator to token?
+  return $self->default()
   if $rd->cmd_name_rule();
 
-  $rd->commit();
-  $rd->{token}=$rd->{char};
-  $rd->{l1}->make_tag($rd,'OPERA');
 
+  # save current
+  $rd->commit();
+
+
+  # ^make new from operator
+  my $l1=$rd->{l1};
+  $rd->{token}=$l1->make_tag(
+    'OPERA',$rd->{char}
+
+  );
+
+  # ^save operator as single token
   $rd->commit();
   $rd->set_ntermf();
 
@@ -272,9 +324,9 @@ sub operator_single($class,$rd) {
 # ---   *   ---   *   ---
 # generate/fetch l0 jump table
 
-sub load_JMP($class) {
+sub load_JMP($self) {
 
-  state $charset = $class->charset();
+  state $charset = $self->charset();
   state $JMP     = [map {
 
     my $key   = chr($ARG);

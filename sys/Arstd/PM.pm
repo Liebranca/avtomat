@@ -53,6 +53,8 @@ package Arstd::PM;
     throw_bad_autoload
 
     beqwraps
+    subwraps
+
     get_static
     cload
 
@@ -65,7 +67,7 @@ package Arstd::PM;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#b
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -242,6 +244,27 @@ sub beqwraps($attr,@names) {
     *{"$pkg\::$name"}=$fn;
 
   } @names;
+
+};
+
+# ---   *   ---   *   ---
+# ^wrapper f*cktory
+
+sub subwraps($fn,$sig,@icebox) {
+
+  no strict 'refs';
+  my $pkg=caller;
+
+  map {
+
+    my ($name,$args)=@$ARG;
+
+    my $wf="sub ($sig) {$fn($args)};";
+       $wf=eval $wf;
+
+    *{"$pkg\::$name"}=$wf;
+
+  } @icebox;
 
 };
 

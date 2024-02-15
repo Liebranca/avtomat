@@ -20,6 +20,8 @@ package rd;
   use warnings;
 
   use Readonly;
+  use Storable;
+
   use English qw(-no_match-vars);
 
   use lib $ENV{ARPATH}.'/lib/sys/';
@@ -27,6 +29,7 @@ package rd;
   use Style;
   use Chk;
   use Tree;
+  use Cli;
 
   use Arstd::Array;
   use Arstd::IO;
@@ -40,7 +43,7 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -51,9 +54,8 @@ package rd;
     blank   => 0x0001,
     string  => 0x0002,
     comment => 0x0004,
-    term    => 0x0008,
-    nterm   => 0x0010,
-    exprbeg => 0x0020,
+    nterm   => 0x0008,
+    exprbeg => 0x0010,
 
   };
 
@@ -113,13 +115,15 @@ sub new($class,$src) {
 
 
     # parse layers: char/token/branch
-    l0      => $class->get_l0(),
-    l1      => $class->get_l1(),
-    l2      => $class->get_l2(),
+    l0      => undef,
+    l1      => undef,
+    l2      => undef,
 
     # execution layer
-    lx      => $class->get_lx(),
+    lx      => undef,
     pass    => 0,
+
+    xns     => {ucmd=>{}},
 
 
     # shared vars
@@ -142,6 +146,9 @@ sub new($class,$src) {
   },$class;
 
 
+  # init layers and give ice
+  $self->cstruc_layers();
+
   return $self;
 
 };
@@ -159,11 +166,16 @@ sub crux($src) {
   $self->solve_ipret();
 
   # parse
-  $self->{l0}->proc($self);
+  $self->{l0}->proc();
 
   # ^expr pending?
   $self->unset('blank');
-  $self->{l0}->term($self);
+  $self->term();
+
+
+  # give ice
+  $self->{pass}++;
+  return $self;
 
 };
 
@@ -179,7 +191,7 @@ sub commit($self) {
 
     # classify
     $self->unset('exprbeg');
-    $self->{l1}->proc($self);
+    $self->{token}=$self->{l1}->proc();
 
 
     # start of new branch?
@@ -220,25 +232,64 @@ sub commit($self) {
 
 sub new_branch($self) {
 
+
+  # leaving branch undefined will trigger
+  # it's making on next token commited
   if(! @{$self->{nest}}) {
     $self->{branch}=undef;
 
+
+  # ^nesting, so not so simple
   } else {
 
+    # get last, deepest sub-branch
     my $anchor = $self->{nest}->[-1];
        $anchor = $anchor->{leaves}->[-1];
 
+    # ^get sub-branch idex relative to it's parent
     my $idex   = int @{$anchor->{leaves}};
+    my $l1     = $self->{l1};
 
+    # ^make new sub-branch next to it
     $self->{branch}=$anchor->inew(
-      $self->{l1}->make_tag($self,'BRANCH'=>$idex)
+      $l1->make_tag('BRANCH'=>$idex)
 
     );
 
   };
 
 
+  # mark beggining of expression
   $self->set('exprbeg');
+
+};
+
+# ---   *   ---   *   ---
+# nest one sub-branch deeper
+
+sub nest_up($self) {
+  push @{$self->{nest}},$self->{branch};
+  $self->new_branch();
+
+};
+
+# ---   *   ---   *   ---
+# ^return to previous sub-branch
+
+sub nest_down($self) {
+  $self->{branch}=pop @{$self->{nest}};
+
+};
+
+# ---   *   ---   *   ---
+# terminate branch or sub-branch
+
+sub term($self) {
+
+  $self->commit();
+  $self->{l2}->proc();
+  $self->new_branch();
+  $self->set_termf();
 
 };
 
@@ -266,19 +317,22 @@ sub cmd_name_rule($self) {
 
 sub solve_ipret($self) {
 
+  # get ctx
+  my $l0=$self->{l0};
+  my $l1=$self->{l1};
+
   # parse first expression
-  $self->{l0}->proc_single($self);
+  $l0->proc_single();
 
   # ^decompose
   my $cmd  = $self->{tree}->{leaves}->[-1];
   my @args = @{$cmd->{leaves}};
   my $have = $cmd->{value};
 
-  $self->{token}=$have;
 
 
   # is first token operator?
-  if($have=$self->{l1}->operator($self)) {
+  if(defined ($have=$l1->is_opera($have))) {
 
     # validate sigil
     $self->perr(
@@ -407,29 +461,10 @@ sub exprbeg($self) {
 };
 
 # ---   *   ---   *   ---
-# check for terminator and
-# unset if non-blank passed
-
-sub term($self) {
-
-  my $out=$self->status(term=>1);
-
-  if($out && $self->nterm()) {
-    $self->unset('term');
-    $out=0;
-
-  };
-
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
 # ^set terminator flags
 
 sub set_termf($self) {
   $self->set('blank');
-  $self->set('term');
   $self->unset('nterm');
 
 };
@@ -439,6 +474,7 @@ sub set_termf($self) {
 
 sub set_ntermf($self) {
   $self->unset('blank');
+  $self->unset('exprbeg');
   $self->set('nterm');
 
 };
@@ -457,12 +493,39 @@ sub string($self) {
     $self->unset('string');
 
     $self->commit();
-    $self->new_branch() if $self->comment();
+
+    if($self->comment()) {
+      $self->unset('comment');
+      $self->new_branch();
+
+    };
 
   };
 
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# fetch classes for each parser layer
+# then cstruc new ice for each
+
+sub cstruc_layers($self) {
+
+  my $class=ref $self;
+
+  map {
+
+    my $fn="get_$ARG";
+
+    $self->{$ARG}=$self->$fn();
+    $self->{$ARG}=$self->{$ARG}->new($self);
+
+  } qw(l0 l1 l2 lx);
+
+
+  return;
 
 };
 
@@ -533,20 +596,57 @@ sub import($class,@req) {
 
 sub ON_EXE($class,@input) {
 
-  # remove nullargs
+  my $m=Cli->new(
+
+    {id=>'out',short=>'-o',argc=>1},
+    {id=>'echo',short=>'-e',argc=>0},
+    {id=>'strip',short=>'-s',argc=>0,default=>1},
+
+  );
+
+
+  # remove nullargs and proc cmd
   @input=grep {defined $ARG} @input;
 
   # have values to proc?
-  (@input)
+  my ($src)=$m->take(@input);
 
-    ? map {crux($ARG)} @input
+  $WLog->err('no input',
+    from  => 'rd',
+    lvl   => $AR_FATAL
 
-    : $WLog->err('no input',
+  ) if ! $src;
 
-      from  => 'rd',
-      lvl   => $AR_FATAL
 
-    );
+  # get parse tree
+  my $ice=crux($src);
+
+  # ^cleanup
+  delete $ice->{buf};
+  delete $ice->{status};
+  delete $ice->{strterm};
+  delete $ice->{nest};
+
+  # ^remove comments?
+  $ice->{l2}->strip_comments($ice->{tree})
+  if $m->{strip} eq 1;
+
+
+  # write to file?
+  store($ice,$m->{out})
+  if $m->{out} ne $NULL;
+
+
+  # dbout to tty?
+  $ice->{tree}->prich()
+
+  if $m->{echo} ne $NULL
+  || $m->{out}  eq $NULL
+
+  ;
+
+
+  return;
 
 };
 

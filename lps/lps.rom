@@ -3,10 +3,14 @@
 # nevermind this file!
 # just testing the parser ;>
 
-cmd name arg0,arg1=1 {
-  echo arg0;
-  echo arg1;
+cmd plfi name,value {
+  echo '%name% => %value%,';
 
 };
 
-stop;
+plfi name,avtomat;
+
+#bat-cmd (name;scan;xcpy;lcpy) value {
+#  plfi (FNAME),value;
+#
+#};

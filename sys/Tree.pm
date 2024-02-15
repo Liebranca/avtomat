@@ -19,6 +19,7 @@ package Tree;
   use strict;
   use warnings;
 
+  use Carp;
   use Readonly;
 
   use English qw(-no_match_vars);
@@ -36,7 +37,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.5;
+  our $VERSION = v0.02.6;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -448,6 +449,28 @@ sub depth($self) {
     $self=$self->{parent};
 
   };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# get path from root to leaf
+# as a series of indices
+
+sub ancespath($self,$upto=undef) {
+
+  my $out=[];
+
+  while($self->{parent}) {
+
+    unshift @$out,$self->{idex};
+    $self=$self->{parent};
+
+    last if $upto && $self eq $upto;
+
+  };
+
 
   return $out;
 
@@ -1504,6 +1527,9 @@ sub all_from($self,$ch,%O) {
     ? $O{cap}
     : $#pending
     ;
+
+  croak "no child leaves"
+  if ! defined $ch->{idex};
 
   @pending=@pending[$ch->{idex}+1..$limit];
 
