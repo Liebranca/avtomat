@@ -41,9 +41,7 @@ $WLog->ex('arperl-wrap');
 
 while(@ARGV) {
 
-  # arperl-wrap ../bin/rd sub/path sys::rd
-
-
+  # eg: arperl-wrap ../bin/rd lib/sys rd
   # get [fpath to new => class to wrap]
   my $fpath = shift @ARGV;
   my $cpath = shift @ARGV;

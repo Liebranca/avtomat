@@ -655,11 +655,13 @@ sub ON_EXE($class,@input) {
 
 sub ON_USE($class,$from,@nullarg) {
 
-  *rd=*crux;
+  no strict 'refs';
+
+  *{"$class"}=*crux;
 
   submerge(
 
-    ['rd'],
+    [$class],
 
     main  => $from,
     subok => qr{^crux$},
@@ -692,7 +694,7 @@ sub perr($self,$me,%O) {
   my $loc="<%s> line [num]:%u";
   unshift @{$O{args}},$self->{fpath},$lineno;
 
-  $WLog->err("at $loc:\n$me",%O,from=>'rd');
+  $WLog->err("at $loc:\n$me",%O,from=>(ref $self));
 
 
   return;

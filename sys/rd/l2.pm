@@ -533,16 +533,21 @@ sub cmd($self) {
   my $re=$l1->tagre(CMD=>'.+');
 
 
+  # have command?
   if($key=~ $re) {
 
+    # get variation for current pass
     my ($type,$value)=$l1->read_tag($key);
+    my $fn=$lx->passf($value);
 
-    my $pass = $lx->passname();
-    my $fn   = $CMD->{$value}->{$pass};
-
+    # ^save key
     $rd->{branch}->{cmdkey}=$value;
 
 
+    # give F to run if any
+    #
+    # else just signal that the node
+    # is a command!
     return (defined $fn)
       ? [$fn=>$rd->{branch}]
       : 1

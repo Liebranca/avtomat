@@ -52,6 +52,21 @@ sub passes($self) { return qw(
 )};
 
 # ---   *   ---   *   ---
+# ^name of subroutine for this pass
+
+sub passf($self,$key) {
+
+  my $CMD  = $self->load_CMD();
+
+  my $pass = $self->passname();
+  my $fn   = $CMD->{$key}->{$pass};
+
+
+  return $fn;
+
+};
+
+# ---   *   ---   *   ---
 # makes command args
 
 sub cmdarg($type,%O) {
