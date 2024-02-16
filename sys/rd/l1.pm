@@ -297,16 +297,17 @@ sub is_comment($self,$src=undef) {
 # classifies token if not
 # already sorted!
 
-sub proc($self,$src=undef) {
+sub proc_parse($self,$src=undef) {
 
   # default src to current token
   my $rd    = $self->{rd};
      $src //= $rd->{token};
 
   # get ctx
-  my $CMD  = $rd->{lx}->load_CMD();
-  my $ucmd = $rd->{xns}->{ucmd};
-  my $key  = $src;
+  my $CMD   = $rd->{lx}->load_CMD();
+  my $scope = $rd->{scope};
+  my $path  = $scope->{path};
+  my $key   = $src;
 
 
   # is command?
@@ -314,7 +315,7 @@ sub proc($self,$src=undef) {
     $key='CMD';
 
   # is *user* command? ;>
-  } elsif(exists $ucmd->{$key}) {
+  } elsif($scope->has(@$path,'UCMD',$key)) {
     $key='UCMD';
 
   # is number?
@@ -330,6 +331,27 @@ sub proc($self,$src=undef) {
 
 
   return $self->make_tag($key,$src);
+
+};
+
+# ---   *   ---   *   ---
+# look for name in scope
+
+sub symbol_fetch($self,$type,$src=undef) {
+
+  # default to current token
+  my $rd    = $self->{rd};
+     $src //= $rd->{token};
+
+  # attempt fetch
+  my $scope = $rd->{scope};
+  my $have  = $scope->getvar(
+    "$type\::$src",as_ptr=>1
+
+  );
+
+
+  return $have;
 
 };
 

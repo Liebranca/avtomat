@@ -104,7 +104,7 @@ sub from_hashref($frame,$h) {
 };
 
 # ---   *   ---   *   ---
-# make child node or create a new tree
+# make child node or make a new tree
 
 sub new($class,$frame,$parent,$val,%O) {
 
@@ -270,7 +270,7 @@ sub fetch($self,%O) {
     # perform lookup and store results
     my $nd=$out->cached_fetch($key,$re,%O);
 
-    # create new if needed
+    # make new if needed
     if(! $O{existing}) {
       $out=($nd) ? $nd : $out->inew($key);
 

@@ -478,6 +478,8 @@ sub fmat_btrace {
 
 
   # add some colors c:
+  $file //= '(%$)';
+
   my $s=sprintf
     "\e[35;1m%-21s\e[0m".
     "\e[34;22m%-21s\e[0m".

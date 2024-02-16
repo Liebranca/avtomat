@@ -128,7 +128,7 @@ sub csume($self,$c) {
 # ---   *   ---   *   ---
 # read single expression
 
-sub proc_single($self) {
+sub proc_parse_single($self) {
 
   my $rd    = $self->{rd};
   my $JMP   = $self->load_JMP();
@@ -150,9 +150,9 @@ sub proc_single($self) {
 };
 
 # ---   *   ---   *   ---
-# ^read whole
+# ^read whole program
 
-sub proc($self) {
+sub proc_parse($self) {
 
   my $JMP=$self->load_JMP();
 

@@ -37,13 +37,14 @@ package rd;
   use Arstd::WLog;
 
   use Shb7::Path;
+  use Mach::Scope;
 
   $WLog //= Arstd::WLog->genesis();
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -123,7 +124,7 @@ sub new($class,$src) {
     lx      => undef,
     pass    => 0,
 
-    xns     => {ucmd=>{}},
+    scope   => Mach::Scope->new(),
 
 
     # shared vars
@@ -132,6 +133,9 @@ sub new($class,$src) {
     # line number!
     lineno  => 1,
     lineat  => 1,
+
+    # branch idex
+    -at     => 0,
 
     # stringmode term
     strterm => $NULLSTR,
@@ -161,21 +165,107 @@ sub crux($src) {
   # make ice
   my $self=rd->new($src);
 
+  # ^run and give
+  $self->proc_parse();
+  $self->proc_ctx();
+
+  $self->{scope}->prich();
+
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# advance pass
+
+sub next_pass($self) {
+  $self->{pass}++;
+  $self->{-at}=0;
+
+};
+
+# ---   *   ---   *   ---
+# cannonical tree-walk
+
+sub step($self,$fn,@args) {
+
+  # get next *top* branch in tree
+  my $idex   = $self->{-at}++;
+
+  my $tree   = $self->{tree}->{leaves};
+  my $branch = $tree->[$idex];
+
+
+  # exit if whole tree walked ;>
+  return 0 if ! $branch;
+
+
+  # ^walk
+  my @Q=$branch;
+  while(@Q) {
+
+    # set current
+    my $nd=shift @Q;
+    $self->{branch}=$nd;
+
+    # recurse only if F returns true
+    unshift @Q,@{$nd->{leaves}}
+    if $fn->(@args,$nd,\@Q);
+
+  };
+
+
+  # give true if branches pending
+  return defined $tree->[$idex+1];
+
+};
+
+# ---   *   ---   *   ---
+# first pass
+
+sub proc_parse($self) {
 
   # select sub-class
   $self->solve_ipret();
 
   # parse
-  $self->{l0}->proc();
+  $self->{l0}->proc_parse();
 
   # ^expr pending?
   $self->unset('blank');
   $self->term();
 
 
-  # give ice
-  $self->{pass}++;
-  return $self;
+  # cleanup parse-only values
+  delete $self->{buf};
+  delete $self->{status};
+  delete $self->{strterm};
+  delete $self->{nest};
+
+  # go next and give
+  $self->next_pass();
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^second pass
+
+sub proc_ctx($self) {
+
+  # get ctx
+  my $l2 = $self->{l2};
+
+  my $fn = (ref $l2).'::proc_ctx';
+     $fn = \&$fn;
+
+  # ^run for whole tree
+  while($self->step($fn,$l2)) {};
+
+
+  # go next and give
+  $self->next_pass();
+  return;
 
 };
 
@@ -191,7 +281,7 @@ sub commit($self) {
 
     # classify
     $self->unset('exprbeg');
-    $self->{token}=$self->{l1}->proc();
+    $self->{token}=$self->{l1}->proc_parse();
 
 
     # start of new branch?
@@ -287,7 +377,7 @@ sub nest_down($self) {
 sub term($self) {
 
   $self->commit();
-  $self->{l2}->proc();
+  $self->{l2}->proc_parse();
   $self->new_branch();
   $self->set_termf();
 
@@ -322,7 +412,7 @@ sub solve_ipret($self) {
   my $l1=$self->{l1};
 
   # parse first expression
-  $l0->proc_single();
+  $l0->proc_parse_single();
 
   # ^decompose
   my $cmd  = $self->{tree}->{leaves}->[-1];
@@ -517,10 +607,12 @@ sub cstruc_layers($self) {
 
   map {
 
-    my $fn="get_$ARG";
+    my $fn    = "get_$ARG";
+    my $layer = $self->$fn();
 
-    $self->{$ARG}=$self->$fn();
-    $self->{$ARG}=$self->{$ARG}->new($self);
+    $self->{$ARG}=$layer->new($self)
+    if ! defined $self->{$ARG};
+
 
   } qw(l0 l1 l2 lx);
 
@@ -620,12 +712,6 @@ sub ON_EXE($class,@input) {
 
   # get parse tree
   my $ice=crux($src);
-
-  # ^cleanup
-  delete $ice->{buf};
-  delete $ice->{status};
-  delete $ice->{strterm};
-  delete $ice->{nest};
 
   # ^remove comments?
   $ice->{l2}->strip_comments($ice->{tree})

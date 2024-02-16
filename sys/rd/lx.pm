@@ -26,13 +26,15 @@ package rd::lx;
 
   use Style;
   use Chk;
+  use Type;
 
   use Arstd::Re;
+  use Arstd::PM;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -47,7 +49,7 @@ sub new($class,$rd) {
 # names of execution rounds
 
 sub passes($self) { return qw(
-  parse solve ipret
+  parse ctx solve xlate run
 
 )};
 
@@ -84,7 +86,6 @@ sub cmdarg($type,%O) {
 # ^shorthands
 
   Readonly my $QLIST=>cmdarg(['LIST','ANY']);
-
   Readonly my $VLIST=>cmdarg(
 
     ['LIST','OPERA','BARE'],
@@ -92,6 +93,7 @@ sub cmdarg($type,%O) {
 
   );
 
+  Readonly my $OPT_QLIST=>{%$QLIST,opt=>1};
   Readonly my $OPT_VLIST=>{%$VLIST,opt=>1};
 
   Readonly my $BARE  => cmdarg(['BARE']);
@@ -114,8 +116,14 @@ sub cmdset($self) { return {
   stop => [],
 
 
-  cmd       => [$BARE,$OPT_VLIST,$CURLY],
-  'bat-cmd' => [$PARENS,$OPT_VLIST,$CURLY],
+  cmd        => [$BARE,$OPT_VLIST,$CURLY],
+  'bat-cmd'  => [$PARENS,$OPT_VLIST,$CURLY],
+
+
+  ( map {$ARG => [$VLIST,$OPT_QLIST]}
+    qw  (byte word dword qword)
+
+  ),
 
 }};
 
@@ -140,6 +148,164 @@ sub stop_parse($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# value decl
+
+sub decl_parse($self,$branch,$ezy) {
+
+  # get ctx
+  my $rd    = $self->{rd};
+  my $l1    = $rd->{l1};
+  my $l2    = $rd->{l2};
+
+  my $scope = $rd->{scope};
+  my $path  = $scope->{path};
+
+
+  # get [name=>value] arrays
+  my ($name,$value)=map {
+
+    (defined $l1->is_list($ARG->{value}))
+      ? $ARG->{leaves}
+      : [$ARG]
+      ;
+
+  } @{$branch->{leaves}};
+
+
+  # ensure value for each name
+  # then attempt solving value
+  my $idex     = 0;
+  my @unsolved = grep {$ARG} map {
+
+    $value->[$idex] //= $branch->inew(
+      $l1->make_tag('NUM'=>0x00)
+
+    );
+
+    my $v=$value->[$idex++];
+
+
+    # redecl guard
+    $self->throw_redecl('data',$ARG->{value})
+    if $scope->has(@$path,'DATA',$ARG->{value});
+
+    # *attempt* solving
+    # finish decl if solved ;>
+    my $have=$self->value_solve($ARG,$v);
+
+    # give if not solved!
+    (! defined $have)
+      ? [$ARG=>$v]
+      : undef
+      ;
+
+
+  } @$name;
+
+
+  $self->wait_next_pass($branch,\@unsolved);
+
+
+};
+
+# ---   *   ---   *   ---
+# ^save [name=>value] to current namespace
+# but only if we were able to solve it!
+
+sub value_solve($self,$name,$value) {
+
+  my $rd    = $self->{rd};
+  my $l2    = $rd->{l2};
+  my $scope = $rd->{scope};
+  my $path  = $scope->{path};
+
+  my $have  = $l2->value_solve($value);
+
+  $scope->decl($have,@$path,'DATA',$name->{value})
+  if defined $have;
+
+
+  return $have;
+
+};
+
+# ---   *   ---   *   ---
+# wait for next pass if values pending
+# else discard branch
+
+sub wait_next_pass($self,$branch,$Q) {
+
+  if(@$Q) {
+
+    $branch->{solve_Q} //= [];
+    push @{$branch->{solve_Q}},@$Q;
+
+    $branch->clear();
+
+
+  } else {
+    $branch->discard();
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^icef*ck
+
+subwraps(
+
+  q[$self->decl_parse]=>q[$self,$branch],
+
+  map {[
+    "${ARG}_parse" => "\$branch,'$ARG'"
+
+  ]} qw(byte word dword qword)
+
+);
+
+# ---   *   ---   *   ---
+# attempts to solve pending values
+
+sub decl_ctx($self,$branch,$ezy) {
+
+  my $rd   = $self->{rd};
+  my $l2   = $rd->{l1};
+
+  my @have = grep {$ARG} map {
+
+    my ($name,$value)=@$ARG;
+    my $have=$self->value_solve($name,$value);
+
+    (! defined $have)
+      ? $ARG
+      : undef
+      ;
+
+  } @{$branch->{solve_Q}};
+
+
+  $self->wait_next_pass($branch,\@have);
+
+
+
+};
+
+# ---   *   ---   *   ---
+# ^icef*ck
+
+subwraps(
+
+  q[$self->decl_ctx]=>q[$self,$branch],
+
+  map {[
+    "${ARG}_ctx" => "\$branch,'$ARG'"
+
+  ]} qw(byte word dword qword)
+
+);
+
+# ---   *   ---   *   ---
 # makes new command!
 
 sub cmd_parse($self,$branch) {
@@ -151,13 +317,14 @@ sub cmd_parse($self,$branch) {
   my ($name,$args,$body)=
     @{$branch->{leaves}};
 
-  my $ucmd=$rd->{xns}->{ucmd};
+  my $scope = $rd->{scope};
+  my $path  = $scope->{path};
 
 
   # redecl guard
   $name=$name->{value};
   $self->throw_redecl('user command'=>$name)
-  if exists $ucmd->{$name};
+  if $scope->has(@$path,'UCMD',$name);
 
 
   # ^collapse optional
@@ -185,8 +352,8 @@ sub cmd_parse($self,$branch) {
 
   };
 
-  # ^save and remove branch
-  $ucmd->{$name}=$cmdtab;
+  # ^save to current namespace and remove branch
+  $scope->decl($cmdtab,@$path,'UCMD',$name);
   $branch->discard();
 
 };

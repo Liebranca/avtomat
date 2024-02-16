@@ -3,13 +3,18 @@
 # nevermind this file!
 # just testing the parser ;>
 
-cmd plfi name,value {
-  echo '%name% => %value%,';
+byte fwd  test;
+byte test 'hello!';
 
-};
+echo fwd;
 
-plfi name,avtomat;
-
+#cmd plfi name,value {
+#  echo '%name% => %value%,';
+#
+#};
+#
+#plfi name,avtomat;
+#
 #bat-cmd (name;scan;xcpy;lcpy) value {
 #  plfi (FNAME),value;
 #

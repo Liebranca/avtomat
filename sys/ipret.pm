@@ -39,7 +39,7 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -54,7 +54,7 @@ sub new($class,$src) {
     ;
 
   # ^mutate into interpreter
-  $self=bless {%$self,-at=>0},$class;
+  $self=bless {%$self},$class;
   $self->cstruc_layers();
 
 
@@ -68,7 +68,7 @@ sub new($class,$src) {
 sub crux($src) {
 
   my $self=ipret->new($src);
-  while($self->step()) {};
+  while($self->step(\&proc_solve,$self)) {};
 
 
   return $self;
@@ -76,62 +76,41 @@ sub crux($src) {
 };
 
 # ---   *   ---   *   ---
-# exec next branch
+# analyze next branch
 
-sub step($self) {
-
-
-  # get next *top* branch in tree
-  my $idex   = $self->{-at}++;
-
-  my $branch = $self->{tree};
-     $branch = $branch->{leaves}->[$idex];
-
-
-  # exit if whole tree walked ;>
-  return 0 if ! $branch;
+sub proc_solve($self,$nd,@Q) {
 
 
   # get ctx
-  my $l1   = $self->{l1};
-  my $lx   = $self->{lx};
-  my $ucmd = $self->{xns}->{ucmd};
+  my $l1    = $self->{l1};
+  my $lx    = $self->{lx};
+  my $scope = $self->{scope};
+  my $path  = $scope->{path};
 
 
-  # ^walk
-  my @pending=$branch;
-  while(@pending) {
+  # have command?
+  if(exists $nd->{cmdkey}) {
 
-    # set current
-    my $nd=shift @pending;
-    $self->{branch}=$nd;
-
-    # have command?
-    if(exists $nd->{cmdkey}) {
-
-      my $cmd=$NULLSTR;
-      my $key=$nd->{value};
+    my $cmd=$NULLSTR;
+    my $key=$nd->{value};
 
 
-      # user defined?
-      if(defined ($cmd=$l1->is_ucmd($key))) {
+    # user defined?
+    if(defined ($cmd=$l1->is_ucmd($key))) {
 
-        my $fn=$ucmd->{$cmd};
+      my $fn=$scope->get(
+        @$path,'UCMD',$cmd
 
-        $nd->prich();
-        $fn->{body}->prich();
+      );
 
-      # ^nope, builtin!
-      } else {
-        my $fn=$lx->passf($nd->{cmdkey});
+      $nd->prich();
+      $fn->{body}->prich();
 
-      };
+    # ^nope, builtin!
+    } else {
+      my $fn=$lx->passf($nd->{cmdkey});
 
     };
-
-
-    # go next
-    unshift @pending,@{$nd->{leaves}};
 
   };
 

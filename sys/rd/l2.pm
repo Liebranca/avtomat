@@ -25,7 +25,9 @@ package rd::l2;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+
   use Arstd::Array;
+  use Arstd::IO;
 
 # ---   *   ---   *   ---
 # info
@@ -58,8 +60,11 @@ sub new($class,$rd) {
 
 # ---   *   ---   *   ---
 # entry point
+#
+# sorts branches accto
+# their structure
 
-sub proc($self) {
+sub proc_parse($self) {
 
   my $rd=$self->{rd};
 
@@ -157,6 +162,65 @@ sub proc($self) {
 
 
   return;
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+sub proc_ctx($self,$nd,$Q) {
+
+  my $rd=$self->{rd};
+
+  if(exists $nd->{cmdkey}) {
+
+    my $lx  = $rd->{lx};
+    my $CMD = $lx->load_CMD();
+
+    my $fn  = $CMD->{$nd->{cmdkey}}->{'ctx'};
+
+
+    $fn->($lx,$nd) if defined $fn;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+sub value_solve($self,$src=undef) {
+
+  # default to current branch
+  my $rd    = $self->{rd};
+     $src //= $rd->{branch};
+
+  # get ctx
+  my $l1    = $rd->{l1};
+  my $scope = $rd->{scope};
+  my $path  = $scope->{path};
+
+
+  # output null if unsolved
+  my $out=undef;
+
+  # single token?
+  if(! @{$src->{leaves}}) {
+
+    $out=(! defined $l1->read_tag($src->{value}))
+      ? $l1->symbol_fetch('DATA',$src->{value})
+      : $src->{value}
+      ;
+
+  # ^nope, need some extra work!
+  } else {
+    $src->prich();
+    nyi('value collapse');
+
+  };
+
+
+  return $out;
 
 };
 

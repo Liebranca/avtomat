@@ -29,17 +29,15 @@ package Mach::Scope;
   use Chk;
 
   use Arstd::IO;
+  use Arstd::PM;
   use Arstd::Re;
 
   use Tree;
-  use Tree::Grammar;
-
-  use Lang;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -53,7 +51,7 @@ package Mach::Scope;
 sub new($class,%O) {
 
   # defaults
-  $O{sep}=qr{::}x;
+  $O{sep}=$DCOLON_RE;
 
   my $tree_f = Tree->new_frame();
   my $self   = bless {
@@ -108,7 +106,7 @@ sub rm($self,@path) {
 sub decl_branch($self,$o,@path) {
 
   throw_invalid_branchref($o,@path)
-  if ! Tree::Grammar->is_valid($o);
+  if ! Tree->is_valid($o);
 
   return $self->decl($o,@path,$BRANCH_PATH);
 
@@ -123,8 +121,8 @@ sub throw_invalid_branchref($o,@path) {
 
   errout(
 
-    q[Object at <%s> is not a ].
-    q[Tree::Grammar instance but a %s],
+    q[Data at <%s> is not a ].
+    q[Tree but a %s],
 
     args => [$path,ref $o],
     lvl  => $AR_FATAL,
@@ -590,52 +588,43 @@ sub cdef_call($self,$f,$name,@args) {
 };
 
 # ---   *   ---   *   ---
-# cdef wraps over all other methods
+# ^icef*ck
 
-sub cdef_decl($self,$o,@name) {
-  $self->cdef_call('decl',\@name,$o);
+subwraps(
 
-};
+  q[$self->cdef_call] => q[$self,$o,@name],
 
-sub cdef_decl_branch($self,$o,@name) {
-  $self->cdef_call('decl_branch',\@name,$o);
+  map {["cdef_$ARG" => "'$ARG'," . q[\@name,$o]]}
+  qw  (decl decl_branch asg)
 
-};
+);
 
-sub cdef_asg($self,$o,@name) {
-  $self->cdef_call('asg',\@name,$o);
+# ---   *   ---   *   ---
+# ^same idea, different signature
 
-};
+subwraps(
 
-sub cdef_rget($self,@name) {
-  $self->cdef_call('rget',\@name);
+  q[$self->cdef_call] => q[$self,@name],
 
-};
+  map {["cdef_$ARG" => "'$ARG'," . q[\@name]]}
+  qw  (rget get rm has)
 
-sub cdef_get($self,@name) {
-  $self->cdef_call('get',\@name);
+);
 
-};
+# ---   *   ---   *   ---
+# ^continued...
 
-sub cdef_rm($self,@name) {
-  $self->cdef_call('rm',\@name);
+subwraps(
 
-};
+  q[$self->cdef_call] => q[$self,@name],
 
-sub cdef_has($self,@name) {
-  $self->cdef_call('has',\@name);
+  map {["cdef_$ARG" => "'$ARG'," . q[[],\@name]]}
+  qw  (search search_nc)
 
-};
+);
 
-sub cdef_search($self,@name) {
-  $self->cdef_call('search',[],@name);
-
-};
-
-sub cdef_search_nc($self,@name) {
-  $self->cdef_call('search_nc',[],@name);
-
-};
+# ---   *   ---   *   ---
+# ^wrap single
 
 sub cdef_cderef($self,$fet,$vref,@name) {
   $self->cdef_call('cderef',\@name,$fet,$vref);
