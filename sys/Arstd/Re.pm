@@ -73,7 +73,7 @@ package Arstd::Re;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.4;
+  our $VERSION=v0.00.5;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -85,6 +85,7 @@ sub alt($ar,%O) {
   $O{capt}   //= 0;
   $O{bwrap}  //= 0;
   $O{insens} //= 0;
+  $O{mkre}   //= 1;
 
   # optional proc
   if($O{insens} > 0) {
@@ -98,10 +99,20 @@ sub alt($ar,%O) {
 
   # ^run optional procs
   $out=capt($out,$O{capt},insens=>$O{insens});
-  $out=bwrap($out) if $O{bwrap};
+  $out=bwrap($out,$O{bwrap}) if $O{bwrap};
 
 
-  return qr{$out}x;
+  # compile regex?
+  if($O{mkre}) {
+
+    $out=($O{insens})
+      ? qr{$out}xi
+      : qr{$out}x
+      ;
+
+  };
+
+  return $out;
 
 };
 
@@ -184,6 +195,7 @@ sub capt($pat,$name=0,%O) {
 
   # defaults
   $O{insens} //= 0;
+  $O{mkre}   //= 1;
 
   my $out=$NULLSTR;
   my $beg='(';
@@ -196,7 +208,7 @@ sub capt($pat,$name=0,%O) {
   # make (?<named> capture)
   } elsif($name) {
 
-    $name=($name =~ m[^\d])
+    $name=($name=~ m[^\d])
       ? 'capt'
       : $name
       ;
@@ -205,19 +217,26 @@ sub capt($pat,$name=0,%O) {
 
   };
 
-  # case-insenstive perl re
-  if($O{insens} < 0) {
-    $out=qr{$beg$pat$end}xi;
 
-  # ^posix re
-  } elsif($O{insens} > 0) {
+  # handle insens posix re
+  if($O{insens} > 0) {
     $pat=insens($pat);
-    $out=qr{$beg$pat$end}x;
-
-  } else {
-    $out=qr{$beg$pat$end}x;
 
   };
+
+
+  # compile regex?
+  $out="$beg$pat$end";
+
+  if($O{mkre}) {
+
+    $out=($O{insens})
+      ? qr{$out}xi
+      : qr{$out}x
+      ;
+
+  };
+
 
   # ^give (pattern)
   return $out;
@@ -266,8 +285,14 @@ sub dcapt($beg,$end,%O) {
 # ---   *   ---   *   ---
 # wraps in word delimiter
 
-sub bwrap($pat) {
-  return '\b' . $pat . '\b';
+sub bwrap($pat,$mode=1) {
+
+  my $wrap=($mode ne 1)
+    ? '(?:\b|_)'
+    : '\b'
+    ;
+
+  return "$wrap$pat$wrap";
 
 };
 
@@ -286,6 +311,7 @@ sub nxtok($s,$re) {
 sub eiths($ar,%O) {
 
   # defaults
+  $O{mkre}     //= 1;
   $O{opscape}  //= 0;
   $O{capt}     //= 0;
   $O{bwrap}    //= 0;
@@ -312,11 +338,25 @@ sub eiths($ar,%O) {
     capt   => $O{capt},
     bwrap  => $O{bwrap},
 
+    mkre   => 0,
+
   ) . $O{mod};
 
 
+  # match whole string?
   $out="^$out\$" if $O{whole};
-  return qr{$out}x;
+
+  # compile regex?
+  if($O{mkre}) {
+
+    $out=($O{insens})
+      ? qr{$out}xi
+      : qr{$out}x
+      ;
+
+  };
+
+  return $out;
 
 };
 
@@ -328,9 +368,12 @@ sub pekey(@ar) {
 
   # defaults
   my %O=(
+
     opscape => 1,
+
     insens  => -1,
-    bwrap   => 1,
+    bwrap   => -1,
+    capt    => 1,
 
   );
 

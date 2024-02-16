@@ -40,31 +40,13 @@ package Avt::FFI;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# ROM
+# GBL:LIS
 
-  our $Typetab=Vault::cached(
+  use Type::Platypus;
 
-    'Typetab'   => \&xltab,
+  Readonly our $TYPETAB=>
+    $Type::Platypus::TABLE;
 
-    q[byte]     => ['uint8'],
-    q[sbyte]    => ['sint8'],
-    q[word]     => ['uint16'],
-    q[sword]    => ['sint16'],
-
-    q[dword]    => ['uint32'],
-    q[sdword]   => ['sint32'],
-    q[qword]    => ['uint64'],
-    q[sqword]   => ['sint64'],
-
-    q[byte_str] => ['string'],
-    q[word_str] => ['wstring'],
-
-    q[real]     => ['float'],
-    q[dreal]    => ['double'],
-
-    q[pe_void]  => ['opaque'],
-
-  );
 
 # ---   *   ---   *   ---
 # GBL
@@ -132,10 +114,12 @@ sub sticky($class,$coderef) {
 
 sub new($class) {
 
+
   my $olderr=errmute();
   my $ffi=FFI::Platypus->new(api=>2);
 
   erropen($olderr);
+
 
   # this mess of an edge case
   $ffi->load_custom_type(
@@ -143,14 +127,16 @@ sub new($class) {
 
   );
 
-  my @keys   = array_keys($Typetab);
-  my @values = array_values($Typetab);
+  my @keys   = array_keys($TYPETAB);
+  my @values = array_values($TYPETAB);
+
 
   # set type aliases
   while(@keys && @values) {
 
-    my $ffi_type=shift @keys;
-    my $alias=shift @values;
+    my $ffi_type = shift @keys;
+    my $alias    = shift @values;
+
 
 # ---   *   ---   *   ---
 # NOTE; lyeb@IBN-3DILA on 08/06/22 23:31:54
@@ -172,6 +158,7 @@ sub new($class) {
   # function types
   $ffi->type('(void)->void'=>'nihil');
 
+
 # ---   *   ---   *   ---
 # NOTE: lyeb@IBN-3DILA on 08/07/22 00:13:04
 #
@@ -180,57 +167,8 @@ sub new($class) {
   $ffi->type('(opaque)->void'=>'stark');
   $ffi->type('(uint64)->uint64'=>'signal');
 
+
   return $ffi;
-
-};
-
-# ---   *   ---   *   ---
-# make translation table
-
-sub xltab(@table) {
-
-  my $result=[];
-
-  my @keys=array_keys(\@table);
-  my @values=array_values(\@table);
-
-  while(@keys && @values) {
-    my $key=shift @keys;
-    my $value=shift @values;
-
-    for my $ffi_type(@$value) {
-        push @$result,$ffi_type=>$key;
-
-    };
-
-
-  # make pointer types
-  for my $indlvl(1..3) {
-
-    my $peso_ind=$Type::Indirection_Key->[$indlvl-1];
-
-    my $c_ind=q[*] x $indlvl;
-    my $peso_type="${key}_$peso_ind";
-
-    for my $ffi_type(@$value) {
-
-      my $ctype;
-      if($indlvl==1) {
-        $ctype="$ffi_type$c_ind";
-
-      } else {
-        $ctype='opaque*';
-
-      };
-
-      push @$result,$ctype=>$peso_type;
-
-    };
-
-  }};
-
-
-  return $result;
 
 };
 

@@ -78,6 +78,9 @@ my $FILE_LIST=[
   '/sys/Tree/Dep.pm',
 
   '/sys/Type.pm',
+  '/sys/Type/C.pm',
+  '/sys/Type/Cpp.pm',
+  '/sys/Type/Platypus.pm',
 
   '/sys/Shb7.pm',
   '/sys/Shb7/Path.pm',
@@ -382,3 +385,4 @@ print {*STDERR} "\e[37;1m::\e[0mdone\n\n";
 
 # ---   *   ---   *   ---
 1; # ret
+

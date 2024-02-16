@@ -28,6 +28,7 @@ package Arstd::Struc;
 
   use Style;
   use Type;
+  use Bpack;
   use Chk;
 
   use Arstd::Array;

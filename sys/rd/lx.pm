@@ -287,8 +287,6 @@ sub decl_ctx($self,$branch,$ezy) {
 
   $self->wait_next_pass($branch,\@have);
 
-
-
 };
 
 # ---   *   ---   *   ---

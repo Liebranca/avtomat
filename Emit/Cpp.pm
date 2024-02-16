@@ -35,30 +35,16 @@ package Emit::Cpp;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;#b
+  our $VERSION=v0.00.2;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
-# ROM
+# GBL:LIS
 
-  Readonly our $TYPES=>[
+  use Type::Cpp;
 
-    q[real2]   => ['glm::vec2','vec2'],
-    q[real3]   => ['glm::vec3','vec3'],
-    q[real4]   => ['glm::vec4','vec4'],
-
-    q[dword2]  => ['glm::uvec2','uvec2'],
-    q[dword3]  => ['glm::uvec3','uvec3'],
-    q[dword4]  => ['glm::uvec4','uvec4'],
-
-    q[sdword2] => ['glm::ivec2','ivec2'],
-    q[sdword3] => ['glm::ivec3','ivec3'],
-    q[sdword4] => ['glm::ivec4','ivec4'],
-
-    q[real9]   => ['glm::mat3','mat3'],
-    q[real16]  => ['glm::mat4','mat4'],
-
-  ];
+  Readonly our $TYPETAB=>
+    $Type::Cpp::TABLE;
 
 
 # ---   *   ---   *   ---
@@ -84,18 +70,6 @@ sub close_guards($class,$fname) {
   return "#endif // __${fname}_H__\n";
 
 };
-
-# ---   *   ---   *   ---
-# GBL
-
-  our $Typetab=Vault::cached(
-
-    'Typetab',
-
-    \&Emit::C::xltab,
-    (@{$Emit::C::TYPES},@$TYPES)
-
-  );
 
 # ---   *   ---   *   ---
 1; #ret

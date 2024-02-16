@@ -26,6 +26,7 @@ package Arstd::Bitformat;
 
   use Style;
   use Type;
+  use Bpack;
 
   use Arstd::Array;
   use Arstd::Bytes;

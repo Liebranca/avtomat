@@ -84,7 +84,7 @@ sub typetrim($class,$typeref) {
 sub get_typetab($class) {
 
   no strict 'refs';
-  my $out=${"$class\::Typetab"};
+  my $out=${"$class\::TYPETAB"};
 
   use strict 'refs';
 

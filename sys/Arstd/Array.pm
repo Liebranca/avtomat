@@ -95,7 +95,7 @@ sub nth($ar,$n,$i) {
   ];
 
   $matches//=[];
-  return @$matches;
+  return grep {$ARG} @$matches;
 
 };
 

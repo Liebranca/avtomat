@@ -39,45 +39,16 @@ package Emit::C;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.6;#b
+  our $VERSION=v0.00.7;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
-# ROM
+# LIS:GBL
 
-  Readonly our $TYPES=>[
+  use Type::C;
 
-    q[sbyte] => ['int8_t'],
-    q[byte]  => [
-      'uint8_t','uchar','unsigned char'
-
-    ],
-
-    q[sword]    => ['int16_t','short'],
-    q[word]     => ['uint16_t','ushort'],
-
-    q[byte_str] => ['char*'],
-    q[word_str] => ['wchar_t*'],
-
-    q[dword]    => ['uint32_t','uint'],
-    q[sdword]   => ['int32_t','int'],
-
-    q[qword]    =>[
-      'uint64_t','ulong','size_t','uintptr_t',
-
-    ],
-
-    q[sqword] => [
-      'int64_t','long','intptr_t',
-
-    ],
-
-    q[real]     => ['float'],
-    q[daut]     => ['double'],
-
-    q[pe_void]  => ['void'],
-
-  ];
+  Readonly our $TYPETAB=>
+    $Type::C::TABLE;
 
 
 # ---   *   ---   *   ---
@@ -117,18 +88,6 @@ sub close_guards($class,$fname) {
   ;
 
 };
-
-# ---   *   ---   *   ---
-# GBL
-
-  our $Typetab=Vault::cached(
-
-    'Typetab',
-
-    \&xltab,
-    @$TYPES
-
-  );
 
 # ---   *   ---   *   ---
 # removes "cruft", so to speak ;>
@@ -403,7 +362,6 @@ sub datasec($class,$name,$type,@items) {
 
   };
 
-# ---   *   ---   *   ---
 
   my $i=0;
   for my $item(@items) {
@@ -418,7 +376,6 @@ sub datasec($class,$name,$type,@items) {
 
   };
 
-# ---   *   ---   *   ---
 
   if($type eq 'enum') {
     $s.=",\n $name\n\n};\n\n";
@@ -460,136 +417,6 @@ sub switch_tab($class,$x,%O) {
   } keys %O;
 
   return "switch($x) {\n\n$out\n};\n";
-
-};
-
-# ---   *   ---   *   ---
-# makes peso-C translation table
-# saves you from typing pointer
-# types manually
-
-sub xltab(%table) {
-
-
-  # make string types
-  for my $key(qw(byte_str word_str)) {
-  for my $indlvl(1..2) {
-
-    my $peso_ind=
-      $Type::Indirection_Key->[$indlvl-1];
-
-    my $c_ind  = q[*] x $indlvl;
-    my $subtab = $table{"${key}_$peso_ind"}=[];
-
-    for my $ctype(@{$table{$key}}) {
-      push @$subtab,"$ctype$c_ind";
-
-    };
-
-  }};
-
-
-  # batmake pointer types
-  for my $key(keys %table) {
-  next if $key=~ m[_str_];
-
-  for my $indlvl(1..3) {
-
-    my $peso_ind=
-      $Type::Indirection_Key->[$indlvl-1];
-
-    my $c_ind  = q[*] x $indlvl;
-    my $subtab = $table{"${key}_$peso_ind"}=[];
-
-    for my $ctype(@{$table{$key}}) {
-      push @$subtab,"$ctype$c_ind";
-
-    };
-
-  }};
-
-
-  # collect results
-  my $result={};
-
-  for my $key(keys %table) {
-    for my $ctype(@{$table{$key}}) {
-      $result->{$ctype}=$key;
-
-    };
-
-
-    # make first ctype the
-    # preferred one for reverse
-    # typecon ops
-    #
-    # which makes no sense, as
-    # these are all aliasing the
-    # exact same data size
-    #
-    # IIRC this is just so the
-    # compiler doesn't implode uppon
-    # reading the "wrong" typedef
-    #
-    # so bullsheezels through and through
-
-    my $pref=$table{$key}->[0];
-    $result->{$key}=$pref;
-
-  };
-
-
-  # something something weren't we
-  # done with needless pointer """types"""?
-  my %strtypes=(
-
-    byte=>[
-
-      map
-        {$ARG=substr $ARG,0,(length $ARG)-1}
-        @{$table{byte_str}}
-
-    ],
-
-    word=>[
-
-      map
-        {$ARG=substr $ARG,0,(length $ARG)-1}
-        @{$table{word_str}}
-
-    ],
-
-  );
-
-
-  # something something why the heck
-  # do you even need all these aliases
-  # for numbers of the same width
-  for my $key(qw(byte word)) {
-  for my $ctype(@{$strtypes{$key}}) {
-    $result->{$ctype}=$key;
-
-  }};
-
-
-  return $result;
-
-};
-
-# ---   *   ---   *   ---
-# DEPRECATED: use Emit::Cpp
-#
-# clears C stuff from hpp guards
-
-sub cpptrim($class,$sref) {
-
-  $$sref=~ s[
-
-    \#ifdef \s+ __cplusplus
-    [^\#]+
-    \#endif
-
-  ][]sxmg;
 
 };
 
