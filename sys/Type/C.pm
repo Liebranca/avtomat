@@ -47,35 +47,35 @@ package Type::C;
       \&Type::xlatetab,q[Type::C],
 
 
-    q[sign_byte]     => ['int8_t'],
-    q[byte]          => [
+    q[sign_byte]      => ['int8_t'],
+    q[byte]           => [
       'uint8_t','uchar','unsigned char'
 
     ],
 
-    q[sign_word]     => ['int16_t','short'],
-    q[word]          => ['uint16_t','ushort'],
+    q[sign_word]      => ['int16_t','short'],
+    q[word]           => ['uint16_t','ushort'],
 
-    q[long_byte_str] => ['char*'],
-    q[long_word_str] => ['wchar_t*'],
+    q[long_byte_cstr] => ['char*'],
+    q[long_wide_cstr] => ['wchar_t*'],
 
-    q[dword]         => ['uint32_t','uint'],
-    q[sign_dword]    => ['int32_t','int'],
+    q[dword]          => ['uint32_t','uint'],
+    q[sign_dword]     => ['int32_t','int'],
 
-    q[qword]         => [
+    q[qword]          => [
       'uint64_t','ulong','size_t','uintptr_t',
 
     ],
 
-    q[sign_qword]    => [
+    q[sign_qword]     => [
       'int64_t','long','intptr_t',
 
     ],
 
-    q[real]          => ['float'],
-    q[dreal]         => ['double'],
+    q[real]           => ['float'],
+    q[dreal]          => ['double'],
 
-    q[nullarg]       => ['void'],
+    q[nullarg]        => ['void'],
 
   );
 

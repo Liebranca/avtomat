@@ -121,25 +121,58 @@ sub get_gframe($class) {
 
 sub new_frame($class,%O) {
 
-  $O{-owner_kls}//=(caller)[0];
-  $O{-prev_owners}=[];
+  # general defaults
+  $O{-owner_kls}  //= (caller)[0];
+  $O{-force_idex} //= 0;
+  $O{-prev_owners}  = [];
 
+  # ^fetch class-specific defaults!
   my $vars=$class->Frame_Vars();
   map {$O{$ARG}//=$vars->{$ARG}} keys %$vars;
 
+  # ^assign owner class
   $O{-class}=$class;
 
-  my $frame=Frame->_new(%O);
+  # ensure we have an icebox ;>
   $Frames->{$class}//=[];
+  my $icebox=$Frames->{$class};
 
-  push @{$Frames->{$class}},$frame;
+
+  # remember requested idex
+  my $idex=$O{-force_idex};
+  delete $O{-force_idex};
+
+  # ^make ice
+  my $frame=Frame->_new(%O);
+
+  # no idex asked for?
+  if($idex) {
+
+    my $i    = 0;
+       $idex = undef;
+
+    # get first undefined slot
+    map {
+      $idex //= $i
+      if ! $icebox->[$i++]
+
+    } @$icebox;
+
+    # ^top of array if none avail!
+    $idex //= $i;
+
+  };
+
+
+  # save ice and give
+  $Frames->{$class}->[$idex]=$frame;
 
   return $frame;
 
 };
 
 # ---   *   ---   *   ---
-# ^get existing or create new
+# ^get existing or make new
 
 sub get_frame($class,$i=0) {
 

@@ -220,7 +220,7 @@ sub from_bytes($self,$raw,$cnt=1) {
 
   # break down into chunks
   my $len   = $self->{bytesize};
-  my @types = array_typeof($len);
+  my @types = typeof($len);
 
 
   my $fmat  = join $NULLSTR,map {

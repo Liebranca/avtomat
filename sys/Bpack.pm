@@ -96,7 +96,7 @@ sub _array_bpack_proto(
   push @{$oref->[0]},$f->($fmat,$data);
   $oref->[$$iref+1]++;
 
-  $$tref+=(exists $Table->{$types->[$$iref]})
+  $$tref+=(Type->is_valid($types->[$$iref]))
     ? sizeof($types->[$$iref])
     : 1+length $oref->[0]->[-1]
     ;
@@ -221,7 +221,7 @@ Readonly my $CSTR_RE=>qr{\$Z};
 
 sub _fmat_data_break($packing,$fmat,@data) {
 
-  if($fmat=~ $re) {
+  if($fmat=~ $CSTR_RE) {
 
     @data=map {(
 

@@ -39,6 +39,9 @@ package Arstd::IO;
   use Exporter 'import';
   our @EXPORT=qw(
 
+    ioprocin
+    ioprocout
+
     fstrout
     box_fstrout
 
@@ -63,7 +66,7 @@ package Arstd::IO;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.4;#a
+  our $VERSION=v0.00.5;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -105,6 +108,51 @@ sub ttysz_yx() {
 
 sub ttysz_xy() {
   return (reverse split qr{\s},`stty size`);
+
+};
+
+# ---   *   ---   *   ---
+# sets default options
+# for an I/O F
+
+sub ioprocin($O) {
+
+  my @bufio=();
+
+  $O->{errout} //= 0;
+  $O->{mute}   //= 0;
+  $O->{-bufio}   = \@bufio;
+
+
+  return $O->{-bufio};
+
+};
+
+# ---   *   ---   *   ---
+# ^handles output!
+
+sub ioprocout($O) {
+
+  # cat buf
+  my $out=join $NULLSTR,@{$O->{-bufio}};
+
+  # write to tty?
+  if(! $O->{mute}) {
+
+    # select fto
+    my $fh=($O->{errout})
+      ? *STDERR
+      : *STDOUT
+      ;
+
+    return say {$fh} $out;
+
+
+  # ^nope, just give string
+  } else {
+    return $out;
+
+  };
 
 };
 

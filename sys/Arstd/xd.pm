@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
 # XD
-# Display heX
+# heX Dump
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -57,7 +57,7 @@ package Arstd::xd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -73,8 +73,13 @@ sub from_file($fpath) {
 # goes through bytestr and
 # prints out repr
 
-sub draw($body) {
+sub draw($body,%O) {
 
+  # I/O defaults
+  my $out=ioprocin(\%O);
+
+
+  # walk bytes
   my $k=15;
 
   while(length $body) {
@@ -150,23 +155,30 @@ sub draw($body) {
 
 
     if($diff && $k > 16) {
-      say "\n",sprintf "+%01X",$diff if $diff;
+
+      push @$out,"\n",
+        sprintf "+%01X\n",$diff if $diff;
 
     } else {
 
-      say "\n\n",sprintf "\$%04X :>",($k-16) >> 4
+      push @$out,"\n\n",
+        sprintf "\$%04X :>\n",($k-16) >> 4
+
       if ! ($k % 16);
 
-      say $NULLSTR if ! ($k %  4);
+      push @$out,,"\n" if ! ($k %  4);
 
     };
 
     # out (human)line
-    say ' ',$sl,'| ',$sr;
+    push @$out,' ',$sl,'| ',$sr,"\n";
 
   };
 
-  say $NULLSTR;
+  push @$out,"\n";
+
+
+  return ioprocout(\%O);
 
 };
 

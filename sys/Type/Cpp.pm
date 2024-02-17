@@ -45,16 +45,21 @@ package Type::Cpp;
       \&Type::xlatetab,q[Type::C],
 
 
-    q[real_qword] => ['glm::vec2','vec2'],
-    q[real_xword] => ['glm::vec4','vec4'],
+    q[vec2]  => ['glm::vec2','vec2'],
+    q[vec3]  => ['glm::vec3','vec3'],
+    q[vec4]  => ['glm::vec4','vec4'],
 
-    q[qword]      => ['glm::uvec2','uvec2'],
-    q[xword]      => ['glm::uvec4','uvec4'],
+    q[uvec2] => ['glm::uvec2','uvec2'],
+    q[uvec3] => ['glm::uvec3','uvec3'],
+    q[uvec4] => ['glm::uvec4','uvec4'],
 
-    q[sign_qword] => ['glm::ivec2','ivec2'],
-    q[sign_xword] => ['glm::ivec4','ivec4'],
+    q[ivec2] => ['glm::ivec2','ivec2'],
+    q[ivec3] => ['glm::ivec3','ivec3'],
+    q[ivec4] => ['glm::ivec4','ivec4'],
 
-    q[real_zword] => ['glm::mat4','mat4'],
+
+    q[mat3]  => ['glm::mat3','mat3'],
+    q[mat4]  => ['glm::mat4','mat4'],
 
   );
 
