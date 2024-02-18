@@ -410,7 +410,7 @@ sub mord($str,%O) {
 
 # ---   *   ---   *   ---
 # ^fixes that problem
-# by handling you an array ;>
+# by handing you an array ;>
 
 sub lmord($str,%O) {
 

@@ -43,7 +43,6 @@ package Type::MAKE;
   our @EXPORT=qw(
 
     typefet
-    derefof
     typedef
     layas
 
@@ -54,7 +53,7 @@ package Type::MAKE;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -90,10 +89,13 @@ package Type::MAKE;
 
     # ^ALL the elements!
     defn=>[qw(
+
       byte  word  dword qword
       xword yword zword
 
       real  dreal
+
+      wide
 
     )],
 
@@ -116,7 +118,7 @@ package Type::MAKE;
 
     # strings are so special aren't they
     str_t=>[qw(
-      str cstr plcstr
+      str cstr plstr
 
     )],
 
@@ -141,6 +143,8 @@ package Type::MAKE;
     (map {$ARG=>1} @{$LIST->{ptr_t}}),
     (map {$ARG=>0} @{$LIST->{str_t}}),
 
+    wide => 1,
+
   };
 
   # ^maximum power of 2 allowed
@@ -159,15 +163,20 @@ package Type::MAKE;
     vec   => 0x004,
     mat   => 0x008,
 
+
     tiny  => 0x010,
     short => 0x020,
     mean  => 0x040,
     long  => 0x080,
 
-    ptr   => 0x0F0,
-
     str   => 0x100,
     cstr  => 0x200,
+    plstr => 0x400,
+
+
+    ptr_w => 0x0F0,
+    str_t => 0x700,
+    ptr   => 0x7F0,
 
   };
 
@@ -175,43 +184,38 @@ package Type::MAKE;
   # sizes for the bytepacker!
   Readonly my $TYPEPACK=>{
 
-    byte  => 'C',
-    tiny  => 'C',
+    byte   => 'C',
+    tiny   => 'C',
 
-    word  => 'S',
-    wide  => 'S',
-    short => 'S',
+    word   => 'S',
+    wide   => 'S',
+    short  => 'S',
 
-    dword => 'L',
-    mean  => 'L',
+    dword  => 'L',
+    mean   => 'L',
 
-    qword => 'Q',
-    long  => 'Q',
-    xword => 'Q',
-    yword => 'Q',
-    zword => 'Q',
+    qword  => 'Q',
+    long   => 'Q',
+    xword  => 'Q',
+    yword  => 'Q',
+    zword  => 'Q',
 
-    real  => 'F',
-    dreal => 'D',
+    real   => 'F',
+    dreal  => 'D',
+
+    str    => 'Z',
+    cstr   => 'Z*',
+    plstr  => 'u',
 
   };
 
 # ---   *   ---   *   ---
 # GBL
 
-  my $Table=Vault::cached(
+  our $Table=Vault::cached(
     'Table' => \&define_base
 
   );
-
-# ---   *   ---   *   ---
-# removes "ptr" from typename
-
-sub derefof($name) {
-  $name=~ s[$RE->{ptr_w}|$RE->{ptr_t}][]sxmg;
-  return namestrip($name);
-
-};
 
 # ---   *   ---   *   ---
 # cleanups unwanted spaces in typename
@@ -281,18 +285,6 @@ sub _fetch(@flags) {
   $cnt //= 1;
 
 
-  # get idex for each flag
-  my $idex=0;
-  my $itab={map {$ARG=>$idex++} @flags};
-
-  # ^get ptr alias
-  map  {$itab->{ptr} //= $itab->{$ARG}}
-  grep {$ARG=~ $RE->{ptr_w}} @flags;
-
-  # ^default missing
-  map {$itab->{$ARG} //= -1} keys %$TYPEFLAG;
-
-
   # combine flags
   my $flags=0x00;
 
@@ -303,6 +295,7 @@ sub _fetch(@flags) {
   # pointers are not real! ;>
      $flags &=~ $TYPEFLAG->{real}
   if $flags &   $TYPEFLAG->{ptr};
+
 
   # reals are always signed!
      $flags &=~ $TYPEFLAG->{sign}
@@ -315,6 +308,7 @@ sub _fetch(@flags) {
     : $key
     ;
 
+
   map  {$name  = "$ARG $name"}
   grep {$flags & $TYPEFLAG->{$ARG}}
   qw   (sign);
@@ -322,6 +316,10 @@ sub _fetch(@flags) {
   map  {$name  = "$name $ARG$cnt"}
   grep {$flags & $TYPEFLAG->{$ARG}}
   qw   (vec mat);
+
+  map  {$name  = "$name ${ARG}";$key=$ARG}
+  grep {$flags & $TYPEFLAG->{$ARG}}
+  qw   (str cstr plstr);
 
   map  {$name  = "$name ${ARG}ptr";$key=$ARG}
   grep {$flags & $TYPEFLAG->{$ARG}}
@@ -451,27 +449,57 @@ sub fetch(@flags) {
 
   # get format for bytepacker
   my $sign =
-      $flags & $TYPEFLAG->{sign}
-  &&! ($flags & $TYPEFLAG->{ptr})
-  ;
+      ($flags & $TYPEFLAG->{sign} )
+  &&! ($flags & $TYPEFLAG->{ptr});
 
   my $fmat = $TYPEPACK->{$key};
      $fmat = lc $fmat if $sign;
 
 
+  # ^handle string packing formats!
+  if( ($flags & $TYPEFLAG->{str_t})
+  &&! ($flags & $TYPEFLAG->{ptr_w})
+
+  ) {
+
+    # we'll implement this eventually ;>
+    if($key eq 'str') {
+      nyi('peso strings');
+
+    # absolute corner case:
+    # PACKING WIDE STRINGS
+    } elsif($name=~ q{\b(?:wide|plstr)\b}) {
+
+      $fmat   = 'u';
+      $ebm    = $ebm | ($ebm << 8);
+
+      $tby  <<= 1;
+      $ebs  <<= 1;
+
+      $tzy++;
+
+    };
+
+
+  # ^and *this* for everything else!
+  } else {$fmat="$fmat\[$cnt]"};
+
+
   # make Table entry
   my $out={
 
-    packof => "$fmat\[$cnt]",
+    packof  => $fmat,
 
-    sizeof => $tby,
-    sizep2 => $tzy,
-    sizebs => $ebs,
-    sizebm => $ebm,
+    sizeof  => $tby,
+    sizep2  => $tzy,
+    sizebs  => $ebs,
+    sizebm  => $ebm,
 
-    layout => $layout,
-    name   => $name,
+    layout  => $layout,
+    name    => $name,
 
+    struc_t => [],
+    struc_i => [],
 
   };
 
@@ -504,18 +532,25 @@ sub throw_invalid_type($name) {
 };
 
 # ---   *   ---   *   ---
-# make an alias for a type
+# get type hashref from string
+#
+# *IF* you don't already have
+# the hashref!
 
-sub lis($dst,@src) {
+sub typefet(@src) {
 
-  my $type=(! is_hashref($src[0]))
+  return (! is_hashref($src[0]))
     ? fetch(@src)
     : $src[0]
     ;
 
-  $Table->{$dst}=$type;
+};
 
-  return $type;
+# ---   *   ---   *   ---
+# make an alias for a type
+
+sub typedef($dst,@src) {
+  return $Table->{$dst}=typefet @src;
 
 };
 
@@ -524,13 +559,8 @@ sub lis($dst,@src) {
 
 sub layas($dst,@src) {
 
-  my $type=(! is_hashref($src[0]))
-    ? fetch(@src)
-    : $src[0]
-    ;
-
-
-  map {
+  my $type = typefet @src;
+  my @out  = map {
 
     ($ARG > 1)
       ? [map {shift @$dst} 1..$ARG]
@@ -539,6 +569,32 @@ sub layas($dst,@src) {
 
 
   } @{$type->{layout}};
+
+
+  return (@{$type->{struc_t}})
+    ? _layas_struc($type,@out)
+    : @out
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# ^makes hashref!
+
+sub _layas_struc($type,@data) {
+
+  my $fi    = 0;
+  my $field = $type->{struc_i};
+
+  # from X->[idex]
+  # to   X->{name}
+  my $out   = {
+    map {$ARG=>$data[$fi++]} @$field
+
+  };
+
+
+  return $out;
 
 };
 
@@ -549,7 +605,13 @@ sub layas($dst,@src) {
 sub define_base() {
 
 
-  lis ptr => 'word short',0x00;
+  typedef ptr   => 'word short';
+  typedef cstr  => 'byte cstr';
+  typedef plstr => 'wide plstr';
+
+# NYI
+#  typedef str   => 'byte str';
+#  typedef wstr  => 'wide str';
 
 
   # make vector aliases
@@ -574,8 +636,10 @@ sub define_base() {
       my $type=$ARG;
       my $name="$i$type";
 
-      map {lis "$type$ARG" => ($ezy,"$type$ARG")}
-      2..4;
+      map {
+         typedef "$type$ARG" => ($ezy,"$type$ARG")
+
+      } 2..4;
 
 
     } qw(vec mat);
@@ -587,12 +651,6 @@ sub define_base() {
   return $Table;
 
 };
-
-# ---   *   ---   *   ---
-# exporter names
-
-  *typefet=*fetch;
-  *typedef=*lis;
 
 # ---   *   ---   *   ---
 1; # ret

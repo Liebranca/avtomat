@@ -29,6 +29,7 @@ package A9M::vmem;
   use Type;
 
   use Arstd::Array;
+  use Arstd::Bytes;
   use Arstd::xd;
 
   use parent 'Tree';
@@ -141,15 +142,30 @@ sub store($self,$value,$type,$addr=undef) {
   return $type if $type=~ $INBOUNDS_ERR;
 
 
+  # solve value accto type
+  my @value=($value);
+
+  # ^de-nesting of plain array
+  if(is_arrayref($value)) {
+    @value=array_flatten($value);
+
+  # ^de-hashing of structures
+  } elsif(is_hashref($value)) {
+
+    my $field = $type->{struc_i};
+    my $order = [ map {$value->{$ARG}} @$field];
+
+       @value = array_flatten($order);
+
+  };
+
+
   # make bytes from value
   my $fmat  = $type->{packof};
-  my $bytes = (is_arrayref($value))
-    ? pack $fmat,array_flatten($value)
-    : pack $fmat,$value
-    ;
+  my $bytes = pack $fmat,@value;
 
   # ^write to buf
-  substr $self->{buf},$addr,$type->{sizeof},$bytes;
+  substr $self->{buf},$addr,length $bytes,$bytes;
 
 
   return;
@@ -201,16 +217,25 @@ sub prich($self,%O) {
 # ---   *   ---   *   ---
 # test
 
-my $CAS = A9M::vmem->nas();
-my $mem = $CAS->new(0x10);
+use Fmat;
 
-my $ar  = $mem->load('byte vec3'=>0x00);
+my $CAS  = A9M::vmem->nas();
+my $mem  = $CAS->new(0x10);
 
-$ar->[0]=0x25;
-$ar->[1]=0x24;
+my $type = struc cvec=>q[
+  word fa[3];
+  word fb;
+
+];
 
 
-$mem->store($ar,'byte vec3'=>0x00);
+my $ar=$mem->load(cvec=>0x00);
+
+$ar->{fa}->[1] = 0x2424;
+$ar->{fb}      = 0x2121;
+
+
+$mem->store($ar,cvec=>0x00);
 $mem->prich();
 
 # ---   *   ---   *   ---

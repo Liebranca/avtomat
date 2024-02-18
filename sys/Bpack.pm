@@ -36,7 +36,7 @@ package Bpack;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -217,11 +217,11 @@ sub bunpack($ezy,$sref,$cnt) {
 # handle perl string to cstring
 # and other edge-cases, maybe...
 
-Readonly my $CSTR_RE=>qr{\$Z};
+Readonly my $PLCSTR_RE=>qr{\@Z};
 
 sub _fmat_data_break($packing,$fmat,@data) {
 
-  if($fmat=~ $CSTR_RE) {
+  if($fmat=~ $PLCSTR_RE) {
 
     @data=map {(
 
