@@ -19,14 +19,16 @@ package A9M::vmem;
   use strict;
   use warnings;
 
+  use Readonly;
   use English qw(-no_match_vars);
+
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
   use Chk;
   use Type;
-  use Bpack;
 
+  use Arstd::Array;
   use Arstd::xd;
 
   use parent 'Tree';
@@ -34,8 +36,16 @@ package A9M::vmem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+  Readonly my $INBOUNDS_ERR=>qr{(?:
+    OOB | INVALID
+
+  )}x;
 
 # ---   *   ---   *   ---
 # new addressing space
@@ -98,20 +108,25 @@ sub new($self,$size,$label=undef) {
 sub load($self,$type,$addr=undef) {
 
   # can read this many bytes?
-  my $size=$self->inbounds($type,\$addr);
-  return $size if $size eq 'OOB';
+  $type=$self->inbounds($type,\$addr);
+  return $type if $type=~ $INBOUNDS_ERR;
 
 
   # read from buf
-  my $bytes = substr $self->{buf},$addr,$size;
+  my $bytes = substr $self->{buf},$addr,
+    $type->{sizeof};
 
   # ^make num from bytes
-  my $fmat  = packof($type);
+  my $fmat  = $type->{packof};
   my @out   = unpack $fmat,$bytes;
+
+
+  # ^copy layout and give
+  @out=layas(\@out,$type);
 
   return (@out == 1)
     ? $out[0]
-    : @out
+    : \@out
     ;
 
 };
@@ -122,19 +137,19 @@ sub load($self,$type,$addr=undef) {
 sub store($self,$value,$type,$addr=undef) {
 
   # can write this many bytes?
-  my $size=$self->inbounds($type,\$addr);
-  return $size if $size eq 'OOB';
+  $type=$self->inbounds($type,\$addr);
+  return $type if $type=~ $INBOUNDS_ERR;
 
 
   # make bytes from value
-  my $fmat  = packof($type);
+  my $fmat  = $type->{packof};
   my $bytes = (is_arrayref($value))
-    ? pack $fmat,@$value
+    ? pack $fmat,array_flatten($value)
     : pack $fmat,$value
     ;
 
   # ^write to buf
-  substr $self->{buf},$addr,$size,$bytes;
+  substr $self->{buf},$addr,$type->{sizeof},$bytes;
 
 
   return;
@@ -144,8 +159,16 @@ sub store($self,$value,$type,$addr=undef) {
 # ---   *   ---   *   ---
 # catch OOB load/store
 
-sub _inbounds($self,$size,$addr) {
-  return $addr+$size <= length $self->{buf};
+sub _inbounds($self,$type,$addr) {
+
+  return
+
+     $addr
+  +  $type->{sizeof}
+
+  <= length $self->{buf}
+
+  ;
 
 };
 
@@ -158,11 +181,11 @@ sub inbounds($self,$type,$addrref) {
   $$addrref //= $self->{ptr};
 
   # can read this many bytes?
-  my $size=sizeof($type);
+  $type=typefet($type) or return 'INVALID';
 
-  return (! $self->_inbounds($size,$$addrref))
+  return (! $self->_inbounds($type,$$addrref))
     ? 'OOB'
-    : $size
+    : $type
     ;
 
 };
@@ -178,15 +201,16 @@ sub prich($self,%O) {
 # ---   *   ---   *   ---
 # test
 
-my $CAS=A9M::vmem->nas();
-my $mem=$CAS->new(0x10);
+my $CAS = A9M::vmem->nas();
+my $mem = $CAS->new(0x10);
 
-$mem->store([0x2424,0x2424],xword=>0x00);
-my @v=$mem->load(xword=>0x00);
+my $ar  = $mem->load('byte vec3'=>0x00);
 
-$v[0] &=~ 0x2020;
+$ar->[0]=0x25;
+$ar->[1]=0x24;
 
-$mem->store(\@v,xword=>0x00);
+
+$mem->store($ar,'byte vec3'=>0x00);
 $mem->prich();
 
 # ---   *   ---   *   ---

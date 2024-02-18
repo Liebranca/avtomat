@@ -573,6 +573,7 @@ sub errout($format,%O) {
   $O{args}  //= [];
   $O{calls} //= [];
   $O{lvl}   //= $AR_WARNING;
+  $O{back}  //= 1;
 
   # print initial message
   my $tab=errme($format,%O);
@@ -589,26 +590,29 @@ sub errout($format,%O) {
   };
 
 
-  # handle program exit
-  my $mess=longmess();
+  # give backtrace?
+  if($O{back}) {
 
-  $mess=join "\n", map {
-    fmat_btrace
+    my $mess = longmess();
 
-  } split $NEWLINE_RE,$mess;
+    $mess=join "\n", map {
+      fmat_btrace
 
-  my $header=sprintf
-    "$tab\e[33;1mBACKTRACE\e[0m\n\n".
-    "%-21s%-21s%-12s\n",
+    } split $NEWLINE_RE,$mess;
 
-    'Module',
-    'File',
-    'Line'
+    my $header=sprintf
+      "$tab\e[33;1mBACKTRACE\e[0m\n\n".
+      "%-21s%-21s%-12s\n",
 
-  ;
+      'Module',
+      'File',
+      'Line'
 
-  print {*STDERR}
-    "$header\n$mess\n\n";
+    ;
+
+    print {*STDERR} "$header\n$mess\n\n";
+
+  };
 
 
   # quit on fatal error that doesn't happen

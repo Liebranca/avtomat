@@ -23,6 +23,8 @@ package Arstd::Array;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys';
+
+  use Chk;
   use parent 'St';
 
 # ---   *   ---   *   ---
@@ -47,6 +49,7 @@ package Arstd::Array;
     array_lsort
 
     array_iof
+    array_flatten
 
     IDEXUP
     IDEXUP_P2
@@ -56,7 +59,7 @@ package Arstd::Array;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.4;#b
+  our $VERSION=v0.00.5;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -250,6 +253,31 @@ sub iof($ar,$elem) {
 };
 
 # ---   *   ---   *   ---
+# recursively flatten array
+# gives copy!
+
+sub flatten($ar) {
+
+  my @out = ();
+  my @Q   = @$ar;
+
+  while(@Q) {
+
+    my $chd=shift @Q;
+
+    (is_arrayref($chd))
+      ? unshift @Q,@$chd
+      : push    @out,$chd
+      ;
+
+  };
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
 # ~
 
 sub IDEXUP($idex,$f,@list) {
@@ -282,6 +310,7 @@ sub IDEXUP_P2($idex,$f,@list) {
   *array_lsort    = *nlsort;
 
   *array_iof      = *iof;
+  *array_flatten  = *flatten;
 
 # ---   *   ---   *   ---
 1; # ret

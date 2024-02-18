@@ -29,7 +29,7 @@ package Lang::peso;
   use Arstd::Re;
   use Arstd::IO;
 
-  use Type;
+  use Type::MAKE;
 
   use lib $ENV{'ARPATH'}.'/lib/';
   use Lang;
@@ -162,185 +162,22 @@ $NUMS->{'(\$[0-9A-F]+)'}=\&hstoi;
   )];
 
 # ---   *   ---   *   ---
-# executes a small subset of peso
-
-sub mini_ipret($self,$rd,$tree) {
-
-  state $FN_HED=
-
-  q{void FN_%FMAT%(}."\n".
-  q[uint64_t tcnt,uint64_t* buff]."\n".
-  q[) {]."\n"
-
-  ;
-
-  state $QDQ_RE=qr{['"]}x;
-
-  my $fmat='""';
-  my $code=$NULLSTR;
-  my $code_epi=$NULLSTR;
-
-  return;
-
-# ---   *   ---   *   ---
-
-  my @inputs=();
-
-  for my $in_b($tree->branches_in(qr{^in$})) {
-
-    my @l=map {$ARG->{value}} @{$in_b->{leaves}};
-
-    my @data;
-    my $type='bare';
-
-    my $opt;
-
-    while(@l) {
-
-      if($l[0] eq '?') {
-        shift @l;
-        $opt=shift @l;
-
-      } elsif($l[0]=~ s{^\[([\s\S]+)\]$}{}sxgm) {
-        $type=$1;
-        shift @l;
-
-      } else {
-        push @data,@l;
-        last;
-
-      };
-
-    };
-
-
-
-# ---   *   ---   *   ---
-
-    push @data,$opt if !@data && defined $opt;
-
-    for my $key(@data) {
-      $code.='  uint64_t '.$key.'_id'.
-        q{=*buff++;}."\n";
-
-      $code.='  char* '.$key.'=get_keyw_or_val('.
-        $key."_id);\n";
-
-      push @inputs,$key;
-
-    };
-
-# ---   *   ---   *   ---
-
-  };
-
-  for my $xform($tree->branches_in(qr{^xform$})) {
-
-    my @data=map {$ARG->{value}} @{
-      $xform->{leaves}
-
-    };
-
-    array_filter(\@data,sub {$ARG ne ','});
-    my $fn=shift @data;
-    my $dst=$data[0];
-
-    $code.=q{  }.
-      $fn.'('.(join ',',@data).");\n";
-
-  };
-
-# ---   *   ---   *   ---
-
-  if(defined (
-    my $out_b=$tree->branch_in(qr{^out$})
-
-  )) {
-
-    my @leaves=@{$out_b->{leaves}};
-    my @data=map {$ARG->{value}} @leaves;
-
-    map {
-
-      $ARG=~ s[\n][ ]sxgm;
-      $ARG=~ s[\s+][ ]sxgm;
-      $ARG=~ s[^,$][];
-
-      $ARG=~ s[^\(|\)$][]sxmg;
-
-    } @data;
-
-    array_filter(\@data);
-
-    my $data=join '\n',@data;
-    $fmat="\"$data".'\n'."\"";
-
-  };
-
-# ---   *   ---   *   ---
-
-  my @cuts=split m[%BLK%],$fmat;
-  array_filter(\@cuts);
-
-  if(@cuts) {
-
-    for my $c(@cuts) {
-      $c=~ s{$QDQ_RE}{}sxmg;
-      $c="\"$c".'\n'."\"";
-
-    };
-
-    $code.='  char* cuts[]={'.
-      (join ',',@cuts).
-
-    "};\n";
-
-    $code.='  char* %FMAT%_STR=str_isert('.
-      'pe_blk_name,cuts,'.int(@cuts).
-
-    ");\n";
-
-  } else {
-    $code='char* %FMAT%_STR='.$fmat.";\n";
-
-  };
-
-# ---   *   ---   *   ---
-
-  $code.='  printf(%FMAT%_STR'.
-    (','x(@inputs>0)).
-    (join ',',@inputs).
-
-  ');';
-
-  if(length $code) {
-    $code=$FN_HED.$code;
-    $code.="\n}";
-
-  };
-
-  $code.="\n";
-
-  return $code;
-
-};
-
-# ---   *   ---   *   ---
 
 Lang::peso->new(
 
-  name=>'peso',
+  name  => 'peso',
 
-  ext=>'\.(pe|p3|rom)$',
-  hed=>'[^A-Za-z0-9_]+[A-Za-z0-9_]*;',
-  mag=>'$ program',
+  ext   => '\.(pe|p3|rom)$',
+  hed   => '[^A-Za-z0-9_]+[A-Za-z0-9_]*;',
+  mag   => '$ program',
 
-  nums=>$NUMS,
+  nums  => $NUMS,
 
 # ---   *   ---   *   ---
 
-  types=>[
-    grep {!($ARG=~ m[^-])} keys %$Type::Table,
+  types      => [
+    map    {@$ARG}
+    values %$Type::MAKE::LIST
 
   ],
 

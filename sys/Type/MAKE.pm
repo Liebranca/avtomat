@@ -1,0 +1,598 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# TYPE:MAKE
+# Galaxy spawner
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+
+# ---   *   ---   *   ---
+# deps
+
+package Type::MAKE;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use Readonly;
+  use English qw(-no_match_vars);
+
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+
+  use Style;
+  use Chk;
+
+  use Arstd::Array;
+  use Arstd::Bytes;
+  use Arstd::String;
+  use Arstd::Re;
+
+  use Arstd::IO;
+
+  use Vault 'ARPATH';
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT=qw(
+
+    typefet
+    derefof
+    typedef
+    layas
+
+    throw_invalid_type
+
+  );
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = v0.00.1;#a
+  our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+  Readonly our $LIST=>{
+
+    # min to max size for all base types
+    ezy=>[qw(
+      byte  word  dword qword
+      xword yword zword
+
+    )],
+
+    # ^real dword/real qword
+    real=>[qw(
+      real dreal
+
+    )],
+
+    # ^vector specs
+    vec_t=>[qw(
+      vec mat
+
+    )],
+
+    # valid *element* sizes for base types
+    # ie what a vector can contain!
+    prim=>[qw(
+      byte word dword qword real dreal
+
+    )],
+
+    # ^ALL the elements!
+    defn=>[qw(
+      byte  word  dword qword
+      xword yword zword
+
+      real  dreal
+
+    )],
+
+
+    # all pointers are relative in peso
+    # this means we must track their size too!
+    #
+    # the additional keywords are added to
+    # avoid confusing names such as byte byte ptr
+    ptr_w=>[qw(
+      tiny short mean long
+
+    )],
+
+    ptr_t=>[qw(
+      ptr pptr fptr
+
+    )],
+
+
+    # strings are so special aren't they
+    str_t=>[qw(
+      str cstr plcstr
+
+    )],
+
+  };
+
+
+  # regexes for all
+  Readonly our $RE=>{ map {(
+    $ARG=>re_pekey(@{$LIST->{$ARG}})
+
+  )} keys %$LIST };
+
+
+  # to get ize as a power of 2...
+  Readonly my $ASIS   => sub {$_[0]=>$_[1]};
+  Readonly my $IDEXOF => {
+
+    IDEXUP(0,$ASIS,@{$LIST->{ezy}}),
+    IDEXUP(0,$ASIS,@{$LIST->{ptr_w}}),
+    IDEXUP(2,$ASIS,@{$LIST->{real}}),
+
+    (map {$ARG=>1} @{$LIST->{ptr_t}}),
+    (map {$ARG=>0} @{$LIST->{str_t}}),
+
+  };
+
+  # ^maximum power of 2 allowed
+  Readonly my $EZY_CAP  => 1 << $IDEXOF->{zword};
+
+
+  # signals for the type generator
+  Readonly my $TYPEFLAG => {
+
+    (map {$ARG=>0x00} @{$LIST->{defn}}),
+
+
+    sign  => 0x001,
+    real  => 0x002,
+
+    vec   => 0x004,
+    mat   => 0x008,
+
+    tiny  => 0x010,
+    short => 0x020,
+    mean  => 0x040,
+    long  => 0x080,
+
+    ptr   => 0x0F0,
+
+    str   => 0x100,
+    cstr  => 0x200,
+
+  };
+
+
+  # sizes for the bytepacker!
+  Readonly my $TYPEPACK=>{
+
+    byte  => 'C',
+    tiny  => 'C',
+
+    word  => 'S',
+    wide  => 'S',
+    short => 'S',
+
+    dword => 'L',
+    mean  => 'L',
+
+    qword => 'Q',
+    long  => 'Q',
+    xword => 'Q',
+    yword => 'Q',
+    zword => 'Q',
+
+    real  => 'F',
+    dreal => 'D',
+
+  };
+
+# ---   *   ---   *   ---
+# GBL
+
+  my $Table=Vault::cached(
+    'Table' => \&define_base
+
+  );
+
+# ---   *   ---   *   ---
+# removes "ptr" from typename
+
+sub derefof($name) {
+  $name=~ s[$RE->{ptr_w}|$RE->{ptr_t}][]sxmg;
+  return namestrip($name);
+
+};
+
+# ---   *   ---   *   ---
+# cleanups unwanted spaces in typename
+
+sub namestrip($name) {
+
+  state $re=qr{(?:$NSPACE_RE|[\-_]+)};
+
+  $name=~ s[$re][ ];
+  strip(\$name);
+
+  return $name;
+
+};
+
+# ---   *   ---   *   ---
+# cleanups flags
+
+sub flagstrip(@ar) {
+
+  my @out=map {
+    split $NSPACE_RE,lc namestrip($ARG)
+
+  } grep {$ARG} @ar;
+
+
+  return (@ar == 1)
+    ? join ' ',@out
+    : @out
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# formula for defining vector types
+# makes primitives as a side-effect ;>
+
+sub _fetch(@flags) {
+
+  # add default value for mask flags
+  map {$ARG='short' if $ARG eq 'ptr'} @flags;
+
+
+  # get key
+  my ($key)=grep {$ARG=~ $RE->{defn}} @flags;
+
+  # ^retry?
+  map  {$key //=  $ARG}
+  grep {$ARG   =~ $RE->{ptr_w}} @flags
+
+  if ! defined $key;
+
+  # ^throw missing
+  return throw_invalid_type(join ' ',@flags)
+  if ! defined $key;
+
+
+  # get element count
+  my $cnt=undef;
+  map {
+     $cnt //= $1
+  if $ARG   =~ s[(\d+)$][]
+
+  } @flags;
+
+
+  $cnt //= 1;
+
+
+  # get idex for each flag
+  my $idex=0;
+  my $itab={map {$ARG=>$idex++} @flags};
+
+  # ^get ptr alias
+  map  {$itab->{ptr} //= $itab->{$ARG}}
+  grep {$ARG=~ $RE->{ptr_w}} @flags;
+
+  # ^default missing
+  map {$itab->{$ARG} //= -1} keys %$TYPEFLAG;
+
+
+  # combine flags
+  my $flags=0x00;
+
+  map  {$flags |= $TYPEFLAG->{$ARG}}
+  grep {$ARG ne 'ptr'} @flags;
+
+
+  # pointers are not real! ;>
+     $flags &=~ $TYPEFLAG->{real}
+  if $flags &   $TYPEFLAG->{ptr};
+
+  # reals are always signed!
+     $flags &=~ $TYPEFLAG->{sign}
+  if $flags &   $TYPEFLAG->{real};
+
+
+  # make unique typename
+  my $name=($key=~ $RE->{ptr_w})
+    ? $NULLSTR
+    : $key
+    ;
+
+  map  {$name  = "$ARG $name"}
+  grep {$flags & $TYPEFLAG->{$ARG}}
+  qw   (sign);
+
+  map  {$name  = "$name $ARG$cnt"}
+  grep {$flags & $TYPEFLAG->{$ARG}}
+  qw   (vec mat);
+
+  map  {$name  = "$name ${ARG}ptr";$key=$ARG}
+  grep {$flags & $TYPEFLAG->{$ARG}}
+  qw   (tiny short mean long);
+
+
+  # ^cleanup unwanted spaces
+  $name=namestrip($name);
+
+
+  # make ptr to vec single-elem
+      $cnt    =  1
+  ,   $flags &=~ $TYPEFLAG->{vec}
+  ,   $flags &=~ $TYPEFLAG->{mat}
+
+  if  $flags &   $TYPEFLAG->{ptr};
+
+
+  # give hashref
+  return {
+
+    key   => $key,
+    cnt   => $cnt,
+
+    name  => $name,
+    flags => $flags,
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^continued
+
+sub fetch(@flags) {
+
+
+  # cleanup flags
+  @flags=flagstrip(@flags);
+
+  # ^lookup if single string passed
+  return $Table->{$flags[0]}
+  if @flags == 1 && exists $Table->{$flags[0]};
+
+
+  # lookup via flags, fail on invalid
+     @flags = map {split $NSPACE_RE,$ARG} @flags;
+  my $type  = _fetch(@flags);
+
+  return    undef if ! $type;
+
+
+  # ^already defined?
+  return    $Table->{$type->{name}}
+  if exists $Table->{$type->{name}};
+
+
+  # ^unpack
+  my $flags = $type->{flags};
+  my $name  = $type->{name};
+  my $key   = $type->{key};
+  my $cnt   = $type->{cnt};
+
+
+  # fetch elem size as a power of 2
+  my $ezy=$IDEXOF->{$key};
+
+  # make xword+ *implicitly* a vector!
+  my $xmat     = 0;
+  my @implicit = ($ezy > 3)
+    ? (0) x ($ezy - 3)
+    : ()
+    ;
+
+  map {
+
+    $ezy   =  3;
+
+    $xmat |=  $flags & $TYPEFLAG->{vec};
+    $cnt  +=! $xmat;
+
+  } @implicit;
+
+
+  # determine element distribution
+  my $cols;
+  my $rows;
+
+  # ^handle implicit vectors!
+  if($xmat) {
+
+    $cols = 2*int @implicit;
+    $rows = $cnt;
+
+    $key  = 'qword';
+
+  # ^divide matrices into (cnt * cnt)
+  } elsif($flags & $TYPEFLAG->{mat}) {
+    $cols = $cnt;
+    $rows = $cnt;
+
+  # ^divide vectors inot (cnt * 1)
+  # ^for {cnt == 1}, this makes primitives!
+  } else {
+    $cols = 1;
+    $rows = $cnt;
+
+  };
+
+
+  # get final element count from layout
+  my $layout = [($cols) x $rows];
+     $cnt    = $cols * $rows;
+
+
+  # calc elem byte/bit/mask size
+  my $eby = 1    << $ezy;
+  my $ebs = $eby << 3;
+  my $ebm = (1 << $ebs)-1;
+
+  # calc total size as a power of 2
+  my $tby  = $eby * $cnt;
+
+  my $tzy  = bitsize($tby)-1;
+     $tzy += 1 * ((1 << $tzy) < $tby);
+
+
+  # get format for bytepacker
+  my $sign =
+      $flags & $TYPEFLAG->{sign}
+  &&! ($flags & $TYPEFLAG->{ptr})
+  ;
+
+  my $fmat = $TYPEPACK->{$key};
+     $fmat = lc $fmat if $sign;
+
+
+  # make Table entry
+  my $out={
+
+    packof => "$fmat\[$cnt]",
+
+    sizeof => $tby,
+    sizep2 => $tzy,
+    sizebs => $ebs,
+    sizebm => $ebm,
+
+    layout => $layout,
+    name   => $name,
+
+
+  };
+
+
+  # undef if entry exceeds largest size
+  $Table->{$name}=($tby <= $EZY_CAP)
+    ? $out
+    : undef
+    ;
+
+  return $Table->{$name};
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_invalid_type($name) {
+
+  errout q[invalid type: '%s'],
+
+  args => [$name],
+
+  back => 0,
+  lvl  => $AR_WARNING;
+
+
+  return 0;
+
+};
+
+# ---   *   ---   *   ---
+# make an alias for a type
+
+sub lis($dst,@src) {
+
+  my $type=(! is_hashref($src[0]))
+    ? fetch(@src)
+    : $src[0]
+    ;
+
+  $Table->{$dst}=$type;
+
+  return $type;
+
+};
+
+# ---   *   ---   *   ---
+# copy layout of type
+
+sub layas($dst,@src) {
+
+  my $type=(! is_hashref($src[0]))
+    ? fetch(@src)
+    : $src[0]
+    ;
+
+
+  map {
+
+    ($ARG > 1)
+      ? [map {shift @$dst} 1..$ARG]
+      : shift @$dst
+      ;
+
+
+  } @{$type->{layout}};
+
+};
+
+# ---   *   ---   *   ---
+# make shorthands for certain
+# common types
+
+sub define_base() {
+
+
+  lis ptr => 'word short',0x00;
+
+
+  # make vector aliases
+  map {
+
+
+    # first letter gives *element* type
+    my $ezy = $ARG;
+    my $i   = {
+
+      real        => $NULLSTR,
+
+      dword       => 'u',
+      sign_dword  => 'i',
+
+    }->{$ezy};
+
+
+    # ^make vec[2-4],mat[2-4] for element type
+    map {
+
+      my $type=$ARG;
+      my $name="$i$type";
+
+      map {lis "$type$ARG" => ($ezy,"$type$ARG")}
+      2..4;
+
+
+    } qw(vec mat);
+
+
+  } qw(real dword sign_dword);
+
+
+  return $Table;
+
+};
+
+# ---   *   ---   *   ---
+# exporter names
+
+  *typefet=*fetch;
+  *typedef=*lis;
+
+# ---   *   ---   *   ---
+1; # ret

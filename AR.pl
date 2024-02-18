@@ -77,7 +77,9 @@ my $FILE_LIST=[
   '/sys/Tree/File.pm',
   '/sys/Tree/Dep.pm',
 
+  '/sys/Type/MAKE.pm',
   '/sys/Type.pm',
+
   '/sys/Type/C.pm',
   '/sys/Type/Cpp.pm',
   '/sys/Type/Platypus.pm',
