@@ -25,7 +25,10 @@ package Bpack;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
+  use Chk;
   use Type;
+
+  use Arstd::Array;
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -40,201 +43,110 @@ package Bpack;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# pack/unpack using peso types
+# pack using peso type
 
-sub _bpack_proto($f,$ezy,@data) {
+sub bpack($type,@data) {
 
-  my @out   = ([]);
-  my $total = 0;
-
-  my @types = split $COMMA_RE,$ezy;
+  # fetch if need
+  $type=typefet $type;
 
 
-  # make sub ref
-  $f = "_array$f";
-  $f = \&$f;
-
-  # ^call
-  (@out)=$f->(
-    \@types,@data
+  # make bytearray and give
+  my $bytes=(
+    pack $type->{packof} x int @data,
+    map  {unlay($type,$ARG)} @data
 
   );
 
-  $total=pop @out;
-
-
-  return (@out,$total);
+  return ($bytes,length $bytes);
 
 };
 
 # ---   *   ---   *   ---
-# ^bat
-#
-# it *is* terrible
-#
-# however, this spares us having
-# to duplicate two almost identical
-# subroutines
+# ^unpack
 
-sub _array_bpack_proto(
+sub bunpack($type,$src,$pos=0) {
 
-  $f,
+  # fetch if need
+  $type=typefet $type;
 
-  $types,
-  $data,
 
-  $iref,
-  $tref,
-  $oref
+  # read from buf
+  my $bytes = substr $src,$pos,$type->{sizeof};
 
-) {
+  # ^make num from bytes
+  my $fmat  = $type->{packof};
+  my @out   = unpack $fmat,$bytes;
 
-  # get format chars
-  my $fmat=packof($types->[$$iref]);
 
-  # ^call F with format,data
-  push @{$oref->[0]},$f->($fmat,$data);
-  $oref->[$$iref+1]++;
+  # ^copy layout and give
+  return layas($type,@out);
 
-  $$tref+=(Type->is_valid($types->[$$iref]))
-    ? sizeof($types->[$$iref])
-    : 1+length $oref->[0]->[-1]
+};
+
+# ---   *   ---   *   ---
+# copy layout of type
+
+sub layas($type,@src) {
+
+  # copy type layout
+  my @out=map {
+
+    ($ARG > 1)
+      ? [map {shift @src} 1..$ARG]
+      : shift @src
+      ;
+
+
+  } @{$type->{layout}};
+
+
+  # make struc?
+  @out=(@{$type->{struc_t}})
+    ? _layas_struc($type,@out)
+    : @out
     ;
 
-
-  # go next, wrap-around types
-  $$iref++;
-  $$iref&=$$iref * ($$iref < @$types);
+  # give list if need
+  return (@out == 1) ? $out[0] : \@out ;
 
 };
 
 # ---   *   ---   *   ---
-# ^packing guts
+# ^makes hashref!
 
-sub _bpack($fmat,@data) {
-  ($fmat,@data)=_fmat_data_break(1,$fmat,@data);
-  return pack $fmat,@data;
+sub _layas_struc($type,@src) {
 
-};
+  # [idex => name]
+  my $fi    = 0;
+  my $field = $type->{struc_i};
 
-# ---   *   ---   *   ---
-# ^bat
-
-sub _array_bpack($types,@data) {
-
-  my @out   = ([],map {0} 0..@$types-1);
-
-  my $idex  = 0;
-  my $total = 0;
-
-  # get type of each elem,
-  # then pack individual elems
-  map { _array_bpack_proto(
-
-    \&_bpack,
-
-    $types,
-    $ARG,
-
-    \$idex,
-    \$total,
-    \@out,
-
-  )} @data;
-
-
-  return (@out,$total);
+  # from X->[idex]
+  # to   X->{name}
+  return {map {$ARG=>$src[$fi++]} @$field};
 
 };
 
 # ---   *   ---   *   ---
-# plain iface wraps
+# ^undo
 
-sub bpack($ezy,@data) {
-  return _bpack_proto('_bpack',$ezy,@data);
+sub unlay($type,$src) {
 
-};
+  # de-hashing on structures
+  if(is_hashref($src)) {
 
-# ---   *   ---   *   ---
-# unpacking guts
+    my $field = $type->{struc_i};
+       $src   = [map {$src->{$ARG}} @$field];
 
-sub _bunpack($fmat,$buf) {
-  ($fmat,$buf)=_fmat_data_break(0,$fmat,$buf);
-  return unpack $fmat,$buf;
-
-};
-
-# ---   *   ---   *   ---
-# ^bat
-
-sub _array_bunpack($types,$buf,$cnt) {
-
-  my @out   = ([],map {0} 0..@$types-1);
-
-  my $idex  = 0;
-  my $total = 0;
-
-  # get type of each elem,
-  # then pack individual elems
-  map { _array_bpack_proto(
-
-    \&_bunpack,
-
-    $types,
-    (substr $buf,$total,(length $buf)-$total),
-
-    \$idex,
-    \$total,
-    \@out,
-
-  )} 0..($cnt*int @$types)-1;
-
-
-  return (@out,$total);
-
-};
-
-# ---   *   ---   *   ---
-# ^iface wraps
-# unpacks and consumes bpack'd
-
-sub bunpack($ezy,$sref,$cnt) {
-
-  my ($ct,@cnt)=_bpack_proto(
-    '_bunpack',$ezy,$$sref,$cnt
-
-  );
-
-  my $total=$cnt[-1];
-  substr $$sref,0,$total,$NULLSTR;
-
-
-  return ($ct,@cnt);
-
-};
-
-# ---   *   ---   *   ---
-# handle perl string to cstring
-# and other edge-cases, maybe...
-
-Readonly my $PLCSTR_RE=>qr{\@Z};
-
-sub _fmat_data_break($packing,$fmat,@data) {
-
-  if($fmat=~ $PLCSTR_RE) {
-
-    @data=map {(
-
-      (map {ord($ARG)} split $NULLSTR,$ARG),
-      0x00
-
-    )} @data if $packing;
-
-    $fmat=($packing) ? 'C*' : 'Z*';
+  # ^noop on plain value
+  } elsif(! is_arrayref($src)) {
+    $src=[$src];
 
   };
 
-  return $fmat,@data;
+
+  # give plain value list
+  return array_flatten($src);
 
 };
 

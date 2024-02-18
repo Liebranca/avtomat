@@ -44,7 +44,6 @@ package Type::MAKE;
 
     typefet
     typedef
-    layas
 
     throw_invalid_type
 
@@ -551,50 +550,6 @@ sub typefet(@src) {
 
 sub typedef($dst,@src) {
   return $Table->{$dst}=typefet @src;
-
-};
-
-# ---   *   ---   *   ---
-# copy layout of type
-
-sub layas($dst,@src) {
-
-  my $type = typefet @src;
-  my @out  = map {
-
-    ($ARG > 1)
-      ? [map {shift @$dst} 1..$ARG]
-      : shift @$dst
-      ;
-
-
-  } @{$type->{layout}};
-
-
-  return (@{$type->{struc_t}})
-    ? _layas_struc($type,@out)
-    : @out
-    ;
-
-};
-
-# ---   *   ---   *   ---
-# ^makes hashref!
-
-sub _layas_struc($type,@data) {
-
-  my $fi    = 0;
-  my $field = $type->{struc_i};
-
-  # from X->[idex]
-  # to   X->{name}
-  my $out   = {
-    map {$ARG=>$data[$fi++]} @$field
-
-  };
-
-
-  return $out;
 
 };
 

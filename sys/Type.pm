@@ -48,11 +48,9 @@ package Type;
     packof
     typeof
     derefof
-    fmatof
 
     typefet
     typedef
-    layas
 
   );
 

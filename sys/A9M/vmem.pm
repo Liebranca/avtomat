@@ -25,11 +25,9 @@ package A9M::vmem;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
-  use Chk;
   use Type;
+  use Bpack;
 
-  use Arstd::Array;
-  use Arstd::Bytes;
   use Arstd::xd;
 
   use parent 'Tree';
@@ -113,22 +111,8 @@ sub load($self,$type,$addr=undef) {
   return $type if $type=~ $INBOUNDS_ERR;
 
 
-  # read from buf
-  my $bytes = substr $self->{buf},$addr,
-    $type->{sizeof};
-
-  # ^make num from bytes
-  my $fmat  = $type->{packof};
-  my @out   = unpack $fmat,$bytes;
-
-
-  # ^copy layout and give
-  @out=layas(\@out,$type);
-
-  return (@out == 1)
-    ? $out[0]
-    : \@out
-    ;
+  # read from buf and give
+  return bunpack $type,$self->{buf},$addr;
 
 };
 
@@ -142,33 +126,12 @@ sub store($self,$value,$type,$addr=undef) {
   return $type if $type=~ $INBOUNDS_ERR;
 
 
-  # solve value accto type
-  my @value=($value);
+  # write to buf
+  my ($bytes,$len)=bpack $type,$value;
+  substr $self->{buf},$addr,$len,$bytes;
 
-  # ^de-nesting of plain array
-  if(is_arrayref($value)) {
-    @value=array_flatten($value);
-
-  # ^de-hashing of structures
-  } elsif(is_hashref($value)) {
-
-    my $field = $type->{struc_i};
-    my $order = [ map {$value->{$ARG}} @$field];
-
-       @value = array_flatten($order);
-
-  };
-
-
-  # make bytes from value
-  my $fmat  = $type->{packof};
-  my $bytes = pack $fmat,@value;
-
-  # ^write to buf
-  substr $self->{buf},$addr,length $bytes,$bytes;
-
-
-  return;
+  # give bytes written
+  return $len;
 
 };
 
@@ -197,7 +160,7 @@ sub inbounds($self,$type,$addrref) {
   $$addrref //= $self->{ptr};
 
   # can read this many bytes?
-  $type=typefet($type) or return 'INVALID';
+  $type=typefet $type or return 'INVALID';
 
   return (! $self->_inbounds($type,$$addrref))
     ? 'OOB'
@@ -210,7 +173,7 @@ sub inbounds($self,$type,$addrref) {
 # dbout
 
 sub prich($self,%O) {
-  return xd($self->{buf},%O);
+  return xd $self->{buf},%O;
 
 };
 

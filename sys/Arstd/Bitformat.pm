@@ -192,11 +192,7 @@ sub to_bytes($self,@data) {
   @bytes=@bytes[0..$cap-1];
 
   # ^give peso-bytepack'd ;>
-  my ($ct,@cnt)=bpack(byte=>@bytes);
-  $ct=join $NULLSTR,@$ct;
-
-
-  return ($ct,$cap);
+  return bpack byte=>@bytes;
 
 };
 
