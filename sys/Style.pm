@@ -60,13 +60,14 @@ package Style;
     $ASTER_RE
 
     strerr
+    catar
 
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.02.4;
+  our $VERSION=v0.02.5;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -139,6 +140,11 @@ sub strerr($info=$NULLSTR) {
   return $out;
 
 };
+
+# ---   *   ---   *   ---
+# join $NULLSTR,(list)
+
+sub catar(@src) {join $NULLSTR,@src};
 
 # ---   *   ---   *   ---
 1; # ret

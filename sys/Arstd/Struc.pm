@@ -40,7 +40,7 @@ package Arstd::Struc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -184,6 +184,33 @@ sub _proc_elem($self,$farray,$e,$idex) {
 };
 
 # ---   *   ---   *   ---
+# collapse elem size hash
+
+sub _up_ezycol($e) {
+
+  my $len = 0;
+  my @Q   = values %{$e->{ezy}};
+
+  while(@Q) {
+
+    my $i=shift @Q;
+
+    if(is_hashref($i)) {
+      push @Q,values %$i;
+
+    } else {
+      $len+=$i;
+
+    };
+
+  };
+
+
+  return $len;
+
+};
+
+# ---   *   ---   *   ---
 # read from bytestr
 
 sub from_bytes($self,$rawref) {
@@ -192,7 +219,7 @@ sub from_bytes($self,$rawref) {
   # these functions
   state $farray=[
     '_unpack_prims',
-    '_unpack_bitformat',
+    '_unpack_struc',
     '_unpack_struc',
 
   ];
@@ -213,12 +240,12 @@ sub from_bytes($self,$rawref) {
 
 
   # read header
-  my ($ct,@len) = ([]);
-  my @head      = @{$self->{head}};
+  my $b    = {ct=>[],len=>0};
+  my @head = @{$self->{head}};
 
   if(@head) {
-    ($ct,@len)=bunpack($head[0],$e->{src},1);
-    $e->{ezy}->{'$:head;>'} = $len[-1];
+    $b = bunpacksu $head[0],$e->{src};
+    $e->{ezy}->{'$:head;>'} = $b->{len};
 
   };
 
@@ -226,7 +253,7 @@ sub from_bytes($self,$rawref) {
   # ^get read sizes
   map {
     $e->{cnt}->{$ARG}
-  = shift @$ct
+  = shift @{$b->{ct}}
 
   } @head[1..$#head];
 
@@ -241,19 +268,26 @@ sub from_bytes($self,$rawref) {
   # walk elems
   my $idex=0;
 
-  return ({map {
-
+  my $out={ map {
      $e->{key}
-  => $self->_proc_elem($farray,$e,$idex++),
+  => $self->_proc_elem($farray,$e,$idex++)->{ct},
 
-  } @{$self->{order}}},$e->{ezy});
+  } @{$self->{order}} };
+
+
+  # ^collapse
+  return {
+    ct  => $out,
+    len => _up_ezycol $e,
+
+  };
 
 };
 
 # ---   *   ---   *   ---
 # ^consume bytes
 
-sub from_strm($self,$sref,$pos) {
+sub from_strm($self,$sref,$pos,$nullarg=0) {
 
   my $rawref=\(substr $$sref,
     $pos,(length $$sref) - $pos
@@ -289,50 +323,33 @@ sub _unpack_prims($self,$e) {
 
   my $cnt=_u_get_elem_cnt($e);
 
-  my ($ct,@len)=bunpack(
-    $e->{fmat},$e->{src},$cnt
+  my $b=bunpacksu(
+    $e->{fmat},$e->{src},0,$cnt
 
   );
 
-  $e->{ezy}->{$e->{key}}=$len[-1];
+  $e->{ezy}->{$e->{key}}=$b->{len};
 
-  return $ct;
-
-};
-
-# ---   *   ---   *   ---
-# ^Arstd::Bitformat guts
-
-sub _unpack_bitformat($self,$e) {
-
-  my $cnt=_u_get_elem_cnt($e);
-
-  my ($ct,$len)=$e->{fmat}->from_strm(
-    $e->{src},0,$cnt
-
-  );
-
-  $e->{ezy}->{$e->{key}}=$len;
-
-  return $ct;
+  return $b;
 
 };
 
 # ---   *   ---   *   ---
 # ^recurse guts
+# works for Arstd::Bitformat ;>
 
 sub _unpack_struc($self,$e) {
 
   my $cnt=_u_get_elem_cnt($e);
 
-  my ($ct,$len)=$e->{fmat}->from_strm(
+  my $b=$e->{fmat}->from_strm(
     $e->{src},0,$cnt
 
   );
 
-  $e->{ezy}->{$e->{key}}=$len;
+  $e->{ezy}->{$e->{key}}=$b->{len};
 
-  return $ct;
+  return $b;
 
 };
 
@@ -390,20 +407,21 @@ sub to_bytes($self,%data) {
   # ^pre-pend counters as header
   if(@{$self->{head}}) {
 
-    my ($ct,@len)=bpack(
-      $self->{head}->[0] => @cnt
-
-    );
-
+    my $b=bpack $self->{head}->[0] => @cnt;
 
     # ^cat to final
-    $e->{ezy}->{'$:head;>'} = $len[-1];
-    $e->{dst} = join $NULLSTR,@$ct,$e->{dst};
+    $e->{ezy}->{'$:head;>'} = $b->{len};
+    $e->{dst} = catar $b->{ct},$e->{dst};
 
   };
 
 
-  return ($e->{dst},$e->{ezy});
+  # ^collapse
+  return {
+    ct  => $e->{dst},
+    len => _up_ezycol $e,
+
+  };
 
 };
 
@@ -413,10 +431,10 @@ sub to_bytes($self,%data) {
 
 sub to_strm($self,$sref,$pos,%data) {
 
-  my ($ct,$len)=$self->to_bytes(%data);
-  substr $$sref,$pos,$len,$ct;
+  my $b=$self->to_bytes(%data);
+  substr $$sref,$pos,$b->{len},$b->{ct};
 
-  return $len;
+  return $b->{len};
 
 };
 
@@ -424,7 +442,7 @@ sub to_strm($self,$sref,$pos,%data) {
 # get element count and
 # data for packing subroutines
 
-sub _p_get_elem_cnt($e) {
+sub _p_get_elems($e) {
 
   my @data = @{$e->{src}->{$e->{key}}};
   my $cnt  = int @data;
@@ -435,7 +453,16 @@ sub _p_get_elem_cnt($e) {
 
   };
 
-  return ($cnt,@data);
+  return @data;
+
+};
+
+# ---   *   ---   *   ---
+# cat packed to dst
+
+sub _p_cat($e,$b) {
+  $e->{ezy}->{$e->{key}} = $b->{len};
+  $e->{dst} .= catar $b->{ct};
 
 };
 
@@ -443,18 +470,7 @@ sub _p_get_elem_cnt($e) {
 # ^prim guts
 
 sub _pack_prims($self,$e) {
-
-  my ($cnt,@data)=_p_get_elem_cnt($e);
-
-  # ^get bytearray for elem
-  my ($ct,@len)=bpack(
-    $e->{fmat} => @data
-
-  );
-
-
-  $e->{ezy}->{$e->{key}} = $len[-1];
-  $e->{dst} .= join $NULLSTR,@$ct;
+  _p_cat $e,bpack $e->{fmat},_p_get_elems($e);
 
 };
 
@@ -462,14 +478,7 @@ sub _pack_prims($self,$e) {
 # ^Arstd::Bitformat guts
 
 sub _pack_bitformat($self,$e) {
-
-  my ($cnt,@data)=_p_get_elem_cnt($e);
-
-  # ^get bytearray for elem
-  my ($ct,$len)=$e->{fmat}->to_bytes(@data);
-
-  $e->{ezy}->{$e->{key}} = $len;
-  $e->{dst} .= $ct;
+  _p_cat $e,$e->{fmat}->to_bytes(_p_get_elems($e));
 
 };
 
@@ -477,18 +486,8 @@ sub _pack_bitformat($self,$e) {
 # ^recurse guts
 
 sub _pack_struc($self,$e) {
-
-  my ($cnt,@data)=_p_get_elem_cnt($e);
-
-  # ^get bytearray for elem
-  map {
-
-    my ($ct,$len)=$e->{fmat}->to_bytes(%$ARG);
-
-    $e->{ezy}->{$e->{key}} = $len;
-    $e->{dst} .= $ct;
-
-  } @data;
+  map {_p_cat $e,$e->{fmat}->to_bytes(%$ARG)}
+  _p_get_elems($e);
 
 };
 

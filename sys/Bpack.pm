@@ -34,58 +34,103 @@ package Bpack;
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT=qw(bpack bunpack);
+  our @EXPORT=qw(bpack bunpack bunpacksu);
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# pack using peso type
+# strucs can be passed in
+# three different ways:
+#
+# * single hashref
+#   eg typefet $name
+#
+# * hashref arrayref
+#   eg [map {typefet $ARG} @names]
+#
+# * comma-separated string,
+#   eg join ',',@names
+#
+#
+# this F handles unpacking them all!
 
-sub bpack($type,@data) {
+sub strucun($src) {
 
-  # fetch if need
-  $type=typefet $type;
+  # first two cases
+  return $src  if is_hashref($src);
+  return @$src if is_arrayref($src);
 
-
-  # make bytearray and give
-  my $bytes=(
-    pack $type->{packof} x int @data,
-    map  {unlay($type,$ARG)} @data
-
-  );
-
-  return ($bytes,length $bytes);
-
-};
-
-# ---   *   ---   *   ---
-# ^unpack
-
-sub bunpack($type,$src,$pos=0) {
-
-  # fetch if need
-  $type=typefet $type;
-
-
-  # read from buf
-  my $bytes = substr $src,$pos,$type->{sizeof};
-
-  # ^make num from bytes
-  my $fmat  = $type->{packof};
-  my @out   = unpack $fmat,$bytes;
-
-
-  # ^copy layout and give
-  return layas($type,@out);
+  # ^else we have a string
+  map   {typefet $ARG}
+  split $COMMA_RE,$src;
 
 };
 
 # ---   *   ---   *   ---
-# copy layout of type
+# de-nesting of peso type
+
+sub unlay($type,$src) {
+
+  # de-hashing on structures
+  if(is_hashref($src)) {
+
+    my $field = $type->{struc_i};
+       $src   = [map {$src->{$ARG}} @$field];
+
+  # ^noop on plain value
+  } elsif(! is_arrayref($src)) {
+    $src=[$src];
+
+  };
+
+
+  # give plain value list
+  return array_flatten($src);
+
+};
+
+# ---   *   ---   *   ---
+# pack using peso types
+
+sub bpack($struc,@data) {
+
+  # fetch
+  my @type=strucun($struc);
+
+
+  # ^match data to type
+  my $idex  = 0;
+  my $len   = 0;
+
+  my @bytes = map {
+
+      # get next type
+      my $type  = array_wrap(\@type,$idex++);
+         $len  += $type->{sizeof};
+
+      # ^pack chunk accto type
+      pack  $type->{packof},
+      unlay $type,$ARG;
+
+
+  } @data;
+
+
+  # give content/length
+  return {
+    ct  => (catar @bytes),
+    len => $len
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# copy layout of peso type
 
 sub layas($type,@src) {
 
@@ -128,25 +173,56 @@ sub _layas_struc($type,@src) {
 };
 
 # ---   *   ---   *   ---
-# ^undo
+# unpack using peso types
 
-sub unlay($type,$src) {
+sub bunpack($struc,$src,$pos=0,$cnt=1) {
 
-  # de-hashing on structures
-  if(is_hashref($src)) {
+  # fetch
+  my @type=strucun($struc);
 
-    my $field = $type->{struc_i};
-       $src   = [map {$src->{$ARG}} @$field];
 
-  # ^noop on plain value
-  } elsif(! is_arrayref($src)) {
-    $src=[$src];
+  # ^match data to type
+  my $len    = 0;
+  my @values = map {
+
+    # get next type
+    my $type  = array_wrap(\@type,$ARG);
+
+    # read chunk from buf
+    my $chunk  = substr $src,$pos,$type->{sizeof};
+       $pos   += $type->{sizeof};
+       $len   += $type->{sizeof};
+
+    # ^unpack accto type
+    my $fmat  = $type->{packof};
+    my @out   = unpack $fmat,$chunk;
+
+
+    # copy type layout
+    layas $type,@out;
+
+
+  } 0..$cnt-1;
+
+
+  # give content/length
+  return {
+    ct  => \@values,
+    len => $len
 
   };
 
+};
 
-  # give plain value list
-  return array_flatten($src);
+# ---   *   ---   *   ---
+# ^consumes input
+
+sub bunpacksu($struc,$srcref,$pos=0,$cnt=1) {
+
+  my $b=bunpack($struc,$$srcref,$pos,$cnt);
+  substr $$srcref,$pos,$b->{len},$NULLSTR;
+
+  return $b;
 
 };
 

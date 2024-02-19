@@ -312,7 +312,7 @@ sub from_bytes($self,$raw,$cnt=1) {
   } 0..$cnt-1];
 
 
-  return $out,$len*$cnt;
+  return {ct=>$out,len=>$len*$cnt};
 
 };
 

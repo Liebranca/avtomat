@@ -49,6 +49,7 @@ package Arstd::Array;
     array_lsort
 
     array_iof
+    array_wrap
     array_flatten
 
     IDEXUP
@@ -59,7 +60,7 @@ package Arstd::Array;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.5;
+  our $VERSION=v0.00.6;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -253,6 +254,15 @@ sub iof($ar,$elem) {
 };
 
 # ---   *   ---   *   ---
+# wrapping indexing into array
+
+sub wrap($ar,$idex) {
+  $idex=$idex % @$ar;
+  return $ar->[$idex];
+
+};
+
+# ---   *   ---   *   ---
 # recursively flatten array
 # gives copy!
 
@@ -310,6 +320,7 @@ sub IDEXUP_P2($idex,$f,@list) {
   *array_lsort    = *nlsort;
 
   *array_iof      = *iof;
+  *array_wrap     = *wrap;
   *array_flatten  = *flatten;
 
 # ---   *   ---   *   ---

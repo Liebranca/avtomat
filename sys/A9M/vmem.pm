@@ -35,7 +35,7 @@ package A9M::vmem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -112,7 +112,8 @@ sub load($self,$type,$addr=undef) {
 
 
   # read from buf and give
-  return bunpack $type,$self->{buf},$addr;
+  my $b=bunpack $type,$self->{buf},$addr;
+  return $b->{ct}->[0];
 
 };
 
@@ -127,11 +128,13 @@ sub store($self,$value,$type,$addr=undef) {
 
 
   # write to buf
-  my ($bytes,$len)=bpack $type,$value;
-  substr $self->{buf},$addr,$len,$bytes;
+  my $b=bpack $type,$value;
+
+  substr $self->{buf},$addr,$b->{len},$b->{ct};
+
 
   # give bytes written
-  return $len;
+  return $b->{len};
 
 };
 
@@ -193,6 +196,7 @@ my $type = struc cvec=>q[
 
 
 my $ar=$mem->load(cvec=>0x00);
+
 
 $ar->{fa}->[1] = 0x2424;
 $ar->{fb}      = 0x2121;
