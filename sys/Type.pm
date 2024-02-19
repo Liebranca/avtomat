@@ -52,12 +52,15 @@ package Type;
     typefet
     typedef
 
+    PEVAR
+    PESTRUC
+
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.04.1;
+  our $VERSION = v0.04.2;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -66,10 +69,20 @@ package Type;
 sub PEVAR($expr) {
 
   # get X => Y[Z]
-  state $array_re=qr{\[(\d+)\]$};
+  state $array_re = qr{\[(.+)\]$};
+  state $type_re  = qr{^((?:[^\s,]|\s*,\s*)+)\s};
 
-  my ($type,$name)=split $NSPACE_RE,$expr;
-  my $cnt=($name=~ s[$array_re][]) ? $1 : 1 ;
+
+  # first "X[,Y]?" is value type
+  $expr=~ s[$type_re][];
+
+  my $type =  $1;
+     $type =~ s[$NSPACE_RE][];
+
+
+  # ^followed by "name[size]"
+  my $name =  $expr;
+  my $cnt  = ($name=~ s[$array_re][]) ? $1 : 1 ;
 
 
   # ^give hashref
@@ -78,6 +91,20 @@ sub PEVAR($expr) {
     cnt  => $cnt,
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# ^a whole bunch of em!
+
+sub PESTRUC($src) {
+
+  map   {PEVAR  $ARG}
+
+  grep  {length $ARG}
+  map   {strip(\$ARG);$ARG}
+
+  split $SEMI_RE,$src;
 
 };
 
@@ -94,17 +121,7 @@ sub struc($name,$src) {
 
 
   # parse input
-  my @field=(
-
-    map   {PEVAR  $ARG}
-
-    grep  {length $ARG}
-    map   {strip(\$ARG);$ARG}
-
-    split $SEMI_RE,$src
-
-  );
-
+  my @field=PESTRUC $src;
 
   # ^array as hash
   my $fi=0;

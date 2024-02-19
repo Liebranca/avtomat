@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# ARSTD BITFORMAT
+# BITFORMAT
 # So I don't have to
 # MASH bits by hand
 #
@@ -14,7 +14,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package Arstd::Bitformat;
+package Bitformat;
 
   use v5.36.0;
   use strict;
@@ -110,6 +110,12 @@ sub new($class,@order) {
 
 sub bor($self,%data) {
 
+  # need list output?
+  return $self->array_bor(%data)
+  if $self->{bytesize} > 8;
+
+
+  # ^nope, single elem will do
   my $out=0x00;
 
   map {$out |=(

@@ -1,7 +1,8 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# ARSTD STRUC
-# An array of layouts
+# FSTRUC
+# File/block structures
+# used for binary dumps
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -13,7 +14,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package Arstd::Struc;
+package FStruc;
 
   use v5.36.0;
   use strict;
@@ -31,17 +32,23 @@ package Arstd::Struc;
   use Bpack;
   use Chk;
 
+  use Bitformat;
+
   use Arstd::Array;
   use Arstd::String;
-  use Arstd::Bitformat;
 
   use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#b
+  our $VERSION = v0.00.8;#b
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+  Readonly my $HEADKEY=>'__fstruc_head';
 
 # ---   *   ---   *   ---
 # cstruc
@@ -107,7 +114,7 @@ sub new($class,@order) {
   # get value=>(rel fptr)
   my @procs=map {
 
-    (Arstd::Bitformat->is_valid($ARG))
+    (Bitformat->is_valid($ARG))
   | ($class->is_valid($ARG) << 1)
   ;
 
@@ -147,6 +154,7 @@ sub new($class,@order) {
 
   },$class;
 
+
   return $self;
 
 };
@@ -158,9 +166,155 @@ sub new($class,@order) {
 sub ordered($self,$data) {
 
   return [map {
-    $ARG=>$data->{$ARG}
+    $ARG=>$data->{$ARG};
 
-  } '$:head;>',@{$self->{order}}];
+  } $HEADKEY,@{$self->{order}}];
+
+};
+
+# ---   *   ---   *   ---
+# calc elem offsets from
+# the result of from_bytes
+
+sub labels($self,$b,$name='',$base=0x00) {
+
+
+  # are we derived? ;>
+  my $class  = ref $self;
+     $name  .= '.' if length $name;
+
+  # get sorted key list
+  my $order = $self->ordered($b->{ct});
+  my @order = array_keys($order);
+
+
+  # ^walk
+  my $ptr  = $base;
+  my $idex = 0;
+
+  return map {
+
+    # fetch element size
+    my $key    = $ARG;
+    my $full   = "$name$key";
+
+    my $size   = $b->{ezy}->{$key};
+       $size //= 0;
+
+    # get start and go next
+    my $beg   = $ptr;
+       $ptr  += $size;
+
+    # give [elem => begof,sizeof]
+    my @out=($full => [$beg,$size]);
+
+
+    # need to recurse?
+    if($key ne $HEADKEY) {
+
+      my $fmat=$self->{fmat}->[$idex++];
+
+      if($class->is_valid($fmat)) {
+        my $o    = $b->{ct}->{$key};
+        my @deep = $fmat->labels($o,$full,$beg);
+
+        push @out,@deep;
+
+      };
+
+    };
+
+    @out;
+  } @order;
+
+};
+
+# ---   *   ---   *   ---
+# flattens the result of
+# from_bytes
+#
+# careful! you can't get
+# a complete label array
+# from this!
+
+sub flatten($self,$b) {
+
+  # are we derived? ;>
+  my $class  = ref $self;
+
+  # get sorted key list
+  my $order = $self->ordered($b->{ct});
+  my @order = array_keys($order);
+
+  # ^walk
+  my $idex=0;
+  return { map {
+
+    my $key=$ARG;
+    if($key ne $HEADKEY) {
+
+      # need to recurse?
+      my $fmat  = $self->{fmat}->[$idex++];
+      my $value = ($class->is_valid($fmat))
+
+        # nested struc!
+        ? $fmat->flatten($b->{ct}->{$key})
+
+        # ^plain elem
+        : $b->{ct}->{$key}->{ct}
+
+        ;
+
+      $key=>$value;
+
+    } else {()};
+
+  } @order };
+
+};
+
+# ---   *   ---   *   ---
+# fills out undefined values
+
+sub complete($self,$dst) {
+
+  my $class = ref $self;
+  my $idex  = 0;
+
+  map {
+
+    my $key  = $ARG;
+    my $fmat = $self->{fmat}->[$idex++];
+
+    # value missing?
+    if(! exists $dst->{$key}) {
+
+      # need recurse?
+      if($class->is_valid($fmat)) {
+        $dst->{$key}=[$fmat->complete({})];
+
+      # ^nope, add plain array
+      } else {
+        my $cnt=int split $COMMA_RE,$fmat;
+        $dst->{$key}=[(0x00) x $cnt];
+
+      };
+
+
+    # check that subfields are set
+    } elsif(! $class->is_valid($fmat)) {
+
+      my $cnt  = int split $COMMA_RE,$fmat;
+      my $diff = int @{$dst->{$key}} % $cnt;
+
+      push @{$dst->{$key}},(0x00) x $diff;
+
+    };
+
+  } @{$self->{order}};
+
+
+  return;
 
 };
 
@@ -245,7 +399,7 @@ sub from_bytes($self,$rawref) {
 
   if(@head) {
     $b = bunpacksu $head[0],$e->{src};
-    $e->{ezy}->{'$:head;>'} = $b->{len};
+    $e->{ezy}->{$HEADKEY} = $b->{len};
 
   };
 
@@ -270,13 +424,16 @@ sub from_bytes($self,$rawref) {
 
   my $out={ map {
      $e->{key}
-  => $self->_proc_elem($farray,$e,$idex++)->{ct},
+  => $self->_proc_elem($farray,$e,$idex++),
 
   } @{$self->{order}} };
 
 
   # ^collapse
   return {
+
+    ezy => $e->{ezy},
+
     ct  => $out,
     len => _up_ezycol $e,
 
@@ -307,8 +464,15 @@ sub _u_get_elem_cnt($e) {
   my $cnt=1;
 
   if(exists $e->{cnt}->{$e->{key}}) {
+
     $cnt   = $e->{cnt}->{$e->{key}};
     $cnt //= 1;
+
+    if(! is_hashref($e->{fmat})) {
+      my $mul=int split $COMMA_RE,$e->{fmat};
+      $cnt *= $mul;
+
+    };
 
   };
 
@@ -336,7 +500,7 @@ sub _unpack_prims($self,$e) {
 
 # ---   *   ---   *   ---
 # ^recurse guts
-# works for Arstd::Bitformat ;>
+# works for Bitformat ;>
 
 sub _unpack_struc($self,$e) {
 
@@ -410,7 +574,7 @@ sub to_bytes($self,%data) {
     my $b=bpack $self->{head}->[0] => @cnt;
 
     # ^cat to final
-    $e->{ezy}->{'$:head;>'} = $b->{len};
+    $e->{ezy}->{$HEADKEY} = $b->{len};
     $e->{dst} = catar $b->{ct},$e->{dst};
 
   };
@@ -448,8 +612,21 @@ sub _p_get_elems($e) {
   my $cnt  = int @data;
 
   if(exists $e->{cnt}->{$e->{key}}) {
-    $e->{cnt}->{$e->{key}}=$cnt;
+
     $cnt //= 1;
+
+    if(! is_hashref($e->{fmat})) {
+
+      my $mul=($cnt > 1)
+        ? int split $COMMA_RE,$e->{fmat}
+        : 1
+        ;
+
+      $cnt /= $mul;
+
+    };
+
+    $e->{cnt}->{$e->{key}}=$cnt;
 
   };
 
@@ -475,7 +652,7 @@ sub _pack_prims($self,$e) {
 };
 
 # ---   *   ---   *   ---
-# ^Arstd::Bitformat guts
+# ^Bitformat guts
 
 sub _pack_bitformat($self,$e) {
   _p_cat $e,$e->{fmat}->to_bytes(_p_get_elems($e));

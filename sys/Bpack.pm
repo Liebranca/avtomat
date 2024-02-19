@@ -81,7 +81,7 @@ sub unlay($type,$src) {
     my $field = $type->{struc_i};
        $src   = [map {$src->{$ARG}} @$field];
 
-  # ^noop on plain value
+  # ^effectively noop on plain value
   } elsif(! is_arrayref($src)) {
     $src=[$src];
 

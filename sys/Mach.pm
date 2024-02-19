@@ -601,11 +601,19 @@ sub get_args($self) {
 
 # ---   *   ---   *   ---
 # blank value
+#
+# explicitly tells perl that
+# we do not care that Style::null
+# is being overwritten in this scope
+
+no  warnings;
 
 sub null($self,$type='void') {
   return $self->vice($type,raw=>$NULL);
 
 };
+
+use warnings;
 
 # ---   *   ---   *   ---
 # ^bat

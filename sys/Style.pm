@@ -61,13 +61,14 @@ package Style;
 
     strerr
     catar
+    null
 
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.02.5;
+  our $VERSION=v0.02.6;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -145,6 +146,11 @@ sub strerr($info=$NULLSTR) {
 # join $NULLSTR,(list)
 
 sub catar(@src) {join $NULLSTR,@src};
+
+# ---   *   ---   *   ---
+# aliasing!
+
+sub null {$NULLSTR};
 
 # ---   *   ---   *   ---
 1; # ret
