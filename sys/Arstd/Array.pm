@@ -52,6 +52,10 @@ package Arstd::Array;
     array_wrap
     array_flatten
 
+    array_vmap
+    array_kmap
+    array_map
+
     IDEXUP
     IDEXUP_P2
 
@@ -60,7 +64,7 @@ package Arstd::Array;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.6;
+  our $VERSION=v0.00.7;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -288,6 +292,75 @@ sub flatten($ar) {
 };
 
 # ---   *   ---   *   ---
+# array as hash walk proto
+
+sub nmap($ar,$fn,$mode='ikv') {
+
+
+  # we overwrite these values on walk step
+  my $k=0;
+  my $v=0;
+  my $i=0;
+
+  # ^and access configurations of them
+  my $tab={
+
+
+    # default mode: Illya Kuryaki && the Valderramas
+    ikv => [\$i,\$k,\$v],
+
+
+    # [key,value]
+    kv  => [\$k,\$v],
+
+    # [idex,key],[idex,value]
+    ik  => [\$i,\$k],
+    iv  => [\$i,\$v],
+
+    # [idex],[key],[value],
+    i   => [\$i],
+    k   => [\$k],
+    v   => [\$v],
+
+  };
+
+
+  # decompose array
+  my $ni=0;
+  my @nk=nkeys($ar);
+  my @nv=nvalues($ar);
+
+  # ^walk
+  map {
+
+    # overwrite refs
+    $k = \$ARG;
+    $v = \$nv[$ni];
+    $i = $ni++;
+
+    # ^get arg config and give call
+    my $args=$tab->{$mode};
+    $fn->(map {$$ARG} @$args);
+
+
+  } @nk;
+
+};
+
+# ---   *   ---   *   ---
+# ^icebox
+
+sub kmap($ar,$fn) {
+  nmap($ar,$fn,'k');
+
+};
+
+sub vmap($ar,$fn) {
+  nmap($ar,$fn,'v');
+
+};
+
+# ---   *   ---   *   ---
 # ~
 
 sub IDEXUP($idex,$f,@list) {
@@ -299,7 +372,6 @@ sub IDEXUP_P2($idex,$f,@list) {
   return map {$f->($ARG,1 << $idex++)} @list;
 
 };
-
 
 # ---   *   ---   *   ---
 # exporter names
@@ -322,6 +394,10 @@ sub IDEXUP_P2($idex,$f,@list) {
   *array_iof      = *iof;
   *array_wrap     = *wrap;
   *array_flatten  = *flatten;
+
+  *array_vmap     = *vmap;
+  *array_kmap     = *kmap;
+  *array_map      = *nmap;
 
 # ---   *   ---   *   ---
 1; # ret

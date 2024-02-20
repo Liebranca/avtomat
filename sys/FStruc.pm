@@ -42,7 +42,7 @@ package FStruc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#b
+  our $VERSION = v0.00.9;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -254,18 +254,30 @@ sub flatten($self,$b) {
     if($key ne $HEADKEY) {
 
       # need to recurse?
-      my $fmat  = $self->{fmat}->[$idex++];
-      my $value = ($class->is_valid($fmat))
+      my $fmat=$self->{fmat}->[$idex++];
+      if($class->is_valid($fmat)) {
 
-        # nested struc!
-        ? $fmat->flatten($b->{ct}->{$key})
+        my @list = @{$b->{ct}->{$key}};
+        my $jdex = 0;
 
-        # ^plain elem
-        : $b->{ct}->{$key}->{ct}
+        map {
 
-        ;
+          my $skey=(@list > 1)
+            ? "$key\[$jdex]"
+            : $key
+            ;
 
-      $key=>$value;
+          $jdex++;
+          $skey=>$fmat->flatten($ARG)
+
+        } @list;
+
+
+      # ^nope, plain elem
+      } else {
+        $key=>$b->{ct}->{$key}->{ct};
+
+      };
 
     } else {()};
 
@@ -382,28 +394,40 @@ sub _up_ezycol($e) {
 # ---   *   ---   *   ---
 # read from bytestr
 
-sub from_bytes($self,$rawref) {
+sub from_bytes($self,$rawref,%O) {
 
   # self->proc[X] is idex to one of
   # these functions
   state $farray=[
     '_unpack_prims',
-    '_unpack_struc',
+    '_unpack_bitformat',
     '_unpack_struc',
 
   ];
+
+  # defaults
+  $O{ptr}  //= 0;
+  $O{base} //= $NULLSTR;
+
+  # ^handle namespace
+  $O{base}  .= '.' if length $O{base};
 
 
   # bind ctx
   my $e={
 
-    key  => $NULLSTR,
-    fmat => $NULLSTR,
+    key    => $NULLSTR,
+    fmat   => $NULLSTR,
 
-    src  => $rawref,
+    src    => $rawref,
 
-    cnt  => {},
-    ezy  => {},
+    cnt    => {},
+    ezy    => {},
+
+
+    ptr    => $O{ptr},
+    base   => $O{base},
+    labels => [],
 
   };
 
@@ -415,6 +439,13 @@ sub from_bytes($self,$rawref) {
   if(@head) {
     $b = bunpacksu $head[0],$e->{src};
     $e->{ezy}->{$HEADKEY} = $b->{len};
+
+    push @{$e->{labels}},
+       "$e->{base}$HEADKEY"
+    => [$e->{ptr},$b->{len}]
+    ;
+
+    $e->{ptr} += $b->{len};
 
   };
 
@@ -447,10 +478,11 @@ sub from_bytes($self,$rawref) {
   # ^collapse
   return {
 
-    ezy => $e->{ezy},
+    labels  => $e->{labels},
+    ezy     => $e->{ezy},
 
-    ct  => $out,
-    len => _up_ezycol $e,
+    ct      => $out,
+    len     => _up_ezycol $e,
 
   };
 
@@ -459,14 +491,16 @@ sub from_bytes($self,$rawref) {
 # ---   *   ---   *   ---
 # ^consume bytes
 
-sub from_strm($self,$sref,$pos,$nullarg=0) {
+sub from_strm($self,$sref,$pos,%O) {
+
+  $O{ptr} //= $pos;
 
   my $rawref=\(substr $$sref,
     $pos,(length $$sref) - $pos
 
   );
 
-  return $self->from_bytes($rawref);
+  return $self->from_bytes($rawref,%O);
 
 };
 
@@ -496,39 +530,89 @@ sub _u_get_elem_cnt($e) {
 };
 
 # ---   *   ---   *   ---
-# ^prim guts
+# write meta and give unpacked
 
-sub _unpack_prims($self,$e) {
+sub _u_cat($e,$b) {
 
-  my $cnt=_u_get_elem_cnt($e);
+  # add label
+  push @{$e->{labels}},
+     "$e->{base}$e->{key}"
+  => [$e->{ptr},$b->{len}]
+  ;
 
-  my $b=bunpacksu(
-    $e->{fmat},$e->{src},0,$cnt
-
-  );
-
+  # record length
   $e->{ezy}->{$e->{key}}=$b->{len};
+  $e->{ptr}+=$b->{len};
+
 
   return $b;
 
 };
 
 # ---   *   ---   *   ---
+# ^prim guts
+
+sub _unpack_prims($self,$e) {
+  my $cnt=_u_get_elem_cnt($e);
+  _u_cat $e,bunpacksu $e->{fmat},$e->{src},0,$cnt;
+
+};
+
+# ---   *   ---   *   ---
+# ^bitformat guts
+
+sub _unpack_bitformat($self,$e) {
+  my $cnt=_u_get_elem_cnt($e);
+  _u_cat $e,$e->{fmat}->from_strm($e->{src},0,$cnt);
+
+};
+
+# ---   *   ---   *   ---
 # ^recurse guts
-# works for Bitformat ;>
 
 sub _unpack_struc($self,$e) {
 
-  my $cnt=_u_get_elem_cnt($e);
+  my $class = ref $self;
+  my $cnt   = _u_get_elem_cnt($e);
 
-  my $b=$e->{fmat}->from_strm(
-    $e->{src},0,$cnt
+  return [map {
 
-  );
 
-  $e->{ezy}->{$e->{key}}=$b->{len};
+    # get namespace
+    my $key  = $e->{key};
+    my $base = $e->{base};
 
-  return $b;
+    # ^have array?
+    $key .= "[$ARG]" if $cnt > 1;
+
+
+    # read bytestr
+    my $b=$e->{fmat}->from_strm(
+
+      $e->{src},0,
+
+      ptr  => $e->{ptr},
+      base => "$base$key"
+
+    );
+
+
+    # add labels
+    push @{$e->{labels}},
+       "$base$key"
+    => [$e->{ptr},$b->{len}]
+    ;
+
+    push @{$e->{labels}},@{$b->{labels}};
+
+
+    # go next
+    $e->{ezy}->{$key}=$b->{len};
+    $e->{ptr}+=$b->{len};
+
+    $b;
+
+  } 0..$cnt-1];
 
 };
 
@@ -536,7 +620,6 @@ sub _unpack_struc($self,$e) {
 # write to buff
 
 sub to_bytes($self,%data) {
-
 
   # self->proc[X] is idex to one of
   # these functions
@@ -547,20 +630,33 @@ sub to_bytes($self,%data) {
 
   ];
 
+  # defaults
+  $data{-ptr}  //= 0;
+  $data{-base} //= $NULLSTR;
+
+  # ^handle namespace
+  $data{-base}  .= '.' if length $data{-base};
+
 
   # bind ctx
   my $e={
 
-    key   => $NULLSTR,
-    fmat  => $NULLSTR,
+    key    => $NULLSTR,
+    fmat   => $NULLSTR,
 
-    src   => \%data,
-    dst   => $NULLSTR,
+    src    => \%data,
+    dst    => $NULLSTR,
 
-    cnt   => {},
-    ezy   => {},
+    cnt    => {},
+    ezy    => {},
+
+
+    ptr    => $data{-ptr},
+    base   => $data{-base},
+    labels => [],
 
   };
+
 
   # load header keys
   my @keys=@{$self->{head}};
@@ -592,13 +688,30 @@ sub to_bytes($self,%data) {
     $e->{ezy}->{$HEADKEY} = $b->{len};
     $e->{dst} = catar $b->{ct},$e->{dst};
 
+    # ^adjust previous labels!
+    array_vmap $e->{labels},sub ($vref) {
+      ($$vref)->[0] += $b->{len};
+
+    };
+
+    # ^make label for header
+    my $key  = $HEADKEY;
+    my $base = $e->{base};
+    my $full = "$base$key";
+
+    unshift @{$e->{labels}},
+      $full=>[$data{-ptr},$b->{len}];
+
   };
 
 
   # ^collapse
   return {
-    ct  => $e->{dst},
-    len => _up_ezycol $e,
+
+    labels => $e->{labels},
+
+    ct     => $e->{dst},
+    len    => _up_ezycol $e,
 
   };
 
@@ -610,10 +723,22 @@ sub to_bytes($self,%data) {
 
 sub to_strm($self,$sref,$pos,%data) {
 
-  my $b=$self->to_bytes(%data);
-  substr $$sref,$pos,$b->{len},$b->{ct};
+  $data{-ptr} //= $pos;
 
-  return $b->{len};
+  my $b=$self->to_bytes(%data);
+
+  # you meant CAT, right?
+  if($pos == length $$sref) {
+    $$sref .= $b->{ct};
+
+  # ^nope, insertion
+  } else {
+    substr $$sref,$pos,$b->{len},$b->{ct};
+
+  };
+
+
+  return $b;
 
 };
 
@@ -653,7 +778,21 @@ sub _p_get_elems($e) {
 # cat packed to dst
 
 sub _p_cat($e,$b) {
-  $e->{ezy}->{$e->{key}} = $b->{len};
+
+  # make label for elem
+  my $key  = $e->{key};
+  my $base = $e->{base};
+  my $full = "$base$key";
+
+  push @{$e->{labels}},
+    $full=>[$e->{ptr},$b->{len}];
+
+  # ^go next
+  $e->{ptr} += $b->{len};
+
+
+  # write bytes to out
+  $e->{ezy}->{$key} = $b->{len};
   $e->{dst} .= catar $b->{ct};
 
 };
@@ -678,8 +817,48 @@ sub _pack_bitformat($self,$e) {
 # ^recurse guts
 
 sub _pack_struc($self,$e) {
-  map {_p_cat $e,$e->{fmat}->to_bytes(%$ARG)}
-  _p_get_elems($e);
+
+  my @data=_p_get_elems($e);
+  my $idex=0;
+
+  map {
+
+    # get namespace
+    my $key  = $e->{key};
+    my $base = $e->{base};
+
+    # ^have array?
+    $key .= "[$idex]" if @data > 1;
+
+    # get packed bytestr
+    my $b=$e->{fmat}->to_bytes(
+
+      %$ARG,
+
+      -ptr  => $e->{ptr},
+      -base => "$base$key",
+
+    );
+
+
+    # add labels
+    push @{$e->{labels}},
+       "$base$key"
+    => [$e->{ptr},$b->{len}]
+    ;
+
+    push @{$e->{labels}},@{$b->{labels}};
+
+
+    # write to out and go next
+    $e->{ezy}->{$key} = $b->{len};
+    $e->{dst} .= catar $b->{ct};
+
+    $idex++;
+    $b;
+
+
+  } @data;
 
 };
 

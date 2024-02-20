@@ -28,6 +28,7 @@ package FF;
 
   use Style;
   use Type;
+  use Chk;
 
   use FStruc;
 
@@ -47,7 +48,7 @@ package FF;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -310,7 +311,10 @@ sub unpack($name,$sref,%O) {
 
 
   # make copy of source?
-  my $src=$sref;
+  my $src=(is_hashref($sref))
+    ? \$sref->{ct}
+    : $sref
+    ;
 
   if($O{csume}) {
     my $cpy = $$sref;
@@ -336,19 +340,22 @@ sub unpack($name,$sref,%O) {
   my $b     = $struc->$fn(@args);
 
 
-  # make labels array?
-  $self->{-labels}=[$struc->labels($b)]
+  # save labels array?
+  $self->{-labels}=$b->{labels}
   if $O{label};
 
   # copy results to ice
   my $data  = $struc->flatten($b);
+
+  map  {delete $self->{$ARG}}
+  grep {! ($ARG=~ qr{^\-})}
+  keys %$self;
 
   map  {$self->{$ARG}=$data->{$ARG}}
   keys %$data;
 
 
   return $self;
-
 
 };
 
@@ -359,4 +366,3 @@ sub unpack($name,$sref,%O) {
 
 # ---   *   ---   *   ---
 1; # ret
-
