@@ -293,6 +293,25 @@ sub is_ptr($class,$name) {
 };
 
 # ---   *   ---   *   ---
+# errme
+
+sub throw_redefn($name) {
+
+
+  errout q[redefinition of type '%s'],
+
+  args => [$name],
+
+  back => 0,
+  lvl  => $AR_WARNING;
+
+
+  return 0;
+
+
+};
+
+# ---   *   ---   *   ---
 # completes a peso => (lang)
 # translation table
 

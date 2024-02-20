@@ -31,7 +31,7 @@ package St;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.02.3;
+  our $VERSION=v0.02.4;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -216,6 +216,16 @@ sub iof_frame($class,$frame) {
 
 sub get_frame_list($class) {
   return @{$Frames->{$class}};
+
+};
+
+# ---   *   ---   *   ---
+# get attrs that don't begin
+# with a dash
+
+sub nattrs($self) {
+  map  {  $ARG  => $self->{$ARG}}
+  grep {! ($ARG =~ qr{^\-})} keys %$self;
 
 };
 

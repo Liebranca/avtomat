@@ -286,12 +286,17 @@ sub complete($self,$dst) {
     my $key  = $ARG;
     my $fmat = $self->{fmat}->[$idex++];
 
+
     # value missing?
     if(! exists $dst->{$key}) {
 
       # need recurse?
       if($class->is_valid($fmat)) {
-        $dst->{$key}=[$fmat->complete({})];
+
+        my $inner={};
+
+        $fmat->complete($inner);
+        $dst->{$key}=[$inner];
 
       # ^nope, add plain array
       } else {
@@ -301,7 +306,7 @@ sub complete($self,$dst) {
       };
 
 
-    # check that subfields are set
+    # incomplete primitive?
     } elsif(! $class->is_valid($fmat)) {
 
       my $cnt  = int split $COMMA_RE,$fmat;
@@ -309,7 +314,17 @@ sub complete($self,$dst) {
 
       push @{$dst->{$key}},(0x00) x $diff;
 
+
+    # ^incomplete sub-struc?
+    } else {
+
+      map {
+        $fmat->complete($ARG)
+
+      } @{$dst->{$key}};
+
     };
+
 
   } @{$self->{order}};
 

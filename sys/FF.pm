@@ -34,6 +34,7 @@ package FF;
   use Arstd::Array;
   use Arstd::String;
   use Arstd::IO;
+  use Arstd::PM;
 
   use parent 'St';
 
@@ -46,7 +47,7 @@ package FF;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -66,6 +67,11 @@ package FF;
 sub FF($name,$src=undef) {
 
 
+  # ever lookup something
+  # then realize you're holding it?
+  return $name
+  if FStruc->is_valid($name);
+
   # fetch existing?
   return (exists $Table->{$name})
     ? $Table->{$name}
@@ -77,6 +83,10 @@ sub FF($name,$src=undef) {
   # forbid redefinition
   return throw_redefn($name)
   if exists $Table->{$name};
+
+  # ^forbid usage of base type names
+  return Type::throw_redefn($name)
+  if exists $Type::MAKE::Table->{$name};
 
 
   # parse input
@@ -103,6 +113,10 @@ sub FF($name,$src=undef) {
       ;
 
 
+    # is type itself a file format?
+    $type=$Table->{$type}
+    if exists $Table->{$type};
+
     # make args for FStruc
     $name => [$type=>@cnt];
 
@@ -110,8 +124,13 @@ sub FF($name,$src=undef) {
   } @fk;
 
 
-  # ^save fstruc to table and give
-  $Table->{$name}=FStruc->new(@cmd);
+  # ^save to table and give
+  my $struc=FStruc->new(@cmd);
+
+  $Table->{$name}  = $struc;
+  $Table->{$struc} = $name;
+
+
   return $Table->{$name};
 
 };
@@ -167,8 +186,6 @@ sub new($name,$args=undef) {
 
   # ^fillout and give
   $out->set(@$args);
-  $struc->complete($out);
-
   return $out;
 
 };
@@ -176,10 +193,12 @@ sub new($name,$args=undef) {
 # ---   *   ---   *   ---
 # assigns values to struc ice
 
-sub set($self,@args) {
+sub asg($self,$mode,@args) {
 
-  my $name = undef;
-  my $elem = undef;
+  my $struc = $self->{-struc};
+
+  my $name  = undef;
+  my $elem  = undef;
 
   map {
 
@@ -194,20 +213,50 @@ sub set($self,@args) {
       $elem    = \$self->{$name};
 
       $$elem //= [];
+      $$elem   = [] if $mode eq 'set';
 
     # ^add values to current
     } else {
-      push @{$$elem},$ARG;
+
+      # recurse for sub-struc?
+      if(exists $struc->{substruc}->{$name}) {
+
+        my $subs = $struc->{substruc}->{$name};
+           $subs = $Table->{$subs};
+
+        my $ice  = FF::new $subs=>$ARG;
+
+        push @{$$elem},{$ice->nattrs()};
+
+
+      # ^nope, plain array
+      } else {
+        push @{$$elem},$ARG;
+
+      };
 
     };
 
 
   } grep {defined $ARG} @args;
 
-
+  # fill out undefined/incomplete
+  $self->{-struc}->complete($self);
   return;
 
 };
+
+# ---   *   ---   *   ---
+# ^icef*ck
+
+subwraps(
+
+  q[$self->asg]=>q[$self,@args],
+
+  map {[$ARG=>"'$ARG',\@args"]}
+  qw  (set cat)
+
+);
 
 # ---   *   ---   *   ---
 # wraps for ice packing
@@ -304,4 +353,10 @@ sub unpack($name,$sref,%O) {
 };
 
 # ---   *   ---   *   ---
+# TODO:
+#
+# * file R/W
+
+# ---   *   ---   *   ---
 1; # ret
+
