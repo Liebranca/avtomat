@@ -48,7 +48,7 @@ package FF;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -360,9 +360,32 @@ sub unpack($name,$sref,%O) {
 };
 
 # ---   *   ---   *   ---
-# TODO:
-#
-# * file R/W
+# write to file
+
+sub write($name,$fpath,%O) {
+
+  my $b=FF::pack $name,%O;
+  owc($fpath,$b->{ct});
+
+  return $b->{len};
+
+};
+
+# ---   *   ---   *   ---
+# ^retrieve
+
+sub read($name,$fpath,%O) {
+
+  # defaults
+  $O{csume} //= 1;
+
+  # ^give ice
+  my $src=orc($fpath);
+  my $ice=FF::unpack $name,\$src,%O;
+
+  return $ice;
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

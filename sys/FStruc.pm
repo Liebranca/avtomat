@@ -42,7 +42,7 @@ package FStruc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#b
+  our $VERSION = v0.01.0;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -282,6 +282,49 @@ sub flatten($self,$b) {
     } else {()};
 
   } @order };
+
+};
+
+# ---   *   ---   *   ---
+# flattens the input of
+# to_bytes
+
+sub flattenin($self,$data) {
+
+  # match "field[N]"
+  state $re=qr{\[\d+\]$};
+
+
+  # walk arglist
+  my $Q={};
+  map {
+
+    # have "field[N]" ?
+    my $key=$ARG;
+    if($key=~ s[$re][]) {
+
+      $Q->{$key} //= [];
+
+      # add to pending and clear
+      push   @{$Q->{$key}},$data->{$ARG};
+      delete $data->{$ARG};
+
+    };
+
+
+  } keys %$data;
+
+
+  # make field    => [values]
+  # from field[N] => value
+  map {
+    my $v=$Q->{$ARG};
+    $data->{$ARG}=$v;
+
+  } keys %$Q;
+
+
+  return;
 
 };
 
@@ -638,6 +681,10 @@ sub to_bytes($self,%data) {
   $data{-base}  .= '.' if length $data{-base};
 
 
+  # have array sub-strucs?
+  $self->flattenin(\%data);
+
+
   # bind ctx
   my $e={
 
@@ -853,6 +900,7 @@ sub _pack_struc($self,$e) {
     # write to out and go next
     $e->{ezy}->{$key} = $b->{len};
     $e->{dst} .= catar $b->{ct};
+    $e->{ptr} += $b->{len};
 
     $idex++;
     $b;
