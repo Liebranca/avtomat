@@ -29,6 +29,7 @@ package A9M::vmem;
   use Bpack;
 
   use Arstd::xd;
+  use Arstd::IO;
 
   use parent 'Tree';
 
@@ -41,19 +42,53 @@ package A9M::vmem;
 # ---   *   ---   *   ---
 # ROM
 
+  sub Frame_Vars($class) { return {
+
+    segtab => [],
+
+
+    -autoload => [qw(mkseg)],
+
+  }};
+
+
   Readonly my $INBOUNDS_ERR=>qr{(?:
     OOB | INVALID
 
   )}x;
 
 # ---   *   ---   *   ---
+# adds zeroes to buf
+
+sub zeropad($size) {
+  pack "C[$size]",(0x00) x $size;
+
+};
+
+# ---   *   ---   *   ---
+# writes ice to segment table
+
+sub mkseg($class,$frame,$ice) {
+
+  my $segtab = $frame->{segtab};
+  my $id     = @$segtab;
+
+  push @$segtab,$ice;
+
+
+  return $id;
+
+};
+
+# ---   *   ---   *   ---
 # new addressing space
 
-sub nas($class,%O) {
+sub mkroot($class,%O) {
 
   # defaults
-  $O{mcid}  //= 0;
-  $O{label} //= 'non';
+  $O{mcid}   //= 0;
+  $O{mccls}  //= caller;
+  $O{label}  //= 'non';
 
   # make/fetch container
   my $frame=$class->get_frame($O{mcid});
@@ -66,9 +101,14 @@ sub nas($class,%O) {
   );
 
   # ^set spec attrs
-  $self->{buf}  = $NULLSTR;
-  $self->{ptr}  = 0x00;
-  $self->{size} = 0x00;
+  $self->{root}  = $self;
+  $self->{mcid}  = $O{mcid};
+  $self->{mccls} = $O{mccls};
+  $self->{seg}   = $frame->mkseg($self);
+
+  $self->{buf}   = $NULLSTR;
+  $self->{ptr}   = 0x00;
+  $self->{size}  = 0x00;
 
 
   return $self;
@@ -85,19 +125,61 @@ sub new($self,$size,$label=undef) {
 
 
   # make child
-  my $buf = pack "C[$size]",(0x00) x $size;
+  my $buf = zeropad $size;
   my $ice = Tree::new(
     (ref $self),$self->{frame},$self,$label
 
   );
 
   # ^set spec attrs
-  $ice->{buf}  = $buf;
-  $ice->{ptr}  = 0x00;
-  $ice->{size} = $size;
+  $ice->{root}  = $self->{root};
+  $ice->{mcid}  = $self->{mcid};
+  $ice->{mccls} = $self->{mccls};
+  $ice->{seg}   = $self->{frame}->mkseg($ice);
+
+  $ice->{buf}   = $buf;
+  $ice->{ptr}   = 0x00;
+  $ice->{size}  = $size;
 
 
   return $ice;
+
+};
+
+# ---   *   ---   *   ---
+# grow or shrink block
+
+sub brk($self,$step) {
+
+
+  # get ctx
+  my $buf  = $self->{buf};
+  my $ptr  = $self->{ptr};
+  my $size = $self->{size};
+
+
+  # add bytes to buffer?
+  if($step > 0) {
+    $buf .= zeropad $step;
+
+  # ^nope, discard!
+  } elsif($step < 0) {
+    $buf=substr $buf,0,$size+$step,null;
+
+  };
+
+
+  # ^adjust size accordingly
+  $size = length $buf;
+  $ptr  = $ptr * ($size > $ptr);
+
+  # overwrite and give new size
+  $self->{buf}  = $buf;
+  $self->{ptr}  = $ptr;
+  $self->{size} = $size;
+
+
+  return $size;
 
 };
 
@@ -107,8 +189,8 @@ sub new($self,$size,$label=undef) {
 sub load($self,$type,$addr=undef) {
 
   # can read this many bytes?
-  $type=$self->inbounds($type,\$addr);
-  return $type if $type=~ $INBOUNDS_ERR;
+  $self->inbounds(\$type,\$addr)
+  or return null;
 
 
   # read from buf and give
@@ -120,11 +202,11 @@ sub load($self,$type,$addr=undef) {
 # ---   *   ---   *   ---
 # write value at pos
 
-sub store($self,$value,$type,$addr=undef) {
+sub store($self,$type,$value,$addr=undef) {
 
   # can write this many bytes?
-  $type=$self->inbounds($type,\$addr);
-  return $type if $type=~ $INBOUNDS_ERR;
+  $self->inbounds(\$type,\$addr)
+  or return null;
 
 
   # write to buf
@@ -139,7 +221,43 @@ sub store($self,$value,$type,$addr=undef) {
 };
 
 # ---   *   ---   *   ---
-# catch OOB load/store
+# make memref
+
+sub ptr($self,$ptr_t,$addr) {
+
+  # no ptr type specified?
+  if(! Type->is_ptr($ptr_t)) {
+
+    $ptr_t=typefet $ptr_t
+    or return badtype;
+
+    $ptr_t="$ptr_t->{name} ptr";
+
+  };
+
+  # ^validate
+  $self->inbounds(\$ptr_t,\$addr)
+  or return null;
+
+  # valid for deref?
+  my $type=derefof $ptr_t
+  or return null;
+
+
+  # ^give size/seg/offset
+  return [
+
+    $type,
+
+    $self->{seg},
+    $addr
+
+  ];
+
+};
+
+# ---   *   ---   *   ---
+# catch OOB addresses
 
 sub _inbounds($self,$type,$addr) {
 
@@ -157,17 +275,18 @@ sub _inbounds($self,$type,$addr) {
 # ---   *   ---   *   ---
 # ^public wraps
 
-sub inbounds($self,$type,$addrref) {
+sub inbounds($self,$typeref,$addrref) {
 
   # default to ptr
   $$addrref //= $self->{ptr};
 
   # can read this many bytes?
-  $type=typefet $type or return 'INVALID';
+  $$typeref=typefet $$typeref or return null;
 
-  return (! $self->_inbounds($type,$$addrref))
-    ? 'OOB'
-    : $type
+
+  return (! $self->_inbounds($$typeref,$$addrref))
+    ? null
+    : 1
     ;
 
 };
@@ -176,34 +295,77 @@ sub inbounds($self,$type,$addrref) {
 # dbout
 
 sub prich($self,%O) {
-  return xd $self->{buf},%O;
+
+  # own defaults
+  $O{depth} //= 0;
+
+  # I/O defaults
+  my $out=ioprocin(\%O);
+
+  # ^omit buff header
+  $O{head}=0;
+
+
+  # walk hierarchy
+  my @Q=($self eq $self->{root})
+    ? @{$self->{leaves}}
+    : $self
+    ;
+
+  while(@Q) {
+
+
+    # handle end of branch
+    my $nd=shift @Q;
+    if(! $nd) {
+      last if ! $O{depth}--;
+      next;
+
+    };
+
+
+    # put header?
+    $O{head} = $nd->{value} eq 'ANON';
+
+    push @$out,"$nd->{value}:\n"
+    if ! $O{head};
+
+
+    # give hexdump and go next
+    xd      $nd->{buf},%O,mute=>1;
+    unshift @Q,@{$nd->{leaves}},0;
+
+  };
+
+
+  return ioprocout(\%O);
 
 };
 
 # ---   *   ---   *   ---
 # test
 
-use Fmat;
-
-my $CAS  = A9M::vmem->nas();
-my $mem  = $CAS->new(0x10);
-
-my $type = struc cvec=>q[
-  word fa[3];
-  word fb;
-
-];
-
-
-my $ar=$mem->load(cvec=>0x00);
-
-
-$ar->{fa}->[1] = 0x2424;
-$ar->{fb}      = 0x2121;
-
-
-$mem->store($ar,cvec=>0x00);
-$mem->prich();
+#use Fmat;
+#
+#my $CAS  = A9M::vmem->mkroot();
+#my $mem  = $CAS->new(0x10);
+#
+#my $type = struc cvec=>q[
+#  word fa[3];
+#  word fb;
+#
+#];
+#
+#
+#my $ar=$mem->load(cvec=>0x00);
+#
+#
+#$ar->{fa}->[1] = 0x2424;
+#$ar->{fb}      = 0x2121;
+#
+#
+#$mem->store($ar,cvec=>0x00);
+#$mem->prich();
 
 # ---   *   ---   *   ---
 1; # ret

@@ -63,9 +63,14 @@ package Arstd::xd;
 # ---   *   ---   *   ---
 # get input
 
-sub from_file($fpath) {
+sub from_file($fpath,%O) {
+
+  # defaults
+  $O{order} //= ':>';
+
+  # read and give
   my $body = orc($fpath);
-  draw($body);
+  draw($body,%O);
 
 };
 
@@ -74,6 +79,10 @@ sub from_file($fpath) {
 # prints out repr
 
 sub draw($body,%O) {
+
+  # own defaults
+  $O{head}  //= 1;
+  $O{order} //= '<:';
 
   # I/O defaults
   my $out=ioprocin(\%O);
@@ -101,7 +110,23 @@ sub draw($body,%O) {
     # ^pad to 16
     if(@bytes < 16) {
       $diff=16-@bytes;
-      push @bytes,("\x{00}")x$diff;
+      push @bytes,("\x{00}") x $diff;
+
+    };
+
+
+    # shuffle byte ordering?
+    if($O{order} eq '<:') {
+
+      @bytes=(
+
+        (reverse @bytes[ 4.. 7]),
+        (reverse @bytes[ 0.. 3]),
+
+        (reverse @bytes[ 8..11]),
+        (reverse @bytes[12..15]),
+
+      );
 
     };
 
@@ -154,21 +179,29 @@ sub draw($body,%O) {
     $k+=1;
 
 
+    # notify of "incomplete" xword
     if($diff && $k > 16) {
 
       push @$out,"\n",
-        sprintf "+%01X\n",$diff if $diff;
+        sprintf "+%01X\n",$diff
 
+      if $diff && $O{head} == 1;
+
+
+    # ^out xword
     } else {
 
       push @$out,"\n\n",
-        sprintf "\$%04X :>\n",($k-16) >> 4
+        sprintf "\$%04X $O{order}\n",($k-16) >> 4
 
-      if ! ($k % 16);
+      if ! ($k % 16) && $O{head} != 0;
 
       push @$out,,"\n" if ! ($k %  4);
 
+      $O{head}=2;
+
     };
+
 
     # out (human)line
     push @$out,' ',$sl,'| ',$sr,"\n";
@@ -211,7 +244,8 @@ sub import($class,@req) {
 # ---   *   ---   *   ---
 # ^imported as exec via arperl
 
-sub ON_EXE($class,$input=undef,@nullarg) {
+sub ON_EXE($class,$input=undef,@args) {
+
 
   # have input?
   my $src=(defined $input)
@@ -220,12 +254,16 @@ sub ON_EXE($class,$input=undef,@nullarg) {
     ;
 
 
-  # ^select accto input type
-  if(is_filepath($src)) {
-    from_file($src)
+  # clear null
+  @args=grep {$ARG} @args;
 
+  # reading from file?
+  if(is_filepath($src)) {
+    from_file($src,@args)
+
+  # ^nope, direct
   } else {
-    draw($src)
+    draw($src,@args)
 
   };
 

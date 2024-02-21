@@ -11,6 +11,22 @@
 # lyeb,
 
 # ---   *   ---   *   ---
+# TODO: at [*fetch]:
+#
+# * separate the code that procs
+#   the ptr_t and ptr_w flags
+#
+# * make that into it's own F
+#
+# * use it to make ptr to type,
+#   including strucs
+#
+#
+# later on, generalize utype maker
+# to make the struc method (over at Type)
+# a bit more modular
+
+# ---   *   ---   *   ---
 # deps
 
 package Type::MAKE;
@@ -26,6 +42,7 @@ package Type::MAKE;
 
   use Style;
   use Chk;
+  use Warnme;
 
   use Arstd::Array;
   use Arstd::Bytes;
@@ -45,14 +62,15 @@ package Type::MAKE;
     typefet
     typedef
 
-    throw_invalid_type
+    badtype
+    badptr
 
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -124,11 +142,42 @@ package Type::MAKE;
   };
 
 
-  # regexes for all
-  Readonly our $RE=>{ map {(
-    $ARG=>re_pekey(@{$LIST->{$ARG}})
+  # one list to rule them all!
+  Readonly our $ALL_FLAGS=>[
 
-  )} keys %$LIST };
+    array_flatten(
+      [values %$LIST],dupop=>1
+
+    ),qw(
+
+      vec2 vec3 vec4 mat2 mat3 mat4
+      sign
+
+    ),
+
+  ];
+
+  # regexes for all
+  our $RE={
+
+    ptr_any  => re_pekey(
+
+      @{$LIST->{ptr_t}},
+      @{$LIST->{ptr_w}},
+
+      ( map {"${ARG}ptr"} @{$LIST->{ptr_w}}),
+
+    ),
+
+    flag_any => re_pekey(@$ALL_FLAGS),
+
+
+    map {(
+      $ARG=>re_pekey(@{$LIST->{$ARG}})
+
+    )} keys %$LIST
+
+  };
 
 
   # to get ize as a power of 2...
@@ -149,33 +198,40 @@ package Type::MAKE;
   # ^maximum power of 2 allowed
   Readonly my $EZY_CAP  => 1 << $IDEXOF->{zword};
 
-
   # signals for the type generator
   Readonly my $TYPEFLAG => {
 
     (map {$ARG=>0x00} @{$LIST->{defn}}),
 
 
-    sign  => 0x001,
-    real  => 0x002,
+    sign     => 0x001,
+    real     => 0x002,
 
-    vec   => 0x004,
-    mat   => 0x008,
-
-
-    tiny  => 0x010,
-    short => 0x020,
-    mean  => 0x040,
-    long  => 0x080,
-
-    str   => 0x100,
-    cstr  => 0x200,
-    plstr => 0x400,
+    vec      => 0x004,
+    mat      => 0x008,
 
 
-    ptr_w => 0x0F0,
-    str_t => 0x700,
-    ptr   => 0x7F0,
+    tiny     => 0x010,
+    tinyptr  => 0x010,
+
+    short    => 0x020,
+    shortptr => 0x020,
+
+    mean     => 0x040,
+    meanptr  => 0x040,
+
+    long     => 0x080,
+    longptr  => 0x080,
+
+
+    str      => 0x100,
+    cstr     => 0x200,
+    plstr    => 0x400,
+
+
+    ptr_w    => 0x0F0,
+    str_t    => 0x700,
+    ptr      => 0x7F0,
 
   };
 
@@ -215,6 +271,69 @@ package Type::MAKE;
     'Table' => \&define_base
 
   );
+
+# ---   *   ---   *   ---
+# warn of malformed/unexistent type
+
+sub badtype($name) {
+
+  Warnme::invalid 'type',
+
+  obj  => $name,
+  give => null;
+
+};
+
+# ---   *   ---   *   ---
+# ^forbid zero-size type
+
+sub badsize($name) {
+
+  warnproc "type '%s' has a total size of zero",
+
+  args => [$name],
+  give => null;
+
+};
+
+# ---   *   ---   *   ---
+# ^forbid void deref!
+
+sub badptr($name) {
+
+  warnproc "'%s' is incomplete; cannot deref",
+
+  args => [$name],
+  give => null;
+
+};
+
+# ---   *   ---   *   ---
+# get type hashref from string
+#
+# *IF* you don't already have
+# the hashref!
+
+sub typefet(@src) {
+
+  return (! is_hashref($src[0]))
+    ? fetch(@src)
+    : $src[0]
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# make an alias for a type
+
+sub typedef($dst,@src) {
+
+  $Table->{$dst}=typefet @src
+  or return badtype;
+
+  return $Table->{$dst};
+
+};
 
 # ---   *   ---   *   ---
 # cleanups unwanted spaces in typename
@@ -268,7 +387,7 @@ sub _fetch(@flags) {
   if ! defined $key;
 
   # ^throw missing
-  return throw_invalid_type(join ' ',@flags)
+  return badtype join ' ',@flags
   if ! defined $key;
 
 
@@ -368,7 +487,7 @@ sub fetch(@flags) {
      @flags = map {split $NSPACE_RE,$ARG} @flags;
   my $type  = _fetch(@flags);
 
-  return    undef if ! $type;
+  return undef if $type eq null;
 
 
   # ^already defined?
@@ -484,6 +603,9 @@ sub fetch(@flags) {
   } else {$fmat="$fmat\[$cnt]"};
 
 
+  # forbid null size
+  badsize $name if ! $tby;
+
   # make Table entry
   my $out={
 
@@ -510,46 +632,6 @@ sub fetch(@flags) {
     ;
 
   return $Table->{$name};
-
-};
-
-# ---   *   ---   *   ---
-# ^errme
-
-sub throw_invalid_type($name) {
-
-  errout q[invalid type: '%s'],
-
-  args => [$name],
-
-  back => 0,
-  lvl  => $AR_WARNING;
-
-
-  return 0;
-
-};
-
-# ---   *   ---   *   ---
-# get type hashref from string
-#
-# *IF* you don't already have
-# the hashref!
-
-sub typefet(@src) {
-
-  return (! is_hashref($src[0]))
-    ? fetch(@src)
-    : $src[0]
-    ;
-
-};
-
-# ---   *   ---   *   ---
-# make an alias for a type
-
-sub typedef($dst,@src) {
-  return $Table->{$dst}=typefet @src;
 
 };
 

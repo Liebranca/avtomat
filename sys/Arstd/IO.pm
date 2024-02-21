@@ -10,9 +10,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Arstd::IO;
 
   use v5.36.0;
@@ -66,8 +67,8 @@ package Arstd::IO;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.5;#a
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = v0.00.7;
+  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
@@ -121,7 +122,7 @@ sub ioprocin($O) {
 
   $O->{errout} //= 0;
   $O->{mute}   //= 0;
-  $O->{-bufio}   = \@bufio;
+  $O->{-bufio} //= \@bufio;
 
 
   return $O->{-bufio};
@@ -201,6 +202,10 @@ sub fstrout($fmat,$tab,%O) {
   $O{nopad}     //= 0;
 
   my $out=$NULLSTR;
+
+  # mark undefined
+  map {$ARG //= '<null>'} @{$O{args}};
+
 
   # get line length
   my @ttysz    = ttysz_yx();

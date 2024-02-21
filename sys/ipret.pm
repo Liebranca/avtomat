@@ -91,26 +91,10 @@ sub proc_solve($self,$nd,@Q) {
   # have command?
   if(exists $nd->{cmdkey}) {
 
-    my $cmd=$NULLSTR;
-    my $key=$nd->{value};
+    my $cmd = $NULLSTR;
+    my $key = $nd->{value};
 
-
-    # user defined?
-    if(defined ($cmd=$l1->is_ucmd($key))) {
-
-      my $fn=$scope->get(
-        @$path,'UCMD',$cmd
-
-      );
-
-      $nd->prich();
-      $fn->{body}->prich();
-
-    # ^nope, builtin!
-    } else {
-      my $fn=$lx->passf($nd->{cmdkey});
-
-    };
+    my $fn  = $lx->passf($nd->{cmdkey});
 
   };
 

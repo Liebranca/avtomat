@@ -32,7 +32,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -68,10 +68,8 @@ sub proc_parse($self) {
 
   my $rd=$self->{rd};
 
-  # execution queues
-  my @cmd     = ();
-  my @cmdarg  = ();
-
+  # execution queue
+  my @cmd = ();
 
   # get nodes of branch
   my @pending = (@{$rd->{nest}})
@@ -111,15 +109,7 @@ sub proc_parse($self) {
     my $l1  = $rd->{l1};
 
     # ^enqueue exec layer
-    if($cmd) {
-      push @cmdarg,$nd;
-      push @cmd,$cmd if $cmd ne 1;
-
-    # ^no *builtin* cmd, but user-defined one?
-    } elsif(defined ($cmd=$l1->is_ucmd(
-      $nd->{value}
-
-    ))) {$nd->{cmdkey}=$cmd};
+    push @cmd,$cmd if $cmd && $cmd ne 1;
 
 
     # go next
@@ -128,25 +118,58 @@ sub proc_parse($self) {
   };
 
 
-  # commands in queue?
-  my $walked=$self->{walked};
+  # run enqueued commands
+  $self->exec_queue(reverse @cmd);
 
-  # check arguments for all commands
+  # restore starting branch
+  $rd->{branch}=$old;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# go through [F,node] list
+# and run F->(node)
+
+sub exec_queue($self,@Q) {
+
+  my $rd     = $self->{rd};
+  my $lx     = $rd->{lx};
+
+  my $walked = $self->{walked};
+
   map {
-    $rd->{branch}=$ARG;
-    $rd->{lx}->argchk();
-
-  } @cmdarg;
 
 
-  # ^only run commands that are defined
-  # for the parsing stage!
-  map {
-
+    # unpack
     my ($fn,$branch)=@$ARG;
-
     $rd->{branch}=$branch;
-    $fn->($rd->{lx},$branch);
+
+
+    # check arguments and run
+    rept:
+      $lx->argchk();
+      my $have=$fn->($lx,$branch);
+
+    # ^branch was mutated by proc
+    if($have && $have eq 'mut') {
+
+      # have new command?
+      my $cmd=$self->cmd();
+
+      # ^replace and repeat if so
+      if($cmd && $cmd ne 1) {
+        ($fn,$branch)=@$cmd;
+        goto rept;
+
+      };
+
+    };
+
+
+    # give result if defined
+    (defined $have) ? $have : () ;
 
 
   # avoid processing the same node twice
@@ -154,14 +177,7 @@ sub proc_parse($self) {
     $walked->{$ARG->[1]}//=0;
   ! $walked->{$ARG->[1]}++
 
-  } reverse @cmd;
-
-
-  # restore starting branch
-  $rd->{branch}=$old;
-
-
-  return;
+  } @Q;
 
 };
 
@@ -596,7 +612,6 @@ sub cmd($self) {
   # build/fetch regex
   my $re=$l1->tagre(CMD=>'.+');
 
-
   # have command?
   if($key=~ $re) {
 
@@ -620,6 +635,38 @@ sub cmd($self) {
   };
 
 
+  return 0;
+
+};
+
+# ---   *   ---   *   ---
+# get node is the first
+# token in an expression
+
+sub is_exprtop($self,$branch=undef) {
+
+
+  # get ctx
+  my $rd = $self->{rd};
+  my $l1 = $rd->{l1};
+
+  # default to current
+  $branch //= $rd->{branch};
+
+
+  # is grandparent root?
+  my $par  = $branch->{parent};
+  my $gpar = $par->{parent};
+
+  return 1 if ! defined $gpar->{parent};
+
+
+  # is parent the beggining of a branch?
+  my $idex = $l1->is_branch($par->{node});
+  return 1 if defined $idex;
+
+
+  # ^nope, you're not at the top!
   return 0;
 
 };

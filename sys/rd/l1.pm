@@ -32,7 +32,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -59,7 +59,7 @@ package rd::l1;
   )} (
 
     ['*' => 'CMD'],
-    ['x' => 'UCMD'],
+    ['T' => 'TYPE'],
 
     ['`' => 'OPERA'],
     ['%' => 'STRING'],
@@ -170,6 +170,21 @@ sub throw_invalid_type($self,$type) {
 };
 
 # ---   *   ---   *   ---
+# ^undo
+
+sub detag($self,$src=undef) {
+
+  # default to current token
+  my $rd    = $self->{rd};
+     $src //= $rd->{token};
+
+  # subst and give
+  $src=~ s[$TAG][];
+  return $src;
+
+};
+
+# ---   *   ---   *   ---
 # joins the values of an array
 # of tags of the same type
 #
@@ -260,7 +275,7 @@ subwraps(
   map {[
     "is_$ARG" => q['] . (uc $ARG) . q[',$src]
 
-  ]} qw  (opera list string ucmd)
+  ]} qw  (opera list string cmd branch)
 
 );
 
@@ -305,18 +320,12 @@ sub proc_parse($self,$src=undef) {
 
   # get ctx
   my $CMD   = $rd->{lx}->load_CMD();
-  my $scope = $rd->{scope};
-  my $path  = $scope->{path};
   my $key   = $src;
 
 
   # is command?
   if($key=~ $CMD->{-re}) {
     $key='CMD';
-
-  # is *user* command? ;>
-  } elsif($scope->has(@$path,'UCMD',$key)) {
-    $key='UCMD';
 
   # is number?
   } elsif(defined (my $is_num=sstoi($key,0))) {

@@ -9,9 +9,10 @@
 #
 # CONTRIBUTORS
 # lyeb,
-# ---   *   ---   *   ---
 
+# ---   *   ---   *   ---
 # deps
+
 package Chk;
 
   use v5.36.0;
@@ -32,6 +33,8 @@ package Chk;
   use Exporter 'import';
   our @EXPORT=qw(
 
+    nref
+
     is_blessref
     is_hashref
     is_coderef
@@ -50,7 +53,7 @@ package Chk;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.5;#a
+  our $VERSION=v0.00.6;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -135,18 +138,18 @@ sub is_qreref($v) {
 };
 
 # ---   *   ---   *   ---
-# ^WIP
+# value is just... nothing special
 
-sub is_str($v) {
+sub nref($v) {
 
-     defined $v
+      defined $v
 
-  && !is_scalarref($v)
-  && !is_arrayref($v)
-  && !is_hashref($v)
-  && !is_blessref($v)
-  && !is_coderef($v)
-  && !is_qre($v)
+  &&! is_scalarref($v)
+  &&! is_arrayref($v)
+  &&! is_hashref($v)
+  &&! is_blessref($v)
+  &&! is_coderef($v)
+  &&! is_qre($v)
   ;
 
 };

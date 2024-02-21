@@ -3,16 +3,16 @@
 # nevermind this file!
 # just testing the parser ;>
 
-byte fwd  test;
-byte test 'hello!';
-
-echo fwd;
+byte vec3 fwd 'hi';
+#byte test 'hello!';
+#
+#echo fwd;
 
 #cmd plfi name,value {
 #  echo '%name% => %value%,';
 #
 #};
-#
+
 #plfi name,avtomat;
 #
 #bat-cmd (name;scan;xcpy;lcpy) value {

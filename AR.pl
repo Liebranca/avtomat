@@ -68,6 +68,8 @@ my $FILE_LIST=[
   '/sys/Arstd/Test.pm',
 
   '/sys/Chk.pm',
+  '/sys/Warnme.pm',
+
   '/sys/St.pm',
   '/sys/Frame.pm',
 

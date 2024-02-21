@@ -39,6 +39,7 @@ package Style;
 
     $NULL
     $NULLSTR
+    $NULLTAG
     $FREEBLOCK
 
     $AR_WARNING
@@ -61,7 +62,9 @@ package Style;
 
     strerr
     catar
+
     null
+    nulltag
 
   );
 
@@ -97,6 +100,7 @@ package Style;
   ;
 
   Readonly our $NULLSTR=>q[];
+  Readonly our $NULLTAG=>'<null>';
 
 # ---   *   ---   *   ---
 
@@ -150,7 +154,8 @@ sub catar(@src) {join $NULLSTR,@src};
 # ---   *   ---   *   ---
 # aliasing!
 
-sub null {$NULLSTR};
+sub null    {$NULLSTR};
+sub nulltag {$NULLTAG};
 
 # ---   *   ---   *   ---
 1; # ret

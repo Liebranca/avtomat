@@ -270,15 +270,21 @@ sub wrap($ar,$idex) {
 # recursively flatten array
 # gives copy!
 
-sub flatten($ar) {
+sub flatten($ar,%O) {
 
+  # defaults
+  $O{dupop} //= 0;
+
+
+  # walk
   my @out = ();
   my @Q   = @$ar;
 
   while(@Q) {
 
+    # recurse if stepped on array
+    # else copy value to dst
     my $chd=shift @Q;
-
     (is_arrayref($chd))
       ? unshift @Q,@$chd
       : push    @out,$chd
@@ -287,6 +293,10 @@ sub flatten($ar) {
   };
 
 
+  # clear duplicates?
+  dupop(\@out) if $O{dupop};
+
+  # give copy
   return @out;
 
 };

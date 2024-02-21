@@ -28,11 +28,14 @@ package Type;
 
   use Style;
   use Chk;
+  use Warnme;
+
 
   use Arstd::Array;
   use Arstd::Bytes;
   use Arstd::String;
   use Arstd::IO;
+  use Arstd::PM;
 
   use Type::MAKE;
 
@@ -51,6 +54,9 @@ package Type;
 
     typefet
     typedef
+
+    badtype
+    badptr
 
     PEVAR
     PESTRUC
@@ -129,9 +135,17 @@ sub struc($name,$src) {
   my @fv=array_values(\@field);
 
 
-  # fetch type array
+  # fetch/validate type array
   my @typename = map {$ARG->{type}} @fv;
-  my @type     = map {typefet $ARG} @typename;
+  my @type     = map {
+     typefet $ARG
+  or badtype $ARG
+
+  } @typename;
+
+  0 == int grep {$ARG eq null} @type
+  or return null;
+
 
   # ^combine sizes
   my $tby = 0;
@@ -178,6 +192,9 @@ sub struc($name,$src) {
   my @idex = map {$ARG} @fk;
 
 
+  # forbid null size
+  Type::MAKE::badsize $name if ! $tby;
+
   # make Table entry
   my $out={
 
@@ -208,11 +225,11 @@ sub struc($name,$src) {
 
 sub sizeof($name) {
 
-  my $type=typefet($name);
+  my $type=typefet $name;
 
   return (defined $type)
     ? $type->{sizeof}
-    : throw_invalid_type($name)
+    : badtype $name
     ;
 
 };
@@ -222,11 +239,11 @@ sub sizeof($name) {
 
 sub packof($name) {
 
-  my $type=typefet($name);
+  my $type=typefet $name;
 
   return (defined $type)
     ? $type->{packof}
-    : throw_invalid_type($name)
+    : badtype $name
     ;
 
 
@@ -258,56 +275,89 @@ sub typeof($size) {
 };
 
 # ---   *   ---   *   ---
-# removes "ptr" from typename
+# removes ptr flags from type
 
-sub derefof($name) {
+sub derefof($ptr_t) {
 
-  state $re=qr{
-    $Type::MAKE::RE->{ptr_w}
-  | $Type::MAKE::RE->{ptr_t}
-
-  };
+  # get base type
+  $ptr_t=typefet $ptr_t
+  or return null;
 
 
-  $name=~ s[$re][]sxmg;
-  return Type::MAKE::namestrip($name);
+  # strip flags
+  my $re   = $Type::MAKE::RE->{ptr_any};
+
+  my $name = $ptr_t->{name};
+     $name =~ s[$re][]sxmg;
+
+  # ^clear blanks
+  $name=Type::MAKE::namestrip($name);
+
+
+  # fetch and validate
+  my $type=typefet $name
+  or return badptr $ptr_t->{name};
+
+
+  return $type;
 
 };
 
 # ---   *   ---   *   ---
-# shorthands: check against re
+# can fetch?
 
-sub is_valid($class,$name) {
-  return defined typefet($name);
-
-};
-
-sub is_str($class,$name) {
-  return $name=~ $Type::MAKE::RE->{str_t};
+sub is_valid($class,$type) {
+  return defined typefet $type;
 
 };
 
-sub is_ptr($class,$name) {
-  return $name=~ $Type::MAKE::RE->{ptr_t};
+# ---   *   ---   *   ---
+# proto: check name against re
+
+sub _typeisa($class,$type,$key) {
+
+  $type=typefet $type
+  or return 0;
+
+  return $type->{name}=~
+    $Type::MAKE::RE->{$key};
 
 };
+
+# ---   *   ---   *   ---
+# ^icef*ck
+
+subwraps(
+
+  q[$class->_typeisa]=>q[$class,$type],
+
+
+  map {
+
+    my ($sufix,$name)=
+      split $COLON_RE,$ARG;
+
+    ["is_$sufix" => "\$type,'$name'"];
+
+  }
+
+  qw (
+    str:str_t
+    ptr:ptr_any
+
+  ),
+
+);
 
 # ---   *   ---   *   ---
 # errme
 
-sub throw_redefn($name) {
+sub warn_redef($name) {
 
+  Warnme::invalid 'type',
 
-  errout q[redefinition of type '%s'],
-
-  args => [$name],
-
-  back => 0,
-  lvl  => $AR_WARNING;
-
-
-  return 0;
-
+  obj  => $name,
+  give => 0;
 
 };
 

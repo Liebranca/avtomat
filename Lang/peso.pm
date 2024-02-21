@@ -175,11 +175,7 @@ Lang::peso->new(
 
 # ---   *   ---   *   ---
 
-  types      => [
-    map    {@$ARG}
-    values %$Type::MAKE::LIST
-
-  ],
+  types      => $Type::MAKE::ALL_FLAGS,
 
   specifiers => [@$SPECIFIER],
   resnames   => [@$RESNAMES],

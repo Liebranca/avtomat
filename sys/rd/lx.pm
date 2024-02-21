@@ -34,7 +34,7 @@ package rd::lx;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -108,24 +108,53 @@ sub cmdarg($type,%O) {
   );
 
 # ---   *   ---   *   ---
-# default set of commands
+# generate/fetch set of commands
 
-sub cmdset($self) { return {
+sub cmdset($self) {
 
-  echo => [$QLIST],
-  stop => [],
+#  # get ctx
+#  my $rd    = $self->{rd};
+#  my $scope = $rd->{scope};
+#  my $tree  = $scope->{tree};
+#
+#  # have user definitions?
+#  my @ucmd    = $tree->branches_in(qr{^UCMD$});
+#  my $USERDEF = {};
+#
+#  map {
+#    map {$USERDEF->{$ARG}=[$OPT_QLIST]}
+#    $ARG->branch_values();
+#
+#  } @ucmd;
 
 
-  cmd        => [$BARE,$OPT_VLIST,$CURLY],
-  'bat-cmd'  => [$PARENS,$OPT_VLIST,$CURLY],
+  # asm whole set
+  return {
+
+    echo => [$QLIST],
+    stop => [],
 
 
-  ( map {$ARG => [$VLIST,$OPT_QLIST]}
-    qw  (byte word dword qword)
+    # user command maker
+    cmd        => [$BARE,$OPT_VLIST,$CURLY],
+    'bat-cmd'  => [$PARENS,$OPT_VLIST,$CURLY],
 
-  ),
 
-}};
+    # value types
+    ( map {$ARG => [$OPT_QLIST]}
+      @{$Type::MAKE::ALL_FLAGS}
+
+    ),
+
+    'data-decl' => [$VLIST,$OPT_QLIST],
+
+
+#    # paste user-defined commands
+#    %$USERDEF
+
+  };
+
+};
 
 # ---   *   ---   *   ---
 # get name of current pass
@@ -148,9 +177,12 @@ sub stop_parse($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# value decl
+# entry point for (exprtop)[*type] (values)
+#
+# not called directly, but rather
+# by mutation of [*type] (see: type_parse)
 
-sub decl_parse($self,$branch,$ezy) {
+sub data_decl_parse($self,$branch) {
 
   # get ctx
   my $rd    = $self->{rd};
@@ -251,23 +283,124 @@ sub wait_next_pass($self,$branch,$Q) {
 };
 
 # ---   *   ---   *   ---
+# collapses width/specifier list
+#
+# mutates node:
+#
+# * (? exprbeg) [*type] -> [*data-decl]
+# * (! exprbeg) [*type] -> [Ttype]
+
+sub type_parse($self,$branch) {
+
+  # get ctx
+  my $rd = $self->{rd};
+  my $l1 = $rd->{l1};
+  my $l2 = $rd->{l2};
+
+
+  # first token is first specifier!
+  my @type = $l1->is_cmd($branch->{value});
+  my $par  = $branch->{parent};
+
+  # ^get tokens from previous iterations
+  push @type,@{$branch->{type_Q}}
+  if exists $branch->{type_Q};
+
+
+  # if parent is also a type, then
+  # continue collapsing
+  my $head = $l1->is_cmd($par->{value});
+  if(defined $head) {
+
+    # save types to parent, they'll be
+    # picked up in the next run of this F
+    $par->{type_Q} //= [];
+    push @{$par->{type_Q}},@type;
+
+    # ^remove this token
+    $branch->discard();
+
+
+    return;
+
+
+  # ^stop at last node in the chain
+  } else {
+
+
+    # get hashref from flags
+    # save it to branch
+    my $type=$self->type_decode(@type);
+    $branch->{vref}=$type;
+
+    delete $self->{type_Q};
+
+
+    # first token in expression?
+    if($l2->is_exprtop($branch)) {
+
+      # mutate into another command
+      $branch->{value}=
+        $l1->make_tag(CMD=>'data-decl')
+      . "$type->{name}"
+      ;
+
+
+      return 'mut';
+
+
+    # ^nope, last or middle
+    } else {
+
+      # mutate into command argument
+      $branch->{value}=
+        $l1->make_tag(TYPE=>$type->{name});
+
+
+      return;
+
+    };
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^fetch/errme
+
+sub type_decode($self,@src) {
+
+  # get type hashref from flags array
+  my $rd   = $self->{rd};
+  my $type = typefet @src;
+
+  # ^catch invalid
+  $rd->perr('invalid type')
+  if ! defined $type;
+
+
+  return $type;
+
+};
+
+# ---   *   ---   *   ---
 # ^icef*ck
 
 subwraps(
 
-  q[$self->decl_parse]=>q[$self,$branch],
+  q[$self->type_parse]=>q[$self,$branch],
 
   map {[
-    "${ARG}_parse" => "\$branch,'$ARG'"
+    "${ARG}_parse" => "\$branch"
 
-  ]} qw(byte word dword qword)
+  ]} @{$Type::MAKE::ALL_FLAGS}
 
 );
 
 # ---   *   ---   *   ---
 # attempts to solve pending values
 
-sub decl_ctx($self,$branch,$ezy) {
+sub data_decl_ctx($self,$branch) {
 
   my $rd   = $self->{rd};
   my $l2   = $rd->{l1};
@@ -288,20 +421,6 @@ sub decl_ctx($self,$branch,$ezy) {
   $self->wait_next_pass($branch,\@have);
 
 };
-
-# ---   *   ---   *   ---
-# ^icef*ck
-
-subwraps(
-
-  q[$self->decl_ctx]=>q[$self,$branch],
-
-  map {[
-    "${ARG}_ctx" => "\$branch,'$ARG'"
-
-  ]} qw(byte word dword qword)
-
-);
 
 # ---   *   ---   *   ---
 # makes new command!
@@ -353,6 +472,13 @@ sub cmd_parse($self,$branch) {
   # ^save to current namespace and remove branch
   $scope->decl($cmdtab,@$path,'UCMD',$name);
   $branch->discard();
+
+  my $CMD=$self->load_CMD(1);
+
+  use Fmat;
+  fatdump(\$CMD);
+
+  exit;
 
 };
 
@@ -563,14 +689,36 @@ sub throw_badargs($self,$key,$arg,$pos) {
 # ---   *   ---   *   ---
 # generate/fetch command table
 
-sub load_CMD($self) {
+sub load_CMD($self,$update=0) {
 
-  state $cmdset = $self->cmdset();
-  state @keys   = keys %$cmdset;
 
-  state $CMD    = {
+  # skip update?
+  state $CMD = {};
+  return $CMD if int %$CMD &&! $update;
 
-    ( map {
+
+  # regen cache
+  my $cmdset = $self->cmdset();
+  my @keys   = keys %$cmdset;
+
+  $CMD={
+
+
+    # re to match any command name
+    -re=>re_eiths(
+
+      \@keys,
+
+      opscape => 1,
+      bwrap   => 1,
+      whole   => 1,
+
+    ),
+
+
+    # command list [cmd=>attrs]
+    map {
+
 
       # get name of command
       my $key   = $ARG;
@@ -578,6 +726,7 @@ sub load_CMD($self) {
 
       my $plkey =  $key;
          $plkey =~ s[\-][_]sxmg;
+
 
       # get subroutine variants of
       # command per execution layer
@@ -593,17 +742,7 @@ sub load_CMD($self) {
       };
 
 
-    } @keys ),
-
-
-    -re=>re_eiths(
-
-      \@keys,
-
-      bwrap=>1,
-      whole=>1
-
-    ),
+    } @keys
 
   };
 

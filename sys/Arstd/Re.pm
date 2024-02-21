@@ -745,7 +745,7 @@ sub qre2re($sref) {
 
   state $outer_re=qr{
 
-    \(\?\^u (?:[xsmg]*) :
+    \(\?\^u (?:[xsmgi]*) :
 
     $body_re
 

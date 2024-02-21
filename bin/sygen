@@ -27,6 +27,7 @@ package main;
   use Style;
   use Arstd::String;
   use Arstd::Array;
+  use Arstd::Re;
   use Chk;
   use Fmat;
 
@@ -326,7 +327,7 @@ sub prprops($def,$key) {
 
       my @slice=(@keys[$x..$top]);
       for my $re(@slice) {
-        Lang::qre2re(\$re);
+        qre2re(\$re);
 
       };
 
