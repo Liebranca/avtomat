@@ -70,6 +70,12 @@ package Type;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
+# ROM
+
+  Readonly our $DEFAULT=>typefet 'word';
+
+
+# ---   *   ---   *   ---
 # parse single value decl
 
 sub PEVAR($expr) {

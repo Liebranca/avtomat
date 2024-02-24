@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# A9M VMEM
+# A9M MEM
 # All about words
 #
 # LIBRE SOFTWARE
@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package A9M::vmem;
+package A9M::mem;
 
   use v5.36.0;
   use strict;
@@ -36,7 +36,7 @@ package A9M::vmem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -47,7 +47,7 @@ package A9M::vmem;
     segtab => [],
 
 
-    -autoload => [qw(mkseg)],
+    -autoload => [qw(mkseg getseg)],
 
   }};
 
@@ -66,6 +66,21 @@ sub zeropad($size) {
 };
 
 # ---   *   ---   *   ---
+# make generic label
+
+sub mklabel($self) {
+
+  my $cnt    = \$self->{__anoncnt};
+     $$cnt //= 0;
+
+  my $out = "S$self->{segid}:L$$cnt";
+  $$cnt++;
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # writes ice to segment table
 
 sub mkseg($class,$frame,$ice) {
@@ -77,6 +92,18 @@ sub mkseg($class,$frame,$ice) {
 
 
   return $id;
+
+};
+
+# ---   *   ---   *   ---
+# ^fetch
+
+sub getseg($class,$frame,$idex) {
+
+  my $segtab = $frame->{segtab};
+  my $seg    = $segtab->[$idex];
+
+  return (defined $seg) ? $seg : null ;
 
 };
 
@@ -104,7 +131,7 @@ sub mkroot($class,%O) {
   $self->{root}  = $self;
   $self->{mcid}  = $O{mcid};
   $self->{mccls} = $O{mccls};
-  $self->{seg}   = $frame->mkseg($self);
+  $self->{segid} = $frame->mkseg($self);
 
   $self->{buf}   = $NULLSTR;
   $self->{ptr}   = 0x00;
@@ -120,8 +147,9 @@ sub mkroot($class,%O) {
 
 sub new($self,$size,$label=undef) {
 
+
   # defaults
-  $label //= 'ANON';
+  $label //= $self->mklabel();
 
 
   # make child
@@ -135,7 +163,7 @@ sub new($self,$size,$label=undef) {
   $ice->{root}  = $self->{root};
   $ice->{mcid}  = $self->{mcid};
   $ice->{mccls} = $self->{mccls};
-  $ice->{seg}   = $self->{frame}->mkseg($ice);
+  $ice->{segid} = $self->{frame}->mkseg($ice);
 
   $ice->{buf}   = $buf;
   $ice->{ptr}   = 0x00;
@@ -194,8 +222,7 @@ sub load($self,$type,$addr=undef) {
 
 
   # read from buf and give
-  my $b=bunpack $type,$self->{buf},$addr;
-  return $b->{ct}->[0];
+  return $self->dload($type,$addr);
 
 };
 
@@ -209,50 +236,170 @@ sub store($self,$type,$value,$addr=undef) {
   or return null;
 
 
-  # write to buf
-  my $b=bpack $type,$value;
+  # write to buf and give bytes written
+  return $self->dstore($type,$value,$addr);
 
+};
+
+# ---   *   ---   *   ---
+# ^bypass checks!
+
+sub dload($self,$type,$addr) {
+  my $b=bunpack $type,$self->{buf},$addr;
+  return $b->{ct}->[0];
+
+};
+
+sub dstore($self,$type,$value,$addr) {
+
+  my $b=bpack $type,$value;
   substr $self->{buf},$addr,$b->{len},$b->{ct};
 
-
-  # give bytes written
   return $b->{len};
 
 };
 
 # ---   *   ---   *   ---
-# make memref
+# get host machine
 
-sub ptr($self,$ptr_t,$addr) {
+sub getmc($self) {
 
-  # no ptr type specified?
-  if(! Type->is_ptr($ptr_t)) {
+  my $class = $self->{mccls};
+  my $mc    = $class->ice($self->{mcid});
 
-    $ptr_t=typefet $ptr_t
-    or return badtype;
+  return $mc;
 
-    $ptr_t="$ptr_t->{name} ptr";
+};
 
-  };
+# ---   *   ---   *   ---
+# get ptr implementation in use
+# by host machine
 
-  # ^validate
-  $self->inbounds(\$ptr_t,\$addr)
+sub get_ptr_bk($self) {
+
+  my $class  = $self->{mccls};
+  my $ptrcls = $class->getbk(
+    $self->{mcid},'ptr'
+
+  );
+
+
+  return $ptrcls;
+
+};
+
+# ---   *   ---   *   ---
+# ^run defaults method for
+# said implementation
+
+sub ptr_defnit($self,$O) {
+
+  my $class=$self->get_ptr_bk();
+
+  $class->defnit($O);
+  $O->{label} //= $self->mklabel();
+
+
+  return $class;
+
+};
+
+# ---   *   ---   *   ---
+# wraps: make value
+
+sub lvalue($self,$value,%O) {
+
+
+  # set defaults
+  my $class=$self->ptr_defnit(\%O);
+
+  # value fit in loc?
+  $self->inbounds(\$O{type},\$O{addr})
   or return null;
 
-  # valid for deref?
-  my $type=derefof $ptr_t
+
+  # make ice
+  my $ptr=$class->new(
+
+    %O,
+
+    mcid  => $self->{mcid},
+    segid => $self->{segid},
+
+  );
+
+
+  # ^write value and give
+  $ptr->store($value);
+  return $ptr;
+
+};
+
+# ---   *   ---   *   ---
+# ^wraps: make value ref
+
+sub ptr($self,$to,%O) {
+
+
+  # set defaults
+  my $class=$self->get_ptr_bk();
+  $O{ptr_t}     //= 'ptr';
+  $O{store_at}  //= 0x00;
+
+
+  # get ctx
+  my $type  = $to->{type};
+  my $other = $to->getseg();
+
+
+  # validate ptr type
+  $O{ptr_t}=typefet $O{ptr_t}
+  or return badtype;
+
+  # ^validate *complete* type
+  my $complete=
+    "$type->{name} "
+  . "$O{ptr_t}->{name}"
+  ;
+
+  $O{ptr_t}=typefet $complete
   or return null;
 
 
-  # ^give size/seg/offset
-  return [
+  # ^does the pointer itself fit in memory?
+  $self->inbounds(\$O{ptr_t},\$O{store_at})
+  or return null;
 
-    $type,
 
-    $self->{seg},
-    $addr
+  # make new lvalue
+  my $ptr=$class->new(
 
-  ];
+    %O,
+
+    addr  => $O{store_at},
+    type  => $type,
+
+    mcid  => $other->{mcid},
+    segid => $other->{segid},
+
+  );
+
+
+  # encode segment:offset
+  my $mc   = $self->getmc();
+  my $ptrv = $mc->encode_ptr(
+    $other,$to->{addr}
+
+  );
+
+  # ^encoding error?
+  return null if $ptrv eq null;
+
+
+  # ^all OK, store and give
+  $ptr->store($ptrv);
+
+  return $ptr;
 
 };
 
