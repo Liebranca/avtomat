@@ -117,6 +117,7 @@ sub mkroot($class,%O) {
   $O{mccls}  //= caller;
   $O{label}  //= 'non';
 
+
   # make/fetch container
   my $frame=$class->get_frame($O{mcid});
 
@@ -128,14 +129,28 @@ sub mkroot($class,%O) {
   );
 
   # ^set spec attrs
-  $self->{root}  = $self;
-  $self->{mcid}  = $O{mcid};
-  $self->{mccls} = $O{mccls};
-  $self->{segid} = $frame->mkseg($self);
+  $self->{root}   = $self;
+  $self->{mcid}   = $O{mcid};
+  $self->{mccls}  = $O{mccls};
+  $self->{segid}  = $frame->mkseg($self);
 
-  $self->{buf}   = $NULLSTR;
-  $self->{ptr}   = 0x00;
-  $self->{size}  = 0x00;
+  $self->{buf}    = $NULLSTR;
+  $self->{ptr}    = 0x00;
+  $self->{size}   = 0x00;
+  $self->{absloc} = undef;
+
+
+  # make namespace
+  my $inner_frame = Tree->get_frame($O{mcid});
+  $self->{inner} = Tree::new(
+    'Tree',$inner_frame,undef,$O{label}
+
+  );
+
+
+  # root-only attrs!
+  $self->{__absloc_recalc} = 0;
+  $self->{__total_size}    = 0x00;
 
 
   return $self;
@@ -159,15 +174,23 @@ sub new($self,$size,$label=undef) {
 
   );
 
-  # ^set spec attrs
-  $ice->{root}  = $self->{root};
-  $ice->{mcid}  = $self->{mcid};
-  $ice->{mccls} = $self->{mccls};
-  $ice->{segid} = $self->{frame}->mkseg($ice);
+  my $inner = $self->{inner}->inew($label);
 
-  $ice->{buf}   = $buf;
-  $ice->{ptr}   = 0x00;
-  $ice->{size}  = $size;
+
+  # ^set spec attrs
+  $ice->{root}   = $self->{root};
+  $ice->{mcid}   = $self->{mcid};
+  $ice->{mccls}  = $self->{mccls};
+  $ice->{segid}  = $self->{frame}->mkseg($ice);
+
+  $ice->{buf}    = $buf;
+  $ice->{ptr}    = 0x00;
+  $ice->{size}   = $size;
+  $ice->{inner}  = $inner;
+  $ice->{absloc} = undef;
+
+  # mark for update!
+  $self->{root}->{__absloc_recalc}=1;
 
 
   return $ice;
@@ -178,7 +201,6 @@ sub new($self,$size,$label=undef) {
 # grow or shrink block
 
 sub brk($self,$step) {
-
 
   # get ctx
   my $buf  = $self->{buf};
@@ -202,9 +224,13 @@ sub brk($self,$step) {
   $ptr  = $ptr * ($size > $ptr);
 
   # overwrite and give new size
-  $self->{buf}  = $buf;
-  $self->{ptr}  = $ptr;
-  $self->{size} = $size;
+  $self->{buf}    = $buf;
+  $self->{ptr}    = $ptr;
+  $self->{size}   = $size;
+
+  # mark for update!
+  my $root=$self->{root};
+  $root->{__absloc_recalc} |= $step != 0;
 
 
   return $size;
@@ -328,9 +354,16 @@ sub lvalue($self,$value,%O) {
 
   );
 
+  # ^save to namespace
+  $self->{inner}->force_set(
+    $ptr,$ptr->{label}
 
-  # ^write value and give
+  );
+
+  # ^set value and give
   $ptr->store($value);
+
+
   return $ptr;
 
 };
@@ -345,6 +378,7 @@ sub ptr($self,$to,%O) {
   my $class=$self->get_ptr_bk();
   $O{ptr_t}     //= 'ptr';
   $O{store_at}  //= 0x00;
+  $O{label}     //= $self->mklabel();
 
 
   # get ctx
@@ -396,8 +430,15 @@ sub ptr($self,$to,%O) {
   return null if $ptrv eq null;
 
 
-  # ^all OK, store and give
+  # ^all OK, save to namespace
+  $self->{inner}->force_set(
+    $ptr,$ptr->{label}
+
+  );
+
+  # ^set value and give
   $ptr->store($ptrv);
+
 
   return $ptr;
 
@@ -439,12 +480,58 @@ sub inbounds($self,$typeref,$addrref) {
 };
 
 # ---   *   ---   *   ---
+# calcs the absolute offset
+# of every segment in the
+# hierarchy
+
+sub absloc($self) {
+
+
+  # no need to recalc?
+  my $old=$self;
+  $self=$self->{root};
+
+  return $self->{__total_size}
+  if ! $self->{__absloc_recalc};
+
+
+  # recursive hierarchy walk!
+  my $addr = 0x00;
+  my @Q    = $self;
+
+  while(@Q) {
+
+    my $nd = shift @Q;
+
+    # sizes of all previous equals
+    # address of current
+    $nd->{absloc}=$addr;
+    $addr+=$nd->{size};
+
+
+    unshift @Q,@{$nd->{leaves}};
+
+  };
+
+
+  # ^cache result and give
+  $self->{__total_size}    = $addr;
+  $self->{__absloc_recalc} = 0;
+
+
+  return $old->{absloc};
+
+};
+
+# ---   *   ---   *   ---
 # dbout
 
 sub prich($self,%O) {
 
   # own defaults
   $O{depth} //= 0;
+  $O{inner} //= 0;
+  $O{outer} //= 1;
 
   # I/O defaults
   my $out=ioprocin(\%O);
@@ -459,7 +546,7 @@ sub prich($self,%O) {
     : $self
     ;
 
-  while(@Q) {
+  while(@Q && $O{outer}) {
 
 
     # handle end of branch
@@ -485,34 +572,13 @@ sub prich($self,%O) {
   };
 
 
+  $self->{inner}->prich()
+  if $O{inner};
+
+
   return ioprocout(\%O);
 
 };
-
-# ---   *   ---   *   ---
-# test
-
-#use Fmat;
-#
-#my $CAS  = A9M::vmem->mkroot();
-#my $mem  = $CAS->new(0x10);
-#
-#my $type = struc cvec=>q[
-#  word fa[3];
-#  word fb;
-#
-#];
-#
-#
-#my $ar=$mem->load(cvec=>0x00);
-#
-#
-#$ar->{fa}->[1] = 0x2424;
-#$ar->{fb}      = 0x2121;
-#
-#
-#$mem->store($ar,cvec=>0x00);
-#$mem->prich();
 
 # ---   *   ---   *   ---
 1; # ret

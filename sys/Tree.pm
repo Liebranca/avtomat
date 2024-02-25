@@ -37,7 +37,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.6;
+  our $VERSION = v0.02.7;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -202,7 +202,31 @@ sub get($self,@path) {
 };
 
 # ---   *   ---   *   ---
-# ^existance check
+# force_get + assignment
+
+sub force_set($self,$value,@path) {
+
+  my $vref  = $self->force_get(@path);
+     $$vref = $value;
+
+  return $vref;
+
+};
+
+# ---   *   ---   *   ---
+# ^only existing
+
+sub set($self,$value,@path) {
+
+  my $vref  = $self->get(@path);
+     $$vref = $value;
+
+  return $vref;
+
+};
+
+# ---   *   ---   *   ---
+# existance check
 
 sub has($self,@path) {
 

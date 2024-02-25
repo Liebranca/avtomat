@@ -176,4 +176,30 @@ sub load($self,%O) {
 };
 
 # ---   *   ---   *   ---
+# get absolute address of pointer
+
+sub absloc($self,%O) {
+
+
+  # defaults
+  $O{deref} //= 1;
+
+  # get ctx
+  my $off=$self->{addr};
+  my $seg=$self->getseg();
+
+  # use addrof [value]?
+  if($O{deref} && $O{ptr_t}) {
+    ($seg,$off)=$self->read_ptr();
+
+  };
+
+
+  # give segment base plus relative
+  return $seg->absloc() + $off;
+
+
+};
+
+# ---   *   ---   *   ---
 1; # ret
