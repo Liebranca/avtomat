@@ -33,7 +33,7 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -65,6 +65,7 @@ sub new($class,%O) {
 
   # defaults
   $O{memroot} //= 'non';
+  $O{pathsep} //= $DCOLON_RE;
 
 
   # get machine id
@@ -83,16 +84,22 @@ sub new($class,%O) {
   my $self=bless {
 
     id  => $id,
+
     cas => $bk->{mem}->mkroot(
       mcid  => $id,
       label => $O{memroot},
 
     ),
 
+
     segtab   => [(null) x $class->sizeof_segtab()],
     segtab_i => 0x00,
 
     bk       => $bk,
+
+    path     => [],
+    pathsep  => $O{pathsep},
+
 
   },$class;
 
@@ -101,6 +108,51 @@ sub new($class,%O) {
 
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# wraps mem->search
+
+sub search($self,$name,@path) {
+
+
+  # default to current path
+  @path=@{$self->{path}}
+  if ! @path;
+
+  # get ctx
+  my $mem  = $self->{cas};
+  my $tree = $mem->{inner};
+
+
+  # make (path,to) from (path::to)
+  # then look in namespace
+  my @alt  = split $self->{pathsep},$name;
+  my @have = $mem->search(\@alt,@path);
+
+
+  # give name if found
+  my $out = $tree->has(@have)
+  or return badfet($name,@path);
+
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub badfet($name,@path) {
+
+  Warnme::not_found 'symbol name',
+
+  cont  => 'path',
+  where => (join '::',@path),
+  obj   => $name,
+
+  give  => null;
 
 };
 

@@ -41,7 +41,7 @@ package Warnme;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -99,6 +99,32 @@ sub invalid($wat,%O) {
 sub redef($wat,%O) {
   warnproc "redefinition of %s '%s'",%O,
   args => [$wat,$O{obj}];
+
+};
+
+# ---   *   ---   *   ---
+# "X not found in Y"
+
+sub not_found($wat,%O) {
+
+
+  my $in=($O{cont})
+    ? "in $O{cont}"
+    : 'in'
+    ;
+
+
+  # say where the search took place?
+  if($O{where}) {
+    warnproc "$wat <%s> not found $in <%s>",%O,
+    args => [$O{obj},$O{where}];
+
+  # ^nope, just tell result ;>
+  } else {
+    warnproc "$wat <%s> not found $in",%O,
+    args => [$O{obj}];
+
+  };
 
 };
 

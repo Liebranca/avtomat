@@ -36,7 +36,7 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -73,7 +73,7 @@ sub mklabel($self) {
   my $cnt    = \$self->{__anoncnt};
      $$cnt //= 0;
 
-  my $out = "S$self->{segid}:L$$cnt";
+  my $out = "L$$cnt";
   $$cnt++;
 
   return $out;
@@ -520,6 +520,28 @@ sub absloc($self) {
 
 
   return $old->{absloc};
+
+};
+
+# ---   *   ---   *   ---
+# find across namespaces
+
+sub search($self,$altref,@path) {
+
+
+  # cat name to path
+  my $tree = $self->{inner};
+
+  # ^pop from namespace until
+  # symbol is found
+  while(@path) {
+    last if $tree->has(@path,@$altref);
+    pop @path;
+
+  };
+
+
+  return (@path,@$altref);
 
 };
 
