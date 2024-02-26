@@ -26,17 +26,21 @@ package A9M::mem;
 
   use Style;
   use Type;
+  use Chk;
   use Bpack;
+  use Warnme;
 
+  use Arstd::Bytes;
   use Arstd::xd;
   use Arstd::IO;
 
+  use parent 'A9M::component';
   use parent 'Tree';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -246,7 +250,6 @@ sub load($self,$type,$addr=undef) {
   $self->inbounds(\$type,\$addr)
   or return null;
 
-
   # read from buf and give
   return $self->dload($type,$addr);
 
@@ -286,14 +289,202 @@ sub dstore($self,$type,$value,$addr) {
 };
 
 # ---   *   ---   *   ---
-# get host machine
+# run generic op on value
 
-sub getmc($self) {
+sub opera($fn,$value) {
 
-  my $class = $self->{mccls};
-  my $mc    = $class->ice($self->{mcid});
+  my @out = ();
+  my @Q   = $value;
 
-  return $mc;
+  while(@Q) {
+
+    my $x=shift @Q;
+
+    (is_arrayref($x))
+      ? unshift @Q,@$x
+      : push    @out,$fn->($x)
+      ;
+
+  };
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^read/store wraps
+
+sub prim_opera($self,$type,$addr,$gen,@args) {
+
+  # get type
+  $type=typefet $type
+  or return null;
+
+  # ^generate F
+  my $fn=$gen->($type,@args);
+
+
+  # read value && run operation
+  my $src = $self->load($type,$addr);
+  my @src = opera $fn,$src;
+
+  # ^unpack
+  map {
+    $ARG=$$ARG if is_scalarref($ARG)
+
+  } @src;
+
+  # ^repack!
+  my $bytes=Bpack::layas($type,@src);
+  $self->store($type,$bytes,$addr);
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# bifshift right
+
+sub shr_og($type,$bits) {
+
+  # inner state
+  my $left = 0;
+  my $prev = undef;
+  my $mask = bitmask($bits);
+  my $pos  = $type->{sizebs} - $bits;
+
+  # ^inner F
+  sub ($x) {
+
+    $left   = $x  & $mask;
+
+    $x      = $x    >> $bits;
+    $$prev |= $left << $pos if $prev;
+
+
+    $prev   = \$x;
+    $prev;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# bitshift left
+
+sub shl_og($type,$bits) {
+
+  # inner state
+  my $left   = 0;
+  my $right  = 0;
+
+  my $mask   = bitmask($bits);
+  my $pos    = $type->{sizebs} - $bits;
+     $mask <<= $pos;
+
+  # ^inner F
+  sub ($x) {
+
+    $left  = ($x  & $mask);
+    $x     = ($x << $bits) | $right;
+
+    $right = ($left >> $pos);
+    $x;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# bitrotate right
+
+sub ror_og($type,$bits) {
+
+
+  # inner state
+  my $left = undef;
+  my $cnt  = 0;
+
+  my $mask = bitmask($bits);
+  my $pos  = $type->{sizebs} - $bits;
+
+  # inner sub-F
+  my $shr=shr_og($type,$bits);
+
+
+  # inner F
+  sub ($x) {
+
+    $left=($x & $mask) << $pos
+    if ! defined $left;
+
+    $x    = $shr->($x);
+
+    $cnt += $type->{sizebs};
+    $$x  |= $left if $cnt >> 3 == $type->{sizeof};
+
+    $x;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# bitrotate left
+
+sub rol_og($type,$bits) {
+
+  # inner state
+  my $left   = undef;
+  my $first  = undef;
+  my $cnt    = 0;
+
+  my $mask   = bitmask($bits);
+  my $pos    = $type->{sizebs} - $bits;
+     $mask <<= $pos;
+
+  # inner sub-F
+  my $shl=shl_og($type,$bits);
+
+  # inner F
+  sub ($x) {
+
+    $first   = \$x if ! defined $first;
+    $left    = ($x & $mask) >> $pos;
+
+    $x       = $shl->($x);
+
+    $cnt    += $type->{sizebs};
+    $$first |= $left if $cnt >> 3 == $type->{sizeof};
+
+    \$x;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^public versions
+
+sub shr($self,$type,$bits,$addr) {
+  $self->prim_opera($type,$addr,\&shr_og,$bits);
+
+};
+
+sub shl($self,$type,$bits,$addr) {
+  $self->prim_opera($type,$addr,\&shl_og,$bits);
+
+};
+
+sub ror($self,$type,$bits,$addr) {
+  $self->prim_opera($type,$addr,\&ror_og,$bits);
+
+};
+
+sub rol($self,$type,$bits,$addr) {
+  $self->prim_opera($type,$addr,\&rol_og,$bits);
 
 };
 
@@ -473,9 +664,24 @@ sub inbounds($self,$typeref,$addrref) {
 
 
   return (! $self->_inbounds($$typeref,$$addrref))
-    ? null
+    ? $self->warn_oob($$typeref,$$addrref)
     : 1
     ;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub warn_oob($self,$type,$addr) {
+
+  $addr=sprintf '%X',
+    $self->absloc() + $addr;
+
+  warnproc "OOB: [good]:%s at \$[num]:%s",
+
+  args => [$type->{name},$addr],
+  give => null;
 
 };
 

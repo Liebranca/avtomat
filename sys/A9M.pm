@@ -39,7 +39,10 @@ package A9M;
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly my $COMPONENTS => [qw(mem ptr)];
+  Readonly my $COMPONENTS => [qw(
+    mem ptr anima
+
+  )];
 
 # ---   *   ---   *   ---
 # GBL
@@ -91,6 +94,8 @@ sub new($class,%O) {
 
     ),
 
+    anima    => undef,
+
 
     segtab   => [(null) x $class->sizeof_segtab()],
     segtab_i => 0x00,
@@ -105,6 +110,9 @@ sub new($class,%O) {
 
   # ^add to box
   push @$icebox,$self;
+
+  # kick components in need of kicking!
+  $self->{anima}=$bk->{anima}->new(mcid=>$id);
 
 
   return $self;
@@ -298,7 +306,7 @@ subwraps(
   q[$class->get_bk_class] => q[$class],
 
   map {["get_${ARG}_bk" => "'$ARG'"]}
-  qw  (mem ptr)
+  @$COMPONENTS
 
 );
 

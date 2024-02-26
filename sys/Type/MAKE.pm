@@ -674,7 +674,7 @@ sub define_base() {
       my $name="$i$type";
 
       map {
-         typedef "$type$ARG" => ($ezy,"$type$ARG")
+         typedef "$name$ARG" => ($ezy,"$type$ARG")
 
       } 2..4;
 
