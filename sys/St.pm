@@ -26,12 +26,15 @@ package St;
   use Scalar::Util qw(blessed reftype);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
+
+  use Style;
+  use Chk;
   use Frame;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.02.4;
+  our $VERSION=v0.02.5;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -94,6 +97,57 @@ sub defnit($class,$href) {
     };
 
   use strict 'refs';
+
+};
+
+# ---   *   ---   *   ---
+# define/overwrite virtual constants
+
+sub vconst($data) {
+
+
+  # whomever calls, store here
+  state $ROMTAB = {};
+  my    $class  = caller;
+
+
+  # walk input
+  map {
+
+    # array as hash
+    my $key   = $ARG;
+    my $value = $data->{$key};
+
+
+    # save to table/make method
+    no strict 'refs';
+
+    *{"$class\::$key"}=sub ($cls) {
+
+      # get ref to table
+      $ROMTAB->{$cls} //= {};
+      my $tab=$ROMTAB->{$cls};
+
+      # have cached?
+      return $tab->{$key}
+      if exists $tab->{$key};
+
+
+      # ^else rebuild and give
+      $tab->{$key}=(is_coderef($value))
+        ? $value->($cls)
+        : $value
+        ;
+
+      $tab->{$key};
+
+    };
+
+
+  } keys %$data;
+
+
+  return;
 
 };
 

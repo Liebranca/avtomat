@@ -119,7 +119,7 @@ sub FF($name,$src=undef) {
     if exists $Table->{$type};
 
     # make args for FStruc
-    $name => [$type=>@cnt];
+    $name => [$type,@cnt];
 
 
   } @fk;

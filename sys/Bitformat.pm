@@ -35,6 +35,12 @@ package Bitformat;
   use parent 'St';
 
 # ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT=qw(Bitformat);
+
+# ---   *   ---   *   ---
 # info
 
   our $VERSION = v0.00.7;#a
@@ -43,7 +49,28 @@ package Bitformat;
 # ---   *   ---   *   ---
 # cstruc
 
-sub new($class,@order) {
+sub Bitformat($name,@order) {
+
+  $name="bit<$name>";
+
+
+  # ever lookup something
+  # then realize you're holding it?
+  return $name
+  if Bitformat->is_valid($name);
+
+  # fetch existing?
+  return (exists $$Type::MAKE::Table->{$name})
+    ? $$Type::MAKE::Table->{$name}
+    : Type::throw_invalid($name)
+
+  if ! defined $src;
+
+
+  # forbid redefinition
+  return Type::throw_redefn($name)
+  if exists $Type::MAKE::Table->{$name};
+
 
   # out attrs
   my $size = {};
@@ -97,9 +124,11 @@ sub new($class,@order) {
     # used for walking
     order => \@keys,
 
-  };
+
+  },'Bitformat';
 
 
+  $Type::MAKE::Table->{$name} = $self;
   return $self;
 
 };

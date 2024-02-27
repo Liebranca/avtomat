@@ -43,7 +43,9 @@ package A9M::anima;
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $LIST=>[qw(
+St::vconst {
+
+  list   => [qw(
 
     ar    br    cr    dr
     er    fr    gr    hr
@@ -52,16 +54,19 @@ package A9M::anima;
 
     ice   ctx   opt   chan
 
-  )];
+  )],
 
-  Readonly our $SIZE_K => 'qword';
-  Readonly our $SIZE   => sizeof $SIZE_K;
-  Readonly our $CNT    => int @$LIST;
+  re     => sub {re_eiths $_[0]->list()},
 
-  Readonly our $CNT_BS => bitsize($CNT-1);
-  Readonly our $CNT_BM => bitmask($CNT_BS);
+  sizek  => 'qword',
+  size   => sub {sizeof $_[0]->sizek()},
 
-  Readonly our $RE     => re_eiths($LIST);
+  cnt    => sub {int $_[0]->list()},
+  cnt_bs => sub {bitsize $_[0]->cnt()-1},
+  cnt_bm => sub {bitmask $_[0]->cnt()-1},
+
+};
+
 
 # ---   *   ---   *   ---
 # cstruc
@@ -82,7 +87,11 @@ sub new($class,%O) {
 
   # make ice
   my $mem=$cas->new(
-    $SIZE * $CNT,'ANIMA'
+
+    $class->size()
+  * $class->cnt(),
+
+    'ANIMA'
 
   );
 
@@ -98,13 +107,13 @@ sub new($class,%O) {
       addr  => $addr,
       label => $ARG,
 
-      type  => $SIZE_K,
+      type  => $class->sizek(),
 
     );
 
-    $addr += $SIZE;
+    $addr += $class->size();
 
-  } @$LIST;
+  } $class->list();
 
 
   return $mem;
@@ -117,10 +126,10 @@ sub new($class,%O) {
 # if so, give idex
 # else undef
 
-sub tokin($name) {
+sub tokin($class,$name) {
 
-  return ($name=~ $RE)
-    ? array_iof($LIST,$name)
+  return ($name=~ $class->re())
+    ? array_iof(\$class->list(),$name)
     : undef
     ;
 
@@ -158,11 +167,11 @@ sub update($class,$A9M) {
     $blk->lines(
 
       'define A9M.REGISTERS '
-    . (join ',',@$LIST) . ';'
+    . (join ',',@{$class->list()}) . ';'
 
-    . "A9M.REGISTER_CNT    = $CNT;"
-    . "A9M.REGISTER_CNT_BS = $CNT_BS;"
-    . "A9M.REGISTER_CNT_BM = $CNT_BM;"
+    . "A9M.REGISTER_CNT    = " . $class->cnt() .';'
+    . "A9M.REGISTER_CNT_BS = " . $class->cnt_bs() .';'
+    . "A9M.REGISTER_CNT_BM = " . $class->cnt_bm() .';'
 
     );
 
