@@ -33,21 +33,27 @@ package A9M::ISA;
   use FF;
 
   use Arstd::Array;
+  use Arstd::Int;
   use Arstd::String;
   use Arstd::Bytes;
-  use Arstd::IO;
+  use Arstd::PM;
 
   use parent 'A9M::component';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.6;#a
+  our $VERSION = v0.01.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
+St::vconst {
+  exeali => (typefet 'word'),
+  imp    => 'A9M::opera',
+
+};
 
   Readonly our $INS_DEF_SZ    => 'word';
   Readonly our $PTR_DEF_SZ    => 'short';
@@ -163,8 +169,8 @@ package A9M::ISA;
 
     insmeta    => {},
 
-    mnemonic   => [],
-    exetab     => {},
+    mnemonic   => {},
+    exetab     => [],
     romtab     => [],
 
   };
@@ -190,9 +196,18 @@ sub new($class,%O) {
 sub mkfmat($self) {
 
 
+  # run only once!
+  state $nit=0;
+  return if $nit;
+
+  $nit++;
+
+
   # get ctx
   my $mc    = $self->getmc();
   my $anima = $mc->{bk}->{anima};
+
+  cload $self->imp();
 
 
   # instruction meta
@@ -299,6 +314,8 @@ sub encode($self,$type,$name,@args) {
 
   );
 
+  return null if $idex eq null;
+
 
   # ^get [bitsize:data] array
   # for both instruction and operands
@@ -323,7 +340,7 @@ sub encode($self,$type,$name,@args) {
   } @enc;
 
 
-  return $opcd;
+  return ($opcd,int_urdiv($cnt,8));
 
 };
 
@@ -334,13 +351,17 @@ sub decode($self,$opcd) {
 
 
   # get ctx
-  my $mask   = $Cache->{id_bm};
-  my $bits   = $Cache->{id_bs};
+  my $mask = $Cache->{id_bm};
+  my $bits = $Cache->{id_bs};
+
+  # count number of bits consumed
+  my $csume = 0;
 
 
   # get opid and shift out bits
-  my $opid   = $opcd & $mask;
-     $opcd >>= $bits;
+  my $opid    = $opcd & $mask;
+     $opcd  >>= $bits;
+     $csume  += $bits;
 
   # read instruction meta
   my $idex = ($opid << 1) + 1;
@@ -355,8 +376,10 @@ sub decode($self,$opcd) {
   my @args    = map {
 
     $self->decode_args(
+
       \$opcd,
       \$flags,
+      \$csume,
 
       shift @load
 
@@ -367,10 +390,11 @@ sub decode($self,$opcd) {
 
   return {
 
-    ins => $ins,
+    ins  => $ins,
+    size => int_urdiv($csume,8),
 
-    dst => $args[0],
-    src => $args[1],
+    dst  => $args[0],
+    src  => $args[1],
 
   };
 
@@ -385,6 +409,7 @@ sub decode_args(
 
   $opcdref,
   $flagsref,
+  $csumeref,
 
   $load
 
@@ -410,17 +435,27 @@ sub decode_args(
 
 
   # read bits as hash
-  my %data=$fmat->from_value($$opcdref);
-  $$opcdref >>= $fmat->{bitsize};
+  my $mc   = $self->getmc();
+  my %data = $fmat->from_value($$opcdref);
+
+  $$opcdref  >>= $fmat->{bitsize};
+  $$csumeref  += $fmat->{bitsize};
 
 
-  # proc memory operand?
+  # have memory operand?
   if(0 == index $fmat->{id},'m',0) {
-
-    my $mc=$self->getmc();
     my $fn="decode_$fmat->{id}_ptr";
-
     $mc->$fn(\%data);
+
+
+  # have register?
+  } elsif($fmat->{id} eq 'r') {
+
+    %data=(
+      seg  => $mc->{anima}->{mem},
+      addr => $data{reg} * $mc->{anima}->size(),
+
+    );
 
   };
 
@@ -430,16 +465,33 @@ sub decode_args(
 };
 
 # ---   *   ---   *   ---
-# avoids repeated logic guts
+# fetch implementation of
+# instruction and call it
+# with given args
 
-sub fetch_logic($name,%O) {
+sub run($self,$type,$idx,@args) {
 
-  if(! exists $Cache->{exetab}->{$O{fn}}) {
+  my $imp = $self->imp();
+  my $fn  = $Cache->{exetab}->[$idx];
 
-    $Cache->{exetab}->{$O{fn}}={
+  $imp->$fn($type,\@args);
 
-      %O,
+};
 
+# ---   *   ---   *   ---
+# get mnemonic id
+
+sub get_idx($name,%O) {
+
+  my $key = $Cache->{mnemonic};
+  my $tab = $Cache->{exetab};
+
+
+  if(! exists $key->{$O{fn}}) {
+
+    push @$tab,$O{fn};
+
+    $key->{$O{fn}}={
       name => $name,
       idx  => $Cache->{execode}++,
 
@@ -448,7 +500,7 @@ sub fetch_logic($name,%O) {
   };
 
 
-  return $Cache->{exetab}->{$O{fn}}->{idx};
+  return $key->{$O{fn}}->{idx};
 
 };
 
@@ -457,6 +509,7 @@ sub fetch_logic($name,%O) {
 # from cache
 
 sub get_ins_idex($class,$name,$size,@ar) {
+
 
   my $meta      = $class->get_ins_meta($name);
   my $full_form = ($meta->{argcnt})
@@ -500,7 +553,7 @@ sub warn_invalid($name) {
 
   Warnme::invalid 'instruction',
 
-  obj  => [$name],
+  obj  => $name,
   give => null;
 
 };
@@ -511,7 +564,7 @@ sub warn_invalid($name) {
 sub opcode($name,%O) {
 
   # defaults
-  $O{fn}          //= "ins_$name";
+  $O{fn}          //= $name;
   $O{argcnt}      //= 2;
   $O{nosize}      //= 0;
 
@@ -543,12 +596,9 @@ sub opcode($name,%O) {
   my $meta=$Cache->{insmeta}->{$name};
   $meta->{icetab}={};
 
-  # remember!
-  push @{$Cache->{mnemonic}},$name;
-
 
   # queue logic generation
-  my $idx=fetch_logic($name,%O);
+  my $idx=get_idx($name,%O);
 
 
   # get possible operand sizes
@@ -727,8 +777,8 @@ sub opcode($name,%O) {
 # ---   *   ---   *   ---
 # load/save tables from cache
 
-sub gen_ROM_table() {
-  $Cache->{romtab}=_gen_ROM_table();
+sub gen_ROM_table($class) {
+  $Cache->{romtab}=$class->_gen_ROM_table();
   return $Cache;
 
 };
@@ -736,12 +786,14 @@ sub gen_ROM_table() {
 # ---   *   ---   *   ---
 # ^definitions
 
-sub _gen_ROM_table() {
+sub _gen_ROM_table($class) {
 
 
   # fetch instruction table
-  use A9M::opera;
-  my $tab = $A9M::opera::TABLE;
+  my $imp=$class->imp();
+  cload $imp;
+
+  my $tab = $imp->table();
 
 
   # ^array as hash
@@ -771,10 +823,11 @@ sub _gen_ROM_table() {
 # ---   *   ---   *   ---
 # cache result of generator
 
+  sub thiscls {__PACKAGE__};
   use Vault 'ARPATH';
 
   $Cache=Vault::cached(
-    'Cache',\&gen_ROM_table
+    'Cache',\&gen_ROM_table,thiscls
 
   );
 

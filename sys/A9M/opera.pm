@@ -34,18 +34,19 @@ package A9M::opera;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-Readonly our $TABLE => [
+St::vconst { table=>[
 
 
   # imm/mem/reg to reg
   load => {
 
+    fn       => 'copy',
     load_dst => 0,
 
     dst      => 'r',
@@ -56,6 +57,7 @@ Readonly our $TABLE => [
   # reg to mem
   store => {
 
+    fn       => 'copy',
     load_dst => 0,
 
     dst      => 'm',
@@ -281,63 +283,57 @@ Readonly our $TABLE => [
 #  },
 
 
-];
+]};
 
-## ---   *   ---   *   ---
-## run generic op on value
-#
-#sub opera($fn,$value) {
-#
-#  my @out = ();
-#  my @Q   = $value;
-#
-#  while(@Q) {
-#
-#    my $x=shift @Q;
-#
-#    (is_arrayref($x))
-#      ? unshift @Q,@$x
-#      : push    @out,$fn->($x)
-#      ;
-#
-#  };
-#
-#
-#  return @out;
-#
-#};
-#
-## ---   *   ---   *   ---
-## ~
-#
-#sub decode($mem,$type,$addr,$gen,@args) {
-#
-#  # get type
-#  $type=typefet $type
-#  or return null;
-#
-#  # ^generate F
-#  my $fn=$gen->($type,@args);
+# ---   *   ---   *   ---
+# run generic op on value
+
+sub opera($fn,$value) {
+
+  my @out = ();
+  my @Q   = $value;
+
+  while(@Q) {
+
+    my $x=shift @Q;
+
+    (is_arrayref($x))
+      ? unshift @Q,@$x
+      : push    @out,$fn->($x)
+      ;
+
+  };
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+#sub _($type,$gen,@args) {
 #
 #
-#  # read value && run operation
-#  my $src = $mem->load($type,$addr);
-#  my @src = opera $fn,$src;
-#
-#  # ^unpack
-#  map {
-#    $ARG=$$ARG if is_scalarref($ARG)
-#
-#  } @src;
-#
-#  # ^repack!
-#  my $bytes=Bpack::layas($type,@src);
-#  $mem->store($type,$bytes,$addr);
-#
-#
-#  return;
+##  # ^generate F
+##  my $fn  = $gen->($type,@args);
+##  my @src = opera $fn,$src;
+##
+##  # ^unpack
+##  map {
+##    $ARG=$$ARG if is_scalarref($ARG)
+##
+##  } @src;
 #
 #};
+
+# ---   *   ---   *   ---
+# give src as-is
+
+sub copy($class,$type,$args) {
+  $args->[1];
+
+};
 
 # ---   *   ---   *   ---
 # bifshift right

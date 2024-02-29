@@ -25,15 +25,19 @@ package A9M;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Type;
+  use Bpack;
   use Warnme;
 
   use Arstd::Array;
+  use Arstd::Bytes;
+  use Arstd::Int;
   use Arstd::PM;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -120,6 +124,170 @@ sub new($class,%O) {
 
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# dump instructions to new segment
+
+sub exewrite($self,$label,@program) {
+
+
+  # make blank segment
+  my $seg=$self->{cas}->new(0x00,$label);
+
+
+  # walk input
+  map {
+
+
+    # get opcode (or die trying)
+    my ($opcd,$size)=$self->{ISA}->encode(@$ARG);
+    return null if $opcd eq null;
+
+    # grow buf to fit
+    $seg->brk($size);
+
+
+    # write opcode to buf
+    map {
+
+      # we do chunk by chunk to bytepack;
+      # no aligning to pow2 in-between opcodes!
+      my $type    = typefet $ARG;
+
+      my $chunk   = $opcd & $type->{sizebm};
+         $opcd  >>= $type->{sizebs};
+
+      # write chunk and go next
+      $seg->store($type,$chunk,$seg->{ptr});
+      $seg->{ptr} += $type->{sizeof};
+
+
+    } typeof $size;
+
+
+  } @program;
+
+
+  # apply alignment to segment accto
+  # ISA specs
+  my $align=$self->{ISA}->exeali();
+  $seg->align($align->{sizeof});
+
+
+  return $seg;
+
+};
+
+# ---   *   ---   *   ---
+# ^read instructions from segment
+
+sub exeread($self,$seg) {
+
+
+  # get ctx
+  my $align = $self->{ISA}->exeali();
+
+  my $limit  = $seg->{size};
+  my $addr   = 0x00;
+
+
+  # walk segment
+  my @out=();
+
+  while($addr + $align->{sizeof} < $limit) {
+
+    my $bytes = $seg->load($align,$addr);
+    my $ins   = $self->{ISA}->decode($bytes);
+
+    $addr += $ins->{size};
+    push @out,$ins;
+
+  };
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# interpret instruction array
+
+sub ipret($self,@program) {
+
+
+  # get ctx
+  my @names = qw(dst src);
+  my $ezy   = $Type::MAKE::LIST->{ezy};
+
+
+  # walk input
+  map {
+
+
+    # unpack
+    my $data = $ARG;
+    my $ins  = $data->{ins};
+    my $size = typefet $ezy->[$ins->{opsize}];
+
+
+    # proc operands
+    my @values=map {
+
+      my $o    = $data->{$ARG};
+      my $imm  = exists $o->{imm};
+
+
+      # memory deref?
+      if($ins->{"load_$ARG"} &&! $imm) {
+
+        $o->{seg}->load(
+          $size,$o->{addr}
+
+        );
+
+      # ^immediate?
+      } elsif($imm) {
+        Bpack::layas($size,$o->{imm});
+
+      # ^plain addr?
+      } else {
+
+        my $addr=
+          $o->{seg}->absloc()+$o->{addr};
+
+        Bpack::layas($size,$addr);
+
+      };
+
+
+    } @names[0..$ins->{argcnt}-1];
+
+
+    # invoke
+    my $out=$self->{ISA}->run(
+      $size,$ins->{idx},@values
+
+    );
+
+    # ^save result?
+    if($ins->{overwrite}) {
+
+      my $dst=$data->{dst};
+
+      $dst->{seg}->store(
+        $size,$out,$dst->{addr}
+
+      );
+
+    };
+
+
+  } @program;
+
+
+  return;
 
 };
 
@@ -243,7 +411,7 @@ sub warn_full_segtab($id) {
 # ---   *   ---   *   ---
 # errme for ptr encode/decode
 
-sub badptr($mode) {
+sub badptr_x($mode) {
   warnproc "cannot $mode pointer",
   give => null;
 
@@ -256,7 +424,7 @@ sub encode_ptr($self,$seg,$off) {
 
   # validate segment
   my $segid = $self->segid($seg);
-  return badptr 'encode' if $segid eq null;
+  return badptr_x 'encode' if $segid eq null;
 
   # ^roll and give
   my $bits = $self->sizep2_segtab();
@@ -282,7 +450,7 @@ sub decode_ptr($self,$ptrv) {
 
   # ^validate and give
   my $seg = $self->{segtab}->[$segid]
-  or return badptr 'decode';
+  or return badptr_x 'decode';
 
 
   return ($seg,$off);
@@ -294,7 +462,9 @@ sub decode_ptr($self,$ptrv) {
 
 sub decode_mstk_ptr($self,$o) {
 
-  my $seg  = $self->{segtab}->[$o->{seg}];
+  nyi('A9M::stack');
+
+  my $seg  = $self->{stack}->{mem};
   my $base = $self->{anima}->fetch(0xC);
   my $off  = -$o->{imm};
 

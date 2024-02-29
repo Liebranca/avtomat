@@ -43,7 +43,7 @@ package Bitformat;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -158,7 +158,7 @@ sub bor($self,%data) {
   ) << $self->{pos}->{$ARG}
 
   } grep {
-    array_iof($self->{order},$ARG)
+    defined array_iof($self->{order},$ARG)
 
   } keys %data;
 

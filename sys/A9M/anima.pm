@@ -223,4 +223,12 @@ sub update($class,$A9M) {
 };
 
 # ---   *   ---   *   ---
+# dbout
+
+sub prich($self,%O) {
+  $self->{mem}->prich(%O);
+
+};
+
+# ---   *   ---   *   ---
 1; # ret

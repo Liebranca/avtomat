@@ -31,6 +31,7 @@ package A9M::mem;
   use Warnme;
 
   use Arstd::Bytes;
+  use Arstd::Int;
   use Arstd::xd;
   use Arstd::IO;
 
@@ -40,7 +41,7 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -238,6 +239,42 @@ sub brk($self,$step) {
 
 
   return $size;
+
+};
+
+# ---   *   ---   *   ---
+# align block to pow2
+
+sub align($self,$n) {
+
+  # forbid non-pow2 alignments
+  return warn_pow2ali($n)
+  if ! int_ispow($n,2);
+
+
+  # grow block if need
+  my $size=int_align($self->{size},$n);
+  my $diff=$size-$self->{size};
+
+  $self->brk($diff);
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub warn_pow2ali($n) {
+
+  warnproc
+
+    "invalid alignment: [num]:%u;"
+
+  . "segments can only align to a "
+  . "power of two.",
+
+
+  args => [$n],
+  give => null;
 
 };
 
