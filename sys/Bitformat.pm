@@ -43,7 +43,7 @@ package Bitformat;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -51,7 +51,8 @@ package Bitformat;
 
 sub Bitformat($name,@order) {
 
-  $name="bit<$name>";
+  my $id   = $name;
+     $name = "bit<$name>";
 
 
   # ever lookup something
@@ -60,15 +61,15 @@ sub Bitformat($name,@order) {
   if Bitformat->is_valid($name);
 
   # fetch existing?
-  return (exists $$Type::MAKE::Table->{$name})
-    ? $$Type::MAKE::Table->{$name}
-    : Type::throw_invalid($name)
+  return (exists $Type::MAKE::Table->{$name})
+    ? $Type::MAKE::Table->{$name}
+    : badtype $name
 
-  if ! defined $src;
+  if ! @order;
 
 
   # forbid redefinition
-  return Type::throw_redefn($name)
+  return Type::warn_redef($name)
   if exists $Type::MAKE::Table->{$name};
 
 
@@ -105,6 +106,8 @@ sub Bitformat($name,@order) {
 
   # make ice
   my $self=bless {
+
+    id => $id,
 
     # save total sizeof
     bytesize  => int_urdiv(
@@ -154,6 +157,9 @@ sub bor($self,%data) {
 
   ) << $self->{pos}->{$ARG}
 
+  } grep {
+    array_iof($self->{order},$ARG)
+
   } keys %data;
 
 
@@ -186,6 +192,24 @@ sub array_bor($self,%data) {
 
 
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# reads num into hash
+
+sub from_value($self,$x) {
+
+  map {
+
+    my $key   = $ARG;
+    my $value = $x & $self->{mask}->{$key};
+
+    $x   >>=  $self->{size}->{$key};
+    $key   => $value;
+
+
+  } @{$self->{order}};
 
 };
 

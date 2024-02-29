@@ -1,0 +1,464 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# A9M OPERA
+# The things we do to memory...
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+
+# ---   *   ---   *   ---
+# deps
+
+package A9M::opera;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use Readonly;
+  use English qw(-no_match_words);
+
+  use lib $ENV{ARPATH}.'/lib/sys/';
+
+  use Style;
+  use Chk;
+  use Type;
+  use Bpack;
+
+  use Arstd::Bytes;
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = v0.00.1;#a
+  our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+Readonly our $TABLE => [
+
+
+  # imm/mem/reg to reg
+  load => {
+
+    load_dst => 0,
+
+    dst      => 'r',
+    src      => 'rmi',
+
+  },
+
+  # reg to mem
+  store => {
+
+    load_dst => 0,
+
+    dst      => 'm',
+    src      => 'r',
+
+  },
+
+#  # our beloved
+#  # load effective address ;>
+#  lea => {
+#
+#    load_dst => 0,
+#    load_src => 0,
+#
+#    dst      => 'r',
+#    src      => 'm',
+#
+#  },
+#
+#
+#  # bitops
+#  xor => {
+#    dst  => 'r',
+#    src  => 'ri',
+#
+#  },
+#
+#  and => {
+#    dst  => 'r',
+#    src  => 'ri',
+#
+#  },
+#
+#  or => {
+#    dst  => 'r',
+#    src  => 'ri',
+#
+#  },
+#
+#  not => {
+#
+#    argcnt => 1,
+#
+#    dst    => 'r',
+#    src    => 'ri',
+#
+#  },
+#
+#
+#  # bitmask, all ones
+#  bones => {
+#
+#    dst        => 'r',
+#    src        => 'ri',
+#
+#    fix_immsrc => 1,
+#    fix_regsrc => 3,
+#
+#  },
+#
+#
+#  # bitshift left/right
+#  shl => {
+#
+#    dst        => 'r',
+#    src        => 'ri',
+#
+#    fix_immsrc => 1,
+#    fix_regsrc => 3,
+#
+#  },
+#
+#  shr => {
+#
+#    dst        => 'r',
+#    src        => 'ri',
+#
+#    fix_immsrc => 1,
+#    fix_regsrc => 3,
+#
+#  },
+#
+#
+#  # bitscan <3
+#  bsf => {
+#    dst => 'r',
+#    src => 'r',
+#
+#  },
+#
+#  bsr => {
+#    dst => 'r',
+#    src => 'r',
+#
+#  },
+#
+#
+#  # bit rotate right
+#  # a thing of pure beauty!
+#  ror => {
+#
+#    dst        => 'r',
+#    src        => 'ri',
+#
+#    fix_immsrc => 1,
+#    fix_regsrc => 3,
+#
+#  },
+#
+#  # ^rotate left ;>
+#  rol => {
+#
+#    dst        => 'r',
+#    src        => 'ri',
+#
+#    fix_immsrc => 1,
+#    fix_regsrc => 3,
+#
+#  },
+#
+#
+#  # math
+#  add => {
+#    dst  => 'r',
+#    src  => 'ri',
+#
+#  },
+#
+#  sub => {
+#    dst  => 'r',
+#    src  => 'ri',
+#
+#  },
+#
+#
+#  mul => {
+#    dst  => 'r',
+#    src  => 'r',
+#
+#  },
+#
+#  # the mnemonic for 'division' should be 'avoid'
+#  # but that may confuse some people ;>
+#  div => {
+#    dst  => 'r',
+#    src  => 'r',
+#
+#  },
+#
+#
+#  # ++/--
+#  inc => {
+#    argcnt => 1,
+#    dst    => 'r',
+#
+#  },
+#
+#  dec => {
+#    argcnt => 1,
+#    dst    => 'r',
+#
+#  },
+#
+#
+#  # negate
+#  neg => {
+#
+#    argcnt => 1,
+#
+#    dst    => 'r',
+#    src    => 'ri',
+#
+#  },
+#
+#
+#  # stack ctl
+#  push => {
+#
+#    dst       => 'rmi',
+#    argcnt    => 1,
+#    overwrite => 0,
+#
+#    fix_size  => ['qword'],
+#
+#  },
+#
+#  pop => {
+#
+#    dst       => 'r',
+#    argcnt    => 1,
+#    overwrite => 1,
+#
+#    load_dst  => 0,
+#    fix_size  => ['qword'],
+#
+#  },
+#
+#
+#  # control flow
+#  jmp => {
+#
+#    argcnt => 1,
+#    dst    => 'rmi',
+#
+#    overwrite => 0,
+#    fix_size  => ['qword'],
+#
+#  },
+#
+#  call => {
+#
+#    argcnt    => 1,
+#    dst       => 'rmi',
+#
+#    overwrite => 0,
+#    fix_size  => ['qword'],
+#
+#  },
+#
+#  ret => {
+#    argcnt=>0,
+#
+#  },
+
+
+];
+
+## ---   *   ---   *   ---
+## run generic op on value
+#
+#sub opera($fn,$value) {
+#
+#  my @out = ();
+#  my @Q   = $value;
+#
+#  while(@Q) {
+#
+#    my $x=shift @Q;
+#
+#    (is_arrayref($x))
+#      ? unshift @Q,@$x
+#      : push    @out,$fn->($x)
+#      ;
+#
+#  };
+#
+#
+#  return @out;
+#
+#};
+#
+## ---   *   ---   *   ---
+## ~
+#
+#sub decode($mem,$type,$addr,$gen,@args) {
+#
+#  # get type
+#  $type=typefet $type
+#  or return null;
+#
+#  # ^generate F
+#  my $fn=$gen->($type,@args);
+#
+#
+#  # read value && run operation
+#  my $src = $mem->load($type,$addr);
+#  my @src = opera $fn,$src;
+#
+#  # ^unpack
+#  map {
+#    $ARG=$$ARG if is_scalarref($ARG)
+#
+#  } @src;
+#
+#  # ^repack!
+#  my $bytes=Bpack::layas($type,@src);
+#  $mem->store($type,$bytes,$addr);
+#
+#
+#  return;
+#
+#};
+
+# ---   *   ---   *   ---
+# bifshift right
+
+sub shr($type,$bits) {
+
+  # inner state
+  my $left = 0;
+  my $prev = undef;
+  my $mask = bitmask($bits);
+  my $pos  = $type->{sizebs} - $bits;
+
+  # ^inner F
+  sub ($x) {
+
+    $left   = $x  & $mask;
+
+    $x      = $x    >> $bits;
+    $$prev |= $left << $pos if $prev;
+
+
+    $prev   = \$x;
+    $prev;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# bitshift left
+
+sub shl($type,$bits) {
+
+  # inner state
+  my $left   = 0;
+  my $right  = 0;
+
+  my $mask   = bitmask($bits);
+  my $pos    = $type->{sizebs} - $bits;
+     $mask <<= $pos;
+
+  # ^inner F
+  sub ($x) {
+
+    $left  = ($x  & $mask);
+    $x     = ($x << $bits) | $right;
+
+    $right = ($left >> $pos);
+    $x;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# bitrotate right
+
+sub ror($type,$bits) {
+
+
+  # inner state
+  my $left = undef;
+  my $cnt  = 0;
+
+  my $mask = bitmask($bits);
+  my $pos  = $type->{sizebs} - $bits;
+
+  # inner sub-F
+  my $shr=shr($type,$bits);
+
+
+  # inner F
+  sub ($x) {
+
+    $left=($x & $mask) << $pos
+    if ! defined $left;
+
+    $x    = $shr->($x);
+
+    $cnt += $type->{sizebs};
+    $$x  |= $left if $cnt >> 3 == $type->{sizeof};
+
+    $x;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# bitrotate left
+
+sub rol($type,$bits) {
+
+  # inner state
+  my $left   = undef;
+  my $first  = undef;
+  my $cnt    = 0;
+
+  my $mask   = bitmask($bits);
+  my $pos    = $type->{sizebs} - $bits;
+     $mask <<= $pos;
+
+  # inner sub-F
+  my $shl=shl($type,$bits);
+
+  # inner F
+  sub ($x) {
+
+    $first   = \$x if ! defined $first;
+    $left    = ($x & $mask) >> $pos;
+
+    $x       = $shl->($x);
+
+    $cnt    += $type->{sizebs};
+    $$first |= $left if $cnt >> 3 == $type->{sizeof};
+
+    \$x;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+1; # ret

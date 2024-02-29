@@ -360,7 +360,7 @@ subwraps(
 
 sub warn_redef($name) {
 
-  Warnme::invalid 'type',
+  Warnme::redef 'type',
 
   obj  => $name,
   give => 0;

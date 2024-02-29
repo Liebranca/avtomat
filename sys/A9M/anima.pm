@@ -26,6 +26,7 @@ package A9M::anima;
 
   use Style;
   use Type;
+  use Warnme;
 
   use Arstd::Array;
   use Arstd::Bytes;
@@ -61,7 +62,7 @@ St::vconst {
   sizek  => 'qword',
   size   => sub {sizeof $_[0]->sizek()},
 
-  cnt    => sub {int $_[0]->list()},
+  cnt    => sub {int @{$_[0]->list()}},
   cnt_bs => sub {bitsize $_[0]->cnt()-1},
   cnt_bm => sub {bitmask $_[0]->cnt()-1},
 
@@ -97,10 +98,10 @@ sub new($class,%O) {
 
 
   # ^make labels
-  my $addr=0x00;
-  map {
+  my $addr = 0x00;
+  my @ptr  = map {
 
-    $mem->lvalue(
+    my $v=$mem->lvalue(
 
       0x00,
 
@@ -112,11 +113,50 @@ sub new($class,%O) {
     );
 
     $addr += $class->size();
+    $v;
 
   } $class->list();
 
 
-  return $mem;
+  # save to ice and give
+  $self->{mem}=$mem;
+  $self->{ptr}=\@ptr;
+
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# get register by name or idex
+
+sub fetch($self,$name) {
+
+
+  # idex passed
+  return ($name < $self->cnt())
+    ? $self->{ptr}->[$name]
+    : warn_invalid($name)
+
+  if $name=~ qr{^\d+$};
+
+
+  # ^else get idex
+  my $idex=$self->tokin($name);
+  defined $idex or return warn_invalid($name);
+
+  return $self->{ptr}->[$idex];
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub warn_invalid($name) {
+
+  Warnme::invalid 'register',
+
+  obj  => $name,
+  give => null;
 
 };
 

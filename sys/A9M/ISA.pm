@@ -27,6 +27,7 @@ package A9M::ISA;
 
   use Style;
   use Type;
+  use Warnme;
 
   use Bitformat;
   use FF;
@@ -34,44 +35,14 @@ package A9M::ISA;
   use Arstd::Array;
   use Arstd::String;
   use Arstd::Bytes;
-  use Arstd::Bitformat;
   use Arstd::IO;
 
-
-  use lib $ENV{ARPATH}.'/forge/';
-
-  use f1::bits;
-  use f1::macro;
-  use f1::logic;
-  use f1::ROM;
-
-# ---   *   ---   *   ---
-# adds to your cache
-
-  use Vault 'ARPATH';
-
-  our $Cache={
-
-    romcode    => 0,
-    execode    => 0,
-
-    insmeta    => {},
-
-    mnemonic   => [],
-    exetab     => {},
-    romtab     => [],
-
-  };
-
-  $Cache=Vault::cached(
-    'Cache',\&gen_ROM_table
-
-  );
+  use parent 'A9M::component';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.4;#a
+  our $VERSION = v0.01.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -82,9 +53,6 @@ package A9M::ISA;
   Readonly our $PTR_DEF_SZ    => 'short';
   Readonly our $OPCODE_ROM_SZ => 'dword';
 
-  Readonly our $SEGTAB_BS     => 4;
-  Readonly our $SEGTAB_BM     => 0xF;
-
 
   # default sizes as bitfield
   Readonly our $INS_DEF_SZ_BITS =>
@@ -94,51 +62,137 @@ package A9M::ISA;
     bitsize(sizeof($PTR_DEF_SZ))-1;
 
 
+  # names for 0/1/2 operands
+  Readonly my $ARGNAMES=>[
+    [],['dst'],['dst','src'],
+
+  ];
+
   # argument type-flags
-  Readonly our $ARGFLAG_FBS => 3;
+  Readonly our $ARGFLAG_BS=>3;
+  Readonly our $ARGFLAG_BM=>bitmask $ARGFLAG_BS;
 
-  our $ARGFLAG={};
+  our $ARGFLAG={
 
-  $ARGFLAG->{reg}      = 0b000;
 
-  $ARGFLAG->{memstk}   = 0b001;
-  $ARGFLAG->{memshort} = 0b010;
-  $ARGFLAG->{memlong}  = 0b011;
-  $ARGFLAG->{mempos}   = 0b100;
+    # base format
+    %{Bitformat argflag=>(
+      dst => $ARGFLAG_BS,
+      src => $ARGFLAG_BS,
 
-  $ARGFLAG->{imm8}     = 0b101;
-  $ARGFLAG->{imm16}    = 0b110;
+    )},
+
+
+    # ^possible values
+    r    => 0b000,
+
+    mstk => 0b001,
+    mimm => 0b010,
+    msum => 0b011,
+    mlea => 0b100,
+
+    ix   => 0b101,
+    iy   => 0b110,
+
+  };
 
 
   # ^values shifted to src bit
+  Readonly my $ARGFLAG_BITS=>[qw(
+
+    r
+
+    mstk mimm msum mlea
+    ix   iy
+
+  )];
+
   map {
 
     $ARGFLAG->{"src_$ARG"}=
        $ARGFLAG->{$ARG}
-    << $ARGFLAG->{pos}->{src}
-    ;
+    << $ARGFLAG->{pos}->{src};
 
-  } qw(
+  } @$ARGFLAG_BITS;
 
-    reg
 
-    memstk memshort memlong mempos
-    imm8   imm16
+  # encoder fetches from here
+  Readonly my $ARGFLAG_TAB=>{
 
-  );
+    $NULLSTR => 0b000000,
+    d        => 0b000000,
+    s        => 0b000000,
+
+
+    dr       => $ARGFLAG->{r},
+
+    dmstk    => $ARGFLAG->{mstk},
+    dmimm    => $ARGFLAG->{mimm},
+    dmsum    => $ARGFLAG->{msum},
+    dmlea    => $ARGFLAG->{mlea},
+
+    dix      => $ARGFLAG->{ix},
+    diy      => $ARGFLAG->{iy},
+
+
+    sr       => $ARGFLAG->{src_r},
+
+    smstk    => $ARGFLAG->{src_mstk},
+    smimm    => $ARGFLAG->{src_mimm},
+    smsum    => $ARGFLAG->{src_msum},
+    smlea    => $ARGFLAG->{src_mlea},
+
+    six      => $ARGFLAG->{src_ix},
+    siy      => $ARGFLAG->{src_iy},
+
+  };
+
 
 # ---   *   ---   *   ---
-# make internal formats
+# GBL
 
-sub mkfmat($class,$anima) {
+  our $Cache={
+
+    romcode    => 0,
+    execode    => 0,
+
+    id_bs      => 0,
+    id_bm      => 0,
+    idx_bs     => 0,
+    idx_bm     => 0,
+
+    insmeta    => {},
+
+    mnemonic   => [],
+    exetab     => {},
+    romtab     => [],
+
+  };
+
+# ---   *   ---   *   ---
+# cstruc
+
+sub new($class,%O) {
+
+  # defaults
+  $O{mcid}  //= 0;
+  $O{mccls} //= caller;
+
+  # nothing to do here ;>
+  my $self=bless \%O,$class;
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# makes internal formats
+
+sub mkfmat($self) {
 
 
-  # argument types
-  Bitformat argflag=>(
-    dst => $ARGFLAG_FBS,
-    src => $ARGFLAG_FBS,
-
-  );
+  # get ctx
+  my $mc    = $self->getmc();
+  my $anima = $mc->{bk}->{anima};
 
 
   # instruction meta
@@ -149,7 +203,7 @@ sub mkfmat($class,$anima) {
     overwrite   => 1,
 
     argcnt      => 2,
-    argflag     => 'ice',
+    argflag     => $ARGFLAG->{bitsize},
 
     opsize      => 2,
     idx         => 16,
@@ -157,28 +211,47 @@ sub mkfmat($class,$anima) {
   );
 
 
-  # encodings for memory operands
-  Bitformat 'memarg-stk'=>(
+  # enconding for register operands
+  Bitformat 'r'=>(
+    reg => 4,
+
+  );
+
+
+  # encodings for immediate operands
+  Bitformat 'ix'=>(
     imm => 8,
 
   );
 
-  Bitformat 'memarg-imm'=>(
-    seg => $SEGTAB_BS,
+  Bitformat 'iy'=>(
     imm => 16,
 
   );
 
-  Bitformat 'memarg-sum'=>(
-    seg => $SEGTAB_BS,
+
+  # encodings for memory operands
+  Bitformat 'mstk'=>(
+    imm => 8,
+
+  );
+
+  Bitformat 'mimm'=>(
+    seg => $mc->sizep2_segtab(),
+    imm => 16,
+
+  );
+
+  Bitformat 'msum'=>(
+    seg => $mc->sizep2_segtab(),
     reg => $anima->cnt_bs(),
     imm => 8,
 
   );
 
-  Bitformat 'memarg-lea'=>(
+  Bitformat 'mlea'=>(
 
-    seg   => $SEGTAB_BS,
+    seg   => $mc->sizep2_segtab(),
 
     rX    => $anima->cnt_bs(),
     rY    => $anima->cnt_bs(),
@@ -209,438 +282,150 @@ sub mkfmat($class,$anima) {
 };
 
 # ---   *   ---   *   ---
-# GBL
+# make opcode
 
-  my $Fdst = $NULLSTR;
+sub encode($self,$type,$name,@args) {
+
+
+  # get type from table
+  $type=typefet $type
+  or return null;
+
+
+  # find instruction id
+  my $idex=$self->get_ins_idex(
+    $name,$type->{sizep2},
+    map {$ARG->{type}} @args
+
+  );
+
+
+  # ^get [bitsize:data] array
+  # for both instruction and operands
+  my @enc=([$Cache->{id_bs},$idex],map {
+    my $fmat=Bitformat $ARG->{type};
+    [$fmat->{bitsize},$fmat->bor(%$ARG)];
+
+  } @args);
+
+
+  # ^pack and give
+  my $opcd = 0x00;
+  my $cnt  = 0;
+
+  map {
+
+    my ($bs,$data)=@$ARG;
+
+    $opcd |= $data << $cnt;
+    $cnt  += $bs;
+
+  } @enc;
+
+
+  return $opcd;
+
+};
 
 # ---   *   ---   *   ---
-# crux
+# ^undo ;>
 
-sub update($class,$A9M) {
+sub decode($self,$opcd) {
 
-  # get additional deps
-  use Shb7::Path;
 
-  # get fpath
-  $Fdst="$A9M->{fpath}->{isa}";
+  # get ctx
+  my $mask   = $Cache->{id_bm};
+  my $bits   = $Cache->{id_bs};
 
-  # ^missing or older?
-  if(moo("$Fdst.pinc",__FILE__)) {
 
-    $A9M->{log}->substep('ISA');
+  # get opid and shift out bits
+  my $opid   = $opcd & $mask;
+     $opcd >>= $bits;
 
-    # make include
-    my $ROM=$class->build_ROM();
-    my $EXE=$class->build_EXE();
+  # read instruction meta
+  my $idex = ($opid << 1) + 1;
+  my $ins  = $Cache->{romtab}->[$idex]->{ROM};
 
-    # ^flatten
-    my $INC=join "\n",
-      $ROM->collapse(),
-      $EXE->{buf}
 
-    ;
+  # decode args
+  my $cnt   = $ins->{argcnt};
+  my $flags = $ins->{argflag};
+  my @load  = ($ins->{load_dst},$ins->{load_src});
 
-    # ^write to file
-    owc("$Fdst.pinc",$INC);
+  my @args    = map {
+
+    $self->decode_args(
+      \$opcd,
+      \$flags,
+
+      shift @load
+
+    )
+
+  } 0..$cnt-1;
+
+
+  return {
+
+    ins => $ins,
+
+    dst => $args[0],
+    src => $args[1],
 
   };
 
 };
 
 # ---   *   ---   *   ---
-# makes procs used during
-# decode and execution
+# ^read next argument from opcode
 
-sub build_EXE($class) {
+sub decode_args(
 
-  return f1::blk->cat(
+  $self,
 
-    'EXE',
+  $opcdref,
+  $flagsref,
 
-    $class->build_EXE_decoder(),
-    $class->build_EXE_logic(),
+  $load
 
-  );
-
-};
-
-# ---   *   ---   *   ---
-# makes a proc to fetch
-# instruction data
-#
-# done to simplify decode ;>
-
-sub build_EXE_decoder($class) {
-
-  my $read=f1::macro->new(
-
-    'A9M.OPCODE.read',
-
-    loc  => 1,
-    args => [qw(
-
-      idx src
-
-      load_src load_dst overwrite
-      argcnt argflag
-      opsize opsize_bm opsize_bs
-      immbs immbm
-
-    )]
-
-  );
-
-  # ^paste the proc
-  $read->lines(q[
+) {
 
 
-    local idex;
-
-    $bipret.mash
-      idex,src,
-      OPCODE_ID_MASK,
-      OPCODE_ID_BITS
-
-    ;
+  # read elem flags and shift out bits
+  my $flag        = $$flagsref & $ARGFLAG_BM;
+     $$flagsref >>= $ARGFLAG_BS;
 
 
-    local flags;
+  # get binary format for arg
+  my $fmat=undef;
+  for my $key(@$ARGFLAG_BITS) {
 
-    load  flags dword from A9M.OPCODE:
-      idex shl 2;
-
-  ] . f1::bits::csume(
-
-    $OPCODE_ROM,'flags',qw(
-
-      load_src load_dst overwrite
-
-      argcnt argflag
-      opsize
-
-    )) . q[
-
-    opsize    = 1 shl opsize;
-    opsize_bs = opsize shl 3;
-    opsize_bm = (1 shl opsize_bs)-1;
-    opsize_bm = opsize_bm
-    or (sizebm.qword * (opsize_bs shr 6));
-
-
-    local dst_immflag;
-    local src_immflag;
-
-    dst_immflag=argflag and A9M.OPCODE.ARGFLAG_FBM;
-    src_immflag=argflag shr A9M.OPCODE.ARGFLAG_FBS;
-    src_immflag=immflag and A9M.IOCIDE.ARGFLAG_FBM;
-
-    if (src_immflag = A9M.OPCODE.ARGFLAG_IMM8)
-    |  (dst_immflag = A9M.OPCODE.ARGFLAG_IMM8);
-      immbs = sizebs.byte;
-      immbm = sizebm.byte;
-
-    else;
-      immbs = sizebs.word;
-      immbm = sizebm.word;
-
-    end if;
-
-
-    idx=
-
-  ] . "(flags shr $OPCODE_ROM->{pos}->{idx})"
-    . "and OPCODE_IDX_MASK;"
-
-
-  );
-
-
-  return $read
-
-};
-
-# ---   *   ---   *   ---
-# fetches instruction
-# definitions and makes a
-# conditional table for
-# executing them
-
-  Readonly my $ARGNAMES=>[
-    [],['dst'],['dst','src'],
-
-  ];
-
-sub build_EXE_logic($class) {
-
-  # gen individual instructions
-  my $idex = 0;
-
-  return map {
-
-    my $cnt      = $ARG;
-    my @branches = ();
-
-    my @defs     = map {
-
-      my ($def,$branch)=inscode($ARG,\$idex);
-
-      push @branches,@$branch;
-      $def;
-
-    } grep {
-      $Cache->{exetab}->{$ARG}->{argcnt} eq $cnt
-
-    } keys %{$Cache->{exetab}};
-
-
-    # make conditionals?
-    if(@defs) {
-
-      my $tab=f1::macro->new(
-
-        "A9M.OPCODE.switch_args$cnt",
-
-        loc  => ++$idex,
-        args => ['opid',@{$ARGNAMES->[$cnt]}],
-
-      );
-
-      $tab->switch(@branches);
-      push @defs,$tab;
+    if($flag eq $ARGFLAG->{$key}) {
+      $fmat=Bitformat $key;
+      last;
 
     };
 
-    @defs;
+  };
 
 
-  } 0,1,2;
+  # read bits as hash
+  my %data=$fmat->from_value($$opcdref);
+  $$opcdref >>= $fmat->{bitsize};
 
-};
 
-# ---   *   ---   *   ---
-# makes wraps around an
-# instruction definition
+  # proc memory operand?
+  if(0 == index $fmat->{id},'m',0) {
 
-sub inscode($body,$iref) {
+    my $mc=$self->getmc();
+    my $fn="decode_$fmat->{id}_ptr";
 
-  my $attr=$Cache->{exetab}->{$body};
-  my $args=$ARGNAMES->[$attr->{argcnt}];
+    $mc->$fn(\%data);
 
-  my $ins=f1::macro->new(
+  };
 
-    "A9M.OPCODE._exe_$attr->{name}",
 
-    loc  => $$iref+2,
-    args => $args,
-
-  );
-
-  my $branch=[
-     "opid = $attr->{idx}"
-  => "A9M.OPCODE._exe_$attr->{name} "
-
-  .  (join ',' , @$args)
-
-  ];
-
-
-  # paste
-  $ins->lines($body);
-
-
-  # go next and give
-  $$iref++;
-  return $ins,$branch;
-
-};
-
-# ---   *   ---   *   ---
-# makes fasm virtual from
-# generated opcode table
-
-sub build_ROM($class) {
-
-  # access array like a hash
-  my $idex   = 0;
-
-  my @keys   = array_keys($Cache->{romtab});
-  my @values = array_values($Cache->{romtab});
-
-  # meaningless; pads the equal signs
-  my $pad = max(map {length $ARG} @keys);
-
-
-  # build map of opcode to flags
-  my $data = join ";",map {
-
-    my $e=$values[$idex++];
-
-    sprintf
-      "A9M.OPCODE.%-${pad}s = \$%04X;",
-      $ARG,$e->{id}
-
-    ;
-
-  } @keys;
-  $idex=0;
-
-
-  # get bitsize of opcodes
-  my $opbits  = bitsize($Cache->{romcode}-1);
-  my $opmask  = (1 << $opbits)-1;
-
-  my $exebits = bitsize($Cache->{execode}-1);
-  my $exemask = (1 << $exebits)-1;
-
-
-  # the actual flags?
-  # out them to a separate file!
-  #
-  # done so anvil can imp them too ;>
-  my $fdata  = f1::blk->new('fdata',binary=>1);
-
-  # ^make binary ROM part
-  $fdata->strucseg(
-
-    $OPCODE_TAB,
-
-    id_mask  => [$opmask],
-    idx_mask => [$exemask],
-
-    id_bits  => [$opbits],
-    idx_bits => [$exebits],
-
-    opcode   => [map {$ARG->{ROM}} @values],
-
-  );
-
-
-  # make new block for constants...
-  my $ROM = f1::ROM->new(
-    'A9M.OPCODE',
-    loc=>0
-
-  );
-
-
-  # ^write constants
-  $ROM->lines(
-
-
-    "define A9M.INS_DEF_SZ $INS_DEF_SZ;"
-
-
-  # segment table constants
-  . "A9M.SEGTAB_SZ = " . (1 << $SEGTAB_BS) . ';'
-  . "A9M.SEGTAB_BS = $SEGTAB_BS;"
-  . "A9M.SEGTAB_BM = $SEGTAB_BM;"
-
-
-  # bit patterns for decoding ptrs
-  . f1::bits::as_const(
-
-      $PTR_STACK,
-      "bipret.memarg_stk",
-
-      qw(imm)
-
-    )
-
-  . f1::bits::as_const(
-
-      $PTR_POS,
-      "bipret.memarg_pos",
-
-      qw(imm)
-
-    )
-
-  . f1::bits::as_const(
-
-      $PTR_SHORT,
-      "bipret.memarg_short",
-
-      qw(imm)
-
-    )
-
-  . f1::bits::as_const(
-
-      $PTR_LONG,
-      "bipret.memarg_long",
-
-      qw(imm scale)
-
-    )
-
-
-  # masks for the opcodes themselves
-  . (sprintf
-
-      "OPCODE_ID_MASK  = \$%04X;"
-    . "OPCODE_ID_BITS  = \$%04X;"
-
-    . "OPCODE_IDX_MASK = \$%04X;"
-    . "OPCODE_IDX_BITS = \$%04X;",
-
-      $opmask,$opbits,
-      $exemask,$exebits
-
-    )
-
-
-  # bit patterns for argument types
-  . (join ';',map {
-
-      my $sufix=uc $ARG;
-
-      "A9M.OPCODE.ARGFLAG_$sufix = "
-    . "$ARGFLAG->{$ARG}"
-
-
-    } qw(
-
-      reg
-
-      memstk memshort memlong mempos
-      imm8   imm16
-
-    )) . ';'
-
-
-  # ^bitsize/mask of the type field itself
-  . "A9M.OPCODE.ARGFLAG_FBS = "
-  . "$ARGFLAG->{size}->{dst};"
-
-  . "A9M.OPCODE.ARGFLAG_FBM = "
-  . "$ARGFLAG->{mask}->{dst};"
-
-
-  );
-
-
-  # ^write the nshared table bits
-  $ROM->lines($data);
-
-  # ^append opcode section to ROM
-  my $seg={@{$fdata->{seg}}};
-
-  $ROM->lines(
-
-    "file '$Fdst.bin'"
-
-  . ":$seg->{opcode}->[0]"
-  . ",$seg->{opcode}->[1]"
-
-  . ';'
-
-  );
-
-
-  # save shared table bits to file
-  owc("$Fdst.bin",$fdata->{buf});
-
-  return $ROM;
+  return \%data;
 
 };
 
@@ -649,9 +434,9 @@ sub build_ROM($class) {
 
 sub fetch_logic($name,%O) {
 
-  if(! exists $Cache->{exetab}->{$O{body}}) {
+  if(! exists $Cache->{exetab}->{$O{fn}}) {
 
-    $Cache->{exetab}->{$O{body}}={
+    $Cache->{exetab}->{$O{fn}}={
 
       %O,
 
@@ -662,7 +447,8 @@ sub fetch_logic($name,%O) {
 
   };
 
-  return $Cache->{exetab}->{$O{body}}->{idx};
+
+  return $Cache->{exetab}->{$O{fn}}->{idx};
 
 };
 
@@ -679,16 +465,15 @@ sub get_ins_idex($class,$name,$size,@ar) {
 
     . '_' . (join '_',@ar)
 
-    . '_' . $Type::EZY_LIST->[$size]
+    . '_' . $Type::MAKE::LIST->{ezy}->[$size]
 
 
     : $name
 
     ;
 
-  say {*STDERR}
-    "Invalid instruction: '$full_form'"
 
+  return warn_invalid($full_form)
   if ! exists $meta->{icetab}->{$full_form};
 
 
@@ -701,9 +486,7 @@ sub get_ins_idex($class,$name,$size,@ar) {
 
 sub get_ins_meta($class,$name) {
 
-  say {*STDERR}
-    "Invalid instruction: '$name'"
-
+  return warn_invalid($name)
   if ! exists $Cache->{insmeta}->{$name};
 
   return $Cache->{insmeta}->{$name};
@@ -711,11 +494,24 @@ sub get_ins_meta($class,$name) {
 };
 
 # ---   *   ---   *   ---
+# ^errme
+
+sub warn_invalid($name) {
+
+  Warnme::invalid 'instruction',
+
+  obj  => [$name],
+  give => null;
+
+};
+
+# ---   *   ---   *   ---
 # cstruc instruction(s)
 
-sub opcode($name,$ct,%O) {
+sub opcode($name,%O) {
 
   # defaults
+  $O{fn}          //= "ins_$name";
   $O{argcnt}      //= 2;
   $O{nosize}      //= 0;
 
@@ -752,7 +548,7 @@ sub opcode($name,$ct,%O) {
 
 
   # queue logic generation
-  my $idx=fetch_logic($name,%O,body=>$ct);
+  my $idx=fetch_logic($name,%O);
 
 
   # get possible operand sizes
@@ -826,16 +622,16 @@ sub opcode($name,$ct,%O) {
 
     # have memory operand?
     if($round == 0) {
-      @list=(qr{m},qw(mstk mshort mlong mpos));
+      @list=(qr{m},qw(mstk mimm msum mlea));
 
     } else {
 
       my @ar=($O{fix_immsrc})
-        ? 'i'.int((1 << ($O{fix_immsrc}-1)) << 3)
-        : qw(i8 i16)
+        ? 'i'.(qw(x y)[$O{fix_immsrc}-1])
+        : qw(ix iy)
         ;
 
-      @list=(qr{i},@ar);
+      @list=(qr{i(?!mm)},@ar);
 
     };
 
@@ -871,36 +667,6 @@ sub opcode($name,$ct,%O) {
   array_dupop(\@combo);
 
 
-  # make descriptors
-  my $argflag_tab={
-
-    $NULLSTR => 0b000000,
-    d        => 0b000000,
-    s        => 0b000000,
-
-
-    dr       => $ARGFLAG->{reg},
-    dmstk    => $ARGFLAG->{memstk},
-    dmshort  => $ARGFLAG->{memshort},
-    dmlong   => $ARGFLAG->{memlong},
-    dmpos    => $ARGFLAG->{mempos},
-
-    di8      => $ARGFLAG->{imm8},
-    di16     => $ARGFLAG->{imm16},
-
-
-    sr       => $ARGFLAG->{src_reg},
-    smstk    => $ARGFLAG->{src_memstk},
-    smshort  => $ARGFLAG->{src_memshort},
-    smlong   => $ARGFLAG->{src_memlong},
-    smpos    => $ARGFLAG->{src_mempos},
-
-    si8      => $ARGFLAG->{src_imm8},
-    si16     => $ARGFLAG->{src_imm16},
-
-  };
-
-
   # make argument type variations
   return map {
 
@@ -909,8 +675,8 @@ sub opcode($name,$ct,%O) {
     $src //= $NULLSTR;
 
     my $argflag =
-      ($argflag_tab->{"d$dst"})
-    | ($argflag_tab->{"s$src"})
+      ($ARGFLAG_TAB->{"d$dst"})
+    | ($ARGFLAG_TAB->{"s$src"})
 
     ;
 
@@ -918,7 +684,8 @@ sub opcode($name,$ct,%O) {
     my $ins   = "${name}_$ARG";
     my @sizeb = @size;
 
-    if($src eq 'i16' || $dst eq 'i16') {
+
+    if($src eq 'iy' || $dst eq 'iy') {
       @sizeb=grep {$ARG ne 'byte'} @sizeb;
 
     };
@@ -939,7 +706,6 @@ sub opcode($name,$ct,%O) {
 
       $data->{opsize} -= 1
       if $data->{opsize} > 2;
-
 
       # perl-side copy
       $meta->{icetab}->{"${ins}_${ARG}"}=
@@ -962,10 +728,7 @@ sub opcode($name,$ct,%O) {
 # load/save tables from cache
 
 sub gen_ROM_table() {
-
-  $Cache->{romtab}=
-    _gen_ROM_table();
-
+  $Cache->{romtab}=_gen_ROM_table();
   return $Cache;
 
 };
@@ -973,415 +736,47 @@ sub gen_ROM_table() {
 # ---   *   ---   *   ---
 # ^definitions
 
-sub _gen_ROM_table() {return [
+sub _gen_ROM_table() {
 
 
-  # imm/mem to reg
-  opcode(
+  # fetch instruction table
+  use A9M::opera;
+  my $tab = $A9M::opera::TABLE;
 
-    load     => q[dst = src;],
-    load_dst => 0,
 
-    dst      => 'r',
-    src      => 'mi',
+  # ^array as hash
+  my $ti  = 0;
+  my @tk  = array_keys($tab);
+  my @tv  = array_values($tab);
 
-  ),
 
-  # reg to mem
-  opcode(
+  # ^walk
+  my $out=[
+    map  {opcode $ARG,%{$tv[$ti++]}} @tk
 
-    store    => q[dst = src;],
-    load_dst => 0,
+  ];
 
-    dst      => 'm',
-    src      => 'r',
 
-  ),
+  # ^save bitsizes and give
+  $Cache->{id_bs}   = bitsize $Cache->{romcode};
+  $Cache->{idx_bs}  = bitsize $Cache->{execode};
+  $Cache->{id_bm}   = bitmask $Cache->{id_bs};
+  $Cache->{idx_bm}  = bitmask $Cache->{idx_bs};
 
-  # our beloved
-  # load effective address ;>
-  opcode(
 
-    lea      => q[dst = src;],
+  return $out;
 
-    load_dst => 0,
-    load_src => 0,
+};
 
-    dst      => 'r',
-    src      => 'm',
+# ---   *   ---   *   ---
+# cache result of generator
 
-  ),
+  use Vault 'ARPATH';
 
+  $Cache=Vault::cached(
+    'Cache',\&gen_ROM_table
 
-  # bitops
-  opcode(
-
-    xor  => q[dst = dst xor src;],
-
-    dst  => 'r',
-    src  => 'ri',
-
-  ),
-
-  opcode(
-
-    and  => q[dst = dst and src;],
-
-    dst  => 'r',
-    src  => 'ri',
-
-  ),
-
-  opcode(
-
-    or   => q[dst = dst or src;],
-
-    dst  => 'r',
-    src  => 'ri',
-
-  ),
-
-  opcode(
-
-    not    => q[dst = not dst;],
-    argcnt => 1,
-
-    dst    => 'r',
-    src    => 'ri',
-
-  ),
-
-
-  # bitmask, all ones
-  opcode(
-
-    bones => q[
-      dst = (1 shl (src and $3F))-1;
-      dst = dst or (sizebm.qword * (src shr 6));
-
-    ],
-
-    dst        => 'r',
-    src        => 'ri',
-
-    fix_immsrc => 1,
-    fix_regsrc => 3,
-
-  ),
-
-
-  # bitshift left/right
-  opcode(
-
-    shl        => q[dst = dst shl src;],
-
-    dst        => 'r',
-    src        => 'ri',
-
-    fix_immsrc => 1,
-    fix_regsrc => 3,
-
-  ),
-
-  opcode(
-
-    shr        => q[dst = dst shr src;],
-
-    dst        => 'r',
-    src        => 'ri',
-
-    fix_immsrc => 1,
-    fix_regsrc => 3,
-
-  ),
-
-
-  # bitscan <3
-  opcode(
-
-    bsf => q[dst = bsf src;],
-
-    dst => 'r',
-    src => 'r',
-
-  ),
-
-  opcode(
-
-    bsr => q[dst = bsr src;],
-
-    dst => 'r',
-    src => 'r',
-
-  ),
-
-
-  # bit rotate right
-  # a thing of pure beauty!
-  opcode(
-
-    ror => q[
-
-      local out;
-      local mask;
-      local shift;
-
-      A9M.OPCODE._exe_bones mask,src;
-
-      shift = bipret.opsize_bs-src;
-      out   = (dst and mask) shl shift;
-      dst   = (dst shr src)  or  out;
-
-    ],
-
-    dst        => 'r',
-    src        => 'ri',
-
-    fix_immsrc => 1,
-    fix_regsrc => 3,
-
-  ),
-
-  # ^rotate left ;>
-  opcode(
-
-    rol => q[
-
-      local out;
-      local mask;
-      local shift;
-
-      A9M.OPCODE._exe_bones mask,src;
-
-      shift = bipret.opsize_bs-src;
-      out   = dst and (mask shl shift);
-      dst   = (dst shl src)  or  (out shr shift);
-
-    ],
-
-    dst        => 'r',
-    src        => 'ri',
-
-    fix_immsrc => 1,
-    fix_regsrc => 3,
-
-  ),
-
-
-  # math
-  opcode(
-
-    add  => q[dst = dst+src;],
-
-    dst  => 'r',
-    src  => 'ri',
-
-  ),
-
-  opcode(
-
-    sub  => q[dst = dst-src;],
-
-    dst  => 'r',
-    src  => 'ri',
-
-  ),
-
-
-  opcode(
-
-    mul  => q[dst = dst*src;],
-
-    dst  => 'r',
-    src  => 'r',
-
-  ),
-
-  # the mnemonic for 'division' should be 'avoid'
-  # but that may confuse some people ;>
-  opcode(
-
-    div  => q[dst = dst/src;],
-
-    dst  => 'r',
-    src  => 'r',
-
-  ),
-
-  opcode(
-
-    inc    => q[dst = dst+1;],
-    argcnt => 1,
-
-    dst    => 'r',
-
-  ),
-
-  opcode(
-
-    dec    => q[dst = dst-1;],
-    argcnt => 1,
-
-    dst    => 'r',
-
-  ),
-
-  opcode(
-
-    neg    => q[dst = -dst;],
-
-    argcnt => 1,
-
-    dst    => 'r',
-    src    => 'ri',
-
-  ),
-
-
-  # waltzaround for integer overflow
-  opcode(
-
-    badd => q[
-
-      local shift;
-      local carry;
-      local res;
-
-      carry = dst and src;
-      res   = dst xor src;
-
-      while ~(carry = 0);
-        shift = (carry and 0x7FFFFFFFFFFFFFFF) shl 1;
-        carry = res and shift;
-        res   = res xor shift;
-
-      end while;
-
-      dst = res;
-
-    ],
-
-    dst      => 'r',
-    src      => 'ri',
-
-    fix_size => ['qword'],
-
-  ),
-
-
-  # stack
-  opcode(
-
-    push => q[
-
-      local sp;
-
-      load  sp A9M.REGISTER_SZ_K from ANIMA.base:
-        $0A shl A9M.REGISTER_SZP2;
-
-      sp = sp-A9M.REGISTER_SZ;
-
-      vmem.xstus vmc.STACK,
-        dst,sp,A9M.REGISTER_SZ;
-
-      store A9M.REGISTER_SZ_K sp  at ANIMA.base:
-        $0A shl A9M.REGISTER_SZP2;
-
-    ],
-
-    dst       => 'rmi',
-    argcnt    => 1,
-    overwrite => 0,
-
-    fix_size  => ['qword'],
-
-  ),
-
-  opcode(
-
-    pop => q[
-
-      local sp;
-      local value;
-
-      load  sp A9M.REGISTER_SZ_K from ANIMA.base:
-        $0A shl A9M.REGISTER_SZP2;
-
-      vmem.xldus value,vmc.STACK,
-        sp,A9M.REGISTER_SZ;
-
-
-      sp = sp+A9M.REGISTER_SZ;
-
-      store A9M.REGISTER_SZ_K sp at ANIMA.base:
-        $0A shl A9M.REGISTER_SZP2;
-
-
-      dst=value;
-
-    ],
-
-    dst       => 'r',
-    argcnt    => 1,
-    overwrite => 1,
-
-    load_dst  => 0,
-    fix_size  => ['qword'],
-
-  ),
-
-
-  # control flow
-  opcode(
-
-    jmp    => q[$bipret.jump dst;],
-
-    argcnt => 1,
-    dst    => 'rmi',
-
-    overwrite => 0,
-    fix_size  => ['qword'],
-
-  ),
-
-  opcode(
-
-    call => q[
-
-      local step;
-
-      vuint.align step,bipret.bitsize,3;
-      A9M.OPCODE._exe_push bipret.$+(step shr 3);
-
-      $bipret.jump dst;
-
-    ],
-
-    argcnt    => 1,
-    dst       => 'rmi',
-
-    overwrite => 0,
-    fix_size  => ['qword'],
-
-  ),
-
-  opcode(
-
-    ret => q[
-
-      local where;
-
-      A9M.OPCODE._exe_pop where;
-      $bipret.jump where;
-
-    ],
-
-    argcnt   => 0,
-
-  ),
-
-
-]};
+  );
 
 # ---   *   ---   *   ---
 1; # ret

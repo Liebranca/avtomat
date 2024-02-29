@@ -114,7 +114,7 @@ sub new($class,@order) {
   # get value=>(rel fptr)
   my @procs=map {
 
-    (Bitformat->is_valid($ARG))
+    (St::is_valid('Bitformat',$ARG))
   | ($class->is_valid($ARG) << 1)
   ;
 

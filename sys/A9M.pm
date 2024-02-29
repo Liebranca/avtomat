@@ -40,7 +40,7 @@ package A9M;
 # ROM
 
   Readonly my $COMPONENTS => [qw(
-    mem ptr anima
+    mem ptr anima ISA
 
   )];
 
@@ -95,6 +95,7 @@ sub new($class,%O) {
     ),
 
     anima    => undef,
+    ISA      => undef,
 
 
     segtab   => [(null) x $class->sizeof_segtab()],
@@ -112,7 +113,10 @@ sub new($class,%O) {
   push @$icebox,$self;
 
   # kick components in need of kicking!
-  $self->{anima}=$bk->{anima}->new(mcid=>$id);
+  $self->{anima} = $bk->{anima}->new(mcid=>$id);
+  $self->{ISA}   = $bk->{ISA}->new(mcid=>$id);
+
+  $self->{ISA}->mkfmat();
 
 
   return $self;
@@ -282,6 +286,115 @@ sub decode_ptr($self,$ptrv) {
 
 
   return ($seg,$off);
+
+};
+
+# ---   *   ---   *   ---
+# unpacks [seg:sb-imm]
+
+sub decode_mstk_ptr($self,$o) {
+
+  my $seg  = $self->{segtab}->[$o->{seg}];
+  my $base = $self->{anima}->fetch(0xC);
+  my $off  = -$o->{imm};
+
+  %$o=(
+    seg  => $seg,
+    addr => $base-$off,
+
+  );
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# unpacks [seg:imm]
+
+sub decode_mimm_ptr($self,$o) {
+
+  my $seg  = $self->{segtab}->[$o->{seg}];
+  my $base = $o->{imm};
+
+  %$o=(
+    seg  => $seg,
+    addr => $base,
+
+  );
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# unpacks [seg:rX+imm]
+
+sub decode_msum_ptr($self,$o) {
+
+  my $seg  = $self->{segtab}->[$o->{seg}];
+  my $base = $self->{anima}->fetch($o->{rX});
+  my $off  = $o->{imm};
+
+  %$o=(
+    seg  => $seg,
+    addr => $base+$off,
+
+  );
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# unpacks [seg:rX+rY+imm*scale]
+
+sub decode_mlea_ptr($self,$o) {
+
+
+  # load register values
+  my @r=map {
+
+    if($ARG) {
+      my $ptr=$self->{anima}->fetch($ARG-1);
+      $ptr->load();
+
+    } else {0};
+
+  } ($o->{rX},$o->{rY});
+
+
+  # load plain values
+  my $scale = 1 << $o->{scale};
+  my $imm   = $o->{imm};
+  my $seg   = $self->{segtab}->[$o->{seg}];
+
+
+  # apply scale to immediate?
+  if($imm) {
+    $imm *= $scale;
+
+  # ^second register?
+  } elsif($r[1]) {
+    $r[1] *= $scale;
+
+  # ^first register?
+  } else {
+    $r[0] *= $scale;
+
+  };
+
+
+  # collapse and give
+  %$o=(
+    seg  => $seg,
+    addr => $r[0]+$r[1]+$imm
+
+  );
+
+  return;
 
 };
 

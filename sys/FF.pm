@@ -76,17 +76,17 @@ sub FF($name,$src=undef) {
   # fetch existing?
   return (exists $Table->{$name})
     ? $Table->{$name}
-    : throw_invalid($name)
+    : warn_invalid($name)
 
   if ! defined $src;
 
 
   # forbid redefinition
-  return throw_redefn($name)
+  return warn_redef($name)
   if exists $Table->{$name};
 
   # ^forbid usage of base type names
-  return Type::throw_redefn($name)
+  return Type::warn_redef($name)
   if exists $Type::MAKE::Table->{$name};
 
 
@@ -139,31 +139,21 @@ sub FF($name,$src=undef) {
 # ---   *   ---   *   ---
 # ^errmes
 
-sub throw_invalid($name) {
+sub warn_invalid($name) {
 
-  errout q[invalid ff: '%s'],
+  Warnme::invalid 'ff',
 
-  args => [$name],
-
-  back => 0,
-  lvl  => $AR_WARNING;
-
-
-  return 0;
+  obj  => $name,
+  give => null;
 
 };
 
-sub throw_redefn($name) {
+sub warn_redef($name) {
 
-  errout q[redefinition of ff '%s'],
+  Warnme::redef 'ff',
 
-  args => [$name],
-
-  back => 0,
-  lvl  => $AR_WARNING;
-
-
-  return 0;
+  obj  => $name,
+  give => null;
 
 };
 
