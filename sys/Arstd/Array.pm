@@ -19,6 +19,7 @@ package Arstd::Array;
   use strict;
   use warnings;
 
+  use Carp;
   use Readonly;
   use English qw(-no_match_vars);
 
@@ -247,6 +248,10 @@ sub nlsort($ar) {
 # give idex of element
 
 sub iof($ar,$elem) {
+
+  croak 'iof: undefined elem'
+  if ! defined $elem;
+
 
   my ($idex)=grep {
     $ar->[$ARG] eq $elem

@@ -239,6 +239,9 @@ sub prich($self,%O) {
 
       $imp->copera($fn,$value);
 
+  } else {
+    $value=sprintf $pad,$value;
+
   };
 
 

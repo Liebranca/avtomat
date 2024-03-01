@@ -28,6 +28,7 @@ package rd::l1;
 
   use Arstd::String;
   use Arstd::PM;
+  use Arstd::IO;
 
 # ---   *   ---   *   ---
 # info
@@ -346,7 +347,7 @@ sub proc_parse($self,$src=undef) {
 # ---   *   ---   *   ---
 # look for name in scope
 
-sub symbol_fetch($self,$type,$src=undef) {
+sub symbol_fetch($self,$src=undef) {
 
 
   # default to current token
@@ -355,13 +356,58 @@ sub symbol_fetch($self,$type,$src=undef) {
 
   # attempt fetch
   my $mc    = $rd->{mc};
-  my $have  = $mc->search("$type\::$src");
+  my $scope = $mc->{scope};
+  my $have  = $scope->has($src);
 
 
   return (length $have)
-    ? $have->load()
+    ? $$have
     : $have
     ;
+
+};
+
+# ---   *   ---   *   ---
+# make numerical repr for token
+
+sub quantize($self,$src=undef) {
+
+
+  # default to current token
+  my $rd    = $self->{rd};
+     $src //= $rd->{token};
+
+
+  # have ptr?
+  my $mc    = $rd->{mc};
+  my $class = $mc->{bk}->{ptr};
+
+  if($class->is_valid($src)) {
+
+    return $mc->encode_ptr(
+      $src->getseg(),
+      $src->{addr}
+
+    );
+
+  };
+
+
+  # ^else unpack tag
+  my ($type,$spec)=$self->read_tag($src);
+  my $have=$self->detag($src);
+
+
+  # query type
+  $type=$TAG_T->{$type};
+
+  if($type eq 'NUM') {
+    return $spec;
+
+  } else {
+    nyi "$type quantization";
+
+  };
 
 };
 

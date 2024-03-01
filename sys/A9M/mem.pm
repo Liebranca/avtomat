@@ -686,7 +686,7 @@ sub prich($self,%O) {
   };
 
 
-  $self->{inner}->prich()
+  $self->{inner}->prich(%O,-x=>qr{^ANIMA$})
   if $O{inner};
 
 

@@ -191,6 +191,7 @@ sub data_decl_parse($self,$branch) {
 
   my $mc    = $rd->{mc};
   my $scope = $mc->{scope};
+  my $type  = $branch->{vref};
 
 
   # get [name=>value] arrays
@@ -207,29 +208,31 @@ sub data_decl_parse($self,$branch) {
   # ensure value for each name
   # then attempt solving value
   my $idex     = 0;
-  my @unsolved = grep {$ARG} map {
+  my @unsolved = map {
 
     $value->[$idex] //= $branch->inew(
       $l1->make_tag('NUM'=>0x00)
 
     );
 
+    my $n=$ARG->{value};
     my $v=$value->[$idex++];
 
 
     # redecl guard
-    $self->throw_redecl('data',$ARG->{value})
-    if $scope->has('DATA',$ARG->{value});
+    $self->throw_redecl('value',$n)
+    if $scope->has($n);
 
     # *attempt* solving
-    # finish decl if solved ;>
-    my $have=$self->value_solve($ARG,$v);
+    my ($x,$have)=
+      $self->value_solve($type,$n,$v);
 
-    # give if not solved!
-    (! defined $have)
-      ? [$ARG=>$v]
-      : undef
-      ;
+    # ^reserve space
+    $x=$l1->quantize($x);
+    $mc->decl($type,$n,$x);
+
+    # ^give if not solved!
+    (! defined $have) ? [$n=>$v] : () ;
 
 
   } @$name;
@@ -246,24 +249,25 @@ sub data_decl_parse($self,$branch) {
 
 sub value_solve($self,$type,$name,$value) {
 
+
+  # get ctx
   my $rd    = $self->{rd};
   my $mc    = $rd->{mc};
+  my $l1    = $rd->{l1};
   my $l2    = $rd->{l2};
 
-  my $have  = $l2->value_solve($value);
 
-  $mc->decl(
+  # can solve value now?
+  my $have=$l2->value_solve($value);
 
-    $type,
-    $name->{value},
-    $have,
-
-    'DATA'
-
-  ) if length $have;
+  # ^zero on nope
+  my $x=(! length $have)
+    ? $l1->make_tag(NUM=>0)
+    : $have
+    ;
 
 
-  return $have;
+  return ($x,$have);
 
 };
 
@@ -409,17 +413,26 @@ subwraps(
 sub data_decl_ctx($self,$branch) {
 
   my $rd   = $self->{rd};
-  my $l2   = $rd->{l1};
+  my $mc   = $rd->{mc};
+  my $l1   = $rd->{l1};
+  my $type = $branch->{vref};
 
-  my @have = grep {$ARG} map {
+  my @have = map {
 
-    my ($name,$value)=@$ARG;
-    my $have=$self->value_solve($name,$value);
+    my ($name,$value) = @$ARG;
+    my ($have,$x)     = $self->value_solve(
+      $type,$name,$value
 
-    (! defined $have)
-      ? $ARG
-      : undef
-      ;
+    );
+
+    if($have) {
+      my $ref=$mc->search($name);
+      $$ref->store($l1->quantize($x));
+
+    };
+
+
+    (! defined $have) ? $ARG : () ;
 
   } @{$branch->{solve_Q}};
 

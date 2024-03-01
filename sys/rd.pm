@@ -41,6 +41,9 @@ package rd;
 
   $WLog //= Arstd::WLog->genesis();
 
+
+  use parent 'St';
+
 # ---   *   ---   *   ---
 # info
 
@@ -88,6 +91,8 @@ sub new($class,$src,%O) {
     pathsep => $DCOLON_RE,
 
   };
+
+  cload $O{mc}->{cls};
 
 
   # make parse tree root
@@ -754,7 +759,7 @@ sub ON_EXE($class,@input) {
 
 
   # dbout to tty?
-  $ice->{tree}->prich()
+  $ice->prich()
 
   if $m->{echo} ne $NULL
   || $m->{out}  eq $NULL
@@ -814,6 +819,33 @@ sub perr($self,$me,%O) {
 
 
   return;
+
+};
+
+# ---   *   ---   *   ---
+# dbout
+
+sub prich($self,%O) {
+
+  # I/O defaults
+  my $out=ioprocin(\%O);
+
+  # get repr for parse tree
+  push @$out,'PARSE:';
+  $self->{tree}->prich(%O,mute=>1);
+
+  # ^get repr for memory
+  $self->{mc}->prich(
+
+    %O,
+
+    mute  => 1,
+    inner => 1,
+
+  );
+
+
+  return ioprocout(\%O);
 
 };
 

@@ -1741,6 +1741,7 @@ sub prich($self,%O) {
   # I/O defaults
   my $out=ioprocin(\%O);
   $O{max_depth} //= 0x24;
+  $O{-x}        //= $NO_MATCH;
 
 
   # get to walkin...
@@ -1791,6 +1792,8 @@ sub prich($self,%O) {
     # default to null
     my $v=$self->{value};
     $v //= sprintf "%016X",$NULL;
+
+    next if $v=~ $O{-x};
 
     # ^have repr for object?
     $v=(St->is_valid($v))

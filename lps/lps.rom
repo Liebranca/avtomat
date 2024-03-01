@@ -3,9 +3,9 @@
 # nevermind this file!
 # just testing the parser ;>
 
-byte vec3 fwd 'hi';
-#byte test 'hello!';
-#
+ptr  fwd  test;
+byte test $24;
+
 #echo fwd;
 
 #cmd plfi name,value {

@@ -222,7 +222,7 @@ sub value_solve($self,$src=undef) {
   if(! @{$src->{leaves}}) {
 
     $out=(! defined $l1->read_tag($src->{value}))
-      ? $l1->symbol_fetch('DATA',$src->{value})
+      ? $l1->symbol_fetch($src->{value})
       : $src->{value}
       ;
 

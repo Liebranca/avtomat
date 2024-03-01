@@ -34,6 +34,8 @@ package A9M;
   use Arstd::Int;
   use Arstd::PM;
 
+  use parent 'St';
+
 # ---   *   ---   *   ---
 # info
 
@@ -482,7 +484,7 @@ sub badptr_x($mode) {
 sub encode_ptr($self,$seg,$off) {
 
   # validate segment
-  my $segid = $self->segid($seg);
+  my $segid=$self->segid($seg);
   return badptr_x 'encode' if $segid eq null;
 
   # ^roll and give
@@ -676,6 +678,14 @@ sub warn_nobk($name) {
 
   obj  => $name,
   give => null;
+
+};
+
+# ---   *   ---   *   ---
+# dbout
+
+sub prich($self,%O) {
+  return $self->{cas}->prich(%O);
 
 };
 
