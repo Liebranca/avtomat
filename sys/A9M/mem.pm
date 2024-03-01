@@ -147,10 +147,12 @@ sub mkroot($class,%O) {
 
   # make namespace
   my $inner_frame = Tree->get_frame($O{mcid});
-  $self->{inner} = Tree::new(
+  $self->{inner}  = Tree::new(
     'Tree',$inner_frame,undef,$O{label}
 
   );
+
+  $self->{inner}->{mem}=$self;
 
 
   # root-only attrs!
@@ -179,7 +181,9 @@ sub new($self,$size,$label=undef) {
 
   );
 
-  my $inner = $self->{inner}->inew($label);
+  # ^make namespace
+  my $inner     = $self->{inner}->inew($label);
+  $inner->{mem} = $ice;
 
 
   # ^set spec attrs
@@ -239,6 +243,16 @@ sub brk($self,$step) {
 
 
   return $size;
+
+};
+
+# ---   *   ---   *   ---
+# grow block if requested size
+# won't fit
+
+sub brkfit($self,$n) {
+  my $diff=($self->{ptr}+$n) - $self->{size};
+  $self->brk($diff) if $diff > 0;
 
 };
 
@@ -352,6 +366,8 @@ sub ptr_defnit($self,$O) {
 
   $class->defnit($O);
   $O->{label} //= $self->mklabel();
+  $O->{mccls} //= $self->{mccls};
+  $O->{mcid}  //= $self->{mcid};
 
 
   return $class;
@@ -374,11 +390,7 @@ sub lvalue($self,$value,%O) {
 
   # make ice
   my $ptr=$class->new(
-
-    %O,
-
-    mcid  => $self->{mcid},
-    segid => $self->{segid},
+    %O,segid=>$self->{segid},
 
   );
 
@@ -407,6 +419,8 @@ sub ptr($self,$to,%O) {
   $O{ptr_t}     //= 'ptr';
   $O{store_at}  //= 0x00;
   $O{label}     //= $self->mklabel();
+  $O{mcid}      //= $self->{mcid};
+  $O{mccls}     //= $self->{mccls};
 
 
   # get ctx
@@ -441,7 +455,6 @@ sub ptr($self,$to,%O) {
     addr  => $O{store_at},
     type  => $type,
 
-    mcid  => $other->{mcid},
     segid => $other->{segid},
 
   );
@@ -468,6 +481,42 @@ sub ptr($self,$to,%O) {
   $ptr->store($ptrv);
 
 
+  return $ptr;
+
+};
+
+# ---   *   ---   *   ---
+# shorthand for value decl
+
+sub decl($self,$type,$name,$value) {
+
+
+  # set cstruc vars
+  my %O=(
+
+    type  => $type,
+    label => $name,
+
+    addr  => $self->{ptr},
+
+  );
+
+
+  # need to grow?
+  my $size=sizeof $type;
+  $self->brkfit($size);
+
+
+  # make ice
+  my $class = $self->get_ptr_bk();
+  my $ptr   = ($class->is_valid($value))
+    ? $self->ptr($value,%O)
+    : $self->lvalue($value,%O)
+    ;
+
+
+  # go next and give
+  $self->{ptr} += sizeof $type;
   return $ptr;
 
 };

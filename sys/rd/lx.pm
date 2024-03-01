@@ -34,7 +34,7 @@ package rd::lx;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -114,8 +114,8 @@ sub cmdset($self) {
 
 #  # get ctx
 #  my $rd    = $self->{rd};
-#  my $scope = $rd->{scope};
-#  my $tree  = $scope->{tree};
+#  my $mc    = $rd->{mc};
+#  my $tree  = $mc->->{cas}->{inner};
 #
 #  # have user definitions?
 #  my @ucmd    = $tree->branches_in(qr{^UCMD$});
@@ -189,8 +189,8 @@ sub data_decl_parse($self,$branch) {
   my $l1    = $rd->{l1};
   my $l2    = $rd->{l2};
 
-  my $scope = $rd->{scope};
-  my $path  = $scope->{path};
+  my $mc    = $rd->{mc};
+  my $scope = $mc->{scope};
 
 
   # get [name=>value] arrays
@@ -219,7 +219,7 @@ sub data_decl_parse($self,$branch) {
 
     # redecl guard
     $self->throw_redecl('data',$ARG->{value})
-    if $scope->has(@$path,'DATA',$ARG->{value});
+    if $scope->has('DATA',$ARG->{value});
 
     # *attempt* solving
     # finish decl if solved ;>
@@ -244,17 +244,23 @@ sub data_decl_parse($self,$branch) {
 # ^save [name=>value] to current namespace
 # but only if we were able to solve it!
 
-sub value_solve($self,$name,$value) {
+sub value_solve($self,$type,$name,$value) {
 
   my $rd    = $self->{rd};
+  my $mc    = $rd->{mc};
   my $l2    = $rd->{l2};
-  my $scope = $rd->{scope};
-  my $path  = $scope->{path};
 
   my $have  = $l2->value_solve($value);
 
-  $scope->decl($have,@$path,'DATA',$name->{value})
-  if defined $have;
+  $mc->decl(
+
+    $type,
+    $name->{value},
+    $have,
+
+    'DATA'
+
+  ) if length $have;
 
 
   return $have;

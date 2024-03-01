@@ -32,7 +32,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -213,8 +213,6 @@ sub value_solve($self,$src=undef) {
 
   # get ctx
   my $l1    = $rd->{l1};
-  my $scope = $rd->{scope};
-  my $path  = $scope->{path};
 
 
   # output null if unsolved

@@ -37,7 +37,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.7;
+  our $VERSION = v0.02.8;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -1738,16 +1738,16 @@ sub filter($self,$other,%O) {
 
 sub prich($self,%O) {
 
-  # opt defaults
-  $O{errout}//=0;
-  $O{max_depth}//=0x24;
+  # I/O defaults
+  my $out=ioprocin(\%O);
+  $O{max_depth} //= 0x24;
 
-  my $prev_depth=0;
 
-  my $root=$self;
-  my @leaves=($self);
+  # get to walkin...
+  my $prev_depth = 0;
 
-  my $mess=$NULLSTR;
+  my $root       = $self;
+  my @leaves     = ($self);
 
 
   while(@leaves) {
@@ -1755,7 +1755,7 @@ sub prich($self,%O) {
     $self=shift @leaves;
 
     my $depth=0;
-    if(!$depth && $self ne $root) {
+    if(! $depth && $self ne $root) {
 
       my $par=$self->{parent};
 
@@ -1788,30 +1788,25 @@ sub prich($self,%O) {
     $prev_depth=$depth;
 
 
-    # check value is an operator (node_op 'class')
+    # default to null
     my $v=$self->{value};
-    $v//=sprintf "%016X",$NULL;
+    $v //= sprintf "%016X",$NULL;
 
-    $v=($v=~ m[^node_op=HASH])
-      ? $self->{value}->{op}
+    # ^have repr for object?
+    $v=(St->is_valid($v))
+      ? $v->prich(mute=>1)
       : $v
       ;
 
-    $mess.=$branch."$v\n";
+    push @$out,"$branch$v\n";
 
-    next if($depth>=$O{max_depth});
+    next if $depth >= $O{max_depth};
     unshift @leaves,@{$self->{leaves}};
 
   };
 
 
-  # select filehandle
-  my $FH=($O{errout})
-    ? *STDERR
-    : *STDOUT
-    ;
-
-  return print {$FH} "$mess\n";
+  return ioprocout(\%O);
 
 };
 

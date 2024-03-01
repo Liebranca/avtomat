@@ -34,7 +34,7 @@ package A9M::opera;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -310,22 +310,40 @@ sub opera($fn,$value) {
 };
 
 # ---   *   ---   *   ---
-# ~
+# ^external version
 
-#sub _($type,$gen,@args) {
-#
-#
-##  # ^generate F
-##  my $fn  = $gen->($type,@args);
-##  my @src = opera $fn,$src;
-##
-##  # ^unpack
-##  map {
-##    $ARG=$$ARG if is_scalarref($ARG)
-##
-##  } @src;
-#
-#};
+sub copera($class,$fn,$value) {
+  opera $fn,$value;
+
+};
+
+# ---   *   ---   *   ---
+# make prim from vector elems
+
+sub flatten($class,$ezy,$bits=undef) {
+
+  $bits //= $ezy;
+
+  my $out=0x00;
+  my $cnt=0x00;
+
+  sub ($x) {
+
+    if($cnt == $bits) {
+      $out=0x00;
+      $cnt=0x00;
+
+    };
+
+
+    $out |= $x << $cnt;
+    $cnt += $ezy;
+
+    ($cnt == $bits) ? $out : () ;
+
+  };
+
+};
 
 # ---   *   ---   *   ---
 # give src as-is

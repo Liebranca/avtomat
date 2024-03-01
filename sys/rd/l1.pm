@@ -32,7 +32,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -348,19 +348,20 @@ sub proc_parse($self,$src=undef) {
 
 sub symbol_fetch($self,$type,$src=undef) {
 
+
   # default to current token
   my $rd    = $self->{rd};
      $src //= $rd->{token};
 
   # attempt fetch
-  my $scope = $rd->{scope};
-  my $have  = $scope->getvar(
-    "$type\::$src",as_ptr=>1
-
-  );
+  my $mc    = $rd->{mc};
+  my $have  = $mc->search("$type\::$src");
 
 
-  return $have;
+  return (length $have)
+    ? $have->load()
+    : $have
+    ;
 
 };
 

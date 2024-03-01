@@ -37,7 +37,7 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -98,6 +98,8 @@ sub new($class,%O) {
 
     ),
 
+    scope    => undef,
+
     anima    => undef,
     ISA      => undef,
 
@@ -118,8 +120,9 @@ sub new($class,%O) {
 
   # kick components in need of kicking!
   $self->{anima} = $bk->{anima}->new(mcid=>$id);
-  $self->{ISA}   = $bk->{ISA}->new(mcid=>$id);
+  $self->scope($O{memroot});
 
+  $self->{ISA}=$bk->{ISA}->new(mcid=>$id);
   $self->{ISA}->mkfmat();
 
 
@@ -292,6 +295,40 @@ sub ipret($self,@program) {
 };
 
 # ---   *   ---   *   ---
+# set/get current namespace
+
+sub scope($self,@path) {
+
+
+  # set new?
+  if(@path) {
+
+    # get ctx
+    my $mem  = $self->{cas};
+    my $tree = $mem->{inner};
+
+    shift @path if $path[0] eq $tree->{value};
+
+
+    # validate input
+    my $out=$tree->haslv(@path)
+    or return badfet('DIR',@path);
+
+
+    # ^overwrite
+    $self->{path}  = [$tree->{value},@path];
+    $self->{scope} = $out;
+
+  };
+
+
+  # ^give node if defined
+  my $out=$self->{scope};
+  return (defined $out) ? $out : null ;
+
+};
+
+# ---   *   ---   *   ---
 # wraps mem->search
 
 sub search($self,$name,@path) {
@@ -333,6 +370,28 @@ sub badfet($name,@path) {
   obj   => $name,
 
   give  => null;
+
+};
+
+# ---   *   ---   *   ---
+# wraps value decl
+
+sub decl($self,$type,$name,$value,@subseg) {
+
+  my $scope = $self->{scope};
+  my $mem   = $scope->{mem};
+
+  if(@subseg) {
+
+    my $subseg=$scope->haslv(@subseg)
+    or return badfet('DIR',@subseg);
+
+    $mem=$subseg->{mem};
+
+  };
+
+
+  $mem->decl($type,$name,$value);
 
 };
 

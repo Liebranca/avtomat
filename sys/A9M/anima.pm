@@ -115,7 +115,7 @@ sub new($class,%O) {
     $addr += $class->size();
     $v;
 
-  } $class->list();
+  } @{$class->list()};
 
 
   # save to ice and give

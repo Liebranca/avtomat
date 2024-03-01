@@ -44,7 +44,7 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -77,7 +77,18 @@ package rd;
 # ---   *   ---   *   ---
 # cstruc
 
-sub new($class,$src) {
+sub new($class,$src,%O) {
+
+  # defaults
+  $O{mc}={
+
+    cls     => 'A9M',
+
+    memroot => 'non',
+    pathsep => $DCOLON_RE,
+
+  };
+
 
   # make parse tree root
   my $frame = Tree->new_frame();
@@ -124,7 +135,7 @@ sub new($class,$src) {
     lx      => undef,
     pass    => 0,
 
-    scope   => Mach::Scope->new(),
+    mc      => $O{mc}->{cls}->new(%{$O{mc}}),
 
 
     # shared vars
@@ -160,16 +171,14 @@ sub new($class,$src) {
 # ---   *   ---   *   ---
 # in a nutshell
 
-sub crux($src) {
+sub crux($src,%O) {
 
   # make ice
-  my $self=rd->new($src);
+  my $self=rd->new($src,%O);
 
   # ^run and give
   $self->proc_parse();
   $self->proc_ctx();
-
-  $self->{scope}->prich();
 
   return $self;
 
@@ -688,11 +697,13 @@ sub import($class,@req) {
 
 sub ON_EXE($class,@input) {
 
+
   my $m=Cli->new(
 
     {id=>'out',short=>'-o',argc=>1},
     {id=>'echo',short=>'-e',argc=>0},
     {id=>'strip',short=>'-s',argc=>0,default=>1},
+    {id=>'mc',short=>'-mc',argc=>1},
 
   );
 
@@ -710,8 +721,27 @@ sub ON_EXE($class,@input) {
   ) if ! $src;
 
 
+  # proc options
+  my %O=();
+
+  if($m->{mc} ne $NULL) {
+
+    my ($cls,$memroot,$pathsep)=
+      split ',',$m->{mc};
+
+    $O{mc}={
+
+      cls     => $cls,
+
+      memroot => $memroot,
+      pathsep => $pathsep,
+
+    };
+
+  };
+
   # get parse tree
-  my $ice=crux($src);
+  my $ice=crux($src,%O);
 
   # ^remove comments?
   $ice->{l2}->strip_comments($ice->{tree})

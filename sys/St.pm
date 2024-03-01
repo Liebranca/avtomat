@@ -284,4 +284,10 @@ sub nattrs($self) {
 };
 
 # ---   *   ---   *   ---
+# overwrite this method to
+# get a string repr for dbout!
+
+sub prich($self,%O) {return "$self"};
+
+# ---   *   ---   *   ---
 1; # ret

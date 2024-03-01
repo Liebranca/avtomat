@@ -25,14 +25,17 @@ package A9M::ptr;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Chk;
   use Type;
 
-  use parent 'St';
+  use Arstd::IO;
+
+  use parent 'A9M::component';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -198,6 +201,55 @@ sub absloc($self,%O) {
   # give segment base plus relative
   return $seg->absloc() + $off;
 
+
+};
+
+# ---   *   ---   *   ---
+# dbout
+
+sub prich($self,%O) {
+
+
+  # I/O defaults
+  my $out=ioprocin(\%O);
+
+
+  # get value as a primitive
+  my $type  = $self->{type};
+  my $value = $self->load();
+
+  my $pad   = 2 * ($type->{sizep2}+1);
+     $pad   = 16 if $pad > 16;
+     $pad   = "%0${pad}X";
+
+
+  # have vector?
+  if(is_arrayref($value)) {
+
+    my $mc  = $self->getmc();
+    my $imp = $mc->{ISA}->imp();
+
+    my $fn  = $imp->flatten($type->{sizebs});
+
+
+    $value =
+
+      join ' ',
+      map  {sprintf $pad,$ARG}
+
+      $imp->copera($fn,$value);
+
+  };
+
+
+  # make repr
+  push @$out,sprintf
+    "$type->{name} [%04X] -> $value",
+    $self->{addr};
+
+
+  # ^catp and give
+  return ioprocout(\%O);
 
 };
 
