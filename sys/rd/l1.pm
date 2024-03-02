@@ -33,7 +33,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -384,11 +384,13 @@ sub quantize($self,$src=undef) {
 
   if($class->is_valid($src)) {
 
-    return $mc->encode_ptr(
-      $src->getseg(),
-      $src->{addr}
+    return $src;
 
-    );
+#    return $mc->encode_ptr(
+#      $src->getseg(),
+#      $src->{addr}
+#
+#    );
 
   };
 

@@ -34,7 +34,7 @@ package rd::lx;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -131,9 +131,12 @@ sub cmdset($self) {
   # asm whole set
   return {
 
+    # dbout
     echo => [$QLIST],
     stop => [],
 
+    # make segment
+    seg => [$BARE],
 
     # user command maker
     cmd        => [$BARE,$OPT_VLIST,$CURLY],
@@ -173,6 +176,25 @@ sub stop_parse($self,$branch) {
 
   $rd->{tree}->prich();
   $rd->perr('STOP');
+
+};
+
+# ---   *   ---   *   ---
+# make new segment
+
+sub seg_parse($self,$branch) {
+
+  my $rd   = $self->{rd};
+  my $mc   = $rd->{mc};
+
+  my $lv   = $branch->{leaves};
+  my $name = $lv->[0]->{value};
+
+
+  my $seg=$mc->{cas}->new(0x10,$name);
+
+  $mc->segid($seg);
+  $mc->scope($seg->ances_list());
 
 };
 
@@ -426,8 +448,30 @@ sub data_decl_ctx($self,$branch) {
     );
 
     if($have) {
-      my $ref=$mc->search($name);
-      $$ref->store($l1->quantize($x));
+
+      my $ref     = $mc->search($name);
+      my $mem     = $$ref->getseg();
+
+      my $x       = $l1->quantize($x);
+      my ($ptr_t) = Type->is_ptr($type);
+
+      $ptr_t=(length $ptr_t)
+        ? "$type->{name} $ptr_t"
+        : undef
+        ;
+
+
+      $$ref = $mem->infer(
+
+        $x,
+
+        ptr_t => $ptr_t,
+        type  => $type,
+
+        label => $name,
+        addr  => $$ref->{addr},
+
+      );
 
     };
 

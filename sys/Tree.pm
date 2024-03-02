@@ -400,13 +400,12 @@ sub root($self) {
 };
 
 # ---   *   ---   *   ---
-# cats parent values recursively
+# get list of parent nodes
 
-sub ances($self,%O) {
+sub ances_list($self,%O) {
 
   # defaults
-  $O{max_depth}//=0x24;
-  $O{join_char}//=$NULLSTR;
+  $O{max_depth} //= 0x24;
 
 
   # walk upwards
@@ -426,6 +425,23 @@ sub ances($self,%O) {
 
   };
 
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^cats parent values recursively
+
+sub ances($self,%O) {
+
+  # defaults
+  $O{max_depth} //= 0x24;
+  $O{join_char} //= $NULLSTR;
+
+
+  # get list of nodes
+  my @out=$self->ances_list(%O);
 
   # give catted
   return join $O{join_char},@out;

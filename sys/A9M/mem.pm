@@ -389,6 +389,7 @@ sub lvalue($self,$value,%O) {
 
 
   # make ice
+  $O{ptr_t} = undef;
   my $ptr=$class->new(
     %O,segid=>$self->{segid},
 
@@ -486,33 +487,38 @@ sub ptr($self,$to,%O) {
 };
 
 # ---   *   ---   *   ---
-# shorthand for value decl
+# wraps: make lvalue or ptr
+# depending on what is passed
 
-sub decl($self,$type,$name,$value) {
+sub infer($self,$value,%O) {
+
+  my $class=$self->get_ptr_bk();
+
+  ($class->is_valid($value))
+    ? $self->ptr($value,%O)
+    : $self->lvalue($value,%O)
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# wraps: value decl
+
+sub decl($self,$type,$name,$value,%O) {
 
 
   # set cstruc vars
-  my %O=(
-
-    type  => $type,
-    label => $name,
-
-    addr  => $self->{ptr},
-
-  );
+  $O{type}  = $type;
+  $O{label} = $name;
+  $O{addr}  = $self->{ptr};
 
 
   # need to grow?
   my $size=sizeof $type;
   $self->brkfit($size);
 
-
   # make ice
-  my $class = $self->get_ptr_bk();
-  my $ptr   = ($class->is_valid($value))
-    ? $self->ptr($value,%O)
-    : $self->lvalue($value,%O)
-    ;
+  my $ptr=$self->infer($value,%O);
 
 
   # go next and give
@@ -686,8 +692,14 @@ sub prich($self,%O) {
   };
 
 
-  $self->{inner}->prich(%O,-x=>qr{^ANIMA$})
-  if $O{inner};
+  $self->{inner}->prich(
+
+    %O,
+
+    mute  => 1,
+    -x    => qr{^ANIMA$},
+
+  ) if $O{inner};
 
 
   return ioprocout(\%O);

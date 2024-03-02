@@ -344,6 +344,8 @@ sub search($self,$name,@path) {
   my $mem  = $self->{cas};
   my $tree = $mem->{inner};
 
+  shift @path if $path[0] eq $tree->{value};
+
 
   # make (path,to) from (path::to)
   # then look in namespace
@@ -383,6 +385,8 @@ sub decl($self,$type,$name,$value,@subseg) {
   my $scope = $self->{scope};
   my $mem   = $scope->{mem};
 
+
+  # use sub path?
   if(@subseg) {
 
     my $subseg=$scope->haslv(@subseg)
@@ -393,7 +397,17 @@ sub decl($self,$type,$name,$value,@subseg) {
   };
 
 
-  $mem->decl($type,$name,$value);
+  # have ptr?
+  my ($ptr_t) = Type->is_ptr($type);
+
+  $ptr_t=(length $ptr_t)
+    ? "$type->{name} $ptr_t"
+    : undef
+    ;
+
+
+  # make ice and give
+  $mem->decl($type,$name,$value,ptr_t=>$ptr_t);
 
 };
 
@@ -685,6 +699,10 @@ sub warn_nobk($name) {
 # dbout
 
 sub prich($self,%O) {
+
+  # defaults
+  $O{depth} //= 0x24;
+
   return $self->{cas}->prich(%O);
 
 };

@@ -215,7 +215,11 @@ sub prich($self,%O) {
 
 
   # get value as a primitive
-  my $type  = $self->{type};
+  my $type  = ($self->{ptr_t})
+    ? $self->{ptr_t}
+    : $self->{type}
+    ;
+
   my $value = $self->load();
 
   my $pad   = 2 * ($type->{sizep2}+1);
@@ -239,6 +243,12 @@ sub prich($self,%O) {
 
       $imp->copera($fn,$value);
 
+  # have ptr?
+  } elsif($self->{ptr_t}) {
+    my $addr=$self->load(deref=>0);
+    $value=sprintf "*$pad -> $pad",$addr,$value;
+
+  # plain value?
   } else {
     $value=sprintf $pad,$value;
 

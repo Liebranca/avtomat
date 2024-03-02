@@ -3,6 +3,8 @@
 # nevermind this file!
 # just testing the parser ;>
 
+seg data;
+
 ptr  fwd  test;
 byte test $24;
 

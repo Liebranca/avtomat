@@ -672,6 +672,14 @@ sub get_lx($class) {
 };
 
 # ---   *   ---   *   ---
+# wraps: remove comments
+
+sub strip($self) {
+  $self->{l2}->strip_comments($self->{tree});
+
+};
+
+# ---   *   ---   *   ---
 # AR/IMP:
 #
 # * runs crux with provided
@@ -749,8 +757,7 @@ sub ON_EXE($class,@input) {
   my $ice=crux($src,%O);
 
   # ^remove comments?
-  $ice->{l2}->strip_comments($ice->{tree})
-  if $m->{strip} eq 1;
+  $ice->strip() if $m->{strip} eq 1;
 
 
   # write to file?
@@ -778,14 +785,14 @@ sub ON_USE($class,$from,@nullarg) {
 
   no strict 'refs';
 
-  *{"$class"}=*crux;
+  *rd=*crux;
 
   submerge(
 
     [$class],
 
     main  => $from,
-    subok => qr{^crux$},
+    subok => qr{^rd$},
 
   );
 
@@ -830,19 +837,43 @@ sub prich($self,%O) {
   # I/O defaults
   my $out=ioprocin(\%O);
 
-  # get repr for parse tree
-  push @$out,'PARSE:';
-  $self->{tree}->prich(%O,mute=>1);
+  # own defaults
+  $O{tree}  //= 1;
+  $O{mem}   //= 'inner,outer';
 
-  # ^get repr for memory
-  $self->{mc}->prich(
 
-    %O,
+  # get repr for parse tree?
+  if($O{tree}) {
 
-    mute  => 1,
-    inner => 1,
+    push @$out,'TREE:';
+    $self->{tree}->prich(%O,mute=>1);
 
-  );
+    push @$out,"\n";
+
+  };
+
+
+  # get repr for memory?
+  if($O{mem}) {
+
+
+    my $inner=$O{mem}=~ qr{\binner\b};
+    my $outer=$O{mem}=~ qr{\bouter\b};
+
+
+    $self->{mc}->prich(
+
+      %O,
+
+      inner => $inner,
+      outer => $outer,
+
+      mute  => 1,
+
+    ) if $O{mem};
+
+
+  };
 
 
   return ioprocout(\%O);
