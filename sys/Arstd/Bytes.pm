@@ -42,6 +42,7 @@ package Arstd::Bytes;
     bitsize
     bitmask
     bitcat
+    bitscanf
 
     bitsume
     bitsumex
@@ -63,7 +64,7 @@ package Arstd::Bytes;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -185,6 +186,28 @@ sub bitcat(@elems) {
     noprint => 1,
 
   ),$total;
+
+};
+
+# ---   *   ---   *   ---
+# bsf -- if you know, you know ;>
+
+sub bitscanf($x) {
+
+  my $idex=1;
+  my $have=undef;
+
+  while($x) {
+
+    $have=$idex,last if $x & 1;
+
+    $x >>= 1;
+    $idex++;
+
+  };
+
+
+  return $have;
 
 };
 

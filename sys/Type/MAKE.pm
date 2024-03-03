@@ -255,8 +255,8 @@ package Type::MAKE;
     yword  => 'Q',
     zword  => 'Q',
 
-    real   => 'F',
-    dreal  => 'D',
+    real   => 'f',
+    dreal  => 'd',
 
     str    => 'Z',
     cstr   => 'Z*',

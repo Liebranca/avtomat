@@ -250,7 +250,7 @@ sub data_decl_parse($self,$branch) {
       $self->value_solve($type,$n,$v);
 
     # ^reserve space
-    $x=$l1->quantize($x);
+    $x=$l1->quantize($type,$x);
     $mc->decl($type,$n,$x);
 
     # ^give if not solved!
@@ -439,6 +439,8 @@ sub data_decl_ctx($self,$branch) {
   my $l1   = $rd->{l1};
   my $type = $branch->{vref};
 
+
+  # walk values pending resolution
   my @have = map {
 
     my ($name,$value) = @$ARG;
@@ -449,10 +451,15 @@ sub data_decl_ctx($self,$branch) {
 
     if($have) {
 
+
+      # fetch value
       my $ref     = $mc->search($name);
       my $mem     = $$ref->getseg();
 
-      my $x       = $l1->quantize($x);
+      my $x       = $l1->quantize($type,$x);
+
+
+      # have ptr?
       my ($ptr_t) = Type->is_ptr($type);
 
       $ptr_t=(length $ptr_t)
@@ -460,7 +467,21 @@ sub data_decl_ctx($self,$branch) {
         : undef
         ;
 
+      # ^sanity check
+      my $ptrcls=$mc->{bk}->{ptr};
+      if($ptrcls->is_valid($x) &&! $ptr_t) {
 
+        $rd->perr(
+
+          "'%s' is not a pointer type",
+          args=>[$type->{name}]
+
+        );
+
+      };
+
+
+      # overwrite value
       $$ref = $mem->infer(
 
         $x,

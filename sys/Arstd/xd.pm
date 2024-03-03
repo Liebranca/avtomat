@@ -115,6 +115,24 @@ sub draw($body,%O) {
     };
 
 
+    # char to num
+    map {
+
+      $ARG=ord $ARG;
+
+      # can print?
+      if($ARG < 0x7E && 0x20 < $ARG) {
+        $sr.=chr $ARG;
+
+      # else put dot
+      } else {
+        $sr.='.';
+
+      };
+
+    } @bytes;
+
+
     # shuffle byte ordering?
     if($O{order} eq '<:') {
 
@@ -132,26 +150,17 @@ sub draw($body,%O) {
 
 
     # walk chunk
-    for my $b(@bytes) {
+    map {
 
-      # get char as a number
-      my $x  = ord($b);
-      $sl   .= sprintf "%02X",$x;
 
-      # ^can we print it?
-      if($x<0x7E && 0x20<$x) {
-        $sr.=chr($x);
-
-      # else put dot
-      } else {
-        $sr.='.';
-
-      };
+      # add byte to mem line
+      $sl .= sprintf "%02X",$ARG;
 
       # go next
       $i++;
       $j++;
       $h++;
+
 
       # space every 4th
       if($i > 3) {
@@ -171,7 +180,8 @@ sub draw($body,%O) {
 
       };
 
-    };
+
+    } @bytes;
 
 
     # add blank every (cache)line

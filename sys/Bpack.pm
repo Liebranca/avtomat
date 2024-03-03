@@ -25,7 +25,7 @@ package Bpack;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Chk;
+ use Chk;
   use Type;
 
   use Arstd::Array;
@@ -108,9 +108,20 @@ sub bpack($struc,@data) {
 
   my @bytes = map {
 
+
       # get next type
-      my $type  = array_wrap(\@type,$idex++);
-         $len  += $type->{sizeof};
+      my $type = array_wrap(\@type,$idex++);
+      my $size = $type->{sizeof};
+
+      # have string?
+      my ($str_t) = Type->is_str($type);
+      my $cnt     = ($str_t)
+        ? 1+length $ARG
+        : 1
+        ;
+
+      $len += $size * $cnt;
+
 
       # ^pack chunk accto type
       pack  $type->{packof},
@@ -185,21 +196,28 @@ sub bunpack($struc,$src,$pos=0,$cnt=1) {
   my $len    = 0;
   my @values = map {
 
-    # get next type
-    my $type  = array_wrap(\@type,$ARG);
 
-    # read chunk from buf
-    my $chunk  = substr $src,$pos,$type->{sizeof};
-       $pos   += $type->{sizeof};
-       $len   += $type->{sizeof};
+    # get next chunk
+    my $type = array_wrap(\@type,$ARG);
+    my $fmat = $type->{packof};
+    my $size = $type->{sizeof};
 
-    # ^unpack accto type
-    my $fmat  = $type->{packof};
-    my @out   = unpack $fmat,$chunk;
+    my $src  = substr $src,$pos,(length $src)-$pos;
+    my @have = unpack $fmat,$src;
+
+    # have string?
+    my ($str_t) = Type->is_str($type);
+    my $cnt     = ($str_t)
+      ? 1+length $have[0]
+      : 1
+      ;
+
+    $pos += $size * $cnt;
+    $len += $size * $cnt;
 
 
     # copy type layout
-    layas $type,@out;
+    layas $type,@have;
 
 
   } 0..$cnt-1;

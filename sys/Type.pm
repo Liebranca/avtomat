@@ -74,6 +74,20 @@ package Type;
 
   Readonly our $DEFAULT=>typefet 'word';
 
+# ---   *   ---   *   ---
+# shut up, I target 64-bit
+
+BEGIN {
+
+  $SIG{__WARN__}=sub {
+    my $warn=shift;
+    return if $warn=~ m[non-portable];
+
+    warn $warn;
+
+  };
+
+};
 
 # ---   *   ---   *   ---
 # parse single value decl
@@ -350,6 +364,7 @@ subwraps(
   qw (
     str:str_t
     ptr:ptr_any
+    real:real
 
   ),
 

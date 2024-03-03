@@ -35,7 +35,7 @@ package A9M::ptr;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -48,6 +48,7 @@ package A9M::ptr;
     ptr_t  => undef,
     segid  => 0x00,
     addr   => 0x00,
+    len    => 0,
 
     mcid   => 0,
 
@@ -112,40 +113,39 @@ sub read_ptr($self) {
 
 sub store($self,$value,%O) {
 
+
   # defaults
   $O{deref} //= 1;
+
+  # dst vars
+  my $seg;
+  my $off;
 
 
   # write at [value]?
   if($O{deref} && $self->{ptr_t}) {
-
-    my ($seg,$off)=$self->read_ptr();
-
-    $seg->dstore(
-
-      $self->{type},
-      $value,
-
-      $off,
-
-    );
-
+    ($seg,$off)=$self->read_ptr();
 
   # ^nope, use own addr
   } else {
-
-    my $seg=$self->getseg();
-
-    $seg->dstore(
-
-      $self->{type},
-      $value,
-
-      $self->{addr}
-
-    );
+    $seg=$self->getseg();
+    $off=$self->{addr};
 
   };
+
+
+  # give bytes written
+  my $len=$seg->dstore(
+
+    $self->{type},
+    $value,
+
+    $off,
+
+  );
+
+  $self->{len}=$len;
+  return $len;
 
 };
 
@@ -157,24 +157,26 @@ sub load($self,%O) {
   # defaults
   $O{deref} //= 1;
 
+  # src vars
+  my $seg;
+  my $off;
+
 
   # read from [value]?
   if($O{deref} && $self->{ptr_t}) {
-    my ($seg,$off)=$self->read_ptr();
-    return $seg->dload($self->{type},$off);
+    ($seg,$off)=$self->read_ptr();
 
 
   # ^nope, use own addr
   } else {
-
-    my $seg=$self->getseg();
-
-    return $seg->dload(
-      $self->{type},$self->{addr}
-
-    );
+    $seg=$self->getseg();
+    $off=$self->{addr};
 
   };
+
+
+  # fetch and give
+  $seg->dload($self->{type},$off);
 
 };
 
@@ -243,10 +245,21 @@ sub prich($self,%O) {
 
       $imp->copera($fn,$value);
 
+
   # have ptr?
   } elsif($self->{ptr_t}) {
     my $addr=$self->load(deref=>0);
     $value=sprintf "*$pad -> $pad",$addr,$value;
+
+
+  # have decimals?
+  } elsif(Type->is_real($type)) {
+    $value=sprintf "%.4f",$value;
+
+
+  # have string?
+  } elsif(Type->is_str($type->{name})) {
+    $value="\"$value\"";
 
   # plain value?
   } else {

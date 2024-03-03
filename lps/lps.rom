@@ -5,8 +5,8 @@
 
 seg data;
 
-ptr  fwd  test;
-byte test $24;
+cstr test  'Hello, world!';
+cstr test2 'HLOWRLD!';
 
 #echo fwd;
 

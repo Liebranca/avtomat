@@ -41,7 +41,7 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -312,7 +312,7 @@ sub load($self,$type,$addr=undef) {
 sub store($self,$type,$value,$addr=undef) {
 
   # can write this many bytes?
-  $self->inbounds(\$type,\$addr)
+  $self->inbounds(\$type,\$addr,$value)
   or return null;
 
 
@@ -384,7 +384,7 @@ sub lvalue($self,$value,%O) {
   my $class=$self->ptr_defnit(\%O);
 
   # value fit in loc?
-  $self->inbounds(\$O{type},\$O{addr})
+  $self->inbounds(\$O{type},\$O{addr},$value)
   or return null;
 
 
@@ -514,15 +514,22 @@ sub decl($self,$type,$name,$value,%O) {
 
 
   # need to grow?
-  my $size=sizeof $type;
-  $self->brkfit($size);
+  my $size  = sizeof $type;
+  my $str_t = Type->is_str($type);
+
+  my $cnt   = ($str_t) ? length $value : 1 ;
+
+  $self->brkfit($size * $cnt);
+
 
   # make ice
   my $ptr=$self->infer($value,%O);
 
 
   # go next and give
-  $self->{ptr} += sizeof $type;
+  $self->{ptr} += $ptr->{len};
+  $self->{ptr} += 1 if Type->is_str($type);
+
   return $ptr;
 
 };
@@ -530,12 +537,30 @@ sub decl($self,$type,$name,$value,%O) {
 # ---   *   ---   *   ---
 # catch OOB addresses
 
-sub _inbounds($self,$type,$addr) {
+sub _inbounds($self,$type,$addr,$value=undef) {
 
+
+  my $size = $type->{sizeof};
+  my $cnt  = 1;
+
+
+  # have string insertion?
+  my ($str_t) = Type->is_str($type);
+  if($str_t && $value) {
+
+    $cnt=(is_arrayref $value)
+      ? int    @$value
+      : length $value
+      ;
+
+  };
+
+
+  # false if bounds crossed
   return
 
      $addr
-  +  $type->{sizeof}
+  +  $type->{sizeof} * $cnt
 
   <= length $self->{buf}
 
@@ -546,7 +571,17 @@ sub _inbounds($self,$type,$addr) {
 # ---   *   ---   *   ---
 # ^public wraps
 
-sub inbounds($self,$typeref,$addrref) {
+sub inbounds(
+
+  $self,
+
+  $typeref,
+  $addrref,
+
+  $value=undef
+
+) {
+
 
   # default to ptr
   $$addrref //= $self->{ptr};
@@ -555,7 +590,11 @@ sub inbounds($self,$typeref,$addrref) {
   $$typeref=typefet $$typeref or return null;
 
 
-  return (! $self->_inbounds($$typeref,$$addrref))
+  return (! $self->_inbounds(
+    $$typeref,$$addrref,$value
+
+  ))
+
     ? $self->warn_oob($$typeref,$$addrref)
     : 1
     ;
@@ -640,6 +679,70 @@ sub search($self,$altref,@path) {
 
 
   return (@path,@$altref);
+
+};
+
+# ---   *   ---   *   ---
+# get length of a C string
+# if chars in 00-7E range
+# else bogus
+
+Readonly my $CSTR_MASK_Z0=>0x7F7F7F7F7F7F7F7F;
+Readonly my $CSTR_MASK_Z1=>0x0101010101010101;
+Readonly my $CSTR_MASK_Z2=>0x8080808080808080;
+
+sub cstr_len($self,$addr=0) {
+
+
+  # get buf/chunk sizes
+  my $size  = $self->{size} - $addr;
+  my @type  = typeof $size;
+
+  # ^get slice
+  my $raw   = $self->{buf};
+     $raw   = substr $raw,$addr,$size;
+     $raw   = "$raw";
+
+
+  # read chunks until null found
+  my $len  = 0;
+  my $xlen = 0;
+
+  while(@type) {
+
+    # read next chunk
+    my $fmat = shift @type;
+    my $word = bunpacksu $fmat,\$raw;
+       $word = $word->{ct}->[0];
+
+
+    # black magic
+    $xlen  = 0;
+
+    $word ^= $CSTR_MASK_Z0;
+    $word += $CSTR_MASK_Z1;
+    $word &= $CSTR_MASK_Z2;
+
+    goto bot if ! $word;
+
+
+    # add idex of first null byte
+    $xlen   = (bitscanf $word);
+    $xlen >>= 3;
+
+    $len   += $xlen;
+
+    last;
+
+
+    # ^no null, add sizeof
+    bot:
+    $len += sizeof $fmat;
+
+  };
+
+
+  return $len-1;
 
 };
 

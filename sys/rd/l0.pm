@@ -59,7 +59,7 @@ sub charset($self) { return {
   (map {$ARG=>'operator_single'} qw(
     % : + - * < > =
     ! ? ~ & | ^ / @
-    ` .
+    `
 
   ),','),
 

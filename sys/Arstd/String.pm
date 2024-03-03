@@ -328,7 +328,7 @@ sub sstoi($s,$filter=1) {
 
   # else give back input if it's a number!
   } else {
-    return ($s=~ qr{^\d+$})
+    return ($s=~ qr{^[\d\.]+$})
       ? $s
       : undef
       ;

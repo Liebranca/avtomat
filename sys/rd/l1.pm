@@ -25,6 +25,8 @@ package rd::l1;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Type;
+  use Bpack;
 
   use Arstd::String;
   use Arstd::PM;
@@ -33,7 +35,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -370,7 +372,7 @@ sub symbol_fetch($self,$src=undef) {
 # ---   *   ---   *   ---
 # make numerical repr for token
 
-sub quantize($self,$src=undef) {
+sub quantize($self,$dst_t,$src=undef) {
 
 
   # default to current token
@@ -379,35 +381,30 @@ sub quantize($self,$src=undef) {
 
 
   # have ptr?
-  my $mc    = $rd->{mc};
-  my $class = $mc->{bk}->{ptr};
+  my $mc     = $rd->{mc};
+  my $ptrcls = $mc->{bk}->{ptr};
 
-  if($class->is_valid($src)) {
-
-    return $src;
-
-#    return $mc->encode_ptr(
-#      $src->getseg(),
-#      $src->{addr}
-#
-#    );
-
-  };
+  return $src if $ptrcls->is_valid($src);
 
 
   # ^else unpack tag
   my ($type,$spec)=$self->read_tag($src);
   my $have=$self->detag($src);
 
-
-  # query type
   $type=$TAG_T->{$type};
 
+
+  # have plain number?
   if($type eq 'NUM') {
     return $spec;
 
+  # have string?
+  } elsif($type eq 'STRING') {
+    return $have;
+
+  # as for anything else...
   } else {
-    nyi "$type quantization";
+    nyi "<$type> quantization";
 
   };
 
