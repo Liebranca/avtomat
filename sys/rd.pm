@@ -47,7 +47,7 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -307,6 +307,7 @@ sub commit($self) {
       $self->{branch}->{lineno}=
         $self->{lineat};
 
+
     # ^cat to existing
     } else {
 
@@ -486,16 +487,16 @@ sub solve_ipret($self) {
 # ---   *   ---   *   ---
 # set status flag
 
-sub set($self,$name) {
-  $self->{status} |= $SF->{$name};
+sub set($self,@name) {
+  map {$self->{status} |= $SF->{$ARG}} @name;
 
 };
 
 # ---   *   ---   *   ---
 # ^undo
 
-sub unset($self,$name) {
-  $self->{status} &=~ $SF->{$name};
+sub unset($self,@name) {
+  map {$self->{status} &=~ $SF->{$ARG}} @name;
 
 };
 
@@ -577,8 +578,7 @@ sub set_termf($self) {
 # ^set *non* terminator flags
 
 sub set_ntermf($self) {
-  $self->unset('blank');
-  $self->unset('exprbeg');
+  $self->unset('blank','exprbeg');
   $self->set('nterm');
 
 };

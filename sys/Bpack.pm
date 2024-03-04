@@ -212,6 +212,7 @@ sub bunpack($struc,$src,$pos=0,$cnt=1) {
       : 1
       ;
 
+
     $pos += $size * $cnt;
     $len += $size * $cnt;
 

@@ -32,7 +32,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -82,12 +82,21 @@ sub proc_parse($self) {
 
   # ^save current
   my $old=$rd->{branch};
+  my $rec=0;
 
 
   # ^walk
   while(@pending) {
 
+
+    # handle depth
     my $nd=shift @pending;
+    if(! $nd) {
+      $rec=0;
+      next;
+
+    };
+
 
     # proc sub-branch
     $rd->{branch}=$nd;
@@ -109,11 +118,12 @@ sub proc_parse($self) {
     my $l1  = $rd->{l1};
 
     # ^enqueue exec layer
-    push @cmd,$cmd if $cmd && $cmd ne 1;
+    push @cmd,[@$cmd,$rec] if $cmd && $cmd ne 1;
 
 
     # go next
-    unshift @pending,@{$nd->{leaves}};
+    unshift @pending,@{$nd->{leaves}},0;
+    $rec=1;
 
   };
 
@@ -129,8 +139,11 @@ sub proc_parse($self) {
 };
 
 # ---   *   ---   *   ---
-# go through [F,node] list
+# go through [F,node,recurse] list
 # and run F->(node)
+#
+# recurse field handles fetching
+# of current execution state
 
 sub exec_queue($self,@Q) {
 
@@ -139,12 +152,17 @@ sub exec_queue($self,@Q) {
 
   my $walked = $self->{walked};
 
+
+  $lx->exprbeg(0);
+
   map {
 
 
     # unpack
-    my ($fn,$branch)=@$ARG;
+    my ($fn,$branch,$rec)=@$ARG;
     $rd->{branch}=$branch;
+
+    $lx->exprbeg($rec);
 
 
     # check arguments and run
@@ -168,8 +186,8 @@ sub exec_queue($self,@Q) {
     };
 
 
-    # give result if defined
-    (defined $have) ? $have : () ;
+    # save and give result if defined
+    $lx->exprlink($have);
 
 
   # avoid processing the same node twice
@@ -613,12 +631,17 @@ sub cmd($self) {
   # have command?
   if($key=~ $re) {
 
+
     # get variation for current pass
     my ($type,$value)=$l1->read_tag($key);
     my $fn=$lx->passf($value);
 
     # ^save key
     $rd->{branch}->{cmdkey}=$value;
+
+
+    # consume argument nodes if need
+    $lx->argsume($rd->{branch});
 
 
     # give F to run if any

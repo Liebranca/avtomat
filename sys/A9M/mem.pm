@@ -143,6 +143,7 @@ sub mkroot($class,%O) {
   $self->{ptr}    = 0x00;
   $self->{size}   = 0x00;
   $self->{absloc} = undef;
+  $self->{public} = 0;
 
 
   # make namespace
@@ -197,6 +198,7 @@ sub new($self,$size,$label=undef) {
   $ice->{size}   = $size;
   $ice->{inner}  = $inner;
   $ice->{absloc} = undef;
+  $ice->{public} = 0;
 
   # mark for update!
   $self->{root}->{__absloc_recalc}=1;
@@ -528,8 +530,6 @@ sub decl($self,$type,$name,$value,%O) {
 
   # go next and give
   $self->{ptr} += $ptr->{len};
-  $self->{ptr} += 1 if Type->is_str($type);
-
   return $ptr;
 
 };

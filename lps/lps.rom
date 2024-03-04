@@ -3,7 +3,7 @@
 # nevermind this file!
 # just testing the parser ;>
 
-seg data;
+public seg data;
 
 cstr test  'Hello, world!';
 cstr test2 'HLOWRLD!';

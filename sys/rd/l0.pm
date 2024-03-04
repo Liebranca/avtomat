@@ -28,7 +28,7 @@ package rd::l0;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -82,8 +82,8 @@ sub read($self,$JMP,$c) {
 
   # reader set to stringmode?
   if($rd->string()) {
-    $self->default();
-    return 'default';
+    $self->strcat();
+    return 'strcat';
 
   # ^nope, process normally
   } else {
@@ -177,6 +177,15 @@ sub default($self) {
 };
 
 # ---   *   ---   *   ---
+# ^similar, but sets no flags
+
+sub strcat($self) {
+  my $rd=$self->{rd};
+  $rd->{token} .= $rd->{char};
+
+};
+
+# ---   *   ---   *   ---
 # whitespace
 
 sub blank($self) {
@@ -228,8 +237,20 @@ sub string($self,$term=undef) {
 # is a newline
 
 sub comment($self) {
+
+  my $rd  = $self->{rd};
+  my $beg = $rd->exprbeg();
+
+
   $self->string("\n");
   $self->{rd}->set('comment');
+
+
+  if($beg) {
+    $rd->set('exprbeg','blank');
+    $rd->unset('nterm');
+
+  };
 
 };
 

@@ -34,14 +34,69 @@ package rd::lx;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # cstruc
 
 sub new($class,$rd) {
-  return bless {rd=>$rd},$class;
+
+  return bless {
+
+    rd    => $rd,
+
+    links => [],
+    queue => [],
+
+  },$class;
+
+};
+
+# ---   *   ---   *   ---
+# reset per-expression state
+
+sub exprbeg($self,$rec=0) {
+
+  # get ctx
+  my $Q     = $self->{queue};
+  my $have  = $self->{links};
+
+  my $ahead = [];
+
+
+  # preserve current?
+  if($rec > 0) {
+    push @$Q,$have;
+
+  # ^restore previous?
+  } else {
+    $ahead   = pop @$Q;
+    $ahead //= [];
+
+  };
+
+
+  # set or clear state
+  @$have=@$ahead;
+
+};
+
+# ---   *   ---   *   ---
+# records sub-expression result
+
+sub exprlink($self,$have) {
+
+  my $links=$self->{links};
+
+  if(defined $have) {
+    push @$links,$have;
+    return $have;
+
+  } else {
+    return ();
+
+  };
 
 };
 
@@ -110,54 +165,53 @@ sub cmdarg($type,%O) {
 # ---   *   ---   *   ---
 # generate/fetch set of commands
 
-sub cmdset($self) {
+sub cmdset($self) { return {
 
-#  # get ctx
-#  my $rd    = $self->{rd};
-#  my $mc    = $rd->{mc};
-#  my $tree  = $mc->->{cas}->{inner};
-#
-#  # have user definitions?
-#  my @ucmd    = $tree->branches_in(qr{^UCMD$});
-#  my $USERDEF = {};
-#
-#  map {
-#    map {$USERDEF->{$ARG}=[$OPT_QLIST]}
-#    $ARG->branch_values();
-#
-#  } @ucmd;
+  # dbout
+  echo => [$QLIST],
+  stop => [],
+
+  # make segment
+  seg => [$BARE],
+  rom => [$BARE],
+
+  # user command maker
+  cmd        => [$BARE,$OPT_VLIST,$CURLY],
+  'bat-cmd'  => [$PARENS,$OPT_VLIST,$CURLY],
 
 
-  # asm whole set
-  return {
+  # value types
+  ( map {$ARG => [$OPT_QLIST]}
+    @{$Type::MAKE::ALL_FLAGS}
 
-    # dbout
-    echo => [$QLIST],
-    stop => [],
+  ),
 
-    # make segment
-    seg => [$BARE],
-
-    # user command maker
-    cmd        => [$BARE,$OPT_VLIST,$CURLY],
-    'bat-cmd'  => [$PARENS,$OPT_VLIST,$CURLY],
+  'data-decl' => [$VLIST,$OPT_QLIST],
 
 
-    # value types
-    ( map {$ARG => [$OPT_QLIST]}
-      @{$Type::MAKE::ALL_FLAGS}
+  # flags
+  ( map {$ARG => [$OPT_QLIST]}
+    qw  (const var public private)
 
-    ),
+  ),
 
-    'data-decl' => [$VLIST,$OPT_QLIST],
+  'flag-list' => [$OPT_QLIST],
 
 
-#    # paste user-defined commands
-#    %$USERDEF
+}};
 
-  };
+# ---   *   ---   *   ---
+# flag table
 
-};
+sub flagset($self) { return {
+
+  const   => ['const',1],
+  var     => ['const',0],
+
+  public  => ['public',1],
+  private => ['public',0],
+
+}};
 
 # ---   *   ---   *   ---
 # get name of current pass
@@ -180,6 +234,147 @@ sub stop_parse($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# template: collapse cmdlist in
+# reverse hierarchical order
+
+sub rcollapse_cmdlist($self,$branch,$fn) {
+
+
+  # get ctx
+  my $rd = $self->{rd};
+  my $l1 = $rd->{l1};
+  my $l2 = $rd->{l2};
+
+
+  # first token, first command
+  my @list = $l1->is_cmd($branch->{value});
+  my $par  = $branch->{parent};
+
+  # ^get tokens from previous iterations
+  push @list,@{$branch->{vref}}
+  if exists $branch->{vref};
+
+  $branch->{vref} //= \@list;
+
+
+  # parent is command, keep collapsing
+  my $head = $l1->is_cmd($par->{value});
+  if(defined $head) {
+
+    # save commands to parent, they'll be
+    # picked up in the next run of this F
+    $par->{vref} //= [];
+    push @{$par->{vref}},@list;
+
+    # ^remove this token
+    $branch->discard();
+
+
+    return;
+
+
+  # ^stop at last node in the chain
+  } else {
+    $fn->();
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# set/unset expression flags
+
+sub flag_list_parse($self,$branch) {
+
+
+  # get ctx
+  my $rd    = $self->{rd};
+  my $links = $self->{links};
+  my $obj   = pop @$links;
+
+  my $tab   = $self->flagset();
+  my $flags = $branch->{vref};
+
+
+  # walk list
+  map {
+
+
+    # can set attr for this object?
+    my ($key,$value)=@{$tab->{$ARG}};
+
+    eval {
+
+      (exists $obj->{$key})
+        ? $obj->{$key}=$value
+        : undef
+        ;
+
+
+    # ^nope, throw!
+    } or do {
+
+      $rd->perr(
+        "'%s' is invalid for <%s>",
+        args=>[$ARG,(ref $obj or 'plain')]
+
+      );
+
+    };
+
+
+  } @$flags;
+
+
+  $branch->flatten_branch();
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# collapses flag list
+# mutates node into flag-list
+
+sub flag_parse($self,$branch) {
+
+  # get ctx
+  my $rd=$self->{rd};
+  my $l1=$rd->{l1};
+
+
+  # rwalk specifier list
+  $self->rcollapse_cmdlist($branch,sub {
+
+
+    # mutate into another command
+    $branch->{value}=$l1->make_tag(
+      CMD=>'flag-list'
+
+    );
+
+
+    return 'mut';
+
+  });
+
+};
+
+# ---   *   ---   *   ---
+# ^icef*ck
+
+subwraps(
+
+  q[$self->flag_parse]=>q[$self,$branch],
+
+  map {[
+    "${ARG}_parse" => "\$branch"
+
+  ]} qw(const var public private)
+
+);
+
+# ---   *   ---   *   ---
 # make new segment
 
 sub seg_parse($self,$branch) {
@@ -195,6 +390,9 @@ sub seg_parse($self,$branch) {
 
   $mc->segid($seg);
   $mc->scope($seg->ances_list());
+
+
+  return $seg;
 
 };
 
@@ -324,48 +522,23 @@ sub wait_next_pass($self,$branch,$Q) {
 
 sub type_parse($self,$branch) {
 
+
   # get ctx
-  my $rd = $self->{rd};
-  my $l1 = $rd->{l1};
-  my $l2 = $rd->{l2};
+  my $rd=$self->{rd};
+  my $l1=$rd->{l1};
+  my $l2=$rd->{l2};
 
 
-  # first token is first specifier!
-  my @type = $l1->is_cmd($branch->{value});
-  my $par  = $branch->{parent};
-
-  # ^get tokens from previous iterations
-  push @type,@{$branch->{type_Q}}
-  if exists $branch->{type_Q};
-
-
-  # if parent is also a type, then
-  # continue collapsing
-  my $head = $l1->is_cmd($par->{value});
-  if(defined $head) {
-
-    # save types to parent, they'll be
-    # picked up in the next run of this F
-    $par->{type_Q} //= [];
-    push @{$par->{type_Q}},@type;
-
-    # ^remove this token
-    $branch->discard();
-
-
-    return;
-
-
-  # ^stop at last node in the chain
-  } else {
+  # rwalk specifier list
+  $self->rcollapse_cmdlist($branch,sub {
 
 
     # get hashref from flags
     # save it to branch
-    my $type=$self->type_decode(@type);
-    $branch->{vref}=$type;
+    my @list=@{$branch->{vref}};
+    my $type=$self->type_decode(@list);
 
-    delete $self->{type_Q};
+    $branch->{vref}=$type;
 
 
     # first token in expression?
@@ -393,7 +566,7 @@ sub type_parse($self,$branch) {
 
     };
 
-  };
+  });
 
 };
 
@@ -686,13 +859,67 @@ sub argread($self,$args,$body) {
 };
 
 # ---   *   ---   *   ---
+# consume argument nodes for command
+
+sub argsume($self,$branch) {
+
+
+  # skip if nodes parented to branch
+  # or parent is invalid
+  my @lv  = @{$branch->{leaves}};
+  my $par = $branch->{parent};
+
+  return if @lv ||! $par;
+
+
+  # get siblings, skip if none
+  my @sib=@{$par->{leaves}};
+     @sib=@sib[$branch->{idex}+1..$#sib];
+
+  return if ! @sib;
+
+
+  # get command meta
+  my $rd   = $self->{rd};
+
+  my $CMD  = $self->load_CMD();
+  my $key  = $rd->{branch}->{cmdkey};
+  my $args = $CMD->{$key}->{-args};
+  my $pos  = $branch->{idex}+1;
+
+
+  # walk siblings
+  $rd->{branch}=$par;
+
+  for my $arg(@$args) {
+
+    my $have=$self->argtypechk($arg,$pos);
+
+    $self->throw_badargs($key,$arg,$pos)
+    if ! $have &&! $arg->{opt};
+
+    $pos++ if $have;
+
+    $branch->pushlv($have);
+
+  };
+
+
+  # restore old
+  $rd->{branch}=$branch;
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # type-checks command arguments
 
 sub argchk($self) {
 
-  my $rd=$self->{rd};
 
   # get command meta
+  my $rd   = $self->{rd};
+
   my $CMD  = $self->load_CMD();
   my $key  = $rd->{branch}->{cmdkey};
   my $args = $CMD->{$key}->{-args};
@@ -707,7 +934,7 @@ sub argchk($self) {
     $self->throw_badargs($key,$arg,$pos)
     if ! $have &&! $arg->{opt};
 
-    $pos += $have;
+    $pos++ if $have;
 
   };
 
@@ -719,12 +946,13 @@ sub argchk($self) {
 
 sub argtypechk($self,$arg,$pos) {
 
+
+  # get anchor
   my $rd=$self->{rd};
   my $l1=$rd->{l1};
 
-  # get anchor
-  my $nd  = $rd->{branch};
-  my $par = $nd->{parent};
+  my $nd=$rd->{branch};
+
 
   # walk possible types
   for my $type(@{$arg->{type}}) {
@@ -734,7 +962,7 @@ sub argtypechk($self,$arg,$pos) {
 
     # return true on pattern match
     my $chd=$nd->{leaves}->[$pos];
-    return 1 if $chd && $chd->{value}=~ $re;
+    return $chd if $chd && $chd->{value}=~ $re;
 
   };
 
