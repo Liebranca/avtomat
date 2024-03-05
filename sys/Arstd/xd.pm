@@ -121,7 +121,7 @@ sub draw($body,%O) {
       $ARG=ord $ARG;
 
       # can print?
-      if($ARG < 0x7E && 0x20 < $ARG) {
+      if($ARG < 0x7E && 0x20 <= $ARG) {
         $sr.=chr $ARG;
 
       # else put dot

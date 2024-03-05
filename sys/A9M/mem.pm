@@ -41,7 +41,7 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -143,7 +143,8 @@ sub mkroot($class,%O) {
   $self->{ptr}    = 0x00;
   $self->{size}   = 0x00;
   $self->{absloc} = undef;
-  $self->{public} = 0;
+
+  $self->set_uattrs();
 
 
   # make namespace
@@ -198,11 +199,11 @@ sub new($self,$size,$label=undef) {
   $ice->{size}   = $size;
   $ice->{inner}  = $inner;
   $ice->{absloc} = undef;
-  $ice->{public} = 0;
+
+  $ice->set_uattrs();
 
   # mark for update!
   $self->{root}->{__absloc_recalc}=1;
-
 
   return $ice;
 
@@ -334,10 +335,39 @@ sub dload($self,$type,$addr) {
 
 sub dstore($self,$type,$value,$addr) {
 
+
+  # forbid external write to ROM
+  my $mc=$self->getmc();
+
+  return $self->warn_rom($type,$addr)
+
+  if $self->{const} == 1
+  && $self ne $mc->{scope}->{mem};
+
+
+  # issue write!
   my $b=bpack $type,$value;
   substr $self->{buf},$addr,$b->{len},$b->{ct};
 
   return $b->{len};
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub warn_rom($self,$type,$addr) {
+
+  $addr=sprintf '%X',
+    $self->absloc() + $addr;
+
+  warnproc
+
+    "Issued write to ROM segment "
+  . "([good]:%s at \$[num]:%s)",
+
+    args => [$type->{name},$addr],
+    give => 0x00;
 
 };
 

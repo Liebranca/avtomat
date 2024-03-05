@@ -1,23 +1,5 @@
 %;
 
-# nevermind this file!
-# just testing the parser ;>
+ROM data;
+  cstr me 'Hello, world!';
 
-public seg data;
-
-cstr test  'Hello, world!';
-cstr test2 'HLOWRLD!';
-
-#echo fwd;
-
-#cmd plfi name,value {
-#  echo '%name% => %value%,';
-#
-#};
-
-#plfi name,avtomat;
-#
-#bat-cmd (name;scan;xcpy;lcpy) value {
-#  plfi (FNAME),value;
-#
-#};

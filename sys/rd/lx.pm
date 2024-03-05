@@ -34,7 +34,7 @@ package rd::lx;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -165,53 +165,65 @@ sub cmdarg($type,%O) {
 # ---   *   ---   *   ---
 # generate/fetch set of commands
 
-sub cmdset($self) { return {
+sub cmdset($self) {
 
-  # dbout
-  echo => [$QLIST],
-  stop => [],
+  my $rd    = $self->{rd};
+  my $mc    = $rd->{mc};
 
-  # make segment
-  seg => [$BARE],
-  rom => [$BARE],
+  my $flags = $mc->{bk}->{flags};
 
-  # user command maker
-  cmd        => [$BARE,$OPT_VLIST,$CURLY],
-  'bat-cmd'  => [$PARENS,$OPT_VLIST,$CURLY],
+  return {
 
 
-  # value types
-  ( map {$ARG => [$OPT_QLIST]}
-    @{$Type::MAKE::ALL_FLAGS}
+    # dbout
+    echo => [$QLIST],
+    stop => [],
 
-  ),
+    # make segment
+    seg => [$BARE],
+    rom => [$BARE],
 
-  'data-decl' => [$VLIST,$OPT_QLIST],
-
-
-  # flags
-  ( map {$ARG => [$OPT_QLIST]}
-    qw  (const var public private)
-
-  ),
-
-  'flag-list' => [$OPT_QLIST],
+    # user command maker
+    cmd        => [$BARE,$OPT_VLIST,$CURLY],
+    'bat-cmd'  => [$PARENS,$OPT_VLIST,$CURLY],
 
 
-}};
+    # value types
+    ( map {$ARG => [$OPT_QLIST]}
+      @{$Type::MAKE::ALL_FLAGS}
+
+    ),
+
+    'data-decl' => [$VLIST,$OPT_QLIST],
+
+
+    # flags
+    ( map {$ARG => [$OPT_QLIST]}
+      @{$flags->list()}
+
+    ),
+
+    'flag-list' => [$OPT_QLIST],
+
+
+  };
+
+};
 
 # ---   *   ---   *   ---
-# flag table
+# shorthand: fetch flag table
 
-sub flagset($self) { return {
+sub flagtab($self) {
 
-  const   => ['const',1],
-  var     => ['const',0],
+  my $rd    = $self->{rd};
+  my $mc    = $rd->{mc};
 
-  public  => ['public',1],
-  private => ['public',0],
+  my $flags = $mc->{bk}->{flags};
 
-}};
+
+  return $flags->ivtab();
+
+};
 
 # ---   *   ---   *   ---
 # get name of current pass
@@ -282,7 +294,7 @@ sub rcollapse_cmdlist($self,$branch,$fn) {
 };
 
 # ---   *   ---   *   ---
-# set/unset expression flags
+# set/unset object flags
 
 sub flag_list_parse($self,$branch) {
 
@@ -292,7 +304,7 @@ sub flag_list_parse($self,$branch) {
   my $links = $self->{links};
   my $obj   = pop @$links;
 
-  my $tab   = $self->flagset();
+  my $tab   = $self->flagtab();
   my $flags = $branch->{vref};
 
 
@@ -386,11 +398,32 @@ sub seg_parse($self,$branch) {
   my $name = $lv->[0]->{value};
 
 
-  my $seg=$mc->{cas}->new(0x10,$name);
+  # scoping or making new?
+  my $mem  = $mc->{cas};
+  my $have = $mem->haslv($name);
 
+  my $seg  = (! $have)
+    ? $mem->new(0x10,$name)
+    : $have
+    ;
+
+
+  # make current and give
   $mc->segid($seg);
   $mc->scope($seg->ances_list());
 
+
+  return $seg;
+
+};
+
+# ---   *   ---   *   ---
+# ^shorthand: const seg
+
+sub rom_parse($self,$branch) {
+
+  my $seg=$self->seg_parse($branch);
+  $seg->{const}=1;
 
   return $seg;
 

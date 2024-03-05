@@ -29,7 +29,7 @@ package A9M::component;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -41,6 +41,21 @@ sub getmc($self) {
   my $mc    = $class->ice($self->{mcid});
 
   return $mc;
+
+};
+
+# ---   *   ---   *   ---
+# add universal flags to object
+
+sub set_uattrs($self,@keys) {
+
+  my $mc    = $self->getmc();
+  my $flags = $mc->{bk}->{flags};
+
+  $flags->defnit($self,@keys);
+
+
+  return;
 
 };
 

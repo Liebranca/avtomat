@@ -327,8 +327,9 @@ sub proc_parse($self,$src=undef) {
 
 
   # is command?
-  if($key=~ $CMD->{-re}) {
+  if((lc $key)=~ $CMD->{-re}) {
     $key='CMD';
+    $src=lc $src;
 
   # is number?
   } elsif(defined (my $is_num=sstoi($key,0))) {

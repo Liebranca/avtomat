@@ -39,14 +39,14 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
   Readonly my $COMPONENTS => [qw(
-    mem ptr anima ISA
+    flags mem ptr anima ISA
 
   )];
 
@@ -92,16 +92,10 @@ sub new($class,%O) {
   # make ice
   my $self=bless {
 
-    id  => $id,
+    id       => $id,
 
-    cas => $bk->{mem}->mkroot(
-      mcid  => $id,
-      label => $O{memroot},
-
-    ),
-
+    cas      => undef,
     scope    => undef,
-
     anima    => undef,
     ISA      => undef,
 
@@ -120,7 +114,14 @@ sub new($class,%O) {
   # ^add to box
   push @$icebox,$self;
 
+
   # kick components in need of kicking!
+  $self->{cas}=$bk->{mem}->mkroot(
+    mcid  => $id,
+    label => $O{memroot},
+
+  ),
+
   $self->{anima} = $bk->{anima}->new(mcid=>$id);
   $self->scope($O{memroot});
 

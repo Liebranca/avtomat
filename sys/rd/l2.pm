@@ -622,7 +622,7 @@ sub cmd($self) {
   my $l1  = $rd->{l1};
   my $lx  = $rd->{lx};
 
-  my $key = $rd->{branch}->{value};
+  my $key = lc $rd->{branch}->{value};
   my $CMD = $lx->load_CMD();
 
   # build/fetch regex
