@@ -1,5 +1,9 @@
 %;
 
-ROM data;
-  cstr me 'Hello, world!';
+RAM data;
+  byte i $01;
+
+EXE code;
+  load  byte ar,$24;
+  store [data::i],ar;
 

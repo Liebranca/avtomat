@@ -341,7 +341,7 @@ sub dstore($self,$type,$value,$addr) {
 
   return $self->warn_rom($type,$addr)
 
-  if $self->{const} == 1
+  if $self->{writeable} == 0
   && $self ne $mc->{scope}->{mem};
 
 

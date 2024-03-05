@@ -278,7 +278,7 @@ subwraps(
   map {[
     "is_$ARG" => q['] . (uc $ARG) . q[',$src]
 
-  ]} qw  (opera list string cmd branch)
+  ]} qw  (opera list string cmd branch num type)
 
 );
 
@@ -360,7 +360,7 @@ sub symbol_fetch($self,$src=undef) {
   # attempt fetch
   my $mc    = $rd->{mc};
   my $scope = $mc->{scope};
-  my $have  = $scope->has($src);
+  my $have  = $mc->dsearch($src);
 
 
   return (length $have)
@@ -373,7 +373,7 @@ sub symbol_fetch($self,$src=undef) {
 # ---   *   ---   *   ---
 # make numerical repr for token
 
-sub quantize($self,$dst_t,$src=undef) {
+sub quantize($self,$src=undef) {
 
 
   # default to current token

@@ -43,14 +43,17 @@ package A9M::ISA;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.7;#a
+  our $VERSION = v0.01.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
 St::vconst {
-  exeali => (typefet 'word'),
+
+  exeali => (typefet 'dword'),
+  deft   => (typefet 'word'),
+
   imp    => 'A9M::opera',
 
 };

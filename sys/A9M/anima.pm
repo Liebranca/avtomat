@@ -169,7 +169,7 @@ sub warn_invalid($name) {
 sub tokin($class,$name) {
 
   return ($name=~ $class->re())
-    ? array_iof(\$class->list(),$name)
+    ? array_iof($class->list(),$name)
     : undef
     ;
 

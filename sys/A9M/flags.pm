@@ -43,21 +43,35 @@ package A9M::flags;
 St::vconst {
 
   tab   => [
-    public => 0,
-    const  => 0,
-    static => 0,
+
+
+    readable   => 1,
+    writeable  => 1,
+    executable => 0,
+
+
+    public     => 0,
+    static     => 0,
 
   ],
 
   ivtab => {
 
-    public   => [public => 1],
-    const    => [const  => 1],
-    static   => [static => 1],
 
-    private  => [public => 0],
-    volatile => [const  => 0],
-    dynamic  => [static => 0],
+    executable => [executable => 1],
+    readable   => [readable   => 1],
+    writeable  => [writeable  => 1],
+
+
+    const      => [writeable  => 0],
+    var        => [writeable  => 1],
+
+
+    public     => [public     => 1],
+    private    => [public     => 0],
+
+    static     => [static     => 1],
+    dynamic    => [static     => 0],
 
   },
 

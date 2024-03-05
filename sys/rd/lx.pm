@@ -28,8 +28,11 @@ package rd::lx;
   use Chk;
   use Type;
 
+  use Arstd::Array;
+  use Arstd::Bytes;
   use Arstd::Re;
   use Arstd::PM;
+  use Arstd::IO;
 
 # ---   *   ---   *   ---
 # info
@@ -171,6 +174,7 @@ sub cmdset($self) {
   my $mc    = $rd->{mc};
 
   my $flags = $mc->{bk}->{flags};
+  my $imp   = $mc->{ISA}->imp();
 
   return {
 
@@ -182,6 +186,8 @@ sub cmdset($self) {
     # make segment
     seg => [$BARE],
     rom => [$BARE],
+    ram => [$BARE],
+    exe => [$BARE],
 
     # user command maker
     cmd        => [$BARE,$OPT_VLIST,$CURLY],
@@ -204,6 +210,15 @@ sub cmdset($self) {
     ),
 
     'flag-list' => [$OPT_QLIST],
+
+
+    # instructions
+    ( map {$ARG => [$OPT_QLIST]}
+      @{$imp->list()}
+
+    ),
+
+    'A9M-ins'   => [$OPT_QLIST],
 
 
   };
@@ -387,6 +402,201 @@ subwraps(
 );
 
 # ---   *   ---   *   ---
+# template: read instruction
+
+sub A9M_ins_parse($self,$branch) {
+
+
+  # get ctx
+  my $rd   = $self->{rd};
+  my $mc   = $rd->{mc};
+  my $ISA  = $mc->{ISA};
+
+
+  # solve argument tree
+  my $idex = 0;
+  my @list = $self->A9M_recarg($branch,\$idex);
+
+
+  # ^break down array
+  my $type=undef;
+  my @args=();
+
+  array_map \@list,sub ($kref,$vref) {
+
+    my $k=$$kref;
+    my $v=$$vref;
+
+    if($k ne 'type') {
+      push @args,$v;
+
+    } else {
+      $type=$v;
+
+    };
+
+
+  },'kv';
+
+
+  # fetch default instruction size
+  $type //= $ISA->deft();
+
+
+  # write instruction to current segment
+  my $have=$mc->exewrite(
+    $mc->{scope}->{mem},
+    [$type,$branch->{cmdkey},@args]
+
+  );
+
+  # ^catch encoding fail
+  $rd->perr("cannot encode instruction")
+  if ! length $have;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^template: read operand
+
+sub A9M_arg($self,$branch,$iref) {
+
+  # get ctx
+  my $rd  = $self->{rd};
+  my $mc  = $rd->{mc};
+  my $l1  = $rd->{l1};
+
+  my $src = $branch->{value};
+
+
+  # recurse on list
+  if(defined $l1->is_list($src)) {
+    return $self->A9M_recarg($branch,$iref);
+
+
+  # ^have number?
+  } elsif(defined (my $num=$l1->is_num($src))) {
+
+    my $type=(16 > bitsize $num)
+      ? 'ix'
+      : 'iy'
+      ;
+
+    return
+
+       "arg".$$iref++
+    => {type=>$type,imm=>$num};
+
+
+  # ^have type specifier?
+  } elsif(defined (my $type=$l1->is_type($src))) {
+
+    return
+
+      type=>$branch->{vref},
+      $self->A9M_recarg($branch,$iref);
+
+
+  # ^operation?
+  } elsif(defined $l1->is_opera($src)) {
+
+
+    # have memory operand?
+    my $b=$branch->{leaves}->[0];
+    if(defined $l1->is_branch($b->{value})) {
+
+
+      # NOTE:
+      #
+      #   value tree collapsing is NYI
+      #   so all we can do here is identify
+      #   immediate offsets!
+
+      my ($imm)=map {
+
+        my ($x,$have)=
+          $self->value_solve($ARG);
+
+        $l1->quantize($x);
+
+      } @{$b->{leaves}};
+
+
+      # is symbol ref?
+      my $ptrcls = $mc->{bk}->{ptr};
+      my $seg    = $mc->{scope};
+
+      if($ptrcls->is_valid($imm)) {
+        $seg=$imm->getseg();
+        $imm=$imm->{addr};
+
+      };
+
+
+      return "arg".$$iref++ => {
+
+        type => 'mimm',
+
+        seg  => $mc->segid($seg),
+        imm  => $imm,
+
+      };
+
+
+    };
+
+
+  # ^have bareword
+  } else {
+
+    my $reg  = $mc->{bk}->{anima};
+    my $idex = $reg->tokin($src);
+
+    my $type = (defined $idex)
+      ? 'r'
+      : nyi 'bareword operands'
+      ;
+
+    if($type eq 'r') {
+
+      return
+
+         "arg".$$iref++
+      => {type=>$type,reg=>$idex};
+
+    };
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^recursively
+
+sub A9M_recarg($self,$branch,$iref) {
+  map {$self->A9M_arg($ARG,$iref)}
+  @{$branch->{leaves}};
+
+};
+
+# ---   *   ---   *   ---
+# ^icef*ck
+
+subwraps(
+
+  q[$self->A9M_ins_parse]=>q[$self,$branch],
+
+  map {[
+    "${ARG}_parse" => "\$branch"
+
+  ]} qw(load store)
+
+);
+
+# ---   *   ---   *   ---
 # make new segment
 
 sub seg_parse($self,$branch) {
@@ -418,12 +628,30 @@ sub seg_parse($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# ^shorthand: const seg
+# ^shorthand: segment types
 
 sub rom_parse($self,$branch) {
 
   my $seg=$self->seg_parse($branch);
-  $seg->{const}=1;
+  $seg->{writeable}=0;
+
+  return $seg;
+
+};
+
+sub ram_parse($self,$branch) {
+
+  my $seg=$self->seg_parse($branch);
+  $seg->{writeable}=1;
+
+  return $seg;
+
+};
+
+sub exe_parse($self,$branch) {
+
+  my $seg=$self->seg_parse($branch);
+  $seg->{executable}=1;
 
   return $seg;
 
@@ -477,11 +705,10 @@ sub data_decl_parse($self,$branch) {
     if $scope->has($n);
 
     # *attempt* solving
-    my ($x,$have)=
-      $self->value_solve($type,$n,$v);
+    my ($x,$have)=$self->value_solve($v);
 
     # ^reserve space
-    $x=$l1->quantize($type,$x);
+    $x=$l1->quantize($x);
     $mc->decl($type,$n,$x);
 
     # ^give if not solved!
@@ -497,10 +724,9 @@ sub data_decl_parse($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# ^save [name=>value] to current namespace
-# but only if we were able to solve it!
+# try to make sense of a symbol!
 
-sub value_solve($self,$type,$name,$value) {
+sub value_solve($self,$value) {
 
 
   # get ctx
@@ -650,10 +876,7 @@ sub data_decl_ctx($self,$branch) {
   my @have = map {
 
     my ($name,$value) = @$ARG;
-    my ($have,$x)     = $self->value_solve(
-      $type,$name,$value
-
-    );
+    my ($have,$x)     = $self->value_solve($value);
 
     if($have) {
 
@@ -662,7 +885,7 @@ sub data_decl_ctx($self,$branch) {
       my $ref     = $mc->search($name);
       my $mem     = $$ref->getseg();
 
-      my $x       = $l1->quantize($type,$x);
+      my $x       = $l1->quantize($x);
 
 
       # have ptr?

@@ -81,8 +81,9 @@ sub proc_parse($self) {
     ;
 
   # ^save current
-  my $old=$rd->{branch};
-  my $rec=0;
+  my $old  = $rd->{branch};
+  my @recl = ();
+  my $rec  = 0;
 
 
   # ^walk
@@ -98,6 +99,18 @@ sub proc_parse($self) {
     };
 
 
+    # go next
+    push    @recl,[$nd,$rec];
+    unshift @pending,@{$nd->{leaves}},0;
+
+    $rec=1;
+
+  };
+
+  map {
+
+    my ($nd,$rec)=@$ARG;
+
     # proc sub-branch
     $rd->{branch}=$nd;
 
@@ -105,8 +118,6 @@ sub proc_parse($self) {
     $self->dopera();
     $self->opera();
 
-    # join [token] :: [token]
-    $self->symbol();
 
     # sort lists and sub-branches
     $self->cslist();
@@ -120,16 +131,11 @@ sub proc_parse($self) {
     # ^enqueue exec layer
     push @cmd,[@$cmd,$rec] if $cmd && $cmd ne 1;
 
-
-    # go next
-    unshift @pending,@{$nd->{leaves}},0;
-    $rec=1;
-
-  };
+  } reverse @recl;
 
 
   # run enqueued commands
-  $self->exec_queue(reverse @cmd);
+  $self->exec_queue(@cmd);
 
   # restore starting branch
   $rd->{branch}=$old;
@@ -309,42 +315,6 @@ sub _seq_temple($fn,$branch,@seq) {
 };
 
 # ---   *   ---   *   ---
-# identify token sequences
-# matching [any] :: [any]
-
-sub symbol($self) {
-
-  # get ctx
-  my $rd  = $self->{rd};
-  my $l1  = $rd->{l1};
-
-  # build/fetch regex sequence
-  my $re  = $l1->tagre(OPERA=>'::');
-  my @seq = ($ANY_MATCH,$re,$ANY_MATCH);
-
-
-  my $branch=$rd->{branch};
-
-
-  # roll [any] :: [any]
-  _seq_temple(sub ($idex) {
-
-    my @lv=@{$branch->{leaves}};
-       @lv=@lv[$idex..$idex+2];
-
-    # cat next to first
-    $lv[0]{value} .="\::$lv[2]->{value}";
-
-    # drop first and discard the rest
-    shift @lv;
-    $branch->pluck(@lv);
-
-
-  },$branch,@seq);
-
-};
-
-# ---   *   ---   *   ---
 # identify comma-separated lists
 
 sub cslist($self) {
@@ -418,13 +388,12 @@ sub dopera($self) {
 
   );
 
-  my @seq=($re,$re);
-
-
+  my @seq    = ($re,$re);
   my $branch = $rd->{branch};
 
-  # split at [any] , [any]
+
   _seq_temple(sub ($idex) {
+
 
     my @lv=@{$branch->{leaves}};
        @lv=@lv[$idex..$idex+1];
@@ -560,6 +529,8 @@ sub opera($self) {
 # ^errme
 
 sub throw_no_operands($self,$char) {
+
+  $self->{rd}->{branch}->prich();
 
   $self->{rd}->perr(
     "no operands for `[op]:%s`",

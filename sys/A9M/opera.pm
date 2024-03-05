@@ -30,260 +30,268 @@ package A9M::opera;
   use Bpack;
 
   use Arstd::Bytes;
+  use Arstd::Array;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-St::vconst { table=>[
+St::vconst {
+
+  table => [
 
 
-  # imm/mem/reg to reg
-  load => {
+    # imm/mem/reg to reg
+    load => {
 
-    fn       => 'copy',
-    load_dst => 0,
+      fn       => 'copy',
+      load_dst => 0,
 
-    dst      => 'r',
-    src      => 'rmi',
+      dst      => 'r',
+      src      => 'rmi',
 
-  },
+    },
 
-  # reg to mem
-  store => {
+    # reg to mem
+    store => {
 
-    fn       => 'copy',
-    load_dst => 0,
+      fn       => 'copy',
+      load_dst => 0,
 
-    dst      => 'm',
-    src      => 'r',
+      dst      => 'm',
+      src      => 'r',
 
-  },
+    },
 
-#  # our beloved
-#  # load effective address ;>
-#  lea => {
-#
-#    load_dst => 0,
-#    load_src => 0,
-#
-#    dst      => 'r',
-#    src      => 'm',
-#
-#  },
-#
-#
-#  # bitops
-#  xor => {
-#    dst  => 'r',
-#    src  => 'ri',
-#
-#  },
-#
-#  and => {
-#    dst  => 'r',
-#    src  => 'ri',
-#
-#  },
-#
-#  or => {
-#    dst  => 'r',
-#    src  => 'ri',
-#
-#  },
-#
-#  not => {
-#
-#    argcnt => 1,
-#
-#    dst    => 'r',
-#    src    => 'ri',
-#
-#  },
-#
-#
-#  # bitmask, all ones
-#  bones => {
-#
-#    dst        => 'r',
-#    src        => 'ri',
-#
-#    fix_immsrc => 1,
-#    fix_regsrc => 3,
-#
-#  },
-#
-#
-#  # bitshift left/right
-#  shl => {
-#
-#    dst        => 'r',
-#    src        => 'ri',
-#
-#    fix_immsrc => 1,
-#    fix_regsrc => 3,
-#
-#  },
-#
-#  shr => {
-#
-#    dst        => 'r',
-#    src        => 'ri',
-#
-#    fix_immsrc => 1,
-#    fix_regsrc => 3,
-#
-#  },
-#
-#
-#  # bitscan <3
-#  bsf => {
-#    dst => 'r',
-#    src => 'r',
-#
-#  },
-#
-#  bsr => {
-#    dst => 'r',
-#    src => 'r',
-#
-#  },
-#
-#
-#  # bit rotate right
-#  # a thing of pure beauty!
-#  ror => {
-#
-#    dst        => 'r',
-#    src        => 'ri',
-#
-#    fix_immsrc => 1,
-#    fix_regsrc => 3,
-#
-#  },
-#
-#  # ^rotate left ;>
-#  rol => {
-#
-#    dst        => 'r',
-#    src        => 'ri',
-#
-#    fix_immsrc => 1,
-#    fix_regsrc => 3,
-#
-#  },
-#
-#
-#  # math
-#  add => {
-#    dst  => 'r',
-#    src  => 'ri',
-#
-#  },
-#
-#  sub => {
-#    dst  => 'r',
-#    src  => 'ri',
-#
-#  },
-#
-#
-#  mul => {
-#    dst  => 'r',
-#    src  => 'r',
-#
-#  },
-#
-#  # the mnemonic for 'division' should be 'avoid'
-#  # but that may confuse some people ;>
-#  div => {
-#    dst  => 'r',
-#    src  => 'r',
-#
-#  },
-#
-#
-#  # ++/--
-#  inc => {
-#    argcnt => 1,
-#    dst    => 'r',
-#
-#  },
-#
-#  dec => {
-#    argcnt => 1,
-#    dst    => 'r',
-#
-#  },
-#
-#
-#  # negate
-#  neg => {
-#
-#    argcnt => 1,
-#
-#    dst    => 'r',
-#    src    => 'ri',
-#
-#  },
-#
-#
-#  # stack ctl
-#  push => {
-#
-#    dst       => 'rmi',
-#    argcnt    => 1,
-#    overwrite => 0,
-#
-#    fix_size  => ['qword'],
-#
-#  },
-#
-#  pop => {
-#
-#    dst       => 'r',
-#    argcnt    => 1,
-#    overwrite => 1,
-#
-#    load_dst  => 0,
-#    fix_size  => ['qword'],
-#
-#  },
-#
-#
-#  # control flow
-#  jmp => {
-#
-#    argcnt => 1,
-#    dst    => 'rmi',
-#
-#    overwrite => 0,
-#    fix_size  => ['qword'],
-#
-#  },
-#
-#  call => {
-#
-#    argcnt    => 1,
-#    dst       => 'rmi',
-#
-#    overwrite => 0,
-#    fix_size  => ['qword'],
-#
-#  },
-#
-#  ret => {
-#    argcnt=>0,
-#
-#  },
+  #  # our beloved
+  #  # load effective address ;>
+  #  lea => {
+  #
+  #    load_dst => 0,
+  #    load_src => 0,
+  #
+  #    dst      => 'r',
+  #    src      => 'm',
+  #
+  #  },
+  #
+  #
+  #  # bitops
+  #  xor => {
+  #    dst  => 'r',
+  #    src  => 'ri',
+  #
+  #  },
+  #
+  #  and => {
+  #    dst  => 'r',
+  #    src  => 'ri',
+  #
+  #  },
+  #
+  #  or => {
+  #    dst  => 'r',
+  #    src  => 'ri',
+  #
+  #  },
+  #
+  #  not => {
+  #
+  #    argcnt => 1,
+  #
+  #    dst    => 'r',
+  #    src    => 'ri',
+  #
+  #  },
+  #
+  #
+  #  # bitmask, all ones
+  #  bones => {
+  #
+  #    dst        => 'r',
+  #    src        => 'ri',
+  #
+  #    fix_immsrc => 1,
+  #    fix_regsrc => 3,
+  #
+  #  },
+  #
+  #
+  #  # bitshift left/right
+  #  shl => {
+  #
+  #    dst        => 'r',
+  #    src        => 'ri',
+  #
+  #    fix_immsrc => 1,
+  #    fix_regsrc => 3,
+  #
+  #  },
+  #
+  #  shr => {
+  #
+  #    dst        => 'r',
+  #    src        => 'ri',
+  #
+  #    fix_immsrc => 1,
+  #    fix_regsrc => 3,
+  #
+  #  },
+  #
+  #
+  #  # bitscan <3
+  #  bsf => {
+  #    dst => 'r',
+  #    src => 'r',
+  #
+  #  },
+  #
+  #  bsr => {
+  #    dst => 'r',
+  #    src => 'r',
+  #
+  #  },
+  #
+  #
+  #  # bit rotate right
+  #  # a thing of pure beauty!
+  #  ror => {
+  #
+  #    dst        => 'r',
+  #    src        => 'ri',
+  #
+  #    fix_immsrc => 1,
+  #    fix_regsrc => 3,
+  #
+  #  },
+  #
+  #  # ^rotate left ;>
+  #  rol => {
+  #
+  #    dst        => 'r',
+  #    src        => 'ri',
+  #
+  #    fix_immsrc => 1,
+  #    fix_regsrc => 3,
+  #
+  #  },
+  #
+  #
+  #  # math
+  #  add => {
+  #    dst  => 'r',
+  #    src  => 'ri',
+  #
+  #  },
+  #
+  #  sub => {
+  #    dst  => 'r',
+  #    src  => 'ri',
+  #
+  #  },
+  #
+  #
+  #  mul => {
+  #    dst  => 'r',
+  #    src  => 'r',
+  #
+  #  },
+  #
+  #  # the mnemonic for 'division' should be 'avoid'
+  #  # but that may confuse some people ;>
+  #  div => {
+  #    dst  => 'r',
+  #    src  => 'r',
+  #
+  #  },
+  #
+  #
+  #  # ++/--
+  #  inc => {
+  #    argcnt => 1,
+  #    dst    => 'r',
+  #
+  #  },
+  #
+  #  dec => {
+  #    argcnt => 1,
+  #    dst    => 'r',
+  #
+  #  },
+  #
+  #
+  #  # negate
+  #  neg => {
+  #
+  #    argcnt => 1,
+  #
+  #    dst    => 'r',
+  #    src    => 'ri',
+  #
+  #  },
+  #
+  #
+  #  # stack ctl
+  #  push => {
+  #
+  #    dst       => 'rmi',
+  #    argcnt    => 1,
+  #    overwrite => 0,
+  #
+  #    fix_size  => ['qword'],
+  #
+  #  },
+  #
+  #  pop => {
+  #
+  #    dst       => 'r',
+  #    argcnt    => 1,
+  #    overwrite => 1,
+  #
+  #    load_dst  => 0,
+  #    fix_size  => ['qword'],
+  #
+  #  },
+  #
+  #
+  #  # control flow
+  #  jmp => {
+  #
+  #    argcnt => 1,
+  #    dst    => 'rmi',
+  #
+  #    overwrite => 0,
+  #    fix_size  => ['qword'],
+  #
+  #  },
+  #
+  #  call => {
+  #
+  #    argcnt    => 1,
+  #    dst       => 'rmi',
+  #
+  #    overwrite => 0,
+  #    fix_size  => ['qword'],
+  #
+  #  },
+  #
+  #  ret => {
+  #    argcnt=>0,
+  #
+  #  },
 
 
-]};
+  ],
+
+
+  list  => sub {[array_keys $_[0]->table()]},
+
+};
 
 # ---   *   ---   *   ---
 # run generic op on value

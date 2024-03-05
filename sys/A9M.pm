@@ -134,16 +134,13 @@ sub new($class,%O) {
 };
 
 # ---   *   ---   *   ---
-# dump instructions to new segment
+# dump instructions to segment
 
-sub exewrite($self,$label,@program) {
-
-
-  # make blank segment
-  my $seg=$self->{cas}->new(0x00,$label);
+sub exewrite($self,$seg,@program) {
 
 
   # walk input
+  my $total=0;
   map {
 
 
@@ -151,8 +148,9 @@ sub exewrite($self,$label,@program) {
     my ($opcd,$size)=$self->{ISA}->encode(@$ARG);
     return null if $opcd eq null;
 
-    # grow buf to fit
-    $seg->brk($size);
+    # grow buf if need
+    $seg->brkfit($size);
+    $total += $size;
 
 
     # write opcode to buf
@@ -182,7 +180,7 @@ sub exewrite($self,$label,@program) {
   $seg->align($align->{sizeof});
 
 
-  return $seg;
+  return $total;
 
 };
 
@@ -332,9 +330,9 @@ sub scope($self,@path) {
 };
 
 # ---   *   ---   *   ---
-# wraps mem->search
+# template: wraps mem->search
 
-sub search($self,$name,@path) {
+sub _search($self,$name,@path) {
 
 
   # default to current path
@@ -354,8 +352,43 @@ sub search($self,$name,@path) {
   my @have = $mem->search(\@alt,@path);
 
 
+  return @have;
+
+};
+
+# ---   *   ---   *   ---
+# ^deref found
+
+sub dsearch($self,$name,@path) {
+
+  # get ctx
+  my $mem  = $self->{cas};
+  my $tree = $mem->{inner};
+
+
+  # solve path
+  @path=$self->_search($name,@path);
+
   # give name if found
-  my $out = $tree->has(@have)
+  return $tree->has(@path);
+
+};
+
+# ---   *   ---   *   ---
+# ^deref+errme
+
+sub search($self,$name,@path) {
+
+  # get ctx
+  my $mem  = $self->{cas};
+  my $tree = $mem->{inner};
+
+
+  # solve path
+  @path=$self->_search($name,@path);
+
+  # give name if found
+  my $out = $tree->has(@path)
   or return badfet($name,@path);
 
 
