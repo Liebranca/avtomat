@@ -281,7 +281,7 @@ sub rcollapse_cmdlist($self,$branch,$fn) {
   push @list,@{$branch->{vref}}
   if exists $branch->{vref};
 
-  $branch->{vref} //= \@list;
+  $branch->{vref} = \@list;
 
 
   # parent is command, keep collapsing
@@ -294,7 +294,7 @@ sub rcollapse_cmdlist($self,$branch,$fn) {
     push @{$par->{vref}},@list;
 
     # ^remove this token
-    $branch->discard();
+    $branch->flatten_branch();
 
 
     return;
@@ -665,6 +665,7 @@ sub exe_parse($self,$branch) {
 
 sub data_decl_parse($self,$branch) {
 
+
   # get ctx
   my $rd    = $self->{rd};
   my $l1    = $rd->{l1};
@@ -879,7 +880,6 @@ sub data_decl_ctx($self,$branch) {
     my ($have,$x)     = $self->value_solve($value);
 
     if($have) {
-
 
       # fetch value
       my $ref     = $mc->search($name);

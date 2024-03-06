@@ -32,7 +32,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -43,7 +43,14 @@ package rd::l2;
 
   };
 
-  Readonly my $OPERA_PRIO  => "&|^*/-+.:<>~?!=";
+  Readonly my $OPERA_BINARY => {
+
+    map {$ARG=>1}
+    qw  (+ - * / & ^ < > <= >= !)
+
+  };
+
+  Readonly my $OPERA_PRIO  => "&|^*/-+<>~?!=";
 
 # ---   *   ---   *   ---
 # cstruc
@@ -85,7 +92,6 @@ sub proc_parse($self) {
   my @recl = ();
   my $rec  = 0;
 
-
   # ^walk
   while(@pending) {
 
@@ -98,6 +104,9 @@ sub proc_parse($self) {
 
     };
 
+    # join operators
+    $rd->{branch}=$nd;
+    $self->dopera();
 
     # go next
     push    @recl,[$nd,$rec];
@@ -115,7 +124,6 @@ sub proc_parse($self) {
     $rd->{branch}=$nd;
 
     # sort operators
-    $self->dopera();
     $self->opera();
 
 
@@ -227,16 +235,18 @@ sub proc_ctx($self,$nd,$Q) {
 };
 
 # ---   *   ---   *   ---
-# ~
+# interpret node as a value
 
-sub value_solve($self,$src=undef) {
+sub value_solve($self,$src=undef,$rec=0) {
 
   # default to current branch
   my $rd    = $self->{rd};
      $src //= $rd->{branch};
 
   # get ctx
-  my $l1    = $rd->{l1};
+  my $mc     = $rd->{mc};
+  my $l1     = $rd->{l1};
+  my $ptrcls = $mc->{bk}->{ptr};
 
 
   # output null if unsolved
@@ -250,14 +260,134 @@ sub value_solve($self,$src=undef) {
       : $src->{value}
       ;
 
-  # ^nope, need some extra work!
+  # ^nope, recurse to solve tree
   } else {
-    $src->prich();
-    nyi('value collapse');
+    $out=$self->value_collapse($src);
 
   };
 
 
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^interpret node *tree* as value
+
+sub value_collapse($self,$src) {
+
+
+  # get ctx
+  my $rd     = $self->{rd};
+  my $mc     = $rd->{mc};
+  my $l1     = $rd->{l1};
+
+  my $ptrcls = $mc->{bk}->{ptr};
+
+
+  # recurse for each leaf
+  my @lv   = @{$src->{leaves}};
+  my @args = map {
+
+    my $y=$self->value_solve($ARG,1);
+    my $x=$l1->quantize($y);
+
+    # make copy if X is ptr
+    if($ptrcls->is_valid($x)) {
+      $x=bless {%$x},$ptrcls;
+
+    };
+
+    (length $x) ? $x : () ;
+
+
+  } @lv;
+
+
+  # ^fail if we have unsolved leaves
+  return null
+  if int @lv != int @args;
+
+
+  # ^else keep going
+  my $out   = null;
+
+  my $fn    = $src->{value};
+  my @deref = map {
+
+    # have ptr?
+    if($ptrcls->is_valid($ARG)) {
+      $ARG->{addr};
+
+    # ^nope, plain value
+    } else {$ARG};
+
+  } @args;
+
+  my $ptrdst=$ptrcls->is_valid($args[0]);
+
+
+  # have operator?
+  if(defined (my $opera=$l1->is_opera($fn))) {
+
+    $deref[0]=eval {
+
+      # [ARG]
+      if($opera=~ qr{[\(\[\{]}) {
+
+        if($opera eq '[' && $ptrdst) {
+          $ptrdst=0;
+          $args[0]->load();
+
+        } else {
+          $deref[0];
+
+        };
+
+      # [*ARG | ARG*]
+      } elsif(exists $OPERA_UNARY->{$opera}) {
+
+        my $s=($fn=~ qr{right$})
+          ? "$opera$deref[0]"
+          : "$deref[0]$opera"
+          ;
+
+        eval $s;
+
+      # [ARG*ARG]
+      } elsif(exists $OPERA_BINARY->{$opera}) {
+        eval "$deref[0]$opera$deref[1]";
+
+      };
+
+    };
+
+
+    # 'weird' operators not yet implemented ;>
+    nyi "[`$opera]" if ! defined $out;
+
+
+    # ~
+    if($ptrdst) {
+      $args[0]->{addr}=$deref[0];
+
+    } else {
+      $args[0]=$deref[0];
+
+    };
+
+
+    $out=$args[0];
+
+
+  # have sub-branch?
+  } elsif(defined (my $b=$l1->is_branch($fn))) {
+    $out=$args[0];
+
+  };
+
+
+  # give token
   return $out;
 
 };

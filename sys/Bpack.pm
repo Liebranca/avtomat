@@ -25,7 +25,7 @@ package Bpack;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
- use Chk;
+  use Chk;
   use Type;
 
   use Arstd::Array;

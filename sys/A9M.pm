@@ -435,7 +435,7 @@ sub decl($self,$type,$name,$value,@subseg) {
   my ($ptr_t) = Type->is_ptr($type);
 
   $ptr_t=(length $ptr_t)
-    ? "$type->{name} $ptr_t"
+    ? "$ptr_t"
     : undef
     ;
 

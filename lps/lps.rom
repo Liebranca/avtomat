@@ -1,9 +1,11 @@
 %;
 
 RAM data;
-  byte i $01;
+  byte a $00;
+  byte b $21;
+  tiny c a+1;
 
 EXE code;
   load  byte ar,$24;
-  store [data::i],ar;
+  store byte [data::a],ar;
 

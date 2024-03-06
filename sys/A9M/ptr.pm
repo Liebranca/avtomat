@@ -109,6 +109,18 @@ sub read_ptr($self) {
 };
 
 # ---   *   ---   *   ---
+# ^gives value as an addr
+
+sub as_ptr($self) {
+
+  my $seg  = $self->getseg();
+  my $mc   = $seg->getmc();
+
+  return $mc->encode_ptr($seg,$self->{addr});
+
+};
+
+# ---   *   ---   *   ---
 # put value
 
 sub store($self,$value,%O) {

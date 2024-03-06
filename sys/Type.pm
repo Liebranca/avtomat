@@ -66,7 +66,7 @@ package Type;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.04.2;
+  our $VERSION = v0.04.3;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -75,13 +75,19 @@ package Type;
   Readonly our $DEFAULT=>typefet 'word';
 
 # ---   *   ---   *   ---
-# shut up, I target 64-bit
+# kindly shut up
 
 BEGIN {
 
   $SIG{__WARN__}=sub {
+
     my $warn=shift;
-    return if $warn=~ m[non-portable];
+
+    return if $warn=~ qr{
+      non-portable
+    | format \s wrapped
+
+    }x;
 
     warn $warn;
 

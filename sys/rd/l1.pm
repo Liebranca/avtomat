@@ -35,7 +35,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#a
+  our $VERSION = v0.01.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -380,6 +380,10 @@ sub quantize($self,$src=undef) {
   my $rd    = $self->{rd};
      $src //= $rd->{token};
 
+  # skip on undef/null
+  return null
+  if ! defined $src ||! length $src;
+
 
   # have ptr?
   my $mc     = $rd->{mc};
@@ -392,6 +396,7 @@ sub quantize($self,$src=undef) {
   my ($type,$spec)=$self->read_tag($src);
   my $have=$self->detag($src);
 
+  return $src if ! $type;
   $type=$TAG_T->{$type};
 
 

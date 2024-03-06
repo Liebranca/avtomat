@@ -463,7 +463,7 @@ sub ptr($self,$to,%O) {
 
   # validate ptr type
   $O{ptr_t}=typefet $O{ptr_t}
-  or return badtype;
+  or return null;
 
   # ^validate *complete* type
   my $complete=
@@ -511,7 +511,7 @@ sub ptr($self,$to,%O) {
   );
 
   # ^set value and give
-  $ptr->store($ptrv);
+  $ptr->store($ptrv,deref=>0);
 
 
   return $ptr;
@@ -527,7 +527,7 @@ sub infer($self,$value,%O) {
   my $class=$self->get_ptr_bk();
 
   ($class->is_valid($value))
-    ? $self->ptr($value,%O)
+    ? $self->ptr($value,%O,store_at=>$O{addr})
     : $self->lvalue($value,%O)
     ;
 
@@ -556,6 +556,7 @@ sub decl($self,$type,$name,$value,%O) {
 
   # make ice
   my $ptr=$self->infer($value,%O);
+  return $ptr if ! length $ptr;
 
 
   # go next and give
