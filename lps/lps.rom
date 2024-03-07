@@ -1,11 +1,13 @@
 %;
 
 RAM data;
+
   byte a $00;
   byte b $21;
-  tiny c a+1;
 
-EXE code;
-  load  byte ar,$24;
-  store byte [data::a],ar;
+  x a+b;
+
+#EXE code;
+#  load  byte ar,$24;
+#  store byte [data::c],ar;
 

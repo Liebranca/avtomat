@@ -32,7 +32,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -622,6 +622,18 @@ sub opera($self) {
     my $lh   = $par->{leaves}->[$idex-1];
 
 
+    # edge case:
+    #
+    #   if lh is first token in expression,
+    #   it is the parent node!
+
+    if($rh && $rh eq $lh) {
+      $lh=$par->inew($par->{value});
+      $par->repl($ARG);
+
+    };
+
+
     # have unary operator?
     if($OPERA_UNARY->{$char}) {
 
@@ -735,7 +747,8 @@ sub cmd($self) {
 
     # get variation for current pass
     my ($type,$value)=$l1->read_tag($key);
-    my $fn=$lx->passf($value);
+    my $fn=$lx->stagef($value);
+
 
     # ^save key
     $rd->{branch}->{cmdkey}=$value;

@@ -139,6 +139,7 @@ sub new($class,$src,%O) {
     # execution layer
     lx      => undef,
     pass    => 0,
+    stage   => 0,
 
     mc      => $O{mc}->{cls}->new(%{$O{mc}}),
 
@@ -183,18 +184,25 @@ sub crux($src,%O) {
 
   # ^run and give
   $self->proc_parse();
-  $self->proc_ctx();
+  $self->proc_solve();
 
   return $self;
 
 };
 
 # ---   *   ---   *   ---
-# advance pass
+# advance pass/stage
 
 sub next_pass($self) {
   $self->{pass}++;
   $self->{-at}=0;
+
+};
+
+sub next_stage($self) {
+
+  $self->next_pass();
+  $self->{stage}++;
 
 };
 
@@ -235,7 +243,7 @@ sub step($self,$fn,@args) {
 };
 
 # ---   *   ---   *   ---
-# first pass
+# first stage
 
 sub proc_parse($self) {
 
@@ -257,15 +265,15 @@ sub proc_parse($self) {
   delete $self->{nest};
 
   # go next and give
-  $self->next_pass();
+  $self->next_stage();
   return;
 
 };
 
 # ---   *   ---   *   ---
-# ^second pass
+# ^second stage
 
-sub proc_ctx($self) {
+sub proc_solve($self) {
 
   # get ctx
   my $l2 = $self->{l2};
@@ -639,7 +647,7 @@ sub cstruc_layers($self) {
 # get char-parse logic
 
 sub get_l0($class) {
-  cload('rd::l0');
+  cload  'rd::l0';
   return 'rd::l0';
 
 };
@@ -648,7 +656,7 @@ sub get_l0($class) {
 # get token logic
 
 sub get_l1($class) {
-  cload('rd::l1');
+  cload  'rd::l1';
   return 'rd::l1';
 
 };
@@ -657,7 +665,7 @@ sub get_l1($class) {
 # get expression logic
 
 sub get_l2($class) {
-  cload('rd::l2');
+  cload  'rd::l2';
   return 'rd::l2';
 
 };
@@ -666,7 +674,7 @@ sub get_l2($class) {
 # get execution layer
 
 sub get_lx($class) {
-  cload('rd::lx');
+  cloadi 'rd::lx';
   return 'rd::lx';
 
 };

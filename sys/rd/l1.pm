@@ -63,6 +63,7 @@ package rd::l1;
 
     ['*' => 'CMD'],
     ['T' => 'TYPE'],
+    ['R' => 'REG'],
 
     ['`' => 'OPERA'],
     ['%' => 'STRING'],
@@ -322,14 +323,22 @@ sub proc_parse($self,$src=undef) {
      $src //= $rd->{token};
 
   # get ctx
+  my $mc    = $rd->{mc};
+
   my $CMD   = $rd->{lx}->load_CMD();
+  my $reg   = $mc->{bk}->{anima};
   my $key   = $src;
 
 
   # is command?
   if((lc $key)=~ $CMD->{-re}) {
-    $key='CMD';
     $src=lc $src;
+    $key='CMD';
+
+  # is register?
+  } elsif(defined (my $idex=$reg->tokin($key))) {
+    $src=$idex;
+    $key='REG';
 
   # is number?
   } elsif(defined (my $is_num=sstoi($key,0))) {
@@ -401,7 +410,7 @@ sub quantize($self,$src=undef) {
 
 
   # have plain number?
-  if($type eq 'NUM') {
+  if($type eq 'NUM' || $type eq 'REG') {
     return $spec;
 
   # have string?

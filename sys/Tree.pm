@@ -37,7 +37,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.8;
+  our $VERSION = v0.02.9;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -45,7 +45,8 @@ package Tree;
 
   sub Frame_Vars($class) {return {
 
-    -roots=>{},
+    -roots    => {},
+    -autoload => [qw(from_list)],
 
   }};
 
@@ -100,6 +101,54 @@ sub from_hashref($frame,$h) {
   };
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# cstruc from a list
+
+sub from_list($class,$frame,@src) {
+
+
+  # first element is first node
+  my $root=shift @src;
+     $root=$frame->new(undef,$root);
+
+  # ^cat to it
+  my $anchor = [$root];
+  my $prev   = $root;
+
+
+  # the rest of the elements are
+  # leaf nodes!
+  while(@src) {
+
+
+    # go up one level on undef
+    my $leaf=shift @src;
+
+    if(! defined $leaf) {
+      pop @$anchor;
+      next;
+
+
+    # go down one level on array
+    } elsif(is_arrayref $leaf) {
+      push    @$anchor,$prev;
+      unshift @src,@$leaf,undef;
+
+
+    # make node at current level on value
+    } else {
+      $prev=$anchor->[-1]->inew($leaf);
+
+    };
+
+
+  };
+
+
+  return $root;
 
 };
 

@@ -48,15 +48,18 @@ package Arstd::PM;
 
     codeof
     argsof
+    rcaller
 
     autoload_prologue
     throw_bad_autoload
 
     beqwraps
     subwraps
+    impwraps
 
     get_static
     cload
+    cloadi
 
     fvars
 
@@ -195,11 +198,12 @@ sub submerge($classes,%O) {
   my %subs=subsof($classes,%O,main=>$main);
 
   # ^bat-xfer
-  map {add_symbol(
+  map { add_symbol(
     "$main\::$ARG",
     "$subs{$ARG}\::$ARG"
 
   )} keys %subs;
+
 
   return %subs;
 
@@ -225,13 +229,30 @@ sub add_scalar($dst,$src) {
 };
 
 # ---   *   ---   *   ---
+# give first caller that
+# isn't Arstd::PM ;>
+
+sub rcaller {
+
+  my $i   = 1;
+  my $pkg = caller $i++;
+     $pkg = caller $i++
+
+  while $pkg eq __PACKAGE__;
+
+
+  return $pkg;
+
+};
+
+# ---   *   ---   *   ---
 # akin to selective inheritance
 # defines methods of attribute to wrap
 
 sub beqwraps($attr,@names) {
 
   no strict 'refs';
-  my $pkg=caller;
+  my $pkg=rcaller;
 
   map {
 
@@ -253,18 +274,43 @@ sub beqwraps($attr,@names) {
 sub subwraps($fn,$sig,@icebox) {
 
   no strict 'refs';
-  my $pkg=caller;
+  my $pkg=rcaller;
+
 
   map {
 
     my ($name,$args)=@$ARG;
 
-    my $wf="sub ($sig) {$fn($args)};";
-       $wf=eval $wf;
+    my $wf  = "sub ($sig) {$fn($args)};";
+       $wf  = eval $wf;
 
-    *{"$pkg\::$name"}=$wf;
+    my $dst = "$pkg\::$name";
+
+    *{$dst}=$wf;
+    [$dst,$name];
+
 
   } @icebox;
+
+};
+
+# ---   *   ---   *   ---
+# ^indirect: make wrappers
+# and add them to *another*
+# package!
+
+sub impwraps($dst,@args) {
+
+  my @names=subwraps @args;
+
+  map {
+    my ($src,$name)=@$ARG;
+    add_symbol("$dst\::$name",$src);
+
+  } @names;
+
+
+  return;
 
 };
 
@@ -447,6 +493,15 @@ sub cload(@pkg) {
     load $ARG if ! is_loaded($ARG);
 
   } @pkg;
+
+};
+
+# ---   *   ---   *   ---
+# ^forces calling of import method
+
+sub cloadi(@pkg) {
+  map  {load $ARG;$ARG->import()}
+  grep {! is_loaded($ARG)} @pkg;
 
 };
 
