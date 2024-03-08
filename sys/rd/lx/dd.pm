@@ -33,7 +33,7 @@ package rd::lx::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -45,6 +45,16 @@ sub import($class) {
 
   # get package we're merging with
   my $dst=rcaller;
+
+
+  # ^add segment-type methods
+  impwraps $dst,'$self->seg_parse' => q(
+    $self,$branch
+
+  ),
+
+  map {["${ARG}_parse" => "\$branch,'$ARG'"]}
+  qw  (rom ram exe);
 
 
   # ^add flag-type methods
@@ -98,10 +108,10 @@ sub cmdset($class,$ice) {
 
 
     # segment types
-    seg => [$BARE],
-    rom => [$BARE],
-    ram => [$BARE],
-    exe => [$BARE],
+    seg => [$SYM],
+    rom => [$SYM],
+    ram => [$SYM],
+    exe => [$SYM],
 
 
     # flags
@@ -179,7 +189,7 @@ sub flag_list_parse($self,$branch) {
 
   $branch->flatten_branch();
 
-  return;
+  return 1;
 
 };
 
@@ -192,6 +202,7 @@ sub flag_parse($self,$branch) {
   # get ctx
   my $rd=$self->{rd};
   my $l1=$rd->{l1};
+  my $l2=$rd->{l2};
 
 
   # rwalk specifier list
@@ -205,70 +216,90 @@ sub flag_parse($self,$branch) {
     );
 
 
-    return 'mut';
+    return $l2->node_mutate();
 
   });
 
 };
 
 # ---   *   ---   *   ---
-# make new segment
+# read segment decl/select
 
-sub seg_parse($self,$branch) {
+sub seg_parse($self,$branch,$type=null) {
 
-  my $rd   = $self->{rd};
-  my $mc   = $rd->{mc};
+  # get ctx
+  my $rd = $self->{rd};
+  my $l1 = $rd->{l1};
 
+  # clean name
   my $lv   = $branch->{leaves};
   my $name = $lv->[0]->{value};
+     $name = $l1->is_sym($name);
+
+
+  # prepare branch for ipret
+  $branch->{vref}={
+    type=>$type,
+    name=>$name,
+
+  };
+
+  $branch->clear();
+
+
+  # need mutate?
+  if(length $type) {
+
+    $branch->{value}=
+      $l1->make_tag(CMD=>'seg')
+    . "$type"
+    ;
+
+  };
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^step on
+
+sub seg_solve($self,$branch) {
+
+
+  # get ctx
+  my $rd = $self->{rd};
+  my $l1 = $rd->{l1};
+  my $mc = $rd->{mc};
+
+  # get segment name and type
+  my $data = $branch->{vref};
+  my $name = $data->{name};
+  my $type = $data->{type};
 
 
   # scoping or making new?
   my $mem  = $mc->{cas};
   my $have = $mem->haslv($name);
 
-  my $seg  = (! $have)
-    ? $mem->new(0x10,$name)
-    : $have
-    ;
+  # ^making new, decl and set flags
+  if(! $have) {
+
+    $have=$mem->new(0x10,$name);
+
+    $have->{writeable}  = int($type=~ qr{^ram$});
+    $have->{executable} = int($type=~ qr{^exe$});
+
+  };
 
 
   # make current and give
-  $mc->segid($seg);
-  $mc->scope($seg->ances_list());
+  $mc->segid($have);
+  $mc->scope($have->ances_list());
 
 
-  return $seg;
-
-};
-
-# ---   *   ---   *   ---
-# ^shorthand: segment types
-
-sub rom_parse($self,$branch) {
-
-  my $seg=$self->seg_parse($branch);
-  $seg->{writeable}=0;
-
-  return $seg;
-
-};
-
-sub ram_parse($self,$branch) {
-
-  my $seg=$self->seg_parse($branch);
-  $seg->{writeable}=1;
-
-  return $seg;
-
-};
-
-sub exe_parse($self,$branch) {
-
-  my $seg=$self->seg_parse($branch);
-  $seg->{executable}=1;
-
-  return $seg;
+  return $have;
 
 };
 
@@ -277,6 +308,8 @@ sub exe_parse($self,$branch) {
 #
 # not called directly, but rather
 # by mutation of [*type] (see: type_parse)
+#
+# reads a data declaration!
 
 sub data_decl_parse($self,$branch) {
 
@@ -302,40 +335,149 @@ sub data_decl_parse($self,$branch) {
   } @{$branch->{leaves}};
 
 
-  # ensure value for each name
-  # then attempt solving value
-  my $idex     = 0;
-  my @unsolved = map {
+  # get [name=>value] array
+  my $idex = 0;
+  my @list = map {
 
+
+    # ensure default value for each name
     $value->[$idex] //= $branch->inew(
       $l1->make_tag('NUM'=>0x00)
 
     );
 
+    # get symbol name
     my $n=$ARG->{value};
+       $n=$l1->is_sym($n);
+
+    # give [name=>value] and go next
     my $v=$value->[$idex++];
-
-
-    # redecl guard
-    $self->throw_redecl('value',$n)
-    if $scope->has($n);
-
-    # *attempt* solving
-    my ($x,$have)=$self->value_solve($v);
-
-    # ^reserve space
-    $x=$l1->quantize($x);
-    $mc->decl($type,$n,$x);
-
-    # ^give if not solved!
-    (! defined $have) ? [$n=>$v] : () ;
+    [$n=>$v];
 
 
   } @$name;
 
 
-  $self->wait_next_pass($branch,\@unsolved);
+  # prepare branch for ipret
+  $branch->{vref}={
+    type => $type,
+    list => \@list,
 
+  };
+
+  $branch->clear();
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^performs those declarations
+#
+# attempts solving values;
+# re-run the solve stage if
+# not all values resolved
+
+sub data_decl_solve($self,$branch) {
+
+  # get ctx
+  my $rd    = $self->{rd};
+  my $mc    = $rd->{mc};
+  my $l1    = $rd->{l1};
+
+  my $scope = $mc->{scope};
+
+  # get pending values
+  my $data = $branch->{vref};
+  my $type = $data->{type};
+  my $list = $data->{list};
+
+
+  # walk values pending resolution
+  my @have = map {
+
+
+    # unpack
+    my ($name,$value)=@$ARG;
+
+
+    # *attempt* solving
+    my ($x,$have)=
+      $self->value_solve($value);
+
+    $x=$l1->quantize($x);
+
+
+    # assume declaration on first pass
+    if(! $rd->{pass}) {
+
+      $self->throw_redecl('value',$name)
+      if $scope->has($name);
+
+      $mc->decl($type,$name,$x);
+
+
+    # ^else we're retrying value resolution
+    } elsif($have) {
+
+
+      # fetch value
+      my $ref = $mc->search($name);
+      my $mem = $$ref->getseg();
+
+      my $x   = $l1->quantize($x);
+
+
+      # have ptr?
+      my ($ptr_t) = Type->is_ptr($type);
+
+      # ^sanity check
+      my $ptrcls=$mc->{bk}->{ptr};
+      if($ptrcls->is_valid($x) &&! $ptr_t) {
+
+        $rd->perr(
+
+          "'%s' is not a pointer type",
+          args=>[$type->{name}]
+
+        );
+
+      };
+
+
+      # overwrite value
+      $$ref = $mem->infer(
+
+        $x,
+
+        ptr_t => $ptr_t,
+        type  => $type,
+
+        label => $name,
+        addr  => $$ref->{addr},
+
+      );
+
+    };
+
+
+    (! defined $have) ? $ARG : () ;
+
+  } @$list;
+
+
+  # wait for next pass if values pending
+  # else discard branch
+  if(@have) {
+    @$list=@have;
+    return $branch;
+
+
+  } else {
+    $branch->discard();
+    return;
+
+  };
 
 };
 
@@ -346,10 +488,10 @@ sub value_solve($self,$value) {
 
 
   # get ctx
-  my $rd    = $self->{rd};
-  my $mc    = $rd->{mc};
-  my $l1    = $rd->{l1};
-  my $l2    = $rd->{l2};
+  my $rd = $self->{rd};
+  my $mc = $rd->{mc};
+  my $l1 = $rd->{l1};
+  my $l2 = $rd->{l2};
 
 
   # can solve value now?
@@ -363,27 +505,6 @@ sub value_solve($self,$value) {
 
 
   return ($x,$have);
-
-};
-
-# ---   *   ---   *   ---
-# wait for next pass if values pending
-# else discard branch
-
-sub wait_next_pass($self,$branch,$Q) {
-
-  if(@$Q) {
-
-    $branch->{solve_Q} //= [];
-    push @{$branch->{solve_Q}},@$Q;
-
-    $branch->clear();
-
-
-  } else {
-    $branch->discard();
-
-  };
 
 };
 
@@ -426,7 +547,7 @@ sub type_parse($self,$branch) {
       ;
 
 
-      return 'mut';
+      return $l2->node_mutate();
 
 
     # ^nope, last or middle
@@ -460,79 +581,6 @@ sub type_decode($self,@src) {
 
 
   return $type;
-
-};
-
-# ---   *   ---   *   ---
-# attempts to solve pending values
-
-sub data_decl_ctx($self,$branch) {
-
-  my $rd   = $self->{rd};
-  my $mc   = $rd->{mc};
-  my $l1   = $rd->{l1};
-  my $type = $branch->{vref};
-
-
-  # walk values pending resolution
-  my @have = map {
-
-    my ($name,$value) = @$ARG;
-    my ($have,$x)     = $self->value_solve($value);
-
-    if($have) {
-
-      # fetch value
-      my $ref     = $mc->search($name);
-      my $mem     = $$ref->getseg();
-
-      my $x       = $l1->quantize($x);
-
-
-      # have ptr?
-      my ($ptr_t) = Type->is_ptr($type);
-
-      $ptr_t=(length $ptr_t)
-        ? "$type->{name} $ptr_t"
-        : undef
-        ;
-
-      # ^sanity check
-      my $ptrcls=$mc->{bk}->{ptr};
-      if($ptrcls->is_valid($x) &&! $ptr_t) {
-
-        $rd->perr(
-
-          "'%s' is not a pointer type",
-          args=>[$type->{name}]
-
-        );
-
-      };
-
-
-      # overwrite value
-      $$ref = $mem->infer(
-
-        $x,
-
-        ptr_t => $ptr_t,
-        type  => $type,
-
-        label => $name,
-        addr  => $$ref->{addr},
-
-      );
-
-    };
-
-
-    (! defined $have) ? $ARG : () ;
-
-  } @{$branch->{solve_Q}};
-
-
-  $self->wait_next_pass($branch,\@have);
 
 };
 

@@ -29,14 +29,22 @@ package rd::l2;
   use Arstd::Array;
   use Arstd::IO;
 
+  use parent 'St';
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
+
+St::vconst {
+  node_mutate => 'mut',
+
+};
+
 
   Readonly my $OPERA_UNARY => {
     map {$ARG=>1} qw(~ ? ! ++ --)
@@ -66,89 +74,165 @@ sub new($class,$rd) {
 };
 
 # ---   *   ---   *   ---
-# entry point
+# make [node=>recurse] array
+# for a cannonical walk
 #
-# sorts branches accto
-# their structure
+# run method for each node
 
-sub proc_parse($self) {
+sub get_walk_array($self,$fn,@Q) {
 
-  my $rd=$self->{rd};
+  my @out = ();
 
-  # execution queue
-  my @cmd = ();
+  my $rd  = $self->{rd};
+  my $rec = 0;
 
-  # get nodes of branch
-  my @pending = (@{$rd->{nest}})
 
-    ? $rd->{nest}->[-1]->{leaves}->[-1]
-
-    : $rd->{tree}->{leaves}->[-1]
-
-    ;
-
-  # ^save current
-  my $old  = $rd->{branch};
-  my @recl = ();
-  my $rec  = 0;
-
-  # ^walk
-  while(@pending) {
+  while(@Q) {
 
 
     # handle depth
-    my $nd=shift @pending;
+    my $nd=shift @Q;
+
     if(! $nd) {
       $rec=0;
       next;
 
     };
 
-    # join operators
+
+    # run method for this node
     $rd->{branch}=$nd;
-    $self->dopera();
+    $fn->($self,$nd);
 
     # go next
-    push    @recl,[$nd,$rec];
-    unshift @pending,@{$nd->{leaves}},0;
+    push    @out,[$nd,$rec];
+    unshift @Q,@{$nd->{leaves}},0;
 
     $rec=1;
 
   };
 
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# iter [node=>recurse] array
+#
+# run method for each node
+# give back [node=>recurse]
+# for each node that is a command
+
+sub get_cmd_queue($self,$fn,@order) {
+
+  my $rd=$self->{rd};
+
   map {
 
-    my ($nd,$rec)=@$ARG;
 
-    # proc sub-branch
+    # get next
+    my ($nd,$rec)=@$ARG;
     $rd->{branch}=$nd;
 
-    # sort operators
-    $self->opera();
-
-
-    # sort lists and sub-branches
-    $self->cslist();
-    $self->nested();
+    # run method for node
+    $fn->($self,$nd);
 
 
     # get head of branch is a command
-    my $cmd = $self->cmd();
-    my $l1  = $rd->{l1};
+    # enqueue exec layer if so
+    my $cmd=$self->cmd();
 
-    # ^enqueue exec layer
-    push @cmd,[@$cmd,$rec] if $cmd && $cmd ne 1;
+    ($cmd && $cmd ne 1)
+      ? [@$cmd,$rec]
+      : ()
+      ;
 
-  } reverse @recl;
+
+  } @order;
+
+};
+
+# ---   *   ---   *   ---
+# pre/post-parse bits
+
+sub node_pre_parse($self,$branch) {
+
+  # join composite operators
+  $self->dopera();
+
+};
+
+sub node_post_parse($self,$branch) {
+
+  # sort operators
+  $self->opera();
+
+  # sort lists and sub-branches
+  $self->cslist();
+  $self->nested();
+
+};
+
+# ---   *   ---   *   ---
+# entry point
+#
+# sorts branches accto
+# their structure
+
+sub parse($self) {
+
+  # get ctx
+  my $rd=$self->{rd};
+
+  # get head of branch
+  my $head=(@{$rd->{nest}})
+    ? $rd->{nest}->[-1]->{leaves}->[-1]
+    : $rd->{tree}->{leaves}->[-1]
+    ;
+
+  # ^save current
+  my $old=$rd->{branch};
 
 
-  # run enqueued commands
-  $self->exec_queue(@cmd);
+  # run and capture results
+  my @out=$self->walk(
 
-  # restore starting branch
+    $head,
+
+    \&node_pre_parse,
+    \&node_post_parse,
+
+  );
+
+
+  # restore and give
   $rd->{branch}=$old;
 
-  return;
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^generic walk
+
+sub walk($self,$branch,$pre=$NOOP,$post=$NOOP) {
+
+  # get walk order
+  my @order=$self->get_walk_array(
+    $pre,$branch
+
+  );
+
+  # ^get execution queue
+  my @cmd=$self->get_cmd_queue(
+    $post,reverse @order
+
+  );
+
+  # ^run and capture results
+  return $self->exec_queue(@cmd);
+
 
 };
 
@@ -174,18 +258,20 @@ sub exec_queue($self,@Q) {
 
     # unpack
     my ($fn,$branch,$rec)=@$ARG;
-    $rd->{branch}=$branch;
-
     $lx->exprbeg($rec);
 
 
-    # check arguments and run
+    # validate and run
     rept:
-      $lx->argchk();
+
+      $rd->{branch}=$branch;
+      $lx->argchk() if ! $rd->{stage};
+
       my $have=$fn->($lx,$branch);
 
+
     # ^branch was mutated by proc
-    if($have && $have eq 'mut') {
+    if($have && $have eq $self->node_mutate()) {
 
       # have new command?
       my $cmd=$self->cmd();
@@ -214,27 +300,6 @@ sub exec_queue($self,@Q) {
 };
 
 # ---   *   ---   *   ---
-# ~
-
-sub proc_ctx($self,$nd,$Q) {
-
-  my $rd=$self->{rd};
-
-  if(exists $nd->{cmdkey}) {
-
-    my $lx  = $rd->{lx};
-    my $CMD = $lx->load_CMD();
-
-    my $fn  = $CMD->{$nd->{cmdkey}}->{'ctx'};
-
-
-    $fn->($lx,$nd) if defined $fn;
-
-  };
-
-};
-
-# ---   *   ---   *   ---
 # interpret node as a value
 
 sub value_solve($self,$src=undef,$rec=0) {
@@ -254,11 +319,7 @@ sub value_solve($self,$src=undef,$rec=0) {
 
   # single token?
   if(! @{$src->{leaves}}) {
-
-    $out=(! defined $l1->read_tag($src->{value}))
-      ? $l1->symbol_fetch($src->{value})
-      : $src->{value}
-      ;
+    $out=$l1->quantize($src->{value});
 
   # ^nope, recurse to solve tree
   } else {
@@ -749,13 +810,13 @@ sub cmd($self) {
     my ($type,$value)=$l1->read_tag($key);
     my $fn=$lx->stagef($value);
 
-
     # ^save key
     $rd->{branch}->{cmdkey}=$value;
 
 
     # consume argument nodes if need
-    $lx->argsume($rd->{branch});
+    $lx->argsume($rd->{branch})
+    if ! $rd->{stage};
 
 
     # give F to run if any

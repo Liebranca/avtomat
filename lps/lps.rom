@@ -2,10 +2,8 @@
 
 RAM data;
 
-  byte a $00;
+  tiny a b;
   byte b $21;
-
-  x a+b;
 
 #EXE code;
 #  load  byte ar,$24;

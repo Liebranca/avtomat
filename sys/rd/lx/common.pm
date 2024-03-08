@@ -37,6 +37,8 @@ package rd::lx::common;
     $VLIST
     $OPT_VLIST
 
+    $SYM
+
     $BARE
     $CURLY
     $PARENS
@@ -69,7 +71,7 @@ sub cmdarg($type,%O) {
   Readonly our $QLIST=>cmdarg(['LIST','ANY']);
   Readonly our $VLIST=>cmdarg(
 
-    ['LIST','OPERA','BARE'],
+    ['LIST','OPERA','SYM','BARE'],
     value=>'[^\{]'
 
   );
@@ -77,6 +79,7 @@ sub cmdarg($type,%O) {
   Readonly our $OPT_QLIST=>{%$QLIST,opt=>1};
   Readonly our $OPT_VLIST=>{%$VLIST,opt=>1};
 
+  Readonly our $SYM   => cmdarg(['SYM']);
   Readonly our $BARE  => cmdarg(['BARE']);
   Readonly our $CURLY => cmdarg(
     ['OPERA'],value=>'\{'

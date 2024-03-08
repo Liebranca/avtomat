@@ -25,6 +25,7 @@ package rd::l1;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Chk;
   use Type;
   use Bpack;
 
@@ -35,7 +36,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#a
+  our $VERSION = v0.01.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -62,8 +63,10 @@ package rd::l1;
   )} (
 
     ['*' => 'CMD'],
+
     ['T' => 'TYPE'],
     ['R' => 'REG'],
+    ['S' => 'SYM'],
 
     ['`' => 'OPERA'],
     ['%' => 'STRING'],
@@ -271,15 +274,16 @@ sub read_tag_v($self,$which,$src=undef) {
 # ---   *   ---   *   ---
 # ^icef*ck
 
-subwraps(
+subwraps '$self->read_tag_v'=>q(
+  $self,$src=undef
 
-  q[$self->read_tag_v],
-  q[$self,$src=undef],
+),
 
-  map {[
-    "is_$ARG" => q['] . (uc $ARG) . q[',$src]
+map {["is_$ARG" => q['].(uc $ARG).q[',$src]]}
+qw  (
 
-  ]} qw  (opera list string cmd branch num type)
+  opera   list  string  cmd
+  branch  num   type    sym
 
 );
 
@@ -316,17 +320,24 @@ sub is_comment($self,$src=undef) {
 # classifies token if not
 # already sorted!
 
-sub proc_parse($self,$src=undef) {
+sub parse($self,$src=undef) {
+
 
   # default src to current token
   my $rd    = $self->{rd};
      $src //= $rd->{token};
+
+  # early exit if token already sorted
+  return $src
+  if defined $self->read_tag($src);
+
 
   # get ctx
   my $mc    = $rd->{mc};
 
   my $CMD   = $rd->{lx}->load_CMD();
   my $reg   = $mc->{bk}->{anima};
+  my $ptr   = $mc->{bk}->{ptr};
   my $key   = $src;
 
 
@@ -345,7 +356,11 @@ sub proc_parse($self,$src=undef) {
     $src=$is_num;
     $key='NUM';
 
-  # ^no modification
+  # is symbol name?
+  } elsif(nref $src) {
+    $key='SYM';
+
+  # none of the above, give as-is
   } else {
     return $src;
 
@@ -409,9 +424,12 @@ sub quantize($self,$src=undef) {
   $type=$TAG_T->{$type};
 
 
-  # have plain number?
-  if($type eq 'NUM' || $type eq 'REG') {
+  # have plain value?
+  if($type=~ qr{NUM|REG}) {
     return $spec;
+
+  } elsif($type eq 'SYM') {
+    return $self->symbol_fetch($spec);
 
   # have string?
   } elsif($type eq 'STRING') {

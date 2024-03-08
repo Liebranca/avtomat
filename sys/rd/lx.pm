@@ -138,14 +138,15 @@ sub exprbeg($self,$rec=0) {
 
 sub exprlink($self,$have) {
 
-  my $links=$self->{links};
+  my $rd    = $self->{rd};
+  my $links = $self->{links};
 
   if(defined $have) {
     push @$links,$have;
     return $have;
 
   } else {
-    return ();
+    return;
 
   };
 

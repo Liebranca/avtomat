@@ -258,7 +258,7 @@ sub argsume($self,$branch) {
 
     my $have=$self->argtypechk($arg,$pos);
 
-    $self->throw_badargs($key,$arg,$pos)
+    throw_badargs($self,$key,$arg,$pos)
     if ! $have &&! $arg->{opt};
 
     $pos++ if $have;
@@ -294,7 +294,7 @@ sub argchk($self) {
 
     my $have=$self->argtypechk($arg,$pos);
 
-    $self->throw_badargs($key,$arg,$pos)
+    throw_badargs($self,$key,$arg,$pos)
     if ! $have &&! $arg->{opt};
 
     $pos++ if $have;

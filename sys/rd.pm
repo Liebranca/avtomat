@@ -138,10 +138,13 @@ sub new($class,$src,%O) {
 
     # execution layer
     lx      => undef,
-    pass    => 0,
     stage   => 0,
 
     mc      => $O{mc}->{cls}->new(%{$O{mc}}),
+
+    # N repeats of a processing stage
+    pass    => 0,
+    passes  => {},
 
 
     # shared vars
@@ -150,9 +153,6 @@ sub new($class,$src,%O) {
     # line number!
     lineno  => 1,
     lineat  => 1,
-
-    # branch idex
-    -at     => 0,
 
     # stringmode term
     strterm => $NULLSTR,
@@ -183,9 +183,7 @@ sub crux($src,%O) {
   my $self=rd->new($src,%O);
 
   # ^run and give
-  $self->proc_parse();
-  $self->proc_solve();
-
+  $self->parse();
   return $self;
 
 };
@@ -195,63 +193,36 @@ sub crux($src,%O) {
 
 sub next_pass($self) {
   $self->{pass}++;
-  $self->{-at}=0;
 
 };
 
 sub next_stage($self) {
 
-  $self->next_pass();
+  # record number of passes used
+  # for this stage
+  my $lx   = $self->{lx};
+  my $name = $lx->stagename();
+
+  $self->{passes}->{$name}=
+    $self->{pass};
+
+
+  # ^start anew!
+  $self->{pass}=0;
   $self->{stage}++;
-
-};
-
-# ---   *   ---   *   ---
-# cannonical tree-walk
-
-sub step($self,$fn,@args) {
-
-  # get next *top* branch in tree
-  my $idex   = $self->{-at}++;
-
-  my $tree   = $self->{tree}->{leaves};
-  my $branch = $tree->[$idex];
-
-
-  # exit if whole tree walked ;>
-  return 0 if ! $branch;
-
-
-  # ^walk
-  my @Q=$branch;
-  while(@Q) {
-
-    # set current
-    my $nd=shift @Q;
-    $self->{branch}=$nd;
-
-    # recurse only if F returns true
-    unshift @Q,@{$nd->{leaves}}
-    if $fn->(@args,$nd,\@Q);
-
-  };
-
-
-  # give true if branches pending
-  return defined $tree->[$idex+1];
 
 };
 
 # ---   *   ---   *   ---
 # first stage
 
-sub proc_parse($self) {
+sub parse($self) {
 
   # select sub-class
-  $self->solve_ipret();
+  $self->parse_ipret();
 
   # parse
-  $self->{l0}->proc_parse();
+  $self->{l0}->parse();
 
   # ^expr pending?
   $self->unset('blank');
@@ -271,23 +242,57 @@ sub proc_parse($self) {
 };
 
 # ---   *   ---   *   ---
-# ^second stage
+# ^all others!
 
-sub proc_solve($self) {
+sub proc($self,$limit=1) {
+
 
   # get ctx
-  my $l2 = $self->{l2};
+  my $l2   = $self->{l2};
+  my $tree = $self->{tree};
 
-  my $fn = (ref $l2).'::proc_ctx';
-     $fn = \&$fn;
+  # cleanup cache
+  my @pending=@{$tree->{leaves}};
 
-  # ^run for whole tree
-  while($self->step($fn,$l2)) {};
+  rept:
+    $l2->{walked}={};
 
 
-  # go next and give
+  # walk tree
+  my @Q       = @pending;
+     @pending = ();
+
+  while(@Q) {
+
+    my $branch = shift @Q;
+
+
+    push @pending,
+    grep {'Tree' eq ref $ARG}
+
+    $l2->walk($branch);
+
+
+    unshift @Q,@{$branch->{leaves}};
+
+  };
+
+
+  # another pass required/allowed?
   $self->next_pass();
-  return;
+
+  # ^repeat or fail if so!
+  if(@pending) {
+
+    goto rept if $self->{pass} < $limit;
+    return 0;
+
+  };
+
+
+  # go next and give OK
+  $self->next_stage();
+  return 1;
 
 };
 
@@ -303,7 +308,7 @@ sub commit($self) {
 
     # classify
     $self->unset('exprbeg');
-    $self->{token}=$self->{l1}->proc_parse();
+    $self->{token}=$self->{l1}->parse();
 
 
     # start of new branch?
@@ -400,7 +405,7 @@ sub nest_down($self) {
 sub term($self) {
 
   $self->commit();
-  $self->{l2}->proc_parse();
+  $self->{l2}->parse();
   $self->new_branch();
   $self->set_termf();
 
@@ -428,14 +433,14 @@ sub cmd_name_rule($self) {
 # this mutates the parser into
 # a derived class!
 
-sub solve_ipret($self) {
+sub parse_ipret($self) {
 
   # get ctx
   my $l0=$self->{l0};
   my $l1=$self->{l1};
 
   # parse first expression
-  $l0->proc_parse_single();
+  $l0->parse_single();
 
   # ^decompose
   my $cmd  = $self->{tree}->{leaves}->[-1];
@@ -846,8 +851,9 @@ sub prich($self,%O) {
   my $out=ioprocin(\%O);
 
   # own defaults
-  $O{tree}  //= 1;
-  $O{mem}   //= 'inner,outer';
+  $O{tree}   //= 1;
+  $O{mem}    //= 'inner,outer';
+  $O{passes} //= $ANY_MATCH;
 
 
   # get repr for parse tree?
@@ -882,6 +888,17 @@ sub prich($self,%O) {
 
 
   };
+
+
+  # show performed passes?
+  my $lx = $self->{lx};
+
+  push @$out,"\n",
+
+  map  {"$ARG: $self->{passes}->{$ARG} passes\n"}
+  grep {$ARG=~ $O{passes}}
+
+  @{$lx->stages()}[1..$self->{stage}-1];
 
 
   return ioprocout(\%O);
