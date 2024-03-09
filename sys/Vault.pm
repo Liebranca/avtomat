@@ -32,6 +32,7 @@ package Vault;
   use Style;
   use Chk;
 
+  use Arstd::Array;
   use Arstd::String;
   use Arstd::Path;
   use Arstd::IO;
@@ -46,7 +47,7 @@ package Vault;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.5;#b
+  our $VERSION=v0.00.7;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -84,6 +85,7 @@ package Vault;
 
   our $Needs_Update = {};
   our $Cache_Regen  = {};
+  our $File_Deps    = {};
 
 # ---   *   ---   *   ---
 # marks package as utilizing
@@ -318,16 +320,37 @@ sub cached_dir($file) {
   my $path = cashof($file);
   my $dir  = dirof($path);
 
-  my $rbld =
-     Shb7::moo($path,$file)
-  or exists $Cache_Regen->{$path}
-  ;
+  my $rbld = Shb7::moo($path,$file)
+  or exists $Cache_Regen->{$path};
 
   # get entry or make new
   -e $dir or `mkdir -p $dir`;
 
 
-  return ($path,$rbld);
+  # have existing?
+  my $data=(-f $path)
+    ? retrieve($path)
+    : $Cache_Regen->{$path}
+    ;
+
+  $data //= undef;
+
+
+  # check deps
+  my $deps   = $File_Deps->{$file};
+     $deps //= [];
+
+  map {$rbld |= Shb7::moo($path,$ARG)} @$deps;
+
+
+  # pack and give
+  return {
+
+    rbld => $rbld,
+    path => $path,
+    data => $data,
+
+  };
 
 };
 
@@ -336,24 +359,27 @@ sub cached_dir($file) {
 
 sub rof($file,$key,$call,@args) {
 
-  my ($path,$rbld)=cached_dir($file);
+  # get ctx
+  my $cache = cached_dir($file);
+  my $data  = $cache->{data};
 
-  my $h=(-f $path)
-    ? retrieve($path)
-    : $Cache_Regen->{$path}
-    ;
+  my $out   = undef;
 
-  $h //= {};
-  my $out=undef;
 
-  # regen entry
-  if(! exists $h->{$key} or $rbld) {
-    $out=$h->{$key}=$call->(@args);
-    cashreg($path,$h);
+  # regen entry?
+  if(
 
-  # ^fetch existing
+  !  exists $data->{$key}
+  || $cache->{rbld}
+
+  ) {
+
+    $out=$data->{$key}=$call->(@args);
+    cashreg($cache->{path},$data);
+
+  # ^nope, fetch existing
   } else {
-    $out=$h->{$key};
+    $out=$data->{$key};
 
   };
 
@@ -366,31 +392,55 @@ sub rof($file,$key,$call,@args) {
 
 sub frof($file,$call,@args) {
 
-  my $out=undef;
+
+  # get ctx
+  my $cache = cached_dir($file);
+  my $data  = $cache->{data};
+
+  my $out   = undef;
 
 
-  # get rebuild necessary
-  my ($path,$rbld)=
-    cached_dir($file);
+  # regen entry?
+  if(
 
-  my $h=(-f $path)
-    ? retrieve($path)
-    : $Cache_Regen->{$path}
-    ;
+  !  defined $data
+  || $cache->{rbld}
 
+  ) {
 
-  # ^regen entry
-  if(! $h or $rbld) {
-    $out=$h=$call->(@args);
-    cashreg($path,$h);
+    $out=$data=$call->(@args);
+    cashreg($cache->{path},$data);
 
-  # ^fetch existing
+  # ^nope, fetch existing
   } else {
-    $out=$h;
+    $out=$data;
 
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# mark file as a dependency
+
+sub depson(@list) {
+
+
+  # get/nit handle to module deps
+  my $file = (caller)[1];
+  my $vref = \$File_Deps->{$file};
+
+  $$vref //= [];
+
+
+  # validate input
+  map {-f $ARG or croak "$ARG: $!"} @list;
+
+  # ^push to module deps
+  push @{$$vref},map {abs_path $ARG} @list;
+  array_dupop $$vref;
+
 
 };
 
@@ -400,7 +450,7 @@ sub frof($file,$call,@args) {
 
 sub cached($key,$call,@args) {
   my $file=(caller)[1];
-  return rof($file,$key,$call,@args);
+  return rof $file,$key,$call,@args;
 
 };
 
@@ -408,7 +458,7 @@ sub cached($key,$call,@args) {
 # ^key *IS* file
 
 sub fcached($file,$call,@args) {
-  return frof($file,$call,@args);
+  return frof $file,$call,@args;
 
 };
 

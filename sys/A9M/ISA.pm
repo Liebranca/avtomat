@@ -33,6 +33,7 @@ package A9M::ISA;
   use FF;
 
   use Arstd::Array;
+  use Arstd::Path;
   use Arstd::Int;
   use Arstd::String;
   use Arstd::Bytes;
@@ -336,7 +337,6 @@ sub encode($self,$type,$name,@args) {
   map {
 
     my ($bs,$data)=@$ARG;
-
     $opcd |= $data << $cnt;
     $cnt  += $bs;
 
@@ -828,6 +828,11 @@ sub _gen_ROM_table($class) {
 
   sub thiscls {__PACKAGE__};
   use Vault 'ARPATH';
+
+  Vault::depson(
+    find_pkg thiscls()->imp()
+
+  );
 
   $Cache=Vault::cached(
     'Cache',\&gen_ROM_table,thiscls

@@ -30,13 +30,13 @@ package rd;
   use Chk;
   use Tree;
   use Cli;
+  use Shb7;
 
   use Arstd::Array;
   use Arstd::IO;
   use Arstd::PM;
   use Arstd::WLog;
 
-  use Shb7::Path;
   use Mach::Scope;
 
   $WLog //= Arstd::WLog->genesis();
@@ -105,11 +105,11 @@ sub new($class,$src,%O) {
 
   if(is_filepath($src)) {
     $body = orc($src);
-    $src  = shpath($src);
+    $src  = Shb7::shpath($src);
 
   } else {
     $body = $src;
-    $src  = '(%$)';
+    $src  = '%$';
 
   };
 
@@ -179,11 +179,18 @@ sub new($class,$src,%O) {
 
 sub crux($src,%O) {
 
+  # defaults
+  $O{strip} //= 1;
+
+
   # make ice
   my $self=rd->new($src,%O);
-
-  # ^run and give
   $self->parse();
+
+
+  # strip parse tree?
+  $self->strip() if $O{strip};
+
   return $self;
 
 };
@@ -244,8 +251,13 @@ sub parse($self) {
 # ---   *   ---   *   ---
 # ^all others!
 
-sub proc($self,$limit=1) {
+sub walk($self,%O) {
 
+  # defaults
+  $O{limit} //= 1;
+
+  $O{fwd}   //= $NOOP;
+  $O{rev}   //= $NOOP;
 
   # get ctx
   my $l2   = $self->{l2};
@@ -262,20 +274,16 @@ sub proc($self,$limit=1) {
   my @Q       = @pending;
      @pending = ();
 
-  while(@Q) {
+  map {
 
-    my $branch = shift @Q;
-
+    my $branch = $ARG;
 
     push @pending,
     grep {'Tree' eq ref $ARG}
 
-    $l2->walk($branch);
+    $l2->walk($branch,%O);
 
-
-    unshift @Q,@{$branch->{leaves}};
-
-  };
+  } @Q;
 
 
   # another pass required/allowed?
@@ -283,8 +291,7 @@ sub proc($self,$limit=1) {
 
   # ^repeat or fail if so!
   if(@pending) {
-
-    goto rept if $self->{pass} < $limit;
+    goto rept if $self->{pass} < $O{limit};
     return 0;
 
   };
@@ -766,11 +773,11 @@ sub ON_EXE($class,@input) {
 
   };
 
+  $O{strip}=$m->{strip} ne $NULL;
+
+
   # get parse tree
   my $ice=crux($src,%O);
-
-  # ^remove comments?
-  $ice->strip() if $m->{strip} eq 1;
 
 
   # write to file?

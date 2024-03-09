@@ -48,15 +48,17 @@ package Arstd::Path;
     extof
     extwap
 
+    find_pkg
     find_subpkg
     fname_to_pkg
+    pkg_to_fname
 
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = v0.00.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -69,7 +71,7 @@ sub basef($path) {
 };
 
 # ---   *   ---   *   ---
-# ^ removes extension(s)
+# ^removes extension(s)
 
 sub nxbasef($path) {
   my $name=basef($path);
@@ -80,7 +82,7 @@ sub nxbasef($path) {
 };
 
 # ---   *   ---   *   ---
-# ^ get dir of filename...
+# ^get dir of filename...
 # or directory's parent
 
 sub dirof($path,%O) {
@@ -102,7 +104,7 @@ sub dirof($path,%O) {
 };
 
 # ---   *   ---   *   ---
-# ^ oh yes
+# ^oh yes
 
 sub parof($path) {
   return dirof(dirof($path));
@@ -184,6 +186,24 @@ sub extwap($fpath,$to) {
 };
 
 # ---   *   ---   *   ---
+# get file from package name
+
+sub find_pkg($name,@path) {
+
+  @path=@INC if ! @path;
+
+  my $fname = pkg_to_fname($name);
+
+  my ($fpath)=
+    grep {-f $ARG}
+    map  {<$ARG$fname>} @path;
+
+
+  return $fpath;
+
+};
+
+# ---   *   ---   *   ---
 # looks for pkg/*.pm in path
 
 sub find_subpkg($base,$name,@path) {
@@ -194,17 +214,21 @@ sub find_subpkg($base,$name,@path) {
 
   my $out = $NULLSTR;
 
-  my $beg = qr{^.*/?$base};
+  my $beg = ($base)
+    ? qr{^.*/?$base}
+    : null
+    ;
 
   my $end = qr{$name}i;
-  my $re  = qr{$beg/?.*/$end$ext};
+  my $re  = (length $beg)
+    ? qr{$beg/?.*/$end$ext}
+    : qr{$end$ext}
+    ;
 
   # case-insensitive filename search!
   my ($fpath)=
     grep {"$ARG"=~ $re}
-    map  {<$ARG$base/*>} @path
-
-  ;
+    map  {<$ARG$base/*>} @path;
 
 
   if($fpath) {
@@ -212,6 +236,12 @@ sub find_subpkg($base,$name,@path) {
     $fpath=~ s[$ext][];
 
   };
+
+  croak "'$base' + '$name' did not form "
+  .     "a valid path"
+
+  if ! defined $fpath;
+
 
   return $fpath;
 
@@ -232,6 +262,15 @@ sub fname_to_pkg($fname,$base=$NULLSTR) {
   $fname=~ s[$ext][];
 
   return $fname;
+
+};
+
+# ---   *   ---   *   ---
+# ^iv/undo
+
+sub pkg_to_fname($pkg) {
+  $pkg=~ s[$DCOLON_RE][/];
+  return "$pkg.pm";
 
 };
 

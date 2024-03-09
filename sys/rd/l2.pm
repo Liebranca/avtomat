@@ -154,16 +154,22 @@ sub get_cmd_queue($self,$fn,@order) {
 };
 
 # ---   *   ---   *   ---
-# pre/post-parse bits
+# post-parse bits
+#
+# 'fwd/rev' stand for the order
+# in which the nodes are processed:
+#
+# * "fwd" is a cannonical walk
+# * "rev" is bottom leaf to root
 
-sub node_pre_parse($self,$branch) {
+sub node_fwd_parse($self,$branch) {
 
   # join composite operators
   $self->dopera();
 
 };
 
-sub node_post_parse($self,$branch) {
+sub node_rev_parse($self,$branch) {
 
   # sort operators
   $self->opera();
@@ -200,8 +206,8 @@ sub parse($self) {
 
     $head,
 
-    \&node_pre_parse,
-    \&node_post_parse,
+    fwd=>\&node_fwd_parse,
+    rev=>\&node_rev_parse,
 
   );
 
@@ -216,17 +222,22 @@ sub parse($self) {
 # ---   *   ---   *   ---
 # ^generic walk
 
-sub walk($self,$branch,$pre=$NOOP,$post=$NOOP) {
+sub walk($self,$branch,%O) {
+
+  # defaults
+  $O{fwd} //= $NOOP;
+  $O{rev} //= $NOOP;
+
 
   # get walk order
   my @order=$self->get_walk_array(
-    $pre,$branch
+    $O{fwd},$branch
 
   );
 
   # ^get execution queue
   my @cmd=$self->get_cmd_queue(
-    $post,reverse @order
+    $O{rev},reverse @order
 
   );
 

@@ -2,10 +2,5 @@
 
 RAM data;
 
-  tiny a b;
-  byte b $21;
-
-#EXE code;
-#  load  byte ar,$24;
-#  store byte [data::c],ar;
-
+  ar = $24;
+  ar = ar ^ $40;

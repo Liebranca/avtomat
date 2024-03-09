@@ -80,19 +80,21 @@ sub new($class,%O) {
   $O{mccls} //= caller;
 
   # get ctx
-  my $self = bless \%O,$class;
+  my $self   = bless \%O,$class;
 
-  my $mach = $self->getmc();
-  my $cas  = $mach->{cas};
+  my $mc     = $self->getmc();
+  my $memcls = $mc->{bk}->{mem};
 
 
   # make ice
-  my $mem=$cas->new(
+  my $mem=$memcls->mkroot(
 
-    $class->size()
-  * $class->cnt(),
+    size  =>
+        $class->size()
+      * $class->cnt(),
 
-    'ANIMA'
+    label => 'ANIMA',
+    mccls => $O{mccls},
 
   );
 
@@ -226,7 +228,7 @@ sub update($class,$A9M) {
 # dbout
 
 sub prich($self,%O) {
-  $self->{mem}->prich(%O,inner=>0);
+  $self->{mem}->prich(%O,inner=>0,root=>1);
 
 };
 

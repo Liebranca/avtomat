@@ -121,6 +121,7 @@ sub mkroot($class,%O) {
   $O{mcid}   //= 0;
   $O{mccls}  //= caller;
   $O{label}  //= 'non';
+  $O{size}   //= 0x00;
 
 
   # make/fetch container
@@ -139,9 +140,9 @@ sub mkroot($class,%O) {
   $self->{mccls}  = $O{mccls};
   $self->{segid}  = $frame->mkseg($self);
 
-  $self->{buf}    = $NULLSTR;
+  $self->{buf}    = zeropad $O{size};
   $self->{ptr}    = 0x00;
-  $self->{size}   = 0x00;
+  $self->{size}   = $O{size};
   $self->{absloc} = undef;
 
   $self->set_uattrs();
@@ -786,6 +787,7 @@ sub prich($self,%O) {
   $O{depth} //= 0;
   $O{inner} //= 0;
   $O{outer} //= 1;
+  $O{root}  //= 0;
 
   # I/O defaults
   my $out=ioprocin(\%O);
@@ -795,7 +797,7 @@ sub prich($self,%O) {
 
 
   # walk hierarchy
-  my @Q=($self eq $self->{root})
+  my @Q=($self eq $self->{root} &&! $O{root})
     ? @{$self->{leaves}}
     : $self
     ;
@@ -829,9 +831,7 @@ sub prich($self,%O) {
   $self->{inner}->prich(
 
     %O,
-
-    mute  => 1,
-    -x    => qr{^ANIMA$},
+    mute => 1,
 
   ) if $O{inner};
 

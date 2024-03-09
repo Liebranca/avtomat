@@ -28,6 +28,7 @@ package A9M::opera;
   use Chk;
   use Type;
   use Bpack;
+  use Warnme;
 
   use Arstd::Bytes;
   use Arstd::Array;
@@ -35,7 +36,7 @@ package A9M::opera;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -68,225 +69,235 @@ St::vconst {
 
     },
 
-  #  # our beloved
-  #  # load effective address ;>
-  #  lea => {
-  #
-  #    load_dst => 0,
-  #    load_src => 0,
-  #
-  #    dst      => 'r',
-  #    src      => 'm',
-  #
-  #  },
-  #
-  #
-  #  # bitops
-  #  xor => {
-  #    dst  => 'r',
-  #    src  => 'ri',
-  #
-  #  },
-  #
-  #  and => {
-  #    dst  => 'r',
-  #    src  => 'ri',
-  #
-  #  },
-  #
-  #  or => {
-  #    dst  => 'r',
-  #    src  => 'ri',
-  #
-  #  },
-  #
-  #  not => {
-  #
-  #    argcnt => 1,
-  #
-  #    dst    => 'r',
-  #    src    => 'ri',
-  #
-  #  },
-  #
-  #
-  #  # bitmask, all ones
-  #  bones => {
-  #
-  #    dst        => 'r',
-  #    src        => 'ri',
-  #
-  #    fix_immsrc => 1,
-  #    fix_regsrc => 3,
-  #
-  #  },
-  #
-  #
-  #  # bitshift left/right
-  #  shl => {
-  #
-  #    dst        => 'r',
-  #    src        => 'ri',
-  #
-  #    fix_immsrc => 1,
-  #    fix_regsrc => 3,
-  #
-  #  },
-  #
-  #  shr => {
-  #
-  #    dst        => 'r',
-  #    src        => 'ri',
-  #
-  #    fix_immsrc => 1,
-  #    fix_regsrc => 3,
-  #
-  #  },
-  #
-  #
-  #  # bitscan <3
-  #  bsf => {
-  #    dst => 'r',
-  #    src => 'r',
-  #
-  #  },
-  #
-  #  bsr => {
-  #    dst => 'r',
-  #    src => 'r',
-  #
-  #  },
-  #
-  #
-  #  # bit rotate right
-  #  # a thing of pure beauty!
-  #  ror => {
-  #
-  #    dst        => 'r',
-  #    src        => 'ri',
-  #
-  #    fix_immsrc => 1,
-  #    fix_regsrc => 3,
-  #
-  #  },
-  #
-  #  # ^rotate left ;>
-  #  rol => {
-  #
-  #    dst        => 'r',
-  #    src        => 'ri',
-  #
-  #    fix_immsrc => 1,
-  #    fix_regsrc => 3,
-  #
-  #  },
-  #
-  #
-  #  # math
-  #  add => {
-  #    dst  => 'r',
-  #    src  => 'ri',
-  #
-  #  },
-  #
-  #  sub => {
-  #    dst  => 'r',
-  #    src  => 'ri',
-  #
-  #  },
-  #
-  #
-  #  mul => {
-  #    dst  => 'r',
-  #    src  => 'r',
-  #
-  #  },
-  #
-  #  # the mnemonic for 'division' should be 'avoid'
-  #  # but that may confuse some people ;>
-  #  div => {
-  #    dst  => 'r',
-  #    src  => 'r',
-  #
-  #  },
-  #
-  #
-  #  # ++/--
-  #  inc => {
-  #    argcnt => 1,
-  #    dst    => 'r',
-  #
-  #  },
-  #
-  #  dec => {
-  #    argcnt => 1,
-  #    dst    => 'r',
-  #
-  #  },
-  #
-  #
-  #  # negate
-  #  neg => {
-  #
-  #    argcnt => 1,
-  #
-  #    dst    => 'r',
-  #    src    => 'ri',
-  #
-  #  },
-  #
-  #
-  #  # stack ctl
-  #  push => {
-  #
-  #    dst       => 'rmi',
-  #    argcnt    => 1,
-  #    overwrite => 0,
-  #
-  #    fix_size  => ['qword'],
-  #
-  #  },
-  #
-  #  pop => {
-  #
-  #    dst       => 'r',
-  #    argcnt    => 1,
-  #    overwrite => 1,
-  #
-  #    load_dst  => 0,
-  #    fix_size  => ['qword'],
-  #
-  #  },
-  #
-  #
-  #  # control flow
-  #  jmp => {
-  #
-  #    argcnt => 1,
-  #    dst    => 'rmi',
-  #
-  #    overwrite => 0,
-  #    fix_size  => ['qword'],
-  #
-  #  },
-  #
-  #  call => {
-  #
-  #    argcnt    => 1,
-  #    dst       => 'rmi',
-  #
-  #    overwrite => 0,
-  #    fix_size  => ['qword'],
-  #
-  #  },
-  #
-  #  ret => {
-  #    argcnt=>0,
-  #
-  #  },
+#  # our beloved
+#  # load effective address ;>
+#  lea => {
+#
+#    load_dst => 0,
+#    load_src => 0,
+#
+#    dst      => 'r',
+#    src      => 'm',
+#
+#  },
+#
+#
+
+    # bitops
+    xor => {
+      dst => 'r',
+      src => 'ri',
+
+    },
+
+#
+#  and => {
+#    dst  => 'r',
+#    src  => 'ri',
+#
+#  },
+#
+#  or => {
+#    dst  => 'r',
+#    src  => 'ri',
+#
+#  },
+#
+#  not => {
+#
+#    argcnt => 1,
+#
+#    dst    => 'r',
+#    src    => 'ri',
+#
+#  },
+#
+#
+#  # bitmask, all ones
+#  bones => {
+#
+#    dst        => 'r',
+#    src        => 'ri',
+#
+#    fix_immsrc => 1,
+#    fix_regsrc => 3,
+#
+#  },
+#
+#
+#  # bitshift left/right
+#  shl => {
+#
+#    dst        => 'r',
+#    src        => 'ri',
+#
+#    fix_immsrc => 1,
+#    fix_regsrc => 3,
+#
+#  },
+#
+#  shr => {
+#
+#    dst        => 'r',
+#    src        => 'ri',
+#
+#    fix_immsrc => 1,
+#    fix_regsrc => 3,
+#
+#  },
+#
+#
+#  # bitscan <3
+#  bsf => {
+#    dst => 'r',
+#    src => 'r',
+#
+#  },
+#
+#  bsr => {
+#    dst => 'r',
+#    src => 'r',
+#
+#  },
+#
+#
+#  # bit rotate right
+#  # a thing of pure beauty!
+#  ror => {
+#
+#    dst        => 'r',
+#    src        => 'ri',
+#
+#    fix_immsrc => 1,
+#    fix_regsrc => 3,
+#
+#  },
+#
+#  # ^rotate left ;>
+#  rol => {
+#
+#    dst        => 'r',
+#    src        => 'ri',
+#
+#    fix_immsrc => 1,
+#    fix_regsrc => 3,
+#
+#  },
+#
+#
+#  # math
+#  add => {
+#    dst  => 'r',
+#    src  => 'ri',
+#
+#  },
+#
+#  sub => {
+#    dst  => 'r',
+#    src  => 'ri',
+#
+#  },
+#
+#
+#  mul => {
+#    dst  => 'r',
+#    src  => 'r',
+#
+#  },
+#
+#  # the mnemonic for 'division' should be 'avoid'
+#  # but that may confuse some people ;>
+#  div => {
+#    dst  => 'r',
+#    src  => 'r',
+#
+#  },
+#
+#
+#  # ++/--
+#  inc => {
+#    argcnt => 1,
+#    dst    => 'r',
+#
+#  },
+#
+#  dec => {
+#    argcnt => 1,
+#    dst    => 'r',
+#
+#  },
+#
+#
+#  # negate
+#  neg => {
+#
+#    argcnt => 1,
+#
+#    dst    => 'r',
+#    src    => 'ri',
+#
+#  },
+#
+#
+#  # stack ctl
+#  push => {
+#
+#    dst       => 'rmi',
+#    argcnt    => 1,
+#    overwrite => 0,
+#
+#    fix_size  => ['qword'],
+#
+#  },
+#
+#  pop => {
+#
+#    dst       => 'r',
+#    argcnt    => 1,
+#    overwrite => 1,
+#
+#    load_dst  => 0,
+#    fix_size  => ['qword'],
+#
+#  },
+#
+#
+#  # control flow
+#  jmp => {
+#
+#    argcnt => 1,
+#    dst    => 'rmi',
+#
+#    overwrite => 0,
+#    fix_size  => ['qword'],
+#
+#  },
+#
+#  call => {
+#
+#    argcnt    => 1,
+#    dst       => 'rmi',
+#
+#    overwrite => 0,
+#    fix_size  => ['qword'],
+#
+#  },
+#
+#  ret => {
+#    argcnt=>0,
+#
+#  },
 
 
   ],
+
+
+  lel   => {qw(
+
+    = copy
+    ^ xor
+
+  )},
 
 
   list  => sub {[array_keys $_[0]->table()]},
@@ -358,6 +369,14 @@ sub flatten($class,$ezy,$bits=undef) {
 
 sub copy($class,$type,$args) {
   $args->[1];
+
+};
+
+# ---   *   ---   *   ---
+# exclusive OR
+
+sub xor($class,$type,$args) {
+  $args->[0] ^ $args->[1];
 
 };
 
@@ -479,6 +498,44 @@ sub rol($type,$bits) {
     \$x;
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# translates from operation
+# symbol to instruction
+
+sub xlate($class,$sym,@args) {
+
+  my $tab  = $class->lel();
+  my $name = $tab->{$sym}
+  or return warn_invalid($sym);
+
+
+  # edge case: load or store?
+  if($name eq 'copy') {
+
+    $name=($args[0]->{type}=~ qr{^m})
+      ? 'store'
+      : 'load'
+      ;
+
+  };
+
+
+  return $name;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub warn_invalid($sym) {
+
+  Warnme::invalid 'opera-xlate',
+
+  obj  => $sym,
+  give => null;
 
 };
 

@@ -36,7 +36,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.2;#a
+  our $VERSION = v0.01.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -63,16 +63,18 @@ package rd::l1;
   )} (
 
     ['*' => 'CMD'],
-
-    ['T' => 'TYPE'],
-    ['R' => 'REG'],
-    ['S' => 'SYM'],
-
     ['`' => 'OPERA'],
     ['%' => 'STRING'],
-    ['i' => 'LIST'],
+
+    ['T' => 'TYPE'],
+
+    ['r' => 'REG'],
+    ['s' => 'SYM'],
+    ['i' => 'NUM'],
+    ['m' => 'MEM'],
+
+    ['l' => 'LIST'],
     ['b' => 'BRANCH'],
-    ['n' => 'NUM'],
 
   )};
 

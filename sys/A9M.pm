@@ -95,6 +95,7 @@ sub new($class,%O) {
     id       => $id,
 
     cas      => undef,
+    scratch  => undef,
     scope    => undef,
     anima    => undef,
     ISA      => undef,
@@ -115,14 +116,26 @@ sub new($class,%O) {
   push @$icebox,$self;
 
 
-  # kick components in need of kicking!
+  # nit user memory
   $self->{cas}=$bk->{mem}->mkroot(
     mcid  => $id,
     label => $O{memroot},
 
-  ),
+  );
 
-  $self->{anima} = $bk->{anima}->new(mcid=>$id);
+  # ^nit scratch buffer for internal use
+  $self->{scratch}=$bk->{mem}->mkroot(
+
+    mcid  => $id,
+    label => 'SCRATCH',
+
+    size  => 0x10,
+
+  );
+
+
+  # kick components in need of kicking!
+  $self->{anima}=$bk->{anima}->new(mcid=>$id);
   $self->scope($O{memroot});
 
   $self->{ISA}=$bk->{ISA}->new(mcid=>$id);
@@ -145,8 +158,11 @@ sub exewrite($self,$seg,@program) {
 
 
     # get opcode (or die trying)
-    my ($opcd,$size)=$self->{ISA}->encode(@$ARG);
+    my ($opcd,$size)=
+      $self->{ISA}->encode(@$ARG);
+
     return null if $opcd eq null;
+
 
     # grow buf if need
     $seg->brkfit($size);
