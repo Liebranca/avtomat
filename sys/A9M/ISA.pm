@@ -511,15 +511,14 @@ sub get_idx($name,%O) {
 # fetch instruction idex
 # from cache
 
-sub get_ins_idex($class,$name,$size,@ar) {
-
+sub _get_ins_idex($class,$name,$size,@args) {
 
   my $meta      = $class->get_ins_meta($name);
   my $full_form = ($meta->{argcnt})
 
     ? $name
 
-    . '_' . (join '_',@ar)
+    . '_' . (join '_',@args)
 
     . '_' . $Type::MAKE::LIST->{ezy}->[$size]
 
@@ -529,11 +528,25 @@ sub get_ins_idex($class,$name,$size,@ar) {
     ;
 
 
-  return warn_invalid($full_form)
-  if ! exists $meta->{icetab}->{$full_form};
+  return (
+    $meta->{icetab}->{$full_form},
+    $full_form
 
+  );
 
-  return $meta->{icetab}->{$full_form};
+};
+
+# ---   *   ---   *   ---
+# ^validates instruction!
+
+sub get_ins_idex($class,$name,$size,@args) {
+
+  my ($ins,$full)=$class->_get_ins_idex(
+    $name,$size,@args
+
+  );
+
+  return ($ins) ? $ins : warn_invalid($full) ;
 
 };
 
@@ -558,6 +571,56 @@ sub warn_invalid($name) {
 
   obj  => $name,
   give => null;
+
+};
+
+# ---   *   ---   *   ---
+# translates from operation
+# symbol to instruction
+
+sub xlate($self,$sym,$size,@args) {
+
+# ---   *   ---   *   ---
+# NOTE: just for testing.
+# register alloc should go on anima!
+
+state $ri=0;
+
+# ---   *   ---   *   ---
+
+
+  $size=typefet $size;
+
+
+  my $imp   = $self->imp();
+  my $name  = $imp->xlate($sym,@args);
+
+  my ($ins,$full) = $self->_get_ins_idex(
+    $name,$size->{sizep2},map {
+      $ARG->{type}
+
+    } @args
+
+  );
+
+
+  my @out=([$size,$name,@args]);
+
+  if(! defined $ins) {
+
+    my $src  = $args[0];
+    $args[0] = {type=>'r',reg=>$ri++};
+
+    @out=(
+      [$size,'load',$args[0],$src],
+      [$size,$name,$args[0],$args[1]]
+
+    );
+
+  };
+
+
+  return @out;
 
 };
 

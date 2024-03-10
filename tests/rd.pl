@@ -16,6 +16,7 @@ package main;
   use Bpack;
 
   use Arstd::Bytes;
+  use Arstd::IO;
 
 # ---   *   ---   *   ---
 # rev xform test
@@ -31,8 +32,16 @@ sub holy_bit($l2,$branch) {
   my $opera = $l1->is_opera($key);
 
   if(defined $opera) {
-    quantize_opera($rd,$branch,$opera);
-    $branch->{value}=$l1->make_tag(REG=>0);
+
+    $branch->prich();
+
+    my $dst=quantize_opera(
+      $rd,$branch,$opera
+
+    );
+
+    $branch->{value}=$dst;
+    $branch->clear();
 
   };
 
@@ -88,20 +97,39 @@ sub quantize_opera($rd,$branch,$opera) {
       my $spec=(8 < bitsize $have) ? 'y' : 'x' ;
       {type=>"i$spec",imm=>$have};
 
+    } else {
+      nyi "memory operands";
+
     };
 
 
   } @args;
 
+
   # find instruction matching op
-  my $name=$imp->xlate($opera,@args);
-  return null if ! length $name;
+  my @program=$ISA->xlate($opera,'word',@args);
+  $mc->exewrite($mc->{scratch},@program);
 
-  $mc->exewrite(
-    $mc->{scratch},
-    ['word',$name,@args],
+  @args=$program[-1]->[2];
 
-  );
+
+  # give dst as a tag
+  my $type = $args[0]->{type};
+  my $out  = undef;
+
+  if($type eq 'r') {
+    $out=$l1->make_tag(REG=>$args[0]->{reg});
+
+  } elsif(! index $type,'i') {
+    $out=$l1->make_tag(NUM=>$args[0]->{imm});
+
+  } else {
+    nyi "memory operands";
+
+  };
+
+
+  return $out;
 
 };
 
@@ -120,6 +148,7 @@ $rd->walk(limit=>2,rev=>\&holy_bit);
 my @ins=$mc->exeread($mc->{scratch});
 $mc->ipret(@ins);
 $mc->{anima}->prich();
+$mc->{scratch}->prich(root=>1);
 
 # ---   *   ---   *   ---
 1; # ret
