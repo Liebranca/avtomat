@@ -174,6 +174,7 @@ sub new($class,$frame,$parent,$val,%O) {
     fcache     => {},
 
     plucked    => 0,
+    '*fetch'   => undef,
 
   },$class;
 
@@ -364,6 +365,9 @@ sub fetch($self,%O) {
 
   };
 
+
+  # cache result and give
+  $self->{'*fetch'} = $out;
   return $out;
 
 };

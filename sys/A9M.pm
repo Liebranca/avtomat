@@ -39,14 +39,14 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
   Readonly my $COMPONENTS => [qw(
-    flags mem ptr anima ISA
+    flags mem ptr alloc anima ISA
 
   )];
 
@@ -96,6 +96,7 @@ sub new($class,%O) {
 
     cas      => undef,
     scratch  => undef,
+    alloc    => undef,
     scope    => undef,
     anima    => undef,
     ISA      => undef,
@@ -136,6 +137,7 @@ sub new($class,%O) {
 
   # kick components in need of kicking!
   $self->{anima}=$bk->{anima}->new(mcid=>$id);
+  $self->{alloc}=$bk->{alloc}->new(mcid=>$id);
   $self->scope($O{memroot});
 
   $self->{ISA}=$bk->{ISA}->new(mcid=>$id);
@@ -534,22 +536,13 @@ sub warn_full_segtab($id) {
 };
 
 # ---   *   ---   *   ---
-# errme for ptr encode/decode
-
-sub badptr_x($mode) {
-  warnproc "cannot $mode pointer",
-  give => null;
-
-};
-
-# ---   *   ---   *   ---
 # OR together segment:offset
 
 sub encode_ptr($self,$seg,$off) {
 
   # validate segment
   my $segid=$self->segid($seg);
-  return badptr_x 'encode' if $segid eq null;
+  return $segid if ! length $segid;
 
   # ^roll and give
   my $bits = $self->sizep2_segtab();
@@ -574,11 +567,32 @@ sub decode_ptr($self,$ptrv) {
 
 
   # ^validate and give
-  my $seg = $self->{segtab}->[$segid]
-  or return badptr_x 'decode';
+  my $seg=$self->{segtab}->[$segid];
+
+  return (length $seg)
+    ? ($seg,$off)
+    : warn_decode($segid,$off)
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub warn_decode($segid,$off) {
+
+  warnproc
 
 
-  return ($seg,$off);
+    'pointer to address '
+  . '$[num]:%X:[num]:%X '
+
+  . 'could not be read',
+
+
+  args => [$segid,$off],
+  give => null;
+
 
 };
 

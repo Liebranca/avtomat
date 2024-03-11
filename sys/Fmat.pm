@@ -42,6 +42,9 @@ package Fmat;
   use Exporter 'import';
   our @EXPORT=qw(
 
+    ioprocin
+    ioprocout
+
     codename
     fatdump
 
@@ -50,7 +53,7 @@ package Fmat;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.6;
+  our $VERSION=v0.00.7;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -60,6 +63,51 @@ package Fmat;
     walked=>{},
 
   };
+
+# ---   *   ---   *   ---
+# sets default options
+# for an I/O F
+
+sub ioprocin($O) {
+
+  my @bufio=();
+
+  $O->{errout} //= 0;
+  $O->{mute}   //= 0;
+  $O->{-bufio} //= \@bufio;
+
+
+  return $O->{-bufio};
+
+};
+
+# ---   *   ---   *   ---
+# ^handles output!
+
+sub ioprocout($O) {
+
+  # cat buf
+  my $out=join $NULLSTR,@{$O->{-bufio}};
+
+  # write to tty?
+  if(! $O->{mute}) {
+
+    # select fto
+    my $fh=($O->{errout})
+      ? *STDERR
+      : *STDOUT
+      ;
+
+    return say {$fh} $out;
+
+
+  # ^nope, just give string
+  } else {
+    return $out;
+
+  };
+
+};
 
 # ---   *   ---   *   ---
 # messes up formatting
@@ -249,10 +297,12 @@ sub codedump($vref,$blessed=undef) {
 
 sub fatdump($vref,%O) {
 
+  # I/O defaults
+  my $out=ioprocin(\%O);
+
   # defaults
   $O{blessed} //= 0;
   $O{recurse} //= 0;
-  $O{errout}  //= 0;
 
   # ^make setting apply recursively
   $O{blessed}=($O{recurse})
@@ -270,14 +320,10 @@ sub fatdump($vref,%O) {
 
   } $vref ) . q[;];
 
-  # select
-  my $fh=($O{errout})
-    ? *STDERR
-    : *STDOUT
-    ;
 
-  say {$fh} tidyup(\$s,0);
-  say {$fh} $NULLSTR;
+  # ^give repr
+  push @$out,tidyup(\$s,0),"\n\n";
+  return ioprocout(\%O);
 
 };
 

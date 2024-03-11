@@ -34,6 +34,7 @@ package A9M::mem;
   use Arstd::Int;
   use Arstd::xd;
   use Arstd::IO;
+  use Arstd::PM;
 
   use parent 'A9M::component';
   use parent 'Tree';
@@ -46,6 +47,7 @@ package A9M::mem;
 
 # ---   *   ---   *   ---
 # ROM
+
 
   sub Frame_Vars($class) { return {
 
@@ -429,12 +431,19 @@ sub lvalue($self,$value,%O) {
   );
 
   # ^save to namespace
-  $self->{inner}->force_set(
-    $ptr,$ptr->{label}
+  my $par=($O{par})
+    ? $O{par}
+    : $self->{inner}
+    ;
 
-  );
+  $par->force_set($ptr,$ptr->{label});
 
-  # ^set value and give
+
+  # recurse to copy structure layout if need
+  $ptr->struclay($par->{'*fetch'})
+  if @{$O{type}->{struc_t}};
+
+  # set value and give
   $ptr->store($value);
 
 
@@ -458,7 +467,11 @@ sub ptr($self,$to,%O) {
 
 
   # get ctx
-  my $type  = $to->{type};
+  my $type  = ($O{type})
+    ? $O{type}
+    : $to->{type}
+    ;
+
   my $other = $to->getseg();
 
 
@@ -506,10 +519,12 @@ sub ptr($self,$to,%O) {
 
 
   # ^all OK, save to namespace
-  $self->{inner}->force_set(
-    $ptr,$ptr->{label}
+  my $par=($O{par})
+    ? $O{par}
+    : $self->{inner}
+    ;
 
-  );
+  $par->force_set($ptr,$ptr->{label});
 
   # ^set value and give
   $ptr->store($ptrv,deref=>0);

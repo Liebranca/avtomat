@@ -67,7 +67,7 @@ package Arstd::IO;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;
+  our $VERSION = v0.00.8;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -109,51 +109,6 @@ sub ttysz_yx() {
 
 sub ttysz_xy() {
   return (reverse split qr{\s},`stty size`);
-
-};
-
-# ---   *   ---   *   ---
-# sets default options
-# for an I/O F
-
-sub ioprocin($O) {
-
-  my @bufio=();
-
-  $O->{errout} //= 0;
-  $O->{mute}   //= 0;
-  $O->{-bufio} //= \@bufio;
-
-
-  return $O->{-bufio};
-
-};
-
-# ---   *   ---   *   ---
-# ^handles output!
-
-sub ioprocout($O) {
-
-  # cat buf
-  my $out=join $NULLSTR,@{$O->{-bufio}};
-
-  # write to tty?
-  if(! $O->{mute}) {
-
-    # select fto
-    my $fh=($O->{errout})
-      ? *STDERR
-      : *STDOUT
-      ;
-
-    return say {$fh} $out;
-
-
-  # ^nope, just give string
-  } else {
-    return $out;
-
-  };
 
 };
 

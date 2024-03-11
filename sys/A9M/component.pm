@@ -29,7 +29,7 @@ package A9M::component;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -41,6 +41,18 @@ sub getmc($self) {
   my $mc    = $class->ice($self->{mcid});
 
   return $mc;
+
+};
+
+# ---   *   ---   *   ---
+# get allocator
+
+sub get_alloc($self) {
+
+  my $mc    = $self->getmc();
+  my $alloc = $mc->{alloc};
+
+  return $alloc;
 
 };
 

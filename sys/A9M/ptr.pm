@@ -27,6 +27,7 @@ package A9M::ptr;
   use Style;
   use Chk;
   use Type;
+  use Fmat;
 
   use Arstd::IO;
 
@@ -70,6 +71,95 @@ sub new($class,%O) {
 
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# makes child nodes for each
+# structure field
+
+sub struclay($self,$par) {
+
+
+  # get ctx
+  my $seg   = $self->getseg();
+  my $struc = $self->{type};
+  my $addr  = $self->{addr};
+
+  # unpack
+  my $elem_t = $struc->{struc_t};
+  my $elem_n = $struc->{struc_i};
+  my $layout = $struc->{layout};
+
+
+  # walk structure fields
+  my $idex=0;
+  map {
+
+
+    # get field data
+    my $cnt  = $ARG;
+    my $name = $elem_n->[$idex];
+    my $type = typefet $elem_t->[$idex++];
+
+
+    # walk field layout
+    map {
+
+
+      # single elem or array?
+      my $label=($cnt > 1)
+        ? "$name\[$ARG]"
+        : $name
+        ;
+
+
+      # field is a ptr?
+      if(my ($ptr_t)=Type->is_ptr($type)) {
+
+        $seg->ptr(
+
+          $self,
+
+          par      => $par,
+          type     => (derefof $type),
+
+          store_at => $addr,
+
+          ptr_t    => $ptr_t,
+          label    => $label,
+
+
+        );
+
+      # ^nope, plain value
+      } else {
+
+        $seg->lvalue(
+
+          0x00,
+
+          par   => $par,
+
+          addr  => $addr,
+          label => $label,
+
+        );
+
+      };
+
+
+      # go next
+      $addr += $type->{sizeof};
+
+
+    } 0..$cnt-1;
+
+  } @$layout;
+
+
+  return;
+
 
 };
 
@@ -223,7 +313,6 @@ sub absloc($self,%O) {
 
 sub prich($self,%O) {
 
-
   # I/O defaults
   my $out=ioprocin(\%O);
 
@@ -241,8 +330,13 @@ sub prich($self,%O) {
      $pad   = "%0${pad}X";
 
 
+  # have struc?
+  my @struc=@{$type->{struc_t}};
+  if(int @struc) {
+    $value="(struc)";
+
   # have vector?
-  if(is_arrayref($value)) {
+  } elsif(is_arrayref($value)) {
 
     my $mc  = $self->getmc();
     my $imp = $mc->{ISA}->imp();

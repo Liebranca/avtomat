@@ -134,7 +134,7 @@ sub quantize_opera($rd,$branch,$opera) {
 };
 
 # ---   *   ---   *   ---
-# ~
+# the bit
 
 use Fmat;
 use Arstd::xd;
@@ -142,13 +142,26 @@ use Arstd::xd;
 my $rd = rd('./lps/lps.rom');
 my $mc = $rd->{mc};
 
-$rd->walk(limit=>2,rev=>\&holy_bit);
+
+my $mem   = $mc->{anima}->{mem};
+my $alloc = $mem->get_alloc();
+   $mem   = $alloc->{mem};
+
+my $tree  = $mem->{inner};
+
+my $node  = $tree->has('head','lvl[0]');
+   $node  = $$node;
+
+$node->store(0x0020);
+$alloc->prich(inner=>1);
+
+#$rd->walk(limit=>2,rev=>\&holy_bit);
 #$rd->prich();
 
-my @ins=$mc->exeread($mc->{scratch});
-$mc->ipret(@ins);
-$mc->{anima}->prich();
-$mc->{scratch}->prich(root=>1);
+#my @ins=$mc->exeread($mc->{scratch});
+#$mc->ipret(@ins);
+#$mc->{anima}->prich();
+#$mc->{scratch}->prich(root=>1);
 
 # ---   *   ---   *   ---
 1; # ret
