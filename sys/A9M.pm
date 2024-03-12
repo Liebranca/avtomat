@@ -715,7 +715,7 @@ sub get_bk_class($class,$name) {
 
   my $pkg="A9M\::$name";
 
-  cload  $pkg;
+  cloadi $pkg;
   return $pkg;
 
 };

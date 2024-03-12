@@ -32,13 +32,14 @@ package A9M::alloc;
   use Arstd::Int;
   use Arstd::Bytes;
   use Arstd::IO;
+  use Arstd::PM;
 
   use parent 'A9M::component';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -46,6 +47,9 @@ package A9M::alloc;
 
 St::vconst {
 
+
+  # mpart implementation
+  mpart  => 'A9M::mpart',
 
   # number of sub-tables
   lvlcnt => 0x02,
@@ -119,6 +123,9 @@ sub import($class) {
   $class->head_t();
   $class->lvl_t();
   $class->blk_t();
+
+  cload $class->mpart();
+
 
   return;
 
@@ -198,7 +205,7 @@ sub get_part($self,$req) {
     if($total <= $ezy * 3) {
 
       $lvl  = $i;
-      $size = int $total/$ezy;
+      $size = int($total/$ezy);
 
       last;
 
@@ -281,78 +288,41 @@ sub mkstab($self,$lvl,$base,$ref) {
 };
 
 # ---   *   ---   *   ---
-# ~
-
-sub get_free($self,$dst,$src) {
-
-  my $iv=bitscanf ~$dst;
-  $iv--;
-
-  return $iv;
-
-};
-
-# ---   *   ---   *   ---
-# ~
-
-sub qmask($self,$lvl,$size) {
-  my $mask= 1 << $size;
-  return $mask-1;
-
-};
-
-# ---   *   ---   *   ---
 # fit size in blk
 
-sub fit($self,$ctx) {
+sub blkfit($self,$ctx) {
 
 
   # unpack
-  my $data = $ctx->{head};
-  my $mask = $data->{mask};
+  my $data  = $ctx->{head};
+  my $mask  = $data->{mask};
+  my $mpart = $self->mpart();
 
 
-  # get pos/max && elem size
-  my $pos   = 0;
-  my $limit = 0x40-$ctx->{size};
-  my $ezy   = $self->qmask(
-    $ctx->{lvl},$ctx->{size}
+  # enough space avail?
+  my ($ezy,$pos)=$mpart->fit(
+    \$mask,$ctx->{size}
 
   );
 
-
-  # get next free bit chunk
-  top:
-
-  my $i = $self->get_free($mask,$ezy);
-
-  $mask >>= $i;
-  $pos   += $i;
+  return 0 if ! defined $ezy;
 
 
-  # chunk big enough?
-  my $have=$mask & $ezy;
+  # ^yes, update block
+  $ctx->{ezy}=$ezy;
+  $ctx->{pos}=$pos;
 
-  # ^nope, skip occupied and repeat
-  if($have) {
+  $self->blk_write($ctx);
 
-    my $i = bitscanr $have;
+  # ^update subtable
+  my $stab=$ctx->{stab};
 
-    $mask >>= $i;
-    $pos   += $i;
-
-
-    goto top if $pos < $limit;
-
-  };
+  $data->{mask} |= $mask;
+  $stab->store($data);
 
 
-  # give mask and pos on success
-  if($pos <= $limit) {
-    $ctx->{ezy} = $ezy;
-    $ctx->{pos} = $pos;
+  return 1;
 
-  };
 
 };
 
@@ -422,7 +392,6 @@ sub get_block($self,$req) {
   # TODO:
   #
   # * mem::view
-  # * blk part
 
   my $ctx={
 
@@ -437,24 +406,12 @@ sub get_block($self,$req) {
 
   };
 
-  $self->fit($ctx);
 
-  if(! defined $ctx->{ezy}) {
+  # TODO: make new subtable entry!
+  if(! $self->blkfit($ctx)) {
     nyi "stab chain";
 
   };
-
-
-  $self->blk_write($ctx);
-
-
-  my $data=$ctx->{head};
-
-  $data->{mask} |=
-     $ctx->{ezy}
-  << $ctx->{pos};
-
-  $stab->store($data);
 
   $mem->prich(root=>1,inner=>1);
 
