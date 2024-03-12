@@ -39,7 +39,7 @@ package A9M::alloc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -49,35 +49,14 @@ St::vconst {
 
 
   # mpart implementation
-  mpart  => 'A9M::mpart',
+  mpart => 'A9M::mpart',
+
 
   # number of sub-tables
   lvlcnt => 0x02,
 
-
-  # element alignment
-  basepart => (typefet 'qword'),
-  basepow  => sub {
-
-    my $class = $_[0];
-    my $base  = $class->basepart();
-
-    $base->{sizep2} * 2;
-
-  },
-
-
-  # base granularity for each block
-  pagesize => sub {
-
-    my $class = $_[0];
-    my $base  = $class->basepart();
-
-    0x80;
-
-#    $base->{sizebs} * $base->{sizebs};
-
-  },
+  # default alignment
+  defbase => 'byte',
 
 
   # master partition table
@@ -97,7 +76,7 @@ St::vconst {
   lvl_t => (struc 'alloc.lvl' => q{
 
     word  buf;
-    ptr   next;
+    word  next;
 
     qword mask;
 
@@ -132,14 +111,37 @@ sub import($class) {
 };
 
 # ---   *   ---   *   ---
+# recalc sizes accto base alignment
+
+sub set_base($self,$base) {
+
+
+  # validate in
+  $base=typefet $base
+  or return null;
+
+
+  # ^save and re-run calcs
+  $self->{base} = $base;
+
+  $self->{page} = $base->{sizebs} ** 2;
+  $self->{pow}  = $base->{sizep2}  * 2;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # cstruc
 
 sub new($class,%O) {
 
 
   # defaults
-  $O{mcid}  = 0;
-  $O{mccls} = caller;
+  $O{mcid}  //= 0;
+  $O{mccls} //= caller;
+  $O{base}  //= $class->defbase();
 
 
   # make ice
@@ -147,6 +149,8 @@ sub new($class,%O) {
 
   my $mc     = $self->getmc();
   my $memcls = $mc->{bk}->{mem};
+
+  $self->set_base($O{base});
 
 
   # make container
@@ -180,10 +184,10 @@ sub get_part($self,$req) {
 
   # get ctx
   my $cnt  = $self->lvlcnt();
-  my $base = $self->basepart();
+  my $base = $self->{base};
 
   my $bits = $base->{sizebs};
-  my $pow  = $self->basepow();
+  my $pow  = $self->{pow};
 
 
   # add block header size to requested
@@ -193,6 +197,7 @@ sub get_part($self,$req) {
   my $total = int_align $reqb,$bits;
   my $size  = 0;
   my $lvl   = null;
+
 
   for my $i(0..$cnt-1) {
 
@@ -205,14 +210,14 @@ sub get_part($self,$req) {
     if($total <= $ezy * 3) {
 
       $lvl  = $i;
-      $size = int($total/$ezy);
+      $size = int $total/$ezy;
 
       last;
 
     # ^total fits within maximum size?
     } elsif($i == $cnt-1) {
 
-      $lvl=($total > $cap)
+      $lvl=($total >= $cap)
         ? warn_reqsize($req,$total)
         : $i
         ;
@@ -255,7 +260,7 @@ sub warn_reqsize($req,$total) {
 # ---   *   ---   *   ---
 # make new sub-table entry
 
-sub mkstab($self,$lvl,$base,$ref) {
+sub mkstab($self,$lvl,$at) {
 
 
   # get ctx
@@ -265,25 +270,43 @@ sub mkstab($self,$lvl,$base,$ref) {
 
   # make container
   my $stab = $mem->decl(
-    $lvl_t,"lvl\[$lvl]",0x00
+    $lvl_t,"STAB:$mem->{ptr}",0x00
 
   );
 
-  $$ref=$stab->{addr};
-
 
   # get mem
-  my $size = $self->pagesize() << $lvl;
+  my $size = $self->{page} << $lvl;
   my $blk  = $mem->new($size);
 
   $stab->store($blk->{segid});
 
-  # ^write to table
-  my $off=$lvl * sizeof 'word';
-  $mem->store(word=>$$ref,$base+$off);
 
+  # ^write to table and give
+  $mem->store(word=>$stab->{addr},$at);
 
   return $stab;
+
+};
+
+# ---   *   ---   *   ---
+# ^get existing
+
+sub getstab($self,$addr) {
+
+  # get ctx
+  my $mem   = $self->{mem};
+  my $lvl_t = $self->lvl_t();
+
+
+  # tree lookup
+  my $have=$mem->deref("STAB:$addr");
+
+  # ^validate and give
+  return (! defined $have)
+    ? null
+    : $have
+    ;
 
 };
 
@@ -298,7 +321,6 @@ sub blkfit($self,$ctx) {
   my $mask  = $data->{mask};
   my $mpart = $self->mpart();
 
-
   # enough space avail?
   my ($ezy,$pos)=$mpart->fit(
     \$mask,$ctx->{size}
@@ -312,7 +334,7 @@ sub blkfit($self,$ctx) {
   $ctx->{ezy}=$ezy;
   $ctx->{pos}=$pos;
 
-  $self->blk_write($ctx);
+  my $addr=$self->blk_write($ctx);
 
   # ^update subtable
   my $stab=$ctx->{stab};
@@ -321,7 +343,7 @@ sub blkfit($self,$ctx) {
   $stab->store($data);
 
 
-  return 1;
+  return $addr;
 
 
 };
@@ -330,6 +352,7 @@ sub blkfit($self,$ctx) {
 # writes block header
 
 sub blk_write($self,$ctx) {
+
 
   # unpack
   my $stab  = $ctx->{stab};
@@ -352,11 +375,14 @@ sub blk_write($self,$ctx) {
 
 
   # ^write
-  my $pow=$ctx->{lvl} + $self->basepow();
-  $blk->store($blk_t,$head,$ctx->{pos} << $pow);
+  my $pow  = $ctx->{lvl} + $self->{pow};
+  my $addr = $ctx->{pos} << $pow;
+
+  $blk->store($blk_t,$head,$addr);
 
 
-  return;
+  # give beg of user memory!
+  return $addr + $blk_t->{sizeof};
 
 };
 
@@ -370,22 +396,24 @@ sub get_block($self,$req) {
   my ($lvl,$size)=
     $self->get_part($req);
 
+  return null if ! length $lvl;
+
 
   # get ctx
   my $mem    = $self->{mem};
   my $top    = $mem->{ptr};
-  my $lvl_t  = $self->lvl_t();
   my $head_t = $self->head_t();
 
 
   # fetch subtable
   my $head = $mem->load($head_t,0x00);
-  my $addr = \$head->{lvl}->[$lvl];
+  my $addr = $head->{lvl}->[$lvl];
+  my $base = $lvl * sizeof 'word';
 
   # ^make first entry?
-  my $stab=(! $$addr)
-    ? $self->mkstab($lvl,0x00,$addr)
-    : $mem->load($lvl_t,$addr)
+  retry: my $stab=(! $addr)
+    ? $self->mkstab($lvl,$base)
+    : $self->getstab($addr)
     ;
 
 
@@ -407,15 +435,25 @@ sub get_block($self,$req) {
   };
 
 
-  # TODO: make new subtable entry!
-  if(! $self->blkfit($ctx)) {
-    nyi "stab chain";
+  # have enough space?
+  my $fit=$self->blkfit($ctx);
+
+  # ^nope, go next/make new
+  if(! $fit) {
+
+    my $data = $ctx->{head};
+
+
+    $addr  = $data->{next};
+    $base  = $ctx->{stab}->{addr};
+    $base += sizeof 'word';
+
+    goto retry;
 
   };
 
-  $mem->prich(root=>1,inner=>1);
 
-  exit;
+  return $fit;
 
 };
 

@@ -326,7 +326,7 @@ sub prich($self,%O) {
 
   my $value = $self->load();
 
-  my $pad   = 2 * ($type->{sizep2}+1);
+  my $pad   = 1 << ($type->{sizep2}+1);
      $pad   = 16 if $pad > 16;
      $pad   = "%0${pad}X";
 

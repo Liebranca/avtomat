@@ -43,7 +43,7 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#a
+  our $VERSION = v0.01.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -725,22 +725,43 @@ sub absloc($self) {
 # ---   *   ---   *   ---
 # find across namespaces
 
-sub search($self,$altref,@path) {
+sub search($self,$name,@path) {
 
+
+  # get ctx
+  my $mc   = $self->getmc();
+  my $sep  = $mc->{pathsep};
+  my $tree = $self->{inner};
 
   # cat name to path
-  my $tree = $self->{inner};
+  my @alt  = split $sep,$name;
 
   # ^pop from namespace until
   # symbol is found
-  while(@path) {
-    last if $tree->has(@path,@$altref);
-    pop @path;
+  while(1) {
+    last if $tree->has(@path,@alt);
+    last if ! pop @path;
 
   };
 
 
-  return (@path,@$altref);
+  # give path; found returned implicitly
+  $self->{'*fetch'}=
+    $tree->{'*fetch'}->leaf_value(0)
+
+  if defined $tree->{'*fetch'};
+
+
+  return (@path,@alt);
+
+};
+
+# ---   *   ---   *   ---
+# ^shorthand for getting value
+
+sub deref($self,$name,@path) {
+  $self->search($name,@path);
+  return $self->{'*fetch'};
 
 };
 
@@ -826,6 +847,10 @@ sub prich($self,%O) {
   $O{head}=0;
 
 
+  # depth reset
+  my $limit=$O{depth};
+  my $depth=0;
+
   # walk hierarchy
   my @Q=($self eq $self->{root} &&! $O{root})
     ? @{$self->{leaves}}
@@ -838,7 +863,7 @@ sub prich($self,%O) {
     # handle end of branch
     my $nd=shift @Q;
     if(! $nd) {
-      last if ! $O{depth}--;
+      $depth--;
       next;
 
     };
@@ -850,10 +875,15 @@ sub prich($self,%O) {
     push @$out,"$nd->{value}:\n"
     if ! $O{head};
 
+    # ^put hexdump
+    xd $nd->{buf},%O,mute=>1;
 
-    # give hexdump and go next
-    xd      $nd->{buf},%O,mute=>1;
-    unshift @Q,@{$nd->{leaves}},0;
+
+    # recurse branch until limit
+    my @lv=@{$nd->{leaves}};
+
+    unshift @Q,@lv,0 if $depth < $limit;
+    $depth += 0 < int @lv;
 
   };
 

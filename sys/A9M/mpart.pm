@@ -30,14 +30,18 @@ package A9M::mpart;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # get next free bit-chunk
 
 sub get_free($class,$mask) {
-  return (bitscanf ~$mask)-1;
+
+  my $i   = bitscanf ~$mask;
+     $i //= 0;
+
+  return $i-1;
 
 };
 
@@ -86,6 +90,7 @@ sub fit($class,$maskref,$bits,%O) {
   my $pos   = 0;
   my $limit = $O{limit}-$bits;
   my $ezy   = bitmask $bits;
+
 
   # save old mask
   my $old=$$maskref;

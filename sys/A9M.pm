@@ -39,7 +39,7 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -366,8 +366,7 @@ sub _search($self,$name,@path) {
 
   # make (path,to) from (path::to)
   # then look in namespace
-  my @alt  = split $self->{pathsep},$name;
-  my @have = $mem->search(\@alt,@path);
+  my @have = $mem->_search($name,@path);
 
 
   return @have;
@@ -375,20 +374,19 @@ sub _search($self,$name,@path) {
 };
 
 # ---   *   ---   *   ---
-# ^deref found
+# ^deref
 
 sub dsearch($self,$name,@path) {
 
   # get ctx
-  my $mem  = $self->{cas};
-  my $tree = $mem->{inner};
-
+  my $mem=$self->{cas};
 
   # solve path
   @path=$self->_search($name,@path);
 
+
   # give name if found
-  return $tree->has(@path);
+  return $mem->{'*fetch'};
 
 };
 
@@ -399,14 +397,13 @@ sub search($self,$name,@path) {
 
   # get ctx
   my $mem  = $self->{cas};
-  my $tree = $mem->{inner};
 
 
   # solve path
   @path=$self->_search($name,@path);
 
   # give name if found
-  my $out = $tree->has(@path)
+  my $out = $mem->{'*fetch'}
   or return badfet($name,@path);
 
 

@@ -57,7 +57,7 @@ package Arstd::xd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -141,8 +141,8 @@ sub draw($body,%O) {
         (reverse @bytes[ 4.. 7]),
         (reverse @bytes[ 0.. 3]),
 
-        (reverse @bytes[ 8..11]),
         (reverse @bytes[12..15]),
+        (reverse @bytes[ 8..11]),
 
       );
 

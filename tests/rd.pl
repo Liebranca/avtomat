@@ -146,7 +146,12 @@ my $mc = $rd->{mc};
 my $mem   = $mc->{anima}->{mem};
 my $alloc = $mem->get_alloc();
 
-$alloc->get_block(0x40);
+my @buf   = map {
+  $alloc->get_block(0x04);
+
+} 0..0x10;
+
+$alloc->prich(inner=>1,root=>1,depth=>1);
 
 #   $mem   = $alloc->{mem};
 #
