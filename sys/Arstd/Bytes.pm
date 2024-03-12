@@ -43,6 +43,7 @@ package Arstd::Bytes;
     bitmask
     bitcat
     bitscanf
+    bitscanr
 
     bitsume
     bitsumex
@@ -203,6 +204,24 @@ sub bitscanf($x) {
 
     $x >>= 1;
     $idex++;
+
+  };
+
+
+  return $have;
+
+};
+
+# ---   *   ---   *   ---
+# ^bsr
+
+sub bitscanr($x) {
+
+  my $idex=64;
+  my $have=undef;
+
+  while($idex--) {
+    $have=$idex,last if $x & (1 << $idex);
 
   };
 

@@ -140,6 +140,7 @@ sub struclay($self,$par) {
           0x00,
 
           par   => $par,
+          type  => $type,
 
           addr  => $addr,
           label => $label,

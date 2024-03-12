@@ -145,15 +145,18 @@ my $mc = $rd->{mc};
 
 my $mem   = $mc->{anima}->{mem};
 my $alloc = $mem->get_alloc();
-   $mem   = $alloc->{mem};
 
-my $tree  = $mem->{inner};
+$alloc->get_block(0x40);
 
-my $node  = $tree->has('head','lvl[0]');
-   $node  = $$node;
-
-$node->store(0x0020);
-$alloc->prich(inner=>1);
+#   $mem   = $alloc->{mem};
+#
+#my $tree  = $mem->{inner};
+#
+#my $node  = $tree->has('head','lvl[0]');
+#   $node  = $$node;
+#
+#$node->store(0x0020);
+#$alloc->prich(inner=>1);
 
 #$rd->walk(limit=>2,rev=>\&holy_bit);
 #$rd->prich();

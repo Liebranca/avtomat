@@ -39,7 +39,7 @@ package Bpack;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -79,7 +79,7 @@ sub unlay($type,$src) {
   if(is_hashref($src)) {
 
     my $field = $type->{struc_i};
-       $src   = [map {$src->{$ARG}} @$field];
+       $src   = [map {$src->{$ARG} or 0x00} @$field];
 
   # ^effectively noop on plain value
   } elsif(! is_arrayref($src)) {
@@ -149,8 +149,8 @@ sub layas($type,@src) {
   my @out=map {
 
     ($ARG > 1)
-      ? [map {shift @src} 1..$ARG]
-      : shift @src
+      ? [map {shift @src or 0} 1..$ARG]
+      : shift @src or 0
       ;
 
 

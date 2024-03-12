@@ -116,6 +116,8 @@ sub PEVAR($expr) {
   my $name =  $expr;
   my $cnt  = ($name=~ s[$array_re][]) ? $1 : 1 ;
 
+  strip(\$name);
+
 
   # ^give hashref
   return $name=>{

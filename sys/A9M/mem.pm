@@ -28,6 +28,7 @@ package A9M::mem;
   use Type;
   use Chk;
   use Bpack;
+  use Cask;
   use Warnme;
 
   use Arstd::Bytes;
@@ -42,7 +43,7 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -51,7 +52,7 @@ package A9M::mem;
 
   sub Frame_Vars($class) { return {
 
-    segtab => [],
+    segtab => Cask->new(),
 
 
     -autoload => [qw(mkseg getseg)],
@@ -93,12 +94,25 @@ sub mklabel($self) {
 sub mkseg($class,$frame,$ice) {
 
   my $segtab = $frame->{segtab};
-  my $id     = @$segtab;
+  my $idex   = $segtab->give($ice);
 
-  push @$segtab,$ice;
+  return $idex;
+
+};
+
+# ---   *   ---   *   ---
+# ^remove
+
+sub rmseg($class,$frame,$ice) {
+
+  my $segtab = $frame->{segtab};
+  my $idex   = $ice->{segid};
+
+  $segtab->take(idex=>$idex);
+  $ice->discard();
 
 
-  return $id;
+  return;
 
 };
 
@@ -108,7 +122,7 @@ sub mkseg($class,$frame,$ice) {
 sub getseg($class,$frame,$idex) {
 
   my $segtab = $frame->{segtab};
-  my $seg    = $segtab->[$idex];
+  my $seg    = $segtab->view($idex);
 
   return (defined $seg) ? $seg : null ;
 
@@ -556,9 +570,10 @@ sub decl($self,$type,$name,$value,%O) {
 
 
   # set cstruc vars
-  $O{type}  = $type;
-  $O{label} = $name;
-  $O{addr}  = $self->{ptr};
+  $O{type}    = $type;
+  $O{label}   = $name;
+
+  $O{addr}  //= $self->{ptr};
 
 
   # need to grow?
