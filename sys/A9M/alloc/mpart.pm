@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package A9M::mpart;
+package A9M::alloc::mpart;
 
   use v5.36.0;
   use strict;
@@ -25,12 +25,16 @@ package A9M::mpart;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Type;
+  use Warnme;
+
   use Arstd::Bytes;
+  use Arstd::Int;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -130,6 +134,87 @@ sub fit($class,$maskref,$bits,%O) {
     return ();
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# determine partition level
+
+sub getlvl($self,$main,$req) {
+
+
+  # get ctx
+  my $cnt  = $main->lvlcnt();
+  my $base = $main->{base};
+
+  my $bits = $base->{sizebs};
+  my $pow  = $main->{pow};
+
+
+  # add block header size to requested
+  my $reqb = $req + sizeof 'alloc.blk';
+
+  # align requested size to granularity
+  my $total = int_align $reqb,$bits;
+  my $size  = 0;
+  my $lvl   = null;
+
+
+  for my $i(0..$cnt-1) {
+
+
+    # get next partition level
+    my $ezy = 1 << $pow;
+    my $cap = $ezy * $bits;
+
+    # ^total fits within three sub-blocks?
+    if($total <= $ezy * 3) {
+
+      $lvl  = $i;
+      $size = int $total/$ezy;
+
+      last;
+
+    # ^total fits within maximum size?
+    } elsif($i == $cnt-1) {
+
+      $lvl=($total >= $cap)
+        ? warn_reqsize($req,$total)
+        : $i
+        ;
+
+      $size=int $total/$ezy;
+
+      last;
+
+    };
+
+
+    # go next
+    $pow++;
+
+  };
+
+
+  return ($lvl,$size);
+
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub warn_reqsize($req,$total) {
+
+  warnproc
+
+    'block of size $[num]:%X '
+  . '(requested: $[num]:%X) '
+
+  . 'exceeds maximum partition size',
+
+  args => [$total,$req],
+  give => null;
 
 };
 

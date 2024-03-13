@@ -34,8 +34,8 @@ package St;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.02.5;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = v0.02.6;
+  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
@@ -43,9 +43,10 @@ package St;
   sub Frame_Vars($class) {{}};
 
 # ---   *   ---   *   ---
-# global state
+# GBL
 
-  my $Frames={};
+  our $Frames  = {};
+  our $Classes = {};
 
 # ---   *   ---   *   ---
 # is obj instance of class
@@ -101,6 +102,60 @@ sub defnit($class,$href) {
 };
 
 # ---   *   ---   *   ---
+# fetch class attribute
+# mostly for internal use!
+
+sub classattr($class,$name) {
+
+  my $A    = \$Classes->{$class};
+     $$A //= {};
+
+  my $B    = \$$A->{$name};
+     $$B //= [];
+
+
+  return $$B;
+
+};
+
+# ---   *   ---   *   ---
+# allows other packages to
+# inject their own kicks and nits
+# into St methods
+
+sub inject($name,$fn,@dst) {
+
+  # who's calling?
+  my $src=caller;
+  my $dst=$dst[0];
+
+  # who's getting called? ;>
+  $name=~ s[^\*][St::];
+  $name=~ s[^\~][$dst\::];
+
+
+  # ^add F to class->name
+  my $attr=classattr $dst,$name;
+  push @$attr,$fn;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^does the deed!
+
+sub injector($class,@args) {
+
+  my $here = (caller(1))[3];
+  my $attr = classattr $class,$here;
+
+  map {$ARG->($class,@args)} @$attr;
+
+};
+
+# ---   *   ---   *   ---
 # define/overwrite virtual constants
 
 sub vconst($data) {
@@ -145,6 +200,32 @@ sub vconst($data) {
 
 
   } keys %$data;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^decls frame vars
+# pure sugar
+
+sub vstatic($O={}) {
+
+  # defaults
+  $O->{-autoload} //= [];
+
+  # get ctx
+  my $class = caller;
+  my $name  = 'Frame_Vars';
+
+
+  # run injected methods
+  injector $class,$O;
+
+  # write method fetching hash
+  no strict 'refs';
+  *{"$class\::$name"}=sub ($class) {$O};
 
 
   return;
@@ -280,6 +361,20 @@ sub get_frame_list($class) {
 sub nattrs($self) {
   map  {  $ARG  => $self->{$ARG}}
   grep {! ($ARG =~ qr{^\-})} keys %$self;
+
+};
+
+# ---   *   ---   *   ---
+# overwrite this method for
+# a more specific dstruc
+
+sub DESTROY($self) {
+
+  my $class=ref $self;
+  injector $class,$self;
+
+
+  return;
 
 };
 

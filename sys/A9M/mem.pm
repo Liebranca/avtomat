@@ -43,7 +43,7 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#a
+  our $VERSION = v0.01.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -156,7 +156,7 @@ sub mkroot($class,%O) {
   $self->{mccls}  = $O{mccls};
   $self->{segid}  = $frame->mkseg($self);
 
-  $self->{buf}    = zeropad $O{size};
+  $self->{buf}    = \zeropad $O{size};
   $self->{ptr}    = 0x00;
   $self->{size}   = $O{size};
   $self->{absloc} = undef;
@@ -178,6 +178,9 @@ sub mkroot($class,%O) {
   $self->{__absloc_recalc} = 0;
   $self->{__total_size}    = 0x00;
 
+  # hidden var ;>
+  $self->{__view} = undef;
+
 
   return $self;
 
@@ -194,7 +197,7 @@ sub new($self,$size,$label=undef) {
 
 
   # make child
-  my $buf = zeropad $size;
+  my $buf = \zeropad $size;
   my $ice = Tree::new(
     (ref $self),$self->{frame},$self,$label
 
@@ -222,6 +225,37 @@ sub new($self,$size,$label=undef) {
   # mark for update!
   $self->{root}->{__absloc_recalc}=1;
 
+  # hidden var ;>
+  $self->{__view} = undef;
+
+
+  return $ice;
+
+};
+
+# ---   *   ---   *   ---
+# make reference to a section
+# of a block
+
+sub view($self,$addr,$len) {
+
+  my $class = ref $self;
+  my $ice   = bless {%$self},$class;
+  my $buf   = $ice->{buf};
+
+  return null
+  if $addr+$len > length $$buf;
+
+
+  $ice->{buf}    = \substr $$buf,$addr,$len;
+  $ice->{size}   = $len;
+
+  $ice->{__view} = [$self,$addr];
+  $ice->{absloc} = $self->absloc() + $addr;
+
+  $ice->{segid}  = $self->{frame}->mkseg($ice);
+
+
   return $ice;
 
 };
@@ -239,17 +273,17 @@ sub brk($self,$step) {
 
   # add bytes to buffer?
   if($step > 0) {
-    $buf .= zeropad $step;
+    $$buf .= zeropad $step;
 
   # ^nope, discard!
   } elsif($step < 0) {
-    $buf=substr $buf,0,$size+$step,null;
+    $$buf=substr $$buf,0,$size+$step,null;
 
   };
 
 
   # ^adjust size accordingly
-  $size = length $buf;
+  $size = length $$buf;
   $ptr  = $ptr * ($size > $ptr);
 
   # overwrite and give new size
@@ -345,7 +379,7 @@ sub store($self,$type,$value,$addr=undef) {
 # ^bypass checks!
 
 sub dload($self,$type,$addr) {
-  my $b=bunpack $type,$self->{buf},$addr;
+  my $b=bunpack $type,${$self->{buf}},$addr;
   return $b->{ct}->[0];
 
 };
@@ -364,7 +398,7 @@ sub dstore($self,$type,$value,$addr) {
 
   # issue write!
   my $b=bpack $type,$value;
-  substr $self->{buf},$addr,$b->{len},$b->{ct};
+  substr ${$self->{buf}},$addr,$b->{len},$b->{ct};
 
   return $b->{len};
 
@@ -458,6 +492,9 @@ sub lvalue($self,$value,%O) {
   if @{$O{type}->{struc_t}};
 
   # set value and give
+  $value=[Bpack::unlay $O{type},$value]
+  if is_hashref $value;
+
   $ptr->store($value);
 
 
@@ -624,7 +661,7 @@ sub _inbounds($self,$type,$addr,$value=undef) {
      $addr
   +  $type->{sizeof} * $cnt
 
-  <= length $self->{buf}
+  <= length ${$self->{buf}}
 
   ;
 
@@ -702,10 +739,21 @@ sub absloc($self) {
 
     my $nd = shift @Q;
 
+
+    # node is a slice ref, it does not
+    # count towards total!
+    if($nd->{__view}) {
+      my ($base,$off)=@{$nd->{__view}};
+      $nd->{absloc}=$base->{absloc}+$off;
+
+
     # sizes of all previous equals
     # address of current
-    $nd->{absloc}=$addr;
-    $addr+=$nd->{size};
+    } else {
+      $nd->{absloc}=$addr;
+      $addr+=$nd->{size};
+
+    };
 
 
     unshift @Q,@{$nd->{leaves}};
@@ -782,7 +830,7 @@ sub cstr_len($self,$addr=0) {
   my @type  = typeof $size;
 
   # ^get slice
-  my $raw   = $self->{buf};
+  my $raw   = ${$self->{buf}};
      $raw   = substr $raw,$addr,$size;
      $raw   = "$raw";
 
@@ -876,7 +924,7 @@ sub prich($self,%O) {
     if ! $O{head};
 
     # ^put hexdump
-    xd $nd->{buf},%O,mute=>1;
+    xd ${$nd->{buf}},%O,mute=>1;
 
 
     # recurse branch until limit

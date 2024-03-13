@@ -51,6 +51,7 @@ package Type;
     packof
     typeof
     derefof
+    offsetof
 
     typefet
     typedef
@@ -66,7 +67,7 @@ package Type;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.04.3;
+  our $VERSION = v0.04.4;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -328,6 +329,47 @@ sub derefof($ptr_t) {
 
 
   return $type;
+
+};
+
+# ---   *   ---   *   ---
+# get pos of struc field
+
+sub offsetof($type,$field) {
+
+  # validate input
+  $type=typefet $type
+  or return null;
+
+
+  # walk structure
+  my $idex = 0;
+  my @name = @{$type->{struc_i}};
+  my @size = @{$type->{struc_t}};
+
+  my $out  = null;
+  my $addr = 0;
+
+  for my $s(@size) {
+
+
+    # get next field
+    my $name=$name[$idex++];
+
+    # ^stop when requested is found
+    if($name eq $field) {
+      $out=$addr;
+      last;
+
+    };
+
+    # ^else keep going
+    $addr += sizeof $s;
+
+  };
+
+
+  return $out;
 
 };
 

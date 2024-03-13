@@ -269,13 +269,11 @@ sub beqwraps($attr,@names) {
 };
 
 # ---   *   ---   *   ---
-# ^wrapper f*cktory
+# internal. makes wrappers!
 
-sub subwraps($fn,$sig,@icebox) {
+sub _mkwraps($pkg,$fn,$sig,@icebox) {
 
   no strict 'refs';
-  my $pkg=rcaller;
-
 
   map {
 
@@ -295,19 +293,29 @@ sub subwraps($fn,$sig,@icebox) {
 };
 
 # ---   *   ---   *   ---
+# ^icef*ck
+
+sub subwraps($fn,$sig,@icebox) {
+  my $pkg=rcaller;
+  _mkwraps($pkg,$fn,$sig,@icebox);
+
+};
+
+# ---   *   ---   *   ---
 # ^indirect: make wrappers
 # and add them to *another*
 # package!
 
 sub impwraps($dst,@args) {
 
-  my @names=subwraps @args;
+#  my @names=subwraps @args;
+  _mkwraps($dst,@args);
 
-  map {
-    my ($src,$name)=@$ARG;
-    add_symbol("$dst\::$name",$src);
-
-  } @names;
+#  map {
+#    my ($src,$name)=@$ARG;
+#    add_symbol("$dst\::$name",$src);
+#
+#  } @names;
 
 
   return;

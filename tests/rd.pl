@@ -146,12 +146,31 @@ my $mc = $rd->{mc};
 my $mem   = $mc->{anima}->{mem};
 my $alloc = $mem->get_alloc();
 
-my @buf   = map {
-  $alloc->get_block(0x04);
+my $tab   = $alloc->{tab};
+my @stab  = map {$tab->new(0)} 0..1;
 
-} 0..0x10;
 
-$alloc->prich(inner=>1,root=>1,depth=>1);
+#my $class = $alloc->stab_c();
+#my $stab  = map {$class->new(
+#
+#  $alloc,
+#
+#  lvl  => 0,
+#  base => 0,
+#  at   => 0,
+#
+#)} 0..1;
+
+$alloc->prich(inner=>1,depth=>1);
+
+#my @buf   = map {
+#  $alloc->alloc(0x04);
+#
+#} 0..0;
+#
+#
+#$alloc->free($buf[0]);
+
 
 #   $mem   = $alloc->{mem};
 #
