@@ -38,7 +38,9 @@ package A9M::component;
 sub getmc($self) {
 
   my $class = $self->{mccls};
-  my $mc    = $class->ice($self->{mcid});
+  my $frame = $class->get_frame();
+
+  my $mc    = $frame->ice($self->{mcid});
 
   return $mc;
 

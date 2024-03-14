@@ -32,7 +32,7 @@ package Icebox;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -44,18 +44,16 @@ package Icebox;
   )];
 
 # ---   *   ---   *   ---
-# injects this package into
-# standard methods, adding
-# functionality to caller
+# importer injections
 
-sub import($class,%O) {
+St::imping {
 
 
-  # container and controls
-  St::inject '*vstatic'=>sub ($dst,$O) {
+  # frame cstruc
+  '*vstatic'=>sub ($dst,$O) {
 
     # add frame vars
-    $O->{icebox}=Cask->new();
+    $O->{icebox}=sub {Cask->new()};
 
     # ^add methods to frame
     my $sig  = q($class,$frame,$x);
@@ -68,7 +66,7 @@ sub import($class,%O) {
 
       # ^pass wrapper
       impwraps $dst,
-      "$class->$ARG"=>$sig,
+      St::cpkg . "->$ARG" => $sig,
 
       [$ARG => $args];
 
@@ -76,17 +74,15 @@ sub import($class,%O) {
     } @$SHARED;
 
 
-  },caller;
+  },
 
 
-  # add deletion hook
-  St::inject '*DESTROY' => sub ($dst,$ice) {
-    $class->del($ice);
+  # ice dstruc
+  '*DESTROY' => sub ($dst,$ice) {
+    St::cpkg->del($ice);
 
-  },caller;
+  },
 
-
-  return;
 
 };
 
@@ -138,7 +134,7 @@ sub del($class,$self) {
   my $frame=$self->{frame};
 
   $frame->icepick($self)
-  if $frame;
+  if $frame && $frame->{icebox};
 
 
   return;

@@ -111,12 +111,12 @@ sub new($class,$frame,$lvl,%O) {
   },$class;
 
   # ^register
-  $self->{id}=$frame->icemake($self);
+  my $id=$frame->icemake($self);
 
   # ^write to mem
   $self->{head}=$root->decl(
     $type,"lvl[$lvl:$idex]",
-    {id=>$self->{id}},
+    {id=>$id},
 
   );
 
@@ -147,24 +147,6 @@ sub new($class,$frame,$lvl,%O) {
 
 
   return $self;
-
-};
-
-# ---   *   ---   *   ---
-# ^dstruc
-
-sub DESTROY($self) {
-
-  # get ctx
-  my $main  = $self->{main};
-  my $frame = $main->{tab};
-
-  # skip if frame already destroyed!
-  $frame->icepick($self)
-  if $frame;
-
-
-  return;
 
 };
 
@@ -234,7 +216,6 @@ sub get_next($class,$frame,$lvl) {
 #
 #  map {
 #
-#    
 #
 #  } 0..$idex;
 #

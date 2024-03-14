@@ -28,6 +28,7 @@ package A9M;
   use Type;
   use Bpack;
   use Warnme;
+  use Icebox;
 
   use Arstd::Array;
   use Arstd::Bytes;
@@ -39,11 +40,16 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
+
+St::vconst {
+  segtab_t => (typefet 'xword'),
+
+};
 
   Readonly my $COMPONENTS => [qw(
     flags mem ptr alloc anima ISA
@@ -53,19 +59,7 @@ package A9M;
 # ---   *   ---   *   ---
 # GBL
 
-sub icebox($class) {
-  state  $ar=[];
-  return $ar;
-
-};
-
-sub ice($class,$idex) {
-  return $class->icebox()->[$idex];
-
-};
-
-sub sizeof_segtab($class) {0x10};
-sub sizep2_segtab($class) {0x04};
+St::vstatic {};
 
 # ---   *   ---   *   ---
 # cstruc
@@ -76,10 +70,6 @@ sub new($class,%O) {
   $O{memroot} //= 'non';
   $O{pathsep} //= $DCOLON_RE;
 
-
-  # get machine id
-  my $icebox = $class->icebox();
-  my $id     = @$icebox;
 
   # find components through methods
   my $bk={ map {
@@ -92,8 +82,6 @@ sub new($class,%O) {
   # make ice
   my $self=bless {
 
-    id       => $id,
-
     cas      => undef,
     scratch  => undef,
     alloc    => undef,
@@ -102,7 +90,7 @@ sub new($class,%O) {
     ISA      => undef,
 
 
-    segtab   => [(null) x $class->sizeof_segtab()],
+    segtab   => undef,
     segtab_i => 0x00,
 
     bk       => $bk,
@@ -113,8 +101,12 @@ sub new($class,%O) {
 
   },$class;
 
+
   # ^add to box
-  push @$icebox,$self;
+  my $frame = $class->get_frame();
+  my $id    = $frame->icemake($self);
+
+  $self->reset_segtab();
 
 
   # nit user memory
@@ -465,8 +457,10 @@ sub decl($self,$type,$name,$value,@subseg) {
 
 sub reset_segtab($self) {
 
+  my $type=$self->segtab_t();
+
   $self->{segtab}=[
-    (null) x $self->sizeof_segtab()
+    (null) x $type->{sizeof}
 
   ];
 
@@ -497,7 +491,9 @@ sub segid($self,$seg) {
 
 
     # ^yes, add new entry
-    if($$top < $self->sizeof_segtab()) {
+    my $type=$self->segtab_t();
+
+    if($$top < $type->{sizeof}) {
       $idex=$$top;
       $self->{segtab}->[$$top++]=$seg;
 
@@ -542,7 +538,9 @@ sub encode_ptr($self,$seg,$off) {
   return $segid if ! length $segid;
 
   # ^roll and give
-  my $bits = $self->sizep2_segtab();
+  my $type = $self->segtab_t();
+  my $bits = $type->{sizep2};
+
   my $ptrv = $segid | ($off << $bits);
 
 
@@ -556,7 +554,9 @@ sub encode_ptr($self,$seg,$off) {
 sub decode_ptr($self,$ptrv) {
 
   # unroll
-  my $bits  = $self->sizep2_segtab();
+  my $type  = $self->segtab_t();
+  my $bits  = $type->{sizep2};
+
   my $mask  = (1 << $bits)-1;
 
   my $segid = $ptrv  & $mask;
@@ -734,8 +734,10 @@ subwraps(
 
 sub getbk($class,$idex,$name) {
 
-  my $ice = $class->ice($idex);
-  my $bk  = $ice->{bk};
+  my $frame = $class->get_frame();
+  my $ice   = $frame->ice($idex);
+
+  my $bk    = $ice->{bk};
 
   return (exists $bk->{$name})
     ? $bk->{$name}

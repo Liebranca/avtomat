@@ -208,8 +208,9 @@ sub mkfmat($self) {
 
 
   # get ctx
-  my $mc    = $self->getmc();
-  my $anima = $mc->{bk}->{anima};
+  my $mc       = $self->getmc();
+  my $anima    = $mc->{bk}->{anima};
+  my $segtab_t = $mc->segtab_t();
 
   cload $self->imp();
 
@@ -256,13 +257,13 @@ sub mkfmat($self) {
   );
 
   Bitformat 'mimm'=>(
-    seg => $mc->sizep2_segtab(),
+    seg => $segtab_t->{sizep2},
     imm => 16,
 
   );
 
   Bitformat 'msum'=>(
-    seg => $mc->sizep2_segtab(),
+    seg => $segtab_t->{sizep2},
     reg => $anima->cnt_bs(),
     imm => 8,
 
@@ -270,7 +271,7 @@ sub mkfmat($self) {
 
   Bitformat 'mlea'=>(
 
-    seg   => $mc->sizep2_segtab(),
+    seg   => $segtab_t->{sizep2},
 
     rX    => $anima->cnt_bs(),
     rY    => $anima->cnt_bs(),

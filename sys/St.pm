@@ -24,6 +24,7 @@ package St;
   use English qw(-no_match_vars);
 
   use Scalar::Util qw(blessed reftype);
+  use B::Deparse;
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
@@ -34,11 +35,22 @@ package St;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.6;
+  our $VERSION = v0.02.7;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
+
+  Readonly my $DEPARSE_DO=>qr{
+
+    ^\s*\{\s*
+
+    do \s* \{
+      [^\}]+
+
+    \};
+
+  }x;
 
   sub Frame_Vars($class) {{}};
 
@@ -47,6 +59,26 @@ package St;
 
   our $Frames  = {};
   our $Classes = {};
+
+  my  $Deparse = B::Deparse->new();
+
+# ---   *   ---   *   ---
+# reference calling package
+
+sub cpkg() {
+  my $pkg=caller;
+  return $pkg;
+
+};
+
+# ---   *   ---   *   ---
+# ^reference current (or calling!) F
+
+sub cf($idex=1) {
+  my $name=(caller($idex))[3];
+  return $name;
+
+};
 
 # ---   *   ---   *   ---
 # is obj instance of class
@@ -126,7 +158,6 @@ sub classattr($class,$name) {
 sub inject($name,$fn,@dst) {
 
   # who's calling?
-  my $src=caller;
   my $dst=$dst[0];
 
   # who's getting called? ;>
@@ -148,10 +179,52 @@ sub inject($name,$fn,@dst) {
 
 sub injector($class,@args) {
 
-  my $here = (caller(1))[3];
+  my $here = cf 2;
   my $attr = classattr $class,$here;
 
   map {$ARG->($class,@args)} @$attr;
+
+};
+
+# ---   *   ---   *   ---
+# appends injections to import
+
+sub imping($O) {
+
+
+  # get existing import method
+  my $pkg=caller;
+  no strict 'refs';
+
+  my %tab  = %{"$pkg\::"};
+  my $have = (defined $tab{import})
+    ? $Deparse->coderef2text(\&{$tab{import}})
+    : 'return;'
+    ;
+
+  # ^clean it up a bit ;>
+  $have=~ s[$DEPARSE_DO][{];
+
+
+  # make new method with passed injections
+  my $new=q[sub ($class,@args) {
+
+    my $dst=caller;
+
+    map  {inject $ARG,$O->{$ARG},$dst}
+    keys %$O;
+
+  ];
+
+
+  # ^cat new to old and redefine import!
+  no warnings 'redefine';
+
+  $new .= "\n$have\n};\n";
+  *{"$pkg\::import"}=eval $new;
+
+
+  return;
 
 };
 
@@ -263,7 +336,17 @@ sub new_frame($class,%O) {
 
   # ^fetch class-specific defaults!
   my $vars=$class->Frame_Vars();
-  map {$O{$ARG}//=$vars->{$ARG}} keys %$vars;
+
+  map {
+
+    my $def=$vars->{$ARG};
+
+    $O{$ARG} //= (is_coderef $def)
+      ? $def->()
+      : $def
+      ;
+
+  } keys %$vars;
 
   # ^assign owner class
   $O{-class}=$class;
@@ -365,8 +448,8 @@ sub nattrs($self) {
 };
 
 # ---   *   ---   *   ---
-# overwrite this method for
-# a more specific dstruc
+# *inject* to this method for
+# specificity
 
 sub DESTROY($self) {
 
@@ -379,7 +462,7 @@ sub DESTROY($self) {
 };
 
 # ---   *   ---   *   ---
-# overwrite this method to
+# *overwrite* this method to
 # get a string repr for dbout!
 
 sub prich($self,%O) {return "$self"};
