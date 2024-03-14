@@ -161,7 +161,14 @@ my @stab  = map {$tab->new(0)} 0..1;
 #
 #)} 0..1;
 
-$alloc->prich(inner=>1,depth=>1);
+$alloc->prich(outer=>0,inner=>1,depth=>1);
+
+my $tree=$alloc->{mem};
+$tree->search('stab[0]');
+
+my $node=$tree->{'*fetch'};
+$node->prich();
+
 
 #my @buf   = map {
 #  $alloc->alloc(0x04);

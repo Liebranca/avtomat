@@ -46,6 +46,7 @@ package Type;
   our @EXPORT=qw(
 
     struc
+    strucf
 
     sizeof
     packof
@@ -179,10 +180,13 @@ sub struc($name,$src) {
   # ^combine sizes
   my $tby = 0;
   my $tbs = 0;
+  my @off = ();
 
   map {
 
     my $cnt=$fv[$fi++]->{cnt};
+
+    push @off,$tby;
 
     $tby += $ARG->{sizeof} * $cnt;
     $tbs += $ARG->{sizebs} * $cnt;
@@ -227,18 +231,19 @@ sub struc($name,$src) {
   # make Table entry
   my $out={
 
-    packof  => $fmat,
+    packof    => $fmat,
 
-    sizeof  => $tby,
-    sizep2  => $tzy,
-    sizebs  => $tbs,
-    sizebm  => -1,
+    sizeof    => $tby,
+    sizep2    => $tzy,
+    sizebs    => $tbs,
+    sizebm    => -1,
 
-    layout  => [@layout],
-    name    => $name,
+    layout    => [@layout],
+    name      => $name,
 
-    struc_t => [@typename],
-    struc_i => [@idex],
+    struc_t   => [@typename],
+    struc_i   => [@idex],
+    struc_off => [@off],
 
   };
 
@@ -250,16 +255,81 @@ sub struc($name,$src) {
 };
 
 # ---   *   ---   *   ---
+# ^errme for field access
+
+sub badstrucf($name) {
+
+  Warnme::invalid 'struc field',
+
+  obj  => [$name],
+  give => null;
+
+};
+
+# ---   *   ---   *   ---
+# fetch struc field data
+
+sub strucf($type,$name) {
+
+  # get idex of field
+  my $names = $type->{struc_i};
+  my $idex  = array_iof $names,$name;
+
+  # ^validate
+  return badstrucf "$type->{name}.$ARG"
+  if ! defined $idex;
+
+
+  # ^get type
+  my $field_t = $type->{struc_t}->[$idex];
+     $field_t = typefet $field_t;
+
+
+  return ($field_t,$idex);
+
+};
+
+# ---   *   ---   *   ---
 # get bytesize of type
 
-sub sizeof($name) {
+sub sizeof($name,@field) {
 
-  my $type=typefet $name;
 
-  return (defined $type)
-    ? $type->{sizeof}
-    : badtype $name
-    ;
+  # validate input
+  my $type=typefet $name
+  or return badtype $name;
+
+  # ^prepare output
+  my $out  = $type->{sizeof};
+     $name = $type->{name};
+
+
+  # sizeof struc.field?
+  map {
+
+
+    # get next (sub)field
+    my ($field_t,$idex)=
+      strucf $type,$ARG;
+
+
+    # calc size when last elem reached
+    if($ARG == $field[-1]) {
+      my $cnt = $type->{layout}->[$idex];
+         $out = $cnt * $field_t->{sizeof};
+
+    # ^recurse if names pending
+    } else {
+      $type  = $field_t;
+      $name .= ".$ARG";
+
+    };
+
+
+  } @field;
+
+
+  return $out;
 
 };
 
@@ -341,35 +411,19 @@ sub offsetof($type,$field) {
   $type=typefet $type
   or return null;
 
-
-  # walk structure
-  my $idex = 0;
-  my @name = @{$type->{struc_i}};
-  my @size = @{$type->{struc_t}};
-
-  my $out  = null;
-  my $addr = 0;
-
-  for my $s(@size) {
+  # give zero if not a struc!
+  return 0 if ! @{$type->{struc_t}};
 
 
-    # get next field
-    my $name=$name[$idex++];
+  # get struc field
+  my ($field_t,$idex)=
+    strucf $type,$field;
 
-    # ^stop when requested is found
-    if($name eq $field) {
-      $out=$addr;
-      last;
-
-    };
-
-    # ^else keep going
-    $addr += sizeof $s;
-
-  };
-
-
-  return $out;
+  # ^validate and give
+  return (length $field_t)
+    ? $type->{struc_off}->[$idex]
+    : $field_t
+    ;
 
 };
 

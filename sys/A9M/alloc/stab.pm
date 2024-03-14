@@ -33,7 +33,7 @@ package A9M::alloc::stab;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a;
+  our $VERSION = v0.00.3;#a;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -67,8 +67,19 @@ St::vconst {
 # GBL
 
 St::vstatic {
+
   main      => undef,
-  -autoload => [qw(get_last get_next)],
+
+
+  -autoload => [qw(
+
+    headof
+
+    get_first
+    get_next
+    get_last
+
+  )],
 
 };
 
@@ -94,7 +105,7 @@ sub new($class,$frame,$lvl,%O) {
 
 
   # get addr for link slot
-  my ($base,$idex)=
+  my ($have,$base)=
     $frame->get_last($lvl);
 
 
@@ -115,8 +126,7 @@ sub new($class,$frame,$lvl,%O) {
 
   # ^write to mem
   $self->{head}=$root->decl(
-    $type,"lvl[$lvl:$idex]",
-    {id=>$id},
+    $type,"stab[$id]",{id=>$id},
 
   );
 
@@ -128,15 +138,15 @@ sub new($class,$frame,$lvl,%O) {
 
 
   # middle or first entry?
-  my $alloc_t=$main->alloc_t();
-  my $at=($base >= $alloc_t->{sizeof})
+  my $alloc_t = $main->alloc_t();
+  my $at      = ($base >= $alloc_t->{sizeof})
 
     # middle entry: write to stab.next
     ? $base
     + offsetof $type,'next'
 
     # ^else write to main.lvl[N]
-    : $base
+    : $frame->headof($lvl)
 
     ;
 
@@ -151,6 +161,73 @@ sub new($class,$frame,$lvl,%O) {
 };
 
 # ---   *   ---   *   ---
+# get offset into master table
+
+sub headof($class,$frame,$lvl) {
+
+  my $main  = $frame->{main};
+
+  my $ptr_t = $main->ptr_t();
+  my $addr  = $lvl * $ptr_t->{sizeof};
+
+
+  return $addr;
+
+};
+
+# ---   *   ---   *   ---
+# get first link in subtable
+
+sub get_first($class,$frame,$lvl) {
+
+  # get ctx
+  my $main  = $frame->{main};
+  my $root  = $main->{mem};
+  my $ptr_t = $main->ptr_t();
+  my $type  = $class->stab_t();
+
+
+  # offset into master table
+  my $addr=$frame->headof($lvl);
+     $addr=$root->load($ptr_t,$addr);
+
+  # ^deref if it exists
+  my $have=(0 < $addr)
+    ? $root->load($type,$addr)
+    : 0
+    ;
+
+  return ($have,$addr);
+
+};
+
+# ---   *   ---   *   ---
+# ^get next to current
+
+sub get_next($class,$frame,$addr) {
+
+
+  # get ctx
+  my $main=$frame->{main};
+  my $root=$main->{mem};
+  my $type=$class->stab_t();
+
+
+  # deref current and move ptr
+  my $here  = $root->load($type,$addr);
+     $addr += $here->{next};
+
+  # ^give next link if it exists
+  my $have=(0 < $here->{next})
+    ? $root->load($type,$addr)
+    : 0
+    ;
+
+  return ($have,$addr);
+
+};
+
+# ---   *   ---   *   ---
 # finds last link in subtable
 
 sub get_last($class,$frame,$lvl) {
@@ -161,66 +238,56 @@ sub get_last($class,$frame,$lvl) {
   my $root = $main->{mem};
 
   # read first entry
-  my $ptr_t = $main->ptr_t();
-  my $addr  = $lvl * $ptr_t->{sizeof};
-
-  my $have  = $root->load($ptr_t,$addr);
-  my $idex  = 0;
-
-  my @out   = ($addr,$idex);
+  my ($have,$addr)=
+    $frame->get_first($lvl);
 
 
   # have links to iter?
   if($have) {
 
-    $addr += $have;
-    my $stab_t=$class->stab_t();
+    my $prev;
 
-    while(++$idex) {
+    while (1) {
 
-      # get entry, stop if it links to null
-      my $ahead=$root->load($stab_t,$addr);
-      last if ! $ahead->{next};
+      # save last entry
+      my $prev=$have;
 
-      # ^else read link
-      $addr += $ahead->{next};
+      # stop if it links to null
+      ($have,$addr)=
+        $frame->get_next($addr);
+
+
+      last if ! $have;
 
     };
 
 
-    @out=($addr,$idex);
+    $have=$prev;
 
   };
 
 
-  return @out;
+  return ($have,$addr);
 
 };
 
 # ---   *   ---   *   ---
-# fetch subtable entry
-# from master table
-#
-# makes new stabs if missing!
+# find sub-table that can
+# fit an allocation this big
 
-sub get_next($class,$frame,$lvl) {
+sub fit($class,$frame,$req) {
 
-#  # get ctx
-#  my $main=$frame->{main};
-#  my $root=$main->{mem};
-#  my $type=$class->stab_t();
-#
-#
-#  # iter links until found
-#  my $stab=undef;
-#
-#  map {
-#
-#
-#  } 0..$idex;
-#
-#
-#  return $stab;
+  # get ctx
+  my $main=$frame->{main};
+
+  # get partition/aligned block size
+  my $mpart_t=$main->mpart_t();
+  my ($lvl,$size)=$mpart_t->getlvl($main,$req);
+
+  return null if ! length $lvl;
+
+
+  
 
 };
 

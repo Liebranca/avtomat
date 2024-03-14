@@ -423,6 +423,30 @@ sub warn_rom($self,$type,$addr) {
 };
 
 # ---   *   ---   *   ---
+# read struc field
+
+sub loadf($self,$struc,$field,$base=0) {
+
+  my ($type,$idex)=strucf $struc,$field;
+  my $off=$struc->{struc_off}->[$idex];
+
+  return $self->load($type,$base+$off)
+
+};
+
+# ---   *   ---   *   ---
+# read struc field
+
+sub storef($self,$struc,$field,$value,$base=0) {
+
+  my ($type,$idex)=strucf $struc,$field;
+  my $off=$struc->{struc_off}->[$idex];
+
+  return $self->store($type,$value,$base+$off)
+
+};
+
+# ---   *   ---   *   ---
 # get ptr implementation in use
 # by host machine
 
@@ -485,6 +509,9 @@ sub lvalue($self,$value,%O) {
     ;
 
   $par->force_set($ptr,$ptr->{label});
+
+  my $node=$par->{'*fetch'};
+     $node->{-skipio}=1;
 
 
   # recurse to copy structure layout if need
@@ -576,6 +603,9 @@ sub ptr($self,$to,%O) {
     ;
 
   $par->force_set($ptr,$ptr->{label});
+
+  my $node=$par->{'*fetch'};
+     $node->{-skipio}=1;
 
   # ^set value and give
   $ptr->store($ptrv,deref=>0);
@@ -939,7 +969,9 @@ sub prich($self,%O) {
   $self->{inner}->prich(
 
     %O,
-    mute => 1,
+
+    mute   => 1,
+#    unroll => 0,
 
   ) if $O{inner};
 

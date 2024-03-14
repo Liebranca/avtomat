@@ -609,18 +609,20 @@ sub fetch(@flags) {
   # make Table entry
   my $out={
 
-    packof  => $fmat,
+    packof    => $fmat,
 
-    sizeof  => $tby,
-    sizep2  => $tzy,
-    sizebs  => $ebs,
-    sizebm  => $ebm,
+    sizeof    => $tby,
+    sizep2    => $tzy,
+    sizebs    => $ebs,
+    sizebm    => $ebm,
 
-    layout  => $layout,
-    name    => $name,
+    layout    => $layout,
+    name      => $name,
 
-    struc_t => [],
-    struc_i => [],
+    struc_t   => [],
+    struc_i   => [],
+
+    struc_off => [],
 
   };
 

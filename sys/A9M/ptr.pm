@@ -22,6 +22,8 @@ package A9M::ptr;
   use Readonly;
   use English qw(-no_match_vars);
 
+  use List::Util qw(max);
+
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
@@ -36,7 +38,7 @@ package A9M::ptr;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -52,6 +54,7 @@ package A9M::ptr;
     len    => 0,
 
     mcid   => 0,
+    field  => undef,
 
   };
 
@@ -68,6 +71,7 @@ sub new($class,%O) {
 
   # make ice
   my $self=bless \%O,$class;
+  $self->{field}=[];
 
 
   return $self;
@@ -115,9 +119,11 @@ sub struclay($self,$par) {
 
 
       # field is a ptr?
+      my $ice=undef;
+
       if(my ($ptr_t)=Type->is_ptr($type)) {
 
-        $seg->ptr(
+        $ice=$seg->ptr(
 
           $self,
 
@@ -135,22 +141,23 @@ sub struclay($self,$par) {
       # ^nope, plain value
       } else {
 
-        $seg->lvalue(
+        $ice=$seg->lvalue(
 
           0x00,
 
-          par   => $par,
-          type  => $type,
+          par    => $par,
+          type   => $type,
 
-          addr  => $addr,
-          label => $label,
+          addr   => $addr,
+          label  => $label,
 
         );
 
       };
 
 
-      # go next
+      # save and go next
+      push @{$self->{field}},$ice;
       $addr += $type->{sizeof};
 
 
@@ -284,6 +291,36 @@ sub load($self,%O) {
 };
 
 # ---   *   ---   *   ---
+# wraps: load from struc field
+
+sub loadf($self,$name) {
+
+  my $seg=$self->getseg();
+
+  return $seg->loadf(
+    $self->{type},$name,
+    $self->{addr}
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# wraps: store at struc field
+
+sub storef($self,$name,$value) {
+
+  my $seg=$self->getseg();
+
+  return $seg->storef(
+    $self->{type},$name,
+    $value,$self->{addr}
+
+  );
+
+};
+
+# ---   *   ---   *   ---
 # get absolute address of pointer
 
 sub absloc($self,%O) {
@@ -317,6 +354,11 @@ sub prich($self,%O) {
   # I/O defaults
   my $out=ioprocin(\%O);
 
+  # own defaults
+  $O{unroll}    //= 1;
+  $O{struc}     //= 0;
+  $O{field_pad} //= [0,0];
+
 
   # get value as a primitive
   my $type  = ($self->{ptr_t})
@@ -332,9 +374,11 @@ sub prich($self,%O) {
 
 
   # have struc?
-  my @struc=@{$type->{struc_t}};
+  my @struc = @{$type->{struc_t}};
+
   if(int @struc) {
-    $value="(struc)";
+    $value    = '()';
+    $O{struc} = ++$O{struc};
 
   # have vector?
   } elsif(is_arrayref($value)) {
@@ -375,10 +419,94 @@ sub prich($self,%O) {
   };
 
 
-  # make repr
-  push @$out,sprintf
-    "$type->{name} [%04X] -> $value",
-    $self->{addr};
+  # make struc repr
+  if($O{unroll} && $O{struc}) {
+
+    my ($padl,$padr)=@{$O{field_pad}};
+    my $fmat="%-${padl}s [%04X] %-${padr}s";
+
+
+    push @$out,(! @{$type->{struc_t}})
+
+
+      # printing struc field
+      ? sprintf "$fmat -> $value",
+
+          $type->{name},
+          $self->{addr},
+
+          ".$self->{label}",
+
+
+      # ^printing struc head
+      : "$self->{label} "
+      . "-> (struc $type->{name})"
+
+      ;
+
+
+    # recurse
+    $O{struc}++;
+
+    my $depth=($O{leaf})
+      ? ${$O{leaf}}
+      : 0
+      ;
+
+    $padl=max map {
+      length "$ARG->{type}->{name}"
+
+    } @{$self->{field}};
+
+    $padr=max map {
+      length "$ARG->{type}->{name}"
+
+    } @{$self->{field}};
+
+    $padl //= $O{field_pad}->[0];
+    $padr //= $O{field_pad}->[1];
+
+
+    map {
+
+
+      my $branch = Tree::draws($depth+1,0);
+      my $leaf   = $depth+1;
+
+      push @$out,"\n$branch";
+
+
+      $ARG->prich(
+
+        %O,
+
+        struc     => $O{struc},
+
+        leaf      => \$leaf,
+        mute      => 1,
+
+
+        field_pad => [$padl,$padr],
+
+      );
+
+
+    } @{$self->{field}};
+
+
+    push @$out,"\n",Tree::drawp($depth)
+    if @{$self->{field}};
+
+    ${$O{leaf}}=undef if $O{leaf};
+
+
+  # make single-elem repr
+  } else {
+
+    push @$out,sprintf "[%04X] %s -> $value",
+      $type->{name},$self->{addr};
+
+  };
 
 
   # ^catp and give

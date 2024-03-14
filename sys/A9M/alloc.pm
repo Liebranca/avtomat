@@ -38,7 +38,7 @@ package A9M::alloc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -173,16 +173,6 @@ sub alloc($self,$req) {
 
   # get ctx
   my $tab=$self->{tab};
-
-  # get partition/aligned block size
-  my $mpart_t=$self->mpart_t();
-  my ($lvl,$size)=$mpart_t->getlvl($self,$req);
-
-  return null if ! length $lvl;
-
-
-  # get entry
-  retry:my $stab=$tab->get_next($lvl);
 
 
 #  # value packing

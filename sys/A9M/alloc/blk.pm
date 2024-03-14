@@ -84,18 +84,8 @@ sub new($class,$stab) {
   my $mem  = $root->new($size);
 
   # ^write to table
-  my $head = $stab->{head};
-  my $tab  = $head->getseg();
-
-  $tab->store(
-
-    $stab->ptr_t(),
-    $mem->{segid},
-
-    $head->{addr}
-  + (offsetof 'alloc.stab','blk')
-
-  );
+  my $head=$stab->{head};
+  $head->storef('blk',$mem->{segid});
 
 
   # make ice and give

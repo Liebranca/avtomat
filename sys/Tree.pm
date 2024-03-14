@@ -37,7 +37,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.9;
+  our $VERSION = v0.03.0;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -175,6 +175,7 @@ sub new($class,$frame,$parent,$val,%O) {
 
     plucked    => 0,
     '*fetch'   => undef,
+    -skipio    => 0,
 
   },$class;
 
@@ -1803,77 +1804,164 @@ sub filter($self,$other,%O) {
 };
 
 # ---   *   ---   *   ---
-# print node leaves
+# draw hierarchy, such that:
+#
+#   (root)
+#   \-->(child)
+#   .  \-->(gchild)
+
+sub draws($depth,$prev) {
+
+
+  my $branch=($depth)
+    ? '.  ' x ($depth-1).'\-->'
+    : $NULLSTR
+    ;
+
+  return ($depth < $prev)
+    ? Tree::drawp($depth) . "\n$branch"
+    : $branch
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# add additional spacing for clarity
+# in-between nested branches
+
+sub drawp($depth) {
+  return '.  ' x $depth;
+
+};
+
+# ---   *   ---   *   ---
+# string repr for single leaf
+
+sub repr($self,$depth,$prev,%O) {
+
+
+  # default to null or skip excluded
+  my $v=$self->{value};
+  $v //= sprintf "%016X",$NULL;
+
+  return undef if $v=~ $O{-x};
+
+
+  # recursing optional ;>
+  return '[sub-tree]'
+  if Tree->is_valid($v) &&! $O{vrecurse};
+
+
+  # make repr for value
+  my $keep=$depth;
+
+  $v=(St->is_valid($v))
+
+
+    # have repr method?
+    ? $v->prich(
+
+      %O,
+
+      -bufio => undef,
+
+      leaf   => \$keep,
+      mute   => 1,
+
+    )
+
+    # else give as-is!
+    : $v
+
+    ;
+
+
+  return ($v,$keep);
+
+};
+
+# ---   *   ---   *   ---
+# ^dbout whole tree
 
 sub prich($self,%O) {
 
   # I/O defaults
   my $out=ioprocin(\%O);
   $O{max_depth} //= 0x24;
+  $O{vrecurse}  //= 0;
   $O{-x}        //= $NO_MATCH;
+
+  # previous/current recursion depth
+  my $prev  = 0;
+  my $depth = 0;
 
 
   # get to walkin...
-  my $prev_depth = 0;
+  my $root = $self;
+  my @Q    = ($self);
 
-  my $root       = $self;
-  my @leaves     = ($self);
-
-
-  while(@leaves) {
-
-    $self=shift @leaves;
-
-    my $depth=0;
-    if(! $depth && $self ne $root) {
-
-      my $par=$self->{parent};
+  while(@Q) {
 
 
-      while(defined $par) {
+    # handle depth
+    $self=shift @Q;
 
-        $depth++;
+    if(! $self) {
 
-        last if($par eq $root);
-        $par=$par->{parent};
+      # ^restore previous
+      $depth-- if defined $self;
+      next;
+
+    };
+
+
+    # leaf valid for dbout?
+    my @tail = (undef);
+    my @lv   = @{$self->{leaves}};
+
+    if(! $self->{-skipio}) {
+
+
+      # get value
+      my ($v,$keep)=$self->repr(
+        $depth,$prev,%O
+
+      );
+
+      next if ! defined $v;
+
+
+      # ^nope, keep going
+      my $branch=Tree::draws($depth,$prev);
+
+      $prev=$depth;
+      $depth++ if int @lv;
+
+      push @$out,"$branch$v\n";
+      @tail=(0);
+
+
+      # irup received?
+      if(! defined $keep) {
+        shift @Q while defined $Q[0];
+        next;
 
       };
 
-    };
 
-
-    my $branch=($depth)
-      ? '.  'x($depth-1).'\-->'
-      : $NULLSTR
-      ;
-
-    if($depth<$prev_depth) {
-      $branch=$NULLSTR.
-
-        (('.  'x($depth)."\n")x2).
-        $branch;
+    # force spacing in-between skipped branches
+    } else {
+      $prev++ if $Q[0]
+      &&! $Q[0]->{-skipio};
 
     };
 
-    $prev_depth=$depth;
 
-
-    # default to null
-    my $v=$self->{value};
-    $v //= sprintf "%016X",$NULL;
-
-    next if $v=~ $O{-x};
-
-    # ^have repr for object?
-    $v=(St->is_valid($v))
-      ? $v->prich(mute=>1)
-      : $v
-      ;
-
-    push @$out,"$branch$v\n";
-
+    # go next if below limit
     next if $depth >= $O{max_depth};
-    unshift @leaves,@{$self->{leaves}};
+
+    unshift @Q,@lv,@tail
+    if int @lv;
 
   };
 
