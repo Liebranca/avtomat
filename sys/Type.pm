@@ -366,7 +366,7 @@ sub typeof($size) {
 
     };
 
-  } qw(qword dword word byte);
+  } qw(yword xword qword dword word byte);
 
 
   return @out;

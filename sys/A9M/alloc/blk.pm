@@ -26,14 +26,17 @@ package A9M::alloc::blk;
 
   use Style;
   use Type;
+  use Icebox;
   use Bitformat;
+
+  use Arstd::IO;
 
   use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a;
+  our $VERSION = v0.00.3;#a;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -42,19 +45,54 @@ package A9M::alloc::blk;
 St::vconst {
 
 
-  blk_t => (struc 'alloc.blk' => q{
-    word stab;
-    word loc;
-
-  }),
-
+  # location of sub-block
   loc_t => (Bitformat 'alloc.loc' => (
-
-    ezy => 5,
-    pos => 5,
-    lvl => 3,
+    size => 5,
+    pos  => 5,
 
   )),
+
+
+  # ^sub-block header
+  blk_t => sub {
+
+
+    # get size of packed location!
+    my $class  = $_[0];
+    my $loc_t  = $class->loc_t();
+
+    my @loc_sz = typeof $loc_t->{bytesize};
+    my $loc    = "$loc_sz[0] loc;";
+
+    # ^build multiple lines if need
+    if(1 < @loc_sz) {
+
+      shift @loc_sz;
+
+      my $i=0;
+
+      $loc .= join ";",map {
+        "$ARG loc_".$i++
+
+      } @loc_sz;
+
+    };
+
+
+    # give final struc
+    struc 'alloc.blk' => "word stab;$loc";
+
+  },
+
+};
+
+# ---   *   ---   *   ---
+# GBL
+
+St::vstatic {
+
+  main=>undef,
+  -autoload=>[qw(head_from clear)],
 
 };
 
@@ -70,110 +108,89 @@ sub import($class) {
 # ---   *   ---   *   ---
 # cstruc
 
-sub new($class,$stab) {
+sub new($class,$frame,$stab) {
 
 
   # get ctx
-  my $alloc = $stab->{main};
+  my $alloc = $stab->{frame}->{main};
   my $root  = $alloc->{mem};
-
 
   # get N pages
   my $size = $alloc->{page} << $stab->{lvl};
   my $dst  = $stab->{ptr};
   my $mem  = $root->new($size);
 
-  # ^write to table
-  my $head=$stab->{head};
-  $head->storef('blk',$mem->{segid});
 
-
-  # make ice and give
+  # make ice
   my $self=bless {
     stab => $stab,
     mem  => $mem,
 
   },$class;
 
+  my $id=$frame->icemake($self);
+
+
+  # ^write to table
+  my $head=$stab->{head};
+  $head->storef(blk=>$id);
+
 
   return $self;
 
 };
 
-## ---   *   ---   *   ---
-## writes sub-block header
-#
-#sub blk_write($self,$ctx) {
-#
-#
-#  # unpack
-#  my $stab  = $ctx->{stab};
-#  my $data  = $ctx->{head};
-#  my $mem   = $self->{mem};
-#  my $frame = $mem->{frame};
-#
-#
-#  # build sub-block header
-#  my $blk   = $frame->getseg($data->{buf});
-#  my $type  = $self->blk_t();
-#
-#  my $head  = Bpack::layas $type,(
-#    $ctx->{stab_idex},
-#    $self->pack_loc($ctx)
-#
-#  );
-#
-#  # remember block ;>
-#  $ctx->{blk}=$blk;
-#
-#
-#  # ^write
-#  my $pow  = $ctx->{lvl} + $self->{pow};
-#  my $addr = $ctx->{pos} << $pow;
-#
-#  $blk->store($type,$head,$addr);
-#
-#
-#  # give beg of user memory!
-#  return $blk->view(
-#
-#    $addr + $type->{sizeof},
-#
-#    ($ctx->{size} << $pow)
-#  - $type->{sizeof}
-#
-#  );
-#
-#};
-
 # ---   *   ---   *   ---
-# bit-pack a blocks size
-# and location
+# get block header from input
 
-sub pack_loc($self,$ctx) {
+sub head_from($class,$frame,$src) {
 
-  my $loc_t=$self->loc_t();
 
-  return $loc_t->bor(
-    ezy=>$ctx->{ezy},
-    pos=>$ctx->{pos},
-    lvl=>$ctx->{lvl},
+  # get ctx
+  my $main = $frame->{main};
+  my $mem  = ref $main->{mem};
 
-  );
+
+  # numerical repr passed?
+  if(! $mem->is_valid($src)) {
+    nyi "pointer decode";
+
+  # ^nope, straight mem ice!
+  } else {
+
+    my $type=$class->blk_t();
+    my ($base,$addr) = $src->get_addr();
+
+    $addr -= $type->{sizeof};
+
+
+    my $head=$base->load($type,$addr);
+    return ($head,$base,$addr);
+
+  };
 
 };
 
 # ---   *   ---   *   ---
-# ^undo
+# ^marks as fred
 
-sub unpack_loc($self,$ctx,$loc) {
+sub clear($class,$frame,$base,$addr=undef) {
 
-  my $loc_t = $self->loc_t();
-  my %data  = $loc_t->from_value($loc);
 
-  $ctx->{ezy}=$data{ezy};
-  $ctx->{pos}=$data{pos};
-  $ctx->{lvl}=$data{lvl};
+  # fetching from ptr!
+  if(! defined $addr) {
+
+    my $head;
+
+    ($head,$base,$addr)=
+      $frame->head_from($base);
+
+  };
+
+
+  # ^wipe header
+  my $type=$class->blk_t();
+  $base->clear($type,$addr);
 
 
   return;
@@ -183,18 +200,22 @@ sub unpack_loc($self,$ctx,$loc) {
 # ---   *   ---   *   ---
 # fit size in blk
 
-sub fit($self,$main,$ctx) {
+sub fit($self,$head,$lvl,$size) {
 
 
-  # unpack
-  my $data  = $ctx->{head};
-  my $mask  = $data->{mask};
+  # get ctx
+  my $stab = $self->{stab};
+  my $main = $stab->{frame}->{main};
 
-  my $mpart = $main->mpart_t();
+  my $root = $main->{mem};
+  my $mask = $head->{mask};
+
 
   # enough space avail?
+  my $mpart=$main->mpart_t();
+
   my ($ezy,$pos)=$mpart->fit(
-    \$mask,$ctx->{size}
+    \$mask,$size
 
   );
 
@@ -202,20 +223,80 @@ sub fit($self,$main,$ctx) {
 
 
   # ^yes, update block
-  $ctx->{ezy}=$ezy;
-  $ctx->{pos}=$pos;
-
-  my $view=$self->blk_write($ctx);
-
-  # ^update subtable
-  my $stab=$ctx->{stab};
-
-  $data->{mask} |= $mask;
-  $stab->store($data);
+  my $view=$self->blk_write($lvl,$size,$pos);
+  $stab->{head}->storef(mask=>$mask);
 
 
   return $view;
 
+
+};
+
+# ---   *   ---   *   ---
+# writes sub-block header
+
+sub blk_write($self,$lvl,$size,$pos) {
+
+
+  # get ctx
+  my $stab  = $self->{stab};
+  my $main  = $stab->{frame}->{main};
+
+  my $mem   = $self->{mem};
+  my $frame = $mem->{frame};
+
+
+  # build sub-block header
+  my $type = $self->blk_t();
+
+  my $head = Bpack::layas $type,(
+    $stab->{iced},
+    $self->pack_loc($size-1,$pos)
+
+  );
+
+
+  # ^write
+  my $pow  = $lvl  + $main->{pow};
+  my $addr = $pos << $pow;
+
+  $mem->store($type,$head,$addr);
+
+
+  # give beg of user memory!
+  return $mem->view(
+
+    $addr + $type->{sizeof},
+
+    ($size << $pow)
+  - $type->{sizeof}
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# bit-pack a blocks size
+# and location
+
+sub pack_loc($class,$size,$pos) {
+
+  my $loc_t=$class->loc_t();
+
+  return $loc_t->bor(
+    size => $size,
+    pos  => $pos,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unpack_loc($class,$loc) {
+  my $loc_t=$class->loc_t();
+  return $loc_t->from_value($loc);
 
 };
 

@@ -28,12 +28,14 @@ package A9M::alloc::stab;
   use Type;
   use Icebox;
 
+  use Arstd::Bytes;
+
   use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a;
+  our $VERSION = v0.00.5;#a;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -41,7 +43,9 @@ package A9M::alloc::stab;
 
 St::vconst {
 
+  blk_t  => 'A9M::alloc::blk',
   ptr_t  => (typefet 'word'),
+
   stab_t => sub {
 
     my $class=$_[0];
@@ -68,7 +72,15 @@ St::vconst {
 
 St::vstatic {
 
-  main      => undef,
+  main   => undef,
+  blocks => sub {
+
+    my $class = $_[0];
+    my $blk_t = $class->blk_t();
+
+    $blk_t->new_frame();
+
+  },
 
 
   -autoload => [qw(
@@ -78,6 +90,10 @@ St::vstatic {
     get_first
     get_next
     get_last
+
+    fetch
+    fit
+    release
 
   )],
 
@@ -95,7 +111,7 @@ sub import($class) {
 # ---   *   ---   *   ---
 # cstruc
 
-sub new($class,$frame,$lvl,%O) {
+sub new($class,$frame,$lvl) {
 
 
   # get ctx
@@ -112,7 +128,6 @@ sub new($class,$frame,$lvl,%O) {
   # make ice
   my $self=bless {
 
-    main => $main,
     lvl  => $lvl,
 
     head => undef,
@@ -131,10 +146,10 @@ sub new($class,$frame,$lvl,%O) {
   );
 
   # make block
-  my $blk_t = $main->blk_t();
-  my $head  = $self->{head};
+  my $blocks = $frame->{blocks};
+  my $head   = $self->{head};
 
-  $self->{blk}=$blk_t->new($self);
+  $self->{blk} = $blocks->new($self);
 
 
   # middle or first entry?
@@ -272,6 +287,26 @@ sub get_last($class,$frame,$lvl) {
 };
 
 # ---   *   ---   *   ---
+# forcefully nits subtable
+
+sub fetch($class,$frame,$lvl) {
+
+  my ($have,$addr)=
+    $frame->get_first($lvl);
+
+  my $stab=($have)
+    ? $frame->ice($have->{id})
+    : $frame->new($lvl)
+    ;
+
+  $have=$stab->{head}->load() if ! $have;
+
+
+  return ($have,$stab);
+
+};
+
+# ---   *   ---   *   ---
 # find sub-table that can
 # fit an allocation this big
 
@@ -282,12 +317,73 @@ sub fit($class,$frame,$req) {
 
   # get partition/aligned block size
   my $mpart_t=$main->mpart_t();
-  my ($lvl,$size)=$mpart_t->getlvl($main,$req);
+
+  my ($lvl,$size)=
+    $mpart_t->getlvl($main,$req);
 
   return null if ! length $lvl;
 
 
-  
+  # get subtable
+  my ($have,$stab)=$frame->fetch($lvl);
+
+  my $addr = $stab->{head}->{addr};
+  my $out  = null;
+
+
+  # ^walk
+  my $limit=0x10;
+  while($limit--) {
+
+
+    # can fit request in this entry?
+    my $blk=$stab->{blk};
+       $out=$blk->fit($have,$lvl,$size);
+
+    last if $out;
+
+
+    # ^else go next!
+    ($have,$addr)=
+      $frame->get_next($addr);
+
+    $stab=$frame->ice($have->{id});
+
+
+  };
+
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub release($class,$frame,$have,$addr) {
+
+
+  # get table entry && block location
+  my $stab  = $frame->ice($have->{stab});
+  my $main  = $frame->{main};
+
+  my $blk_t = $class->blk_t();
+  my %loc   = $blk_t->unpack_loc($have->{loc});
+
+
+  # ^clear block from occupation mask
+  my $mask = $stab->{head}->loadf('mask');
+  my $ezy  = bitmask $loc{size}+1;
+
+  $mask &=~ ($ezy << $loc{pos});
+  $stab->{head}->storef(mask=>$mask);
+
+
+  # give total bytes fred
+  my $pow=$main->{pow};
+     $ezy=$stab->{lvl} + $pow;
+
+  return ($loc{size} << $ezy) - sizeof 'alloc.blk';
 
 };
 

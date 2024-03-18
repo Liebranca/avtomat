@@ -180,7 +180,7 @@ sub getseg($self) {
   my $idex  = $self->{segid};
   my $frame = $class->get_frame($self->{mcid});
 
-  return $frame->getseg($idex);
+  return $frame->ice($idex);
 
 };
 

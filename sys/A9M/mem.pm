@@ -28,7 +28,7 @@ package A9M::mem;
   use Type;
   use Chk;
   use Bpack;
-  use Cask;
+  use Icebox;
   use Warnme;
 
   use Arstd::Bytes;
@@ -43,21 +43,14 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.2;#a
+  our $VERSION = v0.01.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
 
-  sub Frame_Vars($class) { return {
-
-    segtab => Cask->new(),
-
-
-    -autoload => [qw(mkseg getseg)],
-
-  }};
+St::vstatic {};
 
 
   Readonly my $INBOUNDS_ERR=>qr{(?:
@@ -89,46 +82,6 @@ sub mklabel($self) {
 };
 
 # ---   *   ---   *   ---
-# writes ice to segment table
-
-sub mkseg($class,$frame,$ice) {
-
-  my $segtab = $frame->{segtab};
-  my $idex   = $segtab->give($ice);
-
-  return $idex;
-
-};
-
-# ---   *   ---   *   ---
-# ^remove
-
-sub rmseg($class,$frame,$ice) {
-
-  my $segtab = $frame->{segtab};
-  my $idex   = $ice->{segid};
-
-  $segtab->take(idex=>$idex);
-  $ice->discard();
-
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# ^fetch
-
-sub getseg($class,$frame,$idex) {
-
-  my $segtab = $frame->{segtab};
-  my $seg    = $segtab->view($idex);
-
-  return (defined $seg) ? $seg : null ;
-
-};
-
-# ---   *   ---   *   ---
 # new addressing space
 
 sub mkroot($class,%O) {
@@ -154,7 +107,7 @@ sub mkroot($class,%O) {
   $self->{root}   = $self;
   $self->{mcid}   = $O{mcid};
   $self->{mccls}  = $O{mccls};
-  $self->{segid}  = $frame->mkseg($self);
+  $self->{segid}  = $frame->icemake($self);
 
   $self->{buf}    = \zeropad $O{size};
   $self->{ptr}    = 0x00;
@@ -212,7 +165,7 @@ sub new($self,$size,$label=undef) {
   $ice->{root}   = $self->{root};
   $ice->{mcid}   = $self->{mcid};
   $ice->{mccls}  = $self->{mccls};
-  $ice->{segid}  = $self->{frame}->mkseg($ice);
+  $ice->{segid}  = $self->{frame}->icemake($ice);
 
   $ice->{buf}    = $buf;
   $ice->{ptr}    = 0x00;
@@ -253,10 +206,67 @@ sub view($self,$addr,$len) {
   $ice->{__view} = [$self,$addr];
   $ice->{absloc} = $self->absloc() + $addr;
 
-  $ice->{segid}  = $self->{frame}->mkseg($ice);
+  $ice->{segid}  = $self->{frame}->icemake($ice);
 
 
   return $ice;
+
+};
+
+# ---   *   ---   *   ---
+# ^get addr of view!
+
+sub get_addr($self) {
+  my $view=$self->{__view};
+  return (! $view) ? ($self,0) : @$view ;
+
+};
+
+# ---   *   ---   *   ---
+# copy contents from other
+
+sub copy($self,$other,$size=undef) {
+
+
+  # default to copying the whole thing
+  my $ptr    = 0;
+     $size //= $other->{size};
+
+
+  # ^go at it in chunks!
+  map {
+
+    my $bytes=$other->load($ARG,$ptr);
+    $self->store($ARG,$bytes,$ptr);
+
+    $ptr += sizeof $ARG;
+
+  } typeof $size;
+
+
+};
+
+# ---   *   ---   *   ---
+# zero-flood block
+
+sub clear($self,$type=null,$addr=0x00) {
+
+  # sized clear?
+  if(length $type) {
+    $self->store($type,0,$addr);
+
+  # ^nope, whole buf!
+  } else {
+
+    my $buf  = $self->{buf};
+    my $size = $self->{size};
+
+    substr $$buf,0,$size,zeropad $size;
+
+  };
+
+
+  return;
 
 };
 

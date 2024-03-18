@@ -143,32 +143,15 @@ my $rd = rd('./lps/lps.rom');
 my $mc = $rd->{mc};
 
 
-my $mem   = $mc->{anima}->{mem};
-my $alloc = $mem->get_alloc();
+my $mem = $mc->{alloc};
+my @blk = map {$mem->alloc(0x04)} 0..1;
 
-my $tab   = $alloc->{tab};
-my @stab  = map {$tab->new(0)} 0..1;
+$blk[0]->store(dword=>0x2424242424);
 
+#$mem->free($blk[1]);
+$mem->realloc($blk[0],0x10);
 
-#my $class = $alloc->stab_c();
-#my $stab  = map {$class->new(
-#
-#  $alloc,
-#
-#  lvl  => 0,
-#  base => 0,
-#  at   => 0,
-#
-#)} 0..1;
-
-$alloc->prich(outer=>0,inner=>1,depth=>1);
-
-my $tree=$alloc->{mem};
-$tree->search('stab[0]');
-
-my $node=$tree->{'*fetch'};
-$node->prich();
-
+$mem->prich(outer=>1,inner=>1,depth=>2);
 
 #my @buf   = map {
 #  $alloc->alloc(0x04);

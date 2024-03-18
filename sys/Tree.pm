@@ -51,6 +51,20 @@ package Tree;
   }};
 
 # ---   *   ---   *   ---
+# importer injection
+
+St::imping {
+
+  '*DESTROY' => sub ($dst,$ice) {
+
+    $ice->discard()
+    if defined $ice->{value};
+
+  },
+
+};
+
+# ---   *   ---   *   ---
 # makes copy of instance
 
 sub dup($self,$root=undef) {
@@ -959,7 +973,7 @@ sub pluck($self,@pending) {
 
   for my $leaf(@{$self->{leaves}}) {
 
-    if(grep {$leaf eq $ARG} @pending) {
+    if(grep {$leaf && $leaf eq $ARG} @pending) {
 
       push @plucked,$leaf;
 
@@ -1947,12 +1961,6 @@ sub prich($self,%O) {
         next;
 
       };
-
-
-    # force spacing in-between skipped branches
-    } else {
-      $prev++ if $Q[0]
-      &&! $Q[0]->{-skipio};
 
     };
 

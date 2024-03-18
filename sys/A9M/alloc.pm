@@ -38,7 +38,7 @@ package A9M::alloc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -50,16 +50,25 @@ St::vconst {
   # sub-module implementations
   mpart_t => 'A9M::alloc::mpart',
   stab_t  => 'A9M::alloc::stab',
-  blk_t   => 'A9M::alloc::blk',
 
-  ptr_t   => (typefet 'word'),
+  blk_t   => sub {
 
+    my $class  = $_[0];
+    my $stab_t = $class->stab_t();
+
+    $stab_t->blk_t();
+
+  },
+
+
+  # you must be *this* wide to be a pointer!
+  ptr_t => (typefet 'word'),
 
   # number of sub-tables
   lvlcnt => 0x02,
 
   # default alignment
-  defbase => 'byte',
+  defbase => 'word',
 
 
   # master partition table
@@ -137,9 +146,14 @@ sub new($class,%O) {
 
   $self->set_base($O{base});
 
+
   # make table
-  my $stab_t = $self->stab_t();
-  $O{tab}    = $stab_t->new_frame(main=>$self);
+  my $stab_t=$self->stab_t();
+  $self->{tab}=$stab_t->new_frame(main=>$self);
+
+  # ^initialize
+  my $blocks=$self->{tab}->{blocks};
+  $blocks->{main}=$self;
 
 
   # make container
@@ -170,92 +184,81 @@ sub new($class,%O) {
 
 sub alloc($self,$req) {
 
+  my $tab = $self->{tab};
+  my $ptr = $tab->fit($req);
 
-  # get ctx
-  my $tab=$self->{tab};
-
-
-#  # value packing
-#  my $ctx={
-#
-#    stab   => $stab,
-#    head   => $stab->load(),
-#    stab_i => $stab_idex,
-#
-#    lvl    => $lvl,
-#    ezy    => undef,
-#    pos    => undef,
-#
-#    size   => $size,
-#    blk    => undef,
-#
-#  };
-#
-#
-#  # have enough space?
-#  my $fit=$self->blkfit($ctx);
-#
-#  # ^nope, go next/make new
-#  if(! $fit) {
-#
-#    my $data = $ctx->{head};
-#
-#    $addr    = $data->{next};
-#    $base    = $stab->{addr};
-#    $offset  = $ctx->{stab}->{addr};
-#    $offset += sizeof 'word';
-#
-#    $stab_idex++;
-#
-#
-#    goto retry;
-#
-#  };
-#
-#
-#  # give mem slice
-#  return $fit;
+  return $ptr;
 
 };
 
 # ---   *   ---   *   ---
 # ^undo
 
-sub free($self,$blk) {
+sub free($self,$ptr) {
 
 
   # get ctx
-  my $mem    = $self->{mem};
-  my $memcls = ref $mem;
-  my $frame  = $mem->{frame};
-
-  my $type   = $self->blk_t();
+  my $root = $self->{mem};
+  my $tab  = $self->{tab};
 
 
-  # fetch block from addr if
-  # numerical repr passed
-  if(! $memcls->is_valid($blk)) {
-    $blk=$frame->getseg($blk);
+  # get block header
+  my $blocks=$tab->{blocks};
+
+  my ($have,$base,$addr)=
+    $blocks->head_from($ptr);
+
+
+  # mark fred
+  my $size=$tab->release($have,$addr);
+  $blocks->clear($base,$addr);
+
+
+  return ($base,$addr,$size);
+
+};
+
+# ---   *   ---   *   ---
+# ^a bit of both ;>
+
+sub realloc($self,$ptr,$req) {
+
+
+  # mark as fred and get new
+  my ($old,$addr,$size)=
+    $self->free($ptr);
+
+  my $new=$self->alloc($req);
+
+  return null if ! $new;
+
+
+  # get addr of new block
+  my ($base,$off)=
+    $new->get_addr();
+
+  my $head_sz=sizeof 'alloc.blk';
+
+  $off -= $head_sz;
+
+
+  # ^need to move data?
+  if($base != $old || $addr != $off) {
+
+    my $data=$old->view(
+
+      $addr + $head_sz,
+      $size
+
+    );
+
+
+    $new->copy($data);
 
   };
 
 
-  # get sub-block header
-  my ($base,$addr)=@{$blk->{__view}};
-  my $head=$base->load(
-    $type,$addr-$type->{sizeof}
-
-  );
-
-
-  my $ctx={};
-  $self->unpack_loc($ctx,$head->{loc});
-
-  use Fmat;
-  fatdump(\$ctx);
-
-  $base->prich();
-  exit;
+  return $new;
 
 };
 

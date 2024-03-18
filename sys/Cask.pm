@@ -19,6 +19,7 @@ package Cask;
   use strict;
   use warnings;
 
+  use Carp;
   use Readonly;
   use English qw(-no_match_vars);
 
@@ -139,6 +140,7 @@ sub give($self,$value) {
 sub iof($self,$lkup=$FIRST_AVAIL) {
 
   my $out=undef;
+  return $lkup if ! defined $lkup;
 
 
   # get idex of non-deleted slot
@@ -222,7 +224,9 @@ sub throw_empty() {
 # ^just get value
 
 sub view($self,$idex=$FIRST_AVAIL) {
-  return $self->[$self->iofa($idex)];
+
+  my $i=$self->iofa($idex);
+  return (defined $i) ? $self->[$i] : undef ;
 
 };
 

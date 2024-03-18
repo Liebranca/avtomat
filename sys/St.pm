@@ -342,7 +342,7 @@ sub new_frame($class,%O) {
     my $def=$vars->{$ARG};
 
     $O{$ARG} //= (is_coderef $def)
-      ? $def->()
+      ? $def->($class)
       : $def
       ;
 
