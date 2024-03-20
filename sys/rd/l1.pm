@@ -36,7 +36,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.3;#a
+  our $VERSION = v0.01.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -67,6 +67,7 @@ package rd::l1;
     ['%' => 'STRING'],
 
     ['T' => 'TYPE'],
+    ['F' => 'EXE'],
 
     ['r' => 'REG'],
     ['s' => 'SYM'],
@@ -287,6 +288,8 @@ qw  (
   opera   list  string  cmd
   branch  num   type    sym
 
+  exe
+
 );
 
 # ---   *   ---   *   ---
@@ -436,6 +439,10 @@ sub quantize($self,$src=undef) {
   # have string?
   } elsif($type eq 'STRING') {
     return $have;
+
+  # have executable binary? (yes ;>)
+  } elsif($type eq 'EXE') {
+    return $mc->exerun($spec);
 
   # as for anything else...
   } else {

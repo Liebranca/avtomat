@@ -422,7 +422,7 @@ sub data_decl_solve($self,$branch) {
 
 
       # fetch value
-      my $ref = $mc->search($name);
+      my $ref = $mc->psearch($name);
       my $mem = $$ref->getseg();
 
       my $x   = $l1->quantize($x);

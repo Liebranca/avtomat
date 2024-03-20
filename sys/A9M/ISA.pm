@@ -581,21 +581,16 @@ sub warn_invalid($name) {
 
 sub xlate($self,$sym,$size,@args) {
 
-# ---   *   ---   *   ---
-# NOTE: just for testing.
-# register alloc should go on anima!
 
-state $ri=0;
-
-# ---   *   ---   *   ---
-
-
+  # get type descriptor
   $size=typefet $size;
 
-
+  # fetch instruction name from symbol
   my $imp   = $self->imp();
   my $name  = $imp->xlate($sym,@args);
 
+
+  # ^fetch the instruction itself
   my ($ins,$full) = $self->_get_ins_idex(
     $name,$size->{sizep2},map {
       $ARG->{type}
@@ -605,13 +600,26 @@ state $ri=0;
   );
 
 
+  # ^if we don't have a full instruction,
+  # that means we need to break it down!
   my @out=([$size,$name,@args]);
 
+  # ^that's what we do here...
   if(! defined $ins) {
 
-    my $src  = $args[0];
-    $args[0] = {type=>'r',reg=>$ri++};
 
+    # we want to allocate some registers or stack
+    # to do the intermediate loads
+    my $src  = $args[0];
+    my $mc   = $self->getmc();
+    my $reg  = $mc->{anima};
+    my $ri   = $reg->alloci();
+
+    $args[0] = {type=>'r',reg=>$ri};
+
+
+    # ^and then adjust the instruction to
+    # use these additional steps
     @out=(
       [$size,'load',$args[0],$src],
       [$size,$name,$args[0],$args[1]]

@@ -43,7 +43,7 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.4;#a
+  our $VERSION = v0.01.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -142,7 +142,7 @@ sub mkroot($class,%O) {
 # ---   *   ---   *   ---
 # ^make from ice
 
-sub new($self,$size,$label=undef) {
+sub new($self,$size=0x00,$label=undef) {
 
 
   # defaults
@@ -190,16 +190,25 @@ sub new($self,$size,$label=undef) {
 # make reference to a section
 # of a block
 
-sub view($self,$addr,$len) {
+sub view($self,$addr,$len,$label=undef) {
 
+
+  # get ctx
   my $class = ref $self;
   my $ice   = bless {%$self},$class;
   my $buf   = $ice->{buf};
 
+  # ^validate
   return null
   if $addr+$len > length $$buf;
 
 
+  # generate and set label
+  $label //= $self->mklabel();
+  $ice->{value} .= "[$label]";
+
+
+  # setattrs and give
   $ice->{buf}    = \substr $$buf,$addr,$len;
   $ice->{size}   = $len;
 
@@ -721,6 +730,9 @@ sub inbounds(
 
 ) {
 
+  # who's calling?
+  my $fn=St::cf 2,1;
+
 
   # default to ptr
   $$addrref //= $self->{ptr};
@@ -734,7 +746,7 @@ sub inbounds(
 
   ))
 
-    ? $self->warn_oob($$typeref,$$addrref)
+    ? $self->warn_oob($$typeref,$$addrref,$fn)
     : 1
     ;
 
@@ -743,14 +755,28 @@ sub inbounds(
 # ---   *   ---   *   ---
 # ^errme
 
-sub warn_oob($self,$type,$addr) {
+sub warn_oob($self,$type,$addr,$fn) {
+
+
+  my $name=$self->ances(join_char=>'.');
 
   $addr=sprintf '%X',
     $self->absloc() + $addr;
 
-  warnproc "OOB: [good]:%s at \$[num]:%s",
 
-  args => [$type->{name},$addr],
+  warnproc
+
+    "$name [op]:%s [err]:%s\n"
+  . "[ctl]:%s [good]:%s at \$[num]:%s",
+
+  args => [
+
+    '->','OOB',
+    $fn,$type->{name},$addr,
+
+  ],
+
+
   give => null;
 
 };

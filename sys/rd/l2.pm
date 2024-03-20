@@ -27,6 +27,7 @@ package rd::l2;
   use Style;
 
   use Arstd::Array;
+  use Arstd::Bytes;
   use Arstd::IO;
 
   use parent 'St';
@@ -34,7 +35,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -315,6 +316,7 @@ sub exec_queue($self,@Q) {
 
 sub value_solve($self,$src=undef,$rec=0) {
 
+
   # default to current branch
   my $rd    = $self->{rd};
      $src //= $rd->{branch};
@@ -332,9 +334,9 @@ sub value_solve($self,$src=undef,$rec=0) {
   if(! @{$src->{leaves}}) {
     $out=$l1->quantize($src->{value});
 
-  # ^nope, recurse to solve tree
+  # ^nope, analyze tree
   } else {
-    $out=$self->value_collapse($src);
+    $out=$self->branch_solve($src);
 
   };
 
@@ -344,123 +346,123 @@ sub value_solve($self,$src=undef,$rec=0) {
 };
 
 # ---   *   ---   *   ---
-# ^interpret node *tree* as value
+# default leaf-to-root
+# branch processing logic
 
-sub value_collapse($self,$src) {
+sub branch_solve($self,$branch) {
 
 
   # get ctx
-  my $rd     = $self->{rd};
-  my $mc     = $rd->{mc};
-  my $l1     = $rd->{l1};
-
-  my $ptrcls = $mc->{bk}->{ptr};
-
-
-  # recurse for each leaf
-  my @lv   = @{$src->{leaves}};
-  my @args = map {
-
-    my $y=$self->value_solve($ARG,1);
-    my $x=$l1->quantize($y);
-
-    # make copy if X is ptr
-    if($ptrcls->is_valid($x)) {
-      $x=bless {%$x},$ptrcls;
-
-    };
-
-    (length $x) ? $x : () ;
-
-
-  } @lv;
-
-
-  # ^fail if we have unsolved leaves
-  return null
-  if int @lv != int @args;
-
-
-  # ^else keep going
-  my $out   = null;
-
-  my $fn    = $src->{value};
-  my @deref = map {
-
-    # have ptr?
-    if($ptrcls->is_valid($ARG)) {
-      $ARG->{addr};
-
-    # ^nope, plain value
-    } else {$ARG};
-
-  } @args;
-
-  my $ptrdst=$ptrcls->is_valid($args[0]);
+  my $rd = $self->{rd};
+  my $l1 = $rd->{l1};
 
 
   # have operator?
-  if(defined (my $opera=$l1->is_opera($fn))) {
+  my $key   = $branch->{value};
+  my $opera = $l1->is_opera($key);
 
-    $deref[0]=eval {
+  if(defined $opera) {
 
-      # [ARG]
-      if($opera=~ qr{[\(\[\{]}) {
+    my $dst=$self->opera_collapse(
+      $branch,$opera
 
-        if($opera eq '[' && $ptrdst) {
-          $ptrdst=0;
-          $args[0]->load();
+    );
 
-        } else {
-          $deref[0];
-
-        };
-
-      # [*ARG | ARG*]
-      } elsif(exists $OPERA_UNARY->{$opera}) {
-
-        my $s=($fn=~ qr{right$})
-          ? "$opera$deref[0]"
-          : "$deref[0]$opera"
-          ;
-
-        eval $s;
-
-      # [ARG*ARG]
-      } elsif(exists $OPERA_BINARY->{$opera}) {
-        eval "$deref[0]$opera$deref[1]";
-
-      };
-
-    };
-
-
-    # 'weird' operators not yet implemented ;>
-    nyi "[`$opera]" if ! defined $out;
-
-
-    # ~
-    if($ptrdst) {
-      $args[0]->{addr}=$deref[0];
-
-    } else {
-      $args[0]=$deref[0];
-
-    };
-
-
-    $out=$args[0];
-
-
-  # have sub-branch?
-  } elsif(defined (my $b=$l1->is_branch($fn))) {
-    $out=$args[0];
+    $branch->{value}=$dst;
+    $branch->clear();
 
   };
 
 
-  # give token
-  return $out;
+  return;
+
+
+};
+
+# ---   *   ---   *   ---
+# transform tokens to
+# executable code
+
+sub opera_collapse($self,$branch,$opera) {
+
+
+  # get ctx
+  my $rd  = $self->{rd};
+  my $l1  = $rd->{l1};
+
+  my $mc  = $rd->{mc};
+  my $ISA = $mc->{ISA};
+  my $imp = $ISA->imp();
+
+
+  #  get argument types
+  my @args   = $branch->branch_values();
+  my @args_b = map {
+
+    my ($type,$spec) = $l1->read_tag($ARG);
+    my $have         = $l1->quantize($ARG);
+
+    $type .= $spec if $type eq 'm';
+    (defined $have) ? [$type,$have] : () ;
+
+
+  } @args;
+
+
+  # ^validate
+  return null
+  if @args_b != int @args;
+
+  @args=@args_b;
+
+
+  # apply formatting to arguments
+  @args=map {
+
+    my ($type,$have)=@$ARG;
+
+    if($type eq 'r') {
+      {type=>$type,reg=>$have};
+
+    } elsif($type eq 'i') {
+      my $spec=(8 < bitsize $have) ? 'y' : 'x' ;
+      {type=>"i$spec",imm=>$have};
+
+    } else {
+      nyi "memory operands";
+
+    };
+
+
+  } @args;
+
+
+  # find instruction matching op
+  # and collapse branch into an F!
+  my @program = $ISA->xlate($opera,'word',@args);
+  my $seg     = $mc->{scratch}->new();
+
+  $mc->exewrite($seg,@program);
+  @args=$program[-1]->[2];
+
+
+#  # give dst as a tag
+#  my $type = $args[0]->{type};
+#  my $out  = undef;
+#
+#  if($type eq 'r') {
+#    $out=$l1->make_tag(REG=>$args[0]->{reg});
+#
+#  } elsif(! index $type,'i') {
+#    $out=$l1->make_tag(NUM=>$args[0]->{imm});
+#
+#  } else {
+#    nyi "memory operands";
+#
+#  };
+
+
+  return $l1->make_tag(EXE=>$seg->{iced});
 
 };
 

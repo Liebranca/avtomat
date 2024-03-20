@@ -52,6 +52,12 @@ package St;
 
   }x;
 
+  Readonly my $CFCLEAN=>qr{
+
+    .+ $DCOLON_RE ([^:]+) $
+
+  }x;
+
   sub Frame_Vars($class) {{}};
 
 # ---   *   ---   *   ---
@@ -74,8 +80,11 @@ sub cpkg() {
 # ---   *   ---   *   ---
 # ^reference current (or calling!) F
 
-sub cf($idex=1) {
+sub cf($idex=1,$clean=0) {
+
   my $name=(caller($idex))[3];
+     $name=~ s[$CFCLEAN][$1] if $clean;
+
   return $name;
 
 };

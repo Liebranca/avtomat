@@ -72,7 +72,7 @@ sub cmdarg($type,%O) {
   Readonly our $VLIST=>cmdarg(
 
     ['LIST','OPERA','SYM','BARE'],
-    value=>'[^\{]'
+    value=>'[^\{]+'
 
   );
 

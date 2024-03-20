@@ -38,7 +38,7 @@ package A9M::anima;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -46,7 +46,9 @@ package A9M::anima;
 
 St::vconst {
 
-  list   => [qw(
+
+  # full list of registers
+  list => [qw(
 
     ar    br    cr    dr
     er    fr    gr    hr
@@ -57,14 +59,56 @@ St::vconst {
 
   )],
 
-  re     => sub {re_eiths $_[0]->list()},
 
+  # ^internal alloc will not
+  # mess with these by default
+  reserved => [qw(
+    xp  xs  sp  sb
+    ice ctx opt chan
+
+  )],
+
+  # ^the mask for matchin!
+  reserved_mask => sub {
+
+
+    # get the list
+    my $class = $_[0];
+    my $name  = $class->reserved();
+
+    my $mask  = 0x00;
+
+
+    # ^match names in least to an index
+    # ^then use index to or with mask
+    map{
+
+      my $idex  = $class->tokin($_);
+         $mask |= 1 << $idex;
+
+    } @$name;
+
+
+    # give the mask ;>
+    $mask;
+
+  },
+
+  # ^pattern for string stuff
+  re => sub {re_eiths $_[0]->list()},
+
+
+  # default size for each register
   sizek  => 'qword',
-  size   => sub {sizeof $_[0]->sizek()},
+  size   => sub {sizeof  $_[0]->sizek()},
+  size_t => sub {typefet $_[0]->sizek()},
 
+
+  # number/masks for encoding registers
   cnt    => sub {int @{$_[0]->list()}},
   cnt_bs => sub {bitsize $_[0]->cnt()-1},
   cnt_bm => sub {bitmask $_[0]->cnt()-1},
+
 
 };
 
@@ -79,14 +123,27 @@ sub new($class,%O) {
   $O{mcid}  //= 0;
   $O{mccls} //= caller;
 
-  # get ctx
-  my $self   = bless \%O,$class;
 
+  # make ice
+  my $self = bless {
+
+    %O,
+
+    mem => undef,
+    ptr => undef,
+
+    almask => $class->reserved_mask(),
+
+
+  },$class;
+
+
+  # get ctx
   my $mc     = $self->getmc();
   my $memcls = $mc->{bk}->{mem};
 
 
-  # make ice
+  # make container
   my $mem=$memcls->mkroot(
 
     size  =>
@@ -174,6 +231,100 @@ sub tokin($class,$name) {
     ? array_iof($class->list(),$name)
     : undef
     ;
+
+};
+
+# ---   *   ---   *   ---
+# alloc register and give idex
+
+sub alloci($self) {
+
+
+  # get ctx
+  my $mc = $self->getmc();
+  my $al = $mc->{alloc};
+
+  my $mpart_t = $al->mpart_t();
+
+
+  # have avail register?
+  my ($ezy,$pos)=$mpart_t->fit(
+
+    \$self->{almask},1,
+    limit=>16,
+
+  );
+
+
+  # ^validate and give
+  return (defined $pos)
+    ? $pos
+    : null
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# ^build mem handle
+
+sub alloc($self) {
+
+
+  # get idex of free register if any
+  my $type = $self->size_t();
+  my $idex = $self->alloci();
+  my $mem  = $self->{mem};
+
+
+  # give mem handle if avail
+  if(length $idex) {
+
+    my $list = $self->list();
+    my $view = $mem->view(
+
+      $idex << $type->{sizep2},
+      $type->{sizeof},
+
+      $list->[$idex]
+
+    );
+
+
+    return $view;
+
+
+  # ^use stack if none!
+  } else {
+    nyi "alloc stack fallback"
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# free allocated register from idex
+
+sub freei($self,$idex) {
+
+  # clear bit from mask
+  $self->{almask} &=~ 1 << $idex;
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^free allocated from mem handle
+
+sub free($self,$mem) {
+
+  my ($base,$off) = $mem->get_addr();
+  my $type        = $self->size_t();
+
+  $off >>= $type->{sizep2};
+
+  $self->freei($off);
+
+  return;
 
 };
 

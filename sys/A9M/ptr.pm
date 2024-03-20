@@ -504,7 +504,7 @@ sub prich($self,%O) {
   } else {
 
     push @$out,sprintf "[%04X] %s -> $value",
-      $type->{name},$self->{addr};
+      $self->{addr},$type->{name};
 
   };
 

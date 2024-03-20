@@ -122,7 +122,7 @@ sub new($class,%O) {
     mcid  => $id,
     label => 'SCRATCH',
 
-    size  => 0x10,
+    size  => 0x00,
 
   );
 
@@ -233,7 +233,9 @@ sub ipret($self,@program) {
 
   # get ctx
   my @names = qw(dst src);
+
   my $ezy   = $Type::MAKE::LIST->{ezy};
+  my $ret   = 0x00;
 
 
   # walk input
@@ -285,6 +287,9 @@ sub ipret($self,@program) {
 
     );
 
+    $ret=$out;
+
+
     # ^save result?
     if($ins->{overwrite}) {
 
@@ -301,7 +306,28 @@ sub ipret($self,@program) {
   } @program;
 
 
-  return;
+  return $ret;
+
+};
+
+# ---   *   ---   *   ---
+# ^fetch && run seg from id
+
+sub exerun($self,$id) {
+
+
+  # fetch executable segment
+  my $mem   = $self->{cas};
+  my $frame = $mem->{frame};
+
+  my $seg   = $frame->ice($id);
+
+
+  # read instructions and run
+  my @program = $self->exeread($seg);
+  my $ret     = $self->ipret(@program);
+
+  return $ret;
 
 };
 
@@ -358,7 +384,7 @@ sub _search($self,$name,@path) {
 
   # make (path,to) from (path::to)
   # then look in namespace
-  my @have = $mem->_search($name,@path);
+  my @have = $mem->search($name,@path);
 
 
   return @have;
@@ -370,12 +396,9 @@ sub _search($self,$name,@path) {
 
 sub dsearch($self,$name,@path) {
 
-  # get ctx
-  my $mem=$self->{cas};
-
-  # solve path
-  @path=$self->_search($name,@path);
-
+  # get ctx/solve path
+  my $mem  = $self->{cas};
+     @path = $self->_search($name,@path);
 
   # give name if found
   return $mem->{'*fetch'};
@@ -387,15 +410,30 @@ sub dsearch($self,$name,@path) {
 
 sub search($self,$name,@path) {
 
-  # get ctx
+  # get ctx/solve path
   my $mem  = $self->{cas};
-
-
-  # solve path
-  @path=$self->_search($name,@path);
+     @path = $self->_search($name,@path);
 
   # give name if found
   my $out = $mem->{'*fetch'}
+  or return badfet($name,@path);
+
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^no deref! (but yes errme ;>)
+
+sub psearch($self,$name,@path) {
+
+  # get ctx/solve path
+  my $mem  = $self->{cas};
+     @path = $self->_search($name,@path);
+
+  # get *ptr* to value!
+  my $out = $mem->{inner}->get(@path)
   or return badfet($name,@path);
 
 
