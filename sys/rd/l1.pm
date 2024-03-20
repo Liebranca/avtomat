@@ -433,8 +433,10 @@ sub quantize($self,$src=undef) {
   if($type=~ qr{NUM|REG}) {
     return $spec;
 
+  # have plain symbol name?
   } elsif($type eq 'SYM') {
     return $self->symbol_fetch($spec);
+
 
   # have string?
   } elsif($type eq 'STRING') {
@@ -443,6 +445,7 @@ sub quantize($self,$src=undef) {
   # have executable binary? (yes ;>)
   } elsif($type eq 'EXE') {
     return $mc->exerun($spec);
+
 
   # as for anything else...
   } else {

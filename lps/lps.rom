@@ -1,7 +1,4 @@
 %;
 
-byte aa 24^1;
-
-#EXE code;
-#  ar = ($20 ^ $24) ^ $40;
-#  store a0,ar;
+RAM data;
+  byte aa $24^$1^$20;

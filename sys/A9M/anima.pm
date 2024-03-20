@@ -133,6 +133,7 @@ sub new($class,%O) {
     ptr => undef,
 
     almask => $class->reserved_mask(),
+    alhist => [],
 
 
   },$class;
@@ -323,6 +324,31 @@ sub free($self,$mem) {
   $off >>= $type->{sizep2};
 
   $self->freei($off);
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# save current allocation mask
+# to a *private* stack
+
+sub backup($self) {
+
+  push @{$self->{alhist}},
+    $self->{almask};
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub restore($self) {
+
+  $self->{almask}=
+    pop @{$self->{alhist}};
 
   return;
 

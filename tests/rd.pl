@@ -32,12 +32,7 @@ my $rev = "$l2\::branch_solve";
 
 $rd->walk(limit=>2,rev=>\&$rev);
 
-my @ins=$mc->exeread($mc->{scratch});
-
-$mc->ipret(@ins);
 $mc->{anima}->prich();
-$mc->{scratch}->prich(root=>1,depth=>1);
-
 $rd->prich();
 
 # ---   *   ---   *   ---

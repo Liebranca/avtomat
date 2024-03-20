@@ -336,7 +336,7 @@ sub value_solve($self,$src=undef,$rec=0) {
 
   # ^nope, analyze tree
   } else {
-    $out=$self->branch_solve($src);
+    $out=$self->branch_collapse($src);
 
   };
 
@@ -380,8 +380,46 @@ sub branch_solve($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# transform tokens to
-# executable code
+# ^recursive
+
+sub branch_collapse($self,$src) {
+
+
+  # save current state
+  my $rd = $self->{rd};
+  my $mc = $rd->{mc};
+
+  $mc->{anima}->backup();
+
+
+  # get reverse hierarchal order
+  my @Q0 = @{$src->{leaves}};
+  my @Q1 = ($src);
+
+  while(@Q0) {
+
+    my $nd=shift @Q0;
+
+    push    @Q1,$nd;
+    unshift @Q0,@{$nd->{leaves}};
+
+  };
+
+
+  # ^collapse from bottom leaf to root
+  map {$self->branch_solve($ARG)}
+  reverse @Q1;
+
+
+  # cleanup and give
+  $mc->{anima}->restore();
+  return $src->{value};
+
+};
+
+# ---   *   ---   *   ---
+# execute const operator branch
+# else give handle to executable
 
 sub opera_collapse($self,$branch,$opera) {
 
@@ -393,6 +431,9 @@ sub opera_collapse($self,$branch,$opera) {
   my $mc  = $rd->{mc};
   my $ISA = $mc->{ISA};
   my $imp = $ISA->imp();
+
+  # save current state
+  my $alma = $mc->{anima}->{almask};
 
 
   #  get argument types
@@ -416,12 +457,17 @@ sub opera_collapse($self,$branch,$opera) {
   @args=@args_b;
 
 
+  # branch is a constant if it in turn
+  # operates solely on constants!
+  my $const=1;
+
   # apply formatting to arguments
   @args=map {
 
     my ($type,$have)=@$ARG;
 
     if($type eq 'r') {
+      $const &=~ 1;
       {type=>$type,reg=>$have};
 
     } elsif($type eq 'i') {
@@ -437,32 +483,42 @@ sub opera_collapse($self,$branch,$opera) {
   } @args;
 
 
-  # find instruction matching op
-  # and collapse branch into an F!
-  my @program = $ISA->xlate($opera,'word',@args);
-  my $seg     = $mc->{scratch}->new();
+  # fetch operator definition
+  my @program=$ISA->xlate(
+    $opera,'word',@args
 
-  $mc->exewrite($seg,@program);
-  @args=$program[-1]->[2];
+  );
 
 
-#  # give dst as a tag
-#  my $type = $args[0]->{type};
-#  my $out  = undef;
-#
-#  if($type eq 'r') {
-#    $out=$l1->make_tag(REG=>$args[0]->{reg});
-#
-#  } elsif(! index $type,'i') {
-#    $out=$l1->make_tag(NUM=>$args[0]->{imm});
-#
-#  } else {
-#    nyi "memory operands";
-#
-#  };
+  # give plain value on const branch
+  if($const) {
 
 
-  return $l1->make_tag(EXE=>$seg->{iced});
+    # build and unpack the opcodes
+    @program=map {
+      my ($opcd)=$ISA->encode(@$ARG);
+      $ISA->decode($opcd);
+
+    } @program;
+
+    # ^execute and give result
+    my $x=$mc->ipret(@program);
+    $mc->{anima}->{almask}=$alma;
+
+    return $l1->make_tag(NUM=>$x);
+
+
+  # ^make mini-executable for non-const!
+  } else {
+
+    # make new segment holding opcodes
+    my $seg=$mc->{scratch}->new();
+    $mc->exewrite($seg,@program);
+
+    # ^give handle via id
+    return $l1->make_tag(EXE=>$seg->{iced});
+
+  };
 
 };
 
