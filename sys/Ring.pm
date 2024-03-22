@@ -56,9 +56,10 @@ St::imping {
 
   '*vconst' => sub ($dst,$O) {
 
+
     # get ctx
-    my $class = St::cpkg;
-    my $src   = $O->{$class->layers};
+    my $class   = St::cpkg;
+    my $src     = $O->{$class->layers};
 
     my $layer = (is_coderef $src)
       ? $src->($dst)
@@ -144,11 +145,6 @@ sub _cstruc($from,%O) {
 
     my $args = $O{$lis};
     my $pkg  = $layer->{$lis};
-
-say $lis;
-exit if ! defined $pkg;
-
-say"\\-->$pkg\n";
 
 
     # ^typeswitch

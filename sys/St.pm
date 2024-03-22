@@ -34,7 +34,7 @@ package St;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.8;
+  our $VERSION = v0.03.0;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -175,6 +175,37 @@ sub classcache($class,$name) {
 };
 
 # ---   *   ---   *   ---
+# ^get inherited
+
+sub classpar($class,$type,$name) {
+
+  no strict 'refs';
+
+  my $fn=($type eq 'cache')
+    ? \&classcache
+    : \&classattr
+    ;
+
+
+  map {$fn->($ARG,$name)}
+  @{"$class\::ISA"};
+
+};
+
+# ---   *   ---   *   ---
+# ^shorthands
+
+sub superattr($class,$name) {
+  return classpar $class,attr=>$name;
+
+};
+
+sub supercache($class,$name) {
+  return classpar $class,cache=>$name;
+
+};
+
+# ---   *   ---   *   ---
 # allows other packages to
 # inject their own kicks and nits
 # into St methods
@@ -271,6 +302,23 @@ sub vconst($O) {
   my $class = caller;
   my $cache = classcache $class,'vconst';
 
+
+  # handle inheritance
+  $cache->{'%O'}=$O;
+
+  my @par=supercache $class,'vconst';
+
+  $O={( map {
+
+    ($ARG->{'%O'})
+      ? %{$ARG->{'%O'}}
+      : ()
+      ;
+
+  } @par ),%$O};
+
+
+  # walk definitions
   map {
 
     # array as hash

@@ -29,6 +29,7 @@ package ipret;
   use Style;
   use Chk;
   use Cli;
+  use Ring;
 
   use Arstd::IO;
   use Arstd::PM;
@@ -39,7 +40,7 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -47,10 +48,10 @@ package ipret;
 
 St::vconst {
 
-  decoder_t => 'ipret::decoder',
+  encoder_t => 'ipret::encoder',
   layers    => sub { return [
     @{rd->layers},
-    qw(decoder),
+    qw(encoder),
 
   ]},
 
