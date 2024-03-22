@@ -1,4 +1,4 @@
 %;
 
 RAM data;
-  byte aa $24^$1^$20;
+  byte aa (1 + 2) * 2;

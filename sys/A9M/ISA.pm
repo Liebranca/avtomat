@@ -44,7 +44,7 @@ package A9M::ISA;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.8;#a
+  our $VERSION = v0.01.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -302,49 +302,22 @@ sub mkfmat($self) {
 };
 
 # ---   *   ---   *   ---
-# make opcode
+# get [bitsize:data] array
+# for set of operands
 
-sub encode($self,$type,$name,@args) {
+sub encoding($self,$idex,$args) {
 
+  return (
 
-  # get type from table
-  $type=typefet $type
-  or return null;
+    [$Cache->{id_bs},$idex],
 
+    map {
+      my $fmat=Bitformat $ARG->{type};
+      [$fmat->{bitsize},$fmat->bor(%$ARG)];
 
-  # find instruction id
-  my $idex=$self->get_ins_idex(
-    $name,$type->{sizep2},
-    map {$ARG->{type}} @args
+    } @$args
 
   );
-
-  return null if $idex eq null;
-
-
-  # ^get [bitsize:data] array
-  # for both instruction and operands
-  my @enc=([$Cache->{id_bs},$idex],map {
-    my $fmat=Bitformat $ARG->{type};
-    [$fmat->{bitsize},$fmat->bor(%$ARG)];
-
-  } @args);
-
-
-  # ^pack and give
-  my $opcd = 0x00;
-  my $cnt  = 0;
-
-  map {
-
-    my ($bs,$data)=@$ARG;
-    $opcd |= $data << $cnt;
-    $cnt  += $bs;
-
-  } @enc;
-
-
-  return ($opcd,int_urdiv($cnt,8));
 
 };
 
@@ -475,10 +448,25 @@ sub decode_args(
 
 sub run($self,$type,$idx,@args) {
 
+  # get ctx
   my $imp = $self->imp();
   my $fn  = $Cache->{exetab}->[$idx];
 
-  $imp->$fn($type,\@args);
+  my @src = (1 == $#args)
+    ? ($args[1]) : () ;
+
+  # build call array
+  my $op   = $imp->$fn($type,@src);
+  my @call = (@args)
+    ? ($op,$args[0])
+    : ($op)
+    ;
+
+
+  # invoke and give
+  my @out=$imp->copera(@call);
+
+  return \@out;
 
 };
 
@@ -602,34 +590,60 @@ sub xlate($self,$sym,$size,@args) {
 
   # ^if we don't have a full instruction,
   # that means we need to break it down!
-  my @out=([$size,$name,@args]);
+  my @out=();
 
   # ^that's what we do here...
   if(! defined $ins) {
 
-
-    # we want to allocate some registers or stack
-    # to do the intermediate loads
-    my $src  = $args[0];
-    my $mc   = $self->getmc();
-    my $reg  = $mc->{anima};
-    my $ri   = $reg->alloci();
-
-    $args[0] = {type=>'r',reg=>$ri};
+    my $meta=$self->get_ins_meta($name);
 
 
-    # ^and then adjust the instruction to
-    # use these additional steps
-    @out=(
-      [$size,'load',$args[0],$src],
-      [$size,$name,$args[0],$args[1]]
+    # imm dst to reg
+    if(! index $meta->{dst},'r') {
 
-    );
+      my ($dst,$imload)=
+        $self->imload($size,$args[0]);
+
+      unshift @out,$imload;
+      $args[0]=$dst;
+
+    };
+
+    # ^imm src to reg
+    if(! index $meta->{src},'r') {
+
+      my ($dst,$imload)=
+        $self->imload($size,$args[1]);
+
+      unshift @out,$imload;
+      $args[1]=$dst;
+
+    };
 
   };
 
 
-  return @out;
+  return @out,[$size,$name,@args];
+
+};
+
+# ---   *   ---   *   ---
+# when we want to allocate some
+# registers or stack to do an
+# intermediate load...
+
+sub imload($self,$size,$src) {
+
+  # get ctx
+  my $mc  = $self->getmc();
+  my $reg = $mc->{anima};
+
+  # fetch mem
+  my $ri  = $reg->alloci();
+  my $dst = {type=>'r',reg=>$ri};
+
+  # give (dst,ins)
+  return $dst,[$size,'load',$dst,$src];
 
 };
 

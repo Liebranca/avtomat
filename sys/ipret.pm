@@ -39,23 +39,42 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+St::vconst {
+
+  decoder_t => 'ipret::decoder',
+  layers    => sub { return [
+    @{rd->layers},
+    qw(decoder),
+
+  ]},
+
+};
+
 
 # ---   *   ---   *   ---
 # cstruc
 
-sub new($class,$src) {
+sub new($class,$src,%O) {
 
   # get parse tree
   my $self=(is_filepath($src))
     ? retrieve($src)
-    : rd($src)
+    : rd::crux($src,%O)
     ;
 
   # ^mutate into interpreter
   $self=bless {%$self},$class;
-  $self->cstruc_layers();
+  $self->cstruc_layers(
+    map {$ARG=>$self}
+    @{$self->layers}
+
+  );
 
 
   return $self;
@@ -67,39 +86,15 @@ sub new($class,$src) {
 
 sub crux($src) {
 
-  my $self=ipret->new($src);
-  while($self->step(\&proc_solve,$self)) {};
+  my $self = ipret->new($src);
+
+  my $l2   = $self->l2_t;
+  my $rev  = "$l2\::branch_solve";
+
+  $self->walk(limit=>2,rev=>\&$rev);
 
 
   return $self;
-
-};
-
-# ---   *   ---   *   ---
-# analyze next branch
-
-sub proc_solve($self,$nd,@Q) {
-
-
-  # get ctx
-  my $l1    = $self->{l1};
-  my $lx    = $self->{lx};
-  my $scope = $self->{scope};
-  my $path  = $scope->{path};
-
-
-  # have command?
-  if(exists $nd->{cmdkey}) {
-
-    my $cmd = $NULLSTR;
-    my $key = $nd->{value};
-
-    my $fn  = $lx->passf($nd->{cmdkey});
-
-  };
-
-
-  return 1;
 
 };
 
@@ -157,6 +152,28 @@ sub ON_EXE($class,@input) {
   # ~
   my $ice=crux($src);
 
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^imported as module via use
+
+sub ON_USE($class,$from,@nullarg) {
+
+  no strict 'refs';
+
+  *ipret=*crux;
+
+  submerge(
+
+    [$class],
+
+    main  => $from,
+    subok => qr{^ipret$},
+
+  );
 
   return;
 

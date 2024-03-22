@@ -35,7 +35,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#a
+  our $VERSION = v0.01.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -358,18 +358,27 @@ sub branch_solve($self,$branch) {
 
 
   # have operator?
-  my $key   = $branch->{value};
-  my $opera = $l1->is_opera($key);
+  my $key=$branch->{value};
 
-  if(defined $opera) {
+  if(defined (my $have=$l1->is_opera($key))) {
 
-    my $dst=$self->opera_collapse(
-      $branch,$opera
-
-    );
+    my $dst=($have ne '(')
+      ? $self->opera_collapse($branch,$have)
+      : $branch->leaf_value(0)
+      ;
 
     $branch->{value}=$dst;
     $branch->clear();
+
+
+  # 'branch' token denotes any {[(code)]}
+  # between delimiters
+  } elsif(defined ($have=$l1->is_branch($key))) {
+
+    $self->sbranch_collapse(
+      $branch,$have
+
+    );
 
   };
 
@@ -414,6 +423,25 @@ sub branch_collapse($self,$src) {
   # cleanup and give
   $mc->{anima}->restore();
   return $src->{value};
+
+};
+
+# ---   *   ---   *   ---
+# ^on sub-branch token
+
+sub sbranch_collapse($self,$branch,$id) {
+
+  my $par = $branch->{parent};
+  my @lv  = @{$branch->{leaves}};
+
+
+  if(1 == @lv) {
+    $branch->flatten_branch();
+
+  };
+
+
+  return;
 
 };
 

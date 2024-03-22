@@ -70,7 +70,7 @@ package Arstd::PM;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -225,6 +225,18 @@ sub add_scalar($dst,$src) {
 
   add_symbol($dst,$src);
   ${$dst}=${$dst};
+
+};
+
+# ---   *   ---   *   ---
+# ^redefine symbol without warning
+
+sub redef($old,$new) {
+
+  no strict   'refs';
+  no warnings 'redefine';
+
+  *{$old}=$new;
 
 };
 

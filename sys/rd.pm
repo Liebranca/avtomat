@@ -31,13 +31,12 @@ package rd;
   use Tree;
   use Cli;
   use Shb7;
+  use Ring;
 
   use Arstd::Array;
   use Arstd::IO;
   use Arstd::PM;
   use Arstd::WLog;
-
-  use Mach::Scope;
 
   $WLog //= Arstd::WLog->genesis();
 
@@ -47,11 +46,41 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
+
+St::vconst {
+
+
+  # subpackages
+  layers  => [qw(l0 l1 l2 lx)],
+
+  l0_t    => 'rd::l0',
+  l1_t    => 'rd::l1',
+  l2_t    => 'rd::l2',
+  lx_t    => 'rd::lx',
+
+
+  # ^wraps
+  Ring->layers => sub { return {
+
+    map {
+
+      my $fn  =  "${ARG}_t";
+         $ARG => $_[0]->$fn();
+
+
+    } @{$_[0]->layers()}
+
+
+  }},
+
+
+};
+
 
   Readonly my $SF=>{
 
@@ -142,13 +171,14 @@ sub new($class,$src,%O) {
 
     mc      => $O{mc}->{cls}->new(%{$O{mc}}),
 
+
     # N repeats of a processing stage
     pass    => 0,
     passes  => {},
 
-
     # shared vars
     status  => $SF_DEFAULT,
+
 
     # line number!
     lineno  => 1,
@@ -168,7 +198,11 @@ sub new($class,$src,%O) {
 
 
   # init layers and give ice
-  $self->cstruc_layers();
+  $self->cstruc_layers(
+    map {$ARG=>$self}
+    @{$self->layers}
+
+  );
 
   return $self;
 
@@ -628,66 +662,6 @@ sub string($self) {
 
 
   return $out;
-
-};
-
-# ---   *   ---   *   ---
-# fetch classes for each parser layer
-# then cstruc new ice for each
-
-sub cstruc_layers($self) {
-
-  my $class=ref $self;
-
-  map {
-
-    my $fn    = "get_$ARG";
-    my $layer = $self->$fn();
-
-    $self->{$ARG}=$layer->new($self)
-    if ! defined $self->{$ARG};
-
-
-  } qw(l0 l1 l2 lx);
-
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# get char-parse logic
-
-sub get_l0($class) {
-  cload  'rd::l0';
-  return 'rd::l0';
-
-};
-
-# ---   *   ---   *   ---
-# get token logic
-
-sub get_l1($class) {
-  cload  'rd::l1';
-  return 'rd::l1';
-
-};
-
-# ---   *   ---   *   ---
-# get expression logic
-
-sub get_l2($class) {
-  cload  'rd::l2';
-  return 'rd::l2';
-
-};
-
-# ---   *   ---   *   ---
-# get execution layer
-
-sub get_lx($class) {
-  cloadi 'rd::lx';
-  return 'rd::lx';
 
 };
 

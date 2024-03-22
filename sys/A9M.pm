@@ -40,7 +40,7 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -146,51 +146,47 @@ sub new($class,%O) {
 sub exewrite($self,$seg,@program) {
 
 
-  # walk input
-  my $total=0;
-  map {
-
-
-    # get opcode (or die trying)
-    my ($opcd,$size)=
-      $self->{ISA}->encode(@$ARG);
-
-    return null if $opcd eq null;
-
-
-    # grow buf if need
-    $seg->brkfit($size);
-    $total += $size;
-
-
-    # write opcode to buf
-    map {
-
-      # we do chunk by chunk to bytepack;
-      # no aligning to pow2 in-between opcodes!
-      my $type    = typefet $ARG;
-
-      my $chunk   = $opcd & $type->{sizebm};
-         $opcd  >>= $type->{sizebs};
-
-      # write chunk and go next
-      $seg->store($type,$chunk,$seg->{ptr});
-      $seg->{ptr} += $type->{sizeof};
-
-
-    } typeof $size;
-
-
-  } @program;
-
-
-  # apply alignment to segment accto
-  # ISA specs
-  my $align=$self->{ISA}->exeali();
-  $seg->align($align->{sizeof});
-
-
-  return $total;
+#  # walk input
+#  my $total=0;
+#  map {
+#
+#
+#
+#
+#
+#    # grow buf if need
+#    $seg->brkfit($size);
+#    $total += $size;
+#
+#
+#    # write opcode to buf
+#    map {
+#
+#      # we do chunk by chunk to bytepack;
+#      # no aligning to pow2 in-between opcodes!
+#      my $type    = typefet $ARG;
+#
+#      my $chunk   = $opcd & $type->{sizebm};
+#         $opcd  >>= $type->{sizebs};
+#
+#      # write chunk and go next
+#      $seg->store($type,$chunk,$seg->{ptr});
+#      $seg->{ptr} += $type->{sizeof};
+#
+#
+#    } typeof $size;
+#
+#
+#  } @program;
+#
+#
+#  # apply alignment to segment accto
+#  # ISA specs
+#  my $align=$self->{ISA}->exeali();
+#  $seg->align($align->{sizeof});
+#
+#
+#  return $total;
 
 };
 
@@ -287,7 +283,7 @@ sub ipret($self,@program) {
 
     );
 
-    $ret=$out;
+    $ret=$out->[0];
 
 
     # ^save result?

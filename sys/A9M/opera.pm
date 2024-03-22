@@ -36,7 +36,7 @@ package A9M::opera;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -185,26 +185,26 @@ St::vconst {
 #  },
 #
 #
-#  # math
-#  add => {
-#    dst  => 'r',
-#    src  => 'ri',
-#
-#  },
-#
+  # math
+  add => {
+    dst  => 'r',
+    src  => 'ri',
+
+  },
+
 #  sub => {
 #    dst  => 'r',
 #    src  => 'ri',
 #
 #  },
-#
-#
-#  mul => {
-#    dst  => 'r',
-#    src  => 'r',
-#
-#  },
-#
+
+
+  mul => {
+    dst  => 'r',
+    src  => 'r',
+
+  },
+
 #  # the mnemonic for 'division' should be 'avoid'
 #  # but that may confuse some people ;>
 #  div => {
@@ -296,6 +296,8 @@ St::vconst {
 
     = copy
     ^ xor
+    + add
+    * mul
 
   )},
 
@@ -316,7 +318,7 @@ sub opera($fn,$value) {
 
     my $x=shift @Q;
 
-    (is_arrayref($x))
+    (is_arrayref $x)
       ? unshift @Q,@$x
       : push    @out,$fn->($x)
       ;
@@ -341,13 +343,20 @@ sub copera($class,$fn,$value) {
 
 sub flatten($class,$ezy,$bits=undef) {
 
+  # get bounds
   $bits //= $ezy;
+  $bits   = 0x40 if $bits > 0x40;
+  $ezy    = 0x40 if $ezy  > 0x40;
 
+
+  # fstate
   my $out=0x00;
   my $cnt=0x00;
 
+  # fdef
   sub ($x) {
 
+    # wrap around?
     if($cnt == $bits) {
       $out=0x00;
       $cnt=0x00;
@@ -355,9 +364,11 @@ sub flatten($class,$ezy,$bits=undef) {
     };
 
 
+    # cat next element
     $out |= $x << $cnt;
     $cnt += $ezy;
 
+    # give on cap hit
     ($cnt == $bits) ? $out : () ;
 
   };
@@ -365,18 +376,50 @@ sub flatten($class,$ezy,$bits=undef) {
 };
 
 # ---   *   ---   *   ---
-# give src as-is
+# procs operation source
 
-sub copy($class,$type,$args) {
-  $args->[1];
+sub asval($src) {
+
+  (is_arrayref $src)
+    ? (array_flatten $src)
+    : ($src)
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# src to dst
+
+sub copy($class,$type,$src) {
+  my @src=asval $src;
+  sub {shift @src};
 
 };
 
 # ---   *   ---   *   ---
 # exclusive OR
 
-sub xor($class,$type,$args) {
-  $args->[0] ^ $args->[1];
+sub xor($class,$type,$src) {
+  my @src=asval $src;
+  sub ($x) {$x ^ shift @src};
+
+};
+
+# ---   *   ---   *   ---
+# addition
+
+sub add($class,$type,$src) {
+  my @src=asval $src;
+  sub ($x) {$x + shift @src};
+
+};
+
+# ---   *   ---   *   ---
+# multiplication
+
+sub mul($class,$type,$src) {
+  my @src=asval $src;
+  sub ($x) {$x * shift @src};
 
 };
 

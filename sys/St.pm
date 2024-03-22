@@ -25,7 +25,6 @@ package St;
 
   use Scalar::Util qw(blessed reftype);
   use B::Deparse;
-
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
@@ -35,7 +34,7 @@ package St;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.7;
+  our $VERSION = v0.02.8;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -160,6 +159,22 @@ sub classattr($class,$name) {
 };
 
 # ---   *   ---   *   ---
+# ^more internal caches ;>
+
+sub classcache($class,$name) {
+
+  my $A    = \$Classes->{"$class:~CACHE"};
+     $$A //= {};
+
+  my $B    = \$$A->{$name};
+     $$B //= {};
+
+
+  return $$B;
+
+};
+
+# ---   *   ---   *   ---
 # allows other packages to
 # inject their own kicks and nits
 # into St methods
@@ -191,6 +206,15 @@ sub injector($class,@args) {
   my $here = cf 2;
   my $attr = classattr $class,$here;
 
+  map {$ARG->($class,@args)} @$attr;
+
+};
+
+# ---   *   ---   *   ---
+# ^edge case: injector inside import!
+
+sub impsmash($class,@args) {
+  my $attr = classattr $class,'St::import';
   map {$ARG->($class,@args)} @$attr;
 
 };
@@ -240,20 +264,18 @@ sub imping($O) {
 # ---   *   ---   *   ---
 # define/overwrite virtual constants
 
-sub vconst($data) {
+sub vconst($O) {
 
 
   # whomever calls, store here
-  state $ROMTAB = {};
-  my    $class  = caller;
+  my $class = caller;
+  my $cache = classcache $class,'vconst';
 
-
-  # walk input
   map {
 
     # array as hash
     my $key   = $ARG;
-    my $value = $data->{$key};
+    my $value = $O->{$key};
 
 
     # save to table/make method
@@ -261,27 +283,27 @@ sub vconst($data) {
 
     *{"$class\::$key"}=sub ($cls) {
 
-      # get ref to table
-      $ROMTAB->{$cls} //= {};
-      my $tab=$ROMTAB->{$cls};
-
       # have cached?
-      return $tab->{$key}
-      if exists $tab->{$key};
+      return $cache->{$key}
+      if exists $cache->{$key};
 
 
       # ^else rebuild and give
-      $tab->{$key}=(is_coderef($value))
+      $cache->{$key}=(is_coderef($value))
         ? $value->($cls)
         : $value
         ;
 
-      $tab->{$key};
+      $cache->{$key};
 
     };
 
 
-  } keys %$data;
+  } keys %$O;
+
+
+  # run injected methods
+  injector $class,$O;
 
 
   return;
