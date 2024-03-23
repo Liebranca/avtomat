@@ -36,7 +36,7 @@ package A9M::ISA::encoding;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -46,9 +46,9 @@ St::vconst {
 
 
   # operand data
-  argflag_bs => 3,
-  argflag_bm => sub {
-    bitmask $_[0]->argflag_bs;
+  operand_bs => 3,
+  operand_bm => sub {
+    bitmask $_[0]->operand_bs;
 
   },
 
@@ -91,18 +91,15 @@ sub generate($class,$ISA) {
 
 
   # operand encoding
-  my $operand_t = $class->classcache(
-    "$super.operand_t"
-
-  );
+  my $operand_t=$class->operand_t($super);
 
   %$operand_t=(
 
 
     # base format
     %{Bitformat "$super.operand"=>(
-      dst => $class->argflag_bs,
-      src => $class->argflag_bs,
+      dst => $class->operand_bs,
+      src => $class->operand_bs,
 
     )},
 
@@ -267,6 +264,20 @@ sub operand_encoding($class,$super,$name) {
 
 };
 
+sub operand_t($class,$super,$name=undef) {
+
+  my $tab=$class->classcache(
+    "$super.operand_t"
+
+  );
+
+  return (defined $name)
+    ? $tab->{$name}
+    : $tab
+    ;
+
+};
+
 # ---   *   ---   *   ---
 # build table to match name
 # to operand type
@@ -274,10 +285,7 @@ sub operand_encoding($class,$super,$name) {
 sub operand_tid($class,$super) {
 
 
-  my $operand_t=$class->classcache(
-    "$super.operand_t"
-
-  );
+  my $operand_t=$class->operand_t($super);
 
 
   return {

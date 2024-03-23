@@ -28,31 +28,13 @@ package ipret::encoder;
 
   use Arstd::Bytes;
 
+  use parent 'ipret::component';
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
-
-# ---   *   ---   *   ---
-# cstruc
-
-sub new($class,$ipret) {
-  return bless {ipret=>$ipret},$class;
-
-};
-
-# ---   *   ---   *   ---
-# get ref to ISA spec
-
-sub ISA($self) {
-
-  my $main = $self->{ipret};
-  my $mc   = $main->{mc};
-
-  return $mc->{ISA};
-
-};
 
 # ---   *   ---   *   ---
 # get instruction id from descriptor
@@ -93,7 +75,7 @@ sub packins($self,$idex,$args) {
     $opcd |= $data << $cnt;
     $cnt  += $bs;
 
-  } $self->ISA()->encoding($idex,$args);
+  } $self->ISA()->full_encoding($idex,$args);
 
 
   # give (opcode,bytesize)
@@ -104,7 +86,7 @@ sub packins($self,$idex,$args) {
 # ---   *   ---   *   ---
 # get opcode from descriptor
 
-sub get_opcd($self,$type,$name,@args) {
+sub encode_opcd($self,$type,$name,@args) {
 
   # get instruction id
   my $idex=$self->insid(
@@ -123,12 +105,12 @@ sub get_opcd($self,$type,$name,@args) {
 # ---   *   ---   *   ---
 # ^bat
 
-sub array_get_opcd($self,$program) {
+sub encode_program($self,$program) {
 
   map {
 
     my ($opcd,$size)=
-      $self->get_opcd(@$ARG);
+      $self->encode_opcd(@$ARG);
 
     (length $opcd)
       ? [$opcd,$size]
@@ -141,7 +123,7 @@ sub array_get_opcd($self,$program) {
 };
 
 # ---   *   ---   *   ---
-# crux
+# descriptor array to bytecode
 
 sub encode($self,$program) {
 
@@ -167,7 +149,7 @@ sub encode($self,$program) {
     $bytes .= $have->{ct};
     $total += $size;
 
-  } array_get_opcd($program);
+  } encode_program($program);
 
 
   # give (bytecode,size)
@@ -176,55 +158,83 @@ sub encode($self,$program) {
 };
 
 # ---   *   ---   *   ---
+# get binary format used to
+# decode operand
+
+sub operand_type($self,$operand) {
+
+
+  # get ctx
+  my $ISA   = $self->ISA;
+  my $super = ref $ISA;
+
+  my $enc_t = $ISA->enc_t;
+
+
+  # get binary format for operand
+  my $operand_t = $enc_t->operand_t($super);
+  my ($type)    = grep {
+    $operand eq $operand_t->{$ARG}
+
+  } @{$enc_t->operand_types};
+
+
+  my $fmat=Bitformat "$super.$fmat";
+
+
+  return ($type,$fmat);
+
+};
+
+# ---   *   ---   *   ---
+# read instruction bits
+# from opcode
+
+sub decode_instruction($self,$opcd) {
+
+
+  # get ctx
+  my $ISA  = $self->ISA;
+  my $tab  = $ISA->opcode_table;
+
+  my $mask = $tab->{id_bm};
+  my $bits = $tab->{id_bs};
+
+
+  # read instruction meta
+  my $opid = $opcd & $mask;
+
+  my $idex = ($opid << 1) + 1;
+  my $ins  = $tab->{romtab}->[$idex]->{ROM};
+
+
+  return ($opid,$bits);
+
+};
+
+# ---   *   ---   *   ---
 # read next argument from opcode
 
-sub decode_args(
-
-  $self,
-
-  $opcdref,
-  $flagsref,
-  $csumeref,
-
-  $load
-
-) {
+sub decode_operand($self,$opcd,$operand) {
 
 
-  # read elem flags and shift out bits
-  my $flag        = $$flagsref & $ARGFLAG_BM;
-     $$flagsref >>= $ARGFLAG_BS;
+  # get type/packing fmat
+  my ($type,$fmat)=
+    $self->operand_type($operand);
 
-
-  # get binary format for arg
-  my $fmat=undef;
-  for my $key(@$ARGFLAG_BITS) {
-
-    if($flag eq $ARGFLAG->{$key}) {
-      $fmat=Bitformat $key;
-      last;
-
-    };
-
-  };
-
-
-  # read bits as hash
+  # read opcode bits into hash
   my $mc   = $self->getmc();
-  my %data = $fmat->from_value($$opcdref);
-
-  $$opcdref  >>= $fmat->{bitsize};
-  $$csumeref  += $fmat->{bitsize};
+  my %data = $fmat->from_value($opcd);
 
 
   # have memory operand?
-  if(0 == index $fmat->{id},'m',0) {
-    my $fn="decode_$fmat->{id}_ptr";
+  if(0 == index $type,'m',0) {
+    my $fn="decode_${type}_ptr";
     $mc->$fn(\%data);
 
 
   # have register?
-  } elsif($fmat->{id} eq 'r') {
+  } elsif($type eq 'r') {
 
     %data=(
       seg  => $mc->{anima}->{mem},
@@ -235,63 +245,116 @@ sub decode_args(
   };
 
 
-  return \%data;
+  return (\%data,$fmat);
 
 };
 
 # ---   *   ---   *   ---
-# ^undo ;>
+# ^bat
 
-sub decode($self,$opcd) {
-
-
-  # get ctx
-  my $mask = $Cache->{id_bm};
-  my $bits = $Cache->{id_bs};
-
-  # count number of bits consumed
-  my $csume = 0;
+sub decode_operands($self,$ins,$opcd) {
 
 
-  # get opid and shift out bits
-  my $opid    = $opcd & $mask;
-     $opcd  >>= $bits;
-     $csume  += $bits;
-
-  # read instruction meta
-  my $idex = ($opid << 1) + 1;
-  my $ins  = $Cache->{romtab}->[$idex]->{ROM};
+  # read operand types from ROM
+  my $cnt      = $ins->{argcnt};
+  my $operands = $ins->{operands};
+  my $size     = 0;
 
 
-  # decode args
-  my $cnt   = $ins->{argcnt};
-  my $flags = $ins->{argflag};
-  my @load  = ($ins->{load_dst},$ins->{load_src});
+  # read operand data from opcode
+  my $enc_t      = $self->ISA->enc_t;
+  my ($dst,$src) = map {
 
-  my @args    = map {
 
-    $self->decode_args(
+    # get next
+    my $operand    = $operads & $enc_t->operand_bm;
+       $operands >>= $enc_t->operand_bs;
 
-      \$opcd,
-      \$flags,
-      \$csume,
+    # ^decode
+    my ($out,$fmat)=
+      $self->decode_operand($opcd,$operand);
 
-      shift @load
 
-    )
+    # go next and give
+    $opcd >>= $fmat->{bitsize};
+    $size  += $fmat->{bitsize};
+
+    $out;
+
 
   } 0..$cnt-1;
 
 
+  return ($dst,$src,$size);
+
+};
+
+# ---   *   ---   *   ---
+# get descriptor from opcode
+
+sub decode_opcode($self,$opcd) {
+
+
+  # read instruction
+  my ($ins,$ins_sz)=
+    $self->decode_instruction($opcd);
+
+  $opcd >>= $bits;
+
+
+  # read operands
+  my ($dst,$src,$opr_sz)=
+    $self->decode_operands($ins,$opcd);
+
+
+  # give descriptor
+  my $size=$ins_sz+$opr_sz;
+
   return {
 
     ins  => $ins,
-    size => int_urdiv($csume,8),
+    size => int_urdiv($size,8),
 
-    dst  => $args[0],
-    src  => $args[1],
+    dst  => $dst,
+    src  => $src,
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# bytecode to descriptor array
+
+sub decode($self,$program) {
+
+
+  # get ctx
+  my $ISA     = $self->ISA;
+  my $align_t = $ISA->align_t;
+
+  my $limit   = length $program;
+  my $step    = $align_t->{sizeof};
+
+
+  # consume buf
+  my $ptr=0x00;
+  while($ptr + $step < $limit) {
+
+
+    # get next
+    my $s    = substr $program,$addr,4;
+    my $opcd = unpack $align_t->{fmat},$s;
+
+    # ^consume bytes and give
+    my $ins  = $self->decode($opcd);
+       $ptr += $ins->{size};
+
+    push @out,$ins;
+
+  };
+
+
+  return @out;
 
 };
 

@@ -19,9 +19,7 @@ package ipret;
   use strict;
   use warnings;
 
-  use Readonly;
   use Storable;
-
   use English qw(-no_match-vars);
 
   use lib $ENV{ARPATH}.'/lib/sys/';
@@ -29,6 +27,8 @@ package ipret;
   use Style;
   use Chk;
   use Cli;
+  use Type;
+  use Bpack;
   use Ring;
 
   use Arstd::IO;
@@ -40,7 +40,7 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -49,9 +49,11 @@ package ipret;
 St::vconst {
 
   encoder_t => 'ipret::encoder',
+  engine_t  => 'ipret::engine',
+
   layers    => sub { return [
     @{rd->layers},
-    qw(encoder),
+    qw(encoder engine),
 
   ]},
 

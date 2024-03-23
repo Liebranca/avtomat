@@ -94,9 +94,9 @@ sub new($class,%O) {
 
 # ---   *   ---   *   ---
 # get [bitsize:data] array
-# for set of operands
+# for encoding instruction + operands
 
-sub encoding($self,$idex,$args) {
+sub full_encoding($self,$idex,$args) {
 
   my $class = ref $self;
   my $enc_t = $self->enc_t;
