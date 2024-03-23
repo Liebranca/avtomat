@@ -124,36 +124,6 @@ sub full_encoding($self,$idex,$args) {
 };
 
 # ---   *   ---   *   ---
-# fetch implementation of
-# instruction and call it
-# with given args
-
-sub run($self,$type,$idx,@args) {
-
-  # get ctx
-  my $guts_t = $self->guts_t;
-  my $tab    = $self->opcode_table;
-  my $fn     = $tab->{exetab}->[$idx];
-
-  my @src = (1 == $#args)
-    ? ($args[1]) : () ;
-
-  # build call array
-  my $op   = $guts_t->$fn($type,@src);
-  my @call = (@args)
-    ? ($op,$args[0])
-    : ($op)
-    ;
-
-
-  # invoke and give
-  my @out=$guts_t->copera(@call);
-
-  return \@out;
-
-};
-
-# ---   *   ---   *   ---
 # fetch instruction idex
 # from cache
 

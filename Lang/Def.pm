@@ -48,11 +48,12 @@ package Lang::Def;
   use lib $ENV{'ARPATH'}.'/lib/';
 
   use Lang;
+  use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v1.00.1;
+  our $VERSION = v1.00.2;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -60,7 +61,6 @@ package Lang::Def;
 
   use Exporter 'import';
   our @EXPORT=qw(
-
     $PESC_RE
 
   );
@@ -82,59 +82,62 @@ package Lang::Def;
   }x;
 
 
-  our %DEFAULTS=(
+  sub nostoi {return (shift)};
 
-    name=>$NULLSTR,
+St::vconst {
 
-    com=>q{\#},
-    exp_bound=>qr{[;]}x,
-    scope_bound=>qr{[{}]}x,
+  DEFAULT => {
 
-    hed=>'N/A',
-    ext=>$NULLSTR,
-    mag=>$NULLSTR,
+    name        => $NULLSTR,
 
-    lcom=>$NULLSTR,
+    com         => q{\#},
+    exp_bound   => qr{[;]}x,
+    scope_bound => qr{[{}]}x,
+
+    hed         => 'N/A',
+    ext         => $NULLSTR,
+    mag         => $NULLSTR,
+
+    lcom        => $NULLSTR,
+
 
     # array of plain highlighting rules
     # these are ignored by the parser
-    highlight=>[],
+    highlight   => [],
 
 
-    op_prec=>{},
-
-    delimiters=>[
+    op_prec     => {},
+    delimiters  => [
       '('=>')','PARENS',
       '['=>']','BRACKET',
       '{'=>'}','CURLY',
 
     ],
 
-    separators=>[','],
-
-    pesc=>$PESC_RE,
-
-
-    names=>'\b[_A-Za-z][_A-Za-z0-9]*\b',
-    names_u=>'\b[_A-Z][_A-Z0-9]*\b',
-    names_l=>'\b[_a-z][_a-z0-9]*\b',
-
-    types=>[],
-    specifiers=>[],
-
-    builtins=>[],
-    intrinsics=>[],
-    fctls=>[],
-
-    directives=>[],
-    resnames=>[],
+    separators  => [','],
+    pesc        => $PESC_RE,
 
 
-    drfc=>'(?:->|::|\.)',
-    common=>'[^[:blank:]]+',
+    names       => '\b[_A-Za-z][_A-Za-z0-9]*\b',
+    names_u     => '\b[_A-Z][_A-Z0-9]*\b',
+    names_l     => '\b[_a-z][_a-z0-9]*\b',
+
+    types       => [],
+    specifiers  => [],
+
+    builtins    => [],
+    intrinsics  => [],
+    fctls       => [],
+
+    directives  => [],
+    resnames    => [],
 
 
-    shcmds=>qr{
+    drfc        => '(?:->|::|\.)',
+    common      => '[^[:blank:]]+',
+
+
+    shcmds      => qr{
 
       (?<! ["'])
 
@@ -145,7 +148,7 @@ package Lang::Def;
 
     }x,
 
-    chars=>qr{
+    chars       => qr{
 
       (?<! ["`])
 
@@ -156,7 +159,7 @@ package Lang::Def;
 
     }x,
 
-    strings=>qr{
+    strings     => qr{
 
       (?<! ['`])
 
@@ -167,76 +170,80 @@ package Lang::Def;
 
     }x,
 
-    regexes=>qr{$NO_MATCH}x,
-    qstrs=>qr{$NO_MATCH}x,
+    regexes     => qr{$NO_MATCH}x,
+    qstrs       => qr{$NO_MATCH}x,
 
-    preproc=>qr{$NO_MATCH}x,
+    preproc     => qr{$NO_MATCH}x,
 
-    foldtags=>[qw(
+    foldtags    => [qw(
       chars strings
 
     )],
 
-    vstr=>qr{\bv[0-9\.]+[ab]?}x,
+    vstr        => qr{\bv[0-9\.]+[ab]?}x,
 
 
-    sigils=>q{},
+    sigils      => q{},
 
-    fn_key=>'FN',
-    fn_decl=>qr{$NO_MATCH}x,
+    fn_key      => 'FN',
+    fn_decl     => qr{$NO_MATCH}x,
 
-    utype_key=>'UTYPE',
-    utype_decl=>qr{$NO_MATCH}x,
+    utype_key   => 'UTYPE',
+    utype_decl  => qr{$NO_MATCH}x,
 
-    ptr_decl=>qr{$NO_MATCH}x,
-    ptr_defn=>qr{$NO_MATCH}x,
-    ptr_asg=>qr{$NO_MATCH}x,
+    ptr_decl    => qr{$NO_MATCH}x,
+    ptr_defn    => qr{$NO_MATCH}x,
+    ptr_asg     => qr{$NO_MATCH}x,
 
-    asg_op=>qr{$NO_MATCH}x,
-
-
-    exp_rule=>$NOOP,
-    _builder=>$NOOP,
-    _plps=>$NULLSTR,
+    asg_op      => qr{$NO_MATCH}x,
 
 
-    hier_re=>q{
+    exp_rule    => '\&nop',
+    _builder    => '\&nop',
+    _plps       => $NULLSTR,
+
+
+    hier_re     => q{
 
       (?:$:names;>$:drfc;>?)+
 
     },
 
-    hier_sort=>$NOOP,
+    hier_sort   => '\&nop',
+    hier        =>[
+      '$:names;>$:drfc;>',
+      '$:drfc;>$:names;>'
 
-    hier=>['$:names;>$:drfc;>','$:drfc;>$:names;>'],
-    pfun=>'$:names;>\s*\\(',
-
-    strip_re=>$NULLSTR,
+    ],
 
 
-    nums=>{
+    pfun      => '$:names;>\s*\\(',
+    strip_re  => $NULLSTR,
+
+
+    nums      => {
 
       # hex
       '(((\b0+x[0-9A-F]+[L]*)\b)|'.
       '(((\b0+x[0-9A-F]+\.)+[0-9A-F]+[L]*)\b)'.
 
-      ')\b'=>\&hstoi,
+      ')\b'=>'\&hstoi',
 
       # bin
       '(((\b0+b[0-1]+[L]*)\b)|'.
       '(((\b0+b[0-1]*\.)+[0-1]+[L]*)\b)'.
 
-      ')\b'=>\&bstoi,
+      ')\b'=>'\&bstoi',
 
       # octal
       '(((\b0+0[0-7]+[L]*)\b)|'.
       '(((\b0+0[0-7]+\.)+[0-7]+[L]*)\b)'.
 
-      ')\b'=>\&ostoi,
+      ')\b'=>'\&ostoi',
 
       # decimal
       '((\b[0-9]*|\.)+[0-9]+f?)\b'
-      =>sub {return (shift);},
+      =>'\&nostoi',
 
     },
 
@@ -264,7 +271,9 @@ package Lang::Def;
     # symbol table is made at cstruc
     symbols=>{},
 
-  );
+  },
+
+};
 
 # ---   *   ---   *   ---
 # gets $:thing;>
@@ -350,23 +359,11 @@ sub hash_vrepl($ref,$key) {
 # ---   *   ---   *   ---
 # cstruc
 
-sub new($class,%h) {
+sub new($class,%O) {
 
-  my $ref={};
-
-
-  # set defaults when key not present
-  for my $key(keys %DEFAULTS) {
-
-    if(exists $h{$key}) {
-      $ref->{$key}=$h{$key};
-
-    } else {
-      $ref->{$key}=$DEFAULTS{$key};
-
-    };
-
-  };
+  # set defaults
+  my $ref=\%O;
+  $class->defnit($ref);
 
 
   # convert keyword lists to hashes

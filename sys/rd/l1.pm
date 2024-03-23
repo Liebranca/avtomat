@@ -33,10 +33,12 @@ package rd::l1;
   use Arstd::PM;
   use Arstd::IO;
 
+  use parent 'rd::layer';
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.4;#a
+  our $VERSION = v0.01.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -78,14 +80,6 @@ package rd::l1;
     ['b' => 'BRANCH'],
 
   )};
-
-# ---   *   ---   *   ---
-# cstruc
-
-sub new($class,$rd) {
-  return bless {rd=>$rd},$class;
-
-};
 
 # ---   *   ---   *   ---
 # make tag regex
@@ -135,7 +129,9 @@ sub tagre($self,$type,$value) {
 
 sub make_tag($self,$type,$src=undef) {
 
-  my $rd=$self->{rd};
+  # get ctx
+  my $main=$self->{main};
+
 
   # get/validate sigil
   my $tag_t=$TAG_T->{$type};
@@ -144,7 +140,8 @@ sub make_tag($self,$type,$src=undef) {
   if ! defined $tag_t;
 
 
-  $rd->perr(
+  # ^also invalid! throw, throw!
+  $main->perr(
 
     "'%s' is a byte-sized tag-type, reserved "
   . "for internal use only; "
@@ -159,8 +156,8 @@ sub make_tag($self,$type,$src=undef) {
 
   # default to token if no src
   # default to char if no token!
-  $src //= $rd->{token};
-  $src //= $rd->{char};
+  $src //= $main->{token};
+  $src //= $main->{char};
 
   return "[$tag_t$src] ";
 
@@ -171,7 +168,7 @@ sub make_tag($self,$type,$src=undef) {
 
 sub throw_invalid_type($self,$type) {
 
-  $self->{rd}->perr(
+  $self->{main}->perr(
     "invalid tag-type '%s'",
     args=>[$type],
 
@@ -185,8 +182,8 @@ sub throw_invalid_type($self,$type) {
 sub detag($self,$src=undef) {
 
   # default to current token
-  my $rd    = $self->{rd};
-     $src //= $rd->{token};
+  my $main   = $self->{main};
+     $src  //= $main->{token};
 
   # subst and give
   $src=~ s[$TAG][];
@@ -217,7 +214,7 @@ sub cat_tags($self,@ar) {
     $ovalue  .= $value;
 
     # enforce equal types
-    $self->{rd}->perr(
+    $self->{main}->perr(
       "non-matching tag-types "
     . "cannot be catted!"
 
@@ -240,7 +237,7 @@ sub cat_tags($self,@ar) {
 
 sub read_tag($self,$src=undef) {
 
-  $src //= $self->{rd}->{token};
+  $src //= $self->{main}->{token};
 
   return ($src=~ $TAG)
     ? ($+{type},$+{value})
@@ -299,8 +296,8 @@ qw  (
 sub is_comment($self,$src=undef) {
 
   # get ctx
-  my $rd      = $self->{rd};
-  my $l0      = $rd->{l0};
+  my $main    = $self->{main};
+  my $l0      = $main->{l0};
   my $charset = $l0->charset();
 
   # have string?
@@ -310,6 +307,7 @@ sub is_comment($self,$src=undef) {
   # ^if so, check that the string is marked
   # as a comment!
   return (
+
      defined $value
   && exists  $charset->{$value}
 
@@ -329,8 +327,8 @@ sub parse($self,$src=undef) {
 
 
   # default src to current token
-  my $rd    = $self->{rd};
-     $src //= $rd->{token};
+  my $main   = $self->{main};
+     $src  //= $main->{token};
 
   # early exit if token already sorted
   return $src
@@ -338,9 +336,9 @@ sub parse($self,$src=undef) {
 
 
   # get ctx
-  my $mc    = $rd->{mc};
+  my $mc    = $main->{mc};
 
-  my $CMD   = $rd->{lx}->load_CMD();
+  my $CMD   = $main->{lx}->load_CMD();
   my $reg   = $mc->{bk}->{anima};
   my $ptr   = $mc->{bk}->{ptr};
   my $key   = $src;
@@ -383,11 +381,11 @@ sub symbol_fetch($self,$src=undef) {
 
 
   # default to current token
-  my $rd    = $self->{rd};
-     $src //= $rd->{token};
+  my $main   = $self->{main};
+     $src  //= $main->{token};
 
   # attempt fetch
-  my $mc    = $rd->{mc};
+  my $mc    = $main->{mc};
   my $scope = $mc->{scope};
   my $have  = $mc->dsearch($src);
 
@@ -406,8 +404,8 @@ sub quantize($self,$src=undef) {
 
 
   # default to current token
-  my $rd    = $self->{rd};
-     $src //= $rd->{token};
+  my $main   = $self->{main};
+     $src  //= $main->{token};
 
   # skip on undef/null
   return null
@@ -415,7 +413,7 @@ sub quantize($self,$src=undef) {
 
 
   # have ptr?
-  my $mc     = $rd->{mc};
+  my $mc     = $main->{mc};
   my $ptrcls = $mc->{bk}->{ptr};
 
   return $src if $ptrcls->is_valid($src);

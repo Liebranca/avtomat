@@ -411,7 +411,7 @@ sub dstore($self,$type,$value,$addr) {
 
   return $self->warn_rom($type,$addr)
 
-  if $self->{writeable} == 0
+  if ! $self->{writeable}
   && $self ne $mc->{scope}->{mem};
 
 
@@ -782,6 +782,35 @@ sub warn_oob($self,$type,$addr,$fn) {
 };
 
 # ---   *   ---   *   ---
+# wraps for catch
+
+sub as_exe($self) {
+
+  return ($self->{executable})
+    ? ${$self->{buf}}
+    : $self->warn_exe
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub warn_exe($self) {
+
+  my $name=$self->ances(join_char=>'.');
+
+  warnproc
+
+    "[op]:%s $name: "
+  . "not an executable segment"
+
+  args => ['() ->*'],
+  give => null;
+
+};
+
+# ---   *   ---   *   ---
 # calcs the absolute offset
 # of every segment in the
 # hierarchy
@@ -1002,14 +1031,8 @@ sub prich($self,%O) {
   };
 
 
-  $self->{inner}->prich(
-
-    %O,
-
-    mute   => 1,
-#    unroll => 0,
-
-  ) if $O{inner};
+  $self->{inner}->prich(%O,mute=>1)
+  if $O{inner};
 
 
   return ioprocout(\%O);

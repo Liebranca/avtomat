@@ -36,12 +36,12 @@ package rd::lx;
 
   use rd::lx::common;
 
-  use parent 'St';
+  use parent 'rd::layer';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#a
+  our $VERSION = v0.01.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -49,7 +49,17 @@ package rd::lx;
 
 St::vconst {
 
-  deps=>[qw(
+  TABID   => 'CMD',
+  DEFAULT => {
+
+    main  => undef,
+
+    links => [],
+    queue => [],
+
+  },
+
+  deps  => [qw(
 
     rd::lx::cmd
     rd::lx::dd
@@ -89,22 +99,6 @@ sub import($class) {
 };
 
 # ---   *   ---   *   ---
-# cstruc
-
-sub new($class,$rd) {
-
-  return bless {
-
-    rd    => $rd,
-
-    links => [],
-    queue => [],
-
-  },$class;
-
-};
-
-# ---   *   ---   *   ---
 # reset per-expression state
 
 sub exprbeg($self,$rec=0) {
@@ -138,7 +132,7 @@ sub exprbeg($self,$rec=0) {
 
 sub exprlink($self,$have) {
 
-  my $rd    = $self->{rd};
+  my $main  = $self->{main};
   my $links = $self->{links};
 
   if(defined $have) {
@@ -174,7 +168,7 @@ sub stagef($self,$key) {
 sub stagename($self) {
 
   return $self->stages()->[
-    $self->{rd}->{stage}
+    $self->{main}->{stage}
 
   ];
 
@@ -204,10 +198,10 @@ sub cmdset($self) {
 
 sub stop_parse($self,$branch) {
 
-  my $rd=$self->{rd};
+  my $main=$self->{main};
 
-  $rd->{tree}->prich();
-  $rd->perr('STOP');
+  $main->{tree}->prich();
+  $main->perr('STOP');
 
 };
 
@@ -219,9 +213,9 @@ sub rcollapse_cmdlist($self,$branch,$fn) {
 
 
   # get ctx
-  my $rd = $self->{rd};
-  my $l1 = $rd->{l1};
-  my $l2 = $rd->{l2};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+  my $l2   = $main->{l2};
 
 
   # first token, first command
@@ -266,18 +260,17 @@ sub load_CMD($self,$update=0) {
 
 
   # skip update?
-  $self->{_cmd_cache} //= {};
+  my $tab=$self->classcache($self->TABID);
 
-  my $CMD=$self->{_cmd_cache};
-  return $CMD if int %$CMD &&! $update;
+  return $tab
+  if int %$CMD &&! $update;
 
 
-  # regen cache
+  # ^nope, regen!
   my $cmdset = $self->cmdset();
   my @keys   = keys %$cmdset;
 
-
-  $CMD={
+  %$tab=(
 
 
     # re to match any command name
@@ -320,11 +313,10 @@ sub load_CMD($self,$update=0) {
 
     } @keys
 
-  };
+  );
 
 
-  $self->{_cmd_cache}=$CMD;
-  return $CMD;
+  return $tab;
 
 };
 

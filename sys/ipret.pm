@@ -40,7 +40,7 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -64,6 +64,7 @@ St::vconst {
 # cstruc
 
 sub new($class,$src,%O) {
+
 
   # get parse tree
   my $self=(is_filepath($src))

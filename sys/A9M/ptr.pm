@@ -19,32 +19,33 @@ package A9M::ptr;
   use strict;
   use warnings;
 
-  use Readonly;
   use English qw(-no_match_vars);
 
   use List::Util qw(max);
 
   use lib $ENV{ARPATH}.'/lib/sys/';
 
-  use Style;
+ use Style;
   use Chk;
   use Type;
   use Fmat;
 
   use Arstd::IO;
 
-  use parent 'A9M::component';
+  use parent 'A9M::layer';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $DEFAULTS=>{
+St::vconst {
+
+  DEFAULT => {
 
     type   => $Type::DEFAULT,
 
@@ -54,9 +55,12 @@ package A9M::ptr;
     len    => 0,
 
     mcid   => 0,
-    field  => undef,
+    field  => [],
+    segcls => undef,
 
-  };
+  },
+
+};
 
 # ---   *   ---   *   ---
 # cstruc
@@ -71,7 +75,6 @@ sub new($class,%O) {
 
   # make ice
   my $self=bless \%O,$class;
-  $self->{field}=[];
 
 
   return $self;

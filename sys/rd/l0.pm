@@ -25,62 +25,62 @@ package rd::l0;
   use lib $ENV{ARPATH}.'/lib/sys/';
   use Style;
 
+  use parent 'rd::layer';
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# cstruc
+# ROM
 
-sub new($class,$rd) {
-  return bless {rd=>$rd},$class;
+St::vconst {
+
+  TABID   => 'JMP',
+
+  charset => {
+
+    ';'   => 'term',
+    '"'   => 'string',
+    "'"   => 'string',
+
+    ' '   => 'blank',
+    "\t"  => 'blank',
+    "\r"  => 'blank',
+    "\n"  => 'blank',
+
+    '#'   => 'comment',
+
+
+    (map {$ARG=>'operator_single'} qw(
+      % + - * < > = !
+      ? ~ & | ^ / @ `
+
+    ),','),
+
+    (map {$ARG=>'delim_beg'} qw~( [ {~),
+    (map {$ARG=>'delim_end'} qw~) ] }~),
+
+  },
 
 };
-
-# ---   *   ---   *   ---
-# what to do with chars
-
-sub charset($self) { return {
-
-  ';'   => 'term',
-  '"'   => 'string',
-  "'"   => 'string',
-
-  ' '   => 'blank',
-  "\t"  => 'blank',
-  "\r"  => 'blank',
-  "\n"  => 'blank',
-
-  '#'   => 'comment',
-
-
-  (map {$ARG=>'operator_single'} qw(
-    % + - * < > = !
-    ? ~ & | ^ / @ `
-
-  ),','),
-
-  (map {$ARG=>'delim_beg'} qw~( [ {~),
-  (map {$ARG=>'delim_end'} qw~) ] }~),
-
-
-}};
 
 # ---   *   ---   *   ---
 # read input char
 
 sub read($self,$JMP,$c) {
 
+  # get ctx
+  my $main=$self->{main};
 
   # consume char
-  my $rd=$self->{rd};
   $self->csume($c);
 
 
   # reader set to stringmode?
-  if($rd->string()) {
+  if($main->string()) {
     $self->strcat();
     return 'strcat';
 
@@ -105,19 +105,20 @@ sub read($self,$JMP,$c) {
 
 sub csume($self,$c) {
 
-  my $rd=$self->{rd};
+  # get ctx
+  my $main=$self->{main};
 
   # save current char
-  $rd->{char}=$c;
+  $main->{char}=$c;
 
   # tick the line counter
-  $rd->{lineno} += int($c eq "\n");
+  $main->{lineno} += int($c eq "\n");
 
 
   # track beggining of first
   # nterm char in expr
-  $rd->{lineat}=$rd->{lineno}
-  if $rd->exprbeg();
+  $main->{lineat}=$main->{lineno}
+  if $main->exprbeg();
 
 
   return;
@@ -129,9 +130,12 @@ sub csume($self,$c) {
 
 sub parse_single($self) {
 
-  my $rd    = $self->{rd};
+
+  # get ctx
+  my $main  = $self->{main};
   my $JMP   = $self->load_JMP();
-  my @chars = split $NULLSTR,$rd->{buf};
+  my @chars = split $NULLSTR,$main->{buf};
+
 
   # consume up to term
   while(@chars) {
@@ -143,8 +147,12 @@ sub parse_single($self) {
 
   };
 
+
   # re-assemble string without consumed
-  $rd->{buf}=join $NULLSTR,@chars;
+  $main->{buf}=join $NULLSTR,@chars;
+
+
+  return;
 
 };
 
@@ -156,7 +164,7 @@ sub parse($self) {
   my $JMP=$self->load_JMP();
 
   map   {$self->read($JMP,$ARG)}
-  split $NULLSTR,$self->{rd}->{buf};
+  split $NULLSTR,$self->{main}->{buf};
 
 
   return;
@@ -168,10 +176,12 @@ sub parse($self) {
 
 sub default($self) {
 
-  my $rd=$self->{rd};
+  my $main=$self->{main};
 
-  $rd->{token} .= $rd->{char};
-  $rd->set_ntermf();
+  $main->{token} .= $main->{char};
+  $main->set_ntermf();
+
+  return;
 
 };
 
@@ -179,8 +189,11 @@ sub default($self) {
 # ^similar, but sets no flags
 
 sub strcat($self) {
-  my $rd=$self->{rd};
-  $rd->{token} .= $rd->{char};
+
+  my $main=$self->{main};
+  $main->{token} .= $main->{char};
+
+  return;
 
 };
 
@@ -189,14 +202,19 @@ sub strcat($self) {
 
 sub blank($self) {
 
-  my $rd=$self->{rd};
+  # get ctx
+  my $main=$self->{main};
+
 
   # save token if last char
   # *wasn't* also blank
-  $rd->commit() if ! $rd->blank();
+  $main->commit() if ! $main->blank();
 
   # ^remember this one was blank
-  $rd->set('blank');
+  $main->set('blank');
+
+
+  return;
 
 };
 
@@ -206,28 +224,31 @@ sub blank($self) {
 sub string($self,$term=undef) {
 
   # default EOS to current char
-  my $rd     = $self->{rd};
-     $term //= $rd->{char};
+  my $main   = $self->{main};
+     $term //= $main->{char};
 
 
   # save current
-  $rd->commit();
+  $main->commit();
 
 
   # make new, marked as string
-  my $l1=$rd->{l1};
+  my $l1=$main->{l1};
 
-  $rd->{token}=$l1->make_tag(
-    'STRING',$rd->{char}
+  $main->{token}=$l1->make_tag(
+    'STRING',$main->{char}
 
   );
 
 
   # ^set flags and EOS char
-  $rd->set('string');
-  $rd->set_ntermf();
+  $main->set('string');
+  $main->set_ntermf();
 
-  $rd->{strterm}=$term;
+  $main->{strterm}=$term;
+
+
+  return;
 
 };
 
@@ -237,19 +258,25 @@ sub string($self,$term=undef) {
 
 sub comment($self) {
 
-  my $rd  = $self->{rd};
-  my $beg = $rd->exprbeg();
+  # get ctx
+  my $main = $self->{main};
+  my $beg  = $main->exprbeg();
 
 
+  # enter stringmode
   $self->string("\n");
-  $self->{rd}->set('comment');
+  $self->{main}->set('comment');
 
-
+  # ^mainain beggining of expression
+  # ^if that stateflag is set
   if($beg) {
-    $rd->set('exprbeg','blank');
-    $rd->unset('nterm');
+    $main->set('exprbeg','blank');
+    $main->unset('nterm');
 
   };
+
+
+  return;
 
 };
 
@@ -258,24 +285,28 @@ sub comment($self) {
 
 sub delim_beg($self) {
 
-  my $rd=$self->{rd};
+  # get ctx
+  my $main=$self->{main};
 
   # set flags and save current
-  $rd->set_termf();
-  $rd->commit();
+  $main->set_termf();
+  $main->commit();
 
 
   # ^make new
-  my $l1=$rd->{l1};
+  my $l1=$main->{l1};
 
-  $rd->{token}=$l1->make_tag(
-    'OPERA',$rd->{char}
+  $main->{token}=$l1->make_tag(
+    'OPERA',$main->{char}
 
   );
 
+
   # go up one nesting level
-  $rd->commit();
-  $rd->nest_up();
+  $main->commit();
+  $main->nest_up();
+
+  return;
 
 };
 
@@ -284,13 +315,14 @@ sub delim_beg($self) {
 
 sub delim_end($self) {
 
-  my $rd=$self->{rd};
+  # get ctx
+  my $main=$self->{main};
 
   # no token?
-  if(! $rd->commit()) {
+  if(! $main->commit()) {
 
     # clear if last expr is empty!
-    my $branch=$rd->{branch};
+    my $branch=$main->{branch};
 
     $branch->discard()
     if $branch &&! @{$branch->{leaves}};
@@ -299,8 +331,10 @@ sub delim_end($self) {
 
 
   # go down one nesting level and set flags
-  $rd->nest_down();
-  $rd->set_termf();
+  $main->nest_down();
+  $main->set_termf();
+
+  return;
 
 };
 
@@ -308,7 +342,8 @@ sub delim_end($self) {
 # expression terminator
 
 sub term($self) {
-  $self->{rd}->term();
+  $self->{main}->term();
+  return;
 
 };
 
@@ -317,37 +352,50 @@ sub term($self) {
 
 sub operator_single($self) {
 
-  my $rd=$self->{rd};
+  my $main=$self->{main};
 
   # cat operator to token?
   return $self->default()
-  if $rd->cmd_name_rule();
+  if $main->cmd_name_rule();
 
 
   # save current
-  $rd->commit();
+  $main->commit();
 
 
   # ^make new from operator
-  my $l1=$rd->{l1};
-  $rd->{token}=$l1->make_tag(
-    'OPERA',$rd->{char}
+  my $l1=$main->{l1};
+  $main->{token}=$l1->make_tag(
+    'OPERA',$main->{char}
 
   );
 
   # ^save operator as single token
-  $rd->commit();
-  $rd->set_ntermf();
+  $main->commit();
+  $main->set_ntermf();
+
+
+  return;
 
 };
 
 # ---   *   ---   *   ---
 # generate/fetch l0 jump table
 
-sub load_JMP($self) {
+sub load_JMP($self,$update=0) {
 
-  state $charset = $self->charset();
-  state $JMP     = [map {
+
+  # skip update?
+  my $tab=$self->classcache($self->TABID);
+
+  return $tab
+  if int @$tab &&! $update;
+
+
+  # ^nope, regen!
+  my $charset=$self->charset;
+
+  @$tab=map {
 
     my $key   = chr($ARG);
     my $value = (exists $charset->{$key})
@@ -357,10 +405,10 @@ sub load_JMP($self) {
 
     $value;
 
-  } 0..127];
+  } 0..127;
 
 
-  return $JMP;
+  return $tab;
 
 };
 

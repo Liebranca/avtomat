@@ -64,6 +64,7 @@ package Style;
     catar
 
     null
+    nop
     nulltag
 
   );
@@ -71,15 +72,16 @@ package Style;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.02.6;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = v0.02.7;
+  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $NOOP=>sub {};
+  sub nop {};
 
-  Readonly our $MEMPTR=>0x9E5024<<40;
+  Readonly our $NOOP    => \&nop;
+  Readonly our $MEMPTR  => 0x9E5024<<40;
 
   Readonly our $MEMPTR_SZBYTE=>0xFF<<32;
   Readonly our $MEMPTR_SZMASK=>0x08<<32;

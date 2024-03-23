@@ -35,7 +35,7 @@ package rd::lx::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -69,17 +69,17 @@ sub cmdset($class,$ice) {
 
 
   # get ctx
-  my $rd  = $ice->{rd};
-  my $mc  = $rd->{mc};
+  my $main   = $ice->{main};
+  my $mc     = $main->{mc};
 
-  my $imp = $mc->{ISA}->imp();
+  my $guts_t = $mc->{ISA}->guts_t;
 
 
   # give instruction list
   return (
 
     ( map {$ARG => [$OPT_QLIST]}
-      @{$imp->list()}
+      @{$guts_t->list()}
 
     ),
 
@@ -95,8 +95,8 @@ sub cmdset($class,$ice) {
 sub asm_ins_parse($self,$branch) {
 
   # get ctx
-  my $rd   = $self->{rd};
-  my $mc   = $rd->{mc};
+  my $main = $self->{main};
+  my $mc   = $main->{mc};
   my $ISA  = $mc->{ISA};
 
 
@@ -131,7 +131,7 @@ sub asm_ins_parse($self,$branch) {
   if grep {! length $ARG} @args;
 
   # fetch default instruction size
-  $type //= $ISA->deft();
+  $type //= $ISA->def_t;
 
 
   # write instruction to current segment
@@ -142,7 +142,7 @@ sub asm_ins_parse($self,$branch) {
   );
 
   # ^catch encoding fail
-  $rd->perr("cannot encode instruction")
+  $main->perr("cannot encode instruction")
   if ! length $have;
 
 
@@ -157,12 +157,12 @@ sub asm_arg($self,$branch,$iref) {
 
 
   # get ctx
-  my $rd  = $self->{rd};
-  my $mc  = $rd->{mc};
-  my $l1  = $rd->{l1};
+  my $main = $self->{main};
+  my $mc   = $main->{mc};
+  my $l1   = $main->{l1};
 
-  my $src = $branch->{value};
-  my @lv  = @{$branch->{leaves}};
+  my $src  = $branch->{value};
+  my @lv   = @{$branch->{leaves}};
 
 
   # recurse on list

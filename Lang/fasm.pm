@@ -48,8 +48,8 @@ package Lang::fasm;
 
 BEGIN {
 
-my $NUMS={%{$Lang::Def::DEFAULTS{nums}}};
-$NUMS->{'(\$[0-9A-F]+)'}=\&hstoi;
+my $NUMS=Lang::Def->DEFAULT->{nums};
+$NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
 
 Lang::fasm->new(
 

@@ -21,13 +21,13 @@ package Lang::Js;
 BEGIN {
 Lang::Js->new(
 
-  name=>'Js',
-  ext=>'\.js$',
-  hed=>'#!.*node',
+  name  => 'Js',
+  ext   => '\.js$',
+  hed   => '#!.*node',
 
-  mag=>'JavaScript script',
+  mag   => 'JavaScript script',
 
-  com=>'\/\/', # toothpickin for life
+  com   => '\/\/', # toothpickin for life
 
 # ---   *   ---   *   ---
 

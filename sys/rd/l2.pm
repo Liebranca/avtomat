@@ -30,18 +30,25 @@ package rd::l2;
   use Arstd::Bytes;
   use Arstd::IO;
 
-  use parent 'St';
+  use parent 'rd::layer';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#a
+  our $VERSION = v0.01.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
 St::vconst {
+
+  DEFAULT => {
+    main   => undef,
+    walked => {},
+
+  },
+
   node_mutate => 'mut',
 
 };
@@ -62,19 +69,6 @@ St::vconst {
   Readonly my $OPERA_PRIO  => "&|^*/-+<>~?!=";
 
 # ---   *   ---   *   ---
-# cstruc
-
-sub new($class,$rd) {
-
-  return bless {
-    rd     => $rd,
-    walked => {},
-
-  },$class;
-
-};
-
-# ---   *   ---   *   ---
 # make [node=>recurse] array
 # for a cannonical walk
 #
@@ -82,10 +76,10 @@ sub new($class,$rd) {
 
 sub get_walk_array($self,$fn,@Q) {
 
-  my @out = ();
+  my @out  = ();
 
-  my $rd  = $self->{rd};
-  my $rec = 0;
+  my $main = $self->{main};
+  my $rec  = 0;
 
 
   while(@Q) {
@@ -102,7 +96,7 @@ sub get_walk_array($self,$fn,@Q) {
 
 
     # run method for this node
-    $rd->{branch}=$nd;
+    $main->{branch}=$nd;
     $fn->($self,$nd);
 
     # go next
@@ -127,14 +121,14 @@ sub get_walk_array($self,$fn,@Q) {
 
 sub get_cmd_queue($self,$fn,@order) {
 
-  my $rd=$self->{rd};
+  my $main=$self->{main};
 
   map {
 
 
     # get next
     my ($nd,$rec)=@$ARG;
-    $rd->{branch}=$nd;
+    $main->{branch}=$nd;
 
     # run method for node
     $fn->($self,$nd);
@@ -190,16 +184,16 @@ sub node_rev_parse($self,$branch) {
 sub parse($self) {
 
   # get ctx
-  my $rd=$self->{rd};
+  my $main=$self->{main};
 
   # get head of branch
-  my $head=(@{$rd->{nest}})
-    ? $rd->{nest}->[-1]->{leaves}->[-1]
-    : $rd->{tree}->{leaves}->[-1]
+  my $head=(@{$main->{nest}})
+    ? $main->{nest}->[-1]->{leaves}->[-1]
+    : $main->{tree}->{leaves}->[-1]
     ;
 
   # ^save current
-  my $old=$rd->{branch};
+  my $old=$main->{branch};
 
 
   # run and capture results
@@ -214,7 +208,7 @@ sub parse($self) {
 
 
   # restore and give
-  $rd->{branch}=$old;
+  $main->{branch}=$old;
 
   return @out;
 
@@ -257,8 +251,8 @@ sub walk($self,$branch,%O) {
 
 sub exec_queue($self,@Q) {
 
-  my $rd     = $self->{rd};
-  my $lx     = $rd->{lx};
+  my $main   = $self->{main};
+  my $lx     = $main->{lx};
 
   my $walked = $self->{walked};
 
@@ -276,8 +270,8 @@ sub exec_queue($self,@Q) {
     # validate and run
     rept:
 
-      $rd->{branch}=$branch;
-      $lx->argchk() if ! $rd->{stage};
+      $main->{branch}=$branch;
+      $lx->argchk() if ! $main->{stage};
 
       my $have=$fn->($lx,$branch);
 
@@ -318,12 +312,12 @@ sub value_solve($self,$src=undef,$rec=0) {
 
 
   # default to current branch
-  my $rd    = $self->{rd};
-     $src //= $rd->{branch};
+  my $main   = $self->{main};
+     $src  //= $main->{branch};
 
   # get ctx
-  my $mc     = $rd->{mc};
-  my $l1     = $rd->{l1};
+  my $mc     = $main->{mc};
+  my $l1     = $main->{l1};
   my $ptrcls = $mc->{bk}->{ptr};
 
 
@@ -353,8 +347,8 @@ sub branch_solve($self,$branch) {
 
 
   # get ctx
-  my $rd = $self->{rd};
-  my $l1 = $rd->{l1};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
 
   # have operator?
@@ -395,8 +389,8 @@ sub branch_collapse($self,$src) {
 
 
   # save current state
-  my $rd = $self->{rd};
-  my $mc = $rd->{mc};
+  my $main = $self->{main};
+  my $mc   = $main->{mc};
 
   $mc->{anima}->backup();
 
@@ -453,12 +447,12 @@ sub opera_collapse($self,$branch,$opera) {
 
 
   # get ctx
-  my $rd  = $self->{rd};
-  my $l1  = $rd->{l1};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
-  my $mc  = $rd->{mc};
-  my $ISA = $mc->{ISA};
-  my $imp = $ISA->imp();
+  my $mc   = $main->{mc};
+  my $ISA  = $mc->{ISA};
+  my $imp  = $ISA->imp();
 
   # save current state
   my $alma = $mc->{anima}->{almask};
@@ -557,12 +551,12 @@ sub strip_comments($self,$src=undef) {
 
 
   # get ctx
-  my $rd = $self->{rd};
-  my $l1 = $rd->{l1};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
 
   # default to current branch
-  $src //= $rd->{branch};
+  $src //= $main->{branch};
 
   # ^walk
   my @pending=$src;
@@ -608,15 +602,15 @@ sub _seq_temple($fn,$branch,@seq) {
 sub cslist($self) {
 
   # get ctx
-  my $rd  = $self->{rd};
-  my $l1  = $rd->{l1};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
   # build/fetch regex sequence
   my $re  = $l1->tagre(OPERA=>',');
   my @seq = ($ANY_MATCH,$re,$ANY_MATCH);
 
 
-  my $branch = $rd->{branch};
+  my $branch = $main->{branch};
 
   my $cnt    = 0;
   my $pos    = -1;
@@ -667,8 +661,8 @@ sub cslist($self) {
 sub dopera($self) {
 
   # get ctx
-  my $rd  = $self->{rd};
-  my $l1  = $rd->{l1};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
   # build/fetch regex sequence
   my $re=$l1->tagre(
@@ -677,7 +671,7 @@ sub dopera($self) {
   );
 
   my @seq    = ($re,$re);
-  my $branch = $rd->{branch};
+  my $branch = $main->{branch};
 
 
   _seq_temple(sub ($idex) {
@@ -708,8 +702,8 @@ sub dopera($self) {
 sub opera($self) {
 
   # get ctx
-  my $rd  = $self->{rd};
-  my $l1  = $rd->{l1};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
   # build/fetch regex
   my $re=$l1->tagre(
@@ -721,7 +715,7 @@ sub opera($self) {
 
 
   # get tagged operators in branch
-  my $branch = $rd->{branch};
+  my $branch = $main->{branch};
   my @ops    = map {
 
     # get characters/priority for this operator
@@ -830,9 +824,9 @@ sub opera($self) {
 
 sub throw_no_operands($self,$char) {
 
-  $self->{rd}->{branch}->prich();
+  $self->{main}->{branch}->prich();
 
-  $self->{rd}->perr(
+  $self->{main}->perr(
     "no operands for `[op]:%s`",
     args=>[$char]
 
@@ -846,14 +840,14 @@ sub throw_no_operands($self,$char) {
 sub nested($self) {
 
   # get ctx
-  my $rd  = $self->{rd};
-  my $l1  = $rd->{l1};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
   # build/fetch regex
   my $re=$l1->tagre(BRANCH=>'.+');
 
 
-  my $branch = $rd->{branch};
+  my $branch = $main->{branch};
   my @left   = ();
 
 
@@ -889,11 +883,11 @@ sub nested($self) {
 sub cmd($self) {
 
   # get ctx
-  my $rd  = $self->{rd};
-  my $l1  = $rd->{l1};
-  my $lx  = $rd->{lx};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+  my $lx   = $main->{lx};
 
-  my $key = lc $rd->{branch}->{value};
+  my $key = lc $main->{branch}->{value};
   my $CMD = $lx->load_CMD();
 
   # build/fetch regex
@@ -908,12 +902,12 @@ sub cmd($self) {
     my $fn=$lx->stagef($value);
 
     # ^save key
-    $rd->{branch}->{cmdkey}=$value;
+    $main->{branch}->{cmdkey}=$value;
 
 
     # consume argument nodes if need
-    $lx->argsume($rd->{branch})
-    if ! $rd->{stage};
+    $lx->argsume($main->{branch})
+    if ! $main->{stage};
 
 
     # give F to run if any
@@ -921,7 +915,7 @@ sub cmd($self) {
     # else just signal that the node
     # is a command!
     return (defined $fn)
-      ? [$fn=>$rd->{branch}]
+      ? [$fn=>$main->{branch}]
       : 1
       ;
 
@@ -940,11 +934,11 @@ sub is_exprtop($self,$branch=undef) {
 
 
   # get ctx
-  my $rd = $self->{rd};
-  my $l1 = $rd->{l1};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
   # default to current
-  $branch //= $rd->{branch};
+  $branch //= $main->{branch};
 
 
   # is grandparent root?

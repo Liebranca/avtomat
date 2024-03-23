@@ -25,10 +25,11 @@ package ipret::engine;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Chk;
   use Type;
   use Bpack;
 
-  use parent 'ipret::component';
+  use parent 'rd::component';
 
 # ---   *   ---   *   ---
 # get value from descriptor
@@ -69,6 +70,40 @@ sub operand_value($self,$ins,$type) {
 };
 
 # ---   *   ---   *   ---
+# get instruction implementation
+# and run it with given args
+
+sub invoke($self,$type,$idx,@args) {
+
+
+  # get ctx
+  my $ISA    = $self->ISA;
+  my $guts_t = $ISA->guts_t;
+  my $tab    = $ISA->opcode_table;
+
+
+  # get function assoc with id
+  my $fn  = $tab->{exetab}->[$idx];
+  my @src = (1 == $#args)
+    ? ($args[1]) : () ;
+
+
+  # ^build call array
+  my $op   = $guts_t->$fn($type,@src);
+  my @call = (@args)
+    ? ($op,$args[0])
+    : ($op)
+    ;
+
+
+  # invoke and give
+  my @out=$guts_t->copera(@call);
+
+  return \@out;
+
+};
+
+# ---   *   ---   *   ---
 # execute next instruction
 # in program
 
@@ -86,9 +121,13 @@ sub step($self,$data) {
   my @values=
     $self->operand_value($ins,$type);
 
-  # invoke instruction
+  # execute instruction
   my $ret=$self->invoke(
-    $type,$ins->{idx},@values
+
+    $type,
+    $ins->{idx},
+
+    @values
 
   );
 
@@ -111,10 +150,37 @@ sub step($self,$data) {
 };
 
 # ---   *   ---   *   ---
-# interpret instruction array
+# read and run program
 
-sub run($self,@program) {
-  map {$self->step($ARG)} @program;
+sub exe($self,$program) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $mc   = $main->{mc};
+
+  my $mem  = $mc->{bk}->{mem};
+  my $enc  = $main->{encoder};
+
+
+  # input needs decoding?
+  if(! is_arrayref($program)) {
+
+
+    # have executable segment?
+    if($mem->is_valid($program)) {
+      $program=$program->as_exe;
+
+    };
+
+    # decode binary
+    $program=$enc->decode($program);
+
+  };
+
+
+  # run and give result
+  map {$self->step($ARG)} @$program;
 
 };
 

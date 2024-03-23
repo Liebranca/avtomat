@@ -33,7 +33,7 @@ package rd::lx::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -88,8 +88,8 @@ sub cmdset($class,$ice) {
 
 
   # get ctx
-  my $rd    = $ice->{rd};
-  my $mc    = $rd->{mc};
+  my $main  = $ice->{main};
+  my $mc    = $main->{mc};
 
   my $flags = $mc->{bk}->{flags};
 
@@ -132,8 +132,8 @@ sub cmdset($class,$ice) {
 
 sub flagtab($self) {
 
-  my $rd    = $self->{rd};
-  my $mc    = $rd->{mc};
+  my $main  = $self->{main};
+  my $mc    = $main->{mc};
 
   my $flags = $mc->{bk}->{flags};
 
@@ -149,7 +149,7 @@ sub flag_list_parse($self,$branch) {
 
 
   # get ctx
-  my $rd    = $self->{rd};
+  my $main  = $self->{main};
   my $links = $self->{links};
   my $obj   = pop @$links;
 
@@ -175,7 +175,7 @@ sub flag_list_parse($self,$branch) {
     # ^nope, throw!
     } or do {
 
-      $rd->perr(
+      $main->perr(
         "'%s' is invalid for <%s>",
         args=>[$ARG,(ref $obj or 'plain')]
 
@@ -200,9 +200,9 @@ sub flag_list_parse($self,$branch) {
 sub flag_parse($self,$branch) {
 
   # get ctx
-  my $rd=$self->{rd};
-  my $l1=$rd->{l1};
-  my $l2=$rd->{l2};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+  my $l2   = $main->{l2};
 
 
   # rwalk specifier list
@@ -228,8 +228,8 @@ sub flag_parse($self,$branch) {
 sub seg_parse($self,$branch,$type=null) {
 
   # get ctx
-  my $rd = $self->{rd};
-  my $l1 = $rd->{l1};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
   # clean name
   my $lv   = $branch->{leaves};
@@ -269,9 +269,9 @@ sub seg_solve($self,$branch) {
 
 
   # get ctx
-  my $rd = $self->{rd};
-  my $l1 = $rd->{l1};
-  my $mc = $rd->{mc};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+  my $mc   = $main->{mc};
 
   # get segment name and type
   my $data = $branch->{vref};
@@ -315,11 +315,11 @@ sub data_decl_parse($self,$branch) {
 
 
   # get ctx
-  my $rd    = $self->{rd};
-  my $l1    = $rd->{l1};
-  my $l2    = $rd->{l2};
+  my $main  = $self->{main};
+  my $l1    = $main->{l1};
+  my $l2    = $main->{l2};
 
-  my $mc    = $rd->{mc};
+  my $mc    = $main->{mc};
   my $scope = $mc->{scope};
   my $type  = $branch->{vref};
 
@@ -381,9 +381,9 @@ sub data_decl_parse($self,$branch) {
 sub data_decl_solve($self,$branch) {
 
   # get ctx
-  my $rd    = $self->{rd};
-  my $mc    = $rd->{mc};
-  my $l1    = $rd->{l1};
+  my $main  = $self->{main};
+  my $mc    = $main->{mc};
+  my $l1    = $main->{l1};
 
   my $scope = $mc->{scope};
 
@@ -409,7 +409,7 @@ sub data_decl_solve($self,$branch) {
 
 
     # assume declaration on first pass
-    if(! $rd->{pass}) {
+    if(! $main->{pass}) {
 
       $self->throw_redecl('value',$name)
       if $scope->has($name);
@@ -435,7 +435,7 @@ sub data_decl_solve($self,$branch) {
       my $ptrcls=$mc->{bk}->{ptr};
       if($ptrcls->is_valid($x) &&! $ptr_t) {
 
-        $rd->perr(
+        $main->perr(
 
           "'%s' is not a pointer type",
           args=>[$type->{name}]
@@ -488,10 +488,10 @@ sub value_solve($self,$value) {
 
 
   # get ctx
-  my $rd = $self->{rd};
-  my $mc = $rd->{mc};
-  my $l1 = $rd->{l1};
-  my $l2 = $rd->{l2};
+  my $main = $self->{main};
+  my $mc   = $main->{mc};
+  my $l1   = $main->{l1};
+  my $l2   = $main->{l2};
 
 
   # can solve value now?
@@ -520,9 +520,9 @@ sub type_parse($self,$branch) {
 
 
   # get ctx
-  my $rd=$self->{rd};
-  my $l1=$rd->{l1};
-  my $l2=$rd->{l2};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+  my $l2   = $main->{l2};
 
 
   # rwalk specifier list
@@ -572,11 +572,11 @@ sub type_parse($self,$branch) {
 sub type_decode($self,@src) {
 
   # get type hashref from flags array
-  my $rd   = $self->{rd};
+  my $main = $self->{main};
   my $type = typefet @src;
 
   # ^catch invalid
-  $rd->perr('invalid type')
+  $main->perr('invalid type')
   if ! defined $type;
 
 

@@ -47,15 +47,17 @@ sub cmdset($class,$ice) { return (
 
 sub cmd_parse($self,$branch) {
 
-  my $rd=$self->{rd};
+  # get ctx
+  my $main  = $self->{main};
+  my $mc    = $main->{mc};
+
+  my $scope = $mc->{scope};
+  my $path  = $mc->{path};
 
 
   # unpack
   my ($name,$args,$body)=
     @{$branch->{leaves}};
-
-  my $scope = $rd->{scope};
-  my $path  = $scope->{path};
 
 
   # redecl guard
@@ -107,7 +109,7 @@ sub cmd_parse($self,$branch) {
 
 sub throw_redecl($self,$type,$name) {
 
-  $self->{rd}->perr(
+  $self->{main}->perr(
     "re-declaration of %s '%s'",
     args=>[$type,$name]
 
@@ -124,8 +126,8 @@ sub throw_redecl($self,$type,$name) {
 
 sub argread($self,$args,$body) {
 
-  my $rd=$self->{rd};
-  my $l1=$rd->{l1};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
   # got list or single elem?
   my $ar=(defined $l1->is_list($args->{value}))
@@ -243,16 +245,16 @@ sub argsume($self,$branch) {
 
 
   # get command meta
-  my $rd   = $self->{rd};
+  my $main = $self->{main};
 
   my $CMD  = $self->load_CMD();
-  my $key  = $rd->{branch}->{cmdkey};
+  my $key  = $main->{branch}->{cmdkey};
   my $args = $CMD->{$key}->{-args};
   my $pos  = $branch->{idex}+1;
 
 
   # walk siblings
-  $rd->{branch}=$par;
+  $main->{branch}=$par;
 
   for my $arg(@$args) {
 
@@ -269,7 +271,7 @@ sub argsume($self,$branch) {
 
 
   # restore old
-  $rd->{branch}=$branch;
+  $main->{branch}=$branch;
   return;
 
 };
@@ -281,10 +283,10 @@ sub argchk($self) {
 
 
   # get command meta
-  my $rd   = $self->{rd};
+  my $main = $self->{main};
 
   my $CMD  = $self->load_CMD();
-  my $key  = $rd->{branch}->{cmdkey};
+  my $key  = $main->{branch}->{cmdkey};
   my $args = $CMD->{$key}->{-args};
   my $pos  = 0;
 
@@ -311,10 +313,10 @@ sub argtypechk($self,$arg,$pos) {
 
 
   # get anchor
-  my $rd=$self->{rd};
-  my $l1=$rd->{l1};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
-  my $nd=$rd->{branch};
+  my $nd   = $main->{branch};
 
 
   # walk possible types
@@ -339,15 +341,15 @@ sub argtypechk($self,$arg,$pos) {
 
 sub throw_badargs($self,$key,$arg,$pos) {
 
-  my $rd    = $self->{rd};
+  my $main  = $self->{main};
 
-  my $value = $rd->{branch}->{leaves};
+  my $value = $main->{branch}->{leaves};
      $value = $value->[$pos]->{value};
 
   my @types = @{$arg->{type}};
 
 
-  $rd->perr(
+  $main->perr(
 
     "invalid argtype for command '%s'\n"
   . "position [num]:%u: '%s'\n"

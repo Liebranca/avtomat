@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# A9M COMPONENT
+# A9M:LAYER
 # Template for pieces
 #
 # LIBRE SOFTWARE
@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package A9M::component;
+package A9M::layer;
 
   use v5.36.0;
   use strict;

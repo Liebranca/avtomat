@@ -28,7 +28,7 @@ package ipret::encoder;
 
   use Arstd::Bytes;
 
-  use parent 'ipret::component';
+  use parent 'rd::layer';
 
 # ---   *   ---   *   ---
 # info

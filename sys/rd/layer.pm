@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# IPRET:COMPONENT
+# RD:LAYER
 # Common and annoying methods
 #
 # LIBRE SOFTWARE
@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package ipret::component;
+package rd::layer;
 
   use v5.36.0;
   use strict;
@@ -22,17 +22,35 @@ package ipret::component;
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
 
+  use parent 'St';
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+St::vconst {
+
+  DEFAULT => {main=>undef},
+
+};
 
 # ---   *   ---   *   ---
 # cstruc
 
-sub new($class,$ipret) {
-  return bless {ipret=>$ipret},$class;
+sub new($class,$main) {
+
+  # get attrs
+  my $O={};
+  $class->defnit($O);
+
+  # ^make ice and give
+  $O->{main}=$main;
+  return bless $O,$class;
 
 };
 
@@ -41,7 +59,7 @@ sub new($class,$ipret) {
 
 sub ISA($self) {
 
-  my $main = $self->{ipret};
+  my $main = $self->{main};
   my $mc   = $main->{mc};
 
   return $mc->{ISA};

@@ -204,6 +204,7 @@ sub new($class,$src,%O) {
 
   );
 
+
   return $self;
 
 };
@@ -259,13 +260,12 @@ sub next_stage($self) {
 
 sub parse($self) {
 
-  # select sub-class
-  $self->parse_ipret();
 
-  # parse
+  # mutate and run
+  $self->parse_subclass();
   $self->{l0}->parse();
 
-  # ^expr pending?
+  # ^final expr pending?
   $self->unset('blank');
   $self->term();
 
@@ -469,12 +469,12 @@ sub cmd_name_rule($self) {
 };
 
 # ---   *   ---   *   ---
-# read ipret line
+# parses fist expression
 #
 # this mutates the parser into
 # a derived class!
 
-sub parse_ipret($self) {
+sub parse_subclass($self) {
 
   # get ctx
   my $l0=$self->{l0};

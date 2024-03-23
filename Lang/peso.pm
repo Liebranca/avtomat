@@ -40,8 +40,8 @@ package Lang::peso;
 
 BEGIN {
 
-my $NUMS=$Lang::Def::DEFAULTS{nums};
-$NUMS->{'(\$[0-9A-F]+)'}=\&hstoi;
+my $NUMS=Lang::Def->DEFAULT->{nums};
+$NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
 
 # ---   *   ---   *   ---
 # builtins and functions, group A

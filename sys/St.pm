@@ -21,6 +21,7 @@ package St;
 
   use Carp;
   use Readonly;
+  use Storable qw(dclone);
   use English qw(-no_match_vars);
 
   use Scalar::Util qw(blessed reftype);
@@ -126,18 +127,34 @@ sub get_class($obj) {return ref $obj};
 # initialize struct elements
 # to default values
 
-sub defnit($class,$href) {
+sub defnit($class,$O) {
 
-  no strict 'refs';
+#  # get skeleton
+#  map  {say {*STDERR} "$class -> $ARG";exit;}
+#  grep {is_coderef $defs->{$ARG}}
+#
+#  keys %$defs;
 
-    my $defs=${"$class\::DEFAULTS"};
+  my $defs=dclone $class->DEFAULT;
 
-    for my $key(keys %$defs) {
-      $href->{$key} //= $defs->{$key};
+  # fetch coderefs (Storable can't ;>)
+  map  {
+    my $fn=$defs->{$ARG};
 
-    };
+  } grep {
+    ! index $defs->{$ARG},'\&'
 
-  use strict 'refs';
+  } keys %$defs;
+
+
+  # ^set value to default if not set!
+  for my $key(keys %$defs) {
+    $O->{$key} //= $defs->{$key};
+
+  };
+
+
+  return;
 
 };
 
