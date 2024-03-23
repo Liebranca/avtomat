@@ -176,4 +176,124 @@ sub encode($self,$program) {
 };
 
 # ---   *   ---   *   ---
+# read next argument from opcode
+
+sub decode_args(
+
+  $self,
+
+  $opcdref,
+  $flagsref,
+  $csumeref,
+
+  $load
+
+) {
+
+
+  # read elem flags and shift out bits
+  my $flag        = $$flagsref & $ARGFLAG_BM;
+     $$flagsref >>= $ARGFLAG_BS;
+
+
+  # get binary format for arg
+  my $fmat=undef;
+  for my $key(@$ARGFLAG_BITS) {
+
+    if($flag eq $ARGFLAG->{$key}) {
+      $fmat=Bitformat $key;
+      last;
+
+    };
+
+  };
+
+
+  # read bits as hash
+  my $mc   = $self->getmc();
+  my %data = $fmat->from_value($$opcdref);
+
+  $$opcdref  >>= $fmat->{bitsize};
+  $$csumeref  += $fmat->{bitsize};
+
+
+  # have memory operand?
+  if(0 == index $fmat->{id},'m',0) {
+    my $fn="decode_$fmat->{id}_ptr";
+    $mc->$fn(\%data);
+
+
+  # have register?
+  } elsif($fmat->{id} eq 'r') {
+
+    %data=(
+      seg  => $mc->{anima}->{mem},
+      addr => $data{reg} * $mc->{anima}->size(),
+
+    );
+
+  };
+
+
+  return \%data;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo ;>
+
+sub decode($self,$opcd) {
+
+
+  # get ctx
+  my $mask = $Cache->{id_bm};
+  my $bits = $Cache->{id_bs};
+
+  # count number of bits consumed
+  my $csume = 0;
+
+
+  # get opid and shift out bits
+  my $opid    = $opcd & $mask;
+     $opcd  >>= $bits;
+     $csume  += $bits;
+
+  # read instruction meta
+  my $idex = ($opid << 1) + 1;
+  my $ins  = $Cache->{romtab}->[$idex]->{ROM};
+
+
+  # decode args
+  my $cnt   = $ins->{argcnt};
+  my $flags = $ins->{argflag};
+  my @load  = ($ins->{load_dst},$ins->{load_src});
+
+  my @args    = map {
+
+    $self->decode_args(
+
+      \$opcd,
+      \$flags,
+      \$csume,
+
+      shift @load
+
+    )
+
+  } 0..$cnt-1;
+
+
+  return {
+
+    ins  => $ins,
+    size => int_urdiv($csume,8),
+
+    dst  => $args[0],
+    src  => $args[1],
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 1; # ret

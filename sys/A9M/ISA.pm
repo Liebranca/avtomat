@@ -29,13 +29,9 @@ package A9M::ISA;
   use Type;
   use Warnme;
 
-  use Bitformat;
-  use FF;
-
   use Arstd::Array;
   use Arstd::Path;
   use Arstd::Int;
-  use Arstd::String;
   use Arstd::Bytes;
   use Arstd::PM;
 
@@ -44,7 +40,7 @@ package A9M::ISA;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.9;#a
+  our $VERSION = v0.02.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -52,132 +48,34 @@ package A9M::ISA;
 
 St::vconst {
 
-  exeali => (typefet 'dword'),
-  deft   => (typefet 'word'),
 
-  imp    => 'A9M::opera',
+  # where is this module?
+  SYSNAME => 'ARPATH',
+
+
+  # use this id to fetch ROM from cache!
+  TABID  => 'ROMTAB',
+
+  # instruction implementation
+  guts_t => 'A9M::ISA::opera',
+  enc_t  => 'A9M::ISA::encoding',
+  make_t => 'A9M::ISA::MAKE',
+
+
+  # minimum executable alignment
+  align_t => (typefet 'dword'),
+
+  # default operand size
+  def_t   => (typefet 'word'),
+
+
+  # reference byte sizes
+  ins_def_t    => (typefet 'word'),
+  ptr_def_t    => (typefet 'short'),
+  opcode_rom_t => (typefet 'dword'),
+
 
 };
-
-  Readonly our $INS_DEF_SZ    => 'word';
-  Readonly our $PTR_DEF_SZ    => 'short';
-  Readonly our $OPCODE_ROM_SZ => 'dword';
-
-
-  # default sizes as bitfield
-  Readonly our $INS_DEF_SZ_BITS =>
-    bitsize(sizeof($INS_DEF_SZ))-1;
-
-  Readonly our $PTR_DEF_SZ_BITS =>
-    bitsize(sizeof($PTR_DEF_SZ))-1;
-
-
-  # names for 0/1/2 operands
-  Readonly my $ARGNAMES=>[
-    [],['dst'],['dst','src'],
-
-  ];
-
-  # argument type-flags
-  Readonly our $ARGFLAG_BS=>3;
-  Readonly our $ARGFLAG_BM=>bitmask $ARGFLAG_BS;
-
-  our $ARGFLAG={
-
-
-    # base format
-    %{Bitformat argflag=>(
-      dst => $ARGFLAG_BS,
-      src => $ARGFLAG_BS,
-
-    )},
-
-
-    # ^possible values
-    r    => 0b000,
-
-    mstk => 0b001,
-    mimm => 0b010,
-    msum => 0b011,
-    mlea => 0b100,
-
-    ix   => 0b101,
-    iy   => 0b110,
-
-  };
-
-
-  # ^values shifted to src bit
-  Readonly my $ARGFLAG_BITS=>[qw(
-
-    r
-
-    mstk mimm msum mlea
-    ix   iy
-
-  )];
-
-  map {
-
-    $ARGFLAG->{"src_$ARG"}=
-       $ARGFLAG->{$ARG}
-    << $ARGFLAG->{pos}->{src};
-
-  } @$ARGFLAG_BITS;
-
-
-  # encoder fetches from here
-  Readonly my $ARGFLAG_TAB=>{
-
-    $NULLSTR => 0b000000,
-    d        => 0b000000,
-    s        => 0b000000,
-
-
-    dr       => $ARGFLAG->{r},
-
-    dmstk    => $ARGFLAG->{mstk},
-    dmimm    => $ARGFLAG->{mimm},
-    dmsum    => $ARGFLAG->{msum},
-    dmlea    => $ARGFLAG->{mlea},
-
-    dix      => $ARGFLAG->{ix},
-    diy      => $ARGFLAG->{iy},
-
-
-    sr       => $ARGFLAG->{src_r},
-
-    smstk    => $ARGFLAG->{src_mstk},
-    smimm    => $ARGFLAG->{src_mimm},
-    smsum    => $ARGFLAG->{src_msum},
-    smlea    => $ARGFLAG->{src_mlea},
-
-    six      => $ARGFLAG->{src_ix},
-    siy      => $ARGFLAG->{src_iy},
-
-  };
-
-
-# ---   *   ---   *   ---
-# GBL
-
-  our $Cache={
-
-    romcode    => 0,
-    execode    => 0,
-
-    id_bs      => 0,
-    id_bm      => 0,
-    idx_bs     => 0,
-    idx_bm     => 0,
-
-    insmeta    => {},
-
-    mnemonic   => {},
-    exetab     => [],
-    romtab     => [],
-
-  };
 
 # ---   *   ---   *   ---
 # cstruc
@@ -195,249 +93,33 @@ sub new($class,%O) {
 };
 
 # ---   *   ---   *   ---
-# makes internal formats
-
-sub mkfmat($self) {
-
-
-  # run only once!
-  state $nit=0;
-  return if $nit;
-
-  $nit++;
-
-
-  # get ctx
-  my $mc       = $self->getmc();
-  my $anima    = $mc->{bk}->{anima};
-  my $segtab_t = $mc->segtab_t();
-
-  cload $self->imp();
-
-
-  # instruction meta
-  Bitformat opcode=>(
-
-    load_src    => 1,
-    load_dst    => 1,
-    overwrite   => 1,
-
-    argcnt      => 2,
-    argflag     => $ARGFLAG->{bitsize},
-
-    opsize      => 2,
-    idx         => 16,
-
-  );
-
-
-  # enconding for register operands
-  Bitformat 'r'=>(
-    reg => 4,
-
-  );
-
-
-  # encodings for immediate operands
-  Bitformat 'ix'=>(
-    imm => 8,
-
-  );
-
-  Bitformat 'iy'=>(
-    imm => 16,
-
-  );
-
-
-  # encodings for memory operands
-  Bitformat 'mstk'=>(
-    imm => 8,
-
-  );
-
-  Bitformat 'mimm'=>(
-    seg => $segtab_t->{sizep2},
-    imm => 16,
-
-  );
-
-  Bitformat 'msum'=>(
-    seg => $segtab_t->{sizep2},
-    reg => $anima->cnt_bs(),
-    imm => 8,
-
-  );
-
-  Bitformat 'mlea'=>(
-
-    seg   => $segtab_t->{sizep2},
-
-    rX    => $anima->cnt_bs(),
-    rY    => $anima->cnt_bs(),
-
-    imm   => 10,
-    scale => 2,
-
-  );
-
-
-  # fmat for binary section
-  # of resulting ROM
-  FF 'opcode-tab'=>q[
-
-    word id_mask;
-    word idx_mask;
-
-    byte id_bits;
-    byte idx_bits;
-
-    bit<opcode> opcode[word];
-
-  ];
-
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
 # get [bitsize:data] array
 # for set of operands
 
 sub encoding($self,$idex,$args) {
 
+  my $class = ref $self;
+  my $enc_t = $self->enc_t;
+
+  my $tab   = $class->opcode_table();
+
   return (
 
-    [$Cache->{id_bs},$idex],
+    [$tab->{id_bs},$idex],
 
     map {
-      my $fmat=Bitformat $ARG->{type};
+
+      my $fmat=$enc_t->operand_fmat(
+        $class,
+        $ARG->{type}
+
+      );
+
       [$fmat->{bitsize},$fmat->bor(%$ARG)];
 
     } @$args
 
   );
-
-};
-
-# ---   *   ---   *   ---
-# ^undo ;>
-
-sub decode($self,$opcd) {
-
-
-  # get ctx
-  my $mask = $Cache->{id_bm};
-  my $bits = $Cache->{id_bs};
-
-  # count number of bits consumed
-  my $csume = 0;
-
-
-  # get opid and shift out bits
-  my $opid    = $opcd & $mask;
-     $opcd  >>= $bits;
-     $csume  += $bits;
-
-  # read instruction meta
-  my $idex = ($opid << 1) + 1;
-  my $ins  = $Cache->{romtab}->[$idex]->{ROM};
-
-
-  # decode args
-  my $cnt   = $ins->{argcnt};
-  my $flags = $ins->{argflag};
-  my @load  = ($ins->{load_dst},$ins->{load_src});
-
-  my @args    = map {
-
-    $self->decode_args(
-
-      \$opcd,
-      \$flags,
-      \$csume,
-
-      shift @load
-
-    )
-
-  } 0..$cnt-1;
-
-
-  return {
-
-    ins  => $ins,
-    size => int_urdiv($csume,8),
-
-    dst  => $args[0],
-    src  => $args[1],
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# ^read next argument from opcode
-
-sub decode_args(
-
-  $self,
-
-  $opcdref,
-  $flagsref,
-  $csumeref,
-
-  $load
-
-) {
-
-
-  # read elem flags and shift out bits
-  my $flag        = $$flagsref & $ARGFLAG_BM;
-     $$flagsref >>= $ARGFLAG_BS;
-
-
-  # get binary format for arg
-  my $fmat=undef;
-  for my $key(@$ARGFLAG_BITS) {
-
-    if($flag eq $ARGFLAG->{$key}) {
-      $fmat=Bitformat $key;
-      last;
-
-    };
-
-  };
-
-
-  # read bits as hash
-  my $mc   = $self->getmc();
-  my %data = $fmat->from_value($$opcdref);
-
-  $$opcdref  >>= $fmat->{bitsize};
-  $$csumeref  += $fmat->{bitsize};
-
-
-  # have memory operand?
-  if(0 == index $fmat->{id},'m',0) {
-    my $fn="decode_$fmat->{id}_ptr";
-    $mc->$fn(\%data);
-
-
-  # have register?
-  } elsif($fmat->{id} eq 'r') {
-
-    %data=(
-      seg  => $mc->{anima}->{mem},
-      addr => $data{reg} * $mc->{anima}->size(),
-
-    );
-
-  };
-
-
-  return \%data;
 
 };
 
@@ -449,14 +131,15 @@ sub decode_args(
 sub run($self,$type,$idx,@args) {
 
   # get ctx
-  my $imp = $self->imp();
-  my $fn  = $Cache->{exetab}->[$idx];
+  my $guts_t = $self->guts_t;
+  my $tab    = $self->opcode_table;
+  my $fn     = $tab->{exetab}->[$idx];
 
   my @src = (1 == $#args)
     ? ($args[1]) : () ;
 
   # build call array
-  my $op   = $imp->$fn($type,@src);
+  my $op   = $guts_t->$fn($type,@src);
   my @call = (@args)
     ? ($op,$args[0])
     : ($op)
@@ -464,35 +147,9 @@ sub run($self,$type,$idx,@args) {
 
 
   # invoke and give
-  my @out=$imp->copera(@call);
+  my @out=$guts_t->copera(@call);
 
   return \@out;
-
-};
-
-# ---   *   ---   *   ---
-# get mnemonic id
-
-sub get_idx($name,%O) {
-
-  my $key = $Cache->{mnemonic};
-  my $tab = $Cache->{exetab};
-
-
-  if(! exists $key->{$O{fn}}) {
-
-    push @$tab,$O{fn};
-
-    $key->{$O{fn}}={
-      name => $name,
-      idx  => $Cache->{execode}++,
-
-    };
-
-  };
-
-
-  return $key->{$O{fn}}->{idx};
 
 };
 
@@ -544,10 +201,12 @@ sub get_ins_idex($class,$name,$size,@args) {
 
 sub get_ins_meta($class,$name) {
 
-  return warn_invalid($name)
-  if ! exists $Cache->{insmeta}->{$name};
+  my $tab=$class->opcode_table;
 
-  return $Cache->{insmeta}->{$name};
+  return warn_invalid($name)
+  if ! exists $tab->{insmeta}->{$name};
+
+  return $tab->{insmeta}->{$name};
 
 };
 
@@ -648,282 +307,127 @@ sub imload($self,$size,$src) {
 };
 
 # ---   *   ---   *   ---
-# cstruc instruction(s)
+# rebuild module if need
+# return if already done
 
-sub opcode($name,%O) {
+sub ready_or_build($self) {
 
-  # defaults
-  $O{fn}          //= $name;
-  $O{argcnt}      //= 2;
-  $O{nosize}      //= 0;
 
-  $O{load_src}    //= int($O{argcnt} == 2);
-  $O{load_dst}    //= 1;
+  # run only once for each class!
+  state $nit   = {};
+  my    $class = ref $self;
 
-  $O{fix_immsrc}  //= 0;
-  $O{fix_regsrc}  //= 0;
-  $O{fix_size}    //= undef;
+  return if exists $nit->{$class};
 
-  $O{overwrite}   //= 1;
-  $O{dst}         //= 'rm';
-  $O{src}         //= 'rmi';
+  $nit->{$class}=1;
 
-  $Cache->{insmeta}->{$name}=\%O;
 
-  # ^for writing/instancing
-  my $ROM={
+  # load implementation
+  my $guts_t = $self->guts_t;
+  my $enc_t  = $self->enc_t;
+  my $make_t = $self->make_t;
 
-    load_src    => $O{load_src},
-    load_dst    => $O{load_dst},
-    overwrite   => $O{overwrite},
+  cload $guts_t;
+  cload $enc_t;
+  cload $make_t;
 
-    argcnt      => $O{argcnt},
+  $enc_t->generate($self);
+  $class->load_ROM();
+  $enc_t->postgen($class);
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# spawn container for table
+# generator
+
+sub make_builder {
+
+  my $class = St::cpkg;
+  my $enc_t = $class->enc_t;
+
+  return {
+
+    operand_tid => $enc_t->operand_tid($class),
+    ins_def_t   => $class->ins_def_t,
+
+    guts_t      => $class->guts_t,
 
   };
 
-  # ^just for the compiler
-  my $meta=$Cache->{insmeta}->{$name};
-  $meta->{icetab}={};
+};
 
+# ---   *   ---   *   ---
+# get *cached* opcode table
 
-  # queue logic generation
-  my $idx=get_idx($name,%O);
-
-
-  # get possible operand sizes
-  my @size=(! $O{nosize})
-    ? qw(byte word dword qword)
-    : $INS_DEF_SZ
-    ;
-
-  @size=(@{$O{fix_size}})
-  if defined $O{fix_size};
-
-
-  # get possible operand combinations
-  my @combo=();
-
-  # ^for two-operand instruction
-  if($O{argcnt} eq 2) {
-
-    @combo=grep {length $ARG} map {
-
-      my $dst   = substr $ARG,0,1;
-      my $src   = substr $ARG,2,1;
-
-      my $allow =
-         (0 <= index $O{dst},$dst)
-      && (0 <= index $O{src},$src)
-      ;
-
-      $ARG if $allow;
-
-    } 'r_r','r_m','r_i','m_r','m_i';
-
-
-  # ^single operand, so no combo ;>
-  } elsif($O{argcnt} eq 1) {
-    @combo=split $NULLSTR,$O{dst};
-
-  # ^no operands!
-  } else {
-
-    my $data={
-
-      %$ROM,
-
-      argflag => 0x00,
-      opsize  => 0x00,
-      idx     => $idx,
-
-    };
-
-    $meta->{icetab}->{$name}=$Cache->{romcode};
-
-    return $name => {
-      id  => $Cache->{romcode}++,
-      ROM => $data,
-
-    };
-
-  };
-
-
-  # ^generate further variations
-  my $round=0;
-  combo_vars:
-
-  @combo=map {
-
-    my $cpy  = $ARG;
-    my @list = ();
-
-
-    # have memory operand?
-    if($round == 0) {
-      @list=(qr{m},qw(mstk mimm msum mlea));
-
-    } else {
-
-      my @ar=($O{fix_immsrc})
-        ? 'i'.(qw(x y)[$O{fix_immsrc}-1])
-        : qw(ix iy)
-        ;
-
-      @list=(qr{i(?!mm)},@ar);
-
-    };
-
-
-    # ^need to generate specs?
-    if(@list) {
-
-      # replace plain combo with
-      # specific variations!
-
-      my ($re,@repl)=@list;
-
-      map {
-
-        my $cpy2=$cpy;
-
-        $cpy2=~ s[$re][$ARG];
-        $cpy2;
-
-      } @repl;
-
-
-    # ^nope, use plain combo
-    } else {
-      $ARG;
-
-    };
-
-
-  } @combo;
-
-  goto combo_vars if $round++ < 1;
-  array_dupop(\@combo);
-
-
-  # make argument type variations
-  return map {
-
-    my ($dst,$src)=split '_',$ARG;
-
-    $src //= $NULLSTR;
-
-    my $argflag =
-      ($ARGFLAG_TAB->{"d$dst"})
-    | ($ARGFLAG_TAB->{"s$src"})
-
-    ;
-
-
-    my $ins   = "${name}_$ARG";
-    my @sizeb = @size;
-
-
-    if($src eq 'iy' || $dst eq 'iy') {
-      @sizeb=grep {$ARG ne 'byte'} @sizeb;
-
-    };
-
-
-    # make sized variations
-    map {
-
-      my $data={
-
-        %$ROM,
-
-        argflag => $argflag,
-        opsize  => (sizeof($ARG) >> 1),
-        idx     => $idx,
-
-      };
-
-      $data->{opsize} -= 1
-      if $data->{opsize} > 2;
-
-      # perl-side copy
-      $meta->{icetab}->{"${ins}_${ARG}"}=
-        $Cache->{romcode};
-
-      # ^for use by decoder
-      "${ins}_${ARG}" => {
-        id  => $Cache->{romcode}++,
-        ROM => $data,
-
-      };
-
-    } @sizeb;
-
-  } @combo;
+sub opcode_table($class) {
+  return $class->classcache($class->TABID);
 
 };
 
 # ---   *   ---   *   ---
-# load/save tables from cache
+# load/regen opcode table
 
-sub gen_ROM_table($class) {
-  $Cache->{romtab}=$class->_gen_ROM_table();
-  return $Cache;
-
-};
-
-# ---   *   ---   *   ---
-# ^definitions
-
-sub _gen_ROM_table($class) {
+sub load_ROM($class,@args) {
 
 
-  # fetch instruction table
-  my $imp=$class->imp();
-  cload $imp;
-
-  my $tab = $imp->table();
-
-
-  # ^array as hash
-  my $ti  = 0;
-  my @tk  = array_keys($tab);
-  my @tv  = array_values($tab);
+  # load sub packages
+  my $make_t = $class->make_t;
+  my $guts_t = $class->guts_t;
+  my $enc_t  = $class->enc_t;
 
 
-  # ^walk
-  my $out=[
-    map  {opcode $ARG,%{$tv[$ti++]}} @tk
+  # set dependencies
+  our $sysname=$class->SYSNAME;
+  use Vault $sysname;
 
-  ];
+  Vault::depson map {
+    find_pkg $ARG
 
-
-  # ^save bitsizes and give
-  $Cache->{id_bs}   = bitsize $Cache->{romcode};
-  $Cache->{idx_bs}  = bitsize $Cache->{execode};
-  $Cache->{id_bm}   = bitmask $Cache->{id_bs};
-  $Cache->{idx_bm}  = bitmask $Cache->{idx_bs};
+  } $guts_t,$make_t,$enc_t;
 
 
-  return $out;
+  # initialize
+  my $tab = $class->opcode_table;
+  %$tab   = (
 
-};
+    romcode    => 0,
+    execode    => 0,
 
-# ---   *   ---   *   ---
-# cache result of generator
+    id_bs      => 0,
+    id_bm      => 0,
+    idx_bs     => 0,
+    idx_bm     => 0,
 
-  sub thiscls {__PACKAGE__};
-  use Vault 'ARPATH';
+    insmeta    => {},
 
-  Vault::depson(
-    find_pkg thiscls()->imp()
+    mnemonic   => {},
+    exetab     => [],
+    romtab     => [],
+
+  ) if ! %$tab;
+
+
+  # fetch or regen table if need
+  my $fn  = "$make_t\::crux";
+     $fn  = \&$fn;
+
+  Vault::cached(
+
+    ROMTAB  => $fn,
+    $make_t => $tab,
+
+    \&make_builder,
 
   );
 
-  $Cache=Vault::cached(
-    'Cache',\&gen_ROM_table,thiscls
 
-  );
+  return;
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

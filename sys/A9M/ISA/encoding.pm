@@ -1,0 +1,316 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# A9M ISA:ENCODING
+# How we shuffle exebits
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+
+# ---   *   ---   *   ---
+# deps
+
+package A9M::ISA::encoding;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use English qw(-no_match_words);
+  use lib $ENV{ARPATH}.'/lib/sys/';
+
+  use Style;
+  use Type;
+  use Warnme;
+
+  use Bitformat;
+  use FF;
+
+  use Arstd::Bytes;
+
+  use parent 'St';
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = v0.00.1;#a
+  our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+St::vconst {
+
+
+  # operand data
+  argflag_bs => 3,
+  argflag_bm => sub {
+    bitmask $_[0]->argflag_bs;
+
+  },
+
+  argnames => [
+    [],['dst'],['dst','src'],
+
+  ],
+
+  operand_types=>[qw(
+
+    r
+
+    mstk mimm msum mlea
+    ix   iy
+
+  )],
+
+
+  # bitsizes for types of immediates
+  ix_bs         => 8,
+  iy_bs         => 16,
+
+  mlea_scale_bs => 2,
+
+
+};
+
+# ---   *   ---   *   ---
+# ^further encodings that
+# require instance data!
+
+sub generate($class,$ISA) {
+
+
+  # get ctx
+  my $mc       = $ISA->getmc();
+  my $anima    = $mc->{bk}->{anima};
+  my $segtab_t = $mc->segtab_t();
+  my $super    = ref $ISA;
+
+
+  # operand encoding
+  my $operand_t = $class->classcache(
+    "$super.operand_t"
+
+  );
+
+  %$operand_t=(
+
+
+    # base format
+    %{Bitformat "$super.operand"=>(
+      dst => $class->argflag_bs,
+      src => $class->argflag_bs,
+
+    )},
+
+
+    # ^possible values
+    r    => 0b000,
+
+    mstk => 0b001,
+    mimm => 0b010,
+    msum => 0b011,
+    mlea => 0b100,
+
+    ix   => 0b101,
+    iy   => 0b110,
+
+  );
+
+
+  # ^shifted to src bit
+  map {
+
+    $operand_t->{"src_$ARG"}=
+       $operand_t->{$ARG}
+    << $operand_t->{pos}->{src};
+
+  } @{$class->operand_types};
+
+
+  # instruction meta
+  Bitformat "$super.opcode"=>(
+
+    load_src    => 1,
+    load_dst    => 1,
+    overwrite   => 1,
+
+    argcnt      => 2,
+    operands    => $operand_t->{bitsize},
+
+    opsize      => 2,
+    idx         => 16,
+
+  );
+
+  # enconding for register operands
+  Bitformat "$super.r"=>(
+    reg => $anima->cnt_bs,
+
+  );
+
+
+  # encodings for immediate operands
+  Bitformat "$super.ix"=>(
+    imm => $class->ix_bs,
+
+  );
+
+  Bitformat "$super.iy"=>(
+    imm => $class->iy_bs,
+
+  );
+
+
+  # encodings for memory operands
+  Bitformat "$super.mstk"=>(
+    imm => $class->ix_bs,
+
+  );
+
+  # [imm]
+  Bitformat "$super.mimm"=>(
+    seg => $segtab_t->{sizep2},
+    imm => $class->iy_bs,
+
+  );
+
+  # [r+imm]
+  Bitformat "$super.msum"=>(
+    seg => $segtab_t->{sizep2},
+    reg => $anima->cnt_bs,
+    imm => $class->ix_bs,
+
+  );
+
+  # [r+r+imm*s]
+  Bitformat "$super.mlea"=>(
+
+    seg   => $segtab_t->{sizep2},
+
+    rX    => $anima->cnt_bs,
+    rY    => $anima->cnt_bs,
+
+    imm   => $class->mlea_scale_bs+$class->ix_bs,
+    scale => $class->mlea_scale_bs,
+
+  );
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# build these last as we first
+# need to know how big opcodes are!
+
+sub postgen($class,$super) {
+
+
+  # get ctx
+  my $tab=$super->opcode_table;
+
+
+  # get opcode/mnemonic counts
+  my @sizes = (
+
+    $tab->{id_bs},
+    bitsize($tab->{id_bm}),
+
+    $tab->{idx_bs},
+    bitsize($tab->{idx_bm}),
+
+  );
+
+  # ^map to types
+  my (
+
+    $id_bs_t,
+    $id_bm_t,
+
+    $idx_bs_t,
+    $idx_bm_t,
+
+  )=map {
+
+    Type::bitfit($ARG)
+
+  } @sizes;
+
+
+  # fmat for binary section
+  # of resulting ROM
+  FF "$super.opcode-tab"=>
+
+    "$id_bm_t->{name}  id_mask;"
+  . "$idx_bm_t->{name} idx_mask;"
+
+  . "$id_bm_t->{name} id_bits;"
+  . "$idx_bm_t->{name} idx_bits;"
+
+  . "bit<$super.opcode> opcode[word];";
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# fetches operand encoding
+
+sub operand_encoding($class,$super,$name) {
+  return Bitformat "$super.$name";
+
+};
+
+# ---   *   ---   *   ---
+# build table to match name
+# to operand type
+
+sub operand_tid($class,$super) {
+
+
+  my $operand_t=$class->classcache(
+    "$super.operand_t"
+
+  );
+
+
+  return {
+
+    $NULLSTR => 0b000000,
+    d        => 0b000000,
+    s        => 0b000000,
+
+
+    dr       => $operand_t->{r},
+
+    dmstk    => $operand_t->{mstk},
+    dmimm    => $operand_t->{mimm},
+    dmsum    => $operand_t->{msum},
+    dmlea    => $operand_t->{mlea},
+
+    dix      => $operand_t->{ix},
+    diy      => $operand_t->{iy},
+
+
+    sr       => $operand_t->{src_r},
+
+    smstk    => $operand_t->{src_mstk},
+    smimm    => $operand_t->{src_mimm},
+    smsum    => $operand_t->{src_msum},
+    smlea    => $operand_t->{src_mlea},
+
+    six      => $operand_t->{src_ix},
+    siy      => $operand_t->{src_iy},
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+1; # ret

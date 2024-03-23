@@ -133,7 +133,7 @@ sub new($class,%O) {
   $self->scope($O{memroot});
 
   $self->{ISA}=$bk->{ISA}->new(mcid=>$id);
-  $self->{ISA}->mkfmat();
+  $self->{ISA}->ready_or_build;
 
 
   return $self;

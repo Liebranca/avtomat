@@ -428,6 +428,32 @@ sub offsetof($type,$field) {
 };
 
 # ---   *   ---   *   ---
+# get minimum-sized primitive
+# big enough to hold N bits
+
+sub bitfit($size,$bytes=0) {
+
+  $size <<= 3 if $bytes;
+
+  my $out=null;
+  for my $type(@{$Type::MAKE::LIST->{ezy}}) {
+
+    $type=typefet $type;
+
+    if($type->{sizebs} >= $size) {
+      $out=$type;
+      last;
+
+    };
+
+  };
+
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # can fetch?
 
 sub is_valid($class,$type) {

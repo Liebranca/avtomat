@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# A9M OPERA
+# A9M ISA:OPERA
 # The things we do to memory...
 #
 # LIBRE SOFTWARE
@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package A9M::opera;
+package A9M::ISA::opera;
 
   use v5.36.0;
   use strict;

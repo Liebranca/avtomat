@@ -93,10 +93,12 @@ package Vault;
 
 sub import($class,@args) {
 
+
   my ($pkgname,$file,$line)=caller;
   my $modname=Shb7::modof(abs_path($file));
 
-  goto SKIP if($modname=~ $Std_Dirs);
+  return if($modname=~ $Std_Dirs);
+
 
   my $syskey=(defined $args[-1])
     ? $args[-1]
@@ -115,6 +117,7 @@ sub import($class,@args) {
   my $syspath=Shb7::set_root($ENV{$syskey})
   if $ENV{$syskey} ne $Shb7::Path::Root;
 
+
   # init project
   if(! exists $Systems->{$syspath}) {
     $Systems->{$syspath}=
@@ -130,8 +133,7 @@ sub import($class,@args) {
   };
 
 
-  SKIP:
-    return;
+  return;
 
 };
 

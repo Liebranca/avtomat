@@ -269,7 +269,7 @@ sub fname_to_pkg($fname,$base=$NULLSTR) {
 # ^iv/undo
 
 sub pkg_to_fname($pkg) {
-  $pkg=~ s[$DCOLON_RE][/];
+  $pkg=~ s[$DCOLON_RE][/]g;
   return "$pkg.pm";
 
 };
