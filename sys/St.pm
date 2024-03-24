@@ -142,7 +142,8 @@ sub defnit($class,$O) {
     my $fn=$defs->{$ARG};
 
   } grep {
-    ! index $defs->{$ARG},'\&'
+      defined $defs->{$ARG}
+  &&! index   $defs->{$ARG},'\&'
 
   } keys %$defs;
 

@@ -33,7 +33,7 @@ package A9M::alloc;
   use Arstd::IO;
   use Arstd::PM;
 
-  use parent 'A9M::component';
+  use parent 'A9M::layer';
 
 # ---   *   ---   *   ---
 # info

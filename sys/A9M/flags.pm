@@ -29,7 +29,7 @@ package A9M::flags;
 
   use Arstd::Array;
 
-  use parent 'A9M::component';
+  use parent 'A9M::layer';
 
 # ---   *   ---   *   ---
 # info

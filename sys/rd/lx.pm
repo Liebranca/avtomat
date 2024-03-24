@@ -263,7 +263,7 @@ sub load_CMD($self,$update=0) {
   my $tab=$self->classcache($self->TABID);
 
   return $tab
-  if int %$CMD &&! $update;
+  if int %$tab &&! $update;
 
 
   # ^nope, regen!

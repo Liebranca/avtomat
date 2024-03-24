@@ -25,8 +25,11 @@ package ipret::encoder;
   use Style;
   use Type;
   use Bpack;
+  use Bitformat;
 
   use Arstd::Bytes;
+  use Arstd::Int;
+  use Arstd::IO;
 
   use parent 'rd::layer';
 
@@ -149,7 +152,22 @@ sub encode($self,$program) {
     $bytes .= $have->{ct};
     $total += $size;
 
-  } encode_program($program);
+    my $diff = $size-(length $have->{ct});
+    $bytes .= pack "C[$diff]",(0) x $diff;
+
+
+  } $self->encode_program($program);
+
+
+  # align binary to ISA spec
+  my $ISA     = $self->ISA;
+  my $align_t = $ISA->align_t;
+
+  # ^by null pad
+  my $diff = $total % $align_t->{sizeof};
+
+  $bytes .= pack "C[$diff]",(0) x $diff;
+  $total += $diff;
 
 
   # give (bytecode,size)
@@ -178,8 +196,7 @@ sub operand_type($self,$operand) {
 
   } @{$enc_t->operand_types};
 
-
-  my $fmat=Bitformat "$super.$fmat";
+  my $fmat=Bitformat "$super.$type";
 
 
   return ($type,$fmat);
@@ -208,7 +225,7 @@ sub decode_instruction($self,$opcd) {
   my $ins  = $tab->{romtab}->[$idex]->{ROM};
 
 
-  return ($opid,$bits);
+  return ($ins,$bits);
 
 };
 
@@ -223,7 +240,7 @@ sub decode_operand($self,$opcd,$operand) {
     $self->operand_type($operand);
 
   # read opcode bits into hash
-  my $mc   = $self->getmc();
+  my $mc   = $self->{main}->{mc};
   my %data = $fmat->from_value($opcd);
 
 
@@ -267,7 +284,7 @@ sub decode_operands($self,$ins,$opcd) {
 
 
     # get next
-    my $operand    = $operads & $enc_t->operand_bm;
+    my $operand    = $operands & $enc_t->operand_bm;
        $operands >>= $enc_t->operand_bs;
 
     # ^decode
@@ -299,7 +316,7 @@ sub decode_opcode($self,$opcd) {
   my ($ins,$ins_sz)=
     $self->decode_instruction($opcd);
 
-  $opcd >>= $bits;
+  $opcd >>= $ins_sz;
 
 
   # read operands
@@ -338,15 +355,17 @@ sub decode($self,$program) {
 
   # consume buf
   my $ptr=0x00;
+  my @out=();
+
   while($ptr + $step < $limit) {
 
 
     # get next
-    my $s    = substr $program,$addr,4;
-    my $opcd = unpack $align_t->{fmat},$s;
+    my $s    = substr $program,$ptr,4;
+    my $opcd = unpack $align_t->{packof},$s;
 
     # ^consume bytes and give
-    my $ins  = $self->decode($opcd);
+    my $ins  = $self->decode_opcode($opcd);
        $ptr += $ins->{size};
 
     push @out,$ins;
@@ -354,7 +373,7 @@ sub decode($self,$program) {
   };
 
 
-  return @out;
+  return \@out;
 
 };
 

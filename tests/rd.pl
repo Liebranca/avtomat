@@ -12,7 +12,7 @@ package main;
   use lib $ENV{ARPATH}.'/avtomat/sys/';
   use Style;
 
-  use rd;
+  use ipret;
   use Bpack;
 
   use Arstd::Bytes;
@@ -24,16 +24,8 @@ package main;
 use Fmat;
 use Arstd::xd;
 
-my $rd = rd('./lps/lps.rom');
-my $mc = $rd->{mc};
-
-my $l2  = ref $rd->{l2};
-my $rev = "$l2\::branch_solve";
-
-$rd->walk(limit=>2,rev=>\&$rev);
-
-$mc->{anima}->prich();
-$rd->prich();
+my $main = ipret('./lps/lps.rom');
+$main->prich();
 
 # ---   *   ---   *   ---
 1; # ret

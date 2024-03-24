@@ -386,7 +386,7 @@ sub load_JMP($self,$update=0) {
 
 
   # skip update?
-  my $tab=$self->classcache($self->TABID);
+  my $tab=$self->classattr($self->TABID);
 
   return $tab
   if int @$tab &&! $update;

@@ -37,7 +37,7 @@ package A9M::mem;
   use Arstd::IO;
   use Arstd::PM;
 
-  use parent 'A9M::component';
+  use parent 'A9M::layer';
   use parent 'Tree';
 
 # ---   *   ---   *   ---
@@ -803,7 +803,7 @@ sub warn_exe($self) {
   warnproc
 
     "[op]:%s $name: "
-  . "not an executable segment"
+  . "not an executable segment",
 
   args => ['() ->*'],
   give => null;

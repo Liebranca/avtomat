@@ -19,7 +19,7 @@ package ipret;
   use strict;
   use warnings;
 
-  use Storable;
+  use Storable qw(store retrieve file_magic);
   use English qw(-no_match-vars);
 
   use lib $ENV{ARPATH}.'/lib/sys/';
@@ -59,7 +59,6 @@ St::vconst {
 
 };
 
-
 # ---   *   ---   *   ---
 # cstruc
 
@@ -67,21 +66,32 @@ sub new($class,$src,%O) {
 
 
   # get parse tree
-  my $self=(is_filepath($src))
-    ? retrieve($src)
-    : rd::crux($src,%O)
+  my $self=(is_filepath($src) && file_magic($src))
+    ? retrieve $src
+    : rd::crux $src,%O
     ;
 
-  # ^mutate into interpreter
-  $self=bless {%$self},$class;
-  $self->cstruc_layers(
-    map {$ARG=>$self}
-    @{$self->layers}
+  return $class->mutate($self);
+
+};
+
+# ---   *   ---   *   ---
+# mutate parser into interpreter
+
+sub mutate($class,$ice) {
+
+  $ice=bless {%$ice},$class;
+  $ice->cstruc_layers(
+    map {$ARG=>$ice}
+    @{$ice->layers}
 
   );
 
+  map {$ice->{$ARG}->{main}=$ice}
+  @{$ice->layers};
 
-  return $self;
+
+  return $ice;
 
 };
 
@@ -92,8 +102,8 @@ sub crux($src) {
 
   my $self = ipret->new($src);
 
-  my $l2   = $self->l2_t;
-  my $rev  = "$l2\::branch_solve";
+  my $eng  = $self->engine_t;
+  my $rev  = "$eng\::branch_solve";
 
   $self->walk(limit=>2,rev=>\&$rev);
 

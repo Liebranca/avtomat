@@ -34,7 +34,7 @@ package A9M::ISA::MAKE;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -300,7 +300,7 @@ sub gen_sized_ins($class,$bld) {
 
 
   # perl-side copy
-  $meta->{icetab}->{$bld->{name}}=
+  $meta->{icetab}->{$bld->{insname}}=
     $cache->{romcode};
 
   # give entry
@@ -402,9 +402,9 @@ sub crux($class,$dst,$bldfn) {
 
 
   # ^array as hash
-  my $ti  = 0;
-  my @tk  = array_keys($tab);
-  my @tv  = array_values($tab);
+  my $ti = 0;
+  my @tk = array_keys($tab);
+  my @tv = array_values($tab);
 
 
   # ^walk

@@ -386,10 +386,10 @@ sub prich($self,%O) {
   # have vector?
   } elsif(is_arrayref($value)) {
 
-    my $mc  = $self->getmc();
-    my $imp = $mc->{ISA}->imp();
+    my $mc   = $self->getmc();
+    my $guts = $mc->{ISA}->guts_t;
 
-    my $fn  = $imp->flatten($type->{sizebs});
+    my $fn   = $guts->flatten($type->{sizebs});
 
 
     $value =
@@ -397,7 +397,7 @@ sub prich($self,%O) {
       join ' ',
       map  {sprintf $pad,$ARG}
 
-      $imp->copera($fn,$value);
+      $guts->copera($fn,$value);
 
 
   # have ptr?

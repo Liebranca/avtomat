@@ -35,7 +35,7 @@ package A9M::ISA;
   use Arstd::Bytes;
   use Arstd::PM;
 
-  use parent 'A9M::component';
+  use parent 'A9M::layer';
 
 # ---   *   ---   *   ---
 # info
@@ -109,7 +109,7 @@ sub full_encoding($self,$idex,$args) {
 
     map {
 
-      my $fmat=$enc_t->operand_fmat(
+      my $fmat=$enc_t->operand_encoding(
         $class,
         $ARG->{type}
 
@@ -203,8 +203,8 @@ sub xlate($self,$sym,$size,@args) {
   $size=typefet $size;
 
   # fetch instruction name from symbol
-  my $imp   = $self->imp();
-  my $name  = $imp->xlate($sym,@args);
+  my $guts = $self->guts_t;
+  my $name = $guts->xlate($sym,@args);
 
 
   # ^fetch the instruction itself
@@ -334,6 +334,12 @@ sub make_builder {
 # get *cached* opcode table
 
 sub opcode_table($class) {
+
+  $class=(length ref $class)
+    ? ref $class
+    : $class
+    ;
+
   return $class->classcache($class->TABID);
 
 };
@@ -378,14 +384,14 @@ sub load_ROM($class,@args) {
     exetab     => [],
     romtab     => [],
 
-  ) if ! %$tab;
+  ) if ! int %$tab;
 
 
   # fetch or regen table if need
-  my $fn  = "$make_t\::crux";
-     $fn  = \&$fn;
+  my $fn   = "$make_t\::crux";
+     $fn   = \&$fn;
 
-  Vault::cached(
+  my $have = Vault::cached(
 
     ROMTAB  => $fn,
     $make_t => $tab,
@@ -393,6 +399,8 @@ sub load_ROM($class,@args) {
     \&make_builder,
 
   );
+
+  %$tab = %$have;
 
 
   return;

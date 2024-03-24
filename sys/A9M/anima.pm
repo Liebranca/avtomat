@@ -33,7 +33,7 @@ package A9M::anima;
   use Arstd::Re;
   use Arstd::IO;
 
-  use parent 'A9M::component';
+  use parent 'A9M::layer';
 
 # ---   *   ---   *   ---
 # info

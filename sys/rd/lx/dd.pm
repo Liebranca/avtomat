@@ -491,11 +491,10 @@ sub value_solve($self,$value) {
   my $main = $self->{main};
   my $mc   = $main->{mc};
   my $l1   = $main->{l1};
-  my $l2   = $main->{l2};
-
+  my $eng  = $main->{engine};
 
   # can solve value now?
-  my $have=$l2->value_solve($value);
+  my $have=$eng->value_solve($value);
 
   # ^zero on nope
   my $x=(! length $have)
