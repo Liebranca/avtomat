@@ -72,9 +72,4 @@ sub load($class,$main) {
 };
 
 # ---   *   ---   *   ---
-# mutate into next stage
-
-sub mutate($class) {};
-
-# ---   *   ---   *   ---
 1; # ret

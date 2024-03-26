@@ -670,7 +670,8 @@ sub cmd($self) {
       $main->{branch}->prich(errout=>1);
 
       $main->perr(
-        "ID-mismatch; node mutation error",
+        "undefined command: '%s'",
+        args=>[$value],
 
       );
 

@@ -78,6 +78,27 @@ sub cmdarg($type,%O) {
 };
 
 # ---   *   ---   *   ---
+# ^add variation on existing
+
+sub opt_cmdarg(@list) {
+
+  map {
+
+    my $fn=$ARG;
+
+    "opt_$ARG" => sub {
+
+      my $class=$_[0];
+      return {%{$class->$fn},opt=>1};
+
+    };
+
+
+  } @list;
+
+};
+
+# ---   *   ---   *   ---
 # ROM
 
 St::vconst {
@@ -89,7 +110,7 @@ St::vconst {
     lis  => 'nop',
     sig  => [],
 
-    fn   => '\&noop',
+    fn   => '\&nop',
 
   },
 
@@ -108,24 +129,13 @@ St::vconst {
   ),
 
 
-  # ^optional variants
-  ( map {
-
-    my $fn=$ARG;
-
-    "opt_$ARG" => sub {
-
-      my $class=$_[0];
-      return {%{$class->$fn},opt=>1};
-
-    }
-
-  } qw(qlist vlist) ),
-
-
   # single token
   sym  => cmdarg(['SYM']),
   bare => cmdarg(['BARE']),
+
+
+  # optional variants
+  opt_cmdarg(qw(qlist vlist sym)),
 
 
   # delimiters
@@ -163,6 +173,7 @@ sub new($class,$frame,%O) {
   # set defaults
   $class->defnit(\%O);
 
+
   # expand signature
   my $sig=[map {
 
@@ -189,6 +200,7 @@ sub new($class,$frame,%O) {
   # ^register and give
   my $id=$frame->icemake($self);
   $frame->{icetab}->{$O{lis}}=$id;
+
 
   return $self;
 
@@ -584,7 +596,7 @@ sub argtypechk($self,$arg,$pos) {
 # walk signature and typechk
 # command arguments
 
-sub argchk($self,$offset=0) {
+sub argchk($self,$offset=undef) {
 
 
   # get ctx
@@ -594,7 +606,10 @@ sub argchk($self,$offset=0) {
   # get command meta
   my $key  = $self->{lis};
   my $sig  = $self->{sig};
-  my $pos  = $branch->{idex} + $offset;
+  my $pos  = (defined $offset)
+    ? $branch->{idex} + $offset
+    : 0
+    ;
 
   # walk signature
   my @out=();
@@ -611,11 +626,8 @@ sub argchk($self,$offset=0) {
 
 
     # go forward if found
-    if($have) {
-      push @out,$have;
-      $pos++;
-
-    };
+    push @out,$have;
+    $pos++ if $have;
 
   };
 

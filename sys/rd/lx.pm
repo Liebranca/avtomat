@@ -136,7 +136,6 @@ sub load_CMD($self,$update=0) {
   return $cmdlib
   if exists $cmdlib->{-re} &&! $update;
 
-
   # ^nope, regen!
   my @keys=keys %$tab;
 

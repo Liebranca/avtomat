@@ -52,7 +52,7 @@ sub build($class,$main) {
   my $guts_t = $mc->{ISA}->guts_t;
 
   # make wrappers for whole instruction set
-  my @fuck=wm_cmdsub $main,'asm-ins' => q(
+  wm_cmdsub $main,'asm-ins' => q(
     opt_qlist
 
   ) => @{$guts_t->list()};

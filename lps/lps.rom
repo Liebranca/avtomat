@@ -1,4 +1,8 @@
 %;
 
-RAM data;
-  byte aa (1 + 2) * 2;
+macro test {
+  stop solve;
+
+};
+
+test;

@@ -35,23 +35,24 @@ package rd::cmdlib::macro;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # makes new command!
 
 cmdsub macro => q(
-  bare,opt_vlist,curly
+  sym,opt_vlist,curly
 
 ) => q{
 
 
   # get ctx
   my $main  = $self->{frame}->{main};
+  my $l1    = $main->{l1};
   my $mc    = $main->{mc};
   my $scope = $mc->{scope};
-  my $path  = $mc->{path};
+  my @path  = @{$mc->{path}};
 
 
   # unpack
@@ -60,9 +61,11 @@ cmdsub macro => q(
 
 
   # redecl guard
-  $name=$name->{value};
-  $main->throw_redecl('user command'=>$name)
-  if $scope->has(@$path,'UCMD',$name);
+  $name=$l1->is_sym($name->{value});
+  push @path,macro=>$name;
+
+  $main->throw_redecl(macro=>$name)
+  if $scope->has(@path);
 
 
   # ^collapse optional
@@ -90,29 +93,60 @@ cmdsub macro => q(
 
   };
 
+  $main->{cmdlib}->new(
+
+    lis => $name,
+    pkg => __PACKAGE__,
+
+    fn  => undef,
+
+  );
+
   # ^save to current namespace and remove branch
-  $scope->decl($cmdtab,@$path,'UCMD',$name);
+  $scope->force_set($cmdtab,@path);
   $branch->discard();
 
-  my $lx  = $main->{lx};
-  my $CMD = $lx->load_CMD(1);
+  $main->{lx}->load_CMD(1);
 
-  use Fmat;
-  fatdump(\$CMD);
 
-  exit;
+  return;
 
 };
 
 # ---   *   ---   *   ---
 # hammer time!
 
-cmdsub stop => q() => q{
+cmdsub stop => q(opt_sym) => q{
 
-  my $main=$self->{frame}->{main};
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+  my $lx   = $main->{lx};
+  my $list = $lx->stages;
 
-  $main->{tree}->prich();
-  $main->perr('STOP');
+
+  # name of stage says *when* to stop!
+  my $stage=$branch->{leaves}->[0];
+
+  if($stage) {
+    $stage=$l1->is_sym($stage->{value});
+
+  };
+
+  $stage //= $list->[0];
+
+
+  # are we there yet? ;>
+  if($stage eq $list->[$main->{stage}]) {
+    $main->{tree}->prich();
+    $main->perr('STOP');
+
+  # ^nope, wait
+  } else {
+    $branch->{vref}=$stage;
+    $branch->clear();
+
+  };
 
 };
 

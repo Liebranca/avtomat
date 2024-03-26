@@ -134,7 +134,12 @@ sub defnit($class,$O) {
 
   # fetch coderefs (Storable can't ;>)
   map  {
+
     my $fn=$defs->{$ARG};
+       $fn=substr $fn,2,(length $fn) - 2;
+       $fn=\&$fn;
+
+    $defs->{$ARG}=$fn;
 
   } grep {
       defined $defs->{$ARG}

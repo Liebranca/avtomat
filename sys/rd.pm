@@ -243,7 +243,6 @@ sub crux($src,%O) {
   my $self=rd->new($src,%O);
   $self->parse();
 
-
   # strip parse tree?
   $self->strip() if $O{strip};
 
