@@ -62,9 +62,7 @@ St::vconst {
     readable   => [readable   => 1],
     writeable  => [writeable  => 1],
 
-
     const      => [writeable  => 0],
-    var        => [writeable  => 1],
 
 
     public     => [public     => 1],

@@ -46,7 +46,7 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#a
+  our $VERSION = v0.01.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -55,13 +55,22 @@ package rd;
 St::vconst {
 
 
-  # subpackages
-  layers  => [qw(l0 l1 l2 lx)],
+  # what the unset is set to!
+  DEFAULT => {
+    cmdlib => 'rd::cmdlib',
 
-  l0_t    => 'rd::l0',
-  l1_t    => 'rd::l1',
-  l2_t    => 'rd::l2',
-  lx_t    => 'rd::lx',
+  },
+
+
+  # subpackages
+  layers   => [qw(l0 l1 l2 lx)],
+
+  l0_t     => 'rd::l0',
+  l1_t     => 'rd::l1',
+  l2_t     => 'rd::l2',
+  lx_t     => 'rd::lx',
+
+  cmd_t    => 'rd::cmd',
 
 
   # ^wraps
@@ -172,6 +181,11 @@ sub new($class,$src,%O) {
     mc      => $O{mc}->{cls}->new(%{$O{mc}}),
 
 
+    # library of commands
+    cmdlib  => undef,
+    subpkg  => undef,
+
+
     # N repeats of a processing stage
     pass    => 0,
     passes  => {},
@@ -197,12 +211,19 @@ sub new($class,$src,%O) {
   },$class;
 
 
-  # init layers and give ice
+  # nit layers and give ice
   $self->cstruc_layers(
     map {$ARG=>$self}
     @{$self->layers}
 
   );
+
+
+  # nit command library
+  cloadi $class->cmd_t;
+
+  $self->{cmdlib}=
+    $class->cmd_t->new_frame(main=>$self),
 
 
   return $self;
@@ -257,6 +278,9 @@ sub next_stage($self) {
 
 # ---   *   ---   *   ---
 # first stage
+#
+# parses entire file/codestr
+# and outputs a tree
 
 sub parse($self) {
 
@@ -283,6 +307,89 @@ sub parse($self) {
 };
 
 # ---   *   ---   *   ---
+# parses fist expression
+#
+# this loads definitions accto
+# which subclass it redirects
+# us to
+
+sub parse_subclass($self) {
+
+
+  # get ctx
+  my $l0=$self->{l0};
+  my $l1=$self->{l1};
+
+  # parse first expression
+  $l0->parse_single();
+
+  # ^decompose
+  my $pkg  = $self->{tree}->{leaves}->[-1];
+  my @args = @{$pkg->{leaves}};
+  my $have = $pkg->{value};
+
+
+
+  # is first token operator?
+  if(
+
+     $have eq '$'
+  || defined ($have=$l1->is_opera($have))
+
+  ) {
+
+    # validate sigil
+    $self->perr(
+      "fmode '%s' not in table",
+      args=>[$have],
+
+    ) if ! exists $FMODE->{$have};
+
+
+    # set output mode from table
+    my $fmode=$FMODE->{$have};
+
+    # reset source package
+    $pkg=shift @args;
+    $self->{tree}->{value} .= $have;
+
+  };
+
+
+  # subclass provided?
+  if($pkg) {
+
+    # get path to language definitions
+    my $fpath="lps/$pkg->{value}.rom";
+
+    # ^validate
+    $self->perr(
+      "could not find '%s'",
+      args=>[$fpath],
+
+    ) if ! -f $fpath;
+
+
+    # [INSERT SUBCLASS-MUTATE]
+
+    $self->{tree}->{value} .= $pkg;
+
+  };
+
+
+  # load cmdlib
+  $pkg //= $self->DEFAULT->{cmdlib};
+  $self->{cmdlib}->load($pkg);
+  $self->{subpkg}=$pkg;
+
+
+  # pop expression from tree
+  $self->{tree}->{leaves}->[-1]->discard();
+  $self->{token}=undef;
+
+};
+
+# ---   *   ---   *   ---
 # ^all others!
 
 sub walk($self,%O) {
@@ -292,6 +399,7 @@ sub walk($self,%O) {
 
   $O{fwd}   //= $NOOP;
   $O{rev}   //= $NOOP;
+  $O{self}  //= undef;
 
   # get ctx
   my $l2   = $self->{l2};
@@ -465,76 +573,6 @@ sub cmd_name_rule($self) {
   &&! $self->blank()
 
   ;
-
-};
-
-# ---   *   ---   *   ---
-# parses fist expression
-#
-# this mutates the parser into
-# a derived class!
-
-sub parse_subclass($self) {
-
-  # get ctx
-  my $l0=$self->{l0};
-  my $l1=$self->{l1};
-
-  # parse first expression
-  $l0->parse_single();
-
-  # ^decompose
-  my $cmd  = $self->{tree}->{leaves}->[-1];
-  my @args = @{$cmd->{leaves}};
-  my $have = $cmd->{value};
-
-
-
-  # is first token operator?
-  if(defined ($have=$l1->is_opera($have))) {
-
-    # validate sigil
-    $self->perr(
-      "fmode '%s' not in table",
-      args=>[$have],
-
-    ) if ! exists $FMODE->{$have};
-
-
-    # set output mode from table
-    my $fmode=$FMODE->{$have};
-
-    # reset cmd
-    $cmd=shift @args;
-    $self->{tree}->{value} .= $have;
-
-  };
-
-
-  # subclass provided?
-  if($cmd) {
-
-    # get path to language definitions
-    my $fpath="lps/$cmd->{value}.rom";
-
-    # ^validate
-    $self->perr(
-      "could not find '%s'",
-      args=>[$fpath],
-
-    ) if ! -f $fpath;
-
-
-    # [INSERT SUBCLASS-MUTATE]
-
-    $self->{tree}->{value} .= $cmd;
-
-  };
-
-
-  # pop expression from tree
-  $self->{tree}->{leaves}->[-1]->discard();
-  $self->{token}=undef;
 
 };
 
@@ -820,6 +858,19 @@ sub perr($self,$me,%O) {
 
 
   return;
+
+};
+
+# ---   *   ---   *   ---
+# ^name collision
+
+sub throw_redecl($self,$type,$name) {
+
+  $self->perr(
+    "re-declaration of %s '%s'",
+    args=>[$type,$name]
+
+  );
 
 };
 

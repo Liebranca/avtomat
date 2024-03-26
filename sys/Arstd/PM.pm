@@ -242,15 +242,20 @@ sub redef($old,$new) {
 
 # ---   *   ---   *   ---
 # give first caller that
-# isn't Arstd::PM ;>
+# doesn't match passed name
 
 sub rcaller {
 
-  my $i   = 1;
-  my $pkg = caller $i++;
-     $pkg = caller $i++
+  # default to Arstd::PM ;>
+  my $name   = $_[0];
+     $name //= __PACKAGE__;
 
-  while $pkg eq __PACKAGE__;
+  # ^pop until another found
+  my $i    = 1;
+  my $pkg  = caller $i++;
+     $pkg  = caller $i++
+
+  while $pkg eq $name && $i < 0x24;
 
 
   return $pkg;

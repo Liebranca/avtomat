@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# RD:LX ASM
+# ASM
 # Pseudo assembler
 #
 # LIBRE SOFTWARE
@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package rd::lx::asm;
+package rd::cmdlib::asm;
 
   use v5.36.0;
   use strict;
@@ -28,74 +28,49 @@ package rd::lx::asm;
 
   use Arstd::Array;
   use Arstd::Bytes;
-  use Arstd::PM;
 
-  use rd::lx::common;
+# ---   *   ---   *   ---
+# adds to main::cmdlib
+
+  use   parent 'rd::cmd';
+  BEGIN {rd::cmd->defspkg};
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # custom import method to
 # make wrappers
 
-sub import($class) {
-
-  # get package we're merging with
-  my $dst=rcaller;
-
-  # ^add instruction wrappers
-  impwraps $dst,'$self->asm_ins_parse' => q(
-    $self,$branch
-
-  ),
-
-  map {["${ARG}_parse" => "\$branch"]}
-  qw  (load store);
-
-
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# keyword table
-
-sub cmdset($class,$ice) {
-
+sub build($class,$main) {
 
   # get ctx
-  my $main   = $ice->{main};
   my $mc     = $main->{mc};
-
   my $guts_t = $mc->{ISA}->guts_t;
 
+  # make wrappers for whole instruction set
+  my @fuck=wm_cmdsub $main,'asm-ins' => q(
+    opt_qlist
 
-  # give instruction list
-  return (
+  ) => @{$guts_t->list()};
 
-    ( map {$ARG => [$OPT_QLIST]}
-      @{$guts_t->list()}
 
-    ),
-
-    'asm-ins'   => [$OPT_QLIST],
-
-  );
+  # give table
+  return rd::cmd::build($class,$main);
 
 };
 
 # ---   *   ---   *   ---
 # template: read instruction
 
-sub asm_ins_parse($self,$branch) {
+cmdsub 'asm-ins' => q(opt_qlist) => q{
+
 
   # get ctx
-  my $main = $self->{main};
+  my $main = $self->{frame}->{main};
   my $mc   = $main->{mc};
   my $ISA  = $mc->{ISA};
 
@@ -109,7 +84,7 @@ sub asm_ins_parse($self,$branch) {
   my $type=undef;
   my @args=();
 
-  array_map \@list,sub ($kref,$vref) {
+  Arstd::Array::nmap \@list,sub ($kref,$vref) {
 
     my $k=$$kref;
     my $v=$$vref;
@@ -157,7 +132,7 @@ sub asm_arg($self,$branch,$iref) {
 
 
   # get ctx
-  my $main = $self->{main};
+  my $main = $self->{frame}->{main};
   my $mc   = $main->{mc};
   my $l1   = $main->{l1};
 

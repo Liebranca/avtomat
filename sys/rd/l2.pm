@@ -35,7 +35,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.2;#a
+  our $VERSION = v0.01.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -121,7 +121,8 @@ sub get_walk_array($self,$fn,@Q) {
 
 sub get_cmd_queue($self,$fn,@order) {
 
-  my $main=$self->{main};
+  my $main = $self->{main};
+  my $l2   = $main->{l2};
 
   map {
 
@@ -136,7 +137,7 @@ sub get_cmd_queue($self,$fn,@order) {
 
     # get head of branch is a command
     # enqueue exec layer if so
-    my $cmd=$self->cmd();
+    my $cmd=$l2->cmd();
 
     ($cmd && $cmd ne 1)
       ? [@$cmd,$rec]
@@ -220,19 +221,20 @@ sub parse($self) {
 sub walk($self,$branch,%O) {
 
   # defaults
-  $O{fwd} //= $NOOP;
-  $O{rev} //= $NOOP;
+  $O{fwd}  //= $NOOP;
+  $O{rev}  //= $NOOP;
+  $O{self} //= $self;
 
 
   # get walk order
-  my @order=$self->get_walk_array(
-    $O{fwd},$branch
+  my @order=get_walk_array(
+    $O{self},$O{fwd},$branch
 
   );
 
   # ^get execution queue
-  my @cmd=$self->get_cmd_queue(
-    $O{rev},reverse @order
+  my @cmd=get_cmd_queue(
+    $O{self},$O{rev},reverse @order
 
   );
 
@@ -263,7 +265,7 @@ sub exec_queue($self,@Q) {
 
 
     # unpack
-    my ($fn,$branch,$rec)=@$ARG;
+    my ($cmd,$branch,$rec)=@$ARG;
     $lx->exprbeg($rec);
 
 
@@ -271,20 +273,20 @@ sub exec_queue($self,@Q) {
     rept:
 
       $main->{branch}=$branch;
-      $lx->argchk() if ! $main->{stage};
+      $cmd->argchk();
 
-      my $have=$fn->($lx,$branch);
+      my $have=$cmd->{fn}->($cmd,$branch);
 
 
     # ^branch was mutated by proc
     if($have && $have eq $self->node_mutate()) {
 
       # have new command?
-      my $cmd=$self->cmd();
+      my $mut=$self->cmd();
 
       # ^replace and repeat if so
-      if($cmd && $cmd ne 1) {
-        ($fn,$branch)=@$cmd;
+      if($mut && $mut ne 1) {
+        ($cmd,$branch)=@$mut;
         goto rept;
 
       };
@@ -649,7 +651,7 @@ sub cmd($self) {
   my $lx   = $main->{lx};
 
   my $key = lc $main->{branch}->{value};
-  my $CMD = $lx->load_CMD();
+  my $tab = $lx->load_CMD();
 
   # build/fetch regex
   my $re=$l1->tagre(CMD=>'.+');
@@ -658,25 +660,38 @@ sub cmd($self) {
   if($key=~ $re) {
 
 
-    # get variation for current pass
+    # get definition for current stage
     my ($type,$value)=$l1->read_tag($key);
-    my $fn=$lx->stagef($value);
+    my $cmd=$tab->fetch($value);
+
+    # ^validate
+    if(! length $cmd) {
+
+      $main->{branch}->prich(errout=>1);
+
+      $main->perr(
+        "ID-mismatch; node mutation error",
+
+      );
+
+    };
+
 
     # ^save key
     $main->{branch}->{cmdkey}=$value;
 
 
     # consume argument nodes if need
-    $lx->argsume($main->{branch})
-    if ! $main->{stage};
+    $cmd->argsume($main->{branch})
+    if $cmd &&! $main->{stage};
 
 
     # give F to run if any
     #
     # else just signal that the node
     # is a command!
-    return (defined $fn)
-      ? [$fn=>$main->{branch}]
+    return (defined $cmd)
+      ? [$cmd=>$main->{branch}]
       : 1
       ;
 

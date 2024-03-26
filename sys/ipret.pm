@@ -40,7 +40,7 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -80,7 +80,11 @@ sub new($class,$src,%O) {
 
 sub mutate($class,$ice) {
 
+
+  # update instance
   $ice=bless {%$ice},$class;
+
+  # ^notify layers
   $ice->cstruc_layers(
     map {$ARG=>$ice}
     @{$ice->layers}
@@ -89,6 +93,15 @@ sub mutate($class,$ice) {
 
   map {$ice->{$ARG}->{main}=$ice}
   @{$ice->layers};
+
+  $ice->{cmdlib}->{main}=$ice;
+
+
+  # reload commands
+  my $pkg=$ice->{subpkg};
+     $pkg=$ice->{cmdlib}->mutate($pkg);
+
+  $ice->{subpkg}=$pkg;
 
 
   return $ice;
@@ -105,7 +118,14 @@ sub crux($src) {
   my $eng  = $self->engine_t;
   my $rev  = "$eng\::branch_solve";
 
-  $self->walk(limit=>2,rev=>\&$rev);
+  $self->walk(
+
+    self  => $self->{engine},
+
+    limit => 2,
+    rev   => \&$rev
+
+  );
 
 
   return $self;
@@ -157,13 +177,13 @@ sub ON_EXE($class,@input) {
   my ($src)=$m->take(@input);
 
   $WLog->err('no input',
-    from  => 'ipret',
+    from  => $class,
     lvl   => $AR_FATAL
 
   ) if ! $src;
 
 
-  # ~
+  # run!
   my $ice=crux($src);
 
 
@@ -178,16 +198,12 @@ sub ON_USE($class,$from,@nullarg) {
 
   no strict 'refs';
 
-  *ipret=*crux;
-
-  submerge(
-
-    [$class],
-
-    main  => $from,
-    subok => qr{^ipret$},
+  Arstd::PM::add_symbol(
+    "$from\::$class",
+    "$class\::crux"
 
   );
+
 
   return;
 

@@ -129,12 +129,7 @@ sub get_class($obj) {return ref $obj};
 
 sub defnit($class,$O) {
 
-#  # get skeleton
-#  map  {say {*STDERR} "$class -> $ARG";exit;}
-#  grep {is_coderef $defs->{$ARG}}
-#
-#  keys %$defs;
-
+  # get skeleton
   my $defs=dclone $class->DEFAULT;
 
   # fetch coderefs (Storable can't ;>)

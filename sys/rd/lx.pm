@@ -34,8 +34,6 @@ package rd::lx;
   use Arstd::PM;
   use Arstd::IO;
 
-  use rd::lx::common;
-
   use parent 'rd::layer';
 
 # ---   *   ---   *   ---
@@ -49,7 +47,6 @@ package rd::lx;
 
 St::vconst {
 
-  TABID   => 'CMD',
   DEFAULT => {
 
     main  => undef,
@@ -59,42 +56,7 @@ St::vconst {
 
   },
 
-  deps  => [qw(
-
-    rd::lx::cmd
-    rd::lx::dd
-
-    rd::lx::asm
-
-  )],
-
-  subex=>qr{^(?:
-    throw_ | Frame_Vars$ | cmdset$
-
-  )}x,
-
   stages=>[qw(parse solve xlate run)],
-
-};
-
-# ---   *   ---   *   ---
-# custom import method to
-# load implementations
-
-sub import($class) {
-
-
-  my $deps=$class->deps();
-  map {cloadi $ARG} @$deps;
-
-
-  submerge $deps,
-
-  main  => $class,
-  subex => $class->subex();
-
-
-  return;
 
 };
 
@@ -147,22 +109,6 @@ sub exprlink($self,$have) {
 };
 
 # ---   *   ---   *   ---
-# name of subroutine for current
-# rd/ipret step
-
-sub stagef($self,$key) {
-
-  my $CMD   = $self->load_CMD();
-
-  my $stage = $self->stagename();
-  my $fn    = $CMD->{$key}->{$stage};
-
-
-  return $fn;
-
-};
-
-# ---   *   ---   *   ---
 # get name of current rd/ipret step
 
 sub stagename($self) {
@@ -175,148 +121,38 @@ sub stagename($self) {
 };
 
 # ---   *   ---   *   ---
-# keyword table
-
-sub cmdset($self) {
-
-  return {
-
-    # dbout
-    echo => [$QLIST],
-    stop => [],
-
-    # import external
-    map {$ARG->cmdset($self)}
-    @{$self->deps()}
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# selfex
-
-sub stop_parse($self,$branch) {
-
-  my $main=$self->{main};
-
-  $main->{tree}->prich();
-  $main->perr('STOP');
-
-};
-
-# ---   *   ---   *   ---
-# template: collapse cmdlist in
-# reverse hierarchical order
-
-sub rcollapse_cmdlist($self,$branch,$fn) {
-
-
-  # get ctx
-  my $main = $self->{main};
-  my $l1   = $main->{l1};
-  my $l2   = $main->{l2};
-
-
-  # first token, first command
-  my @list = $l1->is_cmd($branch->{value});
-  my $par  = $branch->{parent};
-
-  # ^get tokens from previous iterations
-  push @list,@{$branch->{vref}}
-  if exists $branch->{vref};
-
-  $branch->{vref} = \@list;
-
-
-  # parent is command, keep collapsing
-  my $head = $l1->is_cmd($par->{value});
-  if(defined $head) {
-
-    # save commands to parent, they'll be
-    # picked up in the next run of this F
-    $par->{vref} //= [];
-    push @{$par->{vref}},@list;
-
-    # ^remove this token
-    $branch->flatten_branch();
-
-
-    return;
-
-
-  # ^stop at last node in the chain
-  } else {
-    $fn->();
-
-  };
-
-};
-
-# ---   *   ---   *   ---
 # generate/fetch command table
 
 sub load_CMD($self,$update=0) {
 
 
-  # skip update?
-  my $tab=$self->classcache($self->TABID);
+  # get ctx
+  my $main   = $self->{main};
+  my $cmdlib = $main->{cmdlib};
 
-  return $tab
-  if int %$tab &&! $update;
+  # skip update?
+  my $tab=$cmdlib->{icetab};
+
+  return $cmdlib
+  if exists $cmdlib->{-re} &&! $update;
 
 
   # ^nope, regen!
-  my $cmdset = $self->cmdset();
-  my @keys   = keys %$cmdset;
+  my @keys=keys %$tab;
 
-  %$tab=(
+  delete $cmdlib->{-re};
+  $cmdlib->{-re}=re_eiths(
 
+    \@keys,
 
-    # re to match any command name
-    -re=>re_eiths(
-
-      \@keys,
-
-      opscape => 1,
-      bwrap   => 1,
-      whole   => 1,
-
-    ),
-
-
-    # command list [cmd=>attrs]
-    map {
-
-
-      # get name of command
-      my $key   = $ARG;
-      my $args  = $cmdset->{$key};
-
-      my $plkey =  $key;
-         $plkey =~ s[\-][_]sxmg;
-
-
-      # get subroutine variants of
-      # command per rd/ipret step
-      $key => {
-
-        -args=>$args,
-
-        map { $ARG => codefind(
-          (ref $self),"${plkey}_$ARG"
-
-        )} @{$self->stages()}
-
-      };
-
-
-    } @keys
+    opscape => 1,
+    bwrap   => 1,
+    whole   => 1,
 
   );
 
 
-  return $tab;
+  return $cmdlib;
 
 };
 
