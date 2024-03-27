@@ -1,8 +1,8 @@
 %;
 
-macro test {
-  stop solve;
+macro test x,y {
+  paste x,y;
 
 };
 
-test;
+test AA,BB;

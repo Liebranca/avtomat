@@ -36,7 +36,7 @@ package rd::cmd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -56,6 +56,8 @@ sub defspkg($class,@args) {
     m_cmdsub
     w_cmdsub
     wm_cmdsub
+
+    unrev
 
   );
 
@@ -107,10 +109,13 @@ St::vconst {
   # defnit
   DEFAULT => {
 
-    lis  => 'nop',
-    sig  => [],
+    lis   => 'nop',
+    sig   => [],
 
-    fn   => '\&nop',
+    fn    => '\&nop',
+    unrev => 0,
+
+    pkg   => __PACKAGE__,
 
   },
 
@@ -189,10 +194,12 @@ sub new($class,$frame,%O) {
   # make ice
   my $self=bless {
 
-    lis  => $O{lis},
+    lis   => $O{lis},
 
-    sig  => $sig,
-    fn   => $O{fn},
+    sig   => $sig,
+    fn    => $O{fn},
+
+    unrev => $O{unrev},
 
   },$O{pkg};
 
@@ -244,6 +251,8 @@ sub mutate($class,$frame,$oldpkg) {
 
   # clear cache
   delete $frame->{icebox};
+  delete $frame->{icetab};
+
   $frame->{icebox}=Cask->new();
 
   #^load new
@@ -407,8 +416,24 @@ sub wm_cmdsub($main,$name,$sig,@list) {
 };
 
 # ---   *   ---   *   ---
-# ^placeholder method for any
-# such dynamic definitions
+# 'rev' stands for how the parser
+# solves branch symbols from
+# bottom to root
+#
+# 'unrev' means that a command wants
+# to be processed first, and so
+# the parser should put it's leafs
+# on hold!
+
+sub unrev($cstruc) {
+  $cstruc->{unrev}=1;
+  return $cstruc;
+
+};
+
+# ---   *   ---   *   ---
+# placeholder method for any
+# dynamic definitions
 
 sub build($class,$main) {
   return $class->cmdtab;
@@ -450,115 +475,57 @@ sub next_arg($self,$nd) {
 };
 
 # ---   *   ---   *   ---
-# replace argument name with
-# placeholder for later replacement
+# proc branch leaf as a
+# list of arguments
 
-sub repl_arg_setup($self,$body,$argname,$idex) {
+sub arglist($self,$branch,$idex=0) {
 
 
   # get ctx
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
 
-  # make regexes for finding arg
-  my $subst    = "\Q$argname";
-  my $subststr = "\%$subst\%";
-     $subst    = qr{\b(?:$subst)\b};
-     $subststr = qr{(?:$subststr)};
-
-  my $place    = ":__ARG[$idex]__:";
-  my $replre   = qr"\Q$place";
+  # get leaf to proc
+  my $args_lv=$branch->{leaves}->[$idex];
+  return [] if ! $args_lv;
 
 
-  # recursive walk tree of body
-  my $replpath = [];
-  my @pending  = $body;
+  # got list or single elem?
+  my $key  = $args_lv->{value};
+  my $args = (defined $l1->is_list($key))
+    ? $args_lv->{leaves}
+    : [$args_lv]
+    ;
 
-  while(@pending) {
-
-    my $nd=shift @pending;
-
-
-    # have string?
-    my $re=(defined $l1->is_string($nd->{value}))
-      ? $subststr
-      : $subst
-      ;
-
-    # argument name fond?
-    if($nd->{value}=~ s[$re][$place]) {
-      my $path=$nd->ancespath($body);
-      push @$replpath,$path;
-
-    };
-
-
-    # go next
-    unshift @pending,@{$nd->{leaves}};
-
-  };
-
-
-  # give regexes
-  return {
-    path => $replpath,
-    re   => $replre,
-
-  };
+  # ^pluck and give
+  $branch->pluck($args_lv);
+  return $args;
 
 };
 
 # ---   *   ---   *   ---
-# prepares a table of arguments
-# with default values and
-# replacement paths into
-# command body
+# ^proc && pop N leaves
 
-sub argread($self,$args,$body) {
+sub argtake($self,$branch,$len=1) {
 
 
   # get ctx
-  my $main = $self->{frame}->{main};
-  my $l1   = $main->{l1};
+  my $args = [map {@{
+    $self->arglist($branch)
 
-  # got list or single elem?
-  my $ar=(defined $l1->is_list($args->{value}))
-    ? $args->{leaves}
-    : [$args]
-    ;
+  }} 1..$len];
 
 
-  # make argsfield
-  my $idex = 0;
-  my $tab  = [ map {
+  # give [name => value]
+  return map {
 
-
-    # parse next
     my ($argname,$defval)=
       $self->next_arg($ARG);
 
-    # make replacement paths
-    my $repl=$self->repl_arg_setup(
-      $body,$argname,$idex++
-
-    );
+    [$argname,$defval];
 
 
-    # give argname => argdata
-    $argname=>{
-      repl   => $repl,
-      defval => $defval,
-
-    };
-
-
-  } @$ar ];
-
-
-  # cleanup and give
-  $args->discard();
-
-  return $tab;
+  } @$args;
 
 };
 
@@ -610,6 +577,7 @@ sub argchk($self,$offset=undef) {
     ? $branch->{idex} + $offset
     : 0
     ;
+
 
   # walk signature
   my @out=();

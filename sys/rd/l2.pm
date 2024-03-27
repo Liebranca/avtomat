@@ -35,7 +35,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.3;#a
+  our $VERSION = v0.01.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -216,7 +216,8 @@ sub parse($self) {
 };
 
 # ---   *   ---   *   ---
-# ^generic walk
+# generic iter-through of
+# an array of nodes
 
 sub walk($self,$branch,%O) {
 
@@ -266,7 +267,13 @@ sub exec_queue($self,@Q) {
 
     # unpack
     my ($cmd,$branch,$rec)=@$ARG;
+
     $lx->exprbeg($rec);
+
+    if(my @unrev=$lx->bunrev($branch)) {
+      goto skip;
+
+    };
 
 
     # validate and run
@@ -296,6 +303,8 @@ sub exec_queue($self,@Q) {
 
     # save and give result if defined
     $lx->exprlink($have);
+
+    skip:
 
 
   # avoid processing the same node twice
@@ -385,6 +394,7 @@ sub cslist($self) {
 
     my @lv=@{$branch->{leaves}};
        @lv=@lv[$idex..$idex+2];
+
 
     # have [list] COMMA [value]?
     ($anchor)=(! $anchor || $idex > $pos)

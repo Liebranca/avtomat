@@ -874,6 +874,22 @@ sub throw_redecl($self,$type,$name) {
 };
 
 # ---   *   ---   *   ---
+# ^no name!
+
+sub throw_undefined($self,$type,$name,@path) {
+
+  @path=@{$self->{mc}->{path}}
+  if ! @path;
+
+  $self->perr(
+    "undefined %s '%s' at namespace [errtag]:%s",
+    args=>[$type,$name,(join '::',@path)]
+
+  );
+
+};
+
+# ---   *   ---   *   ---
 # dbout
 
 sub prich($self,%O) {

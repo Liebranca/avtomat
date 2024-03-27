@@ -102,6 +102,7 @@ sub mutate($class,$ice) {
      $pkg=$ice->{cmdlib}->mutate($pkg);
 
   $ice->{subpkg}=$pkg;
+  $ice->{lx}->load_CMD(1);
 
 
   return $ice;

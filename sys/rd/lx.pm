@@ -109,6 +109,52 @@ sub exprlink($self,$have) {
 };
 
 # ---   *   ---   *   ---
+# branch is children to a
+# node that un-reverses the
+# walk order
+
+sub bunrev($self,$branch) {
+
+
+  # no parent, no walkback!
+  return null
+  if ! $branch->{parent};
+
+
+  # get ctx
+  my $main   = $self->{main};
+  my $l1     = $main->{l1};
+
+  my $cmdlib = $main->{cmdlib};
+
+
+  # ascend the hierarchy
+  my $anchor = $branch->{parent};
+  my @have   = ();
+
+  while($anchor) {
+
+    # get topmost command that has
+    # the unrev flag set
+    if(my $key=$l1->is_cmd($anchor->{value})) {
+
+      my $cmd=$cmdlib->fetch($key);
+      @have=($cmd,$anchor) if $cmd->{unrev};
+
+    };
+
+
+    # go next
+    $anchor=$anchor->{parent};
+
+  };
+
+
+  return @have;
+
+};
+
+# ---   *   ---   *   ---
 # get name of current rd/ipret step
 
 sub stagename($self) {
