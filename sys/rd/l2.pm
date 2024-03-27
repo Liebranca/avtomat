@@ -196,7 +196,6 @@ sub parse($self) {
   # ^save current
   my $old=$main->{branch};
 
-
   # run and capture results
   my @out=$self->walk(
 
@@ -246,6 +245,54 @@ sub walk($self,$branch,%O) {
 };
 
 # ---   *   ---   *   ---
+# ^a walk within a walk!
+
+sub recurse($self,$branch,%O) {
+
+  my $old=$self->save_state();
+  my @out=$self->walk($branch,%O);
+
+  $self->load_state($old);
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# saves current state and
+# clears it
+
+sub save_state($self) {
+
+  # capt
+  my $old={
+    walked => {%{$self->{walked}}},
+    branch => $self->{main}->{branch},
+
+  };
+
+  # ^clear and give
+  $self->{walked}         = {};
+  $self->{main}->{branch} = undef;
+
+  return $old;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo!
+
+sub load_state($self,$old) {
+
+  $self->{walked}         = $old->{walked};
+  $self->{main}->{branch} = $old->{branch};
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # go through [F,node,recurse] list
 # and run F->(node)
 #
@@ -267,9 +314,9 @@ sub exec_queue($self,@Q) {
 
     # unpack
     my ($cmd,$branch,$rec)=@$ARG;
-
     $lx->exprbeg($rec);
 
+    # top node forcing un-reversal?
     if(my @unrev=$lx->bunrev($branch)) {
       goto skip;
 
@@ -309,8 +356,8 @@ sub exec_queue($self,@Q) {
 
   # avoid processing the same node twice
   } grep {
-    $walked->{$ARG->[1]}//=0;
-  ! $walked->{$ARG->[1]}++
+    $walked->{$ARG->[1]->{-uid}}//=0;
+  ! $walked->{$ARG->[1]->{-uid}}++
 
   } @Q;
 

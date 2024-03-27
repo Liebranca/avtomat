@@ -128,7 +128,7 @@ St::vconst {
   qlist => cmdarg(['LIST','ANY']),
   vlist => cmdarg(
 
-    ['LIST','OPERA','SYM','BARE'],
+    ['LIST','OPERA','CMD','SYM','BARE'],
     value=>'[^\{]+'
 
   ),
@@ -137,10 +137,18 @@ St::vconst {
   # single token
   sym  => cmdarg(['SYM']),
   bare => cmdarg(['BARE']),
+  num  => cmdarg(['NUM']),
+
+  # sym=(any)
+  arg => cmdarg(
+    ['OPERA','SYM'],
+    value=>'(?:[=]|[^=]+)'
+
+  ),
 
 
   # optional variants
-  opt_cmdarg(qw(qlist vlist sym)),
+  opt_cmdarg(qw(qlist vlist sym num)),
 
 
   # delimiters
@@ -443,7 +451,13 @@ sub build($class,$main) {
 # ---   *   ---   *   ---
 # parse argname(=value)?
 
-sub next_arg($self,$nd) {
+sub argproc($self,$nd) {
+
+
+  # assume already processed if
+  # input is not a tree
+  return $nd
+  if ! Tree->is_valid($nd);
 
 
   # get ctx
@@ -461,16 +475,74 @@ sub next_arg($self,$nd) {
   # ^yep
   if(defined $opera && $opera eq '=') {
 
-    ($argname,$defval)=(
-      $nd->{leaves}->[0]->{value},
-      $nd->{leaves}->[1]
+    ($argname,$defval)=map {
 
-    );
+      my $out=$nd->{leaves}->[$ARG];
+
+      (! @{$out->{leaves}})
+        ? $out->{value}
+        : $out
+        ;
+
+    } 0..1;
 
   };
 
 
-  return ($argname,$defval);
+  return {
+
+    id     => $argname,
+    type   => 'sym',
+
+    defval => $defval,
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# expand token tree accto
+# type of first token
+
+sub argex($self,$lv) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+  # fstate
+  my $key  = $lv->{value};
+  my @nest = @{$lv->{leaves}};
+
+
+  # have list?
+  if(defined $l1->is_list($key)) {
+    return map {$self->argex($ARG)} @nest;
+
+
+  # have sub-branch?
+  } elsif(defined $l1->is_branch($key)) {
+
+    return
+
+      map {$self->argex($ARG)}
+      map {@{$ARG->{leaves}}} @nest;
+
+  # have command?
+  } elsif(defined (my $have=$l1->is_cmd($key))) {
+
+    my $l2=$main->{l2};
+    $l2->recurse($lv);
+
+    return $lv->{vref};
+
+
+  # have single token!
+  } else {
+    return $lv;
+
+  };
 
 };
 
@@ -481,25 +553,13 @@ sub next_arg($self,$nd) {
 sub arglist($self,$branch,$idex=0) {
 
 
-  # get ctx
-  my $main = $self->{frame}->{main};
-  my $l1   = $main->{l1};
-
   # get leaf to proc
-  my $args_lv=$branch->{leaves}->[$idex];
-  return [] if ! $args_lv;
-
-
-  # got list or single elem?
-  my $key  = $args_lv->{value};
-  my $args = (defined $l1->is_list($key))
-    ? $args_lv->{leaves}
-    : [$args_lv]
-    ;
+  my $lv=$branch->{leaves}->[$idex];
+  return [] if ! $lv;
 
   # ^pluck and give
-  $branch->pluck($args_lv);
-  return $args;
+  ($lv)=$branch->pluck($lv);
+  return $self->argex($lv);
 
 };
 
@@ -509,30 +569,23 @@ sub arglist($self,$branch,$idex=0) {
 sub argtake($self,$branch,$len=1) {
 
 
-  # get ctx
-  my $args = [map {@{
-    $self->arglist($branch)
-
-  }} 1..$len];
-
-
   # give [name => value]
   return map {
-
-    my ($argname,$defval)=
-      $self->next_arg($ARG);
-
-    [$argname,$defval];
+    $self->argproc($ARG);
 
 
-  } @$args;
+  # ^from expanded token tree
+  } map {
+    $self->arglist($branch)
+
+  } 1..$len;
 
 };
 
 # ---   *   ---   *   ---
 # look at single type option for arg
 
-sub argtypechk($self,$arg,$pos) {
+sub argtypechk($self,$arg,$pos,$subpos) {
 
 
   # get anchor
@@ -540,6 +593,21 @@ sub argtypechk($self,$arg,$pos) {
   my $l1   = $main->{l1};
 
   my $nd   = $main->{branch};
+  my $list = 0;
+
+
+  # ^get node to type-check!
+  my $chd  = $nd->{leaves}->[$pos];
+
+  if($chd && $arg->{type}->[0] ne 'LIST'
+  && defined $l1->is_list($chd->{value})) {
+
+    my $have=$chd->{leaves};
+       $list=$subpos < @$have;
+
+    $chd=$have->[$subpos] if $list;
+
+  };
 
 
   # walk possible types
@@ -549,13 +617,21 @@ sub argtypechk($self,$arg,$pos) {
     my $re=$l1->tagre($type => $arg->{value});
 
     # return true on pattern match
-    my $chd=$nd->{leaves}->[$pos];
-    return $chd if $chd && $chd->{value}=~ $re;
+    my $match=
+
+       defined $chd
+    && defined $chd->{value}
+
+    && int($chd->{value}=~ $re);
+
+
+    return ($chd,$list,$match) if $match;
+
 
   };
 
 
-  return 0;
+  return ($chd,$list,0);
 
 };
 
@@ -574,7 +650,7 @@ sub argchk($self,$offset=undef) {
   my $key  = $self->{lis};
   my $sig  = $self->{sig};
   my $pos  = (defined $offset)
-    ? $branch->{idex} + $offset
+    ? $offset
     : 0
     ;
 
@@ -582,20 +658,25 @@ sub argchk($self,$offset=undef) {
   # walk signature
   my @out=();
 
-  for my $arg(@$sig) {
+  for my $subpos(0..@$sig-1) {
 
 
     # get value matches type
-    my $have=$self->argtypechk($arg,$pos);
+    my $arg=$sig->[$subpos];
+    my ($have,$list,$match)=$self->argtypechk(
+      $arg,$pos,$subpos
+
+    );
 
     # ^die on not found && non-optional
-    $self->throw_badargs($arg,$pos)
-    if ! $have &&! $arg->{opt};
+    $self->throw_badargs($arg,[$pos,$subpos],$list)
+    if (! $have &&! $arg->{opt})
+    || (  $have &&! $match);
 
 
     # go forward if found
     push @out,$have;
-    $pos++ if $have;
+    $pos++ if $have &&! $list;
 
   };
 
@@ -607,7 +688,7 @@ sub argchk($self,$offset=undef) {
 # ---   *   ---   *   ---
 # ^errme
 
-sub throw_badargs($self,$arg,$pos) {
+sub throw_badargs($self,$arg,$pos,$list) {
 
   # get ctx
   my $main  = $self->{frame}->{main};
@@ -618,7 +699,10 @@ sub throw_badargs($self,$arg,$pos) {
 
   # dbout branch
   $main->{branch}->prich(errout=>1);
-  $value=$value->[$pos]->{value};
+  $value=($list)
+    ? $value->[$pos->[0]]->leaf_value($pos->[1])
+    : $value->[$pos->[0]]->{value}
+    ;
 
 
   # errout and die
@@ -633,7 +717,7 @@ sub throw_badargs($self,$arg,$pos) {
     args=>[
 
       $self->{lis},
-      $pos,$value,
+      $pos->[1],$value,
 
       $arg->{value},
       @types
@@ -670,7 +754,7 @@ sub argsume($self,$branch) {
   $main->{branch}=$par;
 
   # consume sibling nodes as arguments
-  my @have=$self->argchk(1);
+  my @have=$self->argchk($branch->{idex}+1);
   $branch->pushlv(@have);
 
 

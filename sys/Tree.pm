@@ -37,13 +37,15 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.0;
+  our $VERSION = v0.03.1;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
   sub Frame_Vars($class) {return {
+
+    uid       => 0x00,
 
     -roots    => {},
     -autoload => [qw(from_list)],
@@ -189,7 +191,9 @@ sub new($class,$frame,$parent,$val,%O) {
 
     plucked    => 0,
     '*fetch'   => undef,
+
     -skipio    => 0,
+    -uid       => $frame->{uid}++,
 
   },$class;
 
@@ -715,6 +719,7 @@ sub pushlv($self,@pending) {
 
     if($par && $par != $node->{parent}) {
       $par->pluck($node);
+      $node->{parent}=$self;
 
     };
 
@@ -977,8 +982,10 @@ sub pluck($self,@pending) {
 
       push @plucked,$leaf;
 
-      $leaf->{plucked}=1;
-      $leaf=undef;
+      $leaf->{parent}  = undef;
+      $leaf->{plucked} = 1;
+
+      $leaf            = undef;
 
     };
 

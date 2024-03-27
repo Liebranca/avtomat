@@ -117,7 +117,7 @@ sub bunrev($self,$branch) {
 
 
   # no parent, no walkback!
-  return null
+  return ()
   if ! $branch->{parent};
 
 

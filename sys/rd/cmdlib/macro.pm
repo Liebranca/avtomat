@@ -39,9 +39,59 @@ package rd::cmdlib::macro;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
+# these are token-types, meaningful
+# only to the parser
+#
+# we turn them into commands so that
+# it restrucs the following tree:
+#
+# (top)
+# \-->token-type
+# \-->token
+#
+#
+# so that it looks like this:
+#
+# (top)
+# \-->[*token-type]
+# .  \-->token
+#
+#
+# that makes it so lists of such commands
+# can be parsed without a (parens) wrap!
+
+cmdsub 'token-type' => q(arg) => q{
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+  my $lv   = $branch->{leaves}->[0];
+
+
+  # proc input
+  my $type = $l1->is_cmd($branch->{value});
+  my $have = $self->argproc($lv);
+
+  # ^save and clear
+  $have->{type}   = $type;
+  $branch->{vref} = $have;
+
+  $branch->clear();
+
+  return;
+
+};
+
+w_cmdsub 'token-type' => q(arg) => qw(
+  sym bare num
+
+);
+
+# ---   *   ---   *   ---
 # ~
 
 cmdsub 'macro-paste' => q(opt_qlist) => q{
+
 
   # get ctx
   my $main  = $self->{frame}->{main};
@@ -64,15 +114,13 @@ cmdsub 'macro-paste' => q(opt_qlist) => q{
 
 
   # process arguments
-  my $repl = $have->{repl};
-  my $sig  = $have->{sig};
-
+  my $sig  = $have->{args};
   my @args = $self->argtake($branch);
 
   # ~
   use Fmat;
   fatdump \[@args];
-  fatdump \$repl;
+  fatdump \$sig;
 
   exit;
 
@@ -149,25 +197,15 @@ sub macro_proc_args($self,$body,@args) {
 
   map {
 
-
-    # unpack
-    my ($argname,$defval)=@$ARG;
-
-    # make replacement paths
-    my $repl=$self->macro_repl_args(
-      $body,$argname,$idex++
+    $ARG->{repl}=$self->macro_repl_args(
+      $body,$ARG->{id},$idex++
 
     );
 
-
-    # give argname => argdata
-    $argname=>{
-      repl   => $repl,
-      defval => $defval,
-
-    };
-
   } @args;
+
+
+  return;
 
 };
 
@@ -178,7 +216,6 @@ unrev cmdsub macro => q(
   sym,opt_vlist,curly
 
 ) => q{
-
 
   # get ctx
   my $main  = $self->{frame}->{main};
@@ -197,11 +234,12 @@ unrev cmdsub macro => q(
     : $self->argtake($branch,1)
     ;
 
+
   # last node is macro body
   my $body=$branch->{leaves}->[0];
 
   # redecl guard
-  $name=$l1->is_sym($name->[0]);
+  $name=$l1->is_sym($name->{id});
   push @path,macro=>$name;
 
   $main->throw_redecl(macro=>$name)
@@ -209,42 +247,26 @@ unrev cmdsub macro => q(
 
 
   # prepare replacement paths
-  @args=$self->macro_proc_args($body,@args);
+  $self->macro_proc_args($body,@args);
 
-  # generate signature for internal check
-  my $real_sig=[];
 
-  for my $i(0..(@args >> 1)-1) {
+  # generate signature
+  my @sig=map {
 
-    my ($tag,$data)=(
-      $args[($i << 1)+0],
-      $args[($i << 1)+1],
-
-    );
-
-    my $opt=(defined $data->{defval})
+    my $opt=(defined $ARG->{defval})
       ? 'opt_'
       : null
       ;
 
-    push @$real_sig,"${opt}sym";
+    "${opt}$ARG->{type}";
 
-  };
-
-  # ^fake signature for the parser ;>
-  my $fake_sig=(@$real_sig)
-    ? ['opt_vlist']
-    : []
-    ;
+  } @args;
 
 
   # source data for macro-paste
   my $data={
-
-    body   => $body,
-    repl   => \@args,
-
-    sig    => $real_sig,
+    body => $body,
+    args => \@args,
 
   };
 
@@ -261,7 +283,7 @@ unrev cmdsub macro => q(
 
     lis => $name,
     pkg => __PACKAGE__,
-    sig => $fake_sig,
+    sig => \@sig,
 
     fn  => $solve->{fn},
 
@@ -271,6 +293,7 @@ unrev cmdsub macro => q(
   # save to current namespace and remove branch
   $scope->force_set($data,@path);
   $branch->discard();
+
   $body->{parent}=undef;
 
 

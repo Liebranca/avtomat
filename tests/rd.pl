@@ -12,7 +12,7 @@ package main;
   use lib $ENV{ARPATH}.'/avtomat/sys/';
   use Style;
 
-  use ipret;
+  use rd;
   use Bpack;
 
   use Arstd::Bytes;
@@ -24,7 +24,7 @@ package main;
 use Fmat;
 use Arstd::xd;
 
-my $main = ipret('./lps/lps.rom');
+my $main = rd('./lps/lps.rom');
 $main->prich();
 
 # ---   *   ---   *   ---

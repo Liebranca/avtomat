@@ -1,7 +1,7 @@
 %;
 
-macro test x,y {
-  paste x,y;
+macro test x,num y=1 {
+  paste x;
 
 };
 
