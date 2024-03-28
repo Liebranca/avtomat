@@ -35,7 +35,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.4;#a
+  our $VERSION = v0.01.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -249,46 +249,13 @@ sub walk($self,$branch,%O) {
 
 sub recurse($self,$branch,%O) {
 
-  my $old=$self->save_state();
+  my $old=$self->{main}->{$branch};
   my @out=$self->walk($branch,%O);
 
-  $self->load_state($old);
+  $self->{main}->{branch}=$old;
 
 
   return @out;
-
-};
-
-# ---   *   ---   *   ---
-# saves current state and
-# clears it
-
-sub save_state($self) {
-
-  # capt
-  my $old={
-    walked => {%{$self->{walked}}},
-    branch => $self->{main}->{branch},
-
-  };
-
-  # ^clear and give
-  $self->{walked}         = {};
-  $self->{main}->{branch} = undef;
-
-  return $old;
-
-};
-
-# ---   *   ---   *   ---
-# ^undo!
-
-sub load_state($self,$old) {
-
-  $self->{walked}         = $old->{walked};
-  $self->{main}->{branch} = $old->{branch};
-
-  return;
 
 };
 
@@ -318,6 +285,7 @@ sub exec_queue($self,@Q) {
 
     # top node forcing un-reversal?
     if(my @unrev=$lx->bunrev($branch)) {
+      $walked->{$branch->{-uid}}--;
       goto skip;
 
     };

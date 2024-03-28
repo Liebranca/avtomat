@@ -32,7 +32,7 @@ package rd::cmdlib;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -42,10 +42,13 @@ St::vconst {
 
   list => [qw(
 
-    rd::cmdlib::switch
+    rd::cmdlib::generic
+
     rd::cmdlib::macro
-    rd::cmdlib::asm
+    rd::cmdlib::switch
+
     rd::cmdlib::dd
+    rd::cmdlib::asm
 
   )],
 

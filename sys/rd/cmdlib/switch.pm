@@ -87,18 +87,6 @@ w_cmdsub 'switch' => q(opt_qlist) => qw(
 # (?=on/or) [elem] from [list]
 # is how we do iterators!
 
-cmdsub 'from' => q(opt_qlist) => q{
-
-  return if $branch->{vref};
-
-  my @args=$self->argtake($branch);
-
-  $branch->{vref}=\@args;
-  $branch->clear();
-
-
-  return;
-
-};
+w_cmdsub 'csume-list' => q(qlist) => 'from';
 
 # ---   *   ---   *   ---

@@ -321,11 +321,29 @@ sub cmdtab($class) {
 # ---   *   ---   *   ---
 # dynamic table read
 #
-# this returns a string for a
-# method builder!
+# it will try and find the given
+# name in the class' table
+#
+# if that fails, it'll look into
+# the global table!
 
-sub cmdfn($class,$var,$name) {
-  "my \$$var=$class->cmdtab->{'$name'}->{fn};";
+sub cmdfn($self,$name) {
+
+  my $class = ref $self;
+  my $out   = $class->cmdtab->{$name}->{fn};
+
+  if(! defined $out) {
+
+    my $main = $self->{frame}->{main};
+    my $lib  = $main->{cmdlib};
+
+    my $have = $lib->fetch($name);
+
+    $out=$have->{fn};
+
+  };
+
+  return $out;
 
 };
 
@@ -395,16 +413,28 @@ sub m_cmdsub($main,$lis,$sig,@body) {
 };
 
 # ---   *   ---   *   ---
+# two lines of code common
+# to wrapper methods
+
+sub wrapper($class,$name) {
+
+  return
+
+    "my \$fn=\$self->cmdfn('$name')",
+    q{$fn->($self,$branch)};
+
+};
+
+# ---   *   ---   *   ---
 # batch-wrap another method
 
 sub w_cmdsub($name,$sig,@list) {
 
   my $class=caller;
 
-  map { cmdsub $ARG => $sig
-
-  => $class->cmdfn(fn=>$name)
-  => q{$fn->($self,$branch)}
+  map { cmdsub $ARG
+  => $sig
+  => wrapper $class,$name
 
   } @list;
 
@@ -417,10 +447,9 @@ sub wm_cmdsub($main,$name,$sig,@list) {
 
   my $class=caller;
 
-  map { m_cmdsub $main,$ARG => $sig
-
-  => $class->cmdfn(fn=>$name)
-  => q{$fn->($self,$branch)}
+  map { m_cmdsub $main,$ARG
+  => $sig
+  => wrapper $class,$name
 
   } @list;
 

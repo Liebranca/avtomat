@@ -223,6 +223,9 @@ cmdsub 'macro-paste' => q(opt_qlist) => q{
   $branch->flatten_branch();
 
 
+  return;
+
+
 };
 
 # ---   *   ---   *   ---
@@ -408,6 +411,7 @@ unrev cmdsub macro => q(
 
 cmdsub stop => q(opt_sym) => q{
 
+
   # get ctx
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
@@ -441,20 +445,9 @@ cmdsub stop => q(opt_sym) => q{
 };
 
 # ---   *   ---   *   ---
-# dbout (placeholder)
+# dbout
 
-cmdsub echo => q(qlist) => q{
-
-  return if $branch->{vref};
-
-  my @args=$self->argtake($branch);
-
-  $branch->{vref}=\@args;
-  $branch->clear();
-
-  return;
-
-};
+w_cmdsub 'csume-list' => q(qlist) => 'echo';
 
 # ---   *   ---   *   ---
 1; # ret
