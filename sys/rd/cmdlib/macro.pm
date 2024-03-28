@@ -19,12 +19,11 @@ package rd::cmdlib::macro;
   use strict;
   use warnings;
 
-  use Readonly;
   use English qw(-no_match-vars);
-
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Chk;
 
 # ---   *   ---   *   ---
 # adds to main::cmdlib
@@ -91,12 +90,31 @@ w_cmdsub 'token-type' => q(arg) => qw(
 );
 
 # ---   *   ---   *   ---
-# ~
+# puts argument values in
+# body of macro
 
 sub macro_repl($self,$body,$repl,$value) {
 
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
   my $path = $repl->{path};
   my $re   = $repl->{re};
+
+
+  # array to list
+  if(is_arrayref $value) {
+
+    my $nd=$main->{tree}->{frame}->new(
+      undef,$l1->make_tag(LIST=>'X')
+
+    );
+
+    map {$nd->inew($ARG)} @$value;
+    $value=$nd;
+
+  };
 
 
   # replacing branches
@@ -132,7 +150,6 @@ sub macro_repl($self,$body,$repl,$value) {
 
 cmdsub 'macro-paste' => q(opt_qlist) => q{
 
-
   # get ctx
   my $main  = $self->{frame}->{main};
   my $mc    = $main->{mc};
@@ -167,7 +184,11 @@ cmdsub 'macro-paste' => q(opt_qlist) => q{
 
     # set default value?
     $args[$idex]=(defined $args[$idex])
-    ? $args[$idex]->{id}
+
+    ? ($ARG->{type} eq 'qlist')
+      ? [map {$ARG->{id}} @args[$idex..$#args]]
+      : $args[$idex]->{id}
+
     : $ARG->{defval}
     ;
 
@@ -190,12 +211,14 @@ cmdsub 'macro-paste' => q(opt_qlist) => q{
 
 
   # recurse for each sub-branch
-  my $l2=$main->{l2};
+  my $l2 = $main->{l2};
+  my @Q  = @{$branch->{leaves}};
+
   map {
-    my $lv=$ARG->flatten_branch();
+    my $lv=$ARG;
     $l2->recurse($lv);
 
-  } @{$branch->{leaves}};
+  } @Q;
 
   $branch->flatten_branch();
 
@@ -421,7 +444,15 @@ cmdsub stop => q(opt_sym) => q{
 # dbout (placeholder)
 
 cmdsub echo => q(qlist) => q{
-  say 'NYI: ECHOVARS';
+
+  return if $branch->{vref};
+
+  my @args=$self->argtake($branch);
+
+  $branch->{vref}=\@args;
+  $branch->clear();
+
+  return;
 
 };
 

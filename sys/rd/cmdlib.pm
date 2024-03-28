@@ -41,6 +41,8 @@ package rd::cmdlib;
 St::vconst {
 
   list => [qw(
+
+    rd::cmdlib::switch
     rd::cmdlib::macro
     rd::cmdlib::asm
     rd::cmdlib::dd

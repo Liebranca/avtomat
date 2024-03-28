@@ -1,8 +1,12 @@
 %;
 
-macro test cmd {
-  cmd;
+macro test [list] {
+
+  on elem from list;
+    echo elem;
+
+  off;
 
 };
 
-test \stop solve;
+test a,b,c;

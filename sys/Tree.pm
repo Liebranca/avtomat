@@ -1628,7 +1628,7 @@ sub match_until_other($self,$a,$b,%O) {
     my $nd=shift @pending;
 
     # exit 1 element early if exclusive
-    if($nd eq $b && ! $O{inclusive}) {
+    if($nd eq $b &&! $O{inclusive}) {
       last;
 
     };
