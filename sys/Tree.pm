@@ -37,7 +37,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.1;
+  our $VERSION = v0.03.2;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -585,6 +585,22 @@ sub ancespath($self,$upto=undef) {
 
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^get node from path
+
+sub from_path($self,$path) {
+
+  my $anchor=$self;
+  map {
+    $anchor=$anchor->{leaves}->[$ARG];
+
+  } @$path;
+
+
+  return $anchor;
 
 };
 

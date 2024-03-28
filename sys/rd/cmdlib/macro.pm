@@ -35,12 +35,12 @@ package rd::cmdlib::macro;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# these are token-types, meaningful
-# only to the parser
+# token-types are only meaningful
+# to the parser
 #
 # we turn them into commands so that
 # it restrucs the following tree:
@@ -50,7 +50,7 @@ package rd::cmdlib::macro;
 # \-->token
 #
 #
-# so that it looks like this:
+# to look like this:
 #
 # (top)
 # \-->[*token-type]
@@ -82,10 +82,50 @@ cmdsub 'token-type' => q(arg) => q{
 
 };
 
+# ---   *   ---   *   ---
+# ^icef*ck
+
 w_cmdsub 'token-type' => q(arg) => qw(
   sym bare num
 
 );
+
+# ---   *   ---   *   ---
+# ~
+
+sub macro_repl($self,$body,$repl,$value) {
+
+  my $path = $repl->{path};
+  my $re   = $repl->{re};
+
+
+  # replacing branches
+  if(Tree->is_valid($value)) {
+
+    map {
+
+      my $nd=$body->from_path($ARG);
+      $nd->repl($value);
+
+    } reverse @$path;
+
+
+  # replacing text
+  } else {
+
+    map {
+
+      my $nd=$body->from_path($ARG);
+      $nd->{value}=~ s[$re][$value]sxmg;
+
+    } @$path;
+
+  };
+
+
+  return;
+
+};
 
 # ---   *   ---   *   ---
 # ~
@@ -113,16 +153,52 @@ cmdsub 'macro-paste' => q(opt_qlist) => q{
      $have=$have->leaf_value(0);
 
 
+  # duplicate tree
+  my $body=$have->{body}->dup();
+
   # process arguments
   my $sig  = $have->{args};
   my @args = $self->argtake($branch);
 
-  # ~
-  use Fmat;
-  fatdump \[@args];
-  fatdump \$sig;
+  my $idex = 0;
 
-  exit;
+  map {
+
+
+    # set default value?
+    $args[$idex]=(defined $args[$idex])
+    ? $args[$idex]->{id}
+    : $ARG->{defval}
+    ;
+
+    # replace arg in body
+    $self->macro_repl(
+      $body,$ARG->{repl},$args[$idex]
+
+    );
+
+
+    # go next
+    $idex++;
+
+  } @$sig;
+
+
+  # replace own with generated!
+  my $par=$branch->{parent};
+  $branch->deep_repl($body);
+
+
+  # recurse for each sub-branch
+  my $l2=$main->{l2};
+  map {
+    my $lv=$ARG->flatten_branch();
+    $l2->recurse($lv);
+
+  } @{$branch->{leaves}};
+
+  $branch->flatten_branch();
+
 
 };
 
@@ -163,7 +239,7 @@ sub macro_repl_args($self,$body,$argname,$idex) {
       ;
 
     # argument name fond?
-    if($nd->{value}=~ s[$re][$place]) {
+    if($nd->{value}=~ s[$re][$place]sxmg) {
       my $path=$nd->ancespath($body);
       push @$replpath,$path;
 
@@ -222,7 +298,7 @@ unrev cmdsub macro => q(
   my $l1    = $main->{l1};
   my $mc    = $main->{mc};
   my $scope = $mc->{scope};
-  my @path  = @{$mc->{path}};
+  my @path  = @{$mc->path};
 
 
   # unpack
@@ -278,17 +354,18 @@ unrev cmdsub macro => q(
 
   my $cmdlib = $main->{cmdlib};
   my $solve  = $cmdlib->fetch('macro-paste');
+  my $class  = ref $self;
 
   $cmdlib->new(
 
-    lis => $name,
-    pkg => __PACKAGE__,
-    sig => \@sig,
+    lis   => $name,
+    pkg   => $class,
+    sig   => \@sig,
 
-    fn  => $solve->{fn},
+    fn    => $solve->{fn},
+    unrev => 1,
 
   );
-
 
   # save to current namespace and remove branch
   $scope->force_set($data,@path);

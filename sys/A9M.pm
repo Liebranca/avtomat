@@ -243,6 +243,23 @@ sub exerun($self,$id) {
 };
 
 # ---   *   ---   *   ---
+# get current path without root
+
+sub path($self) {
+
+  my $mem  = $self->{cas};
+  my $tree = $mem->{inner};
+  my $path = $self->{path};
+
+  shift @$path
+  if $path->[0] eq $tree->{value};
+
+
+  return $path;
+
+};
+
+# ---   *   ---   *   ---
 # set/get current namespace
 
 sub scope($self,@path) {

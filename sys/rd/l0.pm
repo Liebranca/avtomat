@@ -45,6 +45,7 @@ St::vconst {
     ';'   => 'term',
     '"'   => 'string',
     "'"   => 'string',
+    '\\'  => 'escape',
 
     ' '   => 'blank',
     "\t"  => 'blank',
@@ -376,6 +377,24 @@ sub operator_single($self) {
 
 
   return;
+
+};
+
+# ---   *   ---   *   ---
+# marks next token
+
+sub escape($self) {
+
+  my $main=$self->{main};
+
+  if(! $main->escaped) {
+    $main->set('escape');
+
+  } else {
+    $main->unset('escape');
+    $self->default();
+
+  };
 
 };
 

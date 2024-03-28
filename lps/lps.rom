@@ -1,8 +1,8 @@
 %;
 
-macro test x,num y=1 {
-  paste x;
+macro test cmd {
+  cmd;
 
 };
 
-test AA,BB;
+test \stop solve;

@@ -36,7 +36,7 @@ package rd::cmd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -532,10 +532,16 @@ sub argex($self,$lv) {
   # have command?
   } elsif(defined (my $have=$l1->is_cmd($key))) {
 
-    my $l2=$main->{l2};
-    $l2->recurse($lv);
+    if(! $lv->{escaped}) {
+      my $l2=$main->{l2};
+      $l2->recurse($lv);
 
-    return $lv->{vref};
+      return $lv->{vref};
+
+    } else {
+      return {id=>$lv,defval=>undef};
+
+    };
 
 
   # have single token!
@@ -671,10 +677,12 @@ sub argchk($self,$offset=undef) {
     # ^die on not found && non-optional
     $self->throw_badargs($arg,[$pos,$subpos],$list)
     if (! $have &&! $arg->{opt})
-    || (  $have &&! $match);
+    || (  $have &&! $match && $list);
 
 
     # go forward if found
+    $have=undef if ! $match;
+
     push @out,$have;
     $pos++ if $have &&! $list;
 

@@ -98,6 +98,7 @@ St::vconst {
     comment => 0x0004,
     nterm   => 0x0008,
     exprbeg => 0x0010,
+    escape  => 0x0020,
 
   };
 
@@ -468,6 +469,9 @@ sub commit($self) {
       $self->{branch}->{lineno}=
         $self->{lineat};
 
+      $self->{branch}->{escaped}=
+        $self->escaped;
+
 
     # ^cat to existing
     } else {
@@ -475,7 +479,8 @@ sub commit($self) {
       my $branch=
         $self->{branch}->inew($self->{token});
 
-      $branch->{lineno}=$self->{lineat};
+      $branch->{lineno}  = $self->{lineat};
+      $branch->{escaped} = $self->escaped;
 
     };
 
@@ -488,6 +493,8 @@ sub commit($self) {
 
   # give true if token added
   $self->{token}=$NULLSTR;
+  $self->unset('escape');
+
   return $have;
 
 };
@@ -653,6 +660,11 @@ sub nterm($self) {
 
 sub exprbeg($self) {
   return $self->status(exprbeg=>1);
+
+};
+
+sub escaped($self) {
+  return $self->status(escape=>1);
 
 };
 
