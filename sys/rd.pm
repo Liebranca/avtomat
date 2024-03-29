@@ -46,7 +46,7 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#a
+  our $VERSION = v0.01.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -912,6 +912,7 @@ sub prich($self,%O) {
   # own defaults
   $O{tree}   //= 1;
   $O{mem}    //= 'inner,outer';
+  $O{anima}  //= 0;
   $O{passes} //= $ANY_MATCH;
 
 
@@ -925,6 +926,10 @@ sub prich($self,%O) {
 
   };
 
+
+  # show registers?
+  $self->{mc}->{anima}->prich(%O,mute=>1)
+  if $O{anima};
 
   # get repr for memory?
   if($O{mem}) {
@@ -943,7 +948,7 @@ sub prich($self,%O) {
 
       mute  => 1,
 
-    ) if $O{mem};
+    );
 
 
   };

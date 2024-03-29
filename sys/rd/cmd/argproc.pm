@@ -97,7 +97,7 @@ sub argex($self,$lv) {
   # fstate
   my $key  = $lv->{value};
   my @nest = @{$lv->{leaves}};
-  my $have = null;
+  my $have = undef;
 
 
   # have list?
@@ -127,6 +127,20 @@ sub argex($self,$lv) {
 
     };
 
+
+  # ^have operator tree?
+  } elsif(defined $have) {
+
+    return {
+
+      id     => $lv,
+      defval => undef,
+
+      type   => 'opera',
+
+    };
+
+
   # have sub-branch?
   } elsif(defined $l1->is_branch($key)) {
 
@@ -134,6 +148,7 @@ sub argex($self,$lv) {
 
       map {$self->argex($ARG)}
       map {@{$ARG->{leaves}}} @nest;
+
 
   # have command?
   } elsif(defined ($have=$l1->is_cmd($key))) {

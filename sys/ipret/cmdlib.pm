@@ -28,7 +28,7 @@ package ipret::cmdlib;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -37,6 +37,8 @@ package ipret::cmdlib;
 St::vconst {
 
   list => [qw(
+
+    ipret::cmdlib::generic
     ipret::cmdlib::dd
 
   )],

@@ -36,7 +36,7 @@ package ipret::encoder;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -139,6 +139,7 @@ sub encode($self,$program) {
   # fstate
   my $bytes = '';
   my $total = 0;
+  my $end   = 0;
 
 
   # stirr [opcode,size] array
@@ -150,6 +151,7 @@ sub encode($self,$program) {
     my $have = bpack $fmat,$opcd;
 
     $bytes .= $have->{ct};
+    $end    = $total;
     $total += $size;
 
     my $diff = $size-(length $have->{ct});
@@ -164,7 +166,7 @@ sub encode($self,$program) {
   my $align_t = $ISA->align_t;
 
   # ^by null pad
-  my $diff = $total % $align_t->{sizeof};
+  my $diff = $end % $align_t->{sizeof};
 
   $bytes .= pack "C[$diff]",(0) x $diff;
   $total += $diff;
@@ -357,11 +359,11 @@ sub decode($self,$program) {
   my $ptr=0x00;
   my @out=();
 
-  while($ptr + $step < $limit) {
+  while($ptr+$step <= $limit) {
 
 
     # get next
-    my $s    = substr $program,$ptr,4;
+    my $s    = substr $program,$ptr,$step;
     my $opcd = unpack $align_t->{packof},$s;
 
     # ^consume bytes and give

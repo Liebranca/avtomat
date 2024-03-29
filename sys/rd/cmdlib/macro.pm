@@ -171,7 +171,11 @@ cmdsub 'macro-paste' => q(opt_qlist) => q{
 
 
   # duplicate tree
-  my $body=$have->{body}->dup();
+  my $body=$have->{body}->dupa(
+    undef,'lineno'
+
+  );
+
 
   # process arguments
   my $sig  = $have->{args};
@@ -372,7 +376,6 @@ unrev cmdsub macro => q(
 
   };
 
-
   # write to command table
   #
   # this lets the parser recognize the macro
@@ -405,49 +408,6 @@ unrev cmdsub macro => q(
   return;
 
 };
-
-# ---   *   ---   *   ---
-# hammer time!
-
-cmdsub stop => q(opt_sym) => q{
-
-
-  # get ctx
-  my $main = $self->{frame}->{main};
-  my $l1   = $main->{l1};
-  my $lx   = $main->{lx};
-  my $list = $lx->stages;
-
-
-  # name of stage says *when* to stop!
-  my $stage=$branch->{leaves}->[0];
-
-  if($stage) {
-    $stage=$l1->is_sym($stage->{value});
-
-  };
-
-  $stage //= $list->[0];
-
-
-  # are we there yet? ;>
-  if($stage eq $list->[$main->{stage}]) {
-    $main->{tree}->prich();
-    $main->perr('STOP');
-
-  # ^nope, wait
-  } else {
-    $branch->{vref}=$stage;
-    $branch->clear();
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# dbout
-
-w_cmdsub 'csume-list' => q(qlist) => 'echo';
 
 # ---   *   ---   *   ---
 1; # ret

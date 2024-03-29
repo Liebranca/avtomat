@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package rd::cmdlib::generic;
+package ipret::cmdlib::generic;
 
   use v5.36.0;
   use strict;
@@ -38,31 +38,49 @@ package rd::cmdlib::generic;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# consume node list
+# solves dbout values
 
-cmdsub 'csume-list' => q(qlist) => q{
+cmdsub echo => q() => q{
 
-  return if $branch->{vref};
 
-  my @args=$self->argtake($branch);
+  # get ctx
+  my $main  = $self->{frame}->{main};
+  my $l1    = $main->{l1};
+  my $eng   = $main->{engine};
 
-  $branch->{vref}=\@args;
-  $branch->clear();
+  my $mc    = $main->{mc};
+  my $ptr_t = $mc->{bk}->{ptr};
 
+
+  # can solve all refs now?
+  my @list = @{$branch->{vref}};
+  my @repr =map {
+
+    my @have=$eng->value_solve($ARG->{id});
+    $have[-1];
+
+  } @list;
+
+  return $branch if @list > @repr;
+
+
+  say map {
+
+    ($ptr_t->is_valid($ARG))
+      ? $ARG->load
+      : $ARG
+      ;
+
+  } @repr;
 
   return;
 
 };
 
 # ---   *   ---   *   ---
-# ^icef*ck
-
-w_cmdsub 'csume-list' => q(qlist) => 'echo';
-
-# ---   *   ---   *   ---
 # hammer time!
 
-cmdsub stop => q(opt_sym) => q{
+cmdsub stop => q() => q{
 
 
   # get ctx

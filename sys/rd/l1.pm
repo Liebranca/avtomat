@@ -38,7 +38,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.5;#a
+  our $VERSION = v0.01.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -49,7 +49,7 @@ package rd::l1;
     ^\[
 
     (?<type>  . )
-    (?<value> .+)
+    (?<value> [^\]]+)
 
 
     \]\s
@@ -303,7 +303,6 @@ sub is_comment($self,$src=undef) {
   # have string?
   my $value = $self->read_tag_v('STRING',$src);
 
-
   # ^if so, check that the string is marked
   # as a comment!
   return (
@@ -390,10 +389,7 @@ sub symbol_fetch($self,$src=undef) {
   my $have  = $mc->dsearch($src);
 
 
-  return (length $have)
-    ? $$have
-    : $have
-    ;
+  return $have;
 
 };
 
@@ -438,11 +434,19 @@ sub quantize($self,$src=undef) {
 
   # have string?
   } elsif($type eq 'STRING') {
+
+    charcon \$have
+    if $spec eq '"';
+
     return $have;
 
   # have executable binary? (yes ;>)
   } elsif($type eq 'EXE') {
-    return $mc->exerun($spec);
+
+    (exists $main->{engine})
+      ? $main->{engine}->exe($spec)
+      : null
+      ;
 
 
   # as for anything else...

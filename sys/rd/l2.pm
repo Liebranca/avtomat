@@ -35,7 +35,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.5;#a
+  our $VERSION = v0.01.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -163,16 +163,22 @@ sub node_fwd_parse($self,$branch) {
   # join composite operators
   $self->dopera();
 
+  # sort operators
+  $self->opera();
+
+  # join comma-separated lists
+  $self->cslist();
+
+  return;
+
 };
 
 sub node_rev_parse($self,$branch) {
 
-  # sort operators
-  $self->opera();
-
-  # sort lists and sub-branches
-  $self->cslist();
+  # sort sub-branches
   $self->nested();
+
+  return;
 
 };
 
@@ -237,6 +243,7 @@ sub walk($self,$branch,%O) {
     $O{self},$O{rev},reverse @order
 
   );
+
 
   # ^run and capture results
   return $self->exec_queue(@cmd);

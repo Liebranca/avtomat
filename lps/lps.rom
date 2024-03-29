@@ -1,11 +1,14 @@
 %;
 
+ram data;
+  byte value 0x00;
+
 macro test [list] {
 
-  on elem from list;
-    echo elem;
+#  on elem from list;
+    echo 'HLOWRLD';
 
-  off;
+#  off;
 
 };
 

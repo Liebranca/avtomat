@@ -13,6 +13,8 @@ package main;
   use Style;
 
   use rd;
+  use ipret;
+
   use Bpack;
 
   use Arstd::Bytes;
@@ -24,8 +26,8 @@ package main;
 use Fmat;
 use Arstd::xd;
 
-my $main = rd('./lps/lps.rom');
-$main->prich();
+my $main = ipret('./lps/lps.rom',strip=>1);
+#$main->prich(anima=>1);
 
 # ---   *   ---   *   ---
 1; # ret

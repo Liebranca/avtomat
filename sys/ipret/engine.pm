@@ -37,7 +37,7 @@ package ipret::engine;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -212,18 +212,22 @@ sub value_solve($self,$src=undef,$rec=0) {
   # output null if unsolved
   my $out=undef;
 
-  # single token?
-  if(! @{$src->{leaves}}) {
-    $out=$l1->quantize($src->{value});
+  # non-tree value passed?
+  if(! Tree->is_valid($src)) {
+    $out=$src;
 
-  # ^nope, analyze tree
+  # single node?
+  } elsif(! @{$src->{leaves}}) {
+    $out=$src->{value};
+
+  # ^a whole branch!
   } else {
     $out=$self->branch_collapse($src);
 
   };
 
 
-  return $out;
+  return $l1->quantize($out);
 
 };
 
@@ -383,8 +387,19 @@ sub opera_collapse($self,$branch,$opera) {
       my $spec=(8 < bitsize $have) ? 'y' : 'x' ;
       {type=>"i$spec",imm=>$have};
 
-    } else {
+    } elsif(! index $type,'m') {
       nyi "memory operands";
+
+    } else {
+
+      $main->perr(
+
+        q[cannot encode [op]:%s operation ]
+      . q[for '%s'],
+
+        args=>["\'$opera\'","$type:$have"]
+
+      );
 
     };
 

@@ -197,7 +197,7 @@ sub exeread($self,$seg) {
 
 
   # get ctx
-  my $align = $self->{ISA}->exeali();
+  my $align  = $self->{ISA}->align_t;
 
   my $limit  = $seg->{size};
   my $addr   = 0x00;
@@ -307,7 +307,8 @@ sub _search($self,$name,@path) {
   my $mem  = $self->{cas};
   my $tree = $mem->{inner};
 
-  shift @path if $path[0] eq $tree->{value};
+  shift @path if $path[0]
+  && $path[0] eq $tree->{value};
 
 
   # make (path,to) from (path::to)

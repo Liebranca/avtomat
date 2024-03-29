@@ -37,7 +37,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.2;
+  our $VERSION = v0.03.3;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -71,15 +71,50 @@ St::imping {
 
 sub dup($self,$root=undef) {
 
+
+  # get ctx
   my $frame=$self->{frame};
   my @leaves=();
 
+
+  # make copy of own
   my $copy=$frame->new($root,$self->{value});
 
+  # ^recurse for each child
   for my $leaf(@{$self->{leaves}}) {
     $leaf->dup($copy);
 
   };
+
+
+  return $copy;
+
+};
+
+# ---   *   ---   *   ---
+# ^copies custom attrs
+
+sub dupa($self,$root,@attr) {
+
+
+  # get ctx
+  my $frame  = $self->{frame};
+  my @leaves = ();
+
+
+  # make copy of own
+  my $copy=$frame->new($root,$self->{value});
+
+  # ^write custom attrs attrs
+  map  {$copy->{$ARG}=$self->{$ARG}} @attr;
+
+
+  # recurse for each child
+  for my $leaf(@{$self->{leaves}}) {
+    $leaf->dupa($copy,@attr);
+
+  };
+
 
   return $copy;
 

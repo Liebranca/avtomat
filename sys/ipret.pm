@@ -112,9 +112,9 @@ sub mutate($class,$ice) {
 # ---   *   ---   *   ---
 # in a nutshell
 
-sub crux($src) {
+sub crux($src,%O) {
 
-  my $self = ipret->new($src);
+  my $self = ipret->new($src,%O);
 
   my $eng  = $self->engine_t;
   my $rev  = "$eng\::branch_solve";
