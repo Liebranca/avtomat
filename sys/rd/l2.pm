@@ -286,6 +286,9 @@ sub exec_queue($self,@Q) {
   map {
 
 
+    # out
+    my $have=undef;
+
     # unpack
     my ($cmd,$branch,$rec)=@$ARG;
     $lx->exprbeg($rec);
@@ -304,7 +307,7 @@ sub exec_queue($self,@Q) {
       $main->{branch}=$branch;
       $cmd->argchk();
 
-      my $have=$cmd->{fn}->($cmd,$branch);
+      $have=$cmd->{fn}->($cmd,$branch);
 
 
     # ^branch was mutated by proc
@@ -324,9 +327,8 @@ sub exec_queue($self,@Q) {
 
 
     # save and give result if defined
-    $lx->exprlink($have);
-
     skip:
+      $lx->exprlink($have);
 
 
   # avoid processing the same node twice

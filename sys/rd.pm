@@ -433,7 +433,17 @@ sub walk($self,%O) {
 
   # ^repeat or fail if so!
   if(@pending) {
+
     goto rept if $self->{pass} < $O{limit};
+
+
+    # report failure!
+    $self->throw_unresolved(
+      \@pending,
+      lvl=>$AR_WARNING,
+
+    );
+
     return 0;
 
   };
@@ -873,7 +883,39 @@ sub perr($self,$me,%O) {
 };
 
 # ---   *   ---   *   ---
-# ^name collision
+# ~
+
+sub throw_unresolved($self,$Q,%O) {
+
+  # defaults
+  $O{lvl} //= $AR_FATAL;
+
+  # ~
+  my @args=($self->{fpath},':');
+  my $fmat=join "\n",map {
+
+    push @args,$ARG->{value},$ARG->{lineno};
+    "unresolved '%s' on line [num]:%u\n";
+
+  } @$Q;
+
+
+  # ~
+  $WLog->err(
+
+    "at <%s>[op]:%s\n$fmat",
+
+    %O,
+
+    args=>\@args,
+    from=>(ref $self),
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# name collision
 
 sub throw_redecl($self,$type,$name) {
 

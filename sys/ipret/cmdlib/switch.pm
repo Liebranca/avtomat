@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# GENERIC
-# Refuses to elaborate
+# SWITCH
+# Turn me off
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package ipret::cmdlib::generic;
+package ipret::cmdlib::switch;
 
   use v5.36.0;
   use strict;
@@ -38,36 +38,41 @@ package ipret::cmdlib::generic;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# solves dbout values
+# block sub-divider
 
-cmdsub echo => q() => q{
-
-
-  # get ctx
-  my $main  = $self->{frame}->{main};
-  my $eng   = $main->{engine};
+cmdsub 'switch' => q() => q{
 
 
-  # can solve values?
-  my @solved=$eng->argtake(map {
-    $ARG->{id}
+  my $main = $self->{frame}->{main};
+  my $eng  = $main->{engine};
 
-  } @{$branch->{vref}});
+  my @args=@{$branch->{vref}};
+  my $iter=(is_arrayref $args[-1])
+    ? pop @args
+    : 0
+    ;
 
-  return $branch if ! @solved;
 
+  if($iter) {
 
-  # all solved, no need to repeat ;>
-  $branch->{vref}=\@solved;
+  } else {
+
+  };
+
 
   return;
 
 };
 
 # ---   *   ---   *   ---
-# hammer time!
+# ^icef*ck
 
-cmdsub stop => q() => q{};
+w_cmdsub 'switch' => q() => qw(
+  on or
+
+);
+
+cmdsub 'off' => q() => q{};
 
 # ---   *   ---   *   ---
 1; # ret

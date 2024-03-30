@@ -354,12 +354,19 @@ sub cmdfn($self,$name) {
 sub cmdsub($name,$sig,@body) {
 
 
+  # find source class
+  my $class = rcaller __PACKAGE__;
+
+  croak "Unable to find source class for '$name'"
+  if $class eq __PACKAGE__;
+
+
   # make definition
   my @args    = split $COMMA_RE,$sig;
   my $body    = join  ';',@body;
 
   my $codestr = "sub (\$self,\$branch) {\n$body\n}";
-  my $fn      = eval $codestr;
+  my $fn      = eval "package $class;$codestr;";
 
   # ^validate
   if(! defined $fn) {
@@ -368,13 +375,6 @@ sub cmdsub($name,$sig,@body) {
     die "Cannot define command '$name' $!";
 
   };
-
-
-  # find source class
-  my $class = rcaller __PACKAGE__;
-
-  croak "Unable to find source class for '$name'"
-  if $class eq __PACKAGE__;
 
 
   # add to cache and give

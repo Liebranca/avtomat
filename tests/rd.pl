@@ -26,8 +26,14 @@ package main;
 use Fmat;
 use Arstd::xd;
 
-my $main = ipret('./lps/lps.rom',strip=>1);
-#$main->prich(anima=>1);
+my $main = ipret(
+
+  './lps/lps.rom',
+  limit => 2
+
+);
+
+$main->prich(anima=>0);
 
 # ---   *   ---   *   ---
 1; # ret

@@ -114,16 +114,23 @@ sub mutate($class,$ice) {
 
 sub crux($src,%O) {
 
+
+  # defaults
+  $O{limit} //= 1;
+
+
+  # get parse tree
   my $self = ipret->new($src,%O);
 
-  my $eng  = $self->engine_t;
-  my $rev  = "$eng\::branch_solve";
+  # ^solve values
+  my $eng = $self->engine_t;
+  my $rev = "$eng\::branch_solve";
 
   $self->walk(
 
     self  => $self->{engine},
 
-    limit => 2,
+    limit => $O{limit},
     rev   => \&$rev
 
   );

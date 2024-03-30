@@ -37,7 +37,7 @@ package ipret::engine;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -441,6 +441,54 @@ sub opera_collapse($self,$branch,$opera) {
     return $l1->make_tag(EXE=>$seg->{iced});
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# generic args validation for
+# command arguments
+
+sub argtake($self,@args) {
+
+
+  # get ctx
+  my $main  = $self->{main};
+  my $mc    = $main->{mc};
+  my $ptr_t = $mc->{bk}->{ptr};
+
+
+  # can solve all refs now?
+  my @repr=map {
+
+    my @have=$self->value_solve($ARG);
+    $have[-1];
+
+  } @args;
+
+  return () if @args > @repr;
+
+
+  # ^validate
+  my @solved=grep {
+     defined $ARG
+  && length $ARG
+
+  } map {
+
+    ($ptr_t->is_valid($ARG))
+      ? $ARG->load
+      : $ARG
+      ;
+
+  } @repr;
+
+
+  # give null if values pending
+  # else give values!
+  return (@solved == @repr)
+    ? @solved
+    : ()
+    ;
 
 };
 
