@@ -191,6 +191,27 @@ sub scope($self,@path) {
 };
 
 # ---   *   ---   *   ---
+# find segment
+
+sub ssearch($self,@path) {
+
+  # get ctx
+  my $mem  = $self->{cas};
+  my $tree = $mem->{inner};
+
+  shift @path if $path[0] eq $tree->{value};
+
+
+  # validate input
+  my $out=$tree->haslv(@path)
+  or return badfet('DIR',@path);
+
+
+  return $out->{mem};
+
+};
+
+# ---   *   ---   *   ---
 # template: wraps mem->search
 
 sub _search($self,$name,@path) {
@@ -465,7 +486,7 @@ sub decode_mstk_ptr($self,$o) {
   nyi('A9M::stack');
 
   my $seg  = $self->{stack}->{mem};
-  my $base = $self->{anima}->fetch(0xC);
+  my $base = $self->{anima}->fetch(0xB);
   my $off  = -$o->{imm};
 
   %$o=(

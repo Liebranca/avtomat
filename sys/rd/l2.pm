@@ -471,6 +471,7 @@ sub dopera($self) {
   my @seq    = ($re,$re);
   my $branch = $main->{branch};
 
+  my @reset  = ();
 
   _seq_temple(sub ($idex) {
 
@@ -479,17 +480,43 @@ sub dopera($self) {
        @lv=@lv[$idex..$idex+1];
 
     # join both operators into first
-    $lv[0]->{value}=$l1->cat_tags(
-      $lv[0]->{value},
-      $lv[1]->{value},
+    if(! @{$lv[0]->{leaves}}) {
+      $lv[0]->{value}=$l1->cat_tags(
+        $lv[0]->{value},
+        $lv[1]->{value},
 
-    );
+      );
 
-    # ^remove second
-    $lv[1]->discard();
+      # ^remove second
+      $lv[1]->discard();
+
+
+    # false positive!
+    } else {
+
+      push @reset,[
+        $lv[0]->{value},
+        $lv[0]->{idex}
+
+      ];
+
+      $lv[0]->{value}=null;
+
+    };
 
 
   },$branch,@seq);
+
+
+  # ^restore false positives
+  map {
+    my ($value,$idex)=@$ARG;
+    $branch->{leaves}->[$idex]->{value}=$value;
+
+  } @reset;
+
+
+  return;
 
 };
 

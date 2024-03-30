@@ -98,9 +98,9 @@ cmdsub 'asm-ins' => q(opt_qlist) => q{
 
     # memory operand
     } elsif(defined (
-      my $have=$l1->is_opera($key)
+      $have=$l1->is_opera($key)
 
-    ) && $have && $have eq '[') {
+    ) && $have eq '[') {
       $type='m';
 
 

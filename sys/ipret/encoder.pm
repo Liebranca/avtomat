@@ -126,6 +126,30 @@ sub encode_program($self,$program) {
 };
 
 # ---   *   ---   *   ---
+# packs and pads encoded instruction
+
+sub format_opcd($self,$ins) {
+
+  return null if ! length $ins;
+
+  my ($opcd,$size)=@$ins;
+
+  my $have = join $NULLSTR,map {
+
+    my $type  = typefet $ARG;
+    my $bytes = pack $type->{packof},$opcd;
+
+    $opcd >>= $type->{sizebs};
+    $bytes;
+
+  } typeof $size;
+
+
+  return ($have,$size)
+
+};
+
+# ---   *   ---   *   ---
 # descriptor array to bytecode
 
 sub encode($self,$program) {
@@ -145,17 +169,12 @@ sub encode($self,$program) {
   # stirr [opcode,size] array
   map {
 
-    my ($opcd,$size)=@$ARG;
+    my ($have,$size)=
+      $self->format_opcd($ARG);
 
-    my $fmat = join ',',typeof $size;
-    my $have = bpack $fmat,$opcd;
-
-    $bytes .= $have->{ct};
     $end    = $total;
+    $bytes .= $have;
     $total += $size;
-
-    my $diff = $size-(length $have->{ct});
-    $bytes .= pack "C[$diff]",(0) x $diff;
 
 
   } $self->encode_program($program);

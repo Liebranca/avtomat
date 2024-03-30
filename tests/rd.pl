@@ -32,7 +32,14 @@ my $main = ipret(
 
 );
 
-$main->prich(anima=>0);
+
+my $mc  = $main->{mc};
+my $seg = $mc->ssearch('non','code');
+
+$seg->align(4);
+
+$main->{engine}->exe($seg);
+$main->prich(anima=>1,mem=>'outer',tree=>0);
 
 # ---   *   ---   *   ---
 1; # ret
