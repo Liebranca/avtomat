@@ -285,7 +285,7 @@ qw  (
   opera   list  string  cmd
   branch  num   type    sym
 
-  exe
+  reg     exe
 
 );
 

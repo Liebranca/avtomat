@@ -1,0 +1,4 @@
+%;
+
+exe code;
+  load byte ar,$24;

@@ -129,6 +129,9 @@ sub full_encoding($self,$idex,$args) {
 
 sub _get_ins_idex($class,$name,$size,@args) {
 
+  my $opsz_list = Type::MAKE->LIST;
+  my $opsz      = $opsz_list->{ezy}->[$size];
+
   my $meta      = $class->get_ins_meta($name);
   my $full_form = ($meta->{argcnt})
 
@@ -136,7 +139,7 @@ sub _get_ins_idex($class,$name,$size,@args) {
 
     . '_' . (join '_',@args)
 
-    . '_' . $Type::MAKE::LIST->{ezy}->[$size]
+    . '_' . $opsz
 
 
     : $name
@@ -304,7 +307,6 @@ sub ready_or_build($self) {
   $enc_t->generate($self);
   $class->load_ROM();
   $enc_t->postgen($class);
-
 
   return;
 

@@ -175,7 +175,7 @@ Lang::peso->new(
 
 # ---   *   ---   *   ---
 
-  types      => $Type::MAKE::ALL_FLAGS,
+  types      => Type::MAKE->ALL_FLAGS,
 
   specifiers => [@$SPECIFIER],
   resnames   => [@$RESNAMES],

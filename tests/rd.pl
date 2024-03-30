@@ -25,10 +25,9 @@ package main;
 
 use Fmat;
 use Arstd::xd;
-
 my $main = ipret(
 
-  './lps/lps.rom',
+  './lps/test.rom',
   limit => 2
 
 );

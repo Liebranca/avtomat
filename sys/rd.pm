@@ -211,7 +211,6 @@ sub new($class,$src,%O) {
 
   },$class;
 
-
   # nit layers and give ice
   $self->cstruc_layers(
     map {$ARG=>$self}
@@ -224,7 +223,7 @@ sub new($class,$src,%O) {
   cloadi $class->cmd_t;
 
   $self->{cmdlib}=
-    $class->cmd_t->new_frame(main=>$self),
+    $class->cmd_t->new_frame(main=>$self);
 
 
   return $self;

@@ -38,7 +38,7 @@ package ipret::cmdlib::switch;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# block sub-divider
+# ~
 
 cmdsub 'switch' => q() => q{
 

@@ -384,7 +384,7 @@ sub derefof($ptr_t) {
 
 
   # strip flags
-  my $re   = $Type::MAKE::RE->{ptr_any};
+  my $re   = Type::MAKE->RE->{ptr_any};
 
   my $name = $ptr_t->{name};
      $name =~ s[$re][]sxmg;
@@ -435,8 +435,10 @@ sub bitfit($size,$bytes=0) {
 
   $size <<= 3 if $bytes;
 
-  my $out=null;
-  for my $type(@{$Type::MAKE::LIST->{ezy}}) {
+  my $out  = null;
+  my @list = @{Type::MAKE->LIST->{ezy}};
+
+  for my $type(@list) {
 
     $type=typefet $type;
 
@@ -470,7 +472,7 @@ sub _typeisa($class,$type,$key) {
   or return 0;
 
   return $type->{name}=~
-    $Type::MAKE::RE->{$key};
+    Type::MAKE->RE->{$key};
 
 };
 

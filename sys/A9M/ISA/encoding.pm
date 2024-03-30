@@ -223,6 +223,7 @@ sub postgen($class,$super) {
 
   );
 
+
   # ^map to types
   my (
 
@@ -237,7 +238,6 @@ sub postgen($class,$super) {
     Type::bitfit($ARG)
 
   } @sizes;
-
 
   # fmat for binary section
   # of resulting ROM

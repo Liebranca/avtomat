@@ -40,7 +40,7 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#a
+  our $VERSION = v0.01.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -135,110 +135,7 @@ sub new($class,%O) {
   $self->{ISA}=$bk->{ISA}->new(mcid=>$id);
   $self->{ISA}->ready_or_build;
 
-
   return $self;
-
-};
-
-# ---   *   ---   *   ---
-# dump instructions to segment
-
-sub exewrite($self,$seg,@program) {
-
-
-#  # walk input
-#  my $total=0;
-#  map {
-#
-#
-#
-#
-#
-#    # grow buf if need
-#    $seg->brkfit($size);
-#    $total += $size;
-#
-#
-#    # write opcode to buf
-#    map {
-#
-#      # we do chunk by chunk to bytepack;
-#      # no aligning to pow2 in-between opcodes!
-#      my $type    = typefet $ARG;
-#
-#      my $chunk   = $opcd & $type->{sizebm};
-#         $opcd  >>= $type->{sizebs};
-#
-#      # write chunk and go next
-#      $seg->store($type,$chunk,$seg->{ptr});
-#      $seg->{ptr} += $type->{sizeof};
-#
-#
-#    } typeof $size;
-#
-#
-#  } @program;
-#
-#
-#  # apply alignment to segment accto
-#  # ISA specs
-#  my $align=$self->{ISA}->exeali();
-#  $seg->align($align->{sizeof});
-#
-#
-#  return $total;
-
-};
-
-# ---   *   ---   *   ---
-# ^read instructions from segment
-
-sub exeread($self,$seg) {
-
-
-  # get ctx
-  my $align  = $self->{ISA}->align_t;
-
-  my $limit  = $seg->{size};
-  my $addr   = 0x00;
-
-
-  # walk segment
-  my @out=();
-
-  while($addr + $align->{sizeof} < $limit) {
-
-    my $bytes = $seg->load($align,$addr);
-    my $ins   = $self->{ISA}->decode($bytes);
-
-    $addr += $ins->{size};
-    push @out,$ins;
-
-  };
-
-
-  return @out;
-
-};
-
-# ---   *   ---   *   ---
-# ^fetch && run seg from id
-
-sub exerun($self,$id) {
-
-
-  # fetch executable segment
-  my $mem   = $self->{cas};
-  my $frame = $mem->{frame};
-
-  my $seg   = $frame->ice($id);
-
-
-  # read instructions and run
-  my @program = $self->exeread($seg);
-  my $ret     = $self->ipret(@program);
-
-  return $ret;
 
 };
 

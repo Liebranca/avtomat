@@ -120,7 +120,7 @@ sub step($self,$data) {
 
 
   # unpack
-  my $ezy  = $Type::MAKE::LIST->{ezy};
+  my $ezy  = Type::MAKE->LIST->{ezy};
   my $ins  = $data->{ins};
 
   my $type = typefet $ezy->[$ins->{opsize}];

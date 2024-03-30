@@ -466,6 +466,23 @@ sub storef($self,$struc,$field,$value,$base=0) {
 };
 
 # ---   *   ---   *   ---
+# insert string at ptr
+
+sub strwrite($self,$have,$size) {
+
+  $self->brkfit($size);
+
+  substr ${$self->{buf}},
+    $self->{ptr},$size,$have;
+
+  $self->{ptr} += $size;
+
+  return;
+
+
+};
+
+# ---   *   ---   *   ---
 # get ptr implementation in use
 # by host machine
 

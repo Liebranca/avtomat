@@ -19,15 +19,11 @@ package rd::cmdlib::asm;
   use strict;
   use warnings;
 
-  use Readonly;
   use English qw(-no_match-vars);
-
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
-
-  use Arstd::Array;
-  use Arstd::Bytes;
+  use Type;
 
 # ---   *   ---   *   ---
 # adds to main::cmdlib
@@ -71,165 +67,92 @@ cmdsub 'asm-ins' => q(opt_qlist) => q{
 
   # get ctx
   my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
   my $mc   = $main->{mc};
   my $ISA  = $mc->{ISA};
 
+  # expand argument list
+  my @args = map {
 
-  # solve argument tree
-  my $idex = 0;
-  my @list = $self->asm_recarg($branch,\$idex);
-
-
-  # ^break down array
-  my $type=undef;
-  my @args=();
-
-  Arstd::Array::nmap \@list,sub ($kref,$vref) {
-
-    my $k=$$kref;
-    my $v=$$vref;
-
-    if($k ne 'type') {
-      push @args,$v;
+    if(defined $l1->is_list($ARG->{value})) {
+      @{$ARG->{leaves}};
 
     } else {
-      $type=$v;
+      $ARG;
+
+    };
+
+  } @{$branch->{leaves}};
+
+
+  # ^get type of each argument
+  @args=map {
+
+    my $key  = $ARG->{value};
+    my $have = undef;
+    my $type = undef;
+
+    # register operand
+    if(defined $l1->is_reg($key)) {
+      $type='r';
+
+    # memory operand
+    } elsif(defined (
+      my $have=$l1->is_opera($key)
+
+    ) && $have && $have eq '[') {
+      $type='m';
+
+
+    # operation with immediates?
+    } elsif(defined $have) {
+      $type='opera';
+
+    # ^immediate!
+    } else {
+      $type='i';
 
     };
 
 
-  },'kv';
+    # give descriptor
+    {value=>$ARG,type=>$type};
 
 
-  # ^catch unsolvable args
-  return null
-  if grep {! length $ARG} @args;
-
-  # fetch default instruction size
-  $type //= $ISA->def_t;
+  } @args;
 
 
-  # write instruction to current segment
-  my $have=$mc->exewrite(
-    $mc->{scope}->{mem},
-    [$type,$branch->{cmdkey},@args]
+  # have opera type spec?
+  my $opsz=(defined $branch->{vref})
+    ? typefet @{$branch->{vref}}
+    : $ISA->def_t
+    ;
 
-  );
-
-  # ^catch encoding fail
-  $main->perr("cannot encode instruction")
-  if ! length $have;
+  # get instruction name
+  my $name=$l1->is_cmd($branch->{value});
 
 
-  return;
+  # save to branch
+  $branch->{vref}={
 
-};
+    name  => $name,
 
-# ---   *   ---   *   ---
-# ^template: read operand
-
-sub asm_arg($self,$branch,$iref) {
-
-
-  # get ctx
-  my $main = $self->{frame}->{main};
-  my $mc   = $main->{mc};
-  my $l1   = $main->{l1};
-
-  my $src  = $branch->{value};
-  my @lv   = @{$branch->{leaves}};
-
-
-  # recurse on list
-  if(defined $l1->is_list($src)) {
-    return $self->asm_recarg($branch,$iref);
-
-
-  # ^have plain number?
-  } elsif(defined (my $num=$l1->is_num($src))) {
-
-    my $type=(16 > bitsize $num)
-      ? 'ix'
-      : 'iy'
-      ;
-
-    return
-
-       "arg".$$iref++
-    => {type=>$type,imm=>$num};
-
-
-  # ^have type specifier?
-  } elsif(defined (my $type=$l1->is_type($src))) {
-
-    return
-
-      type=>$branch->{vref},
-      $self->asm_recarg($branch,$iref);
-
-
-  # ^plain value or value tree
-  } else {
-
-    my $y=$self->value_solve($branch);
-    my $x=$l1->quantize($y);
-
-
-    # solve failed?
-    if(! length $x) {
-
-
-      # edge case: src is register
-      my $reg  = $mc->{bk}->{anima};
-      my $idex = $reg->tokin($src);
-
-      if(defined $idex) {
-
-        return
-
-           "arg".$$iref++
-        => {type=>'r',reg=>$idex};
-
-
-      # ^src is unknown/invalid
-      } else {
-        return "arg".$$iref++ => null;
-
-      };
-
-    };
-
-
-    # solve succesfull, identify value type
-    my $ptrcls = $mc->{bk}->{ptr};
-
-    # do the ptr dance!
-    if($ptrcls->is_valid($x)) {
-
-      return "arg".$$iref++ => {
-
-        type => 'mimm',
-
-        seg  => $mc->segid($x->getseg()),
-        imm  => $x->{addr},
-
-      };
-
-    };
-
-
-    return "arg".$$iref++ => null;
+    opsz  => $opsz,
+    args  => \@args,
 
   };
 
-};
 
-# ---   *   ---   *   ---
-# ^recursively
+  # mutate into generic command ;>
+  $branch->{value}=
+    $l1->make_tag(CMD=>'asm-ins')
+  . "$name $opsz->{name}"
+  ;
 
-sub asm_recarg($self,$branch,$iref) {
-  map {$self->asm_arg($ARG,$iref)}
-  @{$branch->{leaves}};
+
+  # clear and give
+  $branch->clear();
+  return;
 
 };
 

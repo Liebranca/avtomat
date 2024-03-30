@@ -273,7 +273,7 @@ sub type_decode($self,@src) {
 w_cmdsub 'data-type'
 
 => q(opt_qlist)
-=> @{$Type::MAKE::ALL_FLAGS};
+=> @{Type::MAKE->ALL_FLAGS};
 
 # ---   *   ---   *   ---
 1; # ret

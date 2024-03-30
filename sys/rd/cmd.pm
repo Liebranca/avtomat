@@ -30,6 +30,7 @@ package rd::cmd;
 
   use Arstd::String;
   use Arstd::PM;
+  use Arstd::IO;
 
   use parent 'St';
   use parent 'rd::cmd::argproc';
@@ -371,8 +372,10 @@ sub cmdsub($name,$sig,@body) {
   # ^validate
   if(! defined $fn) {
 
-    say $codestr;
-    die "Cannot define command '$name' $!";
+    errout "Cannot define command '%s' $!",
+
+    args => [$name],
+    lvl  => $AR_FATAL;
 
   };
 

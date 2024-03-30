@@ -37,7 +37,6 @@ package Type::MAKE;
 
   use Readonly;
   use English qw(-no_match_vars);
-
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
@@ -70,13 +69,25 @@ package Type::MAKE;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $LIST=>{
+
+  # to get ize as a power of 2...
+  Readonly my $ASIS   => sub {$_[0]=>$_[1]};
+
+
+# "Readonly" somehow managed to allow
+# for these values to be overwritten
+#
+# so now we have to do it the hard way...
+
+St::vconst {
+
+  LIST => {
 
     # min to max size for all base types
     ezy=>[qw(
@@ -139,105 +150,132 @@ package Type::MAKE;
 
     )],
 
-  };
+  },
 
 
   # one list to rule them all!
-  Readonly our $ALL_FLAGS=>[
+  ALL_FLAGS=>sub {
 
-    array_flatten(
-      [values %$LIST],dupop=>1
+    my $list=$_[0]->LIST;
 
-    ),qw(
+    return [
 
-      vec2 vec3 vec4 mat2 mat3 mat4
-      sign
+      array_flatten(
+        [values %$list],dupop=>1
 
-    ),
+      ),qw(
 
-  ];
+        vec2 vec3 vec4 mat2 mat3 mat4
+        sign
+
+      ),
+
+    ];
+
+  },
 
   # regexes for all
-  our $RE={
+  RE => sub {
 
-    ptr_any  => re_pekey(
+    my $list  = $_[0]->LIST;
+    my $flags = $_[0]->ALL_FLAGS;
 
-      @{$LIST->{ptr_t}},
-      @{$LIST->{ptr_w}},
+    return {
 
-      ( map {"${ARG}ptr"} @{$LIST->{ptr_w}}),
+      ptr_any  => re_pekey(
 
-    ),
+        @{$list->{ptr_t}},
+        @{$list->{ptr_w}},
 
-    flag_any => re_pekey(@$ALL_FLAGS),
+        ( map {"${ARG}ptr"} @{$list->{ptr_w}}),
 
+      ),
 
-    map {(
-      $ARG=>re_pekey(@{$LIST->{$ARG}})
-
-    )} keys %$LIST
-
-  };
+      flag_any => re_pekey(@$flags),
 
 
-  # to get ize as a power of 2...
-  Readonly my $ASIS   => sub {$_[0]=>$_[1]};
-  Readonly my $IDEXOF => {
+      map {(
+        $ARG=>re_pekey(@{$list->{$ARG}})
 
-    IDEXUP(0,$ASIS,@{$LIST->{ezy}}),
-    IDEXUP(0,$ASIS,@{$LIST->{ptr_w}}),
-    IDEXUP(2,$ASIS,@{$LIST->{real}}),
+      )} keys %$list
 
-    (map {$ARG=>1} @{$LIST->{ptr_t}}),
-    (map {$ARG=>0} @{$LIST->{str_t}}),
+    };
 
-    wide => 1,
+  },
 
-  };
+
+  IDEXOF => sub {
+
+    my $list=$_[0]->LIST;
+
+    return {
+
+      IDEXUP(0,$ASIS,@{$list->{ezy}}),
+      IDEXUP(0,$ASIS,@{$list->{ptr_w}}),
+      IDEXUP(2,$ASIS,@{$list->{real}}),
+
+      (map {$ARG=>1} @{$list->{ptr_t}}),
+      (map {$ARG=>0} @{$list->{str_t}}),
+
+      wide => 1,
+
+    };
+
+  },
 
   # ^maximum power of 2 allowed
-  Readonly my $EZY_CAP  => 1 << $IDEXOF->{zword};
+  EZY_CAP => sub {
+    1 << $_[0]->IDEXOF->{zword}
+
+  },
+
 
   # signals for the type generator
-  Readonly my $TYPEFLAG => {
+  TYPEFLAG => sub {
 
-    (map {$ARG=>0x00} @{$LIST->{defn}}),
+    my $list=$_[0]->LIST;
 
+    return {
 
-    sign     => 0x001,
-    real     => 0x002,
-
-    vec      => 0x004,
-    mat      => 0x008,
+      (map {$ARG=>0x00} @{$list->{defn}}),
 
 
-    tiny     => 0x010,
-    tinyptr  => 0x010,
+      sign     => 0x001,
+      real     => 0x002,
 
-    short    => 0x020,
-    shortptr => 0x020,
-
-    mean     => 0x040,
-    meanptr  => 0x040,
-
-    long     => 0x080,
-    longptr  => 0x080,
+      vec      => 0x004,
+      mat      => 0x008,
 
 
-    str      => 0x100,
-    cstr     => 0x200,
-    plstr    => 0x400,
+      tiny     => 0x010,
+      tinyptr  => 0x010,
+
+      short    => 0x020,
+      shortptr => 0x020,
+
+      mean     => 0x040,
+      meanptr  => 0x040,
+
+      long     => 0x080,
+      longptr  => 0x080,
 
 
-    ptr_w    => 0x0F0,
-    str_t    => 0x700,
-    ptr      => 0x7F0,
+      str      => 0x100,
+      cstr     => 0x200,
+      plstr    => 0x400,
 
-  };
+
+      ptr_w    => 0x0F0,
+      str_t    => 0x700,
+      ptr      => 0x7F0,
+
+    };
+
+  },
 
 
   # sizes for the bytepacker!
-  Readonly my $TYPEPACK=>{
+  TYPEPACK => {
 
     byte   => 'C',
     tiny   => 'C',
@@ -262,7 +300,9 @@ package Type::MAKE;
     cstr   => 'Z*',
     plstr  => 'u',
 
-  };
+  },
+
+};
 
 # ---   *   ---   *   ---
 # GBL
@@ -373,6 +413,12 @@ sub flagstrip(@ar) {
 
 sub _fetch(@flags) {
 
+
+  # get ctx
+  my $class     = St::cpkg;
+  my $RE        = $class->RE;
+  my $TYPEFLAG  = $class->TYPEFLAG;
+
   # add default value for mask flags
   map {$ARG='short' if $ARG eq 'ptr'} @flags;
 
@@ -473,6 +519,13 @@ sub _fetch(@flags) {
 # ^continued
 
 sub fetch(@flags) {
+
+
+  # get ctx
+  my $class     = St::cpkg;
+  my $TYPEFLAG  = $class->TYPEFLAG;
+  my $TYPEPACK  = $class->TYPEPACK;
+  my $IDEXOF    = $class->IDEXOF;
 
 
   # cleanup flags
@@ -628,7 +681,7 @@ sub fetch(@flags) {
 
 
   # undef if entry exceeds largest size
-  $Table->{$name}=($tby <= $EZY_CAP)
+  $Table->{$name}=($tby <= $class->EZY_CAP)
     ? $out
     : undef
     ;

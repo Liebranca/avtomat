@@ -40,7 +40,9 @@ St::vconst {
 
     ipret::cmdlib::generic
     ipret::cmdlib::switch
+
     ipret::cmdlib::dd
+    ipret::cmdlib::asm
 
   )],
 
