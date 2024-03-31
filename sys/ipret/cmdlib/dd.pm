@@ -137,9 +137,7 @@ cmdsub 'seg-type' => q() => q{
 
 
   # make current and give
-  $mc->segid($have);
-  $mc->scope($have->ances_list());
-
+  $mc->setseg($have);
 
   return $have;
 

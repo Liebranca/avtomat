@@ -1,8 +1,12 @@
 %;
 
 ram data;
-  byte value $00;
+  byte b0 $00;
+  byte b1 $24;
 
 exe code;
-  load  byte ar,$24;
-  store byte [$00],ar;
+
+  self  data;
+
+  load  ar,b1;
+  store b0,ar;

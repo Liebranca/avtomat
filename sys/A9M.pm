@@ -91,6 +91,7 @@ sub new($class,%O) {
 
 
     segtab   => undef,
+    segtop   => undef,
     segtab_i => 0x00,
 
     bk       => $bk,
@@ -169,7 +170,8 @@ sub scope($self,@path) {
     my $mem  = $self->{cas};
     my $tree = $mem->{inner};
 
-    shift @path if $path[0] eq $tree->{value};
+    shift @path
+    if $path[0] && $path[0] eq $tree->{value};
 
 
     # validate input
@@ -410,6 +412,22 @@ sub warn_full_segtab($id) {
     give => null
 
   ;
+
+};
+
+# ---   *   ---   *   ---
+# set segment as current
+
+sub setseg($self,$mem) {
+
+  $self->reset_segtab();
+
+  $self->segid($mem);
+  $self->scope($mem->ances_list);
+
+  $self->{segtop}=$mem;
+
+  return;
 
 };
 

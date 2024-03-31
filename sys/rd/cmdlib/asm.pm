@@ -104,9 +104,13 @@ cmdsub 'asm-ins' => q(opt_qlist) => q{
       $type='m';
 
 
-    # operation with immediates?
+    # operation tree?
     } elsif(defined $have) {
       $type='opera';
+
+    # symbol fetch?
+    } elsif(defined $l1->is_sym($key)) {
+      $type='sym';
 
     # ^immediate!
     } else {
@@ -123,7 +127,8 @@ cmdsub 'asm-ins' => q(opt_qlist) => q{
 
 
   # have opera type spec?
-  my $opsz=(defined $branch->{vref})
+  my $opsz_def = defined $branch->{vref};
+  my $opsz     = ($opsz_def)
     ? typefet @{$branch->{vref}}
     : $ISA->def_t
     ;
@@ -135,23 +140,44 @@ cmdsub 'asm-ins' => q(opt_qlist) => q{
   # save to branch
   $branch->{vref}={
 
-    name  => $name,
+    name     => $name,
 
-    opsz  => $opsz,
-    args  => \@args,
+    opsz     => $opsz,
+    opsz_def => ! $opsz_def,
+
+    args     => \@args,
 
   };
 
 
   # mutate into generic command ;>
+  my $full=($opsz_def)
+    ? "$name $opsz->{name}"
+    : "$name"
+    ;
+
   $branch->{value}=
     $l1->make_tag(CMD=>'asm-ins')
-  . "$name $opsz->{name}"
+  . $full
   ;
 
 
   # clear and give
   $branch->clear();
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# sets current scope
+
+cmdsub 'self' => q(sym) => q{
+
+  my @args=$self->argtake($branch);
+
+  $branch->{vref}=$args[0]->{id};
+  $branch->clear();
+
   return;
 
 };

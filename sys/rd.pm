@@ -894,7 +894,7 @@ sub throw_unresolved($self,$Q,%O) {
   my $fmat=join "\n",map {
 
     push @args,$ARG->{value},$ARG->{lineno};
-    "unresolved '%s' on line [num]:%u\n";
+    "unresolved '%s' on line [num]:%u";
 
   } @$Q;
 

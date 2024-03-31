@@ -107,6 +107,7 @@ my $ptrseg = $mc->segid($seg);
 # ---   *   ---   *   ---
 
 
+      # determine operand types...
       map {
 
         if(defined (my $idex=$l1->is_reg($ARG))) {
@@ -119,6 +120,8 @@ my $ptrseg = $mc->segid($seg);
 
         };
 
+
+      # ^from branch values
       } map {
         $ARG->{value}
 
@@ -132,10 +135,13 @@ my $ptrseg = $mc->segid($seg);
       } @{$beg->{leaves}};
 
 
+      # [sb-i]
       if($stk) {
         %O=(imm=>$imm[0]);
         $type.='stk';
 
+
+      # [r+i]
       } elsif(@reg == 1 && @imm <= 1) {
 
         $imm[0] //= 0;
@@ -151,6 +157,8 @@ my $ptrseg = $mc->segid($seg);
 
         $type.='sum';
 
+
+      # [seg:r+r+i*x]
       } elsif(@reg == 2 || @imm == 2) {
 
         $reg[0] //= 0;
@@ -173,6 +181,8 @@ my $ptrseg = $mc->segid($seg);
 
         $type.='lea';
 
+
+      # [seg:i]
       } else {
 
         $imm[0] //= 0;
@@ -187,6 +197,25 @@ my $ptrseg = $mc->segid($seg);
         $type.='imm';
 
       };
+
+
+    # symbol deref
+    } elsif($type eq 'sym') {
+
+      my $have=$l1->quantize($nd->{value});
+      return $branch if ! length $have;
+
+      %O=(
+        seg  => $mc->segid($have->getseg),
+        imm  => $have->{addr},
+
+      );
+
+      $type='mimm';
+      $opsz=($branch->{vref}->{opsz_def})
+        ? $have->{type}
+        : $opsz
+        ;
 
     };
 
@@ -213,16 +242,38 @@ my $ptrseg = $mc->segid($seg);
   ) if ! length $opcd;
 
 
-  # ~
+  # map int to bytes ;>
   ($opcd,$size)=
     $enc->format_opcd([$opcd,$size]);
 
-
-  # write to current segment!
-  my $scope = $mc->{scope};
-  my $mem   = $scope->{mem};
-
+  # ^write to current segment!
+  my $mem = $mc->{segtop};
   $mem->strwrite($opcd,$size);
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# sets current scope
+
+cmdsub 'self' => q() => q{
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+  my $mc   = $main->{mc};
+
+  # can find symbol?
+  my $name = $l1->is_sym($branch->{vref});
+  my $sym  = $mc->ssearch($name);
+
+  return $branch if ! length $sym;
+
+
+  # set scope
+  $mc->scope($sym->{value});
 
   return;
 
