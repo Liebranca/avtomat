@@ -50,12 +50,14 @@ sub operand_value($self,$ins,$type,$data) {
     my $o    = $data->{$ARG};
     my $imm  = exists $o->{imm};
 
+    my $addr = $o->{addr};
+       $addr = $addr->() if is_coderef $addr;
 
     # memory deref?
     if($ins->{"load_$ARG"} &&! $imm) {
 
       $o->{seg}->load(
-        $type,$o->{addr}
+        $type,$addr
 
       );
 
@@ -66,10 +68,10 @@ sub operand_value($self,$ins,$type,$data) {
     # ^plain addr?
     } else {
 
-      my $addr=
-        $o->{seg}->absloc()+$o->{addr};
+      my $data=
+        $o->{seg}->absloc()+$addr;
 
-      Bpack::layas($type,$addr);
+      Bpack::layas($type,$data);
 
     };
 
@@ -152,7 +154,6 @@ sub step($self,$data) {
     );
 
   };
-
 
   return @$ret;
 

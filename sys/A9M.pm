@@ -328,10 +328,19 @@ sub decl($self,$type,$name,$value,@subseg) {
   # have ptr?
   my ($ptr_t) = Type->is_ptr($type);
 
-  $ptr_t=(length $ptr_t)
-    ? "$ptr_t"
-    : undef
-    ;
+  if($ptr_t) {
+
+    my $ptrcls=$self->{bk}->{ptr};
+
+    $type=($ptrcls->is_valid($value))
+      ? $value->{type}
+      : $Type::DEFAULT
+      ;
+
+  } else {
+    $ptr_t=undef;
+
+  };
 
 
   # make ice and give
@@ -420,8 +429,6 @@ sub warn_full_segtab($id) {
 
 sub setseg($self,$mem) {
 
-  $self->reset_segtab();
-
   $self->segid($mem);
   $self->scope($mem->ances_list);
 
@@ -505,11 +512,11 @@ sub decode_mstk_ptr($self,$o) {
 
   my $seg  = $self->{stack}->{mem};
   my $base = $self->{anima}->fetch(0xB);
-  my $off  = -$o->{imm};
+  my $off  = $o->{imm};
 
   %$o=(
     seg  => $seg,
-    addr => $base-$off,
+    addr => sub {$base->load-$off},
 
   );
 
@@ -543,12 +550,14 @@ sub decode_mimm_ptr($self,$o) {
 sub decode_msum_ptr($self,$o) {
 
   my $seg  = $self->{segtab}->[$o->{seg}];
-  my $base = $self->{anima}->fetch($o->{rX});
+  my $base = $self->{anima}->fetch($o->{reg});
+
   my $off  = $o->{imm};
+
 
   %$o=(
     seg  => $seg,
-    addr => $base+$off,
+    addr => sub {$base->load+$off},
 
   );
 
@@ -565,14 +574,9 @@ sub decode_mlea_ptr($self,$o) {
 
   # load register values
   my @r=map {
+    $self->{anima}->fetch($ARG-1)
 
-    if($ARG) {
-      my $ptr=$self->{anima}->fetch($ARG-1);
-      $ptr->load();
-
-    } else {0};
-
-  } ($o->{rX},$o->{rY});
+  } grep {$ARG} ($o->{rX},$o->{rY});
 
 
   # load plain values
@@ -580,18 +584,30 @@ sub decode_mlea_ptr($self,$o) {
   my $imm   = $o->{imm};
   my $seg   = $self->{segtab}->[$o->{seg}];
 
+  my $addr  = undef;
 
   # apply scale to immediate?
   if($imm) {
-    $imm *= $scale;
+
+    $addr=sub {
+      my $out=$imm * $scale;
+      map {$out+=$ARG->load} @r;
+
+    };
 
   # ^second register?
   } elsif($r[1]) {
-    $r[1] *= $scale;
+
+    $addr=sub {
+        $r[0]->load
+      + $r[1]->load
+      * $scale
+
+    };
 
   # ^first register?
   } else {
-    $r[0] *= $scale;
+    $addr=sub {$r[0]->load * $scale};
 
   };
 
@@ -599,7 +615,7 @@ sub decode_mlea_ptr($self,$o) {
   # collapse and give
   %$o=(
     seg  => $seg,
-    addr => $r[0]+$r[1]+$imm
+    addr => $addr,
 
   );
 

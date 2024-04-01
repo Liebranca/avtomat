@@ -35,7 +35,7 @@ package ipret::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -204,6 +204,25 @@ cmdsub 'data-decl' => q() => q{
     $x=$l1->quantize($x);
 
 
+    # have ptr?
+    my ($ptr_t) = Type->is_ptr($type);
+
+    # ^sanity check
+    my $ptrcls   = $mc->{bk}->{ptr};
+    my $have_ptr = $ptrcls->is_valid($x);
+
+    if($have_ptr &&! $ptr_t) {
+
+      $main->perr(
+
+        "'%s' is not a pointer type",
+        args=>[$type->{name}]
+
+      );
+
+    };
+
+
     # assume declaration on first pass
     if(! $main->{pass}) {
 
@@ -222,23 +241,6 @@ cmdsub 'data-decl' => q() => q{
       my $mem = $$ref->getseg();
 
       my $x   = $l1->quantize($x);
-
-
-      # have ptr?
-      my ($ptr_t) = Type->is_ptr($type);
-
-      # ^sanity check
-      my $ptrcls=$mc->{bk}->{ptr};
-      if($ptrcls->is_valid($x) &&! $ptr_t) {
-
-        $main->perr(
-
-          "'%s' is not a pointer type",
-          args=>[$type->{name}]
-
-        );
-
-      };
 
 
       # overwrite value

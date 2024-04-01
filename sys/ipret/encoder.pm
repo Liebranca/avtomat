@@ -197,6 +197,43 @@ sub encode($self,$program) {
 };
 
 # ---   *   ---   *   ---
+# write opcode to current segment
+
+sub exewrite($self,$opsz,$name,@args) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $mc   = $main->{mc};
+
+
+  # encode or die ;>
+  my ($opcd,$size)=$self->encode_opcd(
+    $opsz,$name,@args
+
+  );
+
+  # ^catch encoding fail
+  $main->perr(
+    "cannot encode instruction",
+    lvl=>$AR_FATAL
+
+  ) if ! length $opcd;
+
+
+  # map int to bytes ;>
+  ($opcd,$size)=
+    $self->format_opcd([$opcd,$size]);
+
+  # ^write!
+  my $mem=$mc->{segtop};
+  $mem->strwrite($opcd,$size);
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # get binary format used to
 # decode operand
 
@@ -380,10 +417,12 @@ sub decode($self,$program) {
 
   while($ptr+$step <= $limit) {
 
-
     # get next
     my $s    = substr $program,$ptr,$step;
     my $opcd = unpack $align_t->{packof},$s;
+
+    last if ! $opcd;
+
 
     # ^consume bytes and give
     my $ins  = $self->decode_opcode($opcd);

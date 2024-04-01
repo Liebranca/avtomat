@@ -27,6 +27,7 @@ package ipret::cmdlib::asm;
   use Bpack;
 
   use Arstd::Bytes;
+  use Arstd::IO;
 
 # ---   *   ---   *   ---
 # adds to main::cmdlib
@@ -37,7 +38,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -90,113 +91,8 @@ cmdsub 'asm-ins' => q() => q{
     # have memory?
     } elsif($type eq 'm') {
 
-
-      my $beg=$nd->{leaves}->[0];
-         $beg=$beg->{leaves}->[0];
-
-      my @reg = ();
-      my @imm = ();
-      my $stk = 0;
-
-# ---   *   ---   *   ---
-# TODO: segment tables!
-
-my $seg    = $mc->ssearch('non','data');
-my $ptrseg = $mc->segid($seg);
-
-# ---   *   ---   *   ---
-
-
-      # determine operand types...
-      map {
-
-        if(defined (my $idex=$l1->is_reg($ARG))) {
-
-          $stk |= $idex == 0xB;
-          push @reg,$idex;
-
-        } else {
-          push @imm,$l1->quantize($ARG);
-
-        };
-
-
-      # ^from branch values
-      } map {
-        $ARG->{value}
-
-      } map {
-
-        my @lv=@{$ARG->{leaves}};
-           @lv=$ARG if ! @lv;
-
-        @lv;
-
-      } @{$beg->{leaves}};
-
-
-      # [sb-i]
-      if($stk) {
-        %O=(imm=>$imm[0]);
-        $type.='stk';
-
-
-      # [r+i]
-      } elsif(@reg == 1 && @imm <= 1) {
-
-        $imm[0] //= 0;
-
-        %O=(
-
-          seg=>$ptrseg,
-
-          reg=>$reg[0],
-          imm=>$imm[0],
-
-        );
-
-        $type.='sum';
-
-
-      # [seg:r+r+i*x]
-      } elsif(@reg == 2 || @imm == 2) {
-
-        $reg[0] //= 0;
-        $reg[1] //= 0;
-
-        $imm[0] //= 0;
-        $imm[1] //= 0;
-
-        %O=(
-
-          seg   => $ptrseg,
-
-          rX    => $reg[0],
-          rY    => $reg[1],
-
-          imm   => $imm[0],
-          scale => $imm[1],
-
-        );
-
-        $type.='lea';
-
-
-      # [seg:i]
-      } else {
-
-        $imm[0] //= 0;
-
-        %O=(
-
-          seg=>$ptrseg,
-          imm=>$imm[0],
-
-        );
-
-        $type.='imm';
-
-      };
+      ($type,$opsz,%O)=
+        $self->addrmode($branch,$nd);
 
 
     # symbol deref
@@ -205,17 +101,9 @@ my $ptrseg = $mc->segid($seg);
       my $have=$l1->quantize($nd->{value});
       return $branch if ! length $have;
 
-      %O=(
-        seg  => $mc->segid($have->getseg),
-        imm  => $have->{addr},
+      ($type,$opsz,%O)=
+        $self->addrsym($branch,$have);
 
-      );
-
-      $type='mimm';
-      $opsz=($branch->{vref}->{opsz_def})
-        ? $have->{type}
-        : $opsz
-        ;
 
     };
 
@@ -228,29 +116,254 @@ my $ptrseg = $mc->segid($seg);
   } @{$vref->{args}};
 
 
-  # write opcode to tmp
-  my ($opcd,$size)=$enc->encode_opcd(
-    $opsz,$name,@args
+  # all OK? then dump code to memory
+  $enc->exewrite($opsz,$name,@args);
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# build memory operand from symbol
+
+sub addrsym($self,$branch,$have) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $mc   = $main->{mc};
+
+
+  # have size modifier?
+  my $opsz = ($branch->{vref}->{opsz_def})
+    ? $have->{type}
+    : $branch->{vref}->{opsz}
+    ;
+
+
+  # get location
+  my $seg  = $have->getseg;
+  my $addr = $have->{addr};
+
+
+  # ^have pointer?
+  if($have->{ptr_t}) {
+    ($seg,$addr)=$have->read_ptr;
+
+  };
+
+
+  # give read
+  my %O=(
+    seg  => $mc->segid($seg),
+    imm  => $addr,
 
   );
 
-  # ^catch encoding fail
-  $main->perr(
-    "cannot encode instruction",
-    lvl=>$AR_FATAL
+  return ('mimm',$opsz,%O);
 
-  ) if ! length $opcd;
+};
+
+# ---   *   ---   *   ---
+# determine type of memory operand
+
+sub addr_decompose($self,$nd) {
 
 
-  # map int to bytes ;>
-  ($opcd,$size)=
-    $enc->format_opcd([$opcd,$size]);
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
 
-  # ^write to current segment!
-  my $mem = $mc->{segtop};
-  $mem->strwrite($opcd,$size);
 
-  return;
+  # get first branch:
+  #
+  # [`[]
+  # \-->[b0]
+  # .  \-->(beg)
+
+  my $beg = $nd->{leaves}->[0];
+     $beg = $beg->{leaves}->[0];
+
+
+  # get elements of address
+  my @reg = ();
+  my @sym = ();
+  my @imm = ();
+  my $stk = 0;
+
+  map {
+
+    my $have=undef;
+
+
+    # register name?
+    if(defined ($have=$l1->is_reg($ARG))) {
+
+      $stk |= $have == 0xB;
+      push @reg,$have;
+
+    # symbol name?
+    } elsif(defined ($have=$l1->is_sym($ARG))) {
+      push @sym,$l1->quantize($ARG);
+
+    # immediate!
+    } else {
+      push @imm,$l1->quantize($ARG);
+
+    };
+
+
+  # ^from branch values
+  } map {
+    $ARG->{value}
+
+  } map {
+
+    my @lv=@{$ARG->{leaves}};
+       @lv=$ARG if ! @lv;
+
+    @lv;
+
+
+  # ^from branch leaves, if we have a branch
+  # ^else proc single leaf!
+  } (int @{$beg->{leaves}})
+
+    ? @{$beg->{leaves}}
+    : $beg
+    ;
+
+
+  # give type lists
+  return {
+
+    sym=>\@sym,
+    reg=>\@reg,
+    imm=>\@imm,
+
+    stk=>$stk,
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# build memory operand from
+# operation tree
+
+sub addrmode($self,$branch,$nd) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $mc   = $main->{mc};
+
+  # default segment to use if none specified!
+  my $seg    = $mc->{scope}->{mem};
+  my $ptrseg = $mc->segid($seg);
+
+  # out
+  my $type = null;
+  my $opsz = $branch->{vref}->{opsz};
+  my %O    = ();
+
+
+  # get type lists
+  my $data=$self->addr_decompose($nd);
+
+  # have symbols?
+  if(@{$data->{sym}}) {
+
+    map {
+
+      my ($sym_t,$sym_sz,%head)=
+        addrsym($self,$branch,$ARG);
+
+      $opsz   = $sym_sz;
+      $ptrseg = $head{seg};
+
+      push @{$data->{imm}},$head{imm};
+
+
+    } @{$data->{sym}};
+
+  };
+
+
+  # [sb-i]
+  if($data->{stk}) {
+    %O=(imm=>$data->{imm}->[0]);
+    $type='mstk';
+
+
+  # [seg:r+i]
+  } elsif(
+
+     @{$data->{reg}} == 1
+  && @{$data->{imm}} <= 1
+
+  ) {
+
+    $data->{imm}->[0] //= 0;
+
+    %O=(
+
+      seg=>$ptrseg,
+
+      reg=>$data->{reg}->[0],
+      imm=>$data->{imm}->[0],
+
+    );
+
+    $type='msum';
+
+
+  # [seg:r+r+i*x]
+  } elsif(
+
+     @{$data->{reg}} == 2
+  || @{$data->{imm}} == 2
+
+  ) {
+
+    $data->{reg}->[0] //= 0;
+    $data->{reg}->[1] //= 0;
+
+    $data->{imm}->[0] //= 0;
+    $data->{imm}->[1] //= 0;
+
+    %O=(
+
+      seg   => $ptrseg,
+
+      rX    => $data->{reg}->[0],
+      rY    => $data->{reg}->[1],
+
+      imm   => $data->{imm}->[0],
+      scale => $data->{imm}->[1],
+
+    );
+
+    $type='mlea';
+
+
+  # [seg:i]
+  } else {
+
+    $data->{imm}->[0] //= 0;
+
+    %O=(
+
+      seg=>$ptrseg,
+      imm=>$data->{imm}->[0],
+
+    );
+
+    $type='mimm';
+
+  };
+
+
+  return ($type,$opsz,%O);
 
 };
 

@@ -25,7 +25,7 @@ package A9M::ptr;
 
   use lib $ENV{ARPATH}.'/lib/sys/';
 
- use Style;
+  use Style;
   use Chk;
   use Type;
   use Fmat;
