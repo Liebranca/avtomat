@@ -34,7 +34,7 @@ package rd::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -55,7 +55,7 @@ sub build($class,$main) {
 
 
   # give table
-  return rd::cmd::build($class,$main);
+  return rd::cmd::MAKE::build($class,$main);
 
 };
 
@@ -169,18 +169,13 @@ cmdsub 'asm-ins' => q(opt_qlist) => q{
 };
 
 # ---   *   ---   *   ---
-# sets current scope
+# generic methods, see ipret
+# for details
 
-cmdsub 'self' => q(sym) => q{
+w_cmdsub 'csume-token' => q(nlist) => qw(
+  self jump
 
-  my @args=$self->argtake($branch);
-
-  $branch->{vref}=$args[0]->{id};
-  $branch->clear();
-
-  return;
-
-};
+);
 
 # ---   *   ---   *   ---
 1; # ret

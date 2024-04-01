@@ -59,6 +59,7 @@ package Style;
     $FSLASH_RE
     $MODULO_RE
     $ASTER_RE
+    $NUM_RE
 
     strerr
     catar
@@ -125,6 +126,7 @@ package Style;
   Readonly our $FSLASH_RE  => qr{/};
   Readonly our $MODULO_RE  => qr{\%};
   Readonly our $ASTER_RE   => qr{\*};
+  Readonly our $NUM_RE     => qr{^\d+$};
 
   Readonly our $NO_MATCH   => q{$^};
   Readonly our $ANY_MATCH  => qr{.+};

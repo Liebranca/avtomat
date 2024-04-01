@@ -56,6 +56,8 @@ St::vconst {
       dst      => 'r',
       src      => 'rmi',
 
+      immbig   => 1,
+
     },
 
     # reg to mem
@@ -69,19 +71,20 @@ St::vconst {
 
     },
 
-#  # our beloved
-#  # load effective address ;>
-#  lea => {
-#
-#    load_dst => 0,
-#    load_src => 0,
-#
-#    dst      => 'r',
-#    src      => 'm',
-#
-#  },
-#
-#
+
+    # our beloved
+    # load effective address ;>
+    lea => {
+
+      load_dst => 0,
+      load_src => 0,
+
+      dst      => 'r',
+      src      => 'm',
+
+    },
+
+
 
     # bitops
     xor => {

@@ -37,7 +37,7 @@ package ipret::engine;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -160,9 +160,9 @@ sub step($self,$data) {
 };
 
 # ---   *   ---   *   ---
-# read and run program
+# read and run jumpless program
 
-sub exe($self,$program) {
+sub strexe($self,$program) {
 
 
   # get ctx
@@ -173,9 +173,30 @@ sub exe($self,$program) {
   my $enc  = $main->{encoder};
 
 
+  # segment passed as idex?
+  if($program=~ $NUM_RE) {
+
+    my $frame = $mc->{cas}->{frame};
+    my $seg   = $frame->ice($program);
+
+
+    # ^validate
+    $main->perr(
+
+      "strexe: invalid segment ID "
+    . "([num]:%u)",
+
+      args=>[$program],
+
+    ) if ! $seg;
+
+    $program=$seg;
+
+  };
+
+
   # input needs decoding?
   if(! is_arrayref($program)) {
-
 
     # have executable segment?
     if($mem->is_valid($program)) {
@@ -191,6 +212,32 @@ sub exe($self,$program) {
 
   # run and give result
   map {$self->step($ARG)} @$program;
+
+};
+
+# ---   *   ---   *   ---
+# read and run *real* program!
+
+sub exe($self) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $enc  = $main->{encoder};
+
+
+  # read/decode/exec
+  my @ret=();
+  while(1) {
+
+    my $ins=$enc->exeread();
+    last if ! $ins;
+
+    @ret=$self->step($ins);
+
+  };
+
+  return @ret;
 
 };
 
@@ -424,7 +471,7 @@ sub opera_collapse($self,$branch,$opera) {
       $enc->encode(\@program);
 
     # ^execute and give result
-    my @ret=$self->exe($bytes);
+    my @ret=$self->strexe($bytes);
     $mc->{anima}->{almask}=$alma;
 
 

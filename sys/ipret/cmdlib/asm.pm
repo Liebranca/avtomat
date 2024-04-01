@@ -32,13 +32,13 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # adds to main::cmdlib
 
-  use   parent 'rd::cmd';
-  BEGIN {rd::cmd->defspkg};
+  use   parent 'ipret::cmd';
+  BEGIN {ipret::cmd->defspkg};
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -77,14 +77,7 @@ cmdsub 'asm-ins' => q() => q{
 
     # have immediate?
     } elsif($type eq 'i') {
-
-      my $ximm=$ISA->enc_t->ix_bs;
-
-      $type=($ximm >= bitsize $O{imm})
-        ? "${type}x"
-        : "${type}y"
-        ;
-
+      $type=$ISA->immsz($O{imm});
       %O=(imm=>$l1->quantize($key));
 
 
@@ -102,7 +95,7 @@ cmdsub 'asm-ins' => q() => q{
       return $branch if ! length $have;
 
       ($type,$opsz,%O)=
-        $self->addrsym($branch,$have);
+        $self->addrsym($branch,$have,0);
 
 
     };
@@ -117,7 +110,12 @@ cmdsub 'asm-ins' => q() => q{
 
 
   # all OK? then dump code to memory
-  $enc->exewrite($opsz,$name,@args);
+  $enc->exewrite_order(
+    $branch->{-uid},
+    $opsz,$name,@args
+
+  );
+
   return;
 
 };
@@ -125,7 +123,7 @@ cmdsub 'asm-ins' => q() => q{
 # ---   *   ---   *   ---
 # build memory operand from symbol
 
-sub addrsym($self,$branch,$have) {
+sub addrsym($self,$branch,$have,$deref) {
 
 
   # get ctx
@@ -146,7 +144,7 @@ sub addrsym($self,$branch,$have) {
 
 
   # ^have pointer?
-  if($have->{ptr_t}) {
+  if($have->{ptr_t} && $deref) {
     ($seg,$addr)=$have->read_ptr;
 
   };
@@ -170,8 +168,9 @@ sub addr_decompose($self,$nd) {
 
 
   # get ctx
-  my $main = $self->{frame}->{main};
-  my $l1   = $main->{l1};
+  my $main  = $self->{frame}->{main};
+  my $l1    = $main->{l1};
+  my $anima = $main->{mc}->{anima};
 
 
   # get first branch:
@@ -198,7 +197,7 @@ sub addr_decompose($self,$nd) {
     # register name?
     if(defined ($have=$l1->is_reg($ARG))) {
 
-      $stk |= $have == 0xB;
+      $stk |= $have == $anima->stack_bot;
       push @reg,$have;
 
     # symbol name?
@@ -276,7 +275,7 @@ sub addrmode($self,$branch,$nd) {
     map {
 
       my ($sym_t,$sym_sz,%head)=
-        addrsym($self,$branch,$ARG);
+        addrsym($self,$branch,$ARG,1);
 
       $opsz   = $sym_sz;
       $ptrseg = $head{seg};
@@ -373,20 +372,59 @@ sub addrmode($self,$branch,$nd) {
 cmdsub 'self' => q() => q{
 
 
+  # can solve symbol?
+  my $sym=$self->symfet($branch->{vref});
+  return $branch if ! length $sym;
+
   # get ctx
   my $main = $self->{frame}->{main};
-  my $l1   = $main->{l1};
   my $mc   = $main->{mc};
-
-  # can find symbol?
-  my $name = $l1->is_sym($branch->{vref});
-  my $sym  = $mc->ssearch($name);
-
-  return $branch if ! length $sym;
 
 
   # set scope
   $mc->scope($sym->{value});
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# sets program counter
+
+cmdsub 'jump' => q() => q{
+
+
+  # can solve symbol?
+  my $sym=$self->symfet($branch->{vref});
+  return $branch if ! length $sym;
+
+
+  # get ctx
+  my $main  = $self->{frame}->{main};
+  my $enc   = $main->{encoder};
+  my $mc    = $main->{mc};
+  my $anima = $mc->{anima};
+  my $ISA   = $mc->{ISA};
+
+
+
+  # get pointer and bitsize
+  my $ptrv=$sym->as_ptr;
+  my $type=$ISA->immsz($ptrv);
+
+  # load to xp register!
+  $enc->exewrite_order(
+
+    $branch->{-uid},
+    $ISA->align_t,
+
+    'load',
+
+    {type=>'r',reg=>$anima->exec_ptr},
+    {type=>$type,imm=>$ptrv},
+
+  );
+
 
   return;
 

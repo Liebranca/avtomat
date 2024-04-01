@@ -412,7 +412,9 @@ sub dstore($self,$type,$value,$addr) {
   return $self->warn_rom($type,$addr)
 
   if ! $self->{writeable}
-  && $self ne $mc->{scope}->{mem};
+
+  && $self ne $mc->{scope}->{mem}
+  && $self ne $mc->{segtop};
 
 
   # issue write!
@@ -462,23 +464,6 @@ sub storef($self,$struc,$field,$value,$base=0) {
   my $off=$struc->{struc_off}->[$idex];
 
   return $self->store($type,$value,$base+$off)
-
-};
-
-# ---   *   ---   *   ---
-# insert string at ptr
-
-sub strwrite($self,$have,$size) {
-
-  $self->brkfit($size);
-
-  substr ${$self->{buf}},
-    $self->{ptr},$size,$have;
-
-  $self->{ptr} += $size;
-
-  return;
-
 
 };
 
@@ -547,7 +532,9 @@ sub lvalue($self,$value,%O) {
   $par->force_set($ptr,$ptr->{label});
 
   my $node=$par->{'*fetch'};
-     $node->{-skipio}=1;
+
+  $node->{-skipio} = 1;
+  $node->{mem}     = $ptr;
 
 
   # recurse to copy structure layout if need
@@ -641,7 +628,9 @@ sub ptr($self,$to,%O) {
   $par->force_set($ptr,$ptr->{label});
 
   my $node=$par->{'*fetch'};
-     $node->{-skipio}=1;
+
+  $node->{-skipio} = 1;
+  $node->{mem}     = $ptr;
 
   # ^set value and give
   $ptr->store($ptrv,deref=>0);
@@ -795,6 +784,15 @@ sub warn_oob($self,$type,$addr,$fn) {
 
 
   give => null;
+
+};
+
+# ---   *   ---   *   ---
+# give *num* pointer to self
+
+sub as_ptr($self) {
+  my $mc=$self->getmc();
+  return $mc->encode_ptr($self,0x00);
 
 };
 

@@ -20,11 +20,12 @@ package main;
   use Arstd::Bytes;
   use Arstd::IO;
 
-# ---   *   ---   *   ---
-# the bit
+  use Fmat;
+  use Arstd::xd;
 
-use Fmat;
-use Arstd::xd;
+# ---   *   ---   *   ---
+# parse and solve
+
 my $main = ipret(
 
   './lps/test.rom',
@@ -32,13 +33,30 @@ my $main = ipret(
 
 );
 
+# ---   *   ---   *   ---
+# ^assemble!
 
-my $mc  = $main->{mc};
-my $seg = $mc->ssearch('non','code');
+my $enc=$main->{encoder};
+$enc->exewrite_run();
 
-$seg->align(4);
+# ---   *   ---   *   ---
+# manually set entry ;>
 
-$main->{engine}->exe($seg);
+my $mc    = $main->{mc};
+my $anima = $mc->{anima};
+my $rip   = $anima->fetch($anima->exec_ptr);
+my $seg   = $mc->ssearch('non','code');
+
+$rip->store(
+  $mc->segid($seg),
+  deref=>0
+
+);
+
+# ---   *   ---   *   ---
+# run and dbout
+
+$main->{engine}->exe();
 $main->prich(anima=>1,mem=>'outer',tree=>0);
 
 # ---   *   ---   *   ---

@@ -36,7 +36,7 @@ package A9M::ISA::encoding;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -62,7 +62,7 @@ St::vconst {
     r
 
     mstk mimm msum mlea
-    ix   iy
+    ix   iy   iz
 
   )],
 
@@ -70,6 +70,7 @@ St::vconst {
   # bitsizes for types of immediates
   ix_bs         => 8,
   iy_bs         => 16,
+  iz_bs         => 32,
 
   mlea_scale_bs => 2,
 
@@ -114,6 +115,7 @@ sub generate($class,$ISA) {
 
     ix   => 0b101,
     iy   => 0b110,
+    iz   => 0b111,
 
   );
 
@@ -158,6 +160,11 @@ sub generate($class,$ISA) {
 
   Bitformat "$super.iy"=>(
     imm => $class->iy_bs,
+
+  );
+
+  Bitformat "$super.iz"=>(
+    imm => $class->iz_bs,
 
   );
 
@@ -304,6 +311,7 @@ sub operand_tid($class,$super) {
 
     dix      => $operand_t->{ix},
     diy      => $operand_t->{iy},
+    diz      => $operand_t->{iz},
 
 
     sr       => $operand_t->{src_r},
@@ -315,6 +323,7 @@ sub operand_tid($class,$super) {
 
     six      => $operand_t->{src_ix},
     siy      => $operand_t->{src_iy},
+    siz      => $operand_t->{src_iz},
 
   };
 

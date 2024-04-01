@@ -34,8 +34,25 @@ package rd::cmdlib::generic;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# consume single token
+
+cmdsub 'csume-token' => q(nlist) => q{
+
+  return if $branch->{vref};
+
+  my @args=$self->argtake($branch);
+
+  $branch->{vref}=$args[0];
+  $branch->clear();
+
+
+  return;
+
+};
 
 # ---   *   ---   *   ---
 # consume node list

@@ -50,7 +50,7 @@ $NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
 
     [qw(
 
-      cpy mov wap
+      load store
 
       pop push
       shift unshift
@@ -90,10 +90,11 @@ $NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
 
     [qw(
 
-      reg rom clan proc
-      entry atexit
+      rom ram  exe
+      reg clan proc
 
-      case nocase
+      entry atexit
+      case  nocase
 
       def undef redef
       lib use
@@ -111,7 +112,7 @@ $NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
 
     [qw(
 
-      jmp jif eif
+      jump
       on from or off
 
       call ret rept

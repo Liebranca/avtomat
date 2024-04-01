@@ -46,7 +46,7 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.2;#a
+  our $VERSION = v0.01.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -419,10 +419,19 @@ sub walk($self,%O) {
 
     my $branch = $ARG;
 
-    push @pending,
-    grep {'Tree' eq ref $ARG}
 
-    $l2->walk($branch,%O);
+    # * if a node is returned, then
+    #   it is walked in the next pass
+    #
+    # * if an F is returned, then it
+    #   is executed in the next pass
+
+    my ($have)=(is_coderef $branch)
+      ? ($branch,$branch->())
+      : $l2->walk($branch,%O)
+      ;
+
+    push @pending,$have;
 
   } @Q;
 
@@ -431,7 +440,7 @@ sub walk($self,%O) {
   $self->next_pass();
 
   # ^repeat or fail if so!
-  if(@pending) {
+  if(grep {'Tree' eq ref $ARG} @pending) {
 
     goto rept if $self->{pass} < $O{limit};
 

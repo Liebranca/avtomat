@@ -40,7 +40,7 @@ package A9M::ISA;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.0;#a
+  our $VERSION = v0.02.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -276,6 +276,27 @@ sub imload($self,$size,$src) {
 
   # give (dst,ins)
   return $dst,[$size,'load',$dst,$src];
+
+};
+
+# ---   *   ---   *   ---
+# get immediate type matching
+# bitsize of value
+
+sub immsz($self,$x) {
+
+  my $enc  = $self->enc_t;
+  my $size = bitsize $x;
+
+  my $type=($size > $enc->ix_bs)
+    ? ($size > $enc->iy_bs)
+      ? 'iz'
+      : 'iy'
+
+    : 'ix'
+    ;
+
+  return $type;
 
 };
 

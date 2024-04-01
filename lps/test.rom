@@ -13,6 +13,9 @@ ram data;
 exe code;
 
   self  data;
+  jump  here;
 
-  load  ar,p1;
-  store p0,ar;
+  load  ar,[p1];
+  store [p0],ar;
+
+exe here;

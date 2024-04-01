@@ -38,7 +38,7 @@ package A9M::anima;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -98,6 +98,12 @@ St::vconst {
   re => sub {re_eiths $_[0]->list()},
 
 
+  # indices of special-purpose registers
+  exec_ptr  => 0x08,
+  stack_ptr => 0x0A,
+  stack_bot => 0x0B,
+
+
   # default size for each register
   sizek  => 'qword',
   size   => sub {sizeof  $_[0]->sizek()},
@@ -131,6 +137,7 @@ sub new($class,%O) {
 
     mem => undef,
     ptr => undef,
+    rip => undef,
 
     almask => $class->reserved_mask(),
     alhist => [],
@@ -168,14 +175,21 @@ sub new($class,%O) {
       addr  => $addr,
       label => $ARG,
 
-      type  => $class->sizek(),
+      type  => $class->sizek,
 
     );
 
-    $addr += $class->size();
+    $addr += $class->size;
     $v;
 
-  } @{$class->list()};
+  } @{$class->list};
+
+
+  # make program pointer
+  my $xp  = $ptr[$self->exec_ptr];
+  my $ISA = $mc->{bk}->{ISA};
+
+  $xp->{ptr_t}=$ISA->align_t;
 
 
   # save to ice and give

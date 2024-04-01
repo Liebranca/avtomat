@@ -37,7 +37,7 @@ package A9M::ptr;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -218,6 +218,29 @@ sub as_ptr($self) {
   my $mc   = $seg->getmc();
 
   return $mc->encode_ptr($seg,$self->{addr});
+
+};
+
+# ---   *   ---   *   ---
+# pointer math
+
+sub move($self,$by) {
+
+
+  # get ctx
+  my $seg  = $self->getseg();
+  my $mc   = $seg->getmc();
+  my $ptrv = $self->load(deref=>0);
+
+
+  # skip segment bits!
+  $by   <<= $mc->segtab_t->{sizep2};
+  $ptrv  += $by;
+
+  # ^overwrite
+  $self->store($ptrv,deref=>0);
+
+  return $ptrv;
 
 };
 

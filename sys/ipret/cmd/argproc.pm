@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# RD:CMD
-# Node subroutines
+# IPRET:CMD ARGPROC
+# VREF mambo
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package rd::cmd;
+package ipret::cmd::argproc;
 
   use v5.36.0;
   use strict;
@@ -22,15 +22,31 @@ package rd::cmd;
   use English qw(-no_match-vars);
   use lib $ENV{ARPATH}.'/lib/sys/';
 
-  use parent 'rd::cmd::MAKE';
-  use parent 'rd::cmd::argproc';
-  use parent 'rd::cmd::treeproc';
+  use Style;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.1;#a
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ~
+
+sub symfet($self,$vref) {
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+  my $mc   = $main->{mc};
+
+  # can find symbol?
+  my $name = $l1->is_sym($vref->{id});
+  my $sym  = $mc->ssearch($name);
+
+  return $sym;
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# RD:CMD
+# IPRET:CMD
 # Node subroutines
 #
 # LIBRE SOFTWARE
@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package rd::cmd;
+package ipret::cmd;
 
   use v5.36.0;
   use strict;
@@ -23,13 +23,12 @@ package rd::cmd;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use parent 'rd::cmd::MAKE';
-  use parent 'rd::cmd::argproc';
-  use parent 'rd::cmd::treeproc';
+  use parent 'ipret::cmd::argproc';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---

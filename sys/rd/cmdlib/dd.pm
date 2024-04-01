@@ -57,7 +57,7 @@ sub build($class,$main) {
 
 
   # give table
-  return rd::cmd::build($class,$main);
+  return rd::cmd::MAKE::build($class,$main);
 
 };
 

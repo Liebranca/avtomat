@@ -386,7 +386,7 @@ sub symbol_fetch($self,$src=undef) {
   # attempt fetch
   my $mc    = $main->{mc};
   my $scope = $mc->{scope};
-  my $have  = $mc->dsearch($src);
+  my $have  = $mc->search($src);
 
 
   return $have;
@@ -444,7 +444,7 @@ sub quantize($self,$src=undef) {
   } elsif($type eq 'EXE') {
 
     (exists $main->{engine})
-      ? $main->{engine}->exe($spec)
+      ? $main->{engine}->strexe($spec)
       : null
       ;
 

@@ -34,7 +34,7 @@ package A9M::ISA::MAKE;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -143,9 +143,14 @@ sub expand_operand_type($class,$type,%O) {
 
       } else {
 
+        my @pat=($O{immbig})
+          ? qw(x y z)
+          : qw(x y)
+          ;
+
         my @ar=($O{fix_immsrc})
-          ? 'i'.(qw(x y)[$O{fix_immsrc}-1])
-          : qw(ix iy)
+          ? 'i'.($pat[$O{fix_immsrc}-1])
+          : map {"i$ARG"} @pat
           ;
 
         @list=(qr{i(?!mm)},@ar);
@@ -253,8 +258,17 @@ sub gen_have_operand($class,$bld) {
   my $ins   = "${name}_$type";
   my @sizeb = @{$bld->{sizear}};
 
+  # cap accto minimum size
   if($src eq 'iy' || $dst eq 'iy') {
     @sizeb=grep {$ARG ne 'byte'} @sizeb;
+
+  # ^extended
+  } elsif($src eq 'iz' || $dst eq 'iz') {
+
+    @sizeb=grep {
+      ! ($ARG=~ qr{^(?:byte|word)$})
+
+    } @sizeb;
 
   };
 
@@ -329,6 +343,7 @@ sub gen_opcode($class,$bld,$name,%O) {
   $O{fix_immsrc}  //= 0;
   $O{fix_regsrc}  //= 0;
   $O{fix_size}    //= undef;
+  $O{immbig}      //= 0;
 
   $O{overwrite}   //= 1;
   $O{dst}         //= 'rm';

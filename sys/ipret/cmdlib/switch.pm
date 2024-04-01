@@ -28,8 +28,8 @@ package ipret::cmdlib::switch;
 # ---   *   ---   *   ---
 # adds to main::cmdlib
 
-  use   parent 'rd::cmd';
-  BEGIN {rd::cmd->defspkg};
+  use   parent 'ipret::cmd';
+  BEGIN {ipret::cmd->defspkg};
 
 # ---   *   ---   *   ---
 # info

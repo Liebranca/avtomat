@@ -36,8 +36,22 @@ package ipret::encoder;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+St::vconst {
+
+  DEFAULT=>{
+
+    main => undef,
+    Q    => {asm=>[]},
+
+  },
+
+};
 
 # ---   *   ---   *   ---
 # get instruction id from descriptor
@@ -89,7 +103,7 @@ sub packins($self,$idex,$args) {
 # ---   *   ---   *   ---
 # get opcode from descriptor
 
-sub encode_opcd($self,$type,$name,@args) {
+sub encode_opcode($self,$type,$name,@args) {
 
   # get instruction id
   my $idex=$self->insid(
@@ -113,7 +127,7 @@ sub encode_program($self,$program) {
   map {
 
     my ($opcd,$size)=
-      $self->encode_opcd(@$ARG);
+      $self->encode_opcode(@$ARG);
 
     (length $opcd)
       ? [$opcd,$size]
@@ -128,7 +142,7 @@ sub encode_program($self,$program) {
 # ---   *   ---   *   ---
 # packs and pads encoded instruction
 
-sub format_opcd($self,$ins) {
+sub format_opcode($self,$ins) {
 
   return null if ! length $ins;
 
@@ -170,7 +184,7 @@ sub encode($self,$program) {
   map {
 
     my ($have,$size)=
-      $self->format_opcd($ARG);
+      $self->format_opcode($ARG);
 
     $end    = $total;
     $bytes .= $have;
@@ -208,7 +222,7 @@ sub exewrite($self,$opsz,$name,@args) {
 
 
   # encode or die ;>
-  my ($opcd,$size)=$self->encode_opcd(
+  my ($opcd,$size)=$self->encode_opcode(
     $opsz,$name,@args
 
   );
@@ -223,12 +237,90 @@ sub exewrite($self,$opsz,$name,@args) {
 
   # map int to bytes ;>
   ($opcd,$size)=
-    $self->format_opcd([$opcd,$size]);
+    $self->format_opcode([$opcd,$size]);
 
   # ^write!
   my $mem=$mc->{segtop};
-  $mem->strwrite($opcd,$size);
 
+  $mem->store(cstr=>$opcd,$mem->{ptr});
+  $mem->{ptr} += $size;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^out of order
+#
+# this is when you want to
+# solve instructions in multiple
+# passes. what does that mean?
+#
+# the order in which the requests
+# are sent is not necessarily the
+# same in which they must be
+# processed!
+#
+# for that reason, you must provide
+# an idex for the request so that
+# the instruction is written to
+# the right address ;>
+
+sub exewrite_order(
+
+  $self,$uid,
+  $opsz,$name,@args
+
+) {
+
+  # get ctx
+  my $main = $self->{main};
+  my $mc   = $main->{mc};
+  my $seg  = $mc->{segtop};
+
+  # add request at idex
+  my $Q=$self->{Q}->{asm};
+  $Q->[$uid]=[$seg,$opsz,$name,@args];
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^processes requests and clears Q
+
+sub exewrite_run($self) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $mc   = $main->{mc};
+  my $ISA  = $mc->{ISA};
+
+
+  # walk requests!
+  my $Q      = $self->{Q}->{asm};
+  my $walked = {};
+
+  map {
+
+    # remember we stepped on this segment ;>
+    my $seg=shift @$ARG;
+    $walked->{$seg}=$seg;
+
+    # ^make current and run F
+    $mc->{segtop}=$seg;
+    $self->exewrite(@$ARG);
+
+  } grep {$ARG} @$Q;
+
+
+  # align walked segments
+  map  {$ARG->align($ISA->align_t->{sizeof})}
+  values %$walked;
+
+  # clear and give
+  @$Q=[];
   return;
 
 };
@@ -378,12 +470,12 @@ sub decode_opcode($self,$opcd) {
 
 
   # read operands
-  my ($dst,$src,$opr_sz)=
+  my ($dst,$src,$opsz)=
     $self->decode_operands($ins,$opcd);
 
 
   # give descriptor
-  my $size=$ins_sz+$opr_sz;
+  my $size=$ins_sz+$opsz;
 
   return {
 
@@ -415,7 +507,8 @@ sub decode($self,$program) {
   my $ptr=0x00;
   my @out=();
 
-  while($ptr+$step <= $limit) {
+  while($limit >= $ptr + $step) {
+
 
     # get next
     my $s    = substr $program,$ptr,$step;
@@ -434,6 +527,32 @@ sub decode($self,$program) {
 
 
   return \@out;
+
+};
+
+# ---   *   ---   *   ---
+# read next opcode from rip
+
+sub exeread($self) {
+
+
+  # get ctx
+  my $main  = $self->{main};
+  my $mc    = $main->{mc};
+  my $anima = $mc->{anima};
+  my $rip   = $anima->fetch($anima->exec_ptr);
+
+
+  # fetch instruction or stop
+  my $opcd=$rip->load;
+  return 0x00 if ! $opcd;
+
+
+  # ^go next and give
+  my $ins=$self->decode_opcode($opcd);
+  $rip->move($ins->{size});
+
+  return $ins;
 
 };
 

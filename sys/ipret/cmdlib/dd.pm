@@ -29,8 +29,8 @@ package ipret::cmdlib::dd;
 # ---   *   ---   *   ---
 # adds to main::cmdlib
 
-  use   parent 'rd::cmd';
-  BEGIN {rd::cmd->defspkg};
+  use   parent 'ipret::cmd';
+  BEGIN {ipret::cmd->defspkg};
 
 # ---   *   ---   *   ---
 # info
@@ -137,9 +137,10 @@ cmdsub 'seg-type' => q() => q{
 
 
   # make current and give
-  $mc->setseg($have);
+  my $out=sub {$mc->setseg($have)};
+  $out->();
 
-  return $have;
+  return $out;
 
 };
 
@@ -237,7 +238,7 @@ cmdsub 'data-decl' => q() => q{
 
 
       # fetch value
-      my $ref = $mc->psearch($name);
+      my $ref = $mc->valid_psearch($name);
       my $mem = $$ref->getseg();
 
       my $x   = $l1->quantize($x);

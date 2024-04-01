@@ -193,7 +193,7 @@ sub scope($self,@path) {
 };
 
 # ---   *   ---   *   ---
-# find segment
+# find symbol
 
 sub ssearch($self,@path) {
 
@@ -204,12 +204,23 @@ sub ssearch($self,@path) {
   shift @path if $path[0] eq $tree->{value};
 
 
-  # validate input
-  my $out=$tree->haslv(@path)
-  or return badfet('DIR',@path);
+  # lookup and give
+  my $out=$tree->haslv(@path);
+  return ($out) ? $out->{mem} : null ;
 
+};
 
-  return $out->{mem};
+# ---   *   ---   *   ---
+# ^plus errme!
+
+sub valid_ssearch($self,@path) {
+
+  my $out=$self->ssearch(@path);
+
+  return (length $out)
+    ? $out
+    : badfet('DIR',@path)
+    ;
 
 };
 
@@ -241,9 +252,9 @@ sub _search($self,$name,@path) {
 };
 
 # ---   *   ---   *   ---
-# ^deref
+# search and deref
 
-sub dsearch($self,$name,@path) {
+sub search($self,$name,@path) {
 
   # get ctx/solve path
   my $mem  = $self->{cas};
@@ -255,25 +266,21 @@ sub dsearch($self,$name,@path) {
 };
 
 # ---   *   ---   *   ---
-# ^deref+errme
+# ^plus errme
 
-sub search($self,$name,@path) {
+sub valid_search($self,$name,@path) {
 
-  # get ctx/solve path
-  my $mem  = $self->{cas};
-     @path = $self->_search($name,@path);
+  my $out=$self->search($name,@path);
 
-  # give name if found
-  my $out = $mem->{'*fetch'}
-  or return badfet($name,@path);
-
-
-  return $out;
+  return ($out)
+    ? $out
+    : badfet($name,@path)
+    ;
 
 };
 
 # ---   *   ---   *   ---
-# ^no deref! (but yes errme ;>)
+# search but no deref!
 
 sub psearch($self,$name,@path) {
 
@@ -282,11 +289,21 @@ sub psearch($self,$name,@path) {
      @path = $self->_search($name,@path);
 
   # get *ptr* to value!
-  my $out = $mem->{inner}->get(@path)
-  or return badfet($name,@path);
+  return $mem->{inner}->get(@path);
 
+};
 
-  return $out;
+# ---   *   ---   *   ---
+# ^plus errme
+
+sub valid_psearch($self,$name,@path) {
+
+  my $out=$self->psearch($name,@path);
+
+  return ($out)
+    ? $out
+    : badfet($name,@path)
+    ;
 
 };
 
@@ -510,9 +527,11 @@ sub decode_mstk_ptr($self,$o) {
 
   nyi('A9M::stack');
 
-  my $seg  = $self->{stack}->{mem};
-  my $base = $self->{anima}->fetch(0xB);
-  my $off  = $o->{imm};
+  my $anima = $self->{anima};
+
+  my $seg   = $self->{stack}->{mem};
+  my $base  = $anima->fetch($anima->stack_bot);
+  my $off   = $o->{imm};
 
   %$o=(
     seg  => $seg,
