@@ -40,7 +40,7 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#a
+  our $VERSION = v0.01.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -137,6 +137,26 @@ sub new($class,%O) {
   $self->{ISA}->ready_or_build;
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# take snapshot of current state
+
+sub backup($self) {
+
+  $self->{anima}->backup();
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub restore($self) {
+
+  $self->{anima}->restore();
+  return;
 
 };
 

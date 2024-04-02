@@ -60,6 +60,11 @@ sub build($class,$main) {
 };
 
 # ---   *   ---   *   ---
+# offset within current segment
+
+cmdsub '$' => q() => q{};
+
+# ---   *   ---   *   ---
 # template: read instruction
 
 cmdsub 'asm-ins' => q(opt_qlist) => q{

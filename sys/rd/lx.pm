@@ -191,7 +191,7 @@ sub load_CMD($self,$update=0) {
     \@keys,
 
     opscape => 1,
-    bwrap   => 1,
+    bwrap   => 0,
     whole   => 1,
 
   );

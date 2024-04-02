@@ -244,7 +244,7 @@ sub exe($self) {
 # ---   *   ---   *   ---
 # interpret node as a value
 
-sub value_solve($self,$src=undef,$rec=0) {
+sub value_solve($self,$src=undef) {
 
 
   # default to current branch
@@ -266,7 +266,16 @@ sub value_solve($self,$src=undef,$rec=0) {
 
   # single node?
   } elsif(! @{$src->{leaves}}) {
-    $out=$src->{value};
+
+    $out=(defined $src->{cmdkey})
+
+      ? (! defined $src->{vref})
+        ? $self->cmd_solve($src)
+        : $src->{vref}
+
+      : $src->{value}
+
+      ;
 
   # ^a whole branch!
   } else {
@@ -274,8 +283,24 @@ sub value_solve($self,$src=undef,$rec=0) {
 
   };
 
-
   return $l1->quantize($out);
+
+};
+
+# ---   *   ---   *   ---
+# get and execute
+
+sub cmd_solve($self,$branch) {
+
+  # get ctx
+  my $main   = $self->{main};
+  my $cmdlib = $main->{cmdlib};
+
+  # fetch and run
+  my $cmd=$cmdlib->fetch($branch->{cmdkey});
+  $cmd->{fn}->($cmd,$branch);
+
+  return $branch->{vref};
 
 };
 
@@ -332,7 +357,7 @@ sub branch_collapse($self,$src) {
   my $main = $self->{main};
   my $mc   = $main->{mc};
 
-  $mc->{anima}->backup();
+  $mc->{anima}->backup_alma();
 
 
   # get reverse hierarchal order
@@ -355,7 +380,7 @@ sub branch_collapse($self,$src) {
 
 
   # cleanup and give
-  $mc->{anima}->restore();
+  $mc->{anima}->restore_alma();
   return $src->{value};
 
 };
@@ -392,19 +417,28 @@ sub opera_collapse($self,$branch,$opera) {
 
   my $mc   = $main->{mc};
   my $enc  = $main->{encoder};
+  my $ISA  = $self->ISA;
 
   # save current state
   my $alma = $mc->{anima}->{almask};
 
 
-  #  get argument types
-  my @args   = $branch->branch_values();
+  # get argument types
+  my @args   = @{$branch->{leaves}};
   my @args_b = map {
 
-    my ($type,$spec) = $l1->read_tag($ARG);
-    my $have         = $l1->quantize($ARG);
+    my ($type,$spec)=
+      $l1->read_tag($ARG->{value});
 
-    $type .= $spec if $type eq 'm';
+    my $have=($type && $type ne '*')
+      ? $l1->quantize($ARG->{value})
+      : $self->value_solve($ARG)
+      ;
+
+
+    $type   = 'i' if $type eq '*';
+    $type  .= $spec if $type eq 'm';
+
     (defined $have) ? [$type,$have] : () ;
 
 
@@ -432,8 +466,8 @@ sub opera_collapse($self,$branch,$opera) {
       {type=>$type,reg=>$have};
 
     } elsif($type eq 'i') {
-      my $spec=(8 < bitsize $have) ? 'y' : 'x' ;
-      {type=>"i$spec",imm=>$have};
+      my $spec=$ISA->immsz($have);
+      {type=>$spec,imm=>$have};
 
     } elsif(! index $type,'m') {
       nyi "memory operands";
@@ -456,39 +490,116 @@ sub opera_collapse($self,$branch,$opera) {
 
 
   # fetch operator definition
-  my @program=$self->ISA->xlate(
+  my @program=$ISA->xlate(
     $opera,'word',@args
 
   );
 
 
-  # give plain value on const branch
-  if($const) {
+  # check that program has dynamic elements
+  #
+  # this means some of the operand values are
+  # references that cannot be solved at this
+  # stage and therefore cannot be encoded
+  #
+  # in such cases, we must delay the encoding
+  # until the next stage!
+  #
+  # we do this by wrapping the encoding of this
+  # operation in a subroutine ;>
+
+  if(
+
+    grep {! $ARG}
+
+    map  {$self->opera_static($ARG,0)}
+    map  {[(@$ARG)[2..@$ARG-1]]}
+
+    @program
+
+  ) {
+
+    my $solve=sub {
+
+      map  {$self->opera_static($ARG,1)}
+      map  {[(@$ARG)[2..@$ARG-1]]}
+
+      @program;
 
 
-    # build and unpack the opcodes
-    my ($bytes,$size)=
-      $enc->encode(\@program);
+      return $enc->opera_encode(
+        \@program,$const,$alma
 
-    # ^execute and give result
-    my @ret=$self->strexe($bytes);
-    $mc->{anima}->{almask}=$alma;
+      );
 
+    };
 
-    return $l1->make_tag(NUM=>$ret[-1]);
+    return $solve;
 
 
-  # ^make mini-executable for non-const!
+  # ^static, no wrapper needed!
   } else {
 
-    # make new segment holding opcodes
-    my $seg=$mc->{scratch}->new();
-    $mc->exewrite($seg,@program);
+    return $enc->opera_encode(
+      \@program,$const,$alma
 
-    # ^give handle via id
-    return $l1->make_tag(EXE=>$seg->{iced});
+    );
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# check that the operands for
+# an instruction are all composed
+# of fixed, static values
+#
+# if not, optionally dereference
+
+sub opera_static($self,$args,$deref=0) {
+
+
+  # walk operands
+  my $out=1;
+
+  for my $operand(@$args) {
+
+
+    # check type of the operand itself
+    my ($isref,$have)=
+      Chk::cderef $operand,$deref;
+
+    if($isref && $deref) {
+
+      $operand = $have;
+      $out     = 0;
+      $isref   = 0;
+
+    };
+
+
+    # apply same logic to descriptor values
+    map {
+
+      my $key   = $ARG;
+      my $value = $operand->{$key};
+
+      my ($isref,$have)=
+        Chk::cderef $value,$deref;
+
+      if($isref) {
+        $operand->{$key} = $have;
+        $out             = 0;
+
+      };
+
+
+    } keys %$operand if ! $isref;
+
+  };
+
+
+  return $out;
 
 };
 

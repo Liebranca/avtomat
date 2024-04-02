@@ -23,15 +23,16 @@ package ipret::cmd::argproc;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
-# ~
+# symbol lookup
 
 sub symfet($self,$vref) {
 
@@ -45,6 +46,24 @@ sub symfet($self,$vref) {
   my $sym  = $mc->ssearch($name);
 
   return $sym;
+
+};
+
+# ---   *   ---   *   ---
+# type switch
+
+sub argproc($self,$vref) {
+
+  my $main = $self->{frame}->{main};
+  my $eng  = $main->{engine};
+
+  if($vref->{type} eq 'sym') {
+    return $self->symfet($vref);
+
+  } else {
+    return $eng->value_solve($vref->{id});
+
+  };
 
 };
 

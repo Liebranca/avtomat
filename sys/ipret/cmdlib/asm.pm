@@ -23,6 +23,7 @@ package ipret::cmdlib::asm;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Chk;
   use Type;
   use Bpack;
 
@@ -38,8 +39,29 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# offset within current segment
+
+cmdsub '$' => q() => q{
+
+  my $main = $self->{frame}->{main};
+  my $mc   = $main->{mc};
+
+  $branch->{vref}=sub {
+
+  (  $mc->{segtop}->{ptr}
+  << $mc->segtab_t->{sizep2})
+
+  | $mc->segid($mc->{segtop})
+
+  };
+
+  return;
+
+};
 
 # ---   *   ---   *   ---
 # solve instruction arguments
@@ -53,6 +75,7 @@ cmdsub 'asm-ins' => q() => q{
   my $mc   = $main->{mc};
   my $ISA  = $mc->{ISA};
   my $enc  = $main->{encoder};
+  my $lib  = $main->{cmdlib};
 
   # unpack
   my $vref = $branch->{vref};
@@ -77,8 +100,38 @@ cmdsub 'asm-ins' => q() => q{
 
     # have immediate?
     } elsif($type eq 'i') {
-      $type=$ISA->immsz($O{imm});
-      %O=(imm=>$l1->quantize($key));
+
+
+      # command dereference
+      if(defined (my $have=$l1->is_cmd($key))) {
+
+        # TODO: move this bit somewhere else!
+        my $cmd=$lib->fetch($have);
+        $cmd->{fn}->($self,$nd);
+
+
+        # delay value deref until encoding
+        %O=(
+
+          imm=>sub {
+            ${$nd->{vref}}
+
+          },
+
+        );
+
+        $type=sub {
+          $ISA->immsz(${$nd->{vref}})
+
+        };
+
+
+      # regular immediate ;>
+      } else {
+        %O=(imm=>$l1->quantize($key));
+        $type=$ISA->immsz($O{imm});
+
+      };
 
 
     # have memory?
@@ -394,13 +447,13 @@ cmdsub 'self' => q() => q{
 cmdsub 'jump' => q() => q{
 
 
-  # can solve symbol?
-  my $sym=$self->symfet($branch->{vref});
-  return $branch if ! length $sym;
-
+  # can solve destination?
+  my $dst=$self->argproc($branch->{vref});
+  return $branch if ! length $dst;
 
   # get ctx
   my $main  = $self->{frame}->{main};
+  my $l1    = $main->{l1};
   my $enc   = $main->{encoder};
   my $mc    = $main->{mc};
   my $anima = $mc->{anima};
@@ -409,8 +462,31 @@ cmdsub 'jump' => q() => q{
 
 
   # get pointer and bitsize
-  my $ptrv=$sym->as_ptr;
-  my $type=$ISA->immsz($ptrv);
+  my $value={};
+
+  if(! is_coderef $dst) {
+
+    my $ptrv=$dst->as_ptr;
+    my $type=$ISA->immsz($ptrv);
+
+    $value={type=>$type,imm=>$ptrv};
+
+
+  } else {
+
+    $value=sub {
+
+      my $have=$dst->();
+         $have=$l1->quantize($have);
+
+      my $type=$ISA->immsz($have);
+
+      return {type=>$type,imm=>$have};
+
+    };
+
+  };
+
 
   # load to xp register!
   $enc->exewrite_order(
@@ -421,7 +497,7 @@ cmdsub 'jump' => q() => q{
     'load',
 
     {type=>'r',reg=>$anima->exec_ptr},
-    {type=>$type,imm=>$ptrv},
+    $value,
 
   );
 

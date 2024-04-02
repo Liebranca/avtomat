@@ -26,6 +26,7 @@ package A9M::ISA;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Chk;
   use Type;
   use Warnme;
 
@@ -285,6 +286,21 @@ sub imload($self,$size,$src) {
 
 sub immsz($self,$x) {
 
+
+  # value pending resolution?
+  my ($isref)=Chk::cderef $x,0;
+
+  return sub {
+
+    my ($isref,$have)=
+      Chk::cderef $x,1;
+
+    $self->immsz($have);
+
+  } if $isref;
+
+
+  # ^nope, get size ;>
   my $enc  = $self->enc_t;
   my $size = bitsize $x;
 

@@ -139,8 +139,10 @@ sub new($class,%O) {
     ptr => undef,
     rip => undef,
 
-    almask => $class->reserved_mask(),
-    alhist => [],
+    almask  => $class->reserved_mask(),
+
+    alhist  => [],
+    memhist => [],
 
 
   },$class;
@@ -189,7 +191,8 @@ sub new($class,%O) {
   my $xp  = $ptr[$self->exec_ptr];
   my $ISA = $mc->{bk}->{ISA};
 
-  $xp->{ptr_t}=$ISA->align_t;
+  $xp->{ptr_t} = typefet 'long';
+  $xp->{type}  = $ISA->align_t;
 
 
   # save to ice and give
@@ -344,10 +347,10 @@ sub free($self,$mem) {
 };
 
 # ---   *   ---   *   ---
-# save current allocation mask
-# to a *private* stack
+# save current state var
+# to their respective stacks
 
-sub backup($self) {
+sub backup_alma($self) {
 
   push @{$self->{alhist}},
     $self->{almask};
@@ -356,13 +359,52 @@ sub backup($self) {
 
 };
 
+sub backup_mem($self) {
+
+  push @{$self->{memhist}},
+    ${$self->{mem}->{buf}};
+
+  return;
+
+};
+
 # ---   *   ---   *   ---
 # ^undo
 
-sub restore($self) {
+sub restore_alma($self) {
 
   $self->{almask}=
     pop @{$self->{alhist}};
+
+  return;
+
+};
+
+sub restore_mem($self) {
+
+  ${$self->{mem}->{buf}}=
+    pop @{$self->{memhist}};
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^the entire thing
+
+sub backup($self) {
+
+  $self->backup_alma();
+  $self->backup_mem();
+
+  return;
+
+};
+
+sub restore($self) {
+
+  $self->restore_alma();
+  $self->restore_mem();
 
   return;
 

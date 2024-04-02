@@ -23,6 +23,7 @@ package ipret::encoder;
   use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
+  use Chk;
   use Type;
   use Bpack;
   use Bitformat;
@@ -36,7 +37,7 @@ package ipret::encoder;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -219,7 +220,11 @@ sub exewrite($self,$opsz,$name,@args) {
   # get ctx
   my $main = $self->{main};
   my $mc   = $main->{mc};
+  my $eng  = $main->{engine};
 
+
+  # dereference non-static
+  $eng->opera_static(\@args,1);
 
   # encode or die ;>
   my ($opcd,$size)=$self->encode_opcode(
@@ -297,6 +302,9 @@ sub exewrite_run($self) {
   my $mc   = $main->{mc};
   my $ISA  = $mc->{ISA};
 
+  # remember state of register/stack
+  $mc->backup();
+
 
   # walk requests!
   my $Q      = $self->{Q}->{asm};
@@ -308,9 +316,10 @@ sub exewrite_run($self) {
     my $seg=shift @$ARG;
     $walked->{$seg}=$seg;
 
-    # ^make current and run F
+    # make segment current and run F
     $mc->{segtop}=$seg;
     $self->exewrite(@$ARG);
+
 
   } grep {$ARG} @$Q;
 
@@ -321,7 +330,58 @@ sub exewrite_run($self) {
 
   # clear and give
   @$Q=[];
+  $mc->restore();
+
   return;
+
+};
+
+# ---   *   ---   *   ---
+# operator to binary ;>
+
+sub opera_encode($self,$program,$const,$alma) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $eng  = $main->{engine};
+  my $mc   = $main->{mc};
+  my $l1   = $main->{l1};
+
+
+  # give plain value on const branch
+  if($const) {
+
+
+    # build binary
+    my ($bytes,$size)=
+      $self->encode($program);
+
+    # execute and give result
+    my @ret=$eng->strexe($bytes);
+    $mc->{anima}->{almask}=$alma;
+
+    return $l1->make_tag(NUM=>$ret[-1]);
+
+
+  # ^make mini-executable for non-const!
+  } else {
+
+    # make new segment holding opcodes
+    my $seg=$mc->{scratch}->new();
+    my $old=$mc->{segtop};
+
+    # ^swap and write!
+    $mc->{segtop}=$seg;
+    $self->exewrite($seg,@$program);
+
+    $mc->{segtop}=$old;
+
+
+    # ^give handle via id
+    return $l1->make_tag(EXE=>$seg->{iced});
+
+  };
 
 };
 
@@ -544,13 +604,13 @@ sub exeread($self) {
 
 
   # fetch instruction or stop
-  my $opcd=$rip->load;
+  my $opcd=$rip->load();
   return 0x00 if ! $opcd;
-
 
   # ^go next and give
   my $ins=$self->decode_opcode($opcd);
   $rip->move($ins->{size});
+
 
   return $ins;
 

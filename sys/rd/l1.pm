@@ -419,6 +419,7 @@ sub quantize($self,$src=undef) {
   my ($type,$spec)=$self->read_tag($src);
   my $have=$self->detag($src);
 
+
   return $src if ! $type;
   $type=$TAG_T->{$type};
 

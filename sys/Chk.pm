@@ -53,7 +53,7 @@ package Chk;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.6;#b
+  our $VERSION=v0.00.7;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -241,6 +241,36 @@ sub is_filepath($fpath) {
   &&  (-f $fpath)
 
   ;
+
+};
+
+# ---   *   ---   *   ---
+# get value is a scalar or
+# code reference
+#
+# if so, conditionally dereference
+
+sub cderef($x,$deref) {
+
+
+  # have reference?
+  my $isref  =
+     (1 * int is_coderef   $x)
+  || (2 * int is_scalarref $x);
+
+
+  if($deref && $isref) {
+
+    my @out=($isref == 1)
+      ? ($x->())
+      : ($$x)
+      ;
+
+    return ($isref,@out);
+
+  };
+
+  return $isref,$x;
 
 };
 

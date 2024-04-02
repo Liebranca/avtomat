@@ -440,14 +440,15 @@ sub walk($self,%O) {
   $self->next_pass();
 
   # ^repeat or fail if so!
-  if(grep {'Tree' eq ref $ARG} @pending) {
+  my @have=grep {'Tree' eq ref $ARG} @pending;
+  if(@have) {
 
     goto rept if $self->{pass} < $O{limit};
 
 
     # report failure!
     $self->throw_unresolved(
-      \@pending,
+      \@have,
       lvl=>$AR_WARNING,
 
     );
