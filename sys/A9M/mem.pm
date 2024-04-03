@@ -43,7 +43,7 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.5;#a
+  our $VERSION = v0.01.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -646,12 +646,19 @@ sub ptr($self,$to,%O) {
 
 sub infer($self,$value,%O) {
 
-  my $class=$self->get_ptr_bk();
+  my $class = $self->get_ptr_bk();
+  my $isptr = $class->is_valid($value);
 
-  ($class->is_valid($value))
+  my $post  = ! $isptr && $O{ptr_t};
+
+
+  my $ptr=($isptr)
     ? $self->ptr($value,%O,store_at=>$O{addr})
     : $self->lvalue($value,%O)
     ;
+
+  $ptr->{ptr_t}=$O{ptr_t} if $post;
+  return $ptr;
 
 };
 

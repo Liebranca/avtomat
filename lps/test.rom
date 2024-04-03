@@ -1,10 +1,17 @@
 %;
 
+ram data;
+
+  byte b0 $24;
+  byte b1 $00;
+  byte b2 $25;
+
+  tiny p0 b0;
+
+
 exe code;
 
-  load ar,$24;
-  jump $+$60;
+  self data;
 
-  load br,$24;
-  load cr,$24;
-
+  load  ar,[p0+2];
+  store [b1],ar;

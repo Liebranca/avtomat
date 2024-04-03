@@ -25,6 +25,7 @@ package ipret::cmdlib::dd;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Chk;
 
 # ---   *   ---   *   ---
 # adds to main::cmdlib
@@ -35,7 +36,7 @@ package ipret::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -202,6 +203,18 @@ cmdsub 'data-decl' => q() => q{
     my ($x,$have)=
       $self->value_solve($value);
 
+    my ($isref)=
+      Chk::cderef $x,0;
+
+    if($isref) {
+
+      $mc->backup();
+      ($isref,$x)=Chk::cderef $x,1;
+
+      $mc->restore();
+
+    };
+
     $x=$l1->quantize($x);
 
 
@@ -241,13 +254,13 @@ cmdsub 'data-decl' => q() => q{
       my $ref = $mc->valid_psearch($name);
       my $mem = $$ref->getseg();
 
-      my $x   = $l1->quantize($x);
+      my $y   = $l1->quantize($x);
 
 
       # overwrite value
       $$ref = $mem->infer(
 
-        $x,
+        $y,
 
         ptr_t => $ptr_t,
         type  => $type,

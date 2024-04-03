@@ -39,7 +39,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -91,7 +91,6 @@ cmdsub 'asm-ins' => q() => q{
     my $type = $ARG->{type};
 
     my %O    = ();
-
 
     # have register?
     if($type eq 'r') {
@@ -224,6 +223,7 @@ sub addr_decompose($self,$nd) {
   my $main  = $self->{frame}->{main};
   my $l1    = $main->{l1};
   my $anima = $main->{mc}->{anima};
+  my $eng   = $main->{engine};
 
 
   # get first branch:
@@ -234,6 +234,8 @@ sub addr_decompose($self,$nd) {
 
   my $beg = $nd->{leaves}->[0];
      $beg = $beg->{leaves}->[0];
+
+  $eng->branch_collapse($beg,noreg=>1);
 
 
   # get elements of address

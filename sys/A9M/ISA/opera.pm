@@ -195,11 +195,14 @@ St::vconst {
 
   },
 
-#  sub => {
-#    dst  => 'r',
-#    src  => 'ri',
-#
-#  },
+  sub => {
+
+    fn   => '_sub',
+
+    dst  => 'r',
+    src  => 'ri',
+
+  },
 
 
   mul => {
@@ -300,6 +303,7 @@ St::vconst {
     = copy
     ^ xor
     + add
+    - sub
     * mul
 
   )},
@@ -414,6 +418,15 @@ sub xor($class,$type,$src) {
 sub add($class,$type,$src) {
   my @src=asval $src;
   sub ($x) {$x + shift @src};
+
+};
+
+# ---   *   ---   *   ---
+# substraction
+
+sub _sub($class,$type,$src) {
+  my @src=asval $src;
+  sub ($x) {$x - shift @src};
 
 };
 

@@ -244,14 +244,14 @@ sub exe($self) {
 # ---   *   ---   *   ---
 # interpret node as a value
 
-sub value_solve($self,$src=undef) {
+sub value_solve($self,$src,%O) {
 
 
-  # default to current branch
-  my $main   = $self->{main};
-     $src  //= $main->{branch};
+  # defaults
+  $O{noreg} //= 0;
 
   # get ctx
+  my $main   = $self->{main};
   my $mc     = $main->{mc};
   my $l1     = $main->{l1};
   my $ptrcls = $mc->{bk}->{ptr};
@@ -279,7 +279,7 @@ sub value_solve($self,$src=undef) {
 
   # ^a whole branch!
   } else {
-    $out=$self->branch_collapse($src);
+    $out=$self->branch_collapse($src,%O);
 
   };
 
@@ -308,8 +308,11 @@ sub cmd_solve($self,$branch) {
 # default leaf-to-root
 # branch processing logic
 
-sub branch_solve($self,$branch) {
+sub branch_solve($self,$branch,%O) {
 
+
+  # defaults
+  $O{noreg} //= 0;
 
   # get ctx
   my $main = $self->{main};
@@ -322,12 +325,15 @@ sub branch_solve($self,$branch) {
   if(defined (my $have=$l1->is_opera($key))) {
 
     my $dst=($have ne '(')
-      ? $self->opera_collapse($branch,$have)
+      ? $self->opera_collapse($branch,$have,%O)
       : $branch->leaf_value(0)
       ;
 
-    $branch->{value}=$dst;
-    $branch->clear();
+    if(length $dst) {
+      $branch->{value}=$dst;
+      $branch->clear();
+
+    };
 
 
   # 'branch' token denotes any {[(code)]}
@@ -350,8 +356,11 @@ sub branch_solve($self,$branch) {
 # ---   *   ---   *   ---
 # ^recursive
 
-sub branch_collapse($self,$src) {
+sub branch_collapse($self,$src,%O) {
 
+
+  # defaults
+  $O{noreg} //= 0;
 
   # save current state
   my $main = $self->{main};
@@ -375,7 +384,7 @@ sub branch_collapse($self,$src) {
 
 
   # ^collapse from bottom leaf to root
-  map {$self->branch_solve($ARG)}
+  map     {$self->branch_solve($ARG,%O)}
   reverse @Q1;
 
 
@@ -408,8 +417,11 @@ sub sbranch_collapse($self,$branch,$id) {
 # execute const operator branch
 # else give handle to executable
 
-sub opera_collapse($self,$branch,$opera) {
+sub opera_collapse($self,$branch,$opera,%O) {
 
+
+  # defaults
+  $O{noreg} //= 0;
 
   # get ctx
   my $main = $self->{main};
@@ -425,6 +437,8 @@ sub opera_collapse($self,$branch,$opera) {
 
   # get argument types
   my @args   = @{$branch->{leaves}};
+  my $reg    = 0;
+
   my @args_b = map {
 
     my ($type,$spec)=
@@ -435,6 +449,8 @@ sub opera_collapse($self,$branch,$opera) {
       : $self->value_solve($ARG)
       ;
 
+
+    $reg   |= $type eq 'r';
 
     $type   = 'i' if $type eq '*';
     $type  .= $spec if $type eq 'm';
@@ -450,6 +466,9 @@ sub opera_collapse($self,$branch,$opera) {
   if @args_b != int @args;
 
   @args=@args_b;
+
+  # ^ops with registers forbidden?
+  return null if $reg && $O{noreg};
 
 
   # branch is a constant if it in turn
@@ -471,6 +490,17 @@ sub opera_collapse($self,$branch,$opera) {
 
     } elsif(! index $type,'m') {
       nyi "memory operands";
+
+    } elsif($type eq 's') {
+
+      my $addr = ($have->{ptr_t})
+        ? $have->load(deref=>0)
+        : $have->{addr}
+        ;
+
+      my $spec = $ISA->immsz($addr);
+
+      {type=>$spec,imm=>$addr};
 
     } else {
 

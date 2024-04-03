@@ -34,6 +34,7 @@ package A9M;
   use Arstd::Bytes;
   use Arstd::Int;
   use Arstd::PM;
+  use Arstd::IO;
 
   use parent 'St';
 
