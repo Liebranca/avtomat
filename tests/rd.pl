@@ -37,7 +37,16 @@ my $main = ipret(
 # ^assemble!
 
 my $enc=$main->{encoder};
-$enc->exewrite_run();
+my @tab=$enc->exewrite_run();
+
+map {
+
+  my $vref=$ARG->{vref};
+
+  say sprintf "%-16s $vref->{addr}:$vref->{size}",
+    $vref->{req}->[1];
+
+} @tab;
 
 # ---   *   ---   *   ---
 # manually set entry ;>
@@ -56,8 +65,8 @@ $rip->store(
 # ---   *   ---   *   ---
 # run and dbout
 
-$main->{engine}->exe();
-$main->prich(anima=>1,mem=>'outer',tree=>0);
+#$main->{engine}->exe();
+$main->prich(anima=>1,mem=>'outer,inner',tree=>0);
 
 # ---   *   ---   *   ---
 1; # ret

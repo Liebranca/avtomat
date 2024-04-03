@@ -268,13 +268,8 @@ sub value_solve($self,$src,%O) {
   } elsif(! @{$src->{leaves}}) {
 
     $out=(defined $src->{cmdkey})
-
-      ? (! defined $src->{vref})
-        ? $self->cmd_solve($src)
-        : $src->{vref}
-
+      ? $self->cmd_solve($src)
       : $src->{value}
-
       ;
 
   # ^a whole branch!

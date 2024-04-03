@@ -30,6 +30,7 @@ package Tree;
   use Chk;
 
   use Arstd::String;
+  use Arstd::Re;
   use Arstd::IO;
 
   use parent 'St';
@@ -37,7 +38,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.3;
+  our $VERSION = v0.03.4;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -1442,6 +1443,31 @@ sub leaf_value($self,$idex) {
 
 sub leafless_values($self,%O) {
   return map {$ARG->{value}} $self->leafless(%O);
+
+};
+
+# ---   *   ---   *   ---
+# return nodes in tree that
+# match any uid in list
+
+sub find_uid($self,@list) {
+
+  my @Q   = ($self);
+  my @out = ();
+
+  my $re  = re_eiths \@list,whole=>1;
+
+  while(@Q) {
+
+    my $nd=shift @Q;
+
+    push @out,$nd if $nd->{-uid}=~ $re;
+    unshift @Q,@{$nd->{leaves}};
+
+  };
+
+
+  return @out;
 
 };
 

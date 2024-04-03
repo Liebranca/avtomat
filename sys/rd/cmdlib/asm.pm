@@ -62,7 +62,23 @@ sub build($class,$main) {
 # ---   *   ---   *   ---
 # offset within current segment
 
-cmdsub '$' => q() => q{};
+cmdsub '$' => q() => q{
+
+  $branch->{vref}={
+    id   => $branch,
+    type => 'nsym',
+
+  };
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# a label with extra steps
+# see ipret for details!
+
+w_cmdsub 'csume-token' => q(sym) => 'blk';
 
 # ---   *   ---   *   ---
 # template: read instruction

@@ -250,7 +250,7 @@ sub exewrite($self,$opsz,$name,@args) {
   $mem->store(cstr=>$opcd,$mem->{ptr});
   $mem->{ptr} += $size;
 
-  return;
+  return $size;
 
 };
 
@@ -308,31 +308,85 @@ sub exewrite_run($self) {
 
   # walk requests!
   my $Q      = $self->{Q}->{asm};
+
+  my $idex   = 0;
+  my $table  = {};
+
   my $walked = {};
 
   map {
 
+
     # remember we stepped on this segment ;>
-    my $seg=shift @$ARG;
+    my $seg  = shift @$ARG;
+    my $addr = $seg->{ptr};
+
     $walked->{$seg}=$seg;
+
 
     # make segment current and run F
     $mc->{segtop}=$seg;
-    $self->exewrite(@$ARG);
+    my $size=$self->exewrite(@$ARG);
+
+    # ^assoc opcode size to request sender!
+    my $uid=$table->{$ARG};
+    delete $table->{$ARG};
+
+    $table->{$uid}={
+
+      uid  => $uid,
+
+      size => $size,
+      addr => $addr,
+
+    };
 
 
-  } grep {$ARG} @$Q;
+  # take note of tree nodes that made
+  # these requests!
+  } grep {
+
+    my $valid=defined $ARG;
+    $table->{$ARG}=$idex if $valid;
+
+    $idex++;
+    $valid;
+
+  } @$Q;
+
+  # ^we can find the nodes easily
+  # as the request id *is* the node id!
+  my @out=$main->{tree}->find_uid(
+    keys %$table
+
+  );
 
 
-  # align walked segments
-  map  {$ARG->align($ISA->align_t->{sizeof})}
-  values %$walked;
+  # inform node of instruction address and size!
+  map {
+
+    my $nd   = $ARG;
+    my $uid  = $ARG->{-uid};
+    my $vref = $nd->{vref};
+
+    $vref->{addr}=$table->{$uid}->{addr};
+    $vref->{size}=$table->{$uid}->{size};
+
+  } @out;
+
+
+  # align walked segments and reset
+  map {
+    $ARG->tighten($ISA->align_t->{sizeof});
+    $ARG->{ptr}=0;
+
+  } values %$walked;
 
   # clear and give
   @$Q=[];
   $mc->restore();
 
-  return;
+  return @out;
 
 };
 

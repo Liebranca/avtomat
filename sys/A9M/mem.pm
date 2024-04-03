@@ -332,7 +332,14 @@ sub brkfit($self,$n) {
 # ---   *   ---   *   ---
 # align block to pow2
 
-sub align($self,$n) {
+sub align($self,$align_t) {
+
+
+  # convert typename to size if need
+  my $n=(! ($align_t=~ $NUM_RE))
+    ? sizeof $align_t
+    : $align_t
+    ;
 
   # forbid non-pow2 alignments
   return warn_pow2ali($n)
@@ -362,6 +369,19 @@ sub warn_pow2ali($n) {
 
   args => [$n],
   give => null;
+
+};
+
+# ---   *   ---   *   ---
+# shrink block to ptr
+# then apply alignment
+
+sub tighten($self,$align_t) {
+
+  my $diff=$self->{ptr}-$self->{size};
+
+  $self->brk($diff);
+  $self->align($align_t);
 
 };
 

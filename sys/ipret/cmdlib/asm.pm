@@ -39,7 +39,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -64,6 +64,70 @@ cmdsub '$' => q() => q{
 };
 
 # ---   *   ---   *   ---
+# a label with extra steps
+
+cmdsub 'blk' => q() => q{
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $mc   = $main->{mc};
+  my $l1   = $main->{l1};
+
+  # get name of symbol
+  my $name=$l1->is_sym(
+    $branch->{vref}->{id}
+
+  );
+
+
+  # make fake ptr
+  $mc->{cas}->brkfit(sizeof 'qword');
+  my $ptr=$mc->{cas}->lvalue(
+
+    0x00,
+
+    type  => 'qword',
+    label => $name
+
+  );
+
+  $ptr->{ptr_t}=typefet 'long';
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# make binary write request
+
+sub binreq($self,$branch,@req) {
+
+  # get ctx
+  my $main  = $self->{frame}->{main};
+  my $enc   = $main->{encoder};
+
+
+  # save request to branch!
+  $branch->{vref}={
+
+    req  => \@req,
+
+    size => 0,
+    addr => 0x00,
+
+  };
+
+  # ^dispatch and give
+  $enc->exewrite_order(
+    $branch->{-uid},@req
+
+  );
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # solve instruction arguments
 
 cmdsub 'asm-ins' => q() => q{
@@ -74,7 +138,6 @@ cmdsub 'asm-ins' => q() => q{
   my $l1   = $main->{l1};
   my $mc   = $main->{mc};
   my $ISA  = $mc->{ISA};
-  my $enc  = $main->{encoder};
   my $lib  = $main->{cmdlib};
 
   # unpack
@@ -161,9 +224,9 @@ cmdsub 'asm-ins' => q() => q{
   } @{$vref->{args}};
 
 
-  # all OK? then dump code to memory
-  $enc->exewrite_order(
-    $branch->{-uid},
+  # all OK, request and give
+  $self->binreq(
+    $branch,
     $opsz,$name,@args
 
   );
@@ -453,10 +516,10 @@ cmdsub 'jump' => q() => q{
   my $dst=$self->argproc($branch->{vref});
   return $branch if ! length $dst;
 
+
   # get ctx
   my $main  = $self->{frame}->{main};
   my $l1    = $main->{l1};
-  my $enc   = $main->{encoder};
   my $mc    = $main->{mc};
   my $anima = $mc->{anima};
   my $ISA   = $mc->{ISA};
@@ -466,14 +529,24 @@ cmdsub 'jump' => q() => q{
   # get pointer and bitsize
   my $value={};
 
+  # dst is symbol?
   if(! is_coderef $dst) {
 
-    my $ptrv=$dst->as_ptr;
-    my $type=$ISA->immsz($ptrv);
+    $value=sub {
 
-    $value={type=>$type,imm=>$ptrv};
+      my $ptrv=(exists $dst->{ptr_t})
+        ? $dst->load(deref=>0)
+        : $dst->as_ptr
+        ;
+
+      my $type=$ISA->immsz($ptrv);
+
+      return {type=>$type,imm=>$ptrv};
+
+    };
 
 
+  # ^dst is operation!
   } else {
 
     $value=sub {
@@ -491,9 +564,9 @@ cmdsub 'jump' => q() => q{
 
 
   # load to xp register!
-  $enc->exewrite_order(
+  $self->binreq(
 
-    $branch->{-uid},
+    $branch,
     $ISA->align_t,
 
     'load',
