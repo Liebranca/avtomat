@@ -300,6 +300,47 @@ sub cmd_solve($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# solve and quantize
+
+sub value_flatten($self,$src,%O) {
+
+  # get ctx
+  my $main = $self->{main};
+  my $mc   = $main->{mc};
+  my $l1   = $main->{l1};
+
+
+  # can solve value now?
+  my $have=$self->value_solve($src,%O);
+
+  # ^give zero on nope
+  my $x=(! length $have)
+    ? $l1->make_tag(NUM=>0)
+    : $have
+    ;
+
+
+  # handle references
+  my ($isref)=
+    Chk::cderef $x,0;
+
+  if($isref) {
+
+    $mc->backup();
+    ($isref,$x)=Chk::cderef $x,1;
+
+    $mc->restore();
+
+  };
+
+  $x=$l1->quantize($x);
+
+
+  return ($x,$have);
+
+};
+
+# ---   *   ---   *   ---
 # default leaf-to-root
 # branch processing logic
 
@@ -417,6 +458,7 @@ sub opera_collapse($self,$branch,$opera,%O) {
 
   # defaults
   $O{noreg} //= 0;
+  $O{noram} //= 0;
 
   # get ctx
   my $main = $self->{main};
@@ -475,19 +517,36 @@ sub opera_collapse($self,$branch,$opera,%O) {
 
     my ($type,$have)=@$ARG;
 
+
+    # register
     if($type eq 'r') {
       $const &=~ 1;
       {type=>$type,reg=>$have};
 
+
+    # immediate
     } elsif($type eq 'i') {
       my $spec=$ISA->immsz($have);
       {type=>$spec,imm=>$have};
 
+
+    # TODO: memory
     } elsif(! index $type,'m') {
       nyi "memory operands";
 
+
+    # symbols
     } elsif($type eq 's') {
 
+
+      # allow non-const?
+      my $seg=$have->getseg;
+
+      return null
+      if $seg->{writeable} && $O{noram};
+
+
+      # ^deref and give
       my $addr = ($have->{ptr_t})
         ? $have->load(deref=>0)
         : $have->{addr}
@@ -497,6 +556,8 @@ sub opera_collapse($self,$branch,$opera,%O) {
 
       {type=>$spec,imm=>$addr};
 
+
+    # error!
     } else {
 
       $main->perr(

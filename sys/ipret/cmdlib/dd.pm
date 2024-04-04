@@ -26,6 +26,7 @@ package ipret::cmdlib::dd;
 
   use Style;
   use Chk;
+  use Type;
 
 # ---   *   ---   *   ---
 # adds to main::cmdlib
@@ -36,7 +37,7 @@ package ipret::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -129,7 +130,7 @@ cmdsub 'seg-type' => q() => q{
   # ^making new, decl and set flags
   if(! $have) {
 
-    $have=$mem->new(0x10,$name);
+    $have=$mem->new(0x00,$name);
 
     $have->{writeable}  = int($type=~ qr{^ram$});
     $have->{executable} = int($type=~ qr{^exe$});
@@ -146,32 +147,6 @@ cmdsub 'seg-type' => q() => q{
 };
 
 # ---   *   ---   *   ---
-# shorthand: make sense of value branch!
-
-sub value_solve($self,$value) {
-
-
-  # get ctx
-  my $main = $self->{frame}->{main};
-  my $l1   = $main->{l1};
-  my $eng  = $main->{engine};
-
-
-  # can solve value now?
-  my $have=$eng->value_solve($value);
-
-  # ^give zero on nope
-  my $x=(! length $have)
-    ? $l1->make_tag(NUM=>0)
-    : $have
-    ;
-
-
-  return ($x,$have);
-
-};
-
-# ---   *   ---   *   ---
 # reserve memory and solve values
 # re-run if not all values solved!
 
@@ -182,6 +157,8 @@ cmdsub 'data-decl' => q() => q{
   my $main  = $self->{frame}->{main};
   my $mc    = $main->{mc};
   my $l1    = $main->{l1};
+  my $enc   = $main->{encoder};
+  my $eng   = $main->{engine};
 
   my $scope = $mc->{scope};
 
@@ -189,6 +166,8 @@ cmdsub 'data-decl' => q() => q{
   my $data = $branch->{vref};
   my $type = $data->{type};
   my $list = $data->{list};
+
+  my $out  = $data->{out} //= [];
 
 
   # walk values pending resolution
@@ -201,21 +180,7 @@ cmdsub 'data-decl' => q() => q{
 
     # *attempt* solving
     my ($x,$have)=
-      $self->value_solve($value);
-
-    my ($isref)=
-      Chk::cderef $x,0;
-
-    if($isref) {
-
-      $mc->backup();
-      ($isref,$x)=Chk::cderef $x,1;
-
-      $mc->restore();
-
-    };
-
-    $x=$l1->quantize($x);
+      $eng->value_flatten($value);
 
 
     # have ptr?
@@ -237,56 +202,76 @@ cmdsub 'data-decl' => q() => q{
     };
 
 
+    $type=($ptr_t && $x)
+      ? $x->{type}
+      : $type
+      ;
+
+    $ptr_t=typefet $ptr_t if $ptr_t;
+
+
     # assume declaration on first pass
+    my $sym=undef;
+
     if(! $main->{pass}) {
 
       $main->throw_redecl('value',$name)
       if $scope->has($name);
 
-      $mc->decl($type,$name,$x);
+      $sym=$mc->decl($type,$name,$x);
+
+
+      # make reasm params
+      push @$out,{
+
+        id   => $name,
+
+        type => 'sym-decl',
+        data => $value,
+
+      };
 
 
     # ^else we're retrying value resolution
     } elsif($have) {
-
-
-      # fetch value
-      my $ref = $mc->valid_psearch($name);
-      my $mem = $$ref->getseg();
-
-      my $y   = $l1->quantize($x);
-
-
-      # overwrite value
-      $$ref = $mem->infer(
-
-        $y,
-
-        ptr_t => $ptr_t,
-        type  => $type,
-
-        label => $name,
-        addr  => $$ref->{addr},
-
-      );
+      my $ref=$mc->valid_psearch($name);
+      $sym=$$ref;
 
     };
 
 
+    # overwrite meta
+    $sym->{type}  = $type;
+    $sym->{ptr_t} = $ptr_t;
+
+    $sym->store($x,deref=>0);
+
+
+    # give unsolved!
     (! defined $have) ? $ARG : () ;
 
   } @$list;
 
 
   # wait for next pass if values pending
-  # else discard branch
   if(@have) {
     @$list=@have;
     return $branch;
 
-
+  # ^else save reasm params
   } else {
-    $branch->discard();
+
+    $enc->binreq(
+
+      $branch,
+
+      $type,
+      'data-decl',
+
+      @$out
+
+    );
+
     return;
 
   };

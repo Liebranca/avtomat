@@ -37,7 +37,7 @@ package ipret::encoder;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -105,6 +105,55 @@ sub packins($self,$idex,$args) {
 # get opcode from descriptor
 
 sub encode_opcode($self,$type,$name,@args) {
+
+
+  # dumping raw bytes?
+  if($name eq 'data-decl') {
+
+    my $main = $self->{main};
+    my $mc   = $main->{mc};
+    my $eng  = $main->{engine};
+
+    my $seg  = $mc->{segtop};
+    my $size = 0x00;
+
+
+    map {
+
+      my $sym=${$mc->valid_psearch(
+        $ARG->{id}
+
+      )};
+
+      my $value=$eng->value_flatten(
+        $ARG->{data}
+
+      );
+
+      my $step=($sym->{ptr_t})
+        ? $sym->{ptr_t}->{sizeof}
+        : $sym->{type}->{sizeof}
+        ;
+
+
+      if($seg eq $sym->getseg) {
+        $sym->{addr}  = $seg->{ptr};
+
+        $seg->{ptr}  += $step;
+        $size        += $step;
+
+      };
+
+      $sym->store($value,deref=>0);
+
+
+    } @args;
+
+
+    return 'data-decl',$size;
+
+  };
+
 
   # get instruction id
   my $idex=$self->insid(
@@ -222,15 +271,26 @@ sub exewrite($self,$opsz,$name,@args) {
   my $mc   = $main->{mc};
   my $eng  = $main->{engine};
 
-
   # dereference non-static
-  $eng->opera_static(\@args,1);
+  my @copy=map {
+
+    (is_hashref $ARG)
+      ? {%$ARG}
+      : $ARG
+      ;
+
+  } @args;
+
+  $eng->opera_static(\@copy,1);
 
   # encode or die ;>
   my ($opcd,$size)=$self->encode_opcode(
-    $opsz,$name,@args
+    $opsz,$name,@copy
 
   );
+
+  goto skip if $opcd eq 'data-decl';
+
 
   # ^catch encoding fail
   $main->perr(
@@ -247,9 +307,12 @@ sub exewrite($self,$opsz,$name,@args) {
   # ^write!
   my $mem=$mc->{segtop};
 
+  $mem->brkfit($size);
   $mem->store(cstr=>$opcd,$mem->{ptr});
   $mem->{ptr} += $size;
 
+
+  skip:
   return $size;
 
 };
@@ -292,6 +355,33 @@ sub exewrite_order(
 };
 
 # ---   *   ---   *   ---
+# ^shorthand for saving request
+# to node!
+
+sub binreq($self,$branch,@req) {
+
+
+  # save request to branch!
+  $branch->{vref}={
+
+    req  => \@req,
+
+    size => 0,
+    addr => 0x00,
+
+  };
+
+  # ^dispatch and give
+  $self->exewrite_order(
+    $branch->{-uid},@req
+
+  );
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # ^processes requests and clears Q
 
 sub exewrite_run($self) {
@@ -317,16 +407,24 @@ sub exewrite_run($self) {
   map {
 
 
-    # remember we stepped on this segment ;>
-    my $seg  = shift @$ARG;
-    my $addr = $seg->{ptr};
+    # unpack
+    my ($seg,$opsz,$name,@args)=@$ARG;
 
+
+    # reset addr on first step
+    $seg->{ptr} = 0x00
+    if ! exists $walked->{$seg};
+
+    # remember we stepped on this segment ;>
     $walked->{$seg}=$seg;
+
+    # ^write to top
+    my $addr=$seg->{ptr};
 
 
     # make segment current and run F
-    $mc->{segtop}=$seg;
-    my $size=$self->exewrite(@$ARG);
+    $mc->setseg($seg);
+    my $size=$self->exewrite($opsz,$name,@args);
 
     # ^assoc opcode size to request sender!
     my $uid=$table->{$ARG};
@@ -383,7 +481,7 @@ sub exewrite_run($self) {
   } values %$walked;
 
   # clear and give
-  @$Q=[];
+#  @$Q=[];
   $mc->restore();
 
   return @out;

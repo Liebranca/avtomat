@@ -71,7 +71,7 @@ sub warnproc($me,%O) {
 
   map {
     $ARG=$$ARG if is_scalarref($ARG);
-    $ARG=nulltag if ! $ARG;
+    $ARG=nulltag if ! defined $ARG;
 
   } @{$O{args}};
 

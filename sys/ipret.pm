@@ -40,7 +40,7 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -137,6 +137,24 @@ sub crux($src,%O) {
 
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# CVYC: get handle to current byte,
+# but in the ~ F U T U R E ~
+
+sub cpos($self) {
+
+  my $mc=$self->{mc};
+  return sub {
+
+  (  $mc->{segtop}->{ptr}
+  << $mc->segtab_t->{sizep2})
+
+  | $mc->segid($mc->{segtop})
+
+  };
 
 };
 

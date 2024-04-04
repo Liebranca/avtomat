@@ -48,16 +48,7 @@ package ipret::cmdlib::asm;
 cmdsub '$' => q() => q{
 
   my $main = $self->{frame}->{main};
-  my $mc   = $main->{mc};
-
-  $branch->{vref}=sub {
-
-  (  $mc->{segtop}->{ptr}
-  << $mc->segtab_t->{sizep2})
-
-  | $mc->segid($mc->{segtop})
-
-  };
+  $branch->{vref}=$main->cpos;
 
   return;
 
@@ -72,6 +63,7 @@ cmdsub 'blk' => q() => q{
   my $main = $self->{frame}->{main};
   my $mc   = $main->{mc};
   my $l1   = $main->{l1};
+  my $enc  = $main->{encoder};
 
   # get name of symbol
   my $name=$l1->is_sym(
@@ -93,33 +85,21 @@ cmdsub 'blk' => q() => q{
 
   $ptr->{ptr_t}=typefet 'long';
 
-  return;
 
-};
+  # ^schedule for update ;>
+  $enc->binreq(
 
-# ---   *   ---   *   ---
-# make binary write request
+    $branch,
 
-sub binreq($self,$branch,@req) {
+    (typefet 'qword'),
+    'data-decl',
 
-  # get ctx
-  my $main  = $self->{frame}->{main};
-  my $enc   = $main->{encoder};
+    { id   => $name,
 
+      type => 'sym-decl',
+      data => $main->cpos,
 
-  # save request to branch!
-  $branch->{vref}={
-
-    req  => \@req,
-
-    size => 0,
-    addr => 0x00,
-
-  };
-
-  # ^dispatch and give
-  $enc->exewrite_order(
-    $branch->{-uid},@req
+    },
 
   );
 
@@ -138,6 +118,7 @@ cmdsub 'asm-ins' => q() => q{
   my $l1   = $main->{l1};
   my $mc   = $main->{mc};
   my $ISA  = $mc->{ISA};
+  my $enc  = $main->{encoder};
   my $lib  = $main->{cmdlib};
 
   # unpack
@@ -153,11 +134,11 @@ cmdsub 'asm-ins' => q() => q{
     my $key  = $nd->{value};
     my $type = $ARG->{type};
 
-    my %O    = ();
+    my $O    = {};
 
     # have register?
     if($type eq 'r') {
-      %O=(reg=>$l1->quantize($key));
+      $O->{reg}=$l1->quantize($key);
 
 
     # have immediate?
@@ -173,14 +154,10 @@ cmdsub 'asm-ins' => q() => q{
 
 
         # delay value deref until encoding
-        %O=(
+        $O->{imm}=sub {
+          ${$nd->{vref}}
 
-          imm=>sub {
-            ${$nd->{vref}}
-
-          },
-
-        );
+        };
 
         $type=sub {
           $ISA->immsz(${$nd->{vref}})
@@ -190,8 +167,8 @@ cmdsub 'asm-ins' => q() => q{
 
       # regular immediate ;>
       } else {
-        %O=(imm=>$l1->quantize($key));
-        $type=$ISA->immsz($O{imm});
+        $O->{imm}=$l1->quantize($key);
+        $type=$ISA->immsz($O->{imm});
 
       };
 
@@ -199,8 +176,10 @@ cmdsub 'asm-ins' => q() => q{
     # have memory?
     } elsif($type eq 'm') {
 
-      ($type,$opsz,%O)=
+      ($type,$opsz,$O)=
         $self->addrmode($branch,$nd);
+
+      return if ! length $type;
 
 
     # symbol deref
@@ -209,7 +188,7 @@ cmdsub 'asm-ins' => q() => q{
       my $have=$l1->quantize($nd->{value});
       return $branch if ! length $have;
 
-      ($type,$opsz,%O)=
+      ($type,$opsz,$O)=
         $self->addrsym($branch,$have,0);
 
 
@@ -217,15 +196,15 @@ cmdsub 'asm-ins' => q() => q{
 
 
     # give descriptor
-    $O{type}=$type;
-    \%O;
+    $O->{type}=$type;
+    $O;
 
 
   } @{$vref->{args}};
 
 
   # all OK, request and give
-  $self->binreq(
+  $enc->binreq(
     $branch,
     $opsz,$name,@args
 
@@ -254,25 +233,33 @@ sub addrsym($self,$branch,$have,$deref) {
 
 
   # get location
-  my $seg  = $have->getseg;
-  my $addr = $have->{addr};
+  my $fn=sub {
+
+    my $seg  = $have->getseg;
+    my $addr = $have->{addr};
 
 
-  # ^have pointer?
-  if($have->{ptr_t} && $deref) {
-    ($seg,$addr)=$have->read_ptr;
+    # ^have pointer?
+    if($have->{ptr_t} && $deref) {
+      ($seg,$addr)=$have->read_ptr;
+
+    };
+
+    return (
+      $mc->segid($seg),
+      $addr,
+
+    );
 
   };
 
+  my $O={
+    seg  => sub {($fn->())[0]},
+    imm  => sub {($fn->())[1]},
 
-  # give read
-  my %O=(
-    seg  => $mc->segid($seg),
-    imm  => $addr,
+  };
 
-  );
-
-  return ('mimm',$opsz,%O);
+  return ('mimm',$opsz,$O);
 
 };
 
@@ -298,7 +285,16 @@ sub addr_decompose($self,$nd) {
   my $beg = $nd->{leaves}->[0];
      $beg = $beg->{leaves}->[0];
 
-  $eng->branch_collapse($beg,noreg=>1);
+
+  # solve const ops
+  $eng->branch_collapse(
+
+    $beg,
+
+    noreg=>1,
+    noram=>1,
+
+  );
 
 
   # get elements of address
@@ -320,7 +316,10 @@ sub addr_decompose($self,$nd) {
 
     # symbol name?
     } elsif(defined ($have=$l1->is_sym($ARG))) {
-      push @sym,$l1->quantize($ARG);
+      my $ptr=$l1->quantize($ARG);
+      return null if ! defined $ptr;
+
+      push @sym,$ptr;
 
     # immediate!
     } else {
@@ -381,24 +380,46 @@ sub addrmode($self,$branch,$nd) {
   # out
   my $type = null;
   my $opsz = $branch->{vref}->{opsz};
-  my %O    = ();
+  my $O    = {};
 
 
   # get type lists
   my $data=$self->addr_decompose($nd);
+  return null if ! length $data;
+
 
   # have symbols?
   if(@{$data->{sym}}) {
 
     map {
 
-      my ($sym_t,$sym_sz,%head)=
-        addrsym($self,$branch,$ARG,1);
+      my ($sym_t,$sym_sz,$head)=
+        $self->addrsym($branch,$ARG,1);
 
       $opsz   = $sym_sz;
-      $ptrseg = $head{seg};
+      $ptrseg = $head->{seg};
 
-      push @{$data->{imm}},$head{imm};
+
+      # delayed deref+sum
+      if(defined $data->{imm}->[0]) {
+
+        my $have=$data->{imm}->[0];
+
+        $data->{imm}->[0]=sub {
+
+          my ($isref_x,$x)=
+            Chk::cderef $have,1;
+
+          return $x + $head->{imm}->();
+
+        };
+
+
+      # ^as-is
+      } else {
+        $data->{imm}->[0]=$head->{imm};
+
+      };
 
 
     } @{$data->{sym}};
@@ -408,7 +429,10 @@ sub addrmode($self,$branch,$nd) {
 
   # [sb-i]
   if($data->{stk}) {
-    %O=(imm=>$data->{imm}->[0]);
+
+    $data->{imm}->[0] //= 0;
+    $O->{imm}=$data->{imm}->[0];
+
     $type='mstk';
 
 
@@ -422,14 +446,9 @@ sub addrmode($self,$branch,$nd) {
 
     $data->{imm}->[0] //= 0;
 
-    %O=(
-
-      seg=>$ptrseg,
-
-      reg=>$data->{reg}->[0],
-      imm=>$data->{imm}->[0],
-
-    );
+    $O->{seg}=$ptrseg;
+    $O->{reg}=$data->{reg}->[0];
+    $O->{imm}=$data->{imm}->[0];
 
     $type='msum';
 
@@ -448,17 +467,13 @@ sub addrmode($self,$branch,$nd) {
     $data->{imm}->[0] //= 0;
     $data->{imm}->[1] //= 0;
 
-    %O=(
+    $O->{seg}   = $ptrseg;
 
-      seg   => $ptrseg,
+    $O->{rX}    = $data->{reg}->[0];
+    $O->{rY}    = $data->{reg}->[1];
 
-      rX    => $data->{reg}->[0],
-      rY    => $data->{reg}->[1],
-
-      imm   => $data->{imm}->[0],
-      scale => $data->{imm}->[1],
-
-    );
+    $O->{imm}   = $data->{imm}->[0];
+    $O->{scale} = $data->{imm}->[1];
 
     $type='mlea';
 
@@ -468,19 +483,15 @@ sub addrmode($self,$branch,$nd) {
 
     $data->{imm}->[0] //= 0;
 
-    %O=(
-
-      seg=>$ptrseg,
-      imm=>$data->{imm}->[0],
-
-    );
+    $O->{seg}=$ptrseg;
+    $O->{imm}=$data->{imm}->[0];
 
     $type='mimm';
 
   };
 
 
-  return ($type,$opsz,%O);
+  return ($type,$opsz,$O);
 
 };
 
@@ -523,6 +534,7 @@ cmdsub 'jump' => q() => q{
   my $mc    = $main->{mc};
   my $anima = $mc->{anima};
   my $ISA   = $mc->{ISA};
+  my $enc   = $main->{encoder};
 
 
 
@@ -564,7 +576,7 @@ cmdsub 'jump' => q() => q{
 
 
   # load to xp register!
-  $self->binreq(
+  $enc->binreq(
 
     $branch,
     $ISA->align_t,

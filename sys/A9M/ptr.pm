@@ -261,6 +261,7 @@ sub store($self,$value,%O) {
   # write at [value]?
   if($O{deref} && $self->{ptr_t}) {
     ($seg,$off)=$self->read_ptr();
+    return null if ! length $seg;
 
   # ^nope, use own addr
   } else {
@@ -268,6 +269,13 @@ sub store($self,$value,%O) {
     $off=$self->{addr};
 
   };
+
+
+  # value passed is instance?
+  my $class=ref $self;
+
+  $value=$value->as_ptr
+  if $class->is_valid($value);
 
 
   # give bytes written
@@ -301,6 +309,7 @@ sub load($self,%O) {
   # read from [value]?
   if($O{deref} && $self->{ptr_t}) {
     ($seg,$off)=$self->read_ptr();
+    return null if ! length $seg;
 
 
   # ^nope, use own addr
