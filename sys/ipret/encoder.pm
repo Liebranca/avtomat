@@ -120,13 +120,21 @@ sub skip_encode($self,$type,$name,@args) {
 
     map {
 
-      my $step=length $ARG;
 
+      # cut nullterm
+      my $bytes = $ARG;
+      my $step  = (length $bytes)-1;
+
+      $bytes=substr $bytes,0,$step;
+
+
+      # ^overwrite and go next
       $seg->brkfit($step);
-      $seg->store(cstr=>$ARG,$seg->{ptr});
+      $seg->store(cstr=>$bytes,$seg->{ptr});
 
-      $seg->{ptr} += $step-1;
-      $size       += $step-1;
+      $seg->{ptr} += $step;
+      $size       += $step;
+
 
     } @args;
 
@@ -452,7 +460,7 @@ sub exewrite_run($self) {
 
 
     # reset addr on first step
-    $seg->{ptr} = 0x00
+    $seg->clear()
     if ! exists $walked->{$seg};
 
     # remember we stepped on this segment ;>
@@ -587,7 +595,6 @@ sub opera_encode($self,$program,$const,$alma) {
     map {$self->exewrite(@$ARG)}
     @$program;
 
-    $seg->tighten($ISA->align_t->{sizeof});
     $mc->{segtop}=$old;
 
 

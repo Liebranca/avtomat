@@ -142,7 +142,7 @@ sub parse_ins($self,$branch) {
 
 
     # give descriptor
-    {value=>$ARG,type=>$type};
+    {id=>$ARG,type=>$type};
 
 
   } @args;
@@ -216,20 +216,27 @@ cmdsub 'asm-ins' => q(opt_qlist) => q{
   $branch->{vref}=$head;
 
   # mutate and give
-  $self->mutate_ins($branch);
+  my $name=($head->{name} eq 'jump')
+    ? 'jump'
+    : 'asm-ins'
+    ;
+
+  $self->mutate_ins($branch,$name);
 
   return;
 
 };
 
 # ---   *   ---   *   ---
-# conditional load ;>
+# ^with conditional!
 
-cmdsub 'cload' => q(opera,qlist) => q{
+cmdsub 'c-asm-ins' => q(nlist,opt_qlist) => q{
+
 
   # get ctx
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
+
 
   # get operands
   my ($opera) = $branch->ipluck(0);
@@ -241,31 +248,45 @@ cmdsub 'cload' => q(opera,qlist) => q{
     : 'sym'
     ;
 
+
   # save to branch
   $head->{opera}  = {type=>$type,id=>$opera};
   $branch->{vref} = $head;
 
-
   # mutate and give
-  $self->mutate_ins($branch,'cload');
+  my $name=($head->{name} eq 'cjump')
+    ? 'cjump'
+    : 'c-asm-ins'
+    ;
+
+  $self->mutate_ins($branch,$name);
+
 
   return;
 
 };
 
 # ---   *   ---   *   ---
+# ^icef*ck
+
+w_cmdsub 'asm-ins' => q(opt_qlist) => qw(
+  jump
+
+);
+
+w_cmdsub 'c-asm-ins' => q(nlist,opt_qlist) => qw(
+  cload cjump
+
+);
+
+# ---   *   ---   *   ---
 # generic methods, see ipret
 # for details
 
 w_cmdsub 'csume-token' => q(nlist) => qw(
-  self jump rept cmp
+  self
 
 );
-
-#w_cmdsub 'csume-list' => q(any,any) => qw(
-#  cjump
-#
-#);
 
 # ---   *   ---   *   ---
 1; # ret

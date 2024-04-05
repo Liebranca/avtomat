@@ -59,7 +59,7 @@ map {
 
   say "_____________________\n";
 
-} 1..$main->{passes}->{'solve'};
+} 1..$main->{passes}->{'solve'}+1;
 
 # ---   *   ---   *   ---
 # manually set entry ;>

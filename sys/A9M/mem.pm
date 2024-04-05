@@ -274,6 +274,7 @@ sub clear($self,$type=null,$addr=0x00) {
 
   };
 
+  $self->{ptr}=0;
 
   return;
 

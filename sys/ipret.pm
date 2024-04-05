@@ -147,6 +147,7 @@ sub crux($src,%O) {
 sub cpos($self) {
 
   my $mc=$self->{mc};
+
   return sub {
 
   (  $mc->{segtop}->{ptr}

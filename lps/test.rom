@@ -1,25 +1,23 @@
 %;
 
-ram data;
-
-  byte b0 $00;
-  byte b1 $00;
+#ram data;
+#
+#  byte b0 $00;
+#  byte b1 $00;
 
 
 exe code;
-  self data;
+#  self data;
 
-#blk loop;
-#
-#  load  ar,[b1];
-#  store [b1],ar;
 
+#blk top;
 
   load  br,2;
   load  ar,1;
 
+  cjump ar==2 skip;
   cload ar==1 ar,br;
 
 
-#blk skip;
-#  load cr,$24;
+blk skip;
+  load cr,$24;

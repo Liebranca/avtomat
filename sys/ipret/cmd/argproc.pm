@@ -46,7 +46,13 @@ sub symfet($self,$vref,%O) {
 
 
   # can find symbol?
-  my $name = $l1->is_sym($vref->{id});
+  my $have = (Tree->is_valid($vref->{id}))
+    ? $vref->{id}->{value}
+    : $vref->{id}
+    ;
+
+  my $name = $l1->is_sym($have);
+
   my $sym  = (! $O{sym_asis})
     ? $mc->ssearch($name)
     : $name

@@ -39,7 +39,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -64,6 +64,7 @@ cmdsub 'blk' => q() => q{
   my $mc   = $main->{mc};
   my $l1   = $main->{l1};
   my $enc  = $main->{encoder};
+  my $ISA  = $mc->{ISA};
 
   # get name of symbol
   my $name=$l1->is_sym(
@@ -73,17 +74,21 @@ cmdsub 'blk' => q() => q{
 
 
   # make fake ptr
-  $mc->{cas}->brkfit(sizeof 'qword');
+  my $align_t=$ISA->align_t;
+  $mc->{cas}->brkfit($align_t->{sizeof});
   my $ptr=$mc->{cas}->lvalue(
 
     0x00,
 
-    type  => 'qword',
-    label => $name
+    type  => $align_t,
+    label => $name,
 
   );
 
-  $ptr->{ptr_t}=typefet 'long';
+  $ptr->{ptr_t}      = $align_t;
+  $ptr->{addr}       = $mc->{cas}->{ptr};
+
+  $mc->{cas}->{ptr} += $align_t->{sizeof};
 
 
   # ^schedule for update ;>
@@ -91,7 +96,8 @@ cmdsub 'blk' => q() => q{
 
     $branch,[
 
-      (typefet 'qword'),
+      $align_t,
+
       'data-decl',
 
       { id   => $name,
@@ -132,7 +138,7 @@ sub argsolve($self,$branch) {
   # walk operands
   my @args=map {
 
-    my $nd   = $ARG->{value};
+    my $nd   = $ARG->{id};
     my $key  = $nd->{value};
     my $type = $ARG->{type};
 
@@ -282,6 +288,7 @@ sub addrsym($self,$branch,$have,$deref) {
     imm  => sub {($fn->())[1]},
 
   };
+
 
   return ('mimm',$opsz,$O);
 
@@ -542,14 +549,18 @@ cmdsub 'self' => q() => q{
 };
 
 # ---   *   ---   *   ---
-# sets program counter
+# get jump destination
 
-cmdsub 'jump' => q() => q{
+sub jmpsolve($self,$branch) {
 
 
   # can solve destination?
-  my $dst=$self->argproc($branch->{vref});
-  return $branch if ! length $dst;
+  my $dst=$self->argproc(
+    $branch->{vref}->{args}->[0]
+
+  );
+
+  return null if ! length $dst;
 
 
   # get ctx
@@ -598,22 +609,36 @@ cmdsub 'jump' => q() => q{
 
   };
 
+  return [
+
+    $ISA->align_t,
+
+    'load',
+
+    {type=>'r',reg=>$anima->exec_ptr},
+    $value,
+
+  ];
+
+};
+
+# ---   *   ---   *   ---
+# sets program counter
+
+cmdsub 'jump' => q() => q{
+
+
+  # can solve destination?
+  my $dst=$self->jmpsolve($branch);
+  return $branch if ! length $dst;
+
+
+  # get ctx
+  my $main  = $self->{frame}->{main};
+  my $enc   = $main->{encoder};
 
   # load to xp register!
-  $enc->binreq(
-
-    $branch,[
-
-      $ISA->align_t,
-
-      'load',
-
-      {type=>'r',reg=>$anima->exec_ptr},
-      $value,
-
-    ],
-
-  );
+  $enc->binreq($branch,$dst);
 
 
   return;
@@ -621,26 +646,10 @@ cmdsub 'jump' => q() => q{
 };
 
 # ---   *   ---   *   ---
-# ~
+# solves conditional part of
+# an instruction
 
-cmdsub 'cload' => q() => q{
-
-
-  # get ctx
-  my $main = $self->{frame}->{main};
-  my $enc  = $main->{encoder};
-  my $eng  = $main->{engine};
-  my $l1   = $main->{l1};
-  my $mc   = $main->{mc};
-  my $ISA  = $mc->{ISA};
-
-
-  # can solve arguments?
-  my ($opsz,$name,@args)=
-    $self->argsolve($branch);
-
-  return $branch
-  if ! length $opsz;
+sub chksolve($self,$branch,$opsz) {
 
 
   # can solve condition?
@@ -653,8 +662,16 @@ cmdsub 'cload' => q() => q{
 
   );
 
-  return $branch
-  if ! length $chk;
+  return null if ! length $chk;
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $enc  = $main->{encoder};
+  my $eng  = $main->{engine};
+  my $l1   = $main->{l1};
+  my $mc   = $main->{mc};
+  my $ISA  = $mc->{ISA};
 
 
   # which flag are we checking?
@@ -672,6 +689,7 @@ cmdsub 'cload' => q() => q{
     my $bytes = $eng->strseg($idex,decode=>0);
     my $exe   = $enc->decode($bytes);
     my $end   = $exe->[-1];
+
 
     # ^get name of instruction!
     my $idx = $end->{ins}->{idx};
@@ -704,13 +722,44 @@ cmdsub 'cload' => q() => q{
   };
 
 
+  return $flag,@prologue;
+
+};
+
+# ---   *   ---   *   ---
+# conditional instruction
+
+cmdsub 'c-asm-ins' => q() => q{
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $enc  = $main->{encoder};
+
+
+  # can solve arguments?
+  my ($opsz,$name,@args)=
+    $self->argsolve($branch);
+
+  return $branch
+  if ! length $opsz;
+
+
+  # can solve condition?
+  my ($flag,@prologue)=
+    $self->chksolve($branch,$opsz);
+
+  return $branch
+  if ! length $flag;
+
+
   # all OK, request and give
   $enc->binreq(
 
     $branch,
 
     @prologue,
-    [$opsz,"c-load-$flag",@args],
+    [$opsz,"$name-$flag",@args],
 
   );
 
@@ -719,25 +768,46 @@ cmdsub 'cload' => q() => q{
 };
 
 # ---   *   ---   *   ---
-# set flags register ;>
+# conditional jump ;>
 
-cmdsub 'cmp' => q() => q{
+cmdsub 'cjump' => q() => q{
+
 
   # can solve destination?
-  my $dst=$self->argproc(
-
-    $branch->{vref},
-    delay=>1
-
-  );
-
+  my $dst=$self->jmpsolve($branch);
   return $branch if ! length $dst;
 
-  my $main = $self->{frame}->{main};
-  my $l1   = $main->{l1};
 
-  say $l1->quantize($dst);
-  exit;
+  # can solve condition?
+  my ($flag,@prologue)=
+    $self->chksolve($branch,$dst->[0]);
+
+  return $branch
+  if ! length $flag;
+
+
+  # get ctx
+  my $main  = $self->{frame}->{main};
+  my $enc   = $main->{encoder};
+
+  # load to xp register!
+  my $copy=[
+
+    $dst->[0],
+    $dst->[1],
+
+    {%{$dst->[2]}},
+    $dst->[3],
+
+  ];
+
+  $copy->[2]->{reg} = 0xF;
+  $dst->[1]         = "cload-$flag";
+  $dst->[3]         = {type=>'r',reg=>0xF};
+
+  $enc->binreq($branch,@prologue,$copy,$dst);
+
+  return;
 
 };
 

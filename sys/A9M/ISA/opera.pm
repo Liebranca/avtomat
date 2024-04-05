@@ -75,9 +75,10 @@ St::vconst {
 
 
     # ^conditional variants
-    'c-load-z' => {
+    'cload-z' => {
 
       fn       => 'ccopy_zero',
+
       load_dst => 1,
 
       dst      => 'r',
@@ -85,9 +86,10 @@ St::vconst {
 
     },
 
-    'c-load-nz' => {
+    'cload-nz' => {
 
       fn       => 'ccopy_nzero',
+
       load_dst => 1,
 
       dst      => 'r',
