@@ -116,6 +116,20 @@ St::vconst {
   cnt_bm => sub {bitmask $_[0]->cnt()-1},
 
 
+  # bit offset for each flag
+  flagpos => sub {
+
+    my $idex=0;
+
+    return {
+
+      map {$ARG=>$idex++}
+      qw  (zero)
+
+    };
+
+  },
+
 };
 
 
@@ -137,8 +151,8 @@ sub new($class,%O) {
 
     mem => undef,
     ptr => undef,
-    rip => undef,
 
+    flags   => 0x00,
     almask  => $class->reserved_mask(),
 
     alhist  => [],
@@ -249,6 +263,42 @@ sub tokin($class,$name) {
     ? array_iof($class->list(),$name)
     : undef
     ;
+
+};
+
+# ---   *   ---   *   ---
+# update flags register
+
+sub set_flags($self,%O) {
+
+  my $dst=\$self->{flags};
+
+  map {
+
+    my $key = $ARG;
+    my $bit = $O{$key} << $self->flagpos->{$key};
+
+    if($bit) {$$dst |=  $bit}
+    else     {$$dst &=~ $bit};
+
+  } keys %O;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^read
+
+sub get_flags($self,@ar) {
+
+  my $src=$self->{flags};
+
+  map {
+    my $bit = 1 << $self->flagpos->{$ARG};
+    ($src & $bit) != 0;
+
+  } @ar;
 
 };
 
@@ -461,7 +511,23 @@ sub update($class,$A9M) {
 # dbout
 
 sub prich($self,%O) {
-  $self->{mem}->prich(%O,inner=>0,root=>1);
+
+  my $out=ioprocin(\%O);
+
+  $self->{mem}->prich(
+
+    %O,
+
+    mute  => 1,
+    inner => 0,
+    root  => 1,
+
+  );
+
+  push @$out,sprintf "FLAGS: %04Bb\n",
+    $self->{flags};
+
+  return ioprocout(\%O);
 
 };
 

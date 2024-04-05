@@ -37,7 +37,7 @@ package ipret::encoder;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -334,12 +334,7 @@ sub exewrite($self,$opsz,$name,@args) {
 # the instruction is written to
 # the right address ;>
 
-sub exewrite_order(
-
-  $self,$uid,
-  $opsz,$name,@args
-
-) {
+sub exewrite_order($self,$uid,@req) {
 
   # get ctx
   my $main = $self->{main};
@@ -348,7 +343,7 @@ sub exewrite_order(
 
   # add request at idex
   my $Q=$self->{Q}->{asm};
-  $Q->[$uid]=[$seg,$opsz,$name,@args];
+  $Q->[$uid]=[$seg,@req];
 
   return;
 
@@ -408,7 +403,7 @@ sub exewrite_run($self) {
 
 
     # unpack
-    my ($seg,$opsz,$name,@args)=@$ARG;
+    my ($seg,@req)=@$ARG;
 
 
     # reset addr on first step
@@ -424,7 +419,19 @@ sub exewrite_run($self) {
 
     # make segment current and run F
     $mc->setseg($seg);
-    my $size=$self->exewrite($opsz,$name,@args);
+    my $size=0;
+
+    map {
+
+      my ($opsz,$name,@args)=@$ARG;
+
+      $size+=$self->exewrite(
+        $opsz,$name,@args
+
+      );
+
+    } @req;
+
 
     # ^assoc opcode size to request sender!
     my $uid=$table->{$ARG};
@@ -523,9 +530,14 @@ sub opera_encode($self,$program,$const,$alma) {
     my $seg=$mc->{scratch}->new();
     my $old=$mc->{segtop};
 
+    $seg->{executable} = 1;
+
+
     # ^swap and write!
     $mc->{segtop}=$seg;
-    $self->exewrite($seg,@$program);
+
+    map {$self->exewrite(@$ARG)}
+    @$program;
 
     $mc->{segtop}=$old;
 

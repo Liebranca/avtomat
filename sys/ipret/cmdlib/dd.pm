@@ -263,12 +263,14 @@ cmdsub 'data-decl' => q() => q{
 
     $enc->binreq(
 
-      $branch,
+      $branch,[
 
-      $type,
-      'data-decl',
+        $type,
+        'data-decl',
 
-      @$out
+        @$out
+
+      ],
 
     );
 

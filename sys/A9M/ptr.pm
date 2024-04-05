@@ -419,7 +419,7 @@ sub prich($self,%O) {
   } elsif(is_arrayref($value)) {
 
     my $mc   = $self->getmc();
-    my $guts = $mc->{ISA}->guts_t;
+    my $guts = $mc->{ISA}->{guts};
 
     my $fn   = $guts->flatten($type->{sizebs});
 
@@ -429,7 +429,7 @@ sub prich($self,%O) {
       join ' ',
       map  {sprintf $pad,$ARG}
 
-      $guts->copera($fn,$value);
+      $guts->opera($fn,$value);
 
 
   # have ptr?

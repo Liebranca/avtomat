@@ -87,8 +87,21 @@ sub new($class,%O) {
   $O{mcid}  //= 0;
   $O{mccls} //= caller;
 
-  # nothing to do here ;>
-  my $self=bless \%O,$class;
+
+  # kick ~
+  my $guts_t=$class->guts_t;
+  cloadi $guts_t;
+
+  my $guts=$guts_t->new(%O);
+
+  # make ice and give
+  my $self=bless {
+
+    %O,
+    guts=>$guts
+
+  },$class;
+
   return $self;
 
 };

@@ -39,7 +39,19 @@ my $main = ipret(
 my $enc=$main->{encoder};
 
 map {
-  $enc->exewrite_run();
+
+  my @tab=$enc->exewrite_run();
+
+#  # dbout
+#  map {
+#
+#    my $vref=$ARG->{vref};
+#    say sprintf "%02X:%02X $vref->{req}->[1]",
+#      $vref->{addr},$vref->{size};
+#
+#  } @tab;
+#
+#  say "_____________________\n";
 
 } 1..$main->{passes}->{'solve'};
 
@@ -61,7 +73,7 @@ $rip->store(
 # run and dbout
 
 $main->{engine}->exe();
-$main->prich(anima=>1,mem=>'outer,inner',tree=>0);
+$main->prich(anima=>1,mem=>'outer',tree=>0);
 
 # ---   *   ---   *   ---
 1; # ret

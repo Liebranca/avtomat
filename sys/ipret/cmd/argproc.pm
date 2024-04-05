@@ -52,7 +52,7 @@ sub symfet($self,$vref) {
 # ---   *   ---   *   ---
 # type switch
 
-sub argproc($self,$vref) {
+sub argproc($self,$vref,%O) {
 
   my $main = $self->{frame}->{main};
   my $eng  = $main->{engine};
@@ -61,7 +61,7 @@ sub argproc($self,$vref) {
     return $self->symfet($vref);
 
   } else {
-    return $eng->value_solve($vref->{id});
+    return $eng->value_solve($vref->{id},%O);
 
   };
 

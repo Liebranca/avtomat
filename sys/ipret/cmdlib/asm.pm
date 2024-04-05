@@ -39,7 +39,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -89,17 +89,19 @@ cmdsub 'blk' => q() => q{
   # ^schedule for update ;>
   $enc->binreq(
 
-    $branch,
+    $branch,[
 
-    (typefet 'qword'),
-    'data-decl',
+      (typefet 'qword'),
+      'data-decl',
 
-    { id   => $name,
+      { id   => $name,
 
-      type => 'sym-decl',
-      data => $main->cpos,
+        type => 'sym-decl',
+        data => $main->cpos,
 
-    },
+      },
+
+    ],
 
   );
 
@@ -110,7 +112,7 @@ cmdsub 'blk' => q() => q{
 # ---   *   ---   *   ---
 # solve instruction arguments
 
-cmdsub 'asm-ins' => q() => q{
+sub argsolve($self,$branch) {
 
 
   # get ctx
@@ -118,8 +120,8 @@ cmdsub 'asm-ins' => q() => q{
   my $l1   = $main->{l1};
   my $mc   = $main->{mc};
   my $ISA  = $mc->{ISA};
-  my $enc  = $main->{encoder};
   my $lib  = $main->{cmdlib};
+
 
   # unpack
   my $vref = $branch->{vref};
@@ -127,7 +129,7 @@ cmdsub 'asm-ins' => q() => q{
   my $opsz = $vref->{opsz};
 
 
-  # solve args
+  # walk operands
   my @args=map {
 
     my $nd   = $ARG->{value};
@@ -179,14 +181,14 @@ cmdsub 'asm-ins' => q() => q{
       ($type,$opsz,$O)=
         $self->addrmode($branch,$nd);
 
-      return if ! length $type;
+      return null if ! length $type;
 
 
     # symbol deref
     } elsif($type eq 'sym') {
 
       my $have=$l1->quantize($nd->{value});
-      return $branch if ! length $have;
+      return null if ! length $have;
 
       ($type,$opsz,$O)=
         $self->addrsym($branch,$have,0);
@@ -203,10 +205,32 @@ cmdsub 'asm-ins' => q() => q{
   } @{$vref->{args}};
 
 
+  # give descriptor
+  return ($opsz,$name,@args);
+
+};
+
+# ---   *   ---   *   ---
+# generic instruction
+
+cmdsub 'asm-ins' => q() => q{
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $enc  = $main->{encoder};
+
+  # can solve arguments?
+  my ($opsz,$name,@args)=
+    $self->argsolve($branch);
+
+  return $branch
+  if ! length $opsz;
+
+
   # all OK, request and give
   $enc->binreq(
-    $branch,
-    $opsz,$name,@args
+    $branch,[$opsz,$name,@args],
 
   );
 
@@ -578,13 +602,16 @@ cmdsub 'jump' => q() => q{
   # load to xp register!
   $enc->binreq(
 
-    $branch,
-    $ISA->align_t,
+    $branch,[
 
-    'load',
+      $ISA->align_t,
 
-    {type=>'r',reg=>$anima->exec_ptr},
-    $value,
+      'load',
+
+      {type=>'r',reg=>$anima->exec_ptr},
+      $value,
+
+    ],
 
   );
 
@@ -592,6 +619,60 @@ cmdsub 'jump' => q() => q{
   return;
 
 };
+
+# ---   *   ---   *   ---
+# ~
+
+cmdsub 'cload' => q() => q{
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $enc  = $main->{encoder};
+
+  # can solve arguments?
+  my ($opsz,$name,@args)=
+    $self->argsolve($branch);
+
+  return $branch
+  if ! length $opsz;
+
+
+  # all OK, request and give
+  $enc->binreq(
+
+    $branch,
+
+    [$opsz,'c-load-z',@args],
+
+  );
+
+  return;
+
+};
+
+## ---   *   ---   *   ---
+## set flags register ;>
+#
+#cmdsub 'cmp' => q() => q{
+#
+#  # can solve destination?
+#  my $dst=$self->argproc(
+#
+#    $branch->{vref},
+#    delay=>1
+#
+#  );
+#
+#  return $branch if ! length $dst;
+#
+#  my $main = $self->{frame}->{main};
+#  my $l1   = $main->{l1};
+#
+#  say $l1->quantize($dst);
+#  exit;
+#
+#};
 
 # ---   *   ---   *   ---
 1; # ret

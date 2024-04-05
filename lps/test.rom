@@ -2,21 +2,23 @@
 
 ram data;
 
-  tiny p0 b0;
-
-  byte b0 $24;
+  byte b0 $00;
   byte b1 $00;
-  byte b2 $25;
 
 
 exe code;
-
   self data;
-  jump skip;
 
-  load  byte ar,[p0+2];
-  store [b1],ar;
+#blk loop;
+#
+#  load  ar,[b1];
+#  store [b1],ar;
 
 
-blk skip;
-  load cr,$24;
+  load  br,2;
+  load  ar,1;
+  cload ar==1 ar,br;
+
+
+#blk skip;
+#  load cr,$24;

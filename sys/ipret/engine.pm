@@ -37,7 +37,7 @@ package ipret::engine;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -88,9 +88,9 @@ sub invoke($self,$type,$idx,@args) {
 
 
   # get ctx
-  my $ISA    = $self->ISA;
-  my $guts_t = $ISA->guts_t;
-  my $tab    = $ISA->opcode_table;
+  my $ISA  = $self->ISA;
+  my $guts = $ISA->{guts};
+  my $tab  = $ISA->opcode_table;
 
 
   # get function assoc with id
@@ -100,7 +100,7 @@ sub invoke($self,$type,$idx,@args) {
 
 
   # ^build call array
-  my $op   = $guts_t->$fn($type,@src);
+  my $op   = $guts->$fn($type,@src);
   my @call = (@args)
     ? ($op,$args[0])
     : ($op)
@@ -108,7 +108,7 @@ sub invoke($self,$type,$idx,@args) {
 
 
   # invoke and give
-  my @out=$guts_t->copera(@call);
+  my @out=$guts->opera(@call);
 
   return \@out;
 
@@ -249,6 +249,8 @@ sub value_solve($self,$src,%O) {
 
   # defaults
   $O{noreg} //= 0;
+  $O{noram} //= 0;
+  $O{delay} //= 0;
 
   # get ctx
   my $main   = $self->{main};
@@ -278,7 +280,10 @@ sub value_solve($self,$src,%O) {
 
   };
 
-  return $l1->quantize($out);
+  return (! $O{delay})
+    ? $l1->quantize($out)
+    : $out
+    ;
 
 };
 

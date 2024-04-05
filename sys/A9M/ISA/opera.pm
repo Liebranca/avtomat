@@ -33,10 +33,12 @@ package A9M::ISA::opera;
   use Arstd::Bytes;
   use Arstd::Array;
 
+  use parent 'A9M::layer';
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -67,6 +69,28 @@ St::vconst {
       load_dst => 0,
 
       dst      => 'm',
+      src      => 'r',
+
+    },
+
+
+    # ^conditional variants
+    'c-load-z' => {
+
+      fn       => 'ccopy_zero',
+      load_dst => 1,
+
+      dst      => 'r',
+      src      => 'r',
+
+    },
+
+    'c-load-nz' => {
+
+      fn       => 'ccopy_nzero',
+      load_dst => 1,
+
+      dst      => 'r',
       src      => 'r',
 
     },
@@ -295,16 +319,32 @@ St::vconst {
 #  },
 
 
+    # check equality
+    cmpe => {
+
+      fn  => '_eq',
+
+      dst => 'r',
+      src => 'i',
+
+      overwrite => 0,
+
+    },
+
+
   ],
 
 
-  lel   => {qw(
+  op_to_ins => {qw(
 
-    = copy
-    ^ xor
-    + add
-    - sub
-    * mul
+    =   copy
+    ^   xor
+
+    +   add
+    -   sub
+    *   mul
+
+    ==  cmpe
 
   )},
 
@@ -314,9 +354,17 @@ St::vconst {
 };
 
 # ---   *   ---   *   ---
+# cstruc
+
+sub new($class,%O) {
+  return bless \%O,$class;
+
+};
+
+# ---   *   ---   *   ---
 # run generic op on value
 
-sub opera($fn,$value) {
+sub opera($self,$fn,$value) {
 
   my @out = ();
   my @Q   = $value;
@@ -338,17 +386,9 @@ sub opera($fn,$value) {
 };
 
 # ---   *   ---   *   ---
-# ^external version
-
-sub copera($class,$fn,$value) {
-  opera $fn,$value;
-
-};
-
-# ---   *   ---   *   ---
 # make prim from vector elems
 
-sub flatten($class,$ezy,$bits=undef) {
+sub flatten($self,$ezy,$bits=undef) {
 
   # get bounds
   $bits //= $ezy;
@@ -397,16 +437,62 @@ sub asval($src) {
 # ---   *   ---   *   ---
 # src to dst
 
-sub copy($class,$type,$src) {
+sub copy($self,$type,$src) {
   my @src=asval $src;
   sub {shift @src};
 
 };
 
 # ---   *   ---   *   ---
+# ^conditional
+
+sub ccopy($self,$type,$src,$flag) {
+
+
+  # get ctx
+  my $mc    = $self->getmc;
+  my $anima = $mc->{anima};
+
+  # negate flag?
+  my $iv  = int($flag=~ s[^n][]);
+  my @src = asval $src;
+
+
+  # make F
+  sub ($x) {
+
+
+    # check for flag set/unset
+    my $y=shift @src;
+    my ($chk)=$anima->get_flags($flag);
+
+    $chk =! $chk if $iv;
+
+
+    # ^give if true
+    ($chk) ? $y : $x ;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^icef*ck
+
+sub ccopy_zero($self,$type,$src) {
+  return $self->ccopy($type,$src,'zero');
+
+};
+
+sub ccopy_nzero($self,$type,$src) {
+  return $self->ccopy($type,$src,'nzero');
+
+};
+
+# ---   *   ---   *   ---
 # exclusive OR
 
-sub xor($class,$type,$src) {
+sub xor($self,$type,$src) {
   my @src=asval $src;
   sub ($x) {$x ^ shift @src};
 
@@ -415,7 +501,7 @@ sub xor($class,$type,$src) {
 # ---   *   ---   *   ---
 # addition
 
-sub add($class,$type,$src) {
+sub add($self,$type,$src) {
   my @src=asval $src;
   sub ($x) {$x + shift @src};
 
@@ -424,7 +510,7 @@ sub add($class,$type,$src) {
 # ---   *   ---   *   ---
 # substraction
 
-sub _sub($class,$type,$src) {
+sub _sub($self,$type,$src) {
   my @src=asval $src;
   sub ($x) {$x - shift @src};
 
@@ -433,9 +519,47 @@ sub _sub($class,$type,$src) {
 # ---   *   ---   *   ---
 # multiplication
 
-sub mul($class,$type,$src) {
+sub mul($self,$type,$src) {
   my @src=asval $src;
   sub ($x) {$x * shift @src};
+
+};
+
+# ---   *   ---   *   ---
+# equality
+
+sub _eq($self,$type,$src) {
+
+
+  # assume values are equal
+  my @src=asval $src;
+  my $out=1;
+
+  sub ($x) {
+
+
+    # ^then challenge that assumption ;>
+    my $y    =  shift @src;
+       $out &=~ ($x != $y);
+
+
+    # end of comparison?
+    if(! @src) {
+
+      # get ctx
+      my $mc    = $self->getmc;
+      my $anima = $mc->{anima};
+
+      # modify flags and give
+      $anima->set_flags(zero=>$out);
+
+      return $out;
+
+
+    # ^nope, give nothing ;>
+    } else {()};
+
+  };
 
 };
 
@@ -564,10 +688,11 @@ sub rol($type,$bits) {
 # translates from operation
 # symbol to instruction
 
-sub xlate($class,$sym,@args) {
+sub xlate($self,$sym,@args) {
 
-  my $tab  = $class->lel();
+  my $tab  = $self->op_to_ins;
   my $name = $tab->{$sym}
+
   or return warn_invalid($sym);
 
 

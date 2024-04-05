@@ -34,7 +34,7 @@ package rd::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -83,7 +83,7 @@ w_cmdsub 'csume-token' => q(sym) => 'blk';
 # ---   *   ---   *   ---
 # template: read instruction
 
-cmdsub 'asm-ins' => q(opt_qlist) => q{
+sub parse_ins($self,$branch) {
 
 
   # get ctx
@@ -91,6 +91,7 @@ cmdsub 'asm-ins' => q(opt_qlist) => q{
   my $l1   = $main->{l1};
   my $mc   = $main->{mc};
   my $ISA  = $mc->{ISA};
+
 
   # expand argument list
   my @args = map {
@@ -158,8 +159,8 @@ cmdsub 'asm-ins' => q(opt_qlist) => q{
   my $name=$l1->is_cmd($branch->{value});
 
 
-  # save to branch
-  $branch->{vref}={
+  # give descriptor
+  return {
 
     name     => $name,
 
@@ -170,21 +171,74 @@ cmdsub 'asm-ins' => q(opt_qlist) => q{
 
   };
 
+};
 
-  # mutate into generic command ;>
-  my $full=($opsz_def)
-    ? "$name $opsz->{name}"
-    : "$name"
+# ---   *   ---   *   ---
+# mutate into generic command ;>
+
+sub mutate_ins($self,$branch,$new='asm-ins') {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+  my $head = $branch->{vref};
+
+
+  # record name of original
+  # just for dbout!
+  my $full=($head->{opsz_def})
+    ? "$head->{name} $head->{opsz}->{name}"
+    : "$head->{name}"
     ;
 
+  # ^mutate, clear and give
   $branch->{value}=
-    $l1->make_tag(CMD=>'asm-ins')
+    $l1->make_tag(CMD=>$new)
   . $full
   ;
 
-
-  # clear and give
   $branch->clear();
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# generic instruction
+
+cmdsub 'asm-ins' => q(opt_qlist) => q{
+
+
+  # save operands to branch
+  my $head=$self->parse_ins($branch);
+  $branch->{vref}=$head;
+
+  # mutate and give
+  $self->mutate_ins($branch);
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# conditional load ;>
+
+cmdsub 'cload' => q(opera,qlist) => q{
+
+
+  # save operands to branch
+  my ($opera) = $branch->ipluck(0);
+  my $head    = $self->parse_ins($branch);
+
+  $head->{opera}  = $opera;
+  $branch->{vref} = $head;
+
+
+  # mutate and give
+  $self->mutate_ins($branch,'cload');
+
   return;
 
 };
@@ -194,9 +248,14 @@ cmdsub 'asm-ins' => q(opt_qlist) => q{
 # for details
 
 w_cmdsub 'csume-token' => q(nlist) => qw(
-  self jump
+  self jump rept cmp
 
 );
+
+#w_cmdsub 'csume-list' => q(any,any) => qw(
+#  cjump
+#
+#);
 
 # ---   *   ---   *   ---
 1; # ret
