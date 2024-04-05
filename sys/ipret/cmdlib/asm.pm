@@ -629,6 +629,11 @@ cmdsub 'cload' => q() => q{
   # get ctx
   my $main = $self->{frame}->{main};
   my $enc  = $main->{encoder};
+  my $eng  = $main->{engine};
+  my $l1   = $main->{l1};
+  my $mc   = $main->{mc};
+  my $ISA  = $mc->{ISA};
+
 
   # can solve arguments?
   my ($opsz,$name,@args)=
@@ -638,12 +643,74 @@ cmdsub 'cload' => q() => q{
   if ! length $opsz;
 
 
+  # can solve condition?
+  my $chk=$self->argproc(
+
+    $branch->{vref}->{opera},
+
+    delay    => 1,
+    sym_asis => 1,
+
+  );
+
+  return $branch
+  if ! length $chk;
+
+
+  # which flag are we checking?
+  my $flag     = undef;
+  my @prologue = ();
+
+  my ($istag,$idex)=$l1->read_tag($chk);
+
+
+  # have opera?
+  if($istag) {
+
+
+    # read last instruction in binary
+    my $bytes = $eng->strseg($idex,decode=>0);
+    my $exe   = $enc->decode($bytes);
+    my $end   = $exe->[-1];
+
+    # ^get name of instruction!
+    my $idx = $end->{ins}->{idx};
+    my $tab = $ISA->opcode_table;
+    my $fn  = $tab->{exetab}->[$idx];
+
+
+    # ^map instruction name to flag ;>
+    $flag={
+
+      _eq=>'z',
+      _ne=>'nz'
+
+    }->{$fn};
+
+    # append operation to output
+    @prologue=[$opsz,'raw',$bytes];
+
+
+  # have flag!
+  } else {
+
+    $flag={
+
+      zero  => 'z',
+      nzero => 'nz'
+
+    }->{$chk};
+
+  };
+
+
   # all OK, request and give
   $enc->binreq(
 
     $branch,
 
-    [$opsz,'c-load-z',@args],
+    @prologue,
+    [$opsz,"c-load-$flag",@args],
 
   );
 
@@ -651,28 +718,28 @@ cmdsub 'cload' => q() => q{
 
 };
 
-## ---   *   ---   *   ---
-## set flags register ;>
-#
-#cmdsub 'cmp' => q() => q{
-#
-#  # can solve destination?
-#  my $dst=$self->argproc(
-#
-#    $branch->{vref},
-#    delay=>1
-#
-#  );
-#
-#  return $branch if ! length $dst;
-#
-#  my $main = $self->{frame}->{main};
-#  my $l1   = $main->{l1};
-#
-#  say $l1->quantize($dst);
-#  exit;
-#
-#};
+# ---   *   ---   *   ---
+# set flags register ;>
+
+cmdsub 'cmp' => q() => q{
+
+  # can solve destination?
+  my $dst=$self->argproc(
+
+    $branch->{vref},
+    delay=>1
+
+  );
+
+  return $branch if ! length $dst;
+
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+  say $l1->quantize($dst);
+  exit;
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

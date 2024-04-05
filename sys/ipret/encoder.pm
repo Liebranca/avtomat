@@ -102,24 +102,44 @@ sub packins($self,$idex,$args) {
 };
 
 # ---   *   ---   *   ---
-# get opcode from descriptor
+# encoding-less requests ;>
 
-sub encode_opcode($self,$type,$name,@args) {
+sub skip_encode($self,$type,$name,@args) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $mc   = $main->{mc};
+  my $eng  = $main->{engine};
+  my $seg  = $mc->{segtop};
+  my $size = 0x00;
 
 
   # dumping raw bytes?
-  if($name eq 'data-decl') {
-
-    my $main = $self->{main};
-    my $mc   = $main->{mc};
-    my $eng  = $main->{engine};
-
-    my $seg  = $mc->{segtop};
-    my $size = 0x00;
-
+  if($name eq 'raw') {
 
     map {
 
+      my $step=length $ARG;
+
+      $seg->brkfit($step);
+      $seg->store(cstr=>$ARG,$seg->{ptr});
+
+      $seg->{ptr} += $step-1;
+      $size       += $step-1;
+
+    } @args;
+
+    return 'raw',$size;
+
+
+  # dumping variables?
+  } elsif($name eq 'data-decl') {
+
+    map {
+
+
+      # fetch dst/src
       my $sym=${$mc->valid_psearch(
         $ARG->{id}
 
@@ -130,13 +150,17 @@ sub encode_opcode($self,$type,$name,@args) {
 
       );
 
+
+      # get size to write
       my $step=($sym->{ptr_t})
         ? $sym->{ptr_t}->{sizeof}
         : $sym->{type}->{sizeof}
         ;
 
 
+      # modifying current segment?
       if($seg eq $sym->getseg) {
+
         $sym->{addr}  = $seg->{ptr};
 
         $seg->{ptr}  += $step;
@@ -153,6 +177,25 @@ sub encode_opcode($self,$type,$name,@args) {
     return 'data-decl',$size;
 
   };
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# get opcode from descriptor
+
+sub encode_opcode($self,$type,$name,@args) {
+
+
+  # skip?
+  my @skip=$self->skip_encode(
+    $type,$name,@args
+
+  );
+
+  return @skip if @skip;
 
 
   # get instruction id
@@ -281,7 +324,8 @@ sub exewrite($self,$opsz,$name,@args) {
 
   } @args;
 
-  $eng->opera_static(\@copy,1);
+  $eng->opera_static(\@copy,1)
+  if $name ne 'raw';
 
   # encode or die ;>
   my ($opcd,$size)=$self->encode_opcode(
@@ -289,7 +333,7 @@ sub exewrite($self,$opsz,$name,@args) {
 
   );
 
-  goto skip if $opcd eq 'data-decl';
+  goto skip if $opcd=~ qr{^(?:data\-decl|raw)$};
 
 
   # ^catch encoding fail
@@ -383,9 +427,10 @@ sub exewrite_run($self) {
 
 
   # get ctx
-  my $main = $self->{main};
-  my $mc   = $main->{mc};
-  my $ISA  = $mc->{ISA};
+  my $main  = $self->{main};
+  my $mc    = $main->{mc};
+  my $ISA   = $mc->{ISA};
+  my $align = $ISA->align_t->{sizeof};
 
   # remember state of register/stack
   $mc->backup();
@@ -482,13 +527,15 @@ sub exewrite_run($self) {
 
   # align walked segments and reset
   map {
-    $ARG->tighten($ISA->align_t->{sizeof});
+
+    $ARG->{ptr} += $align;
+
+    $ARG->tighten($align);
     $ARG->{ptr}=0;
 
   } values %$walked;
 
   # clear and give
-#  @$Q=[];
   $mc->restore();
 
   return @out;
@@ -505,6 +552,7 @@ sub opera_encode($self,$program,$const,$alma) {
   my $main = $self->{main};
   my $eng  = $main->{engine};
   my $mc   = $main->{mc};
+  my $ISA  = $mc->{ISA};
   my $l1   = $main->{l1};
 
 
@@ -539,6 +587,7 @@ sub opera_encode($self,$program,$const,$alma) {
     map {$self->exewrite(@$ARG)}
     @$program;
 
+    $seg->tighten($ISA->align_t->{sizeof});
     $mc->{segtop}=$old;
 
 

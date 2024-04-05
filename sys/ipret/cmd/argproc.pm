@@ -34,16 +34,23 @@ package ipret::cmd::argproc;
 # ---   *   ---   *   ---
 # symbol lookup
 
-sub symfet($self,$vref) {
+sub symfet($self,$vref,%O) {
+
+  # defaults
+  $O{sym_asis} //= 0;
 
   # get ctx
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
   my $mc   = $main->{mc};
 
+
   # can find symbol?
   my $name = $l1->is_sym($vref->{id});
-  my $sym  = $mc->ssearch($name);
+  my $sym  = (! $O{sym_asis})
+    ? $mc->ssearch($name)
+    : $name
+    ;
 
   return $sym;
 
@@ -54,12 +61,17 @@ sub symfet($self,$vref) {
 
 sub argproc($self,$vref,%O) {
 
+
+  # get ctx
   my $main = $self->{frame}->{main};
   my $eng  = $main->{engine};
 
-  if($vref->{type} eq 'sym') {
-    return $self->symfet($vref);
 
+  # have symbol?
+  if($vref->{type} eq 'sym') {
+    return $self->symfet($vref,%O);
+
+  # have tree!
   } else {
     return $eng->value_solve($vref->{id},%O);
 

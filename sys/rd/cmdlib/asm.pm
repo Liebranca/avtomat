@@ -227,12 +227,22 @@ cmdsub 'asm-ins' => q(opt_qlist) => q{
 
 cmdsub 'cload' => q(opera,qlist) => q{
 
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
 
-  # save operands to branch
+  # get operands
   my ($opera) = $branch->ipluck(0);
   my $head    = $self->parse_ins($branch);
 
-  $head->{opera}  = $opera;
+  # get type of check!
+  my $type=(defined $l1->is_opera($opera->{value}))
+    ? 'opera'
+    : 'sym'
+    ;
+
+  # save to branch
+  $head->{opera}  = {type=>$type,id=>$opera};
   $branch->{vref} = $head;
 
 

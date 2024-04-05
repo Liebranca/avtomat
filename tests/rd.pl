@@ -42,16 +42,22 @@ map {
 
   my @tab=$enc->exewrite_run();
 
-#  # dbout
-#  map {
-#
-#    my $vref=$ARG->{vref};
-#    say sprintf "%02X:%02X $vref->{req}->[1]",
-#      $vref->{addr},$vref->{size};
-#
-#  } @tab;
-#
-#  say "_____________________\n";
+  # dbout
+  map {
+
+    my $vref=$ARG->{vref};
+
+    print sprintf "%02X:%02X ",
+      $vref->{addr},$vref->{size};
+
+    say join ',',map {
+      $ARG->[1]
+
+    } @{$vref->{req}};
+
+  } @tab;
+
+  say "_____________________\n";
 
 } 1..$main->{passes}->{'solve'};
 

@@ -17,6 +17,7 @@ exe code;
 
   load  br,2;
   load  ar,1;
+
   cload ar==1 ar,br;
 
 

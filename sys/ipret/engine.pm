@@ -160,10 +160,13 @@ sub step($self,$data) {
 };
 
 # ---   *   ---   *   ---
-# read and run jumpless program
+# read program from segment idex
+# or memory reference
 
-sub strexe($self,$program) {
+sub strseg($self,$program,%O) {
 
+  # defaults
+  $O{decode} //= 1;
 
   # get ctx
   my $main = $self->{main};
@@ -205,13 +208,23 @@ sub strexe($self,$program) {
     };
 
     # decode binary
-    $program=$enc->decode($program);
+    $program=$enc->decode($program)
+    if $O{decode};
 
   };
 
 
-  # run and give result
-  map {$self->step($ARG)} @$program;
+  return $program;
+
+};
+
+# ---   *   ---   *   ---
+# read and run jumpless program
+
+sub strexe($self,$program) {
+
+  map {$self->step($ARG)}
+  @{$self->strseg($program)};
 
 };
 

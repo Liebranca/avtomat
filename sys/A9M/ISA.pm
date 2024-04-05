@@ -115,7 +115,7 @@ sub full_encoding($self,$idex,$args) {
   my $class = ref $self;
   my $enc_t = $self->enc_t;
 
-  my $tab   = $class->opcode_table();
+  my $tab   = $class->opcode_table;
 
   return (
 
@@ -206,6 +206,16 @@ sub warn_invalid($name) {
 
   obj  => $name,
   give => null;
+
+};
+
+# ---   *   ---   *   ---
+# dbout, nevermind this
+
+sub insname($self,$ins) {
+
+  my $tab=$self->opcode_table;
+  return $tab->{exetab}->[$ins->{idx}];
 
 };
 
