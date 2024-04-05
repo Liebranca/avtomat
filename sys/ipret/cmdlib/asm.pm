@@ -39,7 +39,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -58,6 +58,7 @@ cmdsub '$' => q() => q{
 # a label with extra steps
 
 cmdsub 'blk' => q() => q{
+
 
   # get ctx
   my $main = $self->{frame}->{main};
@@ -110,6 +111,45 @@ cmdsub 'blk' => q() => q{
     ],
 
   );
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# defines entry point
+
+cmdsub 'entry' => q() => q{
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $mc   = $main->{mc};
+  my $l1   = $main->{l1};
+
+  # get name of symbol
+  my $name=$l1->is_sym(
+    $branch->{vref}->{id}
+
+  );
+
+  # can fetch symbol?
+  my $seg=$mc->ssearch(
+    'non',split $mc->{pathsep},$name
+
+  );
+
+  return $branch if ! length $seg;
+
+
+  # validate, set and give
+  $main->perr(
+    "redeclaration of entry point"
+
+  ) if defined $main->{entry};
+
+  $main->{entry}=$name;
+
 
   return;
 

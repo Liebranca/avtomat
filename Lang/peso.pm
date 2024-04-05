@@ -50,7 +50,7 @@ $NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
 
     [qw(
 
-      load store
+      load cload store
 
       pop push
       shift unshift
@@ -112,7 +112,7 @@ $NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
 
     [qw(
 
-      jump
+      jump cjump
       on from or off
 
       call ret rept

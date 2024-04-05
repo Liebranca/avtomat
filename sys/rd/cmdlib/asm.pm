@@ -34,7 +34,7 @@ package rd::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -73,12 +73,6 @@ cmdsub '$' => q() => q{
   return;
 
 };
-
-# ---   *   ---   *   ---
-# a label with extra steps
-# see ipret for details!
-
-w_cmdsub 'csume-token' => q(sym) => 'blk';
 
 # ---   *   ---   *   ---
 # template: read instruction
@@ -285,6 +279,11 @@ w_cmdsub 'c-asm-ins' => q(nlist,opt_qlist) => qw(
 
 w_cmdsub 'csume-token' => q(nlist) => qw(
   self
+
+);
+
+w_cmdsub 'csume-token' => q(sym) => qw(
+  blk entry
 
 );
 

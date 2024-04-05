@@ -24,61 +24,21 @@ package main;
   use Arstd::xd;
 
 # ---   *   ---   *   ---
-# parse and solve
+# parse, solve and assemble
 
-my $main = ipret(
+my $main=ipret(
 
   './lps/test.rom',
   limit => 2
 
 );
 
-# ---   *   ---   *   ---
-# ^assemble!
-
-my $enc=$main->{encoder};
-
-map {
-
-  my @tab=$enc->exewrite_run();
-
-  # dbout
-  map {
-
-    my $vref=$ARG->{vref};
-
-    print sprintf "%02X:%02X ",
-      $vref->{addr},$vref->{size};
-
-    say join ',',map {
-      $ARG->[1]
-
-    } @{$vref->{req}};
-
-  } @tab;
-
-  say "_____________________\n";
-
-} 1..$main->{passes}->{'solve'}+1;
-
-# ---   *   ---   *   ---
-# manually set entry ;>
-
-my $mc    = $main->{mc};
-my $anima = $mc->{anima};
-my $rip   = $anima->fetch($anima->exec_ptr);
-my $seg   = $mc->ssearch('non','code');
-
-$rip->store(
-  $mc->segid($seg),
-  deref=>0
-
-);
+$main->assemble();
 
 # ---   *   ---   *   ---
 # run and dbout
 
-$main->{engine}->exe();
+$main->run();
 $main->prich(anima=>1,mem=>'outer',tree=>0);
 
 # ---   *   ---   *   ---

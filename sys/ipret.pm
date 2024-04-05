@@ -19,6 +19,7 @@ package ipret;
   use strict;
   use warnings;
 
+  use Carp;
   use Storable qw(store retrieve file_magic);
   use English qw(-no_match-vars);
 
@@ -40,7 +41,7 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -82,7 +83,7 @@ sub mutate($class,$ice) {
 
 
   # update instance
-  $ice=bless {%$ice},$class;
+  $ice=bless {%$ice,entry=>undef},$class;
 
   # ^notify layers
   $ice->cstruc_layers(
@@ -156,6 +157,120 @@ sub cpos($self) {
   | $mc->segid($mc->{segtop})
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# generates binary from solved tree
+
+sub assemble($self) {
+
+
+  # get ctx
+  my $enc   = $self->{encoder};
+  my $lx    = $self->{lx};
+
+  my $stage = $self->{stage};
+     $stage = $lx->stages->[$stage-1];
+
+  my $limit = $self->{passes};
+     $limit = $limit->{$stage};
+
+
+  # walk the tree
+  my $prev={};
+
+  while($limit--) {
+
+    my @tab=$enc->exewrite_run();
+    my $inc=0;
+
+
+    # walk nodes
+    map {
+
+
+      # get current/previous addr of node
+      my $vref = $ARG->{vref};
+      my $have = $prev->{$ARG->{-uid}} //= [];
+
+      # did it move?
+      $inc |= int(
+
+         defined $have->[-1]
+      && $have->[-1] != $vref->{addr}
+
+      );
+
+
+      # record current
+      push @$have,$vref->{addr};
+
+
+    } @tab;
+
+
+    # if we detected a change in the addresses,
+    # that means bytes were moved around!
+    #
+    # in that case, and if the loop is about to
+    # end, we want to extend it -- just to make
+    # sure that all labels get recalculated ;>
+
+    $self->next_pass();
+    $limit++ if $inc && $limit < 1;
+
+  };
+
+
+  # go next and give OK
+  $self->next_stage();
+  return 1;
+
+};
+
+# ---   *   ---   *   ---
+# jump to entry and execute
+
+sub run($self,$entry=undef) {
+
+
+  # overwrite/validate
+  $entry //= $self->{entry};
+
+  $WLog->err(
+
+    "No entry point for <%s>",
+
+    args => [$self->{fpath}],
+    lvl  => $AR_FATAL,
+
+    from => ref $self,
+
+  ) if ! $entry;
+
+
+  # get ctx
+  my $mc    = $self->{mc};
+  my $anima = $mc->{anima};
+  my $rip   = $anima->fetch($anima->exec_ptr);
+
+
+  # fetch symbol
+  my $seg = $mc->ssearch(
+    'non',split $mc->{pathsep},$self->{entry}
+
+  );
+
+  # take the jump!
+  $rip->store(
+    $mc->segid($seg),
+    deref=>0
+
+  );
+
+
+  return $self->{engine}->exe();
 
 };
 

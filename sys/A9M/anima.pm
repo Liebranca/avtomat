@@ -524,7 +524,7 @@ sub prich($self,%O) {
 
   );
 
-  push @$out,sprintf "FLAGS: %04Bb\n",
+  push @$out,sprintf "FLAGS: %04Bb\n\n",
     $self->{flags};
 
   return ioprocout(\%O);
