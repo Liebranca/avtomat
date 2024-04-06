@@ -28,6 +28,7 @@ package ipret::cmdlib::asm;
   use Bpack;
 
   use Arstd::Bytes;
+  use Arstd::Array;
   use Arstd::IO;
 
 # ---   *   ---   *   ---
@@ -39,7 +40,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -77,6 +78,7 @@ cmdsub 'blk' => q() => q{
   # make fake ptr
   my $align_t=$ISA->align_t;
   $mc->{cas}->brkfit($align_t->{sizeof});
+
   my $ptr=$mc->{cas}->lvalue(
 
     0x00,
@@ -249,6 +251,33 @@ sub argsolve($self,$branch) {
 
 
   } @{$vref->{args}};
+
+
+  # overwrite default type?
+  my $def=$vref->{opsz_def};
+  my $fix=$ISA->get_ins_fix_size($name);
+
+  if(defined $fix) {
+
+    if($def) {
+      $opsz=$fix->[0];
+
+    } else {
+
+      my $have=array_iof $fix,$opsz->{name};
+
+      $main->perr(
+
+        "[ctl]:%s [good]:%s: "
+      . "invalid size for instruction",
+
+        args => [$name,$opsz->{name}],
+
+      ) if ! defined $have;
+
+    };
+
+  };
 
 
   # give descriptor

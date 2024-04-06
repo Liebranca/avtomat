@@ -270,30 +270,34 @@ St::vconst {
 #
 #  },
 #
-#
-#  # stack ctl
-#  push => {
-#
-#    dst       => 'rmi',
-#    argcnt    => 1,
-#    overwrite => 0,
-#
-#    fix_size  => ['qword'],
-#
-#  },
-#
-#  pop => {
-#
-#    dst       => 'r',
-#    argcnt    => 1,
-#    overwrite => 1,
-#
-#    load_dst  => 0,
-#    fix_size  => ['qword'],
-#
-#  },
-#
-#
+
+    # stack ctl
+    push => {
+
+      fn        => '_push',
+
+      dst       => 'rmi',
+      argcnt    => 1,
+      overwrite => 0,
+
+      fix_size  => ['qword'],
+
+    },
+
+    pop => {
+
+      fn        => '_pop',
+
+      dst       => 'r',
+      argcnt    => 1,
+      overwrite => 1,
+
+      load_dst  => 0,
+      fix_size  => ['qword'],
+
+    },
+
+
 #  # control flow
 #  jmp => {
 #
@@ -549,7 +553,7 @@ sub _eq($self,$type,$src) {
     if(! @src) {
 
       # get ctx
-      my $mc    = $self->getmc;
+      my $mc    = $self->getmc();
       my $anima = $mc->{anima};
 
       # modify flags and give
@@ -560,6 +564,58 @@ sub _eq($self,$type,$src) {
 
     # ^nope, give nothing ;>
     } else {()};
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# put on stack
+
+sub _push($self,$type) {
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $stack = $mc->{stack};
+
+  my $ptr   = $stack->{ptr};
+  my $mem   = $stack->{mem};
+
+  sub ($x) {
+
+    my $have  = $ptr->load();
+       $have -= $type->{sizeof};
+
+    $ptr->store($have);
+    $mem->store($type,$x,$have);
+
+    return;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# take from stack
+
+sub _pop($self,$type) {
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $stack = $mc->{stack};
+
+  my $ptr   = $stack->{ptr};
+  my $mem   = $stack->{mem};
+
+  sub ($x) {
+
+    my $have = $ptr->load();
+       $x    = $mem->load($type,$have);
+
+    $have += $type->{sizeof};
+    $ptr->store($have);
+
+    return $x;
 
   };
 
@@ -585,7 +641,7 @@ sub shr($type,$bits) {
     $$prev |= $left << $pos if $prev;
 
 
-    $prev   = \$x;
+   $prev   = \$x;
     $prev;
 
   };

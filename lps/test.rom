@@ -2,8 +2,7 @@
 
 # TODO
 #
-# * stack
-# ^ push
+# * push
 # ^ pop
 #
 # * struc
@@ -12,30 +11,14 @@
 #
 # * call
 # ^ ret
+#
+# * syscall
 
 entry code;
 
-ram data;
-
-  byte b0 $00;
-  byte b1 $00;
-
-
 exe code;
 
-  self data;
+  load ar,$24;
 
-  load ar,1;
-  load br,2;
-
-
-blk top;
-
-  cjump ar==2 skip;
-  cload nzero ar,br;
-
-  jump  top;
-
-
-blk skip;
-  load cr,$24;
+  push ar;
+  pop  br;

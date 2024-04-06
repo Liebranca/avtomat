@@ -160,7 +160,7 @@ St::vconst {
 
 
   # optional variants
-  opt_cmdarg(qw(qlist vlist sym num)),
+  opt_cmdarg(qw(qlist vlist nlist opera sym num)),
 
 
   # delimiters

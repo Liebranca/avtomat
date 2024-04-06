@@ -210,6 +210,18 @@ sub warn_invalid($name) {
 };
 
 # ---   *   ---   *   ---
+# lazy get attr from meta
+
+sub get_ins_fix_size($self,$name) {
+
+  my $meta=$self->get_ins_meta($name);
+  return null if ! defined $meta;
+
+  return $meta->{fix_size};
+
+};
+
+# ---   *   ---   *   ---
 # dbout, nevermind this
 
 sub insname($self,$ins) {
