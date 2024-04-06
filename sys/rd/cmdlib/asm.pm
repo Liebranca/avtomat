@@ -241,12 +241,7 @@ cmdsub 'c-asm-ins' => q(nlist,opt_qlist) => q{
   $branch->{vref} = $head;
 
   # mutate and give
-  my $name=($head->{name} eq 'cjump')
-    ? 'cjump'
-    : 'c-asm-ins'
-    ;
-
-  $self->mutate_ins($branch,$name);
+  $self->mutate_ins($branch,'c-asm-ins');
 
 
   return;

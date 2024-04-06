@@ -301,8 +301,32 @@ St::vconst {
     # control flow
     jump => {
 
-      argcnt => 1,
-      dst    => 'rmi',
+      argcnt    => 1,
+      dst       => 'rmi',
+
+      overwrite => 0,
+      fix_size  => ['qword'],
+
+    },
+
+    'cjump-z' => {
+
+      fn        => 'cjump_zero',
+
+      argcnt    => 1,
+      dst       => 'rmi',
+
+      overwrite => 0,
+      fix_size  => ['qword'],
+
+    },
+
+    'cjump-nz' => {
+
+      fn        => 'cjump_nzero',
+
+      argcnt    => 1,
+      dst       => 'rmi',
 
       overwrite => 0,
       fix_size  => ['qword'],
@@ -548,6 +572,49 @@ sub jump($self,$type) {
     return;
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# ^conditional
+
+sub cjump($self,$type,$flag) {
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+  my $rip   = $anima->{rip};
+
+  # negate flag?
+  my $iv  = int($flag=~ s[^n][]);
+
+
+  # make F
+  sub ($x) {
+
+    # check for flag set/unset
+    my ($chk)=$anima->get_flags($flag);
+    $chk =! $chk if $iv;
+
+
+    # ^set if true
+    $rip->store($x,deref=>0) if $chk;
+    return;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^icef*ck
+
+sub cjump_zero($self,$type) {
+  return $self->cjump($type,'zero');
+
+};
+
+sub cjump_nzero($self,$type) {
+  return $self->cjump($type,'nzero');
 
 };
 

@@ -21,9 +21,10 @@ ram data;
 exe code;
 
   self data;
+  cjump nzero skip;
 
-  jump  skip;
   load  ar,[b0+1];
   store [b0],ar;
 
 blk skip;
+

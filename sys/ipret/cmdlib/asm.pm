@@ -253,8 +253,11 @@ sub argsolve($self,$branch) {
 
 
   # overwrite default type?
+  my $nc_name =  $name;
+     $nc_name =~ s[^c(jump|load)][$1];
+
   my $def=$vref->{opsz_def};
-  my $fix=$ISA->get_ins_fix_size($name);
+  my $fix=$ISA->get_ins_fix_size($nc_name);
 
   if(defined $fix) {
 
@@ -733,7 +736,6 @@ sub chksolve($self,$branch,$opsz) {
 
 cmdsub 'c-asm-ins' => q() => q{
 
-
   # get ctx
   my $main = $self->{frame}->{main};
   my $enc  = $main->{encoder};
@@ -764,66 +766,6 @@ cmdsub 'c-asm-ins' => q() => q{
     [$opsz,"$name-$flag",@args],
 
   );
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# conditional jump ;>
-
-cmdsub 'cjump' => q() => q{
-
-
-  # can solve destination?
-  my $dst=$self->jmpsolve($branch);
-  return $branch if ! length $dst;
-
-
-  # can solve condition?
-  my ($flag,@prologue)=
-    $self->chksolve($branch,$dst->[0]);
-
-  return $branch
-  if ! length $flag;
-
-
-  # get ctx
-  my $main  = $self->{frame}->{main};
-  my $enc   = $main->{encoder};
-  my $mc    = $main->{mc};
-  my $anima = $mc->{anima};
-
-
-  # make intermediate load to xs register
-  my $copy=[
-
-    $dst->[0],
-    $dst->[1],
-
-    {%{$dst->[2]}},
-    $dst->[3],
-
-  ];
-
-  $copy->[2]->{reg}=$anima->exec_bptr;
-
-
-  # ^accompanied by a conditional load
-  # from xs to xp, effectively performing
-  # the jump if the condition is true
-
-  $dst->[3]={
-    type => 'r',
-    reg  => $anima->exec_bptr,
-
-  };
-
-  $dst->[1]="cload-$flag";
-
-
-  # request and give
-  $enc->binreq($branch,@prologue,$copy,$dst);
 
   return;
 
