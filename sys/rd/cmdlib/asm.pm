@@ -34,7 +34,7 @@ package rd::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -51,8 +51,7 @@ sub build($class,$main) {
   wm_cmdsub $main,'asm-ins' => q(
     opt_qlist
 
-  ) => @{$guts_t->list()};
-
+  ) => @{$guts_t->list};
 
   # give table
   return rd::cmd::MAKE::build($class,$main);
@@ -204,18 +203,12 @@ sub mutate_ins($self,$branch,$new='asm-ins') {
 
 cmdsub 'asm-ins' => q(opt_qlist) => q{
 
-
   # save operands to branch
   my $head=$self->parse_ins($branch);
   $branch->{vref}=$head;
 
   # mutate and give
-  my $name=($head->{name} eq 'jump')
-    ? 'jump'
-    : 'asm-ins'
-    ;
-
-  $self->mutate_ins($branch,$name);
+  $self->mutate_ins($branch,'asm-ins');
 
   return;
 
@@ -262,11 +255,6 @@ cmdsub 'c-asm-ins' => q(nlist,opt_qlist) => q{
 
 # ---   *   ---   *   ---
 # ^icef*ck
-
-w_cmdsub 'asm-ins' => q(opt_qlist) => qw(
-  jump
-
-);
 
 w_cmdsub 'c-asm-ins' => q(nlist,opt_qlist) => qw(
   cload cjump

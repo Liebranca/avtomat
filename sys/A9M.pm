@@ -232,6 +232,15 @@ sub ssearch($self,@path) {
 
   # lookup and give
   my $out=$tree->haslv(@path);
+  if(! $out) {
+
+    @path = (@{$self->{path}},pop @path);
+    shift @path if $path[0] eq $tree->{value};
+
+    $out  = $tree->haslv(@path);
+
+  };
+
   return ($out) ? $out->{mem} : null ;
 
 };

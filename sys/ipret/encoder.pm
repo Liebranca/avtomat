@@ -194,7 +194,12 @@ sub skip_encode($self,$type,$name,@args) {
 # ---   *   ---   *   ---
 # get opcode from descriptor
 
-sub encode_opcode($self,$type,$name,@args) {
+sub encode_opcode($self,$typesrc,$name,@args) {
+
+
+  # deref!
+  my ($isref,$type)=
+    Chk::cderef $typesrc,1;
 
 
   # skip?

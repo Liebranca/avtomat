@@ -298,17 +298,18 @@ St::vconst {
     },
 
 
-#  # control flow
-#  jmp => {
-#
-#    argcnt => 1,
-#    dst    => 'rmi',
-#
-#    overwrite => 0,
-#    fix_size  => ['qword'],
-#
-#  },
-#
+    # control flow
+    jump => {
+
+      argcnt => 1,
+      dst    => 'rmi',
+
+      overwrite => 0,
+      fix_size  => ['qword'],
+
+    },
+
+
 #  call => {
 #
 #    argcnt    => 1,
@@ -456,7 +457,7 @@ sub ccopy($self,$type,$src,$flag) {
 
 
   # get ctx
-  my $mc    = $self->getmc;
+  my $mc    = $self->getmc();
   my $anima = $mc->{anima};
 
   # negate flag?
@@ -528,6 +529,25 @@ sub _sub($self,$type,$src) {
 sub mul($self,$type,$src) {
   my @src=asval $src;
   sub ($x) {$x * shift @src};
+
+};
+
+# ---   *   ---   *   ---
+# set insptr
+
+sub jump($self,$type) {
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+  my $rip   = $anima->{rip};
+
+  # ^write to rip
+  sub ($x) {
+    $rip->store($x,deref=>0);
+    return;
+
+  };
 
 };
 

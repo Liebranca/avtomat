@@ -2,9 +2,6 @@
 
 # TODO
 #
-# * push
-# ^ pop
-#
 # * struc
 # ^ load ice
 # ^ load ctx
@@ -16,9 +13,17 @@
 
 entry code;
 
+ram data;
+
+  byte b0 $24;
+  byte b1 $25;
+
 exe code;
 
-  load ar,$24;
+  self data;
 
-  push ar;
-  pop  br;
+  jump  skip;
+  load  ar,[b0+1];
+  store [b0],ar;
+
+blk skip;

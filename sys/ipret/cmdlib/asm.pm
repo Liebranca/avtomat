@@ -40,7 +40,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#a
+  our $VERSION = v0.01.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -232,14 +232,13 @@ sub argsolve($self,$branch) {
       return null if ! length $type;
 
 
-    # symbol deref
+    # have symbol?
     } elsif($type eq 'sym') {
 
-      my $have=$l1->quantize($nd->{value});
-      return null if ! length $have;
-
       ($type,$opsz,$O)=
-        $self->addrsym($branch,$have,0);
+        $self->symsolve($branch,$ARG,0);
+
+      return null if ! length $type;
 
 
     };
@@ -314,56 +313,6 @@ cmdsub 'asm-ins' => q() => q{
 };
 
 # ---   *   ---   *   ---
-# build memory operand from symbol
-
-sub addrsym($self,$branch,$have,$deref) {
-
-
-  # get ctx
-  my $main = $self->{frame}->{main};
-  my $mc   = $main->{mc};
-
-
-  # have size modifier?
-  my $opsz = ($branch->{vref}->{opsz_def})
-    ? $have->{type}
-    : $branch->{vref}->{opsz}
-    ;
-
-
-  # get location
-  my $fn=sub {
-
-    my $seg  = $have->getseg;
-    my $addr = $have->{addr};
-
-
-    # ^have pointer?
-    if($have->{ptr_t} && $deref) {
-      ($seg,$addr)=$have->read_ptr;
-
-    };
-
-    return (
-      $mc->segid($seg),
-      $addr,
-
-    );
-
-  };
-
-  my $O={
-    seg  => sub {($fn->())[0]},
-    imm  => sub {($fn->())[1]},
-
-  };
-
-
-  return ('mimm',$opsz,$O);
-
-};
-
-# ---   *   ---   *   ---
 # determine type of memory operand
 
 sub addr_decompose($self,$nd) {
@@ -416,10 +365,7 @@ sub addr_decompose($self,$nd) {
 
     # symbol name?
     } elsif(defined ($have=$l1->is_sym($ARG))) {
-      my $ptr=$l1->quantize($ARG);
-      return null if ! defined $ptr;
-
-      push @sym,$ptr;
+      push @sym,{type=>'sym',id=>$ARG};
 
     # immediate!
     } else {
@@ -494,10 +440,23 @@ sub addrmode($self,$branch,$nd) {
     map {
 
       my ($sym_t,$sym_sz,$head)=
-        $self->addrsym($branch,$ARG,1);
+        $self->symsolve($branch,$ARG,1);
 
+      return null if ! length $sym_t;
+
+
+      # save segment bit separately
       $opsz   = $sym_sz;
       $ptrseg = $head->{seg};
+
+      # ^clear segment bit from offset
+      my $old=$head->{imm};
+
+      $head->{imm} = sub {
+         $old->()
+      >> $mc->segtab_t->{sizep2}
+
+      };
 
 
       # delayed deref+sum
@@ -618,17 +577,13 @@ cmdsub 'self' => q() => q{
 };
 
 # ---   *   ---   *   ---
-# get jump destination
+# delayed dereference ;>
 
-sub jmpsolve($self,$branch) {
+sub symsolve($self,$branch,$vref,$deref) {
 
 
   # can solve destination?
-  my $dst=$self->argproc(
-    $branch->{vref}->{args}->[0]
-
-  );
-
+  my $dst=$self->argproc($vref);
   return null if ! length $dst;
 
 
@@ -641,76 +596,54 @@ sub jmpsolve($self,$branch) {
   my $enc   = $main->{encoder};
 
 
-
   # get pointer and bitsize
-  my $value={};
+  my $fn=sub {
 
-  # dst is symbol?
-  if(! is_coderef $dst) {
+    my $isptr = exists $dst->{type};
+    my $ptr_t = $dst->{ptr_t};
 
-    $value=sub {
-
-      my $ptrv=(exists $dst->{ptr_t})
-        ? $dst->load(deref=>0)
-        : $dst->as_ptr
-        ;
-
-      my $type=$ISA->immsz($ptrv);
-
-      return {type=>$type,imm=>$ptrv};
-
-    };
+    my $ptrv  = ($ptr_t)
+      ? $dst->load(deref=>0)
+      : $dst->as_ptr
+      ;
 
 
-  # ^dst is operation!
-  } else {
+    my $opsz = ($isptr)
+      ? ($deref) ? $dst->{type} : $ptr_t
+      : typefet 'mean'
+      ;
 
-    $value=sub {
+    $opsz //= typefet 'ptr';
 
-      my $have=$dst->();
-         $have=$l1->quantize($have);
+    my $type = $ISA->immsz($ptrv);
+    my $seg  = $mc->segid(
 
-      my $type=$ISA->immsz($have);
+      ($isptr)
+        ? $dst->getseg
+        : $dst
 
-      return {type=>$type,imm=>$have};
+    );
 
-    };
+    return ($seg,$ptrv,$opsz,$type);
 
   };
 
-  return [
 
-    $ISA->align_t,
+  my $O={
+    seg  => sub {($fn->())[0]},
+    imm  => sub {($fn->())[1]},
 
-    'load',
-
-    {type=>'r',reg=>$anima->exec_ptr},
-    $value,
-
-  ];
-
-};
-
-# ---   *   ---   *   ---
-# sets program counter
-
-cmdsub 'jump' => q() => q{
+  };
 
 
-  # can solve destination?
-  my $dst=$self->jmpsolve($branch);
-  return $branch if ! length $dst;
+  # have size modifier?
+  my $opsz = ($branch->{vref}->{opsz_def})
+    ? sub {($fn->())[2]}
+    : $branch->{vref}->{opsz}
+    ;
 
-
-  # get ctx
-  my $main  = $self->{frame}->{main};
-  my $enc   = $main->{encoder};
-
-  # load to xp register!
-  $enc->binreq($branch,$dst);
-
-
-  return;
+  my $type=sub {($fn->())[3]};
+  return ($type,$opsz,$O);
 
 };
 
