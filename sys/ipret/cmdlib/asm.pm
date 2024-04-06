@@ -829,8 +829,11 @@ cmdsub 'cjump' => q() => q{
   # get ctx
   my $main  = $self->{frame}->{main};
   my $enc   = $main->{encoder};
+  my $mc    = $main->{mc};
+  my $anima = $mc->{anima};
 
-  # load to xp register!
+
+  # make intermediate load to xs register
   my $copy=[
 
     $dst->[0],
@@ -841,10 +844,23 @@ cmdsub 'cjump' => q() => q{
 
   ];
 
-  $copy->[2]->{reg} = 0xF;
-  $dst->[1]         = "cload-$flag";
-  $dst->[3]         = {type=>'r',reg=>0xF};
+  $copy->[2]->{reg}=$anima->exec_bptr;
 
+
+  # ^accompanied by a conditional load
+  # from xs to xp, effectively performing
+  # the jump if the condition is true
+
+  $dst->[3]={
+    type => 'r',
+    reg  => $anima->exec_bptr,
+
+  };
+
+  $dst->[1]="cload-$flag";
+
+
+  # request and give
   $enc->binreq($branch,@prologue,$copy,$dst);
 
   return;

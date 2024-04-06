@@ -964,6 +964,7 @@ sub prich($self,%O) {
   $O{tree}   //= 1;
   $O{mem}    //= 'inner,outer';
   $O{anima}  //= 0;
+  $O{stack}  //= 0;
   $O{passes} //= $ANY_MATCH;
 
 
@@ -978,9 +979,14 @@ sub prich($self,%O) {
   };
 
 
+  # show stack?
+  $self->{mc}->{stack}->prich(%O,mute=>1)
+  if $O{stack};
+
   # show registers?
   $self->{mc}->{anima}->prich(%O,mute=>1)
   if $O{anima};
+
 
   # get repr for memory?
   if($O{mem}) {

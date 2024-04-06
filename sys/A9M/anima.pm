@@ -19,9 +19,7 @@ package A9M::anima;
   use strict;
   use warnings;
 
-  use Readonly;
   use English qw(-no_match_vars);
-
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
@@ -33,7 +31,7 @@ package A9M::anima;
   use Arstd::Re;
   use Arstd::IO;
 
-  use parent 'A9M::layer';
+  use parent 'A9M::sysmem';
 
 # ---   *   ---   *   ---
 # info
@@ -46,6 +44,9 @@ package A9M::anima;
 
 St::vconst {
 
+
+  # name of system block
+  ROOTID => 'ANIMA',
 
   # full list of registers
   list => [qw(
@@ -100,20 +101,14 @@ St::vconst {
 
   # indices of special-purpose registers
   exec_ptr  => 0x08,
+  exec_bptr => 0x09,
+
   stack_ptr => 0x0A,
   stack_bot => 0x0B,
 
 
-  # default size for each register
-  sizek  => 'qword',
-  size   => sub {sizeof  $_[0]->sizek()},
-  size_t => sub {typefet $_[0]->sizek()},
-
-
-  # number/masks for encoding registers
-  cnt    => sub {int @{$_[0]->list()}},
-  cnt_bs => sub {bitsize $_[0]->cnt()-1},
-  cnt_bm => sub {bitmask $_[0]->cnt()-1},
+  # number of encoding registers
+  cnt => sub {int @{$_[0]->list()}},
 
 
   # bit offset for each flag
@@ -149,49 +144,35 @@ sub new($class,%O) {
 
     %O,
 
-    mem => undef,
-    ptr => undef,
+    mem   => undef,
+    ptr   => undef,
 
-    flags   => 0x00,
-    almask  => $class->reserved_mask(),
+    rip   => undef,
+    brip  => undef,
 
-    alhist  => [],
-    memhist => [],
+    flags => 0x00,
 
 
   },$class;
 
 
-  # get ctx
-  my $mc     = $self->getmc();
-  my $memcls = $mc->{bk}->{mem};
-
-
   # make container
-  my $mem=$memcls->mkroot(
-
-    size  =>
-        $class->size()
-      * $class->cnt(),
-
-    label => 'ANIMA',
-    mccls => $O{mccls},
-
-  );
+  $self->mkroot();
+  $self->{almask}=$class->reserved_mask;
 
 
-  # ^make labels
+  # make labels
   my $addr = 0x00;
   my @ptr  = map {
 
-    my $v=$mem->lvalue(
+    my $v=$self->{mem}->lvalue(
 
       0x00,
 
       addr  => $addr,
       label => $ARG,
 
-      type  => $class->sizek,
+      type  => $class->size_k,
 
     );
 
@@ -202,6 +183,7 @@ sub new($class,%O) {
 
 
   # make program pointer
+  my $mc  = $self->getmc();
   my $xp  = $ptr[$self->exec_ptr];
   my $ISA = $mc->{bk}->{ISA};
 
@@ -209,8 +191,11 @@ sub new($class,%O) {
   $xp->{type}  = $ISA->align_t;
 
 
-  # save to ice and give
-  $self->{mem}=$mem;
+  # ^store
+  $self->{rip}  = $xp;
+  $self->{brip} = $ptr[$self->exec_bptr];
+
+  # save labels to ice and give
   $self->{ptr}=\@ptr;
 
   return $self;
@@ -303,164 +288,6 @@ sub get_flags($self,@ar) {
 };
 
 # ---   *   ---   *   ---
-# alloc register and give idex
-
-sub alloci($self) {
-
-
-  # get ctx
-  my $mc = $self->getmc();
-  my $al = $mc->{alloc};
-
-  my $mpart_t = $al->mpart_t();
-
-
-  # have avail register?
-  my ($ezy,$pos)=$mpart_t->fit(
-
-    \$self->{almask},1,
-    limit=>16,
-
-  );
-
-
-  # ^validate and give
-  return (defined $pos)
-    ? $pos
-    : null
-    ;
-
-};
-
-# ---   *   ---   *   ---
-# ^build mem handle
-
-sub alloc($self) {
-
-
-  # get idex of free register if any
-  my $type = $self->size_t();
-  my $idex = $self->alloci();
-  my $mem  = $self->{mem};
-
-
-  # give mem handle if avail
-  if(length $idex) {
-
-    my $list = $self->list();
-    my $view = $mem->view(
-
-      $idex << $type->{sizep2},
-      $type->{sizeof},
-
-      $list->[$idex]
-
-    );
-
-
-    return $view;
-
-
-  # ^use stack if none!
-  } else {
-    nyi "alloc stack fallback"
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# free allocated register from idex
-
-sub freei($self,$idex) {
-
-  # clear bit from mask
-  $self->{almask} &=~ 1 << $idex;
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# ^free allocated from mem handle
-
-sub free($self,$mem) {
-
-  my ($base,$off) = $mem->get_addr();
-  my $type        = $self->size_t();
-
-  $off >>= $type->{sizep2};
-
-  $self->freei($off);
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# save current state var
-# to their respective stacks
-
-sub backup_alma($self) {
-
-  push @{$self->{alhist}},
-    $self->{almask};
-
-  return;
-
-};
-
-sub backup_mem($self) {
-
-  push @{$self->{memhist}},
-    ${$self->{mem}->{buf}};
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# ^undo
-
-sub restore_alma($self) {
-
-  $self->{almask}=
-    pop @{$self->{alhist}};
-
-  return;
-
-};
-
-sub restore_mem($self) {
-
-  ${$self->{mem}->{buf}}=
-    pop @{$self->{memhist}};
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# ^the entire thing
-
-sub backup($self) {
-
-  $self->backup_alma();
-  $self->backup_mem();
-
-  return;
-
-};
-
-sub restore($self) {
-
-  $self->restore_alma();
-  $self->restore_mem();
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
 # legacy method from AR/forge
 # needs revision!
 #
@@ -512,20 +339,21 @@ sub update($class,$A9M) {
 
 sub prich($self,%O) {
 
+
+  # defauls
+  $O{flags} //= 1;
+
+  # display memory
   my $out=ioprocin(\%O);
+  A9M::sysmem::prich($self,%O,mute=>1);
 
-  $self->{mem}->prich(
 
-    %O,
-
-    mute  => 1,
-    inner => 0,
-    root  => 1,
-
-  );
-
+  # display flags?
   push @$out,sprintf "FLAGS: %04Bb\n\n",
-    $self->{flags};
+    $self->{flags}
+
+  if $O{flags};
+
 
   return ioprocout(\%O);
 

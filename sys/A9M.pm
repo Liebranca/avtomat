@@ -53,7 +53,7 @@ St::vconst {
 };
 
   Readonly my $COMPONENTS => [qw(
-    flags mem ptr alloc anima ISA
+    flags mem ptr alloc anima stack ISA
 
   )];
 
@@ -88,6 +88,7 @@ sub new($class,%O) {
     alloc    => undef,
     scope    => undef,
     anima    => undef,
+    stack    => undef,
     ISA      => undef,
 
 
@@ -130,12 +131,16 @@ sub new($class,%O) {
 
 
   # kick components in need of kicking!
-  $self->{anima}=$bk->{anima}->new(mcid=>$id);
-  $self->{alloc}=$bk->{alloc}->new(mcid=>$id);
-  $self->scope($O{memroot});
+  map {
 
-  $self->{ISA}=$bk->{ISA}->new(mcid=>$id);
+    $self->{$ARG}=
+      $bk->{$ARG}->new(mcid=>$id);
+
+  } qw(anima stack alloc ISA);
+
+  $self->scope($O{memroot});
   $self->{ISA}->ready_or_build;
+
 
   return $self;
 
@@ -546,12 +551,11 @@ sub warn_decode($segid,$off) {
 
 sub decode_mstk_ptr($self,$o) {
 
-  nyi('A9M::stack');
 
-  my $anima = $self->{anima};
+  my $stack = $self->{stack};
 
   my $seg   = $self->{stack}->{mem};
-  my $base  = $anima->fetch($anima->stack_bot);
+  my $base  = $stack->{bot};
   my $off   = $o->{imm};
 
   %$o=(

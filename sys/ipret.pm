@@ -253,14 +253,27 @@ sub run($self,$entry=undef) {
   # get ctx
   my $mc    = $self->{mc};
   my $anima = $mc->{anima};
-  my $rip   = $anima->fetch($anima->exec_ptr);
+  my $rip   = $anima->{rip};
 
 
   # fetch symbol
-  my $seg = $mc->ssearch(
-    'non',split $mc->{pathsep},$self->{entry}
+  my $seg=$mc->valid_ssearch(
+    'non',split $mc->{pathsep},$entry
 
   );
+
+  # ^validate ;>
+  $WLog->err(
+
+    "Invalid entry point '%s' for <%s>",
+
+    args => [$entry,$self->{fpath}],
+    lvl  => $AR_FATAL,
+
+    from => ref $self,
+
+  ) if ! length $seg;
+
 
   # take the jump!
   $rip->store(

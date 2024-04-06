@@ -1,5 +1,18 @@
 %;
 
+# TODO
+#
+# * stack
+# ^ push
+# ^ pop
+#
+# * struc
+# ^ load ice
+# ^ load ctx
+#
+# * call
+# ^ ret
+
 entry code;
 
 ram data;

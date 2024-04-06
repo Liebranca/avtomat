@@ -820,7 +820,7 @@ sub exeread($self) {
   my $main  = $self->{main};
   my $mc    = $main->{mc};
   my $anima = $mc->{anima};
-  my $rip   = $anima->fetch($anima->exec_ptr);
+  my $rip   = $anima->{rip};
 
 
   # fetch instruction or stop

@@ -39,7 +39,15 @@ $main->assemble();
 # run and dbout
 
 $main->run();
-$main->prich(anima=>1,mem=>'outer',tree=>0);
+$main->prich(
+
+  anima => 1,
+  stack => 1,
+
+  mem   => 'outer',
+  tree  => 0
+
+);
 
 # ---   *   ---   *   ---
 1; # ret
