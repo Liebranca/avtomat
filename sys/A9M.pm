@@ -287,10 +287,7 @@ sub _search($self,$name,@path) {
 
   # make (path,to) from (path::to)
   # then look in namespace
-  my @have = $mem->search($name,@path);
-
-
-  return @have;
+  return $mem->search($name,@path);
 
 };
 

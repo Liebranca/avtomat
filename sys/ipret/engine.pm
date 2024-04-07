@@ -108,7 +108,7 @@ sub invoke($self,$type,$idx,@args) {
   my $op   = $guts->$fn($type,@src);
   my @call = (@args)
     ? ($op,$args[0])
-    : ($op)
+    : ($op,0x00)
     ;
 
 
@@ -150,7 +150,7 @@ sub step($self,$data) {
 
 
   # save result?
-  if($ins->{overwrite}) {
+  if($ins->{overwrite} && $data->{dst}) {
 
     my $dst=$data->{dst};
 

@@ -13,7 +13,7 @@
 #
 # * syscall
 
-entry code;
+entry code.start;
 
 
 ram data;
@@ -22,10 +22,13 @@ ram data;
 
 exe code;
 
+blk ftest;
+  load br,$24;
+  ret;
+
+blk start;
   self data;
 
-  jump skip;
+  call ftest;
   load ar,[b0+1];
-
-blk skip;
 

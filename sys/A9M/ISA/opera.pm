@@ -352,20 +352,21 @@ St::vconst {
     },
 
 
-#  call => {
-#
-#    argcnt    => 1,
-#    dst       => 'rmi',
-#
-#    overwrite => 0,
-#    fix_size  => ['qword'],
-#
-#  },
-#
-#  ret => {
-#    argcnt=>0,
-#
-#  },
+    # a special jump ;>
+    call => {
+
+      argcnt    => 1,
+      dst       => 'rmi',
+
+      overwrite => 0,
+      fix_size  => ['qword'],
+
+    },
+
+    ret => {
+      argcnt=>0,
+
+    },
 
 
     # check equality
@@ -688,6 +689,58 @@ sub cjump_nzero($self,$type) {
 };
 
 # ---   *   ---   *   ---
+# jump to F
+
+sub call($self,$type) {
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+  my $rip   = $anima->{rip};
+
+  # make F
+  my $jump=$self->jump($type);
+  my $push=$self->_push($type);
+
+  sub ($x) {
+
+    my $pos=$rip->load(deref=>0);
+
+    $push->($pos);
+    $jump->($x);
+
+    return;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^come back!
+
+sub ret($self,$type) {
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+  my $rip   = $anima->{rip};
+
+  # make F
+  my $jump = $self->jump($type);
+  my $pop  = $self->_pop($type);
+
+  sub {
+
+    my $x=$pop->();
+    $jump->($x);
+
+    return;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # equality
 
 sub _eq($self,$type,$src) {
@@ -763,10 +816,10 @@ sub _pop($self,$type) {
   my $ptr   = $stack->{ptr};
   my $mem   = $stack->{mem};
 
-  sub ($x) {
+  sub {
 
     my $have = $ptr->load();
-       $x    = $mem->load($type,$have);
+    my $x    = $mem->load($type,$have);
 
     $have += $type->{sizeof};
     $ptr->store($have);
