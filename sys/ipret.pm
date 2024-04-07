@@ -146,14 +146,8 @@ sub crux($src,%O) {
 # but in the ~ F U T U R E ~
 
 sub cpos($self) {
-
   my $mc=$self->{mc};
-
-  return sub {
-     $mc->{segtop}->{ptr}
-  << $mc->segtab_t->{sizep2}
-
-  };
+  return sub {$mc->{segtop}->{ptr}};
 
 };
 

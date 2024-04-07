@@ -47,11 +47,6 @@ package A9M;
 # ---   *   ---   *   ---
 # ROM
 
-St::vconst {
-  segtab_t => (typefet 'xword'),
-
-};
-
   Readonly my $COMPONENTS => [qw(
     flags mem ptr alloc anima stack ISA
 
@@ -91,10 +86,7 @@ sub new($class,%O) {
     stack    => undef,
     ISA      => undef,
 
-
-    segtab   => undef,
     segtop   => undef,
-    segtab_i => 0x00,
 
     bk       => $bk,
 
@@ -108,8 +100,6 @@ sub new($class,%O) {
   # ^add to box
   my $frame = $class->get_frame();
   my $id    = $frame->icemake($self);
-
-  $self->reset_segtab();
 
 
   # nit user memory
@@ -230,14 +220,32 @@ sub ssearch($self,@path) {
   shift @path if $path[0] eq $tree->{value};
 
 
-  # lookup and give
+  # name in path?
   my $out=$tree->haslv(@path);
+
+  # ^nope, get more specific...
   if(! $out) {
 
-    @path = (@{$self->{path}},pop @path);
-    shift @path if $path[0] eq $tree->{value};
+    my @alt=(
 
-    $out  = $tree->haslv(@path);
+      [@{$self->{path}},@path],
+
+      ($self->{segtop})
+        ? [$self->{segtop}->ances_list(),@path]
+        : ()
+        ,
+
+    );
+
+    # ^retry!
+    for my $path(@alt) {
+
+      shift @$path if $path->[0] eq $tree->{value};
+      $out=$tree->haslv(@$path);
+
+      last if $out;
+
+    };
 
   };
 
@@ -397,22 +405,6 @@ sub decl($self,$type,$name,$value,@subseg) {
 
   # make ice and give
   $mem->decl($type,$name,$value,ptr_t=>$ptr_t);
-
-};
-
-# ---   *   ---   *   ---
-# resets segment table state
-
-sub reset_segtab($self) {
-
-  my $type=$self->segtab_t();
-
-  $self->{segtab}=[
-    (null) x $type->{sizeof}
-
-  ];
-
-  $self->{segtab_i}=0x00;
 
 };
 

@@ -18,11 +18,14 @@ entry code;
 
 ram data;
   byte b0 $04;
-  byte b1 $05;
+  byte b1 $25;
 
 exe code;
+
   self data;
-  load ar,[b0];
+
+  jump skip;
+  load ar,[b0+1];
 
 blk skip;
 

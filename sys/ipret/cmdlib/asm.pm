@@ -74,7 +74,7 @@ cmdsub 'blk' => q() => q{
 
   );
 
-  $name="$mc->{segtop}->{value}.$name";
+  my $full="$mc->{segtop}->{value}.$name";
 
 
   # make fake ptr
@@ -86,7 +86,7 @@ cmdsub 'blk' => q() => q{
     0x00,
 
     type  => $align_t,
-    label => $name,
+    label => $full,
 
   );
 
@@ -95,6 +95,13 @@ cmdsub 'blk' => q() => q{
   $ptr->{chan}       = $mc->{segtop}->{iced};
 
   $mc->{cas}->{ptr} += $align_t->{sizeof};
+
+
+  # add reference to current segment!
+  my $alt=$mc->{segtop}->{inner};
+  $alt->force_set($ptr,$name);
+
+  $alt->{'*fetch'}->{mem}=$ptr;
 
 
   # ^schedule for update ;>
@@ -106,7 +113,7 @@ cmdsub 'blk' => q() => q{
 
       'data-decl',
 
-      { id   => $name,
+      { id   => $full,
 
         type => 'sym-decl',
         data => $main->cpos,
@@ -574,28 +581,35 @@ sub symsolve($self,$branch,$vref,$deref) {
   # get pointer and bitsize
   my $fn=sub {
 
-    my $isptr = exists $dst->{type};
-    my $ptr_t = $dst->{ptr_t};
 
-    my $ptrv  = ($ptr_t)
+    # have ptr?
+    my ($ptrv,$opsz,$seg);
+
+    if(exists $dst->{type}) {
+
+      $seg  = $dst->{chan};
+      $ptrv = ($dst->{ptr_t})
       ? $dst->load(deref=>0)
-      : $dst->{iced}
+      : $dst->{addr}
       ;
 
+      $opsz = ($deref)
+        ? $dst->{type}
+        : $dst->{ptr_t}
+        ;
 
-    my $opsz = ($isptr)
-      ? ($deref) ? $dst->{type} : $ptr_t
-      : Type->ptr_by_size($ptrv)
-      ;
+
+    # ^have segment!
+    } else {
+      $seg  = $ptrv = $dst->{iced};
+      $opsz = Type->ptr_by_size($ptrv);
+
+    };
 
     $opsz //= typefet 'ptr';
 
-    my $type = $ISA->immsz($ptrv);
-    my $seg  = ($isptr)
-      ? $dst->{chan}
-      : $dst->{iced}
-      ;
 
+    my $type=$ISA->immsz($ptrv);
     return ($seg,$ptrv,$opsz,$type);
 
   };
