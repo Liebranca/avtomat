@@ -34,7 +34,7 @@ package A9M::flags;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -49,7 +49,7 @@ St::vconst {
     writeable  => 1,
     executable => 0,
 
-
+    virtual    => 0,
     public     => 0,
     static     => 0,
 
@@ -67,6 +67,8 @@ St::vconst {
 
     public     => [public     => 1],
     private    => [public     => 0],
+
+    virtual    => [virtual    => 1],
 
     static     => [static     => 1],
     dynamic    => [static     => 0],

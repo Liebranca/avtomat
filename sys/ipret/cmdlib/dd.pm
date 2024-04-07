@@ -45,7 +45,7 @@ package ipret::cmdlib::dd;
 
 sub flagtab($self) {
 
-  my $main  = $self->{main};
+  my $main  = $self->{frame}->{main};
   my $mc    = $main->{mc};
 
   my $flags = $mc->{bk}->{flags};
@@ -63,11 +63,14 @@ cmdsub 'flag-type' => q(opt_qlist) => q{
 
   # get ctx
   my $main  = $self->{frame}->{main};
-  my $links = $self->{links};
-  my $obj   = pop @$links;
+  my $links = $main->{lx}->{links};
 
   my $tab   = $self->flagtab();
   my $flags = $branch->{vref};
+
+  # get result of child branch
+  my ($isref,$obj)=
+    Chk::cderef pop @$links,1;
 
 
   # walk list
@@ -98,7 +101,6 @@ cmdsub 'flag-type' => q(opt_qlist) => q{
 
 
   } @$flags;
-
 
   $branch->flatten_branch();
 
@@ -139,7 +141,7 @@ cmdsub 'seg-type' => q() => q{
 
 
   # make current and give
-  my $out=sub {$mc->setseg($have)};
+  my $out=sub {$mc->setseg($have);$have};
   $out->();
 
   return $out;

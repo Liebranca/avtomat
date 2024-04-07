@@ -53,7 +53,7 @@ sub build($class,$main) {
   wm_cmdsub $main,'flag-type' => q(
     opt_qlist
 
-  ) => @{$flags->list()};
+  ) => @{$flags->list};
 
 
   # give table
@@ -65,7 +65,22 @@ sub build($class,$main) {
 # parse and collapse flag list
 
 cmdsub 'flag-type' => q(opt_qlist) => q{
-  $self->rcollapse_list($branch,$NOOP);
+
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+  $self->rcollapse_list($branch,sub {
+
+      # mutate into another command
+      $branch->{value}=
+        $l1->make_tag(CMD=>'flag-type')
+      . "$branch->{cmdkey}"
+      ;
+
+
+      return;
+
+  });
 
 };
 

@@ -427,6 +427,9 @@ sub segid($self,$seg) {
   my $tab = $self->{segtab};
   my $top = \$self->{segtab_i};
 
+  # virtual segments don't count!
+  return 0 if $seg->{virtual};
+
 
   # have segment in table?
   my $idex=array_iof(
@@ -569,10 +572,9 @@ sub decode_mstk_ptr($self,$o) {
 
   %$o=(
     seg  => $seg,
-    addr => sub {$base->load-$off},
+    addr => sub {$base->load()-$off},
 
   );
-
 
   return;
 

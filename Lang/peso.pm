@@ -55,6 +55,7 @@ $NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
       pop push
       shift unshift
 
+      add sub
       inc dec cl
 
       mem fre kin
@@ -154,6 +155,9 @@ $NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
       str buf tab
 
       re
+
+      readable writeable executable
+      virtual public static
 
     )],
 

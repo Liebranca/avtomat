@@ -2,28 +2,33 @@
 
 # TODO
 #
+# * call
+# ^ ret
+# ^ enter
+# ^ leave
+#
 # * struc
 # ^ load ice
 # ^ load ctx
-#
-# * call
-# ^ ret
 #
 # * syscall
 
 entry code;
 
-ram data;
 
+ram ndata;
+  byte b0 $04;
+  byte b1 $05;
+
+virtual ram data;
   byte b0 $24;
   byte b1 $25;
 
 exe code;
 
-  self data;
-  cjump nzero skip;
+  self  data;
 
-  load  ar,[b0+1];
+  load  ar,$36;
   store [b0],ar;
 
 blk skip;

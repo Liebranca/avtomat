@@ -43,7 +43,7 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.6;#a
+  our $VERSION = v0.01.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -884,6 +884,10 @@ sub absloc($self) {
       my ($base,$off)=@{$nd->{__view}};
       $nd->{absloc}=$base->{absloc}+$off;
 
+
+    # virtual memory doesn't count!
+    } elsif($nd->{virtual}) {
+      $nd->{absloc}=0x00;
 
     # sizes of all previous equals
     # address of current

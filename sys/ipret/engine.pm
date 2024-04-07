@@ -37,7 +37,7 @@ package ipret::engine;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -55,14 +55,14 @@ sub operand_value($self,$ins,$type,$data) {
     my $o    = $data->{$ARG};
     my $imm  = exists $o->{imm};
 
-    my $addr = $o->{addr};
-       $addr = $addr->() if is_coderef $addr;
+    $o->{addr} = $o->{addr}->()
+    if is_coderef $o->{addr};
 
     # memory deref?
     if($ins->{"load_$ARG"} &&! $imm) {
 
       $o->{seg}->load(
-        $type,$addr
+        $type,$o->{addr}
 
       );
 
@@ -74,7 +74,7 @@ sub operand_value($self,$ins,$type,$data) {
     } else {
 
       my $data=
-        $o->{seg}->absloc()+$addr;
+        $o->{seg}->absloc()+$o->{addr};
 
       Bpack::layas($type,$data);
 
@@ -136,6 +136,7 @@ sub step($self,$data) {
   # read operand values
   my @values=
     $self->operand_value($ins,$type,$data);
+
 
   # execute instruction
   my $ret=$self->invoke(
