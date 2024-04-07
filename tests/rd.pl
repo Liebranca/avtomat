@@ -14,6 +14,7 @@ package main;
 
   use rd;
   use ipret;
+  use A9M;
 
   use Bpack;
 
@@ -35,7 +36,7 @@ my $main=ipret(
 
 $main->assemble();
 
-# ---   *   ---   *   ---
+## ---   *   ---   *   ---
 # run and dbout
 
 $main->run();

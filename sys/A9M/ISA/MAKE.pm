@@ -370,7 +370,9 @@ sub gen_opcode($class,$bld,$name,%O) {
 
   # ^just for the compiler
   $bld->{meta}=$cache->{insmeta}->{$name};
-  $bld->{meta}->{icetab}={};
+
+  $bld->{meta}->{icetab}   = {};
+  $bld->{meta}->{ipret_fn} = $O{ipret_fn};
 
 
   # queue logic generation

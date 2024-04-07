@@ -150,11 +150,8 @@ sub cpos($self) {
   my $mc=$self->{mc};
 
   return sub {
-
-  (  $mc->{segtop}->{ptr}
-  << $mc->segtab_t->{sizep2})
-
-  | $mc->segid($mc->{segtop})
+     $mc->{segtop}->{ptr}
+  << $mc->segtab_t->{sizep2}
 
   };
 
@@ -254,13 +251,15 @@ sub run($self,$entry=undef) {
   my $mc    = $self->{mc};
   my $anima = $mc->{anima};
   my $rip   = $anima->{rip};
+  my $chan  = $anima->{chan};
 
 
   # fetch symbol
-  my $seg=$mc->valid_ssearch(
+  my $sym=$mc->valid_ssearch(
     'non',split $mc->{pathsep},$entry
 
   );
+
 
   # ^validate ;>
   $WLog->err(
@@ -272,15 +271,39 @@ sub run($self,$entry=undef) {
 
     from => ref $self,
 
-  ) if ! length $seg;
+  ) if ! length $sym;
 
 
-  # take the jump!
+  # have pointer or segment?
+  my $ptr   = $mc->{bk}->{ptr};
+  my $isptr = $ptr->is_valid($sym);
+
+  # get [segment:offset]
+  my ($segid,$addr);
+
+  # to deref or not to deref?
+  if($isptr) {
+
+    ($segid,$addr)=(defined $sym->{ptr_t})
+      ? ($sym->{chan},$sym->load(deref=>0))
+      : ($sym->{segid},$sym->{addr})
+      ;
+
+  # start of segment
+  } else {
+    ($segid,$addr)=($sym->{iced},0x00);
+
+  };
+
+
+  # make the jump!
   $rip->store(
-    $mc->segid($seg),
+    $addr,
     deref=>0
 
   );
+
+  $rip->{chan}=$segid;
 
 
   return $self->{engine}->exe();

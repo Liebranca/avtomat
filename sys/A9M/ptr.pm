@@ -37,7 +37,7 @@ package A9M::ptr;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -50,6 +50,8 @@ St::vconst {
     type   => $Type::DEFAULT,
 
     ptr_t  => undef,
+
+    chan   => 0x00,
     segid  => 0x00,
     addr   => 0x00,
     len    => 0,
@@ -205,42 +207,12 @@ sub read_ptr($self) {
 
 
   # ^unroll and give
-  return $mc->decode_ptr($ptrv);
+  my $chan=$seg->{frame}->ice(
+    $self->{chan}
 
-};
+  );
 
-# ---   *   ---   *   ---
-# ^gives value as an addr
-
-sub as_ptr($self) {
-
-  my $seg  = $self->getseg();
-  my $mc   = $seg->getmc();
-
-  return $mc->encode_ptr($seg,$self->{addr});
-
-};
-
-# ---   *   ---   *   ---
-# pointer math
-
-sub move($self,$by) {
-
-
-  # get ctx
-  my $seg  = $self->getseg();
-  my $mc   = $seg->getmc();
-  my $ptrv = $self->load(deref=>0);
-
-
-  # skip segment bits!
-  $by   <<= $mc->segtab_t->{sizep2};
-  $ptrv  += $by;
-
-  # ^overwrite
-  $self->store($ptrv,deref=>0);
-
-  return $ptrv;
+  return ($chan,$ptrv);
 
 };
 

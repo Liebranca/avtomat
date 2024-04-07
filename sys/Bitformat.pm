@@ -150,12 +150,15 @@ sub bor($self,%data) {
   # ^nope, single elem will do
   my $out=0x00;
 
-  map {$out |=(
+  map {
 
-    $data{$ARG}
-  & $self->{mask}->{$ARG}
+    $data{$ARG} //= 0;
+    $out         |=(
 
-  ) << $self->{pos}->{$ARG}
+      $data{$ARG}
+    & $self->{mask}->{$ARG}
+
+    ) << $self->{pos}->{$ARG};
 
   } grep {
     defined array_iof($self->{order},$ARG)

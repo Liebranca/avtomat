@@ -31,7 +31,7 @@ package A9M::stack;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -60,9 +60,10 @@ sub new($class,%O) {
 
     %O,
 
-    mem => undef,
-    bot => undef,
-    ptr => undef,
+    mem  => undef,
+
+    base => undef,
+    ptr  => undef,
 
   },$class;
 
@@ -75,8 +76,8 @@ sub new($class,%O) {
   my $mc    = $self->getmc();
   my $anima = $mc->{anima};
 
-  $self->{bot} = $anima->fetch($anima->stack_bot);
-  $self->{ptr} = $anima->fetch($anima->stack_ptr);
+  $self->{base} = $anima->fetch($anima->stack_base);
+  $self->{ptr}  = $anima->fetch($anima->stack_ptr);
 
 
   # reset self and give
@@ -92,7 +93,7 @@ sub new($class,%O) {
 
 sub reset($self) {
 
-  $self->{bot}->store(0x00);
+  $self->{base}->store(0x00);
   $self->{ptr}->store($self->total);
   $self->{mem}->clear();
 

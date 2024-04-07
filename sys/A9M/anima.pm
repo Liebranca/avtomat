@@ -51,12 +51,14 @@ St::vconst {
   # full list of registers
   list => [qw(
 
-    ar    br    cr    dr
-    er    fr    gr    hr
+    ar  br  cr  dr
+    er  fr  gr  hr
 
-    xp    xs    sp    sb
+    xp  xs  sp  sb
 
-    ice   ctx   opt   chan
+    ice ctx opt chan
+
+    rip
 
   )],
 
@@ -64,8 +66,9 @@ St::vconst {
   # ^internal alloc will not
   # mess with these by default
   reserved => [qw(
-    xp  xs  sp  sb
-    ice ctx opt chan
+
+    sp  sb   ice ctx
+    opt chan rip
 
   )],
 
@@ -96,19 +99,19 @@ St::vconst {
   },
 
   # ^pattern for string stuff
-  re => sub {re_eiths $_[0]->list()},
+  re => sub {re_eiths $_[0]->list},
 
 
   # indices of special-purpose registers
-  exec_ptr  => 0x08,
-  exec_bptr => 0x09,
+  stack_ptr  => 0x0A,
+  stack_base => 0x0B,
+  fetch_base => 0x0F,
 
-  stack_ptr => 0x0A,
-  stack_bot => 0x0B,
+  exec_ptr   => 0x10,
 
 
   # number of encoding registers
-  cnt => sub {int @{$_[0]->list()}},
+  cnt => sub {int(@{$_[0]->list})-1},
 
 
   # bit offset for each flag
@@ -148,7 +151,8 @@ sub new($class,%O) {
     ptr   => undef,
 
     rip   => undef,
-    brip  => undef,
+    chan  => undef,
+
 
     flags => 0x00,
 
@@ -160,6 +164,7 @@ sub new($class,%O) {
   $self->mkroot();
   $self->{almask}=$class->reserved_mask;
 
+  $self->{mem}->brk($class->size);
 
   # make labels
   my $addr = 0x00;
@@ -182,18 +187,20 @@ sub new($class,%O) {
   } @{$class->list};
 
 
-  # make program pointer
-  my $mc  = $self->getmc();
-  my $xp  = $ptr[$self->exec_ptr];
-  my $ISA = $mc->{bk}->{ISA};
+  # make fetch pointers
+  my $mc   = $self->getmc();
+  my $rip  = $ptr[$self->exec_ptr];
+  my $chan = $ptr[$self->fetch_base];
 
-  $xp->{ptr_t} = typefet 'long';
-  $xp->{type}  = $ISA->align_t;
+  my $ISA  = $mc->{bk}->{ISA};
+
+  $rip->{ptr_t} = typefet 'long';
+  $rip->{type}  = $ISA->align_t;
 
 
   # ^store
-  $self->{rip}  = $xp;
-  $self->{brip} = $ptr[$self->exec_bptr];
+  $self->{rip}  = $rip;
+  $self->{chan} = $chan;
 
   # save labels to ice and give
   $self->{ptr}=\@ptr;

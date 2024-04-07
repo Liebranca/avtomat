@@ -107,7 +107,7 @@ sub mkroot($class,%O) {
   $self->{root}   = $self;
   $self->{mcid}   = $O{mcid};
   $self->{mccls}  = $O{mccls};
-  $self->{segid}  = $frame->icemake($self);
+  $frame->icemake($self);
 
   $self->{buf}    = \zeropad $O{size};
   $self->{ptr}    = 0x00;
@@ -165,7 +165,7 @@ sub new($self,$size=0x00,$label=undef) {
   $ice->{root}   = $self->{root};
   $ice->{mcid}   = $self->{mcid};
   $ice->{mccls}  = $self->{mccls};
-  $ice->{segid}  = $self->{frame}->icemake($ice);
+  $self->{frame}->icemake($ice);
 
   $ice->{buf}    = $buf;
   $ice->{ptr}    = 0x00;
@@ -215,7 +215,7 @@ sub view($self,$addr,$len,$label=undef) {
   $ice->{__view} = [$self,$addr];
   $ice->{absloc} = $self->absloc() + $addr;
 
-  $ice->{segid}  = $self->{frame}->icemake($ice);
+  $self->{frame}->icemake($ice);
 
 
   return $ice;
@@ -540,7 +540,7 @@ sub lvalue($self,$value,%O) {
   # make ice
   $O{ptr_t} = undef;
   my $ptr=$class->new(
-    %O,segid=>$self->{segid},
+    %O,segid=>$self->{iced},
 
   );
 
@@ -624,23 +624,13 @@ sub ptr($self,$to,%O) {
     addr  => $O{store_at},
     type  => $type,
 
-    segid => $other->{segid},
+    segid => $self->{iced},
+    chan  => $other->{iced},
 
   );
 
 
-  # encode segment:offset
-  my $mc   = $self->getmc();
-  my $ptrv = $mc->encode_ptr(
-    $other,$to->{addr}
-
-  );
-
-  # ^encoding error?
-  return null if $ptrv eq null;
-
-
-  # ^all OK, save to namespace
+  # save to namespace
   my $par=($O{par})
     ? $O{par}
     : $self->{inner}
@@ -654,7 +644,7 @@ sub ptr($self,$to,%O) {
   $node->{mem}     = $ptr;
 
   # ^set value and give
-  $ptr->store($ptrv,deref=>0);
+  $ptr->store($to->{addr},deref=>0);
 
 
   return $ptr;
@@ -812,15 +802,6 @@ sub warn_oob($self,$type,$addr,$fn) {
 
 
   give => null;
-
-};
-
-# ---   *   ---   *   ---
-# give *num* pointer to self
-
-sub as_ptr($self) {
-  my $mc=$self->getmc();
-  return $mc->encode_ptr($self,0x00);
 
 };
 

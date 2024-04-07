@@ -16,20 +16,13 @@
 entry code;
 
 
-ram ndata;
+ram data;
   byte b0 $04;
   byte b1 $05;
 
-virtual ram data;
-  byte b0 $24;
-  byte b1 $25;
-
 exe code;
-
-  self  data;
-
-  load  ar,$36;
-  store [b0],ar;
+  self data;
+  load ar,[b0];
 
 blk skip;
 

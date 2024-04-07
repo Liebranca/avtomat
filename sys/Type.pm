@@ -33,6 +33,7 @@ package Type;
 
   use Arstd::Array;
   use Arstd::Bytes;
+  use Arstd::Int;
   use Arstd::String;
   use Arstd::IO;
   use Arstd::PM;
@@ -68,7 +69,7 @@ package Type;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.04.4;
+  our $VERSION = v0.04.5;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -450,6 +451,24 @@ sub bitfit($size,$bytes=0) {
 
   };
 
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# get pointer type accto
+# how many bytes we need!
+
+sub ptr_by_size($class,$ptrv) {
+
+  my $need = bitsize   $ptrv;
+     $need = int_urdiv $need,8;
+
+  my ($out) = grep {
+    $need <= sizeof $ARG
+
+  } @{Type::MAKE->LIST->{ptr_w}};
 
   return $out;
 

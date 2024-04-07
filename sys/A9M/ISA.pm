@@ -221,6 +221,29 @@ sub get_ins_fix_size($self,$name) {
 
 };
 
+sub get_ins_ipret_fn($self,$name) {
+
+  my $meta=$self->get_ins_meta($name);
+  return null if ! defined $meta;
+
+  return $meta->{ipret_fn};
+
+};
+
+# ---   *   ---   *   ---
+# ^runs interpreter bit if
+# instruction has one
+
+sub ins_ipret($self,$main,$name,@args) {
+
+  my $fn=$self->get_ins_ipret_fn($name);
+  return if ! $fn;
+
+  my $guts=$self->{guts};
+  return $guts->$fn($main,@args);
+
+};
+
 # ---   *   ---   *   ---
 # dbout, nevermind this
 

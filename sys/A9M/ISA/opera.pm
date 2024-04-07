@@ -98,6 +98,24 @@ St::vconst {
     },
 
 
+    # load chan!
+    self => {
+
+      fn        => 'load_chan',
+      ipret_fn  => 'set_scope',
+
+      load_dst  => 1,
+
+      dst       => 'rmi',
+
+      immbig    => 1,
+      argcnt    => 1,
+
+      overwrite => 0,
+
+    },
+
+
     # our beloved
     # load effective address ;>
     lea => {
@@ -517,6 +535,57 @@ sub ccopy_zero($self,$type,$src) {
 
 sub ccopy_nzero($self,$type,$src) {
   return $self->ccopy($type,$src,'nzero');
+
+};
+
+# ---   *   ---   *   ---
+# loads segment idex to chan
+
+sub load_chan($self,$type) {
+
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+  my $chan  = $anima->{chan};
+
+  # make F
+  sub ($x) {
+    $chan->store($x);
+    return;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^ipret v; sets search path
+
+sub set_scope($self,$main,$src) {
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $frame = $mc->{cas}->{frame};
+  my $eng   = $main->{engine};
+
+  # need to make copy?
+  $src={%$src} if is_hashref $src;
+
+
+  # make F
+  my $out=sub {
+
+    # deref
+    $eng->opera_static([$src],1);
+
+    # ^fetch segment and make current
+    my $seg=$frame->ice($src->{seg});
+    $mc->scope($seg->{value});
+
+  };
+
+  $out->();
+  return $out;
 
 };
 

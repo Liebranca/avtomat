@@ -41,7 +41,7 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.2;#a
+  our $VERSION = v0.01.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -417,76 +417,11 @@ sub reset_segtab($self) {
 };
 
 # ---   *   ---   *   ---
-# gets idex of segment in
-# current configuration of
-# segment table
-
-sub segid($self,$seg) {
-
-  # get ctx
-  my $tab = $self->{segtab};
-  my $top = \$self->{segtab_i};
-
-  # virtual segments don't count!
-  return 0 if $seg->{virtual};
-
-
-  # have segment in table?
-  my $idex=array_iof(
-    $self->{segtab},$seg
-
-  );
-
-  # ^nope, can fit another?
-  if(! defined $idex) {
-
-
-    # ^yes, add new entry
-    my $type=$self->segtab_t();
-
-    if($$top < $type->{sizeof}) {
-      $idex=$$top;
-      $self->{segtab}->[$$top++]=$seg;
-
-
-    # ^nope, give warning
-    } else {
-      return warn_full_segtab($self->{id});
-
-    };
-
-  };
-
-
-  return $idex;
-
-};
-
-# ---   *   ---   *   ---
-# ^errme
-
-sub warn_full_segtab($id) {
-
-  warnproc
-
-    "segment table for machine ID "
-  . "[num]:%u is full",
-
-    args => [$id],
-    give => null
-
-  ;
-
-};
-
-# ---   *   ---   *   ---
 # set segment as current
 
 sub setseg($self,$mem) {
 
-  $self->segid($mem);
   $self->scope($mem->ances_list);
-
   $self->{segtop}=$mem;
 
   return;
@@ -494,67 +429,18 @@ sub setseg($self,$mem) {
 };
 
 # ---   *   ---   *   ---
-# OR together segment:offset
+# load segment pointed to
+# by fetch register
 
-sub encode_ptr($self,$seg,$off) {
+sub deref_chan($self) {
 
-  # validate segment
-  my $segid=$self->segid($seg);
-  return $segid if ! length $segid;
+  my $anima = $self->{anima};
+  my $chan  = $anima->{chan};
 
-  # ^roll and give
-  my $type = $self->segtab_t();
-  my $bits = $type->{sizep2};
+  my $frame = $self->{cas}->{frame};
+  my $seg   = $frame->ice($chan->load());
 
-  my $ptrv = $segid | ($off << $bits);
-
-
-  return $ptrv;
-
-};
-
-# ---   *   ---   *   ---
-# ^undo
-
-sub decode_ptr($self,$ptrv) {
-
-  # unroll
-  my $type  = $self->segtab_t();
-  my $bits  = $type->{sizep2};
-
-  my $mask  = (1 << $bits)-1;
-
-  my $segid = $ptrv  & $mask;
-  my $off   = $ptrv >> $bits;
-
-
-  # ^validate and give
-  my $seg=$self->{segtab}->[$segid];
-
-  return (length $seg)
-    ? ($seg,$off)
-    : warn_decode($segid,$off)
-    ;
-
-};
-
-# ---   *   ---   *   ---
-# ^errme
-
-sub warn_decode($segid,$off) {
-
-  warnproc
-
-
-    'pointer to address '
-  . '$[num]:%X:[num]:%X '
-
-  . 'could not be read',
-
-
-  args => [$segid,$off],
-  give => null;
-
+  return $seg;
 
 };
 
@@ -585,12 +471,9 @@ sub decode_mstk_ptr($self,$o) {
 
 sub decode_mimm_ptr($self,$o) {
 
-  my $seg  = $self->{segtab}->[$o->{seg}];
-  my $base = $o->{imm};
-
   %$o=(
-    seg  => $seg,
-    addr => $base,
+    seg  => $self->deref_chan(),
+    addr => $o->{imm},
 
   );
 
@@ -604,14 +487,12 @@ sub decode_mimm_ptr($self,$o) {
 
 sub decode_msum_ptr($self,$o) {
 
-  my $seg  = $self->{segtab}->[$o->{seg}];
   my $base = $self->{anima}->fetch($o->{reg});
-
   my $off  = $o->{imm};
 
 
   %$o=(
-    seg  => $seg,
+    seg  => $self->deref_chan(),
     addr => sub {$base->load+$off},
 
   );
@@ -637,7 +518,7 @@ sub decode_mlea_ptr($self,$o) {
   # load plain values
   my $scale = 1 << $o->{scale};
   my $imm   = $o->{imm};
-  my $seg   = $self->{segtab}->[$o->{seg}];
+  my $seg   = $self->deref_chan();
 
   my $addr  = undef;
 

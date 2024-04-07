@@ -260,11 +260,6 @@ w_cmdsub 'c-asm-ins' => q(nlist,opt_qlist) => qw(
 # generic methods, see ipret
 # for details
 
-w_cmdsub 'csume-token' => q(nlist) => qw(
-  self
-
-);
-
 w_cmdsub 'csume-token' => q(sym) => qw(
   blk entry
 

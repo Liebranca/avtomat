@@ -87,7 +87,6 @@ sub generate($class,$ISA) {
   # get ctx
   my $mc       = $ISA->getmc();
   my $anima    = $mc->{bk}->{anima};
-  my $segtab_t = $mc->segtab_t();
   my $super    = ref $ISA;
 
 
@@ -177,14 +176,12 @@ sub generate($class,$ISA) {
 
   # [imm]
   Bitformat "$super.mimm"=>(
-    seg => $segtab_t->{sizep2},
     imm => $class->iy_bs,
 
   );
 
   # [r+imm]
   Bitformat "$super.msum"=>(
-    seg => $segtab_t->{sizep2},
     reg => $anima->cnt_bs,
     imm => $class->ix_bs,
 
@@ -192,8 +189,6 @@ sub generate($class,$ISA) {
 
   # [r+r+imm*s]
   Bitformat "$super.mlea"=>(
-
-    seg   => $segtab_t->{sizep2},
 
     rX    => $anima->cnt_bs,
     rY    => $anima->cnt_bs,

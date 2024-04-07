@@ -53,7 +53,7 @@ sub symfet($self,$vref,%O) {
 
   my $name = $l1->is_sym($have);
   my $sym  = (! $O{sym_asis})
-    ? $mc->ssearch($name)
+    ? $mc->ssearch(split $mc->{pathsep},$name)
     : $name
     ;
 

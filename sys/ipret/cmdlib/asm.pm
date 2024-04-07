@@ -40,7 +40,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#a
+  our $VERSION = v0.01.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -74,6 +74,8 @@ cmdsub 'blk' => q() => q{
 
   );
 
+  $name="$mc->{segtop}->{value}.$name";
+
 
   # make fake ptr
   my $align_t=$ISA->align_t;
@@ -90,6 +92,7 @@ cmdsub 'blk' => q() => q{
 
   $ptr->{ptr_t}      = $align_t;
   $ptr->{addr}       = $mc->{cas}->{ptr};
+  $ptr->{chan}       = $mc->{segtop}->{iced};
 
   $mc->{cas}->{ptr} += $align_t->{sizeof};
 
@@ -292,10 +295,10 @@ sub argsolve($self,$branch) {
 
 cmdsub 'asm-ins' => q() => q{
 
-
   # get ctx
   my $main = $self->{frame}->{main};
   my $enc  = $main->{encoder};
+  my $ISA  = $main->{mc}->{ISA};
 
   # can solve arguments?
   my ($opsz,$name,@args)=
@@ -311,7 +314,7 @@ cmdsub 'asm-ins' => q() => q{
 
   );
 
-  return;
+  return $ISA->ins_ipret($main,$name,@args);
 
 };
 
@@ -424,7 +427,7 @@ sub addrmode($self,$branch,$nd) {
 
   # default segment to use if none specified!
   my $seg    = $mc->{scope}->{mem};
-  my $ptrseg = $mc->segid($seg);
+  my $ptrseg = $seg->{iced};
 
   # out
   my $type = null;
@@ -451,15 +454,6 @@ sub addrmode($self,$branch,$nd) {
       # save segment bit separately
       $opsz   = $sym_sz;
       $ptrseg = $head->{seg};
-
-      # ^clear segment bit from offset
-      my $old=$head->{imm};
-
-      $head->{imm} = sub {
-         $old->()
-      >> $mc->segtab_t->{sizep2}
-
-      };
 
 
       # delayed deref+sum
@@ -558,28 +552,6 @@ sub addrmode($self,$branch,$nd) {
 };
 
 # ---   *   ---   *   ---
-# sets current scope
-
-cmdsub 'self' => q() => q{
-
-
-  # can solve symbol?
-  my $sym=$self->symfet($branch->{vref});
-  return $branch if ! length $sym;
-
-  # get ctx
-  my $main = $self->{frame}->{main};
-  my $mc   = $main->{mc};
-
-
-  # set scope
-  $mc->scope($sym->{value});
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
 # delayed dereference ;>
 
 sub symsolve($self,$branch,$vref,$deref) {
@@ -607,25 +579,22 @@ sub symsolve($self,$branch,$vref,$deref) {
 
     my $ptrv  = ($ptr_t)
       ? $dst->load(deref=>0)
-      : $dst->as_ptr
+      : $dst->{iced}
       ;
 
 
     my $opsz = ($isptr)
       ? ($deref) ? $dst->{type} : $ptr_t
-      : typefet 'mean'
+      : Type->ptr_by_size($ptrv)
       ;
 
     $opsz //= typefet 'ptr';
 
     my $type = $ISA->immsz($ptrv);
-    my $seg  = $mc->segid(
-
-      ($isptr)
-        ? $dst->getseg
-        : $dst
-
-    );
+    my $seg  = ($isptr)
+      ? $dst->{chan}
+      : $dst->{iced}
+      ;
 
     return ($seg,$ptrv,$opsz,$type);
 

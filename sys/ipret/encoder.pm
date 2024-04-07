@@ -827,14 +827,14 @@ sub exeread($self) {
   my $anima = $mc->{anima};
   my $rip   = $anima->{rip};
 
-
   # fetch instruction or stop
   my $opcd=$rip->load();
   return 0x00 if ! $opcd;
 
   # ^go next and give
   my $ins=$self->decode_opcode($opcd);
-  $rip->move($ins->{size});
+  my $off=$rip->load(deref=>0);
+  $rip->store($off+$ins->{size},deref=>0);
 
 
   return $ins;
