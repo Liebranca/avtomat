@@ -2,16 +2,18 @@
 
 # ---   *   ---   *   ---
 
-case 'def' at $00 {
+case 'def' {
 
-  walk {
-    opera='\{';
+  attr sig;
+    name sym,string;
+    body opera,sym '\{';
 
-  };
-
-  
+  attr fn;
+    branch ->* repl @.body;
 
 };
+
+def this {HLOWRLD};
 
 # ---   *   ---   *   ---
 

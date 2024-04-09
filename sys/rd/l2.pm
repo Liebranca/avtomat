@@ -188,13 +188,13 @@ sub node_rev_parse($self,$branch) {
 # sorts branches accto
 # their structure
 
-sub parse($self) {
+sub parse($self,$head=undef) {
 
   # get ctx
   my $main=$self->{main};
 
-  # get head of branch
-  my $head=(@{$main->{nest}})
+  # get head of branch?
+  $head //= (@{$main->{nest}})
     ? $main->{nest}->[-1]->{leaves}->[-1]
     : $main->{tree}->{leaves}->[-1]
     ;

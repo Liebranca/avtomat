@@ -488,7 +488,12 @@ sub commit($self) {
 
 
     # classify and mark new expression
-    $self->{token}=$self->{l1}->parse();
+    $self->{token}=$self->{l1}->parse(
+      $self->{token},
+      nocmd=>1,
+
+    );
+
     $self->unset('exprbeg');
 
     # start of new branch?

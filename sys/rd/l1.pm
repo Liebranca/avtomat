@@ -38,7 +38,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.6;#a
+  our $VERSION = v0.01.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -335,19 +335,19 @@ sub is_comment($self,$src=undef) {
 # classifies token if not
 # already sorted!
 
-sub parse($self,$src=undef) {
+sub parse($self,$src,%O) {
 
-
-  # default src to current token
-  my $main   = $self->{main};
-     $src  //= $main->{token};
 
   # early exit if token already sorted
   return $src
   if defined $self->read_tag($src);
 
 
+  # defaults
+  $O{nocmd} //= 0;
+
   # get ctx
+  my $main  = $self->{main};
   my $mc    = $main->{mc};
 
   my $CMD   = $main->{lx}->load_CMD();
@@ -357,7 +357,7 @@ sub parse($self,$src=undef) {
 
 
   # is command?
-  if((lc $key)=~ $CMD->{-re}) {
+  if(! $O{nocmd} && (lc $key)=~ $CMD->{-re}) {
     $src=lc $src;
     $key='CMD';
 
