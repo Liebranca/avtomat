@@ -247,6 +247,19 @@ sub read_tag($self,$src=undef) {
 };
 
 # ---   *   ---   *   ---
+# ^converts type to user v
+
+sub xlate_tag($self,$src=undef) {
+
+  my ($type,$value)=
+    $self->read_tag($src);
+
+  $type=$TAG_T->{$type} if $type;
+  return ($type,$value);
+
+};
+
+# ---   *   ---   *   ---
 # ^give tag type/value if correct type
 
 sub read_tag_t($self,$which,$src=undef) {

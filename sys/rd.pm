@@ -46,7 +46,7 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.3;#a
+  our $VERSION = v0.01.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -63,14 +63,15 @@ St::vconst {
 
 
   # subpackages
-  layers   => [qw(l0 l1 l2 lx)],
+  layers => [qw(case l0 l1 l2 lx)],
 
-  l0_t     => 'rd::l0',
-  l1_t     => 'rd::l1',
-  l2_t     => 'rd::l2',
-  lx_t     => 'rd::lx',
+  case_t => 'rd::case',
+  l0_t   => 'rd::l0',
+  l1_t   => 'rd::l1',
+  l2_t   => 'rd::l2',
+  lx_t   => 'rd::lx',
 
-  cmd_t    => 'rd::cmd',
+  cmd_t  => 'rd::cmd',
 
 
   # ^wraps
@@ -158,28 +159,30 @@ sub new($class,$src,%O) {
 
 
     # parse tree root
-    tree    => $root,
+    tree => $root,
 
 
     # current l0/l1/l2 value
-    char    => $NULLSTR,
-    token   => $NULLSTR,
-    branch  => undef,
+    char   => $NULLSTR,
+    token  => $NULLSTR,
+    branch => undef,
 
     # nesting within current branch
-    nest    => [],
+    nest => [],
 
+    # a 'preparse' of sorts!
+    case => undef,
 
     # parse layers: char/token/branch
-    l0      => undef,
-    l1      => undef,
-    l2      => undef,
+    l0 => undef,
+    l1 => undef,
+    l2 => undef,
 
     # execution layer
-    lx      => undef,
-    stage   => 0,
+    lx    => undef,
+    stage => 0,
 
-    mc      => $O{mc}->{cls}->new(%{$O{mc}}),
+    mc    => $O{mc}->{cls}->new(%{$O{mc}}),
 
 
     # library of commands
@@ -188,25 +191,25 @@ sub new($class,$src,%O) {
 
 
     # N repeats of a processing stage
-    pass    => 0,
-    passes  => {},
+    pass   => 0,
+    passes => {},
 
     # shared vars
-    status  => $SF_DEFAULT,
+    status => $SF_DEFAULT,
 
 
     # line number!
-    lineno  => 1,
-    lineat  => 1,
+    lineno => 1,
+    lineat => 1,
 
     # stringmode term
     strterm => $NULLSTR,
 
 
     # I/O
-    fmode   => $FMODE->{rom},
-    fpath   => $src,
-    buf     => $body,
+    fmode => $FMODE->{rom},
+    fpath => $src,
+    buf   => $body,
 
 
   },$class;
@@ -224,6 +227,8 @@ sub new($class,$src,%O) {
 
   $self->{cmdlib}=
     $class->cmd_t->new_frame(main=>$self);
+
+  $self->{case}->ready_or_build();
 
 
   return $self;
@@ -291,6 +296,13 @@ sub parse($self) {
   # ^final expr pending?
   $self->unset('blank');
   $self->term();
+
+
+  # ~
+  $self->{case}->parse(
+    case=>$self->{tree}
+
+  );
 
 
   # cleanup parse-only values
@@ -474,10 +486,10 @@ sub commit($self) {
 
   if(length $self->{token}) {
 
-    # classify
-    $self->unset('exprbeg');
-    $self->{token}=$self->{l1}->parse();
 
+    # classify and mark new expression
+    $self->{token}=$self->{l1}->parse();
+    $self->unset('exprbeg');
 
     # start of new branch?
     if(! defined $self->{branch}) {
@@ -579,7 +591,7 @@ sub nest_down($self) {
 sub term($self) {
 
   $self->commit();
-  $self->{l2}->parse();
+
   $self->new_branch();
   $self->set_termf();
 

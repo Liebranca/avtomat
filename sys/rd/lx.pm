@@ -56,7 +56,14 @@ St::vconst {
 
   },
 
-  stages=>[qw(parse solve assemble xlate)],
+  stages=>[qw(
+
+    parse
+
+    solve assemble
+    xlate
+
+  )],
 
 };
 

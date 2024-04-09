@@ -34,7 +34,7 @@ package rd::cmdlib::macro;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -85,7 +85,7 @@ cmdsub 'token-type' => q(arg) => q{
 # ^icef*ck
 
 w_cmdsub 'token-type' => q(arg) => qw(
-  sym bare num
+  sym bare num cmd vlist
 
 );
 
@@ -123,7 +123,10 @@ sub macro_repl($self,$body,$repl,$value) {
     map {
 
       my $nd=$body->from_path($ARG);
+      my @lv=$nd->pluck_all();
+
       $nd->repl($value);
+      $value->pushlv(@lv);
 
     } reverse @$path;
 
@@ -140,15 +143,59 @@ sub macro_repl($self,$body,$repl,$value) {
 
   };
 
-
   return;
 
 };
 
 # ---   *   ---   *   ---
-# ~
+# reads macro args
 
-cmdsub 'macro-paste' => q(opt_qlist) => q{
+sub macro_take($self,$branch) {
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+  # get next child
+  my ($nd) = $branch->ipluck(0);
+  my $key  = $nd->{value};
+
+
+  # give token as-is
+  for my $type(qw(
+    sym num
+
+  )) {
+
+    my $fn="is_$type";
+    if(defined $l1->$fn($key)) {
+      return {type=>$type,id=>$key};
+
+    };
+
+  };
+
+  # ^give node!
+  for my $type(qw(cmd list)) {
+
+    my $fn="is_$type";
+    if(defined $l1->$fn($key)) {
+      return {type=>$type,id=>$nd};
+
+    };
+
+  };
+
+  # too lazy to write proper errme ;>
+  die "macro take fail";
+
+};
+
+# ---   *   ---   *   ---
+# expands macro [args]
+
+unrev cmdsub 'macro-paste' => q(opt_qlist) => q{
+
 
   # get ctx
   my $main  = $self->{frame}->{main};
@@ -179,28 +226,75 @@ cmdsub 'macro-paste' => q(opt_qlist) => q{
 
   # process arguments
   my $sig  = $have->{args};
-  my @args = $self->argtake($branch);
+  my @args = ();
+
+  while(int @{$branch->{leaves}}) {
+    push @args,[$self->macro_take($branch)];
+
+  };
+
 
   my $idex = 0;
 
   map {
 
+    my $have  = $args[$idex];
+    my $chk   = $ARG;
+    my $sidex = 0;
 
-    # set default value?
-    $args[$idex]=(defined $args[$idex])
+    map {
 
-    ? ($ARG->{type} eq 'qlist')
-      ? [map {$ARG->{id}} @args[$idex..$#args]]
-      : $args[$idex]->{id}
 
-    : $ARG->{defval}
-    ;
+      my @shave=(defined $have)
+        ? @{$have}[$sidex..@$have-1]
+        : ()
+        ;
 
-    # replace arg in body
-    $self->macro_repl(
-      $body,$ARG->{repl},$args[$idex]
+      my $shave=(defined $have)
+        ? $have->[$sidex]
+        : undef
+        ;
 
-    );
+
+      # set default value?
+      my $value=(defined $shave)
+
+      ? ($ARG->{type} eq 'qlist')
+        ? [map {$ARG->{id}} @shave]
+        : $shave->{id}
+
+      : $ARG->{defval}
+      ;
+
+
+      $main->perr(
+
+        'badargs for [ctl]:%s \'%s\'' . "\n\n"
+
+      . 'position [[num]:%u,[num]:%u]' . "\n"
+      . 'expected [good]:%s token' . "\n"
+
+      , args => [
+
+          'macro',$name,
+          $idex,$sidex,
+
+          $ARG->{type}
+
+        ],
+
+      ) if ! defined $value;
+
+
+      # replace arg in body
+      $self->macro_repl(
+        $body,$ARG->{repl},$value
+
+      );
+
+      $sidex++;
+
+    } @$chk;
 
 
     # go next
@@ -224,8 +318,8 @@ cmdsub 'macro-paste' => q(opt_qlist) => q{
 
   } @Q;
 
-  $branch->flatten_branch();
 
+  $branch->flatten_branch();
 
   return;
 
@@ -303,13 +397,16 @@ sub macro_proc_args($self,$body,@args) {
 
   map {
 
-    $ARG->{repl}=$self->macro_repl_args(
-      $body,$ARG->{id},$idex++
+    map {
 
-    );
+      $ARG->{repl}=$self->macro_repl_args(
+        $body,$ARG->{id},$idex++
+
+      );
+
+    } @$ARG;
 
   } @args;
-
 
   return;
 
@@ -334,15 +431,23 @@ unrev cmdsub macro => q(
   # unpack
   my $lv=$branch->{leaves};
 
-  # have arguments?
-  my ($name,@args)=(3 <= @$lv)
-    ? $self->argtake($branch,2)
-    : $self->argtake($branch,1)
-    ;
+
+  # first node is name of macro
+  my ($name) = $self->argtake($branch,1);
+     $lv     = $branch->{leaves};
+
+  # middle nodes are arguments!
+  my @args=();
+  while(@$lv > 1) {
+    push @args,[$self->argtake($branch,1)];
+    $lv=$branch->{leaves};
+
+  };
 
 
   # last node is macro body
   my $body=$branch->{leaves}->[0];
+
 
   # redecl guard
   $name=$l1->is_sym($name->{id});
@@ -359,12 +464,15 @@ unrev cmdsub macro => q(
   # generate signature
   my @sig=map {
 
-    my $opt=(defined $ARG->{defval})
-      ? 'opt_'
-      : null
-      ;
+    map {
+      my $opt=(defined $ARG->{defval})
+        ? 'opt_'
+        : null
+        ;
 
-    "${opt}$ARG->{type}";
+      "${opt}$ARG->{type}";
+
+    } @$ARG;
 
   } @args;
 

@@ -373,7 +373,7 @@ sub addr_decompose($self,$nd) {
     # register name?
     if(defined ($have=$l1->is_reg($ARG))) {
 
-      $stk |= $have == $anima->stack_bot;
+      $stk |= $have == $anima->stack_base;
       push @reg,$have;
 
     # symbol name?

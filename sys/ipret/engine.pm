@@ -256,6 +256,9 @@ sub exe($self) {
 
     @ret=$self->step($ins);
 
+    last if $ret[0]
+    && $ret[0] eq '$:LAST;>';
+
   };
 
   return @ret;

@@ -148,6 +148,7 @@ St::vconst {
   sym  => cmdarg(['SYM']),
   bare => cmdarg(['BARE']),
   num  => cmdarg(['NUM']),
+  cmd  => cmdarg(['CMD']),
 
   opera => cmdarg(['OPERA']),
 

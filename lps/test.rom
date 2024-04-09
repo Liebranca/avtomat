@@ -1,34 +1,59 @@
 %;
 
-# TODO
+# ---   *   ---   *   ---
+
+case 'def' at $00 {
+
+  walk {
+    opera='\{';
+
+  };
+
+  
+
+};
+
+# ---   *   ---   *   ---
+
+#def case.type  {  <any>};
+#def case.value {! <any>};
 #
-# * call
-# ^ ret
-# ^ enter
-# ^ leave
+#def case.close {'at';num;opera='{'};
 #
-# * struc
-# ^ load ice
-# ^ load ctx
+#def case.walk  {walk branch ->* match value};
+#def case.shape {
 #
-# * syscall
+#  0:  @case.value;
+#  1:  @case.type;
+#
+#  2:  @case.type;
+#      opera='=';
+#      @case.value;
+#
+#};
+#
+#case 'case' at $00 {
+#
+#  on idex,value from @.shape;
+#
+#    load    ar,idex;
+#    @.walk  {value;@.close};
+#
+#    cjump   nzero ahead;
+#    rept;
+#
+#  off;
+#
+#
+#};
 
-entry code.start;
-
-
-ram data;
-  byte b0 $04;
-  byte b1 $25;
-
-exe code;
-
-blk ftest;
-  load br,$24;
-  ret;
-
-blk start;
-  self data;
-
-  call ftest;
-  load ar,[b0+1];
-
+#case 'type' at $00 {
+#
+#  opera='=' at $00;
+#  num       at $01;
+#
+#  'on'      at $02;
+#
+#  opera='{' at $03;
+#
+#};

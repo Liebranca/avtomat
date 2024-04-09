@@ -363,8 +363,24 @@ St::vconst {
 
     },
 
-    ret => {
-      argcnt=>0,
+
+    # ^accessories sold separately
+    enter => {argcnt=>0},
+    leave => {argcnt=>0},
+    ret   => {argcnt=>0},
+
+
+    # syscall in disguise!
+    exit => {
+
+      fn         => '_exit',
+
+      argcnt     => 1,
+      dst        => 'i',
+
+      overwrite  => 0,
+      fix_size   => ['byte'],
+      fix_immsrc => 1,
 
     },
 
@@ -700,7 +716,7 @@ sub call($self,$type) {
 
   # make F
   my $jump=$self->jump($type);
-  my $push=$self->_push($type);
+  my $push=$self->_push(typefet 'qword');
 
   sub ($x) {
 
@@ -708,6 +724,74 @@ sub call($self,$type) {
 
     $push->($pos);
     $jump->($x);
+
+    return;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^get ready!
+
+sub enter($self,$type) {
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $stack = $mc->{stack};
+  my $sp    = $stack->{ptr};
+  my $sb    = $stack->{base};
+
+  # TODO: get frame size!
+  my $fsz=0x08;
+
+  # make F
+  my $push = $self->_push(typefet 'qword');
+
+  sub {
+
+    return if ! $fsz;
+
+
+    $push->($sb->load());
+
+    my $x=$sp->load();
+    $sb->store($x);
+
+    $x -= 0x8;
+    $sp->store($x);
+
+    return;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^get out!
+
+sub leave($self,$type) {
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $stack = $mc->{stack};
+  my $sp    = $stack->{ptr};
+  my $sb    = $stack->{base};
+
+  # TODO: get frame size!
+  my $fsz=0x08;
+
+  # make F
+  my $pop = $self->_pop(typefet 'qword');
+
+  sub {
+
+    return if ! $fsz;
+
+    my $x=$sb->load();
+
+    $sp->store($x);
+    $sb->store($pop->());
 
     return;
 
@@ -727,7 +811,7 @@ sub ret($self,$type) {
 
   # make F
   my $jump = $self->jump($type);
-  my $pop  = $self->_pop($type);
+  my $pop  = $self->_pop(typefet 'qword');
 
   sub {
 
@@ -735,6 +819,18 @@ sub ret($self,$type) {
     $jump->($x);
 
     return;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# a syscall in disguise ;>
+
+sub _exit($self,$type) {
+
+  sub ($x) {
+    return ('$:LAST;>',$x);
 
   };
 

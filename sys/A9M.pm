@@ -442,7 +442,7 @@ sub decode_mstk_ptr($self,$o) {
   my $stack = $self->{stack};
 
   my $seg   = $self->{stack}->{mem};
-  my $base  = $stack->{bot};
+  my $base  = $stack->{base};
   my $off   = $o->{imm};
 
   %$o=(
