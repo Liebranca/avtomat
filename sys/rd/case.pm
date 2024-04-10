@@ -49,8 +49,10 @@ St::vconst {
 
     return {
 
-      main => undef,
-      tab  => {},
+      main    => undef,
+      tab     => {},
+
+      invoke  => [],
 
     };
 
@@ -249,24 +251,22 @@ sub signew($self,@sig) {
 };
 
 # ---   *   ---   *   ---
-# default processing for definitions!
+# walk expressions in tree and
+# clear it up a bit ;>
 
-sub defproc($self,$data) {
+sub sort_tree($self,$branch) {
 
 
   # get ctx
   my $main = $self->{main};
-  my $l1   = $main->{l1};
   my $l2   = $main->{l2};
 
-  # save state
-  my $status = {-attr=>undef};
-  my $old    = $main->{branch};
+  # descriptor to give!
+  my $out={-attr=>undef};
 
 
-  # walk expressions
-  my $body   = $data->{body};
-  my @lv     = @{$body->{leaves}};
+  # walk
+  my @lv=@{$branch->{leaves}};
 
   map {
 
@@ -279,75 +279,39 @@ sub defproc($self,$data) {
 
 
     # sort expression
-    $self->sort_expr(
-      $status,
-      @{$ARG->{leaves}}
+    $self->sort_expr($out,@{$ARG->{leaves}});
 
-    );
 
   } @lv;
 
+  return $out;
 
-  # validate signature
-  my $sig=$status->{sig}
-  or $main->perr(
+};
 
-    "No signature for "
-  . "[ctl]:%s '%s'",
+# ---   *   ---   *   ---
+# default processing for definitions!
 
-    args=>[$data->{-class},$data->{name}],
-
-  );
-
-  # ^proc
-  my @sig=map {
-
-    $self->signew(map {
-
-      [$ARG->{name}=>$l1->tagre(
-        uc $ARG->{type} => $ARG->{spec}
-
-      )]
-
-    } @$ARG);
-
-  } $self->sigread($sig);
-  $self->sigbuild(\@sig);
+sub defproc($self,$data) {
 
 
-  # validate method
-  my $fn=$status->{fn}
-  or $main->perr(
+  # get ctx
+  my $main = $self->{main};
 
-    "No method for "
-  . "[ctl]:%s '%s'",
-
-    args=>[$data->{-class},$data->{name}],
-
-  );
-
-  # ^proc and generate perl sub
-  my @program=$self->fnread($fn);
-  $fn=sub ($ice,$idata) {
-
-    map {
-
-      my ($ins,@args) = @$ARG;
-      $ins->($ice,$idata,@args);
-
-    } @program;
-
-    return;
-
-  };
+  # save state
+  my $old    = $main->{branch};
+  my $status = $self->sort_tree($data->{body});
 
 
   # write to table
   $self->{tab}->{$data->{name}}={
-    sig => \@sig,
-    fn  => $fn,
+    sig => $self->tree_to_sig($data,$status),
+    fn  => $self->tree_to_sub($data,$status),
 
   };
+
+
+  # restore and give
+  $main->{branch}=$old;
 
   return;
 
@@ -392,9 +356,16 @@ sub sort_expr($self,$status,@lv) {
     push @$dst,$head->{parent};
 
 
-  # error!
+  # assume we're defining a function ;>
   } else {
-    die "No current attr at case expr";
+
+    $status->{-attr}   = 'fn';
+    $status->{fn}    //= [];
+
+    push @{$status->{fn}},[];
+
+    my $dst=$status->{fn}->[-1];
+    push @$dst,$head->{parent};
 
   };
 
@@ -451,7 +422,8 @@ sub sigread($self,$sig) {
 
 
     # ^build ALL combinations!
-    my @mat=((0) x int @have);
+    my @mat    = ((0) x int @have);
+    my $walked = 0;
 
     while(1) {
 
@@ -460,12 +432,13 @@ sub sigread($self,$sig) {
 
       # fetch from index array
       my @row=map {
+        $walked++;
         $copied[$i++]->[$ARG]->{data};
 
       } @mat;
 
       # stop if all combinations walked
-      $end=! grep {! $ARG} @mat;
+      $end=$walked == $total;
 
 
       # else up the counter ;>
@@ -547,6 +520,47 @@ sub sigread_field($self,@lv) {
 };
 
 # ---   *   ---   *   ---
+# map case tree to signature array
+
+sub tree_to_sig($self,$data,$status) {
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+
+
+  # validate signature
+  my $sig=$status->{sig}
+  or $main->perr(
+
+    "No signature for "
+  . "[ctl]:%s '%s'",
+
+    args=>[$data->{-class},$data->{name}],
+
+  );
+
+  # ^proc
+  my @sig=map {
+
+    $self->signew(map {
+
+      [$ARG->{name}=>$l1->tagre(
+        uc $ARG->{type} => $ARG->{spec}
+
+      )]
+
+    } @$ARG);
+
+  } $self->sigread($sig);
+  $self->sigbuild(\@sig);
+
+
+  return \@sig;
+
+};
+
+# ---   *   ---   *   ---
 # maps attr nodes to perl sub
 
 sub fnread($self,$fn) {
@@ -606,12 +620,52 @@ sub fnread_field($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# map case tree to perl sub
+
+sub tree_to_sub($self,$data,$status) {
+
+  # get ctx
+  my $main=$self->{main};
+
+  # validate method
+  my $fn=$status->{fn}
+  or $main->perr(
+
+    "No method for "
+  . "[ctl]:%s '%s'",
+
+    args=>[$data->{-class},$data->{name}],
+
+  );
+
+  # ^proc and generate perl sub
+  my @program=$self->fnread($fn);
+  $fn=sub ($ice,$idata) {
+
+    map {
+
+      my ($ins,@args) = @$ARG;
+      $ins->($ice,$idata,@args);
+
+    } @program;
+
+    return;
+
+  };
+
+  return $fn;
+
+};
+
+# ---   *   ---   *   ---
 # entry point
 
 sub parse($self,$keyw,$root) {
 
-  $self->find($root,keyw=>$keyw);
-  $self->find($root,keyw=>'def');
+  my @new=$self->find($root,keyw=>$keyw);
+  map {$self->find($root,keyw=>$ARG)} @new;
+
+  $self->run_invoke($root);
 
   return;
 
@@ -652,19 +706,8 @@ sub find($self,$root,%O) {
   );
 
 
-  # now we want to ensure the signature is
-  # correct. peso v:
-  #
-  # * "type  at i"
-  #
-  # | "value at i"
-  #
-  # | "type=value at i"
-  #
-  # ^this is a straight assertion: uppon reading
-  # the name of case, that exact sequence must
-  # follow
-
+  # write found to table
+  # gives back names of new keywords
   map {
 
 
@@ -682,17 +725,18 @@ sub find($self,$root,%O) {
     };
 
 
-    # all OK, clear and invoke!
-    $nd->clear();
-
+    # all OK, register keyword
     $data->{-class}=$O{keyw};
     $keyw_fn->($self,$data);
 
+    $self->add_invoke($data->{-invoke})
+    if $data->{-invoke};
+
+    $nd->discard();
+    $data->{name};
+
 
   } @have;
-
-
-  return;
 
 };
 
@@ -780,8 +824,15 @@ sub sigvalue($self,$nd) {
 
 
   # have operator?
-  } elsif($type eq 'OPERA' && $have eq '{') {
-    return $nd;
+  } elsif($type eq 'OPERA') {
+
+    if($have eq '{') {
+      return $nd;
+
+    } else {
+      return $have;
+
+    };
 
 
   # have list?
@@ -796,6 +847,103 @@ sub sigvalue($self,$nd) {
     die "unreconized: '$type' at sigvalue";
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# adds a method to be called
+# uppon encountering some
+# sequence of tokens
+
+sub add_invoke($self,$head) {
+
+
+  # get ctx
+  my $main = $self->{main};
+
+  # save state
+  my $old    = $main->{branch};
+  my $status = $self->sort_tree($head->{fn});
+
+
+  # write to method table
+  $head->{fn}=
+    $self->tree_to_sub($head,$status);
+
+  push @{$self->{invoke}},$head;
+
+
+  # restore and give
+  $main->{branch}=$old;
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^executes
+
+sub run_invoke($self,$root) {
+
+
+  # get ctx
+  my $main=$self->{main};
+
+
+  # walk cases!
+  map {
+
+
+    # get matches for first token!
+    my $head = $ARG;
+    my $sig  = $head->{sig};
+
+    my @have = $root->branches_in($sig->[0]);
+
+
+    # ^make call for each match
+    map {
+
+      # use child nodes as args
+      my $nd   = $ARG;
+      my @args = @{$nd->{leaves}};
+
+      # ^if that's not enough, use
+      # sibling nodes
+      push @args,$nd->all_fwd()
+      if @args < @$sig-1;
+
+      # ^or throw if that's STILL not enough!
+      $main->perr(
+
+        "too few arguments for "
+      . "[ctl]:%s '%s'",
+
+        args=>['case',$$head->{data}->{name}]
+
+      ) if @args < @$sig-1;
+
+
+      # validate
+      my $i=0;
+      my $valid =! int grep {
+      ! ($args[$i++]->{value}=~ $ARG)
+
+      } @{$sig}[1..@$sig-1];
+
+      # ^call
+      if($valid) {
+        $main->{branch}=$nd;
+        $head->{fn}->($self,$head->{data});
+
+      };
+
+
+    } @have;
+
+
+  } @{$self->{invoke}};
+
+  return;
 
 };
 

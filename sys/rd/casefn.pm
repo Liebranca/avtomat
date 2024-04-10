@@ -108,6 +108,30 @@ sub flatten($self,$data,$dst,$depth=0) {
 };
 
 # ---   *   ---   *   ---
+# declares that a given sequence
+# of tokens should mutate to
+# a given call!
+
+sub invoke($self,$data,@args) {
+
+  shift @args;
+  my $fn=pop @args;
+
+  @args=map{argproc($self,$data,$ARG)} @args;
+  $data->{-invoke}={
+
+    fn   => $fn,
+    sig  => [map {qr"^\[.$ARG\]"} @args],
+
+    data => $data,
+
+  };
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # procs an argument
 
 sub argproc($self,$data,$arg) {
@@ -116,14 +140,21 @@ sub argproc($self,$data,$arg) {
     $arg=substr $arg,1,length($arg)-1;
     $arg=$data->{$arg};
 
+  } elsif(Tree->is_valid($arg)) {
+    return $arg;
+
   } else {
 
-    my $main=$self->{main};
-
-    $arg={
+    my $main = $self->{main};
+    my $tab  = {
       branch=>$main->{branch},
 
-    }->{$arg};
+    };
+
+    $arg=(exists $tab->{$arg})
+      ? $tab->{$arg}
+      : $arg
+      ;
 
   };
 

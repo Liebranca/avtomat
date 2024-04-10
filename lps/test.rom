@@ -6,14 +6,19 @@ case 'def' {
 
   attr sig;
     name sym,string;
-    body opera,sym '\{';
+    body opera '\{';
 
   attr fn;
     flatten .body,1;
-    repl    branch,.body;
+
+  invoke as @,.name {
+    repl branch,.body;
+
+  };
 
 };
 
 def this {HLOWRLD};
+@this;
 
 # ---   *   ---   *   ---

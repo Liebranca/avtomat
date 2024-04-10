@@ -38,7 +38,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.4;
+  our $VERSION = v0.03.5;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -1724,6 +1724,18 @@ sub all_from($self,$ch,%O) {
   if ! defined $ch->{idex};
 
   @pending=@pending[$ch->{idex}+1..$limit];
+
+};
+
+# ---   *   ---   *   ---
+# ^all subsequent sibling nodes
+
+sub all_fwd($self,%O) {
+
+  return ($self->{parent})
+    ? $self->{parent}->all_from($self,%O)
+    : ()
+    ;
 
 };
 
