@@ -565,6 +565,9 @@ sub new_branch($self) {
 
     );
 
+    $self->{branch}->{lineno}=
+      $self->{lineat};
+
   };
 
 

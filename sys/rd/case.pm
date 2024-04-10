@@ -30,13 +30,14 @@ package rd::case;
   use Chk;
 
   use Arstd::Array;
+  use Arstd::PM;
 
   use parent 'rd::layer';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -55,6 +56,8 @@ St::vconst {
 
   },
 
+  fn_t => 'rd::casefn',
+
 };
 
 # ---   *   ---   *   ---
@@ -67,6 +70,8 @@ sub ready_or_build($self) {
   my $main = $self->{main};
   my $l1   = $main->{l1};
   my $tab  = $self->{tab};
+
+  cload $self->fn_t;
 
 
   # the basic keyword from which all
@@ -283,7 +288,7 @@ sub defproc($self,$data) {
   } @lv;
 
 
-  # ~
+  # validate signature
   my $sig=$status->{sig}
   or $main->perr(
 
@@ -294,10 +299,8 @@ sub defproc($self,$data) {
 
   );
 
-  my @sig=$self->sigread($sig);
-
-  use Fmat;
-  @sig=map {
+  # ^proc
+  my @sig=map {
 
     $self->signew(map {
 
@@ -308,14 +311,41 @@ sub defproc($self,$data) {
 
     } @$ARG);
 
-  } @sig;
-
+  } $self->sigread($sig);
   $self->sigbuild(\@sig);
 
-  # TODO:write to table
+
+  # validate method
+  my $fn=$status->{fn}
+  or $main->perr(
+
+    "No method for "
+  . "[ctl]:%s '%s'",
+
+    args=>[$data->{-class},$data->{name}],
+
+  );
+
+  # ^proc and generate perl sub
+  my @program=$self->fnread($fn);
+  $fn=sub ($ice,$idata) {
+
+    map {
+
+      my ($ins,@args) = @$ARG;
+      $ins->($ice,$idata,@args);
+
+    } @program;
+
+    return;
+
+  };
+
+
+  # write to table
   $self->{tab}->{$data->{name}}={
     sig => \@sig,
-    fn  => $NOOP,
+    fn  => $fn,
 
   };
 
@@ -517,6 +547,65 @@ sub sigread_field($self,@lv) {
 };
 
 # ---   *   ---   *   ---
+# maps attr nodes to perl sub
+
+sub fnread($self,$fn) {
+
+  my $main    = $self->{main};
+  my $fn_t    = $self->fn_t;
+
+  my @program = map {
+
+    my @tree=@$ARG;
+
+    map {
+
+
+      $main->{branch}=$ARG;
+
+      my ($ins,@args)=
+        $self->fnread_field($ARG);
+
+      my $ref=$fn_t->fetch($main,$ins);
+      [$ref,@args];
+
+    } @tree;
+
+  } @$fn;
+
+
+  return @program;
+
+};
+
+# ---   *   ---   *   ---
+# ^decomposes single branch!
+
+sub fnread_field($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+  my @lv   = @{$branch->{leaves}};
+
+
+  # first token is name of F
+  my $name = shift @lv;
+     $name = $l1->is_sym($name->{value});
+
+  # ^whatever follows is args!
+  my @args=map {
+    $self->sigvalue($ARG)
+
+  } @lv;
+
+
+  return ($name,@args);
+
+};
+
+# ---   *   ---   *   ---
 # entry point
 
 sub parse($self,$keyw,$root) {
@@ -578,26 +667,30 @@ sub find($self,$root,%O) {
 
   map {
 
+
+    # make node current
     my $nd   = $ARG;
     my $data = {};
 
-    $main->{branch}=$ARG;
+    $main->{branch}=$nd;
 
+    # check signature
     for my $sig(@$keyw_sig) {
       $data=$self->sigchk($nd,$sig);
       last if length $data;
 
     };
 
+
+    # all OK, clear and invoke!
     $nd->clear();
 
     $data->{-class}=$O{keyw};
     $keyw_fn->($self,$data);
 
-use Fmat;
-fatdump \$data;
 
   } @have;
+
 
   return;
 
@@ -690,6 +783,13 @@ sub sigvalue($self,$nd) {
   } elsif($type eq 'OPERA' && $have eq '{') {
     return $nd;
 
+
+  # have list?
+  } elsif($type eq 'LIST') {
+    return map {
+      $self->sigvalue($ARG)
+
+    } @{$nd->{leaves}};
 
   # error!
   } else {

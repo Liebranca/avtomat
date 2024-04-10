@@ -9,53 +9,11 @@ case 'def' {
     body opera,sym '\{';
 
   attr fn;
-    branch ->* repl @.body;
+    flatten .body,1;
+    repl    branch,.body;
 
 };
 
 def this {HLOWRLD};
 
 # ---   *   ---   *   ---
-
-#def case.type  {  <any>};
-#def case.value {! <any>};
-#
-#def case.close {'at';num;opera='{'};
-#
-#def case.walk  {walk branch ->* match value};
-#def case.shape {
-#
-#  0:  @case.value;
-#  1:  @case.type;
-#
-#  2:  @case.type;
-#      opera='=';
-#      @case.value;
-#
-#};
-#
-#case 'case' at $00 {
-#
-#  on idex,value from @.shape;
-#
-#    load    ar,idex;
-#    @.walk  {value;@.close};
-#
-#    cjump   nzero ahead;
-#    rept;
-#
-#  off;
-#
-#
-#};
-
-#case 'type' at $00 {
-#
-#  opera='=' at $00;
-#  num       at $01;
-#
-#  'on'      at $02;
-#
-#  opera='{' at $03;
-#
-#};
