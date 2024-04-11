@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# RD CASEFN
-# Keyword-F maker
+# RD PREPROCFN
+# F-enn macros!
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package rd::casefn;
+package rd::preprocfn;
 
   use v5.36.0;
   use strict;
@@ -71,7 +71,7 @@ sub fetch($class,$main,$name) {
 # ---   *   ---   *   ---
 # replace node in hierarchy
 
-sub repl($self,$data,$dst,$src) {
+sub replace($self,$data,$dst,$src) {
 
   $src=argproc($self,$data,$src);
   $dst=argproc($self,$data,$dst);
@@ -136,8 +136,8 @@ sub invoke($self,$data,@args) {
 
 sub argproc($self,$data,$arg) {
 
-  if(! index $arg,'.') {
-    $arg=substr $arg,1,length($arg)-1;
+  if(! index $arg,'self.') {
+    $arg=substr $arg,5,length($arg)-5;
     $arg=$data->{$arg};
 
   } elsif(Tree->is_valid($arg)) {

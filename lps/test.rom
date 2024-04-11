@@ -1,6 +1,7 @@
 %;
 
 # ---   *   ---   *   ---
+# make new directive
 
 case 'def' {
 
@@ -9,16 +10,47 @@ case 'def' {
     body opera '\{';
 
   attr fn;
-    flatten .body,1;
+    flatten self.body,1;
 
-  invoke as @,.name {
-    repl branch,.body;
+
+  invoke as @,self.name {
+    replace branch,self.body;
 
   };
 
 };
 
+# ---   *   ---   *   ---
+# ^make instance and invoke it
+
 def this {HLOWRLD};
 @this;
+
+# ---   *   ---   *   ---
+# sketch. nevermind this!
+
+entry start;
+exe   start;
+
+proc wordcmp;
+
+
+  # get regs
+  alc ar,br;
+
+  # ^clear && load true
+  xor ar,ar;
+  ld  br,$01;
+
+
+  # set fio
+  in  er,fr;
+  out ar;
+
+  # ^compare and give result
+  xor er,fr;
+  ldz ar,br;
+
+#  ret;
 
 # ---   *   ---   *   ---

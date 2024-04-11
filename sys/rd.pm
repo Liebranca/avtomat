@@ -63,15 +63,15 @@ St::vconst {
 
 
   # subpackages
-  layers => [qw(case l0 l1 l2 lx)],
+  layers    => [qw(preproc l0 l1 l2 lx)],
 
-  case_t => 'rd::case',
-  l0_t   => 'rd::l0',
-  l1_t   => 'rd::l1',
-  l2_t   => 'rd::l2',
-  lx_t   => 'rd::lx',
+  preproc_t => 'rd::preproc',
+  l0_t      => 'rd::l0',
+  l1_t      => 'rd::l1',
+  l2_t      => 'rd::l2',
+  lx_t      => 'rd::lx',
 
-  cmd_t  => 'rd::cmd',
+  cmd_t     => 'rd::cmd',
 
 
   # ^wraps
@@ -87,6 +87,10 @@ St::vconst {
 
 
   }},
+
+  # names of functions to run on
+  # the parser being invoked
+  pipeline => [qw(parse preproc reparse)],
 
 
 };
@@ -170,8 +174,8 @@ sub new($class,$src,%O) {
     # nesting within current branch
     nest => [],
 
-    # a 'preparse' of sorts!
-    case => undef,
+    # a glorified source filter ;>
+    preproc => undef,
 
     # parse layers: char/token/branch
     l0 => undef,
@@ -228,8 +232,6 @@ sub new($class,$src,%O) {
   $self->{cmdlib}=
     $class->cmd_t->new_frame(main=>$self);
 
-  $self->{case}->ready_or_build();
-
 
   return $self;
 
@@ -246,7 +248,11 @@ sub crux($src,%O) {
 
   # make ice
   my $self=rd->new($src,%O);
-  $self->parse();
+
+
+  # run stages
+  map {$self->$ARG()}
+  @{$self->pipeline};
 
   # strip parse tree?
   $self->strip() if $O{strip};
@@ -289,20 +295,13 @@ sub next_stage($self) {
 sub parse($self) {
 
 
-  # mutate and run
+  # mutate and build initial tree
   $self->parse_subclass();
   $self->{l0}->parse();
 
   # ^final expr pending?
   $self->unset('blank');
   $self->term();
-
-
-  # ~
-  $self->{case}->parse(
-    case=>$self->{tree}
-
-  );
 
 
   # cleanup parse-only values
@@ -401,7 +400,84 @@ sub parse_subclass($self) {
 };
 
 # ---   *   ---   *   ---
-# ^all others!
+# second stage
+#
+# passes result of initial parse
+# through the preprocessor!
+
+sub preproc($self) {
+
+
+  # kick if need
+  $self->{preproc}->ready_or_build();
+
+  # invoke
+  my $ok=
+    $self->{preproc}->parse($self->{tree});
+
+
+  # validate and give
+  $self->perr(
+    "TODO: preproc err"
+
+  ) if ! $ok;
+
+  $self->next_pass();
+  $self->next_stage();
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# third stage
+#
+# re-evaluates the tree after
+# being altered by the preprocessor
+
+sub reparse($self) {
+
+
+  # get ctx
+  my $l1=$self->{l1};
+  my $l2=$self->{l2};
+
+
+  # re-evaluate symbols
+  my @Q=@{$self->{tree}->{leaves}};
+  while(@Q) {
+
+    my $nd  = shift @Q;
+    my $key = $nd->{value};
+
+    my ($type,$spec)=
+      $l1->xlate_tag($key);
+
+    if($type eq 'SYM') {
+      $key=$spec;
+
+    };
+
+
+    $nd->{value}=$l1->parse($key);
+
+    unshift @Q,@{$nd->{leaves}};
+
+  };
+
+
+  # re-evaluate all branches
+  $l2->parse($self->{tree});
+
+  # go next and give
+  $self->next_pass();
+  $self->next_stage();
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# all stages after reparse are
+# done with this F ;>
 
 sub walk($self,%O) {
 
@@ -1039,7 +1115,7 @@ sub prich($self,%O) {
   map  {"$ARG: $self->{passes}->{$ARG} passes\n"}
   grep {$ARG=~ $O{passes}}
 
-  @{$lx->stages()}[1..$self->{stage}-1];
+  @{$self->pipeline};
 
 
   return ioprocout(\%O);

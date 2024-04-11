@@ -58,6 +58,8 @@ St::vconst {
 
   ]},
 
+  pipeline => [qw(solve assemble)],
+
 };
 
 # ---   *   ---   *   ---

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# RD CASE
-# Keyword maker
+# RD PREPROC
+# 80s groove
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package rd::case;
+package rd::preproc;
 
   use v5.36.0;
   use strict;
@@ -58,7 +58,8 @@ St::vconst {
 
   },
 
-  fn_t => 'rd::casefn',
+  fn_t    => 'rd::preprocfn',
+  genesis => 'case',
 
 };
 
@@ -660,14 +661,22 @@ sub tree_to_sub($self,$data,$status) {
 # ---   *   ---   *   ---
 # entry point
 
-sub parse($self,$keyw,$root) {
+sub parse($self,$root) {
 
-  my @new=$self->find($root,keyw=>$keyw);
-  map {$self->find($root,keyw=>$ARG)} @new;
+  my @new=$self->find(
+    $root,keyw=>$self->genesis
+
+  );
+
+  while(@new) {
+    my $keyw=shift @new;
+    unshift @new,$self->find($root,keyw=>$keyw);
+
+  };
+
 
   $self->run_invoke($root);
-
-  return;
+  return 1;
 
 };
 
