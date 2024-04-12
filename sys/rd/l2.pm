@@ -35,7 +35,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.6;#a
+  our $VERSION = v0.01.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -746,7 +746,7 @@ sub cmd($self) {
 
     # consume argument nodes if need
     $cmd->argsume($main->{branch})
-    if $cmd &&! $main->{stage};
+    if $cmd && exists $main->{strterm};
 
 
     # give F to run if any

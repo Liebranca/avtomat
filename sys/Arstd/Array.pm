@@ -57,6 +57,8 @@ package Arstd::Array;
     array_kmap
     array_map
 
+    array_matchpop
+
     IDEXUP
     IDEXUP_P2
 
@@ -65,7 +67,7 @@ package Arstd::Array;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.7;
+  our $VERSION=v0.00.8;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -376,6 +378,27 @@ sub vmap($ar,$fn) {
 };
 
 # ---   *   ---   *   ---
+# consume elements as they match
+# against a re sequence
+#
+# returns (all-matched,matches)
+
+sub matchpop($ar,@seq) {
+
+  return (0,()) if @$ar < @seq;
+
+
+  my $idex  = 0;
+  my @match = map {
+    $ar->[$idex++]=~ $ARG
+
+  } @seq;
+
+  return (@match == @seq,@match);
+
+};
+
+# ---   *   ---   *   ---
 # ~
 
 sub IDEXUP($idex,$f,@list) {
@@ -413,6 +436,8 @@ sub IDEXUP_P2($idex,$f,@list) {
   *array_vmap     = *vmap;
   *array_kmap     = *kmap;
   *array_map      = *nmap;
+
+  *array_matchpop = *matchpop;
 
 # ---   *   ---   *   ---
 1; # ret

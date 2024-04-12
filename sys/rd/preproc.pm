@@ -37,7 +37,7 @@ package rd::preproc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -78,7 +78,7 @@ sub ready_or_build($self) {
 
 
   # the basic keyword from which all
-  # others can be built is 'case'
+  # others can be built is genesis
   #
   # we need to define parsing rules
   # for it first, and from these rules,
@@ -88,6 +88,7 @@ sub ready_or_build($self) {
   my $at    = $l1->tagre(SYM    => 'at');
   my $loc   = $l1->tagre(NUM    => '.+');
   my $curly = $l1->tagre(OPERA  => '\{');
+  my $any   = $l1->tagre(SYM    => 'anywhere');
 
   my $sig   = [
 
@@ -111,6 +112,19 @@ sub ready_or_build($self) {
       $at,
 
       [loc  => $loc],
+      [body => $curly],
+
+    ),
+
+
+    # ^any location valid!
+    $self->signew(
+
+      [name => $name],
+
+      $any,
+
+      [loc  => -1],
       [body => $curly],
 
     ),
@@ -415,7 +429,6 @@ sub sigread($self,$sig) {
 
       }} @$type];
 
-
       $total *= int @$type;
       $idex  ++;
 
@@ -428,6 +441,7 @@ sub sigread($self,$sig) {
 
     while(1) {
 
+
       my $end = 0;
       my $i   = 0;
 
@@ -439,7 +453,7 @@ sub sigread($self,$sig) {
       } @mat;
 
       # stop if all combinations walked
-      $end=$walked == $total;
+      $end=$walked == $total || $total == 1;
 
 
       # else up the counter ;>
@@ -641,10 +655,86 @@ sub tree_to_sub($self,$data,$status) {
 
   # ^proc and generate perl sub
   my @program=$self->fnread($fn);
-  $fn=sub ($ice,$idata) {
+  $fn=sub ($ice,$idata,@slurp) {
 
+
+    # this field means a directive is being
+    # called from within another, it holds the
+    # nodes or values it was invoked with
+    #
+    # this means we have to expand certain
+    # values that could lose meaning if passed
+    # as-is, such as references to local attrs
+
+    if(@slurp) {
+
+
+      # get value conversion sub
+      my $fn = $self->fn_t . "::argproc";
+         $fn = \&$fn;
+
+      # ^apply it to parsed args!
+      @slurp=map {
+
+
+        # expand tokens in a tree
+        if(Tree->is_valid($ARG)) {
+
+          my @Q=(@{$ARG->{leaves}});
+          while(@Q) {
+
+
+            # map node to value
+            my $nd   = shift @Q;
+            my $key  = $ice->sigvalue($nd);
+            my $have = $fn->($self,$idata,$key);
+
+
+            # ^replace node with result
+            if(Tree->is_valid($have)) {
+              $nd->repl($have);
+
+            # ^replace only the string!
+            } else {
+              $nd->{value}=$have;
+
+            };
+
+            unshift @Q,@{$nd->{leaves}};
+
+          };
+
+          $ARG;
+
+
+        # plain value, so straight map
+        } else {
+          $fn->($self,$data,$ARG);
+
+        };
+
+      } @slurp;
+
+
+      # use signature to identify passed args
+      my $tab  = $self->{tab};
+      my $case = $data->{name};
+      my $capt = $self->sigchk($case,\@slurp);
+
+      # ^write them to instance
+      map {
+
+        $idata->{$ARG}=
+          $capt->{$ARG};
+
+      } keys %$capt;
+
+
+    };
+
+
+    # all values expanded, run F
     map {
-
       my ($ins,@args) = @$ARG;
       $ins->($ice,$idata,@args);
 
@@ -663,31 +753,35 @@ sub tree_to_sub($self,$data,$status) {
 
 sub parse($self,$root) {
 
-  my @new=$self->find(
-    $root,keyw=>$self->genesis
 
-  );
+  # macro genesis ;>
+  #
+  # this means parse every definition
+  # one by one, then expand new keywords
+  # as they are defined!
 
-  while(@new) {
-    my $keyw=shift @new;
-    unshift @new,$self->find($root,keyw=>$keyw);
+  my @list=$self->genesis;
 
-  };
+  @list=map {
+    $self->find($root,keyw=>$ARG);
+
+  } @list while @list;
 
 
+  # execute all and give
   $self->run_invoke($root);
   return 1;
 
 };
 
 # ---   *   ---   *   ---
-# get branches that match
+# get branches that match keyword
 
 sub find($self,$root,%O) {
 
 
   # defaults
-  $O{keyw} //= 'case';
+  $O{keyw} //= $self->genesis;
 
   # get ctx
   my $main     = $self->{main};
@@ -696,51 +790,42 @@ sub find($self,$root,%O) {
 
   # get patterns
   my $keyw_re  = $l1->tagre(SYM=>$O{keyw});
-  my $keyw_sig = $tab->{$O{keyw}}->{sig};
   my $keyw_fn  = $tab->{$O{keyw}}->{fn};
 
-
-  # get all top level branches that
-  # begin with keyw. peso v:
-  #
-  # * "case %keyw at i {...}"
-  #
-  # ^this is the first pattern we must
-  # be able to define without perl!
-
-  my @have=(
-    grep {$ARG->{parent} eq $root}
-    $root->branches_in($keyw_re)
-
-  );
+  return if ! $keyw_fn;
 
 
-  # write found to table
-  # gives back names of new keywords
+  # get branches that contain keyword
+  # fail if none found!
+  my @have=$root->branches_in($keyw_re);
+  return if ! @have;
+
+  # ^walk
   map {
 
 
     # make node current
-    my $nd   = $ARG;
-    my $data = {};
-
+    my $nd=$ARG;
     $main->{branch}=$nd;
 
-    # check signature
-    for my $sig(@$keyw_sig) {
-      $data=$self->sigchk($nd,$sig);
-      last if length $data;
+
+    # validate and run
+    my $data=$self->sigchk($O{keyw},$nd);
+
+    $data->{-class}=$O{keyw};
+    $keyw_fn->($self,$data);
+
+    # get [header,on-parse code]
+    my @out=$data->{name};
+
+    if($data->{-invoke}) {
+      $self->add_invoke($data->{-invoke});
+      push @out,$data->{-invoke};
 
     };
 
 
-    # all OK, register keyword
-    $data->{-class}=$O{keyw};
-    $keyw_fn->($self,$data);
-
-    $self->add_invoke($data->{-invoke})
-    if $data->{-invoke};
-
+    # clear branch and give
     $nd->discard();
     $data->{name};
 
@@ -752,34 +837,93 @@ sub find($self,$root,%O) {
 # ---   *   ---   *   ---
 # check node against signature
 
-sub sigchk($self,$nd,$sig) {
+sub sigchk_nd($self,$nd,$sig) {
 
 
   # get signature matches
-  my ($pos)=
-    $nd->match_sequence(@{$sig->{seq}});
+  my ($valid,@lv)=
+    $nd->cross_sequence(@{$sig->{seq}});
 
 
   # args in order?
-  if(defined $pos && $pos == 0) {
+  if($valid) {
+    $nd->pushlv(@lv);
+    return $self->sigcapt($nd->{leaves},$sig);
 
-    my $lv  = $nd->{leaves};
-    my $out = $self->sigcapt($lv,$sig,$pos);
-
-    return $out;
+  # ^nope!
+  } else {
+    return null;
 
   };
 
+};
+
+# ---   *   ---   *   ---
+# ^plain value array
+
+sub sigchk_ar($self,$ar,$sig) {
+
+
+  # get signature matches
+  my ($valid,@lv)=array_matchpop
+      $ar,@{$sig->{seq}};
+
+
+  # args in order?
+  if($valid) {
+    return $self->sigcapt($ar,$sig);
 
   # ^nope!
-  return null;
+  } else {
+    return null;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^wraps for both ;>
+
+sub sigchk($self,$keyw,$x) {
+
+  # get ctx
+  my $main  = $self->{main};
+  my $tab   = $self->{tab};
+  my $sigar = $tab->{$keyw}->{sig};
+
+  # get F based on data
+  my $data = {};
+  my $fn   = (Tree->is_valid($x))
+    ? 'sigchk_nd'
+    : 'sigchk_ar'
+    ;
+
+
+  # have signature match?
+  for my $sig(@$sigar) {
+    $data=$self->$fn($x,$sig);
+    last if length $data;
+
+  };
+
+  # ^validate
+  $main->perr(
+
+    "could not match keyword '%s' "
+  . "to a valid [ctl]:%s signature",
+
+    args => [$keyw,$self->genesis],
+
+  ) if ! length $data;
+
+  return $data;
 
 };
 
 # ---   *   ---   *   ---
 # captures signature matches!
 
-sub sigcapt($self,$lv,$sig,$pos) {
+sub sigcapt($self,$lv,$sig,$pos=0) {
 
 
   # read values from tree
@@ -801,6 +945,7 @@ sub sigcapt($self,$lv,$sig,$pos) {
 
   } keys %{$sig->{defv}};
 
+
   # give descriptor
   return \%data;
 
@@ -810,6 +955,11 @@ sub sigcapt($self,$lv,$sig,$pos) {
 # ^breaks down capture values ;>
 
 sub sigvalue($self,$nd) {
+
+
+  # use as is?
+  return $nd
+  if ! Tree->is_valid($nd);
 
 
   # get ctx
@@ -842,6 +992,9 @@ sub sigvalue($self,$nd) {
       return $have;
 
     };
+
+  } elsif($type eq 'BRANCH') {
+    return $nd;
 
 
   # have list?
@@ -891,11 +1044,12 @@ sub add_invoke($self,$head) {
 # ---   *   ---   *   ---
 # ^executes
 
-sub run_invoke($self,$root) {
+sub run_invoke($self,$root,@src) {
 
 
   # get ctx
-  my $main=$self->{main};
+  my $main = $self->{main};
+     @src  = @{$self->{invoke}} if ! @src;
 
 
   # walk cases!
@@ -912,32 +1066,29 @@ sub run_invoke($self,$root) {
     # ^make call for each match
     map {
 
-      # use child nodes as args
-      my $nd   = $ARG;
-      my @args = @{$nd->{leaves}};
 
-      # ^if that's not enough, use
-      # sibling nodes
-      push @args,$nd->all_fwd()
-      if @args < @$sig-1;
+      # find fwd nodes matching signature
+      my $nd=$ARG;
+      my ($valid,@args)=$nd->cross_sequence(
+        @{$sig}[1..@$sig-1]
 
-      # ^or throw if that's STILL not enough!
+      );
+
+
+      # ^validate
       $main->perr(
 
         "too few arguments for "
       . "[ctl]:%s '%s'",
 
-        args=>['case',$$head->{data}->{name}]
+        args=>[
+          $self->genesis,
+          $$head->{data}->{name}
+
+        ],
 
       ) if @args < @$sig-1;
 
-
-      # validate
-      my $i=0;
-      my $valid =! int grep {
-      ! ($args[$i++]->{value}=~ $ARG)
-
-      } @{$sig}[1..@$sig-1];
 
       # ^call
       if($valid) {
@@ -950,7 +1101,7 @@ sub run_invoke($self,$root) {
     } @have;
 
 
-  } @{$self->{invoke}};
+  } @src;
 
   return;
 

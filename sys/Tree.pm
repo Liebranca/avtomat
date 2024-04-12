@@ -38,7 +38,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.5;
+  our $VERSION = v0.03.6;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -765,6 +765,10 @@ sub pushlv($self,@pending) {
     my $node=shift @pending;
     my $par=$node->{parent};
 
+    next if $node->{parent}
+         && $node->{parent} eq $self;
+
+
     $node->{parent}=$self;
 
     push @{$self->{leaves}},$node;
@@ -982,30 +986,35 @@ sub deep_value_repl($self,$re,$new) {
 
 sub flatten_branch($self,%O) {
 
-  return if ! $self->{parent};
 
-  # opt defaults
+  # skip?
+  return $self if ! $self->{parent};
+
+
+  # defaults
   $O{keep_root}//=0;
 
+  # get leaves and parent, sort siblings
   my @move = $self->pluck(@{$self->{leaves}});
   my $par  = $self->{parent};
 
   $par->idextrav();
 
+
+  # where to put/what to put ;>
   my $idex = $self->{idex};
   my @ar   = @{$par->{leaves}};
 
-  # get leaves to move
-  if($O{keep_root}) {unshift @move,$self};
-  if($idex) {unshift @move,@ar[0..$idex-1]};
-  if($idex<$#ar) {push @move,@ar[$idex+1..$#ar]};
+  # remove yourself!
+  my $root = $par->pluck($self);
+  unshift @move,$root if $O{keep_root};
+
 
   # wipe branch and reset its leaves
-  $par->clear();
-  $par->pushlv(@move);
+  $par->insertlv($idex,@move);
   $par->cllv();
 
-  return $par->{leaves}->[$idex];
+  return @move;
 
 };
 
@@ -1018,6 +1027,52 @@ sub flatten_branches($self,%O) {
     $ARG->flatten_branch()
 
   } @{$self->{leaves}};
+
+};
+
+# ---   *   ---   *   ---
+# recursively flatten branches
+
+sub flatten_tree($self,%O) {
+
+
+  # default
+  $O{max_depth} //= 0x24;
+
+  # walk tree up to depth
+  my $depth = 0;
+  my @Q     = ($self);
+
+  while(@Q) {
+
+
+    # get next
+    my $nd=shift @Q;
+
+    # go up one level?
+    if($nd eq 0) {
+      $depth--;
+      next;
+
+    };
+
+    # hit limit?
+    next if $depth > $O{max_depth};
+
+
+    # flatten and go next
+    if(my @ahead=$nd->flatten_branch()) {
+
+      $depth++;
+      unshift @Q,@ahead,0;
+
+    };
+
+
+  };
+
+
+  return;
 
 };
 
@@ -1071,8 +1126,11 @@ sub pluck_all($self) {
 # ^ask parent for retirement
 
 sub discard($self) {
-  $self->{parent}->pluck($self)
-  if $self->{parent};
+
+  return ($self->{parent})
+    ? ($self->{parent}->pluck($self))[0]
+    : $self
+    ;
 
 };
 
@@ -1831,6 +1889,35 @@ sub match_series($self,@series) {
 
   # else fail
   return undef;
+
+};
+
+# ---   *   ---   *   ---
+# ^cross-branch
+
+sub cross_sequence($self,@seq) {
+
+
+  # get own leaves
+  my @args = @{$self->{leaves}};
+
+  # ^if that's not enough, use
+  # sibling nodes
+  push @args,$self->all_fwd()
+  if @args < @seq;
+
+  # ^fail if that's still not enough
+  return (0,()) if @args < @seq;
+
+
+  # validate
+  my $i     =  0;
+  my $valid =! int grep {
+  ! ($args[$i++]->{value}=~ $ARG)
+
+  } @seq;
+
+  return ($valid,@args[0..$#seq]);
 
 };
 

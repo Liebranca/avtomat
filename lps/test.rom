@@ -1,56 +1,54 @@
 %;
 
 # ---   *   ---   *   ---
-# make new directive
 
-case 'def' {
+case 'branch.new' {
+
+  attr sig;
+    body any;
+
+  attr fn;
+    push    branch,tmp;
+
+    insert  lv.tmp,0,self.body;
+    mergef  lv.tmp,2;
+
+    discard branch;
+
+};
+
+# ---   *   ---   *   ---
+
+case 'def' at $00 {
 
   attr sig;
     name sym,string;
     body opera '\{';
 
   attr fn;
-    flatten self.body,1;
-
-
   invoke as @,self.name {
-    replace branch,self.body;
+    branch.new self.body;
 
   };
 
 };
 
 # ---   *   ---   *   ---
-# ^make instance and invoke it
 
-def this {HLOWRLD};
-@this;
+case 'proc' anywhere {
 
-# ---   *   ---   *   ---
-# sketch. nevermind this!
+  attr sig;
+    name sym;
 
-entry start;
-exe   start;
+  attr fn;
+  branch.new {
+    exe code;
+    blk self.name;
 
-proc wordcmp;
+  };
 
+};
 
-  # get regs
-  alc ar,br;
-
-  # ^clear && load true
-  xor ar,ar;
-  ld  br,$01;
-
-
-  # set fio
-  in  er,fr;
-  out ar;
-
-  # ^compare and give result
-  xor er,fr;
-  ldz ar,br;
-
-#  ret;
+public proc start;
 
 # ---   *   ---   *   ---

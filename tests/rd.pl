@@ -27,26 +27,26 @@ package main;
 # ---   *   ---   *   ---
 # parse, solve and assemble
 
-my $main=ipret(
+my $main=rd(
 
   './lps/test.rom',
   limit => 2
 
 );
 
-$main->assemble();
+#$main->assemble();
 
 ## ---   *   ---   *   ---
 # run and dbout
 
-$main->run();
+#$main->run();
 $main->prich(
 
   anima => 1,
   stack => 0,
 
   mem   => 'outer',
-  tree  => 0,
+  tree  => 1,
 
 );
 

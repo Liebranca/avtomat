@@ -254,6 +254,13 @@ sub crux($src,%O) {
   map {$self->$ARG()}
   @{$self->pipeline};
 
+  # cleanup parse-only values
+  delete $self->{buf};
+  delete $self->{status};
+  delete $self->{strterm};
+  delete $self->{nest};
+
+
   # strip parse tree?
   $self->strip() if $O{strip};
 
@@ -304,14 +311,10 @@ sub parse($self) {
   $self->term();
 
 
-  # cleanup parse-only values
-  delete $self->{buf};
-  delete $self->{status};
-  delete $self->{strterm};
-  delete $self->{nest};
-
   # go next and give
+  $self->next_pass();
   $self->next_stage();
+
   return;
 
 };
@@ -424,6 +427,7 @@ sub preproc($self) {
 
   $self->next_pass();
   $self->next_stage();
+
   return;
 
 };
@@ -452,7 +456,7 @@ sub reparse($self) {
     my ($type,$spec)=
       $l1->xlate_tag($key);
 
-    if($type eq 'SYM') {
+    if($type && $type eq 'SYM') {
       $key=$spec;
 
     };
