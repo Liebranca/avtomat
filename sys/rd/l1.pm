@@ -44,59 +44,113 @@ package rd::l1;
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly my $TAG=>qr{
+St::vconst {
 
-    ^\[
+  restruc => {
+    open  => '\[',
+    close => '\]',
 
-    (?<type>  . )
-    (?<value> [^\]]+)
+  },
+
+  anyre   => sub {$_[0]->mkre},
+  table   => {
+
+    map {(
+      $ARG->[0]=>$ARG->[1],
+      $ARG->[1]=>$ARG->[0],
+
+    )} (
+
+      ['*' => 'CMD'],
+      ['`' => 'OPR'],
+      ['%' => 'STR'],
+
+      ['T' => 'TYPE'],
+      ['F' => 'EXE'],
+
+      ['r' => 'REG'],
+      ['s' => 'SYM'],
+      ['i' => 'NUM'],
+      ['m' => 'MEM'],
+
+      ['>' => 'SCP'],
+      ['^' => 'EXP'],
+
+      ['l' => 'LIST'],
+
+    )
+
+  },
+
+};
+
+# ---   *   ---   *   ---
+# regex tempate
+
+sub mkre($self,@args) {
+
+  my $class=(length ref $self)
+    ? ref $self
+    : $self
+    ;
+
+  my $struc=$class->restruc;
 
 
-    \]\s
+  # specific pattern requested?
+  return (@args)
 
-  }x;
 
-  # two-way hash
-  Readonly my $TAG_T=>{ map {(
+    # if so give pattern to match args
+    ? qr{^
 
-    $ARG->[0]=>$ARG->[1],
-    $ARG->[1]=>$ARG->[0],
+      $struc->{open}
 
-  )} (
+      (?<type> $args[0])
+      (?<spec> $args[1])
 
-    ['*' => 'CMD'],
-    ['`' => 'OPERA'],
-    ['%' => 'STRING'],
 
-    ['T' => 'TYPE'],
-    ['F' => 'EXE'],
+      $struc->{close}\s
 
-    ['r' => 'REG'],
-    ['s' => 'SYM'],
-    ['i' => 'NUM'],
-    ['m' => 'MEM'],
+      (?<data> .*)
 
-    ['l' => 'LIST'],
-    ['b' => 'BRANCH'],
+    }x
 
-  )};
+
+    # ^else give global
+    : qr{^
+
+      $struc->{open}
+
+      (?<type>  .)
+      (?<spec> [^$struc->{close}]+)
+
+
+      $struc->{close}\s
+
+      (?<data> .*)
+
+    }x;
+
+
+};
 
 # ---   *   ---   *   ---
 # make tag regex
 
-sub tagre($self,$type,$value) {
+sub re($self,$type,$spec) {
 
 
   # remember previously generated
   state $tab={
-    BARE => qr{^[^\[].*}x,
+    BARE => qr{^[^$self->restruc->{open}].*}x,
     ANY  => $ANY_MATCH,
 
   };
 
   # ^so we can exit early ;>
-  return $tab->{"$type:$value"}
-  if exists $tab->{"$type:$value"};
+  return $tab->{"$type:$spec"}
+  if exists $tab->{"$type:$spec"};
 
   # ANY:  any token, tag or not
   # BARE: any non-tagged token
@@ -105,36 +159,33 @@ sub tagre($self,$type,$value) {
 
 
   # type-check
-  my $tag_t=$TAG_T->{$type};
+  my $tag_t=$self->table->{$type};
 
   $self->throw_invalid_type($type)
   if ! defined $tag_t;
 
 
-  # do escaping and build new regex
-  $tag_t="\Q$tag_t";
-  my $re=qr{^\[$tag_t$value\]\s};
-
-  # ^save to table and give
-  $tab->{"$type:$value"}=$re;
-
+  # build new and save to table
+  my $re=$self->mkre("\Q$tag_t",$spec);
+  $tab->{"$type:$spec"}=$re;
 
   return $re;
 
 };
 
 # ---   *   ---   *   ---
-# turn current token into
-# a tag of type
+# add typing data to token
 
-sub make_tag($self,$type,$src=undef) {
+sub tag($self,$type,$src=undef) {
+
 
   # get ctx
-  my $main=$self->{main};
+  my $main = $self->{main};
+  my $l0   = $main->{l0};
 
 
   # get/validate sigil
-  my $tag_t=$TAG_T->{$type};
+  my $tag_t=$self->table->{$type};
 
   $self->throw_invalid_type($type)
   if ! defined $tag_t;
@@ -156,8 +207,8 @@ sub make_tag($self,$type,$src=undef) {
 
   # default to token if no src
   # default to char if no token!
-  $src //= $main->{token};
-  $src //= $main->{char};
+  $src //= $self->{token};
+  $src //= $l0->{char};
 
   return "[$tag_t$src] ";
 
@@ -179,15 +230,19 @@ sub throw_invalid_type($self,$type) {
 # ---   *   ---   *   ---
 # ^undo
 
-sub detag($self,$src=undef) {
+sub untag($self,$src=undef) {
 
-  # default to current token
-  my $main   = $self->{main};
-     $src  //= $main->{token};
+  $src //= $self->{token};
 
-  # subst and give
-  $src=~ s[$TAG][];
-  return $src;
+  return ($src=~ $self->anyre)
+
+    ? {
+
+      type=>$+{type},
+      spec=>$+{spec},
+      data=>$+{data}
+
+    } : () ;
 
 };
 
@@ -198,87 +253,138 @@ sub detag($self,$src=undef) {
 # gives a new tag holding all
 # values joined together
 
-sub cat_tags($self,@ar) {
+sub cat($self,@ar) {
 
-  my $otype  = undef;
-  my $ovalue = $NULLSTR;
+  my $otype = undef;
+  my $ospec = $NULLSTR;
+  my $odata = $NULLSTR;
 
   map {
 
-    # disassemble tag
-    my ($type,$value)=$self->read_tag($ARG);
-
-
-    # cat value to result
-    $otype  //= $type;
-    $ovalue  .= $value;
+    # disassemble typed token
+    my ($have)=$self->untag($ARG);
 
     # enforce equal types
     $self->{main}->perr(
       "non-matching tag-types "
     . "cannot be catted!"
 
-    ) if $type ne $otype;
+    ) if $have->{type} ne $otype;
+
+
+    # cat spec/data to result
+    $otype //= $have->{type};
+    $ospec  .= $have->{spec};
+    $odata  .= $have->{data};
 
 
   } @ar;
 
 
   # get non-internal type
-  $otype=$TAG_T->{$otype};
+  $otype=$self->table->{$otype};
 
   # make new and give
-  return $self->make_tag($otype,$ovalue);
-
-};
-
-# ---   *   ---   *   ---
-# token has [$tag] format?
-
-sub read_tag($self,$src=undef) {
-
-  $src //= $self->{main}->{token};
-
-  return ($src=~ $TAG)
-    ? ($+{type},$+{value})
-    : undef
-    ;
+  return $self->tag($otype,$ospec) . $odata;
 
 };
 
 # ---   *   ---   *   ---
 # ^converts type to user v
 
-sub xlate_tag($self,$src=undef) {
+sub xlate($self,$src=undef) {
 
-  my ($type,$value)=
-    $self->read_tag($src);
+  my $have=$self->untag($src);
+  return 0 if ! $have;
 
-  $type=$TAG_T->{$type} if $type;
-  return ($type,$value);
+  my $type=$have->{type};
+
+  $have->{type}=$self->table->{$type};
+  return $have;
 
 };
 
 # ---   *   ---   *   ---
-# ^give tag type/value if correct type
+# ^give descriptor if correct type
 
-sub read_tag_t($self,$which,$src=undef) {
+sub typechk($self,$expect,$src=undef) {
 
-  my ($type,$value)=$self->read_tag($src);
 
-  return ($type && $TAG_T->{$type} eq $which)
-    ? $type
-    : undef
+  # have typed token?
+  my $tab  = $self->table;
+  my $have = $self->untag($src);
+
+  return 0 if ! $have;
+
+
+  # ^yep, compare
+  my $type=$have->{type};
+
+  return ($tab->{$type} eq $expect)
+    ? $have
+    : 0
     ;
 
 };
 
+# ---   *   ---   *   ---
+# typecheck series!
+
+sub switch($self,$src,%ev) {
+
+
+  # disassemble
+  my $have = $self->untag($src);
+  my $def  = $ev{DEF};
+
+  delete $ev{DEF};
+
+
+  # walk [type=>F] array
+  map {
+
+    my $type = $ARG;
+    my $fn   = $ev{$type};
+
+    if($have->{type} eq $type) {
+      return $fn->($self,$have)
+
+    };
+
+  } keys %ev if $have;
+
+
+  return ($def && $have)
+    ? $def->($self,$have)
+    : ()
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# untag and stringify!
+
+sub stirr($self,$src=undef) {
+
+  return $self->switch(
+
+    $src,
+
+    STR=>sub {$_[0]->{data}},
+    DEF=>sub {"$_[0]->{spec}$_[0]->{data}"},
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+
 sub read_tag_v($self,$which,$src=undef) {
 
-  my ($type,$value)=$self->read_tag($src);
+  my ($type,$spec)=$self->untag($src);
 
-  return ($type && $TAG_T->{$type} eq $which)
-    ? $value
+  return ($type && $self->table->{$type} eq $which)
+    ? $spec
     : undef
     ;
 
@@ -314,18 +420,18 @@ sub is_comment($self,$src=undef) {
   my $charset = $l0->charset();
 
   # have string?
-  my $value = $self->read_tag_v('STRING',$src);
+  my $data = $self->read_tag_v('STRING',$src);
 
   # ^if so, check that the string is marked
   # as a comment!
   return (
 
-     defined $value
-  && exists  $charset->{$value}
+     defined $data
+  && exists  $charset->{$data}
 
-  && $charset->{$value} eq 'comment'
+  && $charset->{$data} eq 'comment'
 
-  ) ? $value : undef ;
+  ) ? $data : undef ;
 
 };
 
@@ -335,12 +441,38 @@ sub is_comment($self,$src=undef) {
 # classifies token if not
 # already sorted!
 
+sub detect($self,$src) {
+
+  return $src if $src=~ $self->anyre;
+
+  my $key=$src;
+
+  # is number?
+  if(defined (my $is_num=sstoi($key,0))) {
+    $src=$is_num;
+    $key='NUM';
+
+  # is symbol name?
+  } elsif(nref $src) {
+    $key='SYM';
+
+  # none of the above, give as-is
+  } else {
+    return $src;
+
+  };
+
+
+  return $self->tag($key,$src);
+
+};
+
 sub parse($self,$src,%O) {
 
 
   # early exit if token already sorted
   return $src
-  if defined $self->read_tag($src);
+  if $self->untag($src);
 
 
   # defaults
@@ -382,7 +514,7 @@ sub parse($self,$src,%O) {
   };
 
 
-  return $self->make_tag($key,$src);
+  return $self->tag($key,$src);
 
 };
 
@@ -429,12 +561,12 @@ sub quantize($self,$src=undef) {
 
 
   # ^else unpack tag
-  my ($type,$spec)=$self->read_tag($src);
+  my ($type,$spec)=$self->untag($src);
   my $have=$self->detag($src);
 
 
   return $src if ! $type;
-  $type=$TAG_T->{$type};
+  $type=$self->table->{$type};
 
 
   # have plain value?

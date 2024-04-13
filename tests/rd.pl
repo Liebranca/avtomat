@@ -29,7 +29,7 @@ package main;
 
 my $main=rd(
 
-  './lps/test.rom',
+  './lps/test.pe',
   limit => 2
 
 );

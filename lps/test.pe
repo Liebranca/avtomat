@@ -1,0 +1,8 @@
+%;
+
+case 'mmm' {
+
+  attr sig;
+  attr fn;
+
+};

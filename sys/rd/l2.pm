@@ -35,7 +35,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.7;#a
+  our $VERSION = v0.01.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -44,8 +44,12 @@ package rd::l2;
 St::vconst {
 
   DEFAULT => {
+
     main   => undef,
+    branch => undef,
+
     walked => {},
+    nest   => [],
 
   },
 
@@ -67,6 +71,101 @@ St::vconst {
   };
 
   Readonly my $OPERA_PRIO  => "&|^*/-+<>~?!=";
+
+# ---   *   ---   *   ---
+# clear current if not nesting
+# else begin new sub-expression
+
+sub commit($self) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l0   = $main->{l0};
+  my $l1   = $main->{l1};
+
+
+  # leaving branch undefined will trigger
+  # it's making on next token commited
+  if(! @{$self->{nest}}) {
+    $self->{branch}=undef;
+
+
+  # ^nesting, cat to deepest
+  } else {
+
+    my $anchor = $self->{nest}->[-1];
+
+    my $idex   = int @{$anchor->{leaves}};
+       $idex   = $l1->tag(EXP=>$idex);
+
+    $self->subexp($idex,$anchor);
+
+  };
+
+
+  # mark beggining of expression
+  $l0->flag(exp=>0);
+  return $self->{branch};
+
+};
+
+# ---   *   ---   *   ---
+# make new sub-expression
+
+sub subexp($self,$value,$anchor=undef) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l0   = $main->{l0};
+
+  # defaults
+  $anchor //= $self->{branch};
+  $anchor //= $main->{tree};
+
+
+  # make new branch and set current
+  my $dst=$self->{branch}=
+    $anchor->inew($value);
+
+  # set misc branch attrs
+  ( $dst->{lineno},
+    $dst->{escaped}
+
+  ) = (
+    $main->{lineat},
+    $l0->flagchk(esc=>1),
+
+  );
+
+  return $dst;
+
+};
+
+# ---   *   ---   *   ---
+# open scope
+
+sub enter($self) {
+
+  my $dst=$self->{nest};
+
+  push   @$dst,$self->{branch};
+  return $self->commit();
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub leave($self) {
+
+  my $dst=$self->{nest};
+  $self->{branch}=pop @$dst;
+
+  return $self->{branch};
+
+};
 
 # ---   *   ---   *   ---
 # make [node=>recurse] array

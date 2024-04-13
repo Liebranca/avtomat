@@ -93,32 +93,17 @@ St::vconst {
   pipeline => [qw(parse preproc reparse)],
 
 
-};
-
-
-  Readonly my $SF=>{
-
-    blank   => 0x0001,
-    string  => 0x0002,
-    comment => 0x0004,
-    nterm   => 0x0008,
-    exprbeg => 0x0010,
-    escape  => 0x0020,
-
-  };
-
-  Readonly my $FMODE=>{
-
+  # WIP; output formats
+  fmode_tab => {
     (map {$ARG=>0x01} qw($ elf)),
     (map {$ARG=>0x02} qw(% rom)),
     (map {$ARG=>0x04} qw(@ net)),
     (map {$ARG=>0x08} qw(^ gfi)),
 
-  };
+  },
 
 
-  Readonly my $SF_DEFAULT=>
-    $SF->{exprbeg};
+};
 
 
 # ---   *   ---   *   ---
@@ -198,20 +183,14 @@ sub new($class,$src,%O) {
     pass   => 0,
     passes => {},
 
-    # shared vars
-    status => $SF_DEFAULT,
-
 
     # line number!
     lineno => 1,
     lineat => 1,
 
-    # stringmode term
-    strterm => $NULLSTR,
-
 
     # I/O
-    fmode => $FMODE->{rom},
+    fmode => $class->fmode_tab->{rom},
     fpath => $src,
     buf   => $body,
 
@@ -256,9 +235,6 @@ sub crux($src,%O) {
 
   # cleanup parse-only values
   delete $self->{buf};
-  delete $self->{status};
-  delete $self->{strterm};
-  delete $self->{nest};
 
 
   # strip parse tree?
@@ -301,19 +277,24 @@ sub next_stage($self) {
 
 sub parse($self) {
 
+  # get ctx
+  my $l0=$self->{l0};
 
   # mutate and build initial tree
   $self->parse_subclass();
-  $self->{l0}->parse();
+  $l0->parse();
 
   # ^final expr pending?
-  $self->unset('blank');
-  $self->term();
+  $l0->flag(ws=>0);
+  $l0->term();
 
 
   # go next and give
   $self->next_pass();
   $self->next_stage();
+
+  $self->{tree}->prich();
+  exit;
 
   return;
 
@@ -347,24 +328,28 @@ sub parse_subclass($self) {
   if(
 
      $have eq '$'
-  || defined ($have=$l1->is_opera($have))
+  || ($have=$l1->typechk(OPR=>$have))
 
   ) {
 
+
     # validate sigil
+    my $tab = $self->fmode_tab;
+    my $key = $have->{spec};
+
     $self->perr(
       "fmode '%s' not in table",
       args=>[$have],
 
-    ) if ! exists $FMODE->{$have};
+    ) if ! exists $tab->{$key};
 
 
     # set output mode from table
-    my $fmode=$FMODE->{$have};
+    my $fmode=$tab->{$key};
 
     # reset source package
-    $pkg=shift @args;
-    $self->{tree}->{value} .= $have;
+    $pkg=$l1->stirr(shift @args);
+    $self->{tree}->{value} .= $key;
 
   };
 
@@ -398,7 +383,9 @@ sub parse_subclass($self) {
 
   # pop expression from tree
   $self->{tree}->{leaves}->[-1]->discard();
-  $self->{token}=undef;
+  $l1->{token}=undef;
+
+  return;
 
 };
 
@@ -557,279 +544,28 @@ sub walk($self,%O) {
 };
 
 # ---   *   ---   *   ---
-# push token to tree
-
-sub commit($self) {
-
-  # have token?
-  my $have=0;
-
-  if(length $self->{token}) {
-
-
-    # classify and mark new expression
-    $self->{token}=$self->{l1}->parse(
-      $self->{token},
-      nocmd=>1,
-
-    );
-
-    $self->unset('exprbeg');
-
-    # start of new branch?
-    if(! defined $self->{branch}) {
-
-      $self->{branch}=
-        $self->{tree}->inew($self->{token});
-
-      $self->{branch}->{lineno}=
-        $self->{lineat};
-
-      $self->{branch}->{escaped}=
-        $self->escaped;
-
-
-    # ^cat to existing
-    } else {
-
-      my $branch=
-        $self->{branch}->inew($self->{token});
-
-      $branch->{lineno}  = $self->{lineat};
-      $branch->{escaped} = $self->escaped;
-
-    };
-
-
-    $self->{lineat}=$self->{lineno};
-    $have |= 1;
-
-  };
-
-
-  # give true if token added
-  $self->{token}=$NULLSTR;
-  $self->unset('escape');
-
-  return $have;
-
-};
-
-# ---   *   ---   *   ---
-# clear current if not nesting
-# else make sub-branch
-
-sub new_branch($self) {
-
-
-  # leaving branch undefined will trigger
-  # it's making on next token commited
-  if(! @{$self->{nest}}) {
-    $self->{branch}=undef;
-
-
-  # ^nesting, so not so simple
-  } else {
-
-    # get last, deepest sub-branch
-    my $anchor = $self->{nest}->[-1];
-       $anchor = $anchor->{leaves}->[-1];
-
-    # ^get sub-branch idex relative to it's parent
-    my $idex   = int @{$anchor->{leaves}};
-    my $l1     = $self->{l1};
-
-    # ^make new sub-branch next to it
-    $self->{branch}=$anchor->inew(
-      $l1->make_tag('BRANCH'=>$idex)
-
-    );
-
-    $self->{branch}->{lineno}=
-      $self->{lineat};
-
-  };
-
-
-  # mark beggining of expression
-  $self->set('exprbeg');
-
-};
-
-# ---   *   ---   *   ---
-# nest one sub-branch deeper
-
-sub nest_up($self) {
-  push @{$self->{nest}},$self->{branch};
-  $self->new_branch();
-
-};
-
-# ---   *   ---   *   ---
-# ^return to previous sub-branch
-
-sub nest_down($self) {
-  $self->{branch}=pop @{$self->{nest}};
-
-};
-
-# ---   *   ---   *   ---
-# terminate branch or sub-branch
-
-sub term($self) {
-
-  $self->commit();
-
-  $self->new_branch();
-  $self->set_termf();
-
-};
-
-# ---   *   ---   *   ---
 # defines whether an operator
 # is a valid char for a name
 
 sub cmd_name_rule($self) {
 
+  my $l0=$self->{l0};
+
   return ! defined $self->{branch}
 
   &&  @{$self->{tree}->{leaves}}
   &&! @{$self->{nest}}
-  &&! $self->blank()
+  &&  $l0->flagchk(ws=>0)
 
   ;
 
 };
 
 # ---   *   ---   *   ---
-# set status flag
+# move to next line!
 
-sub set($self,@name) {
-  map {$self->{status} |= $SF->{$ARG}} @name;
-
-};
-
-# ---   *   ---   *   ---
-# ^undo
-
-sub unset($self,@name) {
-  map {$self->{status} &=~ $SF->{$ARG}} @name;
-
-};
-
-# ---   *   ---   *   ---
-# read status flags are set/unset
-
-sub status($self,@order) {
-
-  # array as hash
-  my @fk  = array_keys(\@order);
-  my @fv  = array_values(\@order);
-
-  my $fi  = 0;
-  my $out = 1;
-
-
-  # ^walk
-  for my $k(@fk) {
-
-
-    # get [flag => expected state]
-    my $v    = $fv[$fi++];
-
-    # ^get actual state
-    my $have = (
-      $self->{status}
-    & $SF->{$k}
-
-    ) != 0;
-
-
-    # fail on no match
-    if($have != $v) {
-      $out=0;
-      last;
-
-    };
-
-  };
-
-
-  return $out;
-
-};
-
-# ---   *   ---   *   ---
-# ^icebox
-
-sub blank($self) {
-  return $self->status(blank=>1);
-
-};
-
-sub comment($self) {
-  return $self->status(comment=>1);
-
-};
-
-sub nterm($self) {
-  return $self->status(nterm=>1);
-
-};
-
-sub exprbeg($self) {
-  return $self->status(exprbeg=>1);
-
-};
-
-sub escaped($self) {
-  return $self->status(escape=>1);
-
-};
-
-# ---   *   ---   *   ---
-# ^set terminator flags
-
-sub set_termf($self) {
-  $self->set('blank');
-  $self->unset('nterm');
-
-};
-
-# ---   *   ---   *   ---
-# ^set *non* terminator flags
-
-sub set_ntermf($self) {
-  $self->unset('blank','exprbeg');
-  $self->set('nterm');
-
-};
-
-# ---   *   ---   *   ---
-# check for stringmode and
-# handle terminator char
-
-sub string($self) {
-
-  my $out=$self->status(string=>1);
-
-  if($out && $self->{char} eq $self->{strterm}) {
-
-    $self->{char}=$NULLSTR;
-    $self->unset('string');
-
-    $self->commit();
-
-    if($self->comment()) {
-      $self->unset('comment');
-      $self->new_branch();
-
-    };
-
-  };
-
-
-  return $out;
+sub next_line($self) {
+  $self->{lineat}=$self->{lineno};
 
 };
 

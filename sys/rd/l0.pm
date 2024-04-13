@@ -38,31 +38,67 @@ package rd::l0;
 
 St::vconst {
 
+
+  # cstruc values
+  DEFAULT => sub {
+
+    my $flags=$_[0]->flags;
+
+    return {
+
+      main    => undef,
+
+      status  => $flags->{exp},
+      strterm => undef,
+
+    };
+
+  },
+
+  # used to find table in cache
   TABID   => 'JMP',
 
+
+  # possible states
+  flags => {
+
+    ws     => 0x01,
+
+    str    => 0x02,
+    com    => 0x04,
+
+    nterm  => 0x08,
+
+    exp    => 0x10,
+    esc    => 0x20,
+
+  },
+
+
+  # possible inputs
   charset => {
 
     ';'   => 'term',
-    '"'   => 'string',
-    "'"   => 'string',
-    '\\'  => 'escape',
+    '"'   => 'str',
+    "'"   => 'str',
+    '\\'  => 'esc',
 
-    ' '   => 'blank',
-    "\t"  => 'blank',
-    "\r"  => 'blank',
-    "\n"  => 'blank',
+    ' '   => 'ws',
+    "\t"  => 'ws',
+    "\r"  => 'ws',
+    "\n"  => 'ws',
 
-    '#'   => 'comment',
+    '#'   => 'com',
 
 
-    (map {$ARG=>'operator_single'} qw(
+    (map {$ARG=>'opr'} qw(
       % + - * < > = !
       ? ~ & | ^ / @ `
 
     ),','),
 
-    (map {$ARG=>'delim_beg'} qw~( [ {~),
-    (map {$ARG=>'delim_end'} qw~) ] }~),
+    (map {$ARG=>'enter'} qw~( [ {~),
+    (map {$ARG=>'leave'} qw~) ] }~),
 
   },
 
@@ -73,6 +109,7 @@ St::vconst {
 
 sub read($self,$JMP,$c) {
 
+
   # get ctx
   my $main=$self->{main};
 
@@ -80,8 +117,8 @@ sub read($self,$JMP,$c) {
   $self->csume($c);
 
 
-  # reader set to stringmode?
-  if($main->string()) {
+  # reader set to string mode?
+  if($self->strmode()) {
     $self->strcat();
     return 'strcat';
 
@@ -110,7 +147,7 @@ sub csume($self,$c) {
   my $main=$self->{main};
 
   # save current char
-  $main->{char}=$c;
+  $self->{char}=$c;
 
   # tick the line counter
   $main->{lineno} += int($c eq "\n");
@@ -118,9 +155,8 @@ sub csume($self,$c) {
 
   # track beggining of first
   # nterm char in expr
-  $main->{lineat}=$main->{lineno}
-  if $main->exprbeg();
-
+  my ($exp)=$self->flagchk(exp=>1);
+  $main->next_line() if ! $exp;
 
   return;
 
@@ -167,7 +203,6 @@ sub parse($self) {
   map   {$self->read($JMP,$ARG)}
   split $NULLSTR,$self->{main}->{buf};
 
-
   return;
 
 };
@@ -175,12 +210,13 @@ sub parse($self) {
 # ---   *   ---   *   ---
 # cat to current token and set flags
 
-sub default($self) {
+sub cat($self) {
 
-  my $main=$self->{main};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
-  $main->{token} .= $main->{char};
-  $main->set_ntermf();
+  $l1->{token} .= $self->{char};
+  $self->set_ntermf();
 
   return;
 
@@ -191,8 +227,10 @@ sub default($self) {
 
 sub strcat($self) {
 
-  my $main=$self->{main};
-  $main->{token} .= $main->{char};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+
+  $l1->{token} .= $self->{char};
 
   return;
 
@@ -201,19 +239,15 @@ sub strcat($self) {
 # ---   *   ---   *   ---
 # whitespace
 
-sub blank($self) {
-
-  # get ctx
-  my $main=$self->{main};
-
+sub ws($self) {
 
   # save token if last char
-  # *wasn't* also blank
-  $main->commit() if ! $main->blank();
+  # *wasn't* also whitespace
+  my ($ws)=$self->flagchk(ws=>1);
+  $self->commit() if ! $ws;
 
-  # ^remember this one was blank
-  $main->set('blank');
-
+  # ^remember current *is* whitespace
+  $self->flag(ws=>1);
 
   return;
 
@@ -222,32 +256,32 @@ sub blank($self) {
 # ---   *   ---   *   ---
 # begin stringmode
 
-sub string($self,$term=undef) {
+sub str($self,$term=undef) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
   # default EOS to current char
-  my $main   = $self->{main};
-     $term //= $main->{char};
+  $term //= $self->{char};
 
 
-  # save current
-  $main->commit();
+  # push leftovers
+  $self->commit();
 
-
-  # make new, marked as string
-  my $l1=$main->{l1};
-
-  $main->{token}=$l1->make_tag(
-    'STRING',$main->{char}
+  # make a typed token
+  $l1->{token}=$l1->tag(
+    STR => $self->{char}
 
   );
 
 
   # ^set flags and EOS char
-  $main->set('string');
-  $main->set_ntermf();
+  $self->flag(str=>1);
+  $self->set_ntermf();
 
-  $main->{strterm}=$term;
-
+  $self->{strterm}=$term;
 
   return;
 
@@ -257,25 +291,26 @@ sub string($self,$term=undef) {
 # ^same mechanic, but terminator
 # is a newline
 
-sub comment($self) {
-
-  # get ctx
-  my $main = $self->{main};
-  my $beg  = $main->exprbeg();
+sub com($self) {
 
 
-  # enter stringmode
-  $self->string("\n");
-  $self->{main}->set('comment');
+  # are we inside an expression?
+  my ($exp) = $self->flagchk(exp=>1);
 
-  # ^mainain beggining of expression
-  # ^if that stateflag is set
-  if($beg) {
-    $main->set('exprbeg','blank');
-    $main->unset('nterm');
 
-  };
+  # enter string mode and set flags
+  $self->str("\n");
+  $self->flag(com=>1);
 
+  # ^if not, keep it that way!
+  $self->flag(
+
+    exp   => 0,
+
+    ws    => 1,
+    nterm => 0,
+
+  ) if ! $exp;
 
   return;
 
@@ -284,28 +319,29 @@ sub comment($self) {
 # ---   *   ---   *   ---
 # begin new scope
 
-sub delim_beg($self) {
+sub enter($self) {
+
 
   # get ctx
-  my $main=$self->{main};
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+  my $l2   = $main->{l2};
 
   # set flags and save current
-  $main->set_termf();
-  $main->commit();
+  $self->set_termf();
+  $self->commit();
 
 
   # ^make new
-  my $l1=$main->{l1};
-
-  $main->{token}=$l1->make_tag(
-    'OPERA',$main->{char}
+  $l1->{token}=$l1->tag(
+    SCP=>$self->{char}
 
   );
 
 
-  # go up one nesting level
-  $main->commit();
-  $main->nest_up();
+  # open scope!
+  $self->commit();
+  $l2->enter();
 
   return;
 
@@ -314,16 +350,17 @@ sub delim_beg($self) {
 # ---   *   ---   *   ---
 # ^undo
 
-sub delim_end($self) {
+sub leave($self) {
 
   # get ctx
-  my $main=$self->{main};
+  my $main = $self->{main};
+  my $l2   = $main->{l2};
 
   # no token?
-  if(! $main->commit()) {
+  if(! $self->commit()) {
 
     # clear if last expr is empty!
-    my $branch=$main->{branch};
+    my $branch=$l2->{branch};
 
     $branch->discard()
     if $branch &&! @{$branch->{leaves}};
@@ -331,9 +368,9 @@ sub delim_end($self) {
   };
 
 
-  # go down one nesting level and set flags
-  $main->nest_down();
-  $main->set_termf();
+  # close scope!
+  $l2->leave();
+  $self->set_termf();
 
   return;
 
@@ -343,7 +380,16 @@ sub delim_end($self) {
 # expression terminator
 
 sub term($self) {
-  $self->{main}->term();
+
+  # get ctx
+  my $main = $self->{main};
+  my $l2   = $main->{l2};
+
+  # start new expression!
+  $self->commit();
+  $l2->commit();
+  $self->set_termf();
+
   return;
 
 };
@@ -351,29 +397,31 @@ sub term($self) {
 # ---   *   ---   *   ---
 # argument separator
 
-sub operator_single($self) {
+sub opr($self) {
 
-  my $main=$self->{main};
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
   # cat operator to token?
-  return $self->default()
+  return $self->cat()
   if $main->cmd_name_rule();
 
 
   # save current
-  $main->commit();
+  $self->commit();
 
 
   # ^make new from operator
-  my $l1=$main->{l1};
-  $main->{token}=$l1->make_tag(
-    'OPERA',$main->{char}
+  $l1->{token}=$l1->tag(
+    OPR=>$self->{char}
 
   );
 
   # ^save operator as single token
-  $main->commit();
-  $main->set_ntermf();
+  $self->commit();
+  $self->set_ntermf();
 
 
   return;
@@ -383,18 +431,206 @@ sub operator_single($self) {
 # ---   *   ---   *   ---
 # marks next token
 
-sub escape($self) {
+sub esc($self) {
 
-  my $main=$self->{main};
+  my ($esc)=$self->flagchk(esc=>1);
 
-  if(! $main->escaped) {
-    $main->set('escape');
+  if(! $esc) {
+    $self->flag(esc=>1);
 
   } else {
-    $main->unset('escape');
-    $self->default();
+    $self->flag(esc=>0);
+    $self->cat();
 
   };
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# push token to tree
+
+sub commit($self) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+  my $l2   = $main->{l2};
+
+
+  # have token?
+  my $have=0;
+  if(length $l1->{token}) {
+
+
+    # add type data if needed
+    $l1->{token}=$l1->detect(
+      $l1->{token}
+
+    );
+
+
+    # mark as inside expression
+    $self->flag(exp=>1);
+    $l2->subexp($l1->{token});
+
+    # set misc attrs
+    $main->next_line();
+    $have |= 1;
+
+  };
+
+  # give true if token added
+  $l1->{token}=$NULLSTR;
+  $self->flag(esc=>0);
+
+  return $have;
+
+};
+
+# ---   *   ---   *   ---
+# set/unset status flags
+
+sub flag($self,%bits) {
+
+
+  # get ctx
+  my $dst = \$self->{status};
+  my $tab = $self->flags;
+
+
+  # walk input
+  map  {
+
+
+    # set bit?
+    if($bits{$ARG}) {
+      $$dst |= $tab->{$ARG};
+
+    # unset!
+    } else {
+      $$dst &=~ $tab->{$ARG};
+
+    };
+
+  } keys %bits;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^set terminator flags
+
+sub set_termf($self) {
+
+  $self->flag(
+    ws    => 1,
+    nterm => 0,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^set *non* terminator flags
+
+sub set_ntermf($self) {
+
+  $self->flag(
+
+    ws      => 0,
+    exp     => 1,
+
+    nterm   => 1,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# get flag is set or unset
+
+sub flagchk($self,%bits) {
+
+  # get ctx
+  my $src = $self->{status};
+  my $tab = $self->flags;
+
+  # give bool array
+  map {
+
+    my $have=$src & $tab->{$ARG};
+
+    if($bits{$ARG}) {
+      $have == $tab->{$ARG};
+
+    } else {
+      $have == 0;
+
+    };
+
+  } keys %bits;
+
+};
+
+# ---   *   ---   *   ---
+# gives true if we are currently
+# inside a string
+#
+# additionally, handle exit from
+# string if we step on the terminator
+
+sub strmode($self) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l2   = $main->{l2};
+
+
+  # are we inside a string?
+  my ($out)=$self->flagchk(
+    str=>1
+
+  );
+
+  # have we stepped on the string terminator?
+  my $end=$out && (
+     $self->{char}
+  eq $self->{strterm}
+
+  );
+
+
+  # ^terminate string if both are true!
+  if($end) {
+
+    $self->{char}=$NULLSTR;
+    $self->flag(str=>0);
+
+    $self->commit();
+
+
+    # are we inside a comment?
+    my ($com)=$self->flagchk(
+      com=>1
+
+    );
+
+    # ^yep, terminate!
+    if($com) {
+      $self->flag(com=>0);
+      $l2->subexp();
+
+    };
+
+  };
+
+
+  return $out;
 
 };
 
@@ -419,7 +655,7 @@ sub load_JMP($self,$update=0) {
     my $key   = chr($ARG);
     my $value = (exists $charset->{$key})
       ? $charset->{$key}
-      : 'default'
+      : 'cat'
       ;
 
     $value;
