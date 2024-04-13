@@ -32,7 +32,7 @@ package rd::preprocfn;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -208,24 +208,54 @@ sub discard($self,$data,$dst) {
 };
 
 # ---   *   ---   *   ---
-# declares that a given sequence
-# of tokens should mutate to
-# a given call!
+# remove your children!
+
+sub clear($self,$data,$dst) {
+
+  $dst=argproc($self,$data,$dst);
+  $dst->clear();
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# declares that a sequence of
+# tokens should mutate to a call
 
 sub invoke($self,$data,@args) {
 
   shift @args;
   my $fn=pop @args;
 
-  @args=map{argproc($self,$data,$ARG)} @args;
-  $data->{-invoke}={
+  @args=argstirr($self,$data,@args);
+
+  push @{$data->{-invoke}},{
 
     fn   => $fn,
     sig  => [map {qr"^\[.$ARG\]"} @args],
 
     data => $data,
+    name => join '->',@args,
 
   };
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub banish($self,$data,@args) {
+
+  my $name=join '->',argstirr(
+    $self,$data,@args
+
+  );
+
+  my $dst=$self->{invoke};
+  delete $dst->{$name};
 
   return;
 
@@ -269,6 +299,30 @@ sub argproc($self,$data,$arg) {
 
 
   return $arg;
+
+};
+
+# ---   *   ---   *   ---
+# stringifies array of arguments
+
+sub argstirr($self,$data,@args) {
+
+  @args=map{argproc($self,$data,$ARG)} @args;
+
+  map {
+
+    (Tree->is_valid($ARG))
+
+      ? $ARG->to_string(
+          join_char=>'.',
+          keep_root=>1,
+
+        )
+
+      : $ARG
+      ;
+
+  } @args;
 
 };
 

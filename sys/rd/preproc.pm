@@ -37,7 +37,7 @@ package rd::preproc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -52,7 +52,7 @@ St::vconst {
       main    => undef,
       tab     => {},
 
-      invoke  => [],
+      invoke  => {},
 
     };
 
@@ -680,6 +680,7 @@ sub tree_to_sub($self,$data,$status) {
         # expand tokens in a tree
         if(Tree->is_valid($ARG)) {
 
+
           my @Q=(@{$ARG->{leaves}});
           while(@Q) {
 
@@ -724,7 +725,7 @@ sub tree_to_sub($self,$data,$status) {
       # ^write them to instance
       map {
 
-        $idata->{$ARG}=
+        $idata->{$ARG} //=
           $capt->{$ARG};
 
       } keys %$capt;
@@ -769,7 +770,7 @@ sub parse($self,$root) {
 
 
   # execute all and give
-  $self->run_invoke($root);
+  $self->invoke($root);
   return 1;
 
 };
@@ -812,18 +813,15 @@ sub find($self,$root,%O) {
     # validate and run
     my $data=$self->sigchk($O{keyw},$nd);
 
-    $data->{-class}=$O{keyw};
+    $data->{-invoke} //= [];
+    $data->{-class}  //= $O{keyw};
+
     $keyw_fn->($self,$data);
 
-    # get [header,on-parse code]
-    my @out=$data->{name};
 
-    if($data->{-invoke}) {
-      $self->add_invoke($data->{-invoke});
-      push @out,$data->{-invoke};
-
-    };
-
+    # have on-parse code?
+    $self->add_invoke($data->{-invoke})
+    if @{$data->{-invoke}};
 
     # clear branch and give
     $nd->discard();
@@ -1017,25 +1015,37 @@ sub sigvalue($self,$nd) {
 # uppon encountering some
 # sequence of tokens
 
-sub add_invoke($self,$head) {
+sub add_invoke($self,$headar) {
 
 
   # get ctx
   my $main = $self->{main};
-
-  # save state
-  my $old    = $main->{branch};
-  my $status = $self->sort_tree($head->{fn});
+  my $dst  = $self->{invoke};
 
 
-  # write to method table
-  $head->{fn}=
-    $self->tree_to_sub($head,$status);
+  # save state && walk
+  my $old=$main->{branch};
 
-  push @{$self->{invoke}},$head;
+  map {
 
 
-  # restore and give
+    # make F
+    my $head   = $ARG;
+    my $status = $self->sort_tree($head->{fn});
+
+    $head->{fn}=
+      $self->tree_to_sub($head,$status);
+
+
+    # write to method table
+    my $name=$head->{name};
+    $dst->{$name}=$head;
+
+
+  } @$headar;
+
+
+  # ^restore and give
   $main->{branch}=$old;
   return;
 
@@ -1044,66 +1054,134 @@ sub add_invoke($self,$head) {
 # ---   *   ---   *   ---
 # ^executes
 
-sub run_invoke($self,$root,@src) {
+sub invoke($self,$root,@src) {
 
 
   # get ctx
-  my $main = $self->{main};
-     @src  = @{$self->{invoke}} if ! @src;
+  my $main=$self->{main};
+
+  # get F to call if none given!
+  @src=$self->invoke_order($root)
+  if ! @src;
 
 
   # walk cases!
-  map {
+  for my $key(@src) {
 
 
-    # get matches for first token!
-    my $head = $ARG;
+    # unpack
+    my $head = $self->{invoke}->{$key};
     my $sig  = $head->{sig};
 
-    my @have = $root->branches_in($sig->[0]);
+    next if ! exists $head->{fn};
 
 
-    # ^make call for each match
-    map {
+    # have match for first token?
+    my $nd=$root->branch_in($sig->[0]);
+    next if ! $nd;
 
 
-      # find fwd nodes matching signature
-      my $nd=$ARG;
-      my ($valid,@args)=$nd->cross_sequence(
-        @{$sig}[1..@$sig-1]
+    # find fwd nodes matching signature
+    my ($valid,@args)=$nd->cross_sequence(
+      @{$sig}[1..@$sig-1]
 
-      );
-
-
-      # ^validate
-      $main->perr(
-
-        "too few arguments for "
-      . "[ctl]:%s '%s'",
-
-        args=>[
-          $self->genesis,
-          $$head->{data}->{name}
-
-        ],
-
-      ) if @args < @$sig-1;
+    );
 
 
-      # ^call
-      if($valid) {
-        $main->{branch}=$nd;
-        $head->{fn}->($self,$head->{data});
+    # ^validate
+    $main->perr(
+
+      "too few arguments for "
+    . "[ctl]:%s '%s'",
+
+      args=>[
+        $self->genesis,
+        $$head->{data}->{name}
+
+      ],
+
+    ) if @args < @$sig-1;
+
+
+    # ^call
+    if($valid) {
+
+      $nd->pushlv(@args);
+
+      $main->{branch}=$nd;
+      $head->{fn}->($self,$head->{data});
+
+    };
+
+
+  };
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# gets list of calls to make
+# by performing a cannonical walk
+
+sub invoke_order($self,$root) {
+
+
+  # get ctx
+  my $tab  = $self->{invoke};
+  my @have = keys %$tab;
+
+
+  # walk the tree
+  my @Q   = @{$root->{leaves}};
+  my @out = ();
+
+  while(@Q) {
+
+    my $nd   = shift @Q;
+    my $deep = 0;
+
+    # look for matches...
+    for my $key(@have) {
+
+      my $sig=$tab->{$key}->{sig};
+
+      # have a match deeper down?
+      $deep |= defined
+        $nd->branch_in($sig->[0]);
+
+
+      # have a match HERE?!
+      if($nd->{value}=~ $sig->[0]) {
+
+        my ($valid,@args)=$nd->cross_sequence(
+          @{$sig}[1..@$sig-1]
+
+        );
+
+
+        # ^YES
+        if($valid) {
+          push @out,$key;
+          last;
+
+        };
 
       };
 
 
-    } @have;
+    };
 
 
-  } @src;
+    # go next?
+    unshift @Q,@{$nd->{leaves}}
+    if $deep;
 
-  return;
+  };
+
+
+  # give found!
+  return @out;
 
 };
 

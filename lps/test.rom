@@ -1,6 +1,7 @@
 %;
 
 # ---   *   ---   *   ---
+# add new below current
 
 case 'branch.new' {
 
@@ -8,6 +9,7 @@ case 'branch.new' {
     body any;
 
   attr fn;
+
     push    branch,tmp;
 
     insert  lv.tmp,0,self.body;
@@ -18,6 +20,26 @@ case 'branch.new' {
 };
 
 # ---   *   ---   *   ---
+# ^transform current to another!
+
+case 'branch.expand' {
+
+  attr sig;
+    body any;
+
+  attr fn;
+
+    clear   branch;
+    push    branch,tmp;
+
+    insert  lv.tmp,0,self.body;
+    flatten lv.tmp,2;
+    flatten branch;
+
+};
+
+# ---   *   ---   *   ---
+# argless branch expansion
 
 case 'def' at $00 {
 
@@ -26,29 +48,51 @@ case 'def' at $00 {
     body opera '\{';
 
   attr fn;
+
+
+  # register new expansion
   invoke as @,self.name {
-    branch.new self.body;
+    branch.expand self.body;
+
+  };
+
+  # ^remove!
+  invoke as undef,self.name {
+
+    banish  @,self.name;
+    banish  undef,self.name;
+
+    discard branch;
 
   };
 
 };
 
-# ---   *   ---   *   ---
+def stack {sb-2};
+@stack;
 
-case 'proc' anywhere {
+undef stack;
+@stack;
 
-  attr sig;
-    name sym;
-
-  attr fn;
-  branch.new {
-    exe code;
-    blk self.name;
-
-  };
-
-};
-
-public proc start;
-
-# ---   *   ---   *   ---
+## ---   *   ---   *   ---
+## procedure flag-setter
+#
+#case 'proc' anywhere {
+#
+#  attr sig;
+#    name sym;
+#
+#  attr fn;
+#
+#  branch.new {
+#    exe code;
+#    blk self.name;
+#
+#  };
+#
+#};
+#
+#public proc start;
+#  ld ar,[@stack];
+#
+## ---   *   ---   *   ---

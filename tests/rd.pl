@@ -42,10 +42,10 @@ my $main=rd(
 #$main->run();
 $main->prich(
 
-  anima => 1,
+  anima => 0,
   stack => 0,
 
-  mem   => 'outer',
+  mem   => '',
   tree  => 1,
 
 );
