@@ -31,6 +31,7 @@ package rd::l1;
 
   use Arstd::Array;
   use Arstd::String;
+  use Arstd::Re;
   use Arstd::PM;
   use Arstd::IO;
 
@@ -39,7 +40,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.8;#a
+  our $VERSION = v0.01.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -54,25 +55,7 @@ St::vconst {
     return {
 
       main => undef,
-      defs => [
-
-        NUM=>[
-          q[defined (my $is_num=sstoi($key,0))],
-          q[$src=$is_num;],
-
-        ],
-
-        SYM=>[
-          q[nref $src],
-
-        ],
-
-        DEF=>[
-          0,
-
-        ],
-
-      ],
+      defs => [],
 
       table => {
 
@@ -82,10 +65,7 @@ St::vconst {
 
         )} (
 
-          ['`' => 'OPR'],
           ['%' => 'STR'],
-          ['i' => 'NUM'],
-          ['s' => 'SYM'],
 
           ['>' => 'SCP'],
           ['^' => 'EXP'],
@@ -108,6 +88,88 @@ St::vconst {
   },
 
   anyre   => sub {$_[0]->mkre},
+
+};
+
+# ---   *   ---   *   ---
+# build base types
+
+sub build($self) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l0   = $main->{l0};
+
+  # make operator regex
+  my $opr = re_eiths(
+
+    $l0->spchars(),
+
+    opscape => 1,
+    capt    => 0,
+
+  );
+
+
+  # make operator detector
+  $self->extend(OPR=>'`'=>sub {
+
+    my $src   = $_[0];
+    my $valid = $src=~ m[^$opr+$];
+
+    return ($valid,$src,$NULLSTR);
+
+  });
+
+
+  # make number detector
+  $self->extend(NUM=>'i'=>sub {
+
+    my $src   = $_[0];
+       $src   = sstoi $src,0;
+
+    my $valid = defined $src;
+
+    return ($valid,$src,$NULLSTR);
+
+  });
+
+
+  # make symbol detector
+  $self->extend(SYM=>"'"=>sub {
+
+    my $src   = $_[0];
+    my $valid = ! ($src=~ $opr);
+
+    return ($valid,$src,$NULLSTR);
+
+  });
+
+
+  return;
+
+
+};
+
+# ---   *   ---   *   ---
+# adds type definitions to tables
+
+sub extend($self,$key,$char,$fn) {
+
+  # add to typename table
+  my $dst=$self->{table};
+
+  $dst->{$key}  = $char;
+  $dst->{$char} = $key;
+
+  # add to pattern table
+  $dst=$self->{defs};
+  push @$dst,$key=>$fn;
+
+  $self->update_detect();
+
+  return;
 
 };
 
@@ -445,62 +507,49 @@ sub detect($self,$src) {
   # already sorted, move on
   return $src if $src=~ $self->anyre;
 
-  my $key = null;
-  my $fn  = $self->update_defs();
 
-  ($key,$src)=$fn->($self,$src);
+  # pass data through F and give
+  my ($key,$spec,$data)=
+    $self->{detector}->($src);
 
   return ($key ne 'DEF')
-    ? $self->tag($key,$src)
+    ? $self->tag($key,$spec) . $data
     : $src
     ;
 
 };
 
 # ---   *   ---   *   ---
-# ~
+# rebuilds the pattern matcher ;>
 
-sub update_defs($self) {
+sub update_detect($self) {
 
 
   # array as hash
-  my @fk = array_keys   $self->{defs};
-  my @fv = array_values $self->{defs};
+  my @k = array_keys   $self->{defs};
+  my @v = array_values $self->{defs};
 
-  # ^walk
-  my $codestr=join '',map {
+  # ^make walking F
+  $self->{detector}=sub ($src) {
 
-    my $i=$ARG;
-    my $k=$fk[$i];
-    my $v=$fv[$i];
+    for my $i(0..$#k) {
 
-    my $chk  = $v->[0];
-    my $body = '  '. join "\n  ",
-      @{$v}[1..@$v-1];
+      # get type => method
+      my $key=$k[$i];
+      my $chk=$v[$i];
 
-    my $str  = (! $i)
-      ? "if($chk) {"
-      : "elsif($chk) {"
-      ;
+      # ^give if data matches type
+      my ($valid,@have)=
+        $chk->($src);
 
-    $str='else {' if ! $chk;
-    $str="$str \n$body\n  \$key='$k'\n\n} ";
+      return $key,@have if $valid;
 
+    };
 
-  } 0..$#fk;
+    # else give back input!
+    return 'DEF',$src,$NULLSTR;
 
-  my $fn=
-    'sub ($self,$src) {' . "\n"
-  . '  my $key=$src;' . "\n\n"
-
-  . "$codestr\n\n"
-
-  . "return (\$key,\$src)"
-  . "\n\n};"
-  ;
-
-  $fn=eval $fn or die "$!";
-  return $fn;
+  };
 
 };
 

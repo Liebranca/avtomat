@@ -46,7 +46,7 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.4;#a
+  our $VERSION = v0.01.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -197,12 +197,16 @@ sub new($class,$src,%O) {
 
   },$class;
 
-  # nit layers and give ice
+
+  # nit layers
   $self->cstruc_layers(
     map {$ARG=>$self}
     @{$self->layers}
 
   );
+
+  # ^now kick em
+  $self->{l1}->build();
 
 
   # nit command library

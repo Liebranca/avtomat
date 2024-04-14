@@ -110,10 +110,10 @@ St::vconst {
 
     my $charset=$_[0]->charset;
 
-    return grep {
+    return [grep {
       $charset->{$ARG} eq 'opr'
 
-    } keys %$charset;
+    } keys %$charset];
 
   },
 
