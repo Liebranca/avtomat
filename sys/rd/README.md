@@ -23,66 +23,57 @@ Thus, the interpreter phase is handled separately by a derived class (see: `sys/
 
 ## FIRST STAGE
 
-At a high level, we could say that the job of a parser is mapping strings to trees. But the task itself is better understood when broken down into small processing steps, which we call *stages*.
+At a high level, we could say that the job of a parser is mapping strings to trees. But the task itself is better understood when broken down into small processing steps, which we call *stages*, each consisting of smaller data transforms.
 
-The default stages are `parse`, `preproc`, and `reparse`. We'll begin with `parse` and come back to the other two in the next section.
+The default stages are `parse`, `preproc`, and `reparse`. We'll begin with `parse` and come back to the other two in future sections.
 
 
-For the most part, `parse` relies on only two layers: `l0` and `l1`, that deal with characters and tokens, respectively.
+For the most part, `parse` relies on three layers: `l0`, `l1` and `l2`, that deal with characters, tokens and token-trees, respectively. Here's a brief overview of them all:
 
-`l0` will read the string input of `rd` char by char. It's responsibilities are as follows:
+### L0
+
+Maps input characters to methods; it will read the string input of `rd` char by char, and associate that input to a specific state mutation.
+
+If layers require any kind of association between a particular character and another piece of data, said transform should be carried out by `l0`.
+
+It's responsibilities are as follows:
 
 - `csume`: shifting the next input character from the source string.
 
-- `read`: `csume` and branch off based on the input character received.
-
 - `cat`: concatenate the input to the current token.
+
+- `charset`: associate a character to a method. Characters not in this table are associated to `cat`.
+
+- `read`: `csume` and pass the received input character to `charset`, then invoke the returned method.
+
+- `flagset`: activate or deactivate switches that affects how the next input character(s) should be handled.
+
+- `flagchk`: read the value of said switches.
+
+- `store`: push the current state to stack.
+ 
+- `load`: pop from the stack.
 
 - `commit`: save the current token.
 
 - `discard`: throw away the token.
 
-- `flag`: activate or deactivate a switch that affects how the next input character(s) should be handled.
+- `term`: terminate the current expression.
 
 - `enter`: mark the beggining of a nested expression within the current one.
 
 - `leave`: mark the end of such a nested expression.
 
-- `term`: terminate the current expression.
 
+### L1
 
-When `l0` chooses to `commit` a token, `l1` processes it based on it's internal criteria, and then pushes the processed token to the current branch on the parse tree.
+Performs a two-way mapping of raw tokens, ie ones without typing information, to typed tokens; it will receive the output of an `l0::commit` and assign typing data to it, if none is present.
 
-Then, when `l0` chooses to `term` an expression, `main` will move on from this branch and generate a new one. If the nesting level is non-zero, this new branch is parented to the corresponding expression.
+As in the previous case, `token => data` associations are carried out by `l1`. We make but one exception to this rule: `l0` itself can decide on the type of a token before pushing it.
 
-This process repeats until `FATAL` is encountered or the entire source string is succesfully read. Once there are no more input characters, `rd` will terminate the current expression and mark the stage as finished.
+Following from this, `l1` is at full liberty of establishing a `token => method` table. We'll take advantage of this in the later stages.
 
-
-## IN-BETWEEN
-
-Before we discuss `l1` in detail, let us take a moment to talk about an important background concept.
-
-Because at this point, we would hope that all tokens in the tree are classified. But how can we identify all tokens correctly, when we still haven't built any context data beyond the parse tree?
-
-The answer is we cannot: combined, `l0` and `l1` can only recognize simple patterns, such as special characters or the notation for numbers and strings: everything else is just a __symbol__, which in this context, simply means a name that serves as representation for some data.
-
-Each symbol, or sequence of symbols, could be the name of a value, or the name of a function, or an instruction to the parser... or it could also be a preprocessor directive, that's meant to expand to another thing entirely!
-
-But we still don't know, for no such definitions have even been loaded. This scenario, of encountering yet-unsolvable unknowns that we must still work with, is the single, most recurring, most important problem.
-
-Because the question is, very much, the waltzaround that ought to be carried out for dealing with __undefined__ data. But this is not a matter of computer science or mathematics but rather one of human reasoning, which nobody understands and no algorithm can replace -- algorithms themselves are, by their very nature, quantizations of human reasoning, and therefore not a replacement.
-
-What I mean to convey through this tangent is that there is no solution to be found in the present, and so we are left without much better option than making assumptions about a possible future, that if realized, should confirm that we indeed assumed correctly.
-
-At `AR/`, we name this `CVYC`, pronounced "cee-vic", more or less as in "civics": it stands for __clairvoyance__ or __clairvoyant code__. When we say that `rd` is a `cvyc chain`, what we mean to say is that it works, fundamentally, as a series of processes that output predictions about the nature of undefined data into one another.
-
-This, in practice, is mercifully not quite as convoluted as the theory might lead you to believe. Because we know beforehand -- and for a fact -- that *if* the code is syntactically correct, and *if* every step in the chain is succesful in performing it's share of the data processing, that the unknown will eventually be solved... *if* such a solution exists!
-
-We'll come back to `CVYC` soon enough; for now, this is sufficient to understand the next section.
-
-## TOKEN TYPES && SEQUENCES
-
-We can break down the responsibilities of `l1` as follows:
+As for responsibilities:
 
 - `tag`: add typing data to an untyped token.
 
@@ -90,35 +81,26 @@ We can break down the responsibilities of `l1` as follows:
 
 - `typechk`: check that a token matches a specific type.
 
-- `switch`: walk a `type => F` array and return `call F` if `chktag type`.
+- `switch`: walk a `type => F` array and return `call F` if `typechk type`.
 
 - `cat`: join two tokens of the same type.
 
-
-But just *what* are these "types"? In short, additional characters added to a token which denote a loose classification, one that we can later use to recognize the exact semantics of a token in a given context.
-
-But whereas `l0` has virtually no undefinedness to deal with due to it merely reading characters from an input string with no hard unknowns, `l1` cannot be so straight forward due to the indefinite meanings that are possible for different kinds of symbols or combinations thereof, as we briefly discussed in the previous section.
-
-So during the first stage, there is not much classification we can do! For now, we'll content ourselves with correctly identifying four base types:
-
-- `OPR`: special characters.
-
-- `STR`: raw, variable length bytearray.
-
-- `NUM`: any token that matches some specific numerical notation.
-
-- `SYM`: none of the above.
+- `detect`: associate the value of a raw token with a type and `tag` said token. If a typed token is passed, return it as-is.
 
 
-In addition to these, `l1` accepts requests for the generation of three "group" types:
+### L2
 
-- `EXP`: a full expression within a scope; the beggining of any expression between `enter` and `leave` is represented as an `EXP` token.
+Analyses sequences of tokens, ie expressions, that are represented as trees, then decides on transforms to the tree structure based on this analysis.
 
-- `SCP`: a scope generated by `enter`, to which `EXP` tokens are parented to.
+For the better part, `l2` works by reading the type data of tokens into an array, then comparing that to a list of *signatures* that denote the valid combinations of tokens that make up a certain kind of expression.
 
-- `LIST`: tokens of any type separated by the `LIST` operator (`,` comma by default).
+Similarly to the previous layers, `signature => data` associations are carried out by `l2`, and `data` in this case *also* includes invocation of methods; we'll see more of this once we get to `preproc`.
+
+The `l2` responsibilities are:
+
+- `cat`: push a token to the current expression.
+
+- `term`, `enter` and `leave`: same as `l0`.
 
 
-However, note that we are not *permanently* limited to these basic types: more can be added as we progress to later stages and build context data.
-
-(TO BE CONTINUED... )
+(...)

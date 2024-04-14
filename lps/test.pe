@@ -1,8 +1,17 @@
 %;
 
-case 'mmm' {
+case 'parser-test' (
+  sym opr
 
-  attr sig;
-  attr fn;
+) {
+
+
+  invoke as macro.smt {
+    push    parent,'>';
+    discard branch;
+
+  };
 
 };
+
+exit;

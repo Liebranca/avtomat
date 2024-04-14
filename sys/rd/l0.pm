@@ -48,8 +48,10 @@ St::vconst {
 
       main    => undef,
 
-      status  => $flags->{exp},
+      status  => 0x00,
       strterm => undef,
+
+      stack   => [],
 
     };
 
@@ -99,6 +101,19 @@ St::vconst {
 
     (map {$ARG=>'enter'} qw~( [ {~),
     (map {$ARG=>'leave'} qw~) ] }~),
+
+  },
+
+
+  # get special char array!
+  spchars => sub {
+
+    my $charset=$_[0]->charset;
+
+    return grep {
+      $charset->{$ARG} eq 'opr'
+
+    } keys %$charset;
 
   },
 
@@ -247,7 +262,7 @@ sub ws($self) {
   $self->commit() if ! $ws;
 
   # ^remember current *is* whitespace
-  $self->flag(ws=>1);
+  $self->flagset(ws=>1);
 
   return;
 
@@ -278,7 +293,7 @@ sub str($self,$term=undef) {
 
 
   # ^set flags and EOS char
-  $self->flag(str=>1);
+  $self->flagset(str=>1);
   $self->set_ntermf();
 
   $self->{strterm}=$term;
@@ -300,10 +315,10 @@ sub com($self) {
 
   # enter string mode and set flags
   $self->str("\n");
-  $self->flag(com=>1);
+  $self->flagset(com=>1);
 
   # ^if not, keep it that way!
-  $self->flag(
+  $self->flagset(
 
     exp   => 0,
 
@@ -341,7 +356,7 @@ sub enter($self) {
 
   # open scope!
   $self->commit();
-  $l2->enter();
+  $l2->enter($l2->{branch}->{leaves}->[-1]);
 
   return;
 
@@ -387,7 +402,8 @@ sub term($self) {
 
   # start new expression!
   $self->commit();
-  $l2->commit();
+  $l2->term();
+
   $self->set_termf();
 
   return;
@@ -403,10 +419,6 @@ sub opr($self) {
   # get ctx
   my $main = $self->{main};
   my $l1   = $main->{l1};
-
-  # cat operator to token?
-  return $self->cat()
-  if $main->cmd_name_rule();
 
 
   # save current
@@ -436,10 +448,10 @@ sub esc($self) {
   my ($esc)=$self->flagchk(esc=>1);
 
   if(! $esc) {
-    $self->flag(esc=>1);
+    $self->flagset(esc=>1);
 
   } else {
-    $self->flag(esc=>0);
+    $self->flagset(esc=>0);
     $self->cat();
 
   };
@@ -472,9 +484,12 @@ sub commit($self) {
     );
 
 
-    # mark as inside expression
-    $self->flag(exp=>1);
-    $l2->subexp($l1->{token});
+    # add new node
+    my ($exp) = $self->flagchk(exp=>1);
+    my $nd    = $l2->cat($l1->{token});
+
+    $self->flagset(exp=>1);
+
 
     # set misc attrs
     $main->next_line();
@@ -484,16 +499,37 @@ sub commit($self) {
 
   # give true if token added
   $l1->{token}=$NULLSTR;
-  $self->flag(esc=>0);
+  $self->flagset(esc=>0);
 
   return $have;
 
 };
 
 # ---   *   ---   *   ---
+# throw away the token
+#
+# we don't really use this from
+# charset, so it's redundant!
+#
+# BUT: it's in the docs, so I've
+# implemented it ;>
+
+sub discard($self) {
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+
+  $l1->{token}=$NULLSTR;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # set/unset status flags
 
-sub flag($self,%bits) {
+sub flagset($self,%bits) {
 
 
   # get ctx
@@ -526,9 +562,10 @@ sub flag($self,%bits) {
 
 sub set_termf($self) {
 
-  $self->flag(
+  $self->flagset(
     ws    => 1,
     nterm => 0,
+    exp   => 0,
 
   );
 
@@ -539,7 +576,7 @@ sub set_termf($self) {
 
 sub set_ntermf($self) {
 
-  $self->flag(
+  $self->flagset(
 
     ws      => 0,
     exp     => 1,
@@ -577,6 +614,30 @@ sub flagchk($self,%bits) {
 };
 
 # ---   *   ---   *   ---
+# save current status
+
+sub store($self) {
+
+  my $stack=$self->{stack};
+  push @$stack,$self->{status};
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^restore
+
+sub load($self) {
+
+  my $stack=$self->{stack};
+  $self->{status}=pop @$stack;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # gives true if we are currently
 # inside a string
 #
@@ -609,7 +670,7 @@ sub strmode($self) {
   if($end) {
 
     $self->{char}=$NULLSTR;
-    $self->flag(str=>0);
+    $self->flagset(str=>0);
 
     $self->commit();
 
@@ -622,8 +683,8 @@ sub strmode($self) {
 
     # ^yep, terminate!
     if($com) {
-      $self->flag(com=>0);
-      $l2->subexp();
+      $self->flagset(com=>0);
+      $l2->cat();
 
     };
 

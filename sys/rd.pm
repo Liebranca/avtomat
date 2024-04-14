@@ -279,22 +279,32 @@ sub parse($self) {
 
   # get ctx
   my $l0=$self->{l0};
+  my $l1=$self->{l1};
+  my $l2=$self->{l2};
+
+
+  # make scope
+  $l2->enter();
 
   # mutate and build initial tree
   $self->parse_subclass();
   $l0->parse();
 
   # ^final expr pending?
-  $l0->flag(ws=>0);
+  $l0->flagset(ws=>0);
   $l0->term();
+
+  # terminate scope
+  $l2->leave();
+  $l2->sweep();
 
 
   # go next and give
   $self->next_pass();
   $self->next_stage();
 
-  $self->{tree}->prich();
-  exit;
+$self->{tree}->prich();
+exit;
 
   return;
 
@@ -313,15 +323,17 @@ sub parse_subclass($self) {
   # get ctx
   my $l0=$self->{l0};
   my $l1=$self->{l1};
+  my $l2=$self->{l2};
 
   # parse first expression
   $l0->parse_single();
 
   # ^decompose
-  my $pkg  = $self->{tree}->{leaves}->[-1];
+  my $pkg  = $self->{tree}->{leaves}->[0];
   my @args = @{$pkg->{leaves}};
-  my $have = $pkg->{value};
+     $pkg  = shift @args;
 
+  my $have = $pkg->{value};
 
 
   # is first token operator?
@@ -382,8 +394,13 @@ sub parse_subclass($self) {
 
 
   # pop expression from tree
-  $self->{tree}->{leaves}->[-1]->discard();
-  $l1->{token}=undef;
+  $self->{tree}->{leaves}->[0]->discard();
+  $self->{tree}->{leaves}->[0]->discard();
+
+  $l2->{branch} = undef;
+  $l1->{token}  = $NULLSTR;
+
+  $l2->term();
 
   return;
 
@@ -540,24 +557,6 @@ sub walk($self,%O) {
   # go next and give OK
   $self->next_stage();
   return 1;
-
-};
-
-# ---   *   ---   *   ---
-# defines whether an operator
-# is a valid char for a name
-
-sub cmd_name_rule($self) {
-
-  my $l0=$self->{l0};
-
-  return ! defined $self->{branch}
-
-  &&  @{$self->{tree}->{leaves}}
-  &&! @{$self->{nest}}
-  &&  $l0->flagchk(ws=>0)
-
-  ;
 
 };
 

@@ -29,6 +29,7 @@ package rd::l1;
   use Type;
   use Bpack;
 
+  use Arstd::Array;
   use Arstd::String;
   use Arstd::PM;
   use Arstd::IO;
@@ -38,13 +39,67 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.7;#a
+  our $VERSION = v0.01.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
 St::vconst {
+
+
+  # cstruc values
+  DEFAULT => sub {
+
+    return {
+
+      main => undef,
+      defs => [
+
+        NUM=>[
+          q[defined (my $is_num=sstoi($key,0))],
+          q[$src=$is_num;],
+
+        ],
+
+        SYM=>[
+          q[nref $src],
+
+        ],
+
+        DEF=>[
+          0,
+
+        ],
+
+      ],
+
+      table => {
+
+        map {(
+          $ARG->[0]=>$ARG->[1],
+          $ARG->[1]=>$ARG->[0],
+
+        )} (
+
+          ['`' => 'OPR'],
+          ['%' => 'STR'],
+          ['i' => 'NUM'],
+          ['s' => 'SYM'],
+
+          ['>' => 'SCP'],
+          ['^' => 'EXP'],
+          ['l' => 'LIST'],
+
+        )
+
+      },
+
+
+    };
+
+  },
+
 
   restruc => {
     open  => '\[',
@@ -53,34 +108,6 @@ St::vconst {
   },
 
   anyre   => sub {$_[0]->mkre},
-  table   => {
-
-    map {(
-      $ARG->[0]=>$ARG->[1],
-      $ARG->[1]=>$ARG->[0],
-
-    )} (
-
-      ['*' => 'CMD'],
-      ['`' => 'OPR'],
-      ['%' => 'STR'],
-
-      ['T' => 'TYPE'],
-      ['F' => 'EXE'],
-
-      ['r' => 'REG'],
-      ['s' => 'SYM'],
-      ['i' => 'NUM'],
-      ['m' => 'MEM'],
-
-      ['>' => 'SCP'],
-      ['^' => 'EXP'],
-
-      ['l' => 'LIST'],
-
-    )
-
-  },
 
 };
 
@@ -143,7 +170,7 @@ sub re($self,$type,$spec) {
 
   # remember previously generated
   state $tab={
-    BARE => qr{^[^$self->restruc->{open}].*}x,
+    BARE => qr{^[^$self->restruc()->{open}].*}x,
     ANY  => $ANY_MATCH,
 
   };
@@ -159,7 +186,7 @@ sub re($self,$type,$spec) {
 
 
   # type-check
-  my $tag_t=$self->table->{$type};
+  my $tag_t=$self->{table}->{$type};
 
   $self->throw_invalid_type($type)
   if ! defined $tag_t;
@@ -185,7 +212,7 @@ sub tag($self,$type,$src=undef) {
 
 
   # get/validate sigil
-  my $tag_t=$self->table->{$type};
+  my $tag_t=$self->{table}->{$type};
 
   $self->throw_invalid_type($type)
   if ! defined $tag_t;
@@ -282,7 +309,7 @@ sub cat($self,@ar) {
 
 
   # get non-internal type
-  $otype=$self->table->{$otype};
+  $otype=$self->{table}->{$otype};
 
   # make new and give
   return $self->tag($otype,$ospec) . $odata;
@@ -299,7 +326,7 @@ sub xlate($self,$src=undef) {
 
   my $type=$have->{type};
 
-  $have->{type}=$self->table->{$type};
+  $have->{type}=$self->{table}->{$type};
   return $have;
 
 };
@@ -311,7 +338,7 @@ sub typechk($self,$expect,$src=undef) {
 
 
   # have typed token?
-  my $tab  = $self->table;
+  my $tab  = $self->{table};
   my $have = $self->untag($src);
 
   return 0 if ! $have;
@@ -354,6 +381,7 @@ sub switch($self,$src,%ev) {
   } keys %ev if $have;
 
 
+  # give default on no match!
   return ($def && $have)
     ? $def->($self,$have)
     : ()
@@ -378,37 +406,6 @@ sub stirr($self,$src=undef) {
 };
 
 # ---   *   ---   *   ---
-
-sub read_tag_v($self,$which,$src=undef) {
-
-  my ($type,$spec)=$self->untag($src);
-
-  return ($type && $self->table->{$type} eq $which)
-    ? $spec
-    : undef
-    ;
-
-};
-
-# ---   *   ---   *   ---
-# ^icef*ck
-
-subwraps '$self->read_tag_v'=>q(
-  $self,$src=undef
-
-),
-
-map {["is_$ARG" => q['].(uc $ARG).q[',$src]]}
-qw  (
-
-  opera   list  string  cmd
-  branch  num   type    sym
-
-  reg     exe
-
-);
-
-# ---   *   ---   *   ---
 # comments are just a special
 # kind of string ;>
 
@@ -420,18 +417,19 @@ sub is_comment($self,$src=undef) {
   my $charset = $l0->charset();
 
   # have string?
-  my $data = $self->read_tag_v('STRING',$src);
+  my $have=$self->typechk(STR=>$src);
+  return if ! $have;
+
 
   # ^if so, check that the string is marked
   # as a comment!
+  my $spec=$have->{spec};
+
   return (
+     exists $charset->{$spec}
+  && $charset->{$spec} eq 'com'
 
-     defined $data
-  && exists  $charset->{$data}
-
-  && $charset->{$data} eq 'comment'
-
-  ) ? $data : undef ;
+  ) ? $have : () ;
 
 };
 
@@ -443,29 +441,70 @@ sub is_comment($self,$src=undef) {
 
 sub detect($self,$src) {
 
+
+  # already sorted, move on
   return $src if $src=~ $self->anyre;
 
-  my $key=$src;
+  my $key = null;
+  my $fn  = $self->update_defs();
 
-  # is number?
-  if(defined (my $is_num=sstoi($key,0))) {
-    $src=$is_num;
-    $key='NUM';
+  ($key,$src)=$fn->($self,$src);
 
-  # is symbol name?
-  } elsif(nref $src) {
-    $key='SYM';
-
-  # none of the above, give as-is
-  } else {
-    return $src;
-
-  };
-
-
-  return $self->tag($key,$src);
+  return ($key ne 'DEF')
+    ? $self->tag($key,$src)
+    : $src
+    ;
 
 };
+
+# ---   *   ---   *   ---
+# ~
+
+sub update_defs($self) {
+
+
+  # array as hash
+  my @fk = array_keys   $self->{defs};
+  my @fv = array_values $self->{defs};
+
+  # ^walk
+  my $codestr=join '',map {
+
+    my $i=$ARG;
+    my $k=$fk[$i];
+    my $v=$fv[$i];
+
+    my $chk  = $v->[0];
+    my $body = '  '. join "\n  ",
+      @{$v}[1..@$v-1];
+
+    my $str  = (! $i)
+      ? "if($chk) {"
+      : "elsif($chk) {"
+      ;
+
+    $str='else {' if ! $chk;
+    $str="$str \n$body\n  \$key='$k'\n\n} ";
+
+
+  } 0..$#fk;
+
+  my $fn=
+    'sub ($self,$src) {' . "\n"
+  . '  my $key=$src;' . "\n\n"
+
+  . "$codestr\n\n"
+
+  . "return (\$key,\$src)"
+  . "\n\n};"
+  ;
+
+  $fn=eval $fn or die "$!";
+  return $fn;
+
+};
+
+# ---   *   ---   *   ---
 
 sub parse($self,$src,%O) {
 
@@ -566,7 +605,7 @@ sub quantize($self,$src=undef) {
 
 
   return $src if ! $type;
-  $type=$self->table->{$type};
+  $type=$self->{table}->{$type};
 
 
   # have plain value?

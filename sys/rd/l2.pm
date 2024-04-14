@@ -73,10 +73,9 @@ St::vconst {
   Readonly my $OPERA_PRIO  => "&|^*/-+<>~?!=";
 
 # ---   *   ---   *   ---
-# clear current if not nesting
-# else begin new sub-expression
+# end current and begin new
 
-sub commit($self) {
+sub term($self) {
 
 
   # get ctx
@@ -85,35 +84,29 @@ sub commit($self) {
   my $l1   = $main->{l1};
 
 
-  # leaving branch undefined will trigger
-  # it's making on next token commited
-  if(! @{$self->{nest}}) {
-    $self->{branch}=undef;
+  # get deepest scope
+  my $anchor   = $self->{nest}->[-1];
+     $anchor //= $main->{tree};
 
+  # ^get child count
+  my $idex   = int @{$anchor->{leaves}};
+     $idex   = $l1->tag(EXP=>$idex);
 
-  # ^nesting, cat to deepest
-  } else {
-
-    my $anchor = $self->{nest}->[-1];
-
-    my $idex   = int @{$anchor->{leaves}};
-       $idex   = $l1->tag(EXP=>$idex);
-
-    $self->subexp($idex,$anchor);
-
-  };
+  # make new branch
+  $self->{branch}=
+    $self->cat($idex,$anchor);
 
 
   # mark beggining of expression
-  $l0->flag(exp=>0);
+  $l0->flagset(exp=>0);
   return $self->{branch};
 
 };
 
 # ---   *   ---   *   ---
-# make new sub-expression
+# push token to expression
 
-sub subexp($self,$value,$anchor=undef) {
+sub cat($self,$value,$anchor=undef) {
 
 
   # get ctx
@@ -122,12 +115,10 @@ sub subexp($self,$value,$anchor=undef) {
 
   # defaults
   $anchor //= $self->{branch};
-  $anchor //= $main->{tree};
+  $anchor //= $self->{nest}->[-1];
 
-
-  # make new branch and set current
-  my $dst=$self->{branch}=
-    $anchor->inew($value);
+  # make new branch
+  my $dst=$anchor->inew($value);
 
   # set misc branch attrs
   ( $dst->{lineno},
@@ -139,6 +130,7 @@ sub subexp($self,$value,$anchor=undef) {
 
   );
 
+
   return $dst;
 
 };
@@ -146,12 +138,20 @@ sub subexp($self,$value,$anchor=undef) {
 # ---   *   ---   *   ---
 # open scope
 
-sub enter($self) {
+sub enter($self,$src=undef) {
 
-  my $dst=$self->{nest};
+  # get ctx
+  my $main  = $self->{main};
+  my $dst   = $self->{nest};
 
-  push   @$dst,$self->{branch};
-  return $self->commit();
+  # default
+  $src //= $self->{branch};
+  $src //= $main->{tree};
+
+
+  # make new anchor
+  push @$dst,$src;
+  return $self->term();
 
 };
 
@@ -161,9 +161,46 @@ sub enter($self) {
 sub leave($self) {
 
   my $dst=$self->{nest};
-  $self->{branch}=pop @$dst;
+  pop @$dst;
+
+  $self->{branch}=($dst->[-1])
+    ? $dst->[-1]->{leaves}->[-1]
+    : undef
+    ;
 
   return $self->{branch};
+
+};
+
+# ---   *   ---   *   ---
+# clears empty expressions
+
+sub sweep($self) {
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+
+
+  # find all expressions
+  my $re=$l1->re(EXP=>'.*');
+  my @lv=$main->{tree}->branches_in($re);
+
+  # ^clear expressions without tokens!
+  map  {$ARG->discard()}
+  grep {! @{$ARG->{leaves}}} @lv;
+
+
+  # reset own branch (in case we deleted it ;>)
+  $self->{branch}=undef
+
+  if ! $self->{branch}->{parent}
+
+  &&   $self->{branch}
+  ne   $main->{tree}
+  ;
+
+  return;
 
 };
 
