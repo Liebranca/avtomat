@@ -1,9 +1,6 @@
 %;
 
-case 'parser-test' (
-  sym opr
-
-) {
+case 'parse_test' {
 
   attr sig;
 
@@ -13,12 +10,8 @@ case 'parser-test' (
     num pos;
 
   attr fn;
-  invoke as macro.smt {
-    push    parent,'>';
-    discard branch;
-
-  };
+    push root,'hello';
 
 };
 
-exit;
+parse_test this at $00;

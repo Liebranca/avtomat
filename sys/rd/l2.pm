@@ -329,10 +329,6 @@ sub node_fwd_parse($self,$branch) {
 };
 
 sub node_rev_parse($self,$branch) {
-
-  # sort sub-branches
-  $self->nested();
-
   return;
 
 };
@@ -558,7 +554,7 @@ sub cslist($self) {
   my $l1   = $main->{l1};
 
   # build/fetch regex sequence
-  my $re  = $l1->tagre(OPERA=>',');
+  my $re  = $l1->re(OPR=>',');
   my @seq = ($ANY_MATCH,$re,$ANY_MATCH);
 
 
@@ -581,7 +577,7 @@ sub cslist($self) {
 
       # make new list
       ? $branch->insert(
-          $idex,$l1->make_tag('LIST'=>$cnt++)
+          $idex,$l1->tag(LIST=>$cnt++)
 
         )
 
@@ -618,8 +614,8 @@ sub dopera($self) {
   my $l1   = $main->{l1};
 
   # build/fetch regex sequence
-  my $re=$l1->tagre(
-    OPERA => '['."\Q$OPERA_PRIO".']'
+  my $re=$l1->re(
+    OPR => '['."\Q$OPERA_PRIO".']'
 
   );
 
@@ -686,8 +682,8 @@ sub opera($self) {
   my $l1   = $main->{l1};
 
   # build/fetch regex
-  my $re=$l1->tagre(
-    OPERA => '['."\Q$OPERA_PRIO".']+'
+  my $re=$l1->re(
+    OPR => '['."\Q$OPERA_PRIO".']+'
 
   );
 
@@ -699,10 +695,10 @@ sub opera($self) {
   my @ops    = map {
 
     # get characters/priority for this operator
-    my $char = $l1->read_tag_v(
-        OPERA=>$ARG->{value}
+    my $char = $l1->typechk(
+        OPR=>$ARG->{value}
 
-    );
+    )->{spec};
 
     my $idex = array_iof(
       $prio,(substr $char,-1,1)
@@ -815,49 +811,6 @@ sub throw_no_operands($self,$char) {
 };
 
 # ---   *   ---   *   ---
-# sorts nested branches
-
-sub nested($self) {
-
-  # get ctx
-  my $main = $self->{main};
-  my $l1   = $main->{l1};
-
-  # build/fetch regex
-  my $re=$l1->tagre(BRANCH=>'.+');
-
-
-  my $branch = $main->{branch};
-  my @left   = ();
-
-
-  # split at [any] , [any]
-  _seq_temple(sub ($idex) {
-
-    my $par    = $branch->{leaves}->[$idex];
-    my $anchor = $par->{leaves}->[0];
-
-    my @have   = $par->all_from($anchor);
-
-    $anchor->pushlv(@have);
-
-
-    push @left,[$idex=>$branch->pluck($par)];
-
-
-  },$branch,$re);
-
-
-  map {
-    my ($idex,$sbranch)=@$ARG;
-    $branch->insertlv($idex,$sbranch);
-
-  } reverse @left;
-
-
-};
-
-# ---   *   ---   *   ---
 # solve command tags
 
 sub cmd($self) {
@@ -871,7 +824,7 @@ sub cmd($self) {
   my $tab = $lx->load_CMD();
 
   # build/fetch regex
-  my $re=$l1->tagre(CMD=>'.+');
+  my $re=$l1->re(CMD=>'.+');
 
   # have command?
   if($key=~ $re) {

@@ -77,12 +77,12 @@ sub ready_or_build($self) {
 
 
   # begin the kick...
-  $tab=$self->{tab}=$self->sigtab_t->new(
-    main=>$main
-
-  );
-
   cload $self->fn_t;
+  cload $self->sigtab_t;
+  cload $self->sigtab_t->sig_t;
+
+  $tab=$self->{tab}=
+    $self->sigtab_t->new($main);
 
 
   # define token patterns to match
@@ -104,7 +104,6 @@ sub ready_or_build($self) {
   $tab->function(\&defproc);
   $tab->build();
 
-
   return;
 
 };
@@ -115,10 +114,6 @@ sub ready_or_build($self) {
 
 sub deref($self,$nd) {
 
-
-  # use as is?
-  return $nd
-  if ! Tree->is_valid($nd);
 
   # input is hashref?
   if(is_hashref $nd) {
@@ -138,15 +133,17 @@ sub deref($self,$nd) {
   my $main = $self->{main};
   my $l1   = $main->{l1};
 
-  my $key  = $nd->{value};
+  my $key  = (Tree->is_valid($nd))
+    ? $nd->{value}
+    : $nd
+    ;
 
 
   # have annotated value?
   my $have=$l1->xlate($key);
-  return $nd if ! $head;
+  return $nd if ! $have;
 
   my $type=$have->{type};
-
 
   # have string?
   if($type eq 'STR') {
@@ -172,7 +169,7 @@ sub deref($self,$nd) {
   } else {
 
     $self->{main}->perr(
-      "unreconized: '%s' at preproc::deref"
+      "unreconized: '%s' at preproc::deref",
       args=>[$type],
 
     );
@@ -234,14 +231,14 @@ sub sort_expr($self,$status,@lv) {
   # get first token
   my $head = $lv[0];
   my $key  = $head->{value};
-  my $have = undef;
+  my $have = $l1->xlate($key);
 
 
   # declaring attribute?
-  if(defined ($have=$l1->is_sym($key))
-  && $have eq 'attr') {
+  if(defined $have && $have->{spec} eq 'attr') {
 
-    my $name=$l1->is_sym($lv[1]->{value});
+    my $name=$l1->xlate($lv[1]->{value});
+       $name=$name->{spec};
 
     $status->{-attr}   = $name;
     $status->{$name} //= [];
@@ -400,7 +397,7 @@ sub tree_to_sig($self,$data,$status) {
     $tab->pattern(map {
 
       # get token-matching pattern
-      my $value=$l1->re(
+      my $re=$l1->re(
         uc $ARG->{type} => $ARG->{spec}
 
       );
@@ -441,17 +438,14 @@ sub tree_to_sub($self,$data,$status) {
 
 
   # make F container
-  my $fstate=$self->fn_t->new(
+  my $fstate=$self->fn_t->new($main);
 
-    main => $main,
-    par  => $self,
-    meta => $data,
-
-  );
+  $fstate->{par}  = $self;
+  $fstate->{meta} = $data;
 
 
   # ^proc and generate perl sub
-  my @program=$method->fnread($fn);
+  my @program=$fstate->fnread($fn);
   $fn=sub ($ice,$idata,@slurp) {
 
 
@@ -479,6 +473,7 @@ sub tree_to_sub($self,$data,$status) {
 
   };
 
+  $self->{tab}->function($fn);
   return $fn;
 
 };
@@ -524,8 +519,9 @@ sub find($self,$root,%O) {
   my $tab      = $self->{tab};
 
   # get patterns
-  my $keyw_re  = $l1->re(SYM=>$O{keyw});
-  my $keyw_fn  = $tab->{$O{keyw}}->{fn};
+  my $meta     = $tab->fetch($O{keyw});
+  my $keyw_re  = $meta->{re};
+  my $keyw_fn  = $meta->{fn};
 
   return if ! $keyw_fn;
 
@@ -538,11 +534,9 @@ sub find($self,$root,%O) {
   # ^walk
   map {
 
-
     # make node current
     my $nd=$ARG;
     $main->{branch}=$nd;
-
 
     # match and validate
     my $data=$tab->match($O{keyw},$nd);
@@ -570,7 +564,7 @@ sub find($self,$root,%O) {
     if @{$data->{-invoke}};
 
     # clear branch and give
-    $nd->discard();
+    $nd->{parent}->discard();
     $data->{name};
 
 

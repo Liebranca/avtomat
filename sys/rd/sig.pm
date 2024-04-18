@@ -135,11 +135,11 @@ sub attrs_to_hash($self,$key,$dst) {
 sub hash_to_attrs($self,$key,$src) {
 
   map {
-    $sig->{$key}->{$ARG}=$src->{$ARG}
+    $self->{$key}->{$ARG}=$src->{$ARG}
 
   } grep {
-    ! exists $sig->{defv}->{$ARG}
-  &&! exists $sig->{capt}->{$ARG}
+    ! exists $self->{defv}->{$ARG}
+  &&! exists $self->{capt}->{$ARG}
 
   } keys %$src;
 
@@ -163,7 +163,7 @@ sub match($self,$x) {
     ($valid,@lv)=
       $x->cross_sequence(@{$self->{seq}});
 
-    $x->pushlv(@lv) if $valid
+    $x->pushlv(@lv) if $valid;
     $ar=$x->{leaves};
 
 

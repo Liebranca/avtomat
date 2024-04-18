@@ -75,7 +75,7 @@ sub fnread($self,$fn) {
       my ($ins,@args)=
         $self->fnread_field($ARG);
 
-      my $ref=$self->fetch($main,$ins);
+      my $ref=$self->fetch($ins);
       [$ref,@args];
 
     } @tree;
@@ -160,7 +160,6 @@ sub fetch($self,$name) {
 
   ) if ! defined $have;
 
-
   # give coderef
   $have=\&$have if ! is_coderef $have;
   return $have;
@@ -215,7 +214,6 @@ sub insert($self,$dst,@src) {
 sub _push($self,$dst,@src) {
 
   ($dst,@src)=$self->deref($dst,@src);
-
 
   map {
     (Tree->is_valid($ARG))
@@ -316,7 +314,7 @@ sub invoke($self,@args) {
     fn   => $fn,
     sig  => [map {qr"^\[.$ARG\]"} @args],
 
-    data => $data,
+    data => $self->{data},
     name => join '->',@args,
 
   };
@@ -440,7 +438,7 @@ sub deep_deref($self,@args) {
         my $nd   = shift @Q;
 
         my $key  = $par->deref($nd);
-        my $have = $fstate->deref($key);
+        my $have = $self->deref($key);
 
 
         # ^replace node with result
@@ -462,7 +460,7 @@ sub deep_deref($self,@args) {
 
     # plain value, so straight map
     } else {
-      $self->deref($key);
+      $self->deref($ARG);
 
     };
 
@@ -484,7 +482,7 @@ sub argparse($self,@slurp) {
 
 
   # argument array to value array ;>
-  @slurp=$fstate->deep_deref(@slurp);
+  @slurp=$self->deep_deref(@slurp);
 
   # use signature to identify passed args
   my $tab  = $par->{tab};

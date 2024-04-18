@@ -307,9 +307,6 @@ sub parse($self) {
   $self->next_pass();
   $self->next_stage();
 
-$self->{tree}->prich();
-exit;
-
   return;
 
 };
@@ -452,6 +449,19 @@ sub reparse($self) {
   # get ctx
   my $l1=$self->{l1};
   my $l2=$self->{l2};
+  my $lx=$self->{lx};
+  my $mc=$self->{mc};
+
+  $l1->extend(CMD=>'*'=>sub {
+
+    # get ctx
+    my $src = lc $_[0];
+    my $tab = $lx->load_CMD();
+
+    my $valid=$src=~ $tab->{-re};
+    return ($valid,$src,$NULLSTR);
+
+  });
 
 
   # re-evaluate symbols
@@ -461,8 +471,13 @@ sub reparse($self) {
     my $nd  = shift @Q;
     my $key = $nd->{value};
 
-    my ($type,$spec)=
-      $l1->xlate_tag($key);
+    my $have=$l1->xlate($key);
+
+    my ($type,$spec)=($have)
+
+      ? ($have->{type},$have->{spec})
+      : ($NULLSTR,$NULLSTR)
+      ;
 
     if($type && $type eq 'SYM') {
       $key=$spec;
@@ -470,7 +485,7 @@ sub reparse($self) {
     };
 
 
-    $nd->{value}=$l1->parse($key);
+    $nd->{value}=$l1->detect($key);
 
     unshift @Q,@{$nd->{leaves}};
 
@@ -784,7 +799,10 @@ sub throw_undefined($self,$type,$name,@path) {
   if ! @path;
 
   $self->perr(
-    "undefined %s '%s' at namespace [errtag]:%s",
+
+    "undefined [ctl]:%s '%s' "
+  . "at namespace [errtag]:%s",
+
     args=>[$type,$name,(join '::',@path)]
 
   );

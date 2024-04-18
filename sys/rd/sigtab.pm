@@ -55,18 +55,49 @@ St::vconst {
 };
 
 # ---   *   ---   *   ---
+# get element
+
+sub fetch($self,$keyw) {
+  return $self->{tab}->{$keyw};
+
+};
+
+# ---   *   ---   *   ---
+# ^get and validate!
+
+sub valid_fetch($self,$keyw) {
+
+  my $have=$self->fetch($keyw);
+  my $main=$self->{main};
+
+  $main->throw_undefined(
+    'KEY',$keyw,'non','lx'
+
+  ) if ! $have;
+
+
+  return $have;
+
+};
+
+# ---   *   ---   *   ---
 # make table entry
 
 sub begin($self,$keyw) {
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
   # set as current
   $self->{keyw}=$keyw;
 
   # make new entry
-  my $dst=$self->{tab}->{$keyw};
+  my $dst=$self->{tab}->{$keyw}={};
 
   $dst->{sig} = [];
   $dst->{fn}  = $NOOP;
+  $dst->{re}  = $l1->re(SYM=>$keyw);
 
   return;
 
