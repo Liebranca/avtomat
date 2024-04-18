@@ -19,11 +19,7 @@ package rd::preproc;
   use strict;
   use warnings;
 
-  use Readonly;
-  use Storable;
-
   use English qw(-no_match-vars);
-
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
@@ -50,7 +46,7 @@ St::vconst {
     return {
 
       main    => undef,
-      tab     => {},
+      tab     => undef,
 
       invoke  => {},
 
@@ -58,8 +54,10 @@ St::vconst {
 
   },
 
-  fn_t    => 'rd::preprocfn',
-  genesis => 'case',
+  sigtab_t => 'rd::sigtab',
+
+  fn_t     => 'rd::preprocfn',
+  genesis  => 'case',
 
 };
 
@@ -74,192 +72,110 @@ sub ready_or_build($self) {
   my $l1   = $main->{l1};
   my $tab  = $self->{tab};
 
+  # skip already loaded
+  return if defined $self->{tab};
+
+
+  # begin the kick...
+  $tab=$self->{tab}=$self->sigtab_t->new(
+    main=>$main
+
+  );
+
   cload $self->fn_t;
 
 
-  # the basic keyword from which all
-  # others can be built is genesis
-  #
-  # we need to define parsing rules
-  # for it first, and from these rules,
-  # all others should be dynamically built
+  # define token patterns to match
+  my $name  = $l1->re(STR => '.+');
+  my $curly = $l1->re(SCP => '\{');
 
-  my $name  = $l1->tagre(STRING => '.+');
-  my $at    = $l1->tagre(SYM    => 'at');
-  my $loc   = $l1->tagre(NUM    => '.+');
-  my $curly = $l1->tagre(OPERA  => '\{');
-  my $any   = $l1->tagre(SYM    => 'anywhere');
+  # ^attach function to pattern array
+  $tab->begin($self->genesis);
 
-  my $sig   = [
+  $tab->pattern(
 
+    [name => $name],
+    [loc  => 0],
 
-    # no location specified
-    $self->signew(
+    [body => $curly],
 
-      [name => $name],
-      [loc  => 0],
+  );
 
-      [body => $curly],
-
-    ),
+  $tab->function(\&defproc);
+  $tab->build();
 
 
-    # location specified
-    $self->signew(
+  return;
 
-      [name => $name],
+};
 
-      $at,
+# ---   *   ---   *   ---
+# break down a capture value
+# from a matched signature
 
-      [loc  => $loc],
-      [body => $curly],
-
-    ),
+sub deref($self,$nd) {
 
 
-    # ^any location valid!
-    $self->signew(
+  # use as is?
+  return $nd
+  if ! Tree->is_valid($nd);
 
-      [name => $name],
+  # input is hashref?
+  if(is_hashref $nd) {
 
-      $any,
+    map {
+      $nd->{$ARG}=
+        $self->deref($nd->{$ARG})
 
-      [loc  => -1],
-      [body => $curly],
+    } keys %$nd;
 
-    ),
-
-  ];
-
-
-  # ^ensure all signatures capture or set
-  # the same values!
-  $self->sigbuild($sig);
-
-  # write to table
-  $tab->{case}={
-    sig => $sig,
-    fn  => \&defproc,
+    return;
 
   };
 
-  return;
 
-};
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
 
-# ---   *   ---   *   ---
-# validates signature array
-
-sub sigbuild($self,$ar) {
+  my $key  = $nd->{value};
 
 
-  # get first definition of default
-  # value for attr, across all signatures
-  my $defv={};
-  map {
+  # have annotated value?
+  my $have=$l1->xlate($key);
+  return $nd if ! $head;
+
+  my $type=$have->{type};
 
 
-    # get keys of all declared attrs
-    my $sig  = $ARG;
-    my @keys = (
-      keys %{$sig->{capt}},
-      keys %{$sig->{defv}},
+  # have string?
+  if($type eq 'STR') {
+    return $have->{data};
+
+  # have num?
+  } elsif($type=~ qr{^(?:NUM|SYM|OPR)$}) {
+    return $have->{spec};
+
+  # have scope or expression?
+  } elsif($type=~ qr{^(?:EXP|SCP)$}) {
+    return $nd;
+
+
+  # have list?
+  } elsif($type eq 'LIST') {
+    return map {
+      $self->deref($ARG)
+
+    } @{$nd->{leaves}};
+
+  # error!
+  } else {
+
+    $self->{main}->perr(
+      "unreconized: '%s' at preproc::deref"
+      args=>[$type],
 
     );
-
-    array_dupop \@keys;
-
-
-    # get default value if present
-    map {
-
-      $defv->{$ARG} //=
-        $sig->{defv}->{$ARG}
-
-    } grep {
-      exists $sig->{defv}->{$ARG}
-
-    } @keys;
-
-
-  } @$ar;
-
-
-  # now add default value to signatures
-  # that do not explicitly declare it!
-  map {
-
-    my $sig=$ARG;
-
-    map {
-      $sig->{defv}->{$ARG}=$defv->{$ARG}
-
-    } grep {
-      ! exists $sig->{defv}->{$ARG}
-    &&! exists $sig->{capt}->{$ARG}
-
-    } keys %$defv;
-
-  } @$ar;
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# makes signature
-
-sub signew($self,@sig) {
-
-
-  # walk pattern array
-  my $idex = 0;
-  my $capt = {};
-  my $defv = {};
-
-  my @seq  = map {
-
-    my ($key,@pat);
-
-
-    # named field?
-    if(is_arrayref $ARG) {
-
-      ($key,@pat)=@$ARG;
-
-      # have capture?
-      if(is_qre $pat[0]) {
-        $capt->{$key}=$idex;
-
-      # have defval!
-      } else {
-        $defv->{$key}=$pat[0];
-        @pat=();
-
-      };
-
-
-    # ^nope, match and discard!
-    } else {
-      @pat=$ARG;
-
-    };
-
-
-    # give pattern if any
-    $idex += int @pat;
-    @pat;
-
-  } @sig;
-
-
-  # give expanded
-  return {
-
-    capt => $capt,
-    defv => $defv,
-
-    seq  => \@seq
 
   };
 
@@ -300,35 +216,6 @@ sub sort_tree($self,$branch) {
   } @lv;
 
   return $out;
-
-};
-
-# ---   *   ---   *   ---
-# default processing for definitions!
-
-sub defproc($self,$data) {
-
-
-  # get ctx
-  my $main = $self->{main};
-
-  # save state
-  my $old    = $main->{branch};
-  my $status = $self->sort_tree($data->{body});
-
-
-  # write to table
-  $self->{tab}->{$data->{name}}={
-    sig => $self->tree_to_sig($data,$status),
-    fn  => $self->tree_to_sub($data,$status),
-
-  };
-
-
-  # restore and give
-  $main->{branch}=$old;
-
-  return;
 
 };
 
@@ -387,11 +274,40 @@ sub sort_expr($self,$status,@lv) {
 };
 
 # ---   *   ---   *   ---
+# default processing for definitions!
+
+sub defproc($self,$data) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $tab  = $self->{tab};
+
+  # save state
+  my $old    = $main->{branch};
+  my $status = $self->sort_tree($data->{body});
+
+
+  # write to table
+  $tab->begin($data->{name});
+
+  $self->tree_to_sig($data,$status);
+  $self->tree_to_sub($data,$status);
+
+  $tab->build();
+
+
+  # restore and give
+  $main->{branch}=$old;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # reads case signature
 
 sub sigread($self,$sig) {
-
-  my @out=();
 
   map {
 
@@ -405,82 +321,13 @@ sub sigread($self,$sig) {
 
 
     # ^get array from which to generate sig
-    my @have=map {
+    [map {
       $self->sigread_field(@$ARG)
 
-    } @expr;
-
-
-    # ^need to expand?
-    my @copied = ();
-    my $idex   = 0;
-    my $total  = 1;
-
-    map {
-
-      my $head=$ARG;
-      my $type=$head->{type};
-
-
-      # handle type combinations
-      push @copied,[map {{
-        data=>{%$head,type=>$ARG},
-        idex=>$idex
-
-      }} @$type];
-
-      $total *= int @$type;
-      $idex  ++;
-
-    } @have;
-
-
-    # ^build ALL combinations!
-    my @mat    = ((0) x int @have);
-    my $walked = 0;
-
-    while(1) {
-
-
-      my $end = 0;
-      my $i   = 0;
-
-      # fetch from index array
-      my @row=map {
-        $walked++;
-        $copied[$i++]->[$ARG]->{data};
-
-      } @mat;
-
-      # stop if all combinations walked
-      $end=$walked == $total || $total == 1;
-
-
-      # else up the counter ;>
-      $mat[0]++;
-      map {
-
-        # go to next digit?
-        if(! ($mat[$ARG] < @{$copied[$ARG]})) {
-          $mat[$ARG+1]++ if $ARG < $#copied;
-          $mat[$ARG]=0;
-
-        };
-
-      } 0..$#copied if ! $end;
-
-
-      # cat and stop when done
-      push @out,\@row;
-      last if $end;
-
-    };
+    } @expr];
 
 
   } @$sig;
-
-
-  return @out;
 
 };
 
@@ -495,39 +342,30 @@ sub sigread_field($self,@lv) {
   my $l1   = $main->{l1};
 
 
-  # first token is name of field
-  my $name = shift @lv;
-     $name = $l1->is_sym($name->{value});
+  # first two nodes are type => name
+  my ($type,$name)=map {
 
-  # second token is type
-  my $type = shift @lv;
+    my $have=shift @lv;
+       $have=$self->deref($have->{value});
 
-  # have list?
-  if(defined $l1->is_list($type->{value})) {
+    $have;
 
-    $type=[map {
-      $l1->is_sym($ARG->{value})
-
-    } @{$type->{leaves}}];
-
-  # have symbol!
-  } else {
-    $type=[$l1->is_sym($type->{value})];
-
-  };
+  } 0..1;
 
 
   # third is optional value specifier
   my $spec=(@lv)
-    ? $l1->detag($lv[0]->{value})
+    ? $l1->untag($lv[0]->{value})->{data}
     : '.+'
     ;
 
 
   # give descriptor
   return {
-    name => $name,
+
     type => $type,
+
+    name => $name,
     spec => $spec,
 
   };
@@ -541,6 +379,7 @@ sub tree_to_sig($self,$data,$status) {
 
   # get ctx
   my $main = $self->{main};
+  my $tab  = $self->{tab};
   my $l1   = $main->{l1};
 
 
@@ -556,81 +395,28 @@ sub tree_to_sig($self,$data,$status) {
   );
 
   # ^proc
-  my @sig=map {
+  map {
 
-    $self->signew(map {
+    $tab->pattern(map {
 
-      [$ARG->{name}=>$l1->tagre(
+      # get token-matching pattern
+      my $value=$l1->re(
         uc $ARG->{type} => $ARG->{spec}
 
-      )]
+      );
+
+      # if name is NOT quest, then capture
+      # else match and discard
+      ($ARG->{name} ne '?')
+        ? [$ARG->{name}=>$re]
+        : $re
+        ;
 
     } @$ARG);
 
   } $self->sigread($sig);
-  $self->sigbuild(\@sig);
 
-
-  return \@sig;
-
-};
-
-# ---   *   ---   *   ---
-# maps attr nodes to perl sub
-
-sub fnread($self,$fn) {
-
-  my $main    = $self->{main};
-  my $fn_t    = $self->fn_t;
-
-  my @program = map {
-
-    my @tree=@$ARG;
-
-    map {
-
-
-      $main->{branch}=$ARG;
-
-      my ($ins,@args)=
-        $self->fnread_field($ARG);
-
-      my $ref=$fn_t->fetch($main,$ins);
-      [$ref,@args];
-
-    } @tree;
-
-  } @$fn;
-
-
-  return @program;
-
-};
-
-# ---   *   ---   *   ---
-# ^decomposes single branch!
-
-sub fnread_field($self,$branch) {
-
-
-  # get ctx
-  my $main = $self->{main};
-  my $l1   = $main->{l1};
-  my @lv   = @{$branch->{leaves}};
-
-
-  # first token is name of F
-  my $name = shift @lv;
-     $name = $l1->is_sym($name->{value});
-
-  # ^whatever follows is args!
-  my @args=map {
-    $self->sigvalue($ARG)
-
-  } @lv;
-
-
-  return ($name,@args);
+  return;
 
 };
 
@@ -653,8 +439,19 @@ sub tree_to_sub($self,$data,$status) {
 
   );
 
+
+  # make F container
+  my $fstate=$self->fn_t->new(
+
+    main => $main,
+    par  => $self,
+    meta => $data,
+
+  );
+
+
   # ^proc and generate perl sub
-  my @program=$self->fnread($fn);
+  my @program=$method->fnread($fn);
   $fn=sub ($ice,$idata,@slurp) {
 
 
@@ -666,78 +463,15 @@ sub tree_to_sub($self,$data,$status) {
     # values that could lose meaning if passed
     # as-is, such as references to local attrs
 
-    if(@slurp) {
+    $fstate->argparse(@slurp) if @slurp;
 
 
-      # get value conversion sub
-      my $fn = $self->fn_t . "::argproc";
-         $fn = \&$fn;
+    # ^all values expanded, run F
+    $fstate->{data}=$idata;
 
-      # ^apply it to parsed args!
-      @slurp=map {
-
-
-        # expand tokens in a tree
-        if(Tree->is_valid($ARG)) {
-
-
-          my @Q=(@{$ARG->{leaves}});
-          while(@Q) {
-
-
-            # map node to value
-            my $nd   = shift @Q;
-            my $key  = $ice->sigvalue($nd);
-            my $have = $fn->($self,$idata,$key);
-
-
-            # ^replace node with result
-            if(Tree->is_valid($have)) {
-              $nd->repl($have);
-
-            # ^replace only the string!
-            } else {
-              $nd->{value}=$have;
-
-            };
-
-            unshift @Q,@{$nd->{leaves}};
-
-          };
-
-          $ARG;
-
-
-        # plain value, so straight map
-        } else {
-          $fn->($self,$data,$ARG);
-
-        };
-
-      } @slurp;
-
-
-      # use signature to identify passed args
-      my $tab  = $self->{tab};
-      my $case = $data->{name};
-      my $capt = $self->sigchk($case,\@slurp);
-
-      # ^write them to instance
-      map {
-
-        $idata->{$ARG} //=
-          $capt->{$ARG};
-
-      } keys %$capt;
-
-
-    };
-
-
-    # all values expanded, run F
     map {
       my ($ins,@args) = @$ARG;
-      $ins->($ice,$idata,@args);
+      $ins->($fstate,@args);
 
     } @program;
 
@@ -790,7 +524,7 @@ sub find($self,$root,%O) {
   my $tab      = $self->{tab};
 
   # get patterns
-  my $keyw_re  = $l1->tagre(SYM=>$O{keyw});
+  my $keyw_re  = $l1->re(SYM=>$O{keyw});
   my $keyw_fn  = $tab->{$O{keyw}}->{fn};
 
   return if ! $keyw_fn;
@@ -810,12 +544,24 @@ sub find($self,$root,%O) {
     $main->{branch}=$nd;
 
 
-    # validate and run
-    my $data=$self->sigchk($O{keyw},$nd);
+    # match and validate
+    my $data=$tab->match($O{keyw},$nd);
 
+    $main->perr(
+
+      "no signature match for "
+    . "[ctl]:%s '%s'",
+
+      args=>[$self->genesis,$O{keyw}],
+
+    ) if ! length $data;
+
+
+    # all OK, unroll and run
     $data->{-invoke} //= [];
     $data->{-class}  //= $O{keyw};
 
+    $self->deref($data);
     $keyw_fn->($self,$data);
 
 
@@ -829,184 +575,6 @@ sub find($self,$root,%O) {
 
 
   } @have;
-
-};
-
-# ---   *   ---   *   ---
-# check node against signature
-
-sub sigchk_nd($self,$nd,$sig) {
-
-
-  # get signature matches
-  my ($valid,@lv)=
-    $nd->cross_sequence(@{$sig->{seq}});
-
-
-  # args in order?
-  if($valid) {
-    $nd->pushlv(@lv);
-    return $self->sigcapt($nd->{leaves},$sig);
-
-  # ^nope!
-  } else {
-    return null;
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# ^plain value array
-
-sub sigchk_ar($self,$ar,$sig) {
-
-
-  # get signature matches
-  my ($valid,@lv)=array_matchpop
-      $ar,@{$sig->{seq}};
-
-
-  # args in order?
-  if($valid) {
-    return $self->sigcapt($ar,$sig);
-
-  # ^nope!
-  } else {
-    return null;
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# ^wraps for both ;>
-
-sub sigchk($self,$keyw,$x) {
-
-  # get ctx
-  my $main  = $self->{main};
-  my $tab   = $self->{tab};
-  my $sigar = $tab->{$keyw}->{sig};
-
-  # get F based on data
-  my $data = {};
-  my $fn   = (Tree->is_valid($x))
-    ? 'sigchk_nd'
-    : 'sigchk_ar'
-    ;
-
-
-  # have signature match?
-  for my $sig(@$sigar) {
-    $data=$self->$fn($x,$sig);
-    last if length $data;
-
-  };
-
-  # ^validate
-  $main->perr(
-
-    "could not match keyword '%s' "
-  . "to a valid [ctl]:%s signature",
-
-    args => [$keyw,$self->genesis],
-
-  ) if ! length $data;
-
-  return $data;
-
-};
-
-# ---   *   ---   *   ---
-# captures signature matches!
-
-sub sigcapt($self,$lv,$sig,$pos=0) {
-
-
-  # read values from tree
-  my %data=map {
-
-    my $key  = $ARG;
-    my $idex = $sig->{capt}->{$key}+$pos;
-
-    $key => $self->sigvalue($lv->[$idex]);
-
-  } keys %{$sig->{capt}};
-
-
-  # set defaults!
-  map {
-
-    $data{$ARG} //=
-      $sig->{defv}->{$ARG};
-
-  } keys %{$sig->{defv}};
-
-
-  # give descriptor
-  return \%data;
-
-};
-
-# ---   *   ---   *   ---
-# ^breaks down capture values ;>
-
-sub sigvalue($self,$nd) {
-
-
-  # use as is?
-  return $nd
-  if ! Tree->is_valid($nd);
-
-
-  # get ctx
-  my $main = $self->{main};
-  my $l1   = $main->{l1};
-
-  my $key  = $nd->{value};
-
-  # have annotated value?
-  my ($type,$have)=$l1->xlate_tag($key);
-  return $nd if ! $type;
-
-
-  # have string?
-  if($type eq 'STRING') {
-    return $l1->detag($key);
-
-  # have num?
-  } elsif($type=~ qr{^(?:NUM|SYM)}) {
-    return $have;
-
-
-  # have operator?
-  } elsif($type eq 'OPERA') {
-
-    if($have eq '{') {
-      return $nd;
-
-    } else {
-      return $have;
-
-    };
-
-  } elsif($type eq 'BRANCH') {
-    return $nd;
-
-
-  # have list?
-  } elsif($type eq 'LIST') {
-    return map {
-      $self->sigvalue($ARG)
-
-    } @{$nd->{leaves}};
-
-  # error!
-  } else {
-    die "unreconized: '$type' at sigvalue";
-
-  };
 
 };
 

@@ -44,9 +44,11 @@ It's responsibilities are as follows:
 
 - `charset`: associate a character to a method. Characters not in this table are associated to `cat`.
 
+- `spchars`: a plain list of special characters.
+
 - `read`: `csume` and pass the received input character to `charset`, then invoke the returned method.
 
-- `flagset`: activate or deactivate switches that affects how the next input character(s) should be handled.
+- `flagset`: activate or deactivate switches that affect how certain input characters are handled.
 
 - `flagchk`: read the value of said switches.
 
@@ -67,7 +69,7 @@ It's responsibilities are as follows:
 
 ### L1
 
-Performs a two-way mapping of raw tokens, ie ones without typing information, to typed tokens; it will receive the output of an `l0::commit` and assign typing data to it, if none is present.
+Performs a two-way mapping of raw tokens, ie ones without typing information, to typed tokens.
 
 As in the previous case, `token => data` associations are carried out by `l1`. We make but one exception to this rule: `l0` itself can decide on the type of a token before pushing it.
 
@@ -85,7 +87,9 @@ As for responsibilities:
 
 - `cat`: join two tokens of the same type.
 
-- `detect`: associate the value of a raw token with a type and `tag` said token. If a typed token is passed, return it as-is.
+- `detect`: match the value of a raw token to a type and `tag` said token. If a typed token is passed, return it as-is.
+
+- `extend`: add a new token type to the internal tables.
 
 
 ### L2
@@ -102,5 +106,6 @@ The `l2` responsibilities are:
 
 - `term`, `enter` and `leave`: same as `l0`.
 
+- `define`: make a new pattern for recognizing expressions.
 
 (...)

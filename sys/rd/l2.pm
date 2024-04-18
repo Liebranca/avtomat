@@ -35,7 +35,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.8;#a
+  our $VERSION = v0.02.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -50,6 +50,8 @@ St::vconst {
 
     walked => {},
     nest   => [],
+
+    table  => {},
 
   },
 
@@ -199,6 +201,23 @@ sub sweep($self) {
   &&   $self->{branch}
   ne   $main->{tree}
   ;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# add expression to table
+
+sub define($self,$type,$name,@sig) {
+
+  # get ctx
+  my $main = $self->{main};
+  my $tab  = $self->{table};
+  my $l1   = $main->{l1};
+
+  # ~
+  my $dst  = 
 
   return;
 

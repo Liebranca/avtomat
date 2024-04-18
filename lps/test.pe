@@ -5,7 +5,14 @@ case 'parser-test' (
 
 ) {
 
+  attr sig;
 
+    sym name;
+    sym ? 'at';
+
+    num pos;
+
+  attr fn;
   invoke as macro.smt {
     push    parent,'>';
     discard branch;

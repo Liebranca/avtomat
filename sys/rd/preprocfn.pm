@@ -29,19 +29,103 @@ package rd::preprocfn;
   use Style;
   use Chk;
 
+  use parent 'rd::layer';
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+St::vconst {
+
+  DEFAULT => {
+
+    main => undef,
+    par  => undef,
+    data => undef,
+    meta => undef,
+
+  },
+
+};
+
+# ---   *   ---   *   ---
+# maps attr nodes to perl sub
+
+sub fnread($self,$fn) {
+
+
+  # get ctx
+  my $main = $self->{main};
+
+  # walk input
+  my @program = map {
+
+    my @tree=@$ARG;
+
+    map {
+
+
+      $main->{branch}=$ARG;
+
+      my ($ins,@args)=
+        $self->fnread_field($ARG);
+
+      my $ref=$self->fetch($main,$ins);
+      [$ref,@args];
+
+    } @tree;
+
+  } @$fn;
+
+
+  return @program;
+
+};
+
+# ---   *   ---   *   ---
+# ^decomposes single branch!
+
+sub fnread_field($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $par  = $self->{par};
+  my $l1   = $main->{l1};
+  my @lv   = @{$branch->{leaves}};
+
+
+  # first token is name of F
+  my $name = shift @lv;
+     $name = $par->deref($name->{value});
+
+  # ^whatever follows is args!
+  my @args=map {$par->deref($ARG)} @lv;
+
+
+  return ($name,@args);
+
+};
 
 # ---   *   ---   *   ---
 # get sub or die
 
-sub fetch($class,$main,$name) {
+sub fetch($self,$name) {
 
 
-  # get name is defined
+  # get ctx
+  my $main  = $self->{main};
+  my $par   = $self->{par};
+
+  my $class = ref $self;
+
+
+  # get list of subroutines
   no strict 'refs';
 
   my %tab   = %{"$class\::"};
@@ -50,27 +134,29 @@ sub fetch($class,$main,$name) {
 
   } keys %tab;
 
+
+  # ^get name is defined in this package
   my ($have) = grep {
      $ARG =~ qr{^_?$name$}
 
   } @valid;
 
-
+  # ^backup: get name is user-defined
   if(! $have) {
 
-    my $tab  = $main->{preproc}->{tab};
+    my $tab  = $par->{tab};
        $have = $tab->{$name}->{fn};
 
   };
 
 
-  # ^validate
+  # ^validate either case
   $main->perr(
 
     "[ctl]:%s function '%s' "
   . "not implemented",
 
-    args=>[$main->{preproc}->genesis,$name],
+    args=>[$par->genesis,$name],
 
   ) if ! defined $have;
 
@@ -84,10 +170,9 @@ sub fetch($class,$main,$name) {
 # ---   *   ---   *   ---
 # replace node in hierarchy
 
-sub replace($self,$data,$dst,$src) {
+sub replace($self,$dst,$src) {
 
-  $dst=argproc($self,$data,$dst);
-  $src=argproc($self,$data,$src);
+  ($dst,$src)=$self->deref($dst,$src);
 
   if(Tree->is_valid($src)) {
     $dst->repl($src);
@@ -104,10 +189,9 @@ sub replace($self,$data,$dst,$src) {
 # ---   *   ---   *   ---
 # adds new nodes at pos
 
-sub insert($self,$data,$dst,@src) {
+sub insert($self,$dst,@src) {
 
-  $dst=argproc($self,$data,$dst);
-  @src=map{argproc($self,$data,$ARG)} @src;
+  ($dst,@src)=$self->deref($dst,@src);
 
 
   my $idex=shift @src;
@@ -128,10 +212,9 @@ sub insert($self,$data,$dst,@src) {
 # ---   *   ---   *   ---
 # ^adds new node at end
 
-sub _push($self,$data,$dst,@src) {
+sub _push($self,$dst,@src) {
 
-  $dst=argproc($self,$data,$dst);
-  @src=map{argproc($self,$data,$ARG)} @src;
+  ($dst,@src)=$self->deref($dst,@src);
 
 
   map {
@@ -149,13 +232,12 @@ sub _push($self,$data,$dst,@src) {
 # ---   *   ---   *   ---
 # move branch to top!
 
-sub merge($self,$data,$dst) {
+sub merge($self,$dst) {
 
-  $dst = argproc($self,$data,$dst);
-  $dst = $dst->discard();
+  $dst = $self->discard($dst);
 
-  my $anchor = argproc($self,$data,'branch');
-  my $root   = argproc($self,$data,'root');
+  my ($anchor,$root)=
+    $self->deref(qw(branch root));
 
 
   while($anchor->{parent} ne $root) {
@@ -174,10 +256,10 @@ sub merge($self,$data,$dst) {
 # ---   *   ---   *   ---
 # ^merge and flatten ;>
 
-sub mergef($self,$data,$dst,$depth=0) {
+sub mergef($self,$dst,$depth=0) {
 
-  $dst=merge($self,$data,$dst);
-  flatten($self,$data,$dst,$depth);
+  $dst=$self->merge($dst);
+  $self->flatten($dst,$depth);
 
   return;
 
@@ -186,9 +268,9 @@ sub mergef($self,$data,$dst,$depth=0) {
 # ---   *   ---   *   ---
 # replace node with children
 
-sub flatten($self,$data,$dst,$depth=0) {
+sub flatten($self,$dst,$depth=0) {
 
-  $dst=argproc($self,$data,$dst);
+  $dst=$self->deref($dst);
   $dst->flatten_tree(max_depth=>$depth);
 
   return;
@@ -198,21 +280,18 @@ sub flatten($self,$data,$dst,$depth=0) {
 # ---   *   ---   *   ---
 # remove yourself!
 
-sub discard($self,$data,$dst) {
-
-  $dst=argproc($self,$data,$dst);
-  $dst->discard();
-
-  return;
+sub discard($self,$dst) {
+  $dst=$self->deref($dst);
+  return $dst->discard();
 
 };
 
 # ---   *   ---   *   ---
 # remove your children!
 
-sub clear($self,$data,$dst) {
+sub clear($self,$dst) {
 
-  $dst=argproc($self,$data,$dst);
+  $dst=$self->deref($dst);
   $dst->clear();
 
   return;
@@ -223,14 +302,16 @@ sub clear($self,$data,$dst) {
 # declares that a sequence of
 # tokens should mutate to a call
 
-sub invoke($self,$data,@args) {
+sub invoke($self,@args) {
 
   shift @args;
-  my $fn=pop @args;
 
-  @args=argstirr($self,$data,@args);
+  my $fn   = pop @args;
+  my $meta = $self->{meta};
 
-  push @{$data->{-invoke}},{
+  @args=$self->xstirr(@args);
+
+  push @{$meta->{-invoke}},{
 
     fn   => $fn,
     sig  => [map {qr"^\[.$ARG\]"} @args],
@@ -249,12 +330,11 @@ sub invoke($self,$data,@args) {
 
 sub banish($self,$data,@args) {
 
-  my $name=join '->',argstirr(
-    $self,$data,@args
+  my $name=join '->',$self->xstirr(@args);
 
-  );
+  my $par=$self->{par};
+  my $dst=$par->{invoke};
 
-  my $dst=$self->{invoke};
   delete $dst->{$name};
 
   return;
@@ -262,14 +342,15 @@ sub banish($self,$data,@args) {
 };
 
 # ---   *   ---   *   ---
-# procs an argument
+# contextual value transform
 
-sub argproc($self,$data,$arg) {
+sub deref($self,@args) {
 
 
   # get ctx
   my $main   = $self->{main};
   my $branch = $main->{branch};
+  my $data   = $self->{data};
 
   my $tab    = {
 
@@ -281,33 +362,40 @@ sub argproc($self,$data,$arg) {
   };
 
 
-  # have attr name?
-  if(! index $arg,'self.') {
-    $arg=substr $arg,5,length($arg)-5;
-    $arg=$data->{$arg};
-
-  # have branch name?
-  } elsif(! index $arg,'lv.') {
-    $arg=substr $arg,3,length($arg)-3;
-    $arg=$branch->branch_in(qr{$arg});
-
-  # have reference?
-  } elsif(exists $tab->{$arg}) {
-    $arg=$tab->{$arg};
-
-  };
+  # walk values
+  map {
 
 
-  return $arg;
+    # have attr name?
+    if(! index $ARG,'self.') {
+      $ARG=substr $ARG,5,length($ARG)-5;
+      $ARG=$data->{$ARG};
+
+    # have branch name?
+    } elsif(! index $ARG,'lv.') {
+      $ARG=substr $ARG,3,length($ARG)-3;
+      $ARG=$branch->branch_in(qr{$ARG});
+
+    # have reference?
+    } elsif(exists $tab->{$ARG}) {
+      $ARG=$tab->{$ARG};
+
+    };
+
+
+    $ARG;
+
+
+  } @args;
 
 };
 
 # ---   *   ---   *   ---
-# stringifies array of arguments
+# ^transform and stringify
 
-sub argstirr($self,$data,@args) {
+sub xstirr($self,@args) {
 
-  @args=map{argproc($self,$data,$ARG)} @args;
+  @args=$self->deref(@args);
 
   map {
 
@@ -320,9 +408,100 @@ sub argstirr($self,$data,@args) {
         )
 
       : $ARG
+
       ;
 
   } @args;
+
+};
+
+# ---   *   ---   *   ---
+# deref + tree expansion
+
+sub deep_deref($self,@args) {
+
+
+  # get ctx
+  my $par=$self->{par};
+
+  # walk args
+  map {
+
+
+    # expand tokens in a tree
+    if(Tree->is_valid($ARG)) {
+
+
+      my @Q=(@{$ARG->{leaves}});
+      while(@Q) {
+
+
+        # map node to value
+        my $nd   = shift @Q;
+
+        my $key  = $par->deref($nd);
+        my $have = $fstate->deref($key);
+
+
+        # ^replace node with result
+        if(Tree->is_valid($have)) {
+          $nd->repl($have);
+
+        # ^replace only the string!
+        } else {
+          $nd->{value}=$have;
+
+        };
+
+        unshift @Q,@{$nd->{leaves}};
+
+      };
+
+      $ARG;
+
+
+    # plain value, so straight map
+    } else {
+      $self->deref($key);
+
+    };
+
+
+  } @args;
+
+};
+
+# ---   *   ---   *   ---
+# dereferences parsed args
+# within a function definition
+
+sub argparse($self,@slurp) {
+
+
+  # get ctx
+  my $meta = $self->{meta};
+  my $par  = $self->{par};
+
+
+  # argument array to value array ;>
+  @slurp=$fstate->deep_deref(@slurp);
+
+  # use signature to identify passed args
+  my $tab  = $par->{tab};
+  my $case = $meta->{name};
+  my $capt = $tab->match($case,\@slurp);
+
+  # ^write them to instance
+  $par->deref($capt);
+
+  map {
+
+    $self->{data}->{$ARG} //=
+      $capt->{$ARG};
+
+  } keys %$capt;
+
+  return;
 
 };
 
