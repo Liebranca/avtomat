@@ -154,6 +154,7 @@ sub match($self,$x) {
 
 
   # fstate
+  return () if ! defined $x;
   my ($valid,$ar,@lv);
 
 

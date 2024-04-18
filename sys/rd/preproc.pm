@@ -48,7 +48,7 @@ St::vconst {
       main    => undef,
       tab     => undef,
 
-      invoke  => {},
+      invoke  => undef,
 
     };
 
@@ -82,6 +82,9 @@ sub ready_or_build($self) {
   cload $self->sigtab_t->sig_t;
 
   $tab=$self->{tab}=
+    $self->sigtab_t->new($main);
+
+  $self->{invoke}=
     $self->sigtab_t->new($main);
 
 
@@ -188,6 +191,7 @@ sub sort_tree($self,$branch) {
   # get ctx
   my $main = $self->{main};
   my $l2   = $main->{l2};
+  my $old  = $l2->{branch};
 
   # descriptor to give!
   my $out={-attr=>undef};
@@ -200,7 +204,7 @@ sub sort_tree($self,$branch) {
 
 
     # clean up branch
-    $main->{branch} = $ARG;
+    $l2->{branch} = $ARG;
 
     $l2->strip_comments($ARG);
     $l2->cslist();
@@ -212,6 +216,8 @@ sub sort_tree($self,$branch) {
 
   } @lv;
 
+
+  $l2->{branch}=$old;
   return $out;
 
 };
@@ -279,9 +285,10 @@ sub defproc($self,$data) {
   # get ctx
   my $main = $self->{main};
   my $tab  = $self->{tab};
+  my $l2   = $main->{l2};
 
   # save state
-  my $old    = $main->{branch};
+  my $old    = $l2->{branch};
   my $status = $self->sort_tree($data->{body});
 
 
@@ -295,7 +302,7 @@ sub defproc($self,$data) {
 
 
   # restore and give
-  $main->{branch}=$old;
+  $l2->{branch}=$old;
 
   return;
 
@@ -372,11 +379,11 @@ sub sigread_field($self,@lv) {
 # ---   *   ---   *   ---
 # map case tree to signature array
 
-sub tree_to_sig($self,$data,$status) {
+sub tree_to_sig($self,$data,$status,$dst='tab') {
 
   # get ctx
   my $main = $self->{main};
-  my $tab  = $self->{tab};
+  my $tab  = $self->{$dst};
   my $l1   = $main->{l1};
 
 
@@ -420,7 +427,7 @@ sub tree_to_sig($self,$data,$status) {
 # ---   *   ---   *   ---
 # map case tree to perl sub
 
-sub tree_to_sub($self,$data,$status) {
+sub tree_to_sub($self,$data,$status,$dst='tab') {
 
   # get ctx
   my $main=$self->{main};
@@ -473,7 +480,7 @@ sub tree_to_sub($self,$data,$status) {
 
   };
 
-  $self->{tab}->function($fn);
+  $self->{$dst}->function($fn);
   return $fn;
 
 };
@@ -514,13 +521,14 @@ sub find($self,$root,%O) {
   $O{keyw} //= $self->genesis;
 
   # get ctx
-  my $main     = $self->{main};
-  my $l1       = $main->{l1};
-  my $tab      = $self->{tab};
+  my $main = $self->{main};
+  my $tab  = $self->{tab};
+  my $l1   = $main->{l1};
+  my $l2   = $main->{l2};
+  my $old  = $l2->{branch};
 
   # get patterns
   my $meta     = $tab->fetch($O{keyw});
-  my $keyw_re  = $meta->{re};
   my $keyw_fn  = $meta->{fn};
 
   return if ! $keyw_fn;
@@ -528,18 +536,18 @@ sub find($self,$root,%O) {
 
   # get branches that contain keyword
   # fail if none found!
-  my @have=$root->branches_in($keyw_re);
+  my @have=$tab->matchkey($meta,$root);
   return if ! @have;
 
   # ^walk
-  map {
+  my @out=map {
 
     # make node current
     my $nd=$ARG;
-    $main->{branch}=$nd;
+    $l2->{branch}=$nd;
 
     # match and validate
-    my $data=$tab->match($O{keyw},$nd);
+    my $data=$tab->matchin($meta,$nd);
 
     $main->perr(
 
@@ -570,6 +578,9 @@ sub find($self,$root,%O) {
 
   } @have;
 
+  $l2->{branch}=$old;
+  return @out;
+
 };
 
 # ---   *   ---   *   ---
@@ -583,32 +594,39 @@ sub add_invoke($self,$headar) {
   # get ctx
   my $main = $self->{main};
   my $dst  = $self->{invoke};
+  my $l2   = $self->{l2};
 
 
   # save state && walk
-  my $old=$main->{branch};
+  my $old=$l2->{branch};
 
   map {
 
 
-    # make F
+    # cleanup/validate input
     my $head   = $ARG;
     my $status = $self->sort_tree($head->{fn});
 
-    $head->{fn}=
-      $self->tree_to_sub($head,$status);
 
+    # make F using sigtab_t (see: ready_or_build)
+    #
+    # the same classes used to define builtins
+    # are then re-used for user definitions ;>
 
-    # write to method table
-    my $name=$head->{name};
-    $dst->{$name}=$head;
+    $dst->begin($head->{name});
+
+    $dst->pattern(@{$head->{sig}});
+    $self->tree_to_sub($head,$status,'invoke');
+
+    $dst->regex($head->{re});
+    $dst->build();
 
 
   } @$headar;
 
 
   # ^restore and give
-  $main->{branch}=$old;
+  $l2->{branch}=$old;
   return;
 
 };
@@ -620,7 +638,9 @@ sub invoke($self,$root,@src) {
 
 
   # get ctx
-  my $main=$self->{main};
+  my $main = $self->{main};
+  my $l2   = $main->{l2};
+  my $old  = $l2->{branch};
 
   # get F to call if none given!
   @src=$self->invoke_order($root)
@@ -628,56 +648,18 @@ sub invoke($self,$root,@src) {
 
 
   # walk cases!
-  for my $key(@src) {
+  for my $packed(@src) {
 
+    my ($keyw,$data,$nd)=@$packed;
+    next if ! $keyw->{fn};
 
-    # unpack
-    my $head = $self->{invoke}->{$key};
-    my $sig  = $head->{sig};
-
-    next if ! exists $head->{fn};
-
-
-    # have match for first token?
-    my $nd=$root->branch_in($sig->[0]);
-    next if ! $nd;
-
-
-    # find fwd nodes matching signature
-    my ($valid,@args)=$nd->cross_sequence(
-      @{$sig}[1..@$sig-1]
-
-    );
-
-
-    # ^validate
-    $main->perr(
-
-      "too few arguments for "
-    . "[ctl]:%s '%s'",
-
-      args=>[
-        $self->genesis,
-        $$head->{data}->{name}
-
-      ],
-
-    ) if @args < @$sig-1;
-
-
-    # ^call
-    if($valid) {
-
-      $nd->pushlv(@args);
-
-      $main->{branch}=$nd;
-      $head->{fn}->($self,$head->{data});
-
-    };
+    $l2->{branch}=$nd;
+    $keyw->{fn}->($self,$data);
 
 
   };
 
+  $l2->{branch}=$old;
   return;
 
 };
@@ -690,8 +672,10 @@ sub invoke_order($self,$root) {
 
 
   # get ctx
-  my $tab  = $self->{invoke};
-  my @have = keys %$tab;
+  my $src  = $self->{invoke};
+  my $tab  = $src->{tab};
+
+  my @have = values %$tab;
 
 
   # walk the tree
@@ -703,33 +687,25 @@ sub invoke_order($self,$root) {
     my $nd   = shift @Q;
     my $deep = 0;
 
+
     # look for matches...
-    for my $key(@have) {
-
-      my $sig=$tab->{$key}->{sig};
-
-      # have a match deeper down?
-      $deep |= defined
-        $nd->branch_in($sig->[0]);
+    for my $keyw(@have) {
 
 
-      # have a match HERE?!
-      if($nd->{value}=~ $sig->[0]) {
+      # have a match right here?
+      my $have=$src->match($keyw,$nd,1);
 
-        my ($valid,@args)=$nd->cross_sequence(
-          @{$sig}[1..@$sig-1]
-
-        );
-
-
-        # ^YES
-        if($valid) {
-          push @out,$key;
-          last;
-
-        };
+      # ^YES
+      if(length $have) {
+        push @out,[$keyw=>$have,$nd];
+        last;
 
       };
+
+
+      # have a match deeper down?
+      $deep |= length
+        $src->match($keyw,$nd,0);
 
 
     };

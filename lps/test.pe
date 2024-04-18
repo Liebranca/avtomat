@@ -12,6 +12,13 @@ case 'parse_test' {
   attr fn;
     push root,'hello';
 
+  invoke as self.name,'here' {
+    push    root,'bye';
+    discard expr;
+
+  };
+
 };
 
 parse_test this at $00;
+this here;

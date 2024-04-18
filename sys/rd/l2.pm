@@ -251,7 +251,7 @@ sub get_walk_array($self,$fn,@Q) {
 
 
     # run method for this node
-    $main->{branch}=$nd;
+    $self->{branch}=$nd;
     $fn->($self,$nd);
 
     # go next
@@ -284,7 +284,7 @@ sub get_cmd_queue($self,$fn,@order) {
 
     # get next
     my ($nd,$rec)=@$ARG;
-    $main->{branch}=$nd;
+    $self->{branch}=$nd;
 
     # run method for node
     $fn->($self,$nd);
@@ -351,7 +351,7 @@ sub parse($self,$head=undef) {
     ;
 
   # ^save current
-  my $old=$main->{branch};
+  my $old=$self->{branch};
 
   # run and capture results
   my @out=$self->walk(
@@ -365,7 +365,7 @@ sub parse($self,$head=undef) {
 
 
   # restore and give
-  $main->{branch}=$old;
+  $self->{branch}=$old;
 
   return @out;
 
@@ -455,7 +455,7 @@ sub exec_queue($self,@Q) {
     # validate and run
     rept:
 
-      $main->{branch}=$branch;
+      $self->{branch}=$branch;
       $cmd->argchk();
 
       $have=$cmd->{fn}->($cmd,$branch);
@@ -504,7 +504,7 @@ sub strip_comments($self,$src=undef) {
 
 
   # default to current branch
-  $src //= $main->{branch};
+  $src //= $self->{branch};
 
   # ^walk
   my @pending=$src;
@@ -558,7 +558,7 @@ sub cslist($self) {
   my @seq = ($ANY_MATCH,$re,$ANY_MATCH);
 
 
-  my $branch = $main->{branch};
+  my $branch = $self->{branch};
 
   my $cnt    = 0;
   my $pos    = -1;
@@ -620,7 +620,7 @@ sub dopera($self) {
   );
 
   my @seq    = ($re,$re);
-  my $branch = $main->{branch};
+  my $branch = $self->{branch};
 
   my @reset  = ();
 
@@ -691,7 +691,7 @@ sub opera($self) {
 
 
   # get tagged operators in branch
-  my $branch = $main->{branch};
+  my $branch = $self->{branch};
   my @ops    = map {
 
     # get characters/priority for this operator
@@ -820,7 +820,7 @@ sub cmd($self) {
   my $l1   = $main->{l1};
   my $lx   = $main->{lx};
 
-  my $key = lc $main->{branch}->{value};
+  my $key = lc $self->{branch}->{value};
   my $tab = $lx->load_CMD();
 
   # build/fetch regex
@@ -837,7 +837,7 @@ sub cmd($self) {
     # ^validate
     if(! length $cmd) {
 
-      $main->{branch}->prich(errout=>1);
+      $self->{branch}->prich(errout=>1);
 
       $main->perr(
         "undefined command: '%s'",
@@ -849,11 +849,11 @@ sub cmd($self) {
 
 
     # ^save key
-    $main->{branch}->{cmdkey}=$value;
+    $self->{branch}->{cmdkey}=$value;
 
 
     # consume argument nodes if need
-    $cmd->argsume($main->{branch})
+    $cmd->argsume($self->{branch})
     if $cmd && exists $main->{strterm};
 
 
@@ -862,7 +862,7 @@ sub cmd($self) {
     # else just signal that the node
     # is a command!
     return (defined $cmd)
-      ? [$cmd=>$main->{branch}]
+      ? [$cmd=>$self->{branch}]
       : 1
       ;
 
@@ -885,7 +885,7 @@ sub is_exprtop($self,$branch=undef) {
   my $l1   = $main->{l1};
 
   # default to current
-  $branch //= $main->{branch};
+  $branch //= $self->{branch};
 
 
   # is grandparent root?

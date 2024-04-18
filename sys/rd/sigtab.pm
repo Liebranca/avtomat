@@ -33,7 +33,7 @@ package rd::sigtab;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -141,6 +141,24 @@ sub function($self,$fn) {
 };
 
 # ---   *   ---   *   ---
+# reset the keyword regex!
+
+sub regex($self,$re) {
+
+  # get ctx
+  my $main = $self->{main};
+  my $keyw = $self->{keyw};
+  my $dst  = $self->{tab}->{$keyw};
+  my $l1   = $main->{l1};
+
+  # copy
+  $dst->{re} = $re;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # merges data on current entry
 
 sub build($self) {
@@ -171,17 +189,17 @@ sub build($self) {
 # ---   *   ---   *   ---
 # match input against pattern array
 
-sub match($self,$keyw,$x) {
+sub matchin($self,$keyw,$x) {
 
 
   # get ctx
-  my $tab   = $self->{tab};
-  my $sigar = $tab->{$keyw}->{sig};
+  my $sigar=$keyw->{sig};
+
+  # fout
+  my $data={};
 
 
   # have signature match?
-  my $data = {};
-
   for my $sig(@$sigar) {
     $data=$sig->match($x);
     last if length $data;
@@ -189,6 +207,84 @@ sub match($self,$keyw,$x) {
   };
 
   return $data;
+
+};
+
+# ---   *   ---   *   ---
+# ^match keyword
+#
+# "fix" forces the keyword to be
+# the first token!
+
+sub matchkey($self,$keyw,$x,$fix=0) {
+
+
+  # have tree?
+  if(Tree->is_valid($x)) {
+
+    # get tree root matches keyword
+    my $have=$x->{value} =~ $keyw->{re};
+       $have=($have) ? $x : undef ;
+
+    # ^if not fixed, look into leaves on fail!
+    $have=$x->branch_in($keyw->{re})
+    if ! $have &&! $fix;
+
+    return $have;
+
+
+  # have array?
+  } elsif(is_arrayref $x) {
+
+    # get first match
+    my @match = grep {$ARG=~ $keyw->{re}} @$x;
+    return () if ! @match;
+
+    # ^get index of first match!
+    my $idex=array_iof $x,$match[0];
+
+
+    # ensure first match is first elem?
+    if($fix) {
+
+      return (! $idex)
+
+        ? [@{$x}[1..@$x-1]]
+        : ()
+        ;
+
+    # ^nope, give slice at any position!
+    } else {
+      return [@{$x}[$idex..@$x-1]];
+
+    };
+
+
+  # have plain value!
+  } else {
+    return $x=~ $keyw->{re};
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^keyword+input
+
+sub match($self,$keyw,$x,$fix=0) {
+
+  # get keyword meta?
+  $keyw=$self->valid_fetch($keyw)
+  if ! ref $keyw;
+
+  # match input against keyword
+  my $in=$self->matchkey($keyw,$x,$fix);
+
+  return null if ! defined $in;
+
+
+  # ^match signature and give
+  return $self->matchin($keyw,$in);
 
 };
 

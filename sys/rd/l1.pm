@@ -241,10 +241,21 @@ sub re($self,$type,$spec) {
   return $tab->{"$type:$spec"}
   if exists $tab->{"$type:$spec"};
 
+
   # ANY:  any token, tag or not
   # BARE: any non-tagged token
   return $tab->{BARE} if $type eq 'BARE';
   return $tab->{ANY}  if $type eq 'ANY';
+
+  # ^WILD: any type matching spec!
+  if($type eq 'WILD') {
+
+    my $re=$self->mkre(".",$spec);
+    $tab->{"$type:$spec"}=$re;
+
+    return $re;
+
+  };
 
 
   # type-check

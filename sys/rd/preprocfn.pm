@@ -279,7 +279,7 @@ sub flatten($self,$dst,$depth=0) {
 # remove yourself!
 
 sub discard($self,$dst) {
-  $dst=$self->deref($dst);
+  ($dst)=$self->deref($dst);
   return $dst->discard();
 
 };
@@ -302,17 +302,31 @@ sub clear($self,$dst) {
 
 sub invoke($self,@args) {
 
+
+  # get ctx
+  my $main = $self->{main};
+  my $data = $self->{data};
+  my $l1   = $main->{l1};
+
+
+  # the 'as' in 'invoke as' gets discarded ;>
   shift @args;
 
-  my $fn   = pop @args;
-  my $meta = $self->{meta};
+  # ^last elem is function body
+  my $fn=pop @args;
 
+  # ^the rest is args, parse and stringify
   @args=$self->xstirr(@args);
+  my $first=shift @args;
 
-  push @{$meta->{-invoke}},{
+
+  # add it all to table ;>
+  push @{$data->{-invoke}},{
 
     fn   => $fn,
-    sig  => [map {qr"^\[.$ARG\]"} @args],
+    re   => $l1->re(WILD=>$first),
+
+    sig  => [map {$l1->re(WILD=>$ARG)} @args],
 
     data => $self->{data},
     name => join '->',@args,
@@ -347,13 +361,15 @@ sub deref($self,@args) {
 
   # get ctx
   my $main   = $self->{main};
-  my $branch = $main->{branch};
+  my $l2     = $main->{l2};
+  my $branch = $l2->{branch};
   my $data   = $self->{data};
 
   my $tab    = {
 
     branch => $branch,
-    parent => $branch->{parent},
+    expr   => $branch->{parent},
+    parent => $branch->{parent}->{parent},
     last   => $branch->{leaves}->[-1],
     root   => $main->{tree},
 
