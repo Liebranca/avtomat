@@ -1006,7 +1006,7 @@ sub flatten_branch($self,%O) {
   my @ar   = @{$par->{leaves}};
 
   # remove yourself!
-  my $root = $par->pluck($self);
+  my ($root)=$par->pluck($self);
   unshift @move,$root if $O{inclusive};
 
 

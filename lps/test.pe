@@ -1,24 +1,4 @@
 %;
 
-case 'parse_test' {
-
-  attr sig;
-
-    sym name;
-    sym ? 'at';
-
-    num pos;
-
-  attr fn;
-    push root,'hello';
-
-  invoke as self.name,'here' {
-    push    root,'bye';
-    discard expr;
-
-  };
-
-};
-
-parse_test this at $00;
-this here;
+s0,s1,s2 s3,s4,s5 s6;
+ice ->*- F;

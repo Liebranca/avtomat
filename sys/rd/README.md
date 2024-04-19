@@ -106,6 +106,6 @@ The `l2` responsibilities are:
 
 - `term`, `enter` and `leave`: same as `l0`.
 
-- `define`: make a new pattern for recognizing expressions.
+- `define`: associate a sequence of tokens to a method.
 
 (...)

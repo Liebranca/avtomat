@@ -36,7 +36,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.0;#a
+  our $VERSION = v0.02.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -61,23 +61,8 @@ St::vconst {
 
 };
 
-
-  Readonly my $OPERA_UNARY => {
-    map {$ARG=>1} qw(~ ? ! ++ --)
-
-  };
-
-  Readonly my $OPERA_BINARY => {
-
-    map {$ARG=>1}
-    qw  (+ - * / & ^ < > <= >= !)
-
-  };
-
-  Readonly my $OPERA_PRIO  => "&|^*/-+<>~?!=";
-
 # ---   *   ---   *   ---
-# ~
+# module kick
 
 sub build($self) {
 
@@ -85,115 +70,96 @@ sub build($self) {
   # get ctx
   my $main  = $self->{main};
   my $l1    = $main->{l1};
-  my $class = $self->sigtab_t;
 
-  # nit sequence table
+  # load helper modules
+  my $class=$self->sigtab_t;
+
   cloadi $class;
   cloadi $class->sig_t;
 
-  my $tab=$self->{tab}=$class->new($main);
+
+  # nit sequence tables
+  my $tab=$self->{tab}={
+    'fwd-parse'=>$class->new($main),
+
+  };
 
 
-  # test sequence patterns
-  my $ncomma = $l1->re(WILD => '[^,]+');
-  my $comma  = $l1->re(OPR  => ',');
+  return;
 
-  # write test sequence
-  $tab->begin('cslist');
-  $tab->pattern($comma,$ncomma);
-  $tab->function(sub {
+};
 
-    my $self   = $_[0];
-    my $branch = $_[1];
-    my $data   = $_[2];
+# ---   *   ---   *   ---
+# get definitions subtable
 
+sub get_stab($self,$type) {
 
-    # merging lists?
-    my $top=$l1->xlate($branch->{value});
-    if($top && $top->{type} eq 'LIST') {
+  # get ctx
+  my $main = $self->{main};
+  my $stab = $self->{tab}->{$type};
 
-      $branch->pluck(
-        $branch->branches_in($comma)
+  # validate and give
+  $main->perr(
+    "invalid [ctl]:%s type: '%s'",
+    args=>[invoke=>$type],
 
-      );
-
-    # ^nope!
-    } else {
-
-      my $tmp=$branch->{value};
-
-      $branch->{value}=
-        $l1->tag(LIST=>'ist');
-
-      $branch->{leaves}->[0]->{value}=$tmp;
+  ) if ! defined $stab;
 
 
-      map {
-        $ARG->flatten_branch()
+  return $stab;
 
-      } $branch->branches_in(
-        $l1->re(LIST=>'.+'),
-        inclusive=>0,
+};
 
-      );
+# ---   *   ---   *   ---
+# find and execute sequences
 
-    };
+sub invoke($self,$type,@name) {
 
 
-  });
+  # get subtable and backup state
+  my $stab = $self->get_stab($type);
+  my $old  = $self->{branch};
 
-  $tab->regex($ncomma);
-  $tab->build();
-
-  my $keyw  = $tab->valid_fetch('cslist');
-  my $frame = Tree->new_frame();
-
-  my $root  = $frame->from_list(
-
-    "ROOT",[
-
-      $l1->tag(SYM=>'EE'),
-      $l1->tag(OPR=>','),
-      $l1->tag(SYM=>'s0'),
-
-      $l1->tag(SYM=>'s1'),
-      $l1->tag(OPR=>','),
-      $l1->tag(SYM=>'s2'),
-
-      $l1->tag(OPR=>','),
-      $l1->tag(SYM=>'s3'),
-
-    ],
-
-  );
+  # validate input
+  my @list=map {$stab->valid_fetch($ARG)} @name;
 
 
-  # ~
-  while(my @have=$tab->find(
+  # find and solve patterns
+  my $exclude={};
 
-    $root,
+  while(my @have=$stab->find(
 
-    list=>[$keyw],
-    flat=>1
+    $old,
+
+    list    => \@list,
+    flat    => 1,
+
+    exclude => $exclude,
 
   )) {
 
+    # ^walk matches and call attached method
     for my $packed(@have) {
 
       my ($keyw,$data,$nd)=@$packed;
 
       $self->{branch}=$nd;
-      $keyw->{fn}->($self,$nd,$data);
+
+      my $out=$keyw->{fn}->(
+        $self,$nd,$data
+
+      );
+
+      $exclude->{$nd->{-uid}}=1
+      if $out eq '-x';
 
     };
 
   };
 
 
-  $root->prich();
-  exit;
-
-
+  # restore and give
+  $self->{branch}=$old;
   return;
 
 };
@@ -323,8 +289,7 @@ sub sweep($self) {
   if ! $self->{branch}->{parent}
 
   &&   $self->{branch}
-  ne   $main->{tree}
-  ;
+  ne   $main->{tree};
 
   return;
 
@@ -333,17 +298,41 @@ sub sweep($self) {
 # ---   *   ---   *   ---
 # add expression to table
 
-sub define($self,$type,$name,@sig) {
+sub define($self,$type,$name,%O) {
+
+
+  # defaults
+  $O{re}  //= null;
+  $O{fn}  //= $NOOP;
+  $O{sig} //= [];
 
   # get ctx
   my $main = $self->{main};
-  my $tab  = $self->{tab};
+  my $stab = $self->get_stab($type);
   my $l1   = $main->{l1};
 
-#  # ~
-#  my $dst  =
 
-  return;
+  # make new keyword
+  $stab->begin($name);
+
+  # add arguments signature if need
+  my @sig=@{$O{sig}};
+
+  $stab->pattern(@sig)
+  if @sig;
+
+  # ^same deal for function and regex!
+  $stab->function($O{fn})
+  if $O{fn} ne $NOOP;
+
+  $stab->regex($O{re})
+  if length $O{re};
+
+
+  # write to table and give
+  $stab->build();
+
+  return $stab->{$name};
 
 };
 
@@ -439,14 +428,16 @@ sub get_cmd_queue($self,$fn,@order) {
 
 sub node_fwd_parse($self,$branch) {
 
-  # join composite operators
-  $self->dopera();
 
-  # sort operators
-  $self->opera();
+  # exec syntax rules:
+  #
+  # * join composite operators
+  # * sort operations
+  #
+  # * join comma-separated lists
 
-  # join comma-separated lists
-  $self->cslist();
+  map {$self->invoke('fwd-parse'=>$ARG)}
+  qw  (join-opr comma-list);
 
   return;
 
@@ -651,288 +642,144 @@ sub strip_comments($self,$src=undef) {
 
 };
 
-# ---   *   ---   *   ---
-# template: run F for sequence
-
-sub _seq_temple($fn,$branch,@seq) {
-
-  my $have=0;
-
-  while(defined (my $idex=$branch->match_sequence(
-    @seq
-
-  ))) {$have|=1;$fn->($idex)};
-
-
-  return $have;
-
-};
-
-# ---   *   ---   *   ---
-# identify comma-separated lists
-
-sub cslist($self) {
-
-  # get ctx
-  my $main = $self->{main};
-  my $l1   = $main->{l1};
-
-  # build/fetch regex sequence
-  my $re  = $l1->re(OPR=>',');
-  my @seq = ($ANY_MATCH,$re,$ANY_MATCH);
-
-
-  my $branch = $self->{branch};
-
-  my $cnt    = 0;
-  my $pos    = -1;
-  my $anchor = undef;
-
-
-  # split at [any] , [any]
-  _seq_temple(sub ($idex) {
-
-    my @lv=@{$branch->{leaves}};
-       @lv=@lv[$idex..$idex+2];
-
-
-    # have [list] COMMA [value]?
-    ($anchor)=(! $anchor || $idex > $pos)
-
-      # make new list
-      ? $branch->insert(
-          $idex,$l1->tag(LIST=>$cnt++)
-
-        )
-
-      # ^else cat to existing
-      : $anchor
-
-      ;
-
-
-    # remove the comma
-    $lv[1]->discard();
-    @lv=($lv[0],$lv[2]);
-
-    # ^drop the list if catting to existing
-    shift @lv if $lv[0] eq $anchor;
-
-    # ^add nodes to list
-    $anchor->pushlv(@lv);
-    $pos=$idex;
-
-
-  },$branch,@seq);
-
-
-};
-
-# ---   *   ---   *   ---
-# join double operators
-
-sub dopera($self) {
-
-  # get ctx
-  my $main = $self->{main};
-  my $l1   = $main->{l1};
-
-  # build/fetch regex sequence
-  my $re=$l1->re(
-    OPR => '['."\Q$OPERA_PRIO".']'
-
-  );
-
-  my @seq    = ($re,$re);
-  my $branch = $self->{branch};
-
-  my @reset  = ();
-
-  _seq_temple(sub ($idex) {
-
-
-    my @lv=@{$branch->{leaves}};
-       @lv=@lv[$idex..$idex+1];
-
-    # join both operators into first
-    if(! @{$lv[0]->{leaves}}) {
-      $lv[0]->{value}=$l1->cat_tags(
-        $lv[0]->{value},
-        $lv[1]->{value},
-
-      );
-
-      # ^remove second
-      $lv[1]->discard();
-
-
-    # false positive!
-    } else {
-
-      push @reset,[
-        $lv[0]->{value},
-        $lv[0]->{idex}
-
-      ];
-
-      $lv[0]->{value}=null;
-
-    };
-
-
-  },$branch,@seq);
-
-
-  # ^restore false positives
-  map {
-    my ($value,$idex)=@$ARG;
-    $branch->{leaves}->[$idex]->{value}=$value;
-
-  } @reset;
-
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# make sub-branch from
-# [token] opera [token]
-
-sub opera($self) {
-
-  # get ctx
-  my $main = $self->{main};
-  my $l1   = $main->{l1};
-
-  # build/fetch regex
-  my $re=$l1->re(
-    OPR => '['."\Q$OPERA_PRIO".']+'
-
-  );
-
-  state $prio=[split $NULLSTR,$OPERA_PRIO];
-
-
-  # get tagged operators in branch
-  my $branch = $self->{branch};
-  my @ops    = map {
-
-    # get characters/priority for this operator
-    my $char = $l1->typechk(
-        OPR=>$ARG->{value}
-
-    )->{spec};
-
-    my $idex = array_iof(
-      $prio,(substr $char,-1,1)
-
-    );
-
-    # ^record
-    $ARG->{opera_char}=$char;
-    $ARG->{opera_prio}=$idex;
-
-    $ARG;
-
-
-  # ^that havent been already handled ;>
-  } grep {
-    ! exists $ARG->{opera_prio}
-
-  } $branch->branches_in($re);
-
-
-  # leave if no operators found!
-  return if ! @ops;
-
-
-  # sort operators by priority... manually
-  #
-  # builtin sort can't handle this
-  # for some reason
-  my @sops=();
-
-  map {
-    $sops[$ARG->{opera_prio}] //= [];
-    push @{$sops[$ARG->{opera_prio}]},$ARG;
-
-  } @ops;
-
-  # ^flatten sorted array of arrays!
-  @ops=map {@$ARG} grep {$ARG} @sops;
-
-
-  # restruc the tree
-  map {
-
-    my $char = $ARG->{opera_char};
-    my $idex = $ARG->{idex};
-
-    my $par  = $ARG->{parent};
-    my $rh   = $par->{leaves}->[$idex+1];
-    my $lh   = $par->{leaves}->[$idex-1];
-
-
-    # edge case:
-    #
-    #   if lh is first token in expression,
-    #   it is the parent node!
-
-    if($rh && $rh eq $lh) {
-      $lh=$par->inew($par->{value});
-      $par->repl($ARG);
-
-    };
-
-
-    # have unary operator?
-    if($OPERA_UNARY->{$char}) {
-
-      $self->throw_no_operands($char)
-      if ! defined $rh &&! defined $lh;
-
-      # assume ++X
-      if(defined $rh) {
-        $ARG->pushlv($rh);
-        $ARG->{value}.='right';
-
-      # ^else X++
-      } else {
-        $ARG->pushlv($lh);
-        $ARG->{value}.='left';
-
-      };
-
-
-    # ^nope, good times
-    } else {
-
-      $self->throw_no_operands($char)
-      if ! defined $rh ||! defined $lh;
-
-      $ARG->pushlv($lh,$rh);
-
-    };
-
-  } @ops;
-
-};
-
-# ---   *   ---   *   ---
-# ^errme
-
-sub throw_no_operands($self,$char) {
-
-  $self->{main}->{branch}->prich();
-
-  $self->{main}->perr(
-    "no operands for `[op]:%s`",
-    args=>[$char]
-
-  );
-
-};
+## ---   *   ---   *   ---
+## make sub-branch from
+## [token] opera [token]
+#
+#sub opera($self) {
+#
+#  # get ctx
+#  my $main = $self->{main};
+#  my $l1   = $main->{l1};
+#
+#  # build/fetch regex
+#  my $re=$l1->re(
+#    OPR => '['."\Q$OPERA_PRIO".']+'
+#
+#  );
+#
+#  state $prio=[split $NULLSTR,$OPERA_PRIO];
+#
+#
+#  # get tagged operators in branch
+#  my $branch = $self->{branch};
+#  my @ops    = map {
+#
+#    # get characters/priority for this operator
+#    my $char = $l1->typechk(
+#        OPR=>$ARG->{value}
+#
+#    )->{spec};
+#
+#    my $idex = array_iof(
+#      $prio,(substr $char,-1,1)
+#
+#    );
+#
+#    # ^record
+#    $ARG->{opera_char}=$char;
+#    $ARG->{opera_prio}=$idex;
+#
+#    $ARG;
+#
+#
+#  # ^that havent been already handled ;>
+#  } grep {
+#    ! exists $ARG->{opera_prio}
+#
+#  } $branch->branches_in($re);
+#
+#
+#  # leave if no operators found!
+#  return if ! @ops;
+#
+#
+#  # sort operators by priority... manually
+#  #
+#  # builtin sort can't handle this
+#  # for some reason
+#  my @sops=();
+#
+#  map {
+#    $sops[$ARG->{opera_prio}] //= [];
+#    push @{$sops[$ARG->{opera_prio}]},$ARG;
+#
+#  } @ops;
+#
+#  # ^flatten sorted array of arrays!
+#  @ops=map {@$ARG} grep {$ARG} @sops;
+#
+#
+#  # restruc the tree
+#  map {
+#
+#    my $char = $ARG->{opera_char};
+#    my $idex = $ARG->{idex};
+#
+#    my $par  = $ARG->{parent};
+#    my $rh   = $par->{leaves}->[$idex+1];
+#    my $lh   = $par->{leaves}->[$idex-1];
+#
+#
+#    # edge case:
+#    #
+#    #   if lh is first token in expression,
+#    #   it is the parent node!
+#
+#    if($rh && $rh eq $lh) {
+#      $lh=$par->inew($par->{value});
+#      $par->repl($ARG);
+#
+#    };
+#
+#
+#    # have unary operator?
+#    if($OPERA_UNARY->{$char}) {
+#
+#      $self->throw_no_operands($char)
+#      if ! defined $rh &&! defined $lh;
+#
+#      # assume ++X
+#      if(defined $rh) {
+#        $ARG->pushlv($rh);
+#        $ARG->{value}.='right';
+#
+#      # ^else X++
+#      } else {
+#        $ARG->pushlv($lh);
+#        $ARG->{value}.='left';
+#
+#      };
+#
+#
+#    # ^nope, good times
+#    } else {
+#
+#      $self->throw_no_operands($char)
+#      if ! defined $rh ||! defined $lh;
+#
+#      $ARG->pushlv($lh,$rh);
+#
+#    };
+#
+#  } @ops;
+#
+#};
+#
+## ---   *   ---   *   ---
+## ^errme
+#
+#sub throw_no_operands($self,$char) {
+#
+#  $self->{main}->{branch}->prich();
+#
+#  $self->{main}->perr(
+#    "no operands for `[op]:%s`",
+#    args=>[$char]
+#
+#  );
+#
+#};
 
 # ---   *   ---   *   ---
 # solve command tags

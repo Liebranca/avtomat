@@ -160,6 +160,7 @@ sub match($self,$x,%O) {
   # defaults
   $O{inclusive} //= 0;
   $O{flat}      //= 0;
+  $O{nopush}    //= 0;
 
 
   # input is tree?
@@ -170,8 +171,8 @@ sub match($self,$x,%O) {
 
 
     if($valid) {
-      shift @lv if $O{inclusive};
-      $x->pushlv(@lv);
+      shift @lv       if   $O{inclusive};
+      $x->pushlv(@lv) if ! $O{nopush};
 
     };
 

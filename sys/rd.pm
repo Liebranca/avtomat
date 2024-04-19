@@ -46,7 +46,7 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.5;#a
+  our $VERSION = v0.01.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -72,6 +72,7 @@ St::vconst {
   lx_t      => 'rd::lx',
 
   cmd_t     => 'rd::cmd',
+  syntax_t  => 'rd::syntax',
 
 
   # ^wraps
@@ -404,6 +405,13 @@ sub parse_subclass($self) {
 
   $l2->term();
 
+
+  # load new syntax rules!
+  cloadi $self->syntax_t;
+
+  $self->{syntax}=$self->syntax_t->new($self);
+  $self->{syntax}->build();
+
   return;
 
 };
@@ -592,7 +600,13 @@ sub next_line($self) {
 # wraps: remove comments
 
 sub strip($self) {
-  $self->{l2}->strip_comments($self->{tree});
+
+  my $l2=$self->{l2};
+
+  $l2->strip_comments($self->{tree});
+  $l2->sweep();
+
+  return;
 
 };
 

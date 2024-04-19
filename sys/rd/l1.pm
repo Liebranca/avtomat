@@ -369,7 +369,7 @@ sub cat($self,@ar) {
       "non-matching tag-types "
     . "cannot be catted!"
 
-    ) if $have->{type} ne $otype;
+    ) if $otype && $have->{type} ne $otype;
 
 
     # cat spec/data to result

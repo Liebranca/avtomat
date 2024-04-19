@@ -276,6 +276,9 @@ sub matchkey($self,$keyw,$x,%O) {
 
 sub match($self,$keyw,$x,%O) {
 
+  # defaults
+  $O{reroot} //= 0;
+
   # get keyword meta?
   $keyw=$self->valid_fetch($keyw)
   if ! ref $keyw;
@@ -287,7 +290,12 @@ sub match($self,$keyw,$x,%O) {
 
 
   # ^match signature and give
-  return $self->matchin($keyw,$in,%O);
+  my $data=$self->matchin($keyw,$in,%O);
+
+  return ($O{reroot})
+    ? ($in,$data)
+    : $data
+    ;
 
 };
 
@@ -299,7 +307,8 @@ sub find($self,$root,%O) {
 
 
   # defaults
-  $O{list} //= [];
+  $O{list}    //= [];
+  $O{exclude} //= {};
 
   # get ctx
   my $tab   = $self->{tab};
@@ -318,7 +327,9 @@ sub find($self,$root,%O) {
   while(@Q) {
 
     my $nd   = shift @Q;
-    my $deep = 0;
+    my $deep = exists $O{exclude}->{$nd->{-uid}};
+
+    goto skip if $deep;
 
 
     # look for matches...
@@ -337,14 +348,24 @@ sub find($self,$root,%O) {
 
 
       # have a match deeper down?
-      $deep |= length
-        $self->match($keyw,$nd,%O,fix=>0);
+      $deep |= length $self->match(
+
+        $keyw,$nd,
+
+        %O,
+
+        fix    => 0,
+        nopush => 1,
+
+      );
 
 
     };
 
 
     # go next?
+    skip:
+
     unshift @Q,@{$nd->{leaves}}
     if $deep;
 

@@ -54,8 +54,6 @@ St::vconst {
 
   },
 
-  sigtab_t => 'rd::sigtab',
-
   fn_t     => 'rd::preprocfn',
   genesis  => 'case',
 
@@ -70,6 +68,7 @@ sub ready_or_build($self) {
   # get ctx
   my $main = $self->{main};
   my $l1   = $main->{l1};
+  my $l2   = $main->{l2};
   my $tab  = $self->{tab};
 
   # skip already loaded
@@ -78,14 +77,12 @@ sub ready_or_build($self) {
 
   # begin the kick...
   cload $self->fn_t;
-  cload $self->sigtab_t;
-  cload $self->sigtab_t->sig_t;
 
   $tab=$self->{tab}=
-    $self->sigtab_t->new($main);
+    $l2->sigtab_t->new($main);
 
   $self->{invoke}=
-    $self->sigtab_t->new($main);
+    $l2->sigtab_t->new($main);
 
 
   # define token patterns to match
@@ -207,7 +204,7 @@ sub sort_tree($self,$branch) {
     $l2->{branch} = $ARG;
 
     $l2->strip_comments($ARG);
-    $l2->cslist();
+    $l2->invoke('fwd-parse'=>'comma-list');
 
 
     # sort expression
@@ -536,7 +533,7 @@ sub find($self,$root,%O) {
 
   # get branches that contain keyword
   # fail if none found!
-  my @have=$tab->matchkey($meta,$root);
+  my @have=$root->branches_in($meta->{re});
   return if ! @have;
 
   # ^walk

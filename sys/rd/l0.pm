@@ -317,7 +317,7 @@ sub com($self) {
   $self->str("\n");
   $self->flagset(com=>1);
 
-  # ^if not, keep it that way!
+  # if not at expression, keep it that way!
   $self->flagset(
 
     exp   => 0,
@@ -684,7 +684,7 @@ sub strmode($self) {
     # ^yep, terminate!
     if($com) {
       $self->flagset(com=>0);
-      $l2->cat();
+      $l2->term();
 
     };
 
