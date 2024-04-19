@@ -33,7 +33,7 @@ package rd::sigtab;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -149,7 +149,6 @@ sub regex($self,$re) {
   my $main = $self->{main};
   my $keyw = $self->{keyw};
   my $dst  = $self->{tab}->{$keyw};
-  my $l1   = $main->{l1};
 
   # copy
   $dst->{re} = $re;
@@ -189,7 +188,7 @@ sub build($self) {
 # ---   *   ---   *   ---
 # match input against pattern array
 
-sub matchin($self,$keyw,$x) {
+sub matchin($self,$keyw,$x,%O) {
 
 
   # get ctx
@@ -201,7 +200,7 @@ sub matchin($self,$keyw,$x) {
 
   # have signature match?
   for my $sig(@$sigar) {
-    $data=$sig->match($x);
+    $data=$sig->match($x,%O);
     last if length $data;
 
   };
@@ -216,7 +215,11 @@ sub matchin($self,$keyw,$x) {
 # "fix" forces the keyword to be
 # the first token!
 
-sub matchkey($self,$keyw,$x,$fix=0) {
+sub matchkey($self,$keyw,$x,%O) {
+
+
+  # defaults
+  $O{fix} //= 0;
 
 
   # have tree?
@@ -228,7 +231,7 @@ sub matchkey($self,$keyw,$x,$fix=0) {
 
     # ^if not fixed, look into leaves on fail!
     $have=$x->branch_in($keyw->{re})
-    if ! $have &&! $fix;
+    if ! $have &&! $O{fix};
 
     return $have;
 
@@ -245,7 +248,7 @@ sub matchkey($self,$keyw,$x,$fix=0) {
 
 
     # ensure first match is first elem?
-    if($fix) {
+    if($O{fix}) {
 
       return (! $idex)
 
@@ -271,20 +274,84 @@ sub matchkey($self,$keyw,$x,$fix=0) {
 # ---   *   ---   *   ---
 # ^keyword+input
 
-sub match($self,$keyw,$x,$fix=0) {
+sub match($self,$keyw,$x,%O) {
 
   # get keyword meta?
   $keyw=$self->valid_fetch($keyw)
   if ! ref $keyw;
 
   # match input against keyword
-  my $in=$self->matchkey($keyw,$x,$fix);
+  my $in=$self->matchkey($keyw,$x,%O);
 
   return null if ! defined $in;
 
 
   # ^match signature and give
-  return $self->matchin($keyw,$in);
+  return $self->matchin($keyw,$in,%O);
+
+};
+
+# ---   *   ---   *   ---
+# walk tree and try to find sequences
+# if found, return invoke params
+
+sub find($self,$root,%O) {
+
+
+  # defaults
+  $O{list} //= [];
+
+  # get ctx
+  my $tab   = $self->{tab};
+  my @which = (! @{$O{list}})
+    ? values %$tab
+    : @{$O{list}}
+    ;
+
+  delete $O{list};
+
+
+  # walk the tree
+  my @Q   = @{$root->{leaves}};
+  my @out = ();
+
+  while(@Q) {
+
+    my $nd   = shift @Q;
+    my $deep = 0;
+
+
+    # look for matches...
+    for my $keyw(@which) {
+
+
+      # have a match right here?
+      my $have=$self->match($keyw,$nd,%O,fix=>1);
+
+      # ^YES
+      if(length $have) {
+        push @out,[$keyw=>$have,$nd];
+        last;
+
+      };
+
+
+      # have a match deeper down?
+      $deep |= length
+        $self->match($keyw,$nd,%O,fix=>0);
+
+
+    };
+
+
+    # go next?
+    unshift @Q,@{$nd->{leaves}}
+    if $deep;
+
+  };
+
+
+  return @out;
 
 };
 

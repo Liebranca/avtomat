@@ -675,7 +675,7 @@ sub find_invokes($self,$branch) {
   state $re=qr{^invoke$};
 
   return $branch->branches_in(
-    $re,keep_root=>0
+    $re,inclusive=>0
 
   );
 
@@ -689,7 +689,7 @@ sub find_uinvokes($self,$branch) {
   state $re=qr{^unsorted_invoke$};
 
   return $branch->branches_in(
-    $re,keep_root=>0
+    $re,inclusive=>0
 
   );
 
@@ -755,7 +755,7 @@ sub find_ops($self,$branch) {
   state $re=qr{^ops$};
 
   return $branch->branches_in(
-    $re,keep_root=>0
+    $re,inclusive=>0
 
   );
 

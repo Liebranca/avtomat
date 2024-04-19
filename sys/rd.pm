@@ -207,6 +207,7 @@ sub new($class,$src,%O) {
 
   # ^now kick em
   $self->{l1}->build();
+  $self->{l2}->build();
 
 
   # nit command library

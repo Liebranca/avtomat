@@ -31,7 +31,7 @@ package rd::sig;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -150,21 +150,31 @@ sub hash_to_attrs($self,$key,$src) {
 # ---   *   ---   *   ---
 # get input matches pattern
 
-sub match($self,$x) {
+sub match($self,$x,%O) {
 
 
   # fstate
   return () if ! defined $x;
   my ($valid,$ar,@lv);
 
+  # defaults
+  $O{inclusive} //= 0;
+  $O{flat}      //= 0;
+
 
   # input is tree?
   if(Tree->is_valid($x)) {
 
     ($valid,@lv)=
-      $x->cross_sequence(@{$self->{seq}});
+      $x->cross_sequence($self->{seq},%O);
 
-    $x->pushlv(@lv) if $valid;
+
+    if($valid) {
+      shift @lv if $O{inclusive};
+      $x->pushlv(@lv);
+
+    };
+
     $ar=$x->{leaves};
 
 

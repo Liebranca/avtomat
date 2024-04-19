@@ -386,7 +386,7 @@ sub find_values($self,$branch) {
   state $re=qr{^value$};
 
   return $branch->branches_in(
-    $re,keep_root=>0
+    $re,inclusive=>0
 
   );
 

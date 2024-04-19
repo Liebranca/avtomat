@@ -258,7 +258,7 @@ sub mirror($mod,$excluded) {
 
   my @dirs=$tree->get_dir_list(
     full_path=>0,
-    keep_root=>1
+    inclusive=>1
 
   );
 
@@ -476,7 +476,7 @@ sub get_config_files($M,$C,$module) {
 
   my @dirs=$module->get_dir_list(
     full_path=>0,
-    keep_root=>1
+    inclusive=>1
 
   );
 

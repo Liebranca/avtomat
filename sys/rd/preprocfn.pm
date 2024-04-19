@@ -417,7 +417,7 @@ sub xstirr($self,@args) {
 
       ? $ARG->to_string(
           join_char=>'.',
-          keep_root=>1,
+          inclusive=>1,
 
         )
 

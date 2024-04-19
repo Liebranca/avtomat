@@ -643,7 +643,7 @@ sub invoke($self,$root,@src) {
   my $old  = $l2->{branch};
 
   # get F to call if none given!
-  @src=$self->invoke_order($root)
+  @src=$self->{invoke}->find($root)
   if ! @src;
 
 
@@ -661,65 +661,6 @@ sub invoke($self,$root,@src) {
 
   $l2->{branch}=$old;
   return;
-
-};
-
-# ---   *   ---   *   ---
-# gets list of calls to make
-# by performing a cannonical walk
-
-sub invoke_order($self,$root) {
-
-
-  # get ctx
-  my $src  = $self->{invoke};
-  my $tab  = $src->{tab};
-
-  my @have = values %$tab;
-
-
-  # walk the tree
-  my @Q   = @{$root->{leaves}};
-  my @out = ();
-
-  while(@Q) {
-
-    my $nd   = shift @Q;
-    my $deep = 0;
-
-
-    # look for matches...
-    for my $keyw(@have) {
-
-
-      # have a match right here?
-      my $have=$src->match($keyw,$nd,1);
-
-      # ^YES
-      if(length $have) {
-        push @out,[$keyw=>$have,$nd];
-        last;
-
-      };
-
-
-      # have a match deeper down?
-      $deep |= length
-        $src->match($keyw,$nd,0);
-
-
-    };
-
-
-    # go next?
-    unshift @Q,@{$nd->{leaves}}
-    if $deep;
-
-  };
-
-
-  # give found!
-  return @out;
 
 };
 

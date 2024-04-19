@@ -29,6 +29,7 @@ package rd::l2;
   use Arstd::Array;
   use Arstd::Bytes;
   use Arstd::IO;
+  use Arstd::PM;
 
   use parent 'rd::layer';
 
@@ -51,11 +52,12 @@ St::vconst {
     walked => {},
     nest   => [],
 
-    table  => {},
+    tab    => {},
 
   },
 
   node_mutate => 'mut',
+  sigtab_t    => 'rd::sigtab',
 
 };
 
@@ -73,6 +75,128 @@ St::vconst {
   };
 
   Readonly my $OPERA_PRIO  => "&|^*/-+<>~?!=";
+
+# ---   *   ---   *   ---
+# ~
+
+sub build($self) {
+
+
+  # get ctx
+  my $main  = $self->{main};
+  my $l1    = $main->{l1};
+  my $class = $self->sigtab_t;
+
+  # nit sequence table
+  cloadi $class;
+  cloadi $class->sig_t;
+
+  my $tab=$self->{tab}=$class->new($main);
+
+
+  # test sequence patterns
+  my $ncomma = $l1->re(WILD => '[^,]+');
+  my $comma  = $l1->re(OPR  => ',');
+
+  # write test sequence
+  $tab->begin('cslist');
+  $tab->pattern($comma,$ncomma);
+  $tab->function(sub {
+
+    my $self   = $_[0];
+    my $branch = $_[1];
+    my $data   = $_[2];
+
+
+    # merging lists?
+    my $top=$l1->xlate($branch->{value});
+    if($top && $top->{type} eq 'LIST') {
+
+      $branch->pluck(
+        $branch->branches_in($comma)
+
+      );
+
+    # ^nope!
+    } else {
+
+      my $tmp=$branch->{value};
+
+      $branch->{value}=
+        $l1->tag(LIST=>'ist');
+
+      $branch->{leaves}->[0]->{value}=$tmp;
+
+
+      map {
+        $ARG->flatten_branch()
+
+      } $branch->branches_in(
+        $l1->re(LIST=>'.+'),
+        inclusive=>0,
+
+      );
+
+    };
+
+
+  });
+
+  $tab->regex($ncomma);
+  $tab->build();
+
+  my $keyw  = $tab->valid_fetch('cslist');
+  my $frame = Tree->new_frame();
+
+  my $root  = $frame->from_list(
+
+    "ROOT",[
+
+      $l1->tag(SYM=>'EE'),
+      $l1->tag(OPR=>','),
+      $l1->tag(SYM=>'s0'),
+
+      $l1->tag(SYM=>'s1'),
+      $l1->tag(OPR=>','),
+      $l1->tag(SYM=>'s2'),
+
+      $l1->tag(OPR=>','),
+      $l1->tag(SYM=>'s3'),
+
+    ],
+
+  );
+
+
+  # ~
+  while(my @have=$tab->find(
+
+    $root,
+
+    list=>[$keyw],
+    flat=>1
+
+  )) {
+
+    for my $packed(@have) {
+
+      my ($keyw,$data,$nd)=@$packed;
+
+      $self->{branch}=$nd;
+      $keyw->{fn}->($self,$nd,$data);
+
+    };
+
+  };
+
+
+  $root->prich();
+  exit;
+
+
+  return;
+
+};
 
 # ---   *   ---   *   ---
 # end current and begin new
@@ -213,11 +337,11 @@ sub define($self,$type,$name,@sig) {
 
   # get ctx
   my $main = $self->{main};
-  my $tab  = $self->{table};
+  my $tab  = $self->{tab};
   my $l1   = $main->{l1};
 
-  # ~
-  my $dst  = 
+#  # ~
+#  my $dst  =
 
   return;
 

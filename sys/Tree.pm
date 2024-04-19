@@ -372,7 +372,7 @@ sub fetch($self,%O) {
   $O{existing}  //= 1;
   $O{throw}     //= 0;
   $O{max_depth} //= 0;
-  $O{keep_root} //= 0;
+  $O{inclusive} //= 0;
 
   $O{path}      //= [];
 
@@ -992,7 +992,7 @@ sub flatten_branch($self,%O) {
 
 
   # defaults
-  $O{keep_root}//=0;
+  $O{inclusive}//=0;
 
   # get leaves and parent, sort siblings
   my @move = $self->pluck(@{$self->{leaves}});
@@ -1007,7 +1007,7 @@ sub flatten_branch($self,%O) {
 
   # remove yourself!
   my $root = $par->pluck($self);
-  unshift @move,$root if $O{keep_root};
+  unshift @move,$root if $O{inclusive};
 
 
   # wipe branch and reset its leaves
@@ -1301,12 +1301,12 @@ sub leafless($self,%O) {
 sub hasleaves($self,%O) {
 
   $O{max_depth}//=0x24;
-  $O{keep_root}//=0;
+  $O{inclusive}//=0;
 
   my $depth=0;
   my @pending=();
 
-  if($O{keep_root}) {
+  if($O{inclusive}) {
     push @pending,$self;
 
   } else {
@@ -1363,7 +1363,7 @@ sub branchrefs($self,$dst) {
 sub branches_with($self,$lookfor,%O) {
 
   # defaults
-  $O{keep_root}//=1;
+  $O{inclusive}//=1;
   $O{max_depth}//=0x24;
   $O{first_match}//=0;
 
@@ -1372,7 +1372,7 @@ sub branches_with($self,$lookfor,%O) {
   my @leaves=();
 
   my $depth=0;
-  if($O{keep_root}) {
+  if($O{inclusive}) {
     push @leaves,$self;
 
   } else {
@@ -1419,7 +1419,7 @@ sub branches_with($self,$lookfor,%O) {
 sub branches_in($self,$lookfor,%O) {
 
   # defaults
-  $O{keep_root}   //= 1;
+  $O{inclusive}   //= 1;
   $O{max_depth}   //= 0x24;
   $O{first_match} //= 0;
 
@@ -1431,7 +1431,7 @@ sub branches_in($self,$lookfor,%O) {
 
 
   # keep or discard root node
-  if($O{keep_root}) {
+  if($O{inclusive}) {
     push @leaves,$self;
 
   } else {
@@ -1565,13 +1565,13 @@ sub to_string($self,%O) {
 
   # args defaults
   $O{max_depth} //= 0x24;
-  $O{keep_root} //= 0;
+  $O{inclusive} //= 0;
   $O{value}     //= 'value';
   $O{join_char} //= q[ ];
 
   # ^handle walk array
   my @leaves=();
-  if($O{keep_root}) {
+  if($O{inclusive}) {
     push @leaves,$self;
 
   } else {
@@ -1895,19 +1895,32 @@ sub match_series($self,@series) {
 # ---   *   ---   *   ---
 # ^cross-branch
 
-sub cross_sequence($self,@seq) {
+sub cross_sequence($self,$seq,%O) {
 
 
-  # get own leaves
-  my @args = @{$self->{leaves}};
+  # defauls
+  $O{flat}      //= 0;
+  $O{inclusive} //= 0;
+
+
+  # get nodes to match
+  my @args=(! $O{flat})
+    ? @{$self->{leaves}}
+    : ()
+    ;
+
+  # match against root?
+  @args=($self,@args)
+  if ($O{inclusive});
+
 
   # ^if that's not enough, use
   # sibling nodes
   push @args,$self->all_fwd()
-  if @args < @seq;
+  if @args < @$seq;
 
   # ^fail if that's still not enough
-  return (0,()) if @args < @seq;
+  return (0,()) if @args < @$seq;
 
 
   # validate
@@ -1915,9 +1928,9 @@ sub cross_sequence($self,@seq) {
   my $valid =! int grep {
   ! ($args[$i++]->{value}=~ $ARG)
 
-  } @seq;
+  } @$seq;
 
-  return ($valid,@args[0..$#seq]);
+  return ($valid,@args[0..@$seq-1]);
 
 };
 

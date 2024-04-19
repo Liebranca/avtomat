@@ -194,7 +194,7 @@ sub wsearch($search_in,$re) {
 
     for my $dir($tree->get_dir_list(
       full_path=>0,
-      keep_root=>1,
+      inclusive=>1,
 
     )) {
 
