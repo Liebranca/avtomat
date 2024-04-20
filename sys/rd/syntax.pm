@@ -23,6 +23,8 @@ package rd::syntax;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+
+  use Arstd::Array;
   use Arstd::Re;
 
   use parent 'rd::layer';
@@ -60,7 +62,8 @@ St::vconst {
 
   },
 
-  list => [qw(csv join_opr)],
+  csv_char => '\,',
+  list     => [qw(csv join_opr make_opr)],
 
 };
 
@@ -75,6 +78,24 @@ sub opr_list($self) {
     @{$self->opr->{unary}},
 
   ];
+
+};
+
+# ---   *   ---   *   ---
+# ^get list of operator chars!
+
+sub opr_charset($self) {
+
+  state $out=undef;
+  return $out if $out;
+
+  my $chars=join  null,@{$self->opr_list};
+  my @chars=split null,$chars;
+
+  array_dupop \@chars;
+
+  $out=\@chars;
+  return $out;
 
 };
 
@@ -110,14 +131,16 @@ sub csv($self) {
   my $l1   = $main->{l1};
 
   # single comma/anything BUT
-  my $comma  = $l1->re(OPR  => ',');
-  my $ncomma = $l1->re(WILD => '[^,]+');
+  my $char   = $self->csv_char;
+
+  my $comma  = $l1->re(OPR  => $char);
+  my $ncomma = $l1->re(WILD => "[^$char]+");
 
 
   # give params
   return (
 
-    'fwd-parse' => 'comma-list',
+    'fwd-parse' => 'csv',
 
 
     re  => $ncomma,
@@ -182,12 +205,11 @@ sub join_opr($self) {
 
   # get ctx
   my $main = $self->{main};
-  my $l0   = $main->{l0};
   my $l1   = $main->{l1};
 
 
   # match any operator!
-  my $chars = join null,@{$l0->spchars};
+  my $chars = join null,@{$self->opr_charset};
      $chars = "\Q$chars";
 
   my $opr   = $l1->re(OPR => "[$chars]+");
@@ -216,11 +238,17 @@ sub join_opr($self) {
       my $branch = $_[1];
       my $data   = $_[2];
 
+      # validate input
+      my $leafv=$branch->leaf_value(0);
+
+      return '-x'
+      if ! $l1->typechk(OPR=>$leafv);
+
 
       # join both operators
       my $token=$l1->cat(
         $branch->{value},
-        $branch->leaf_value(0),
+        $leafv,
 
       );
 
@@ -255,11 +283,141 @@ sub join_opr($self) {
 };
 
 # ---   *   ---   *   ---
-# sorts binary operations by precedence
+# joins operator with operands!
 
-sub sort_bopr($self) {
+sub make_opr($self) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l0   = $main->{l0};
+  my $l1   = $main->{l1};
+
+
+  # match valid operators
+  my $opr = re_eiths(
+    $self->opr_list,
+    opscape=>1,
+
+  );
+
+  my $csv = $self->csv_char;
+  my $any = $l1->re(WILD => "[^$csv]+");
+
+
+  # give params
+  return (
+
+    'fwd-parse' => 'make-opr',
+
+    sig => [$opr,$any],
+    re  => $any,
+
+    fn  => \&_make_opr,
+
+  );
 
 };
+
+# ---   *   ---   *   ---
+# ^implementation
+
+sub _make_opr($self,$branch,$data) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+  my @lv   = @{$branch->{leaves}};
+
+
+  # validate
+  if(@lv > 2) {
+
+    $branch->{parent}->insertlv(
+      $branch->{idex},
+      @lv[2..$#lv]
+
+    );
+
+    return '-x';
+
+  };
+
+
+  # walk operands and typecheck'em
+  my $out=0;
+
+  map {
+
+    my $top=$l1->xlate($branch->{value});
+    my $bot=$l1->xlate($ARG->{value});
+
+
+    # operand is an operator?
+    if($bot && $bot->{type} eq 'OPR') {
+
+
+      # swap operand and operator if the
+      # root is *not* an operator
+
+      if($top && $top->{type} ne 'OPR') {
+        $branch->vcastle(src=>$ARG->{idex});
+
+
+      # ^or move an empty operator tree!
+      } else {
+
+        $branch->{parent}->insertlv(
+          $branch->{idex}+1,
+          $ARG
+
+        );
+
+        $out='-x';
+
+      };
+
+    };
+
+
+  } @lv;
+
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# scratch!
+
+#    my $token = $l1->xlate($nd->{value});
+#
+#    if($token && $token->{type} eq 'OPR') {
+#
+#      # we need to move the trees around
+#      # so that sort-ops can see the
+#      # sequence of operations!
+#      #
+#      # so: we leave a "note" saying
+#      # this tree used to be here
+#      #
+#      # what we'll then do is use the note
+#      # to find this tree when we start
+#      # sorting by operator priority
+#
+#      my $ptr  = $l1->tag(NODE=>$nd->{-uid});
+#         $ptr .= $nd->{value};
+#
+#      $branch->{parent}->insertlv(
+#        $branch->{idex}+1,$nd
+#
+#      );
+#
+#      $branch->insert($first,$ptr);
+#      $out='-x';
+#
+#    };
 
 # ---   *   ---   *   ---
 1; # ret

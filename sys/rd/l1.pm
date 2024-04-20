@@ -71,6 +71,8 @@ St::vconst {
           ['^' => 'EXP'],
           ['l' => 'LIST'],
 
+          ['/' => 'NODE'],
+
         )
 
       },
@@ -366,8 +368,20 @@ sub cat($self,@ar) {
 
     # enforce equal types
     $self->{main}->perr(
-      "non-matching tag-types "
-    . "cannot be catted!"
+
+      "\n"
+
+    . "have '%s' + '%s'\n"
+    . "from [errtag]:%s\n\n"
+
+    . "non-matching tag-types "
+    . "cannot be catted!",
+
+      args => [
+        "[$otype$ospec] $odata",$ARG,
+        (caller 1)[3],
+
+      ],
 
     ) if $otype && $have->{type} ne $otype;
 

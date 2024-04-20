@@ -437,7 +437,7 @@ sub node_fwd_parse($self,$branch) {
   # * join comma-separated lists
 
   map {$self->invoke('fwd-parse'=>$ARG)}
-  qw  (join-opr comma-list);
+  qw  (join-opr make-opr); # csv
 
   return;
 

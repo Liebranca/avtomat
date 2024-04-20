@@ -38,7 +38,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.6;
+  our $VERSION = v0.03.7;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -768,16 +768,14 @@ sub pushlv($self,@pending) {
     next if $node->{parent}
          && $node->{parent} eq $self;
 
-
-    $node->{parent}=$self;
-
-    push @{$self->{leaves}},$node;
-
-    if($par && $par != $node->{parent}) {
-      $par->pluck($node);
-      $node->{parent}=$self;
+    if($par && $par != $self) {
+      ($node)=$par->pluck($node);
 
     };
+
+
+    $node->{parent}=$self;
+    push @{$self->{leaves}},$node;
 
   };
 
@@ -852,7 +850,16 @@ sub insertlv($self,$pos,@list) {
   my ($head,$tail)=$self->insert_prologue($pos);
 
   # relocate leaves to new branch
-  map {$ARG->{parent}=$self} @list;
+  @list=map {
+
+    ($ARG)=$ARG->discard() if $ARG->{parent};
+
+    $ARG->{plucked} = 1;
+    $ARG->{parent}  = undef;
+
+    $ARG;
+
+  } @list;
 
   # ^update self leaves
   $self->insert_epilogue(
@@ -908,8 +915,12 @@ sub insert_epilogue($self,%h) {
   );
 
   # ^overwrite
-  $self->{leaves}=\@leaves;
+  my (@pluck)=$self->pluck_all();
+  $self->pushlv(@leaves);
   $self->idextrav();
+  $self->cllv();
+
+  return;
 
 };
 
@@ -1098,6 +1109,7 @@ sub pluck($self,@pending) {
 
   };
 
+
   $self->cllv();
   return @plucked;
 
@@ -1141,8 +1153,8 @@ sub idextrav($self) {
 
   my $i=0;
   for my $child(@{$self->{leaves}}) {
-    $child->{idex}=$i++;
-    $child->{plucked}=0;
+    $child->{idex}    = $i++;
+    $child->{plucked} = 0;
 
   };
 
@@ -1555,6 +1567,37 @@ sub rwalk($self) {
   };
 
   return reverse @out;
+
+};
+
+# ---   *   ---   *   ---
+# castling of two node values
+
+sub vcastle($self,%O) {
+
+
+  # defaults
+  $O{src} //= 0;
+
+  # get ctx
+  my $class = ref $self;
+  my $src   = $O{src};
+
+
+  # source is leaf?
+  if(! Tree->is_valid($src)) {
+    $src=$self->{leaves}->[$src];
+
+  };
+
+
+  # swap and give
+  my $tmp=$self->{value};
+
+  $self->{value} = $src->{value};
+  $src->{value}  = $tmp;
+
+  return;
 
 };
 
