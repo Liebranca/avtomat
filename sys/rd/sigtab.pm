@@ -308,6 +308,7 @@ sub find($self,$root,%O) {
 
   # defaults
   $O{list}    //= [];
+  $O{limit}   //= 0x24;
   $O{exclude} //= {};
 
   # get ctx
@@ -317,12 +318,16 @@ sub find($self,$root,%O) {
     : @{$O{list}}
     ;
 
+  my $limit = $O{limit};
+
   delete $O{list};
+  delete $O{limit};
 
 
   # walk the tree
-  my @Q   = @{$root->{leaves}};
-  my @out = ();
+  my @Q     = @{$root->{leaves}};
+  my @out   = ();
+  my $depth = 0;
 
   while(@Q) {
 
@@ -366,11 +371,13 @@ sub find($self,$root,%O) {
     # go next?
     skip:
 
-    unshift @Q,@{$nd->{leaves}}
-    if $deep;
+    if($deep && $depth < $limit) {
+      unshift @Q,@{$nd->{leaves}};
+      $depth++;
+
+    };
 
   };
-
 
   return @out;
 

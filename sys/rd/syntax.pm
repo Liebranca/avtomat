@@ -48,7 +48,7 @@ St::vconst {
 
       & | ^ << >>
 
-      *^ * / + -
+      *^ / * + -
 
       == != < <= >= > && ||
 
@@ -63,7 +63,13 @@ St::vconst {
   },
 
   csv_char => '\,',
-  list     => [qw(csv join_opr make_opr)],
+
+  list     => [qw(
+
+    csv
+    join_opr
+
+  )],
 
 };
 
@@ -95,6 +101,42 @@ sub opr_charset($self) {
   array_dupop \@chars;
 
   $out=\@chars;
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^get regex for valid combinations
+
+sub opr_combo($self) {
+
+  state $out=undef;
+  return $out if $out;
+
+  $out=re_eiths(
+    $self->opr_list,
+    opscape=>1,
+
+  );
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^binary
+
+sub bopr_combo($self) {
+
+  state $out=undef;
+  return $out if $out;
+
+  $out=re_eiths(
+    $self->opr->{binary},
+    opscape=>1,
+
+  );
+
   return $out;
 
 };
@@ -214,13 +256,6 @@ sub join_opr($self) {
 
   my $opr   = $l1->re(OPR => "[$chars]+");
 
-  # ^get valid combinations
-  my $combo = re_eiths(
-    $self->opr_list,
-    opscape=>1,
-
-  );
-
 
   # give params
   return (
@@ -230,90 +265,7 @@ sub join_opr($self) {
     sig => [$opr],
     re  => $opr,
 
-    fn  => sub {
-
-
-      # unpack
-      my $self   = $_[0];
-      my $branch = $_[1];
-      my $data   = $_[2];
-
-      # validate input
-      my $leafv=$branch->leaf_value(0);
-
-      return '-x'
-      if ! $l1->typechk(OPR=>$leafv);
-
-
-      # join both operators
-      my $token=$l1->cat(
-        $branch->{value},
-        $leafv,
-
-      );
-
-      my $have=$l1->untag($token);
-
-
-      # undo if combination is invalid
-      if(! ($have->{spec}=~ m[^$combo$])) {
-
-        $branch->flatten_branch(
-          inclusive=>1
-
-        );
-
-        return '-x';
-
-
-      # ^valid, replace and clear
-      } else {
-
-        $branch->{value}=$token;
-        $branch->clear();
-
-        return 0;
-
-      };
-
-    },
-
-  );
-
-};
-
-# ---   *   ---   *   ---
-# joins operator with operands!
-
-sub make_opr($self) {
-
-
-  # get ctx
-  my $main = $self->{main};
-  my $l0   = $main->{l0};
-  my $l1   = $main->{l1};
-
-
-  # match valid operators
-  my $opr = re_eiths(
-    $self->opr_list,
-    opscape=>1,
-
-  );
-
-  my $csv = $self->csv_char;
-  my $any = $l1->re(WILD => "[^$csv]+");
-
-
-  # give params
-  return (
-
-    'fwd-parse' => 'make-opr',
-
-    sig => [$opr,$any],
-    re  => $any,
-
-    fn  => \&_make_opr,
+    fn  => \&_join_opr,
 
   );
 
@@ -322,102 +274,203 @@ sub make_opr($self) {
 # ---   *   ---   *   ---
 # ^implementation
 
-sub _make_opr($self,$branch,$data) {
+sub _join_opr($self,$branch,$data) {
 
 
   # get ctx
   my $main = $self->{main};
   my $l1   = $main->{l1};
-  my @lv   = @{$branch->{leaves}};
+
+  # validate input
+  my $leafv=$branch->leaf_value(0);
+
+  return '-x'
+  if ! $l1->typechk(OPR=>$leafv);
 
 
-  # validate
-  if(@lv > 2) {
+  # join both operators
+  my $token=$l1->cat(
+    $branch->{value},
+    $leafv,
 
-    $branch->{parent}->insertlv(
-      $branch->{idex},
-      @lv[2..$#lv]
+  );
+
+  my $have=$l1->untag($token);
+
+
+  # undo if combination is invalid
+  my $combo=$self->opr_combo;
+  if(! ($have->{spec}=~ m[^$combo$])) {
+
+    $branch->flatten_branch(
+      inclusive=>1
 
     );
 
     return '-x';
 
+
+  # ^valid, replace and clear
+  } else {
+
+    $branch->{value}=$token;
+    $branch->clear();
+
+    return 0;
+
   };
-
-
-  # walk operands and typecheck'em
-  my $out=0;
-
-  map {
-
-    my $top=$l1->xlate($branch->{value});
-    my $bot=$l1->xlate($ARG->{value});
-
-
-    # operand is an operator?
-    if($bot && $bot->{type} eq 'OPR') {
-
-
-      # swap operand and operator if the
-      # root is *not* an operator
-
-      if($top && $top->{type} ne 'OPR') {
-        $branch->vcastle(src=>$ARG->{idex});
-
-
-      # ^or move an empty operator tree!
-      } else {
-
-        $branch->{parent}->insertlv(
-          $branch->{idex}+1,
-          $ARG
-
-        );
-
-        $out='-x';
-
-      };
-
-    };
-
-
-  } @lv;
-
-
-  return $out;
 
 };
 
 # ---   *   ---   *   ---
-# scratch!
+# give list of operators nodes
+# in tree, sorted by priority
 
-#    my $token = $l1->xlate($nd->{value});
-#
-#    if($token && $token->{type} eq 'OPR') {
-#
-#      # we need to move the trees around
-#      # so that sort-ops can see the
-#      # sequence of operations!
-#      #
-#      # so: we leave a "note" saying
-#      # this tree used to be here
-#      #
-#      # what we'll then do is use the note
-#      # to find this tree when we start
-#      # sorting by operator priority
-#
-#      my $ptr  = $l1->tag(NODE=>$nd->{-uid});
-#         $ptr .= $nd->{value};
-#
-#      $branch->{parent}->insertlv(
-#        $branch->{idex}+1,$nd
-#
-#      );
-#
-#      $branch->insert($first,$ptr);
-#      $out='-x';
-#
-#    };
+sub sort_opr($self,$branch,$ar) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+
+  # match valid operators
+  my $opr = re_eiths($ar,opscape=>1);
+
+
+  # get operators by priority
+  my @sorted=();
+  map {
+
+    my $x=$ARG->{value};
+       $x=$l1->untag($x);
+
+    $x=array_iof $ar,$x->{spec};
+
+    $sorted[$x] //= [];
+    push @{$sorted[$x]},$ARG;
+
+  } $branch->branches_in(
+    qr{^\[\`$opr},
+    max_depth=>0x01,
+
+  );
+
+  @sorted=grep {$ARG} @sorted;
+  @sorted=array_flatten \@sorted,dupop=>1;
+
+  @sorted=grep {! @{$ARG->{leaves}}} @sorted;
+
+  return @sorted;
+
+};
+
+# ---   *   ---   *   ---
+# sort unary operators
+
+sub sort_uopr($self,$branch) {
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+
+  # get valid chars
+  my $csv   = $self->csv_char;
+  my $valid = $l1->re(WILD => "[^$csv]+");
+  my $bopr  = $self->bopr_combo;
+     $bopr  = qr{^\[\`$bopr};
+
+  # walk
+  map {
+
+    my $idex = $ARG->{idex};
+    my $par  = $ARG->{parent};
+    my $lv   = $par->{leaves};
+
+    my $have = undef;
+
+
+    if($idex < @$lv-1
+    &&! ($lv->[$idex+1]->{value}=~ $bopr)) {
+      $have=$lv->[$idex+1];
+
+    } elsif(0 < $idex
+    &&! ($lv->[$idex-1]->{value}=~ $bopr)) {
+      $have=$lv->[$idex-1]
+
+    };
+
+    $ARG->pushlv($have)
+
+    if $have
+    && ($have->{value}=~ $valid);
+
+
+  } $self->sort_opr(
+    $branch,$self->opr->{unary}
+
+  );
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# sort binary operators
+
+sub sort_bopr($self,$branch) {
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+
+  # get valid chars
+  my $csv   = $self->csv_char;
+  my $valid = $l1->re(WILD => "[^$csv]+");
+
+  # walk
+  map {
+
+    my $idex = $ARG->{idex};
+    my $par  = $ARG->{parent};
+    my $lv   = $par->{leaves};
+
+    if(0 <= $idex-1 && $idex < @$lv-1) {
+
+      my @have=(
+        $lv->[$idex-1],
+        $lv->[$idex+1],
+
+      );
+
+      $ARG->pushlv(@have)
+
+      if @have == int grep {
+        $ARG->{value}=~ $valid
+
+      } @have;
+
+    };
+
+  } $self->sort_opr(
+    $branch,$self->opr->{binary}
+
+  );
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# sort all!
+
+sub make_ops($self,$branch) {
+
+  $self->sort_uopr($branch);
+  $self->sort_bopr($branch);
+
+  return;
+
+};
 
 # ---   *   ---   *   ---
 1; # ret

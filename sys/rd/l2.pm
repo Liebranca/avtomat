@@ -117,6 +117,7 @@ sub invoke($self,$type,@name) {
 
 
   # get subtable and backup state
+  my $main = $self->{main};
   my $stab = $self->get_stab($type);
   my $old  = $self->{branch};
 
@@ -146,7 +147,7 @@ sub invoke($self,$type,@name) {
       $self->{branch}=$nd;
 
       my $out=$keyw->{fn}->(
-        $self,$nd,$data
+        $main->{syntax},$nd,$data
 
       );
 
@@ -436,8 +437,12 @@ sub node_fwd_parse($self,$branch) {
   #
   # * join comma-separated lists
 
-  map {$self->invoke('fwd-parse'=>$ARG)}
-  qw  (join-opr make-opr); # csv
+  $self->invoke('fwd-parse'=>'join-opr');
+
+  my $syntax=$self->{main}->{syntax};
+  $syntax->make_ops($branch);
+
+  $self->invoke('fwd-parse'=>'csv');
 
   return;
 

@@ -67,7 +67,7 @@ package Arstd::Array;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.8;
+  our $VERSION=v0.00.9;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -175,20 +175,25 @@ sub dupop($ar) {
   my %tmp = ();
   my $i   = 0;
 
-  for my $x(@$ar) {
-    $tmp{$x}=(exists $tmp{$x})
-      ? $tmp{$x}
-      : $i++
+  map {
+
+    $tmp{$ARG}=(! exists $tmp{$ARG})
+      ? [$i++,$ARG]
+      : $tmp{$ARG}
       ;
 
-  };
+  } @$ar;
+
 
   @$ar=();
 
-  for my $x(keys %tmp) {
-    $ar->[$tmp{$x}]=$x;
+  map {
+    my ($idex,$value)=@$ARG;
+    $ar->[$idex]=$value;
 
-  };
+  } values %tmp;
+
+  return;
 
 };
 
