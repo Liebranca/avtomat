@@ -158,6 +158,24 @@ sub regex($self,$re) {
 };
 
 # ---   *   ---   *   ---
+# if matching tree nodes,
+# use sibling nodes only!
+
+sub set_flat($self,$x) {
+
+  # get ctx
+  my $main = $self->{main};
+  my $keyw = $self->{keyw};
+  my $dst  = $self->{tab}->{$keyw};
+
+  # copy
+  $dst->{flat} = $x;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # merges data on current entry
 
 sub build($self) {
@@ -342,7 +360,21 @@ sub find($self,$root,%O) {
 
 
       # have a match right here?
-      my $have=$self->match($keyw,$nd,%O,fix=>1);
+      my $flat=($O{flat})
+        ? $O{flat}
+        : $keyw->{flat}
+        ;
+
+      my $have=$self->match(
+
+        $keyw,$nd,
+
+        %O,
+
+        fix  => 1,
+        flat => $flat,
+
+      );
 
       # ^YES
       if(length $have) {
@@ -360,6 +392,8 @@ sub find($self,$root,%O) {
         %O,
 
         fix    => 0,
+        flat   => $flat,
+
         nopush => 1,
 
       );

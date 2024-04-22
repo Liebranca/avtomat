@@ -87,7 +87,8 @@ sub new($class,$ar) {
     capt => $capt,
     defv => $defv,
 
-    seq  => \@seq
+    seq  => \@seq,
+    flat => 0,
 
   },$class;
 

@@ -32,7 +32,7 @@ package rd::syntax;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -163,6 +163,35 @@ sub build($self) {
 };
 
 # ---   *   ---   *   ---
+# entry point
+
+sub apply_rules($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l2   = $main->{l2};
+
+
+  # exec rules:
+  #
+  # * join composite operators
+  # * sort operations
+  #
+  # * join comma-separated lists
+
+  $l2->invoke('fwd-parse'=>'join-opr')
+  if ! @{$branch->{leaves}};
+
+  $self->make_ops($branch);
+  $l2->invoke('fwd-parse'=>'csv');
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # match comma separated values
 
 sub csv($self) {
@@ -185,57 +214,68 @@ sub csv($self) {
     'fwd-parse' => 'csv',
 
 
-    re  => $ncomma,
-    sig => [$comma,$ncomma],
+    re   => $ncomma,
+    sig  => [$comma,$ncomma],
 
-    fn  => sub {
-
-
-      # unpack
-      my $self   = $_[0];
-      my $branch = $_[1];
-      my $data   = $_[2];
-
-
-      # merging lists?
-      my $top=$l1->xlate($branch->{value});
-      if($top && $top->{type} eq 'LIST') {
-
-        $branch->pluck(
-          $branch->branches_in($comma)
-
-        );
-
-
-      # ^nope!
-      } else {
-
-        my $tmp=$branch->{value};
-
-        $branch->{value}=
-          $l1->tag(LIST=>'csv');
-
-        $branch->{leaves}->[0]->{value}=$tmp;
-
-      };
-
-
-      # remove nesting
-      map {
-        $ARG->flatten_branch()
-
-      } $branch->branches_in(
-        $l1->re(LIST=>'.+'),
-        inclusive=>0,
-
-      );
-
-      return 0;
-
-
-    },
+    fn   => \&_csv,
+    flat => 1,
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# ^implementation
+
+sub _csv($self,$branch,$data) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+
+  # single comma/anything BUT
+  my $char   = $self->csv_char;
+
+  my $comma  = $l1->re(OPR  => $char);
+  my $ncomma = $l1->re(WILD => "[^$char]+");
+
+
+  # merging lists?
+  my $top=$l1->xlate($branch->{value});
+  if($top && $top->{type} eq 'LIST') {
+
+    $branch->pluck(
+      $branch->branches_in($comma)
+
+    );
+
+
+  # ^nope!
+  } else {
+
+    my $tmp=$branch->{value};
+
+    $branch->{value}=
+      $l1->tag(LIST=>'csv');
+
+    $branch->{leaves}->[0]->{value}=$tmp;
+
+  };
+
+
+  # remove nesting
+  map {
+    $ARG->flatten_branch()
+
+  } $branch->branches_in(
+    $l1->re(LIST=>'.+'),
+    inclusive=>0,
+
+  );
+
+  return 0;
+
 
 };
 
@@ -262,10 +302,11 @@ sub join_opr($self) {
 
     'fwd-parse' => 'join-opr',
 
-    sig => [$opr],
-    re  => $opr,
+    sig  => [$opr],
+    re   => $opr,
 
-    fn  => \&_join_opr,
+    fn   => \&_join_opr,
+    flat => 0,
 
   );
 
@@ -281,14 +322,9 @@ sub _join_opr($self,$branch,$data) {
   my $main = $self->{main};
   my $l1   = $main->{l1};
 
-  # validate input
-  my $leafv=$branch->leaf_value(0);
-
-  return '-x'
-  if ! $l1->typechk(OPR=>$leafv);
-
 
   # join both operators
+  my $leafv=$branch->leaf_value(0);
   my $token=$l1->cat(
     $branch->{value},
     $leafv,
@@ -346,8 +382,11 @@ sub sort_opr($self,$branch,$ar) {
 
     $x=array_iof $ar,$x->{spec};
 
-    $sorted[$x] //= [];
-    push @{$sorted[$x]},$ARG;
+    if(defined $x) {
+      $sorted[$x] //= [];
+      push @{$sorted[$x]},$ARG;
+
+    };
 
   } $branch->branches_in(
     qr{^\[\`$opr},
@@ -419,6 +458,7 @@ sub sort_uopr($self,$branch) {
 
 sub sort_bopr($self,$branch) {
 
+
   # get ctx
   my $main = $self->{main};
   my $l1   = $main->{l1};
@@ -427,6 +467,7 @@ sub sort_bopr($self,$branch) {
   my $csv   = $self->csv_char;
   my $valid = $l1->re(WILD => "[^$csv]+");
 
+
   # walk
   map {
 
@@ -434,7 +475,7 @@ sub sort_bopr($self,$branch) {
     my $par  = $ARG->{parent};
     my $lv   = $par->{leaves};
 
-    if(0 <= $idex-1 && $idex < @$lv-1) {
+    if(1 <= $idex && $idex < @$lv-1) {
 
       my @have=(
         $lv->[$idex-1],

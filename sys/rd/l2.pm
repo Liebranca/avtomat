@@ -133,8 +133,6 @@ sub invoke($self,$type,@name) {
     $old,
 
     list    => \@list,
-    flat    => 1,
-
     exclude => $exclude,
 
   )) {
@@ -303,9 +301,10 @@ sub define($self,$type,$name,%O) {
 
 
   # defaults
-  $O{re}  //= null;
-  $O{fn}  //= $NOOP;
-  $O{sig} //= [];
+  $O{re}   //= null;
+  $O{fn}   //= $NOOP;
+  $O{sig}  //= [];
+  $O{flat} //= 0;
 
   # get ctx
   my $main = $self->{main};
@@ -328,6 +327,10 @@ sub define($self,$type,$name,%O) {
 
   $stab->regex($O{re})
   if length $O{re};
+
+
+  # set sequence match rules
+  $stab->set_flat($O{flat});
 
 
   # write to table and give
@@ -429,20 +432,10 @@ sub get_cmd_queue($self,$fn,@order) {
 
 sub node_fwd_parse($self,$branch) {
 
+  my $main = $self->{main};
+  my $syx  = $main->{syntax};
 
-  # exec syntax rules:
-  #
-  # * join composite operators
-  # * sort operations
-  #
-  # * join comma-separated lists
-
-  $self->invoke('fwd-parse'=>'join-opr');
-
-  my $syntax=$self->{main}->{syntax};
-  $syntax->make_ops($branch);
-
-  $self->invoke('fwd-parse'=>'csv');
+  $syx->apply_rules($branch);
 
   return;
 
@@ -646,145 +639,6 @@ sub strip_comments($self,$src=undef) {
   return;
 
 };
-
-## ---   *   ---   *   ---
-## make sub-branch from
-## [token] opera [token]
-#
-#sub opera($self) {
-#
-#  # get ctx
-#  my $main = $self->{main};
-#  my $l1   = $main->{l1};
-#
-#  # build/fetch regex
-#  my $re=$l1->re(
-#    OPR => '['."\Q$OPERA_PRIO".']+'
-#
-#  );
-#
-#  state $prio=[split $NULLSTR,$OPERA_PRIO];
-#
-#
-#  # get tagged operators in branch
-#  my $branch = $self->{branch};
-#  my @ops    = map {
-#
-#    # get characters/priority for this operator
-#    my $char = $l1->typechk(
-#        OPR=>$ARG->{value}
-#
-#    )->{spec};
-#
-#    my $idex = array_iof(
-#      $prio,(substr $char,-1,1)
-#
-#    );
-#
-#    # ^record
-#    $ARG->{opera_char}=$char;
-#    $ARG->{opera_prio}=$idex;
-#
-#    $ARG;
-#
-#
-#  # ^that havent been already handled ;>
-#  } grep {
-#    ! exists $ARG->{opera_prio}
-#
-#  } $branch->branches_in($re);
-#
-#
-#  # leave if no operators found!
-#  return if ! @ops;
-#
-#
-#  # sort operators by priority... manually
-#  #
-#  # builtin sort can't handle this
-#  # for some reason
-#  my @sops=();
-#
-#  map {
-#    $sops[$ARG->{opera_prio}] //= [];
-#    push @{$sops[$ARG->{opera_prio}]},$ARG;
-#
-#  } @ops;
-#
-#  # ^flatten sorted array of arrays!
-#  @ops=map {@$ARG} grep {$ARG} @sops;
-#
-#
-#  # restruc the tree
-#  map {
-#
-#    my $char = $ARG->{opera_char};
-#    my $idex = $ARG->{idex};
-#
-#    my $par  = $ARG->{parent};
-#    my $rh   = $par->{leaves}->[$idex+1];
-#    my $lh   = $par->{leaves}->[$idex-1];
-#
-#
-#    # edge case:
-#    #
-#    #   if lh is first token in expression,
-#    #   it is the parent node!
-#
-#    if($rh && $rh eq $lh) {
-#      $lh=$par->inew($par->{value});
-#      $par->repl($ARG);
-#
-#    };
-#
-#
-#    # have unary operator?
-#    if($OPERA_UNARY->{$char}) {
-#
-#      $self->throw_no_operands($char)
-#      if ! defined $rh &&! defined $lh;
-#
-#      # assume ++X
-#      if(defined $rh) {
-#        $ARG->pushlv($rh);
-#        $ARG->{value}.='right';
-#
-#      # ^else X++
-#      } else {
-#        $ARG->pushlv($lh);
-#        $ARG->{value}.='left';
-#
-#      };
-#
-#
-#    # ^nope, good times
-#    } else {
-#
-#      $self->throw_no_operands($char)
-#      if ! defined $rh ||! defined $lh;
-#
-#      $ARG->pushlv($lh,$rh);
-#
-#    };
-#
-#  } @ops;
-#
-#};
-#
-## ---   *   ---   *   ---
-## ^errme
-#
-#sub throw_no_operands($self,$char) {
-#
-#  $self->{main}->{branch}->prich();
-#
-#  $self->{main}->perr(
-#    "no operands for `[op]:%s`",
-#    args=>[$char]
-#
-#  );
-#
-#};
 
 # ---   *   ---   *   ---
 # solve command tags
