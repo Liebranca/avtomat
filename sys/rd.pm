@@ -112,6 +112,7 @@ St::vconst {
 
 sub new($class,$src,%O) {
 
+
   # defaults
   $O{mc}={
 
@@ -216,6 +217,8 @@ sub new($class,$src,%O) {
 
   $self->{cmdlib}=
     $class->cmd_t->new_frame(main=>$self);
+
+  $self->{cmdlib}->kick();
 
 
   return $self;
@@ -464,10 +467,12 @@ sub reparse($self) {
   $l1->extend(CMD=>'*'=>sub {
 
     # get ctx
-    my $src = lc $_[0];
     my $tab = $lx->load_CMD();
+    my $src = lc $_[0];
 
+    # match symbol name against table
     my $valid=$src=~ $tab->{-re};
+
     return ($valid,$src,$NULLSTR);
 
   });
@@ -507,6 +512,7 @@ sub reparse($self) {
   # go next and give
   $self->next_pass();
   $self->next_stage();
+
   return;
 
 };

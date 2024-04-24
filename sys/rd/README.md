@@ -79,7 +79,7 @@ As for responsibilities:
 
 - `tag`: add typing data to an untyped token.
 
-- `untag`: undo the previous step.
+- `untag` and `xlate`: undo the previous step; `untag` will give a representation of the token in internal format, whereas `xlate` returns a human-readable version.
 
 - `typechk`: check that a token matches a specific type.
 
@@ -107,5 +107,133 @@ The `l2` responsibilities are:
 - `term`, `enter` and `leave`: same as `l0`.
 
 - `define`: associate a sequence of tokens to a method.
+- `invoke`: look for a set of sequences within a branch and execute the associated method for each sequence found.
 
-(...)
+- `walk` and `recurse`: iter through the nodes of a branch and `invoke` a set of sequences of each; `recurse` saves the state of the current `walk`, and then starts a new one.
+
+
+### ALL TOGETHER
+
+The `parse` stage thus proceeds as follows:
+
+- String or file passed to `rd`.
+
+- The contents of said input are read by `l0`.
+
+- On token `commit`, `l1` detects it's type and pushes it to the current expression.
+
+- On expression `term`, `l2` starts a new expression.
+
+
+As previously mentioned, the very first expression is processed early to determine if any mutations of the base class must be carried out; processing of all other expressions is delayed until later stages.
+
+This process repeats until the entirety of the input has been consumed, after which a 'raw' parse tree is returned.
+
+
+## PROCESSING EXPRESSIONS
+
+Before jumping in to the following stages, let us take a moment to discuss a wider topic that concerns all of them: transforming and interpreting the parse tree.
+
+First, a brief definition: 'tree', in this case, stands for a hierarchy of tokens which we utilize to represent both a sequence of values and the relationships between them.
+
+As an example, one way to break down the expression `T N=X+Y` is `(= (T (N)) (+ (X Y)))`, or a more illustrative form such as:
+
+```$
+
+=
+\-->T
+.  \-->N
+.
+\-->+
+.  \-->X
+.  \-->Y
+
+```
+
+Where `=` is the parent of `(T +)`, `T` is the parent of `N`, `+` is the parent of `(X Y)`, and so on; there is a strict hierarchical relationship between these tokens, and in order to perform any meaningful analysis of any such sequence, these relationships need to be accounted for.
+
+Let's say that through `l2` we establish the following rules, sorted by priority:
+
+- `T => SYM`: a keyword `T` followed by a symbol corresponds to a variable or constant declaration; parent `SYM` to `T`.
+
+- `ANY => '+' => ANY`: a single `+` plus sign between any two tokens denotes adding two values; parent both tokens to `+`.
+
+- `ANY => '=' => ANY`: a single `=` equals sign between any two tokens denotes value assignment; parent both tokens to `=`.
+
+
+Given the parse tree `(T N = X + Y)`, we could process the expression as such:
+
+- `T => SYM` is higher in priority, and thus is matched first. From `(T N = ...)` we obtain `((T (N)) = ...)`.
+
+- `ANY => '+' => ANY` follows in priority. Applying the rule, we transform `(... = X + Y)` into `(... = (+ (X Y)))`.
+
+- `ANY => '=' => ANY` is last; `T` and `+` are parented to `=`, and thus we end with `(= (T (N)) (+ (X Y)))`.
+
+
+To visualize the process a bit better, we can draw it like so:
+
+```$
+
+# initial expression
+
+(EXP)
+.
+\-->T
+\-->N
+.
+\-->=
+.
+\-->X
+\-->+
+\-->Y
+
+
+# apply first rule (T => SYM)
+
+(EXP)
+.
+\-->T
+.  \-->N
+.
+\-->=
+.
+\-->X
+\-->+
+\-->Y
+
+
+# apply second rule (ANY => '+' => ANY)
+
+(EXP)
+.
+\-->T
+.  \-->N
+.
+\-->=
+.
+\-->+
+.  \-->X
+.  \-->Y
+
+
+# apply final rule (ANY => '=' => ANY)
+
+(EXP)
+.
+\-->=
+.  \-->T
+.  .  \-->N
+.
+.  \-->+
+.  .  \-->X
+.  .  \-->Y
+
+```
+
+The resulting tree then represents the __precise order of operations__; there is a relationship between the assignment and it's two children, because __the assignment cannot be performed until both it's arguments are solved__. In other words, the result of `=` is *dependent* on the individual results of `(T +)`.
+
+Without getting too ahead of ourselves, as solving this kind of operation within a tree is `ipret` territory, we can note that just as the rules we applied to transform the tree, each of these __sub-expressions__ ought to behave, by itself, as a function.
+
+This isn't so obvious with the syntax rules themselves, as we simply defined nodes to be matched and a transform to the current expression using those nodes, but the exact same mechanism is utilized to detail how branches of the tree are later interpreted -- suffice to say we are not limited to modifying *just* the parse tree.
+
+(TO BE CONTINUED... )

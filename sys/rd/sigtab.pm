@@ -197,9 +197,10 @@ sub build($self) {
   map {$ARG->hash_to_attrs(defv=>$defv)} @$ar;
 
 
-  # blankout current
+  # blankout current and give
   $self->{keyw}=undef;
-  return;
+
+  return $dst;
 
 };
 

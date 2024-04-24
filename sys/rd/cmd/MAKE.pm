@@ -25,12 +25,15 @@ package rd::cmd::MAKE;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Chk;
   use Icebox;
   use Warnme;
 
+  use Arstd::Array;
   use Arstd::String;
   use Arstd::PM;
   use Arstd::IO;
+  use Arstd::WLog;
 
   use parent 'St';
   use parent 'rd::cmd::argchk';
@@ -38,7 +41,7 @@ package rd::cmd::MAKE;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -83,27 +86,6 @@ sub cmdarg($type,%O) {
 };
 
 # ---   *   ---   *   ---
-# ^add variation on existing
-
-sub opt_cmdarg(@list) {
-
-  map {
-
-    my $fn=$ARG;
-
-    "opt_$ARG" => sub {
-
-      my $class=$_[0];
-      return {%{$class->$fn},opt=>1};
-
-    };
-
-
-  } @list;
-
-};
-
-# ---   *   ---   *   ---
 # ROM
 
 St::vconst {
@@ -113,9 +95,6 @@ St::vconst {
   DEFAULT => {
 
     lis   => 'nop',
-    sig   => [],
-
-    fn    => '\&nop',
     unrev => 0,
 
     pkg   => __PACKAGE__,
@@ -128,54 +107,66 @@ St::vconst {
 
 
   # list types
-  qlist => cmdarg(['LIST','ANY']),
-  vlist => cmdarg(
+  qlist => [
 
-    ['LIST','OPERA','CMD','SYM','BARE'],
-    value=>'[^\{]+'
+    COMBO => [qw(
+      LIST .+
+      ANY  .+
 
-  ),
+    )],
+
+  ],
+
+  vlist => [
+
+    COMBO => [qw(
+    LIST .+
+    OPR  .+
+    CMD  .+
+    SYM  .+
+
+    )],
+
+  ],
+
 
   # ^not a list!
-  nlist => cmdarg([qw(
-    OPERA CMD REG EXE NUM
-    SYM BARE
+  nlist => [
 
-  )]),
+    COMBO => [qw(
+      OPR   .+
+      CMD   .+
+      REG   .+
+      EXE   .+
+      NUM   .+
+      SYM   .+
+      BARE  .+
+
+    )],
+
+  ],
 
 
   # single token
-  sym  => cmdarg(['SYM']),
-  bare => cmdarg(['BARE']),
-  num  => cmdarg(['NUM']),
-  cmd  => cmdarg(['CMD']),
+  sym  => [SYM  => '.+'],
+  bare => [BARE => '.+'],
+  num  => [NUM  => '.+'],
+  cmd  => [CMD  => '.+'],
 
-  opera => cmdarg(['OPERA']),
+  opr  => [OPR  => '.+'],
 
   # sym=(any)
-  arg => cmdarg(
-    ['OPERA','SYM'],
-    value=>'(?:[=]|[^=]+)'
+  arg => [
+    0 => [OPR =>  '='],
+    1 => [SYM => '.+'],
 
-  ),
-
-
-  # optional variants
-  opt_cmdarg(qw(qlist vlist nlist opera sym num)),
+  ],
 
 
   # delimiters
-  curly  => cmdarg(
-    ['OPERA'],
-    value=>'\{',
-
-  ),
-
-  parens => cmdarg(
-    ['OPERA'],
-    value=>'\(',
-
-  ),
+  curly  => [SCP => '\{'],
+  brak   => [SCP => '\['],
+  parens => [SCP => '\('],
 
 };
 
@@ -185,9 +176,75 @@ St::vconst {
 St::vstatic {
 
   main      => undef,
+
+  keytab    => undef,
   icetab    => {},
 
-  -autoload => [qw(add load fetch mutate)],
+
+  -autoload => [qw(
+
+    kick sigex
+    add load fetch mutate
+
+  )],
+
+};
+
+# ---   *   ---   *   ---
+# nit frame
+
+sub kick($class,$frame) {
+
+
+  # get ctx
+  my $main   = $frame->{main};
+  my $l2     = $main->{l2};
+  my $sigtab = $l2->sigtab_t;
+
+  # build method table
+  $frame->{keytab}=$sigtab->new($main);
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# expands signature element
+
+sub sigex($class,$frame,$e) {
+
+
+  # get ctx
+  my $main = $frame->{main};
+  my $l1   = $main->{l1};
+
+
+  # array as hash
+  my @ek=array_keys   $e;
+  my @ev=array_values $e;
+
+
+  # ^walk
+  map {
+
+    my $key   = $ek[$ARG];
+    my $value = $ev[$ARG];
+
+
+    # recurse on array of arrays!
+    if(is_arrayref $value) {
+      return $frame->sigex($value);
+
+
+    # plain pattern ;>
+    } else {
+      $l1->re($key=>$value);
+
+    };
+
+
+  } 0..$#ek;
+
 
 };
 
@@ -196,34 +253,63 @@ St::vstatic {
 
 sub new($class,$frame,%O) {
 
+
+  # get ctx
+  my $main = $frame->{main};
+  my $tab  = $frame->{keytab};
+  my $l2   = $main->{l2};
+
   # set defaults
   $class->defnit(\%O);
 
 
   # expand signature
   my $errme = join ',',@{$O{sig}};
-  my $sig   = [map {
+  my @sig   = map {
 
-     strip(\$ARG);
+    strip(\$ARG);
 
-     eval {$class->$ARG}
-  or do   {croak "Bad signature: '$errme'"}
+    $frame->sigex($class->$ARG)
+    or $WLog->err(
+
+      "could not define method\n\n"
+    . "[ctl]:%s [errtag]:%s\n"
+    . "[ctl]:%s '%s'\n\n"
+
+    . "bad signature (%s)",
+
+      args => [
+
+        package => $O{pkg},
+        cmdsub  => $O{lis},
+
+        $errme,
+
+      ],
+
+      lvl  => $AR_FATAL,
+      from => $class,
+
+    );
 
 
-  } @{$O{sig}}];
+  } @{$O{sig}};
+
+
+  # make table entry
+  $tab->begin($O{lis});
+  $tab->pattern(@sig);
+  $tab->function($O{fn});
+
+  my $key=$tab->build();
 
 
   # make ice
   my $self=bless {
-
-    lis   => $O{lis},
-
-    sig   => $sig,
-    fn    => $O{fn},
-
+    key   => $key,
     unrev => $O{unrev},
 
-  },$O{pkg};
+  },$class;
 
 
   # ^register and give
@@ -341,7 +427,7 @@ sub cmdtab($class) {
 sub cmdfn($self,$name) {
 
   my $class = ref $self;
-  my $out   = $class->cmdtab->{$name}->{fn};
+  my $out   = $class->cmdtab->{$name};
 
   if(! defined $out) {
 
@@ -350,11 +436,20 @@ sub cmdfn($self,$name) {
 
     my $have = $lib->fetch($name);
 
-    $out=$have->{fn};
+    $out=$have;
 
   };
 
-  return $out;
+  return $out->{key}->{fn};
+
+};
+
+# ---   *   ---   *   ---
+# demangle name of cmdsub
+
+sub demangle($name) {
+  $name=~ s[\-][_]sxmg;
+  return $name;
 
 };
 
@@ -362,7 +457,7 @@ sub cmdfn($self,$name) {
 # defines a new command and
 # registers it for export
 
-sub cmdsub($name,$sig,@body) {
+sub cmdsub($name,$sig,$fn) {
 
 
   # find source class
@@ -372,22 +467,21 @@ sub cmdsub($name,$sig,@body) {
   if $class eq __PACKAGE__;
 
 
-  # make definition
-  my @args    = split $COMMA_RE,$sig;
-  my $body    = join  ';',@body;
+  # get full method name
+  my $full = "$class\::" . demangle $name;
 
-  my $codestr = "sub (\$self,\$branch) {\n$body\n}";
-  my $fn      = eval "package $class;$codestr;";
+  # ^de-anonymize
+  no strict 'refs';
 
-  # ^validate
-  if(! defined $fn) {
-
-    errout "Cannot define command '%s' $!",
-
-    args => [$name],
-    lvl  => $AR_FATAL;
+  *{$full} = sub ($self,$branch) {
+    local *__ANON__ = $full;
+    $fn->($self,$branch);
 
   };
+
+
+  # TODO: map args to sig_t ice
+  my @args = split $COMMA_RE,$sig;
 
 
   # add to cache and give
@@ -399,7 +493,7 @@ sub cmdsub($name,$sig,@body) {
     lis => $name,
 
     sig => \@args,
-    fn  => $fn,
+    fn  => \&$full,
 
   };
 
@@ -414,10 +508,10 @@ sub cmdsub($name,$sig,@body) {
 # we need this when a method depends
 # on an instance of main
 
-sub m_cmdsub($main,$lis,$sig,@body) {
+sub m_cmdsub($main,$lis,$sig,$fn) {
 
   my $name   = "$main\::$lis";
-  my $cstruc = cmdsub $name,$sig,@body;
+  my $cstruc = cmdsub $name,$sig,$fn;
 
   $cstruc->{lis} = $lis;
 
@@ -431,10 +525,11 @@ sub m_cmdsub($main,$lis,$sig,@body) {
 
 sub wrapper($class,$name) {
 
-  return
+  return sub ($self,$branch) {
+    my $fn=$self->cmdfn($name);
+    $fn->($self,$branch);
 
-    "my \$fn=\$self->cmdfn('$name')",
-    q{$fn->($self,$branch)};
+  };
 
 };
 

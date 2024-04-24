@@ -40,7 +40,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.9;#a
+  our $VERSION = v0.02.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -114,16 +114,15 @@ sub build($self) {
   );
 
 
-  # make operator detector
-  $self->extend(OPR=>'`'=>sub {
+  # make symbol detector
+  $self->extend(SYM=>"'"=>sub {
 
     my $src   = $_[0];
-    my $valid = $src=~ m[^$opr+$];
+    my $valid = ! ($src=~ $opr);
 
     return ($valid,$src,$NULLSTR);
 
   });
-
 
   # make number detector
   $self->extend(NUM=>'i'=>sub {
@@ -137,12 +136,11 @@ sub build($self) {
 
   });
 
-
-  # make symbol detector
-  $self->extend(SYM=>"'"=>sub {
+  # make operator detector
+  $self->extend(OPR=>'`'=>sub {
 
     my $src   = $_[0];
-    my $valid = ! ($src=~ $opr);
+    my $valid = $src=~ m[^$opr+$];
 
     return ($valid,$src,$NULLSTR);
 
@@ -159,17 +157,20 @@ sub build($self) {
 
 sub extend($self,$key,$char,$fn) {
 
+
   # add to typename table
   my $dst=$self->{table};
 
   $dst->{$key}  = $char;
   $dst->{$char} = $key;
 
+
   # add to pattern table
   $dst=$self->{defs};
-  push @$dst,$key=>$fn;
+  unshift @$dst,$key=>$fn;
 
   $self->update_detect();
+
 
   return;
 
@@ -255,6 +256,45 @@ sub re($self,$type,$spec) {
     my $re=$self->mkre(".",$spec);
     $tab->{"$type:$spec"}=$re;
 
+    return $re;
+
+
+  # ^COMBO: more than one possible type ;>
+  } elsif($type eq 'COMBO') {
+
+
+    # validate input
+    $self->{main}->perr(
+      "multi-type regexes must be "
+    . "declared as arrayrefs"
+
+    ) if ! is_arrayref $spec;
+
+
+    # array as hash
+    my @tk=array_keys   $spec;
+    my @tv=array_values $spec;
+
+    # ^recurse for [sub-type=>sub-value]
+    my @id=();
+    my $re=re_alt(
+
+      [map {
+
+        my $key   = $tk[$ARG];
+        my $value = $tv[$ARG];
+
+        push @id,"$key:$value";
+
+        $self->re($key=>$value);
+
+      } 0..$#tk],
+
+    );
+
+
+    # ^write to table and give
+    $tab->{join '|',@id}=$re;
     return $re;
 
   };
@@ -554,6 +594,7 @@ sub update_detect($self) {
   my @k = array_keys   $self->{defs};
   my @v = array_values $self->{defs};
 
+
   # ^make walking F
   $self->{detector}=sub ($src) {
 
@@ -563,9 +604,12 @@ sub update_detect($self) {
       my $key=$k[$i];
       my $chk=$v[$i];
 
+
       # ^give if data matches type
       my ($valid,@have)=
         $chk->($src);
+
+say int $valid,": $key $src";
 
       return $key,@have if $valid;
 

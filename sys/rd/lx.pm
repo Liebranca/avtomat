@@ -141,14 +141,28 @@ sub bunrev($self,$branch) {
 
   while($anchor) {
 
-    # get topmost command that has
-    # the unrev flag set
-    if(my $key=$l1->is_cmd($anchor->{value})) {
 
-      my $cmd=$cmdlib->fetch($key);
+    # is token a command?
+    my $have=$l1->typechk(
+      CMD=>$anchor->{value}
+
+    );
+
+    # ^if so, get unrev flag set
+    if($have) {
+      my $cmd=$cmdlib->fetch($have->{spec});
       @have=($cmd,$anchor) if $cmd->{unrev};
 
     };
+
+# ---   *   ---   *   ---
+# TODO:
+#
+# * adapt lx,cmd/* to l0/l1/l2 changes
+#
+# * incorporate cmd/* and sigtab
+
+# ---   *   ---   *   ---
 
 
     # go next

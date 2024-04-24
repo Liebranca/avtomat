@@ -661,7 +661,9 @@ sub cmd($self) {
 
 
     # get definition for current stage
-    my ($type,$value)=$l1->read_tag($key);
+    my ($have) = $l1->untag($key);
+    my $value  = $have->{spec};
+
     my $cmd=$tab->fetch($value);
 
     # ^validate
