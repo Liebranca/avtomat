@@ -168,6 +168,21 @@ St::vconst {
   brak   => [SCP => '\['],
   parens => [SCP => '\('],
 
+
+  # used to read function signatures
+  argparse  => qr{^
+
+    (?<type> [^\s]+) \s+
+    (?<name> [^= ]+) \s*
+
+    (?: = \s*
+      (?<defv> .+)
+
+    )?
+
+  $}x,
+
+
 };
 
 # ---   *   ---   *   ---
@@ -211,7 +226,7 @@ sub kick($class,$frame) {
 # ---   *   ---   *   ---
 # expands signature element
 
-sub sigex($class,$frame,$e) {
+sub sigex($class,$frame,$name,$defv,$e,$idex=0) {
 
 
   # get ctx
@@ -232,13 +247,24 @@ sub sigex($class,$frame,$e) {
 
 
     # recurse on array of arrays!
-    if(is_arrayref $value) {
-      return $frame->sigex($value);
+    if($key ne 'COMBO' && is_arrayref $value) {
+
+      $name="$name\[$idex]";
+
+      return $frame->sigex(
+        $name,$defv,$value,++$idex
+
+      );
 
 
     # plain pattern ;>
     } else {
-      $l1->re($key=>$value);
+
+      $name=>{
+        re   => $l1->re($key=>$value),
+        defv => $defv,
+
+      };
 
     };
 
@@ -254,9 +280,12 @@ sub sigex($class,$frame,$e) {
 sub new($class,$frame,%O) {
 
 
+  return {} if $O{lis} ne 'echo';
+
   # get ctx
   my $main = $frame->{main};
   my $tab  = $frame->{keytab};
+  my $l1   = $main->{l1};
   my $l2   = $main->{l2};
 
   # set defaults
@@ -267,10 +296,17 @@ sub new($class,$frame,%O) {
   my $errme = join ',',@{$O{sig}};
   my @sig   = map {
 
-    strip(\$ARG);
 
-    $frame->sigex($class->$ARG)
-    or $WLog->err(
+    # parse signature elem
+    my ($type,$name,$defv)=
+      $ARG=~ $class->argparse;
+
+
+    # ^fetch
+    my @out=eval {
+      $frame->sigex($name=>$defv,$class->$type)
+
+    } or $WLog->err(
 
       "could not define method\n\n"
     . "[ctl]:%s [errtag]:%s\n"
@@ -292,14 +328,25 @@ sub new($class,$frame,%O) {
 
     );
 
+    @out;
+
 
   } @{$O{sig}};
 
 
   # make table entry
   $tab->begin($O{lis});
-  $tab->pattern(@sig);
+  $tab->complex_pattern(@sig);
   $tab->function($O{fn});
+  $tab->regex($l1->re(
+
+    COMBO=>[
+      SYM=>$O{lis},
+      CMD=>$O{lis},
+
+    ],
+
+  ));
 
   my $key=$tab->build();
 
@@ -481,7 +528,12 @@ sub cmdsub($name,$sig,$fn) {
 
 
   # TODO: map args to sig_t ice
-  my @args = split $COMMA_RE,$sig;
+  my @args =
+
+    grep  {length $ARG}
+    map   {strip(\$ARG);$ARG}
+
+    split $SEMI_RE,$sig;
 
 
   # add to cache and give

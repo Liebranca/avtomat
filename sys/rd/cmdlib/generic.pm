@@ -91,12 +91,24 @@ cmdsub 'csume-list' => q(qlist) => q{
 # ---   *   ---   *   ---
 # ^icef*ck
 
-w_cmdsub 'csume-list' => q(qlist) => 'echo';
+#w_cmdsub 'csume-list' => q(qlist) => 'echo';
+
+cmdsub echo => q(
+  qlist args=();
+
+) => sub ($self,$branch) {
+
+  my $vref=$branch->{vref};
+  $vref->{args}->prich();
+
+  return;
+
+};
 
 # ---   *   ---   *   ---
 # hammer time!
 
-cmdsub stop => q(opt_sym) => q{
+cmdsub stop => q(sym) => q{
 
 
   # get ctx

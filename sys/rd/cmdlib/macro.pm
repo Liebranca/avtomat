@@ -194,7 +194,7 @@ sub macro_take($self,$branch) {
 # ---   *   ---   *   ---
 # expands macro [args]
 
-unrev cmdsub 'macro-paste' => q(opt_qlist) => q{
+unrev cmdsub 'macro-paste' => q(qlist) => q{
 
 
   # get ctx
@@ -416,7 +416,7 @@ sub macro_proc_args($self,$body,@args) {
 # points at your foot ;>
 
 unrev cmdsub macro => q(
-  sym,opt_vlist,curly
+  sym,vlist,curly
 
 ) => q{
 

@@ -39,7 +39,7 @@ package rd::cmdlib::switch;
 # ---   *   ---   *   ---
 # block sub-divider
 
-cmdsub 'switch' => q(opt_qlist) => q{
+cmdsub 'switch' => q(qlist) => q{
 
 
   # already sorted?
@@ -78,7 +78,7 @@ cmdsub 'switch' => q(opt_qlist) => q{
 # ---   *   ---   *   ---
 # ^icef*ck
 
-w_cmdsub 'switch' => q(opt_qlist) => qw(
+w_cmdsub 'switch' => q(qlist) => qw(
   on or off
 
 );

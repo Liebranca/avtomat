@@ -395,7 +395,6 @@ sub parse_subclass($self) {
 
   # load cmdlib
   $pkg //= $self->DEFAULT->{cmdlib};
-  $self->{cmdlib}->load($pkg);
   $self->{subpkg}=$pkg;
 
 
@@ -461,21 +460,9 @@ sub reparse($self) {
   # get ctx
   my $l1=$self->{l1};
   my $l2=$self->{l2};
-  my $lx=$self->{lx};
-  my $mc=$self->{mc};
 
-  $l1->extend(CMD=>'*'=>sub {
-
-    # get ctx
-    my $tab = $lx->load_CMD();
-    my $src = lc $_[0];
-
-    # match symbol name against table
-    my $valid=$src=~ $tab->{-re};
-
-    return ($valid,$src,$NULLSTR);
-
-  });
+  # fetch definitions
+  $self->{cmdlib}->load($self->{subpkg});
 
 
   # re-evaluate symbols

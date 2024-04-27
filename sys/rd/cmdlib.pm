@@ -54,6 +54,9 @@ St::vconst {
 
   next_link => 'ipret::cmdlib',
 
+  extend_l1 => 1,
+  type_list => [qw(EXE CMD REG)],
+
 };
 
 # ---   *   ---   *   ---
@@ -61,6 +64,8 @@ St::vconst {
 # sub-packages
 
 sub load($class,$main) {
+
+  $class->load_types($main);
 
   map {
 
@@ -73,6 +78,114 @@ sub load($class,$main) {
 
 
   } @{$class->list};
+
+};
+
+# ---   *   ---   *   ---
+# adds token types to L1
+#
+# ignored if the "extend_l1"
+# class attr is unset!
+
+sub load_types($class,$main) {
+
+
+  map {
+    my $fn="use_$ARG";
+    $class->$fn($main);
+
+  } @{$class->type_list};
+
+
+  return;
+
+
+};
+
+# ---   *   ---   *   ---
+# add binary token type
+
+sub use_EXE($class,$main) {
+
+
+  # get ctx
+  my $l1  = $main->{l1};
+  my $mc  = $main->{mc};
+  my $mem = $mc->{bk}->{mem};
+
+  # register type and pattern
+  $l1->extend(EXE=>'$'=>sub {
+
+    my $src   = $_[0];
+
+    my $valid =
+       $mem->is_valid($src)
+    && $src->{executable};
+
+    $src=$src->{iced} if $valid;
+
+
+    return ($valid,$src,$NULLSTR);
+
+  });
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# add function token type
+
+sub use_CMD($class,$main) {
+
+
+  # get ctx
+  my $l1=$main->{l1};
+  my $lx=$main->{lx};
+
+  # register type and pattern
+  $l1->extend(CMD=>'*'=>sub {
+
+    # get ctx
+    my $tab = $lx->load_CMD();
+    my $src = lc $_[0];
+
+    # match symbol name against table
+    my $valid=$src=~ $tab->{-re};
+
+    return ($valid,$src,$NULLSTR);
+
+  });
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# add vmc register token type
+
+sub use_REG($class,$main) {
+
+
+  # get ctx
+  my $l1    = $main->{l1};
+  my $mc    = $main->{mc};
+  my $anima = $mc->{anima};
+
+  # register type and pattern
+  $l1->extend(REG=>'='=>sub {
+
+    my $src   = lc $_[0];
+       $src   = $anima->tokin($src);
+
+    my $valid = defined $src;
+
+
+    return ($valid,$src,$NULLSTR);
+
+  });
+
+  return;
 
 };
 

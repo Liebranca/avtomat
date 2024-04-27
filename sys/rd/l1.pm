@@ -609,8 +609,6 @@ sub update_detect($self) {
       my ($valid,@have)=
         $chk->($src);
 
-say int $valid,": $key $src";
-
       return $key,@have if $valid;
 
     };
@@ -619,59 +617,6 @@ say int $valid,": $key $src";
     return 'DEF',$src,$NULLSTR;
 
   };
-
-};
-
-# ---   *   ---   *   ---
-
-sub parse($self,$src,%O) {
-
-
-  # early exit if token already sorted
-  return $src
-  if $self->untag($src);
-
-
-  # defaults
-  $O{nocmd} //= 0;
-
-  # get ctx
-  my $main  = $self->{main};
-  my $mc    = $main->{mc};
-
-  my $CMD   = $main->{lx}->load_CMD();
-  my $reg   = $mc->{bk}->{anima};
-  my $ptr   = $mc->{bk}->{ptr};
-  my $key   = $src;
-
-
-  # is command?
-  if(! $O{nocmd} && (lc $key)=~ $CMD->{-re}) {
-    $src=lc $src;
-    $key='CMD';
-
-  # is register?
-  } elsif(defined (my $idex=$reg->tokin($key))) {
-    $src=$idex;
-    $key='REG';
-
-  # is number?
-  } elsif(defined (my $is_num=sstoi($key,0))) {
-    $src=$is_num;
-    $key='NUM';
-
-  # is symbol name?
-  } elsif(nref $src) {
-    $key='SYM';
-
-  # none of the above, give as-is
-  } else {
-    return $src;
-
-  };
-
-
-  return $self->tag($key,$src);
 
 };
 

@@ -51,7 +51,7 @@ sub build($class,$main) {
 
   # generate flag types
   wm_cmdsub $main,'flag-type' => q(
-    opt_qlist
+    qlist
 
   ) => @{$flags->list};
 
@@ -64,7 +64,7 @@ sub build($class,$main) {
 # ---   *   ---   *   ---
 # parse and collapse flag list
 
-cmdsub 'flag-type' => q(opt_qlist) => q{
+cmdsub 'flag-type' => q(qlist) => q{
 
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
@@ -144,7 +144,7 @@ w_cmdsub 'seg-type'
 # reads a data declaration!
 
 cmdsub 'data-decl' => q(
-  vlist,opt_qlist
+  vlist,qlist
 
 ) => q{
 
@@ -214,7 +214,7 @@ cmdsub 'data-decl' => q(
 # * (? exprbeg) [*type] -> [*data-decl]
 # * (! exprbeg) [*type] -> [Ttype]
 
-cmdsub 'data-type' => q(opt_qlist) => q{
+cmdsub 'data-type' => q(qlist) => q{
 
 
   # get ctx
@@ -287,7 +287,7 @@ sub type_decode($self,@src) {
 
 w_cmdsub 'data-type'
 
-=> q(opt_qlist)
+=> q(qlist)
 => @{Type::MAKE->ALL_FLAGS};
 
 # ---   *   ---   *   ---

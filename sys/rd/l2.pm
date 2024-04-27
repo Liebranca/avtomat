@@ -569,9 +569,7 @@ sub exec_queue($self,@Q) {
     rept:
 
       $self->{branch}=$branch;
-      $cmd->argchk();
-
-      $have=$cmd->{fn}->($cmd,$branch);
+      $have=$cmd->{key}->{fn}->($cmd,$branch);
 
 
     # ^branch was mutated by proc
@@ -645,6 +643,7 @@ sub strip_comments($self,$src=undef) {
 
 sub cmd($self) {
 
+
   # get ctx
   my $main = $self->{main};
   my $l1   = $main->{l1};
@@ -656,6 +655,7 @@ sub cmd($self) {
   # build/fetch regex
   my $re=$l1->re(CMD=>'.+');
 
+
   # have command?
   if($key=~ $re) {
 
@@ -665,6 +665,7 @@ sub cmd($self) {
     my $value  = $have->{spec};
 
     my $cmd=$tab->fetch($value);
+
 
     # ^validate
     if(! length $cmd) {
@@ -680,23 +681,13 @@ sub cmd($self) {
     };
 
 
-    # ^save key
-    $self->{branch}->{cmdkey}=$value;
-
-
     # consume argument nodes if need
     $cmd->argsume($self->{branch})
-    if $cmd && exists $main->{strterm};
+    if ! $self->{branch}->{cmdkey};
 
+    $self->{branch}->{cmdkey}=$value;
 
-    # give F to run if any
-    #
-    # else just signal that the node
-    # is a command!
-    return (defined $cmd)
-      ? [$cmd=>$self->{branch}]
-      : 1
-      ;
+    return [$cmd=>$self->{branch}];
 
   };
 

@@ -33,7 +33,7 @@ package rd::sigtab;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -125,7 +125,118 @@ sub pattern($self,@seq) {
 };
 
 # ---   *   ---   *   ---
-# ^binds function to pattern array
+# ^generate multiple from descriptor
+
+sub complex_pattern($self,@seq) {
+
+  use Fmat;
+
+  # ~
+  my @defv  = ();
+  my $elems = (int @seq / 2)-1;
+  my $total = (1 << $elems+1)-1;
+
+
+  # array as hash
+  my @sk=array_keys   \@seq;
+  my @sv=array_values \@seq;
+
+  # ^walk
+  my @out=map {
+
+    my $key   = $sk[$ARG];
+    my $value = $sv[$ARG];
+
+    my $defv  = $value->{defv};
+
+    push @defv,$defv;
+    [$key=>$value->{re}];
+
+
+  } 0..$#sk;
+
+
+  # what follows is a combinational problem:
+  #
+  # * set bits of the mask represent fixed values
+  #   that are non-optional to this pattern
+  #
+  # * unset bits are the optional elements of
+  #   the signature
+  #
+  #
+  # we obtain all possible combinations by
+  # counting from zero to the total number of
+  # possibilities
+  #
+  # a binary OR of this counter and the mask
+  # tells us which values to use for a pattern
+  #
+  # this way, all combinations are walked
+  #
+  #
+  # we begin by getting the mask
+
+  my $mask=do {
+
+    my ($bit,$out)=(0,0);
+
+    map {$out |=! defined($ARG) << $bit++}
+    @defv;
+
+    $out;
+
+  };
+
+
+  # now iter until the counter is equal
+  # to the total number of combinations
+
+  my $cnt  = 0;
+  my @have = ();
+
+  while($cnt <= $total) {
+
+    $cnt |= $mask;
+
+
+    # decide which elements to include in the
+    # signature variant by looking at which
+    # bits of the counter are set
+
+    my @alt=map {
+
+
+      # set bit means this value is included
+      if($cnt & (1 << $ARG)) {
+        $out[$ARG];
+
+      # unset bit means ignore it
+      } else {
+        [$out[$ARG]->[0]=>$defv[$ARG]]
+
+      };
+
+    } 0..$elems;
+
+
+    # save signature variant and go next
+    push @have,\@alt;
+    $cnt++;
+
+  };
+
+
+  # register variants in inverse order
+  map {$self->pattern(@$ARG)} reverse @have;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^binds function to pattern arrays
 
 sub function($self,$fn) {
 
@@ -304,7 +415,6 @@ sub match($self,$keyw,$x,%O) {
 
   # match input against keyword
   my $in=$self->matchkey($keyw,$x,%O);
-
   return null if ! defined $in;
 
 

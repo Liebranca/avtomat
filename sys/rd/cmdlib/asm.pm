@@ -49,7 +49,7 @@ sub build($class,$main) {
 
   # make wrappers for whole instruction set
   wm_cmdsub $main,'asm-ins' => q(
-    opt_qlist
+    qlist
 
   ) => @{$guts_t->list};
 
@@ -201,7 +201,7 @@ sub mutate_ins($self,$branch,$new='asm-ins') {
 # ---   *   ---   *   ---
 # generic instruction
 
-cmdsub 'asm-ins' => q(opt_qlist) => q{
+cmdsub 'asm-ins' => q(qlist) => q{
 
   # save operands to branch
   my $head=$self->parse_ins($branch);
@@ -217,7 +217,7 @@ cmdsub 'asm-ins' => q(opt_qlist) => q{
 # ---   *   ---   *   ---
 # ^with conditional!
 
-cmdsub 'c-asm-ins' => q(nlist,opt_qlist) => q{
+cmdsub 'c-asm-ins' => q(nlist,qlist) => q{
 
 
   # get ctx
@@ -251,7 +251,7 @@ cmdsub 'c-asm-ins' => q(nlist,opt_qlist) => q{
 # ---   *   ---   *   ---
 # ^icef*ck
 
-w_cmdsub 'c-asm-ins' => q(nlist,opt_qlist) => qw(
+w_cmdsub 'c-asm-ins' => q(nlist,qlist) => qw(
   cload cjump
 
 );

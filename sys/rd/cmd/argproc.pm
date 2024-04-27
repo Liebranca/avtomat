@@ -27,7 +27,7 @@ package rd::cmd::argproc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -205,6 +205,35 @@ sub argtake($self,$branch,$len=1) {
     $self->arglist($branch)
 
   } 1..$len;
+
+};
+
+# ---   *   ---   *   ---
+# consume argument nodes for command
+
+sub argsume($self,$branch) {
+
+
+  # get ctx
+  my $frame = $self->{frame};
+  my $main  = $frame->{main};
+  my $tab   = $frame->{keytab};
+  my $l2    = $main->{l2};
+
+
+  # save current
+  my $old=$l2->{branch};
+
+  # attempt match
+  my $key   = $self->{key};
+  my $have  = $tab->match($key,$branch);
+
+  $branch->{vref}=$have;
+
+
+  # restore and give
+  $l2->{branch}=$old;
+  return;
 
 };
 
