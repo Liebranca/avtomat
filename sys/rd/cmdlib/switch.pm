@@ -33,17 +33,17 @@ package rd::cmdlib::switch;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # block sub-divider
 
-cmdsub 'switch' => q(qlist) => q{
+cmdsub 'switch' => q(
+  qlist src;
 
+) => sub ($self,$branch) {
 
-  # already sorted?
-  return if $branch->{vref};
 
 
   # get ctx
@@ -53,7 +53,7 @@ cmdsub 'switch' => q(qlist) => q{
 
   # select anchor
   my $body=$branch->{parent};
-  if(defined $l1->is_branch($body->{value})) {
+  if($l1->typechk(EXP=>$body->{value})) {
     $body=$body->{parent};
 
   };
@@ -78,7 +78,7 @@ cmdsub 'switch' => q(qlist) => q{
 # ---   *   ---   *   ---
 # ^icef*ck
 
-w_cmdsub 'switch' => q(qlist) => qw(
+w_cmdsub 'switch' => q(qlist src) => qw(
   on or off
 
 );
@@ -87,6 +87,6 @@ w_cmdsub 'switch' => q(qlist) => qw(
 # (?=on/or) [elem] from [list]
 # is how we do iterators!
 
-w_cmdsub 'csume-list' => q(qlist) => 'from';
+w_cmdsub 'csume-list' => q(qlist src) => 'from';
 
 # ---   *   ---   *   ---

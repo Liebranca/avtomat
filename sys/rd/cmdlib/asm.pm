@@ -34,7 +34,7 @@ package rd::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -49,7 +49,7 @@ sub build($class,$main) {
 
   # make wrappers for whole instruction set
   wm_cmdsub $main,'asm-ins' => q(
-    qlist
+    qlist args;
 
   ) => @{$guts_t->list};
 
@@ -61,7 +61,7 @@ sub build($class,$main) {
 # ---   *   ---   *   ---
 # offset within current segment
 
-cmdsub '$' => q() => q{
+cmdsub '$' => q() => sub ($self,$branch) {
 
   $branch->{vref}={
     id   => $branch,
@@ -89,7 +89,7 @@ sub parse_ins($self,$branch) {
   # expand argument list
   my @args = map {
 
-    if(defined $l1->is_list($ARG->{value})) {
+    if($l1->typechk(LIST=>$ARG->{value})) {
       @{$ARG->{leaves}};
 
     } else {
@@ -108,23 +108,26 @@ sub parse_ins($self,$branch) {
     my $type = undef;
 
     # register operand
-    if(defined $l1->is_reg($key)) {
+    if($l1->typechk(REG=>$key)) {
       $type='r';
 
     # memory operand
-    } elsif(defined (
-      $have=$l1->is_opera($key)
+    } elsif(
 
-    ) && $have eq '[') {
+       $have=$l1->typechk(SCP=>$key)
+    && $have eq '['
+
+    ) {
+
       $type='m';
 
 
     # operation tree?
-    } elsif(defined $have) {
-      $type='opera';
+    } elsif($have) {
+      $type='opr';
 
     # symbol fetch?
-    } elsif(defined $l1->is_sym($key)) {
+    } elsif($l1->typechk(SYM=>$key)) {
       $type='sym';
 
     # ^immediate!
@@ -148,8 +151,9 @@ sub parse_ins($self,$branch) {
     : $ISA->def_t
     ;
 
+
   # get instruction name
-  my $name=$l1->is_cmd($branch->{value});
+  my $name=$branch->{cmdkey};
 
 
   # give descriptor
@@ -187,11 +191,11 @@ sub mutate_ins($self,$branch,$new='asm-ins') {
 
   # ^mutate, clear and give
   $branch->{value}=
-    $l1->make_tag(CMD=>$new)
+    $l1->tag(CMD=>$new)
   . $full
   ;
 
-  $branch->clear();
+ $branch->clear();
 
 
   return;
@@ -201,7 +205,10 @@ sub mutate_ins($self,$branch,$new='asm-ins') {
 # ---   *   ---   *   ---
 # generic instruction
 
-cmdsub 'asm-ins' => q(qlist) => q{
+cmdsub 'asm-ins' => q(
+  qlist src;
+
+) => sub ($self,$branch) {
 
   # save operands to branch
   my $head=$self->parse_ins($branch);
@@ -217,7 +224,11 @@ cmdsub 'asm-ins' => q(qlist) => q{
 # ---   *   ---   *   ---
 # ^with conditional!
 
-cmdsub 'c-asm-ins' => q(nlist,qlist) => q{
+cmdsub 'c-asm-ins' => q(
+  nlist ev;
+  qlist args;
+
+) => sub ($self,$branch) {
 
 
   # get ctx
@@ -230,14 +241,14 @@ cmdsub 'c-asm-ins' => q(nlist,qlist) => q{
   my $head    = $self->parse_ins($branch);
 
   # get type of check!
-  my $type=(defined $l1->is_opera($opera->{value}))
-    ? 'opera'
+  my $type=($l1->typechk(OPR=>$opera->{value}))
+    ? 'opr'
     : 'sym'
     ;
 
 
   # save to branch
-  $head->{opera}  = {type=>$type,id=>$opera};
+  $head->{opr}    = {type=>$type,id=>$opera};
   $branch->{vref} = $head;
 
   # mutate and give
@@ -251,7 +262,11 @@ cmdsub 'c-asm-ins' => q(nlist,qlist) => q{
 # ---   *   ---   *   ---
 # ^icef*ck
 
-w_cmdsub 'c-asm-ins' => q(nlist,qlist) => qw(
+w_cmdsub 'c-asm-ins' => q(
+  nlist ev;
+  qlist args;
+
+) => qw(
   cload cjump
 
 );
@@ -260,7 +275,10 @@ w_cmdsub 'c-asm-ins' => q(nlist,qlist) => qw(
 # generic methods, see ipret
 # for details
 
-w_cmdsub 'csume-token' => q(sym) => qw(
+w_cmdsub 'csume-token' => q(
+  sym any;
+
+) => qw(
   blk entry
 
 );

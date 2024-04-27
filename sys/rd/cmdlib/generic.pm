@@ -40,9 +40,11 @@ package rd::cmdlib::generic;
 # ---   *   ---   *   ---
 # consume single token
 
-cmdsub 'csume-token' => q(nlist) => q{
+cmdsub 'csume-token' => q(
+  nlist src;
 
-  return if $branch->{vref};
+) => sub ($self,$branch) {
+
 
   my @args=$self->argtake($branch);
 
@@ -57,9 +59,11 @@ cmdsub 'csume-token' => q(nlist) => q{
 # ---   *   ---   *   ---
 # ^consume N tokens ;>
 
-cmdsub 'csume-tokens' => q(nlist) => q{
+cmdsub 'csume-tokens' => q(
+  nlist src;
 
-  return if $branch->{vref};
+) => sub ($self,$branch) {
+
 
   my @args=$self->argtake($branch);
 
@@ -74,9 +78,11 @@ cmdsub 'csume-tokens' => q(nlist) => q{
 # ---   *   ---   *   ---
 # consume node list
 
-cmdsub 'csume-list' => q(qlist) => q{
+cmdsub 'csume-list' => q(
+  qlist src;
 
-  return if $branch->{vref};
+)  => sub ($self,$branch) {
+
 
   my @args=$self->argtake($branch);
 
@@ -91,24 +97,15 @@ cmdsub 'csume-list' => q(qlist) => q{
 # ---   *   ---   *   ---
 # ^icef*ck
 
-#w_cmdsub 'csume-list' => q(qlist) => 'echo';
-
-cmdsub echo => q(
-  qlist args=();
-
-) => sub ($self,$branch) {
-
-  my $vref=$branch->{vref};
-  $vref->{args}->prich();
-
-  return;
-
-};
+w_cmdsub 'csume-list' => q(qlist src) => 'echo';
 
 # ---   *   ---   *   ---
 # hammer time!
 
-cmdsub stop => q(sym) => q{
+cmdsub stop => q(
+  sym at=reparse;
+
+) => sub ($self,$branch) {
 
 
   # get ctx
@@ -117,12 +114,15 @@ cmdsub stop => q(sym) => q{
   my $lx   = $main->{lx};
   my $list = $lx->stages;
 
+  my $vref = $branch->{vref};
+
 
   # name of stage says *when* to stop!
-  my $stage=$branch->{leaves}->[0];
+  my $stage=$vref->{at};
 
-  if($stage) {
-    $stage=$l1->is_sym($stage->{value});
+  if(Tree->is_valid($stage)) {
+    $stage=$l1->untag($stage->{value});
+    $stage=$stage->{spec};
 
   };
 
@@ -140,6 +140,8 @@ cmdsub stop => q(sym) => q{
     $branch->clear();
 
   };
+
+  return;
 
 };
 

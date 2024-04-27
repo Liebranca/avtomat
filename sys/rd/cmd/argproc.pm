@@ -48,16 +48,16 @@ sub argproc($self,$nd) {
 
   # [name => default value]
   my $argname = $nd->{value};
-  my $defval  = undef;
+  my $defv    = undef;
 
 
   # have default value?
-  my $opera=$l1->is_opera($argname);
+  my $opera=$l1->xlate($argname);
 
   # ^yep
-  if(defined $opera && $opera eq '=') {
+  if($opera && $opera->{spec} eq '=') {
 
-    ($argname,$defval)=map {
+    ($argname,$defv)=map {
 
       my $out=$nd->{leaves}->[$ARG];
 
@@ -73,10 +73,10 @@ sub argproc($self,$nd) {
 
   return {
 
-    id     => $argname,
-    type   => 'sym',
+    id   => $argname,
 
-    defval => $defval,
+    type => 'sym',
+    defv => $defv,
 
   };
 
@@ -96,18 +96,21 @@ sub argex($self,$lv) {
   # fstate
   my $key  = $lv->{value};
   my @nest = @{$lv->{leaves}};
-  my $have = undef;
+  my $have = $l1->xlate($key);
+
+  return $lv if ! $have;
+
+  my $type=$have->{type};
+  my $spec=$have->{spec};
 
 
   # have list?
-  if(defined $l1->is_list($key)) {
+  if($type eq 'LIST') {
     return map {$self->argex($ARG)} @nest;
 
-  # have [list]?
-  } elsif(defined ($have=$l1->is_opera($key))
-    && $have eq '['
 
-  ) {
+  # have [list]?
+  } elsif($type eq 'SCP' && $spec eq '[') {
 
     # validate
     $main->perr(
@@ -119,29 +122,29 @@ sub argex($self,$lv) {
 
     return {
 
-      id     => $branch->leaf_value(0),
-      defval => undef,
+      id   => $branch->leaf_value(0),
+      defv => undef,
 
-      type   => 'qlist',
+      type => 'qlist',
 
     };
 
 
   # ^have operator tree?
-  } elsif(defined $have) {
+  } elsif($type eq 'OPR') {
 
     return {
 
-      id     => $lv,
-      defval => undef,
+      id   => $lv,
+      defv => undef,
 
-      type   => 'opera',
+      type => 'opr',
 
     };
 
 
-  # have sub-branch?
-  } elsif(defined $l1->is_branch($key)) {
+  # have expression?
+  } elsif($type eq 'EXP') {
 
     return
 
@@ -150,21 +153,58 @@ sub argex($self,$lv) {
 
 
   # have command?
-  } elsif(defined ($have=$l1->is_cmd($key))) {
+  } elsif($type eq 'CMD') {
 
+
+    # solve NOW?
     if(! $lv->{escaped}) {
       my $l2=$main->{l2};
       $l2->recurse($lv);
 
       return $lv->{vref};
 
+    # solve later!
     } else {
-      return {id=>$lv,defval=>undef};
+
+      return {
+
+        id   => $lv,
+
+        type => 'cmd',
+        defv => undef,
+
+      };
 
     };
 
 
-  # have single token!
+  # have string?
+  } elsif($type eq 'STR') {
+
+    return {
+
+      id   => $have->{data},
+
+      type => 'str',
+      defv => undef,
+
+    };
+
+
+  # have number?
+  } elsif($type eq 'NUM') {
+
+    return {
+
+      id   => $spec,
+
+      type => 'num',
+      defv => undef,
+
+    };
+
+
+  # have symbol, leave it to argproc
   } else {
     return $lv;
 
@@ -228,7 +268,7 @@ sub argsume($self,$branch) {
   my $key   = $self->{key};
   my $have  = $tab->match($key,$branch);
 
-  $branch->{vref}=$have;
+  $branch->{argsvref}=$have;
 
 
   # restore and give

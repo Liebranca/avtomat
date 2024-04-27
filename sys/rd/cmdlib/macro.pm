@@ -34,7 +34,7 @@ package rd::cmdlib::macro;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -59,7 +59,11 @@ package rd::cmdlib::macro;
 # that makes it so lists of such commands
 # can be parsed without a (parens) wrap!
 
-cmdsub 'token-type' => q(arg) => q{
+cmdsub 'token-type' => q(
+  arg type;
+
+) => sub ($self,$branch) {
+
 
   # get ctx
   my $main = $self->{frame}->{main};
@@ -68,7 +72,7 @@ cmdsub 'token-type' => q(arg) => q{
 
 
   # proc input
-  my $type = $l1->is_cmd($branch->{value});
+  my $type = $branch->{cmdkey};
   my $have = $self->argproc($lv);
 
   # ^save and clear
@@ -84,7 +88,7 @@ cmdsub 'token-type' => q(arg) => q{
 # ---   *   ---   *   ---
 # ^icef*ck
 
-w_cmdsub 'token-type' => q(arg) => qw(
+w_cmdsub 'token-type' => q(arg type) => qw(
   sym bare num cmd vlist
 
 );
@@ -107,7 +111,7 @@ sub macro_repl($self,$body,$repl,$value) {
   if(is_arrayref $value) {
 
     my $nd=$main->{tree}->{frame}->new(
-      undef,$l1->make_tag(LIST=>'X')
+      undef,$l1->tag(LIST=>'X')
 
     );
 
@@ -152,6 +156,7 @@ sub macro_repl($self,$body,$repl,$value) {
 
 sub macro_take($self,$branch) {
 
+
   # get ctx
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
@@ -194,7 +199,10 @@ sub macro_take($self,$branch) {
 # ---   *   ---   *   ---
 # expands macro [args]
 
-unrev cmdsub 'macro-paste' => q(qlist) => q{
+unrev cmdsub 'macro-paste' => q(
+  qlist data;
+
+) => q{
 
 
   # get ctx
@@ -357,12 +365,12 @@ sub macro_repl_args($self,$body,$argname,$idex) {
 
 
     # have string?
-    my $re=(defined $l1->is_string($nd->{value}))
+    my $re=($l1->typechk(STR=>$nd->{value}))
       ? $subststr
       : $subst
       ;
 
-    # argument name fond?
+    # argument name found?
     if($nd->{value}=~ s[$re][$place]sxmg) {
       my $path=$nd->ancespath($body);
       push @$replpath,$path;
@@ -416,9 +424,12 @@ sub macro_proc_args($self,$body,@args) {
 # points at your foot ;>
 
 unrev cmdsub macro => q(
-  sym,vlist,curly
+  sym   name;
+  vlist args;
+  curly body;
 
-) => q{
+) => sub ($self,$branch) {
+
 
   # get ctx
   my $main  = $self->{frame}->{main};
@@ -450,7 +461,7 @@ unrev cmdsub macro => q(
 
 
   # redecl guard
-  $name=$l1->is_sym($name->{id});
+  $name=$l1->untag($name->{id})->{spec};
   push @path,macro=>$name;
 
   $main->throw_redecl(macro=>$name)

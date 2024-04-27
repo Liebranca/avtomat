@@ -126,7 +126,8 @@ sub rcollapse_list($self,$branch,$fn) {
 
 
   # first token, first command
-  my @list = $l1->is_cmd($branch->{value});
+  my $have = $l1->xlate($branch->{value});
+  my @list = $have->{spec};
   my $par  = $branch->{parent};
 
   # ^get tokens from previous iterations
@@ -137,8 +138,8 @@ sub rcollapse_list($self,$branch,$fn) {
 
 
   # parent is command, keep collapsing
-  my $head = $l1->is_cmd($par->{value});
-  if(defined $head) {
+  my $head = $l1->xlate($par->{value});
+  if(defined $head && $head->{type} eq 'CMD') {
 
     # save commands to parent, they'll be
     # picked up in the next run of this F

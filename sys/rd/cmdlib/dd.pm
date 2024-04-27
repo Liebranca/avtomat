@@ -36,7 +36,7 @@ package rd::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -51,7 +51,7 @@ sub build($class,$main) {
 
   # generate flag types
   wm_cmdsub $main,'flag-type' => q(
-    qlist
+    qlist src
 
   ) => @{$flags->list};
 
@@ -64,16 +64,22 @@ sub build($class,$main) {
 # ---   *   ---   *   ---
 # parse and collapse flag list
 
-cmdsub 'flag-type' => q(qlist) => q{
+cmdsub 'flag-type' => q(
+  qlist src;
 
+) => sub ($self,$branch) {
+
+
+  # get ctx
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
 
+  # proc list
   $self->rcollapse_list($branch,sub {
 
       # mutate into another command
       $branch->{value}=
-        $l1->make_tag(CMD=>'flag-type')
+        $l1->tag(CMD=>'flag-type')
       . "$branch->{cmdkey}"
       ;
 
@@ -87,7 +93,10 @@ cmdsub 'flag-type' => q(qlist) => q{
 # ---   *   ---   *   ---
 # read segment decl
 
-cmdsub 'seg-type' => q(sym) => q{
+cmdsub 'seg-type' => q(
+  sym type;
+
+) => sub ($self,$branch) {
 
 
   # get ctx
@@ -97,11 +106,11 @@ cmdsub 'seg-type' => q(sym) => q{
   # clean name
   my $lv   = $branch->{leaves};
   my $name = $lv->[0]->{value};
-     $name = $l1->is_sym($name);
+     $name = $l1->untag($name)->{spec};
 
 
   # prepare branch for ipret
-  my $type=$l1->is_cmd($branch->{value});
+  my $type=$branch->{cmdkey};
 
   $branch->{vref}={
     type=>$type,
@@ -116,7 +125,7 @@ cmdsub 'seg-type' => q(sym) => q{
   if($type ne 'seg-type') {
 
     $branch->{value}=
-      $l1->make_tag(CMD=>'seg-type')
+      $l1->tag(CMD=>'seg-type')
     . "$type"
     ;
 
@@ -132,7 +141,7 @@ cmdsub 'seg-type' => q(sym) => q{
 
 w_cmdsub 'seg-type'
 
-=>q(sym)
+=>q(sym type)
 =>qw(rom ram exe);
 
 # ---   *   ---   *   ---
@@ -144,9 +153,10 @@ w_cmdsub 'seg-type'
 # reads a data declaration!
 
 cmdsub 'data-decl' => q(
-  vlist,qlist
+  vlist name;
+  qlist value;
 
-) => q{
+) => sub ($self,$branch) {
 
 
   # get ctx
@@ -162,7 +172,7 @@ cmdsub 'data-decl' => q(
   # get [name=>value] arrays
   my ($name,$value)=map {
 
-    (defined $l1->is_list($ARG->{value}))
+    ($l1->typechk(LIST=>$ARG->{value}))
       ? $ARG->{leaves}
       : [$ARG]
       ;
@@ -177,13 +187,13 @@ cmdsub 'data-decl' => q(
 
     # ensure default value for each name
     $value->[$idex] //= $branch->inew(
-      $l1->make_tag('NUM'=>0x00)
+      $l1->tag('NUM'=>0x00)
 
     );
 
     # get symbol name
     my $n=$ARG->{value};
-       $n=$l1->is_sym($n);
+       $n=$l1->untag($n)->{spec};
 
     # give [name=>value] and go next
     my $v=$value->[$idex++];
@@ -214,7 +224,10 @@ cmdsub 'data-decl' => q(
 # * (? exprbeg) [*type] -> [*data-decl]
 # * (! exprbeg) [*type] -> [Ttype]
 
-cmdsub 'data-type' => q(qlist) => q{
+cmdsub 'data-type' => q(
+  qlist any;
+
+) => sub ($self,$branch) {
 
 
   # get ctx
@@ -240,7 +253,7 @@ cmdsub 'data-type' => q(qlist) => q{
 
       # mutate into another command
       $branch->{value}=
-        $l1->make_tag(CMD=>'data-decl')
+        $l1->tag(CMD=>'data-decl')
       . "$type->{name}"
       ;
 
@@ -253,7 +266,7 @@ cmdsub 'data-type' => q(qlist) => q{
 
       # mutate into command argument
       $branch->{value}=
-        $l1->make_tag(TYPE=>$type->{name});
+        $l1->tag(TYPE=>$type->{name});
 
 
       return;
@@ -287,7 +300,7 @@ sub type_decode($self,@src) {
 
 w_cmdsub 'data-type'
 
-=> q(qlist)
+=> q(qlist any)
 => @{Type::MAKE->ALL_FLAGS};
 
 # ---   *   ---   *   ---

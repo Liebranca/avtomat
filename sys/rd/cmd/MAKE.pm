@@ -36,7 +36,6 @@ package rd::cmd::MAKE;
   use Arstd::WLog;
 
   use parent 'St';
-  use parent 'rd::cmd::argchk';
 
 # ---   *   ---   *   ---
 # info
@@ -280,8 +279,6 @@ sub sigex($class,$frame,$name,$defv,$e,$idex=0) {
 sub new($class,$frame,%O) {
 
 
-  return {} if $O{lis} ne 'echo';
-
   # get ctx
   my $main = $frame->{main};
   my $tab  = $frame->{keytab};
@@ -356,7 +353,7 @@ sub new($class,$frame,%O) {
     key   => $key,
     unrev => $O{unrev},
 
-  },$class;
+  },$O{pkg};
 
 
   # ^register and give
@@ -483,11 +480,12 @@ sub cmdfn($self,$name) {
 
     my $have = $lib->fetch($name);
 
-    $out=$have;
+    $out=$have->{key};
 
-  };
+  }
 
-  return $out->{key}->{fn};
+
+  return $out->{fn};
 
 };
 
