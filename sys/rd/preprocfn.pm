@@ -34,7 +34,7 @@ package rd::preprocfn;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -44,10 +44,24 @@ St::vconst {
 
   DEFAULT => {
 
-    main => undef,
-    par  => undef,
-    data => undef,
-    meta => undef,
+    main  => undef,
+    par   => undef,
+    data  => undef,
+    meta  => undef,
+
+    flags => 0x00,
+
+  },
+
+  flags => sub {
+
+    my $bit=0x0;
+
+    return {
+      map {$ARG => 1 << $bit++}
+      qw  (zero)
+
+    };
 
   },
 
@@ -62,8 +76,13 @@ sub fnread($self,$fn) {
   # get ctx
   my $main = $self->{main};
 
+
+  # make new tree
+  my $frame = Tree->get_frame(0);
+  my $root  = $frame->new(undef,'ROOT');
+
   # walk input
-  my @program = map {
+  map {
 
     my @tree=@$ARG;
 
@@ -75,15 +94,28 @@ sub fnread($self,$fn) {
       my ($ins,@args)=
         $self->fnread_field($ARG);
 
-      my $ref=$self->fetch($ins);
-      [$ref,@args];
+
+      # label
+      if($ins eq '@') {
+        $ins .= join $NULLSTR,@args;
+        $root->inew($ins);
+
+      # ^command
+      } else {
+
+        my $ref    = $self->fetch($ins);
+        my $branch = $root->inew($ins);
+
+        $branch->{vref}=[$ref,@args];
+
+      };
 
     } @tree;
 
   } @$fn;
 
 
-  return @program;
+  return $root;
 
 };
 
@@ -167,6 +199,65 @@ sub fetch($self,$name) {
 };
 
 # ---   *   ---   *   ---
+# jump to label!
+
+sub jmp($self,@dst) {
+
+  @dst=$self->deref(@dst);
+  my $plain=undef;
+
+  if(Tree->is_valid($dst[0])) {
+    $plain=$dst[0]->{value};
+
+  } else {
+    $plain=join $NULLSTR,@dst;
+
+  };
+
+  return 'JMP',$plain;
+
+};
+
+# ---   *   ---   *   ---
+# ^conditionally ;>
+
+sub cjmp($self,$which,$iv,@dst) {
+
+  my $bits=$self->flags;
+  my $have=$self->{flags} & $bits->{$which};
+
+  $have =! $have if $iv;
+
+  return ($have)
+    ? $self->jmp(@dst)
+    : ()
+    ;
+
+};
+
+sub jz($self,@dst) {
+  return $self->cjmp(zero=>0,@dst);
+
+};
+
+# ---   *   ---   *   ---
+# ^the condition!
+
+sub _cmp($self,$dst,$src) {
+
+  ($dst,$src)=$self->deref($dst,$src);
+
+  my $bits   = $self->flags;
+  my $status = 0x00;
+
+  $status |= $bits->{zero} if $dst eq $src;
+  $self->{flags} = $status;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # replace node in hierarchy
 
 sub replace($self,$dst,$src) {
@@ -237,8 +328,8 @@ sub merge($self,$dst) {
   my ($anchor,$root)=
     $self->deref(qw(branch root));
 
-
-  while($anchor->{parent} ne $root) {
+  while($anchor->{parent}
+  && $anchor->{parent} ne $root) {
     $anchor=$anchor->{parent};
 
   };
@@ -259,6 +350,8 @@ sub mergef($self,$dst,$depth=0) {
   $dst=$self->merge($dst);
   $self->flatten($dst,$depth);
 
+($self->deref('root'))[0]->prich();
+
   return;
 
 };
@@ -268,7 +361,7 @@ sub mergef($self,$dst,$depth=0) {
 
 sub flatten($self,$dst,$depth=0) {
 
-  $dst=$self->deref($dst);
+  ($dst)=$self->deref($dst);
   $dst->flatten_tree(max_depth=>$depth);
 
   return;
@@ -368,7 +461,7 @@ sub deref($self,@args) {
   my $tab    = {
 
     branch => $branch,
-    expr   => $branch->{parent},
+    exp    => $branch->{parent},
     parent => $branch->{parent}->{parent},
     last   => $branch->{leaves}->[-1],
     root   => $main->{tree},
@@ -379,7 +472,6 @@ sub deref($self,@args) {
   # walk values
   map {
 
-
     # have attr name?
     if(! index $ARG,'self.') {
       $ARG=substr $ARG,5,length($ARG)-5;
@@ -387,8 +479,15 @@ sub deref($self,@args) {
 
     # have branch name?
     } elsif(! index $ARG,'lv.') {
-      $ARG=substr $ARG,3,length($ARG)-3;
-      $ARG=$branch->branch_in(qr{$ARG});
+
+      my $v=substr $ARG,3,length($ARG)-3;
+      $ARG=$branch->branch_in(qr{$v});
+
+      $branch->prich(),$main->perr(
+        "undefined leaf '%s'",
+        args=>[$v],
+
+      ) if ! defined $ARG;
 
     # have reference?
     } elsif(exists $tab->{$ARG}) {
@@ -396,9 +495,7 @@ sub deref($self,@args) {
 
     };
 
-
     $ARG;
-
 
   } @args;
 

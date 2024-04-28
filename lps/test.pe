@@ -1,3 +1,25 @@
 %;
 
+case 'mov' {
+
+  attr sig;
+    sym dst;
+    opr ? ',';
+    sym src;
+
+  attr fn;
+
+    cmp   0,1;
+    jz    @f;
+
+    push  branch,'[^X] ';
+    push  last,load,byte,self.dst,',',self.src;
+
+    merge last;
+
+    @@;
+
+};
+
+mov ar,br;
 load ar,br;

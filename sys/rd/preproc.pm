@@ -33,7 +33,7 @@ package rd::preproc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -204,7 +204,7 @@ sub sort_tree($self,$branch) {
     $l2->{branch} = $ARG;
 
     $l2->strip_comments($ARG);
-    $l2->invoke('fwd-parse'=>'comma-list');
+    $l2->invoke('fwd-parse'=>'csv');
 
 
     # sort expression
@@ -449,7 +449,7 @@ sub tree_to_sub($self,$data,$status,$dst='tab') {
 
 
   # ^proc and generate perl sub
-  my @program=$fstate->fnread($fn);
+  my $program=$fstate->fnread($fn);
   $fn=sub ($ice,$idata,@slurp) {
 
 
@@ -467,11 +467,49 @@ sub tree_to_sub($self,$data,$status,$dst='tab') {
     # ^all values expanded, run F
     $fstate->{data}=$idata;
 
-    map {
-      my ($ins,@args) = @$ARG;
-      $ins->($fstate,@args);
+    my @Q=@{$program->{leaves}};
+    while(@Q) {
 
-    } @program;
+      my $nd=shift @Q;
+      next if ! $nd->{vref};
+
+      my ($ins,@args) = @{$nd->{vref}};
+      my ($jmp,$to)   = $ins->($fstate,@args);
+
+      if(defined $jmp && $jmp eq 'JMP') {
+
+        my $dst=undef;
+        if($to eq '@f') {
+
+          ($dst)=grep {
+            $ARG->{value}=~ qr{^@}
+
+          } $nd->all_fwd();
+
+        } elsif($to eq '@b') {
+
+          ($dst)=grep {
+            $ARG->{value}=~ qr{^@}
+
+          } $nd->all_back();
+
+        } else {
+          $dst=$program->branch_in(qr{$to});
+
+        };
+
+        $main->perr(
+          "cannot find label '%s'",
+          args=>[$to]
+
+        ) if ! defined $dst;
+
+        @Q=();
+        push @Q,$dst,$dst->all_fwd();
+
+      };
+
+    };
 
     return;
 

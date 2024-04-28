@@ -1841,6 +1841,18 @@ sub all_fwd($self,%O) {
 };
 
 # ---   *   ---   *   ---
+# ^all previous siblings!
+
+sub all_back($self,%O) {
+
+  return ($self->{parent})
+    ? $self->{parent}->match_until($self,%O)
+    : ()
+    ;
+
+};
+
+# ---   *   ---   *   ---
 # get all nodes from self
 # up to pattern,
 #

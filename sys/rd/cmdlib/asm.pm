@@ -184,7 +184,7 @@ sub mutate_ins($self,$branch,$new='asm-ins') {
 
   # record name of original
   # just for dbout!
-  my $full=($head->{opsz_def})
+  my $full=(! $head->{opsz_def})
     ? "$head->{name} $head->{opsz}->{name}"
     : "$head->{name}"
     ;
