@@ -478,6 +478,7 @@ sub tree_to_sub($self,$data,$status,$dst='tab') {
 
       if(defined $jmp && $jmp eq 'JMP') {
 
+
         my $dst=undef;
         if($to eq '@f') {
 
@@ -511,6 +512,7 @@ sub tree_to_sub($self,$data,$status,$dst='tab') {
 
     };
 
+    $fstate->onexit();
     return;
 
   };

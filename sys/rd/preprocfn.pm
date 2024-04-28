@@ -34,7 +34,7 @@ package rd::preprocfn;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -49,6 +49,8 @@ St::vconst {
     data  => undef,
     meta  => undef,
 
+    scope => {},
+
     flags => 0x00,
 
   },
@@ -59,7 +61,7 @@ St::vconst {
 
     return {
       map {$ARG => 1 << $bit++}
-      qw  (zero)
+      qw  (zero great greate less lesse)
 
     };
 
@@ -204,7 +206,7 @@ sub fetch($self,$name) {
 sub jmp($self,@dst) {
 
   return 'JMP',join $NULLSTR,
-    $self->xstirr(@dst);
+    $self->ystirr(@dst);
 
 };
 
@@ -238,6 +240,46 @@ sub jnz($self,@dst) {
 
 };
 
+sub jg($self,@dst) {
+  return $self->cjmp(great=>0,@dst);
+
+};
+
+sub jge($self,@dst) {
+  return $self->cjmp(greate=>0,@dst);
+
+};
+
+sub jng($self,@dst) {
+  return $self->cjmp(great=>1,@dst);
+
+};
+
+sub jnge($self,@dst) {
+  return $self->cjmp(greate=>1,@dst);
+
+};
+
+sub jl($self,@dst) {
+  return $self->cjmp(less=>0,@dst);
+
+};
+
+sub jle($self,@dst) {
+  return $self->cjmp(lesse=>0,@dst);
+
+};
+
+sub jnl($self,@dst) {
+  return $self->cjmp(less=>1,@dst);
+
+};
+
+sub jnle($self,@dst) {
+  return $self->cjmp(lesse=>1,@dst);
+
+};
+
 # ---   *   ---   *   ---
 # ^the condition!
 
@@ -248,7 +290,18 @@ sub _cmp($self,$dst,$src) {
   my $bits   = $self->flagbits;
   my $status = 0x00;
 
-  $status |= $bits->{zero} if $dst eq $src;
+  $status |= $bits->{zero} * ($dst eq $src);
+
+  if(($dst=~ $NUM_RE) && ($src=~ $NUM_RE)) {
+
+    $status |= $bits->{less}   * ($dst <  $src);
+    $status |= $bits->{lesse}  * ($dst <= $src);
+
+    $status |= $bits->{great}  * ($dst >  $src);
+    $status |= $bits->{greate} * ($dst >= $src);
+
+  };
+
   $self->{flags} = $status;
 
   return;
@@ -275,6 +328,23 @@ sub match($self,$dst,@src) {
   $status |=  $bits->{zero} * $have;
 
   $self->{flags}=$status;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# declare/modify var
+
+sub _local($self,$dst,$asg=null,@value) {
+
+  ($dst)   = $self->ystirr($dst);
+  (@value) = $self->xstirr(@value) if $asg eq '=';
+
+  $self->{scope}->{$dst}=(@value)
+    ? eval join $NULLSTR,@value
+    : null
+    ;
 
   return;
 
@@ -478,6 +548,7 @@ sub deref($self,@args) {
   my $l2     = $main->{l2};
   my $branch = $l2->{branch};
   my $data   = $self->{data};
+  my $scope  = $self->{scope};
 
   my $tab    = {
 
@@ -514,7 +585,12 @@ sub deref($self,@args) {
     } elsif(exists $tab->{$ARG}) {
       $ARG=$tab->{$ARG};
 
+    # have local var?
+    } elsif(exists $scope->{$ARG}) {
+      $ARG=$scope->{$ARG};
+
     };
+
 
     $ARG;
 
@@ -526,8 +602,15 @@ sub deref($self,@args) {
 # ^transform and stringify
 
 sub xstirr($self,@args) {
-
   @args=$self->deref(@args);
+  $self->ystirr(@args);
+
+};
+
+# ---   *   ---   *   ---
+# ^just stringify ;>
+
+sub ystirr($self,@args) {
 
   map {
 
@@ -633,6 +716,15 @@ sub argparse($self,@slurp) {
 
   } keys %$capt;
 
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# F cleanup
+
+sub onexit($self) {
+  $self->{scope}={};
   return;
 
 };

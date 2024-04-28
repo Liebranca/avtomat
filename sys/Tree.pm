@@ -1845,10 +1845,18 @@ sub all_fwd($self,%O) {
 
 sub all_back($self,%O) {
 
+  $O{inclusive} //= 0;
+
   return ($self->{parent})
-    ? $self->{parent}->match_until($self,%O)
-    : ()
-    ;
+
+    ? $self->{parent}->match_until_other(
+
+      $self->{parent}->{leaves}->[0],
+      $self,
+
+      %O,
+
+    ) : () ;
 
 };
 

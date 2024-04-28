@@ -9,10 +9,16 @@ case 'testy' {
 
   attr fn;
 
-    match self.dst,'^ar$';
-    jz    @f;
+    local a=0;
 
-    push  branch,'[^X] ';
+    @@;
+
+    cmp   a,2;
+    local a=a+1;
+
+    jl    @b;
+
+    push  branch,a;
     push  last,load,byte,self.dst,',',self.src;
 
     merge last;
