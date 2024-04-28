@@ -274,6 +274,15 @@ sub ws($self) {
 sub str($self,$term=undef) {
 
 
+  # string character escaped?
+  my ($esc)=$self->flagchk(esc=>1);
+  if($esc) {
+    $self->flagset(esc=>0);
+    return $self->cat();
+
+  };
+
+
   # get ctx
   my $main = $self->{main};
   my $l1   = $main->{l1};
@@ -591,6 +600,7 @@ sub set_ntermf($self) {
 # get flag is set or unset
 
 sub flagchk($self,%bits) {
+
 
   # get ctx
   my $src = $self->{status};

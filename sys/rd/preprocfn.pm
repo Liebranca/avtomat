@@ -53,7 +53,7 @@ St::vconst {
 
   },
 
-  flags => sub {
+  flagbits => sub {
 
     my $bit=0x0;
 
@@ -203,18 +203,8 @@ sub fetch($self,$name) {
 
 sub jmp($self,@dst) {
 
-  @dst=$self->deref(@dst);
-  my $plain=undef;
-
-  if(Tree->is_valid($dst[0])) {
-    $plain=$dst[0]->{value};
-
-  } else {
-    $plain=join $NULLSTR,@dst;
-
-  };
-
-  return 'JMP',$plain;
+  return 'JMP',join $NULLSTR,
+    $self->xstirr(@dst);
 
 };
 
@@ -223,7 +213,7 @@ sub jmp($self,@dst) {
 
 sub cjmp($self,$which,$iv,@dst) {
 
-  my $bits=$self->flags;
+  my $bits=$self->flagbits;
   my $have=$self->{flags} & $bits->{$which};
 
   $have =! $have if $iv;
@@ -235,8 +225,16 @@ sub cjmp($self,$which,$iv,@dst) {
 
 };
 
+# ---   *   ---   *   ---
+# ^icef*ck!
+
 sub jz($self,@dst) {
   return $self->cjmp(zero=>0,@dst);
+
+};
+
+sub jnz($self,@dst) {
+  return $self->cjmp(zero=>1,@dst);
 
 };
 
@@ -247,11 +245,36 @@ sub _cmp($self,$dst,$src) {
 
   ($dst,$src)=$self->deref($dst,$src);
 
-  my $bits   = $self->flags;
+  my $bits   = $self->flagbits;
   my $status = 0x00;
 
   $status |= $bits->{zero} if $dst eq $src;
   $self->{flags} = $status;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^regex ;>
+
+sub match($self,$dst,@src) {
+
+  ($dst)=$self->xstirr($dst);
+  (@src)=$self->xstirr(@src);
+
+  my $re=join $NULLSTR,@src;
+     $re=qr{$re};
+
+  my $status = $self->{flags};
+  my $bits   = $self->flagbits;
+
+  my $have   = int($dst=~ $re);
+
+  $status &=~ 1     << $bits->{zero};
+  $status |=  $bits->{zero} * $have;
+
+  $self->{flags}=$status;
 
   return;
 
@@ -349,8 +372,6 @@ sub mergef($self,$dst,$depth=0) {
 
   $dst=$self->merge($dst);
   $self->flatten($dst,$depth);
-
-($self->deref('root'))[0]->prich();
 
   return;
 
