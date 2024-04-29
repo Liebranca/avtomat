@@ -929,31 +929,16 @@ sub insert_epilogue($self,%h) {
 
 sub repl($self,$other) {
 
-  my $ref=$self->{parent}->{leaves};
-  my $i=-1;
+  my $i=$self->{idex};
 
+  $self->{parent}->insertlv(
+    $self->{idex},$other
 
-  for my $node(@$ref) {
+  );
 
-    $i++;
-    if($node eq $self) {
-      last;
+  $self->discard();
 
-    };
-
-  };
-
-
-  if($i>=0) {
-
-    $other->{parent}=$self->{parent};
-    $ref->[$i]=$other;
-
-    $self->{parent}->cllv();
-
-  };
-
-  return;
+  return $other;
 
 };
 
@@ -964,7 +949,9 @@ sub repl($self,$other) {
 sub deep_repl($self,$other) {
 
   state $fbid_key_re=qr{^(?: idex|parent)$}x;
-  $self->repl($other) if $self->{parent};
+
+  $self=$self->repl($other)
+  if $self->{parent};
 
   for my $key(keys %$self) {
 
@@ -977,6 +964,8 @@ sub deep_repl($self,$other) {
 
   $self->clear();
   $self->pushlv(@lv);
+
+  return $other;
 
 };
 

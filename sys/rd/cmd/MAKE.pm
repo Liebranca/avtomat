@@ -128,6 +128,8 @@ St::vconst {
 
   ],
 
+  list => [LIST => '.+'],
+
 
   # ^not a list!
   nlist => [

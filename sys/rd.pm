@@ -172,6 +172,7 @@ sub new($class,$src,%O) {
     # execution layer
     lx    => undef,
     stage => 0,
+    rerun => 0,
 
     mc    => $O{mc}->{cls}->new(%{$O{mc}}),
 
@@ -466,6 +467,10 @@ sub reparse($self) {
 
 
   # re-evaluate symbols
+  rept:
+
+  $self->{rerun}=0;
+
   my @Q=@{$self->{tree}->{leaves}};
   while(@Q) {
 
@@ -498,6 +503,8 @@ sub reparse($self) {
 
   # go next and give
   $self->next_pass();
+  goto rept if $self->{rerun};
+
   $self->next_stage();
 
   return;

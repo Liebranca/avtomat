@@ -1,30 +1,8 @@
 %;
 
-case 'testy' {
-
-  attr sig;
-    sym dst;
-    opr ? ',';
-    sym src;
-
-  attr fn;
-
-    local a=0;
-
-    @@;
-
-    cmp   a,2;
-    local a=a+1;
-
-    jl    @b;
-
-    push  branch,a;
-    push  last,load,byte,self.dst,',',self.src;
-
-    merge last;
-
-    @@;
+macro testy a,b {
+  a,b;
 
 };
 
-testy cr,br;
+testy c,d;

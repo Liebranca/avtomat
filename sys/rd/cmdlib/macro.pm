@@ -34,7 +34,7 @@ package rd::cmdlib::macro;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -172,8 +172,7 @@ sub macro_take($self,$branch) {
 
   )) {
 
-    my $fn="is_$type";
-    if(defined $l1->$fn($key)) {
+    if($l1->typechk(uc $type => $key)) {
       return {type=>$type,id=>$key};
 
     };
@@ -183,8 +182,7 @@ sub macro_take($self,$branch) {
   # ^give node!
   for my $type(qw(cmd list)) {
 
-    my $fn="is_$type";
-    if(defined $l1->$fn($key)) {
+    if($l1->typechk(uc $type => $key)) {
       return {type=>$type,id=>$nd};
 
     };
@@ -202,7 +200,11 @@ sub macro_take($self,$branch) {
 unrev cmdsub 'macro-paste' => q(
   qlist data;
 
-) => q{
+) => sub ($self,$branch) {
+
+
+  # unwrap list
+  $branch->{leaves}->[0]->flatten_branch();
 
 
   # get ctx
@@ -242,78 +244,9 @@ unrev cmdsub 'macro-paste' => q(
   };
 
 
-  my $idex = 0;
-
-  map {
-
-    my $have  = $args[$idex];
-    my $chk   = $ARG;
-    my $sidex = 0;
-
-    map {
-
-
-      my @shave=(defined $have)
-        ? @{$have}[$sidex..@$have-1]
-        : ()
-        ;
-
-      my $shave=(defined $have)
-        ? $have->[$sidex]
-        : undef
-        ;
-
-
-      # set default value?
-      my $value=(defined $shave)
-
-      ? ($ARG->{type} eq 'qlist')
-        ? [map {$ARG->{id}} @shave]
-        : $shave->{id}
-
-      : $ARG->{defval}
-      ;
-
-
-      $main->perr(
-
-        'badargs for [ctl]:%s \'%s\'' . "\n\n"
-
-      . 'position [[num]:%u,[num]:%u]' . "\n"
-      . 'expected [good]:%s token' . "\n"
-
-      , args => [
-
-          'macro',$name,
-          $idex,$sidex,
-
-          $ARG->{type}
-
-        ],
-
-      ) if ! defined $value;
-
-
-      # replace arg in body
-      $self->macro_repl(
-        $body,$ARG->{repl},$value
-
-      );
-
-      $sidex++;
-
-    } @$chk;
-
-
-    # go next
-    $idex++;
-
-  } @$sig;
-
-
   # replace own with generated!
   my $par=$branch->{parent};
-  $branch->deep_repl($body);
+  $branch=$branch->deep_repl($body);
 
 
   # recurse for each sub-branch
@@ -327,8 +260,7 @@ unrev cmdsub 'macro-paste' => q(
   } @Q;
 
 
-  $branch->flatten_branch();
-
+  $branch->flatten_tree(max_depth=>1);
   return;
 
 
@@ -473,15 +405,17 @@ unrev cmdsub macro => q(
 
 
   # generate signature
-  my @sig=map {
+  my @sig = 'list @_' => map {
 
     map {
-      my $opt=(defined $ARG->{defval})
-        ? 'opt_'
-        : null
-        ;
 
-      "${opt}$ARG->{type}";
+      my $id=$l1->untag($ARG->{id});
+         $id=($id) ? $id->{spec} : $ARG->{id} ;
+
+      (defined $ARG->{defv})
+        ? "$ARG->{type} $id=$ARG->{defv}"
+        : "$ARG->{type} $id"
+        ;
 
     } @$ARG;
 
@@ -510,7 +444,7 @@ unrev cmdsub macro => q(
     pkg   => $class,
     sig   => \@sig,
 
-    fn    => $solve->{fn},
+    fn    => $solve->{key}->{fn},
     unrev => 1,
 
   );
@@ -524,6 +458,8 @@ unrev cmdsub macro => q(
 
   # update command table and give
   $main->{lx}->load_CMD(1);
+  $main->{rerun}=1;
+
   return;
 
 };
