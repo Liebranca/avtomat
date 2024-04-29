@@ -36,7 +36,7 @@ package A9M::anima;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -122,7 +122,7 @@ St::vconst {
     return {
 
       map {$ARG=>$idex++}
-      qw  (zero)
+      qw  (zero great less)
 
     };
 

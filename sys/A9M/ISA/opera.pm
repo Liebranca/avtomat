@@ -38,7 +38,7 @@ package A9M::ISA::opera;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -52,7 +52,6 @@ St::vconst {
     # imm/mem/reg to reg
     ld => {
 
-      fn       => 'copy',
       load_dst => 0,
 
       dst      => 'r',
@@ -65,7 +64,7 @@ St::vconst {
     # reg to mem
     st => {
 
-      fn       => 'copy',
+      fn       => 'ld',
       load_dst => 0,
 
       dst      => 'm',
@@ -75,27 +74,20 @@ St::vconst {
 
 
     # ^conditional variants
-    'cld-z' => {
+    (map {
 
-      fn       => 'ccopy_zero',
+      $ARG => {
 
-      load_dst => 1,
+        load_dst => 1,
 
-      dst      => 'r',
-      src      => 'r',
+        dst      => 'r',
+        src      => 'r',
 
-    },
+        fix_size => ['qword'],
 
-    'cld-nz' => {
+      },
 
-      fn       => 'ccopy_nzero',
-
-      load_dst => 1,
-
-      dst      => 'r',
-      src      => 'r',
-
-    },
+    } qw(lz lnz lg lgz ll llz)),
 
 
     # load chan!
@@ -316,7 +308,7 @@ St::vconst {
     },
 
 
-    # control flow
+    # go somewhere else ;>
     jmp => {
 
       argcnt    => 1,
@@ -327,29 +319,20 @@ St::vconst {
 
     },
 
-    'cjmp-z' => {
+    # ^conditionally!
+    (map {
 
-      fn        => 'cjump_zero',
+      $ARG => {
 
-      argcnt    => 1,
-      dst       => 'rmi',
+        argcnt    => 1,
+        dst       => 'rmi',
 
-      overwrite => 0,
-      fix_size  => ['qword'],
+        overwrite => 0,
+        fix_size  => ['qword'],
 
-    },
+      },
 
-    'cjmp-nz' => {
-
-      fn        => 'cjump_nzero',
-
-      argcnt    => 1,
-      dst       => 'rmi',
-
-      overwrite => 0,
-      fix_size  => ['qword'],
-
-    },
+    } qw(jz jnz jg jgz jl jlz)),
 
 
     # a special jump ;>
@@ -384,6 +367,16 @@ St::vconst {
 
     },
 
+    cmp => {
+
+      fn  => '_cmp',
+
+      dst => 'r',
+      src => 'ri',
+
+      overwrite => 0,
+
+    },
 
     # check equality
     cmpe => {
@@ -391,7 +384,7 @@ St::vconst {
       fn  => '_eq',
 
       dst => 'r',
-      src => 'i',
+      src => 'ri',
 
       overwrite => 0,
 
@@ -403,7 +396,7 @@ St::vconst {
 
   op_to_ins => {qw(
 
-    =   copy
+    =   ld
     ^   xor
 
     +   add
@@ -503,16 +496,38 @@ sub asval($src) {
 # ---   *   ---   *   ---
 # src to dst
 
-sub copy($self,$type,$src) {
+sub ld($self,$type,$src) {
   my @src=asval $src;
   sub {shift @src};
 
 };
 
 # ---   *   ---   *   ---
-# ^conditional
+# helpers for conditionals
 
-sub ccopy($self,$type,$src,$flag) {
+sub ivflag($flagref) {
+  map {int($ARG=~ s[^n][])} @$flagref;
+
+};
+
+sub flagchk($anima,$flagref,$ivref) {
+
+  my (@chk)=$anima->get_flags(@$flagref);
+
+    map {
+      $chk[$ARG] =! $chk[$ARG]
+      if $ivref->[$ARG]
+
+    } 0..$#chk;
+
+  return int grep {$ARG} @chk;
+
+};
+
+# ---   *   ---   *   ---
+# conditional load
+
+sub cld($self,$type,$src,@flag) {
 
 
   # get ctx
@@ -520,23 +535,17 @@ sub ccopy($self,$type,$src,$flag) {
   my $anima = $mc->{anima};
 
   # negate flag?
-  my $iv  = int($flag=~ s[^n][]);
+  my @iv  = ivflag \@flag;
   my @src = asval $src;
 
 
   # make F
   sub ($x) {
 
+    my $y   = shift @src;
+    my $chk = flagchk $anima,\@flag,\@iv;
 
-    # check for flag set/unset
-    my $y=shift @src;
-    my ($chk)=$anima->get_flags($flag);
-
-    $chk =! $chk if $iv;
-
-
-    # ^give if true
-    ($chk) ? $y : $x ;
+    return ($chk) ? $y : $x ;
 
   };
 
@@ -545,13 +554,33 @@ sub ccopy($self,$type,$src,$flag) {
 # ---   *   ---   *   ---
 # ^icef*ck
 
-sub ccopy_zero($self,$type,$src) {
-  return $self->ccopy($type,$src,'zero');
+sub lz($self,$type,$src) {
+  return $self->cld($type,$src,'zero');
 
 };
 
-sub ccopy_nzero($self,$type,$src) {
-  return $self->ccopy($type,$src,'nzero');
+sub lnz($self,$type,$src) {
+  return $self->cld($type,$src,'nzero');
+
+};
+
+sub lg($self,$type,$src) {
+  return $self->cld($type,$src,'great');
+
+};
+
+sub lgz($self,$type,$src) {
+  return $self->cld($type,$src,'great','zero');
+
+};
+
+sub ll($self,$type,$src) {
+  return $self->cld($type,$src,'less');
+
+};
+
+sub llz($self,$type,$src) {
+  return $self->cld($type,$src,'less','zero');
 
 };
 
@@ -645,7 +674,7 @@ sub mul($self,$type,$src) {
 # ---   *   ---   *   ---
 # set insptr
 
-sub jump($self,$type) {
+sub jmp($self,$type) {
 
   # get ctx
   my $mc    = $self->getmc();
@@ -664,7 +693,8 @@ sub jump($self,$type) {
 # ---   *   ---   *   ---
 # ^conditional
 
-sub cjump($self,$type,$flag) {
+sub cjmp($self,$type,@flag) {
+
 
   # get ctx
   my $mc    = $self->getmc();
@@ -672,19 +702,14 @@ sub cjump($self,$type,$flag) {
   my $rip   = $anima->{rip};
 
   # negate flag?
-  my $iv  = int($flag=~ s[^n][]);
-
+  my @iv=ivflag \@flag;
 
   # make F
   sub ($x) {
 
-    # check for flag set/unset
-    my ($chk)=$anima->get_flags($flag);
-    $chk =! $chk if $iv;
-
-
-    # ^set if true
+    my $chk=flagchk $anima,\@flag,\@iv;
     $rip->store($x,deref=>0) if $chk;
+
     return;
 
   };
@@ -694,13 +719,33 @@ sub cjump($self,$type,$flag) {
 # ---   *   ---   *   ---
 # ^icef*ck
 
-sub cjump_zero($self,$type) {
-  return $self->cjump($type,'zero');
+sub jz($self,$type) {
+  return $self->cjmp($type,'zero');
 
 };
 
-sub cjump_nzero($self,$type) {
-  return $self->cjump($type,'nzero');
+sub jnz($self,$type) {
+  return $self->cjmp($type,'nzero');
+
+};
+
+sub jg($self,$type) {
+  return $self->cjmp($type,'great');
+
+};
+
+sub jgz($self,$type) {
+  return $self->cjmp($type,'great','zero');
+
+};
+
+sub jl($self,$type) {
+  return $self->cjmp($type,'less');
+
+};
+
+sub jlz($self,$type) {
+  return $self->cjmp($type,'less','zero');
 
 };
 
@@ -835,40 +880,69 @@ sub _exit($self,$type) {
   };
 
 };
+# ---   *   ---   *   ---
+# compare two values
+
+sub _cmp($self,$type,$src) {
+
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+
+
+  # make F
+  my @src=asval $src;
+  sub ($x) {
+
+
+    # substract src from dst
+    my $y = shift @src;
+    my $z = $x-$y;
+
+    # ^derive flags from result
+    $anima->set_flags(
+
+      zero  => ! $z,
+
+      great => $z > 0,
+      less  => $z < 0,
+
+    );
+
+    return $anima->{flags};
+
+  };
+
+};
 
 # ---   *   ---   *   ---
-# equality
+# ^get equality
 
 sub _eq($self,$type,$src) {
 
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
 
   # assume values are equal
   my @src=asval $src;
   my $out=1;
 
+
+  # ^then challenge that assumption ;>
+  my $cmp=$self->_cmp($type,$src);
   sub ($x) {
 
-
-    # ^then challenge that assumption ;>
-    my $y    =  shift @src;
-       $out &=~ ($x != $y);
+    my $y=shift @src;
+    $cmp->($x);
 
 
-    # end of comparison?
-    if(! @src) {
+    # unset if unequal and give
+    $out &=~ ($anima->get_flags('zero'))[0];
 
-      # get ctx
-      my $mc    = $self->getmc();
-      my $anima = $mc->{anima};
-
-      # modify flags and give
-      $anima->set_flags(zero=>$out);
-
-      return $out;
-
-
-    # ^nope, give nothing ;>
-    } else {()};
+    return (! @src) ? $out : () ;
 
   };
 

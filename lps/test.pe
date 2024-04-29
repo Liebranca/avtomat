@@ -1,6 +1,21 @@
 %;
 
-entry start;
+entry code.start;
 
-exe start;
-  ld ar,$24;
+exe code;
+blk start;
+  ld ar,$00;
+
+
+blk top;
+
+  cmp ar,2;
+  jg  skip;
+  lnz br,ar;
+
+  add ar,1;
+  jmp top;
+
+
+blk skip;
+  exit 1;

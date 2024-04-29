@@ -222,56 +222,6 @@ cmdsub 'asm-ins' => q(
 };
 
 # ---   *   ---   *   ---
-# ^with conditional!
-
-cmdsub 'c-asm-ins' => q(
-  nlist ev;
-  qlist args;
-
-) => sub ($self,$branch) {
-
-
-  # get ctx
-  my $main = $self->{frame}->{main};
-  my $l1   = $main->{l1};
-
-
-  # get operands
-  my ($opera) = $branch->ipluck(0);
-  my $head    = $self->parse_ins($branch);
-
-  # get type of check!
-  my $type=($l1->typechk(OPR=>$opera->{value}))
-    ? 'opr'
-    : 'sym'
-    ;
-
-
-  # save to branch
-  $head->{opr}    = {type=>$type,id=>$opera};
-  $branch->{vref} = $head;
-
-  # mutate and give
-  $self->mutate_ins($branch,'c-asm-ins');
-
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# ^icef*ck
-
-w_cmdsub 'c-asm-ins' => q(
-  nlist ev;
-  qlist args;
-
-) => qw(
-  cload cjump
-
-);
-
-# ---   *   ---   *   ---
 # generic methods, see ipret
 # for details
 

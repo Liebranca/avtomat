@@ -50,7 +50,10 @@ $NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
 
     [qw(
 
-      ld cld st
+      ld st
+      lz lnz
+      lg lgz
+      ll llz
 
       pop push
 
@@ -111,7 +114,11 @@ $NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
 
     [qw(
 
-      jmp cjmp
+      jmp
+
+      jz jnz
+      jg jgz
+      jl jlz
 
       call ret rept
       wait sys stop
@@ -134,6 +141,9 @@ $NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
 
       ipol lis
       in out xform
+
+      or xor and not neg
+      cmp test
 
       defd
 
