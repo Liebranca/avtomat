@@ -37,7 +37,7 @@ package ipret::engine;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -344,7 +344,7 @@ sub value_flatten($self,$src,%O) {
 
   # ^give zero on nope
   my $x=(! length $have)
-    ? $l1->make_tag(NUM=>0)
+    ? $l1->tag(NUM=>0)
     : $have
     ;
 
@@ -387,7 +387,7 @@ sub branch_solve($self,$branch,%O) {
   # have operator?
   my $key=$branch->{value};
 
-  if(defined (my $have=$l1->is_opera($key))) {
+  if(my $have=$l1->typechk(OPR=>$key)) {
 
     my $dst=($have ne '(')
       ? $self->opera_collapse($branch,$have,%O)
@@ -403,7 +403,7 @@ sub branch_solve($self,$branch,%O) {
 
   # 'branch' token denotes any {[(code)]}
   # between delimiters
-  } elsif(defined ($have=$l1->is_branch($key))) {
+  } elsif($have=$l1->typechk(EXP=>$key)) {
 
     $self->sbranch_collapse(
       $branch,$have
@@ -507,8 +507,14 @@ sub opera_collapse($self,$branch,$opera,%O) {
 
   my @args_b = map {
 
-    my ($type,$spec)=
-      $l1->read_tag($ARG->{value});
+    my $head=$l1->untag($ARG->{value});
+
+    my ($type,$spec)=(
+      $head->{type},
+      $head->{spec},
+
+    );
+
 
     my $have=($type && $type ne '*')
       ? $l1->quantize($ARG->{value})

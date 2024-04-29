@@ -40,13 +40,13 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.2;#a
+  our $VERSION = v0.01.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # offset within current segment
 
-cmdsub '$' => q() => q{
+cmdsub '$' => q() => sub ($self,$branch) {
 
   my $main = $self->{frame}->{main};
   $branch->{vref}=$main->cpos;
@@ -58,7 +58,7 @@ cmdsub '$' => q() => q{
 # ---   *   ---   *   ---
 # a label with extra steps
 
-cmdsub 'blk' => q() => q{
+cmdsub 'blk' => q() => sub ($self,$branch) {
 
 
   # get ctx
@@ -69,10 +69,10 @@ cmdsub 'blk' => q() => q{
   my $ISA  = $mc->{ISA};
 
   # get name of symbol
-  my $name=$l1->is_sym(
+  my $name=$l1->untag(
     $branch->{vref}->{id}
 
-  );
+  )->{spec};
 
   my $full="$mc->{segtop}->{value}.$name";
 
@@ -131,7 +131,7 @@ cmdsub 'blk' => q() => q{
 # ---   *   ---   *   ---
 # defines entry point
 
-cmdsub 'entry' => q() => q{
+cmdsub 'entry' => q() => sub ($self,$branch) {
 
 
   # get ctx
@@ -140,10 +140,11 @@ cmdsub 'entry' => q() => q{
   my $l1   = $main->{l1};
 
   # get name of symbol
-  my $name=$l1->is_sym(
+  my $name=$l1->untag(
     $branch->{vref}->{id}
 
-  );
+  )->{spec};
+
 
   # can fetch symbol?
   my $seg=$mc->ssearch(
@@ -206,7 +207,7 @@ sub argsolve($self,$branch) {
 
 
       # command dereference
-      if(defined (my $have=$l1->is_cmd($key))) {
+      if(my $have=$l1->typechk(CMD=>$key)) {
 
         # TODO: move this bit somewhere else!
         my $cmd=$lib->fetch($have);
@@ -300,7 +301,7 @@ sub argsolve($self,$branch) {
 # ---   *   ---   *   ---
 # generic instruction
 
-cmdsub 'asm-ins' => q() => q{
+cmdsub 'asm-ins' => q() => sub ($self,$branch) {
 
   # get ctx
   my $main = $self->{frame}->{main};
@@ -371,13 +372,13 @@ sub addr_decompose($self,$nd) {
 
 
     # register name?
-    if(defined ($have=$l1->is_reg($ARG))) {
+    if($have=$l1->typechk(REG=>$ARG)) {
 
       $stk |= $have == $anima->stack_base;
       push @reg,$have;
 
     # symbol name?
-    } elsif(defined ($have=$l1->is_sym($ARG))) {
+    } elsif($have=$l1->typechk(SYM=>$ARG)) {
       push @sym,{type=>'sym',id=>$ARG};
 
     # immediate!
@@ -666,7 +667,7 @@ sub chksolve($self,$branch,$opsz) {
   my $flag     = undef;
   my @prologue = ();
 
-  my ($istag,$idex)=$l1->read_tag($chk);
+  my ($istag)=$l1->untag($chk);
 
 
   # have opera?
@@ -674,6 +675,8 @@ sub chksolve($self,$branch,$opsz) {
 
 
     # read last instruction in binary
+    my $idex  = $istag->{spec};
+
     my $bytes = $eng->strseg($idex,decode=>0);
     my $exe   = $enc->decode($bytes);
     my $end   = $exe->[-1];
@@ -717,7 +720,7 @@ sub chksolve($self,$branch,$opsz) {
 # ---   *   ---   *   ---
 # conditional instruction
 
-cmdsub 'c-asm-ins' => q() => q{
+cmdsub 'c-asm-ins' => q() => sub ($self,$branch) {
 
   # get ctx
   my $main = $self->{frame}->{main};

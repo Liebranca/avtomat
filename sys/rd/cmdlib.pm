@@ -45,7 +45,6 @@ St::vconst {
     rd::cmdlib::generic
 
     rd::cmdlib::macro
-    rd::cmdlib::switch
 
     rd::cmdlib::dd
     rd::cmdlib::asm

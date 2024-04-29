@@ -37,7 +37,7 @@ package ipret::encoder;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -581,7 +581,7 @@ sub opera_encode($self,$program,$const,$alma) {
     my @ret=$eng->strexe($bytes);
     $mc->{anima}->{almask}=$alma;
 
-    return $l1->make_tag(NUM=>$ret[-1]);
+    return $l1->tag(NUM=>$ret[-1]);
 
 
   # ^make mini-executable for non-const!
@@ -604,7 +604,7 @@ sub opera_encode($self,$program,$const,$alma) {
 
 
     # ^give handle via id
-    return $l1->make_tag(EXE=>$seg->{iced});
+    return $l1->tag(EXE=>$seg->{iced});
 
   };
 

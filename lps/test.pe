@@ -1,8 +1,6 @@
 %;
 
-macro testy a,b {
-  a,b;
+entry start;
 
-};
-
-testy c,d;
+exe start;
+  ld ar,$24;

@@ -50,16 +50,12 @@ $NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
 
     [qw(
 
-      load cload store
+      ld cld st
 
       pop push
-      shift unshift
 
       add sub
-      inc dec cl
-
-      mem fre kin
-      sow reap
+      inc dec
 
       exit
 
@@ -97,6 +93,8 @@ $NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
       entry atexit
       case  nocase
 
+      macro
+
       def undef redef
       lib use
 
@@ -113,8 +111,7 @@ $NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
 
     [qw(
 
-      jump cjump
-      on from or off
+      jmp cjmp
 
       call ret rept
       wait sys stop

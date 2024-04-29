@@ -37,7 +37,7 @@ package ipret::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -58,7 +58,10 @@ sub flagtab($self) {
 # ---   *   ---   *   ---
 # set/unset object flags
 
-cmdsub 'flag-type' => q(opt_qlist) => q{
+cmdsub 'flag-type' => q(
+  qlist src;
+
+) => sub ($self,$branch) {
 
 
   # get ctx
@@ -111,7 +114,7 @@ cmdsub 'flag-type' => q(opt_qlist) => q{
 # ---   *   ---   *   ---
 # step on segment
 
-cmdsub 'seg-type' => q() => q{
+cmdsub 'seg-type' => q() => sub ($self,$branch) {
 
 
   # get ctx
@@ -152,7 +155,7 @@ cmdsub 'seg-type' => q() => q{
 # reserve memory and solve values
 # re-run if not all values solved!
 
-cmdsub 'data-decl' => q() => q{
+cmdsub 'data-decl' => q() => sub ($self,$branch) {
 
 
   # get ctx

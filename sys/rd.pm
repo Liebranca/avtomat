@@ -743,8 +743,8 @@ sub perr($self,$me,%O) {
 
   # each branch saves at which line
   # it was spawned; use that if avail
-  my $lineno=($self->{branch})
-    ? $self->{branch}->{lineno}
+  my $lineno=($self->{l2}->{branch})
+    ? $self->{l2}->{branch}->{lineno}
     : $self->{lineat}
     ;
 

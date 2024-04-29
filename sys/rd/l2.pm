@@ -401,7 +401,8 @@ sub get_cmd_queue($self,$fn,@order) {
 
     # get next
     my ($nd,$rec)=@$ARG;
-    $self->{branch}=$nd;
+    $l2->{branch}=$nd;
+
 
     # run method for node
     $fn->($self,$nd);
@@ -520,10 +521,10 @@ sub walk($self,$branch,%O) {
 
 sub recurse($self,$branch,%O) {
 
-  my $old=$self->{main}->{$branch};
+  my $old=$self->{branch};
   my @out=$self->walk($branch,%O);
 
-  $self->{main}->{branch}=$old;
+  $self->{branch}=$old;
 
 
   return @out;

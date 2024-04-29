@@ -51,7 +51,7 @@ sub symfet($self,$vref,%O) {
     : $vref->{id}
     ;
 
-  my $name = $l1->is_sym($have);
+  my $name = $l1->untag($have)->{spec};
   my $sym  = (! $O{sym_asis})
     ? $mc->ssearch(split $mc->{pathsep},$name)
     : $name

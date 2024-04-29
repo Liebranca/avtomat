@@ -40,7 +40,7 @@ package ipret::cmdlib::generic;
 # ---   *   ---   *   ---
 # solves dbout values
 
-cmdsub echo => q() => q{
+cmdsub echo => q() => sub ($self,$branch) {
 
 
   # get ctx
@@ -67,7 +67,7 @@ cmdsub echo => q() => q{
 # ---   *   ---   *   ---
 # hammer time!
 
-cmdsub stop => q() => q{};
+cmdsub stop => q() => sub ($self,$branch) {};
 
 # ---   *   ---   *   ---
 1; # ret

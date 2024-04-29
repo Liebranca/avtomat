@@ -38,7 +38,7 @@ package A9M::ISA::opera;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -50,7 +50,7 @@ St::vconst {
 
 
     # imm/mem/reg to reg
-    load => {
+    ld => {
 
       fn       => 'copy',
       load_dst => 0,
@@ -63,7 +63,7 @@ St::vconst {
     },
 
     # reg to mem
-    store => {
+    st => {
 
       fn       => 'copy',
       load_dst => 0,
@@ -75,7 +75,7 @@ St::vconst {
 
 
     # ^conditional variants
-    'cload-z' => {
+    'cld-z' => {
 
       fn       => 'ccopy_zero',
 
@@ -86,7 +86,7 @@ St::vconst {
 
     },
 
-    'cload-nz' => {
+    'cld-nz' => {
 
       fn       => 'ccopy_nzero',
 
@@ -317,7 +317,7 @@ St::vconst {
 
 
     # control flow
-    jump => {
+    jmp => {
 
       argcnt    => 1,
       dst       => 'rmi',
@@ -327,7 +327,7 @@ St::vconst {
 
     },
 
-    'cjump-z' => {
+    'cjmp-z' => {
 
       fn        => 'cjump_zero',
 
@@ -339,7 +339,7 @@ St::vconst {
 
     },
 
-    'cjump-nz' => {
+    'cjmp-nz' => {
 
       fn        => 'cjump_nzero',
 

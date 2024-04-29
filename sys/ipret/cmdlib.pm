@@ -39,7 +39,6 @@ St::vconst {
   list => [qw(
 
     ipret::cmdlib::generic
-    ipret::cmdlib::switch
 
     ipret::cmdlib::dd
     ipret::cmdlib::asm

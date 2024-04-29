@@ -663,11 +663,16 @@ sub quantize($self,$src=undef) {
 
 
   # ^else unpack tag
-  my ($type,$spec)=$self->untag($src);
-  my $have=$self->detag($src);
+  my $have=$self->untag($src);
+  return $src if ! $have;
 
 
-  return $src if ! $type;
+  my ($type,$spec)=(
+    $have->{type},
+    $have->{spec},
+
+  );
+
   $type=$self->{table}->{$type};
 
 
