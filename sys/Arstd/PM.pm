@@ -70,7 +70,7 @@ package Arstd::PM;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -294,22 +294,34 @@ sub _mkwraps($pkg,$fn,$sig,@icebox) {
 
   map {
 
-    # generate wrapper
-    my ($name,$args)=@$ARG;
 
-    my $src = "sub ($sig) {$fn($args)};";
+    # unpack
+    my ($name,$args) = @$ARG;
+    my $dst          = "$pkg\::$name";
+
+
+    # generate wrapper
+    my $src = "sub ($sig) {\n"
+    . '  local *__ANON__ = ' . "'$dst';\n"
+    . "  $fn($args);\n"
+
+    . "};";
+
     my $wf  = eval $src;
 
-    # ^validate
-    errout "badwraps: $src",
-    lvl => $AR_FATAL
 
-    if ! defined $wf;
+    # ^validate
+    if(! defined $wf) {
+
+      say {*STDERR}
+        "BAD ICEF*CK: $dst\n\n$src\n";
+
+      exit -1;
+
+    };
 
 
     # add to namespace
-    my $dst = "$pkg\::$name";
-
     *{$dst}=$wf;
     [$dst,$name];
 

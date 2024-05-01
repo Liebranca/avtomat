@@ -81,7 +81,7 @@ St::vconst {
     my $ptr_t = $class->ptr_t();
 
 
-    struc 'alloc' =>
+    return struc "$class\::alloc" =>
       "$ptr_t->{name} lvl[$cnt]";
 
   },
@@ -237,7 +237,8 @@ sub realloc($self,$ptr,$req) {
   my ($base,$off)=
     $new->get_addr();
 
-  my $head_sz=sizeof 'alloc.blk';
+  my $class   = ref $self;
+  my $head_sz = sizeof "$class\::alloc.blk";
 
   $off -= $head_sz;
 

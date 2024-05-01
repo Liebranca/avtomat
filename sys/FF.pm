@@ -73,12 +73,26 @@ sub FF($name,$src=undef) {
   return $name
   if FStruc->is_valid($name);
 
-  # fetch existing?
-  return (exists $Table->{$name})
-    ? $Table->{$name}
-    : warn_invalid($name)
 
-  if ! defined $src;
+  # fetch existing?
+  do {
+
+    my $have=St::tabfetch(
+
+      $name => $Table,
+
+      (! defined $src) => (
+        \&warn_invalid,
+        $name,
+
+      ),
+
+    );
+
+    return $have
+    if $have && $have ne '--define';
+
+  };
 
 
   # forbid redefinition

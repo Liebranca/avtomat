@@ -368,6 +368,8 @@ St::vconst {
 
     },
 
+
+    # comparison!
     cmp => {
 
       fn  => '_cmp',
@@ -378,6 +380,16 @@ St::vconst {
       overwrite => 0,
 
     },
+
+    test => {
+
+      dst => 'r',
+      src => 'ri',
+
+      overwrite => 0,
+
+    },
+
 
     # check equality
     cmpe => {
@@ -645,22 +657,113 @@ sub xor($self,$type,$src) {
 };
 
 # ---   *   ---   *   ---
-# addition
+# arithmetic solver
+#
+# we use this to perform the
+# actual operation and set the
+# flags registers, as the conditions
+# are more or less the same
 
-sub add($self,$type,$src) {
-  my @src=asval $src;
-  sub ($x) {$x + shift @src};
+sub ari($self,$type,$anima,$x,$y) {
+
+
+  # get caller
+  my $key=St::cf 2,1;
+
+  # get op result
+  my $z={
+    add  => $x+$y,
+    _sub => $x-$y,
+
+  }->{$key} & $type->{sizebm};
+
+
+  # get sign of operands and result
+  my @sign=(
+    $x & $type->{signbit},
+    $y & $type->{signbit},
+    $z & $type->{signbit},
+
+  );
+
+
+  # get overflow
+  my $over={
+
+    add  => (
+       ($sign[0] == $sign[1])
+    && ($sign[0] != $sign[2])
+
+    ),
+
+    _sub => (
+
+       ($sign[0] != $sign[1])
+    && ($sign[0] != $sign[2])
+
+    ),
+
+  }->{$key};
+
+
+  # update flags register
+  $anima->set_flags(
+
+    zero  => ! $z,
+
+    sign  => $sign[2],
+    carry => $z < $y,
+
+    over  => $over,
+
+  );
+
+
+  return $z;
 
 };
 
 # ---   *   ---   *   ---
-# substraction
+# ^and this we use to generate the
+# wrapper methods!
 
-sub _sub($self,$type,$src) {
+sub defop($self,$type,$src) {
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+
+  # get name of F
+  my $key=St::cf 2;
   my @src=asval $src;
-  sub ($x) {$x - shift @src};
+
+
+  # give wrapper
+  return sub ($x) {
+
+    local *__ANON__ = $key;
+
+    my $y=shift @src;
+    my $z=$self->ari($type,$anima,$x,$y);
+
+    return $z;
+
+  };
 
 };
+
+# ---   *   ---   *   ---
+# arithmetic icef*ck!
+
+subwraps '$self->defop' => q(
+  $self,$type,$src
+
+) => (
+
+  map {[$ARG => '$type,$src']}
+  qw  (add _sub)
+
+);
 
 # ---   *   ---   *   ---
 # multiplication
@@ -875,7 +978,7 @@ sub _exit($self,$type) {
 
 };
 # ---   *   ---   *   ---
-# compare two values
+# compare two values by substraction
 
 sub _cmp($self,$type,$src) {
 
@@ -897,7 +1000,40 @@ sub _cmp($self,$type,$src) {
     # ^derive flags from result
     $anima->set_flags(
       zero  => ! $z,
-      sign  => $z < 0,
+      sign  => $z & $type->{signbit},
+
+    );
+
+    return $anima->{flags};
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# ^compare by AND
+
+sub test($self,$type,$src) {
+
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+
+
+  # make F
+  my @src=asval $src;
+  sub ($x) {
+
+
+    # substract src from dst
+    my $y = shift @src;
+    my $z = $x & $y;
+
+    # ^derive flags from result
+    $anima->set_flags(
+      zero  => ! $z,
+      sign  => $z & $type->{signbit},
 
     );
 

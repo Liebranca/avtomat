@@ -122,7 +122,7 @@ St::vconst {
     return {
 
       map {$ARG=>$idex++}
-      qw  (zero sign)
+      qw  (zero sign carry over)
 
     };
 

@@ -51,8 +51,12 @@ package Bitformat;
 
 sub Bitformat($name,@order) {
 
-  my $id   = $name;
-     $name = "bit<$name>";
+
+  # get ctx
+  my $id    = $name;
+     $name  = "bit<$name>";
+
+  my $class = St::cpkg;
 
 
   # ever lookup something
@@ -61,11 +65,24 @@ sub Bitformat($name,@order) {
   if Bitformat->is_valid($name);
 
   # fetch existing?
-  return (exists $Type::MAKE::Table->{$name})
-    ? $Type::MAKE::Table->{$name}
-    : badtype $name
+  do {
 
-  if ! @order;
+    my $have=St::tabfetch(
+
+      $name => $Type::MAKE::Table,
+
+      (! @order) => (
+        \&badtype,
+        $name
+
+      ),
+
+    );
+
+    return $have
+    if $have && $have ne '--define';
+
+  };
 
 
   # forbid redefinition
@@ -128,7 +145,7 @@ sub Bitformat($name,@order) {
     order => \@keys,
 
 
-  },'Bitformat';
+  },$class;
 
 
   $Type::MAKE::Table->{$name} = $self;
@@ -137,7 +154,7 @@ sub Bitformat($name,@order) {
 };
 
 # ---   *   ---   *   ---
-# ^ors values accto their
+# ors values accto their
 # position in format
 
 sub bor($self,%data) {

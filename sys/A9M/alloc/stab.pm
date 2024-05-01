@@ -49,9 +49,9 @@ St::vconst {
   stab_t => sub {
 
     my $class=$_[0];
-    my $ptr_t=$class->ptr_t();
+    my $ptr_t=$class->ptr_t;
 
-    struc 'alloc.stab' =>
+    struc "$class\::stab" =>
 
       "$ptr_t->{name} blk;"
     . "$ptr_t->{name} next;"
@@ -76,7 +76,7 @@ St::vstatic {
   blocks => sub {
 
     my $class = $_[0];
-    my $blk_t = $class->blk_t();
+    my $blk_t = $class->blk_t;
 
     $blk_t->new_frame();
 
@@ -103,7 +103,7 @@ St::vstatic {
 # module kick
 
 sub import($class) {
-  $class->stab_t();
+  $class->stab_t;
   return;
 
 };
@@ -117,7 +117,7 @@ sub new($class,$frame,$lvl) {
   # get ctx
   my $main = $frame->{main};
   my $root = $main->{mem};
-  my $type = $class->stab_t();
+  my $type = $class->stab_t;
 
 
   # get addr for link slot
@@ -153,7 +153,7 @@ sub new($class,$frame,$lvl) {
 
 
   # middle or first entry?
-  my $alloc_t = $main->alloc_t();
+  my $alloc_t = $main->alloc_t;
   my $at      = ($base >= $alloc_t->{sizeof})
 
     # middle entry: write to stab.next
@@ -182,7 +182,7 @@ sub headof($class,$frame,$lvl) {
 
   my $main  = $frame->{main};
 
-  my $ptr_t = $main->ptr_t();
+  my $ptr_t = $main->ptr_t;
   my $addr  = $lvl * $ptr_t->{sizeof};
 
 
@@ -198,8 +198,8 @@ sub get_first($class,$frame,$lvl) {
   # get ctx
   my $main  = $frame->{main};
   my $root  = $main->{mem};
-  my $ptr_t = $main->ptr_t();
-  my $type  = $class->stab_t();
+  my $ptr_t = $main->ptr_t;
+  my $type  = $class->stab_t;
 
 
   # offset into master table
@@ -225,7 +225,7 @@ sub get_next($class,$frame,$addr) {
   # get ctx
   my $main=$frame->{main};
   my $root=$main->{mem};
-  my $type=$class->stab_t();
+  my $type=$class->stab_t;
 
 
   # deref current and move ptr
@@ -316,7 +316,7 @@ sub fit($class,$frame,$req) {
   my $main=$frame->{main};
 
   # get partition/aligned block size
-  my $mpart_t=$main->mpart_t();
+  my $mpart_t=$main->mpart_t;
 
   my ($lvl,$size)=
     $mpart_t->getlvl($main,$req);
@@ -367,7 +367,7 @@ sub release($class,$frame,$have,$addr) {
   my $stab  = $frame->ice($have->{stab});
   my $main  = $frame->{main};
 
-  my $blk_t = $class->blk_t();
+  my $blk_t = $class->blk_t;
   my %loc   = $blk_t->unpack_loc($have->{loc});
 
 
@@ -383,7 +383,8 @@ sub release($class,$frame,$have,$addr) {
   my $pow=$main->{pow};
      $ezy=$stab->{lvl} + $pow;
 
-  return ($loc{size} << $ezy) - sizeof 'alloc.blk';
+  return ($loc{size} << $ezy)
+    - $main->blk_t->{sizeof};
 
 };
 

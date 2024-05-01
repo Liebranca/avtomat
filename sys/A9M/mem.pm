@@ -37,8 +37,8 @@ package A9M::mem;
   use Arstd::IO;
   use Arstd::PM;
 
-  use parent 'A9M::layer';
   use parent 'Tree';
+  use parent 'A9M::layer';
 
 # ---   *   ---   *   ---
 # info

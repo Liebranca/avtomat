@@ -144,15 +144,15 @@ sub getlvl($self,$main,$req) {
 
 
   # get ctx
-  my $cnt  = $main->lvlcnt();
-  my $base = $main->{base};
+  my $cnt   = $main->lvlcnt();
+  my $base  = $main->{base};
 
-  my $bits = $base->{sizebs};
-  my $pow  = $main->{pow};
+  my $bits  = $base->{sizebs};
+  my $pow   = $main->{pow};
 
 
   # add block header size to requested
-  my $reqb = $req + sizeof 'alloc.blk';
+  my $reqb = $req + $main->blk_t->{sizeof};
 
   # align requested size to granularity
   my $total = int_align $reqb,$bits;

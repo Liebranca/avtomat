@@ -669,6 +669,8 @@ sub fetch(@flags) {
     sizebs    => $ebs,
     sizebm    => $ebm,
 
+    signbit   => (1 << $ebs-1),
+
     layout    => $layout,
     name      => $name,
 

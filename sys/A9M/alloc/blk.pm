@@ -46,11 +46,18 @@ St::vconst {
 
 
   # location of sub-block
-  loc_t => (Bitformat 'alloc.loc' => (
-    size => 5,
-    pos  => 5,
+  loc_t => sub {
 
-  )),
+    my $class = $_[0];
+    my $name  = "$class\::loc";
+
+    return Bitformat $name => (
+      size => 5,
+      pos  => 5,
+
+    );
+
+  },
 
 
   # ^sub-block header
@@ -59,7 +66,7 @@ St::vconst {
 
     # get size of packed location!
     my $class  = $_[0];
-    my $loc_t  = $class->loc_t();
+    my $loc_t  = $class->loc_t;
 
     my @loc_sz = typeof $loc_t->{bytesize};
     my $loc    = "$loc_sz[0] loc;";
@@ -80,7 +87,8 @@ St::vconst {
 
 
     # give final struc
-    struc 'alloc.blk' => "word stab;$loc";
+    return struc '$class\::blk'
+      => "word stab;$loc";
 
   },
 
@@ -100,7 +108,7 @@ St::vstatic {
 # module kick
 
 sub import($class) {
-  $class->blk_t();
+  $class->blk_t;
   return;
 
 };
@@ -158,7 +166,7 @@ sub head_from($class,$frame,$src) {
   # ^nope, straight mem ice!
   } else {
 
-    my $type=$class->blk_t();
+    my $type=$class->blk_t;
     my ($base,$addr) = $src->get_addr();
 
     $addr -= $type->{sizeof};
@@ -189,7 +197,7 @@ sub clear($class,$frame,$base,$addr=undef) {
 
 
   # ^wipe header
-  my $type=$class->blk_t();
+  my $type=$class->blk_t;
   $base->clear($type,$addr);
 
 
@@ -212,7 +220,7 @@ sub fit($self,$head,$lvl,$size) {
 
 
   # enough space avail?
-  my $mpart=$main->mpart_t();
+  my $mpart=$main->mpart_t;
 
   my ($ezy,$pos)=$mpart->fit(
     \$mask,$size
@@ -247,7 +255,7 @@ sub blk_write($self,$lvl,$size,$pos) {
 
 
   # build sub-block header
-  my $type = $self->blk_t();
+  my $type = $self->blk_t;
 
   my $head = Bpack::layas $type,(
     $stab->{iced},
@@ -281,9 +289,7 @@ sub blk_write($self,$lvl,$size,$pos) {
 
 sub pack_loc($class,$size,$pos) {
 
-  my $loc_t=$class->loc_t();
-
-  return $loc_t->bor(
+  return $$class->loc_t->bor(
     size => $size,
     pos  => $pos,
 
@@ -295,8 +301,7 @@ sub pack_loc($class,$size,$pos) {
 # ^undo
 
 sub unpack_loc($class,$loc) {
-  my $loc_t=$class->loc_t();
-  return $loc_t->from_value($loc);
+  return $$class->loc_t->from_value($loc);
 
 };
 

@@ -35,7 +35,7 @@ package St;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.0;
+  our $VERSION = v0.03.1;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -541,6 +541,40 @@ sub get_frame_list($class) {
 sub nattrs($self) {
   map  {  $ARG  => $self->{$ARG}}
   grep {! ($ARG =~ qr{^\-})} keys %$self;
+
+};
+
+# ---   *   ---   *   ---
+# lookup value from table
+#
+#
+# * if value exists, give value
+#
+# * if it doesn't, and no definition
+#   for the value is provided, throw
+#
+# * if a definition is provided,
+#   signal that to caller (--define)
+
+sub tabfetch($key,$tab,$fail,$fn,@args) {
+
+
+  # make table lookup
+  my $have=(exists $tab->{$key})
+    ? $tab->{$key}
+    : undef
+    ;
+
+
+  # ^give found
+  return $have if defined $have;
+
+  # ^throw on defless
+  # ^or go ahead with definition
+  return ($fail)
+    ? $fn->(@args)
+    : '--define'
+    ;
 
 };
 

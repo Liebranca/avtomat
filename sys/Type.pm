@@ -39,6 +39,7 @@ package Type;
   use Arstd::PM;
 
   use Type::MAKE;
+  use St;
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -149,12 +150,28 @@ sub PESTRUC($src) {
 # build structure from
 # other types!
 
-sub struc($name,$src) {
+sub struc($name,$src=undef) {
 
 
-  # already defined?
-  return    $Type::MAKE::Table->{$name}
-  if exists $Type::MAKE::Table->{$name};
+  # fetch existing?
+  do {
+
+    my $have=St::tabfetch(
+
+      $name => $Type::MAKE::Table,
+
+      (! defined $src) => (
+        \&badtype,
+        $name
+
+      ),
+
+    );
+
+    return $have
+    if $have && $have ne '--define';
+
+  };
 
 
   # parse input
