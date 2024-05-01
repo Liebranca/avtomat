@@ -122,7 +122,7 @@ St::vconst {
     return {
 
       map {$ARG=>$idex++}
-      qw  (zero great less)
+      qw  (zero sign)
 
     };
 
@@ -268,10 +268,12 @@ sub set_flags($self,%O) {
   map {
 
     my $key = $ARG;
-    my $bit = $O{$key} << $self->flagpos->{$key};
 
-    if($bit) {$$dst |=  $bit}
-    else     {$$dst &=~ $bit};
+    my $pos = $self->flagpos->{$key};
+    my $bit = 1 << $pos;
+
+    if($O{$key}) {$$dst |=  $bit}
+    else         {$$dst &=~ $bit};
 
   } keys %O;
 

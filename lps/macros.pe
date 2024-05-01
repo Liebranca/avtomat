@@ -41,7 +41,7 @@ case 'branch.expand' {
 # ---   *   ---   *   ---
 # argless branch expansion
 
-case 'def' at $00 {
+case 'def' {
 
   attr sig;
     name sym,string;
@@ -68,31 +68,22 @@ case 'def' at $00 {
 
 };
 
-def stack {sb-2};
-@stack;
+# ---   *   ---   *   ---
+# procedure flag-setter
 
-undef stack;
-@stack;
+case 'proc' {
 
-## ---   *   ---   *   ---
-## procedure flag-setter
-#
-#case 'proc' anywhere {
-#
-#  attr sig;
-#    name sym;
-#
-#  attr fn;
-#
-#  branch.new {
-#    exe code;
-#    blk self.name;
-#
-#  };
-#
-#};
-#
-#public proc start;
-#  ld ar,[@stack];
-#
-## ---   *   ---   *   ---
+  attr sig;
+    name sym;
+
+  attr fn;
+
+  branch.new {
+    exe code;
+    blk self.name;
+
+  };
+
+};
+
+# ---   *   ---   *   ---

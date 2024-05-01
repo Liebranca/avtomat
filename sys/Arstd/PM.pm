@@ -294,11 +294,20 @@ sub _mkwraps($pkg,$fn,$sig,@icebox) {
 
   map {
 
+    # generate wrapper
     my ($name,$args)=@$ARG;
 
-    my $wf  = "sub ($sig) {$fn($args)};";
-       $wf  = eval $wf;
+    my $src = "sub ($sig) {$fn($args)};";
+    my $wf  = eval $src;
 
+    # ^validate
+    errout "badwraps: $src",
+    lvl => $AR_FATAL
+
+    if ! defined $wf;
+
+
+    # add to namespace
     my $dst = "$pkg\::$name";
 
     *{$dst}=$wf;

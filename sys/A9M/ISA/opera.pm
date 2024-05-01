@@ -32,13 +32,14 @@ package A9M::ISA::opera;
 
   use Arstd::Bytes;
   use Arstd::Array;
+  use Arstd::PM;
 
   use parent 'A9M::layer';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -408,7 +409,8 @@ St::vconst {
   )},
 
 
-  list  => sub {[array_keys $_[0]->table()]},
+  list    => sub {[array_keys $_[0]->table()]},
+  cX_list => [qw(z nz g gz l lz)],
 
 };
 
@@ -510,24 +512,55 @@ sub ivflag($flagref) {
 
 };
 
-sub flagchk($anima,$flagref,$ivref) {
+sub flagchk($mode,$anima,$flagref,$ivref) {
 
+
+  # get array of values
   my (@chk)=$anima->get_flags(@$flagref);
 
-    map {
-      $chk[$ARG] =! $chk[$ARG]
-      if $ivref->[$ARG]
+  # ^apply inversion!
+  map {
+    $chk[$ARG] =! $chk[$ARG]
+    if $ivref->[$ARG]
 
-    } 0..$#chk;
+  } 0..$#chk;
 
-  return int grep {$ARG} @chk;
+
+  # combine results and give
+  my $out=$chk[0];
+
+  map {
+
+    $out={
+      and => $out & $ARG,
+      or  => $out | $ARG,
+      xor => $out ^ $ARG,
+
+    }->{$mode};
+
+  } @chk[1..$#chk];
+
+
+  return $out;
 
 };
 
 # ---   *   ---   *   ---
+# ^the conditions themselves ;>
+
+sub cX_z  {q[or  => qw(zero)]};
+sub cX_nz {q[or  => qw(nzero)]};
+
+sub cX_g  {q[and => qw(nsign nzero)]};
+sub cX_gz {q[or  => qw(nsign zero)]};
+
+sub cX_l  {q[or  => qw(sign)]};
+sub cX_lz {q[or  => qw(sign zero)]};
+
+# ---   *   ---   *   ---
 # conditional load
 
-sub cld($self,$type,$src,@flag) {
+sub cld($self,$type,$src,$mode,@flag) {
 
 
   # get ctx
@@ -543,44 +576,11 @@ sub cld($self,$type,$src,@flag) {
   sub ($x) {
 
     my $y   = shift @src;
-    my $chk = flagchk $anima,\@flag,\@iv;
+    my $chk = flagchk $mode,$anima,\@flag,\@iv;
 
     return ($chk) ? $y : $x ;
 
   };
-
-};
-
-# ---   *   ---   *   ---
-# ^icef*ck
-
-sub lz($self,$type,$src) {
-  return $self->cld($type,$src,'zero');
-
-};
-
-sub lnz($self,$type,$src) {
-  return $self->cld($type,$src,'nzero');
-
-};
-
-sub lg($self,$type,$src) {
-  return $self->cld($type,$src,'great');
-
-};
-
-sub lgz($self,$type,$src) {
-  return $self->cld($type,$src,'great','zero');
-
-};
-
-sub ll($self,$type,$src) {
-  return $self->cld($type,$src,'less');
-
-};
-
-sub llz($self,$type,$src) {
-  return $self->cld($type,$src,'less','zero');
 
 };
 
@@ -693,7 +693,7 @@ sub jmp($self,$type) {
 # ---   *   ---   *   ---
 # ^conditional
 
-sub cjmp($self,$type,@flag) {
+sub cjmp($self,$type,$mode,@flag) {
 
 
   # get ctx
@@ -707,7 +707,7 @@ sub cjmp($self,$type,@flag) {
   # make F
   sub ($x) {
 
-    my $chk=flagchk $anima,\@flag,\@iv;
+    my $chk=flagchk $mode,$anima,\@flag,\@iv;
     $rip->store($x,deref=>0) if $chk;
 
     return;
@@ -717,37 +717,31 @@ sub cjmp($self,$type,@flag) {
 };
 
 # ---   *   ---   *   ---
-# ^icef*ck
+# icef*ck of conditional jumps and loads!
 
-sub jz($self,$type) {
-  return $self->cjmp($type,'zero');
+sub cX_make($name,$char,$sig) {
 
-};
+  my $class=St::cpkg;
 
-sub jnz($self,$type) {
-  return $self->cjmp($type,'nzero');
+  return subwraps
 
-};
+  "\$self->$name",
+  "\$self,$sig",
 
-sub jg($self,$type) {
-  return $self->cjmp($type,'great');
+  map {
 
-};
+    my $fn = "cX_$ARG";
+       $fn = \&$fn;
 
-sub jgz($self,$type) {
-  return $self->cjmp($type,'great','zero');
+    ["$char$ARG" => "$sig," . $fn->()];
 
-};
 
-sub jl($self,$type) {
-  return $self->cjmp($type,'less');
+  } @{$class->cX_list}
 
 };
 
-sub jlz($self,$type) {
-  return $self->cjmp($type,'less','zero');
-
-};
+cX_make cld  => l => q($type,$src);
+cX_make cjmp => j => q($type);
 
 # ---   *   ---   *   ---
 # jump to F
@@ -902,11 +896,8 @@ sub _cmp($self,$type,$src) {
 
     # ^derive flags from result
     $anima->set_flags(
-
       zero  => ! $z,
-
-      great => $z > 0,
-      less  => $z < 0,
+      sign  => $z < 0,
 
     );
 
