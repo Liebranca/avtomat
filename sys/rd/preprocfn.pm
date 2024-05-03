@@ -351,6 +351,29 @@ sub _local($self,$dst,$asg=null,@value) {
 };
 
 # ---   *   ---   *   ---
+# ^makes a tagged value!
+
+sub tag($self,$dst,$type,$spec,$data=null) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+
+  # get value and assign type
+  ($spec,$data)=$self->deref($spec,$data);
+  my $src=$l1->tag($type=>$spec) . $data;
+
+
+  # ^write to var
+  ($dst)=$self->ystirr($dst);
+  $self->{scope}->{$dst}=$src;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # replace node in hierarchy
 
 sub replace($self,$dst,$src) {

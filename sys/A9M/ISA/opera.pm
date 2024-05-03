@@ -729,6 +729,7 @@ sub ari($self,$type,$anima,$x,$y) {
 
 sub defop($self,$type,$src) {
 
+
   # get ctx
   my $mc    = $self->getmc();
   my $anima = $mc->{anima};

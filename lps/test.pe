@@ -1,11 +1,21 @@
 %;
 
-entry code.start;
+case 'name' {
 
-exe code;
-blk start;
+  attr sig;
+    sym value;
 
-  ld   ar,$01;
-  add  byte ar,$7F;
+  attr fn;
 
-  exit $00;
+    tag   s,STR,\',self.value;
+    tag   dst,EXP,'X';
+
+    push  branch,dst;
+    push  last,'cstr','name',s;
+
+    merge last;
+
+};
+
+rom data;
+  name hello;

@@ -258,6 +258,7 @@ cmdsub 'data-type' => q(
       ;
 
 
+      $branch->{cmdkey}=undef;
       return $l2->node_mutate();
 
 

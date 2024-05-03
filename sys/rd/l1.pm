@@ -686,7 +686,7 @@ sub quantize($self,$src=undef) {
 
 
   # have string?
-  } elsif($type eq 'STRING') {
+  } elsif($type eq 'STR') {
 
     charcon \$have
     if $spec eq '"';

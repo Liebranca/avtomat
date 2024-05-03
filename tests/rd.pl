@@ -39,14 +39,14 @@ $main->assemble();
 ## ---   *   ---   *   ---
 # run and dbout
 
-$main->run();
+#$main->run();
 $main->prich(
 
-  anima => 1,
+  anima => 0,
   stack => 0,
 
   mem   => 'outer',
-  tree  => 0,
+  tree  => 1,
 
 );
 

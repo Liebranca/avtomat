@@ -364,6 +364,15 @@ sub value_flatten($self,$src,%O) {
 
   $x=$l1->quantize($x);
 
+  if($x && is_hashref $x) {
+
+    if($x->{type} eq '%') {
+      $x=$x->{data};
+
+    };
+
+  };
+
 
   return ($x,$have);
 
