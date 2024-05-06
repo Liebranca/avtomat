@@ -33,7 +33,7 @@ package rd::preproc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -49,6 +49,7 @@ St::vconst {
       tab     => undef,
 
       invoke  => undef,
+      order   => [],
 
     };
 
@@ -102,6 +103,7 @@ sub ready_or_build($self) {
   );
 
   $tab->function(\&defproc);
+  $tab->object($self);
   $tab->build();
 
   return;
@@ -293,7 +295,7 @@ sub defproc($self,$data) {
   $tab->begin($data->{name});
 
   $self->tree_to_sig($data,$status);
-  $self->tree_to_sub($data,$status);
+  my $fn=$self->tree_to_sub($data,$status);
 
   $tab->build();
 
@@ -378,6 +380,7 @@ sub sigread_field($self,@lv) {
 
 sub tree_to_sig($self,$data,$status,$dst='tab') {
 
+
   # get ctx
   my $main = $self->{main};
   my $tab  = $self->{$dst};
@@ -426,6 +429,7 @@ sub tree_to_sig($self,$data,$status,$dst='tab') {
 
 sub tree_to_sub($self,$data,$status,$dst='tab') {
 
+
   # get ctx
   my $main=$self->{main};
 
@@ -442,83 +446,31 @@ sub tree_to_sub($self,$data,$status,$dst='tab') {
 
 
   # make F container
-  my $fstate=$self->fn_t->new($main);
+  my $fn_t   = $self->fn_t;
+  my $fstate = $fn_t->new($main);
 
   $fstate->{par}  = $self;
   $fstate->{meta} = $data;
 
 
-  # ^proc and generate perl sub
-  my $program=$fstate->fnread($fn);
-  $fn=sub ($ice,$idata,@slurp) {
+  # ^proc
+  $fstate->fnread($fn);
+
+  $fn = "$fn_t\::run";
+  $fn = \&$fn;
+
+  $self->{tab}->function($fn);
+  $self->{tab}->object($fstate);
 
 
-    # this field means a directive is being
-    # called from within another, it holds the
-    # nodes or values it was invoked with
-    #
-    # this means we have to expand certain
-    # values that could lose meaning if passed
-    # as-is, such as references to local attrs
+  # remember order in which functions are
+  # defined, this is required for rebuilding
+  # the tables!
 
-    $fstate->argparse(@slurp) if @slurp;
+  push @{$self->{order}},
+    "$dst,$data->{name}";
 
-
-    # ^all values expanded, run F
-    $fstate->{data}=$idata;
-
-    my @Q=@{$program->{leaves}};
-    while(@Q) {
-
-      my $nd=shift @Q;
-      next if ! $nd->{vref};
-
-      my ($ins,@args) = @{$nd->{vref}};
-      my ($jmp,$to)   = $ins->($fstate,@args);
-
-      if(defined $jmp && $jmp eq 'JMP') {
-
-
-        my $dst=undef;
-        if($to eq '@f') {
-
-          ($dst)=grep {
-            $ARG->{value}=~ qr{^@}
-
-          } $nd->all_fwd();
-
-        } elsif($to eq '@b') {
-
-          ($dst)=grep {
-            $ARG->{value}=~ qr{^@}
-
-          } $nd->all_back();
-
-        } else {
-          $dst=$program->branch_in(qr{$to});
-
-        };
-
-        $main->perr(
-          "cannot find label '%s'",
-          args=>[$to]
-
-        ) if ! defined $dst;
-
-        @Q=();
-        push @Q,$dst,$dst->all_fwd();
-
-      };
-
-    };
-
-    $fstate->onexit();
-    return;
-
-  };
-
-  $self->{$dst}->function($fn);
-  return $fn;
+  return;
 
 };
 
@@ -565,10 +517,8 @@ sub find($self,$root,%O) {
   my $old  = $l2->{branch};
 
   # get patterns
-  my $meta     = $tab->fetch($O{keyw});
-  my $keyw_fn  = $meta->{fn};
-
-  return if ! $keyw_fn;
+  my $meta=$tab->fetch($O{keyw});
+  return if ! $meta->{fn};
 
 
   # get branches that contain keyword
@@ -601,7 +551,7 @@ sub find($self,$root,%O) {
     $data->{-class}  //= $O{keyw};
 
     $self->deref($data);
-    $keyw_fn->($self,$data);
+    $tab->run($meta,$data);
 
 
     # have on-parse code?
@@ -680,7 +630,9 @@ sub invoke($self,$root,@src) {
   my $old  = $l2->{branch};
 
   # get F to call if none given!
-  @src=$self->{invoke}->find($root)
+  my $tab=$self->{invoke};
+
+  @src=$tab->find($root)
   if ! @src;
 
 
@@ -691,10 +643,10 @@ sub invoke($self,$root,@src) {
     next if ! $keyw->{fn};
 
     $l2->{branch}=$nd;
-    $keyw->{fn}->($self,$data);
-
+    $tab->run($keyw,$data);
 
   };
+
 
   $l2->{branch}=$old;
   return;

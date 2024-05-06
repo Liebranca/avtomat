@@ -33,7 +33,7 @@ package rd::sigtab;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -98,6 +98,7 @@ sub begin($self,$keyw) {
   $dst->{sig} = [];
   $dst->{fn}  = $NOOP;
   $dst->{re}  = $l1->re(SYM=>$keyw);
+  $dst->{obj} = undef;
 
   return;
 
@@ -281,6 +282,24 @@ sub set_flat($self,$x) {
 
   # copy
   $dst->{flat} = $x;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# assigns reference as the "self"
+# to be utilized by function
+
+sub object($self,$obj) {
+
+  # get ctx
+  my $main = $self->{main};
+  my $keyw = $self->{keyw};
+  my $dst  = $self->{tab}->{$keyw};
+
+  # copy
+  $dst->{obj} = $obj;
 
   return;
 
@@ -525,6 +544,23 @@ sub find($self,$root,%O) {
   };
 
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# execute attached function
+
+sub run($self,$keyw,@args) {
+
+  # get keyword meta?
+  $keyw=$self->valid_fetch($keyw)
+  if ! ref $keyw;
+
+  # invoke with object?
+  return ($keyw->{obj})
+    ? $keyw->{fn}->($keyw->{obj},@args)
+    : $keyw->{fn}->(@args)
+    ;
 
 };
 

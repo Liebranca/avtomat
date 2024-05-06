@@ -34,7 +34,7 @@ package rd::preprocfn;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -50,6 +50,7 @@ St::vconst {
     meta  => undef,
 
     scope => {},
+    tree  => undef,
 
     flags => 0x00,
 
@@ -76,12 +77,14 @@ sub fnread($self,$fn) {
 
 
   # get ctx
-  my $main = $self->{main};
-
+  my $main=$self->{main};
 
   # make new tree
   my $frame = Tree->get_frame(0);
   my $root  = $frame->new(undef,'ROOT');
+
+  $self->{tree} = $root;
+
 
   # walk input
   map {
@@ -116,8 +119,7 @@ sub fnread($self,$fn) {
 
   } @$fn;
 
-
-  return $root;
+  return;
 
 };
 
@@ -197,6 +199,96 @@ sub fetch($self,$name) {
   # give coderef
   $have=\&$have if ! is_coderef $have;
   return $have;
+
+};
+
+# ---   *   ---   *   ---
+# execute a preprocessor function!
+
+sub run($self,$data,@slurp) {
+
+
+  # get ctx
+  my $main = $self->{main};
+
+  # this field means a directive is being
+  # called from within another, it holds the
+  # nodes or values it was invoked with
+  #
+  # this means we have to expand certain
+  # values that could lose meaning if passed
+  # as-is, such as references to local attrs
+
+  $self->argparse(@slurp) if @slurp;
+
+
+  # ^all values expanded, run F
+  $self->{data}=$data;
+  my $root=$self->{tree};
+
+  my @Q=@{$root->{leaves}};
+  while(@Q) {
+
+
+    # get next, skip labels
+    my $nd=shift @Q;
+    next if ! $nd->{vref};
+
+
+    # exec step
+    my ($ins,@args) = @{$nd->{vref}};
+    my ($jmp,$to)   = $ins->($self,@args);
+
+
+    # ^have jump?
+    if(defined $jmp && $jmp eq 'JMP') {
+
+      my $dst=undef;
+
+
+      # jump forward to nearest?
+      if($to eq '@f') {
+
+        ($dst)=grep {
+          $ARG->{value}=~ qr{^@}
+
+        } $nd->all_fwd();
+
+
+      # jump back to nearest?
+      } elsif($to eq '@b') {
+
+        ($dst)=grep {
+          $ARG->{value}=~ qr{^@}
+
+        } $nd->all_back();
+
+
+      # jump to label!
+      } else {
+        $dst=$root->branch_in(qr{$to});
+
+      };
+
+
+      # validate
+      $main->perr(
+        "cannot find label '%s'",
+        args=>[$to]
+
+      ) if ! defined $dst;
+
+      # ^get all nodes from label onwards
+      @Q=($dst,$dst->all_fwd());
+
+    };
+
+  };
+
+
+  # cleanup and give
+  $self->onexit();
+  return;
 
 };
 
