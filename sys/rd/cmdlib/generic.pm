@@ -40,10 +40,7 @@ package rd::cmdlib::generic;
 # ---   *   ---   *   ---
 # consume single token
 
-cmdsub 'csume-token' => q(
-  nlist src;
-
-) => sub ($self,$branch) {
+sub csume_token($self,$branch) {
 
 
   my @args=$self->argtake($branch);
@@ -59,10 +56,7 @@ cmdsub 'csume-token' => q(
 # ---   *   ---   *   ---
 # ^consume N tokens ;>
 
-cmdsub 'csume-tokens' => q(
-  nlist src;
-
-) => sub ($self,$branch) {
+sub csume_tokens($self,$branch) {
 
 
   my @args=$self->argtake($branch);
@@ -78,10 +72,7 @@ cmdsub 'csume-tokens' => q(
 # ---   *   ---   *   ---
 # consume node list
 
-cmdsub 'csume-list' => q(
-  qlist src;
-
-)  => sub ($self,$branch) {
+sub csume_list($self,$branch) {
 
 
   my @args=$self->argtake($branch);
@@ -95,17 +86,9 @@ cmdsub 'csume-list' => q(
 };
 
 # ---   *   ---   *   ---
-# ^icef*ck
-
-w_cmdsub 'csume-list' => q(qlist src) => 'echo';
-
-# ---   *   ---   *   ---
 # hammer time!
 
-cmdsub stop => q(
-  sym at=reparse;
-
-) => sub ($self,$branch) {
+sub stop($self,$branch) {
 
 
   # get ctx
@@ -144,6 +127,31 @@ cmdsub stop => q(
   return;
 
 };
+
+# ---   *   ---   *   ---
+# add entry points
+
+cmdsub 'csume-token' => q(
+  nlist src;
+
+) => \&csume_token;
+
+cmdsub 'csume-tokens' => q(
+  nlist src;
+
+) => \&csume_tokens;
+
+cmdsub 'csume-list' => q(
+  qlist src;
+
+)  => \&csume_list;
+
+w_cmdsub 'csume-list' => q(qlist src) => 'echo';
+
+cmdsub stop => q(
+  sym at=reparse;
+
+) => \&stop;
 
 # ---   *   ---   *   ---
 1; # ret

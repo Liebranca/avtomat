@@ -94,9 +94,14 @@ St::vconst {
 };
 
 # ---   *   ---   *   ---
-# build base types
+# get l0 special chars re
 
-sub build($self) {
+sub spchars_re($self) {
+
+
+  # skip?
+  return $self->{__spchars_re}
+  if exists $self->{__spchars_re};
 
 
   # get ctx
@@ -104,7 +109,7 @@ sub build($self) {
   my $l0   = $main->{l0};
 
   # make operator regex
-  my $opr = re_eiths(
+  $self->{__spchars_re}=re_eiths(
 
     $l0->spchars(),
 
@@ -113,12 +118,24 @@ sub build($self) {
 
   );
 
+  return $self->{__spchars_re};
+
+};
+
+# ---   *   ---   *   ---
+# build base types
+
+sub build($self) {
+
 
   # make symbol detector
   $self->extend(SYM=>"'"=>sub {
 
-    my $src   = $_[0];
-    my $valid = ! ($src=~ $opr);
+    my $main  = $_[0];
+    my $l1    = $main->{l1};
+
+    my $src   = $_[1];
+    my $valid = ! ($src=~ $l1->spchars_re);
 
     return ($valid,$src,$NULLSTR);
 
@@ -127,8 +144,8 @@ sub build($self) {
   # make number detector
   $self->extend(NUM=>'i'=>sub {
 
-    my $src   = $_[0];
-       $src   = sstoi $src,0;
+    my $src   = $_[1];
+       $src   = sstoi $src,1;
 
     my $valid = defined $src;
 
@@ -139,8 +156,13 @@ sub build($self) {
   # make operator detector
   $self->extend(OPR=>'`'=>sub {
 
-    my $src   = $_[0];
-    my $valid = $src=~ m[^$opr+$];
+    my $src   = $_[1];
+
+    my $main  = $_[0];
+    my $l1    = $main->{l1};
+
+    my $re    = $l1->spchars_re;
+    my $valid = $src=~ m[^$re+$];
 
     return ($valid,$src,$NULLSTR);
 
@@ -168,8 +190,6 @@ sub extend($self,$key,$char,$fn) {
   # add to pattern table
   $dst=$self->{defs};
   unshift @$dst,$key=>$fn;
-
-  $self->update_detect();
 
 
   return;
@@ -575,7 +595,7 @@ sub detect($self,$src) {
 
   # pass data through F and give
   my ($key,$spec,$data)=
-    $self->{detector}->($src);
+    $self->detector($src);
 
   return ($key ne 'DEF')
     ? $self->tag($key,$spec) . $data
@@ -585,9 +605,9 @@ sub detect($self,$src) {
 };
 
 # ---   *   ---   *   ---
-# rebuilds the pattern matcher ;>
+# ^walk definitions
 
-sub update_detect($self) {
+sub detector($self,$src) {
 
 
   # array as hash
@@ -595,28 +615,24 @@ sub update_detect($self) {
   my @v = array_values $self->{defs};
 
 
-  # ^make walking F
-  $self->{detector}=sub ($src) {
+  # ^walk
+  for my $i(0..$#k) {
 
-    for my $i(0..$#k) {
-
-      # get type => method
-      my $key=$k[$i];
-      my $chk=$v[$i];
+    # get type => method
+    my $key=$k[$i];
+    my $chk=$v[$i];
 
 
-      # ^give if data matches type
-      my ($valid,@have)=
-        $chk->($src);
+    # ^give if data matches type
+    my ($valid,@have)=
+      $chk->($self->{main},$src);
 
-      return $key,@have if $valid;
-
-    };
-
-    # else give back input!
-    return 'DEF',$src,$NULLSTR;
+    return $key,@have if $valid;
 
   };
+
+  # else give back input!
+  return 'DEF',$src,$NULLSTR;
 
 };
 

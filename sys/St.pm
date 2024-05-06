@@ -66,7 +66,7 @@ package St;
   our $Frames  = {};
   our $Classes = {};
 
-  my  $Deparse = B::Deparse->new();
+  our $Deparse = B::Deparse->new();
 
 # ---   *   ---   *   ---
 # reference calling package

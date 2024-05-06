@@ -107,15 +107,16 @@ sub load_types($class,$main) {
 sub use_EXE($class,$main) {
 
 
-  # get ctx
-  my $l1  = $main->{l1};
-  my $mc  = $main->{mc};
-  my $mem = $mc->{bk}->{mem};
-
   # register type and pattern
-  $l1->extend(EXE=>'$'=>sub {
+  $main->{l1}->extend(EXE=>'$'=>sub {
 
-    my $src   = $_[0];
+    # get ctx
+    my $main  = $_[0];
+    my $l1    = $main->{l1};
+    my $mc    = $main->{mc};
+    my $mem   = $mc->{bk}->{mem};
+
+    my $src   = $_[1];
 
     my $valid =
        $mem->is_valid($src)
@@ -138,16 +139,15 @@ sub use_EXE($class,$main) {
 sub use_CMD($class,$main) {
 
 
-  # get ctx
-  my $l1=$main->{l1};
-  my $lx=$main->{lx};
-
-  # register type and pattern
-  $l1->extend(CMD=>'*'=>sub {
+  $main->{l1}->extend(CMD=>'*'=>sub {
 
     # get ctx
-    my $tab = $lx->load_CMD();
-    my $src = lc $_[0];
+    my $main = $_[0];
+    my $l1   = $main->{l1};
+    my $lx   = $main->{lx};
+
+    my $tab  = $lx->load_CMD();
+    my $src  = lc $_[1];
 
     # match symbol name against table
     my $valid=$src=~ $tab->{-re};
@@ -166,15 +166,16 @@ sub use_CMD($class,$main) {
 sub use_REG($class,$main) {
 
 
-  # get ctx
-  my $l1    = $main->{l1};
-  my $mc    = $main->{mc};
-  my $anima = $mc->{anima};
+  $main->{l1}->extend(REG=>'='=>sub {
 
-  # register type and pattern
-  $l1->extend(REG=>'='=>sub {
+    # get ctx
+    my $main  = $_[0];
+    my $l1    = $main->{l1};
+    my $mc    = $main->{mc};
+    my $anima = $mc->{anima};
 
-    my $src   = lc $_[0];
+    # find valid
+    my $src   = lc $_[1];
        $src   = $anima->tokin($src);
 
     my $valid = defined $src;

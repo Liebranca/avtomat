@@ -35,6 +35,7 @@ package Fmat;
 
   use Arstd::Array;
   use Arstd::String;
+  use Arstd::Path;
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -53,7 +54,7 @@ package Fmat;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.7;
+  our $VERSION=v0.00.8;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -288,7 +289,7 @@ sub valuedump($vref,$blessed=undef) {
 # ^placeholder for coderefs
 
 sub codedump($vref,$blessed=undef) {
-  return '\&' . codename($vref);
+  return '\&' . codename($vref,1);
 
 };
 
@@ -334,8 +335,28 @@ sub fatdump($vref,%O) {
 # but that would complicate
 # the dependency chain
 
-sub codename($ref) {
-  return svref_2object($ref)->GV->NAME;
+sub codename($ref,$full=0) {
+
+
+  # get guts handle
+  my $gv   = svref_2object($ref)->GV;
+  my $name = null;
+
+  # fetch package name?
+  if($full) {
+
+    my %cni=reverse %INC;
+
+    $name=fname_to_pkg $cni{$gv->FILE};
+    $name="$name\::";
+
+  };
+
+
+  # cat subroutine name and give
+  $name .= $gv->NAME;
+
+  return $name;
 
 };
 

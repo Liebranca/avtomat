@@ -59,10 +59,7 @@ package rd::cmdlib::macro;
 # that makes it so lists of such commands
 # can be parsed without a (parens) wrap!
 
-cmdsub 'token-type' => q(
-  arg type;
-
-) => sub ($self,$branch) {
+sub token_type($self,$branch) {
 
 
   # get ctx
@@ -84,14 +81,6 @@ cmdsub 'token-type' => q(
   return;
 
 };
-
-# ---   *   ---   *   ---
-# ^icef*ck
-
-w_cmdsub 'token-type' => q(arg type) => qw(
-  sym bare num cmd vlist
-
-);
 
 # ---   *   ---   *   ---
 # puts argument values in
@@ -197,10 +186,7 @@ sub macro_take($self,$branch) {
 # ---   *   ---   *   ---
 # expands macro [args]
 
-unrev cmdsub 'macro-paste' => q(
-  qlist data;
-
-) => sub ($self,$branch) {
+sub macro_paste($self,$branch) {
 
 
   # unwrap list
@@ -355,12 +341,7 @@ sub macro_proc_args($self,$body,@args) {
 # ---   *   ---   *   ---
 # points at your foot ;>
 
-unrev cmdsub macro => q(
-  sym   name;
-  vlist args;
-  curly body;
-
-) => sub ($self,$branch) {
+sub macro($self,$branch) {
 
 
   # get ctx
@@ -463,6 +444,31 @@ unrev cmdsub macro => q(
   return;
 
 };
+
+# ---   *   ---   *   ---
+# add entry points
+
+cmdsub 'token-type' => q(
+  arg type;
+
+) => \&token_type;
+
+w_cmdsub 'token-type' => q(arg type) => qw(
+  sym bare num cmd vlist
+
+);
+
+unrev cmdsub 'macro-paste' => q(
+  qlist data;
+
+) => \&macro_paste;
+
+unrev cmdsub macro => q(
+  sym   name;
+  vlist args;
+  curly body;
+
+) => \&macro;
 
 # ---   *   ---   *   ---
 1; # ret

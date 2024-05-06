@@ -41,13 +41,14 @@ package Vault;
 
   use Tree;
   use Queue;
+  use Fmat;
 
   use Shb7;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.7;#b
+  our $VERSION=v0.00.8;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -489,150 +490,187 @@ sub cashreg($path,$h) {
 };
 
 # ---   *   ---   *   ---
-# read dark archive files
+# freeze code references in
+# object to store it
 
-sub dafread($fname,@requested) {
+sub image($path,$obj) {
 
-  my $path=Shb7::cache($fname.$DAF_EXT);
-  my $bytes=$NULLSTR;
+  my $walked = {};
+  my @Q      = ($obj);
 
-# ---   *   ---   *   ---
-# check file signature
+  while(@Q) {
 
-  open my $FH,'<',$path or croak strerr($path);
-  read $FH,my $sig,length $DAFSIG;
+    my $vref=shift @Q;
 
-  if($sig ne $DAFSIG) {
-    errout(
-      q{Bad DAF signature on cache file '%s'},
+    next if ! defined $vref
+         ||   exists $walked->{$vref};
 
-      args=>[$fname],
-      lvl=>$AR_FATAL,
+    $walked->{$vref}=1;
 
-    );
 
-  };
+    # get reference type
+    my @have   = ();
+    my $refn   = ref $vref;
 
-# ---   *   ---   *   ---
-# read indices header
+    my ($type) = $vref =~ qr{^
 
-  my ($idex_type,$idex_size)=@{$DAF_ISIZE};
-  my ($isize,$header);
+      [^=]* (?: \=?
+        (HASH|ARRAY|CODE)
 
-  read $FH,$isize,$idex_size;
-  $isize=unpack $idex_type,$isize;
+      )
 
-  read $FH,$header,$isize*$idex_size;
+    }x;
 
-  my @header=unpack
-    ${idex_type}x$isize,
-    $header;
+    next if ! defined $type;
 
-# ---   *   ---   *   ---
-# fetch requested
 
-  my @blocks=();
-  my $adjust=$requested[0] ne 0;
+    # have hash?
+    if($type eq 'HASH') {
 
-  while(@requested) {
-    my @sizes=();
-    my $sizesum=0;
+      @have=map  {
+        $vref->{$ARG}=codefreeze($vref->{$ARG});
+        $vref->{$ARG};
 
-# ---   *   ---   *   ---
-# handle successive reads in one go
+      } keys %$vref;
 
-FETCH_NEXT:
-    my $idex=shift @requested;
 
-    my $start=$header[$idex+0];
-    my $ahead=$header[$idex+1];
+    # have array?
+    } elsif($type eq 'ARRAY') {
 
-    if($adjust) {
-      seek $FH,$start,SEEK_SET;
-      $adjust=0;
+      @have=
+
+      map {
+        $vref->[$ARG]=codefreeze($vref->[$ARG]);
+        $vref->[$ARG];
+
+      } 0..@$vref-1;
 
     };
 
-    push @sizes,$ahead-$start;
-    $sizesum+=$sizes[-1];
 
-    if(@requested
-    && $requested[0]==$idex+1
-
-    ) {goto FETCH_NEXT};
-
-# ---   *   ---   *   ---
-# read whole chunk and split individual blocks
-
-    my ($chunk,$block);
-    read $FH,$chunk,$sizesum;
-
-    for my $size(@sizes) {
-      $block=substr $chunk,0,$size;
-      $chunk=~ s/^${block}//;
-
-      push @blocks,thaw($block);
-
-    };
-
-    $adjust=1;
+    push @Q,grep {! is_coderef $ARG} @have;
 
   };
 
-# ---   *   ---   *   ---
 
-  close $FH or croak strerr($path);
-  return @blocks;
+  store $obj,$path;
+  return;
 
 };
 
 # ---   *   ---   *   ---
-# saves serialized perl objects to disk
+# ^undo
 
-sub dafwrite($fname,@blocks) {
+sub mount($path) {
 
-  my ($idex_type,$idex_size)=@{$DAF_ISIZE};
+  my $obj    = retrieve $path;
+  my @Q      = ($obj);
+  my $walked = {};
 
-  my @header=(
+  while(@Q) {
 
-    (length $DAFSIG)      # signature
+    my $vref=shift @Q;
 
-    + $idex_size          # number of elements
-    + $idex_size          # first idex
-    + $idex_size*@blocks  # idex per element
+    next if ! defined $vref
+         ||   exists $walked->{$vref};
 
-  );
+    $walked->{$vref}=1;
 
-# ---   *   ---   *   ---
-# serialize objects as one big chunk
 
-  my $body=$NULLSTR;
-  my $i=0;
+    # get reference type
+    my @have   = ();
+    my $refn   = ref $vref;
 
-  for my $block(@blocks) {
+    my ($type) = $vref =~ qr{^
 
-    $block=freeze($block);
-    $body.=$block;
+      [^=]* (?: \=?
+        (HASH|ARRAY)
 
-    push @header,$header[-1]+length $block;
+      )
+
+    }x;
+
+    next if ! defined $type;
+
+
+    # have hash?
+    if($type eq 'HASH') {
+
+      @have=map  {
+        $vref->{$ARG}=codethaw($vref->{$ARG});
+        $vref->{$ARG};
+
+      } keys %$vref;
+
+
+    # have array?
+    } elsif($type eq 'ARRAY') {
+
+      @have=
+
+      map {
+        $vref->[$ARG]=codethaw($vref->[$ARG]);
+        $vref->[$ARG];
+
+      } 0..@$vref-1;
+
+    };
+
+
+    push @Q,grep {! is_coderef $ARG} @have;
 
   };
 
+  return $obj;
+
+};
+
 # ---   *   ---   *   ---
-# write to file
+# named coderef to name
+# anon to source
 
-  unshift @header,int(@header);
+sub codefreeze($fn) {
 
-  my $header=$DAFSIG.(
-    pack ${idex_type}x@header,@header
+  return $fn if ! is_coderef $fn;
 
-  );
+  my $name='\&' . codename $fn,1;
 
-  owc(
-    Shb7::cache($fname.$DAF_EXT),
-    $header.$body
+  return ($name=~ qr{__ANON__$})
+    ? '\X' . $St::Deparse->coderef2text($fn)
+    : $name
+    ;
 
-  );
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub codethaw($fn) {
+
+  state $re=qr{^(\\&|\\X)};
+
+  return if ! defined $fn;
+  return $fn if ! ($fn=~ s[$re][]);
+
+  my $type=$1;
+
+  if($type eq '\&') {
+    return \&$fn;
+
+  } else {
+
+    my $wf=eval "sub $fn";
+
+    if(! defined $wf) {
+
+      say "BAD CODEREF\n\n","sub $fn";
+      exit -1;
+
+    };
+
+    return $wf;
+
+  };
 
 };
 

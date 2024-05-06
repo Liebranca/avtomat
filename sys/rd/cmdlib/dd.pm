@@ -64,10 +64,7 @@ sub build($class,$main) {
 # ---   *   ---   *   ---
 # parse and collapse flag list
 
-cmdsub 'flag-type' => q(
-  qlist src;
-
-) => sub ($self,$branch) {
+sub flag_type($self,$branch) {
 
 
   # get ctx
@@ -93,10 +90,7 @@ cmdsub 'flag-type' => q(
 # ---   *   ---   *   ---
 # read segment decl
 
-cmdsub 'seg-type' => q(
-  sym type;
-
-) => sub ($self,$branch) {
+sub seg_type($self,$branch) {
 
 
   # get ctx
@@ -137,14 +131,6 @@ cmdsub 'seg-type' => q(
 };
 
 # ---   *   ---   *   ---
-# ^icef*ck
-
-w_cmdsub 'seg-type'
-
-=>q(sym type)
-=>qw(rom ram exe);
-
-# ---   *   ---   *   ---
 # entry point for (exprtop)[*type] (values)
 #
 # not called directly, but rather
@@ -152,11 +138,7 @@ w_cmdsub 'seg-type'
 #
 # reads a data declaration!
 
-cmdsub 'data-decl' => q(
-  vlist name;
-  qlist value;
-
-) => sub ($self,$branch) {
+sub data_decl($self,$branch) {
 
 
   # get ctx
@@ -224,10 +206,7 @@ cmdsub 'data-decl' => q(
 # * (? exprbeg) [*type] -> [*data-decl]
 # * (! exprbeg) [*type] -> [Ttype]
 
-cmdsub 'data-type' => q(
-  qlist any;
-
-) => sub ($self,$branch) {
+sub data_type($self,$branch) {
 
 
   # get ctx
@@ -297,7 +276,26 @@ sub type_decode($self,@src) {
 };
 
 # ---   *   ---   *   ---
-# ^icef*ck
+# add entry points
+
+cmdsub 'flag-type' => q(qlist src) => \&flag_type;
+cmdsub 'seg-type' => q(sym type) => \&seg_type;
+
+cmdsub 'data-decl' => q(
+  vlist name;
+  qlist value;
+
+) => \&data_decl;
+
+cmdsub 'data-type' => q(
+  qlist any;
+
+) => \&data_type;
+
+w_cmdsub 'seg-type'
+
+=>q(sym type)
+=>qw(rom ram exe);
 
 w_cmdsub 'data-type'
 

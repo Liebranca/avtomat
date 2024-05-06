@@ -61,7 +61,7 @@ sub build($class,$main) {
 # ---   *   ---   *   ---
 # offset within current segment
 
-cmdsub '$' => q() => sub ($self,$branch) {
+sub current_byte($self,$branch) {
 
   $branch->{vref}={
     id   => $branch,
@@ -205,10 +205,7 @@ sub mutate_ins($self,$branch,$new='asm-ins') {
 # ---   *   ---   *   ---
 # generic instruction
 
-cmdsub 'asm-ins' => q(
-  qlist src;
-
-) => sub ($self,$branch) {
+sub asm_ins($self,$branch) {
 
   # save operands to branch
   my $head=$self->parse_ins($branch);
@@ -220,6 +217,12 @@ cmdsub 'asm-ins' => q(
   return;
 
 };
+
+# ---   *   ---   *   ---
+# add entry points
+
+cmdsub 'asm-ins' => q(qlist src) => \&asm_ins;
+cmdsub '$' => q() => \&current_byte;
 
 # ---   *   ---   *   ---
 # generic methods, see ipret

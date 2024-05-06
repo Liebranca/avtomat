@@ -354,6 +354,7 @@ sub new($class,$frame,%O) {
   my $self=bless {
     key   => $key,
     unrev => $O{unrev},
+    wraps => $O{wraps},
 
   },$O{pkg};
 
@@ -492,15 +493,6 @@ sub cmdfn($self,$name) {
 };
 
 # ---   *   ---   *   ---
-# demangle name of cmdsub
-
-sub demangle($name) {
-  $name=~ s[\-][_]sxmg;
-  return $name;
-
-};
-
-# ---   *   ---   *   ---
 # defines a new command and
 # registers it for export
 
@@ -512,19 +504,6 @@ sub cmdsub($name,$sig,$fn) {
 
   croak "Unable to find source class for '$name'"
   if $class eq __PACKAGE__;
-
-
-  # get full method name
-  my $full = "$class\::" . demangle $name;
-
-  # ^de-anonymize
-  no strict 'refs';
-
-  *{$full} = sub ($self,$branch) {
-    local *__ANON__ = $full;
-    $fn->($self,$branch);
-
-  };
 
 
   # TODO: map args to sig_t ice
@@ -545,7 +524,9 @@ sub cmdsub($name,$sig,$fn) {
     lis => $name,
 
     sig => \@args,
-    fn  => \&$full,
+    fn  => \&$fn,
+
+    wraps => null,
 
   };
 
@@ -575,13 +556,9 @@ sub m_cmdsub($main,$lis,$sig,$fn) {
 # two lines of code common
 # to wrapper methods
 
-sub wrapper($class,$name) {
-
-  return sub ($self,$branch) {
-    my $fn=$self->cmdfn($name);
-    $fn->($self,$branch);
-
-  };
+sub wrapper($self,$branch) {
+  my $fn=$self->cmdfn($self->{wraps});
+  $fn->($self,$branch);
 
 };
 
@@ -590,11 +567,9 @@ sub wrapper($class,$name) {
 
 sub w_cmdsub($name,$sig,@list) {
 
-  my $class=caller;
-
-  map { cmdsub $ARG
-  => $sig
-  => wrapper $class,$name
+  map {
+    my $cstruc=cmdsub($ARG,$sig,\&wrapper);
+    $cstruc->{wraps}=$name;
 
   } @list;
 
@@ -605,11 +580,9 @@ sub w_cmdsub($name,$sig,@list) {
 
 sub wm_cmdsub($main,$name,$sig,@list) {
 
-  my $class=caller;
-
-  map { m_cmdsub $main,$ARG
-  => $sig
-  => wrapper $class,$name
+  map {
+    my $cstruc=m_cmdsub($main,$ARG,$sig,\&wrapper);
+    $cstruc->{wraps}=$name;
 
   } @list;
 

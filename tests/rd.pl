@@ -7,6 +7,7 @@ package main;
   use strict;
   use warnings;
 
+  use Storable;
   use English qw(-no_match_vars);
 
   use lib $ENV{ARPATH}.'/avtomat/sys/';
@@ -19,6 +20,7 @@ package main;
   use Bpack;
 
   use Arstd::Bytes;
+  use Arstd::Path;
   use Arstd::IO;
 
   use Fmat;
@@ -27,14 +29,22 @@ package main;
 # ---   *   ---   *   ---
 # parse, solve and assemble
 
-my $main=ipret(
+my $main=rd(
 
   './lps/test.pe',
   limit => 2
 
 );
 
-$main->assemble();
+
+use Vault;
+
+Vault::image 'a.out'
+  => $main;
+
+$main=Vault::mount 'a.out';
+
+#$main->assemble();
 
 ## ---   *   ---   *   ---
 # run and dbout
