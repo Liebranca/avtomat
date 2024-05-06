@@ -1,5 +1,7 @@
 %;
 
+entry code.start;
+
 case 'name' {
 
   attr sig;
@@ -19,3 +21,7 @@ case 'name' {
 
 rom data;
   name hello;
+
+exe code;
+blk start;
+  exit 1;

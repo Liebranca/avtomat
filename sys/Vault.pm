@@ -636,7 +636,10 @@ sub codefreeze($fn) {
   my $name='\&' . codename $fn,1;
 
   return ($name=~ qr{__ANON__$})
-    ? '\X' . $St::Deparse->coderef2text($fn)
+
+    ? '\X' . $name . '$;'
+    . $St::Deparse->coderef2text($fn)
+
     : $name
     ;
 
@@ -659,11 +662,12 @@ sub codethaw($fn) {
 
   } else {
 
-    my $wf=eval "sub $fn";
+    my ($name,$body)=split '\$;',$fn;
+    my $wf=eval "sub $body";
 
     if(! defined $wf) {
 
-      say "BAD CODEREF\n\n","sub $fn";
+      say "BAD CODEREF\n\n","sub $name $body";
       exit -1;
 
     };

@@ -29,34 +29,33 @@ package main;
 # ---   *   ---   *   ---
 # parse, solve and assemble
 
-my $main=rd(
+my $main=ipret(
 
   './lps/test.pe',
   limit => 2
 
 );
 
+# ---   *   ---   *   ---
+# freeze!
 
 use Vault;
-
 Vault::image 'a.out'
   => $main;
 
 $main=Vault::mount 'a.out';
 
-#$main->assemble();
-
 ## ---   *   ---   *   ---
 # run and dbout
 
-#$main->run();
+$main->run();
 $main->prich(
 
   anima => 0,
   stack => 0,
 
   mem   => 'outer',
-  tree  => 1,
+  tree  => 0,
 
 );
 

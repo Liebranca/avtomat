@@ -58,10 +58,7 @@ sub flagtab($self) {
 # ---   *   ---   *   ---
 # set/unset object flags
 
-cmdsub 'flag-type' => q(
-  qlist src;
-
-) => sub ($self,$branch) {
+sub flag_type($self,$branch) {
 
 
   # get ctx
@@ -114,7 +111,7 @@ cmdsub 'flag-type' => q(
 # ---   *   ---   *   ---
 # step on segment
 
-cmdsub 'seg-type' => q() => sub ($self,$branch) {
+sub seg_type($self,$branch) {
 
 
   # get ctx
@@ -155,7 +152,7 @@ cmdsub 'seg-type' => q() => sub ($self,$branch) {
 # reserve memory and solve values
 # re-run if not all values solved!
 
-cmdsub 'data-decl' => q() => sub ($self,$branch) {
+sub data_decl($self,$branch) {
 
 
   # get ctx
@@ -284,6 +281,17 @@ cmdsub 'data-decl' => q() => sub ($self,$branch) {
   };
 
 };
+
+# ---   *   ---   *   ---
+# add entry points
+
+cmdsub 'flag-type' => q(
+  qlist src;
+
+) => \&flag_type;
+
+cmdsub 'seg-type' => q() => \&seg_type;
+cmdsub 'data-decl' => q() => \&data_decl;
 
 # ---   *   ---   *   ---
 1; # ret

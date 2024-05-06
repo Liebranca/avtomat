@@ -46,7 +46,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # offset within current segment
 
-cmdsub '$' => q() => sub ($self,$branch) {
+sub current_byte($self,$branch) {
 
   my $main = $self->{frame}->{main};
   $branch->{vref}=$main->cpos;
@@ -58,7 +58,7 @@ cmdsub '$' => q() => sub ($self,$branch) {
 # ---   *   ---   *   ---
 # a label with extra steps
 
-cmdsub 'blk' => q() => sub ($self,$branch) {
+sub blk($self,$branch) {
 
 
   # get ctx
@@ -131,7 +131,7 @@ cmdsub 'blk' => q() => sub ($self,$branch) {
 # ---   *   ---   *   ---
 # defines entry point
 
-cmdsub 'entry' => q() => sub ($self,$branch) {
+sub entry($self,$branch) {
 
 
   # get ctx
@@ -301,7 +301,7 @@ sub argsolve($self,$branch) {
 # ---   *   ---   *   ---
 # generic instruction
 
-cmdsub 'asm-ins' => q() => sub ($self,$branch) {
+sub asm_ins($self,$branch) {
 
   # get ctx
   my $main = $self->{frame}->{main};
@@ -633,6 +633,14 @@ sub symsolve($self,$branch,$vref,$deref) {
   return ($type,$opsz,$O);
 
 };
+
+# ---   *   ---   *   ---
+# add entry points
+
+cmdsub '$' => q() => \&current_byte;
+cmdsub 'blk' => q() => \&blk;
+cmdsub 'entry' => q() => \&entry;
+cmdsub 'asm-ins' => q() => \&asm_ins;
 
 # ---   *   ---   *   ---
 1; # ret

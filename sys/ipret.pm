@@ -139,6 +139,9 @@ sub crux($src,%O) {
   );
 
 
+  $self->assemble();
+  $self->cleanup();
+
   return $self;
 
 };
@@ -219,6 +222,28 @@ sub assemble($self) {
   # go next and give OK
   $self->next_stage();
   return 1;
+
+};
+
+# ---   *   ---   *   ---
+# removes leftover data
+
+sub cleanup($self) {
+
+  my @Q=($self->{tree});
+
+  while(@Q) {
+
+    my $nd=shift @Q;
+
+    delete  $nd->{vref};
+    unshift @Q,@{$nd->{leaves}};
+
+  };
+
+  $self->{encoder}->{Q}->{asm}=[];
+
+  return;
 
 };
 
