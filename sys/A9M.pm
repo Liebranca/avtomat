@@ -79,6 +79,8 @@ sub new($class,%O) {
   my $self=bless {
 
     cas      => undef,
+    astab    => {},
+
     scratch  => undef,
     alloc    => undef,
     scope    => undef,
@@ -108,6 +110,10 @@ sub new($class,%O) {
     label => $O{memroot},
 
   );
+
+  $self->{astab}->{$O{memroot}}=
+    $self->{cas};
+
 
   # ^nit scratch buffer for internal use
   $self->{scratch}=$bk->{mem}->mkroot(
@@ -174,6 +180,59 @@ sub path($self) {
 };
 
 # ---   *   ---   *   ---
+# shorthand: namespace lookup
+
+sub lkup($self,@path) {
+
+
+  # get ctx
+  my $mem  = $self->{cas};
+  my $tree = $mem->{inner};
+
+
+  # switch addressing space?
+  my $rept=0;
+  rept:
+
+
+  # path root implicit
+  shift @path
+  if $path[0] && $path[0] eq $tree->{value};
+
+  # find root/path/to within tree
+  my $out=$tree->haslv(@path);
+
+
+  # ^first fail will attempt a
+  # cross-addressing space lookup
+  #
+  # else it's an actual fail ;>
+
+  if(! $out &&! $rept) {
+    my $alt=$self->{astab}->{$path[0]};
+
+
+    # root in addressing space table means
+    # retry with that new root!
+    if($alt) {
+
+      $mem  = $alt;
+      $tree = $alt->{inner};
+
+      $rept =1;
+
+      goto rept;
+
+    };
+
+  };
+
+
+  return ($out,$mem,$tree,@path);
+
+};
+
+# ---   *   ---   *   ---
 # set/get current namespace
 
 sub scope($self,@path) {
@@ -182,17 +241,13 @@ sub scope($self,@path) {
   # set new?
   if(@path) {
 
-    # get ctx
-    my $mem  = $self->{cas};
-    my $tree = $mem->{inner};
 
-    shift @path
-    if $path[0] && $path[0] eq $tree->{value};
+    # validate path
+    my ($out,$mem,$tree)=
+      $self->lkup(@path);
 
-
-    # validate input
-    my $out=$tree->haslv(@path)
-    or return badfet('DIR',@path);
+    return badfet('DIR',@path)
+    if ! $out;
 
 
     # ^overwrite
@@ -213,15 +268,11 @@ sub scope($self,@path) {
 
 sub ssearch($self,@path) {
 
-  # get ctx
-  my $mem  = $self->{cas};
-  my $tree = $mem->{inner};
-
-  shift @path if $path[0] eq $tree->{value};
-
 
   # name in path?
-  my $out=$tree->haslv(@path);
+  my ($out,$mem,$tree)=
+    $self->lkup(@path);
+
 
   # ^nope, get more specific...
   if(! $out) {
@@ -238,10 +289,10 @@ sub ssearch($self,@path) {
     );
 
     # ^retry!
-    for my $path(@alt) {
+    for my $subpath(@alt) {
 
-      shift @$path if $path->[0] eq $tree->{value};
-      $out=$tree->haslv(@$path);
+      ($out,$mem,$tree)=
+        $self->lkup(@$subpath);
 
       last if $out;
 
@@ -281,9 +332,11 @@ sub _search($self,$name,@path) {
   my $mem  = $self->{cas};
   my $tree = $mem->{inner};
 
-  shift @path if $path[0]
-  && $path[0] eq $tree->{value};
 
+  # match path against addressing space
+  my $out=null;
+  ($out,$mem,$tree,@path)=
+    $self->lkup(@path);
 
   # make (path,to) from (path::to)
   # then look in namespace

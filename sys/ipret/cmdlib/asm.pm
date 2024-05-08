@@ -148,7 +148,8 @@ sub entry($self,$branch) {
 
   # can fetch symbol?
   my $seg=$mc->ssearch(
-    'non',split $mc->{pathsep},$name
+    $mc->{cas}->{value},
+    split $mc->{pathsep},$name
 
   );
 
@@ -161,7 +162,11 @@ sub entry($self,$branch) {
 
   ) if defined $main->{entry};
 
-  $main->{entry}=$name;
+  $main->{entry}=[
+    $mc->{cas}->{value},
+    $name
+
+  ];
 
 
   return;
@@ -608,7 +613,6 @@ sub symsolve($self,$branch,$vref,$deref) {
     };
 
     $opsz //= typefet 'ptr';
-
 
     my $type=$ISA->immsz($ptrv);
     return ($seg,$ptrv,$opsz,$type);

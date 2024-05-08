@@ -858,15 +858,33 @@ sub call($self,$type) {
   my $rip   = $anima->{rip};
 
   # make F
-  my $jump=$self->jump($type);
-  my $push=$self->_push(typefet 'qword');
+  my $jmp  = $self->jmp($type);
+  my $push = $self->_push(typefet 'qword');
 
   sub ($x) {
 
-    my $pos=$rip->load(deref=>0);
+
+    # backup current
+    my $pos  = $rip->load(deref=>0);
+    my $chan = $rip->{chan};
 
     $push->($pos);
-    $jump->($x);
+    $push->($chan);
+
+
+    # get destination
+    my $frame = $mc->{cas}->{frame};
+    my $ice   = $frame->ice($x);
+
+    ($pos,$chan)=($mc->{bk}->{mem}->is_valid($ice))
+      ? (0x00,$ice->{iced})
+      : ($ice->load(),$ice->{chan})
+      ;
+
+    # ^take the jump!
+    $rip->{chan}=$chan;
+    $jmp->($pos);
+
 
     return;
 
@@ -953,13 +971,16 @@ sub ret($self,$type) {
   my $rip   = $anima->{rip};
 
   # make F
-  my $jump = $self->jump($type);
-  my $pop  = $self->_pop(typefet 'qword');
+  my $jmp = $self->jmp($type);
+  my $pop = $self->_pop(typefet 'qword');
 
   sub {
 
-    my $x=$pop->();
-    $jump->($x);
+    my $chan = $pop->();
+    my $pos  = $pop->();
+
+    $rip->{chan}=$chan;
+    $jmp->($pos);
 
     return;
 

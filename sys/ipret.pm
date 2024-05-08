@@ -275,9 +275,27 @@ sub run($self,$entry=undef) {
   my $chan  = $anima->{chan};
 
 
+  # make sure the addressing space exists!
+  $WLog->err(
+
+    "undefined [ctl]:%s '%s'",
+
+    args => ['clan',$entry->[0]],
+    lvl  => $AR_FATAL,
+
+    from => ref $self,
+
+  ) if ! exists $mc->{astab}->{$entry->[0]};
+
+  $mc->{cas}=$mc->{astab}->{$entry->[0]};
+  $mc->setseg($mc->{cas});
+
+
   # fetch symbol
   my $sym=$mc->valid_ssearch(
-    'non',split $mc->{pathsep},$entry
+
+    $entry->[0],
+    split $mc->{pathsep},$entry->[1],
 
   );
 
@@ -287,7 +305,7 @@ sub run($self,$entry=undef) {
 
     "Invalid entry point '%s' for <%s>",
 
-    args => [$entry,$self->{fpath}],
+    args => [$entry->[1],$self->{fpath}],
     lvl  => $AR_FATAL,
 
     from => ref $self,

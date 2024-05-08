@@ -65,6 +65,27 @@ St::vconst {
 };
 
 # ---   *   ---   *   ---
+# cleanup method ;>
+
+St::imping {
+
+  '*DESTROY' => sub ($dst,$ice) {
+
+    my $seg=$ice->getseg();
+    return if ! $seg;
+
+    my $frame=$seg->{frame};
+
+    $frame->icepick($ice)
+    if $frame && $frame->{icebox};
+
+    return;
+
+  },
+
+};
+
+# ---   *   ---   *   ---
 # cstruc
 
 sub new($class,%O) {
@@ -77,6 +98,12 @@ sub new($class,%O) {
 
   # make ice
   my $self=bless \%O,$class;
+
+  # borrow ID from owner
+  my $seg   = $self->getseg();
+  my $frame = $seg->{frame};
+
+  $frame->icemake($self);
 
 
   return $self;

@@ -1,27 +1,26 @@
 %;
 
-entry code.start;
+entry T0::start;
 
-case 'name' {
+# ---   *   ---   *   ---
+# file A
 
-  attr sig;
-    sym value;
+clan T0;
+exe  start;
 
-  attr fn;
+  call T1::skip;
 
-    tag   s,STR,\',self.value;
-    tag   dst,EXP,'X';
-
-    push  branch,dst;
-    push  last,'cstr','name',s;
-
-    merge last;
-
-};
-
-rom data;
-  name hello;
-
-exe code;
-blk start;
+  ld   br,$25;
   exit 1;
+
+
+# ---   *   ---   *   ---
+# file B
+
+clan T1;
+exe  skip;
+
+  ld ar,$24;
+  ret;
+
+# ---   *   ---   *   ---

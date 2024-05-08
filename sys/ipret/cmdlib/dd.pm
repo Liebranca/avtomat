@@ -37,7 +37,7 @@ package ipret::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -144,6 +144,55 @@ sub seg_type($self,$branch) {
   my $out=sub {$mc->setseg($have);$have};
   $out->();
 
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# make/swap addressing space
+
+sub clan($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $mc   = $main->{mc};
+
+
+  # lookup name
+  my $name = $branch->{vref};
+  my $have = $mc->{astab}->{$name};
+
+  # ^make new?
+  if(! defined $have) {
+
+    my $mem=$mc->{bk}->{mem};
+
+    $mc->{astab}->{$name}=$mem->mkroot(
+
+      mcid  => $mc->{iced},
+      label => $name,
+
+      mccls => ref $mc,
+
+    );
+
+
+  };
+
+
+  # set and return setter!
+  my $out=sub {
+
+    $mc->{cas}=
+      $mc->{astab}->{$name};
+
+    $mc->setseg($mc->{cas});
+    $mc->{cas};
+
+  };
+
+  $out->();
   return $out;
 
 };
@@ -291,6 +340,7 @@ cmdsub 'flag-type' => q(
 ) => \&flag_type;
 
 cmdsub 'seg-type' => q() => \&seg_type;
+cmdsub 'clan' => q() => \&clan;
 cmdsub 'data-decl' => q() => \&data_decl;
 
 # ---   *   ---   *   ---

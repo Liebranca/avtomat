@@ -36,7 +36,7 @@ package rd::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -125,6 +125,27 @@ sub seg_type($self,$branch) {
 
   };
 
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# make/swap addressing space
+
+sub clan($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+  # read input
+  my $name = $branch->leaf_value(0);
+     $name = $l1->untag($name)->{spec};
+
+  $branch->{vref}=$name;
+  $branch->clear();
 
   return;
 
@@ -280,6 +301,8 @@ sub type_decode($self,@src) {
 
 cmdsub 'flag-type' => q(qlist src) => \&flag_type;
 cmdsub 'seg-type' => q(sym type) => \&seg_type;
+
+cmdsub 'clan' => q(sym name) => \&clan;
 
 cmdsub 'data-decl' => q(
   vlist name;

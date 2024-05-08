@@ -32,26 +32,26 @@ package main;
 my $main=ipret(
 
   './lps/test.pe',
-  limit => 2
+  limit => 2,
 
 );
 
-# ---   *   ---   *   ---
-# freeze!
-
-use Vault;
-Vault::image 'a.out'
-  => $main;
-
-$main=Vault::mount 'a.out';
-
 ## ---   *   ---   *   ---
+# freeze!
+#
+#use Vault;
+#Vault::image 'a.out'
+#  => $main;
+#
+#$main=Vault::mount 'a.out';
+#
+# ---   *   ---   *   ---
 # run and dbout
 
 $main->run();
 $main->prich(
 
-  anima => 0,
+  anima => 1,
   stack => 0,
 
   mem   => 'outer',

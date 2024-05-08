@@ -476,7 +476,9 @@ sub exewrite_run($self) {
 
 
     # make segment current and run F
+    ($mc->{cas})=$seg->root();
     $mc->setseg($seg);
+
     my $size=0;
 
     map {
@@ -835,7 +837,6 @@ sub exeread($self) {
   my $ins=$self->decode_opcode($opcd);
   my $off=$rip->load(deref=>0);
   $rip->store($off+$ins->{size},deref=>0);
-
 
   return $ins;
 

@@ -112,13 +112,7 @@ sub parse_ins($self,$branch) {
       $type='r';
 
     # memory operand
-    } elsif(
-
-       $have=$l1->typechk(SCP=>$key)
-    && $have eq '['
-
-    ) {
-
+    } elsif($l1->typechk(SCP=>$key)) {
       $type='m';
 
 
