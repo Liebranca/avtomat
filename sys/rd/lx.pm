@@ -58,9 +58,10 @@ St::vconst {
 
   stages=>[qw(
 
-    parse preproc reparse
+    parse preproc  reparse
 
-    solve assemble
+    solve assemble link
+
     xlate
 
   )],

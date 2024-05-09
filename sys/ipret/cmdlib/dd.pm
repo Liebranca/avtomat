@@ -130,14 +130,7 @@ sub seg_type($self,$branch) {
   my $have = $mem->haslv($name);
 
   # ^making new, decl and set flags
-  if(! $have) {
-
-    $have=$mem->new(0x00,$name);
-
-    $have->{writeable}  = int($type=~ qr{^ram$});
-    $have->{executable} = int($type=~ qr{^exe$});
-
-  };
+  $have=$mc->mkseg($type=>$name);
 
 
   # make current and give

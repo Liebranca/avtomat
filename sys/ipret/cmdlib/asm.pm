@@ -574,7 +574,6 @@ sub symsolve($self,$branch,$vref,$deref) {
   my $dst=$self->argproc($vref);
   return null if ! length $dst;
 
-
   # get ctx
   my $main  = $self->{frame}->{main};
   my $l1    = $main->{l1};

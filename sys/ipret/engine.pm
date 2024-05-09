@@ -689,9 +689,11 @@ sub opera_collapse($self,$branch,$opera,%O) {
 sub opera_static($self,$args,$deref=0) {
 
 
-  # walk operands
+  # assume truth, then challenge
   my $out=1;
 
+
+  # walk operands
   for my $operand(@$args) {
 
 
@@ -699,6 +701,7 @@ sub opera_static($self,$args,$deref=0) {
     my ($isref,$have)=
       Chk::cderef $operand,$deref;
 
+    # overwrite on dereference
     if($isref && $deref) {
 
       $operand = $have;
@@ -708,15 +711,21 @@ sub opera_static($self,$args,$deref=0) {
     };
 
 
-    # apply same logic to descriptor values
+    # ^apply same logic to descriptor values
     map {
 
+
+      # get [field => value]
       my $key   = $ARG;
       my $value = $operand->{$key};
 
+
+      # check value is a reference
       my ($isref,$have)=
         Chk::cderef $value,$deref;
 
+      # overwrite on reference,
+      # deref'd or not!
       if($isref) {
         $operand->{$key} = $have;
         $out             = 0;

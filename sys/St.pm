@@ -285,7 +285,7 @@ sub imping($O) {
     ;
 
   # ^clean it up a bit ;>
-  $have=~ s[$DEPARSE_DO][{];
+  $have=~ s[$DEPARSE_DO][{package $pkg;];
 
 
   # make new method with passed injections
@@ -303,7 +303,14 @@ sub imping($O) {
   no warnings 'redefine';
 
   $new .= "\n$have\n};\n";
-  *{"$pkg\::import"}=eval $new;
+  my $fn=eval $new;
+
+  if(! defined $fn) {
+    die "BAD CODEREF:\n\n$new\n";
+
+  };
+
+  *{"$pkg\::import"}=$fn;
 
 
   return;
@@ -491,21 +498,24 @@ sub new_frame($class,%O) {
 
 sub get_frame($class,$i=0) {
 
-  my $out;
 
-  if(! exists $Frames->{$class}) {
+  # requested unavail?
 
-    $out=$class->new_frame(
-      -owner_kls=>(caller)[0]
+  if(! exists  $Frames->{$class}
+  || ! defined $Frames->{$class}->[$i]) {
+
+    return $class->new_frame(
+      -owner_kls  => (caller)[0],
+      -force_idex => $i,
 
     );
 
+
+  # existing!
   } else {
-    $out=$Frames->{$class}->[$i];
+    return $Frames->{$class}->[$i];
 
   };
-
-  return $out;
 
 };
 

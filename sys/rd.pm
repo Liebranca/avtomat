@@ -32,6 +32,7 @@ package rd;
   use Cli;
   use Shb7;
   use Ring;
+  use id;
 
   use Arstd::Array;
   use Arstd::IO;
@@ -46,7 +47,7 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.6;#a
+  our $VERSION = v0.01.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -106,7 +107,6 @@ St::vconst {
 
 };
 
-
 # ---   *   ---   *   ---
 # cstruc
 
@@ -114,7 +114,7 @@ sub new($class,$src,%O) {
 
 
   # defaults
-  $O{mc}={
+  $O{mc} //= {
 
     cls     => 'A9M',
 
@@ -124,11 +124,6 @@ sub new($class,$src,%O) {
   };
 
   cload $O{mc}->{cls};
-
-
-  # make parse tree root
-  my $frame = Tree->new_frame();
-  my $root  = $frame->new(undef,$NULLSTR);
 
 
   # file or string passed?
@@ -150,7 +145,7 @@ sub new($class,$src,%O) {
 
 
     # parse tree root
-    tree => $root,
+    tree => undef,
 
 
     # current l0/l1/l2 value
@@ -201,6 +196,14 @@ sub new($class,$src,%O) {
   },$class;
 
 
+  # generate/reuse instance ID
+  id->chk($self,$O{id});
+
+  # make parse tree root
+  my $frame     = Tree->get_frame($self->{iced});
+  $self->{tree} = $frame->new(undef,$NULLSTR);
+
+
   # nit layers
   $self->cstruc_layers(
     map {$ARG=>$self}
@@ -223,6 +226,15 @@ sub new($class,$src,%O) {
 
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# dstruc
+
+sub DESTROY($self) {
+  id->del($self);
+  return;
 
 };
 
@@ -621,7 +633,7 @@ sub strip($self) {
 #   and adds it to the calling
 #   module's namespace
 
-sub import($class,@req) {
+sub import($class,@args) {
 
   return IMP(
 
@@ -630,7 +642,7 @@ sub import($class,@req) {
     \&ON_USE,
     \&ON_EXE,
 
-    @req
+    @args
 
   );
 

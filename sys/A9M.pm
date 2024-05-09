@@ -471,6 +471,23 @@ sub setseg($self,$mem) {
 };
 
 # ---   *   ---   *   ---
+# ^make new
+
+sub mkseg($self,$type,$name) {
+
+  my $seg=$self->{cas}->new(0x00,$name);
+
+  $seg->{writeable}  = int($type=~ qr{^ram$});
+  $seg->{executable} = int($type=~ qr{^exe$});
+
+  $self->setseg($seg);
+
+
+  return $seg;
+
+};
+
+# ---   *   ---   *   ---
 # load segment pointed to
 # by fetch register
 

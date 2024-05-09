@@ -31,6 +31,7 @@ package ipret;
   use Type;
   use Bpack;
   use Ring;
+  use id;
 
   use Arstd::IO;
   use Arstd::PM;
@@ -360,7 +361,7 @@ sub run($self,$entry=undef) {
 #   and adds it to the calling
 #   module's namespace
 
-sub import($class,@req) {
+sub import($class,@args) {
 
   return IMP(
 
@@ -369,7 +370,7 @@ sub import($class,@req) {
     \&ON_USE,
     \&ON_EXE,
 
-    @req
+    @args
 
   );
 
