@@ -250,7 +250,7 @@ sub is_filepath($fpath) {
 #
 # if so, conditionally dereference
 
-sub cderef($x,$deref) {
+sub cderef($x,$deref,@args) {
 
 
   # have reference?
@@ -262,7 +262,7 @@ sub cderef($x,$deref) {
   if($deref && $isref) {
 
     my @out=($isref == 1)
-      ? ($x->())
+      ? ($x->(@args))
       : ($$x)
       ;
 

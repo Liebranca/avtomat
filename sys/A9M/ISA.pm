@@ -143,6 +143,7 @@ sub full_encoding($self,$idex,$args) {
 
 sub _get_ins_idex($class,$name,$size,@args) {
 
+
   my $opsz_list = Type::MAKE->LIST;
   my $opsz      = $opsz_list->{ezy}->[$size];
 

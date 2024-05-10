@@ -340,6 +340,7 @@ sub exewrite($self,$opsz,$name,@args) {
   $eng->opera_static(\@copy,1)
   if $name ne 'raw';
 
+
   # encode or die ;>
   my ($opcd,$size)=$self->encode_opcode(
     $opsz,$name,@copy

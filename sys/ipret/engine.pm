@@ -719,10 +719,15 @@ sub opera_static($self,$args,$deref=0) {
       my $key   = $ARG;
       my $value = $operand->{$key};
 
+      # optional field with arguments
+      # used when value is a coderef!
+      my $data   = $operand->{"${key}_args"};
+         $data //= [];
+
 
       # check value is a reference
       my ($isref,$have)=
-        Chk::cderef $value,$deref;
+        Chk::cderef $value,$deref,@$data;
 
       # overwrite on reference,
       # deref'd or not!

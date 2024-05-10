@@ -40,7 +40,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.3;#a
+  our $VERSION = v0.01.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -204,7 +204,8 @@ sub argsolve($self,$branch) {
 
     # have register?
     if($type eq 'r') {
-      $O->{reg}=$l1->quantize($key);
+      $O->{reg}  = $l1->quantize($key);
+      $O->{type} = 'r';
 
 
     # have immediate?
@@ -220,48 +221,45 @@ sub argsolve($self,$branch) {
 
 
         # delay value deref until encoding
-        $O->{imm}=sub {
-          ${$nd->{vref}}
+        $O->{imm}=sub ($x) {
+          ${$x->{vref}}
 
         };
 
-        $type=sub {
-          $ISA->immsz(${$nd->{vref}})
+        $O->{imm_args}=[$nd];
+
+        $O->{type}=sub ($x,$y) {
+          $x->immsz(${$y->{vref}})
 
         };
+
+        $O->{type_args}=[$ISA,$nd];
 
 
       # regular immediate ;>
       } else {
-        $O->{imm}=$l1->quantize($key);
-        $type=$ISA->immsz($O->{imm});
+        $O->{imm}  = $l1->quantize($key);
+        $O->{type} = $ISA->immsz($O->{imm});
 
       };
 
 
     # have memory?
     } elsif($type eq 'm') {
-
-      ($type,$opsz,$O)=
-        $self->addrmode($branch,$nd);
-
-      return null if ! length $type;
+      $O=$self->addrmode($branch,$nd);
+      return null if ! length $O;
 
 
     # have symbol?
     } elsif($type eq 'sym') {
-
-      ($type,$opsz,$O)=
-        $self->symsolve($branch,$ARG,0);
-
-      return null if ! length $type;
+      $O=$self->symsolve($branch,$ARG,0);
+      return null if ! length $O;
 
 
     };
 
 
     # give descriptor
-    $O->{type}=$type;
     $O;
 
 
@@ -434,64 +432,62 @@ sub addr_decompose($self,$nd) {
 sub addrmode($self,$branch,$nd) {
 
 
-  # get ctx
-  my $main = $self->{frame}->{main};
-  my $mc   = $main->{mc};
-
-  # default segment to use if none specified!
-  my $seg    = $mc->{scope}->{mem};
-  my $ptrseg = $seg->{iced};
-
-  # out
-  my $type = null;
-  my $opsz = $branch->{vref}->{opsz};
-  my $O    = {};
-
-
   # get type lists
   my $data=$self->addr_decompose($nd);
   return null if ! length $data;
 
 
-  # have symbols?
-  if(@{$data->{sym}}) {
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $mc   = $main->{mc};
 
-    map {
-
-      my ($sym_t,$sym_sz,$head)=
-        $self->symsolve($branch,$ARG,1);
-
-      return null if ! length $sym_t;
-
-
-      # save segment bit separately
-      $opsz   = $sym_sz;
-      $ptrseg = $head->{seg};
+  # out
+  my $type      = null;
+  my $opsz      = $branch->{vref}->{opsz};
+  my $opsz_args = [];
+  my $O         = {};
 
 
-      # delayed deref+sum
-      if(defined $data->{imm}->[0]) {
-
-        my $have=$data->{imm}->[0];
-
-        $data->{imm}->[0]=sub {
-
-          my ($isref_x,$x)=
-            Chk::cderef $have,1;
-
-          return $x + $head->{imm}->();
-
-        };
+  # have symbol?
+  if(defined $data->{sym}->[0]) {
 
 
-      # ^as-is
-      } else {
-        $data->{imm}->[0]=$head->{imm};
+    # skip if can't solve!
+    my $head=$self->symsolve(
+      $branch,$data->{sym}->[0],1
+
+    );
+
+    return null if ! length $head;
+
+
+    # ^overwrite operation size
+    $opsz      = $head->{opsz};
+    $opsz_args = $head->{opsz_args};
+
+
+    # delayed deref+sum?
+    if(defined $data->{imm}->[0]) {
+
+      my $have=$data->{imm}->[0];
+
+      $data->{imm}->[0]=sub ($x,$y) {
+
+        my ($isref_z,$z)=
+          Chk::cderef $have,1;
+
+        return $z + $y->{imm}->();
 
       };
 
+      $O->{imm_args}=[$have,$head];
 
-    } @{$data->{sym}};
+
+    # ^as-is
+    } else {
+      $data->{imm}->[0]=$head->{imm};
+
+    };
 
   };
 
@@ -500,9 +496,9 @@ sub addrmode($self,$branch,$nd) {
   if($data->{stk}) {
 
     $data->{imm}->[0] //= 0;
-    $O->{imm}=$data->{imm}->[0];
 
-    $type='mstk';
+    $O->{imm}  = $data->{imm}->[0];
+    $O->{type} = 'mstk';
 
 
   # [seg:r+i]
@@ -515,11 +511,10 @@ sub addrmode($self,$branch,$nd) {
 
     $data->{imm}->[0] //= 0;
 
-    $O->{seg}=$ptrseg;
-    $O->{reg}=$data->{reg}->[0];
-    $O->{imm}=$data->{imm}->[0];
+    $O->{reg}  = $data->{reg}->[0];
+    $O->{imm}  = $data->{imm}->[0];
 
-    $type='msum';
+    $O->{type} = 'msum';
 
 
   # [seg:r+r+i*x]
@@ -536,7 +531,6 @@ sub addrmode($self,$branch,$nd) {
     $data->{imm}->[0] //= 0;
     $data->{imm}->[1] //= 0;
 
-    $O->{seg}   = $ptrseg;
 
     $O->{rX}    = $data->{reg}->[0];
     $O->{rY}    = $data->{reg}->[1];
@@ -544,7 +538,7 @@ sub addrmode($self,$branch,$nd) {
     $O->{imm}   = $data->{imm}->[0];
     $O->{scale} = $data->{imm}->[1];
 
-    $type='mlea';
+    $O->{type}  = 'mlea';
 
 
   # [seg:i]
@@ -552,15 +546,17 @@ sub addrmode($self,$branch,$nd) {
 
     $data->{imm}->[0] //= 0;
 
-    $O->{seg}=$ptrseg;
-    $O->{imm}=$data->{imm}->[0];
-
-    $type='mimm';
+    $O->{imm}  = $data->{imm}->[0];
+    $O->{type} = 'mimm';
 
   };
 
 
-  return ($type,$opsz,$O);
+  # give descriptor
+  $O->{opsz}      = $opsz;
+  $O->{opsz_args} = $opsz_args;
+
+  return $O;
 
 };
 
@@ -574,66 +570,91 @@ sub symsolve($self,$branch,$vref,$deref) {
   my $dst=$self->argproc($vref);
   return null if ! length $dst;
 
+
   # get ctx
   my $main  = $self->{frame}->{main};
-  my $l1    = $main->{l1};
   my $mc    = $main->{mc};
-  my $anima = $mc->{anima};
   my $ISA   = $mc->{ISA};
-  my $enc   = $main->{encoder};
 
 
-  # get pointer and bitsize
-  my $fn=sub {
+  # out
+  my $O={
+    imm      => \&symsolve_addr,
+    imm_args => [$dst],
+
+  };
 
 
-    # have ptr?
-    my ($ptrv,$opsz,$seg);
+  # using default size?
+  if($branch->{vref}->{opsz_def}) {
+    $O->{opsz}      = \&symsolve_opsz;
+    $O->{opsz_args} = [$dst,$deref];
 
-    if(exists $dst->{type}) {
+  # have size modifier!
+  } else {
+    $O->{opsz}      = $branch->{vref}->{opsz};
+    $O->{opsz_args} = [];
 
-      $seg  = $dst->{chan};
-      $ptrv = ($dst->{ptr_t})
+  };
+
+
+  # get *minimum* required size ;>
+  $O->{type}      = \&symsolve_min;
+  $O->{type_args} = [$ISA,$dst];
+
+  return $O;
+
+};
+
+# ---   *   ---   *   ---
+# ^get address of symbol
+
+sub symsolve_addr($dst) {
+
+  if(exists $dst->{type}) {
+
+    return ($dst->{ptr_t})
       ? $dst->load(deref=>0)
       : $dst->{addr}
       ;
 
-      $opsz = ($deref)
-        ? $dst->{type}
-        : $dst->{ptr_t}
-        ;
 
-
-    # ^have segment!
-    } else {
-      $seg  = $ptrv = $dst->{iced};
-      $opsz = Type->ptr_by_size($ptrv);
-
-    };
-
-    $opsz //= typefet 'ptr';
-
-    my $type=$ISA->immsz($ptrv);
-    return ($seg,$ptrv,$opsz,$type);
+  } else {
+    return $dst->{iced};
 
   };
 
+};
 
-  my $O={
-    seg  => sub {($fn->())[0]},
-    imm  => sub {($fn->())[1]},
+# ---   *   ---   *   ---
+# ^get operation size for symbol
+
+sub symsolve_opsz($dst,$deref) {
+
+  my $opsz=undef;
+
+  if(exists $dst->{type}) {
+
+    $opsz=($deref)
+      ? $dst->{type}
+      : $dst->{ptr_t}
+      ;
+
+  } else {
+    $opsz=Type->ptr_by_size($dst->{iced});
 
   };
 
+  $opsz //= typefet 'ptr';
+  return $opsz;
 
-  # have size modifier?
-  my $opsz = ($branch->{vref}->{opsz_def})
-    ? sub {($fn->())[2]}
-    : $branch->{vref}->{opsz}
-    ;
+};
 
-  my $type=sub {($fn->())[3]};
-  return ($type,$opsz,$O);
+# ---   *   ---   *   ---
+# ^get minimum size of operand
+
+sub symsolve_min($ISA,$dst) {
+  return $ISA->immsz(symsolve_addr($dst));
 
 };
 
