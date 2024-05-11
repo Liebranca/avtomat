@@ -7,6 +7,7 @@ entry T0::start;
 
 clan T0;
 exe  start;
+blk  here;
 
   call T1::skip;
 
@@ -21,6 +22,7 @@ clan T1;
 exe  skip;
 
   ld ar,$24;
+blk  here2;
   ret;
 
 # ---   *   ---   *   ---

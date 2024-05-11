@@ -77,6 +77,13 @@ St::imping {
   },
 
 
+  # loading
+  '*regen' => sub($dst,$ice) {
+    St::cpkg->regen($ice);
+
+  },
+
+
   # ice dstruc
   '*DESTROY' => sub ($dst,$ice) {
     St::cpkg->del($ice);
@@ -123,6 +130,17 @@ sub ice($class,$frame,$idex) {
   my $ice=$box->view($idex);
 
   return (defined $ice) ? $ice : null ;
+
+};
+
+# ---   *   ---   *   ---
+# instance restore hook
+
+sub regen($class,$self) {
+
+  my $frame=$self->{frame};
+
+  return;
 
 };
 

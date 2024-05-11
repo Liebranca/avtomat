@@ -154,7 +154,7 @@ sub skip_encode($self,$type,$name,@args) {
       )};
 
       my ($value)=$eng->value_flatten(
-        $ARG->{data}
+        $ARG->{data},
 
       );
 

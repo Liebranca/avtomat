@@ -105,6 +105,9 @@ sub blk($self,$branch) {
 
 
   # ^schedule for update ;>
+  my $fn=(ref $main) . '::cpos';
+     $fn=\&$fn;
+
   $enc->binreq(
 
     $branch,[
@@ -113,10 +116,12 @@ sub blk($self,$branch) {
 
       'data-decl',
 
-      { id   => $full,
+      { id        => $full,
 
-        type => 'sym-decl',
-        data => $main->cpos,
+        type      => 'sym-decl',
+
+        data      => $fn,
+        data_args => [$main],
 
       },
 
@@ -214,6 +219,7 @@ sub argsolve($self,$branch) {
 
       # command dereference
       if(my $have=$l1->typechk(CMD=>$key)) {
+
 
         # TODO: move this bit somewhere else!
         my $cmd=$lib->fetch($have);
@@ -610,19 +616,7 @@ sub symsolve($self,$branch,$vref,$deref) {
 # ^get address of symbol
 
 sub symsolve_addr($dst) {
-
-  if(exists $dst->{type}) {
-
-    return ($dst->{ptr_t})
-      ? $dst->load(deref=>0)
-      : $dst->{addr}
-      ;
-
-
-  } else {
-    return $dst->{iced};
-
-  };
+  return $dst->absloc();
 
 };
 

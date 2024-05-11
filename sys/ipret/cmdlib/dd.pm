@@ -157,21 +157,8 @@ sub clan($self,$branch) {
   my $have = $mc->{astab}->{$name};
 
   # ^make new?
-  if(! defined $have) {
-
-    my $mem=$mc->{bk}->{mem};
-
-    $mc->{astab}->{$name}=$mem->mkroot(
-
-      mcid  => $mc->{iced},
-      label => $name,
-
-      mccls => ref $mc,
-
-    );
-
-
-  };
+  $have=$mc->astab_push($name)
+  if ! defined $have;
 
 
   # set and return setter!

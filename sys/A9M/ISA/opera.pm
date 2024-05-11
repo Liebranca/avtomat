@@ -448,7 +448,7 @@ sub opera($self,$fn,$value) {
 
     (is_arrayref $x)
       ? unshift @Q,@$x
-      : push    @out,$fn->($x)
+      : push    @out,$fn->($self,$x)
       ;
 
   };
@@ -575,18 +575,19 @@ sub cX_lz {q[or  => qw(sign zero)]};
 sub cld($self,$type,$src,$mode,@flag) {
 
 
-  # get ctx
-  my $mc    = $self->getmc();
-  my $anima = $mc->{anima};
-
   # negate flag?
   my @iv  = ivflag \@flag;
   my @src = asval $src;
 
 
   # make F
-  sub ($x) {
+  sub ($ice,$x) {
 
+    # get ctx
+    my $mc    = $ice->getmc();
+    my $anima = $mc->{anima};
+
+    # eval and give
     my $y   = shift @src;
     my $chk = flagchk $mode,$anima,\@flag,\@iv;
 
@@ -602,14 +603,16 @@ sub cld($self,$type,$src,$mode,@flag) {
 sub load_chan($self,$type) {
 
 
-  # get ctx
-  my $mc    = $self->getmc();
-  my $anima = $mc->{anima};
-  my $chan  = $anima->{chan};
+  sub ($ice,$x) {
 
-  # make F
-  sub ($x) {
+    # get ctx
+    my $mc    = $ice->getmc();
+    my $anima = $mc->{anima};
+    my $chan  = $anima->{chan};
+
+    # ^set segment
     $chan->store($x);
+
     return;
 
   };
@@ -620,6 +623,7 @@ sub load_chan($self,$type) {
 # ^ipret v; sets search path
 
 sub set_scope($self,$main,$src) {
+
 
   # get ctx
   my $mc    = $self->getmc();
@@ -632,6 +636,7 @@ sub set_scope($self,$main,$src) {
 
   # make F
   my $out=sub {
+
 
     # deref
     $eng->opera_static([$src],1);
@@ -730,20 +735,22 @@ sub ari($self,$type,$anima,$x,$y) {
 sub defop($self,$type,$src) {
 
 
-  # get ctx
-  my $mc    = $self->getmc();
-  my $anima = $mc->{anima};
-
   # get name of F
   my $key=St::cf 2;
   my @src=asval $src;
 
 
   # give wrapper
-  return sub ($x) {
+  return sub ($ice,$x) {
 
+    # deanon
     local *__ANON__ = $key;
 
+    # get ctx
+    my $mc    = $ice->getmc();
+    my $anima = $mc->{anima};
+
+    # eval and give
     my $y=shift @src;
     my $z=$self->ari($type,$anima,$x,$y);
 
@@ -780,13 +787,14 @@ sub mul($self,$type,$src) {
 
 sub jmp($self,$type) {
 
-  # get ctx
-  my $mc    = $self->getmc();
-  my $anima = $mc->{anima};
-  my $rip   = $anima->{rip};
+  sub ($ice,$x) {
 
-  # ^write to rip
-  sub ($x) {
+    # get ctx
+    my $mc    = $ice->getmc();
+    my $anima = $mc->{anima};
+    my $rip   = $anima->{rip};
+
+    # write to rip
     $rip->store($x,deref=>0);
     return;
 
@@ -800,17 +808,18 @@ sub jmp($self,$type) {
 sub cjmp($self,$type,$mode,@flag) {
 
 
-  # get ctx
-  my $mc    = $self->getmc();
-  my $anima = $mc->{anima};
-  my $rip   = $anima->{rip};
-
   # negate flag?
   my @iv=ivflag \@flag;
 
   # make F
-  sub ($x) {
+  sub ($ice,$x) {
 
+    # get ctx
+    my $mc    = $ice->getmc();
+    my $anima = $mc->{anima};
+    my $rip   = $anima->{rip};
+
+    # ^eval and write to rip
     my $chk=flagchk $mode,$anima,\@flag,\@iv;
     $rip->store($x,deref=>0) if $chk;
 
@@ -852,38 +861,40 @@ cX_make cjmp => j => q($type);
 
 sub call($self,$type) {
 
-  # get ctx
-  my $mc    = $self->getmc();
-  my $anima = $mc->{anima};
-  my $rip   = $anima->{rip};
 
   # make F
   my $jmp  = $self->jmp($type);
   my $push = $self->_push(typefet 'qword');
 
-  sub ($x) {
+  sub ($ice,$x) {
+
+
+    # get ctx
+    my $mc    = $ice->getmc();
+    my $anima = $mc->{anima};
+    my $rip   = $anima->{rip};
 
 
     # backup current
     my $pos  = $rip->load(deref=>0);
     my $chan = $rip->{chan};
 
-    $push->($pos);
-    $push->($chan);
+    $push->($ice,$pos);
+    $push->($ice,$chan);
 
 
     # get destination
     my $frame = $mc->{cas}->{frame};
-    my $ice   = $frame->ice($x);
+    my $icet  = $frame->ice($x);
 
-    ($pos,$chan)=($mc->{bk}->{mem}->is_valid($ice))
-      ? (0x00,$ice->{iced})
-      : ($ice->load(),$ice->{chan})
+    ($pos,$chan)=($mc->{bk}->{mem}->is_valid($icet))
+      ? (0x00,$icet->{iced})
+      : ($ice->load(),$icet->{chan})
       ;
 
     # ^take the jump!
     $rip->{chan}=$chan;
-    $jmp->($pos);
+    $jmp->($ice,$pos);
 
 
     return;
@@ -897,11 +908,6 @@ sub call($self,$type) {
 
 sub enter($self,$type) {
 
-  # get ctx
-  my $mc    = $self->getmc();
-  my $stack = $mc->{stack};
-  my $sp    = $stack->{ptr};
-  my $sb    = $stack->{base};
 
   # TODO: get frame size!
   my $fsz=0x08;
@@ -909,12 +915,20 @@ sub enter($self,$type) {
   # make F
   my $push = $self->_push(typefet 'qword');
 
-  sub {
+  sub ($ice) {
 
     return if ! $fsz;
 
 
-    $push->($sb->load());
+    # get ctx
+    my $mc    = $ice->getmc();
+    my $stack = $mc->{stack};
+    my $sp    = $stack->{ptr};
+    my $sb    = $stack->{base};
+
+
+    # setup stack frame
+    $push->($ice,$sb->load());
 
     my $x=$sp->load();
     $sb->store($x);
@@ -933,11 +947,6 @@ sub enter($self,$type) {
 
 sub leave($self,$type) {
 
-  # get ctx
-  my $mc    = $self->getmc();
-  my $stack = $mc->{stack};
-  my $sp    = $stack->{ptr};
-  my $sb    = $stack->{base};
 
   # TODO: get frame size!
   my $fsz=0x08;
@@ -945,10 +954,19 @@ sub leave($self,$type) {
   # make F
   my $pop = $self->_pop(typefet 'qword');
 
-  sub {
+  sub ($ice) {
 
     return if ! $fsz;
 
+
+    # get ctx
+    my $mc    = $ice->getmc();
+    my $stack = $mc->{stack};
+    my $sp    = $stack->{ptr};
+    my $sb    = $stack->{base};
+
+
+    # clear stack frame
     my $x=$sb->load();
 
     $sp->store($x);
@@ -965,22 +983,25 @@ sub leave($self,$type) {
 
 sub ret($self,$type) {
 
-  # get ctx
-  my $mc    = $self->getmc();
-  my $anima = $mc->{anima};
-  my $rip   = $anima->{rip};
 
   # make F
   my $jmp = $self->jmp($type);
   my $pop = $self->_pop(typefet 'qword');
 
-  sub {
+  sub ($ice) {
 
+    # get ctx
+    my $mc    = $ice->getmc();
+    my $anima = $mc->{anima};
+    my $rip   = $anima->{rip};
+
+    # retrieve position
     my $chan = $pop->();
     my $pos  = $pop->();
 
+    # ^reset
     $rip->{chan}=$chan;
-    $jmp->($pos);
+    $jmp->($ice,$pos);
 
     return;
 
@@ -993,7 +1014,7 @@ sub ret($self,$type) {
 
 sub _exit($self,$type) {
 
-  sub ($x) {
+  sub ($ice,$x) {
     return ('$:LAST;>',$x);
 
   };
@@ -1005,15 +1026,13 @@ sub _exit($self,$type) {
 sub _cmp($self,$type,$src) {
 
 
-  # get ctx
-  my $mc    = $self->getmc();
-  my $anima = $mc->{anima};
-
-
   # make F
   my @src=asval $src;
-  sub ($x) {
+  sub ($ice,$x) {
 
+    # get ctx
+    my $mc    = $ice->getmc();
+    my $anima = $mc->{anima};
 
     # substract src from dst
     my $y = shift @src;
@@ -1038,15 +1057,13 @@ sub _cmp($self,$type,$src) {
 sub test($self,$type,$src) {
 
 
-  # get ctx
-  my $mc    = $self->getmc();
-  my $anima = $mc->{anima};
-
-
   # make F
   my @src=asval $src;
-  sub ($x) {
+  sub ($ice,$x) {
 
+    # get ctx
+    my $mc    = $ice->getmc();
+    my $anima = $mc->{anima};
 
     # substract src from dst
     my $y = shift @src;
@@ -1071,10 +1088,6 @@ sub test($self,$type,$src) {
 sub _eq($self,$type,$src) {
 
 
-  # get ctx
-  my $mc    = $self->getmc();
-  my $anima = $mc->{anima};
-
   # assume values are equal
   my @src=asval $src;
   my $out=1;
@@ -1082,8 +1095,13 @@ sub _eq($self,$type,$src) {
 
   # ^then challenge that assumption ;>
   my $cmp=$self->_cmp($type,$src);
-  sub ($x) {
+  sub ($ice,$x) {
 
+    # get ctx
+    my $mc    = $ice->getmc();
+    my $anima = $mc->{anima};
+
+    # run comparison
     my $y=shift @src;
     $cmp->($x);
 
@@ -1102,18 +1120,22 @@ sub _eq($self,$type,$src) {
 
 sub _push($self,$type) {
 
-  # get ctx
-  my $mc    = $self->getmc();
-  my $stack = $mc->{stack};
 
-  my $ptr   = $stack->{ptr};
-  my $mem   = $stack->{mem};
+  sub ($ice,$x) {
 
-  sub ($x) {
 
+    # get ctx
+    my $mc    = $ice->getmc();
+    my $stack = $mc->{stack};
+    my $ptr   = $stack->{ptr};
+    my $mem   = $stack->{mem};
+
+
+    # move ptr
     my $have  = $ptr->load();
        $have -= $type->{sizeof};
 
+    # ^write at new position
     $ptr->store($have);
     $mem->store($type,$x,$have);
 
@@ -1128,18 +1150,19 @@ sub _push($self,$type) {
 
 sub _pop($self,$type) {
 
-  # get ctx
-  my $mc    = $self->getmc();
-  my $stack = $mc->{stack};
+  sub ($ice) {
 
-  my $ptr   = $stack->{ptr};
-  my $mem   = $stack->{mem};
+    # get ctx
+    my $mc    = $ice->getmc();
+    my $stack = $mc->{stack};
+    my $ptr   = $stack->{ptr};
+    my $mem   = $stack->{mem};
 
-  sub {
-
+    # get value at current position
     my $have = $ptr->load();
     my $x    = $mem->load($type,$have);
 
+    # ^move to previous
     $have += $type->{sizeof};
     $ptr->store($have);
 

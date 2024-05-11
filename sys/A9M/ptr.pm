@@ -51,7 +51,7 @@ St::vconst {
 
     ptr_t  => undef,
 
-    chan   => 0x00,
+    chan   => undef,
     segid  => 0x00,
     addr   => 0x00,
     len    => 0,
@@ -59,27 +59,6 @@ St::vconst {
     mcid   => 0,
     field  => [],
     segcls => undef,
-
-  },
-
-};
-
-# ---   *   ---   *   ---
-# cleanup method ;>
-
-St::imping {
-
-  '*DESTROY' => sub ($dst,$ice) {
-
-    my $seg=$ice->getseg();
-    return if ! $seg;
-
-    my $frame=$seg->{frame};
-
-    $frame->icepick($ice)
-    if $frame && $frame->{icebox};
-
-    return;
 
   },
 
@@ -96,15 +75,8 @@ sub new($class,%O) {
   $O{segcls} //= caller;
 
 
-  # make ice
+  # make ice and give
   my $self=bless \%O,$class;
-
-  # borrow ID from owner
-  my $seg   = $self->getseg();
-  my $frame = $seg->{frame};
-
-  $frame->icemake($self);
-
 
   return $self;
 

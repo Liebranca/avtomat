@@ -31,6 +31,7 @@ package ipret;
   use Type;
   use Bpack;
   use Ring;
+  use Vault;
   use id;
 
   use Arstd::IO;
@@ -141,19 +142,16 @@ sub crux($src,%O) {
 
 
   $self->assemble();
-  $self->cleanup();
-
   return $self;
 
 };
 
 # ---   *   ---   *   ---
-# CVYC: get handle to current byte,
-# but in the ~ F U T U R E ~
+# get current byte
 
 sub cpos($self) {
   my $mc=$self->{mc};
-  return sub {$mc->{segtop}->{ptr}};
+  return $mc->{segtop}->{ptr};
 
 };
 
@@ -227,22 +225,12 @@ sub assemble($self) {
 };
 
 # ---   *   ---   *   ---
-# removes leftover data
+# stores program as linkable
 
-sub cleanup($self) {
+sub to_obj($self) {
 
-  my @Q=($self->{tree});
-
-  while(@Q) {
-
-    my $nd=shift @Q;
-
-    delete  $nd->{vref};
-    unshift @Q,@{$nd->{leaves}};
-
-  };
-
-  $self->{encoder}->{Q}->{asm}=[];
+  $self->{mc}->memflat();
+  exit;
 
   return;
 

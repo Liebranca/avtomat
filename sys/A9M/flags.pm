@@ -128,4 +128,25 @@ sub defnit($class,$ice,@keys) {
 };
 
 # ---   *   ---   *   ---
+# give numrepr of object flags
+
+sub as_int($class,$ice) {
+
+  my @keys = @{$class->list()};
+  my $out  = 0x00;
+
+  map {
+
+    my $key = $keys[$ARG];
+    my $bit = $ice->{$key};
+
+    $out |= $bit << $ARG;
+
+  } 0..$#keys;
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 1; # ret

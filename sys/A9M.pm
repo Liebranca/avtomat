@@ -80,6 +80,7 @@ sub new($class,%O) {
 
     cas      => undef,
     astab    => {},
+    astab_i  => [],
 
     scratch  => undef,
     alloc    => undef,
@@ -105,15 +106,7 @@ sub new($class,%O) {
 
 
   # nit user memory
-  $self->{cas}=$bk->{mem}->mkroot(
-    mcid  => $id,
-    label => $O{memroot},
-
-  );
-
-  $self->{astab}->{$O{memroot}}=
-    $self->{cas};
-
+  $self->astab_push($O{memroot});
 
   # ^nit scratch buffer for internal use
   $self->{scratch}=$bk->{mem}->mkroot(
@@ -139,6 +132,81 @@ sub new($class,%O) {
 
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# make new addressing space
+
+sub astab_push($self,$label) {
+
+
+  # make segment tree
+  my $mem  = $self->{bk}->{mem};
+  my $root = $mem->mkroot(
+
+    mcid  => $self->{iced},
+    mccls => (ref $self),
+
+    label => $label,
+    size  => 0x00,
+
+  );
+
+
+  # ^make current and add to table
+  $self->{cas}             = $root;
+  $self->{astab}->{$label} = $root;
+
+  push @{$self->{astab_i}},$label;
+
+
+  return $root;
+
+};
+
+# ---   *   ---   *   ---
+# ^flatten location!
+
+sub astab_loc($self,$idex) {
+
+  my $addr=0x00;
+
+  while($idex) {
+
+    my $label = $self->{astab_i}->[--$idex];
+    my $root  = $self->{astab}->{$label};
+
+    $addr=$root->absloc();
+
+  };
+
+  return $addr;
+
+};
+
+# ---   *   ---   *   ---
+# merge segment trees
+
+sub memflat($self) {
+
+
+  # get base
+  my $label = $self->{astab_i};
+  my $first = shift @$label;
+
+  my $root  = $self->{astab}->{$first};
+
+
+  # ^join all
+  $root->merge(
+    map {$self->{astab}->{$ARG}} @$label
+
+  );
+
+  $root->prich(root=>1,inner=>1,depth=>0x24);
+
+  return;
 
 };
 

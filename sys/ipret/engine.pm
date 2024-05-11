@@ -97,7 +97,6 @@ sub invoke($self,$type,$idx,@args) {
   my $guts = $ISA->{guts};
   my $tab  = $ISA->opcode_table;
 
-
   # get function assoc with id
   my $fn  = $tab->{exetab}->[$idx];
   my @src = (1 == $#args)
@@ -333,10 +332,17 @@ sub cmd_solve($self,$branch) {
 
 sub value_flatten($self,$src,%O) {
 
+
+  # defaults
+  $O{args} //= [];
+
   # get ctx
   my $main = $self->{main};
   my $mc   = $main->{mc};
   my $l1   = $main->{l1};
+
+  my $args = $O{args};
+  delete $O{args};
 
 
   # can solve value now?
@@ -356,7 +362,7 @@ sub value_flatten($self,$src,%O) {
   if($isref) {
 
     $mc->backup();
-    ($isref,$x)=Chk::cderef $x,1;
+    ($isref,$x)=Chk::cderef $x,1,@$args;
 
     $mc->restore();
 

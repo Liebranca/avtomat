@@ -13,40 +13,42 @@ package main;
   use lib $ENV{ARPATH}.'/avtomat/sys/';
   use Style;
 
-  use rd;
   use ipret;
-  use A9M;
-
-  use Bpack;
-
-  use Arstd::Bytes;
-  use Arstd::Path;
-  use Arstd::IO;
+  use Vault;
 
   use Fmat;
   use Arstd::xd;
 
 # ---   *   ---   *   ---
-# parse, solve and assemble
+# parse, solve and assemble,
+# then freeze
 
-my $main=ipret(
+sub make($src,$out='a.out'){
 
-  './lps/test.pe',
-  limit => 2,
+  my $main=ipret($src,limit=>2);
 
-);
+  $main->to_obj();
+  exit;
 
-## ---   *   ---   *   ---
-# freeze!
-#
-#use Vault;
-#Vault::image 'a.out'
-#  => $main;
-#
-#$main=Vault::mount 'a.out';
-#
+  Vault::image $out => $main;
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^retrieve
+
+sub load($src) {Vault::mount $src};
+
 # ---   *   ---   *   ---
 # run and dbout
+
+my $main=load make './lps/test.pe';
+say $main->{tree};
+say $main->{tree}->{-uid};
+
+exit;
 
 $main->run();
 $main->prich(

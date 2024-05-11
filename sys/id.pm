@@ -49,6 +49,8 @@ sub man($class,$mode,$src) {
   # delete?
   if($mode eq 'del') {
 
+    return if ! defined $$box;
+
     $$box->take(idex=>$src->{iced})
     if ! --$src->{icedcnt};
 

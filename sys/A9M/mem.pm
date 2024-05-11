@@ -117,6 +117,11 @@ sub mkroot($class,%O) {
   $self->set_uattrs();
 
 
+  # get id of addressing space
+  my $mc=$self->getmc();
+  $self->{as} = int keys %{$mc->{astab}};
+
+
   # make namespace
   my $inner_frame = Tree->get_frame($O{mcid});
   $self->{inner}  = Tree::new(
@@ -295,9 +300,15 @@ sub brk($self,$step) {
   if($step > 0) {
     $$buf .= zeropad $step;
 
-  # ^nope, discard!
+  # discard bytes?
   } elsif($step < 0) {
-    $$buf=substr $$buf,0,$size+$step,null;
+
+    my $total=$size+$step;
+
+    $$buf=($total > 0)
+      ? substr $$buf,0,$total,null
+      : null
+      ;
 
   };
 
@@ -851,7 +862,12 @@ sub absloc($self) {
 
 
   # recursive hierarchy walk!
-  my $addr = 0x00;
+  my $mc   = $self->getmc();
+  my $addr = ($self->{as})
+    ? $mc->astab_loc($self->{as})
+    : 0x00
+    ;
+
   my @Q    = $self;
 
   while(@Q) {
@@ -890,6 +906,241 @@ sub absloc($self) {
 
 
   return $old->{absloc};
+
+};
+
+# ---   *   ---   *   ---
+# join segments in tree that
+# have the same flags
+
+sub flatten($self,%O) {
+
+
+  # get ctx
+  my $flat = $self->{root};
+  my $mc   = $self->getmc();
+  my $flg  = $mc->{bk}->{flags};
+
+
+  # walked/pending
+  my $have = {};
+  my @Q    = $flat;
+
+  # segment types
+  my $name = {
+
+    0b101 => 'code',
+    0b011 => 'data',
+    0b001 => 'rodata',
+
+    0b000 => 'non',
+
+  };
+
+
+  # walk
+  while(@Q) {
+
+
+    # get segment and keys
+    my $seg = shift @Q;
+    my $key = ($seg ne $flat)
+      ? $flg->as_int($seg) & 0x7
+      : 0x00
+      ;
+
+    $key=$name->{$key};
+
+
+    # keep first segment with a given
+    # configuration of set keys
+    if(! exists $have->{$key}) {
+      $have->{$key} = $seg;
+      $seg->{ptr}   = 0x00;
+
+    # ^write to first ;>
+    } else {
+
+      my $dst=$have->{$key};
+
+      ${$dst->{buf}} .= ${$seg->{buf}};
+      $dst->{size}   += $seg->{size};
+
+      $seg->discard();
+
+    };
+
+
+    # queue children
+    unshift @Q,@{$seg->{leaves}};
+
+
+  };
+
+  return $have;
+
+};
+
+# ---   *   ---   *   ---
+# ^combine multiple trees
+
+sub merge($self,@seg) {
+
+
+  # build table from base
+  my $root     = $self;
+  my $inner    = $root->{inner};
+
+  my $tab      = $root->flatten();
+  $root->{ptr} = 0x00;
+
+
+  # push sub-segments to table
+  map {
+
+    # walk sub-segments by type
+    my  $stab=$ARG->flatten();
+    map {
+
+
+      # get new/previous
+      my $flat  = $stab->{$ARG};
+      my $seg   = $tab->{$ARG};
+
+      my $inner = $flat->{inner};
+
+
+      # no previous?
+      if(! $seg) {
+        $tab->{$ARG}=$flat;
+        $root->pushlv($flat);
+
+        $seg=$flat;
+
+
+      # append to previous!
+      } else {
+        ${$seg->{buf}} .= ${$flat->{buf}};
+        $seg->{size}   += $flat->{size};
+
+      };
+
+
+      # remember offset and go next
+      $inner->{vref} = $seg->{ptr};
+
+      $seg->{ptr}    = $seg->{size};
+      $flat->{root}  = $root
+
+
+    } keys %$stab;
+
+
+    # adjust pointers
+    $ARG->on_inner_move($root);
+
+    # merge namespaces
+    $root->{inner}->pushlv(
+      $ARG->{inner}
+
+    );
+
+
+  } @seg;
+
+
+  # rename sub-segments by type
+  map  {$tab->{$ARG}->{value}=$ARG}
+  keys %$tab;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^adjust ptrs
+
+sub on_inner_move($self,$new) {
+
+
+  # get ctx
+  my $frame  = $self->{frame};
+  my $ptrcls = $self->get_ptr_bk();
+
+  my $walked = {};
+
+
+  # walk namespace
+  my @Q  = $self->{inner};
+  my @RQ = ();
+
+  while(@Q) {
+
+    # recurse
+    my $nd=shift @Q;
+    unshift @Q,@{$nd->{leaves}};
+
+    # filter out pointers
+    unshift @RQ,$nd
+    if $ptrcls->is_valid($nd->{value});
+
+  };
+
+
+  # ^walk pointers in reverse
+  for my $nd(@RQ) {
+
+
+    # avoid repeats
+    next if exists $walked->{$nd->{value}};
+
+
+    # deref
+    my $ptr=$nd->{value};
+    my $old=$ptr->getseg();
+
+
+    # get adjustment value
+    my $off=$nd->{vref};
+
+    while(
+
+    !  defined $off
+    && defined $nd->{parent}
+
+    ) {
+
+      $nd  = $nd->{parent};
+      $off = $nd->{vref};
+
+    };
+
+
+    # ignore if none found!
+    next if ! defined $off;
+
+
+    # adjust base segment and address
+    $ptr->{segid}    = $new->{iced};
+    $ptr->{addr}    += $off;
+
+    $walked->{$ptr}  = 1;
+
+
+    # adjust ref segment?
+    if(defined $ptr->{chan}) {
+
+      my $seg=$frame->ice($ptr->{chan});
+         $seg=$seg->{root};
+
+      $ptr->{chan}=$self->{iced}
+      if $seg->{root} eq $new;
+
+    };
+
+  };
+
+  return;
 
 };
 
@@ -1010,6 +1261,7 @@ sub prich($self,%O) {
   $O{inner} //= 0;
   $O{outer} //= 1;
   $O{root}  //= 0;
+  $O{loc}   //= 0;
 
   # I/O defaults
   my $out=ioprocin(\%O);
@@ -1040,10 +1292,15 @@ sub prich($self,%O) {
     };
 
 
+    my $loc=($O{loc})
+      ? sprintf "%04X ",$nd->absloc()
+      : null
+      ;
+
     # put header?
     $O{head} = $nd->{value} eq 'ANON';
 
-    push @$out,"$nd->{value}:\n"
+    push @$out,"$loc$nd->{value}:\n"
     if ! $O{head};
 
     # ^put hexdump
