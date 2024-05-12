@@ -29,6 +29,7 @@ package Bpack;
   use Type;
 
   use Arstd::Array;
+  use Arstd::IO;
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -202,7 +203,13 @@ sub bunpack($struc,$src,$pos=0,$cnt=1) {
     my $fmat = $type->{packof};
     my $size = $type->{sizeof};
 
-    my $src  = substr $src,$pos,(length $src)-$pos;
+    # check for overflow
+    my $stop=(length $src)-$pos;
+    return null if $stop < 0;
+
+
+    # read buffer
+    my $src  = substr $src,$pos,$stop;
     my @have = unpack $fmat,$src;
 
     # have string?

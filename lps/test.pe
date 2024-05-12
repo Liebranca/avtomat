@@ -1,15 +1,15 @@
 %;
 
-entry T0::start;
+entry T0::A::start;
 
 # ---   *   ---   *   ---
 # file A
 
 clan T0;
-exe  start;
-blk  here;
+exe  A;
+blk  start;
 
-  call T1::skip;
+  call T1::B::here2;
 
   ld   br,$25;
   exit 1;
@@ -19,10 +19,9 @@ blk  here;
 # file B
 
 clan T1;
-exe  skip;
-
-  ld ar,$24;
+exe  B;
 blk  here2;
+  ld ar,$24;
   ret;
 
 # ---   *   ---   *   ---

@@ -43,7 +43,7 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#a
+  our $VERSION = v0.01.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -229,8 +229,28 @@ sub assemble($self) {
 
 sub to_obj($self) {
 
-  $self->{mc}->memflat();
-  exit;
+
+  # get ctx
+  my $enc = $self->{encoder};
+  my $Q   = $enc->{Q}->{asm};
+
+
+  # transform to flat memory model
+  my $root=$self->{mc}->memflat();
+
+  # redirect encoder
+  map {
+    my $seg   = $ARG->[0];
+    $ARG->[0] = $seg->{vref};
+
+  } grep {defined $ARG} @$Q;
+
+
+  # re-assemble!
+  $self->{stage}--;
+  $self->assemble();
+
+  $root->prich(root=>1,depth=>2);
 
   return;
 
@@ -260,11 +280,14 @@ sub run($self,$entry=undef) {
   # get ctx
   my $mc    = $self->{mc};
   my $anima = $mc->{anima};
-  my $rip   = $anima->{rip};
   my $chan  = $anima->{chan};
+  my $rip   = $anima->{rip};
+  my $cas   = $mc->{cas};
 
 
   # make sure the addressing space exists!
+  my $have=$cas->{inner}->haslv($entry->[0]);
+
   $WLog->err(
 
     "undefined [ctl]:%s '%s'",
@@ -274,19 +297,11 @@ sub run($self,$entry=undef) {
 
     from => ref $self,
 
-  ) if ! exists $mc->{astab}->{$entry->[0]};
-
-  $mc->{cas}=$mc->{astab}->{$entry->[0]};
-  $mc->setseg($mc->{cas});
+  ) if ! defined $have;
 
 
   # fetch symbol
-  my $sym=$mc->valid_ssearch(
-
-    $entry->[0],
-    split $mc->{pathsep},$entry->[1],
-
-  );
+  my $sym=$mc->valid_ssearch(@$entry);
 
 
   # ^validate ;>

@@ -66,7 +66,9 @@ sub blk($self,$branch) {
   my $mc   = $main->{mc};
   my $l1   = $main->{l1};
   my $enc  = $main->{encoder};
+
   my $ISA  = $mc->{ISA};
+  my $top  = $mc->{segtop};
 
   # get name of symbol
   my $name=$l1->untag(
@@ -74,7 +76,7 @@ sub blk($self,$branch) {
 
   )->{spec};
 
-  my $full="$mc->{segtop}->{value}.$name";
+  my $full="$name";
 
 
   # make fake ptr
@@ -92,13 +94,13 @@ sub blk($self,$branch) {
 
   $ptr->{ptr_t}      = $align_t;
   $ptr->{addr}       = $mc->{cas}->{ptr};
-  $ptr->{chan}       = $mc->{segtop}->{iced};
+  $ptr->{chan}       = $top->{iced};
 
   $mc->{cas}->{ptr} += $align_t->{sizeof};
 
 
   # add reference to current segment!
-  my $alt=$mc->{segtop}->{inner};
+  my $alt=$top->{inner};
   $alt->force_set($ptr,$name);
 
   $alt->{'*fetch'}->{mem}=$ptr;
@@ -116,7 +118,7 @@ sub blk($self,$branch) {
 
       'data-decl',
 
-      { id        => $full,
+      { id        => [$name,$top->ances_list],
 
         type      => 'sym-decl',
 
@@ -143,6 +145,7 @@ sub entry($self,$branch) {
   my $main = $self->{frame}->{main};
   my $mc   = $main->{mc};
   my $l1   = $main->{l1};
+  my $sep  = $mc->{pathsep};
 
   # get name of symbol
   my $name=$l1->untag(
@@ -151,13 +154,11 @@ sub entry($self,$branch) {
   )->{spec};
 
 
+  # ^as a path!
+  my @path=split $sep,$name;
+
   # can fetch symbol?
-  my $seg=$mc->ssearch(
-    $mc->{cas}->{value},
-    split $mc->{pathsep},$name
-
-  );
-
+  my $seg=$mc->ssearch(@path);
   return $branch if ! length $seg;
 
 
@@ -167,11 +168,7 @@ sub entry($self,$branch) {
 
   ) if defined $main->{entry};
 
-  $main->{entry}=[
-    $mc->{cas}->{value},
-    $name
-
-  ];
+  $main->{entry}=\@path;
 
 
   return;
@@ -480,7 +477,7 @@ sub addrmode($self,$branch,$nd) {
       $data->{imm}->[0]=sub ($x,$y) {
 
         my ($isref_z,$z)=
-          Chk::cderef $have,1;
+          Chk::cderef $have,1,@{$y->{imm_args}};
 
         return $z + $y->{imm}->();
 
@@ -491,7 +488,8 @@ sub addrmode($self,$branch,$nd) {
 
     # ^as-is
     } else {
-      $data->{imm}->[0]=$head->{imm};
+      $data->{imm}->[0] = $head->{imm};
+      $O->{imm_args}    = $head->{imm_args};
 
     };
 
@@ -586,7 +584,7 @@ sub symsolve($self,$branch,$vref,$deref) {
   # out
   my $O={
     imm      => \&symsolve_addr,
-    imm_args => [$dst],
+    imm_args => [$dst,$deref],
 
   };
 
@@ -606,7 +604,7 @@ sub symsolve($self,$branch,$vref,$deref) {
 
   # get *minimum* required size ;>
   $O->{type}      = \&symsolve_min;
-  $O->{type_args} = [$ISA,$dst];
+  $O->{type_args} = [$ISA,$dst,$deref];
 
   return $O;
 
@@ -615,8 +613,20 @@ sub symsolve($self,$branch,$vref,$deref) {
 # ---   *   ---   *   ---
 # ^get address of symbol
 
-sub symsolve_addr($dst) {
-  return $dst->absloc();
+sub symsolve_addr($dst,$deref) {
+
+  if(! $deref && defined $dst->{type}) {
+    my ($seg,$off)=$dst->read_ptr();
+    return $off+$seg->absloc;
+
+  } else {
+
+    $dst=$dst->{route}
+    if exists $dst->{route};
+
+    return $dst->absloc;
+
+  };
 
 };
 
@@ -635,7 +645,7 @@ sub symsolve_opsz($dst,$deref) {
       ;
 
   } else {
-    $opsz=Type->ptr_by_size($dst->{iced});
+    $opsz=Type->ptr_by_size($dst->absloc);
 
   };
 
@@ -647,8 +657,8 @@ sub symsolve_opsz($dst,$deref) {
 # ---   *   ---   *   ---
 # ^get minimum size of operand
 
-sub symsolve_min($ISA,$dst) {
-  return $ISA->immsz(symsolve_addr($dst));
+sub symsolve_min($ISA,$dst,$deref) {
+  return $ISA->immsz(symsolve_addr($dst,$deref));
 
 };
 

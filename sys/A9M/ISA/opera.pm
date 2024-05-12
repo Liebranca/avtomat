@@ -876,25 +876,15 @@ sub call($self,$type) {
 
 
     # backup current
-    my $pos  = $rip->load(deref=>0);
-    my $chan = $rip->{chan};
-
+    my $pos=$rip->load(deref=>0);
     $push->($ice,$pos);
-    $push->($ice,$chan);
 
 
     # get destination
-    my $frame = $mc->{cas}->{frame};
-    my $icet  = $frame->ice($x);
-
-    ($pos,$chan)=($mc->{bk}->{mem}->is_valid($icet))
-      ? (0x00,$icet->{iced})
-      : ($ice->load(),$icet->{chan})
-      ;
+    $x=$mc->flatptr($x);
 
     # ^take the jump!
-    $rip->{chan}=$chan;
-    $jmp->($ice,$pos);
+    $jmp->($ice,$x);
 
 
     return;
@@ -970,7 +960,7 @@ sub leave($self,$type) {
     my $x=$sb->load();
 
     $sp->store($x);
-    $sb->store($pop->());
+    $sb->store($pop->($ice));
 
     return;
 
@@ -988,19 +978,10 @@ sub ret($self,$type) {
   my $jmp = $self->jmp($type);
   my $pop = $self->_pop(typefet 'qword');
 
-  sub ($ice) {
+  sub ($ice,$x) {
 
-    # get ctx
-    my $mc    = $ice->getmc();
-    my $anima = $mc->{anima};
-    my $rip   = $anima->{rip};
-
-    # retrieve position
-    my $chan = $pop->();
-    my $pos  = $pop->();
-
-    # ^reset
-    $rip->{chan}=$chan;
+    # reset previous position ;>
+    my $pos=$pop->($ice);
     $jmp->($ice,$pos);
 
     return;

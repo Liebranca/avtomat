@@ -90,6 +90,7 @@ sub new($class,%O) {
     ISA      => undef,
 
     segtop   => undef,
+    rp       => [],
 
     bk       => $bk,
 
@@ -204,9 +205,32 @@ sub memflat($self) {
 
   );
 
-  $root->prich(root=>1,inner=>1,depth=>0x24);
+  # discard and give
+  $self->{astab_i} = [$first];
+  $self->{astab}   = {$first => $root};
 
-  return;
+  $self->{cas}     = $root;
+
+  return $root;
+
+};
+
+# ---   *   ---   *   ---
+# ^find ptr from absloc
+
+sub flatptr($self,$ptrv) {
+
+
+  # get ctx
+  my $frame = $self->{cas}->{frame};
+  my $anima = $self->{anima};
+  my $rip   = $anima->{rip};
+
+  # substract base from total
+  my $base  = $frame->ice($rip->{chan});
+     $ptrv -= $base->absloc();
+
+  return $ptrv;
 
 };
 
@@ -215,7 +239,15 @@ sub memflat($self) {
 
 sub backup($self) {
 
+  my $image={
+    path=>[@{$self->{path}}],
+
+  };
+
+
+  push @{$self->{rp}},$image;
   $self->{anima}->backup();
+
   return;
 
 };
@@ -225,7 +257,11 @@ sub backup($self) {
 
 sub restore($self) {
 
+  my $image=shift @{$self->{rp}};
+
+  $self->{path}=$image->{path};
   $self->{anima}->restore();
+
   return;
 
 };
@@ -304,7 +340,6 @@ sub lkup($self,@path) {
 # set/get current namespace
 
 sub scope($self,@path) {
-
 
   # set new?
   if(@path) {

@@ -2110,7 +2110,7 @@ sub repr($self,$depth,$prev,%O) {
 
 
   # recursing optional ;>
-  return '[sub-tree]'
+  return '[sub-tree]',$depth
   if Tree->is_valid($v) &&! $O{vrecurse};
 
 
@@ -2125,10 +2125,12 @@ sub repr($self,$depth,$prev,%O) {
 
       %O,
 
-      -bufio => undef,
+      -bufio   => undef,
 
-      leaf   => \$keep,
-      mute   => 1,
+      leaf     => \$keep,
+      mute     => 1,
+
+      vrecurse => 0,
 
     )
 

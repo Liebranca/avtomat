@@ -149,7 +149,7 @@ sub skip_encode($self,$type,$name,@args) {
 
       # fetch dst/src
       my $sym=${$mc->valid_psearch(
-        $ARG->{id}
+        @{$ARG->{id}}
 
       )};
 
@@ -477,7 +477,7 @@ sub exewrite_run($self) {
 
 
     # make segment current and run F
-    ($mc->{cas})=$seg->root();
+    ($mc->{cas})=$seg->{root};
     $mc->setseg($seg);
 
     my $size=0;

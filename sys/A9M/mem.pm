@@ -43,12 +43,27 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.7;#a
+  our $VERSION = v0.01.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
+St::vconst {
+
+
+  # keys for segment types
+  ftypetab => {
+
+    0b101 => 'code',
+    0b011 => 'data',
+    0b001 => 'rodata',
+
+    0b000 => 'non',
+
+  },
+
+};
 
 St::vstatic {};
 
@@ -221,7 +236,6 @@ sub view($self,$addr,$len,$label=undef) {
   $ice->{absloc} = $self->absloc() + $addr;
 
   $self->{frame}->icemake($ice);
-
 
   return $ice;
 
@@ -430,8 +444,13 @@ sub store($self,$type,$value,$addr=undef) {
 # ^bypass checks!
 
 sub dload($self,$type,$addr) {
+
   my $b=bunpack $type,${$self->{buf}},$addr;
-  return $b->{ct}->[0];
+
+  return (length $b)
+    ? $b->{ct}->[0]
+    : $self->warn_oob($type,$addr,'load')
+    ;
 
 };
 
@@ -444,6 +463,10 @@ sub dstore($self,$type,$value,$addr) {
   return $self->warn_rom($type,$addr)
 
   if ! $self->{writeable}
+
+  && defined $mc->{scope}
+  && defined $mc->{scope}->{mem}
+  && defined $mc->{segtop}
 
   && $self ne $mc->{scope}->{mem}
   && $self ne $mc->{segtop};
@@ -458,7 +481,7 @@ sub dstore($self,$type,$value,$addr) {
 };
 
 # ---   *   ---   *   ---
-# ^errme
+# ^errmes
 
 sub warn_rom($self,$type,$addr) {
 
@@ -857,8 +880,10 @@ sub absloc($self) {
   my $old=$self;
   $self=$self->{root};
 
-  return $self->{__total_size}
-  if ! $self->{__absloc_recalc};
+  return $old->{absloc}
+
+  if  defined $old->{absloc}
+  &&! $self->{__absloc_recalc};
 
 
   # recursive hierarchy walk!
@@ -910,32 +935,32 @@ sub absloc($self) {
 };
 
 # ---   *   ---   *   ---
+# map segment flags to key
+
+sub flagkey($self) {
+
+  my $mc  = $self->getmc();
+  my $flg = $mc->{bk}->{flags};
+
+  my $key=($self ne $self->{root})
+    ? $flg->as_int($self) & 0x7
+    : 0x00
+    ;
+
+  return $self->ftypetab->{$key};
+
+};
+
+# ---   *   ---   *   ---
 # join segments in tree that
 # have the same flags
 
 sub flatten($self,%O) {
 
 
-  # get ctx
-  my $flat = $self->{root};
-  my $mc   = $self->getmc();
-  my $flg  = $mc->{bk}->{flags};
-
-
   # walked/pending
   my $have = {};
-  my @Q    = $flat;
-
-  # segment types
-  my $name = {
-
-    0b101 => 'code',
-    0b011 => 'data',
-    0b001 => 'rodata',
-
-    0b000 => 'non',
-
-  };
+  my @Q    = $self->{root};
 
 
   # walk
@@ -944,12 +969,7 @@ sub flatten($self,%O) {
 
     # get segment and keys
     my $seg = shift @Q;
-    my $key = ($seg ne $flat)
-      ? $flg->as_int($seg) & 0x7
-      : 0x00
-      ;
-
-    $key=$name->{$key};
+    my $key = $seg->flagkey;
 
 
     # keep first segment with a given
@@ -988,6 +1008,9 @@ sub merge($self,@seg) {
 
 
   # build table from base
+  my @image    = ();
+  my @data     = ();
+
   my $root     = $self;
   my $inner    = $root->{inner};
 
@@ -1027,17 +1050,24 @@ sub merge($self,@seg) {
 
 
       # remember offset and go next
-      $inner->{vref} = $seg->{ptr};
-
+      $inner->{vref} = [$ARG,$seg->{ptr}];
       $seg->{ptr}    = $seg->{size};
-      $flat->{root}  = $root
+
+      # redirect segment to new
+      $flat->{root}  = $root;
+      $flat->{vref}  = $seg;
 
 
     } keys %$stab;
 
 
     # adjust pointers
-    $ARG->on_inner_move($root);
+    my ($ptr,@path)=
+      $ARG->on_inner_move($root);
+
+    push @data,@$ptr;
+    push @image,@path;
+
 
     # merge namespaces
     $root->{inner}->pushlv(
@@ -1050,29 +1080,51 @@ sub merge($self,@seg) {
 
 
   # rename sub-segments by type
-  map  {$tab->{$ARG}->{value}=$ARG}
-  keys %$tab;
+  map  {
+
+    my $seg=$tab->{$ARG};
+
+    $seg->{value} = $ARG;
+    $seg->{as}    = undef;
+
+    $root->{__absloc_recalc}=1;
+
+    $seg->absloc();
+
+
+  } grep {
+    defined $tab->{$ARG}
+
+  } qw(non rodata data code);
+
+
+  # move pointers and locate old paths
+  $self->migrate($tab,@data);
+  $self->mount(@image);
+
 
   return;
 
 };
 
 # ---   *   ---   *   ---
-# ^adjust ptrs
+# walks namespace and prepares
+# a list of nodes that require
+# adjustments
 
-sub on_inner_move($self,$new) {
+sub on_inner_move($self,$tab) {
 
 
   # get ctx
-  my $frame  = $self->{frame};
-  my $ptrcls = $self->get_ptr_bk();
-
-  my $walked = {};
+  my $ptrcls=$self->get_ptr_bk();
 
 
   # walk namespace
-  my @Q  = $self->{inner};
-  my @RQ = ();
+  my @Q   = $self->{inner};
+  my @RQ  = ();
+
+  my @out = ();
+
 
   while(@Q) {
 
@@ -1080,15 +1132,37 @@ sub on_inner_move($self,$new) {
     my $nd=shift @Q;
     unshift @Q,@{$nd->{leaves}};
 
-    # filter out pointers
-    unshift @RQ,$nd
-    if $ptrcls->is_valid($nd->{value});
+    # filter pointers from pathname
+    ($ptrcls->is_valid($nd->{value}))
+
+      # pointers get corrected
+      ? unshift @RQ,$nd
+
+      # save pathname to build image
+      : push @out,$self->inner_fakeseg($nd)
+      ;
 
   };
 
 
-  # ^walk pointers in reverse
-  for my $nd(@RQ) {
+  return \@RQ,@out;
+
+};
+
+# ---   *   ---   *   ---
+# moves pointers after a
+# flattening of the memory!
+
+sub migrate($self,$tab,@Q) {
+
+
+  # get ctx
+  my $walked = {};
+  my $frame  = $self->{frame};
+
+
+  # walk pointers in reverse
+  for my $nd(@Q) {
 
 
     # avoid repeats
@@ -1101,27 +1175,29 @@ sub on_inner_move($self,$new) {
 
 
     # get adjustment value
-    my $off=$nd->{vref};
+    my $vref=$nd->{vref};
 
     while(
 
-    !  defined $off
+    !  defined $vref
     && defined $nd->{parent}
 
     ) {
 
-      $nd  = $nd->{parent};
-      $off = $nd->{vref};
+      $nd   = $nd->{parent};
+      $vref = $nd->{vref};
 
     };
 
 
     # ignore if none found!
-    next if ! defined $off;
+    next if ! defined $vref;
+
+    my ($key,$off)=@$vref;
 
 
     # adjust base segment and address
-    $ptr->{segid}    = $new->{iced};
+    $ptr->{segid}    = $tab->{$key}->{iced};
     $ptr->{addr}    += $off;
 
     $walked->{$ptr}  = 1;
@@ -1130,15 +1206,98 @@ sub on_inner_move($self,$new) {
     # adjust ref segment?
     if(defined $ptr->{chan}) {
 
-      my $seg=$frame->ice($ptr->{chan});
-         $seg=$seg->{root};
 
-      $ptr->{chan}=$self->{iced}
-      if $seg->{root} eq $new;
+      # get segment and type
+      my $seg=$frame->ice($ptr->{chan});
+         $key=$seg->flagkey;
+
+      # ^points to root?
+      my $dst   = ($key ne 'non')
+        ? $self->haslv($key)
+        : $self
+        ;
+
+
+      $ptr->{chan}=$dst->{iced};
 
     };
 
   };
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# gives the illusion of segmented
+# memory on a flat model by
+# handing you named slices
+
+sub inner_fakeseg($self,$nd) {
+
+
+  # skip invalid
+  return () if ! defined $nd->{vref};
+
+
+  # else give descriptor
+  # slice will be generated later!
+
+  my $mem=$nd->{mem};
+
+  return {
+
+    type => $nd->{vref}->[0],
+    path => [$nd->ances_list],
+
+    addr => $nd->{vref}->[1],
+    size => $mem->{size},
+
+    seg  => $mem,
+
+  };
+
+
+};
+
+# ---   *   ---   *   ---
+# ^trick the namespace into
+# thinking it's still segmented
+
+sub mount($self,@image) {
+
+  map {
+
+    my $src   = $ARG;
+    my $nroot = $src->{type} ne $self->{value};
+
+    my $dst   = ($nroot)
+      ? $self->haslv($src->{type})
+      : $self
+      ;
+
+    my @path = @{$src->{path}};
+    my $out  = $dst->view(
+      $src->{addr},
+      $src->{size},
+
+      join '::',@path
+
+    );
+
+    unshift @path,$dst->{value}
+    if $nroot;
+
+
+    $self->{inner}->force_set($out,@path)
+    if ! $self->{inner}->haslv(@path);
+
+    $out->{mem}=$dst;
+    $src->{seg}->{route}=$dst;
+
+
+  } @image;
 
   return;
 

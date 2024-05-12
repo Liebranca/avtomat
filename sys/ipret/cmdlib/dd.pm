@@ -130,7 +130,8 @@ sub seg_type($self,$branch) {
   my $have = $mem->haslv($name);
 
   # ^making new, decl and set flags
-  $have=$mc->mkseg($type=>$name);
+  $have=$mc->mkseg($type=>$name)
+  if ! $have;
 
 
   # make current and give
@@ -255,7 +256,7 @@ sub data_decl($self,$branch) {
       # make reasm params
       push @$out,{
 
-        id   => $name,
+        id   => [$name],
 
         type => 'sym-decl',
         data => $value,

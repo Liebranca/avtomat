@@ -28,11 +28,10 @@ sub make($src,$out='a.out'){
   my $main=ipret($src,limit=>2);
 
   $main->to_obj();
-  exit;
 
-  Vault::image $out => $main;
+#  Vault::image $out => $main;
 
-  return $out;
+  return $main;
 
 };
 
@@ -44,11 +43,7 @@ sub load($src) {Vault::mount $src};
 # ---   *   ---   *   ---
 # run and dbout
 
-my $main=load make './lps/test.pe';
-say $main->{tree};
-say $main->{tree}->{-uid};
-
-exit;
+my $main=make './lps/test.pe';
 
 $main->run();
 $main->prich(
