@@ -43,7 +43,7 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.9;#a
+  our $VERSION = v0.02.0;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -216,7 +216,7 @@ sub view($self,$addr,$len,$label=undef) {
   # get ctx
   my $class = ref $self;
   my $ice   = bless {%$self},$class;
-  my $buf   = $ice->{buf};
+  my $buf   = $self->{buf};
 
   # ^validate
   return null
@@ -228,15 +228,16 @@ sub view($self,$addr,$len,$label=undef) {
   $ice->{value} .= "[$label]";
 
 
-  # setattrs and give
+  # setattrs
   $ice->{buf}    = \substr $$buf,$addr,$len;
   $ice->{size}   = $len;
+  $ice->{root}   = $self;
 
   $ice->{__view} = [$self,$addr];
-  $ice->{absloc} = $self->absloc() + $addr;
 
+
+  # register instance and give
   $self->{frame}->icemake($ice);
-
   return $ice;
 
 };
@@ -247,6 +248,41 @@ sub view($self,$addr,$len,$label=undef) {
 sub get_addr($self) {
   my $view=$self->{__view};
   return (! $view) ? ($self,0) : @$view ;
+
+};
+
+# ---   *   ---   *   ---
+# set view back to top of
+# referenced segment
+
+sub reset_view_addr($self) {
+
+  my $view = $self->{__view};
+  my $base = $view->[0];
+
+  $self->{size} = 0x00;
+  $view->[1]    = $base->{ptr};
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^adjust pointed buffer!
+
+sub update_view_buf($self,$brk) {
+
+  my ($base,$addr)=
+    @{$self->{__view}};
+
+  my $buf=$base->{buf};
+
+
+  $self->{size} += $brk;
+  $self->{buf}   = \substr $$buf,
+    $addr,$self->{size};
+
+  return;
 
 };
 
@@ -332,7 +368,6 @@ sub brk($self,$step) {
   $ptr  = $ptr * ($size > $ptr);
 
   # overwrite and give new size
-  $self->{buf}    = $buf;
   $self->{ptr}    = $ptr;
   $self->{size}   = $size;
 
@@ -886,6 +921,17 @@ sub absloc($self) {
   &&! $self->{__absloc_recalc};
 
 
+  # node is a slice ref, it does not
+  # count towards total!
+  if($old->{__view}) {
+    my ($base,$off)=@{$old->{__view}};
+    $old->{absloc}=$base->absloc+$off;
+
+    return $old->{absloc};
+
+  };
+
+
   # recursive hierarchy walk!
   my $mc   = $self->getmc();
   my $addr = ($self->{as})
@@ -899,16 +945,8 @@ sub absloc($self) {
 
     my $nd = shift @Q;
 
-
-    # node is a slice ref, it does not
-    # count towards total!
-    if($nd->{__view}) {
-      my ($base,$off)=@{$nd->{__view}};
-      $nd->{absloc}=$base->{absloc}+$off;
-
-
     # virtual memory doesn't count!
-    } elsif($nd->{virtual}) {
+    if($nd->{virtual}) {
       $nd->{absloc}=0x00;
 
     # sizes of all previous equals
@@ -931,6 +969,18 @@ sub absloc($self) {
 
 
   return $old->{absloc};
+
+};
+
+# ---   *   ---   *   ---
+# ^force recalc
+
+sub update_absloc($self) {
+
+  my $root=$self->{root};
+  $root->{__absloc_recalc}=1;
+
+  return $self->absloc;
 
 };
 
@@ -1087,9 +1137,7 @@ sub merge($self,@seg) {
     $seg->{value} = $ARG;
     $seg->{as}    = undef;
 
-    $root->{__absloc_recalc}=1;
-
-    $seg->absloc();
+    $seg->update_absloc();
 
 
   } grep {
@@ -1267,6 +1315,7 @@ sub inner_fakeseg($self,$nd) {
 
 sub mount($self,@image) {
 
+
   map {
 
     my $src   = $ARG;
@@ -1294,7 +1343,7 @@ sub mount($self,@image) {
     if ! $self->{inner}->haslv(@path);
 
     $out->{mem}=$dst;
-    $src->{seg}->{route}=$dst;
+    $src->{seg}->{route}=$out;
 
 
   } @image;
@@ -1421,12 +1470,12 @@ sub prich($self,%O) {
   $O{outer} //= 1;
   $O{root}  //= 0;
   $O{loc}   //= 0;
+  $O{locsz} //= 0;
+
+  $O{head}  //= 1;
 
   # I/O defaults
   my $out=ioprocin(\%O);
-
-  # ^omit buff header
-  $O{head}=0;
 
 
   # depth reset
@@ -1451,19 +1500,31 @@ sub prich($self,%O) {
     };
 
 
-    my $loc=($O{loc})
-      ? sprintf "%04X ",$nd->absloc()
+    # show location/location && size?
+    my $loc=($O{locsz} || $O{loc})
+
+      ? ($O{locsz})
+
+        ? sprintf "[%04X-%04X] ",
+            $nd->absloc,$nd->{size}
+
+        : sprintf "[%04X] ",$nd->absloc
+
       : null
+
       ;
 
+
     # put header?
-    $O{head} = $nd->{value} eq 'ANON';
+    my $head=
+       $O{head}
+    && $nd->{value} ne 'ANON';
 
     push @$out,"$loc$nd->{value}:\n"
-    if ! $O{head};
+    if $head;
 
     # ^put hexdump
-    xd ${$nd->{buf}},%O,mute=>1;
+    xd ${$nd->{buf}},%O,head=>0,mute=>1;
 
 
     # recurse branch until limit

@@ -37,7 +37,7 @@ package ipret::encoder;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -401,7 +401,7 @@ sub exewrite_order($self,$uid,@req) {
 
   # add request at idex
   my $Q=$self->{Q}->{asm};
-  $Q->[$uid]=[$seg,@req];
+  $Q->[$uid]=[$seg,undef,@req];
 
   return;
 
@@ -462,19 +462,27 @@ sub exewrite_run($self) {
 
 
     # unpack
-    my ($seg,@req)=@$ARG;
+    my ($seg,$route,@req)=@$ARG;
 
 
     # reset addr on first step
-    $seg->clear()
-    if ! exists $walked->{$seg};
+    if(! exists $walked->{$seg}) {
+      $seg->clear();
+      $walked->{$seg}=$seg;
 
-    # remember we stepped on this segment ;>
-    $walked->{$seg}=$seg;
+    };
 
-    # ^write to top
+
+    # update reference
+    if($route &&! exists $walked->{$route}) {
+      $route->reset_view_addr();
+      $walked->{$route}=$route;
+
+    };
+
+
+    # write to top ;>
     my $addr=$seg->{ptr};
-
 
     # make segment current and run F
     ($mc->{cas})=$seg->{root};
@@ -492,6 +500,11 @@ sub exewrite_run($self) {
       );
 
     } @req;
+
+
+    # adjust referenced buffer
+    $route->update_view_buf($size)
+    if $route;
 
 
     # ^assoc opcode size to request sender!
@@ -549,6 +562,9 @@ sub exewrite_run($self) {
 
     $ARG->tighten($align);
     $ARG->{ptr}=0;
+
+  } grep {
+    ! defined $ARG->{__view}
 
   } values %$walked;
 

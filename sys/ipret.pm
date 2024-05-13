@@ -240,8 +240,11 @@ sub to_obj($self) {
 
   # redirect encoder
   map {
+
     my $seg   = $ARG->[0];
+
     $ARG->[0] = $seg->{vref};
+    $ARG->[1] = $seg->{route};
 
   } grep {defined $ARG} @$Q;
 
@@ -249,8 +252,6 @@ sub to_obj($self) {
   # re-assemble!
   $self->{stage}--;
   $self->assemble();
-
-  $root->prich(root=>1,depth=>2);
 
   return;
 

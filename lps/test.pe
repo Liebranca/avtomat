@@ -9,7 +9,7 @@ clan T0;
 exe  A;
 blk  start;
 
-  call T1::B::here2;
+  call T1::B;
 
   ld   br,$25;
   exit 1;
