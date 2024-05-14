@@ -26,11 +26,9 @@ package main;
 sub make($src,$out='a.out'){
 
   my $main=ipret($src,limit=>2);
-
-  $main->to_obj();
-
 #  Vault::image $out => $main;
 
+  $main->to_obj();
   return $main;
 
 };

@@ -32,6 +32,7 @@ package ipret;
   use Bpack;
   use Ring;
   use Vault;
+  use Cask;
   use id;
 
   use Arstd::IO;
@@ -43,7 +44,7 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#a
+  our $VERSION = v0.01.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -141,7 +142,10 @@ sub crux($src,%O) {
   );
 
 
+  # make binary
+  $self->flatten();
   $self->assemble();
+
   return $self;
 
 };
@@ -152,6 +156,34 @@ sub crux($src,%O) {
 sub cpos($self) {
   my $mc=$self->{mc};
   return $mc->{segtop}->{ptr};
+
+};
+
+# ---   *   ---   *   ---
+# join memory segments by type
+
+sub flatten($self) {
+
+
+  # get ctx
+  my $enc = $self->{encoder};
+  my $Q   = $enc->{Q}->{asm};
+
+
+  # transform to flat memory model
+  my $root=$self->{mc}->memflat();
+
+  # redirect encoder
+  map {
+
+    my $seg   = $ARG->[0];
+
+    $ARG->[0] = $seg->{vref};
+    $ARG->[1] = $seg->{route};
+
+  } grep {defined $ARG} @$Q;
+
+  return;
 
 };
 
@@ -172,37 +204,36 @@ sub assemble($self) {
      $limit = $limit->{$stage};
 
 
-  # walk the tree
-  my $prev={};
+  # F state
+  my $prev=[];
 
+  # assemble and reassemble until
+  # the code can't be made smaller!
   while($limit--) {
 
-    my @tab=$enc->exewrite_run();
-    my $inc=0;
+    my @tab = $enc->exewrite_run();
+    my $inc = 0;
 
 
-    # walk nodes
+    # compare result to previous pass!
     map {
 
 
-      # get current/previous addr of node
-      my $vref = $ARG->{vref};
-      my $have = $prev->{$ARG->{-uid}} //= [];
+      # get current/previous
+      my $new = $tab[$ARG];
+      my $old = $prev->[$ARG];
 
       # did it move?
       $inc |= int(
-
-         defined $have->[-1]
-      && $have->[-1] != $vref->{addr}
+         $new->{size} != $old->{size}
+      || $new->{addr} != $old->{addr}
 
       );
 
 
-      # record current
-      push @$have,$vref->{addr};
+    } 0..@$prev-1;
 
-
-    } @tab;
+    $prev=\@tab;
 
 
     # if we detected a change in the addresses,
@@ -225,33 +256,53 @@ sub assemble($self) {
 };
 
 # ---   *   ---   *   ---
-# stores program as linkable
+# makes linkable file
 
 sub to_obj($self) {
 
 
   # get ctx
-  my $enc = $self->{encoder};
-  my $Q   = $enc->{Q}->{asm};
+  my $mc   = $self->{mc};
+  my $enc  = $self->{encoder};
+  my $Q    = $enc->{Q}->{asm};
+
+  # find memory root
+  my $root = $mc->{astab_i}->[0];
+     $root = $mc->{astab}->{$root};
 
 
-  # transform to flat memory model
-  my $root=$self->{mc}->memflat();
+  # collect all segments
+  my $tab = Cask->new();
+  my $id  = 0x00;
 
-  # redirect encoder
+  # walk the re-assembly queue
   map {
 
+    # unpack
     my $seg   = $ARG->[0];
+    my $route = $ARG->[1];
 
-    $ARG->[0] = $seg->{vref};
-    $ARG->[1] = $seg->{route};
+    # base segment registered?
+    my $have=$tab->cgive($seg);
+
+    if(defined $have) {
+      say "REG $seg->{value}";
+
+    } else {
+      say "HAV $seg->{value}";
+
+    };
+
+    # using reference to segment?
+    if(defined $route) {
+
+      # reference registered?
+      $have=$tab->cgive($route);
+
+    };
+
 
   } grep {defined $ARG} @$Q;
-
-
-  # re-assemble!
-  $self->{stage}--;
-  $self->assemble();
 
   return;
 

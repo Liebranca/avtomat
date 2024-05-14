@@ -452,13 +452,9 @@ sub exewrite_run($self) {
 
   # walk requests!
   my $Q      = $self->{Q}->{asm};
-
-  my $idex   = 0;
-  my $table  = {};
-
   my $walked = {};
 
-  map {
+  my @out=map {
 
 
     # unpack
@@ -507,15 +503,8 @@ sub exewrite_run($self) {
     if $route;
 
 
-    # ^assoc opcode size to request sender!
-    my $uid=$table->{$ARG};
-    delete $table->{$ARG};
-
-    $table->{$uid}={
-
-      uid  => $uid,
-
-      size => $size,
+    # give instruction loc && len
+    { size => $size,
       addr => $addr,
 
     };
@@ -523,36 +512,7 @@ sub exewrite_run($self) {
 
   # take note of tree nodes that made
   # these requests!
-  } grep {
-
-    my $valid=defined $ARG;
-    $table->{$ARG}=$idex if $valid;
-
-    $idex++;
-    $valid;
-
-  } @$Q;
-
-
-  # ^we can find the nodes easily
-  # as the request id *is* the node id!
-  my @out=$main->{tree}->find_uid(
-    keys %$table
-
-  );
-
-
-  # inform node of instruction address and size!
-  map {
-
-    my $nd   = $ARG;
-    my $uid  = $ARG->{-uid};
-    my $vref = $nd->{vref};
-
-    $vref->{addr}=$table->{$uid}->{addr};
-    $vref->{size}=$table->{$uid}->{size};
-
-  } @out;
+  } grep {defined $ARG} @$Q;
 
 
   # align walked segments and reset

@@ -43,7 +43,7 @@ package Cask;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v1.00.5;
+  our $VERSION=v1.00.6;
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -131,6 +131,21 @@ sub give($self,$value) {
 
 
   return $avail;
+
+};
+
+# ---   *   ---   *   ---
+# give if value missing
+# else do nothing ;>
+
+sub cgive($self,$value) {
+
+  my $have=defined $self->view($value);
+
+  return (! $have)
+    ? $self->give($value)
+    : undef
+    ;
 
 };
 
