@@ -41,7 +41,6 @@ package Vault;
 
   use Tree;
   use Queue;
-  use Mint;
   use Fmat;
 
   use Shb7;
@@ -49,7 +48,7 @@ package Vault;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.9;#b
+  our $VERSION=v0.01.0;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -476,90 +475,6 @@ sub cashof($file) {
 
 sub cashreg($path,$h) {
   $Cache_Regen->{$path}=$h;
-
-};
-
-# ---   *   ---   *   ---
-# applies processing to object
-# before storing it
-
-sub image($path,$obj,$fn=undef) {
-
-  Mint->proc($obj,$fn) if defined $fn;
-  Mint->proc($obj,\&codefreeze);
-
-  store  $obj,$path;
-  return $path;
-
-};
-
-# ---   *   ---   *   ---
-# ^undo
-
-sub mount($path,$fn=undef) {
-
-  my $obj=retrieve $path;
-
-  Mint->proc($obj,\&codethaw);
-  Mint->proc($obj,$fn) if defined $fn;
-
-  return $obj;
-
-};
-
-# ---   *   ---   *   ---
-# freeze code references in
-# object to store it
-#
-# * named coderef to name
-# * anon to source
-
-sub codefreeze($fn) {
-
-  return $fn if ! is_coderef $fn;
-
-  my $name='\&' . codename $fn,1;
-
-  return ($name=~ qr{__ANON__$})
-
-    ? '\X' . $name . '$;'
-    . $St::Deparse->coderef2text($fn)
-
-    : $name
-    ;
-
-};
-
-# ---   *   ---   *   ---
-# ^undo
-
-sub codethaw($fn) {
-
-  state $re=qr{^(\\&|\\X)};
-
-  return if ! defined $fn;
-  return $fn if ! ($fn=~ s[$re][]);
-
-  my $type=$1;
-
-  if($type eq '\&') {
-    return \&$fn;
-
-  } else {
-
-    my ($name,$body)=split '\$;',$fn;
-    my $wf=eval "sub $body";
-
-    if(! defined $wf) {
-
-      say "BAD CODEREF\n\n","sub $name $body";
-      exit -1;
-
-    };
-
-    return $wf;
-
-  };
 
 };
 

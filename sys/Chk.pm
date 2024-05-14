@@ -233,14 +233,16 @@ sub __isa_search(@names) {
 
 sub is_filepath($fpath) {
 
-  return
+  my $have=(
 
   !   ($fpath=~ $NEWLINE_RE)
 
   &&  (256 > length $fpath)
   &&  (-f $fpath)
 
-  ;
+  );
+
+  return int(defined $have && $have);
 
 };
 

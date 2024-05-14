@@ -14,7 +14,7 @@ package main;
   use Style;
 
   use ipret;
-  use Vault;
+  use Mint qw(image mount);
 
   use Fmat;
   use Arstd::xd;
@@ -26,16 +26,14 @@ package main;
 sub make($src,$out='a.out'){
 
   my $main=ipret($src,limit=>2);
-  Vault::image $out => $main;
-
-  return $out;
+  return image $out => $main;
 
 };
 
 # ---   *   ---   *   ---
 # ^retrieve
 
-sub load($src) {Vault::mount $src};
+sub load($src) {mount $src};
 
 # ---   *   ---   *   ---
 # run and dbout
