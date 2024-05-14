@@ -1460,6 +1460,25 @@ sub cstr_len($self,$addr=0) {
 };
 
 # ---   *   ---   *   ---
+# encode to file
+
+sub mint($self,$status) {
+
+  $self->prich(root=>1,depth=>2);
+  exit;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($self,$status) {
+
+};
+
+# ---   *   ---   *   ---
 # dbout
 
 sub prich($self,%O) {

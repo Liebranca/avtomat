@@ -43,8 +43,8 @@ package Cask;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v1.00.6;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = v1.00.7;
+  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
@@ -53,8 +53,6 @@ package Cask;
 
   Readonly our $FIRST_VALUE => [0xCA547A4E];
   Readonly our $FIRST_AVAIL => [0xCA5461BE];
-
-  Readonly our $IDEX_RE     => qr{^[\d]+$};
 
 # ---   *   ---   *   ---
 # cstruc
@@ -140,11 +138,11 @@ sub give($self,$value) {
 
 sub cgive($self,$value) {
 
-  my $have=defined $self->view($value);
+  my $idex=$self->iof($value);
 
-  return (! $have)
-    ? $self->give($value)
-    : undef
+  return (! defined $idex)
+    ? (0,$self->give($value))
+    : (1,$idex)
     ;
 
 };
@@ -155,7 +153,7 @@ sub cgive($self,$value) {
 sub iof($self,$lkup=$FIRST_AVAIL) {
 
   my $out=undef;
-  return $lkup if ! defined $lkup;
+  return $out if ! defined $lkup;
 
 
   # get idex of non-deleted slot
@@ -167,14 +165,22 @@ sub iof($self,$lkup=$FIRST_AVAIL) {
     $out=$self->first_avail();
 
 
-  # ^get by value
-  } elsif(! ($lkup=~ $IDEX_RE)) {
-    my %h=reverse @$self;
-    $out=$h{$lkup};
-
-  # ^numerical idex as-is
+  # ^get by value or numerical idex
   } else {
-    $out=$lkup;
+
+    my %h=map {
+      (! defined $ARG) ? 'undef' : $ARG ;
+
+    } reverse @$self;
+
+    $out=(! ($lkup=~ $NUM_RE))
+
+      ? $h{$lkup}
+
+      : (defined $self->[$lkup << 1])
+        ? $lkup : undef
+
+      ;
 
   };
 

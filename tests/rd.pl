@@ -26,7 +26,7 @@ package main;
 sub make($src,$out='a.out'){
 
   my $main=ipret($src,limit=>2);
-  return image $out => $main;
+  return $main->to_obj($out);
 
 };
 
@@ -38,18 +38,18 @@ sub load($src) {mount $src};
 # ---   *   ---   *   ---
 # run and dbout
 
-my $main=load make './lps/test.pe';
+my $main=make './lps/test.pe';
 
 #$main->run();
-$main->prich(
-
-  anima => 1,
-  stack => 0,
-
-  mem   => 'outer',
-  tree  => 0,
-
-);
+#$main->prich(
+#
+#  anima => 1,
+#  stack => 0,
+#
+#  mem   => 'outer',
+#  tree  => 0,
+#
+#);
 
 # ---   *   ---   *   ---
 1; # ret

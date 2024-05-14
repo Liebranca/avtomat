@@ -31,7 +31,7 @@ package ipret;
   use Type;
   use Bpack;
   use Ring;
-  use Vault;
+  use Mint qw(image mount);
   use Cask;
   use id;
 
@@ -44,7 +44,7 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.3;#a
+  our $VERSION = v0.01.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -258,51 +258,12 @@ sub assemble($self) {
 # ---   *   ---   *   ---
 # makes linkable file
 
-sub to_obj($self) {
+sub to_obj($self,$path='a.out') {
 
+  delete $self->{cmdlib};
+  delete $self->{syntax};
 
-  # get ctx
-  my $mc   = $self->{mc};
-  my $enc  = $self->{encoder};
-  my $Q    = $enc->{Q}->{asm};
-
-  # find memory root
-  my $root = $mc->{astab_i}->[0];
-     $root = $mc->{astab}->{$root};
-
-
-  # collect all segments
-  my $segtab=Cask->new();
-
-  # walk the re-assembly queue
-  map {
-
-    # unpack
-    my $seg   = $ARG->[0];
-    my $route = $ARG->[1];
-
-
-    # base segment registered?
-    my $id=$segtab->cgive($seg);
-
-    if(defined $id) {
-      $ARG->[0]=[ref $seg,$id]
-
-    };
-
-
-    # using reference to segment?
-    if(defined $route) {
-
-      # reference registered?
-      $id=$segtab->cgive($route);
-
-    };
-
-
-  } grep {defined $ARG} @$Q;
-
-  return;
+  return image 'a.out' => $self;
 
 };
 

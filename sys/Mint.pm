@@ -26,7 +26,10 @@ package Mint;
 
   use Style;
   use Chk;
+  use Cask;
   use Fmat;
+
+  use Arstd::Array;
 
   use parent 'St';
 
@@ -39,7 +42,7 @@ package Mint;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;#a
+  our $VERSION=v0.00.3;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -47,18 +50,14 @@ package Mint;
 
 St::vconst {
 
-  # expr for fetching reference type
-  ref_t => qr{^
-
-    [^=]* (?: \=?
-      (HASH|ARRAY|CODE)
-
-    )
-
-  }x,
+  # expr for fetching *expandable* reference type
+  ref_t   => qr{^[^=]* (?: \=? (HASH|ARRAY))}x,
 
   # expr for spotting frozen coderefs
-  sub_re => qr{^(\\&|\\X)},
+  sub_re  => qr{^(\\&|\\X)},
+
+  # sequence terminator dummy
+  EOS => sub {St::cpkg . '-EOS'},
 
 };
 
@@ -154,6 +153,16 @@ sub new($class,$src,%O) {
     args   => $O{args},
 
     obj    => $obj,
+    mode   => ($mode) ? 'unmint' : 'mint' ,
+
+    head   => undef,
+    path   => [],
+    out    => {},
+
+    hist   => [],
+    data   => undef,
+
+    uid    => 0,
 
   },$class;
 
@@ -162,109 +171,171 @@ sub new($class,$src,%O) {
 };
 
 # ---   *   ---   *   ---
-# consume value from Q
+# decide if value must be expanded
 
-sub get_next($self) {
-
-
-  # get ctx
-  my $Q      = $self->{Q};
-  my $walked = $self->{walked};
-
-  return undef if ! int @$Q;
+sub register($self,$key,$vref) {
 
 
-  # skip repeated
-  rept: my $vref = shift @$Q;
+  # get value present in cache
+  my $data         = $self->{data};
+  my ($have,$idex) = $data->cgive($vref);
 
-  goto rept if ! defined $vref
-            ||   exists  $walked->{$vref};
+  # add descriptor to history
+  my $path=$self->{path};
+  push @$path,$key;
+
+  my $out={
+
+    type => $self->get_type($vref),
+
+    path => [@$path],
+    idex => $idex,
+
+    vref => $vref,
+
+  };
+
+  push @{$self->{hist}},$out;
 
 
-  # ^add first to table and give
-  $walked->{$vref}=1;
-
-  return $vref;
+  # inform caller if we have a new value!
+  return (! $have) ? $out : undef ;
 
 };
 
 # ---   *   ---   *   ---
-# ^inspect value
+# consume value from Q
+
+sub get_next($self) {
+
+  # get ctx
+  my $Q=$self->{Q};
+
+  # consume until value found
+  my ($vref,$key);
+
+  ($key,$vref)=(shift @$Q,shift @$Q)
+  while @$Q >= 2 &&! defined $vref;
+
+  # give non-null if expansion required
+  return $self->register($key=>$vref);
+
+};
+
+# ---   *   ---   *   ---
+# obtain encoding data about
+# this value
+
+sub get_type($self,$vref) {
+
+
+  # get ctx
+  my $mode   = $self->{mode};
+  my $refn   = ref $vref;
+
+  my ($type) = $vref =~ $self->ref_t;
+
+
+  # reference can encode itself?
+  my $blessed = is_blessref $vref;
+  my $novex   = (
+      ($blessed && $refn->can($mode))
+  ||! defined $type
+
+  );
+
+
+  # ^inform caller!
+  return ($novex) ? $refn : $type ;
+
+};
+
+# ---   *   ---   *   ---
+# inspect value
 #
 # if it contains other values,
 # expand it and pass them through an F
 #
 # returns the processed values!
 
-sub vex($self) {
+sub proc_elem($self) {
 
 
   # find or stop
-  my $vref=$self->get_next();
-  return () if ! defined $vref;
+  my $head=$self->get_next();
+  return $self->EOS if ! defined $head;
 
 
   # get ctx
-  my $walked = $self->{walked};
-  my $fn     = $self->{fn};
-  my $args   = $self->{args};
+  my $mode = $self->{mode};
+  my $type = $head->{type};
+
+  $self->{head} = $head;
 
 
-  # get reference type
-  my @have   = ();
-  my $refn   = ref $vref;
-
-  my ($type) = $vref =~ $self->ref_t;
-
-  return () if ! defined $type;
+  # have minting method?
+  my @have=(length $type && $type->can($mode))
+    ? $head->{vref}->$mode($self)
+    : $self->vex()
+    ;
 
 
-  # have hash?
-  if($type eq 'HASH') {
+  # give recurse path plus end marker
+  return @have,$self->EOS;
+
+};
+
+# ---   *   ---   *   ---
+# apply F to each value
+# then give result
+
+sub vex($self) {
 
 
-    # apply F to each value
-    # then give result
-    @have=map  {
+  # get ctx
+  my $head = $self->{head};
+  my $data = $self->{data};
+  my $vref = $head->{vref};
+  my $fn   = $self->{fn};
+  my $args = $self->{args};
 
-      $vref->{$ARG}=$fn->(
-        $self,$vref->{$ARG},@$args
-
-      );
-
-      $vref->{$ARG};
-
-
-    # ^filter out null and repeats
-    } grep {
-        defined $vref->{$ARG}
-    &&! exists  $walked->{$vref->{$ARG}}
-
-    } keys %$vref;
+  # map array to hash?
+  my $type = $head->{type};
+  my $src  = ($type eq 'ARRAY')
+    ? array_key_idex $vref,1
+    : $vref
+    ;
 
 
-  # have array? same logic ;>
-  } elsif($type eq 'ARRAY') {
+  # skip if value needs no expansion!
+  return ()
 
-    @have=map {
-
-      $vref->[$ARG]=$fn->(
-        $self,$vref->[$ARG],@$args
-
-      );
-
-      $vref->[$ARG];
-
-    } grep {
-        defined $vref->[$ARG]
-    &&! exists  $walked->{$vref->[$ARG]}
-
-    } 0..@$vref-1;
-
-  };
+  if (! is_hashref $src)
+  && (defined $type && $type ne 'HASH');
 
 
-  return grep {defined $ARG} @have;
+  # walk struc and give
+  my @have=map {
+
+
+    # filter out null and repeats
+    my $defd=defined $src->{$ARG};
+    my $have=($defd)
+      ? $data->view($src->{$ARG})
+      : undef
+      ;
+
+    # apply F to new && non-null
+    my $value=($defd &&! defined $have)
+      ? $fn->($self,$src->{$ARG},@$args)
+      : $have
+      ;
+
+    $ARG=>$value;
+
+  } keys %$src;
+
+  return @have;
 
 };
 
@@ -273,13 +344,44 @@ sub vex($self) {
 
 sub proc($self) {
 
-  # reset ctx
-  $self->{Q}      = [$self->{obj}];
-  $self->{walked} = {};
 
-  # walk structure
-  my $Q=$self->{Q};
-  while(@$Q) {push @$Q,$self->vex};
+  # reset ctx
+  $self->{Q}    = [null=>$self->{obj}];
+  $self->{data} = Cask->new();
+
+  $self->{path} = [];
+  $self->{hist} = [];
+
+  # ^shorthands
+  my $Q    = $self->{Q};
+  my $path = $self->{path};
+
+
+  # walk
+  while(@$Q) {
+
+
+    # handle path change
+    if($Q->[0] && $Q->[0] eq $self->EOS) {
+
+      pop   @$path;
+      shift @$Q;
+
+      next;
+
+    };
+
+
+    # expand next element
+    unshift @$Q,$self->proc_elem;
+
+  };
+
+  use Fmat;
+  fatdump \$self->{hist};
+
+  say 'STOP';
+  exit;
 
   return $self->{obj};
 

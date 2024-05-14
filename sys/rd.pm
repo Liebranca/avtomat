@@ -147,15 +147,6 @@ sub new($class,$src,%O) {
     # parse tree root
     tree => undef,
 
-
-    # current l0/l1/l2 value
-    char   => $NULLSTR,
-    token  => $NULLSTR,
-    branch => undef,
-
-    # nesting within current branch
-    nest => [],
-
     # a glorified source filter ;>
     preproc => undef,
 

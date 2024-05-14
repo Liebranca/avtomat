@@ -224,9 +224,15 @@ sub insert($ar,$pos,@ins) {
 # ---   *   ---   *   ---
 # makes {key=>idex} from [keys]
 
-sub key_idex($ar) {
-  my $i=0;
-  return {map {$ARG=>$i++} @$ar};
+sub key_idex($ar,$rev=0) {
+
+  my @have=map {
+    $ar->[$ARG]=>$ARG
+
+  } 0..@$ar-1;
+
+  @have=reverse @have if $rev;
+  return {@have};
 
 };
 

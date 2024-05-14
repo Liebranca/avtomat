@@ -21,6 +21,8 @@ package Chk;
 
   use Readonly;
 
+  use Scalar::Util qw(blessed);
+
   use lib $ENV{'ARPATH'}.'/lib/sys/';
   use Style;
 
@@ -79,21 +81,7 @@ package Chk;
 
   }x;
 
-  Readonly our $BLESSREF_RE=>qr{
-
-    (?: [_\w][_\w\d:])+
-
-    =
-
-    [\s\S]*
-
-    \(0x[0-9a-f]+\)$
-
-  }x;
-
-  Readonly our $QRE_RE=>qr{\(\?\^u(?:[xsmg]*):}x;
   Readonly our $STRIPLINE_RE=>qr{\s+|:__NL__:}x;
-
   Readonly our $CODENAME_RE=>qr{
     ^ (?<codename> [_\w:][_\w:\d]+) $
 
@@ -118,7 +106,7 @@ sub is_hashref ($v) {
 };
 
 sub is_blessref ($v) {
-  length ref $v && ($v=~ $Chk::BLESSREF_RE);
+  defined $v && defined blessed $v;
 
 };
 
@@ -128,7 +116,7 @@ sub is_coderef ($v) {
 };
 
 sub is_qre ($v) {
-  defined $v && ($v=~ $Chk::QRE_RE);
+  defined $v && 'Regexp' eq ref $v;
 
 };
 
