@@ -41,6 +41,7 @@ package Vault;
 
   use Tree;
   use Queue;
+  use Mint;
   use Fmat;
 
   use Shb7;
@@ -48,22 +49,11 @@ package Vault;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.8;#b
+  our $VERSION=v0.00.9;#b
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
-
-  my Readonly $DAFSIG=pack 'C'x16,
-    0x24,0x24,0x24,0x24,
-    0xDE,0xAD,0xBE,0xA7,
-    0x24,0x24,0x24,0x24,
-    0x71,0xEB,0xDA,0xF0
-
-  ;
-
-  my Readonly $DAF_ISIZE=['L'=>4];
-  my Readonly $DAF_EXT='.daf';
 
   my Readonly $PX_EXT='.px';
 
@@ -490,144 +480,39 @@ sub cashreg($path,$h) {
 };
 
 # ---   *   ---   *   ---
-# freeze code references in
-# object to store it
+# applies processing to object
+# before storing it
 
-sub image($path,$obj) {
+sub image($path,$obj,$fn=undef) {
 
-  my $walked = {};
-  my @Q      = ($obj);
+  Mint->proc($obj,$fn) if defined $fn;
+  Mint->proc($obj,\&codefreeze);
 
-  while(@Q) {
-
-    my $vref=shift @Q;
-
-    next if ! defined $vref
-         ||   exists $walked->{$vref};
-
-    $walked->{$vref}=1;
-
-
-    # get reference type
-    my @have   = ();
-    my $refn   = ref $vref;
-
-    my ($type) = $vref =~ qr{^
-
-      [^=]* (?: \=?
-        (HASH|ARRAY|CODE)
-
-      )
-
-    }x;
-
-    next if ! defined $type;
-
-
-    # have hash?
-    if($type eq 'HASH') {
-
-      @have=map  {
-        $vref->{$ARG}=codefreeze($vref->{$ARG});
-        $vref->{$ARG};
-
-      } keys %$vref;
-
-
-    # have array?
-    } elsif($type eq 'ARRAY') {
-
-      @have=
-
-      map {
-        $vref->[$ARG]=codefreeze($vref->[$ARG]);
-        $vref->[$ARG];
-
-      } 0..@$vref-1;
-
-    };
-
-
-    push @Q,grep {! is_coderef $ARG} @have;
-
-  };
-
-
-  store $obj,$path;
-  return;
+  store  $obj,$path;
+  return $path;
 
 };
 
 # ---   *   ---   *   ---
 # ^undo
 
-sub mount($path) {
+sub mount($path,$fn=undef) {
 
-  my $obj    = retrieve $path;
-  my @Q      = ($obj);
-  my $walked = {};
+  my $obj=retrieve $path;
 
-  while(@Q) {
-
-    my $vref=shift @Q;
-
-    next if ! defined $vref
-         ||   exists $walked->{$vref};
-
-    $walked->{$vref}=1;
-
-
-    # get reference type
-    my @have   = ();
-    my $refn   = ref $vref;
-
-    my ($type) = $vref =~ qr{^
-
-      [^=]* (?: \=?
-        (HASH|ARRAY)
-
-      )
-
-    }x;
-
-    next if ! defined $type;
-
-
-    # have hash?
-    if($type eq 'HASH') {
-
-      @have=map  {
-        $vref->{$ARG}=codethaw($vref->{$ARG});
-        $vref->{$ARG};
-
-      } keys %$vref;
-
-
-    # have array?
-    } elsif($type eq 'ARRAY') {
-
-      @have=
-
-      map {
-        $vref->[$ARG]=codethaw($vref->[$ARG]);
-        $vref->[$ARG];
-
-      } 0..@$vref-1;
-
-    };
-
-
-    push @Q,grep {! is_coderef $ARG} @have;
-
-  };
+  Mint->proc($obj,\&codethaw);
+  Mint->proc($obj,$fn) if defined $fn;
 
   return $obj;
 
 };
 
 # ---   *   ---   *   ---
-# named coderef to name
-# anon to source
+# freeze code references in
+# object to store it
+#
+# * named coderef to name
+# * anon to source
 
 sub codefreeze($fn) {
 

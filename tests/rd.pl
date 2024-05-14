@@ -26,10 +26,9 @@ package main;
 sub make($src,$out='a.out'){
 
   my $main=ipret($src,limit=>2);
-#  Vault::image $out => $main;
+  Vault::image $out => $main;
 
-  $main->to_obj();
-  return $main;
+  return $out;
 
 };
 
@@ -41,9 +40,9 @@ sub load($src) {Vault::mount $src};
 # ---   *   ---   *   ---
 # run and dbout
 
-my $main=make './lps/test.pe';
+my $main=load make './lps/test.pe';
 
-$main->run();
+#$main->run();
 $main->prich(
 
   anima => 1,

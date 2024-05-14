@@ -97,6 +97,7 @@ my $FILE_LIST=[
   '/sys/Shb7/Bk/fake.pm',
   '/sys/Shb7/Build.pm',
 
+  '/sys/Mint.pm',
   '/sys/Vault.pm',
   '/sys/Cli.pm',
   '/sys/Fmat.pm',

@@ -44,7 +44,7 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.2;#a
+  our $VERSION = v0.01.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -272,8 +272,7 @@ sub to_obj($self) {
 
 
   # collect all segments
-  my $tab = Cask->new();
-  my $id  = 0x00;
+  my $segtab=Cask->new();
 
   # walk the re-assembly queue
   map {
@@ -282,22 +281,21 @@ sub to_obj($self) {
     my $seg   = $ARG->[0];
     my $route = $ARG->[1];
 
+
     # base segment registered?
-    my $have=$tab->cgive($seg);
+    my $id=$segtab->cgive($seg);
 
-    if(defined $have) {
-      say "REG $seg->{value}";
-
-    } else {
-      say "HAV $seg->{value}";
+    if(defined $id) {
+      $ARG->[0]=[ref $seg,$id]
 
     };
+
 
     # using reference to segment?
     if(defined $route) {
 
       # reference registered?
-      $have=$tab->cgive($route);
+      $id=$segtab->cgive($route);
 
     };
 
