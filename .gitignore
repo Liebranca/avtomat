@@ -5,7 +5,9 @@ ex_sygen
 nytprof*
 .errlog
 *.save
-a.out
+*.out
+*.out.*
+
 
 # tmp test
 scratch*

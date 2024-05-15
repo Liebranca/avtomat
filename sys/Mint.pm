@@ -36,7 +36,7 @@ package Mint;
 
   use Arstd::Array;
   use Arstd::Bytes;
-  use Arstd::Int;
+  use Arstd::IO;
 
   use parent 'St';
 
@@ -49,7 +49,7 @@ package Mint;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.4;#a
+  our $VERSION=v0.00.5;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -93,14 +93,13 @@ St::vconst {
 # ---   *   ---   *   ---
 # get type of value passed
 
-sub get_input($src) {
+sub get_input($class,$src) {
 
   return (
 
-     is_filepath($src)
-  && file_magic($src)
+     is_filepath("$src.gz")
 
-  ) ? (1,retrieve $src) : (0,$src) ;
+  ) ? (1,$class->from_bin($src)) : (0,$src) ;
 
 };
 
@@ -162,7 +161,7 @@ sub new($class,$src,%O) {
 
 
   # passed value is object or path?
-  my ($mode,$obj)=get_input $src;
+  my ($mode,$obj)=$class->get_input($src);
 
   # ^set F to use accordingly
   my $user_fn = $O{fn}->[$mode];
@@ -408,7 +407,7 @@ sub proc($self) {
 
   };
 
-  return;
+  return $self->{obj};
 
 };
 
@@ -539,7 +538,6 @@ sub to_bin($self,$path) {
 
 
     my $type=$typetab->{$refn};
-    $typetab->{"TYPEOF:$ARG"}=$type;
 
 
     #  just a dummy, safely ignored
@@ -587,8 +585,6 @@ sub to_bin($self,$path) {
     my $type = $typetab->{$ARG->{type}};
     my $idex = $ARG->{idex};
 
-    $type=$typetab->{"TYPEOF:$idex"};
-
     my $have = bpack $struc=>(
       $type,$idex,$path
 
@@ -599,8 +595,11 @@ sub to_bin($self,$path) {
   } @hist;
 
 
-  $self->from_bin($out);
-  exit;
+  # dump to disk and give
+  owc $path=>$out;
+
+  my @call=(gzip=>'-f'=>$path);
+  system {$call[0]} @call;
 
   return;
 
@@ -609,11 +608,18 @@ sub to_bin($self,$path) {
 # ---   *   ---   *   ---
 # ^undo
 
-sub from_bin($self,$src) {
+sub from_bin($class,$path) {
+
+
+  # open file
+  my @call=(gunzip=>'-k'=>$path);
+  system {$call[0]} @call;
+
+  my $src=orc $path;
 
 
   # signature check
-  my $sig  = $self->SIG;
+  my $sig  = $class->SIG;
   my $have = substr $src,0,length $sig,null;
 
   return throw_sig($have) if $have ne $sig;
@@ -670,7 +676,7 @@ sub from_bin($self,$src) {
       my $value=bunpacksu "${type}ptr"=>\$src;
          $value=$value->{ct}->[0];
 
-      push @$data,$self->PTR . $value;
+      push @$data,$class->PTR . $value;
 
 
     # have dummy?
@@ -707,7 +713,7 @@ sub from_bin($self,$src) {
 
   # decode elements
   my $obj    = {};
-  my $ptr_re = $self->ptr_re;
+  my $ptr_re = $class->ptr_re;
 
   map {
 
@@ -745,15 +751,26 @@ sub from_bin($self,$src) {
 
     };
 
-    $$href=$value if ! defined $$href;
+    if(! defined $$href) {
+      $$href=$value;
+
+    } elsif($value eq 'ARRAY') {
+
+      $$href=[map {
+        my $idex=(! $ARG) ? "_$ARG" : "$ARG";
+        $$href->{$idex};
+
+      } 0..int(keys %{$$href})-1];
+
+    } elsif($value ne 'HASH') {
+      $$href=bless $$href,$value;
+
+    };
 
   } 0..$elemcnt-1;
 
 
-  fatdump \$obj;
-  exit;
-
-  return;
+  return $obj;
 
 };
 
@@ -781,15 +798,11 @@ sub throw_sig($have) {
 
 sub image($path,$obj,%O) {
 
-fatdump \$obj;
-
   my $class = St::cpkg;
   my $self  = $class->new($obj,%O);
 
   $self->proc();
   $self->to_bin($path);
-
-  exit;
 
   return $path;
 
