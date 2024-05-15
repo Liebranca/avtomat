@@ -254,6 +254,7 @@ sub find_subpkg($base,$name,@path) {
 sub fname_to_pkg($fname,$base=$NULLSTR) {
 
   state $ext=qr{\.pm$};
+  return null if ! defined $fname;
 
   my $beg=qr{^.*/?$base};
 

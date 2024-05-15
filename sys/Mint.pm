@@ -738,6 +738,8 @@ sub from_bin($class,$path) {
 
     };
 
+    $value=$class->defload($value);
+
 
     # write to dst
     my $href=\$obj;
@@ -775,7 +777,7 @@ sub from_bin($class,$path) {
 };
 
 # ---   *   ---   *   ---
-# ^errme
+# errmes
 
 sub throw_sig($have) {
 
@@ -792,11 +794,24 @@ sub throw_sig($have) {
 
 };
 
+sub warn_dir($path) {
+
+  warnproc "directory passed as file: '%s'",
+
+  args => [$path],
+  give => null;
+
+};
+
 # ---   *   ---   *   ---
 # applies processing to object
 # before storing it
 
 sub image($path,$obj,%O) {
+
+  return warn_dir $path
+  if -d $path;
+
 
   my $class = St::cpkg;
   my $self  = $class->new($obj,%O);
@@ -816,7 +831,7 @@ sub mount($path,%O) {
   my $class = St::cpkg;
   my $self  = $class->new($path,%O);
 
-  return $self->proc();
+  return $self->{obj};
 
 };
 
@@ -839,6 +854,7 @@ sub defstore($self,$vref) {
 sub defload($self,$vref) {
 
   my $re=$self->sub_re;
+
   return (defined $vref && $vref=~ s[$re][])
     ? codethaw($vref,$1)
     : $vref
@@ -863,6 +879,7 @@ sub codefreeze($fn) {
     . $St::Deparse->coderef2text($fn)
 
     : $name
+
     ;
 
 };
@@ -878,8 +895,19 @@ sub codethaw($fn,$type) {
   } else {
 
     my ($name,$body)=split '\$;',$fn;
-    my $wf=eval "sub $body";
+    $name=substr $name,2,(length $name)-2;
 
+    # set package ;>
+    my ($subn,@pkg)=(
+      reverse split $DCOLON_RE,$name
+
+    );
+
+    my $pkg = join '::',@pkg;
+    my $wf  = eval "package $pkg;sub $body";
+
+
+    # ^die if the hack fails!
     if(! defined $wf) {
 
       say "BAD CODEREF\n\n","sub $name $body";

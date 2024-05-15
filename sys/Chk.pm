@@ -111,7 +111,11 @@ sub is_blessref ($v) {
 };
 
 sub is_coderef ($v) {
-  length ref $v && ($v=~ $Chk::CODEREF_RE);
+
+     defined    $v
+  && length ref $v
+
+  && ($v=~ $Chk::CODEREF_RE);
 
 };
 

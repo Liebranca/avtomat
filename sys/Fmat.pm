@@ -348,6 +348,24 @@ sub codename($ref,$full=0) {
     my %cni=reverse %INC;
 
     $name=fname_to_pkg $cni{$gv->FILE};
+
+
+    # you think you're funny?!
+    if(! length $name) {
+
+      open my $FH,'<',$gv->FILE;
+
+      read $FH,my $body,-s $FH;
+
+      close $FH
+      or croak strerr($gv->FILE);
+
+      ($name)   = $body=~ qr{package ([^;]+);};
+      $name   //= 'main';
+
+
+    };
+
     $name="$name\::";
 
   };
