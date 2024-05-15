@@ -51,6 +51,8 @@ package Arstd::Bytes;
     bitsume_pack
     bitsume_unpack
 
+    bytesize
+
     mchr
     mord
     lmord
@@ -227,6 +229,15 @@ sub bitscanr($x) {
 
 
   return $have;
+
+};
+
+# ---   *   ---   *   ---
+# div bitsize by 8, rounded up
+
+sub bytesize($x) {
+  my $bits=bitsize $x;
+  return int(($bits/8)+0.9999);
 
 };
 

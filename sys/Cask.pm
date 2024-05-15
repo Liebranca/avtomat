@@ -138,7 +138,7 @@ sub give($self,$value) {
 
 sub cgive($self,$value) {
 
-  my $idex=$self->iof($value);
+  my $idex=$self->has($value);
 
   return (! defined $idex)
     ? (0,$self->give($value))
@@ -185,6 +185,21 @@ sub iof($self,$lkup=$FIRST_AVAIL) {
   };
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# give idex if value present
+# undef on missing
+
+sub has($self,$value) {
+
+  my %h=map {
+    (! defined $ARG) ? 'undef' : $ARG ;
+
+  } reverse @$self;
+
+  return $h{$value};
 
 };
 

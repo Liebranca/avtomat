@@ -121,7 +121,7 @@ sub draw($body,%O) {
       $ARG=ord $ARG;
 
       # can print?
-      if($ARG < 0x7E && 0x20 <= $ARG) {
+      if($ARG <= 0x7E && 0x20 <= $ARG) {
         $sr.=chr $ARG;
 
       # else put dot
@@ -206,7 +206,7 @@ sub draw($body,%O) {
 
       if ! ($k % 16) && $O{head} != 0;
 
-      push @$out,,"\n" if ! ($k %  4);
+      push @$out,"\n" if ! ($k %  4);
 
       $O{head}=2;
 

@@ -495,7 +495,14 @@ sub ptr_by_size($class,$ptrv) {
 # can fetch?
 
 sub is_valid($class,$type) {
-  return defined typefet $type;
+
+  if(is_hashref $type) {
+    $type=$type->{name};
+
+  };
+
+  $type //= null;
+  return exists $Type::MAKE::Table->{$type};
 
 };
 
@@ -504,11 +511,13 @@ sub is_valid($class,$type) {
 
 sub _typeisa($class,$type,$key) {
 
-  $type=typefet $type
-  or return 0;
+  if(is_hashref $type) {
+    $type=$type->{name};
 
-  return $type->{name}=~
-    Type::MAKE->RE->{$key};
+  };
+
+  $type //= null;
+  return int ($type=~ Type::MAKE->RE->{$key});
 
 };
 
@@ -533,6 +542,7 @@ subwraps(
     str:str_t
     ptr:ptr_any
     real:real
+    prim:prim
 
   ),
 

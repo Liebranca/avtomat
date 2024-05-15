@@ -27,9 +27,16 @@ package Mint;
   use Style;
   use Chk;
   use Cask;
+
+  use Type;
+  use Bpack;
+
+  use Warnme;
   use Fmat;
 
   use Arstd::Array;
+  use Arstd::Bytes;
+  use Arstd::Int;
 
   use parent 'St';
 
@@ -42,7 +49,7 @@ package Mint;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.3;#a
+  our $VERSION=v0.00.4;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -50,14 +57,36 @@ package Mint;
 
 St::vconst {
 
+
   # expr for fetching *expandable* reference type
-  ref_t   => qr{^[^=]* (?: \=? (HASH|ARRAY))}x,
+  ref_t  => qr{^[^=]* (?: \=? (HASH|ARRAY))}x,
 
   # expr for spotting frozen coderefs
-  sub_re  => qr{^(\\&|\\X)},
+  sub_re => qr{^(\\&|\\X)},
+
+  # expr for spotting internal references
+  ptr_re => sub {
+
+    my $s=$_[0]->PTR;
+       $s="\Q$s";
+
+    return qr{^$s(\d+)};
+
+  },
+
 
   # sequence terminator dummy
   EOS => sub {St::cpkg . '-EOS'},
+
+  # reference marker
+  PTR => sub {St::cpkg . '-PTR'},
+
+  # file signature
+  SIG => sub {
+    my $have=bpack 'dword',0x24C0509E;
+    return $have->{ct};
+
+  },
 
 };
 
@@ -182,7 +211,7 @@ sub register($self,$key,$vref) {
 
   # add descriptor to history
   my $path=$self->{path};
-  push @$path,$key;
+  push @$path,$key if length $key;
 
   my $out={
 
@@ -208,14 +237,9 @@ sub register($self,$key,$vref) {
 
 sub get_next($self) {
 
-  # get ctx
+  # consume next pair
   my $Q=$self->{Q};
-
-  # consume until value found
-  my ($vref,$key);
-
-  ($key,$vref)=(shift @$Q,shift @$Q)
-  while @$Q >= 2 &&! defined $vref;
+  my($key,$vref)=(shift @$Q,shift @$Q);
 
   # give non-null if expansion required
   return $self->register($key=>$vref);
@@ -246,7 +270,10 @@ sub get_type($self,$vref) {
 
 
   # ^inform caller!
-  return ($novex) ? $refn : $type ;
+  return ($novex)
+    ? [$refn,null]
+    : [$refn,$type]
+    ;
 
 };
 
@@ -274,8 +301,12 @@ sub proc_elem($self) {
 
 
   # have minting method?
-  my @have=(length $type && $type->can($mode))
-    ? $head->{vref}->$mode($self)
+  my @have=(
+
+     length $type->[0]
+  && $type->[0]->can($mode)
+
+  ) ? $head->{vref}->$mode($self)
     : $self->vex()
     ;
 
@@ -300,7 +331,7 @@ sub vex($self) {
   my $args = $self->{args};
 
   # map array to hash?
-  my $type = $head->{type};
+  my $type = $head->{type}->[1];
   my $src  = ($type eq 'ARRAY')
     ? array_key_idex $vref,1
     : $vref
@@ -321,14 +352,14 @@ sub vex($self) {
     # filter out null and repeats
     my $defd=defined $src->{$ARG};
     my $have=($defd)
-      ? $data->view($src->{$ARG})
+      ? $data->has($src->{$ARG})
       : undef
       ;
 
     # apply F to new && non-null
     my $value=($defd &&! defined $have)
       ? $fn->($self,$src->{$ARG},@$args)
-      : $have
+      : $self->PTR . $have
       ;
 
     $ARG=>$value;
@@ -346,7 +377,7 @@ sub proc($self) {
 
 
   # reset ctx
-  $self->{Q}    = [null=>$self->{obj}];
+  $self->{Q}    = [$NULLSTR=>$self->{obj}];
   $self->{data} = Cask->new();
 
   $self->{path} = [];
@@ -377,13 +408,370 @@ sub proc($self) {
 
   };
 
-  use Fmat;
-  fatdump \$self->{hist};
+  return;
 
-  say 'STOP';
+};
+
+# ---   *   ---   *   ---
+# walks the history struc to
+# build the final binary
+
+sub to_bin($self,$path) {
+
+
+  # put file signature
+  my $out=$self->SIG;
+
+  # get ctx
+  my @hist=reverse @{$self->{hist}};
+  my $data=$self->{data};
+
+
+  # get number of types used by elems
+  my $order=[qw(
+
+    cstr
+
+    tiny short mean  long
+    byte word  dword qword
+
+  )];
+
+  my $typetab=array_key_idex $order;
+  my $primcnt=int @$order;
+
+
+  map {
+
+    my @have     = @{$ARG->{type}};
+    my $key      = join ',',@have;
+
+    $ARG->{type} = $key;
+
+    map {
+
+      if(! exists $typetab->{$ARG}) {
+        $typetab->{$ARG}=int @$order;
+        push @$order,$ARG;
+
+      };
+
+    } @have,$key;
+
+
+  } @hist;
+
+  # get type/value/elem count
+  my $typecnt = int(@$order) - $primcnt;
+  my $datacnt = int(@$data) >> 1;
+  my $elemcnt = int @hist;
+
+
+  # get bytes required for header
+  my ($size_t) = typeof bytesize $typecnt;
+  my ($data_t) = typeof bytesize $datacnt;
+  my ($elem_t) = typeof bytesize $elemcnt;
+
+  ($size_t,$data_t,$elem_t)=(
+    typefet($size_t),
+    typefet($data_t),
+    typefet($elem_t),
+
+  );
+
+
+  # ^put header!
+  my $head=bpack 'byte,byte,byte'=>(
+    $size_t->{sizep2},
+    $data_t->{sizep2},
+    $elem_t->{sizep2},
+
+  );
+
+  $out .= $head->{ct};
+
+
+  # ^add type table
+  $head  = bpack $size_t,$typecnt;
+  $out  .= $head->{ct};
+
+  $head  = bpack cstr=>@{$order}[
+    $primcnt..int @$order-1
+
+  ];
+
+  $out  .= $head->{ct};
+
+
+  # add value table size
+  $head  = bpack $data_t=>$datacnt;
+  $out  .= $head->{ct};
+
+
+  # ^encode values
+  my $ptr_re=$self->ptr_re;
+  map {
+
+
+    # unpack
+    my $value = $data->[($ARG << 1) + 1];
+    my $refn  = ref $value;
+
+
+    # edge case: internal pointers
+    if($value=~ s[$ptr_re][$1]) {
+      $refn=Type->ptr_by_size($value);
+
+    # edge-case: strings and numbers
+    } elsif(! length $refn) {
+
+      # have number?
+      if($value=~ $NUM_RE) {
+        ($refn) = typeof bytesize $value;
+
+      # have string!
+      } else {
+        $refn='cstr'
+
+      };
+
+    };
+
+
+    my $type=$typetab->{$refn};
+    $typetab->{"TYPEOF:$ARG"}=$type;
+
+
+    #  just a dummy, safely ignored
+    if(! Type->is_ptr($refn)
+    && ! Type->is_valid($refn)) {
+      my $have = bpack $size_t=>$type;
+      $out .= $have->{ct};
+
+
+    # write value to table
+    } else {
+
+      my $have = bpack "$size_t->{name},$refn"=>(
+        $type,$value
+
+      );
+
+      $out .= $have->{ct};
+
+    };
+
+
+  } 0..$datacnt-1;
+
+
+  # add elem table size
+  $head  = bpack $elem_t,$elemcnt;
+  $out  .= $head->{ct};
+
+  # make elem entry structure
+  my $struc=join ',',(
+
+    $size_t->{name},
+    $data_t->{name},
+
+    'cstr'
+
+  );
+
+
+  # encode elements
+  map {
+
+    my $path = join ' ',@{$ARG->{path}};
+    my $type = $typetab->{$ARG->{type}};
+    my $idex = $ARG->{idex};
+
+    $type=$typetab->{"TYPEOF:$idex"};
+
+    my $have = bpack $struc=>(
+      $type,$idex,$path
+
+    );
+
+    $out .= $have->{ct};
+
+  } @hist;
+
+
+  $self->from_bin($out);
   exit;
 
-  return $self->{obj};
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub from_bin($self,$src) {
+
+
+  # signature check
+  my $sig  = $self->SIG;
+  my $have = substr $src,0,length $sig,null;
+
+  return throw_sig($have) if $have ne $sig;
+
+
+  # get type/value/elem count
+  $have=bunpacksu byte=>\$src,0,3;
+  $have=$have->{ct};
+
+  my ($size_t) = typeof 1 << $have->[0];
+  my ($data_t) = typeof 1 << $have->[1];
+  my ($elem_t) = typeof 1 << $have->[2];
+
+
+  # read type table
+  my $typecnt = bunpacksu $size_t=>\$src;
+     $typecnt = $typecnt->{ct}->[0];
+
+  $have = bunpacksu cstr=>\$src,0,$typecnt;
+  $have = $have->{ct};
+
+
+  # ^add prims
+  my $order=[qw(
+
+    cstr
+
+    tiny short mean  long
+    byte word  dword qword
+
+  ),map {$ARG=null if $ARG eq 0;$ARG} @$have];
+
+  my $typetab=array_key_idex $order;
+
+
+  # read value table size
+  my $datacnt = bunpacksu $data_t=>\$src;
+     $datacnt = $datacnt->{ct}->[0];
+
+  my $data    = [];
+
+  # decode values
+  map {
+
+    my $idex = bunpacksu $size_t=>\$src;
+       $idex = $idex->{ct}->[0];
+
+    my $type = $order->[$idex];
+
+
+    # have pointer?
+    if(Type->is_ptr($type)) {
+
+      my $value=bunpacksu "${type}ptr"=>\$src;
+         $value=$value->{ct}->[0];
+
+      push @$data,$self->PTR . $value;
+
+
+    # have dummy?
+    } elsif(! Type->is_valid($type)) {
+      push @$data,$type;
+
+    # have primitive!
+    } else {
+
+      my $value=bunpacksu $type=>\$src;
+         $value=$value->{ct}->[0];
+
+      push @$data,$value;
+
+    };
+
+  } 0..$datacnt-1;
+
+
+  # read elem table size
+  my $elemcnt = bunpacksu $elem_t=>\$src;
+     $elemcnt = $elemcnt->{ct}->[0];
+
+  # make elem entry structure
+  my $struc=join ',',(
+
+    $size_t,
+    $data_t,
+
+    'cstr'
+
+  );
+
+
+  # decode elements
+  my $obj    = {};
+  my $ptr_re = $self->ptr_re;
+
+  map {
+
+
+    # unpack
+    my $have=bunpacksu $struc=>\$src,0,3;
+       $have=$have->{ct};
+
+    my ($type,$value,@path)=@$have;
+
+
+    $type  = $order->[$type];
+    $value = $data->[$value];
+
+    @path  = split $SPACE_RE,($path[0] eq 0)
+      ? 'ROOT' : $path[0] ;
+
+
+    # handle internal pointer
+    if($value=~ s[$ptr_re][$1]) {
+      $value=$data->[$value];
+
+    };
+
+
+    # write to dst
+    my $href=\$obj;
+    while(@path && $path[0] ne 'ROOT') {
+
+      my $key = shift @path;
+         $key = '_0' if ! $key;
+
+      $href    = \$$href->{"$key"};
+      $$href //= {} if @path;
+
+    };
+
+    $$href=$value if ! defined $$href;
+
+  } 0..$elemcnt-1;
+
+
+  fatdump \$obj;
+  exit;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^errme
+
+sub throw_sig($have) {
+
+  $have=join '',(
+    map {sprintf "%02X",$ARG}
+    unpack 'C*',$have
+
+  );
+
+  Warnme::invalid 'Mint signature',
+
+  obj  => $have,
+  give => null;
 
 };
 
@@ -393,10 +781,16 @@ sub proc($self) {
 
 sub image($path,$obj,%O) {
 
+fatdump \$obj;
+
   my $class = St::cpkg;
   my $self  = $class->new($obj,%O);
 
-  store  $self->proc(),$path;
+  $self->proc();
+  $self->to_bin($path);
+
+  exit;
+
   return $path;
 
 };
