@@ -19,9 +19,7 @@ package Mint;
   use strict;
   use warnings;
 
-  use Storable qw(store retrieve file_magic);
   use English qw(-no_match_vars);
-
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
@@ -37,6 +35,7 @@ package Mint;
   use Arstd::Array;
   use Arstd::Bytes;
   use Arstd::IO;
+  use Arstd::PM;
 
   use parent 'St';
 
@@ -49,7 +48,7 @@ package Mint;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.5;#a
+  our $VERSION=v0.00.6;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -87,19 +86,6 @@ St::vconst {
     return $have->{ct};
 
   },
-
-};
-
-# ---   *   ---   *   ---
-# get type of value passed
-
-sub get_input($class,$src) {
-
-  return (
-
-     is_filepath("$src.gz")
-
-  ) ? (1,$class->from_bin($src)) : (0,$src) ;
 
 };
 
@@ -161,7 +147,7 @@ sub new($class,$src,%O) {
 
 
   # passed value is object or path?
-  my ($mode,$obj)=$class->get_input($src);
+  my $mode=is_filepath "$src.gz";
 
   # ^set F to use accordingly
   my $user_fn = $O{fn}->[$mode];
@@ -180,7 +166,7 @@ sub new($class,$src,%O) {
     fn     => $fn,
     args   => $O{args},
 
-    obj    => $obj,
+    obj    => undef,
     mode   => ($mode) ? 'unmint' : 'mint' ,
 
     head   => undef,
@@ -193,6 +179,13 @@ sub new($class,$src,%O) {
     uid    => 0,
 
   },$class;
+
+
+  # get object and give
+  $self->{obj}=($mode)
+    ? $self->from_bin($src)
+    : $src
+    ;
 
   return $self;
 
@@ -305,7 +298,7 @@ sub proc_elem($self) {
      length $type->[0]
   && $type->[0]->can($mode)
 
-  ) ? $head->{vref}->$mode($self)
+  ) ? $head->{vref}->$mode()
     : $self->vex()
     ;
 
@@ -608,7 +601,7 @@ sub to_bin($self,$path) {
 # ---   *   ---   *   ---
 # ^undo
 
-sub from_bin($class,$path) {
+sub from_bin($self,$path) {
 
 
   # open file
@@ -619,7 +612,7 @@ sub from_bin($class,$path) {
 
 
   # signature check
-  my $sig  = $class->SIG;
+  my $sig  = $self->SIG;
   my $have = substr $src,0,length $sig,null;
 
   return throw_sig($have) if $have ne $sig;
@@ -676,7 +669,7 @@ sub from_bin($class,$path) {
       my $value=bunpacksu "${type}ptr"=>\$src;
          $value=$value->{ct}->[0];
 
-      push @$data,$class->PTR . $value;
+      push @$data,$self->PTR . $value;
 
 
     # have dummy?
@@ -711,18 +704,34 @@ sub from_bin($class,$path) {
   );
 
 
-  # decode elements
+  # decode elements...
   my $obj    = {};
-  my $ptr_re = $class->ptr_re;
 
+  my $fn     = $self->{fn};
+  my $args   = $self->{args};
+
+  my $ptr_re = $self->ptr_re;
+
+
+  # ^ensure all pointers are deref'd
   map {
 
+    my ($idex,$href)=@$ARG;
 
-    # unpack
+    $$href=$data->[$idex]
+
+    if ! defined $$href
+    || $$href ne $data->[$idex];
+
+
+  # ^but first unpack ;>
+  } map {
+
     my $have=bunpacksu $struc=>\$src,0,3;
        $have=$have->{ct};
 
     my ($type,$value,@path)=@$have;
+    my $idex=$value;
 
 
     $type  = $order->[$type];
@@ -734,11 +743,12 @@ sub from_bin($class,$path) {
 
     # handle internal pointer
     if($value=~ s[$ptr_re][$1]) {
-      $value=$data->[$value];
+      $idex  = $value;
+      $value = $data->[$value];
 
     };
 
-    $value=$class->defload($value);
+    $value=$fn->($self,$value,@$args);
 
 
     # write to dst
@@ -753,9 +763,13 @@ sub from_bin($class,$path) {
 
     };
 
+
+    # assign scalar
     if(! defined $$href) {
       $$href=$value;
 
+
+    # convert hash to array
     } elsif($value eq 'ARRAY') {
 
       $$href=[map {
@@ -764,10 +778,21 @@ sub from_bin($class,$path) {
 
       } 0..int(keys %{$$href})-1];
 
+
+    # handle blessed ones
     } elsif($value ne 'HASH') {
-      $$href=bless $$href,$value;
+
+      $$href=($value->can('unmint'))
+        ? $value->unmint($$href)
+        : bless $$href,$value
+        ;
 
     };
+
+
+    # overwrite placeholders in cache
+    $data->[$idex]=$$href;
+    [$idex,$href];
 
   } 0..$elemcnt-1;
 
@@ -889,25 +914,29 @@ sub codefreeze($fn) {
 
 sub codethaw($fn,$type) {
 
+
+  # fetch named reference?
   if($type eq '\&') {
+    cloads $fn;
     return \&$fn;
 
+
+  # regenerate anonymous!
   } else {
 
+
+    # cleanup value and get package
     my ($name,$body)=split '\$;',$fn;
     $name=substr $name,2,(length $name)-2;
 
-    # set package ;>
-    my ($subn,@pkg)=(
-      reverse split $DCOLON_RE,$name
-
-    );
-
-    my $pkg = join '::',@pkg;
-    my $wf  = eval "package $pkg;sub $body";
+    my ($pkg)   = cloads $name;
+    $pkg      //= 'main';
 
 
-    # ^die if the hack fails!
+    # set scope and define the F
+    my $wf=eval "package $pkg;sub $body";
+
+    # ^or die if regen fails ;>
     if(! defined $wf) {
 
       say "BAD CODEREF\n\n","sub $name $body";

@@ -61,6 +61,9 @@ package Arstd::PM;
     cload
     cloadi
 
+    cloads
+    cloadis
+
     fvars
 
     IMP
@@ -70,7 +73,7 @@ package Arstd::PM;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#b
+  our $VERSION = v0.01.1;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -528,31 +531,7 @@ sub get_static($class,$name) {
 };
 
 # ---   *   ---   *   ---
-# conditionally load packages
-# if they're not already loaded
-
-sub cload(@pkg) {
-
-  no strict 'refs';
-
-  map {
-    load $ARG if ! is_loaded($ARG);
-
-  } @pkg;
-
-};
-
-# ---   *   ---   *   ---
-# ^forces calling of import method
-
-sub cloadi(@pkg) {
-  map  {load $ARG;$ARG->import()}
-  grep {! is_loaded($ARG)} @pkg;
-
-};
-
-# ---   *   ---   *   ---
-# ^checks INC
+# checks INC for package
 
 sub is_loaded($pkg) {
 
@@ -563,6 +542,59 @@ sub is_loaded($pkg) {
     $ARG eq "$fname.pm"
 
   } keys %INC;
+
+};
+
+# ---   *   ---   *   ---
+# gets package from full
+# subroutine path
+
+sub pkgof($name) {
+
+  my ($subn,@pkg)=(
+    reverse split $DCOLON_RE,$name
+
+  );
+
+  return join '::',reverse @pkg;
+
+};
+
+# ---   *   ---   *   ---
+# conditionally load packages
+# if they're not already loaded
+
+sub cload {
+  map  {load $ARG;$ARG}
+  grep {! is_loaded $ARG} @_;
+
+};
+
+# ---   *   ---   *   ---
+# ^forces calling of import method
+
+sub cloadi {
+  map {$ARG->import();$ARG} cload @_;
+
+};
+
+# ---   *   ---   *   ---
+# load package by subpath
+
+sub cloads {
+
+  cload
+
+  grep {$ARG ne 'main'}
+  map  {pkgof $ARG} @_;
+
+};
+
+# ---   *   ---   *   ---
+# ^forces calling of import method
+
+sub cloadis {
+  map {$ARG->import();$ARG} cloads @_;
 
 };
 

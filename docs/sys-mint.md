@@ -33,7 +33,7 @@ Both `image` and `mount` can handle generic encoding and decoding of values. Whe
 
 - `mint`: given a class instance, return a list of `key => value` pairs to be walked and stored.
 
-- `unmint`: given a list of `key => value` pairs, return a class instance.
+- `unmint`: given a table of `key => value` pairs, return a class instance.
 
 
 Each object may then choose to save only the fields it requires to regenerate itself; this works recursively, so that the same process applies to any of these fields that need a special encoding tactic.
@@ -69,6 +69,14 @@ However, while the implementation of this may very much be entirely within the r
 
 
 # CHANGELOG
+
+### v0.00.6a
+
+- Experimental loading of origin package for decoded subroutines.
+
+- Several decode fixes; custom value processing functions can now be used.
+
+- `proc`, `proc_elem` and `vex` internal methods are now used solely for encoding; the internal `from_bin` method now handles nearly the entirety of the decoding process.
 
 ### v0.00.4a
 
