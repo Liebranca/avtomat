@@ -69,8 +69,6 @@ St::vconst {
 St::vstatic {
 
   uid       => 0x00,
-
-  -roots    => {},
   -autoload => [qw(from_list from_sexp)],
 
 };
@@ -2158,6 +2156,11 @@ sub mint($self) {
 
 };
 
+sub mint_frame($class,$frame) {
+  return uid=>0;
+
+};
+
 # ---   *   ---   *   ---
 # ^undo
 
@@ -2181,6 +2184,15 @@ sub unmint($class,$O) {
     -uid       => -1,
 
   },$class;
+
+};
+
+sub REBORN($self) {
+
+  $self->{-uid}=$self->{frame}->{uid}++;
+  $self->cllv();
+
+  return;
 
 };
 

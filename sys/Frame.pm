@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
 # FRAME
-# Icebox
+# Context container
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -30,7 +30,7 @@ package Frame;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v2.00.2;
+  our $VERSION = v2.00.3;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -119,6 +119,57 @@ sub __ctlgive($frame) {
 
   my $pkg=pop @{$frame->{-prev_owners}};
   $frame->{-owner_kls}=$pkg;
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+
+
+  my %out=map {
+    $ARG=>$self->{$ARG}
+
+  } qw(
+    -class
+    -owner_kls
+    -prev_owners
+
+  );
+
+
+  # have specifics?
+  my $class=$self->{-class};
+  if($class->can('mint_frame')) {
+    %out=(%out,$class->mint_frame($self));
+
+  # ^nope, just copy!
+  } else {
+    my $vars=$class->Frame_Vars();
+    %out=(%out,map {
+      $ARG=>$self->{$ARG}
+
+    } keys %$vars);
+
+  };
+
+  delete $out{-autoload};
+  return %out;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($class,$O) {
+
+  my $type = $O->{-class};
+
+  $O=$type->unmint_frame($O)
+  if $type->can('unmint_frame');
+
+  return $type->new_frame(%$O);
 
 };
 

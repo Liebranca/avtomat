@@ -19,7 +19,7 @@ When tackling a complex problem that requires multiple abstractions to solve, on
 
 It'd be expected that, for each field required to reconstruct the main object, the corresponding class would either be generic enough that translating it's own fields to and from a binary representation would suffice, or that this class would have something akin to pack and unpack methods that define and handle an appropiate encoding.
 
-`Mint` provides a minimalistic framework for this very task. All you need to know is four methods, two of them defined by the package itself, and another two *optionally* defined by each class if the aforementioned specificity in encoding is required.
+`Mint` provides a minimalistic framework for this very task. All you need to know is five methods, two of them defined by the package itself, and another three *optionally* defined by each class if the aforementioned specificity in encoding is required.
 
 
 The two interface methods are:
@@ -39,6 +39,8 @@ Both `image` and `mount` can handle generic encoding and decoding of values. Whe
 Each object may then choose to save only the fields it requires to regenerate itself; this works recursively, so that the same process applies to any of these fields that need a special encoding tactic.
 
 If these methods are not defined, the object is simply stored as-is, with every field being encoded into the resulting binary and then loaded as such.
+
+Furthermore, an additional method can be employed for any post-decoding needs: `REBORN`, which takes a class instance and gives nothing.
 
 
 ## A NOTE ON STORING SUBROUTINES
@@ -69,6 +71,12 @@ However, while the implementation of this may very much be entirely within the r
 
 
 # CHANGELOG
+
+### v0.00.8a
+
+- Added the `REBORN` method for post-decode tasks.
+
+- Added the `*_frame` variants of `mint` and `unmint` within `Frame` itself.
 
 ### v0.00.7a
 

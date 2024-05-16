@@ -48,7 +48,7 @@ package Mint;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.7;#a
+  our $VERSION=v0.00.8;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -616,6 +616,8 @@ sub from_bin($self,$path) {
 
   my $src=orc $path;
 
+  unlink $path;
+
 
   # signature check
   my $sig  = $self->SIG;
@@ -825,15 +827,25 @@ sub from_bin($self,$path) {
   map {
 
     my ($class,$path,$idex)=@$ARG;
-    my $have=$data->[$idex];
 
-    my $ice=($class->can('unmint'))
-      ? $class->unmint($have)
-      : bless $have,$class
-      ;
+    my $have = $data->[$idex];
+    my $ice  = $have;
 
-    $data->[$idex]=$ice;
 
+    # need to run decode method?
+    if(! is_blessref($have)) {
+
+      $ice=($class->can('unmint'))
+        ? $class->unmint($have)
+        : bless $have,$class
+        ;
+
+      $data->[$idex]=$ice;
+
+    };
+
+
+    # get value within out struc
     my $href=\$obj;
 
     map {
@@ -850,17 +862,20 @@ sub from_bin($self,$path) {
     } @$path;
 
 
+    # ^overwrite
     $$href=$ice;
 
-  } reverse @blessf;
+
+  } @blessf;
 
 
   # revaluate final instance
-  map {
+  my @post=map {
 
     my ($path,$idex)=@$ARG;
     my $href=\$obj;
 
+    # get the path again...
     map {
 
       if(is_arrayref $$href
@@ -874,10 +889,24 @@ sub from_bin($self,$path) {
 
     } @$path;
 
+
+    # fetch value again...
     $$href=$data->[$idex];
+
+    # have post-decode hook?
+    (  is_blessref($$href)
+    && $$href->can('REBORN')
+
+    ) ? ($$href)
+      : ()
+      ;
 
   } @reftab;
 
+
+  # run hooks and give
+  array_dupop \@post;
+  map {$ARG->REBORN} @post;
 
   return $obj;
 
