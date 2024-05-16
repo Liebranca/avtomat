@@ -70,6 +70,10 @@ However, while the implementation of this may very much be entirely within the r
 
 # CHANGELOG
 
+### v0.00.7a
+
+- Expanded support for classes requiring recursive solving of references, particularily those utilizing `Frame`, such as `Tree`.
+
 ### v0.00.6a
 
 - Experimental loading of origin package for decoded subroutines.

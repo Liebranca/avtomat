@@ -38,20 +38,42 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.7;
+  our $VERSION = v0.03.9;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  sub Frame_Vars($class) {return {
+St::vconst {
 
-    uid       => 0x00,
+  lisp_re => qr{
 
-    -roots    => {},
-    -autoload => [qw(from_list)],
+    \s*
 
-  }};
+    (?<beg>   \()?
+    \s*
+
+    (?<token> [^\s\(\)]+)
+    \s*
+
+    (?<end>   \))?
+    \s*
+
+  }x,
+
+};
+
+# ---   *   ---   *   ---
+# GBL
+
+St::vstatic {
+
+  uid       => 0x00,
+
+  -roots    => {},
+  -autoload => [qw(from_list from_sexp)],
+
+};
 
 # ---   *   ---   *   ---
 # importer injection
@@ -196,11 +218,63 @@ sub from_list($class,$frame,@src) {
 
     };
 
-
   };
 
 
   return $root;
+
+};
+
+# ---   *   ---   *   ---
+# ^from lisp ;>
+
+sub from_sexp($class,$frame,$src) {
+
+
+  # sanitize input
+  my $out  = undef;
+  my $prev = undef;
+  my $re   = $class->lisp_re;
+
+  strip(\$src);
+  $src=~ s[(?:$NEWLINE_RE|$SPACE_RE)+][ ]sxmg;
+
+
+  # walk nodes
+  my $anchor=[];
+  while($src=~ s[$re][]sxm) {
+
+
+    # get elem
+    my ($beg,$token,$end)=(
+      $+{beg},
+      $+{token},
+      $+{end},
+
+    );
+
+
+    # go down one level?
+    if($beg) {
+      push @$anchor,$prev;
+      $prev=$frame->new($anchor->[-1],$token);
+
+    # go up one level?
+    } elsif($end) {
+      $prev=$frame->new($anchor->[-1],$token);
+      pop @$anchor;
+
+    # push to current
+    } else {
+      $prev   = $frame->new($anchor->[-1],$token);
+      $out  //= $prev;
+
+    };
+
+  };
+
+
+  return $out;
 
 };
 
@@ -216,7 +290,6 @@ sub new($class,$frame,$parent,$val,%O) {
   my $node=bless {
 
     value      => $val,
-    value_type => 0x00,
 
     leaves     => [],
     parent     => undef,
@@ -2062,6 +2135,52 @@ sub filter($self,$other,%O) {
   };
 
   $other->pushlv(@move);
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+
+  return map {
+    $ARG => $self->{$ARG}
+
+  } qw(
+
+    value
+    leaves
+    parent
+    -skipio
+    frame
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($class,$O) {
+
+  return bless {
+
+    value      => $O->{value},
+
+    leaves     => $O->{leaves},
+    parent     => $O->{parent},
+    idex       => 0,
+
+    frame      => $O->{frame},
+    fcache     => {},
+
+    plucked    => 0,
+    '*fetch'   => undef,
+
+    -skipio    => $O->{-skipio},
+    -uid       => -1,
+
+  },$class;
 
 };
 

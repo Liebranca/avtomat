@@ -48,7 +48,7 @@ package Mint;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.6;#a
+  our $VERSION=v0.00.7;#a
   our $AUTHOR='IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -86,6 +86,9 @@ St::vconst {
     return $have->{ct};
 
   },
+
+  # storable undef ;>
+  NULL => sub {St::cpkg . '-NULL'},
 
 };
 
@@ -232,6 +235,9 @@ sub get_next($self) {
   # consume next pair
   my $Q=$self->{Q};
   my($key,$vref)=(shift @$Q,shift @$Q);
+
+  $vref //= $self->NULL;
+
 
   # give non-null if expansion required
   return $self->register($key=>$vref);
@@ -712,16 +718,29 @@ sub from_bin($self,$path) {
 
   my $ptr_re = $self->ptr_re;
 
+  my @blessf = ();
+
 
   # ^ensure all pointers are deref'd
-  map {
+  my @reftab=map {
 
-    my ($idex,$href)=@$ARG;
+    my ($idex,$href,$path)=@$ARG;
 
     $$href=$data->[$idex]
 
     if ! defined $$href
     || $$href ne $data->[$idex];
+
+    if($$href) {
+
+      $$href=[] if $$href eq 'ARRAY';
+      $$href={} if $$href eq 'HASH';
+
+      $data->[$idex]=$$href;
+
+    };
+
+    [$path,$idex];
 
 
   # ^but first unpack ;>
@@ -752,13 +771,17 @@ sub from_bin($self,$path) {
 
 
     # write to dst
-    my $href=\$obj;
+    my $href      = \$obj;
+    my $href_path = [];
+
     while(@path && $path[0] ne 'ROOT') {
 
       my $key = shift @path;
-         $key = '_0' if ! $key;
+      push @$href_path,$key;
 
-      $href    = \$$href->{"$key"};
+      $key = '_0' if ! $key;
+
+      $href    = \$$href->{$key};
       $$href //= {} if @path;
 
     };
@@ -781,20 +804,79 @@ sub from_bin($self,$path) {
 
     # handle blessed ones
     } elsif($value ne 'HASH') {
-
-      $$href=($value->can('unmint'))
-        ? $value->unmint($$href)
-        : bless $$href,$value
-        ;
+      push @blessf,[$value,$href_path,$idex];
 
     };
 
 
     # overwrite placeholders in cache
+    $$href=undef
+
+    if $$href
+    && $$href eq $self->NULL;
+
     $data->[$idex]=$$href;
-    [$idex,$href];
+    [$idex,$href,$href_path];
 
   } 0..$elemcnt-1;
+
+
+  # generate blessed objects
+  map {
+
+    my ($class,$path,$idex)=@$ARG;
+    my $have=$data->[$idex];
+
+    my $ice=($class->can('unmint'))
+      ? $class->unmint($have)
+      : bless $have,$class
+      ;
+
+    $data->[$idex]=$ice;
+
+    my $href=\$obj;
+
+    map {
+
+      if(is_arrayref $$href
+      || $$href=~ qr{=ARRAY}) {
+        $href=\$$href->[$ARG];
+
+      } elsif(defined $$href) {
+        $href=\$$href->{$ARG};
+
+      };
+
+    } @$path;
+
+
+    $$href=$ice;
+
+  } reverse @blessf;
+
+
+  # revaluate final instance
+  map {
+
+    my ($path,$idex)=@$ARG;
+    my $href=\$obj;
+
+    map {
+
+      if(is_arrayref $$href
+      || $$href=~ qr{=ARRAY}) {
+        $href=\$$href->[$ARG];
+
+      } elsif(defined $$href) {
+        $href=\$$href->{$ARG};
+
+      };
+
+    } @$path;
+
+    $$href=$data->[$idex];
+
+  } @reftab;
 
 
   return $obj;
