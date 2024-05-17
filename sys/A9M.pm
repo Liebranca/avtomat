@@ -25,6 +25,7 @@ package A9M;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Chk;
   use Type;
   use Bpack;
   use Warnme;
@@ -41,7 +42,7 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.3;#a
+  our $VERSION = v0.01.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -76,7 +77,7 @@ sub new($class,%O) {
 
 
   # make ice
-  my $self=bless {
+  my $self={
 
     cas      => undef,
     astab    => {},
@@ -98,16 +99,43 @@ sub new($class,%O) {
     pathsep  => $O{pathsep},
 
 
-  },$class;
+  };
 
 
-  # ^add to box
+  # replace existing?
+  if($O{repl}) {
+    %{$O{repl}}=%$self;
+    $self=$O{repl};
+
+  # ^give new!
+  } else {
+    $self=bless $self,$class;
+
+  };
+
+
+  # kick and give
+  $self->reset($O{memroot});
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# kick all components
+
+sub reset($self,$name) {
+
+
+  # add to box
+  my $class = ref $self;
+  my $bk    = $self->{bk};
+
   my $frame = $class->get_frame();
   my $id    = $frame->icemake($self);
 
 
   # nit user memory
-  $self->astab_push($O{memroot});
+  $self->astab_push($name);
 
   # ^nit scratch buffer for internal use
   $self->{scratch}=$bk->{mem}->mkroot(
@@ -128,31 +156,34 @@ sub new($class,%O) {
 
   } qw(anima stack alloc ISA);
 
-  $self->scope($O{memroot});
+  $self->scope($name);
   $self->{ISA}->ready_or_build;
 
 
-  return $self;
+  return;
 
 };
 
 # ---   *   ---   *   ---
 # make new addressing space
 
-sub astab_push($self,$label) {
+sub astab_push($self,$src) {
 
 
   # make segment tree
-  my $mem  = $self->{bk}->{mem};
-  my $root = $mem->mkroot(
+  my $mem           = $self->{bk}->{mem};
+  my ($label,$root) = (! $mem->is_valid($src))
 
-    mcid  => $self->{iced},
-    mccls => (ref $self),
+    ? ($src,$mem->mkroot(
 
-    label => $label,
-    size  => 0x00,
+      mcid  => $self->{iced},
+      mccls => (ref $self),
 
-  );
+      label => $src,
+      size  => 0x00,
+
+
+    )) : ($src->{value},$src) ;
 
 
   # ^make current and add to table
@@ -343,6 +374,15 @@ sub scope($self,@path) {
 
   # set new?
   if(@path) {
+
+
+    # segment passed?
+    my $mem_t=$self->{bk}->{mem};
+
+    @path=($mem_t->is_valid($path[0]))
+      ? $path[0]->ances_list
+      : @path
+      ;
 
 
     # validate path
@@ -539,19 +579,17 @@ sub decl($self,$type,$name,$value,@subseg) {
 
 
   # have ptr?
-  my ($ptr_t) = Type->is_ptr($type);
+  my $ptr_t=undef;
 
-  if($ptr_t) {
+  if(Type->is_ptr($type)) {
 
-    my $ptrcls=$self->{bk}->{ptr};
+    my $ptrcls = $self->{bk}->{ptr};
+       $ptr_t  = $type;
 
     $type=($ptrcls->is_valid($value))
       ? $value->{type}
       : $Type::DEFAULT
       ;
-
-  } else {
-    $ptr_t=undef;
 
   };
 
@@ -772,6 +810,55 @@ sub warn_nobk($name) {
 
   obj  => $name,
   give => null;
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+
+
+  # get base attrs
+  my @out=map {
+    $ARG=>$self->{$ARG}
+
+  } qw(pathsep);
+
+
+  # indirection
+  my $key=$self->{astab_i}->[0];
+  push @out,root=>$self->{astab}->{$key};
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($class,$O) {
+  return bless $O,$class;
+
+};
+
+# ---   *   ---   *   ---
+# ^cleanup kick
+
+sub REBORN($self) {
+
+  my $class=ref $self;
+
+  $class->new(
+
+    memroot => $self->{root},
+    pathsep => $self->{pathsep},
+
+    repl    => $self,
+
+  );
+
+  return;
 
 };
 

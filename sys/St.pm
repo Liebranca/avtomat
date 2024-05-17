@@ -35,7 +35,7 @@ package St;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.1;
+  our $VERSION = v0.03.2;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -456,7 +456,7 @@ sub new_frame($class,%O) {
   $O{-class}=$class;
 
   # ensure we have an icebox ;>
-  $Frames->{$class}//=[];
+  $Frames->{$class} //= [];
   my $icebox=$Frames->{$class};
 
 
@@ -488,7 +488,6 @@ sub new_frame($class,%O) {
 
   # save ice and give
   $Frames->{$class}->[$idex]=$frame;
-
   return $frame;
 
 };
@@ -587,6 +586,14 @@ sub tabfetch($key,$tab,$fail,$fn,@args) {
     ;
 
 };
+
+# ---   *   ---   *   ---
+# lazy way to...
+
+my $FN_Q=[];
+
+sub ENQUEUE {push @$FN_Q,$_[0]};
+sub PENDING {map {$ARG->()} @$FN_Q};
 
 # ---   *   ---   *   ---
 # *inject* to this method for

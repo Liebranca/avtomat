@@ -330,8 +330,22 @@ sub nmap($ar,$fn,$mode='ikv') {
   my $v=0;
   my $i=0;
 
-  # ^and access configurations of them
-  my $tab={
+
+  # decompose array
+  my $ni=0;
+  my @nk=nkeys($ar);
+  my @nv=nvalues($ar);
+
+  # ^walk
+  map {
+
+    # overwrite refs
+    $k = \$ARG;
+    $v = \$nv[$ni];
+    $i = $ni++;
+
+    # ^get arg config and give call
+    my $args={
 
 
     # default mode: Illya Kuryaki && the Valderramas
@@ -350,24 +364,8 @@ sub nmap($ar,$fn,$mode='ikv') {
     k   => [\$k],
     v   => [\$v],
 
-  };
+    }->{$mode};
 
-
-  # decompose array
-  my $ni=0;
-  my @nk=nkeys($ar);
-  my @nv=nvalues($ar);
-
-  # ^walk
-  map {
-
-    # overwrite refs
-    $k = \$ARG;
-    $v = \$nv[$ni];
-    $i = $ni++;
-
-    # ^get arg config and give call
-    my $args=$tab->{$mode};
     $fn->(map {$$ARG} @$args);
 
 

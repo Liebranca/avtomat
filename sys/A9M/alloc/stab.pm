@@ -35,7 +35,7 @@ package A9M::alloc::stab;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a;
+  our $VERSION = v0.00.6;#a;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -385,6 +385,35 @@ sub release($class,$frame,$have,$addr) {
 
   return ($loc{size} << $ezy)
     - $main->blk_t->{sizeof};
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+
+  return map {
+    $ARG=>$self->{$ARG};
+
+  } qw(lvl head blk frame);
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($class,$O) {
+  return bless $O,$class;
+
+};
+
+# ---   *   ---   *   ---
+# ^cleanup kick
+
+sub REBORN($self) {
+  $self->{frame}->icemake($self);
+  return;
 
 };
 

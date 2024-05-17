@@ -36,7 +36,7 @@ package A9M::anima;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -164,7 +164,19 @@ sub new($class,%O) {
   $self->mkroot();
   $self->{almask}=$class->reserved_mask;
 
-  $self->{mem}->brk($class->size);
+  # ^make partitions and give
+  $self->{mem}->brk($self->size);
+  $self->mkpart();
+
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# generate partition
+
+sub mkpart($self) {
+
 
   # make labels
   my $addr = 0x00;
@@ -177,14 +189,14 @@ sub new($class,%O) {
       addr  => $addr,
       label => $ARG,
 
-      type  => $class->size_k,
+      type  => $self->size_k,
 
     );
 
-    $addr += $class->size;
+    $addr += $self->size;
     $v;
 
-  } @{$class->list};
+  } @{$self->list};
 
 
   # make fetch pointers
@@ -205,7 +217,7 @@ sub new($class,%O) {
   # save labels to ice and give
   $self->{ptr}=\@ptr;
 
-  return $self;
+  return;
 
 };
 
@@ -340,6 +352,53 @@ sub update($class,$A9M) {
     owc($dst,$blk->{buf});
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+
+
+  # get super
+  my @out=A9M::sysmem::mint($self);
+
+  # get attrs
+  push @out,map {
+    $ARG=>$self->{$ARG};
+
+  } qw(flags);
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($class,$O) {
+
+  # get super
+  my $self=A9M::layer::unmint($class,$O);
+
+  # get attrs
+  $self->{flags}=$O->{flags};
+
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# ^cleanup kick
+
+sub REBORN($self) {
+
+  A9M::layer::REBORN($self);
+  $self->mkpart();
+
+  return;
 
 };
 

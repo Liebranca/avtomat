@@ -38,7 +38,7 @@ sub load($src) {mount $src};
 # ---   *   ---   *   ---
 # run and dbout
 
-my $main=make './lps/test.pe';
+my $main=load make './lps/test.pe';
 
 #$main->run();
 #$main->prich(

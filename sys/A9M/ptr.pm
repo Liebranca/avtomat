@@ -37,7 +37,7 @@ package A9M::ptr;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -57,6 +57,8 @@ St::vconst {
     len    => 0,
 
     mcid   => 0,
+    mccls  => null,
+
     field  => [],
     segcls => undef,
 
@@ -77,6 +79,10 @@ sub new($class,%O) {
 
   # make ice and give
   my $self=bless \%O,$class;
+
+  $self->{mccls}=
+    ref $self->getseg()->getmc();
+
 
   return $self;
 
@@ -125,7 +131,7 @@ sub struclay($self,$par) {
       # field is a ptr?
       my $ice=undef;
 
-      if(my ($ptr_t)=Type->is_ptr($type)) {
+      if(Type->is_ptr($type)) {
 
         $ice=$seg->ptr(
 
@@ -136,7 +142,7 @@ sub struclay($self,$par) {
 
           store_at => $addr,
 
-          ptr_t    => $ptr_t,
+          ptr_t    => $type,
           label    => $label,
 
 
@@ -349,6 +355,105 @@ sub absloc($self,%O) {
   # give segment base plus relative
   return $seg->absloc() + $off;
 
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+
+  # get super
+  my @out=A9M::layer::mint($self);
+
+  # get base attrs
+  push @out,map {
+    $ARG=>$self->{$ARG};
+
+  } qw(
+
+    addr
+    len
+
+    field
+
+  );
+
+  # indirection...
+  my ($ptr_t,$chan,$ptrv)=(
+    undef,undef,0x00,
+
+  );
+
+  if($self->{ptr_t}) {
+    ($chan) = $self->read_ptr();
+    $ptr_t  = $self->{ptr_t}->{name};
+
+  };
+
+  push @out,(
+
+    type  => $self->{type}->{name},
+    ptr_t => $ptr_t,
+
+    seg   => $self->getseg(),
+    chan  => $chan,
+
+  );
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($class,$O) {
+
+  my $self=A9M::layer::unmint($class,$O);
+
+  map {
+    $self->{$ARG}=$O->{$ARG}
+
+  } qw(
+
+    addr
+    len
+
+    field
+
+    ptr_t
+    type
+
+    seg
+    chan
+
+  );
+
+
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# ^cleanup kick
+
+sub REBORN($self) {
+
+  $self->{segid}  = $self->{seg}->{iced};
+  $self->{segcls} = ref $self->{seg};
+
+  $self->{chan}   = $self->{chan}->{iced}
+  if length $self->{chan};
+
+  delete $self->{seg};
+
+
+  $self->{type}  = typefet $self->{type};
+  $self->{ptr_t} = typefet $self->{ptr_t}
+  if $self->{ptr_t};
+
+  return;
 
 };
 

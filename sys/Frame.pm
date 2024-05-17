@@ -128,7 +128,8 @@ sub __ctlgive($frame) {
 sub mint($self) {
 
 
-  my %out=map {
+  my $class = $self->{-class};
+  my %out   = map {
     $ARG=>$self->{$ARG}
 
   } qw(
@@ -139,8 +140,14 @@ sub mint($self) {
   );
 
 
+  # have icebox?
+  if($class->can('icepick')) {
+    $self->icebox_clear(0);
+
+  };
+
+
   # have specifics?
-  my $class=$self->{-class};
   if($class->can('mint_frame')) {
     %out=(%out,$class->mint_frame($self));
 
@@ -153,6 +160,7 @@ sub mint($self) {
     } keys %$vars);
 
   };
+
 
   delete $out{-autoload};
   return %out;

@@ -36,7 +36,7 @@ package A9M::alloc::blk;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a;
+  our $VERSION = v0.00.4;#a;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -302,6 +302,35 @@ sub pack_loc($class,$size,$pos) {
 
 sub unpack_loc($class,$loc) {
   return $$class->loc_t->from_value($loc);
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+
+  return map {
+    $ARG=>$self->{$ARG};
+
+  } qw(stab mem frame);
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($class,$O) {
+  return bless $O,$class;
+
+};
+
+# ---   *   ---   *   ---
+# ^cleanup kick
+
+sub REBORN($self) {
+  $self->{frame}->icemake($self);
+  return;
 
 };
 

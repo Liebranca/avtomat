@@ -38,7 +38,7 @@ package A9M::alloc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -260,6 +260,60 @@ sub realloc($self,$ptr,$req) {
 
 
   return $new;
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+
+  # get super
+  my @out=A9M::layer::mint($self);
+
+  # get attrs
+  push @out,map {
+    $ARG=>$self->{$ARG};
+
+  } qw(tab mem);
+
+  push @out,base=>$self->{base}->{name};
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($class,$O) {
+
+  # get super
+  my $self=A9M::layer::unmint($class,$O);
+
+  # get attrs
+  map {
+    $self->{$ARG}=$O->{$ARG};
+
+  } qw(base tab mem);
+
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# ^cleanup kick
+
+sub REBORN($self) {
+
+  # get super
+  A9M::layer::REBORN($self);
+
+  # get attrs
+  $self->set_base($self->{base});
+
+  return;
 
 };
 

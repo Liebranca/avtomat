@@ -34,7 +34,7 @@ package A9M::sysmem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -269,6 +269,42 @@ sub restore($self) {
   $self->restore_mem();
 
   return;
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+
+  # get super
+  my @out=A9M::layer::mint($self);
+
+  # get attrs
+  push @out,map {
+    $ARG=>$self->{$ARG};
+
+  } qw(mem almask alhist memhist);
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# undo
+
+sub unmint($class,$O) {
+
+  # get super
+  my $self=A9M::layer::unmint($class,$O);
+
+  # get attrs
+  $self->{mem}     = $O->{mem};
+  $self->{almask}  = $O->{almask};
+  $self->{alhist}  = $O->{alhist};
+  $self->{memhist} = $O->{memhist};
+
+  return $self;
 
 };
 

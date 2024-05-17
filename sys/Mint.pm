@@ -74,6 +74,17 @@ St::vconst {
   },
 
 
+  # primitives used by encoder
+  enc_prims => [qw(
+
+    cstr plstr
+
+    tiny short mean  long
+    byte word  dword qword
+
+  )],
+
+
   # sequence terminator dummy
   EOS => sub {St::cpkg . '-EOS'},
 
@@ -86,9 +97,6 @@ St::vconst {
     return $have->{ct};
 
   },
-
-  # storable undef ;>
-  NULL => sub {St::cpkg . '-NULL'},
 
 };
 
@@ -236,7 +244,7 @@ sub get_next($self) {
   my $Q=$self->{Q};
   my($key,$vref)=(shift @$Q,shift @$Q);
 
-  $vref //= $self->NULL;
+  $vref //= null;
 
 
   # give non-null if expansion required
@@ -355,10 +363,18 @@ sub vex($self) {
       ;
 
     # apply F to new && non-null
-    my $value=($defd &&! defined $have)
-      ? $fn->($self,$src->{$ARG},@$args)
-      : $self->PTR . $have
-      ;
+    my $value;
+
+    if($defd &&! defined $have) {
+      $value=$fn->($self,$src->{$ARG},@$args)
+
+    } elsif(defined $have) {
+      $value=$self->PTR . $have;
+
+    } else {
+      $value=undef;
+
+    };
 
     $ARG=>$value;
 
@@ -426,18 +442,10 @@ sub to_bin($self,$path) {
 
 
   # get number of types used by elems
-  my $order=[qw(
+  my $order   = [@{$self->enc_prims}];
 
-    cstr
-
-    tiny short mean  long
-    byte word  dword qword
-
-  )];
-
-  my $typetab=array_key_idex $order;
-  my $primcnt=int @$order;
-
+  my $typetab = array_key_idex $order;
+  my $primcnt = int @$order;
 
   map {
 
@@ -458,6 +466,7 @@ sub to_bin($self,$path) {
 
 
   } @hist;
+
 
   # get type/value/elem count
   my $typecnt = int(@$order) - $primcnt;
@@ -516,34 +525,56 @@ sub to_bin($self,$path) {
     my $refn  = ref $value;
 
 
+    # edge-case: bytearray!
+    if(
+
+       ($value=~ qr"\x{00}")
+    || $refn eq 'Regexp'
+
+    ) {
+
+      $refn  = 'plstr';
+      $value = $value;
+
+
     # edge case: internal pointers
-    if($value=~ s[$ptr_re][$1]) {
+    } elsif($value=~ s[$ptr_re][$1]) {
       $refn=Type->ptr_by_size($value);
 
     # edge-case: strings and numbers
     } elsif(! length $refn) {
 
+
       # have number?
       if($value=~ $NUM_RE) {
         ($refn) = typeof bytesize $value;
 
-      # have string!
+      # have good C string! ;>
       } else {
-        $refn='cstr'
+        $refn='cstr';
 
       };
 
     };
 
+    my $type  = $typetab->{$refn};
+    my $valid = (
 
-    my $type=$typetab->{$refn};
+      ((  ! Type->is_ptr($refn)
+      &&  ! Type->is_str($refn))
+
+      &&  ! Type->is_valid($refn)
+
+      ) ||! Type->is_valid($refn)
+
+    );
 
 
     #  just a dummy, safely ignored
-    if(! Type->is_ptr($refn)
-    && ! Type->is_valid($refn)) {
-      my $have = bpack $size_t=>$type;
-      $out .= $have->{ct};
+    if($valid) {
+
+      my $have  = bpack $size_t=>$type;
+         $out  .= $have->{ct};
 
 
     # write value to table
@@ -562,9 +593,10 @@ sub to_bin($self,$path) {
   } 0..$datacnt-1;
 
 
-  # add elem table size
+  # add elem table si<ze
   $head  = bpack $elem_t,$elemcnt;
   $out  .= $head->{ct};
+
 
   # make elem entry structure
   my $struc=join ',',(
@@ -613,11 +645,9 @@ sub from_bin($self,$path) {
   # open file
   my @call=(gunzip=>'-k'=>$path);
   system {$call[0]} @call;
-
   my $src=orc $path;
 
   unlink $path;
-
 
   # signature check
   my $sig  = $self->SIG;
@@ -644,14 +674,12 @@ sub from_bin($self,$path) {
 
 
   # ^add prims
-  my $order=[qw(
+  my $order=[
 
-    cstr
+    @{$self->enc_prims},
+    map {$ARG=null if $ARG eq 0;$ARG
 
-    tiny short mean  long
-    byte word  dword qword
-
-  ),map {$ARG=null if $ARG eq 0;$ARG} @$have];
+  } @$have];
 
   my $typetab=array_key_idex $order;
 
@@ -662,37 +690,54 @@ sub from_bin($self,$path) {
 
   my $data    = [];
 
+
   # decode values
   map {
 
-    my $idex = bunpacksu $size_t=>\$src;
-       $idex = $idex->{ct}->[0];
+    my $idex  = bunpacksu $size_t=>\$src;
+       $idex  = $idex->{ct}->[0];
 
-    my $type = $order->[$idex];
 
+    my $type  = $order->[$idex];
+    my $valid = Type->is_valid($type);
+
+    my $pre   = null;
+    my $fmat  = null;
 
     # have pointer?
-    if(Type->is_ptr($type)) {
+    if(
 
-      my $value=bunpacksu "${type}ptr"=>\$src;
-         $value=$value->{ct}->[0];
+        $valid
 
-      push @$data,$self->PTR . $value;
+    &&  Type->is_ptr($type)
+    &&! Type->is_str($type)
+
+    ) {
+
+      $pre  = $self->PTR;
+      $fmat = "${type}ptr";
 
 
     # have dummy?
-    } elsif(! Type->is_valid($type)) {
-      push @$data,$type;
+    } elsif(! $valid) {
+      $pre=$type;
 
     # have primitive!
     } else {
-
-      my $value=bunpacksu $type=>\$src;
-         $value=$value->{ct}->[0];
-
-      push @$data,$value;
+      $fmat=$type;
 
     };
+
+
+    my $value=null;
+
+    if(length $fmat) {
+      $value=bunpacksu $fmat=>\$src;
+      $value=$value->{ct}->[0];
+
+    };
+
+    push @$data,$pre . $value;
 
   } 0..$datacnt-1;
 
@@ -710,6 +755,13 @@ sub from_bin($self,$path) {
     'cstr'
 
   );
+
+
+  my $struc_sz=
+    sizeof($size_t)
+  + sizeof($data_t)
+
+  + 1;
 
 
   # decode elements...
@@ -754,7 +806,6 @@ sub from_bin($self,$path) {
     my ($type,$value,@path)=@$have;
     my $idex=$value;
 
-
     $type  = $order->[$type];
     $value = $data->[$value];
 
@@ -763,7 +814,12 @@ sub from_bin($self,$path) {
 
 
     # handle internal pointer
-    if($value=~ s[$ptr_re][$1]) {
+    if(
+
+       defined $value
+    && $value=~ s[$ptr_re][$1]
+
+    ) {
       $idex  = $value;
       $value = $data->[$value];
 
@@ -795,7 +851,12 @@ sub from_bin($self,$path) {
 
 
     # convert hash to array
-    } elsif($value eq 'ARRAY') {
+    } elsif(
+
+       defined $value
+    && $value eq 'ARRAY'
+
+    ) {
 
       $$href=[map {
         my $idex=(! $ARG) ? "_$ARG" : "$ARG";
@@ -805,18 +866,17 @@ sub from_bin($self,$path) {
 
 
     # handle blessed ones
-    } elsif($value ne 'HASH') {
+    } elsif(
+       defined $value
+    && $value ne 'HASH'
+
+    ) {
       push @blessf,[$value,$href_path,$idex];
 
     };
 
 
     # overwrite placeholders in cache
-    $$href=undef
-
-    if $$href
-    && $$href eq $self->NULL;
-
     $data->[$idex]=$$href;
     [$idex,$href,$href_path];
 
@@ -850,7 +910,7 @@ sub from_bin($self,$path) {
 
     map {
 
-      if(is_arrayref $$href
+      if(is_arrayref($$href)
       || $$href=~ qr{=ARRAY}) {
         $href=\$$href->[$ARG];
 
@@ -858,6 +918,7 @@ sub from_bin($self,$path) {
         $href=\$$href->{$ARG};
 
       };
+
 
     } @$path;
 
@@ -874,15 +935,36 @@ sub from_bin($self,$path) {
 
     my ($path,$idex)=@$ARG;
     my $href=\$obj;
+    my $prev=undef;
+
 
     # get the path again...
     map {
 
-      if(is_arrayref $$href
-      || $$href=~ qr{=ARRAY}) {
-        $href=\$$href->[$ARG];
 
-      } elsif(defined $$href) {
+      if(
+
+         defined $$href
+
+      && (is_arrayref($$href)
+      || $$href=~ qr{=ARRAY})
+
+      ) {
+
+        $ARG=~ $NUM_RE
+        or (fatdump $prev,blessed=>1),exit;
+
+        $prev=$href;
+        $href=\$$href->[$ARG]
+
+
+      } elsif(
+         defined $$href
+      && $$href=~ qr{=HASH}
+
+      ) {
+
+        $prev=$href;
         $href=\$$href->{$ARG};
 
       };
@@ -906,7 +988,7 @@ sub from_bin($self,$path) {
 
   # run hooks and give
   array_dupop \@post;
-  map {$ARG->REBORN} @post;
+  map {$ARG->REBORN} reverse @post;
 
   return $obj;
 
@@ -953,6 +1035,8 @@ sub image($path,$obj,%O) {
   my $self  = $class->new($obj,%O);
 
   $self->proc();
+  St::PENDING;
+
   $self->to_bin($path);
 
   return $path;

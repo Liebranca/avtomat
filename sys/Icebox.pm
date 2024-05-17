@@ -32,16 +32,21 @@ package Icebox;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
   Readonly my $SHARED=>[qw(
-    icemake icepick ice
+    icemake icepick ice icebox_clear
 
   )];
+
+# ---   *   ---   *   ---
+# GBL
+
+  my $Del_Q=[];
 
 # ---   *   ---   *   ---
 # importer injections
@@ -77,13 +82,6 @@ St::imping {
   },
 
 
-  # loading
-  '*regen' => sub($dst,$ice) {
-    St::cpkg->regen($ice);
-
-  },
-
-
   # ice dstruc
   '*DESTROY' => sub ($dst,$ice) {
     St::cpkg->del($ice);
@@ -114,6 +112,8 @@ sub icemake($class,$frame,$ice) {
 
 sub icepick($class,$frame,$ice) {
 
+  return if ! $ice && $ice->{iced} < 0;
+
   my $box=$frame->{icebox};
   $box->take(idex=>$ice->{iced});
 
@@ -134,26 +134,38 @@ sub ice($class,$frame,$idex) {
 };
 
 # ---   *   ---   *   ---
-# instance restore hook
-
-sub regen($class,$self) {
-
-  my $frame=$self->{frame};
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
 # instance dstruc hook
 
 sub del($class,$self) {
+
+  return if ! defined $self->{iced}
+         ||   $self->{iced} < 0;
 
   my $frame=$self->{frame};
 
   $frame->icepick($self)
   if $frame && $frame->{icebox};
 
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^bat
+
+sub icebox_clear($class,$frame,@slurp) {
+
+  St::ENQUEUE sub {
+
+    my $box = $frame->{icebox};
+    my %h   = @$box;
+
+    map {$ARG->{iced}=-1} values %h;
+
+    $box->clear();
+
+  };
 
   return;
 

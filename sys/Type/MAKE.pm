@@ -298,7 +298,7 @@ St::vconst {
 
     str    => 'Z',
     cstr   => 'Z*',
-    plstr  => 'u',
+    plstr  => 'ux',
 
   },
 
@@ -641,7 +641,7 @@ sub fetch(@flags) {
     # PACKING WIDE STRINGS
     } elsif($name=~ q{\b(?:wide|plstr)\b}) {
 
-      $fmat   = 'u';
+      $fmat   = 'ux';
       $ebm    = $ebm | ($ebm << 8);
 
       $tby  <<= 1;

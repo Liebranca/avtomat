@@ -43,7 +43,7 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.0;#b
+  our $VERSION = v0.02.1;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -584,8 +584,8 @@ sub ptr_defnit($self,$O) {
 
   $class->defnit($O);
   $O->{label} //= $self->mklabel();
-  $O->{mccls} //= $self->{mccls};
-  $O->{mcid}  //= $self->{mcid};
+  $O->{mccls}   = $self->{mccls};
+  $O->{mcid}    = $self->{mcid};
 
 
   return $class;
@@ -650,6 +650,7 @@ sub ptr($self,$to,%O) {
 
   # set defaults
   my $class=$self->get_ptr_bk();
+
   $O{ptr_t}     //= 'ptr';
   $O{store_at}  //= 0x00;
   $O{label}     //= $self->mklabel();
@@ -729,8 +730,7 @@ sub infer($self,$value,%O) {
   my $class = $self->get_ptr_bk();
   my $isptr = $class->is_valid($value);
 
-  my $post  = ! $isptr && $O{ptr_t};
-
+  my $post  = ! $isptr && exists $O{ptr_t};
 
   my $ptr=($isptr)
     ? $self->ptr($value,%O,store_at=>$O{addr})
@@ -1460,21 +1460,106 @@ sub cstr_len($self,$addr=0) {
 };
 
 # ---   *   ---   *   ---
-# encode to file
+# encode to binary
 
-sub mint($self,$status) {
+sub mint($self) {
 
-  $self->prich(root=>1,depth=>2);
-  exit;
 
-  return;
+  # get super
+  my @out=(
+    Tree::mint($self),
+    A9M::layer::mint($self),
+
+  );
+
+
+  # get base attrs
+  push @out,map {
+    $ARG=>$self->{$ARG}
+
+  } qw(size inner);
+
+
+  # have segment ref?
+  if($self->{__view}) {
+    push @out,__view=>$self->{__view};
+
+  # have segment!
+  } else {
+    push @out,buf=>${$self->{buf}};
+
+  };
+
+  return @out;
 
 };
 
 # ---   *   ---   *   ---
 # ^undo
 
-sub unmint($self,$status) {
+sub unmint($class,$O) {
+
+  my $self=Tree::unmint($class,$O);
+     $self=A9M::layer::unmint($class,$self);
+
+
+  $self->{ptr}    = 0x00;
+  $self->{buf}    = $O->{buf};
+  $self->{inner}  = $O->{inner};
+
+  $self->{__view} = $O->{__view};
+
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# ^cleanup
+
+sub REBORN($self) {
+
+
+  # run super
+  Tree::REBORN($self);
+  A9M::layer::REBORN($self);
+
+  my $buf=$self->{buf};
+  $self->{buf}=\$buf;
+
+
+  # locate root node
+  ($self->{root})=$self->root();
+
+
+  # link segment to namespace
+  if($self eq $self->{root}) {
+
+    my @Q=$self;
+    while(@Q) {
+
+      my $nd=shift @Q;
+      unshift @Q,@{$nd->{leaves}};
+
+      $nd->{inner}->{mem}=$nd;
+
+    };
+
+  };
+
+
+  # have segment ref?
+  if($self->{__view}) {
+
+    my $size=$self->{size};
+    $self->{size}=0;
+
+    $self->update_view_buf($size);
+
+  };
+
+
+  $self->{frame}->icemake($self);
+  return;
 
 };
 

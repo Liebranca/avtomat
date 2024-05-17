@@ -305,7 +305,7 @@ sub new($class,$frame,$parent,$val,%O) {
   },$class;
 
   # add leaf if ancestry
-  if(defined $parent) {
+  if($parent) {
 
     if($O{unshift_leaves}) {
       unshift @{$parent->{leaves}},$node;
@@ -565,10 +565,10 @@ sub fvalue($self) {
 
 sub root($self) {
 
-  my $root=$self;
-  my $depth=0;
+  my $root  = $self;
+  my $depth = 0;
 
-  while(defined $root->{parent}) {
+  while($root->{parent}) {
     $root=$root->{parent};
     $depth++;
 
@@ -1339,7 +1339,7 @@ sub leafless($self,%O) {
 
         push @out,$par
 
-        if  defined $par
+        if  $par
         &&! int grep {$par eq $ARG} @out;
 
         next;

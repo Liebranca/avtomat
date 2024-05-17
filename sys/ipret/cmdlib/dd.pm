@@ -216,13 +216,13 @@ sub data_decl($self,$branch) {
 
 
     # have ptr?
-    my ($ptr_t) = Type->is_ptr($type);
+    my $ptr_t = undef;
 
     # ^sanity check
     my $ptrcls   = $mc->{bk}->{ptr};
     my $have_ptr = $ptrcls->is_valid($x);
 
-    if($have_ptr &&! $ptr_t) {
+    if($have_ptr &&! Type->is_ptr($type)) {
 
       $main->perr(
 
@@ -230,6 +230,9 @@ sub data_decl($self,$branch) {
         args=>[$type->{name}]
 
       );
+
+    } else {
+      $ptr_t=$type;
 
     };
 

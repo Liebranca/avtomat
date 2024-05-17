@@ -257,12 +257,14 @@ sub throw_empty() {
 };
 
 # ---   *   ---   *   ---
-# ^just get value
+# just get value
 
 sub view($self,$idex=$FIRST_AVAIL) {
 
   my $i=$self->iofa($idex);
-  return (defined $i) ? $self->[$i] : undef ;
+
+  return (defined $i && $self->[$i] ne $SENTINEL)
+    ? $self->[$i] : undef ;
 
 };
 
@@ -281,6 +283,15 @@ sub empty($self) {
 sub full($self) {
   my $x=int $self->value();
   return $x == (int @$self) >> 1;
+
+};
+
+# ---   *   ---   *   ---
+# trash it all!
+
+sub clear($self) {
+  @$self=();
+  return;
 
 };
 

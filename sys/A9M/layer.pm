@@ -24,6 +24,8 @@ package A9M::layer;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Chk;
+
   use parent 'St';
 
 # ---   *   ---   *   ---
@@ -70,6 +72,43 @@ sub set_uattrs($self,@keys) {
 
 
   return;
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+  return mc=>$self->getmc();
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($class,$O) {
+
+  my $self=(! is_blessref $O)
+    ? bless $O,$class
+    : $O
+    ;
+
+  $self->{mc}=$O->{mc};
+  return $self;
+
+};
+
+# ---   *   ---   *   ---
+# ^find machine instance
+
+sub REBORN($self) {
+
+  my $mc=$self->{mc};
+
+  $self->{mcid}  = $mc->{iced};
+  $self->{mccls} = ref $mc;
+
+  delete $self->{mc};
 
 };
 

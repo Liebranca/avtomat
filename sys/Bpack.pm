@@ -40,7 +40,7 @@ package Bpack;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -72,6 +72,11 @@ sub strucun($src) {
 };
 
 # ---   *   ---   *   ---
+# ~
+
+sub deforz {(defined $_[0]) ? $_[0] : 0x00 };
+
+# ---   *   ---   *   ---
 # de-nesting of peso type
 
 sub unlay($type,$src) {
@@ -80,7 +85,7 @@ sub unlay($type,$src) {
   if(is_hashref($src)) {
 
     my $field = $type->{struc_i};
-       $src   = [map {$src->{$ARG} or 0x00} @$field];
+       $src   = [map {deforz $src->{$ARG}} @$field];
 
   # ^effectively noop on plain value
   } elsif(! is_arrayref($src)) {
@@ -113,20 +118,32 @@ sub bpack($struc,@data) {
       # get next type
       my $type = array_wrap(\@type,$idex++);
       my $size = $type->{sizeof};
+      my $fmat = $type->{packof};
 
       # have string?
       my ($str_t) = Type->is_str($type);
       my $cnt     = ($str_t)
-        ? 1+length $ARG
+        ? int($fmat ne 'ux')+length $ARG
         : 1
         ;
 
-      $len += $size * $cnt;
+      if($str_t && $fmat eq 'ux') {
+
+        my $give=pack 'ux',unlay $type,$ARG;
+        $len += length $give;
+
+        $give;
+
+      } else {
+
+        $len += $size * $cnt;
 
 
-      # ^pack chunk accto type
-      pack  $type->{packof},
-      unlay $type,$ARG;
+        # ^pack chunk accto type
+        pack  $type->{packof},
+        unlay $type,$ARG;
+
+      };
 
 
   } @data;
@@ -150,8 +167,8 @@ sub layas($type,@src) {
   my @out=map {
 
     ($ARG > 1)
-      ? [map {shift @src or 0} 1..$ARG]
-      : shift @src or 0
+      ? [map {deforz shift @src} 1..$ARG]
+      : deforz shift @src
       ;
 
 
@@ -215,10 +232,15 @@ sub bunpack($struc,$src,$pos=0,$cnt=1) {
     # have string?
     my ($str_t) = Type->is_str($type);
     my $cnt     = ($str_t)
-      ? 1+length $have[0]
+      ? int($fmat ne 'ux')+length $have[0]
       : 1
       ;
 
+    if($str_t && $fmat eq 'ux') {
+      $cnt  = length pack 'ux',$have[0];
+      $size = 1;
+
+    };
 
     $pos += $size * $cnt;
     $len += $size * $cnt;
@@ -245,7 +267,24 @@ sub bunpack($struc,$src,$pos=0,$cnt=1) {
 
 sub bunpacksu($struc,$srcref,$pos=0,$cnt=1) {
 
+  my $cpy=$$srcref;
   my $b=bunpack($struc,$$srcref,$pos,$cnt);
+
+  errout "cannot unpack struc '%s'",
+
+  args => [
+
+    (is_hashref $struc)
+      ? $struc->{name}
+      : $struc
+      ,
+
+  ],
+
+  lvl  => $AR_FATAL,
+
+  if ! length $b;
+
   substr $$srcref,$pos,$b->{len},$NULLSTR;
 
   return $b;

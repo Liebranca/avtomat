@@ -31,7 +31,7 @@ package A9M::stack;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -80,9 +80,8 @@ sub new($class,%O) {
   $self->{ptr}  = $anima->fetch($anima->stack_ptr);
 
 
-  # reset self and give
-  $self->reset;
-
+  # find ptrs and give
+  $self->regen;
   return $self;
 
 };
@@ -96,6 +95,38 @@ sub reset($self) {
   $self->{base}->store(0x00);
   $self->{ptr}->store($self->total);
   $self->{mem}->clear();
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# regen ptrs
+
+sub regen($self) {
+
+
+  # get handle to registers
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+
+  $self->{base} = $anima->fetch($anima->stack_base);
+  $self->{ptr}  = $anima->fetch($anima->stack_ptr);
+
+
+  # ^zero flood and give
+  $self->reset;
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# cleanup kick
+
+sub REBORN($self) {
+
+  A9M::sysmem::REBORN($self);
+  $self->regen;
 
   return;
 
