@@ -33,7 +33,7 @@ package rd::preproc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -650,6 +650,35 @@ sub invoke($self,$root,@src) {
 
   $l2->{branch}=$old;
   return;
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+
+  return map {
+    $ARG=>$self->{$ARG};
+
+  } qw(order tab invoke);
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($class,$O) {
+
+  return bless {
+
+    main   => undef,
+
+    order  => $O->{order},
+    tab    => $O->{tab},
+    invoke => $O->{invoke},
+
+  },$class;
 
 };
 

@@ -565,4 +565,27 @@ sub run($self,$keyw,@args) {
 };
 
 # ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+  return tab => $self->{tab};
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($class,$O) {
+
+  return bless {
+    main => undef,
+    tab  => $O->{tab},
+
+    keyw => undef,
+
+  },$class;
+
+};
+
+# ---   *   ---   *   ---
 1; # ret

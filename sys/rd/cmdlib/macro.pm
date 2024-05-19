@@ -195,9 +195,8 @@ sub macro_paste($self,$branch) {
 
   # get ctx
   my $main  = $self->{frame}->{main};
-  my $mc    = $main->{mc};
-  my $scope = $mc->{scope};
-  my @path  = @{$mc->{path}};
+  my $scope = $main->{scope};
+  my @path  = @{$scope->ances_list(root=>0)};
 
 
   # macro in namespace?
@@ -339,7 +338,7 @@ sub macro_proc_args($self,$body,@args) {
 };
 
 # ---   *   ---   *   ---
-# points at your foot ;>
+# points at your feet ;>
 
 sub macro($self,$branch) {
 
@@ -347,9 +346,8 @@ sub macro($self,$branch) {
   # get ctx
   my $main  = $self->{frame}->{main};
   my $l1    = $main->{l1};
-  my $mc    = $main->{mc};
-  my $scope = $mc->{scope};
-  my @path  = @{$mc->path};
+  my $scope = $main->{scope};
+  my @path  = @{$scope->ances_list(root=>0)};
 
 
   # unpack
@@ -377,7 +375,7 @@ sub macro($self,$branch) {
   $name=$l1->untag($name->{id})->{spec};
   push @path,macro=>$name;
 
-  $main->throw_redecl(macro=>$name)
+  $main->throw_redecl(macro=>$name,@path)
   if $scope->has(@path);
 
 

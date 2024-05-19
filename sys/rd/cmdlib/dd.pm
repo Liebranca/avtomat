@@ -126,6 +126,17 @@ sub seg_type($self,$branch) {
   };
 
 
+  # set preproc namespace!
+  my $scope = $main->{scope};
+  my @path  = $scope->ances_list(root=>0);
+
+  pop @path if @path > 1;
+
+
+  $main->{inner}->force_get(@path,$name);
+  $main->{scope}=$main->{inner}->{'*fetch'};
+
+
   return;
 
 };
@@ -146,6 +157,11 @@ sub clan($self,$branch) {
 
   $branch->{vref}=$name;
   $branch->clear();
+
+
+  # set preproc namespace!
+  $main->{inner}->force_get($name);
+  $main->{scope}=$main->{inner}->{'*fetch'};
 
   return;
 

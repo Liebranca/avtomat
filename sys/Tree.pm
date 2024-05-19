@@ -585,6 +585,7 @@ sub ances_list($self,%O) {
 
   # defaults
   $O{max_depth} //= 0x24;
+  $O{root}      //= 1;
 
 
   # walk upwards
@@ -605,6 +606,7 @@ sub ances_list($self,%O) {
   };
 
 
+  shift @out if ! $O{root};
   return @out;
 
 };

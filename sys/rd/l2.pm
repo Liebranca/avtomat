@@ -36,7 +36,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.1;#a
+  our $VERSION = v0.02.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -726,6 +726,14 @@ sub is_exprtop($self,$branch=undef) {
 
   # ^nope, you're not at the top!
   return 0;
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+  return tab => $self->{tab};
 
 };
 

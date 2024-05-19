@@ -47,7 +47,7 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.7;#a
+  our $VERSION = v0.01.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -144,8 +144,10 @@ sub new($class,$src,%O) {
   my $self=bless {
 
 
-    # parse tree root
-    tree => undef,
+    # parse tree root/preproc namespace
+    tree  => undef,
+    inner => undef,
+    scope => undef,
 
     # a glorified source filter ;>
     preproc => undef,
@@ -191,8 +193,11 @@ sub new($class,$src,%O) {
   id->chk($self,$O{id});
 
   # make parse tree root
-  my $frame     = Tree->get_frame($self->{iced});
-  $self->{tree} = $frame->new(undef,$NULLSTR);
+  my $frame      = Tree->get_frame($self->{iced});
+
+  $self->{tree}  = $frame->new(undef,$NULLSTR);
+  $self->{inner} = $frame->new(undef,'INNER');
+  $self->{scope} = $self->{inner};
 
 
   # nit layers
@@ -824,6 +829,47 @@ sub throw_undefined($self,$type,$name,@path) {
     args=>[$type,$name,(join '::',@path)]
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+
+
+  # add general attrs
+  my @out=map {
+    $ARG=>$self->{$ARG}
+
+  } qw(
+
+    fmode subpkg lineat lineno
+    stage pass passes
+
+    tree inner l1 l2 preproc
+
+  );
+
+
+  # virtual machine attrs
+  my $mc       = $self->{mc};
+
+  my $root     = $mc->{astab_i}->[0];
+     $root     = $mc->{astab}->{$root};
+
+  my $mc_attrs = {
+
+    cls     => ref $mc,
+
+    memroot => $root->{value},
+    pathsep => $mc->{pathsep},
+
+  };
+
+  push @out,mc => $mc_attrs;
+
+  return @out;
 
 };
 

@@ -40,7 +40,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.0;#a
+  our $VERSION = v0.02.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -723,6 +723,18 @@ sub quantize($self,$src=undef) {
     nyi "<$type> quantization";
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+
+  return map {
+    $ARG=>$self->{$ARG}
+
+  } qw(defs table);
 
 };
 

@@ -549,6 +549,24 @@ subwraps(
 );
 
 # ---   *   ---   *   ---
+# shit's killing me
+
+sub is_base_ptr($class,$type) {
+
+  state $re=Type::MAKE->RE->{ptr_any};
+
+
+  if(is_hashref $type) {
+    $type=$type->{name};
+
+  };
+
+  $type //= null;
+  return int ($type=~ qr{^$re$});
+
+};
+
+# ---   *   ---   *   ---
 # errme
 
 sub warn_redef($name) {

@@ -229,7 +229,6 @@ sub register($self,$key,$vref) {
 
   push @{$self->{hist}},$out;
 
-
   # inform caller if we have a new value!
   return (! $have) ? $out : undef ;
 
@@ -560,12 +559,10 @@ sub to_bin($self,$path) {
     my $type  = $typetab->{$refn};
     my $valid = (
 
-      ((  ! Type->is_ptr($refn)
-      &&  ! Type->is_str($refn))
+      ! Type->is_base_ptr($refn)
+    &&! Type->is_str($refn)
 
-      &&  ! Type->is_valid($refn)
-
-      ) ||! Type->is_valid($refn)
+    &&! Type->is_valid($refn)
 
     );
 
@@ -694,6 +691,7 @@ sub from_bin($self,$path) {
   # decode values
   map {
 
+
     my $idex  = bunpacksu $size_t=>\$src;
        $idex  = $idex->{ct}->[0];
 
@@ -704,19 +702,11 @@ sub from_bin($self,$path) {
     my $pre   = null;
     my $fmat  = null;
 
+
     # have pointer?
-    if(
-
-        $valid
-
-    &&  Type->is_ptr($type)
-    &&! Type->is_str($type)
-
-    ) {
-
+    if(Type->is_base_ptr($type)) {
       $pre  = $self->PTR;
-      $fmat = "${type}ptr";
-
+      $fmat = $type;
 
     # have dummy?
     } elsif(! $valid) {
@@ -829,7 +819,8 @@ sub from_bin($self,$path) {
 
 
     # write to dst
-    my $href      = \$obj;
+    my $nobj      = $obj;
+    my $href      = \$nobj;
     my $href_path = [];
 
     while(@path && $path[0] ne 'ROOT') {
@@ -906,7 +897,8 @@ sub from_bin($self,$path) {
 
 
     # get value within out struc
-    my $href=\$obj;
+    my $nobj=$obj;
+    my $href=\$nobj;
 
     map {
 
@@ -934,7 +926,9 @@ sub from_bin($self,$path) {
   my @post=map {
 
     my ($path,$idex)=@$ARG;
-    my $href=\$obj;
+
+    my $nobj=$obj;
+    my $href=(@$path) ? \$nobj : \$obj ;
     my $prev=undef;
 
 
@@ -989,6 +983,7 @@ sub from_bin($self,$path) {
   # run hooks and give
   array_dupop \@post;
   map {$ARG->REBORN} reverse @post;
+
 
   return $obj;
 
