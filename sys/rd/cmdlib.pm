@@ -25,6 +25,7 @@ package rd::cmdlib;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Arstd::Array;
   use Arstd::PM;
 
   use parent 'St';
@@ -32,7 +33,7 @@ package rd::cmdlib;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -54,7 +55,7 @@ St::vconst {
   next_link => 'ipret::cmdlib',
 
   extend_l1 => 1,
-  type_list => [qw(EXE CMD REG)],
+  type_list => [qw(EXE $ CMD * REG =)],
 
 };
 
@@ -88,12 +89,22 @@ sub load($class,$main) {
 
 sub load_types($class,$main) {
 
+  my $list = $class->type_list;
+
+  my @nk   = array_keys   $list;
+  my @nv   = array_values $list;
 
   map {
-    my $fn="use_$ARG";
-    $class->$fn($main);
 
-  } @{$class->type_list};
+    my $key   = $nk[$ARG];
+    my $value = $nv[$ARG];
+
+    my $fn    = "use_$key";
+       $fn    = \&$fn;
+
+    $main->{l1}->extend($key=>$value=>$fn);
+
+  } 0..$#nk;
 
 
   return;
@@ -102,90 +113,63 @@ sub load_types($class,$main) {
 };
 
 # ---   *   ---   *   ---
-# add binary token type
+# detect binary token type
 
-sub use_EXE($class,$main) {
-
-
-  # register type and pattern
-  $main->{l1}->extend(EXE=>'$'=>sub {
-
-    # get ctx
-    my $main  = $_[0];
-    my $l1    = $main->{l1};
-    my $mc    = $main->{mc};
-    my $mem   = $mc->{bk}->{mem};
-
-    my $src   = $_[1];
-
-    my $valid =
-       $mem->is_valid($src)
-    && $src->{executable};
-
-    $src=$src->{iced} if $valid;
+sub use_EXE($main,$src) {
 
 
-    return ($valid,$src,$NULLSTR);
+  # get ctx
+  my $l1    = $main->{l1};
+  my $mc    = $main->{mc};
+  my $mem   = $mc->{bk}->{mem};
 
-  });
+  # run checks
+  my $valid =
+     $mem->is_valid($src)
+  && $src->{executable};
 
-  return;
+  $src=$src->{iced} if $valid;
+
+
+  return ($valid,$src,$NULLSTR);
 
 };
 
 # ---   *   ---   *   ---
-# add function token type
+# detect function token type
 
-sub use_CMD($class,$main) {
+sub use_CMD($main,$src) {
 
+  # get ctx
+  my $lx  = $main->{lx};
 
-  $main->{l1}->extend(CMD=>'*'=>sub {
+  my $tab = $lx->load_CMD();
+     $src = lc $src;
 
-    # get ctx
-    my $main = $_[0];
-    my $l1   = $main->{l1};
-    my $lx   = $main->{lx};
+  # match symbol name against table
+  my $valid=$src=~ $tab->{-re};
 
-    my $tab  = $lx->load_CMD();
-    my $src  = lc $_[1];
-
-    # match symbol name against table
-    my $valid=$src=~ $tab->{-re};
-
-    return ($valid,$src,$NULLSTR);
-
-  });
-
-  return;
+  return ($valid,$src,$NULLSTR);
 
 };
 
 # ---   *   ---   *   ---
 # add vmc register token type
 
-sub use_REG($class,$main) {
+sub use_REG($main,$src) {
 
+  # get ctx
+  my $l1    = $main->{l1};
+  my $mc    = $main->{mc};
+  my $anima = $mc->{anima};
 
-  $main->{l1}->extend(REG=>'='=>sub {
+  # find valid
+  $src = lc $src;
+  $src = $anima->tokin($src);
 
-    # get ctx
-    my $main  = $_[0];
-    my $l1    = $main->{l1};
-    my $mc    = $main->{mc};
-    my $anima = $mc->{anima};
+  my $valid = defined $src;
 
-    # find valid
-    my $src   = lc $_[1];
-       $src   = $anima->tokin($src);
-
-    my $valid = defined $src;
-
-
-    return ($valid,$src,$NULLSTR);
-
-  });
-
-  return;
+  return ($valid,$src,$NULLSTR);
 
 };
 

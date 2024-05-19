@@ -29,13 +29,14 @@ sub make($src,$out='a.out'){
   my $main=rd($src,limit=>2);
   my $prep=$main->{preproc};
 
-  fatdump \$prep->{tab},blessed=>1;
 
   my $path=image 'a.out'=>$prep;
      $prep=mount $path;
 
+say $prep->{tab}->{tab}->{case}->{obj};
+say $prep;
 
-  fatdump \$prep->{tab},blessed=>1;
+#  fatdump \$prep->{tab}->{case}->{obj},blessed=>1;
 
   exit;
 

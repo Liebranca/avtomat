@@ -780,7 +780,8 @@ sub from_bin($self,$path) {
       $$href=[] if $$href eq 'ARRAY';
       $$href={} if $$href eq 'HASH';
 
-      $data->[$idex]=$$href;
+      $data->[$idex]=$$href
+      if ! is_scalarref $data->[$idex];
 
     };
 
@@ -794,10 +795,12 @@ sub from_bin($self,$path) {
        $have=$have->{ct};
 
     my ($type,$value,@path)=@$have;
-    my $idex=$value;
+
+    my $idex  = $value;
+    my $isptr = undef;
 
     $type  = $order->[$type];
-    $value = $data->[$value];
+    $value = $data->[$idex];
 
     @path  = split $SPACE_RE,($path[0] eq 0)
       ? 'ROOT' : $path[0] ;
@@ -810,8 +813,12 @@ sub from_bin($self,$path) {
     && $value=~ s[$ptr_re][$1]
 
     ) {
+
+      $isptr = $idex;
+
       $idex  = $value;
       $value = $data->[$value];
+
 
     };
 
@@ -868,8 +875,23 @@ sub from_bin($self,$path) {
 
 
     # overwrite placeholders in cache
-    $data->[$idex]=$$href;
-    [$idex,$href,$href_path];
+    my $repl=(
+       $value eq 'HASH'
+    && $data->[$idex] ne $$href
+
+    );
+
+
+    if(defined $isptr) {
+      $data->[$isptr]=\$data->[$idex];
+      [$isptr,$href,$href_path];
+
+    } else {
+      $data->[$idex]=$$href;
+      [$idex,$href,$href_path];
+
+    };
+
 
   } 0..$elemcnt-1;
 
@@ -916,7 +938,7 @@ sub from_bin($self,$path) {
 
 
     # ^overwrite
-    $$href=$ice;
+    $$href=$ice if ! is_scalarref $ice;
 
 
   } @blessf;
@@ -935,6 +957,7 @@ sub from_bin($self,$path) {
     # get the path again...
     map {
 
+      $prev=$href;
 
       if(
 
@@ -946,19 +969,20 @@ sub from_bin($self,$path) {
       ) {
 
         $ARG=~ $NUM_RE
-        or (fatdump $prev,blessed=>1),exit;
+        or (fatdump $prev,blessed=>1),
 
-        $prev=$href;
+        errout 'faulty ARRAY unminting',
+        lvl=>$AR_FATAL;
+
         $href=\$$href->[$ARG]
 
 
       } elsif(
          defined $$href
-      && $$href=~ qr{=HASH}
+      && $$href=~ qr{=?HASH}
 
       ) {
 
-        $prev=$href;
         $href=\$$href->{$ARG};
 
       };
@@ -967,7 +991,11 @@ sub from_bin($self,$path) {
 
 
     # fetch value again...
-    $$href=$data->[$idex];
+    $$href=(is_scalarref $data->[$idex])
+      ? ${$data->[$idex]}
+      : $data->[$idex]
+      ;
+
 
     # have post-decode hook?
     (  is_blessref($$href)
