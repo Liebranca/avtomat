@@ -109,6 +109,7 @@ sub REBORN($self) {
   $self->{mccls} = ref $mc;
 
   delete $self->{mc};
+  return;
 
 };
 

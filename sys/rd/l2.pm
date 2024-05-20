@@ -684,7 +684,10 @@ sub cmd($self) {
 
     # consume argument nodes if need
     $cmd->argsume($self->{branch})
-    if ! $self->{branch}->{cmdkey};
+
+    if  exists $main->{buf}
+    &&! $self->{branch}->{cmdkey};
+
 
     $self->{branch}->{cmdkey}=$value;
 
@@ -733,7 +736,8 @@ sub is_exprtop($self,$branch=undef) {
 # encode to binary
 
 sub mint($self) {
-  return tab => $self->{tab};
+  my @out=rd::layer::mint($self);
+  return @out,tab => $self->{tab};
 
 };
 

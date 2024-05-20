@@ -22,12 +22,13 @@ package rd::layer;
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
 
+  use Chk;
   use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -63,6 +64,28 @@ sub ISA($self) {
   my $mc   = $main->{mc};
 
   return $mc->{ISA};
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+  return main=>$self->{main};
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($class,$O) {
+
+  my $self=(! is_blessref $O)
+    ? bless $O,$class
+    : $O
+    ;
+
+  return $self;
 
 };
 

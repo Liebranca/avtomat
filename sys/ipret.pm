@@ -61,7 +61,7 @@ St::vconst {
 
   ]},
 
-  pipeline => [qw(solve assemble)],
+  pipeline => [qw(solve assemble link)],
 
 };
 
@@ -72,8 +72,8 @@ sub new($class,$src,%O) {
 
 
   # get parse tree
-  my $self=(is_filepath($src) && file_magic($src))
-    ? retrieve $src
+  my $self=(is_filepath "$src.gz")
+    ? mount $src
     : rd::crux $src,%O
     ;
 

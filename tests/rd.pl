@@ -27,16 +27,11 @@ package main;
 sub make($src,$out='a.out'){
 
   my $main=rd($src,limit=>2);
-  my $prep=$main->{preproc};
 
+  my $path=image 'a.out'=>$main;
+     $main=ipret($path,limit=>2);
 
-  my $path=image 'a.out'=>$prep;
-     $prep=mount $path;
-
-say $prep->{tab}->{tab}->{case}->{obj};
-say $prep;
-
-#  fatdump \$prep->{tab}->{case}->{obj},blessed=>1;
+  fatdump \$main,blessed=>1;
 
   exit;
 

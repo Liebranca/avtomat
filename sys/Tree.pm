@@ -288,6 +288,7 @@ sub new($class,$frame,$parent,$val,%O) {
   my $node=bless {
 
     value      => $val,
+    vref       => undef,
 
     leaves     => [],
     parent     => undef,
@@ -2149,6 +2150,7 @@ sub mint($self) {
   } qw(
 
     value
+    vref
     leaves
     parent
     -skipio
@@ -2171,6 +2173,7 @@ sub unmint($class,$O) {
   return bless {
 
     value      => $O->{value},
+    vref       => $O->{vref},
 
     leaves     => $O->{leaves},
     parent     => $O->{parent},

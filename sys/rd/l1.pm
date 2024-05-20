@@ -731,7 +731,9 @@ sub quantize($self,$src=undef) {
 
 sub mint($self) {
 
-  return map {
+  my @out=rd::layer::mint($self);
+
+  return @out,map {
     $ARG=>$self->{$ARG}
 
   } qw(defs table);

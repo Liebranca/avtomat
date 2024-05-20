@@ -423,6 +423,7 @@ sub parse_subclass($self) {
   $self->{syntax}=$self->syntax_t->new($self);
   $self->{syntax}->build();
 
+
   return;
 
 };
@@ -847,7 +848,7 @@ sub mint($self) {
     fmode subpkg lineat lineno
     stage pass passes
 
-    tree inner l1 l2 preproc
+    tree inner l2 preproc
 
   );
 
@@ -870,6 +871,47 @@ sub mint($self) {
   push @out,mc => $mc_attrs;
 
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($class,$O) {
+
+  # make ice
+  my $self=bless {%$O},$class;
+
+  # regen missing layers ;>
+  $self->cstruc_layers(
+    map {$ARG=>$self} qw(l0 l1 lx)
+
+  );
+
+  $self->{l1}->build();
+
+
+  # make new machine instance
+  my $mc=$self->{mc};
+
+  $self->{mc}=$mc->{cls}->new(
+    memroot=>$mc->{memroot},
+    pathsep=>$mc->{pathsep},
+
+  );
+
+
+  # load commandlib
+  cloadi $class->cmd_t;
+
+  $self->{cmdlib}=
+    $class->cmd_t->new_frame(main=>$self);
+
+  $self->{cmdlib}->kick();
+  $self->{cmdlib}->load($self->{subpkg});
+
+
+  return $self;
 
 };
 

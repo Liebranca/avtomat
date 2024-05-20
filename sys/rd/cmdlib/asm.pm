@@ -189,7 +189,7 @@ sub mutate_ins($self,$branch,$new='asm-ins') {
   . $full
   ;
 
- $branch->clear();
+  $branch->clear();
 
 
   return;

@@ -658,27 +658,12 @@ sub invoke($self,$root,@src) {
 
 sub mint($self) {
 
-  return map {
+  my @out=rd::layer::mint($self);
+
+  return @out,map {
     $ARG=>$self->{$ARG};
 
   } qw(order tab invoke);
-
-};
-
-# ---   *   ---   *   ---
-# ^undo
-
-sub unmint($class,$O) {
-
-  return bless {
-
-    main   => undef,
-
-    order  => $O->{order},
-    tab    => $O->{tab},
-    invoke => $O->{invoke},
-
-  },$class;
 
 };
 
