@@ -879,7 +879,6 @@ sub call($self,$type) {
     my $pos=$rip->load(deref=>0);
     $push->($ice,$pos);
 
-
     # get destination
     $x=$mc->flatptr($x);
 

@@ -616,13 +616,14 @@ sub symsolve($self,$branch,$vref,$deref) {
 sub symsolve_addr($dst,$deref) {
 
   if(! $deref && defined $dst->{type}) {
+
     my ($seg,$off)=$dst->read_ptr();
     return $off+$seg->update_absloc();
 
   } else {
 
     $dst=$dst->{route}
-    if exists $dst->{route};
+    if $dst->{route};
 
     return $dst->update_absloc();
 
@@ -647,7 +648,7 @@ sub symsolve_opsz($dst,$deref) {
   } else {
 
     $dst=$dst->{route}
-    if exists $dst->{route};
+    if $dst->{route};
 
     $opsz=Type->ptr_by_size($dst->absloc);
 

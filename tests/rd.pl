@@ -26,12 +26,8 @@ package main;
 
 sub make($src,$out='a.out'){
 
-  my $main=rd($src,limit=>2);
-
+  my $main=ipret($src,limit=>2);
   my $path=image $out=>$main;
-     $main=ipret($path,limit=>2);
-
-     $path=image $out=>$main;
 
   return $path;
 
@@ -46,6 +42,11 @@ sub load($src) {mount $src};
 # run and dbout
 
 my $main=load make './lps/test.pe';
+
+$main->{stage}--;
+$main->{pass}=0;
+
+$main->assemble();
 
 $main->run();
 $main->prich(

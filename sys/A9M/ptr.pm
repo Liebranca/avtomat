@@ -377,8 +377,10 @@ sub mint($self) {
     len
 
     field
+    route
 
   );
+
 
   # indirection...
   my ($ptr_t,$chan,$ptrv)=(
@@ -431,6 +433,8 @@ sub unmint($class,$O) {
 
   );
 
+  $self->{route}=$O->{route} if $O->{route};
+
 
   return $self;
 
@@ -441,9 +445,25 @@ sub unmint($class,$O) {
 
 sub REBORN($self) {
 
+  $self->{ptr_t}=typefet $self->{ptr_t}
+  if $self->{ptr_t};
 
-  # get segment ID
-  my $seg=$self->{seg};
+  $self->{type}=typefet $self->{type};
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^one more!
+
+sub layer_restore($self) {
+
+
+  # need to get segment ID?
+  my $seg=$self->{seg}
+  or return;
+
 
   # ^save and clear direct reference
   $self->{segid}  = $self->{seg}->{iced};
@@ -455,12 +475,6 @@ sub REBORN($self) {
   # same process for pointer
   $self->{chan}=$self->{chan}->{iced}
   if length $self->{chan};
-
-  $self->{ptr_t} = typefet $self->{ptr_t}
-  if $self->{ptr_t};
-
-
-  $self->{type}  = typefet $self->{type};
 
   return;
 

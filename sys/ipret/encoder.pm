@@ -167,7 +167,7 @@ sub skip_encode($self,$type,$name,@args) {
 
 
       # modifying current segment?
-      if($seg eq $sym->getseg) {
+      if($seg eq $sym->getseg()) {
 
         $sym->{addr}  = $seg->{ptr};
 

@@ -393,14 +393,16 @@ sub unmint($class,$O) {
 
   # regen missing layers ;>
   $self->cstruc_layers(
-    map {$ARG=>$self} qw(lx encoder engine)
+    map {$ARG=>$self} qw(l1 lx encoder engine)
 
   );
 
 
   # reinstate Q
-  $self->{encoder}->{Q}->{asm}=
-    $self->{asm_Q};
+  $self->{encoder}->{Q}->{asm}=[grep {
+    length $ARG
+
+  } @{$self->{asm_Q}}];
 
   delete $self->{asm_Q};
 

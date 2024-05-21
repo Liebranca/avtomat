@@ -277,6 +277,10 @@ sub update_view_buf($self,$brk) {
 
   my $buf=$base->{buf};
 
+if(! is_scalarref $buf) {
+  errout "FUCK",lvl=>$AR_FATAL;
+
+};
 
   $self->{size} += $brk;
   $self->{buf}   = \substr $$buf,
@@ -494,6 +498,7 @@ sub dstore($self,$type,$value,$addr) {
 
   # forbid external write to ROM
   my $mc=$self->getmc();
+
 
   return $self->warn_rom($type,$addr)
 
@@ -1260,7 +1265,7 @@ sub migrate($self,$tab,@Q) {
          $key=$seg->flagkey;
 
       # ^points to root?
-      my $dst   = ($key ne 'non')
+      my $dst=($key ne 'non')
         ? $self->haslv($key)
         : $self
         ;
@@ -1474,10 +1479,12 @@ sub mint($self) {
 
 
   # get base attrs
+  my $flags=$self->getmc()->{bk}->{flags};
+
   push @out,map {
     $ARG=>$self->{$ARG}
 
-  } qw(size inner);
+  } qw(route size inner),@{$flags->list};
 
 
   # have segment ref?
@@ -1507,7 +1514,8 @@ sub unmint($class,$O) {
   $self->{buf}    = $O->{buf};
   $self->{inner}  = $O->{inner};
 
-  $self->{__view} = $O->{__view};
+  $self->{__view} = $O->{__view} if $O->{__view};
+  $self->{route}  = $O->{route}  if $O->{route};
 
   return $self;
 
@@ -1516,7 +1524,7 @@ sub unmint($class,$O) {
 # ---   *   ---   *   ---
 # ^cleanup
 
-sub REBORN($self) {
+sub root_restore($self) {
 
 
   # run super
@@ -1524,61 +1532,61 @@ sub REBORN($self) {
   A9M::layer::REBORN($self);
 
 
-  # locate root node
-  ($self->{root})=$self->root();
-
-
   # link segment to namespace
-  if($self eq $self->{root}) {
+  my @VQ = ();
+  my @Q  = $self;
 
-    my @VQ = ();
-    my @Q  = $self;
+  while(@Q) {
 
-    while(@Q) {
-
-      my $nd=shift @Q;
-      unshift @Q,@{$nd->{leaves}};
-
-      $nd->{inner}->{mem}=$nd;
+    my $nd=shift @Q;
+    unshift @Q,@{$nd->{leaves}};
 
 
-      # have segment ref?
-      if($nd->{__view}) {
-        push @VQ,$nd;
+    # locate root node
+    ($nd->{root})=$nd->root();
+    $nd->{inner}->{mem}=$nd;
 
-      # have plain segment!
-      } else {
-        my $buf    = $nd->{buf};
-        $nd->{buf} = \$buf;
 
-      };
+    # have segment ref?
+    if($nd->{__view}) {
+      push @VQ,$nd;
+
+    # have plain segment!
+    } else {
+      my $buf    = $nd->{buf};
+      $nd->{buf} = \$buf;
 
     };
 
-
-    # adjust references!
-    map {
-
-      my $nd      = $ARG;
-
-      my $size    = $nd->{size};
-      $nd->{size} = 0;
-
-      $nd->update_view_buf($size);
-
-    } @VQ;
-
-
   };
+
+
+  # adjust references!
+  map {
+
+    my $nd      = $ARG;
+
+    my $size    = $nd->{size};
+    $nd->{size} = 0;
+
+    $nd->update_view_buf($size);
+
+  } @VQ;
+
 
   return;
 
 };
 
 # ---   *   ---   *   ---
-# ~
+# ensures frame and icebox
+# aren't hallucinating!
 
 sub layer_restore($self,$mc) {
+
+
+  # run cleanup
+  $self->root_restore();
 
 
   # get ctx
@@ -1589,7 +1597,6 @@ sub layer_restore($self,$mc) {
 
   my $layer = "$self->{mccls}\::layer";
 
-
   # walk block hierarchy
   my @Q=$self;
   while(@Q) {
@@ -1597,6 +1604,9 @@ sub layer_restore($self,$mc) {
     my $nd=shift @Q;
     unshift @Q,@{$nd->{leaves}};
 
+
+    # set correct frame and generate
+    # unique ID for segment!
     $nd->{mcid}  = $mcid;
     $nd->{mccls} = $mccls;
 
@@ -1604,11 +1614,8 @@ sub layer_restore($self,$mc) {
 
     $frame->icemake($nd);
 
-say $nd->{value};
-
   };
 
-say null;
 
   # walk namespace
   @Q=$self->{inner};
@@ -1622,6 +1629,8 @@ say null;
     unshift @Q,@{$inner->{leaves}};
 
 
+    # get corresponding segment for
+    # this sub-directory
     $mem=$inner->{mem}
     if exists $inner->{mem};
 
@@ -1629,15 +1638,16 @@ say null;
     if ! exists $mem->{iced};
 
     $inner->{mem} //= $mem;
+    $mem->update_absloc();
 
-
+    # set correct segment/machine id
     if($layer->is_valid($ptr)) {
       $ptr->{mcid}  = $mcid;
       $ptr->{mccls} = $mccls;
 
       if($mc->{bk}->{ptr}->is_valid($ptr)) {
-        $ptr->{segid}  = $inner->{mem}->{iced};
-        $ptr->{segcls} = $class;
+        $ptr->layer_restore();
+        $ptr->getseg()->update_absloc();
 
       };
 
