@@ -404,6 +404,17 @@ St::vconst {
     },
 
 
+    # meta instructions
+    sex => {
+
+      dst    => 'r',
+      argcnt => 1,
+
+      fix_size  => ['qword'],
+
+    },
+
+
   ],
 
 
@@ -880,7 +891,7 @@ sub call($self,$type) {
     $push->($ice,$pos);
 
     # get destination
-    $x=$mc->flatptr($x);
+    $x=$mc->flatjmp($x);
 
     # ^take the jump!
     $jmp->($ice,$x);
@@ -1270,6 +1281,36 @@ sub rol($type,$bits) {
     \$x;
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# makes tree from s-expression
+
+sub sex($self,$type) {
+
+  sub ($ice,$x) {
+
+
+    # get ctx
+    my $mc   = $ice->getmc();
+    my $main = $mc->get_main();
+
+    # fetch string
+    my ($seg,$off)=$mc->flatptr($x);
+    my $s=$seg->load(cstr=>$off);
+
+    # [conversion to tree goes here]
+    my $frame = $main->{tree}->{frame};
+    my $tree  = $frame->from_sexp($s);
+
+    $tree->prich();
+    exit;
+
+    return $x;
+
+  };
+
 
 };
 

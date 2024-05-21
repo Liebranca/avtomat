@@ -153,30 +153,30 @@ sub skip_encode($self,$type,$name,@args) {
 
       )};
 
+
       my ($value)=$eng->value_flatten(
         $ARG->{data},
 
       );
 
 
-      # get size to write
-      my $step=($sym->{ptr_t})
-        ? $sym->{ptr_t}->{sizeof}
-        : $sym->{type}->{sizeof}
-        ;
-
-
       # modifying current segment?
-      if($seg eq $sym->getseg()) {
+      my $modit=$seg eq $sym->getseg();
 
-        $sym->{addr}  = $seg->{ptr};
+      # ^reset write position?
+      $sym->{addr}=$seg->{ptr}
+      if $modit;
 
+
+      # make the write...
+      my $step=$sym->store($value,deref=>0);
+
+      # ^adjust pointer?
+      if($modit) {
         $seg->{ptr}  += $step;
         $size        += $step;
 
       };
-
-      $sym->store($value,deref=>0);
 
 
     } @args;

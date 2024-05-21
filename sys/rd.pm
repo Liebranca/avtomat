@@ -162,7 +162,7 @@ sub new($class,$src,%O) {
     stage => 0,
     rerun => 0,
 
-    mc    => $O{mc}->{cls}->new(%{$O{mc}}),
+    mc    => undef,
 
 
     # library of commands
@@ -191,6 +191,17 @@ sub new($class,$src,%O) {
 
   # generate/reuse instance ID
   id->chk($self,$O{id});
+
+  # make VM
+  $self->{mc}=$O{mc}->{cls}->new(
+
+    %{$O{mc}},
+
+    mainid  => $self->{iced},
+    maincls => $class,
+
+  );
+
 
   # make parse tree root
   my $frame      = Tree->get_frame($self->{iced});
@@ -222,6 +233,14 @@ sub new($class,$src,%O) {
 
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# fetch ice
+
+sub ice($class,$src) {
+  return id->fet($src);
 
 };
 
@@ -884,6 +903,8 @@ sub unmint($class,$O) {
 
   # make ice
   my $self=bless {%$O},$class;
+  id->chk($self);
+
 
   # regen missing layers ;>
   $self->cstruc_layers(
@@ -900,8 +921,12 @@ sub unmint($class,$O) {
     my $mc=$self->{mc};
 
     $self->{mc}=$mc->{cls}->new(
-      memroot=>$mc->{memroot},
-      pathsep=>$mc->{pathsep},
+
+      memroot => $mc->{memroot},
+      pathsep => $mc->{pathsep},
+
+      mainid  => $self->{iced},
+      maincls => $class,
 
     );
 

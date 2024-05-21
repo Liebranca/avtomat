@@ -277,10 +277,6 @@ sub update_view_buf($self,$brk) {
 
   my $buf=$base->{buf};
 
-if(! is_scalarref $buf) {
-  errout "FUCK",lvl=>$AR_FATAL;
-
-};
 
   $self->{size} += $brk;
   $self->{buf}   = \substr $$buf,

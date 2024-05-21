@@ -204,8 +204,14 @@ sub read_ptr($self) {
   my $seg = $self->getseg();
   my $mc  = $seg->getmc();
 
+  if(! defined $self->{ptr_t}) {
+    return ($seg,$self->{addr});
+
+  };
+
+
   # get saved addr
-  my $ptrv = $seg->dload(
+  my $ptrv=$seg->dload(
     $self->{ptr_t},
     $self->{addr}
 
@@ -356,6 +362,11 @@ sub absloc($self,%O) {
   # give segment base plus relative
   return $seg->absloc() + $off;
 
+
+};
+
+sub update_absloc($self) {
+  return $self->absloc();
 
 };
 

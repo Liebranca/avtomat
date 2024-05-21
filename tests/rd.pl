@@ -13,40 +13,15 @@ package main;
   use lib $ENV{ARPATH}.'/avtomat/sys/';
   use Style;
 
-  use rd;
   use ipret;
-  use Mint qw(image mount);
 
   use Fmat;
   use Arstd::xd;
 
 # ---   *   ---   *   ---
-# parse, solve and assemble,
-# then freeze
-
-sub make($src,$out='a.out'){
-
-  my $main=ipret($src,limit=>2);
-  my $path=image $out=>$main;
-
-  return $path;
-
-};
-
-# ---   *   ---   *   ---
-# ^retrieve
-
-sub load($src) {mount $src};
-
-# ---   *   ---   *   ---
 # run and dbout
 
-my $main=load make './lps/test.pe';
-
-$main->{stage}--;
-$main->{pass}=0;
-
-$main->assemble();
+my $main=ipret('./lps/test.pe',limit=>2);
 
 $main->run();
 $main->prich(

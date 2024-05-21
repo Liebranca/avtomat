@@ -193,6 +193,7 @@ sub data_decl($self,$branch) {
   my $eng   = $main->{engine};
 
   my $scope = $mc->{scope};
+  my $path  = $mc->{path};
 
   # get pending values
   my $data = $branch->{vref};
@@ -221,8 +222,9 @@ sub data_decl($self,$branch) {
     # ^sanity check
     my $ptrcls   = $mc->{bk}->{ptr};
     my $have_ptr = $ptrcls->is_valid($x);
+    my $isptr    = Type->is_ptr($type);
 
-    if($have_ptr &&! Type->is_ptr($type)) {
+    if($have_ptr &&! $isptr) {
 
       $main->perr(
 
@@ -231,12 +233,30 @@ sub data_decl($self,$branch) {
 
       );
 
-    } else {
+
+    # ^yes ptr!
+    } elsif($isptr &&! Type->is_str($type)) {
       $ptr_t=$type;
 
     };
 
 
+    # catch string datatype mismatch
+    if($ptr_t &&! is_hashref $x) {
+
+      $main->perr(
+
+        q[have non-string datatype ]
+      . q[[err]:%s for string '%s'],
+
+        args=>[$type->{name},$x],
+
+      );
+
+    };
+
+
+    # separate datatype from pointer width
     $type=($ptr_t && $x)
       ? $x->{type}
       : $type
@@ -259,7 +279,7 @@ sub data_decl($self,$branch) {
       # make reasm params
       push @$out,{
 
-        id   => [$name],
+        id   => [$name,@$path],
 
         type => 'sym-decl',
         data => $value,
@@ -269,7 +289,7 @@ sub data_decl($self,$branch) {
 
     # ^else we're retrying value resolution
     } elsif($have) {
-      my $ref=$mc->valid_psearch($name);
+      my $ref=$mc->valid_psearch($name,@$path);
       $sym=$$ref;
 
     };

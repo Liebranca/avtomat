@@ -354,7 +354,6 @@ sub value_flatten($self,$src,%O) {
     : $have
     ;
 
-
   # handle references
   my ($isref)=
     Chk::cderef $x,0;

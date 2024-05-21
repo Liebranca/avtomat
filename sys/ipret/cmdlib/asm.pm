@@ -616,7 +616,6 @@ sub symsolve($self,$branch,$vref,$deref) {
 sub symsolve_addr($dst,$deref) {
 
   if(! $deref && defined $dst->{type}) {
-
     my ($seg,$off)=$dst->read_ptr();
     return $off+$seg->update_absloc();
 

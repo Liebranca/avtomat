@@ -1,27 +1,25 @@
 %;
 
-entry T0::A::start;
+# ---   *   ---   *   ---
+# info
+
+entry peso::start;
+clan  peso;
 
 # ---   *   ---   *   ---
-# file A
+# ROM
 
-clan T0;
-exe  A;
-blk  start;
-
-  call T1::B;
-
-  ld   br,$25;
-  exit 1;
-
+rom data;
+  cstr exp  '* (2 3)';
 
 # ---   *   ---   *   ---
-# file B
+# the bit
 
-clan T1;
-exe  B;
-blk  here2;
-  ld ar,$24;
-  ret;
+exe start;
+
+  ld    ar,data::exp;
+  sex   ar;
+
+  exit  0;
 
 # ---   *   ---   *   ---

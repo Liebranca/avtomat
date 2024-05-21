@@ -62,8 +62,8 @@ package Bpack;
 sub strucun($src) {
 
   # first two cases
-  return $src  if is_hashref($src);
-  return @$src if is_arrayref($src);
+  return $src  if is_hashref  $src;
+  return @$src if is_arrayref $src;
 
   # ^else we have a string
   map   {typefet $ARG}

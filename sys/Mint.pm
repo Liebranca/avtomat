@@ -896,6 +896,9 @@ sub from_bin($self,$path) {
   } 0..$elemcnt-1;
 
 
+  # conditionally load classes
+  cloadi map {$ARG->[0]} @blessf;
+
   # generate blessed objects
   map {
 

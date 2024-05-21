@@ -289,7 +289,7 @@ sub take($self,@args) {
 
       my $pat=$PATTERN->[$x];
 
-      if($arg=~ m/${pat}/) {
+      if($arg=~ m/^${pat}$/) {
         $fn=$PATTERN->[$x+1];
         last;
 

@@ -130,9 +130,10 @@ sub rcollapse_list($self,$branch,$fn) {
   my @list = $have->{spec};
   my $par  = $branch->{parent};
 
+
   # ^get tokens from previous iterations
   push @list,@{$branch->{vref}}
-  if exists $branch->{vref};
+  if defined $branch->{vref};
 
   $branch->{vref} = \@list;
 

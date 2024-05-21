@@ -89,6 +89,8 @@ sub mutate($class,$ice) {
 
   # update instance
   $ice=bless {%$ice,entry=>undef},$class;
+  id->chk($ice);
+
 
   # ^notify layers
   $ice->cstruc_layers(
@@ -96,6 +98,11 @@ sub mutate($class,$ice) {
     @{$ice->layers}
 
   );
+
+
+  $ice->{mc}->{mainid}  = $ice->{iced};
+  $ice->{mc}->{maincls} = $class;
+
 
   map {$ice->{$ARG}->{main}=$ice}
   @{$ice->layers};

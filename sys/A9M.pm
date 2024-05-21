@@ -63,9 +63,12 @@ St::vstatic {};
 
 sub new($class,%O) {
 
+
   # defaults
   $O{memroot} //= 'non';
   $O{pathsep} //= $DCOLON_RE;
+  $O{mainid}  //= 0;
+  $O{maincls} //= null;
 
 
   # find components through methods
@@ -82,6 +85,8 @@ sub new($class,%O) {
     cas      => undef,
     astab    => {},
     astab_i  => [],
+
+    mainid   => $O{mainid},
 
     scratch  => undef,
     alloc    => undef,
@@ -117,6 +122,21 @@ sub new($class,%O) {
   # kick and give
   $self->reset($O{memroot});
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# fetch reference to controller
+
+sub get_main($self) {
+
+  my $id    = $self->{mainid};
+  my $class = $self->{maincls};
+
+  return (defined $self->{mainid})
+    ? $class->ice($id)
+    : null
+    ;
 
 };
 
@@ -247,10 +267,9 @@ sub memflat($self) {
 };
 
 # ---   *   ---   *   ---
-# ^find ptr from absloc
+# ^find code from absloc
 
-sub flatptr($self,$ptrv) {
-
+sub flatjmp($self,$ptrv) {
 
   # get ctx
   my $frame = $self->{cas}->{frame};
@@ -262,6 +281,41 @@ sub flatptr($self,$ptrv) {
      $ptrv -= $base->absloc();
 
   return $ptrv;
+
+};
+
+# ---   *   ---   *   ---
+# ^find [segment=>offset] from
+# absolute position
+
+sub flatptr($self,$ptrv) {
+
+
+  # fstate
+  my $base = 0x00;
+  my $off  = 0x00;
+  my $seg  = undef;
+
+  # walk segments
+  my @Q=$self->{cas}->{root};
+  while(@Q && $base <= $ptrv) {
+
+    $seg  = shift @Q;
+    $base = $seg->absloc();
+
+    $off  = $ptrv-$base;
+
+
+    # address fits in this block?
+    last if($off >= 0 && $off < $seg->{size});
+
+    # ^nope, keep going!
+    unshift @Q,@{$seg->{leaves}};
+
+  };
+
+
+  return ($seg,$off);
 
 };
 
@@ -330,9 +384,23 @@ sub lkup($self,@path) {
   rept:
 
 
-  # path root implicit
+  # path root explicit?
+  my $have_root=(
+     $path[0]
+  && $path[0] eq $tree->{value}
+
+  );
+
+  # path root repeated?
+  my $daut_root=(
+     ($path[0] && $path[1])
+  && ($path[0] eq $path[1])
+
+  );
+
+
   shift @path
-  if $path[0] && $path[0] eq $tree->{value};
+  if $have_root or $daut_root;
 
   # find root/path/to within tree
   my $out=$tree->haslv(@path);
@@ -480,6 +548,7 @@ sub _search($self,$name,@path) {
   my $out=null;
   ($out,$mem,$tree,@path)=
     $self->lkup(@path);
+
 
   # make (path,to) from (path::to)
   # then look in namespace
