@@ -38,7 +38,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.9;
+  our $VERSION = v0.04.0;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -2192,10 +2192,44 @@ sub unmint($class,$O) {
 
 };
 
+# ---   *   ---   *   ---
+# cleanup kick
+
 sub REBORN($self) {
 
-  $self->{-uid}=$self->{frame}->{uid}++;
+
+  # run cannonical sort if node
+  # is top of hierarchy
+  my ($root)=$self->root;
+
+  $self->cannonuid()
+  if $self eq $root;
+
+
+  # clear empty and give
   $self->cllv();
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# assign unique IDs accto order
+# of nodes in a cannonical walk
+
+sub cannonuid($self) {
+
+  my $frame  = $self->{frame};
+  my @Q      = $self;
+
+  while(@Q) {
+
+    my $nd=shift @Q;
+    unshift @Q,@{$nd->{leaves}};
+
+    $nd->{-uid}=$frame->{uid}++;
+
+  };
 
   return;
 

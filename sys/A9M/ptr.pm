@@ -80,9 +80,10 @@ sub new($class,%O) {
   # make ice and give
   my $self=bless \%O,$class;
 
-  $self->{mccls}=
-    ref $self->getseg()->getmc();
+  my $mc=$self->getseg()->getmc();
 
+  $self->{mccls} = ref $mc;
+  $self->{mcid}  = $mc->{iced};
 
   return $self;
 
@@ -440,18 +441,26 @@ sub unmint($class,$O) {
 
 sub REBORN($self) {
 
+
+  # get segment ID
+  my $seg=$self->{seg};
+
+  # ^save and clear direct reference
   $self->{segid}  = $self->{seg}->{iced};
   $self->{segcls} = ref $self->{seg};
-
-  $self->{chan}   = $self->{chan}->{iced}
-  if length $self->{chan};
 
   delete $self->{seg};
 
 
-  $self->{type}  = typefet $self->{type};
+  # same process for pointer
+  $self->{chan}=$self->{chan}->{iced}
+  if length $self->{chan};
+
   $self->{ptr_t} = typefet $self->{ptr_t}
   if $self->{ptr_t};
+
+
+  $self->{type}  = typefet $self->{type};
 
   return;
 
@@ -461,6 +470,7 @@ sub REBORN($self) {
 # dbout
 
 sub prich($self,%O) {
+
 
   # I/O defaults
   my $out=ioprocin(\%O);
@@ -511,6 +521,7 @@ sub prich($self,%O) {
   # have ptr?
   } elsif($self->{ptr_t}) {
     my $addr=$self->load(deref=>0);
+    $value=0x00 if ! length $value;
     $value=sprintf "*$pad -> $pad",$addr,$value;
 
 

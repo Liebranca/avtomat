@@ -858,6 +858,9 @@ sub REBORN($self) {
 
   );
 
+
+  $self->{cas}->layer_restore($self);
+
   return;
 
 };

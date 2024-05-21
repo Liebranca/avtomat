@@ -28,14 +28,12 @@ sub make($src,$out='a.out'){
 
   my $main=rd($src,limit=>2);
 
-  my $path=image 'a.out'=>$main;
+  my $path=image $out=>$main;
      $main=ipret($path,limit=>2);
 
-  fatdump \$main,blessed=>1;
+     $path=image $out=>$main;
 
-  exit;
-
-#  return $main->to_obj($out);
+  return $path;
 
 };
 
@@ -49,16 +47,16 @@ sub load($src) {mount $src};
 
 my $main=load make './lps/test.pe';
 
-#$main->run();
-#$main->prich(
-#
-#  anima => 1,
-#  stack => 0,
-#
-#  mem   => 'outer',
-#  tree  => 0,
-#
-#);
+$main->run();
+$main->prich(
+
+  anima => 1,
+  stack => 0,
+
+  mem   => 'outer',
+  tree  => 0,
+
+);
 
 # ---   *   ---   *   ---
 1; # ret

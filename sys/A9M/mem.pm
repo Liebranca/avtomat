@@ -1523,9 +1523,6 @@ sub REBORN($self) {
   Tree::REBORN($self);
   A9M::layer::REBORN($self);
 
-  my $buf=$self->{buf};
-  $self->{buf}=\$buf;
-
 
   # locate root node
   ($self->{root})=$self->root();
@@ -1534,7 +1531,9 @@ sub REBORN($self) {
   # link segment to namespace
   if($self eq $self->{root}) {
 
-    my @Q=$self;
+    my @VQ = ();
+    my @Q  = $self;
+
     while(@Q) {
 
       my $nd=shift @Q;
@@ -1542,23 +1541,111 @@ sub REBORN($self) {
 
       $nd->{inner}->{mem}=$nd;
 
+
+      # have segment ref?
+      if($nd->{__view}) {
+        push @VQ,$nd;
+
+      # have plain segment!
+      } else {
+        my $buf    = $nd->{buf};
+        $nd->{buf} = \$buf;
+
+      };
+
+    };
+
+
+    # adjust references!
+    map {
+
+      my $nd      = $ARG;
+
+      my $size    = $nd->{size};
+      $nd->{size} = 0;
+
+      $nd->update_view_buf($size);
+
+    } @VQ;
+
+
+  };
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+sub layer_restore($self,$mc) {
+
+
+  # get ctx
+  my $class = ref $self;
+  my $mcid  = $mc->{iced};
+  my $mccls = ref $mc;
+  my $frame = $class->get_frame($mcid);
+
+  my $layer = "$self->{mccls}\::layer";
+
+
+  # walk block hierarchy
+  my @Q=$self;
+  while(@Q) {
+
+    my $nd=shift @Q;
+    unshift @Q,@{$nd->{leaves}};
+
+    $nd->{mcid}  = $mcid;
+    $nd->{mccls} = $mccls;
+
+    $nd->{frame} = $frame;
+
+    $frame->icemake($nd);
+
+say $nd->{value};
+
+  };
+
+say null;
+
+  # walk namespace
+  @Q=$self->{inner};
+  my $mem=$self;
+
+  while(@Q) {
+
+    my $inner = shift @Q;
+    my $ptr   = $inner->{value};
+
+    unshift @Q,@{$inner->{leaves}};
+
+
+    $mem=$inner->{mem}
+    if exists $inner->{mem};
+
+    $mem=$mem->{vref}
+    if ! exists $mem->{iced};
+
+    $inner->{mem} //= $mem;
+
+
+    if($layer->is_valid($ptr)) {
+      $ptr->{mcid}  = $mcid;
+      $ptr->{mccls} = $mccls;
+
+      if($mc->{bk}->{ptr}->is_valid($ptr)) {
+        $ptr->{segid}  = $inner->{mem}->{iced};
+        $ptr->{segcls} = $class;
+
+      };
+
     };
 
   };
 
 
-  # have segment ref?
-  if($self->{__view}) {
-
-    my $size=$self->{size};
-    $self->{size}=0;
-
-    $self->update_view_buf($size);
-
-  };
-
-
-  $self->{frame}->icemake($self);
   return;
 
 };

@@ -845,6 +845,8 @@ sub mint($self) {
 
   } qw(
 
+    fpath
+
     fmode subpkg lineat lineno
     stage pass passes
 
@@ -879,6 +881,7 @@ sub mint($self) {
 
 sub unmint($class,$O) {
 
+
   # make ice
   my $self=bless {%$O},$class;
 
@@ -891,14 +894,18 @@ sub unmint($class,$O) {
   $self->{l1}->build();
 
 
-  # make new machine instance
-  my $mc=$self->{mc};
+  # make new machine instance?
+  if(! is_blessref $self->{mc}) {
 
-  $self->{mc}=$mc->{cls}->new(
-    memroot=>$mc->{memroot},
-    pathsep=>$mc->{pathsep},
+    my $mc=$self->{mc};
 
-  );
+    $self->{mc}=$mc->{cls}->new(
+      memroot=>$mc->{memroot},
+      pathsep=>$mc->{pathsep},
+
+    );
+
+  };
 
 
   # load commandlib
@@ -980,9 +987,12 @@ sub prich($self,%O) {
   push @$out,"\n",
 
   map  {"$ARG: $self->{passes}->{$ARG} passes\n"}
-  grep {$ARG=~ $O{passes}}
 
-  @{$self->pipeline};
+  grep {
+     defined $self->{passes}->{$ARG}
+  && $ARG=~ $O{passes}
+
+  } @{$self->pipeline};
 
 
   return ioprocout(\%O);

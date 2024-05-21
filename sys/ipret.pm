@@ -44,7 +44,7 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.4;#a
+  our $VERSION = v0.01.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -256,18 +256,6 @@ sub assemble($self) {
 };
 
 # ---   *   ---   *   ---
-# makes linkable file
-
-sub to_obj($self,$path='a.out') {
-
-  delete $self->{cmdlib};
-  delete $self->{syntax};
-
-  return image 'a.out' => $self;
-
-};
-
-# ---   *   ---   *   ---
 # jump to entry and execute
 
 sub run($self,$entry=undef) {
@@ -275,7 +263,6 @@ sub run($self,$entry=undef) {
 
   # overwrite/validate
   $entry //= $self->{entry};
-
   $WLog->err(
 
     "No entry point for <%s>",
@@ -350,7 +337,7 @@ sub run($self,$entry=undef) {
   };
 
 
-  # make the jump!
+  # take the jump!
   $rip->store(
     $addr,
     deref=>0
@@ -361,6 +348,63 @@ sub run($self,$entry=undef) {
 
 
   return $self->{engine}->exe();
+
+};
+
+# ---   *   ---   *   ---
+# encode to binary
+
+sub mint($self) {
+
+  # add general attrs
+  my @out=map {
+    $ARG=>$self->{$ARG}
+
+  } qw(
+
+    fpath entry
+
+    fmode subpkg lineat lineno
+    stage pass passes
+
+    inner l2 preproc
+
+    mc
+
+  );
+
+
+  # save data for re-encoding
+  my $enc=$self->{encoder};
+  push @out,asm_Q=>$enc->{Q}->{asm};
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ^undo
+
+sub unmint($class,$O) {
+
+
+  # make ice
+  my $self=bless {%$O},$class;
+
+  # regen missing layers ;>
+  $self->cstruc_layers(
+    map {$ARG=>$self} qw(lx encoder engine)
+
+  );
+
+
+  # reinstate Q
+  $self->{encoder}->{Q}->{asm}=
+    $self->{asm_Q};
+
+  delete $self->{asm_Q};
+
+  return $self;
 
 };
 
