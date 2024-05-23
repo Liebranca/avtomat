@@ -13,7 +13,7 @@ package main;
   use lib $ENV{ARPATH}.'/avtomat/sys/';
   use Style;
 
-  use ipret;
+  use xlate;
 
   use Fmat;
   use Arstd::xd;
@@ -21,18 +21,8 @@ package main;
 # ---   *   ---   *   ---
 # run and dbout
 
-my $main=ipret('./lps/test.pe',limit=>2);
-
-$main->run();
-$main->prich(
-
-  anima => 1,
-  stack => 0,
-
-  mem   => 'outer',
-  tree  => 0,
-
-);
+my $xlate = xlate->new('./lps/test.pe',limit=>2);
+my $main  = $xlate->run();
 
 # ---   *   ---   *   ---
 1; # ret

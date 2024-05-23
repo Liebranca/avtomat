@@ -26,8 +26,8 @@ exe start;
   xor er,er;
 
   # get segment+src
-  ld  chan,data;
-  ld  ar,data::exp;
+  self data;
+  ld   ar,data::exp;
 
 
 # ---   *   ---   *   ---

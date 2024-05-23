@@ -42,7 +42,7 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.4;#a
+  our $VERSION = v0.01.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -718,16 +718,16 @@ sub deref_chan($self) {
 # ---   *   ---   *   ---
 # unpacks [seg:sb-imm]
 
-sub decode_mstk_ptr($self,$o) {
+sub decode_mstk_ptr($self,$data) {
 
 
   my $stack = $self->{stack};
 
   my $seg   = $self->{stack}->{mem};
   my $base  = $stack->{base};
-  my $off   = $o->{imm};
+  my $off   = $data->{imm};
 
-  %$o=(
+  %$data=(
     seg  => $seg,
     addr => sub {$base->load()-$off},
 
@@ -738,13 +738,47 @@ sub decode_mstk_ptr($self,$o) {
 };
 
 # ---   *   ---   *   ---
+# ^for translation!
+
+sub xlate_mstk_ptr($self,$data) {
+
+
+  # get ctx
+  my $main  = $self->get_main();
+  my $anima = $self->{anima};
+  my $l1    = $main->{l1};
+
+
+  # pack pointer data
+  my $addr=[
+
+    1,
+
+    $l1->tag(REG=>$anima->stack_base),
+    $l1->tag(NUM=>-$data->{imm}),
+
+  ];
+
+
+  # overwrite and give
+  %$data=(
+    type  => 'm',
+    value => $addr,
+
+  );
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # unpacks [seg:imm]
 
-sub decode_mimm_ptr($self,$o) {
+sub decode_mimm_ptr($self,$data) {
 
-  %$o=(
+  %$data=(
     seg  => $self->deref_chan(),
-    addr => $o->{imm},
+    addr => $data->{imm},
 
   );
 
@@ -754,15 +788,49 @@ sub decode_mimm_ptr($self,$o) {
 };
 
 # ---   *   ---   *   ---
+# ^for translation!
+
+sub xlate_mimm_ptr($self,$data) {
+
+
+  # get ctx
+  my $main  = $self->get_main();
+  my $l1    = $main->{l1};
+
+
+  # pack pointer data
+  my $base = $self->deref_chan();
+  my $addr = [
+
+    1,
+
+    $l1->tag(NUM=>$base->absloc),
+    $l1->tag(NUM=>$data->{imm}),
+
+  ];
+
+
+  # overwrite and give
+  %$data=(
+    type  => 'm',
+    value => $addr,
+
+  );
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # unpacks [seg:rX+imm]
 
-sub decode_msum_ptr($self,$o) {
+sub decode_msum_ptr($self,$data) {
 
-  my $base = $self->{anima}->fetch($o->{reg});
-  my $off  = $o->{imm};
+  my $base = $self->{anima}->fetch($data->{reg});
+  my $off  = $data->{imm};
 
 
-  %$o=(
+  %$data=(
     seg  => $self->deref_chan(),
     addr => sub {$base->load()+$off},
 
@@ -774,21 +842,61 @@ sub decode_msum_ptr($self,$o) {
 };
 
 # ---   *   ---   *   ---
+# ^for translation!
+
+sub xlate_msum_ptr($self,$data) {
+
+
+  # get ctx
+  my $main  = $self->get_main();
+  my $l1    = $main->{l1};
+
+
+  # pack pointer data
+  my $off  = $self->deref_chan();
+     $off  = $data->{imm} + $off->absloc;
+
+  my $addr = [
+
+    1,
+
+    $l1->tag(REG=>$data->{reg}),
+    $l1->tag(NUM=>$off),
+
+  ];
+
+
+  # overwrite and give
+  %$data=(
+    type  => 'm',
+    value => $addr,
+
+  );
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # unpacks [seg:rX+rY+imm*scale]
 
-sub decode_mlea_ptr($self,$o) {
+sub decode_mlea_ptr($self,$data) {
 
 
   # load register values
   my @r=map {
     $self->{anima}->fetch($ARG-1)
 
-  } grep {$ARG} ($o->{rX},$o->{rY});
+  } grep {$ARG} (
+    $data->{rX},
+    $data->{rY}
+
+  );
 
 
   # load plain values
-  my $scale = 1 << $o->{scale};
-  my $imm   = $o->{imm};
+  my $scale = 1 << $data->{scale};
+  my $imm   = $data->{imm};
   my $seg   = $self->deref_chan();
   my $base  = $seg->absloc;
 
@@ -840,10 +948,63 @@ sub decode_mlea_ptr($self,$o) {
   };
 
 
-  # collapse and give
-  %$o=(
+  # overwrite and give
+  %$data=(
     seg  => $seg,
     addr => $addr,
+
+  );
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^for translation!
+
+sub xlate_mlea_ptr($self,$data) {
+
+
+  # get ctx
+  my $main  = $self->get_main();
+  my $l1    = $main->{l1};
+
+
+  # get registers
+  my @r=map {
+    $ARG-1
+
+  } grep {$ARG} (
+    $data->{rX},
+    $data->{rY}
+
+  );
+
+
+  # pack pointer data
+  my $addr=[
+
+    1 << $data->{scale},
+
+
+    (map {
+      $l1->tag(REG=>$ARG),
+
+    } @r),
+
+
+    ($data->{imm})
+      ? $l1->tag(NUM=>$data->{imm})
+      : ()
+      ,
+
+  ];
+
+
+  # overwrite and give
+  %$data=(
+    type  => 'm',
+    value => $addr,
 
   );
 

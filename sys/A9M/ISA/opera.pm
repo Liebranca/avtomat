@@ -99,7 +99,7 @@ St::vconst {
 
       load_dst  => 1,
 
-      dst       => 'rmi',
+      dst       => 'i',
 
       immbig    => 1,
       argcnt    => 1,
@@ -633,7 +633,7 @@ sub load_chan($self,$type) {
 # ---   *   ---   *   ---
 # ^ipret v; sets search path
 
-sub set_scope($self,$main,$src) {
+sub set_scope($self,$main,$data) {
 
 
   # get ctx
@@ -641,19 +641,20 @@ sub set_scope($self,$main,$src) {
   my $frame = $mc->{cas}->{frame};
   my $eng   = $main->{engine};
 
-  # need to make copy?
-  $src={%$src} if is_hashref $src;
-
 
   # make F
   my $out=sub {
+
+
+    # need to make copy?
+    my $src={%$data} if is_hashref $data;
 
 
     # deref
     $eng->opera_static([$src],1);
 
     # ^fetch segment and make current
-    my $seg=$frame->ice($src->{seg});
+    my ($seg)=$mc->flatptr($src->{imm});
     $mc->scope($seg->{value});
 
   };

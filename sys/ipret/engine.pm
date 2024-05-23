@@ -45,11 +45,6 @@ package ipret::engine;
 
 sub operand_value($self,$ins,$type,$data) {
 
-  my $ISA = $self->ISA;
-  my $tab = $ISA->opcode_table;
-  my $fn  = $tab->{exetab}->[$ins->{idx}];
-
-
   map {
 
     my $o    = {%{$data->{$ARG}}};

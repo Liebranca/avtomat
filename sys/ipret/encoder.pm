@@ -37,7 +37,7 @@ package ipret::encoder;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#a
+  our $VERSION = v0.01.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -682,7 +682,7 @@ sub decode_instruction($self,$opcd) {
 # ---   *   ---   *   ---
 # read next argument from opcode
 
-sub decode_operand($self,$opcd,$operand) {
+sub decode_operand($self,$opcd,$operand,%O) {
 
 
   # get type/packing fmat
@@ -696,18 +696,41 @@ sub decode_operand($self,$opcd,$operand) {
 
   # have memory operand?
   if(0 == index $type,'m',0) {
-    my $fn="decode_${type}_ptr";
+    my $fn=(! $O{xlate})
+      ? 'decode'
+      : 'xlate'
+      ;
+
+    $fn="${fn}_${type}_ptr";
     $mc->$fn(\%data);
 
 
   # have register?
   } elsif($type eq 'r') {
 
-    %data=(
-      seg  => $mc->{anima}->{mem},
-      addr => $data{reg} * $mc->{anima}->size(),
+    %data=(! $O{xlate})
 
-    );
+      ? (
+
+        seg  => $mc->{anima}->{mem},
+        addr => $data{reg} * $mc->{anima}->size(),
+
+      ) : (
+
+        type  => 'r',
+        value => $data{reg},
+
+      );
+
+
+  # have immediate!
+  } else {
+
+    %data=(
+      type  => 'i',
+      value => $data{imm},
+
+    ) if $O{xlate};
 
   };
 
@@ -719,7 +742,7 @@ sub decode_operand($self,$opcd,$operand) {
 # ---   *   ---   *   ---
 # ^bat
 
-sub decode_operands($self,$ins,$opcd) {
+sub decode_operands($self,$ins,$opcd,%O) {
 
 
   # read operand types from ROM
@@ -739,7 +762,7 @@ sub decode_operands($self,$ins,$opcd) {
 
     # ^decode
     my ($out,$fmat)=
-      $self->decode_operand($opcd,$operand);
+      $self->decode_operand($opcd,$operand,%O);
 
 
     # go next and give
@@ -759,7 +782,7 @@ sub decode_operands($self,$ins,$opcd) {
 # ---   *   ---   *   ---
 # get descriptor from opcode
 
-sub decode_opcode($self,$opcd) {
+sub decode_opcode($self,$opcd,%O) {
 
 
   # read instruction
@@ -771,7 +794,7 @@ sub decode_opcode($self,$opcd) {
 
   # read operands
   my ($dst,$src,$opsz)=
-    $self->decode_operands($ins,$opcd);
+    $self->decode_operands($ins,$opcd,%O);
 
 
   # give descriptor
@@ -833,7 +856,11 @@ sub decode($self,$program) {
 # ---   *   ---   *   ---
 # read next opcode from rip
 
-sub exeread($self) {
+sub exeread($self,%O) {
+
+
+  # defaults
+  $O{xlate} //= 0;
 
 
   # get ctx
@@ -847,7 +874,7 @@ sub exeread($self) {
   return 0x00 if ! $opcd;
 
   # ^go next and give
-  my $ins=$self->decode_opcode($opcd);
+  my $ins=$self->decode_opcode($opcd,%O);
   my $off=$rip->load(deref=>0);
 
   $rip->store($off+$ins->{size},deref=>0);
