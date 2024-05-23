@@ -194,7 +194,6 @@ sub argsolve($self,$branch) {
   my $name = $vref->{name};
   my $opsz = $vref->{opsz};
 
-
   # walk operands
   my @args=map {
 
@@ -203,6 +202,7 @@ sub argsolve($self,$branch) {
     my $type = $ARG->{type};
 
     my $O    = {};
+
 
     # have register?
     if($type eq 'r') {
@@ -270,8 +270,7 @@ sub argsolve($self,$branch) {
 
 
   # overwrite default type?
-  my $nc_name =  $name;
-     $nc_name =~ s[^c(jump|load)][$1];
+  my $nc_name=$name;
 
   my $def=$vref->{opsz_def};
   my $fix=$ISA->get_ins_fix_size($nc_name);
@@ -381,7 +380,9 @@ sub addr_decompose($self,$nd) {
     if($have=$l1->typechk(REG=>$ARG)) {
 
       $stk |= $have == $anima->stack_base;
-      push @reg,$have;
+
+      $have->{type}='r';
+      push @reg,$have->{spec};
 
     # symbol name?
     } elsif($have=$l1->typechk(SYM=>$ARG)) {
@@ -536,8 +537,8 @@ sub addrmode($self,$branch,$nd) {
     $data->{imm}->[1] //= 0;
 
 
-    $O->{rX}    = $data->{reg}->[0];
-    $O->{rY}    = $data->{reg}->[1];
+    $O->{rX}    = $data->{reg}->[0]+1;
+    $O->{rY}    = $data->{reg}->[1]+1;
 
     $O->{imm}   = $data->{imm}->[0];
     $O->{scale} = $data->{imm}->[1];

@@ -1109,7 +1109,10 @@ sub merge($self,@seg) {
       $flat->{vref}  = $seg;
 
 
-    } keys %$stab;
+    } grep {
+      exists $stab->{$ARG}
+
+    } qw(non rodata data code);
 
 
     # adjust pointers

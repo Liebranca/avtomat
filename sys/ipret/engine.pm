@@ -52,19 +52,18 @@ sub operand_value($self,$ins,$type,$data) {
 
   map {
 
-    my $o    = $data->{$ARG};
+    my $o    = {%{$data->{$ARG}}};
     my $imm  = exists $o->{imm};
 
-    $o->{addr} = $o->{addr}->()
-    if is_coderef $o->{addr};
+    my $addr = (is_coderef $o->{addr})
+      ? $o->{addr}->()
+      : $o->{addr}
+      ;
+
 
     # memory deref?
     if($ins->{"load_$ARG"} &&! $imm) {
-
-      $o->{seg}->load(
-        $type,$o->{addr}
-
-      );
+      $o->{seg}->load($type,$addr);
 
     # ^immediate?
     } elsif($imm) {
@@ -72,11 +71,8 @@ sub operand_value($self,$ins,$type,$data) {
 
     # ^plain addr?
     } else {
-
-      my $data=
-        $o->{seg}->absloc()+$o->{addr};
-
-      Bpack::layas($type,$data);
+      my $x=$addr+$o->{seg}->absloc();
+      Bpack::layas($type,$x);
 
     };
 
@@ -521,7 +517,7 @@ sub opera_collapse($self,$branch,$opera,%O) {
 
   my @args_b = map {
 
-    my $head=$l1->untag($ARG->{value});
+    my $head=$l1->xlate($ARG->{value});
 
     my ($type,$spec)=(
       $head->{type},
@@ -530,16 +526,13 @@ sub opera_collapse($self,$branch,$opera,%O) {
     );
 
 
-    my $have=($type && $type ne '*')
+    my $have=($type && $type ne 'OPR')
       ? $l1->quantize($ARG->{value})
       : $self->value_solve($ARG)
       ;
 
 
-    $reg   |= $type eq 'r';
-
-    $type   = 'i' if $type eq '*';
-    $type  .= $spec if $type eq 'm';
+    $reg |= $type eq 'REG';
 
     (defined $have) ? [$type,$have] : () ;
 
@@ -568,24 +561,24 @@ sub opera_collapse($self,$branch,$opera,%O) {
 
 
     # register
-    if($type eq 'r') {
+    if($type eq 'REG') {
       $const &=~ 1;
-      {type=>$type,reg=>$have};
+      {type=>'r',reg=>$have};
 
 
     # immediate
-    } elsif($type eq 'i') {
+    } elsif($type eq 'NUM') {
       my $spec=$ISA->immsz($have);
       {type=>$spec,imm=>$have};
 
 
     # TODO: memory
-    } elsif(! index $type,'m') {
+    } elsif(! index $type,'MEM') {
       nyi "memory operands";
 
 
     # symbols
-    } elsif($type eq 's') {
+    } elsif($type eq 'SYM') {
 
 
       # allow non-const?
@@ -614,7 +607,7 @@ sub opera_collapse($self,$branch,$opera,%O) {
         q[cannot encode [op]:%s operation ]
       . q[for '%s'],
 
-        args=>["\'$opera\'","$type:$have"]
+        args=>["\'$opera->{spec}\'","$type:$have"]
 
       );
 
@@ -626,7 +619,7 @@ sub opera_collapse($self,$branch,$opera,%O) {
 
   # fetch operator definition
   my @program=$ISA->xlate(
-    $opera,'word',@args
+    $opera->{spec},'word',@args
 
   );
 

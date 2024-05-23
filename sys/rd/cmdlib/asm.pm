@@ -107,6 +107,7 @@ sub parse_ins($self,$branch) {
     my $have = undef;
     my $type = undef;
 
+
     # register operand
     if($l1->typechk(REG=>$key)) {
       $type='r';
@@ -124,6 +125,19 @@ sub parse_ins($self,$branch) {
     } elsif($l1->typechk(SYM=>$key)) {
       $type='sym';
 
+
+    # operand size specifier?
+    } elsif($l1->typechk(TYPE=>$key)) {
+
+      my $have=$l1->untag($key);
+         $type=null;
+
+      $branch->{vref} //= [];
+
+      push @{$branch->{vref}},
+        $have->{spec};
+
+
     # ^immediate!
     } else {
       $type='i';
@@ -132,7 +146,10 @@ sub parse_ins($self,$branch) {
 
 
     # give descriptor
-    {id=>$ARG,type=>$type};
+    (length $type)
+      ? {id=>$ARG,type=>$type}
+      : ()
+      ;
 
 
   } @args;

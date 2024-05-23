@@ -451,10 +451,42 @@ sub exewrite_run($self) {
 
 
   # walk requests!
-  my $Q      = $self->{Q}->{asm};
-  my $walked = {};
+  my $Q     = $self->{Q}->{asm};
+  my $order = [[],0,[],0,[],0,[],0];
 
-  my @out=map {
+  # ^but sort them first ;>
+  map {
+
+    my $seg  = $ARG->[0];
+    my $idex = {
+
+      non    => 0,
+
+      rodata => 2,
+      data   => 4,
+
+      code   => 6,
+
+
+    }->{$seg->{value}};
+
+    push @{$order->[$idex]},$ARG;
+    $order->[$idex+1]=$seg;
+
+
+  } grep {
+    defined $ARG
+
+  } @$Q;
+
+
+  # walk the sorted list ;>
+  my $walked = {};
+  my @out    = map {
+
+
+  # have request?
+  if(is_arrayref $ARG) {
 
 
     # unpack
@@ -468,7 +500,6 @@ sub exewrite_run($self) {
 
     };
 
-
     # update reference
     if($route &&! exists $walked->{$route}) {
       $route->reset_view_addr();
@@ -479,12 +510,11 @@ sub exewrite_run($self) {
 
     # write to top ;>
     my $addr=$seg->{ptr};
+    my $size=0;
 
     # make segment current and run F
     ($mc->{cas})=$seg->{root};
     $mc->setseg($seg);
-
-    my $size=0;
 
     map {
 
@@ -510,23 +540,28 @@ sub exewrite_run($self) {
     };
 
 
-  # take note of tree nodes that made
-  # these requests!
-  } grep {defined $ARG} @$Q;
-
-
-  # align walked segments and reset
-  map {
-
+  # align segments and reset ptr on end!
+  } elsif($ARG) {
     $ARG->{ptr} += $align;
-
     $ARG->tighten($align);
+
     $ARG->{ptr}=0;
 
-  } grep {
-    ! defined $ARG->{__view}
+    ();
 
-  } values %$walked;
+  } else {()};
+
+
+  # ^flatten the Q...
+  } map {
+
+    (is_arrayref $ARG)
+      ? @$ARG
+      : $ARG
+      ;
+
+  } @$order;
+
 
   # clear and give
   $mc->restore();
@@ -814,6 +849,7 @@ sub exeread($self) {
   # ^go next and give
   my $ins=$self->decode_opcode($opcd);
   my $off=$rip->load(deref=>0);
+
   $rip->store($off+$ins->{size},deref=>0);
 
   return $ins;

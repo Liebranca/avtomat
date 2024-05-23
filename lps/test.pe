@@ -1,25 +1,83 @@
 %;
 
+
 # ---   *   ---   *   ---
 # info
 
 entry peso::start;
 clan  peso;
 
+
 # ---   *   ---   *   ---
 # ROM
 
 rom data;
-  cstr exp  '* (2 3)';
+  cstr exp '* (2 3)';
+
 
 # ---   *   ---   *   ---
-# the bit
+# setup
 
 exe start;
 
-  ld    ar,data::exp;
-  sex   ar;
+  # cleanup
+  xor cr,cr;
+  xor dr,dr;
+  xor er,er;
 
-  exit  0;
+  # get segment+src
+  ld  chan,data;
+  ld  ar,data::exp;
+
+
+# ---   *   ---   *   ---
+# walk src
+
+blk loop;
+
+
+  # get next char
+  ld  br,byte [ar+cr];
+  inc cr;
+
+  # stop on null!
+  test br,br;
+  jz   end;
+
+
+  # count '('
+  ld  fr,dr;
+  inc fr;
+
+  cmp br,$28;
+  lz  dr,fr;
+
+  jz  loop;
+
+
+  # ^count ')'
+  ld  fr,er;
+  inc fr;
+
+  cmp br,$29
+  lz  er,fr;
+
+
+  # go next
+  jmp loop;
+
+
+# ---   *   ---   *   ---
+# endof
+
+blk end;
+
+  xor ar,ar;
+  ld  br,$01;
+
+  cmp dr,er;
+  lz  ar,br;
+
+  exit 0;
 
 # ---   *   ---   *   ---

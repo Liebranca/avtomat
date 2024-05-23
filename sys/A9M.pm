@@ -707,7 +707,9 @@ sub deref_chan($self) {
   my $chan  = $anima->{chan};
 
   my $frame = $self->{cas}->{frame};
-  my $seg   = $frame->ice($chan->load());
+  my $ptrv  = $chan->load();
+
+  my ($seg) = $self->flatptr($ptrv);
 
   return $seg;
 
@@ -762,7 +764,7 @@ sub decode_msum_ptr($self,$o) {
 
   %$o=(
     seg  => $self->deref_chan(),
-    addr => sub {$base->load+$off},
+    addr => sub {$base->load()+$off},
 
   );
 
@@ -788,15 +790,20 @@ sub decode_mlea_ptr($self,$o) {
   my $scale = 1 << $o->{scale};
   my $imm   = $o->{imm};
   my $seg   = $self->deref_chan();
+  my $base  = $seg->absloc;
 
   my $addr  = undef;
+
 
   # apply scale to immediate?
   if($imm) {
 
     $addr=sub {
+
       my $out=$imm * $scale;
-      map {$out+=$ARG->load} @r;
+      map {$out+=$ARG->load()} @r;
+
+      return $out-$base;
 
     };
 
@@ -804,15 +811,31 @@ sub decode_mlea_ptr($self,$o) {
   } elsif($r[1]) {
 
     $addr=sub {
-        $r[0]->load
-      + $r[1]->load
+
+      return (
+
+        $r[0]->load()
+      + $r[1]->load()
       * $scale
+
+      ) - $base;
 
     };
 
+
   # ^first register?
   } else {
-    $addr=sub {$r[0]->load * $scale};
+
+    $addr=sub {
+
+      return (
+
+        $r[0]->load()
+      * $scale
+
+      ) - $base;
+
+    };
 
   };
 
@@ -941,6 +964,8 @@ sub prich($self,%O) {
 
   # defaults
   $O{depth} //= 0x24;
+  $O{root}  //= 1;
+  $O{loc}   //= 1;
 
   return $self->{cas}->prich(%O);
 

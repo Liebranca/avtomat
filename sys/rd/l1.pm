@@ -72,6 +72,7 @@ St::vconst {
           ['l' => 'LIST'],
 
           ['/' => 'NODE'],
+          ['T' => 'TYPE'],
 
         )
 

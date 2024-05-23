@@ -281,11 +281,46 @@ sub data_type($self,$branch) {
     # ^nope, last or middle
     } else {
 
-      # mutate into command argument
-      $branch->{value}=
-        $l1->tag(TYPE=>$type->{name});
+      # push into command meta
+      my $par    = $branch->{parent};
+      my $anchor = $branch;
+      my $ok     = 0;
+
+      while($anchor->{parent}) {
+
+        $anchor=$anchor->{parent};
+
+        if($l1->typechk(CMD=>$anchor->{value})) {
+
+          $anchor->{vref} //= [];
+
+          push @{$anchor->{vref}},
+            $type->{name};
+
+          $ok=1;
+          last;
+
+        };
+
+      };
 
 
+      $main->perr("redundant type specifier")
+      if ! $ok;
+
+      if($branch eq $par->{leaves}->[-1]
+      && $l1->typechk(LIST=>$par->{value})) {
+
+        my $miss=$anchor->{parent}->{leaves};
+           $miss=$miss->[$anchor->{idex}+1];
+
+        $par->pushlv($miss)
+        if defined $miss;
+
+      };
+
+
+      $branch->discard();
       return;
 
     };

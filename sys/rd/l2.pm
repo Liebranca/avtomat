@@ -723,8 +723,7 @@ sub is_exprtop($self,$branch=undef) {
 
 
   # is parent the beggining of a branch?
-  my $idex = $l1->is_branch($par->{node});
-  return 1 if defined $idex;
+  return 1 if $l1->typechk(EXP=>$par->{value});
 
 
   # ^nope, you're not at the top!

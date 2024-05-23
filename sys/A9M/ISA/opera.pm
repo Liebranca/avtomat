@@ -255,22 +255,22 @@ St::vconst {
 #    src  => 'r',
 #
 #  },
-#
-#
-#  # ++/--
-#  inc => {
-#    argcnt => 1,
-#    dst    => 'r',
-#
-#  },
-#
-#  dec => {
-#    argcnt => 1,
-#    dst    => 'r',
-#
-#  },
-#
-#
+
+
+  # ++/--
+  inc => {
+    argcnt => 1,
+    dst    => 'r',
+
+  },
+
+  dec => {
+    argcnt => 1,
+    dst    => 'r',
+
+  },
+
+
 #  # negate
 #  neg => {
 #
@@ -668,7 +668,7 @@ sub set_scope($self,$main,$src) {
 
 sub xor($self,$type,$src) {
   my @src=asval $src;
-  sub ($x) {$x ^ shift @src};
+  sub ($ice,$x) {$x ^ shift @src};
 
 };
 
@@ -685,6 +685,17 @@ sub ari($self,$type,$anima,$x,$y) {
 
   # get caller
   my $key=St::cf 2,1;
+
+  if($key=~ qr{(?:inc|dec)}) {
+
+    $key={
+      inc=>'add',
+      dec=>'_sub',
+
+    }->{$key};
+
+  };
+
 
   # get op result
   my $z={
@@ -784,6 +795,16 @@ subwraps '$self->defop' => q(
 
 );
 
+subwraps '$self->defop' => q(
+  $self,$type
+
+) => (
+
+  map {[$ARG => '$type,1']}
+  qw(inc dec)
+
+);
+
 # ---   *   ---   *   ---
 # multiplication
 
@@ -806,7 +827,8 @@ sub jmp($self,$type) {
     my $rip   = $anima->{rip};
 
     # write to rip
-    $rip->store($x,deref=>0);
+    my $pos=$mc->flatjmp($x);
+    $rip->store($pos,deref=>0);
     return;
 
   };
@@ -830,9 +852,13 @@ sub cjmp($self,$type,$mode,@flag) {
     my $anima = $mc->{anima};
     my $rip   = $anima->{rip};
 
+
     # ^eval and write to rip
     my $chk=flagchk $mode,$anima,\@flag,\@iv;
-    $rip->store($x,deref=>0) if $chk;
+
+    $rip->store($mc->flatjmp($x),deref=>0)
+    if $chk;
+
 
     return;
 
@@ -1029,6 +1055,7 @@ sub _cmp($self,$type,$src) {
     my $y = shift @src;
     my $z = $x-$y;
 
+
     # ^derive flags from result
     $anima->set_flags(
       zero  => ! $z,
@@ -1059,6 +1086,7 @@ sub test($self,$type,$src) {
     # substract src from dst
     my $y = shift @src;
     my $z = $x & $y;
+
 
     # ^derive flags from result
     $anima->set_flags(
