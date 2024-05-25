@@ -40,7 +40,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.4;#a
+  our $VERSION = v0.01.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -76,7 +76,8 @@ sub blk($self,$branch) {
 
   )->{spec};
 
-  my $full="$name";
+  my @path=$top->ances_list;
+  my $full=join '::',$top->{value},$name;
 
 
   # make fake ptr
@@ -107,8 +108,9 @@ sub blk($self,$branch) {
 
 
   # ^schedule for update ;>
-  my $fn=(ref $main) . '::cpos';
-     $fn=\&$fn;
+  my $fn   = (ref $main) . '::cpos';
+     $fn   = \&$fn;
+
 
   $enc->binreq(
 
@@ -118,7 +120,7 @@ sub blk($self,$branch) {
 
       'data-decl',
 
-      { id        => [$name,$top->ances_list],
+      { id        => [$name,@path],
 
         type      => 'sym-decl',
 
@@ -581,11 +583,15 @@ sub symsolve($self,$branch,$vref,$deref) {
   my $mc    = $main->{mc};
   my $ISA   = $mc->{ISA};
 
+  my ($name,@path)=$dst->fullpath;
+
 
   # out
   my $O={
     imm      => \&symsolve_addr,
     imm_args => [$dst,$deref],
+
+    id       => [$name,@path],
 
   };
 

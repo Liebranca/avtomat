@@ -208,6 +208,14 @@ sub operand_value($self,$ins,$type,$data) {
       $value=$self->register->{$value};
       $value=$value->{$type->{name}};
 
+    } elsif(Type->is_ptr($type)) {
+
+      my $main  = $self->{main};
+      my $mc    = $main->{mc};
+
+      my ($seg) = $mc->flatptr($value);
+      $value = $seg->{value};
+
     };
 
 
@@ -230,6 +238,7 @@ sub step($self,$data) {
   my $tab  = $ISA->opcode_table;
 
   my $ins  = $data->{ins};
+
 
   # get function assoc with id
   # skip meta instructions!

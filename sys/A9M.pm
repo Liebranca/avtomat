@@ -399,7 +399,7 @@ sub lkup($self,@path) {
   );
 
 
-  shift @path
+  my $root=shift @path
   if $have_root or $daut_root;
 
   # find root/path/to within tree
@@ -431,6 +431,10 @@ sub lkup($self,@path) {
   };
 
 
+  unshift @path,$root
+  if $root &&! $daut_root;
+
+
   return ($out,$mem,$tree,@path);
 
 };
@@ -454,7 +458,7 @@ sub scope($self,@path) {
 
 
     # validate path
-    my ($out,$mem,$tree)=
+    my ($out,$mem,$tree,@loc)=
       $self->lkup(@path);
 
     return badfet('DIR',@path)
@@ -462,7 +466,7 @@ sub scope($self,@path) {
 
 
     # ^overwrite
-    $self->{path}  = [$tree->{value},@path];
+    $self->{path}  = [@loc];
     $self->{scope} = $out;
 
   };
@@ -475,13 +479,12 @@ sub scope($self,@path) {
 };
 
 # ---   *   ---   *   ---
-# find symbol
+# get symbol and path
 
-sub ssearch($self,@path) {
-
+sub ssearch_p($self,@path) {
 
   # name in path?
-  my ($out,$mem,$tree)=
+  my ($out,$mem,$tree,@loc)=
     $self->lkup(@path);
 
 
@@ -493,7 +496,7 @@ sub ssearch($self,@path) {
       [@{$self->{path}},@path],
 
       ($self->{segtop})
-        ? [$self->{segtop}->ances_list(),@path]
+        ? [$self->{segtop}->ances_list,@path]
         : ()
         ,
 
@@ -502,7 +505,7 @@ sub ssearch($self,@path) {
     # ^retry!
     for my $subpath(@alt) {
 
-      ($out,$mem,$tree)=
+      ($out,$mem,$tree,@loc)=
         $self->lkup(@$subpath);
 
       last if $out;
@@ -511,7 +514,20 @@ sub ssearch($self,@path) {
 
   };
 
-  return ($out) ? $out->{mem} : null ;
+
+  return ($out)
+    ? ($out->{mem},@loc)
+    : ()
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# ^just the symbol ;>
+
+sub ssearch($self,@path) {
+  my ($sym)=$self->ssearch_p(@path);
+  return (defined $sym) ? $sym : null ;
 
 };
 

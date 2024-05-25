@@ -252,6 +252,18 @@ sub get_addr($self) {
 };
 
 # ---   *   ---   *   ---
+# locate in namespace
+
+sub fullpath($self) {
+
+  my @base=$self->ances_list;
+  my $name=pop @base;
+
+  return $name,@base;
+
+};
+
+# ---   *   ---   *   ---
 # set view back to top of
 # referenced segment
 
@@ -1366,6 +1378,10 @@ sub search($self,$name,@path) {
   my $mc   = $self->getmc();
   my $sep  = $mc->{pathsep};
   my $tree = $self->{inner};
+
+  shift @path
+  if $path[0] && $path[0] eq $tree->{value};
+
 
   # cat name to path
   my @alt  = split $sep,$name;

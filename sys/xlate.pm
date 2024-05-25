@@ -87,6 +87,22 @@ sub run($self) {
   my $lang  = $self->{lang};
 
 
+use Fmat;
+
+my $Q=[
+
+  map  {$ARG->[2]}
+  grep {defined $ARG}
+
+  @{$enc->{Q}->{asm}}
+
+];
+
+fatdump \$Q;
+
+exit;
+
+
   # get executable block
   my $non  = $mc->{astab}->{non};
   my $code = $non->{leaves}->[-1];

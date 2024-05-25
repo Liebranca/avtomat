@@ -37,7 +37,7 @@ package A9M::ptr;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#a
+  our $VERSION = v0.01.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -48,6 +48,7 @@ St::vconst {
   DEFAULT => {
 
     type   => $Type::DEFAULT,
+    label  => null,
 
     ptr_t  => undef,
 
@@ -192,6 +193,29 @@ sub getseg($self) {
   my $frame = $class->get_frame($self->{mcid});
 
   return $frame->ice($idex);
+
+};
+
+# ---   *   ---   *   ---
+# get ptr path in namespace
+
+sub ances_list($self,%O) {
+  my $seg=$self->getseg();
+  return $seg->ances_list(%O);
+
+};
+
+sub fullpath($self) {
+
+  my $seg  = $self->getseg();
+  my $mc   = $seg->getmc();
+
+  my @base = $seg->ances_list;
+  my @par  = split $mc->{pathsep},$self->{label};
+
+  my $name = pop @par;
+
+  return $name,@base,@par;
 
 };
 
@@ -387,6 +411,7 @@ sub mint($self) {
     addr
     len
 
+    label
     field
     route
 
@@ -434,6 +459,7 @@ sub unmint($class,$O) {
     addr
     len
 
+    label
     field
 
     ptr_t
