@@ -87,20 +87,11 @@ sub run($self) {
   my $lang  = $self->{lang};
 
 
-use Fmat;
+  my $Q=[
+    map {(is_arrayref $ARG) ? @$ARG : ()}
+    @{$enc->exewrite_sort()}
 
-my $Q=[
-
-  map  {$ARG->[2]}
-  grep {defined $ARG}
-
-  @{$enc->{Q}->{asm}}
-
-];
-
-fatdump \$Q;
-
-exit;
+  ];
 
 
   # get executable block
@@ -112,16 +103,9 @@ exit;
 
 
   # read/decode/translate
-  my @ret=();
-  while(1) {
+  my @ret=map {$lang->step($ARG)} @$Q;
 
-    my $data=$enc->exeread(xlate=>1);
-    last if ! $data;
-
-    push @ret,$lang->step($data);
-
-  };
-
+  say join "\n",@ret;
 
   return @ret;
 

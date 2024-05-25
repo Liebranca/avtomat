@@ -26,6 +26,7 @@ package xlate::fasm;
   use Chk;
   use Type;
 
+  use Fmat;
   use St;
 
 # ---   *   ---   *   ---
@@ -41,8 +42,7 @@ St::vconst {
 
 
   metains  => qr{^(?:
-
-    load_chan
+    self
 
   )$}x,
 
@@ -137,6 +137,26 @@ sub rX($class,$name) {
 };
 
 # ---   *   ---   *   ---
+# A9M data to x86
+
+sub data_decl($class,$type) {
+
+  map {{
+
+    byte  => 'db',
+    word  => 'dw',
+    dword => 'dd',
+    qword => 'dq',
+
+    xword => 'dq',
+    yword => 'dq',
+    zword => 'dq',
+
+  }->{$ARG}} typeof $type->{sizeof};
+
+};
+
+# ---   *   ---   *   ---
 # cstruc
 
 sub new($class,$main) {
@@ -145,84 +165,68 @@ sub new($class,$main) {
 };
 
 # ---   *   ---   *   ---
-# ~
-
-sub ptr_decode($self,$type,$x) {
-
-  my $main  = $self->{main};
-  my $l1    = $main->{l1};
-
-  my $have  = $l1->xlate($x);
-
-
-  if($have->{type} eq 'REG') {
-    my $value=$self->register->{$have->{spec}};
-    return $value->{qword};
-
-  } else {
-    return $have->{spec};
-
-  };
-
-};
-
-# ---   *   ---   *   ---
 # get value from descriptor
 
-sub operand_value($self,$ins,$type,$data) {
+sub operand_value($self,$type,@data) {
+
+  my $rtab=$self->register;
 
   map {
 
-    my $e     = {%{$data->{$ARG}}};
-    my $value = $e->{value};
+    if($ARG->{type} eq 'r') {
+      my $reg=$rtab->{$ARG->{reg}};
+      $reg->{$type->{name}};
 
-    if(is_arrayref $value) {
+    } elsif(! index $ARG->{type},'m') {
 
-      my $scale = shift @$value;
-      my @have  = map {
-        $self->ptr_decode($type,$ARG)
+      my @r=map {
+        $rtab->{$ARG-1}->{dword}
 
-      } @$value;
+      } grep {$ARG} (
+        $ARG->{rX},
+        $ARG->{rY},
 
+      );
 
-      my $ptr  = join null,map {
-
-        my $v=$have[$ARG];
-
-        if($ARG >= 1 && 0 > index $v,'-') {
-          "+$v";
-
-        } else {$v};
-
-      } 0..$#have;
-
-      $value=($scale > 1)
-        ? "$ptr*$scale"
-        : "$ptr"
-        ;
-
-      $value="$type->{name} [$value]";
+      push @r,$ARG->{imm} if $ARG->{imm};
 
 
-    } elsif($e->{type} eq 'r') {
-      $value=$self->register->{$value};
-      $value=$value->{$type->{name}};
+      my $out=join '+',@r;
 
-    } elsif(Type->is_ptr($type)) {
+      $out .= '*'. (1 << $ARG->{scale})
+      if $ARG->{scale};
 
-      my $main  = $self->{main};
-      my $mc    = $main->{mc};
+      "$type->{name} [$out]";
 
-      my ($seg) = $mc->flatptr($value);
-      $value = $seg->{value};
+
+    } elsif(exists $ARG->{id}) {
+
+      my @path=@{$ARG->{id}};
+      my $name=shift @path;
+
+      join '_',@path,$name;
+
+
+    } else {
+      $ARG->{imm};
 
     };
 
 
-    "$value"
+  } @data;
 
+};
 
-  } qw(dst src)[0..$ins->{argcnt}-1];
+# ---   *   ---   *   ---
+# ~
+
+sub is_label {
+
+  my $data=$_[0]->{data};
+  return (is_coderef $data)
+    ? 'cpos' eq codename $data
+    : 0
+    ;
 
 };
 
@@ -232,40 +236,98 @@ sub operand_value($self,$ins,$type,$data) {
 sub step($self,$data) {
 
 
-  # get ctx
-  my $ISA  = $self->{main}->{mc}->{ISA};
-  my $guts = $ISA->{guts};
-  my $tab  = $ISA->opcode_table;
+  my $main = $self->{main};
+  my $eng  = $main->{engine};
+  my $mc   = $main->{mc};
 
-  my $ins  = $data->{ins};
+  my ($seg,$route,@req)=@$data;
 
+  map {
 
-  # get function assoc with id
-  # skip meta instructions!
-  my $fn=$tab->{exetab}->[$ins->{idx}];
-  return () if $fn=~ $self->metains;
+    my ($type,$ins,@args)=@$ARG;
+    $type=typefet $type;
 
-  # need to translate?
-  my $xtab=$self->instab;
+  if(! ($ins=~ $self->metains)) {
 
-  $fn=$xtab->{$fn}
-  if exists $xtab->{$fn};
+    $ins=$self->instab->{$ins}
+    if exists $self->instab->{$ins};
 
 
-  # read operands
-  my $ezy    = Type::MAKE->LIST->{ezy};
-  my $type   = typefet $ezy->[$ins->{opsize}];
-
-  my @values =$self->operand_value(
-    $ins,$type,$data
-
-  );
+    if($ins eq 'data-decl') {
 
 
-  say sprintf
-    "%-8s  " . join(',',@values),$fn;
+      my @path = @{$args[0]->{id}};
+      my $name = shift @path;
 
-  return ();
+      my $full = join '_',@path,$name;
+
+
+      if(is_label $args[0]) {
+        "\n$full:";
+
+      } else {
+
+        my ($dd)   = $self->data_decl($type);
+        my ($data) = $eng->value_flatten(
+          $args[0]->{data}->{value}
+
+        );
+
+
+        my $sym=${$mc->valid_psearch(
+          $name,@path
+
+        )};
+
+        my $str  = Type->is_str($sym->{type});
+        my $cstr = $sym->{type} eq typefet 'cstr';
+
+
+        my $sus=2;
+        if(is_arrayref $data) {
+
+          $sus  *= int @$data;
+          $data  = ($str)
+            ? join ",",map {"\"$ARG\""} @$data
+            : join ",",@$data
+            ;
+
+        } else {
+          $data="\"$data\""  if $str;
+
+        };
+
+
+        $data="$data,\$00" if $cstr;
+
+
+        my $out=
+          "$full: ($sym->{type}->{name})\n"
+        . "  $dd $data"
+        ;
+
+        $out .=
+
+          "\n\n$full.len="
+
+        . ((length $data)-($sus+$cstr*3))
+
+        . "\n"
+
+        ;
+
+        $out;
+
+      };
+
+    } else {
+      my @have=$self->operand_value($type,@args);
+      sprintf "%-16s %s",$ins,join ',',@have;
+
+    };
+
+
+  }} @req;
 
 };
 

@@ -450,37 +450,7 @@ sub exewrite_run($self) {
   $mc->backup();
 
 
-  # walk requests!
-  my $Q     = $self->{Q}->{asm};
-  my $order = [[],0,[],0,[],0,[],0];
-
-  # ^but sort them first ;>
-  map {
-
-    my $seg  = $ARG->[0];
-    my $idex = {
-
-      non    => 0,
-
-      rodata => 2,
-      data   => 4,
-
-      code   => 6,
-
-
-    }->{$seg->{value}};
-
-    push @{$order->[$idex]},$ARG;
-    $order->[$idex+1]=$seg;
-
-
-  } grep {
-    defined $ARG
-
-  } @$Q;
-
-
-  # walk the sorted list ;>
+  # walk the sorted Q
   my $walked = {};
   my @out    = map {
 
@@ -560,13 +530,57 @@ sub exewrite_run($self) {
       : $ARG
       ;
 
-  } @$order;
+  } @{$self->exewrite_sort()};
 
 
   # clear and give
   $mc->restore();
 
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# sorts request by segment
+
+sub exewrite_sort($self) {
+
+
+  # filter undef from queue
+  my $Q = $self->{Q}->{asm};
+  my @Q = grep {defined $ARG} @$Q;
+
+
+  # ^walk
+  my $order = [[],0,[],0,[],0,[],0];
+
+  map {
+
+
+    # map segment type to idex
+    my $seg  = $ARG->[0];
+    my $idex = {
+
+      non    => 0,
+
+      rodata => 2,
+      data   => 4,
+
+      code   => 6,
+
+
+    }->{$seg->flagkey};
+
+
+    # give [requests=>segment]
+    push @{$order->[$idex]},$ARG;
+    $order->[$idex+1]=$seg;
+
+
+  } @Q;
+
+
+  return $order;
 
 };
 
