@@ -187,6 +187,7 @@ sub argsolve($self,$branch) {
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
   my $mc   = $main->{mc};
+  my $eng  = $main->{engine};
   my $ISA  = $mc->{ISA};
   my $lib  = $main->{cmdlib};
 
@@ -208,7 +209,7 @@ sub argsolve($self,$branch) {
 
     # have register?
     if($type eq 'r') {
-      $O->{reg}  = $l1->quantize($key);
+      $O->{reg}  = $eng->quantize($key);
       $O->{type} = 'r';
 
 
@@ -243,7 +244,7 @@ sub argsolve($self,$branch) {
 
       # regular immediate ;>
       } else {
-        $O->{imm}  = $l1->quantize($key);
+        $O->{imm}  = $eng->quantize($key);
         $O->{type} = $ISA->immsz($O->{imm});
 
       };
@@ -259,7 +260,6 @@ sub argsolve($self,$branch) {
     } elsif($type eq 'sym') {
       $O=$self->symsolve($branch,$ARG,0);
       return null if ! length $O;
-
 
     };
 
@@ -334,6 +334,182 @@ sub asm_ins($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# get chain of operations is
+# valid for an addressing mode
+
+sub get_valid_ptr($self,$type,$nd,@args) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+  my $out  = 0;
+
+
+  # have register?
+  if($type eq 'REG') {
+
+    my ($stk)=@args;
+
+
+    # check stack addressing?
+    if($stk) {
+
+      $main->perr(
+
+        'invalid operation; '
+
+      . 'stack base can only be used as '
+      . 'destination for substraction'
+
+      ) if(
+         $nd->{idex} > 0
+      || $self->get_opr_parent($nd,qr{^(?:\-)$})
+
+      );
+
+
+    # check common LH usage?
+    } elsif(! $nd->{idex}) {
+
+      $main->perr(
+
+        'invalid operation; '
+
+      . 'register can only be used as '
+      . 'destination for addition, substraction '
+      . 'or multiplication'
+
+      ) if $self->get_opr_parent(
+        $nd,qr{^(?:\-|\+|\*)$}
+
+      );
+
+
+      # scale applied to register?
+      my $value = $nd->{parent}->{value};
+      my $have  = $l1->typechk(OPR=>$value);
+
+      $out=$have->{spec} eq '*' if $have;
+
+
+    # check common RH usage?
+    } else {
+
+
+      $main->perr(
+
+        'invalid operation; '
+
+      . 'register can only be used as '
+      . 'source for addition'
+
+      ) if $self->get_opr_parent(
+        $nd,qr{^(?:\+)$}
+
+      );
+
+
+    };
+
+
+  # have symbol or immediate?
+  } else {
+
+
+    # forbid symbol as scale
+    if($type eq 'SYM') {
+
+      $main->perr(
+
+        'invalid operation; '
+
+      . 'symbol can only be used as '
+      . 'source for addition or '
+      . 'substraction'
+
+      ) if $nd->{idex} && $self->get_opr_parent(
+        $nd,qr{^(?:\-|\+)$}
+
+      );
+
+    };
+
+
+    # apply negation to value?
+    my $value = $nd->{parent}->{value};
+    my $have  = $l1->typechk(OPR=>$value);
+
+    $out=(
+
+       $nd->{idex}
+    && $have->{spec} eq '-'
+
+    ) if $have;
+
+
+  };
+
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^find valid operator above a node
+
+sub get_opr_parent($self,$nd,$opr) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+
+  # walk up the hierarchy!
+  my $par  = $nd->{parent};
+  my $have = 0;
+
+  while($par) {
+
+
+    # operator found?
+    if(my $desc=$l1->typechk(
+      OPR=>$par->{value}
+
+    )) {
+
+      $have=! ($desc->{spec}=~ $opr);
+      last if $have;
+
+    };
+
+
+    # ^nope, keep going!
+    $par=$par->{parent};
+
+  };
+
+
+  return $have;
+
+};
+
+# ---   *   ---   *   ---
+# get idex of element in addr
+# decomposition tree
+
+sub addr_elem($type,@tree) {
+
+  grep {
+    $tree[$ARG]->{type} eq $type
+
+  } 0..$#tree;
+
+};
+
+# ---   *   ---   *   ---
 # determine type of memory operand
 
 sub addr_decompose($self,$nd) {
@@ -355,77 +531,129 @@ sub addr_decompose($self,$nd) {
   my $beg = $nd->{leaves}->[0];
      $beg = $beg->{leaves}->[0];
 
-
   # solve const ops
   $eng->branch_collapse(
 
     $beg,
 
+    delay=>1,
+
     noreg=>1,
     noram=>1,
+    norom=>1,
+    noptr=>1,
 
   );
 
 
-  # get elements of address
-  my @reg = ();
-  my @sym = ();
-  my @imm = ();
-  my $stk = 0;
+  # decompose address
+  my @tree = ();
 
-  map {
+  my $stk  = 0;
+  my $lea  = 0;
 
-    my $have=undef;
+  my @Q    = $beg;
+
+  while(@Q) {
+
+    my $nd   = shift @Q;
+
+    my $key  = $nd->{value};
+    my $have = undef;
+
+    unshift @Q,@{$nd->{leaves}};
 
 
     # register name?
-    if($have=$l1->typechk(REG=>$ARG)) {
+    if($have=$l1->typechk(REG=>$key)) {
 
-      $stk |= $have == $anima->stack_base;
 
-      $have->{type}='r';
-      push @reg,$have->{spec};
+      $stk |= $have->{spec} == $anima->stack_base;
+      $lea |= $self->get_valid_ptr(REG=>$nd,$stk);
+
+      push @tree,{
+
+        id   => $have->{spec},
+
+        neg  => 0,
+        type => 'reg',
+
+      };
+
 
     # symbol name?
-    } elsif($have=$l1->typechk(SYM=>$ARG)) {
-      push @sym,{type=>'sym',id=>$ARG};
+    } elsif($have=$l1->typechk(SYM=>$key)) {
 
-    # immediate!
+      push @tree,{
+
+        id   => $have->{spec},
+
+        neg  => $self->get_valid_ptr(SYM=>$nd),
+        type => 'sym',
+
+      };
+
+
+    # immediate?
+    } elsif(! ($have=$l1->typechk(OPR=>$key))) {
+
+      push @tree,{
+
+        id   => $eng->quantize($key),
+
+        neg  => $self->get_valid_ptr(IMM=>$nd),
+        type => 'imm',
+
+      };
+
+
+    # operator!
     } else {
-      push @imm,$l1->quantize($ARG);
+
+      push @tree,{
+
+        id   => $have->{spec},
+
+        neg  => 0,
+        type => 'opr',
+
+      } if ! ($have->{spec}=~ qr{^(?:\-|\+)$});
+
 
     };
 
 
-  # ^from branch values
-  } map {
-    $ARG->{value}
-
-  } map {
-
-    my @lv=@{$ARG->{leaves}};
-       @lv=$ARG if ! @lv;
-
-    @lv;
+  };
 
 
-  # ^from branch leaves, if we have a branch
-  # ^else proc single leaf!
-  } (int @{$beg->{leaves}})
+  # check legal register use
+  my $reg  = [addr_elem reg=>@tree];
+     $lea |= @$reg > 1;
 
-    ? @{$beg->{leaves}}
-    : $beg
-    ;
+  $main->perr(
+
+    'cannot use more than two '
+  . 'registers to calculate pointer'
+
+  ) if @$reg > 2;
 
 
-  # give type lists
+  # ^remove registers from tree!
+  @$reg = map  {$tree[$ARG]} @$reg;
+  @tree = grep {$ARG->{type} ne 'reg'} @tree;
+
+
+  # give descriptor
   return {
 
-    sym=>\@sym,
-    reg=>\@reg,
-    imm=>\@imm,
+    tree  => \@tree,
+    reg   => $reg,
 
-    stk=>$stk,
+    sym   => [addr_elem sym=>@tree],
+    imm   => [addr_elem imm=>@tree],
+
+    stk   => $stk,
+    lea   => $lea,
 
   };
 
@@ -442,6 +670,8 @@ sub addrmode($self,$branch,$nd) {
   my $data=$self->addr_decompose($nd);
   return null if ! length $data;
 
+  my $tree=$data->{tree};
+
 
   # get ctx
   my $main = $self->{frame}->{main};
@@ -454,107 +684,118 @@ sub addrmode($self,$branch,$nd) {
   my $O         = {};
 
 
-  # have symbol?
-  if(defined $data->{sym}->[0]) {
+  # have symbols?
+  map {
 
 
     # skip if can't solve!
-    my $head=$self->symsolve(
-      $branch,$data->{sym}->[0],1
+    my $idex = $ARG;
+    my $head = $self->symsolve(
+      $branch,$tree->[$idex],1
 
     );
 
     return null if ! length $head;
 
 
-    # ^overwrite operation size
-    $opsz      = $head->{opsz};
-    $opsz_args = $head->{opsz_args};
-
-
-    # delayed deref+sum?
-    if(defined $data->{imm}->[0]) {
-
-      my $have=$data->{imm}->[0];
-
-      $data->{imm}->[0]=sub ($x,$y) {
-
-        my ($isref_z,$z)=
-          Chk::cderef $have,1,@{$y->{imm_args}};
-
-        return $z + $y->{imm}->();
-
-      };
-
-      $O->{imm_args}=[$have,$head];
-
-
-    # ^as-is
-    } else {
-      $data->{imm}->[0] = $head->{imm};
-      $O->{imm_args}    = $head->{imm_args};
+    # overwrite operation size if
+    # symbol is the sole component!
+    if(! defined $opsz &&! @$tree-1) {
+      $opsz      = $head->{opsz};
+      $opsz_args = $head->{opsz_args};
 
     };
 
-  };
+
+    # put symbol descriptor in tree
+    $head->{neg}   = $tree->[$idex]->{neg};
+    $tree->[$idex] = $head;
+
+
+  } @{$data->{sym}};
 
 
   # [sb-i]
   if($data->{stk}) {
 
-    $data->{imm}->[0] //= 0;
+    $O->{imm}      = \&addrsolve_collapse;
+    $O->{imm_args} = $tree;
 
-    $O->{imm}  = $data->{imm}->[0];
-    $O->{type} = 'mstk';
-
-
-  # [seg:r+i]
-  } elsif(
-
-     @{$data->{reg}} == 1
-  && @{$data->{imm}} <= 1
-
-  ) {
-
-    $data->{imm}->[0] //= 0;
-
-    $O->{reg}  = $data->{reg}->[0];
-    $O->{imm}  = $data->{imm}->[0];
-
-    $O->{type} = 'msum';
+    $O->{type}     = 'mstk';
 
 
-  # [seg:r+r+i*x]
-  } elsif(
+  # [r+r+i*x]
+  } elsif($data->{lea}) {
 
-     @{$data->{reg}} == 2
-  || @{$data->{imm}} == 2
+    my ($rX,$rY)=map {
 
-  ) {
+      my $ar=$data->{reg};
 
-    $data->{reg}->[0] //= 0;
-    $data->{reg}->[1] //= 0;
+      (defined $ar->[$ARG])
+        ? $ar->[$ARG]+1
+        : 0
+        ;
 
-    $data->{imm}->[0] //= 0;
-    $data->{imm}->[1] //= 0;
-
-
-    $O->{rX}    = $data->{reg}->[0]+1;
-    $O->{rY}    = $data->{reg}->[1]+1;
-
-    $O->{imm}   = $data->{imm}->[0];
-    $O->{scale} = $data->{imm}->[1];
-
-    $O->{type}  = 'mlea';
+    } 0..1;
 
 
-  # [seg:i]
+    # validate scale value
+    my $scale=0;
+    if(@$tree > 2) {
+
+      $scale=pop @$tree;
+      $main->perr(
+
+        'invalid scale factor of [num]:%u '
+      . 'for address',
+
+        args => [$scale->{id}],
+
+      ) if ! ($scale->{id}=~ qr{^(?:1|2|4|8)$});
+
+
+      # ^remove multiplication from tree!
+      my ($off)=grep {
+         exists $tree->[$ARG]->{id}
+      && $tree->[$ARG]->{id} eq '*'
+
+      } reverse 0..@$tree-1;
+
+      $tree->[$off]=undef;
+      @$tree=grep {defined $ARG} @$tree;
+
+    };
+
+
+    # make descriptor
+    $O->{rX}       = $rX;
+    $O->{rY}       = $rY;
+
+    $O->{imm}      = \&addrsolve_collapse;
+    $O->{imm_args} = $tree;
+
+    $O->{scale}    = $scale;
+    $O->{type}     = 'mlea';
+
+
+  # [r+i]
+  } elsif(@{$data->{reg}}) {
+
+    $O->{reg}      = $data->{reg}->[0];
+
+    $O->{imm}      = \&addrsolve_collapse;
+    $O->{imm_args} = $tree;
+
+    $O->{type}     = 'msum';
+
+
+  # [i]
   } else {
 
-    $data->{imm}->[0] //= 0;
+    $O->{imm}      = \&addrsolve_collapse;
+    $O->{imm_args} = $tree;
 
-    $O->{imm}  = $data->{imm}->[0];
-    $O->{type} = 'mimm';
+    $O->{type}     = 'mimm';
 
   };
 
@@ -564,6 +805,60 @@ sub addrmode($self,$branch,$nd) {
   $O->{opsz_args} = $opsz_args;
 
   return $O;
+
+};
+
+# ---   *   ---   *   ---
+# adds symbols and immediates
+# inside an address tree
+
+sub addrsolve_collapse(@tree) {
+
+  use Fmat;
+
+  my $opera = qr{^(?:\/|\*)$};
+  my @have  = map {
+
+    my $neg = 0;
+    my $out = 0;
+
+    # have fetch?
+    if(exists $ARG->{imm}) {
+      $out = $ARG->{imm}->(@{$ARG->{imm_args}});
+      $neg = $ARG->{neg};
+
+    # have value!
+    } else {
+      $out = $ARG->{id};
+      $neg = $ARG->{neg};
+
+    };
+
+    $out *= 1-(2*$neg)
+    if ! ($out=~ $opera);
+
+    $out;
+
+
+  } @tree;
+
+  my $out=0;
+  while(@have) {
+
+    my $x=shift @have;
+    if($x=~ $opera) {
+      my ($lh,$rh)=(shift @have,shift @have);
+      $out += eval "$lh $x $rh";
+
+    } else {
+      $out += $x;
+
+    };
+
+  };
+
+
+  return int $out;
 
 };
 
@@ -588,6 +883,7 @@ sub symsolve($self,$branch,$vref,$deref) {
 
   # out
   my $O={
+
     imm      => \&symsolve_addr,
     imm_args => [$dst,$deref],
 

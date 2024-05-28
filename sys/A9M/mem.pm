@@ -220,7 +220,7 @@ sub view($self,$addr,$len,$label=undef) {
 
   # ^validate
   return null
-  if $addr+$len > length $$buf;
+  if $addr+$len > $self->{size};
 
 
   # generate and set label
@@ -1350,6 +1350,7 @@ sub mount($self,@image) {
       join '::',@path
 
     );
+
 
     unshift @path,$dst->{value}
     if $nroot;

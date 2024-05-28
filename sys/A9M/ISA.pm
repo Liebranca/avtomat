@@ -335,7 +335,7 @@ sub imload($self,$size,$src) {
   my $dst = {type=>'r',reg=>$ri};
 
   # give (dst,ins)
-  return $dst,[$size,'load',$dst,$src];
+  return $dst,[$size,'ld',$dst,$src];
 
 };
 

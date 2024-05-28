@@ -165,6 +165,18 @@ sub new($class,$main) {
 };
 
 # ---   *   ---   *   ---
+# get symbol name
+
+sub symname($src,$key='id') {
+
+  my @path=@{$src->{$key}};
+  my $name=shift @path;
+
+  return join '_',@path,$name;
+
+};
+
+# ---   *   ---   *   ---
 # get value from descriptor
 
 sub operand_value($self,$type,@data) {
@@ -179,16 +191,33 @@ sub operand_value($self,$type,@data) {
 
     } elsif(! index $ARG->{type},'m') {
 
-      my @r=map {
-        $rtab->{$ARG-1}->{dword}
+      my @r=();
 
-      } grep {$ARG} (
-        $ARG->{rX},
-        $ARG->{rY},
+      if($ARG->{type} eq 'mlea') {
 
-      );
+        @r=map {
+          $rtab->{$ARG-1}->{dword}
 
-      push @r,$ARG->{imm} if $ARG->{imm};
+        } grep {$ARG} (
+          $ARG->{rX},
+          $ARG->{rY},
+
+        );
+
+
+      } elsif($ARG->{type} eq 'msum') {
+        @r=$rtab->{$ARG->{reg}}->{dword};
+
+      };
+
+
+      if(is_coderef $ARG->{imm}) {
+        unshift @r,symname $ARG,'imm_id';
+
+      } elsif($ARG->{imm}) {
+        push @r,$ARG->{imm};
+
+      };
 
 
       my $out=join '+',@r;
@@ -200,12 +229,7 @@ sub operand_value($self,$type,@data) {
 
 
     } elsif(exists $ARG->{id}) {
-
-      my @path=@{$ARG->{id}};
-      my $name=shift @path;
-
-      join '_',@path,$name;
-
+      symname $ARG,'id';
 
     } else {
       $ARG->{imm};
@@ -279,6 +303,7 @@ sub step($self,$data) {
 
         )};
 
+
         my $str  = Type->is_str($sym->{type});
         my $cstr = $sym->{type} eq typefet 'cstr';
 
@@ -302,7 +327,7 @@ sub step($self,$data) {
 
 
         my $out=
-          "$full: ($sym->{type}->{name})\n"
+          "$full:\n"
         . "  $dd $data"
         ;
 

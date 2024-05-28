@@ -30,6 +30,7 @@ package ipret::engine;
   use Bpack;
 
   use Arstd::Bytes;
+  use Arstd::String;
   use Arstd::IO;
 
   use parent 'rd::layer';
@@ -37,7 +38,7 @@ package ipret::engine;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -264,6 +265,8 @@ sub value_solve($self,$src,%O) {
   # defaults
   $O{noreg} //= 0;
   $O{noram} //= 0;
+  $O{norom} //= 0;
+  $O{noptr} //= 0;
   $O{delay} //= 0;
 
   # get ctx
@@ -295,7 +298,7 @@ sub value_solve($self,$src,%O) {
   };
 
   return (! $O{delay})
-    ? $l1->quantize($out)
+    ? $self->quantize($out)
     : $out
     ;
 
@@ -358,7 +361,7 @@ sub value_flatten($self,$src,%O) {
 
   };
 
-  $x=$l1->quantize($x);
+  $x=$self->quantize($x);
 
   if($x && is_hashref $x) {
 
@@ -383,6 +386,10 @@ sub branch_solve($self,$branch,%O) {
 
   # defaults
   $O{noreg} //= 0;
+  $O{noram} //= 0;
+  $O{norom} //= 0;
+  $O{noptr} //= 0;
+
 
   # get ctx
   my $main = $self->{main};
@@ -394,10 +401,10 @@ sub branch_solve($self,$branch,%O) {
 
   if(my $have=$l1->typechk(OPR=>$key)) {
 
-    my $dst=($have ne '(')
-      ? $self->opera_collapse($branch,$have,%O)
-      : $branch->leaf_value(0)
-      ;
+    my $dst=$self->opera_collapse(
+      $branch,$have,%O
+
+    );
 
     if(length $dst) {
       $branch->{value}=$dst;
@@ -406,8 +413,15 @@ sub branch_solve($self,$branch,%O) {
     };
 
 
-  # 'branch' token denotes any {[(code)]}
+  # SCP token denotes any {[(code)]}
   # between delimiters
+  } elsif($have=$l1->typechk(SCP=>$key)) {
+
+    $self->sbranch_collapse(
+      $branch,$have
+
+    ) if $have->{spec} eq '(';
+
   } elsif($have=$l1->typechk(EXP=>$key)) {
 
     $self->sbranch_collapse(
@@ -431,6 +445,10 @@ sub branch_collapse($self,$src,%O) {
 
   # defaults
   $O{noreg} //= 0;
+  $O{noram} //= 0;
+  $O{norom} //= 0;
+  $O{noptr} //= 0;
+
 
   # save current state
   my $main = $self->{main};
@@ -472,7 +490,6 @@ sub sbranch_collapse($self,$branch,$id) {
   my $par = $branch->{parent};
   my @lv  = @{$branch->{leaves}};
 
-
   if(1 == @lv) {
     $branch->flatten_branch();
 
@@ -493,6 +510,9 @@ sub opera_collapse($self,$branch,$opera,%O) {
   # defaults
   $O{noreg} //= 0;
   $O{noram} //= 0;
+  $O{norom} //= 0;
+  $O{noptr} //= 0;
+
 
   # get ctx
   my $main = $self->{main};
@@ -522,8 +542,8 @@ sub opera_collapse($self,$branch,$opera,%O) {
 
 
     my $have=($type && $type ne 'OPR')
-      ? $l1->quantize($ARG->{value})
-      : $self->value_solve($ARG)
+      ? $self->quantize($ARG->{value})
+      : $self->value_solve($ARG,%O)
       ;
 
 
@@ -576,11 +596,15 @@ sub opera_collapse($self,$branch,$opera,%O) {
     } elsif($type eq 'SYM') {
 
 
-      # allow non-const?
-      my $seg=$have->getseg;
+      # symbol deref allowed?
+      my $seg=$have->getseg();
 
       return null
-      if $seg->{writeable} && $O{noram};
+
+      if (  $seg->{writeable} && $O{noram})
+      || (! $seg->{writeable} && $O{norom})
+
+      || (  $have->{ptr_t}    && $O{noptr});
 
 
       # ^deref and give
@@ -592,6 +616,11 @@ sub opera_collapse($self,$branch,$opera,%O) {
       my $spec = $ISA->immsz($addr);
 
       {type=>$spec,imm=>$addr};
+
+
+    # either impossible or NYI ;>
+    } elsif($type eq 'OPR') {
+      return null;
 
 
     # error!
@@ -785,6 +814,106 @@ sub argtake($self,@args) {
     ? @solved
     : ()
     ;
+
+};
+
+# ---   *   ---   *   ---
+# symbol lookup
+
+sub symfet($self,$token) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+  my $mc   = $main->{mc};
+
+
+  # deref tree branch
+  $token=$token->{value}
+  if Tree->is_valid($token);
+
+
+  # read meta
+  my $name=$l1->untag($token);
+     $name=($name) ? $name->{spec} : $token ;
+
+  # can find symbol?
+  my $sym=$mc->ssearch(
+    split $mc->{pathsep},$name
+
+  );
+
+  return $sym;
+
+};
+
+# ---   *   ---   *   ---
+# token to value
+
+sub quantize($self,$src) {
+
+
+  # skip on undef/null
+  return null
+  if ! defined $src ||! length $src;
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+
+
+  # have ptr?
+  my $mc     = $main->{mc};
+  my $ptrcls = $mc->{bk}->{ptr};
+
+  return $src if $ptrcls->is_valid($src);
+
+
+  # ^else unpack tag
+  my $have=$l1->xlate($src);
+  return $src if ! $have;
+
+
+  my ($type,$spec)=(
+    $have->{type},
+    $have->{spec},
+
+  );
+
+
+  # have plain value?
+  if($type=~ qr{NUM|REG}) {
+    return $spec;
+
+  # have plain symbol name?
+  } elsif($type eq 'SYM') {
+    return $self->symfet($spec);
+
+
+  # have string?
+  } elsif($type eq 'STR') {
+
+    charcon \$have
+    if $spec eq '"';
+
+    return $have;
+
+  # have executable binary? (yes ;>)
+  } elsif($type eq 'EXE') {
+    return $self->strexe($spec);
+
+
+  # have scope?
+  } elsif($type eq 'SCP') {
+    return $src;
+
+
+  # as for anything else...
+  } else {
+    nyi "<$type> quantization";
+
+  };
 
 };
 

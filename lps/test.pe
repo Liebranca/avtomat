@@ -12,6 +12,7 @@ clan  peso;
 # ROM
 
 rom data;
+  byte pad $00;
   cstr exp '* (2 3)';
 
 
@@ -37,7 +38,7 @@ blk loop;
 
 
   # get next char
-  ld  br,byte [ar+cr];
+  ld  br,byte [ar+br+data::exp*2*2];
   inc cr;
 
   # stop on null!

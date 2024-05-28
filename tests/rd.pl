@@ -13,6 +13,7 @@ package main;
   use lib $ENV{ARPATH}.'/avtomat/sys/';
   use Style;
 
+  use ipret;
   use xlate;
 
   use Fmat;

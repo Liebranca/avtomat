@@ -811,7 +811,7 @@ subwraps '$self->defop' => q(
 
 sub mul($self,$type,$src) {
   my @src=asval $src;
-  sub ($x) {$x * shift @src};
+  sub ($ice,$x) {$x * shift @src};
 
 };
 
@@ -1359,8 +1359,8 @@ sub xlate($self,$sym,@args) {
   if($name eq 'copy') {
 
     $name=($args[0]->{type}=~ qr{^m})
-      ? 'store'
-      : 'load'
+      ? 'st'
+      : 'ld'
       ;
 
   };

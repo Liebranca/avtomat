@@ -64,7 +64,7 @@ sub insid($self,$type,$name,$args) {
   or return null;
 
   # give valid instruction or null
-  return $self->ISA()->get_ins_idex(
+  return $self->ISA->get_ins_idex(
 
     $name,
     $type->{sizep2},
@@ -93,7 +93,8 @@ sub packins($self,$idex,$args) {
     $opcd |= $data << $cnt;
     $cnt  += $bs;
 
-  } $self->ISA()->full_encoding($idex,$args);
+
+  } $self->ISA->full_encoding($idex,$args);
 
 
   # give (opcode,bytesize)

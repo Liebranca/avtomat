@@ -28,39 +28,8 @@ package ipret::cmd::argproc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
-
-# ---   *   ---   *   ---
-# symbol lookup
-
-sub symfet($self,$vref,%O) {
-
-  # defaults
-  $O{sym_asis} //= 0;
-
-  # get ctx
-  my $main = $self->{frame}->{main};
-  my $l1   = $main->{l1};
-  my $mc   = $main->{mc};
-
-
-  # can find symbol?
-  my $have = (Tree->is_valid($vref->{id}))
-    ? $vref->{id}->{value}
-    : $vref->{id}
-    ;
-
-  my $name=$l1->untag($have)->{spec};
-
-  my $sym=(! $O{sym_asis})
-    ? $mc->ssearch(split $mc->{pathsep},$name)
-    : $name
-    ;
-
-  return $sym;
-
-};
 
 # ---   *   ---   *   ---
 # type switch
@@ -75,7 +44,7 @@ sub argproc($self,$vref,%O) {
 
   # have symbol?
   if($vref->{type} eq 'sym') {
-    return $self->symfet($vref,%O);
+    return $eng->symfet($vref->{id});
 
   # have tree!
   } else {
