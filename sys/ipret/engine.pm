@@ -365,7 +365,7 @@ sub value_flatten($self,$src,%O) {
 
   if($x && is_hashref $x) {
 
-    if($x->{type} eq '%') {
+    if($x->{type} eq 'STR') {
       $x=$x->{data};
 
     };
@@ -594,6 +594,8 @@ sub opera_collapse($self,$branch,$opera,%O) {
 
     # symbols
     } elsif($type eq 'SYM') {
+
+      return null if ! length $have;
 
 
       # symbol deref allowed?

@@ -16,19 +16,18 @@ rom data;
   cstr exp '* (2 3)';
 
 
-# ---   *   ---   *   ---
+## ---   *   ---   *   ---
 # setup
 
 exe start;
 
   # cleanup
-  xor cr,cr;
-  xor dr,dr;
-  xor er,er;
+  xor dword cr,cr;
+  xor       br,br;
+  xor       dr,dr;
 
-  # get segment+src
+  # set segment
   self data;
-  ld   ar,data::exp;
 
 
 # ---   *   ---   *   ---
@@ -38,30 +37,30 @@ blk loop;
 
 
   # get next char
-  ld  br,byte [ar+br+data::exp*2*2];
+  ld  ar,byte [cr+data::exp];
   inc cr;
 
   # stop on null!
-  test br,br;
+  test byte ar,ar;
   jz   end;
 
 
   # count '('
-  ld  fr,dr;
-  inc fr;
+  ld  er,br;
+  inc er;
 
-  cmp br,$28;
-  lz  dr,fr;
+  cmp byte ar,$28;
+  lz  br,er;
 
   jz  loop;
 
 
   # ^count ')'
-  ld  fr,er;
-  inc fr;
+  ld  er,dr;
+  inc er;
 
-  cmp br,$29
-  lz  er,fr;
+  cmp byte ar,$29
+  lz  dr,er;
 
 
   # go next
@@ -74,10 +73,10 @@ blk loop;
 blk end;
 
   xor ar,ar;
-  ld  br,$01;
+  ld  er,$01;
 
-  cmp dr,er;
-  lz  ar,br;
+  cmp br,dr;
+  lz  ar,er;
 
   exit 0;
 

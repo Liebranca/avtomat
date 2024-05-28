@@ -732,7 +732,7 @@ sub addrmode($self,$branch,$nd) {
       my $ar=$data->{reg};
 
       (defined $ar->[$ARG])
-        ? $ar->[$ARG]+1
+        ? $ar->[$ARG]->{id}+1
         : 0
         ;
 
@@ -764,6 +764,14 @@ sub addrmode($self,$branch,$nd) {
       $tree->[$off]=undef;
       @$tree=grep {defined $ARG} @$tree;
 
+      $scale={
+        1 => 0,
+        2 => 1,
+        4 => 2,
+        8 => 3,
+
+      }->{$scale->{id}};
+
     };
 
 
@@ -781,7 +789,7 @@ sub addrmode($self,$branch,$nd) {
   # [r+i]
   } elsif(@{$data->{reg}}) {
 
-    $O->{reg}      = $data->{reg}->[0];
+    $O->{reg}      = $data->{reg}->[0]->{id};
 
     $O->{imm}      = \&addrsolve_collapse;
     $O->{imm_args} = $tree;

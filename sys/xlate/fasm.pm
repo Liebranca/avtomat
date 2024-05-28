@@ -177,12 +177,75 @@ sub symname($src,$key='id') {
 };
 
 # ---   *   ---   *   ---
+# decompose memory operand
+
+sub addr_collapse($tree) {
+
+  my $opera = qr{^(?:\*|\/)$};
+  my @have  = map {
+
+    my $neg = 0;
+    my @out = ();
+
+    # have fetch?
+    if(exists $ARG->{imm}) {
+      @out = symname $ARG,'id';
+      $neg = $ARG->{neg};
+
+    # have value!
+    } else {
+      @out = $ARG->{id};
+      $neg = $ARG->{neg};
+
+    };
+
+    @out = ('-',@out) if $neg;
+    @out;
+
+
+  } @$tree;
+
+
+  my @out=();
+  while(@have) {
+
+    my $x=shift @have;
+    if($x=~ $opera) {
+      my ($lh,$rh)=(shift @have,shift @have);
+      push @out,$lh,$x,$rh;
+
+    } else {
+
+      my $y=shift @have;
+
+      push @out,$x;
+      push @out,'+',$y if($y);
+
+    };
+
+  };
+
+
+  return @out;
+
+
+};
+
+# ---   *   ---   *   ---
 # get value from descriptor
 
 sub operand_value($self,$type,@data) {
 
-  my $rtab=$self->register;
 
+  # get ctx
+  my $main  = $self->{main};
+  my $mc    = $main->{mc};
+  my $anima = $mc->{anima};
+
+  my $rtab  = $self->register;
+
+
+  # walk operands
   map {
 
     if($ARG->{type} eq 'r') {
@@ -191,7 +254,9 @@ sub operand_value($self,$type,@data) {
 
     } elsif(! index $ARG->{type},'m') {
 
-      my @r=();
+
+      my @have = addr_collapse $ARG->{imm_args};
+      my @r    = ();
 
       if($ARG->{type} eq 'mlea') {
 
@@ -208,19 +273,15 @@ sub operand_value($self,$type,@data) {
       } elsif($ARG->{type} eq 'msum') {
         @r=$rtab->{$ARG->{reg}}->{dword};
 
-      };
-
-
-      if(is_coderef $ARG->{imm}) {
-        unshift @r,symname $ARG,'imm_id';
-
-      } elsif($ARG->{imm}) {
-        push @r,$ARG->{imm};
+      } elsif($ARG->{type} eq 'mstk') {
+        @r=$rtab->{$anima->stack_base}->{dword};
 
       };
 
 
+      push @r,join '',@have;
       my $out=join '+',@r;
+
 
       $out .= '*'. (1 << $ARG->{scale})
       if $ARG->{scale};
@@ -328,18 +389,18 @@ sub step($self,$data) {
 
         my $out=
           "$full:\n"
-        . "  $dd $data"
+        . "  $dd $data\n"
         ;
 
         $out .=
 
-          "\n\n$full.len="
+          "\n$full.len="
 
         . ((length $data)-($sus+$cstr*3))
 
         . "\n"
 
-        ;
+        if $str;
 
         $out;
 
@@ -347,7 +408,7 @@ sub step($self,$data) {
 
     } else {
       my @have=$self->operand_value($type,@args);
-      sprintf "%-16s %s",$ins,join ',',@have;
+      sprintf "  %-16s %s",$ins,join ',',@have;
 
     };
 
