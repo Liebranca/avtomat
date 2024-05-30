@@ -52,6 +52,20 @@ St::vconst {
 
   },
 
+  exewrite_skip => qr{^(?:
+
+    data\-decl
+  | seg\-decl
+
+  | raw
+
+  )$}x,
+
+  exewrite_noderef => qr{^(?:
+    seg\-decl|raw
+
+  )$}x,
+
 };
 
 # ---   *   ---   *   ---
@@ -140,6 +154,11 @@ sub skip_encode($self,$type,$name,@args) {
     } @args;
 
     return 'raw',$size;
+
+
+  # making segment?
+  } elsif($name eq 'seg-decl') {
+    return 'seg-decl',0x00;
 
 
   # dumping variables?
@@ -339,7 +358,7 @@ sub exewrite($self,$opsz,$name,@args) {
   } @args;
 
   $eng->opera_static(\@copy,1)
-  if $name ne 'raw';
+  if ! ($name=~ $self->exewrite_noderef);
 
 
   # encode or die ;>
@@ -348,7 +367,7 @@ sub exewrite($self,$opsz,$name,@args) {
 
   );
 
-  goto skip if $opcd=~ qr{^(?:data\-decl|raw)$};
+  goto skip if $opcd=~ $self->exewrite_skip;
 
 
   # ^catch encoding fail

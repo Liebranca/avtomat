@@ -1,4 +1,4 @@
-%;
+$;
 
 
 # ---   *   ---   *   ---
@@ -16,7 +16,7 @@ rom data;
   cstr exp '* (2 3)';
 
 
-## ---   *   ---   *   ---
+# ---   *   ---   *   ---
 # setup
 
 exe start;
@@ -37,12 +37,13 @@ blk loop;
 
 
   # get next char
-  ld  ar,byte [cr+data::exp];
-  inc cr;
+  ld ar,byte [cr+data::exp];
 
   # stop on null!
-  test byte ar,ar;
+  test ar,byte ar;
   jz   end;
+
+  inc  cr;
 
 
   # count '('
@@ -51,8 +52,6 @@ blk loop;
 
   cmp byte ar,$28;
   lz  br,er;
-
-  jz  loop;
 
 
   # ^count ')'
@@ -72,12 +71,12 @@ blk loop;
 
 blk end;
 
-  xor ar,ar;
-  ld  er,$01;
+  xor   ar,ar;
+  ld    er,$01;
 
-  cmp br,dr;
-  lz  ar,er;
+  cmp   br,dr;
+  lz    ar,er;
 
-  exit 0;
+  exit  0;
 
 # ---   *   ---   *   ---

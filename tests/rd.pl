@@ -23,7 +23,9 @@ package main;
 # run and dbout
 
 my $xlate = xlate->new('./lps/test.pe',limit=>2);
-my $main  = $xlate->run();
+my $prog  = $xlate->run();
+
+say $prog;
 
 # ---   *   ---   *   ---
 1; # ret

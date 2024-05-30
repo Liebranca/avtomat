@@ -79,6 +79,7 @@ sub run($self) {
 
   # get ctx
   my $main  = $self->{main};
+  my $xmode = $main->{xmode};
   my $mc    = $main->{mc};
   my $anima = $mc->{anima};
 
@@ -87,11 +88,16 @@ sub run($self) {
   my $lang  = $self->{lang};
 
 
+  # get assembly queue
   my $Q=[
     map {(is_arrayref $ARG) ? @$ARG : ()}
     @{$enc->exewrite_sort()}
 
   ];
+
+
+  # put header
+  my @out=$lang->open_boiler();
 
 
   # get executable block
@@ -103,11 +109,9 @@ sub run($self) {
 
 
   # read/decode/translate
-  my @ret=map {$lang->step($ARG)} @$Q;
+  push @out,map {$lang->step($ARG)} @$Q;
 
-  say join "\n",@ret;
-
-  return @ret;
+  return join "\n",@out;
 
 };
 

@@ -118,6 +118,8 @@ sub seg_type($self,$branch) {
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
   my $mc   = $main->{mc};
+  my $ISA  = $mc->{ISA};
+  my $enc  = $main->{encoder};
 
   # get segment name and type
   my $data = $branch->{vref};
@@ -130,8 +132,30 @@ sub seg_type($self,$branch) {
   my $have = $mem->haslv($name);
 
   # ^making new, decl and set flags
-  $have=$mc->mkseg($type=>$name)
-  if ! $have;
+  if(! $have) {
+
+    $have=$mc->mkseg($type=>$name);
+
+    $enc->binreq(
+
+      $branch,[
+
+        $ISA->align_t,
+
+        'seg-decl',
+
+        { id        => [$have->fullpath],
+
+          type      => 'seg-decl',
+          data      => $type,
+
+        },
+
+      ],
+
+    );
+
+  };
 
 
   # make current and give

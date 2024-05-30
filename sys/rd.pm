@@ -373,7 +373,7 @@ sub parse_subclass($self) {
   # is first token operator?
   if(
 
-     $have eq '$'
+     ($have=$l1->typechk(SYM=>$have))
   || ($have=$l1->typechk(OPR=>$have))
 
   ) {
@@ -391,7 +391,7 @@ sub parse_subclass($self) {
 
 
     # set output mode from table
-    my $fmode=$tab->{$key};
+    $self->{fmode}=$tab->{$key};
 
     # reset source package
     $pkg=$l1->stirr(shift @args);

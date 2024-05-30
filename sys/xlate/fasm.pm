@@ -406,6 +406,49 @@ sub step($self,$data) {
 
       };
 
+    } elsif($ins eq 'seg-decl') {
+
+      my $full  = symname $args[0],'id';
+      my $fmode = $main->{fmode};
+
+      if($fmode == 1) {
+
+        my $attrs = {
+
+          rom => 'readable',
+          ram => 'readable writeable',
+          exe => 'readable executable',
+
+        }->{$args[0]->{data}};
+
+        join "\n",(
+
+          "segment $attrs",
+          "align 16\n",
+
+          "$full:"
+
+        );
+
+      } else {
+
+        my $name = {
+
+          rom => '.rodata',
+          ram => '.data',
+          exe => '.text',
+
+        }->{$args[0]->{data}};
+
+        join "\n",(
+          "section '$name' align 16",
+          "$full:"
+
+        );
+
+      };
+
+
     } else {
       my @have=$self->operand_value($type,@args);
       sprintf "  %-16s %s",$ins,join ',',@have;
@@ -414,6 +457,44 @@ sub step($self,$data) {
 
 
   }} @req;
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+sub open_boiler($self) {
+
+
+  # get ctx
+  my $main  = $self->{main};
+  my $fmode = $main->{fmode};
+  my $entry = $main->{entry};
+
+  my @out   = ();
+
+
+  # ~
+  if($fmode == 1) {
+
+    $main->perr(
+      'no entry point for <%s>',
+      args=>[$main->{fpath}],
+
+    ) if ! @$entry;
+
+    push @out,"format ELF64 executable 3";
+    push @out,'entry '.join '_',@$entry;
+
+  } else {
+    push @out,"format ELF64";
+
+    push @out,'public '.join '_',@$entry
+    if @$entry
+
+  };
+
+  return @out,null;
 
 };
 
