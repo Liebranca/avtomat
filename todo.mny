@@ -3,39 +3,13 @@
 
 *>peso
 
-~ fasm xlate
+x fasm xlate
+x Generic syscall macro
 
-~ \--> use lea for add && mul when applicable
+~ Add frontend to olink
+~ Rewrite IO clan in peso (fto, bin, netstruc, etc)
 
-~ \--> branch lookahead
-~ \--> branch lookbehind
-
-~ \--> building xlate ctx with Mach::x86_64
-x .  \--> alloc/free registers
-~ .  \--> alloc/free stack
-
-
-~ Missing features
-
-~ \--> single-rule solution to generic
-       ins like align,inc,dec,etc.
-
-x \--> 'sys' keyw for common syscalls
-x \--> 'attr' keyw to set static block flags
-
-x Optimize pass count for Grammar::peso::eye
-  and it's dependencies
-
-x Tree manipulation at ipret layer,already
-  done through Tree::Grammar chains
-
-
-*>Mach::Macro::Meta
-
-~ Design of metaprogramming instructions
-  for use by Emit modules
-
-~ \--> 'wraps': describe wrapper prototype
+~ Design work on metainstructions
 
 
 *>Emit::Cpp
@@ -78,38 +52,6 @@ x \--> Registering of modules on first include, for a similar purpose
 
 ~ Write Lang::Elisp
 ~ Elisp version of f:./bin/sygen
-
-
-# ---   *   ---   *   ---
-# these tasks need to be repurposed
-# due to design changes
-#
-# leaving them as footnotes
-
-*> (OLD) Initial Mach implementation
-
-x f:./sys/Mach.pm
-x \-->reg
-~ \-->stk
-x \-->mem
-
-x Move Grammar -ns to Mach
-
-~ Generalize Blk for serialization
-~ \--> Writing Blk instances to file
-~ \--> Reading from file into Blk
-x \--> Messaging through Blks
-x .  \--> Message encrypt
-x .  \--> Message decrypt
-
-~ Generalize Ptr for Blk fetches
-~ \--> Fetch by ID (cross-scope!)
-
-
-*>Bytestream ipret
-
-~ Embed call-args-data into strings
-~ Adapt gd calls to use the Pilot model
 
 
 # ---   *   ---   *   ---

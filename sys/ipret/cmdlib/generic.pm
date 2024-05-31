@@ -34,7 +34,7 @@ package ipret::cmdlib::generic;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -70,10 +70,43 @@ sub echo($self,$branch) {
 sub stop($self,$branch) {};
 
 # ---   *   ---   *   ---
+# get symbol size
+
+sub szof($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $eng  = $main->{engine};
+  my $l1   = $main->{l1};
+
+
+  # ~
+  my $have = $branch->{value};
+     $have = $l1->xlate($have)->{data};
+
+  my $sym  = $eng->symfet($have);
+
+  return $branch if ! $sym;
+
+
+  my $x=$sym->{size};
+
+  $branch->{vref}  = undef;
+  $branch->{value} = $l1->tag(NUM=>$x);
+
+
+  return (! $branch->{parent})
+    ? $x : () ;
+
+};
+
+# ---   *   ---   *   ---
 # add entry points
 
 cmdsub stop => q() => \&stop;
 cmdsub echo => q() => \&echo;
+cmdsub szof => q() => \&szof;
 
 # ---   *   ---   *   ---
 1; # ret

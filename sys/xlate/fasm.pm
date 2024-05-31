@@ -32,7 +32,7 @@ package xlate::fasm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -141,7 +141,7 @@ sub rX($class,$name) {
 # ---   *   ---   *   ---
 # A9M data to x86
 
-sub data_decl($class,$type) {
+sub data_decl_key($class,$type) {
 
   map {{
 
@@ -341,72 +341,7 @@ sub step($self,$data) {
 
 
     if($ins eq 'data-decl') {
-
-
-      my @path = @{$args[0]->{id}};
-      my $name = shift @path;
-
-      my $full = join '_',@path,$name;
-
-
-      if(is_label $args[0]) {
-        "\n$full:";
-
-      } else {
-
-        my ($dd)   = $self->data_decl($type);
-        my ($data) = $eng->value_flatten(
-          $args[0]->{data}->{value}
-
-        );
-
-
-        my $sym=${$mc->valid_psearch(
-          $name,@path
-
-        )};
-
-
-        my $str  = Type->is_str($sym->{type});
-        my $cstr = $sym->{type} eq typefet 'cstr';
-
-
-        my $sus=2;
-        if(is_arrayref $data) {
-
-          $sus  *= int @$data;
-          $data  = ($str)
-            ? join ",",map {"\"$ARG\""} @$data
-            : join ",",@$data
-            ;
-
-        } else {
-          $data="\"$data\""  if $str;
-
-        };
-
-
-        $data="$data,\$00" if $cstr;
-
-
-        my $out=
-          "$full:\n"
-        . "  $dd $data\n"
-        ;
-
-        $out .=
-
-          "\n$full.len="
-
-        . ((length $data)-($sus+$cstr*3))
-
-        . "\n"
-
-        if $str;
-
-        $out;
-
-      };
+      map {$self->data_decl($type,$ARG)} @args;
 
     } elsif($ins eq 'seg-decl') {
 
@@ -425,7 +360,7 @@ sub step($self,$data) {
 
         join "\n",(
 
-          "segment $attrs",
+          "\nsegment $attrs",
           "align 16\n",
 
           "$full:"
@@ -443,7 +378,7 @@ sub step($self,$data) {
         }->{$args[0]->{data}};
 
         join "\n",(
-          "section '$name' align 16",
+          "\nsection '$name' align 16",
           "$full:"
 
         );
@@ -497,6 +432,91 @@ sub open_boiler($self) {
   };
 
   return @out,null;
+
+};
+
+# ---   *   ---   *   ---
+# handle data declaration block
+
+sub data_decl($self,$type,$src) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $eng  = $main->{engine};
+  my $mc   = $main->{mc};
+
+
+  # unpack
+  my @path = @{$src->{id}};
+  my $name = shift @path;
+
+  my $full = join '_',@path,$name;
+
+
+  if(is_label $src) {
+    return "\n$full:";
+
+  } else {
+
+    my ($dd)   = $self->data_decl_key($type);
+    my ($data) = $eng->value_flatten(
+      $src->{data}->{value}
+
+    );
+
+
+    my $sym=${$mc->valid_psearch(
+      $name,@path
+
+    )};
+
+
+    my $str  = Type->is_str($sym->{type});
+    my $cstr = $sym->{type} eq typefet 'cstr';
+
+
+    my $sus=2;
+    if(is_arrayref $data) {
+
+      $sus  *= int @$data;
+      $data  = ($str)
+        ? join ",",map {"\"$ARG\""} @$data
+        : join ",",@$data
+        ;
+
+    } else {
+      $data="\"$data\""  if $str;
+
+    };
+
+
+    $data="$data,\$00" if $cstr;
+
+
+    my $out="  $dd $data";
+
+
+    # add labels for non-anonymous!
+    if(! ($full=~ qr{_L\d+$})) {
+
+      $out  = "\n$full:\n$out\n";
+      $out .=
+
+        "\n$full.len="
+
+      . ((length $data)-($sus+$cstr*3))
+
+      . "\n"
+
+      if $str;
+
+    };
+
+
+    return $out;
+
+  };
 
 };
 

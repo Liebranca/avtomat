@@ -103,6 +103,8 @@ sub parse_ins($self,$branch) {
   # ^get type of each argument
   @args=map {
 
+    $ARG = $ARG->discard();
+
     my $key  = $ARG->{value};
     my $have = undef;
     my $type = undef;

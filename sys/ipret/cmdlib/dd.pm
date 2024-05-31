@@ -295,15 +295,19 @@ sub data_decl($self,$branch) {
     if(! $main->{pass}) {
 
       $main->throw_redecl('value',$name)
-      if $scope->has($name);
+      if $name ne '?' && $scope->has($name);
+
 
       $sym=$mc->decl($type,$name,$x);
+      my ($xname,@xpath)=$sym->fullpath;
+
+      $ARG->[0]=$xname;
 
 
       # make reasm params
       push @$out,{
 
-        id   => [$name,@$path],
+        id   => [$xname,@xpath],
 
         type => 'sym-decl',
         data => $value,

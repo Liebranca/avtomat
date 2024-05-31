@@ -35,7 +35,7 @@ package rd::cmdlib::linux;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -44,7 +44,9 @@ package rd::cmdlib::linux;
 St::vconst {
 
   calltab => {
-    exit => 0x3C,
+
+    write => 0x01,
+    exit  => 0x3C,
 
   },
 
@@ -78,10 +80,7 @@ sub oscall($self,$branch) {
     my @lv    = @{$nd->{leaves}};
 
 
-    if($token->{type} eq 'CMD') {
-      $token = $l1->tag(SYM=>$token->{spec});
-
-    } elsif($token->{type} eq 'SCP') {
+    if($token->{type}=~ qr{^(?:SCP|EXP|CMD)}) {
       $token = $nd;
       @lv    = ();
 
@@ -137,6 +136,7 @@ sub oscall($self,$branch) {
      $code  = $l1->tag(NUM=>$code);
 
   my @r     = @{$self->args_order};
+  my $uid   = $branch->{-uid};
 
   $branch->clear();
 
@@ -148,11 +148,17 @@ sub oscall($self,$branch) {
 
     );
 
+
     $nd->{cmdkey} = 'ld';
+    $nd->{-uid}   = $uid++;
     $nd->{vref}   = [shift @args_t];
 
-    $nd->inew($l1->tag(REG  => shift @r));
-    $nd->inew($ARG);
+    $nd->inew($l1->tag(REG => shift @r));
+
+    (Tree->is_valid($ARG))
+      ? $nd->pushlv($ARG)
+      : $nd->inew($ARG)
+      ;
 
 
   } @args;
@@ -164,7 +170,8 @@ sub oscall($self,$branch) {
 
   );
 
-  $foot->{cmdkey}='ld';
+  $foot->{cmdkey} = 'ld';
+  $foot->{-uid}   = $uid++;
 
 
   $foot->inew($l1->tag(TYPE => 'dword'));
@@ -178,7 +185,8 @@ sub oscall($self,$branch) {
 
   );
 
-  $foot->{cmdkey}='int';
+  $foot->{cmdkey} = 'int';
+  $foot->{-uid}   = $uid++;
 
 
   # bat-proc instructions

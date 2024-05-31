@@ -222,24 +222,28 @@ sub argsolve($self,$branch) {
 
 
         # TODO: move this bit somewhere else!
-        my $cmd=$lib->fetch($have);
-        $cmd->{fn}->($self,$nd);
+        my $cmd   = $lib->fetch($have->{spec});
+        my $solve = $cmd->{key}->{fn}->($self,$nd);
+
+        return null if $solve && $solve eq $nd;
+
+
+        # ~
+        my $value=(defined $solve)
+          ? $solve
+          : $nd->{vref}
+          ;
 
 
         # delay value deref until encoding
-        $O->{imm}=sub ($x) {
-          ${$x->{vref}}
-
-        };
-
-        $O->{imm_args}=[$nd];
+        $O->{imm}=$value;
 
         $O->{type}=sub ($x,$y) {
-          $x->immsz(${$y->{vref}})
+          $x->immsz($y)
 
         };
 
-        $O->{type_args}=[$ISA,$nd];
+        $O->{type_args}=[$ISA,$value];
 
 
       # regular immediate ;>

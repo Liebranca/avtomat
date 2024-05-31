@@ -1,0 +1,25 @@
+$;
+
+clan  example;
+entry example::start;
+
+rom mess;
+
+  byte ?
+
+    $1B,$5B,
+    $34,$30,$3B,
+    $33,$32,
+
+    $6D;
+
+
+  cstr body 'Hello, world!';
+
+
+  byte _ $1B,$5B,$30,$6D,$0A;
+
+
+exe start;
+  os 'write',1,mess,szof mess;
+  os 'exit',0;

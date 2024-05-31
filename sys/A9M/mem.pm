@@ -762,10 +762,13 @@ sub decl($self,$type,$name,$value,%O) {
 
 
   # set cstruc vars
-  $O{type}    = $type;
-  $O{label}   = $name;
+  $O{type}  = $type;
+  $O{label} = ($name && $name eq '?')
+    ? $self->mklabel
+    : $name
+    ;
 
-  $O{addr}  //= $self->{ptr};
+  $O{addr} //= $self->{ptr};
 
 
   # need to grow?

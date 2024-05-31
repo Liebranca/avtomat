@@ -259,7 +259,10 @@ sub _csv($self,$branch,$data) {
     $branch->{value}=
       $l1->tag(LIST=>'csv');
 
-    $branch->{leaves}->[0]->{value}=$tmp;
+    my $have=$branch->branch_in($comma);
+
+    $branch->insert(0,$tmp);
+    $have->discard();
 
   };
 
@@ -418,6 +421,7 @@ sub sort_uopr($self,$branch) {
   my $bopr  = $self->bopr_combo;
      $bopr  = qr{^\[\`$bopr};
 
+
   # walk
   map {
 
@@ -448,6 +452,7 @@ sub sort_uopr($self,$branch) {
     $branch,$self->opr->{unary}
 
   );
+
 
   return;
 

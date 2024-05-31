@@ -129,6 +129,35 @@ sub stop($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# get size of
+
+sub szof($self,$branch) {
+
+
+  # get ctx
+  my $main=$self->{frame}->{main};
+
+  # get argument
+  my ($have)=@{$branch->{leaves}};
+  $have //= $branch->next_leaf();
+
+  # ^validate
+  $main->perr(
+    'no argument for [ctl]:%s',
+    args => ['sizeof'],
+
+  ) if ! $have;
+
+
+  # cleanup and give
+  $branch->{value} .= $have->discard()->{value};
+  $branch->clear();
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # add entry points
 
 cmdsub 'csume-token' => q(
@@ -152,6 +181,11 @@ cmdsub stop => q(
   sym at=reparse;
 
 ) => \&stop;
+
+cmdsub 'szof' => q(
+  sym src;
+
+)  => \&szof;
 
 # ---   *   ---   *   ---
 1; # ret

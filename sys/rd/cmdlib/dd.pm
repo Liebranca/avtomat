@@ -36,7 +36,7 @@ package rd::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -188,6 +188,42 @@ sub data_decl($self,$branch) {
   my $type  = $branch->{vref};
 
 
+  # absolute corner case:
+  # ANONYMOUS DECLARATIONS
+
+  my $lv    = $branch->{leaves};
+  my $first = $lv->[0];
+
+  # detect lack of name list!
+  if(@$lv == 1
+  && $l1->typechk(LIST=>$first->{value})
+
+  ) {
+
+
+    # get first value
+    my $have=$l1->xlate(
+      $first->{leaves}->[0]->{value}
+
+    );
+
+    # ^ensure first value is a '?' QUEST
+    $main->perr('ANON DD MAMBO')
+
+    if ! $have
+
+    || $have->{type} ne 'OPR'
+    || $have->{spec} ne '?';
+
+
+    # ^add QUEST as name of block ;>
+    $first->{leaves}->[0]->flatten_branch();
+    $branch->insert(0,$l1->tag(SYM=>'?'));
+
+
+  };
+
+
   # get [name=>value] arrays
   my ($name,$value)=map {
 
@@ -220,6 +256,19 @@ sub data_decl($self,$branch) {
 
 
   } @$name;
+
+
+  if(@list < @$value) {
+
+    my $hold=$list[-1]->[0];
+    my $idex=int @$name;
+
+    map {
+      push @list,['?'=>$ARG];
+
+    } @$value[$idex..@$value-1];
+
+  };
 
 
   # prepare branch for ipret
