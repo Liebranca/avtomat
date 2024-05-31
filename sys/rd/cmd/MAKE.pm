@@ -155,6 +155,7 @@ St::vconst {
   cmd  => [CMD  => '.+'],
 
   opr  => [OPR  => '.+'],
+  any  => [ANY  => '.+'],
 
   # sym=(any)
   arg => [

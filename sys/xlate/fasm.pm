@@ -53,6 +53,8 @@ St::vconst {
 
     _cmp  => 'cmp',
 
+    int   => 'syscall',
+
   },
 
   register => sub {

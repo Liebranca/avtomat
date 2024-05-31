@@ -7,7 +7,6 @@ $;
 entry peso::start;
 clan  peso;
 
-
 # ---   *   ---   *   ---
 # ROM
 
@@ -77,6 +76,7 @@ blk end;
   cmp   br,dr;
   lz    ar,er;
 
-  exit  0;
+
+  os 'exit',$00;
 
 # ---   *   ---   *   ---

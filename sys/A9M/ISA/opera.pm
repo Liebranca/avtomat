@@ -32,6 +32,7 @@ package A9M::ISA::opera;
 
   use Arstd::Bytes;
   use Arstd::Array;
+  use Arstd::IO;
   use Arstd::PM;
 
   use parent 'A9M::layer';
@@ -39,7 +40,7 @@ package A9M::ISA::opera;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#a
+  our $VERSION = v0.01.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -353,20 +354,8 @@ St::vconst {
     leave => {argcnt=>0},
     ret   => {argcnt=>0},
 
+    int   => {fn=>'_int',argcnt=>0},
 
-    # syscall in disguise!
-    exit => {
-
-      fn         => '_exit',
-
-      argcnt     => 1,
-      dst        => 'i',
-
-      overwrite  => 0,
-      fix_size   => ['byte'],
-      fix_immsrc => 1,
-
-    },
 
 
     # comparison!
@@ -1028,16 +1017,18 @@ sub ret($self,$type) {
 };
 
 # ---   *   ---   *   ---
-# a syscall in disguise ;>
+# DROP WHAT YOU'RE DOING
 
-sub _exit($self,$type) {
+sub _int($self,$type) {
 
-  sub ($ice,$x) {
-    return ('$:LAST;>',$x);
+  sub ($ice) {
+    nyi "VIRTUAL INTERRUPTS";
+    return;
 
   };
 
 };
+
 # ---   *   ---   *   ---
 # compare two values by substraction
 

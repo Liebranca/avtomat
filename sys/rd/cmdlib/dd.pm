@@ -36,7 +36,7 @@ package rd::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -281,19 +281,26 @@ sub data_type($self,$branch) {
     # ^nope, last or middle
     } else {
 
-      # push into command meta
+
+      # look for next node!
       my $par    = $branch->{parent};
       my $anchor = $branch;
       my $ok     = 0;
 
-      while($anchor->{parent}) {
 
-        $anchor=$anchor->{parent};
+      while(defined (
+        $anchor=$anchor->next_leaf()
 
-        if($l1->typechk(CMD=>$anchor->{value})) {
+      )) {
+
+
+        # stop at first non-list
+        my $have  = $l1->xlate($anchor->{value});
+        my $ahead = undef;
+
+        if($have->{type} ne 'LIST') {
 
           $anchor->{vref} //= [];
-
           push @{$anchor->{vref}},
             $type->{name};
 
@@ -305,17 +312,28 @@ sub data_type($self,$branch) {
       };
 
 
+      # throw if nothing found
       $main->perr("redundant type specifier")
       if ! $ok;
 
+
+      # merging ([LIST],type X) lists?
       if($branch eq $par->{leaves}->[-1]
       && $l1->typechk(LIST=>$par->{value})) {
 
-        my $miss=$anchor->{parent}->{leaves};
-           $miss=$miss->[$anchor->{idex}+1];
 
-        $par->pushlv($miss)
-        if defined $miss;
+        my $tail=$anchor->{parent};
+
+        # have (type X,type Y) ?
+        if($l1->typechk(LIST=>$tail->{value})) {
+          $par->pushlv(@{$tail->{leaves}});
+          $tail->discard();
+
+        # ^nope, plain ;>
+        } else {
+          $par->pushlv($anchor);
+
+        };
 
       };
 

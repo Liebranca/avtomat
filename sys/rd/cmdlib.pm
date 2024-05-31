@@ -44,6 +44,7 @@ St::vconst {
   list => [qw(
 
     rd::cmdlib::generic
+    rd::cmdlib::linux
 
     rd::cmdlib::macro
 

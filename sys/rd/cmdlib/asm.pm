@@ -218,6 +218,7 @@ sub mutate_ins($self,$branch,$new='asm-ins') {
 
 sub asm_ins($self,$branch) {
 
+
   # save operands to branch
   my $head=$self->parse_ins($branch);
   $branch->{vref}=$head;

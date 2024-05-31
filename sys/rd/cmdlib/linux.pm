@@ -1,0 +1,203 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# LINUX
+# Kernel talk
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+
+# ---   *   ---   *   ---
+# deps
+
+package rd::cmdlib::linux;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use English qw(-no_match-vars);
+  use lib $ENV{ARPATH}.'/lib/sys/';
+
+  use Style;
+  use Chk;
+  use Type;
+
+# ---   *   ---   *   ---
+# adds to main::cmdlib
+
+  use   parent 'rd::cmd';
+  BEGIN {rd::cmd->defspkg};
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = v0.00.1;#a
+  our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+St::vconst {
+
+  calltab => {
+    exit => 0x3C,
+
+  },
+
+  args_order => [0x4..0x9],
+
+};
+
+# ---   *   ---   *   ---
+# generate syscall
+
+sub oscall($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+
+  # conditionally flatten branch values
+  my @args   = ();
+  my @args_t = ();
+  my $def_t  = typefet 'dword';
+
+  my @Q     = @{$branch->{leaves}};
+
+
+  while(@Q) {
+
+    my $nd    = shift @Q;
+    my $token = $l1->xlate($nd->{value});
+    my @lv    = @{$nd->{leaves}};
+
+
+    if($token->{type} eq 'CMD') {
+      $token = $l1->tag(SYM=>$token->{spec});
+
+    } elsif($token->{type} eq 'SCP') {
+      $token = $nd;
+      @lv    = ();
+
+    } elsif($token->{type} eq 'LIST') {
+      $token = null;
+
+    } else {
+      $token = $nd->{value};
+
+    };
+
+
+    if(length $token) {
+
+      push @args_t,(defined $nd->{vref})
+        ? typefet $nd->{vref}->[0]
+        : $def_t
+
+      if @args;
+
+      push @args,$token;
+
+    };
+
+
+    unshift @Q,@lv;
+
+  };
+
+
+  # get syscall to invoke
+  my $name=$l1->xlate(shift @args);
+
+  $name=($name->{type} eq 'STR')
+    ? $name->{data}
+    : $name->{spec}
+    ;
+
+
+  # ^validate
+  $main->perr(
+
+    "oscall [ctl]:%s not in linux table\n"
+  . 'see: [goodtag]:%s',
+
+    args => [$name,'rd::cmdlib::linux'],
+
+  ) if ! exists $self->calltab->{$name};
+
+
+  # enqueue loading of registers
+  my $code  = $self->calltab->{$name};
+     $code  = $l1->tag(NUM=>$code);
+
+  my @r     = @{$self->args_order};
+
+  $branch->clear();
+
+
+  map {
+
+    my ($nd)=$branch->inew(
+      $l1->tag(CMD=>'ld'),
+
+    );
+
+    $nd->{cmdkey} = 'ld';
+    $nd->{vref}   = [shift @args_t];
+
+    $nd->inew($l1->tag(REG  => shift @r));
+    $nd->inew($ARG);
+
+
+  } @args;
+
+
+  # ^rax last ;>
+  my $foot=$branch->inew(
+    $l1->tag(CMD=>'ld')
+
+  );
+
+  $foot->{cmdkey}='ld';
+
+
+  $foot->inew($l1->tag(TYPE => 'dword'));
+  $foot->inew($l1->tag(REG  => 0x00));
+  $foot->inew($code);
+
+
+  # enqueue interrupt
+  $foot=$branch->inew(
+    $l1->tag(CMD=>'int')
+
+  );
+
+  $foot->{cmdkey}='int';
+
+
+  # bat-proc instructions
+  my @ins=$branch->flatten_branch();
+  my $asm=$self->{frame}->fetch('asm-ins');
+
+  map {$asm->{key}->{fn}->($asm,$ARG)} @ins;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# add entry points
+
+cmdsub os => q(
+  qlist exp;
+
+) => \&oscall;
+
+# ---   *   ---   *   ---
+1; # ret
