@@ -146,7 +146,7 @@ sub bpack($struc,@data) {
       };
 
 
-  } @data;
+  } array_flatten [@data];
 
 
   # give content/length

@@ -23,11 +23,12 @@ package rd::cmd::argproc;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Type;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -274,6 +275,87 @@ sub argsume($self,$branch) {
   # restore and give
   $l2->{branch}=$old;
   return;
+
+};
+
+# ---   *   ---   *   ---
+# conditionally flatten branch values
+# but without processing them!
+
+sub argtake_flat($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+
+  # walk tree
+  my @args   = ();
+  my @args_t = ();
+  my $def_t  = typefet 'dword';
+
+  my @Q     = @{$branch->{leaves}};
+
+
+  while(@Q) {
+
+    my $nd    = shift @Q;
+    my $token = $l1->xlate($nd->{value});
+    my @lv    = @{$nd->{leaves}};
+
+
+    # have node with function?
+    if($token->{type} eq 'CMD') {
+      $token = $nd;
+      @lv    = ();
+
+
+    # have nested expression?
+    } elsif(
+
+    (  $token->{type} eq 'SCP'
+    && $token->{spec} ne '[' )
+
+    || $token->{type} eq 'EXP'
+
+    ) {
+
+      $token = null;
+
+
+    # have node grouping?
+    } elsif($token->{type} eq 'LIST') {
+      $token = null;
+
+
+    # anything else as-is
+    } else {
+      $token = $nd->{value};
+
+    };
+
+
+    # save non null
+    if(length $token) {
+
+      push @args_t,(defined $nd->{vref})
+        ? typefet $nd->{vref}->[0]
+        : $def_t
+        ;
+
+      push @args,$token;
+
+    };
+
+
+    # recurse
+    unshift @Q,@lv;
+
+  };
+
+
+  return \@args,\@args_t;
 
 };
 

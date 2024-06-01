@@ -27,6 +27,8 @@ package rd::cmdlib::dd;
   use Style;
   use Type;
 
+  use Arstd::String;
+
 # ---   *   ---   *   ---
 # adds to main::cmdlib
 
@@ -36,7 +38,7 @@ package rd::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -195,31 +197,40 @@ sub data_decl($self,$branch) {
   my $first = $lv->[0];
 
   # detect lack of name list!
-  if(@$lv == 1
-  && $l1->typechk(LIST=>$first->{value})
+  if(@$lv == 1) {
 
-  ) {
+    my ($have,$dst);
+
+    if($l1->typechk(LIST=>$first->{value})) {
+      $dst=$first->{leaves}->[0];
+
+
+    } elsif(@{$first->{leaves}}) {
+      $dst=$first;
+
+    };
 
 
     # get first value
-    my $have=$l1->xlate(
-      $first->{leaves}->[0]->{value}
+    $have=$l1->xlate(
+      $dst->{value}
 
     );
 
     # ^ensure first value is a '?' QUEST
-    $main->perr('ANON DD MAMBO')
+    $main->perr(
+      "use a '?' question mark "
+    . 'for anonymous declarations'
 
-    if ! $have
+    ) if ! $have
 
     || $have->{type} ne 'OPR'
     || $have->{spec} ne '?';
 
 
     # ^add QUEST as name of block ;>
-    $first->{leaves}->[0]->flatten_branch();
+    $dst->flatten_branch();
     $branch->insert(0,$l1->tag(SYM=>'?'));
-
 
   };
 
@@ -233,6 +244,49 @@ sub data_decl($self,$branch) {
       ;
 
   } @{$branch->{leaves}};
+
+
+  # apply conversions
+  @$value=map {
+
+
+    # string to bytes?
+    if(
+        (my $have=$l1->typechk(STR=>$ARG->{value}))
+    &&! Type->is_str($type)
+
+    ) {
+
+
+      # non-ascii encodings are a mess,
+      # and so we're not in a hurry to
+      # support them ;>
+
+      $main->perr(
+        'unsupported string width '
+      . 'to non-string type conversion'
+
+      ) if $type->{sizeof} > 1;
+
+
+      # convert escape characters to bytes
+      my $s=$have->{data};
+      charcon \$s;
+
+      # ^then regular characters!
+      $ARG->{value}=[
+        map   {ord $ARG}
+        split null,$s
+
+      ];
+
+
+    };
+
+
+    $ARG;
+
+  } @$value;
 
 
   # get [name=>value] array

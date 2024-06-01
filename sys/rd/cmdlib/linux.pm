@@ -24,7 +24,6 @@ package rd::cmdlib::linux;
 
   use Style;
   use Chk;
-  use Type;
 
 # ---   *   ---   *   ---
 # adds to main::cmdlib
@@ -64,55 +63,14 @@ sub oscall($self,$branch) {
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
 
-
-  # conditionally flatten branch values
-  my @args   = ();
-  my @args_t = ();
-  my $def_t  = typefet 'dword';
-
-  my @Q     = @{$branch->{leaves}};
-
-
-  while(@Q) {
-
-    my $nd    = shift @Q;
-    my $token = $l1->xlate($nd->{value});
-    my @lv    = @{$nd->{leaves}};
-
-
-    if($token->{type}=~ qr{^(?:SCP|EXP|CMD)}) {
-      $token = $nd;
-      @lv    = ();
-
-    } elsif($token->{type} eq 'LIST') {
-      $token = null;
-
-    } else {
-      $token = $nd->{value};
-
-    };
-
-
-    if(length $token) {
-
-      push @args_t,(defined $nd->{vref})
-        ? typefet $nd->{vref}->[0]
-        : $def_t
-
-      if @args;
-
-      push @args,$token;
-
-    };
-
-
-    unshift @Q,@lv;
-
-  };
+  # get arguments
+  my ($args,$args_t)=
+    $self->argtake_flat($branch);
 
 
   # get syscall to invoke
-  my $name=$l1->xlate(shift @args);
+  my $name=$l1->xlate(shift @$args);
+  shift @$args_t;
 
   $name=($name->{type} eq 'STR')
     ? $name->{data}
@@ -151,7 +109,7 @@ sub oscall($self,$branch) {
 
     $nd->{cmdkey} = 'ld';
     $nd->{-uid}   = $uid++;
-    $nd->{vref}   = [shift @args_t];
+    $nd->{vref}   = [shift @$args_t];
 
     $nd->inew($l1->tag(REG => shift @r));
 
@@ -161,7 +119,7 @@ sub oscall($self,$branch) {
       ;
 
 
-  } @args;
+  } @$args;
 
 
   # ^rax last ;>

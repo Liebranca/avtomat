@@ -117,6 +117,8 @@ package Arstd::String;
 
     qr{\\}x    => '\\',
 
+    qr{\\e}x   => "\e",
+
   ];
 
   Readonly our $COLOR=>{

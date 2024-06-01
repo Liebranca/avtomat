@@ -459,6 +459,7 @@ sub data_decl($self,$type,$src) {
 
   } else {
 
+
     my ($dd)   = $self->data_decl_key($type);
     my ($data) = $eng->value_flatten(
       $src->{data}->{value}

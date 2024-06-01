@@ -137,6 +137,7 @@ sub szof($self,$branch) {
   # get ctx
   my $main=$self->{frame}->{main};
 
+
   # get argument
   my ($have)=@{$branch->{leaves}};
   $have //= $branch->next_leaf();
