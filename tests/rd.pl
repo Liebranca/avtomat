@@ -29,13 +29,10 @@ package main;
 my $xlate = xlate->new('./lps/hello.pe',limit=>2);
 my $prog  = $xlate->run();
 
-#say $prog;
-#exit;
-
 # ---   *   ---   *   ---
 # assemble!
 
-my $asm   = Shb7::trash('avtomat/rd.s');
+my $asm   = Shb7::trash('avtomat/rd.asm');
 my @call  = (fasm=>$asm);
 
 owc    $asm=>$prog;

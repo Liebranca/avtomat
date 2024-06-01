@@ -896,7 +896,7 @@ sub quantize($self,$src) {
   # have string?
   } elsif($type eq 'STR') {
 
-    charcon \$have
+    charcon \$have->{data}
     if $spec eq '"';
 
     return $have;

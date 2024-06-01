@@ -211,26 +211,30 @@ sub data_decl($self,$branch) {
     };
 
 
-    # get first value
-    $have=$l1->xlate(
-      $dst->{value}
+    if($dst) {
 
-    );
+      # get first value
+      $have=$l1->xlate(
+        $dst->{value}
 
-    # ^ensure first value is a '?' QUEST
-    $main->perr(
-      "use a '?' question mark "
-    . 'for anonymous declarations'
+      );
 
-    ) if ! $have
+      # ^ensure first value is a '?' QUEST
+      $main->perr(
+        "use a (?) question mark "
+      . 'for anonymous declarations'
 
-    || $have->{type} ne 'OPR'
-    || $have->{spec} ne '?';
+      ) if ! $have
+
+      || $have->{type} ne 'OPR'
+      || $have->{spec} ne '?';
 
 
-    # ^add QUEST as name of block ;>
-    $dst->flatten_branch();
-    $branch->insert(0,$l1->tag(SYM=>'?'));
+      # ^add QUEST as name of block ;>
+      $dst->flatten_branch();
+      $branch->insert(0,$l1->tag(SYM=>'?'));
+
+    };
 
   };
 
@@ -250,12 +254,13 @@ sub data_decl($self,$branch) {
   @$value=map {
 
 
-    # string to bytes?
-    if(
-        (my $have=$l1->typechk(STR=>$ARG->{value}))
-    &&! Type->is_str($type)
+    # unpack
+    my $have=$l1->xlate($ARG->{value});
 
-    ) {
+
+    # string to bytes?
+    if( $have->{type} eq 'STR'
+    &&! Type->is_str($type) ) {
 
 
       # non-ascii encodings are a mess,
@@ -269,14 +274,13 @@ sub data_decl($self,$branch) {
       ) if $type->{sizeof} > 1;
 
 
-      # convert escape characters to bytes
-      my $s=$have->{data};
-      charcon \$s;
+      # convert escape characters
+      charcon \$have->{data};
 
-      # ^then regular characters!
+      # ^then convert regular ones!
       $ARG->{value}=[
         map   {ord $ARG}
-        split null,$s
+        split null,$have->{data}
 
       ];
 

@@ -786,7 +786,7 @@ sub decl($self,$type,$name,$value,%O) {
 
 
   # go next and give
-  $self->{ptr} += $ptr->{len};
+  $self->{ptr} += $ptr->{size};
   return $ptr;
 
 };

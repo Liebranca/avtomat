@@ -5,12 +5,14 @@ entry example::start;
 
 rom mess;
 
-  byte ?    "\e[40;32m";
-  cstr body 'Hello, world!';
+  byte ?
 
-  byte ?    "\e[0m\n";
+    "\e[40;32m",
+    'Hello, world!',
+
+    "\e[0m\n";
 
 
 exe start;
-  os 'write',1,mess,(szof mess),0;
+  os 'write',1,mess,(szof mess);
   os 'exit',0;

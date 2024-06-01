@@ -55,7 +55,7 @@ St::vconst {
     chan   => undef,
     segid  => 0x00,
     addr   => 0x00,
-    len    => 0,
+    size   => 0,
 
     mcid   => 0,
     mccls  => null,
@@ -85,6 +85,11 @@ sub new($class,%O) {
 
   $self->{mccls} = ref $mc;
   $self->{mcid}  = $mc->{iced};
+
+  $self->{size}  = ($self->{ptr_t})
+    ? sizeof $self->{ptr_t}
+    : sizeof $self->{type}
+    ;
 
   return $self;
 
@@ -287,7 +292,7 @@ sub store($self,$value,%O) {
 
 
   # give bytes written
-  my $len=$seg->dstore(
+  my $size=$seg->dstore(
 
     $self->{type},
     $value,
@@ -296,8 +301,8 @@ sub store($self,$value,%O) {
 
   );
 
-  $self->{len}=$len;
-  return $len;
+  $self->{size}=$size;
+  return $size;
 
 };
 
@@ -409,7 +414,7 @@ sub mint($self) {
   } qw(
 
     addr
-    len
+    size
 
     label
     field
@@ -457,7 +462,7 @@ sub unmint($class,$O) {
   } qw(
 
     addr
-    len
+    size
 
     label
     field

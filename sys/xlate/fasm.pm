@@ -387,8 +387,17 @@ sub step($self,$data) {
 
 
     } else {
+
       my @have=$self->operand_value($type,@args);
-      sprintf "  %-16s %s",$ins,join ',',@have;
+
+      (@have)
+
+        ? sprintf "  %-16s %s",
+          $ins,join ',',@have
+
+        : "  $ins"
+
+        ;
 
     };
 
@@ -432,6 +441,50 @@ sub open_boiler($self) {
   };
 
   return @out,null;
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+sub bytestr($cstr,@data) {
+
+  join ",",map {
+
+    (! is_arrayref $ARG)
+      ? "'$ARG'" : $ARG->[0]
+
+  } grep {
+    length $ARG
+
+  } map {
+
+    my @chars=split null,$ARG;
+    my @subst=('');
+
+    map {
+
+      my $c=ord($ARG);
+      if($c < 0x20 || $c > 0x7E) {
+        push @subst,[$c];
+        push @subst,'';
+
+      } else {
+        $subst[-1] .= $ARG;
+
+      };
+
+
+    } @chars;
+
+
+    ($cstr)
+      ? (@subst,[0x00])
+      : (@subst)
+      ;
+
+
+  } @data;
 
 };
 
@@ -481,18 +534,19 @@ sub data_decl($self,$type,$src) {
     if(is_arrayref $data) {
 
       $sus  *= int @$data;
-      $data  = ($str)
-        ? join ",",map {"\"$ARG\""} @$data
-        : join ",",@$data
-        ;
+
+      if($str) {
+        $data=bytestr $cstr,@$data;
+
+      } else {
+        $data=join ",",@$data;
+
+      };
 
     } else {
-      $data="\"$data\""  if $str;
+      $data=bytestr $cstr,$data if $str;
 
     };
-
-
-    $data="$data,\$00" if $cstr;
 
 
     my $out="  $dd $data";
