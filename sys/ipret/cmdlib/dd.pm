@@ -301,7 +301,11 @@ sub data_decl($self,$branch) {
       $sym=$mc->decl($type,$name,$x);
       my ($xname,@xpath)=$sym->fullpath;
 
-      $ARG->[0]=$xname;
+      $ARG->[0] = $xname;
+      $type     = ($ptr_t)
+        ? $sym->{ptr_t}
+        : $sym->{type}
+        ;
 
 
       # make reasm params

@@ -32,7 +32,7 @@ package xlate::fasm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -143,18 +143,43 @@ sub rX($class,$name) {
 
 sub data_decl_key($class,$type) {
 
-  map {{
 
-    byte  => 'db',
-    word  => 'dw',
-    dword => 'dd',
-    qword => 'dq',
+  # recurse on structure?
+  if(@{$type->{struc_t}}) {
 
-    xword => 'dq',
-    yword => 'dq',
-    zword => 'dq',
+    return map {
 
-  }->{$ARG}} typeof $type->{sizeof};
+      my $field = typefet $type->{struc_t}->[$ARG];
+
+      my $cnt   = $type->{layout}->[$ARG];
+      my $label = $type->{struc_i}->[$ARG];
+
+
+      [ $label => (
+        $class->data_decl_key($field)
+
+      ) x $cnt];
+
+    } 0..@{$type->{struc_t}}-1;
+
+
+  # plain value!
+  } else {
+
+    return map {@{{
+
+      byte  => [('db') x 1],
+      word  => [('dw') x 1],
+      dword => [('dd') x 1],
+      qword => [('dq') x 1],
+
+      xword => [('dq') x 2],
+      yword => [('dq') x 4],
+      zword => [('dq') x 8],
+
+    }->{$ARG}}} typeof $type->{sizeof};
+
+  };
 
 };
 
@@ -452,7 +477,7 @@ sub bytestr($cstr,@data) {
   join ",",map {
 
     (! is_arrayref $ARG)
-      ? "'$ARG'" : $ARG->[0]
+      ? "'$ARG->[0]'" : $ARG->[0] ;
 
   } grep {
     length $ARG
@@ -489,6 +514,45 @@ sub bytestr($cstr,@data) {
 };
 
 # ---   *   ---   *   ---
+# add labels for non-anonymous
+
+sub data_decl_label($self,$key,$have_t,$data,%O) {
+
+
+  # defaults
+  $O{str}  //= 0;
+  $O{cstr} //= 0;
+
+
+  # ~
+  my $have   = shift @$data;
+     $have //= 0;
+
+
+  $have=join ',',map {
+
+    ($O{str})
+      ? bytestr $O{cstr},$ARG
+      : $ARG
+      ;
+
+  } (is_arrayref $have) ? @$have : $have ;
+
+
+  # ~
+  my $out="  $have_t $have";
+
+  if(! ($key=~ qr{_L\d+$})) {
+    $out  = "\n$key:\n$out\n";
+    $out .= "\nsizeof.$key=\$-$key\n";
+
+  };
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # handle data declaration block
 
 sub data_decl($self,$type,$src) {
@@ -513,7 +577,7 @@ sub data_decl($self,$type,$src) {
   } else {
 
 
-    my ($dd)   = $self->data_decl_key($type);
+    my (@dd)   = $self->data_decl_key($type);
     my ($data) = $eng->value_flatten(
       $src->{data}->{value}
 
@@ -529,47 +593,80 @@ sub data_decl($self,$type,$src) {
     my $str  = Type->is_str($sym->{type});
     my $cstr = $sym->{type} eq typefet 'cstr';
 
+    my @name = ($full);
+    my @decl = ();
+    my @data = (is_arrayref $data)
+      ? @$data : $data ;
 
-    my $sus=2;
-    if(is_arrayref $data) {
+    while(@dd) {
 
-      $sus  *= int @$data;
 
-      if($str) {
-        $data=bytestr $cstr,@$data;
+      # get next label/type
+      my $key    = shift @name;
+      my $have_t = shift @dd;
 
+      # have type sequence?
+      if(is_arrayref $have_t) {
+
+        my ($label,@field)=@$have_t;
+
+
+        # solo array?
+        if($label eq '?') {
+
+          my @have=@data[0..$#field];
+             @data=@data[@field..$#data];
+
+
+          push @decl,$self->data_decl_label(
+
+            $key => $field[0],[\@have],
+
+            str  => $str,
+            cstr => $cstr,
+
+          );
+
+
+        # struc?
+        } else {
+
+          push    @decl,"$key:";
+          unshift @dd,@field;
+
+          push    @name,($#field > 0)
+
+            ? map {sprintf "$key.label\@%04X",$ARG}
+              0..$#field
+
+            : "$key.label"
+
+            ;
+
+        };
+
+
+        next;
+
+
+      # single value!
       } else {
-        $data=join ",",@$data;
+
+        push @decl,$self->data_decl_label(
+
+          $key => $have_t,\@data,
+
+          str  => $str,
+          cstr => $cstr,
+
+        );
 
       };
 
-    } else {
-      $data=bytestr $cstr,$data if $str;
-
     };
 
 
-    my $out="  $dd $data";
-
-
-    # add labels for non-anonymous!
-    if(! ($full=~ qr{_L\d+$})) {
-
-      $out  = "\n$full:\n$out\n";
-      $out .=
-
-        "\n$full.len="
-
-      . ((length $data)-($sus+$cstr*3))
-
-      . "\n"
-
-      if $str;
-
-    };
-
-
-    return $out;
+    return @decl;
 
   };
 

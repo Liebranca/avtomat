@@ -5,7 +5,7 @@ entry example::start;
 
 rom mess;
 
-  byte ?
+  byte body
 
     "\e[40;32m",
     'Hello, world!',
@@ -14,5 +14,6 @@ rom mess;
 
 
 exe start;
-  os 'write',1,mess,(szof mess);
+
+  os 'write',1,mess::body,(szof mess::body);
   os 'exit',0;

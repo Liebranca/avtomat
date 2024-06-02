@@ -645,9 +645,6 @@ sub lvalue($self,$value,%O) {
   if @{$O{type}->{struc_t}};
 
   # set value and give
-  $value=[Bpack::unlay $O{type},$value]
-  if is_hashref $value;
-
   $ptr->store($value);
 
 
@@ -772,12 +769,42 @@ sub decl($self,$type,$name,$value,%O) {
 
 
   # need to grow?
+  my $array = is_arrayref $value;
+
   my $size  = sizeof $type;
   my $str_t = Type->is_str($type);
 
-  my $cnt   = ($str_t) ? length $value : 1 ;
+  my $cnt   = 0;
+
+  map {
+
+    if($str_t) {
+      $cnt += length $ARG;
+
+    } else {
+      $cnt += 1;
+
+    };
+
+
+  } ($array) ? @$value : $value ;
+
 
   $self->brkfit($size * $cnt);
+
+
+  # automatic scalar to array
+  if($array) {
+
+    my $array_t = "$type->{name}\[$cnt]";
+    my $src     = "$type->{name} ?[$cnt]";
+
+    $O{type}=(! Type->is_valid($array_t))
+      ? struc   $array_t,$src
+      : typefet $array_t
+      ;
+
+  };
 
 
   # make ice

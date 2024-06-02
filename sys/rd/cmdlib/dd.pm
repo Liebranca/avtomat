@@ -25,6 +25,7 @@ package rd::cmdlib::dd;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Chk;
   use Type;
 
   use Arstd::String;
@@ -38,7 +39,7 @@ package rd::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -318,11 +319,24 @@ sub data_decl($self,$branch) {
 
   if(@list < @$value) {
 
-    my $hold=$list[-1]->[0];
-    my $idex=int @$name;
+    my $idex = int @$name;
+    my $tail = ($idex-1)*2;
+
+    my $dst  = $list[$tail]->[1];
+
+
+    $dst->{value}=[$dst->{value}]
+    if ! is_arrayref $dst->{value};
+
 
     map {
-      push @list,['?'=>$ARG];
+
+      my @have=(is_arrayref $ARG->{value})
+        ? @{$ARG->{value}}
+        : $ARG->{value}
+        ;
+
+      push @{$dst->{value}},@have;
 
     } @$value[$idex..@$value-1];
 

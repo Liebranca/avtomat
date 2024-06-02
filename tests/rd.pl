@@ -11,7 +11,10 @@ package main;
   use English qw(-no_match_vars);
 
   use lib $ENV{ARPATH}.'/avtomat/sys/';
+
   use Style;
+  use Type;
+  use Bpack;
 
   use ipret;
   use xlate;

@@ -258,6 +258,28 @@ sub read_ptr($self) {
 };
 
 # ---   *   ---   *   ---
+# procs structures before a write
+
+sub stvproc($self,$value) {
+
+  return $value
+  if ! @{$self->{type}->{struc_t}};
+
+
+  if(is_hashref $value) {
+    return [Bpack::unlay $self->{type},$value];
+
+  } elsif(is_arrayref $value) {
+    return [Bpack::layas $self->{type},$value];
+
+  } else {
+    return $value;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
 # put value
 
 sub store($self,$value,%O) {
@@ -278,6 +300,9 @@ sub store($self,$value,%O) {
 
   # ^nope, use own addr
   } else {
+
+    $value=$self->stvproc($value);
+
     $seg=$self->getseg();
     $off=$self->{addr};
 
@@ -361,8 +386,11 @@ sub storef($self,$name,$value) {
   my $seg=$self->getseg();
 
   return $seg->storef(
-    $self->{type},$name,
-    $value,$self->{addr}
+    $self->{type},
+    $name,
+
+    $self->stvproc($value),
+    $self->{addr},
 
   );
 
