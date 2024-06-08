@@ -32,6 +32,7 @@ package Tree;
   use Arstd::String;
   use Arstd::Re;
   use Arstd::IO;
+  use Fmat;
 
   use parent 'St';
 

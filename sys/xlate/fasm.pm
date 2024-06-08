@@ -445,7 +445,7 @@ sub open_boiler($self) {
   my @out   = ();
 
 
-  # ~
+  # outputting straight static
   if($fmode == 1) {
 
     $main->perr(
@@ -457,11 +457,16 @@ sub open_boiler($self) {
     push @out,"format ELF64 executable 3";
     push @out,'entry '.join '_',@$entry;
 
-  } else {
-    push @out,"format ELF64";
 
+  # outputting object
+  } else {
+
+
+    # just convert entry to a public symbol
+    # if it was declared, that is!
+    push @out,"format ELF64";
     push @out,'public '.join '_',@$entry
-    if @$entry
+    if $entry;
 
   };
 
@@ -571,9 +576,17 @@ sub data_decl($self,$type,$src) {
   my $full = join '_',@path,$name;
 
 
+  # have label?
   if(is_label $src) {
-    return "\n$full:";
 
+    # need to declare symbol for export?
+    return ($main->{fmode} != 1)
+      ? ("\npublic $full","$full:")
+      : "\n$full:"
+      ;
+
+
+  # have value!
   } else {
 
 

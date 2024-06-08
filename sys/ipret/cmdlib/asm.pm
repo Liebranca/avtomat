@@ -40,7 +40,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.5;#a
+  our $VERSION = v0.01.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -133,6 +133,9 @@ sub blk($self,$branch) {
 
   );
 
+
+  # reset and give
+  $branch->{vref}->{res}=$ptr;
   return;
 
 };
@@ -172,6 +175,71 @@ sub entry($self,$branch) {
 
   $main->{entry}=\@path;
 
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# TODO
+#
+# * turn this into a force
+#   seg+blk template
+#
+# * build 'struc' keyw with that
+#   template ;>
+
+sub proc($self,$branch) {
+
+
+  # get ctx
+  my $frame = $self->{frame};
+  my $main  = $frame->{main};
+  my $mc    = $main->{mc};
+  my $l1    = $main->{l1};
+
+
+  # ensure executable segment
+  if(! $mc->{segtop}->{executable}) {
+
+
+    # locate expression
+    my $anchor = $branch->{parent};
+       $anchor = $anchor->{parent}
+
+    while $anchor->{parent} ne $main->{tree};
+
+
+    # make segment node
+    my ($nd) = $anchor->{parent}->insert(
+      $anchor->{idex},
+      $l1->tag(CMD=>'seg-type') . 'exe'
+
+    );
+
+    $nd->{vref}={
+      name => 'code',
+      type => 'exe',
+
+    };
+
+    $nd->{-uid}=$branch->{-uid};
+
+
+    # ^execute segment function!
+    my $cmd  = $frame->fetch('seg-type');
+    my $fn   = $cmd->{key}->{fn};
+
+    $fn->($self,$nd);
+
+  };
+
+
+  # run label function and give
+  my $cmd = $frame->fetch('blk');
+  my $fn  = $cmd->{key}->{fn};
+
+  $fn->($self,$branch);
 
   return;
 
@@ -987,6 +1055,7 @@ sub symsolve_min($ISA,$dst,$deref) {
 cmdsub '$' => q() => \&current_byte;
 cmdsub 'blk' => q() => \&blk;
 cmdsub 'entry' => q() => \&entry;
+cmdsub 'proc' => q() => \&proc;
 cmdsub 'asm-ins' => q() => \&asm_ins;
 
 # ---   *   ---   *   ---

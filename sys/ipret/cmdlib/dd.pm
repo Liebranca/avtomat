@@ -63,14 +63,23 @@ sub flag_type($self,$branch) {
 
   # get ctx
   my $main  = $self->{frame}->{main};
-  my $links = $main->{lx}->{links};
 
-  my $tab   = $self->flagtab();
+  my $tab   = $self->flagtab;
   my $flags = $branch->{vref};
 
+
   # get result of child branch
-  my ($isref,$obj)=
-    Chk::cderef pop @$links,1;
+  my $ahead = $branch->next_leaf;
+  my $obj   = $ahead->{vref};
+
+  $branch->prich(),$main->perr(
+    'cannot apply flags -- '
+  . 'missing vref or result'
+
+  ) if ! defined $obj
+    || ! defined $obj->{res};
+
+  $obj=$obj->{res};
 
 
   # walk list
@@ -79,6 +88,7 @@ sub flag_type($self,$branch) {
 
     # can set attr for this object?
     my ($key,$value)=@{$tab->{$ARG}};
+
 
     eval {
 
@@ -91,9 +101,12 @@ sub flag_type($self,$branch) {
     # ^nope, throw!
     } or do {
 
+      my $have=(length ref $obj)
+        ? ref $obj : 'plain' ;
+
       $main->perr(
         "'%s' is invalid for <%s>",
-        args=>[$ARG,(ref $obj or 'plain')]
+        args=>[$ARG,$have]
 
       );
 
@@ -160,7 +173,7 @@ sub seg_type($self,$branch) {
 
   # make current and give
   my $out=sub {$mc->setseg($have);$have};
-  $out->();
+  $data->{res} = $have;
 
   return $out;
 

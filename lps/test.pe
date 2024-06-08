@@ -1,82 +1,15 @@
 $;
 
-
-# ---   *   ---   *   ---
-# info
-
-entry peso::start;
-clan  peso;
-
-# ---   *   ---   *   ---
-# ROM
-
-rom data;
-  byte pad $00;
-  cstr exp '* (2 3)';
+clan  example;
+entry example::start;
 
 
-# ---   *   ---   *   ---
-# setup
+public proc start;
 
-exe start;
-
-  # cleanup
-  xor dword cr,cr;
-  xor       br,br;
-  xor       dr,dr;
-
-  # set segment
-  self data;
+  in  byte b0;
+  tmp byte b1;
 
 
-# ---   *   ---   *   ---
-# walk src
+  st  [b1],b0;
 
-blk loop;
-
-
-  # get next char
-  ld ar,byte [cr+data::exp];
-
-  # stop on null!
-  test ar,byte ar;
-  jz   end;
-
-  inc  cr;
-
-
-  # count '('
-  ld  er,br;
-  inc er;
-
-  cmp byte ar,$28;
-  lz  br,er;
-
-
-  # ^count ')'
-  ld  er,dr;
-  inc er;
-
-  cmp byte ar,$29
-  lz  dr,er;
-
-
-  # go next
-  jmp loop;
-
-
-# ---   *   ---   *   ---
-# endof
-
-blk end;
-
-  xor   ar,ar;
-  ld    er,$01;
-
-  cmp   br,dr;
-  lz    ar,er;
-
-
-  os 'exit',$00;
-
-# ---   *   ---   *   ---
+  ret;

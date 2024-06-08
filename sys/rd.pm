@@ -367,14 +367,13 @@ sub parse_subclass($self) {
   my @args = @{$pkg->{leaves}};
      $pkg  = shift @args;
 
-  my $have = $pkg->{value};
+  my $have = undef;
 
 
   # is first token operator?
   if(
-
-     ($have=$l1->typechk(SYM=>$have))
-  || ($have=$l1->typechk(OPR=>$have))
+     ($have=$l1->typechk(SYM=>$pkg->{value}))
+  || ($have=$l1->typechk(OPR=>$pkg->{value}))
 
   ) {
 
@@ -402,6 +401,7 @@ sub parse_subclass($self) {
 
   # subclass provided?
   if($pkg) {
+
 
     # get path to language definitions
     my $fpath="lps/$pkg->{value}.rom";

@@ -91,6 +91,9 @@ sub new($class,%O) {
     : sizeof $self->{type}
     ;
 
+
+  $self->set_uattrs();
+
   return $self;
 
 };

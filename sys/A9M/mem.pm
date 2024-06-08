@@ -1447,6 +1447,60 @@ sub deref($self,$name,@path) {
 };
 
 # ---   *   ---   *   ---
+# ^similar, it filters through
+# ^values in inner tree
+
+sub lsearch($self,%O) {
+
+
+  # get ctx
+  my $ptrcls=$self->get_ptr_bk();
+  my $walked={};
+
+
+  # walk hierarchy
+  my @out = ();
+  my @Q   = $self->{inner};
+
+  while(@Q) {
+
+
+    # get next
+    my $nd=shift @Q;
+    unshift @Q,@{$nd->{leaves}};
+
+
+    # have ptr?
+    if($ptrcls->is_valid($nd->{value})) {
+
+      my $ptr=$nd->{value};
+
+
+      # get number of flag matches
+      my @keys = keys %O;
+      my @have = grep {$ARG} map {
+        $O{$ARG} == $ptr->{$ARG}
+
+      } @keys;
+
+      # ^give if all checks passed!
+      push @out,$ptr
+
+      if  @have == @keys
+      &&! $walked->{$ptr};
+
+      $walked->{$ptr}=1;
+
+    };
+
+  };
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
 # get length of a C string
 # if chars in 00-7E range
 # else bogus

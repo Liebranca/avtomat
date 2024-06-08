@@ -29,8 +29,11 @@ package main;
 # ---   *   ---   *   ---
 # run and dbout
 
-my $xlate = xlate->new('./lps/hello.pe',limit=>2);
+my $xlate = xlate->new('../daf/daf/tab.pe',limit=>2);
 my $prog  = $xlate->run();
+
+say $prog;
+exit;
 
 # ---   *   ---   *   ---
 # assemble!

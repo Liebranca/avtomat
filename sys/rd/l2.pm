@@ -349,9 +349,7 @@ sub define($self,$type,$name,%O) {
 sub get_walk_array($self,$fn,@Q) {
 
   my @out  = ();
-
   my $main = $self->{main};
-  my $rec  = 0;
 
 
   while(@Q) {
@@ -359,12 +357,7 @@ sub get_walk_array($self,$fn,@Q) {
 
     # handle depth
     my $nd=shift @Q;
-
-    if(! $nd) {
-      $rec=0;
-      next;
-
-    };
+    next if! $nd;
 
 
     # run method for this node
@@ -372,10 +365,8 @@ sub get_walk_array($self,$fn,@Q) {
     $fn->($self,$nd);
 
     # go next
-    push    @out,[$nd,$rec];
+    push    @out,$nd;
     unshift @Q,@{$nd->{leaves}},0;
-
-    $rec=1;
 
   };
 
@@ -400,7 +391,7 @@ sub get_cmd_queue($self,$fn,@order) {
 
 
     # get next
-    my ($nd,$rec)=@$ARG;
+    my $nd=$ARG;
     $l2->{branch}=$nd;
 
 
@@ -413,7 +404,7 @@ sub get_cmd_queue($self,$fn,@order) {
     my $cmd=$l2->cmd();
 
     ($cmd && $cmd ne 1)
-      ? [@$cmd,$rec]
+      ? [@$cmd]
       : ()
       ;
 
@@ -546,8 +537,6 @@ sub exec_queue($self,@Q) {
   my $walked = $self->{walked};
 
 
-  $lx->exprbeg(0);
-
   map {
 
 
@@ -555,8 +544,7 @@ sub exec_queue($self,@Q) {
     my $have=undef;
 
     # unpack
-    my ($cmd,$branch,$rec)=@$ARG;
-    $lx->exprbeg($rec);
+    my ($cmd,$branch)=@$ARG;
 
     # top node forcing un-reversal?
     if(my @unrev=$lx->bunrev($branch)) {
@@ -589,9 +577,8 @@ sub exec_queue($self,@Q) {
     };
 
 
-    # save and give result if defined
-    skip:
-      $lx->exprlink($have);
+    # give result if defined
+    (defined $have) ? $have : () ;
 
 
   # avoid processing the same node twice

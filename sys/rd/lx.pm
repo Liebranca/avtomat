@@ -47,15 +47,6 @@ package rd::lx;
 
 St::vconst {
 
-  DEFAULT => {
-
-    main  => undef,
-
-    links => [],
-    queue => [],
-
-  },
-
   stages=>[qw(
 
     parse preproc  reparse
@@ -65,54 +56,6 @@ St::vconst {
     xlate
 
   )],
-
-};
-
-# ---   *   ---   *   ---
-# reset per-expression state
-
-sub exprbeg($self,$rec=0) {
-
-  # get ctx
-  my $Q     = $self->{queue};
-  my $have  = $self->{links};
-
-  my $ahead = [];
-
-
-  # preserve current?
-  if($rec > 0) {
-    push @$Q,$have;
-
-  # ^restore previous?
-  } else {
-    $ahead   = pop @$Q;
-    $ahead //= [];
-
-  };
-
-
-  # set or clear state
-  @$have=@$ahead;
-
-};
-
-# ---   *   ---   *   ---
-# records sub-expression result
-
-sub exprlink($self,$have) {
-
-  my $main  = $self->{main};
-  my $links = $self->{links};
-
-  if(defined $have) {
-    push @$links,$have;
-    return $have;
-
-  } else {
-    return;
-
-  };
 
 };
 
@@ -155,15 +98,6 @@ sub bunrev($self,$branch) {
       @have=($cmd,$anchor) if $cmd->{unrev};
 
     };
-
-# ---   *   ---   *   ---
-# TODO:
-#
-# * adapt lx,cmd/* to l0/l1/l2 changes
-#
-# * incorporate cmd/* and sigtab
-
-# ---   *   ---   *   ---
 
 
     # go next

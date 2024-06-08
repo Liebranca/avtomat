@@ -414,14 +414,24 @@ sub exewrite($self,$opsz,$name,@args) {
 
 sub exewrite_order($self,$uid,@req) {
 
+
   # get ctx
   my $main = $self->{main};
   my $mc   = $main->{mc};
   my $seg  = $mc->{segtop};
 
+
   # add request at idex
   my $Q=$self->{Q}->{asm};
-  $Q->[$uid]=[$seg,undef,@req];
+
+  if(! defined $Q->[$uid]) {
+    $Q->[$uid]=[$seg,undef,@req];
+
+  } else {
+    push @{$Q->[$uid]},@req;
+
+  };
+
 
   return;
 
@@ -429,22 +439,10 @@ sub exewrite_order($self,$uid,@req) {
 
 # ---   *   ---   *   ---
 # ^shorthand for saving request
-# to node!
+# ^to idex dictated by node!
 
 sub binreq($self,$branch,@req) {
 
-
-  # save request to branch!
-  $branch->{vref}={
-
-    req  => \@req,
-
-    size => 0,
-    addr => 0x00,
-
-  };
-
-  # ^dispatch and give
   $self->exewrite_order(
     $branch->{-uid},@req
 

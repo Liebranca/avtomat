@@ -6,6 +6,20 @@
 x fasm xlate
 x Generic syscall macro
 
+~ Standarize node.vref attrs across all of cmdlib
+~ \--> write base class (rd/vref)
+
+~ Filemeta builder
+
+~ \--> proc context gather
+
+~ .  \--> varname handler
+~ .  .  \--> tmp keyw for stackvars
+~ .  .  \--> in keyw for reglisses
+
+~ .  \--> get register use/overwrite
+
+
 ~ Add frontend to olink
 ~ Rewrite IO clan in peso (fto, bin, netstruc, etc)
 
