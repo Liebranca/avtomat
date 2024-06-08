@@ -223,6 +223,11 @@ sub fullpath($self) {
 
   my $name = pop @par;
 
+  pop @base
+
+  if ($base[-1] && $par[0])
+  && ($base[-1] eq $par[0]);
+
   return $name,@base,@par;
 
 };

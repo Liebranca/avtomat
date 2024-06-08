@@ -351,14 +351,12 @@ sub get_walk_array($self,$fn,@Q) {
   my @out  = ();
   my $main = $self->{main};
 
-
   while(@Q) {
 
 
     # handle depth
     my $nd=shift @Q;
-    next if! $nd;
-
+    next if ! $nd;
 
     # run method for this node
     $self->{branch}=$nd;

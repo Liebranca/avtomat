@@ -246,7 +246,7 @@ w_cmdsub 'csume-token' => q(
   sym any;
 
 ) => qw(
-  blk entry proc
+  blk entry proc struc
 
 );
 

@@ -40,7 +40,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.6;#b
+  our $VERSION = v0.01.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -69,6 +69,7 @@ sub blk($self,$branch) {
 
   my $ISA  = $mc->{ISA};
   my $top  = $mc->{segtop};
+
 
   # get name of symbol
   my $name=$l1->untag(
@@ -105,12 +106,12 @@ sub blk($self,$branch) {
   $alt->force_set($ptr,$name);
 
   $alt->{'*fetch'}->{mem}=$ptr;
+  $top->route_anon_ptr($ptr);
 
 
   # ^schedule for update ;>
   my $fn   = (ref $main) . '::cpos';
      $fn   = \&$fn;
-
 
   $enc->binreq(
 
@@ -135,7 +136,9 @@ sub blk($self,$branch) {
 
 
   # reset and give
-  $branch->{vref}->{res}=$ptr;
+  $mc->{blktop}          =
+  $branch->{vref}->{res} = $ptr;
+
   return;
 
 };
@@ -181,15 +184,15 @@ sub entry($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# TODO
+# template:
 #
-# * turn this into a force
-#   seg+blk template
+# * if the current segment type
+#   does not match flags, then
+#   switch to one that does
 #
-# * build 'struc' keyw with that
-#   template ;>
+# * slap a new label on it
 
-sub proc($self,$branch) {
+sub seg_p_blk($self,$branch,@flags) {
 
 
   # get ctx
@@ -199,34 +202,58 @@ sub proc($self,$branch) {
   my $l1    = $main->{l1};
 
 
-  # ensure executable segment
-  if(! $mc->{segtop}->{executable}) {
+  # ensure segment of the right type
+  my $top = $mc->{segtop};
+  my $ok  = @flags == grep {$top->{$ARG}} @flags;
+
+  $ok &=~ $top eq $mc->{cas};
+
+
+  # no deal? then generate!
+  if(! $ok) {
 
 
     # locate expression
-    my $anchor = $branch->{parent};
+    my $anchor = $branch;
        $anchor = $anchor->{parent}
 
-    while $anchor->{parent} ne $main->{tree};
+    while $anchor->{parent}
+    &&    $anchor->{parent} ne $main->{tree};
 
 
-    # make segment node
+    # get segment type
+    my $type = {
+      'executable' => 'exe',
+      'readable'   => 'rom',
+      'writeable'  => 'ram',
+
+    }->{shift @flags};
+
+    # ^make segment node
     my ($nd) = $anchor->{parent}->insert(
+
       $anchor->{idex},
-      $l1->tag(CMD=>'seg-type') . 'exe'
+
+      $l1->tag(CMD=>'seg-type')
+    . $type
 
     );
 
+
+    # reset uid
+    #
+    # effectively merges the new node
+    # with the current one
+
+    $nd->{-uid}=$branch->{-uid};
     $nd->{vref}={
-      name => 'code',
-      type => 'exe',
+      name => $mc->{cas}->mklabel(),
+      type => $type,
 
     };
 
-    $nd->{-uid}=$branch->{-uid};
 
-
-    # ^execute segment function!
+    # execute segment function!
     my $cmd  = $frame->fetch('seg-type');
     my $fn   = $cmd->{key}->{fn};
 
@@ -242,6 +269,19 @@ sub proc($self,$branch) {
   $fn->($self,$branch);
 
   return;
+
+};
+
+# ---   *   ---   *   ---
+# ^iceof
+
+sub proc($self,$branch) {
+  $self->seg_p_blk($branch,'executable');
+
+}
+
+sub _struc($self,$branch) {
+  $self->seg_p_blk($branch,'readable');
 
 };
 
@@ -1052,11 +1092,12 @@ sub symsolve_min($ISA,$dst,$deref) {
 # ---   *   ---   *   ---
 # add entry points
 
-cmdsub '$' => q() => \&current_byte;
-cmdsub 'blk' => q() => \&blk;
-cmdsub 'entry' => q() => \&entry;
-cmdsub 'proc' => q() => \&proc;
-cmdsub 'asm-ins' => q() => \&asm_ins;
+cmdsub '$'        => q() => \&current_byte;
+cmdsub 'blk'      => q() => \&blk;
+cmdsub 'entry'    => q() => \&entry;
+cmdsub 'proc'     => q() => \&proc;
+cmdsub 'struc'    => q() => \&_struc;
+cmdsub 'asm-ins'  => q() => \&asm_ins;
 
 # ---   *   ---   *   ---
 1; # ret

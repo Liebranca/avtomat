@@ -63,6 +63,8 @@ St::vconst {
 
   },
 
+  anon_re => qr{^L\d+$},
+
 };
 
 St::vstatic {};
@@ -93,6 +95,14 @@ sub mklabel($self) {
   $$cnt++;
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^detect
+
+sub is_anon($self) {
+  return $self->{value}=~ $self->anon_re;
 
 };
 
@@ -812,9 +822,37 @@ sub decl($self,$type,$name,$value,%O) {
   return $ptr if ! length $ptr;
 
 
+  # make alias on parent segment if
+  # we are in an anonymous block!
+  $self->route_anon_ptr($ptr)
+  if $self->is_anon();
+
+
   # go next and give
   $self->{ptr} += $ptr->{size};
   return $ptr;
+
+};
+
+# ---   *   ---   *   ---
+# unanonimize scope for
+# this particular lookup!
+
+sub route_anon_ptr($self,$ptr) {
+
+  my $mc   = $self->getmc();
+  my $main = $mc->get_main();
+
+  $main->perr('bad decl -- no parent block!')
+  if ! $self->{parent};
+
+  my $dst    = $self->{parent}->{inner};
+  my ($name) = $ptr->fullpath;
+
+  $dst->force_set($ptr,$name);
+  $dst->{'*fetch'}->{mem}=$ptr;
+
+  return;
 
 };
 

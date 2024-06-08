@@ -595,6 +595,7 @@ sub walk($self,%O) {
   my @have=grep {'Tree' eq ref $ARG} @pending;
   if(@have) {
 
+    @pending=grep {length ref $ARG} @pending;
     goto rept if $self->{pass} < $O{limit};
 
 

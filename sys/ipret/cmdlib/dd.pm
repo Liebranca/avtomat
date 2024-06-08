@@ -304,14 +304,21 @@ sub data_decl($self,$branch) {
 
     # assume declaration on first pass
     my $sym=undef;
-
     if(! $main->{pass}) {
 
+
+      # get current block + symbol name
+      $name="$mc->{blktop}->{label}.$name"
+      if $mc->{blktop};
+
+      # guard for redeclaration... and declare ;>
       $main->throw_redecl('value',$name)
       if $name ne '?' && $scope->has($name);
 
-
       $sym=$mc->decl($type,$name,$x);
+
+
+      # update...
       my ($xname,@xpath)=$sym->fullpath;
 
       $ARG->[0] = $xname;

@@ -194,19 +194,24 @@ sub new($class,$main) {
 # ---   *   ---   *   ---
 # get symbol name
 
-sub symname($src,$key='id') {
+sub symname($self,$src,$key='id') {
 
-  my @path=@{$src->{$key}};
-  my $name=shift @path;
+  my $mem  = $self->{main}->{mc}->{bk}->{mem};
 
-  return join '_',@path,$name;
+  my @path = @{$src->{$key}};
+  my $name = shift @path;
+
+  return join '_',grep {
+    ! ($ARG=~ $mem->anon_re)
+
+  } @path,$name;
 
 };
 
 # ---   *   ---   *   ---
 # decompose memory operand
 
-sub addr_collapse($tree) {
+sub addr_collapse($self,$tree) {
 
   my $opera = qr{^(?:\*|\/)$};
   my @have  = map {
@@ -216,7 +221,7 @@ sub addr_collapse($tree) {
 
     # have fetch?
     if(exists $ARG->{imm}) {
-      @out = symname $ARG,'id';
+      @out = $self->symname($ARG,'id');
       $neg = $ARG->{neg};
 
     # have value!
@@ -282,8 +287,11 @@ sub operand_value($self,$type,@data) {
     } elsif(! index $ARG->{type},'m') {
 
 
-      my @have = addr_collapse $ARG->{imm_args};
       my @r    = ();
+      my @have = $self->addr_collapse(
+        $ARG->{imm_args}
+
+      );
 
       if($ARG->{type} eq 'mlea') {
 
@@ -317,7 +325,7 @@ sub operand_value($self,$type,@data) {
 
 
     } elsif(exists $ARG->{id}) {
-      symname $ARG,'id';
+      $self->symname($ARG,'id');
 
     } else {
       $ARG->{imm};
@@ -351,6 +359,7 @@ sub step($self,$data) {
   my $main = $self->{main};
   my $eng  = $main->{engine};
   my $mc   = $main->{mc};
+  my $mem  = $mc->{bk}->{mem};
 
   my ($seg,$route,@req)=@$data;
 
@@ -370,7 +379,10 @@ sub step($self,$data) {
 
     } elsif($ins eq 'seg-decl') {
 
-      my $full  = symname $args[0],'id';
+      my @path  = @{$args[0]->{id}};
+      my $name  = shift @path;
+
+      my $full  = join '_',@path,$name;
       my $fmode = $main->{fmode};
 
       if($fmode == 1) {
@@ -388,13 +400,16 @@ sub step($self,$data) {
           "\nsegment $attrs",
           "align 16\n",
 
-          "$full:"
+          (! ($name=~ $mem->anon_re))
+            ? "$full:"
+            : ()
+            ,
 
         );
 
       } else {
 
-        my $name = {
+        my $attrs = {
 
           rom => '.rodata',
           ram => '.data',
@@ -402,9 +417,15 @@ sub step($self,$data) {
 
         }->{$args[0]->{data}};
 
+
         join "\n",(
-          "\nsection '$name' align 16",
-          "$full:"
+
+          "\nsection '$attrs' align 16",
+
+          (! ($name=~ $mem->anon_re))
+            ? "$full:"
+            : ()
+            ,
 
         );
 
@@ -440,9 +461,14 @@ sub open_boiler($self) {
   # get ctx
   my $main  = $self->{main};
   my $fmode = $main->{fmode};
-  my $entry = $main->{entry};
+  my $mem   = $main->{mc}->{bk}->{mem};
 
   my @out   = ();
+  my @entry = (defined $main->{entry})
+    ? grep {
+        ! $ARG=~ $mem->anon_re
+
+    } @{$main->{entry}} : () ;
 
 
   # outputting straight static
@@ -452,10 +478,10 @@ sub open_boiler($self) {
       'no entry point for <%s>',
       args=>[$main->{fpath}],
 
-    ) if ! @$entry;
+    ) if ! @entry;
 
     push @out,"format ELF64 executable 3";
-    push @out,'entry '.join '_',@$entry;
+    push @out,'entry '.join '_',@entry;
 
 
   # outputting object
@@ -465,8 +491,8 @@ sub open_boiler($self) {
     # just convert entry to a public symbol
     # if it was declared, that is!
     push @out,"format ELF64";
-    push @out,'public '.join '_',@$entry
-    if $entry;
+    push @out,'public '.join '_',@entry
+    if @entry;
 
   };
 
@@ -567,20 +593,30 @@ sub data_decl($self,$type,$src) {
   my $main = $self->{main};
   my $eng  = $main->{engine};
   my $mc   = $main->{mc};
+  my $mem  = $mc->{bk}->{mem};
 
 
   # unpack
   my @path = @{$src->{id}};
   my $name = shift @path;
 
-  my $full = join '_',@path,$name;
+  # get [fullname => symbol]
+  my $full = join '_',grep {
+    ! ($ARG=~ $mem->anon_re)
+
+  } @path,$name;
+
+  my $sym  = ${$mc->valid_psearch(
+    $name,@path
+
+  )};
 
 
   # have label?
   if(is_label $src) {
 
     # need to declare symbol for export?
-    return ($main->{fmode} != 1)
+    return ($sym->{public} && $main->{fmode} != 1)
       ? ("\npublic $full","$full:")
       : "\n$full:"
       ;

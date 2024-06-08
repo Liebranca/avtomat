@@ -96,6 +96,7 @@ sub new($class,%O) {
     ISA      => undef,
 
     segtop   => undef,
+    blktop   => undef,
     rp       => [],
 
     bk       => $bk,
@@ -486,7 +487,6 @@ sub ssearch_p($self,@path) {
   # name in path?
   my ($out,$mem,$tree,@loc)=
     $self->lkup(@path);
-
 
   # ^nope, get more specific...
   if(! $out) {
