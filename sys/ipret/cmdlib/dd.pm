@@ -148,7 +148,6 @@ sub seg_type($self,$branch) {
   if(! $have) {
 
     $have=$mc->mkseg($type=>$name);
-
     $enc->binreq(
 
       $branch,[
@@ -173,7 +172,38 @@ sub seg_type($self,$branch) {
 
   # make current and give
   my $out=sub {$mc->setseg($have);$have};
-  $data->{res} = $have;
+  $data->{res}=$have;
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^~
+
+sub _struc($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $mc   = $main->{mc};
+  my $l1   = $main->{l1};
+
+
+  # get struc name
+  $branch->{vref}->{type}='rom';
+  $branch->{vref}->{name}=$l1->xlate(
+    $branch->{vref}->{id}
+
+  )->{spec};
+
+
+  # generate new ROM block
+  my $out=$self->seg_type($branch);
+  my $seg=$mc->{segtop};
+
+  # ^set attrs and give step F
+  $seg->{virtual}=1;
 
   return $out;
 
@@ -398,6 +428,7 @@ cmdsub 'flag-type' => q(
 cmdsub 'seg-type' => q() => \&seg_type;
 cmdsub 'clan' => q() => \&clan;
 cmdsub 'data-decl' => q() => \&data_decl;
+cmdsub 'struc' => q() => \&_struc;
 
 # ---   *   ---   *   ---
 1; # ret

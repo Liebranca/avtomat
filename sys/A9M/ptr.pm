@@ -205,6 +205,29 @@ sub getseg($self) {
 };
 
 # ---   *   ---   *   ---
+# ^get namespace tree node
+
+sub get_node($self) {
+
+  my $seg  = $self->getseg();
+  my $mc   = $seg->getmc();
+
+  my @path = split $mc->{pathsep},$self->{label};
+
+  my ($have,@loc)=
+    $mc->get_node($path[-1]);
+
+  ($have,@loc)=
+    $mc->get_node(@path)
+
+  if ! $have;
+
+
+  return $have;
+
+};
+
+# ---   *   ---   *   ---
 # get ptr path in namespace
 
 sub ances_list($self,%O) {

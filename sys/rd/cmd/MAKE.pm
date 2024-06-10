@@ -193,6 +193,7 @@ St::vconst {
 St::vstatic {
 
   main      => undef,
+  pkg       => __PACKAGE__,
 
   keytab    => undef,
   icetab    => {},
@@ -388,6 +389,8 @@ sub load($class,$frame,$pkg) {
   # update table interface
   my $lx  = $main->{lx};
   my $tab = $lx->load_CMD(1);
+
+  $frame->{pkg}=$pkg;
 
 
   return;

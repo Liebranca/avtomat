@@ -92,8 +92,8 @@ sub szof($self,$branch) {
 
   my $x=$sym->{size};
 
-  $branch->{vref}  = undef;
-  $branch->{value} = $l1->tag(NUM=>$x);
+  $branch->{value}=$l1->tag(NUM=>$x);
+  $branch->{vref}->{res}=$x;
 
 
   return (! $branch->{parent})

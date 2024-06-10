@@ -40,7 +40,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.7;#b
+  our $VERSION = v0.01.8;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -186,13 +186,10 @@ sub entry($self,$branch) {
 # ---   *   ---   *   ---
 # template:
 #
-# * if the current segment type
-#   does not match flags, then
-#   switch to one that does
-#
-# * slap a new label on it
+# * prepend segment declaration
+#   to current branch
 
-sub seg_p_blk($self,$branch,@flags) {
+sub segpre($self,$branch,$type,$name=null) {
 
 
   # get ctx
@@ -202,65 +199,102 @@ sub seg_p_blk($self,$branch,@flags) {
   my $l1    = $main->{l1};
 
 
+  # locate expression
+  my $anchor = $branch;
+     $anchor = $anchor->{parent}
+
+  while $anchor->{parent}
+  &&    $anchor->{parent} ne $main->{tree};
+
+
+  # get segment type
+  $type={
+    'executable' => 'exe',
+    'readable'   => 'rom',
+    'writeable'  => 'ram',
+
+  }->{$type};
+
+  # ^make segment node
+  my ($nd) = $anchor->{parent}->insert(
+    $anchor->{idex},
+
+    $l1->tag(CMD=>'seg-type')
+  . $type
+
+  );
+
+
+  # reset uid
+  #
+  # effectively merges the new node
+  # with the current one
+
+  $nd->{-uid}=$branch->{-uid};
+  $nd->{vref}={
+
+    name => (length $name)
+      ? $name : $mc->{cas}->mklabel(),
+
+    type => $type,
+
+  };
+
+
+  # execute segment function!
+  my $cmd  = $frame->fetch('seg-type');
+  my $fn   = $cmd->{key}->{fn};
+
+  $fn->($self,$nd);
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^conditionally ;>
+
+sub csegpre($self,$branch,@flags) {
+
+  # get ctx
+  my $main  = $self->{frame}->{main};
+  my $mc    = $main->{mc};
+
+
   # ensure segment of the right type
   my $top = $mc->{segtop};
   my $ok  = @flags == grep {$top->{$ARG}} @flags;
 
   $ok &=~ $top eq $mc->{cas};
 
-
   # no deal? then generate!
-  if(! $ok) {
+  $self->segpre($branch,shift @flags)
+  if ! $ok;
 
 
-    # locate expression
-    my $anchor = $branch;
-       $anchor = $anchor->{parent}
+  return;
 
-    while $anchor->{parent}
-    &&    $anchor->{parent} ne $main->{tree};
+};
 
+# ---   *   ---   *   ---
+# template:
+#
+# * if the current segment type
+#   does not match flags, then
+#   prepend one that does
+#
+# * slap a new label on it
 
-    # get segment type
-    my $type = {
-      'executable' => 'exe',
-      'readable'   => 'rom',
-      'writeable'  => 'ram',
-
-    }->{shift @flags};
-
-    # ^make segment node
-    my ($nd) = $anchor->{parent}->insert(
-
-      $anchor->{idex},
-
-      $l1->tag(CMD=>'seg-type')
-    . $type
-
-    );
+sub segpre_blk($self,$branch,@flags) {
 
 
-    # reset uid
-    #
-    # effectively merges the new node
-    # with the current one
-
-    $nd->{-uid}=$branch->{-uid};
-    $nd->{vref}={
-      name => $mc->{cas}->mklabel(),
-      type => $type,
-
-    };
+  # get ctx
+  my $frame = $self->{frame};
+  my $main  = $frame->{main};
 
 
-    # execute segment function!
-    my $cmd  = $frame->fetch('seg-type');
-    my $fn   = $cmd->{key}->{fn};
-
-    $fn->($self,$nd);
-
-  };
-
+  # ensure segment
+  $self->csegpre($branch,@flags);
 
   # run label function and give
   my $cmd = $frame->fetch('blk');
@@ -276,12 +310,7 @@ sub seg_p_blk($self,$branch,@flags) {
 # ^iceof
 
 sub proc($self,$branch) {
-  $self->seg_p_blk($branch,'executable');
-
-}
-
-sub _struc($self,$branch) {
-  $self->seg_p_blk($branch,'readable');
+  $self->segpre_blk($branch,'executable');
 
 };
 
@@ -1096,7 +1125,6 @@ cmdsub '$'        => q() => \&current_byte;
 cmdsub 'blk'      => q() => \&blk;
 cmdsub 'entry'    => q() => \&entry;
 cmdsub 'proc'     => q() => \&proc;
-cmdsub 'struc'    => q() => \&_struc;
 cmdsub 'asm-ins'  => q() => \&asm_ins;
 
 # ---   *   ---   *   ---

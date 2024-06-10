@@ -492,7 +492,7 @@ sub type_decode($self,@src) {
 cmdsub 'flag-type' => q(qlist src) => \&flag_type;
 cmdsub 'seg-type' => q(sym type) => \&seg_type;
 
-cmdsub 'clan' => q(sym name) => \&clan;
+cmdsub 'clan'  => q(sym name) => \&clan;
 
 cmdsub 'data-decl' => q(
   vlist name;
@@ -514,6 +514,14 @@ w_cmdsub 'data-type'
 
 => q(qlist any)
 => @{Type::MAKE->ALL_FLAGS};
+
+w_cmdsub 'csume-token' => q(
+  sym any;
+
+) => qw(
+  struc
+
+);
 
 # ---   *   ---   *   ---
 1; # ret

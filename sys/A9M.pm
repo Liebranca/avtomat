@@ -480,9 +480,10 @@ sub scope($self,@path) {
 };
 
 # ---   *   ---   *   ---
-# get symbol and path
+# get node and path
 
-sub ssearch_p($self,@path) {
+sub get_node($self,@path) {
+
 
   # name in path?
   my ($out,$mem,$tree,@loc)=
@@ -516,7 +517,20 @@ sub ssearch_p($self,@path) {
 
 
   return ($out)
-    ? ($out->{mem},@loc)
+    ? ($out,@loc)
+    : ()
+    ;
+
+};
+
+
+# ---   *   ---   *   ---
+# ^get symbol and path
+
+sub ssearch_p($self,@path) {
+  my ($have,@loc)=$self->get_node(@path);
+  return ($have)
+    ? ($have->{mem},@loc)
     : ()
     ;
 
