@@ -186,31 +186,18 @@ sub draw($body,%O) {
 
     # add blank every (cache)line
     # and another every 4th
-    $k+=1;
+    $k++;
 
 
-    # notify of "incomplete" xword
-    if($diff && $k > 16) {
+    # out xword
+    push @$out,"\n\n",
+      sprintf "\$%04X $O{order}\n",($k-16) >> 4
 
-      push @$out,"\n",
-        sprintf "+%01X\n",$diff
+    if (! ($k % 16)) && $O{head} != 0;
 
-      if $diff && $O{head} == 1;
+    push @$out,"\n" if ! ($k % 4);
 
-
-    # ^out xword
-    } else {
-
-      push @$out,"\n\n",
-        sprintf "\$%04X $O{order}\n",($k-16) >> 4
-
-      if ! ($k % 16) && $O{head} != 0;
-
-      push @$out,"\n" if ! ($k %  4);
-
-      $O{head}=2;
-
-    };
+    $O{head}=2;
 
 
     # out (human)line

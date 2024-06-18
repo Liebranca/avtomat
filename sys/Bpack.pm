@@ -204,9 +204,15 @@ sub _layas_struc($type,@src) {
 # ---   *   ---   *   ---
 # unpack using peso types
 
-sub bunpack($struc,$src,$pos=0,$cnt=1) {
+sub bunpack($struc,$srcref,$pos=0,$cnt=1) {
 
-  # fetch
+
+  # force source to be a reference ;>
+  $srcref=\$srcref
+  if ! length ref $srcref;
+
+
+  # fetch structure!
   my @type=strucun($struc);
 
 
@@ -221,12 +227,12 @@ sub bunpack($struc,$src,$pos=0,$cnt=1) {
     my $size = $type->{sizeof};
 
     # check for overflow
-    my $stop=(length $src)-$pos;
+    my $stop=(length $$srcref)-$pos;
     return null if $stop < 0;
 
 
     # read buffer
-    my $src  = substr $src,$pos,$stop;
+    my $src  = substr $$srcref,$pos,$stop;
     my @have = unpack $fmat,$src;
 
     # have string?
@@ -268,7 +274,7 @@ sub bunpack($struc,$src,$pos=0,$cnt=1) {
 sub bunpacksu($struc,$srcref,$pos=0,$cnt=1) {
 
   my $cpy=$$srcref;
-  my $b=bunpack($struc,$$srcref,$pos,$cnt);
+  my $b=bunpack($struc,$srcref,$pos,$cnt);
 
   errout "cannot unpack struc '%s'",
 

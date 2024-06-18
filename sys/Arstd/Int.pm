@@ -22,6 +22,8 @@ package Arstd::Int;
   use Readonly;
   use English qw(-no_match_vars);
 
+  use Arstd::Bytes qw(bitscanr);
+
   use lib $ENV{'ARPATH'}.'/lib/sys';
   use parent 'St';
 
@@ -34,6 +36,7 @@ package Arstd::Int;
     int_urdiv
     int_align
     int_npow
+    int_npow2
     int_ispow
 
   );
@@ -73,7 +76,7 @@ sub align($a,$b) {
 
 sub npow($a,$b,$give_exp=0) {
   my $x=int(log $a**$b)-1;
-  return ($give_exp) ? $x : $a**$x;
+  return ($give_exp) ? $x : $b**$x;
 
 };
 
@@ -94,11 +97,28 @@ sub ispow($a,$b) {
 };
 
 # ---   *   ---   *   ---
+# nearest power of 2
+# this is the only precise one ;>
+
+sub npow2($a,$give_exp=0) {
+
+  my $x    = bitscanr $a;
+  my $mask = $x-1;
+
+  $x++ if $a & $mask;
+
+
+  return ($give_exp) ? $x : 1 << $x;
+
+};
+
+# ---   *   ---   *   ---
 # exporter names
 
   *int_urdiv = *urdiv;
   *int_align = *align;
   *int_npow  = *npow;
+  *int_npow2 = *npow2;
   *int_ispow = *ispow;
 
 # ---   *   ---   *   ---
