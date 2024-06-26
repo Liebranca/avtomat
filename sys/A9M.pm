@@ -187,31 +187,89 @@ sub reset($self,$name) {
 
 # ---   *   ---   *   ---
 # make new addressing space
+# or add sub-segment to existing
 
 sub astab_push($self,$src) {
 
 
-  # make segment tree
-  my $mem           = $self->{bk}->{mem};
-  my ($label,$root) = (! $mem->is_valid($src))
+  # make segment tree?
+  my $mem=$self->{bk}->{mem};
+  my ($label,$root);
 
-    ? ($src,$mem->mkroot(
-
-      mcid  => $self->{iced},
-      mccls => (ref $self),
-
-      label => $src,
-      size  => 0x00,
+  if(! $mem->is_valid($src)) {
 
 
-    )) : ($src->{value},$src) ;
+    # handle path::to
+    my @path=split $self->{pathsep},$src;
+
+    # ^making sub-segment?
+    if(1 < @path) {
+
+      my $base=shift @path;
+      my $name=pop   @path;
+
+      # find parent namespace
+      $root=$self->{astab}->{$base};
+
+      my $have=(@path)
+        ? $root->nderef(null,@path)
+        : $root
+        ;
+
+      # ^edge case: parent decl skipped!
+      if(! defined $have) {
+
+        $have=$self->astab_push(
+          join '::',$base,@path
+
+        );
+
+      };
+
+
+      # make new and give
+      $label = null;
+      $root  = $have->new(0x00,$name);
+
+
+    # ^making root segment!
+    } else {
+
+      $label = $path[0];
+      $root  = $mem->mkroot(
+
+        mcid  => $self->{iced},
+        mccls => (ref $self),
+
+        label => $src,
+        size  => 0x00,
+
+      );
+
+    };
+
+
+  # ^nope, a tree was passed!
+  } else {
+
+    $label = ($src eq $src->{root})
+      ? $src->{value}
+      : null
+      ;
+
+    $root  = $src;
+
+  };
 
 
   # ^make current and add to table
-  $self->{cas}             = $root;
-  $self->{astab}->{$label} = $root;
+  $self->{cas}=$root->{root};
 
-  push @{$self->{astab_i}},$label;
+  if(length $label) {
+    $self->{astab}->{$label}=$root;
+    push @{$self->{astab_i}},$label;
+
+  };
 
 
   return $root;

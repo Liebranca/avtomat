@@ -31,6 +31,26 @@ package xlate::fasm_opt;
   use Arstd::Bytes;
 
 # ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT=qw(
+
+    fxpreci
+    fxpdiv
+    fxpmod
+
+    leamul
+
+  );
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = v0.00.1;#a
+  our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
 # mul by lea: first attempt
 
 sub leamul_step1($y,$s,$need) {
@@ -194,7 +214,7 @@ sub leamul($n,$f) {
 #
 # ie black flippin' magic
 
-sub reciprocal($f,$bits) {
+sub fxpreci($f,$bits) {
   return int (((1<<$bits) + $f-1) / $f);
 
 };
@@ -213,7 +233,7 @@ sub fxpdiv($n,$f,$bits=0) {
   # ^nope, do it the hard way ;>
   $bits=2+bitsize $n if ! $bits;
 
-  my $rc  = reciprocal($f,$bits);
+  my $rc  = fxpreci($f,$bits);
   my @ins = (
     "mov  Y,$rc;",
     'mul  N;',

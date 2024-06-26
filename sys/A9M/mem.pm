@@ -1485,6 +1485,18 @@ sub deref($self,$name,@path) {
 };
 
 # ---   *   ---   *   ---
+# ^shorthand for getting node
+
+sub nderef($self,$name,@path) {
+
+  my $tree = $self->{inner};
+  my @alt  = $self->search($name,@path);
+
+  return $tree->{'*fetch'}->{mem};
+
+};
+
+# ---   *   ---   *   ---
 # ^similar, it filters through
 # ^values in inner tree
 

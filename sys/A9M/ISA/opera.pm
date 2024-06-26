@@ -807,11 +807,35 @@ subwraps '$self->defop' => q(
 );
 
 # ---   *   ---   *   ---
+# TODO:
+#
+# * set flags for these three
+# * set flags for binary ops too ;>
+
+# ---   *   ---   *   ---
 # multiplication
 
 sub mul($self,$type,$src) {
   my @src=asval $src;
   sub ($ice,$x) {$x * shift @src};
+
+};
+
+# ---   *   ---   *   ---
+# division
+
+sub div($self,$type,$src) {
+  my @src=asval $src;
+  sub ($ice,$x) {$x / shift @src};
+
+};
+
+# ---   *   ---   *   ---
+# modulo
+
+sub mod($self,$type,$src) {
+  my @src=asval $src;
+  sub ($ice,$x) {$x % shift @src};
 
 };
 

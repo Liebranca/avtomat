@@ -183,10 +183,14 @@ sub flatten($self) {
   # redirect encoder
   map {
 
-    my $seg   = $ARG->[0];
+    my $seg=$ARG->[0];
 
-    $ARG->[0] = $seg->{vref};
-    $ARG->[1] = $seg->{route};
+    $ARG->[0]=$seg->{vref}
+    if defined $seg->{vref};
+
+    $ARG->[1]=$seg->{route}
+    if defined $seg->{route};
+
 
   } grep {defined $ARG} @$Q;
 

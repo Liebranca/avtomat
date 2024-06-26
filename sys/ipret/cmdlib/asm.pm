@@ -265,7 +265,8 @@ sub csegpre($self,$branch,@flags) {
   my $top = $mc->{segtop};
   my $ok  = @flags == grep {$top->{$ARG}} @flags;
 
-  $ok &=~ $top eq $mc->{cas};
+  $ok &=~ ($top eq $mc->{cas});
+
 
   # no deal? then generate!
   $self->segpre($branch,shift @flags)

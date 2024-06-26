@@ -29,7 +29,12 @@ package main;
 # ---   *   ---   *   ---
 # run and dbout
 
-my $xlate = xlate->new('../daf/daf/tab.pe',limit=>2);
+my $xlate = xlate->new(
+  glob('~/bt/dice.pe'),
+  limit=>2
+
+);
+
 my $prog  = $xlate->run();
 
 say $prog;

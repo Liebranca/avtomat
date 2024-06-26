@@ -29,10 +29,12 @@ package xlate::fasm;
   use Fmat;
   use St;
 
+  use xlate::fasm_opt;
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -56,6 +58,14 @@ St::vconst {
     int   => 'syscall',
 
   },
+
+  haveopt => {
+    mul => 1,
+    mod => 1,
+    div => 1,
+
+  },
+
 
   register => sub {
 
@@ -351,15 +361,9 @@ sub is_label {
 };
 
 # ---   *   ---   *   ---
-# ~
+# walk instruction block
 
 sub step($self,$data) {
-
-
-  my $main = $self->{main};
-  my $eng  = $main->{engine};
-  my $mc   = $main->{mc};
-  my $mem  = $mc->{bk}->{mem};
 
   my ($seg,$route,@req)=@$data;
 
@@ -368,70 +372,24 @@ sub step($self,$data) {
     my ($type,$ins,@args)=@$ARG;
     $type=typefet $type;
 
+
+  # only process non-meta instructions!
   if(! ($ins=~ $self->metains)) {
 
     $ins=$self->instab->{$ins}
     if exists $self->instab->{$ins};
 
 
+    # writing raw bytes?
     if($ins eq 'data-decl') {
       map {$self->data_decl($type,$ARG)} @args;
 
+    # making segment?
     } elsif($ins eq 'seg-decl') {
-
-      my @path  = @{$args[0]->{id}};
-      my $name  = shift @path;
-
-      my $full  = join '_',@path,$name;
-      my $fmode = $main->{fmode};
-
-      if($fmode == 1) {
-
-        my $attrs = {
-
-          rom => 'readable',
-          ram => 'readable writeable',
-          exe => 'readable executable',
-
-        }->{$args[0]->{data}};
-
-        join "\n",(
-
-          "\nsegment $attrs",
-          "align 16\n",
-
-          (! ($name=~ $mem->anon_re))
-            ? "$full:"
-            : ()
-            ,
-
-        );
-
-      } else {
-
-        my $attrs = {
-
-          rom => '.rodata',
-          ram => '.data',
-          exe => '.text',
-
-        }->{$args[0]->{data}};
+      $self->seg_decl(@args);
 
 
-        join "\n",(
-
-          "\nsection '$attrs' align 16",
-
-          (! ($name=~ $mem->anon_re))
-            ? "$full:"
-            : ()
-            ,
-
-        );
-
-      };
-
-
+    # straight op!
     } else {
 
       my @have=$self->operand_value($type,@args);
@@ -453,7 +411,7 @@ sub step($self,$data) {
 };
 
 # ---   *   ---   *   ---
-# ~
+# paste file header ;>
 
 sub open_boiler($self) {
 
@@ -501,23 +459,30 @@ sub open_boiler($self) {
 };
 
 # ---   *   ---   *   ---
-# ~
+# messy string handler
 
 sub bytestr($cstr,@data) {
 
+
+  # join by comma...
   join ",",map {
 
     (! is_arrayref $ARG)
       ? "'$ARG->[0]'" : $ARG->[0] ;
 
+  # ^all strings found...
   } grep {
     length $ARG
 
+
+  # ^within the input data!
   } map {
 
     my @chars=split null,$ARG;
     my @subst=('');
 
+
+    # handle special chars
     map {
 
       my $c=ord($ARG);
@@ -534,6 +499,7 @@ sub bytestr($cstr,@data) {
     } @chars;
 
 
+    # add nullterm?
     ($cstr)
       ? (@subst,[0x00])
       : (@subst)
@@ -555,10 +521,9 @@ sub data_decl_label($self,$key,$have_t,$data,%O) {
   $O{cstr} //= 0;
 
 
-  # ~
+  # handle string conversions
   my $have   = shift @$data;
      $have //= 0;
-
 
   $have=join ',',map {
 
@@ -570,7 +535,7 @@ sub data_decl_label($self,$key,$have_t,$data,%O) {
   } (is_arrayref $have) ? @$have : $have ;
 
 
-  # ~
+  # paste string and length?
   my $out="  $have_t $have";
 
   if(! ($key=~ qr{_L\d+$})) {
@@ -716,6 +681,75 @@ sub data_decl($self,$type,$src) {
 
 
     return @decl;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# handle segment declaration
+
+sub seg_decl($self,@args) {
+
+  # get ctx
+  my $main  = $self->{main};
+  my $mc    = $main->{mc};
+  my $mem   = $mc->{bk}->{mem};
+  my $fmode = $main->{fmode};
+
+  # get input
+  my @path  = @{$args[0]->{id}};
+  my $name  = shift @path;
+
+  my $full  = join '_',@path,$name;
+
+
+  # building executable?
+  if($fmode == 1) {
+
+    my $attrs = {
+
+      rom => 'readable',
+      ram => 'readable writeable',
+      exe => 'readable executable',
+
+    }->{$args[0]->{data}};
+
+    return join "\n",(
+
+      "\nsegment $attrs",
+      "align 16\n",
+
+      (! ($name=~ $mem->anon_re))
+        ? "$full:"
+        : ()
+        ,
+
+    );
+
+
+  # building object!
+  } else {
+
+    my $attrs = {
+
+      rom => '.rodata',
+      ram => '.data',
+      exe => '.text',
+
+    }->{$args[0]->{data}};
+
+
+    return join "\n",(
+
+      "\nsection '$attrs' align 16",
+
+      (! ($name=~ $mem->anon_re))
+        ? "$full:"
+        : ()
+        ,
+
+    );
 
   };
 
