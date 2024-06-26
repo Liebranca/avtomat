@@ -29,6 +29,7 @@ package xlate::fasm_opt;
 
   use Arstd::Int;
   use Arstd::Bytes;
+  use Arstd::IO;
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -47,7 +48,7 @@ package xlate::fasm_opt;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -58,8 +59,32 @@ sub leamul_step1($y,$s,$need) {
 
   # map opera to instruction
   my $tab={
-    "$y+$y*$s" => "lea  Y,[Y+Y*$s];",
-    "0+$y*$s"  => "lea  Y,[0+Y*$s];",
+
+    "$y+$y*$s" => [lea=>(
+
+      {type=>'r',reg=>'X'},
+
+      { type  => 'mlea',
+        rX    => 'X',
+        rY    => 'X',
+
+        scale => $s,
+
+      },
+
+    )],
+
+    "0+$y*$s"  => [lea=>(
+
+      {type=>'r',reg=>'X'},
+
+      { type  => 'mlea',
+        rX    => 'X',
+        scale => $s,
+
+      },
+
+    )],
 
   };
 
@@ -94,13 +119,87 @@ sub leamul_step2($n,$y,$s,$need) {
   # map opera to instruction
   my $tab={
 
-    "$n+$n*$s" => "lea  Y,[N+N*$s];",
-    "$n+$y*$s" => "lea  Y,[N+Y*$s];",
-    "$y+$y*$s" => "lea  Y,[Y+Y*$s];",
-    "$y+$n*$s" => "lea  Y,[Y+N*$s];",
+    "$n+$n*$s" => [lea=>(
 
-    "0+$n*$s"  => "lea  Y,[0+N*$s];",
-    "0+$y*$s"  => "lea  Y,[0+Y*$s];",
+      {type=>'r',reg=>'X'},
+
+      { type  => 'mlea',
+        rX    => 'Y',
+        rY    => 'Y',
+
+        scale => $s,
+
+      },
+
+    )],
+
+    "$n+$y*$s" => [lea=>(
+
+      {type=>'r',reg=>'X'},
+
+      { type  => 'mlea',
+        rX    => 'Y',
+        rY    => 'X',
+
+        scale => $s,
+
+      },
+
+    )],
+
+    "$y+$y*$s" => [lea=>(
+
+      {type=>'r',reg=>'X'},
+
+      { type  => 'mlea',
+        rX    => 'X',
+        rY    => 'X',
+
+        scale => $s,
+
+      },
+
+    )],
+
+    "$y+$n*$s" => [lea=>(
+
+      {type=>'r',reg=>'X'},
+
+      { type  => 'mlea',
+        rX    => 'X',
+        rY    => 'Y',
+
+        scale => $s,
+
+      },
+
+    )],
+
+    "0+$n*$s"  => [lea=>(
+
+      {type=>'r',reg=>'X'},
+
+      { type  => 'mlea',
+        rX    => 'Y',
+
+        scale => $s,
+
+      },
+
+    )],
+
+    "0+$y*$s"  => [lea=>(
+
+      {type=>'r',reg=>'X'},
+
+      { type  => 'mlea',
+        rX    => 'X',
+
+        scale => $s,
+
+      },
+
+    )],
 
     "$n"       => null,
     "$y"       => null,
@@ -134,7 +233,12 @@ sub leamul($n,$f) {
   # f is pow2?
   my $p2 = int_npow2 $f,1;
   if((1 << $p2) == $f) {
-    return ($n << $p2,"shl  N,$p2;");
+
+    return ($n << $p2,[shl=>(
+      {type=>'r',reg=>'Y'},
+      {type=>'i',imm=>$p2},
+
+    )]);
 
   };
 
@@ -199,10 +303,15 @@ sub leamul($n,$f) {
 
     ? (
 
-      $need,
+      $need,[mov=>(
+        {type=>'r',reg=>'Z'},
+        {type=>'i',imm=>$f},
 
-      "mov  Z,$f;",
-      'imul Y,Z;'
+      )],[imul=>(
+        {type=>'r',reg=>'X'},
+        {type=>'r',reg=>'Z'},
+
+      )],
 
     ) : ($need,@ins) ;
 
@@ -223,9 +332,13 @@ sub fxpdiv($n,$f,$bits=0) {
 
 
   # f is pow2?
-  my $p2  = int_npow2 $f,1;
+  my $p2=int_npow2 $f,1;
   if((1 << $p2) == $f) {
-    return ($n >> $p2,"shr  N,$p2;");
+    return ($n >> $p2,[shr=>(
+      {type=>'r',reg=>'Y'},
+      {type=>'i',imm=>$p2},
+
+    )]);
 
   };
 
@@ -235,10 +348,24 @@ sub fxpdiv($n,$f,$bits=0) {
 
   my $rc  = fxpreci($f,$bits);
   my @ins = (
-    "mov  Y,$rc;",
-    'mul  N;',
 
-    "shr  Y,$bits;",
+    [mov=>(
+      {type=>'r',reg=>'X'},
+      {type=>'i',imm=>$rc},
+
+    )],
+
+    [imul=>(
+      {type=>'r',reg=>'X'},
+      {type=>'r',reg=>'Y'},
+
+    )],
+
+    [shr=>(
+      {type=>'r',reg=>'X'},
+      {type=>'i',imm=>$bits},
+
+    )],
 
   );
 
@@ -256,7 +383,11 @@ sub fxpmod($n,$f,$bits=0) {
   my $p2  = int_npow2 $f,1;
   if((1 << $p2) == $f) {
     my $mask=$f-1;
-    return ($n & $mask,"and  N,$mask;");
+    return ($n & $mask,[and=>(
+      {type=>'r',reg=>'Y'},
+      {type=>'i',imm=>$mask},
+
+    )]);
 
   };
 
@@ -267,9 +398,57 @@ sub fxpmod($n,$f,$bits=0) {
   my ($x,@insa) = fxpdiv $n,$f,$bits;
   my ($y,@insb) = leamul $x,$f;
 
-  my @ins=(@insa,@insb,'sub  N,Y;');
+  my @ins=(@insa,@insb,[sub=>(
+    {type=>'r',reg=>'Y'},
+    {type=>'r',reg=>'X'},
+
+  )]);
 
   return ($n-$y,@ins);
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+sub expand_mod($self,$type,$ins,@args) {
+
+  my @have=$self->operand_value($type,@args);
+
+  if($have[-1] =~ $NUM_RE) {
+
+    my $bits       = $type->{sizebs};
+    my ($n,@exins) = fxpmod 1,$have[-1],$bits;
+
+    map {
+
+      my ($ins,@nargs)=@$ARG;
+
+      map {
+
+        $ARG->{reg}={
+          'X'=>0,
+          'Y'=>4,
+          'Z'=>6,
+
+        }->{$ARG->{reg}}
+        if exists $ARG->{reg};
+
+      } @nargs;
+
+      ($ins=~ qr{^(?:mul|imul|shr|shl)})
+        ? unshift @$ARG,typefet 'dword'
+        : unshift @$ARG,$type
+        ;
+
+    } @exins;
+
+    return @exins;
+
+  } else {
+    nyi "NON-CONST MOD";
+
+  };
 
 };
 

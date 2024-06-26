@@ -61,7 +61,7 @@ St::vconst {
 
   haveopt => {
     mul => 1,
-    mod => 1,
+    mod => \&xlate::fasm_opt::expand_mod,
     div => 1,
 
   },
@@ -348,7 +348,7 @@ sub operand_value($self,$type,@data) {
 };
 
 # ---   *   ---   *   ---
-# ~
+# handle label decls!
 
 sub is_label {
 
@@ -389,24 +389,41 @@ sub step($self,$data) {
       $self->seg_decl(@args);
 
 
+    # expandable instruction?
+    } elsif(exists $self->haveopt->{$ins}) {
+
+      my $fn=$self->haveopt->{$ins};
+
+      map {$self->insout(@$ARG)}
+      $fn->($self,$type,$ins,@args);
+
+
     # straight op!
     } else {
-
-      my @have=$self->operand_value($type,@args);
-
-      (@have)
-
-        ? sprintf "  %-16s %s",
-          $ins,join ',',@have
-
-        : "  $ins"
-
-        ;
+      $self->insout($type,$ins,@args);
 
     };
 
 
   }} @req;
+
+};
+
+# ---   *   ---   *   ---
+# format single instruction
+
+sub insout($self,$type,$ins,@args) {
+
+  my @have=$self->operand_value($type,@args);
+
+  return (@have)
+
+    ? sprintf "  %-16s %s",
+      $ins,join ',',@have
+
+    : "  $ins"
+
+    ;
 
 };
 
