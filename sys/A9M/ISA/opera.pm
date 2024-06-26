@@ -40,7 +40,7 @@ package A9M::ISA::opera;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#a
+  our $VERSION = v0.01.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -131,29 +131,29 @@ St::vconst {
 
     },
 
-#
-#  and => {
-#    dst  => 'r',
-#    src  => 'ri',
-#
-#  },
-#
-#  or => {
-#    dst  => 'r',
-#    src  => 'ri',
-#
-#  },
-#
-#  not => {
-#
-#    argcnt => 1,
-#
-#    dst    => 'r',
-#    src    => 'ri',
-#
-#  },
-#
-#
+
+    and => {
+      dst  => 'r',
+      src  => 'ri',
+
+    },
+
+    or => {
+      dst  => 'r',
+      src  => 'ri',
+
+    },
+
+    not => {
+
+      argcnt => 1,
+
+      dst    => 'r',
+      src    => 'ri',
+
+    },
+
+
 #  # bitmask, all ones
 #  bones => {
 #
@@ -164,112 +164,119 @@ St::vconst {
 #    fix_regsrc => 3,
 #
 #  },
-#
-#
-#  # bitshift left/right
-#  shl => {
-#
-#    dst        => 'r',
-#    src        => 'ri',
-#
-#    fix_immsrc => 1,
-#    fix_regsrc => 3,
-#
-#  },
-#
-#  shr => {
-#
-#    dst        => 'r',
-#    src        => 'ri',
-#
-#    fix_immsrc => 1,
-#    fix_regsrc => 3,
-#
-#  },
-#
-#
-#  # bitscan <3
-#  bsf => {
-#    dst => 'r',
-#    src => 'r',
-#
-#  },
-#
-#  bsr => {
-#    dst => 'r',
-#    src => 'r',
-#
-#  },
-#
-#
-#  # bit rotate right
-#  # a thing of pure beauty!
-#  ror => {
-#
-#    dst        => 'r',
-#    src        => 'ri',
-#
-#    fix_immsrc => 1,
-#    fix_regsrc => 3,
-#
-#  },
-#
-#  # ^rotate left ;>
-#  rol => {
-#
-#    dst        => 'r',
-#    src        => 'ri',
-#
-#    fix_immsrc => 1,
-#    fix_regsrc => 3,
-#
-#  },
-#
-#
-  # math
-  add => {
-    dst  => 'r',
-    src  => 'ri',
-
-  },
-
-  sub => {
-
-    fn   => '_sub',
-
-    dst  => 'r',
-    src  => 'ri',
-
-  },
 
 
-  mul => {
-    dst  => 'r',
-    src  => 'r',
+    # bitshift left/right
+    shl => {
 
-  },
+      dst        => 'r',
+      src        => 'ri',
 
-#  # the mnemonic for 'division' should be 'avoid'
-#  # but that may confuse some people ;>
-#  div => {
-#    dst  => 'r',
-#    src  => 'r',
+      fix_immsrc => 1,
+      fix_regsrc => 3,
+
+    },
+
+    shr => {
+
+      dst        => 'r',
+      src        => 'ri',
+
+      fix_immsrc => 1,
+      fix_regsrc => 3,
+
+    },
+
+
+#    # bitscan <3
+#    bsf => {
+#      dst => 'r',
+#      src => 'r',
 #
-#  },
+#    },
+#
+#    bsr => {
+#      dst => 'r',
+#      src => 'r',
+#
+#    },
 
 
-  # ++/--
-  inc => {
-    argcnt => 1,
-    dst    => 'r',
+    # bit rotate right
+    # a thing of pure beauty!
+    ror => {
 
-  },
+      dst        => 'r',
+      src        => 'ri',
 
-  dec => {
-    argcnt => 1,
-    dst    => 'r',
+      fix_immsrc => 1,
+      fix_regsrc => 3,
 
-  },
+    },
+
+    # ^rotate left ;>
+    rol => {
+
+      dst        => 'r',
+      src        => 'ri',
+
+      fix_immsrc => 1,
+      fix_regsrc => 3,
+
+    },
+
+
+    # math
+    add => {
+      dst  => 'r',
+      src  => 'ri',
+
+    },
+
+    sub => {
+
+      fn   => '_sub',
+
+      dst  => 'r',
+      src  => 'ri',
+
+    },
+
+
+    mul => {
+      dst  => 'r',
+      src  => 'r',
+
+    },
+
+    # the mnemonic for 'division' should be 'avoid'
+    # but that may confuse some people ;>
+    div => {
+      dst  => 'r',
+      src  => 'r',
+
+    },
+
+    # modulo
+    mod => {
+      dst  => 'r',
+      src  => 'i',
+
+    },
+
+
+    # ++/--
+    inc => {
+      argcnt => 1,
+      dst    => 'r',
+
+    },
+
+    dec => {
+      argcnt => 1,
+      dst    => 'r',
+
+    },
 
 
 #  # negate
@@ -411,6 +418,10 @@ St::vconst {
 
     =   ld
     ^   xor
+    &   and
+    |   or
+    <<  shl
+    >>  shr
 
     +   add
     -   sub
@@ -1186,25 +1197,31 @@ sub _pop($self,$type) {
 # ---   *   ---   *   ---
 # bifshift right
 
-sub shr($type,$bits) {
+sub shr($self,$type,$src) {
+
+
+  # get ctx
+  my @src  = asval $src;
+  my $bits = shift @src;
 
   # inner state
   my $left = 0;
   my $prev = undef;
-  my $mask = bitmask($bits);
+  my $mask = bitmask $bits;
   my $pos  = $type->{sizebs} - $bits;
 
-  # ^inner F
-  sub ($x) {
 
-    $left   = $x  & $mask;
+  # make F
+  sub ($ice,$x) {
+
+    $left   = $x    &  $mask;
 
     $x      = $x    >> $bits;
     $$prev |= $left << $pos if $prev;
 
 
-   $prev   = \$x;
-    $prev;
+    $prev=\$x;
+    return $prev;
 
   };
 
@@ -1213,18 +1230,24 @@ sub shr($type,$bits) {
 # ---   *   ---   *   ---
 # bitshift left
 
-sub shl($type,$bits) {
+sub shl($self,$type,$src) {
+
+
+  # get ctx
+  my @src  = asval $src;
+  my $bits = shift @src;
 
   # inner state
   my $left   = 0;
   my $right  = 0;
 
-  my $mask   = bitmask($bits);
+  my $mask   = bitmask $bits;
   my $pos    = $type->{sizebs} - $bits;
      $mask <<= $pos;
 
-  # ^inner F
-  sub ($x) {
+
+  # make F
+  sub ($ice,$x) {
 
     $left  = ($x  & $mask);
     $x     = ($x << $bits) | $right;
@@ -1239,32 +1262,36 @@ sub shl($type,$bits) {
 # ---   *   ---   *   ---
 # bitrotate right
 
-sub ror($type,$bits) {
+sub ror($self,$type,$src) {
 
+
+  # get ctx
+  my @src  = asval $src;
+  my $bits = shift @src;
 
   # inner state
   my $left = undef;
   my $cnt  = 0;
 
-  my $mask = bitmask($bits);
+  my $mask = bitmask $bits;
   my $pos  = $type->{sizebs} - $bits;
 
   # inner sub-F
-  my $shr=shr($type,$bits);
+  my $shr=$self->shr($type,$bits);
 
 
-  # inner F
-  sub ($x) {
+  # make F
+  sub ($ice,$x) {
 
     $left=($x & $mask) << $pos
     if ! defined $left;
 
-    $x    = $shr->($x);
+    $x    = $shr->($ice,$x);
 
     $cnt += $type->{sizebs};
     $$x  |= $left if $cnt >> 3 == $type->{sizeof};
 
-    $x;
+    return $x;
 
   };
 
@@ -1273,27 +1300,33 @@ sub ror($type,$bits) {
 # ---   *   ---   *   ---
 # bitrotate left
 
-sub rol($type,$bits) {
+sub rol($self,$type,$src) {
+
+
+  # get ctx
+  my @src  = asval $src;
+  my $bits = shift @src;
 
   # inner state
   my $left   = undef;
   my $first  = undef;
   my $cnt    = 0;
 
-  my $mask   = bitmask($bits);
+  my $mask   = bitmask $bits;
   my $pos    = $type->{sizebs} - $bits;
      $mask <<= $pos;
 
   # inner sub-F
-  my $shl=shl($type,$bits);
+  my $shl=$self->shl($type,$bits);
 
-  # inner F
-  sub ($x) {
+
+  # make F
+  sub ($ice,$x) {
 
     $first   = \$x if ! defined $first;
     $left    = ($x & $mask) >> $pos;
 
-    $x       = $shl->($x);
+    $x       = $shl->($ice,$x);
 
     $cnt    += $type->{sizebs};
     $$first |= $left if $cnt >> 3 == $type->{sizeof};

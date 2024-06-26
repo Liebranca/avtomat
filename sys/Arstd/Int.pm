@@ -59,7 +59,7 @@ sub new($class,$value) {
 # divide and round up
 
 sub urdiv($a,$b) {
-  return int(($a/$b)+0.9999);
+  return int((abs($a)/$b)+0.9999);
 
 };
 
@@ -105,7 +105,7 @@ sub npow2($a,$give_exp=0) {
   my $x    = bitscanr $a;
   my $mask = $x-1;
 
-  $x++ if $a & $mask;
+  $x++ while (1 << $x) < $a;
 
 
   return ($give_exp) ? $x : 1 << $x;
