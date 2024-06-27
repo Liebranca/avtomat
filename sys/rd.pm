@@ -578,12 +578,12 @@ sub walk($self,%O) {
     # * if an F is returned, then it
     #   is executed in the next pass
 
-    my ($have)=(is_coderef $branch)
+    my @have=(is_coderef $branch)
       ? ($branch,$branch->())
       : $l2->walk($branch,%O)
       ;
 
-    push @pending,$have;
+    push @pending,@have;
 
   } @Q;
 

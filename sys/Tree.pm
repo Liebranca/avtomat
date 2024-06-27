@@ -39,7 +39,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.04.0;
+  our $VERSION = v0.04.1;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -139,6 +139,30 @@ sub dupa($self,$root,@attr) {
 
 
   return $copy;
+
+};
+
+# ---   *   ---   *   ---
+# move the uid counter for
+# all nodes after N
+
+sub uid_shift($self,$from,$step) {
+
+  my $out    = undef;
+  my $anchor = $from->next_branch;
+
+  while($anchor) {
+
+    $out=$anchor;
+
+    $anchor->{-uid} += $step;
+    $anchor=$anchor->next_leaf;
+
+  };
+
+
+  $self->{frame}->{uid} += $step;
+  return $out;
 
 };
 

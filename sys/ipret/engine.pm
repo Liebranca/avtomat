@@ -490,10 +490,10 @@ sub sbranch_collapse($self,$branch,$id) {
   my $par = $branch->{parent};
   my @lv  = @{$branch->{leaves}};
 
-  if(1 == @lv) {
+#  if(1 == @lv) {
     $branch->flatten_branch();
 
-  };
+#  };
 
 
   return;

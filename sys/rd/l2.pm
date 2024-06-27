@@ -539,7 +539,7 @@ sub exec_queue($self,@Q) {
 
 
     # out
-    my $have=undef;
+    my @have=();
 
     # unpack
     my ($cmd,$branch)=@$ARG;
@@ -556,11 +556,11 @@ sub exec_queue($self,@Q) {
     rept:
 
       $self->{branch}=$branch;
-      $have=$cmd->{key}->{fn}->($cmd,$branch);
+      @have=$cmd->{key}->{fn}->($cmd,$branch);
 
 
     # ^branch was mutated by proc
-    if($have && $have eq $self->node_mutate()) {
+    if($have[0] && $have[0] eq $self->node_mutate()) {
 
       # have new command?
       my $mut=$self->cmd();
@@ -576,7 +576,8 @@ sub exec_queue($self,@Q) {
 
 
     # give result if defined
-    (defined $have) ? $have : () ;
+    skip:
+    (defined $have[0]) ? @have : () ;
 
 
   # avoid processing the same node twice

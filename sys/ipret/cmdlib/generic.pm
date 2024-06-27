@@ -34,8 +34,92 @@ package ipret::cmdlib::generic;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# pastedef
+
+sub _inline($self,$branch) {
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $eng  = $main->{engine};
+  my $l1   = $main->{l1};
+
+
+  # ~
+  my $name = $branch->{vref}->{id};
+     $name = $l1->xlate($name)->{spec};
+
+  my $sym  = $eng->symfet($name);
+
+  return $branch if ! $sym;
+
+
+  # validate linked sub-tree
+  my $stree = $sym->{p3ptr};
+  my $have  = $l1->typechk(CMD=>$stree->{value});
+
+  if(! $have || $have->{spec} ne 'proc') {
+
+    $main->perr(
+      "non-proc symbol '%s' passed to inline",
+      args=>[$name],
+
+    );
+
+  };
+
+
+  # all OK, get proc contents
+  my $tree = $stree->{parent};
+
+  my $stop = $l1->tag(CMD=>'asm-ins') . 'ret';
+     $stop = qr"\Q$stop";
+
+  my @have = $tree->match_until($stree,$stop);
+
+
+  # ^replace branch with contents!
+  my $par  = $branch->{parent};
+  my $idex = $branch->{-uid}+1;
+
+  map {
+
+    $have[$ARG]=$have[$ARG]->dupa(
+      undef,'vref','-uid'
+
+    );
+
+    $have[$ARG]->{-uid}=$idex++;
+
+  } 0..$#have;
+
+
+  $branch->{value}=null;
+
+  my $step = 1+int @have;
+  my $end  = $par->uid_shift($branch,$step);
+
+
+  my $Q=$main->{encoder}->{Q}->{asm};
+
+  map {
+
+    my $tmp=$Q->[$ARG];
+
+    $Q->[$ARG+$step] = $tmp;
+    $Q->[$ARG      ] = undef;
+
+  } $branch->{-uid}..$end->{-uid};
+
+  $branch->pushlv(@have);
+  $main->{l2}->recurse($branch);
+
+  return;
+
+};
 
 # ---   *   ---   *   ---
 # solves dbout values
@@ -104,9 +188,11 @@ sub szof($self,$branch) {
 # ---   *   ---   *   ---
 # add entry points
 
-cmdsub stop => q() => \&stop;
-cmdsub echo => q() => \&echo;
-cmdsub szof => q() => \&szof;
+cmdsub inline => q() => \&_inline;
+
+cmdsub stop   => q() => \&stop;
+cmdsub echo   => q() => \&echo;
+cmdsub szof   => q() => \&szof;
 
 # ---   *   ---   *   ---
 1; # ret

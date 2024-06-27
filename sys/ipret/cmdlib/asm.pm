@@ -40,7 +40,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.8;#b
+  our $VERSION = v0.01.9;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -99,9 +99,10 @@ sub blk($self,$branch) {
   $ptr->{chan}       = $top->{iced};
 
   $mc->{cas}->{ptr} += $align_t->{sizeof};
+  $ptr->{p3ptr}      = $branch;
 
 
-  # add reference to current segment!
+  # add refere nce to current segment!
   my $alt=$top->{inner};
   $alt->force_set($ptr,$name);
 

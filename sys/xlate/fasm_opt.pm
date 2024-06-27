@@ -442,7 +442,7 @@ sub regrepl($src) {
 };
 
 # ---   *   ---   *   ---
-# ~
+# unroll peso modulo
 
 sub expand_mod($self,$type,$ins,@args) {
 
@@ -485,6 +485,33 @@ sub expand_mod($self,$type,$ins,@args) {
     nyi "NON-CONST MOD";
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# unroll peso rand
+
+sub expand_rand($self,$type,$ins,@args) {
+
+  $type=typefet 'qword';
+
+  return (
+
+    [$type,'rdtsc'],
+
+    [$type,'shl',
+      {type=>'r',reg=>6},
+      {type=>'i',imm=>32},
+
+    ],
+
+    [$type,'or',
+      {type=>'r',reg=>0},
+      {type=>'r',reg=>6},
+
+    ],
+
+  );
 
 };
 

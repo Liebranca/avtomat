@@ -34,7 +34,7 @@ package rd::cmdlib::generic;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -80,6 +80,57 @@ sub csume_list($self,$branch) {
   $branch->{vref}=\@args;
   $branch->clear();
 
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# repeat N times!
+
+sub rept($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+  # unpack args
+  my ($n,$body)=@{$branch->{leaves}};
+  $n=$l1->xlate($n->{value})->{spec};
+
+  my @body=@{$body->{leaves}};
+  my @have=map {
+
+    map {
+
+      if($l1->typechk(EXP=>$ARG->{value})) {
+        map {$ARG->dupa(undef,'vref','-uid')}
+        @{$ARG->{leaves}};
+
+      } else {
+        $ARG->dupa(undef,'vref','-uid');
+
+      };
+
+    } @body;
+
+  } 0..$n-1;
+
+
+  my $par  = $branch->{parent};
+  my $idex = $have[0]->{-uid};
+
+  $branch->clear();
+  $par->uid_shift($branch,int @have);
+
+  map {
+    $have[$ARG]->{-uid}=$idex+$ARG;
+
+  } 0..$#have;
+
+  $branch->pushlv(@have);
+  $branch->flatten_branch();
 
   return;
 
@@ -176,7 +227,18 @@ cmdsub 'csume-list' => q(
 
 )  => \&csume_list;
 
+w_cmdsub 'csume-token' => q(
+  sym name;
+
+) => qw(inline);
+
 w_cmdsub 'csume-list' => q(qlist src) => 'echo';
+
+cmdsub 'rept' => q(
+  num   N;
+  curly body;
+
+)  => \&rept;
 
 cmdsub stop => q(
   sym at=reparse;

@@ -401,7 +401,8 @@ St::vconst {
 
 
     # meta instructions
-    sex => {
+    rand => {argcnt=>0},
+    sex  => {
 
       dst    => 'r',
       argcnt => 1,
@@ -1356,6 +1357,18 @@ sub rol($self,$type,$src) {
     $$first |= $left if $cnt >> 3 == $type->{sizeof};
 
     \$x;
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+# get pseudo-random number
+
+sub rand($self,$type) {
+
+  sub ($ice) {
+    return int rand 0xFFFFFFFFFFFFFFFF;
 
   };
 

@@ -37,7 +37,7 @@ package ipret::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -166,6 +166,8 @@ sub seg_type($self,$branch) {
       ],
 
     );
+
+    $have->{p3ptr}=$branch;
 
   };
 

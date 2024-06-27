@@ -60,9 +60,12 @@ St::vconst {
   },
 
   haveopt => {
-    mul => 1,
-    mod => \&xlate::fasm_opt::expand_mod,
-    div => 1,
+
+    mul  => 1,
+    mod  => \&xlate::fasm_opt::expand_mod,
+    div  => 1,
+
+    rand => \&xlate::fasm_opt::expand_rand,
 
   },
 
