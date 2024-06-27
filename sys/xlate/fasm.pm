@@ -325,7 +325,7 @@ sub operand_value($self,$type,@data) {
 
 
       push @r,join '',@have;
-      my $out=join '+',@r;
+      my $out=join '+',grep {length $ARG} @r;
 
 
       $out .= '*'. (1 << $ARG->{scale})

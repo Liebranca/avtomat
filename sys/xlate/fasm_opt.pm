@@ -58,6 +58,7 @@ sub leamul_step1($y,$s,$need) {
 
 
   # map opera to instruction
+  my $exp=int_npow2 $s,1;
   my $tab={
 
     "$y+$y*$s" => [lea=>(
@@ -68,7 +69,7 @@ sub leamul_step1($y,$s,$need) {
         rX    => 'X',
         rY    => 'X',
 
-        scale => $s,
+        scale => $exp,
 
       },
 
@@ -80,7 +81,7 @@ sub leamul_step1($y,$s,$need) {
 
       { type  => 'mlea',
         rX    => 'X',
-        scale => $s,
+        scale => $exp,
 
       },
 
@@ -117,6 +118,7 @@ sub leamul_step2($n,$y,$s,$need) {
 
 
   # map opera to instruction
+  my $exp=int_npow2 $s,1;
   my $tab={
 
     "$n+$n*$s" => [lea=>(
@@ -127,7 +129,7 @@ sub leamul_step2($n,$y,$s,$need) {
         rX    => 'Y',
         rY    => 'Y',
 
-        scale => $s,
+        scale => $exp,
 
       },
 
@@ -141,7 +143,7 @@ sub leamul_step2($n,$y,$s,$need) {
         rX    => 'Y',
         rY    => 'X',
 
-        scale => $s,
+        scale => $exp,
 
       },
 
@@ -155,7 +157,7 @@ sub leamul_step2($n,$y,$s,$need) {
         rX    => 'X',
         rY    => 'X',
 
-        scale => $s,
+        scale => $exp,
 
       },
 
@@ -169,7 +171,7 @@ sub leamul_step2($n,$y,$s,$need) {
         rX    => 'X',
         rY    => 'Y',
 
-        scale => $s,
+        scale => $exp,
 
       },
 
@@ -182,7 +184,7 @@ sub leamul_step2($n,$y,$s,$need) {
       { type  => 'mlea',
         rX    => 'Y',
 
-        scale => $s,
+        scale => $exp,
 
       },
 
@@ -195,7 +197,7 @@ sub leamul_step2($n,$y,$s,$need) {
       { type  => 'mlea',
         rX    => 'X',
 
-        scale => $s,
+        scale => $exp,
 
       },
 
@@ -409,6 +411,37 @@ sub fxpmod($n,$f,$bits=0) {
 };
 
 # ---   *   ---   *   ---
+# placeholder: replace register name
+
+sub regrepl($src) {
+
+  my @r=grep {defined $$ARG} (
+
+    \$src->{reg},
+
+    \$src->{rX},
+    \$src->{rY},
+
+  );
+
+  map {
+
+    $$ARG={
+      'X'=>0,
+      'Y'=>4,
+      'Z'=>6,
+
+    }->{$$ARG};
+
+    $$ARG++ if $src->{type} eq 'mlea';
+
+  } @r;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # ~
 
 sub expand_mod($self,$type,$ins,@args) {
@@ -417,27 +450,30 @@ sub expand_mod($self,$type,$ins,@args) {
 
   if($have[-1] =~ $NUM_RE) {
 
+    my $next=typefet {
+      byte  => 'word',
+      word  => 'dword',
+      dword => 'qword',
+      qword => 'qword',
+
+    }->{$type->{name}};
+
+
     my $bits       = $type->{sizebs};
-    my ($n,@exins) = fxpmod 1,$have[-1],$bits;
+    my ($n,@exins) = fxpmod $have[-1],$have[-1],$bits;
 
     map {
 
       my ($ins,@nargs)=@$ARG;
+      map {regrepl $ARG} @nargs;
 
-      map {
-
-        $ARG->{reg}={
-          'X'=>0,
-          'Y'=>4,
-          'Z'=>6,
-
-        }->{$ARG->{reg}}
-        if exists $ARG->{reg};
-
-      } @nargs;
+      my $type=($ins eq 'lea')
+        ? typefet 'dword'
+        : $type
+        ;
 
       ($ins=~ qr{^(?:mul|imul|shr|shl)})
-        ? unshift @$ARG,typefet 'dword'
+        ? unshift @$ARG,$next
         : unshift @$ARG,$type
         ;
 
