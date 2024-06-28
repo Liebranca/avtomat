@@ -235,16 +235,10 @@ sub clan($self,$branch) {
   my $out=sub {
 
     my @path=split $mc->{pathsep},$name;
-    my $base=shift @path;
+    $mc->{cas}=$mc->{astab}->{$name};
 
-    $mc->{cas}=
-      $mc->{astab}->{$base};
-
-
-    my $seg=$mc->{cas}->nderef(null,@path);
-
-    $mc->setseg($seg);
-    $seg;
+    $mc->setseg($mc->{cas});
+    $mc->{cas};
 
   };
 

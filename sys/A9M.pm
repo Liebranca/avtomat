@@ -198,78 +198,34 @@ sub astab_push($self,$src) {
 
   if(! $mem->is_valid($src)) {
 
+    $label = $src;
+    $root  = $mem->mkroot(
 
-    # handle path::to
-    my @path=split $self->{pathsep},$src;
+      mcid  => $self->{iced},
+      mccls => (ref $self),
 
-    # ^making sub-segment?
-    if(1 < @path) {
+      label => $src,
+      size  => 0x00,
 
-      my $base=shift @path;
-      my $name=pop   @path;
-
-      # find parent namespace
-      $root=$self->{astab}->{$base};
-
-      my $have=(@path)
-        ? $root->nderef(null,@path)
-        : $root
-        ;
-
-      # ^edge case: parent decl skipped!
-      if(! defined $have) {
-
-        $have=$self->astab_push(
-          join '::',$base,@path
-
-        );
-
-      };
-
-
-      # make new and give
-      $label = null;
-      $root  = $have->new(0x00,$name);
-
-
-    # ^making root segment!
-    } else {
-
-      $label = $path[0];
-      $root  = $mem->mkroot(
-
-        mcid  => $self->{iced},
-        mccls => (ref $self),
-
-        label => $src,
-        size  => 0x00,
-
-      );
-
-    };
+    );
 
 
   # ^nope, a tree was passed!
   } else {
 
-    $label = ($src eq $src->{root})
-      ? $src->{value}
-      : null
-      ;
-
+    $label = $src->{value};
     $root  = $src;
 
   };
 
 
   # ^make current and add to table
-  $self->{cas}=$root->{root};
+  $self->{cas}=$root;
 
-  if(length $label) {
-    $self->{astab}->{$label}=$root;
-    push @{$self->{astab_i}},$label;
+  $self->{astab}->{$label}=$root;
+  push @{$self->{astab_i}},$label;
 
-  };
+  $self->setseg($root);
 
 
   return $root;
@@ -697,6 +653,56 @@ sub valid_psearch($self,$name,@path) {
     ? $out
     : badfet($name,@path)
     ;
+
+};
+
+# ---   *   ---   *   ---
+# get symbol name from packed vref
+
+sub vrefid($self,$src,$ch='_') {
+
+
+  # get ctx
+  my $mem=$self->{bk}->{mem};
+
+  # unpack
+  my @path = @{$src->{id}};
+  my $name = shift @path;
+
+
+  # get [fullname => symbol]
+  my $full=join $ch,grep {
+      length $ARG
+  &&! ($ARG=~ $mem->anon_re)
+
+  } map {
+    split $self->{pathsep},$ARG
+
+  } @path,$name;
+
+
+  return ($name,$full,@path);
+
+};
+
+# ---   *   ---   *   ---
+# ^actually fetch the symbol
+
+sub vrefsym($self,$src,$ch='_') {
+
+
+  # get id
+  my ($name,$full,@path)=
+    $self->vrefid($src,$ch);
+
+  # ^fetch symbol by id
+  my $sym=${$self->valid_psearch(
+    $name,@path
+
+  )};
+
+
+  return ($sym,$name,$full,@path);
 
 };
 

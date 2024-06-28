@@ -34,7 +34,7 @@ package ipret::cmdlib::generic;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -87,22 +87,26 @@ sub _inline($self,$branch) {
 
   map {
 
+
+    # we duplicate each node...
     $have[$ARG]=$have[$ARG]->dupa(
       undef,'vref','-uid'
 
     );
 
+    # ^and adjust the node's id!
     $have[$ARG]->{-uid}=$idex++;
 
   } 0..$#have;
 
 
-  $branch->{value}=null;
 
+  # ^now adjust subsequent nodes...
   my $step = 1+int @have;
   my $end  = $par->uid_shift($branch,$step);
 
 
+  # ^and the assembly queue ;>
   my $Q=$main->{encoder}->{Q}->{asm};
 
   map {

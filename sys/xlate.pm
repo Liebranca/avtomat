@@ -100,6 +100,43 @@ sub run($self) {
   my @out=$lang->open_boiler();
 
 
+  # filter out virtual data
+  my $virtual = 0;
+
+  for my $data(@$Q) {
+
+    my ($seg,$route,@req)=@$data;
+
+    @req=map {
+
+      my ($type,$ins,@args)=@$ARG;
+
+      if(! $virtual && $ins eq 'data-decl') {
+        my ($sym)=$mc->vrefsym($args[0]);
+        $virtual=$sym->{virtual};
+
+        ($virtual) ? () : $ARG ;
+
+      } elsif($virtual && $ins eq 'ret') {
+        $virtual=0;
+        ();
+
+      } else {
+        ($virtual) ? () : $ARG ;
+
+      };
+
+
+    } @req;
+
+
+    $data=(@req) ? [$seg,$route,@req] : [] ;
+
+  };
+
+  @$Q=grep {int @$ARG} @$Q;
+
+
   # get executable block
   my $non  = $mc->{astab}->{non};
   my $code = $non->{leaves}->[-1];

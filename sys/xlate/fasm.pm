@@ -205,26 +205,11 @@ sub new($class,$main) {
 };
 
 # ---   *   ---   *   ---
-# get symbol name
-
-sub symname($self,$src,$key='id') {
-
-  my $mem  = $self->{main}->{mc}->{bk}->{mem};
-
-  my @path = @{$src->{$key}};
-  my $name = shift @path;
-
-  return join '_',grep {
-    ! ($ARG=~ $mem->anon_re)
-
-  } @path,$name;
-
-};
-
-# ---   *   ---   *   ---
 # decompose memory operand
 
 sub addr_collapse($self,$tree) {
+
+  my $mc    = $self->{main}->{mc};
 
   my $opera = qr{^(?:\*|\/)$};
   my @have  = map {
@@ -234,7 +219,7 @@ sub addr_collapse($self,$tree) {
 
     # have fetch?
     if(exists $ARG->{imm}) {
-      @out = $self->symname($ARG,'id');
+      @out = ($mc->vrefid($ARG))[1];
       $neg = $ARG->{neg};
 
     # have value!
@@ -338,7 +323,7 @@ sub operand_value($self,$type,@data) {
 
 
     } elsif(exists $ARG->{id}) {
-      $self->symname($ARG,'id');
+      ($mc->vrefid($ARG))[1];
 
     } else {
       $ARG->{imm};
@@ -580,21 +565,9 @@ sub data_decl($self,$type,$src) {
   my $mc   = $main->{mc};
   my $mem  = $mc->{bk}->{mem};
 
-
-  # unpack
-  my @path = @{$src->{id}};
-  my $name = shift @path;
-
-  # get [fullname => symbol]
-  my $full = join '_',grep {
-    ! ($ARG=~ $mem->anon_re)
-
-  } @path,$name;
-
-  my $sym  = ${$mc->valid_psearch(
-    $name,@path
-
-  )};
+  # unpack vref
+  my ($sym,$name,$full,@path)=
+    $mc->vrefsym($src);
 
 
   # have label?
