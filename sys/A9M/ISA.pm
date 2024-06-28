@@ -180,7 +180,10 @@ sub get_ins_idex($class,$name,$size,@args) {
 
   );
 
-  return ($ins) ? $ins : warn_invalid($full) ;
+  return (defined $ins)
+    ? $ins
+    : warn_invalid($full)
+    ;
 
 };
 

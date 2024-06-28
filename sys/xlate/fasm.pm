@@ -34,7 +34,7 @@ package xlate::fasm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -403,6 +403,16 @@ sub step($self,$data) {
 sub insout($self,$type,$ins,@args) {
 
   my @have=$self->operand_value($type,@args);
+
+  # edge case: fixed register for shift/rotate
+  if(
+      $ins=~ qr{^(?:shr|shl|ror|rol)$}
+
+  &&! ($have[-1]=~ $NUM_RE)
+  &&  $have[-1] ne 'cl'
+
+  ) {$have[-1]='cl'};
+
 
   return (@have)
 

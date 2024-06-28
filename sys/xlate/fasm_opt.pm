@@ -346,10 +346,22 @@ sub fxpdiv($n,$f,$bits=0) {
 
 
   # ^nope, do it the hard way ;>
-  $bits=2+bitsize $n if ! $bits;
+  $bits=4+bitsize $n if ! $bits;
 
   my $rc  = fxpreci($f,$bits);
   my @ins = (
+
+    [xor=>(
+      {type=>'r',reg=>'Y'},
+      {type=>'r',reg=>'Y'},
+
+    )],
+
+    [mov=>(
+      {type=>'r',reg=>'Y'},
+      {type=>'r',reg=>'X'},
+
+    )],
 
     [mov=>(
       {type=>'r',reg=>'X'},
@@ -395,16 +407,26 @@ sub fxpmod($n,$f,$bits=0) {
 
 
   # ^nope, do it the hard way ;>
-  $bits=2+bitsize $n if ! $bits;
+  $bits=4+bitsize $n if ! $bits;
 
   my ($x,@insa) = fxpdiv $n,$f,$bits;
   my ($y,@insb) = leamul $x,$f;
 
-  my @ins=(@insa,@insb,[sub=>(
-    {type=>'r',reg=>'Y'},
-    {type=>'r',reg=>'X'},
+  my @ins=(@insa,@insb,
 
-  )]);
+    [sub=>(
+      {type=>'r',reg=>'Y'},
+      {type=>'r',reg=>'X'},
+
+    )],
+
+    [mov=>(
+      {type=>'r',reg=>'X'},
+      {type=>'r',reg=>'Y'},
+
+    )],
+
+  );
 
   return ($n-$y,@ins);
 
@@ -459,8 +481,9 @@ sub expand_mod($self,$type,$ins,@args) {
     }->{$type->{name}};
 
 
-    my $bits       = $type->{sizebs};
-    my ($n,@exins) = fxpmod $have[-1],$have[-1],$bits;
+    my $bits       = 4+$type->{sizebs};
+    my ($n,@exins) = fxpmod
+      $have[-1],$have[-1],$bits;
 
     map {
 
@@ -472,12 +495,13 @@ sub expand_mod($self,$type,$ins,@args) {
         : $type
         ;
 
-      ($ins=~ qr{^(?:mul|imul|shr|shl)})
+      ($ins=~ qr{^(?:xor|mul|imul|shr|shl)})
         ? unshift @$ARG,$next
         : unshift @$ARG,$type
         ;
 
     } @exins;
+
 
     return @exins;
 
