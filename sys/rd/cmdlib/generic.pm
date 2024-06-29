@@ -87,6 +87,36 @@ sub csume_list($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# consume scope if....
+
+sub csume_scp($self,$branch) {
+
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+  my $i    = 0;
+
+  my $anchor=$branch->{parent};
+  while($anchor && $i < 2) {
+
+    my $key  = $anchor->{value};
+    my $head = $anchor->{parent};
+
+    $anchor->flatten_branch()
+
+    if ($i==0 && $l1->typechk(EXP=>$key))
+    || ($i==1 && $l1->typechk(SCP=>$key));
+
+    $anchor=$head;
+    $i++;
+
+  };
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # repeat N times!
 
 sub rept($self,$branch) {
@@ -127,6 +157,32 @@ sub rept($self,$branch) {
 
   $branch->pushlv(@have);
   $branch->flatten_branch();
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# join tokens to form symbol
+
+sub symcat($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+  # unpack args
+  my @body=$self->argtake($branch);
+  my $name=join null,map {$ARG->{id}} @body;
+
+
+  # replace branch with symbol
+  $branch->{value} = $l1->tag(SYM=>$name);
+  $branch->{vref}  = undef;
+
+  $branch->clear();
+  $self->csume_scp($branch);
 
   return;
 
@@ -235,6 +291,11 @@ cmdsub 'rept' => q(
   curly body;
 
 )  => \&rept;
+
+cmdsub 'symcat' => q(
+  qlist body;
+
+)  => \&symcat;
 
 cmdsub stop => q(
   sym at=reparse;

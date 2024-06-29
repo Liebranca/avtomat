@@ -353,6 +353,7 @@ sub data_decl($self,$branch) {
       # update...
       my ($xname,@xpath)=$sym->fullpath;
 
+
       $ARG->[0] = $xname;
       $type     = ($ptr_t)
         ? $sym->{ptr_t}

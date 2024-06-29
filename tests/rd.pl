@@ -41,7 +41,7 @@ q[%;
   clan testy;
   rom  X;
 
-  byte a @SET;
+  byte symcat 'a',0 @SET;
 
 ],
 

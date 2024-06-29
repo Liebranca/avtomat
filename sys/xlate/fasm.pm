@@ -534,6 +534,7 @@ sub data_decl_label($self,$key,$have_t,$data,%O) {
   # defaults
   $O{str}  //= 0;
   $O{cstr} //= 0;
+  $O{anon} //= 0;
 
 
   # handle string conversions
@@ -553,7 +554,7 @@ sub data_decl_label($self,$key,$have_t,$data,%O) {
   # paste string and length?
   my $out="  $have_t $have";
 
-  if(! ($key=~ qr{_L\d+$})) {
+  if(! $O{anon}) {
     $out  = "\n$key:\n$out\n";
     $out .= "\nsizeof.$key=\$-$key\n";
 
@@ -593,6 +594,8 @@ sub data_decl($self,$type,$src) {
   # have value!
   } else {
 
+
+    my $anon   = $full ne join '_',@path,$name;
 
     my (@dd)   = $self->data_decl_key($type);
     my ($data) = $eng->value_flatten(
@@ -675,6 +678,8 @@ sub data_decl($self,$type,$src) {
 
           str  => $str,
           cstr => $cstr,
+
+          anon => $anon,
 
         );
 
