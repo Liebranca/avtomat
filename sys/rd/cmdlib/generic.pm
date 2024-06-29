@@ -125,18 +125,39 @@ sub rept($self,$branch) {
   # get ctx
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
+  my $l2   = $main->{l2};
+  my $tree = $branch->{frame};
 
   # unpack args
-  my ($n,$body)=@{$branch->{leaves}};
-  $n=$l1->xlate($n->{value})->{spec};
+  my ($n,$src,$body)=@{$branch->{leaves}};
 
-  my @body=@{$body->{leaves}};
+
+  # elem count provided?
+  if($l1->typechk(SCP=>$src->{value})) {
+
+    my $cnt=$self->argex($n);
+
+    $body = $src;
+    $src  = [0..$cnt-1];
+    $n    = null;
+
+
+  # ^elems from list!
+  } else {
+    $src = [$self->argex($src)];
+    $n   = $l1->xlate($n->{value})->{spec};
+    $n   = "\Q$n";
+    $n   = $l1->re(WILD=>$n);
+
+  };
 
 
   # duplicate block N times
+  my @body=@{$body->{leaves}};
   my @have=map {
 
-    map {
+    my $idex = $ARG;
+    my @blk  = map {
 
       if($l1->typechk(EXP=>$ARG->{value})) {
         map {$ARG->dupa(undef,'vref')}
@@ -149,13 +170,45 @@ sub rept($self,$branch) {
 
     } @body;
 
-  } 0..$n-1;
+
+    # ^replace itervars if any
+    map {
+
+      map {
+
+        my $x   = $src->[$idex];
+        my $tag = $l1->tag(
+          uc $x->{type},
+          $x->{id},
+
+        );
+
+        $ARG->{value}=$tag;
+
+      } $ARG->branches_in($n);
+
+    } @blk if length $n;
 
 
-  # replace branch with duplicated block!
+    # generate expression!
+    my $root=$tree->new(
+      undef,$l1->tag(EXP=>$idex)
+
+    );
+
+    $root->pushlv(@blk);
+    $root;
+
+  } 0..(int @$src)-1;
+
+
+  # replace branch with generated blocks!
   $branch->clear();
+  $branch->{value}=$l1->tag(SYM=>'TMP');
 
   $branch->pushlv(@have);
+  $l2->recurse($branch);
+
   $branch->flatten_branch();
 
   return;
@@ -286,8 +339,9 @@ w_cmdsub 'csume-token' => q(
 
 w_cmdsub 'csume-list' => q(qlist src) => 'echo';
 
-cmdsub 'rept' => q(
-  num   N;
+unrev cmdsub 'rept' => q(
+  any   N;
+  qlist src=NULL;
   curly body;
 
 )  => \&rept;
