@@ -24,6 +24,7 @@ package rd::preproc;
 
   use Style;
   use Chk;
+  use Shb7;
 
   use Arstd::Array;
   use Arstd::PM;
@@ -33,7 +34,7 @@ package rd::preproc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -56,7 +57,7 @@ St::vconst {
   },
 
   fn_t     => 'rd::preprocfn',
-  genesis  => 'case',
+  genesis  => ['lib','use','case'],
 
 };
 
@@ -91,13 +92,10 @@ sub ready_or_build($self) {
   my $curly = $l1->re(SCP => '\{');
 
   # ^attach function to pattern array
-  $tab->begin($self->genesis);
+  $tab->begin($self->genesis->[2]);
 
   $tab->pattern(
-
     [name => $name],
-    [loc  => 0],
-
     [body => $curly],
 
   );
@@ -105,6 +103,33 @@ sub ready_or_build($self) {
   $tab->function(\&defproc);
   $tab->object($self);
   $tab->build();
+
+
+  # ~
+  my $sym_re=$l1->re(SYM => '.+');
+
+  $tab->begin($self->genesis->[0]);
+  $tab->pattern(
+
+    [name => $sym_re],
+
+  );
+
+  $tab->function(\&_lib);
+  $tab->object($self);
+  $tab->build();
+
+  $tab->begin($self->genesis->[1]);
+  $tab->pattern(
+
+    [name => $sym_re],
+
+  );
+
+  $tab->function(\&_use);
+  $tab->object($self);
+  $tab->build();
+
 
   return;
 
@@ -272,6 +297,139 @@ sub sort_expr($self,$status,@lv) {
     push @$dst,$head->{parent};
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# common path-solving method
+
+sub solve_path($self,$src) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $mc   = $main->{mc};
+
+
+  # get file or dir path
+  join '/',map {
+
+
+    # have environment variable?
+    my $environ=$ARG=~ s[^ENV\.][];
+
+    # ^validate
+    $main->perr(
+      "bad environment variable '%s'",
+      args=>[$ARG],
+
+    ) if $environ &&! exists $ENV{$ARG};
+
+
+    # give sub-path
+    ($environ)
+      ? $ENV{$ARG}
+      : $ARG
+      ;
+
+  } split $mc->{pathsep},$src;
+
+};
+
+# ---   *   ---   *   ---
+# fetch the dir!
+
+sub _lib($self,$data) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $mc   = $main->{mc};
+  my $l1   = $main->{l1};
+
+  # unpack arg
+  my $name = $data->{name};
+
+
+  # get path to library
+  my $path=$self->solve_path($name);
+
+  # ^validate
+  $main->perr(
+    "cannot find libpath '%s'",
+    args=>[$path]
+
+  ) if ! -d $path;
+
+
+  # ^all OK, add to search
+  push @{$main->{PATH}},$path;
+  Shb7::push_includes $path;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^fetch the file ;>
+
+sub _use($self,$data) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $mc   = $main->{mc};
+  my $l1   = $main->{l1};
+
+  # unpack arg
+  my $name = $data->{name};
+
+
+  # get path to object
+  my $path  = $self->solve_path($name);
+     $path  = Shb7::ffind($path,'pe');
+
+  # ^validate
+  $main->perr(
+    "missing *.pe object '%s'",
+    args=>[$name],
+
+  ) if ! defined $path;
+
+
+  # recurse
+  my $class = ref $main;
+  my $fn    = "$class\::crux";
+    $fn    = \&$fn;
+
+  my $rd    = $fn->($path);
+
+
+  # ~
+  my $xplant = {
+    invoke => $rd->{preproc}->{invoke},
+    tab    => $rd->{preproc}->{tab},
+
+  };
+
+  map {
+
+    my ($from,$name)=split $COMMA_RE,$ARG;
+    my $have=$xplant->{$from}->{tab}->{$name};
+
+    my $obj=$have->{obj};
+
+    $obj->{main} = $main;
+    $obj->{par}  = $self;
+
+    push @{$self->{order}},$ARG;
+    $self->{$from}->{tab}->{$name}=$have;
+
+    $name;
+
+
+  } @{$rd->{preproc}->{order}};
 
 };
 
@@ -459,8 +617,8 @@ sub tree_to_sub($self,$data,$status,$dst='tab') {
   $fn = "$fn_t\::run";
   $fn = \&$fn;
 
-  $self->{tab}->function($fn);
-  $self->{tab}->object($fstate);
+  $self->{$dst}->function($fn);
+  $self->{$dst}->object($fstate);
 
 
   # remember order in which functions are
@@ -486,7 +644,7 @@ sub parse($self,$root) {
   # one by one, then expand new keywords
   # as they are defined!
 
-  my @list=$self->genesis;
+  my @list=@{$self->genesis};
 
   @list=map {
     $self->find($root,keyw=>$ARG);
@@ -507,7 +665,7 @@ sub find($self,$root,%O) {
 
 
   # defaults
-  $O{keyw} //= $self->genesis;
+  $O{keyw} //= $self->genesis->[2];
 
   # get ctx
   my $main = $self->{main};
@@ -541,7 +699,7 @@ sub find($self,$root,%O) {
       "no signature match for "
     . "[ctl]:%s '%s'",
 
-      args=>[$self->genesis,$O{keyw}],
+      args=>[$self->genesis->[2],$O{keyw}],
 
     ) if ! length $data;
 
@@ -551,7 +709,7 @@ sub find($self,$root,%O) {
     $data->{-class}  //= $O{keyw};
 
     $self->deref($data);
-    $tab->run($meta,$data);
+    my @extra=$tab->run($meta,$data);
 
 
     # have on-parse code?
@@ -560,7 +718,11 @@ sub find($self,$root,%O) {
 
     # clear branch and give
     $nd->{parent}->discard();
-    $data->{name};
+
+    (@extra)
+      ? @extra
+      : $data->{name}
+      ;
 
 
   } @have;
@@ -634,6 +796,7 @@ sub invoke($self,$root,@src) {
 
   @src=$tab->find($root)
   if ! @src;
+
 
 
   # walk cases!

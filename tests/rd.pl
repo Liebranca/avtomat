@@ -30,7 +30,22 @@ package main;
 # run and dbout
 
 my $xlate = xlate->new(
-  glob('~/bt/dice.pe'),
+
+q[%;
+
+  lib ENV.ARPATH::avtomat;
+  use lps::macros;
+
+  def SET {1,2,3,4};
+
+  clan testy;
+  rom  X;
+
+  byte a @SET;
+
+],
+
+#  glob('~/bt/dice.pe'),
   limit=>2
 
 );

@@ -149,6 +149,24 @@ sub crux($src,%O) {
   );
 
 
+  # sort assembly queue
+  my $enc = $self->{encoder};
+  my $Q   = $enc->{Q}->{asm};
+
+  my @tmp = ();
+
+  map {
+
+    my ($branch,@data)=@$ARG;
+    my $idex=$branch->absidex;
+
+    $tmp[$idex]=\@data;
+
+  } grep {defined $ARG} @$Q;
+
+  @$Q=@tmp;
+
+
   # make binary
   $self->flatten();
   $self->assemble();
@@ -373,7 +391,7 @@ sub mint($self) {
 
   } qw(
 
-    fpath entry
+    fpath PATH entry
 
     fmode subpkg lineat lineno
     stage pass passes

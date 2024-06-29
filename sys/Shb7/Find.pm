@@ -171,7 +171,7 @@ sub ffind($fname,@exts) {
 
   # perform search and errchk
   my $src=fsearch($search_in,@files);
-  if(!defined $src) {
+  if(! defined $src) {
     throw_no_file($fname,@exts);
 
   };

@@ -186,6 +186,10 @@ sub new($class,$src,%O) {
     buf   => $body,
 
 
+    # search dirs
+    PATH  => [],
+
+
   },$class;
 
 
@@ -865,7 +869,7 @@ sub mint($self) {
 
   } qw(
 
-    fpath
+    fpath PATH
 
     fmode subpkg lineat lineno
     stage pass passes

@@ -230,8 +230,6 @@ sub segpre($self,$branch,$type,$name=null) {
   #
   # effectively merges the new node
   # with the current one
-
-  $nd->{-uid}=$branch->{-uid};
   $nd->{vref}={
 
     name => (length $name)

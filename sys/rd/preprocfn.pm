@@ -119,6 +119,7 @@ sub fnread($self,$fn) {
 
   } @$fn;
 
+
   return;
 
 };
@@ -137,8 +138,8 @@ sub fnread_field($self,$branch) {
 
 
   # first token is name of F
-  my $name = shift @lv;
-     $name = $par->deref($name->{value});
+  my $name   = shift @lv;
+     ($name) = $par->deref($name->{value});
 
   # ^whatever follows is args!
   my @args=map {$par->deref($ARG)} @lv;
@@ -180,7 +181,7 @@ sub fetch($self,$name) {
   # ^backup: get name is user-defined
   if(! $have) {
 
-    my $tab  = $par->{tab};
+    my $tab  = $par->{tab}->{tab};
        $have = $tab->{$name}->{fn};
 
   };
@@ -192,7 +193,7 @@ sub fetch($self,$name) {
     "[ctl]:%s function '%s' "
   . "not implemented",
 
-    args=>[$par->genesis,$name],
+    args=>[$par->genesis->[2],$name],
 
   ) if ! defined $have;
 
@@ -210,6 +211,11 @@ sub run($self,$data,@slurp) {
 
   # get ctx
   my $main = $self->{main};
+  my @rec  = (
+    $self->{par}->{tab},
+    $self->{par}->{invoke}
+
+  );
 
   # this field means a directive is being
   # called from within another, it holds the
@@ -226,6 +232,7 @@ sub run($self,$data,@slurp) {
   $self->{data}=$data;
   my $root=$self->{tree};
 
+
   my @Q=@{$root->{leaves}};
   while(@Q) {
 
@@ -237,7 +244,45 @@ sub run($self,$data,@slurp) {
 
     # exec step
     my ($ins,@args) = @{$nd->{vref}};
-    my ($jmp,$to)   = $ins->($self,@args);
+    my ($jmp,$to)   = ();
+
+
+    # recurse?
+    if($ins eq \&run) {
+
+      my $key    = $nd->{value};
+
+      my $have   = $rec[0]->{tab}->{$key};
+         $have //= $rec[1]->{tab}->{$key};
+
+
+      my ($data,$meta)=(
+        $self->{data},
+        $self->{meta},
+
+      );
+
+      $self->{data}=$meta->{data};
+      $self->{meta}=$have->{obj}->{meta};
+
+      $self->argparse(@args);
+
+      $self->{data}=$data;
+      $self->{meta}=$meta;
+
+      ($jmp,$to)=$ins->(
+        $have->{obj},
+        $meta->{data},
+        @args,
+
+      );
+
+    # ^nope, straight call
+    } else {
+      ($jmp,$to)=$ins->($self,@args);
+
+    };
+
 
 
     # ^have jump?
@@ -288,6 +333,7 @@ sub run($self,$data,@slurp) {
 
   # cleanup and give
   $self->onexit();
+
   return;
 
 };
@@ -566,7 +612,6 @@ sub mergef($self,$dst,$depth=0) {
 # replace node with children
 
 sub flatten($self,$dst,$depth=0) {
-
   ($dst)=$self->deref($dst);
   $dst->flatten_tree(max_depth=>$depth);
 
@@ -588,7 +633,7 @@ sub discard($self,$dst) {
 
 sub clear($self,$dst) {
 
-  $dst=$self->deref($dst);
+  ($dst)=$self->deref($dst);
   $dst->clear();
 
   return;
@@ -628,11 +673,12 @@ sub invoke($self,@args) {
     sig  => [map {$l1->re(WILD=>$ARG)} @args],
 
     data => $self->{data},
-    name => join '->',@args,
+    name => (join '->',@args,$first),
 
   };
 
-  return;
+
+  return ();
 
 };
 
@@ -681,8 +727,8 @@ sub deref($self,@args) {
 
     # have attr name?
     if(! index $ARG,'self.') {
-      $ARG=substr $ARG,5,length($ARG)-5;
-      $ARG=$data->{$ARG};
+      my $key=substr $ARG,5,length($ARG)-5;
+      $ARG=$data->{$key};
 
     # have branch name?
     } elsif(! index $ARG,'lv.') {
@@ -767,10 +813,10 @@ sub deep_deref($self,@args) {
 
 
         # map node to value
-        my $nd   = shift @Q;
+        my $nd    = shift @Q;
 
-        my $key  = $par->deref($nd);
-        my $have = $self->deref($key);
+        my ($key) = $par->deref($nd);
+        my $have  = $self->deref($key);
 
 
         # ^replace node with result
@@ -814,12 +860,25 @@ sub argparse($self,@slurp) {
 
 
   # argument array to value array ;>
-  @slurp=$self->deep_deref(@slurp);
+  @slurp=(
+    grep {defined $ARG}
+    $self->deep_deref(@slurp)
+
+  );
 
   # use signature to identify passed args
   my $tab  = $par->{tab};
   my $case = $meta->{name};
-  my $capt = $tab->match($case,\@slurp);
+
+  $tab=$par->{invoke}
+  if ! exists $tab->{tab}->{$case};
+
+
+  my $capt = $tab->matchin(
+    $tab->{tab}->{$case},\@slurp
+
+  );
+
 
   # ^write them to instance
   $par->deref($capt);
@@ -829,7 +888,8 @@ sub argparse($self,@slurp) {
     $self->{data}->{$ARG} //=
       $capt->{$ARG};
 
-  } keys %$capt;
+  } keys %$capt if length $capt;
+
 
   return;
 

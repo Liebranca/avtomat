@@ -47,6 +47,7 @@ St::vconst {
     tab  => {},
 
     keyw => undef,
+    prev => [],
 
   },
 
@@ -85,12 +86,20 @@ sub valid_fetch($self,$keyw) {
 
 sub begin($self,$keyw) {
 
+
   # get ctx
   my $main = $self->{main};
   my $l1   = $main->{l1};
 
-  # set as current
+
+  # save state
+  push @{$self->{prev}},$self->{keyw}
+  if defined $self->{keyw};
+
+
+  # set current
   $self->{keyw}=$keyw;
+
 
   # make new entry
   my $dst=$self->{tab}->{$keyw}={};
@@ -328,7 +337,7 @@ sub build($self) {
 
 
   # blankout current and give
-  $self->{keyw}=undef;
+  $self->{keyw}=shift @{$self->{prev}};
 
   return $dst;
 
@@ -359,6 +368,23 @@ sub matchin($self,$keyw,$x,%O) {
 };
 
 # ---   *   ---   *   ---
+# match against tree
+
+sub matchtree($self,$keyw,$x,%O) {
+
+  # get tree root matches keyword
+  my $have=$x->{value} =~ $keyw->{re};
+     $have=($have) ? $x : undef ;
+
+  # ^if not fixed, look into leaves on fail!
+  $have=$x->branch_in($keyw->{re})
+  if ! $have &&! $O{fix};
+
+  return $have;
+
+};
+
+# ---   *   ---   *   ---
 # ^match keyword
 #
 # "fix" forces the keyword to be
@@ -373,23 +399,20 @@ sub matchkey($self,$keyw,$x,%O) {
 
   # have tree?
   if(Tree->is_valid($x)) {
-
-    # get tree root matches keyword
-    my $have=$x->{value} =~ $keyw->{re};
-       $have=($have) ? $x : undef ;
-
-    # ^if not fixed, look into leaves on fail!
-    $have=$x->branch_in($keyw->{re})
-    if ! $have &&! $O{fix};
-
-    return $have;
-
+    $self->matchtree($keyw,$x,%O);
 
   # have array?
   } elsif(is_arrayref $x) {
 
     # get first match
-    my @match = grep {$ARG=~ $keyw->{re}} @$x;
+    my @match=grep {
+      (Tree->is_valid($ARG))
+        ? $self->matchtree($keyw,$ARG,%O)
+        : $ARG=~ $keyw->{re}
+        ;
+
+    } @$x;
+
     return () if ! @match;
 
     # ^get index of first match!
@@ -487,7 +510,6 @@ sub find($self,$root,%O) {
 
     # look for matches...
     for my $keyw(@which) {
-
 
       # have a match right here?
       my $flat=($O{flat})

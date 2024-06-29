@@ -78,48 +78,19 @@ sub _inline($self,$branch) {
   my $stop = $l1->tag(CMD=>'asm-ins') . 'ret';
      $stop = qr"\Q$stop";
 
-  my @have = $tree->match_until($stree,$stop);
+  # ^duplicate block
+  my @have = map {
+    $ARG->dupa(undef,'vref');
+
+  } $tree->match_until($stree,$stop);
 
 
-  # ^replace branch with contents!
-  my $par  = $branch->{parent};
-  my $idex = $branch->{-uid}+1;
-
-  map {
-
-
-    # we duplicate each node...
-    $have[$ARG]=$have[$ARG]->dupa(
-      undef,'vref','-uid'
-
-    );
-
-    # ^and adjust the node's id!
-    $have[$ARG]->{-uid}=$idex++;
-
-  } 0..$#have;
-
-
-
-  # ^now adjust subsequent nodes...
-  my $step = 1+int @have;
-  my $end  = $par->uid_shift($branch,$step);
-
-
-  # ^and the assembly queue ;>
-  my $Q=$main->{encoder}->{Q}->{asm};
-
-  map {
-
-    my $tmp=$Q->[$ARG];
-
-    $Q->[$ARG+$step] = $tmp;
-    $Q->[$ARG      ] = undef;
-
-  } $branch->{-uid}..$end->{-uid};
-
+  # ^replace branch with block!
   $branch->pushlv(@have);
   $main->{l2}->recurse($branch);
+
+  $branch->flatten_branch();
+
 
   return;
 

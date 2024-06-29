@@ -495,7 +495,6 @@ sub sbranch_collapse($self,$branch,$id) {
 
 #  };
 
-
   return;
 
 };

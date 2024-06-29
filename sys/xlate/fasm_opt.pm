@@ -351,12 +351,6 @@ sub fxpdiv($n,$f,$bits=0) {
   my $rc  = fxpreci($f,$bits);
   my @ins = (
 
-    [xor=>(
-      {type=>'r',reg=>'Y'},
-      {type=>'r',reg=>'Y'},
-
-    )],
-
     [mov=>(
       {type=>'r',reg=>'Y'},
       {type=>'r',reg=>'X'},
@@ -495,7 +489,7 @@ sub expand_mod($self,$type,$ins,@args) {
         : $type
         ;
 
-      ($ins=~ qr{^(?:xor|mul|imul|shr|shl)})
+      ($ins=~ qr{^(?:mov|mul|imul|shr|shl)})
         ? unshift @$ARG,$next
         : unshift @$ARG,$type
         ;

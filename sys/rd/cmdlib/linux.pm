@@ -94,11 +94,11 @@ sub oscall($self,$branch) {
      $code  = $l1->tag(NUM=>$code);
 
   my @r     = @{$self->args_order};
-  my $uid   = $branch->{-uid};
 
   $branch->clear();
 
 
+  # generate instruction nodes
   map {
 
     my ($nd)=$branch->inew(
@@ -108,7 +108,6 @@ sub oscall($self,$branch) {
 
 
     $nd->{cmdkey} = 'ld';
-    $nd->{-uid}   = $uid++;
     $nd->{vref}   = [shift @$args_t];
 
     $nd->inew($l1->tag(REG => shift @r));
@@ -129,7 +128,6 @@ sub oscall($self,$branch) {
   );
 
   $foot->{cmdkey} = 'ld';
-  $foot->{-uid}   = $uid++;
 
 
   $foot->inew($l1->tag(TYPE => 'dword'));
@@ -144,7 +142,6 @@ sub oscall($self,$branch) {
   );
 
   $foot->{cmdkey} = 'int';
-  $foot->{-uid}   = $uid++;
 
 
   # bat-proc instructions

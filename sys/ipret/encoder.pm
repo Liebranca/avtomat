@@ -412,7 +412,7 @@ sub exewrite($self,$opsz,$name,@args) {
 # the instruction is written to
 # the right address ;>
 
-sub exewrite_order($self,$uid,@req) {
+sub binreq($self,$branch,@req) {
 
 
   # get ctx
@@ -422,31 +422,17 @@ sub exewrite_order($self,$uid,@req) {
 
 
   # add request at idex
-  my $Q=$self->{Q}->{asm};
+  my $Q   = $self->{Q}->{asm};
+  my $uid = $branch->{-uid};
 
   if(! defined $Q->[$uid]) {
-    $Q->[$uid]=[$seg,undef,@req];
+    $Q->[$uid]=[$branch,$seg,undef,@req];
 
   } else {
     push @{$Q->[$uid]},@req;
 
   };
 
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# ^shorthand for saving request
-# ^to idex dictated by node!
-
-sub binreq($self,$branch,@req) {
-
-  $self->exewrite_order(
-    $branch->{-uid},@req
-
-  );
 
   return;
 

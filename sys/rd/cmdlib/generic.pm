@@ -24,6 +24,7 @@ package rd::cmdlib::generic;
 
   use Style;
   use Chk;
+  use Shb7;
 
 # ---   *   ---   *   ---
 # adds to main::cmdlib
@@ -34,7 +35,7 @@ package rd::cmdlib::generic;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -100,16 +101,19 @@ sub rept($self,$branch) {
   $n=$l1->xlate($n->{value})->{spec};
 
   my @body=@{$body->{leaves}};
+
+
+  # duplicate block N times
   my @have=map {
 
     map {
 
       if($l1->typechk(EXP=>$ARG->{value})) {
-        map {$ARG->dupa(undef,'vref','-uid')}
+        map {$ARG->dupa(undef,'vref')}
         @{$ARG->{leaves}};
 
       } else {
-        $ARG->dupa(undef,'vref','-uid');
+        $ARG->dupa(undef,'vref');
 
       };
 
@@ -118,16 +122,8 @@ sub rept($self,$branch) {
   } 0..$n-1;
 
 
-  my $par  = $branch->{parent};
-  my $idex = $have[0]->{-uid};
-
+  # replace branch with duplicated block!
   $branch->clear();
-  $par->uid_shift($branch,int @have);
-
-  map {
-    $have[$ARG]->{-uid}=$idex+$ARG;
-
-  } 0..$#have;
 
   $branch->pushlv(@have);
   $branch->flatten_branch();

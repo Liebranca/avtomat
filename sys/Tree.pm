@@ -1254,20 +1254,16 @@ sub idextrav($self) {
 # gets 'absolute' idex of leaf node
 # ie: nth node pushed to branch
 
-sub absidex($self,$leaf) {
+sub absidex($self) {
 
-  my $i=0;
-  my $root=$self->{parent};
+  my $i      = $self->{idex};
+  my $anchor = $self->{parent};
 
-  for my $branch(@{$root->{leaves}}) {
-
-    last if $branch eq $self;
-    $i+=int(@{$branch->{leaves}});
+  while($anchor) {
+    $i      += $anchor->{idex};
+    $anchor  = $anchor->{parent};
 
   };
-
-  $self->idextrav();
-  $i+=$leaf->{idex};
 
   return $i;
 

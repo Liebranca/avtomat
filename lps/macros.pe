@@ -6,7 +6,7 @@
 case 'branch.new' {
 
   attr sig;
-    body any;
+    any body;
 
   attr fn;
 
@@ -25,7 +25,7 @@ case 'branch.new' {
 case 'branch.expand' {
 
   attr sig;
-    body any;
+    any body;
 
   attr fn;
 
@@ -44,8 +44,8 @@ case 'branch.expand' {
 case 'def' {
 
   attr sig;
-    name sym,string;
-    body opera '\{';
+    sym name;
+    scp body '\{';
 
   attr fn;
 
@@ -63,24 +63,6 @@ case 'def' {
     banish  undef,self.name;
 
     discard branch;
-
-  };
-
-};
-
-# ---   *   ---   *   ---
-# procedure flag-setter
-
-case 'proc' {
-
-  attr sig;
-    name sym;
-
-  attr fn;
-
-  branch.new {
-    exe code;
-    blk self.name;
 
   };
 

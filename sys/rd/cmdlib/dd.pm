@@ -320,25 +320,12 @@ sub data_decl($self,$branch) {
   if(@list < @$value) {
 
     my $idex = int @$name;
-    my $tail = ($idex-1)*2;
+    my $tail = ($idex)*2;
 
-    my $dst  = $list[$tail]->[1];
+    push @list,
+    map {['?'=>$ARG]}
 
-
-    $dst->{value}=[$dst->{value}]
-    if ! is_arrayref $dst->{value};
-
-
-    map {
-
-      my @have=(is_arrayref $ARG->{value})
-        ? @{$ARG->{value}}
-        : $ARG->{value}
-        ;
-
-      push @{$dst->{value}},@have;
-
-    } @$value[$idex..@$value-1];
+    @$value[$idex..@$value-1];
 
   };
 
