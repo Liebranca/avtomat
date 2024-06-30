@@ -97,6 +97,7 @@ sub new($class,%O) {
 
     segtop   => undef,
     blktop   => undef,
+    hiertop  => undef,
     rp       => [],
 
     bk       => $bk,

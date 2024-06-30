@@ -31,6 +31,8 @@ package ipret::cmdlib::asm;
   use Arstd::Array;
   use Arstd::IO;
 
+  use rd::vref;
+
 # ---   *   ---   *   ---
 # adds to main::cmdlib
 
@@ -40,7 +42,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.9;#b
+  our $VERSION = v0.02.0;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -49,7 +51,7 @@ package ipret::cmdlib::asm;
 sub current_byte($self,$branch) {
 
   my $main = $self->{frame}->{main};
-  $branch->{vref}=$main->cpos;
+  $branch->{vref}->{res}=$main->cpos;
 
   return;
 
@@ -73,7 +75,7 @@ sub blk($self,$branch) {
 
   # get name of symbol
   my $name=$l1->untag(
-    $branch->{vref}->{id}
+    $branch->{vref}->{data}
 
   )->{spec};
 
@@ -137,10 +139,12 @@ sub blk($self,$branch) {
 
 
   # reset and give
-  $mc->{blktop}          =
-  $branch->{vref}->{res} = $ptr;
+  $fn=sub {$mc->{blktop}=$ptr;$ptr};
 
-  return;
+  $branch->{vref}->{res}=$ptr;
+  $fn->();
+
+  return $fn;
 
 };
 
@@ -158,7 +162,7 @@ sub entry($self,$branch) {
 
   # get name of symbol
   my $name=$l1->untag(
-    $branch->{vref}->{id}
+    $branch->{vref}->{name}
 
   )->{spec};
 
@@ -230,14 +234,14 @@ sub segpre($self,$branch,$type,$name=null) {
   #
   # effectively merges the new node
   # with the current one
-  $nd->{vref}={
+  $nd->{vref}=rd::vref->new(
 
     name => (length $name)
       ? $name : $mc->{cas}->mklabel(),
 
     type => $type,
 
-  };
+  );
 
 
   # execute segment function!
@@ -291,6 +295,7 @@ sub segpre_blk($self,$branch,@flags) {
   # get ctx
   my $frame = $self->{frame};
   my $main  = $frame->{main};
+  my $mc    =
 
 
   # ensure segment
@@ -300,9 +305,7 @@ sub segpre_blk($self,$branch,@flags) {
   my $cmd = $frame->fetch('blk');
   my $fn  = $cmd->{key}->{fn};
 
-  $fn->($self,$branch);
-
-  return;
+  return $fn->($self,$branch);
 
 };
 
@@ -310,7 +313,47 @@ sub segpre_blk($self,$branch,@flags) {
 # ^iceof
 
 sub proc($self,$branch) {
-  $self->segpre_blk($branch,'executable');
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $mc   = $main->{mc};
+
+
+  # generate segment and block
+  my $fn=$self->segpre_blk(
+    $branch,'executable'
+
+  );
+
+
+  # set hierarchical anchor!
+  my $old=$fn;
+
+  $fn=sub {
+    my $have=$old->();
+    $mc->{hiertop}=$have;
+
+    return $have;
+
+  };
+
+
+  # reset and give
+  $fn->();
+  return $fn;
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+sub in($self,$branch) {
+
+  use Fmat;
+  fatdump \$branch->{vref},blessed=>1;
+  exit;
+  return;
 
 };
 
@@ -330,7 +373,7 @@ sub argsolve($self,$branch) {
 
 
   # unpack
-  my $vref = $branch->{vref};
+  my $vref = $branch->{vref}->{data};
   my $name = $vref->{name};
   my $opsz = $vref->{opsz};
 
@@ -1042,14 +1085,17 @@ sub symsolve($self,$branch,$vref,$deref) {
 
 
   # using default size?
-  if($branch->{vref}->{opsz_def}) {
+  if($branch->{vref}->{data}->{opsz_def}) {
     $O->{opsz}      = \&symsolve_opsz;
     $O->{opsz_args} = [$dst,$deref];
 
   # have size modifier!
   } else {
-    $O->{opsz}      = $branch->{vref}->{opsz};
-    $O->{opsz_args} = [];
+
+    $O->{opsz}=
+      $branch->{vref}->{data}->{opsz};
+
+    $O->{opsz_args}=[];
 
   };
 
@@ -1125,6 +1171,7 @@ cmdsub '$'        => q() => \&current_byte;
 cmdsub 'blk'      => q() => \&blk;
 cmdsub 'entry'    => q() => \&entry;
 cmdsub 'proc'     => q() => \&proc;
+cmdsub 'in'       => q() => \&in;
 cmdsub 'asm-ins'  => q() => \&asm_ins;
 
 # ---   *   ---   *   ---

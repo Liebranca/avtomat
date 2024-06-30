@@ -29,6 +29,7 @@ package rd::cmdlib::dd;
   use Type;
 
   use Arstd::String;
+  use rd::vref;
 
 # ---   *   ---   *   ---
 # adds to main::cmdlib
@@ -39,7 +40,7 @@ package rd::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#a
+  our $VERSION = v0.01.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -109,11 +110,11 @@ sub seg_type($self,$branch) {
   # prepare branch for ipret
   my $type=$branch->{cmdkey};
 
-  $branch->{vref}={
-    type=>$type,
-    name=>$name,
+  $branch->{vref}=rd::vref->new(
+    name => $name,
+    type => $type,
 
-  };
+  );
 
   $branch->clear();
 
@@ -158,7 +159,12 @@ sub clan($self,$branch) {
   my $name = $branch->leaf_value(0);
      $name = $l1->untag($name)->{spec};
 
-  $branch->{vref}=$name;
+  $branch->{vref}=rd::vref->new(
+    name => $name,
+    type => 'clan',
+
+  );
+
   $branch->clear();
 
 
@@ -188,7 +194,13 @@ sub data_decl($self,$branch) {
 
   my $mc    = $main->{mc};
   my $scope = $mc->{scope};
-  my $type  = $branch->{vref};
+
+
+  # get decl type
+  my $type=typefet rd::is_valid(
+    type=>$branch->{vref}
+
+  );
 
 
   # absolute corner case:
@@ -331,13 +343,13 @@ sub data_decl($self,$branch) {
 
 
   # prepare branch for ipret
-  $branch->{vref}={
-    type => $type,
-    list => \@list,
+  my $vref=$branch->{vref};
 
-  };
+  $vref->{data} = \@list;
+  $vref->{type} = $type;
 
   $branch->clear();
+
 
   return;
 
@@ -366,10 +378,13 @@ sub data_type($self,$branch) {
 
     # get hashref from flags
     # save it to branch
-    my @list=@{$branch->{vref}};
+    my $vref=$branch->{vref};
+
+    my @list=@{$vref->{data}};
     my $type=$self->type_decode(@list);
 
-    $branch->{vref}=$type;
+    $vref->{data}=$type;
+    $vref->{type}='type';
 
 
     # first token in expression?
@@ -408,9 +423,8 @@ sub data_type($self,$branch) {
 
         if($have->{type} ne 'LIST') {
 
-          $anchor->{vref} //= [];
-          push @{$anchor->{vref}},
-            $type->{name};
+          $anchor->{vref} //= rd::vref->new();
+          $anchor->{vref}->add($type);
 
           $ok=1;
           last;

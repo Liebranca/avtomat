@@ -28,6 +28,8 @@ package ipret::cmdlib::dd;
   use Chk;
   use Type;
 
+  use rd::vref;
+
 # ---   *   ---   *   ---
 # adds to main::cmdlib
 
@@ -113,7 +115,7 @@ sub flag_type($self,$branch) {
     };
 
 
-  } @$flags;
+  } $flags->read_values();
 
   $branch->flatten_branch();
 
@@ -135,9 +137,9 @@ sub seg_type($self,$branch) {
   my $enc  = $main->{encoder};
 
   # get segment name and type
-  my $data = $branch->{vref};
-  my $name = $data->{name};
-  my $type = $data->{type};
+  my $vref = $branch->{vref};
+  my $name = $vref->{data};
+  my $type = $vref->{type};
 
 
   # scoping or making new?
@@ -174,7 +176,7 @@ sub seg_type($self,$branch) {
 
   # make current and give
   my $out=sub {$mc->setseg($have);$have};
-  $data->{res}=$have;
+  $vref->{res}=$have;
 
   return $out;
 
@@ -195,7 +197,7 @@ sub _struc($self,$branch) {
   # get struc name
   $branch->{vref}->{type}='rom';
   $branch->{vref}->{name}=$l1->xlate(
-    $branch->{vref}->{id}
+    $branch->{vref}->{name}
 
   )->{spec};
 
@@ -223,7 +225,7 @@ sub clan($self,$branch) {
 
 
   # lookup name
-  my $name = $branch->{vref};
+  my $name = $branch->{vref}->{data};
   my $have = $mc->{astab}->{$name};
 
   # ^make new?
@@ -265,11 +267,11 @@ sub data_decl($self,$branch) {
   my $path  = $mc->{path};
 
   # get pending values
-  my $data = $branch->{vref};
-  my $type = $data->{type};
-  my $list = $data->{list};
+  my $vref = $branch->{vref};
+  my $type = $vref->{type};
+  my $list = $vref->{data};
 
-  my $out  = $data->{out} //= [];
+  my $out  = $vref->{res} //= [];
 
 
   # walk values pending resolution

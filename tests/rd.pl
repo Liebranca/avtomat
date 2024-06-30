@@ -33,18 +33,9 @@ my $xlate = xlate->new(
 
 q[%;
 
-  lib ENV.ARPATH::avtomat;
-  use lps::macros;
-
-  def SET {1,2,3,4};
-
-  clan testy;
-  rom  X;
-
-  rept v @SET {
-    byte symcat 'a',v v;
-
-  };
+clan testy;
+proc start;
+  in byte b0;
 
 ],
 

@@ -74,7 +74,11 @@ sub token_type($self,$branch) {
 
   # ^save and clear
   $have->{type}   = $type;
-  $branch->{vref} = $have;
+  $branch->{vref} = rd::vref->new(
+    data=>$have,
+    type=>'rdtype',
+
+  );
 
   $branch->clear();
 

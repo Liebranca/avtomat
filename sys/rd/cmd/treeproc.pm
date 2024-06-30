@@ -23,11 +23,12 @@ package rd::cmd::treeproc;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use rd::vref;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -127,15 +128,18 @@ sub rcollapse_list($self,$branch,$fn) {
 
   # first token, first command
   my $have = $l1->xlate($branch->{value});
-  my @list = $have->{spec};
   my $par  = $branch->{parent};
 
 
-  # ^get tokens from previous iterations
-  push @list,@{$branch->{vref}}
-  if defined $branch->{vref};
+  # ^get tokens from previous iterations,
+  # ^then add the new token!
 
-  $branch->{vref} = \@list;
+  $branch->{vref} //= rd::vref->new(array=>[]);
+  $branch->{vref}->add(rd::vref->new(
+      data => $have->{spec},
+      type => 'type',
+
+  ));
 
 
   # parent is command, keep collapsing
@@ -144,8 +148,8 @@ sub rcollapse_list($self,$branch,$fn) {
 
     # save commands to parent, they'll be
     # picked up in the next run of this F
-    $par->{vref} //= [];
-    push @{$par->{vref}},@list;
+    $par->{vref} //= rd::vref->new(array=>[]);
+    $par->{vref}->add(@{$branch->{vref}->{id}});
 
     # ^remove this token
     $branch->flatten_branch();

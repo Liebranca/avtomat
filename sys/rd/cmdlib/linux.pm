@@ -25,6 +25,8 @@ package rd::cmdlib::linux;
   use Style;
   use Chk;
 
+  use rd::vref;
+
 # ---   *   ---   *   ---
 # adds to main::cmdlib
 
@@ -108,7 +110,11 @@ sub oscall($self,$branch) {
 
 
     $nd->{cmdkey} = 'ld';
-    $nd->{vref}   = [shift @$args_t];
+    $nd->{vref}   = rd::vref->new(
+      type=>'array',
+      data=>[shift @$args_t]
+
+    );
 
     $nd->inew($l1->tag(REG => shift @r));
 

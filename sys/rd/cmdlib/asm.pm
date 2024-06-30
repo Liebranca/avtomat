@@ -25,6 +25,8 @@ package rd::cmdlib::asm;
   use Style;
   use Type;
 
+  use rd::vref;
+
 # ---   *   ---   *   ---
 # adds to main::cmdlib
 
@@ -34,7 +36,7 @@ package rd::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#b
+  our $VERSION = v0.01.1;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -63,11 +65,11 @@ sub build($class,$main) {
 
 sub current_byte($self,$branch) {
 
-  $branch->{vref}={
-    id   => $branch,
+  $branch->{vref}=rd::vref->new(
+    data => $branch,
     type => 'nsym',
 
-  };
+  );
 
   return;
 
@@ -134,10 +136,14 @@ sub parse_ins($self,$branch) {
       my $have=$l1->untag($key);
          $type=null;
 
-      $branch->{vref} //= [];
+      $branch->{vref} //=
+        rd::vref->new(array=>[]);
 
-      push @{$branch->{vref}},
-        $have->{spec};
+      $branch->{vref}->add(rd::vref->new(
+        data => $have->{spec},
+        type => 'type',
+
+      ));
 
 
     # ^immediate!
@@ -149,7 +155,7 @@ sub parse_ins($self,$branch) {
 
     # give descriptor
     (length $type)
-      ? {id=>$ARG,type=>$type}
+      ? rd::vref->new(data=>$ARG,type=>$type)
       : ()
       ;
 
@@ -159,8 +165,13 @@ sub parse_ins($self,$branch) {
 
   # have opera type spec?
   my $opsz_def = defined $branch->{vref};
+  my @vtypes   = rd::vref->is_valid(
+    type=>$branch->{vref}
+
+  );
+
   my $opsz     = ($opsz_def)
-    ? typefet @{$branch->{vref}}
+    ? typefet @vtypes
     : $ISA->def_t
     ;
 
@@ -186,13 +197,12 @@ sub parse_ins($self,$branch) {
 # ---   *   ---   *   ---
 # mutate into generic command ;>
 
-sub mutate_ins($self,$branch,$new='asm-ins') {
+sub mutate_ins($self,$branch,$head,$new='asm-ins') {
 
 
   # get ctx
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
-  my $head = $branch->{vref};
 
 
   # record name of original
@@ -209,7 +219,8 @@ sub mutate_ins($self,$branch,$new='asm-ins') {
   ;
 
   $branch->clear();
-
+  $branch->{vref}->{data}=$head;
+  $branch->{vref}->{type}='asm-ins';
 
   return;
 
@@ -220,13 +231,11 @@ sub mutate_ins($self,$branch,$new='asm-ins') {
 
 sub asm_ins($self,$branch) {
 
-
   # save operands to branch
   my $head=$self->parse_ins($branch);
-  $branch->{vref}=$head;
 
   # mutate and give
-  $self->mutate_ins($branch,'asm-ins');
+  $self->mutate_ins($branch,$head,'asm-ins');
 
   return;
 
@@ -249,6 +258,11 @@ w_cmdsub 'csume-token' => q(
   blk entry proc
 
 );
+
+w_cmdsub 'csume-list' => q(
+  cmd input;
+
+) => 'in';
 
 # ---   *   ---   *   ---
 1; # ret

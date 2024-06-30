@@ -25,10 +25,12 @@ package rd::cmd::argproc;
   use Style;
   use Type;
 
+  use rd::vref;
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -72,14 +74,14 @@ sub argproc($self,$nd) {
   };
 
 
-  return {
+  return rd::vref->new(
 
-    id   => $argname,
+    name => $argname,
 
     type => 'sym',
     defv => $defv,
 
-  };
+  );
 
 };
 
@@ -121,27 +123,27 @@ sub argex($self,$lv) {
 
     my $branch=$lv->{leaves}->[0];
 
-    return {
+    return rd::vref->new(
 
-      id   => $branch->leaf_value(0),
+      name => $branch->leaf_value(0),
       defv => undef,
 
       type => 'qlist',
 
-    };
+    );
 
 
   # ^have operator tree?
   } elsif($type eq 'OPR') {
 
-    return {
+    return rd::vref->new(
 
-      id   => $lv,
+      data => $lv,
       defv => undef,
 
       type => 'opr',
 
-    };
+    );
 
 
   # have expression?
@@ -167,14 +169,14 @@ sub argex($self,$lv) {
     # solve later!
     } else {
 
-      return {
+      return rd::vref->new(
 
-        id   => $lv,
+        data => $lv,
 
         type => 'cmd',
         defv => undef,
 
-      };
+      );
 
     };
 
@@ -182,27 +184,27 @@ sub argex($self,$lv) {
   # have string?
   } elsif($type eq 'STR') {
 
-    return {
+    return rd::vref->new(
 
-      id   => $have->{data},
+      data => $have->{data},
 
       type => 'str',
       defv => undef,
 
-    };
+    );
 
 
   # have number?
   } elsif($type eq 'NUM') {
 
-    return {
+    return rd::vref->new(
 
-      id   => $spec,
+      data => $spec,
 
       type => 'num',
       defv => undef,
 
-    };
+    );
 
 
   # have symbol, leave it to argproc
@@ -339,8 +341,13 @@ sub argtake_flat($self,$branch) {
     # save non null
     if(length $token) {
 
-      push @args_t,(defined $nd->{vref})
-        ? typefet $nd->{vref}->[0]
+      my ($type)=rd::vref->is_valid(
+        type=>$nd->{vref}
+
+      );
+
+      push @args_t,(length $type)
+        ? typefet $type
         : $def_t
         ;
 

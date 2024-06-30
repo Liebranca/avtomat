@@ -49,7 +49,7 @@ sub _inline($self,$branch) {
 
 
   # ~
-  my $name = $branch->{vref}->{id};
+  my $name = $branch->{vref}->{data};
      $name = $l1->xlate($name)->{spec};
 
   my $sym  = $eng->symfet($name);
@@ -105,19 +105,20 @@ sub echo($self,$branch) {
   # get ctx
   my $main  = $self->{frame}->{main};
   my $eng   = $main->{engine};
+  my $vref  = $branch->{vref};
 
 
   # can solve values?
-  my @solved=$eng->argtake(map {
-    $ARG->{id}
+  my @solved=$eng->argtake(
+    $vref->read_values()
 
-  } @{$branch->{vref}});
+  );
 
   return $branch if ! @solved;
 
 
   # all solved, no need to repeat ;>
-  $branch->{vref}=\@solved;
+  $branch->{vref}->{data}=\@solved;
 
   return;
 

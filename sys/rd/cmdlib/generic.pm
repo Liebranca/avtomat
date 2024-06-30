@@ -24,7 +24,8 @@ package rd::cmdlib::generic;
 
   use Style;
   use Chk;
-  use Shb7;
+
+  use rd::vref;
 
 # ---   *   ---   *   ---
 # adds to main::cmdlib
@@ -35,7 +36,7 @@ package rd::cmdlib::generic;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -46,7 +47,9 @@ sub csume_token($self,$branch) {
 
   my @args=$self->argtake($branch);
 
-  $branch->{vref}=$args[0];
+  $branch->{vref} //= rd::vref->new();
+  $branch->{vref}->add($args[0]);
+
   $branch->clear();
 
 
@@ -57,28 +60,14 @@ sub csume_token($self,$branch) {
 # ---   *   ---   *   ---
 # ^consume N tokens ;>
 
-sub csume_tokens($self,$branch) {
-
-
-  my @args=$self->argtake($branch);
-
-  $branch->{vref}=$args[0];
-  $branch->clear();
-
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# consume node list
-
 sub csume_list($self,$branch) {
 
+  my @args = $self->argtake($branch);
 
-  my @args=$self->argtake($branch);
 
-  $branch->{vref}=\@args;
+  $branch->{vref} //= rd::vref->new();
+  $branch->{vref}->add(@args);
+
   $branch->clear();
 
 
@@ -135,11 +124,17 @@ sub rept($self,$branch) {
   # elem count provided?
   if($l1->typechk(SCP=>$src->{value})) {
 
-    my $cnt=$self->argex($n);
-
     $body = $src;
-    $src  = [0..$cnt-1];
-    $n    = null;
+
+    if(my $have=$l1->typechk(NUM=>$n->{value})) {
+      $src=[0..$have->{spec}-1];
+
+    } else {
+      $src=[$self->argex($n)];
+
+    };
+
+    $n=null;
 
 
   # ^elems from list!
@@ -257,7 +252,7 @@ sub stop($self,$branch) {
 
 
   # name of stage says *when* to stop!
-  my $stage=$vref->{at};
+  my $stage=$vref->{data};
 
   if(Tree->is_valid($stage)) {
     $stage=$l1->untag($stage->{value});
@@ -275,7 +270,7 @@ sub stop($self,$branch) {
 
   # ^nope, wait
   } else {
-    $branch->{vref}=$stage;
+    $branch->{vref}->{data}=$stage;
     $branch->clear();
 
   };
@@ -321,11 +316,6 @@ cmdsub 'csume-token' => q(
   nlist src;
 
 ) => \&csume_token;
-
-cmdsub 'csume-tokens' => q(
-  nlist src;
-
-) => \&csume_tokens;
 
 cmdsub 'csume-list' => q(
   qlist src;
