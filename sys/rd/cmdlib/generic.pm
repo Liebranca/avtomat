@@ -64,7 +64,6 @@ sub csume_list($self,$branch) {
 
   my @args = $self->argtake($branch);
 
-
   $branch->{vref} //= rd::vref->new();
   $branch->{vref}->add(@args);
 

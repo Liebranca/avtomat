@@ -71,13 +71,10 @@ sub blk($self,$branch) {
 
   my $ISA  = $mc->{ISA};
   my $top  = $mc->{segtop};
-
+  my $vref = $branch->{vref};
 
   # get name of symbol
-  my $name=$l1->untag(
-    $branch->{vref}->{data}
-
-  )->{spec};
+  my $name = $vref->{spec};
 
   my @path=$top->ances_list;
   my $full=join '::',$top->{value},$name;
@@ -141,7 +138,7 @@ sub blk($self,$branch) {
   # reset and give
   $fn=sub {$mc->{blktop}=$ptr;$ptr};
 
-  $branch->{vref}->{res}=$ptr;
+  $vref->{res}=$ptr;
   $fn->();
 
   return $fn;
@@ -159,12 +156,10 @@ sub entry($self,$branch) {
   my $mc   = $main->{mc};
   my $l1   = $main->{l1};
   my $sep  = $mc->{pathsep};
+  my $vref = $branch->{vref};
 
   # get name of symbol
-  my $name=$l1->untag(
-    $branch->{vref}->{name}
-
-  )->{spec};
+  my $name=$vref->{spec};
 
 
   # ^as a path!
@@ -230,16 +225,16 @@ sub segpre($self,$branch,$type,$name=null) {
   );
 
 
-  # reset uid
-  #
-  # effectively merges the new node
-  # with the current one
   $nd->{vref}=rd::vref->new(
 
-    name => (length $name)
-      ? $name : $mc->{cas}->mklabel(),
+    type => 'SYM',
+    spec => (length $name)
+      ? $name
+      : $mc->{cas}->mklabel()
+      ,
 
-    type => $type,
+
+    data => $type,
 
   );
 
@@ -350,9 +345,23 @@ sub proc($self,$branch) {
 
 sub in($self,$branch) {
 
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $mc   = $main->{mc};
+  my $vref = $branch->{vref};
+
+  # unpack
+  my ($type,$sym)=$vref->flatten();
+
   use Fmat;
-  fatdump \$branch->{vref},blessed=>1;
+
+  fatdump \$mc->{hiertop},blessed=>1;
+
+  fatdump \$type,blessed=>1;
+  fatdump \$sym,blessed=>1;
   exit;
+
   return;
 
 };
@@ -373,7 +382,7 @@ sub argsolve($self,$branch) {
 
 
   # unpack
-  my $vref = $branch->{vref}->{data};
+  my $vref = $branch->{vref}->{res};
   my $name = $vref->{name};
   my $opsz = $vref->{opsz};
 
@@ -388,13 +397,13 @@ sub argsolve($self,$branch) {
 
 
     # have register?
-    if($type eq 'r') {
+    if($type eq 'REG') {
       $O->{reg}  = $eng->quantize($key);
       $O->{type} = 'r';
 
 
     # have immediate?
-    } elsif($type eq 'i') {
+    } elsif($type eq 'NUM') {
 
 
       # command dereference
@@ -435,13 +444,13 @@ sub argsolve($self,$branch) {
 
 
     # have memory?
-    } elsif($type eq 'm') {
+    } elsif($type eq 'MEM') {
       $O=$self->addrmode($branch,$nd);
       return null if ! length $O;
 
 
     # have symbol?
-    } elsif($type eq 'sym') {
+    } elsif($type eq 'SYM') {
       $O=$self->symsolve($branch,$ARG,0);
       return null if ! length $O;
 

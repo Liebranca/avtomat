@@ -134,22 +134,18 @@ sub rcollapse_list($self,$branch,$fn) {
   # ^get tokens from previous iterations,
   # ^then add the new token!
 
-  $branch->{vref} //= rd::vref->new(array=>[]);
-  $branch->{vref}->add(rd::vref->new(
-      data => $have->{spec},
-      type => 'type',
-
-  ));
+  $branch->{vref} //= rd::vref->new_list();
+  $branch->{vref}->add($have);
 
 
   # parent is command, keep collapsing
-  my $head = $l1->xlate($par->{value});
+  my $head=$l1->xlate($par->{value});
   if(defined $head && $head->{type} eq 'CMD') {
 
     # save commands to parent, they'll be
     # picked up in the next run of this F
-    $par->{vref} //= rd::vref->new(array=>[]);
-    $par->{vref}->add(@{$branch->{vref}->{id}});
+    $par->{vref} //= rd::vref->new_list();
+    $par->{vref}->add($branch->{vref});
 
     # ^remove this token
     $branch->flatten_branch();

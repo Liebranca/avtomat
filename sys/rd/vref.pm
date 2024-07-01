@@ -31,7 +31,7 @@ package rd::vref;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -41,10 +41,9 @@ St::vconst {
 
   DEFAULT => {
 
-    name => null,
-
-    data => null,
     type => null,
+    spec => null,
+    data => null,
 
     defv => undef,
     res  => undef,
@@ -63,15 +62,23 @@ sub new($class,%O) {
   $class->defnit(\%O);
   my $self=bless {%O},$class;
 
-
-  $self->{name}=$self->{data}
-  if ! length $self->{name};
-
-  $self->{data}=$self->{name}
-  if ! length $self->{data};
-
-
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# ^make vref list
+
+sub new_list($class,$data=undef) {
+
+  $data=[] if ! defined $data;
+
+  return $class->new(
+    type => 'LIST',
+    spec => 'vref',
+    data => $data,
+
+  );
 
 };
 
@@ -79,15 +86,15 @@ sub new($class,%O) {
 # get values stored by reference
 # optionally filter them by type!
 
-sub read_values($self,$filter=null) {
+sub read_values($self,$attr,$filter=null) {
 
-  my @have=($self->{type} eq 'array')
-    ? $self->dataflat($self->{data})
+  my @have=($self->{type} eq 'LIST')
+    ? $self->flatten($attr=>$self)
     : $self
     ;
 
   return map {
-    $ARG->{data}
+    $ARG->{$attr}
 
   } (length $filter)
     ? grep {$ARG->{type}=~ $filter} @have
@@ -97,21 +104,38 @@ sub read_values($self,$filter=null) {
 };
 
 # ---   *   ---   *   ---
-# flatten input to set/add
+# flatten instance array
 
-sub dataflat($self,@data) {
+sub flatten($class,@ice) {
 
+
+  # get actual class if called from ice
+  if(length ref $class) {
+    @ice=($class) if ! @ice;
+    $class=ref $class;
+
+  };
+
+
+  # walk instance list
   my @out = ();
-  my @Q   = @data;
+  my @Q   = @ice;
 
   while(@Q) {
 
     my $e=shift @Q;
 
-    if($e->{type} eq 'array') {
+
+    # recurse on array
+    if($e->{type} eq 'LIST') {
       unshift @Q,@{$e->{data}};
 
+    # else add to out
     } else {
+
+      $e=$class->new(%$e)
+      if ! St::is_valid($class,$e);
+
       push @out,$e;
 
     };
@@ -125,29 +149,46 @@ sub dataflat($self,@data) {
 };
 
 # ---   *   ---   *   ---
+# copy values from another instance
+
+sub copy($self,$other) {
+
+  my $tab=$self->DEFAULT;
+
+  map {
+    $self->{$ARG}=$other->{$ARG};
+
+  } keys %$tab;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # overwrite existing reference
 
-sub set($self,@data) {
+sub set($self,@other) {
 
 
   # validate
-  return if ! @data;
-  @data=$self->dataflat(@data);
+  return if ! @other;
+  @other=$self->flatten(@other);
 
 
   # multiple sources?
-  if(1 < @data) {
+  if(1 < @other) {
 
-    $self->{type}='array'
-    if $self->{type} ne 'array';
+    $self->{type}='LIST'
+    if $self->{type} ne 'LIST';
 
-    $self->{data}=\@data;
+    $self->{spec}='vref';
+    $self->{data}=\@other;
 
 
   # ^single source!
   } else {
-    $self->{data}=$data[0]->{data};
-    $self->{type}=$data[0]->{type};
+    $self->copy($other[0]);
 
   };
 
@@ -159,12 +200,12 @@ sub set($self,@data) {
 # ---   *   ---   *   ---
 # ^pack multiple references
 
-sub add($self,@data) {
+sub add($self,@other) {
 
 
   # validate
-  return if ! @data;
-  @data=$self->dataflat(@data);
+  return if ! @other;
+  @other=$self->flatten(@other);
 
 
   # get ctx
@@ -172,7 +213,7 @@ sub add($self,@data) {
 
 
   # making new array?
-  if($self->{type} ne 'array') {
+  if($self->{type} ne 'LIST') {
 
 
     # have existing value?
@@ -180,27 +221,28 @@ sub add($self,@data) {
 
       my $old=$class->new(%$self);
 
-      $self->{data} = [$old,@data];
-      $self->{type} = 'array';
+      $self->{type} = 'LIST';
+      $self->{spec} = 'vref';
+      $self->{data} = [$old,@other];
 
 
     # make array from blank?
-    } elsif(1 < @data) {
-      $self->{type} = 'array';
-      $self->{data} = \@data;
+    } elsif(1 < @other) {
+      $self->{type} = 'LIST';
+      $self->{spec} = 'vref';
+      $self->{data} = \@other;
 
 
-    # ^no NOT make an array!
+    # ^do NOT make an array!
     } else {
-      $self->{type} = $data[0]->{type};
-      $self->{data} = $data[0]->{data};
+      $self->copy($other[0]);
 
     };
 
 
   # ^push to existing!
   } else {
-    push @{$self->{data}},@data;
+    push @{$self->{data}},@other;
 
   };
 
@@ -213,7 +255,7 @@ sub add($self,@data) {
 # vref contains a given type
 # return value if true!
 
-sub is_valid($class,$filter,$ice) {
+sub is_valid($class,$filter,$ice,$attr='spec') {
 
   # invalid input?
   return null
@@ -233,7 +275,7 @@ sub is_valid($class,$filter,$ice) {
 
 
   # unpack reference and give
-  my @have=$ice->read_values($re);
+  my @have=$ice->read_values($attr,$re);
   return (int @have)
     ? @have
     : null

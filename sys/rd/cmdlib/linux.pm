@@ -110,9 +110,8 @@ sub oscall($self,$branch) {
 
 
     $nd->{cmdkey} = 'ld';
-    $nd->{vref}   = rd::vref->new(
-      type=>'array',
-      data=>[shift @$args_t]
+    $nd->{vref}   = rd::vref->new_list(
+      [shift @$args_t]
 
     );
 

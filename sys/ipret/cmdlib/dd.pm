@@ -115,7 +115,7 @@ sub flag_type($self,$branch) {
     };
 
 
-  } $flags->read_values();
+  } $flags->read_values('spec');
 
   $branch->flatten_branch();
 
@@ -138,8 +138,8 @@ sub seg_type($self,$branch) {
 
   # get segment name and type
   my $vref = $branch->{vref};
-  my $name = $vref->{data};
-  my $type = $vref->{type};
+  my $name = $vref->{spec};
+  my $type = $vref->{data};
 
 
   # scoping or making new?
@@ -225,7 +225,7 @@ sub clan($self,$branch) {
 
 
   # lookup name
-  my $name = $branch->{vref}->{data};
+  my $name = $branch->{vref}->{spec};
   my $have = $mc->{astab}->{$name};
 
   # ^make new?
@@ -268,7 +268,7 @@ sub data_decl($self,$branch) {
 
   # get pending values
   my $vref = $branch->{vref};
-  my $type = $vref->{type};
+  my $type = $vref->{spec};
   my $list = $vref->{data};
 
   my $out  = $vref->{res} //= [];

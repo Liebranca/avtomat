@@ -49,7 +49,7 @@ sub _inline($self,$branch) {
 
 
   # ~
-  my $name = $branch->{vref}->{data};
+  my $name = $branch->{vref}->{spec};
      $name = $l1->xlate($name)->{spec};
 
   my $sym  = $eng->symfet($name);

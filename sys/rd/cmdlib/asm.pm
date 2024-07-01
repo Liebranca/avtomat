@@ -66,8 +66,9 @@ sub build($class,$main) {
 sub current_byte($self,$branch) {
 
   $branch->{vref}=rd::vref->new(
+    type => 'SYM',
+    spec => '$',
     data => $branch,
-    type => 'nsym',
 
   );
 
@@ -108,47 +109,23 @@ sub parse_ins($self,$branch) {
     $ARG = $ARG->discard();
 
     my $key  = $ARG->{value};
-    my $have = undef;
-    my $type = undef;
+    my $have = $l1->xlate($key);
+    my $type = $have->{type};
+    my $spec = $have->{spec};
 
 
-    # register operand
-    if($l1->typechk(REG=>$key)) {
-      $type='r';
-
-    # memory operand
-    } elsif($l1->typechk(SCP=>$key)) {
-      $type='m';
-
-
-    # operation tree?
-    } elsif($have) {
-      $type='opr';
-
-    # symbol fetch?
-    } elsif($l1->typechk(SYM=>$key)) {
-      $type='sym';
+    # memory operand?
+    if($type eq 'SCP' && $spec eq '[') {
+      $type='MEM';
 
 
     # operand size specifier?
-    } elsif($l1->typechk(TYPE=>$key)) {
+    } elsif($type eq 'TYPE') {
 
-      my $have=$l1->untag($key);
-         $type=null;
+      $branch->{vref} //= rd::vref->new_list();
+      $branch->{vref}->add($have);
 
-      $branch->{vref} //=
-        rd::vref->new(array=>[]);
-
-      $branch->{vref}->add(rd::vref->new(
-        data => $have->{spec},
-        type => 'type',
-
-      ));
-
-
-    # ^immediate!
-    } else {
-      $type='i';
+      $type=null;
 
     };
 
@@ -166,7 +143,7 @@ sub parse_ins($self,$branch) {
   # have opera type spec?
   my $opsz_def = defined $branch->{vref};
   my @vtypes   = rd::vref->is_valid(
-    type=>$branch->{vref}
+    TYPE=>$branch->{vref}
 
   );
 
@@ -219,8 +196,7 @@ sub mutate_ins($self,$branch,$head,$new='asm-ins') {
   ;
 
   $branch->clear();
-  $branch->{vref}->{data}=$head;
-  $branch->{vref}->{type}='asm-ins';
+  $branch->{vref}->{res}=$head;
 
   return;
 

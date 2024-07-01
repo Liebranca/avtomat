@@ -104,15 +104,16 @@ sub seg_type($self,$branch) {
   # clean name
   my $lv   = $branch->{leaves};
   my $name = $lv->[0]->{value};
-     $name = $l1->untag($name)->{spec};
+     $name = $l1->xlate($name)->{spec};
 
 
   # prepare branch for ipret
   my $type=$branch->{cmdkey};
 
   $branch->{vref}=rd::vref->new(
-    name => $name,
-    type => $type,
+    type => 'SYM',
+    spec => $name,
+    data => $type,
 
   );
 
@@ -160,8 +161,9 @@ sub clan($self,$branch) {
      $name = $l1->untag($name)->{spec};
 
   $branch->{vref}=rd::vref->new(
-    name => $name,
-    type => 'clan',
+    type => 'SYM',
+    spec => $name,
+    data => 'clan',
 
   );
 
@@ -197,10 +199,8 @@ sub data_decl($self,$branch) {
 
 
   # get decl type
-  my $type=typefet rd::is_valid(
-    type=>$branch->{vref}
-
-  );
+  my ($type)=rd::is_valid(TYPE=>$branch->{vref});
+  $type=typefet $type if defined $type;
 
 
   # absolute corner case:
@@ -345,8 +345,9 @@ sub data_decl($self,$branch) {
   # prepare branch for ipret
   my $vref=$branch->{vref};
 
+  $vref->{type} = 'DECL';
+  $vref->{spec} = $type;
   $vref->{data} = \@list;
-  $vref->{type} = $type;
 
   $branch->clear();
 
@@ -383,8 +384,8 @@ sub data_type($self,$branch) {
     my @list=@{$vref->{data}};
     my $type=$self->type_decode(@list);
 
-    $vref->{data}=$type;
-    $vref->{type}='type';
+    $vref->{type}='TYPE';
+    $vref->{spec}=$type;
 
 
     # first token in expression?
@@ -424,7 +425,11 @@ sub data_type($self,$branch) {
         if($have->{type} ne 'LIST') {
 
           $anchor->{vref} //= rd::vref->new();
-          $anchor->{vref}->add($type);
+          $anchor->{vref}->add({
+            type=>'TYPE',
+            spec=>$type,
+
+          });
 
           $ok=1;
           last;

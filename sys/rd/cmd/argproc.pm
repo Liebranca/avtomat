@@ -50,38 +50,34 @@ sub argproc($self,$nd) {
   my $l1   = $main->{l1};
 
   # [name => default value]
-  my $argname = $nd->{value};
+  my $argname = null;
   my $defv    = undef;
 
+  my $have=$l1->xlate($nd->{value});
 
-  # have default value?
-  my $opera=$l1->xlate($argname);
 
-  # ^yep
-  if($opera && $opera->{spec} eq '=') {
+  # default value passed?
+  if($have->{type} eq 'OPR'
+  && $have->{spec} eq '=') {
 
     ($argname,$defv)=map {
 
       my $out=$nd->{leaves}->[$ARG];
 
       (! @{$out->{leaves}})
-        ? $out->{value}
+        ? $l1->xlate($out->{value})
         : $out
         ;
 
     } 0..1;
 
+    $have->{spec}=$argname->{spec};
+
   };
 
 
-  return rd::vref->new(
-
-    name => $argname,
-
-    type => 'sym',
-    defv => $defv,
-
-  );
+  $have->{defv}=$defv;
+  return rd::vref->new(%$have);
 
 };
 
@@ -125,10 +121,11 @@ sub argex($self,$lv) {
 
     return rd::vref->new(
 
-      name => $branch->leaf_value(0),
-      defv => undef,
+      type => 'LIST',
+      spec => $spec,
 
-      type => 'qlist',
+      data => $branch->leaf_value(0),
+      defv => undef,
 
     );
 
@@ -138,10 +135,10 @@ sub argex($self,$lv) {
 
     return rd::vref->new(
 
+      type => 'OPR',
+      spec => $spec,
       data => $lv,
       defv => undef,
-
-      type => 'opr',
 
     );
 
@@ -171,9 +168,10 @@ sub argex($self,$lv) {
 
       return rd::vref->new(
 
+        type => $type,
+        spec => $spec,
         data => $lv,
 
-        type => 'cmd',
         defv => undef,
 
       );
@@ -186,9 +184,10 @@ sub argex($self,$lv) {
 
     return rd::vref->new(
 
+      type => $type,
+      spec => $spec,
       data => $have->{data},
 
-      type => 'str',
       defv => undef,
 
     );
@@ -198,10 +197,8 @@ sub argex($self,$lv) {
   } elsif($type eq 'NUM') {
 
     return rd::vref->new(
-
-      data => $spec,
-
-      type => 'num',
+      type => $type,
+      spec => $spec,
       defv => undef,
 
     );
@@ -342,7 +339,7 @@ sub argtake_flat($self,$branch) {
     if(length $token) {
 
       my ($type)=rd::vref->is_valid(
-        type=>$nd->{vref}
+        TYPE=>$nd->{vref}
 
       );
 

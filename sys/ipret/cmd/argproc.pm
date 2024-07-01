@@ -43,12 +43,12 @@ sub argproc($self,$vref,%O) {
 
 
   # have symbol?
-  if($vref->{type} eq 'sym') {
-    return $eng->symfet($vref->{name});
+  if($vref->{type} eq 'SYM') {
+    return $eng->symfet($vref->{spec});
 
   # have tree!
   } else {
-    return $eng->value_solve($vref->{name},%O);
+    return $eng->value_solve($vref->{spec},%O);
 
   };
 

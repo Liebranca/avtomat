@@ -6,8 +6,8 @@
 x fasm xlate
 x Generic syscall macro
 
-~ Standarize node.vref attrs across all of cmdlib
-~ \--> write base class (rd/vref)
+x Standarize node.vref attrs across all of cmdlib
+x \--> write base class (rd/vref)
 
 ~ Filemeta builder
 

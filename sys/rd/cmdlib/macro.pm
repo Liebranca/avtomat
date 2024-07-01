@@ -75,8 +75,9 @@ sub token_type($self,$branch) {
   # ^save and clear
   $have->{type}   = $type;
   $branch->{vref} = rd::vref->new(
+    type=>'RDTYPE',
+    spec=>'~',
     data=>$have,
-    type=>'rdtype',
 
   );
 
