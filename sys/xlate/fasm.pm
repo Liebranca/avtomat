@@ -322,7 +322,7 @@ sub operand_value($self,$type,@data) {
       "$type->{name} [$out]";
 
 
-    } elsif(exists $ARG->{id}) {
+    } elsif(exists $ARG->{spec}) {
       ($mc->vrefid($ARG))[1];
 
     } else {

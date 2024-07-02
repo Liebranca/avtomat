@@ -259,7 +259,7 @@ sub is_valid($class,$filter,$ice,$attr='spec') {
 
   # invalid input?
   return null
-  if ! $class->is_valid($ice);
+  if ! St::is_valid($class,$ice);
 
 
   # get re for this filter?

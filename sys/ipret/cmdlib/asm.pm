@@ -334,8 +334,29 @@ sub proc($self,$branch) {
   };
 
 
+  # setup context
+  my $anima = $mc->{anima};
+
+  $anima->restore_alma()
+  if defined $mc->{hiertop};
+
+  $anima->backup_alma();
+  $anima->{almask}  = $anima->reserved_mask();
+  $anima->{almask} |= 1;
+
+
   # reset and give
-  $fn->();
+  my $ptr   = $fn->();
+  my $inner = $ptr->{p3ptr};
+
+  my $tab   = \$inner->{vref};
+
+  $$tab=rd::vref->new(
+    type=>'TAB',
+    data=>{}
+
+  );
+
   return $fn;
 
 };
@@ -347,20 +368,94 @@ sub in($self,$branch) {
 
 
   # get ctx
-  my $main = $self->{frame}->{main};
-  my $mc   = $main->{mc};
-  my $vref = $branch->{vref};
+  my $main  = $self->{frame}->{main};
+  my $mc    = $main->{mc};
+  my $vref  = $branch->{vref};
+  my $anima = $mc->{anima};
 
-  # unpack
+  # get process
+  my $hier = $mc->{hiertop};
+  my $tab  = $hier->{p3ptr}->{vref};
+
+  my $dst  = $tab->{data};
+
+
+  # unpack args
   my ($type,$sym)=$vref->flatten();
 
-  use Fmat;
 
-  fatdump \$mc->{hiertop},blessed=>1;
+  # setup bias
+  my $old  = $anima->{almask};
+  my $mask = $old | $anima->regmask(qw(
+    ar br cr dr
 
-  fatdump \$type,blessed=>1;
-  fatdump \$sym,blessed=>1;
-  exit;
+  ));
+
+  $anima->{almask}=$mask;
+
+  # allocate register
+  my $idex=$mc->{anima}->alloci;
+  $anima->{almask}=$old | (1 << $idex);
+
+  $dst->{$sym->{spec}}=rd::vref->new(
+    type=>'REG',
+    spec=>$idex,
+
+  );
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# replace aliases!
+
+sub lisrepl($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+  my $mc   = $main->{mc};
+
+  my $proc = $mc->{hiertop};
+  my $lis  = $proc->{p3ptr}->{vref}->{data};
+
+
+  # unpack
+  my $vref = $branch->{vref}->{res};
+  my $name = $vref->{name};
+  my $opsz = $vref->{opsz};
+
+  # walk operands
+  my @Q=map {$ARG->{data}} @{$vref->{args}};
+
+  while(@Q) {
+
+    my $nd   = shift @Q;
+
+    my $key  = $nd->{value};
+    my $have = $l1->xlate($key);
+
+    if($have->{type} eq 'SYM'
+    && exists $lis->{$have->{spec}}) {
+
+      my $x=$lis->{$have->{spec}};
+
+      $nd->{value}=$l1->tag(
+        $x->{type}=>$x->{spec}
+
+      ) . $x->{data};
+
+      $nd->{vref}=$x;
+
+    };
+
+    unshift @Q,@{$nd->{leaves}};
+
+  };
+
 
   return;
 
@@ -380,6 +475,8 @@ sub argsolve($self,$branch) {
   my $ISA  = $mc->{ISA};
   my $lib  = $main->{cmdlib};
 
+  $self->lisrepl($branch);
+
 
   # unpack
   my $vref = $branch->{vref}->{res};
@@ -389,9 +486,17 @@ sub argsolve($self,$branch) {
   # walk operands
   my @args=map {
 
-    my $nd   = $ARG->{id};
+    my $nd   = $ARG->{data};
     my $key  = $nd->{value};
     my $type = $ARG->{type};
+    my $have = $l1->xlate($key);
+
+    if($type eq 'SYM'
+    && $type ne $have->{type}) {
+      $ARG  = $nd->{vref};
+      $type = $have->{type};
+
+    };
 
     my $O    = {};
 

@@ -85,12 +85,7 @@ St::vconst {
 
     # ^match names in least to an index
     # ^then use index to or with mask
-    map{
-
-      my $idex  = $class->tokin($_);
-         $mask |= 1 << $idex;
-
-    } @$name;
+    $mask |= $class->regmask(@$name);
 
 
     # give the mask ;>
@@ -267,6 +262,25 @@ sub tokin($class,$name) {
     ? array_iof($class->list(),$name)
     : undef
     ;
+
+};
+
+# ---   *   ---   *   ---
+# ^get bitmask matching register names
+
+sub regmask($class,@name) {
+
+  my $mask=0;
+
+  map {
+
+    my $idex  = $class->tokin($ARG);
+       $mask |= 1 << $idex;
+
+  } @name;
+
+
+  return $mask;
 
 };
 

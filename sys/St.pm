@@ -107,7 +107,7 @@ sub is_valid($kind,$obj) {
 #
 # obj must be *exactly*
 # an ice of type -- derived
-# classes won' pass this test
+# classes won't pass this test
 
 sub is_iceof($kind,$obj) {
 

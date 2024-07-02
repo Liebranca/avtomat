@@ -34,8 +34,13 @@ my $xlate = xlate->new(
 q[%;
 
 clan testy;
+
 proc start;
+
   in byte b0;
+#  in byte b1;
+
+  ld b0,$24;
 
 ],
 
