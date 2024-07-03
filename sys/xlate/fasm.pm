@@ -322,7 +322,7 @@ sub operand_value($self,$type,@data) {
       "$type->{name} [$out]";
 
 
-    } elsif(exists $ARG->{spec}) {
+    } elsif(exists $ARG->{id}) {
       ($mc->vrefid($ARG))[1];
 
     } else {
@@ -352,6 +352,7 @@ sub is_label {
 # walk instruction block
 
 sub step($self,$data) {
+
 
   my ($seg,$route,@req)=@$data;
 

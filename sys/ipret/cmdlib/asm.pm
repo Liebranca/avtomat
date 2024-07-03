@@ -113,6 +113,7 @@ sub blk($self,$branch) {
   my $fn   = (ref $main) . '::cpos';
      $fn   = \&$fn;
 
+
   $enc->binreq(
 
     $branch,[
@@ -345,7 +346,8 @@ sub proc($self,$branch) {
   $anima->{almask}  = $anima->reserved_mask();
   $anima->{almask} |= 1;
 
-  # ~
+
+  # find children nodes
   my $re=$l1->re(CMD=>'proc');
   my @lv=$branch->match_up_to(
 

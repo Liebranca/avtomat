@@ -351,6 +351,8 @@ St::vconst {
       dst       => 'rmi',
 
       overwrite => 0,
+      immbig    => 1,
+
       fix_size  => ['qword'],
 
     },

@@ -89,12 +89,7 @@ sub run($self) {
 
 
   # get assembly queue
-  my $Q=[
-    map {(is_arrayref $ARG) ? @$ARG : ()}
-    @{$enc->exewrite_sort()}
-
-  ];
-
+  my $Q=[grep {defined $ARG} @{$enc->{Q}->{asm}}];
 
   # put header
   my @out=$lang->open_boiler();
@@ -102,6 +97,8 @@ sub run($self) {
 
   # filter out virtual data
   my $virtual = 0;
+  my $end     = 0;
+  my $i       = 0;
 
   for my $data(@$Q) {
 
@@ -111,16 +108,29 @@ sub run($self) {
 
       my ($type,$ins,@args)=@$ARG;
 
+
+      # stepped on virtual block?
       if(! $virtual && $ins eq 'data-decl') {
+
         my ($sym)=$mc->vrefsym($args[0]);
         $virtual=$sym->{virtual};
 
+        $end=$sym->{p3ptr}->next_leaf;
+        $end=(defined $end)
+          ? $end->absidex
+          : -1
+          ;
+
         ($virtual) ? () : $ARG ;
 
-      } elsif($virtual && $ins eq 'ret') {
+
+      # ^stepping out of virtual block?
+      } elsif($virtual && $i eq $end) {
         $virtual=0;
         ();
 
+
+      # ^keep values if not inside virtual!
       } else {
         ($virtual) ? () : $ARG ;
 
@@ -130,6 +140,7 @@ sub run($self) {
     } @req;
 
 
+    $i++;
     $data=(@req) ? [$seg,$route,@req] : [] ;
 
   };

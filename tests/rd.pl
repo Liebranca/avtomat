@@ -36,12 +36,13 @@ q[%;
 clan testy;
 
 proc start;
+  call fn;
 
+proc fn;
   in byte b0;
   ld b0,$24;
 
-proc nstart;
-  ld ar,$25;
+  ret;
 
 ],
 

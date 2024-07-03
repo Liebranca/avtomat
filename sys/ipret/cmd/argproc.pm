@@ -44,7 +44,13 @@ sub argproc($self,$vref,%O) {
 
   # have symbol?
   if($vref->{type} eq 'SYM') {
-    return $eng->symfet($vref->{spec});
+
+    my $have=(length $vref->{data})
+      ? $vref->{data}
+      : $vref->{spec}
+      ;
+
+    return $eng->symfet($have);
 
   # have tree!
   } else {

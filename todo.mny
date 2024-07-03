@@ -15,10 +15,11 @@ x \--> write base class (rd/vref)
 
 ~ .  \--> varname handler
 ~ .  .  \--> tmp keyw for stackvars
-~ .  .  \--> in keyw for reglisses
+x .  .  \--> in keyw for reglisses
 
 ~ .  \--> get register use/overwrite
 x .  .  \--> anima->alloci context bias
+~ .  .  \--> mark registers as used/avail
 ~ .  .  \--> backup unreleased registers
 
 
