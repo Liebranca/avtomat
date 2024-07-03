@@ -149,6 +149,11 @@ sub crux($src,%O) {
   );
 
 
+  # force recalculation of node indices
+  delete $self->{tree}->{absidex};
+  $self->{tree}->absidex;
+
+
   # sort assembly queue
   my $enc = $self->{encoder};
   my $Q   = $enc->{Q}->{asm};

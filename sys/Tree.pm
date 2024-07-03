@@ -39,7 +39,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.04.1;
+  our $VERSION = v0.04.2;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -1252,20 +1252,41 @@ sub idextrav($self) {
 
 # ---   *   ---   *   ---
 # gets 'absolute' idex of leaf node
-# ie: nth node pushed to branch
+# ie: nth node pushed to tree
+#
+# thing is calculated for the whole tree,
+# so we check for the existance of
+# a cached result first ;>
+#
+# delete 'absidex' from an instance
+# to trigger recalculation!
 
 sub absidex($self) {
 
-  my $i      = $self->{idex};
-  my $anchor = $self->{parent};
 
-  while($anchor) {
-    $i      += $anchor->{idex};
-    $anchor  = $anchor->{parent};
+  # have cached?
+  return $self->{absidex}
+  if exists $self->{absidex};
+
+
+  # get ctx
+  my ($root) = $self->root();
+  my $i      = 0;
+
+
+  # walk hierarchy
+  my @Q=$root;
+  while(@Q) {
+
+    my $nd=shift @Q;
+    $nd->{absidex}=$i++;
+
+    unshift @Q,@{$nd->{leaves}};
 
   };
 
-  return $i;
+
+  return $self->{absidex};
 
 };
 
@@ -1808,18 +1829,20 @@ sub match_until($self,$ch,$pat,%O) {
   # defaults
   $O{iref}      //=0;
   $O{inclusive} //=0;
+  $O{deep}      //=0;
 
   my @out  = ();
   my @path = ();
 
-  my @pending = @{$self->{leaves}};
-  @pending    = @pending[$ch->{idex}+1..$#pending];
+  my @Q = @{$self->{leaves}};
+     @Q = @Q[$ch->{idex}+1..$#Q];
 
 
   # walk the leaves
-  while(@pending) {
+  while(@Q) {
 
-    $self=shift @pending;
+    my $nd=shift @Q;
+
 
     # remember idex
     if($O{iref}) {
@@ -1828,25 +1851,38 @@ sub match_until($self,$ch,$pat,%O) {
     };
 
     # cut when pattern found
-    if($self->{value}=~ $pat) {
+    if($nd->{value}=~ $pat) {
       @out=@path;
 
-      # save end token
-      if($O{inclusive}) {
-        push @out,$self;
+      # save end token?
+      push @out,$nd if $O{inclusive};
+      last;
+
+
+    # recurse?
+    } elsif($O{deep}) {
+
+      if(defined $nd->branch_in($pat)) {
+        @out=@path;
+
+        # save end token?
+        push @out,$nd if $O{inclusive};
+        last;
+
+      } else {
+        push @path,$nd;
 
       };
-
-      last;
 
 
     # save middle token
     } else {
-      push @path,$self;
+      push @path,$nd;
 
     };
 
   };
+
 
   return @out;
 
@@ -1951,16 +1987,16 @@ sub all_back($self,%O) {
 # or all nodes from self
 # to end if that fails
 
-sub match_up_to($self,$pattern) {
+sub match_up_to($self,$pattern,%O) {
 
   my @out=$self->{parent}->match_until(
-    $self,$pattern
+    $self,$pattern,%O
 
   );
 
   # ^on fail
   @out=$self->{parent}->all_from(
-    $self
+    $self,%O
 
   ) if ! @out;
 

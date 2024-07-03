@@ -38,9 +38,10 @@ clan testy;
 proc start;
 
   in byte b0;
-#  in byte b1;
-
   ld b0,$24;
+
+proc nstart;
+  ld ar,$25;
 
 ],
 

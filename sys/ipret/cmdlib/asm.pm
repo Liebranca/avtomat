@@ -290,7 +290,6 @@ sub segpre_blk($self,$branch,@flags) {
   # get ctx
   my $frame = $self->{frame};
   my $main  = $frame->{main};
-  my $mc    =
 
 
   # ensure segment
@@ -313,6 +312,8 @@ sub proc($self,$branch) {
   # get ctx
   my $main = $self->{frame}->{main};
   my $mc   = $main->{mc};
+  my $l1   = $main->{l1};
+  my $vref = $branch->{vref};
 
 
   # generate segment and block
@@ -344,6 +345,19 @@ sub proc($self,$branch) {
   $anima->{almask}  = $anima->reserved_mask();
   $anima->{almask} |= 1;
 
+  # ~
+  my $re=$l1->re(CMD=>'proc');
+  my @lv=$branch->match_up_to(
+
+    $re,
+
+    inclusive => 0,
+    deep      => 1,
+
+  );
+
+  $branch->pushlv(@lv);
+
 
   # reset and give
   my $ptr   = $fn->();
@@ -352,17 +366,18 @@ sub proc($self,$branch) {
   my $tab   = \$inner->{vref};
 
   $$tab=rd::vref->new(
-    type=>'TAB',
-    data=>{}
+    type => 'TAB',
+    data => {},
 
   );
+
 
   return $fn;
 
 };
 
 # ---   *   ---   *   ---
-# ~
+# decls inputs to a process
 
 sub in($self,$branch) {
 
@@ -398,8 +413,17 @@ sub in($self,$branch) {
   $anima->{almask}=$old | (1 << $idex);
 
   $dst->{$sym->{spec}}=rd::vref->new(
-    type=>'REG',
-    spec=>$idex,
+
+    type => 'REG',
+    spec => $idex,
+
+    res  => (
+       defined $type
+    && Type->is_valid($type->{spec})
+
+    ) ? typefet $type->{spec}
+      : null
+      ,
 
   );
 
@@ -438,11 +462,38 @@ sub lisrepl($self,$branch) {
     my $key  = $nd->{value};
     my $have = $l1->xlate($key);
 
+
+    # all aliases are symbols!
     if($have->{type} eq 'SYM'
     && exists $lis->{$have->{spec}}) {
 
-      my $x=$lis->{$have->{spec}};
+      my $x    = $lis->{$have->{spec}};
+      my $type = $x->{res};
 
+
+      # typed alias?
+      if(length $type) {
+
+
+        # replace sole operation size?
+        if($vref->{opsz_def}) {
+          $vref->{opsz_def}=0;
+          $opsz=$vref->{opsz}=$type;
+
+        # ^nope, match against existing!
+        } else {
+
+          $main->err(
+            "type specifier mismatch"
+
+          ) if $type ne $opsz;
+
+        };
+
+      };
+
+
+      # replace alias with value ;>
       $nd->{value}=$l1->tag(
         $x->{type}=>$x->{spec}
 
