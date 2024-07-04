@@ -35,14 +35,17 @@ q[%;
 
 clan testy;
 
-proc start;
-  call fn;
-
 proc fn;
-  in byte b0;
-  ld b0,$24;
-
+  ld er,$24;
+  ld fr,$24;
   ret;
+
+proc start;
+  ld    er,$25;
+  ld    fr,$25;
+  call  fn;
+
+  os    'exit',0;
 
 ],
 

@@ -35,6 +35,7 @@ package ipret;
   use Cask;
   use id;
 
+  use Arstd::Bytes;
   use Arstd::IO;
   use Arstd::PM;
   use Arstd::WLog;
@@ -44,7 +45,7 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.5;#a
+  our $VERSION = v0.01.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -148,6 +149,8 @@ sub crux($src,%O) {
 
   );
 
+  $self->postsolve();
+
 
   # force recalculation of node indices
   delete $self->{tree}->{absidex};
@@ -186,6 +189,110 @@ sub crux($src,%O) {
 sub cpos($self) {
   my $mc=$self->{mc};
   return $mc->{segtop}->{ptr};
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+sub postsolve($self) {
+
+
+  # get ctx
+  my $l1   = $self->{l1};
+  my $proc = $l1->re(CMD=>'proc');
+
+
+  # walk tree surface ;>
+  my @Q=@{$self->{tree}->{leaves}};
+  while(@Q) {
+
+    my $nd   = shift @Q;
+    my $vref = $nd->{vref};
+
+
+    # handle processes
+    if($nd->{value}=~ $proc) {
+
+      my $regal=$vref->{data}->{-regal};
+
+      map {
+        $self->regspill(@$ARG);
+
+      } @{$regal->{Q}};
+
+    };
+
+  };
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# TODO: move this somewhere else ;>
+
+sub regspill($self,$branch,$dst,$src) {
+
+
+  # get ctx
+  my $mc    = $self->{mc};
+  my $anima = $mc->{anima};
+  my $l1    = $self->{l1};
+  my $enc   = $self->{encoder};
+
+
+  # compare avail mask to required!
+  my $need = $dst->{-regal}->{glob};
+
+  my $have = $src->{-regal}->{call};
+     $have = $have->{$branch->{-uid}};
+
+  my $iggy = ~$anima->reserved_mask;
+
+  my $col  = ($need & $have) & $iggy;
+
+
+  # get registers to backup/restore
+  my @order=();
+  while($col) {
+
+    my $idex=(bitscanf $col)-1;
+    $col &= ~(1 << $idex);
+
+    push @order,{type=>'r',reg=>$idex};
+
+  };
+
+  goto skip if ! @order;
+
+
+  # generate additional branches...
+  my $par=$branch->{parent};
+  my ($pre,$post)=(
+    $par->insert($branch->{idex},'pre'),
+    $par->insert($branch->{idex}+1,'post'),
+
+  );
+
+
+  # ^spawn instructions on them ;>
+  my $opsz=typefet 'qword';
+  my $idex=0;
+
+  map {
+
+    my $end=$#order-$ARG;
+
+    $enc->binreq($pre,[$opsz,push=>$order[$ARG]]);
+    $enc->binreq($post,[$opsz,pop=>$order[$end]]);
+
+  } 0..$#order;
+
+
+  skip:
+  return;
 
 };
 

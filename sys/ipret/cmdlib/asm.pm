@@ -42,7 +42,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.0;#b
+  our $VERSION = v0.02.1;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -311,10 +311,13 @@ sub proc($self,$branch) {
 
 
   # get ctx
-  my $main = $self->{frame}->{main};
-  my $mc   = $main->{mc};
-  my $l1   = $main->{l1};
-  my $vref = $branch->{vref};
+  my $main  = $self->{frame}->{main};
+  my $mc    = $main->{mc};
+  my $anima = $mc->{anima};
+
+  my $l1    = $main->{l1};
+  my $vref  = $branch->{vref};
+  my $mask  = $anima->reserved_mask;
 
 
   # generate segment and block
@@ -336,17 +339,6 @@ sub proc($self,$branch) {
   };
 
 
-  # setup context
-  my $anima = $mc->{anima};
-
-  $anima->restore_alma()
-  if defined $mc->{hiertop};
-
-  $anima->backup_alma();
-  $anima->{almask}  = $anima->reserved_mask();
-  $anima->{almask} |= 1;
-
-
   # find children nodes
   my $re=$l1->re(CMD=>'proc');
   my @lv=$branch->match_up_to(
@@ -361,6 +353,25 @@ sub proc($self,$branch) {
   $branch->pushlv(@lv);
 
 
+  # get number of sub-blocks
+  #
+  # we define these sub-divisions as
+  # all instructions before a call
+  #
+  # by taking note of these blocks,
+  # we know which registers are in use
+  # at the time of an invocation,
+  # and so we can decide which ones to
+  # automatically spill to stack
+
+  $re=$l1->re(CMD=>'asm-ins','call');
+
+  my %sb=map {
+    $ARG->{-uid} => $mask
+
+  } $branch->branches_in($re);
+
+
   # reset and give
   my $ptr   = $fn->();
   my $inner = $ptr->{p3ptr};
@@ -369,7 +380,16 @@ sub proc($self,$branch) {
 
   $$tab=rd::vref->new(
     type => 'TAB',
-    data => {},
+    data => {
+
+      -regal=>{
+        call => \%sb,
+        glob => $mask,
+        Q    => [],
+
+      },
+
+    },
 
   );
 
@@ -400,20 +420,23 @@ sub in($self,$branch) {
   # unpack args
   my ($type,$sym)=$vref->flatten();
 
-
-  # setup bias
+  # setup biased mask for allocator
   my $old  = $anima->{almask};
-  my $mask = $old | $anima->regmask(qw(
-    ar br cr dr
 
-  ));
+  my $bias = $anima->regmask(qw(ar br cr dr));
+  my $mask = $dst->{-regal}->{glob};
 
-  $anima->{almask}=$mask;
+  $anima->{almask}=$mask | $bias;
+
 
   # allocate register
   my $idex=$mc->{anima}->alloci;
-  $anima->{almask}=$old | (1 << $idex);
 
+  $dst->{-regal}->{glob} |= 1 << $idex;
+  $anima->{almask}=$old;
+
+
+  # ^store alias in table
   $dst->{$sym->{spec}}=rd::vref->new(
 
     type => 'REG',
@@ -657,9 +680,107 @@ sub argsolve($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# marks register as in use
+
+sub regused($self,$branch,$opsz,$name,@args) {
+
+
+  # get ctx
+  my $main  = $self->{frame}->{main};
+  my $mc    = $main->{mc};
+  my $anima = $mc->{anima};
+  my $l1    = $main->{l1};
+
+  # get current proc
+  my $proc = $mc->{hiertop}->{p3ptr};
+  my $tab  = $proc->{vref}->{data};
+
+
+  # map register idex to bit
+  my $idex = $args[0]->{reg};
+  my $bit  = 1 << $idex;
+
+  # ^fill in global register use mask
+  $tab->{-regal}->{glob} |= $bit;
+
+
+  # determine sub-block if any
+  my $call=$tab->{-regal}->{call};
+  goto skip if ! int keys %$call;
+
+  my $re     = $l1->re(CMD=>'asm-ins','call');
+  my $anchor = $branch;
+  my $found  = 0;
+
+
+  # walk the tree until next call is found
+  while($anchor->{parent} ne $main->{tree}) {
+
+    $anchor=$anchor->next_leaf();
+    last if ! defined $anchor;
+
+    if($anchor->{value}=~ $re) {
+      $found=1;
+      last;
+
+    };
+
+  };
+
+
+  # ^mark this register on success ;>
+  $call->{$anchor->{-uid}} |= $bit
+  if $found;
+
+
+  skip:
+  return;
+
+
+};
+
+# ---   *   ---   *   ---
+# TODO: mark as avail ;>
+
+# ---   *   ---   *   ---
+# enqueue the generation of
+# push/pop for registers that
+# would be overwritten by call
+
+sub regspill($self,$branch,$opsz,$name,@args) {
+
+
+  # get ctx
+  my $main  = $self->{frame}->{main};
+  my $mc    = $main->{mc};
+  my $anima = $mc->{anima};
+  my $l1    = $main->{l1};
+
+
+  # get target process
+  my $id  = $args[0]->{id};
+  my $sym = $mc->valid_search(@$id);
+
+  my $dst = $sym->{p3ptr};
+     $dst = $dst->{vref}->{data};
+
+  # get current process
+  my $src = $mc->{hiertop}->{p3ptr};
+     $src = $src->{vref}->{data};
+
+
+  push @{$src->{-regal}->{Q}},[$branch,$dst,$src];
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # generic instruction
 
 sub asm_ins($self,$branch) {
+
 
   # get ctx
   my $main = $self->{frame}->{main};
@@ -672,6 +793,17 @@ sub asm_ins($self,$branch) {
 
   return $branch
   if ! length $opsz;
+
+
+  # have an edge case?
+  my $edge={
+    ld   => \&regused,
+    call => \&regspill,
+
+  }->{$name};
+
+  $edge->($self,$branch,$opsz,$name,@args)
+  if defined $edge;
 
 
   # all OK, request and give

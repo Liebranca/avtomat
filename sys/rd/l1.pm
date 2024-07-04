@@ -40,7 +40,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.1;#a
+  our $VERSION = v0.02.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -57,7 +57,7 @@ St::vconst {
       main => undef,
       defs => [],
 
-      table => {
+      typetab => {
 
         map {(
           $ARG->[0]=>$ARG->[1],
@@ -77,6 +77,8 @@ St::vconst {
         )
 
       },
+
+      retab => {},
 
 
     };
@@ -169,6 +171,11 @@ sub build($self) {
 
   });
 
+  $self->{retab}={
+    BARE => qr{^[^$self->restruc()->{open}].*}x,
+    ANY  => $ANY_MATCH,
+
+  };
 
   return;
 
@@ -182,7 +189,7 @@ sub extend($self,$key,$char,$fn) {
 
 
   # add to typename table
-  my $dst=$self->{table};
+  my $dst=$self->{typetab};
 
   $dst->{$key}  = $char;
   $dst->{$char} = $key;
@@ -208,10 +215,11 @@ sub mkre($self,@args) {
     ;
 
   my $struc=$class->restruc;
+  $args[2] //= '.*';
 
 
   # specific pattern requested?
-  return (@args)
+  return (defined $args[0] && defined $args[1])
 
 
     # if so give pattern to match args
@@ -225,7 +233,7 @@ sub mkre($self,@args) {
 
       $struc->{close}\s
 
-      (?<data> .*)
+      (?<data> $args[2])
 
     }x
 
@@ -251,19 +259,16 @@ sub mkre($self,@args) {
 # ---   *   ---   *   ---
 # make tag regex
 
-sub re($self,$type,$spec) {
+sub re($self,$type,$spec,$data=undef) {
 
 
   # remember previously generated
-  state $tab={
-    BARE => qr{^[^$self->restruc()->{open}].*}x,
-    ANY  => $ANY_MATCH,
-
-  };
+  my $tab    = $self->{retab};
+     $data //= '.*';
 
   # ^so we can exit early ;>
-  return $tab->{"$type:$spec"}
-  if exists $tab->{"$type:$spec"};
+  return $tab->{"$type:$spec:$data"}
+  if exists $tab->{"$type:$spec:$data"};
 
 
   # ANY:  any token, tag or not
@@ -274,8 +279,8 @@ sub re($self,$type,$spec) {
   # ^WILD: any type matching spec!
   if($type eq 'WILD') {
 
-    my $re=$self->mkre(".",$spec);
-    $tab->{"$type:$spec"}=$re;
+    my $re=$self->mkre(".",$spec,$data);
+    $tab->{"$type:$spec:$data"}=$re;
 
     return $re;
 
@@ -305,9 +310,9 @@ sub re($self,$type,$spec) {
         my $key   = $tk[$ARG];
         my $value = $tv[$ARG];
 
-        push @id,"$key:$value";
+        push @id,"$key:$value:$data";
 
-        $self->re($key=>$value);
+        $self->re($key=>$value,$data);
 
       } 0..$#tk],
 
@@ -322,15 +327,15 @@ sub re($self,$type,$spec) {
 
 
   # type-check
-  my $tag_t=$self->{table}->{$type};
+  my $tag_t=$self->{typetab}->{$type};
 
   $self->throw_invalid_type($type)
   if ! defined $tag_t;
 
 
   # build new and save to table
-  my $re=$self->mkre("\Q$tag_t",$spec);
-  $tab->{"$type:$spec"}=$re;
+  my $re=$self->mkre("\Q$tag_t",$spec,$data);
+  $tab->{"$type:$spec:$data"}=$re;
 
   return $re;
 
@@ -348,7 +353,7 @@ sub tag($self,$type,$src=undef) {
 
 
   # get/validate sigil
-  my $tag_t=$self->{table}->{$type};
+  my $tag_t=$self->{typetab}->{$type};
 
   $self->throw_invalid_type($type)
   if ! defined $tag_t;
@@ -457,7 +462,7 @@ sub cat($self,@ar) {
 
 
   # get non-internal type
-  $otype=$self->{table}->{$otype};
+  $otype=$self->{typetab}->{$otype};
 
   # make new and give
   return $self->tag($otype,$ospec) . $odata;
@@ -474,7 +479,7 @@ sub xlate($self,$src=undef) {
 
   my $type=$have->{type};
 
-  $have->{type}=$self->{table}->{$type};
+  $have->{type}=$self->{typetab}->{$type};
   return $have;
 
 };
@@ -486,7 +491,7 @@ sub typechk($self,$expect,$src=undef) {
 
 
   # have typed token?
-  my $tab  = $self->{table};
+  my $tab  = $self->{typetab};
   my $have = $self->untag($src);
 
   return 0 if ! $have;

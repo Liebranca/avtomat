@@ -69,7 +69,6 @@ sub oscall($self,$branch) {
   my ($args,$args_t)=
     $self->argtake_flat($branch);
 
-
   # get syscall to invoke
   my $name=$l1->xlate(shift @$args);
   shift @$args_t;
@@ -110,10 +109,11 @@ sub oscall($self,$branch) {
 
 
     $nd->{cmdkey} = 'ld';
-    $nd->{vref}   = rd::vref->new_list(
-      [shift @$args_t]
+    $nd->{vref}   = rd::vref->new(
+      type=>'TYPE',
+      spec=>shift @$args_t,
 
-    );
+    ) if int @$args_t;
 
     $nd->inew($l1->tag(REG => shift @r));
 

@@ -89,7 +89,7 @@ sub new_list($class,$data=undef) {
 sub read_values($self,$attr,$filter=null) {
 
   my @have=($self->{type} eq 'LIST')
-    ? $self->flatten($attr=>$self)
+    ? $self->flatten()
     : $self
     ;
 
@@ -124,7 +124,6 @@ sub flatten($class,@ice) {
   while(@Q) {
 
     my $e=shift @Q;
-
 
     # recurse on array
     if($e->{type} eq 'LIST') {
