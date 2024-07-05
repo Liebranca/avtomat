@@ -393,6 +393,8 @@ sub proc($self,$branch) {
 
       },
 
+      -order => [],
+
     },
 
   );
@@ -459,6 +461,9 @@ sub in($self,$branch) {
       ,
 
   );
+
+  push @{$dst->{-order}},
+    $dst->{$sym->{spec}};
 
 
   return;
@@ -708,16 +713,41 @@ sub regused($self,$branch,$opsz,$name,@args) {
   my $proc = $mc->{hiertop}->{p3ptr};
   my $tab  = $proc->{vref}->{data};
 
-  push @{$tab->{-regal}->{'var-Q'}},[
 
-    $branch,
-    $proc,
-    $args[0]->{reg},
+  # claiming registers?
+  if($name ne 'reus') {
 
-    $name,
-    $name ne 'reus',
+    push @{$tab->{-regal}->{'var-Q'}},[
 
-  ];
+      (St::cf 1,1),
+
+      $branch,
+      $proc,
+      $args[0]->{reg},
+
+      $name,
+      1,
+
+    ];
+
+
+  # releasing registers!
+  } else {
+
+    map {push @{$tab->{-regal}->{'var-Q'}},[
+
+      (St::cf 1,1),
+
+      $branch,
+      $proc,
+      $ARG->{reg},
+
+      $name,
+      0,
+
+    ]} @args;
+
+  };
 
 
   return;
@@ -752,8 +782,33 @@ sub regspill($self,$branch,$opsz,$name,@args) {
 
 
   push @{$src->{-regal}->{'proc-Q'}},
-    [$branch,$dst,$src];
+    [(St::cf 1,1),$branch,$dst,$src];
 
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# enqueue generation of loads
+# for process arguments
+
+sub ldargs($self,$branch,$opsz,$name,@args) {
+
+
+  # get ctx
+  my $main  = $self->{frame}->{main};
+  my $mc    = $main->{mc};
+  my $anima = $mc->{anima};
+  my $l1    = $main->{l1};
+
+  # get current process
+  my $src = $mc->{hiertop}->{p3ptr};
+     $src = $src->{vref}->{data};
+
+
+  push @{$src->{-regal}->{'proc-Q'}},
+    [(St::cf 1,1),$branch,$src,@args];
 
   return;
 
@@ -780,8 +835,13 @@ sub asm_ins($self,$branch) {
 
   # have an edge case?
   my $edge={
-    ld   => \&regused,
+
     call => \&regspill,
+
+    ( map {$ARG => \&regused}
+      qw  (ld or and xor)
+
+    ),
 
   }->{$name};
 
@@ -822,6 +882,7 @@ sub meta_ins($self,$branch) {
   # have an edge case?
   my $edge={
     reus => \&regused,
+    pass => \&ldargs,
 
   }->{$name};
 

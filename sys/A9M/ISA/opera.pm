@@ -438,6 +438,7 @@ St::vconst {
 
   meta    => {
     reus => {},
+    pass => {},
 
   },
 

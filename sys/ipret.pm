@@ -202,9 +202,15 @@ sub postsolve($self) {
   my $l1   = $self->{l1};
   my $proc = $l1->re(CMD=>'proc');
 
+  # force recalculation of node indices
+  delete $self->{tree}->{absidex};
+  $self->{tree}->absidex;
+
 
   # walk tree surface...
   my @Q=@{$self->{tree}->{leaves}};
+  my @X=();
+
   while(@Q) {
 
     my $nd   = shift @Q;
@@ -216,8 +222,14 @@ sub postsolve($self) {
 
       my $regal=$vref->{data}->{-regal};
 
+
+      # sort calls by idex
       map {
-        $self->regused(@$ARG);
+
+        my ($fn,$branch,@args)=@$ARG;
+        my $dst = $X[$branch->absidex] //= [];
+
+        push @$dst,[$fn,$branch,@args];
 
       } @{$regal->{'var-Q'}};
 
@@ -226,7 +238,19 @@ sub postsolve($self) {
   };
 
 
-  # ^and then again ;>
+  # execute queue
+  map {
+
+    map {
+      my ($fn,@args)=@$ARG;
+      $self->$fn(@args);
+
+    } @$ARG;
+
+  } @X;
+
+
+  # ^second pass
   @Q=@{$self->{tree}->{leaves}};
   while(@Q) {
 
@@ -240,7 +264,9 @@ sub postsolve($self) {
       my $regal=$vref->{data}->{-regal};
 
       map {
-        $self->regspill(@$ARG);
+
+        my ($fn,@args)=@$ARG;
+        $self->$fn(@args);
 
       } @{$regal->{'proc-Q'}};
 
@@ -269,9 +295,13 @@ sub regused($self,$branch,$proc,$idex,$mode,$mark) {
 
   # ^fill in global register use mask
   my $dst={
-    ld   => \$tab->{-regal}->{glob},
-    in   => \$tab->{-regal}->{used},
-    reus => \$tab->{-regal}->{glob},
+
+    in => \$tab->{-regal}->{used},
+
+    ( map {$ARG => \$tab->{-regal}->{glob}}
+      qw  (ld or and xor reus)
+
+    ),
 
   }->{$mode};
 
@@ -377,6 +407,96 @@ sub regspill($self,$branch,$dst,$src) {
 
 
   skip:
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+sub ldargs($self,$branch,$src,@args) {
+
+
+  # get ctx
+  my $l1    = $self->{l1};
+  my $enc   = $self->{encoder};
+  my $eng   = $self->{engine};
+
+  my @onerr = (
+
+    $branch,
+
+    "no target [ctl]:%s for [good]:%s",
+    args=>['proc','pass'],
+
+  );
+
+
+  # determine target process
+  my $call=$src->{-regal}->{call};
+  $self->bperr(@onerr) if ! int keys %$call;
+
+  my $re     = $l1->re(CMD=>'asm-ins','call');
+  my $anchor = $branch;
+  my $found  = 0;
+
+
+  # walk the tree until next call is found
+  while($anchor->{parent} ne $self->{tree}) {
+
+    $anchor=$anchor->next_leaf();
+    last if ! defined $anchor;
+
+
+    # mark/release this register on success ;>
+    if($anchor->{value}=~ $re) {
+      $found=1;
+
+      my $name = $anchor->{vref}->{res};
+         $name = $name->{args}->[0];
+
+      my $dst  = $eng->symfet($name->{data});
+         $dst  = $dst->{p3ptr}->{vref};
+         $dst  = $dst->{data};
+
+      my $need = $dst->{-order};
+
+      map {
+
+        my $reg   = $need->[$ARG];
+        my $value = $args[$ARG];
+        my $opsz  = $reg->{res};
+
+        my $mem   = {type=>'r',reg=>$reg->{spec}};
+
+        # auto reus...
+        $call->{$anchor->{-uid}} &=
+          ~(1 << $mem->{reg});
+
+
+        # ~:~
+        if(defined $value) {
+
+          $enc->binreq(
+            $branch,[$opsz,ld=>$mem,$value]
+
+          );
+
+        } else {
+          nyi "set defv on ldargs";
+
+        };
+
+      } 0..@$need-1;
+
+      last;
+
+    };
+
+  };
+
+
+  $self->bperr(@onerr) if ! $found;
   return;
 
 };

@@ -794,6 +794,15 @@ sub perr($self,$me,%O) {
 };
 
 # ---   *   ---   *   ---
+# ^sets branch before throwing!
+
+sub bperr($self,$branch,$me,%O) {
+  $self->{l2}->{branch}=$branch;
+  return $self->perr($me,%O);
+
+};
+
+# ---   *   ---   *   ---
 # ~
 
 sub throw_unresolved($self,$Q,%O) {

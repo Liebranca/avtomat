@@ -256,7 +256,7 @@ w_cmdsub 'csume-list' => q(
 w_cmdsub 'asm-ins' => q(
   qlist src;
 
-) => qw(reus);
+) => qw(reus pass);
 
 # ---   *   ---   *   ---
 1; # ret
