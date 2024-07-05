@@ -32,6 +32,7 @@ package A9M::ISA::opera;
 
   use Arstd::Bytes;
   use Arstd::Array;
+  use Arstd::Re;
   use Arstd::IO;
   use Arstd::PM;
 
@@ -40,7 +41,7 @@ package A9M::ISA::opera;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.2;#a
+  our $VERSION = v0.01.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -434,6 +435,25 @@ St::vconst {
 
   )},
 
+
+  meta    => {
+    reus => {},
+
+  },
+
+  meta_re => sub {
+
+    return re_eiths(
+
+      [keys %{$_[0]->meta}],
+
+      opscape => 1,
+      bwrap   => 0,
+      whole   => 1,
+
+    );
+
+  },
 
   list    => sub {[array_keys $_[0]->table()]},
   cX_list => [qw(z nz g gz l lz)],

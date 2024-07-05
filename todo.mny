@@ -17,10 +17,10 @@ x \--> write base class (rd/vref)
 ~ .  .  \--> tmp keyw for stackvars
 x .  .  \--> in keyw for reglisses
 
-~ .  \--> get register use/overwrite
+x .  \--> get register use/overwrite
 x .  .  \--> anima->alloci context bias
-~ .  .  \--> mark registers as used/avail
-~ .  .  \--> backup unreleased registers
+x .  .  \--> mark registers as used/avail
+x .  .  \--> backup unreleased registers
 
 
 ~ Add frontend to olink

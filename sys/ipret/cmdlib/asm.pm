@@ -383,9 +383,13 @@ sub proc($self,$branch) {
     data => {
 
       -regal=>{
-        call => \%sb,
-        glob => $mask,
-        Q    => [],
+
+        call     => \%sb,
+        glob     => $mask,
+        used     => 0x00,
+
+        'var-Q'  => [],
+        'proc-Q' => [],
 
       },
 
@@ -431,8 +435,12 @@ sub in($self,$branch) {
 
   # allocate register
   my $idex=$mc->{anima}->alloci;
+  $self->regused($branch,null=>in=>{
+    type => 'r',
+    reg  => $idex,
 
-  $dst->{-regal}->{glob} |= 1 << $idex;
+  });
+
   $anima->{almask}=$old;
 
 
@@ -645,6 +653,9 @@ sub argsolve($self,$branch) {
   } @{$vref->{args}};
 
 
+  goto skip if $name=~ $ISA->{guts}->meta_re;
+
+
   # overwrite default type?
   my $nc_name=$name;
 
@@ -675,12 +686,14 @@ sub argsolve($self,$branch) {
 
 
   # give descriptor
+  skip:
   return ($opsz,$name,@args);
 
 };
 
 # ---   *   ---   *   ---
-# marks register as in use
+# enqueue the marking of a
+# register as in use
 
 sub regused($self,$branch,$opsz,$name,@args) {
 
@@ -695,52 +708,21 @@ sub regused($self,$branch,$opsz,$name,@args) {
   my $proc = $mc->{hiertop}->{p3ptr};
   my $tab  = $proc->{vref}->{data};
 
+  push @{$tab->{-regal}->{'var-Q'}},[
 
-  # map register idex to bit
-  my $idex = $args[0]->{reg};
-  my $bit  = 1 << $idex;
+    $branch,
+    $proc,
+    $args[0]->{reg},
 
-  # ^fill in global register use mask
-  $tab->{-regal}->{glob} |= $bit;
+    $name,
+    $name ne 'reus',
 
-
-  # determine sub-block if any
-  my $call=$tab->{-regal}->{call};
-  goto skip if ! int keys %$call;
-
-  my $re     = $l1->re(CMD=>'asm-ins','call');
-  my $anchor = $branch;
-  my $found  = 0;
+  ];
 
 
-  # walk the tree until next call is found
-  while($anchor->{parent} ne $main->{tree}) {
-
-    $anchor=$anchor->next_leaf();
-    last if ! defined $anchor;
-
-    if($anchor->{value}=~ $re) {
-      $found=1;
-      last;
-
-    };
-
-  };
-
-
-  # ^mark this register on success ;>
-  $call->{$anchor->{-uid}} |= $bit
-  if $found;
-
-
-  skip:
   return;
 
-
 };
-
-# ---   *   ---   *   ---
-# TODO: mark as avail ;>
 
 # ---   *   ---   *   ---
 # enqueue the generation of
@@ -769,7 +751,8 @@ sub regspill($self,$branch,$opsz,$name,@args) {
      $src = $src->{vref}->{data};
 
 
-  push @{$src->{-regal}->{Q}},[$branch,$dst,$src];
+  push @{$src->{-regal}->{'proc-Q'}},
+    [$branch,$dst,$src];
 
 
   return;
@@ -813,6 +796,40 @@ sub asm_ins($self,$branch) {
   );
 
   return $ISA->ins_ipret($main,$name,@args);
+
+};
+
+# ---   *   ---   *   ---
+# these are special instructions
+# that are meant for the compiler!
+
+sub meta_ins($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $enc  = $main->{encoder};
+  my $ISA  = $main->{mc}->{ISA};
+
+  # can solve arguments?
+  my ($opsz,$name,@args)=
+    $self->argsolve($branch);
+
+  return $branch
+  if ! length $opsz;
+
+
+  # have an edge case?
+  my $edge={
+    reus => \&regused,
+
+  }->{$name};
+
+  $edge->($self,$branch,$opsz,$name,@args)
+  if defined $edge;
+
+
+  return;
 
 };
 
@@ -1472,6 +1489,7 @@ cmdsub 'entry'    => q() => \&entry;
 cmdsub 'proc'     => q() => \&proc;
 cmdsub 'in'       => q() => \&in;
 cmdsub 'asm-ins'  => q() => \&asm_ins;
+cmdsub 'meta-ins' => q() => \&meta_ins;
 
 # ---   *   ---   *   ---
 1; # ret

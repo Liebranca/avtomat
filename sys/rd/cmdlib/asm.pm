@@ -36,7 +36,7 @@ package rd::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#b
+  our $VERSION = v0.01.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -207,11 +207,24 @@ sub mutate_ins($self,$branch,$head,$new='asm-ins') {
 
 sub asm_ins($self,$branch) {
 
+
+  # get ctx
+  my $main    = $self->{frame}->{main};
+  my $ISA     = $main->{mc}->{ISA};
+
+  my $meta_re = $ISA->{guts}->meta_re;
+
+
   # save operands to branch
   my $head=$self->parse_ins($branch);
+  my $name=($head->{name}=~ $meta_re)
+    ? 'meta-ins'
+    : 'asm-ins'
+    ;
+
 
   # mutate and give
-  $self->mutate_ins($branch,$head,'asm-ins');
+  $self->mutate_ins($branch,$head,$name);
 
   return;
 
@@ -220,7 +233,7 @@ sub asm_ins($self,$branch) {
 # ---   *   ---   *   ---
 # add entry points
 
-cmdsub 'asm-ins' => q(qlist src) => \&asm_ins;
+cmdsub 'asm-ins'  => q(qlist src) => \&asm_ins;
 cmdsub '$' => q() => \&current_byte;
 
 # ---   *   ---   *   ---
@@ -239,6 +252,11 @@ w_cmdsub 'csume-list' => q(
   cmd input;
 
 ) => 'in';
+
+w_cmdsub 'asm-ins' => q(
+  qlist src;
+
+) => qw(reus);
 
 # ---   *   ---   *   ---
 1; # ret

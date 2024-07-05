@@ -45,7 +45,7 @@ package ipret;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.6;#a
+  our $VERSION = v0.01.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -203,8 +203,31 @@ sub postsolve($self) {
   my $proc = $l1->re(CMD=>'proc');
 
 
-  # walk tree surface ;>
+  # walk tree surface...
   my @Q=@{$self->{tree}->{leaves}};
+  while(@Q) {
+
+    my $nd   = shift @Q;
+    my $vref = $nd->{vref};
+
+
+    # handle processes
+    if($nd->{value}=~ $proc) {
+
+      my $regal=$vref->{data}->{-regal};
+
+      map {
+        $self->regused(@$ARG);
+
+      } @{$regal->{'var-Q'}};
+
+    };
+
+  };
+
+
+  # ^and then again ;>
+  @Q=@{$self->{tree}->{leaves}};
   while(@Q) {
 
     my $nd   = shift @Q;
@@ -219,13 +242,75 @@ sub postsolve($self) {
       map {
         $self->regspill(@$ARG);
 
-      } @{$regal->{Q}};
+      } @{$regal->{'proc-Q'}};
 
     };
 
   };
 
 
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+sub regused($self,$branch,$proc,$idex,$mode,$mark) {
+
+
+  # get ctx
+  my $l1  = $self->{l1};
+  my $tab = $proc->{vref}->{data};
+
+
+  # map register idex to bit
+  my $bit  = 1 << $idex;
+
+  # ^fill in global register use mask
+  my $dst={
+    ld   => \$tab->{-regal}->{glob},
+    in   => \$tab->{-regal}->{used},
+    reus => \$tab->{-regal}->{glob},
+
+  }->{$mode};
+
+
+  $$dst=($mark)
+    ? $$dst |  $bit
+    : $$dst & ~$bit
+    ;
+
+
+  # determine sub-block if any
+  my $call=$tab->{-regal}->{call};
+  goto skip if ! int keys %$call;
+
+  my $re     = $l1->re(CMD=>'asm-ins','call');
+  my $anchor = $branch;
+
+
+  # walk the tree until next call is found
+  while($anchor->{parent} ne $self->{tree}) {
+
+    $anchor=$anchor->next_leaf();
+    last if ! defined $anchor;
+
+
+    # mark/release this register on success ;>
+    if($anchor->{value}=~ $re) {
+
+      $call->{$anchor->{-uid}}=($mark)
+        ? $call->{$anchor->{-uid}} |  $bit
+        : $call->{$anchor->{-uid}} & ~$bit
+        ;
+
+    };
+
+  };
+
+
+  skip:
   return;
 
 };
