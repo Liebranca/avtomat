@@ -37,18 +37,13 @@ clan testy;
 
 
 proc fn;
-
-  in byte b0;
-
-  or b0,$04;
+  or er,$04;
   ret;
 
 
 proc start;
 
   ld    er,$25;
-
-  pass  $20;
   call  fn;
 
   os    'exit',0;

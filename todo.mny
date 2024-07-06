@@ -21,6 +21,7 @@ x .  \--> get register use/overwrite
 x .  .  \--> anima->alloci context bias
 x .  .  \--> mark registers as used/avail
 x .  .  \--> backup unreleased registers
+x .  .  \--> spill to stack
 
 
 ~ Add frontend to olink

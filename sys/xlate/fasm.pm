@@ -308,12 +308,21 @@ sub operand_value($self,$type,@data) {
 
       } elsif($ARG->{type} eq 'mstk') {
         @r=$rtab->{$anima->stack_base}->{dword};
+        push @r,-$ARG->{imm} if ! @have;
 
       };
 
 
       push @r,join '',@have;
-      my $out=join '+',grep {length $ARG} @r;
+
+      my $i   = 0;
+      my $out = join '',map {
+        $ARG=($i++ &&! index '-',$ARG)
+          ? "+$ARG"
+          : $ARG
+          ;
+
+      } grep {length $ARG} @r;
 
 
       $out .= '*'. (1 << $ARG->{scale})

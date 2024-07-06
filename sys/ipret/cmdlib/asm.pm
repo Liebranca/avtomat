@@ -42,7 +42,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.1;#b
+  our $VERSION = v0.02.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -394,6 +394,11 @@ sub proc($self,$branch) {
       },
 
       -order => [],
+      -stack => {
+        size => 0,
+        have => {},
+
+      },
 
     },
 

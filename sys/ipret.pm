@@ -262,6 +262,7 @@ sub postsolve($self) {
     if($nd->{value}=~ $proc) {
 
       my $regal=$vref->{data}->{-regal};
+      my $stack=$vref->{data}->{-stack};
 
       map {
 
@@ -269,6 +270,10 @@ sub postsolve($self) {
         $self->$fn(@args);
 
       } @{$regal->{'proc-Q'}};
+
+
+      $self->setup_stack($nd,$stack->{size})
+      if $stack->{size};
 
     };
 
@@ -352,10 +357,12 @@ sub regspill($self,$branch,$dst,$src) {
 
 
   # get ctx
-  my $mc    = $self->{mc};
-  my $anima = $mc->{anima};
-  my $l1    = $self->{l1};
-  my $enc   = $self->{encoder};
+  my $mc       = $self->{mc};
+  my $anima    = $mc->{anima};
+  my $l1       = $self->{l1};
+  my $enc      = $self->{encoder};
+
+  my $def_opsz = typefet 'qword';
 
 
   # compare avail mask to required!
@@ -370,13 +377,85 @@ sub regspill($self,$branch,$dst,$src) {
 
 
   # get registers to backup/restore
-  my @order=();
+  my $stack = $src->{-stack};
+  my @order = ();
+
+  my @reg   = grep {0 > index $ARG,'-'} keys %$src;
+
+
   while($col) {
 
     my $idex=(bitscanf $col)-1;
     $col &= ~(1 << $idex);
 
-    push @order,{type=>'r',reg=>$idex};
+    my ($opsz,$key,$loc)=(
+      $def_opsz,
+      null,
+
+      $stack->{size}
+
+    );
+
+
+    # have named var?
+    my $r=undef;
+    @reg=map {
+
+      my $tmp=$src->{$ARG};
+
+      if($tmp->{spec} != $idex) {
+        $ARG;
+
+      } else {
+        $r=$tmp;
+        ();
+
+      };
+
+    } @reg;
+
+
+    # spilling named variable?
+    if(defined $r) {
+      nyi "named var spill";
+
+    # ^spilling unnamed!
+    } else {
+      $key="\$reg-$idex";
+
+    };
+
+
+    # new variable?
+    $src->{$key}=rd::vref->new(
+
+      type => 'REG',
+
+      spec => $idex,
+      res  => $opsz,
+
+    ) if ! exists $src->{$key};
+
+
+    # new stack allocation?
+    if(! defined $stack->{have}->{$key}) {
+      $stack->{size} += $opsz->{sizeof};
+
+      $loc=$stack->{size};
+      $stack->{have}->{$key}=$loc;
+
+    # ^nope, reuse!
+    } else {
+      $loc=$stack->{have}->{$key};
+
+    };
+
+
+    push @order,{
+      type=>'r',reg=>$idex,
+      meta=>[$opsz,$key,$loc]
+
+    };
 
   };
 
@@ -393,20 +472,96 @@ sub regspill($self,$branch,$dst,$src) {
 
 
   # ^spawn instructions on them ;>
-  my $opsz=typefet 'qword';
   my $idex=0;
 
   map {
 
     my $end=$#order-$ARG;
+    my $obj=$order[$ARG];
 
-    $enc->binreq($pre,[$opsz,push=>$order[$ARG]]);
-    $enc->binreq($post,[$opsz,pop=>$order[$end]]);
+    my ($opsz,$key,$loc)=@{$obj->{meta}};
+    delete $obj->{meta};
+
+
+    $enc->binreq($pre,[$opsz,st=>{
+
+      type => 'mstk',
+      imm  => $loc,
+
+    },$obj]);
+
+
+
+#    $enc->binreq($post,[$opsz,pop=>$order[$end]]);
 
   } 0..$#order;
 
 
   skip:
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+sub setup_stack($self,$branch,$size) {
+
+
+  # get ctx
+  my $enc   = $self->{encoder};
+  my $l1    = $self->{l1};
+  my $anima = $self->{mc}->{anima};
+  my $ISA   = $self->{mc}->{ISA};
+
+  my $opsz = typefet 'qword';
+
+
+  # get registers
+  my $base={
+    type => 'r',
+    reg  => $anima->stack_base,
+
+  };
+
+  my $ptr={
+    type => 'r',
+    reg  => $anima->stack_ptr,
+
+  };
+
+
+  # get offset
+  my $imm={
+    type => $ISA->immsz($size),
+    imm  => $size,
+
+  };
+
+
+  # dispatch instructions
+  my @req=(
+    [$opsz,push=>$base],
+    [$opsz,ld=>$base,$ptr],
+    [$opsz,sub=>$base,$imm],
+
+  );
+
+  $enc->binreq($branch,@req);
+
+
+  # add closing
+  my $re=$l1->re(CMD=>'asm-ins'=>'ret');
+  map {
+
+    $enc->binreq(
+      $ARG->prev_leaf,
+      [$opsz,'leave']
+
+    );
+
+  } $branch->branches_in($re);
+
   return;
 
 };
