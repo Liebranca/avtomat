@@ -51,6 +51,7 @@ St::vconst {
   instab => {
 
     ld    => 'mov',
+    st    => 'mov',
     lz    => 'cmovz',
 
     _cmp  => 'cmp',
@@ -307,7 +308,7 @@ sub operand_value($self,$type,@data) {
         @r=$rtab->{$ARG->{reg}}->{dword};
 
       } elsif($ARG->{type} eq 'mstk') {
-        @r=$rtab->{$anima->stack_base}->{dword};
+        @r=$rtab->{$anima->stack_base}->{qword};
         push @r,-$ARG->{imm} if ! @have;
 
       };

@@ -42,7 +42,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.2;#b
+  our $VERSION = v0.02.3;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -383,13 +383,9 @@ sub proc($self,$branch) {
     data => {
 
       -regal=>{
-
         call     => \%sb,
         glob     => $mask,
         used     => 0x00,
-
-        'var-Q'  => [],
-        'proc-Q' => [],
 
       },
 
@@ -397,6 +393,16 @@ sub proc($self,$branch) {
       -stack => {
         size => 0,
         have => {},
+
+      },
+
+      -queue => {
+        early  => [],
+        late   => [],
+        ribbon => [
+          ['asm::setup_stack'=>$branch],
+
+        ],
 
       },
 
@@ -722,9 +728,9 @@ sub regused($self,$branch,$opsz,$name,@args) {
   # claiming registers?
   if($name ne 'reus') {
 
-    push @{$tab->{-regal}->{'var-Q'}},[
+    push @{$tab->{-queue}->{early}},[
 
-      (St::cf 1,1),
+      'asm::' . (St::cf 1,1),
 
       $branch,
       $proc,
@@ -739,9 +745,9 @@ sub regused($self,$branch,$opsz,$name,@args) {
   # releasing registers!
   } else {
 
-    map {push @{$tab->{-regal}->{'var-Q'}},[
+    map {push @{$tab->{-queue}->{early}},[
 
-      (St::cf 1,1),
+      'asm::' . (St::cf 1,1),
 
       $branch,
       $proc,
@@ -786,8 +792,8 @@ sub regspill($self,$branch,$opsz,$name,@args) {
      $src = $src->{vref}->{data};
 
 
-  push @{$src->{-regal}->{'proc-Q'}},
-    [(St::cf 1,1),$branch,$dst,$src];
+  push @{$src->{-queue}->{late}},
+    ['asm::' . (St::cf 1,1),$branch,$dst,$src];
 
 
   return;
@@ -812,7 +818,7 @@ sub ldargs($self,$branch,$opsz,$name,@args) {
      $src = $src->{vref}->{data};
 
 
-  push @{$src->{-regal}->{'proc-Q'}},
+  push @{$src->{-queue}->{late}},
     [(St::cf 1,1),$branch,$src,@args];
 
   return;

@@ -16,6 +16,7 @@ x \--> write base class (rd/vref)
 ~ .  \--> varname handler
 ~ .  .  \--> tmp keyw for stackvars
 x .  .  \--> in keyw for reglisses
+~ .  .  \--> generic lis for both
 
 x .  \--> get register use/overwrite
 x .  .  \--> anima->alloci context bias
