@@ -39,7 +39,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.04.2;
+  our $VERSION = v0.04.3;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -1291,6 +1291,29 @@ sub absidex($self) {
 };
 
 # ---   *   ---   *   ---
+# get idex relative to root
+
+sub relidex($self,$root) {
+
+  my $i = 0;
+  my @Q = @{$root->{leaves}};
+
+  while(@Q) {
+
+    my $nd=shift @Q;
+    last if $nd eq $self;
+
+    $i++;
+    unshift @Q,@{$nd->{leaves}};
+
+  };
+
+
+  return $i;
+
+};
+
+# ---   *   ---   *   ---
 # sorts leaves in tree
 # accto some variable buried
 # deep into the hashmap
@@ -1636,7 +1659,7 @@ sub find_uid($self,@list) {
 
     my $nd=shift @Q;
 
-    push @out,$nd if $nd->{-uid}=~ $re;
+    push    @out,$nd if $nd->{-uid}=~ $re;
     unshift @Q,@{$nd->{leaves}};
 
   };

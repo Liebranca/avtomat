@@ -98,17 +98,32 @@ St::vconst {
 sub default($class,@keys) {
 
 
-  return @{$class->tab()} if ! @keys;
+  # no input, no problem!
+  my %full=@{$class->tab};
+  return %full if ! @keys;
 
 
-  my $tab=$class->ivtab();
-
-  map {
+  # map input to table values
+  my $tab  = $class->ivtab;
+  my %have = map {
 
      $tab->{$ARG}->[0]
   => $tab->{$ARG}->[1]
 
   } @keys;
+
+
+  # ^complete missing with defaults!
+  map {
+
+    $have{$ARG}=$full{$ARG}
+    if ! exists $have{$ARG};
+
+
+  } keys %full;
+
+
+  return %have;
 
 };
 

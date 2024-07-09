@@ -37,7 +37,7 @@ package ipret::binder::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -53,53 +53,34 @@ sub regused($self,$branch,$proc,$idex,$mode,$mark) {
 
 
   # map register idex to bit
-  my $bit  = 1 << $idex;
+  my $bit = 1 << $idex;
 
-  # ^fill in global register use mask
+  # ^fill in register use mask
   my $dst={
 
-    in => \$tab->{-regal}->{used},
+    in => $tab->{hist}->{-io},
 
-    ( map {$ARG => \$tab->{-regal}->{glob}}
-      qw  (ld or and xor reus)
+    ( map {$ARG => $tab->{hist}->{-glob}}
+      qw  (ld or and xor add reus)
 
     ),
 
   }->{$mode};
 
 
-  $$dst=($mark)
-    ? $$dst |  $bit
-    : $$dst & ~$bit
+  $dst->[0]=($mark)
+    ? $dst->[0] |  $bit
+    : $dst->[0] & ~$bit
     ;
 
 
-  # determine sub-block if any
-  my $call=$tab->{-regal}->{call};
-  goto skip if ! int keys %$call;
+  # add elem to timeline
+  my $have=$tab->timeline($branch->{-uid});
 
-  my $re     = $l1->re(CMD=>'asm-ins','call');
-  my $anchor = $branch;
-
-
-  # walk the tree until next call is found
-  while($anchor->{parent} ne $self->{tree}) {
-
-    $anchor=$anchor->next_leaf();
-    last if ! defined $anchor;
-
-
-    # mark/release this register on success ;>
-    if($anchor->{value}=~ $re) {
-
-      $call->{$anchor->{-uid}}=($mark)
-        ? $call->{$anchor->{-uid}} |  $bit
-        : $call->{$anchor->{-uid}} & ~$bit
-        ;
-
-    };
-
-  };
+  $have->[0]=($mark)
+    ? $have->[0] |  $bit
+    : $have->[0] & ~$bit
+    ;
 
 
   skip:
@@ -250,9 +231,6 @@ sub regspill($self,$branch,$dst,$src) {
     },$obj]);
 
 
-
-#    $enc->binreq($post,[$opsz,pop=>$order[$end]]);
-
   } 0..$#order;
 
 
@@ -271,7 +249,7 @@ sub setup_stack($self,$branch) {
 
   # skip if there's no stack usage!
   my $vref  = $branch->{vref};
-  my $stack = $vref->{data}->{-stack};
+  my $stack = $vref->{data}->{stack};
   my $size  = $stack->{size};
 
   return if ! $size;

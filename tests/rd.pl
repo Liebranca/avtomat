@@ -35,18 +35,12 @@ q[%;
 
 clan testy;
 
-
-proc fn;
-  or er,$04;
-  ret;
-
-
 proc start;
 
-  ld    er,$25;
-  call  fn;
+  ld   ar,$01;
+  add  ar,$01;
 
-  os    'exit',0;
+  os   'exit',0;
 
 ],
 

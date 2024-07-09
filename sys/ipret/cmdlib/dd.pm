@@ -266,12 +266,19 @@ sub data_decl($self,$branch) {
   my $scope = $mc->{scope};
   my $path  = $mc->{path};
 
+
   # get pending values
   my $vref = $branch->{vref};
   my $type = $vref->{spec};
   my $list = $vref->{data};
 
   my $out  = $vref->{res} //= [];
+
+  # are we inside a process?
+  my $seg  = $mc->{segtop};
+  my $hier = $mc->{hiertop};
+
+  my $exe  = $seg->{executable};
 
 
   # walk values pending resolution

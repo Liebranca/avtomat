@@ -231,7 +231,7 @@ sub bind($self) {
     # have hierarchical?
     if($nd->{value}=~ $hier) {
 
-      my $vq=$vref->{data}->{-queue};
+      my $vq=$vref->{data}->{Q};
 
 
       # sort calls by idex
@@ -275,7 +275,7 @@ sub bind($self) {
     # have hierarchical?
     if($nd->{value}=~ $hier) {
 
-      my $lq=$vref->{data}->{-queue};
+      my $lq=$vref->{data}->{Q};
 
 
       # run calls out of order!
@@ -287,6 +287,18 @@ sub bind($self) {
         $fn->($self,@args);
 
       } @{$lq->{late}},@{$lq->{ribbon}};
+
+
+my $proc=$vref->{data};
+my $hist=$proc->{hist};
+
+say sprintf "%017B",$hist->{-io}->[0];
+say sprintf "%017B",$hist->{-glob}->[0];
+
+$hist=$proc->sort_hist(1);
+
+use Fmat;
+fatdump \$hist,blessed=>1;
 
     };
 

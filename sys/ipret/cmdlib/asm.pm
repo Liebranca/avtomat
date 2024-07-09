@@ -317,7 +317,6 @@ sub proc($self,$branch) {
 
   my $l1    = $main->{l1};
   my $vref  = $branch->{vref};
-  my $mask  = $anima->reserved_mask;
 
 
   # generate segment and block
@@ -338,7 +337,6 @@ sub proc($self,$branch) {
 
   };
 
-
   # find children nodes
   my $re=$l1->re(CMD=>'proc');
   my @lv=$branch->match_up_to(
@@ -353,60 +351,40 @@ sub proc($self,$branch) {
   $branch->pushlv(@lv);
 
 
-  # get number of sub-blocks
-  #
-  # we define these sub-divisions as
-  # all instructions before a call
-  #
-  # by taking note of these blocks,
-  # we know which registers are in use
-  # at the time of an invocation,
-  # and so we can decide which ones to
-  # automatically spill to stack
-
-  $re=$l1->re(CMD=>'asm-ins','call');
-
-  my %sb=map {
-    $ARG->{-uid} => $mask
-
-  } $branch->branches_in($re);
-
-
-  # reset and give
+  # make object representing block
   my $ptr   = $fn->();
   my $inner = $ptr->{p3ptr};
 
   my $tab   = \$inner->{vref};
 
   $$tab=rd::vref->new(
-    type => 'TAB',
-    data => {
 
-      -regal=>{
-        call     => \%sb,
-        glob     => $mask,
-        used     => 0x00,
+    type => 'HIER',
+    spec => 'proc',
 
-      },
+    data => $mc->mkhier(
+      type=>'proc',
+      node=>$branch,
 
-      -order => [],
-      -stack => {
-        size => 0,
-        have => {},
+    ),
 
-      },
+  );
 
-      -queue => {
-        early  => [],
-        late   => [],
-        ribbon => [
-          ['asm::setup_stack'=>$branch],
 
-        ],
+  # add specific attrs
+  $$tab->{data}->addattr(
 
-      },
+    stack=>{
+      size => 0,
+      have => {},
 
     },
+
+  );
+
+  # add closing call and give
+  $$tab->{data}->enqueue(
+    ribbon=>'asm::setup_stack'=>$branch
 
   );
 
@@ -728,7 +706,7 @@ sub regused($self,$branch,$opsz,$name,@args) {
   # claiming registers?
   if($name ne 'reus') {
 
-    push @{$tab->{-queue}->{early}},[
+    $tab->enqueue(early=>(
 
       'asm::' . (St::cf 1,1),
 
@@ -739,13 +717,13 @@ sub regused($self,$branch,$opsz,$name,@args) {
       $name,
       1,
 
-    ];
+    ));
 
 
   # releasing registers!
   } else {
 
-    map {push @{$tab->{-queue}->{early}},[
+    map {$tab->enqueue(early=>(
 
       'asm::' . (St::cf 1,1),
 
@@ -756,7 +734,7 @@ sub regused($self,$branch,$opsz,$name,@args) {
       $name,
       0,
 
-    ]} @args;
+    ))} @args;
 
   };
 
@@ -792,8 +770,15 @@ sub regspill($self,$branch,$opsz,$name,@args) {
      $src = $src->{vref}->{data};
 
 
-  push @{$src->{-queue}->{late}},
-    ['asm::' . (St::cf 1,1),$branch,$dst,$src];
+  $src->enqueue(late=>(
+
+    'asm::' . (St::cf 1,1),
+
+    $branch,
+    $dst,
+    $src
+
+  ));
 
 
   return;
@@ -818,8 +803,14 @@ sub ldargs($self,$branch,$opsz,$name,@args) {
      $src = $src->{vref}->{data};
 
 
-  push @{$src->{-queue}->{late}},
-    [(St::cf 1,1),$branch,$src,@args];
+  $src->enqueue(late=>(
+    'asm::' . (St::cf 1,1),
+
+    $branch,
+    $src,
+    @args,
+
+  ));
 
   return;
 
@@ -847,10 +838,10 @@ sub asm_ins($self,$branch) {
   # have an edge case?
   my $edge={
 
-    call => \&regspill,
+#    call => \&regspill,
 
     ( map {$ARG => \&regused}
-      qw  (ld or and xor)
+      qw  (ld or and xor add)
 
     ),
 

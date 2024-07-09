@@ -19,9 +19,7 @@ package A9M;
   use strict;
   use warnings;
 
-  use Readonly;
   use English qw(-no_match_vars);
-
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
@@ -42,16 +40,25 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.5;#a
+  our $VERSION = v0.01.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly my $COMPONENTS => [qw(
-    flags mem ptr alloc anima stack ISA
+St::vconst {
 
-  )];
+  components => [qw(
+
+    flags mem ptr alloc
+    anima stack ISA
+
+    hier
+
+  )],
+
+
+};
 
 # ---   *   ---   *   ---
 # GBL
@@ -72,11 +79,11 @@ sub new($class,%O) {
 
 
   # find components through methods
-  my $bk={ map {
+  my $bk={map {
     my $fn="get_${ARG}_bk";
     $ARG=>$class->$fn();
 
-  } @$COMPONENTS };
+  } @{$class->components}};
 
 
   # make ice
@@ -183,6 +190,24 @@ sub reset($self,$name) {
 
 
   return;
+
+};
+
+# ---   *   ---   *   ---
+# make new hierarchical block
+
+sub mkhier($self,%O) {
+
+  my $class=$self->{bk}->{hier};
+
+  return $class->new(
+
+    %O,
+
+    mcid  => $self->{iced},
+    mccls => ref $self,
+
+  );
 
 };
 
@@ -1128,7 +1153,7 @@ subwraps(
   q[$class->get_bk_class] => q[$class],
 
   map {["get_${ARG}_bk" => "'$ARG'"]}
-  @$COMPONENTS
+  @{(St::cpkg)->components}
 
 );
 

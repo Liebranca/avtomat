@@ -11,12 +11,29 @@ x \--> write base class (rd/vref)
 
 ~ Filemeta builder
 
+~ \--> formalize hierarchicals as an A9M layer
+
+x .  \--> adapt cmdlib::asm proc bits
+~ .  \--> tmp values as stack/anima views
+
+~ .  \--> divide timeline by expressions rather
+          than call-by-call sub-blocks
+
+x .  .  \--> sort timeline points idex
+             relative to root
+
+~ .  .  \--> design timeline point format
+
+
 ~ \--> proc context gather
 
 ~ .  \--> varname handler
-~ .  .  \--> tmp keyw for stackvars
-x .  .  \--> in keyw for reglisses
-~ .  .  \--> generic lis for both
+
+~ .  .  \--> use data-decl syntax within proc to
+             declare tmp values
+
+~ .  .  \--> input/output keywords for proc
+
 
 x .  \--> get register use/overwrite
 x .  .  \--> anima->alloci context bias
