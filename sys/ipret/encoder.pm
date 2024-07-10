@@ -37,7 +37,7 @@ package ipret::encoder;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#a
+  our $VERSION = v0.01.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -420,18 +420,22 @@ sub binreq($self,$branch,@req) {
   my $mc   = $main->{mc};
   my $seg  = $mc->{segtop};
 
+  my $proc = $mc->{hiertop}->{p3ptr};
+  my $tab  = $proc->{vref}->{data};
 
-  # add request at idex
+
+  # validate and add request at idex
   my $Q   = $self->{Q}->{asm};
   my $uid = $branch->{-uid};
 
-  if(! defined $Q->[$uid]) {
-    $Q->[$uid]=[$branch,$seg,undef,@req];
+  $main->perr("node uid conflict!")
+  if defined $Q->[$uid];
 
-  } else {
-    push @{$Q->[$uid]},@req;
 
-  };
+  $Q->[$uid]=[$branch,$seg,undef,@req];
+
+  $tab->timeline($uid=>$Q->[$uid])
+  if defined $tab;
 
 
   return;

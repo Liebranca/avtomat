@@ -41,7 +41,7 @@ package A9M::ISA::opera;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.3;#a
+  our $VERSION = v0.01.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -404,13 +404,53 @@ St::vconst {
 
 
     # meta instructions
-    rand => {argcnt=>0},
+    rand => {
+      argcnt => 0,
+      meta   => 1,
+
+    },
+
     sex  => {
 
       dst    => 'r',
       argcnt => 1,
+      meta   => 1,
 
       fix_size  => ['qword'],
+
+    },
+
+    reus  => {
+
+      meta   => 1,
+
+      argcnt => 0,
+      meta   => 1,
+
+      fix_size => ['byte'],
+
+    },
+
+    pass  => {
+
+      meta   => 1,
+
+      argcnt => 0,
+      meta   => 1,
+
+      fix_size => ['byte'],
+
+    },
+
+    state => {
+
+      fn     => '_state',
+
+      dst    => 'i',
+      argcnt => 1,
+      meta   => 1,
+
+      fix_size => ['byte'],
 
     },
 
@@ -436,17 +476,16 @@ St::vconst {
   )},
 
 
-  meta    => {
-    reus => {},
-    pass => {},
-
-  },
-
   meta_re => sub {
+
+    my $tab={@{$_[0]->table}};
 
     return re_eiths(
 
-      [keys %{$_[0]->meta}],
+      [ grep {$tab->{$ARG}->{meta}}
+        keys %$tab
+
+      ],
 
       opscape => 1,
       bwrap   => 0,

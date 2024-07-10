@@ -44,43 +44,25 @@ package ipret::binder::asm;
 # marks registers as holding
 # values that must be preserved
 
-sub regused($self,$branch,$proc,$idex,$mode,$mark) {
+sub regused($self,$branch,$proc,$ins,@args) {
 
 
-  # get ctx
-  my $l1  = $self->{l1};
-  my $tab = $proc->{vref}->{data};
-
-
-  # map register idex to bit
-  my $bit = 1 << $idex;
-
-  # ^fill in register use mask
-  my $dst={
-
-    in => $tab->{hist}->{-io},
-
-    ( map {$ARG => $tab->{hist}->{-glob}}
-      qw  (ld or and xor add reus)
-
-    ),
-
-  }->{$mode};
-
-
-  $dst->[0]=($mark)
-    ? $dst->[0] |  $bit
-    : $dst->[0] & ~$bit
-    ;
-
-
-  # add elem to timeline
-  my $have=$tab->timeline($branch->{-uid});
-
-  $have->[0]=($mark)
-    ? $have->[0] |  $bit
-    : $have->[0] & ~$bit
-    ;
+#  # get ctx
+#  my $l1  = $self->{l1};
+#  my $tab = $proc->{vref}->{data};
+#
+#
+#  # map register idex to bit
+#  my $bit = 1 << $idex;
+#
+#  # add elem to timeline
+#  my $have=$tab->timeline(
+#    $branch->{-uid},
+#
+#    almask => $bit,
+#    ins    => $ins,
+#
+#  );
 
 
   skip:

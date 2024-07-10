@@ -174,7 +174,7 @@ sub parse_ins($self,$branch) {
 # ---   *   ---   *   ---
 # mutate into generic command ;>
 
-sub mutate_ins($self,$branch,$head,$new='asm-ins') {
+sub mutate_ins($self,$branch,$head) {
 
 
   # get ctx
@@ -191,7 +191,7 @@ sub mutate_ins($self,$branch,$head,$new='asm-ins') {
 
   # ^mutate, clear and give
   $branch->{value}=
-    $l1->tag(CMD=>$new)
+    $l1->tag(CMD=>'asm-ins')
   . $full
   ;
 
@@ -209,22 +209,15 @@ sub asm_ins($self,$branch) {
 
 
   # get ctx
-  my $main    = $self->{frame}->{main};
-  my $ISA     = $main->{mc}->{ISA};
-
-  my $meta_re = $ISA->{guts}->meta_re;
+  my $main = $self->{frame}->{main};
+  my $ISA  = $main->{mc}->{ISA};
 
 
-  # save operands to branch
+  # get operands
   my $head=$self->parse_ins($branch);
-  my $name=($head->{name}=~ $meta_re)
-    ? 'meta-ins'
-    : 'asm-ins'
-    ;
-
 
   # mutate and give
-  $self->mutate_ins($branch,$head,$name);
+  $self->mutate_ins($branch,$head);
 
   return;
 
@@ -252,11 +245,6 @@ w_cmdsub 'csume-list' => q(
   cmd input;
 
 ) => 'in';
-
-w_cmdsub 'asm-ins' => q(
-  qlist src;
-
-) => qw(reus pass);
 
 # ---   *   ---   *   ---
 1; # ret

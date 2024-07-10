@@ -22,7 +22,7 @@ x .  \--> adapt cmdlib::asm proc bits
 x .  .  \--> sort timeline points idex
              relative to root
 
-~ .  .  \--> design timeline point format
+x .  .  \--> design timeline point format
 
 
 ~ \--> proc context gather

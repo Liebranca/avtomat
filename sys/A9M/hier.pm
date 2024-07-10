@@ -30,7 +30,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -84,9 +84,6 @@ sub new($class,%O) {
   my $self  = bless \%O,$class;
   my $flags = $class->typetab->{$self->{type}};
 
-  $self->new_hist()
-  if ! %{$self->{hist}};
-
   $self->set_uattrs(
 
     (defined $flags)
@@ -102,31 +99,19 @@ sub new($class,%O) {
 };
 
 # ---   *   ---   *   ---
-# make default timeline for type
+# make/fetch point in hist
 
-sub new_hist($self) {
+sub timeline($self,$uid,$data=undef) {
 
-  if($self->{type} eq 'proc') {
-    $self->timeline(-io   => 0x00);
-    $self->timeline(-glob => 0x00);
-
-  };
-
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# ^make/fetch point in hist
-
-sub timeline($self,$name,@data) {
-
+  # get ctx
+  my $mc   = $self->getmc();
   my $hist = $self->{hist};
-  my $out  = \$hist->{$name};
 
-  $$out   = \@data if @data;
-  $$out //= [0x00];
+  # fetch, (set)?, give
+  my $out = \$hist->{$uid};
+
+  $$out=$mc->hierstruc($data)
+  if defined $data;
 
   return $$out;
 

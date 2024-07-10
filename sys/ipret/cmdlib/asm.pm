@@ -382,6 +382,30 @@ sub proc($self,$branch) {
 
   );
 
+  my $dummy=[
+
+    $branch,
+    $mc->{segtop},
+    undef,
+
+    [(typefet 'byte'),
+      state=>{type=>'ix',imm=>0x00},
+
+    ],
+
+  ];
+
+  $$tab->{data}->addattr(
+    glob=>$mc->hierstruc($dummy),
+
+  );
+
+  $$tab->{data}->addattr(
+    io=>$mc->hierstruc($dummy),
+
+  );
+
+
   # add closing call and give
   $$tab->{data}->enqueue(
     ribbon=>'asm::setup_stack'=>$branch
@@ -686,137 +710,6 @@ sub argsolve($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# enqueue the marking of a
-# register as in use
-
-sub regused($self,$branch,$opsz,$name,@args) {
-
-
-  # get ctx
-  my $main  = $self->{frame}->{main};
-  my $mc    = $main->{mc};
-  my $anima = $mc->{anima};
-  my $l1    = $main->{l1};
-
-  # get current proc
-  my $proc = $mc->{hiertop}->{p3ptr};
-  my $tab  = $proc->{vref}->{data};
-
-
-  # claiming registers?
-  if($name ne 'reus') {
-
-    $tab->enqueue(early=>(
-
-      'asm::' . (St::cf 1,1),
-
-      $branch,
-      $proc,
-      $args[0]->{reg},
-
-      $name,
-      1,
-
-    ));
-
-
-  # releasing registers!
-  } else {
-
-    map {$tab->enqueue(early=>(
-
-      'asm::' . (St::cf 1,1),
-
-      $branch,
-      $proc,
-      $ARG->{reg},
-
-      $name,
-      0,
-
-    ))} @args;
-
-  };
-
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# enqueue the generation of
-# push/pop for registers that
-# would be overwritten by call
-
-sub regspill($self,$branch,$opsz,$name,@args) {
-
-
-  # get ctx
-  my $main  = $self->{frame}->{main};
-  my $mc    = $main->{mc};
-  my $anima = $mc->{anima};
-  my $l1    = $main->{l1};
-
-
-  # get target process
-  my $id  = $args[0]->{id};
-  my $sym = $mc->valid_search(@$id);
-
-  my $dst = $sym->{p3ptr};
-     $dst = $dst->{vref}->{data};
-
-  # get current process
-  my $src = $mc->{hiertop}->{p3ptr};
-     $src = $src->{vref}->{data};
-
-
-  $src->enqueue(late=>(
-
-    'asm::' . (St::cf 1,1),
-
-    $branch,
-    $dst,
-    $src
-
-  ));
-
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# enqueue generation of loads
-# for process arguments
-
-sub ldargs($self,$branch,$opsz,$name,@args) {
-
-
-  # get ctx
-  my $main  = $self->{frame}->{main};
-  my $mc    = $main->{mc};
-  my $anima = $mc->{anima};
-  my $l1    = $main->{l1};
-
-  # get current process
-  my $src = $mc->{hiertop}->{p3ptr};
-     $src = $src->{vref}->{data};
-
-
-  $src->enqueue(late=>(
-    'asm::' . (St::cf 1,1),
-
-    $branch,
-    $src,
-    @args,
-
-  ));
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
 # generic instruction
 
 sub asm_ins($self,$branch) {
@@ -835,21 +728,6 @@ sub asm_ins($self,$branch) {
   if ! length $opsz;
 
 
-  # have an edge case?
-  my $edge={
-
-#    call => \&regspill,
-
-    ( map {$ARG => \&regused}
-      qw  (ld or and xor add)
-
-    ),
-
-  }->{$name};
-
-  $edge->($self,$branch,$opsz,$name,@args)
-  if defined $edge;
-
 
   # all OK, request and give
   $enc->binreq(
@@ -858,41 +736,6 @@ sub asm_ins($self,$branch) {
   );
 
   return $ISA->ins_ipret($main,$name,@args);
-
-};
-
-# ---   *   ---   *   ---
-# these are special instructions
-# that are meant for the compiler!
-
-sub meta_ins($self,$branch) {
-
-
-  # get ctx
-  my $main = $self->{frame}->{main};
-  my $enc  = $main->{encoder};
-  my $ISA  = $main->{mc}->{ISA};
-
-  # can solve arguments?
-  my ($opsz,$name,@args)=
-    $self->argsolve($branch);
-
-  return $branch
-  if ! length $opsz;
-
-
-  # have an edge case?
-  my $edge={
-    reus => \&regused,
-    pass => \&ldargs,
-
-  }->{$name};
-
-  $edge->($self,$branch,$opsz,$name,@args)
-  if defined $edge;
-
-
-  return;
 
 };
 
@@ -1552,7 +1395,6 @@ cmdsub 'entry'    => q() => \&entry;
 cmdsub 'proc'     => q() => \&proc;
 cmdsub 'in'       => q() => \&in;
 cmdsub 'asm-ins'  => q() => \&asm_ins;
-cmdsub 'meta-ins' => q() => \&meta_ins;
 
 # ---   *   ---   *   ---
 1; # ret

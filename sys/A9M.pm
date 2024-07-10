@@ -40,7 +40,7 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.6;#a
+  our $VERSION = v0.01.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -208,6 +208,64 @@ sub mkhier($self,%O) {
     mccls => ref $self,
 
   );
+
+};
+
+# ---   *   ---   *   ---
+# ^state capture within block
+
+sub hierstruc($self,$data) {
+
+
+  # get ctx
+  my $ISA=$self->{ISA};
+  my $out={
+
+    overwrite => 0,
+    load_dst  => 0,
+
+    almask    => 0x00,
+    free      => 0,
+
+  };
+
+  # unpack instruction
+  my ($branch,$seg,$route,@req)=@$data;
+
+
+  # build descriptor from metadata
+  map {
+
+    my ($opsz,$ins,@args)=@$ARG;
+    my $have=$ISA->get_ins_meta($ins);
+
+    if($have->{meta}) {
+
+    } else {
+
+      $out->{overwrite} |= $have->{overwrite};
+      $out->{load_dst}  |= $have->{load_dst};
+
+    };
+
+
+    if(
+
+       $out->{overwrite}
+
+    && $args[0]
+    && $args[0]->{type} eq 'r'
+
+    ) {
+
+      $out->{almask} |= 1 << $args[0]->{reg};
+
+    };
+
+  } @req;
+
+
+  return $out;
 
 };
 

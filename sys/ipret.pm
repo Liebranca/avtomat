@@ -290,12 +290,11 @@ sub bind($self) {
 
 
 my $proc=$vref->{data};
-my $hist=$proc->{hist};
 
-say sprintf "%017B",$hist->{-io}->[0];
-say sprintf "%017B",$hist->{-glob}->[0];
+say sprintf "%017B",$proc->{io}->{almask};
+say sprintf "%017B",$proc->{glob}->{almask};
 
-$hist=$proc->sort_hist(1);
+my $hist=$proc->sort_hist(1);
 
 use Fmat;
 fatdump \$hist,blessed=>1;
