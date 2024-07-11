@@ -365,6 +365,7 @@ sub proc($self,$branch) {
     data => $mc->mkhier(
       type=>'proc',
       node=>$branch,
+      name=>$vref->{res}->{label},
 
     ),
 

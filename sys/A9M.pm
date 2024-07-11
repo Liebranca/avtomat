@@ -225,7 +225,10 @@ sub hierstruc($self,$data) {
     load_dst  => 0,
 
     almask    => 0x00,
+    var       => [],
     free      => 0,
+
+    'asm-Q'   => $data,
 
   };
 
@@ -248,19 +251,6 @@ sub hierstruc($self,$data) {
 
     };
 
-
-    if(
-
-       $out->{overwrite}
-
-    && $args[0]
-    && $args[0]->{type} eq 'r'
-
-    ) {
-
-      $out->{almask} |= 1 << $args[0]->{reg};
-
-    };
 
   } @req;
 

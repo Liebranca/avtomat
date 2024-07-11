@@ -23,7 +23,9 @@ package A9M::hier;
   use English qw(-no_match_vars);
 
   use lib $ENV{ARPATH}.'/lib/sys/';
+
   use Style;
+  use Arstd::IO;
 
   use parent 'A9M::layer';
 
@@ -40,11 +42,13 @@ St::vconst {
 
   DEFAULT => {
 
+    name  => null,
     node  => undef,
 
     type  => 'blk',
     hist  => {},
     shist => [],
+    endat => 0,
 
     Q     => {
 
@@ -136,6 +140,201 @@ sub enqueue($self,$name,@args) {
 };
 
 # ---   *   ---   *   ---
+# check existence of tmp value
+# add if not found
+
+sub chkvar($self,$name,$idex) {
+
+  if(! exists $self->{var}->{$name}) {
+
+    push @{$self->{var}->{-order}},$name;
+
+    $self->{var}->{$name}={
+
+      const_range => [
+        [$idex,-1],
+
+      ],
+
+      deps_for => [],
+
+    };
+
+  };
+
+
+  return $self->{var}->{$name};
+
+};
+
+# ---   *   ---   *   ---
+# manages inter-value relationships
+
+sub depvar($self,$name,$depname,$idex) {
+
+
+  # skip?
+  return if ! exists $self->{var}->{$name};
+
+  # fetch both values
+  my $have = $self->{var}->{$name};
+  my $dep  = $self->{var}->{$depname};
+
+
+  # adjust constant status
+  my $cr=\$have->{const_range};
+
+  if(defined $$cr->[-1]) {
+
+    my $ar=$$cr->[-1];
+
+    $ar->[1]=$idex;
+
+    if($ar->[0] eq $ar->[1]) {
+      $$cr->[-1]=undef;
+      @{$$cr}=grep {defined $ARG} @{$$cr};
+
+    };
+
+  };
+
+
+  # register dependency
+  push @{$dep->{deps_for}},[$name,$idex];
+  $cr=\$dep->{const_range};
+
+  if(defined $$cr->[-1]) {
+
+    my $ar=$$cr->[-1];
+    $ar->[1]=$idex-1;
+
+    push @{$$cr},[$idex+1,-1];
+
+  };
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# replaces '-1' in ranges with
+# the provided timeline end
+
+sub endtime($self,$i) {
+
+  $self->{endat}=$i;
+
+  map {
+
+    my $have = $self->{var}->{$ARG};
+    my $cr   = \$have->{const_range};
+
+    if(defined $$cr->[-1]) {
+
+      my $ar=$$cr->[-1];
+
+      $ar->[1]=$i
+      if $ar->[1] eq -1;
+
+      $ar->[0]=$i
+      if $ar->[0] > $i;
+
+
+      if($ar->[0] == $ar->[1]) {
+        $$cr->[-1]=undef;
+        @{$$cr}=grep {defined $ARG} @{$$cr};
+
+      };
+
+    };
+
+  } $self->varkeys;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# check if a value write is
+# entirely redundant
+
+sub redvar($self,$name) {
+
+  my $mc   = $self->getmc();
+  my $main = $mc->get_main();
+
+  my $hist = $self->{shist};
+  my $have = $self->{var}->{$name};
+  my $cr   = $have->{const_range};
+
+  my $i    = 0;
+
+  map {
+
+    my ($beg,$end)=@$ARG;
+
+    my $point = $hist->[$end];
+    my $deped = $have->{deps_for}->[$i++];
+
+    if(
+
+        $self->is_overwrite($point)
+    &&  $beg < $end
+
+    ) {
+
+      my $early=$hist->[$beg];
+
+      $main->bperr(
+
+        $early->{'asm-Q'}->[0],
+
+        "redundant instruction; "
+      . "overwritten by [ctl]:%s at "
+      . "line [num]:%u",
+
+        args => [
+          $point->{'asm-Q'}->[-1]->[1],
+          $point->{'asm-Q'}->[0]->{lineno},
+
+        ],
+
+      );
+
+    };
+
+  } @$cr;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# get value is overwritten at
+# an specific timeline point
+
+sub is_overwrite($self,$point) {
+
+  return (
+
+      $point->{overwrite}
+  &&! $point->{load_dst}
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# get names of all existing values
+
+sub varkeys($self) {
+  return @{$self->{var}->{-order}};
+
+};
+
+# ---   *   ---   *   ---
 # sort nodes in history
 
 sub sort_hist($self,$recalc=0) {
@@ -164,6 +363,28 @@ sub sort_hist($self,$recalc=0) {
   # remove blanks and give
   @$out=grep {defined $ARG} @$out;
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# WIP: value name conversion
+
+sub vname($self,$name) {
+
+
+  # have plain idex?
+  if($name=~ $NUM_RE) {
+    $name="\$$name";
+
+
+  # have alias!
+  } else {
+    nyi "tmp value aliases";
+
+  };
+
+
+  return $name;
 
 };
 

@@ -95,6 +95,7 @@ sub oscall($self,$branch) {
      $code  = $l1->tag(NUM=>$code);
 
   my @r     = @{$self->args_order};
+  my @total = ();
 
   $branch->clear();
 
@@ -108,12 +109,15 @@ sub oscall($self,$branch) {
     );
 
 
+    $nd->{lineno} = $branch->{lineno};
     $nd->{cmdkey} = 'ld';
     $nd->{vref}   = rd::vref->new(
       type=>'TYPE',
       spec=>shift @$args_t,
 
     ) if int @$args_t;
+
+    push @total,$r[0];
 
     $nd->inew($l1->tag(REG => shift @r));
 
@@ -133,11 +137,13 @@ sub oscall($self,$branch) {
   );
 
   $foot->{cmdkey} = 'ld';
-
+  $foot->{lineno} = $branch->{lineno};
 
   $foot->inew($l1->tag(TYPE => 'dword'));
   $foot->inew($l1->tag(REG  => 0x00));
   $foot->inew($code);
+
+  push @total,0x00;
 
 
   # enqueue interrupt
@@ -154,6 +160,7 @@ sub oscall($self,$branch) {
   my $asm=$self->{frame}->fetch('asm-ins');
 
   map {$asm->{key}->{fn}->($asm,$ARG)} @ins;
+  $foot->{vref}->{data}=\@total;
 
   return;
 

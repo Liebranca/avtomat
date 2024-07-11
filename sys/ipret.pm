@@ -212,6 +212,7 @@ sub bind($self) {
   my $l1   = $self->{l1};
   my $hier = $l1->re(@{$self->{binder}->hier});
   my $root = $self->{tree};
+  my $enc  = $self->{encoder};
 
   # force recalculation of node indices
   delete $root->{absidex};
@@ -261,7 +262,7 @@ sub bind($self) {
 
     } @$ARG;
 
-  } @X;
+  } grep {defined $ARG} @X;
 
 
   # ^second pass
@@ -275,7 +276,8 @@ sub bind($self) {
     # have hierarchical?
     if($nd->{value}=~ $hier) {
 
-      my $lq=$vref->{data}->{Q};
+      my $have = $vref->{data};
+      my $lq   = $have->{Q};
 
 
       # run calls out of order!
@@ -289,15 +291,8 @@ sub bind($self) {
       } @{$lq->{late}},@{$lq->{ribbon}};
 
 
-my $proc=$vref->{data};
-
-say sprintf "%017B",$proc->{io}->{almask};
-say sprintf "%017B",$proc->{glob}->{almask};
-
-my $hist=$proc->sort_hist(1);
-
-use Fmat;
-fatdump \$hist,blessed=>1;
+      # ~~
+      $self->{binder}->inspect($have,1);
 
     };
 

@@ -24,6 +24,7 @@ package ipret::binder;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+
   use Arstd::PM;
   use Arstd::WLog;
 
@@ -32,7 +33,7 @@ package ipret::binder;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -107,6 +108,112 @@ sub fetch($self,$name) {
   # cache and give
   $self->{$name}=$fn;
   return $fn;
+
+};
+
+# ---   *   ---   *   ---
+# applies common checks to block
+
+sub inspect($self,$hier,$recalc=0) {
+
+
+  # walk block elements
+  my $hist = $hier->sort_hist($recalc);
+  my $i    = 0;
+
+  map {
+
+
+    # unpack
+    my $point=$ARG;
+
+    my ($branch,$seg,$route,@req)=@{
+      $point->{'asm-Q'}
+
+    };
+
+
+    # analyze instructions
+    map {
+
+      my ($opsz,$ins,@args)=@$ARG;
+
+      if($ins eq 'int') {
+
+        my $pass = $branch->{vref}->{data};
+        my $j    = @$pass-1;
+
+        map {
+
+          $hier->depvar(
+            $hier->vname(0x00),
+            $hier->vname($ARG),
+
+            $i-$j--,
+
+          );
+
+        } @$pass;
+
+      } elsif(@args && $args[0]->{type} eq 'r') {
+
+        my $dst  = $args[0];
+        my $var  = $point->{var};
+
+        my $name = $hier->vname($dst->{reg});
+
+
+        # remember this value...
+        push @$var,$name;
+        $hier->chkvar($name,$i);
+
+
+        # are we modifying?
+        if(
+
+           $point->{overwrite}
+        && $args[1]
+
+        ) {
+
+          # non-const source?
+          if($args[1]->{type} eq 'r') {
+
+            my $dep=$hier->vname(
+              $args[1]->{reg}
+
+            );
+
+            $hier->depvar($name,$dep,$i);
+
+          };
+
+        };
+
+      };
+
+    } @req;
+
+    $i++;
+
+  } @$hist;
+
+
+  # ~~
+  $hier->endtime($i-1);
+  map {
+
+    use Fmat;
+    fatdump \$hier->{var}->{$ARG};
+
+    my $e=$hier->redvar($ARG);
+
+  } $hier->varkeys;
+
+
+  $hier->{node}->prich();
+  exit;
+  return;
 
 };
 
