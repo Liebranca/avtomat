@@ -201,18 +201,18 @@ sub inspect($self,$hier,$recalc=0) {
 
   # ~~
   $hier->endtime($i-1);
-  map {
-
-    use Fmat;
-    fatdump \$hier->{var}->{$ARG};
-
-    my $e=$hier->redvar($ARG);
-
-  } $hier->varkeys;
+#  map {
+#
+#    use Fmat;
+#    fatdump \$hier->{var}->{$ARG};
+#
+#    my $e=$hier->redvar($ARG);
+#
+#  } $hier->varkeys;
 
 
   $hier->{node}->prich();
-  exit;
+#  exit;
   return;
 
 };

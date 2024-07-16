@@ -42,7 +42,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.3;#b
+  our $VERSION = v0.02.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -601,7 +601,7 @@ sub argsolve($self,$branch) {
 
     };
 
-    my $O    = {};
+    my $O={};
 
 
     # have register?
@@ -612,43 +612,20 @@ sub argsolve($self,$branch) {
 
     # have immediate?
     } elsif($type eq 'NUM') {
+      $O->{imm}  = $eng->quantize($key);
+      $O->{type} = $ISA->immsz($O->{imm});
 
 
-      # command dereference
-      if(my $have=$l1->typechk(CMD=>$key)) {
+    # have operator?
+    } elsif($type eq 'OPR') {
 
+      $O->{imm}=$eng->opera_collapse(
+        $nd,$have,
 
-        # TODO: move this bit somewhere else!
-        my $cmd   = $lib->fetch($have->{spec});
-        my $solve = $cmd->{key}->{fn}->($self,$nd);
+        noreg=>1,
+        noram=>1,
 
-        return null if $solve && $solve eq $nd;
-
-
-        # ~
-        my $value=(defined $solve)
-          ? $solve
-          : $nd->{vref}
-          ;
-
-
-        # delay value deref until encoding
-        $O->{imm}=$value;
-
-        $O->{type}=sub ($x,$y) {
-          $x->immsz($y)
-
-        };
-
-        $O->{type_args}=[$ISA,$value];
-
-
-      # regular immediate ;>
-      } else {
-        $O->{imm}  = $eng->quantize($key);
-        $O->{type} = $ISA->immsz($O->{imm});
-
-      };
+      );
 
 
     # have memory?
@@ -671,6 +648,8 @@ sub argsolve($self,$branch) {
 
   } @{$vref->{args}};
 
+use Fmat;
+fatdump \[@args];
 
   goto skip if $name=~ $ISA->{guts}->meta_re;
 
@@ -709,6 +688,35 @@ sub argsolve($self,$branch) {
   return ($opsz,$name,@args);
 
 };
+
+# ---   *   ---   *   ---
+# TODO: move this bit somewhere else!
+#
+#  # command dereference
+#  if(my $have=$l1->typechk(CMD=>$key)) {
+#
+#    my $cmd   = $lib->fetch($have->{spec});
+#    my $solve = $cmd->{key}->{fn}->($self,$nd);
+#
+#    return null if $solve && $solve eq $nd;
+#
+#
+#    # ~
+#    my $value=(defined $solve)
+#      ? $solve
+#      : $nd->{vref}
+#      ;
+#
+#
+#    # delay value deref until encoding
+#    $O->{imm}=$value;
+#
+#    $O->{type}=sub ($x,$y) {
+#      $x->immsz($y)
+#
+#    };
+#
+#    $O->{type_args}=[$ISA,$value];
 
 # ---   *   ---   *   ---
 # generic instruction

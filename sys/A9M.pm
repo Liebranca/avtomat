@@ -240,11 +240,11 @@ sub hierstruc($self,$data) {
   map {
 
     my ($opsz,$ins,@args)=@$ARG;
-    my $have=$ISA->get_ins_meta($ins);
+    my $have=$ISA->_get_ins_meta($ins);
 
     if($have->{meta}) {
 
-    } else {
+    } elsif(defined $have && %$have) {
 
       $out->{overwrite} |= $have->{overwrite};
       $out->{load_dst}  |= $have->{load_dst};

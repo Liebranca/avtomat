@@ -37,10 +37,7 @@ clan testy;
 
 proc start;
 
-#  ld   ar,$01;
-#  add  ar,$01;
-
-  os   'exit',0;
+  ar *= fn $24;
 
 ],
 

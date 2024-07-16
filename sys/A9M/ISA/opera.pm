@@ -41,7 +41,7 @@ package A9M::ISA::opera;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.5;#a
+  our $VERSION = v0.01.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -879,8 +879,14 @@ subwraps '$self->defop' => q(
 # multiplication
 
 sub mul($self,$type,$src) {
+
   my @src=asval $src;
-  sub ($ice,$x) {$x * shift @src};
+
+  sub ($ice,$x) {
+    my $y=shift @src;
+    return $x * $y;
+
+  };
 
 };
 

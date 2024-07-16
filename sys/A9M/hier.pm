@@ -157,6 +157,7 @@ sub chkvar($self,$name,$idex) {
       ],
 
       deps_for => [],
+      decl     => $idex,
 
     };
 
@@ -261,28 +262,44 @@ sub endtime($self,$i) {
 
 sub redvar($self,$name) {
 
+
+  # get ctx
   my $mc   = $self->getmc();
   my $main = $mc->get_main();
 
   my $hist = $self->{shist};
   my $have = $self->{var}->{$name};
-  my $cr   = $have->{const_range};
 
-  my $i    = 0;
+  # value not used elsewhere?
+  $main->bperr(
+
+    $hist->[$have->{decl}]
+  ->{'asm-Q'}->[0],
+
+    "redundant instruction; "
+  . "value '%s' never used",
+
+    args=>[$name],
+
+  ) if ! int @{$have->{deps_for}};
+
+
+  # walk points
+  my $cr = $have->{const_range};
+  my $i  = 0;
 
   map {
 
     my ($beg,$end)=@$ARG;
+    my $point=$hist->[$end];
 
-    my $point = $hist->[$end];
-    my $deped = $have->{deps_for}->[$i++];
+    my $over=(
+       $self->is_overwrite($point)
+    && $beg < $end
 
-    if(
+    );
 
-        $self->is_overwrite($point)
-    &&  $beg < $end
-
-    ) {
+    if($over) {
 
       my $early=$hist->[$beg];
 

@@ -502,7 +502,7 @@ sub store($self,$type,$value,$addr=undef) {
 
 sub dload($self,$type,$addr) {
 
-  my $b=bunpack $type,${$self->{buf}},$addr;
+  my $b=bunpack $type,$self->{buf},$addr;
 
   return (length $b)
     ? $b->{ct}->[0]

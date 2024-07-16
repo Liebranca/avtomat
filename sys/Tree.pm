@@ -1850,9 +1850,9 @@ sub match_from($self,$ch,$pat) {
 sub match_until($self,$ch,$pat,%O) {
 
   # defaults
-  $O{iref}      //=0;
-  $O{inclusive} //=0;
-  $O{deep}      //=0;
+  $O{iref}      //= 0;
+  $O{inclusive} //= 0;
+  $O{deep}      //= 0;
 
   my @out  = ();
   my @path = ();
@@ -1886,6 +1886,7 @@ sub match_until($self,$ch,$pat,%O) {
     } elsif($O{deep}) {
 
       if(defined $nd->branch_in($pat)) {
+
         @out=@path;
 
         # save end token?
@@ -1959,7 +1960,7 @@ sub all_from($self,$ch,%O) {
 
   my @pending = @{$self->{leaves}};
 
-  my $limit   = ($O{cap} && $O{cap}<=$#pending)
+  my $limit   = ($O{cap} && $O{cap} <= $#pending)
     ? $O{cap}
     : $#pending
     ;
@@ -1967,7 +1968,7 @@ sub all_from($self,$ch,%O) {
   croak "no child leaves"
   if ! defined $ch->{idex};
 
-  @pending=@pending[$ch->{idex}+1..$limit];
+  return @pending[$ch->{idex}+1..$limit];
 
 };
 
@@ -2017,11 +2018,29 @@ sub match_up_to($self,$pattern,%O) {
 
   );
 
-  # ^on fail
-  @out=$self->{parent}->all_from(
-    $self,%O
 
-  ) if ! @out;
+  # failure?
+  my $fail =! @out;
+
+  @out=$self->{parent}->all_from($self,%O)
+  if $fail;
+
+
+  # edge case: failure due to first node match
+  if(@out && $fail &&! $O{inclusive}) {
+
+    if($O{deep}) {
+      @out=()
+      if defined $out[0]->branch_in($pattern);
+
+    } else {
+      @out=()
+      if $out[0]->{value}=~ $pattern;
+
+    };
+
+  };
+
 
   return @out;
 

@@ -52,7 +52,7 @@ St::vconst {
 
       == != < <= >= > && ||
 
-      &= |= ^= <<= >>=
+      = &= |= ^= <<= >>=
 
       *^= *= /= += -=
 
@@ -180,8 +180,8 @@ sub apply_rules($self,$branch) {
   #
   # * join comma-separated lists
 
-  $l2->invoke('fwd-parse'=>'join-opr')
-  if ! @{$branch->{leaves}};
+  $l2->invoke('fwd-parse'=>'join-opr');
+#  if ! @{$branch->{leaves}};
 
   $self->make_ops($branch);
   $l2->invoke('fwd-parse'=>'csv');

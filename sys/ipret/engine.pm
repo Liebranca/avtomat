@@ -38,7 +38,7 @@ package ipret::engine;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -151,6 +151,7 @@ sub step($self,$data) {
     );
 
   };
+
 
   return @$ret;
 
@@ -401,16 +402,16 @@ sub branch_solve($self,$branch,%O) {
 
   if(my $have=$l1->typechk(OPR=>$key)) {
 
-    my $dst=$self->opera_collapse(
-      $branch,$have,%O
-
-    );
-
-    if(length $dst) {
-      $branch->{value}=$dst;
-      $branch->clear();
-
-    };
+#    my $dst=$self->opera_collapse(
+#      $branch,$have,%O
+#
+#    );
+#
+#    if(length $dst) {
+#      $branch->{value}=$dst;
+#      $branch->clear();
+#
+#    };
 
 
   # SCP token denotes any {[(code)]}
@@ -648,6 +649,8 @@ sub opera_collapse($self,$branch,$opera,%O) {
 
   );
 
+  my $out=null;
+
 
   # check that program has dynamic elements
   #
@@ -672,7 +675,7 @@ sub opera_collapse($self,$branch,$opera,%O) {
 
   ) {
 
-    my $solve=sub {
+    $out=sub {
 
       map  {$self->opera_static($ARG,1)}
       map  {[(@$ARG)[2..@$ARG-1]]}
@@ -680,25 +683,21 @@ sub opera_collapse($self,$branch,$opera,%O) {
       @program;
 
 
-      return $enc->opera_encode(
-        \@program,$const,$alma
-
-      );
+      return $enc->opera_encode(\@program,$const);
 
     };
-
-    return $solve;
 
 
   # ^static, no wrapper needed!
   } else {
-
-    return $enc->opera_encode(
-      \@program,$const,$alma
-
-    );
+    $out=$enc->opera_encode(\@program,$const);
 
   };
+
+
+  # cleanup and give
+  $mc->{anima}->{almask}=$alma;
+  return $out;
 
 };
 

@@ -595,7 +595,7 @@ sub exewrite_sort($self) {
 # ---   *   ---   *   ---
 # operator to binary ;>
 
-sub opera_encode($self,$program,$const,$alma) {
+sub opera_encode($self,$program,$const) {
 
 
   # get ctx
@@ -616,8 +616,6 @@ sub opera_encode($self,$program,$const,$alma) {
 
     # execute and give result
     my @ret=$eng->strexe($bytes);
-    $mc->{anima}->{almask}=$alma;
-
     return $l1->tag(NUM=>$ret[-1]);
 
 

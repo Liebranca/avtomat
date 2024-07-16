@@ -190,14 +190,23 @@ sub get_ins_idex($class,$name,$size,@args) {
 # ---   *   ---   *   ---
 # ^get the whole metadata hash
 
+sub _get_ins_meta($class,$name) {
+  my $tab=$class->opcode_table;
+  return $tab->{insmeta}->{$name};
+
+};
+
+# ---   *   ---   *   ---
+# ^plus errme!
+
 sub get_ins_meta($class,$name) {
 
-  my $tab=$class->opcode_table;
+  my $out=$class->_get_ins_meta($name);
 
   return warn_invalid($name)
-  if ! exists $tab->{insmeta}->{$name};
+  if ! defined $out;
 
-  return $tab->{insmeta}->{$name};
+  return $out;
 
 };
 
