@@ -75,6 +75,27 @@ sub csume_list($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# ^and mutate!
+
+sub csume_list_mut($self,$branch) {
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+  # get args and rename
+  csume_list($self,$branch);
+
+  $branch->{value}=$l1->tag(
+    CMD=>$branch->{cmdkey}
+
+  );
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # consume scope if....
 
 sub csume_scp($self,$branch) {
@@ -320,6 +341,12 @@ cmdsub 'csume-list' => q(
   qlist src;
 
 )  => \&csume_list;
+
+
+cmdsub 'csume-list-mut' => q(
+  qlist src;
+
+)  => \&csume_list_mut;
 
 w_cmdsub 'csume-token' => q(
   sym name;

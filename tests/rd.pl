@@ -35,9 +35,12 @@ q[%;
 
 clan testy;
 
+proc fn;
+  out byte x0;
+
 proc start;
 
-  ar *= fn $24;
+  ar=*fn $24,$25;
 
 ],
 

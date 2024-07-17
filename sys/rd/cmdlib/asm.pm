@@ -36,7 +36,7 @@ package rd::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.2;#b
+  our $VERSION = v0.01.4;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -106,7 +106,7 @@ sub parse_ins($self,$branch) {
   # ^get type of each argument
   @args=map {
 
-    $ARG = $ARG->discard();
+    $ARG=$ARG->discard();
 
     my $key  = $ARG->{value};
     my $have = $l1->xlate($key);
@@ -142,12 +142,13 @@ sub parse_ins($self,$branch) {
 
   # have opera type spec?
   my $opsz_def = defined $branch->{vref};
-  my @vtypes   = rd::vref->is_valid(
+  my @vtypes   = grep {$ARG} rd::vref->is_valid(
     TYPE=>$branch->{vref}
 
   );
 
-  my $opsz     = ($opsz_def)
+
+  my $opsz=($opsz_def && @vtypes)
     ? typefet @vtypes
     : $ISA->def_t
     ;
@@ -224,10 +225,215 @@ sub asm_ins($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# generates a 'pass' meta-instruction
+#
+# this is used to automate loading
+# of registers for an F call
+
+sub mkpass($self,$par,$idex,@args) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+
+  # make node
+  my ($pass)=$par->insert(
+    $idex,$l1->tag(CMD=>'pass'),
+
+  );
+
+  $pass->{cmdkey}='pass';
+  $pass->{lineno}=$par->{lineno};
+
+
+  # process and give
+  $pass->pushlv(@args);
+  $self->asm_ins($pass);
+
+
+  return $pass;
+
+};
+
+# ---   *   ---   *   ---
+# ^pass+call
+
+sub autocall($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+  my $par  = $branch->{parent};
+
+  # unpack
+  my ($fn,@args)=@{$branch->{leaves}};
+
+
+  # need to automate passing of arguments?
+  if(@args) {
+
+    my $pass=$self->mkpass(
+      $par,$branch->{idex},@args
+
+    );
+
+    $pass->{lineno}=$branch->{lineno};
+
+  };
+
+  # mutate this branch into a call instruction
+  $branch->{value}  = $l1->tag(CMD=>'call');
+  $branch->{cmdkey} = 'call';
+
+  $self->asm_ins($branch);
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^pass+call+(ctc ld)
+#
+# this links the invocation of an F
+# to a value within current proc
+
+sub bindcall($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+  # unpack
+  my ($dst,$fn,@args)=
+    @{$branch->{leaves}};
+
+
+  # need to automate passing of arguments?
+  $self->mkpass($branch,$fn->{idex},@args)
+  if @args;
+
+
+  # get F being called
+  my $fnref = $fn->{vref}->{res};
+
+  my $src   = $fnref->{args}->[0];
+     $src   = $src->{data}->dupa(undef,'vref');
+
+
+  # ^make instruction to put ret F in dst
+  my ($ld)=$branch->inew(
+    $l1->tag(CMD=>'ld'),
+
+  );
+
+  $ld->{cmdkey}='ld';
+  $ld->{lineno}=$branch->{lineno};
+
+
+  # put operands
+  $ld->pushlv($dst);
+  $ld->pushlv($src);
+
+  # enqueue ctc to retrieve output
+  $ld->{vref}->{ctc}=\&bindret;
+  $self->asm_ins($ld);
+
+
+  # cleanup and give
+  $branch->flatten_branch();
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+sub bindret($self,$branch,$opsz,$ins,@args) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $mc   = $main->{mc};
+
+  # validate
+  my ($dst,$src)=@args;
+
+  $main->perr(
+    'cannot bind output of an indirect call'
+
+  ) if ! exists $src->{id};
+
+
+  # can fetch F to call?
+  my ($name,@path)=@{$src->{id}};
+  my $ptr=$mc->search($name,@path);
+
+  return $branch if ! $ptr;
+
+
+  # can find output?
+  my $proc=$ptr->{p3ptr}->{vref};
+  my $have=$proc->{data}->{io}->{out};
+
+  $main->perr(
+
+    'binding error; '
+
+  . "cannot find [good]:%s var '%s'\n"
+  . "for [ctl]:%s '%s'",
+
+    args => [
+      out  => $name,
+      proc => $proc->{data}->{name},
+
+    ],
+
+  ) if ! @{$have->{var}->{-order}};
+
+
+  # replace source with register!
+  my $key = $have->{var}->{-order}->[0];
+  my $r   = $have->{var}->{$key};
+
+  %$src=(
+    type => 'r',
+    reg  => $r->{decl},
+
+  );
+
+  return ($src->{reg} eq $dst->{reg})
+    ? null
+    : 1
+    ;
+
+};
+
+# ---   *   ---   *   ---
 # add entry points
 
 cmdsub 'asm-ins'  => q(qlist src) => \&asm_ins;
 cmdsub '$' => q() => \&current_byte;
+
+
+cmdsub 'autocall' => q(
+  any   fn;
+  qlist args=();
+
+) => \&autocall;
+
+cmdsub 'bindcall' => q(
+
+  any   dst;
+  any   fn;
+
+  qlist args=();
+
+) => \&bindcall;
 
 # ---   *   ---   *   ---
 # generic methods, see ipret
@@ -241,10 +447,10 @@ w_cmdsub 'csume-token' => q(
 
 );
 
-w_cmdsub 'csume-list' => q(
+w_cmdsub 'csume-list-mut' => q(
   cmd input;
 
-) => 'in';
+) => qw(in out);
 
 # ---   *   ---   *   ---
 1; # ret

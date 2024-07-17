@@ -32,7 +32,7 @@ package rd::syntax;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -42,7 +42,7 @@ St::vconst {
 
   opr => {
 
-    binary => [qw(
+    binary  => [qw(
 
       -> ->*
 
@@ -52,17 +52,43 @@ St::vconst {
 
       == != < <= >= > && ||
 
-      = &= |= ^= <<= >>=
+    )],
 
+    unary   => [qw(~ ? ! ++ --)],
+    edge    => [qw(*)],
+
+    asg     => [qw(
+      = &= |= ^= <<= >>=
       *^= *= /= += -=
 
     )],
 
-    unary  => [qw(~ ? ! ++ --)],
+  },
+
+
+  csv_char => '\,',
+  asg_re   => sub {
+
+    return re_eiths(
+      $_[0]->opr->{asg},
+      opscape=>1,
+
+    );
 
   },
 
-  csv_char => '\,',
+  edge_re  => sub {
+
+    return re_eiths(
+      $_[0]->opr->{edge},
+      opscape=>1,
+
+    );
+
+  },
+
+  edge_map => {qw(* autocall)},
+  asg_map  => {qw(= bindcall)},
 
   list     => [qw(
 
@@ -79,9 +105,9 @@ St::vconst {
 sub opr_list($self) {
 
   return [
-
     @{$self->opr->{binary}},
     @{$self->opr->{unary}},
+    @{$self->opr->{asg}},
 
   ];
 
@@ -417,7 +443,10 @@ sub sort_uopr($self,$branch) {
 
   # get valid chars
   my $csv   = $self->csv_char;
+  my $asg   = $self->asg_re;
+
   my $valid = $l1->re(WILD => "[^$csv]+");
+
   my $bopr  = $self->bopr_combo;
      $bopr  = qr{^\[\`$bopr};
 
@@ -444,8 +473,10 @@ sub sort_uopr($self,$branch) {
 
     $ARG->pushlv($have)
 
-    if $have
-    && ($have->{value}=~ $valid);
+    if  $have
+
+    &&  ($have->{value}=~ $valid)
+    &&! ($have->{value}=~ $asg);
 
 
   } $self->sort_opr(
@@ -470,6 +501,8 @@ sub sort_bopr($self,$branch) {
 
   # get valid chars
   my $csv   = $self->csv_char;
+  my $asg   = $self->asg_re;
+
   my $valid = $l1->re(WILD => "[^$csv]+");
 
 
@@ -491,7 +524,8 @@ sub sort_bopr($self,$branch) {
       $ARG->pushlv(@have)
 
       if @have == int grep {
-        $ARG->{value}=~ $valid
+          ($ARG->{value}=~ $valid)
+      &&! ($ARG->{value}=~ $asg)
 
       } @have;
 
@@ -507,12 +541,138 @@ sub sort_bopr($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# handle edge-cases where a
+# binary operator is used as
+# if it where unary!
+
+sub sort_edge($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+  my $tab  = $self->edge_map;
+
+  # get valid chars
+  my $csv   = $self->csv_char;
+  my $asg   = $self->asg_re;
+
+  my $valid = $l1->re(SYM => ".*");
+
+
+  # walk
+  map {
+
+    my $idex = $ARG->{idex};
+    my $par  = $ARG->{parent};
+    my $lv   = $par->{leaves};
+
+
+    my $have = ($idex < @$lv-1)
+      ? $lv->[$idex+1]
+      : undef
+      ;
+
+
+    if(
+
+        $have
+
+    &&  ($have->{value}=~ $valid)
+    &&! ($have->{value}=~ $asg)
+
+    ) {
+
+      $ARG->pushlv($have);
+
+      my $name=$l1->xlate($ARG->{value});
+         $name=$name->{spec};
+
+      $ARG->{value}=$l1->tag(CMD=>$tab->{$name});
+
+    };
+
+
+  } $self->sort_opr(
+    $branch,$self->opr->{edge}
+
+  );
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# sort assignment operators
+
+sub sort_asg($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+
+  my $tab  = $self->asg_map;
+
+  # get valid chars
+  my $csv   = $self->csv_char;
+  my $asg   = $self->asg_re;
+
+  my $valid = $l1->re(WILD => "[^$csv]+");
+
+
+  # walk
+  map {
+
+    my $idex = $ARG->{idex};
+    my $par  = $ARG->{parent};
+    my $lv   = $par->{leaves};
+
+    if(1 <= $idex && $idex < @$lv-1) {
+
+      my @have=(
+        $lv->[$idex-1],
+        $lv->[$idex+1],
+
+      );
+
+
+      if(@have == int grep {
+          ($ARG->{value}=~ $valid)
+
+      } @have) {
+
+        $ARG->pushlv(@have);
+
+        my $name=$l1->xlate($ARG->{value});
+           $name=$name->{spec};
+
+        $ARG->{value}=$l1->tag(CMD=>$tab->{$name});
+
+      };
+
+    };
+
+  } $self->sort_opr(
+    $branch,$self->opr->{asg}
+
+  );
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # sort all!
 
 sub make_ops($self,$branch) {
 
   $self->sort_uopr($branch);
   $self->sort_bopr($branch);
+  $self->sort_edge($branch);
+  $self->sort_asg($branch);
+
 
   return;
 

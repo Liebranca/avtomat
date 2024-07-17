@@ -25,6 +25,8 @@ package A9M::hier;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Type;
+
   use Arstd::IO;
 
   use parent 'A9M::layer';
@@ -32,7 +34,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -61,6 +63,12 @@ St::vconst {
 
     var   => {
       -order => [],
+
+    },
+
+    io    => {
+      map {$ARG=>{bias=>0x00,var=>{-order=>[]}}}
+      qw  (in out)
 
     },
 
@@ -96,6 +104,15 @@ sub new($class,%O) {
       ,
 
   );
+
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+
+  # calculate initial register allocation bias
+  my $bias=$anima->regmask(qw(ar br cr dr));
+  $self->{io}->{in}->{bias} |= $bias;
 
 
   return $self;
@@ -135,6 +152,78 @@ sub addattr($self,$name,$value) {
 
 sub enqueue($self,$name,@args) {
   push @{$self->{Q}->{$name}},\@args;
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+sub addio($self,$opsz,$ins,$name) {
+
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $main  = $mc->get_main();
+  my $anima = $mc->{anima};
+
+
+  # unpack
+  my $have = $self->{io}->{$ins};
+  my $dst  = $have->{var};
+
+
+  # validate input
+  $main->perr(
+
+    "redecl of [good]:%s var '%s'\n"
+  . "for [ctl]:%s '%s'",
+
+    args=>[
+      $ins,$name,
+      $self->{type},$self->{name}
+
+    ],
+
+  ) if exists $dst->{$name};
+
+
+  # setup allocation bias
+  my $bias = $have->{bias};
+  my $old  = $anima->{almask};
+
+  $anima->{almask}=$bias;
+
+
+  # allocate register
+  my $idex=$anima->alloci();
+
+  $dst->{$name}={
+
+    const_range => [],
+
+    deps_for => [],
+    decl     => $idex,
+
+
+    opsz => (
+       defined $opsz
+    && Type->is_valid($opsz)
+
+    ) ? typefet $opsz
+      : null
+      ,
+
+  };
+
+
+  # update bias and restore
+  $have->{bias}    |= 1 << $idex;
+  $anima->{almask}  = $old;
+
+
+  # set and give
+  push @{$dst->{-order}},$name;
   return;
 
 };

@@ -42,7 +42,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.4;#b
+  our $VERSION = v0.02.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -401,11 +401,6 @@ sub proc($self,$branch) {
 
   );
 
-  $$tab->{data}->addattr(
-    io=>$mc->hierstruc($dummy),
-
-  );
-
 
   # add closing call and give
   $$tab->{data}->enqueue(
@@ -419,9 +414,9 @@ sub proc($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# decls inputs to a process
+# decls inputs and outputs to a process
 
-sub in($self,$branch) {
+sub io($self,$branch) {
 
 
   # get ctx
@@ -440,44 +435,15 @@ sub in($self,$branch) {
   # unpack args
   my ($type,$sym)=$vref->flatten();
 
-  # setup biased mask for allocator
-  my $old  = $anima->{almask};
+  # alloc and give
+  $dst->addio(
 
-  my $bias = $anima->regmask(qw(ar br cr dr));
-  my $mask = $dst->{-regal}->{glob};
+    $type->{spec},
 
-  $anima->{almask}=$mask | $bias;
-
-
-  # allocate register
-  my $idex=$mc->{anima}->alloci;
-  $self->regused($branch,null=>in=>{
-    type => 'r',
-    reg  => $idex,
-
-  });
-
-  $anima->{almask}=$old;
-
-
-  # ^store alias in table
-  $dst->{$sym->{spec}}=rd::vref->new(
-
-    type => 'REG',
-    spec => $idex,
-
-    res  => (
-       defined $type
-    && Type->is_valid($type->{spec})
-
-    ) ? typefet $type->{spec}
-      : null
-      ,
+    $branch->{cmdkey},
+    $sym->{spec},
 
   );
-
-  push @{$dst->{-order}},
-    $dst->{$sym->{spec}};
 
 
   return;
@@ -582,9 +548,10 @@ sub argsolve($self,$branch) {
 
 
   # unpack
-  my $vref = $branch->{vref}->{res};
-  my $name = $vref->{name};
-  my $opsz = $vref->{opsz};
+  my $vref = $branch->{vref};
+  my $vres = $vref->{res};
+  my $name = $vres->{name};
+  my $opsz = $vres->{opsz};
 
   # walk operands
   my @args=map {
@@ -646,10 +613,28 @@ sub argsolve($self,$branch) {
     $O;
 
 
-  } @{$vref->{args}};
+  } @{$vres->{args}};
 
-use Fmat;
-fatdump \[@args];
+
+  # have enqueued checks?
+  if(defined $vref->{ctc}) {
+
+    my $ok=$vref->{ctc}->(
+
+      $self,
+      $branch,
+
+      $opsz,$name,@args
+
+    );
+
+
+    # need to discard or retry?
+    return null if $ok eq $branch;
+    return ($opsz,null) if ! length $ok;
+
+
+  };
 
   goto skip if $name=~ $ISA->{guts}->meta_re;
 
@@ -657,7 +642,7 @@ fatdump \[@args];
   # overwrite default type?
   my $nc_name=$name;
 
-  my $def=$vref->{opsz_def};
+  my $def=$vres->{opsz_def};
   my $fix=$ISA->get_ins_fix_size($nc_name);
 
   if(defined $fix) {
@@ -736,6 +721,13 @@ sub asm_ins($self,$branch) {
   return $branch
   if ! length $opsz;
 
+
+  # instruction discarded?
+  if(! length $name) {
+    $branch->discard();
+    return;
+
+  };
 
 
   # all OK, request and give
@@ -1399,11 +1391,13 @@ sub symsolve_min($ISA,$dst,$deref) {
 # add entry points
 
 cmdsub '$'        => q() => \&current_byte;
-cmdsub 'blk'      => q() => \&blk;
 cmdsub 'entry'    => q() => \&entry;
+cmdsub 'blk'      => q() => \&blk;
 cmdsub 'proc'     => q() => \&proc;
-cmdsub 'in'       => q() => \&in;
+cmdsub 'io'       => q() => \&io;
 cmdsub 'asm-ins'  => q() => \&asm_ins;
+
+w_cmdsub 'io'     => q() => qw(in out);
 
 # ---   *   ---   *   ---
 1; # ret
