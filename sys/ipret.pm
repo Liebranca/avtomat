@@ -292,6 +292,17 @@ sub bind($self) {
 
 
       # ~~
+#      my $sta=$have->{glob}->{'asm-Q'};
+#         $sta=$sta->[1]->{inner};
+#
+#      $have->{node}->prich();
+#      $sta->prich();
+#
+#      use Fmat;
+#      fatdump \$have->{io};
+#      fatdump \$have->{var};
+#      exit;
+
       $self->{binder}->inspect($have,1);
 
     };

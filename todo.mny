@@ -18,12 +18,14 @@ x \--> write base class (rd/vref)
 
 ~ Filemeta builder
 
-~ \--> formalize hierarchicals as an A9M layer
+~ \--> automatic var save/load
+
+x \--> formalize hierarchicals as an A9M layer
 
 x .  \--> adapt cmdlib::asm proc bits
-~ .  \--> tmp values as stack/anima views
+x .  \--> tmp values as stack/anima ptr
 
-~ .  \--> divide timeline by expressions rather
+x .  \--> divide timeline by expressions rather
           than call-by-call sub-blocks
 
 x .  .  \--> sort timeline points idex
@@ -32,11 +34,11 @@ x .  .  \--> sort timeline points idex
 x .  .  \--> design timeline point format
 
 
-~ \--> proc context gather
+x \--> proc context gather
 
-~ .  \--> varname handler
+x .  \--> varname handler
 
-~ .  .  \--> use data-decl syntax within proc to
+x .  .  \--> use data-decl syntax within proc to
              declare tmp values
 
 x .  .  \--> input/output keywords for proc

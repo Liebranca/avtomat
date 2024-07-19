@@ -347,10 +347,30 @@ sub data_decl($self,$branch) {
     my $sym=undef;
     if(! $main->{pass}) {
 
+      my $oldname=$name;
 
       # get current block + symbol name
-      $name="$mc->{blktop}->{label}\::$name"
-      if $mc->{blktop};
+      if($mc->{blktop}) {
+
+        my $blk=$mc->{blktop};
+        my ($xname,@xpath)=$blk->fullpath;
+
+
+        # shorten path!
+        my @cur=@{$mc->{path}};
+        my @old=grep {
+          $xpath[$ARG] eq $mc->{path}->[$ARG]
+
+        } 0..$#cur;
+
+        if(@old == @cur) {
+          @xpath=@xpath[@old..$#xpath];
+
+        };
+
+        $name=join '::',@xpath,$xname,$name;
+
+      };
 
 
       # guard for redeclaration... and declare ;>
@@ -360,9 +380,22 @@ sub data_decl($self,$branch) {
       $sym=$mc->decl($type,$name,$x);
 
 
+      # making tmp var for proc?
+      if($exe &&! (
+        $branch->{cmdkey}=~ qr{^(?:in|out)$}
+
+      )) {
+
+        my $proc=$hier->{p3ptr}->{vref};
+           $proc=$proc->{data};
+
+        $proc->chkvar($oldname,-1);
+
+      };
+
+
       # update...
       my ($xname,@xpath)=$sym->fullpath;
-
 
       $ARG->[0] = $xname;
       $type     = ($ptr_t)

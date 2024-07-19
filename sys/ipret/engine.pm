@@ -456,11 +456,6 @@ sub branch_collapse($self,$src,%O) {
   my $mc   = $main->{mc};
 
   $mc->{anima}->backup_alma();
-if(! defined $src->{leaves}) {
-  say join "\n",grep {defined $ARG} caller 1;
-  exit;
-
-};
 
   # get reverse hierarchal order
   my @Q0 = @{$src->{leaves}};

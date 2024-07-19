@@ -43,7 +43,7 @@ package A9M::mem;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.1;#b
+  our $VERSION = v0.02.2;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -616,6 +616,33 @@ sub ptr_defnit($self,$O) {
 };
 
 # ---   *   ---   *   ---
+# writes pointer to namespace
+
+sub write_inner($self,$ptr,$par=undef) {
+
+
+  # defaults
+  $par //= $self->{inner};
+
+  # get ctx
+  my $mc=$self->getmc();
+  my $re=$mc->{pathsep};
+
+
+  # build path to symbol
+  my @path=split $re,$ptr->{label};
+  $par->force_set($ptr,@path);
+
+  my $node=$par->{'*fetch'};
+
+  $node->{-skipio} = 1;
+  $node->{mem}     = $ptr;
+
+  return ($node,$par);
+
+};
+
+# ---   *   ---   *   ---
 # wraps: make value
 
 sub lvalue($self,$value,%O) {
@@ -637,17 +664,10 @@ sub lvalue($self,$value,%O) {
   );
 
   # ^save to namespace
-  my $par=($O{par})
-    ? $O{par}
-    : $self->{inner}
-    ;
+  my ($par,$node)=$self->write_inner(
+    $ptr,$O{par}
 
-  $par->force_set($ptr,$ptr->{label});
-
-  my $node=$par->{'*fetch'};
-
-  $node->{-skipio} = 1;
-  $node->{mem}     = $ptr;
+  );
 
 
   # recurse to copy structure layout if need
@@ -721,17 +741,10 @@ sub ptr($self,$to,%O) {
 
 
   # save to namespace
-  my $par=($O{par})
-    ? $O{par}
-    : $self->{inner}
-    ;
+  my ($par,$node)=$self->write_inner(
+    $ptr,$O{par}
 
-  $par->force_set($ptr,$ptr->{label});
-
-  my $node=$par->{'*fetch'};
-
-  $node->{-skipio} = 1;
-  $node->{mem}     = $ptr;
+  );
 
   # ^set value and give
   $ptr->store($to->{addr},deref=>0);

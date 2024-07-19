@@ -420,7 +420,8 @@ sub io($self,$branch) {
 
 
   # get ctx
-  my $main  = $self->{frame}->{main};
+  my $frame = $self->{frame};
+  my $main  = $frame->{main};
   my $mc    = $main->{mc};
   my $vref  = $branch->{vref};
   my $anima = $mc->{anima};
@@ -442,6 +443,17 @@ sub io($self,$branch) {
 
     $branch->{cmdkey},
     $sym->{spec},
+
+  );
+
+
+  # add var dummy to namespace
+  $vref->{spec} = typefet $type->{spec};
+  $vref->{data} = [[$sym->{spec}=>0x00]];
+
+  my $cmd=$frame->fetch('data-decl');
+  $cmd->{key}->{fn}->(
+    $cmd,$branch
 
   );
 
