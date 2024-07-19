@@ -199,7 +199,11 @@ sub data_decl($self,$branch) {
 
 
   # get decl type
-  my ($type)=rd::is_valid(TYPE=>$branch->{vref});
+  my ($type)=rd::vref->is_valid(
+    TYPE=>$branch->{vref}
+
+  );
+
   $type=typefet $type if defined $type;
 
 
@@ -381,7 +385,7 @@ sub data_type($self,$branch) {
     # save it to branch
     my $vref=$branch->{vref};
 
-    my @list=@{$vref->{data}};
+    my @list=$vref->read_values('spec');
     my $type=$self->type_decode(@list);
 
     $vref->{type}='TYPE';
@@ -484,8 +488,12 @@ sub type_decode($self,@src) {
   my $type = typefet @src;
 
   # ^catch invalid
-  $main->perr('invalid type')
-  if ! defined $type;
+  $main->perr(
+
+    "invalid type '%s'",
+    args=>[join ' ',@src],
+
+  ) if ! defined $type;
 
 
   return $type;

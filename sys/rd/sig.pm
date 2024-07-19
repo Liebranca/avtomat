@@ -172,8 +172,19 @@ sub match($self,$x,%O) {
 
 
     if($valid) {
-      shift @lv       if   $O{inclusive};
-      $x->pushlv(@lv) if ! $O{nopush};
+
+      shift @lv if $O{inclusive};
+
+      if(! $O{nopush}) {
+
+        if(@{$x->{leaves}}) {
+          $x->{oldchd}=[$x->pluck_all()];
+
+        };
+
+        $x->pushlv(@lv);
+
+      };
 
     };
 

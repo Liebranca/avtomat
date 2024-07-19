@@ -633,6 +633,8 @@ sub argsolve($self,$branch) {
     return null if $ok eq $branch;
     return ($opsz,null) if ! length $ok;
 
+    $opsz=$ok;
+
 
   };
 
@@ -980,10 +982,10 @@ sub addr_decompose($self,$nd) {
 
       push @tree,{
 
-        id   => $have->{spec},
+        spec => $have->{spec},
 
         neg  => 0,
-        type => 'reg',
+        type => 'REG',
 
       };
 
@@ -993,10 +995,10 @@ sub addr_decompose($self,$nd) {
 
       push @tree,{
 
-        id   => $have->{spec},
+        spec => $have->{spec},
 
         neg  => $self->get_valid_ptr(SYM=>$nd),
-        type => 'sym',
+        type => 'SYM',
 
       };
 
@@ -1006,10 +1008,10 @@ sub addr_decompose($self,$nd) {
 
       push @tree,{
 
-        id   => $eng->quantize($key),
+        spec => $eng->quantize($key),
 
         neg  => $self->get_valid_ptr(IMM=>$nd),
-        type => 'imm',
+        type => 'IMM',
 
       };
 
@@ -1019,10 +1021,10 @@ sub addr_decompose($self,$nd) {
 
       push @tree,{
 
-        id   => $have->{spec},
+        spec => $have->{spec},
 
         neg  => 0,
-        type => 'opr',
+        type => 'OPR',
 
       } if ! ($have->{spec}=~ qr{^(?:\-|\+)$});
 
@@ -1047,7 +1049,7 @@ sub addr_decompose($self,$nd) {
 
   # ^remove registers from tree!
   @$reg = map  {$tree[$ARG]} @$reg;
-  @tree = grep {$ARG->{type} ne 'reg'} @tree;
+  @tree = grep {$ARG->{type} ne 'REG'} @tree;
 
 
   # give descriptor
@@ -1056,8 +1058,8 @@ sub addr_decompose($self,$nd) {
     tree  => \@tree,
     reg   => $reg,
 
-    sym   => [addr_elem sym=>@tree],
-    imm   => [addr_elem imm=>@tree],
+    sym   => [addr_elem SYM=>@tree],
+    imm   => [addr_elem IMM=>@tree],
 
     stk   => $stk,
     lea   => $lea,
@@ -1139,7 +1141,7 @@ sub addrmode($self,$branch,$nd) {
       my $ar=$data->{reg};
 
       (defined $ar->[$ARG])
-        ? $ar->[$ARG]->{id}+1
+        ? $ar->[$ARG]->{spec}+1
         : 0
         ;
 
@@ -1156,15 +1158,15 @@ sub addrmode($self,$branch,$nd) {
         'invalid scale factor of [num]:%u '
       . 'for address',
 
-        args => [$scale->{id}],
+        args => [$scale->{spec}],
 
-      ) if ! ($scale->{id}=~ qr{^(?:1|2|4|8)$});
+      ) if ! ($scale->{spec}=~ qr{^(?:1|2|4|8)$});
 
 
       # ^remove multiplication from tree!
       my ($off)=grep {
-         exists $tree->[$ARG]->{id}
-      && $tree->[$ARG]->{id} eq '*'
+         exists $tree->[$ARG]->{spec}
+      && $tree->[$ARG]->{spec} eq '*'
 
       } reverse 0..@$tree-1;
 
@@ -1177,7 +1179,7 @@ sub addrmode($self,$branch,$nd) {
         4 => 2,
         8 => 3,
 
-      }->{$scale->{id}};
+      }->{$scale->{spec}};
 
     };
 
@@ -1196,7 +1198,7 @@ sub addrmode($self,$branch,$nd) {
   # [r+i]
   } elsif(@{$data->{reg}}) {
 
-    $O->{reg}      = $data->{reg}->[0]->{id};
+    $O->{reg}      = $data->{reg}->[0]->{spec};
 
     $O->{imm}      = \&addrsolve_collapse;
     $O->{imm_args} = $tree;
@@ -1229,7 +1231,6 @@ sub addrmode($self,$branch,$nd) {
 
 sub addrsolve_collapse(@tree) {
 
-  use Fmat;
 
   my $opera = qr{^(?:\/|\*)$};
   my @have  = map {
@@ -1244,7 +1245,7 @@ sub addrsolve_collapse(@tree) {
 
     # have value!
     } else {
-      $out = $ARG->{id};
+      $out = $ARG->{spec};
       $neg = $ARG->{neg};
 
     };

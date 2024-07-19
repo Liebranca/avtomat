@@ -406,9 +406,12 @@ sub bindret($self,$branch,$opsz,$ins,@args) {
 
   );
 
+  $opsz=$r->{opsz} if length $r->{opsz};
+
+
   return ($src->{reg} eq $dst->{reg})
     ? null
-    : 1
+    : $opsz
     ;
 
 };

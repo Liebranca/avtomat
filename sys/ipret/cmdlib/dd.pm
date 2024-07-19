@@ -39,7 +39,7 @@ package ipret::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -349,8 +349,9 @@ sub data_decl($self,$branch) {
 
 
       # get current block + symbol name
-      $name="$mc->{blktop}->{label}.$name"
+      $name="$mc->{blktop}->{label}\::$name"
       if $mc->{blktop};
+
 
       # guard for redeclaration... and declare ;>
       $main->throw_redecl('value',$name)
@@ -421,7 +422,7 @@ sub data_decl($self,$branch) {
 
       ],
 
-    );
+    ) if ! $exe;
 
     return;
 

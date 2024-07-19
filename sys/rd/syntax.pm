@@ -212,7 +212,6 @@ sub apply_rules($self,$branch) {
   $self->make_ops($branch);
   $l2->invoke('fwd-parse'=>'csv');
 
-
   return;
 
 };
@@ -287,7 +286,7 @@ sub _csv($self,$branch,$data) {
 
     my $have=$branch->branch_in($comma);
 
-    $branch->insert(0,$tmp);
+    ($top)=$branch->insert(0,$tmp);
     $have->discard();
 
   };
@@ -302,6 +301,13 @@ sub _csv($self,$branch,$data) {
     inclusive=>0,
 
   );
+
+
+  # restore nested hierarchy
+  $top->pushlv(@{$branch->{oldchd}})
+  if exists $branch->{oldchd};
+
+  delete $branch->{oldchd};
 
   return 0;
 

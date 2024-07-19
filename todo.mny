@@ -39,7 +39,7 @@ x .  .  \--> design timeline point format
 ~ .  .  \--> use data-decl syntax within proc to
              declare tmp values
 
-~ .  .  \--> input/output keywords for proc
+x .  .  \--> input/output keywords for proc
 
 
 x .  \--> get register use/overwrite

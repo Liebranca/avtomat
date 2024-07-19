@@ -32,7 +32,7 @@ package xlate;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = v0.00.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -86,66 +86,57 @@ sub run($self) {
   my $rip   = $anima->{rip};
   my $enc   = $main->{encoder};
   my $lang  = $self->{lang};
+  my $root  = $main->{tree};
 
-
-  # get assembly queue
-  my $Q=[grep {defined $ARG} @{$enc->{Q}->{asm}}];
 
   # put header
   my @out=$lang->open_boiler();
 
 
   # filter out virtual data
-  my $virtual = 0;
-  my $end     = 0;
-  my $i       = 0;
+  my @Q  = ();
+  my @NQ = @{$root->{leaves}};
 
-  for my $data(@$Q) {
+  while(@NQ) {
 
-    my ($seg,$route,@req)=@$data;
+    my $nd   = shift @NQ;
+    my $vref = $nd->{vref};
 
-    @req=map {
-
-      my ($type,$ins,@args)=@$ARG;
+    my $deep = 1;
 
 
-      # stepped on virtual block?
-      if(! $virtual && $ins eq 'data-decl') {
+    # have virtual block?
+    $deep *=! (
 
-        my ($sym)=$mc->vrefsym($args[0]);
-        $virtual=$sym->{virtual};
+        St::is_valid('rd::vref',$vref)
 
-        $end=$sym->{p3ptr}->next_leaf;
-        $end=(defined $end)
-          ? $end->absidex
-          : -1
-          ;
+    &&  $vref->{type} eq 'HIER'
+    &&  $vref->{data}->{virtual}
 
-        ($virtual) ? () : $ARG ;
+    );
 
 
-      # ^stepping out of virtual block?
-      } elsif($virtual && $i eq $end) {
-        $virtual=0;
-        ();
+    # recurse if non-virtual!
+    if($deep) {
 
+      push    @Q,$nd->absidex;
+      unshift @NQ,@{$nd->{leaves}};
 
-      # ^keep values if not inside virtual!
-      } else {
-        ($virtual) ? () : $ARG ;
-
-      };
-
-
-    } @req;
-
-
-    $i++;
-    $data=(@req) ? [$seg,$route,@req] : [] ;
+    };
 
   };
 
-  @$Q=grep {int @$ARG} @$Q;
+
+  # get assembly queue
+  @Q=map {
+
+    my $uid  = $ARG;
+    my $have = $enc->{Q}->{asm};
+
+    (defined $have->[$uid])
+      ? $have->[$uid] : () ;
+
+  } @Q;
 
 
   # get executable block
@@ -157,7 +148,7 @@ sub run($self) {
 
 
   # read/decode/translate
-  push @out,map {$lang->step($ARG)} @$Q;
+  push @out,map {$lang->step($ARG)} @Q;
 
   return join "\n",@out;
 
