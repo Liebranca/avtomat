@@ -44,13 +44,15 @@ proc fn;
   byte x2;
 
 
-  st   [x2],ar;
+  st   [x2],x0;
+  add  x2,1;
+
+  st   [x1],x2;
 
   ret;
 
 
 proc start;
-  byte x2;
   *fn;
 
 ],

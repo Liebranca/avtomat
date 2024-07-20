@@ -305,6 +305,10 @@ sub bind($self) {
 
       $self->{binder}->inspect($have,1);
 
+use Fmat;
+fatdump \$have->{var},blessed=>1;
+exit;
+
     };
 
   };

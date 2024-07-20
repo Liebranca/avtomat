@@ -64,14 +64,14 @@ St::vconst {
 
     },
 
-    # reg to mem
+    # reg/imm to mem
     st => {
 
       fn       => 'ld',
       load_dst => 0,
 
       dst      => 'm',
-      src      => 'r',
+      src      => 'ri',
 
     },
 

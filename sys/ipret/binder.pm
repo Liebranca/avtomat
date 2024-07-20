@@ -24,6 +24,7 @@ package ipret::binder;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Chk;
 
   use Arstd::PM;
   use Arstd::WLog;
@@ -33,7 +34,7 @@ package ipret::binder;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -136,65 +137,19 @@ sub inspect($self,$hier,$recalc=0) {
     # analyze instructions
     map {
 
-      my ($opsz,$ins,@args)=@$ARG;
+      $self->chkins(
 
-      if($ins eq 'int') {
+        $hier,
+        $point,
 
-        my $pass = $branch->{vref}->{data};
-        my $j    = @$pass-1;
+        $ARG,
 
-        map {
+        $i++
 
-          $hier->depvar(
-            $hier->vname(0x00),
-            $hier->vname($ARG),
-
-            $i-$j--,
-
-          );
-
-        } @$pass;
-
-      } elsif(@args && $args[0]->{type} eq 'r') {
-
-        my $dst  = $args[0];
-        my $var  = $point->{var};
-
-        my $name = $hier->vname($dst->{reg});
-
-
-        # remember this value...
-        push @$var,$name;
-        $hier->chkvar($name,$i);
-
-
-        # are we modifying?
-        if(
-
-           $point->{overwrite}
-        && $args[1]
-
-        ) {
-
-          # non-const source?
-          if($args[1]->{type} eq 'r') {
-
-            my $dep=$hier->vname(
-              $args[1]->{reg}
-
-            );
-
-            $hier->depvar($name,$dep,$i);
-
-          };
-
-        };
-
-      };
+      )
 
     } @req;
 
-    $i++;
 
   } @$hist;
 
@@ -213,6 +168,119 @@ sub inspect($self,$hier,$recalc=0) {
 
   $hier->{node}->prich();
 #  exit;
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# analyze point in timeline
+# from instructions executed
+
+sub chkins($self,$hier,$point,$data,$i) {
+
+
+  # instructions without arguments
+  # are all special cased
+  my ($opsz,$ins,@args)=@$data;
+  return $self->on_argless(
+
+    $hier,
+    $point,
+    $ins,
+
+    $i
+
+
+  ) if ! @args;
+
+
+  # get operands
+  my $dst=$self->get_dst(
+
+    $hier,
+    $point,
+    $args[0],
+
+    $i
+
+  );
+
+  my $src=$self->get_src(
+
+    $hier,
+    $point,
+    $dst,
+    $args[1],
+
+    $i
+
+  );
+
+
+  say "$ins $dst->{name},$src->{name}";
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# TODO: handle argless instructions
+
+sub on_argless($self,$hier,$point,$ins,$i) {};
+
+# ---   *   ---   *   ---
+# fetch/make note of destination operand
+
+sub get_dst($self,$hier,$point,$dst,$i) {
+
+  my $var  = $point->{var};
+  my $name = $hier->vname($dst);
+
+  push @$var,$name;
+  return $hier->chkvar($name,$i);
+
+};
+
+# ---   *   ---   *   ---
+# ^source operand
+
+sub get_src($self,$hier,$point,$dst,$src,$i) {
+
+  my $out={name=>null};
+
+  if($src && $point->{overwrite}) {
+
+    my $name = $hier->vname($src);
+       $out  = $hier->depvar($dst,$name,$i);
+
+  };
+
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# edge case: linux syscalls!
+
+sub linux_syscall($self,$hier,$branch,$i) {
+
+  my $pass = $branch->{vref}->{data};
+  my $j    = @$pass-1;
+
+  map {
+
+    $hier->depvar(
+      $hier->vname(0x00),
+      $hier->vname($ARG),
+
+      $i-$j--,
+
+    );
+
+  } @$pass;
+
+
   return;
 
 };

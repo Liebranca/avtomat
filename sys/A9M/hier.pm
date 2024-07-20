@@ -159,7 +159,7 @@ sub enqueue($self,$name,@args) {
 # ---   *   ---   *   ---
 # ~
 
-sub addio($self,$opsz,$ins,$name) {
+sub addio($self,$ins,$name) {
 
 
   # get ctx
@@ -200,19 +200,14 @@ sub addio($self,$opsz,$ins,$name) {
 
   $dst->{$name}={
 
+    name        => $name,
     const_range => [],
 
     deps_for => [],
-    decl     => $idex,
+    decl     => -1,
 
-
-    opsz => (
-       defined $opsz
-    && Type->is_valid($opsz)
-
-    ) ? typefet $opsz
-      : null
-      ,
+    loaded   => $ins eq 'in',
+    loc      => $idex,
 
   };
 
@@ -234,12 +229,31 @@ sub addio($self,$opsz,$ins,$name) {
 
 sub chkvar($self,$name,$idex) {
 
+
+  # skip on io var
+  my $io=$self->{io};
+
+  map {
+    return $io->{in}->{var}->{$name}
+    if exists $io->{in}->{var}->{$name};
+
+  } qw(in out);
+
+
+  # making new var?
   if(! exists $self->{var}->{$name}) {
 
     push @{$self->{var}->{-order}},$name;
 
+    my $load=(! index $name,'%')
+      ? 'const' : 0 ;
+
+    $idex=0 if $load eq 'const';
+
+
     $self->{var}->{$name}={
 
+      name        => $name,
       const_range => [
         [$idex,-1],
 
@@ -248,7 +262,30 @@ sub chkvar($self,$name,$idex) {
       deps_for => [],
       decl     => $idex,
 
+      loc      => undef,
+
+      loaded   => $load,
+
     };
+
+
+  # stepping on existing!
+  } else {
+
+    my $have = $self->{var}->{$name};
+    my $cr   = $have->{const_range};
+    my $beg  = $cr->[0];
+
+    if($beg && $beg->[0] eq -1) {
+      $beg->[0]=$idex;
+
+    } elsif(! $beg) {
+      push @$cr,[$idex,-1];
+
+    };
+
+    $have->{decl}=$idex
+    if $have->{decl} < 0;
 
   };
 
@@ -260,21 +297,21 @@ sub chkvar($self,$name,$idex) {
 # ---   *   ---   *   ---
 # manages inter-value relationships
 
-sub depvar($self,$name,$depname,$idex) {
+sub depvar($self,$var,$depname,$idex) {
 
 
-  # skip?
-  return if ! exists $self->{var}->{$name};
-
-  # fetch both values
-  my $have = $self->{var}->{$name};
-  my $dep  = $self->{var}->{$depname};
-
+  # fetch source
+  my $dep=$self->chkvar($depname,$idex);
 
   # adjust constant status
-  my $cr=\$have->{const_range};
+  my $cr=\$var->{const_range};
 
-  if(defined $$cr->[-1]) {
+  if(
+
+     $var->{loaded} ne 'const'
+  && defined $$cr->[-1]
+
+  ) {
 
     my $ar=$$cr->[-1];
 
@@ -290,19 +327,25 @@ sub depvar($self,$name,$depname,$idex) {
 
 
   # register dependency
-  push @{$dep->{deps_for}},[$name,$idex];
+  push @{$dep->{deps_for}},[$var->{name},$idex];
   $cr=\$dep->{const_range};
 
-  if(defined $$cr->[-1]) {
+  if(
+
+     $dep->{loaded} ne 'const'
+  && defined $$cr->[-1]
+
+  ) {
 
     my $ar=$$cr->[-1];
-    $ar->[1]=$idex-1;
+    $ar->[1]=$idex;
 
     push @{$$cr},[$idex+1,-1];
 
   };
 
-  return;
+
+  return $dep;
 
 };
 
@@ -473,24 +516,35 @@ sub sort_hist($self,$recalc=0) {
 };
 
 # ---   *   ---   *   ---
-# WIP: value name conversion
+# WIP: get name of value
 
-sub vname($self,$name) {
-
-
-  # have plain idex?
-  if($name=~ $NUM_RE) {
-    $name="\$$name";
+sub vname($self,$var) {
 
 
-  # have alias!
+  # have register?
+  my $out=null;
+  if($var->{type} eq 'r') {
+    $out="\$$var->{reg}";
+
+  # have alias?
   } else {
-    nyi "tmp value aliases";
+
+    $out   = $var->{imm_args}->[0];
+    $out   = $out->{id}->[0];
+
+    $out //= $var->{id}->[0];
 
   };
 
 
-  return $name;
+  # have immediate!
+  if(! defined $out) {
+    $out="\%$var->{imm}";
+
+  };
+
+
+  return $out;
 
 };
 

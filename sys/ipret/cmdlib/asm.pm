@@ -438,9 +438,6 @@ sub io($self,$branch) {
 
   # alloc and give
   $dst->addio(
-
-    $type->{spec},
-
     $branch->{cmdkey},
     $sym->{spec},
 
