@@ -618,7 +618,10 @@ sub load($self,$dst) {
 
   # get ctx
   my $mc    = $self->getmc();
+  my $ISA   = $mc->{ISA};
   my $anima = $mc->{anima};
+  my $stack = $mc->{stack};
+
 
   # need to allocate register?
   if(! defined $dst->{loc}) {
@@ -644,13 +647,56 @@ sub load($self,$dst) {
 
     $anima->{almask}  = $old;
 
-say "ld $dst->{loc}->{label},[$dst->{name}]";
+  };
 
+
+  # make room in stack
+  $stack->repoint($dst->{ptr})
+  if ! $stack->is_ptr($dst->{ptr});
+
+
+  # ~~
+  my $out=[];
+
+  if(defined $dst->{defv}) {
+
+    my $x=$dst->{defv};
+
+    $out=[
+
+      $dst->{ptr}->{type},
+      'ld',
+
+      {type=>'r',reg=>$dst->{loc}->{addr} >> 3},
+      {type=>$ISA->immsz($x),imm=>$x},
+
+    ];
+
+
+    $dst->{ptr}->store($x);
+    $dst->{defv}=undef;
+
+
+  # ~~
+  } else {
+
+    my $base = $stack->{base}->{load};
+    my $off  = $base-$dst->{ptr}->{addr};
+
+    $out=[
+
+      $dst->{ptr}->{type},
+      'ld',
+
+      {type=>'r',reg=>$dst->{loc}->{addr} >> 3},
+      {type=>'mstk',imm=>$off},
+
+    ];
 
   };
 
 
-  return;
+  return $out;
 
 };
 

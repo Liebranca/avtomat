@@ -174,11 +174,22 @@ sub inspect($self,$hier,$recalc=0) {
 
   } $hier->varkeys(io=>'all');
 
+use Fmat;
+
 
   # ~~
+  my $prev = undef;
+     $i    = 0;
+
   map {
 
+
+    # unpack
     my ($point,$opsz,$ins,$dst,$src)=@$ARG;
+    $i=0 if $prev && $point ne $prev;
+
+    my $Q   = $point->{'asm-Q'};
+    my $ref = $Q->[3+$i];
 
 
     # value required by op?
@@ -188,22 +199,48 @@ sub inspect($self,$hier,$recalc=0) {
 
     ) {
 
-      $hier->load($dst);
+      @$Q=(
+        @{$Q}[0..3+$i],
+        @{$Q}[3+$i..@$Q-1],
+
+      );
+
+      $Q->[3+$i++]=$hier->load($dst);
+      $ref=$Q->[3+$i];
+
 
     };
 
 
-    say "$ins ",join ',',
-      map  {$ARG->{name}}
-      grep {defined $ARG} $dst,$src;
+    # replace value in instruction operands
+    my $j=0;
+    map {
+
+      if(defined $ARG && $ARG->{loc}) {
+
+        $ref->[0]    = $ARG->{ptr}->{type};
+        $ref->[2+$j] =
+          {type=>'r',reg=>$ARG->{loc}->{addr} >> 3}
+
+      };
+
+      $j++;
+
+
+    } $dst,$src;
+
+
+    # go next
+    $prev=$point;
+    $i++;
 
 
   } @program;
 
 
-  use Fmat;
-  fatdump \$var;
-  exit;
+#  fatdump \$var;
+#  exit;
+
   return;
 
 };

@@ -31,7 +31,7 @@ package A9M::stack;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -117,6 +117,109 @@ sub regen($self) {
   # ^zero flood and give
   $self->reset;
   return;
+
+};
+
+# ---   *   ---   *   ---
+# put value at addr
+# if no addr, use stack pointer
+
+sub store($self,$type,$value,$off=0x00) {
+
+
+  # get ctx
+  my $base = $self->{base}->load();
+  my $ptr  = $self->{ptr}->load();
+
+  $type = typefet $type;
+
+
+  # need to update stack base?
+  if(! $base) {
+    $base=$ptr;
+    $self->{base}->store($base);
+
+  };
+
+
+  # find addr
+  my $push =! $off;
+  my $addr =  ($push)
+    ? $ptr-$type->{sizeof}
+    : $base-$off
+    ;
+
+  # save value and adjust ptr if need
+  $self->{mem}->store($type=>$value,$addr);
+  $self->{ptr}->store($addr) if $push;
+
+
+  return $addr;
+
+};
+
+# ---   *   ---   *   ---
+# ^read!
+
+sub load($self,$type,$value,$off=0x00) {
+
+
+  # get ctx
+  my $base = $self->{base}->load();
+  my $ptr  = $self->{ptr}->load();
+
+  $type = typefet $type;
+
+
+  # are we popping?
+  my $pop  =! $off;
+  my $addr =  ($pop)
+    ? $ptr-$type->{sizeof}
+    : $base-$off
+    ;
+
+
+  # get value and adjust ptr if need
+  my $out=$self->{mem}->load(
+    $type=>$value,$addr
+
+  );
+
+  $self->{ptr}->store(
+    $addr+$type->{sizeof}
+
+  ) if $pop;
+
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# redirect pointer to stack reference
+
+sub repoint($self,$dst,$off=0x00) {
+
+  my $type=(defined $dst->{ptr_t})
+    ? $dst->{ptr_t} : $dst->{type} ;
+
+  my $addr=(! $off)
+    ? $self->store($type,0x00)
+    : $self->{base}->load()-$off
+    ;
+
+  $dst->{segid} = $self->{mem}->{iced};
+  $dst->{addr}  = $addr;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# checks if ptr is referencing stack
+
+sub is_ptr($self,$dst) {
+  return $dst->{segid} eq $self->{mem}->{iced};
 
 };
 
