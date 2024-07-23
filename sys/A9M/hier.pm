@@ -34,7 +34,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -61,16 +61,30 @@ St::vconst {
 
     },
 
+    used  => 0x00,
     var   => {
       -order => [],
 
     },
 
     io    => {
-      map {$ARG=>{bias=>0x00,var=>{-order=>[]}}}
-      qw  (in out)
+
+      map {
+
+        $ARG=>{
+
+          bias => 0x00,
+          used => 0x00,
+
+          var  => {-order=>[]},
+
+        },
+
+      } qw  (in out)
 
     },
+
+    stk   => {-size=>0x00},
 
     mcid  => 0,
     mccls => null,
@@ -110,12 +124,50 @@ sub new($class,%O) {
   my $mc    = $self->getmc();
   my $anima = $mc->{anima};
 
+
   # calculate initial register allocation bias
-  my $bias=$anima->regmask(qw(ar br cr dr));
-  $self->{io}->{in}->{bias} |= $bias;
+  my $inbias=$anima->regmask(qw(
+    ar br cr dr sp sb
+    ice ctx opt chan
+
+  ));
+
+  my $outbias=$anima->regmask(qw(
+    er fr gr hr xp xs
+
+  ));
+
+
+  $self->{io}->{in}->{bias}  |= $inbias;
+  $self->{io}->{out}->{bias} |= $outbias;
 
 
   return $self;
+
+};
+
+# ---   *   ---   *   ---
+# wraps: scope to this block
+
+sub set_scope($self) {
+
+
+  # get ctx
+  my $mc   = $self->getmc();
+  my $nd   = $self->{node};
+
+  my $vref = $nd->{vref};
+
+
+  # get full path into namespace
+  my $blk=$vref->{res};
+  my ($name,@path)=$blk->fullpath;
+
+  # ^set as current
+  $mc->scope(@path,$name);
+
+
+  return;
 
 };
 
@@ -157,7 +209,7 @@ sub enqueue($self,$name,@args) {
 };
 
 # ---   *   ---   *   ---
-# ~
+# decl input/output var
 
 sub addio($self,$ins,$name) {
 
@@ -169,6 +221,9 @@ sub addio($self,$ins,$name) {
 
 
   # unpack
+  my $key  = $ins;
+     $ins  = 'out' if $key eq 'io';
+
   my $have = $self->{io}->{$ins};
   my $dst  = $have->{var};
 
@@ -206,15 +261,29 @@ sub addio($self,$ins,$name) {
     deps_for => [],
     decl     => -1,
 
-    loaded   => $ins eq 'in',
     loc      => $idex,
+    ptr      => undef,
+    defv     => undef,
+
+    loaded   => $key ne 'out',
 
   };
 
 
   # update bias and restore
-  $have->{bias}    |= 1 << $idex;
+  my $bit = 1 << $idex;
+
+  $have->{used}    |= $bit;
+  $have->{bias}    |= $bit;
   $anima->{almask}  = $old;
+
+
+  # edge case: output eq input
+  if($key eq 'io') {
+    my $alt=$self->{io}->{in};
+    $alt->{var}->{$name}=$dst->{$name};
+
+  };
 
 
   # set and give
@@ -234,8 +303,8 @@ sub chkvar($self,$name,$idex) {
   my $io=$self->{io};
 
   map {
-    return $io->{in}->{var}->{$name}
-    if exists $io->{in}->{var}->{$name};
+    return $io->{$ARG}->{var}->{$name}
+    if exists $io->{$ARG}->{var}->{$name};
 
   } qw(in out);
 
@@ -263,6 +332,8 @@ sub chkvar($self,$name,$idex) {
       decl     => $idex,
 
       loc      => undef,
+      ptr      => undef,
+      defv     => undef,
 
       loaded   => $load,
 
@@ -478,8 +549,31 @@ sub is_overwrite($self,$point) {
 # ---   *   ---   *   ---
 # get names of all existing values
 
-sub varkeys($self) {
-  return @{$self->{var}->{-order}};
+sub varkeys($self,%O) {
+
+  # defaults
+  $O{io}     //= 0;
+  $O{common} //= 1;
+
+  # get lists of names
+  my @out=($O{common})
+    ? @{$self->{var}->{-order}}
+    : ()
+    ;
+
+
+  # ^get io vars?
+  push @out,map {
+    @{$self->{io}->{$ARG}->{var}->{-order}};
+
+  } ($O{io} eq 'all')
+    ? qw(in out)
+    : $O{io}
+
+  if $O{io};
+
+
+  return @out;
 
 };
 
@@ -512,6 +606,51 @@ sub sort_hist($self,$recalc=0) {
   # remove blanks and give
   @$out=grep {defined $ARG} @$out;
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# place backup in register
+# use defv if no backup!
+
+sub load($self,$dst) {
+
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+
+  # need to allocate register?
+  if(! defined $dst->{loc}) {
+
+
+    # setup allocation bias
+    my $io   = $self->{io};
+    my $bias = $io->{out}->{used};
+    my $old  = $anima->{almask};
+
+    $bias |= $io->{in}->{used};
+    $bias |= $self->{used};
+
+
+    # get free register
+    $anima->{almask}=$bias;
+    my $idex = $anima->alloci();
+    my $bit  = 1 << $idex;
+
+    # ^mark in use and restore
+    $self->{used}    |= $bit;
+    $dst->{loc}       = $anima->fetch($idex);
+
+    $anima->{almask}  = $old;
+
+say "ld $dst->{loc}->{label},[$dst->{name}]";
+
+
+  };
+
+
+  return;
 
 };
 

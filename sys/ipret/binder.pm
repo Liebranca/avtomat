@@ -34,7 +34,7 @@ package ipret::binder;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -118,11 +118,16 @@ sub fetch($self,$name) {
 sub inspect($self,$hier,$recalc=0) {
 
 
-  # walk block elements
+  # get ctx
+  my $mc   = $hier->getmc();
   my $hist = $hier->sort_hist($recalc);
-  my $i    = 0;
 
-  map {
+
+  # walk block elements
+  my $i       = 0;
+  my $var     = {};
+
+  my @program = map {
 
 
     # unpack
@@ -143,8 +148,9 @@ sub inspect($self,$hier,$recalc=0) {
         $point,
 
         $ARG,
+        $var,
 
-        $i++
+        $i++,
 
       )
 
@@ -154,20 +160,50 @@ sub inspect($self,$hier,$recalc=0) {
   } @$hist;
 
 
-  # ~~
+  # sort vars
   $hier->endtime($i-1);
-#  map {
-#
-#    use Fmat;
-#    fatdump \$hier->{var}->{$ARG};
-#
-#    my $e=$hier->redvar($ARG);
-#
-#  } $hier->varkeys;
+  $hier->set_scope();
+
+  map {
+
+    my $dst=$var->{$ARG};
+
+    $dst->{ptr}=$mc->search($ARG)
+    if $dst->{loaded} ne 'const';
 
 
-  $hier->{node}->prich();
-#  exit;
+  } $hier->varkeys(io=>'all');
+
+
+  # ~~
+  map {
+
+    my ($point,$opsz,$ins,$dst,$src)=@$ARG;
+
+
+    # value required by op?
+    if(
+        $point->{load_dst}
+    &&! $dst->{loaded}
+
+    ) {
+
+      $hier->load($dst);
+
+    };
+
+
+    say "$ins ",join ',',
+      map  {$ARG->{name}}
+      grep {defined $ARG} $dst,$src;
+
+
+  } @program;
+
+
+  use Fmat;
+  fatdump \$var;
+  exit;
   return;
 
 };
@@ -176,7 +212,7 @@ sub inspect($self,$hier,$recalc=0) {
 # analyze point in timeline
 # from instructions executed
 
-sub chkins($self,$hier,$point,$data,$i) {
+sub chkins($self,$hier,$point,$data,$var,$i) {
 
 
   # instructions without arguments
@@ -217,9 +253,27 @@ sub chkins($self,$hier,$point,$data,$i) {
   );
 
 
-  say "$ins $dst->{name},$src->{name}";
+  # write back to caller
+  my $argcnt=length $src->{name};
 
-  return;
+  $var->{$dst->{name}}=$dst;
+  $var->{$src->{name}}=$src if $argcnt;
+
+
+  # give synthesis
+  return [
+
+    $point,
+
+    $opsz,
+    $ins,
+
+    ($argcnt)
+      ? ($dst,$src)
+      : ($dst)
+      ,
+
+  ];
 
 };
 

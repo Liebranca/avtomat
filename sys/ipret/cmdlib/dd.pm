@@ -344,10 +344,10 @@ sub data_decl($self,$branch) {
 
 
     # assume declaration on first pass
-    my $sym=undef;
-    if(! $main->{pass}) {
+    my $oldname = $name;
+    my $sym     = undef;
 
-      my $oldname=$name;
+    if(! $main->{pass}) {
 
       # get current block + symbol name
       if($mc->{blktop}) {
@@ -378,20 +378,6 @@ sub data_decl($self,$branch) {
       if $name ne '?' && $scope->has($name);
 
       $sym=$mc->decl($type,$name,$x);
-
-
-      # making tmp var for proc?
-      if($exe &&! (
-        $branch->{cmdkey}=~ qr{^(?:in|out)$}
-
-      )) {
-
-        my $proc=$hier->{p3ptr}->{vref};
-           $proc=$proc->{data};
-
-        $proc->chkvar($oldname,-1);
-
-      };
 
 
       # update...
@@ -428,6 +414,19 @@ sub data_decl($self,$branch) {
     $sym->{ptr_t} = $ptr_t;
 
     $sym->store($x,deref=>0);
+
+
+    # making tmp var for proc?
+    if($exe) {
+
+      my $proc = $hier->{p3ptr}->{vref};
+         $proc = $proc->{data};
+
+      my $tmp  = $proc->chkvar($oldname,-1);
+
+      $tmp->{defv}=$x;
+
+    };
 
 
     # give unsolved!

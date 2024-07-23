@@ -353,9 +353,7 @@ sub proc($self,$branch) {
 
   # make object representing block
   my $ptr   = $fn->();
-  my $inner = $ptr->{p3ptr};
-
-  my $tab   = \$inner->{vref};
+  my $tab   = \$branch->{vref};
 
   $$tab=rd::vref->new(
 
@@ -369,35 +367,7 @@ sub proc($self,$branch) {
 
     ),
 
-  );
-
-
-  # add specific attrs
-  $$tab->{data}->addattr(
-
-    stack=>{
-      size => 0,
-      have => {},
-
-    },
-
-  );
-
-  my $dummy=[
-
-    $branch,
-    $mc->{segtop},
-    undef,
-
-    [(typefet 'byte'),
-      state=>{type=>'ix',imm=>0x00},
-
-    ],
-
-  ];
-
-  $$tab->{data}->addattr(
-    glob=>$mc->hierstruc($dummy),
+    res  => $vref->{res},
 
   );
 
@@ -449,13 +419,11 @@ sub io($self,$branch) {
   $vref->{data} = [[$sym->{spec}=>0x00]];
 
   my $cmd=$frame->fetch('data-decl');
-  $cmd->{key}->{fn}->(
-    $cmd,$branch
-
-  );
 
 
-  return;
+  # mutate into decl and give
+  %$self=%$cmd;
+  return $cmd->{key}->{fn}->($cmd,$branch);
 
 };
 

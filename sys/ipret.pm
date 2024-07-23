@@ -307,7 +307,6 @@ sub bind($self) {
 
 use Fmat;
 fatdump \$have->{var},blessed=>1;
-exit;
 
     };
 

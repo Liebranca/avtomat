@@ -37,23 +37,10 @@ clan testy;
 
 proc fn;
 
-
-  in   byte x0;
-  out  byte x1;
-
-  byte x2;
-
-
-  st   [x2],x0;
-  add  x2,1;
-
-  st   [x1],x2;
+  byte x0 $24;
+  add  x0,1;
 
   ret;
-
-
-proc start;
-  *fn;
 
 ],
 
