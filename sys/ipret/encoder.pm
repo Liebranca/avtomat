@@ -432,7 +432,7 @@ sub binreq($self,$branch,@req) {
   if defined $Q->[$uid];
 
 
-  $Q->[$uid]=[$branch,$seg,undef,@req];
+  $Q->[$uid]=[$branch,$seg,undef,\@req];
 
   $tab->timeline($uid=>$Q->[$uid])
   if defined $tab;
@@ -468,7 +468,7 @@ sub exewrite_run($self) {
 
 
     # unpack
-    my ($seg,$route,@req)=@$ARG;
+    my ($seg,$route,$req)=@$ARG;
 
 
     # reset addr on first step
@@ -503,7 +503,7 @@ sub exewrite_run($self) {
 
       );
 
-    } @req;
+    } @$req;
 
 
     # adjust referenced buffer

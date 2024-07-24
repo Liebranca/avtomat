@@ -40,7 +40,7 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.7;#a
+  our $VERSION = v0.01.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -218,41 +218,48 @@ sub hierstruc($self,$data) {
 
 
   # get ctx
-  my $ISA=$self->{ISA};
+  my $ISA    = $self->{ISA};
+  my $make_t = $ISA->make_t;
+
+  my $attrs  = $make_t->DEFAULT;
+
+
+  # unpack instruction
+  my ($branch,$seg,$route,$req)=@$data;
   my $out={
-
-    overwrite => 0,
-    load_dst  => 0,
-
-    almask    => 0x00,
-    var       => [],
-    free      => 0,
-
-    'asm-Q'   => $data,
+    (map {$ARG=>[]} keys %$attrs),
+    Q=>[],
 
   };
 
-  # unpack instruction
-  my ($branch,$seg,$route,@req)=@$data;
-
 
   # build descriptor from metadata
+  $out->{Q}=$req;
+
   map {
 
     my ($opsz,$ins,@args)=@$ARG;
     my $have=$ISA->_get_ins_meta($ins);
 
-    if($have->{meta}) {
 
+    # TODO: handle meta-instructions
+    if($have->{meta}) {
+      nyi 'hierstruc meta-ins';
+
+
+    # record attrs of common
     } elsif(defined $have && %$have) {
 
-      $out->{overwrite} |= $have->{overwrite};
-      $out->{load_dst}  |= $have->{load_dst};
+      map {
+        push @{$out->{$ARG}},
+          $have->{$ARG}
+
+      } keys %$attrs;
 
     };
 
 
-  } @req;
+  } @$req;
 
 
   return $out;

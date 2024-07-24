@@ -31,11 +31,42 @@ package A9M::ISA::MAKE;
   use Arstd::Array;
   use Arstd::Bytes;
 
+  use parent 'St';
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
+
+# ---   *   ---   *   ---
+# ROM
+
+St::vconst {
+
+  DEFAULT => {
+
+    fn          => undef,
+    ipret_fn    => undef,
+
+    argcnt      => 2,
+    nosize      => 0,
+
+    load_src    => undef,
+    load_dst    => 1,
+    overwrite   => 1,
+
+    fix_immsrc  => 0,
+    fix_regsrc  => 0,
+    fix_size    => undef,
+    immbig      => 0,
+
+    dst         => 'rm',
+    src         => 'rmi',
+
+  },
+
+};
 
 # ---   *   ---   *   ---
 # fetch or make mnemonic id
@@ -333,21 +364,10 @@ sub gen_opcode($class,$bld,$name,%O) {
 
 
   # defaults
+  $class->defnit(\%O);
+
   $O{fn}          //= $name;
-  $O{argcnt}      //= 2;
-  $O{nosize}      //= 0;
-
   $O{load_src}    //= int($O{argcnt} == 2);
-  $O{load_dst}    //= 1;
-
-  $O{fix_immsrc}  //= 0;
-  $O{fix_regsrc}  //= 0;
-  $O{fix_size}    //= undef;
-  $O{immbig}      //= 0;
-
-  $O{overwrite}   //= 1;
-  $O{dst}         //= 'rm';
-  $O{src}         //= 'rmi';
 
 
   # save for internal use

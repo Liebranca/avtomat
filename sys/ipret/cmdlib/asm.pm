@@ -392,6 +392,7 @@ sub io($self,$branch) {
   # get ctx
   my $frame = $self->{frame};
   my $main  = $frame->{main};
+  my $l1    = $main->{l1};
   my $mc    = $main->{mc};
   my $vref  = $branch->{vref};
   my $anima = $mc->{anima};
@@ -404,7 +405,7 @@ sub io($self,$branch) {
 
 
   # unpack args
-  my ($type,$sym)=$vref->flatten();
+  my ($type,$sym,$value)=$vref->flatten();
 
   # alloc and give
   $dst->addio(
@@ -415,8 +416,19 @@ sub io($self,$branch) {
 
 
   # add var dummy to namespace
+  $value=(defined $value)
+
+    ? $l1->tag(
+        $value->{type},
+        $value->{spec},
+
+      ) . $value->{data}
+
+    : $l1->tag(NUM=>0)
+    ;
+
   $vref->{spec} = typefet $type->{spec};
-  $vref->{data} = [[$sym->{spec}=>0x00]];
+  $vref->{data} = [[$sym->{spec}=>$value]];
 
   my $cmd=$frame->fetch('data-decl');
 
@@ -1270,6 +1282,7 @@ sub symsolve($self,$branch,$vref,$deref) {
   my $main  = $self->{frame}->{main};
   my $mc    = $main->{mc};
   my $ISA   = $mc->{ISA};
+  my $vres  = $branch->{vref}->{res};
 
   my ($name,@path)=$dst->fullpath;
 
@@ -1286,16 +1299,14 @@ sub symsolve($self,$branch,$vref,$deref) {
 
 
   # using default size?
-  if($branch->{vref}->{data}->{opsz_def}) {
+  if($vres->{opsz_def}) {
+
     $O->{opsz}      = \&symsolve_opsz;
     $O->{opsz_args} = [$dst,$deref];
 
   # have size modifier!
   } else {
-
-    $O->{opsz}=
-      $branch->{vref}->{data}->{opsz};
-
+    $O->{opsz}=$vres->{opsz};
     $O->{opsz_args}=[];
 
   };

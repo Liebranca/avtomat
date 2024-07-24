@@ -62,7 +62,10 @@ sub csume_token($self,$branch) {
 
 sub csume_list($self,$branch) {
 
-  my @args = $self->argtake($branch);
+  my @args = $self->argtake(
+    $branch,int @{$branch->{leaves}}
+
+  );
 
   $branch->{vref} //= rd::vref->new();
   $branch->{vref}->add(@args);

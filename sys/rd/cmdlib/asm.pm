@@ -452,6 +452,7 @@ w_cmdsub 'csume-token' => q(
 
 w_cmdsub 'csume-list-mut' => q(
   cmd input;
+  any value=0;
 
 ) => qw(io in out);
 

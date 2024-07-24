@@ -34,7 +34,7 @@ package ipret::binder;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -129,17 +129,8 @@ sub inspect($self,$hier,$recalc=0) {
 
   my @program = map {
 
+    my $point = $ARG;
 
-    # unpack
-    my $point=$ARG;
-
-    my ($branch,$seg,$route,@req)=@{
-      $point->{'asm-Q'}
-
-    };
-
-
-    # analyze instructions
     map {
 
       $self->chkins(
@@ -154,14 +145,13 @@ sub inspect($self,$hier,$recalc=0) {
 
       )
 
-    } @req;
+    } @{$point->{Q}};
 
 
   } @$hist;
 
 
   # sort vars
-  $hier->endtime($i-1);
   $hier->set_scope();
 
   map {
@@ -173,8 +163,6 @@ sub inspect($self,$hier,$recalc=0) {
 
 
   } $hier->varkeys(io=>'all');
-
-use Fmat;
 
 
   # ~~
@@ -188,25 +176,40 @@ use Fmat;
     my ($point,$opsz,$ins,$dst,$src)=@$ARG;
     $i=0 if $prev && $point ne $prev;
 
-    my $Q   = $point->{'asm-Q'};
-    my $ref = $Q->[3+$i];
+    my $Q   = $point->{Q};
+    my $ref = $Q->[$i];
 
 
     # value required by op?
-    if(
-        $point->{load_dst}
-    &&! $dst->{loaded}
+    if(! $dst->{loaded}) {
 
-    ) {
 
-      @$Q=(
-        @{$Q}[0..3+$i],
-        @{$Q}[3+$i..@$Q-1],
+      # need intermediate assignment?
+      if($point->{load_dst}->[$i]) {
 
-      );
 
-      $Q->[3+$i++]=$hier->load($dst);
-      $ref=$Q->[3+$i];
+        # generate instructions and add
+        # them to the assembly queue
+        my @have=$hier->load($dst);
+
+        @$Q=(
+          @{$Q}[0..$i-1],
+          @have,
+          @{$Q}[$i..@$Q-1],
+
+        );
+
+
+        # ^move to end of generated
+        $i   += int @have;
+        $ref  = $Q->[$i];
+
+
+      # ^nope!
+      } else {
+        $hier->load($dst);
+
+      };
 
 
     };
@@ -214,18 +217,45 @@ use Fmat;
 
     # replace value in instruction operands
     my $j=0;
+
     map {
 
-      if(defined $ARG && $ARG->{loc}) {
+      if(defined $ARG && defined $ARG->{loc}) {
 
-        $ref->[0]    = $ARG->{ptr}->{type};
-        $ref->[2+$j] =
-          {type=>'r',reg=>$ARG->{loc}->{addr} >> 3}
+        $ref->[2+$j]={
+          type => 'r',
+          reg  => $ARG->{loc}
+
+        };
+
+        # overwrite operation size?
+        if($ARG->{ptr}) {
+
+
+          # compare sizes
+          my $old  = $ref->[0];
+          my $new  = $ARG->{ptr}->{type};
+
+          my $sign = (
+            $old->{sizeof}
+          < $new->{sizeof}
+
+          );
+
+
+          # do IF dst is smaller
+          #    OR src is bigger
+
+          $ref->[0]=$new
+
+          if (! $j &&! $sign)
+          || (  $j &&  $sign);
+
+        };
 
       };
 
       $j++;
-
 
     } $dst,$src;
 
@@ -237,9 +267,6 @@ use Fmat;
 
   } @program;
 
-
-#  fatdump \$var;
-#  exit;
 
   return;
 
@@ -267,6 +294,13 @@ sub chkins($self,$hier,$point,$data,$var,$i) {
   ) if ! @args;
 
 
+  # get ctx
+  my $mc   = $hier->getmc();
+  my $ISA  = $mc->{ISA};
+
+  my $meta = $ISA->_get_ins_meta($ins);
+
+
   # get operands
   my $dst=$self->get_dst(
 
@@ -281,7 +315,7 @@ sub chkins($self,$hier,$point,$data,$var,$i) {
   my $src=$self->get_src(
 
     $hier,
-    $point,
+    $meta,
     $dst,
     $args[1],
 
@@ -335,11 +369,11 @@ sub get_dst($self,$hier,$point,$dst,$i) {
 # ---   *   ---   *   ---
 # ^source operand
 
-sub get_src($self,$hier,$point,$dst,$src,$i) {
+sub get_src($self,$hier,$meta,$dst,$src,$i) {
 
-  my $out={name=>null};
+  my $out = {name=>null};
 
-  if($src && $point->{overwrite}) {
+  if($src && $meta->{overwrite}) {
 
     my $name = $hier->vname($src);
        $out  = $hier->depvar($dst,$name,$i);

@@ -38,9 +38,9 @@ clan testy;
 proc fn;
 
   byte x0 $24;
-  add  x0,1;
+  add  x0,$26;
 
-  ret;
+  os   'exit',x0;
 
 ],
 

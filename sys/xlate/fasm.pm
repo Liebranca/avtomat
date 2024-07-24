@@ -364,7 +364,7 @@ sub is_label {
 sub step($self,$data) {
 
 
-  my ($seg,$route,@req)=@$data;
+  my ($seg,$route,$req)=@$data;
 
   map {
 
@@ -404,7 +404,7 @@ sub step($self,$data) {
     };
 
 
-  }} @req;
+  }} @$req;
 
 };
 

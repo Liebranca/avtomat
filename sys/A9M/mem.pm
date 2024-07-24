@@ -1470,18 +1470,20 @@ sub search($self,$name,@path) {
 
   # ^pop from namespace until
   # symbol is found
+  my $have=undef;
+
   while(1) {
-    last if $tree->has(@path,@alt);
+    last if defined ($have=$tree->has(@path,@alt));
     last if ! pop @path;
 
   };
 
 
   # give path; found returned implicitly
-  $self->{'*fetch'}=
-    $tree->{'*fetch'}->leaf_value(0)
-
-  if defined $tree->{'*fetch'};
+  $self->{'*fetch'}=(defined $have)
+    ? $tree->{'*fetch'}->leaf_value(0)
+    : undef
+    ;
 
 
   return (@path,@alt);

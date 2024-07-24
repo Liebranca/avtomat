@@ -34,7 +34,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -50,7 +50,6 @@ St::vconst {
     type  => 'blk',
     hist  => {},
     shist => [],
-    endat => 0,
 
     Q     => {
 
@@ -66,6 +65,8 @@ St::vconst {
       -order => [],
 
     },
+
+    loadmap => {},
 
     io    => {
 
@@ -256,7 +257,6 @@ sub addio($self,$ins,$name) {
   $dst->{$name}={
 
     name        => $name,
-    const_range => [],
 
     deps_for => [],
     decl     => -1,
@@ -322,11 +322,7 @@ sub chkvar($self,$name,$idex) {
 
     $self->{var}->{$name}={
 
-      name        => $name,
-      const_range => [
-        [$idex,-1],
-
-      ],
+      name     => $name,
 
       deps_for => [],
       decl     => $idex,
@@ -343,17 +339,7 @@ sub chkvar($self,$name,$idex) {
   # stepping on existing!
   } else {
 
-    my $have = $self->{var}->{$name};
-    my $cr   = $have->{const_range};
-    my $beg  = $cr->[0];
-
-    if($beg && $beg->[0] eq -1) {
-      $beg->[0]=$idex;
-
-    } elsif(! $beg) {
-      push @$cr,[$idex,-1];
-
-    };
+    my $have=$self->{var}->{$name};
 
     $have->{decl}=$idex
     if $have->{decl} < 0;
@@ -366,168 +352,14 @@ sub chkvar($self,$name,$idex) {
 };
 
 # ---   *   ---   *   ---
-# manages inter-value relationships
+# fetch operand and register dependency
 
 sub depvar($self,$var,$depname,$idex) {
 
-
-  # fetch source
   my $dep=$self->chkvar($depname,$idex);
-
-  # adjust constant status
-  my $cr=\$var->{const_range};
-
-  if(
-
-     $var->{loaded} ne 'const'
-  && defined $$cr->[-1]
-
-  ) {
-
-    my $ar=$$cr->[-1];
-
-    $ar->[1]=$idex;
-
-    if($ar->[0] eq $ar->[1]) {
-      $$cr->[-1]=undef;
-      @{$$cr}=grep {defined $ARG} @{$$cr};
-
-    };
-
-  };
-
-
-  # register dependency
   push @{$dep->{deps_for}},[$var->{name},$idex];
-  $cr=\$dep->{const_range};
-
-  if(
-
-     $dep->{loaded} ne 'const'
-  && defined $$cr->[-1]
-
-  ) {
-
-    my $ar=$$cr->[-1];
-    $ar->[1]=$idex;
-
-    push @{$$cr},[$idex+1,-1];
-
-  };
-
 
   return $dep;
-
-};
-
-# ---   *   ---   *   ---
-# replaces '-1' in ranges with
-# the provided timeline end
-
-sub endtime($self,$i) {
-
-  $self->{endat}=$i;
-
-  map {
-
-    my $have = $self->{var}->{$ARG};
-    my $cr   = \$have->{const_range};
-
-    if(defined $$cr->[-1]) {
-
-      my $ar=$$cr->[-1];
-
-      $ar->[1]=$i
-      if $ar->[1] eq -1;
-
-      $ar->[0]=$i
-      if $ar->[0] > $i;
-
-
-      if($ar->[0] == $ar->[1]) {
-        $$cr->[-1]=undef;
-        @{$$cr}=grep {defined $ARG} @{$$cr};
-
-      };
-
-    };
-
-  } $self->varkeys;
-
-
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# check if a value write is
-# entirely redundant
-
-sub redvar($self,$name) {
-
-
-  # get ctx
-  my $mc   = $self->getmc();
-  my $main = $mc->get_main();
-
-  my $hist = $self->{shist};
-  my $have = $self->{var}->{$name};
-
-  # value not used elsewhere?
-  $main->bperr(
-
-    $hist->[$have->{decl}]
-  ->{'asm-Q'}->[0],
-
-    "redundant instruction; "
-  . "value '%s' never used",
-
-    args=>[$name],
-
-  ) if ! int @{$have->{deps_for}};
-
-
-  # walk points
-  my $cr = $have->{const_range};
-  my $i  = 0;
-
-  map {
-
-    my ($beg,$end)=@$ARG;
-    my $point=$hist->[$end];
-
-    my $over=(
-       $self->is_overwrite($point)
-    && $beg < $end
-
-    );
-
-    if($over) {
-
-      my $early=$hist->[$beg];
-
-      $main->bperr(
-
-        $early->{'asm-Q'}->[0],
-
-        "redundant instruction; "
-      . "overwritten by [ctl]:%s at "
-      . "line [num]:%u",
-
-        args => [
-          $point->{'asm-Q'}->[-1]->[1],
-          $point->{'asm-Q'}->[0]->{lineno},
-
-        ],
-
-      );
-
-    };
-
-  } @$cr;
-
-
-  return;
 
 };
 
@@ -616,6 +448,24 @@ sub sort_hist($self,$recalc=0) {
 sub load($self,$dst) {
 
 
+  # have plain register?
+  if(! index $dst->{name},'$') {
+
+    $dst->{loc}=substr
+      $dst->{name},1,
+      (length $dst->{name})-1;
+
+
+    my $key=$dst->{loc};
+    my $old=$self->{loadmap}->{$key};
+
+#    if(defined $old) {};
+
+    return;
+
+  };
+
+
   # get ctx
   my $mc    = $self->getmc();
   my $ISA   = $mc->{ISA};
@@ -643,7 +493,7 @@ sub load($self,$dst) {
 
     # ^mark in use and restore
     $self->{used}    |= $bit;
-    $dst->{loc}       = $anima->fetch($idex);
+    $dst->{loc}       = $idex;
 
     $anima->{almask}  = $old;
 
@@ -656,18 +506,18 @@ sub load($self,$dst) {
 
 
   # ~~
-  my $out=[];
+  my @out=();
 
   if(defined $dst->{defv}) {
 
     my $x=$dst->{defv};
 
-    $out=[
+    push @out,[
 
       $dst->{ptr}->{type},
       'ld',
 
-      {type=>'r',reg=>$dst->{loc}->{addr} >> 3},
+      {type=>'r',reg=>$dst->{loc}},
       {type=>$ISA->immsz($x),imm=>$x},
 
     ];
@@ -680,15 +530,15 @@ sub load($self,$dst) {
   # ~~
   } else {
 
-    my $base = $stack->{base}->{load};
+    my $base = $stack->{base}->load();
     my $off  = $base-$dst->{ptr}->{addr};
 
-    $out=[
+    push @out,[
 
       $dst->{ptr}->{type},
       'ld',
 
-      {type=>'r',reg=>$dst->{loc}->{addr} >> 3},
+      {type=>'r',reg=>$dst->{loc}},
       {type=>'mstk',imm=>$off},
 
     ];
@@ -696,7 +546,12 @@ sub load($self,$dst) {
   };
 
 
-  return $out;
+  $dst->{loaded}=1;
+
+  my $key=$dst->{loc};
+  $self->{loadmap}->{$key}=$dst;
+
+  return @out;
 
 };
 
