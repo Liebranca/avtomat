@@ -34,7 +34,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = v0.00.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -67,6 +67,7 @@ St::vconst {
     },
 
     loadmap => {},
+    citer   => {},
 
     io    => {
 
@@ -585,6 +586,414 @@ sub vname($self,$var) {
 
 
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# begin new walk of block elements
+
+sub reset_iter($self) {
+
+  $self->{citer}={
+
+    i     => 0,
+    j     => 0,
+    k     => 0,
+
+    point => undef,
+    prev  => undef,
+
+    var   => {},
+    prog  => undef,
+
+  };
+
+  return $self->{citer};
+
+};
+
+# ---   *   ---   *   ---
+# initial run-through of block
+#
+# this builds context from which
+# it can be later analyzed
+
+sub build_iter($self,$recalc=0) {
+
+
+  # get block elements
+  my $hist=$self->sort_hist($recalc);
+  my $iter=$self->reset_iter();
+
+  # ^walk
+  $iter->{prog}=[map {
+
+    $iter->{point}=$ARG;
+
+    map {$self->get_ins($ARG)}
+    @{$iter->{point}->{Q}};
+
+
+  } @$hist];
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^unpack individual instruction
+
+sub get_ins($self,$data) {
+
+
+  # instructions without arguments
+  # are all special cased
+  my ($opsz,$ins,@args)=@$data;
+
+  return $self->argless_ins($ins)
+  if ! @args;
+
+
+  # ^else process normally
+  my ($dst,$src)=$self->get_operands(
+    $ins,@args
+
+  );
+
+
+  # write back to caller
+  my $iter   = $self->{citer};
+  my $argcnt = length $src->{name};
+
+  $iter->{var}->{$dst->{name}}=$dst;
+  $iter->{var}->{$src->{name}}=$src if $argcnt;
+
+  $iter->{i}++;
+
+
+  # give synthesis
+  return [
+
+    $iter->{point},
+
+    $opsz,
+    $ins,
+
+    ($argcnt)
+      ? ($dst,$src)
+      : ($dst)
+      ,
+
+  ];
+
+};
+
+# ---   *   ---   *   ---
+# handle argless instructions
+
+sub argless_ins($self,$ins) {
+
+  my $fn={
+    int => \&linux_syscall,
+
+  }->{$ins};
+
+  $fn->($self) if defined $fn;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# edge case: linux syscalls!
+
+sub linux_syscall($self) {
+
+
+  # get ctx
+  my $iter   = $self->{citer};
+  my $point  = $iter->{point};
+  my $branch = $point->{branch};
+
+  my $pass   = $branch->{vref}->{data};
+  my $j      = @$pass-1;
+
+
+  # get syscall idex
+  my $dst=$self->vname({type=>'r',reg=>0});
+     $dst=$self->chkvar($dst,$iter->{i});
+
+  # ^get values passed
+  map {
+
+    $self->depvar(
+      $dst,
+      $self->vname({type=>'r',reg=>$ARG}),
+
+      $iter->{i}-$j--,
+
+    );
+
+  } @$pass;
+
+
+  $iter->{i}++;
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^unpack instruction operands
+
+sub get_operands($self,$ins,@args) {
+
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $iter  = $self->{citer};
+
+  my $ISA   = $mc->{ISA};
+  my $meta  = $ISA->_get_ins_meta($ins);
+
+  my $point = $iter->{point};
+
+
+  # get destination
+  my $var  = $point->{var};
+  my $name = $self->vname($args[0]);
+
+  push @$var,$name;
+  my $dst=$self->chkvar($name,$iter->{i});
+
+  # ^get source
+  my $src={name=>null};
+
+  if($args[1] && $meta->{overwrite}) {
+    $name = $self->vname($args[1]);
+    $src  = $self->depvar($dst,$name,$iter->{i});
+
+  };
+
+
+  return ($dst,$src);
+
+};
+
+# ---   *   ---   *   ---
+# bind vars in block to memory references
+
+sub bindvars($self) {
+
+
+  # get ctx
+  my $mc   = $self->getmc();
+  my $iter = $self->{citer};
+
+
+  # walk vars
+  $self->set_scope();
+
+  map {
+
+    my $dst=$iter->{var}->{$ARG};
+
+    $dst->{ptr}=$mc->search($ARG)
+    if $dst->{loaded} ne 'const';
+
+
+  } $self->varkeys(io=>'all');
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# process all timeline points
+
+sub procblk($self) {
+
+
+  # get ctx
+  my $iter=$self->{citer};
+  my $prog=$iter->{prog};
+
+
+  # walk timeline
+  $iter->{i}     = 0;
+  $iter->{point} = undef;
+
+  map {
+    $self->procins($ARG);
+    $iter->{i}++;
+
+  } @$prog;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^process instruction in timeline point
+
+sub procins($self,$data) {
+
+
+  # get ctx
+  my $iter  = $self->{citer};
+
+  my $point = $iter->{point};
+  my $Q     = $point->{Q};
+
+
+  # unpack
+  my ($newp,$opsz,$ins,$dst,$src)=@$data;
+
+  # stepping on new timeline point?
+  if(! $point || $point ne $newp) {
+
+    $iter->{point} = $newp;
+    $point         = $newp;
+
+    $iter->{j}     = 0;
+
+  };
+
+
+  # generate intermediate loads
+  $self->ldvar($dst,'dst');
+  $self->ldvar($src,'src');
+
+
+  # perform operand replacements
+  $iter->{k}=0;
+
+  $self->replvar($dst);
+  $self->replvar($src);
+
+
+  # go next and give
+  $iter->{j}++;
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# handle intermediate vale fetches
+
+sub ldvar($self,$vref,$which) {
+
+
+  # skip?
+  return if $vref->{loaded};
+
+
+  # get ctx
+  my $iter  = $self->{citer};
+
+  my $point = $iter->{point};
+  my $Q     = $point->{Q};
+  my $j     = $iter->{j};
+
+
+  # need intermediate assignment?
+  if($point->{"load_$which"}->[$j]) {
+
+
+    # generate instructions and add
+    # them to the assembly queue
+    my @have=$self->load($vref);
+
+    @$Q=(
+      @{$Q}[0..$j-1],
+      @have,
+      @{$Q}[$j..@$Q-1],
+
+    );
+
+
+    # ^move to end of generated
+    $iter->{j} += int @have;
+
+
+  # ^nope!
+  } else {
+    $self->load($vref);
+
+  };
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# replace value in instruction operands
+
+sub replvar($self,$vref) {
+
+
+  # get ctx
+  my $iter  = $self->{citer};
+
+  my $point = $iter->{point};
+  my $j     = $iter->{j};
+  my $k     = $iter->{k};
+
+  my $Q     = $point->{Q};
+  my $qref  = $Q->[$j];
+
+
+  # var is valid for replacement?
+  if(
+
+     defined $vref
+  && defined $vref->{loc}
+
+  ) {
+
+
+    $qref->[2+$k]={
+      type => 'r',
+      reg  => $vref->{loc}
+
+    };
+
+
+    # overwrite operation size?
+    if($vref->{ptr}) {
+
+
+      # compare sizes
+      my $old  = $qref->[0];
+      my $new  = $vref->{ptr}->{type};
+
+      my $sign = (
+        $old->{sizeof}
+      < $new->{sizeof}
+
+      );
+
+
+      # do IF dst is smaller
+      #    OR src is bigger
+
+      $qref->[0]=$new
+
+      if (! $k &&! $sign)
+      || (  $k &&  $sign);
+
+    };
+
+  };
+
+
+  # go next and give
+  $iter->{k}++;
+  return;
 
 };
 

@@ -227,8 +227,11 @@ sub hierstruc($self,$data) {
   # unpack instruction
   my ($branch,$seg,$route,$req)=@$data;
   my $out={
+
     (map {$ARG=>[]} keys %$attrs),
-    Q=>[],
+
+    branch => $branch,
+    Q      => [],
 
   };
 
