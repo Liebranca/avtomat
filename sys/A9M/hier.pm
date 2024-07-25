@@ -34,7 +34,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -68,6 +68,7 @@ St::vconst {
 
     loadmap => {},
     citer   => {},
+    biter   => [],
 
     io    => {
 
@@ -449,6 +450,17 @@ sub sort_hist($self,$recalc=0) {
 sub load($self,$dst) {
 
 
+  # get ctx
+  my $mc    = $self->getmc();
+  my $ISA   = $mc->{ISA};
+  my $anima = $mc->{anima};
+  my $stack = $mc->{stack};
+
+  # output of this F is an
+  # instruction list!
+  my @out=();
+
+
   # have plain register?
   if(! index $dst->{name},'$') {
 
@@ -457,21 +469,58 @@ sub load($self,$dst) {
       (length $dst->{name})-1;
 
 
+    # check that register is in use
     my $key=$dst->{loc};
     my $old=$self->{loadmap}->{$key};
 
-#    if(defined $old) {};
+    if(defined $old) {
 
-    return;
+
+      # we need first check whether
+      # this value is required by a
+      # future instruction
+      #
+      #
+      # * case 0: not required, so simply
+      #   overwrite the value without
+      #   backing it up -- ie, do nothing ;>
+      #
+      # * case 1: required, so backup the
+      #   value and let this very F restore
+      #   it when that point is reached
+
+      if($self->lookahead($old)) {
+
+
+        # get addr in stack
+        my $base = $stack->{base}->load();
+        my $off  = $base-$old->{ptr}->{addr};
+
+        # generate store
+        push @out,[
+
+          $old->{ptr}->{type},
+          'st',
+
+          {type=>'mstk',imm=>$off},
+          {type=>'r',reg=>$old->{loc}},
+
+        ];
+
+
+      };
+
+
+      # unload previous value
+      delete $self->{loadmap}->{$key};
+      $old->{loaded}=0;
+
+    };
+
+
+    return @out;
 
   };
-
-
-  # get ctx
-  my $mc    = $self->getmc();
-  my $ISA   = $mc->{ISA};
-  my $anima = $mc->{anima};
-  my $stack = $mc->{stack};
 
 
   # need to allocate register?
@@ -507,8 +556,6 @@ sub load($self,$dst) {
 
 
   # ~~
-  my @out=();
-
   if(defined $dst->{defv}) {
 
     my $x=$dst->{defv};
@@ -547,6 +594,7 @@ sub load($self,$dst) {
   };
 
 
+  # ~~
   $dst->{loaded}=1;
 
   my $key=$dst->{loc};
@@ -557,7 +605,7 @@ sub load($self,$dst) {
 };
 
 # ---   *   ---   *   ---
-# WIP: get name of value
+# get name of value
 
 sub vname($self,$var) {
 
@@ -609,6 +657,43 @@ sub reset_iter($self) {
   };
 
   return $self->{citer};
+
+};
+
+# ---   *   ---   *   ---
+# ^save current
+
+sub backup_iter($self) {
+
+  my $iter=$self->{citer};
+  my $back=$self->{biter};
+
+  push @$back,[
+    map {$iter->{$ARG}}
+    qw  (i j k point)
+
+  ];
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^load previous
+
+sub restore_iter($self) {
+
+  my $iter=$self->{citer};
+  my $back=$self->{biter};
+
+  my $have=pop @$back;
+
+  map {$iter->{$ARG}=shift @$have}
+  qw  (i j k point);
+
+
+  return;
 
 };
 
@@ -676,9 +761,6 @@ sub get_ins($self,$data) {
   return [
 
     $iter->{point},
-
-    $opsz,
-    $ins,
 
     ($argcnt)
       ? ($dst,$src)
@@ -843,29 +925,16 @@ sub procins($self,$data) {
 
 
   # get ctx
-  my $iter  = $self->{citer};
+  my $iter=$self->{citer};
 
-  my $point = $iter->{point};
-  my $Q     = $point->{Q};
-
-
-  # unpack
-  my ($newp,$opsz,$ins,$dst,$src)=@$data;
-
-  # stepping on new timeline point?
-  if(! $point || $point ne $newp) {
-
-    $iter->{point} = $newp;
-    $point         = $newp;
-
-    $iter->{j}     = 0;
-
-  };
+  # get instruction and operands
+  my ($point,$dst,$src)=
+    $self->timeline_step($data);
 
 
   # generate intermediate loads
-  $self->ldvar($dst,'dst');
-  $self->ldvar($src,'src');
+  $self->ldvar($dst);
+  $self->ldvar($src);
 
 
   # perform operand replacements
@@ -882,9 +951,98 @@ sub procins($self,$data) {
 };
 
 # ---   *   ---   *   ---
+# get next instruction
+
+sub timeline_step($self,$data) {
+
+
+  # get ctx
+  my $iter  = $self->{citer};
+  my $point = $iter->{point};
+
+
+  # unpack
+  my ($newp,$dst,$src)=@$data;
+
+  # stepping on new timeline point?
+  if(! $point || $point ne $newp) {
+    $iter->{point} = $newp;
+    $iter->{j}     = 0;
+
+  };
+
+
+  return ($newp,$dst,$src);
+
+};
+
+# ---   *   ---   *   ---
+# walk iter from current position
+# and find mention of vref
+
+sub lookahead($self,$vref) {
+
+
+  # get ctx
+  my $iter = $self->{citer};
+  my $prog = $iter->{prog};
+
+
+  # walk program from current+1 onwards
+  $self->backup_iter();
+  $iter->{j}++;
+
+  map {
+
+
+    # get operands
+    my ($newp,$dst,$src)=
+      $self->timeline_step($ARG);
+
+    my $tab={dst=>$dst,src=>$src};
+
+
+    # ^compare against vref
+    map {
+
+      my $have=$tab->{$ARG};
+
+
+      # if this value is required by
+      # this instruction, then give true
+      if(
+
+         defined $have
+
+      && $have eq $vref
+      && $self->reqvar($vref,$ARG)
+
+      ) {
+
+        $self->restore_iter();
+        return 1;
+
+      };
+
+
+    } qw(dst src);
+
+    $iter->{i}++;
+
+
+  } @{$prog}[$iter->{i}+1..@$prog-1];
+
+
+  # value is not required, give false
+  $self->restore_iter();
+  return 0;
+
+};
+
+# ---   *   ---   *   ---
 # handle intermediate vale fetches
 
-sub ldvar($self,$vref,$which) {
+sub ldvar($self,$vref) {
 
 
   # skip?
@@ -899,31 +1057,24 @@ sub ldvar($self,$vref,$which) {
   my $j     = $iter->{j};
 
 
-  # need intermediate assignment?
-  if($point->{"load_$which"}->[$j]) {
+  # generate instructions and add
+  # them to the assembly queue
+  #
+  # if no instructions are generated,
+  # then this does nothing
+
+  my @have=$self->load($vref);
+
+  @$Q=(
+    @{$Q}[0..$j-1],
+    @have,
+    @{$Q}[$j..@$Q-1],
+
+  );
 
 
-    # generate instructions and add
-    # them to the assembly queue
-    my @have=$self->load($vref);
-
-    @$Q=(
-      @{$Q}[0..$j-1],
-      @have,
-      @{$Q}[$j..@$Q-1],
-
-    );
-
-
-    # ^move to end of generated
-    $iter->{j} += int @have;
-
-
-  # ^nope!
-  } else {
-    $self->load($vref);
-
-  };
+  # ^move to end of generated
+  $iter->{j} += int @have;
 
 
   return;
@@ -994,6 +1145,24 @@ sub replvar($self,$vref) {
   # go next and give
   $iter->{k}++;
   return;
+
+};
+
+# ---   *   ---   *   ---
+# check that a value is required
+# by this instruction
+#
+# ie, it must be *loaded* for the
+# instruction to work as intended
+
+sub reqvar($self,$vref,$which) {
+
+  my $iter  = $self->{citer};
+
+  my $point = $iter->{point};
+  my $j     = $iter->{j};
+
+  return $point->{"load_$which"}->[$j];
 
 };
 

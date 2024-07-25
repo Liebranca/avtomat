@@ -42,6 +42,8 @@ proc fn;
 
   os   'exit',x0;
 
+  add  x0,$01;
+
 ],
 
 #  glob('~/bt/dice.pe'),
