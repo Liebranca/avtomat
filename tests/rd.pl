@@ -42,7 +42,7 @@ proc fn;
 
   os   'exit',x0;
 
-  add  x0,$01;
+  ld   x0,$01;
 
 ],
 

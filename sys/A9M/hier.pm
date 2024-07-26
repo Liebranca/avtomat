@@ -34,7 +34,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = v0.00.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -447,7 +447,7 @@ sub sort_hist($self,$recalc=0) {
 # place backup in register
 # use defv if no backup!
 
-sub load($self,$dst) {
+sub load($self,$dst,$which) {
 
 
   # get ctx
@@ -513,7 +513,17 @@ sub load($self,$dst) {
 
       # unload previous value
       delete $self->{loadmap}->{$key};
-      $old->{loaded}=0;
+
+      my $io  = $self->{io};
+      my $bit = ~(1 << $old->{loc});
+
+      # TODO: fix this multiple mask mess
+      $self->{used}      &= $bit;
+      $io->{out}->{used} &= $bit;
+      $io->{in}->{used}  &= $bit;
+
+      $old->{loc}     = undef;
+      $old->{loaded}  = 0;
 
     };
 
@@ -555,7 +565,19 @@ sub load($self,$dst) {
   if ! $stack->is_ptr($dst->{ptr});
 
 
-  # ~~
+  # avoid unnecessary loads
+  my $iter  = $self->{citer};
+  my $point = $iter->{point};
+  my $j     = $iter->{j};
+
+  goto skip if (
+  !  $point->{"load_$which"}->[$j]
+  || $dst->{loaded}
+
+  );
+
+
+  # have constant value to load?
   if(defined $dst->{defv}) {
 
     my $x=$dst->{defv};
@@ -575,7 +597,7 @@ sub load($self,$dst) {
     $dst->{defv}=undef;
 
 
-  # ~~
+  # ^nope, load from stack
   } else {
 
     my $base = $stack->{base}->load();
@@ -594,7 +616,9 @@ sub load($self,$dst) {
   };
 
 
-  # ~~
+  # mark as loaded and give
+  skip:
+
   $dst->{loaded}=1;
 
   my $key=$dst->{loc};
@@ -933,8 +957,8 @@ sub procins($self,$data) {
 
 
   # generate intermediate loads
-  $self->ldvar($dst);
-  $self->ldvar($src);
+  $self->ldvar($dst,'dst');
+  $self->ldvar($src,'src');
 
 
   # perform operand replacements
@@ -1042,7 +1066,7 @@ sub lookahead($self,$vref) {
 # ---   *   ---   *   ---
 # handle intermediate vale fetches
 
-sub ldvar($self,$vref) {
+sub ldvar($self,$vref,$which) {
 
 
   # skip?
@@ -1063,7 +1087,7 @@ sub ldvar($self,$vref) {
   # if no instructions are generated,
   # then this does nothing
 
-  my @have=$self->load($vref);
+  my @have=$self->load($vref,$which);
 
   @$Q=(
     @{$Q}[0..$j-1],
