@@ -34,7 +34,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -89,7 +89,7 @@ St::vconst {
 
     },
 
-    stk   => {-size=>0x00},
+    stack => {-size=>0x00},
 
     mcid  => 0,
     mccls => null,
@@ -446,6 +446,34 @@ sub sort_hist($self,$recalc=0) {
 };
 
 # ---   *   ---   *   ---
+# makes room in stack for elem
+# if elem if needed
+
+sub chkstk($self,$vref) {
+
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $stack = $mc->{stack};
+
+  # skip?
+  return if $stack->is_ptr($vref->{ptr});
+
+
+  # grow stack and give
+  $self->{stack}->{-size} +=
+    $stack->repoint($vref->{ptr});
+
+  # record position of elem
+  $self->{stack}->{$vref->{name}}=
+    $self->{stack}->{-size};
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # place backup in register
 # use defv if no backup!
 
@@ -498,6 +526,10 @@ sub load($self,$dst,$which) {
         $old
 
       )) {
+
+
+        # make room in stack?
+        $self->chkstk($old);
 
 
         # get addr in stack
@@ -571,11 +603,6 @@ sub load($self,$dst,$which) {
   };
 
 
-  # make room in stack
-  $stack->repoint($dst->{ptr})
-  if ! $stack->is_ptr($dst->{ptr});
-
-
   # avoid unnecessary loads
   my $iter  = $self->{citer};
   my $point = $iter->{point};
@@ -604,12 +631,28 @@ sub load($self,$dst,$which) {
     ];
 
 
-    $dst->{ptr}->store($x);
     $dst->{defv}=undef;
+
+
+  # loading undefined?
+  } elsif(! $stack->is_ptr($dst->{ptr})) {
+
+    my $main=$mc->get_main();
+
+    $main->bperr(
+
+      $self->{iter}->{point}->{branch},
+
+      "attempt to load undefined value '%s'",
+      args=>[$dst->{name}],
+
+    );
 
 
   # ^nope, load from stack
   } else {
+
+    $self->chkstk($dst);
 
     my $base = $stack->{base}->load();
     my $off  = $base-$dst->{ptr}->{addr};
@@ -684,7 +727,6 @@ sub reset_iter($self) {
     k     => 0,
 
     point => undef,
-    prev  => undef,
 
     var   => {},
     prog  => undef,
@@ -750,8 +792,14 @@ sub build_iter($self,$recalc=0) {
 
     $iter->{point}=$ARG;
 
-    map {$self->get_ins($ARG)}
-    @{$iter->{point}->{Q}};
+    map {
+
+      my @out=$self->get_ins($ARG);
+
+      $iter->{i} += (int @out) != 0;
+      @out;
+
+    } @{$iter->{point}->{Q}};
 
 
   } @$hist];
@@ -797,8 +845,6 @@ sub get_ins($self,$data) {
   $iter->{var}->{$dst->{name}}=$dst;
   $iter->{var}->{$src->{name}}=$src if $argcnt;
 
-  $iter->{i}++;
-
 
   # give synthesis
   return [
@@ -821,11 +867,20 @@ sub argless_ins($self,$ins) {
 
   my $fn={
     int => \&linux_syscall,
+    ret => \&push_argless,
 
   }->{$ins};
 
   return (defined $fn)
     ? $fn->($self) : () ;
+
+};
+
+# ---   *   ---   *   ---
+# do nothing, but keep the instruction
+
+sub push_argless($self) {
+  return [$self->{citer}->{point}];
 
 };
 
@@ -1000,6 +1055,13 @@ sub procblk($self) {
   } @$prog;
 
 
+  # does this block utilize the stack?
+  if($self->{stack}->{-size}) {
+    $self->stack_setup();
+    $self->stack_cleanup();
+
+  };
+
   return;
 
 };
@@ -1059,6 +1121,113 @@ sub timeline_step($self,$data) {
 
 
   return ($newp,$dst,$src);
+
+};
+
+# ---   *   ---   *   ---
+# grow the stack for this block
+
+sub stack_setup($self) {
+
+
+  # get ctx
+  my $iter  = $self->{citer};
+  my $prog  = $iter->{prog};
+
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+  my $ISA   = $mc->{ISA};
+
+  my $qword = typefet 'qword';
+  my $size  = $self->{stack}->{-size};
+
+
+  # add equivalent of 'enter' instruction ;>
+  my $beg=$prog->[0]->[0];
+
+  unshift @{$beg->{Q}},
+
+  [ $qword,
+    'push',
+    {type=>'r',reg=>$anima->stack_base},
+
+  ],
+
+  [ $qword,
+    'ld',
+
+    {type=>'r',reg=>$anima->stack_base},
+    {type=>'r',reg=>$anima->stack_ptr},
+
+  ],
+
+  [ $qword,
+    'sub',
+
+    {type=>'r',reg=>$anima->stack_ptr},
+    {type=>$ISA->immsz($size),imm=>$size},
+
+  ];
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^add cleanup for each ret
+
+sub stack_cleanup($self) {
+
+
+  # get ctx
+  my $iter  = $self->{citer};
+  my $prog  = $iter->{prog};
+
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+  my $ISA   = $mc->{ISA};
+
+  my $qword = typefet 'qword';
+  my $size  = $self->{stack}->{-size};
+
+
+  # walk timeline
+  $iter->{i}     = 0;
+  $iter->{point} = undef;
+
+
+  # look for every ret
+  map {
+
+
+    # get next point
+    my ($point)=$self->timeline_step($ARG);
+    $iter->{i}++;
+
+
+    # have a ret?
+    my $j    = $iter->{j};
+    my $Q    = $point->{Q};
+
+    my $have = $Q->[$j];
+
+
+    # ^add a leave instruction if so
+    @$Q=(
+
+      @{$Q}[0..$j-1],
+      [$qword,'leave'],
+
+      @{$Q}[$j..@$Q-1]
+
+    ) if $have->[1] eq 'ret';
+
+    $iter->{j}++;
+
+
+
+  } @$prog;
 
 };
 

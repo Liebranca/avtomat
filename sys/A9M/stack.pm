@@ -211,7 +211,8 @@ sub repoint($self,$dst,$off=0x00) {
   $dst->{segid} = $self->{mem}->{iced};
   $dst->{addr}  = $addr;
 
-  return;
+
+  return $type->{sizeof};
 
 };
 

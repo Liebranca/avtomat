@@ -52,6 +52,7 @@ blk err;
 
 blk ok;
   add  x0,$01;
+  ret;
 
 ],
 
