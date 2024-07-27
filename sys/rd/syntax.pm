@@ -275,6 +275,8 @@ sub _csv($self,$branch,$data) {
 
     );
 
+    $top=undef;
+
 
   # ^nope!
   } else {
@@ -304,9 +306,12 @@ sub _csv($self,$branch,$data) {
 
 
   # restore nested hierarchy
-  $top->pushlv(@{$branch->{oldchd}})
-  if exists $branch->{oldchd};
+  (defined $top)
+    ? $top->pushlv(@{$branch->{oldchd}})
+    : $branch->insertlv(0,@{$branch->{oldchd}})
 
+
+  if exists $branch->{oldchd};
   delete $branch->{oldchd};
 
   return 0;

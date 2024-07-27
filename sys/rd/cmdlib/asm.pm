@@ -443,7 +443,7 @@ cmdsub 'bindcall' => q(
 # for details
 
 w_cmdsub 'csume-token' => q(
-  sym any;
+  any name;
 
 ) => qw(
   blk entry proc

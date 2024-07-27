@@ -71,13 +71,26 @@ sub blk($self,$branch) {
 
   my $ISA  = $mc->{ISA};
   my $top  = $mc->{segtop};
+  my $hier = $mc->{hiertop};
   my $vref = $branch->{vref};
 
   # get name of symbol
   my $name = $vref->{spec};
 
-  my @path=$top->ances_list;
-  my $full=join '::',$top->{value},$name;
+  my @xp   = $top->{value};
+  my @path = $top->ances_list;
+
+  if(defined $hier && %$hier) {
+
+    my ($par)=$hier->fullpath;
+
+    push @path,$par;
+    push @xp,$par;
+
+  };
+
+
+  my $full=join '::',@xp,$name;
 
 
   # make fake ptr
@@ -639,7 +652,7 @@ sub argsolve($self,$branch) {
   if(defined $fix) {
 
     if($def) {
-      $opsz=$fix->[0];
+      $opsz=typefet $fix->[0];
 
     } else {
 
@@ -722,6 +735,7 @@ sub asm_ins($self,$branch) {
 
 
   # all OK, request and give
+  $branch->{vref}->{res}->{args}=[@args];
   $enc->binreq(
     $branch,[$opsz,$name,@args],
 

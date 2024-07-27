@@ -34,7 +34,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -61,6 +61,8 @@ St::vconst {
     },
 
     used  => 0x00,
+    vused => 0x00,
+
     var   => {
       -order => [],
 
@@ -96,7 +98,6 @@ St::vconst {
 
 
   typetab => {
-
     proc => [qw(const readable executable)],
 
   },
@@ -276,6 +277,7 @@ sub addio($self,$ins,$name) {
   my $bit = 1 << $idex;
 
   $have->{used}    |= $bit;
+  $self->{vused}   |= $bit;
   $have->{bias}    |= $bit;
   $anima->{almask}  = $old;
 
@@ -468,6 +470,8 @@ sub load($self,$dst,$which) {
       $dst->{name},1,
       (length $dst->{name})-1;
 
+    my $bit=1 << $dst->{loc};
+
 
     # check that register is in use
     my $key=$dst->{loc};
@@ -489,7 +493,11 @@ sub load($self,$dst,$which) {
       #   value and let this very F restore
       #   it when that point is reached
 
-      if($self->lookahead($old)) {
+      if($self->lookahead(
+        qr{.+}=>\&la_reqvar,
+        $old
+
+      )) {
 
 
         # get addr in stack
@@ -514,20 +522,22 @@ sub load($self,$dst,$which) {
       # unload previous value
       delete $self->{loadmap}->{$key};
 
-      my $io  = $self->{io};
-      my $bit = ~(1 << $old->{loc});
+      # adjust masks
+      my $io   = $self->{io};
+      my $nbit = ~$bit;
 
-      # TODO: fix this multiple mask mess
-      $self->{used}      &= $bit;
-      $io->{out}->{used} &= $bit;
-      $io->{in}->{used}  &= $bit;
+      # TODO: make this less messy
+      $self->{used}      &= $nbit;
+      $io->{out}->{used} &= $nbit;
+      $io->{in}->{used}  &= $nbit;
 
-      $old->{loc}     = undef;
-      $old->{loaded}  = 0;
+      $old->{loc}    = undef;
+      $old->{loaded} = 0;
 
     };
 
 
+    $self->{vused} |= $bit;
     return @out;
 
   };
@@ -553,6 +563,7 @@ sub load($self,$dst,$which) {
 
     # ^mark in use and restore
     $self->{used}    |= $bit;
+    $self->{vused}   |= $bit;
     $dst->{loc}       = $idex;
 
     $anima->{almask}  = $old;
@@ -756,10 +767,18 @@ sub build_iter($self,$recalc=0) {
 sub get_ins($self,$data) {
 
 
-  # instructions without arguments
-  # are all special cased
+  # get ins/operands
   my ($opsz,$ins,@args)=@$data;
 
+
+  # data-decls aren't processed ;>
+  return if $ins=~ qr{
+    ^(?:(?:data|seg)\-decl|raw)$
+
+  }x;
+
+  # instructions without arguments
+  # are all special cased
   return $self->argless_ins($ins)
   if ! @args;
 
@@ -805,10 +824,8 @@ sub argless_ins($self,$ins) {
 
   }->{$ins};
 
-  $fn->($self) if defined $fn;
-
-
-  return;
+  return (defined $fn)
+    ? $fn->($self) : () ;
 
 };
 
@@ -822,8 +839,10 @@ sub linux_syscall($self) {
   my $iter   = $self->{citer};
   my $point  = $iter->{point};
   my $branch = $point->{branch};
+  my $vref   = $branch->{vref};
 
-  my $pass   = $branch->{vref}->{data};
+  my $pass   = $vref->{data}->{pass};
+  my $code   = $vref->{data}->{code};
   my $j      = @$pass-1;
 
 
@@ -845,8 +864,39 @@ sub linux_syscall($self) {
   } @$pass;
 
 
+  # syscall parameters and return are
+  # preserved automatically if they are in
+  # use by the calling process
+  #
+  # all other registers, save for rcx/cr
+  # and r11/chan, are preserved by the kernel
+  #
+  # this means we must mark the two exceptions
+  # as *virtually* in use by the process,
+  # meaning even if they are not used by this
+  # block itself, they may still be overwritten
+  # by the syscall
+  #
+  # this in turn informs a second process calling
+  # this one that these exception registers
+  # should be preserved *if* they are in use at
+  # the time of the call
+
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+
+  $self->{vused} |=
+    $anima->regmask(qw(cr chan));
+
+
+  # go next and give
   $iter->{i}++;
-  return;
+  $dst->{-syscall}=$code;
+
+  $iter->{point}->{Q}->[$iter->{j}]->[0]=
+    typefet 'dword';
+
+  return [$iter->{point},$dst];
 
 };
 
@@ -907,6 +957,18 @@ sub bindvars($self) {
 
     $dst->{ptr}=$mc->search($ARG)
     if $dst->{loaded} ne 'const';
+
+    if(
+
+       defined $dst->{ptr}
+    && exists  $dst->{ptr}->{p3ptr}
+
+    ) {
+
+      $dst->{loaded} = 'const';
+      $dst->{loc}    = undef;
+
+    };
 
 
   } $self->varkeys(io=>'all');
@@ -1004,26 +1066,76 @@ sub timeline_step($self,$data) {
 # walk iter from current position
 # and find mention of vref
 
-sub lookahead($self,$vref) {
+sub lookahead($self,$re,$fn,$vref) {
 
 
   # get ctx
+  my $mc   = $self->getmc();
   my $iter = $self->{citer};
   my $prog = $iter->{prog};
 
 
-  # walk program from current+1 onwards
+  # walk program from current onwards
+  my @branch=();
   $self->backup_iter();
-  $iter->{j}++;
 
   map {
 
 
-    # get operands
+    # get ins/operands
     my ($newp,$dst,$src)=
       $self->timeline_step($ARG);
 
     my $tab={dst=>$dst,src=>$src};
+    my $ins=$newp->{Q}->[$iter->{j}]->[1];
+
+
+    # trim past branches
+    @branch=grep {
+      $newp->{branch}->{idex}
+    < $ARG
+
+    } @branch;
+
+
+    # terminate lookahead on ret/exit
+    my $sysexit=(
+       $ins eq 'int'
+    && $dst->{-syscall} eq 'exit'
+
+    );
+
+    # we consider these instructions
+    # dead ends only when there's no
+    # branches left to walk!
+
+    if(
+
+        ($ins eq 'ret' || $sysexit)
+    &&! (int @branch)
+
+    ) {
+
+      $self->restore_iter();
+      return 0;
+
+
+    # consider branching on c-jmp
+    # IF jumping forwards
+    } elsif($ins=~ qr{^j[ngl]?[z]?$}) {
+
+      my $from = $newp->{branch}->{idex};
+
+      my $to   = $newp->{branch}->{vref};
+         $to   = $to->{res}->{args}->[0];
+         $to   = $to->{id};
+
+      my $ptr  = $mc->search(@$to);
+         $to   = $ptr->{p3ptr}->{idex};
+
+      push @branch,$to if $from < $to;
+
+    };
 
 
     # ^compare against vref
@@ -1037,9 +1149,7 @@ sub lookahead($self,$vref) {
       if(
 
          defined $have
-
-      && $have eq $vref
-      && $self->reqvar($vref,$ARG)
+      && $fn->($self,$have,$vref,$ARG)
 
       ) {
 
@@ -1049,12 +1159,13 @@ sub lookahead($self,$vref) {
       };
 
 
-    } qw(dst src);
+    } qw(dst src) if $ins=~ $re;
 
+    $iter->{j}++;
     $iter->{i}++;
 
 
-  } @{$prog}[$iter->{i}+1..@$prog-1];
+  } @{$prog}[$iter->{i}..@$prog-1];
 
 
   # value is not required, give false
@@ -1070,7 +1181,7 @@ sub ldvar($self,$vref,$which) {
 
 
   # skip?
-  return if $vref->{loaded};
+  return if ! $vref || $vref->{loaded};
 
 
   # get ctx
@@ -1146,6 +1257,7 @@ sub replvar($self,$vref) {
       my $old  = $qref->[0];
       my $new  = $vref->{ptr}->{type};
 
+
       my $sign = (
         $old->{sizeof}
       < $new->{sizeof}
@@ -1187,6 +1299,20 @@ sub reqvar($self,$vref,$which) {
   my $j     = $iter->{j};
 
   return $point->{"load_$which"}->[$j];
+
+};
+
+# ---   *   ---   *   ---
+# lookahead F:
+# check instruction requires vref
+
+sub la_reqvar($self,$vref,$have,$which) {
+
+  return (
+     $have eq $vref
+  && $self->reqvar($vref,$which)
+
+  );
 
 };
 

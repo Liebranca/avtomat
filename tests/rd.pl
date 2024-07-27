@@ -40,9 +40,18 @@ proc fn;
   byte x0 $24;
   add  x0,$26;
 
-  os   'exit',x0;
+  ld   ar,$00;
 
-  ld   x0,$01;
+
+blk err;
+  cmp  br,$00;
+  jz   ok;
+
+  os   exit,1;
+
+
+blk ok;
+  add  x0,$01;
 
 ],
 

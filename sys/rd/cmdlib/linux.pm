@@ -36,7 +36,7 @@ package rd::cmdlib::linux;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -65,14 +65,37 @@ sub oscall($self,$branch) {
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
 
-  # get arguments
+
+  # get F/arguments
   my ($args,$args_t)=
     $self->argtake_flat($branch);
 
-  # get syscall to invoke
-  my $name=$l1->xlate(shift @$args);
-  shift @$args_t;
+  my ($fn)=(
+    shift @$args,
+    shift @$args_t,
 
+  );
+
+
+  # symbol name is subtree?
+  my $name=undef;
+  if(Tree->is_valid($fn)) {
+
+    $name=$l1->xlate($fn->{value});
+    $fn->flatten_branch();
+
+    ($args,$args_t)=
+      $self->argtake_flat($branch);
+
+
+  # ^nope, plain token
+  } else {
+    $name=$l1->xlate($fn);
+
+  };
+
+
+  # get symbol name
   $name=($name->{type} eq 'STR')
     ? $name->{data}
     : $name->{spec}
@@ -91,11 +114,11 @@ sub oscall($self,$branch) {
 
 
   # enqueue loading of registers
-  my $code  = $self->calltab->{$name};
+  my $code = $self->calltab->{$name};
      $code  = $l1->tag(NUM=>$code);
 
-  my @r     = @{$self->args_order};
-  my @total = ();
+  my @r    = @{$self->args_order};
+  my @pass = ();
 
   $branch->clear();
 
@@ -117,7 +140,7 @@ sub oscall($self,$branch) {
 
     ) if int @$args_t;
 
-    push @total,$r[0];
+    push @pass,$r[0];
 
     $nd->inew($l1->tag(REG => shift @r));
 
@@ -143,7 +166,7 @@ sub oscall($self,$branch) {
   $foot->inew($l1->tag(REG  => 0x00));
   $foot->inew($code);
 
-  push @total,0x00;
+  push @pass,0x00;
 
 
   # enqueue interrupt
@@ -160,7 +183,12 @@ sub oscall($self,$branch) {
   my $asm=$self->{frame}->fetch('asm-ins');
 
   map {$asm->{key}->{fn}->($asm,$ARG)} @ins;
-  $foot->{vref}->{data}=\@total;
+
+  $foot->{vref}->{data}={
+    code => $name,
+    pass => \@pass,
+
+  };
 
   return;
 
@@ -169,8 +197,8 @@ sub oscall($self,$branch) {
 # ---   *   ---   *   ---
 # add entry points
 
-cmdsub os => q(
-  qlist exp;
+unrev cmdsub os => q(
+  qlist args=();
 
 ) => \&oscall;
 
