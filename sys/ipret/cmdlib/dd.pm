@@ -424,7 +424,7 @@ sub data_decl($self,$branch) {
 
       my $tmp  = $proc->chkvar($oldname,-1);
 
-      $tmp->{defv}=$x;
+      $tmp->{defv}=($have) ? $x : undef ;
 
     };
 

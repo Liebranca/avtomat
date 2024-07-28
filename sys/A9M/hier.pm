@@ -27,6 +27,7 @@ package A9M::hier;
   use Style;
   use Type;
 
+  use Arstd::Bytes;
   use Arstd::IO;
 
   use parent 'A9M::layer';
@@ -34,7 +35,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#a
+  our $VERSION = v0.01.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -62,6 +63,7 @@ St::vconst {
 
     used  => 0x00,
     vused => 0x00,
+    moded => 0x00,
 
     var   => {
       -order => [],
@@ -486,6 +488,7 @@ sub load($self,$dst,$which) {
   my $anima = $mc->{anima};
   my $stack = $mc->{stack};
 
+
   # output of this F is an
   # instruction list!
   my @out=();
@@ -505,19 +508,15 @@ sub load($self,$dst,$which) {
     my $key=$dst->{loc};
     my $old=$self->{loadmap}->{$key};
 
+
+    # we need first check whether
+    # this value is required by a
+    # future instruction
+
     if(defined $old) {
 
 
-      # we need first check whether
-      # this value is required by a
-      # future instruction
-      #
-      #
-      # * case 0: not required, so simply
-      #   overwrite the value without
-      #   backing it up -- ie, do nothing ;>
-      #
-      # * case 1: required, so backup the
+      # * case 0: required, so backup the
       #   value and let this very F restore
       #   it when that point is reached
 
@@ -527,48 +526,22 @@ sub load($self,$dst,$which) {
 
       )) {
 
-
-        # make room in stack?
-        $self->chkstk($old);
+        push @out,$self->spill($old);
 
 
-        # get addr in stack
-        my $base = $stack->{base}->load();
-        my $off  = $base-$old->{ptr}->{addr};
+      # * case 1: not required, so simply
+      #   overwrite the value without
+      #   backing it up
 
-        # generate store
-        push @out,[
-
-          $old->{ptr}->{type},
-          'st',
-
-          {type=>'mstk',imm=>$off},
-          {type=>'r',reg=>$old->{loc}},
-
-        ];
-
+      } else {
+        $self->unload($old);
 
       };
-
-
-      # unload previous value
-      delete $self->{loadmap}->{$key};
-
-      # adjust masks
-      my $io   = $self->{io};
-      my $nbit = ~$bit;
-
-      # TODO: make this less messy
-      $self->{used}      &= $nbit;
-      $io->{out}->{used} &= $nbit;
-      $io->{in}->{used}  &= $nbit;
-
-      $old->{loc}    = undef;
-      $old->{loaded} = 0;
 
     };
 
 
+    # adjust masks and give
     $self->{vused} |= $bit;
     return @out;
 
@@ -679,6 +652,81 @@ sub load($self,$dst,$which) {
   $self->{loadmap}->{$key}=$dst;
 
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# mark value as in use, but not
+# currently in memory
+
+sub unload($self,$vref) {
+
+
+  # get ctx
+  my $idex  = $vref->{loc};
+  my $bit   = 1 << $idex;
+
+
+  # remove value from memory table
+  delete $self->{loadmap}->{$idex};
+
+  # adjust masks
+  my $io   =  $self->{io};
+  my $nbit = ~$bit;
+
+  # TODO: make this less messy
+  $self->{used}      &= $nbit;
+  $io->{out}->{used} &= $nbit;
+  $io->{in}->{used}  &= $nbit;
+
+  $vref->{loc}    = undef;
+  $vref->{loaded} = 0;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^save to stack
+
+sub spill($self,$vref) {
+
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $stack = $mc->{stack};
+
+  my $idex  = $vref->{loc};
+  my $bit   = 1 << $idex;
+
+
+  # make room in stack?
+  $self->chkstk($vref);
+
+
+  # get addr in stack
+  my $base = $stack->{base}->load();
+
+  my $off  = $vref->{ptr}->{addr};
+     $off  = $base - $off;
+
+
+  # generate store instruction
+  my $out=[
+
+    $vref->{ptr}->{type},
+    'st',
+
+    {type=>'mstk',imm=>$off},
+    {type=>'r',reg=>$idex},
+
+  ];
+
+
+  # cleanup and give
+  $self->unload($vref);
+  return $out;
 
 };
 
@@ -940,8 +988,10 @@ sub linux_syscall($self) {
   my $mc    = $self->getmc();
   my $anima = $mc->{anima};
 
-  $self->{vused} |=
-    $anima->regmask(qw(cr chan));
+  my $mask  = $anima->regmask(qw(cr chan));
+
+  $self->{vused} |= $mask;
+  $self->{moded} |= $mask;
 
 
   # go next and give
@@ -1079,10 +1129,27 @@ sub procins($self,$data) {
   my ($point,$dst,$src)=
     $self->timeline_step($data);
 
+  my $j   = $iter->{j};
+  my $ins = $point->{Q}->[$j]->[1];
 
   # generate intermediate loads
   $self->ldvar($dst,'dst');
   $self->ldvar($src,'src');
+
+
+  # handle edge cases
+  my $gentab={
+    call => \&on_call,
+
+  };
+
+  my $genfn=$gentab->{$ins};
+
+  if(defined $genfn) {
+    my @ins=$genfn->($self,$dst,$src);
+    $self->insert_ins(@ins);
+
+  };
 
 
   # perform operand replacements
@@ -1121,6 +1188,36 @@ sub timeline_step($self,$data) {
 
 
   return ($newp,$dst,$src);
+
+};
+
+# ---   *   ---   *   ---
+# put instruction array at pointer
+
+sub insert_ins($self,@ins) {
+
+
+  # get ctx
+  my $iter  = $self->{citer};
+
+  my $point = $iter->{point};
+  my $Q     = $point->{Q};
+  my $j     = $iter->{j};
+
+
+  # modify assembly queue
+  @$Q=(
+    @{$Q}[0..$j-1],
+    @ins,
+    @{$Q}[$j..@$Q-1],
+
+  );
+
+  # ^move to end of generated
+  $iter->{j} += int @ins;
+
+
+  return;
 
 };
 
@@ -1214,20 +1311,18 @@ sub stack_cleanup($self) {
 
 
     # ^add a leave instruction if so
-    @$Q=(
-
-      @{$Q}[0..$j-1],
-      [$qword,'leave'],
-
-      @{$Q}[$j..@$Q-1]
-
-    ) if $have->[1] eq 'ret';
+    $self->insert_ins([$qword,'leave'])
+    if $have->[1] eq 'ret';
 
     $iter->{j}++;
 
 
-
   } @$prog;
+
+
+  # clear and give
+  $mc->{stack}->reset();
+  return;
 
 };
 
@@ -1313,17 +1408,30 @@ sub lookahead($self,$re,$fn,$vref) {
       my $have=$tab->{$ARG};
 
 
-      # if this value is required by
-      # this instruction, then give true
+      # perform check and procceed
+      # accto result:
+      #
+      # * on ret F eq abs 1, then stop
+      # * give true on 1, false on -1
+      #
+      # * zero means continue
+
       if(
 
-         defined $have
-      && $fn->($self,$have,$vref,$ARG)
+        defined $have && (my $ok=$fn->(
+        $self,$have,$vref,$ARG
 
-      ) {
+      ))) {
 
-        $self->restore_iter();
-        return 1;
+        if($ok == 1) {
+          $self->restore_iter();
+          return 1;
+
+        } elsif($ok == -1) {
+          $self->restore_iter();
+          return 0;
+
+        };
 
       };
 
@@ -1349,16 +1457,33 @@ sub lookahead($self,$re,$fn,$vref) {
 sub ldvar($self,$vref,$which) {
 
 
-  # skip?
-  return if ! $vref || $vref->{loaded};
-
-
   # get ctx
   my $iter  = $self->{citer};
 
   my $point = $iter->{point};
   my $Q     = $point->{Q};
   my $j     = $iter->{j};
+
+
+  # skip overwrite check?
+  return if ! $vref;
+
+  my $over = int (
+     $which eq 'dst'
+  && $point->{overwrite}->[$j]
+
+  );
+
+
+  # skip value re-load?
+  if($vref->{loaded}) {
+
+    $self->{moded} |= $over << $vref->{loc}
+    if $vref->{loaded} ne 'const';
+
+    return;
+
+  };
 
 
   # generate instructions and add
@@ -1368,17 +1493,9 @@ sub ldvar($self,$vref,$which) {
   # then this does nothing
 
   my @have=$self->load($vref,$which);
+  $self->insert_ins(@have);
 
-  @$Q=(
-    @{$Q}[0..$j-1],
-    @have,
-    @{$Q}[$j..@$Q-1],
-
-  );
-
-
-  # ^move to end of generated
-  $iter->{j} += int @have;
+  $self->{moded} |= $over << $vref->{loc};
 
 
   return;
@@ -1477,11 +1594,88 @@ sub reqvar($self,$vref,$which) {
 
 sub la_reqvar($self,$vref,$have,$which) {
 
-  return (
-     $have eq $vref
+
+  # is value required by this instruction?
+  my $same = $have eq $vref;
+  my $need = int (
+     $same
   && $self->reqvar($vref,$which)
 
   );
+
+
+  # corner: value is explicitly discarded,
+  # hence not required
+  if($same &&! $need && $which eq 'dst') {
+
+    my $iter  = $self->{citer};
+
+    my $point = $iter->{point};
+    my $j     = $iter->{j};
+
+    $need=-1
+    if $point->{overwrite}->[$j];
+
+  };
+
+
+  return $need;
+
+};
+
+# ---   *   ---   *   ---
+# backup values uppon call
+
+sub on_call($self,$dst,@slurp) {
+
+
+  # output is an instruction list!
+  my @out=();
+
+
+  # get invoked F
+  my $other=$dst->{ptr}->{p3ptr};
+     $other=$other->{vref}->{data};
+
+  # get which registers are effectively
+  # modified by this F
+  my $mask=(
+    $other->{vused}
+  & $other->{moded}
+
+  );
+
+  # ^match against registers in use at
+  # ^this point by the callee
+  my $spill=$self->{used} & $mask;
+
+
+  # ^walk these registers and decide
+  # ^which ones need to be preserved
+
+  while($spill) {
+
+
+    # take next register
+    my $idex   =  (bitscanf $spill)-1;
+       $spill &= ~(1 << $idex);
+
+    # get currently loaded value
+    my $vref=$self->{loadmap}->{$idex};
+
+    # check whether this value is required!
+    push @out,$self->spill($vref)
+
+    if $self->lookahead(
+      qr{.+}=>\&la_reqvar,
+      $vref
+
+    );
+
+  };
+
+
+  return @out;
 
 };
 

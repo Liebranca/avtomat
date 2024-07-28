@@ -54,6 +54,18 @@ blk ok;
   add  x0,$01;
   ret;
 
+
+proc start;
+
+  byte x1;
+  ld   x1,$24;
+
+  call fn;
+
+  ld   x1,$24;
+  add  x1,$01;
+  ret;
+
 ],
 
 #  glob('~/bt/dice.pe'),

@@ -42,7 +42,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.5;#b
+  our $VERSION = v0.02.6;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -330,6 +330,8 @@ sub proc($self,$branch) {
 
   my $l1    = $main->{l1};
   my $vref  = $branch->{vref};
+
+  $mc->{hiertop}=undef;
 
 
   # generate segment and block
