@@ -35,7 +35,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#a
+  our $VERSION = v0.01.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -525,7 +525,6 @@ sub load($self,$dst,$which) {
         $old
 
       )) {
-
         push @out,$self->spill($old);
 
 
@@ -612,6 +611,10 @@ sub load($self,$dst,$which) {
 
     my $main=$mc->get_main();
 
+
+    # * case 0: this value is uninitialized,
+    #   and so we must throw
+
     $main->bperr(
 
       $self->{iter}->{point}->{branch},
@@ -619,7 +622,10 @@ sub load($self,$dst,$which) {
       "attempt to load undefined value '%s'",
       args=>[$dst->{name}],
 
-    );
+
+    # * case 1: value was initialized, but
+    #   was simply not preserved, so noop
+    ) if ! ($self->{vused} & (1 << $dst->{loc}));
 
 
   # ^nope, load from stack
@@ -775,9 +781,12 @@ sub reset_iter($self) {
     k     => 0,
 
     point => undef,
+    dst   => undef,
+    src   => undef,
 
     var   => {},
     prog  => undef,
+    nprog => undef,
 
   };
 
@@ -823,6 +832,107 @@ sub restore_iter($self) {
 };
 
 # ---   *   ---   *   ---
+# 'prog' is the list of instructions
+# that make up a block
+#
+# an element within this list may be
+# base or generated, meaning the input
+# code itself or code spawned by this
+# class' methods
+#
+# we need to mark each element as such,
+# so that we can selectively choose to
+# skip one or the other based on this
+# distinction
+
+sub prog_elem($self,$type,@args) {
+
+  return [
+
+    $type,
+
+    $self->{citer}->{point},
+    @args,
+
+  ];
+
+};
+
+# ---   *   ---   *   ---
+# walks through the current program,
+# filtering entries accto type
+
+sub prog_walk($self,$i,$type,$fn,@args) {
+
+
+  # get ctx
+  my $iter = $self->{citer};
+  my $prog = $iter->{prog};
+
+  # output is plain exit code
+  my $status=0;
+
+
+  # reset
+  $iter->{i}     = $i;
+  $iter->{j}     = 0;
+  $iter->{point} = undef;
+
+  # get sub-idex?
+  if($i != 0) {
+
+    my $j=1;
+    my $p=$prog->[$i]->[1];
+
+    $j++ while (
+
+       ($i-$j > 0)
+    && ($prog->[$i-$j] eq $p)
+
+    );
+
+
+    $iter->{j}     = $j-1;
+    $iter->{point} = $p;
+
+  };
+
+
+  # apply F to filtered array
+  my $limit=(int @$prog)-1;
+
+  map {
+
+
+    # get instruction
+    my ($e,$newp,$dst,$src)=
+      $self->timeline_step();
+
+    $iter->{dst}=$dst;
+    $iter->{src}=$src;
+
+
+    # run F on matching type
+    if($e=~ $type) {
+      $status=$fn->($self,@args);
+      return $status if $status != 0;
+
+    };
+
+
+    # go next
+    $iter->{i}++;
+    $iter->{j}++;
+
+
+  } @{$prog}[$i..$limit];
+
+
+  return $status;
+
+};
+
+# ---   *   ---   *   ---
 # initial run-through of block
 #
 # this builds context from which
@@ -851,6 +961,8 @@ sub build_iter($self,$recalc=0) {
 
 
   } @$hist];
+
+  @{$iter->{nprog}}=@{$iter->{prog}};
 
 
   return;
@@ -895,16 +1007,14 @@ sub get_ins($self,$data) {
 
 
   # give synthesis
-  return [
+  return $self->prog_elem(
 
-    $iter->{point},
-
-    ($argcnt)
+    base=>($argcnt)
       ? ($dst,$src)
       : ($dst)
       ,
 
-  ];
+  );
 
 };
 
@@ -928,7 +1038,7 @@ sub argless_ins($self,$ins) {
 # do nothing, but keep the instruction
 
 sub push_argless($self) {
-  return [$self->{citer}->{point}];
+  return $self->prog_elem(base=>());
 
 };
 
@@ -967,6 +1077,13 @@ sub linux_syscall($self) {
   } @$pass;
 
 
+  # we can safely ignore the next bit
+  # on a sysexit, since overwritten registers
+  # won't matter!
+
+  goto skip if $code eq 'exit';
+
+
   # syscall parameters and return are
   # preserved automatically if they are in
   # use by the calling process
@@ -995,13 +1112,15 @@ sub linux_syscall($self) {
 
 
   # go next and give
+  skip:
+
   $iter->{i}++;
   $dst->{-syscall}=$code;
 
   $iter->{point}->{Q}->[$iter->{j}]->[0]=
     typefet 'dword';
 
-  return [$iter->{point},$dst];
+  return $self->prog_elem(base=>$dst);
 
 };
 
@@ -1089,21 +1208,8 @@ sub bindvars($self) {
 sub procblk($self) {
 
 
-  # get ctx
-  my $iter=$self->{citer};
-  my $prog=$iter->{prog};
-
-
   # walk timeline
-  $iter->{i}     = 0;
-  $iter->{point} = undef;
-
-  map {
-    $self->procins($ARG);
-    $iter->{i}++;
-
-  } @$prog;
-
+  $self->prog_walk(0=>base=>\&procins);
 
   # does this block utilize the stack?
   if($self->{stack}->{-size}) {
@@ -1112,6 +1218,11 @@ sub procblk($self) {
 
   };
 
+
+  # update program and give
+  my $iter=$self->{citer};
+  @{$iter->{prog}}=@{$iter->{nprog}};
+
   return;
 
 };
@@ -1119,34 +1230,36 @@ sub procblk($self) {
 # ---   *   ---   *   ---
 # ^process instruction in timeline point
 
-sub procins($self,$data) {
+sub procins($self) {
 
 
   # get ctx
-  my $iter=$self->{citer};
+  my $iter = $self->{citer};
 
-  # get instruction and operands
-  my ($point,$dst,$src)=
-    $self->timeline_step($data);
+  my $point = $iter->{point};
+  my $dst   = $iter->{dst};
+  my $src   = $iter->{src};
 
-  my $j   = $iter->{j};
-  my $ins = $point->{Q}->[$j]->[1];
 
   # generate intermediate loads
   $self->ldvar($dst,'dst');
   $self->ldvar($src,'src');
 
 
-  # handle edge cases
-  my $gentab={
+  # get instruction name
+  my $j   = $iter->{j};
+  my $ins = $point->{Q}->[$j]->[1];
+
+  # have edge case?
+  my $edgetab={
     call => \&on_call,
 
   };
 
-  my $genfn=$gentab->{$ins};
+  my $fn=$edgetab->{$ins};
 
-  if(defined $genfn) {
-    my @ins=$genfn->($self,$dst,$src);
+  if(defined $fn) {
+    my @ins=$fn->($self,$dst,$src);
     $self->insert_ins(@ins);
 
   };
@@ -1159,25 +1272,25 @@ sub procins($self,$data) {
   $self->replvar($src);
 
 
-  # go next and give
-  $iter->{j}++;
-  return;
+  return 0;
 
 };
 
 # ---   *   ---   *   ---
 # get next instruction
 
-sub timeline_step($self,$data) {
+sub timeline_step($self) {
 
 
   # get ctx
   my $iter  = $self->{citer};
   my $point = $iter->{point};
+  my $prog  = $iter->{prog};
+  my $data  = $prog->[$iter->{i}];
 
 
   # unpack
-  my ($newp,$dst,$src)=@$data;
+  my ($e,$newp,$dst,$src)=@$data;
 
   # stepping on new timeline point?
   if(! $point || $point ne $newp) {
@@ -1187,7 +1300,7 @@ sub timeline_step($self,$data) {
   };
 
 
-  return ($newp,$dst,$src);
+  return ($e,$newp,$dst,$src);
 
 };
 
@@ -1200,9 +1313,36 @@ sub insert_ins($self,@ins) {
   # get ctx
   my $iter  = $self->{citer};
 
+  my $prog  = $iter->{prog};
+  my $nprog = $iter->{nprog};
   my $point = $iter->{point};
   my $Q     = $point->{Q};
+
+  my $i     = $iter->{i};
   my $j     = $iter->{j};
+
+
+  $i += @$nprog-@$prog;
+
+
+  # add fake markers for generated instructions
+  #
+  # this is done so that the generation can
+  # be spotted -- and skipped -- in any
+  # future iterations of this program
+
+  @$nprog=(
+
+    @{$nprog}[0..$i-1],
+
+    (map {
+      $self->prog_elem('generated')
+
+    } @ins),
+
+    @{$nprog}[$i..@$nprog-1],
+
+  );
 
 
   # modify assembly queue
@@ -1213,8 +1353,31 @@ sub insert_ins($self,@ins) {
 
   );
 
+
+  # adjust point to match new dimentions
+  my $have = int @ins;
+
+  map {
+
+    my $dst=$point->{$ARG};
+
+    @$dst=(
+
+      @{$dst}[0..$j-1],
+      (map {undef} 0..$have-1),
+
+      @{$dst}[$j..@$dst-1],
+
+    );
+
+  } grep {
+    ! ($ARG=~ qr{^(?:Q|branch)$});
+
+  } keys %$point;
+
+
   # ^move to end of generated
-  $iter->{j} += int @ins;
+  $iter->{j} += $have;
 
 
   return;
@@ -1239,32 +1402,37 @@ sub stack_setup($self) {
   my $size  = $self->{stack}->{-size};
 
 
+  # seek to beggining of program
+  $iter->{point} = $prog->[0]->[1];
+  $iter->{i}     = 0;
+  $iter->{j}     = 0;
+
   # add equivalent of 'enter' instruction ;>
-  my $beg=$prog->[0]->[0];
+  $self->insert_ins(
 
-  unshift @{$beg->{Q}},
+    [ $qword,
+      'push',
+      {type=>'r',reg=>$anima->stack_base},
 
-  [ $qword,
-    'push',
-    {type=>'r',reg=>$anima->stack_base},
+    ],
 
-  ],
+    [ $qword,
+      'ld',
 
-  [ $qword,
-    'ld',
+      {type=>'r',reg=>$anima->stack_base},
+      {type=>'r',reg=>$anima->stack_ptr},
 
-    {type=>'r',reg=>$anima->stack_base},
-    {type=>'r',reg=>$anima->stack_ptr},
+    ],
 
-  ],
+    [ $qword,
+      'sub',
 
-  [ $qword,
-    'sub',
+      {type=>'r',reg=>$anima->stack_ptr},
+      {type=>$ISA->immsz($size),imm=>$size},
 
-    {type=>'r',reg=>$anima->stack_ptr},
-    {type=>$ISA->immsz($size),imm=>$size},
+    ],
 
-  ];
+  );
 
 
   return;
@@ -1276,53 +1444,43 @@ sub stack_setup($self) {
 
 sub stack_cleanup($self) {
 
+  # walk timeline
+  $self->prog_walk(0=>base=>\&leave_per_ret);
+
+  # clear and give
+  my $mc=$self->getmc();
+  $mc->{stack}->reset();
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# prepend a leave to every ret
+
+sub leave_per_ret($self) {
+
 
   # get ctx
   my $iter  = $self->{citer};
-  my $prog  = $iter->{prog};
-
-  my $mc    = $self->getmc();
-  my $anima = $mc->{anima};
-  my $ISA   = $mc->{ISA};
+  my $point = $iter->{point};
 
   my $qword = typefet 'qword';
-  my $size  = $self->{stack}->{-size};
 
 
-  # walk timeline
-  $iter->{i}     = 0;
-  $iter->{point} = undef;
+  # have a ret?
+  my $j    = $iter->{j};
+  my $Q    = $point->{Q};
+
+  my $have = $Q->[$j];
 
 
-  # look for every ret
-  map {
+  # ^add a leave instruction if so
+  $self->insert_ins([$qword,'leave'])
+  if $have->[1] eq 'ret';
 
 
-    # get next point
-    my ($point)=$self->timeline_step($ARG);
-    $iter->{i}++;
-
-
-    # have a ret?
-    my $j    = $iter->{j};
-    my $Q    = $point->{Q};
-
-    my $have = $Q->[$j];
-
-
-    # ^add a leave instruction if so
-    $self->insert_ins([$qword,'leave'])
-    if $have->[1] eq 'ret';
-
-    $iter->{j}++;
-
-
-  } @$prog;
-
-
-  # clear and give
-  $mc->{stack}->reset();
-  return;
+  return 0;
 
 };
 
@@ -1333,126 +1491,143 @@ sub stack_cleanup($self) {
 sub lookahead($self,$re,$fn,$vref) {
 
 
+  # save status of current iteration
+  $self->backup_iter();
+
+
+  # walk program from current ins onwards
+  my @branch = ();
+  my $out    = 0;
+  my $beg    = $self->{citer}->{i};
+
+  $self->prog_walk(
+
+    $beg=>base=>\&la_step,
+
+    $re,$fn,$vref,
+    \@branch,\$out,
+
+  );
+
+
+  # restore and give
+  $self->restore_iter();
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^iter F
+
+sub la_step($self,$re,$fn,$vref,$branch,$out) {
+
+
   # get ctx
   my $mc   = $self->getmc();
   my $iter = $self->{citer};
   my $prog = $iter->{prog};
 
+  # get ins/operands
+  my $point = $iter->{point};
+  my $dst   = $iter->{dst};
+  my $src   = $iter->{src};
 
-  # walk program from current onwards
-  my @branch=();
-  $self->backup_iter();
+  my $tab={dst=>$dst,src=>$src};
+  my $ins=$point->{Q}->[$iter->{j}]->[1];
 
+
+  # trim past branches
+  @$branch=grep {
+    $point->{branch}->{idex}
+  < $ARG
+
+  } @$branch;
+
+
+  # terminate lookahead on ret/exit
+  my $sysexit=(
+     $ins eq 'int'
+  && $dst->{-syscall} eq 'exit'
+
+  );
+
+  # we consider these instructions
+  # dead ends only when there's no
+  # branches left to walk!
+
+  if(
+
+      ($ins eq 'ret' || $sysexit)
+  &&! (int @$branch)
+
+  ) {
+
+    return 1;
+
+
+  # consider branching on c-jmp
+  # IF jumping forwards
+  } elsif($ins=~ qr{^j[ngl]?[z]?$}) {
+
+    my $from = $point->{branch}->{idex};
+
+    my $to   = $point->{branch}->{vref};
+       $to   = $to->{res}->{args}->[0];
+       $to   = $to->{id};
+
+    my $ptr  = $mc->search(@$to);
+       $to   = $ptr->{p3ptr}->{idex};
+
+    push @$branch,$to if $from < $to;
+
+  };
+
+
+  # ^compare against vref
   map {
 
-
-    # get ins/operands
-    my ($newp,$dst,$src)=
-      $self->timeline_step($ARG);
-
-    my $tab={dst=>$dst,src=>$src};
-    my $ins=$newp->{Q}->[$iter->{j}]->[1];
+    my $have=$tab->{$ARG};
 
 
-    # trim past branches
-    @branch=grep {
-      $newp->{branch}->{idex}
-    < $ARG
-
-    } @branch;
-
-
-    # terminate lookahead on ret/exit
-    my $sysexit=(
-       $ins eq 'int'
-    && $dst->{-syscall} eq 'exit'
-
-    );
-
-    # we consider these instructions
-    # dead ends only when there's no
-    # branches left to walk!
+    # perform check and procceed
+    # accto result:
+    #
+    # * on ret F eq abs 1, then stop
+    # * always give true on 1
+    #
+    # * false on -1 IF there are no
+    #   further branches to consider
+    #
+    # * zero means continue
 
     if(
 
-        ($ins eq 'ret' || $sysexit)
-    &&! (int @branch)
+      defined $have && (my $ok=$fn->(
+      $self,$have,$vref,$ARG
 
-    ) {
+    ))) {
 
-      $self->restore_iter();
-      return 0;
+      if($ok == 1) {
+        $$out=1;
+        return 1;
 
+      } elsif($ok == -1 &&! @$branch) {
+        return 1;
 
-    # consider branching on c-jmp
-    # IF jumping forwards
-    } elsif($ins=~ qr{^j[ngl]?[z]?$}) {
-
-      my $from = $newp->{branch}->{idex};
-
-      my $to   = $newp->{branch}->{vref};
-         $to   = $to->{res}->{args}->[0];
-         $to   = $to->{id};
-
-      my $ptr  = $mc->search(@$to);
-         $to   = $ptr->{p3ptr}->{idex};
-
-      push @branch,$to if $from < $to;
+      };
 
     };
 
 
-    # ^compare against vref
-    map {
-
-      my $have=$tab->{$ARG};
+  } qw(dst src) if $ins=~ $re;
 
 
-      # perform check and procceed
-      # accto result:
-      #
-      # * on ret F eq abs 1, then stop
-      # * give true on 1, false on -1
-      #
-      # * zero means continue
-
-      if(
-
-        defined $have && (my $ok=$fn->(
-        $self,$have,$vref,$ARG
-
-      ))) {
-
-        if($ok == 1) {
-          $self->restore_iter();
-          return 1;
-
-        } elsif($ok == -1) {
-          $self->restore_iter();
-          return 0;
-
-        };
-
-      };
-
-
-    } qw(dst src) if $ins=~ $re;
-
-    $iter->{j}++;
-    $iter->{i}++;
-
-
-  } @{$prog}[$iter->{i}..@$prog-1];
-
-
-  # value is not required, give false
-  $self->restore_iter();
   return 0;
 
 };
 
 # ---   *   ---   *   ---
-# handle intermediate vale fetches
+# handle intermediate value fetches
 
 sub ldvar($self,$vref,$which) {
 
@@ -1675,6 +1850,8 @@ sub on_call($self,$dst,@slurp) {
   };
 
 
+  # combine register use and give
+  $self->{moded} |= $mask;
   return @out;
 
 };

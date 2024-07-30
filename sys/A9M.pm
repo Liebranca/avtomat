@@ -245,21 +245,14 @@ sub hierstruc($self,$data) {
     my $have=$ISA->_get_ins_meta($ins);
 
 
-    # TODO: handle meta-instructions
-    if($have->{meta}) {
-      nyi 'hierstruc meta-ins';
+    # record attrs
+    map {
+      push @{$out->{$ARG}},
+        $have->{$ARG}
 
+    } keys %$attrs
 
-    # record attrs of common
-    } elsif(defined $have && %$have) {
-
-      map {
-        push @{$out->{$ARG}},
-          $have->{$ARG}
-
-      } keys %$attrs;
-
-    };
+    if defined $have && %$have;
 
 
   } @$req;

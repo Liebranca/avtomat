@@ -37,10 +37,8 @@ clan testy;
 
 proc fn;
 
-  byte x0 $24;
-  add  x0,$26;
-
-  ld   ar,$00;
+  in  byte x0;
+  add x0,$26;
 
 
 blk err;
@@ -60,10 +58,8 @@ proc start;
   byte x1;
   ld   x1,$24;
 
-  call fn;
-
-  ld   x1,$24;
-  add  x1,$01;
+  *fn  x1;
+  add  x1,$02;
   ret;
 
 ],
