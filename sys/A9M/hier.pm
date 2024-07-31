@@ -35,7 +35,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.3;#a
+  our $VERSION = v0.01.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -269,6 +269,7 @@ sub addio($self,$ins,$name) {
     loc      => $idex,
     ptr      => undef,
     defv     => undef,
+    bound    => undef,
 
     loaded   => $key ne 'out',
 
@@ -286,8 +287,11 @@ sub addio($self,$ins,$name) {
 
   # edge case: output eq input
   if($key eq 'io') {
+
     my $alt=$self->{io}->{in};
+
     $alt->{var}->{$name}=$dst->{$name};
+    push @{$alt->{var}->{-order}},$name;
 
   };
 
@@ -336,6 +340,7 @@ sub chkvar($self,$name,$idex) {
       loc      => undef,
       ptr      => undef,
       defv     => undef,
+      bound    => undef,
 
       loaded   => $load,
 
@@ -785,6 +790,8 @@ sub reset_iter($self) {
     src   => undef,
 
     var   => {},
+    match => undef,
+
     prog  => undef,
     nprog => undef,
 
@@ -804,7 +811,7 @@ sub backup_iter($self) {
 
   push @$back,[
     map {$iter->{$ARG}}
-    qw  (i j k point)
+    qw  (i j k point match)
 
   ];
 
@@ -824,7 +831,7 @@ sub restore_iter($self) {
   my $have=pop @$back;
 
   map {$iter->{$ARG}=shift @$have}
-  qw  (i j k point);
+  qw  (i j k point match);
 
 
   return;
@@ -1209,7 +1216,11 @@ sub procblk($self) {
 
 
   # walk timeline
-  $self->prog_walk(0=>base=>\&procins);
+  $self->prog_walk(0=>qr{base}=>\&procins);
+
+  # update program
+  my $iter=$self->{citer};
+  @{$iter->{prog}}=@{$iter->{nprog}};
 
   # does this block utilize the stack?
   if($self->{stack}->{-size}) {
@@ -1218,10 +1229,6 @@ sub procblk($self) {
 
   };
 
-
-  # update program and give
-  my $iter=$self->{citer};
-  @{$iter->{prog}}=@{$iter->{nprog}};
 
   return;
 
@@ -1252,6 +1259,8 @@ sub procins($self) {
 
   # have edge case?
   my $edgetab={
+    bind => \&on_bind,
+    pass => \&on_pass,
     call => \&on_call,
 
   };
@@ -1259,7 +1268,10 @@ sub procins($self) {
   my $fn=$edgetab->{$ins};
 
   if(defined $fn) {
+
     my @ins=$fn->($self,$dst,$src);
+    return 0 if @ins &&! $ins[0];
+
     $self->insert_ins(@ins);
 
   };
@@ -1379,6 +1391,66 @@ sub insert_ins($self,@ins) {
   # ^move to end of generated
   $iter->{j} += $have;
 
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^remove instruction at pointer!
+
+sub remove_ins($self) {
+
+
+  # get ctx
+  my $iter  = $self->{citer};
+
+  my $prog  = $iter->{prog};
+  my $nprog = $iter->{nprog};
+  my $point = $iter->{point};
+  my $Q     = $point->{Q};
+
+  my $i     = $iter->{i};
+  my $j     = $iter->{j};
+
+
+  $i += @$nprog-@$prog;
+
+
+  # remove marker
+  @$nprog=(
+    @{$nprog}[0..$i-1],
+    @{$nprog}[$i+1..@$nprog-1],
+
+  );
+
+
+  # modify assembly queue
+  @$Q=(
+    @{$Q}[0..$j-1],
+    @{$Q}[$j+1..@$Q-1],
+
+  );
+
+
+  # adjust point to match new dimentions
+  map {
+
+    my $dst=$point->{$ARG};
+
+    @$dst=(
+      @{$dst}[0..$j-1],
+      @{$dst}[$j+1..@$dst-1],
+
+    );
+
+  } grep {
+    ! ($ARG=~ qr{^(?:Q|branch)$});
+
+  } keys %$point;
+
+
+  # ^move to previous
+  $iter->{j} -= 1;
 
   return;
 
@@ -1445,7 +1517,7 @@ sub stack_setup($self) {
 sub stack_cleanup($self) {
 
   # walk timeline
-  $self->prog_walk(0=>base=>\&leave_per_ret);
+  $self->prog_walk(0=>qr{base}=>\&leave_per_ret);
 
   # clear and give
   my $mc=$self->getmc();
@@ -1502,7 +1574,7 @@ sub lookahead($self,$re,$fn,$vref) {
 
   $self->prog_walk(
 
-    $beg=>base=>\&la_step,
+    $beg=>qr{base}=>\&la_step,
 
     $re,$fn,$vref,
     \@branch,\$out,
@@ -1510,8 +1582,22 @@ sub lookahead($self,$re,$fn,$vref) {
   );
 
 
+  # get match?
+  my $iter  = $self->{citer};
+  my $match = ($out)
+
+    ? {
+
+      j=>$iter->{j},
+      p=>$iter->{prog}->[$iter->{i}]->[1],
+
+    } : undef ;
+
+
   # restore and give
   $self->restore_iter();
+  $iter->{match}=$match;
+
   return $out;
 
 };
@@ -1589,6 +1675,11 @@ sub la_step($self,$re,$fn,$vref,$branch,$out) {
     my $have=$tab->{$ARG};
 
 
+    # if there is no check, then give true!
+    if($fn eq $NOOP) {
+      $$out=1;
+      return 1;
+
     # perform check and procceed
     # accto result:
     #
@@ -1600,7 +1691,7 @@ sub la_step($self,$re,$fn,$vref,$branch,$out) {
     #
     # * zero means continue
 
-    if(
+    } elsif(
 
       defined $have && (my $ok=$fn->(
       $self,$have,$vref,$ARG
@@ -1715,8 +1806,10 @@ sub replvar($self,$vref) {
 
 
       # compare sizes
-      my $old  = $qref->[0];
-      my $new  = $vref->{ptr}->{type};
+      my $old   = $qref->[0];
+         $old //= typefet 'word';
+
+      my $new   = $vref->{ptr}->{type};
 
 
       my $sign = (
@@ -1841,7 +1934,8 @@ sub on_call($self,$dst,@slurp) {
     # check whether this value is required!
     push @out,$self->spill($vref)
 
-    if $self->lookahead(
+    if ! $vref->{bound}
+    &&   $self->lookahead(
       qr{.+}=>\&la_reqvar,
       $vref
 
@@ -1850,9 +1944,192 @@ sub on_call($self,$dst,@slurp) {
   };
 
 
+  # clear bindings
+  map    {$ARG->{bound}=undef}
+  values %{$self->{citer}->{var}};
+
   # combine register use and give
   $self->{moded} |= $mask;
   return @out;
+
+};
+
+# ---   *   ---   *   ---
+# ~
+
+sub get_next_call($self) {
+
+
+  # get ctx
+  my $mc     = $self->getmc();
+  my $main   = $mc->get_main();
+
+  my $iter   = $self->{citer};
+  my $point  = $iter->{point};
+
+
+  # get F we're binding to
+  $self->lookahead(
+    qr{call}=>$NOOP=>undef
+
+  # ^or throw ;>
+  ) or $main->bperr(
+
+    $point->{branch},
+
+    'used [err]:%s without matching [ctl]:%s',
+    args=>[(St::cf 1,1),'call'],
+
+  );
+
+
+  # get F meta
+  my $match = $iter->{match};
+  my $mp    = $match->{p};
+  my $mj    = $match->{j};
+
+  my $id    = $mp->{Q}->[$mj]->[2]->{id};
+  my $ptr   = $mc->search(@$id);
+
+  my $blk   = $ptr->{p3ptr}->{vref};
+     $blk   = $blk->{data};
+
+
+  return $blk;
+
+};
+
+# ---   *   ---   *   ---
+# mark value as storing the
+# output of call
+
+sub on_bind($self,@slurp) {
+
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $main  = $mc->get_main();
+
+  my $iter  = $self->{citer};
+  my $point = $iter->{point};
+
+  my $blk   = $self->get_next_call();
+
+
+  # get the vars on the caller's side
+  my $asm   = $point->{Q}->[$iter->{j}];
+  my (@dst) = @{$asm}[2..@$asm-1];
+
+  @dst=map {$self->vname($ARG)} @dst;
+
+  # ^compare to declared outputs on the
+  # ^side of the callee
+  my $blkio = $blk->{io}->{out};
+  my @src   = @{$blkio->{var}->{-order}};
+
+
+  # check array size match
+  $main->bperr(
+
+    $point->{branch},
+
+    "[ctl]:%s '%s' only has "
+  . "[num]:%u output(s);\n"
+
+  . "cannot [err]:%s [num]:%u value(s) to it",
+
+    args=>[
+      proc=>$blk->{name},(int @src),
+      bind=>(int @dst),
+
+    ],
+
+  ) if @dst > @src;
+
+
+  # mark destination as bound
+  #
+  # this makes it so it won't be spilled
+  # when being overwritten by a call
+
+  map {
+
+    my ($x,$y)=(
+      $iter->{var}->{$dst[$ARG]},
+      $blkio->{var}->{$src[$ARG]},
+
+    );
+
+
+    # using different registers?
+    if($x->{loc} ne $y->{loc}) {
+      nyi "mov bound output";
+
+    };
+
+
+    $x->{bound}=$y;
+
+  } 0..$#dst;
+
+
+  # cleanup and give
+  $self->remove_ins();
+  return 0;
+
+};
+
+# ---   *   ---   *   ---
+# ^~
+
+sub on_pass($self,@slurp) {
+
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $main  = $mc->get_main();
+
+  my $iter  = $self->{citer};
+  my $point = $iter->{point};
+
+  my $blk   = $self->get_next_call();
+
+
+  # get the vars on the caller's side
+  my $asm   = $point->{Q}->[$iter->{j}];
+  my (@dst) = @{$asm}[2..@$asm-1];
+
+  @dst=map {$self->vname($ARG)} @dst;
+
+  # ^compare to declared inputs on the
+  # ^side of the callee
+  my $blkio = $blk->{io}->{in};
+  my @src   = @{$blkio->{var}->{-order}};
+
+
+  # put each value in the corresponding
+  # register
+
+  map {
+
+    my ($x,$y)=(
+      $iter->{var}->{$dst[$ARG]},
+      $blkio->{var}->{$src[$ARG]},
+
+    );
+
+
+    # using different registers?
+    if($x->{loc} ne $y->{loc}) {
+      nyi "mov passed input";
+
+    };
+
+  } 0..$#dst;
+
+
+  $self->remove_ins();
+  return 0;
 
 };
 

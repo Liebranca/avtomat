@@ -433,24 +433,30 @@ St::vconst {
 
     pass  => {
 
-      meta   => 1,
+      meta      => 1,
 
-      argcnt => 0,
-      meta   => 1,
+      argcnt    => 0,
 
-      fix_size => ['byte'],
+      overwrite => 0,
+      load_dst  => 0,
+      load_src  => 0,
+
+      nosize    => 1,
 
     },
 
-    state => {
+    bind => {
 
-      fn     => '_state',
+      fn        => '_bind',
+      meta      => 1,
 
-      dst    => 'i',
-      argcnt => 1,
-      meta   => 1,
+      argcnt    => 0,
 
-      fix_size => ['byte'],
+      overwrite => 0,
+      load_dst  => 0,
+      load_src  => 0,
+
+      nosize    => 1,
 
     },
 

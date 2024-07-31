@@ -77,6 +77,59 @@ sub current_byte($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# ~
+
+sub expand_args($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $l1   = $main->{l1};
+
+
+  # walk tree
+  my @Q    = @{$branch->{leaves}};
+  my @out  = ();
+
+  while(@Q) {
+
+
+    # consider this node?
+    my $nd   = shift @Q;
+    my $have = $l1->xlate($nd->{value});
+
+    next if ! $have;
+
+
+    # nodetype switch
+    my $type=$have->{type};
+    my $spec=$have->{spec};
+
+    # have node list?
+    if(
+
+       ($type=~ qr{^(?:EXP|LIST)$})
+    || ($type eq 'SCP' && $spec ne '[')
+
+    ) {
+
+      unshift @Q,@{$nd->{leaves}};
+
+
+    # ^plain node!
+    } else {
+      push @out,$nd;
+
+    };
+
+  };
+
+
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
 # template: read instruction
 
 sub parse_ins($self,$branch) {
@@ -89,19 +142,8 @@ sub parse_ins($self,$branch) {
   my $ISA  = $mc->{ISA};
 
 
-  # expand argument list
-  my @args = map {
-
-    if($l1->typechk(LIST=>$ARG->{value})) {
-      @{$ARG->{leaves}};
-
-    } else {
-      $ARG;
-
-    };
-
-  } @{$branch->{leaves}};
-
+  # get flat argument list
+  my @args=$self->expand_args($branch);
 
   # ^get type of each argument
   @args=map {
@@ -318,34 +360,24 @@ sub bindcall($self,$branch) {
   if @args;
 
 
-  # get F being called
-  my $fnref = $fn->{vref}->{res};
-
-  my $src   = $fnref->{args}->[0];
-     $src   = $src->{data}->dupa(undef,'vref');
-
-
   # ^make instruction to put ret F in dst
-  my ($ld)=$branch->inew(
-    $l1->tag(CMD=>'ld'),
+  my ($bind)=$branch->insert(
+    0,$l1->tag(CMD=>'bind'),
 
   );
 
-  $ld->{cmdkey}='ld';
-  $ld->{lineno}=$branch->{lineno};
+  $bind->{cmdkey}='bind';
+  $bind->{lineno}=$branch->{lineno};
 
-
-  # put operands
-  $ld->pushlv($dst);
-  $ld->pushlv($src);
-
-  # enqueue ctc to retrieve output
-  $ld->{vref}->{ctc}=\&bindret;
-  $self->asm_ins($ld);
 
 
   # cleanup and give
+  # process and give
+  $bind->pushlv($dst);
+  $self->asm_ins($bind);
+
   $branch->flatten_branch();
+
   return;
 
 };
