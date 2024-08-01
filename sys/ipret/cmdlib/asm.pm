@@ -447,9 +447,12 @@ sub io($self,$branch) {
 
   my $cmd=$frame->fetch('data-decl');
 
-
   # mutate into decl and give
-  %$self=%$cmd;
+  $branch->{value}=$l1->tag(
+    CMD=>'data-decl'
+
+  ) . $branch->{cmdkey};
+
   return $cmd->{key}->{fn}->($cmd,$branch);
 
 };

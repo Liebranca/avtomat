@@ -296,6 +296,13 @@ sub run($m,$obj) {
   my $rargs = undef;
   my $rdel  = 0;
 
+  map {
+    $m->{$ARG}=null
+    if ! defined $m->{$ARG}
+
+  } qw(run runrm);
+
+
   if($m->{run} ne $NULL) {
     $rargs=$m->{run};
 
@@ -310,7 +317,12 @@ sub run($m,$obj) {
 
     $WLog->ex($obj->{bld}->{name});
 
-    $obj->run(split $COMMA_RE,$rargs);
+    $obj->run(
+      grep  {defined $ARG && length $ARG}
+      split $COMMA_RE,$rargs
+
+    );
+
     $obj->rmout() if $rdel;
 
   };

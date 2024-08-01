@@ -37,7 +37,9 @@ clan testy;
 
 proc fn;
 
-  io  byte x0;
+  in  byte x0;
+  out byte x1;
+
   add x0,$26;
 
 
@@ -55,12 +57,18 @@ blk ok;
 
 proc start;
 
+  in   byte x2;
   byte x1;
+  byte x3;
+
   ld   x1,$24;
 
-  x1=*fn x1;
+  x3=*fn x1;
 
-  add  x1,$02;
+  add  x2,x3;
+  add  x2,x1;
+  ld   x1,x3;
+
   ret;
 
 ],

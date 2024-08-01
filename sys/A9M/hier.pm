@@ -35,7 +35,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.4;#a
+  our $VERSION = v0.01.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -298,6 +298,8 @@ sub addio($self,$ins,$name) {
 
   # set and give
   push @{$dst->{-order}},$name;
+  $self->{loadmap}->{$idex}=$dst->{$name};
+
   return;
 
 };
@@ -481,8 +483,10 @@ sub chkstk($self,$vref) {
 };
 
 # ---   *   ---   *   ---
-# place backup in register
-# use defv if no backup!
+# manage register allocation
+# to values within a block
+#
+# this includes spilling to stack
 
 sub load($self,$dst,$which) {
 
@@ -506,54 +510,29 @@ sub load($self,$dst,$which) {
       $dst->{name},1,
       (length $dst->{name})-1;
 
-    my $bit=1 << $dst->{loc};
-
-
-    # check that register is in use
-    my $key=$dst->{loc};
-    my $old=$self->{loadmap}->{$key};
-
-
-    # we need first check whether
-    # this value is required by a
-    # future instruction
-
-    if(defined $old) {
-
-
-      # * case 0: required, so backup the
-      #   value and let this very F restore
-      #   it when that point is reached
-
-      if($self->lookahead(
-        qr{.+}=>\&la_reqvar,
-        $old
-
-      )) {
-        push @out,$self->spill($old);
-
-
-      # * case 1: not required, so simply
-      #   overwrite the value without
-      #   backing it up
-
-      } else {
-        $self->unload($old);
-
-      };
-
-    };
-
-
-    # adjust masks and give
-    $self->{vused} |= $bit;
-    return @out;
+    return $self->chkuse($dst);
 
   };
 
 
   # need to allocate register?
   if(! defined $dst->{loc}) {
+
+
+    # can we free anything?
+    my $var=$self->{citer}->{var};
+
+    map {
+      $self->chkneed($var->{$ARG});
+
+    } grep {
+
+      my $x=$var->{$ARG};
+
+       defined $x->{loc}
+    && exists  $self->{loadmap}->{$x->{loc}};
+
+    } $self->varkeys(io=>'in');
 
 
     # setup allocation bias
@@ -662,6 +641,83 @@ sub load($self,$dst,$which) {
   my $key=$dst->{loc};
   $self->{loadmap}->{$key}=$dst;
 
+  return @out;
+
+};
+
+# ---   *   ---   *   ---
+# check that value is no
+# longer needed from this point
+# onwards
+
+sub chkneed($self,$vref) {
+
+  $self->unload($vref)
+
+  if ! $self->lookahead(
+    qr{.+}=>\&la_reqvar,
+    $vref
+
+  );
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# check that register is in use
+# by another value
+#
+# if so, determine whether to
+# spill or not
+
+sub chkuse($self,$vref) {
+
+
+  # output is instruction list
+  my @out=();
+
+  # get coords
+  my $bit=1 << $vref->{loc};
+
+  my $key=$vref->{loc};
+  my $old=$self->{loadmap}->{$key};
+
+
+  # we need first check whether
+  # this value is required by a
+  # future instruction
+
+  if(defined $old) {
+
+
+    # * case 0: required, so backup the
+    #   value and let the load F restore
+    #   it when that point is reached
+
+    if($self->lookahead(
+      qr{.+}=>\&la_reqvar,
+      $old
+
+    )) {
+      push @out,$self->spill($old);
+
+
+    # * case 1: not required, so simply
+    #   overwrite the value without
+    #   backing it up
+
+    } else {
+      $self->unload($old);
+
+    };
+
+  };
+
+
+  # adjust masks and give
+  $self->{vused} |= $bit;
   return @out;
 
 };
@@ -972,6 +1028,22 @@ sub build_iter($self,$recalc=0) {
   @{$iter->{nprog}}=@{$iter->{prog}};
 
 
+  # check IO vars
+
+  map {
+
+    my $io  = $self->{io}->{$ARG};
+    my $var = $io->{var};
+
+    map {
+      $iter->{var}->{$ARG}=$var->{$ARG};
+
+    } @{$var->{-order}};
+
+
+  } qw (in out);
+
+
   return;
 
 };
@@ -1184,11 +1256,16 @@ sub bindvars($self) {
 
   map {
 
+
+    # locate dummy reference for
+    # non-constant values
     my $dst=$iter->{var}->{$ARG};
 
     $dst->{ptr}=$mc->search($ARG)
     if $dst->{loaded} ne 'const';
 
+
+    # ^pointer to block IS const
     if(
 
        defined $dst->{ptr}
@@ -1215,11 +1292,21 @@ sub bindvars($self) {
 sub procblk($self) {
 
 
+  # get ctx
+  my $iter = $self->{citer};
+  my $var  = $iter->{var};
+
+  # backup IO locations
+  my %io=map {
+    $ARG=>$var->{$ARG}->{loc};
+
+  } $self->varkeys(io=>'all',common=>0);
+
+
   # walk timeline
   $self->prog_walk(0=>qr{base}=>\&procins);
 
   # update program
-  my $iter=$self->{citer};
   @{$iter->{prog}}=@{$iter->{nprog}};
 
   # does this block utilize the stack?
@@ -1228,6 +1315,13 @@ sub procblk($self) {
     $self->stack_cleanup();
 
   };
+
+
+  # restore IO locations
+  map {
+    $var->{$ARG}->{loc}=$io{$ARG}
+
+  } keys %io;
 
 
   return;
@@ -1246,11 +1340,6 @@ sub procins($self) {
   my $point = $iter->{point};
   my $dst   = $iter->{dst};
   my $src   = $iter->{src};
-
-
-  # generate intermediate loads
-  $self->ldvar($dst,'dst');
-  $self->ldvar($src,'src');
 
 
   # get instruction name
@@ -1276,6 +1365,10 @@ sub procins($self) {
 
   };
 
+
+  # generate intermediate loads
+  $self->ldvar($dst,'dst');
+  $self->ldvar($src,'src');
 
   # perform operand replacements
   $iter->{k}=0;
@@ -2061,8 +2154,34 @@ sub on_bind($self,@slurp) {
     );
 
 
+    # need intermediate load?
+    if((! defined $x->{loc})) {
+
+
+      # are we overwriting another value?
+      my $old=$self->{loadmap}->{$y->{loc}};
+      if(defined $old) {
+
+        $self->insert_ins(
+          $self->chkuse($y)
+
+        );
+
+        $old->{loc}=undef;
+
+      };
+
+
+      $x->{loc}    = $y->{loc};
+      $x->{loaded} = 1;
+
+      $self->{loadmap}->{$x->{loc}}=$x;
+
+      $self->{used} |= 1 << $x->{loc};
+
+
     # using different registers?
-    if($x->{loc} ne $y->{loc}) {
+    } elsif($x->{loc} ne $y->{loc}) {
       nyi "mov bound output";
 
     };
@@ -2119,9 +2238,64 @@ sub on_pass($self,@slurp) {
     );
 
 
+    # validate
+    $main->bperr(
+
+      $point->{branch},
+
+      "unitialized value '%s' "
+    . "passed to [goodtag]:%s",
+
+      args=>[$x->{name},$blk->{name}],
+
+    ) if ! $x->{loaded};
+
+
     # using different registers?
     if($x->{loc} ne $y->{loc}) {
-      nyi "mov passed input";
+
+
+      # generate dummy value
+      my $ptr  = $y->{ptr};
+      my $type = ($ptr->{ptr_t})
+        ? $ptr->{ptr_t}
+        : $ptr->{type}
+        ;
+
+      my $rY  = {type=>'r',reg=>$y->{loc}};
+      my $reg = $self->chkvar(
+        $self->vname($rY),-1
+
+      );
+
+
+      # perform intermediate load,
+      # preserving the location of any
+      # overwritten values
+      my $old=$self->{loadmap}->{$y->{loc}};
+
+      $self->ldvar($reg,'dst');
+      $self->insert_ins([
+
+        $type,
+        'ld',
+
+        $rY,
+        {type=>'r',reg=>$x->{loc}},
+
+      ]);
+
+
+      # restore location if necessary
+      #
+      # re-loading of this value will be
+      # performed later by any instructions
+      # that require it!
+
+      if(defined $old) {
+        $old->{loc}=$y->{loc};
+
+      };
 
     };
 

@@ -362,7 +362,7 @@ sub bindcall($self,$branch) {
 
   # ^make instruction to put ret F in dst
   my ($bind)=$branch->insert(
-    0,$l1->tag(CMD=>'bind'),
+    2,$l1->tag(CMD=>'bind'),
 
   );
 
