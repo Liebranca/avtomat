@@ -40,7 +40,7 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.9;#a
+  our $VERSION = v0.02.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -734,28 +734,89 @@ sub valid_psearch($self,$name,@path) {
 };
 
 # ---   *   ---   *   ---
-# get symbol name from packed vref
+# expand path then psearch
 
-sub vrefid($self,$src,$ch='_') {
+sub xpsearch($self,@full) {
 
+  # expand
+  my @path=map {
+    split $self->{pathsep},$ARG
+
+  } @full;
+
+  # ^get head
+  my $name=pop @path;
+
+  # fetch
+  return $self->psearch($name,@path);
+
+};
+
+# ---   *   ---   *   ---
+# ^deref plus errme
+
+sub valid_xpsearch($self,@full) {
+
+  my $out=$self->xpsearch(@full);
+  return ($out)
+    ? $$out
+    : badfet(@full)
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# remove anonymous tags from path
+
+sub deanonid($self,@path) {
 
   # get ctx
   my $mem=$self->{bk}->{mem};
 
-  # unpack
-  my @path = @{$src->{id}};
-  my $name = shift @path;
-
-
-  # get [fullname => symbol]
-  my $full=join $ch,grep {
+  # filter out anon
+  return grep {
       length $ARG
   &&! ($ARG=~ $mem->anon_re)
 
   } map {
     split $self->{pathsep},$ARG
 
-  } @path,$name;
+  } @path;
+
+};
+
+# ---   *   ---   *   ---
+# get symbol name from pointer or mem
+
+sub ptrid($self,$ptr,$ch='::') {
+
+  # unpack
+  my ($name,@path)=$ptr->fullpath;
+
+  # get [fullname => symbol]
+  my $full=join $ch,$self->deanonid(
+    @path,$name
+
+  );
+
+
+  return ($name,$full,@path);
+
+};
+
+# ---   *   ---   *   ---
+# get symbol name from packed vref
+
+sub vrefid($self,$src,$ch='_') {
+
+  # unpack
+  my ($name,@path)=@{$src->{id}};
+
+  # get [fullname => symbol]
+  my $full=join $ch,$self->deanonid(
+    @path,$name
+
+  );
 
 
   return ($name,$full,@path);

@@ -343,8 +343,17 @@ sub mkhier($self,$branch) {
   my $vref  = $branch->{vref};
 
 
-  # TODO: hier ribbon!
-  $mc->{hiertop}=undef;
+  # new block closes last!
+  if(defined $mc->{hiertop}) {
+
+    my $blk=$mc->{hiertop}->{p3ptr};
+       $blk=$blk->{vref}->{data};
+
+    $blk->ribbon();
+    $mc->{hiertop}=undef;
+
+  };
+
 
   # get type of hierarchical
   my $type = $branch->{cmdkey};
@@ -502,12 +511,12 @@ sub blk($self,$branch) {
   $ptr->{p3ptr}      = $branch;
 
 
-#  # add reference to current segment!
-#  my $alt=$top->{inner};
-#  $alt->force_set($ptr,$name);
-#
-#  $alt->{'*fetch'}->{mem}=$ptr;
-#  $top->route_anon_ptr($ptr);
+  # add reference to current segment!
+  my $alt=$top->{inner};
+  $alt->force_set($ptr,$name);
+
+  $alt->{'*fetch'}->{mem}=$ptr;
+  $top->route_anon_ptr($ptr);
 
 
   # ^schedule for update ;>
@@ -711,13 +720,13 @@ sub data_decl($self,$branch) {
     $sym->store($x,deref=>0);
 
 
-    # making tmp var for proc?
-    if($exe) {
+    # making entry on hierarchical?
+    if(defined $hier) {
 
-      my $proc = $hier->{p3ptr}->{vref};
-         $proc = $proc->{data};
+      my $blk = $hier->{p3ptr}->{vref};
+         $blk = $blk->{data};
 
-      my $tmp  = $proc->chkvar($oldname,-1);
+      my $tmp  = $blk->chkvar($oldname,-1);
 
       $tmp->{defv}=($have) ? $x : undef ;
 

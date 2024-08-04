@@ -54,7 +54,6 @@ St::vconst {
 
   encoder_t => 'ipret::encoder',
   engine_t  => 'ipret::engine',
-  binder_t  => 'ipret::binder',
 
   layers    => sub { return [
     @{rd->layers},
@@ -81,12 +80,6 @@ sub new($class,$src,%O) {
 
   # make interpreter from parser
   $self=$class->mutate($self);
-
-  # ^load post-solve methods
-  my $binder=$class->binder_t;
-
-  cloadi $binder;
-  $self->{binder}=$binder->new();
 
   return $self;
 
@@ -210,7 +203,8 @@ sub bind($self) {
 
   # get ctx
   my $l1   = $self->{l1};
-  my $hier = $l1->re(@{$self->{binder}->hier});
+  my $mc   = $self->{mc};
+  my $hier = $mc->{bk}->{hier}->blk_re;
   my $root = $self->{tree};
   my $enc  = $self->{encoder};
 
@@ -221,8 +215,6 @@ sub bind($self) {
 
   # walk tree surface...
   my @Q=@{$root->{leaves}};
-  my @X=();
-
   while(@Q) {
 
     my $nd   = shift @Q;
@@ -231,80 +223,8 @@ sub bind($self) {
 
     # have hierarchical?
     if($nd->{value}=~ $hier) {
-
-      my $vq=$vref->{data}->{Q};
-
-
-      # sort calls by idex
-      map {
-
-        my ($fn,$branch,@args)=@$ARG;
-        my $dst = $X[$branch->absidex] //= [];
-
-        push @$dst,[$fn,$branch,@args];
-
-      } @{$vq->{early}};
-
-    };
-
-  };
-
-
-  # execute queue
-  map {
-
-    map {
-
-      my ($fn,@args)=@$ARG;
-
-      $fn=$self->{binder}->fetch($fn);
-      $fn->($self,@args);
-
-    } @$ARG;
-
-  } grep {defined $ARG} @X;
-
-
-  # ^second pass
-  @Q=@{$root->{leaves}};
-  while(@Q) {
-
-    my $nd   = shift @Q;
-    my $vref = $nd->{vref};
-
-
-    # have hierarchical?
-    if($nd->{value}=~ $hier) {
-
-      my $have = $vref->{data};
-      my $lq   = $have->{Q};
-
-
-      # run calls out of order!
-      map {
-
-        my ($fn,@args)=@$ARG;
-
-        $fn=$self->{binder}->fetch($fn);
-        $fn->($self,@args);
-
-      } @{$lq->{late}},@{$lq->{ribbon}};
-
-
-      # ~~
-#      my $sta=$have->{glob}->{'asm-Q'};
-#         $sta=$sta->[1]->{inner};
-#
-#      $have->{node}->prich();
-#      $sta->prich();
-#
-#      use Fmat;
-#      fatdump \$have->{io};
-#      fatdump \$have->{var};
-#      exit;
-
-      $self->{binder}->inspect($have,1);
-
+      my $blk=$vref->{data};
+      $blk->expand();
 
     };
 

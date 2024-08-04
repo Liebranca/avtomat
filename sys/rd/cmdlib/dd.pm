@@ -257,7 +257,7 @@ sub data_decl($self,$branch) {
 
 
   # get [name=>value] arrays
-  my ($name,$value)=map {
+  my ($name,$voa,$value)=map {
 
     ($l1->typechk(LIST=>$ARG->{value}))
       ? $ARG->{leaves}
@@ -267,8 +267,32 @@ sub data_decl($self,$branch) {
   } @{$branch->{leaves}};
 
 
+  # have array decl?
+  if(defined $voa) {
+
+
+    my $have=$l1->xlate($voa->[0]->{value});
+
+
+    # have array?
+    if($have->{type} eq 'SCP'
+    && $have->{spec} eq '[') {
+      ($voa) = $voa->[0]->leafless_values();
+      $voa   = $l1->xlate($voa)->{spec};
+
+    # ^nope!
+    } else {
+      $value = $voa;
+      $voa   = undef;
+
+    };
+
+  };
+
+
   # apply conversions
-  @$value=map {
+  $value  //= [];
+  @$value   = map {
 
 
     # unpack
@@ -342,6 +366,26 @@ sub data_decl($self,$branch) {
     map {['?'=>$ARG]}
 
     @$value[$idex..@$value-1];
+
+  };
+
+
+  # have array decl?
+  if(defined $voa) {
+
+    my @array=map {
+
+      if(! defined $ARG) {
+        $branch->inew($l1->tag('NUM'=>0x00));
+
+      } else {
+        $ARG->[1];
+
+      };
+
+    } @list[0..$voa-1];
+
+    @list=[$list[0]->[0],\@array];
 
   };
 
@@ -507,10 +551,10 @@ cmdsub 'flag-type' => q(qlist src) => \&flag_type;
 cmdsub 'seg-type'  => q(sym type)  => \&seg_type;
 cmdsub 'clan'      => q(sym name)  => \&clan;
 
-
 cmdsub 'data-decl' => q(
-  vlist name;
-  qlist value;
+  qlist name;
+  qlist value_or_size;
+  qlist value=();
 
 ) => \&data_decl;
 

@@ -36,14 +36,10 @@ q[%;
 clan testy;
 
 struc data;
-  byte x0;
-
-struc data2;
-  word x1;
+  byte x1 [4];
 
 proc new;
-
-  data x0;
+  testy::data x0;
   ret;
 
 ],

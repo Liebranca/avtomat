@@ -230,7 +230,11 @@ sub struc($name,$src=undef) {
   my $fmat = join $NULLSTR,(
 
     map {
-      $ARG=~ s[\d+][$fv[$fi++]->{cnt}];
+
+      my $cnt    = $fv[$fi++]->{cnt};
+      my ($have) = $ARG=~ m[(\d+)];
+
+      $ARG=~ s[\d+][$cnt] if $cnt > $have;
       $ARG;
 
     } map {$ARG->{packof}} @type

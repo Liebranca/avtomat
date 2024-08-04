@@ -609,10 +609,14 @@ sub data_decl($self,$type,$src) {
     my $anon   = $full ne join '_',@path,$name;
 
     my (@dd)   = $self->data_decl_key($type);
-    my ($data) = $eng->value_flatten(
-      $src->{data}->{value}
+    my ($data) = (is_arrayref $src->{data})
+      ? [map {
+          $eng->value_flatten($ARG->{value})
 
-    );
+      } @{$src->{data}}]
+
+      : $eng->value_flatten($src->{data}->{value})
+      ;
 
 
     my $sym=${$mc->valid_psearch(

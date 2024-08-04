@@ -104,6 +104,19 @@ sub new($class,%O) {
 };
 
 # ---   *   ---   *   ---
+# give type if single indirection level
+# else give pointer type
+
+sub get_type($self) {
+
+  return (defined $self->{ptr_t})
+    ? $self->{ptr_t}
+    : $self->{type}
+    ;
+
+};
+
+# ---   *   ---   *   ---
 # makes child nodes for each
 # structure field
 

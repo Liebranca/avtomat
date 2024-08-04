@@ -35,7 +35,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.5;#a
+  our $VERSION = v0.01.6;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -51,15 +51,6 @@ St::vconst {
     type  => 'blk',
     hist  => {},
     shist => [],
-
-    Q     => {
-
-      early  => [],
-      late   => [],
-
-      ribbon => [],
-
-    },
 
     used  => 0x00,
     vused => 0x00,
@@ -100,9 +91,12 @@ St::vconst {
 
 
   typetab => {
-    proc => [qw(const readable executable)],
+    proc  => [qw(const readable executable)],
+    struc => [qw(const readable)],
 
   },
+
+  blk_re => qr{^(?:proc|struc)$},
 
 };
 
@@ -153,6 +147,87 @@ sub new($class,%O) {
 };
 
 # ---   *   ---   *   ---
+# apply on-close logic
+# invoked during solve step
+
+sub ribbon($self) {
+
+
+  # get method matching block type
+  my $class = ref $self;
+
+  my $fn    = "$class\::ribbon_$self->{type}";
+     $fn    = \&$fn;
+
+  # ^invoke if found, else do nothing
+  $fn->($self)
+  if defined $self;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^iceof
+
+sub ribbon_struc($self) {
+
+
+  # get ctx
+  my $mc   = $self->getmc();
+  my $main = $mc->get_main();
+
+  my $ptr  = $self->{node}->{vref}->{res};
+
+
+  # deanon ptr
+  my ($name,$full,@path)=
+    $mc->ptrid($ptr);
+
+
+  # ~
+  my $inner = $ptr->get_node();
+  my @field = @{$self->{var}->{-order}};
+
+  my $src   = join ";\n",map {
+
+    my $x       = ${$inner->get($ARG)};
+
+    my ($label) = $mc->ptrid($x);
+    my $type    = $x->get_type();
+
+
+    "$type->{name} $label";
+
+  } @field;
+
+  my $type = struc $full,$src;
+
+  # TODO:
+  #
+  # walk mentions of new type and mutate them
+  # into data-decl nodes!
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# run through block and generate any
+# necessary additional instructions
+
+sub expand($self) {
+
+  $self->build_iter(1);
+  $self->bindvars();
+  $self->procblk();
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # wraps: scope to this block
 
 sub set_scope($self) {
@@ -193,24 +268,6 @@ sub timeline($self,$uid,$data=undef) {
   if defined $data;
 
   return $$out;
-
-};
-
-# ---   *   ---   *   ---
-# add attr to obj
-
-sub addattr($self,$name,$value) {
-  $self->{$name}=$value;
-  return;
-
-};
-
-# ---   *   ---   *   ---
-# add method to execution queue
-
-sub enqueue($self,$name,@args) {
-  push @{$self->{Q}->{$name}},\@args;
-  return;
 
 };
 

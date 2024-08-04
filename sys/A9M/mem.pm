@@ -829,7 +829,6 @@ sub decl($self,$type,$name,$value,%O) {
 
   };
 
-
   # make ice
   my $ptr=$self->infer($value,%O);
   return $ptr if ! length $ptr;
@@ -853,17 +852,33 @@ sub decl($self,$type,$name,$value,%O) {
 
 sub route_anon_ptr($self,$ptr) {
 
+
+  # get ctx
   my $mc   = $self->getmc();
   my $main = $mc->get_main();
 
+  # validate input
   $main->perr('bad decl -- no parent block!')
   if ! $self->{parent};
 
+
+  # get anonymous branch
   my $dst    = $self->{parent}->{inner};
   my ($name) = $ptr->fullpath;
 
-  $dst->force_set($ptr,$name);
-  $dst->{'*fetch'}->{mem}=$ptr;
+  # ^get sub-branch to deanonymize
+  my $src    = $self->{inner}->get($name);
+     $src    = $$src->get_node();
+
+
+  # make dummy!
+  $dst->force_get($name);
+
+  my $repl = $dst->{'*fetch'};
+  my $par  = $repl->{parent};
+
+  $par->{leaves}->[$repl->{idex}]=$src;
+
 
   return;
 
