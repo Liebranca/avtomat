@@ -76,6 +76,24 @@ sub set_uattrs($self,@keys) {
 };
 
 # ---   *   ---   *   ---
+# ^from another!
+
+sub set_uattrs_from($self,$other) {
+
+  my $mc    = $self->getmc();
+  my $flags = $mc->{bk}->{flags};
+
+  map {
+    $self->{$ARG}=$other->{$ARG};
+
+  } @{$flags->list};
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
 # encode to binary
 
 sub mint($self) {

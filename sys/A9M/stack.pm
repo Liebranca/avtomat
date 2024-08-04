@@ -220,7 +220,13 @@ sub repoint($self,$dst,$off=0x00) {
 # checks if ptr is referencing stack
 
 sub is_ptr($self,$dst) {
-  return $dst->{segid} eq $self->{mem}->{iced};
+
+  return (
+
+     defined $dst
+  && $dst->{segid} eq $self->{mem}->{iced}
+
+  );
 
 };
 

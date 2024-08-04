@@ -39,7 +39,7 @@ package ipret::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = v0.00.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -183,33 +183,113 @@ sub seg_type($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# ^~
+# template:
+#
+# * prepend segment declaration
+#   to current branch
 
-sub _struc($self,$branch) {
+sub segpre($self,$branch,$type,$name=null) {
 
 
   # get ctx
-  my $main = $self->{frame}->{main};
-  my $mc   = $main->{mc};
-  my $l1   = $main->{l1};
+  my $frame = $self->{frame};
+  my $main  = $frame->{main};
+  my $mc    = $main->{mc};
+  my $l1    = $main->{l1};
 
 
-  # get struc name
-  $branch->{vref}->{type}='rom';
-  $branch->{vref}->{name}=$l1->xlate(
-    $branch->{vref}->{name}
+  # locate expression
+  my $anchor = $branch;
+     $anchor = $anchor->{parent}
 
-  )->{spec};
+  while $anchor->{parent}
+  &&    $anchor->{parent} ne $main->{tree};
 
 
-  # generate new ROM block
-  my $out=$self->seg_type($branch);
-  my $seg=$mc->{segtop};
+  # get segment type
+  $type={
+    'executable' => 'exe',
+    'readable'   => 'rom',
+    'writeable'  => 'ram',
 
-  # ^set attrs and give step F
-  $seg->{virtual}=1;
+  }->{$type};
 
-  return $out;
+  # ^make segment node
+  my ($nd) = $anchor->{parent}->insert(
+    $anchor->{idex},
+
+    $l1->tag(CMD=>'seg-type')
+  . $type
+
+  );
+
+
+  $nd->{vref}=rd::vref->new(
+
+    type => 'SYM',
+    spec => (length $name)
+      ? $name
+      : $mc->{cas}->mklabel()
+      ,
+
+
+    data => $type,
+
+  );
+
+
+  # make segment and give
+  $self->seg_type($nd);
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^conditionally ;>
+
+sub csegpre($self,$branch,@flags) {
+
+
+  # get ctx
+  my $frame = $self->{frame};
+  my $main  = $frame->{main};
+  my $mc    = $main->{mc};
+
+  # ensure segment of the right type
+  my $top = $mc->{segtop};
+  my $ok  = @flags == grep {$top->{$ARG}} @flags;
+
+  $ok &=~ ($top eq $mc->{cas});
+
+
+  # no deal? then make new segment!
+  $self->segpre($branch,shift @flags)
+  if ! $ok;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# template:
+#
+# * if the current segment type
+#   does not match flags, then
+#   prepend one that does
+#
+# * slap a new label on it
+
+sub csegpre_blk($self,$branch,@flags) {
+
+  # get ctx
+  my $main=$self->{frame}->{main};
+
+  # ensure segment
+  $self->csegpre($branch,@flags);
+
+  # make label
+  return $self->blk($branch);
 
 };
 
@@ -246,6 +326,224 @@ sub clan($self,$branch) {
 
   $out->();
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# template: begin hierarchical block
+
+sub mkhier($self,$branch) {
+
+
+  # get ctx
+  my $main  = $self->{frame}->{main};
+  my $mc    = $main->{mc};
+
+  my $l1    = $main->{l1};
+  my $vref  = $branch->{vref};
+
+
+  # TODO: hier ribbon!
+  $mc->{hiertop}=undef;
+
+  # get type of hierarchical
+  my $type = $branch->{cmdkey};
+  my $tab  = {
+    proc  => ['executable'],
+    struc => ['readable'],
+
+  };
+
+  my $meta = $tab->{$type}
+  or $main->perr(
+
+    "invalid hierarchical '%s'",
+    args=>[$type],
+
+  );
+
+
+  # generate segment and block
+  my $fn=$self->csegpre_blk(
+    $branch,$meta->[0]
+
+  );
+
+
+  # set hierarchical anchor!
+  my $old=$fn;
+
+  $fn=sub {
+    my $have=$old->();
+    $mc->{hiertop}=$have;
+
+    return $have;
+
+  };
+
+
+  # find children nodes
+  my $re=$l1->re(CMD=>(join '|',keys %$tab));
+  my @lv=$branch->match_up_to(
+
+    $re,
+
+    inclusive => 0,
+    deep      => 1,
+
+  );
+
+  $branch->pushlv(@lv);
+
+
+  # make object representing block
+  my $ptr = $fn->();
+
+  $tab  = \$branch->{vref};
+  $$tab = rd::vref->new(
+
+    type => 'HIER',
+    spec => $type,
+
+    data => $mc->mkhier(
+      type=>$type,
+      node=>$branch,
+      name=>$vref->{res}->{label},
+
+    ),
+
+    res  => $vref->{res},
+
+  );
+
+
+  # scope to this block
+  my ($name,@path)=$ptr->fullpath;
+  $mc->scope(@path,$name);
+
+
+  return ($fn,$ptr);
+
+};
+
+# ---   *   ---   *   ---
+# make new structure
+
+sub _struc($self,$branch) {
+  my ($fn,$ptr)=$self->mkhier($branch);
+  return $fn;
+
+};
+
+# ---   *   ---   *   ---
+# make new process
+
+sub proc($self,$branch) {
+  my ($fn,$ptr)=$self->mkhier($branch);
+  return $fn;
+
+};
+
+# ---   *   ---   *   ---
+# a label with extra steps
+
+sub blk($self,$branch) {
+
+
+  # get ctx
+  my $main = $self->{frame}->{main};
+  my $mc   = $main->{mc};
+  my $l1   = $main->{l1};
+  my $enc  = $main->{encoder};
+
+  my $ISA  = $mc->{ISA};
+  my $top  = $mc->{segtop};
+  my $hier = $mc->{hiertop};
+  my $vref = $branch->{vref};
+
+
+  # get name of symbol
+  my $name = $vref->{spec};
+
+  my @xp   = $top->{value};
+  my @path = $top->ances_list;
+
+  if(defined $hier && %$hier) {
+
+    my ($par)=$hier->fullpath;
+
+    push @path,$par;
+    push @xp,$par;
+
+  };
+
+
+  my $full=join '::',@xp,$name;
+
+
+  # make fake ptr
+  my $align_t=$ISA->align_t;
+  $mc->{cas}->brkfit($align_t->{sizeof});
+
+  my $ptr=$mc->{cas}->lvalue(
+
+    0x00,
+
+    type  => $align_t,
+    label => $full,
+
+  );
+
+  $ptr->{ptr_t}      = $align_t;
+  $ptr->{addr}       = $mc->{cas}->{ptr};
+  $ptr->{chan}       = $top->{iced};
+
+  $mc->{cas}->{ptr} += $align_t->{sizeof};
+  $ptr->{p3ptr}      = $branch;
+
+
+#  # add reference to current segment!
+#  my $alt=$top->{inner};
+#  $alt->force_set($ptr,$name);
+#
+#  $alt->{'*fetch'}->{mem}=$ptr;
+#  $top->route_anon_ptr($ptr);
+
+
+  # ^schedule for update ;>
+  my $fn   = (ref $main) . '::cpos';
+     $fn   = \&$fn;
+
+
+  $enc->binreq(
+
+    $branch,[
+
+      $align_t,
+
+      'data-decl',
+
+      { id        => [$name,@path],
+
+        type      => 'sym-decl',
+
+        data      => $fn,
+        data_args => [$main],
+
+      },
+
+    ],
+
+  );
+
+
+  # reset and give
+  $fn=sub {$mc->{blktop}=$ptr;$ptr};
+
+  $vref->{res}=$ptr;
+  $fn->();
+
+  return $fn;
 
 };
 
@@ -350,24 +648,20 @@ sub data_decl($self,$branch) {
 
     if(! $main->{pass}) {
 
+
       # get current block + symbol name
       if($mc->{blktop}) {
 
-        my $blk=$mc->{blktop};
+        my $blk  = $mc->{blktop};
+        my $root = $mc->{cas}->{inner};
+
         my ($xname,@xpath)=$blk->fullpath;
 
 
-        # shorten path!
-        my @cur=@{$mc->{path}};
-        my @old=grep {
-          $xpath[$ARG] eq $mc->{path}->[$ARG]
+        shift @xpath
 
-        } 0..$#cur;
-
-        if(@old == @cur) {
-          @xpath=@xpath[@old..$#xpath];
-
-        };
+        if $xpath[0]
+        && $xpath[0] eq $root->{value};
 
         $name=join '::',@xpath,$xname,$name;
 
@@ -464,6 +758,66 @@ sub data_decl($self,$branch) {
 };
 
 # ---   *   ---   *   ---
+# decls inputs and outputs to a process
+
+sub io($self,$branch) {
+
+
+  # get ctx
+  my $frame = $self->{frame};
+  my $main  = $frame->{main};
+  my $l1    = $main->{l1};
+  my $mc    = $main->{mc};
+  my $vref  = $branch->{vref};
+  my $anima = $mc->{anima};
+
+
+  # get process
+  my $hier = $mc->{hiertop};
+  my $tab  = $hier->{p3ptr}->{vref};
+
+  my $dst  = $tab->{data};
+
+
+  # unpack args
+  my ($type,$sym,$value)=$vref->flatten();
+
+  # alloc and give
+  $dst->addio(
+    $branch->{cmdkey},
+    $sym->{spec},
+
+  );
+
+
+  # add var dummy to namespace
+  $value=(defined $value)
+
+    ? $l1->tag(
+        $value->{type},
+        $value->{spec},
+
+      ) . $value->{data}
+
+    : $l1->tag(NUM=>0)
+    ;
+
+  $vref->{spec} = typefet $type->{spec};
+  $vref->{data} = [[$sym->{spec}=>$value]];
+
+
+  # mutate into decl and give
+  $branch->{value}=$l1->tag(
+    CMD=>'data-decl'
+
+  ) . $branch->{cmdkey};
+
+
+  return $self->data_decl($self,$branch);
+
+};
+
+# ---   *   ---   *   ---
 # add entry points
 
 cmdsub 'flag-type' => q(
@@ -471,10 +825,17 @@ cmdsub 'flag-type' => q(
 
 ) => \&flag_type;
 
-cmdsub 'seg-type' => q() => \&seg_type;
-cmdsub 'clan' => q() => \&clan;
-cmdsub 'data-decl' => q() => \&data_decl;
-cmdsub 'struc' => q() => \&_struc;
+cmdsub   'seg-type'   => q() => \&seg_type;
+
+cmdsub   'clan'       => q() => \&clan;
+cmdsub   'struc'      => q() => \&_struc;
+cmdsub   'proc'       => q() => \&proc;
+cmdsub   'blk'        => q() => \&blk;
+
+cmdsub   'data-decl'  => q() => \&data_decl;
+
+cmdsub   'io'         => q() => \&io;
+w_cmdsub 'io'         => q() => qw(in out);
 
 # ---   *   ---   *   ---
 1; # ret

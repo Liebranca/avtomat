@@ -835,7 +835,15 @@ sub decl($self,$type,$name,$value,@subseg) {
 
 
   # make ice and give
-  $mem->decl($type,$name,$value,ptr_t=>$ptr_t);
+  return $mem->decl(
+
+    $type,
+    $name,
+    $value,
+
+    ptr_t=>$ptr_t
+
+  );
 
 };
 

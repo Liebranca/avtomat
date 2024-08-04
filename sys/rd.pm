@@ -606,7 +606,7 @@ sub walk($self,%O) {
     # report failure!
     $self->throw_unresolved(
       \@have,
-      lvl=>$AR_WARNING,
+      lvl=>$AR_FATAL,
 
     );
 

@@ -36,7 +36,7 @@ package rd::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.4;#b
+  our $VERSION = v0.01.5;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -478,15 +478,9 @@ w_cmdsub 'csume-token' => q(
   any name;
 
 ) => qw(
-  blk entry proc
+  entry
 
 );
-
-w_cmdsub 'csume-list-mut' => q(
-  cmd input;
-  any value=0;
-
-) => qw(io in out);
 
 # ---   *   ---   *   ---
 1; # ret

@@ -812,9 +812,13 @@ sub vname($self,$var) {
   } else {
 
     $out   = $var->{imm_args}->[0];
-    $out   = $out->{id}->[0];
+    $out   = $out->{id};
 
-    $out //= $var->{id}->[0];
+    $out //= $var->{id};
+
+
+    $out=join '::',@$out
+    if defined $out;
 
   };
 
@@ -1002,6 +1006,10 @@ sub prog_walk($self,$i,$type,$fn,@args) {
 # it can be later analyzed
 
 sub build_iter($self,$recalc=0) {
+
+
+  # scope to this block
+  $self->set_scope();
 
 
   # get block elements
@@ -1252,8 +1260,6 @@ sub bindvars($self) {
 
 
   # walk vars
-  $self->set_scope();
-
   map {
 
 
@@ -1261,15 +1267,25 @@ sub bindvars($self) {
     # non-constant values
     my $dst=$iter->{var}->{$ARG};
 
-    $dst->{ptr}=$mc->search($ARG)
-    if $dst->{loaded} ne 'const';
+    my ($id,@path)=(
+      grep  {$ARG}
+      split $mc->{pathsep},$ARG
+
+    );
+
+
+    $dst->{ptr}=$mc->search($id,@path)
+    if ! defined $dst->{loaded}
+    ||   $dst->{loaded} ne 'const';
 
 
     # ^pointer to block IS const
     if(
 
-       defined $dst->{ptr}
-    && exists  $dst->{ptr}->{p3ptr}
+       (defined $dst->{ptr})
+
+    && (exists  $dst->{ptr}->{p3ptr}
+       ||       $dst->{ptr}->is_rom())
 
     ) {
 

@@ -635,7 +635,7 @@ sub write_inner($self,$ptr,$par=undef) {
 
   my $node=$par->{'*fetch'};
 
-  $node->{-skipio} = 1;
+  $node->{-skipio} = 0;
   $node->{mem}     = $ptr;
 
   return ($node,$par);
@@ -835,10 +835,10 @@ sub decl($self,$type,$name,$value,%O) {
   return $ptr if ! length $ptr;
 
 
-  # make alias on parent segment if
-  # we are in an anonymous block!
-  $self->route_anon_ptr($ptr)
-  if $self->is_anon();
+#  # make alias on parent segment if
+#  # we are in an anonymous block!
+#  $self->route_anon_ptr($ptr)
+#  if $self->is_anon();
 
 
   # go next and give

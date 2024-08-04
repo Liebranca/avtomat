@@ -78,21 +78,26 @@ sub new($class,%O) {
   $O{segcls} //= caller;
 
 
-  # make ice and give
-  my $self=bless \%O,$class;
+  # make ice
+  my $self = bless \%O,$class;
 
-  my $mc=$self->getseg()->getmc();
+  # get segment and machine
+  my $seg = $self->getseg();
+  my $mc  = $seg->getmc();
 
   $self->{mccls} = ref $mc;
   $self->{mcid}  = $mc->{iced};
 
+
+  # identify size in memory
   $self->{size}  = ($self->{ptr_t})
     ? sizeof $self->{ptr_t}
     : sizeof $self->{type}
     ;
 
+  # ^inherit segment attrs
+  $self->set_uattrs_from($seg);
 
-  $self->set_uattrs();
 
   return $self;
 
@@ -252,6 +257,27 @@ sub fullpath($self) {
   && ($base[-1] eq $par[0]);
 
   return $name,@base,@par;
+
+};
+
+# ---   *   ---   *   ---
+# wraps
+
+sub decl($self,@args) {
+  return $self->getseg()->decl(@args);
+
+};
+
+# ---   *   ---   *   ---
+# pointing to read-only memory?
+
+sub is_rom($self) {
+
+  return ! (
+    $self->{writeable}
+  | $self->{executable}
+
+  );
 
 };
 

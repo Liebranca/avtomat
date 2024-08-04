@@ -40,7 +40,7 @@ package rd::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#a
+  our $VERSION = v0.01.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -504,9 +504,9 @@ sub type_decode($self,@src) {
 # add entry points
 
 cmdsub 'flag-type' => q(qlist src) => \&flag_type;
-cmdsub 'seg-type' => q(sym type) => \&seg_type;
+cmdsub 'seg-type'  => q(sym type)  => \&seg_type;
+cmdsub 'clan'      => q(sym name)  => \&clan;
 
-cmdsub 'clan'  => q(sym name) => \&clan;
 
 cmdsub 'data-decl' => q(
   vlist name;
@@ -519,23 +519,29 @@ cmdsub 'data-type' => q(
 
 ) => \&data_type;
 
-w_cmdsub 'seg-type'
+w_cmdsub 'seg-type' =>q(
+  sym type
 
-=>q(sym type)
-=>qw(rom ram exe);
+) => qw(rom ram exe);
 
-w_cmdsub 'data-type'
+w_cmdsub 'data-type' => q(
+  qlist any
 
-=> q(qlist any)
-=> @{Type::MAKE->ALL_FLAGS};
+) => @{Type::MAKE->ALL_FLAGS};
 
 w_cmdsub 'csume-token' => q(
-  sym any;
+  any any;
 
 ) => qw(
-  struc
+  struc proc blk
 
 );
+
+w_cmdsub 'csume-list-mut' => q(
+  cmd input;
+  any value=0;
+
+) => qw(io in out);
 
 # ---   *   ---   *   ---
 1; # ret

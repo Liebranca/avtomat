@@ -35,40 +35,15 @@ q[%;
 
 clan testy;
 
-proc fn;
+struc data;
+  byte x0;
 
-  in  byte x0;
-  out byte x1;
+struc data2;
+  word x1;
 
-  add x0,$26;
+proc new;
 
-
-blk err;
-  cmp  br,$00;
-  jz   ok;
-
-  os   exit,1;
-
-
-blk ok;
-  add  x0,$01;
-  ret;
-
-
-proc start;
-
-  in   byte x2;
-  byte x1;
-  byte x3;
-
-  ld   x1,$24;
-
-  x3=*fn x1;
-
-  add  x2,x3;
-  add  x2,x1;
-  ld   x1,x3;
-
+  data x0;
   ret;
 
 ],
