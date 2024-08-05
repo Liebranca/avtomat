@@ -49,6 +49,7 @@ package Type;
 
     struc
     strucf
+    restruc
 
     sizeof
     packof
@@ -70,7 +71,7 @@ package Type;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.04.5;
+  our $VERSION = v0.04.6;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -273,6 +274,30 @@ sub struc($name,$src=undef) {
   # save and give
   $Type::MAKE::Table->{$name}=$out;
   return $out;
+
+};
+
+# ---   *   ---   *   ---
+# ^modify existing structure!
+
+sub restruc($name,$src) {
+
+
+  # get type to overwrite
+  my $old=struc $name;
+  return null if ! $old;
+
+  # ^generate new on dummy
+  my $new=struc 'RESTRUC-DUMMY',$src;
+
+
+  # ^overwrite!
+  %$old=%$new;
+  $old->{name}=$name;
+
+  # cleanup and give
+  delete $Type::MAKE::Table->{'RESTRUC-DUMMY'};
+  return $old;
 
 };
 

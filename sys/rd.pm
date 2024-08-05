@@ -47,7 +47,7 @@ package rd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.8;#a
+  our $VERSION = v0.01.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -160,7 +160,6 @@ sub new($class,$src,%O) {
     # execution layer
     lx    => undef,
     stage => 0,
-    rerun => 0,
 
     mc    => undef,
 
@@ -271,7 +270,7 @@ sub crux($src,%O) {
 
 
   # run stages
-  map {$self->$ARG()}
+  map {$self->$ARG(%O)}
   @{$self->pipeline};
 
   # cleanup parse-only values
@@ -316,7 +315,7 @@ sub next_stage($self) {
 # parses entire file/codestr
 # and outputs a tree
 
-sub parse($self) {
+sub parse($self,%O) {
 
   # get ctx
   my $l0=$self->{l0};
@@ -457,7 +456,7 @@ sub parse_subclass($self) {
 # passes result of initial parse
 # through the preprocessor!
 
-sub preproc($self) {
+sub preproc($self,%O) {
 
 
   # kick if need
@@ -487,7 +486,7 @@ sub preproc($self) {
 # re-evaluates the tree after
 # being altered by the preprocessor
 
-sub reparse($self) {
+sub reparse($self,%O) {
 
 
   # get ctx
@@ -499,10 +498,6 @@ sub reparse($self) {
 
 
   # re-evaluate symbols
-  rept:
-
-  $self->{rerun}=0;
-
   my @Q=@{$self->{tree}->{leaves}};
   while(@Q) {
 
@@ -531,14 +526,17 @@ sub reparse($self) {
 
 
   # re-evaluate all branches
-  $l2->parse($self->{tree});
+  my $Q=[$l2->parse($self->{tree})];
+
+  # need to make another pass?
+  while($self->walk_repass($Q,%O)) {
+    $self->walk_pass($Q,%O);
+
+  };
+
 
   # go next and give
-  $self->next_pass();
-  goto rept if $self->{rerun};
-
   $self->next_stage();
-
   return;
 
 };
@@ -549,31 +547,48 @@ sub reparse($self) {
 
 sub walk($self,%O) {
 
+
+  # get ctx
+  my $tree = $self->{tree};
+  my $Q    = [@{$tree->{leaves}}];
+
+  # iter until its done
+  do   {$self->walk_pass($Q,%O)}
+  while($self->walk_repass($Q,%O));
+
+
+  # go next and give OK
+  $self->next_stage();
+  return 1;
+
+};
+
+# ---   *   ---   *   ---
+# perform single iter of tree
+
+sub walk_pass($self,$Q,%O) {
+
+
   # defaults
-  $O{limit} //= 1;
+  $O{limit} //= 2;
 
   $O{fwd}   //= $NOOP;
   $O{rev}   //= $NOOP;
   $O{self}  //= undef;
 
+
   # get ctx
-  my $l2   = $self->{l2};
-  my $tree = $self->{tree};
+  my $l2      = $self->{l2};
+  my $tree    = $self->{tree};
+
 
   # cleanup cache
-  my @pending=@{$tree->{leaves}};
-
-  rept:
-    $l2->{walked}={};
-
+  $l2->{walked}={};
 
   # walk tree
-  my @Q       = @pending;
-     @pending = ();
+  @$Q=map {
 
-  map {
-
-    my $branch = $ARG;
+    my $branch=$ARG;
 
 
     # * if a node is returned, then
@@ -582,42 +597,56 @@ sub walk($self,%O) {
     # * if an F is returned, then it
     #   is executed in the next pass
 
-    my @have=(is_coderef $branch)
+    (is_coderef $branch)
       ? ($branch,$branch->())
       : $l2->walk($branch,%O)
       ;
 
-    push @pending,@have;
+  } @$Q;
 
-  } @Q;
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# need to walk AGAIN?
+
+sub walk_repass($self,$Q,%O) {
 
 
   # another pass required/allowed?
   $self->next_pass();
 
   # ^repeat or fail if so!
-  my @have=grep {'Tree' eq ref $ARG} @pending;
+  my @have=grep {'Tree' eq ref $ARG} @$Q;
   if(@have) {
 
-    @pending=grep {length ref $ARG} @pending;
-    goto rept if $self->{pass} < $O{limit};
+
+    # keep allowed values
+    @$Q=grep {
+       Tree->is_valid($ARG)
+    || is_coderef $ARG
+
+    } @$Q;
 
 
-    # report failure!
+    # repeat if we're below N passes
+    return 1 if $self->{pass} < $O{limit};
+
+
+    # ^else die
     $self->throw_unresolved(
       \@have,
       lvl=>$AR_FATAL,
 
     );
 
-    return 0;
-
   };
 
 
-  # go next and give OK
-  $self->next_stage();
-  return 1;
+  # no branches in queue means do nothing ;>
+  return 0;
 
 };
 

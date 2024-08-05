@@ -63,6 +63,7 @@ sub defspkg($class,@args) {
     wm_cmdsub
 
     unrev
+    priority
 
   );
 
@@ -95,6 +96,7 @@ St::vconst {
 
     lis   => 'nop',
     unrev => 0,
+    prio  => 4,
 
     pkg   => __PACKAGE__,
 
@@ -357,6 +359,7 @@ sub new($class,$frame,%O) {
     key   => $key,
     unrev => $O{unrev},
     wraps => $O{wraps},
+    prio  => $O{prio},
 
   },$O{pkg};
 
@@ -604,6 +607,15 @@ sub wm_cmdsub($main,$name,$sig,@list) {
 
 sub unrev($cstruc) {
   $cstruc->{unrev}=1;
+  return $cstruc;
+
+};
+
+# ---   *   ---   *   ---
+# forces cmd to execute sooner or later
+
+sub priority($x,$cstruc) {
+  $cstruc->{prio}=$x;
   return $cstruc;
 
 };

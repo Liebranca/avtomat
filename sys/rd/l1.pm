@@ -86,7 +86,7 @@ St::vconst {
   },
 
 
-  restruc => {
+  re_base => {
     open  => '\[',
     close => '\]',
 
@@ -172,7 +172,7 @@ sub build($self) {
   });
 
   $self->{retab}={
-    BARE => qr{^[^$self->restruc()->{open}].*}x,
+    BARE => qr{^[^$self->re_base()->{open}].*}x,
     ANY  => $ANY_MATCH,
 
   };
@@ -214,7 +214,7 @@ sub mkre($self,@args) {
     : $self
     ;
 
-  my $struc=$class->restruc;
+  my $struc=$class->re_base;
   $args[2] //= '.*';
 
 

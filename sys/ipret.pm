@@ -145,10 +145,12 @@ sub crux($src,%O) {
 
   $self->walk(
 
-    self  => $self->{engine},
+    self   => $self->{engine},
 
-    limit => $O{limit},
-    rev   => \&$rev
+    limit  => $O{limit},
+    rev    => \&$rev,
+
+    cannon => 1,
 
   );
 

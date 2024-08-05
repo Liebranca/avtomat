@@ -391,20 +391,6 @@ sub mkhier($self,$branch) {
   };
 
 
-  # find children nodes
-  my $re=$l1->re(CMD=>(join '|',keys %$tab));
-  my @lv=$branch->match_up_to(
-
-    $re,
-
-    inclusive => 0,
-    deep      => 1,
-
-  );
-
-  $branch->pushlv(@lv);
-
-
   # make object representing block
   my $ptr = $fn->();
 
@@ -579,7 +565,6 @@ sub data_decl($self,$branch) {
   my $type = $vref->{spec};
   my $list = $vref->{data};
 
-
   my $out  = $vref->{res} //= [];
 
   # are we inside a process?
@@ -592,6 +577,14 @@ sub data_decl($self,$branch) {
   # walk values pending resolution
   my @have = map {
 
+
+if(! is_arrayref $ARG) {
+
+  use Fmat;
+  fatdump \$ARG,blessed=>1;
+  exit;
+
+};
 
     # unpack
     my ($name,$value)=@$ARG;

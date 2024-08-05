@@ -36,7 +36,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.2;#a
+  our $VERSION = v0.02.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -56,7 +56,6 @@ St::vconst {
 
   },
 
-  node_mutate => 'mut',
   sigtab_t    => 'rd::sigtab',
 
 };
@@ -481,9 +480,10 @@ sub parse($self,$head=undef) {
 sub walk($self,$branch,%O) {
 
   # defaults
-  $O{fwd}  //= $NOOP;
-  $O{rev}  //= $NOOP;
-  $O{self} //= $self;
+  $O{fwd}    //= $NOOP;
+  $O{rev}    //= $NOOP;
+  $O{self}   //= $self;
+  $O{cannon} //= 0;
 
 
   # get walk order
@@ -497,6 +497,10 @@ sub walk($self,$branch,%O) {
     $O{self},$O{rev},reverse @order
 
   );
+
+  # perform tree unreversal?
+  @cmd=reverse @cmd
+  if $O{cannon};
 
 
   # ^run and capture results
@@ -528,12 +532,33 @@ sub recurse($self,$branch,%O) {
 
 sub exec_queue($self,@Q) {
 
+
+  # get ctx
   my $main   = $self->{main};
   my $lx     = $main->{lx};
 
   my $walked = $self->{walked};
 
 
+  # sort nodes by priority
+  my @by_prio=();
+
+  map {
+
+    my ($cmd,$branch)=@$ARG;
+    my $dst = $by_prio[$cmd->{prio}] //= [];
+
+    ($cmd->{prio} != 4)
+      ? unshift @$dst,$ARG
+      : push    @$dst,$ARG
+      ;
+
+  } @Q;
+
+  @Q=map {@$ARG} grep {defined $ARG} @by_prio;
+
+
+  # ^walk the sorted list
   map {
 
 
@@ -556,22 +581,6 @@ sub exec_queue($self,@Q) {
 
       $self->{branch}=$branch;
       @have=$cmd->{key}->{fn}->($cmd,$branch);
-
-
-    # ^branch was mutated by proc
-    if($have[0] && $have[0] eq $self->node_mutate()) {
-
-      # have new command?
-      my $mut=$self->cmd();
-
-      # ^replace and repeat if so
-      if($mut && $mut ne 1) {
-        ($cmd,$branch)=@$mut;
-        goto rept;
-
-      };
-
-    };
 
 
     # give result if defined

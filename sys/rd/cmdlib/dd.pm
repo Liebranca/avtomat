@@ -120,15 +120,12 @@ sub seg_type($self,$branch) {
   $branch->clear();
 
 
-  # need mutate?
-  if($type ne 'seg-type') {
+  # need to mutate?
+  $branch->{value}=
+    $l1->tag(CMD=>'seg-type')
+  . "$type"
 
-    $branch->{value}=
-      $l1->tag(CMD=>'seg-type')
-    . "$type"
-    ;
-
-  };
+  if $type ne 'seg-type';
 
 
   # set preproc namespace!
@@ -147,34 +144,142 @@ sub seg_type($self,$branch) {
 };
 
 # ---   *   ---   *   ---
-# make/swap addressing space
+# find children nodes of a
+# hierarchical block
 
-sub clan($self,$branch) {
+sub mkhier($self,$branch) {
 
 
   # get ctx
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
 
-  # read input
-  my $name = $branch->leaf_value(0);
-     $name = $l1->untag($name)->{spec};
+  # get ½~
+  my $key={
+    clan  => [qw(clan)],
+    struc => [qw(clan struc proc)],
+    proc  => [qw(clan struc proc)],
 
-  $branch->{vref}=rd::vref->new(
-    type => 'SYM',
-    spec => $name,
-    data => 'clan',
+  }->{$branch->{cmdkey}};
+
+
+  # get leaves
+  my $re=$l1->re(CMD=>(join '|',@$key));
+  my @lv=$branch->{parent}->match_up_to(
+
+    $re,
+
+    inclusive => 0,
+    deep      => 1,
 
   );
 
-  $branch->clear();
+  $branch->pushlv(@lv);
 
 
-  # set preproc namespace!
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# make/swap addressing space
+
+sub clan($self,$branch) {
+
+
+  # get ctx
+  my $frame = $self->{frame};
+  my $main  = $frame->{main};
+
+  # fetch name
+  my $cmd=$frame->fetch('csume-token');
+  $cmd->csume_token($branch);
+
+
+  # ^set as namespace
+  my $name=$branch->{vref}->{spec};
+
   $main->{inner}->force_get($name);
   $main->{scope}=$main->{inner}->{'*fetch'};
 
+
+  # parent nodes and give
+  $self->mkhier($branch);
   return;
+
+};
+
+# ---   *   ---   *   ---
+# ^make type dummy for structure
+
+sub _struc($self,$branch) {
+
+
+  # get ctx
+  my $frame = $self->{frame};
+  my $main  = $frame->{main};
+  my $l1    = $main->{l1};
+  my $l2    = $main->{l2};
+
+  # fetch name
+  my $cmd=$frame->fetch('csume-token');
+  $cmd->csume_token($branch);
+
+
+  # make dummy typedecl
+  #
+  # this is done so mentions of this structure
+  # are themselves recognized as a type
+  # and processed accordingly
+  #
+  # the actual definition is done later!
+
+  my $name=$branch->{vref}->{spec};
+  my $clan=$main->{scope}->{value};
+
+  my $full="$clan\::$name";
+
+  struc $full=>q[tiny dummy];
+
+
+  # make command
+  $cmd=$frame->new(
+
+    lis   => $full,
+
+    fn    => \&{"rd::cmd::MAKE::wrapper"},
+    pkg   => St::cpkg,
+
+    wraps => 'data-type',
+    sig   => ['qlist any'],
+
+  );
+
+  # ^recurse for mentions of this type
+  my $par = $branch->{parent}->{parent};
+  my $re  = $l1->re(SYM=>"$full|$name");
+
+  my @lv  = $par->branches_in($re);
+  my $old = $l2->{branch};
+
+
+  map {
+
+    $ARG->{value}  = $l1->tag(CMD=>$full);
+    $l2->{branch}  = $ARG;
+
+    $l2->cmd();
+    $cmd->{key}->{fn}->($cmd,$ARG);
+
+  } @lv;
+
+
+  $l2->{branch}=$old;
+
+
+  # parent nodes and give
+  $self->mkhier($branch);
+  return @lv;
 
 };
 
@@ -447,7 +552,7 @@ sub data_type($self,$branch) {
 
 
       $branch->{cmdkey}=undef;
-      return $l2->node_mutate();
+      return $branch;
 
 
     # ^nope, last or middle
@@ -549,7 +654,18 @@ sub type_decode($self,@src) {
 
 cmdsub 'flag-type' => q(qlist src) => \&flag_type;
 cmdsub 'seg-type'  => q(sym type)  => \&seg_type;
-cmdsub 'clan'      => q(sym name)  => \&clan;
+
+
+priority 2 => cmdsub 'clan' => q(
+  sym name
+
+) => \&clan;
+
+priority 2 => cmdsub 'struc' => q(
+  sym name
+
+) => \&_struc;
+
 
 cmdsub 'data-decl' => q(
   qlist name;
@@ -577,7 +693,7 @@ w_cmdsub 'csume-token' => q(
   any any;
 
 ) => qw(
-  struc proc blk
+  proc blk
 
 );
 

@@ -35,7 +35,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.6;#a
+  our $VERSION = v0.01.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -186,29 +186,25 @@ sub ribbon_struc($self) {
     $mc->ptrid($ptr);
 
 
-  # ~
+  # read structure fields
   my $inner = $ptr->get_node();
-  my @field = @{$self->{var}->{-order}};
-
   my $src   = join ";\n",map {
 
-    my $x       = ${$inner->get($ARG)};
+    my $x=${$inner->get($ARG)};
 
+
+    # give decl list
     my ($label) = $mc->ptrid($x);
     my $type    = $x->get_type();
 
-
     "$type->{name} $label";
 
-  } @field;
 
-  my $type = struc $full,$src;
+  } @{$self->{var}->{-order}};
 
-  # TODO:
-  #
-  # walk mentions of new type and mutate them
-  # into data-decl nodes!
 
+  # redefine existing!
+  restruc $full,$src;
   return;
 
 };
