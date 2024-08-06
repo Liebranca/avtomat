@@ -1956,9 +1956,23 @@ sub replvar($self,$vref) {
 
   ) {
 
-    $qref->[2+$k]={
-      type => 'r',
-      reg  => $vref->{loc}
+
+    my $operand=\$qref->[2+$k];
+
+
+    # calculating address?
+    if(! index $$operand->{type},'m') {
+      $self->replmem($operand,$vref);
+
+
+    # ^replace immediate for register!
+    } else {
+
+      $$operand={
+        type => 'r',
+        reg  => $vref->{loc}
+
+      };
 
     };
 
@@ -1999,6 +2013,34 @@ sub replvar($self,$vref) {
 
   # go next and give
   $iter->{k}++;
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# TODO:
+#
+# work out how to best insert
+# value into a memory operand
+#
+# this is involved for a few reasons:
+#
+# * there are four types of addressing,
+#   and we have to consider them all
+#
+# * the address may require multiple
+#   instructions to compute
+#
+# * conversely, we may be able to work
+#   the calculation down to fewer steps
+
+
+sub replmem($self,$dst,$vref) {
+
+  use Fmat;
+  fatdump $dst;
+
+  exit;
   return;
 
 };

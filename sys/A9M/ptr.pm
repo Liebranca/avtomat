@@ -277,7 +277,11 @@ sub fullpath($self) {
 # wraps
 
 sub decl($self,@args) {
-  return $self->getseg()->decl(@args);
+
+  my $nd  = $self->get_node();
+  my $seg = $nd->{parent}->{mem};
+
+  return $seg->decl(@args);
 
 };
 

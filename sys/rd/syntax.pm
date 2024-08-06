@@ -32,7 +32,7 @@ package rd::syntax;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -212,6 +212,7 @@ sub apply_rules($self,$branch) {
   $self->make_ops($branch);
   $l2->invoke('fwd-parse'=>'csv');
 
+
   return;
 
 };
@@ -314,6 +315,7 @@ sub _csv($self,$branch,$data) {
   if exists $branch->{oldchd};
   delete $branch->{oldchd};
 
+
   return 0;
 
 
@@ -346,7 +348,7 @@ sub join_opr($self) {
     re   => $opr,
 
     fn   => \&_join_opr,
-    flat => 0,
+    flat => 1,
 
   );
 
@@ -482,12 +484,19 @@ sub sort_uopr($self,$branch) {
 
     };
 
-    $ARG->pushlv($have)
 
-    if  $have
+    if($have) {
 
-    &&  ($have->{value}=~ $valid)
-    &&! ($have->{value}=~ $asg);
+      my $x=$l1->xlate($have->{value});
+
+      $ARG->pushlv($have)
+
+      if  $x
+
+      &&  ($x->{spec}=~ $valid)
+      &&! ($x->{spec}=~ $asg);
+
+    };
 
 
   } $self->sort_opr(
@@ -524,6 +533,7 @@ sub sort_bopr($self,$branch) {
     my $par  = $ARG->{parent};
     my $lv   = $par->{leaves};
 
+
     if(1 <= $idex && $idex < @$lv-1) {
 
       my @have=(
@@ -532,11 +542,17 @@ sub sort_bopr($self,$branch) {
 
       );
 
+
       $ARG->pushlv(@have)
 
       if @have == int grep {
-          ($ARG->{value}=~ $valid)
-      &&! ($ARG->{value}=~ $asg)
+
+        my $x=$l1->xlate($ARG->{value});
+
+      defined $x
+
+      &&  ($ARG->{value}=~ $valid)
+      &&! ($x->{spec}=~ $asg)
 
       } @have;
 
@@ -546,6 +562,7 @@ sub sort_bopr($self,$branch) {
     $branch,$self->opr->{binary}
 
   );
+
 
   return;
 

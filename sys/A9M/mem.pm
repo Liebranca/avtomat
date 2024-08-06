@@ -635,7 +635,7 @@ sub write_inner($self,$ptr,$par=undef) {
 
   my $node=$par->{'*fetch'};
 
-  $node->{-skipio} = 0;
+  $node->{-skipio} = 1;
   $node->{mem}     = $ptr;
 
   return ($node,$par);

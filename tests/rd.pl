@@ -36,13 +36,14 @@ q[%;
 clan testy;
 
 struc data;
-  byte x1 [4];
+  byte A[4];
 
 proc new;
 
-  in data x0;
+  data s0;
+  byte s1;
 
-  add x0,$1;
+  st [ar+4],$24;
   ret;
 
 ],

@@ -510,9 +510,8 @@ sub blk($self,$branch) {
 
 
   # ^schedule for update ;>
-  my $fn   = (ref $main) . '::cpos';
-     $fn   = \&$fn;
-
+  my $fn = (ref $main) . '::cpos';
+     $fn = \&$fn;
 
   $enc->binreq(
 
@@ -585,7 +584,6 @@ sub data_decl($self,$branch) {
     # unpack
     my ($name,$value)=@$ARG;
 
-
     # *attempt* solving
     my ($x,$have)=
       $eng->value_flatten($value);
@@ -647,20 +645,34 @@ sub data_decl($self,$branch) {
     if(! $main->{pass}) {
 
 
-      # get current block + symbol name
+      # scope declaration to current block
       if($mc->{blktop}) {
 
+
+        # get global paths
         my $blk  = $mc->{blktop};
-        my $root = $mc->{cas}->{inner};
+        my $root = $mc->{segtop}->{inner};
 
         my ($xname,@xpath)=$blk->fullpath;
+        my @root=$root->ances_list;
 
 
-        shift @xpath
+        # ^discard redundant bits
+        while(@root && @xpath) {
 
-        if $xpath[0]
-        && $xpath[0] eq $root->{value};
+          if($root[0] eq $xpath[0]) {
+            shift @root;
+            shift @xpath;
 
+          } else {
+            last;
+
+          };
+
+        };
+
+
+        # give single string
         $name=join '::',@xpath,$xname,$name;
 
       };

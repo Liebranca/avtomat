@@ -263,7 +263,7 @@ sub _struc($self,$branch) {
   my $old = $l2->{branch};
 
 
-  map {
+  my @out=map {
 
     $ARG->{value} = $l1->tag(CMD=>$full);
     $l2->{branch} = $ARG;
@@ -279,7 +279,7 @@ sub _struc($self,$branch) {
 
   # parent nodes and give
   $self->mkhier($branch);
-  return;
+  return @out;
 
 };
 

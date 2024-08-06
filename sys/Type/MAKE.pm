@@ -453,7 +453,11 @@ sub _fetch(@flags) {
   my $flags=0x00;
 
   map  {$flags |= $TYPEFLAG->{$ARG}}
-  grep {$ARG ne 'ptr'} @flags;
+  grep {
+    $ARG ne 'ptr'
+    && defined $TYPEFLAG->{$ARG}
+
+  } @flags;
 
 
   # pointers are not real! ;>

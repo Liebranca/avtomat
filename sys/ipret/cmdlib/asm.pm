@@ -231,13 +231,31 @@ sub argsolve($self,$branch) {
     # have operator?
     } elsif($type eq 'OPR') {
 
-      $O->{imm}=$eng->opera_collapse(
-        $nd,$have,
 
-        noreg=>1,
-        noram=>1,
+      # arrow is special ;>
+      if($have->{spec} eq '->') {
 
-      );
+        $nd->prich();
+        exit;
+
+
+      # ^common op
+      } else {
+
+        my $x=$eng->opera_collapse(
+          $nd,$have,
+
+          noreg=>1,
+          noram=>1,
+
+        );
+
+        return null if ! length $x;
+
+        $O->{imm}  = $x;
+        $O->{type} = $ISA->immsz($O->{imm});
+
+      };
 
 
     # have memory?
@@ -428,6 +446,7 @@ sub get_valid_ptr($self,$type,$nd,@args) {
     # check common LH usage?
     } elsif(! $nd->{idex}) {
 
+
       $main->perr(
 
         'invalid operation; '
@@ -451,7 +470,6 @@ sub get_valid_ptr($self,$type,$nd,@args) {
 
     # check common RH usage?
     } else {
-
 
       $main->perr(
 
@@ -485,7 +503,7 @@ sub get_valid_ptr($self,$type,$nd,@args) {
       . 'substraction'
 
       ) if $nd->{idex} && $self->get_opr_parent(
-        $nd,qr{^(?:\-|\+)$}
+        $nd,qr{^(?:\-\>|\-|\+)$}
 
       );
 
@@ -622,7 +640,6 @@ sub addr_decompose($self,$nd) {
     # register name?
     if($have=$l1->typechk(REG=>$key)) {
 
-
       $stk |= $have->{spec} == $anima->stack_base;
       $lea |= $self->get_valid_ptr(REG=>$nd,$stk);
 
@@ -682,7 +699,7 @@ sub addr_decompose($self,$nd) {
 
 
   # check legal register use
-  my $reg  = [addr_elem reg=>@tree];
+  my $reg  = [addr_elem REG=>@tree];
      $lea |= @$reg > 1;
 
   $main->perr(
@@ -749,6 +766,7 @@ sub addrmode($self,$branch,$nd) {
       $branch,$tree->[$idex],1
 
     );
+
 
     return null if ! length $head;
 

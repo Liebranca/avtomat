@@ -216,13 +216,19 @@ sub addr_collapse($self,$tree) {
   my $opera = qr{^(?:\*|\/)$};
   my @have  = map {
 
-    my $neg = 0;
+    my $neg = $ARG->{neg};
     my @out = ();
 
+    $neg //= 0;
+
+
+    # plain number?
+    if($ARG->{type} eq 'IMM') {
+      @out = $ARG->{spec};
+
     # have fetch?
-    if(exists $ARG->{imm}) {
+    } elsif(exists $ARG->{imm}) {
       @out = ($mc->vrefid($ARG))[1];
-      $neg = $ARG->{neg};
 
     # have value!
     } else {
@@ -250,8 +256,8 @@ sub addr_collapse($self,$tree) {
 
       my $y=shift @have;
 
-      push @out,$x;
-      push @out,'+',$y if($y);
+      push @out,"+$x";
+      push @out,'+',$y if $y;
 
     };
 
