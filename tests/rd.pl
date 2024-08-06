@@ -39,7 +39,10 @@ struc data;
   byte x1 [4];
 
 proc new;
-  testy::data x0;
+
+  in data x0;
+
+  add x0,$1;
   ret;
 
 ],

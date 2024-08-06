@@ -206,31 +206,25 @@ sub bind($self) {
   # get ctx
   my $l1   = $self->{l1};
   my $mc   = $self->{mc};
-  my $hier = $mc->{bk}->{hier}->blk_re;
   my $root = $self->{tree};
   my $enc  = $self->{encoder};
+
 
   # force recalculation of node indices
   delete $root->{absidex};
   $root->absidex;
 
+  # make regex
+  my $re=$l1->re(
+    CMD=>$mc->{bk}->{hier}->blk_re
 
-  # walk tree surface...
-  my @Q=@{$root->{leaves}};
-  while(@Q) {
+  );
 
-    my $nd   = shift @Q;
-    my $vref = $nd->{vref};
+  # walk hierarchical blocks
+  map {
+    $ARG->{vref}->{data}->expand();
 
-
-    # have hierarchical?
-    if($nd->{value}=~ $hier) {
-      my $blk=$vref->{data};
-      $blk->expand();
-
-    };
-
-  };
+  } $root->branches_in($re);
 
 
   return;

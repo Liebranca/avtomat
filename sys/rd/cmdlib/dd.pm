@@ -154,7 +154,7 @@ sub mkhier($self,$branch) {
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
 
-  # get ½~
+  # get nesting pattern
   my $key={
     clan  => [qw(clan)],
     struc => [qw(clan struc proc)],
@@ -265,8 +265,8 @@ sub _struc($self,$branch) {
 
   map {
 
-    $ARG->{value}  = $l1->tag(CMD=>$full);
-    $l2->{branch}  = $ARG;
+    $ARG->{value} = $l1->tag(CMD=>$full);
+    $l2->{branch} = $ARG;
 
     $l2->cmd();
     $cmd->{key}->{fn}->($cmd,$ARG);
@@ -279,7 +279,30 @@ sub _struc($self,$branch) {
 
   # parent nodes and give
   $self->mkhier($branch);
-  return @lv;
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# ^make F
+
+sub proc($self,$branch) {
+
+
+  # get ctx
+  my $frame = $self->{frame};
+  my $main  = $frame->{main};
+  my $l1    = $main->{l1};
+  my $l2    = $main->{l2};
+
+  # fetch name
+  my $cmd=$frame->fetch('csume-token');
+  $cmd->csume_token($branch);
+
+
+  # parent nodes and give
+  $self->mkhier($branch);
+  return;
 
 };
 
@@ -527,7 +550,7 @@ sub data_type($self,$branch) {
 
 
   # rwalk specifier list
-  $self->rcollapse_list($branch,sub {
+  return $self->rcollapse_list($branch,sub {
 
 
     # get hashref from flags
@@ -543,6 +566,7 @@ sub data_type($self,$branch) {
 
     # first token in expression?
     if($l2->is_exprtop($branch)) {
+
 
       # mutate into another command
       $branch->{value}=
@@ -601,7 +625,6 @@ sub data_type($self,$branch) {
       if($branch eq $par->{leaves}->[-1]
       && $l1->typechk(LIST=>$par->{value})) {
 
-
         my $tail=$anchor->{parent};
 
         # have (type X,type Y) ?
@@ -614,6 +637,7 @@ sub data_type($self,$branch) {
           $par->pushlv($anchor);
 
         };
+
 
       };
 
@@ -666,6 +690,11 @@ priority 2 => cmdsub 'struc' => q(
 
 ) => \&_struc;
 
+priority 2 => cmdsub 'proc' => q(
+  sym name
+
+) => \&proc;
+
 
 cmdsub 'data-decl' => q(
   qlist name;
@@ -693,12 +722,12 @@ w_cmdsub 'csume-token' => q(
   any any;
 
 ) => qw(
-  proc blk
+  blk
 
 );
 
 w_cmdsub 'csume-list-mut' => q(
-  cmd input;
+  any input;
   any value=0;
 
 ) => qw(io in out);

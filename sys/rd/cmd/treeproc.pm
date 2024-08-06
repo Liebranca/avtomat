@@ -140,7 +140,7 @@ sub rcollapse_list($self,$branch,$fn) {
 
   # parent is command, keep collapsing
   my $head=$l1->xlate($par->{value});
-  if(defined $head && $head->{type} eq 'CMD') {
+  if($head && $head->{type} eq 'CMD') {
 
     # save commands to parent, they'll be
     # picked up in the next run of this F

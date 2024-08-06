@@ -200,10 +200,10 @@ sub segpre($self,$branch,$type,$name=null) {
 
   # locate expression
   my $anchor = $branch;
-     $anchor = $anchor->{parent}
-
-  while $anchor->{parent}
-  &&    $anchor->{parent} ne $main->{tree};
+#     $anchor = $anchor->{parent};
+#
+#  while $anchor->{parent}
+#  &&    $anchor->{parent} ne $main->{tree};
 
 
   # get segment type
@@ -324,7 +324,10 @@ sub clan($self,$branch) {
 
   };
 
+
   $out->();
+  $branch->{value} .= $name;
+
   return $out;
 
 };
@@ -417,6 +420,7 @@ sub mkhier($self,$branch) {
   $mc->scope(@path,$name);
 
 
+  $branch->{value} .= $name;
   return ($fn,$ptr);
 
 };
@@ -578,14 +582,6 @@ sub data_decl($self,$branch) {
   my @have = map {
 
 
-if(! is_arrayref $ARG) {
-
-  use Fmat;
-  fatdump \$ARG,blessed=>1;
-  exit;
-
-};
-
     # unpack
     my ($name,$value)=@$ARG;
 
@@ -621,7 +617,7 @@ if(! is_arrayref $ARG) {
 
 
     # catch string datatype mismatch
-    if($ptr_t &&! is_hashref $x) {
+    if($ptr_t && $have &&! is_hashref $x) {
 
       $main->perr(
 
@@ -719,7 +715,7 @@ if(! is_arrayref $ARG) {
       my $blk = $hier->{p3ptr}->{vref};
          $blk = $blk->{data};
 
-      my $tmp  = $blk->chkvar($oldname,-1);
+      my $tmp = $blk->chkvar($oldname,-1);
 
       $tmp->{defv}=($have) ? $x : undef ;
 
@@ -784,6 +780,7 @@ sub io($self,$branch) {
   # unpack args
   my ($type,$sym,$value)=$vref->flatten();
 
+
   # alloc and give
   $dst->addio(
     $branch->{cmdkey},
@@ -815,7 +812,7 @@ sub io($self,$branch) {
   ) . $branch->{cmdkey};
 
 
-  return $self->data_decl($self,$branch);
+  return $self->data_decl($branch);
 
 };
 

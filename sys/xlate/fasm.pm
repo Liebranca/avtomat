@@ -29,6 +29,7 @@ package xlate::fasm;
   use Fmat;
   use St;
 
+  use Arstd::IO;
   use xlate::fasm_opt;
 
 # ---   *   ---   *   ---
@@ -280,8 +281,21 @@ sub operand_value($self,$type,@data) {
   map {
 
     if($ARG->{type} eq 'r') {
-      my $reg=$rtab->{$ARG->{reg}};
-      $reg->{$type->{name}};
+
+      my $reg  = $rtab->{$ARG->{reg}};
+      my $size = $type->{sizeof};
+      my @name = typeof $size;
+
+      # TODO: vectors
+      if(@name > 1) {
+        nyi "vector anima";
+
+      # ^simple
+      } else {
+        $reg->{$name[0]};
+
+      };
+
 
     } elsif(! index $ARG->{type},'m') {
 

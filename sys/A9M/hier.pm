@@ -96,7 +96,7 @@ St::vconst {
 
   },
 
-  blk_re => qr{^(?:proc|struc)$},
+  blk_re => qr{struc|proc},
 
 };
 
@@ -1069,6 +1069,7 @@ sub build_iter($self,$recalc=0) {
   my $hist=$self->sort_hist($recalc);
   my $iter=$self->reset_iter();
 
+
   # ^walk
   $iter->{prog}=[map {
 
@@ -1955,7 +1956,6 @@ sub replvar($self,$vref) {
 
   ) {
 
-
     $qref->[2+$k]={
       type => 'r',
       reg  => $vref->{loc}
@@ -1971,7 +1971,8 @@ sub replvar($self,$vref) {
       my $old   = $qref->[0];
          $old //= typefet 'word';
 
-      my $new   = $vref->{ptr}->{type};
+      my $new   = $vref->{ptr}->get_type();
+
 
 
       my $sign = (
@@ -1981,12 +1982,14 @@ sub replvar($self,$vref) {
       );
 
 
+      # TODO: revise this bit
+      #
       # do IF dst is smaller
       #    OR src is bigger
 
       $qref->[0]=$new
 
-      if (! $k &&! $sign)
+      if (! $k) #  &&! $sign
       || (  $k &&  $sign);
 
     };
