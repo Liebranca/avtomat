@@ -42,7 +42,7 @@ package ipret::cmdlib::asm;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.6;#b
+  our $VERSION = v0.02.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -624,6 +624,7 @@ sub addr_decompose($self,$nd) {
 
   my $stk  = 0;
   my $lea  = 0;
+  my $opsz = undef;
 
   my @Q    = $beg;
 
@@ -633,8 +634,6 @@ sub addr_decompose($self,$nd) {
 
     my $key  = $nd->{value};
     my $have = undef;
-
-    unshift @Q,@{$nd->{leaves}};
 
 
     # register name?
@@ -679,6 +678,32 @@ sub addr_decompose($self,$nd) {
       };
 
 
+    # arrow?
+    } elsif($have->{spec} eq '->') {
+
+      my ($sym,$off,$field_t)=
+        $eng->arrow_to_offset($nd);
+
+      return null if ! $sym;
+
+
+      $opsz=$field_t;
+
+      push @tree,{
+        spec => $sym,
+        neg  => 0,
+        type => 'SYM',
+
+      },{
+        spec => $off,
+        neg  => 0,
+        type => 'IMM',
+
+      };
+
+      next;
+
+
     # operator!
     } else {
 
@@ -693,6 +718,9 @@ sub addr_decompose($self,$nd) {
 
 
     };
+
+
+    unshift @Q,@{$nd->{leaves}};
 
 
   };
@@ -726,6 +754,8 @@ sub addr_decompose($self,$nd) {
 
     stk   => $stk,
     lea   => $lea,
+
+    opsz  => $opsz,
 
   };
 
@@ -881,9 +911,17 @@ sub addrmode($self,$branch,$nd) {
   };
 
 
-  # give descriptor
-  $O->{opsz}      = $opsz;
-  $O->{opsz_args} = $opsz_args;
+  # decide which operation size to use
+  if(defined $data->{opsz}) {
+    $O->{opsz}      = $data->{opsz};
+    $O->{opsz_args} = [];
+
+  } else {
+    $O->{opsz}      = $opsz;
+    $O->{opsz_args} = $opsz_args;
+
+  };
+
 
   return $O;
 

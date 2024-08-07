@@ -593,11 +593,11 @@ sub data_decl($self,$branch) {
     my $ptr_t = undef;
 
     # ^sanity check
-    my $ptrcls   = $mc->{bk}->{ptr};
-    my $have_ptr = $ptrcls->is_valid($x);
-    my $isptr    = Type->is_ptr($type);
+    my $ptrcls     = $mc->{bk}->{ptr};
+    my $have_ptr   = $ptrcls->is_valid($x);
+    my $have_ptr_t = Type->is_ptr($type);
 
-    if($have_ptr &&! $isptr) {
+    if($have_ptr &&! $have_ptr_t) {
 
       $main->perr(
 
@@ -608,7 +608,13 @@ sub data_decl($self,$branch) {
 
 
     # ^yes ptr!
-    } elsif($isptr &&! Type->is_str($type)) {
+    } elsif(
+
+        $have_ptr_t
+    &&! Type->is_str($type)
+
+    ) {
+
       $ptr_t=$type;
 
     };
@@ -630,12 +636,8 @@ sub data_decl($self,$branch) {
 
 
     # separate datatype from pointer width
-    $type=($ptr_t && $x)
-      ? $x->{type}
-      : $type
-      ;
-
-    $ptr_t=typefet $ptr_t if $ptr_t;
+    $type  = $x->{type} if $ptr_t && $x;
+    $ptr_t = typefet $ptr_t if $ptr_t;
 
 
     # assume declaration on first pass
@@ -699,6 +701,8 @@ sub data_decl($self,$branch) {
 
 
     # overwrite meta
+    $type=derefof $type if $have_ptr_t;
+
     $sym->{type}  = $type;
     $sym->{ptr_t} = $ptr_t;
 
@@ -762,7 +766,13 @@ sub io($self,$branch) {
 
 
   # unpack args
-  my ($type,$sym,$value)=$vref->flatten();
+  my $re   = qr{^(?:TYPE|CMD)$};
+  my @type = rd::vref->is_valid($re,$vref);
+
+  my ($sym,$value)=grep {
+    ! ($ARG->{type}=~ $re)
+
+  } $vref->flatten();
 
 
   # alloc and give
@@ -785,7 +795,7 @@ sub io($self,$branch) {
     : $l1->tag(NUM=>0)
     ;
 
-  $vref->{spec} = typefet $type->{spec};
+  $vref->{spec} = typefet @type;
   $vref->{data} = [[$sym->{spec}=>$value]];
 
 

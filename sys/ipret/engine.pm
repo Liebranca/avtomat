@@ -38,7 +38,7 @@ package ipret::engine;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;#a
+  our $VERSION = v0.01.1;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -914,6 +914,85 @@ sub quantize($self,$src) {
     nyi "<$type> quantization";
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# decompose elements of symbol
+# fetch operator
+
+sub arrow_to_offset($self,$root) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $mc   = $main->{mc};
+  my $l1   = $main->{l1};
+
+  # walk subtree
+  my $root_t = undef;
+  my @out    = (undef,0);
+
+  my @Q      = @{$root->{leaves}};
+
+  while(@Q) {
+
+    my $nd   = shift @Q;
+    my $have = $l1->xlate($nd->{value});
+
+
+    # recurse?
+    if(
+
+       $have->{spec} eq '->'
+    || $have->{type} eq 'LIST'
+
+    ) {
+
+      unshift @Q,@{$nd->{leaves}};
+
+
+    # set as path root?
+    } elsif(! defined $out[0]) {
+
+      my $sym=$self->symfet($have->{spec});
+      return null if ! length $sym;
+
+      $root_t = $sym->{type};
+      $out[0] = $have->{spec};
+
+
+    # ^add to offset
+    } else {
+
+
+      # have plain number?
+      if($have->{type} eq 'NUM') {
+
+        my $type = typefet $root_t->{struc_t}->[0];
+        my $size = $type->{sizeof};
+
+        $out[1] += $have->{spec} * $size;
+        $root_t  = $type;
+
+      # have field name!
+      } else {
+
+        my $field=$have->{spec};
+        my ($field_t,$idex)=
+          strucf $root_t,$field;
+
+        $out[1] += $root_t->{struc_off}->[$idex];
+        $root_t  = $field_t;
+
+      };
+
+    };
+
+  };
+
+
+  return (@out,$root_t);
 
 };
 

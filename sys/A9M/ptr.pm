@@ -336,6 +336,7 @@ sub read_ptr($self) {
 
 sub stvproc($self,$value) {
 
+
   return $value
   if ! @{$self->{type}->{struc_t}};
 

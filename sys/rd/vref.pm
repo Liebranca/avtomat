@@ -265,10 +265,10 @@ sub is_valid($class,$filter,$ice,$attr='spec') {
   my $re=$filter;
   if(! is_qre $re) {
 
-    $class->retab->{$filter}=qr{^$filter$}
+    $class->retab->{$filter}=qr{^(?:$filter)$}
     if ! exists $class->retab->{$filter};
 
-    $re=$class->retab->{$filter}
+    $re=$class->retab->{$filter};
 
   };
 

@@ -37,12 +37,13 @@ clan testy;
 
 struc data;
   byte A[4];
+  byte B[4];
 
 proc new;
 
-  in data s0;
+  in long data s0;
 
-  st [s0],$24;
+  st [s0->B->1],$24;
   ret;
 
 ],

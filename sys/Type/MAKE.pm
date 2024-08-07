@@ -427,10 +427,17 @@ sub _fetch(@flags) {
   my ($key)=grep {$ARG=~ $RE->{defn}} @flags;
 
   # ^retry?
+  map  {  ($key //=  $ARG)}
+  grep {! ($ARG   =~ $RE->{ptr_w})} @flags
+
+  if ! defined $key;
+
+  # ^give up? ;>
   map  {$key //=  $ARG}
   grep {$ARG   =~ $RE->{ptr_w}} @flags
 
   if ! defined $key;
+
 
   # ^throw missing
   return badtype join ' ',@flags

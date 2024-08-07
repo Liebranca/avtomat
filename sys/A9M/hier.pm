@@ -1972,7 +1972,9 @@ sub replvar($self,$vref) {
 
     # calculating address?
     if(! index $$operand->{type},'m') {
+
       $self->replmem($operand,$vref);
+      $qref->[0]=$$operand->{opsz};
 
 
     # ^replace immediate for register!
@@ -1984,37 +1986,36 @@ sub replvar($self,$vref) {
 
       };
 
-    };
+
+      # overwrite operation size?
+      if($vref->{ptr}) {
 
 
-    # overwrite operation size?
-    if($vref->{ptr}) {
+        # compare sizes
+        my $old   = $qref->[0];
+           $old //= typefet 'word';
+
+        my $new   = $vref->{ptr}->get_type();
 
 
-      # compare sizes
-      my $old   = $qref->[0];
-         $old //= typefet 'word';
+        my $sign=(
+          $old->{sizeof}
+        < $new->{sizeof}
 
-      my $new   = $vref->{ptr}->get_type();
-
-
-
-      my $sign = (
-        $old->{sizeof}
-      < $new->{sizeof}
-
-      );
+        );
 
 
-      # TODO: revise this bit
-      #
-      # do IF dst is smaller
-      #    OR src is bigger
+        # TODO: revise this bit
+        #
+        # do IF dst is smaller
+        #    OR src is bigger
 
-      $qref->[0]=$new
+        $qref->[0]=$new
 
-      if (! $k) #  &&! $sign
-      || (  $k &&  $sign);
+        if (! $k) #  &&! $sign
+        || (  $k &&  $sign);
+
+      };
 
     };
 
@@ -2046,7 +2047,7 @@ sub replvar($self,$vref) {
 
 
 sub replmem($self,$dst,$vref) {
-use Fmat;
+
 
   # get ctx
   my $mc   = $self->getmc();
@@ -2094,7 +2095,6 @@ use Fmat;
 
   # pending
   if(@ext) {
-    fatdump \$ext[0]->[1],blessed=>1;
     nyi "external symbols in address"
 
   };
