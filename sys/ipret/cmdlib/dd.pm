@@ -706,6 +706,7 @@ sub data_decl($self,$branch) {
     $sym->{type}  = $type;
     $sym->{ptr_t} = $ptr_t;
 
+
     $sym->store($x,deref=>0);
 
 

@@ -471,7 +471,7 @@ sub varkeys($self,%O) {
   if $O{io};
 
 
-  return @out;
+  return grep {! ($ARG=~ qr{^[\%\$]})} @out;
 
 };
 
@@ -604,7 +604,6 @@ sub load($self,$dst,$which) {
 
     # ^mark in use and restore
     $self->{used}    |= $bit;
-    $self->{vused}   |= $bit;
     $dst->{loc}       = $idex;
 
     $anima->{almask}  = $old;
@@ -616,12 +615,14 @@ sub load($self,$dst,$which) {
   my $iter  = $self->{citer};
   my $point = $iter->{point};
   my $j     = $iter->{j};
+  my $ins   = $point->{Q}->[$j]->[1];
 
-  goto skip if (
-  !  $point->{"load_$which"}->[$j]
-  || $dst->{loaded}
+  goto skip if ($dst->{loaded} || (
 
-  );
+      $ins ne 'st'
+  &&! $point->{"load_$which"}->[$j]
+
+  ));
 
 
   # have constant value to load?
@@ -646,8 +647,13 @@ sub load($self,$dst,$which) {
   # loading undefined?
   } elsif(! $stack->is_ptr($dst->{ptr})) {
 
-    my $main=$mc->get_main();
+    my $npres=(
+      ($self->{vused})
+    & (1 << $dst->{loc})
 
+    );
+
+    my $main=$mc->get_main();
 
     # * case 0: this value is uninitialized,
     #   and so we must throw
@@ -656,13 +662,13 @@ sub load($self,$dst,$which) {
 
       $self->{iter}->{point}->{branch},
 
-      "attempt to load undefined value '%s'",
+      "attempt to use undefined value '%s'",
       args=>[$dst->{name}],
 
 
     # * case 1: value was initialized, but
     #   was simply not preserved, so noop
-    ) if ! ($self->{vused} & (1 << $dst->{loc}));
+    ) if ! $npres;
 
 
   # ^nope, load from stack
@@ -689,10 +695,12 @@ sub load($self,$dst,$which) {
   # mark as loaded and give
   skip:
 
-  $dst->{loaded}=1;
+  $dst->{loaded}  = 1;
+  $self->{vused} |= 1 << $dst->{loc};
 
   my $key=$dst->{loc};
   $self->{loadmap}->{$key}=$dst;
+
 
   return @out;
 

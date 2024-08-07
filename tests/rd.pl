@@ -41,9 +41,12 @@ struc data;
 
 proc new;
 
-  in long data s0;
+  long data s0;
 
+  ld s0,$DEADBEEF;
   st [s0->B->1],$24;
+
+
   ret;
 
 ],

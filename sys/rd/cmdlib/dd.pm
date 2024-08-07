@@ -567,7 +567,6 @@ sub data_type($self,$branch) {
     # first token in expression?
     if($l2->is_exprtop($branch)) {
 
-
       # mutate into another command
       $branch->{value}=
         $l1->tag(CMD=>'data-decl')
@@ -576,6 +575,8 @@ sub data_type($self,$branch) {
 
 
       $branch->{cmdkey}=undef;
+      $l2->cmd();
+
       return $branch;
 
 
@@ -698,7 +699,7 @@ priority 2 => cmdsub 'proc' => q(
 
 cmdsub 'data-decl' => q(
   qlist name;
-  qlist value_or_size;
+  qlist value_or_size=();
   qlist value=();
 
 ) => \&data_decl;
