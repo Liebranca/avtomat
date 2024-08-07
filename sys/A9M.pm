@@ -461,6 +461,41 @@ sub path($self) {
 };
 
 # ---   *   ---   *   ---
+# cuts current addressing space
+# root if present in path
+
+sub cutroot($self,$path) {
+
+
+  # get ctx
+  my $mem  = $self->{cas};
+  my $tree = $mem->{inner};
+
+
+  # path root explicit?
+  my $have_root=(
+     $path->[0]
+  && $path->[0] eq $tree->{value}
+
+  );
+
+  # path root repeated?
+  my $daut_root=(
+     ($path->[0] && $path->[1])
+  && ($path->[0] eq $path->[1])
+
+  );
+
+
+  my $root=shift @$path
+  if $have_root or $daut_root;
+
+
+  return ($root,$daut_root);
+
+};
+
+# ---   *   ---   *   ---
 # shorthand: namespace lookup
 
 sub lkup($self,@path) {
@@ -476,25 +511,10 @@ sub lkup($self,@path) {
   rept:
 
 
-  # path root explicit?
-  my $have_root=(
-     $path[0]
-  && $path[0] eq $tree->{value}
-
-  );
-
-  # path root repeated?
-  my $daut_root=(
-     ($path[0] && $path[1])
-  && ($path[0] eq $path[1])
-
-  );
-
-
-  my $root=shift @path
-  if $have_root or $daut_root;
-
   # find root/path/to within tree
+  my ($root,$daut_root)=
+    $self->cutroot(\@path);
+
   my $out=$tree->haslv(@path);
 
 
@@ -766,6 +786,49 @@ sub valid_xpsearch($self,@full) {
 };
 
 # ---   *   ---   *   ---
+# scope name to current block
+
+sub get_fullname($self,$s) {
+
+
+  # account for block?
+  if($self->{blktop}) {
+
+
+    # get global paths
+    my $blk  = $self->{blktop};
+    my $root = $self->{segtop}->{inner};
+
+    my ($name,@path)=$blk->fullpath;
+    my @root=$root->ances_list;
+
+
+    # ^discard redundant bits
+    while(@root && @path) {
+
+      if($root[0] eq $path[0]) {
+        shift @root;
+        shift @path;
+
+      } else {
+        last;
+
+      };
+
+    };
+
+
+    # give single string
+    $s=join '::',@path,$name,$s;
+
+  };
+
+
+  return $s;
+
+};
+
+# ---   *   ---   *   ---
 # remove anonymous tags from path
 
 sub deanonid($self,@path) {
@@ -782,6 +845,18 @@ sub deanonid($self,@path) {
     split $self->{pathsep},$ARG
 
   } @path;
+
+};
+
+# ---   *   ---   *   ---
+# ^make local to current clan
+
+sub local_deanonid($self,@path) {
+
+  @path=$self->deanonid(@path);
+  $self->cutroot(\@path);
+
+  return @path;
 
 };
 

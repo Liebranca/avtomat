@@ -856,6 +856,10 @@ sub spill($self,$vref) {
 sub vname($self,$var) {
 
 
+  # get ctx
+  my $mc=$self->getmc();
+
+
   # have register?
   my $out=null;
   if($var->{type} eq 'r') {
@@ -864,14 +868,21 @@ sub vname($self,$var) {
   # have alias?
   } else {
 
-    $out   = $var->{imm_args}->[0];
-    $out   = $out->{id};
+    $out = $var->{imm_args}->[0];
+    $out = (! exists $out->{id})
+      ? $var->{id}
+      : $out->{id}
+      ;
 
-    $out //= $var->{id};
 
+    if(defined $out) {
 
-    $out=join '::',@$out
-    if defined $out;
+      my ($name,@path)=@$out;
+      (@path)=$mc->local_deanonid(@path,$name);
+
+      $out=join '::',@path;
+
+    };
 
   };
 
@@ -1321,30 +1332,30 @@ sub bindvars($self) {
     # non-constant values
     my $dst=$iter->{var}->{$ARG};
 
-    my ($id,@path)=(
-      grep  {$ARG}
-      split $mc->{pathsep},$ARG
 
-    );
+    $dst->{ptr}=$mc->xpsearch($ARG)
 
-
-    $dst->{ptr}=$mc->search($id,@path)
     if ! defined $dst->{loaded}
     ||   $dst->{loaded} ne 'const';
 
 
-    # ^pointer to block IS const
-    if(
+    # ^found pointer?
+    if(defined $dst->{ptr}) {
+      $dst->{ptr}=${$dst->{ptr}};
 
-       (defined $dst->{ptr})
 
-    && (exists  $dst->{ptr}->{p3ptr}
-       ||       $dst->{ptr}->is_rom())
+      # ^pointer to block IS const
+      if(
 
-    ) {
+         exists $dst->{ptr}->{p3ptr}
+      || $dst->{ptr}->is_rom()
 
-      $dst->{loaded} = 'const';
-      $dst->{loc}    = undef;
+      ) {
+
+        $dst->{loaded} = 'const';
+        $dst->{loc}    = undef;
+
+      };
 
     };
 
@@ -1956,7 +1967,6 @@ sub replvar($self,$vref) {
 
   ) {
 
-
     my $operand=\$qref->[2+$k];
 
 
@@ -2036,11 +2046,95 @@ sub replvar($self,$vref) {
 
 
 sub replmem($self,$dst,$vref) {
+use Fmat;
 
-  use Fmat;
-  fatdump $dst;
+  # get ctx
+  my $mc   = $self->getmc();
+  my $iter = $self->{citer};
+  my $var  = $iter->{var};
+  my $args = $$dst->{imm_args};
 
-  exit;
+
+  # fetch all local and external
+  # symbols used in addr
+  my @lol=();
+  my @ext=();
+
+  map {
+
+
+    # get by idex
+    my $x=$args->[$ARG];
+
+    # is this symbol local to block?
+    my $have=$mc->psearch(@{$x->{id}});
+    my ($id,@path)=$$have->fullpath;
+
+    @path=$mc->local_deanonid(@path,$id);
+    my $full=join '::',@path;
+
+
+    # ^populate arrays correspondingly
+    if(exists $var->{$full}) {
+      push @lol,[$ARG,$var->{$full}];
+
+    } else {
+      push @ext,[$ARG,$$have];
+
+    };
+
+
+  # ^filtering non-const elements
+  } grep {
+    my $x=$args->[$ARG];
+    exists $x->{id};
+
+  } 0..@$args-1;
+
+
+  # pending
+  if(@ext) {
+    fatdump \$ext[0]->[1],blessed=>1;
+    nyi "external symbols in address"
+
+  };
+
+  my $type=(1 < @lol)
+    ? 'mlea'
+    : 'msum'
+    ;
+
+  my $k=0;
+
+  map {
+
+    my ($idex,$src)=@$ARG;
+    $args->[$idex]=undef;
+
+    if($type eq 'mlea') {
+
+      if(! $k++) {
+        $$dst->{rX}=$src->{loc}+1;
+
+      } else {
+        $$dst->{rY}=$src->{loc}+1;
+
+      };
+
+
+    } else {
+      $$dst->{reg}=$src->{loc};
+
+    };
+
+
+  } @lol;
+
+
+  # cleanup and give
+  $$dst->{type}=$type;
+  @$args=grep {defined $ARG} @$args;
+
   return;
 
 };

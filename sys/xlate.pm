@@ -32,7 +32,7 @@ package xlate;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = v0.00.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -119,7 +119,7 @@ sub run($self) {
     # recurse if non-virtual!
     if($deep) {
 
-      push    @Q,$nd->absidex;
+      push    @Q,$nd;
       unshift @NQ,@{$nd->{leaves}};
 
     };
@@ -130,11 +130,11 @@ sub run($self) {
   # get assembly queue
   @Q=map {
 
-    my $uid  = $ARG;
+    my $uid  = $ARG->absidex;
     my $have = $enc->{Q}->{asm};
 
     (defined $have->[$uid])
-      ? $have->[$uid] : () ;
+      ? [$ARG,$have->[$uid]] : () ;
 
   } @Q;
 
@@ -148,7 +148,14 @@ sub run($self) {
 
 
   # read/decode/translate
-  push @out,map {$lang->step($ARG)} @Q;
+  push @out,map {
+
+    my ($branch,$data)=@$ARG;
+
+    $main->{l2}->{branch}=$branch;
+    $lang->step($data);
+
+  } @Q;
 
   return join "\n",@out;
 

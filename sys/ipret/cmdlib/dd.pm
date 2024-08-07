@@ -645,37 +645,7 @@ sub data_decl($self,$branch) {
     if(! $main->{pass}) {
 
 
-      # scope declaration to current block
-      if($mc->{blktop}) {
-
-
-        # get global paths
-        my $blk  = $mc->{blktop};
-        my $root = $mc->{segtop}->{inner};
-
-        my ($xname,@xpath)=$blk->fullpath;
-        my @root=$root->ances_list;
-
-
-        # ^discard redundant bits
-        while(@root && @xpath) {
-
-          if($root[0] eq $xpath[0]) {
-            shift @root;
-            shift @xpath;
-
-          } else {
-            last;
-
-          };
-
-        };
-
-
-        # give single string
-        $name=join '::',@xpath,$xname,$name;
-
-      };
+      $name=$mc->get_fullname($name);
 
 
       # guard for redeclaration... and declare ;>
@@ -706,6 +676,20 @@ sub data_decl($self,$branch) {
       };
 
 
+      # making entry on hierarchical?
+      if(defined $hier) {
+
+        my $blk = $hier->{p3ptr}->{vref};
+           $blk = $blk->{data};
+
+        my $lis = ($exe) ? $name : $oldname ;
+        my $tmp = $blk->chkvar($lis,-1);
+
+        $tmp->{defv}=($have) ? $x : undef ;
+
+      };
+
+
     # ^else we're retrying value resolution
     } elsif($have) {
       my $ref=$mc->valid_psearch($name,@$path);
@@ -720,18 +704,6 @@ sub data_decl($self,$branch) {
 
     $sym->store($x,deref=>0);
 
-
-    # making entry on hierarchical?
-    if(defined $hier) {
-
-      my $blk = $hier->{p3ptr}->{vref};
-         $blk = $blk->{data};
-
-      my $tmp = $blk->chkvar($oldname,-1);
-
-      $tmp->{defv}=($have) ? $x : undef ;
-
-    };
 
 
     # give unsolved!
@@ -796,7 +768,7 @@ sub io($self,$branch) {
   # alloc and give
   $dst->addio(
     $branch->{cmdkey},
-    $sym->{spec},
+    $mc->get_fullname($sym->{spec}),
 
   );
 

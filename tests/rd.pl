@@ -40,10 +40,9 @@ struc data;
 
 proc new;
 
-  data s0;
-  byte s1;
+  in data s0;
 
-  st [ar+4],$24;
+  st [s0],$24;
   ret;
 
 ],

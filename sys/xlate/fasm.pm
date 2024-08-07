@@ -103,6 +103,13 @@ St::vconst {
 
   },
 
+
+  base_type=>{
+    map {$ARG=>1}
+    @{Type::MAKE->ALL_FLAGS}
+
+  },
+
 };
 
 # ---   *   ---   *   ---
@@ -349,7 +356,24 @@ sub operand_value($self,$type,@data) {
       $out .= '*'. (1 << $ARG->{scale})
       if $ARG->{scale};
 
-      "$type->{name} [$out]";
+
+      my $tname=$type->{name};
+      if(! exists $self->base_type->{$tname}) {
+
+        my @have=typeof $type->{sizeof};
+
+        $main->perr(
+          "NYI: vector-sized deref"
+
+        ) if @have > 1;
+
+
+        $tname=$have[0];
+
+      };
+
+
+      "$tname [$out]";
 
 
     } elsif(exists $ARG->{id} && @{$ARG->{id}}) {
