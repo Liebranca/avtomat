@@ -36,7 +36,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.3;#a
+  our $VERSION = v0.02.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -345,30 +345,58 @@ sub define($self,$type,$name,%O) {
 #
 # run method for each node
 
-sub get_walk_array($self,$fn,@Q) {
+sub get_walk_array($self,$fn,$cannon,@Q) {
 
-  my @out  = ();
+
+  # get ctx
   my $main = $self->{main};
+  my $mc   = $main->{mc};
+  my $l1   = $main->{l1};
 
+  # make regex for detecting
+  # hierarchical blocks
+  my $re=$l1->re(
+    CMD=>$mc->{bk}->{hier}->blk_re
+
+  );
+
+  # out is node list
+  my @out=();
+
+
+  # walk tree
   while(@Q) {
 
 
-    # handle depth
-    my $nd=shift @Q;
-    next if ! $nd;
-
     # run method for this node
+    my $nd=shift @Q;
+
     $self->{branch}=$nd;
     $fn->($self,$nd);
 
+
+    # perform tree unreversal?
+    my @prev = ();
+    my @lv   = @{$nd->{leaves}};
+
+    if($cannon && ($nd->{value}=~ $re)) {
+      @prev=pop @out
+      if $out[-1] eq $nd->{parent};
+
+    };
+
+
     # go next
-    push    @out,$nd;
-    unshift @Q,@{$nd->{leaves}},0;
+    push    @out,$nd,@prev;
+    unshift @Q,@lv;
 
   };
 
 
-  return @out;
+  return (! $cannon)
+    ? reverse @out
+    : @out
+    ;
 
 };
 
@@ -488,19 +516,24 @@ sub walk($self,$branch,%O) {
 
   # get walk order
   my @order=get_walk_array(
-    $O{self},$O{fwd},$branch
+
+    $O{self},
+    $O{fwd},
+    $O{cannon},
+
+    $branch
 
   );
 
   # ^get execution queue
   my @cmd=get_cmd_queue(
-    $O{self},$O{rev},reverse @order
+
+    $O{self},
+    $O{rev},
+
+    @order
 
   );
-
-  # perform tree unreversal?
-  @cmd=reverse @cmd
-  if $O{cannon};
 
 
   # ^run and capture results
@@ -567,6 +600,7 @@ sub exec_queue($self,@Q) {
 
     # unpack
     my ($cmd,$branch)=@$ARG;
+
 
     # top node forcing un-reversal?
     if(my @unrev=$lx->bunrev($branch)) {

@@ -164,8 +164,16 @@ sub mkhier($self,$branch) {
 
 
   # get leaves
-  my $re=$l1->re(CMD=>(join '|',@$key));
-  my @lv=$branch->{parent}->match_up_to(
+  my $re  = $l1->re(CMD=>(join '|',@$key));
+  my $par = $branch->{parent};
+
+  $par=$par->{parent}
+
+  if defined $par->{parent}->{parent}
+  && 1 == @{$par->{leaves}};
+
+
+  my @lv=$par->match_up_to(
 
     $re,
 

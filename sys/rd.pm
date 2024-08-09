@@ -590,7 +590,6 @@ sub walk_pass($self,$Q,%O) {
 
     my $branch=$ARG;
 
-
     # * if a node is returned, then
     #   it is walked in the next pass
     #

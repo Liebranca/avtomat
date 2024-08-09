@@ -160,8 +160,7 @@ sub ribbon($self) {
      $fn    = \&$fn;
 
   # ^invoke if found, else do nothing
-  $fn->($self)
-  if defined $self;
+  $fn->($self) if defined &{$fn};
 
 
   return;
@@ -413,6 +412,12 @@ sub chkvar($self,$name,$idex) {
   };
 
 
+  # have plain register?
+  $self->{var}->{$name}->{loc}=
+    substr $name,1,(length $name)-1
+
+  if ! index $name,'$';
+
   return $self->{var}->{$name};
 
 };
@@ -557,15 +562,8 @@ sub load($self,$dst,$which) {
 
 
   # have plain register?
-  if(! index $dst->{name},'$') {
-
-    $dst->{loc}=substr
-      $dst->{name},1,
-      (length $dst->{name})-1;
-
-    return $self->chkuse($dst);
-
-  };
+  return $self->chkuse($dst)
+  if ! index $dst->{name},'$';
 
 
   # need to allocate register?
@@ -647,7 +645,7 @@ sub load($self,$dst,$which) {
   # loading undefined?
   } elsif(! $stack->is_ptr($dst->{ptr})) {
 
-    my $npres=(
+    my $pres=(
       ($self->{vused})
     & (1 << $dst->{loc})
 
@@ -668,7 +666,7 @@ sub load($self,$dst,$which) {
 
     # * case 1: value was initialized, but
     #   was simply not preserved, so noop
-    ) if ! $npres;
+    ) if ! $pres;
 
 
   # ^nope, load from stack
@@ -1184,8 +1182,9 @@ sub get_ins($self,$data) {
 sub argless_ins($self,$ins) {
 
   my $fn={
-    int => \&linux_syscall,
-    ret => \&push_argless,
+    int  => \&linux_syscall,
+    ret  => \&push_argless,
+    rand => \&on_rand,
 
   }->{$ins};
 
@@ -1199,6 +1198,28 @@ sub argless_ins($self,$ins) {
 
 sub push_argless($self) {
   return $self->prog_elem(base=>());
+
+};
+
+# ---   *   ---   *   ---
+# mark A,D registers as in use
+
+sub on_rand($self) {
+
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $anima = $mc->{anima};
+
+
+  # ~
+  my $mask  = $anima->regmask(qw(ar gr));
+
+  $self->{vused} |= $mask;
+  $self->{moded} |= $mask;
+
+
+  return;
 
 };
 
@@ -1372,7 +1393,6 @@ sub bindvars($self) {
 
 
   } $self->varkeys(io=>'all');
-
 
   return;
 
@@ -2458,16 +2478,22 @@ sub on_pass($self,@slurp) {
 
 
     # validate
+    my $pres=defined $x->{loc} && (
+      ($self->{vused})
+    & (1 << $x->{loc})
+
+    );
+
     $main->bperr(
 
       $point->{branch},
 
-      "unitialized value '%s' "
+      "uninitialized value '%s' "
     . "passed to [goodtag]:%s",
 
       args=>[$x->{name},$blk->{name}],
 
-    ) if ! $x->{loaded};
+    ) if ! $pres &&! $x->{loaded};
 
 
     # using different registers?
