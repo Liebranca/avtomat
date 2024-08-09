@@ -149,7 +149,7 @@ sub invoke($self,$type,@name) {
       );
 
       $exclude->{$nd->{-uid}}=1
-      if $out eq '-x';
+      if defined $out && $out eq '-x';
 
     };
 

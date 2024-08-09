@@ -35,17 +35,17 @@ q[%;
 
 clan testy;
 
-struc data;
-  byte A[4];
-  byte B[4];
-
 proc new;
+  byte cnt $01;
 
-  long data s0;
+  @@;
 
-  ld s0,$DEADBEEF;
-  st [s0->B->1],$24;
+  dec  cnt;
+  test cnt,cnt;
+  jnz  @b;
+  jz   @f;
 
+  @@;
 
   ret;
 

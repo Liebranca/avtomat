@@ -39,7 +39,7 @@ package ipret::cmdlib::dd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = v0.01.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -198,14 +198,6 @@ sub segpre($self,$branch,$type,$name=null) {
   my $l1    = $main->{l1};
 
 
-  # locate expression
-  my $anchor = $branch;
-#     $anchor = $anchor->{parent};
-#
-#  while $anchor->{parent}
-#  &&    $anchor->{parent} ne $main->{tree};
-
-
   # get segment type
   $type={
     'executable' => 'exe',
@@ -215,8 +207,8 @@ sub segpre($self,$branch,$type,$name=null) {
   }->{$type};
 
   # ^make segment node
-  my ($nd) = $anchor->{parent}->insert(
-    $anchor->{idex},
+  my ($nd) = $branch->{parent}->insert(
+    $branch->{idex},
 
     $l1->tag(CMD=>'seg-type')
   . $type

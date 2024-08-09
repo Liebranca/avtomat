@@ -32,7 +32,7 @@ package rd::syntax;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = v0.00.5;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -65,6 +65,8 @@ St::vconst {
 
   },
 
+  label_char => '@',
+
 
   csv_char => '\,',
   asg_re   => sub {
@@ -92,6 +94,8 @@ St::vconst {
 
   list     => [qw(
 
+    anon_labels
+
     csv
     join_opr
 
@@ -118,16 +122,16 @@ sub opr_list($self) {
 
 sub opr_charset($self) {
 
-  state $out=undef;
-  return $out if $out;
+  state $out=\$self->{'_'.St::cf};
+  return $$out if defined $$out;
 
   my $chars=join  null,@{$self->opr_list};
   my @chars=split null,$chars;
 
   array_dupop \@chars;
 
-  $out=\@chars;
-  return $out;
+  $$out=\@chars;
+  return $$out;
 
 };
 
@@ -136,16 +140,16 @@ sub opr_charset($self) {
 
 sub opr_combo($self) {
 
-  state $out=undef;
-  return $out if $out;
+  state $out=\$self->{'_'.St::cf};
+  return $$out if defined $$out;
 
-  $out=re_eiths(
+  $$out=re_eiths(
     $self->opr_list,
     opscape=>1,
 
   );
 
-  return $out;
+  return $$out;
 
 };
 
@@ -154,16 +158,33 @@ sub opr_combo($self) {
 
 sub bopr_combo($self) {
 
-  state $out=undef;
-  return $out if $out;
+  state $out=\$self->{'_'.St::cf};
+  return $$out if defined $$out;
 
-  $out=re_eiths(
+  $$out=re_eiths(
     $self->opr->{binary},
     opscape=>1,
 
   );
 
-  return $out;
+  return $$out;
+
+};
+
+# ---   *   ---   *   ---
+# regex for detecting nodes made
+# by the anon label implementation
+
+sub anon_label_re($self) {
+
+  state $out=\$self->{'_'.St::cf};
+  return $$out if defined $$out;
+
+  my $char=$self->label_char;
+     $char="\Q$char";
+
+  $$out=qr{^(?:^anon${char}\d+|$char)$};
+  return $$out;
 
 };
 
@@ -201,13 +222,15 @@ sub apply_rules($self,$branch) {
 
   # exec rules:
   #
+  # * handle annonymous labels
+  #
   # * join composite operators
   # * sort operations
   #
   # * join comma-separated lists
 
+  $l2->invoke('fwd-parse'=>'anon-labels');
   $l2->invoke('fwd-parse'=>'join-opr');
-#  if ! @{$branch->{leaves}};
 
   $self->make_ops($branch);
   $l2->invoke('fwd-parse'=>'csv');
@@ -703,6 +726,151 @@ sub make_ops($self,$branch) {
 
 
   return;
+
+};
+
+# ---   *   ---   *   ---
+# detects anonymous labels
+
+sub anon_labels($self) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+
+
+  # match label declarations
+  my $char = $self->label_char;
+     $char = "\Q$char";
+
+  my $beg  = $l1->re(WILD => "[$char]");
+  my $end  = $l1->re(WILD => "[bf$char]");
+
+
+  # give params
+  return (
+
+    'fwd-parse' => 'anon-labels',
+
+    sig  => [$end],
+    re   => $beg,
+
+    fn   => \&_anon_labels,
+    flat => 0,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# ^implementation
+
+sub _anon_labels($self,$branch,$data) {
+
+
+  # get ctx
+  my $main = $self->{main};
+  my $l1   = $main->{l1};
+  my $l2   = $main->{l2};
+
+  my $char = $self->label_char;
+
+
+  # get second char
+  my ($nd)=$branch->{leaves}->[0];
+  my $have=$l1->xlate($nd->{value});
+
+  # declaring anonymous label?
+  if($have->{spec} eq $char) {
+
+    $branch->{value}=$l1->tag(
+      CMD=>'blk',
+
+    );
+
+    $nd->{value}=$l1->tag(
+      SYM=>"anon\@$branch->{-uid}"
+
+    );
+
+  # referencing previous?
+  } else {
+
+
+    # walk from current until anonymous label
+    my $mode=($have->{spec} eq 'b')
+      ? 'prev' : 'next' ;
+
+    my $anchor=$self->find_anon_label(
+      $mode=>$branch
+
+    );
+
+
+    # ^replace with label name ;>
+    $branch->clear();
+    $branch->{value}=$l1->tag(
+      SYM=>"anon\@$anchor->{-uid}"
+
+    );
+
+  };
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# iter until anonymous label found
+
+sub find_anon_label($self,$mode,$branch) {
+
+
+  # perform cannonical or reverse walk
+  my $fn="${mode}_leaf";
+
+  do {$branch=$branch->$fn()} while (
+      defined $branch
+  &&! $self->is_anon_label($branch)
+
+  );
+
+
+  # ^throw if none found!
+  $mode=$mode eq 'prev';
+  $self->{main}->perr(
+
+    "no anonymous label %s this line",
+
+    args=>[($mode)
+      ? 'precedes'
+      : 'follows'
+      ,
+
+    ],
+
+  ) if ! defined $branch;
+
+
+  # give node back!
+  return (! $mode)
+    ? $branch
+    : $branch->{parent}
+    ;
+
+};
+
+# ---   *   ---   *   ---
+# ^check node is anonymous label
+
+sub is_anon_label($self,$branch) {
+
+  my $l1   = $self->{main}->{l1};
+  my $have = $l1->xlate($branch->{value});
+
+  return $have->{spec}=~ $self->anon_label_re;
 
 };
 

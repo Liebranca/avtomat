@@ -35,7 +35,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.7;#a
+  our $VERSION = v0.01.8;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -1309,10 +1309,13 @@ sub get_operands($self,$ins,@args) {
 
   # ^get source
   my $src={name=>null};
+  if($args[1]) {
 
-  if($args[1] && $meta->{overwrite}) {
-    $name = $self->vname($args[1]);
-    $src  = $self->depvar($dst,$name,$iter->{i});
+    $name=$self->vname($args[1]);
+    $src=($meta->{overwrite})
+      ? $self->depvar($dst,$name,$iter->{i})
+      : $self->chkvar($name,$iter->{i})
+      ;
 
   };
 
