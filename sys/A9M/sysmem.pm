@@ -182,6 +182,23 @@ sub alloc($self,$label=undef) {
 };
 
 # ---   *   ---   *   ---
+# ^using bias!
+
+sub bias_alloci($self,$bias) {
+
+  my $old=$self->{almask};
+
+  $self->{almask}=$bias;
+  my $out=$self->alloci();
+
+  $self->{almask}=$old;
+
+
+  return $out;
+
+};
+
+# ---   *   ---   *   ---
 # free allocated unit from idex
 
 sub freei($self,$idex) {

@@ -35,7 +35,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.8;#a
+  our $VERSION = v0.01.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -301,15 +301,9 @@ sub addio($self,$ins,$name) {
   ) if exists $dst->{$name};
 
 
+  # biased register allocation
   # setup allocation bias
-  my $bias = $have->{bias};
-  my $old  = $anima->{almask};
-
-  $anima->{almask}=$bias;
-
-
-  # allocate register
-  my $idex=$anima->alloci();
+  my $idex=$anima->bias_alloci($have->{bias});
 
   $dst->{$name}={
 
@@ -328,13 +322,12 @@ sub addio($self,$ins,$name) {
   };
 
 
-  # update bias and restore
+  # update bias
   my $bit = 1 << $idex;
 
   $have->{used}    |= $bit;
   $self->{vused}   |= $bit;
   $have->{bias}    |= $bit;
-  $anima->{almask}  = $old;
 
 
   # edge case: output eq input
@@ -554,6 +547,7 @@ sub load($self,$dst,$which) {
   my $ISA   = $mc->{ISA};
   my $anima = $mc->{anima};
   my $stack = $mc->{stack};
+  my $iter  = $self->{citer};
 
 
   # output of this F is an
@@ -562,8 +556,22 @@ sub load($self,$dst,$which) {
 
 
   # have plain register?
-  return $self->chkuse($dst)
-  if ! index $dst->{name},'$';
+  if(! index $dst->{name},'$') {
+
+    if($which eq 'dst') {
+      @out=$self->chkuse($dst);
+
+      $self->{vused} |= 1 << $dst->{loc};
+      $self->{used}  |= 1 << $dst->{loc};
+
+      return @out;
+
+    } else {
+      return ();
+
+    };
+
+  };
 
 
   # need to allocate register?
@@ -571,46 +579,61 @@ sub load($self,$dst,$which) {
 
 
     # can we free anything?
-    my $var=$self->{citer}->{var};
+    my $var    = $iter->{var};
+    my (@reus) = (
 
-    map {
-      $self->chkneed($var->{$ARG});
+      @{$iter->{reus}},
 
-    } grep {
+      map {
+        $self->chkneed($var->{$ARG});
 
-      my $x=$var->{$ARG};
+      } grep {
 
-       defined $x->{loc}
-    && exists  $self->{loadmap}->{$x->{loc}};
+        my $x=$var->{$ARG};
 
-    } $self->varkeys(io=>'in');
+         defined $x->{loc}
+      && exists  $self->{loadmap}->{$x->{loc}};
 
+      } $self->varkeys(io=>'in')
 
-    # setup allocation bias
-    my $io   = $self->{io};
-    my $bias = $io->{out}->{used};
-    my $old  = $anima->{almask};
-
-    $bias |= $io->{in}->{used};
-    $bias |= $self->{used};
+    );
 
 
-    # get free register
-    $anima->{almask}=$bias;
-    my $idex = $anima->alloci();
-    my $bit  = 1 << $idex;
+    # reuse fred register?
+    my ($idex,$bit);
+
+    if(@reus) {
+      $idex = pop @reus;
+      $bit  = 1 << $idex;
+
+      push @{$iter->{reus}},@reus;
+
+    # ^nope, allocate!
+    } else {
+
+
+      # setup allocation bias
+      my $io   = $self->{io};
+      my $bias = $io->{out}->{used};
+
+      $bias |= $io->{in}->{used};
+      $bias |= $self->{used};
+
+      # get free register
+      $idex = $anima->bias_alloci($bias);
+      $bit  = 1 << $idex;
+
+    };
+
 
     # ^mark in use and restore
-    $self->{used}    |= $bit;
-    $dst->{loc}       = $idex;
-
-    $anima->{almask}  = $old;
+    $self->{used} |= $bit;
+    $dst->{loc}    = $idex;
 
   };
 
 
   # avoid unnecessary loads
-  my $iter  = $self->{citer};
   my $point = $iter->{point};
   my $j     = $iter->{j};
   my $ins   = $point->{Q}->[$j]->[1];
@@ -705,22 +728,27 @@ sub load($self,$dst,$which) {
 };
 
 # ---   *   ---   *   ---
-# check that value is no
-# longer needed from this point
-# onwards
+# check that value is no longer
+# needed from this point onwards
+#
+# if so, give it's location for reuse
 
 sub chkneed($self,$vref) {
 
-  $self->unload($vref)
+  my @out=();
 
-  if ! $self->lookahead(
+  if(! $self->lookahead(
     qr{.+}=>\&la_reqvar,
     $vref
 
-  );
+  )) {
+    @out=$vref->{loc};
+    $self->unload($vref);
+
+  };
 
 
-  return;
+  return @out;
 
 };
 
@@ -920,6 +948,7 @@ sub reset_iter($self) {
     src   => undef,
 
     var   => {},
+    reus  => [],
     match => undef,
 
     prog  => undef,
@@ -1066,6 +1095,34 @@ sub prog_walk($self,$i,$type,$fn,@args) {
 
 
   return $status;
+
+};
+
+# ---   *   ---   *   ---
+# get next instruction
+
+sub timeline_step($self) {
+
+
+  # get ctx
+  my $iter  = $self->{citer};
+  my $point = $iter->{point};
+  my $prog  = $iter->{prog};
+  my $data  = $prog->[$iter->{i}];
+
+
+  # unpack
+  my ($e,$newp,$dst,$src)=@$data;
+
+  # stepping on new timeline point?
+  if(! $point || $point ne $newp) {
+    $iter->{point} = $newp;
+    $iter->{j}     = 0;
+
+  };
+
+
+  return ($e,$newp,$dst,$src);
 
 };
 
@@ -1408,7 +1465,21 @@ sub procblk($self) {
   my $iter = $self->{citer};
   my $var  = $iter->{var};
 
-  # backup IO locations
+
+  # revise IO locations
+  #
+  # this means a preliminar walk of
+  # the program, and shifting register
+  # allocations around according to how
+  # the values are used
+  #
+  # done to accomodate instructions
+  # that require use of specific registers
+
+  $self->prog_walk(0=>qr{base}=>\&preprocins);
+
+
+  # ^backup IO locations
   my %io=map {
     $ARG=>$var->{$ARG}->{loc};
 
@@ -1441,7 +1512,178 @@ sub procblk($self) {
 };
 
 # ---   *   ---   *   ---
-# ^process instruction in timeline point
+# ^preliminar walk step
+
+sub preprocins($self) {
+
+
+  # get ctx
+  my $iter  = $self->{citer};
+
+  my $point = $iter->{point};
+  my $dst   = $iter->{dst};
+  my $src   = $iter->{src};
+
+
+  # by-attribute callback list
+  my $tab={
+    fix_regsrc=>[on_fix_regsrc=>$src],
+
+  };
+
+  # get instruction name
+  my $j     = $iter->{j};
+  my $ins   = $point->{Q}->[$j]->[1];
+
+  # ^analyze!
+  map {
+
+    my $have=$point->{$ARG}->[$j];
+    my ($fn,@args)=@{$tab->{$ARG}};
+
+    $self->$fn(@args,$have);
+
+
+  } qw(fix_regsrc);
+
+
+  # by-instruction callbacks!
+  $tab={
+    pass=>[on_pre_pass=>()],
+
+  };
+
+  my $have=$tab->{$ins};
+
+  if(defined $have) {
+    my ($fn,@args)=@{$have};
+    $self->$fn(@args);
+
+  };
+
+
+  return 0;
+
+};
+
+# ---   *   ---   *   ---
+# handle reallocation of values
+# when they are used by instructions
+# that restrict operands
+
+sub on_fix_regsrc($self,$vref,$idex) {
+
+  # skip?
+  return if ! $idex;
+  $idex--;
+
+
+  # get ctx
+  my $in   = $self->{io}->{in};
+  my $out  = $self->{io}->{out};
+  my $name = $vref->{name};
+
+
+  # reallocate input value?
+  if(
+
+     exists $in->{var}->{$name}
+  && $vref->{loc} ne $idex
+
+  ) {
+
+
+    # mark target register as in use
+    $self->reallocio($in,$vref,$idex);
+
+
+    # reuse old?
+    map {
+      $self->reallocio($in,$in->{var}->{$ARG});
+
+
+    # ^filter reallocated values
+    #  accto allocation bias
+    } grep {
+
+      my $have=$in->{var}->{$ARG};
+
+
+    # * the recently fred value is discarded
+       ($have->{name} ne $ARG)
+
+    # * values that are both input and output
+    #   are also discarded!
+    && ($in->{bias} & (1 << $have->{loc}));
+
+
+    } @{$in->{var}->{-order}};
+
+
+  # TODO: regular values
+  } elsif(
+
+      $vref->{loaded}
+  &&! $vref->{loaded} eq 'const'
+
+  ) {
+
+    nyi "fixed register for common vars"
+
+  };
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# reallocates register used
+# by an IO var
+
+sub reallocio($self,$io,$vref,$idex=undef) {
+
+
+  # get register to use if none passed
+  if(! defined $idex) {
+
+    my $mc    = $self->getmc();
+    my $anima = $mc->{anima};
+
+    $idex=$anima->bias_alloci($io->{bias});
+
+  };
+
+
+  # remove old from loadmap
+  delete $self->{loadmap}->{$vref->{loc}};
+
+
+  # adjust internal allocation masks
+  my $bit = 1 << $idex;
+  my $old = 1 << $vref->{loc};
+
+  $self->{vused} |=  $bit;
+  $io->{used}    |=  $bit;
+  $io->{bias}    |=  $old;
+
+  $self->{vused} &=~ $old;
+  $io->{used}    &=~ $old;
+  $io->{bias}    &=~ $old;
+
+  $vref->{loc}    =  $idex;
+
+
+  # add to loadmap and give
+  $self->{loadmap}->{$vref->{loc}}=$vref->{name};
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# process instruction in timeline point
 
 sub procins($self) {
 
@@ -1485,39 +1727,11 @@ sub procins($self) {
   # perform operand replacements
   $iter->{k}=0;
 
-  $self->replvar($dst);
-  $self->replvar($src);
+  my $prev_t=$self->replvar($dst);
+  $self->replvar($src,$prev_t);
 
 
   return 0;
-
-};
-
-# ---   *   ---   *   ---
-# get next instruction
-
-sub timeline_step($self) {
-
-
-  # get ctx
-  my $iter  = $self->{citer};
-  my $point = $iter->{point};
-  my $prog  = $iter->{prog};
-  my $data  = $prog->[$iter->{i}];
-
-
-  # unpack
-  my ($e,$newp,$dst,$src)=@$data;
-
-  # stepping on new timeline point?
-  if(! $point || $point ne $newp) {
-    $iter->{point} = $newp;
-    $iter->{j}     = 0;
-
-  };
-
-
-  return ($e,$newp,$dst,$src);
 
 };
 
@@ -1976,7 +2190,7 @@ sub ldvar($self,$vref,$which) {
 # ---   *   ---   *   ---
 # replace value in instruction operands
 
-sub replvar($self,$vref) {
+sub replvar($self,$vref,$prev_t=0) {
 
 
   # get ctx
@@ -2029,22 +2243,20 @@ sub replvar($self,$vref) {
         my $new   = $vref->{ptr}->get_type();
 
 
-        my $sign=(
+        my $sign=! $prev_t || (
           $old->{sizeof}
         < $new->{sizeof}
 
         );
 
 
-        # TODO: revise this bit
-        #
         # do IF dst is smaller
         #    OR src is bigger
+        if((! $k) || ($k &&  $sign)) {
+          $qref->[0] = $new;
+          $prev_t    = 1;
 
-        $qref->[0]=$new
-
-        if (! $k) #  &&! $sign
-        || (  $k &&  $sign);
+        };
 
       };
 
@@ -2055,7 +2267,7 @@ sub replvar($self,$vref) {
 
   # go next and give
   $iter->{k}++;
-  return;
+  return $prev_t;
 
 };
 
@@ -2287,7 +2499,8 @@ sub on_call($self,$dst,@slurp) {
 };
 
 # ---   *   ---   *   ---
-# ~
+# find timeline point ahead of current
+# that contains a call instruction
 
 sub get_next_call($self) {
 
@@ -2438,15 +2651,75 @@ sub on_bind($self,@slurp) {
 };
 
 # ---   *   ---   *   ---
-# ^~
+# edge case: reallocate inputs
+# for the current process if they
+# themselves are inputs to another
 
-sub on_pass($self,@slurp) {
+sub on_pre_pass($self) {
 
 
   # get ctx
-  my $mc    = $self->getmc();
-  my $main  = $mc->get_main();
+  my $iter  = $self->{citer};
+  my $point = $iter->{point};
 
+  # get values in use by caller and callee
+  my ($blk,$blkio,$dst,$src)=
+    $self->get_next_call_data();
+
+  my $in=$self->{io}->{in};
+
+
+  # synchronize any input-input
+
+  map {
+
+    my ($x,$y)=(
+      $iter->{var}->{$dst->[$ARG]},
+      $blkio->{var}->{$src->[$ARG]},
+
+    );
+
+
+    # using different registers?
+    if(
+
+        defined $x->{loc}
+    &&  exists  $in->{var}->{$x->{name}}
+
+    &&  $x->{loc} ne $y->{loc}
+
+    ) {
+
+
+      # TODO:
+      #
+      # we'd need to perform further checks
+      # to avoid reallocating in some cases
+      #
+      # but i kind of have to work out what
+      # those cases would be ;>
+
+      $self->reallocio($in,$x,$y->{loc});
+
+    };
+
+
+  } 0..@$dst-1;
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# gives values in use by current
+# instruction as well as the inputs
+# for the subsequent call
+
+sub get_next_call_data($self) {
+
+
+  # get ctx
   my $iter  = $self->{citer};
   my $point = $iter->{point};
 
@@ -2459,25 +2732,50 @@ sub on_pass($self,@slurp) {
 
   @dst=map {$self->vname($ARG)} @dst;
 
-  # ^compare to declared inputs on the
+
   # ^side of the callee
   my $blkio = $blk->{io}->{in};
   my @src   = @{$blkio->{var}->{-order}};
 
 
+  return ($blk,$blkio,\@dst,\@src);
+
+};
+
+# ---   *   ---   *   ---
+# setup arguments for call
+
+sub on_pass($self,@slurp) {
+
+
+  # get ctx
+  my $mc    = $self->getmc();
+  my $main  = $mc->get_main();
+  my $ISA   = $mc->{ISA};
+
+  my $iter  = $self->{citer};
+  my $point = $iter->{point};
+
+
+  # get values in use by caller and callee
+  my ($blk,$blkio,$dst,$src)=
+    $self->get_next_call_data();
+
   # put each value in the corresponding
   # register
+
+  my @const=();
 
   map {
 
     my ($x,$y)=(
-      $iter->{var}->{$dst[$ARG]},
-      $blkio->{var}->{$src[$ARG]},
+      $iter->{var}->{$dst->[$ARG]},
+      $blkio->{var}->{$src->[$ARG]},
 
     );
 
 
-    # validate
+    # ^else validate
     my $pres=defined $x->{loc} && (
       ($self->{vused})
     & (1 << $x->{loc})
@@ -2502,10 +2800,7 @@ sub on_pass($self,@slurp) {
 
       # generate dummy value
       my $ptr  = $y->{ptr};
-      my $type = ($ptr->{ptr_t})
-        ? $ptr->{ptr_t}
-        : $ptr->{type}
-        ;
+      my $type = $y->{ptr}->get_type();
 
       my $rY  = {type=>'r',reg=>$y->{loc}};
       my $reg = $self->chkvar(
@@ -2544,7 +2839,58 @@ sub on_pass($self,@slurp) {
 
     };
 
-  } 0..$#dst;
+
+  # filter out constants!
+  } grep {
+
+    my ($x,$y)=(
+      $iter->{var}->{$dst->[$ARG]},
+      $blkio->{var}->{$src->[$ARG]},
+
+    );
+
+    my $ok=1;
+
+
+    # constants are handled in the next bit
+    if(
+
+       defined $x->{loaded}
+    && $x->{loaded} eq 'const'
+
+    ) {
+
+      $ok = 0;
+      $x  = substr $x->{name},
+        1,(length $x->{name})-1;
+
+      push @const,[$x,$y];
+
+    };
+
+
+    $ok;
+
+
+  } 0..@$dst-1;
+
+
+  # ^now set any constants!
+  map {
+
+    my ($x,$y)=@$ARG;
+
+    $self->insert_ins([
+
+      $y->{ptr}->get_type(),
+      'ld',
+
+      {type=>'r',reg=>$y->{loc}},
+      {type=>$ISA->immsz($x),imm=>$x},
+
+    ]);
+
+  } @const;
 
 
   $self->remove_ins();

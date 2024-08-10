@@ -59,6 +59,9 @@ St::vconst {
 
     int   => 'syscall',
 
+    jlz   => 'jle',
+    jgz   => 'jge',
+
   },
 
   haveopt => {

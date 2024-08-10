@@ -153,6 +153,7 @@ sub mkhier($self,$branch) {
   # get ctx
   my $main = $self->{frame}->{main};
   my $l1   = $main->{l1};
+  my $l2   = $main->{l2};
 
   # get nesting pattern
   my $key={
@@ -170,7 +171,7 @@ sub mkhier($self,$branch) {
   $par=$par->{parent}
 
   if defined $par->{parent}->{parent}
-  && 1 == @{$par->{leaves}};
+  && ! $l2->is_exprtop($branch);
 
 
   my @lv=$par->match_up_to(
