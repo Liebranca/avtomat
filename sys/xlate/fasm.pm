@@ -348,7 +348,7 @@ sub operand_value($self,$type,@data) {
 
       my $i   = 0;
       my $out = join '',map {
-        $ARG=($i++ &&! index '-',$ARG)
+        $ARG=($i++ && (0 >= index '-',$ARG))
           ? "+$ARG"
           : $ARG
           ;

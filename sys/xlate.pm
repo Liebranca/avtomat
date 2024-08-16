@@ -111,14 +111,13 @@ sub run($self) {
         St::is_valid('rd::vref',$vref)
 
     &&  $vref->{type} eq 'HIER'
-    &&  $vref->{data}->{virtual}
+    &&  $vref->{res}->{virtual}
 
     );
 
 
     # recurse if non-virtual!
     if($deep) {
-
       push    @Q,$nd;
       unshift @NQ,@{$nd->{leaves}};
 

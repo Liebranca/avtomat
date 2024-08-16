@@ -206,9 +206,24 @@ sub segpre($self,$branch,$type,$name=null) {
 
   }->{$type};
 
+
+  # find adequate spot for new node
+  my $par  = $branch->{parent};
+  my $idex = $branch->{idex};
+  my $have = $l1->xlate($par->{value});
+
+  # ^skip flags ;>
+  if($have->{spec} eq 'flag-type') {
+    $idex = $par->{idex};
+    $par  = $par->{parent};
+
+  };
+
+
   # ^make segment node
-  my ($nd) = $branch->{parent}->insert(
-    $branch->{idex},
+  my ($nd) = $par->insert(
+
+    $idex,
 
     $l1->tag(CMD=>'seg-type')
   . $type

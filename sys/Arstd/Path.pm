@@ -59,7 +59,7 @@ package Arstd::Path;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#b
+  our $VERSION = v0.00.7;#b
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -83,32 +83,41 @@ sub nxbasef($path) {
 };
 
 # ---   *   ---   *   ---
-# ^get dir of filename...
-# or directory's parent
+# ^get parent directory
 
-sub dirof($path,%O) {
+sub parof($path,%O) {
 
+
+  # defaults
   $O{abs} //= 1;
+  $O{i}   //= 2;
 
-  my @names=split(m[/],$path);
-  $path=join(q[/],@names[0..($#names)-1]);
 
-  my $out=($O{abs})
-    ? abs_path($path)
-    : $path
-    ;
+  # expand?
+  my $full   = ($O{abs}) ? abs_path $path : $path ;
+     $full //= $path;
 
-  $out//=$path;
+
+  # break path into elements
+  my @names=split $FSLASH_RE,$full;
+
+  # pop last element from path to get dir
+     $O{i} = 1 if $#names < $O{i};
+  my $out  = join  '/',@names[0..$#names-$O{i}];
+
 
   return $out;
 
 };
 
 # ---   *   ---   *   ---
-# ^oh yes
+# ^get dir of filename
 
-sub parof($path) {
-  return dirof(dirof($path));
+sub dirof($path,%O) {
+  return (! -d $path)
+    ? parof $path,%O,i=>1
+    : $path
+    ;
 
 };
 
@@ -117,7 +126,7 @@ sub parof($path) {
 # gives first name in path
 
 sub based($path) {
-  my @names=split m[/],$path;
+  my @names=split $FSLASH_RE,$path;
   return $names[0];
 
 };

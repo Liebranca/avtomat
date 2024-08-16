@@ -35,7 +35,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.9;#a
+  our $VERSION = v0.02.0;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -1506,6 +1506,8 @@ sub procblk($self) {
 
   } keys %io;
 
+use Fmat;
+fatdump \$var;
 
   return;
 
@@ -2437,9 +2439,14 @@ sub la_reqvar($self,$vref,$have,$which) {
 
 # ---   *   ---   *   ---
 # backup values uppon call
+#
+# TODO: inlining. from best to worst:
+#
+# * virtual proc with no inputs
+# * virtual proc with only constant inputs
+# * regular virtual proc
 
 sub on_call($self,$dst,@slurp) {
-
 
   # output is an instruction list!
   my @out=();

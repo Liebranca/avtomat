@@ -753,7 +753,7 @@ sub binfilter($class,$bfile) {
 
   # get dir
   my $fpath = $bfile->{__alt_out};
-  my $base  = dirof($fpath);
+  my $base  = dirof $fpath;
 
 
   # ^relocate the others

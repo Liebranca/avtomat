@@ -31,27 +31,28 @@ package main;
 
 my $xlate = xlate->new(
 
-#q[%;
-#
-#clan testy;
-#
-#proc new;
-#  byte cnt $01;
-#
-#  @@;
-#
-#  dec  cnt;
-#  test cnt,cnt;
-#  jnz  @b;
-#  jz   @f;
-#
-#  @@;
-#
-#  ret;
-#
-#],
+q[%;
 
-  glob('~/bt/dice.pe'),
+clan testy;
+
+proc new;
+
+
+  qword mask;
+
+  ld  br,$304;
+  ld  mask,$01;
+  shl mask,$08;
+  dec mask;
+
+  and br,mask;
+
+
+  ret;
+
+],
+
+#  glob('~/bt/dice.pe'),
   limit=>2
 
 );

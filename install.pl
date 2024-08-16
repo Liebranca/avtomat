@@ -39,8 +39,6 @@ BEGIN {
   use lib $ENV{'ARPATH'}.'/lib/';
   use Avt;
 
-  my $root=Shb7::set_root($ENV{'ARPATH'});
-
 # ---   *   ---   *   ---
 
 Avt::set_config(
