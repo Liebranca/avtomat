@@ -37,15 +37,13 @@ clan testy;
 
 proc new;
 
-
-  qword mask;
-
   ld  br,$304;
-  ld  mask,$01;
-  shl mask,$08;
-  dec mask;
+  ld  ar,$01;
+  shl ar,$08;
+  dec ar;
 
-  and br,mask;
+  and br,ar;
+  add cr,br;
 
 
   ret;

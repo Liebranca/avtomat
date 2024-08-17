@@ -318,6 +318,7 @@ sub addio($self,$ins,$name) {
     bound    => undef,
 
     loaded   => $key ne 'out',
+    status   => {type=>'nconst',value=>undef},
 
   };
 
@@ -390,6 +391,7 @@ sub chkvar($self,$name,$idex) {
       bound    => undef,
 
       loaded   => $load,
+      status   => {type=>'nconst',value=>undef},
 
     };
 
@@ -943,6 +945,10 @@ sub reset_iter($self) {
     j     => 0,
     k     => 0,
 
+    ni    => 0,
+    nj    => 0,
+    nk    => 0,
+
     point => undef,
     dst   => undef,
     src   => undef,
@@ -1064,6 +1070,10 @@ sub prog_walk($self,$i,$type,$fn,@args) {
   };
 
 
+  $iter->{ni}=$iter->{i};
+  $iter->{nj}=$iter->{j};
+
+
   # apply F to filtered array
   my $limit=(int @$prog)-1;
 
@@ -1089,6 +1099,9 @@ sub prog_walk($self,$i,$type,$fn,@args) {
     # go next
     $iter->{i}++;
     $iter->{j}++;
+
+    $iter->{ni}++;
+    $iter->{nj}++;
 
 
   } @{$prog}[$i..$limit];
@@ -1118,6 +1131,7 @@ sub timeline_step($self) {
   if(! $point || $point ne $newp) {
     $iter->{point} = $newp;
     $iter->{j}     = 0;
+    $iter->{nj}    = 0;
 
   };
 
@@ -1475,8 +1489,11 @@ sub procblk($self) {
   #
   # done to accomodate instructions
   # that require use of specific registers
+  #
+  # constant expressions are also solved here
 
   $self->prog_walk(0=>qr{base}=>\&preprocins);
+  @{$iter->{prog}}=@{$iter->{nprog}};
 
 
   # ^backup IO locations
@@ -1506,8 +1523,6 @@ sub procblk($self) {
 
   } keys %io;
 
-use Fmat;
-fatdump \$var;
 
   return;
 
@@ -1549,7 +1564,7 @@ sub preprocins($self) {
   } qw(fix_regsrc);
 
 
-  # by-instruction callbacks!
+  # have a callback for this instruction?
   $tab={
     pass=>[on_pre_pass=>()],
 
@@ -1561,10 +1576,177 @@ sub preprocins($self) {
     my ($fn,@args)=@{$have};
     $self->$fn(@args);
 
+
+  # ^nope, process normally
+  } elsif(defined $dst) {
+
+    my $flags={
+      map {$ARG=>$point->{$ARG}->[$j]}
+      qw  (overwrite load_dst)
+
+    };
+
+    $self->chkconst($ins,$flags,$dst,$src);
+
   };
 
 
   return 0;
+
+};
+
+# ---   *   ---   *   ---
+# optimize away instruction
+# if all operands can be considered
+# constants at this point in time
+
+sub chkconst($self,$ins,$flags,$dst,$src=undef) {
+
+
+  # TODO: catch these in the previous F
+  return if int (
+    grep {$ARG eq $ins}
+    qw   (call pass bind jmp jnz)
+
+  );
+
+  # is source operand constant?
+  my $src_const = $self->is_const($src);
+  my @args      = ();
+
+
+  # perform operation?
+  my $dst_const=((
+
+      $flags->{overwrite}
+  &&! $flags->{load_dst}
+
+  ) || $self->is_const($dst));
+
+  if($dst_const && $src_const) {
+
+
+    # get ctx
+    my $mc   = $self->getmc();
+    my $ISA  = $mc->{ISA};
+    my $guts = $ISA->{guts};
+
+    my @args = (defined $src)
+      ? [$src->{status}->{value}]
+      : ()
+      ;
+
+
+    # instruction is aliased?
+    my $tab=$guts->lookup;
+
+    $ins=(exists $tab->{$ins}->{fn})
+      ? $tab->{$ins}->{fn} : $ins ;
+
+
+    # ^execute instruction
+    my $have   = $dst->{status}->{value};
+       $have //= 0;
+
+    my $type   = typefet 'qword';
+
+    my $fn     = $guts->$ins($type,@args);
+    my $value  = $fn->($guts,$have);
+
+    # ^save result
+    $dst->{status}->{type}  = 'const';
+    $dst->{status}->{value} = $value;
+
+    # TODO
+    #
+    # perform a lookahead here before
+    # deleting the instruction if we
+    # are *loading* a value into a register
+
+    $self->remove_ins();
+
+
+  # ^replace operand for constant?
+  } elsif(defined $src && $src_const) {
+
+    my $iter   = $self->{citer};
+    my $point  = $iter->{point};
+    my $nprog  = $iter->{nprog};
+    my $data   = $nprog->[$iter->{ni}];
+
+    $data->[3] = $self->chkvar(
+      "\%$src->{status}->{value}",
+      $iter->{nj},
+
+    );
+
+
+  # ^reset constant state
+  } else {
+    $dst->{status}->{type}  = 'nconst';
+    $dst->{status}->{value} = undef;
+
+  };
+
+
+  return;
+
+
+};
+
+# ---   *   ---   *   ---
+# check that a var is constant
+# at this point in the timeline
+
+sub is_const($self,$vref) {
+
+
+  # skip?
+  return 1 if ! defined $vref;
+
+
+  # can we treat this as a constant?
+  my $x=(
+     defined    $vref->{loaded}
+  && 'const' eq $vref->{loaded}
+
+  );
+
+  my $y=2 * (
+     (! $x)
+  && ('const' eq $vref->{status}->{type})
+
+  );
+
+
+  # ^yes, mark it as such
+  if($x || $y) {
+
+    my $value=($x)
+
+      ? substr $vref->{name},
+          1,(length $vref->{name})-1
+
+      : $vref->{status}->{value}
+
+      ;
+
+    $vref->{status}->{type}  = 'const';
+    $vref->{status}->{value} = $value;
+
+
+    return 1;
+
+
+  # ^nope, reset!
+  } else {
+
+    $vref->{status}->{type}  = 'nconst';
+    $vref->{status}->{value} = undef;
+
+    return 0;
+
+  };
 
 };
 
@@ -1710,6 +1892,7 @@ sub procins($self) {
 
   };
 
+
   my $fn=$edgetab->{$ins};
 
   if(defined $fn) {
@@ -1810,7 +1993,10 @@ sub insert_ins($self,@ins) {
 
 
   # ^move to end of generated
-  $iter->{j} += $have;
+  $iter->{j}  += $have;
+
+  $iter->{nj} += $have;
+  $iter->{ni} += $have;
 
   return;
 
@@ -1871,7 +2057,10 @@ sub remove_ins($self) {
 
 
   # ^move to previous
-  $iter->{j} -= 1;
+  $iter->{j}  -= 1;
+
+  $iter->{nj} -= 1;
+  $iter->{ni} -= 1;
 
   return;
 
@@ -2207,18 +2396,35 @@ sub replvar($self,$vref,$prev_t=0) {
 
 
   # var is valid for replacement?
-  if(
+  my $const=$self->is_const($vref);
 
-     defined $vref
-  && defined $vref->{loc}
+  if(defined $vref && (
 
-  ) {
+     ($const && $k)
+  || (defined $vref->{loc})
+
+  )) {
 
     my $operand=\$qref->[2+$k];
 
 
+    # constant source optimized to constant?
+    if($const) {
+
+      my $mc  = $self->getmc();
+      my $ISA = $mc->{ISA};
+
+      my $x   = $vref->{status}->{value};
+
+      $$operand={
+        type => $ISA->immsz($x),
+        imm  => $x,
+
+      };
+
+
     # calculating address?
-    if(! index $$operand->{type},'m') {
+    } elsif(! index $$operand->{type},'m') {
 
       $self->replmem($operand,$vref);
       $qref->[0]=$$operand->{opsz};

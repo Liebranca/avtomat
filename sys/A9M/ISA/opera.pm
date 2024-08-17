@@ -134,12 +134,18 @@ St::vconst {
 
 
     and => {
+
+      fn   => '_and',
+
       dst  => 'r',
       src  => 'ri',
 
     },
 
     or => {
+
+      fn   => '_or',
+
       dst  => 'r',
       src  => 'ri',
 
@@ -502,6 +508,11 @@ St::vconst {
   },
 
   list    => sub {[array_keys $_[0]->table()]},
+  lookup  => sub {return {
+    @{$_[0]->table()}
+
+  }},
+
   cX_list => [qw(z nz g gz l lz)],
 
 };
@@ -734,11 +745,23 @@ sub set_scope($self,$main,$data) {
 };
 
 # ---   *   ---   *   ---
-# exclusive OR
+# quick binary ops
+
+sub _or($self,$type,$src) {
+  my @src=asval $src;
+  sub ($ice,$x) {$x | shift @src};
+
+};
 
 sub xor($self,$type,$src) {
   my @src=asval $src;
   sub ($ice,$x) {$x ^ shift @src};
+
+};
+
+sub _and($self,$type,$src) {
+  my @src=asval $src;
+  sub ($ice,$x) {$x & shift @src};
 
 };
 
