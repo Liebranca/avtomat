@@ -40,13 +40,14 @@ package Shb7::Bk::front;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = v0.00.4;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # cstruc
 
 sub new($class,%O) {
+
 
   # defaults
   $O{name}    //= './out';
@@ -62,6 +63,8 @@ sub new($class,%O) {
 
   $O{incl}    //= [];
   $O{libs}    //= [];
+  $O{libpath} //= [];
+
 
   # determine author/version
   # for generators
@@ -81,7 +84,7 @@ sub new($class,%O) {
 
   # ^cat generated files and includes
   my %lists=$class->mklists(
-    $O{incl},$O{libs}
+    $O{incl},$O{libs},$O{libpath}
 
   );
 
@@ -89,6 +92,7 @@ sub new($class,%O) {
   push @{$lists{incl}},array_values(\@gens);
 
   array_filter($O{files});
+
 
   # make builder ice
   my $bkn=q[Shb7::Bk::].$O{bk};
@@ -279,48 +283,53 @@ sub cathed($class,$sys,$usr) {
 # ---   *   ---   *   ---
 # makes lib/include lists
 
-sub mklists($class,$incl,$libs) {
+sub mklists($class,$incl,$libs,$libpath) {
 
-  array_filter($incl) if is_arrayref($incl);
-  array_filter($libs) if is_arrayref($libs);
 
-  $incl=$class->inc_list($incl);
-  $libs=$class->lib_list($libs);
+  # ordered data for processing each arg
+  my @proc=([-I=>'-I./'],[-l=>()],[-L=>()]);
 
-  array_dupop($incl);
-  array_dupop($libs);
+  # ^walk
+  map {
 
+    # input is array or string?
+    array_filter($ARG) if is_arrayref($ARG);
+
+    # process accto data type
+    my (@cmd)=@{(shift @proc)};
+    $ARG=$class->x_list($ARG,@cmd);
+
+    # remove duplicates!
+    array_dupop($ARG);
+
+
+  } ($incl,$libs,$libpath);
+
+
+  # ^give hashref with processed data
   return (
-    incl => $incl,
-    libs => $libs,
+    incl    => $incl,
+    libs    => $libs,
+    libpath => $libpath,
 
   );
 
 };
 
 # ---   *   ---   *   ---
-# get arrayref of includes
-# from either a comma-separated
-# string or an arrayref
+# prototype:
+#
+# get arrayref from either
+# a comma-separated string
+# or an arrayref
 
-sub inc_list($class,$src) {
+sub x_list($class,$src,$ch,@pre) {
 
-  return [q[-I./], map {
-    $ARG=q[-I].$ARG
+  return [
+    @pre,
+    map {$ARG="$ch$ARG"} deref_clist($src)
 
-  } deref_clist($src)];
-
-};
-
-# ---   *   ---   *   ---
-# ^libs
-
-sub lib_list($class,$src) {
-
-  return [map {
-    $ARG=q[-l].$ARG
-
-  } deref_clist($src)];
+  ];
 
 };
 

@@ -87,6 +87,7 @@ package Shb7::Build;
 
 sub new($class,%O) {
 
+
   # defaults
   $O{name}    //= 'out';
   $O{entry}   //= '_start';
@@ -95,6 +96,7 @@ sub new($class,%O) {
   $O{files}   //= [];
   $O{incl}    //= [];
   $O{libs}    //= [];
+  $O{libpath} //= [];
 
   $O{shared}  //= 0;
   $O{linking} //= 0;
@@ -120,7 +122,7 @@ sub new($class,%O) {
     entry   => $O{entry},
 
     incl    => $O{incl},
-    libs    => $O{libs},
+    libs    => [@{$O{libpath}},@{$O{libs}}],
 
     flags   => $flags,
     linking => $O{linking},

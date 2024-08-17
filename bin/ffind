@@ -1,0 +1,77 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# FFIND
+# Looks for the names OF files
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+
+# ---   *   ---   *   ---
+# deps
+
+package main;
+
+  use v5.36.0;
+  use strict;
+  use warnings;
+
+  use English qw(-no_match_vars);
+
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
+
+  use Style;
+  use Arstd::Path;
+  use Arstd::IO;
+
+  use Cli;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+
+  use Lang;
+  use Lang::Perl;
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION=v0.1.1;
+  our $AUTHOR='IBN-3DILA';
+
+# ---   *   ---   *   ---
+# initialize fstruct search
+
+my @attrs=@{$Cli::Fstruct::ATTRS};
+$attrs[3]->{default}=1;
+
+my $m      = Cli->new(@attrs);
+
+my @files  = Cli::Fstruct::proto_search($m);
+my $sym_re = $m->{symbol};
+my $ext_re = $m->{ext_re};
+
+# ---   *   ---   *   ---
+# walk the fstruct
+
+while(@files) {
+
+  my $f=shift @files;
+
+  if(-d $f) {
+    expand_path($f,\@files);
+    next;
+
+  };
+
+  next if ! ($f=~ $ext_re);
+  next if ! -f $f;
+
+  say $f if $f=~ $sym_re;
+
+
+};
+
+# ---   *   ---   *   ---
+1; # ret

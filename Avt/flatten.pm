@@ -47,12 +47,15 @@ sub new($class,%O) {
     lang    => 'fasm',
 
     bk      => 'flat',
-    entry   => 'crux',
-    linking => 'flat',
+    entry   => 'start',
 
     pproc   => 'Avt::flatten::pproc',
 
-    %O
+
+    %O,
+
+    linking => (! $O{linking})
+      ? 'flat' : 'half-flat' ,
 
   );
 

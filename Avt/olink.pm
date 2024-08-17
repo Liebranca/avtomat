@@ -40,7 +40,7 @@ package Avt::olink;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v1.00.6;
+  our $VERSION = v1.00.7;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -94,8 +94,11 @@ sub parse_args(@cmd) {
 
     # ^olink specific
     {id=>'libs',short=>'-l',argc=>1},
+    {id=>'libpath',short=>'-L',argc=>1},
     {id=>'incl',short=>'-I',argc=>1},
     {id=>'out',short=>'-o',argc=>1},
+
+    {id=>'require-C',short=>'C',argc=>0},
 
     {id=>'debug',short=>'-g',argc=>0},
     {id=>'-pg',short=>'-pg',argc=>0},
@@ -113,8 +116,8 @@ sub parse_args(@cmd) {
 
 
   # nullout include and lib paths
-  for my $v($m->{incl},$m->{libs}) {
-    $v=$NULLSTR if $v eq $NULL
+  for my $v($m->{incl},$m->{libs},$m->{libpath}) {
+    $v=$NULLSTR if $v eq $NULL;
 
   };
 
@@ -216,13 +219,17 @@ sub compile($m,$files) {
     # ^cstruc builder ice
     my $exe = $class->new(
 
-      name  => $m->{out},
+      name    => $m->{out},
 
-      libs  => $m->{libs},
-      incl  => $m->{incl},
+      libs    => $m->{libs},
+      libpath => $m->{libpath},
 
-      debug => $m->{debug} ne $NULL,
-      files => $flist,
+      incl    => $m->{incl},
+
+      debug   => $m->{debug} ne $NULL,
+      files   => $flist,
+
+      linking => $m->{'require-C'} ne $NULL,
 
     );
 
