@@ -182,7 +182,7 @@ sub crux($src,%O) {
 
   # make binary
   $self->flatten();
-  $self->assemble();
+#  $self->assemble();
 
   return $self;
 

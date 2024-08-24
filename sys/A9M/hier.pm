@@ -25,6 +25,7 @@ package A9M::hier;
   use lib $ENV{ARPATH}.'/lib/sys/';
 
   use Style;
+  use Chk;
   use Type;
 
   use Arstd::Bytes;
@@ -35,7 +36,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.0;#a
+  our $VERSION = v0.02.2;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -971,14 +972,34 @@ sub reset_iter($self) {
 
 sub backup_iter($self) {
 
-  my $iter=$self->{citer};
-  my $back=$self->{biter};
 
+  # get ctx
+  my $iter = $self->{citer};
+  my $back = $self->{biter};
+  my $var  = $iter->{var};
+
+
+  # backup pointers
   push @$back,[
     map {$iter->{$ARG}}
-    qw  (i j k point match)
+    qw  (i j k ni nj nk point match)
 
   ];
+
+  # backup value const status
+  my $status={map {
+
+    my $vref=$var->{$ARG};
+
+    $ARG=>[
+      $vref->{status}->{type},
+      $vref->{status}->{value},
+
+    ];
+
+  } $self->varkeys(io=>'all')};
+
+  push @{$back->[-1]},$status;
 
 
   return;
@@ -990,13 +1011,32 @@ sub backup_iter($self) {
 
 sub restore_iter($self) {
 
-  my $iter=$self->{citer};
-  my $back=$self->{biter};
 
+  # get ctx
+  my $iter = $self->{citer};
+  my $back = $self->{biter};
+  my $var  = $iter->{var};
+
+
+  # restore pointers
   my $have=pop @$back;
 
   map {$iter->{$ARG}=shift @$have}
-  qw  (i j k point match);
+  qw  (i j k ni nj nk point match);
+
+  # restore value const status
+  my $status=shift @$have;
+
+  map {
+
+    my $vref=$var->{$ARG};
+
+    ( $vref->{status}->{type},
+      $vref->{status}->{value}
+
+    )=@{$status->{$ARG}};
+
+  } keys %$status;
 
 
   return;
@@ -1088,8 +1128,18 @@ sub prog_walk($self,$i,$type,$fn,@args) {
     $iter->{src}=$src;
 
 
+    # skip deleted
+    my $valid =(
+
+       (defined $newp->{del}->[$iter->{j}])
+    && (!       $newp->{del}->[$iter->{j}])
+
+    && (defined $newp->{Q}->[$iter->{j}])
+
+    );
+
     # run F on matching type
-    if($e=~ $type) {
+    if($valid && $e=~ $type) {
       $status=$fn->($self,@args);
       return $status if $status != 0;
 
@@ -1108,6 +1158,76 @@ sub prog_walk($self,$i,$type,$fn,@args) {
 
 
   return $status;
+
+};
+
+# ---   *   ---   *   ---
+# update program after deleting
+# or adding instructions
+
+sub prog_update($self) {
+
+
+  # get ctx
+  my $iter  = $self->{citer};
+  my $prog  = $iter->{prog};
+  my $nprog = $iter->{nprog};
+
+  # walk and discard deleted values
+  my $j    = 0;
+  my $prev = undef;
+  @{$iter->{prog}}=map {
+
+
+    # unpack
+    my ($e,$point)=@$ARG;
+    $j=0 if $prev && $point ne $prev;
+
+
+    # adjust point to match new dimentions
+    my @drop  = @{$point->{del}};
+    my $empty = 0;
+
+    map {
+
+      my $i   = 0;
+      my $dst = $point->{$ARG};
+
+      @$dst  =  grep {! $drop[$i++]} @$dst;
+      $empty =! int @$dst;
+
+    # ^don't touch assembly Q and branch!
+    } grep {
+      ! ($ARG=~ qr{^(?:Q|branch)$});
+
+    } keys %$point;
+
+
+    # filter out discarded instructions
+    @{$point->{Q}}=grep {
+
+       (is_arrayref $ARG)
+    && (int @$ARG)
+
+    } @{$point->{Q}};
+
+
+    $empty |= @{$point->{Q}} < $j;
+
+
+    # go next
+    $prev=$point;
+    $j++;
+
+    # if all values where dropped,
+    # then we discard the point itself
+    ($empty) ? () : $ARG ;
+
+
+  } @{$iter->{nprog}};
+
+
+  return;
 
 };
 
@@ -1493,7 +1613,13 @@ sub procblk($self) {
   # constant expressions are also solved here
 
   $self->prog_walk(0=>qr{base}=>\&preprocins);
-  @{$iter->{prog}}=@{$iter->{nprog}};
+  $self->prog_update();
+
+  map {
+    $ARG->[0]='base'
+    if $ARG->[0] eq 'const';
+
+  } @{$iter->{prog}};
 
 
   # ^backup IO locations
@@ -1505,9 +1631,7 @@ sub procblk($self) {
 
   # walk timeline
   $self->prog_walk(0=>qr{base}=>\&procins);
-
-  # update program
-  @{$iter->{prog}}=@{$iter->{nprog}};
+  $self->prog_update();
 
   # does this block utilize the stack?
   if($self->{stack}->{-size}) {
@@ -1616,12 +1740,17 @@ sub chkconst($self,$ins,$flags,$dst,$src=undef) {
 
 
   # perform operation?
-  my $dst_const=((
-
+  my $dst_ld=(
       $flags->{overwrite}
   &&! $flags->{load_dst}
 
-  ) || $self->is_const($dst));
+  );
+
+  my $dst_const=(
+    $dst_ld || $self->is_const($dst)
+
+  );
+
 
   if($dst_const && $src_const) {
 
@@ -1657,29 +1786,70 @@ sub chkconst($self,$ins,$flags,$dst,$src=undef) {
     $dst->{status}->{type}  = 'const';
     $dst->{status}->{value} = $value;
 
-    # TODO
-    #
+
     # perform a lookahead here before
     # deleting the instruction if we
     # are *loading* a value into a register
 
-    $self->remove_ins();
+    if($dst_ld) {
+
+      my $have=$self->lookahead(
+        $ANY_MATCH,\&la_chkconst,$dst
+
+      );
+
+      if(exists $dst->{status}->{back}) {
+
+        $dst->{status}->{value}=
+          $dst->{status}->{back};
+
+        delete $dst->{status}->{back};
+
+      };
+
+
+      # perform intermediate load
+      #
+      # also forbids future iterations from
+      # messing with this instruction
+
+      if(! $have &&! @{$dst->{deps_for}}) {
+
+        $self->replconst($dst,'src');
+        $dst_const=0;
+
+        my $iter   = $self->{citer};
+        my $prog   = $iter->{prog};
+        my $nprog  = $iter->{nprog};
+
+        $prog->[$iter->{i}]->[0]   = 'const';
+        $nprog->[$iter->{ni}]->[0] = 'const';
+
+        $dst->{status}->{type}  = 'nconst';
+        $dst->{status}->{value} = undef;
+
+
+      # do not discard intermediate load if
+      # constant value is a dependency for
+      # a non-constant operation
+
+      } elsif($have) {
+        $dst_const=0;
+
+      };
+
+    };
+
+
+    # delete instruction when neither of
+    # the above edge cases apply
+    $self->remove_ins()
+    if $dst_const;
 
 
   # ^replace operand for constant?
   } elsif(defined $src && $src_const) {
-
-    my $iter   = $self->{citer};
-    my $point  = $iter->{point};
-    my $nprog  = $iter->{nprog};
-    my $data   = $nprog->[$iter->{ni}];
-
-    $data->[3] = $self->chkvar(
-      "\%$src->{status}->{value}",
-      $iter->{nj},
-
-    );
-
+    $self->replconst($src,'src');
 
   # ^reset constant state
   } else {
@@ -1691,6 +1861,37 @@ sub chkconst($self,$ins,$flags,$dst,$src=undef) {
 
   return;
 
+
+};
+
+# ---   *   ---   *   ---
+# slap constant into assembly queue,
+# replacing the previous operand
+#
+# used to remove value references!
+
+sub replconst($self,$vref,$which) {
+
+
+  # get ctx
+  my $iter   = $self->{citer};
+  my $point  = $iter->{point};
+  my $nprog  = $iter->{nprog};
+  my $data   = $nprog->[$iter->{ni}];
+
+  # find slot to write at
+  my $k   = {dst=>0,src=>1}->{$which};
+     $k //= $which;
+
+  # overwrite reference for constant
+  $data->[2+$k] = $self->chkvar(
+    "\%$vref->{status}->{value}",
+    $iter->{nj},
+
+  );
+
+
+  return;
 
 };
 
@@ -1747,6 +1948,58 @@ sub is_const($self,$vref) {
     return 0;
 
   };
+
+};
+
+# ---   *   ---   *   ---
+# lookahead F: see if we can
+# eliminate an intermediate load
+
+sub la_chkconst($self,$vref,$ins,@args) {
+
+
+  # get ctx
+  my $iter  = $self->{citer};
+
+  my $point = $iter->{point};
+  my $j     = $iter->{j};
+
+  # unpack
+  my ($dst,$src)=@args;
+
+  my $src_vref = 0;
+  my $dst_vref = 0;
+  my $need     = 0;
+
+
+  # does this instruction modify the value's
+  # constant state?
+  if(defined $dst) {
+
+    my $flags={
+      map {$ARG=>$point->{$ARG}->[$j]}
+      qw  (overwrite load_dst)
+
+    };
+
+    $self->chkconst($ins,$flags,$dst,$src);
+
+
+    # sneaky state update
+    $dst->{status}->{back}=
+      $dst->{status}->{value}
+    if 'const' eq $dst->{status}->{type};
+
+
+    # value remains constant?
+    $need =! $self->is_const($dst)
+    if $dst eq $vref;
+
+
+  };
+
+
+  return $need;
 
 };
 
@@ -1934,11 +2187,8 @@ sub insert_ins($self,@ins) {
   my $point = $iter->{point};
   my $Q     = $point->{Q};
 
-  my $i     = $iter->{i};
-  my $j     = $iter->{j};
-
-
-  $i += @$nprog-@$prog;
+  my $i     = $iter->{ni};
+  my $j     = $iter->{nj};
 
 
   # add fake markers for generated instructions
@@ -1993,8 +2243,6 @@ sub insert_ins($self,@ins) {
 
 
   # ^move to end of generated
-  $iter->{j}  += $have;
-
   $iter->{nj} += $have;
   $iter->{ni} += $have;
 
@@ -2016,11 +2264,8 @@ sub remove_ins($self) {
   my $point = $iter->{point};
   my $Q     = $point->{Q};
 
-  my $i     = $iter->{i};
-  my $j     = $iter->{j};
-
-
-  $i += @$nprog-@$prog;
+  my $i     = $iter->{ni};
+  my $j     = $iter->{nj};
 
 
   # remove marker
@@ -2039,28 +2284,12 @@ sub remove_ins($self) {
   );
 
 
-  # adjust point to match new dimentions
-  map {
-
-    my $dst=$point->{$ARG};
-
-    @$dst=(
-      @{$dst}[0..$j-1],
-      @{$dst}[$j+1..@$dst-1],
-
-    );
-
-  } grep {
-    ! ($ARG=~ qr{^(?:Q|branch)$});
-
-  } keys %$point;
-
-
-  # ^move to previous
-  $iter->{j}  -= 1;
-
+  # move to previous
   $iter->{nj} -= 1;
   $iter->{ni} -= 1;
+
+  # mark as invalid
+  $point->{del}->[$j]=1;
 
   return;
 
@@ -2180,7 +2409,7 @@ sub lookahead($self,$re,$fn,$vref) {
   # walk program from current ins onwards
   my @branch = ();
   my $out    = 0;
-  my $beg    = $self->{citer}->{i};
+  my $beg    = $self->{citer}->{i}+1;
 
   $self->prog_walk(
 
@@ -2228,8 +2457,7 @@ sub la_step($self,$re,$fn,$vref,$branch,$out) {
   my $dst   = $iter->{dst};
   my $src   = $iter->{src};
 
-  my $tab={dst=>$dst,src=>$src};
-  my $ins=$point->{Q}->[$iter->{j}]->[1];
+  my $ins   = $point->{Q}->[$iter->{j}]->[1];
 
 
   # trim past branches
@@ -2280,9 +2508,7 @@ sub la_step($self,$re,$fn,$vref,$branch,$out) {
 
 
   # ^compare against vref
-  map {
-
-    my $have=$tab->{$ARG};
+  if($ins=~ $re) {
 
 
     # if there is no check, then give true!
@@ -2292,25 +2518,25 @@ sub la_step($self,$re,$fn,$vref,$branch,$out) {
 
     # perform check and procceed
     # accto result:
-    #
-    # * on ret F eq abs 1, then stop
-    # * always give true on 1
-    #
-    # * false on -1 IF there are no
-    #   further branches to consider
-    #
-    # * zero means continue
 
-    } elsif(
+    } elsif(my $ok=$fn->(
+      $self,$vref,$ins,$dst,$src
 
-      defined $have && (my $ok=$fn->(
-      $self,$have,$vref,$ARG
+    )) {
 
-    ))) {
+
+      # * on ret F eq abs 1, then stop
+      # * always give true on 1
 
       if($ok == 1) {
         $$out=1;
         return 1;
+
+
+      # * false on -1 IF there are no
+      #   further branches to consider
+      #
+      # * zero means continue ;>
 
       } elsif($ok == -1 &&! @$branch) {
         return 1;
@@ -2319,8 +2545,7 @@ sub la_step($self,$re,$fn,$vref,$branch,$out) {
 
     };
 
-
-  } qw(dst src) if $ins=~ $re;
+  };
 
 
   return 0;
@@ -2612,29 +2837,55 @@ sub reqvar($self,$vref,$which) {
 # lookahead F:
 # check instruction requires vref
 
-sub la_reqvar($self,$vref,$have,$which) {
+sub la_reqvar($self,$vref,$ins,@args) {
 
 
-  # is value required by this instruction?
-  my $same = $have eq $vref;
-  my $need = int (
-     $same
-  && $self->reqvar($vref,$which)
+  # unpack
+  my ($dst,$src)=@args;
 
-  );
+  my $src_vref = 0;
+  my $dst_vref = 0;
+
+  my $need     = 0;
 
 
-  # corner: value is explicitly discarded,
-  # hence not required
-  if($same &&! $need && $which eq 'dst') {
+  # is vref required source operand?
+  if(defined $src) {
 
-    my $iter  = $self->{citer};
+    $src_vref = $src eq $vref;
+    $need     = int (
+       $src_vref
+    && $self->reqvar($vref,'src')
 
-    my $point = $iter->{point};
-    my $j     = $iter->{j};
+    );
 
-    $need=-1
-    if $point->{overwrite}->[$j];
+  };
+
+
+  # is vref required destination operand?
+  if(! $src_vref && defined $dst) {
+
+    $dst_vref = $dst eq $vref;
+    $need     = int (
+       $dst_vref
+    && $self->reqvar($vref,'dst')
+
+    );
+
+
+    # corner: value is explicitly discarded,
+    # hence not required
+    if($dst_vref &&! $need) {
+
+      my $iter  = $self->{citer};
+
+      my $point = $iter->{point};
+      my $j     = $iter->{j};
+
+      $need=-1
+      if $point->{overwrite}->[$j];
+
+    };
 
   };
 

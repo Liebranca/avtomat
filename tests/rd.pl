@@ -37,14 +37,18 @@ clan testy;
 
 proc new;
 
-  ld  br,$304;
-  ld  ar,$01;
-  shl ar,$08;
-  dec ar;
+  in  byte  bits;
+  out qword key;
 
-  and br,ar;
-  add cr,br;
+  qword mask;
 
+  ld  key,$1F8;
+  ld  bits,8;
+  ld  mask,1;
+
+  shl mask,bits;
+  dec mask;
+  and key,mask;
 
   ret;
 

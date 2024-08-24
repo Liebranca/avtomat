@@ -232,6 +232,7 @@ sub hierstruc($self,$data) {
 
     branch => $branch,
     Q      => [],
+    del    => [],
 
   };
 
@@ -258,6 +259,7 @@ sub hierstruc($self,$data) {
   } @$req;
 
 
+  $out->{del}=[(0) x int @{$out->{Q}}];
   return $out;
 
 };
