@@ -71,10 +71,10 @@ sub target($tgt) {
 
   my @out=();
 
-  if($tgt eq $Shb7::Bk::TARGET->{x64}) {
+  if($tgt eq Shb7::Bk->TARGET->{x64}) {
     @out=qw(-m elf_x86_64);
 
-  } elsif($tgt eq $Shb7::Bk::TARGET->{x32}) {
+  } elsif($tgt eq Shb7::Bk->TARGET->{x32}) {
     @out=qw(-m elf_x86);
 
   };
@@ -179,7 +179,7 @@ sub asm($class,$src,$merrf,@args) {
 #   req for assembling a file, afaik
 #
 #   so we just iter and increase
-#   the ammout from the default 16K
+#   it from the default 16K
 
   state $oomre = qr{error: out of memory\.};
   state @sztab = (
@@ -199,22 +199,22 @@ MEM_RECALC:
 
   $mem="-m $sztab[$attp]";
 
-use Benchmark;
-my $t0 = Benchmark->new;
+#use Benchmark;
+#my $t0 = Benchmark->new;
 
   # invoke cmd and save error to tmp file
-  `fasm $mem @args $src &> $merrf`;
+  `fasm $mem @args $src 2> $merrf`;
 
-my $t1 = Benchmark->new;
-my $td = timediff($t1,$t0);
-
-my $tt = timestr($td,'nop','8.16f');
-strip(\$tt);
-
-$tt=~ s[.+([0-9]+\.[0-9]+) \s CPU.+$][$1]x;
-$tt= sprintf "%8.2f",$tt*1000;
-
-$WLog->substep("took $tt ms\n");
+#my $t1 = Benchmark->new;
+#my $td = timediff($t1,$t0);
+#
+#my $tt = timestr($td,'nop','8.16f');
+#strip(\$tt);
+#
+#$tt=~ s[.+([0-9]+\.[0-9]+) \s CPU.+$][$1]x;
+#$tt= sprintf "%8.2f",$tt*1000;
+#
+#$WLog->substep("took $tt ms\n");
 
   my $merr=orc($merrf);
 

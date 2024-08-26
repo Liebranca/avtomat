@@ -887,7 +887,10 @@ sub pushlv($self,@pending) {
 # removes all children from self
 
 sub clear($self) {
+  my @out=@{$self->{leaves}};
   $self->{leaves}=[];
+
+  return @out;
 
 };
 
@@ -1227,10 +1230,13 @@ sub pluck_all($self) {
 
 sub discard($self) {
 
-  return ($self->{parent})
+  my $out=($self->{parent})
     ? ($self->{parent}->pluck($self))[0]
     : $self
     ;
+
+  $out->{plucked}=1;
+  return $out;
 
 };
 

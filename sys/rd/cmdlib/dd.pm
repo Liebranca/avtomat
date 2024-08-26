@@ -691,17 +691,17 @@ cmdsub 'seg-type'  => q(sym type)  => \&seg_type;
 
 
 priority 2 => cmdsub 'clan' => q(
-  sym name
+  any name
 
 ) => \&clan;
 
 priority 2 => cmdsub 'struc' => q(
-  sym name
+  any name
 
 ) => \&_struc;
 
 priority 2 => cmdsub 'proc' => q(
-  sym name
+  any name
 
 ) => \&proc;
 

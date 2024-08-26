@@ -402,24 +402,8 @@ sub mkhier($self,$branch) {
 
 
   # make object representing block
-  my $ptr = $fn->();
-
-  $tab  = \$branch->{vref};
-  $$tab = rd::vref->new(
-
-    type => 'HIER',
-    spec => $type,
-
-    data => $mc->mkhier(
-      type=>$type,
-      node=>$branch,
-      name=>$vref->{res}->{label},
-
-    ),
-
-    res  => $vref->{res},
-
-  );
+  my $ptr=$fn->();
+  $main->mkhier($type=>$branch);
 
 
   # scope to this block

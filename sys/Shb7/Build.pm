@@ -23,7 +23,6 @@ package Shb7::Build;
   use English qw(-no_match_vars);
 
   use Storable;
-  use Readonly;
   use Carp;
 
   use Exporter 'import';
@@ -41,13 +40,16 @@ package Shb7::Build;
   use Shb7::Path;
   use Shb7::Find;
 
+  use Shb7::Bk;
   use Shb7::Bk::gcc;
   use Shb7::Bk::flat;
+
+  use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = v0.00.7;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -65,6 +67,29 @@ package Shb7::Build;
 
 # ---   *   ---   *   ---
 # ROM
+
+St::vconst {
+
+  DEFAULT => {
+
+    name    => 'out',
+    entry   => '_start',
+
+    lang    => 'fasm',
+    files   => [],
+    flags   => [],
+    incl    => [],
+    libs    => [],
+    libpath => [],
+
+    shared  => 0,
+    linking => 0,
+    debug   => 0,
+    tgt     => 0,
+
+  },
+
+};
 
   my $FLGCHK=sub {
 
@@ -89,19 +114,7 @@ sub new($class,%O) {
 
 
   # defaults
-  $O{name}    //= 'out';
-  $O{entry}   //= '_start';
-
-  $O{lang}    //= 'fasm';
-  $O{files}   //= [];
-  $O{incl}    //= [];
-  $O{libs}    //= [];
-  $O{libpath} //= [];
-
-  $O{shared}  //= 0;
-  $O{linking} //= 0;
-  $O{debug}   //= 0;
-  $O{tgt}     //= $Shb7::Bk::TARGET->{x64};
+  $class->defnit(\%O);
 
 
   # condtionally add extra flags

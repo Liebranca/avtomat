@@ -37,6 +37,10 @@ package Avt::olink;
   use Arstd::PM;
   use Arstd::IO;
 
+  use Shb7::Path qw(walk moo);
+  use Shb7::Bk::flat;
+  use Shb7::Build;
+
 # ---   *   ---   *   ---
 # info
 
@@ -71,10 +75,96 @@ sub crux(@cmd) {
 
   my ($m,$files) = parse_args(@cmd);
 
-  my $bld        = compile($m,$files);
-  my $obj        = xlink($bld);
+  if($m->{flat} ne $NULL) {
 
-  run($m,$obj);
+    $WLog->step("rebuilding objects");
+
+    my @obj=map {
+
+      my $dir="$ARG/";
+
+      die "invalid directory '$dir'"
+      if ! -d $dir;
+
+      chdir $dir;
+      `mkdir -p ${dir}bld`;
+
+      my $tree=walk $dir;
+
+
+      # get every *.asm file
+      my @have=grep {
+         ($ARG=~ qr{\.asm$})
+
+      } $tree->get_file_list();
+
+      # ^and corresponding *.o file for each
+      my @out=map {
+        my $fname=nxbasef $ARG;
+        "${dir}bld/${fname}.o";
+
+      } @have;
+
+
+      # call fasm...
+      map {
+
+        my $fname=basef $ARG;
+        $WLog->substep($fname);
+
+        $fname=nxbasef $ARG;
+
+        my $ok=Shb7::Bk::flat->asm(
+
+          "$ARG ${dir}bld/${fname}.o",
+          './.bkflat.tmp',
+
+        );
+
+        $WLog->err(
+          'aborted',
+          from => 'olink',
+          lvl  => $AR_FATAL,
+
+        ) if ! $ok;
+
+
+        "${dir}bld/${fname}.o";
+
+
+      # ^for every *.asm file that needs
+      # ^to be rebuild
+      } grep {
+        my $fname=nxbasef $ARG;
+        moo "${dir}bld/${fname}.o",$ARG;
+
+      } @have;
+
+
+      # give *.o files to link
+      @out;
+
+
+    } @$files;
+
+
+    $WLog->step('linking objects');
+
+    my $bld={name=>$m->{out}};
+    Shb7::Build->defnit($bld);
+
+    my @call=Shb7::Build::link_flat($bld,@obj);
+    system {$call[0]} @call;
+
+
+  } else {
+
+    my $bld = compile($m,$files);
+    my $obj = xlink($bld);
+
+    run($m,$obj);
+
+  };
 
 
   $WLog->step('done');
@@ -98,7 +188,8 @@ sub parse_args(@cmd) {
     {id=>'incl',short=>'-I',argc=>1},
     {id=>'out',short=>'-o',argc=>1},
 
-    {id=>'require-C',short=>'C',argc=>0},
+    {id=>'require-C',short=>'-C',argc=>0},
+    {id=>'flat',short=>'-f',argc=>1},
 
     {id=>'debug',short=>'-g',argc=>0},
     {id=>'-pg',short=>'-pg',argc=>0},

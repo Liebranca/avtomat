@@ -356,8 +356,10 @@ sub bindcall($self,$branch) {
 
 
   # need to automate passing of arguments?
+  my $have=$l1->xlate($fn->{value});
+
   $self->mkpass($branch,$fn->{idex},@args)
-  if @args;
+  if @args && $have->{data} ne 'pass';
 
 
   # ^make instruction to put ret F in dst
@@ -377,6 +379,7 @@ sub bindcall($self,$branch) {
   $self->asm_ins($bind);
 
   $branch->flatten_branch();
+
 
   return;
 
@@ -456,17 +459,17 @@ cmdsub '$' => q() => \&current_byte;
 
 
 cmdsub 'autocall' => q(
-  any   fn;
-  qlist args=();
+  any  fn;
+  any  args=();
 
 ) => \&autocall;
 
 cmdsub 'bindcall' => q(
 
-  any   dst;
-  any   fn;
+  any dst;
+  any fn;
 
-  qlist args=();
+  any args=();
 
 ) => \&bindcall;
 

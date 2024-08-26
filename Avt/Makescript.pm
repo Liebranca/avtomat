@@ -283,7 +283,7 @@ sub nit_build($class,$self,@cmd) {
 
     shared  => $self->{lmode} eq '-shared',
     debug   => $self->{debug},
-    tgt     => $Shb7::Bk::TARGET->{x64},
+    tgt     => Shb7::Bk->TARGET->{x64},
 
     linking => ($cli->{flat} ne $NULL)
       ? 'flat'
@@ -573,7 +573,7 @@ sub side_builds($self) {
       shared  => 0,
       debug   => $self->{debug},
 
-      tgt     => $Shb7::Bk::TARGET->{x64},
+      tgt     => Shb7::Bk->TARGET->{x64},
       linking => 'cstd',
 
     );

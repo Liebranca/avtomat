@@ -39,12 +39,14 @@ package ipret;
   use Arstd::PM;
   use Arstd::WLog;
 
+  use rd::vref;
+
   use parent 'rd';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.8;#a
+  our $VERSION = v0.01.9;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -194,6 +196,39 @@ sub crux($src,%O) {
 sub cpos($self) {
   my $mc=$self->{mc};
   return $mc->{segtop}->{ptr};
+
+};
+
+# ---   *   ---   *   ---
+# make bindable hierarchical block
+# from a given tree branch
+
+sub mkhier($self,$type,$branch) {
+
+
+  # get ctx
+  my $mc   = $self->{mc};
+  my $vref = $branch->{vref};
+
+  # run cstruc
+  $branch->{vref}=rd::vref->new(
+
+    type => 'HIER',
+    spec => $type,
+
+    data => $mc->mkhier(
+      type=>$type,
+      node=>$branch,
+      name=>$vref->{res}->{label},
+
+    ),
+
+    res  => $vref->{res},
+
+  );
+
+
+  return $branch->{vref};
 
 };
 

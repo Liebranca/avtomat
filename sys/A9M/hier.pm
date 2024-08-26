@@ -36,7 +36,7 @@ package A9M::hier;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.2;#a
+  our $VERSION = v0.02.3;#a
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -66,7 +66,7 @@ St::vconst {
     citer   => {},
     biter   => [],
 
-    io    => {
+    io => {
 
       map {
 
@@ -105,6 +105,7 @@ St::vconst {
 # cstruc
 
 sub new($class,%O) {
+
 
   $class->defnit(\%O);
 
@@ -390,6 +391,7 @@ sub chkvar($self,$name,$idex) {
       ptr      => undef,
       defv     => undef,
       bound    => undef,
+      passed   => undef,
 
       loaded   => $load,
       status   => {type=>'nconst',value=>undef},
@@ -1599,6 +1601,10 @@ sub procblk($self) {
   my $iter = $self->{citer};
   my $var  = $iter->{var};
 
+  # sync this repr with the actual block
+  my $ptr=$self->{node}->{vref}->{res};
+  $self->set_uattrs_from($ptr);
+
 
   # revise IO locations
   #
@@ -1691,6 +1697,7 @@ sub preprocins($self) {
   # have a callback for this instruction?
   $tab={
     pass=>[on_pre_pass=>()],
+    call=>[on_pre_call=>($dst)],
 
   };
 
@@ -2010,10 +2017,10 @@ sub la_chkconst($self,$vref,$ins,@args) {
 
 sub on_fix_regsrc($self,$vref,$idex) {
 
+
   # skip?
   return if ! $idex;
   $idex--;
-
 
   # get ctx
   my $in   = $self->{io}->{in};
@@ -2895,15 +2902,111 @@ sub la_reqvar($self,$vref,$ins,@args) {
 };
 
 # ---   *   ---   *   ---
-# backup values uppon call
-#
+# makes duplicate of block
+
+sub dup($self) {
+
+
+  # get ctx
+  my $mc     = $self->getmc();
+  my $main   = $mc->get_main();
+
+  # duplicate tree branch
+  my $node   = $self->{node};
+  my ($root) = $node->{parent}->insertlv(
+    $node->{idex},
+    $node->dupa(undef,'vref'),
+
+  );
+
+  # ^make ice
+  my $class = ref $self;
+  my $cpy   = $main->mkhier(
+    $self->{type}=>$root
+
+  );
+
+
+  return $cpy;
+
+};
+
+# ---   *   ---   *   ---
 # TODO: inlining. from best to worst:
 #
 # * virtual proc with no inputs
 # * virtual proc with only constant inputs
+# * virtual proc with some constant inputs
 # * regular virtual proc
 
+sub on_pre_call($self,$dst) {
+
+  return;
+
+
+  # get ctx
+  my $iter  = $self->{citer};
+  my $point = $iter->{point};
+
+  # get invoked F
+  my $other=$dst->{ptr}->{p3ptr};
+     $other=$other->{vref}->{data};
+
+  goto skip if ! $other->{virtual};
+
+
+  # get passed values
+  my @args=grep {
+    defined $ARG->{passed}
+
+  } values %{$iter->{var}};
+
+  my @const=grep {
+    $self->is_const($ARG)
+
+  } @args;
+
+
+  # A) no inputs
+  if(! @args) {
+
+  # B) all inputs are constant
+  } elsif(@args == @const) {
+    $other=$other->dup();
+
+  # C) some inputs are constant
+  } elsif(@const) {
+
+  # D) no constants!
+  } else {};
+
+
+#  # ~
+#  map {
+#
+#
+#  } 0..@$dst-1;
+
+
+  # clear bindings
+  skip:
+
+  map {
+    $ARG->{bound}  = undef;
+    $ARG->{passed} = undef;
+
+  } values %{$iter->{var}};
+
+
+  return;
+
+};
+
+# ---   *   ---   *   ---
+# backup values uppon call
+
 sub on_call($self,$dst,@slurp) {
+
 
   # output is an instruction list!
   my @out=();
@@ -2920,6 +3023,7 @@ sub on_call($self,$dst,@slurp) {
   & $other->{moded}
 
   );
+
 
   # ^match against registers in use at
   # ^this point by the callee
@@ -2953,8 +3057,11 @@ sub on_call($self,$dst,@slurp) {
 
 
   # clear bindings
-  map    {$ARG->{bound}=undef}
-  values %{$self->{citer}->{var}};
+  map {
+    $ARG->{bound}  = undef;
+    $ARG->{passed} = undef;
+
+  } values %{$self->{citer}->{var}};
 
   # combine register use and give
   $self->{moded} |= $mask;
@@ -3168,6 +3275,9 @@ sub on_pre_pass($self) {
     };
 
 
+    $x->{passed}=$y;
+
+
   } 0..@$dst-1;
 
 
@@ -3314,6 +3424,7 @@ sub on_pass($self,@slurp) {
     );
 
     my $ok=1;
+    $x->{passed}=$y;
 
 
     # constants are handled in the next bit

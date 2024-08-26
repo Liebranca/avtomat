@@ -601,6 +601,14 @@ sub exec_queue($self,@Q) {
     # unpack
     my ($cmd,$branch)=@$ARG;
 
+    # node discarded mid-iter?
+    if(
+
+       ($walked->{$ARG->[1]->{-uid}} eq $NULL)
+    || ($ARG->[1]->{plucked})
+
+    ) {goto skip};
+
 
     # top node forcing un-reversal?
     if(my @unrev=$lx->bunrev($branch)) {
@@ -624,8 +632,11 @@ sub exec_queue($self,@Q) {
 
   # avoid processing the same node twice
   } grep {
+
     $walked->{$ARG->[1]->{-uid}}//=0;
-  ! $walked->{$ARG->[1]->{-uid}}++
+
+      (! $walked->{$ARG->[1]->{-uid}}++)
+  &&! ($ARG->[1]->{plucked});
 
   } @Q;
 

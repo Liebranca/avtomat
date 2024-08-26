@@ -162,10 +162,17 @@ sub rept($self,$branch) {
 
   # ^elems from list!
   } else {
-    $src = [$self->argex($src)];
-    $n   = $l1->xlate($n->{value})->{spec};
-    $n   = "\Q$n";
-    $n   = $l1->re(WILD=>$n);
+
+    my $have=$l1->xlate($n->{value});
+    my $data=(length $have->{data})
+      ? $have->{data}
+      : undef
+      ;
+
+    $n    = "\Q$have->{spec}";
+    $n    = $l1->re(uc $have->{type}=>$n,$data);
+
+    $src  = [$self->argex($src)];
 
   };
 
@@ -176,15 +183,7 @@ sub rept($self,$branch) {
 
     my $idex = $ARG;
     my @blk  = map {
-
-      if($l1->typechk(EXP=>$ARG->{value})) {
-        map {$ARG->dupa(undef,'vref')}
-        @{$ARG->{leaves}};
-
-      } else {
-        $ARG->dupa(undef,'vref');
-
-      };
+      $ARG->dupa(undef,'vref');
 
     } @body;
 
@@ -197,9 +196,9 @@ sub rept($self,$branch) {
         my $x   = $src->[$idex];
         my $tag = $l1->tag(
           uc $x->{type},
-          $x->{id},
+          $x->{spec},
 
-        );
+        ) . $x->{data};
 
         $ARG->{value}=$tag;
 
@@ -207,15 +206,8 @@ sub rept($self,$branch) {
 
     } @blk if length $n;
 
+    @blk;
 
-    # generate expression!
-    my $root=$tree->new(
-      undef,$l1->tag(EXP=>$idex)
-
-    );
-
-    $root->pushlv(@blk);
-    $root;
 
   } 0..(int @$src)-1;
 
@@ -227,7 +219,21 @@ sub rept($self,$branch) {
   $branch->pushlv(@have);
   $l2->recurse($branch);
 
+  my $par=$branch->{parent};
   $branch->flatten_branch();
+
+
+  # cleanup!
+  while(@body) {
+
+    my $nd=shift @body;
+    unshift @body,@{$nd->{leaves}};
+
+    $l2->{walked}->{$nd->{-uid}}=$NULL;
+    $nd->discard();
+
+  };
+
 
   return;
 
@@ -245,7 +251,14 @@ sub symcat($self,$branch) {
 
   # unpack args
   my @body=$self->argtake($branch);
-  my $name=join null,map {$ARG->{id}} @body;
+  my $name=join null,map {
+
+    ($ARG->{type} eq 'STR')
+      ? $ARG->{data}
+      : $ARG->{spec}
+      ;
+
+  } @body;
 
 
   # replace branch with symbol
@@ -254,6 +267,7 @@ sub symcat($self,$branch) {
 
   $branch->clear();
   $self->csume_scp($branch);
+
 
   return;
 
@@ -358,14 +372,14 @@ w_cmdsub 'csume-token' => q(
 
 w_cmdsub 'csume-list' => q(qlist src) => 'echo';
 
-unrev cmdsub 'rept' => q(
+priority 1 => unrev cmdsub 'rept' => q(
   any   N;
   qlist src=NULL;
   curly body;
 
 )  => \&rept;
 
-cmdsub 'symcat' => q(
+priority 1 => cmdsub 'symcat' => q(
   qlist body;
 
 )  => \&symcat;

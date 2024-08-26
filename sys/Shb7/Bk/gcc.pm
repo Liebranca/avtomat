@@ -140,10 +140,10 @@ sub target($tgt) {
 
   my $out;
 
-  if($tgt eq $Shb7::Bk::TARGET->{x64}) {
+  if($tgt eq Shb7::Bk->TARGET->{x64}) {
     $out=q[-m64];
 
-  } elsif($tgt eq $Shb7::Bk::TARGET->{x32}) {
+  } elsif($tgt eq Shb7::Bk->TARGET->{x32}) {
     $out=q[-m32];
 
   };

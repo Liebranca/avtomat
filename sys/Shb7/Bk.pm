@@ -20,7 +20,6 @@ package Shb7::Bk;
   use strict;
   use warnings;
 
-  use Readonly;
   use English qw(-no_match_vars);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
@@ -33,6 +32,8 @@ package Shb7::Bk;
   use Shb7;
   use Shb7::Bfile;
 
+  use parent 'St';
+
 # ---   *   ---   *   ---
 # info
 
@@ -42,11 +43,15 @@ package Shb7::Bk;
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $TARGET=>{
+St::vconst {
+
+  TARGET => {
     x64=>0,
     x32=>1,
 
-  };
+  },
+
+};
 
 # ---   *   ---   *   ---
 # constructor
