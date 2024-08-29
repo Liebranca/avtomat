@@ -320,7 +320,8 @@ sub compile($m,$files) {
       debug   => $m->{debug} ne $NULL,
       files   => $flist,
 
-      linking => $m->{'require-C'} ne $NULL,
+      linking => ($m->{'require-C'} ne $NULL)
+        ? 1 : undef ,
 
     );
 

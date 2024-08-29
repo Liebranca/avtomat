@@ -55,9 +55,9 @@ sub new($class,%O) {
 
     bk      => 'gcc',
     entry   => 'main',
-    linking => 'cstd',
 
-    %O
+    %O,
+    linking => 'cstd',
 
   );
 
