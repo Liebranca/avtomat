@@ -744,6 +744,7 @@ sub nobs($sref) {
 # remove outer whitespace
 
 sub strip($sref) {
+  return if ! defined $sref ||! defined $$sref;
   $$sref=~ s[$STRIP_RE][]sxmg;
 
 };

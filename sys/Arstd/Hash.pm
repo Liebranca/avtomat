@@ -24,7 +24,9 @@ package Arstd::Hash;
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
+  use Style;
   use Chk;
+  use Arstd::String;
   use parent 'St';
 
 # ---   *   ---   *   ---
@@ -38,13 +40,15 @@ package Arstd::Hash;
     hash_invert
     hash_cpy
 
+    hashstr
+
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = v0.00.3;
+  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # constructor
@@ -161,6 +165,26 @@ sub kv($h,$key) {
   return $key=>$h->{$key};
 
 };
+
+
+# ---   *   ---   *   ---
+# make hash from string ;>
+
+sub hashstr {
+
+  return {
+
+    map {
+      my ($k,$v)=split qr{\s*\=\>\s*},$ARG;
+      ($k=>$v);
+
+    } grep  {strip \$ARG;length $ARG}
+      split $NEWLINE_RE,$_[0]
+
+  };
+
+};
+
 
 # ---   *   ---   *   ---
 # exporter names

@@ -39,7 +39,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.04.3;
+  our $VERSION = v0.04.4;
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -51,13 +51,13 @@ St::vconst {
 
     \s*
 
-    (?<beg>   \()?
+    (?<beg>   (?<! \\) \()?
     \s*
 
-    (?<token> [^\s\(\)]+)
+    (?<token> (?:\\.|[^\s\(\)])+)
     \s*
 
-    (?<end>   \))?
+    (?<end>   (?<! \\) \))?
     \s*
 
   }x,

@@ -58,6 +58,8 @@ package Arstd::PM;
     impwraps
 
     get_static
+
+    is_loaded
     cload
     cloadi
 
@@ -258,9 +260,7 @@ sub rcaller {
   my $pkg  = caller $i++;
      $pkg  = caller $i++
 
-  while $pkg eq $name && $i < 0x24;
-
-
+  while  $pkg eq $name && $i < 0x24;
   return $pkg;
 
 };

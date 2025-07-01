@@ -27,11 +27,6 @@ package Lang::C;
   use parent 'Lang::Def';
 
 # ---   *   ---   *   ---
-# adds to cache
-
-  use Vault 'ARPATH';
-
-# ---   *   ---   *   ---
 # ROM
 
   Readonly my $OPS=>Lang::quick_op_prec(

@@ -54,7 +54,7 @@ $NUMS->{'(\$[0-9A-F]+)'}='\&hstoi';
 Lang::fasm->new(
 
   name      => 'fasm',
-  ext       => '\.(asm|inc)$',
+  ext       => '\.(s|asm|inc)$',
   mag       => '^flat assembler file',
 
   com       => ';',
@@ -98,6 +98,8 @@ Lang::fasm->new(
     used relativeto in eqtype ptr
     at from as nop
 
+    lis
+
   )],
 
   directives=>[qw(
@@ -120,6 +122,9 @@ Lang::fasm->new(
     display err align times
 
     postpone
+    lib use
+
+    strucdef capture
 
   )],
 
@@ -139,7 +144,8 @@ Lang::fasm->new(
 
   builtins=>[qw(
 
-    mov mod adc add sbb sub push pop imul
+    c?movn?[lgez]e? mod adc add
+    sbb sub push pop imul mul div
     inc dec str lea
 
     ror rol

@@ -25,7 +25,9 @@ package Arstd::Array;
 
   use lib $ENV{'ARPATH'}.'/lib/sys';
 
+  use Style;
   use Chk;
+
   use parent 'St';
 
 # ---   *   ---   *   ---
@@ -52,6 +54,8 @@ package Arstd::Array;
     array_iof
     array_wrap
     array_flatten
+
+    array_rmi
 
     array_vmap
     array_kmap
@@ -177,9 +181,19 @@ sub dupop($ar) {
 
   map {
 
-    $tmp{$ARG}=(! exists $tmp{$ARG})
+    my $key;
+    if(is_arrayref $ARG) {
+      $key=join '|',@$ARG;
+
+    } else {
+      $key="$ARG";
+
+    };
+
+
+    $tmp{$key}=(! exists $tmp{$key})
       ? [$i++,$ARG]
-      : $tmp{$ARG}
+      : $tmp{$key}
       ;
 
   } @$ar;
@@ -319,6 +333,35 @@ sub flatten($ar,%O) {
 
 };
 
+
+# ---   *   ---   *   ---
+# removes element
+
+sub rmi($ar,$elem) {
+
+  # assume that element *is* idex
+  my $i=$elem;
+
+  # ^then get element idex if elem is a string ;>
+  if(! index $elem,'$') {
+    substr $elem,0,1,null;
+    $i=iof $ar,$elem;
+
+  };
+
+
+  croak "rmi '$elem': no such element in array"
+  if ! defined $i;
+
+  $ar->[$i]=undef;
+  filter $ar;
+
+
+  return;
+
+};
+
+
 # ---   *   ---   *   ---
 # array as hash walk proto
 
@@ -441,6 +484,8 @@ sub IDEXUP_P2($idex,$f,@list) {
   *array_iof      = *iof;
   *array_wrap     = *wrap;
   *array_flatten  = *flatten;
+
+  *array_rmi      = *rmi;
 
   *array_vmap     = *vmap;
   *array_kmap     = *kmap;

@@ -110,11 +110,11 @@ sub boiler_open($class,$fname,%O) {
 
   # array as hash
   my $defi = 0;
-  my @defk = array_keys($O{define});
-  my @defv = array_values($O{define});
+  my @defk = array_keys($O{def});
+  my @defv = array_values($O{def});
 
   # add guards?
-  my $guards=($O{add_guards})
+  my $guards=($O{guards})
     ? $class->open_guards($fname)
     : $NULLSTR
     ;
@@ -136,7 +136,7 @@ sub boiler_open($class,$fname,%O) {
 
     "  #include $ARG\n"
 
-  } @{$O{include}})
+  } @{$O{inc}})
 
 . "\n" . q[
 
@@ -171,7 +171,7 @@ sub boiler_close($class,$fname,%O) {
   $fname=uc $fname;
 
 
-  my $guards=($O{add_guards})
+  my $guards=($O{guards})
     ? $class->close_guards($fname)
     : $NULLSTR
     ;

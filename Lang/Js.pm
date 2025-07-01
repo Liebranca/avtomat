@@ -45,14 +45,14 @@ Lang::Js->new(
   )],
 
   directives=>[qw(
-    import function class var let const
+    import function class
 
   )],
 
 # ---   *   ---   *   ---
 
 
-  ftcls=>[qw(
+  fctls=>[qw(
 
     each of yield finally
 
@@ -64,6 +64,7 @@ Lang::Js->new(
 
   resnames=>[qw(
     true false null undefined this
+    var let const
 
   )],
 
