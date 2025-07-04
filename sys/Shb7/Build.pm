@@ -85,6 +85,7 @@ St::vconst {
     shared  => 0,
     linking => 0,
     debug   => 0,
+    clean   => 0,
     tgt     => 0,
 
   },
@@ -141,6 +142,7 @@ sub new($class,%O) {
     linking => $O{linking},
     tgt     => $O{tgt},
 
+    clean   => $O{clean},
     lang    => $O{lang},
 
   },$class;

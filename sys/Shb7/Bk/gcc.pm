@@ -62,7 +62,10 @@ package Shb7::Bk::gcc;
 #
 #    q[-Os],
 
-    q[-O3],
+    q[-O2],
+
+    q[-fpermissive],
+    q[-w],
 
     q[-ftree-vectorize],
     q[-fno-unwind-tables],
@@ -76,6 +79,10 @@ package Shb7::Bk::gcc;
   ];
 
   Readonly our $LFLG=>[
+
+    q[-fpermissive],
+    q[-w],
+
     q[-flto],
     q[-ffunction-sections],
     q[-fdata-sections],
@@ -85,6 +92,10 @@ package Shb7::Bk::gcc;
   ];
 
   Readonly our $FLATLFLG=>[
+
+    q[-fpermissive],
+    q[-w],
+
     q[-flto],
     q[-ffunction-sections],
     q[-fdata-sections],
@@ -166,7 +177,8 @@ sub fbuild($self,$bfile,$bld) {
 
 
   # conditionally use octopus
-  my $up=($bfile->{src}=~ $Lang::C::EXT_PP)
+  my $cpp=int($bfile->{src}=~ $Lang::C::EXT_PP);
+  my $up=($cpp)
     ? '-lstdc++'
     : $NULLSTR
     ;
@@ -178,7 +190,7 @@ sub fbuild($self,$bfile,$bld) {
   # cstruc cmd
   my @call=(
 
-    q[gcc],
+    ($cpp) ? q[g++] : q[gcc] ,
 
     q[-MMD],
     target($bld->{tgt}),

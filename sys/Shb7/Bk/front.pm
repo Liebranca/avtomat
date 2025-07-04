@@ -52,6 +52,7 @@ sub new($class,%O) {
   # defaults
   $O{name}    //= './out';
   $O{debug}   //= 0;
+  $O{clean}   //= 0;
   $O{entry}   //= '_start';
   $O{bk}      //= 'flat';
   $O{lang}    //= 'fasm';
@@ -103,6 +104,7 @@ sub new($class,%O) {
 
     name    => $O{name},
     debug   => $O{debug},
+    clean   => $O{clean},
     linking => $O{linking},
     entry   => $O{entry},
 

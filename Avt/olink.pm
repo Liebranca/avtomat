@@ -192,6 +192,10 @@ sub parse_args(@cmd) {
     {id=>'flat',short=>'-f',argc=>1},
 
     {id=>'debug',short=>'-g',argc=>0},
+    {id=>'clean',short=>'-c',argc=>0},
+
+    {id=>'clean-debug',short=>'-gc',argc=>0},
+
     {id=>'-pg',short=>'-pg',argc=>0},
     {id=>'run',short=>'-r',argc=>1},
     {id=>'runrm',short=>'-xr',argc=>1},
@@ -218,6 +222,13 @@ sub parse_args(@cmd) {
     : $m->{out}
     ;
 
+
+  if($m->{'clean-debug'} ne $NULL) {
+    $m->{debug}=1;
+    $m->{clean}=1;
+    delete $m->{'clean-debug'};
+
+  };
 
   return $m,\@files;
 
@@ -318,6 +329,7 @@ sub compile($m,$files) {
       incl    => $m->{incl},
 
       debug   => $m->{debug} ne $NULL,
+      clean   => $m->{clean} ne $NULL,
       files   => $flist,
 
       linking => ($m->{'require-C'} ne $NULL)

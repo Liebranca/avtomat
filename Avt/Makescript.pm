@@ -249,6 +249,7 @@ sub new($class) {
     # flags
     lmode => $NULLSTR,
     debug => 0,
+    clean => 0,
 
   },$class;
 
@@ -265,7 +266,8 @@ sub nit_build($class,$self,@cmd) {
 
   $self=bless $self,$class;
 
-  $self->{debug} = $cli->{debug}!=$NULL;
+  $self->{debug} = $cli->{debug} != $NULL;
+  $self->{clean} = $cli->{clean} != $NULL;
 
   $self->{root}  = $Shb7::Path::Root;
   $self->{trash} = Shb7::obj_dir($self->{fswat});
@@ -283,6 +285,8 @@ sub nit_build($class,$self,@cmd) {
 
     shared  => $self->{lmode} eq '-shared',
     debug   => $self->{debug},
+    clean   => $self->{clean},
+
     tgt     => Shb7::Bk->TARGET->{x64},
 
     linking => ($cli->{flat} ne $NULL)
@@ -304,9 +308,23 @@ sub read_cli($class,@cmd) {
 
   state @tab=(
 
+    { id    => 'clean',
+      short => '-c',
+      long  => '--clean',
+      argc  => 0
+
+    },
+
     { id    => 'debug',
-      short => '-d',
+      short => '-g',
       long  => '--debug',
+      argc  => 0
+
+    },
+
+    { id    => 'clean-debug',
+      short => '-gc',
+      long  => '--clean-debug',
       argc  => 0
 
     },
@@ -324,6 +342,13 @@ sub read_cli($class,@cmd) {
   # ^make ice and run
   my $cli  = Cli->new(@tab);
   my @args = $cli->take(@cmd);
+
+  if($cli->{'clean-debug'} ne $NULL) {
+    $cli->{debug}=1;
+    $cli->{clean}=1;
+    delete $cli->{'clean-debug'};
+
+  };
 
   # ^give
   return ($cli,@args);
@@ -374,7 +399,7 @@ sub update_generated($self) {
 # make sure we don't need to update
 
     my $do_gen=(-e $res)
-      ? Shb7::ot($res,$gen)
+      ? Shb7::ot($res,$gen) || $self->{clean}
       : 1
       ;
 
@@ -475,7 +500,7 @@ sub update_regular($self) {
     my $do_cpy=!(-e $cp);
 
     $do_cpy=(! $do_cpy)
-      ? Shb7::ot($cp,$og)
+      ? Shb7::ot($cp,$og) || $self->{clean}
       : $do_cpy
       ;
 
@@ -617,7 +642,10 @@ sub build_binaries($self,$objblt) {
 
   @libs=@{$self->{bld}->{libs}};
 
-  if($self->{main} && $objblt && @objs) {
+  if($self->{main}
+  && (($objblt || $self->{clean}) && @objs)
+
+  ) {
 
     $WLog->fupdate(
       Shb7::shpath($self->{main}),

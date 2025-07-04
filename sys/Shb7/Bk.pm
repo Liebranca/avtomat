@@ -148,20 +148,20 @@ sub fdeps($self,$bfile) {
 # ---   *   ---   *   ---
 # common fupdated proto
 
-sub chkfdeps($self,$bfile) {
+sub chkfdeps($self,$bfile,%O) {
 
   my $do_build =
      (! -f $bfile->{obj})
   || Shb7::ot($bfile->{obj},$bfile->{src})
   ;
 
-  my @deps     = $self->fdeps($bfile);
+  my @deps=$self->fdeps($bfile);
 
   # no missing deps
   $bfile->depchk(\@deps);
 
   # make sure we need to update
-  $bfile->buildchk(\$do_build,\@deps);
+  $bfile->buildchk(\$do_build,\@deps,%O);
 
   return $do_build;
 
@@ -170,10 +170,10 @@ sub chkfdeps($self,$bfile) {
 # ---   *   ---   *   ---
 # shorthands
 
-sub get_updated($self) {
+sub get_updated($self,%O) {
 
   return grep {
-    $self->fupdated($ARG);
+    $self->fupdated($ARG,%O);
 
   } $self->bfiles();
 
@@ -181,7 +181,17 @@ sub get_updated($self) {
 
 sub build_objects($self,$bld) {
 
-  for my $bfile($self->get_updated()) {
+  my %O=(
+
+    clean=>$bld->{clean},
+    debug=>int grep {
+      $ARG eq '-g'
+
+    } @{$bld->{flags}},
+
+  );
+
+  for my $bfile($self->get_updated(%O)) {
     $self->fbuild($bfile,$bld);
 
   };

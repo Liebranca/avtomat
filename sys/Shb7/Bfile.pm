@@ -123,7 +123,8 @@ sub update($self,$bld) {
 
   my $out=0;
 
-  if($self->{bk}->fupdated($self)) {
+  if($self->{bk}->fupdated($self)
+  || $bld->{clean}) {
     $out=$self->{bk}->fbuild($self,$bld);
 
   };
@@ -135,8 +136,13 @@ sub update($self,$bld) {
 # ---   *   ---   *   ---
 # check object date against dependencies
 
-sub buildchk($self,$do_build,$deps) {
+sub buildchk($self,$do_build,$deps,%O) {
 
+  # early exit?
+  $O{clean}//=0;
+  return 1 if $O{clean};
+
+  # ^go on, check!
   if(! $$do_build) {
     while(@$deps) {
 
