@@ -8,22 +8,19 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Shb7::Bk::jar;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English qw(-no_match_vars);
+  use English;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
 
   use Arstd::Array;
@@ -35,33 +32,31 @@ package Shb7::Bk::jar;
   use Arstd::WLog;
 
   use parent 'Shb7::Bk';
-  use lib $ENV{'ARPATH'}.'/lib/';
+  use lib "$ENV{ARPATH'}/lib/";
+
 
 # ---   *   ---   *   ---
 # selective inheritance
 
   submerge(
-
     ['Shb7::Bk::flat'],
-
     subok => qr{(?:fupdated|fdeps)},
 
   );
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#a
+  our $VERSION = 'v0.00.1a';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # add entry to build files
 
 sub push_src($self,$fpath) {
-
-  push @{$self->{files}},
-
-  Shb7::Bfile->new(
+  push @{$self->{file}},Shb7::Bfile->new(
 
     $fpath,
     $self,
@@ -72,18 +67,16 @@ sub push_src($self,$fpath) {
 
   );
 
-  return $self->{files}->[-1];
+  return $self->{file}->[-1];
 
 };
+
 
 # ---   *   ---   *   ---
 # object file boiler
 
 sub fbuild($self,$bfile,$bld) {
-
-
   $WLog->substep(Shb7::shpath($bfile->{src}));
-
 
   # invoke compiler
   ($bld->{lang} eq 'kotlin')
@@ -104,43 +97,38 @@ sub fbuild($self,$bfile,$bld) {
 
 };
 
+
 # ---   *   ---   *   ---
 # building java
 
 sub javac($self,$bfile) {
-
   my @call=(
-
     'javac' => $bfile->{src},
     -d      => $bfile->{obj},
 
   );
 
   system {$call[0]} @call;
-
-
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 # building kotlin
 
 sub kotlinc($self,$bfile) {
-
   my @call=(
-
     'kotlinc' => $bfile->{src},
     -d        => $bfile->{obj},
 
   );
 
   system {$call[0]} @call;
-
-
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

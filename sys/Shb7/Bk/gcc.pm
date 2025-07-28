@@ -40,6 +40,7 @@ package Shb7::Bk::gcc;
   our $VERSION = 'v0.00.5a';
   our $AUTHOR  = 'IBN-3DILA';
 
+
 # ---   *   ---   *   ---
 # ROM
 
@@ -107,6 +108,7 @@ package Shb7::Bk::gcc;
 
   ];
 
+
 # ---   *   ---   *   ---
 # rebuild chk
 
@@ -115,16 +117,15 @@ sub fupdated($self,$bfile) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get file dependencies
 
 sub fdeps($self,$bfile) {
-
   my @out=($bfile->{src});
 
   # read file if it exists
   if(-f $bfile->{dep}) {
-
     my $body=orc($bfile->{dep});
 
     # sanitize
@@ -142,13 +143,12 @@ sub fdeps($self,$bfile) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get variant of arch flag
 
 sub target($tgt) {
-
   my $out;
-
   if($tgt eq Shb7::Bk->TARGET->{x64}) {
     $out=q[-m64];
 
@@ -161,18 +161,18 @@ sub target($tgt) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get variant of entry flag
 
 sub entry($name) {return "-Wl,--entry=$name"};
 
+
 # ---   *   ---   *   ---
 # C-style object file boiler
 
 sub fbuild($self,$bfile,$bld) {
-
   $WLog->substep(Shb7::shpath($bfile->{src}));
-
 
   # conditionally use octopus
   my $cpp=Ftype::Text::C->is_cpp($bfile->{src});
@@ -195,10 +195,10 @@ sub fbuild($self,$bfile,$bld) {
 
     (map {"-D$ARG"} @{$bld->{def}}),
 
-    @{$bld->{flags}},
+    @{$bld->{flag}},
     @$OFLG,
 
-    @{$bld->{incl}},
+    @{$bld->{inc}},
     $up,
 
     q[-Wa,-a=].$bfile->{asm},
@@ -206,7 +206,7 @@ sub fbuild($self,$bfile,$bld) {
     q[-c],$bfile->{src},
     q[-o],$bfile->{obj},
 
-    @{$bld->{libs}},
+    @{$bld->{lib}},
 
   );
 
@@ -220,6 +220,7 @@ sub fbuild($self,$bfile,$bld) {
   return int(defined -f $bfile->{obj});
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

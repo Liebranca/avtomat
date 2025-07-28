@@ -70,9 +70,8 @@ sub file_sbl($f) {
   my $out=$xcav->symscan($f);
 
   # ^apply type conversions
-  for my $key(keys %{$out->{functions}}) {
-
-    my $fn   = $out->{functions}->{$key};
+  map {
+    my $fn   = $out->{function}->{$ARG};
     my $args = $fn->{args};
 
     $fn->{rtype}=$emit->typecon($fn->{rtype});
@@ -84,7 +83,7 @@ sub file_sbl($f) {
 
     };
 
-  };
+  } keys %{$out->{function}};
 
   return $out;
 
@@ -95,53 +94,36 @@ sub file_sbl($f) {
 # in:modname,[files]
 # write symbol typedata (return,args) to shadow lib
 
-sub symscan($mod,$dst,$deps,@fnames) {
+sub symscan($mod,$dst,$deps,@fname) {
 
-  Shb7::push_includes(
-    Shb7::dir($mod)
+  # setup search path
+  Shb7::push_includes(Shb7::dir($mod));
 
-  );
+  # expand file list from names
+  my @file=map {
+    grep {$ARG} ($ARG=~ qr{\%})
+      ? @{Shb7::wfind($ARG)}
+      : Shb7::ffind($ARG)
+      ;
 
-  my @files=();
-
-
-  # iter filelist
-  { for my $fname(@fnames) {
-
-      if( ($fname=~ m/\%/) ) {
-        push @files,@{ Shb7::wfind($fname) };
-
-      } else {
-        push @files,Shb7::ffind($fname);
-
-      };
-
-    };
-
-  };
-
+  } @fname;
 
   my $shwl={
-
-    deps    => $deps,
-    fswat   => $mod,
-
-    objects => {},
+    dep    => $deps,
+    fswat  => $mod,
+    object => {},
 
   };
 
 
-  # iter through files
-  for my $f(@files) {
+  # iter through expanded list
+  map {
+    my $o=Shb7::obj_from_src($ARG);
+       $o=Shb7::shpath($o);
 
-    next if !$f;
+    $shwl->{object}->{$o}=file_sbl($ARG);
 
-    my $o=Shb7::obj_from_src($f);
-    $o=Shb7::shpath($o);
-
-    $shwl->{objects}->{$o}=file_sbl($f);
-
-  };
+  } @file;
 
   store($shwl,$dst) or croak strerr($dst);
   return;

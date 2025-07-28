@@ -19,16 +19,14 @@ package Tree::File;
   use strict;
   use warnings;
 
-  use Readonly;
+  use English;
 
-  use English qw(-no_match_vars);
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
-  use Arstd::Array;
+  use Arstd::Array qw(array_filter);
 
   use parent 'Tree';
+
 
 # ---   *   ---   *   ---
 # info
@@ -36,26 +34,26 @@ package Tree::File;
   our $VERSION = 'v0.00.3';
   our $AUTHOR  = 'IBN-3DILA';
 
+
 # ---   *   ---   *   ---
 # cstruc
 
 sub new($class,$frame,@args) {
-
   my $tree=Tree::new($class,$frame,@args);
 
-  $tree->{cksum}=0;
-  $tree->{updated}=0;
-  $tree->{objects}=[];
+  $tree->{cksum}   = 0;
+  $tree->{updated} = 0;
+  $tree->{object}  = [];
 
   return $tree;
 
 };
 
+
 # ---   *   ---   *   ---
 # runs checksums recursively
 
 sub get_cksum($self) {
-
   my @old_sums=();
   my @new_sums=();
 
@@ -67,7 +65,6 @@ sub get_cksum($self) {
   array_filter(\@dirs,sub {-d $ARG->{value}});
 
   for my $dir(reverse @dirs) {
-
     my @files=$dir->get_file_list(
       full_path=>0,
       max_depth=>1,
@@ -87,7 +84,6 @@ sub get_cksum($self) {
     # sum files in directory
     my @file_sums=split $NEWLINE_RE,$own_sum;
     for my $file(@files) {
-
       my $sum=shift @file_sums;
       push @old_sums,$file->{cksum};
 
@@ -121,12 +117,12 @@ sub get_cksum($self) {
 
   # return list of detected changes
   return [grep {
-
     (shift @old_sums) ne $ARG
 
   } @new_sums];
 
 };
+
 
 # ---   *   ---   *   ---
 # returns node matching path
@@ -155,6 +151,7 @@ sub branch_from_path($self,$path,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # selfex
 
@@ -163,23 +160,19 @@ sub get_file_list($self,%O) {
   # defaults
   $O{full_path}//=1;
 
-  my @files=$self->leafless(%O);
+  my @file=$self->leafless(%O);
 
-  # skip for plain node list
-  goto TAIL if ! $O{full_path};
+  # expand paths?
+  map {
+    $ARG=$ARG->ances(join_char=>'/');
+    $ARG=~ s[/+][/]sxmg;
 
+  } @file if $O{full_path};
 
-  for my $file(@files) {
-    $file=$file->ances(join_char=>'/');
-    $file=~ s[/+][/]sxmg;
-
-  };
-
-
-  TAIL:
-  return @files;
+  return @file;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^also selfex
@@ -188,23 +181,20 @@ sub get_dir_list($self,%O) {
 
   # defaults
   $O{full_path}//=1;
-  my @dirs=$self->hasleaves(%O);
+  my @dir=$self->hasleaves(%O);
 
-  # skip for plain node list
-  goto TAIL if ! $O{full_path};
+  # expand paths?
+  map {
+    $ARG=$ARG->ances(join_char=>'/');
+    $ARG=~ s[/+][/]sxmg;
 
-
-  for my $dir(@dirs) {
-    $dir=$dir->ances(join_char=>'/');
-    $dir=~ s[/+][/]sxmg;
-
-  };
+  } @dir if $O{full_path};
 
 
-  TAIL:
-  return @dirs;
+  return @dir;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

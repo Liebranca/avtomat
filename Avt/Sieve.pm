@@ -56,7 +56,7 @@ sub new($class,%O) {
     bindir => $O{bindir},
     libdir => $O{libdir},
 
-    files  => [],
+    file   => [],
 
   },$class;
 
@@ -124,14 +124,14 @@ sub iter($self,$dirs) {
 
   # ^post-build, single-source bins
   $self->side_build(
-    $self->{M}->{utils},
-    $self->{C}->{utils},
+    $self->{M}->{util},
+    $self->{C}->{util},
 
   );
 
   $self->side_build(
-    $self->{M}->{tests},
-    $self->{C}->{tests},
+    $self->{M}->{test},
+    $self->{C}->{test},
 
   );
 
@@ -147,7 +147,7 @@ sub iter($self,$dirs) {
 sub get_files($self,$node) {
 
   my $name=$self->{name};
-  @{$self->{files}}=$node->get_file_list(
+  @{$self->{file}}=$node->get_file_list(
     full_path=>1,
     max_depth=>1,
 
@@ -160,7 +160,7 @@ sub get_files($self,$node) {
     $ARG=  Shb7::shpath($ARG);
     $ARG=~ s[^${name}/?][];
 
-  } @{$self->{files}};
+  } @{$self->{file}};
 
 
   return;
@@ -175,8 +175,8 @@ sub agroup_files($self) {
 
   # generators
   $self->arr_dual_out(
-    $self->{M}->{gens},
-    $self->{C}->{gens},
+    $self->{M}->{gen},
+    $self->{C}->{gen},
 
   );
 
@@ -228,7 +228,7 @@ sub dual_out(
 
 ) {
 
-  my $matches=lfind($src,$self->{files});
+  my $matches=lfind($src,$self->{file});
 
   while(@$matches) {
 
@@ -252,7 +252,7 @@ sub dual_out(
 sub arr_dual_out($self,$dst,$src) {
 
   my $matches=lfind(
-    $src,$self->{files}
+    $src,$self->{file}
 
   );
 
@@ -294,7 +294,7 @@ sub by_ext_s($self,$tab) {
     map {
       $dst->push_src("$self->{dir}/$ARG");
 
-    } grep m[$ext],@{$self->{files}};
+    } grep m[$ext],@{$self->{file}};
 
   } keys %$tab;
 
@@ -339,7 +339,7 @@ sub by_ext_d($self,$tab) {
 
       );
 
-    } grep m[$ext],@{$self->{files}};
+    } grep m[$ext],@{$self->{file}};
 
   } keys %$tab;
 
@@ -367,7 +367,7 @@ sub d_files($self) {
 
 sub single_out($self,$dst,$src) {
 
-  my $matches=lfind($src,$self->{files});
+  my $matches=lfind($src,$self->{file});
 
   while(@$matches) {
 

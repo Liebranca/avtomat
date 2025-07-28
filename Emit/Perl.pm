@@ -178,10 +178,9 @@ sub shwlbind($class,$soname,$libs_ref) {
 
   # make header for bindings
   my $hed=null;
-  for my $file(keys %{$symtab->{objects}}) {
-
-    my $obj   = $symtab->{objects}->{$file};
-    my $funcs = $obj->{functions};
+  for my $file(keys %{$symtab->{object}}) {
+    my $obj   = $symtab->{object}->{$file};
+    my $funcs = $obj->{function};
 
     $hed .= (
 

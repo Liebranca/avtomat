@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
+# BOOTSTRAP
 # A BUILD TOOL MUST BUILD ITSELF
 #
 # LIBRE SOFTWARE
@@ -12,41 +13,363 @@
 # ---   *   ---   *   ---
 # deps
 
-package main;
+package BOOTSTRAP;
   use v5.42.0;
   use strict;
   use warnings;
+
+  use English;
+  use File::Path qw(mkpath rmtree);
+
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = 'v2.00.0';
+  our $AUTHOR  = 'IBN-3DILA';
+
+
+# ---   *   ---   *   ---
+# check that ARPATH exists
+#
+# then move into it
+
+BEGIN {
+  exists $ENV{ARPATH}
+  or die "ARPATH missing from ENV; aborted";
+
+  chdir "$ENV{ARPATH}/avtomat/"
+  or die "$ERRNO";
+
+};
+
+
+# ---   *   ---   *   ---
+# ROM
+
+my $ROM={
+  ROOTDIR  => "$ENV{ARPATH}",
+  AVTODIR  => "$ENV{ARPATH}/avtomat/",
+  TRASHDIR => "$ENV{ARPATH}/.trash/avtomat/",
+  LIBDIR   => "$ENV{ARPATH}/lib/",
+  BINDIR   => "$ENV{ARPATH}/bin/",
+
+  FMAT => {
+    BOOT    => "\e[37;1m<\e[36;1mBOOT\e[37;1m>\e[0m",
+    AR      => "\e[37;1m<\e[34;22mAR\e[37;1m>\e[0m",
+    UPDATED => "\e[37;1m::\e[0mupdated \e[32;1m",
+
+  },
+
+
+  FILE=>[qw(
+    /sys/Style.pm
+    /sys/Chk.pm
+    /sys/Frame.pm
+    /sys/St.pm
+    /sys/Arstd.pm
+
+    /sys/Arstd/Bytes.pm
+    /sys/Arstd/Int.pm
+    /sys/Arstd/String.pm
+    /sys/Arstd/Array.pm
+    /sys/Arstd/Hash.pm
+    /sys/Arstd/Re.pm
+    /sys/Arstd/Repl.pm
+    /sys/Arstd/Path.pm
+    /sys/Arstd/IO.pm
+    /sys/Arstd/PM.pm
+    /sys/Arstd/WLog.pm
+
+    /sys/Warnme.pm
+
+    /sys/Queue.pm
+    /sys/Cask.pm
+    /sys/Tree.pm
+    /sys/Tree/File.pm
+    /sys/Tree/Dep.pm
+
+    /sys/Type/MAKE.pm
+    /sys/Type.pm
+
+    /sys/Type/C.pm
+    /sys/Type/Cpp.pm
+
+    /sys/Shb7.pm
+    /sys/Shb7/Path.pm
+    /sys/Shb7/Find.pm
+    /sys/Shb7/Bfile.pm
+    /sys/Shb7/Bk.pm
+    /sys/Shb7/Bk/flat.pm
+    /sys/Shb7/Bk/gcc.pm
+    /sys/Shb7/Bk/mam.pm
+    /sys/Shb7/Bk/fake.pm
+    /sys/Shb7/Build.pm
+
+    /sys/Vault.pm
+    /sys/Cli.pm
+    /sys/Fmat.pm
+    /sys/SourceFilter.pm
+
+    /sys/Ftype.pm
+    /sys/Ftype/Text.pm
+    /sys/Ftype/Text/fasm.pm
+    /sys/Ftype/Text/C.pm
+    /sys/Ftype/Text/peso.pm
+    /sys/Ftype/Text/SinGL.pm
+    /sys/Ftype/Text/Perl.pm
+    /sys/Ftype/Text/Python.pm
+    /sys/Ftype/Text/Js.pm
+    /sys/Ftype/Text/Mny.pm
+
+    /Emit.pm
+    /Emit/Std.pm
+    /Emit/C.pm
+    /Emit/Perl.pm
+
+    /Avt/Sieve.pm
+    /Avt/Xcav/C.pm
+    /Avt/Xcav.pm
+    /Avt/Makescript.pm
+    /Avt.pm
+
+  )],
+
+};
+
+
+# ---   *   ---   *   ---
+# nuke
+
+sub build_clean {
+  rmtree("../.trash/",{safe=>1});
+  rmtree("../.cache/",{safe=>1});
+  rmtree("../lib/",{safe=>1});
+
+  return;
+
+};
+
+
+# ---   *   ---   *   ---
+# make
+
+sub build_mkdirs {
+  map {mkpath($ARG) if ! -e $ARG} (
+    $ROM->{TRASHDIR},
+    $ROM->{LIBDIR},
+    $ROM->{BINDIR},
+
+  );
+
+  return;
+
+};
 
 
 # ---   *   ---   *   ---
 # procs MAM so that it can proc other files ;>
 
-my $round = shift @ARGV;
-my $FH    = undef;
+sub mkmam($rap) {
+  my ($dst,$src)=(undef,undef);
 
-chdir $ENV{'ARPATH'}.'/avtomat/';
-open  $FH,'<','MAM.pm' or die "$!";
+  # swap destination?
+  my ($dstdir,$srcdir)=($rap)
+    ? ($ROM->{TRASHDIR},$ROM->{LIBDIR})
+    : ($ROM->{LIBDIR},$ROM->{TRASHDIR})
+    ;
 
-my $whole='';
-while(my $line=readline $FH) {
+  my $dstname="$dstdir/MAM.pm";
 
-  my $avtolib="{ARPATH}/lib";
-  my $swaplib="{ARPATH}/.trash/avtomat";
 
-  if($round) {
-    my $tmp=$avtolib;
-    $avtolib=$swaplib;
-    $swaplib=$tmp;
+  # orc the source
+  open  $src,'<','./MAM.pm'  or die "$ERRNO";
+  read  $src,my $body,-s $src;
+  close $src or die "$ERRNO";
 
-  };
+  # ^swap library locations
+  $body=~ s[$srcdir][$dstdir]sxmg;
 
-  $line   =~ s[$avtolib][$swaplib];
-  $whole .=  $line;
+  # ^owc to destination
+  open  $dst,'+>',$dstname or die "$ERRNO";
+  print {$dst} "$body";
+  close $dst or die "$ERRNO";
+
+
+  return;
 
 };
 
-print "$whole\n";
-close $FH or die "$!";
+
+# ---   *   ---   *   ---
+# "older than"
+# return a is older than b
+
+sub ot($a,$b) {
+  return (
+      (defined $a && -f $a)
+  &&  (defined $b && -f $b)
+
+  &&! ( (-M $a) < (-M $b) )
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# "missing or older"
+# file not found or file needs update
+
+sub moo($a,$b) {
+  return (defined $a &&! -f $a) || ot($a,$b);
+
+};
+
+
+# ---   *   ---   *   ---
+# do we have to?
+
+sub need_update($dstdir,$srcdir,$fname) {
+  my $src="$srcdir$fname";
+  my $dst="$dstdir$fname";
+
+  my $need=(-e $dst)
+    ? moo($dst,$src)
+    : 1
+    ;
+
+
+  return ($need)
+    ? [$dst,$src,$fname]
+    : ()
+    ;
+
+};
+
+
+# ---   *   ---   *   ---
+# ensure basedir of file exists
+
+sub req_basedir($dst) {
+  my @ar      = split '/',$dst;
+  my $basedir = join '/',@ar[0..$#ar-1];
+
+  mkpath($basedir) if ! -e $basedir;
+
+  return pop @ar;
+
+};
+
+
+# ---   *   ---   *   ---
+# get line to summon MAM with
+
+sub mamline($srcdir,$rap) {
+
+  my $inc=join ' ',(
+    "-I$srcdir",
+    "-I$srcdir/sys",
+
+  );
+
+  my $args=($rap)
+    ? '-MMAM=--rap,--module=avtomat'
+    : '-MMAM=--module=avtomat'
+    ;
+
+
+  return "perl -c $inc $args";
+
+};
+
+
+# ---   *   ---   *   ---
+# in: file list,src path,dst path
+# check dates, update older files
+
+sub update($dstdir,$srcdir,$rap) {
+  my $tag  = $ROM->{FMAT}->{UPDATED};
+  my $list = $ROM->{FILE};
+
+  mkmam $rap;
+  return int map {
+    my ($dst,$src,$fname)=@$ARG;
+
+    # run MAM
+    my $ex  = mamline($srcdir,$rap);
+    my $out = `$ex $src 2> .errlog`;
+
+    # ^throw on MAM fail
+    if(! length $out) {
+      my $log=`cat .errlog`;
+      die $log;
+
+    };
+
+
+    # owc and prich
+    req_basedir $dst;
+
+    open  my $fh,'+>',$dst or die "$!";
+    print {$fh} $out;
+    close $fh;
+
+    say   {*STDERR} "$tag$fname\e[0m";
+
+
+  } map {
+    need_update $dstdir,$srcdir,$ARG
+
+  } @$list;
+
+};
+
+
+# ---   *   ---   *   ---
+# entry point
+
+sub run {
+
+  # handle args, run sanity checks...
+  my $tag=$ROM->{FMAT}->{BOOT};
+  say {*STDERR} "$tag starting update";
+
+  build_clean if int grep {$ARG eq 'clean'} @ARGV;
+  build_mkdirs;
+
+  # initial MAM run
+  # needed to apply source filters
+  my $need=update(
+    $ROM->{TRASHDIR},$ROM->{AVTODIR},1
+
+  );
+
+  # ^if nothing was updated, then a
+  # ^second run never happens
+  if($need) {
+    say {*STDERR} (
+      "\n$tag copying from "
+    . "\e[36;1m\"/.trash/\"\e[0m"
+
+    );
+
+    update($ROM->{LIBDIR},$ROM->{TRASHDIR},0);
+
+  };
+
+
+  # rebuild nanorc files ;>
+  $tag="\e[37;1m::\e[0m";
+  say {*STDERR} "${tag}rebuilding syntax files";
+  say {*STDERR} `./bin/sygen`;
+  say {*STDERR} "${tag}done\n";
+
+
+  return;
+
+};
+
+run;
 
 
 # ---   *   ---   *   ---

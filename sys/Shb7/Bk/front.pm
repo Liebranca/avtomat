@@ -8,7 +8,7 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
@@ -24,27 +24,35 @@ package Shb7::Bk::front;
   use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
-  use Chk;
+  use Chk qw(is_arrayref);
 
-  use Arstd::String;
-  use Arstd::Path;
-  use Arstd::Array;
-  use Arstd::PM;
+  use Arstd::String qw(deref_clist);
+  use Arstd::Path qw(based);
+  use Arstd::Array qw(
+    array_keys
+    array_values
+    array_filter
+    array_dupop
+
+  );
+
+  use Arstd::PM qw(cload);
 
   use Shb7::Build;
   use Emit::Std;
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.4a';
+  our $VERSION = 'v0.00.5a';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # cstruc
 
 sub new($class,%O) {
-
 
   # defaults
   $O{name}    //= './out';
@@ -56,11 +64,11 @@ sub new($class,%O) {
   $O{linking} //= 'flat';
   $O{pproc}   //= undef;
 
-  $O{files}   //= [];
-  $O{gens}    //= [];
+  $O{file}    //= [];
+  $O{gen}     //= [];
 
-  $O{incl}    //= [];
-  $O{libs}    //= [];
+  $O{inc}     //= [];
+  $O{lib}     //= [];
   $O{libpath} //= [];
 
 
@@ -78,18 +86,20 @@ sub new($class,%O) {
     $ARG->{lang} //= $O{lang};
     $class->exgen($info,$ARG);
 
-  } @{$O{gens}};
+  } @{$O{gen}};
 
   # ^cat generated files and includes
   my %lists=$class->mklists(
-    $O{incl},$O{libs},$O{libpath}
+    $O{inc},
+    $O{lib},
+    $O{libpath}
 
   );
 
-  push @{$O{files}},array_keys(\@gens);
-  push @{$lists{incl}},array_values(\@gens);
+  push @{$O{file}},array_keys(\@gens);
+  push @{$lists{inc}},array_values(\@gens);
 
-  array_filter($O{files});
+  array_filter($O{file});
 
 
   # make builder ice
@@ -98,7 +108,6 @@ sub new($class,%O) {
 
   my $bk  = $bkn->new(pproc=>$O{pproc});
   my $bld = Shb7::Build->new(
-
     name    => $O{name},
     debug   => $O{debug},
     clean   => $O{clean},
@@ -111,13 +120,12 @@ sub new($class,%O) {
 
   );
 
-  # make ice
+
+  # make ice and give
   my $self=bless {
-
-    bk    => $bk,
-    bld   => $bld,
-
-    files => $O{files},
+    bk   => $bk,
+    bld  => $bld,
+    file => $O{file},
 
   },$class;
 
@@ -125,31 +133,29 @@ sub new($class,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^compiles with passed settings
 
 sub compile($self) {
+  return int grep {
+    $ARG=$self->{bk}->push_src(abs_path($ARG));
+    $ARG->update($self->{bld});
 
-  my $blt=0;
-
-  for my $f(@{$self->{files}}) {
-    $f    = $self->{bk}->push_src(abs_path($f));
-    $blt += $f->update($self->{bld});
-
-  };
-
-  return $blt;
+  } @{$self->{file}};
 
 };
+
 
 # ---   *   ---   *   ---
 # ^selfex
 
 sub link($self) {
-  $self->{bld}->push_files(@{$self->{files}});
+  $self->{bld}->push_files(@{$self->{file}});
   $self->{bld}->olink();
 
 };
+
 
 # ---   *   ---   *   ---
 # variants of execution
@@ -169,13 +175,12 @@ sub xrun($self,@args) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^crux
 
 sub run($self,@args) {
-
   state $invalid=qr{(?:mode)};
-
   my %O=@args;
 
   # defaults
@@ -207,20 +212,22 @@ sub run($self,@args) {
 
   # ^invoke
   $self->$fn(@args);
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^compile, link and run
 
 sub go($self,@args) {
-
   $self->compile();
   $self->link();
 
   return $self->run(@args);
 
 };
+
 
 # ---   *   ---   *   ---
 # remove output file
@@ -229,6 +236,7 @@ sub rmout($self) {
   unlink $self->{bld}->{name};
 
 };
+
 
 # ---   *   ---   *   ---
 # wraps over code generator execution
@@ -247,17 +255,15 @@ sub exgen($class,$info,$O) {
   );
 
   my ($version,$author)=@$info;
-  my @incl=$class->incl_deduce(@$heds);
+  my @incl=$class->inc_deduce(@$heds);
 
   array_filter(\@incl);
 
   Emit::Std::outf(
-
     $O->{lang},
     $O->{fname},
 
     inc     => $heds,
-
     body    => $O->{body},
 
     guards  => 1,
@@ -267,9 +273,11 @@ sub exgen($class,$info,$O) {
 
   );
 
+
   return $O->{fname} => \@incl;
 
 };
+
 
 # ---   *   ---   *   ---
 # wrap header names in quotes
@@ -279,11 +287,11 @@ sub cathed($class,$sys,$usr) {
 
 };
 
+
 # ---   *   ---   *   ---
 # makes lib/include lists
 
-sub mklists($class,$incl,$libs,$libpath) {
-
+sub mklists($class,$inc,$lib,$libpath) {
 
   # ordered data for processing each arg
   my @proc=([-I=>'-I./'],[-l=>()],[-L=>()]);
@@ -302,18 +310,19 @@ sub mklists($class,$incl,$libs,$libpath) {
     array_dupop($ARG);
 
 
-  } ($incl,$libs,$libpath);
+  } ($inc,$lib,$libpath);
 
 
   # ^give hashref with processed data
   return (
-    incl    => $incl,
-    libs    => $libs,
+    inc     => $inc,
+    lib     => $lib,
     libpath => $libpath,
 
   );
 
 };
+
 
 # ---   *   ---   *   ---
 # prototype:
@@ -323,22 +332,20 @@ sub mklists($class,$incl,$libs,$libpath) {
 # or an arrayref
 
 sub x_list($class,$src,$ch,@pre) {
-
   return [
-    @pre,
-    map {$ARG="$ch$ARG"} deref_clist($src)
+    @pre,map {$ARG="$ch$ARG"} deref_clist($src)
 
   ];
 
 };
 
+
 # ---   *   ---   *   ---
 # deduce include directories
 # from the header path
 
-sub incl_deduce($class,@inc) {
-
-  my @out=map {
+sub inc_deduce($class,@inc) {
+  return map {
     (null,based($ARG))[
       int($ARG=~ $FSLASH_RE)
 
@@ -346,9 +353,8 @@ sub incl_deduce($class,@inc) {
 
   } @inc;
 
-  return @out;
-
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

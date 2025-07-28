@@ -76,7 +76,7 @@ sub build($class,$name,$code,%O) {
 
   # defaults
   $O{where} //= Shb7::Path::ctrash() . '/_Inline';
-  $O{libs}  //= null;
+  $O{lib}   //= null;
   $O{-f}    //= 0,
 
   # make path if need
@@ -101,7 +101,7 @@ sub build($class,$name,$code,%O) {
     name      => $name,
     directory => $O{where},
 
-    libs      => $O{libs},
+    libs      => $O{lib},
 
     typemaps  => Avt::XS::Type->table,
     enable    => 'autowrap',

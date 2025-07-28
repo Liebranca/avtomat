@@ -33,20 +33,19 @@ package Shb7::Bk::flat;
   use parent 'Shb7::Bk';
   use lib $ENV{'ARPATH'}.'/lib/';
 
+
 # ---   *   ---   *   ---
 # info
 
   our $VERSION = 'v0.00.4';
   our $AUTHOR  = 'IBN-3DILA';
 
+
 # ---   *   ---   *   ---
 # add entry to build files
 
 sub push_src($self,$fpath) {
-
-  push @{$self->{files}},
-
-  Shb7::Bfile->new(
+  push @{$self->{file}},Shb7::Bfile->new(
 
     $fpath,
     $self,
@@ -57,7 +56,7 @@ sub push_src($self,$fpath) {
 
   );
 
-  return $self->{files}->[-1];
+  return $self->{file}->[-1];
 
 };
 
@@ -65,7 +64,6 @@ sub push_src($self,$fpath) {
 # get variant of arch flag
 
 sub target($tgt) {
-
   my @out=();
 
   if($tgt eq Shb7::Bk->TARGET->{x64}) {
@@ -80,6 +78,7 @@ sub target($tgt) {
 
 };
 
+
 # ---   *   ---   *   ---
 # rebuild chk
 
@@ -88,11 +87,11 @@ sub fupdated($self,$bfile) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get file dependencies
 
 sub fdeps($self,$bfile) {
-
   my @out=($bfile->{src});
 
   # read file if it exists
@@ -106,16 +105,17 @@ sub fdeps($self,$bfile) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get variant of entry flag
 
 sub entry($name) {return ('-e',$name)};
 
+
 # ---   *   ---   *   ---
 # object file boiler
 
 sub fbuild($self,$bfile,$bld) {
-
   state $oomre=qr{error: out of memory\.};
   state $merrf='./.bkflat.tmp';
 
@@ -164,6 +164,7 @@ sub fbuild($self,$bfile,$bld) {
 
 };
 
+
 # ---   *   ---   *   ---
 # invokes fasm!
 
@@ -189,6 +190,7 @@ sub asm($class,$src,$merrf,@args) {
   my $attp = 0;
   my $mem  = null;
 
+
 # ---   *   ---   *   ---
 # ^top
 
@@ -196,23 +198,8 @@ MEM_RECALC:
 
   $mem="-m $sztab[$attp]";
 
-#use Benchmark;
-#my $t0 = Benchmark->new;
-
   # invoke cmd and save error to tmp file
   `fasm $mem @args $src 2> $merrf`;
-
-#my $t1 = Benchmark->new;
-#my $td = timediff($t1,$t0);
-#
-#my $tt = timestr($td,'nop','8.16f');
-#strip(\$tt);
-#
-#$tt=~ s[.+([0-9]+\.[0-9]+) \s CPU.+$][$1]x;
-#$tt= sprintf "%8.2f",$tt*1000;
-#
-#$WLog->substep("took $tt ms\n");
-
   my $merr=orc($merrf);
 
   # ^catch "out of memory" errme
@@ -235,4 +222,6 @@ MEM_RECALC:
 
 }
 
+
 # ---   *   ---   *   ---
+1; # ret

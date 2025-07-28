@@ -61,9 +61,8 @@ sub new($class,%O) {
 
   # make ice
   my $self=bless {
-
-    files=>[],
-    pproc=>$O{pproc},
+    file  => [],
+    pproc => $O{pproc},
 
   },$class;
 
@@ -76,11 +75,7 @@ sub new($class,%O) {
 # add entry to build files
 
 sub push_src($self,$fpath) {
-
-  push @{$self->{files}},
-
-  Shb7::Bfile->new(
-
+  push @{$self->{file}},Shb7::Bfile->new(
     $fpath,
     $self,
 
@@ -90,7 +85,7 @@ sub push_src($self,$fpath) {
 
   );
 
-  return $self->{files}->[-1];
+  return $self->{file}->[-1];
 
 };
 
@@ -116,7 +111,7 @@ sub depstr_to_array($self,$depstr) {
 # get array of build files
 
 sub bfiles($self) {
-  return @{$self->{files}};
+  return @{$self->{file}};
 
 };
 
@@ -178,14 +173,12 @@ sub get_updated($self,%O) {
 };
 
 sub build_objects($self,$bld) {
-
   my %O=(
-
     clean=>$bld->{clean},
     debug=>int grep {
       $ARG eq '-g'
 
-    } @{$bld->{flags}},
+    } @{$bld->{flag}},
 
   );
 
@@ -195,6 +188,7 @@ sub build_objects($self,$bld) {
   };
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

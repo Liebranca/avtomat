@@ -9,33 +9,32 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
-# ---   *   ---   *   ---
+# lib,
 
+# ---   *   ---   *   ---
 # deps
 
-  use v5.36.0;
+package thawout;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Storable qw(store retrieve freeze thaw);
+  use Storable qw(retrieve);
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
   use Fmat;
 
-  use lib $ENV{'ARPATH'}.'/lib/';
 
 # ---   *   ---   *   ---
+# the bit
 
-my @files=@ARGV;
-for my $f(@files) {
+map {
+  my $h=retrieve $_ or die strerr $_;
+  fatdump \$h,blessed=>1;
 
-  my $h=retrieve($f) or die strerr($f);
-  fatdump(\$h,blessed=>1);
+} @ARGV;
 
-};
 
 # ---   *   ---   *   ---
 1; # ret

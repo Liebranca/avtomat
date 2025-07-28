@@ -96,7 +96,6 @@ St::vconst {
 # _during_ the build process...
 
 sub repv($repl,$uid) {
-
   my $module = $O->{module};
   my $have   = $repl->{capt}->[$uid];
   my $beg    = "\n" . q[  use lib "$ENV{ARPATH}];
@@ -131,7 +130,6 @@ sub repv($repl,$uid) {
 # cstruc/entry
 
 sub import {
-
   my ($class,@cmd)=@_;
 
   $O=Cli->new(@{$class->OPTIONS});
@@ -172,7 +170,6 @@ sub unimport {
 # file reader
 
 sub filter {
-
   my ($self)=@_;
   my ($pkg,$fname,$lineno)=(caller);
 

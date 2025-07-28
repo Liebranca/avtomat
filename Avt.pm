@@ -51,7 +51,7 @@ package Avt;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v3.21.7';
+  our $VERSION = 'v3.21.8';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -73,14 +73,14 @@ St::vconst {
     inc   => [],
     lib   => [],
 
-    gens  => {},
+    gen   => {},
 
-    tests => {},
-    utils => {},
+    test  => {},
+    util  => {},
 
-    defs  => [],
+    def   => [],
     xprt  => [],
-    deps  => [],
+    dep   => [],
 
     pre   => null,
     post  => null,
@@ -98,7 +98,7 @@ St::vconst {
   },
 
   MAKESCRIPT_DEPS=>q[
-    use 5.36.0;
+    use 5.42.0;
     use strict;
     use warnings;
     use English;
@@ -113,7 +113,10 @@ St::vconst {
   ],
 
   MAKESCRIPT_BODY=>q[
-    Avt::Makescript->build_module(__FILE__,@ARGV);
+    my $M=Avt::Makescript->build_module(
+      __FILE__,@ARGV
+
+    );
 
   ],
 
@@ -273,8 +276,7 @@ sub mirror {
   );
 
   # force dump to exist
-  `mkdir => -p => $trsh`
-  if ! -d $trsh;
+  reqdir $trsh;
 
 
   # walk dirs
@@ -302,8 +304,7 @@ sub mirror {
 
 
     # force dump to exist
-    `mkdir => -p => $tdir`
-    if ! -d $tdir;
+    reqdir $tdir;
 
 
   # ^we iter treee-to-list
@@ -601,8 +602,19 @@ sub hook_str($which,$M,$C) {
     : 'END {'
     ;
 
-  my $blklog=(
-    "\$WLog->step(\"running $which-build hook\\n\");"
+  my @blklog=(
+
+    ($which eq 'post')
+      ? q[if(! defined $M) {
+          say "Build failed";
+          exit -1
+
+        }]
+
+      : ()
+      ,
+
+    "\$WLog->step(\"running $which-build hook\\n\");",
 
   );
 
@@ -615,7 +627,7 @@ sub hook_str($which,$M,$C) {
   return join "\n",grep {
     length $ARG
 
-  } ($blkbeg,$blklog,$C->{$which},$blkend,'};');
+  } ($blkbeg,@blklog,$C->{$which},$blkend,'};');
 
 };
 
@@ -642,8 +654,8 @@ sub config($C) {
 
 
   # run dependency checks
-  depchk(Shb7::dir($C->{name}),$C->{deps})
-  if $C->{deps};
+  depchk(Shb7::dir($C->{name}),$C->{dep})
+  if $C->{dep};
 
 
   # prepare the libs && includes
@@ -661,9 +673,9 @@ sub config($C) {
 
   # from result=>[src,deps]
   # to   src=>[result,deps]
-  invert_generator($C->{gens});
-  invert_generator($C->{tests});
-  invert_generator($C->{utils});
+  invert_generator($C->{gen});
+  invert_generator($C->{test});
+  invert_generator($C->{util});
 
 
   # register, run and give

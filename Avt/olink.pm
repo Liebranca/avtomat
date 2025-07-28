@@ -86,7 +86,7 @@ sub crux(@cmd) {
   Arstd::WLog->genesis();
   $WLog->ex('olink');
 
-  my ($m,$files)=parse_args(@cmd);
+  my ($m,$file)=parse_args(@cmd);
 
   if($m->{flat} ne $NULL) {
     $WLog->step("rebuilding objects");
@@ -119,7 +119,6 @@ sub crux(@cmd) {
 
       # call fasm...
       map {
-
         my $fname=basef $ARG;
         $WLog->substep($fname);
 
@@ -156,7 +155,7 @@ sub crux(@cmd) {
       @out;
 
 
-    } @$files;
+    } @$file;
 
 
     $WLog->step('linking objects');
@@ -169,7 +168,7 @@ sub crux(@cmd) {
 
 
   } else {
-    my $bld = compile($m,$files);
+    my $bld = compile($m,$file);
     my $obj = xlink($bld);
 
     run($m,$obj);
@@ -195,9 +194,9 @@ sub parse_args(@cmd) {
     @{Cli::Fstruct->ATTRS},
 
     # ^olink specific
-    {id=>'libs',short=>'-l',argc=>1},
+    {id=>'lib',short=>'-l',argc=>1},
     {id=>'libpath',short=>'-L',argc=>1},
-    {id=>'incl',short=>'-I',argc=>1},
+    {id=>'inc',short=>'-I',argc=>1},
     {id=>'out',short=>'-o',argc=>1},
 
     {id=>'require-C',short=>'-C',argc=>0},
@@ -220,7 +219,7 @@ sub parse_args(@cmd) {
 
   # nullout include and lib paths
   map {$ARG //= null}
-  ($m->{incl},$m->{libs},$m->{libpath});
+  ($m->{inc},$m->{lib},$m->{libpath});
 
   # generate default output path if none passed
   $m->{out}=($m->{out} eq null)
@@ -327,19 +326,18 @@ sub compile($m,$files) {
 
     # ^cstruc builder ice
     my $exe = $class->new(
-
       name    => $m->{out},
 
-      libs    => $m->{libs},
+      lib     => $m->{lib},
       libpath => $m->{libpath},
 
-      incl    => $m->{incl},
+      inc     => $m->{inc},
 
-      debug   => $m->{debug} ne $NULL,
-      clean   => $m->{clean} ne $NULL,
-      files   => $flist,
+      debug   => $m->{debug} ne null,
+      clean   => $m->{clean} ne null,
+      file    => $flist,
 
-      linking => ($m->{'require-C'} ne $NULL)
+      linking => ($m->{'require-C'} ne null)
         ? 1 : undef ,
 
     );
@@ -359,26 +357,28 @@ sub compile($m,$files) {
 
 };
 
+
 # ---   *   ---   *   ---
 # what you see when you forget
 # to type the right extension...
 #
 # or when you type no extension at all!
 
-sub throw_bad_files($files) {
+sub throw_bad_files($file) {
   map {
     $WLog->step(
       "unrecognized FF *.$ARG",
 
     );
 
-  } map {extof($ARG)} @$files;
+  } map {extof($ARG)} @$file;
 
 
   $WLog->err('aborted',from=>'olink');
   exit -1;
 
 };
+
 
 # ---   *   ---   *   ---
 # selects linking method
@@ -389,8 +389,8 @@ sub xlink($bld) {
   my $obj=$bld->[-1];
 
   # ^collapse all objects into one!
-  @{$obj->{files}}=map {
-    @{$ARG->{files}}
+  @{$obj->{file}}=map {
+    @{$ARG->{file}}
 
   } (@$bld)[0..@$bld-1];
 

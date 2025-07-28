@@ -46,10 +46,7 @@ package Shb7::Bk::mam;
 # add entry to build files
 
 sub push_src($self,$fpath,$fout) {
-  push @{$self->{files}},
-
-  Shb7::Bfile->new(
-
+  push @{$self->{file}},Shb7::Bfile->new(
     $fpath,
     $self,
 
@@ -61,7 +58,7 @@ sub push_src($self,$fpath,$fout) {
 
   );
 
-  return $self->{files}->[-1];
+  return $self->{file}->[-1];
 
 };
 
@@ -138,7 +135,7 @@ sub mamcall($self,$bfile,$bld,$rap=1) {
   my @libpaths=grep {
     $ARG=~ $LIBD_RE
 
-  } @{$bld->{libs}};
+  } @{$bld->{lib}};
 
 
   map {$ARG=~ s[$LIBD_RE][-I]} @libpaths;
@@ -149,14 +146,14 @@ sub mamcall($self,$bfile,$bld,$rap=1) {
     ;
 
   my @call=(
-    q[perl],q[-c],
-    q[-I] . Shb7::dir($Shb7::Path::Cur_Module),
+    perl => '-c',
 
-    @{$bld->{incl}},
+    '-I' . Shb7::dir($Shb7::Path::Cur_Module),
+
+    @{$bld->{inc}},
     @libpaths,
 
-    q[-MMAM=] . $rap.
-    q[--module=] . $Shb7::Path::Cur_Module,
+    "-MMAM=$rap--module=$Shb7::Path::Cur_Module",
 
     $bfile->{src}
 
@@ -174,7 +171,6 @@ sub mamcall($self,$bfile,$bld,$rap=1) {
 # custom source filters
 
 sub fbuild($self,$bfile,$bld,$rap=1) {
-
   $WLog->substep(
     Shb7::shpath($bfile->{src})
 

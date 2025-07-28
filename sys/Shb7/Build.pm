@@ -57,10 +57,8 @@ package Shb7::Build;
 # adds to your namespace
 
   our @EXPORT=qw(
-
     push_makedeps
     clear_makedeps
-
     obj_file
     obj_dir
 
@@ -73,16 +71,15 @@ package Shb7::Build;
 St::vconst {
 
   DEFAULT => {
-
     name    => 'out',
     entry   => '_start',
 
     lang    => 'fasm',
-    files   => [],
-    flags   => [],
+    file    => [],
+    flag    => [],
     def     => [],
-    incl    => [],
-    libs    => [],
+    inc     => [],
+    lib     => [],
     libpath => [],
 
     shared  => 0,
@@ -107,8 +104,8 @@ St::vconst {
 # GBL
 
   our $Makedeps={
-    objs=>[],
-    deps=>[]
+    obj=>[],
+    dep=>[]
 
   };
 
@@ -124,12 +121,12 @@ sub new($class,%O) {
 
 
   # condtionally add extra flags
-  my $flags=[];
+  my $flag=[];
 
-  unshift @$flags,q[-shared]
+  unshift @$flag,q[-shared]
   if $O{shared};
 
-  unshift @$flags,q[-g]
+  unshift @$flag,q[-g]
   if $O{debug};
 
 
@@ -137,14 +134,14 @@ sub new($class,%O) {
   my $self=bless {
 
     name    => $O{name},
-    files   => $O{files},
+    file    => $O{file},
     entry   => $O{entry},
 
     def     => $O{def},
-    incl    => $O{incl},
-    libs    => [@{$O{libpath}},@{$O{libs}}],
+    inc     => $O{inc},
+    lib     => [@{$O{libpath}},@{$O{lib}}],
 
-    flags   => $flags,
+    flag    => $flag,
     linking => $O{linking},
     tgt     => $O{tgt},
 
@@ -167,7 +164,7 @@ sub new($class,%O) {
 # adds to builder's file array
 
 sub push_files($self,@data) {
-  push @{$self->{files}},@data;
+  push @{$self->{file}},@data;
 
 };
 
@@ -176,7 +173,7 @@ sub push_files($self,@data) {
 # adds to builder's flags array
 
 sub push_flags($self,@data) {
-  push @{$self->{flags}},@data;
+  push @{$self->{flag}},@data;
 
 };
 
@@ -186,13 +183,13 @@ sub push_flags($self,@data) {
 # in a nutshell: it's a hack
 
 sub push_makedeps($obj,$dep) {
-  push @{$Makedeps->{objs}},$obj;
-  push @{$Makedeps->{deps}},$dep;
+  push @{$Makedeps->{obj}},$obj;
+  push @{$Makedeps->{dep}},$dep;
 
 };
 
 sub clear_makedeps() {
-  $Makedeps={objs=>[],deps=>[]};
+  $Makedeps={obj=>[],dep=>[]};
 
 };
 
@@ -220,13 +217,13 @@ sub get_module_deps($self) {
   my @found=();
   my @paths=();
 
-  array_filter($self->{libs});
-  array_filter($self->{incl});
+  array_filter($self->{lib});
+  array_filter($self->{inc});
 
-  while(@{$self->{libs}}) {
+  while(@{$self->{lib}}) {
 
     # skip -L
-    my $path=shift @{$self->{libs}};
+    my $path=shift @{$self->{lib}};
     if($path=~ $LIBD_RE) {
       push @paths,$path;
       next;
@@ -244,8 +241,8 @@ sub get_module_deps($self) {
 
       my $meta=Shb7::Find::build_meta($path);
 
-      push @{$self->{incl}},@{$meta->{incl}};
-      push @found,$lib,@{$meta->{libs}};
+      push @{$self->{inc}},@{$meta->{inc}};
+      push @found,$lib,@{$meta->{lib}};
 
     } else {
       push @found,$lib;
@@ -254,8 +251,8 @@ sub get_module_deps($self) {
 
   };
 
-  push @{$self->{libs}},@paths;
-  push @{$self->{libs}},@found;
+  push @{$self->{lib}},@paths;
+  push @{$self->{lib}},@found;
 
 };
 
@@ -266,20 +263,20 @@ sub get_module_deps($self) {
 sub get_module_paths($self) {
 
   for my $lib(@{$Shb7::Path::Lib}) {
-    unshift @{$self->{libs}},q[-L].$lib;
+    unshift @{$self->{lib}},q[-L].$lib;
 
   };
 
   for my $incl(@{$Shb7::Path::Include}) {
-    unshift @{$self->{incl}},q[-I].$incl;
+    unshift @{$self->{inc}},q[-I].$incl;
 
   };
 
-  array_filter($self->{incl},$FLGCHK);
-  array_filter($self->{libs},$FLGCHK);
+  array_filter($self->{inc},$FLGCHK);
+  array_filter($self->{lib},$FLGCHK);
 
-  array_dupop($self->{incl});
-  array_dupop($self->{libs});
+  array_dupop($self->{inc});
+  array_dupop($self->{lib});
 
 };
 
@@ -295,7 +292,7 @@ sub list_obj($self) {
   } grep {
     ! defined $ARG->{__alt_out}
 
-  } @{$self->{files}};
+  } @{$self->{file}};
 
 };
 
@@ -303,7 +300,7 @@ sub list_src($self) {
   return map {
     $ARG->{src}
 
-  } @{$self->{files}};
+  } @{$self->{file}};
 
 };
 
@@ -311,7 +308,7 @@ sub list_dep($self) {
   return map {
     $ARG->{dep}
 
-  } @{$self->{files}};
+  } @{$self->{file}};
 
 };
 
@@ -320,7 +317,7 @@ sub list_dep($self) {
 # gives stirr -L(path) -l(files) ...
 
 sub libline($self) {
-  return join ' ',@{$self->{libs}};
+  return join ' ',@{$self->{lib}};
 
 };
 
@@ -329,22 +326,20 @@ sub libline($self) {
 # standard call to link object files
 
 sub link_cstd($self,@obj) {
-
   return (
-
     q[gcc],
 
     @{$Shb7::Bk::gcc::OFLG},
     @{$Shb7::Bk::gcc::LFLG},
-    @{$self->{flags}},
+    @{$self->{flag}},
 
     Shb7::Bk::gcc::target($self->{tgt}),
 
-    @{$self->{incl}},
+    @{$self->{inc}},
     @obj,
 
     q[-o],$self->{name},
-    @{$self->{libs}},
+    @{$self->{lib}},
 
   );
 
@@ -356,22 +351,20 @@ sub link_cstd($self,@obj) {
 # what I *usually* use with assembler *.o files
 
 sub link_half_flat($self,@obj) {
-
   return (
-
     q[gcc],
 
     @{$Shb7::Bk::gcc::FLATLFLG},
-    @{$self->{flags}},
+    @{$self->{flag}},
 
     Shb7::Bk::gcc::entry($self->{entry}),
     Shb7::Bk::gcc::target($self->{tgt}),
 
-    @{$self->{incl}},
+    @{$self->{inc}},
     @obj,
 
     q[-o],$self->{name},
-    @{$self->{libs}},
+    @{$self->{lib}},
 
   );
 
@@ -383,9 +376,7 @@ sub link_half_flat($self,@obj) {
 # meant for teensy assembler binaries
 
 sub link_flat($self,@obj) {
-
   return (
-
     q[ld.bfd],
 
     qw(--relax --omagic -d),
@@ -397,7 +388,7 @@ sub link_flat($self,@obj) {
     q[-o],$self->{name},
 
     @obj,
-    @{$self->{libs}},
+    @{$self->{lib}},
 
   );
 
@@ -411,11 +402,11 @@ sub link_jar($self,@obj) {
 
   # building lib?
   my $shared=defined array_iof(
-    $self->{flags},'-shared'
+    $self->{flag},'-shared'
 
   );
 
-  my $manipath = 'META-INF/MANIFEST.MF';
+  my $manipath='META-INF/MANIFEST.MF';
 
 
   # remember current path
@@ -614,7 +605,6 @@ sub olink($self) {
 
   # ^chk all exist
   if(@miss) {
-
     map {
       $WLog->step("missing file $ARG");
 
@@ -657,9 +647,7 @@ sub olink($self) {
 # symrd errme
 
 sub throw_no_shwl($name,$path) {
-
   errout(
-
     q[Can't find shadow lib for '%s' <%s>],
 
     args => [$name,$path],
@@ -674,7 +662,6 @@ sub throw_no_shwl($name,$path) {
 # get symbol typedata from shadow lib
 
 sub symrd($mod) {
-
   my $out={};
   my $src=libdir().".$mod";
 
@@ -696,37 +683,26 @@ sub symrd($mod) {
 # ---   *   ---   *   ---
 # reads symbol table entry
 
-sub symtab_read(
-
-  $symtab,
-
-  $lib,
-  $path,
-  $rebuild
-
-) {
-
+sub symtab_read($symtab,$lib,$path,$rebuild) {
   my $f=symrd($lib);
 
   # so regen check
-  if(!$$rebuild) {
-    $$rebuild=ot($path,ffind('-l'.$lib));
-
-  };
+  $$rebuild=ot($path,ffind('-l'.$lib))
+  if ! $$rebuild;
 
   # append
-  for my $o(keys %{$f->{objects}}) {
+  for my $o(keys %{$f->{object}}) {
+    my $obj=$f->{object}->{$o};
 
-    my $obj=$f->{objects}->{$o};
-
-    $symtab->{objects}->{
-      $Shb7::Path::Root.$o
+    $symtab->{object}->{
+      "$Shb7::Path::Root$o"
 
     }=$obj;
 
   };
 
-  push @{$symtab->{deps}},$f->{deps};
+  push @{$symtab->{dep}},$f->{dep};
+  return;
 
 };
 
@@ -739,23 +715,20 @@ sub so_from_symtab($symtab,$path,@libs) {
 
   # get libraries
   map  {$ARG="-l$ARG"} @libs;
-  push @libs,map {@$ARG} @{$symtab->{deps}};
+  push @libs,map {@$ARG} @{$symtab->{dep}};
 
   # reformat object field
   my @objs=map {
     {obj=>$ARG}
 
-  } keys %{$symtab->{objects}};
+  } keys %{$symtab->{object}};
 
 
   # make struc for linking
   my $bld=Shb7::Build->new(
-
     name    => $path,
-
-    files   => \@objs,
-    libs    => \@libs,
-
+    file    => \@objs,
+    lib     => \@libs,
     shared  => 1,
     linking => 'cstd',
 
@@ -775,18 +748,15 @@ sub so_from_symtab($symtab,$path,@libs) {
 # rebuilds shared objects if need be
 
 sub soregen($name,$libs_ref,$no_regen=0) {
-
   my $path    = so($name);
   my $rebuild = ! -f $path;
 
   my @libs=@{$libs_ref};
   my $symtab={
-
     rebuild => 0,
     bld     => undef,
-
-    deps    => [],
-    objects => {}
+    dep     => [],
+    object  => {}
 
   };
 

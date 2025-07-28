@@ -14,8 +14,7 @@
 # deps
 
 package Avt::Xcav::C;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
@@ -60,12 +59,12 @@ sub symscan($class,$fpath) {
 
 
   # now we cat to this
-  my $out={functions=>{},utypes=>{}};
+  my $out={function=>{},utype=>{}};
 
   # ^cat [rtype,args] for every function
   map {
     my ($fn,$attrs)=rdfn($rd,$ARG);
-    $out->{functions}->{$fn}=$attrs;
+    $out->{function}->{$fn}=$attrs;
 
   } grep {
     defined $ARG->match_series(@pat);
