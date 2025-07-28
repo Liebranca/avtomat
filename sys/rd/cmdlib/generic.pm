@@ -8,19 +8,18 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package rd::cmdlib::generic;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match-vars);
-  use lib $ENV{ARPATH}.'/lib/sys/';
+  use English;
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Chk;
@@ -36,7 +35,7 @@ package rd::cmdlib::generic;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = 'v0.00.6a';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -229,7 +228,7 @@ sub rept($self,$branch) {
     my $nd=shift @body;
     unshift @body,@{$nd->{leaves}};
 
-    $l2->{walked}->{$nd->{-uid}}=$NULL;
+    $l2->{walked}->{$nd->{-uid}}=null;
     $nd->discard();
 
   };
@@ -374,7 +373,7 @@ w_cmdsub 'csume-list' => q(qlist src) => 'echo';
 
 priority 1 => unrev cmdsub 'rept' => q(
   any   N;
-  qlist src=NULL;
+  qlist src=null;
   curly body;
 
 )  => \&rept;

@@ -8,18 +8,17 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package ipret::encoder;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match_vars);
+  use English;
   use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
@@ -37,7 +36,7 @@ package ipret::encoder;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.2;#a
+  our $VERSION = 'v0.01.2a';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -274,8 +273,7 @@ sub format_opcode($self,$ins) {
 
   my ($opcd,$size)=@$ins;
 
-  my $have = join $NULLSTR,map {
-
+  my $have = catar map {
     my $type  = typefet $ARG;
     my $bytes = pack $type->{packof},$opcd;
 

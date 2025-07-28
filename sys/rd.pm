@@ -8,23 +8,20 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package rd;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
   use Storable;
+  use English;
 
-  use English qw(-no_match-vars);
-
-  use lib $ENV{ARPATH}.'/lib/sys/';
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Chk;
@@ -44,11 +41,13 @@ package rd;
 
   use parent 'St';
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.9;#a
+  our $VERSION = 'v0.02.0a';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
@@ -107,6 +106,7 @@ St::vconst {
 
 };
 
+
 # ---   *   ---   *   ---
 # cstruc
 
@@ -127,11 +127,13 @@ sub new($class,$src,%O) {
 
 
   # file or string passed?
-  my $body=$NULLSTR;
+  my $body=null;
 
   if(is_filepath($src)) {
     $body = orc($src);
     $src  = Shb7::shpath($src);
+
+    $body = "%;\n$body" if $O{ROM};
 
   } else {
     $body = $src;
@@ -142,6 +144,9 @@ sub new($class,$src,%O) {
 
   # make ice
   my $self=bless {
+
+    # turns '//' into comments ;>
+    C => $O{C},
 
 
     # parse tree root/preproc namespace
@@ -209,7 +214,7 @@ sub new($class,$src,%O) {
   # make parse tree root
   my $frame      = Tree->get_frame($self->{iced});
 
-  $self->{tree}  = $frame->new(undef,$NULLSTR);
+  $self->{tree}  = $frame->new(undef,null);
   $self->{inner} = $frame->new(undef,'INNER');
   $self->{scope} = $self->{inner};
 
@@ -235,9 +240,13 @@ sub new($class,$src,%O) {
   $self->{cmdlib}->kick();
 
 
+  $self->{l0}->charset->{'#'}='cpreproc'
+  if $self->{C};
+
   return $self;
 
 };
+
 
 # ---   *   ---   *   ---
 # fetch ice
@@ -247,6 +256,7 @@ sub ice($class,$src) {
 
 };
 
+
 # ---   *   ---   *   ---
 # dstruc
 
@@ -255,6 +265,7 @@ sub DESTROY($self) {
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 # in a nutshell
@@ -284,6 +295,7 @@ sub crux($src,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # advance pass/stage
 
@@ -308,6 +320,7 @@ sub next_stage($self) {
   $self->{stage}++;
 
 };
+
 
 # ---   *   ---   *   ---
 # first stage
@@ -346,6 +359,7 @@ sub parse($self,%O) {
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 # parses fist expression
@@ -434,7 +448,7 @@ sub parse_subclass($self) {
   $self->{tree}->{leaves}->[0]->discard();
 
   $l2->{branch} = undef;
-  $l1->{token}  = $NULLSTR;
+  $l1->{token}  = null;
 
   $l2->term();
 
@@ -442,13 +456,19 @@ sub parse_subclass($self) {
   # load new syntax rules!
   cloadi $self->syntax_t;
 
+  my $exclude=($self->{C})
+    ? [qw(csv)]
+    : []
+    ;
+
   $self->{syntax}=$self->syntax_t->new($self);
-  $self->{syntax}->build();
+  $self->{syntax}->build($exclude);
 
 
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 # second stage
@@ -480,6 +500,7 @@ sub preproc($self,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # third stage
 #
@@ -488,13 +509,22 @@ sub preproc($self,%O) {
 
 sub reparse($self,%O) {
 
-
   # get ctx
   my $l1=$self->{l1};
   my $l2=$self->{l2};
 
+
   # fetch definitions
-  $self->{cmdlib}->load($self->{subpkg});
+  my $exclude=($self->{C})
+    ? [qw(generic linux macro dd asm)]
+    : []
+    ;
+
+  $self->{cmdlib}->load(
+    $self->{subpkg},
+    $exclude
+
+  );
 
 
   # re-evaluate symbols
@@ -509,7 +539,7 @@ sub reparse($self,%O) {
     my ($type,$spec)=($have)
 
       ? ($have->{type},$have->{spec})
-      : ($NULLSTR,$NULLSTR)
+      : (null,null)
       ;
 
     if($type && $type eq 'SYM') {
@@ -541,6 +571,7 @@ sub reparse($self,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # all stages after reparse are
 # done with this F ;>
@@ -562,6 +593,7 @@ sub walk($self,%O) {
   return 1;
 
 };
+
 
 # ---   *   ---   *   ---
 # perform single iter of tree
@@ -608,6 +640,7 @@ sub walk_pass($self,$Q,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # need to walk AGAIN?
 
@@ -649,6 +682,7 @@ sub walk_repass($self,$Q,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # move to next line!
 
@@ -656,6 +690,7 @@ sub next_line($self) {
   $self->{lineat}=$self->{lineno};
 
 };
+
 
 # ---   *   ---   *   ---
 # wraps: remove comments
@@ -670,6 +705,7 @@ sub strip($self) {
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 # AR/IMP:
@@ -696,6 +732,7 @@ sub import($class,@args) {
   );
 
 };
+
 
 # ---   *   ---   *   ---
 # ^imported as exec via arperl
@@ -729,7 +766,7 @@ sub ON_EXE($class,@input) {
   # proc options
   my %O=();
 
-  if($m->{mc} ne $NULL) {
+  if($m->{mc} ne null) {
 
     my ($cls,$memroot,$pathsep)=
       split ',',$m->{mc};
@@ -745,7 +782,7 @@ sub ON_EXE($class,@input) {
 
   };
 
-  $O{strip}=$m->{strip} ne $NULL;
+  $O{strip}=$m->{strip} ne null;
 
 
   # get parse tree
@@ -754,14 +791,14 @@ sub ON_EXE($class,@input) {
 
   # write to file?
   store($ice,$m->{out})
-  if $m->{out} ne $NULL;
+  if $m->{out} ne null;
 
 
   # dbout to tty?
   $ice->prich()
 
-  if $m->{echo} ne $NULL
-  || $m->{out}  eq $NULL
+  if $m->{echo} ne null
+  || $m->{out}  eq null
 
   ;
 
@@ -769,6 +806,7 @@ sub ON_EXE($class,@input) {
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^imported as module via use
@@ -791,6 +829,7 @@ sub ON_USE($class,$from,@nullarg) {
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 # parse error
@@ -821,6 +860,7 @@ sub perr($self,$me,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^sets branch before throwing!
 
@@ -829,6 +869,7 @@ sub bperr($self,$branch,$me,%O) {
   return $self->perr($me,%O);
 
 };
+
 
 # ---   *   ---   *   ---
 # ~
@@ -862,6 +903,7 @@ sub throw_unresolved($self,$Q,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # name collision
 
@@ -874,6 +916,7 @@ sub throw_redecl($self,$type,$name) {
   );
 
 };
+
 
 # ---   *   ---   *   ---
 # ^no name!
@@ -893,6 +936,7 @@ sub throw_undefined($self,$type,$name,@path) {
   );
 
 };
+
 
 # ---   *   ---   *   ---
 # encode to binary
@@ -936,6 +980,7 @@ sub mint($self) {
   return @out;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^undo
@@ -988,6 +1033,7 @@ sub unmint($class,$O) {
   return $self;
 
 };
+
 
 # ---   *   ---   *   ---
 # dbout
@@ -1065,6 +1111,7 @@ sub prich($self,%O) {
   return ioprocout(\%O);
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

@@ -9,14 +9,13 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Shb7::Path;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
@@ -31,17 +30,19 @@ package Shb7::Path;
 
   use Style;
 
-  use Arstd::Path;
-  use Arstd::Array;
-  use Arstd::IO;
+  use Arstd::Path qw(based);
+  use Arstd::Array qw(array_filter);
+  use Arstd::IO qw(dorc errout);
 
   use Tree::File;
+
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = 'v0.00.4a';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -75,7 +76,7 @@ package Shb7::Path;
     config
     mem
     trash
-
+    ctrash
     modof
     shpath
 
@@ -169,7 +170,7 @@ sub set_root($path) {
   $Include->[1]="${Root}include/";
 
   $Root_Re=qr{^(?: $DOT_BEG /? | $Root)}x;
-  $Cur_Module=$NULLSTR;
+  $Cur_Module=null;
 
   return $Root;
 
@@ -357,7 +358,7 @@ sub file($path) {
 
 };
 
-sub dir($path=$NULLSTR) {
+sub dir($path=null) {
   return $Root.$path.q[/];
 
 };
@@ -372,7 +373,7 @@ sub shwl($name) {
 
 };
 
-sub libdir($path=$NULLSTR) {
+sub libdir($path=null) {
   return $Root."lib/$path/";
 
 };
@@ -399,6 +400,11 @@ sub mem($name) {
 
 sub trash($name) {
   return $Trash.$name;
+
+};
+
+sub ctrash() {
+  return trash($Cur_Module);
 
 };
 
@@ -526,6 +532,7 @@ sub walk($path,%O) {
     $path      = shift @pending;
     $root_node = shift @pending;
 
+
     # nit root on first run
     my $dst=(! defined $root_node)
       ? $frame->new($root_node,$path)
@@ -536,25 +543,24 @@ sub walk($path,%O) {
     $out//=$dst;
 
     # make tree from file list
-    for my $f(dorc($path,$excluded)) {
+    map {
+      if(-f "$path/$ARG") {
+        $frame->new($dst,$ARG);
 
-      if(-f "$path/$f") {
-        $frame->new($dst,$f);
+      } elsif(($O{-r}) && (-d "$path$ARG/")) {
 
-      } elsif(($O{-r}) && (-d "$path$f/")) {
+        unshift @pending,(
+          "$path$ARG/",
+          $frame->new($dst,"$ARG/")
 
-        unshift @pending,
-
-          "$path$f/",
-          $frame->new($dst,"$f/")
-
-        ;
+        );
 
       };
 
-    };
+    } dorc($path,$excluded);
 
   };
+
 
   return $out;
 
@@ -588,6 +594,7 @@ sub obj_from_src($src,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^kind of the inverse
 
@@ -610,6 +617,7 @@ sub src_from_obj($src,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # takes out the trash!
 
@@ -630,6 +638,7 @@ sub clear_dir($path,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^recursively for module trashcan
 
@@ -637,6 +646,7 @@ sub empty_trash($name) {
   clear_dir("$Trash$name/",-r=>1);
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

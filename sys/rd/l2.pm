@@ -8,21 +8,19 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package rd::l2;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English qw(-no_match-vars);
+  use English;
 
-  use lib $ENV{ARPATH}.'/lib/sys/';
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
 
@@ -36,7 +34,7 @@ package rd::l2;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.4;#a
+  our $VERSION = 'v0.02.4a';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -604,7 +602,7 @@ sub exec_queue($self,@Q) {
     # node discarded mid-iter?
     if(
 
-       ($walked->{$ARG->[1]->{-uid}} eq $NULL)
+       ($walked->{$ARG->[1]->{-uid}} eq null)
     || ($ARG->[1]->{plucked})
 
     ) {goto skip};

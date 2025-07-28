@@ -8,34 +8,29 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Avt;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use Storable;
-
+  use Storable qw(store);
   use Cwd qw(abs_path getcwd);
 
-  use Carp;
-  use English qw(-no_match_vars);
+  use Carp qw(croak);
+  use English;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
 
-  use Arstd::String;
-  use Arstd::Array;
-  use Arstd::Hash;
-  use Arstd::Re;
-  use Arstd::IO;
+  use Arstd::String qw(gstrip);
+  use Arstd::Path qw(reqdir);
+  use Arstd::Array qw(array_dupop);
+  use Arstd::IO qw(orc);
 
   use Arstd::WLog;
 
@@ -44,78 +39,98 @@ package Avt;
 
   use Cli;
 
-  use lib $ENV{'ARPATH'}.'/lib/hacks';
-  use Shwl;
+  use lib "$ENV{ARPATH}/lib/";
 
-  use lib $ENV{'ARPATH'}.'/lib/';
-
-  use Emit::Std;
-  use Emit::C;
-
-  use Lang;
-  use Lang::C;
-  use Lang::Perl;
-  use Lang::peso;
-
+  use Emit::Perl;
   use Avt::Sieve;
   use Avt::Makescript;
+
+  use parent 'St';
+
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v3.21.6;
+  our $VERSION = 'v3.21.7';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly my $CONFIG_DEFAULT=>{
+my $PKG=__PACKAGE__;
+St::vconst {
 
-    name=>$NULLSTR,
+  DEFAULT => {
 
-    scan=>$NULLSTR,
-    build=>$NULLSTR,
+    name  => null,
 
-    xcpy=>[],
-    lcpy=>[],
-    incl=>[],
-    libs=>[],
+    scan  => null,
+    bld   => null,
 
-    gens=>{},
+    xcpy  => [],
+    lcpy  => [],
+    inc   => [],
+    lib   => [],
 
-    tests=>{},
-    utils=>{},
+    gens  => {},
 
-    defs=>[],
-    xprt=>[],
-    deps=>[],
+    tests => {},
+    utils => {},
 
-    pre_build=>$NULLSTR,
-    post_build=>$NULLSTR,
+    defs  => [],
+    xprt  => [],
+    deps  => [],
 
-  };
+    pre   => null,
+    post  => null,
 
-  Readonly my $BIND=>'./bin';
-  Readonly my $LIBD=>'./lib';
-  Readonly my $INCD=>'./include';
+  },
+
+  BINDIR => './bin',
+  LIBDIR => './lib',
+  INCDIR => './include',
+
+  GITHUB => 'https://github.com',
+  LIBGIT => sub {
+    return $_[0]->GITHUB . '/Liebranca';
+
+  },
+
+  MAKESCRIPT_DEPS=>q[
+    use 5.36.0;
+    use strict;
+    use warnings;
+    use English;
+    use lib "$ENV{ARPATH}/lib/sys/";
+    use Style;
+    use Arstd::Path;
+    use Arstd::WLog;
+    use Shb7;
+    use lib "$ENV{ARPATH}/lib/";
+    use Avt::Makescript;
+
+  ],
+
+  MAKESCRIPT_BODY=>q[
+    Avt::Makescript->build_module(__FILE__,@ARGV);
+
+  ],
+
+};
+
 
 # ---   *   ---   *   ---
-# lenkz
+# GBL
 
-  Readonly our $GITHUB => q{https://github.com};
-  Readonly our $LYEB   => $GITHUB.q{/Liebranca};
+  my $Cache={
 
-# ---   *   ---   *   ---
-# global storage
+    config   => {},
+    scan     => null,
+    module   => null,
 
-  my %Cache=(
-
-    _config     => {},
-    _scan       => [],
-    _modules    => [],
-
-    _post_build => {},
-    _pre_build  => {},
+    post     => null,
+    pre      => null,
 
 
     cli=>Cli->new(
@@ -126,25 +141,24 @@ package Avt;
 
     cli_in=>[],
 
-  );
+  };
+
 
 # ---   *   ---   *   ---
 # command line interface
 
 sub read_cli($mod) {
 
-  my $c  = $Cache{cli};
-  my $ar = $Cache{cli_in};
+  # get args
+  my $c  = $Cache->{cli};
+  my $ar = $Cache->{cli_in};
 
-  if(!@$ar) {
-    @$ar=$c->take(@ARGV);
-
-  };
+  @$ar=$c->take(@ARGV) if ! @$ar;
 
 
   # delete scan/config cache
   # to force partial re-install
-  if($c->{update} ne $NULL) {
+  if($c->{update} ne null) {
     my $fname=Vault::px_file($mod);
     unlink $fname if -f $fname;
 
@@ -152,16 +166,16 @@ sub read_cli($mod) {
 
   # ^delete compilation cache
   # triggers full recompilation!
-  if($c->{clean} ne $NULL) {
+  if($c->{clean} ne null) {
     Shb7::empty_trash($mod);
 
   };
 
+
+  return;
+
 };
 
-# ---   *   ---   *   ---
-
-sub MODULES {return @{$Cache{_modules}}};
 
 # ---   *   ---   *   ---
 # in: filepaths dst,src
@@ -169,154 +183,150 @@ sub MODULES {return @{$Cache{_modules}}};
 
 sub plext($dst_path,$src_path) {
 
-  $dst_path=Shb7::file($dst_path);
-  $src_path=Shb7::file($src_path);
+  # get path to both
+  $dst_path=Shb7::file $dst_path;
+  $src_path=Shb7::file $src_path;
 
-  my $src=orc($src_path);
-  $src=~ s/.+#:CUT;>\n//sg;
+  # open source
+  my $src  =  orc $src_path;
+     $src  =~ s[.+#:CUT;>\n][]sg;
 
-  my $dst=orc($dst_path);
-  $dst=~ s/1; # ret\n//sg;
+  # ^cat destination
+  my $dst  =  orc $dst_path;
+     $dst  =~ s[1; # ret\n][]sg;
 
-  $dst.=$src;
-  open FH,'>',$dst_path
-  or croak strerr($dst_path);
+     $dst .= $src;
 
-  print FH $dst;
-  close FH;
 
-};
+  # ^dump and give
+  open my $fh,'>',$dst_path
+  or croak strerr $dst_path;
 
-# ---   *   ---   *   ---
+  print $fh $dst;
+  close $fh;
 
-sub ex($name,$opts,$tail) {
 
-  my @opts=@{ $opts };
-
-  for(my $i=0;$i<@opts;$i++) {
-    if(($opts[$i]=~ m/\s/)) {
-      $opts[$i]=dqwrap($opts[$i]);
-
-    };
-  };
-
-  return `$ENV{'ARPATH'}/bin/$name @opts $tail`;
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 # path utils
-
+#
 # args=chkpath,name,repo-url,actions
 # pulls what you need
 
 sub depchk($chkpath,$deps) {
 
-  $chkpath=abs_path($chkpath);
+  # switch to loc
+  my $old_cwd=abs_path getcwd;
+     $chkpath=abs_path $chkpath;
 
-  my $old_cwd=abs_path(getcwd());
   chdir $chkpath;
 
-# ---   *   ---   *   ---
 
-  while(@$deps) {
-    my ($name,$url,$act)=@{ shift @$deps };
+  # bat fetch
+  map {
 
-# ---   *   ---   *   ---
-# pull if dir not found in provided path
+    # unpack
+    my ($name,$url,$act)=@$ARG;
 
-    if(!(-e $chkpath."/$name")) {
-      `git clone $url`;
+    # pull if dir not found in provided path
+    `git clone $url`
+    if ! -e "$chkpath/$name";
 
-# ---   *   ---   *   ---
-# blank for now, use this for building extdeps
 
-    };if($act) {
-      ;
+    # still blank
+    # meant for post-fetch action
+    if($act) {};
 
-    };
 
-# ---   *   ---   *   ---
+  } @$deps;
 
-  };
 
+  # backup and give
   chdir $old_cwd;
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 # mirrors project structure
 # into [root]/.trash/[mod]
 
-sub mirror($mod,$excluded) {
+sub mirror {
 
-  my $path=Shb7::dir($mod);
-  my $trsh=Shb7::obj_dir($mod);
-  my $tree=Shb7::walk($path,-r=>1,-x=>$excluded);
+  # get ctx
+  my $xkey = shift;
+  my $mod  = $Cache->{module};
+  my $path = Shb7::dir     $mod;
+  my $trsh = Shb7::obj_dir $mod;
 
-  my $modrept=qr{$mod/$mod/};
+  # get module directory tree
+  my $tree=Shb7::walk(
+    $path,
+    -r=>1,
+    -x=>$xkey,
 
-  my @dirs=$tree->get_dir_list(
+  );
+
+  # force dump to exist
+  `mkdir => -p => $trsh`
+  if ! -d $trsh;
+
+
+  # walk dirs
+  my $mod_re=qr{$mod/$mod/};
+  map {
+
+    # don't bother with top of the tree
+    my ($root,$ddepth) = $ARG->root();
+    my $ances          = null;
+
+    if($ARG eq $root) {()} else {
+
+
+    # ^walk up
+    $ances=$ARG->ances(
+      join_char=>null,
+      max_depth=>$ddepth
+
+    );
+
+    $ances=Shb7::shpath($ances);
+
+    my $tdir =  "$trsh$ances";
+       $tdir =~ s[$mod_re][$mod/];
+
+
+    # force dump to exist
+    `mkdir => -p => $tdir`
+    if ! -d $tdir;
+
+
+  # ^we iter treee-to-list
+  }} $tree->get_dir_list(
     full_path=>0,
     inclusive=>1
 
   );
 
-  my @call=(
-    q[mkdir],
-    q[-p],
 
-    $trsh
-
-  );
-
-  system {$call[0]} @call
-  if ! -d $trsh;
-
-
-  for my $dir(@dirs) {
-
-    my ($root,$ddepth) = $dir->root();
-    my $ances          = $NULLSTR;
-
-    if($dir ne $root) {
-
-      $ances=$dir->ances(
-        join_char=>$NULLSTR,
-        max_depth=>$ddepth
-
-      );
-
-    } else {next};
-
-    $ances=Shb7::shpath($ances);
-
-    my $tdir =  $trsh.$ances;
-       $tdir =~ s[$modrept][$mod/];
-
-    @call=(
-      q[mkdir],
-      q[-p],
-
-      $tdir
-
-    );
-
-    system {$call[0]} @call
-    if ! -d $tdir;
-
-  };
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 # ensures trsh and bin exist
 # outs file/dir list
 
-sub scan() {
+sub scan {
 
   # ensure we have these standard paths
-  for my $path(
+  map {reqdir $ARG} (
 
     Shb7::dir("bin"),
     Shb7::dir("lib"),
@@ -326,114 +336,101 @@ sub scan() {
     $Shb7::Path::Cache,
     $Shb7::Path::Mem,
 
-  ) {mkdir $path if ! -d $path};
+  );
 
 
   # iter provided names
-  state $split_mod=re_sursplit_new(
-    '(?: -x | --excluded)','\s+'
+  my $excluded=(length $Cache->{scan})
+    ? [$Cache->{scan}]
+    : []
+    ;
+
+
+  # read module tree
+  read_cli $Cache->{module};
+  unshift  @$excluded,qw(
+
+    data
+    docs
+    tests
+    legacy
+    bin
+
+    nytprof
+    __pycache__
 
   );
 
-  my @ar=@{$Cache{_scan}};
-  while(@ar) {
-
-    my ($mod,$excluded)=
-      split $split_mod,(shift @ar);
-
-    $excluded //= $NULLSTR;
-    $excluded   = [re_sursplit(
-
-      $COMMA_RE,
-      $excluded,
-
-      sur=>'\s*'
-
-    )];
+  array_dupop $excluded;
+  mirror      $excluded;
 
 
-    # read module tree
-    read_cli($mod);
-    unshift @$excluded,qw(
+  # check_module returns the module tree,
+  # but we don't do anything with it right now
+  Vault::check_module(
+    $Cache->{module},
+    $excluded
 
-      data
-      docs
-      tests
-      legacy
-      bin
+  );
 
-      nytprof
-      __pycache__
 
-    );
-
-    array_dupop($excluded);
-    mirror($mod,$excluded);
-
-    my $tree=Vault::check_module(
-      $mod,$excluded
-
-    );
-
-  };
+  return;
 
 };
 
-# ---   *   ---   *   ---
-
-sub get_config_build($M,$config) {
-
-  $M->{fswat}=$config->{name};
-
-  my ($lmode,$mkwat)=($NULLSTR,$NULLSTR);
-
-  if(length $config->{build}) {
-
-    ($lmode,$mkwat)=re_sursplit(
-
-      $COLON_RE,
-      $config->{build},
-
-      sur=>'\s*',
-
-    );
-
-  };
 
 # ---   *   ---   *   ---
+# reads build commands from config
 
+sub get_config_build($M,$C) {
+
+  $M->{fswat}=$C->{name};
+
+  state $re=qr{\s*:\s*};
+  my ($lmode,$mkwat)=(length $C->{bld})
+    ? (split $re,$C->{bld})
+    : (null,null)
+    ;
+
+
+  # transform x|so|ar
   if($lmode eq 'so') {
     $lmode='-shared ';
 
   } elsif($lmode ne 'ar') {
-    $lmode=$NULLSTR;
+    $lmode=null;
 
   };
 
   $M->{lmode}=$lmode;
 
-# ---   *   ---   *   ---
+
+  # pass paths to Makescript
+  my $libdir=$PKG->LIBDIR;
+  my $bindir=$PKG->BINDIR;
 
   if(length $mkwat) {
 
-    $M->{ilib}="$LIBD/.$mkwat";
+    $M->{ilib}="$libdir/.$mkwat";
 
     if($lmode eq 'ar') {
-      $M->{main}="$LIBD/lib$mkwat.a";
+      $M->{main}="$libdir/lib$mkwat.a";
       $M->{mlib}=undef;
 
     } elsif($lmode eq '-shared ') {
-      $M->{main}="$LIBD/lib$mkwat.so";
+      $M->{main}="$libdir/lib$mkwat.so";
       $M->{mlib}=undef;
 
     } else {
-      $M->{main}="$BIND/$mkwat";
-      $M->{mlib}="$LIBD/lib$mkwat.a";
+      $M->{main}="$bindir/$mkwat";
+      $M->{mlib}="$libdir/lib$mkwat.a";
 
     };
 
     $M->{mkwat}=$mkwat;
 
+
+  # nothing to do ;>
   } else {
     $M->{ilib}=undef;
     $M->{main}=undef;
@@ -443,30 +440,34 @@ sub get_config_build($M,$config) {
 
   };
 
+
+  return;
+
 };
+
 
 # ---   *   ---   *   ---
+# do the -L/-I lines
 
-sub get_config_paths($M,$config) {
+sub get_config_paths($M,$C) {
 
-  $M->{libs}=[
-    q{-L}.$LIBD,
-    @{$config->{libs}},
+  $M->{lib}=[
+    q{-L} . $PKG->LIBDIR,
+    @{$C->{lib}},
 
   ];
 
-  $M->{incl}=[
-
-    q{-I}.$INCD,
+  $M->{inc}=[
+    q{-I} . $PKG->INCDIR,
     q{-I./},
+    q{-I./} . $C->{name}.q{/},
 
-    q{-I./}.$config->{name}.q{/},
-
-    @{$config->{incl}},
+    @{$C->{inc}},
 
   ];
 
 };
+
 
 # ---   *   ---   *   ---
 # filters out file list using config
@@ -483,12 +484,15 @@ sub get_config_files($M,$C,$module) {
   my $sieve=Avt::Sieve->new(
     makescript => $M,
     config     => $C,
-    bindir     => $BIND,
-    libdir     => $LIBD,
+    bindir     => $PKG->BINDIR,
+    libdir     => $PKG->LIBDIR,
 
   );
 
   $sieve->iter(\@dirs);
+
+
+  return;
 
 };
 
@@ -523,325 +527,158 @@ sub invert_generator($dst) {
 
   $dst={%inverted};
 
-};
 
-# ---   *   ---   *   ---
-# registers module configuration
-
-sub set_config(%C) {
-
-  state $sep_re=re_sursplit_new(q{,},'\s*');
-  state $list_to_hash=qr{(?:
-
-    lcpy
-  | xcpy
-  | xprt
-
-  )}x;
-
-# ---   *   ---   *   ---
-
-  my $modules=$Cache{_modules};
-  my $scan=$Cache{_scan};
-
-  # ensure all needed fields are there
-  for my $key(keys %{$CONFIG_DEFAULT}) {
-    if(!(exists $C{$key})) {
-      $C{$key}=$CONFIG_DEFAULT->{$key};
-
-    };
-  };
-
-# ---   *   ---   *   ---
-# convert file lists to hashes
-
-  for my $key(keys %C) {
-
-    if($key=~ $list_to_hash) {
-
-      if(@{$C{$key}}) {
-        $C{$key}={
-          map {$ARG=>1} @{$C{$key}}
-
-        };
-
-      } else {
-        $C{$key}={};
-
-      };
-
-    };
-
-  };
-
-# ---   *   ---   *   ---
-# run dependency checks
-
-  depchk(
-
-    Shb7::dir($C{name}),
-    $C{deps}
-
-  ) if $C{deps};
-
-# ---   *   ---   *   ---
-# prepare the libs && includes
-
-  for my $lib(@{$C{libs}}) {
-    if((index $lib,q{/})>=0) {
-      $lib=q{-L}.$lib;
-
-    } else {
-      $lib=q{-l}.$lib;
-
-    };
-  };
-
-  for my $include(@{$C{incl}}) {
-    $include=q{-I./}.$include;
-
-  };
-
-# ---   *   ---   *   ---
-# from result=>[src,deps]
-# to   src=>[result,deps]
-
-  invert_generator($C{gens});
-  invert_generator($C{tests});
-  invert_generator($C{utils});
-
-# ---   *   ---   *   ---
-# append
-
-  push @$modules,$C{name};
-
-  if(length $C{scan}) {
-    push @$scan,
-      $C{name}.q{ }.$C{scan}
-
-  } else {
-    push @$scan,$C{name};
-
-  };
-
-  $Cache{_config}->{$C{name}}=\%C;
-
-  $Cache{_config}->{_current} //= [];
-  push @{$Cache{_config}->{_current}},$C{name};
+  return;
 
 };
 
-# ---   *   ---   *   ---
-# ^saves whole project configuration to file
-
-sub config() {
-
-  my $config = $Cache{_config};
-  my $src    = Shb7::cache('avto-config');
-
-  # overwrite old values
-  if(-e $src) {
-
-    my $h=retrieve($src);
-    $config={%$h,%$config};
-
-  };
-
-  store($config,$src) or croak strerr($src);
-
-};
-
-# ---   *   ---   *   ---
-# ^reads it in
-
-sub read_config() {
-
-  my $src=Shb7::cache("avto-config");
-  my $config=retrieve($src)
-  or croak strerr($src);
-
-};
 
 # ---   *   ---   *   ---
 # emits builders
 
-sub make() {
+sub make {
 
-  # fetch project data
-  my $configs = read_config();
-  my @names   = @{$Cache{_config}->{_current}};
+  my $module  = Vault::check_module($Cache->{module});
+  my $C       = $Cache->{config};
 
-  # now iter
-  for my $name(@names) {
+  my $avto_path = Shb7::file("$C->{name}/avto");
 
-    my $module=Vault::check_module($name);
-    my $C=$configs->{$name};
 
-    my $avto_path=Shb7::file("$name/avto");
+  # build the makescript object
+  my $M=Avt::Makescript->new();
+  get_config_build($M,$C);
+  get_config_paths($M,$C);
+  get_config_files($M,$C,$module);
 
-    # build the makescript object
-    my $M=Avt::Makescript->new();
-    get_config_build($M,$C);
-    get_config_paths($M,$C);
-    get_config_files($M,$C,$module);
+  # save it to disk
+  my $cache_path=Shb7::file(
+    "$C->{name}/.avto-cache"
 
-    # save it to disk
-    my $cache_path=Shb7::file(
-      "$name/.avto-cache"
+  );
 
-    );
+  store($M,$cache_path)
+  or croak strerr($cache_path);
 
-    store($M,$cache_path)
-    or croak strerr($cache_path);
 
-# ---   *   ---   *   ---
-# now dump the boiler
+  # now dump the boiler
+  open my $FH,'>',$avto_path
+  or croak strerr($avto_path);
 
-    open my $FH,'>',$avto_path
-    or croak strerr($avto_path);
+  my $FILE=null;
 
-    my $FILE=$NULLSTR;
 
-    # write notice
-    $FILE.='#!/usr/bin/perl'."\n";
-    $FILE.=Emit::Std::note('IBN-3DILA','#');
+  # get file contents
+  $FILE .= "#!/usr/bin/perl\n";
+  $FILE .= $PKG->MAKESCRIPT_DEPS;
+  $FILE .= hook_str(pre=>$M,$C);
+  $FILE .= $PKG->MAKESCRIPT_BODY;
+  $FILE .= hook_str(post=>$M,$C);
 
-# ---   *   ---   *   ---
+  # ^erradicate blanks
+  $FILE=join "\n",(gstrip split $NEWLINE_RE,$FILE);
+  $FILE=Emit::Perl->tidy(\$FILE) . "\n1;";
 
-$FILE.=<<'EOF'
 
-# ---   *   ---   *   ---
-# deps
+  # ^write makefile
+  print {$FH} $FILE;
+  close $FH;
 
-  use 5.36.0;
-  use strict;
-  use warnings;
+  `chmod +x "$avto_path"`;
 
-  use English qw(-no_match_vars);
-  use Storable;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
-  use Style;
-
-  use Arstd::Path;
-  use Arstd::WLog;
-
-  use Shb7;
-
-  use lib $ENV{'ARPATH'}.'/lib/';
-  use Avt::Makescript;
-
-EOF
-;
-
-# ---   *   ---   *   ---
-# paste in the pre-build hook
-
-    if(length $C->{pre_build}) {
-
-      $FILE.=q[
-INIT {
-
-  $WLog->mupdate("] . $M->{fswat} . q[");
-  $WLog->step("running pre-build hook\n");
-
-] . $C->{pre_build} . q[
+  return;
 
 };
 
-];
 
 # ---   *   ---   *   ---
+# pastes codestr for hook
 
-    } else {
+sub hook_str($which,$M,$C) {
 
-      $FILE.=
+  my $blkbeg=($which eq 'pre')
+    ? "INIT { \$WLog->mupdate('$M->{fswat}');"
+    : 'END {'
+    ;
 
-        q[$WLog->mupdate("]
-      . $M->{fswat}
+  my $blklog=(
+    "\$WLog->step(\"running $which-build hook\\n\");"
 
-      . q[");]
+  );
 
-      ;
+  my $blkend=($which eq 'post')
+    ? '$M->depsmake();'
+    . '$WLog->step("done\n\n");'
+    : null
+    ;
 
-    };
+  return join "\n",grep {
+    length $ARG
 
-$FILE.=<<'EOF'
-
-# ---   *   ---   *   ---
-
-my $root=parof(__FILE__);
-my $M=retrieve(
-
-  dirof(__FILE__).
-  '/.avto-cache'
-
-);
-
-chdir Shb7::set_root($root);
-$M=Avt::Makescript->nit_build($M,@ARGV);
-
-# ---   *   ---   *   ---
-
-$M->set_build_paths();
-$M->update_generated();
-
-my $objblt=$M->update_objects();
-
-$M->build_binaries($objblt);
-$M->update_regular();
-
-$M->side_builds();
-
-EOF
-;
-
-# ---   *   ---   *   ---
-# paste in the post-build hook
-
-    if(length $C->{post_build}) {
-      $FILE.=
-
-        '# ---   *   ---   *   ---'
-      . "\n\n"
-
-      . "END {\n\n"
-
-      . '$WLog->step('
-      . q["running post-build hook\n"]
-
-      . ');'
-
-      . "$C->{post_build};"
-      . '$M->depsmake();'
-
-      . "\n\n};"
-
-      . "\n\n"
-
-      . '# ---   *   ---   *   ---'
-      . "\n\n"
-
-      ;
-
-    } else {
-      $FILE.="\n\$M->depsmake();";
-
-    };
-
-# ---   *   ---   *   ---
-
-    $FILE.=q[$WLog->step("done\n\n");];
-
-    print {$FH} $FILE;
-    close $FH;
-
-    `chmod +x "$avto_path"`;
-
-  };
+  } ($blkbeg,$blklog,$C->{$which},$blkend,'};');
 
 };
+
+
+# ---   *   ---   *   ---
+# registers module configuration,
+# then runs the build
+
+sub config($C) {
+
+  state $sep_re       = q{\s*,\s*};
+  state $list_to_hash = qr{(?:lcpy|xcpy|xprt)}x;
+
+
+  # set defaults
+  $PKG->defnit($C);
+
+  # convert file lists to hashes
+  map {
+    $C->{$ARG}={ map {$ARG=>1} @{$C->{$ARG}} }
+    if $ARG=~ $list_to_hash;
+
+  } keys %$C;
+
+
+  # run dependency checks
+  depchk(Shb7::dir($C->{name}),$C->{deps})
+  if $C->{deps};
+
+
+  # prepare the libs && includes
+  map {
+    $ARG=(0 <= index $ARG,'/')
+      ? "-L$ARG"
+      : "-l$ARG"
+      ;
+
+  } @{$C->{lib}};
+
+
+  map {$ARG="-I./$ARG"} @{$C->{inc}};
+
+
+  # from result=>[src,deps]
+  # to   src=>[result,deps]
+  invert_generator($C->{gens});
+  invert_generator($C->{tests});
+  invert_generator($C->{utils});
+
+
+  # register, run and give
+  $Cache->{module} = $C->{name};
+  $Cache->{scan}   = $C->{scan};
+  $Cache->{config} = $C;
+
+  scan;
+  make;
+
+
+  return;
+
+};
+
 
 # ---   *   ---   *   ---
 1; # ret

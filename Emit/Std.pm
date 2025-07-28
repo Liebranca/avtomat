@@ -8,10 +8,11 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb
-# ---   *   ---   *   ---
+# lib,
 
+# ---   *   ---   *   ---
 # deps
+
 package Emit::Std;
 
   use v5.36.0;
@@ -34,16 +35,19 @@ package Emit::Std;
 
   use Shb7;
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = 'v0.00.6';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
 
   Readonly my $BOXCHAR=>'.';
+
 
 # ---   *   ---   *   ---
 # generates a notice on top of generated files
@@ -51,10 +55,6 @@ package Emit::Std;
 sub note($author,$ch) {
 
   my $t=`date +%Y`;chomp $t;
-
-# ---   *   ---   *   ---
-
-
   my $note=<<"EOF"
 $ch ---   *   ---   *   ---
 $ch LIBRE BOILERPASTE
@@ -64,15 +64,15 @@ $ch LICENSED UNDER GNU GPL3
 $ch BE A BRO AND INHERIT
 $ch
 $ch COPYLEFT $author $t
+
 $ch ---   *   ---   *   ---
 EOF
+;
 
-
-# ---   *   ---   *   ---
-
-; return $note;
+  return $note;
 
 };
+
 
 # ---   *   ---   *   ---
 # generates program info
@@ -85,8 +85,6 @@ sub version($name,$version,$author) {
 
   chomp $l2;
 
-# ---   *   ---   *   ---
-
   return box_fstrout(
 
     "$l1\n\n$l2\n$l3",
@@ -97,6 +95,7 @@ sub version($name,$version,$author) {
   );
 
 };
+
 
 # ---   *   ---   *   ---
 # in: path to add to PATH, names to include
@@ -115,6 +114,7 @@ sub reqin($path,@names) {
 
 };
 
+
 # ---   *   ---   *   ---
 # gets $AUTHOR from package
 
@@ -129,6 +129,7 @@ sub get_author($pkg) {
     ;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^$VERSION
@@ -145,20 +146,21 @@ sub get_version($pkg) {
 
 };
 
+
 # ---   *   ---   *   ---
 # wraps over emitter output F
 
 sub outf($emitter,$f,%O) {
 
-  my $path=Shb7::file($f);
-  my $pkg=caller;
+  my $path = Shb7::file($f);
+  my $pkg  = caller;
 
   $O{author}//=get_author($pkg);
 
   open my $FH,'+>',$path
   or croak strerr($path);
 
-  $emitter=q{Emit::}.$emitter;
+  $emitter="Emit\::$emitter";
 
   print {$FH} $emitter->codewrap(
     nxbasef($f),%O
@@ -166,8 +168,10 @@ sub outf($emitter,$f,%O) {
   );
 
   close $FH or croak strerr($path);
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

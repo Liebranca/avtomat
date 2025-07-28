@@ -8,26 +8,22 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Chk;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-
+  use English;
   use Scalar::Util qw(blessed);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
   use Style;
 
-#  use lib $ENV{'ARPATH'}.'/lib/hacks/';
-#  use Inlining;
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -47,80 +43,55 @@ package Chk;
     is_scalarref
     is_filepath
 
-    stripline
     codefind
 
   );
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.7;#b
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v0.00.8';
+  our $AUTHOR  = 'IBN-3DILA';
 
-# ---   *   ---   *   ---
-# ROM
-
-  Readonly our $SCALARREF_RE=>qr{
-    ^(?: SCALAR|REF) \(0x[0-9a-f]+\)
-
-  }x;
-
-  Readonly our $ARRAYREF_RE=>qr{
-    ^ARRAY\(0x[0-9a-f]+\)
-
-  }x;
-
-  Readonly our $CODEREF_RE=>qr{
-    ^CODE\(0x[0-9a-f]+\)
-
-  }x;
-
-  Readonly our $HASHREF_RE=>qr{
-    ^HASH\(0x[0-9a-f]+\)
-
-  }x;
-
-  Readonly our $STRIPLINE_RE=>qr{\s+|:__NL__:}x;
-  Readonly our $CODENAME_RE=>qr{
-    ^ (?<codename> [_\w:][_\w:\d]+) $
-
-  }x;
 
 # ---   *   ---   *   ---
 # type-checking
 
 sub is_scalarref ($v) {
-  defined $v && ($v=~ $Chk::SCALARREF_RE);
+  return defined $v && ('SCALAR' eq ref $v);
 
 };
 
 sub is_arrayref ($v) {
-  length ref $v && ($v=~ $Chk::ARRAYREF_RE);
+  return length ref $v && ('ARRAY' eq ref $v);
 
 };
 
 sub is_hashref ($v) {
-  length ref $v && ($v=~ $Chk::HASHREF_RE);
+  return length ref $v && ('HASH' eq ref $v);
 
 };
 
 sub is_blessref ($v) {
-  defined $v && defined blessed $v;
+  return defined $v && defined blessed $v;
 
 };
 
 sub is_coderef ($v) {
 
+  return (
      defined    $v
   && length ref $v
 
-  && ($v=~ $Chk::CODEREF_RE);
+  && ('CODE' eq ref $v)
+
+  );
 
 };
 
 sub is_qre ($v) {
-  defined $v && 'Regexp' eq ref $v;
+  return defined $v && ('Regexp' eq ref $v);
 
 };
 
@@ -134,6 +105,8 @@ sub is_qreref($v) {
 
 sub nref($v) {
 
+  return (
+
       defined $v
 
   &&! is_scalarref($v)
@@ -142,41 +115,49 @@ sub nref($v) {
   &&! is_blessref($v)
   &&! is_coderef($v)
   &&! is_qre($v)
-  ;
+
+  );
 
 };
 
-# ---   *   ---   *   ---
-# remove all whitespace
-
-sub stripline ($s) {
-  join $NULLSTR,(split $Chk::STRIPLINE_RE,$s);
-
-};
 
 # ---   *   ---   *   ---
-# evals and checks existance of sub
+# gets subroutine by name
 
-sub codefind(@names) {
+sub getsub(@path) {
+
+  state $re=qr{^(?<codename>[_\w:][_\w:\d]+)$}x;
 
   no strict 'refs';
-
-  my $path  = (join q[::],@names);
-  my $f     = ($path=~ $CODENAME_RE)
-    ? eval '\&'.$path
+  my $name = (join q[::],@path);
+  my $fn   = ($name=~ $re)
+    ? eval "\&$name"
     : undef
     ;
 
-  my $valid =
-     is_coderef($f)
-  && defined &{$f}
-  ;
 
-  # deep search on failure
-  ($valid,$f)=__isa_search(@names) if ! $valid;
-  return ($valid) ? $f : undef;
+  return (is_coderef($fn) && defined &{$fn})
+    ? $fn
+    : undef
+    ;
 
 };
+
+
+# ---   *   ---   *   ---
+# evals and checks existence of sub
+#
+# performs deep search on failure
+
+sub codefind(@path) {
+  my $fn=getsub @path;
+  return (! defined $fn)
+    ? __isa_search(@path)
+    : $fn
+    ;
+
+};
+
 
 # ---   *   ---   *   ---
 # ^searches inherited methods
@@ -184,41 +165,25 @@ sub codefind(@names) {
 #
 # sometimes it happens ;>
 
-sub __isa_search(@names) {
+sub __isa_search(@path) {
+
+  my $name = pop @path;
+  my $pkg  = join q[::],@path;
 
   no strict 'refs';
-
-  my @out = ();
-
-  my $fn  = pop @names;
-  my $pkg = join q[::],@names;
-
   my @isa=@{"$pkg\::ISA"};
 
-  for my $class(@isa) {
+  map {
+    my $fn=getsub $ARG,$name;
+    return $fn if defined $fn;
 
-    my $path  = "$class\::$fn";
-    my $f     = ($path=~ $CODENAME_RE)
-      ? eval '\&'.$path
-      : undef
-      ;
+  } @isa;
 
-    my $valid =
-       is_coderef($f)
-    && defined &{$f}
-    ;
 
-    if($valid) {
-      @out=(1,$f);
-      last;
-
-    };
-
-  };
-
-  return @out;
+  return undef;
 
 };
+
 
 # ---   *   ---   *   ---
 # AR/approved filepath validate
@@ -237,6 +202,7 @@ sub is_filepath($fpath) {
   return int(defined $have && $have);
 
 };
+
 
 # ---   *   ---   *   ---
 # get value is a scalar or
@@ -267,6 +233,7 @@ sub cderef($x,$deref,@args) {
   return $isref,$x;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

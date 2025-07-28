@@ -8,35 +8,36 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package St;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
   use Carp;
   use Readonly;
   use Storable qw(dclone);
-  use English qw(-no_match_vars);
+  use English;
 
   use Scalar::Util qw(blessed reftype);
   use B::Deparse;
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
 
+  use lib $ENV{'ARPATH'}.'/lib/sys/';
   use Style;
   use Chk;
   use Frame;
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.2;
+  our $VERSION = 'v0.03.3';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
@@ -60,6 +61,7 @@ package St;
 
   sub Frame_Vars($class) {{}};
 
+
 # ---   *   ---   *   ---
 # GBL
 
@@ -67,6 +69,7 @@ package St;
   our $Classes = {};
 
   our $Deparse = B::Deparse->new();
+
 
 # ---   *   ---   *   ---
 # reference calling package
@@ -76,6 +79,7 @@ sub cpkg() {
   return $pkg;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^reference current (or calling!) F
@@ -89,6 +93,7 @@ sub cf($idex=1,$clean=0) {
 
 };
 
+
 # ---   *   ---   *   ---
 # is obj instance of class
 
@@ -101,6 +106,7 @@ sub is_valid($kind,$obj) {
   ;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^same, but in the strict sense!
@@ -118,10 +124,12 @@ sub is_iceof($kind,$obj) {
 
 };
 
+
 # ---   *   ---   *   ---
 # what clas obj is an instance of
 
 sub get_class($obj) {return ref $obj};
+
 
 # ---   *   ---   *   ---
 # initialize struct elements
@@ -159,6 +167,7 @@ sub defnit($class,$O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # fetch class attribute
 # mostly for internal use!
@@ -176,6 +185,7 @@ sub classattr($class,$name) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^more internal caches ;>
 
@@ -191,6 +201,7 @@ sub classcache($class,$name) {
   return $$B;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^get inherited
@@ -210,6 +221,7 @@ sub classpar($class,$type,$name) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^shorthands
 
@@ -222,6 +234,7 @@ sub supercache($class,$name) {
   return classpar $class,cache=>$name;
 
 };
+
 
 # ---   *   ---   *   ---
 # allows other packages to
@@ -247,6 +260,7 @@ sub inject($name,$fn,@dst) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^does the deed!
 
@@ -259,6 +273,7 @@ sub injector($class,@args) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^edge case: injector inside import!
 
@@ -267,6 +282,7 @@ sub impsmash($class,@args) {
   map {$ARG->($class,@args)} @$attr;
 
 };
+
 
 # ---   *   ---   *   ---
 # appends injections to import
@@ -317,6 +333,7 @@ sub imping($O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # define/overwrite virtual constants
 
@@ -362,7 +379,7 @@ sub vconst($O) {
 
 
       # ^else rebuild and give
-      $cache->{$key}=(is_coderef($value))
+      $cache->{$key}=(is_coderef $value)
         ? $value->($cls)
         : $value
         ;
@@ -382,6 +399,7 @@ sub vconst($O) {
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^decls frame vars
@@ -409,6 +427,7 @@ sub vstatic($O={}) {
 
 };
 
+
 # ---   *   ---   *   ---
 # return default frame
 # for class or instance
@@ -427,6 +446,7 @@ sub get_gframe($class) {
   return $class->get_frame(0);
 
 };
+
 
 # ---   *   ---   *   ---
 # make instance container
@@ -492,6 +512,7 @@ sub new_frame($class,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^get existing or make new
 
@@ -518,6 +539,7 @@ sub get_frame($class,$i=0) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^get idex of existing
 
@@ -535,6 +557,7 @@ sub iof_frame($class,$frame) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^get list of existing
 
@@ -542,6 +565,7 @@ sub get_frame_list($class) {
   return @{$Frames->{$class}};
 
 };
+
 
 # ---   *   ---   *   ---
 # get attrs that don't begin
@@ -552,6 +576,7 @@ sub nattrs($self) {
   grep {! ($ARG =~ qr{^\-})} keys %$self;
 
 };
+
 
 # ---   *   ---   *   ---
 # lookup value from table
@@ -587,6 +612,7 @@ sub tabfetch($key,$tab,$fail,$fn,@args) {
 
 };
 
+
 # ---   *   ---   *   ---
 # lazy way to...
 
@@ -594,6 +620,7 @@ my $FN_Q=[];
 
 sub ENQUEUE {push @$FN_Q,$_[0]};
 sub PENDING {map {$ARG->()} @$FN_Q};
+
 
 # ---   *   ---   *   ---
 # *inject* to this method for
@@ -609,11 +636,13 @@ sub DESTROY($self) {
 
 };
 
+
 # ---   *   ---   *   ---
 # *overwrite* this method to
 # get a string repr for dbout!
 
 sub prich($self,%O) {return "$self"};
+
 
 # ---   *   ---   *   ---
 1; # ret

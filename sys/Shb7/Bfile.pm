@@ -8,72 +8,56 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Shb7::Bfile;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match_vars);
-  use Readonly;
-
-  use Exporter 'import';
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use English;
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
 
-  use Arstd::Array;
-  use Arstd::Path;
-  use Arstd::IO;
+  use Arstd::Path qw(dirof reqdir);
+  use Arstd::IO qw(errout);
 
   use Shb7;
 
   use parent 'St';
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;
+  our $VERSION = 'v0.00.4';
   our $AUTHOR  = 'IBN-3DILA';
 
-# ---   *   ---   *   ---
-# adds to your namespace
-
-  our @EXPORT=qw(
-
-    $AVTOPATH
-
-  );
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $AVTOPATH=>
-    $ENV{'ARPATH'}.'/avtomat/';
-
-  Readonly our $LDOK_RE=>qr{
-
+St::vconst {
+  AVTOPATH=>"$ENV{ARPATH}/avtomat/",
+  LDOK_RE=>qr{
     Shb7\:\:Bk\:\:(?: gcc|flat)
 
-  }x;
+  }x,
+
+};
+
 
 # ---   *   ---   *   ---
 # cstruc
 
 sub new($class,$fpath,$bk,%O) {
-
-  $O{out}//=$NULLSTR;
+  $O{out}//=null;
 
   my $self=bless {
-
     src => $fpath,
-
     out => $O{out},
     bk  => $bk,
 
@@ -98,40 +82,37 @@ sub new($class,$fpath,$bk,%O) {
   },$class;
 
 
-  my $trash=dirof($self->{obj});
-  `mkdir -p $trash` if ! -d $trash;
-
-
+  # make paths and give
+  reqdir dirof $self->{obj};
   return $self;
 
 };
+
 
 # ---   *   ---   *   ---
 # build output is valid ld input
 
 sub linkable($self) {
-
   my $class=ref $self->{bk};
-  return int($class=~ $LDOK_RE);
+  return int($class=~ $self->LDOK_RE);
 
 };
+
 
 # ---   *   ---   *   ---
 # give 1 if object was rebuilt
 
 sub update($self,$bld) {
+  return (
+     $self->{bk}->fupdated($self)
+  || $bld->{clean}
 
-  my $out=0;
-
-  if($self->{bk}->fupdated($self)
-  || $bld->{clean}) {
-    $out=$self->{bk}->fbuild($self,$bld);
-
-  };
-
-  return $out;
+  ) ? $self->{bk}->fbuild($self,$bld)
+    : 0
+    ;
 
 };
+
 
 # ---   *   ---   *   ---
 # check object date against dependencies
@@ -140,63 +121,53 @@ sub buildchk($self,$do_build,$deps,%O) {
 
   # early exit?
   $O{clean}//=0;
-  return 1 if $O{clean};
+  return 1 if $O{clean} || $$do_build;
 
   # ^go on, check!
-  if(! $$do_build) {
-    while(@$deps) {
+  map {
 
-      my $dep=shift @$deps;
-      next if ! -f $dep;
-
-      # found dep is updated
-      if(Shb7::ot($self->{obj},$dep)) {
-
-        $$do_build=1;
-        last;
-
-      };
+    # found dep is updated?
+    if(-f $ARG && Shb7::ot($self->{obj},$ARG)) {
+      $$do_build=1;
+      return;
 
     };
 
-  };
+  } @$deps;
+
+
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 # sanity check: dependency files exist
 
 sub depchk($self,$deps) {
+  map { errout(
+    "%s missing dependency %s\n",
 
-  for my $dep(@$deps) {
+    args=>[
+      Shb7::shpath($self->{src}),
+      $ARG
 
-    if($dep &&! -f $dep) {
+    ],
 
-      errout(
+    lvl=>$AR_FATAL,
 
-        "%s missing dependency %s\n",
+  ) if $ARG &&! -f $ARG } @$deps;
 
-        args=>[
-          Shb7::shpath($self->{src}),
-          $dep
 
-        ],
-
-        lvl=>$AR_FATAL,
-
-      );
-
-    };
-
-  };
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 # pre-build step
 
 sub prebuild($self) {
-
   unlink $self->{obj} if -f $self->{obj};
 
   my $pproc=$self->{bk}->{pproc};
@@ -204,31 +175,38 @@ sub prebuild($self) {
   $pproc->prebuild($self)
   if defined $pproc;
 
+  return;
+
 };
+
 
 # ---   *   ---   *   ---
 # ^post-build
 
 sub postbuild($self) {
-
   my $pproc=$self->{bk}->{pproc};
 
   $pproc->postbuild($self)
   if defined $pproc;
 
+  return;
+
 };
+
 
 # ---   *   ---   *   ---
 # ^filters out multi-out source
 
 sub binfilter($self) {
-
   my $pproc=$self->{bk}->{pproc};
 
   $pproc->binfilter($self)
   if defined $pproc;
 
+  return;
+
 };
+
 
 # ---   *   ---   *   ---
 # give list of paths
@@ -237,6 +215,7 @@ sub unroll($self,@keys) {
   return map {$self->{$ARG}} @keys;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

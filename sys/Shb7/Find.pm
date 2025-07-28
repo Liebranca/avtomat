@@ -9,23 +9,21 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Shb7::Find;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
   use Cwd qw(abs_path getcwd);
-  use English qw(-no_match_vars);
+  use English;
 
   use Carp;
-  use Readonly;
-  use Storable;
+  use Storable qw(retrieve);
 
   use Exporter 'import';
 
@@ -43,7 +41,7 @@ package Shb7::Find;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;
+  our $VERSION = 'v0.00.2';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -68,7 +66,7 @@ sub illnames($fname,@exts) {
 
   # from [ext0 ext1] to [.ext0 .ext1]
   map {$ARG=".$ARG"} @exts;
-  push @exts,$NULLSTR;
+  push @exts,null;
 
   # libsearch
   if($fname=~ s[$Shb7::Path::LIBF_RE][]) {
@@ -103,7 +101,7 @@ sub illnames($fname,@exts) {
 
 sub throw_no_file($fname,@exts) {
 
-  my $ext_list=$NULLSTR;
+  my $ext_list=null;
   pop @exts if @exts>1;
 
   $ext_list=join q[,],@exts;
@@ -429,7 +427,7 @@ sub build_path($name) {
     my $libmeta=shwl($name);
     $path=(-f $libmeta)
       ? dir(retrieve($libmeta)->{fswat})
-      : $NULLSTR
+      : null
       ;
 
   };

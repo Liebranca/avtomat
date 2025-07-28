@@ -8,26 +8,25 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Shb7::Build;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
   use Cwd qw(getcwd);
-  use English qw(-no_match_vars);
+  use English;
 
-  use Storable;
+  use Storable qw(retrieve);
   use Carp;
 
   use Exporter 'import';
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Chk;
@@ -46,11 +45,13 @@ package Shb7::Build;
 
   use parent 'St';
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = 'v0.00.8';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -65,6 +66,7 @@ package Shb7::Build;
 
   );
 
+
 # ---   *   ---   *   ---
 # ROM
 
@@ -78,6 +80,7 @@ St::vconst {
     lang    => 'fasm',
     files   => [],
     flags   => [],
+    def     => [],
     incl    => [],
     libs    => [],
     libpath => [],
@@ -99,6 +102,7 @@ St::vconst {
 
   };
 
+
 # ---   *   ---   *   ---
 # GBL
 
@@ -107,6 +111,7 @@ St::vconst {
     deps=>[]
 
   };
+
 
 # ---   *   ---   *   ---
 # cstruc
@@ -135,6 +140,7 @@ sub new($class,%O) {
     files   => $O{files},
     entry   => $O{entry},
 
+    def     => $O{def},
     incl    => $O{incl},
     libs    => [@{$O{libpath}},@{$O{libs}}],
 
@@ -156,6 +162,7 @@ sub new($class,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # adds to builder's file array
 
@@ -164,6 +171,7 @@ sub push_files($self,@data) {
 
 };
 
+
 # ---   *   ---   *   ---
 # adds to builder's flags array
 
@@ -171,6 +179,7 @@ sub push_flags($self,@data) {
   push @{$self->{flags}},@data;
 
 };
+
 
 # ---   *   ---   *   ---
 # these are for generating mam's dependency lists
@@ -187,6 +196,7 @@ sub clear_makedeps() {
 
 };
 
+
 # ---   *   ---   *   ---
 # shortcuts
 
@@ -195,10 +205,11 @@ sub obj_file($path) {
 
 };
 
-sub obj_dir($path=$NULLSTR) {
+sub obj_dir($path=null) {
   return $Shb7::Path::Trash.$path.q[/];
 
 };
+
 
 # ---   *   ---   *   ---
 # get dependencies for a module
@@ -248,6 +259,7 @@ sub get_module_deps($self) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get current search paths
 
@@ -270,6 +282,7 @@ sub get_module_paths($self) {
   array_dupop($self->{libs});
 
 };
+
 
 # ---   *   ---   *   ---
 # return list of build files
@@ -302,6 +315,16 @@ sub list_dep($self) {
 
 };
 
+
+# ---   *   ---   *   ---
+# gives stirr -L(path) -l(files) ...
+
+sub libline($self) {
+  return join ' ',@{$self->{libs}};
+
+};
+
+
 # ---   *   ---   *   ---
 # standard call to link object files
 
@@ -326,6 +349,7 @@ sub link_cstd($self,@obj) {
   );
 
 };
+
 
 # ---   *   ---   *   ---
 # ^similar, but fine-tuned for nostdlib
@@ -353,6 +377,7 @@ sub link_half_flat($self,@obj) {
 
 };
 
+
 # ---   *   ---   *   ---
 # extreme ld-only setup
 # meant for teensy assembler binaries
@@ -377,6 +402,7 @@ sub link_flat($self,@obj) {
   );
 
 };
+
 
 # ---   *   ---   *   ---
 # fake linking for java!
@@ -491,7 +517,7 @@ sub link_jar($self,@obj) {
       # all OK, just paste
       } else {
 
-        $manifest->{$ARG} //= $NULLSTR;
+        $manifest->{$ARG} //= null;
         $manifest->{$ARG}  .=
           $src->{manifest}->{$ARG};
 
@@ -519,7 +545,7 @@ sub link_jar($self,@obj) {
   } map {
 
       my $value   = $manifest->{$ARG};
-         $value //= $NULLSTR;
+         $value //= null;
 
 
       # stringify arrays
@@ -531,7 +557,7 @@ sub link_jar($self,@obj) {
       # skip blank fields
       (length $value)
         ? join ': ',$ARG,$value
-        : $NULLSTR
+        : null
         ;
 
   } qw(
@@ -567,6 +593,7 @@ sub link_jar($self,@obj) {
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 # object file linking
@@ -625,6 +652,7 @@ sub olink($self) {
 
 };
 
+
 # ---   *   ---   *   ---
 # symrd errme
 
@@ -640,6 +668,7 @@ sub throw_no_shwl($name,$path) {
   );
 
 };
+
 
 # ---   *   ---   *   ---
 # get symbol typedata from shadow lib
@@ -662,6 +691,7 @@ sub symrd($mod) {
   return $out;
 
 };
+
 
 # ---   *   ---   *   ---
 # reads symbol table entry
@@ -700,20 +730,25 @@ sub symtab_read(
 
 };
 
+
 # ---   *   ---   *   ---
-# creates a shared object based on
-# the provided shwl symbol table
+# makes shared object based on
+# the provided shadow lib
 
 sub so_from_symtab($symtab,$path,@libs) {
 
-  map {$ARG="-l$ARG"} @libs;
-  @libs=(@libs,map {@$ARG} @{$symtab->{deps}});
+  # get libraries
+  map  {$ARG="-l$ARG"} @libs;
+  push @libs,map {@$ARG} @{$symtab->{deps}};
 
+  # reformat object field
   my @objs=map {
     {obj=>$ARG}
 
   } keys %{$symtab->{objects}};
 
+
+  # make struc for linking
   my $bld=Shb7::Build->new(
 
     name    => $path,
@@ -726,9 +761,15 @@ sub so_from_symtab($symtab,$path,@libs) {
 
   );
 
-  $bld->olink();
+  # ^rebuild if need and give
+  $bld->olink() if $symtab->{rebuild};
+  $symtab->{bld}=$bld;
+
+
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 # rebuilds shared objects if need be
@@ -741,26 +782,30 @@ sub soregen($name,$libs_ref,$no_regen=0) {
   my @libs=@{$libs_ref};
   my $symtab={
 
-    deps=>[],
-    objects=>{}
+    rebuild => 0,
+    bld     => undef,
+
+    deps    => [],
+    objects => {}
 
   };
+
 
   # recover symbol table
-  for my $lib(@libs) {
-    symtab_read($symtab,$lib,$path,\$rebuild);
+  map {
+    symtab_read($symtab,$ARG,$path,\$rebuild);
 
-  };
+  } @libs;
 
   # generate so
-  if($rebuild && !$no_regen) {
-    so_from_symtab($symtab,$path,@libs);
+  $symtab->{rebuild}=$rebuild &&! $no_regen;
+  so_from_symtab($symtab,$path,@libs);
 
-  };
 
   return $symtab;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

@@ -8,21 +8,18 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Shb7::Bk::flat;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English qw(-no_match_vars);
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use English;
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
 
@@ -39,7 +36,7 @@ package Shb7::Bk::flat;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = 'v0.00.4';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -190,7 +187,7 @@ sub asm($class,$src,$merrf,@args) {
   );
 
   my $attp = 0;
-  my $mem  = $NULLSTR;
+  my $mem  = null;
 
 # ---   *   ---   *   ---
 # ^top

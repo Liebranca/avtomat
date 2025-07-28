@@ -14,20 +14,20 @@
 # deps
 
 package Arstd::Hash;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
   use Carp;
-  use English qw(-no_match_vars);
+  use English;
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
-
   use Style;
   use Chk;
   use Arstd::String;
+
   use parent 'St';
+
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -44,11 +44,13 @@ package Arstd::Hash;
 
   );
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;
+  our $VERSION = 'v0.00.4';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # constructor
@@ -58,20 +60,19 @@ sub new($class,%args) {
 
 };
 
+
 # ---   *   ---   *   ---
 # find hashkeys in list
 # returns matches ;>
 
 sub lfind($h,$l) {
-
-  if(!is_hashref($h)) {
-    $h={map {$ARG=>1} @$h};
-
-  };
+  $h={map {$ARG=>1} @$h}
+  if ! is_hashref $h;
 
   return [grep {exists $h->{$ARG}} @$l];
 
 };
+
 
 # ---   *   ---   *   ---
 # make [key=>value] into [value=>key]
@@ -82,7 +83,6 @@ sub invert($h,%O) {
   # defaults
   $O{duplicate}//=0;
 
-# ---   *   ---   *   ---
 
   if($O{duplicate}) {
     %$h=(%$h,reverse %$h);
@@ -95,6 +95,7 @@ sub invert($h,%O) {
   return $h;
 
 };
+
 
 # ---   *   ---   *   ---
 # returns exact copy of hash
@@ -116,6 +117,7 @@ sub cpy($h) {
 
 };
 
+
 # ---   *   ---   *   ---
 # validate struc
 
@@ -129,6 +131,7 @@ sub validate($h,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^errme
 
@@ -136,6 +139,7 @@ sub throw_nos($name,$key) {
   croak "No such $name: $key";
 
 };
+
 
 # ---   *   ---   *   ---
 # sets out unset values
@@ -149,6 +153,7 @@ sub defaults($h,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^both
 
@@ -157,6 +162,7 @@ sub vdef($h,%O) {
   $h->defaults(%O);
 
 };
+
 
 # ---   *   ---   *   ---
 # give key=>value from key
@@ -192,6 +198,7 @@ sub hashstr {
   *hash_cpy    = *cpy;
   *hash_invert = *invert;
   *hash_kv     = *kv;
+
 
 # ---   *   ---   *   ---
 1; # ret

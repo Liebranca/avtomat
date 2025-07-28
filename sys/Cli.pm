@@ -8,33 +8,32 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Cli;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
   use Readonly;
+  use English;
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
-
   use Style;
   use Arstd::Re;
   use Arstd::IO;
+  use parent 'St';
 
-  use lib $ENV{'ARPATH'}.'/lib/';
-  use Lang;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.2.1;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v0.02.2';
+  our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # getters
@@ -45,6 +44,7 @@ sub next_arg($self) {
   return shift @{$self->{-argv}};
 
 };
+
 
 # ---   *   ---   *   ---
 # frame constructor
@@ -57,7 +57,6 @@ sub new($class,@args) {
   my @order=();
   my %optab=();
   my %alias=();
-
 
   # unpack
   for my $ref(@args) {
@@ -126,7 +125,7 @@ sub new($class,@args) {
     my $default=$cli->{-optab}->{$id}->{default};
     $cli->{$id}=(defined $default)
       ? $default
-      : $NULL
+      : null
       ;
 
   };
@@ -136,6 +135,7 @@ sub new($class,@args) {
 
 };
 
+
 # ---   *   ---   *   ---
 # debug print
 
@@ -143,96 +143,103 @@ sub prich($self) {
 
   for my $id($self->order) {
     my $value=$self->{$id};
-
-    printf {*STDOUT}
-
+    printf {*STDOUT} (
       "%-21s %-21s\n",
       $id,$value
 
-    ;
+    );
 
   };
 
+
+  return;
+
 };
+
 
 # ---   *   ---   *   ---
 # get form used by arg
 
 sub short_or_long($self,$arg) {
 
-  my $value=$NULL;
+  my $value=null;
 
 
   # catch invalid
   if($arg=~ s/$self->{-re}//) {
 
-    $value = (defined $' && length $')
-      ? $'
-      : $NULL
+    my $post = $POSTMATCH;
+    my $pre  = $MATCH;
+
+    $value=(defined $post && length $post)
+      ? $post
+      : null
       ;
 
-    $arg   = $&;
+    $arg=$pre;
 
   };
 
 
-  if(! exists $self->{-alias}->{$arg}) {
+  # catch invalid
+  errout(
+    "%s: invalid option '%s'\n",
 
-    errout(
-      "%s: invalid option '%s'\n",
+    args => [$self->{-name},$arg],
+    lvl  => $AR_FATAL,
 
-      args => [$self->{-name},$arg],
-      lvl  => $AR_FATAL,
+  ) if ! exists $self->{-alias}->{$arg};
 
-    );
 
-  };
-
+  # take input
   my $id     = $self->{-alias}->{$arg};
   my $option = $self->{-optab}->{$id};
 
-
-  if($option->{argc} && $value eq $NULL) {
+  if($option->{argc} && $value eq null) {
     $value=$self->next_arg;
 
-  } elsif(! $option->{argc} && $value eq $NULL) {
+  } elsif(! $option->{argc} && $value eq null) {
     $value=1;
 
   };
 
-  # TODO: validate this input
+  # TODO: validate input
+  if($option->{argc} eq 'array') {
+    push @{$self->{$id}},$value;
 
-  $self->{$id}=$value;
+  } else {
+    $self->{$id}=$value;
+
+  };
+
+
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 # --option=value
 
 sub long_equal($self,$arg) {
 
-  my $value=$NULL;
+  my $value=null;
   ($arg,$value)=split m/=/,$arg;
 
 
   # catch invalid
-  if(! exists $self->{-alias}->{$arg}) {
+  errout(
+    "%s: invalid option '%s'\n",
 
-    errout(
-      "%s: invalid option '%s'\n",
+    args => [$self->{-name},$arg],
+    lvl  => $AR_FATAL,
 
-      args => [$self->{-name},$arg],
-      lvl  => $AR_FATAL,
-
-    );
-
-  };
+  ) if ! exists $self->{-alias}->{$arg};
 
 
+  # take input
   my $id     = $self->{-alias}->{$arg};
   my $option = $self->{-optab}->{$id};
-
 
   if(! $option->{argc}) {
 
@@ -257,17 +264,21 @@ sub long_equal($self,$arg) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly my $PATTERN=>[
+St::vconst {
 
+  PATTERN=>[
     qr{--[_\w][_\w\d]*=} => \&long_equal,
-
     qr{--[_\w][_\w\d]*}  => \&short_or_long,
-    qr{-[_\w][_\w\d]*}   => \&short_or_long,
+    qr{-[_\w].*}         => \&short_or_long,
 
-  ];
+  ],
+
+};
+
 
 # ---   *   ---   *   ---
 # reads input
@@ -276,7 +287,8 @@ sub take($self,@args) {
 
   $self->{-argv}=\@args;
 
-  my @values=();;
+  my @values = ();
+  my $arg_re = $self->PATTERN;
 
   while(@{$self->{-argv}}) {
 
@@ -285,12 +297,12 @@ sub take($self,@args) {
 
 
     my $x=0;
-    while($x < @$PATTERN-1) {
+    while($x < @$arg_re-1) {
 
-      my $pat=$PATTERN->[$x];
+      my $pat=$arg_re->[$x];
 
       if($arg=~ m/^${pat}$/) {
-        $fn=$PATTERN->[$x+1];
+        $fn=$arg_re->[$x+1];
         last;
 
       };
@@ -316,17 +328,19 @@ sub take($self,@args) {
 
 };
 
+
 # ---   *   ---   *   ---
 1; # ret
+
 
 # ---   *   ---   *   ---
 # utility class: commandline arguments
 
 package Cli::Arg;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
+
 
 # ---   *   ---   *   ---
 # cstruc
@@ -346,34 +360,39 @@ sub new($class,$id,%attrs) {
 
 };
 
+
 # ---   *   ---   *   ---
 # utility class: common file walking
 
 package Cli::Fstruct;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-
+  use English;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
   use Arstd::Path;
+  use parent 'St';
+
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $ATTRS=>[
+St::vconst {
 
+  ATTRS=>[
     {id=>'recursive'},
     {id=>'symbol',argc=>1},
     {id=>'no_escaping',short=>'-ne'},
     {id=>'regex',short=>'-R'},
     {id=>'extension',short=>'-xt',argc=>1},
 
-  ];
+  ],
+
+};
+
 
 # ---   *   ---   *   ---
 # whenever you're looking for things
@@ -389,7 +408,7 @@ sub proto_search($m,@cmd) {
 
 
   # dig into the folders?
-  if($m->{recursive} ne $NULL) {
+  if($m->{recursive} ne null) {
 
     my @ar=@files;
     @files=();
@@ -400,7 +419,7 @@ sub proto_search($m,@cmd) {
 
 
   # enable/disable auto-backslashing
-  if($m->{no_escaping}==$NULL) {
+  if($m->{no_escaping}==null) {
     $m->{symbol}="\Q$m->{symbol}";
 
   } else {
@@ -410,7 +429,7 @@ sub proto_search($m,@cmd) {
 
 
   # enable/disable symbol as regex
-  if($m->{regex}==$NULL) {
+  if($m->{regex}==null) {
     $m->{symbol}=qr{$m->{symbol}(?:\b|$|"|')};
 
   } else {
@@ -420,7 +439,7 @@ sub proto_search($m,@cmd) {
 
 
   # set extension filter?
-  if($m->{extension} eq $NULL) {
+  if($m->{extension} eq null) {
     $m->{ext_re}=qr{\..*$}x;
 
   } else {
@@ -432,6 +451,7 @@ sub proto_search($m,@cmd) {
   return @files;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^expands filepaths
@@ -460,4 +480,6 @@ sub proto_search_ex($m,@cmd) {
 
 };
 
+
 # ---   *   ---   *   ---
+1; # ret

@@ -8,28 +8,26 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Arstd::Re;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English qw(-no_match_vars);
-
+  use English;
   use List::Util qw(max);
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
   use Chk;
 
   use Arstd::Array;
+  use parent 'St';
+
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -57,6 +55,7 @@ package Arstd::Re;
 
     re_delim
     array_re_delim
+    re_posix_delim
 
     re_sursplit
     re_sursplit_new
@@ -70,11 +69,29 @@ package Arstd::Re;
 
   );
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.5;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v0.00.5';
+  our $AUTHOR  = 'IBN-3DILA';
+
+
+# ---   *   ---   *   ---
+# ROM
+
+St::vconst {
+
+  peso_escape => qr{
+    \$: \s* (?<on>[%/]?) \s*
+    (?<body> (?: [^;] | ;[^>])+)
+
+    \s* ;>
+
+  }x,
+
+};
+
 
 # ---   *   ---   *   ---
 # or patterns together
@@ -116,6 +133,7 @@ sub alt($ar,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # make case-insensitive pattern
 #
@@ -130,12 +148,12 @@ sub insens($s,%O) {
   $O{mkre}//=0;
 
   # get [xX] for each char
-  my $out=join $NULLSTR,map {
+  my $out=join null,map {
 
     '[' . (lc $ARG)
         . (uc $ARG) .']'
 
-  } split $NULLSTR,$s;
+  } split null,$s;
 
   # conditionally compile
   $out=($O{mkre})
@@ -147,6 +165,7 @@ sub insens($s,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^bat
 
@@ -154,6 +173,7 @@ sub array_insens($ar) {
   return map {insens($ARG)} @$ar;
 
 };
+
 
 # ---   *   ---   *   ---
 # escapes .^$([{}])+*?/|\: in pattern
@@ -180,6 +200,7 @@ sub opscape($s) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^bat
 
@@ -187,6 +208,7 @@ sub array_opscape($ar) {
   return map {opscape($ARG)} @$ar;
 
 };
+
 
 # ---   *   ---   *   ---
 # makes capturing or non-capturing group
@@ -197,7 +219,7 @@ sub capt($pat,$name=0,%O) {
   $O{insens} //= 0;
   $O{mkre}   //= 1;
 
-  my $out=$NULLSTR;
+  my $out=null;
   my $beg='(';
   my $end=')';
 
@@ -243,6 +265,7 @@ sub capt($pat,$name=0,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get non-recursive <capt>
 # between delimiters
@@ -282,6 +305,7 @@ sub dcapt($beg,$end,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # wraps in word delimiter
 
@@ -296,6 +320,7 @@ sub bwrap($pat,$mode=1) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get next match of re
 
@@ -304,6 +329,7 @@ sub nxtok($s,$re) {
   return $s;
 
 };
+
 
 # ---   *   ---   *   ---
 # makes re to match elements in ar
@@ -317,7 +343,7 @@ sub eiths($ar,%O) {
   $O{bwrap}    //= 0;
   $O{whole}    //= 0;
   $O{insens}   //= 0;
-  $O{mod}      //= $NULLSTR;
+  $O{mod}      //= null;
 
   # make copy
   my @ar=@$ar;
@@ -360,6 +386,7 @@ sub eiths($ar,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^shorthand for peso-style
 # keyword arrays
@@ -381,6 +408,7 @@ sub pekey(@ar) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^anything BUT
 
@@ -389,6 +417,7 @@ sub npekey(@ar) {
   return lkahead($ex,-1);
 
 };
+
 
 # ---   *   ---   *   ---
 # matches everything after pattern
@@ -414,6 +443,7 @@ sub eaf($pat,%O) {
   );
 
 };
+
 
 # ---   *   ---   *   ---
 # pattern is preceded by blank
@@ -449,6 +479,7 @@ sub lbeg($pat,$mode,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # wraps pattern in positive
 # or negative look ahead or behind
@@ -460,7 +491,7 @@ sub look($pat,%O) {
   $O{negative} //= 0;
 
   my $a=(! $O{behind})
-    ? $NULLSTR
+    ? null
     : '<'
     ;
 
@@ -472,6 +503,7 @@ sub look($pat,%O) {
   return "(?${a}${b}" . "$pat)";
 
 };
+
 
 # ---   *   ---   *   ---
 # ^sugar wraps
@@ -486,16 +518,17 @@ sub lkahead($pat,$i) {
 
 };
 
+
 # ---   *   ---   *   ---
 # procs options for escaped/nonscaped
 
 sub _escaping_prologue($sref,$O) {
 
   # defaults
-  $O->{mod}   //= $NULLSTR;
+  $O->{mod}   //= null;
   $O->{sigws} //= 0;
   $O->{kls}   //= 0;
-  $O->{-x}    //= $NULLSTR;
+  $O->{-x}    //= null;
   $O->{capt}  //= 0;
 
 
@@ -515,6 +548,7 @@ sub _escaping_prologue($sref,$O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # match pattern only if it's
 # not preceded by a \\\\ escape
@@ -532,6 +566,7 @@ sub nonscaped($s,%O) {
   return qr~$out$O{mod}~x;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^iv, match \\\\ escaped pattern
@@ -558,6 +593,7 @@ sub escaped($s,%O) {
   return qr~$out$O{mod}~x;
 
 };
+
 
 # ---   *   ---   *   ---
 # match all between delimiters
@@ -595,6 +631,7 @@ sub delim($beg,$end,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^generate compound pattern
 
@@ -602,6 +639,35 @@ sub array_delim($ar,%O) {
   return alt([map {delim(@$ARG)} @$ar],%O);
 
 };
+
+
+# ---   *   ---   *   ---
+# ^posix-friendly version
+
+sub posix_delim($beg,%O) {
+
+  # defaults
+  $O{end}       //= $beg;
+  $O{multiline} //= 0;
+
+  # spawn montrous posix-re version of
+  # negative lookahead...
+  my $allow=neg_lkahead(
+    $O{end},
+    multiline=>$O{multiline},
+    uberscape=>1,
+
+  );
+
+  # ^escape delimiters and give
+  $beg    = opscape($beg);
+  $O{end} = opscape($O{end});
+
+  my $out="($beg(($allow)*)$O{end})";
+  return qr{$out}x;
+
+};
+
 
 # ---   *   ---   *   ---
 # lyeb@IBN-3DILA on Wed Feb 23 10:58:41 AM -03 2022:
@@ -616,7 +682,7 @@ sub uberscape($o_end) {
 
   my $end   = "\\\\".$o_end;
 
-  my @chars = split $NULLSTR,$end;
+  my @chars = split null,$end;
   my $s     = opscape(shift @chars);
   my $re    = "[^$s$o_end]";
 
@@ -639,6 +705,7 @@ sub uberscape($o_end) {
 
 };
 
+
 # ---   *   ---   *   ---
 # negative lookahead
 # shame on posix regex II
@@ -653,12 +720,12 @@ sub neg_lkahead($s,%O) {
   # contionally make primitive multi-line pattern
   my $carry=($O{multiline})
     ? '\\x0D\\x0A|'
-    : $NULLSTR
+    : null
     ;
 
 
   # walk characters of string
-  my @chars = split $NULLSTR,$s;
+  my @chars = split null,$s;
 
   my $prev  = opscape(shift @chars);
   my $out   = $carry . "[^$prev\\\\]";
@@ -695,6 +762,7 @@ sub neg_lkahead($s,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # splits str at one pattern when
 # surrounded by another
@@ -711,6 +779,7 @@ sub sursplit($pat,$s,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^produces those kinds of regexes
 
@@ -718,6 +787,7 @@ sub sursplit_new($pat,$sur) {
   return qr{$sur$pat$sur}x;
 
 };
+
 
 # ---   *   ---   *   ---
 # halfway conversion of compiled
@@ -758,6 +828,7 @@ sub qre2re($sref) {
 
 };
 
+
 # ---   *   ---   *   ---
 # exporter names
 
@@ -781,6 +852,7 @@ sub qre2re($sref) {
 
   *re_delim        = *delim;
   *array_re_delim  = *array_delim;
+  *re_posix_delim  = *posix_delim;
 
   *re_sursplit     = *sursplit;
   *re_sursplit_new = *sursplit_new;
@@ -788,17 +860,6 @@ sub qre2re($sref) {
   *re_neg_lkahead  = *neg_lkahead;
   *re_lbeg         = *lbeg;
 
-# ---   *   ---   *   ---
-# ROM II
-
-  Readonly our $UNPRINT_RE=>eiths([
-
-    map {
-      '\x{' . $ARG . '}'
-
-    } (0x00..0x19),(0x7F..0xFF)
-
-  ]);
 
 # ---   *   ---   *   ---
 1; # ret

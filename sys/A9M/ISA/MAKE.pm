@@ -8,22 +8,20 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package A9M::ISA::MAKE;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English qw(-no_match_words);
+  use English;
   use List::Util qw(max);
 
-  use lib $ENV{ARPATH}.'/lib/sys/';
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Type;
@@ -36,7 +34,7 @@ package A9M::ISA::MAKE;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = 'v0.00.4a';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -143,7 +141,7 @@ sub get_operand_type($class,%O) {
 
   # ^single operand, so no combo ;>
   } elsif($O{argcnt} eq 1) {
-    @type=split $NULLSTR,$O{dst};
+    @type=split null,$O{dst};
 
   };
 
@@ -276,7 +274,7 @@ sub gen_have_operand($class,$bld) {
 
   # unpack operand type combination
   my ($dst,$src)=split '_',$bld->{type};
-  $src //= $NULLSTR;
+  $src //= null;
 
 
   # ^map to binary

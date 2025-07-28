@@ -8,19 +8,18 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Mint;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match_vars);
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use English;
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Chk;
@@ -39,17 +38,20 @@ package Mint;
 
   use parent 'St';
 
+
 # ---   *   ---   *   ---
 # adds to your namespace
 
   use Exporter 'import';
   our @EXPORT=qw(image mount);
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.8;#a
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v0.00.9a';
+  our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
@@ -100,6 +102,7 @@ St::vconst {
 
 };
 
+
 # ---   *   ---   *   ---
 # fetch or generate store F
 
@@ -123,6 +126,7 @@ sub set_storing($user_fn) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^same for load
 
@@ -145,6 +149,7 @@ sub set_loading($user_fn) {
   };
 
 };
+
 
 # ---   *   ---   *   ---
 # cstruc
@@ -202,6 +207,7 @@ sub new($class,$src,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # decide if value must be expanded
 
@@ -234,6 +240,7 @@ sub register($self,$key,$vref) {
 
 };
 
+
 # ---   *   ---   *   ---
 # consume value from Q
 
@@ -250,6 +257,7 @@ sub get_next($self) {
   return $self->register($key=>$vref);
 
 };
+
 
 # ---   *   ---   *   ---
 # obtain encoding data about
@@ -281,6 +289,7 @@ sub get_type($self,$vref) {
     ;
 
 };
+
 
 # ---   *   ---   *   ---
 # inspect value
@@ -320,6 +329,7 @@ sub proc_elem($self) {
   return @have,$self->EOS;
 
 };
+
 
 # ---   *   ---   *   ---
 # apply F to each value
@@ -383,6 +393,7 @@ sub vex($self) {
 
 };
 
+
 # ---   *   ---   *   ---
 # apply F to nested structure
 
@@ -390,7 +401,7 @@ sub proc($self) {
 
 
   # reset ctx
-  $self->{Q}    = [$NULLSTR=>$self->{obj}];
+  $self->{Q}    = [q[]=>$self->{obj}];
   $self->{data} = Cask->new();
 
   $self->{path} = [];
@@ -424,6 +435,7 @@ sub proc($self) {
   return $self->{obj};
 
 };
+
 
 # ---   *   ---   *   ---
 # walks the history struc to
@@ -632,6 +644,7 @@ sub to_bin($self,$path) {
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^undo
@@ -1020,6 +1033,7 @@ sub from_bin($self,$path) {
 
 };
 
+
 # ---   *   ---   *   ---
 # errmes
 
@@ -1047,6 +1061,7 @@ sub warn_dir($path) {
 
 };
 
+
 # ---   *   ---   *   ---
 # applies processing to object
 # before storing it
@@ -1069,6 +1084,7 @@ sub image($path,$obj,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^undo
 
@@ -1080,6 +1096,7 @@ sub mount($path,%O) {
   return $self->{obj};
 
 };
+
 
 # ---   *   ---   *   ---
 # default methods for load/store
@@ -1108,6 +1125,7 @@ sub defload($self,$vref) {
 
 };
 
+
 # ---   *   ---   *   ---
 # freeze code references in
 # object to store it
@@ -1129,6 +1147,7 @@ sub codefreeze($fn) {
     ;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^undo
@@ -1170,6 +1189,7 @@ sub codethaw($fn,$type) {
   };
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

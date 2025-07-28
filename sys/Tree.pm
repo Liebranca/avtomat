@@ -8,23 +8,20 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Tree;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
   use Carp;
-  use Readonly;
+  use English;
 
-  use English qw(-no_match_vars);
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Chk;
@@ -39,7 +36,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.04.4;
+  our $VERSION = 'v0.04.5';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -375,7 +372,7 @@ sub force_get($self,@path) {
   );
 
   # ensure fvalue
-  $out->inew($NULL)
+  $out->inew(null)
   if ! @{$out->{leaves}};
 
   # ^give ref
@@ -644,7 +641,7 @@ sub ances($self,%O) {
 
   # defaults
   $O{max_depth} //= 0x24;
-  $O{join_char} //= $NULLSTR;
+  $O{join_char} //= null;
 
 
   # get list of nodes
@@ -1771,7 +1768,7 @@ sub to_string($self,%O) {
     $depth++,next if $self eq 1;
 
     # ^cat
-    $self->{$O{value}} //= $NULLSTR;
+    $self->{$O{value}} //= null;
     push @out,$self->{$O{value}};
 
 
@@ -2352,7 +2349,7 @@ sub draws($depth,$prev) {
 
   my $branch=($depth)
     ? '.  ' x ($depth-1).'\-->'
-    : $NULLSTR
+    : null
     ;
 
   return ($depth < $prev)
@@ -2378,8 +2375,8 @@ sub repr($self,$depth,$prev,%O) {
 
 
   # default to null or skip excluded
-  my $v=$self->{value};
-  $v //= sprintf "%016X",$NULL;
+  my $v   = $self->{value};
+     $v //= sprintf "%08X",0xDEADBEEF;
 
   return undef if $v=~ $O{-x};
 

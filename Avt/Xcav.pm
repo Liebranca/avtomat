@@ -12,56 +12,45 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Avt::Xcav;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match_vars);
-  use Storable;
+  use English;
+  use Storable qw(store);
   use Carp;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
-  use Arstd::IO;
+  use Arstd::IO qw(errout);
+  use Arstd::PM qw(cload);
 
   use Shb7;
 
-  use lib $ENV{'ARPATH'}.'/lib/';
+  use Ftype;
+  use Ftype::Text::C;
 
-  use Lang;
-
-  use Lang::C;
-  use Lang::Perl;
-  use Lang::peso;
-
-  use Grammar::C;
-
-  use Emit::C;
-  use Emit::Perl;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = 'v0.00.4';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # looks at a single file for symbols
 
 sub file_sbl($f) {
-
-  my $langname=Lang::file_ext($f);
+  my $langname=Ftype::ext_to_ftype($f)->{name};
 
   errout(
-
     q[Can't determine language for file '%s'],
 
     args => [$f],
@@ -69,16 +58,16 @@ sub file_sbl($f) {
 
   ) unless defined $langname;
 
+
   # get modules
-  my $gram="Grammar\::$langname";
+  my $xcav="Avt\::Xcav\::$langname";
   my $emit="Emit\::$langname";
 
-  # read file and strip comments
-  my $prog=orc($f);
-  $gram->strip(\$prog);
+  cload $xcav,$emit;
+
 
   # get symbols
-  my $out=$gram->mine($prog);
+  my $out=$xcav->symscan($f);
 
   # ^apply type conversions
   for my $key(keys %{$out->{functions}}) {
@@ -101,6 +90,7 @@ sub file_sbl($f) {
 
 };
 
+
 # ---   *   ---   *   ---
 # in:modname,[files]
 # write symbol typedata (return,args) to shadow lib
@@ -114,9 +104,8 @@ sub symscan($mod,$dst,$deps,@fnames) {
 
   my @files=();
 
-# ---   *   ---   *   ---
-# iter filelist
 
+  # iter filelist
   { for my $fname(@fnames) {
 
       if( ($fname=~ m/\%/) ) {
@@ -131,7 +120,6 @@ sub symscan($mod,$dst,$deps,@fnames) {
 
   };
 
-# ---   *   ---   *   ---
 
   my $shwl={
 
@@ -142,9 +130,8 @@ sub symscan($mod,$dst,$deps,@fnames) {
 
   };
 
-# ---   *   ---   *   ---
-# iter through files
 
+  # iter through files
   for my $f(@files) {
 
     next if !$f;
@@ -157,8 +144,10 @@ sub symscan($mod,$dst,$deps,@fnames) {
   };
 
   store($shwl,$dst) or croak strerr($dst);
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

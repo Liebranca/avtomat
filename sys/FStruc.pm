@@ -9,20 +9,17 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package FStruc;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English qw(-no_match_words);
-
+  use English;
   use List::Util qw(sum);
 
   use lib $ENV{ARPATH}.'/lib/sys/';
@@ -42,13 +39,16 @@ package FStruc;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.0;
+  our $VERSION = 'v0.01.1';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly my $HEADKEY=>'__fstruc_head';
+St::vconst {
+  HEADKEY=>'__fstruc_head',
+
+};
 
 # ---   *   ---   *   ---
 # cstruc
@@ -168,7 +168,7 @@ sub ordered($self,$data) {
   return [map {
     $ARG=>$data->{$ARG};
 
-  } $HEADKEY,@{$self->{order}}];
+  } $self->HEADKEY,@{$self->{order}}];
 
 };
 
@@ -210,7 +210,7 @@ sub labels($self,$b,$name='',$base=0x00) {
 
 
     # need to recurse?
-    if($key ne $HEADKEY) {
+    if($key ne $self->HEADKEY) {
 
       my $fmat=$self->{fmat}->[$idex++];
 
@@ -251,7 +251,7 @@ sub flatten($self,$b) {
   return { map {
 
     my $key=$ARG;
-    if($key ne $HEADKEY) {
+    if($key ne $self->HEADKEY) {
 
       # need to recurse?
       my $fmat=$self->{fmat}->[$idex++];
@@ -450,7 +450,7 @@ sub from_bytes($self,$rawref,%O) {
 
   # defaults
   $O{ptr}  //= 0;
-  $O{base} //= $NULLSTR;
+  $O{base} //= null;
 
   # ^handle namespace
   $O{base}  .= '.' if length $O{base};
@@ -459,8 +459,8 @@ sub from_bytes($self,$rawref,%O) {
   # bind ctx
   my $e={
 
-    key    => $NULLSTR,
-    fmat   => $NULLSTR,
+    key    => null,
+    fmat   => null,
 
     src    => $rawref,
 
@@ -481,10 +481,10 @@ sub from_bytes($self,$rawref,%O) {
 
   if(@head) {
     $b = bunpacksu $head[0],$e->{src};
-    $e->{ezy}->{$HEADKEY} = $b->{len};
+    $e->{ezy}->{$self->HEADKEY} = $b->{len};
 
     push @{$e->{labels}},
-       "$e->{base}$HEADKEY"
+       ("$e->{base}" . $self->HEADKEY)
     => [$e->{ptr},$b->{len}]
     ;
 
@@ -675,7 +675,7 @@ sub to_bytes($self,%data) {
 
   # defaults
   $data{-ptr}  //= 0;
-  $data{-base} //= $NULLSTR;
+  $data{-base} //= null;
 
   # ^handle namespace
   $data{-base}  .= '.' if length $data{-base};
@@ -688,11 +688,11 @@ sub to_bytes($self,%data) {
   # bind ctx
   my $e={
 
-    key    => $NULLSTR,
-    fmat   => $NULLSTR,
+    key    => null,
+    fmat   => null,
 
     src    => \%data,
-    dst    => $NULLSTR,
+    dst    => null,
 
     cnt    => {},
     ezy    => {},
@@ -732,7 +732,7 @@ sub to_bytes($self,%data) {
     my $b=bpack $self->{head}->[0] => @cnt;
 
     # ^cat to final
-    $e->{ezy}->{$HEADKEY} = $b->{len};
+    $e->{ezy}->{$self->HEADKEY} = $b->{len};
     $e->{dst} = catar $b->{ct},$e->{dst};
 
     # ^adjust previous labels!
@@ -742,7 +742,7 @@ sub to_bytes($self,%data) {
     };
 
     # ^make label for header
-    my $key  = $HEADKEY;
+    my $key  = $self->HEADKEY;
     my $base = $e->{base};
     my $full = "$base$key";
 

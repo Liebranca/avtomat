@@ -8,23 +8,18 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package rd::preprocfn;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use Storable;
-
-  use English qw(-no_match-vars);
-
-  use lib $ENV{ARPATH}.'/lib/sys/';
+  use English;
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Chk;
@@ -34,7 +29,7 @@ package rd::preprocfn;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#a
+  our $VERSION = 'v0.00.8a';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -102,7 +97,7 @@ sub fnread($self,$fn) {
 
       # label
       if($ins eq '@') {
-        $ins .= join $NULLSTR,@args;
+        $ins .= catar @args;
         $root->inew($ins);
 
       # ^command
@@ -343,8 +338,7 @@ sub run($self,$data,@slurp) {
 
 sub jmp($self,@dst) {
 
-  return 'JMP',join $NULLSTR,
-    $self->ystirr(@dst);
+  return 'JMP',catar $self->ystirr(@dst);
 
 };
 
@@ -454,7 +448,7 @@ sub match($self,$dst,@src) {
   ($dst)=$self->xstirr($dst);
   (@src)=$self->xstirr(@src);
 
-  my $re=join $NULLSTR,@src;
+  my $re=catar @src;
      $re=qr{$re};
 
   my $status = $self->{flags};
@@ -480,7 +474,7 @@ sub _local($self,$dst,$asg=null,@value) {
   (@value) = $self->xstirr(@value) if $asg eq '=';
 
   $self->{scope}->{$dst}=(@value)
-    ? eval join $NULLSTR,@value
+    ? eval catar @value
     : null
     ;
 

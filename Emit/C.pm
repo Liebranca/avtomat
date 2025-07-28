@@ -25,7 +25,7 @@ package Emit::C;
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
   use Style;
-  use Vault;
+  use Chk;
   use Type;
 
   use Arstd::Array;
@@ -36,19 +36,19 @@ package Emit::C;
 
   use parent 'Emit';
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.7;#a
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v0.00.7a';
+  our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # LIS:GBL
 
   use Type::C;
-
-  Readonly our $TYPETAB=>
-    $Type::C::TABLE;
+  our $Typetab=$Type::C::Table;
 
 
 # ---   *   ---   *   ---
@@ -71,6 +71,7 @@ sub open_guards($class,$fname) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^close boiler template
 
@@ -89,6 +90,7 @@ sub close_guards($class,$fname) {
 
 };
 
+
 # ---   *   ---   *   ---
 # removes "cruft", so to speak ;>
 
@@ -100,6 +102,7 @@ sub typetrim($class,$typeref) {
   Emit->typetrim($typeref);
 
 };
+
 
 # ---   *   ---   *   ---
 # header guards
@@ -163,6 +166,7 @@ sub boiler_open($class,$fname,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^endof
 
@@ -189,6 +193,7 @@ sub boiler_close($class,$fname,%O) {
   return $s;
 
 };
+
 
 # ---   *   ---   *   ---
 # turn list of args into string
@@ -218,6 +223,7 @@ sub arglist_str($class,$args,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # pastes code inside a function definition
 
@@ -234,6 +240,7 @@ sub fnwrap($class,$name,$code,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^gives decl
 
@@ -246,6 +253,7 @@ sub fnwrap_decl($class,$name,%O) {
   return "$O{rtype} $name($O{args});\n";
 
 };
+
 
 # ---   *   ---   *   ---
 # ^gives both as array
@@ -308,6 +316,7 @@ sub fnwrap_ar($class,$name,$code,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^sugar for main
 
@@ -323,6 +332,7 @@ sub mfwrap($class,$code) {
   );
 
 };
+
 
 # ---   *   ---   *   ---
 # give list of attributes
@@ -346,6 +356,7 @@ sub attrlist($class,@vars) {
   } @sorted;
 
 };
+
 
 # ---   *   ---   *   ---
 # outdated "data section" generator
@@ -389,6 +400,7 @@ sub datasec($class,$name,$type,@items) {
 
 };
 
+
 # ---   *   ---   *   ---
 # paste case [value]: [code]
 
@@ -402,6 +414,7 @@ sub switch_case($class,$value,$code) {
   return $out;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^paste case [key]: [value]
@@ -419,6 +432,39 @@ sub switch_tab($class,$x,%O) {
   return "switch($x) {\n\n$out\n};\n";
 
 };
+
+
+# ---   *   ---   *   ---
+# generates struc from peso type
+
+sub struc_decl($class,$type) {
+
+  $type=typefet $type
+  if ! is_hashref $type;
+
+  my $out="struct $type->{name} {\n";
+
+
+  map {
+    my ($ctype,$name)=@$ARG;
+    $out .= "  $ctype $name;\n";
+
+  } Type::xlate_struc(C=>$type);
+
+
+  $out="$out};\n";
+
+  return ($class ne 'Type::Cpp')
+
+    ? "${out}typedef struct "
+    . "$type->{name} $type->{name};"
+
+    : $out
+    ;
+
+
+};
+
 
 # ---   *   ---   *   ---
 1; # ret

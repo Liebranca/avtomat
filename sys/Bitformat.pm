@@ -9,21 +9,19 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Bitformat;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match_words);
+  use English;
 
-  use lib $ENV{ARPATH}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
   use Type;
   use Bpack;
@@ -43,7 +41,7 @@ package Bitformat;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = 'v0.00.9a';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -296,12 +294,7 @@ sub from_bytes($self,$raw,$cnt=1) {
   # break down into chunks
   my $len   = $self->{bytesize};
   my @types = typeof($len);
-
-
-  my $fmat  = join $NULLSTR,map {
-    packof($ARG)
-
-  } @types;
+  my $fmat  = catar map {packof($ARG)} @types;
 
 
   my @data=unpack "$fmat" x $cnt,$raw;
@@ -401,7 +394,7 @@ sub from_bytes($self,$raw,$cnt=1) {
 sub from_strm($self,$sref,$pos,$cnt=1) {
 
   my $len=$self->{bytesize};
-  my $raw=substr $$sref,$pos,$len*$cnt,$NULLSTR;
+  my $raw=substr $$sref,$pos,$len*$cnt,null;
 
   return $self->from_bytes($raw,$cnt);
 

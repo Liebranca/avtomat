@@ -502,6 +502,10 @@ sub store($self,$type,$value,$addr=undef) {
 
 sub dload($self,$type,$addr) {
 
+use Fmat;
+fatdump \$type;
+say $addr;
+
   my $b=bunpack $type,$self->{buf},$addr;
 
   return (length $b)
@@ -805,13 +809,12 @@ sub decl($self,$type,$name,$value,%O) {
       $cnt += length $ARG;
 
     } else {
-      $cnt += 1;
+      ++$cnt;
 
     };
 
 
   } ($array) ? @$value : $value ;
-
 
   $self->brkfit($size * $cnt);
 

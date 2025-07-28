@@ -8,21 +8,18 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Emit;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English qw(-no_match_vars);
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use English;
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Chk;
@@ -33,18 +30,25 @@ package Emit;
   use Arstd::IO;
   use Arstd::PM;
 
+  use parent 'St';
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.5;#b
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v0.00.6';
+  our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $ON_NO_TITLE   => 'SCRATCH';
-  Readonly our $ON_NO_VERSION => 'v0.00.1b';
-  Readonly our $ON_NO_AUTHOR  => 'ANON';
+St::vconst {
+  ON_NO_TITLE   => 'SCRATCH',
+  ON_NO_VERSION => 'v0.00.1a',
+  ON_NO_AUTHOR  => 'ANON',
+
+};
+
 
 # ---   *   ---   *   ---
 # find emitter subclass matching name
@@ -52,7 +56,7 @@ package Emit;
 
 sub get_class($class,$name) {
 
-  my $out=$NULLSTR;
+  my $out=null;
 
   # nocase Emit::$name lookup
   my $fname=find_subpkg('Emit',$name);
@@ -68,6 +72,7 @@ sub get_class($class,$name) {
   return $out;
 
 };
+
 
 # ---   *   ---   *   ---
 # transforms type to peso equivalent
@@ -106,6 +111,7 @@ sub typecon($class,$type) {
 
 };
 
+
 # ---   *   ---   *   ---
 # dummies, derived class implements if needed
 
@@ -128,6 +134,7 @@ sub tidy($class,$sref) {
 
 };
 
+
 # ---   *   ---   *   ---
 # puts code in-between two pieces of boiler
 
@@ -141,17 +148,16 @@ sub codewrap($class,$fname,%O) {
   $O{inc}     //= [];
   $O{def}     //= [];
 
-  $O{body}    //= [$NULLSTR=>[]];
+  $O{body}    //= [q[]=>[]];
 
-  $O{author}  //= $ON_NO_AUTHOR;
-  $O{version} //= $ON_NO_VERSION;
+  $O{author}  //= $class->ON_NO_AUTHOR;
+  $O{version} //= $class->ON_NO_VERSION;
 
   $O{tidy}    //= 0;
 
 
   # run code generation
-  my $s=$NULLSTR;
-  $s.=$class->boiler_open($fname,%O);
+  my $s=$class->boiler_open($fname,%O);
 
   is_arrayref($O{body})
   or throw_genbody();
@@ -170,16 +176,18 @@ sub codewrap($class,$fname,%O) {
 
   } @code;
 
-  $s.=$class->boiler_close($fname,%O);
 
-  $s=($O{tidy})
+  $s .= $class->boiler_close($fname,%O);
+  $s  = ($O{tidy})
     ? $class->tidy(\$s)
     : $s
     ;
 
+
   return $s;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^errme
@@ -198,6 +206,7 @@ sub throw_genbody() {
   );
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

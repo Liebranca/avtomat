@@ -8,28 +8,26 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Arstd::String;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English qw(-no_match_vars);
-
+  use English;
   use List::Util qw(sum);
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
   use Chk;
 
   use Arstd::Array;
+  use parent 'St';
+
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -61,8 +59,7 @@ package Arstd::String;
     nobs
 
     strip
-    comstrip
-    vstr
+    gstrip
 
     deref_clist
 
@@ -73,43 +70,37 @@ package Arstd::String;
 
     joinfilt
 
-    $PL_CUT
-    $PL_CUT_RE
-    cutid
-
   );
+
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.1;#b
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v0.01.2';
+  our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $STRIP_RE  => qr{^\s*|\s*$}x;
-  Readonly our $NOBS_RE   => qr{\\(.)}x;
+my $PKG=__PACKAGE__;
+St::vconst {
 
-  Readonly our $ESCAPE_RE =>
-    qr"\x{1B}\[[\?\d;]+[\w]"x;
+  STRIP_RE  => qr{^\s*|\s*$}x,
+  NOBS_RE   => qr{\\(.)}x,
 
-  Readonly my $LINEWRAP_PROTO=>q{
+  ESCAPE_RE => qr"\x{1B}\[[\?\d;]+[\w]"x,
+
+  LINEWRAP_PROTO=>q{
 
   (?<mess>
 
     [^\n]{1,SZ_X} (?: (?: \n|\s) | $)
   | [^\n]{1,SZ_X} (?: .|$)
 
-  )};
+  )},
 
-  # TODO: catch strings, maybe
-  Readonly my $COMMENT_PROTO=>q[
-    ([^\$COMCHAR]*) \$COMCHAR [^\n]* (?: \n|$ )
-
-  ];
-
-  Readonly our $CHARCON_DEF=>[
+  CHARCON_DEF=>[
 
     qr{\\n}x   => "\n",
     qr{\\r}x   => "\r",
@@ -119,9 +110,9 @@ package Arstd::String;
 
     qr{\\e}x   => "\e",
 
-  ];
+  ],
 
-  Readonly our $COLOR=>{
+  COLOR=>{
 
     op     => "\e[37;1m",
     num    => "\e[33;22m",
@@ -136,35 +127,51 @@ package Arstd::String;
 
     off    => "\e[0m",
 
-  };
+  },
 
+  BIN_DIGITS => qr{[\:\.0-1]},
+  OCT_DIGITS => qr{[\:\.0-7]},
+  DEC_DIGITS => qr{[\:\.0-9]},
+  HEX_DIGITS => qr{[\:\.0-9A-F]},
 
-  Readonly our $CUT_FMAT=>q[;__%s_CUT_%i__?];
-  Readonly our $CUT_RE=>qr{\;__\w+_CUT_\d+__\?};
+  HEXNUM_RE => sub {
+    my $digits=$_[0]->HEX_DIGITS;
+    return qr{(?:
+      (?:(?:(?:\b0x)|\$)($digits+)(?:[L]?))
+    | (?:($digits+)(?:h))
 
-  Readonly our $PL_CUT=>q[;__CUT__?];
-  Readonly our $PL_CUT_RE=>qr{\;__CUT__\?};
+    )\b}x;
 
-# ---   *   ---   *   ---
-# ^generate unique id for repl
+  },
 
-sub cutid($s='N',$i=0) {
+  DECNUM_RE => sub {
+    my $digits=$_[0]->DEC_DIGITS;
+    return qr{\b(?:(?:[v]?)($digits+)(?:[f]?))\b}x;
 
-  my $fmat = $CUT_FMAT;
-  my $out  = sprintf $fmat,$s,$i;
+  },
 
-  my $re   = qr"\Q$out";
+  OCTNUM_RE => sub {
+    my $digits=$_[0]->OCT_DIGITS;
+    return qr{\b(?:
+      (?:(?:\\)($digits+))
+    | (?:($digits+)(?:o))
 
-  return ($out,$re);
+    )\b}x;
+
+  },
+
+  BINNUM_RE => sub {
+    my $digits=$_[0]->BIN_DIGITS;
+    return qr{\b(?:
+      (?:(?:0b)($digits+))
+    | (?:($digits+)(?:b))
+
+    )\b}x;
+
+  },
 
 };
 
-# ---   *   ---   *   ---
-# ROM II
-
-  Readonly my $BIN_DIGITS=>qr{[\:\.0-1]};
-  Readonly my $OCT_DIGITS=>qr{[\:\.0-7]};
-  Readonly my $HEX_DIGITS=>qr{[\:\.0-9A-F]};
 
 # ---   *   ---   *   ---
 # common string to integer transforms
@@ -174,19 +181,19 @@ sub stoi($x,$base,$filter=1) {
   state $tab={
 
     2  => {
-      allow => $BIN_DIGITS,
+      allow => $PKG->BIN_DIGITS,
       mul   => 1,
 
     },
 
     8  => {
-      allow => $OCT_DIGITS,
+      allow => $PKG->OCT_DIGITS,
       mul   => 3,
 
     },
 
     16 => {
-      allow => $HEX_DIGITS,
+      allow => $PKG->HEX_DIGITS,
       mul   => 4,
 
     },
@@ -211,15 +218,14 @@ sub stoi($x,$base,$filter=1) {
   };
 
   # filter invalid chars accto base?
-  my @chars=reverse split $NULLSTR,$x;
+  my @chars=reverse split null,$x;
 
   if($filter) {
     @chars=grep {$ARG=~ $allow} @chars;
 
   # ^nope, give undef if invalid chars
-  # found in source
+  # ^found in source
   } else {
-
     my @tmp=grep {$ARG=~ $allow} @chars;
     return undef if int @tmp < int @chars;
 
@@ -265,6 +271,7 @@ sub stoi($x,$base,$filter=1) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^errme
 
@@ -284,6 +291,7 @@ sub throw_stoi_base($base) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^sugar
 
@@ -291,37 +299,20 @@ sub hstoi($x) {stoi($x,16)};
 sub ostoi($x) {stoi($x,8)};
 sub bstoi($x) {stoi($x,2)};
 
+
 # ---   *   ---   *   ---
 # ^infer base from string
 
 sub sstoi($s,$filter=1) {
 
-  state $hex=qr{
-    ^(?:(?:0x|\$)($HEX_DIGITS))
-  |  (?:($HEX_DIGITS)(?:h)$)
-
-  }x;
-
-  state $oct=qr{
-    ^(?:(?:\\)($OCT_DIGITS))
-  |  (?:($OCT_DIGITS)(?:o)$)
-
-  }x;
-
-  state $bin=qr{
-    ^(?:(?:0b)($BIN_DIGITS))
-  |  (?:($BIN_DIGITS)(?:b)$)
-
-  }x;
-
-  state $tab={
-    $hex=>16,
-    $oct=>8,
-    $bin=>2,
+  my $tab={
+    ($PKG->HEXNUM_RE) => 16,
+    ($PKG->OCTNUM_RE) => 8,
+    ($PKG->BINNUM_RE) => 2,
 
   };
 
-  my ($key)=grep {$s=~ $ARG} keys %$tab;
+  my ($key)=grep {$s=~ m[^$ARG$]} keys %$tab;
 
   # give conversion if valid
   if(defined $key) {
@@ -339,24 +330,24 @@ sub sstoi($s,$filter=1) {
 
 };
 
+
 # ---   *   ---   *   ---
 # give back copy of string without ANSI escapes
 
 sub descape($s) {
 
-  $s=~ s[$ESCAPE_RE][]sxgm;
+  $s=~ s[$PKG->ESCAPE_RE][]sxgm;
   return $s;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^get [escape=>position]
 
 sub popscape($sref) {
-
   my @out=();
-
-  while($$sref=~ s[($ESCAPE_RE)][]) {
+  while($$sref=~ s[($PKG->ESCAPE_RE)][]) {
     push @out,[$1,$-[0]];
 
   };
@@ -365,44 +356,46 @@ sub popscape($sref) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^undo
 
 sub pushscape($sref,@ar) {
 
-  my $out   = $NULLSTR;
+  my $out   = null;
   my $accum = 0;
 
   for my $ref(@ar) {
-
     my ($escape,$pos)=@$ref;
-
     my $head=substr $$sref,$accum,$pos-$accum;
 
     $out.=$head.$escape;
-
     $accum=$accum+(length $head);
 
   };
 
   $$sref=$out.substr $$sref,$accum,length $$sref;
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^get length of ANSI escapes in str
 
 sub lenscape($s) {
-  my @ar=split $ESCAPE_RE,$s;
+  my @ar=split $PKG->ESCAPE_RE,$s;
   return sum(map {length $ARG} @ar);
 
 };
+
 
 # ---   *   ---   *   ---
 # wrap string in quotes
 
 sub sqwrap($s) {return "'$s'"};
 sub dqwrap($s) {return "\"$s\""};
+
 
 # ---   *   ---   *   ---
 # builds regex for linewrapping
@@ -411,13 +404,19 @@ sub __make_linewrap_re($sz_x) {
 
   state $SZ_X_RE=qr{SZ_X}x;
 
-  my $re=$LINEWRAP_PROTO;$sz_x--;
-  $re=~ s[$SZ_X_RE][$sz_x]x;$sz_x--;
+  my $re=$PKG->LINEWRAP_PROTO;
+  $sz_x--;
+
   $re=~ s[$SZ_X_RE][$sz_x]x;
+  $sz_x--;
+
+  $re=~ s[$SZ_X_RE][$sz_x]x;
+
 
   return qr{$re}x;
 
 };
+
 
 # ---   *   ---   *   ---
 # split string at X characters
@@ -437,55 +436,49 @@ sub linewrap($sref,$sz_x) {
   $last_sz=$sz_x;
 
   # ^cut
-  $$sref=join $NULLSTR,map {
+  $$sref=join null,map {
 
     my $c=("\n" ne substr $ARG,-1)
       ? "\n"
-      : $NULLSTR
+      : null
       ;
 
     $ARG . $c;
 
   } resplit($sref,$re);
 
+  return;
+
 };
+
 
 # ---   *   ---   *   ---
 # ^adds ws padding on a
 # per-line basis
 
 sub lineident($sref,$x) {
-
   my $pad="\n" . (q[  ] x $x);
-
   $$sref=~ s[$NEWLINE_RE][$pad]sxmg;
   $$sref=(q[  ] x $x) . "$$sref";
 
+  return;
+
 };
+
 
 # ---   *   ---   *   ---
 # split string with a capturing regex,
-# correcting common junk results
+# then filter out result
 
 sub resplit($sref,$re) {
-
-  my @out   = ();
-  my @lines = split $re,$$sref;
-
-  # strip trailing spaces
-  map {
-    $ARG=~ s[^\x{20}+|\x{20}+$][]
-    if defined $ARG
-
-  } @lines;
-
-  # ^filter out blanks
   return grep {
-    defined $ARG && length $ARG
+    if (defined $ARG) {strip(\$ARG);$ARG}
+    else {0};
 
-  } @lines;
+  } split $re,$$sref;
 
 };
+
 
 # ---   *   ---   *   ---
 # wrap string in ansi color escapes
@@ -499,8 +492,8 @@ sub ansim($s,$id) {
 
   };
 
-  my $color=(defined $COLOR->{$id})
-    ? $COLOR->{$id}
+  my $color=(defined $PKG->COLOR->{$id})
+    ? $PKG->COLOR->{$id}
     : "\e[30;1m"
     ;
 
@@ -508,15 +501,16 @@ sub ansim($s,$id) {
 
 };
 
+
 # ---   *   ---   *   ---
 # wraps word in <braces> with colors
 
 sub strtag($s,$id=0) {
 
-  state $beg=ansim('<','op');
-  state $end=ansim('>','op');
+  my $beg=ansim('<','op');
+  my $end=ansim('>','op');
 
-  $id=(! exists $COLOR->{$id})
+  $id=(! exists $PKG->COLOR->{$id})
     ? ('good','err')[$id]
     : $id
     ;
@@ -526,6 +520,7 @@ sub strtag($s,$id=0) {
   return "$beg$color$end";
 
 };
+
 
 # ---   *   ---   *   ---
 # applies common color scheme to
@@ -540,14 +535,13 @@ sub fsansi($fmat) {
   state $sqstr_col = ansim("'%s'",'ex');
 
   state $tag_re    = qr{<%s>}x;
-  state $tag_col   =
-
+  state $tag_col   = (
     ansim('<','op')
   . ansim('%s','good')
 
   . ansim('>','op')
 
-  ;
+  );
 
   state $custom_re_col=qr{
     \[ (?<col> \w+) \] :
@@ -603,6 +597,7 @@ sub fsansi($fmat) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^similar, applies color to strarr
 
@@ -631,6 +626,7 @@ sub sansi(@ar) {
   return @ar;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^adds color to operators
@@ -677,49 +673,50 @@ sub sansi_ops($sref) {
 
   }x;
 
-  state $beg=$COLOR->{op};
-  state $end=$COLOR->{off};
+  state $beg=$PKG->COLOR->{op};
+  state $end=$PKG->COLOR->{off};
 
 
-  my @custom_capt=();
-  while($$sref=~ s[$custom][$PL_CUT]) {
-    push @custom_capt,$1;
-
-  };
-
-  $$sref=~ s[$nscap_re][$beg$1$end]sxmg;
-  $$sref=~ s[$brak_re][$beg$1$end]sxmg;
-
-  while(@custom_capt) {
-    my $x=shift @custom_capt;
-    $$sref=~ s[$PL_CUT_RE][$x];
-
-  };
+#  my @custom_capt=();
+#  while($$sref=~ s[$custom][$PL_CUT]) {
+#    push @custom_capt,$1;
+#
+#  };
+#
+#  $$sref=~ s[$nscap_re][$beg$1$end]sxmg;
+#  $$sref=~ s[$brak_re][$beg$1$end]sxmg;
+#
+#  map {
+#    $$sref=~ s[$PL_CUT_RE][$ARG];
+#
+#  } @custom_capt;
 
   $$sref=~ s[$semi_re][$beg$1$end]sxmg;
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 # string has prefix
 
 sub begswith($s,$prefix) {
-  return (rindex $s,$prefix,0)==0;
+  return 0 == rindex $s,$prefix,0;
 
 };
+
 
 # ---   *   ---   *   ---
 # convert match of seq into char
 
 sub charcon($sref,$table=undef) {
 
-  $table//=$CHARCON_DEF;
+  $table//=$PKG->CHARCON_DEF;
 
-  my @pats=Arstd::Array::nkeys($table);
-  my @seqs=Arstd::Array::nvalues($table);
+  my @pats=array_nkeys($table);
+  my @seqs=array_nvalues($table);
 
   while(@pats && @seqs) {
-
     my $pat=shift @pats;
     my $seq=shift @seqs;
 
@@ -727,77 +724,58 @@ sub charcon($sref,$table=undef) {
 
   };
 
+
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 # hides the backslash in \[char]
 
 sub nobs($sref) {
-
-  $$sref=~ s[$NOBS_RE][$1]sxmg;
+  $$sref=~ s[$PKG->NOBS_RE][$1]sxmg;
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 # remove outer whitespace
 
 sub strip($sref) {
   return if ! defined $sref ||! defined $$sref;
-  $$sref=~ s[$STRIP_RE][]sxmg;
+  $$sref=~ s[$PKG->STRIP_RE][]sxmg;
+
+  return;
 
 };
 
-# ---   *   ---   *   ---
-# remove comments
+sub gstrip(@ar) {
+  return grep {
 
-sub comstrip($sref,$c='#') {
+     strip   \$ARG;
 
-  state $tab={};
+     defined  $ARG
+  && length   $ARG;
 
-  # regenerate regex
-  if(! exists $tab->{$c}) {
-    $tab->{$c}=$COMMENT_PROTO;
-    $tab->{$c}=~ s[\$COMCHAR][$c]sxmg;
-
-    $tab->{$c}=qr{$tab->{$c}}x;
-
-  };
-
-  # ^apply
-  my $re=$tab->{$c};
-  $$sref=~ s[$re][$1\n]sxmg;
+  } @ar;
 
 };
 
-# ---   *   ---   *   ---
-# force vstr to v0.00.0 format
-
-sub vstr($in) {
-
-  my $v=(sprintf 'v%vd',$in);
-  my @v=split m[\.],$v;
-
-  $v[1]='0'.$v[1] if length $v[1]==1;
-  $v=join q[.],@v;
-
-  return $v;
-
-};
 
 # ---   *   ---   *   ---
 # gets array from arrayref
 # or comma-separated string
 
 sub deref_clist($list) {
-
-  return (is_arrayref($list))
-    ? @$list
+  return (is_arrayref $list)
+    ? (@$list)
     : (split $COMMA_RE,$list)
     ;
 
 };
+
 
 # ---   *   ---   *   ---
 # join grepped
@@ -806,6 +784,7 @@ sub joinfilt($char,@args) {
   return join $char,grep {length $ARG} @args;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

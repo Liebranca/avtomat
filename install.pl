@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-
 # ---   *   ---   *   ---
 # BOOTSTRAP
 
@@ -26,6 +25,7 @@ BEGIN {
 
 };
 
+
 # ---   *   ---   *   ---
 # deps
 
@@ -39,33 +39,26 @@ BEGIN {
   use lib $ENV{'ARPATH'}.'/lib/';
   use Avt;
 
+
 # ---   *   ---   *   ---
+# the bit
 
-Avt::set_config(
+Avt::config {
 
-  name      => 'avtomat',
-  xcpy      => [qw(arperl olink rd symfind)],
+  name => 'avtomat',
+  xcpy => [qw(arperl olink rd symfind)],
 
-  pre_build => q(
-
-    my $ex=$ENV{'ARPATH'}.'/avtomat/AR.pl';
+  pre  => q[
+    my $ex="$ENV{ARPATH}/avtomat/AR.pl";
     my $me=`$ex`;
 
     print $me;
-    if($me=~ m/^ARPATH missing/) {
-      exit;
+    exit if $me=~ m/^ARPATH missing/;
 
-    };
+  ],
 
-  ),
+};
 
-);
-
-# ---   *   ---   *   ---
-
-Avt::scan();
-Avt::config();
-Avt::make();
 
 # ---   *   ---   *   ---
 1; # ret

@@ -14,13 +14,13 @@
 # deps
 
 package Type;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
+  use Carp;
   use Readonly;
-  use English qw(-no_match_vars);
+  use English;
 
   use List::Util qw(sum);
 
@@ -41,6 +41,7 @@ package Type;
   use Type::MAKE;
   use St;
 
+
 # ---   *   ---   *   ---
 # adds to your namespace
 
@@ -59,6 +60,7 @@ package Type;
 
     typefet
     typedef
+    typetab
 
     badtype
     badptr
@@ -68,16 +70,22 @@ package Type;
 
   );
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.04.6;
+  our $VERSION = 'v0.04.6';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $DEFAULT=>typefet 'word';
+St::vconst {
+  DEFAULT=>typefet 'word',
+
+};
+
 
 # ---   *   ---   *   ---
 # kindly shut up
@@ -99,6 +107,7 @@ BEGIN {
   };
 
 };
+
 
 # ---   *   ---   *   ---
 # parse single value decl
@@ -133,6 +142,7 @@ sub PEVAR($expr) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^a whole bunch of em!
 
@@ -147,12 +157,12 @@ sub PESTRUC($src) {
 
 };
 
+
 # ---   *   ---   *   ---
 # build structure from
 # other types!
 
 sub struc($name,$src=undef) {
-
 
   # fetch existing?
   do {
@@ -228,9 +238,7 @@ sub struc($name,$src=undef) {
 
   # combine packing formats
      $fi   = 0;
-  my $fmat = join $NULLSTR,(
-
-    map {
+  my $fmat = catar map {
 
       my $cnt    = $fv[$fi++]->{cnt};
       my ($have) = $ARG=~ m[(\d+)];
@@ -238,9 +246,7 @@ sub struc($name,$src=undef) {
       $ARG=~ s[\d+][$cnt] if $cnt > $have;
       $ARG;
 
-    } map {$ARG->{packof}} @type
-
-  );
+  } map {$ARG->{packof}} @type;
 
 
   # get idex of each field
@@ -272,10 +278,27 @@ sub struc($name,$src=undef) {
 
 
   # save and give
-  $Type::MAKE::Table->{$name}=$out;
+  my $def=typetab();
+  $def->{$name}=$out;
+  $def->{lc $name}=$out;
+
+  map {
+
+    my $ptr_s="$name $ARG";
+    my $ptr_t={%{typefet $ARG}};
+    $ptr_t->{name}=$ptr_s;
+
+    typedef "$name ${ARG}",$ptr_t;
+    typedef "$name ${ARG}ptr",$ptr_t;
+
+
+  } @{Type::MAKE->LIST->{ptr_w}};
+
+
   return $out;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^modify existing structure!
@@ -301,6 +324,7 @@ sub restruc($name,$src) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^errme for field access
 
@@ -312,6 +336,7 @@ sub badstrucf($name) {
   give => null;
 
 };
+
 
 # ---   *   ---   *   ---
 # fetch struc field data
@@ -335,6 +360,7 @@ sub strucf($type,$name) {
   return ($field_t,$idex);
 
 };
+
 
 # ---   *   ---   *   ---
 # get bytesize of type
@@ -380,6 +406,7 @@ sub sizeof($name,@field) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get packing fmat for type
 
@@ -394,6 +421,7 @@ sub packof($name) {
 
 
 };
+
 
 # ---   *   ---   *   ---
 # get type-list for pack
@@ -420,6 +448,7 @@ sub typeof($size) {
 
 };
 
+
 # ---   *   ---   *   ---
 # removes ptr flags from type
 
@@ -441,13 +470,10 @@ sub derefof($ptr_t) {
 
 
   # fetch and validate
-  my $type=typefet $name
-  or return badptr $ptr_t->{name};
-
-
-  return $type;
+  return typefet $name;
 
 };
+
 
 # ---   *   ---   *   ---
 # get pos of struc field
@@ -473,6 +499,7 @@ sub offsetof($type,$field) {
     ;
 
 };
+
 
 # ---   *   ---   *   ---
 # get minimum-sized primitive
@@ -502,6 +529,7 @@ sub bitfit($size,$bytes=0) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get pointer type accto
 # how many bytes we need!
@@ -520,6 +548,7 @@ sub ptr_by_size($class,$ptrv) {
 
 };
 
+
 # ---   *   ---   *   ---
 # can fetch?
 
@@ -535,6 +564,7 @@ sub is_valid($class,$type) {
 
 };
 
+
 # ---   *   ---   *   ---
 # proto: check name against re
 
@@ -549,6 +579,7 @@ sub _typeisa($class,$type,$key) {
   return int ($type=~ Type::MAKE->RE->{$key});
 
 };
+
 
 # ---   *   ---   *   ---
 # ^icef*ck
@@ -577,6 +608,7 @@ subwraps(
 
 );
 
+
 # ---   *   ---   *   ---
 # shit's killing me
 
@@ -595,6 +627,7 @@ sub is_base_ptr($class,$type) {
 
 };
 
+
 # ---   *   ---   *   ---
 # errme
 
@@ -606,6 +639,7 @@ sub warn_redef($name) {
   give => 0;
 
 };
+
 
 # ---   *   ---   *   ---
 # completes a peso => (lang)
@@ -625,13 +659,71 @@ sub xlatetab($langclass,@tab) {
     my $peso = $ARG;
     my $lang = $tv[$ti++];
 
-    map {$langclass->batlis($ARG,$peso)} @$lang;
+    map {
+      $langclass->add($ARG,$peso)
+
+    } @$lang;
 
 
   } @tk };
 
 
 };
+
+
+# ---   *   ---   *   ---
+# ^back and forth from table
+
+sub xlate($lang,$type) {
+
+  my $class = "Type\::$lang";
+  my $name  = (is_hashref $type)
+    ? $type->{name}
+    : $type
+    ;
+
+  my $out   = $class->RTable->{$name};
+     $out //= $class->Table->{$name};
+
+  croak "No $lang translation for type: '$name'"
+  if ! defined $out;
+
+
+  return $out;
+
+};
+
+
+# ---   *   ---   *   ---
+# ^generate structure!
+
+sub xlate_struc($lang,$type) {
+
+  $type=typefet $type
+  if ! is_hashref $type;
+
+  my $i=0;
+  return map {
+
+    my $stype = xlate($lang=>$ARG);
+    my $name  = $type->{struc_i}->[$i++];
+
+    [$stype,$name];
+
+
+  } @{$type->{struc_t}};
+
+};
+
+
+# ---   *   ---   *   ---
+# get table with all defined types
+
+sub typetab {
+  return $Type::MAKE::Table;
+
+};
+
 
 # ---   *   ---   *   ---
 1; # ret

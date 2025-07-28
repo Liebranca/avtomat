@@ -8,21 +8,18 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package rd::cmdlib;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English qw(-no_match-vars);
-
-  use lib $ENV{ARPATH}.'/lib/sys/';
+  use English;
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Arstd::Array;
@@ -33,7 +30,7 @@ package rd::cmdlib;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = 'v0.00.3a';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -64,10 +61,27 @@ St::vconst {
 # fetch definitions from
 # sub-packages
 
-sub load($class,$main) {
+sub load($class,$main,$exclude=[]) {
 
+  # get typedefs
   $class->load_types($main);
 
+  # exclude subpackages from load!
+  my @list=@{$class->list};
+  map {
+
+    my $re=qr{::$ARG$};
+
+    @list=grep {
+      ! ($ARG=~ $re);
+
+    } @list;
+
+
+  } @$exclude;
+
+
+  # ^load em
   map {
 
     # fetch pkg
@@ -78,7 +92,7 @@ sub load($class,$main) {
     {values %$tab};
 
 
-  } @{$class->list};
+  } @list;
 
 };
 
@@ -132,7 +146,7 @@ sub use_EXE($main,$src) {
   $src=$src->{iced} if $valid;
 
 
-  return ($valid,$src,$NULLSTR);
+  return ($valid,$src,null);
 
 };
 
@@ -150,7 +164,7 @@ sub use_CMD($main,$src) {
   # match symbol name against table
   my $valid=$src=~ $tab->{-re};
 
-  return ($valid,$src,$NULLSTR);
+  return ($valid,$src,null);
 
 };
 
@@ -170,7 +184,7 @@ sub use_REG($main,$src) {
 
   my $valid = defined $src;
 
-  return ($valid,$src,$NULLSTR);
+  return ($valid,$src,null);
 
 };
 

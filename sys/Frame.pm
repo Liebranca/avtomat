@@ -8,30 +8,30 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Frame;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match_vars);
+  use Carp;
+  use English;
   use Scalar::Util qw(blessed);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
-
   use Style;
-  use Arstd::IO;
+
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v2.00.3;
+  our $VERSION = 'v2.00.3';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # invokes class constructor
@@ -41,6 +41,7 @@ sub new($frame,@args) {
 
 };
 
+
 # ---   *   ---   *   ---
 # dupli of St's version
 
@@ -48,6 +49,7 @@ sub is_valid($kind,$obj) {
   return blessed($obj) && $obj->isa($kind);
 
 };
+
 
 # ---   *   ---   *   ---
 # builds a new container
@@ -71,6 +73,7 @@ sub _new($class,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # load sub when called from
 # icebox rather than ice
@@ -88,18 +91,19 @@ sub AUTOLOAD {
   return if $key=~ m[::DESTROY$];
   $key=~ s[^Frame::][];
 
-  errout(
 
-    q[%s frame has no autoload for '%s'],
+  # catch invalid
+  croak sprintf(
+    "%s frame has no autoload for '%s'",
+    $self->{-class},$key,
 
-    args => [$self->{-class},$key],
-    lvl  => $AR_FATAL,
+  ) if ! exists $auto->{$key};
 
-  ) unless exists $auto->{$key};
 
   return $self->{-class}->$key($self,@args);
 
 };
+
 
 # ---   *   ---   *   ---
 # transfer of ownership
@@ -121,6 +125,7 @@ sub __ctlgive($frame) {
   $frame->{-owner_kls}=$pkg;
 
 };
+
 
 # ---   *   ---   *   ---
 # encode to binary
@@ -167,6 +172,7 @@ sub mint($self) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^undo
 
@@ -180,6 +186,7 @@ sub unmint($class,$O) {
   return $type->new_frame(%$O);
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

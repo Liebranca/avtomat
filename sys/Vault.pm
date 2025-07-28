@@ -8,55 +8,52 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Vault;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Carp;
+  use Carp qw(croak);
   use Cwd qw(abs_path);
 
-  use English qw(-no_match_vars);
+  use English;
 
   use Storable qw(store retrieve freeze thaw);
   use Fcntl qw(SEEK_SET SEEK_CUR);
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
-  use Chk;
+  use Chk qw(is_hashref);
 
-  use Arstd::Array;
-  use Arstd::String;
-  use Arstd::Path;
-  use Arstd::IO;
+  use Arstd::Array qw(array_dupop);
+  use Arstd::Path qw(reqdir dirof);
+  use Arstd::IO qw(errout);
 
   use Arstd::WLog;
 
   use Tree;
-  use Queue;
-  use Fmat;
-
   use Shb7;
+
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.01.0;#b
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v0.01.1b';
+  our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
 
-  my Readonly $PX_EXT='.px';
-
-  my Readonly $Std_Dirs=qr{(?:
+my $PKG=__PACKAGE__;
+St::vconst {
+  PX_EXT=>'.px',
+  STD_DIR_RE=>qr{(?:
 
     bin
   | lib
@@ -66,7 +63,10 @@ package Vault;
 
   | include
 
-  )}x;
+  )}x,
+
+};
+
 
 # ---   *   ---   *   ---
 # global state
@@ -77,17 +77,16 @@ package Vault;
   our $Cache_Regen  = {};
   our $File_Deps    = {};
 
+
 # ---   *   ---   *   ---
 # marks package as utilizing
 # the cache directory
 
 sub import($class,@args) {
-
-
   my ($pkgname,$file,$line)=caller;
   my $modname=Shb7::modof(abs_path($file));
 
-  return if($modname=~ $Std_Dirs);
+  return if($modname=~ $PKG->STD_DIR_RE);
 
 
   my $syskey=(defined $args[-1])
@@ -127,11 +126,11 @@ sub import($class,@args) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^gets module tree of registered
 
 sub check_module($name,$exclude=[]) {
-
   my $syspath = $Shb7::Path::Root;
   my $frame   = $Systems->{$syspath};
 
@@ -152,13 +151,15 @@ sub check_module($name,$exclude=[]) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^finds a project cache file
 
 sub px_file($name) {
-  return Shb7::cache("$name$PX_EXT");
+  return Shb7::cache("$name" . $PKG->PX_EXT);
 
 };
+
 
 # ---   *   ---   *   ---
 # creates file tree for
@@ -176,14 +177,12 @@ sub module_tree($name,$excluded=[]) {
 
   # load existing
   if(-f $modf) {
-
     my $mod=retrieve($modf);
     $frame->{-roots}->{$name}=$mod;
 
 
   # generate
   } else {
-
     my $path =  "$syspath/$name/";
        $path =~ s[$FSLASH_RE+][/]sxmg;
 
@@ -217,14 +216,12 @@ sub module_tree($name,$excluded=[]) {
 # get list of updated trees
 
 sub get_module_update() {
-
   my @out=();
 
   for my $syspath(keys %$Systems) {
-
     my $frame=$Systems->{$syspath};
-    for my $modname(keys %{$frame->{-roots}}) {
 
+    for my $modname(keys %{$frame->{-roots}}) {
       my $updated=$Needs_Update->{$modname};
 
       next if $modname=~ m[\.trash];
@@ -239,6 +236,7 @@ sub get_module_update() {
   return @out;
 
 };
+
 
 # ---   *   ---   *   ---
 # dump trees to cache
@@ -255,12 +253,11 @@ END {
 
 
   for my $ref(@updated) {
-
     my ($modname,$frame)=@$ref;
 
     # save tree to disk
     my $modf=Shb7::cache(
-      "$modname$PX_EXT"
+      "$modname" . $PKG->PX_EXT
 
     );
 
@@ -276,13 +273,12 @@ END {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^similar, cached objects
 
 END {
-
   my $done=int(%{$Cache_Regen});
-
   $WLog->mprich(
     'AR/Vault',
     'updating object cache'
@@ -301,6 +297,7 @@ END {
 
 };
 
+
 # ---   *   ---   *   ---
 # get object needs update
 #
@@ -308,7 +305,6 @@ END {
 # cache sub directory
 
 sub cached_dir($file) {
-
   my $path = cashof($file);
   my $dir  = dirof($path);
 
@@ -316,7 +312,7 @@ sub cached_dir($file) {
   or exists $Cache_Regen->{$path};
 
   # get entry or make new
-  -e $dir or `mkdir -p $dir`;
+  reqdir($dir);
 
 
   # have existing?
@@ -337,7 +333,6 @@ sub cached_dir($file) {
 
   # pack and give
   return {
-
     rbld => $rbld,
     path => $path,
     data => $data,
@@ -354,18 +349,11 @@ sub rof($file,$key,$call,@args) {
   # get ctx
   my $cache = cached_dir($file);
   my $data  = $cache->{data};
-
   my $out   = undef;
 
 
   # regen entry?
-  if(
-
-  !  exists $data->{$key}
-  || $cache->{rbld}
-
-  ) {
-
+  if(! exists $data->{$key} || $cache->{rbld}) {
     $out=$data->{$key}=$call->(@args);
     cashreg($cache->{path},$data);
 
@@ -374,6 +362,7 @@ sub rof($file,$key,$call,@args) {
     $out=$data->{$key};
 
   };
+
 
   return $out;
 
@@ -384,22 +373,15 @@ sub rof($file,$key,$call,@args) {
 
 sub frof($file,$call,@args) {
 
-
   # get ctx
   my $cache = cached_dir($file);
   my $data  = $cache->{data};
-
   my $out   = undef;
 
 
   # regen entry?
-  if(
-
-  !  defined $data
-  || $cache->{rbld}
-
-  ) {
-
+  if(defined $data
+  || $cache->{rbld}) {
     $out=$data=$call->(@args);
     cashreg($cache->{path},$data);
 
@@ -409,6 +391,7 @@ sub frof($file,$call,@args) {
 
   };
 
+
   return $out;
 
 };
@@ -417,7 +400,6 @@ sub frof($file,$call,@args) {
 # mark file as a dependency
 
 sub depson(@list) {
-
 
   # get/nit handle to module deps
   my $file = (caller)[1];
@@ -432,6 +414,8 @@ sub depson(@list) {
   # ^push to module deps
   push @{$$vref},map {abs_path $ARG} @list;
   array_dupop $$vref;
+
+  return;
 
 
 };
@@ -475,6 +459,7 @@ sub cashof($file) {
 
 sub cashreg($path,$h) {
   $Cache_Regen->{$path}=$h;
+  return;
 
 };
 
@@ -483,16 +468,14 @@ sub cashreg($path,$h) {
 # is a valid path
 
 sub fchk($var) {
-
-  my $out=(is_hashref($var))
+  my $out=(is_hashref $var)
     ? $var
     : undef
     ;
 
   # early ret
-  goto SKIP if $out;
+  goto skip if $out;
 
-# ---   *   ---   *   ---
 
   # validate input
   ! length ref $var or errout(
@@ -505,15 +488,17 @@ sub fchk($var) {
   );
 
   # ^fetch
-  my $path=Shb7::ffind($var) or croak;
+  my $path=Shb7::ffind($var)
+  or croak "Cannot find object '$var'";
+
   $out=retrieve($path);
 
-# ---   *   ---   *   ---
 
-SKIP:
+  skip:
   return $out;
 
 };
+
 
 # ---   *   ---   *   ---
 # selfex
@@ -522,6 +507,7 @@ sub deepcpy($o) {
   return thaw(freeze($o));
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

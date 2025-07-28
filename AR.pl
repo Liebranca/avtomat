@@ -4,11 +4,16 @@
 # makescript for a makescript maker
 
 # ---   *   ---   *   ---
-# sanity check
+# deps
 
-use v5.36.0;
-use strict;
-use warnings;
+package main;
+  use v5.42.0;
+  use strict;
+  use warnings;
+
+
+# ---   *   ---   *   ---
+# sanity check
 
 my $clean=0;
 for my $v(@ARGV) {
@@ -25,7 +30,7 @@ my $root=$ENV{'ARPATH'};if(!$root) {
 
 };
 
-chdir $ENV{'ARPATH'}.'/avtomat/';
+chdir "$ENV{ARPATH}/avtomat/";
 
 my $ARTAG="\e[37;1m<\e[34;22mAR\e[37;1m>\e[0m";
 my $trashd=$ENV{'ARPATH'}.'/.trash/avtomat/';
@@ -45,14 +50,17 @@ if($clean) {
 
 `./BOOTSTRAP 0 > $trashd/MAM.pm`;
 
+
 # ---   *   ---   *   ---
 
 my $FILE_LIST=[
 
-# ---   *   ---   *   ---
-# sys first
 
+  # sys first
   '/sys/Style.pm',
+  '/sys/Chk.pm',
+  '/sys/Frame.pm',
+  '/sys/St.pm',
   '/sys/Arstd.pm',
 
   '/sys/Arstd/Bytes.pm',
@@ -61,17 +69,13 @@ my $FILE_LIST=[
   '/sys/Arstd/Array.pm',
   '/sys/Arstd/Hash.pm',
   '/sys/Arstd/Re.pm',
+  '/sys/Arstd/Repl.pm',
   '/sys/Arstd/Path.pm',
   '/sys/Arstd/IO.pm',
   '/sys/Arstd/PM.pm',
   '/sys/Arstd/WLog.pm',
-  '/sys/Arstd/Test.pm',
 
-  '/sys/Chk.pm',
   '/sys/Warnme.pm',
-
-  '/sys/St.pm',
-  '/sys/Frame.pm',
 
   '/sys/Queue.pm',
   '/sys/Cask.pm',
@@ -86,6 +90,7 @@ my $FILE_LIST=[
   '/sys/Type/Cpp.pm',
   '/sys/Type/Platypus.pm',
 
+  # build utils...
   '/sys/Shb7.pm',
   '/sys/Shb7/Path.pm',
   '/sys/Shb7/Find.pm',
@@ -97,70 +102,44 @@ my $FILE_LIST=[
   '/sys/Shb7/Bk/fake.pm',
   '/sys/Shb7/Build.pm',
 
+  # nice to have
   '/sys/Vault.pm',
   '/sys/Cli.pm',
   '/sys/Fmat.pm',
-
-# ---   *   ---   *   ---
-# then build Mach
-
-  '/sys/Mach/Seg.pm',
-  '/sys/Mach/Struc.pm',
-  '/sys/Mach/Reg.pm',
-  '/sys/Mach/Micro.pm',
-  '/sys/Mach/Opcode.pm',
-
-  '/sys/Mach.pm',
-
-# ---   *   ---   *   ---
-# then filters and hacks
-
-  '/hacks/Shwl.pm',
-  '/hacks/Lyfil.pm',
-
-# ---   *   ---   *   ---
-# then language and utils
-
-  '/Lang.pm',
-  '/Lang/Def.pm',
+  '/sys/SourceFilter.pm',
 
 
-  '/Grammar.pm',
-  '/Grammar/C.pm',
+
+  # then language and utils
+  '/sys/Ftype.pm',
+  '/sys/Ftype/Text.pm',
 
   '/Emit.pm',
   '/Emit/Std.pm',
   '/Emit/C.pm',
   '/Emit/Perl.pm',
 
-  '/Lang/fasm.pm',
-  '/Lang/peso.pm',
+  '/sys/Ftype/Text/fasm.pm',
+  '/sys/Ftype/Text/C.pm',
 
-  '/Lang/C.pm',
-  '/Lang/Rust.pm',
+  '/sys/Ftype/Text/peso.pm',
+  '/sys/Ftype/Text/SinGL.pm',
 
-  '/Lang/SinGL.pm',
+  '/sys/Ftype/Text/Perl.pm',
+  '/sys/Ftype/Text/Python.pm',
 
-  '/Lang/Perl.pm',
-  '/Lang/Raku.pm',
+  '/sys/Ftype/Text/Js.pm',
+  '/sys/Ftype/Text/Mny.pm',
 
-# ---   *   ---   *   ---
-# then everything else
-
+  # then everything else
   '/Avt/Sieve.pm',
+  '/Avt/Xcav/C.pm',
   '/Avt/Xcav.pm',
   '/Avt/Makescript.pm',
   '/Avt.pm',
 
-  '/Lang/Mny.pm',
-  '/Lang/Python.pm',
-
-# ---   *   ---   *   ---
-# trash goes in last
-
-  '/Lang/Js.pm',
-
 ];
+
 
 # ---   *   ---   *   ---
 # in: file list,src path,dst path
@@ -316,6 +295,7 @@ sub update {
 
 };
 
+
 # ---   *   ---   *   ---
 # check libs
 
@@ -326,25 +306,28 @@ if(! (-e $path) ) { `mkdir -p $path`; };
 # pretty out
 print {*STDERR} "$ARTAG starting update\n";
 
+
 # ---   *   ---   *   ---
+# run for all files
 
 update(
 
   $FILE_LIST,
-  $root.'/avtomat',$path,2
+  "$root/avtomat",$path,2
 
 );
 
 `./BOOTSTRAP 1 > $libd/MAM.pm`;
-$path=$ENV{'ARPATH'}.'/lib';
-update(
+$path="$ENV{ARPATH}/lib";
 
+update(
   $FILE_LIST,
-  $root.'/.trash/avtomat',$path,1
+  "$root/.trash/avtomat",$path,1
 
 );
 
-## ---   *   ---   *   ---
+
+# ---   *   ---   *   ---
 # check bins
 
 $path=$ENV{'ARPATH'}.'/bin';
@@ -357,6 +340,7 @@ update(
   ],$root.'/avtomat',$path
 
 );
+
 
 ## ---   *   ---   *   ---
 ## check headers
@@ -373,6 +357,7 @@ update(
 #
 #);
 
+
 # ---   *   ---   *   ---
 # this effen script...
 
@@ -381,8 +366,6 @@ print {*STDERR}
 
 print {*STDERR}
   `$ENV{'ARPATH'}'/avtomat/bin/sygen'`;
-
-# ---   *   ---   *   ---
 
 print {*STDERR} "\e[37;1m::\e[0mdone\n\n";
 

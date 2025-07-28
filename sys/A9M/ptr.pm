@@ -8,22 +8,21 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package A9M::ptr;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match_vars);
+  use English;
 
   use List::Util qw(max);
 
-  use lib $ENV{ARPATH}.'/lib/sys/';
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Chk;
@@ -37,7 +36,7 @@ package A9M::ptr;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#a
+  our $VERSION = 'v0.01.1a';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -47,7 +46,7 @@ St::vconst {
 
   DEFAULT => {
 
-    type   => $Type::DEFAULT,
+    type   => Type->DEFAULT,
     label  => null,
 
     ptr_t  => undef,

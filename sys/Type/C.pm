@@ -34,41 +34,102 @@ package Type::C;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;#a
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v0.00.1a';
+  our $AUTHOR  = 'IBN-3DILA';
+
+
+# ---   *   ---   *   ---
+# batch make type alias
+
+sub batlis($class,$C,$peso) {
+
+  return "$C" => "$peso"
+  if $peso=~ qr{^(?:nullarg|long|longptr)$};
+
+  return (
+
+    "$C" => "$peso",
+
+    (! Type->is_str($peso))
+      ? ("$C*"  => "$peso long",
+         "$C*"  => "$peso longptr",
+         "$C**" => "long pptr")
+
+      : ("$C"   => "${peso}ptr",
+         "$C*"  => "long pptr")
+      ,
+
+  );
+
+};
+
+
+# ---   *   ---   *   ---
+# ^adds entry to table
+
+sub add($class,$C,$peso) {
+
+  my $have={$class->batlis($C,$peso)};
+
+  map {
+    $class->Table->{$ARG}=$have->{$ARG};
+    $class->RTable->{$have->{$ARG}}=$ARG;
+
+  } grep {
+    ! exists $class->Table->{$ARG};
+
+  } keys %$have;
+
+
+  return;
+
+};
+
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $TABLE => Vault::cached(
+BEGIN {
+
+  St::vconst {
+
+    Table  => {},
+    RTable => {},
+
+  };
 
 
-    q[TABLE] =>
-      \&Type::xlatetab,q[Type::C],
+  Type::xlatetab(
 
+    __PACKAGE__,
 
-    q[sign_byte]      => ['int8_t'],
+    q[sign byte]      => ['char','int8_t'],
     q[byte]           => [
-      'uint8_t','uchar','unsigned char'
+      'unsigned char','uint8_t'
 
     ],
 
-    q[sign_word]      => ['int16_t','short'],
-    q[word]           => ['uint16_t','ushort'],
+    q[sign word]      => ['short','int16_t'],
+    q[word]           => [
+      'unsigned short','uint16_t'
 
-    q[long_byte_cstr] => ['char*'],
-    q[long_wide_cstr] => ['wchar_t*'],
+    ],
 
-    q[dword]          => ['uint32_t','uint'],
-    q[sign_dword]     => ['int32_t','int'],
+    q[byte cstr long] => ['char*'],
+    q[wide cstr long] => ['wchar_t*'],
+
+    q[dword]=>['unsigned int','uint32_t'],
+
+    q[sign dword]     => ['int','int32_t'],
 
     q[qword]          => [
-      'uint64_t','ulong','size_t','uintptr_t',
+      'unsigned long','size_t',
+      'uintptr_t','uint64_t'
 
     ],
 
-    q[sign_qword]     => [
-      'int64_t','long','intptr_t',
+    q[sign qword]     => [
+      'long','intptr_t','int64_t'
 
     ],
 
@@ -76,28 +137,13 @@ package Type::C;
     q[dreal]          => ['double'],
 
     q[nullarg]        => ['void'],
+    q[longptr]        => ['void*'],
+    q[long]           => ['void*'],
 
-  );
-
-# ---   *   ---   *   ---
-# batch make type alias
-
-sub batlis($class,$C,$peso) {
-
-  my $star = $NULLSTR;
-  my @out  = ("$C" => "$peso");
-
-
-  $peso = "long_${peso}"
-  if (! Type->is_str($peso));
-
-  return @out,map {
-    $star .= '*';
-    "$C$star" => "${peso}_$ARG";
-
-  } @{$Type::PTR_T_LIST};
+  ) if ! %{__PACKAGE__->Table};
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

@@ -8,14 +8,13 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Arstd::Bytes;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
@@ -23,11 +22,12 @@ package Arstd::Bytes;
   use Readonly;
   use Module::Load;
 
-  use English qw(-no_match_vars);
+  use English;
   use List::Util qw(max min);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
   use Style;
+
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -64,11 +64,13 @@ package Arstd::Bytes;
 
   );
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#b
+  our $VERSION = 'v0.00.8';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
@@ -82,6 +84,7 @@ package Arstd::Bytes;
   };
 
   Readonly our $BITOPS_LIMIT=>64;
+
 
 # ---   *   ---   *   ---
 # get bitsize of number
@@ -107,6 +110,7 @@ sub bitsize($x) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^get a bitmask for n number of bits
 
@@ -114,6 +118,7 @@ sub bitmask($x) {
   return (1 << $x)-1;
 
 };
+
 
 # ---   *   ---   *   ---
 # cats bit fields to make str
@@ -192,6 +197,7 @@ sub bitcat(@elems) {
 
 };
 
+
 # ---   *   ---   *   ---
 # bsf -- if you know, you know ;>
 
@@ -214,6 +220,7 @@ sub bitscanf($x) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^bsr
 
@@ -232,6 +239,7 @@ sub bitscanr($x) {
 
 };
 
+
 # ---   *   ---   *   ---
 # div bitsize by 8, rounded up
 
@@ -240,6 +248,7 @@ sub bytesize($x) {
   return int(($bits/8)+0.9999);
 
 };
+
 
 # ---   *   ---   *   ---
 # open/close bytestr for reading
@@ -282,6 +291,7 @@ sub bitsume_unpack($sref,%O) {
   };
 
 };
+
 
 # ---   *   ---   *   ---
 # ^consume bits of bytestr
@@ -357,6 +367,7 @@ sub bitsume($mem,@steps) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^crux
 
@@ -372,6 +383,7 @@ sub bitsumex($sref,@steps) {
   return @out;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^errme for OOB reads
@@ -396,6 +408,7 @@ sub throw_oob_bit($i,$j) {
 
 };
 
+
 # ---   *   ---   *   ---
 # byte-wise reversal
 #
@@ -404,7 +417,7 @@ sub throw_oob_bit($i,$j) {
 
 sub brev($str,$step,$cnt) {
 
-  my @chars = split $NULLSTR,$str;
+  my @chars = split null,$str;
 
   my $beg   = 0;
   my $end   = $step;
@@ -413,10 +426,10 @@ sub brev($str,$step,$cnt) {
 
   # generate [cnt] chunks
   # and join them
-  my $out=join $NULLSTR,map {
+  my $out=join null,map {
 
     # take N-chars as individual chunk
-    my $x=join $NULLSTR,@chars[$beg..$end-1];
+    my $x=join null,@chars[$beg..$end-1];
 
     # go next
     $beg += $step;
@@ -431,6 +444,7 @@ sub brev($str,$step,$cnt) {
   return $out;
 
 };
+
 
 # ---   *   ---   *   ---
 # multi-byte ord
@@ -448,7 +462,7 @@ sub mord($str,%O) {
   my $word = 0;
   my $b    = 0;
 
-  for my $c(split $NULLSTR,$str) {
+  for my $c(split null,$str) {
 
     $word |= ord($c) << $b;
     $b    += $O{width};
@@ -460,6 +474,7 @@ sub mord($str,%O) {
   return $word;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^fixes that problem
@@ -517,6 +532,7 @@ sub lmord($str,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # multi-byte chr
 # assumes array of quadwords
@@ -534,7 +550,7 @@ sub mchr($data,%O) {
   @$data=reverse @$data if $O{rev};
 
   my $fmat = $PACK_FMAT->{$O{width}};
-  my $str  = $NULLSTR;
+  my $str  = null;
   my $word = shift @$data;
 
   my $b    = 0;
@@ -581,6 +597,7 @@ sub mchr($data,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # encodes strings the boring way
 
@@ -598,6 +615,7 @@ sub pastr($s,%O) {
   return pack $fmat,$len,@bs;
 
 };
+
 
 # ---   *   ---   *   ---
 # std hexdump printer
@@ -620,7 +638,7 @@ sub xe($bytes,%O) {
   my @chunks = ();
 
   my $zcnt  = $O{word} * 2;
-  my $me    = $NULLSTR;
+  my $me    = null;
   my $pad   = q[ ] x $O{pad};
 
   my $width = int(@$bytes);
@@ -656,8 +674,8 @@ sub xe($bytes,%O) {
       push @chunks,$i if ! ($i < 0);
 
       # optionally add chars matching bytes
-      my $asstr=$NULLSTR;
-      $asstr.=(join $NULLSTR,mchr(
+      my $asstr=null;
+      $asstr.=(join null,mchr(
 
         \@accum,
 
@@ -677,7 +695,7 @@ sub xe($bytes,%O) {
       push @xlate,$asstr;
 
       # ^clear
-      $me    = $NULLSTR;
+      $me    = null;
       @accum = ();
 
     };
@@ -711,6 +729,7 @@ sub xe($bytes,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^"micro" form
 #
@@ -727,7 +746,7 @@ sub machxe($s,%O) {
   $O{end}   //= 1;
   $O{line}  //= 4;
 
-  my $out=$NULLSTR;
+  my $out=null;
 
   # cut
   my $full = substr $s,$O{beg},$O{end};
@@ -742,7 +761,7 @@ sub machxe($s,%O) {
     map {
       $out.=sprintf "%02X       ",ord($ARG)
 
-    } split $NULLSTR,$ARG;
+    } split null,$ARG;
 
     $out.="\n";
 
@@ -750,7 +769,7 @@ sub machxe($s,%O) {
     map {
       $out.=sprintf "%08B ",ord($ARG)
 
-    } split $NULLSTR,$ARG;
+    } split null,$ARG;
 
     $out.="\n";
 
@@ -760,6 +779,7 @@ sub machxe($s,%O) {
   say $out;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

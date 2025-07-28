@@ -8,20 +8,19 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package A9M::ISA::encoding;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match_words);
-  use lib $ENV{ARPATH}.'/lib/sys/';
+  use English;
 
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
   use Type;
   use Warnme;
@@ -36,7 +35,7 @@ package A9M::ISA::encoding;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#a
+  our $VERSION = 'v0.00.3a';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -292,7 +291,7 @@ sub operand_tid($class,$super) {
 
   return {
 
-    $NULLSTR => 0b000000,
+    q[]      => 0b000000,
     d        => 0b000000,
     s        => 0b000000,
 

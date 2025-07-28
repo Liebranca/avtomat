@@ -1,39 +1,53 @@
 #!/usr/bin/perl
+# ---   *   ---   *   ---
+# A BUILD TOOL MUST BUILD ITSELF
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lib,
 
 # ---   *   ---   *   ---
 # deps
-  use v5.36.0;
+
+package main;
+  use v5.42.0;
   use strict;
   use warnings;
 
-# ---   *   ---   *   ---
 
-my $round=shift @ARGV;
+# ---   *   ---   *   ---
+# procs MAM so that it can proc other files ;>
+
+my $round = shift @ARGV;
+my $FH    = undef;
 
 chdir $ENV{'ARPATH'}.'/avtomat/';
-open my $FH,'<','MAM.pm' or die "$!";
+open  $FH,'<','MAM.pm' or die "$!";
 
-my $whole=q{};
+my $whole='';
 while(my $line=readline $FH) {
 
-  my $avtolib="{'ARPATH'}.'/lib";
-
-  my $swaplib="{'ARPATH'}.'/.trash/avtomat";
+  my $avtolib="{ARPATH}/lib";
+  my $swaplib="{ARPATH}/.trash/avtomat";
 
   if($round) {
-
     my $tmp=$avtolib;
     $avtolib=$swaplib;
     $swaplib=$tmp;
 
   };
 
-  $line=~ s[$avtolib] [$swaplib];
-  $whole.=$line;
+  $line   =~ s[$avtolib][$swaplib];
+  $whole .=  $line;
 
 };
 
 print "$whole\n";
 close $FH or die "$!";
 
+
 # ---   *   ---   *   ---
+1; # ret

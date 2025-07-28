@@ -1,47 +1,57 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
 # SYGEN
-# Creates syntax files from
-# available definitions
+# Makes syntax files from
+# Ftype::Text instances
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
-package main;
-
-  use v5.36.0;
+package sygen;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match_vars);
+  use Carp;
+  use English;
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
-
   use Style;
-  use Arstd::String;
-  use Arstd::Array;
-  use Arstd::Re;
   use Chk;
-  use Fmat;
+
+  use Arstd::Path qw(extcl fname_to_pkg);
+  use Arstd::String qw(gstrip dqwrap sqwrap);
+  use Arstd::Array qw(array_keys);
+  use Arstd::Re qw(qre2re);
+  use Arstd::PM qw(cloadi);
 
   use Shb7;
+  use Ftype;
 
-  use lib $ENV{'ARPATH'}.'/lib/';
+  use parent 'St';
 
-  use Lang;
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = 'v0.02.0';
+  our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
 
-  my @COLORS=qw(
+my $PKG=__PACKAGE__;
+St::vconst {
 
+  COLORS=>[qw(
     black red green yellow
     blue magenta cyan white
 
@@ -55,99 +65,99 @@ package main;
 
     brightwhite
 
-  );
+  )],
 
-# ---   *   ---   *   ---
-# ordered list of attrs to use for highlighting
 
-  my @KEYCOLOR=(
+  # ordered list of attrs to use for highlighting
+  KEYCOLOR_LIST => [
+    line        => 0x07,
+    nblank      => 0x07,
+    drfc        => 0x04,
 
-    common      => [0x07,'non'],
+    uc_name     => 0x0D,
+    fn          => 0x01,
+    shcmd       => 0x01,
 
-    hier        => [0x04,'identifier.ns'],
-    names_u     => [0x0D,'constant'],
-    pfun        => [0x01,'identifier.fn'],
-    shcmds      => [0x01,'constant.shcmd'],
-    pesc        => [0x0E,'preproc.peso'],
+    builtin     => 0x01,
+    fctl        => 0x0D,
+    type        => 0x04,
+    specifier   => 0x04,
 
-    builtins    => [0x01,'identifier.bltn'],
-    fctls       => [0x0D,'statement'],
-    types       => [0x04,'type'],
-    specifiers  => [0x04,'type.spec'],
+    intrinsic   => 0x04,
+    directive   => 0x0D,
+    resname     => 0x04,
 
-    intrinsics  => [0x04,'special'],
-    directives  => [0x0D,'identifier.dir'],
-    resnames    => [0x04,'identifier.res'],
+    pesc        => 0x0E,
+    preproc     => 0x0E,
 
-    nums        => [0x03,'constant.number'],
-    vstr        => [0x03,'constant.vstr'],
-    ops         => [0x0F,'symbol.operator'],
-    chars       => [0x0E,'constant.char'],
-    strings     => [0x0E,'constant.nstring'],
-    preproc     => [0x0E,'preproc'],
+    num         => 0x03,
+    opr         => 0x0F,
+    char        => 0x0E,
+    string      => 0x0E,
 
-    lcom        => [0x02,'comment'],
-    dev0        => [0x0B,'todo'],
-    dev1        => [0x09,'error'],
-    dev2        => [0x66,'special.blank'],
+    highlight   => 0x00,
 
-  );
+    lcom        => 0x02,
+    dev0        => 0x0B,
+    dev1        => 0x09,
+
+    blank       => 0x66,
+
+  ],
 
   # ^hash-ify for convenience
-  my %KEYCOLOR=@KEYCOLOR;
+  KEYCOLOR_HASH => sub {
+    my $color=$_[0]->KEYCOLOR_LIST;
+    return {@$color};
 
-# ---   *   ---   *   ---
-# remarkable exceptions to the rule
+  },
 
-  my $EITHS_NOWB={
+};
 
-    'Perl'=>{types=>1,},
-    'Raku'=>{types=>1,},
-
-  };
-
-# ---   *   ---   *   ---
-# global state
-
-  my $FNANO    = undef;
-  my $FMICRO   = undef;
-
-  my $FMICRO_C = undef;
 
 # ---   *   ---   *   ---
 # point to avtomat and retrieve langdefs
 
-Shb7::set_root($ENV{'ARPATH'});
-my $Tree=Shb7::walk('avtomat/Lang');
+sub get_files {
+  Shb7::set_root($ENV{'ARPATH'});
+  return Shb7::walk(
+    'avtomat/sys/Ftype/Text/',
+    -r=>1,
 
-# these files do not output a syntax file
-my $EXCLUDED=qr{
-
-  (?: Def[.]pm$)
-
-}x;
-
-# ^get list of files that do
-my @Files=grep
-  {!($ARG=~ $EXCLUDED)}
-  $Tree->get_file_list()
-
-;
-
-# ^import from list
-for my $lang(@Files) {
-
-  $lang=Shb7::shpath($lang);
-  $lang=~ s[^avtomat/Lang/][];
-  $lang=~ s/[.]pm$//;
-
-  # load the package
-  eval(q{use Lang::}.$lang.';');
-
-  # ^get reference to instance
-  $lang=eval(q{Lang->}.$lang);
+  )->get_file_list();
 
 };
+
+
+# ---   *   ---   *   ---
+# ^import
+
+sub load_file($fname) {
+
+  # shorten and clear extension
+  $fname=extcl Shb7::shpath($fname);
+  $fname=~ s[^avtomat/*sys/*][];
+
+  # ^load the package
+  my $class=fname_to_pkg $fname;
+  cloadi $class;
+
+
+  # give ice
+  return Ftype->fet($class);
+
+};
+
+
+# ---   *   ---   *   ---
+# plain xlate
+
+sub get_color_name { return join ',',(
+  $PKG->COLORS->[$_[0]  & 0xF],
+  $PKG->COLORS->[$_[0] >> 0x4],
+
+)};
+
 
 # ---   *   ---   *   ---
 # processes langdef attributes to use
@@ -155,260 +165,146 @@ for my $lang(@Files) {
 
 sub prprops($def,$key) {
 
-  state $highlights={};
-  my ($color,$mname,$v);
-
+  # extract from instance?
   if($key eq 'highlight') {
-    $v=shift @{$def->{highlight}};
-    $color=shift @{$def->{highlight}};
+    my $have=$def->{highlight};
+    return map {
+      my $value=$have->[$ARG*2+0];
+      my $color=$have->[$ARG*2+1];
+      make_rule($def,$key,$value,$color)
 
-    $mname=(exists $highlights->{$color})
-      ? $highlights->{$color}
-
-      : 'special.high_'.
-        chr(0x41+int(keys %$highlights))
-      ;
-
-    $highlights->{$color}=$mname;
-
-  } else {
-    $v=$def->{$key};
-    ($color,$mname)=@{$KEYCOLOR{$key}};
+    } 0..int(@$have/2)-1;
 
   };
 
-  # decode color
-  {
 
-    my ($fg,$bg)=(
-      $COLORS[$color&0xF],
-      $COLORS[$color>>4]
+  # ^nope, use inner table
+  my ($value,$color)=(
+    $def->fet($key),
+    $PKG->KEYCOLOR_HASH->{$key},
 
-    );
+  );
 
-
-    if(
-
-       exists $highlights->{$color}
-    || $mname eq 'special.blank'
-
-    ) {
-
-      say {$FMICRO_C}
-        "color-link $mname \"$fg,$bg\"";
-
-    } elsif(!($mname=~ m[non|special\.blank])) {
-
-      say {$FMICRO_C}
-        "color-link $mname \"$fg\"";
-
-    };
-
-    $color="$fg,$bg";
-
-  };
-
-  # nano syntax re was written by a degenerate
-  # [\[\]] does not match square brackets
-
-  if($key eq 'ops') {
-    $v='([^\s_A-Za-z0-9]|\\\\)';
-
-  };
-
-  # ^he's a double degenerate, the standard
-  # string matching patterns are terrible
-  my $strtype_re=qr{(?:
-
-    strings
-  | chars
-
-  | shcmds
-  | preproc
-  | pesc
-
-  )}x;
-
-  my ($strtype_beg,$strtype_end);
-  my $strtype_skip=q["\\\\\\\\."];
-
-  if($key=~ $strtype_re) {
-
-    if($key eq 'strings') {
-
-      $strtype_beg=q["\""];
-      $strtype_end=q["\""];
-
-      $v=Lang::delim(q{"});
-
-    } elsif($key eq 'chars') {
-
-      $strtype_beg=q["'"];
-      $strtype_end=q["'"];
-
-      $v=Lang::delim("'");
-
-    } elsif($key eq 'shcmds') {
-
-      $strtype_beg=q["`"];
-      $strtype_end=q["`"];
-
-      $v=Lang::delim(q{`});
-
-    } elsif($key eq 'preproc') {
-
-      $strtype_beg=q["^[[:space:]]#"];
-      $strtype_end=q["$"];
-
-      $v='^\s*#.*$';
-
-    } else {
-
-      $strtype_beg=q["\\\\$:"];
-      $strtype_end=q[";>"];
-
-      $v='\$\:.*;>';
-
-    };
-
-  };
-
-# ---   *   ---   *   ---
-# extract patterns
-
-  my @ar=($v);
-
-  if(is_arrayref($v)) {
-    @ar=@{$v};
-
-  } elsif(is_hashref($v)) {
-
-    delete $v->{re};
-
-    my @keys=keys %{$v};
-    @ar=();
-
-# ---   *   ---   *   ---
-# this abomination exists to accomodate sigils
-
-    if(exists $EITHS_NOWB
-      ->{$def->{name}}
-      ->{$key}
-
-    ) {
-
-      my @exclude=();
-      my @noproc=();
-
-      for my $elem(@keys) {
-        if(!($elem=~ m/^\(+(\[\$|\\\$)/)) {
-          push @exclude,$elem;
-
-        } else {
-          push @noproc,$elem;
-
-        };
-
-      };
-
-      @ar=@noproc;
-      @keys=@exclude;
-
-    };
-
-# ---   *   ---   *   ---
-# output key lists in blocks
-# for some reason this is faster
-
-    for(my $x=0;$x<@keys;$x+=32) {
-
-      my $top=(@keys>$x+31)
-        ? $x+31 : $#keys;
-
-      my @slice=(@keys[$x..$top]);
-      for my $re(@slice) {
-        qre2re(\$re);
-
-      };
-
-      # sort keys by length
-      @slice=sort {
-        (length $a)<=(length $b);
-
-      } @slice;
-
-      # join them into a single expression
-      my $re;
-      if($key eq 'nums') {
-        $re='('.(join '|',@slice).')';
-
-      } else {
-        $re='\b('.(join '|',@slice).')\b';
-
-      };
-
-      push @ar,$re;
-
-
-    };
-
-  };
-
-# ---   *   ---   *   ---
-# output patterns
-
-  for my $re(@ar) {
-
-    $re=~ s/\s+|\n//sxmg;
-    $re=join '\n',(split "\n",$re);
-
-    Lang::qre2re(\$re);
-
-    my $ore=$re;
-    $re=dqwrap($re);
-
-    print {$FNANO} "color $color $re\n";
-
-    $re=~ s[\\][\\\\]sxmg;
-
-    if($key=~ $strtype_re) {
-
-# degenerate micro yaml syntax files
-# have sigws python syndrome, as
-# changes to the identation of this
-# block tend to utterly fuck highlighting
-#
-#      my $rule  = "    - $mname:\n";
-#      $rule    .=
-#        "        start: $strtype_beg\n".
-#        "        end: $strtype_end\n".
-#        "        skip: $strtype_skip\n".
-#        "        rules: []\n"
-#
-#      ;
-#
-# """sane""" standards, eh?
-#
-# I give it a 1/10, go back to school
-#
-# ironically, unholy UBERSCAP regexes
-# are better than this modern shit
-#
-# so, for now, avoid altogether
-
-        $ore=~ s[\\][\\\\]sxmg;
-        $ore=~ s["][\\"]sxmg;
-
-        $re=dqwrap($ore);
-
-      };
-
-      print {$FMICRO} "    - $mname: $re\n\n"
-      if $mname ne 'non';
-
-  };
+  return make_rule($def,$key,$value,$color);
 
 };
+
+
+# ---   *   ---   *   ---
+# extract patterns from value
+
+sub extract($def,$key,$value) {
+
+  # scalar as-is
+  return $value
+  if ! length ref $value
+  || is_qre $value;
+
+  # ^arrayref as list
+  return @$value
+  if is_arrayref $value;
+
+  # ^throw if not a hashref
+  croak(
+    "Invalid value type: "
+  . sqwrap(ref $value)
+
+  ) if ! is_hashref $value;
+
+
+  # ^hashref is... complicated ;>
+  delete $value->{-re};
+
+  my @keys = keys %$value;
+  my @out  = ();
+
+
+  # this abomination exists to accomodate sigils
+  if(exists $def->{use_sigils}->{$key}) {
+    my @exclude = ();
+    my @noproc  = ();
+
+    map {
+      if(! ($ARG=~ m[ ^\(+ (\[\$ | \\\$) ]x)) {
+        push @exclude,$ARG;
+
+      } else {
+        push @noproc,$ARG;
+
+      };
+
+    } @keys;
+
+    @out  = @noproc;
+    @keys = @exclude;
+
+  };
+
+
+  # output key lists in blocks
+  # for some reason this is faster
+  for(my $x=0;$x < @keys;$x+=32) {
+    my $top=(@keys > $x+31)
+      ? $x+31
+      : $#keys
+      ;
+
+    my @slice=sort {
+      (length $a) <= (length $b);
+
+    } map {
+      qre2re \$ARG;$ARG;
+
+    } (@keys[$x..$top]);
+
+
+    # join them into a single expression
+    push @out,($key eq 'num')
+      ? '('   . (join '|',@slice) . ')'
+      : '\b(' . (join '|',@slice) . ')\b'
+      ;
+
+  };
+
+
+  return @out;
+
+};
+
+
+# ---   *   ---   *   ---
+# output patterns for specific entry
+
+sub make_rule($def,$key,$value,$color) {
+
+  return () if ! defined $value;
+  $color=get_color_name $color;
+
+  map {
+    $ARG=~ s[\s+|\n][]sxmg;
+    $ARG=  catar gstrip split "\n",$ARG;
+
+    qre2re \$ARG;
+    $ARG=dqwrap $ARG;
+
+    "color $color $ARG";
+
+  } extract($def,$key,$value);
+
+};
+
+
+# ---   *   ---   *   ---
+# ^goes through all rules
+
+sub get_file_syntax {
+  return join "\n",map {
+    prprops($_[0],$ARG);
+
+  } ((array_keys $PKG->KEYCOLOR_LIST));
+
+};
+
 
 # ---   *   ---   *   ---
 # iters through langdefs
@@ -416,151 +312,65 @@ sub prprops($def,$key) {
 
 sub make_syntax_files(%O) {
 
-  my $def        = $O{def};
-
-  my $path_nano  = $O{fnano};
-  my $path_micro = $O{fmicro};
-
-  open $FNANO,'>',$path_nano
-  or die strerr($path_nano);
-
-  open $FMICRO,'>',$path_micro
-  or die strerr($path_micro);
+  # open dst file
+  my ($def,$fpath)=($O{def},$O{fpath});
+  open my $fh,'>',$fpath or die strerr $fpath;
 
   # nano syntax file boiler
   my $prop='syntax '.(
-
     $def->{name} .' "'.
     $def->{ext} . '"'
 
   )."\n";
 
-  $prop.='header '.dqwrap($def->{hed})."\n";
-  $prop.='magic '.dqwrap($def->{mag})."\n";
+  $prop .= 'header ' . dqwrap($def->{hed}) . "\n";
+  $prop .= 'magic ' . dqwrap($def->{mag}) . "\n";
+
 
   # de-escape comments
-  $def->{com}=~ s/\\//sg;
-
   my $com=$def->{com};
-  $def->{lcom}=~ s/\\${com}/$com/sg;
+  $com=~ s[\\][]sg;
 
-  $prop.='comment '.dqwrap($def->{com})."\n";
+  $prop .= 'comment ' . dqwrap($com) . "\n";
 
-  # spit it out
-  print {$FNANO} "$prop\n";
 
-# ---   *   ---   *   ---
+  # get base patterns list and
+  # spit the whole thing out
+  print {$fh} $prop . get_file_syntax $def;
 
-  my $ext = $def->{ext};
-  my $hed = $def->{hed};
-  $ext    =~ s[\\][\\\\]sxmg;
-  $hed    =~ s[\\][\\\\]sxmg;
 
-  $prop   = "filetype: $def->{name}\n\n";
-  $prop  .= "detect:\n".
-    "    filename: ".dqwrap($ext)."\n";
-
-  $prop  .=($def->{hed} ne 'N/A')
-  ? "    header: ".dqwrap($hed)."\n"
-  : $NULLSTR
-  ;
-
-  $prop  .= "rules:\n";
-
-  print {$FMICRO} "$prop\n";
-
-# ---   *   ---   *   ---
-
-  # get patterns list
-  for my $key(array_keys(\@KEYCOLOR)) {
-    prprops($def,$key);
-
-  };
-
-  # overwrite rules
-  while(@{$def->{highlight}}) {
-    prprops($def,'highlight');
-
-  };
-
-  close $FNANO or die strerr($path_nano);
-  close $FMICRO or die strerr($path_micro);
+  # cleanup and give
+  close $fh or die strerr $fpath;
+  return;
 
 };
 
-# ---   *   ---   *   ---
-# setup paths
-
-my $Path         = glob("~/.config");
-my $Nano_Path    = "$Path/nano";
-my $Micro_Path   = "$Path/micro/syntax";
-
-my $Micro_C_Path = $Path.
-  "/micro/colorschemes/widower.micro";
-
-`mkdir -p $Nano_Path`
-if ! -d $Nano_Path;
-
-`mkdir -p $Micro_Path`
-if ! -d $Micro_Path;
-
-`mkdir -p $Path/micro/colorschemes/`
-if ! -d "$Path/micro/colorschemes/";
-
-open $FMICRO_C,'>',$Micro_C_Path
-or die strerr($Micro_C_Path);
 
 # ---   *   ---   *   ---
-# run the generator
+# entry point
 
-for my $lang(@Files) {
+sub generate {
+  my $config  = glob("~/.config");
+  my $nanorc  = "$config/nano";
 
-  make_syntax_files(
+  `mkdir -p $nanorc` if ! -d $nanorc;
 
-    # Lang::Def instance
-    def    => $lang,
 
-    # destination files
-    fnano  => "$Nano_Path/$lang->{name}.nanorc",
-    fmicro => "$Micro_Path/$lang->{name}.yaml",
+  # run the generator
+  map {
+    my $def=load_file $ARG;
+    make_syntax_files(
+      def   => $def,
+      fpath => "$nanorc/$def->{name}.nanorc",
 
-  );
+    );
+
+  } get_files;
 
 };
 
-# ---   *   ---   *   ---
-# complete the micro colorscheme
+generate;
 
-my %Fmc_Colors=(
-
-  'line-number'         => 'yellow',
-  'current-line-number' => 'yellow',
-
-  'status-line'         => 'green,brightblack',
-  'selection'           => 'yellow,magenta',
-  'tabbar'              => 'green,brightblack',
-
-  'message'             =>
-    'brightgreen,brightblack',
-
-  'error-message'       =>
-    'brightyellow,brightred',
-
-);
-
-for my $mname(keys %Fmc_Colors) {
-
-  my $color=$Fmc_Colors{$mname};
-
-  say {$FMICRO_C}
-    'color-link ',
-    "$mname ",
-
-    dqwrap($color)
-
-  ;
-
-};
 
 # ---   *   ---   *   ---
 1; # ret

@@ -14,13 +14,12 @@
 # deps
 
 package A9M;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match_vars);
-  use lib $ENV{ARPATH}.'/lib/sys/';
+  use English;
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Chk;
@@ -40,7 +39,7 @@ package A9M;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.0;#a
+  our $VERSION = 'v0.02.0';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -966,7 +965,7 @@ sub decl($self,$type,$name,$value,@subseg) {
 
     $type=($ptrcls->is_valid($value))
       ? $value->{type}
-      : $Type::DEFAULT
+      : Type->DEFAULT
       ;
 
   };

@@ -15,36 +15,42 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
+
 # ---   *   ---   *   ---
+# deps
 
 package MAM;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-
-  use English qw(-no_match_vars);
+  use English;
   use Cwd qw(abs_path);
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
-  use Arstd::IO;
   use Cli;
+  use Arstd::Repl;
+  use Arstd::IO;
 
-  use lib $ENV{'ARPATH'}.'/lib/hacks/';
+  use parent 'SourceFilter';
 
-  use Shwl;
-  use parent 'Lyfil';
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = 'v0.00.2a';
+  our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly my $OPTIONS=>[
+St::vconst {
 
+  OPTIONS=>[
     {id=>'module',short=>'-M',argc=>1},
     {id=>'no_comments',short=>'-nc'},
     {id=>'no_print',short=>'-np',},
@@ -52,104 +58,150 @@ package MAM;
     {id=>'rap'},
     {id=>'line_numbers',short=>'-ln'},
 
-  ];
+  ],
+
+  USE_RE=>qr{
+
+    \s* use \s+ lib \s+
+
+    "? \$ENV\{
+
+    [\s'"]* ARPATH
+    [\s'"]* \}
+
+    [\s'"\.]* /
+
+    (?<root> lib|.trash)
+    (?<path> [^;]+)
+
+    ['"] \s* ;
+
+
+  }x,
+
+};
+
 
 # ---   *   ---   *   ---
 # global state
 
-  my $SETTINGS={};
+  my $O={};
+
 
 # ---   *   ---   *   ---
+# adds/removes build directory
+#
+# we do this so that a module can
+# import the built version of others
+# _during_ the build process...
 
-sub import {
+sub repv($repl,$uid) {
 
-  my @opts=@_;
+  my $module = $O->{module};
+  my $have   = $repl->{capt}->[$uid];
+  my $beg    = "\n" . q[  use lib "$ENV{ARPATH}];
 
-  $SETTINGS=Cli->new(@$OPTIONS);
-  $SETTINGS->take(@opts);
+  my ($root,$path)=(
+    $have->{root},
+    $have->{path},
 
-  if($SETTINGS->{module} eq $NULL) {
-    $SETTINGS->{module}='avtomat';
+  );
+
+
+  # adding build directory?
+  if($O->{rap} ne null) {
+    return (
+      "$beg/$root/$path\";"
+    . "$beg/.trash/$module/$path\";"
+
+    );
+
+  } elsif($root eq '.trash') {
+    return null;
 
   };
 
-  my ($pkg,$fname,$lineno)=(caller);
-  my $self=MAM->new($fname,$lineno);
 
-  $self->filter_add($self);
+  return "$beg/$root/$path\";";
 
 };
 
+
 # ---   *   ---   *   ---
+# cstruc/entry
+
+sub import {
+
+  my ($class,@cmd)=@_;
+
+  $O=Cli->new(@{$class->OPTIONS});
+  $O->take(@cmd);
+
+  $O->{module}='avtomat'
+  if $O->{module} eq null;
+
+  my ($pkg,$fname,$lineno)=(caller);
+  my $self=$class->new($fname,$lineno);
+
+  $self->{repl}=Arstd::Repl->new(
+    inre => $class->USE_RE,
+    pre  => "USE$class",
+    repv => \&repv,
+
+  );
+
+
+  SourceFilter::filter_add($self);
+
+
+  return;
+
+};
+
+
+# ---   *   ---   *   ---
+# ^dstruc
 
 sub unimport {
   filter_del();
 
 };
 
+
 # ---   *   ---   *   ---
+# file reader
 
 sub filter {
 
   my ($self)=@_;
   my ($pkg,$fname,$lineno)=(caller);
 
-  my $body=orc($self->{fname});
 
-  my $modname=$SETTINGS->{module};
-  if($SETTINGS->{rap}!=$NULL) {
+  # read file and run textual replacement
+  my $body=orc $self->{fname};
+  $self->{repl}->proc(\$body);
+  $self->{repl}->clear();
 
-    $body=~ s{(
 
-      \{'ARPATH'\}[.]'/lib([^;]+)
-
-    )} {$1;
-  use lib \$ENV\{'ARPATH'\}.'/.trash/$modname$2}sxg;
-
-# ---   *   ---   *   ---
-
-  } else {
-
-    $body=~ s{
-
-      use \s+ lib \s+ \$ENV
-
-      \{'ARPATH'\}
-
-      [.]
-
-      '/.trash/${modname}[^;]+;
-
-    } {}sxg;
-
-  };
-
-# ---   *   ---   *   ---
-
-  if($SETTINGS->{line_numbers}!=$NULL) {
-
+  # give line numbers?
+  if($O->{line_numbers} ne null) {
     my $x=1;
-    my $whole='';
+    $body=join null,map {
+      sprintf "%4i %s\n",$x++,$ARG;
 
-    for my $line(split m/\n/,$body) {
-      $whole.=sprintf "%4i %s\n",$x++,$line;
-
-    };
-
-    $body=$whole;
+    } split $NEWLINE_RE,$body;
 
   };
 
-# ---   *   ---   *   ---
 
-  if($SETTINGS->{no_print}==$NULL) {
-    say $body;
+  # print out?
+  say $body if $O->{no_print} eq null;
 
-  };
 
   return 0;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

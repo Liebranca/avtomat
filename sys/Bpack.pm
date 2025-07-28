@@ -8,21 +8,18 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Bpack;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
   use English qw(-no_match_vars);
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use lib "$ENV{'ARPATH'}/lib/sys/";
 
   use Style;
   use Chk;
@@ -31,17 +28,20 @@ package Bpack;
   use Arstd::Array;
   use Arstd::IO;
 
+
 # ---   *   ---   *   ---
 # adds to your namespace
 
   use Exporter 'import';
   our @EXPORT=qw(bpack bunpack bunpacksu);
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = 'v0.00.6a';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # strucs can be passed in
@@ -71,10 +71,12 @@ sub strucun($src) {
 
 };
 
+
 # ---   *   ---   *   ---
-# ~
+# handle undef
 
 sub deforz {(defined $_[0]) ? $_[0] : 0x00 };
+
 
 # ---   *   ---   *   ---
 # de-nesting of peso type
@@ -99,6 +101,7 @@ sub unlay($type,$src) {
 
 };
 
+
 # ---   *   ---   *   ---
 # pack using peso types
 
@@ -107,7 +110,6 @@ sub bpack($struc,@data) {
   # fetch
   my @type=strucun($struc);
 
-
   # ^match data to type
   my $idex  = 0;
   my $len   = 0;
@@ -115,35 +117,35 @@ sub bpack($struc,@data) {
   my @bytes = map {
 
 
-      # get next type
-      my $type = array_wrap(\@type,$idex++);
-      my $size = $type->{sizeof};
-      my $fmat = $type->{packof};
+    # get next type
+    my $type = array_wrap(\@type,$idex++);
+    my $size = $type->{sizeof};
+    my $fmat = $type->{packof};
 
-      # have string?
-      my ($str_t) = Type->is_str($type);
-      my $cnt     = ($str_t)
-        ? int($fmat ne 'ux')+length $ARG
-        : 1
-        ;
+    # have string?
+    my ($str_t) = Type->is_str($type);
+    my $cnt     = ($str_t)
+      ? int($fmat ne 'ux')+length $ARG
+      : 1
+      ;
 
-      if($str_t && $fmat eq 'ux') {
+    if($str_t && $fmat eq 'ux') {
 
-        my $give=pack 'ux',unlay $type,$ARG;
-        $len += length $give;
+      my $give=pack 'ux',unlay $type,$ARG;
+      $len += length $give;
 
-        $give;
+      $give;
 
-      } else {
+    } else {
 
-        $len += $size * $cnt;
+      $len += $size * $cnt;
 
 
-        # ^pack chunk accto type
-        pack  $type->{packof},
-        unlay $type,$ARG;
+      # ^pack chunk accto type
+      pack  $type->{packof},
+      unlay $type,$ARG;
 
-      };
+    };
 
 
   } array_flatten [@data];
@@ -157,6 +159,7 @@ sub bpack($struc,@data) {
   };
 
 };
+
 
 # ---   *   ---   *   ---
 # copy layout of peso type
@@ -186,6 +189,7 @@ sub layas($type,@src) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^makes hashref!
 
@@ -200,6 +204,7 @@ sub _layas_struc($type,@src) {
   return {map {$ARG=>$src[$fi++]} @$field};
 
 };
+
 
 # ---   *   ---   *   ---
 # unpack using peso types
@@ -268,6 +273,7 @@ sub bunpack($struc,$srcref,$pos=0,$cnt=1) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^consumes input
 
@@ -291,11 +297,12 @@ sub bunpacksu($struc,$srcref,$pos=0,$cnt=1) {
 
   if ! length $b;
 
-  substr $$srcref,$pos,$b->{len},$NULLSTR;
+  substr $$srcref,$pos,$b->{len},null;
 
   return $b;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

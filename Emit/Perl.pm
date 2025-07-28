@@ -8,10 +8,11 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
-# ---   *   ---   *   ---
+# lib,
 
+# ---   *   ---   *   ---
 # deps
+
 package Emit::Perl;
 
   use v5.36.0;
@@ -30,6 +31,7 @@ package Emit::Perl;
 
   use Arstd::Path;
   use Arstd::Array;
+  use Arstd::PM qw(cload);
 
   use Shb7::Path;
   use Shb7::Build;
@@ -42,37 +44,35 @@ package Emit::Perl;
 
   use parent 'Emit';
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#b
+  our $VERSION = 'v0.00.6';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # the stuff you paste up top
 
 sub open_guards($class,$fname) {
 
-  return join "\n",
-
+  return join "\n",(
     "package $fname;",
     "  use v5.36.0;",
     "  use strict;",
     "  use warnings;",
+    "  use English;",
 
-    "  use English qw(-no_match_vars);",
-
-    "  use lib \$ENV{'ARPATH'}.'/lib/sys/';",
-    "  use lib \$ENV{'ARPATH'}.'/lib/';",
+    q[  use lib "$ENV{ARPATH}/lib/sys/";],
+    q[  use lib "$ENV{ARPATH}/lib/";],
 
     "  use Style;",
-    "  use Arstd::Path;",
 
-    "\n"
-
-  ;
+  );
 
 };
+
 
 # ---   *   ---   *   ---
 # ^on steroids
@@ -81,63 +81,67 @@ sub boiler_open($class,$fname,%O) {
 
   $O{def}//=[];
 
-  my $note = Emit::Std::note($O{author},q[#]);
+  my $note=Emit::Std::note($O{author},q[#]);
 
-  my $defi = 0;
-  my @defk = array_keys($O{def});
-  my @defv = array_values($O{def});
-
-
-  return join "\n",
-
+  return join "\n",(
 
     "#!/usr/bin/perl",
 
     $note,
     $class->open_guards($fname),
 
+    (map {"  use lib $ARG;"} @{$O{lib}}),
+    (map {"  use $ARG;"} @{$O{inc}}),
 
-    (join "\n",map {
-      "  use lib $ARG;"
-
-    } @{$O{lib}}),
-
-    (join "\n",map {
-      "  use $ARG;"
-
-    } @{$O{inc}}),
-
-
-    (join "\n",map {
-
-      my $name  = $ARG;
-      my $value = $defv[$defi++];
-
-      "Readonly $name=>$value;";
-
-    } @defk),
-
+    $class->make_ROM($O{def}),
     "\n"
 
-  ;
+  );
 
 };
+
 
 # ---   *   ---   *   ---
 # ^closer
 
 sub boiler_close($class,$fname,%O) {
 
-  return join "\n",
-
+  return join "\n",(
     "\n# ---   *   ---   *   ---",
-    "1; # ret",
+    "1; # ret\n",
 
-    "\n"
-
-  ;
+  );
 
 };
+
+
+# ---   *   ---   *   ---
+# pastes stuff into St::vconst
+
+sub make_ROM($def=undef) {
+
+  # early exit?
+  $def //= [];
+  return () if ! @$def;
+
+
+  # good stuff
+  my $defi = 0;
+  my @defk = array_keys   $def;
+  my @defv = array_values $def;
+
+  return 'St::vconst {',(map {
+
+    my $name  = $ARG;
+    my $value = $defv[$defi++];
+
+    "  $name=>$value;";
+
+
+  } @defk),'};';
+
+};
+
 
 # ---   *   ---   *   ---
 # applies formatting to code
@@ -146,6 +150,7 @@ sub tidy($class,$sref) {
   return Fmat::tidyup($sref);
 
 };
+
 
 # ---   *   ---   *   ---
 # derive package name from
@@ -157,85 +162,74 @@ sub get_pkg($class,$fname) {
 
 };
 
+
 # ---   *   ---   *   ---
-# generates shadowlib
+# use shwl to make XS module glue
 
-sub shwlbind($soname,$libs_ref) {
+sub shwlbind($class,$soname,$libs_ref) {
 
-  my %symtab=%{
-    Shb7::Build::soregen($soname,$libs_ref)
-
-  };
-
-  my $code=<<"EOF"
-
-  our \$FFI_Instance=undef;
-  our \$Initialized=0;
-
-sub import {
-
-  if(\$Initialized) {return};
-
-  my \$libfold=dirof(__FILE__);
-  \$FFI_Instance=Avt::FFI->get_instance(0);
-
-  \$FFI_Instance->lib(
-    "\$libfold/lib$soname.so"
+  my $symtab=Shb7::Build::soregen(
+    $soname,$libs_ref
 
   );
 
-EOF
-;
+  my $code=null;
 
 
-  # attach symbols from table
-  my $tab=$NULLSTR;
+  # make header for bindings
+  my $hed=null;
+  for my $file(keys %{$symtab->{objects}}) {
 
-  for my $o(keys %{$symtab{objects}}) {
+    my $obj   = $symtab->{objects}->{$file};
+    my $funcs = $obj->{functions};
 
-    my $obj=$symtab{objects}->{$o};
-    my $funcs=$obj->{functions};
-    $tab.="\n\n".
+    $hed .= (
 
-    '# ---   *   ---   *   ---'."\n".
-    "# $o\n\n";
+      "\n\n"
 
-    for my $fn_name(keys %$funcs) {
+    . "// ---   *   ---   *   ---\n"
+    . "// $file\n\n"
 
-      my $fn=$funcs->{$fn_name};
-
-      my @ar=array_values($fn->{args});
-      for my $s(@ar) {
-        $s="'$s'";
-
-      };
+    );
 
 
-      my $arg_types='['.( join(
-        ',',@ar
+    # walk functions
+    map {
 
-      )).']';
+      my $name  = $ARG;
+      my $fn    = $funcs->{$name};
 
-      my $rtype=$fn->{rtype};
+      my @ar    = array_values($fn->{args});
 
-      $tab.=''.
-        "my \$$fn_name=\'$fn_name\';\n".
+      my $args  = join ',',@ar;
+      my $rtype = $fn->{rtype};
 
-        '$FFI_Instance->attach('."\n".
-        "  \$$fn_name,".
-        "  $arg_types,".
-
-        "  '$rtype'\n);\n\n";
+      $hed .= "$rtype $name($args);\n";
 
 
-    };
+    } keys %$funcs;
 
   };
 
-  $code.=$tab."\n\$Initialized=1;\n\n};\n";
-  return $code;
+
+  # ^insert header into sneaky XS compilation ;>
+  my $xsbit=join "\n",(
+    '  use Avt::XS;',
+    "  use $class;",
+
+    '  Avt::XS->build(',
+    "    $class => q[$hed],",
+    "    libs   => " . $symtab->{bld}->libline,
+
+    '  );',
+
+  );
+
+
+  return $xsbit;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

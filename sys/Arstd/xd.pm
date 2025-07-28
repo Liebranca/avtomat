@@ -39,26 +39,26 @@
 # deps
 
 package Arstd::xd;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match_vars);
+  use English;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
   use Chk;
 
   use Arstd::IO;
   use Arstd::PM;
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;#a
+  our $VERSION = 'v0.00.9';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # get input
@@ -73,6 +73,7 @@ sub from_file($fpath,%O) {
   draw($body,%O);
 
 };
+
 
 # ---   *   ---   *   ---
 # goes through bytestr and
@@ -94,18 +95,18 @@ sub draw($body,%O) {
   while(length $body) {
 
     # get next chunk
-    my $line=substr $body,0,16,$NULLSTR;
+    my $line=substr $body,0,16,null;
 
     # setup line
     my ($i,$j,$h)=(0,0,0);
 
-    my $sl   = $NULLSTR;
-    my $sr   = $NULLSTR;
+    my $sl   = null;
+    my $sr   = null;
 
     my $diff = 0;
 
     # ^split chunk
-    my @bytes=split $NULLSTR,$line;
+    my @bytes=split null,$line;
 
     # ^pad to 16
     if(@bytes < 16) {
@@ -212,6 +213,7 @@ sub draw($body,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # AR/IMP:
 #
@@ -237,6 +239,7 @@ sub import($class,@req) {
   );
 
 };
+
 
 # ---   *   ---   *   ---
 # ^imported as exec via arperl
@@ -266,6 +269,7 @@ sub ON_EXE($class,$input=undef,@args) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^imported as module via use
 
@@ -285,6 +289,7 @@ sub ON_USE($class,$from,@nullarg) {
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

@@ -14,18 +14,16 @@
 # deps
 
 package Arstd::Int;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English qw(-no_match_vars);
-
+  use English;
   use Arstd::Bytes qw(bitscanr);
 
-  use lib $ENV{'ARPATH'}.'/lib/sys';
+  use lib "$ENV{ARPATH}/lib/sys";
   use parent 'St';
+
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -41,11 +39,13 @@ package Arstd::Int;
 
   );
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.4;#b
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v0.00.5';
+  our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # cstruc
@@ -55,6 +55,7 @@ sub new($class,$value) {
 
 };
 
+
 # ---   *   ---   *   ---
 # divide and round up
 
@@ -62,6 +63,7 @@ sub urdiv($a,$b) {
   return int((abs($a)/$b)+0.9999);
 
 };
+
 
 # ---   *   ---   *   ---
 # ^force A to nearest multiple of B
@@ -71,6 +73,7 @@ sub align($a,$b) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^force A to nearest pow of B
 
@@ -79,6 +82,7 @@ sub npow($a,$b,$give_exp=0) {
   return ($give_exp) ? $x : $b**$x;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^get A is pow B
@@ -96,6 +100,7 @@ sub ispow($a,$b) {
 
 };
 
+
 # ---   *   ---   *   ---
 # nearest power of 2
 # this is the only precise one ;>
@@ -112,6 +117,7 @@ sub npow2($a,$give_exp=0) {
 
 };
 
+
 # ---   *   ---   *   ---
 # exporter names
 
@@ -120,6 +126,7 @@ sub npow2($a,$give_exp=0) {
   *int_npow  = *npow;
   *int_npow2 = *npow2;
   *int_ispow = *ispow;
+
 
 # ---   *   ---   *   ---
 1; # ret

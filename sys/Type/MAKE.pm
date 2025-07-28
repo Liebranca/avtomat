@@ -8,7 +8,7 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # TODO: at [*fetch]:
@@ -30,14 +30,13 @@
 # deps
 
 package Type::MAKE;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
   use Readonly;
-  use English qw(-no_match_vars);
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use English;
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Chk;
@@ -50,7 +49,6 @@ package Type::MAKE;
 
   use Arstd::IO;
 
-  use Vault 'ARPATH';
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -66,18 +64,20 @@ package Type::MAKE;
 
   );
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = 'v0.00.4a';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
 
 
-  # to get ize as a power of 2...
-  Readonly my $ASIS   => sub {$_[0]=>$_[1]};
+# to get size as a power of 2...
+sub _asis {$_[0]=>$_[1]};
 
 
 # "Readonly" somehow managed to allow
@@ -210,9 +210,9 @@ St::vconst {
 
     return {
 
-      IDEXUP(0,$ASIS,@{$list->{ezy}}),
-      IDEXUP(0,$ASIS,@{$list->{ptr_w}}),
-      IDEXUP(2,$ASIS,@{$list->{real}}),
+      IDEXUP(0,\&_asis,@{$list->{ezy}}),
+      IDEXUP(0,\&_asis,@{$list->{ptr_w}}),
+      IDEXUP(2,\&_asis,@{$list->{real}}),
 
       (map {$ARG=>1} @{$list->{ptr_t}}),
       (map {$ARG=>0} @{$list->{str_t}}),
@@ -304,25 +304,26 @@ St::vconst {
 
 };
 
+
 # ---   *   ---   *   ---
 # GBL
 
-  our $Table=Vault::cached(
-    'Table' => \&define_base
+  our $Table=define_base();
 
-  );
 
 # ---   *   ---   *   ---
 # warn of malformed/unexistent type
 
 sub badtype($name) {
 
-  Warnme::invalid 'type',
+  return null if $name eq null;
+  return Warnme::invalid 'type',
 
   obj  => $name,
   give => null;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^forbid zero-size type
@@ -336,6 +337,7 @@ sub badsize($name) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^forbid void deref!
 
@@ -347,6 +349,7 @@ sub badptr($name) {
   give => null;
 
 };
+
 
 # ---   *   ---   *   ---
 # get type hashref from string
@@ -363,6 +366,7 @@ sub typefet(@src) {
 
 };
 
+
 # ---   *   ---   *   ---
 # make an alias for a type
 
@@ -374,6 +378,7 @@ sub typedef($dst,@src) {
   return $Table->{$dst};
 
 };
+
 
 # ---   *   ---   *   ---
 # cleanups unwanted spaces in typename
@@ -388,6 +393,7 @@ sub namestrip($name) {
   return $name;
 
 };
+
 
 # ---   *   ---   *   ---
 # cleanups flags
@@ -406,6 +412,7 @@ sub flagstrip(@ar) {
     ;
 
 };
+
 
 # ---   *   ---   *   ---
 # formula for defining vector types
@@ -479,7 +486,7 @@ sub _fetch(@flags) {
 
   # make unique typename
   my $name=($key=~ $RE->{ptr_w})
-    ? $NULLSTR
+    ? null
     : $key
     ;
 
@@ -525,6 +532,7 @@ sub _fetch(@flags) {
   };
 
 };
+
 
 # ---   *   ---   *   ---
 # ^continued
@@ -703,6 +711,7 @@ sub fetch(@flags) {
 
 };
 
+
 # ---   *   ---   *   ---
 # make shorthands for certain
 # common types
@@ -727,7 +736,7 @@ sub define_base() {
     my $ezy = $ARG;
     my $i   = {
 
-      real        => $NULLSTR,
+      real        => null,
 
       dword       => 'u',
       sign_dword  => 'i',
@@ -756,6 +765,7 @@ sub define_base() {
   return $Table;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

@@ -9,14 +9,13 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Tree::File;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
@@ -34,8 +33,8 @@ package Tree::File;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.2;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v0.00.3';
+  our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # cstruc
@@ -78,7 +77,7 @@ sub get_cksum($self) {
     @files=grep {-f $ARG} @files;
 
     my $files=join q{ },
-      map {$ARG->ances(join_char=>$NULLSTR)} @files;
+      map {$ARG->ances(join_char=>null)} @files;
 
     next if !length $files;
 
@@ -110,7 +109,7 @@ sub get_cksum($self) {
 
     chomp $dir->{cksum};
     $dir->{cksum}.=q{ }.$dir->ances(
-      join_char=>$NULLSTR
+      join_char=>null
 
     );
 

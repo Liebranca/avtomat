@@ -8,14 +8,13 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Arstd::PM;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
@@ -24,7 +23,7 @@ package Arstd::PM;
   use Devel::Peek;
   use Module::Load;
 
-  use English qw(-no_match_vars);
+  use English;
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
 
@@ -34,8 +33,8 @@ package Arstd::PM;
   use Arstd::Re;
   use Arstd::IO;
 
-  use lib $ENV{'ARPATH'}.'/lib/';
-  use Lang;
+  use lib "$ENV{ARPATH}/lib/";
+
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -72,11 +71,13 @@ package Arstd::PM;
 
   );
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.01.1;#b
+  our $VERSION = 'v0.01.2';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # get subs of module
@@ -96,6 +97,7 @@ sub _subsof($class) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^give subs of multiple modules,
 # popping any duplicates
@@ -104,6 +106,7 @@ sub subsof_dupop(@classes) {
   return map {_subsof($ARG)} @classes;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^subroutines of modules
@@ -119,6 +122,7 @@ sub subsof_merge($main,@classes) {
   return map {$ARG=>$ext{$ARG}} @add;
 
 };
+
 
 # ---   *   ---   *   ---
 # initializes subroutine filters
@@ -145,6 +149,7 @@ sub subsof_filter_nit($classes,$O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^filter out excluded subs
 # and subs from excluded mods
@@ -167,6 +172,7 @@ sub subsof_filter($subs,%O) {
   } keys %$subs;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^crux
@@ -191,6 +197,7 @@ sub subsof($classes,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^add filtered list of subs to main
 
@@ -214,6 +221,7 @@ sub submerge($classes,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # adds symbol from one
 # namespace to another
@@ -233,6 +241,7 @@ sub add_scalar($dst,$src) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^redefine symbol without warning
 
@@ -244,6 +253,7 @@ sub redef($old,$new) {
   *{$old}=$new;
 
 };
+
 
 # ---   *   ---   *   ---
 # give first caller that
@@ -264,6 +274,7 @@ sub rcaller {
   return $pkg;
 
 };
+
 
 # ---   *   ---   *   ---
 # akin to selective inheritance
@@ -287,6 +298,7 @@ sub beqwraps($attr,@names) {
   } @names;
 
 };
+
 
 # ---   *   ---   *   ---
 # internal. makes wrappers!
@@ -333,6 +345,7 @@ sub _mkwraps($pkg,$fn,$sig,@icebox) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^icef*ck
 
@@ -341,6 +354,7 @@ sub subwraps($fn,$sig,@icebox) {
   _mkwraps($pkg,$fn,$sig,@icebox);
 
 };
+
 
 # ---   *   ---   *   ---
 # ^indirect: make wrappers
@@ -362,6 +376,7 @@ sub impwraps($dst,@args) {
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 # get arguments of subroutine
@@ -394,7 +409,7 @@ sub argsof($pkg,$name=undef) {
     : $pkg
     ;
 
-  my $blk  = $NULLSTR;
+  my $blk=null;
 
   # ^pop do {} block
   $body =~ s[$doblk][];
@@ -415,6 +430,7 @@ sub argsof($pkg,$name=undef) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get codestr for sub
 
@@ -434,6 +450,7 @@ sub codeof($pkg,$name=undef) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get immediate deps of module
 
@@ -450,6 +467,7 @@ sub depsof($class,$fmain=undef) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^bat
 
@@ -463,6 +481,7 @@ sub array_depsof(@classes) {
   return keys %tab;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^get 'use [name]' directives in file
@@ -487,6 +506,7 @@ sub depsof_file($fname) {
   return @out;
 
 };
+
 
 # ---   *   ---   *   ---
 # autoload helpers
@@ -515,20 +535,18 @@ sub throw_bad_autoload($pkg,$key) {
 
 };
 
+
 # ---   *   ---   *   ---
 # fetch global our $Var
 
 sub get_static($class,$name) {
-
-  if(length ref $class) {
-    $class=ref $class;
-
-  };
+  $class=ref $class if length ref $class;
 
   no strict 'refs';
   return ${"$class\::$name"};
 
 };
+
 
 # ---   *   ---   *   ---
 # checks INC for package
@@ -545,6 +563,7 @@ sub is_loaded($pkg) {
 
 };
 
+
 # ---   *   ---   *   ---
 # gets package from full
 # subroutine path
@@ -560,6 +579,7 @@ sub pkgof($name) {
 
 };
 
+
 # ---   *   ---   *   ---
 # conditionally load packages
 # if they're not already loaded
@@ -570,6 +590,7 @@ sub cload {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^forces calling of import method
 
@@ -577,6 +598,7 @@ sub cloadi {
   map {$ARG->import();$ARG} cload @_;
 
 };
+
 
 # ---   *   ---   *   ---
 # load package by subpath
@@ -590,6 +612,7 @@ sub cloads {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^forces calling of import method
 
@@ -597,6 +620,7 @@ sub cloadis {
   map {$ARG->import();$ARG} cloads @_;
 
 };
+
 
 # ---   *   ---   *   ---
 # makes local fvars hook
@@ -627,6 +651,7 @@ sub fvars($classes,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # AR/IMP:
 #
@@ -655,6 +680,7 @@ sub IMP($class,$on_use,$on_exe,@req) {
   };
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

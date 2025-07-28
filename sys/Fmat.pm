@@ -9,7 +9,7 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
@@ -37,6 +37,7 @@ package Fmat;
   use Arstd::String;
   use Arstd::Path;
 
+
 # ---   *   ---   *   ---
 # adds to your namespace
 
@@ -51,11 +52,13 @@ package Fmat;
 
   );
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.8;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v0.00.9';
+  our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # GBL
@@ -64,6 +67,7 @@ package Fmat;
     walked=>{},
 
   };
+
 
 # ---   *   ---   *   ---
 # sets default options
@@ -82,13 +86,14 @@ sub ioprocin($O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^handles output!
 
 sub ioprocout($O) {
 
   # cat buf
-  my $out=join $NULLSTR,@{$O->{-bufio}};
+  my $out=join null,@{$O->{-bufio}};
 
   # write to tty?
   if(! $O->{mute}) {
@@ -110,12 +115,13 @@ sub ioprocout($O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # messes up formatting
 
 sub tidyup($sref,$nofilt=1) {
 
-  my $out=$NULLSTR;
+  my $out=null;
 
 
   # we have to wrap to 54 columns ourselves
@@ -152,6 +158,7 @@ sub tidyup($sref,$nofilt=1) {
 
 };
 
+
 # ---   *   ---   *   ---
 # value already seen?
 
@@ -163,6 +170,7 @@ sub recursing($value) {
   return 0;
 
 };
+
 
 # ---   *   ---   *   ---
 # deconstruct value
@@ -220,6 +228,7 @@ sub polydump($vref,$blessed=undef) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^ice for hashes
 
@@ -243,6 +252,7 @@ sub deepdump($h,$blessed=undef) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^print hashes and objects last
 
@@ -262,6 +272,7 @@ sub deepfilter($h,$blessed=undef) {[
 
 ]};
 
+
 # ---   *   ---   *   ---
 # ice for arrays
 
@@ -277,6 +288,7 @@ sub arraydump($ar,$blessed=undef) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^single value
 
@@ -285,6 +297,7 @@ sub valuedump($vref,$blessed=undef) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^placeholder for coderefs
 
@@ -292,6 +305,7 @@ sub codedump($vref,$blessed=undef) {
   return '\&' . codename($vref,1);
 
 };
+
 
 # ---   *   ---   *   ---
 # ^crux
@@ -327,6 +341,7 @@ sub fatdump($vref,%O) {
   return ioprocout(\%O);
 
 };
+
 
 # ---   *   ---   *   ---
 # gets name of coderef
@@ -377,6 +392,7 @@ sub codename($ref,$full=0) {
   return $name;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

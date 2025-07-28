@@ -8,21 +8,18 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package rd::l1;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English qw(-no_match-vars);
-
-  use lib $ENV{ARPATH}.'/lib/sys/';
+  use English;
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Chk;
@@ -40,7 +37,7 @@ package rd::l1;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.2;#b
+  our $VERSION = 'v0.02.3';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -140,7 +137,7 @@ sub build($self) {
     my $src   = $_[1];
     my $valid = ! ($src=~ $l1->spchars_re);
 
-    return ($valid,$src,$NULLSTR);
+    return ($valid,$src,null);
 
   });
 
@@ -152,7 +149,7 @@ sub build($self) {
 
     my $valid = defined $src;
 
-    return ($valid,$src,$NULLSTR);
+    return ($valid,$src,null);
 
   });
 
@@ -167,7 +164,7 @@ sub build($self) {
     my $re    = $l1->spchars_re;
     my $valid = $src=~ m[^$re+$];
 
-    return ($valid,$src,$NULLSTR);
+    return ($valid,$src,null);
 
   });
 
@@ -363,7 +360,7 @@ sub tag($self,$type,$src=undef) {
   $main->perr(
 
     "'%s' is a byte-sized tag-type, reserved "
-  . "for internal use only; "
+  . "for internal u1se only; "
 
   . "use '%s' instead",
 
@@ -424,8 +421,8 @@ sub untag($self,$src=undef) {
 sub cat($self,@ar) {
 
   my $otype = undef;
-  my $ospec = $NULLSTR;
-  my $odata = $NULLSTR;
+  my $ospec = null;
+  my $odata = null;
 
   map {
 
@@ -567,7 +564,7 @@ sub is_comment($self,$src=undef) {
   # get ctx
   my $main    = $self->{main};
   my $l0      = $main->{l0};
-  my $charset = $l0->charset();
+  my $charset = $l0->charset;
 
   # have string?
   my $have=$self->typechk(STR=>$src);
@@ -638,7 +635,7 @@ sub detector($self,$src) {
   };
 
   # else give back input!
-  return 'DEF',$src,$NULLSTR;
+  return 'DEF',$src,null;
 
 };
 

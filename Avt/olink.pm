@@ -9,85 +9,96 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Avt::olink;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-
   use Cwd qw(abs_path);
-  use English qw(-no_match_vars);
+  use English;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-  use lib $ENV{'ARPATH'}.'/lib/';
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use lib "$ENV{ARPATH}/lib/";
 
   use Style;
   use Cli;
 
-  use Arstd::Path;
-  use Arstd::Array;
+  use Arstd::Path qw(
+    basef nxbasef dirof reqdir extof
+
+  );
+
+  use Arstd::Array qw(
+    array_keys
+    array_values
+    array_filter
+
+  );
+
   use Arstd::WLog;
-  use Arstd::PM;
-  use Arstd::IO;
+  use Arstd::PM qw(cload IMP submerge);
 
   use Shb7::Path qw(walk moo);
   use Shb7::Bk::flat;
   use Shb7::Build;
 
+  use parent 'St';
+
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v1.00.7;
+  our $VERSION = 'v1.00.8';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly my $FEND=>[
+my $PKG=__PACKAGE__;
+St::vconst {
+  FEND=>[
 
     'Avt::flatten' => [qw(s asm inc)],
 
     'Avt::CRun'    => [qw(c cpp)],
     'Avt::Droid'   => [qw(kt)],
 
-  ];
+  ],
 
-  Readonly my $FEND_KEYS=>[
-    array_keys($FEND)
+  FEND_KEYS=>sub {
+    return [array_keys($_[0]->FEND)];
 
-  ];
+  },
+
+};
+
 
 # ---   *   ---   *   ---
 # in a nutshell
 
 sub crux(@cmd) {
-
   Arstd::WLog->genesis();
   $WLog->ex('olink');
 
-
-  my ($m,$files) = parse_args(@cmd);
+  my ($m,$files)=parse_args(@cmd);
 
   if($m->{flat} ne $NULL) {
-
     $WLog->step("rebuilding objects");
 
     my @obj=map {
-
       my $dir="$ARG/";
 
-      die "invalid directory '$dir'"
+      croak "invalid directory '$dir'"
       if ! -d $dir;
 
       chdir $dir;
-      `mkdir -p ${dir}bld`;
+      reqdir "${dir}bld";
 
       my $tree=walk $dir;
 
@@ -158,7 +169,6 @@ sub crux(@cmd) {
 
 
   } else {
-
     my $bld = compile($m,$files);
     my $obj = xlink($bld);
 
@@ -168,8 +178,10 @@ sub crux(@cmd) {
 
 
   $WLog->step('done');
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 # tell this program what to do!
@@ -180,7 +192,7 @@ sub parse_args(@cmd) {
   my $m=Cli->new(
 
     # standard filesearch opts
-    @{$Cli::Fstruct::ATTRS},
+    @{Cli::Fstruct->ATTRS},
 
     # ^olink specific
     {id=>'libs',short=>'-l',argc=>1},
@@ -204,26 +216,20 @@ sub parse_args(@cmd) {
 
 
   # run file search
-  my @files=Cli::Fstruct::proto_search(
-    $m,@cmd
-
-  );
-
+  my @files=Cli::Fstruct::proto_search($m,@cmd);
 
   # nullout include and lib paths
-  for my $v($m->{incl},$m->{libs},$m->{libpath}) {
-    $v=$NULLSTR if $v eq $NULL;
-
-  };
+  map {$ARG //= null}
+  ($m->{incl},$m->{libs},$m->{libpath});
 
   # generate default output path if none passed
-  $m->{out}=($m->{out} eq $NULL)
-    ? dirof($files[0]) .'/'. nxbasef($files[0])
+  $m->{out}=($m->{out} eq null)
+    ? dirof($files[0]) . '/' . nxbasef($files[0])
     : $m->{out}
     ;
 
 
-  if($m->{'clean-debug'} ne $NULL) {
+  if($m->{'clean-debug'} ne null) {
     $m->{debug}=1;
     $m->{clean}=1;
     delete $m->{'clean-debug'};
@@ -234,15 +240,14 @@ sub parse_args(@cmd) {
 
 };
 
+
 # ---   *   ---   *   ---
 # separate files by extension
 
 sub sort_by_ext($files) {
-
   my $by_ext={};
 
   map {
-
     my $ext=lc extof($ARG);
     $by_ext->{$ext} //= [];
 
@@ -255,6 +260,7 @@ sub sort_by_ext($files) {
 
 };
 
+
 # ---   *   ---   *   ---
 # roll files together accto
 # required frontend
@@ -262,7 +268,7 @@ sub sort_by_ext($files) {
 sub sort_by_fend($files) {
 
   # output
-  my $by_fend = {};
+  my $by_fend={};
 
   # get filtered file list
   my $by_ext=sort_by_ext($files);
@@ -270,7 +276,7 @@ sub sort_by_fend($files) {
 
   # array as hash
   my $idex   = 0;
-  my @values = array_values($FEND);
+  my @values = array_values($PKG->FEND);
 
   map {
 
@@ -288,12 +294,13 @@ sub sort_by_fend($files) {
     array_filter($by_fend->{$key});
 
 
-  } @$FEND_KEYS;
+  } @{$PKG->FEND_KEYS};
 
 
   return $by_fend;
 
 };
+
 
 # ---   *   ---   *   ---
 # decides what to do with
@@ -306,7 +313,7 @@ sub compile($m,$files) {
   my @queue   = grep {
     @{$by_fend->{$ARG}}
 
-  } @$FEND_KEYS;
+  } @{$PKG->FEND_KEYS};
 
 
   # invoke frontend for each compiler type
@@ -359,9 +366,7 @@ sub compile($m,$files) {
 # or when you type no extension at all!
 
 sub throw_bad_files($files) {
-
   map {
-
     $WLog->step(
       "unrecognized FF *.$ARG",
 
@@ -397,6 +402,7 @@ sub xlink($bld) {
 
 };
 
+
 # ---   *   ---   *   ---
 # execute application, optionally
 # delete objects afterwards
@@ -414,10 +420,10 @@ sub run($m,$obj) {
   } qw(run runrm);
 
 
-  if($m->{run} ne $NULL) {
+  if($m->{run} ne null) {
     $rargs=$m->{run};
 
-  } elsif($m->{runrm} ne $NULL) {
+  } elsif($m->{runrm} ne null) {
     $rargs = $m->{runrm};
     $rdel  = 1;
 
@@ -425,7 +431,6 @@ sub run($m,$obj) {
 
   # ^do the twist
   if(defined $rargs) {
-
     $WLog->ex($obj->{bld}->{name});
 
     $obj->run(
@@ -443,6 +448,7 @@ sub run($m,$obj) {
 
 };
 
+
 # ---   *   ---   *   ---
 # AR/IMP:
 #
@@ -455,25 +461,16 @@ sub run($m,$obj) {
 #   module's namespace
 
 sub import($class,@req) {
-
-  return IMP(
-
-    $class,
-
-    \&ON_USE,
-    \&ON_EXE,
-
-    @req
-
-  );
+  return IMP($class,\&ON_USE,\&ON_EXE,@req);
 
 };
+
 
 # ---   *   ---   *   ---
 # ^imported as exec via arperl
 
 sub ON_EXE($class,@cmd) {
-  crux(grep {defined $ARG} @cmd);
+  return crux(grep {defined $ARG} @cmd);
 
 };
 
@@ -481,11 +478,9 @@ sub ON_EXE($class,@cmd) {
 # ^imported as module via use
 
 sub ON_USE($class,$from,@nullarg) {
-
   *olink=*crux;
 
   submerge(
-
     ['olink'],
 
     main  => $from,
@@ -493,9 +488,11 @@ sub ON_USE($class,$from,@nullarg) {
 
   );
 
+
   return;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

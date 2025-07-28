@@ -8,25 +8,28 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Arstd::Path;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Carp;
-  use English qw(-no_match_vars);
+  use Carp qw(croak);
+  use English;
   use Cwd qw(abs_path);
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
 
   use File::Spec;
+  use File::Path qw(mkpath);
+
+  use parent 'St';
+
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -44,10 +47,11 @@ package Arstd::Path;
     relto
 
     expand_path
-    force_path
+    reqdir
 
     extof
     extwap
+    extcl
 
     find_pkg
     find_subpkg
@@ -56,11 +60,27 @@ package Arstd::Path;
 
   );
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.7;#b
+  our $VERSION = 'v0.00.8';
   our $AUTHOR  = 'IBN-3DILA';
+
+
+# ---   *   ---   *   ---
+# ROM
+
+my $PKG=__PACKAGE__;
+St::vconst {
+  FPATH_RE => qr{
+    [/_A-Za-z\.]
+    [/_A-Za-z0-9\-\.\:\@\%\$\&]+
+
+  }x,
+
+};
+
 
 # ---   *   ---   *   ---
 # get name of file without the path
@@ -71,22 +91,28 @@ sub basef($path) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^removes extension(s)
 
-sub nxbasef($path) {
-  my $name=basef($path);
-  $name=~ s/\..*$//;
+sub extcl($path) {
+  state $re=qr{\..*$};
+  $path=~ s[$re][];
 
-  return $name;
+  return $path;
 
 };
+
+sub nxbasef($path) {
+  return basef extcl $path;
+
+};
+
 
 # ---   *   ---   *   ---
 # ^get parent directory
 
 sub parof($path,%O) {
-
 
   # defaults
   $O{abs} //= 1;
@@ -110,6 +136,7 @@ sub parof($path,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^get dir of filename
 
@@ -121,15 +148,17 @@ sub dirof($path,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # reverse of basef;
 # gives first name in path
 
-sub based($path) {
-  my @names=split $FSLASH_RE,$path;
+sub based {
+  my @names=split $FSLASH_RE,$_[0];
   return $names[0];
 
 };
+
 
 # ---   *   ---   *   ---
 # get relative from absolute
@@ -139,6 +168,7 @@ sub relto($par,$to) {
   return File::Spec->abs2rel($full,$par);
 
 };
+
 
 # ---   *   ---   *   ---
 # turns dots into dirs
@@ -161,21 +191,34 @@ sub expand_path($src,$dst) {
 
 };
 
+
 # ---   *   ---   *   ---
+# require directory
+#
 # ensures a given directory
 # path exists
 
-sub force_path($path) {
-  ! -f $path or croak "<$path> is a file\n";
-  `mkdir -p $path` if ! -d $path;
+sub reqdir($path) {
+
+  # sanity check the path!
+  defined $path or croak "undef passed to reqdir";
+  length  $path or croak "<null> passed to reqdir";
+
+  $path=~ $PKG->FPATH_RE
+  or croak "<$path> has invalid characters";
+
+  ! -f $path or croak "<$path> is a file";
+
+  mkpath($path) if ! -d $path;
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 # get file extension
 
 sub extof($name) {
-
   state $re=qr{.+\.(.+)$};
   $name=~ s[$re][$1]sxmg;
 
@@ -183,17 +226,18 @@ sub extof($name) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^swap extensions
 
 sub extwap($fpath,$to) {
-
   state $re=qr{[^\.]+$};
   $fpath=~ s[$re][$to]sxmg;
 
   return $fpath;
 
 };
+
 
 # ---   *   ---   *   ---
 # get file from package name
@@ -213,6 +257,7 @@ sub find_pkg($name,@path) {
 
 };
 
+
 # ---   *   ---   *   ---
 # looks for pkg/*.pm in path
 
@@ -222,7 +267,7 @@ sub find_subpkg($base,$name,@path) {
 
   @path=@INC if ! @path;
 
-  my $out = $NULLSTR;
+  my $out = null;
 
   my $beg = ($base)
     ? qr{^.*/?$base}
@@ -257,10 +302,11 @@ sub find_subpkg($base,$name,@path) {
 
 };
 
+
 # ---   *   ---   *   ---
 # pkg/name to pkg::name
 
-sub fname_to_pkg($fname,$base=$NULLSTR) {
+sub fname_to_pkg($fname,$base=null) {
 
   state $ext=qr{\.pm$};
   return null if ! defined $fname;
@@ -276,6 +322,7 @@ sub fname_to_pkg($fname,$base=$NULLSTR) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^iv/undo
 
@@ -284,6 +331,7 @@ sub pkg_to_fname($pkg) {
   return "$pkg.pm";
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

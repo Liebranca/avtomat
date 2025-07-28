@@ -376,7 +376,7 @@ sub new($class,$frame,%O) {
 # ---   *   ---   *   ---
 # ^bat from package!
 
-sub load($class,$frame,$pkg) {
+sub load($class,$frame,$pkg,$exclude) {
 
 
   # get ctx
@@ -386,7 +386,7 @@ sub load($class,$frame,$pkg) {
   cloadi $pkg;
 
   map {$frame->new(%$ARG)}
-  $pkg->load($main);
+  $pkg->load($main,$exclude);
 
 
   # update table interface

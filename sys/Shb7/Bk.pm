@@ -9,21 +9,19 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Shb7::Bk;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match_vars);
+  use English;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
 
   use Arstd::Array;
@@ -37,7 +35,7 @@ package Shb7::Bk;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;
+  our $VERSION = 'v0.00.3';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -126,7 +124,7 @@ sub bfiles($self) {
 # placeholders
 
 sub target($self) {
-  return $NULLSTR;
+  return null;
 
 };
 

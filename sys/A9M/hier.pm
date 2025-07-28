@@ -91,7 +91,7 @@ St::vconst {
   },
 
 
-  typetab => {
+  blk_typetab => {
     proc  => [qw(const readable executable)],
     struc => [qw(const readable)],
 
@@ -110,7 +110,7 @@ sub new($class,%O) {
   $class->defnit(\%O);
 
   my $self  = bless \%O,$class;
-  my $flags = $class->typetab->{$self->{type}};
+  my $flags = $class->blk_typetab->{$self->{type}};
 
   $self->set_uattrs(
 
@@ -2067,8 +2067,8 @@ sub on_fix_regsrc($self,$vref,$idex) {
   # TODO: regular values
   } elsif(
 
-      $vref->{loaded}
-  &&! $vref->{loaded} eq 'const'
+      ($vref->{loaded})
+  &&! ($vref->{loaded} eq 'const')
 
   ) {
 

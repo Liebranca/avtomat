@@ -14,17 +14,14 @@
 # deps
 
 package Shb7::Bk::front;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-
   use Cwd qw(abs_path);
-  use English qw(-no_match_vars);
+  use English;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Chk;
@@ -40,7 +37,7 @@ package Shb7::Bk::front;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#a
+  our $VERSION = 'v0.00.4a';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -342,8 +339,7 @@ sub x_list($class,$src,$ch,@pre) {
 sub incl_deduce($class,@inc) {
 
   my @out=map {
-
-    ($NULLSTR,based($ARG))[
+    (null,based($ARG))[
       int($ARG=~ $FSLASH_RE)
 
     ]

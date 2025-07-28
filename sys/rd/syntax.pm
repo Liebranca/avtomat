@@ -191,7 +191,7 @@ sub anon_label_re($self) {
 # ---   *   ---   *   ---
 # makes L2 definitions
 
-sub build($self) {
+sub build($self,$exclude) {
 
   # get ctx
   my $main = $self->{main};
@@ -201,9 +201,18 @@ sub build($self) {
   # an l2 method definition
   #
   # so: get list of such subs and pass them!
+  my @list=@{$self->list};
+  map {
+    my $re=qr{$ARG};
+    @list=grep {
+      ! ($ARG=~ $re);
 
-  map {$l2->define($self->$ARG)}
-  @{$self->list};
+    } @{$self->list};
+
+  } @$exclude;
+
+  map {$l2->define($self->$ARG)} @list;
+
 
   return;
 
@@ -232,8 +241,11 @@ sub apply_rules($self,$branch) {
   $l2->invoke('fwd-parse'=>'anon-labels');
   $l2->invoke('fwd-parse'=>'join-opr');
 
-  $self->make_ops($branch);
-  $l2->invoke('fwd-parse'=>'csv');
+  $self->make_ops($branch)
+  if ! $main->{C};
+
+  $l2->invoke('fwd-parse'=>'csv')
+  if ! $main->{C};
 
 
   return;

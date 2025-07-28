@@ -8,38 +8,36 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Shb7::Bk::gcc;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
   use Readonly;
-  use English qw(-no_match_vars);
+  use English;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
 
   use Arstd::Array;
   use Arstd::IO;
-
   use Arstd::WLog;
+
+  use Ftype::Text::C;
 
   use parent 'Shb7::Bk';
 
-  use lib $ENV{'ARPATH'}.'/lib/';
-  use Lang::C;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.5;#a
+  our $VERSION = 'v0.00.5a';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -177,10 +175,10 @@ sub fbuild($self,$bfile,$bld) {
 
 
   # conditionally use octopus
-  my $cpp=int($bfile->{src}=~ $Lang::C::EXT_PP);
+  my $cpp=Ftype::Text::C->is_cpp($bfile->{src});
   my $up=($cpp)
     ? '-lstdc++'
-    : $NULLSTR
+    : null
     ;
 
   # clear existing
@@ -194,6 +192,8 @@ sub fbuild($self,$bfile,$bld) {
 
     q[-MMD],
     target($bld->{tgt}),
+
+    (map {"-D$ARG"} @{$bld->{def}}),
 
     @{$bld->{flags}},
     @$OFLG,
@@ -214,6 +214,7 @@ sub fbuild($self,$bfile,$bld) {
   # ^cleanup and invoke
   array_filter(\@call);
   system {$call[0]} @call;
+
 
   # ^give on success
   return int(defined -f $bfile->{obj});

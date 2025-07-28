@@ -15,8 +15,7 @@
 # deps
 
 package Arstd::IO;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
@@ -27,12 +26,12 @@ package Arstd::IO;
 
   use File::Spec;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
   use Fmat;
 
   use Arstd::String;
+
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -64,11 +63,13 @@ package Arstd::IO;
 
   );
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.8;
+  our $VERSION = 'v0.00.9';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
@@ -94,10 +95,12 @@ package Arstd::IO;
 
   }x;
 
+
 # ---   *   ---   *   ---
 # GBL
 
   our $Testing=0;
+
 
 # ---   *   ---   *   ---
 # get terminal dimentions
@@ -111,6 +114,7 @@ sub ttysz_xy() {
   return (reverse split qr{\s},`stty size`);
 
 };
+
 
 # ---   *   ---   *   ---
 # mute stderr
@@ -130,15 +134,16 @@ sub errmute() {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^restore
 
 sub erropen($fh) {
-
   open STDERR,'>',$fh
   or croak strerr($fh);
 
 };
+
 
 # ---   *   ---   *   ---
 # format string and output
@@ -151,12 +156,12 @@ sub fstrout($fmat,$tab,%O) {
   $O{errout}    //= 0;
   $O{no_print}  //= 0;
 
-  $O{pre_fmat}  //= $NULLSTR;
-  $O{post_fmat} //= $NULLSTR;
-  $O{endtab}    //= $NULLSTR;
+  $O{pre_fmat}  //= null;
+  $O{post_fmat} //= null;
+  $O{endtab}    //= null;
   $O{nopad}     //= 0;
 
-  my $out=$NULLSTR;
+  my $out=null;
 
   # mark undefined
   map {$ARG //= '<null>'} @{$O{args}};
@@ -183,7 +188,7 @@ sub fstrout($fmat,$tab,%O) {
   $out=
 
     $O{pre_fmat}
-  . (join $NULLSTR,@lines)
+  . (join null,@lines)
 
   . $O{post_fmat}
   ;
@@ -205,6 +210,7 @@ sub fstrout($fmat,$tab,%O) {
   return $out;
 
 };
+
 
 # ---   *   ---   *   ---
 # applies linewrapping
@@ -230,13 +236,14 @@ sub _fstrout_wrap($fmat,$len,$args) {
   # apply tab to format
   my @out=(
     (split $NEWLINE_RE,$fmat),
-    $NULLSTR
+    null
 
   );
 
   return @out;
 
 };
+
 
 # ---   *   ---   *   ---
 # box-format string and output
@@ -249,12 +256,12 @@ sub box_fstrout($fmat,%O) {
   $O{errout}    //= 0;
   $O{no_print}  //= 0;
 
-  $O{pre_fmat}  //= $NULLSTR;
-  $O{post_fmat} //= $NULLSTR;
+  $O{pre_fmat}  //= null;
+  $O{post_fmat} //= null;
 
   $O{fill}      //= q{*};
 
-  my $out=$NULLSTR;
+  my $out=null;
 
   # dirty linewrap
   my $c     = $O{fill};
@@ -278,16 +285,16 @@ sub box_fstrout($fmat,%O) {
   # get final string
   unshift @lines,
     ($c x ($ttysz[1]-1))."\n",
-    sprintf "$c %-${llen}s $c\n",$NULLSTR;
+    sprintf "$c %-${llen}s $c\n",null;
 
   push @lines,
-    (sprintf "$c %-${llen}s $c\n",$NULLSTR),
+    (sprintf "$c %-${llen}s $c\n",null),
     ($c x ($ttysz[1]-1))."\n";
 
   $out=
 
     $O{pre_fmat}
-  . (join $NULLSTR,@lines)
+  . (join null,@lines)
 
   . $O{post_fmat}
   ;
@@ -309,6 +316,7 @@ sub box_fstrout($fmat,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # open,read,close
 
@@ -326,13 +334,13 @@ sub orc($fname) {
 
 };
 
+
 # ---   *   ---   *   ---
 # directory open,read,close
 
 sub dorc($path,$excluded=$NO_MATCH) {
 
   my @out=();
-  goto TAIL if ! -d $path;
 
   opendir my $dir,$path
   or errout(strerr($path),lvl=>$AR_FATAL);
@@ -347,10 +355,10 @@ sub dorc($path,$excluded=$NO_MATCH) {
   or croak strerr($path);
 
 
-  TAIL:
   return @out;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^open,write,close
@@ -369,6 +377,7 @@ sub owc($fname,$bytes) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get pack/unpack format
 # element width in bytes
@@ -385,8 +394,7 @@ sub fmat_size($fmat) {
       : $+{cnt}
       ;
 
-    my $sz   = $FMAT_SIZE->{$type};
-
+    my $sz=$FMAT_SIZE->{$type};
     $out+=$sz*$cnt;
 
   };
@@ -395,6 +403,7 @@ sub fmat_size($fmat) {
 
 };
 
+
 # ---   *   ---   *   ---
 # consume
 #
@@ -402,14 +411,16 @@ sub fmat_size($fmat) {
 # push to array
 
 sub csume($sref,$dst,@fmat) {
-
   map {
     push @$dst,unpack $ARG,$$sref;
     $$sref=substr $$sref,fmat_size($ARG);
 
   } @fmat;
 
+  return;
+
 };
+
 
 # ---   *   ---   *   ---
 # ^iv, regurgitate
@@ -418,13 +429,15 @@ sub csume($sref,$dst,@fmat) {
 # pop from array
 
 sub rtate($sref,$values,@fmat) {
-
   map {
     $$sref.=pack $ARG,(shift @$values);
 
   } @fmat;
 
+  return;
+
 };
+
 
 # ---   *   ---   *   ---
 # short for "not yet implemented"
@@ -449,6 +462,7 @@ sub nyi($errme,$src=undef) {
   );
 
 };
+
 
 # ---   *   ---   *   ---
 # fixes the horrendous 8-space indented,
@@ -503,6 +517,7 @@ sub fmat_btrace {
 
 };
 
+
 # ---   *   ---   *   ---
 # error prints
 
@@ -522,6 +537,7 @@ sub errme($format,%O) {
   return $tab;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^coupled with backtrace
@@ -593,6 +609,7 @@ sub errout($format,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^gives caller info
 
@@ -637,7 +654,7 @@ sub errcaller(%O) {
   # ^spit it out
   errme(
 
-    (join $NULLSTR,@text),
+    (join null,@text),
 
     lvl   => $O{lvl},
     args  => \@args,
@@ -646,12 +663,13 @@ sub errcaller(%O) {
 
   );
 
-  say $NULLSTR;
+  say null;
 
   Fmat::fatdump(\$O{fatdump},errout=>1)
   if $O{fatdump};
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

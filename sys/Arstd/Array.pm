@@ -8,14 +8,13 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Arstd::Array;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
@@ -29,6 +28,7 @@ package Arstd::Array;
   use Chk;
 
   use parent 'St';
+
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -68,11 +68,13 @@ package Arstd::Array;
 
   );
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.9;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v0.00.9';
+  our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
@@ -84,6 +86,7 @@ package Arstd::Array;
 
   };
 
+
 # ---   *   ---   *   ---
 # cstruc
 
@@ -91,6 +94,7 @@ sub new($class,@values) {
   return bless [@values],$class;
 
 };
+
 
 # ---   *   ---   *   ---
 # give every nth elem in array
@@ -114,15 +118,20 @@ sub nth($ar,$n,$i) {
 
 };
 
+
+# ---   *   ---   *   ---
 # ^an alias
 # gives @keys where [key=>value,key=>value]
 
 sub nkeys($ar) {return (nth($ar,2,0))};
 
+
+# ---   *   ---   *   ---
 # ^another alias
 # gives @values where [key=>value,key=>value]
 
 sub nvalues($ar) {return (nth($ar,2,1))};
+
 
 # ---   *   ---   *   ---
 # shifts every element to the left from idex
@@ -143,6 +152,7 @@ sub lshift($ar,$idex) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^inverse
 
@@ -161,6 +171,7 @@ sub rshift($ar,$idex) {
 
 };
 
+
 # ---   *   ---   *   ---
 # discards blanks in array
 
@@ -170,6 +181,7 @@ sub filter($ar,$block=undef) {
   @$ar=grep {$block->($ARG)} @$ar;
 
 };
+
 
 # ---   *   ---   *   ---
 # liminates repeats
@@ -211,6 +223,7 @@ sub dupop($ar) {
 
 };
 
+
 # ---   *   ---   *   ---
 # appends subarray at position
 
@@ -235,6 +248,7 @@ sub insert($ar,$pos,@ins) {
 
 };
 
+
 # ---   *   ---   *   ---
 # makes {key=>idex} from [keys]
 
@@ -250,6 +264,7 @@ sub key_idex($ar,$rev=0) {
 
 };
 
+
 # ---   *   ---   *   ---
 # sorts by value
 
@@ -257,6 +272,7 @@ sub nsort($ar) {
   @$ar=sort {$b<=>$a} @$ar;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^sorts by length
@@ -270,6 +286,7 @@ sub nlsort($ar) {
   } @$ar;
 
 };
+
 
 # ---   *   ---   *   ---
 # give idex of element
@@ -289,6 +306,7 @@ sub iof($ar,$elem) {
 
 };
 
+
 # ---   *   ---   *   ---
 # wrapping indexing into array
 
@@ -297,6 +315,7 @@ sub wrap($ar,$idex) {
   return $ar->[$idex];
 
 };
+
 
 # ---   *   ---   *   ---
 # recursively flatten array
@@ -416,6 +435,7 @@ sub nmap($ar,$fn,$mode='ikv') {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^icebox
 
@@ -428,6 +448,7 @@ sub vmap($ar,$fn) {
   nmap($ar,$fn,'v');
 
 };
+
 
 # ---   *   ---   *   ---
 # consume elements as they match
@@ -450,6 +471,7 @@ sub matchpop($ar,@seq) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ~
 
@@ -462,6 +484,7 @@ sub IDEXUP_P2($idex,$f,@list) {
   return map {$f->($ARG,1 << $idex++)} @list;
 
 };
+
 
 # ---   *   ---   *   ---
 # exporter names
@@ -492,6 +515,7 @@ sub IDEXUP_P2($idex,$f,@list) {
   *array_map      = *nmap;
 
   *array_matchpop = *matchpop;
+
 
 # ---   *   ---   *   ---
 1; # ret

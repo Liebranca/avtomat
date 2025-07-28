@@ -8,20 +8,21 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
+
 # ---   *   ---   *   ---
-
 # deps
-package Style;
 
-  use v5.36.0;
+package Style;
+  use v5.42.0;
   use strict;
   use warnings;
 
   use Readonly;
 
   use Carp;
-  use English qw(-no_match_vars);
+  use English;
+
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -29,18 +30,9 @@ package Style;
   use Exporter 'import';
   our @EXPORT=qw(
 
-    $MEMPTR
-    $MEMPTR_SZBYTE
-    $MEMPTR_SZMASK
-
     $NOOP
     $NO_MATCH
     $ANY_MATCH
-
-    $NULL
-    $NULLSTR
-    $NULLTAG
-    $FREEBLOCK
 
     $AR_WARNING
     $AR_ERROR
@@ -65,53 +57,27 @@ package Style;
     catar
 
     null
-    nop
-    nulltag
+    noop
 
   );
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.02.7;
+  our $VERSION = 'v0.02.8';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # ROM
 
-  sub nop {};
+  sub noop {};
+  sub null {return ''};
 
-  Readonly our $NOOP    => \&nop;
-  Readonly our $MEMPTR  => 0x9E5024<<40;
-
-  Readonly our $MEMPTR_SZBYTE=>0xFF<<32;
-  Readonly our $MEMPTR_SZMASK=>0x08<<32;
-
-  Readonly our $NULL=>
-
-    $MEMPTR
-  | $MEMPTR_SZMASK
-  | 0xDEADBEEF
-  ;
-
-  Readonly our $FREEBLOCK=>
-
-    $MEMPTR
-  | $MEMPTR_SZMASK
-  | 0xF9EEB10C
-
-  ;
-
-  Readonly our $NULLSTR=>q[];
-  Readonly our $NULLTAG=>'<null>';
-
-# ---   *   ---   *   ---
+  Readonly our $NOOP       => \&nop;
 
   Readonly our $AR_WARNING => "\e[33;22m";
   Readonly our $AR_ERROR   => "\e[35;1m";
   Readonly our $AR_FATAL   => "\e[31;1m";
-
-# ---   *   ---   *   ---
 
   Readonly our $DOT_RE     => qr{\.};
   Readonly our $SEMI_RE    => qr{;};
@@ -128,38 +94,27 @@ package Style;
   Readonly our $ASTER_RE   => qr{\*};
   Readonly our $NUM_RE     => qr{^\d+$};
 
-  Readonly our $NO_MATCH   => q{$^};
+  Readonly our $NO_MATCH   => qr{\b\B};
   Readonly our $ANY_MATCH  => qr{.+};
+
 
 # ---   *   ---   *   ---
 # utility calls
 
-sub strerr($info=$NULLSTR) {
-
-  my $out;
-
-  if(length $info) {
-    $out="$ERRNO $info";
-
-  } else {
-    $out="$ERRNO";
-
-  };
-
-  return $out;
+sub strerr($info=null) {
+  return (length $info)
+    ? "$ERRNO $info"
+    : "$ERRNO"
+    ;
 
 };
 
-# ---   *   ---   *   ---
-# join $NULLSTR,(list)
-
-sub catar(@src) {join $NULLSTR,@src};
 
 # ---   *   ---   *   ---
-# aliasing!
+# join null,(list)
 
-sub null    {$NULLSTR};
-sub nulltag {$NULLTAG};
+sub catar(@src) {join null,@src};
+
 
 # ---   *   ---   *   ---
 1; # ret

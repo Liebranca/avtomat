@@ -8,29 +8,29 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Warnme;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
   use Carp qw(croak longmess);
-  use Readonly;
-
-  use English qw(-no_match_vars);
+  use English;
 
   use File::Spec;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Chk;
-  use Arstd::IO;
+  use Arstd::IO qw(errout);
+
+  use parent 'St';
+
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -38,40 +38,44 @@ package Warnme;
   use Exporter 'import';
   our @EXPORT=qw(warnproc);
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.2;#a
+  our $VERSION = 'v0.00.3a';
   our $AUTHOR  = 'IBN-3DILA';
 
+
 # ---   *   ---   *   ---
-# sets defaults
+# ROM
 
-sub defaults($O) {
+my $PKG=__PACKAGE__;
+St::vconst {
 
-  $O->{obj}  //= nulltag;
-  $O->{give} //= 1;
-  $O->{back} //= 0;
-  $O->{lvl}  //= $AR_WARNING;
-  $O->{args} //= [];
+  DEFAULT => {
+    obj  => '<null>',
+    give => 1,
+    back => 0,
+    lvl  => $AR_WARNING,
+    args => [],
 
-
-  return;
+  },
 
 };
+
 
 # ---   *   ---   *   ---
 # universal proto
 
 sub warnproc($me,%O) {
 
-
   # default and deref
-  defaults \%O;
+  $PKG->defnit(\%O);
+  my $nulltag=$PKG->DEFAULT->{obj};
 
   map {
-    $ARG=$$ARG if is_scalarref($ARG);
-    $ARG=nulltag if ! defined $ARG;
+    $ARG=$$ARG    if   is_scalarref($ARG);
+    $ARG=$nulltag if ! defined $ARG;
 
   } @{$O{args}};
 
@@ -84,6 +88,7 @@ sub warnproc($me,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # "invalid (WAT): '(OBJ)'"
 
@@ -92,6 +97,7 @@ sub invalid($wat,%O) {
   args => [$wat,$O{obj}];
 
 };
+
 
 # ---   *   ---   *   ---
 # "redefinition of (WAT) '(OBJ)'"
@@ -102,11 +108,11 @@ sub redef($wat,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # "X not found in Y"
 
 sub not_found($wat,%O) {
-
 
   my $in=($O{cont})
     ? "in $O{cont}"
@@ -127,6 +133,7 @@ sub not_found($wat,%O) {
   };
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

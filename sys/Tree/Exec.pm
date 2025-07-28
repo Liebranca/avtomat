@@ -8,20 +8,19 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Tree::Exec;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match_vars);
+  use English;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
   use Chk;
@@ -30,11 +29,13 @@ package Tree::Exec;
 
   use parent 'Tree';
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.3;#b
+  our $VERSION = 'v0.00.4';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # leaf cstruc
@@ -175,7 +176,7 @@ sub walk_cstack($self) {
 
 sub walk($self,$ctx) {
 
-  my $out=$NULLSTR;
+  my $out=null;
 
   $self->{rip} = $self->{leaves}->[0];
   $self->{jmp} = undef;
@@ -198,7 +199,7 @@ sub walk($self,$ctx) {
     # ptr was overwritten
     if($self->{jmp}) {
 
-      $rip=$self->{rip}=($self->{jmp} ne $NULL)
+      $rip=$self->{rip}=($self->{jmp} ne null)
         ? $self->{jmp}
         : undef
         ;
@@ -241,7 +242,7 @@ sub jmp($self,$to) {
 
   $self->{jmp}=(defined $to)
     ? $to->{xbranch}
-    : $NULL
+    : null
     ;
 
 };

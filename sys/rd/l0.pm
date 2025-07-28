@@ -8,21 +8,18 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package rd::l0;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English qw(-no_match-vars);
-
-  use lib $ENV{ARPATH}.'/lib/sys/';
+  use English;
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
 
   use parent 'rd::layer';
@@ -30,7 +27,7 @@ package rd::l0;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.9;#a
+  our $VERSION = 'v0.00.9a';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
@@ -51,6 +48,7 @@ St::vconst {
       status  => 0x00,
       strterm => undef,
 
+      prev    => null,
       stack   => [],
 
     };
@@ -102,6 +100,9 @@ St::vconst {
     (map {$ARG=>'enter'} qw~( [ {~),
     (map {$ARG=>'leave'} qw~) ] }~),
 
+
+    "\x{7F}" => 'com',
+
   },
 
 
@@ -140,11 +141,22 @@ sub read($self,$JMP,$c) {
   # ^nope, process normally
   } else {
 
+    # sneaky hack for C comments ;>
+    if($main->{C}
+    && $c eq '/' && $self->{prev} eq '/') {
+      $c=$self->{char}="\x{7F}";
+
+      my $b=$main->{l2}->{branch};
+      $b->pluck($b->{leaves}->[-1]);
+
+    };
+
     # get proc for this char
     my $fn=$JMP->[ord($c)];
 
     # ^invoke and go next
     $self->$fn();
+    $self->{prev}=$c;
 
 
     return $fn;
@@ -186,7 +198,7 @@ sub parse_single($self) {
   # get ctx
   my $main  = $self->{main};
   my $JMP   = $self->load_JMP();
-  my @chars = split $NULLSTR,$main->{buf};
+  my @chars = split null,$main->{buf};
 
 
   # consume up to term
@@ -201,7 +213,7 @@ sub parse_single($self) {
 
 
   # re-assemble string without consumed
-  $main->{buf}=join $NULLSTR,@chars;
+  $main->{buf}=catar @chars;
 
 
   return;
@@ -216,7 +228,7 @@ sub parse($self) {
   my $JMP=$self->load_JMP();
 
   map   {$self->read($JMP,$ARG)}
-  split $NULLSTR,$self->{main}->{buf};
+  split null,$self->{main}->{buf};
 
   return;
 
@@ -315,6 +327,7 @@ sub str($self,$term=undef) {
 # ^same mechanic, but terminator
 # is a newline
 
+sub cpreproc($self) {$self->com()};
 sub com($self) {
 
 
@@ -452,7 +465,9 @@ sub opr($self) {
 # ---   *   ---   *   ---
 # marks next token
 
-sub esc($self) {
+sub esc($self,%O) {
+
+  $O{nocat} //= 0;
 
   my ($esc)=$self->flagchk(esc=>1);
 
@@ -461,7 +476,7 @@ sub esc($self) {
 
   } else {
     $self->flagset(esc=>0);
-    $self->cat();
+    $self->cat() if ! $O{nocat};
 
   };
 
@@ -507,7 +522,7 @@ sub commit($self) {
   };
 
   # give true if token added
-  $l1->{token}=$NULLSTR;
+  $l1->{token}=null;
   $self->flagset(esc=>0);
 
   return $have;
@@ -529,7 +544,7 @@ sub discard($self) {
   my $main = $self->{main};
   my $l1   = $main->{l1};
 
-  $l1->{token}=$NULLSTR;
+  $l1->{token}=null;
 
   return;
 
@@ -662,6 +677,16 @@ sub strmode($self) {
   my $l2   = $main->{l2};
 
 
+  # have we stepped on an escape?
+  my $type = $self->charset->{$self->{char}};
+  my $esct = defined $type && $type eq 'esc';
+
+  $self->esc(nocat=>1) if $esct;
+
+  # ^get flag
+  my ($esc)=$self->flagchk(esc=>1);
+
+
   # are we inside a string?
   my ($out)=$self->flagchk(
     str=>1
@@ -677,9 +702,10 @@ sub strmode($self) {
 
 
   # ^terminate string if both are true!
-  if($end) {
+  # ^(and term is not escaped ;>)
+  if($end &&! $esc) {
 
-    $self->{char}=$NULLSTR;
+    $self->{char}=null;
     $self->flagset(str=>0);
 
     $self->commit();
@@ -697,6 +723,9 @@ sub strmode($self) {
       $l2->term();
 
     };
+
+  } elsif($esc &&! $esct) {
+    $self->flagset(esc=>0);
 
   };
 

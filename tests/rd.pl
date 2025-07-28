@@ -16,6 +16,7 @@ package main;
   use Type;
   use Bpack;
 
+  use rd;
   use ipret;
   use xlate;
 
@@ -25,6 +26,23 @@ package main;
 
   use Arstd::IO;
   use Arstd::xd;
+
+
+# ---   *   ---   *   ---
+# ~~
+
+
+use Avt::Xcav::C;
+my $have=Avt::Xcav::C->symscan(
+  "$ENV{ARPATH}/ce/arstd.h"
+
+);
+
+use Fmat;
+fatdump \$have;
+
+exit;
+
 
 # ---   *   ---   *   ---
 # run and dbout
