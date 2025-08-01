@@ -8,18 +8,15 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Avt::flatten;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
-
-  use Readonly;
 
   use Cwd qw(abs_path);
   use English qw(-no_match_vars);
@@ -29,37 +26,37 @@ package Avt::flatten;
 
   use parent 'Shb7::Bk::front';
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.6;#a
+  our $VERSION = 'v0.00.7a';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # cstruc
 
 sub new($class,%O) {
-
   my $self=Shb7::Bk::front::new(
-
     $class,
 
     lang    => 'fasm',
-
     bk      => 'flat',
     entry   => 'start',
-
     pproc   => 'Avt::flatten::pproc',
-
 
     %O,
 
     linking => (! $O{linking})
-      ? 'flat' : 'half-flat' ,
+      ? 'flat'
+      : 'half-flat'
+      ,
 
   );
 
 };
+
 
 # ---   *   ---   *   ---
 # invoke pproc
@@ -67,142 +64,167 @@ sub new($class,%O) {
 sub cpproc($class,$f,@args) {
   return Avt::flatten::pproc->$f(@args);
 
-}
+};
+
 
 # ---   *   ---   *   ---
 # ^fasm preprocessor
+#
+# NOTE:
+#
+# this is for the old AR/forge
+# system, which we don't currently
+# use anymore...
+#
+# mostly because fasm2 came out ;>
+#
+# some of this code could be
+# reused though. i did a 'cleanup pass'
+# and will reread it some more if we
+# need a fasm2 preprocessor later on
+#
+# (we may need it; can't tell yet)
 
 package Avt::flatten::pproc;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-
   use Cwd qw(abs_path);
-  use English qw(-no_match_vars);
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use English;
+  use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style;
 
-  use Arstd::Array;
-  use Arstd::Path;
-  use Arstd::Re;
-  use Arstd::IO;
+  use Arstd::Array qw(array_dupop);
+  use Arstd::String qw(recapts);
+  use Arstd::Path qw(extwap);
+  use Arstd::Re qw(
+    re_escaped
+    re_nonscaped
+    re_delim
+
+  );
+
+  use Arstd::IO qw(orc owc);
 
   use Shb7::Path;
 
-  use lib $ENV{'ARPATH'}.'/lib/';
+  use lib "$ENV{ARPATH}/lib/";
 
   use Emit;
   use Emit::Std;
 
+  use parent 'St';
+
+
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly my $INCFILE => qr{\.inc$};
+my $PKG=__PACKAGE__;
+St::vconst {
+  INCFILE_RE => qr{\.inc$},
+  NTERM_RE   => re_escaped('\n',mod=>'*',sigws=>1),
+  TERM_RE    => re_nonscaped('\n'),
+  BODY_RE    => re_delim('{','}',capt=>'body'),
+  WS_RE      => qr{[\s\\]},
 
-  Readonly my $NTERM => re_escaped(
-    '\n',
+  MACRO_RE   => sub {
+    my ($ws,$body)=(
+      $_[0]->WS_RE,
+      $_[0]->BODY_RE,
 
-      mod   => '*',
-      sigws => 1,
+    );
 
-  );
+    return qr{
+      macro (?:$ws+)
+      (?<name> [^\s]+) (?:$ws*)
+      (?<args> [^\{]*) (?:$ws*)
 
-  Readonly my $TERM  => re_nonscaped('\n');
+      $body
 
-  Readonly my $BODY  => re_delim(
-    '{','}',capt=>'body'
+    }x;
 
-  );
+  },
 
-  Readonly my $WS    => qr{[\s\\]};
-
-  Readonly my $MACRO => qr{
-
-    macro
-    (?:$WS+)
-
-    (?<name> [^\s]+)
-    (?:$WS*)
-
-    (?<args> [^\{]*)
-    (?:$WS*)
-
-    $BODY
-
-  }x;
-
-
-  Readonly my $STR => qr{
+  STR_RE=>qr{
     (?: ['] [^']+ ['])
   | (?: ["] [^"]+ ["])
 
-  }x;
+  }x,
 
-  Readonly my $STRSTRIP => qr{
+  STRSTRIP_RE=>qr{
     (?: ^['"]  )
   | (?:  ['"]$ )
 
-  }x;
+  }x,
 
 
-  Readonly my $LIB_OPEN => qr{
+  LIB_OPEN_RE=>sub {
+    my ($ws,$str,$term)=(
+      $_[0]->WS_RE,
+      $_[0]->STR_RE,
+      $_[0]->TERM_RE,
 
-    library
-    (?:$WS+)
+    );
 
-    (?<env> [^\s]+)
-    (?:$WS+)
+    return qr{
+      library (?:$ws+)
+      (?<env> [^\s]+) (?:$ws+)
 
-    (?<path> $STR)
-    (?:$WS*)
-    (?:$TERM)
+      (?<path> $str) (?:$ws*)
+      (?:$term)
 
-  }x;
+    }x;
 
-  Readonly my $LIB_CLOSE => qr{
-    library\.import (?:$TERM)
+  },
 
-  }x;
+  LIB_CLOSE_RE=>sub {
+    my $term=$_[0]->TERM_RE;
+    return qr{library\.import (?:$term)}x;
 
-
-  Readonly my $USE => qr{
-
-    \s*
-
-    use
-    (?:$WS+)
-
-    (?<ext> $STR)
-    (?:$WS+)
-
-    (?<name> [^\s]+)
-    (?:$WS*)
-    (?:$TERM)
-
-  }x;
-
-  Readonly my $LIB => qr{
-
-    (?<head> $LIB_OPEN)
-    (?<uses> (?:$USE)+)
-
-    $LIB_CLOSE
-
-  }x;
+  },
 
 
-  Readonly my $PROC_BODY => qr{
+  USING_RE=>sub {
+    my ($ws,$str,$term)=(
+      $_[0]->WS_RE,
+      $_[0]->STR_RE,
+      $_[0]->TERM_RE,
 
-  (?<body>
+    );
 
+    return qr{
+      \s* use (?:$ws+)
+      (?<ext> $str) (?:$ws+)
+      (?<name> [^\s]+) (?:$ws*)
+      (?:$term)
+
+    }x;
+
+  },
+
+  LIB_RE=>sub {
+    my ($lib_open,$using,$lib_close)=(
+      $_[0]->LIB_OPEN_RE,
+      $_[0]->USING_RE,
+      $_[0]->LIB_CLOSE_RE,
+
+    );
+
+    return qr{
+      (?<head> $lib_open)
+      (?<uses> (?:$using)+)
+
+      $lib_close
+
+    }x;
+
+  },
+
+  PROC_BODY_RE=>qr{(?<body>
     (?:proc\.new)
-
     (?:
-
       (?!proc\.leave|proc.new)
       (?:.|\s)
 
@@ -210,61 +232,52 @@ package Avt::flatten::pproc;
 
     (?:proc\.leave)
 
-  )
+  )}x,
 
-  }x;
+  PROC_RE=>sub {
+    my ($proc_body,$ws)=(
+      $_[0]->PROC_BODY_RE,
+      $_[0]->WS_RE,
 
-  Readonly my $PROC => qr{
+    );
 
-    $PROC_BODY
+    return qr{
+      $proc_body (?: $ws*)
+      (?: ret|exit [^\n]*\n)?
 
-    (?: $WS*)
-    (?: ret|exit [^\n]*\n)?
+    }x;
 
-  }x;
+  },
 
-  Readonly my $IPROC => qr{
-
+  IPROC_RE=>qr{
     (?<body>
-
       proc.new
       (?: (?! inline)(.|\s)+)
 
     )
 
     (?: inline [^\n]*\n)
-
     (?:
-
       (?: (?! ret|exit)(.|\s)+)
       (?: ret|exit [^\n]*\n)
 
     )?
 
-  }x;
+  }x,
 
+  LCOM_RE => qr{^ \s* ; (?: .*) (?: \n|$)}x;
+  SEG_RE  => sub {
+    my $nterm=$_[0]->NTERM_RE;
+    return qr{(?:
+      (?: (?:ROM|RAM|EXE) SEG)
+    | (?: (?:section|segment))
+    | (?: constr \s+ (?: ROM|RAM))
 
+    ) $nterm}x;
 
-  Readonly my $LCOM => qr{
+  },
 
-    ^ \s* ;
-
-    (?: .*)
-    (?: \n|$)
-
-  }x;
-
-  Readonly my $SEG  => qr{(?:
-
-    (?: (?:ROM|RAM|EXE) SEG)
-  | (?: (?:section|segment))
-
-  | (?: constr \s+ (?: ROM|RAM))
-
-  ) $NTERM}x;
-
-  Readonly my $SEGR => qr{(?:
-
+  SEGR_RE=>qr{(?:
     (?: (?: ROM|RAM) SEG)
     (?: (?! EXESEG) (?: .|\s)+ )
 
@@ -272,60 +285,70 @@ package Avt::flatten::pproc;
 
   )}x;
 
-  Readonly my $REG => qr{
+  REG_RE=>sub {
+    my ($term,$nterm)=(
+      $_[0]->TERM_RE,
+      $_[0]->NTERM_RE,
 
-    (?: reg\.new) $NTERM
-    (?<! \,public) $TERM
+    );
 
+    return qr{
+      (?: reg\.new) $nterm
+      (?<! \,public) $term
 
-    (?:
+      (?:
+        (?: (?! reg\.end) (?: .|\s) )+
+      | (?R)
 
-      (?: (?! reg\.end) (?: .|\s) )+
-    | (?R)
+      )*
 
-    )*
+      reg\.end
 
+    }x;
 
-    reg\.end
+  },
 
-  }x;
+  REGICE_RE=>sub {
+    my $nterm=$_[0]->NTERM_RE;
+    return qr{(?: reg\.ice) $nterm}x;
 
-  Readonly my $REGICE => qr{
-    (?: reg\.ice) $NTERM
+  },
 
-  }x;
+  GETIMP_STR=>(join "\n",
+    q[if ~ defined loaded?Imp],
+    q[include '%ARPATH%/forge/Imp.inc'],
 
-  Readonly my $GETIMP => q[
+    q[end if],
 
-if ~ defined loaded?Imp
-  include '%ARPATH%/forge/Imp.inc'
+  ),
 
-end if
+  PREIMP_STR=>(join "\n",
+    q[MAM.xmode='__MODE__'],
+    q[MAM.head __ENTRY__],
 
-];
+  ),
 
-  Readonly our $PREIMP => q[
+  FOOT_STR=>(join "\n",
+    q[MAM.avto]
+    q[MAM.foot]
 
-MAM.xmode='__MODE__'
-MAM.head __ENTRY__
+  ),
 
-];
+  GET_AUTHOR_RE=>sub {
+    my $nterm=$_[0]->NTERM_RE;
+    return qr{AUTHOR  \s+ ($nterm)}x;
 
-  Readonly my $FOOT => q[
+  },
 
-MAM.avto
-MAM.foot
+};
 
-];
 
 # ---   *   ---   *   ---
 # scrap non-binary data
 # (ie code) from file
 
 sub get_nonbin($class,$fpath) {
-
-  my $body   = orc($fpath);
-
+  my $body=orc($fpath);
   $class->strip_meta(\$body);
 
   my $macros = $class->strip_macros(\$body);
@@ -336,66 +359,44 @@ sub get_nonbin($class,$fpath) {
   $class->strip_codestr(\$body);
 
 
-  return
+  return join "\n",(
+    $deps,
+    $extrn,
+    @$macros,
+    $body,
+    @$procs,
 
-    "$deps\n"
-  . "$extrn\n"
-
-  . (join "\n",@$macros) . "\n"
-  . "$body\n"
-
-  . (join "\n",@$procs)  . "\n"
-
-  ;
+  );
 
 };
+
 
 # ---   *   ---   *   ---
 # ^remove macros from codestr
 # save them to out
 
 sub strip_macros($class,$sref) {
-
-  my $out=[];
-
-  while($$sref=~ s[$MACRO][]) {
-    push @$out,
-      "macro $+{name} $+{args} $+{body}";
-
-  };
-
-
-  return $out;
+  return [recapts $sref,$PKG->MACRO_RE];
 
 };
+
 
 # ---   *   ---   *   ---
 # separate dependency blocks
 
 sub get_imp_deps($clas,$sref) {
-
-  my $out=[];
-
-  while($$sref=~ s[($LIB)][]) {
-    push @$out,$1
-
-  };
-
-  return join "\n",@$out;
+  return join "\n",(recapts $sref,$PKG->LIB_RE);
 
 };
+
 
 # ---   *   ---   *   ---
 # get exported symbols
 
 sub get_extrn($class,$fpath) {
 
-  state $re = qr{^extrn};
-
   # get symbol file
-  my @out=();
   my $src=obj_from_src(
-
     $fpath,
 
     ext       => '.preshwl',
@@ -404,75 +405,83 @@ sub get_extrn($class,$fpath) {
   );
 
   # ^skip if non-existent
-  goto TAIL if ! -f $src;
+  return null if ! -f $src;
 
   # ^read file and get extrn decls
-  my $body = orc($src);
-     @out  = grep {$ARG=~ $re} split "\n",$body;
+  return join "\n",grep {
+    $ARG=~ qr{^extrn};
 
-TAIL:
-  return join "\n",@out;
+  } split($NEWLINE_RE,orc($src));
 
 };
+
 
 # ---   *   ---   *   ---
 # ^remove private data
 
 sub strip_codestr($class,$sref) {
-
   state $constr_re=qr{constr\.new};
+  my ($segr,$seg,$reg,$regice)=(
+    $PKG->SEGR_RE,
+    $PKG->SEG_RE,
+    $PKG->REG_RE,
+    $PKG->REGICE_RE,
 
-  $$sref=~ s[$SEGR][]sxmg;
-  $$sref=~ s[$SEG][]sxmg;
-  $$sref=~ s[$REG][]sxmg;
-  $$sref=~ s[$REGICE][]sxmg;
+  );
 
+  $$sref=~ s[$segr][]sxmg;
+  $$sref=~ s[$seg][]sxmg;
+  $$sref=~ s[$reg][]sxmg;
+  $$sref=~ s[$regice][]sxmg;
   $$sref=~ s[$constr_re][constr._ns_new]sxmg;
 
+  return;
+
 };
+
 
 # ---   *   ---   *   ---
 # ^remove code, but leave
 # proc macros for inlining
 
 sub strip_procs($class,$sref) {
-
   state $line_re=qr{^\s*proc\.};
   state $keep_re=qr{^\s*proc\.new};
 
-  my $out=[];
+  my $out   = [];
+  my $proc  = $PKG->PROC_RE;
+  my $iproc = $PKG->IPROC_RE;
+  $$sref=~ s[$proc][]sxmg;
 
-  $$sref=~ s[$PROC][]sxmg;
-
-  while($$sref=~ s[$IPROC][]) {
-
+  while($$sref=~ s[$iproc][]) {
     my $s=$+{body};
 
-    push @$out,grep {
-      $ARG=~ $line_re
+    push  @$out,grep {$ARG=~ $line_re}
+    split $NEWLINE_RE,$s;
 
-    } split $NEWLINE_RE,$s;
+    $out->[-1]=~ s[$keep_re][proc._ns_new];
 
   };
 
-  map {$ARG=~ s[$keep_re][proc._ns_new]} @$out;
 
   return $out;
 
 };
 
+
 # ---   *   ---   *   ---
 # ^remove metadata
 
 sub strip_meta($class,$sref) {
-
+  my $re=$PKG->LCOM_RE;
   my @out=grep {
-    ! ($ARG=~ m[$LCOM]sxm)
+    ! ($ARG=~ m[$re]sxm)
   &&! ($ARG=~ m[^\s*$]sxm)
 
-  } split "\n",$$sref;
+  } split $NEWLINE_RE,$$sref;
 
   $$sref=join "\n",@out;
+  return;
 
 };
 
@@ -481,17 +490,21 @@ sub strip_meta($class,$sref) {
 # importer cmd
 
 sub read_deps($class,$base,$deps) {
+  my ($using_re,$strip_re)=(
+    $PKG->USING_RE,
+    $PKG->STRSTRIP_RE,
+
+  );
 
   my @out=();
-
-  while($deps=~ s[$USE][]sxm) {
+  while($deps=~ s[$using_re][]sxm) {
 
     # get file name and extension
     my $ext  = $+{ext};
     my $name = $+{name};
 
     # ^clean
-    $ext  =~ s[$STRSTRIP][]sxmg;
+    $ext  =~ s[$strip_re][]sxmg;
     $name =~ s[$DCOLON_RE][/]sxmg;
 
     # ^get fullpath
@@ -502,21 +515,26 @@ sub read_deps($class,$base,$deps) {
 
   };
 
+
   return @out;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^read in importer cmd
 
 sub get_file_deps($class,$body) {
-
   state $is_fake=qr{\.hed$};
 
+  my ($lib_re,$strip_re)=(
+    $PKG->LIB_RE,
+    $PKG->STRSTRIP_RE,
+
+  );
+
   my @out=();
-
-  while($body=~ s[$LIB][]sxm) {
-
+  while($body=~ s[$lib_re][]sxm) {
     my $head=$+{head};
     my $uses=$+{uses};
 
@@ -527,37 +545,34 @@ sub get_file_deps($class,$body) {
     # ^get import path
     $env=($env ne '_')
       ? $ENV{$env}
-      : $NULLSTR
+      : null
       ;
 
-    $path=~ s[$STRSTRIP][]sxmg;
+    $path=~ s[$strip_re][]sxmg;
 
     my $base="$env$path";
+    my $have=$class->read_deps($base,$uses);
 
-    push @out,$class->read_deps($base,$uses);
+
+    # ^cleanup and give
+    $have=extwap($ARG,'asm')
+    if $ARG=~ $is_fake;
+
+    push @out,$have;
 
   };
 
-
-  # cleanup and give
-  map {
-     $ARG =  extwap($ARG,'asm')
-  if $ARG =~ $is_fake;
-
-  } @out;
 
   return @out;
 
 };
 
+
 # ---   *   ---   *   ---
 # ^recursively expand deps
 
 sub get_deps($class,@flist) {
-
   my @out=();
-
-
   while(@flist) {
 
     # open new file
@@ -567,33 +582,28 @@ sub get_deps($class,@flist) {
     # ^keep track of deps
     unshift @out,$elem;
 
-
     # recurse
-    unshift @flist,
-      $class->get_file_deps($body);
+    unshift @flist,$class->get_file_deps($body);
 
   };
 
 
-  # cleanup and give
   return @out;
 
 };
+
 
 # ---   *   ---   *   ---
 # build dependency files
 
 sub build_deps($class,@flist) {
-
-  my @order=();
-
-  for my $bfile(@flist) {
+  my @order;
+  for(@flist) {
 
     # get src
-    my $fpath = $bfile->{src};
+    my $fpath = $ARG->{src};
     my $dst   = $class->get_altsrc($fpath);
     my $body  = orc($fpath);
-
 
     # get deps file
     my $depsf=extwap($dst,'asmd');
@@ -605,9 +615,9 @@ sub build_deps($class,@flist) {
       unshift @deps,$class->get_deps(@deps);
 
       array_dupop(\@deps);
-      unshift @order,@deps;
-
       owc($depsf,join "\n",@deps);
+
+      unshift @order,@deps;
 
     } else {
       unshift @order,split $NEWLINE_RE,orc($depsf);
@@ -623,13 +633,12 @@ sub build_deps($class,@flist) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get out path in trashfold
 
 sub get_altsrc($class,$fpath) {
-
   return obj_from_src(
-
     $fpath,
 
     ext       => '.asmx3',
@@ -639,13 +648,12 @@ sub get_altsrc($class,$fpath) {
 
 };
 
+
 # ---   *   ---   *   ---
 # get out path in own fold
 
 sub get_altout($class,$fpath) {
-
   return obj_from_src(
-
     $fpath,
 
     ext       => '.bin',
@@ -655,6 +663,7 @@ sub get_altout($class,$fpath) {
 
 };
 
+
 # ---   *   ---   *   ---
 # make pre-build trashfile
 
@@ -662,11 +671,13 @@ sub prebuild($class,$bfile,%O) {
 
   # defaults
   $O{mode}  //= 'obj';
-  $O{entry} //= $NULLSTR;
+  $O{entry} //= null;
 
 
   # get build mode
-  my $pre=$PREIMP;
+  my $pre  = $PKG->PREIMP_STR;
+  my $get  = $PKG->GETIMP_STR;
+  my $foot = $PKG->FOOT_STR;
 
   $pre=~ s[__MODE__][$O{mode}];
   $pre=~ s[__ENTRY__][$O{entry}];
@@ -680,7 +691,7 @@ sub prebuild($class,$bfile,%O) {
   $class->strip_meta(\$body);
 
   # ^cat chunks
-  my $inc=int ($fpath=~ $INCFILE);
+  my $inc=int ($fpath=~ $PKG->INCFILE_RE);
 
   $bfile->{__alt_out}=($inc)
     ? $class->get_altout($fpath)
@@ -688,8 +699,8 @@ sub prebuild($class,$bfile,%O) {
     ;
 
   my $out=($inc)
-    ? "$GETIMP$body"
-    : "$GETIMP$pre$body$FOOT"
+    ? "$get$body"
+    : "$get$pre$body$foot"
     ;
 
 
@@ -702,15 +713,14 @@ sub prebuild($class,$bfile,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^make post-build header
 
 sub postbuild($class,$bfile) {
+  my $get_author=GET_AUTHOR_RE;
 
-  state $get_author=qr{AUTHOR  \s+ ($NTERM)}x;
-
-
-  my $out=$NULLSTR;
+  my $out=null;
   $bfile->{src}=$bfile->{_pproc_src};
 
   # get src
@@ -720,7 +730,7 @@ sub postbuild($class,$bfile) {
   # scrap info
      $body     =~ $get_author;
   my $author   =  $1;
-     $author //=  $Emit::ON_NO_AUTHOR;
+     $author //=  Emit->ON_NO_AUTHOR;
 
   # ^make src
   $out.=Emit::Std::note($author,';')."\n";
@@ -728,7 +738,6 @@ sub postbuild($class,$bfile) {
 
   # emit
   my $dst=obj_from_src(
-
     $fpath,
 
     ext       => '.hed',
@@ -740,6 +749,7 @@ sub postbuild($class,$bfile) {
   return $dst;
 
 };
+
 
 # ---   *   ---   *   ---
 # fasm rules ;>
@@ -758,35 +768,27 @@ sub binfilter($class,$bfile) {
   my $fpath = $bfile->{__alt_out};
   my $base  = dirof $fpath;
 
-
   # ^relocate the others
   my @keep=$class->ffilter($base);
   map {rename $ARG,src_from_obj($ARG)} @keep;
 
+  return;
 
 };
+
 
 # ---   *   ---   *   ---
 # ^filters out unwanted files
 
 sub ffilter($class,$base,$wanted=undef) {
+  my $tree = Shb7::walk($base,-x=>[qw(
+    .+\.hed$
+    .+\.asm$
+    .+\.asmx3$
+    .+\.preshwl$
+    .+\.asmd$
 
-  my $tree = Shb7::walk(
-
-    $base,
-
-    -x=>[qw(
-
-      .+\.hed$
-      .+\.asm$
-
-      .+\.asmx3$
-      .+\.preshwl$
-      .+\.asmd$
-
-    )],
-
-  );
+  )]);
 
 
   # ^separate empty
@@ -795,24 +797,12 @@ sub ffilter($class,$base,$wanted=undef) {
 
   );
 
-  my @trash = ();
-  my @keep  = ();
-
-  map {
-
-    if(! -s $ARG) {
-      push @trash,$ARG
-
-    } else {
-      push @keep,$ARG
-
-    };
+  # remove empty bins
+  my @keep=grep {
+    if(! -s $ARG) {unlink $ARG;0}
+    else {1};
 
   } @ar;
-
-
-  # ^remove empty bins
-  map {unlink $ARG} @trash;
 
 
   # apply a second filter?
@@ -823,6 +813,7 @@ sub ffilter($class,$base,$wanted=undef) {
   return @keep;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

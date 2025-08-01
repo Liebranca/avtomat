@@ -483,12 +483,10 @@ sub cpmac(%O) {
 # build exclusion re
 
 sub exclude_paths($dashx) {
-
   $dashx=join q{|},@$dashx;
-
   $dashx=(length $dashx)
     ? qr{^(?:$dashx)$}x
-    : $NO_MATCH
+    : no_match
     ;
 
   return $dashx;
@@ -503,8 +501,6 @@ sub walk($path,%O) {
   # defaults
   $O{-r}//=0;
   $O{-x}//=[];
-
-  my $_opath=$path;
 
   # filetree obj
   my $frame     = Tree::File->get_frame();
@@ -523,10 +519,8 @@ sub walk($path,%O) {
 
   # prepend and open
   while(@pending) {
-
     $path      = shift @pending;
     $root_node = shift @pending;
-
 
     # nit root on first run
     my $dst=(! defined $root_node)
@@ -538,12 +532,11 @@ sub walk($path,%O) {
     $out//=$dst;
 
     # make tree from file list
-    map {
+    for(dorc($path,$excluded)) {
       if(-f "$path/$ARG") {
         $frame->new($dst,$ARG);
 
       } elsif(($O{-r}) && (-d "$path$ARG/")) {
-
         unshift @pending,(
           "$path$ARG/",
           $frame->new($dst,"$ARG/")
@@ -552,7 +545,7 @@ sub walk($path,%O) {
 
       };
 
-    } dorc($path,$excluded);
+    };
 
   };
 

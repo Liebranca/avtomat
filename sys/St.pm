@@ -18,46 +18,25 @@ package St;
   use strict;
   use warnings;
 
-  use Carp;
-  use Readonly;
+  use Carp qw(croak);
   use Storable qw(dclone);
-  use English;
-
-  use Scalar::Util qw(blessed reftype);
+  use English qw($ARG);
   use B::Deparse;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-  use Style;
-  use Chk;
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Chk qw(is_blessref is_coderef);
   use Frame;
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.03.3';
+  our $VERSION = 'v0.03.6';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # ROM
-
-  Readonly my $DEPARSE_DO=>qr{
-
-    ^\s*\{\s*
-
-    do \s* \{
-      [^\}]+
-
-    \};
-
-  }x;
-
-  Readonly my $CFCLEAN=>qr{
-
-    .+ $DCOLON_RE ([^:]+) $
-
-  }x;
 
   sub Frame_Vars($class) {{}};
 
@@ -68,13 +47,21 @@ package St;
   our $Frames  = {};
   our $Classes = {};
 
-  our $Deparse = B::Deparse->new();
+
+# ---   *   ---   *   ---
+# get deparser ;>
+
+sub deparse {
+  state $out=B::Deparse->new();
+  return $out;
+
+};
 
 
 # ---   *   ---   *   ---
 # reference calling package
 
-sub cpkg() {
+sub cpkg {
   my $pkg=caller;
   return $pkg;
 
@@ -85,9 +72,9 @@ sub cpkg() {
 # ^reference current (or calling!) F
 
 sub cf($idex=1,$clean=0) {
-
-  my $name=(caller($idex))[3];
-     $name=~ s[$CFCLEAN][$1] if $clean;
+  my $re   =  qr{.+:: ([^:]+) $ }x;
+  my $name =  (caller($idex))[3];
+     $name =~ s[$re][$1] if $clean;
 
   return $name;
 
@@ -98,12 +85,11 @@ sub cf($idex=1,$clean=0) {
 # is obj instance of class
 
 sub is_valid($kind,$obj) {
-
-  return
-     defined blessed($obj)
+  return (
+     is_blessref($obj)
   && int $obj->isa($kind)
 
-  ;
+  );
 
 };
 
@@ -116,11 +102,11 @@ sub is_valid($kind,$obj) {
 # classes won't pass this test
 
 sub is_iceof($kind,$obj) {
-
-  return
+  return (
      $kind->is_valid($obj)
   && $kind eq ref $obj
-  ;
+
+  );
 
 };
 
@@ -142,7 +128,6 @@ sub defnit($class,$O) {
 
   # fetch coderefs (Storable can't ;>)
   map  {
-
     my $fn=$defs->{$ARG};
        $fn=substr $fn,2,(length $fn) - 2;
        $fn=\&$fn;
@@ -173,7 +158,6 @@ sub defnit($class,$O) {
 # mostly for internal use!
 
 sub classattr($class,$name) {
-
   my $A    = \$Classes->{$class};
      $$A //= {};
 
@@ -190,7 +174,6 @@ sub classattr($class,$name) {
 # ^more internal caches ;>
 
 sub classcache($class,$name) {
-
   my $A    = \$Classes->{"$class:~CACHE"};
      $$A //= {};
 
@@ -207,17 +190,17 @@ sub classcache($class,$name) {
 # ^get inherited
 
 sub classpar($class,$type,$name) {
-
   no strict 'refs';
-
   my $fn=($type eq 'cache')
     ? \&classcache
     : \&classattr
     ;
 
 
-  map {$fn->($ARG,$name)}
-  @{"$class\::ISA"};
+  return map {
+    $fn->($ARG,$name)
+
+  } @{"$class\::ISA"};
 
 };
 
@@ -265,11 +248,14 @@ sub inject($name,$fn,@dst) {
 # ^does the deed!
 
 sub injector($class,@args) {
+  my $here=cf 2;
+  my $attr=classattr $class,$here;
+  for(@$attr) {
+    $ARG->($class,@args)
 
-  my $here = cf 2;
-  my $attr = classattr $class,$here;
+  };
 
-  map {$ARG->($class,@args)} @$attr;
+  return;
 
 };
 
@@ -281,6 +267,8 @@ sub impsmash($class,@args) {
   my $attr = classattr $class,'St::import';
   map {$ARG->($class,@args)} @$attr;
 
+  return;
+
 };
 
 
@@ -288,25 +276,23 @@ sub impsmash($class,@args) {
 # appends injections to import
 
 sub imping($O) {
-
+  no strict 'refs';
+  my $deparse_re=qr{^\s*\{\s*do\s*\{[^\}]+\};}x;
 
   # get existing import method
-  my $pkg=caller;
-  no strict 'refs';
-
+  my $pkg  = caller;
   my %tab  = %{"$pkg\::"};
   my $have = (defined $tab{import})
-    ? $Deparse->coderef2text(\&{$tab{import}})
+    ? deparse->coderef2text(\&{$tab{import}})
     : 'return;'
     ;
 
   # ^clean it up a bit ;>
-  $have=~ s[$DEPARSE_DO][{package $pkg;];
+  $have=~ s[$deparse_re][{package $pkg;];
 
 
   # make new method with passed injections
   my $new=q[sub ($class,@args) {
-
     my $dst=caller;
 
     map  {inject $ARG,$O->{$ARG},$dst}
@@ -321,10 +307,8 @@ sub imping($O) {
   $new .= "\n$have\n};\n";
   my $fn=eval $new;
 
-  if(! defined $fn) {
-    die "BAD CODEREF:\n\n$new\n";
-
-  };
+  croak "BAD CODEREF:\n\n$new\n"
+  if ! defined $fn;
 
   *{"$pkg\::import"}=$fn;
 
@@ -339,19 +323,15 @@ sub imping($O) {
 
 sub vconst($O) {
 
-
   # whomever calls, store here
   my $class = caller;
   my $cache = classcache $class,'vconst';
 
-
   # handle inheritance
   $cache->{'%O'}=$O;
-
   my @par=supercache $class,'vconst';
 
   $O={( map {
-
     ($ARG->{'%O'})
       ? %{$ARG->{'%O'}}
       : ()
@@ -370,13 +350,11 @@ sub vconst($O) {
 
     # save to table/make method
     no strict 'refs';
-
     *{"$class\::$key"}=sub ($cls) {
 
       # have cached?
       return $cache->{$key}
       if exists $cache->{$key};
-
 
       # ^else rebuild and give
       $cache->{$key}=(is_coderef $value)
@@ -436,7 +414,6 @@ sub vstatic($O={}) {
 # of the global state hierarchy
 
 sub get_gframe($class) {
-
   if(length ref $class) {
     my $self = $class;
     $class   = $self->get_class();
@@ -462,9 +439,7 @@ sub new_frame($class,%O) {
   my $vars=$class->Frame_Vars();
 
   map {
-
     my $def=$vars->{$ARG};
-
     $O{$ARG} //= (is_coderef $def)
       ? $def->($class)
       : $def
@@ -489,16 +464,15 @@ sub new_frame($class,%O) {
 
   # no idex asked for?
   if($idex) {
-
     my $i    = 0;
        $idex = undef;
 
     # get first undefined slot
-    map {
-      $idex //= $i
-      if ! $icebox->[$i++]
+    for(@$icebox) {
+      last if defined $idex;
+      $idex //= $i if ! $icebox->[$i++]
 
-    } @$icebox;
+    };
 
     # ^top of array if none avail!
     $idex //= $i;
@@ -518,24 +492,19 @@ sub new_frame($class,%O) {
 
 sub get_frame($class,$i=0) {
 
-
   # requested unavail?
-
   if(! exists  $Frames->{$class}
   || ! defined $Frames->{$class}->[$i]) {
-
     return $class->new_frame(
       -owner_kls  => (caller)[0],
       -force_idex => $i,
 
     );
 
-
-  # existing!
-  } else {
-    return $Frames->{$class}->[$i];
-
   };
+
+  # ^nope, give existing!
+  return $Frames->{$class}->[$i];
 
 };
 
@@ -544,7 +513,6 @@ sub get_frame($class,$i=0) {
 # ^get idex of existing
 
 sub iof_frame($class,$frame) {
-
   my $ar=$Frames->{$class}
   or croak "No frames avail for $class";
 
@@ -579,8 +547,7 @@ sub nattrs($self) {
 
 
 # ---   *   ---   *   ---
-# lookup value from table
-#
+# lookup value from table:
 #
 # * if value exists, give value
 #
@@ -591,7 +558,6 @@ sub nattrs($self) {
 #   signal that to caller (--define)
 
 sub tabfetch($key,$tab,$fail,$fn,@args) {
-
 
   # make table lookup
   my $have=(exists $tab->{$key})
@@ -627,10 +593,8 @@ sub PENDING {map {$ARG->()} @$FN_Q};
 # specificity
 
 sub DESTROY($self) {
-
   my $class=ref $self;
   injector $class,$self;
-
 
   return;
 

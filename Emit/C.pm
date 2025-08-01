@@ -8,29 +8,30 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Emit::C;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English qw(-no_match_vars);
+  use English;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
-  use Chk;
-  use Type;
+  use Chk qw(is_hashref);
+  use Type qw(sizeof typefet);
 
-  use Arstd::Array;
+  use Arstd::Array qw(
+    array_keys
+    array_values
 
-  use lib $ENV{'ARPATH'}.'/lib/';
+  );
+
+  use lib "$ENV{ARPATH}/lib/";
 
   use Emit::Std;
 
@@ -55,9 +56,7 @@ package Emit::C;
 # open boiler template
 
 sub open_guards($class,$fname) {
-
-  return join "\n",
-
+  return join "\n",(
     "#ifndef __${fname}_H__",
     "#define __${fname}_H__",
 
@@ -67,7 +66,7 @@ sub open_guards($class,$fname) {
 
     "\n"
 
-  ;
+  );
 
 };
 
@@ -76,9 +75,7 @@ sub open_guards($class,$fname) {
 # ^close boiler template
 
 sub close_guards($class,$fname) {
-
-  return
-
+  return (
     "#ifdef __cplusplus",
     "};\n",
     "#endif",
@@ -86,7 +83,7 @@ sub close_guards($class,$fname) {
 
     "\n"
 
-  ;
+  );
 
 };
 
@@ -100,6 +97,7 @@ sub typetrim($class,$typeref) {
   $$typeref=~ s[\b const \b][]sgx;
 
   Emit->typetrim($typeref);
+  return;
 
 };
 
@@ -108,7 +106,6 @@ sub typetrim($class,$typeref) {
 # header guards
 
 sub boiler_open($class,$fname,%O) {
-
   $fname=uc $fname;
 
   # array as hash
@@ -119,45 +116,38 @@ sub boiler_open($class,$fname,%O) {
   # add guards?
   my $guards=($O{guards})
     ? $class->open_guards($fname)
-    : $NULLSTR
+    : null
     ;
 
   # open boilerpaste
-  my $s=
-
+  my $s=(
     Emit::Std::note($O{author},q[//])
   . "\n$guards"
 
-  .q[
+  . "// ---   *   ---   *   ---\n"
+  . "// deps\n\n"
 
-// ---   *   ---   *   ---
-// deps
+  . (join "\n",map {
+      "  #include $ARG\n"
 
-]
+    } @{$O{inc}})
 
-. (join "\n",map {
+  . "\n\n"
 
-    "  #include $ARG\n"
+  . "// ---   *   ---   *   ---\n"
+  . "// ROM\n\n"
 
-  } @{$O{inc}})
+  . (join "\n",map {
+      my $name  = $ARG;
+      my $value = $defv[$defi++];
 
-. "\n" . q[
+      "  #define $name $value\n";
 
-// ---   *   ---   *   ---
-// ROM
+    } @defk) . "\n\n"
 
-] . (join "\n",map {
+  . "// ---   *   ---   *   ---\n"
 
-    my $name  = $ARG;
-    my $value = $defv[$defi++];
-
-    "  #define $name $value\n";
-
-  } @defk) . "\n" . q[
-
-// ---   *   ---   *   ---
-
-];
+  );
 
 
   # ^back to perl
@@ -171,21 +161,19 @@ sub boiler_open($class,$fname,%O) {
 # ^endof
 
 sub boiler_close($class,$fname,%O) {
-
   $fname=uc $fname;
-
 
   my $guards=($O{guards})
     ? $class->close_guards($fname)
-    : $NULLSTR
+    : null
     ;
 
   # close boilerpaste
-  my $s=q[
+  my $s=(
+    "// ---   *   ---   *   ---\n"
+  . "\n$guards";
 
-// ---   *   ---   *   ---
-
-] . "\n$guards";
+  );
 
 
   # ^back to perl
@@ -203,21 +191,21 @@ sub arglist_str($class,$args,%O) {
   # defaults
   $O{nl}//=0;
 
-  my $out=$NULLSTR;
-
+  my $out=null;
   if($O{nl}) {
-
-    $out=
+    $out=(
       "\n  "
     . (join ",\n  ",@$args)
 
     . "\n\n"
-    ;
+
+    );
 
   } else {
     $out=join q[,],@$args;
 
   };
+
 
   return $out;
 
@@ -233,8 +221,12 @@ sub fnwrap($class,$name,$code,%O) {
   $O{rtype} //= 'int';
   $O{args}  //= 'void';
 
-  my $s="$O{rtype} $name($O{args}) ".
-    "{\n$code\n\n};\n\n";
+  my $s=(
+    "$O{rtype} $name($O{args}) "
+  . "{\n$code\n\n};\n\n"
+
+  );
+
 
   return $s;
 
@@ -259,30 +251,27 @@ sub fnwrap_decl($class,$name,%O) {
 # ^gives both as array
 
 sub fnwrap_ar($class,$name,$code,%O) {
-
   my $out=[];
 
   # defaults
   $O{rtype}   //= 'int';
   $O{args}    //= [];
   $O{args_nl} //= 1;
-
-  $O{class} //= $NULLSTR;
+  $O{class}   //= null;
 
   my $args=$class->arglist_str(
-    $O{args},nl=>$O{args_nl}
+    $O{args},
+    nl=>$O{args_nl}
 
   );
 
   my $cname     = $O{class};
-
   my $decl_args = $args;
   my $decl_type = $O{rtype};
   my $decl_name = $name;
 
   # remove class name from decl
   if(length $cname) {
-
     $cname="$cname\::";
     my $re=qr{$cname};
 
@@ -294,7 +283,6 @@ sub fnwrap_ar($class,$name,$code,%O) {
 
   # make decl
   push @$out,$class->fnwrap_decl(
-
     $decl_name,
 
     rtype => $decl_type,
@@ -304,7 +292,6 @@ sub fnwrap_ar($class,$name,$code,%O) {
 
   # make def
   push @$out,$class->fnwrap(
-
     "$cname$name",$code,
 
     rtype => $O{rtype},
@@ -323,7 +310,6 @@ sub fnwrap_ar($class,$name,$code,%O) {
 sub mfwrap($class,$code) {
 
   return $class->fnwrap(
-
     'main',$code,
 
     rtype => 'int',
@@ -339,12 +325,10 @@ sub mfwrap($class,$code) {
 # sorted by size (wider first)
 
 sub attrlist($class,@vars) {
-
   my %vars  = @vars;
   my @names = array_keys(\@vars);
 
   my @sorted=sort {
-
     sizeof($class->typecon($vars{$a}))
   < sizeof($class->typecon($vars{$b}))
 
@@ -362,41 +346,11 @@ sub attrlist($class,@vars) {
 # outdated "data section" generator
 
 sub datasec($class,$name,$type,@items) {
-
-  my $s=$NULLSTR;
-
-  if($type eq 'enum') {
-    $s.="$type {\n";
-
-  } else {
-    $s.="$type ${name}[]={\n";
-
-  };
-
-
-  my $i=0;
-  for my $item(@items) {
-
-    $s.=$item;
-    if($i ne $#items) {
-      $s.=q{,};
-
-    };
-
-    $i++;
-
-  };
-
-
-  if($type eq 'enum') {
-    $s.=",\n $name\n\n};\n\n";
-
-  } else {
-    $s.="\n\n};\n\n";
-
-  };
-
-  return $s;
+  my $body=join ',',@items;
+  return ($type eq 'enum')
+    ? "$type {\n$body,$name\n};\n"
+    : "$type ${name}[]={\n$body\n};\n"
+    ;
 
 };
 
@@ -405,7 +359,6 @@ sub datasec($class,$name,$type,@items) {
 # paste case [value]: [code]
 
 sub switch_case($class,$value,$code) {
-
   my $out=($value eq 'default')
     ? "default:\n  $code\n\n"
     : "case $value:\n  $code\n\n"
@@ -421,15 +374,12 @@ sub switch_case($class,$value,$code) {
 # for [key => value] in %O
 
 sub switch_tab($class,$x,%O) {
-
-  my $out=$NULLSTR;
-
-  map {
-    $out.=$class->switch_case($ARG,$O{$ARG})
+  my $body=catar map {
+    $class->switch_case($ARG,$O{$ARG})
 
   } keys %O;
 
-  return "switch($x) {\n\n$out\n};\n";
+  return "switch($x) {\n$body\n};\n";
 
 };
 
@@ -438,7 +388,6 @@ sub switch_tab($class,$x,%O) {
 # generates struc from peso type
 
 sub struc_decl($class,$type) {
-
   $type=typefet $type
   if ! is_hashref $type;
 
@@ -455,7 +404,6 @@ sub struc_decl($class,$type) {
   $out="$out};\n";
 
   return ($class ne 'Type::Cpp')
-
     ? "${out}typedef struct "
     . "$type->{name} $type->{name};"
 

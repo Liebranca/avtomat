@@ -18,14 +18,15 @@ package BOOTSTRAP;
   use strict;
   use warnings;
 
-  use English;
+  use English qw($ARG $ERRNO);
+  use Module::Load qw(load);
   use File::Path qw(mkpath rmtree);
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v2.00.0';
+  our $VERSION = 'v2.00.1';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -57,83 +58,103 @@ my $ROM={
   FMAT => {
     BOOT    => "\e[37;1m<\e[36;1mBOOT\e[37;1m>\e[0m",
     AR      => "\e[37;1m<\e[34;22mAR\e[37;1m>\e[0m",
-    UPDATED => "\e[37;1m::\e[0mupdated \e[32;1m",
+    FNAME   => "\e[32;1m",
+    STEP    => "\e[37;1m::\e[0m",
+    SUBSTEP => "  ",
 
   },
 
 
-  FILE=>[qw(
+  # these files are needed for building
+  # everything else!
+  #
+  # as such, it's best their own dependencies
+  # remain either untouched or as minimal
+  # as possible...
+
+  MAMDEPS=>[qw(
     /sys/Style.pm
     /sys/Chk.pm
-    /sys/Frame.pm
-    /sys/St.pm
-    /sys/Arstd.pm
-
-    /sys/Arstd/Bytes.pm
-    /sys/Arstd/Int.pm
-    /sys/Arstd/String.pm
-    /sys/Arstd/Array.pm
-    /sys/Arstd/Hash.pm
-    /sys/Arstd/Re.pm
     /sys/Arstd/Repl.pm
-    /sys/Arstd/Path.pm
-    /sys/Arstd/IO.pm
-    /sys/Arstd/PM.pm
-    /sys/Arstd/WLog.pm
-
-    /sys/Warnme.pm
-
-    /sys/Queue.pm
-    /sys/Cask.pm
-    /sys/Tree.pm
-    /sys/Tree/File.pm
-    /sys/Tree/Dep.pm
-
-    /sys/Type/MAKE.pm
-    /sys/Type.pm
-
-    /sys/Type/C.pm
-    /sys/Type/Cpp.pm
-
-    /sys/Shb7.pm
-    /sys/Shb7/Path.pm
-    /sys/Shb7/Find.pm
-    /sys/Shb7/Bfile.pm
-    /sys/Shb7/Bk.pm
-    /sys/Shb7/Bk/flat.pm
-    /sys/Shb7/Bk/gcc.pm
-    /sys/Shb7/Bk/mam.pm
-    /sys/Shb7/Bk/fake.pm
-    /sys/Shb7/Build.pm
-
-    /sys/Vault.pm
-    /sys/Cli.pm
-    /sys/Fmat.pm
-    /sys/SourceFilter.pm
-
-    /sys/Ftype.pm
-    /sys/Ftype/Text.pm
-    /sys/Ftype/Text/fasm.pm
-    /sys/Ftype/Text/C.pm
-    /sys/Ftype/Text/peso.pm
-    /sys/Ftype/Text/SinGL.pm
-    /sys/Ftype/Text/Perl.pm
-    /sys/Ftype/Text/Python.pm
-    /sys/Ftype/Text/Js.pm
-    /sys/Ftype/Text/Mny.pm
-
-    /Emit.pm
-    /Emit/Std.pm
-    /Emit/C.pm
-    /Emit/Perl.pm
-
-    /Avt/Sieve.pm
-    /Avt/Xcav/C.pm
-    /Avt/Xcav.pm
-    /Avt/Makescript.pm
-    /Avt.pm
 
   )],
+
+
+  # MAM does not depend on these files,
+  # so we can mess with their deps alright ;>
+  AVTODEPS=>[qw(
+    /sys/Frame.pm
+    /sys/St.pm
+
+    /AR.pm
+    /sys/Arstd/Array.pm
+    /sys/Arstd/String.pm
+
+  )],
+
+#    /sys/Arstd/Bin.pm
+#    /sys/Arstd/Path.pm
+#    /sys/Arstd/Re.pm
+#    /sys/Arstd/IO.pm
+#    /sys/Arstd/Bytes.pm
+#    /sys/Arstd/Int.pm
+#    /sys/Arstd/Hash.pm
+#    /sys/Arstd/PM.pm
+#    /sys/Arstd/WLog.pm
+#    /sys/Arstd/Fmat.pm
+#
+#    /sys/Cli.pm
+#    /sys/Warnme.pm
+#
+#    /sys/Queue.pm
+#    /sys/Cask.pm
+#    /sys/Tree.pm
+#    /sys/Tree/File.pm
+#    /sys/Tree/Dep.pm
+#
+#    /sys/Type/MAKE.pm
+#    /sys/Type.pm
+#
+#    /sys/Type/C.pm
+#    /sys/Type/Cpp.pm
+#
+#    /sys/Shb7.pm
+#    /sys/Shb7/Path.pm
+#    /sys/Shb7/Find.pm
+#    /sys/Shb7/Bfile.pm
+#    /sys/Shb7/Bk.pm
+#    /sys/Shb7/Bk/flat.pm
+#    /sys/Shb7/Bk/gcc.pm
+#    /sys/Shb7/Bk/mam.pm
+#    /sys/Shb7/Bk/fake.pm
+#    /sys/Shb7/Build.pm
+#
+#    /sys/Vault.pm
+#    /sys/Cli.pm
+#
+#    /sys/Ftype.pm
+#    /sys/Ftype/Text.pm
+#    /sys/Ftype/Text/fasm.pm
+#    /sys/Ftype/Text/C.pm
+#    /sys/Ftype/Text/peso.pm
+#    /sys/Ftype/Text/SinGL.pm
+#    /sys/Ftype/Text/Perl.pm
+#    /sys/Ftype/Text/Python.pm
+#    /sys/Ftype/Text/Js.pm
+#    /sys/Ftype/Text/Mny.pm
+#
+#    /Emit.pm
+#    /Emit/Std.pm
+#    /Emit/C.pm
+#    /Emit/Perl.pm
+#
+#    /Avt/Sieve.pm
+#    /Avt/Xcav/C.pm
+#    /Avt/Xcav.pm
+#    /Avt/Makescript.pm
+#    /Avt.pm
+#
+#  )],
 
 };
 
@@ -170,13 +191,16 @@ sub build_mkdirs {
 # ---   *   ---   *   ---
 # procs MAM so that it can proc other files ;>
 
-sub mkmam($rap) {
+sub procmam($rap) {
   my ($dst,$src)=(undef,undef);
 
   # swap destination?
-  my ($dstdir,$srcdir)=($rap)
-    ? ($ROM->{TRASHDIR},$ROM->{LIBDIR})
-    : ($ROM->{LIBDIR},$ROM->{TRASHDIR})
+  my ($tmpdir,$dstdir,$srcdir)=($rap)
+    ? ($ROM->{AVTODIR},$ROM->{TRASHDIR},
+       $ROM->{LIBDIR})
+
+    : ($ROM->{TRASHDIR},$ROM->{LIBDIR},
+       $ROM->{LIBDIR})
     ;
 
   my $dstname="$dstdir/MAM.pm";
@@ -188,7 +212,13 @@ sub mkmam($rap) {
   close $src or die "$ERRNO";
 
   # ^swap library locations
-  $body=~ s[$srcdir][$dstdir]sxmg;
+  my $root = $ROM->{ROOTDIR};
+  my $env  = quotemeta '$ENV{ARPATH}';
+
+  $srcdir =~ s[$root][$env];
+  $dstdir =~ s[$root][\$ENV{ARPATH}];
+  $tmpdir =~ s[$root][\$ENV{ARPATH}];
+  $body   =~ s[$srcdir][$tmpdir]sxmg;
 
   # ^owc to destination
   open  $dst,'+>',$dstname or die "$ERRNO";
@@ -262,23 +292,17 @@ sub req_basedir($dst) {
 
 
 # ---   *   ---   *   ---
-# get line to summon MAM with
+# summons MAM
 
-sub mamline($srcdir,$rap) {
+sub runmam($dstdir,$srcdir,$src,$rap) {
+  my @args=('-Mavtomat',"-f$src","-r$rap");
 
-  my $inc=join ' ',(
-    "-I$srcdir",
-    "-I$srcdir/sys",
+  load lib=>$dstdir;
+  load 'MAM';
 
-  );
-
-  my $args=($rap)
-    ? '-MMAM=--rap,--module=avtomat'
-    : '-MMAM=--module=avtomat'
-    ;
-
-
-  return "perl -c $inc $args";
+  # make filter
+  my $mam=MAM->new(@args);
+  return $mam->run();
 
 };
 
@@ -287,25 +311,14 @@ sub mamline($srcdir,$rap) {
 # in: file list,src path,dst path
 # check dates, update older files
 
-sub update($dstdir,$srcdir,$rap) {
-  my $tag  = $ROM->{FMAT}->{UPDATED};
-  my $list = $ROM->{FILE};
+sub update($dstdir,$srcdir,$list,$rap) {
+  my $tag=$ROM->{FMAT}->{SUBSTEP};
 
-  mkmam $rap;
   return int map {
     my ($dst,$src,$fname)=@$ARG;
 
     # run MAM
-    my $ex  = mamline($srcdir,$rap);
-    my $out = `$ex $src 2> .errlog`;
-
-    # ^throw on MAM fail
-    if(! length $out) {
-      my $log=`cat .errlog`;
-      die $log;
-
-    };
-
+    my $out=runmam($dstdir,$srcdir,$src,$rap);
 
     # owc and prich
     req_basedir $dst;
@@ -314,7 +327,8 @@ sub update($dstdir,$srcdir,$rap) {
     print {$fh} $out;
     close $fh;
 
-    say   {*STDERR} "$tag$fname\e[0m";
+    say {*STDERR} "$tag$fname";
+    1;
 
 
   } map {
@@ -326,42 +340,90 @@ sub update($dstdir,$srcdir,$rap) {
 
 
 # ---   *   ---   *   ---
-# entry point
+# builds ~~
 
-sub run {
+sub make($name,$list) {
+  my @tag=(
+    ($name eq 'MAM')
+      ? $ROM->{FMAT}->{BOOT}
+      : $ROM->{FMAT}->{AR}
+      ,
 
-  # handle args, run sanity checks...
-  my $tag=$ROM->{FMAT}->{BOOT};
-  say {*STDERR} "$tag starting update";
+    $ROM->{FMAT}->{FNAME} . "${name}\e[0m",
+    $ROM->{FMAT}->{STEP},
 
-  build_clean if int grep {$ARG eq 'clean'} @ARGV;
-  build_mkdirs;
+  );
+
 
   # initial MAM run
   # needed to apply source filters
+  say {*STDERR} "$tag[2]updating $tag[1]";
+
+  procmam 1 if $name eq 'MAM';
   my $need=update(
-    $ROM->{TRASHDIR},$ROM->{AVTODIR},1
+    $ROM->{TRASHDIR},
+    $ROM->{AVTODIR},
+    $list,
+    1
 
   );
+
+  procmam 0 if $name eq 'MAM';
+
 
   # ^if nothing was updated, then a
   # ^second run never happens
   if($need) {
     say {*STDERR} (
-      "\n$tag copying from "
+      "\n$tag[2]copying from "
     . "\e[36;1m\"/.trash/\"\e[0m"
 
     );
 
-    update($ROM->{LIBDIR},$ROM->{TRASHDIR},0);
+    update(
+      $ROM->{LIBDIR},
+      $ROM->{TRASHDIR},
+      $list,
+      0
+
+    );
 
   };
 
 
+  return;
+
+};
+
+
+# ---   *   ---   *   ---
+# entry point
+
+sub run {
+  my $tag=$ROM->{FMAT}->{BOOT};
+
+  # handle args, run sanity checks...
+  say {*STDERR} "${tag}running bootstrap";
+
+  build_clean if int grep {$ARG eq 'clean'} @ARGV;
+  build_mkdirs;
+
+  # run build
+  make MAM=>$ROM->{MAMDEPS};
+
+  $tag=$ROM->{FMAT}->{STEP};
+  say {*STDERR} "${tag}done\n";
+
+  $ENV{ARLIB}="$ROM->{TRASHDIR}/avtomat/";
+  $tag=$ROM->{FMAT}->{AR};
+  say {*STDERR} "${tag}starting update";
+  make avtomat=>$ROM->{AVTODEPS};
+
+
   # rebuild nanorc files ;>
-  $tag="\e[37;1m::\e[0m";
+  $tag=$ROM->{FMAT}->{STEP};
   say {*STDERR} "${tag}rebuilding syntax files";
-  say {*STDERR} `./bin/sygen`;
+#  say {*STDERR} `./bin/sygen`;
   say {*STDERR} "${tag}done\n";
 
 
@@ -374,3 +436,4 @@ run;
 
 # ---   *   ---   *   ---
 1; # ret
+

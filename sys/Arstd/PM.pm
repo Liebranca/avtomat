@@ -18,56 +18,18 @@ package Arstd::PM;
   use strict;
   use warnings;
 
-  use B::Deparse;
-
+  use B qw(svref_2object);
   use Devel::Peek;
-  use Module::Load;
-
-  use English;
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
-  use Style;
-  use Chk;
-
-  use Arstd::Re;
-  use Arstd::IO;
+  use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/";
-
-
-# ---   *   ---   *   ---
-# adds to your namespace
-
-  use Exporter 'import';
-  our @EXPORT=qw(
-
-    subsof
-    submerge
-
-    codeof
-    argsof
-    rcaller
-
-    autoload_prologue
-    throw_bad_autoload
-
-    beqwraps
-    subwraps
-    impwraps
-
-    get_static
-
-    is_loaded
-    cload
-    cloadi
-
-    cloads
-    cloadis
-
-    fvars
-
-    IMP
+  use AR sys=>qw(
+    use Style::(null);
+    use Chk::(is_arrayref);
+    lis Arstd::Re::(eiths);
+    use Arstd::Bin::(orc);
+    lis Arstd::Path::(to_pkg);
+    use St::(deparse);
 
   );
 
@@ -75,8 +37,38 @@ package Arstd::PM;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.2';
+  our $VERSION = 'v0.01.4';
   our $AUTHOR  = 'IBN-3DILA';
+
+
+# ---   *   ---   *   ---
+# give name of coderef
+
+sub codename($ref,$full=0) {
+
+  # get guts handle
+  my $gv=svref_2object($ref)->GV;
+
+  # ^skip fetching package name when
+  # ^we don't care about it
+  return $gv->NAME if ! $full;
+
+  # fetch package name?
+  my %cni=reverse %INC;
+  $name=path_to_pkg $cni{$gv->FILE};
+
+  # you think you're funny?!
+  if(! length $name) {
+    my $body=orc $gv->FILE;
+
+    ($name)   = $body=~ qr{package ([^;]+);};
+    ($name) //= 'main';
+
+  };
+
+  return "$name\::" . $gv->NAME;
+
+};
 
 
 # ---   *   ---   *   ---
@@ -84,9 +76,7 @@ package Arstd::PM;
 # unfiltered version for internal use
 
 sub _subsof($class) {
-
   no strict 'refs';
-
   my %tab   = %{"$class\::"};
   my @names = grep {
     defined &{$tab{$ARG}};
@@ -113,10 +103,8 @@ sub subsof_dupop(@classes) {
 # if they don't exist in main
 
 sub subsof_merge($main,@classes) {
-
   my %subs = _subsof($main);
   my %ext  = subsof_dupop(@classes);
-
   my @add  = grep {! exists $subs{$ARG}} keys %ext;
 
   return map {$ARG=>$ext{$ARG}} @add;
@@ -128,9 +116,7 @@ sub subsof_merge($main,@classes) {
 # initializes subroutine filters
 
 sub subsof_filter_nit($classes,$O) {
-
   if($O->{xdeps}) {
-
     my %filt = map {$ARG=>1} @$classes;
     my @deps = grep {
       ! exists $filt{$ARG}
@@ -147,27 +133,27 @@ sub subsof_filter_nit($classes,$O) {
   $O->{modex} //= $NO_MATCH;
   $O->{subok} //= $ANY_MATCH;
 
+  return;
+
 };
 
 
 # ---   *   ---   *   ---
 # ^filter out excluded subs
-# and subs from excluded mods
+# ^and subs from excluded mods
 
 sub subsof_filter($subs,%O) {
-
   return grep {
-
     my $ref = "$subs->{$ARG}\::$ARG";
     my $gv  = Devel::Peek::CvGV(\&$ref);
 
   # accept entry if:
-      ($ARG=~ $O{subok})
+  (   ($ARG=~ $O{subok})
 
   &&! ($ARG=~ $O{subex})
   &&! (*$gv{PACKAGE}=~ $O{modex})
 
-  ;
+  );
 
   } keys %$subs;
 
@@ -203,9 +189,11 @@ sub subsof($classes,%O) {
 
 sub submerge($classes,%O) {
 
+  # defaults
   $O{main}  //= caller;
   $O{xdeps} //= 1;
 
+  # get subroutines in classes
   my $main=$O{main};
   my %subs=subsof($classes,%O,main=>$main);
 
@@ -230,14 +218,17 @@ sub add_symbol($dst,$src) {
   no strict 'refs';
   *{$dst}=*{$src};
 
+  return;
+
 };
 
 sub add_scalar($dst,$src) {
-
   no strict 'refs';
 
   add_symbol($dst,$src);
   ${$dst}=${$dst};
+
+  return;
 
 };
 
@@ -246,11 +237,12 @@ sub add_scalar($dst,$src) {
 # ^redefine symbol without warning
 
 sub redef($old,$new) {
-
   no strict   'refs';
   no warnings 'redefine';
 
   *{$old}=$new;
+
+  return;
 
 };
 
@@ -281,12 +273,9 @@ sub rcaller {
 # defines methods of attribute to wrap
 
 sub beqwraps($attr,@names) {
-
   no strict 'refs';
   my $pkg=rcaller;
-
-  map {
-
+  for(@names) {
     my $name = $ARG;
     my $fn   = sub ($self,@args) {
       $self->{$attr}->$name(@args);
@@ -295,7 +284,10 @@ sub beqwraps($attr,@names) {
 
     *{"$pkg\::$name"}=$fn;
 
-  } @names;
+  };
+
+
+  return;
 
 };
 
@@ -303,12 +295,9 @@ sub beqwraps($attr,@names) {
 # ---   *   ---   *   ---
 # internal. makes wrappers!
 
-sub _mkwraps($pkg,$fn,$sig,@icebox) {
-
+sub mkwraps($pkg,$fn,$sig,@icebox) {
   no strict 'refs';
-
-  map {
-
+  for(@icebox) {
 
     # unpack
     my ($name,$args) = @$ARG;
@@ -322,18 +311,12 @@ sub _mkwraps($pkg,$fn,$sig,@icebox) {
 
     . "};";
 
-    my $wf  = eval $src;
+    my $wf=eval $src;
 
 
     # ^validate
-    if(! defined $wf) {
-
-      say {*STDERR}
-        "BAD ICEF*CK: $dst\n\n$src\n";
-
-      exit -1;
-
-    };
+    croak "BAD ICEF*CK: $dst\n\n$src\n"
+    if ! defined $wf;
 
 
     # add to namespace
@@ -341,7 +324,10 @@ sub _mkwraps($pkg,$fn,$sig,@icebox) {
     [$dst,$name];
 
 
-  } @icebox;
+  };
+
+
+  return;
 
 };
 
@@ -351,7 +337,9 @@ sub _mkwraps($pkg,$fn,$sig,@icebox) {
 
 sub subwraps($fn,$sig,@icebox) {
   my $pkg=rcaller;
-  _mkwraps($pkg,$fn,$sig,@icebox);
+  mkwraps($pkg,$fn,$sig,@icebox);
+
+  return;
 
 };
 
@@ -362,17 +350,7 @@ sub subwraps($fn,$sig,@icebox) {
 # package!
 
 sub impwraps($dst,@args) {
-
-#  my @names=subwraps @args;
-  _mkwraps($dst,@args);
-
-#  map {
-#    my ($src,$name)=@$ARG;
-#    add_symbol("$dst\::$name",$src);
-#
-#  } @names;
-
-
+  mkwraps($dst,@args);
   return;
 
 };
@@ -383,7 +361,6 @@ sub impwraps($dst,@args) {
 # by deparsing it's signature (!!)
 
 sub argsof($pkg,$name=undef) {
-
   state $decl=qr{
     my \s+ (?<var> \W\w+) \s* =
 
@@ -435,16 +412,14 @@ sub argsof($pkg,$name=undef) {
 # get codestr for sub
 
 sub codeof($pkg,$name=undef) {
-
   my $fn=$pkg;
-
   if(defined $name) {
     $fn=join q[::],$pkg,$name;
     $fn=\&$fn;
 
   };
 
-  my $body = B::Deparse->new->coderef2text($fn);
+  my $body=deparse->coderef2text($fn);
 
   return $body;
 
@@ -455,11 +430,9 @@ sub codeof($pkg,$name=undef) {
 # get immediate deps of module
 
 sub depsof($class,$fmain=undef) {
-
   $class=~ s[::][/]sxmg;
 
   my $re    = qr{^$class\.pm};
-
   my @keys  = grep {$ARG=~ $re} keys %INC;
   my @files = map {$INC{$ARG}} @keys;
 
@@ -472,7 +445,6 @@ sub depsof($class,$fmain=undef) {
 # ^bat
 
 sub array_depsof(@classes) {
-
   my %tab=map {
     map {$ARG=>1} depsof($ARG)
 
@@ -487,7 +459,6 @@ sub array_depsof(@classes) {
 # ^get 'use [name]' directives in file
 
 sub depsof_file($fname) {
-
   state $re=qr{
 
   \n\s* use \s+
@@ -512,7 +483,6 @@ sub depsof_file($fname) {
 # autoload helpers
 
 sub autoload_prologue($kref) {
-
   return 0 if ($$kref=~ m[DESTROY$]);
 
   state $re=qr{^.*::};
@@ -523,13 +493,10 @@ sub autoload_prologue($kref) {
 };
 
 sub throw_bad_autoload($pkg,$key) {
-
-  errout(
-
-    q['%s' has no autoload for '%s'],
-
-    args => [$pkg,$key],
-    lvl  => $AR_FATAL,
+  croak sprintf(
+    "'%s' has no autoload for '%s'",
+    $pkg,
+    $key,
 
   );
 
@@ -549,97 +516,19 @@ sub get_static($class,$name) {
 
 
 # ---   *   ---   *   ---
-# checks INC for package
-
-sub is_loaded($pkg) {
-
-  my $fname=  $pkg;
-     $fname=~ s[$DCOLON_RE][/]g;
-
-  return grep {
-    $ARG eq "$fname.pm"
-
-  } keys %INC;
-
-};
-
-
-# ---   *   ---   *   ---
-# gets package from full
-# subroutine path
-
-sub pkgof($name) {
-
-  my ($subn,@pkg)=(
-    reverse split $DCOLON_RE,$name
-
-  );
-
-  return join '::',reverse @pkg;
-
-};
-
-
-# ---   *   ---   *   ---
-# conditionally load packages
-# if they're not already loaded
-
-sub cload {
-  map  {load $ARG;$ARG}
-  grep {! is_loaded $ARG} @_;
-
-};
-
-
-# ---   *   ---   *   ---
-# ^forces calling of import method
-
-sub cloadi {
-  map {$ARG->import();$ARG} cload @_;
-
-};
-
-
-# ---   *   ---   *   ---
-# load package by subpath
-
-sub cloads {
-
-  cload
-
-  grep {$ARG ne 'main'}
-  map  {pkgof $ARG} @_;
-
-};
-
-
-# ---   *   ---   *   ---
-# ^forces calling of import method
-
-sub cloadis {
-  map {$ARG->import();$ARG} cloads @_;
-
-};
-
-
-# ---   *   ---   *   ---
 # makes local fvars hook
 
 sub fvars($classes,%O) {
-
   my $dst  = caller;
   my %have = _subsof($dst);
 
-  no strict 'refs';
-
-  $classes=(! is_arrayref($classes))
+  $classes=(! is_arrayref $classes)
     ? [$classes]
     : $classes
     ;
 
-
+  no strict 'refs';
   *{"$dst\::Frame_Vars"}=sub ($class) { return {
-
     (map {
       %{$ARG->Frame_Vars()}
 
@@ -648,6 +537,9 @@ sub fvars($classes,%O) {
     %O,
 
   }} if ! exists $have{Frame_Vars};
+
+
+  return;
 
 };
 
@@ -664,20 +556,14 @@ sub fvars($classes,%O) {
 sub IMP($class,$on_use,$on_exe,@req) {
 
   # imported as exec via arperl
-  if(defined $req[0]
-  &&  $req[0] eq '*crux'
-
-  ) {
-
+  if(defined $req[0] && $req[0] eq '*crux') {
     shift @req;
     return $on_exe->($class,@req);
 
+  };
 
   # imported as module via use
-  } else {
-    return $on_use->($class,(caller 1)[0],@req);
-
-  };
+  return $on_use->($class,(caller 1)[0],@req);
 
 };
 

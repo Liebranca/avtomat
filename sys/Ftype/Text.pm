@@ -58,7 +58,7 @@ St::vconst {
 
   },
 
-  pesc_re    => Arstd::Re->peso_escape,
+  pesc_re    => Arstd::Re->PESC_RE,
   num_re     => sub {return [
     Arstd::String->BINNUM_RE,
     Arstd::String->OCTNUM_RE,

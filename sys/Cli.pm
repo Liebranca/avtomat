@@ -18,20 +18,24 @@ package Cli;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English;
+  use Carp qw(croak);
+  use English qw($ARG $POSTMATCH $MATCH);
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-  use Style;
-  use Arstd::Re;
-  use Arstd::IO;
+  use lib "$ENV{ARPATH}/lib/";
+  use AR sys=>qw(
+    use Style::(null);
+    use Chk::(is_null);
+    lis Arstd::Re::(eiths);
+
+  );
+
   use parent 'St';
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.02.2';
+  our $VERSION = 'v0.02.3';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -39,7 +43,6 @@ package Cli;
 # getters
 
 sub order($self) {return @{$self->{-order}}};
-
 sub next_arg($self) {
   return shift @{$self->{-argv}};
 
@@ -83,7 +86,6 @@ sub new($class,@args) {
     # save id and make arg instance
     push @order,$id;
     my $arg=Cli::Arg->new(
-
       $id,
 
       short_form => $short_form,
@@ -105,15 +107,11 @@ sub new($class,@args) {
 
   # make new instance
   my $cli=bless {
-
     -name  => (caller)[1],
-
     -order => \@order,
     -optab => \%optab,
     -alias => \%alias,
-
     -re    => re_eiths([keys %alias]),
-
     -argv  => [],
 
   },$class;
@@ -121,7 +119,6 @@ sub new($class,@args) {
 
   # fill out status vars
   for my $id($cli->order) {
-
     my $default=$cli->{-optab}->{$id}->{default};
     $cli->{$id}=(defined $default)
       ? $default
@@ -140,7 +137,6 @@ sub new($class,@args) {
 # debug print
 
 sub prich($self) {
-
   for my $id($self->order) {
     my $value=$self->{$id};
     printf {*STDOUT} (
@@ -161,32 +157,24 @@ sub prich($self) {
 # get form used by arg
 
 sub short_or_long($self,$arg) {
-
   my $value=null;
-
 
   # catch invalid
   if($arg=~ s/$self->{-re}//) {
-
     my $post = $POSTMATCH;
     my $pre  = $MATCH;
 
-    $value=(defined $post && length $post)
-      ? $post
-      : null
-      ;
-
-    $arg=$pre;
+    $value = $post if ! is_null $post;
+    $arg   = $pre;
 
   };
 
 
   # catch invalid
-  errout(
+  croak sprintf(
     "%s: invalid option '%s'\n",
-
-    args => [$self->{-name},$arg],
-    lvl  => $AR_FATAL,
+    $self->{-name},
+    $arg,
 
   ) if ! exists $self->{-alias}->{$arg};
 
@@ -222,17 +210,14 @@ sub short_or_long($self,$arg) {
 # --option=value
 
 sub long_equal($self,$arg) {
-
   my $value=null;
   ($arg,$value)=split m/=/,$arg;
 
-
   # catch invalid
-  errout(
+  croak sprintf(
     "%s: invalid option '%s'\n",
-
-    args => [$self->{-name},$arg],
-    lvl  => $AR_FATAL,
+    $self->{-name},
+    $arg,
 
   ) if ! exists $self->{-alias}->{$arg};
 
@@ -242,13 +227,12 @@ sub long_equal($self,$arg) {
   my $option = $self->{-optab}->{$id};
 
   if(! $option->{argc}) {
+    croak sprintf(
+      "Argument '%s' for program '%s' "
+    . "doesn't take a value",
 
-    errout(
-
-      "Argument '%s' for program '%s' ".
-      "doesn't take a value",
-
-      args=>[$id,$self->{-name}],
+      $id,
+      $self->{-name},
 
     );
 
@@ -269,7 +253,6 @@ sub long_equal($self,$arg) {
 # ROM
 
 St::vconst {
-
   PATTERN=>[
     qr{--[_\w][_\w\d]*=} => \&long_equal,
     qr{--[_\w][_\w\d]*}  => \&short_or_long,
@@ -284,19 +267,16 @@ St::vconst {
 # reads input
 
 sub take($self,@args) {
-
   $self->{-argv}=\@args;
 
   my @values = ();
   my $arg_re = $self->PATTERN;
 
   while(@{$self->{-argv}}) {
-
     my $arg = shift @{$self->{-argv}};
     my $fn  = undef;
+    my $x   = 0;
 
-
-    my $x=0;
     while($x < @$arg_re-1) {
 
       my $pat=$arg_re->[$x];
@@ -369,11 +349,13 @@ package Cli::Fstruct;
   use strict;
   use warnings;
 
-  use English;
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use lib "$ENV{ARPATH}/lib/";
+  use AR sys=>qw(
+    use Style::(null);
+    lis Arstd::Path::(expand);
 
-  use Style;
-  use Arstd::Path;
+  );
+
   use parent 'St';
 
 
@@ -381,7 +363,6 @@ package Cli::Fstruct;
 # ROM
 
 St::vconst {
-
   ATTRS=>[
     {id=>'recursive'},
     {id=>'symbol',argc=>1},
@@ -408,18 +389,12 @@ sub proto_search($m,@cmd) {
 
 
   # dig into the folders?
-  if($m->{recursive} ne null) {
-
-    my @ar=@files;
-    @files=();
-
-    expand_path(\@ar,\@files);
-
-  };
+  @files=map {path_expand $ARG,-r=>1} @ar
+  if $m->{recursive} ne null;
 
 
   # enable/disable auto-backslashing
-  if($m->{no_escaping}==null) {
+  if($m->{no_escaping} eq null) {
     $m->{symbol}="\Q$m->{symbol}";
 
   } else {
@@ -429,7 +404,7 @@ sub proto_search($m,@cmd) {
 
 
   # enable/disable symbol as regex
-  if($m->{regex}==null) {
+  if($m->{regex} eq null) {
     $m->{symbol}=qr{$m->{symbol}(?:\b|$|"|')};
 
   } else {
@@ -457,16 +432,14 @@ sub proto_search($m,@cmd) {
 # ^expands filepaths
 
 sub proto_search_ex($m,@cmd) {
-
   my @out   = ();
   my @files = Cli::Fstruct::proto_search($m,@cmd);
 
   while(@files) {
-
     my $f=shift @files;
 
     if(-d $f) {
-      expand_path($f,\@files);
+      path_expand($f,\@files);
       next;
 
     };

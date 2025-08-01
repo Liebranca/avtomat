@@ -18,18 +18,15 @@ package Frame;
   use strict;
   use warnings;
 
-  use Carp;
-  use English;
+  use Carp qw(croak);
+  use English qw($ARG);
   use Scalar::Util qw(blessed);
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-  use Style;
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v2.00.3';
+  our $VERSION = 'v2.00.4';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -55,9 +52,7 @@ sub is_valid($kind,$obj) {
 # builds a new container
 
 sub _new($class,%O) {
-
   if(exists $O{-autoload}) {
-
     $O{-autoload}={
       map {$ARG=>0} @{$O{-autoload}}
 
@@ -109,20 +104,21 @@ sub AUTOLOAD {
 # transfer of ownership
 
 sub __ctltake($frame) {
-
   my $pkg=(caller)[0];
 
   push @{$frame->{-prev_owners}},
     $frame->{-owner_kls};
 
   $frame->{-owner_kls}=$pkg;
+  return;
 
 };
 
 sub __ctlgive($frame) {
-
   my $pkg=pop @{$frame->{-prev_owners}};
   $frame->{-owner_kls}=$pkg;
+
+  return;
 
 };
 
@@ -131,8 +127,6 @@ sub __ctlgive($frame) {
 # encode to binary
 
 sub mint($self) {
-
-
   my $class = $self->{-class};
   my %out   = map {
     $ARG=>$self->{$ARG}
@@ -177,7 +171,6 @@ sub mint($self) {
 # ^undo
 
 sub unmint($class,$O) {
-
   my $type = $O->{-class};
 
   $O=$type->unmint_frame($O)

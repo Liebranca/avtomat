@@ -201,9 +201,10 @@ sub err($self,$me,%O) {
 
   ) if $O{details};
 
+
   # exit without errout?
   exit -1 if $O{lvl} eq $AR_FATAL;
-
+  return;
 
 };
 
@@ -212,14 +213,9 @@ sub err($self,$me,%O) {
 # make logtree root
 
 {
-
   # we don't care if it's too late
   no warnings;
-
-  INIT {
-    Arstd::WLog->genesis();
-
-  };
+  INIT {Arstd::WLog->genesis()};
 
 };
 

@@ -9,72 +9,74 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Emit::html;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use version;
+  use English;
 
-  use Readonly;
-  use English qw(-no_match_vars);
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
-  use Arstd::Path;
+  use Arstd::String qw(sqwrap);
 
-  use lib $ENV{'ARPATH'}.'/lib/';
+  use lib "$ENV{ARPATH}/lib/";
   use Emit::Std;
+
+  use parent 'St';
+
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = 'v0.00.1';
   our $AUTHOR  = 'IBN-3DILA';
 
-  our $ICON    = "./data/favicon.png";
 
 # ---   *   ---   *   ---
+# ROM
 
-  Readonly my $HEAD_BOILER=>q[
+my $DEFAULT=__PACKAGE__;
+St::vconst {
 
+  HEAD_BOILER=>q[
 <meta charset="UTF-8">
-
 <meta
   name    = "viewport"
   content = "width=device-width"
   content = "initial-scale=1.0"
 
 >
-
 <meta
   http-equiv = "X-UA-Compatible"
   content    = "ie=edge"
 
->
+>],
 
-];
-
-# ---   *   ---   *   ---
-
-sub comment($ct) {
-  return "<!--$ct-->";
+  ICON  => './data/favicon.png',
+  STYLE => './styles/default.css',
 
 };
 
+
 # ---   *   ---   *   ---
+# the ONE thing I *actually* disike
+# about html ;>
+
+sub comment($ct) {return "<!--$ct-->"};
+
+
+# ---   *   ---   *   ---
+# wrap <name> and set <name attrs=value>
 
 sub tag($name,%O) {
-
   $O{-cl}//=0;
-  $O{-ct}//=$NULLSTR;
+  $O{-ct}//=null;
 
   my $cl=$O{-cl};
   my $ct=$O{-ct};
@@ -82,24 +84,20 @@ sub tag($name,%O) {
   delete $O{-cl};
   delete $O{-ct};
 
-  my @props = ();
-  for my $key(keys %O) {
-    push @props,"  $key=$O{$key}";
+  my @props=map{
+    "  $ARG=$O{$ARG}"
 
-  };
+  } keys %O;
 
-# ---   *   ---   *   ---
 
-  my $props  = join "\n",@props;
-  $props     = "\n$props\n" if @props;
+  my $props = join "\n",@props;
+     $props = "\n$props\n" if @props;
 
-  my @lines  = split $NEWLINE_RE,$ct;
-  for my $line(@lines) {
-    $line=q[  ].$line;
+  my @lines = map {
+    "  $line";
 
-  };
+  } split $NEWLINE_RE,$ct;
 
-# ---   *   ---   *   ---
 
   $ct=join "\n",@lines;
   $ct="\n$ct\n\n" if length $ct;
@@ -111,34 +109,40 @@ sub tag($name,%O) {
 
 };
 
+
 # ---   *   ---   *   ---
 # creates quick header with
 # boiler from *.pm vars
 
-sub header() {
-
+sub header {
   my ($pkg,$file)=caller();
 
+  # get version data from pkg
   no strict 'refs';
-    my $version = ${"$pkg\::VERSION"};
-    my $author  = ${"$pkg\::AUTHOR"};
-    my $icon    = ${"$pkg\::ICON"};
-    my $style   = ${"$pkg\::STYLE"};
-
-    $version  //= v0.00.1;
-    $author   //= 'anon';
-    $icon     //= $ICON;
-    $style    //= './styles/default.css';
-
-    $version    = version::->parse($version);
+  my $version   = ${"$pkg\::VERSION"};
+  my $author    = ${"$pkg\::AUTHOR"};
+     $version //= 'v0.00.1a';
+     $author  //= 'anon';
 
   use strict 'refs';
 
-# ---   *   ---   *   ---
+  # ^further data should be declared
+  # ^through St::vconst
+  my $icon=($pkg->can('ICON')
+    ? $pkg->ICON
+    : $DEFAULT->ICON
+    ;
 
+  my $style=($pkg->can('STYLE')
+    ? $pkg->STYLE
+    : $DEFAULT->STYLE
+    ;
+
+
+  # make header tags
   my $out=tag('meta',
-    version => $version,
-    author  => "\"$author\"",
+    version => sqwrap($version),
+    author  => sqwrap($author),
 
   );
 
@@ -169,16 +173,17 @@ sub header() {
   );
 
   return comment(Emit::Std::note(
-    $author,$NULLSTR
+    $author,null
 
-  ))."\n".$out;
+  )) . "\n$out";
 
 };
 
+
 # ---   *   ---   *   ---
+# makes bulletpoints
 
 sub ulist(@ar) {
-
   my $ct=join "\n",map {
     tag('li',-ct=>$ARG,-cl=>1)
 
@@ -191,6 +196,7 @@ sub ulist(@ar) {
   );
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

@@ -8,98 +8,87 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Emit::Python;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
+  use Carp qw(croak);
+  use English;
 
-  use Carp;
-  use English qw(-no_match_vars);
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
-  use Arstd::Array;
+  use Chk qw(is_arrayref);
 
-  use Chk;
+  use Arstd::Array qw(array_keys array_values);
 
   use Shb7;
   use Shb7::Build;
 
   use Vault;
 
-  use lib $ENV{'ARPATH'}.'/lib/';
-
+  use lib "$ENV{ARPATH}/lib/";
   use Emit::Std;
 
   use parent 'Emit';
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v0.00.1;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v0.00.1';
+  our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # open boiler
 
 sub open_guards($class,$fname) {
+  return join "\n",(
+    "# ---   *   ---   *   ---",
+    "# get system stuff",
 
-return join "\n",
+    "import os,sys;",
 
-"# ---   *   ---   *   ---",
-"# get system stuff",
+    "ARPATH:str=os.getenv('ARPATH');",
+    "if(ARPATH+'/lib/' not in sys.path):",
+    "  sys.path.append(ARPATH+'/lib/');",
 
-"import os,sys;",
+    "# ---   *   ---   *   ---",
+    "# deps",
 
-"ARPATH:str=os.getenv('ARPATH');",
-"if(ARPATH+'/lib/' not in sys.path):",
-"  sys.path.append(ARPATH+'/lib/');",
+    "\n",
 
-"# ---   *   ---   *   ---",
-"# deps",
-
-"\n"
-;
+  );
 
 };
+
 
 # ---   *   ---   *   ---
 # no closer here
 # putting this just for beqs
 
-sub close_guards($class,$fname) {
-  return $NULLSTR;
+sub close_guards($class,$fname) {return null};
 
-};
 
 # ---   *   ---   *   ---
 # selfex
 
 sub boiler_open($class,$fname,%O) {
-
-  state $FROM_RE=qr{from}sxm;
-
   my $note=Emit::Std::note($O{author},q[#]);
-
   my $defi=0;
   my $defk=array_keys($O{define});
   my $defv=array_values($O{define})
 
-
   for my $path(@{$O{include}}) {
 
     # format as from X import Y
-    if(is_arrayref($path)) {
-
+    if(is_arrayref $path) {
       my ($src,@flist)=@$path;
 
       # lone asterisk
@@ -125,48 +114,45 @@ sub boiler_open($class,$fname,%O) {
   };
 
 
-return join "\n",
+  return join "\n",(
+    "#!/usr/bin/python"
+    $class->open_guards($fname),
 
-"#!/usr/bin/python"
-$class->open_guards($fname),
+    (join "\n",map {
+      "$path;\n"
 
-(join "\n",map {
-"$path;\n"
+    } @{$O{include}} ),
 
-} @{$O{include}} ),
+    "# ---   *   ---   *   ---",
+    "# ROM",
 
-"# ---   *   ---   *   ---",
-"# ROM",
+    (join "\n",map {
 
-(join "\n",map {
+    my $name  = $ARG
+    my $value = $defv[$defi++];
 
-my $name  = $ARG
-my $value = $defv[$defi++];
+    "$name=$value;\n"
 
-"$name=$value;\n"
+    } @$defk),
 
-} @$defk),
+    "# ---   *   ---   *   ---",
+    "\n"
 
-"# ---   *   ---   *   ---",
-"\n"
-
-;
+  );
 
 };
+
 
 # ---   *   ---   *   ---
 # ^closer
 
-sub boiler_close($class,$fname,%O) {
-  return $CLOSE_GUARDS;
+sub boiler_close($class,$fname,%O) {return null};
 
-};
 
 # ---   *   ---   *   ---
 # makes shadow lib
 
 sub shwlbind($fname,$soname,$libs_ref) {
-
   my %symtab=%{
     Shb7::Build::soregen($soname,$libs_ref)
 
@@ -175,11 +161,9 @@ sub shwlbind($fname,$soname,$libs_ref) {
   my $objects=Shb7::sofetch(\%symtab);
 
 
-  my $nitpaste=$NULLSTR;
+  my $nitpaste=null;
   my @calpaste=();
-
   my (
-
     @names,
     @rtypes,
 
@@ -193,7 +177,6 @@ sub shwlbind($fname,$soname,$libs_ref) {
     my @OB=@{$objects->{$o}};
 
     while(@OB) {
-
       my ($fn_name,$rtype,@ar)=@{
         shift @OB
 
@@ -206,67 +189,52 @@ sub shwlbind($fname,$soname,$libs_ref) {
       my $arg_types;
 
       if($ar_t[0] eq 'pe_void') {
-        $arg_types=$NULLSTR;
+        $arg_types=null;
 
       } else {
         $arg_types=join ',',@ar_t;
 
       };
 
-$nitpaste.=
+      $nitpaste.=(
+        "    self.$fn_name=self.__getattr__"
+      . "('$fn_name');\n".
 
-"    self.$fn_name=self.__getattr__".
-"('$fn_name');\n".
+      . "    self.$fn_name.restype=$rtype;\n".
+      . "    self.$fn_name.argtypes=[$arg_types];\n\n"
 
-"    self.$fn_name.restype=$rtype;\n".
-"    self.$fn_name.argtypes=[$arg_types];\n\n"
+      );
 
-;
 
-# ---   *   ---   *   ---
-# type """transform""" calls
-#
-# actually a patch for how terrible
-# python and it's abstractions are
+      # type """transform""" calls
+      #
+      # actually a patch for how terrible
+      # python and it's abstractions are
 
-      my $boiler=$NULLSTR;
+      my $boiler=null;
       my $afterboiler='  doowoop_h=[';
 
       while(@ar_n && @ar_t) {
-
         my $n=shift @ar_n;
         my $t=shift @ar_t;
 
         $afterboiler.="$n,";
 
-# ---   *   ---   *   ---
-# strings are char arrays
-#
-# the conception of them as something else
-# is entirely born out of high-level delusion
-#
-# it's only at and for this level that
-# we even have to make this differentiation
+        # strings are char arrays
+        #
+        # the conception of them as something else
+        # is entirely born out of high-level delusion
+        #
+        # it's only at and for this level that
+        # we even have to make this differentiation
 
-        if(
-
-            ($t=~ m[_str])
-        && !($t=~ m[_ptr])
-
-        ) {
+        if(($t=~ m[_str]) &&! ($t=~ m[_ptr])) {
 
           $boiler.="  $n=mcstr($t,$n);\n";
 
-# ---   *   ---   *   ---
-# again, purely conceptual
 
-        } elsif(
-
-            ($t=~ m[_str])
-        &&  ($t=~ m[_ptr])
-
-        ) {
-
+        # again, purely conceptual
+        } elsif(($t=~ m[_str]) && ($t=~ m[_ptr])) {
           my $t2=$t;
           $t=~ s[_ptr$][];
 
@@ -274,90 +242,81 @@ $nitpaste.=
 
           $boiler.="  $n=mcstar($t,$xform);\n";
 
-# ---   *   ---   *   ---
-# if your arrays are not arrays under the hood,
-# then your language has a serious problem
+
+        # if your arrays are not arrays under the hood,
+        # then your language has a serious problem
 
         } elsif(($t=~ m[_ptr])) {
           $boiler.="  $n=mcstar($t,$n);\n";
 
         };
 
-# ---   *   ---   *   ---
-# save the """transforms""" for this function
+      };
+
+
+      # save the """transforms""" for this function
+      $afterboiler.="];\n";
+      if(length($arg_names)) {
+        $boiler=(
+          "def $fn_name($arg_names,doowoop=0):\n"
+        . $boiler
+
+        );
+
+      } else {
+        $afterboiler=null;
+        $boiler=(
+          "def $fn_name(doowoop=0):\n"
+        . $boiler
+
+        );
 
       };
 
-$afterboiler.="];\n";
+      push @calpaste,(
+        $boiler . '  doowoop_fret='
 
-if(length($arg_names)) {
+      # NO IDENT
+      . "lib${soname}.$fn_name($arg_names);\n",
 
-  $boiler=
+        $afterboiler,
 
-    "def $fn_name($arg_names,doowoop=0):\n".
-    $boiler
+      # YES IDENT
+        "  if(doowoop):",
+        "    return doowoop_h;",
 
-  ;
+        "  else:",
+        "    return doowoop_fret;",
 
-} else {
-
-  $afterboiler=$NULLSTR;
-  $boiler=
-
-    "def $fn_name(doowoop=0):\n".
-    $boiler
-
-  ;
-
-};
-
-push @calpaste,$boiler.
-
-'  doowoop_fret='
-
-# << NOT IDENT
-. "lib${soname}.$fn_name($arg_names);\n",
-
-$afterboiler,
-
-# YES IDENT
-"  if(doowoop):",
-"    return doowoop_h;",
-
-"  else:",
-"    return doowoop_fret;",
-
-;
+      );
 
     };
 
   };
 
 
-return join "\n",
+  return join "\n",(
+    "class ${soname}X:",
+    "  \@staticmethod",
+    "  def nit():",
+    "    self=cdll.LoadLibrary(",
+    "      ARPATH+'/lib/lib${soname}.so'",
 
-"class ${soname}X:",
+    "    );",
 
-"  \@staticmethod",
-"  def nit():",
-
-"    self=cdll.LoadLibrary(",
-"      ARPATH+'/lib/lib${soname}.so'",
-
-"    );",
-
-$nitpaste,
-"    return self;",
+    $nitpaste,
+    "    return self;",
 
 
-"lib${soname}=${soname}X.nit();",
-@calpaste,
+    "lib${soname}=${soname}X.nit();",
+    @calpaste,
 
-"\n"
+    "\n",
 
-;
+  );
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

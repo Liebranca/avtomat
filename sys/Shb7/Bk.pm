@@ -95,10 +95,7 @@ sub push_src($self,$fpath) {
 sub depstr_to_array($self,$depstr) {
 
   # make list
-  my @out=Lang::re_sursplit(
-    $COMMA_RE,$depstr,sur=>'\s*'
-
-  );
+  my @out=split qr{\*,\s*},$depstr;
 
   # ensure there are no blanks
   array_filter(\@out);

@@ -9,48 +9,42 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Emit::Css;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use version;
+  use English;
 
-  use Readonly;
-  use English qw(-no_match_vars);
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
-  use Chk;
+  use Chk qw(is_arrayref);
 
-  use Arstd::Array;
+  use Arstd::Array qw(
+    array_keys
+    array_values
 
-  use lib $ENV{'ARPATH'}.'/lib/';
+  );
+
+  use lib "$ENV{ARPATH}/lib/";
   use Emit::Std;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.1;#b
+  our $VERSION = 'v0.00.1';
   our $AUTHOR  = 'IBN-3DILA';
 
 # ---   *   ---   *   ---
 # scope {} shorthands
 
-sub isert_class($c) {
-  return "$c {\n";
-
-};
-
+sub isert_class($c) {return "$c {\n"};
 sub isert_break($brk,$limit=0) {
-
   my $type=(!$limit)
       ? 'max-width'
       : 'min-width'
@@ -66,13 +60,12 @@ sub isert_close($n=0) {
 
 };
 
+
 # ---   *   ---   *   ---
 # ^puts values inside
 
 sub isert_props(@data) {
-
-  my $out    = $NULLSTR;
-
+  my $out    = null;
   my @keys   = array_keys(\@data);
   my @values = array_values(\@data);
 
@@ -95,6 +88,7 @@ sub isert_props(@data) {
 
 };
 
+
 # ---   *   ---   *   ---
 # sets properties in order of breakpoints
 #
@@ -114,9 +108,7 @@ sub isert_props(@data) {
 # values are shifted from the prop array
 
 sub by_break($brkp,@data) {
-
-  my $out     = $NULLSTR;
-
+  my $out     = null;
   my @classes = array_keys(\@data);
   my @props   = array_values(\@data);
 
@@ -126,12 +118,11 @@ sub by_break($brkp,@data) {
 
     # open scope 0
     my $brk  = shift @$brkp;
-    $out    .= isert_break($brk,$j++);
+       $out .= isert_break($brk,$j++);
 
     # paste each class for each brk
     my $i=0;
     for my $c(@classes) {
-
       my $propl=$props[$i++];
 
       # open scope 1,
@@ -140,7 +131,7 @@ sub by_break($brkp,@data) {
       my $raw  = isert_props(@$propl);
 
       # format props
-      my $idented=$NULLSTR;
+      my $idented=null;
       for my $line(split "\n",$raw) {
         $idented.=q[  ]."$line\n";
 
@@ -160,6 +151,7 @@ sub by_break($brkp,@data) {
   return $out;
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

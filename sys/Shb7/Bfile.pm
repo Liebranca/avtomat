@@ -145,21 +145,24 @@ sub buildchk($self,$do_build,$deps,%O) {
 # sanity check: dependency files exist
 
 sub depchk($self,$deps) {
-  map { errout(
-    "%s missing dependency %s\n",
+
+  # ok if no missing deps
+  my @miss=grep {$ARG &&! -f $ARG} @$deps;
+  return if ! @miss;
+
+  # ^give errme
+  errout(
+    "%s missing dependencies:%s\n",
 
     args=>[
       Shb7::shpath($self->{src}),
-      $ARG
+      prepend("\n::",@miss),
 
     ],
 
     lvl=>$AR_FATAL,
 
-  ) if $ARG &&! -f $ARG } @$deps;
-
-
-  return;
+  );
 
 };
 

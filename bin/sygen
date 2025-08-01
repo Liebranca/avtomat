@@ -22,15 +22,22 @@ package sygen;
   use Carp;
   use English;
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-  use Style;
-  use Chk;
+  use lib "$ENV{ARPATH}/lib/";
+  use AR sys=>qw(
+    use Style::(null);
+    use Chk::(
+      is_arrayref
+      is_hashref
+      is_qre
 
-  use Arstd::Path qw(extcl fname_to_pkg);
-  use Arstd::String qw(gstrip dqwrap sqwrap);
-  use Arstd::Array qw(array_keys);
-  use Arstd::Re qw(qre2re);
-  use Arstd::PM qw(cloadi);
+    );
+
+    lis Arstd::Array::(nkeys);
+    use Arstd::String::(gstrip dqwrap sqwrap);
+    lis Arstd::Path::(extcl to_pkg);
+    lis Arstd::Re::(qre2re);
+
+  );
 
   use Shb7;
   use Ftype;
@@ -135,12 +142,12 @@ sub get_files {
 sub load_file($fname) {
 
   # shorten and clear extension
-  $fname=extcl Shb7::shpath($fname);
+  $fname=path_extcl Shb7::shpath($fname);
   $fname=~ s[^avtomat/*sys/*][];
 
   # ^load the package
-  my $class=fname_to_pkg $fname;
-  cloadi $class;
+  my $class=path_to_pkg $fname;
+  AR::cloadi $class;
 
 
   # give ice

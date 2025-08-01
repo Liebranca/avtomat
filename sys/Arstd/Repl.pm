@@ -18,29 +18,15 @@ package Arstd::Repl;
   use strict;
   use warnings;
 
-  use Carp;
-  use English;
-
-  use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
-  use parent 'St';
+  use Carp qw(croak);
+  use English qw($MATCH);
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.1a';
+  our $VERSION = 'v0.00.2a';
   our $AUTHOR  = 'IBN-3DILA';
-
-
-# ---   *   ---   *   ---
-# ROM
-
-St::vconst {
-  FMAT => q[@REPL%u],
-  RE   => qr{\@REPL(?<uid>\d+)},
-
-};
 
 
 # ---   *   ---   *   ---
@@ -62,7 +48,11 @@ sub new($class,%O) {
   if ! exists $O{inre};
 
   # set defaults
-  my ($fmat,$re)=($class->FMAT,$class->RE);
+  my ($fmat,$re)=(
+    q[@REPL%u],
+    qr{\@REPL(?<uid>\d+)},
+
+  );
 
   $O{pre}   //= 'STR';
   $O{repv}  //= \&proto_undo_f;

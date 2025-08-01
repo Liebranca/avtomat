@@ -19,44 +19,16 @@ package Arstd::Path;
   use warnings;
 
   use Carp qw(croak);
-  use English;
+  use English qw($ARG);
   use Cwd qw(abs_path);
-
-  use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
-
   use File::Spec;
   use File::Path qw(mkpath);
 
-  use parent 'St';
-
-
-# ---   *   ---   *   ---
-# adds to your namespace
-
-  use Exporter 'import';
-  our @EXPORT=qw(
-
-    basef
-    based
-    nxbasef
-
-    dirof
-    parof
-
-    relto
-
-    expand_path
-    reqdir
-
-    extof
-    extwap
-    extcl
-
-    find_pkg
-    find_subpkg
-    fname_to_pkg
-    pkg_to_fname
+  use lib "$ENV{ARPATH}/lib/";
+  use AR sys=>qw(
+    use Chk::(is_null is_path is_file);
+    use Style::(null);
+    use Arstd::Bin::(dorc);
 
   );
 
@@ -64,29 +36,15 @@ package Arstd::Path;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.8';
+  our $VERSION = 'v0.00.9';
   our $AUTHOR  = 'IBN-3DILA';
-
-
-# ---   *   ---   *   ---
-# ROM
-
-my $PKG=__PACKAGE__;
-St::vconst {
-  FPATH_RE => qr{
-    [/_A-Za-z\.]
-    [/_A-Za-z0-9\-\.\:\@\%\$\&]+
-
-  }x,
-
-};
 
 
 # ---   *   ---   *   ---
 # get name of file without the path
 
 sub basef($path) {
-  my @names=split m[/],$path;
+  my @names=split qr{/},$path;
   return $names[$#names];
 
 };
@@ -123,9 +81,8 @@ sub parof($path,%O) {
   my $full   = ($O{abs}) ? abs_path $path : $path ;
      $full //= $path;
 
-
   # break path into elements
-  my @names=split $FSLASH_RE,$full;
+  my @names=split qr{/},$full;
 
   # pop last element from path to get dir
      $O{i} = 1 if $#names < $O{i};
@@ -154,7 +111,7 @@ sub dirof($path,%O) {
 # gives first name in path
 
 sub based {
-  my @names=split $FSLASH_RE,$_[0];
+  my @names=split qr{/},$_[0];
   return $names[0];
 
 };
@@ -173,21 +130,33 @@ sub relto($par,$to) {
 # ---   *   ---   *   ---
 # turns dots into dirs
 
-sub expand_path($src,$dst) {
+sub expand($path,%O) {
+  return $path if is_filepath $path;
 
-  my @ar;
-  if(length ref $src) {@ar=(@{$src})}
-  else {@ar=($src)};
+  # defaults
+  $O{-r} //= 0;
 
-  while(@ar) {
-    my $path=shift @ar;
-    if(-f $path) {unshift @$dst,$path;next};
+  # walk directories
+  my @out = ();
+  my @rem = ($path);
 
-    my @tmp=split m/\s+/,`ls $path`;
+  while(@rem) {
+    $path=shift @rem;
 
-    unshift @$dst,(map {$path.q{/}.$ARG} @tmp);
+    # opendir
+    my @have=dorc $path,qr{^\.};
+
+    # files to out
+    unshift @out,grep {-f "$path/$ARG"} @have;
+
+    # recurse?
+    unshift @rem,grep {-d "$path/$ARG"} @have;
+    if $O{-r};
 
   };
+
+
+  return;
 
 };
 
@@ -201,11 +170,11 @@ sub expand_path($src,$dst) {
 sub reqdir($path) {
 
   # sanity check the path!
-  defined $path or croak "undef passed to reqdir";
-  length  $path or croak "<null> passed to reqdir";
+  croak "<null> passed to reqdir";
+  if ! is_null $path;
 
-  $path=~ $PKG->FPATH_RE
-  or croak "<$path> has invalid characters";
+  croak "<$path> has invalid characters"
+  if ! is_path $path;
 
   ! -f $path or croak "<$path> is a file";
 
@@ -243,14 +212,13 @@ sub extwap($fpath,$to) {
 # get file from package name
 
 sub find_pkg($name,@path) {
-
   @path=@INC if ! @path;
 
-  my $fname = pkg_to_fname($name);
+  my $fname=from_pkg($name);
+  my ($fpath)=grep {
+    $ARG=<$ARG$fname>;-f $ARG
 
-  my ($fpath)=
-    grep {-f $ARG}
-    map  {<$ARG$fname>} @path;
+  } @path;
 
 
   return $fpath;
@@ -262,18 +230,15 @@ sub find_pkg($name,@path) {
 # looks for pkg/*.pm in path
 
 sub find_subpkg($base,$name,@path) {
-
-  state $ext=qr{\.pm$};
-
   @path=@INC if ! @path;
 
   my $out = null;
-
   my $beg = ($base)
     ? qr{^.*/?$base}
     : null
     ;
 
+  my $ext = qr{\.pm$};
   my $end = qr{$name}i;
   my $re  = (length $beg)
     ? qr{$beg/?.*/$end$ext}
@@ -281,9 +246,11 @@ sub find_subpkg($base,$name,@path) {
     ;
 
   # case-insensitive filename search!
-  my ($fpath)=
-    grep {"$ARG"=~ $re}
-    map  {<$ARG$base/*>} @path;
+  my ($fpath)=grep {
+    $ARG=<$ARG$base/*>;
+    $ARG=~ $re
+
+  } @path;
 
 
   if($fpath) {
@@ -306,15 +273,15 @@ sub find_subpkg($base,$name,@path) {
 # ---   *   ---   *   ---
 # pkg/name to pkg::name
 
-sub fname_to_pkg($fname,$base=null) {
+sub to_pkg($fname,$base=null) {
+  return null if is_null $fname;
 
-  state $ext=qr{\.pm$};
-  return null if ! defined $fname;
-
-  my $beg=qr{^.*/?$base};
+  my $beg    = qr{^.*/?$base};
+  my $fslash = qr{/};
+  my $ext    = qr{\.pm$};
 
   $fname=~ s[$beg][$base] if $base;
-  $fname=~ s[$FSLASH_RE][::]sxmg;
+  $fname=~ s[$fslash][::]sxmg;
 
   $fname=~ s[$ext][];
 
@@ -326,8 +293,10 @@ sub fname_to_pkg($fname,$base=null) {
 # ---   *   ---   *   ---
 # ^iv/undo
 
-sub pkg_to_fname($pkg) {
-  $pkg=~ s[$DCOLON_RE][/]g;
+sub from_pkg($pkg) {
+  my $re=qr{::}
+  $pkg=~ s[$re][/]g;
+
   return "$pkg.pm";
 
 };

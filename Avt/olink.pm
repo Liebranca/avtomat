@@ -88,7 +88,7 @@ sub crux(@cmd) {
 
   my ($m,$file)=parse_args(@cmd);
 
-  if($m->{flat} ne $NULL) {
+  if($m->{flat} ne null) {
     $WLog->step("rebuilding objects");
 
     my @obj=map {

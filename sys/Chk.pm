@@ -18,20 +18,17 @@ package Chk;
   use strict;
   use warnings;
 
-  use English;
+  use English qw($ARG);
   use Scalar::Util qw(blessed);
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-  use Style;
 
 
 # ---   *   ---   *   ---
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT=qw(
-
-    nref
+  our @EXPORT_OK=qw(
+    is_nref
+    is_null
 
     is_blessref
     is_hashref
@@ -39,9 +36,12 @@ package Chk;
     is_arrayref
     is_qre
     is_qreref
-
     is_scalarref
-    is_filepath
+
+    is_path
+    is_rpath
+    is_file
+    is_dir
 
     codefind
 
@@ -51,70 +51,70 @@ package Chk;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.8';
+  our $VERSION = 'v0.01.1';
   our $AUTHOR  = 'IBN-3DILA';
+
+
+# ---   *   ---   *   ---
+# not a value!
+
+sub is_null {
+  return ! (defined $_[0] && length $_[0]);
+
+};
 
 
 # ---   *   ---   *   ---
 # type-checking
 
-sub is_scalarref ($v) {
-  return defined $v && ('SCALAR' eq ref $v);
+sub is_scalarref {
+  return ! is_null($_[0]) && 'SCALAR' eq ref $_[0];
 
 };
 
-sub is_arrayref ($v) {
-  return length ref $v && ('ARRAY' eq ref $v);
+sub is_arrayref {
+  return ! is_null($_[0]) && 'ARRAY' eq ref $_[0];
 
 };
 
-sub is_hashref ($v) {
-  return length ref $v && ('HASH' eq ref $v);
+sub is_hashref {
+  return ! is_null($_[0]) && 'HASH' eq ref $_[0];
 
 };
 
-sub is_blessref ($v) {
-  return defined $v && defined blessed $v;
+sub is_blessref {
+  return ! is_null($_[0]) && defined blessed $_[0];
 
 };
 
-sub is_coderef ($v) {
-
-  return (
-     defined    $v
-  && length ref $v
-
-  && ('CODE' eq ref $v)
-
-  );
+sub is_coderef {
+  return ! is_null($_[0]) && 'CODE' eq ref $_[0];
 
 };
 
-sub is_qre ($v) {
-  return defined $v && ('Regexp' eq ref $v);
+sub is_qre {
+  return ! is_null($_[0]) && 'Regexp' eq ref $_[0];
 
 };
 
-sub is_qreref($v) {
-  return is_scalarref($v) && is_qre($$v);
+sub is_qreref {
+  return is_scalarref($_[0]) && is_qre(${$_[0]});
 
 };
+
 
 # ---   *   ---   *   ---
 # value is just... nothing special
 
-sub nref($v) {
-
+sub is_nref {
   return (
-
-      defined $v
-
-  &&! is_scalarref($v)
-  &&! is_arrayref($v)
-  &&! is_hashref($v)
-  &&! is_blessref($v)
-  &&! is_coderef($v)
-  &&! is_qre($v)
+    ! is_null      ($_[0])
+  &&! is_scalarref ($_[0])
+  &&! is_arrayref  ($_[0])
+  &&! is_hashref   ($_[0])
+  &&! is_blessref  ($_[0])
+  &&! is_coderef   ($_[0])
+  &&! is_qre       ($_[0])
 
   );
 
@@ -124,17 +124,15 @@ sub nref($v) {
 # ---   *   ---   *   ---
 # gets subroutine by name
 
-sub getsub(@path) {
-
+sub getsub {
   state $re=qr{^(?<codename>[_\w:][_\w:\d]+)$}x;
 
   no strict 'refs';
-  my $name = (join q[::],@path);
+  my $name = join q[::],@_;
   my $fn   = ($name=~ $re)
-    ? eval "\&$name"
+    ? eval '\&' . $name
     : undef
     ;
-
 
   return (is_coderef($fn) && defined &{$fn})
     ? $fn
@@ -149,10 +147,10 @@ sub getsub(@path) {
 #
 # performs deep search on failure
 
-sub codefind(@path) {
-  my $fn=getsub @path;
+sub codefind {
+  my $fn=getsub @_;
   return (! defined $fn)
-    ? __isa_search(@path)
+    ? __isa_search(@_)
     : $fn
     ;
 
@@ -165,19 +163,16 @@ sub codefind(@path) {
 #
 # sometimes it happens ;>
 
-sub __isa_search(@path) {
-
-  my $name = pop @path;
-  my $pkg  = join q[::],@path;
+sub __isa_search {
+  my $name = pop;
+  my $pkg  = join q[::],@_;
 
   no strict 'refs';
-  my @isa=@{"$pkg\::ISA"};
-
-  map {
-    my $fn=getsub $ARG,$name;
+  for(@{"$pkg\::ISA"}) {
+    my $fn=getsub($ARG,$name);
     return $fn if defined $fn;
 
-  } @isa;
+  };
 
 
   return undef;
@@ -186,25 +181,44 @@ sub __isa_search(@path) {
 
 
 # ---   *   ---   *   ---
-# AR/approved filepath validate
+# AR/approved path validation
 
-sub is_filepath($fpath) {
+sub is_path {
+  my $re=qr{
+    ^ [/_A-Za-z\.\~]
+      [/_A-Za-z0-9\-\.\:\@\%\$\&]* $
 
-  my $have=(
+  }x;
 
-  !   ($fpath=~ $NEWLINE_RE)
+  return int(
+   ! (is_null $_[0])
 
-  &&  (256 > length $fpath)
-  &&  (-f $fpath)
+  && ($_[0]=~ $re)
+  && (1024 >= length $_[0])
 
   );
 
-  return int(defined $have && $have);
+};
+
+sub is_rpath {
+  return is_path($_[0]) && -e $_[0];
+
+};
+
+sub is_file {
+  return is_path($_[0]) && -f $_[0];
+
+};
+
+sub is_dir {
+  return is_path($_[0]) && -d $_[0];
 
 };
 
 
 # ---   *   ---   *   ---
+# TODO: move this somewhere else
+#
 # get value is a scalar or
 # code reference
 #
@@ -212,15 +226,15 @@ sub is_filepath($fpath) {
 
 sub cderef($x,$deref,@args) {
 
-
   # have reference?
-  my $isref  =
+  my $isref=(
      (1 * int is_coderef   $x)
-  || (2 * int is_scalarref $x);
+  || (2 * int is_scalarref $x)
+
+  );
 
 
   if($deref && $isref) {
-
     my @out=($isref == 1)
       ? ($x->(@args))
       : ($$x)

@@ -21,59 +21,20 @@ package Arstd::Re;
   use English;
   use List::Util qw(max);
 
-  use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
-  use Chk;
-
-  use Arstd::Array;
-  use parent 'St';
-
-
-# ---   *   ---   *   ---
-# adds to your namespace
-
-  use Exporter 'import';
-  our @EXPORT=qw(
-
-    re_alt
-    re_capt
-    re_dcapt
-    re_bwrap
-
-    re_insens
-    re_opscape
-    re_eiths
-    re_pekey
-    re_npekey
-    re_eaf
-
-    re_nonscaped
-    re_escaped
-
-    re_lkback
-    re_lkahead
-
-    re_delim
-    array_re_delim
-    re_posix_delim
-
-    re_sursplit
-    re_sursplit_new
-
-    re_neg_lkahead
-    re_lbeg
-
-    qre2re
-
-    $UNPRINT_RE
+  use lib "$ENV{ARPATH}/lib/";
+  use AR sys=>qw(
+    use Style::(null);
+    Arstd::Array::(lsort);
 
   );
+
+  use parent 'St';
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.5';
+  our $VERSION = 'v0.00.6';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -81,8 +42,7 @@ package Arstd::Re;
 # ROM
 
 St::vconst {
-
-  peso_escape => qr{
+  PESC_RE => qr{
     \$: \s* (?<on>[%/]?) \s*
     (?<body> (?: [^;] | ;[^>])+)
 
@@ -121,7 +81,6 @@ sub alt($ar,%O) {
 
   # compile regex?
   if($O{mkre}) {
-
     $out=($O{insens})
       ? qr{$out}xi
       : qr{$out}x
@@ -148,12 +107,11 @@ sub insens($s,%O) {
   $O{mkre}//=0;
 
   # get [xX] for each char
-  my $out=join null,map {
-
+  my $out=catar map {
     '[' . (lc $ARG)
         . (uc $ARG) .']'
 
-  } split null,$s;
+  } chars $s;
 
   # conditionally compile
   $out=($O{mkre})
@@ -764,32 +722,6 @@ sub neg_lkahead($s,%O) {
 
 
 # ---   *   ---   *   ---
-# splits str at one pattern when
-# surrounded by another
-#
-# gives list of split'd tokens
-
-sub sursplit($pat,$s,%O) {
-
-  # defaults
-  $O{sur} //= '\s*';
-
-  my $re=sursplit_new($pat,$O{sur});
-  return split $re,$s;
-
-};
-
-
-# ---   *   ---   *   ---
-# ^produces those kinds of regexes
-
-sub sursplit_new($pat,$sur) {
-  return qr{$sur$pat$sur}x;
-
-};
-
-
-# ---   *   ---   *   ---
 # halfway conversion of compiled
 # perl regex to posix regex
 #
@@ -826,39 +758,9 @@ sub qre2re($sref) {
   while($$sref=~ s[$outer_re][($+{body})]sxmg) {};
   while($$sref=~ s[$inner_re][($+{body})]sxmg) {};
 
+  return;
+
 };
-
-
-# ---   *   ---   *   ---
-# exporter names
-
-  *re_alt          = *alt;
-  *re_capt         = *capt;
-  *re_dcapt        = *dcapt;
-  *re_bwrap        = *bwrap;
-
-  *re_insens       = *insens;
-  *re_opscape      = *opscape;
-  *re_eiths        = *eiths;
-  *re_pekey        = *pekey;
-  *re_npekey       = *npekey;
-  *re_eaf          = *eaf;
-
-  *re_nonscaped    = *nonscaped;
-  *re_escaped      = *escaped;
-
-  *re_lkback       = *lkback;
-  *re_lkahead      = *lkahead;
-
-  *re_delim        = *delim;
-  *array_re_delim  = *array_delim;
-  *re_posix_delim  = *posix_delim;
-
-  *re_sursplit     = *sursplit;
-  *re_sursplit_new = *sursplit_new;
-
-  *re_neg_lkahead  = *neg_lkahead;
-  *re_lbeg         = *lbeg;
 
 
 # ---   *   ---   *   ---

@@ -11,80 +11,32 @@
 # lib,
 
 # ---   *   ---   *   ---
-# deps
+# info
 
 package Arstd::Array;
   use v5.42.0;
   use strict;
   use warnings;
 
-  use Carp;
-  use Readonly;
-  use English qw(-no_match_vars);
+  use Carp qw(croak);
+  use English qw($ARG);
 
-  use lib $ENV{'ARPATH'}.'/lib/sys';
-
-  use Style;
-  use Chk;
-
-  use parent 'St';
-
-
-# ---   *   ---   *   ---
-# adds to your namespace
-
-  use Exporter 'import';
-  our @EXPORT=qw(
-
-    array_nth
-    array_keys
-    array_values
-
-    array_lshift
-    array_rshift
-
-    array_filter
-    array_dupop
-    array_insert
-
-    array_key_idex
-    array_sort
-    array_lsort
-
-    array_iof
-    array_wrap
-    array_flatten
-
-    array_rmi
-
-    array_vmap
-    array_kmap
-    array_map
-
-    array_matchpop
-
-    IDEXUP
-    IDEXUP_P2
-
-  );
-
-
-# ---   *   ---   *   ---
-# info
-
-  our $VERSION = 'v0.00.9';
+  our $VERSION = 'v0.01.0';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
-# ROM
+# deps
 
-  Readonly my $NO_BLANKS=>sub {
+AR sys=>{
+  use Style null;
+  use Chk (
+    is_null,
+    is_arrayref,
 
-     defined $ARG
-  && length  $ARG
+  );
 
-  };
+};
 
 
 # ---   *   ---   *   ---
@@ -100,21 +52,17 @@ sub new($class,@values) {
 # give every nth elem in array
 
 sub nth($ar,$n,$i) {
-
-  my @slice=@$ar;
-  @slice=(@slice[$i..$#slice]);
-
+  my @slice=(@$ar)[$i..@$ar-1];
   $i=0;
 
   my $matches=[
-
     (shift @slice),
-    grep {!( ++$i % $n)} @slice
+    grep {! (++$i % $n)} @slice
 
   ];
 
   $matches//=[];
-  return grep {$ARG} @$matches;
+  return grep {! is_null $ARG} @$matches;
 
 };
 
@@ -137,7 +85,6 @@ sub nvalues($ar) {return (nth($ar,2,1))};
 # shifts every element to the left from idex
 
 sub lshift($ar,$idex) {
-
   my @out=($ar->[$idex]);
   my $max=@{$ar}-1;
 
@@ -157,7 +104,6 @@ sub lshift($ar,$idex) {
 # ^inverse
 
 sub rshift($ar,$idex) {
-
   my @out=($ar->[$idex]);
 
   while($idex>0) {
@@ -175,10 +121,9 @@ sub rshift($ar,$idex) {
 # ---   *   ---   *   ---
 # discards blanks in array
 
-sub filter($ar,$block=undef) {
-
-  $block//=$NO_BLANKS;
+sub filter($ar,$block=\&is_null) {
   @$ar=grep {$block->($ARG)} @$ar;
+  return;
 
 };
 
@@ -187,12 +132,10 @@ sub filter($ar,$block=undef) {
 # liminates repeats
 
 sub dupop($ar) {
-
   my %tmp = ();
   my $i   = 0;
 
-  map {
-
+  for(@$ar) {
     my $key;
     if(is_arrayref $ARG) {
       $key=join '|',@$ARG;
@@ -202,22 +145,21 @@ sub dupop($ar) {
 
     };
 
-
     $tmp{$key}=(! exists $tmp{$key})
       ? [$i++,$ARG]
       : $tmp{$key}
       ;
 
-  } @$ar;
+  };
 
 
   @$ar=();
 
-  map {
+  for(values %tmp) {
     my ($idex,$value)=@$ARG;
     $ar->[$idex]=$value;
 
-  } values %tmp;
+  };
 
   return;
 
@@ -228,11 +170,9 @@ sub dupop($ar) {
 # appends subarray at position
 
 sub insert($ar,$pos,@ins) {
-
-  my @ar=@$ar;
-
-  my @head=();
-  my @tail=();
+  my @ar   = @$ar;
+  my @head = ();
+  my @tail = ();
 
   if($pos>0) {
     @head=@ar[0..$pos-1];
@@ -245,6 +185,7 @@ sub insert($ar,$pos,@ins) {
   };
 
   @$ar=(@head,@ins,@tail);
+  return;
 
 };
 
@@ -253,13 +194,13 @@ sub insert($ar,$pos,@ins) {
 # makes {key=>idex} from [keys]
 
 sub key_idex($ar,$rev=0) {
-
   my @have=map {
     $ar->[$ARG]=>$ARG
 
   } 0..@$ar-1;
 
   @have=reverse @have if $rev;
+
   return {@have};
 
 };
@@ -270,6 +211,7 @@ sub key_idex($ar,$rev=0) {
 
 sub nsort($ar) {
   @$ar=sort {$b<=>$a} @$ar;
+  return;
 
 };
 
@@ -278,12 +220,11 @@ sub nsort($ar) {
 # ^sorts by length
 
 sub nlsort($ar) {
-
   @$ar=sort {
-
     (length $b)<=>(length $a);
 
   } @$ar;
+  return;
 
 };
 
@@ -292,10 +233,8 @@ sub nlsort($ar) {
 # give idex of element
 
 sub iof($ar,$elem) {
-
   croak 'iof: undefined elem'
   if ! defined $elem;
-
 
   my ($idex)=grep {
     $ar->[$ARG] eq $elem
@@ -336,7 +275,7 @@ sub flatten($ar,%O) {
     # recurse if stepped on array
     # else copy value to dst
     my $chd=shift @Q;
-    (is_arrayref($chd))
+    (is_arrayref $chd)
       ? unshift @Q,@$chd
       : push    @out,$chd
       ;
@@ -386,7 +325,6 @@ sub rmi($ar,$elem) {
 
 sub nmap($ar,$fn,$mode='ikv') {
 
-
   # we overwrite these values on walk step
   my $k=0;
   my $v=0;
@@ -399,7 +337,7 @@ sub nmap($ar,$fn,$mode='ikv') {
   my @nv=nvalues($ar);
 
   # ^walk
-  map {
+  return map {
 
     # overwrite refs
     $k = \$ARG;
@@ -440,12 +378,12 @@ sub nmap($ar,$fn,$mode='ikv') {
 # ^icebox
 
 sub kmap($ar,$fn) {
-  nmap($ar,$fn,'k');
+  return nmap($ar,$fn,'k');
 
 };
 
 sub vmap($ar,$fn) {
-  nmap($ar,$fn,'v');
+  return nmap($ar,$fn,'v');
 
 };
 
@@ -457,9 +395,7 @@ sub vmap($ar,$fn) {
 # returns (all-matched,matches)
 
 sub matchpop($ar,@seq) {
-
   return (0,()) if @$ar < @seq;
-
 
   my $idex  = 0;
   my @match = map {
@@ -484,37 +420,6 @@ sub IDEXUP_P2($idex,$f,@list) {
   return map {$f->($ARG,1 << $idex++)} @list;
 
 };
-
-
-# ---   *   ---   *   ---
-# exporter names
-
-  *array_nth      = *nth;
-  *array_keys     = *nkeys;
-  *array_values   = *nvalues;
-
-  *array_lshift   = *lshift;
-  *array_rshift   = *rshift;
-
-  *array_filter   = *filter;
-  *array_dupop    = *dupop;
-  *array_insert   = *insert;
-
-  *array_key_idex = *key_idex;
-  *array_sort     = *nsort;
-  *array_lsort    = *nlsort;
-
-  *array_iof      = *iof;
-  *array_wrap     = *wrap;
-  *array_flatten  = *flatten;
-
-  *array_rmi      = *rmi;
-
-  *array_vmap     = *vmap;
-  *array_kmap     = *kmap;
-  *array_map      = *nmap;
-
-  *array_matchpop = *matchpop;
 
 
 # ---   *   ---   *   ---

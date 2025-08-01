@@ -9,95 +9,86 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Emit::fasm;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
+  use English;
 
-  use Carp;
-  use English qw(-no_match_vars);
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
-  use Fmat;
 
-  use Arstd::Path;
-  use Arstd::Array;
+  use Arstd::Path qw(parof fname_to_pkg);
+  use Shb7::Path qw(shpath);
 
-  use Shb7::Path;
-  use Shb7::Build;
-
-  use Tree;
-
-  use lib $ENV{'ARPATH'}.'/lib/';
+  use lib "$ENV{ARPATH}/lib/";
   use Emit::Std;
 
   use parent 'Emit';
 
+
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.00.4;#b
+  our $VERSION = 'v0.00.4';
   our $AUTHOR  = 'IBN-3DILA';
 
-# ---   *   ---   *   ---
-# ROM
 
 # ---   *   ---   *   ---
 # file prologue
 
 sub boiler_open($class,$fname,%O) {
 
-  state $imphed=q[
+  state $imphed=join "\n",(
+    q[; ---   *   ---   *   ---],
+    q[; get importer],
 
-; ---   *   ---   *   ---
-; get importer
+    q[if ~ defined loaded?Imp],
+    q[  include '%ARPATH%/forge/Imp.inc'],
 
-if ~ defined loaded?Imp
-  include '%ARPATH%/forge/Imp.inc'
+    q[end if],
 
-end if
+    q[; ---   *   ---   *   ---],
+    q[; deps],
 
-; ---   *   ---   *   ---
-; deps
+  ) . "\n";
 
-];
 
   # get load order
-  my $i    = 0;
-  my $ldo  = $O{ldo};
+  my $i   = 0;
+  my $ldo = $O{ldo};
 
   # ^stirr
-  my $imps = join $NULLSTR,map {
-
+  my $imps=catar map {
     my $lib=$ldo->[($ARG*2)+0];
     my $inc=$ldo->[($ARG*2)+1];
 
-    "library $lib\n" . (join "\n",map {
-      "  use $ARG"
+    join "\n",(
+      "library $lib",
+      (map {
+        "  use $ARG"
 
-    } @$inc)
+      } @$inc),
 
-    . "\n\nimport\n\n"
-    ;
+      "import"
+
+    );
 
   } 0..(@$ldo/2)-1;
 
 
   # TODO: settable format
-  my $fmat=
-    "format ELF64 executable 3\n"
-  . "entry _start"
-  ;
+  my $fmat=join "\n",(
+    q[format ELF64 executable 3],
+  . q[entry _start],
+
+  );
 
   my $out="$fmat$imphed$imps";
 
@@ -105,32 +96,30 @@ end if
 
 };
 
+
 # ---   *   ---   *   ---
 # ^epilogue
 
 sub boiler_close($class,$fname,%O) {
+  return join "\n",(
+    q[; ---   *   ---   *   ---],
+    q[; cruxwraps],
 
-  return join "\n",
-
-    "\n\n; ---   *   ---   *   ---",
-    "; cruxwraps\n",
-
-    "align \$10",
-    "_start:",
+    q[align $10],
+    q[_start:],
     "  call $O{entry}",
-    "  exit",
+    q[  exit],
 
-  ;
+  );
 
 };
+
 
 # ---   *   ---   *   ---
 # placeholder: code formatting
 
 sub tidy($class,$sref) {
-
   state $re=qr{(?<!\\)\n};
-
 
   my @lines = split $re,$$sref;
 
@@ -140,18 +129,16 @@ sub tidy($class,$sref) {
   my @max   = map {0} 0..16;
 
   for my $line(@lines) {
-
     my @blank = split m[[^\s]+],$line;
     my @token = split $NSPACE_RE,$line;
 
-    my $s     = ($line=~ m[^\s])
+    my $s=($line=~ m[^\s])
       ? ' '
-      : $NULLSTR
+      : null
       ;
 
 
     if(length $s) {
-
       push @len,0;
 
       map {
@@ -171,7 +158,6 @@ sub tidy($class,$sref) {
   };
 
   for my $line(@lines) {
-
     my $beg = shift @beg;
     my $len = shift @len;
     my $tok = shift @tok;
@@ -180,16 +166,13 @@ sub tidy($class,$sref) {
     my $i   = 0;
 
     if(! $len) {
-
       map {
-
         my $l=$max[$i++]+1;
-
         my $b=$l-(length $ARG);
 
         $b=($b > 0)
           ? ' ' x $b
-          : $NULLSTR
+          : null
           ;
 
 
@@ -197,8 +180,8 @@ sub tidy($class,$sref) {
 
       } @$tok;
 
-    } else {
 
+    } else {
       while(@$tok || @$len) {
 
         my $t=shift @$tok;
@@ -209,7 +192,7 @@ sub tidy($class,$sref) {
           : $b
           ;
 
-        $t //= $NULLSTR;
+        $t //= null;
         $s  .= "$t$b";
 
       };
@@ -226,6 +209,7 @@ sub tidy($class,$sref) {
 
 };
 
+
 # ---   *   ---   *   ---
 # derive package name from
 # name of file
@@ -235,6 +219,7 @@ sub get_pkg($class,$fname) {
   return fname_to_pkg($fname,shpath($dir));
 
 };
+
 
 # ---   *   ---   *   ---
 1; # ret
