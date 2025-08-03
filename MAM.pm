@@ -18,22 +18,25 @@ package MAM;
   use strict;
   use warnings;
 
-  use Carp qw(croak);
   use English qw($ARG $ERRNO);
+  use Module::Load;
 
-  use lib "$ENV{ARPATH}/lib/";
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
   use Chk qw(is_null is_file);
+  use Arstd::String qw(strip gsplit);
+  use Arstd::Bin qw(orc);
+  use Arstd::throw;
   use Arstd::Repl;
-  use SyntaxCheck;
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.5a';
+  our $VERSION = 'v0.00.6a';
   our $AUTHOR  = 'IBN-3DILA';
+
+  sub errsafe {return 1};
 
 
 # ---   *   ---   *   ---
@@ -103,7 +106,7 @@ sub new {
       $self->{$+{key}}=1;
 
     } else {
-      croak "Invalid arg: '$arg'";
+      throw "Invalid arg: '$arg'";
 
     };
 
@@ -111,15 +114,21 @@ sub new {
 
 
   # sanity checks
-  croak "No module" if is_null $self->{module};
-  croak "Invalid file: <null>"
+  throw "No module" if is_null $self->{module};
+  throw "Invalid file: <null>"
   if is_null $self->{fname};
 
-  croak "Invalid file: '$self->{fname}'"
+  throw "Invalid file: '$self->{fname}'"
   if ! is_file $self->{fname};
 
   # hail Mary!
   $self->{rap}//=0;
+
+  # oh no here we go again...
+  $self->{A9M}={
+    -cproc=>null,
+
+  };
 
 
   # make repl ice
@@ -160,52 +169,13 @@ sub new {
 
 
 # ---   *   ---   *   ---
-# your hands in the air!
-
-sub throw {
-  $_[0] //= '<null>';
-  croak "$ERRNO: '$_[0]'";
-
-};
-
-
-# ---   *   ---   *   ---
-# open,read,close
-
-sub orc {
-  open  my $fh,'<',$_[0] or throw $_[0];
-  read  $fh,my $body,-s $fh;
-  close $fh or throw $_[0];
-
-  return $body;
-
-};
-
-
-# ---   *   ---   *   ---
-# cleaning
-
-sub strip {
-  return 0 if is_null $_[0];
-  my $re=qr{(?:^\s+)|(?:\s+$)};
-
-  $_[0]=~ s[$re][]smg;
-  return ! is_null $_[0];
-
-};
-
-sub gstrip {
-  return grep {strip $ARG} split qr{\s+},$_[0];
-
-};
-
-
-# ---   *   ---   *   ---
 # ~~
 
 sub AR_step {
   my $re=qr{
-    \n AR \s+ (?<lib> [^\s\{\=]+)
+    \n \x{20}*
+
+    AR \s+ (?<lib> [^\s\{\=]+)
     \s* =?>? \s* \{ \s*
 
     (?<body> [^\}]+)
@@ -244,18 +214,18 @@ sub AR_step {
 
   }x;
 
-  my    @lines=();
-  push  @lines,{%+}
+  my    @line=();
+  push  @line,{%+}
   while $body=~ s[$expr_re][]sm;
 
 
   # ^now reformat each expression!
   $body=null;
-  for(@lines) {
+  for(@line) {
     $ARG->{flag} //= null;
 
-    my @flag = gstrip $ARG->{flag};
-    my @sym  = gstrip $ARG->{sym};
+    my @flag = gsplit $ARG->{flag};
+    my @sym  = gsplit $ARG->{sym};
     my $pkg  = $ARG->{pkg};
 
     $body .= join null,(
@@ -291,10 +261,170 @@ sub AR_step {
 
 
 # ---   *   ---   *   ---
+# ~~
+
+sub pein {
+  my $self = shift;
+  my $dst  = $self->{A9M}->{-cproc};
+  my $flag = qr{(?:cpy)};
+  my $name = qr{^(?:[\$\%\&\@])};
+
+  my $need  = {
+    name => undef,
+    type => undef,
+    flag => [],
+    defv => null,
+
+  };
+
+  for(@_) {
+    if(! defined $need->{name} && $ARG=~ $name) {
+      $need->{name}=$ARG;
+
+    } elsif($ARG=~ $flag) {
+      push @{$need->{flag}},$ARG;
+
+    } elsif(! defined $need->{name}) {
+      $need->{type}=$ARG;
+
+    } elsif(is_null $need->{defv}) {
+      $need->{defv}=$ARG;
+
+    };
+
+  };
+
+  throw "Invalid arguments for 'in'"
+  if int grep {! defined $ARG} values %$need;
+
+  my $i=(
+    int(keys %{$dst->{args}})
+  + ($dst->{method}) ? 1 : 0
+
+  );
+
+  $dst->{args}->{$need->{name}}={
+    idex=>$i,
+    flag=>$need->{flag},
+    type=>$need->{type},
+    defv=>$need->{defv},
+
+  };
+
+  return null;
+
+};
+
+
+# ---   *   ---   *   ---
+# ~~
+
+sub peret {
+  shift;
+  return (int @_)
+    ? "return " . (join ' ',@_)
+    : "return"
+    ;
+
+};
+
+
+# ---   *   ---   *   ---
+# ~~
+
+my $Proctab={
+  in  => \&pein,
+  ret => \&peret,
+
+};
+
+
+# ---   *   ---   *   ---
+# ~~
+
+sub proc_step {
+  my $self=shift;
+  my $re=qr{
+    \n \x{20}*
+    proc \s+
+
+    (?<name> [^\s;]+) \s* ;
+    (?<body> (?:[^;]*\s* ;)+) \s*
+
+    (?<retl> ret(\s+[^;]*)?) \s* ;
+
+  }x;
+
+
+  # ^look for block until exhausted
+  # ^gives number of blocks found!
+  my $i=0;
+
+  top:
+  return $i if ! ($_[0]=~ $re);
+
+  my $name=$+{name};
+  my $body=$+{body} . "$+{retl};";
+
+  throw "Redefinition of proc '$name'"
+  if exists $self->{A9M}->{$name};
+
+  $self->{A9M}->{$name}={
+    method => 0,
+    args   => {},
+
+  };
+
+  $self->{A9M}->{-cproc}=
+    $self->{A9M}->{$name};
+
+
+  # get expressions from body!
+  my $expr_re=qr{((?:[^;]*|\;)*);+\s*}x;
+
+  my    @line=();
+  push  @line,$1
+  while $body=~ s[$expr_re][]sm;
+
+
+  $body=null;
+  for(grep {strip $ARG} @line) {
+    my ($ins,@args)=gsplit $ARG;
+    my $have=(exists $Proctab->{$ins})
+      ? $Proctab->{$ins}->($self,@args)
+      : join ' ',$ins,@args
+      ;
+
+    $body .= "  $have;\n" if ! is_null $have;
+
+  };
+
+  my $procargs=$self->{A9M}->{-cproc}->{args};
+  my $arg_re=join '|',map {
+    quotemeta $ARG;
+
+  } sort {
+    length($b)<=>length($a);
+
+  } keys %$procargs;
+
+  $arg_re=qr{($arg_re)};
+  while($body=~ $arg_re) {
+    my $argidex=$procargs->{$1}->{idex};
+    $body=~ s[$arg_re][\$_\[$argidex\]];
+
+  };
+
+  say "sub $name {\n$body\n};";
+  exit;
+
+};
+
+
+# ---   *   ---   *   ---
 # file reader
 
 sub run {
-  state $uid=0;
   my ($self)=@_;
 
   # read file into body
@@ -304,20 +434,10 @@ sub run {
   $self->AR_step($body);
   $self->{repl}->proc(\$body);
   $self->{repl}->clear();
-
+  $self->proc_step($body);
 
   # syntax check the filtered source ;>
-  my $beg  =  "\npackage";
-  my $re   =  qr{$beg\s+([^;]+);};
-     $body =~ s[$re][$beg ${1}_MAMOUT$uid;]smg;
-
-  SyntaxCheck::run($self->{fname},$body);
-
-  $re   =  qr{$beg\s+([^;]+)_MAMOUT\d+;};
-  $body =~ s[$re][$beg $1;]smg;
-
-  ++$uid;
-
+  load 'Chk::Syntax',$self->{fname},$body;
 
   # give filtered
   return $body;

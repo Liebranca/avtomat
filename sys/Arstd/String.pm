@@ -11,244 +11,110 @@
 # lib,
 
 # ---   *   ---   *   ---
-# info
+# deps
 
 package Arstd::String;
   use v5.42.0;
   use strict;
   use warnings;
-  use Carp qw(croak);
+
   use English qw($ARG $MATCH);
+
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Chk qw(is_arrayref is_null);
+
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT_OK=qw(
+    cat
+    to_char
+
+    sqwrap
+    dqwrap
+
+    linewrap
+    ilinewrap
+
+    recaptsu
+    decaptsu
+
+    has_prefix
+    has_string
+
+    nobs
+    charcon
+    strip
+    gstrip
+    gsplit
+    fgsplit
+    clist
+
+    jag
+    cjag
+
+  );
+
+
+# ---   *   ---   *   ---
+# info
 
   our $VERSION = 'v0.01.5';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
-# deps
-
-AR sys {
-  use Style (null);
-  use Chk (is_arrayref is_null);
-  lis Arstd::Array (nkeys);
-
-};
-
-use parent 'St';
-
-
-# ---   *   ---   *   ---
-# ROM
-
-my $PKG=__PACKAGE__;
-St::vconst {
-  BIN_DIGITS => qr{[\:\.0-1]},
-  OCT_DIGITS => qr{[\:\.0-7]},
-  DEC_DIGITS => qr{[\:\.0-9]},
-  HEX_DIGITS => qr{[\:\.0-9A-F]},
-
-  HEXNUM_RE => sub {
-    my $digits=$_[0]->HEX_DIGITS;
-    return qr{(?:
-      (?:(?:(?:\b0x)|\$)($digits+)(?:[L]?))
-    | (?:($digits+)(?:h))
-
-    )\b}x;
-
-  },
-
-  DECNUM_RE => sub {
-    my $digits=$_[0]->DEC_DIGITS;
-    return qr{\b(?:(?:[v]?)($digits+)(?:[f]?))\b}x;
-
-  },
-
-  OCTNUM_RE => sub {
-    my $digits=$_[0]->OCT_DIGITS;
-    return qr{\b(?:
-      (?:(?:\\)($digits+))
-    | (?:($digits+)(?:o))
-
-    )\b}x;
-
-  },
-
-  BINNUM_RE => sub {
-    my $digits=$_[0]->BIN_DIGITS;
-    return qr{\b(?:
-      (?:(?:0b)($digits+))
-    | (?:($digits+)(?:b))
-
-    )\b}x;
-
-  },
-
-};
-
-
-# ---   *   ---   *   ---
-# join null,(list)
+# join null,(in)
+#
+# [0]: byte pptr ; string array
 
 sub cat {join null,@_};
 
 
 # ---   *   ---   *   ---
-# ^split null,string
+# ^split null,in
+#
+# [0]: byte ptr ; string
 
-sub chars {split null,$_[0]};
-
-
-# ---   *   ---   *   ---
-# common string to integer transforms
-
-sub stoi($x,$base,$filter=1) {
-  state $tab={
-
-    2  => {
-      allow => $PKG->BIN_DIGITS,
-      mul   => 1,
-
-    },
-
-    8  => {
-      allow => $PKG->OCT_DIGITS,
-      mul   => 3,
-
-    },
-
-    16 => {
-      allow => $PKG->HEX_DIGITS,
-      mul   => 4,
-
-    },
-
-  };
-
-
-  # ^get ctx
-  my $mode=$tab->{$base}
-  or croak "Invalid base for stoi: '$base'";
-
-  my $allow = $mode->{allow};
-  my $mul   = $mode->{mul};
-
-  # ^get negative
-  my $sign=1;
-  if(begswith($x,'-')) {
-    $x    = substr $x,1,(length $x)-1;
-    $sign = -1;
-
-  };
-
-  # filter invalid chars accto base?
-  my @chars=reverse chars $x;
-
-  if($filter) {
-    @chars=grep {$ARG=~ $allow} @chars;
-
-  # ^nope, give undef if invalid chars
-  # ^found in source
-  } else {
-    my @tmp=grep {$ARG=~ $allow} @chars;
-    return undef if int @tmp < int @chars;
-
-    @chars=@tmp;
-
-  };
-
-
-  # accumulate to
-  my $r=0;
-  my $i=0;
-
-  # walk chars in str
-  map {
-
-    # fraction part
-    if($ARG=~ qr{\.}) {
-
-      my $bit = 1 << ($i * $mul);
-
-      $r *= 1/$bit;
-      $i  = 0;
-
-    # ':' separator ignored
-    } elsif($ARG=~ qr{:}) {
-
-    # ^integer part
-    } else {
-
-      my $v=ord($ARG);
-
-      $v -= ($v > 0x39) ? 55 : 0x30;
-      $r += $v << ($i * $mul);
-
-      $i++;
-
-    };
-
-  } @chars;
-
-
-  return $r*$sign;
-
-};
-
-
-# ---   *   ---   *   ---
-# ^sugar
-
-sub hstoi($x) {stoi($x,16)};
-sub ostoi($x) {stoi($x,8)};
-sub bstoi($x) {stoi($x,2)};
-
-
-# ---   *   ---   *   ---
-# ^infer base from string
-
-sub sstoi($s,$filter=1) {
-  my $tab={
-    ($PKG->HEXNUM_RE) => 16,
-    ($PKG->OCTNUM_RE) => 8,
-    ($PKG->BINNUM_RE) => 2,
-
-  };
-
-  my ($key)=grep {$s=~ m[^$ARG$]} keys %$tab;
-
-  # give conversion if valid
-  if(defined $key) {
-    $s=~ s[$key][$1]sxmg;
-    return stoi($s,$tab->{$key},$filter);
-
-  };
-
-  # else give back input if it's a number!
-  return ($s=~ qr{^[\d\.]+$})
-    ? $s
-    : undef
-    ;
-
-};
+sub to_char {split null,$_[0]};
 
 
 # ---   *   ---   *   ---
 # wrap string in quotes
+#
+# [0]: byte ptr ; string
+# [<]: byte ptr ; new string
 
-sub sqwrap($s) {return "'$s'"};
-sub dqwrap($s) {return "\"$s\""};
+sub sqwrap {return "'$_[0]'"};
+sub dqwrap {return "\"$_[0]\""};
 
 
 # ---   *   ---   *   ---
 # builds regex for linewrapping
+#
+# [0]: word ; sz
+# [<]: re   ; pattern (new or cached)
 
-sub linewrap_re($sz) {
+sub linewrap_re {
   my $re=cat(
-    '(?<mess>',
-    '[^\n]{1,' . ($sz-1) . '}',
+
+    # line ==   ((sz-1) chars != "\n")
+    #         + ["\n","\s",EOF]
+
+    '(?<line>',
+    '[^\n]{1,' . ($_[0]-1) . '}',
     '(?: (?: \n|\s) | $)',
+
+    # OR
     '|',
-    '[^\n]{1,' . ($sz-2) . '}',
+
+    # line ==   ((sz-2) chars != "\n")
+    #         + (any,EOF)
+
+    '[^\n]{1,' . ($_[0]-2) . '}',
     '(?: .|$)'
 
   );
@@ -260,45 +126,50 @@ sub linewrap_re($sz) {
 
 # ---   *   ---   *   ---
 # split string at X characters
+#
+# [0]: byte ptr  ; string
+# [1]: word      ; size
+#
+# [<]: byte pptr ; chomped lines (new array)
 
-sub linewrap($sref,$sz) {
-  my $re=linewrap_re($sz);
+sub linewrap {
+  my $re=linewrap_re($_[1]);
+  return map {chomp $ARG;$ARG} resplit($_[0],$re);
+
+};
+
+
+# ---   *   ---   *   ---
+# ^adds padding on a per-line basis
+#
+# [0]: byte ptr ;  string
+# [1]: word     ; padsz
+# [2]: word     ; linesz
+#
+# [<]: byte pptr ; new array
+
+sub ilinewrap {
   return map {
-    chomp $ARG;
-    $ARG;
+    ('  ' x $_[1]) . $ARG;
 
-  } resplit($sref,$re);
-
-};
-
-
-# ---   *   ---   *   ---
-# ^adds ws padding on a
-# ^per-line basis
-
-sub ilinewrap($sref,$padsz,$linesz) {
-  my $pad='  ' x $padsz;
-  return map {"$pad$ARG"} linewrap($sref,$linesz);
-
-};
-
-
-# ---   *   ---   *   ---
-# split string with a capturing regex,
-# then filter out result
-
-sub resplit {
-  return gstrip(split $_[1],$_[0]);
+  } linewrap($_[0],$_[2]);
 
 };
 
 
 # ---   *   ---   *   ---
 # captures matches for a subst re
+#
+# [0]: byte ptr ; string
+# [1]: re       ; pattern
+#
+# [<]: mem  ptr ; new [match=>pos] array
+#
+# [!]: overwrites input string
 
-sub recapts {
+sub recaptsu {
   my    @out;
-  push  @out,$MATCH
+  push  @out,[$MATCH=>$-[0]]
   while $_[0]=~ s[$_[1]][]sxm;
 
   return @out;
@@ -307,16 +178,80 @@ sub recapts {
 
 
 # ---   *   ---   *   ---
-# string has prefix
+# ^undo
+#
+# [0]: byte ptr ; string
+# [1]: mem  ptr ; [match=>pos] array
+#
+# [!]: overwrites input string
 
-sub begswith {
-  return 0 == rindex $_[0],$_[1],0;
+sub decaptsu {
+  my $sref=\$_[0];
+  shift;
+
+  # we keep track of _real_ position to
+  # account for string growing as we
+  # insert back matches
+  my $accum=0;
+  for(@_) {
+    my ($match,$pos)=@$ARG;
+    substr $$sref,$accum,$pos-$accum,$match;
+    $accum+=length $match;
+
+  };
+
+
+  return;
+
+};
+
+
+# ---   *   ---   *   ---
+# selfex -- string has prefix
+#
+# [0]: byte ptr  ; string
+# [1]: byte pptr ; array of prefixes
+#
+# [<]: byte pptr ; prefixes matched (new array)
+
+sub has_prefix {
+  my $sref=\$_[0];
+  shift;
+
+  return grep {0 == rindex $$sref,$ARG,0} @_;
+
+};
+
+
+# ---   *   ---   *   ---
+# ^string has string (as in... strstr)
+# ^or rather string has _sub_ string
+#
+# should've named it strsub, maybe? ;>
+#
+# [0]: byte ptr  ; string
+# [1]: byte pptr ; array of substrings
+#
+# [<]: byte pptr ; substrings matched (new array)
+
+sub has_string {
+  my $sref=\$_[0];
+  shift;
+
+  return grep {0 <= index $$sref,$ARG} @_;
 
 };
 
 
 # ---   *   ---   *   ---
 # convert match of seq into char
+#
+# [0]: byte ptr ; string
+# [1]: mem  ptr ; conversion table
+#
+# [<]: bool ; string is not null
+#
+# [!]: overwrites input string
 
 sub charcon {
   return 0 if is_null $_[0];
@@ -326,8 +261,8 @@ sub charcon {
     qr{\\n} => "\n",
     qr{\\r} => "\r",
     qr{\\b} => "\b",
-    qr{\\}  => '\\',
     qr{\\e} => "\e",
+    qr{\\}  => '\\',
 
   ];
 
@@ -346,7 +281,13 @@ sub charcon {
 
 
 # ---   *   ---   *   ---
-# hides the backslash in \[char]
+# rm backslash in string
+#
+# [0]: byte ptr ; string
+#
+# [<]: bool ; string is not null
+#
+# [!]: overwrites input string
 
 sub nobs {
   return 0 if is_null $_[0];
@@ -359,7 +300,12 @@ sub nobs {
 
 
 # ---   *   ---   *   ---
-# remove outer whitespace
+# remove leading/trailing whitespace
+#
+# [0]: byte ptr ; string
+# [<]: bool     ; string is not null
+#
+# [!]: overwrites input string
 
 sub strip {
   return 0 if is_null $_[0];
@@ -373,6 +319,11 @@ sub strip {
 
 # ---   *   ---   *   ---
 # ^from array, filters out empty
+#
+# [0]: byte pptr ; array
+# [<]: byte pptr ; new array (without blanks)
+#
+# [!]: overwrites input array elems
 
 sub gstrip {
   return grep {strip $ARG} @_;
@@ -381,36 +332,82 @@ sub gstrip {
 
 
 # ---   *   ---   *   ---
+# split string with regex,
+# then filter out blanks from result
+#
+# [0]: byte ptr ; string
+# [1]: re       ; pattern (defaults to whitespace)
+#
+# [<]: byte pptr ; new array
+
+sub gsplit {
+  $_[1]//=qr{\s+};
+  return gstrip(split $_[1],$_[0]);
+
+};
+
+
+# ---   *   ---   *   ---
+# ^only keeps whatever matches re
+#
+# [0]: byte ptr ; string
+# [1]: re       ; pattern (no default)
+#
+# [<]: byte pptr ; new array
+
+sub fgsplit {
+  return grep {
+    strip($ARG) && ($ARG=~ $_[1])
+
+  } split($_[1],$_[0]);
+
+};
+
+
+# ---   *   ---   *   ---
 # gets array from arrayref
 # or comma-separated string
+#
+# [0]: mem ptr   ; array || string
+# [<]: byte pptr ; new array
 
-sub deref_clist($value) {
-  return (is_arrayref $value)
-    ? (@$value)
-    : (split qr{,},$value)
+sub clist {
+  return (is_arrayref $_[0])
+    ? (@{$_[0]})
+    : (split qr{\s*,\s*},$_[0])
     ;
 
 };
 
 
 # ---   *   ---   *   ---
-# join grepped
+# join after gstrip
+#
+# [0]: byte ptr  ; prefix (shifted)
+# [1]: byte pptr ; array
+#
+# [<]: byte ptr ; new string
+#
+# [!]: overwrites input array elems
 
-sub joinfilt {
-  my $s=shift;
-  return join $s,gstrip @_;
+sub jag {
+  return join((shift),gstrip(@_));
 
 };
 
 
 # ---   *   ---   *   ---
 # ^cats string to first elem
+#
+# [0]: byte ptr  ; prefix
+# [1]: byte pptr ; array
+#
+# [<]: byte*  ; new string
+#
+# [!]: overwrites input array elems
 
-sub prepend($s,@args) {
-  return (@args)
-    ? $s . joinfilt($s,@args)
-    : null
-    ;
+sub cjag {
+  return (@_) ? $_[0] . jag @_ : null ;
 
 };
 

@@ -75,7 +75,12 @@ my $ROM={
   MAMDEPS=>[qw(
     /sys/Style.pm
     /sys/Chk.pm
+    /sys/Arstd/String.pm
+    /sys/Arstd/ansi.pm
+    /sys/Arstd/throw.pm
+    /sys/Arstd/Bin.pm
     /sys/Arstd/Repl.pm
+    /sys/Chk/Syntax.pm
 
   )],
 
@@ -83,16 +88,16 @@ my $ROM={
   # MAM does not depend on these files,
   # so we can mess with their deps alright ;>
   AVTODEPS=>[qw(
+
+    /AR.pm
+
     /sys/Frame.pm
     /sys/St.pm
 
-    /AR.pm
     /sys/Arstd/Array.pm
-    /sys/Arstd/String.pm
 
   )],
 
-#    /sys/Arstd/Bin.pm
 #    /sys/Arstd/Path.pm
 #    /sys/Arstd/Re.pm
 #    /sys/Arstd/IO.pm

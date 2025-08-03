@@ -127,7 +127,7 @@ BEGIN { Ftype::Text->new(
     continue else elsif do for
     foreach if unless until while
     goto next last redo reset return
-    try catch finally
+    try catch finally throw
 
   )],
 

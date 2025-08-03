@@ -21,6 +21,25 @@ package Arstd::Bin;
   use Carp qw(croak);
   use File::Spec;
 
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Chk qw(is_null is_path);
+  use Arstd::throw;
+
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT_OK=qw(
+    orc
+    dorc
+    owc
+    errmute
+    erropen
+
+  );
+
 
 # ---   *   ---   *   ---
 # info
@@ -36,22 +55,15 @@ my $Cache={errmute=>undef};
 
 
 # ---   *   ---   *   ---
-# your hands in the air!
-
-sub throw {
-  $_[0] //= '<null>';
-  croak "$ERRNO: '$_[0]'";
-
-};
-
-
-# ---   *   ---   *   ---
 # open,read,close
+#
+# [0]: byte ptr ; filename
+# [<]: byte ptr ; file contents (new string)
 
-sub orc($fname) {
-  open  my $fh,'<',$fname or throw $fname;
+sub orc {
+  open  my $fh,'<',$_[0] or throw $_[0];
   read  $fh,my $body,-s $fh;
-  close $fh or throw $fname;
+  close $fh or throw $_[0];
 
   return $body;
 
@@ -60,16 +72,20 @@ sub orc($fname) {
 
 # ---   *   ---   *   ---
 # directory open,read,close
+#
+# [0]: byte ptr  ; dirname
+# [<]: byte pptr ; elems in dir (new array)
+#
+# [*]: excludes "." && "..", but not other
+#      hidden files/dirs
 
-sub dorc($path,$excluded=qr{\b\B}) {
-  opendir my $dir,$path or throw $path;
-
+sub dorc {
+  opendir my $dir,$_[0] or throw $_[0];
   my @out=grep {
-    ! (-d "$dir/$ARG/")
-  &&! ($ARG=~ $excluded);
+    ! ((-d $ARG) && ($ARG=~ qr{^\.\.?$}))
 
   } readdir $dir;
-  closedir $dir or throw $path;
+  closedir $dir or throw $_[0];
 
   return @out;
 
@@ -78,23 +94,39 @@ sub dorc($path,$excluded=qr{\b\B}) {
 
 # ---   *   ---   *   ---
 # open,write,close
+#
+# [0]: byte ptr ; dst filename
+# [1]: byte ptr ; buf to write
+#
+# [<]: qword ; bytes written
+#
+# [!]: throws if filename has invalid chars
+#      see Chk::is_path for details
 
-sub owc($fname,$bytes) {
-  open my $fh,'+>',$fname or throw $fname;
-  my $wr=print {$fh} $bytes;
-  close $fh or throw $fname;
+sub owc {
+  throw "Invalid filename: '$_[0]'"
+  if ! is_path $_[0];
 
-  return $wr*length $bytes;
+  open my $fh,'+>',$_[0] or throw $_[0];
+  my $wr=print {$fh} $_[1];
+  close $fh or throw $_[0];
+
+  return $wr*length $_[1];
 
 };
 
 
 # ---   *   ---   *   ---
-# mute stderr
+# (nihil) mute stderr
+#
+# [*]: previous filehandle is stored by
+#      this package (and restored by it, too)
+#
+# [*]: does nothing if stderr already muted
 
 sub errmute {
   my $fhref=\$Cache->{errmute};
-  return if defined $$fhref;
+  return if ! is_null $$fhref;
 
   $$fhref=readlink "/proc/self/fd/2";
 
@@ -107,11 +139,13 @@ sub errmute {
 
 
 # ---   *   ---   *   ---
-# ^restore
+# (nihil) unmute stderr
+#
+# [*]: does nothing if stderr not muted
 
 sub erropen {
   my $fh=$Cache->{errmute};
-  return if ! defined $fh;
+  return if is_null $fh;
 
   open STDERR,'>',$fh or throw $fh;
   return;

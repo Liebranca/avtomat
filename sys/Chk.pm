@@ -21,6 +21,9 @@ package Chk;
   use English qw($ARG);
   use Scalar::Util qw(blessed);
 
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+
 
 # ---   *   ---   *   ---
 # adds to your namespace
@@ -57,6 +60,9 @@ package Chk;
 
 # ---   *   ---   *   ---
 # not a value!
+#
+# [0]: ptr  ; have
+# [<]: bool ; true if not a value
 
 sub is_null {
   return ! (defined $_[0] && length $_[0]);
@@ -66,6 +72,9 @@ sub is_null {
 
 # ---   *   ---   *   ---
 # type-checking
+#
+# [0]: byte ptr ; value
+# [<]: bool     ; true if value is type
 
 sub is_scalarref {
   return ! is_null($_[0]) && 'SCALAR' eq ref $_[0];
@@ -105,6 +114,9 @@ sub is_qreref {
 
 # ---   *   ---   *   ---
 # value is just... nothing special
+#
+# [0]: byte ptr ; value
+# [<]: bool     ; true if non-null && non-ref
 
 sub is_nref {
   return (
@@ -123,6 +135,9 @@ sub is_nref {
 
 # ---   *   ---   *   ---
 # gets subroutine by name
+#
+# [0]: byte pptr ; path to subroutine
+# [<]: fptr      ; subroutine || null
 
 sub getsub {
   state $re=qr{^(?<codename>[_\w:][_\w:\d]+)$}x;
@@ -131,12 +146,12 @@ sub getsub {
   my $name = join q[::],@_;
   my $fn   = ($name=~ $re)
     ? eval '\&' . $name
-    : undef
+    : null
     ;
 
   return (is_coderef($fn) && defined &{$fn})
     ? $fn
-    : undef
+    : null
     ;
 
 };
@@ -145,11 +160,14 @@ sub getsub {
 # ---   *   ---   *   ---
 # evals and checks existence of sub
 #
-# performs deep search on failure
+# [0]: byte pptr ; path to subroutine
+# [<]: fptr      ; subroutine || null
+#
+# [!]: performs deep search on failure
 
 sub codefind {
   my $fn=getsub @_;
-  return (! defined $fn)
+  return (is_null $fn)
     ? __isa_search(@_)
     : $fn
     ;
@@ -159,41 +177,53 @@ sub codefind {
 
 # ---   *   ---   *   ---
 # ^searches inherited methods
-# before giving up on coderef
+# ^before giving up on coderef
 #
 # sometimes it happens ;>
+#
+# [0]: byte pptr ; path to subroutine
+# [<]: fptr      ; subroutine || null
 
 sub __isa_search {
   my $name = pop;
   my $pkg  = join q[::],@_;
 
+  # give F if found
   no strict 'refs';
   for(@{"$pkg\::ISA"}) {
     my $fn=getsub($ARG,$name);
-    return $fn if defined $fn;
+    return $fn if ! is_null $fn;
 
   };
 
-
-  return undef;
+  # give null on fail
+  use strict 'refs';
+  return null;
 
 };
 
 
 # ---   *   ---   *   ---
 # AR/approved path validation
+#
+# [0] byte ptr ; path
+# [<] bool     ; path is valid
 
-sub is_path {
-  my $re=qr{
-    ^ [/_A-Za-z\.\~]
-      [/_A-Za-z0-9\-\.\:\@\%\$\&]* $
+sub path_chars {
+  return qr{
+    [/_A-Za-z\.\~]
+    [/_A-Za-z0-9\-\.\:\@\%\$\&]*
 
   }x;
 
+};
+
+sub is_path {
+  my $re=path_chars;
   return int(
    ! (is_null $_[0])
 
-  && ($_[0]=~ $re)
+  && ($_[0]=~ qr{^$re$})
   && (1024 >= length $_[0])
 
   );
