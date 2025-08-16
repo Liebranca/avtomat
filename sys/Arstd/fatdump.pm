@@ -20,27 +20,25 @@ package Arstd::fatdump;
 
   use Perl::Tidy;
   use B qw(svref_2object);
-  use Carp qw(croak);
 
   use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
-  use Chk qw(
-    is_hashref
-    is_arrayref
-    is_coderef
-    is_qreref
-    is_blessref
+  use AR sys=>qw(
+    use Chk::(
+      is_hashref
+      is_arrayref
+      is_coderef
+      is_qreref
+      is_blessref
+      is_nref
+    );
 
-    nref
-
+    lis Arstd::Array::(nmap);
+    use Arstd::Fmat::(tidyup);
+    lis Arstd::IO::(procin procout);
+    use Arstd::PM::(codename);
   );
-
-  use Arstd::Array qw(array_nmap);
-  use Arstd::String qw(linewrap);
-  use Arstd::IO qw(ioprocin ioprocout);
-  use Arstd::PM qw(codename);
 
 
 # ---   *   ---   *   ---
@@ -53,7 +51,7 @@ package Arstd::fatdump;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.0';
+  our $VERSION = 'v0.01.1';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -71,7 +69,6 @@ sub recursing($value) {
   $Cache->{walked}->{$value}=1;
 
   return 0;
-
 };
 
 
@@ -79,15 +76,13 @@ sub recursing($value) {
 # deconstruct value
 
 sub polydump($vref,$blessed=undef) {
-
   # idex into this array
   # based on value type
-  state $tab=[
+  my $tab=[
     \&valuedump,
     \&arraydump,
     \&deepdump,
     \&codedump,
-
   ];
 
   # value already seen?
@@ -98,17 +93,16 @@ sub polydump($vref,$blessed=undef) {
 
 
   # map type to idex
-  my $idex=
+  my $idex=(
     (is_arrayref($$vref))
   | (is_hashref($$vref)*2)
   | (is_coderef($$vref)*3)
-  ;
+  );
 
   # ^corner case: blessed ones ;>
   if(! $idex && $$vref && $blessed) {
     my $mod =! int($$vref=~ qr{=ARRAY});
     $idex=is_blessref($$vref)*(1+$mod);
-
   };
 
 
@@ -127,7 +121,6 @@ sub polydump($vref,$blessed=undef) {
     ? $f->($$vref,$rec)
     : $f->($vref,$rec)
     ;
-
 };
 
 
@@ -143,7 +136,6 @@ sub deepdump($h,$blessed=undef) {
     'kv'
 
   )) . '}';
-
 };
 
 
@@ -153,16 +145,15 @@ sub deepdump($h,$blessed=undef) {
 sub deepfilter($h,$blessed=undef) {
   return [(
     map  {$ARG=>polydump(\$h->{$ARG},$blessed)}
-    grep {nref $h->{$ARG}}
+    grep {is_nref $h->{$ARG}}
     keys %$h
 
   ) => (
     map  {$ARG=>polydump(\$h->{$ARG},$blessed)}
-    grep {! nref $h->{$ARG}}
+    grep {! is_nref $h->{$ARG}}
     keys %$h
 
   )];
-
 };
 
 
@@ -175,7 +166,6 @@ sub arraydump($ar,$blessed=undef) {
     polydump(\$ARG,$blessed)
 
   } @$ar) . ']';
-
 };
 
 
@@ -183,8 +173,10 @@ sub arraydump($ar,$blessed=undef) {
 # ^single value
 
 sub valuedump($vref,$blessed=undef) {
-  (defined $$vref) ? "'$$vref'" : 'undef';
-
+  return (defined $$vref)
+    ? "'$$vref'"
+    : 'undef'
+    ;
 };
 
 
@@ -193,7 +185,6 @@ sub valuedump($vref,$blessed=undef) {
 
 sub codedump($vref,$blessed=undef) {
   return '\&' . codename($vref,1);
-
 };
 
 
@@ -201,9 +192,8 @@ sub codedump($vref,$blessed=undef) {
 # ^crux
 
 sub fatdump($vref,%O) {
-
   # I/O defaults
-  my $out=ioprocin(\%O);
+  my $out=io_procin(\%O);
 
   # defaults
   $O{blessed} //= 0;
@@ -227,9 +217,8 @@ sub fatdump($vref,%O) {
 
 
   # ^give repr
-  push @$out,tidyup(\$s,0),"\n\n";
-  return ioprocout(\%O);
-
+  push @$out,tidyup(\$s,filter=>1),"\n\n";
+  return io_procout(\%O);
 };
 
 

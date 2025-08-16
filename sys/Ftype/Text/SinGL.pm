@@ -19,7 +19,7 @@ package Ftype::Text::SinGL;
   use warnings;
 
   use lib "$ENV{'ARPATH'}/lib/sys/";
-  use Arstd::Re qw(re_eaf);
+  use Arstd::Re;
   use Ftype::Text;
 
 
@@ -68,7 +68,7 @@ BEGIN { Ftype::Text->new(
   )],
 
   resname=>[qw()],
-  preproc=>re_eaf('#',lbeg=>0,opscape=>1),
+  preproc=>Arstd::Re::eaf('#',lbeg=>0,opscape=>1),
 
 
 )};

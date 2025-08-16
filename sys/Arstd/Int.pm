@@ -8,7 +8,7 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
@@ -18,24 +18,20 @@ package Arstd::Int;
   use strict;
   use warnings;
 
-  use English;
-  use Arstd::Bytes qw(bitscanr);
-
   use lib "$ENV{ARPATH}/lib/sys";
-  use parent 'St';
+  use Arstd::Bytes qw(bitscanr);
 
 
 # ---   *   ---   *   ---
 # adds to your namespace
 
   use Exporter 'import';
-
-  our @EXPORT=qw(
-    int_urdiv
-    int_align
-    int_npow
-    int_npow2
-    int_ispow
+  our @EXPORT_OK=qw(
+    urdiv
+    align
+    npow
+    npow2
+    ispow
 
   );
 
@@ -43,7 +39,7 @@ package Arstd::Int;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.5';
+  our $VERSION = 'v0.00.6';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -88,9 +84,7 @@ sub npow($a,$b,$give_exp=0) {
 # ^get A is pow B
 
 sub ispow($a,$b) {
-
   return 0 if ! $a ||! $b;
-
 
   my $x=log($a);
   my $y=log($b);
@@ -106,26 +100,14 @@ sub ispow($a,$b) {
 # this is the only precise one ;>
 
 sub npow2($a,$give_exp=0) {
-
   my $x    = bitscanr $a;
   my $mask = $x-1;
 
   $x++ while (1 << $x) < $a;
 
-
   return ($give_exp) ? $x : 1 << $x;
 
 };
-
-
-# ---   *   ---   *   ---
-# exporter names
-
-  *int_urdiv = *urdiv;
-  *int_align = *align;
-  *int_npow  = *npow;
-  *int_npow2 = *npow2;
-  *int_ispow = *ispow;
 
 
 # ---   *   ---   *   ---

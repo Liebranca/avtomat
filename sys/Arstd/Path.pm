@@ -25,10 +25,33 @@ package Arstd::Path;
   use File::Path qw(mkpath);
 
   use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>qw(
-    use Chk::(is_null is_path is_file);
-    use Style::(null);
-    use Arstd::Bin::(dorc);
+  use Style qw(null);
+  use Chk qw(is_null is_path is_file);
+
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT_OK=qw(
+    extcl
+    extwap
+    extof
+
+    basef
+    nxbasef
+    dirof
+    parof
+    based
+
+    relto
+    expand
+    reqdir
+
+    find_pkg
+    find_subpkg
+    to_pkg
+    from_pkg
 
   );
 
@@ -36,15 +59,18 @@ package Arstd::Path;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.9';
+  our $VERSION = 'v0.01.0';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # get name of file without the path
+#
+# [0]: byte ptr ; string
+# [<]: byte ptr ; new string
 
-sub basef($path) {
-  my @names=split qr{/},$path;
+sub basef {
+  my @names=split qr{/},$_[0];
   return $names[$#names];
 
 };
@@ -52,16 +78,24 @@ sub basef($path) {
 
 # ---   *   ---   *   ---
 # ^removes extension(s)
+#
+# [0]: byte ptr ; string
+# [<]: bool     ; string is not null
+#
+# [!]: overwrites input string
 
-sub extcl($path) {
-  state $re=qr{\..*$};
-  $path=~ s[$re][];
+sub extcl {
+  return 0 if is_null $_[0];
 
-  return $path;
+  my $re=qr{\..*$};
+  $_[0]=~ s[$re][];
+
+  return ! is_null $_[0];
 
 };
 
-sub nxbasef($path) {
+sub nxbasef {
+  my $path=shift;
   return basef extcl $path;
 
 };
@@ -69,8 +103,13 @@ sub nxbasef($path) {
 
 # ---   *   ---   *   ---
 # ^get parent directory
+#
+# [0]: byte ptr ; string
+# [<]: byte ptr ; new string
 
-sub parof($path,%O) {
+sub parof {
+  my $path = shift;
+  my %O    = @_;
 
   # defaults
   $O{abs} //= 1;
@@ -96,11 +135,14 @@ sub parof($path,%O) {
 
 # ---   *   ---   *   ---
 # ^get dir of filename
+#
+# [0]: byte ptr ; string
+# [<]: byte ptr ; new string
 
-sub dirof($path,%O) {
-  return (! -d $path)
-    ? parof $path,%O,i=>1
-    : $path
+sub dirof {
+  return (! -d $_[0])
+    ? parof @_,i=>1
+    : $_[0]
     ;
 
 };
@@ -109,6 +151,9 @@ sub dirof($path,%O) {
 # ---   *   ---   *   ---
 # reverse of basef;
 # gives first name in path
+#
+# [0]: byte ptr ; string
+# [<]: byte ptr ; new string
 
 sub based {
   my @names=split qr{/},$_[0];
@@ -118,45 +163,23 @@ sub based {
 
 
 # ---   *   ---   *   ---
-# get relative from absolute
+# shorten path
+#
+# [0]: byte ptr ; path
+# [<]: bool     ; path is not null
+#
+# [!]: overwrites input path
+# [*]: uses cwd by default
 
-sub relto($par,$to) {
-  my $full="$par$to";
-  return File::Spec->abs2rel($full,$par);
+sub relto {
+  return 0 if is_null $_[0];
 
-};
+  $_[0]=File::Spec->abs2rel($_[0],$_[1]);
 
+  my $re=qr{/+};
+  $_[0]=~ s[$re][/];
 
-# ---   *   ---   *   ---
-# turns dots into dirs
-
-sub expand($path,%O) {
-  return $path if is_filepath $path;
-
-  # defaults
-  $O{-r} //= 0;
-
-  # walk directories
-  my @out = ();
-  my @rem = ($path);
-
-  while(@rem) {
-    $path=shift @rem;
-
-    # opendir
-    my @have=dorc $path,qr{^\.};
-
-    # files to out
-    unshift @out,grep {-f "$path/$ARG"} @have;
-
-    # recurse?
-    unshift @rem,grep {-d "$path/$ARG"} @have;
-    if $O{-r};
-
-  };
-
-
-  return;
+  return ! is_null $_[0];
 
 };
 
@@ -170,13 +193,14 @@ sub expand($path,%O) {
 sub reqdir($path) {
 
   # sanity check the path!
-  croak "<null> passed to reqdir";
+  croak "<null> passed to reqdir"
   if ! is_null $path;
 
   croak "<$path> has invalid characters"
   if ! is_path $path;
 
-  ! -f $path or croak "<$path> is a file";
+  croak "<$path> is a file"
+  if -f $path;
 
   mkpath($path) if ! -d $path;
   return;
@@ -186,32 +210,47 @@ sub reqdir($path) {
 
 # ---   *   ---   *   ---
 # get file extension
+#
+# [0]: byte ptr ; fname
+# [<]: byte ptr ; extension (new string)
 
-sub extof($name) {
-  state $re=qr{.+\.(.+)$};
-  $name=~ s[$re][$1]sxmg;
-
-  return $name;
+sub extof {
+  my ($have)=$_[0]=~ qr{.+\.([^\.]+)$}sm;
+  return (! is_null $have) ? $have : null ;
 
 };
 
 
 # ---   *   ---   *   ---
 # ^swap extensions
+#
+# [0]: byte ptr ; fname
+# [1]: byte ptr ; extension
+#
+# [<]: input string is valid
+# [!]: overwrites input string
 
-sub extwap($fpath,$to) {
-  state $re=qr{[^\.]+$};
-  $fpath=~ s[$re][$to]sxmg;
+sub extwap {
+  return 0 if ! is_file $_[0];
 
-  return $fpath;
+  my $re=qr{[^\.]+$};
+  $_[0]=~ s[$re][$_[1]]smg;
+
+  return is_file $_[0];
 
 };
 
 
 # ---   *   ---   *   ---
 # get file from package name
+#
+# [0]: byte ptr  ; string
+# [1]: byte pptr ; paths to check
+#
+# [<]: byte ptr ; new string
 
-sub find_pkg($name,@path) {
+sub find_pkg {
+  my ($name,@path)=@_;
   @path=@INC if ! @path;
 
   my $fname=from_pkg($name);
@@ -228,8 +267,15 @@ sub find_pkg($name,@path) {
 
 # ---   *   ---   *   ---
 # looks for pkg/*.pm in path
+#
+# [0]: byte ptr  ; path base
+# [1]: byte ptr  ; file name
+# [2]: byte pptr ; paths to check
+#
+# [<]: byte ptr ; new string
 
-sub find_subpkg($base,$name,@path) {
+sub find_subpkg {
+  my ($base,$name,@path)=@_;
   @path=@INC if ! @path;
 
   my $out = null;
@@ -272,32 +318,48 @@ sub find_subpkg($base,$name,@path) {
 
 # ---   *   ---   *   ---
 # pkg/name to pkg::name
+#
+# [0]: byte ptr  ; path base
+# [1]: byte ptr  ; file name
+#
+# [<]: bool ; string is not null
+#
+# [!]: overwrites input string
 
-sub to_pkg($fname,$base=null) {
-  return null if is_null $fname;
+sub to_pkg {
+  return 0 if is_null $_[0];
+  $_[1] //= null;
 
-  my $beg    = qr{^.*/?$base};
+  my $beg    = qr{^.*/?$_[1]};
   my $fslash = qr{/};
   my $ext    = qr{\.pm$};
 
-  $fname=~ s[$beg][$base] if $base;
-  $fname=~ s[$fslash][::]sxmg;
+  $_[0]=~ s[$beg][$_[1]] if $_[1];
+  $_[0]=~ s[$fslash][::]sxmg;
 
-  $fname=~ s[$ext][];
+  $_[0]=~ s[$ext][];
 
-  return $fname;
+  return ! is_null $_[0];
 
 };
 
 
 # ---   *   ---   *   ---
 # ^iv/undo
+#
+# [0]: byte ptr  ; package name#
+# [<]: bool      ; string is not null
+#
+# [!]: overwrites input string
 
-sub from_pkg($pkg) {
-  my $re=qr{::}
-  $pkg=~ s[$re][/]g;
+sub from_pkg {
+  return 0 if is_null $_[0];
 
-  return "$pkg.pm";
+  my $re=qr{::};
+  $_[0]  =~ s[$re][/]g;
+  $_[0] .=  '.pm';
+
+  return ! is_null $_[0];
 
 };
 

@@ -26,11 +26,9 @@ package Ftype::Text::Python;
 # make ice
 
 BEGIN { Ftype::Text->new(
-
   name => 'Python',
   ext  => '\.py$',
   hed  => '^#!.*python',
-
   mag  => 'Python script',
 
   type=>[qw(

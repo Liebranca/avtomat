@@ -7,6 +7,8 @@ nytprof*
 *.save
 *.out
 *.out.*
+SWAN/*.h
+SWAN/*.o
 
 
 # tmp test

@@ -19,36 +19,33 @@ package sygen;
   use strict;
   use warnings;
 
-  use Carp;
-  use English;
+  use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>qw(
-    use Style::(null);
-    use Chk::(
-      is_arrayref
-      is_hashref
-      is_qre
+  use AR;
 
-    );
-
-    lis Arstd::Array::(nkeys);
-    use Arstd::String::(gstrip dqwrap sqwrap);
-    lis Arstd::Path::(extcl to_pkg);
-    lis Arstd::Re::(qre2re);
-
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Chk qw(
+    is_arrayref
+    is_hashref
+    is_qre
   );
+  use Arstd::Bin qw(xdorc);
+  use Arstd::Path qw(extcl relto to_pkg);
+  use Arstd::Array;
+  use Arstd::String qw(cat gstrip dqwrap sqwrap);
+  use Arstd::Re;
+  use Arstd::throw;
 
-  use Shb7;
   use Ftype;
-
   use parent 'St';
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.02.0';
+  our $VERSION = 'v0.02.1';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -126,29 +123,32 @@ St::vconst {
 # point to avtomat and retrieve langdefs
 
 sub get_files {
-  Shb7::set_root($ENV{'ARPATH'});
-  return Shb7::walk(
-    'avtomat/sys/Ftype/Text/',
+  return xdorc(
+    './avtomat/sys/Ftype/Text/',
     -r=>1,
 
-  )->get_file_list();
+  );
 
 };
 
 
 # ---   *   ---   *   ---
 # ^import
+#
+# [0]: byte ptr ; filename
 
-sub load_file($fname) {
+sub load_file {
 
   # shorten and clear extension
-  $fname=path_extcl Shb7::shpath($fname);
-  $fname=~ s[^avtomat/*sys/*][];
+  my $re=qr{^avtomat/*sys/*};
+  extcl relto $_[0],$ENV{ARPATH};
+  $_[0]=~ s[$re][];
 
-  # ^load the package
-  my $class=path_to_pkg $fname;
+  # ^turn into package and load it
+  my $class="Ftype/Text/$_[0]";
+  to_pkg $class;
+
   AR::cloadi $class;
-
 
   # give ice
   return Ftype->fet($class);
@@ -212,7 +212,7 @@ sub extract($def,$key,$value) {
   if is_arrayref $value;
 
   # ^throw if not a hashref
-  croak(
+  throw(
     "Invalid value type: "
   . sqwrap(ref $value)
 
@@ -260,7 +260,8 @@ sub extract($def,$key,$value) {
       (length $a) <= (length $b);
 
     } map {
-      qre2re \$ARG;$ARG;
+      Arstd::Re::qre2re($ARG);
+      $ARG;
 
     } (@keys[$x..$top]);
 
@@ -289,9 +290,9 @@ sub make_rule($def,$key,$value,$color) {
 
   map {
     $ARG=~ s[\s+|\n][]sxmg;
-    $ARG=  catar gstrip split "\n",$ARG;
+    $ARG=  cat gstrip split "\n",$ARG;
 
-    qre2re \$ARG;
+    Arstd::Re::qre2re($ARG);
     $ARG=dqwrap $ARG;
 
     "color $color $ARG";
@@ -308,7 +309,7 @@ sub get_file_syntax {
   return join "\n",map {
     prprops($_[0],$ARG);
 
-  } ((array_keys $PKG->KEYCOLOR_LIST));
+  } ((Arstd::Array::nkeys $PKG->KEYCOLOR_LIST));
 
 };
 
@@ -321,7 +322,7 @@ sub make_syntax_files(%O) {
 
   # open dst file
   my ($def,$fpath)=($O{def},$O{fpath});
-  open my $fh,'>',$fpath or die strerr $fpath;
+  open my $fh,'>',$fpath or throw $fpath;
 
   # nano syntax file boiler
   my $prop='syntax '.(
@@ -347,7 +348,7 @@ sub make_syntax_files(%O) {
 
 
   # cleanup and give
-  close $fh or die strerr $fpath;
+  close $fh or throw $fpath;
   return;
 
 };
@@ -357,6 +358,9 @@ sub make_syntax_files(%O) {
 # entry point
 
 sub generate {
+  chdir $ENV{ARPATH}
+  or throw "Error cd'ing into ARPATH";
+
   my $config  = glob("~/.config");
   my $nanorc  = "$config/nano";
 

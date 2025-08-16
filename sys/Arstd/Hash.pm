@@ -8,7 +8,7 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
@@ -18,14 +18,12 @@ package Arstd::Hash;
   use strict;
   use warnings;
 
-  use Carp;
-  use English;
+  use English qw($ARG);
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-  use Style;
-  use Chk;
-  use Arstd::String;
-
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Chk qw(is_hashref is_null);
+  use Arstd::String qw(gstrip);
+  use Arstd::throw;
   use parent 'St';
 
 
@@ -33,31 +31,37 @@ package Arstd::Hash;
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT=qw(
-
-    lfind
-
-    hash_invert
-    hash_cpy
-
-    hashstr
-
+  our @EXPORT_OK=qw(
+    gvalues
   );
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.4';
+  our $VERSION = 'v0.00.5';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
-# constructor
+# cstruc
 
 sub new($class,%args) {
   return bless {%args},$class;
+};
 
+
+# ---   *   ---   *   ---
+# give keys if they are in the hash
+# AND if their values are not null
+
+sub gvalues {
+  my $h=shift;
+  return grep {
+      exists($h->{$ARG})
+  &&! is_null($h->{$ARG})
+
+  } @_;
 };
 
 
@@ -70,7 +74,6 @@ sub lfind($h,$l) {
   if ! is_hashref $h;
 
   return [grep {exists $h->{$ARG}} @$l];
-
 };
 
 
@@ -79,21 +82,20 @@ sub lfind($h,$l) {
 # optionally [key=>value,value=>key]
 
 sub invert($h,%O) {
-
   # defaults
   $O{duplicate}//=0;
 
-
+  # make copy?
   if($O{duplicate}) {
     %$h=(%$h,reverse %$h);
 
+  # ^nope, overwrite!
   } else {
     %$h=reverse %$h;
 
   };
 
   return $h;
-
 };
 
 
@@ -101,7 +103,6 @@ sub invert($h,%O) {
 # returns exact copy of hash
 
 sub cpy($h) {
-
   my $cpy={};
   for my $key(keys %$h) {
     $cpy->{$key}=$h->{$key};
@@ -114,7 +115,6 @@ sub cpy($h) {
   };
 
   return $cpy;
-
 };
 
 
@@ -122,13 +122,10 @@ sub cpy($h) {
 # validate struc
 
 sub validate($h,%O) {
-
   for my $key(keys %O) {
     throw_nos('key',$key)
     if !exists $h->{$key};
-
   };
-
 };
 
 
@@ -136,8 +133,7 @@ sub validate($h,%O) {
 # ^errme
 
 sub throw_nos($name,$key) {
-  croak "No such $name: $key";
-
+  throw "No such $name: $key";
 };
 
 
@@ -145,12 +141,10 @@ sub throw_nos($name,$key) {
 # sets out unset values
 
 sub defaults($h,%O) {
-
   for my $key(keys %$h) {
     $O{$key} //= $h->{$key};
-
   };
-
+  return;
 };
 
 
@@ -160,7 +154,7 @@ sub defaults($h,%O) {
 sub vdef($h,%O) {
   $h->validate(%O);
   $h->defaults(%O);
-
+  return;
 };
 
 
@@ -169,7 +163,6 @@ sub vdef($h,%O) {
 
 sub kv($h,$key) {
   return $key=>$h->{$key};
-
 };
 
 
@@ -177,27 +170,12 @@ sub kv($h,$key) {
 # make hash from string ;>
 
 sub hashstr {
+  return {map {
+    my ($k,$v)=split qr{\s*\=\>\s*},$ARG;
+    ($k=>$v);
 
-  return {
-
-    map {
-      my ($k,$v)=split qr{\s*\=\>\s*},$ARG;
-      ($k=>$v);
-
-    } grep  {strip \$ARG;length $ARG}
-      split $NEWLINE_RE,$_[0]
-
-  };
-
+  } gstrip(split qr"\n",$_[0])};
 };
-
-
-# ---   *   ---   *   ---
-# exporter names
-
-  *hash_cpy    = *cpy;
-  *hash_invert = *invert;
-  *hash_kv     = *kv;
 
 
 # ---   *   ---   *   ---

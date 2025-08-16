@@ -24,7 +24,7 @@ package Avt::XS;
   use XSLoader;
   use Cwd qw(getcwd);
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style;
 
   use Arstd::Path qw(
@@ -34,10 +34,10 @@ package Avt::XS;
 
   );
 
-  use Arstd::IO qw(orc owc);
+  use Arstd::Bin qw(orc owc);
   use Arstd::PM qw(cload);
 
-  use lib $ENV{'ARPATH'}.'/lib/';
+  use lib "$ENV{ARPATH}/lib/";
 
 
 # ---   *   ---   *   ---

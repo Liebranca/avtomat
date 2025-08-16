@@ -26,7 +26,6 @@ package Ftype::Text::Js;
 # make ice
 
 BEGIN { Ftype::Text->new(
-
   name  => 'Js',
   ext   => '\.js$',
   hed   => '#!.*node',

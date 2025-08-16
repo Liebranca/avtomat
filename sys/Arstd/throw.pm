@@ -31,6 +31,7 @@ package Arstd::throw;
   use Style qw(null);
   use Chk qw(is_null codefind);
   use Arstd::String qw(cat strip);
+  use Arstd::Path qw(relto);
   use Arstd::ansi;
 
 
@@ -125,7 +126,8 @@ sub throw {
 
   if(! defined $_[1]) {
     $_[2]->[-1]=~ $file_re;
-    $_[1]=$1;
+    $_[1]   = $1;
+    $_[1] //= '<null>';
 
   };
 
@@ -149,14 +151,22 @@ sub throw {
   my @order=();
   my %tmp=map {
     $ARG=~ $line_re;
-    push @order,$MATCH;
 
     # the line is hash key
     #
     # this makes it so errors on the same
     # line will not be reported twice
+    if(! is_null $MATCH) {
+      push @order,$MATCH;
+      $MATCH=>[1,$ARG];
 
-    $MATCH=>[1,$ARG];
+    # ^matching failed, so just put the
+    # ^whole message
+    } else {
+      push @order,$ARG;
+      $ARG=>[1,$ARG];
+
+    };
 
   } @{$_[2]};
 
@@ -195,7 +205,7 @@ sub throw {
   );
 
   # shorten culprit for sanity
-  shpath($_[1]);
+  relto($_[1]);
 
 
   # reformat error messages
@@ -205,9 +215,9 @@ sub throw {
     # if so, shorten it
     if($ARG=~ $file_re) {
       my $have=$1;
-      shpath($have);
+      relto($have);
 
-      $ARG=~ s[$file_re][$namec$have$nocol]smg;
+      $ARG=~ s[$file_re][$namec$have$nocol]sm;
 
     };
 
@@ -216,7 +226,7 @@ sub throw {
     # else it says (eval #number), which is
     # very unhelpful
 
-    $ARG=~ s[$eval_re][$_[1]]smg;
+    $ARG=~ s[$eval_re][$namec$_[1]$nocol]smg;
 
 
     # we're just adding color to the filename,
@@ -350,30 +360,6 @@ sub bt {
   };
 
   return @out;
-
-};
-
-
-# ---   *   ---   *   ---
-# shorten path
-#
-# [0]: byte ptr ; path
-# [<]: bool     ; path is not null
-#
-# [!]: overwrites input path
-#
-# TODO: move this somewhere else
-#       (Arstd::Path maybe?)
-
-sub shpath {
-  return 0 if is_null $_[0];
-
-  $_[0]=File::Spec->abs2rel($_[0]);
-
-  my $re=qr{/+};
-  $_[0]=~ s[$re][/];
-
-  return ! is_null $_[0];
 
 };
 

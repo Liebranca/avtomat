@@ -18,12 +18,11 @@ package Arstd::Bin;
   use strict;
   use warnings;
   use English qw($ARG $ERRNO);
-  use Carp qw(croak);
   use File::Spec;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
-  use Chk qw(is_null is_path);
+  use Chk qw(is_null is_path is_file is_dir);
   use Arstd::throw;
 
 
@@ -32,8 +31,11 @@ package Arstd::Bin;
 
   use Exporter 'import';
   our @EXPORT_OK=qw(
+    ot
+    moo
     orc
     dorc
+    xdorc
     owc
     errmute
     erropen
@@ -44,7 +46,7 @@ package Arstd::Bin;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.0';
+  our $VERSION = 'v0.01.1';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -52,6 +54,48 @@ package Arstd::Bin;
 # RAM
 
 my $Cache={errmute=>undef};
+
+
+# ---   *   ---   *   ---
+# "older than"
+# return a is older than b
+#
+# [0]: byte ptr ; dst
+# [1]: byte ptr ; src
+#
+# [<]: bool ; dst older than src
+
+sub ot {
+  throw "<null> passed to ot"
+  if is_null $_[0] || is_null $_[1];
+
+  return (
+      (is_file $_[0])
+  &&  (is_file $_[1])
+
+  &&! ((-M $_[0]) < (-M $_[1]))
+
+  );
+
+};
+
+
+# ---   *   ---   *   ---
+# "missing or older"
+# file not found or file needs update
+#
+# [0]: byte ptr ; dst
+# [1]: byte ptr ; src
+#
+# [<]: bool ; dstmissing or older than src
+
+sub moo {
+  throw "<null> passed to moo"
+  if is_null $_[0] || is_null $_[1];
+
+  return (! is_file $_[0]) || ot($_[0],$_[1]);
+
+};
 
 
 # ---   *   ---   *   ---
@@ -82,10 +126,59 @@ sub orc {
 sub dorc {
   opendir my $dir,$_[0] or throw $_[0];
   my @out=grep {
-    ! ((-d $ARG) && ($ARG=~ qr{^\.\.?$}))
+    ! ($ARG=~ qr{^\.\.?$})
 
   } readdir $dir;
   closedir $dir or throw $_[0];
+
+  return @out;
+
+};
+
+
+# ---   *   ---   *   ---
+# ^recursive/array variant
+#
+# [0]: byte ptr  ; dirname
+# [1]: byte pptr ; options
+#
+# [<]: byte pptr ; list
+# [*]: performs path expansion
+
+sub xdorc {
+  return ($_[0]) if is_file $_[0];
+  my $path = shift;
+  my %O    = @_;
+
+  # defaults
+  $O{-r} //= 0;
+
+  # walk directories
+  my @out = ();
+  my @rem = ($path);
+
+  while(@rem) {
+
+    # perform expansion,
+    # filter out directories,
+    # then opendir
+    my @have=map {
+      dorc $ARG;
+
+    } grep {
+      is_dir $ARG;
+
+    } (glob(shift @rem));
+
+    # files to out
+    unshift @out,grep {-f "$path/$ARG"} @have;
+
+    # recurse?
+    unshift @rem,grep {-d "$path/$ARG"} @have
+    if $O{-r};
+
+  };
+
 
   return @out;
 

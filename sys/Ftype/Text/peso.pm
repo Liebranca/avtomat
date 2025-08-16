@@ -19,9 +19,8 @@ package Ftype::Text::peso;
   use warnings;
 
   use lib "$ENV{ARPATH}/lib/sys";
-  use Arstd::Re qw(re_eiths);
+  use Arstd::Re;
   use Type::MAKE;
-
   use Ftype::Text;
 
 
@@ -29,12 +28,10 @@ package Ftype::Text::peso;
 # make ice
 
 BEGIN { sub keyw_group(@ar) {
-  return [re_eiths(\@ar,insens=>1,bwrap=>1)];
+  return [Arstd::Re::eiths(\@ar,insens=>1,bwrap=>1)];
 
 };Ftype::Text->new(
-
   name  => 'peso',
-
   ext   => '\.(pe|p3|rom)$',
   hed   => '[^A-Za-z0-9_]+[A-Za-z0-9_]*;',
   mag   => '$ program',

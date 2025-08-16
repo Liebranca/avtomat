@@ -44,6 +44,7 @@ package Arstd::String;
 
     has_prefix
     has_string
+    has_suffix
 
     nobs
     charcon
@@ -55,7 +56,6 @@ package Arstd::String;
 
     jag
     cjag
-
   );
 
 
@@ -115,7 +115,8 @@ sub linewrap_re {
     #         + (any,EOF)
 
     '[^\n]{1,' . ($_[0]-2) . '}',
-    '(?: .|$)'
+    '(?: .|$)',
+    ')'
 
   );
 
@@ -134,8 +135,7 @@ sub linewrap_re {
 
 sub linewrap {
   my $re=linewrap_re($_[1]);
-  return map {chomp $ARG;$ARG} resplit($_[0],$re);
-
+  return map {chomp $ARG;$ARG} gsplit($_[0],$re);
 };
 
 
@@ -244,6 +244,27 @@ sub has_string {
 
 
 # ---   *   ---   *   ---
+# selfex -- string has suffix
+#
+# [0]: byte ptr  ; string
+# [1]: byte pptr ; array of suffixes
+#
+# [<]: byte pptr ; suffixes matched (new array)
+
+sub has_suffix {
+  my $sref=\$_[0];
+  shift;
+
+  return grep {
+     length($$sref)-1
+  == index($$sref,$ARG,length($$sref)-1)
+
+  } @_;
+
+};
+
+
+# ---   *   ---   *   ---
 # convert match of seq into char
 #
 # [0]: byte ptr ; string
@@ -341,9 +362,10 @@ sub gstrip {
 # [<]: byte pptr ; new array
 
 sub gsplit {
+  return () if is_null($_[0]);
+
   $_[1]//=qr{\s+};
   return gstrip(split $_[1],$_[0]);
-
 };
 
 
@@ -356,11 +378,11 @@ sub gsplit {
 # [<]: byte pptr ; new array
 
 sub fgsplit {
+  return () if is_null($_[0]);
   return grep {
     strip($ARG) && ($ARG=~ $_[1])
 
   } split($_[1],$_[0]);
-
 };
 
 
@@ -376,7 +398,6 @@ sub clist {
     ? (@{$_[0]})
     : (split qr{\s*,\s*},$_[0])
     ;
-
 };
 
 
@@ -392,7 +413,6 @@ sub clist {
 
 sub jag {
   return join((shift),gstrip(@_));
-
 };
 
 

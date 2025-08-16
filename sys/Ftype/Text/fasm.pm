@@ -19,7 +19,7 @@ package Ftype::Text::fasm;
   use warnings;
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Arstd::Re qw(re_eaf);
+  use Arstd::Re;
   use Ftype::Text;
 
 
@@ -27,13 +27,12 @@ package Ftype::Text::fasm;
 # make ice
 
 BEGIN { Ftype::Text->new(
-
   name      => 'fasm',
   ext       => '\.(s|asm|inc)$',
   mag       => '^flat assembler file',
 
   com       => ';',
-  lcom      => re_eaf(';',lbeg=>0,opscape=>0),
+  lcom      => Arstd::Re::eaf(';',lbeg=>0,opscape=>0),
 
 
   types=>[qw(

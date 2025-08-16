@@ -21,20 +21,26 @@ package Arstd::Re;
   use English;
   use List::Util qw(max);
 
-  use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>qw(
-    use Style::(null);
-    Arstd::Array::(lsort);
-
-  );
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Chk qw(is_null);
+  use Arstd::String qw(cat to_char);
+  use Arstd::Array;
 
   use parent 'St';
 
 
 # ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT_OK=qw(pekey eiths);
+
+
+# ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.6';
+  our $VERSION = 'v0.00.7';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -49,7 +55,6 @@ St::vconst {
     \s* ;>
 
   }x,
-
 };
 
 
@@ -107,11 +112,11 @@ sub insens($s,%O) {
   $O{mkre}//=0;
 
   # get [xX] for each char
-  my $out=catar map {
+  my $out=cat map {
     '[' . (lc $ARG)
         . (uc $ARG) .']'
 
-  } chars $s;
+  } to_char $s;
 
   # conditionally compile
   $out=($O{mkre})
@@ -307,7 +312,7 @@ sub eiths($ar,%O) {
   my @ar=@$ar;
 
   # force longest pattern first
-  array_lsort(\@ar);
+  Arstd::Array::nlsort(\@ar);
 
   # conditionally escape operators
   @ar=array_opscape(\@ar) if $O{opscape};
@@ -727,16 +732,20 @@ sub neg_lkahead($s,%O) {
 #
 # note this is only textual subst;
 # posix re is *still* posix re
+#
+# [0]: byte str | re ; pattern to proc
+# [<]: bool          ; string is null
+#
+# [!]: overwrites input string | re
 
-sub qre2re($sref) {
-
-  state $body_re=qr{
+sub qre2re {
+  return 0 if is_null $_[0];
+  my $body_re=qr{
     (?<body> [^\)]+ | (?R))*
 
   }x;
 
-  state $inner_re=qr{
-
+  my $inner_re=qr{
     \(\? (?: <\w+> | [:<=\!]+)
 
     $body_re
@@ -745,8 +754,7 @@ sub qre2re($sref) {
 
   }x;
 
-  state $outer_re=qr{
-
+  my $outer_re=qr{
     \(\?\^u (?:[xsmgi]*) :
 
     $body_re
@@ -755,10 +763,10 @@ sub qre2re($sref) {
 
   }x;
 
-  while($$sref=~ s[$outer_re][($+{body})]sxmg) {};
-  while($$sref=~ s[$inner_re][($+{body})]sxmg) {};
+  while($_[0]=~ s[$outer_re][($+{body})]sxmg) {};
+  while($_[0]=~ s[$inner_re][($+{body})]sxmg) {};
 
-  return;
+  return ! is_null $_[0];
 
 };
 

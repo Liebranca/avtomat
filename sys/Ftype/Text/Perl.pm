@@ -20,7 +20,7 @@ package Ftype::Text::Perl;
   use warnings;
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Arstd::Re qw(re_eaf);
+  use Arstd::Re;
   use Ftype::Text;
 
 
@@ -55,9 +55,9 @@ BEGIN { Ftype::Text->new(
     bless blessed
 
     caller chdir chmod chop chown chroot close
-    closedir connect cos crypt croak
+    closedir connect cos crypt
 
-    dbmclose dbmopen defined delete die dump
+    dbmclose dbmopen defined delete dump
     each eof eval exec exists exit exp
 
     fcntl fileno flock fork
@@ -109,7 +109,7 @@ BEGIN { Ftype::Text->new(
     umask undef unlink unpack unshift
     utime values vec wait waitpid
 
-    wantarray warn write
+    wantarray write
 
   )],
 
@@ -127,7 +127,9 @@ BEGIN { Ftype::Text->new(
     continue else elsif do for
     foreach if unless until while
     goto next last redo reset return
-    try catch finally throw
+    try catch finally
+
+    throw croak carp warn die
 
   )],
 

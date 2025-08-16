@@ -76,6 +76,7 @@ my $ROM={
     /sys/Style.pm
     /sys/Chk.pm
     /sys/Arstd/String.pm
+    /sys/Arstd/Path.pm
     /sys/Arstd/ansi.pm
     /sys/Arstd/throw.pm
     /sys/Arstd/Bin.pm
@@ -95,16 +96,32 @@ my $ROM={
     /sys/St.pm
 
     /sys/Arstd/Array.pm
+    /sys/Arstd/Bytes.pm
+    /sys/Arstd/Int.pm
+    /sys/Arstd/Re.pm
+    /sys/Arstd/stoi.pm
+    /sys/Arstd/Fmat.pm
+    /sys/Arstd/Hash.pm
+    /sys/Arstd/IO.pm
+    /sys/Arstd/PM.pm
+    /sys/Arstd/fatdump.pm
 
+    /sys/Type/MAKE.pm
+    /sys/Type.pm
+
+    /sys/Ftype.pm
+    /sys/Ftype/Text.pm
+    /sys/Ftype/Text/fasm.pm
+    /sys/Ftype/Text/C.pm
+    /sys/Ftype/Text/peso.pm
+    /sys/Ftype/Text/SinGL.pm
+    /sys/Ftype/Text/Perl.pm
+    /sys/Ftype/Text/Python.pm
+    /sys/Ftype/Text/Js.pm
+    /sys/Ftype/Text/Mny.pm
   )],
 
-#    /sys/Arstd/Path.pm
-#    /sys/Arstd/Re.pm
-#    /sys/Arstd/IO.pm
-#    /sys/Arstd/Bytes.pm
-#    /sys/Arstd/Int.pm
-#    /sys/Arstd/Hash.pm
-#    /sys/Arstd/PM.pm
+
 #    /sys/Arstd/WLog.pm
 #    /sys/Arstd/Fmat.pm
 #
@@ -136,17 +153,6 @@ my $ROM={
 #
 #    /sys/Vault.pm
 #    /sys/Cli.pm
-#
-#    /sys/Ftype.pm
-#    /sys/Ftype/Text.pm
-#    /sys/Ftype/Text/fasm.pm
-#    /sys/Ftype/Text/C.pm
-#    /sys/Ftype/Text/peso.pm
-#    /sys/Ftype/Text/SinGL.pm
-#    /sys/Ftype/Text/Perl.pm
-#    /sys/Ftype/Text/Python.pm
-#    /sys/Ftype/Text/Js.pm
-#    /sys/Ftype/Text/Mny.pm
 #
 #    /Emit.pm
 #    /Emit/Std.pm
@@ -195,12 +201,22 @@ sub build_mkdirs {
 
 # ---   *   ---   *   ---
 # procs MAM so that it can proc other files ;>
+#
+# [0]: bool ; MAM build step (rap)
+#
+# [*]: this simply makes a copy of MAM
+#      source with library paths swapped
+#
+#      we do this so that it can import it's
+#      own dependencies _while_ it is building
+#      them (as they'd be missing from the
+#      actual library path)
 
-sub procmam($rap) {
+sub procmam {
   my ($dst,$src)=(undef,undef);
 
   # swap destination?
-  my ($tmpdir,$dstdir,$srcdir)=($rap)
+  my ($tmpdir,$dstdir,$srcdir)=($_[0])
     ? ($ROM->{AVTODIR},$ROM->{TRASHDIR},
        $ROM->{LIBDIR})
 
@@ -239,54 +255,70 @@ sub procmam($rap) {
 # ---   *   ---   *   ---
 # "older than"
 # return a is older than b
+#
+# [0]: byte ptr ; build filepath
+# [1]: byte ptr ; source filepath
+#
+# [<]: bool ; build older than source
 
-sub ot($a,$b) {
+sub ot {
   return (
-      (defined $a && -f $a)
-  &&  (defined $b && -f $b)
+      (defined $_[0] && -f $_[0])
+  &&  (defined $_[1] && -f $_[1])
 
-  &&! ( (-M $a) < (-M $b) )
+  &&! ( (-M $_[0]) < (-M $_[1]) )
 
   );
 
 };
 
+
 # ---   *   ---   *   ---
 # "missing or older"
 # file not found or file needs update
+#
+# [0]: byte ptr ; build filepath
+# [1]: byte ptr ; source filepath
+#
+# [<]: bool ; build missing or older than source
 
-sub moo($a,$b) {
-  return (defined $a &&! -f $a) || ot($a,$b);
+sub moo {
+  return (
+     (defined $_[0] &&! -f $_[0])
+  || ot($_[0],$_[1])
+
+  );
 
 };
 
 
 # ---   *   ---   *   ---
 # do we have to?
+#
+# [0]: byte ptr ; build directory
+# [1]: byte ptr ; source directory
+# [2]: byte ptr ; filename (no dir)
+#
+# [<]: mem ptr ; arrayref with all three args
+#                if build is needed; else null
 
-sub need_update($dstdir,$srcdir,$fname) {
-  my $src="$srcdir$fname";
-  my $dst="$dstdir$fname";
-
-  my $need=(-e $dst)
-    ? moo($dst,$src)
-    : 1
-    ;
-
-
-  return ($need)
-    ? [$dst,$src,$fname]
-    : ()
-    ;
+sub need_update {
+  my $src  = "$_[1]$_[2]";
+  my $dst  = "$_[0]$_[2]";
+  my $need = (-e $dst) ? moo($dst,$src) : 1 ;
+  return ($need) ? [$dst,$src,$_[2]] : () ;
 
 };
 
 
 # ---   *   ---   *   ---
 # ensure basedir of file exists
+#
+# [0]: byte ptr ; filename
+# [<]: byte ptr ; directory (new string)
 
-sub req_basedir($dst) {
-  my @ar      = split '/',$dst;
+sub req_basedir {
+  my @ar      = split qr{/},$_[0];
   my $basedir = join '/',@ar[0..$#ar-1];
 
   mkpath($basedir) if ! -e $basedir;
@@ -297,64 +329,125 @@ sub req_basedir($dst) {
 
 
 # ---   *   ---   *   ---
-# summons MAM
+# makes MAM ice
+#
+# [0]: byte ptr ; destination directory
+# [1]: bool     ; MAM build step (rap)
+#
+# [<]: mem ptr ; new MAM instance
+#
+#
+# [*]: it would possible to use a single
+#      MAM instance for the entire build;
+#
+#      but since MAM source itself is updated
+#      by BOOTSTRAP, we need to reimport it.
+#
+#      because of that, we spawn four instances
+#      in total (at most) during these steps:
+#
+#      1. building MAM dependencies themselves.
+#      2. re-processing those built files.
+#
+#      3. building avtomat dependencies with the
+#         (now-updated) MAM.
+#
+#      4. re-processing built files for avtomat.
+#
+#
+# [*]: which one of those four is executed depends
+#      on whether the previous step was needed;
+#
+#      if a dependency was updated, then everything
+#      depending on it will, logically, be updated
+#      as well.
 
-sub runmam($dstdir,$srcdir,$src,$rap) {
-  my @args=('-Mavtomat',"-f$src","-r$rap");
+sub mkmam {
 
-  load lib=>$dstdir;
+  # get package from build or final dir
+  load lib=>$_[0];
   load 'MAM';
 
-  # make filter
-  my $mam=MAM->new(@args);
-  return $mam->run();
+  # ^set root and make ice
+  $ENV{MAMROOT}=$ROM->{ROOTDIR};
+  my $mam=MAM->new();
+
+  # ^configure and give
+  $mam->set_module('avtomat');
+  $mam->set_rap($_[1]);
+
+  return $mam;
 
 };
 
 
 # ---   *   ---   *   ---
-# in: file list,src path,dst path
-# check dates, update older files
+# update files in list if need
+#
+# [0]: mem ptr ; filename arrayref
+# [1]: bool    ; MAM build step (rap)
 
-sub update($dstdir,$srcdir,$list,$rap) {
+sub update {
+
+  # paths used depend on build step
+  my ($dstdir,$srcdir)=($_[1])
+    ? ($ROM->{TRASHDIR},$ROM->{AVTODIR})
+    : ($ROM->{LIBDIR},$ROM->{TRASHDIR})
+    ;
+
+  # get whether any of these files
+  # need to be updated
+  my @need=map {
+    need_update $dstdir,$srcdir,$ARG
+
+  } @{$_[0]};
+
+  # ^skip if none
+  return 0 if ! @need;
+
+
+  # ^else build what's needed
   my $tag=$ROM->{FMAT}->{SUBSTEP};
+  my $mam=mkmam($dstdir,$_[1]);
 
   return int map {
     my ($dst,$src,$fname)=@$ARG;
 
-    # run MAM
-    my $out=runmam($dstdir,$srcdir,$src,$rap);
+    # prich out what we're doing
+    say {*STDERR} "$tag$fname";
 
-    # owc and prich
+    # process file with MAM
+    my $out=$mam->run($src);
+
+    # ^owc
     req_basedir $dst;
 
     open  my $fh,'+>',$dst or die "$!";
     print {$fh} $out;
     close $fh;
 
-    say {*STDERR} "$tag$fname";
     1;
 
 
-  } map {
-    need_update $dstdir,$srcdir,$ARG
-
-  } @$list;
+  } @need;
 
 };
 
 
 # ---   *   ---   *   ---
-# builds ~~
+# builds MAM and avtomat
+#
+# [0]: byte ptr ; name of component
+# [1]: mem ptr  ; filename arrayref
 
-sub make($name,$list) {
+sub make {
   my @tag=(
-    ($name eq 'MAM')
+    ($_[0] eq 'MAM')
       ? $ROM->{FMAT}->{BOOT}
       : $ROM->{FMAT}->{AR}
       ,
 
-    $ROM->{FMAT}->{FNAME} . "${name}\e[0m",
+    $ROM->{FMAT}->{FNAME} . "$_[0]\e[0m",
     $ROM->{FMAT}->{STEP},
 
   );
@@ -364,38 +457,27 @@ sub make($name,$list) {
   # needed to apply source filters
   say {*STDERR} "$tag[2]updating $tag[1]";
 
-  procmam 1 if $name eq 'MAM';
-  my $need=update(
-    $ROM->{TRASHDIR},
-    $ROM->{AVTODIR},
-    $list,
-    1
+  procmam 1 if $_[0] eq 'MAM';
+  my $need=update($_[1],1);
+
+
+  # we make sure to _always_ update MAM source,
+  # as it's a single file and everything else
+  # depends on it ;>
+
+  procmam 0 if $_[0] eq 'MAM';
+  return if ! $need;
+
+
+  # everything else is only updated
+  # when there's an actual change
+  say {*STDERR} (
+    "\n$tag[2]copying from "
+  . "\e[36;1m\"/.trash/\"\e[0m"
 
   );
 
-  procmam 0 if $name eq 'MAM';
-
-
-  # ^if nothing was updated, then a
-  # ^second run never happens
-  if($need) {
-    say {*STDERR} (
-      "\n$tag[2]copying from "
-    . "\e[36;1m\"/.trash/\"\e[0m"
-
-    );
-
-    update(
-      $ROM->{LIBDIR},
-      $ROM->{TRASHDIR},
-      $list,
-      0
-
-    );
-
-  };
-
-
+  update($_[1],0);
   return;
 
 };
@@ -428,7 +510,7 @@ sub run {
   # rebuild nanorc files ;>
   $tag=$ROM->{FMAT}->{STEP};
   say {*STDERR} "${tag}rebuilding syntax files";
-#  say {*STDERR} `./bin/sygen`;
+  say {*STDERR} `./bin/sygen`;
   say {*STDERR} "${tag}done\n";
 
 

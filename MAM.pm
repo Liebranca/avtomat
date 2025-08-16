@@ -23,7 +23,7 @@ package MAM;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
-  use Chk qw(is_null is_file);
+  use Chk qw(is_null is_file is_dir);
   use Arstd::String qw(strip gsplit);
   use Arstd::Bin qw(orc);
   use Arstd::throw;
@@ -45,84 +45,43 @@ package MAM;
 # we do this so that a module can
 # import the built version of others
 # _during_ the build process...
+#
+# [0]: mem ptr ; self
+# [1]: mem ptr ; repl ice
+# [2]: word    ; string uid
+#
+# [<]: byte ptr ; string to replace placeholder by
 
-sub repv($self,$repl,$uid) {
-  my $module = $self->{module};
-  my $have   = $repl->{capt}->[$uid];
+sub repv {
+  my $module = \$_[0]->{module};
+  my $have   =  $_[1]->{capt}->[$_[2]];
   my $beg    = "\n" . q[  use lib "$ENV{ARPATH}];
-
-  my ($root,$path)=(
-    $have->{root},
-    $have->{path},
-
-  );
+  my $path   = \$have->{path};
 
   # do _not_ rept the module name ;>
-  $path=~ s[/+$module/+][];
+  $$path=~ s[/+$$module/+][];
 
 
   # adding build directory?
-  return "$beg/.trash/$module/$path\";"
-  if $self->{rap};
+  return "$beg/.trash/$$module/$$path\";"
+  if $_[0]->{rap};
 
   # ^nope, restore!
-  return "$beg/lib/$path\";";
+  return "$beg/lib/$$path\";";
 
 };
 
 
 # ---   *   ---   *   ---
 # cstruc
+#
+# [0]: byte ptr  ; class
+# [<]: mem ptr   ; new instance
 
 sub new {
-  my ($class,@cmd)=@_;
 
   # make ice
-  my $self=bless {},$class;
-
-  # args xlate table
-  my $tab={
-    M => 'module',
-    r => 'rap',
-    f => 'fname',
-
-  };
-
-  # proc args
-  my $sre  = qr{^\-(?<key>[^\-])(?<value>.*)$};
-  my $kre  = qr{^\-\-(?<key>[^=]+)$};
-  my $kvre = qr{^\-\-(?<key>[^=]+)=(?<value>.+)$};
-
-  while(@cmd) {
-    my $arg=shift @cmd;
-    if($arg=~ s[$sre][]) {
-      my ($key,$value)=($+{key},$+{value});
-      $self->{$tab->{$key}}=$value;
-
-    } elsif($arg=~ s[$kvre][]) {
-      $self->{$+{key}}=$+{value};
-
-    } elsif($arg=~ s[$kre][]) {
-      $self->{$+{key}}=1;
-
-    } else {
-      throw "Invalid arg: '$arg'";
-
-    };
-
-  };
-
-
-  # sanity checks
-  throw "No module" if is_null $self->{module};
-  throw "Invalid file: <null>"
-  if is_null $self->{fname};
-
-  throw "Invalid file: '$self->{fname}'"
-  if ! is_file $self->{fname};
-
-  # hail Mary!
-  $self->{rap}//=0;
+  my $self=bless {},$_[0];
 
   # oh no here we go again...
   $self->{A9M}={
@@ -133,7 +92,7 @@ sub new {
 
   # make repl ice
   $self->{repl}=Arstd::Repl->new(
-    pre  => "USE$class",
+    pre  => "USE$_[0]",
     repv => sub {
       my $re  =  qr{/+};
       my $out =  repv($self,@_);
@@ -169,7 +128,57 @@ sub new {
 
 
 # ---   *   ---   *   ---
-# ~~
+# sets module name
+#
+# [0]: mem ptr  ; self
+# [1]: byte ptr ; module name
+#
+# [*]: module must be a valid directory
+
+sub set_module {
+
+  # validate
+  throw "Invalid module: <null>"
+  if is_null $_[1];
+
+  throw "Invalid module: '$_[1]'"
+  if ! is_dir "$ENV{MAMROOT}/$_[1]";
+
+
+  # set and give
+  $_[0]->{module}=$_[1];
+  return;
+
+};
+
+
+# ---   *   ---   *   ---
+# 'rap' determines whether the
+# preprocessor is writing to the
+# build directory or the lib directory
+#
+# this matters as it controls which
+# paths will be used to pull packages from
+#
+# [0]: mem ptr ; self
+# [1]: bool    ; rap true or false
+
+sub set_rap {
+  $_[0]->{rap}=$_[1];
+  return;
+
+};
+
+
+# ---   *   ---   *   ---
+# preprocessor: imports
+#
+# [0]: mem ptr  ; self
+# [1]: byte ptr ; file contents
+#
+# [<]: word ; number of blocks processed
+#
+# TODO: move this to it's own file
 
 sub AR_step {
   my $re=qr{
@@ -340,7 +349,12 @@ my $Proctab={
 
 
 # ---   *   ---   *   ---
-# ~~
+# preprocessor: subroutines
+#
+# [0]: mem ptr  ; self
+# [1]: byte ptr ; file contents
+#
+# [<]: word ; number of blocks processed
 
 sub proc_step {
   my $self=shift;
@@ -422,22 +436,37 @@ sub proc_step {
 
 
 # ---   *   ---   *   ---
-# file reader
+# file reader;
+#
+# applies preprocessing steps to
+# perl source file
+#
+# [0]: mem ptr  ; self
+# [1]: byte ptr ; filepath
+#
+# [<]: byte ptr ; processed file (new string)
 
 sub run {
-  my ($self)=@_;
+
+  # validate path
+  throw "Invalid file: <null>"
+  if is_null $_[1];
+
+  throw "Invalid file: '$_[1]'"
+  if ! is_file $_[1];
+
 
   # read file into body
-  my $body=orc $self->{fname};
+  my $body=orc $_[1];
 
   # ^run textual replacement
-  $self->AR_step($body);
-  $self->{repl}->proc(\$body);
-  $self->{repl}->clear();
-  $self->proc_step($body);
+  $_[0]->AR_step($body);
+  $_[0]->{repl}->proc($body);
+  $_[0]->{repl}->clear();
+  $_[0]->proc_step($body);
 
   # syntax check the filtered source ;>
-  load 'Chk::Syntax',$self->{fname},$body;
+  load 'Chk::Syntax',$_[1],$body;
 
   # give filtered
   return $body;

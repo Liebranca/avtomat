@@ -22,12 +22,13 @@ package AR;
   use Module::Load qw(load);
   use lib "$ENV{ARPATH}/lib/sys/";
   use Chk qw(is_null codefind);
+  use Arstd::Path qw(from_pkg);
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = v0.03.1;
+  our $VERSION = 'v0.03.2';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -35,13 +36,10 @@ package AR;
 # checks INC for package
 
 sub is_loaded {
-  my $re    = qr{::};
-  my $fname = shift;
+  my $fname=shift;
+  from_pkg($fname);
 
-  $fname=~ s[$re][/]g;
-
-  return int grep {$ARG eq "$fname.pm"} keys %INC;
-
+  return exists $INC{$fname};
 };
 
 
@@ -54,7 +52,6 @@ sub is_loaded {
 sub cload {
   load $_[0] if ! is_loaded $_[0];
   return;
-
 };
 
 
@@ -66,7 +63,29 @@ sub cloadi {
   load $pkg,@_ if ! is_loaded $pkg;
 
   return;
+};
 
+
+# ---   *   ---   *   ---
+# calls unimport method of package (if any)
+# then removes it from INC
+
+sub unload {
+  # skip not loaded
+  return if ! is_loaded $_[0];
+
+  # get package and matching filename
+  my $pkg   = shift;
+  my $fname = "$pkg";
+  from_pkg($fname);
+
+  # run exit sub if exists
+  $pkg->unimport()
+  if($pkg->can('unimport'));
+
+  # remove from INC
+  delete $INC{$fname};
+  return;
 };
 
 
@@ -77,7 +96,6 @@ sub cloadi {
 sub pkgof {
   my ($subn,@pkg)=(reverse split qr{::},$_[0]);
   return join '::',reverse @pkg;
-
 };
 
 
@@ -87,7 +105,6 @@ sub pkgof {
 sub cloads {
   return if $_[0] eq 'main';
   return cload pkgof $_;
-
 };
 
 
@@ -98,7 +115,6 @@ sub cloadis {
   my $path=shift;
   return if $path eq 'main';
   return cloadi pkgof($path),@_;
-
 };
 
 
@@ -138,7 +154,6 @@ sub import {
     if(exists $flag->{$arg}) {
       $flag->{$arg}=1;
       next;
-
     };
 
 
@@ -167,11 +182,9 @@ sub import {
       while(@_) {
         last if $sym[-1]=~ s[$end_group_re][];
         push @sym,shift;
-
       };
 
       $sym[-1]=~ s[$end_group_re][];
-
     };
 
     # ^filter out blanks
@@ -183,7 +196,6 @@ sub import {
     # * just load the package
     # * run import method with @sym as args
     if($flag->{imp}) {
-
       # re-import?
       if($flag->{re}) {
         load $pkg,@sym;
@@ -191,11 +203,9 @@ sub import {
       # ^nope, use conditional form
       } else {
         cloadi $pkg,@sym;
-
       };
 
       next;
-
     };
 
 
@@ -222,7 +232,6 @@ sub import {
       "package $dst {",
       @decl,
       '}'
-
     );
 
     # ^add symbol(s) to caller
@@ -231,12 +240,9 @@ sub import {
 
     # reset flags for next run
     $flag->{$ARG}=0 for flagkey;
-
   };
 
-
   return;
-
 };
 
 

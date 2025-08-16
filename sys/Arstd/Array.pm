@@ -11,32 +11,54 @@
 # lib,
 
 # ---   *   ---   *   ---
-# info
+# deps
 
 package Arstd::Array;
   use v5.42.0;
   use strict;
   use warnings;
 
-  use Carp qw(croak);
   use English qw($ARG);
 
-  our $VERSION = 'v0.01.0';
-  our $AUTHOR  = 'IBN-3DILA';
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Chk qw(is_null is_arrayref);
+  use Arstd::throw;
 
 
 # ---   *   ---   *   ---
-# deps
+# adds to your namespace
 
-AR sys=>{
-  use Style null;
-  use Chk (
-    is_null,
-    is_arrayref,
+  use Exporter 'import';
+  our @EXPORT_OK=qw(
+    nth
+    nkeys
+    nvalues
 
+    lshift
+    rshift
+    nsort
+    nlsort
+    nmap
+
+    filter
+    dupop
+    insert
+
+    wrap
+    flatten
+    matchpop
+
+    iof
+    rmi
   );
 
-};
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = 'v0.01.1';
+  our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
@@ -44,7 +66,6 @@ AR sys=>{
 
 sub new($class,@values) {
   return bless [@values],$class;
-
 };
 
 
@@ -58,12 +79,10 @@ sub nth($ar,$n,$i) {
   my $matches=[
     (shift @slice),
     grep {! (++$i % $n)} @slice
-
   ];
 
   $matches//=[];
   return grep {! is_null $ARG} @$matches;
-
 };
 
 
@@ -96,7 +115,6 @@ sub lshift($ar,$idex) {
 
   push @out,pop @{$ar};
   return @out;
-
 };
 
 
@@ -114,7 +132,6 @@ sub rshift($ar,$idex) {
 
   push @out,shift @$ar;
   return @out;
-
 };
 
 
@@ -124,7 +141,6 @@ sub rshift($ar,$idex) {
 sub filter($ar,$block=\&is_null) {
   @$ar=grep {$block->($ARG)} @$ar;
   return;
-
 };
 
 
@@ -162,7 +178,6 @@ sub dupop($ar) {
   };
 
   return;
-
 };
 
 
@@ -186,7 +201,6 @@ sub insert($ar,$pos,@ins) {
 
   @$ar=(@head,@ins,@tail);
   return;
-
 };
 
 
@@ -202,7 +216,6 @@ sub key_idex($ar,$rev=0) {
   @have=reverse @have if $rev;
 
   return {@have};
-
 };
 
 
@@ -212,7 +225,6 @@ sub key_idex($ar,$rev=0) {
 sub nsort($ar) {
   @$ar=sort {$b<=>$a} @$ar;
   return;
-
 };
 
 
@@ -225,7 +237,6 @@ sub nlsort($ar) {
 
   } @$ar;
   return;
-
 };
 
 
@@ -233,7 +244,7 @@ sub nlsort($ar) {
 # give idex of element
 
 sub iof($ar,$elem) {
-  croak 'iof: undefined elem'
+  throw 'iof: undefined elem'
   if ! defined $elem;
 
   my ($idex)=grep {
@@ -242,7 +253,6 @@ sub iof($ar,$elem) {
   } 0..int(@$ar)-1;
 
   return $idex;
-
 };
 
 
@@ -252,7 +262,6 @@ sub iof($ar,$elem) {
 sub wrap($ar,$idex) {
   $idex=$idex % @$ar;
   return $ar->[$idex];
-
 };
 
 
@@ -261,17 +270,14 @@ sub wrap($ar,$idex) {
 # gives copy!
 
 sub flatten($ar,%O) {
-
   # defaults
   $O{dupop} //= 0;
-
 
   # walk
   my @out = ();
   my @Q   = @$ar;
 
   while(@Q) {
-
     # recurse if stepped on array
     # else copy value to dst
     my $chd=shift @Q;
@@ -279,16 +285,13 @@ sub flatten($ar,%O) {
       ? unshift @Q,@$chd
       : push    @out,$chd
       ;
-
   };
-
 
   # clear duplicates?
   dupop(\@out) if $O{dupop};
 
   # give copy
   return @out;
-
 };
 
 
@@ -296,27 +299,23 @@ sub flatten($ar,%O) {
 # removes element
 
 sub rmi($ar,$elem) {
-
   # assume that element *is* idex
   my $i=$elem;
 
   # ^then get element idex if elem is a string ;>
   if(! index $elem,'$') {
     substr $elem,0,1,null;
-    $i=iof $ar,$elem;
-
+    $i=iof($ar,$elem);
   };
 
 
-  croak "rmi '$elem': no such element in array"
+  throw "rmi '$elem': no such element in array"
   if ! defined $i;
 
   $ar->[$i]=undef;
-  filter $ar;
-
+  filter($ar);
 
   return;
-
 };
 
 
@@ -324,12 +323,10 @@ sub rmi($ar,$elem) {
 # array as hash walk proto
 
 sub nmap($ar,$fn,$mode='ikv') {
-
   # we overwrite these values on walk step
   my $k=0;
   my $v=0;
   my $i=0;
-
 
   # decompose array
   my $ni=0;
@@ -338,7 +335,6 @@ sub nmap($ar,$fn,$mode='ikv') {
 
   # ^walk
   return map {
-
     # overwrite refs
     $k = \$ARG;
     $v = \$nv[$ni];
@@ -346,31 +342,27 @@ sub nmap($ar,$fn,$mode='ikv') {
 
     # ^get arg config and give call
     my $args={
+      # default mode:
+      # ~Illya Kuryaki && the Valderramas~
+      ikv => [\$i,\$k,\$v],
 
+      # [key,value]
+      kv  => [\$k,\$v],
 
-    # default mode: Illya Kuryaki && the Valderramas
-    ikv => [\$i,\$k,\$v],
+      # [idex,key],[idex,value]
+      ik  => [\$i,\$k],
+      iv  => [\$i,\$v],
 
-
-    # [key,value]
-    kv  => [\$k,\$v],
-
-    # [idex,key],[idex,value]
-    ik  => [\$i,\$k],
-    iv  => [\$i,\$v],
-
-    # [idex],[key],[value],
-    i   => [\$i],
-    k   => [\$k],
-    v   => [\$v],
+      # [idex],[key],[value],
+      i   => [\$i],
+      k   => [\$k],
+      v   => [\$v],
 
     }->{$mode};
 
     $fn->(map {$$ARG} @$args);
 
-
   } @nk;
-
 };
 
 
@@ -379,12 +371,10 @@ sub nmap($ar,$fn,$mode='ikv') {
 
 sub kmap($ar,$fn) {
   return nmap($ar,$fn,'k');
-
 };
 
 sub vmap($ar,$fn) {
   return nmap($ar,$fn,'v');
-
 };
 
 
@@ -404,7 +394,6 @@ sub matchpop($ar,@seq) {
   } @seq;
 
   return (@match == @seq,@match);
-
 };
 
 
@@ -413,12 +402,10 @@ sub matchpop($ar,@seq) {
 
 sub IDEXUP($idex,$f,@list) {
   return map {$f->($ARG,$idex++)} @list;
-
 };
 
 sub IDEXUP_P2($idex,$f,@list) {
   return map {$f->($ARG,1 << $idex++)} @list;
-
 };
 
 

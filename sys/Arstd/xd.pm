@@ -8,7 +8,7 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # NOTE:
@@ -136,9 +136,7 @@ sub draw($body,%O) {
 
     # shuffle byte ordering?
     if($O{order} eq '<:') {
-
       @bytes=(
-
         (reverse @bytes[ 4.. 7]),
         (reverse @bytes[ 0.. 3]),
 
@@ -152,7 +150,6 @@ sub draw($body,%O) {
 
     # walk chunk
     map {
-
 
       # add byte to mem line
       $sl .= sprintf "%02X",$ARG;
@@ -226,14 +223,10 @@ sub draw($body,%O) {
 #   module's namespace
 
 sub import($class,@req) {
-
   return IMP(
-
     $class,
-
     \&ON_USE,
     \&ON_EXE,
-
     @req
 
   );
@@ -246,19 +239,18 @@ sub import($class,@req) {
 
 sub ON_EXE($class,$input=undef,@args) {
 
-
   # have input?
-  my $src=(defined $input)
+  my $src=(! is_null $input)
     ? $input
-    : die "xd: no input"
+    : throw "xd: no input"
     ;
 
 
   # clear null
-  @args=grep {$ARG} @args;
+  @args=gstrip {$ARG} @args;
 
   # reading from file?
-  if(is_filepath($src)) {
+  if(is_file($src)) {
     from_file($src,@args)
 
   # ^nope, direct
@@ -274,11 +266,8 @@ sub ON_EXE($class,$input=undef,@args) {
 # ^imported as module via use
 
 sub ON_USE($class,$from,@nullarg) {
-
   *xd=*draw;
-
   submerge(
-
     ['Arstd::xd'],
 
     main  => $from,

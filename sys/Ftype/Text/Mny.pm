@@ -26,11 +26,9 @@ package Ftype::Text::Mny;
 # make ice
 
 BEGIN { Ftype::Text->new(
-
   name => 'Mny',
   ext  => '\.mny$',
   hed  => '\$mny;',
-
   mag  => '\$:get0x24;>',
 
   highlight=>[

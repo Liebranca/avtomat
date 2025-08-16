@@ -558,13 +558,11 @@ sub nattrs($self) {
 #   signal that to caller (--define)
 
 sub tabfetch($key,$tab,$fail,$fn,@args) {
-
   # make table lookup
   my $have=(exists $tab->{$key})
     ? $tab->{$key}
     : undef
     ;
-
 
   # ^give found
   return $have if defined $have;

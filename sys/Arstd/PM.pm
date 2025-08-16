@@ -22,22 +22,26 @@ package Arstd::PM;
   use Devel::Peek;
   use English qw($ARG);
 
-  use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>qw(
-    use Style::(null);
-    use Chk::(is_arrayref);
-    lis Arstd::Re::(eiths);
-    use Arstd::Bin::(orc);
-    lis Arstd::Path::(to_pkg);
-    use St::(deparse);
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null no_match any_match);
+  use Chk qw(is_arrayref);
+  use Arstd::Re qw(eiths);
+  use Arstd::Bin qw(orc);
+  use Arstd::Path qw(to_pkg);
+  use Arstd::throw;
 
-  );
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT_OK=qw(subwraps);
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.4';
+  our $VERSION = 'v0.01.5';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -45,7 +49,6 @@ package Arstd::PM;
 # give name of coderef
 
 sub codename($ref,$full=0) {
-
   # get guts handle
   my $gv=svref_2object($ref)->GV;
 
@@ -54,8 +57,8 @@ sub codename($ref,$full=0) {
   return $gv->NAME if ! $full;
 
   # fetch package name?
-  my %cni=reverse %INC;
-  $name=path_to_pkg $cni{$gv->FILE};
+  my %cni  = reverse %INC;
+  my $name = to_pkg $cni{$gv->FILE};
 
   # you think you're funny?!
   if(! length $name) {
@@ -67,7 +70,6 @@ sub codename($ref,$full=0) {
   };
 
   return "$name\::" . $gv->NAME;
-
 };
 
 
@@ -84,7 +86,6 @@ sub _subsof($class) {
   } keys %tab;
 
   return map {$ARG=>$class} @names;
-
 };
 
 
@@ -94,7 +95,6 @@ sub _subsof($class) {
 
 sub subsof_dupop(@classes) {
   return map {_subsof($ARG)} @classes;
-
 };
 
 
@@ -108,7 +108,6 @@ sub subsof_merge($main,@classes) {
   my @add  = grep {! exists $subs{$ARG}} keys %ext;
 
   return map {$ARG=>$ext{$ARG}} @add;
-
 };
 
 
@@ -123,18 +122,17 @@ sub subsof_filter_nit($classes,$O) {
 
     } array_depsof(@$classes);
 
-    my $re=re_eiths(\@deps,bwrap=>1);
+    my $re=eiths(\@deps,bwrap=>1);
     $O->{modex}=qr{^$re$};
 
   };
 
   # defaults
   $O->{subex} //= qr{^(?:throw_|Frame_Vars$)};
-  $O->{modex} //= $NO_MATCH;
-  $O->{subok} //= $ANY_MATCH;
+  $O->{modex} //= no_match;
+  $O->{subok} //= any_match;
 
   return;
-
 };
 
 
@@ -156,7 +154,6 @@ sub subsof_filter($subs,%O) {
   );
 
   } keys %$subs;
-
 };
 
 
@@ -164,7 +161,6 @@ sub subsof_filter($subs,%O) {
 # ^crux
 
 sub subsof($classes,%O) {
-
   # defaults
   $O{main} //= caller;
 
@@ -180,7 +176,6 @@ sub subsof($classes,%O) {
     $ARG => $subs{$ARG}
 
   } @filt;
-
 };
 
 
@@ -188,7 +183,6 @@ sub subsof($classes,%O) {
 # ^add filtered list of subs to main
 
 sub submerge($classes,%O) {
-
   # defaults
   $O{main}  //= caller;
   $O{xdeps} //= 1;
@@ -206,7 +200,6 @@ sub submerge($classes,%O) {
 
 
   return %subs;
-
 };
 
 
@@ -219,7 +212,6 @@ sub add_symbol($dst,$src) {
   *{$dst}=*{$src};
 
   return;
-
 };
 
 sub add_scalar($dst,$src) {
@@ -229,7 +221,6 @@ sub add_scalar($dst,$src) {
   ${$dst}=${$dst};
 
   return;
-
 };
 
 
@@ -243,7 +234,6 @@ sub redef($old,$new) {
   *{$old}=$new;
 
   return;
-
 };
 
 
@@ -252,7 +242,6 @@ sub redef($old,$new) {
 # doesn't match passed name
 
 sub rcaller {
-
   # default to Arstd::PM ;>
   my $name   = $_[0];
      $name //= __PACKAGE__;
@@ -264,7 +253,6 @@ sub rcaller {
 
   while  $pkg eq $name && $i < 0x24;
   return $pkg;
-
 };
 
 
@@ -286,9 +274,7 @@ sub beqwraps($attr,@names) {
 
   };
 
-
   return;
-
 };
 
 
@@ -298,11 +284,9 @@ sub beqwraps($attr,@names) {
 sub mkwraps($pkg,$fn,$sig,@icebox) {
   no strict 'refs';
   for(@icebox) {
-
     # unpack
     my ($name,$args) = @$ARG;
     my $dst          = "$pkg\::$name";
-
 
     # generate wrapper
     my $src = "sub ($sig) {\n"
@@ -315,20 +299,15 @@ sub mkwraps($pkg,$fn,$sig,@icebox) {
 
 
     # ^validate
-    croak "BAD ICEF*CK: $dst\n\n$src\n"
+    throw "BAD ICEF*CK: $dst\n\n$src\n"
     if ! defined $wf;
-
 
     # add to namespace
     *{$dst}=$wf;
-    [$dst,$name];
-
-
   };
 
-
+  use strict 'refs';
   return;
-
 };
 
 
@@ -340,7 +319,6 @@ sub subwraps($fn,$sig,@icebox) {
   mkwraps($pkg,$fn,$sig,@icebox);
 
   return;
-
 };
 
 
@@ -352,7 +330,6 @@ sub subwraps($fn,$sig,@icebox) {
 sub impwraps($dst,@args) {
   mkwraps($dst,@args);
   return;
-
 };
 
 
@@ -367,9 +344,7 @@ sub argsof($pkg,$name=undef) {
   }x;
 
   state $doblk=qr{
-
     do \s* \{
-
     (?<blk> [^\{\}]+ | (?R)*)
 
     \};
@@ -404,7 +379,6 @@ sub argsof($pkg,$name=undef) {
 
 
   return @out;
-
 };
 
 
@@ -419,10 +393,9 @@ sub codeof($pkg,$name=undef) {
 
   };
 
-  my $body=deparse->coderef2text($fn);
+  my $body=St::deparse->coderef2text($fn);
 
   return $body;
-
 };
 
 
@@ -437,7 +410,6 @@ sub depsof($class,$fmain=undef) {
   my @files = map {$INC{$ARG}} @keys;
 
   return map {depsof_file($ARG)} @files;
-
 };
 
 
@@ -451,7 +423,6 @@ sub array_depsof(@classes) {
   } @classes;
 
   return keys %tab;
-
 };
 
 
@@ -475,7 +446,6 @@ sub depsof_file($fname) {
   };
 
   return @out;
-
 };
 
 
@@ -489,17 +459,15 @@ sub autoload_prologue($kref) {
   $$kref=~ s[$re][];
 
   return 1;
-
 };
 
 sub throw_bad_autoload($pkg,$key) {
-  croak sprintf(
+  throw sprintf(
     "'%s' has no autoload for '%s'",
     $pkg,
     $key,
 
   );
-
 };
 
 
@@ -511,7 +479,6 @@ sub get_static($class,$name) {
 
   no strict 'refs';
   return ${"$class\::$name"};
-
 };
 
 
@@ -540,7 +507,6 @@ sub fvars($classes,%O) {
 
 
   return;
-
 };
 
 
@@ -554,7 +520,6 @@ sub fvars($classes,%O) {
 #   execute some subroutine
 
 sub IMP($class,$on_use,$on_exe,@req) {
-
   # imported as exec via arperl
   if(defined $req[0] && $req[0] eq '*crux') {
     shift @req;
@@ -564,7 +529,6 @@ sub IMP($class,$on_use,$on_exe,@req) {
 
   # imported as module via use
   return $on_use->($class,(caller 1)[0],@req);
-
 };
 
 

@@ -18,11 +18,8 @@ package Ftype::Text::C;
   use strict;
   use warnings;
 
-  use English;
-
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
-  use Arstd::Re qw(re_eaf);
+  use Arstd::Re;
   use Ftype::Text;
 
 
@@ -30,9 +27,7 @@ package Ftype::Text::C;
 # make ice
 
 BEGIN { Ftype::Text->new(
-
   name => 'C',
-
   ext  => '\.([ch](pp|xx)?|C|cc|c\+\+|cu|H|hh|ii?)$',
   mag  => '^(C|C\+\+) (source|program)',
 
@@ -47,13 +42,25 @@ BEGIN { Ftype::Text->new(
 
     FILE
 
+    byte word dword qword
+    sbyte sword sdword sqword
+
+    xword yword zword
+    sxword syword szword
+
+    real dreal
+    ptr pptr addr
+    ref rel relix drelix
+
+    mem cask tree
+
     nihil stark signal
 
   )],
 
   specifier=>[qw(
     auto extern inline restrict
-    const signed unsigned static
+    const signed sign unsigned static
 
     explicit friend mutable
     namespace override private
@@ -79,6 +86,7 @@ BEGIN { Ftype::Text->new(
   directive=>[qw(
     class struct union typedef enum
     errchk err endchk
+    macro package match use
 
   )],
 
@@ -95,7 +103,7 @@ BEGIN { Ftype::Text->new(
 
   )],
 
-  preproc=>re_eaf('#',lbeg=>0,opscape=>0),
+  preproc=>Arstd::Re::eaf('#',lbeg=>0,opscape=>0),
 
 
 )};
@@ -104,7 +112,10 @@ BEGIN { Ftype::Text->new(
 # ---   *   ---   *   ---
 # utility method...
 
-sub is_cpp {return $_[0]=~ qr{\.[ch](?:pp|xx)$}};
+sub is_cpp {
+  return int($_[0]=~ qr{\.[ch](?:pp|xx)$})
+
+};
 
 
 # ---   *   ---   *   ---

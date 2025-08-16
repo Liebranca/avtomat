@@ -18,19 +18,13 @@ package Ftype::Text;
   use strict;
   use warnings;
 
-  use Carp;
-  use English;
+  use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
-
-  use Arstd::String qw();
-  use Arstd::Re qw(
-    re_eiths
-    re_eaf
-    re_posix_delim
-
-  );
+  use Style qw(null no_match);
+  use Arstd::throw;
+  use Arstd::stoi;
+  use Arstd::Re;
 
   use Arstd::Repl;
   use parent 'Ftype';
@@ -39,7 +33,7 @@ package Ftype::Text;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.1a';
+  our $VERSION = 'v0.00.2a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -47,30 +41,29 @@ package Ftype::Text;
 # ROM
 
 St::vconst {
-
   name_re    => '\b[_A-Za-z][_A-Za-z0-9]*\b',
   uc_name_re => '\b[_A-Z][_A-Z0-9]*\b',
   lc_name_re => '\b[_a-z][_a-z0-9]*\b',
 
-  fn_re => sub {
+  pesc_re    => Arstd::Re->PESC_RE,
+  fn_re      => sub {
     my $name=$_[0]->name_re;
     return qr{$name\(};
 
   },
 
-  pesc_re    => Arstd::Re->PESC_RE,
   num_re     => sub {return [
-    Arstd::String->BINNUM_RE,
-    Arstd::String->OCTNUM_RE,
-    Arstd::String->DECNUM_RE,
-    Arstd::String->HEXNUM_RE,
+    Arstd::stoi::binnum(),
+    Arstd::stoi::octnum(),
+    Arstd::stoi::decnum(),
+    Arstd::stoi::hexnum(),
 
   ]},
 
   opr_re     => qr{[^[:alpha:][:space:]0-9_]},
   drfc_re    => sub {
     my $name=$_[0]->name_re;
-    return qr{$name\s*(?:->|::|\.)\s*$name};
+    return qr{(?:$name)?(?:->|::|\.)$name}x;
 
   },
 
@@ -78,18 +71,24 @@ St::vconst {
   blank_re   => qr{[[:space:]]+$},
   nblank_re  => qr{[^[:blank:]]+},
 
-  shcmd_re   => re_posix_delim('`'),
-  char_re    => re_posix_delim("'"),
-  string_re  => re_posix_delim('"'),
+  shcmd_re   => Arstd::Re::posix_delim('`'),
+  char_re    => Arstd::Re::posix_delim("'"),
+  string_re  => Arstd::Re::posix_delim('"'),
 
   sigils_re  => qr{\\?[\$@%&]},
 
-  dev0_re => re_eiths([qw(TODO NOTE)],bwrap=>1),
-  dev1_re => re_eiths([qw(FIX BUG)],bwrap=>1),
+  dev0_re => Arstd::Re::eiths([qw(
+    TODO NOTE
+
+  )],bwrap=>1),
+
+  dev1_re => Arstd::Re::eiths([qw(
+    FIX BUG
+
+  )],bwrap=>1),
 
 
   DEFAULT => {
-
     name        => null,
 
     com         => q[#],
@@ -111,7 +110,7 @@ St::vconst {
     directive   => [],
     resname     => [],
 
-    preproc     => qr{$NO_MATCH}x,
+    preproc     => no_match,
     use_sigils  => {},
 
   },
@@ -132,7 +131,7 @@ sub new($class,%O) {
   # value of self->tag
   $self->{repl}=Arstd::Repl->new(
     pre  => 'PESC',
-    inre => Arstd::Re->peso_escape,
+    inre => $class->pesc_re,
     repv => sub {repv($self,@_)},
 
   );
@@ -141,7 +140,7 @@ sub new($class,%O) {
   $self->make_keyw_re();
 
   # comments...
-  $self->{lcom}=re_eaf(
+  $self->{lcom}=Arstd::Re::eaf(
     $self->{lcom},
     lbeg    => 0,
     opscape => 0,
@@ -151,6 +150,7 @@ sub new($class,%O) {
 
   # notify super and give
   $class->register($self);
+  delete $self->{repl};
   return $self;
 
 };
@@ -160,9 +160,7 @@ sub new($class,%O) {
 # convert keyword lists to hashes
 
 sub make_keyw_re($self) {
-
   my @keyw_re=map {
-
     my $key = $ARG;
     my @ar  = @{$self->{$ARG}};
     my $out = {};
@@ -170,15 +168,15 @@ sub make_keyw_re($self) {
     # perform value substitution for
     # each sub-pattern
     map {
-      $self->{repl}->proc(\$ARG);
+      $self->{repl}->proc($ARG);
       $out->{$ARG}=0;
 
     } @ar;
 
     # ^make composite
     my $keyw_re=(int %$out)
-      ? re_eiths([keys %$out],bwrap=>1)
-      : $NO_MATCH
+      ? Arstd::Re::eiths([keys %$out],bwrap=>1)
+      : no_match
       ;
 
     # ^write to ice and give
@@ -210,7 +208,7 @@ sub repv($self,$repl,$uid) {
   my $key   = $repl->{capt}->[$uid]->{body};
   my $value = $self->fet($key);
 
-  croak "Bad key in peso escape: '$key'"
+  throw "Bad key in peso escape: '$key'"
   if ! defined $value;
 
   return $value;

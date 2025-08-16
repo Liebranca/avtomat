@@ -1,8 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
 # ARSTD IO
-# Reading and writting;
-# formatting and printing
+# this used to be huge!
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -22,7 +21,6 @@ package Arstd::IO;
   use lib "$ENV{ARPATH}/lib/";
   use AR sys=>qw(
     use Arstd::String::(cat);
-
   );
 
 
@@ -44,9 +42,7 @@ sub procin($O) {
   $O->{mute}   //= 0;
   $O->{-bufio} //= \@bufio;
 
-
   return $O->{-bufio};
-
 };
 
 
@@ -54,7 +50,6 @@ sub procin($O) {
 # ^handles output!
 
 sub procout($O) {
-
   # cat buf
   my $out=cat @{$O->{-bufio}};
 
@@ -68,7 +63,6 @@ sub procout($O) {
     ;
 
   return say {$fh} $out;
-
 };
 
 

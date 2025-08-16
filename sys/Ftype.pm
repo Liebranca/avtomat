@@ -18,11 +18,9 @@ package Ftype;
   use strict;
   use warnings;
 
-  use Carp;
-  use English;
+  use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
   use parent 'St';
 
 
@@ -45,10 +43,12 @@ package Ftype;
 sub register($class,$ice) {
   no strict 'refs';
   my $subclass="$class\::$ice->{name}";
+  my $skip=exists $Cache->{$subclass};
   $Cache->{$subclass}=$ice;
 
   # yes
-  *$subclass=sub {return $ice};
+  *$subclass=sub {return $Cache->{$subclass}}
+  if ! $skip;
 
   return;
 

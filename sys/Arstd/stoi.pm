@@ -11,27 +11,26 @@
 # lib,
 
 # ---   *   ---   *   ---
-# info
+# deps
 
 package Arstd::stoi;
   use v5.42.0;
   use strict;
   use warnings;
-  use Carp qw(croak);
   use English qw($ARG $MATCH);
 
-  our $VERSION = 'v0.01.5';
-  our $AUTHOR  = 'IBN-3DILA';
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Chk qw(is_null);
+  use Arstd::String qw(has_prefix to_char);
+  use Arstd::throw;
 
 
 # ---   *   ---   *   ---
-# deps
+# info
 
-#AR sys {
-#  use Style (null);
-#  use Chk (is_null);
-#
-#};
+  our $VERSION = 'v0.01.5';
+  our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
@@ -49,7 +48,7 @@ sub stoi {
   };
 
   # ^get which base to use
-  my $base=0;
+  my ($have,$base)=(undef,0);
   for(keys %$tab) {
     ($have,$base)=($MATCH,$tab->{$ARG}),
     last if $_[0]=~ qr{^$ARG$};
@@ -57,7 +56,7 @@ sub stoi {
   };
 
   # ^catch invalid
-  croak "Unrecognized number format: '$_[0]'"
+  throw "Unrecognized number format: '$_[0]'"
   if ! defined $have;
 
   # give converted
@@ -89,23 +88,23 @@ sub stoi_elem {
   # significant chars and how many bits
   # each char represents
   my $tab={
-    2  => [binchar,1],
-    8  => [octchar,3],
-    16 => [hexchar,4],
+    2  => [binchar(),1],
+    8  => [octchar(),3],
+    16 => [hexchar(),4],
 
   };
 
   # ^catch invalid
-  croak "Invalid base for stoi_elem: '$base'"
+  throw "Invalid base for stoi_elem: '$_[1]'"
   if ! exists $tab->{$_[1]};
 
   # bpc == bits per char
   my ($valid,$bpc)=@{$tab->{$_[1]}};
 
   # get sign
-  my ($sign)=(has_prefix $x,'-')
-    ? (-1,substr($x,1,(length $x)-1,null)
-    : 1
+  my ($sign)=(has_prefix $_[0],'-')
+    ? (-1,substr($_[0],1,(length $_[0])-1,null))
+    : (1)
     ;
 
 
@@ -119,7 +118,7 @@ sub stoi_elem {
   #
   # then we walk the chars and add to accum
 
-  for(reverse grep {$ARG=~ $valid} to_char $x) {
+  for(reverse grep {$ARG=~ $valid} to_char $_[0]) {
 
     # perform division when dot is encountered
     #
