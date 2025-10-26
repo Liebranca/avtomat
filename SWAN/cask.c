@@ -39,8 +39,8 @@
 // memory that can be reused
 
 public struct cask {
-  mem data;   // memory pool
-  mem slot;   // array of bitmasks
+  mem   data; // memory pool
+  mem   slot; // array of bitmasks
 
   dword ezy;  // attributes for memory pool
   dword cap;  // (see: mem.c)
@@ -174,7 +174,6 @@ void cask_avail(
   dst->mask = mask;
   dst->eid  = top;
   return;
-
 };
 
 
@@ -187,7 +186,6 @@ void cask_avail(
 public relix cask_take(
   cask ptr self
 ) {
-
   // get free or new slot, mark it as occupied
   lkp avail={0};
   cask_avail(self,addr avail);
@@ -231,14 +229,13 @@ public void cask_give(
   cask  ptr self,
   relix     bufid
 ) {
-
-  // lower 6 bits of uid are slot number
-  // upper 10 bits are mask number
-  word bit  = bufid & CASK_SLOT_MASK;
-  word have = bufid / CASK_ELEM_CNT;
+  // lower 6 bits of bufid are slot idex
+  // upper 10 bits are mask idex
+  word bit = bufid & CASK_SLOT_MASK;
+  word eid = bufid / CASK_ELEM_CNT;
 
   // free slot for reuse
-  qword ptr mask  =  mem_at(addr self->slot,have);
+  qword ptr mask  =  mem_at(addr self->slot,eid);
         ptr mask &=~ (1LLU << bit);
 
   // free the mem itself
@@ -247,7 +244,6 @@ public void cask_give(
   mem_delete(m);
 
   return;
-
 };
 
 

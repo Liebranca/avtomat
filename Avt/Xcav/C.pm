@@ -18,11 +18,11 @@ package Avt::Xcav::C;
   use strict;
   use warnings;
 
-  use Carp;
-  use English;
-  use lib "$ENV{ARPATH}/lib/sys/";
+  use English qw($ARG);
 
-  use Style;
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Arstd::throw;
   use rd;
 
 
@@ -32,15 +32,12 @@ package Avt::Xcav::C;
 # in C header, out symbols
 
 sub symscan($class,$fpath) {
-
   # parse file
   my $rd=rd::crux(
-
     $fpath,
 
     ROM => 1,
     C   => 1,
-
   );
 
   # get parser ctx
@@ -50,11 +47,10 @@ sub symscan($class,$fpath) {
   my $exp_re    = $rd->{l1}->re(EXP=>'.*');
   my $parens_re = $rd->{l1}->re(SCP=>'\(');
 
-  my @pat       = (
+  my @pat=(
     [$sym_re,$sym_re,$parens_re],
     [$sym_re,$star_re,$sym_re,$parens_re],
     [$sym_re,$star_re,$star_re,$sym_re,$parens_re],
-
   );
 
 
@@ -62,18 +58,17 @@ sub symscan($class,$fpath) {
   my $out={function=>{},utype=>{}};
 
   # ^cat [rtype,args] for every function
-  map {
-    my ($fn,$attrs)=rdfn($rd,$ARG);
-    $out->{function}->{$fn}=$attrs;
-
-  } grep {
+  my @nd=grep {
     defined $ARG->match_series(@pat);
 
-  } $rd->{tree}->branches_in($exp_re);
+  } $rd->{tree}->branches_in($exp_re)
 
+  for(@nd) {
+    my ($fn,$attrs)=rdfn($rd,$ARG);
+    $out->{function}->{$fn}=$attrs;
+  };
 
   return $out;
-
 };
 
 
@@ -81,11 +76,9 @@ sub symscan($class,$fpath) {
 # ^get attrs for proc
 
 sub rdfn($rd,$branch) {
-
   # get ctx
   my $comma_re = $rd->{l1}->re(OPR=>',');
   my $sym_re   = $rd->{l1}->re(SYM=>'.+');
-
 
   # get name of proc and return type
   my $name  = $branch->{leaves}->[-2];
@@ -112,7 +105,7 @@ sub rdfn($rd,$branch) {
   my $out   = {rtype=>$rtype,args=>$args};
 
   # ^walk args in reverse (yes)
-  map {
+  for(reverse @have) {
 
     # comma is reset
     if($ARG=~ $comma_re) {
@@ -124,26 +117,22 @@ sub rdfn($rd,$branch) {
     #
     # this is way we walk backwards
     # it ensures the name is always first ;>
-
     } elsif($args->[0] eq null) {
-      $ARG=~ $sym_re or croak "Invalid SYM '$ARG'";
+      $ARG=~ $sym_re or throw "Invalid SYM '$ARG'";
       $args->[0]=$+{spec};
 
 
     # ^everything afterwards (behind) is type,
     # ^up until comma or EOS
-
     } else {
       my $have=$rd->{l1}->untag($ARG)->{spec};
 
       # only the compiler cares about const
       $args->[1]="$have$args->[1]"
       if $have ne 'const';
-
     };
 
-
-  } reverse @have;
+  };
 
 
   # edge case: nullargs ;>
@@ -152,7 +141,6 @@ sub rdfn($rd,$branch) {
 
   # give [F => attrs]
   return ($name=>$out);
-
 };
 
 

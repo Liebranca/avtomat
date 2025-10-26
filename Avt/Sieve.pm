@@ -19,14 +19,12 @@ package Avt::Sieve;
   use warnings;
 
   use Cwd qw(abs_path);
-  use English qw(-no_match_vars);
+  use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/sys/";
-
-  use Style;
+  use Style qw(null);
   use Arstd::Hash qw(lfind);
-
-  use Shb7;
+  use Shb7::Path qw(root relto_root);
 
 
 # ---   *   ---   *   ---
@@ -40,7 +38,6 @@ package Avt::Sieve;
 # cstruc
 
 sub new($class,%O) {
-
   my $self=bless {
 
     # context data
@@ -49,7 +46,6 @@ sub new($class,%O) {
 
     # iter elements
     name   => null,
-    trsh   => null,
     dir    => null,
     lmod   => null,
 
@@ -62,7 +58,6 @@ sub new($class,%O) {
 
   $self->set_paths();
   return $self;
-
 };
 
 
@@ -70,28 +65,20 @@ sub new($class,%O) {
 # directory boiler
 
 sub set_paths($self) {
-
   $self->{name} = $self->{C}->{name};
   $self->{dir}  = "./$self->{name}";
-  $self->{trsh} = Shb7::rel(
-    Shb7::trash($self->{name})
-
-  );
 
   my $name=$self->{name};
 
-
   # for pasting in subpaths
-  my $re="${Shb7::Path::Root}/${name}";
+  my $re=root() . "/$name";
 
   $self->{lmod}  =  $self->{dir};
   $self->{lmod}  =~ s[$re][];
-
   $self->{lmod} .=  ($self->{lmod})
     ? q{/}
     : null
     ;
-
 
   # the mampy exception
   $self->{p_out}=  $self->{dir};
@@ -100,12 +87,9 @@ sub set_paths($self) {
   $self->{p_out}=(
     $self->{libdir}
   . $self->{p_out}
-
   );
 
-
   return;
-
 };
 
 
@@ -113,31 +97,24 @@ sub set_paths($self) {
 # walker
 
 sub iter($self,$dirs) {
-
   # sorts stuff out
-  map {
+  for(@$dirs) {
     $self->get_files($ARG);
     $self->agroup_files();
-
-  } @$dirs;
-
+  };
 
   # ^post-build, single-source bins
   $self->side_build(
     $self->{M}->{util},
     $self->{C}->{util},
-
   );
 
   $self->side_build(
     $self->{M}->{test},
     $self->{C}->{test},
-
   );
 
-
   return;
-
 };
 
 
@@ -145,26 +122,24 @@ sub iter($self,$dirs) {
 # build file list from tree node
 
 sub get_files($self,$node) {
-
   my $name=$self->{name};
   @{$self->{file}}=$node->get_file_list(
     full_path=>1,
     max_depth=>1,
-
   );
 
   # shorten paths
   # pop mod from start
-  map {
+  for(@{$self->{file}}) {
+    my $rel=$ARG;
+    relto_root($rel);
+
     $ARG=  abs_path($ARG);
-    $ARG=  Shb7::shpath($ARG);
+    $ARG=  $rel;
     $ARG=~ s[^${name}/?][];
-
-  } @{$self->{file}};
-
+  };
 
   return;
-
 };
 
 
@@ -172,7 +147,6 @@ sub get_files($self,$node) {
 # processes file list boiler
 
 sub agroup_files($self) {
-
   # generators
   $self->arr_dual_out(
     $self->{M}->{gen},
@@ -180,39 +154,32 @@ sub agroup_files($self) {
 
   );
 
-
   # project ./bin copy
   $self->dual_out(
     $self->{M}->{fcpy},
     $self->{C}->{xcpy},
 
     $self->{bindir},null
-
   );
 
   # project ./lib copy
   $self->dual_out(
     $self->{M}->{fcpy},
     $self->{C}->{lcpy},
-
     $self->{libdir},$self->{lmod}
-
   );
 
   # headers for post-build scanning
   $self->single_out(
     $self->{M}->{xprt},
     $self->{C}->{xprt},
-
   );
 
   # push source to builders
   $self->s_files();
   $self->d_files();
 
-
   return;
-
 };
 
 
@@ -220,29 +187,21 @@ sub agroup_files($self) {
 # pushes two entries per result
 
 sub dual_out(
-
   $self,
-
   $dst,$src,
   $outdir,$outmod
-
 ) {
-
   my $matches=lfind($src,$self->{file});
-
   while(@$matches) {
-
     my $match=shift @$matches;
     delete $src->{$match};
 
     push @$dst,(
       "$self->{dir}/$match",
       "$outdir/$outmod$match"
-
     );
-
   };
-
+  return;
 };
 
 
@@ -250,33 +209,22 @@ sub dual_out(
 # ^same, match is list
 
 sub arr_dual_out($self,$dst,$src) {
-
-  my $matches=lfind(
-    $src,$self->{file}
-
-  );
-
+  my $matches=lfind($src,$self->{file});
   while(@$matches) {
-
     my $match=shift @$matches;
-    my ($outfile,@deps)=@{
-      $src->{$match}
-
-    };
+    my ($outfile,@deps)=@{$src->{$match}};
 
     delete $src->{$match};
-    map {$ARG="$self->{dir}/$ARG"} @deps;
+    $ARG="$self->{dir}/$ARG" for @deps;
 
     push @$dst,[
       "$self->{dir}/$match",
       "$self->{dir}/$outfile",
 
       @deps
-
     ];
-
   };
-
+  return;
 };
 
 
@@ -285,20 +233,15 @@ sub arr_dual_out($self,$dst,$src) {
 # single out
 
 sub by_ext_s($self,$tab) {
-
-  map {
-
+  for(keys %$tab) {
     my $ext=$ARG;
     my $dst=$tab->{$ext};
 
-    map {
-      $dst->push_src("$self->{dir}/$ARG");
-
-    } grep m[$ext],@{$self->{file}};
-
-  } keys %$tab;
-
-}
+    $dst->push_src("$self->{dir}/$ARG")
+    for grep m[$ext],@{$self->{file}};
+  };
+  return;
+};
 
 
 # ---   *   ---   *   ---
@@ -306,15 +249,12 @@ sub by_ext_s($self,$tab) {
 # ^c/cpp to gcc
 
 sub s_files($self) {
-
-  state $tab={
+  my $tab={
     qr{\.(?:s|asm)$}x => $self->{M}->{flat},
     qr{\.(?:cpp|c)$}x => $self->{M}->{gcc},
-
   };
-
   $self->by_ext_s($tab);
-
+  return;
 };
 
 
@@ -323,26 +263,19 @@ sub s_files($self) {
 # dual out
 
 sub by_ext_d($self,$tab) {
-
   my $name=$self->{name};
-
-  map {
-
+  for(keys %$tab) {
     my $ext=$ARG;
     my $dst=$tab->{$ext};
 
-    map {
-
+    for(grep m[$ext],@{$self->{file}}) {
       $dst->push_src(
         "$self->{dir}/$ARG",
         "$self->{p_out}/$ARG"
-
       );
-
-    } grep m[$ext],@{$self->{file}};
-
-  } keys %$tab;
-
+    };
+  };
+  return;
 };
 
 
@@ -350,15 +283,12 @@ sub by_ext_d($self,$tab) {
 # walrus van rossum
 
 sub d_files($self) {
-
-  state $tab={
+  my $tab={
     qr{\.pm$} => $self->{M}->{mam},
     qr{\.py$} => $self->{M}->{fcpy},
-
   };
-
   $self->by_ext_d($tab);
-
+  return;
 };
 
 
@@ -366,18 +296,14 @@ sub d_files($self) {
 # pushes single entry per result
 
 sub single_out($self,$dst,$src) {
-
   my $matches=lfind($src,$self->{file});
-
   while(@$matches) {
-
     my $match=shift @$matches;
 
     delete $src->{$match};
     push @$dst,"$self->{dir}/$match";
-
   };
-
+  return;
 };
 
 
@@ -386,9 +312,7 @@ sub single_out($self,$dst,$src) {
 # individual compilation
 
 sub side_build($self,$dst,$src) {
-
   for my $outfile(keys %$src) {
-
     my $ref=$src->{$outfile};
     my ($srcfile,@flags)=@$ref;
 
@@ -396,11 +320,9 @@ sub side_build($self,$dst,$src) {
       $outfile,
       $srcfile,
       @flags,
-
     ];
-
   };
-
+  return;
 };
 
 

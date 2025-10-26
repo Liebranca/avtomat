@@ -18,15 +18,17 @@ package Frame;
   use strict;
   use warnings;
 
-  use Carp qw(croak);
   use English qw($ARG);
   use Scalar::Util qw(blessed);
+
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Arstd::throw;
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v2.00.4';
+  our $VERSION = 'v2.00.5';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -35,7 +37,6 @@ package Frame;
 
 sub new($frame,@args) {
   return $frame->{-class}->new($frame,@args);
-
 };
 
 
@@ -44,7 +45,6 @@ sub new($frame,@args) {
 
 sub is_valid($kind,$obj) {
   return blessed($obj) && $obj->isa($kind);
-
 };
 
 
@@ -65,7 +65,6 @@ sub _new($class,%O) {
 
   my $frame=bless \%O,$class;
   return $frame;
-
 };
 
 
@@ -74,12 +73,10 @@ sub _new($class,%O) {
 # icebox rather than ice
 
 sub AUTOLOAD {
-
   our $AUTOLOAD;
 
   my $key  = $AUTOLOAD;
   my @args = @_;
-
   my $self = shift @args;
   my $auto = $self->{-autoload};
 
@@ -88,15 +85,13 @@ sub AUTOLOAD {
 
 
   # catch invalid
-  croak sprintf(
+  throw sprintf(
     "%s frame has no autoload for '%s'",
     $self->{-class},$key,
 
   ) if ! exists $auto->{$key};
 
-
   return $self->{-class}->$key($self,@args);
-
 };
 
 
@@ -111,7 +106,6 @@ sub __ctltake($frame) {
 
   $frame->{-owner_kls}=$pkg;
   return;
-
 };
 
 sub __ctlgive($frame) {
@@ -119,7 +113,6 @@ sub __ctlgive($frame) {
   $frame->{-owner_kls}=$pkg;
 
   return;
-
 };
 
 
@@ -142,9 +135,7 @@ sub mint($self) {
   # have icebox?
   if($class->can('icepick')) {
     $self->icebox_clear(0);
-
   };
-
 
   # have specifics?
   if($class->can('mint_frame')) {
@@ -157,13 +148,10 @@ sub mint($self) {
       $ARG=>$self->{$ARG}
 
     } keys %$vars);
-
   };
-
 
   delete $out{-autoload};
   return %out;
-
 };
 
 
@@ -177,7 +165,6 @@ sub unmint($class,$O) {
   if $type->can('unmint_frame');
 
   return $type->new_frame(%$O);
-
 };
 
 

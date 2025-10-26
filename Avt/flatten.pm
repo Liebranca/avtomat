@@ -19,10 +19,11 @@ package Avt::flatten;
   use warnings;
 
   use Cwd qw(abs_path);
-  use English qw(-no_match_vars);
+  use English qw($ARG);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
   use Style;
+  use Tree::File;
 
   use parent 'Shb7::Bk::front';
 
@@ -30,7 +31,7 @@ package Avt::flatten;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.7a';
+  our $VERSION = 'v0.00.8a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -781,28 +782,23 @@ sub binfilter($class,$bfile) {
 # ^filters out unwanted files
 
 sub ffilter($class,$base,$wanted=undef) {
-  my $tree = Shb7::walk($base,-x=>[qw(
+  # get all files in base path
+  my $tree=Tree::File->new($base);
+  $tree->expand(-x=>qr{(?:
     .+\.hed$
-    .+\.asm$
-    .+\.asmx3$
-    .+\.preshwl$
-    .+\.asmd$
+  | .+\.asm$
+  | .+\.asmx3$
+  | .+\.preshwl$
+  | .+\.asmd$
 
-  )]);
+  )}x);
 
-
-  # ^separate empty
-  my @ar=$tree->get_file_list(
-    fullpath=>1
-
-  );
-
-  # remove empty bins
+  # ^remove empty bins
   my @keep=grep {
     if(! -s $ARG) {unlink $ARG;0}
     else {1};
 
-  } @ar;
+  } $tree->get_filepath_list(full=>1);
 
 
   # apply a second filter?
@@ -811,7 +807,6 @@ sub ffilter($class,$base,$wanted=undef) {
 
   # give filtered list
   return @keep;
-
 };
 
 

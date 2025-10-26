@@ -26,7 +26,7 @@ package Arstd::Path;
 
   use lib "$ENV{ARPATH}/lib/";
   use Style qw(null);
-  use Chk qw(is_null is_path is_file);
+  use Chk qw(is_null is_path is_file is_dir);
 
 
 # ---   *   ---   *   ---
@@ -140,11 +140,10 @@ sub parof {
 # [<]: byte ptr ; new string
 
 sub dirof {
-  return (! -d $_[0])
+  return (! is_null($_[0]) &&! -d $_[0])
     ? parof @_,i=>1
     : $_[0]
     ;
-
 };
 
 
@@ -158,14 +157,15 @@ sub dirof {
 sub based {
   my @names=split qr{/},$_[0];
   return $names[0];
-
 };
 
 
 # ---   *   ---   *   ---
 # shorten path
 #
-# [0]: byte ptr ; path
+# [0]: byte ptr ; path to shorten
+# [1]: byte ptr ; base to use | null
+#
 # [<]: bool     ; path is not null
 #
 # [!]: overwrites input path
@@ -180,7 +180,6 @@ sub relto {
   $_[0]=~ s[$re][/];
 
   return ! is_null $_[0];
-
 };
 
 
@@ -191,20 +190,18 @@ sub relto {
 # path exists
 
 sub reqdir($path) {
-
   # sanity check the path!
   croak "<null> passed to reqdir"
-  if ! is_null $path;
+  if is_null($path);
 
   croak "<$path> has invalid characters"
-  if ! is_path $path;
+  if ! is_path($path);
 
   croak "<$path> is a file"
-  if -f $path;
+  if is_file($path);
 
-  mkpath($path) if ! -d $path;
+  mkpath($path) if ! is_dir($path);
   return;
-
 };
 
 
@@ -217,7 +214,6 @@ sub reqdir($path) {
 sub extof {
   my ($have)=$_[0]=~ qr{.+\.([^\.]+)$}sm;
   return (! is_null $have) ? $have : null ;
-
 };
 
 
@@ -237,7 +233,6 @@ sub extwap {
   $_[0]=~ s[$re][$_[1]]smg;
 
   return is_file $_[0];
-
 };
 
 
@@ -261,7 +256,6 @@ sub find_pkg {
 
 
   return $fpath;
-
 };
 
 
@@ -312,7 +306,6 @@ sub find_subpkg {
 
 
   return $fpath;
-
 };
 
 
@@ -340,7 +333,6 @@ sub to_pkg {
   $_[0]=~ s[$ext][];
 
   return ! is_null $_[0];
-
 };
 
 
@@ -360,7 +352,6 @@ sub from_pkg {
   $_[0] .=  '.pm';
 
   return ! is_null $_[0];
-
 };
 
 

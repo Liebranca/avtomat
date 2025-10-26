@@ -31,7 +31,7 @@ package sygen;
     is_hashref
     is_qre
   );
-  use Arstd::Bin qw(xdorc);
+  use Arstd::Bin qw(xdorc moo);
   use Arstd::Path qw(extcl relto to_pkg);
   use Arstd::Array;
   use Arstd::String qw(cat gstrip dqwrap sqwrap);
@@ -122,13 +122,9 @@ St::vconst {
 # ---   *   ---   *   ---
 # point to avtomat and retrieve langdefs
 
+sub ftype_dir {"./avtomat/sys/Ftype/Text/"};
 sub get_files {
-  return xdorc(
-    './avtomat/sys/Ftype/Text/',
-    -r=>1,
-
-  );
-
+  return xdorc(ftype_dir(),-r=>1);
 };
 
 
@@ -138,7 +134,6 @@ sub get_files {
 # [0]: byte ptr ; filename
 
 sub load_file {
-
   # shorten and clear extension
   my $re=qr{^avtomat/*sys/*};
   extcl relto $_[0],$ENV{ARPATH};
@@ -367,17 +362,36 @@ sub generate {
   `mkdir -p $nanorc` if ! -d $nanorc;
 
 
+  # get whether any syntax files have changed
+  my @file=map {
+    my $src=$ARG;
+    my $def=load_file $src;
+    my $dst="$nanorc/$def->{name}.nanorc";
+
+    (moo($dst,ftype_dir() . $src))
+      ? [$dst,$def]
+      : ()
+      ;
+
+  } get_files();
+
+  # ^so as to only update when necessary
+  return if ! @file;
+
+
   # run the generator
-  map {
-    my $def=load_file $ARG;
+  use Log;
+  Log->step('rebuilding syntax files');
+  for(@file) {
+    my ($dst,$def)=@$ARG;
+    Log->substep($def->{name});
     make_syntax_files(
       def   => $def,
-      fpath => "$nanorc/$def->{name}.nanorc",
-
+      fpath => $dst,
     );
+  };
 
-  } get_files;
-
+  return;
 };
 
 generate;

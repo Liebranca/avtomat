@@ -64,14 +64,12 @@ my $ROM={
 
   },
 
-
   # these files are needed for building
   # everything else!
   #
   # as such, it's best their own dependencies
   # remain either untouched or as minimal
   # as possible...
-
   MAMDEPS=>[qw(
     /sys/Style.pm
     /sys/Chk.pm
@@ -82,14 +80,11 @@ my $ROM={
     /sys/Arstd/Bin.pm
     /sys/Arstd/Repl.pm
     /sys/Chk/Syntax.pm
-
   )],
-
 
   # MAM does not depend on these files,
   # so we can mess with their deps alright ;>
   AVTODEPS=>[qw(
-
     /AR.pm
 
     /sys/Frame.pm
@@ -104,6 +99,7 @@ my $ROM={
     /sys/Arstd/Hash.pm
     /sys/Arstd/IO.pm
     /sys/Arstd/PM.pm
+    /sys/Arstd/Fmat.pm
     /sys/Arstd/fatdump.pm
 
     /sys/Type/MAKE.pm
@@ -119,53 +115,46 @@ my $ROM={
     /sys/Ftype/Text/Python.pm
     /sys/Ftype/Text/Js.pm
     /sys/Ftype/Text/Mny.pm
+
+    /sys/Log.pm
+    /sys/Warnme.pm
+    /sys/Cli.pm
+
+    /sys/Queue.pm
+    /sys/Cask.pm
+
+    /sys/Tree.pm
+    /sys/Tree/File.pm
+    /sys/Tree/Dep.pm
+
+    /sys/Type/MAKE.pm
+    /sys/Type.pm
+    /sys/Type/C.pm
+    /sys/Type/Cpp.pm
+
+    /sys/Shb7/Path.pm
+    /sys/Shb7/Find.pm
+    /sys/Shb7/Bfile.pm
+    /sys/Shb7/Bk.pm
+    /sys/Shb7/Bk/flat.pm
+    /sys/Shb7/Bk/gcc.pm
+    /sys/Shb7/Bk/mam.pm
+    /sys/Shb7/Bk/fake.pm
+    /sys/Shb7/Build.pm
+    /sys/Shb7.pm
+
+    /sys/Vault.pm
+
+    /Emit.pm
+    /Emit/Std.pm
+    /Emit/C.pm
+    /Emit/Perl.pm
+
+    /Avt/Sieve.pm
+    /Avt/Xcav.pm
+    /Avt/Makescript.pm
+    /Avt.pm
   )],
-
-
-#    /sys/Arstd/WLog.pm
-#    /sys/Arstd/Fmat.pm
-#
-#    /sys/Cli.pm
-#    /sys/Warnme.pm
-#
-#    /sys/Queue.pm
-#    /sys/Cask.pm
-#    /sys/Tree.pm
-#    /sys/Tree/File.pm
-#    /sys/Tree/Dep.pm
-#
-#    /sys/Type/MAKE.pm
-#    /sys/Type.pm
-#
-#    /sys/Type/C.pm
-#    /sys/Type/Cpp.pm
-#
-#    /sys/Shb7.pm
-#    /sys/Shb7/Path.pm
-#    /sys/Shb7/Find.pm
-#    /sys/Shb7/Bfile.pm
-#    /sys/Shb7/Bk.pm
-#    /sys/Shb7/Bk/flat.pm
-#    /sys/Shb7/Bk/gcc.pm
-#    /sys/Shb7/Bk/mam.pm
-#    /sys/Shb7/Bk/fake.pm
-#    /sys/Shb7/Build.pm
-#
-#    /sys/Vault.pm
-#    /sys/Cli.pm
-#
-#    /Emit.pm
-#    /Emit/Std.pm
-#    /Emit/C.pm
-#    /Emit/Perl.pm
-#
-#    /Avt/Sieve.pm
-#    /Avt/Xcav/C.pm
-#    /Avt/Xcav.pm
-#    /Avt/Makescript.pm
-#    /Avt.pm
-#
-#  )],
 
 };
 
@@ -179,7 +168,6 @@ sub build_clean {
   rmtree("../lib/",{safe=>1});
 
   return;
-
 };
 
 
@@ -191,11 +179,9 @@ sub build_mkdirs {
     $ROM->{TRASHDIR},
     $ROM->{LIBDIR},
     $ROM->{BINDIR},
-
   );
 
   return;
-
 };
 
 
@@ -246,9 +232,7 @@ sub procmam {
   print {$dst} "$body";
   close $dst or die "$ERRNO";
 
-
   return;
-
 };
 
 
@@ -267,9 +251,7 @@ sub ot {
   &&  (defined $_[1] && -f $_[1])
 
   &&! ( (-M $_[0]) < (-M $_[1]) )
-
   );
-
 };
 
 
@@ -286,9 +268,7 @@ sub moo {
   return (
      (defined $_[0] &&! -f $_[0])
   || ot($_[0],$_[1])
-
   );
-
 };
 
 
@@ -306,8 +286,8 @@ sub need_update {
   my $src  = "$_[1]$_[2]";
   my $dst  = "$_[0]$_[2]";
   my $need = (-e $dst) ? moo($dst,$src) : 1 ;
-  return ($need) ? [$dst,$src,$_[2]] : () ;
 
+  return ($need) ? [$dst,$src,$_[2]] : () ;
 };
 
 
@@ -324,7 +304,6 @@ sub req_basedir {
   mkpath($basedir) if ! -e $basedir;
 
   return pop @ar;
-
 };
 
 
@@ -363,7 +342,6 @@ sub req_basedir {
 #      as well.
 
 sub mkmam {
-
   # get package from build or final dir
   load lib=>$_[0];
   load 'MAM';
@@ -377,7 +355,6 @@ sub mkmam {
   $mam->set_rap($_[1]);
 
   return $mam;
-
 };
 
 
@@ -388,7 +365,6 @@ sub mkmam {
 # [1]: bool    ; MAM build step (rap)
 
 sub update {
-
   # paths used depend on build step
   my ($dstdir,$srcdir)=($_[1])
     ? ($ROM->{TRASHDIR},$ROM->{AVTODIR})
@@ -417,7 +393,7 @@ sub update {
     say {*STDERR} "$tag$fname";
 
     # process file with MAM
-    my $out=$mam->run($src);
+    my $out=$mam->run($dst,$src);
 
     # ^owc
     req_basedir $dst;
@@ -428,9 +404,7 @@ sub update {
 
     1;
 
-
   } @need;
-
 };
 
 
@@ -449,7 +423,6 @@ sub make {
 
     $ROM->{FMAT}->{FNAME} . "$_[0]\e[0m",
     $ROM->{FMAT}->{STEP},
-
   );
 
 
@@ -474,12 +447,10 @@ sub make {
   say {*STDERR} (
     "\n$tag[2]copying from "
   . "\e[36;1m\"/.trash/\"\e[0m"
-
   );
 
   update($_[1],0);
   return;
-
 };
 
 
@@ -507,18 +478,15 @@ sub run {
   make avtomat=>$ROM->{AVTODEPS};
 
 
-  # rebuild nanorc files ;>
+  # importing sygen rebuilds nanorc files ;>
   $tag=$ROM->{FMAT}->{STEP};
-  say {*STDERR} "${tag}rebuilding syntax files";
-  say {*STDERR} `./bin/sygen`;
+  load lib=>"$ENV{ARPATH}/avtomat/bin/";
+  load sygen;
   say {*STDERR} "${tag}done\n";
-
-
   return;
-
 };
 
-run;
+run();
 
 
 # ---   *   ---   *   ---

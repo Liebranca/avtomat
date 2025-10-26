@@ -2,7 +2,7 @@
 # ---   *   ---   *   ---
 # ~~
 
-package mkavto;
+package install;
   use v5.42.0;
   use strict;
   use warnings;
@@ -21,16 +21,12 @@ BEGIN {
   print $me;
   exit  -1 if $me=~ m/^ARPATH missing/;
 
-  @ARGV=grep {$_ eq 'clean'} @ARGV;
-
+  @ARGV=grep {$_ ne 'clean'} @ARGV;
 };
 
 
 # ---   *   ---   *   ---
 # deps
-
-  use lib "$ENV{ARPATH}/lib/sys/";
-  use Shb7;
 
   use lib "$ENV{ARPATH}/lib/";
   use Avt;
@@ -49,9 +45,7 @@ Avt::config {
 
     print $me;
     exit -1 if $me=~ m/^ARPATH missing/;
-
   ],
-
 };
 
 

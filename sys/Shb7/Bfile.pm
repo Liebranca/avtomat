@@ -20,14 +20,14 @@ package Shb7::Bfile;
 
   use English;
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
+  use Style qw(null);
+  use Chk qw(is_file);
 
+  use Arstd::String qw(cat cjag);
   use Arstd::Path qw(dirof reqdir);
-  use Arstd::IO qw(errout);
+  use Arstd::throw;
 
-  use Shb7;
-
-  use parent 'St';
+  use Shb7::Path qw(relto_root);
 
 
 # ---   *   ---   *   ---
@@ -40,13 +40,8 @@ package Shb7::Bfile;
 # ---   *   ---   *   ---
 # ROM
 
-St::vconst {
-  AVTOPATH=>"$ENV{ARPATH}/avtomat/",
-  LDOK_RE=>qr{
-    Shb7\:\:Bk\:\:(?: gcc|flat)
-
-  }x,
-
+sub avtopath {
+  return "$ENV{ARPATH}/avtomat/";
 };
 
 
@@ -85,7 +80,6 @@ sub new($class,$fpath,$bk,%O) {
   # make paths and give
   reqdir dirof $self->{obj};
   return $self;
-
 };
 
 
@@ -93,9 +87,10 @@ sub new($class,$fpath,$bk,%O) {
 # build output is valid ld input
 
 sub linkable($self) {
-  my $class=ref $self->{bk};
-  return int($class=~ $self->LDOK_RE);
+  my $re    = qr{Shb7::Bk::(?:gcc|flat)};
+  my $class = ref $self->{bk};
 
+  return int($class=~ $re);
 };
 
 
@@ -110,7 +105,6 @@ sub update($self,$bld) {
   ) ? $self->{bk}->fbuild($self,$bld)
     : 0
     ;
-
 };
 
 
@@ -118,26 +112,21 @@ sub update($self,$bld) {
 # check object date against dependencies
 
 sub buildchk($self,$do_build,$deps,%O) {
-
   # early exit?
   $O{clean}//=0;
   return 1 if $O{clean} || $$do_build;
 
   # ^go on, check!
-  map {
-
+  for(@$deps) {
     # found dep is updated?
-    if(-f $ARG && Shb7::ot($self->{obj},$ARG)) {
+    if(is_file($ARG)
+    && Shb7::ot($self->{obj},$ARG)) {
       $$do_build=1;
       return;
-
     };
-
-  } @$deps;
-
+  };
 
   return;
-
 };
 
 
@@ -145,25 +134,17 @@ sub buildchk($self,$do_build,$deps,%O) {
 # sanity check: dependency files exist
 
 sub depchk($self,$deps) {
-
   # ok if no missing deps
-  my @miss=grep {$ARG &&! -f $ARG} @$deps;
+  my @miss=grep {$ARG &&! is_file($ARG)} @$deps;
   return if ! @miss;
 
   # ^give errme
-  errout(
-    "%s missing dependencies:%s\n",
-
-    args=>[
-      Shb7::shpath($self->{src}),
-      prepend("\n::",@miss),
-
-    ],
-
-    lvl=>$AR_FATAL,
-
+  my $rel=$self->{src};
+  relto_root($rel);
+  throw cat(
+    "$rel missing dependencies:\n",
+    cjag("\n::",@miss),
   );
-
 };
 
 
@@ -171,7 +152,7 @@ sub depchk($self,$deps) {
 # pre-build step
 
 sub prebuild($self) {
-  unlink $self->{obj} if -f $self->{obj};
+  unlink $self->{obj} if is_file($self->{obj});
 
   my $pproc=$self->{bk}->{pproc};
 
@@ -179,7 +160,6 @@ sub prebuild($self) {
   if defined $pproc;
 
   return;
-
 };
 
 
@@ -193,7 +173,6 @@ sub postbuild($self) {
   if defined $pproc;
 
   return;
-
 };
 
 
@@ -207,7 +186,6 @@ sub binfilter($self) {
   if defined $pproc;
 
   return;
-
 };
 
 
@@ -216,7 +194,6 @@ sub binfilter($self) {
 
 sub unroll($self,@keys) {
   return map {$self->{$ARG}} @keys;
-
 };
 
 

@@ -9,32 +9,26 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Type::C;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English qw(-no_match_vars);
+  use English qw($ARG);
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
-  use Style;
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Type;
 
-  use Arstd::Array;
-  use Vault 'ARPATH';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.1a';
+  our $VERSION = 'v0.00.2a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -42,25 +36,19 @@ package Type::C;
 # batch make type alias
 
 sub batlis($class,$C,$peso) {
-
   return "$C" => "$peso"
-  if $peso=~ qr{^(?:nullarg|long|longptr)$};
+  if $peso=~ qr{^(?:null|ptr)$};
 
   return (
-
     "$C" => "$peso",
 
     (! Type->is_str($peso))
-      ? ("$C*"  => "$peso long",
-         "$C*"  => "$peso longptr",
-         "$C**" => "long pptr")
+      ? ("$C*"  => "$peso ptr",
+         "$C**" => "$peso pptr")
 
-      : ("$C"   => "${peso}ptr",
-         "$C*"  => "long pptr")
+      : ("$C*"  => "$peso ptr")
       ,
-
   );
-
 };
 
 
@@ -68,9 +56,7 @@ sub batlis($class,$C,$peso) {
 # ^adds entry to table
 
 sub add($class,$C,$peso) {
-
   my $have={$class->batlis($C,$peso)};
-
   map {
     $class->Table->{$ARG}=$have->{$ARG};
     $class->RTable->{$have->{$ARG}}=$ARG;
@@ -82,66 +68,62 @@ sub add($class,$C,$peso) {
 
 
   return;
-
 };
 
 
 # ---   *   ---   *   ---
 # ROM
 
-BEGIN {
+St::vconst {
+  Table  => {},
+  RTable => {},
+};
 
-  St::vconst {
+sub from_peso {return (
+  q[sign byte] => ['char','int8_t'],
+  q[byte]      => [
+    'unsigned char','uint8_t'
+  ],
 
-    Table  => {},
-    RTable => {},
+  q[sign word] => ['short','int16_t'],
+  q[word]      => [
+    'unsigned short','uint16_t'
+  ],
 
-  };
+  q[sign dword] => ['int','int32_t'],
+  q[dword]      => ['unsigned int','uint32_t'],
+
+  q[sign qword] => [
+    'long','intptr_t','int64_t'
+  ],
+  q[qword] => [
+    'unsigned long','size_t',
+    'uintptr_t','uint64_t'
+  ],
+
+  q[cstr]  => ['char*'],
+  q[plstr] => ['wchar_t*'],
+
+  q[real]  => ['float'],
+  q[dreal] => ['double'],
+
+  q[null]  => ['void'],
+  q[ptr]   => ['void*'],
+)};
 
 
-  Type::xlatetab(
+# ---   *   ---   *   ---
+# ^generate table
 
-    __PACKAGE__,
+sub import {
+  my $class=shift;
 
-    q[sign byte]      => ['char','int8_t'],
-    q[byte]           => [
-      'unsigned char','uint8_t'
+  # skip if default types already built
+  return if int keys %{$class->Table};
 
-    ],
-
-    q[sign word]      => ['short','int16_t'],
-    q[word]           => [
-      'unsigned short','uint16_t'
-
-    ],
-
-    q[byte cstr long] => ['char*'],
-    q[wide cstr long] => ['wchar_t*'],
-
-    q[dword]=>['unsigned int','uint32_t'],
-
-    q[sign dword]     => ['int','int32_t'],
-
-    q[qword]          => [
-      'unsigned long','size_t',
-      'uintptr_t','uint64_t'
-
-    ],
-
-    q[sign qword]     => [
-      'long','intptr_t','int64_t'
-
-    ],
-
-    q[real]           => ['float'],
-    q[dreal]          => ['double'],
-
-    q[nullarg]        => ['void'],
-    q[longptr]        => ['void*'],
-    q[long]           => ['void*'],
-
-  ) if ! %{__PACKAGE__->Table};
-
+  # else build
+  Type::xlatetab($class,$class->from_peso());
+  return;
 };
 
 

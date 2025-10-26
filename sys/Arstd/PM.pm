@@ -35,7 +35,10 @@ package Arstd::PM;
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT_OK=qw(subwraps);
+  our @EXPORT_OK=qw(
+    subwraps
+    rcaller
+  );
 
 
 # ---   *   ---   *   ---

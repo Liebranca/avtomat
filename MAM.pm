@@ -18,6 +18,7 @@ package MAM;
   use strict;
   use warnings;
 
+  use Cwd qw(abs_path);
   use English qw($ARG $ERRNO);
   use Module::Load;
 
@@ -25,6 +26,7 @@ package MAM;
   use Style qw(null);
   use Chk qw(is_null is_file is_dir);
   use Arstd::String qw(strip gsplit);
+  use Arstd::Path qw(relto dirof);
   use Arstd::Bin qw(orc);
   use Arstd::throw;
   use Arstd::Repl;
@@ -68,7 +70,6 @@ sub repv {
 
   # ^nope, restore!
   return "$beg/lib/$$path\";";
-
 };
 
 
@@ -79,16 +80,13 @@ sub repv {
 # [<]: mem ptr   ; new instance
 
 sub new {
-
   # make ice
   my $self=bless {},$_[0];
 
   # oh no here we go again...
   $self->{A9M}={
     -cproc=>null,
-
   };
-
 
   # make repl ice
   $self->{repl}=Arstd::Repl->new(
@@ -99,7 +97,6 @@ sub new {
          $out =~ s[$re][/]g;
 
       return $out;
-
     },
 
     inre => qr{
@@ -116,14 +113,10 @@ sub new {
       (?<path> [^;]+)
 
       ['"] \s* ;
-
     }x,
-
   );
 
-
   return $self;
-
 };
 
 
@@ -136,7 +129,6 @@ sub new {
 # [*]: module must be a valid directory
 
 sub set_module {
-
   # validate
   throw "Invalid module: <null>"
   if is_null $_[1];
@@ -144,11 +136,9 @@ sub set_module {
   throw "Invalid module: '$_[1]'"
   if ! is_dir "$ENV{MAMROOT}/$_[1]";
 
-
   # set and give
   $_[0]->{module}=$_[1];
   return;
-
 };
 
 
@@ -166,7 +156,40 @@ sub set_module {
 sub set_rap {
   $_[0]->{rap}=$_[1];
   return;
+};
 
+
+# ---   *   ---   *   ---
+# adds to path
+
+sub libpush {
+  load lib=>$ARG for(@_);
+  return;
+};
+
+
+# ---   *   ---   *   ---
+# Vault is the avtomat package that
+# handles caching.
+#
+# Because it always requires a specific key
+# to identify the root path to the cache
+# directory, but passing this key manually
+# is a bit tedious, we simply generate that here
+#
+# [0]: mem ptr  ; self
+# [1]: byte ptr ; file contents
+# [2]: byte ptr ; import args
+
+sub Vault_step {
+  my $use_re  = qr{\buse\s+Vault\b[^;]*;};
+  my $call_re = qr{\bvault\->([^\(]+)\(};
+  my $name    = $_[0]->{module};
+
+  $_[1]=~ s[$use_re][use Vault $_[2];]g;
+  $_[1]=~ s[$call_re][Vault->module($name)->$1(]g;
+
+  return;
 };
 
 
@@ -189,7 +212,6 @@ sub AR_step {
 
     (?<body> [^\}]+)
     \s* \} ;?
-
   }x;
 
 
@@ -244,9 +266,7 @@ sub AR_step {
       join(' ',@sym),
 
       ');',
-
     );
-
   };
 
 
@@ -265,7 +285,6 @@ sub AR_step {
 
   $_[1]=~ s[$re][$body]sm;
   goto top;
-
 };
 
 
@@ -321,7 +340,6 @@ sub pein {
   };
 
   return null;
-
 };
 
 
@@ -334,7 +352,6 @@ sub peret {
     ? "return " . (join ' ',@_)
     : "return"
     ;
-
 };
 
 
@@ -344,7 +361,6 @@ sub peret {
 my $Proctab={
   in  => \&pein,
   ret => \&peret,
-
 };
 
 
@@ -431,7 +447,6 @@ sub proc_step {
 
   say "sub $name {\n$body\n};";
   exit;
-
 };
 
 
@@ -447,30 +462,34 @@ sub proc_step {
 # [<]: byte ptr ; processed file (new string)
 
 sub run {
-
   # validate path
   throw "Invalid file: <null>"
-  if is_null $_[1];
+  if is_null $_[2];
 
-  throw "Invalid file: '$_[1]'"
-  if ! is_file $_[1];
+  throw "Invalid file: '$_[2]'"
+  if ! is_file $_[2];
 
 
   # read file into body
-  my $body=orc $_[1];
+  my $body=orc $_[2];
+
+  # get relative path from dst to root
+  my $root=abs_path($ENV{MAMROOT});
+  relto($root,dirof(abs_path($_[1])));
+  my $path="'$root' => '$_[0]->{module}'";
 
   # ^run textual replacement
+  $_[0]->Vault_step($body,$path);
   $_[0]->AR_step($body);
   $_[0]->{repl}->proc($body);
   $_[0]->{repl}->clear();
   $_[0]->proc_step($body);
 
   # syntax check the filtered source ;>
-  load 'Chk::Syntax',$_[1],$body;
+  load 'Chk::Syntax',$_[2],$body;
 
   # give filtered
   return $body;
-
 };
 
 

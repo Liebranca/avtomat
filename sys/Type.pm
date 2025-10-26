@@ -344,10 +344,8 @@ sub warn_redef($name) {
 # translation table
 
 sub xlatetab($langclass,@tab) {
-
   # array as hash
   my $ti=0;
-
   my @tk=nkeys(\@tab);
   my @tv=nvalues(\@tab);
 
@@ -356,15 +354,9 @@ sub xlatetab($langclass,@tab) {
     my $peso = $ARG;
     my $lang = $tv[$ti++];
 
-    map {
-      $langclass->add($ARG,$peso)
-
-    } @$lang;
-
+    map {$langclass->add($ARG,$peso)} @$lang;
 
   } @tk };
-
-
 };
 
 
@@ -384,9 +376,7 @@ sub xlate($lang,$type) {
   throw "No $lang translation for type: '$name'"
   if ! defined $out;
 
-
   return $out;
-
 };
 
 
@@ -404,9 +394,7 @@ sub xlate_struc($lang,$type) {
 
     [$stype,$name];
 
-
   } @{$type->{struc_t}};
-
 };
 
 

@@ -19,43 +19,38 @@ package Shb7::Bk;
   use strict;
   use warnings;
 
-  use English;
+  use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
+  use Style qw(null);
 
-  use Arstd::Array;
-  use Arstd::Re;
+  use Arstd::Array qw(filter);
+  use Arstd::throw;
 
-  use Shb7;
   use Shb7::Bfile;
 
-  use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.3';
+  our $VERSION = 'v0.00.4';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
 
-St::vconst {
-
-  TARGET => {
-    x64=>0,
-    x32=>1,
-
-  },
-
+sub target_arch {
+  return 0 if $_[0] eq 'x64';
+  return 1 if $_[0] eq 'x86';
+  throw "Unknown target '$_[0]'";
 };
+
 
 # ---   *   ---   *   ---
 # constructor
 
 sub new($class,%O) {
-
   # defaults
   $O{pproc} //= undef;
 
@@ -66,9 +61,7 @@ sub new($class,%O) {
 
   },$class;
 
-
   return $self;
-
 };
 
 # ---   *   ---   *   ---
@@ -82,64 +75,47 @@ sub push_src($self,$fpath) {
     obj_ext=>q[.o],
     dep_ext=>q[.d],
     asm_ext=>q[.s],
-
   );
 
   return $self->{file}->[-1];
-
 };
+
 
 # ---   *   ---   *   ---
 # gives dependency file list from str
 
 sub depstr_to_array($self,$depstr) {
-
   # make list
   my @out=split qr{\*,\s*},$depstr;
 
   # ensure there are no blanks
-  array_filter(\@out);
+  filter(\@out);
 
   return @out;
-
 };
+
 
 # ---   *   ---   *   ---
 # get array of build files
 
 sub bfiles($self) {
   return @{$self->{file}};
-
 };
+
 
 # ---   *   ---   *   ---
 # placeholders
 
-sub target($self) {
-  return null;
+sub target($self) {return null};
+sub fbuild($self,$bfile,$bld) {return 0};
+sub fupdated($self,$bfile) {return 1};
+sub fdeps($self,$bfile) {return ()};
 
-};
-
-sub fbuild($self,$bfile,$bld) {
-  return 0;
-
-};
-
-sub fupdated($self,$bfile) {
-  return 1;
-
-};
-
-sub fdeps($self,$bfile) {
-  return ();
-
-};
 
 # ---   *   ---   *   ---
 # common fupdated proto
 
 sub chkfdeps($self,$bfile,%O) {
-
   my $do_build =
      (! -f $bfile->{obj})
   || Shb7::ot($bfile->{obj},$bfile->{src})
@@ -154,19 +130,17 @@ sub chkfdeps($self,$bfile,%O) {
   $bfile->buildchk(\$do_build,\@deps,%O);
 
   return $do_build;
-
 };
+
 
 # ---   *   ---   *   ---
 # shorthands
 
 sub get_updated($self,%O) {
-
   return grep {
     $self->fupdated($ARG,%O);
 
   } $self->bfiles();
-
 };
 
 sub build_objects($self,$bld) {
@@ -176,14 +150,12 @@ sub build_objects($self,$bld) {
       $ARG eq '-g'
 
     } @{$bld->{flag}},
-
   );
 
-  for my $bfile($self->get_updated(%O)) {
-    $self->fbuild($bfile,$bld);
+  $self->fbuild($ARG,$bld)
+  for $self->get_updated(%O);
 
-  };
-
+  return;
 };
 
 

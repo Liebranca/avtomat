@@ -46,13 +46,14 @@ package CMAM::static;
     cmamout
     cmamout_push_pm
     cmamout_push_c
+    cmamout_exported
   );
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.6a';
+  our $VERSION = 'v0.00.8a';
   our $AUTHOR  = 'IBN-3DILA';
 
   sub errsafe {return 1};

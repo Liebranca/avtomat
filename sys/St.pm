@@ -18,7 +18,6 @@ package St;
   use strict;
   use warnings;
 
-  use Carp qw(croak);
   use Storable qw(dclone);
   use English qw($ARG);
   use B::Deparse;
@@ -27,11 +26,23 @@ package St;
   use Chk qw(is_blessref is_coderef);
   use Frame;
 
+  use Arstd::throw;
+
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT_OK=qw(
+    is_valid
+    is_iceof
+  );
+
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.03.6';
+  our $VERSION = 'v0.03.7';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -54,7 +65,6 @@ package St;
 sub deparse {
   state $out=B::Deparse->new();
   return $out;
-
 };
 
 
@@ -64,7 +74,6 @@ sub deparse {
 sub cpkg {
   my $pkg=caller;
   return $pkg;
-
 };
 
 
@@ -77,7 +86,6 @@ sub cf($idex=1,$clean=0) {
      $name =~ s[$re][$1] if $clean;
 
   return $name;
-
 };
 
 
@@ -90,7 +98,6 @@ sub is_valid($kind,$obj) {
   && int $obj->isa($kind)
 
   );
-
 };
 
 
@@ -107,7 +114,6 @@ sub is_iceof($kind,$obj) {
   && $kind eq ref $obj
 
   );
-
 };
 
 
@@ -122,34 +128,30 @@ sub get_class($obj) {return ref $obj};
 # to default values
 
 sub defnit($class,$O) {
-
   # get skeleton
   my $defs=dclone $class->DEFAULT;
 
   # fetch coderefs (Storable can't ;>)
-  map  {
-    my $fn=$defs->{$ARG};
-       $fn=substr $fn,2,(length $fn) - 2;
-       $fn=\&$fn;
-
-    $defs->{$ARG}=$fn;
-
-  } grep {
+  my @code=grep {
       defined $defs->{$ARG}
   &&! index   $defs->{$ARG},'\&'
 
   } keys %$defs;
 
+  for(@code) {
+    my $fn=$defs->{$ARG};
+       $fn=substr $fn,2,(length $fn) - 2;
+       $fn=\&$fn;
+
+    $defs->{$ARG}=$fn;
+  };
 
   # ^set value to default if not set!
   for my $key(keys %$defs) {
     $O->{$key} //= $defs->{$key};
-
   };
 
-
   return;
-
 };
 
 
@@ -164,9 +166,7 @@ sub classattr($class,$name) {
   my $B    = \$$A->{$name};
      $$B //= [];
 
-
   return $$B;
-
 };
 
 
@@ -182,7 +182,6 @@ sub classcache($class,$name) {
 
 
   return $$B;
-
 };
 
 
@@ -196,12 +195,11 @@ sub classpar($class,$type,$name) {
     : \&classattr
     ;
 
-
   return map {
     $fn->($ARG,$name)
 
   } @{"$class\::ISA"};
-
+  use strict 'refs';
 };
 
 
@@ -210,12 +208,10 @@ sub classpar($class,$type,$name) {
 
 sub superattr($class,$name) {
   return classpar $class,attr=>$name;
-
 };
 
 sub supercache($class,$name) {
   return classpar $class,cache=>$name;
-
 };
 
 
@@ -225,7 +221,6 @@ sub supercache($class,$name) {
 # into St methods
 
 sub inject($name,$fn,@dst) {
-
   # who's calling?
   my $dst=$dst[0];
 
@@ -238,9 +233,7 @@ sub inject($name,$fn,@dst) {
   my $attr=classattr $dst,$name;
   push @$attr,$fn;
 
-
   return;
-
 };
 
 
@@ -256,7 +249,6 @@ sub injector($class,@args) {
   };
 
   return;
-
 };
 
 
@@ -268,7 +260,6 @@ sub impsmash($class,@args) {
   map {$ARG->($class,@args)} @$attr;
 
   return;
-
 };
 
 
@@ -297,7 +288,6 @@ sub imping($O) {
 
     map  {inject $ARG,$O->{$ARG},$dst}
     keys %$O;
-
   ];
 
 
@@ -307,14 +297,14 @@ sub imping($O) {
   $new .= "\n$have\n};\n";
   my $fn=eval $new;
 
-  croak "BAD CODEREF:\n\n$new\n"
+  throw "BAD CODEREF:\n\n$new\n"
   if ! defined $fn;
 
   *{"$pkg\::import"}=$fn;
 
+  use warnings 'redefine';
 
   return;
-
 };
 
 
@@ -322,7 +312,6 @@ sub imping($O) {
 # define/overwrite virtual constants
 
 sub vconst($O) {
-
   # whomever calls, store here
   my $class = caller;
   my $cache = classcache $class,'vconst';
@@ -341,17 +330,14 @@ sub vconst($O) {
 
 
   # walk definitions
-  map {
-
+  for(keys %$O) {
     # array as hash
     my $key   = $ARG;
     my $value = $O->{$key};
 
-
     # save to table/make method
     no strict 'refs';
     *{"$class\::$key"}=sub ($cls) {
-
       # have cached?
       return $cache->{$key}
       if exists $cache->{$key};
@@ -363,19 +349,14 @@ sub vconst($O) {
         ;
 
       $cache->{$key};
-
     };
-
-
-  } keys %$O;
+  };
 
 
   # run injected methods
   injector $class,$O;
 
-
   return;
-
 };
 
 
@@ -384,14 +365,12 @@ sub vconst($O) {
 # pure sugar
 
 sub vstatic($O={}) {
-
   # defaults
   $O->{-autoload} //= [];
 
   # get ctx
   my $class = caller;
   my $name  = 'Frame_Vars';
-
 
   # run injected methods
   injector $class,$O;
@@ -400,9 +379,7 @@ sub vstatic($O={}) {
   no strict 'refs';
   *{"$class\::$name"}=sub ($class) {$O};
 
-
   return;
-
 };
 
 
@@ -421,7 +398,6 @@ sub get_gframe($class) {
   };
 
   return $class->get_frame(0);
-
 };
 
 
@@ -429,7 +405,6 @@ sub get_gframe($class) {
 # make instance container
 
 sub new_frame($class,%O) {
-
   # general defaults
   $O{-owner_kls}  //= (caller)[0];
   $O{-force_idex} //= 0;
@@ -438,14 +413,14 @@ sub new_frame($class,%O) {
   # ^fetch class-specific defaults!
   my $vars=$class->Frame_Vars();
 
-  map {
+  for(keys %$vars) {
     my $def=$vars->{$ARG};
     $O{$ARG} //= (is_coderef $def)
       ? $def->($class)
       : $def
       ;
 
-  } keys %$vars;
+  };
 
   # ^assign owner class
   $O{-class}=$class;
@@ -479,11 +454,9 @@ sub new_frame($class,%O) {
 
   };
 
-
   # save ice and give
   $Frames->{$class}->[$idex]=$frame;
   return $frame;
-
 };
 
 
@@ -491,7 +464,6 @@ sub new_frame($class,%O) {
 # ^get existing or make new
 
 sub get_frame($class,$i=0) {
-
   # requested unavail?
   if(! exists  $Frames->{$class}
   || ! defined $Frames->{$class}->[$i]) {
@@ -500,12 +472,10 @@ sub get_frame($class,$i=0) {
       -force_idex => $i,
 
     );
-
   };
 
   # ^nope, give existing!
   return $Frames->{$class}->[$i];
-
 };
 
 
@@ -514,7 +484,7 @@ sub get_frame($class,$i=0) {
 
 sub iof_frame($class,$frame) {
   my $ar=$Frames->{$class}
-  or croak "No frames avail for $class";
+  or throw "No frames avail for $class";
 
   my ($idex)=grep {
     $ar->[$ARG] eq $frame
@@ -522,7 +492,6 @@ sub iof_frame($class,$frame) {
   } 0..int(@$ar)-1;
 
   return $idex;
-
 };
 
 
@@ -531,7 +500,6 @@ sub iof_frame($class,$frame) {
 
 sub get_frame_list($class) {
   return @{$Frames->{$class}};
-
 };
 
 
@@ -542,7 +510,6 @@ sub get_frame_list($class) {
 sub nattrs($self) {
   map  {  $ARG  => $self->{$ARG}}
   grep {! ($ARG =~ qr{^\-})} keys %$self;
-
 };
 
 
@@ -573,7 +540,6 @@ sub tabfetch($key,$tab,$fail,$fn,@args) {
     ? $fn->(@args)
     : '--define'
     ;
-
 };
 
 
@@ -595,7 +561,6 @@ sub DESTROY($self) {
   injector $class,$self;
 
   return;
-
 };
 
 

@@ -139,7 +139,7 @@ sub rshift($ar,$idex) {
 # discards blanks in array
 
 sub filter($ar,$block=\&is_null) {
-  @$ar=grep {$block->($ARG)} @$ar;
+  @$ar=grep {! $block->($ARG)} @$ar;
   return;
 };
 

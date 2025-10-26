@@ -41,6 +41,7 @@ package CMAM::parse;
   use lib "$ENV{ARPATH}/lib/";
   use CMAM::token qw(tokenshift semipop);
   use CMAM::static qw(
+    cmamout
     cmamdef
     cmamlol
     cmamgbl
@@ -57,6 +58,7 @@ package CMAM::parse;
   use Exporter 'import';
   our @EXPORT_OK=qw(
     blkparse
+    blkparse_re
     type2expr
     blk2expr
   );
@@ -65,7 +67,7 @@ package CMAM::parse;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.7a';
+  our $VERSION = 'v0.00.8a';
   our $AUTHOR  = 'IBN-3DILA';
 
   sub errsafe {return 1};
@@ -82,19 +84,22 @@ package CMAM::parse;
 sub blkparse {
   # strip comments
   comstrip($_[0]);
+  return 0 if is_null $_[0];
 
-  # make struct for textual replacement
+  # make struct for textual replacement;
+  # it'll match blocks of code, replace them
+  # with a placeholder, and _then_ run
+  # blkrepv for each
   my $repl=Arstd::Repl->new(
     pre  => 'CBLK',
-    inre => qr{},
+    inre => blkparse_re(),
     repv => \&blkrepv,
   );
-  # ^assign block definition
-  $repl->{inre}=blkparse_re($repl->{outre});
 
-  # ^get all expressions matching block
+  # ^run blkrepv on all expressions
+  # ^matching blkparse_re
   $repl->proc($_[0]);
-  return;
+  return ! is_null $_[0];
 };
 
 
@@ -122,7 +127,7 @@ sub blkrepv {
 # processes expressions
 #
 # [0]: mem  ptr ; code block capture
-# [<]: byte ptr ; modified block (new string)
+# <[<]: byte ptr ; modified block (new string)
 #
 # [!]: overwrites fields of input mem
 
@@ -179,9 +184,9 @@ sub exprproc {
       gstrip(
         map {expand($ARG)}
         @{$_[0]->{blk}}
+      )
 
-      ) . ";\n};\n"
-    );
+    ) . ";\n};\n";
 
     # terminate scope if we're inside a function
     unset_local_scope()
@@ -356,10 +361,6 @@ sub spec_t {
 # a generic pattern for grabbing
 # symbols
 #
-# [0]: re ; placeholder pattern used by repl. we
-#           need this to keep already matched blocks
-#           from being grabbed twice
-#
 # [<]: re ; new/cached pattern
 #
 # [!]: conventional wisdom is, of course,
@@ -372,7 +373,6 @@ sub spec_t {
 #      process the code for the parser proper
 
 sub blkparse_re {
-
   # basic rule for what is a valid symbol name
   my $name_re=Ftype::Text->name_re;
 
@@ -384,7 +384,6 @@ sub blkparse_re {
   #
   # saves us from writing an actual parser
   # just for the bootstrap...
-
   my $blk_re=qr{(?<blk>(?<!\-\>)
     (?<rec> \{
       ([^\{\}]+
@@ -393,7 +392,6 @@ sub blkparse_re {
     \})+
 
   )}sx;
-
 
   # function is (re): type+ name args blk
   my $fn_re=qr{(?<expr>
@@ -427,11 +425,10 @@ sub blkparse_re {
   # if it's not recognized as a CMAM macro
   # by later checks, then it's plain C and
   # we won't touch it
-
   return qr{
-    # we catch preprocessor lines so as
+    # we catch C preprocessor lines so as
     # to restore them later; we won't touch em
-    (?:(?<cpreproc>\# ([^\n]|\\\n)+\n))
+    (?:(?<expr>\# ([^\n]|\\\n)+\n))
 
   | (?:(?<cmd> (?!REPL) $name_re) \s+
     (?:$fn_re|$struc_re|$value_re))

@@ -91,16 +91,12 @@ sub bitscanf($x) {
   my $have=undef;
 
   while($x) {
-    ($have)=($idex),last
-    if $x & 1;
+    ($have)=($idex),last if $x & 1;
 
     $x >>= 1;
-    $idex++;
-
+    ++$idex;
   };
-
   return $have;
-
 };
 
 

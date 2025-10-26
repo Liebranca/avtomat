@@ -1,8 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# CMAM
-# whatever MAM does...
-# but better ;>
+# CMAM EMIT
+# code spitter
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -22,7 +21,7 @@ package CMAM::emit;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
-  use Chk qw(is_null);
+  use Chk qw(is_null is_arrayref);
 
   use Arstd::Array qw(iof);
   use Arstd::Fmat;
@@ -40,6 +39,10 @@ package CMAM::emit;
     tokenpop
     tokenshift
     tokentidy
+    semipop
+  );
+  use CMAM::parse qw(
+    blkparse_re
   );
 
 
@@ -53,10 +56,116 @@ package CMAM::emit;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.7a';
+  our $VERSION = 'v0.00.8a';
   our $AUTHOR  = 'IBN-3DILA';
 
   sub errsafe {return 1};
+
+
+# ---   *   ---   *   ---
+# makes C header from cmamout
+#
+# [0]: byte ptr ; source code string
+# [1]: bool     ; destination is header
+#
+# [<]: byte ptr ; header (new string)
+#
+# [!]: overwrites input string
+#
+# [*]: replaces __PUBLIC_N__ in source accto
+#      what a header file would need
+#
+# [*]: removes definitions from source
+#      IF the destination is not a header
+
+sub chead {
+  # we cat to this output string
+  my $out=null;
+
+  # these keywords tell us that we want to
+  # include the block in the resulting header!
+  my $expose_re=qr{^(?:
+    CX|IX|CIX|typedef|struct|union
+
+  )\s+}x;
+
+  # for every exported symbol...
+  my $re=qr{\b__EXPORT_(\d+)__\s*;\s*}sm;
+  my @captkey=qw(cmd type name args);
+  while($_[0]=~ $re) {
+    # get element
+    my $sym    = cmamout()->{export}->[$1];
+    my $export = null;
+
+    # perform block capture...
+    $sym="$sym;\n";
+    $sym=~ blkparse_re();
+    my $capt={%+};
+
+    # avoid including entire block?
+    if(! ($sym=~ $expose_re)) {
+      # have preprocessor line?
+      if(! exists $capt->{cmd}) {
+        $export=$sym;
+        semipop($export);
+
+        $sym=null;
+
+      # ^nope, make header line from expression
+      } else {
+        $export=join(' ',map {
+          (is_arrayref($capt->{$ARG}))
+            ? '(' . join(',',@{$capt->{$ARG}}) . ')'
+            : $capt->{$ARG}
+            ;
+
+        } grep {
+          exists $capt->{$ARG};
+
+        } @captkey);
+      };
+
+
+    # ^nope, definition in header!
+    } else {
+      # expand shorthand specifiers
+      my $cmd;
+      if($capt->{cmd} eq 'CX') {
+        $cmd='static const';
+
+      } elsif($capt->{cmd} eq 'IX') {
+        $cmd='static inline';
+
+      } elsif($capt->{cmd} eq 'CIX') {
+        $cmd='static inline const';
+
+      } else {
+        $cmd=$capt->{cmd};
+
+      };
+
+      # ^paste entire definition in header
+      $export="$cmd $capt->{expr}";
+
+      # erase definition from source
+      $sym=null;
+    };
+
+    # cat line to header...
+    if(! $_[1]) {
+      $out .= "$export\n";
+
+    # ... unless output *is* header!
+    } else {
+      $sym="$export\n" if $_[1];
+    };
+
+    $_[0]=~ s[$re][$sym];
+  };
+
+  # give header
+  return $out;
+};
 
 
 # ---   *   ---   *   ---
@@ -119,7 +228,8 @@ sub _pm {
   push @$out,join "\n",(
     q[for(@_) {],
       q[my $fn=Chk::getsub($class,$ARG)],
-      q[or throw "Invalid macro: '$ARG'";],
+      q[or throw "Invalid C macro: '$ARG']
+    . q[ at package '$class'";],
       q[macroload($ARG=>$fn);],
     "};\n",
   );
@@ -186,7 +296,7 @@ sub deps_pm {
       $out .= ' qw(' . join("\n",@req) . ')'
       if @req;
 
-      $out;
+      "$out;";
 
     } @{cmamout()->{dep}->{pm}}),
   );

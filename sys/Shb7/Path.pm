@@ -19,257 +19,270 @@ package Shb7::Path;
   use strict;
   use warnings;
 
+  use File::Copy qw(copy);
   use Cwd qw(abs_path getcwd);
+  use English qw($ARG);
 
-  use English qw(-no_match_vars);
-  use Readonly;
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Chk qw(is_null is_dir);
 
-  use Exporter 'import';
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-
-  use Style;
-
-  use Arstd::Path qw(based);
-  use Arstd::Array qw(array_filter);
-  use Arstd::IO qw(dorc errout);
-
-  use Tree::File;
-
-
-# ---   *   ---   *   ---
-# info
-
-  our $VERSION = 'v0.00.4a';
-  our $AUTHOR  = 'IBN-3DILA';
+  use Arstd::String qw(cat catpath);
+  use Arstd::Path qw(based reqdir relto);
+  use Arstd::Array qw(filter);
+  use Arstd::Bin qw(dorc moo ot);
+  use Arstd::throw;
 
 
 # ---   *   ---   *   ---
 # adds to your namespace
 
-  our @EXPORT=qw(
-
+  our @ISA=qw(Exporter);
+  our @EXPORT_OK=qw(
+    root
     set_root
-    set_module
+    swap_root
+    relto_root
 
-    clear_includes
-    clear_libs
+    include
 
-    push_includes
-    push_libs
-
-    set_includes
-    set_libs
-
-    get_includes
-    get_libs
-
-    file
-    dir
-
-    lib
-    shwl
-    libdir
-    so
-
-    cache
-    config
-    mem
-    trash
-    ctrash
     modof
-    shpath
-
-    rel
-    ot
-    moo
-    cpmac
-    walk
-
-    obj_from_src
-    src_from_obj
-    clear_dir
-    empty_trash
-
-    $INCL_RE
-    $LIBD_RE
-    $LIBF_RE
-    $WILDCARD_RE
-    $ANYEXT_RE
-
+    cachep
+    filep
+    dirp
+    trashp
+    ctrashp
+    memp
+    configp
   );
+
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = 'v0.00.6a';
+  our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # ROM
 
-  our $F_SLASH_END;
-  our $DOT_BEG;
+sub libd_re {return qr{^\s*\-L}};
+sub libf_re {return qr{^\s*\-l}};
+sub inc_re {return qr{^\s*\-I}};
 
-  Readonly our $INCL_RE=>qr{^\s*\-I}x;
-  Readonly our $LIBD_RE=>qr{^\s*\-L}x;
-  Readonly our $LIBF_RE=>qr{^\s*\-l}x;
-
-  Readonly our $WILDCARD_RE=>qr{\%};
-
-  Readonly our $ANYEXT_RE=>qr{\.[\w|\d]+$};
-
-# ---   *   ---   *   ---
-
-BEGIN {
-
-  $F_SLASH_END=qr{/$}x;
-  $DOT_BEG=qr{^\.}x;
-
+sub subpath_list {
+  return qw(cache trash config mem);
 };
 
-# ---   *   ---   *   ---
-# global state
-
-  our (
-
-    $Root,
-    $Cache,
-    $Trash,
-    $Config,
-    $Mem,
-
-    $Root_Re,
-
-    $Lib,
-    $Include,
-
-    $Cur_Module,
-
-  );
 
 # ---   *   ---   *   ---
-# ^setter
+# these are all wraps to the same F;
+# so we build the subroutines from a template
+#
+# [0]: byte ptr ; new value | null#
+# [*]: global state
 
-sub set_root($path) {
+sub import {
+  # avoid running method generation more than once
+  state $nit=0;
+  my @out=__PACKAGE__->export_to_level(1,@_);
 
-  $Root=abs_path(pathchk($path));
+  return @out if $nit;
 
-  if(!($Root=~ $F_SLASH_END)) {
-    $Root.=q[/];
+  # generate methods...
+  no strict 'refs';
+  for(root=>subpath_list()) {
+    my $fnstr=join "\n",(
+      # this is the F in question
+      #
+      # it just sets if a value is passed,
+      # then returns the static
+      "sub {",
+      "  state \$$ARG=null;",
+      "  \$$ARG=\$_[0] if ! is_null(\$_[0]);",
 
+      "  return \$$ARG;",
+      '};',
+    );
+
+    # ^make subroutine from string,
+    # ^then make new symbol
+    my $fn=eval $fnstr;
+    *{$ARG}=$fn;
   };
 
-  $Cache="$Root.cache/";
-  $Trash="$Root.trash/";
-  $Mem="$Root.mem/";
-  $Config="$Root.config/";
+  # set default value for root
+  set_root($ENV{'ARPATH'});
+  $nit |= 1;
 
-  mkdir $Config if ! -e $Config;
-
-  $Lib//=[];
-  $Include//=[];
-
-  $Lib->[0]="${Root}lib/";
-
-  $Include->[0]=$Root;
-  $Include->[1]="${Root}include/";
-
-  $Root_Re=qr{^(?: $DOT_BEG /? | $Root)}x;
-  $Cur_Module=null;
-
-  return $Root;
-
+  use strict 'refs';
+  return @out;
 };
 
-# ---   *   ---   *   ---
-# pathchk errme n0
-
-sub throw_undef_path() {
-
-  errout(
-
-    q{Uninitialized path passed in}."\n".
-
-    q{cwd   %s}."\n".
-    q{root  %s},
-
-    args => [getcwd(),$Root],
-    lvl  => $AR_FATAL,
-
-  );
-
-};
 
 # ---   *   ---   *   ---
-# pathchk errme n0
+# just lists of inc/lib paths
+#
+# [0]: byte pptr ; values to push | null
+# [*]: global state
 
-sub throw_bad_path($path) {
+sub include {
+  state $inc=[];
 
-  errout(
-
-    q{Invalid file or directory '%s'}."\n".
-
-    q{cwd   %s}."\n".
-    q{root  %s},
-
-    args => [$path,getcwd(),$Root],
-    lvl  => $AR_FATAL,
-
-  );
-
-};
-
-# ---   *   ---   *   ---
-# sanity check
-
-sub pathchk($path) {
-
-  my $cpy=glob($path);
-  $cpy//=$path;
-
-  if(!defined $cpy) {
-    throw_undef_path()
-
-  } elsif(
-
-     !(-e $cpy)
-  && !(-e "$Root/$cpy")
-
-  ) {
-
-    throw_bad_path($path);
-
+  if(int @_) {
+    pathlist_prepush($inc,qr{^\s*\-I},@_);
+    push @$inc,@_;
   };
 
-  return $path;
-
+  return $inc;
 };
 
+sub lib {
+  state $lib=[];
+
+  if(int @_) {
+    pathlist_prepush($lib,qr{^\s*\-L}i,@_);
+    push @$lib,@_;
+  };
+
+  return $lib;
+};
+
+
 # ---   *   ---   *   ---
-# sets default topdir
+# ^~~
+#
+# [0]: mem  ptr  ; dst array
+# [1]: re        ; pattern
+# [2]: byte pptr ; values
 
-BEGIN {
+sub pathlist_prepush {
+  my ($dst,$re)=(shift,shift);
+  for(@_) {
+    $ARG=~ s[$re][];
+    $ARG=abs_path(glob($ARG));
+  };
 
-  set_root(
-    abs_path($ENV{'ARPATH'})
+  return;
+};
 
+
+# ---   *   ---   *   ---
+# sets topdir and subpaths from it
+#
+# [0]: byte ptr ; root dir
+# [!]: overwrites lib and include path lists
+
+sub set_root {
+  include_cl();
+  lib_cl();
+
+  my $root=root(abs_path($_[0]));
+  for(subpath_list()) {
+    my $path=catpath($root,".$ARG");
+
+    # set state and ensure directory exists
+    eval("$ARG('$path')");
+    reqdir($path);
+  };
+
+  include($root,catpath($root,'include'));
+  lib(catpath($root,'lib'));
+
+  return;
+};
+
+
+# ---   *   ---   *   ---
+# used when you're only setting root
+# for a quick operation and need to
+# get back to the previous context after it
+
+sub swap_root {
+  state $back=[];
+
+  # early exit if no swap needed
+  return root() if (
+     ($_[0] && $_[0] eq root())
+  || (is_null($_[0]) &&! int @$back)
   );
 
+  # swap to previous?
+  if(is_null($_[0])) {
+    my $path=pop @$back;
+    my (
+      $root,
+      $inc,
+      $lib,
+      $cache,
+      $trash,
+      $config,
+      $mem,
+    )=@$path;
+
+    set_root($root);
+    include_cl();
+    lib_cl();
+    include(@$inc);
+    lib(@$lib);
+    cache($cache);
+    trash($trash);
+    config($config);
+    mem($mem);
+
+  # ^save current, *then* swap to new
+  } else {
+    push @$back,[
+      root(),
+      include(),
+      lib(),
+      cache(),
+      trash(),
+      config(),
+      mem(),
+    ];
+
+    set_root($_[0]);
+  };
+
+  return root();
 };
+
 
 # ---   *   ---   *   ---
-# mark mod as current
+# to quickly detect root in path...
 
-sub set_module($name) {
-
-  my $path=dir($name);
-
-  errout(
-    q[No such directory <%s>],
-
-    args => [$path],
-    lvl  => $AR_FATAL
-
-  ) unless -d $path;
-
-  $Cur_Module=$name;
-
+sub root_re {
+  my $s=cat('^(?:\./?|',root(),')',);
+  return qr{$s};
 };
+
+
+# ---   *   ---   *   ---
+# set/get current module
+#
+# [0]: byte ptr ; name of module
+# [*]: global state
+
+sub module {
+  state $mod=null;
+
+  # value passed?
+  if(! is_null($_[0])) {
+    # catch invalid
+    my $path=catpath(root(),$_[0]);
+
+    throw "Invalid module path '$path'"
+    if ! is_dir($path);
+
+    # all OK, set state
+    $mod=$_[0];
+  };
+
+  return $mod;
+};
+
 
 # ---   *   ---   *   ---
 # SEARCH PATH SETTERS
@@ -277,362 +290,172 @@ sub set_module($name) {
 # ---   *   ---   *   ---
 # wipe out
 
-sub clear_includes(@args) {
-  $Include=[];
-
-};
-
-sub clear_libs(@args) {
-  $Lib=[];
-
-};
-
-# ---   *   ---   *   ---
-# add to
-
-sub push_includes(@args) {
-
-  state $PROPER=qr{ /$ }x;
-
-  for my $path(@args) {
-
-    $path=~ s[$INCL_RE][];
-    $path=abs_path(glob($path));
-
-    $path .= '/' if ! ($path=~ $PROPER);
-
-    push @$Include,$path;
-
-  };
-
-};
-
-sub push_libs(@args) {
-
-  for my $path(@args) {
-
-    $path=~ s[$LIBD_RE][];
-    $path=abs_path(glob($path));
-
-    push @$Lib,$path;
-
-  };
+sub include_cl {
+  my $have=include();
+  @$have=();
 
   return;
-
 };
 
-# ---   *   ---   *   ---
-# overwrite
+sub lib_cl {
+  my $have=lib();
+  @$have=();
 
-sub set_includes(@args) {
-  clear_includes();
-  push_includes(@args);
-
-};
-
-sub set_libs(@args) {
-  clear_includes();
-  push_includes(@args);
-
-};
-
-# ---   *   ---   *   ---
-# get
-
-sub get_includes() {
-  return @$Include;
-
-};
-
-sub get_libs() {
-  return @$Lib;
-
-};
-
-# ---   *   ---   *   ---
-# shorthands
-
-sub file($path) {
-  return $Root.$path;
-
-};
-
-sub dir($path=null) {
-  return $Root.$path.q[/];
-
-};
-
-sub lib($name) {
-  return $Root."lib/lib$name.a";
-
-};
-
-sub shwl($name) {
-  return $Root."lib/.$name";
-
-};
-
-sub libdir($path=null) {
-  return $Root."lib/$path/";
-
-};
-
-sub so($name) {
-  return $Root."lib/lib$name.so";
-
-};
-
-sub cache($name) {
-  return $Cache.$name;
-
-};
-
-sub config($name) {
-  return $Config.$name;
-
-};
-
-sub mem($name) {
-  return $Mem.$name;
-
-};
-
-sub trash($name) {
-  return $Trash.$name;
-
-};
-
-sub ctrash() {
-  return trash($Cur_Module);
-
+  return;
 };
 
 
 # ---   *   ---   *   ---
-# tells you which module within $Root a
+# tells you which module within root a
 # given file belongs to
+#
+# [0]: byte ptr ; file
+# [<]: byte ptr ; module name (new string)
 
-sub modof($file) {
-  return based(shpath($file));
-
+sub modof {
+  relto_root($_[0]);
+  return based($_[0]);
 };
+
 
 # ---   *   ---   *   ---
-# shortens pathname for sanity
+# makes path relative to current root
+#
+# [0]: byte ptr ; path
+# [<]: string is not null
+#
+# [!]: overwrites input string
 
-sub shpath($path) {
-  $path=~ s[$Root_Re][];
-  return $path;
-
+sub relto_root {
+  return relto($_[0],root());
 };
 
-# ---   *   ---   *   ---
-# gives path relative to current root
-
-sub rel($path) {
-
-#:!;> dirty way to do it without handling
-#:!;> the obvious corner case of ..
-
-  $path=~ s[$Root_Re][./];
-  return $path;
-
-};
-
-# ---   *   ---   *   ---
-# "older than"
-# return a is older than b
-
-sub ot($a,$b) {
-  return (
-      (defined $a && -f $a)
-  &&  (defined $b && -f $b)
-
-  &&! ( (-M $a) < (-M $b) )
-
-  );
-
-};
-
-# ---   *   ---   *   ---
-# "missing or older"
-# file not found or file needs update
-
-sub moo($a,$b) {
-  return (defined $a &&! -f $a) || ot($a,$b);
-
-};
 
 # ---   *   ---   *   ---
 # batch-copy missing/updated
 # for $O eq (dst => src)
+#
+# [0]: byte pptr ; [src => dst] array
+# [*]: copies files
 
-sub cpmac(%O) {
+sub cpmac {
+  # catch invalid input
+  throw "Uneven elements in filename array; "
+  .     "need [src => dst] for cpmac"
 
-  map {
+  if int(@_) & 1;
 
-    `cp $O{$ARG} $ARG`
-    if moo($ARG,$O{$ARG});
-
-  } keys %O;
-
-};
-
-# ---   *   ---   *   ---
-# build exclusion re
-
-sub exclude_paths($dashx) {
-  $dashx=join q{|},@$dashx;
-  $dashx=(length $dashx)
-    ? qr{^(?:$dashx)$}x
-    : no_match
-    ;
-
-  return $dashx;
-
-};
-
-# ---   *   ---   *   ---
-# inspects a directory within root
-
-sub walk($path,%O) {
-
-  # defaults
-  $O{-r}//=0;
-  $O{-x}//=[];
-
-  # filetree obj
-  my $frame     = Tree::File->get_frame();
-  my $root_node = undef;
-
-  # sanitize input
-  $path         = dir($path) if ! -d $path;
-  $O{-x}        = exclude_paths($O{-x});
-
-  # what we care about
-  my @pending   = ($path,undef);
-  my $out       = undef;
-
-  my $excluded  = qr{(?:$DOT_BEG|$O{-x})};
-
-
-  # prepend and open
-  while(@pending) {
-    $path      = shift @pending;
-    $root_node = shift @pending;
-
-    # nit root on first run
-    my $dst=(! defined $root_node)
-      ? $frame->new($root_node,$path)
-      : $root_node
-      ;
-
-    # default out to root
-    $out//=$dst;
-
-    # make tree from file list
-    for(dorc($path,$excluded)) {
-      if(-f "$path/$ARG") {
-        $frame->new($dst,$ARG);
-
-      } elsif(($O{-r}) && (-d "$path$ARG/")) {
-        unshift @pending,(
-          "$path$ARG/",
-          $frame->new($dst,"$ARG/")
-
-        );
-
-      };
-
-    };
-
+  # batch copy
+  for(my $i=0;$i < int(@_);$i+=2) {
+    my ($src,$dst)=($_[$i+0],$_[$i+1]);
+    copy($src,$dst) if moo($dst,$src);
   };
 
-
-  return $out;
-
+  return;
 };
 
 
 # ---   *   ---   *   ---
-# gives object file path from source file path
+# gives file of same name but on a
+# different folder and/or different extension
+#
+# [0]: byte ptr ; source path
+# [<]: byte ptr ; object path (new string)
 
-sub obj_from_src($src,%O) {
+sub fmirror {
+  my $out = shift;
+  my %O   = @_;
 
-  # defaults
-  $O{use_trash} //= 1;
-  $O{ext}       //= q[.o];
-
-  my $out=$src;
+  # set defaults
+  $O{reloc} //= [root_re() => trash()];
+  $O{ext}   //= q[.o];
 
   # swap folder?
-  if($O{use_trash}) {
-    $out=~ s[$Root_Re][$Trash];
-
+  if($O{reloc} ne 0) {
+    my ($re,$loc)=(@{$O{reloc}});
+    $out=~ s[$re][$loc];
   };
 
-  # swap extension
-  if(defined $O{ext}) {
-    $out=~ s[$ANYEXT_RE][$O{ext}];
-
-  };
+  # swap extension?
+  extwap($out,$O{ext})
+  if ! is_null($O{ext});
 
   return $out;
-
 };
 
 
 # ---   *   ---   *   ---
-# ^kind of the inverse
+# ^lises
 
-sub src_from_obj($src,%O) {
+sub src_from_obj {
+  my $out = shift;
+  my %O   = @_;
 
-  state $untrash=qr{\.trash/};
+  # set defaults
+  $O{ext}   //= null;
+  $O{reloc} //= [qr{\.trash/} => null()];
 
-  my $out=$src;
+  # give copy
+  return fmirror($out,%O);
+};
 
-  # swap folder!
-  $out=~ s[$untrash][];
+sub obj_from_src {
+  my $out = shift;
+  my %O   = @_;
 
-  # swap extension
-  if(defined $O{ext}) {
-    $out=~ s[$ANYEXT_RE][$O{ext}];
+  $O{ext}   //= 'o';
+  $O{reloc} //= [root_re() => trash()];
 
-  };
-
-  return $out;
-
+  return fmirror($out,%O);
 };
 
 
 # ---   *   ---   *   ---
-# takes out the trash!
+# removes files from directory
+#
+# [0]: byte ptr  ; path to dir
+# [1]: byte pptr ; [option => value] array
+#
+# [*]: does not recurse by default
 
-sub clear_dir($path,%O) {
+sub cl_dir {
+  my $path = shift;
+  my %O    = @_;
 
-  my $tree  = walk($path,%O);
-  my @files = $tree->get_file_list(
-    full_path=>1
+  my @have=xdorc($path,%O,-f=>1);
 
-  );
+  filter(\@have);
+  unlink($ARG) for @have;
 
-  array_filter(\@files);
-
-  for my $f(@files) {
-    unlink $f;
-
-  };
-
+  return;
 };
 
 
 # ---   *   ---   *   ---
-# ^recursively for module trashcan
+# shorthands
 
-sub empty_trash($name) {
-  clear_dir("$Trash$name/",-r=>1);
+sub filep   {return catpath(root(),@_)};
+sub dirp    {return catpath(root(),@_,null)};
+sub cachep  {return catpath(cache(),@_)};
+sub configp {return catpath(config(),@_)};
+sub memp    {return catpath(mem(),@_)};
+sub trashp  {return catpath(trash(),@_)};
+sub ctrashp {return trashp(module())};
+sub libdirp {return catpath(lib()->[0],@_)};
 
+sub static_libp {
+  my $name=pop;
+  return catpath(libdirp(@_),"lib${name}.a");
+};
+
+sub shared_libp {
+  my $name=pop;
+  return catpath(libdirp(@_),"lib${name}.so");
+};
+
+sub shwlp {
+  my $name=pop;
+  return catpath(libdirp(@_),".$name");
 };
 
 

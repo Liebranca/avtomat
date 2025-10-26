@@ -46,7 +46,7 @@ package CMAM;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.7a';
+  our $VERSION = 'v0.00.8a';
   our $AUTHOR  = 'IBN-3DILA';
 
   sub errsafe {return 1};
@@ -155,32 +155,24 @@ sub mkhed {
 #  say "  making header $dst";
 
 
-  # patterns used
-  my $typedef_re = qr{\n\s*typedef\s+};
-  my $public_re  = qr{\n\s*public\s+};
-
-  # these keywords tell us that we want to
-  # include the block in the resulting header!
-  my $blk_except_re=qr{(?:
-    struct|const|enum|CX|static
-
-  )\s+}x;
-
-  my $blk_inline_re=qr{(?:
-    inline|IX|CIX
-
-  )\s+}x;
-
-
   # read file and pass through block parser
   my $body=orc $_[0];
   blkparse($body);
 
+  # last step is checking for exported symbols
+  my $head=CMAM::emit::chead($body,0);
+
   # dbout
   use Arstd::String qw(gsplit);
   $body=join "\n",gsplit($body,qr"\n");
-  say "\n________\n\n",$body,"\n________\n";
-  CMAM::emit::pm();
+  say '',(
+    "\n________\n\n",
+    $head,
+    "\n________\n\n",
+    $body,
+    "\n________\n\n",
+#    CMAM::emit::pm()
+  );
 
   exit;
   return;

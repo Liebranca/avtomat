@@ -18,19 +18,19 @@ package Shb7::Bk::gcc;
   use strict;
   use warnings;
 
-  use Readonly;
-  use English;
+  use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Chk qw(is_file);
 
-  use Style;
+  use Arstd::Array qw(filter);
+  use Arstd::Bin qw(orc);
 
-  use Arstd::Array;
-  use Arstd::IO;
-  use Arstd::WLog;
-
+  use Shb7::Path qw(relto_root);
   use Ftype::Text::C;
 
+  use Log;
   use parent 'Shb7::Bk';
 
 
@@ -44,77 +44,52 @@ package Shb7::Bk::gcc;
 # ---   *   ---   *   ---
 # ROM
 
-  Readonly our $OFLG=>[
+sub oflg {return qw(
+  -O2
+  -fpermissive
+  -w
+  -ftree-vectorize
+  -fno-unwind-tables
+  -fno-eliminate-unused-debug-symbols
+  -fno-asynchronous-unwind-tables
+  -ffast-math
+  -fsingle-precision-constant
+  -fno-ident
+  -fPIC
+)};
 
-# NOTE
-#
-# testing if -O3 gives us
-# better performance
-#
-# ftree-vectorize and other
-# flags would then be on by
-# default, but afaik *not*
-# if we use -Os instead
-#
-# so, i'll leave the flags in
-# case we switch back
-#
-#    q[-Os],
+sub lflg {return qw(
+  -fpermissive
+  -w
+  -flto
+  -ffunction-sections
+  -fdata-sections
+), (
+  '-Wl,--gc-sections',
+  '-Wl,-fuse-ld=bfd',
+)};
 
-    q[-O2],
-
-    q[-fpermissive],
-    q[-w],
-
-    q[-ftree-vectorize],
-    q[-fno-unwind-tables],
-    q[-fno-eliminate-unused-debug-symbols],
-    q[-fno-asynchronous-unwind-tables],
-    q[-ffast-math],
-    q[-fsingle-precision-constant],
-    q[-fno-ident],
-    q[-fPIC],
-
-  ];
-
-  Readonly our $LFLG=>[
-
-    q[-fpermissive],
-    q[-w],
-
-    q[-flto],
-    q[-ffunction-sections],
-    q[-fdata-sections],
-    q[-Wl,--gc-sections],
-    q[-Wl,-fuse-ld=bfd],
-
-  ];
-
-  Readonly our $FLATLFLG=>[
-
-    q[-fpermissive],
-    q[-w],
-
-    q[-flto],
-    q[-ffunction-sections],
-    q[-fdata-sections],
-    q[-Wl,--gc-sections],
-    q[-Wl,-fuse-ld=bfd],
-
-    q[-Wl,--relax,-d],
-    q[-Wl,--entry=_start],
-    q[-no-pie],
-    q[-nostdlib],
-
-  ];
+sub flatflg {return qw(
+  -fpermissive
+  -w
+  -flto
+  -ffunction-sections
+  -fdata-sections
+  -no-pie
+  -nostdlib
+), (
+  '-Wl,--gc-sections',
+  '-Wl,-fuse-ld=bfd',
+  '-Wl,--relax,-d',
+  '-Wl,--entry=_start',
+)};
 
 
 # ---   *   ---   *   ---
 # rebuild chk
 
 sub fupdated($self,$bfile) {
-  $self->chkfdeps($bfile);
-
+  return $self->chkfdeps($bfile);
 };
 
 
@@ -125,22 +100,22 @@ sub fdeps($self,$bfile) {
   my @out=($bfile->{src});
 
   # read file if it exists
-  if(-f $bfile->{dep}) {
+  my $bslash_re=qr{\\};
+  my $nspace_re=qr{\s+};
+  my $colon_re=qr{.*\:};
+  if(is_file($bfile->{dep})) {
     my $body=orc($bfile->{dep});
 
     # sanitize
-    $body=~ s/\\//g;
-    $body=~ s/\s/\,/g;
-    $body=~ s/.*\://;
+    $body=~ s[$bslash_re][]g;
+    $body=~ s[$nspace_re][,]g;
+    $body=~ s[$colon_re][];
 
     # make array from gcc depsfile
     @out=$self->depstr_to_array($body);
-
   };
 
-
   return @out;
-
 };
 
 
@@ -149,16 +124,14 @@ sub fdeps($self,$bfile) {
 
 sub target($tgt) {
   my $out;
-  if($tgt eq Shb7::Bk->TARGET->{x64}) {
-    $out=q[-m64];
+  if($tgt eq Shb7::Bk->target_arch('x64')) {
+    $out='-m64';
 
-  } elsif($tgt eq Shb7::Bk->TARGET->{x32}) {
-    $out=q[-m32];
-
+  } elsif($tgt eq Shb7::Bk->target_arch('x86')) {
+    $out='-m32';
   };
 
   return $out;
-
 };
 
 
@@ -172,7 +145,9 @@ sub entry($name) {return "-Wl,--entry=$name"};
 # C-style object file boiler
 
 sub fbuild($self,$bfile,$bld) {
-  $WLog->substep(Shb7::shpath($bfile->{src}));
+  my $rel=$bfile->{src};
+  relto_root($rel);
+  Log->substep($rel);
 
   # conditionally use octopus
   my $cpp=Ftype::Text::C->is_cpp($bfile->{src});
@@ -187,38 +162,34 @@ sub fbuild($self,$bfile,$bld) {
 
   # cstruc cmd
   my @call=(
-
     ($cpp) ? q[g++] : q[gcc] ,
 
-    q[-MMD],
+    '-MMD',
     target($bld->{tgt}),
 
     (map {"-D$ARG"} @{$bld->{def}}),
 
     @{$bld->{flag}},
-    @$OFLG,
+    oflg(),
 
     @{$bld->{inc}},
     $up,
 
-    q[-Wa,-a=].$bfile->{asm},
-
-    q[-c],$bfile->{src},
-    q[-o],$bfile->{obj},
+    "-Wa,-a=$bfile->{asm}",
+    -c => $bfile->{src},
+    -o => $bfile->{obj},
 
     @{$bld->{lib}},
-
   );
 
 
   # ^cleanup and invoke
-  array_filter(\@call);
+  filter(\@call);
   system {$call[0]} @call;
 
 
   # ^give on success
-  return int(defined -f $bfile->{obj});
-
+  return int(defined is_file($bfile->{obj}));
 };
 
 

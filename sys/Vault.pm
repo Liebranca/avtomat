@@ -18,32 +18,42 @@ package Vault;
   use strict;
   use warnings;
 
-  use Carp qw(croak);
   use Cwd qw(abs_path);
 
-  use English;
+  use English qw($ARG);
 
   use Storable qw(store retrieve freeze thaw);
   use Fcntl qw(SEEK_SET SEEK_CUR);
 
-  use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
-  use Chk qw(is_hashref);
+  use lib "$ENV{ARPATH}/lib/";
+  use AR sys=>qw(
+    use Style::(null);
+    use Chk::(is_null is_hashref is_dir);
+    lis Arstd::Array::(dupop);
+  );
 
-  use Arstd::Array qw(array_dupop);
+  use Arstd::Bin qw(moo);
   use Arstd::Path qw(reqdir dirof);
-  use Arstd::IO qw(errout);
+  use Arstd::Re qw(eiths);
+  use Arstd::throw;
 
-  use Arstd::WLog;
+  use Log;
 
   use Tree;
-  use Shb7;
+  use Tree::File;
+  use Shb7::Path qw(
+    root
+    swap_root
+    cachep
+    modof
+  );
+  use Shb7::Find qw(ffind);
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.1b';
+  our $VERSION = 'v0.01.2b';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -64,177 +74,164 @@ St::vconst {
   | include
 
   )}x,
-
 };
 
 
 # ---   *   ---   *   ---
 # global state
 
-  my  $Systems      = {};
+sub module {
+  state $out={};
+  return ($_[0] && exists $out->{$_[0]})
+    ? $out->{$_[0]}
+    : $out
+    ;
+};
 
-  our $Needs_Update = {};
-  our $Cache_Regen  = {};
-  our $File_Deps    = {};
+sub regen {
+  state $out={};
+  return $out;
+};
+
+sub fdeps {
+  state $out={};
+  return $out;
+};
+
+
+# ---   *   ---   *   ---
+# makes ice if needed
+#
+# [0]: byte ptr  | class
+# [1]: byte ptr  | module key
+# [2]: byte ptr  | module root
+#
+# [3]: byte pptr | list of dirs that are
+#                  excluded from search path
+
+sub req {
+  my $self=module()->{$_[1]}//=bless {
+    key    => $_[1],
+    root   => $_[2],
+    tree   => null,
+    update => [],
+
+  },$_[0];
+
+  $_[3]//=[];
+  $self->make_tree($_[3])
+  if is_null($self->{tree});
+
+  return $self;
+};
 
 
 # ---   *   ---   *   ---
 # marks package as utilizing
 # the cache directory
 
-sub import($class,@args) {
+sub import {
+  my ($class,$to_root,$key)=@_;
   my ($pkgname,$file,$line)=caller;
-  my $modname=Shb7::modof(abs_path($file));
 
-  return if($modname=~ $PKG->STD_DIR_RE);
+  # early exit when either:
+  # * called from self,
+  # * called from eval,
+  # * invalid module key
+  return if (
+     ($pkgname eq 'Vault')
+  || ($file =~ qr{\(eval \d+\)})
+  || ($key  =~ $PKG->STD_DIR_RE)
+  );
 
+  # get absolute path to root directory
+  my $root=abs_path(
+    dirof(abs_path($file))
+  . "/$to_root"
+  );
 
-  my $syskey=(defined $args[-1])
-    ? $args[-1]
-    : 'ARPATH'
-    ;
-
-  croak (sprintf
-
-    q[Invalid syskey <%s> passed in ] .
+  throw sprintf(
+    q[Invalid root directory <%s> passed in ] .
     q[to Vault from %s],
 
-    $syskey,$file,
+    $root,$file,
 
-  ) unless $ENV{$syskey};
+  ) unless is_dir($root);
 
-  my $syspath=Shb7::set_root($ENV{$syskey})
-  if $ENV{$syskey} ne $Shb7::Path::Root;
-
-
-  # init project
-  if(! exists $Systems->{$syspath}) {
-    $Systems->{$syspath}=
-     Tree->new_frame();
-
-  };
-
-  # init modules in project
-  my $frame=$Systems->{$syspath};
-  if(! exists $frame->{-roots}->{$modname}) {
-    module_tree($modname);
-
-  };
-
-
+  # nit module on first run
+  $class->req($key,$root);
   return;
-
 };
 
 
 # ---   *   ---   *   ---
-# ^gets module tree of registered
+# make file tree for  a module,
+# used for building
 
-sub check_module($name,$exclude=[]) {
-  my $syspath = $Shb7::Path::Root;
-  my $frame   = $Systems->{$syspath};
+sub make_tree($self,$excluded=[],$recalc=0) {
+  my $root = swap_root($self->{root});
 
-  $Systems->{$syspath}//={};
+  my $modf = $self->px_file();
+  my $newf = (-f $modf) ? 0 : 1;
 
-  my $table;
+  # load existing?
+  if(! $newf &&! $recalc) {
+    $self->{tree}=retrieve($modf);
 
-  if(! exists $frame->{-roots}->{$name}) {
-    $table=module_tree($name,$exclude);
-    $frame->{-roots}->{$name}=$table;
-
+  # ^nope, (re)generate!
   } else {
-    $table=$frame->{-roots}->{$name};
+    my $fslash_re =  qr{/+};
+    my $path      =  "$root/$self->{key}/";
+       $path      =~ s[$fslash_re][/]smg;
 
+    my $tree=Tree::File->new($path);
+    $tree->expand(
+      -r=>1,
+      -x=>eiths($excluded),
+    );
+    $self->{tree}=$tree;
   };
 
-  return $table;
+  # checksum the tree
+  # new result will be saved if there's changes
+  my $diff=int $self->{tree}->get_cksum_diff();
+  push @{$self->{update}},$diff;
 
+  # cleanup and give
+  swap_root();
+  return $self->{tree};
 };
 
 
 # ---   *   ---   *   ---
 # ^finds a project cache file
 
-sub px_file($name) {
-  return Shb7::cache("$name" . $PKG->PX_EXT);
-
+sub px_file($self) {
+  my $name=(ref $self)
+    ? $self->{key}
+    : $self
+    ;
+  return cachep("$name" . $PKG->PX_EXT);
 };
 
-
-# ---   *   ---   *   ---
-# creates file tree for
-# a module, used for building
-
-sub module_tree($name,$excluded=[]) {
-
-  my $syspath = $Shb7::Path::Root;
-  my $frame   = $Systems->{$syspath};
-
-  $Needs_Update->{$name}=[];
-
-  my $modf=px_file($name);
-  my $newf=0;
-
-  # load existing
-  if(-f $modf) {
-    my $mod=retrieve($modf);
-    $frame->{-roots}->{$name}=$mod;
-
-
-  # generate
-  } else {
-    my $path =  "$syspath/$name/";
-       $path =~ s[$FSLASH_RE+][/]sxmg;
-
-    $frame->{-roots}->{$name}=Shb7::walk(
-
-      $path,
-
-      -r=>1,
-      -x=>$excluded,
-
-    );
-
-    $newf=1;
-
-  };
-
-
-  # checksum the tree
-  # new result will be saved if there's changes
-  my $table=$frame->{-roots}->{$name};
-
-  $Needs_Update->{$name}=$table->get_cksum();
-  push @{$Needs_Update->{$name}},1 if $newf;
-
-
-  return $table;
-
-};
 
 # ---   *   ---   *   ---
 # get list of updated trees
 
 sub get_module_update() {
   my @out=();
+  my $reg=module();
 
-  for my $syspath(keys %$Systems) {
-    my $frame=$Systems->{$syspath};
+  for my $name(keys %$reg) {
+    my $mod=$reg->{$name};
 
-    for my $modname(keys %{$frame->{-roots}}) {
-      my $updated=$Needs_Update->{$modname};
+    next if $mod->{root}=~ m[\.trash];
+    next unless int grep {$ARG} @{$mod->{update}};
 
-      next if $modname=~ m[\.trash];
-      next unless @$updated;
-
-      push @out,[$modname,$frame];
-
-    };
-
+    push @out,$name;
   };
 
   return @out;
-
 };
 
 
@@ -242,35 +239,25 @@ sub get_module_update() {
 # dump trees to cache
 
 END {
-
   my @updated=get_module_update();
-
-  $WLog->mprich(
+  Log->mprich(
     'AR/Vault',
     'updating module cache'
 
-  ) if @updated && $WLog;
+  ) if @updated;
 
+  for my $name(@updated) {
+    Log->fupdate($name);
 
-  for my $ref(@updated) {
-    my ($modname,$frame)=@$ref;
+    my $self=module($name);
+    swap_root($self->{root});
 
     # save tree to disk
-    my $modf=Shb7::cache(
-      "$modname" . $PKG->PX_EXT
+    my $modf=cachep("$name" . $PKG->PX_EXT);
+    store($self->{tree},$modf);
 
-    );
-
-    my $mod=$frame->{-roots}->{$modname};
-    store($mod,$modf);
-
-    $WLog->fupdate($modname);
-
+    swap_root();
   };
-
-
-  $WLog->line() if @updated;
-
 };
 
 
@@ -278,23 +265,18 @@ END {
 # ^similar, cached objects
 
 END {
-  my $done=int(%{$Cache_Regen});
-  $WLog->mprich(
+  my $regen = regen();
+  my $done  = int(%$regen);
+  Log->mprich(
     'AR/Vault',
     'updating object cache'
 
-  ) if $done && $WLog;
+  ) if $done;
 
-
-  for my $file(keys %{$Cache_Regen}) {
-    store($Cache_Regen->{$file},$file);
-    $WLog->fupdate($file) if $WLog;
-
+  for my $file(keys %$regen) {
+    Log->fupdate($file);
+    store($regen->{$file},$file);
   };
-
-
-  $WLog->line() if $done && $WLog;
-
 };
 
 
@@ -304,12 +286,17 @@ END {
 # forces make/regen of
 # cache sub directory
 
-sub cached_dir($file) {
-  my $path = cashof($file);
-  my $dir  = dirof($path);
+sub cached_dir($self,$file) {
+  my $root  = swap_root($self->{root});
 
-  my $rbld = Shb7::moo($path,$file)
-  or exists $Cache_Regen->{$path};
+  my $path  = cashof($file);
+  my $dir   = dirof($path);
+
+  my $regen = regen();
+  my $rbld  = (
+     moo($path,$file)
+  || exists $regen->{$path}
+  );
 
   # get entry or make new
   reqdir($dir);
@@ -318,39 +305,45 @@ sub cached_dir($file) {
   # have existing?
   my $data=(-f $path)
     ? retrieve($path)
-    : $Cache_Regen->{$path}
+    : $regen->{$path}
     ;
 
-  $data //= undef;
-
-
   # check deps
-  my $deps   = $File_Deps->{$file};
+  my $deps   = fdeps()->{$file};
      $deps //= [];
 
-  map {$rbld |= Shb7::moo($path,$ARG)} @$deps;
+  map {$rbld |= moo($path,$ARG)} @$deps;
 
-
-  # pack and give
+  # cleanup, pack and give
+  swap_root();
   return {
     rbld => $rbld,
     path => $path,
     data => $data,
-
   };
-
 };
+
+
+# ---   *   ---   *   ---
+# ^builds path to stash
+
+sub cashof($file) {
+  relto_root($file);
+  $file.='.st';
+
+  return cachep($file);
+};
+
 
 # ---   *   ---   *   ---
 # regen or fetch
 
-sub rof($file,$key,$call,@args) {
-
+sub rof($self,$file,$key,$call,@args) {
   # get ctx
-  my $cache = cached_dir($file);
+  my $root  = swap_root($self->{root});
+  my $cache = $self->cached_dir($file);
   my $data  = $cache->{data};
   my $out   = undef;
-
 
   # regen entry?
   if(! exists $data->{$key} || $cache->{rbld}) {
@@ -360,114 +353,91 @@ sub rof($file,$key,$call,@args) {
   # ^nope, fetch existing
   } else {
     $out=$data->{$key};
-
   };
 
-
+  swap_root();
   return $out;
-
 };
 
+
 # ---   *   ---   *   ---
-# ^keyless variant
+# ^register stash for update
 
-sub frof($file,$call,@args) {
+sub cashreg($path,$h) {
+  regen()->{$path}=$h;
+  return;
+};
 
+
+# ---   *   ---   *   ---
+# ^keyless variant of rof
+
+sub frof($self,$file,$call,@args) {
   # get ctx
-  my $cache = cached_dir($file);
+  my $root  = swap_root($self->{root});
+  my $cache = $self->cached_dir($file);
   my $data  = $cache->{data};
   my $out   = undef;
 
-
   # regen entry?
-  if(defined $data
-  || $cache->{rbld}) {
+  if(defined $data || $cache->{rbld}) {
     $out=$data=$call->(@args);
     cashreg($cache->{path},$data);
 
   # ^nope, fetch existing
   } else {
     $out=$data;
-
   };
 
-
+  swap_root();
   return $out;
-
 };
+
 
 # ---   *   ---   *   ---
 # mark file as a dependency
 
 sub depson(@list) {
-
-  # get/nit handle to module deps
+  # get/nit handle to package deps
   my $file = (caller)[1];
-  my $vref = \$File_Deps->{$file};
+  my $vref = \fdeps()->{$file};
 
   $$vref //= [];
 
-
   # validate input
-  map {-f $ARG or croak "$ARG: $!"} @list;
+  map {-f $ARG or throw "$ARG: $!"} @list;
 
   # ^push to module deps
   push @{$$vref},map {abs_path $ARG} @list;
-  array_dupop $$vref;
+  dupop($$vref);
 
   return;
-
-
 };
+
 
 # ---   *   ---   *   ---
 # either executes a generator
 # or loads whatever it generates
 
-sub cached($key,$call,@args) {
+sub cached($self,$key,$call,@args) {
   my $file=(caller)[1];
-  return rof $file,$key,$call,@args;
-
+  return $self->rof($file,$key,$call,@args);
 };
+
 
 # ---   *   ---   *   ---
 # ^key *IS* file
 
-sub fcached($file,$call,@args) {
-  return frof $file,$call,@args;
-
+sub fcached($self,$file,$call,@args) {
+  return $self->frof($file,$call,@args);
 };
 
-# ---   *   ---   *   ---
-# ^builds path to stash
-
-sub cashof($file) {
-
-  my $modname=
-    Shb7::modof(abs_path($file));
-
-  $file=Shb7::shpath($file);
-  $file=~ s[$modname/?][];
-  $file.= q[.st];
-
-  return Shb7::cache($file);
-
-};
-
-# ---   *   ---   *   ---
-# ^register stash for update
-
-sub cashreg($path,$h) {
-  $Cache_Regen->{$path}=$h;
-  return;
-
-};
 
 # ---   *   ---   *   ---
 # retrieve file if passed var
 # is a valid path
 
-sub fchk($var) {
+sub fchk($self,$var) {
   my $out=(is_hashref $var)
     ? $var
     : undef
@@ -476,27 +446,22 @@ sub fchk($var) {
   # early ret
   goto skip if $out;
 
-
   # validate input
-  ! length ref $var or errout(
-
+  ! length ref $var or throw(
     q[Non-scalar, non-hashref var ] .
-    q[passed in to fchk],
-
-    lvl => $AR_FATAL,
-
+    q[passed in to fchk]
   );
 
   # ^fetch
-  my $path=Shb7::ffind($var)
-  or croak "Cannot find object '$var'";
+  my $root=swap_root($self->{root});
+  my $path=ffind($var)
+  or throw "Cannot find object '$var'";
 
   $out=retrieve($path);
-
+  swap_root();
 
   skip:
   return $out;
-
 };
 
 
@@ -505,7 +470,6 @@ sub fchk($var) {
 
 sub deepcpy($o) {
   return thaw(freeze($o));
-
 };
 
 

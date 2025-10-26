@@ -46,7 +46,7 @@ package CMAM::token;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.7a';
+  our $VERSION = 'v0.00.8a';
   our $AUTHOR  = 'IBN-3DILA';
 
   sub errsafe {return 1};
@@ -161,8 +161,8 @@ sub token_re {
 sub semipop {
   return 0 if is_null($_[0]);
 
-  substr $_[0],length($_[0])-1,1,null
-  if has_suffix($_[0],';');
+  my $semi_re=qr{\s*;\s*$};
+  $_[0]=~ s[$semi_re][]sm;
 
   return ! is_null($_[0]);
 };

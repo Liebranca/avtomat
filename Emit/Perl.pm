@@ -14,41 +14,33 @@
 # deps
 
 package Emit::Perl;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use Readonly;
+  use English qw($ARG);
 
-  use Carp;
-  use English qw(-no_match_vars);
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
 
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
+  use Arstd::Path qw(parof to_pkg);
+  use Arstd::Array qw(nkeys nvalues);
 
-  use Style;
-  use Fmat;
-
-  use Arstd::Path;
-  use Arstd::Array;
-  use Arstd::PM qw(cload);
-
-  use Shb7::Path;
+  use Shb7::Path qw(relto_root);
   use Shb7::Build;
 
-  use Tree;
+  use lib "$ENV{ARPATH}/lib/";
+  use AR sys=>qw(
+    use Arstd::Fmat::(tidyup);
+  );
 
-  use lib $ENV{'ARPATH'}.'/lib/';
-
-  use Emit::Std;
-
-  use parent 'Emit';
+  use parent 'Emit::Std';
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.6';
+  our $VERSION = 'v0.00.7';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -56,7 +48,6 @@ package Emit::Perl;
 # the stuff you paste up top
 
 sub open_guards($class,$fname) {
-
   return join "\n",(
     "package $fname;",
     "  use v5.36.0;",
@@ -68,9 +59,7 @@ sub open_guards($class,$fname) {
     q[  use lib "$ENV{ARPATH}/lib/";],
 
     "  use Style;",
-
   );
-
 };
 
 
@@ -78,13 +67,11 @@ sub open_guards($class,$fname) {
 # ^on steroids
 
 sub boiler_open($class,$fname,%O) {
-
   $O{def}//=[];
 
-  my $note=Emit::Std::note($O{author},q[#]);
+  my $note=$class->note($O{author},q[#]);
 
   return join "\n",(
-
     "#!/usr/bin/perl",
 
     $note,
@@ -95,9 +82,7 @@ sub boiler_open($class,$fname,%O) {
 
     $class->make_ROM($O{def}),
     "\n"
-
   );
-
 };
 
 
@@ -105,13 +90,10 @@ sub boiler_open($class,$fname,%O) {
 # ^closer
 
 sub boiler_close($class,$fname,%O) {
-
   return join "\n",(
     "\n# ---   *   ---   *   ---",
     "1; # ret\n",
-
   );
-
 };
 
 
@@ -119,27 +101,22 @@ sub boiler_close($class,$fname,%O) {
 # pastes stuff into St::vconst
 
 sub make_ROM($def=undef) {
-
   # early exit?
   $def //= [];
   return () if ! @$def;
 
-
   # good stuff
   my $defi = 0;
-  my @defk = array_keys   $def;
-  my @defv = array_values $def;
+  my @defk = nkeys   $def;
+  my @defv = nvalues $def;
 
   return 'St::vconst {',(map {
-
     my $name  = $ARG;
     my $value = $defv[$defi++];
 
     "  $name=>$value;";
 
-
   } @defk),'};';
-
 };
 
 
@@ -147,8 +124,7 @@ sub make_ROM($def=undef) {
 # applies formatting to code
 
 sub tidy($class,$sref) {
-  return Fmat::tidyup($sref);
-
+  return tidyup($sref);
 };
 
 
@@ -158,8 +134,8 @@ sub tidy($class,$sref) {
 
 sub get_pkg($class,$fname) {
   my $dir=parof($fname);
-  return fname_to_pkg($fname,shpath($dir));
-
+  relto_root($dir);
+  return to_pkg($fname,$dir);
 };
 
 
@@ -167,10 +143,8 @@ sub get_pkg($class,$fname) {
 # use shwl to make XS module glue
 
 sub shwlbind($class,$soname,$libs_ref) {
-
   my $symtab=Shb7::Build::soregen(
     $soname,$libs_ref
-
   );
 
   my $code=null;
@@ -183,7 +157,6 @@ sub shwlbind($class,$soname,$libs_ref) {
     my $funcs = $obj->{function};
 
     $hed .= (
-
       "\n\n"
 
     . "// ---   *   ---   *   ---\n"
@@ -193,20 +166,17 @@ sub shwlbind($class,$soname,$libs_ref) {
 
 
     # walk functions
-    map {
-
+    for(keys %$funcs) {
       my $name  = $ARG;
       my $fn    = $funcs->{$name};
 
-      my @ar    = array_values($fn->{args});
+      my @ar    = nvalues($fn->{args});
 
       my $args  = join ',',@ar;
       my $rtype = $fn->{rtype};
 
       $hed .= "$rtype $name($args);\n";
-
-
-    } keys %$funcs;
+    };
 
   };
 
@@ -221,12 +191,9 @@ sub shwlbind($class,$soname,$libs_ref) {
     "    libs   => " . $symtab->{bld}->libline,
 
     '  );',
-
   );
 
-
   return $xsbit;
-
 };
 
 

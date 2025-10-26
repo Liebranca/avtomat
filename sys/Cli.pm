@@ -18,7 +18,6 @@ package Cli;
   use strict;
   use warnings;
 
-  use Carp qw(croak);
   use English qw($ARG $POSTMATCH $MATCH);
 
   use lib "$ENV{ARPATH}/lib/";
@@ -26,9 +25,9 @@ package Cli;
     use Style::(null);
     use Chk::(is_null);
     lis Arstd::Re::(eiths);
-
   );
 
+  use Arstd::throw;
   use parent 'St';
 
 
@@ -171,7 +170,7 @@ sub short_or_long($self,$arg) {
 
 
   # catch invalid
-  croak sprintf(
+  throw sprintf(
     "%s: invalid option '%s'\n",
     $self->{-name},
     $arg,
@@ -214,7 +213,7 @@ sub long_equal($self,$arg) {
   ($arg,$value)=split m/=/,$arg;
 
   # catch invalid
-  croak sprintf(
+  throw sprintf(
     "%s: invalid option '%s'\n",
     $self->{-name},
     $arg,
@@ -227,7 +226,7 @@ sub long_equal($self,$arg) {
   my $option = $self->{-optab}->{$id};
 
   if(! $option->{argc}) {
-    croak sprintf(
+    throw sprintf(
       "Argument '%s' for program '%s' "
     . "doesn't take a value",
 
@@ -349,6 +348,7 @@ package Cli::Fstruct;
   use strict;
   use warnings;
 
+  use English qw($ARG);
   use lib "$ENV{ARPATH}/lib/";
   use AR sys=>qw(
     use Style::(null);
@@ -389,7 +389,7 @@ sub proto_search($m,@cmd) {
 
 
   # dig into the folders?
-  @files=map {path_expand $ARG,-r=>1} @ar
+  @files=map {path_expand $ARG,-r=>1} @cmd
   if $m->{recursive} ne null;
 
 

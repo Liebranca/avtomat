@@ -8,7 +8,7 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lib
+# lib,
 
 # ---   *   ---   *   ---
 # deps
@@ -19,15 +19,15 @@ package Shb7;
   use warnings;
 
   use Storable qw(store retrieve);
-  use Cwd qw(abs_path getcwd);
+  use Cwd qw(abs_path);
 
-  use Carp qw(croak);
-  use English;
+  use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
-
-  use Shb7::Path;
+  use Style qw(null);
+  use Arstd::String qw(catpath);
+  use Arstd::Bin qw(moo);
+  use Shb7::Path qw(root);
   use Shb7::Find;
   use Shb7::Build;
 
@@ -35,7 +35,7 @@ package Shb7;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.02.2';
+  our $VERSION = 'v0.02.3';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -44,8 +44,8 @@ package Shb7;
 # else regenerates it from a sub
 
 sub load_cache($name,$dst,$call,@args) {
-  my ($pkg,$fname,$line)=(caller);
-  my $path=cache($pkg.q{::}.$name);
+  my ($pkg,$fname)=(caller);
+  my $path=cache("$pkg\::$name");
 
   my $out={};
 
@@ -63,13 +63,11 @@ sub load_cache($name,$dst,$call,@args) {
 
   } else {
     $out=retrieve($path);
-
   };
 
 
   $$dst=$out;
   return;
-
 };
 
 
@@ -77,7 +75,6 @@ sub load_cache($name,$dst,$call,@args) {
 # get shared object data from shwl
 
 sub sofetch($symtab) {
-
   # walk object files in shwl
   return { map {
     my $obj = $symtab->{object}->{$ARG};
@@ -93,7 +90,6 @@ sub sofetch($symtab) {
     } keys %$sym]);
 
   } keys %{$symtab->{object}} };
-
 };
 
 

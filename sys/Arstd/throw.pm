@@ -24,7 +24,6 @@ package Arstd::throw;
     $MATCH
     $ERRNO
     $EVAL_ERROR
-
   );
 
   use lib "$ENV{ARPATH}/lib/sys/";
@@ -46,7 +45,7 @@ package Arstd::throw;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.1a';
+  our $VERSION = 'v0.00.2a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -74,7 +73,6 @@ package Arstd::throw;
 #      reporting errors from inside an eval block
 
 sub throw {
-
   # these builtin vars give us further errors;
   # sometimes they are repeats, sometimes not
   #
@@ -83,7 +81,6 @@ sub throw {
   # "syntax error", and any duplicates that
   # come after that will be discarded
   # (see below...)
-
   if (! is_null($ERRNO) &&! is_null($_[0])) {
     unshift @{$_[2]},"$ERRNO: $_[0]";
 
@@ -94,7 +91,6 @@ sub throw {
   #     but if it was passed, then we care about it
   } elsif(! is_null($_[0])) {
     unshift @{$_[2]},$_[0];
-
   };
 
   unshift @{$_[2]},$EVAL_ERROR
@@ -105,7 +101,6 @@ sub throw {
   # ^see if there are actually any errors
   #
   # resume program if no errors to show!
-
   return if ! int @{$_[2]};
 
   # OK, we have an error
@@ -123,12 +118,10 @@ sub throw {
   # to point at, scapegoat style
   #
   # _must_ have a file to blame!
-
   if(! defined $_[1]) {
     $_[2]->[-1]=~ $file_re;
     $_[1]   = $1;
     $_[1] //= '<null>';
-
   };
 
 
@@ -140,11 +133,9 @@ sub throw {
   # this _generally_ means it's the same
   # error reported more than once, but
   # it some cases it _may_ fail (not sure)
-
   my $line_re=qr{
     at   \s (?<name> .+) \s
     line \s (?<num> \d+)
-
   }x;
 
   # the order is preserved (keys would kill it)
@@ -210,7 +201,6 @@ sub throw {
 
   # reformat error messages
   for(@{$_[2]}) {
-
     # detect if a filename is used;
     # if so, shorten it
     if($ARG=~ $file_re) {
@@ -218,14 +208,12 @@ sub throw {
       relto($have);
 
       $ARG=~ s[$file_re][$namec$have$nocol]sm;
-
     };
 
     # put in short form of culprit
     #
     # else it says (eval #number), which is
     # very unhelpful
-
     $ARG=~ s[$eval_re][$namec$_[1]$nocol]smg;
 
 
@@ -235,7 +223,6 @@ sub throw {
       my $me=cat(
         "\n${nl}at $+{name} ",
         "line $numc$+{num}$cbeg",
-
       );
 
       $ARG=~ s[${line_re[0]}][$me]smg;
@@ -248,11 +235,9 @@ sub throw {
       my $me=cat(
         "at $namec$+{name}$nocol ",
         "line $numc$+{num}$nocol",
-
       );
 
       $ARG .= "$me";
-
     };
 
 
@@ -263,14 +248,12 @@ sub throw {
     # finally, remove newline at end
     # we'll add one ourselves ;>
     chomp $ARG;
-
   };
 
 
   # spit it out!
   strip $_[2]->[-1];
   die "\n",join("\n",@{$_[2]}),"\n\n";
-
 };
 
 
@@ -285,9 +268,10 @@ sub throw {
 # [<] byte ptr ; new string
 
 sub culprit {
-  my $i    = 0;
-  my $safe = {'Arstd::throw'=>1};
-  my $out  = undef;
+  my $i     = 0;
+  my $class = __PACKAGE__;
+  my $safe  = {$class=>1};
+  my $out   = undef;
 
   # we drop the first frame as it's
   # going to be throw itself
@@ -308,7 +292,6 @@ sub culprit {
 
   # now walk the remaining frames
   for(@frame) {
-
     # skip packages marked safe
     my ($pkg,$fname,$lineno,$subroutine)=@$ARG;
     next if exists $safe->{$pkg};
@@ -319,23 +302,26 @@ sub culprit {
 
     ($out)=($ARG),last
     if ! exists $safe->{$pkg} ||! $safe->{$pkg};
-
   };
 
   # ^set default if no culprit found ;>
   $out //= $default;
+  return culprit_repr($out);
+};
 
 
-  # make pretty print for out
+# ---   *   ---   *   ---
+# makes pretty print for reporting
+# backtrace entry
+
+sub culprit_repr {
   return cat(
     Arstd::ansi::m('::','op'),
     Arstd::ansi::m('throw','ctl'),
     Arstd::ansi::m(),
 
-    " at $out->[1] line $out->[2].",
-
+    " at $_[0]->[1] line $_[0]->[2].",
   );
-
 };
 
 
@@ -356,11 +342,28 @@ sub bt {
   while(++$depth) {
     last if ! defined caller $depth;
     push @out,[(caller $depth)];
-
   };
 
   return @out;
+};
 
+
+# ---   *   ---   *   ---
+# ^gives full backtrace for printing!
+
+sub bt_repr {
+  my @frame = grep {$ARG->[0] ne __PACKAGE__} bt();
+  my $body  = join "\n",map {
+    culprit_repr($ARG)
+
+  } @frame;
+
+  return cat(
+    Arstd::ansi::m('BACKTRACE','ctl'),
+    Arstd::ansi::m(),
+
+    "\n$body",
+  );
 };
 
 

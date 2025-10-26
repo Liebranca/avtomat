@@ -20,45 +20,39 @@ package Shb7::Find;
   use warnings;
 
   use Cwd qw(abs_path getcwd);
-  use English;
+  use English qw($ARG);
 
-  use Carp qw(croak);
   use Storable qw(retrieve);
 
-  use Exporter 'import';
-
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
+  use Style qw(null);
+  use Chk qw(is_file is_dir);
 
-  use Arstd::String qw(begswith);
-  use Arstd::Array qw(
-    array_filter
-    array_dupop
-
-  );
-
+  use Arstd::String qw(has_prefix);
+  use Arstd::Array qw(filter dupop);
   use Arstd::Hash qw(lfind);
-  use Arstd::IO qw(errout);
+  use Arstd::throw;
 
+  use Tree::File;
   use Shb7::Path;
-
-
-# ---   *   ---   *   ---
-# info
-
-  our $VERSION = 'v0.00.2';
-  our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # adds to your namespace
 
-  our @EXPORT=qw(
+  use Exporter 'import';
+  our @EXPORT_OK=qw(
     ffind
     wfind
     libexpand
-
   );
+
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = 'v0.00.4';
+  our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
@@ -68,60 +62,26 @@ sub illnames($fname,@exts) {
   my @files=();
   my $search_in;
 
-  # from [ext0 ext1] to [.ext0 .ext1]
-  map {$ARG=".$ARG"} @exts;
-  push @exts,null;
-
   # libsearch
-  if($fname=~ s[$Shb7::Path::LIBF_RE][]) {
-
-    push @files,
+  my $re=qr{^\s*\-l};
+  if($fname=~ s[$re][]) {
+    push @files,(
       "lib$fname.so",
       "lib$fname.a"
+    );
 
-    ;
-
-    $search_in=$Shb7::Path::Lib;
+    $search_in=Shb7::Path::lib();
     push @files,$fname;
 
   # common file search
   } else {
-    $search_in=$Shb7::Path::Include;
+    $search_in=Shb7::Path::include();
 
-    push @files,
-      (map {$fname.$ARG} @exts),
-      $fname
-
-    ;
-
+    push @files,map {"$fname.$ARG"} @exts;
+    push @files,$fname;
   };
 
   return ($search_in,@files);
-
-};
-
-
-# ---   *   ---   *   ---
-# ffind errme
-
-sub throw_no_file($fname,@exts) {
-  my $ext_list=null;
-  pop @exts if @exts>1;
-
-  $ext_list=join q[,],@exts;
-  if(length $ext_list) {
-    $ext_list="(exts==$ext_list)";
-
-  };
-
-  errout(
-    q[Could not find file '%s' in path %s],
-
-    args=>[$fname,$ext_list],
-    lvl=>$AR_ERROR,
-
-  );
-
 };
 
 
@@ -130,27 +90,17 @@ sub throw_no_file($fname,@exts) {
 # stops if name found
 
 sub fsearch($search_in,@files) {
-  my $out=undef;
-  for my $path(
+  my $out=null;
+  for my $path(@$search_in,Shb7::Path::root()) {
+    for(@files) {
+      ($out)=("$path/$ARG"),last
+      if is_file("$path/$ARG");
+    };
 
-    @$search_in,
-    $Shb7::Path::Root
-
-  ) {
-
-    map {
-
-      $out="$path/$ARG"
-      if -f "$path/$ARG"
-
-    } @files;
-
-    last if defined $out;
-
+    last if ! is_null($out);
   };
 
   return $out;
-
 };
 
 
@@ -158,27 +108,19 @@ sub fsearch($search_in,@files) {
 # find file within search path
 
 sub ffind($fname,@exts) {
-  if(-f $fname) {
-    return abs_path($fname);
-
-  };
+  return abs_path($fname) if -f $fname;
 
   # get search directory and
   # filename variations
-  my ($search_in,@files)=illnames(
-    $fname,@exts
-
-  );
+  my ($search_in,@files)=illnames($fname,@exts);
 
   # perform search and errchk
-  my $src=fsearch($search_in,@files);
-  if(! defined $src) {
-    throw_no_file($fname,@exts);
+  my $out=fsearch($search_in,@files);
 
-  };
+  throw "Could not find file '$fname' in PATH"
+  if is_null($out);
 
-  return $src;
-
+  return $out;
 };
 
 
@@ -190,57 +132,49 @@ sub wsearch($search_in,$re) {
 
   # iter search path
   for my $path(@$search_in) {
-    my $tree=Shb7::Path::walk($path,-r=>1);
+    # get filetree...
+    my $tree=Tree::File->new($path);
+    $tree->expand(-r=>1);
 
+    # ^walk dirs in tree...
     for my $dir($tree->get_dir_list(
       full_path=>0,
       inclusive=>1,
-
     )) {
-
-      my @files=$dir->get_file_list(
-        full_path=>1,
-        max_depth=>1,
-
+      # and check all files in dir
+      my @files=$dir->get_filepath_list(
+        full      => 1,
+        max_depth => 1,
       );
 
       push @out,grep m[$re],@files;
-
     };
-
   };
 
   return @out;
-
 };
 
 
 # ---   *   ---   *   ---
 # wildcard search
 
+sub wildcard_re {qr{%}};
 sub wfind($pattern) {
   my ($search_in,@patterns)=illnames($pattern);
 
   # escape non-wildcard bits
-  for my $pat(@patterns) {
+  $ARG=join(
+    q{[\\s\\S]+},
+    map {"\Q$ARG"} split(wildcard_re(),$ARG)
 
-    my @bits=(
-      map {"\Q$ARG"}
-      split $Shb7::Path::WILDCARD_RE,$pat
-
-    );
-
-    $pat=join q{[\\s\\S]+},@bits;
-
-  };
+  ) for @patterns;
 
   # OR the patterns into a single regex
-  my $re=join q[|],@patterns;
+  my $re=join '|',@patterns;
   $re=qr{$re}x;
 
   # give grep'd search path
   return wsearch($search_in,$re);
-
 };
 
 
@@ -251,23 +185,25 @@ sub get_dotlibs($search_in,@names) {
   my @out=();
 
   for my $path(@$search_in) {
-    push @out,grep {-f $ARG} (
-      map {"$path/.$ARG"} @names
+    push @out,grep {
+      is_file($ARG)
 
-    );
+    } map {
+      "$path/.$ARG"
 
+    } @names;
   };
 
   return @out;
-
 };
+
 
 # ---   *   ---   *   ---
 # get deps from .libs
 
 sub get_dotlib_deps($path) {
   my $f=retrieve($path)
-  or croak strerr($path);
+  or throw "No SHWL in '$path'";
 
   my @deps=(defined $f->{dep})
     ? @{$f->{dep}}
@@ -275,8 +211,8 @@ sub get_dotlib_deps($path) {
     ;
 
   return @deps;
-
 };
+
 
 # ---   *   ---   *   ---
 # lib dependency search
@@ -284,22 +220,13 @@ sub get_dotlib_deps($path) {
 sub ldsearch($search_in,@names) {
   my @out=();
 
-  for my $path(get_dotlibs(
+  push @out,get_dotlib_deps($ARG)
+  for get_dotlibs($search_in,@names);
 
-    $search_in,
-    @names
-
-  )) {
-
-    push @out,get_dotlib_deps($path);
-
-  };
-
-  array_filter(\@out);
-  array_dupop(\@out);
+  filter(\@out);
+  dupop(\@out);
 
   return @out;
-
 };
 
 
@@ -312,21 +239,15 @@ sub ldsearch($search_in,@names) {
 sub is_libpath($search_in,$name) {
   my $out=0;
 
-  if(begswith($name,q[-L])) {
+  if(has_prefix($name,'-L')) {
     my $s     = substr $name,2,length $name;
     my $match = lfind($search_in,[$s]);
 
-    if(!@$match) {
-      push @$search_in,$s;
-
-    };
-
+    push @$search_in,$s if !@$match;
     $out=1;
-
   };
 
   return $out;
-
 };
 
 
@@ -340,12 +261,10 @@ sub dashl($search_in,@libs) {
   for my $lib(@libs) {
     next if is_libpath($search_in,$lib);
     push @out,(substr $lib,2,length $lib);
-
   };
 
-  array_filter(\@out);
+  filter(\@out);
   return @out;
-
 };
 
 
@@ -353,53 +272,50 @@ sub dashl($search_in,@libs) {
 # recursively appends lib dependencies to LIBS var
 
 sub libexpand($libs) {
-  my $search_in = $Shb7::Path::Lib;
+  my $search_in = Shb7::Path::lib();
   my @found     = (@$libs);
   my @deps      = ();
 
   while(@found) {
     my @names=dashl($search_in,@found);
     push @deps,ldsearch($search_in,@names);
-
   };
 
   push @$libs,@deps;
-  array_dupop($libs);
-  array_filter($libs);
-
+  dupop($libs);
+  filter($libs);
 
   return;
-
 };
 
 
 # ---   *   ---   *   ---
 # retrieve makescript cache
+#
+# [0]: byte ptr ; module dir
+# [<]: mem  ptr ; Avt::Makescript object
 
-sub build_meta($path) {
-  my $M   = retrieve($path.'/.avto-cache');
+sub build_meta {
+  my $M   = retrieve("$_[0]/.avto-cache");
   my $out = {
     inc => $M->{inc},
     lib => $M->{lib},
-
   };
 
   my $old=getcwd();
-  chdir $Shb7::Path::Root;
+  chdir Shb7::Path::root();
 
   libexpand($out->{lib});
 
-  for my $dir(@{$out->{inc}}) {
-    $dir=~ s[$Shb7::Path::INCL_RE][];
-    $dir=abs_path($dir);
-
-    $dir=q[-I].$dir;
-
+  my $re=qr{^\s*\-I};
+  for(@{$out->{inc}}) {
+    $ARG=~ s[$re][];
+    $ARG=abs_path($ARG);
+    $ARG="-I$ARG";
   };
 
   chdir $old;
   return $out;
-
 };
 
 
@@ -408,18 +324,19 @@ sub build_meta($path) {
 # from name of library
 
 sub build_path($name) {
-  my $path=dir($name);
-  if(! -d $path) {
-    my $libmeta=shwl($name);
-    $path=(-f $libmeta)
-      ? dir(retrieve($libmeta)->{fswat})
+  my $path=Shb7::Path::dirp($name);
+  if(! is_dir($path)) {
+    my $libmeta=Shb7::Path::shwlp($name);
+    $path=(is_file($libmeta))
+      ? Shb7::Path::dirp(
+          retrieve($libmeta)->{fswat}
+        )
+
       : null
       ;
-
   };
 
   return $path;
-
 };
 
 

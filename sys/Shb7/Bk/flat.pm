@@ -18,26 +18,26 @@ package Shb7::Bk::flat;
   use strict;
   use warnings;
 
-  use English;
+  use English qw($ARG);
+
   use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Chk qw(is_file);
 
-  use Style;
+  use Arstd::Path qw(extwap);
+  use Arstd::Bin qw(orc);
+  use Arstd::throw;
 
-  use Arstd::Array;
-  use Arstd::String;
-  use Arstd::Path;
-  use Arstd::IO;
+  use Shb7::Path qw(relto_root);
 
-  use Arstd::WLog;
-
+  use Log;
   use parent 'Shb7::Bk';
-  use lib $ENV{'ARPATH'}.'/lib/';
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.4';
+  our $VERSION = 'v0.00.5';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -46,7 +46,6 @@ package Shb7::Bk::flat;
 
 sub push_src($self,$fpath) {
   push @{$self->{file}},Shb7::Bfile->new(
-
     $fpath,
     $self,
 
@@ -57,8 +56,8 @@ sub push_src($self,$fpath) {
   );
 
   return $self->{file}->[-1];
-
 };
+
 
 # ---   *   ---   *   ---
 # get variant of arch flag
@@ -66,16 +65,15 @@ sub push_src($self,$fpath) {
 sub target($tgt) {
   my @out=();
 
-  if($tgt eq Shb7::Bk->TARGET->{x64}) {
+  if($tgt eq Shb7::Bk->target_arch('x64')) {
     @out=qw(-m elf_x86_64);
 
-  } elsif($tgt eq Shb7::Bk->TARGET->{x32}) {
+  } elsif($tgt eq Shb7::Bk->target_arch('x86')) {
     @out=qw(-m elf_x86);
 
   };
 
   return @out;
-
 };
 
 
@@ -83,8 +81,7 @@ sub target($tgt) {
 # rebuild chk
 
 sub fupdated($self,$bfile) {
-  $self->chkfdeps($bfile);
-
+  return $self->chkfdeps($bfile);
 };
 
 
@@ -95,14 +92,12 @@ sub fdeps($self,$bfile) {
   my @out=($bfile->{src});
 
   # read file if it exists
-  if(-f $bfile->{dep}) {
+  if(is_file($bfile->{dep})) {
     my $body=orc($bfile->{dep});
-    @out=split $NEWLINE_RE,$body;
-
+    @out=split qr"\n",$body;
   };
 
   return @out;
-
 };
 
 
@@ -116,15 +111,15 @@ sub entry($name) {return ('-e',$name)};
 # object file boiler
 
 sub fbuild($self,$bfile,$bld) {
-  state $oomre=qr{error: out of memory\.};
-  state $merrf='./.bkflat.tmp';
+  my $oomre=qr{error: out of memory\.};
+  my $merrf='./.bkflat.tmp';
 
-
-  $WLog->substep(Shb7::shpath($bfile->{src}));
+  my $rel=$bfile->{src};
+  relto_root($rel);
+  Log->substep($rel);
 
   # clear existing
   $bfile->prebuild();
-
 
   # assemble
   $self->asm($bfile->{src},$merrf);
@@ -140,28 +135,21 @@ sub fbuild($self,$bfile,$bld) {
     : $bfile->{obj}
     ;
 
-  # ^give on success
-  if(-f $chk) {
+  # ^throw on failure
+  throw "FLAT: build fail" if ! is_file($chk);
 
-    # standard binary generated
-    if($chk eq $bfile->{obj}) {
-      $bfile->postbuild();
+  # standard binary generated
+  if($chk eq $bfile->{obj}) {
+    $bfile->postbuild();
 
-    # ^else it's fun stuff!
-    } else {
-      $bfile->binfilter();
-      $bfile->postbuild();
-
-    };
-
-    return 1;
-
+  # ^else it's fun stuff!
   } else {
-    errout("FLAT: build fail",lvl=>$AR_FATAL);
-    return 0;
+    $bfile->binfilter();
+    $bfile->postbuild();
 
   };
 
+  return 1;
 };
 
 
@@ -179,22 +167,17 @@ sub asm($class,$src,$merrf,@args) {
 #   so we just iter and increase
 #   it from the default 16K
 
-  state $oomre = qr{error: out of memory\.};
-  state @sztab = (
-
-#    map {1024 + (1024*$ARG)} 0..127
+  my $oomre=qr{error: out of memory\.};
+  my @sztab=(
     2 ** 13 , 2 ** 14 , 2 ** 16 , 2 ** 17
-
   );
 
   my $attp = 0;
   my $mem  = null;
 
 
-# ---   *   ---   *   ---
-# ^top
-
-MEM_RECALC:
+  # ^top
+  MEM_RECALC:
 
   $mem="-m $sztab[$attp]";
 
@@ -203,24 +186,18 @@ MEM_RECALC:
   my $merr=orc($merrf);
 
   # ^catch "out of memory" errme
-  $attp++;
+  ++$attp;
 
   goto MEM_RECALC
   if ($attp < @sztab) && ($merr=~ $oomre);
 
 
   # ^unsolved err
-  if(length $merr) {
-    say {*STDERR} $merr;
-    return 0;
+  throw $merr if length $merr;
 
   # ^all good ;>
-  } else {
-    return 1;
-
-  };
-
-}
+  return 1;
+};
 
 
 # ---   *   ---   *   ---

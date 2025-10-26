@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
 # ARSTD FMAT
-# sprintf on anabolic steroids
+# ~
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -9,6 +9,15 @@
 #
 # CONTRIBUTORS
 # lib,
+
+# ---   *   ---   *   ---
+# NOTE:
+#
+# this used to be a bunch of sprintf wrappers
+# now it does... more or less nothing
+#
+# it won't go away, but we'll dump functions
+# related to it's original purpose here
 
 # ---   *   ---   *   ---
 # deps
@@ -67,40 +76,6 @@ sub tidyup($sref,%O) {
 
   return $out;
 };
-
-
-## ---   *   ---   *   ---
-## apply format to string
-#
-#sub fstr($fmat,%O) {
-#  # defaults
-#  $O{args}      //= [];
-#  $O{pre}       //= null;
-#  $O{wrap}      //= [null,null];
-#  $O{endtab}    //= null;
-#  $O{pad}       //= 0;
-#  $O{width}     //= (ttysz)[0];
-#
-#  # mark undefined
-#  map {$ARG //= '<null>'} @{$O{args}};
-#
-#
-#  # write args to fmat
-#  sprintf $fmat,@{$O{args}};
-#
-#  # get line length for linewrapping
-#  my $x     = $width-length($O{pre})-1;
-#  my @lines = map {
-#    $ARG="$O{pre}$ARG$O{endtab}\n"
-#
-#  } linewrap(\$body,$x);
-#
-#  push @lines,null if $O{pad};
-#
-#
-#  # give final string
-#  return cat($O{wrap}->[0],@lines,$O{wrap}->[1]);
-#};
 
 
 # ---   *   ---   *   ---

@@ -53,7 +53,7 @@ It's responsibilities are as follows:
 - `flagchk`: read the value of said switches.
 
 - `store`: push the current state to stack.
- 
+
 - `load`: pop from the stack.
 
 - `commit`: save the current token.

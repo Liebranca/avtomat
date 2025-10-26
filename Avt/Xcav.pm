@@ -22,16 +22,18 @@ package Avt::Xcav;
   use strict;
   use warnings;
 
-  use English;
+  use English qw($ARG);
   use Storable qw(store);
-  use Carp;
+
+  use lib "$ENV{ARPATH}/lib";
+  use AR;
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
-  use Arstd::IO qw(errout);
-  use Arstd::PM qw(cload);
+  use Style qw(null);
+  use Arstd::throw;
 
-  use Shb7;
+  use Shb7::Path qw(dirp include);
+  use Shb7::Find qw(ffind wfind);
 
   use Ftype;
   use Ftype::Text::C;
@@ -40,7 +42,7 @@ package Avt::Xcav;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.4';
+  our $VERSION = 'v0.00.5';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -50,27 +52,24 @@ package Avt::Xcav;
 sub file_sbl($f) {
   my $langname=Ftype::ext_to_ftype($f)->{name};
 
-  errout(
+  throw sprintf(
     q[Can't determine language for file '%s'],
-
-    args => [$f],
-    lvl  => $AR_FATAL,
+    $f,
 
   ) unless defined $langname;
-
 
   # get modules
   my $xcav="Avt\::Xcav\::$langname";
   my $emit="Emit\::$langname";
 
-  cload $xcav,$emit;
+  AR::cload $xcav,$emit;
 
 
   # get symbols
   my $out=$xcav->symscan($f);
 
   # ^apply type conversions
-  map {
+  for(keys %{$out->{function}}) {
     my $fn   = $out->{function}->{$ARG};
     my $args = $fn->{args};
 
@@ -80,13 +79,10 @@ sub file_sbl($f) {
     for my $i(0..(@$args/2)-1) {
       my $t=$emit->typecon($args->[1+$i*2]);
       $args->[1+$i*2]=$t;
-
     };
-
-  } keys %{$out->{function}};
+  };
 
   return $out;
-
 };
 
 
@@ -95,39 +91,38 @@ sub file_sbl($f) {
 # write symbol typedata (return,args) to shadow lib
 
 sub symscan($mod,$dst,$deps,@fname) {
+  # early exit if nothing to do
+  return if ! @fname;
 
   # setup search path
-  Shb7::push_includes(Shb7::dir($mod));
+  include(dirp($mod));
 
   # expand file list from names
   my @file=map {
     grep {$ARG} ($ARG=~ qr{\%})
-      ? @{Shb7::wfind($ARG)}
-      : Shb7::ffind($ARG)
+      ? wfind($ARG)
+      : ffind($ARG)
       ;
-
   } @fname;
 
   my $shwl={
     dep    => $deps,
     fswat  => $mod,
     object => {},
-
   };
 
 
   # iter through expanded list
-  map {
-    my $o=Shb7::obj_from_src($ARG);
-       $o=Shb7::shpath($o);
+  for(@file) {
+    my $o=Shb7::Path::obj_from_src($ARG);
+    relto_root($o);
 
     $shwl->{object}->{$o}=file_sbl($ARG);
 
-  } @file;
+  };
 
-  store($shwl,$dst) or croak strerr($dst);
+  store($shwl,$dst) or throw $dst;
   return;
-
 };
 
 

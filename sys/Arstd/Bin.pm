@@ -17,11 +17,13 @@ package Arstd::Bin;
   use v5.42.0;
   use strict;
   use warnings;
-  use English qw($ARG $ERRNO);
+
+  use Cwd qw(abs_path);
+  use English qw($ARG);
   use File::Spec;
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style qw(null);
+  use Style qw(null no_match);
   use Chk qw(is_null is_path is_file is_dir);
   use Arstd::throw;
 
@@ -39,14 +41,13 @@ package Arstd::Bin;
     owc
     errmute
     erropen
-
   );
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.1';
+  our $VERSION = 'v0.01.2';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -76,7 +77,6 @@ sub ot {
   &&! ((-M $_[0]) < (-M $_[1]))
 
   );
-
 };
 
 
@@ -94,7 +94,6 @@ sub moo {
   if is_null $_[0] || is_null $_[1];
 
   return (! is_file $_[0]) || ot($_[0],$_[1]);
-
 };
 
 
@@ -110,7 +109,6 @@ sub orc {
   close $fh or throw $_[0];
 
   return $body;
-
 };
 
 
@@ -132,7 +130,6 @@ sub dorc {
   closedir $dir or throw $_[0];
 
   return @out;
-
 };
 
 
@@ -146,42 +143,55 @@ sub dorc {
 # [*]: performs path expansion
 
 sub xdorc {
+  # we get out early if the path to an
+  # _actual_ file was passed as that can't
+  # be expanded
   return ($_[0]) if is_file $_[0];
+
+  # else we take args
   my $path = shift;
   my %O    = @_;
 
   # defaults
+  $O{-f} //= 0;
   $O{-r} //= 0;
+  $O{-x} //= no_match;
 
   # walk directories
   my @out = ();
   my @rem = ($path);
 
   while(@rem) {
+    # perform expansion and filter out files
+    my @have=grep {is_dir $ARG} (glob(shift @rem));
 
-    # perform expansion,
-    # filter out directories,
-    # then opendir
-    my @have=map {
+    # ^then opendir on each directory and filter
+    # ^out results that match the exclusion pattern
+    @have=grep {
+      ! ($ARG=~ $O{-x})
+
+    } map {
       dorc $ARG;
 
-    } grep {
-      is_dir $ARG;
+    } @have;
 
-    } (glob(shift @rem));
 
     # files to out
-    unshift @out,grep {-f "$path/$ARG"} @have;
+    unshift @out,grep {is_file "$path/$ARG"} @have;
 
     # recurse?
-    unshift @rem,grep {-d "$path/$ARG"} @have
+    unshift @rem,grep {is_dir "$path/$ARG"} @have
     if $O{-r};
-
   };
 
 
-  return @out;
+  # need to give absolute paths?
+  if($O{-f}) {
+    $ARG=abs_path($ARG) for @out;
+  };
 
+  # give list of files
+  return @out;
 };
 
 
@@ -205,7 +215,6 @@ sub owc {
   close $fh or throw $_[0];
 
   return $wr*length $_[1];
-
 };
 
 
@@ -227,7 +236,6 @@ sub errmute {
   or throw '/dev/null';
 
   return;
-
 };
 
 
@@ -242,7 +250,6 @@ sub erropen {
 
   open STDERR,'>',$fh or throw $fh;
   return;
-
 };
 
 

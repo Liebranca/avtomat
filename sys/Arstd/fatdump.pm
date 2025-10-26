@@ -18,12 +18,9 @@ package Arstd::fatdump;
   use strict;
   use warnings;
 
-  use Perl::Tidy;
-  use B qw(svref_2object);
-
   use English qw($ARG);
 
-  use lib "$ENV{ARPATH}/lib/sys/";
+  use lib "$ENV{ARPATH}/lib/";
   use AR sys=>qw(
     use Chk::(
       is_hashref

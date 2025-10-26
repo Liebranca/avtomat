@@ -18,22 +18,27 @@ package Avt::Makescript;
   use strict;
   use warnings;
 
-  use Carp qw(croak);
-  use English;
+  use English qw($ARG);
   use Storable qw(retrieve);
   use Cwd qw(abs_path getcwd);
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
-
-  use Arstd::Array qw(array_filter array_dupop);
-  use Arstd::Path qw(dirof parof reqdir);
-  use Arstd::IO qw(owc);
-  use Arstd::PM qw(cload);
-  use Arstd::WLog;
-
-  use Shb7;
+  use Style qw(null);
   use Cli;
+  use Log;
+
+  use Arstd::Array qw(filter dupop);
+  use Arstd::Path qw(dirof parof reqdir);
+  use Arstd::Bin qw(ot moo owc);
+
+  use Shb7::Path qw(
+    root
+    set_root
+    relto_root
+    dirp
+    trashp
+  );
+  use Shb7::Find qw(ffind wfind);
 
   use Shb7::Bfile;
   use Shb7::Build;
@@ -48,6 +53,7 @@ package Avt::Makescript;
   use Ftype::Text::Perl;
 
   use lib "$ENV{ARPATH}/lib/";
+  use AR;
   use Emit::Std;
   use Avt::Xcav;
 
@@ -65,7 +71,6 @@ package Avt::Makescript;
 my $PKG=__PACKAGE__;
 St::vconst {
   CWD_RE => qr{^\./|(?<=,)\./}x,
-
 };
 
 
@@ -73,15 +78,12 @@ St::vconst {
 # get bfiles of all containers
 
 sub get_build_files($self) {
-
   # give full list of files to build
   return (
     $self->fasm_bfiles(),
     $self->{gcc}->bfiles(),
     $self->{mam}->bfiles(),
-
   );
-
 };
 
 
@@ -98,9 +100,8 @@ sub get_build_files($self) {
 # flist accto the dependency list
 
 sub fasm_bfiles($self) {
-
   return () if ! int $self->{flat}->bfiles();
-  cload 'Avt::flatten';
+  AR::cload 'Avt::flatten';
 
   my @src   = $self->{flat}->bfiles();
   my %keys  = map {
@@ -119,11 +120,10 @@ sub fasm_bfiles($self) {
   } Avt::flatten->cpproc(
     'build_deps',
     @src
-
   );
 
   # ^remove duplicates
-  array_dupop(\@flatk);
+  dupop(\@flatk);
   my @flat=map {$keys{$ARG}} @flatk;
 
   map {delete $keys{$ARG}} @flatk;
@@ -134,9 +134,7 @@ sub fasm_bfiles($self) {
 
   } @src;
 
-
   return (@flat,@rem);
-
 };
 
 
@@ -144,29 +142,19 @@ sub fasm_bfiles($self) {
 # adjust fpath arrays
 
 sub abspath_arr($self) {
-
   my $re=$PKG->CWD_RE;
-  map {
-    array_filter $ARG;
-
-    map {
-      $ARG=~ s[$re][$self->{root}]sxmg;
-
-    } @$ARG;
-
-  } (
-
+  for(
     $self->{xprt},
     $self->{fcpy},
     $self->{gen},
     $self->{inc},
-    $self->{lib},
-
-  );
-
+    $self->{lib}
+  ) {
+    filter $ARG;
+    $ARG=~ s[$re][$self->{root}]sxmg for @$ARG;
+  };
 
   return;
-
 };
 
 
@@ -174,24 +162,18 @@ sub abspath_arr($self) {
 # adjust fpath strings
 
 sub abspath_str($self) {
-
   my $re=$PKG->CWD_RE;
-  map {
-    $ARG=~ s[$re][$self->{root}]sxmg
-    if defined $ARG;
-
-  } (
-
+  for (
     $self->{ilib},
     $self->{mlib},
     $self->{main},
     $self->{trash},
-
-  );
-
+  ) {
+    $ARG=~ s[$re][$self->{root}]sxmg
+    if defined $ARG;
+  };
 
   return;
-
 };
 
 
@@ -200,17 +182,14 @@ sub abspath_str($self) {
 
 sub abspath_bfile($self) {
   my $re=$PKG->CWD_RE;
-  map {
+  for($self->get_build_files()) {
     $ARG->{src}=~ s[$re][$self->{root}]sxmg;
     $ARG->{obj}=~ s[$re][$self->{root}]sxmg;
     $ARG->{asm}=~ s[$re][$self->{root}]sxmg;
     $ARG->{out}=~ s[$re][$self->{root}]sxmg;
-
-  } $self->get_build_files();
-
+  };
 
   return;
-
 };
 
 
@@ -223,7 +202,6 @@ sub abspaths($self) {
   $self->abspath_bfile();
 
   return;
-
 };
 
 
@@ -231,9 +209,7 @@ sub abspaths($self) {
 # cstruc
 
 sub new($class) {
-
   my $self=bless {
-
     # name of target
     fswat => null,
     mkwat => null,
@@ -241,7 +217,6 @@ sub new($class) {
     # build file containers
     flat  => Shb7::Bk::flat->new(
       pproc=>'Avt::flatten::pproc',
-
     ),
 
     gcc   => Shb7::Bk::gcc->new(),
@@ -273,7 +248,6 @@ sub new($class) {
   },$class;
 
   return $self;
-
 };
 
 
@@ -281,18 +255,16 @@ sub new($class) {
 # entry point
 
 sub build_module($class,$file,@cmd) {
-
-  my $root = parof $file;
   my $dir  = dirof $file;
+  my $root = parof $file;
 
-  my $self = $class->load("$dir/.avto-cache",@cmd);
+  set_root($root);
+  chdir $root;
 
-  chdir Shb7::set_root $root;
+  my $self=$class->load("$dir/.avto-cache",@cmd);
   $self->run(@cmd);
 
-
   return $self;
-
 };
 
 
@@ -307,7 +279,6 @@ sub run($self) {
   $self->side_builds;
 
   return;
-
 };
 
 
@@ -315,7 +286,6 @@ sub run($self) {
 # get make config from file
 
 sub load($class,$file,@cmd) {
-
   my $self=retrieve $file;
   my ($cli,@args)=$class->read_cli(@cmd);
 
@@ -323,9 +293,9 @@ sub load($class,$file,@cmd) {
   $self->{clean} = $cli->{clean} ne null;
 
   $self->{root}  = $Shb7::Path::Root;
-  $self->{trash} = Shb7::obj_dir($self->{fswat});
+  $self->{trash} = trashp($self->{fswat});
 
-  Shb7::set_module($self->{fswat});
+  Shb7::Path::module($self->{fswat});
   $self->abspaths();
 
   $self->{bld}=Shb7::Build->new(
@@ -340,18 +310,15 @@ sub load($class,$file,@cmd) {
     clean   => $self->{clean},
     def     => $cli->{def},
 
-    tgt     => Shb7::Bk->TARGET->{x64},
+    tgt     => Shb7::Bk->target_arch()->{x64},
 
     linking => ($cli->{flat} ne null)
       ? 'flat'
       : 'cstd'
       ,
-
   );
 
-
   return $self;
-
 };
 
 
@@ -359,45 +326,37 @@ sub load($class,$file,@cmd) {
 # ^iface
 
 sub read_cli($class,@cmd) {
-
   state @tab=(
-
     { id    => 'clean',
       short => '-c',
       long  => '--clean',
       argc  => 0
 
-    },
-
-    { id    => 'debug',
+    },{
+      id    => 'debug',
       short => '-g',
       long  => '--debug',
       argc  => 0
 
-    },
-
-    { id    => 'clean-debug',
+    },{
+      id    => 'clean-debug',
       short => '-gc',
       long  => '--clean-debug',
       argc  => 0
 
-    },
-
-    { id      => 'def',
+    },{
+      id      => 'def',
       short   => '-D',
       long    => '--define',
       argc    => 'array',
       default => [],
 
-    },
-
-    { id    => 'flat',
+    },{
+      id    => 'flat',
       short => '-f',
       long  => '--flat',
       argc  => 0
-
     },
-
   );
 
 
@@ -409,13 +368,10 @@ sub read_cli($class,@cmd) {
     $cli->{debug}=1;
     $cli->{clean}=1;
     delete $cli->{'clean-debug'};
-
   };
-
 
   # ^give
   return ($cli,@args);
-
 };
 
 
@@ -424,21 +380,15 @@ sub read_cli($class,@cmd) {
 # current search path
 
 sub set_build_paths($self) {
-
   my @paths=grep {
     $ARG ne "-I$Shb7::Path::Root";
 
   } @{$self->{inc}};
 
-  push @paths,(
-    Shb7::dir($self->{fswat}),
-    '.',
+  push @paths,(dirp($self->{fswat}),'.');
 
-  );
-
-  Shb7::set_includes(@paths);
+  include(@paths);
   return;
-
 };
 
 
@@ -446,45 +396,36 @@ sub set_build_paths($self) {
 # handle code generator scripts
 
 sub update_generated($self) {
-
   my @GENS = @{$self->{gen}};
   my $done = 0;
 
-  $WLog->step("running generators")
+  Log->step("running generators")
   if @GENS;
 
   # iter the list of generator scripts
   # ... and sources/dependencies for them
   for my $ref(@GENS) {
-
     my ($res,$gen,@msrcs)=@$ref;
-
 
     # make sure we don't need to update
     my $do_gen=(-e $res)
-      ? Shb7::ot($res,$gen) || $self->{clean}
+      ? ot($res,$gen) || $self->{clean}
       : 1
       ;
 
-
     # make damn sure we don't need to update
     if(! $do_gen) {
-
       while(@msrcs) {
         my $msrc=shift @msrcs;
 
         # look for wildcard
-        if($msrc=~ $Shb7::WILDCARD_RE) {
-
-          for my $src(Shb7::wfind($msrc)) {
-
+        if($msrc=~ Shb7::Find::wildcard_re()) {
+          for my $src(wfind($msrc)) {
             # found file is updated
             if(Shb7::ot($res,$src)) {
               $do_gen=1;
               last;
-
             };
-
           };
 
           last if $do_gen;
@@ -492,38 +433,33 @@ sub update_generated($self) {
 
         # look for specific file
         } else {
-          $msrc=Shb7::ffind($msrc);
+          $msrc=ffind($msrc);
           next if !$msrc;
 
           # found file is updated
-          if(Shb7::ot($res,$msrc)) {
+          if(ot($res,$msrc)) {
             $do_gen=1;
             last;
-
           };
-
         };
-
       };
-
     };
 
 
     # run the generator script
     if($do_gen) {
-
-      $WLog->ex(Shb7::shpath($gen));
+      my $rel=$gen;
+      relto_root($rel);
+      Log->ex($rel);
       `$gen`;
 
       $done=1;
-
     };
 
   };
 
-  $WLog->line() if $done;
+  Log->line() if $done;
   return;
-
 };
 
 
@@ -531,7 +467,7 @@ sub update_generated($self) {
 # plain cp
 
 sub update_regular($self) {
-  my @FCPY = map {
+  my @FCPY=map {
     (Shb7::Bfile->is_valid($ARG))
       ? $ARG->unroll('src','out')
       : $ARG
@@ -539,10 +475,9 @@ sub update_regular($self) {
 
   } @{$self->{fcpy}};
 
+  my $done=0;
 
-  my $done = 0;
-
-  $WLog->step("copying regular files")
+  Log->step("copying regular files")
   if @FCPY;
 
   while(@FCPY) {
@@ -558,23 +493,21 @@ sub update_regular($self) {
     my $do_cpy=! -e $cp;
 
     $do_cpy=(! $do_cpy)
-      ? Shb7::ot($cp,$og) || $self->{clean}
+      ? ot($cp,$og) || $self->{clean}
       : $do_cpy
       ;
 
     if($do_cpy) {
-      $WLog->substep($og);
+      Log->substep($og);
       `cp $og $cp`;
 
       $done=1;
-
     };
 
   };
 
-  $WLog->line() if $done;
+  Log->line() if $done;
   return;
-
 };
 
 
@@ -587,7 +520,7 @@ sub update_objects($self) {
 
   my @files  = $self->get_build_files();
 
-  $WLog->step("rebuilding objects")
+  Log->step("rebuilding objects")
   if @files;
 
   # iter list of source files
@@ -600,11 +533,9 @@ sub update_objects($self) {
   };
 
   $self->{bld}->push_files(@$bfiles);
-  $WLog->line() if $objblt;
-
+  Log->line() if $objblt;
 
   return $objblt;
-
 };
 
 
@@ -619,11 +550,9 @@ sub bk_for($self,$src) {
 
   } elsif($src=~ Ftype::Text::Perl->{ext}) {
     $out=$self->{mam};
-
   };
 
   return $out;
-
 };
 
 
@@ -638,15 +567,13 @@ sub side_builds($self) {
   my $srcdir = $self->{root}.$self->{fswat}.q[/];
 
   for my $ref(@{$self->{util}}) {
-
     my ($outfile,$srcfile,@flags)=@$ref;
-
     my $bld=Shb7::Build->new(
-      file   => [],
-      name   => $bindir.$outfile,
+      file => [],
+      name => $bindir.$outfile,
 
-      inc   => $self->{inc},
-      lib   => [
+      inc  => $self->{inc},
+      lib  => [
         q[-l].$self->{mkwat},
         @{$self->{lib}},
 
@@ -657,7 +584,6 @@ sub side_builds($self) {
 
       tgt     => Shb7::Bk->TARGET->{x64},
       linking => 'cstd',
-
     );
 
     my $bk    = $self->bk_for($srcfile);
@@ -672,9 +598,8 @@ sub side_builds($self) {
 
   };
 
-  $WLog->line() if $done;
+  Log->line() if $done;
   return;
-
 };
 
 
@@ -697,49 +622,34 @@ sub build_binaries($self,$objblt) {
   @libs=@{$self->{bld}->{lib}};
 
   if($self->{main}
-  && (($objblt || $self->{clean}) && @objs)
-
-  ) {
-
-    $WLog->fupdate(
-      Shb7::shpath($self->{main}),
-      'compiling binary'
-
-    );
+  && (($objblt || $self->{clean}) && @objs)) {
+    my $rel=$self->{main};
+    relto_root($rel);
+    Log->fupdate($rel,'compiling binary');
 
 
     # build mode is 'static library'
     if($self->{lmode} eq 'ar') {
-
       push @calls,[
         qw(ar -crs),
         $self->{main},@objs
-
       ];
-
 
     # otherwise it's executable or shared object
     } else {
-
       if(-f $self->{main}) {
         unlink $self->{main};
-
       };
-
 
       # for executables we spawn a shadow lib
       if($self->{lmode} ne '-shared ') {
-
         push @calls,[
           qw(ar -crs),
           $self->{mlib},@objs
-
         ];
-
       };
 
       $self->{bld}->olink();
-
     };
 
   };
@@ -747,35 +657,27 @@ sub build_binaries($self,$objblt) {
 
   # run build calls and make symbol tables
   for my $call(@calls) {
-    array_filter($call);
+    filter($call);
     system {$call->[0]} @$call;
-
   };
 
   if(@libs && $self->{ilib}) {
-
-    $WLog->fupdate(
+    Log->fupdate(
       $self->{fswat},
       'compiling shwl for'
-
     );
 
     Avt::Xcav::symscan(
-
       $self->{fswat},
       $self->{ilib},
 
       \@libs,
 
       @{$self->{xprt}}
-
     );
-
   };
 
-
   return;
-
 };
 
 
@@ -790,10 +692,10 @@ sub depsmake($self) {
 
   my $fswat = $self->{fswat};
 
-  $WLog->step('rebuilding dependencies')
+  Log->step('rebuilding dependencies')
   if @objs && @deps;
 
-  my $ex=Shb7::Bfile->AVTOPATH . q[/bin/pmd];
+  my $ex=Shb7::Bfile->avtopath() . q[/bin/pmd];
 
   while(@objs && @deps) {
     my $obj=shift @objs;
@@ -803,12 +705,10 @@ sub depsmake($self) {
 
     my $body=`$ex $fswat $obj`;
     owc($dep,$body);
-
   };
 
-  Shb7::clear_makedeps();
+  Shb7::Build::clear_makedeps();
   return;
-
 };
 
 

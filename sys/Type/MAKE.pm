@@ -98,26 +98,22 @@ St::vconst {
     ezy=>[qw(
       byte  word  dword qword
       xword yword zword
-
     )],
 
     # ^real dword/real qword
     real=>[qw(
       real dreal
-
     )],
 
     # ^vector specs
     vec_t=>[qw(
       vec mat
-
     )],
 
     # valid *element* sizes for base types
     # ie what a vector can contain!
     prim=>[qw(
       byte word dword qword real dreal
-
     )],
 
     # ^ALL the elements!
@@ -126,7 +122,6 @@ St::vconst {
       xword yword zword
 
       real  dreal
-
     )],
 
     # all pointers are _just_ pointers
@@ -135,14 +130,12 @@ St::vconst {
     # they point to ;>
     ptr_t=>[qw(
       ptr pptr fptr ref
-
     )],
 
 
     # strings are so special aren't they
     str_t=>[qw(
       str cstr plstr
-
     )],
 
   },
@@ -158,9 +151,7 @@ St::vconst {
       ),qw(
         vec2 vec3 vec4 mat2 mat3 mat4
         sign
-
       ),
-
     ];
 
   },
@@ -1069,6 +1060,7 @@ sub strucparse {
 # [2]: word ; padding field counter
 
 sub autopad {
+  return () if ! $_[1];
   my @pad  = ();
   my $need = $_[0] % $_[1];
   if($need) {
@@ -1101,8 +1093,14 @@ sub import {
     typedef("$ARG ptr"  => "$ARG ptr");
     typedef("$ARG pptr" => "$ARG pptr");
     typedef("$ARG ref"  => "$ARG ref");
-    typedef("sign $ARG" => "sign $ARG");
-    typedef("sign_$ARG" => "sign $ARG");
+
+    typedef("sign $ARG" => "sign $ARG")
+    if $ARG ne 'real' && $ARG ne 'dreal';
+  };
+
+  for(qw(cstr plstr)) {
+    typedef("$ARG"     => "$ARG");
+    typedef("$ARG ptr" => "$ARG ptr");
   };
 
   # make vector aliases

@@ -62,7 +62,7 @@ sub ttysz {
 
 
 # ---   *   ---   *   ---
-# wrap string in ansi color escapes
+# prepend string with ansi color escapes
 #
 # [0]: byte ptr ; string
 # [1]: byte ptr ; color id (defaults to off)
@@ -83,7 +83,6 @@ sub m {
     update => "\e[32;1m",
     ex     => "\e[36;1m",
     off    => "\e[0m",
-
   };
 
   return $tab->{off} if is_null $_[0];
@@ -97,7 +96,14 @@ sub m {
     ;
 
   return "$color$_[0]";
+};
 
+
+# ---   *   ---   *   ---
+# ^same, wraps
+
+sub mwrap {
+  return &m(@_) . &m();
 };
 
 
@@ -117,8 +123,7 @@ sub mtag {
   my $end   = &m('>','op');
   my $color = &m(@_);
 
-  return "$beg$color$end";
-
+  return "$beg$color$end" . &m();
 };
 
 
@@ -136,7 +141,6 @@ sub descape {
 
   $_[0]=~ s[$re][]sxgm;
   return ! is_null $_[0];
-
 };
 
 
@@ -151,7 +155,6 @@ sub descape {
 
 sub popscape {
   return recaptsu $_[0],escape_re;
-
 };
 
 
@@ -168,7 +171,6 @@ sub popscape {
 
 sub pushscape {
   return decaptsu @_;
-
 };
 
 
@@ -184,7 +186,6 @@ sub lenscape {
 
   my @ar=fgsplit($_[0],$re);
   return sum(map {length $ARG} @ar);
-
 };
 
 

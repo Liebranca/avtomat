@@ -31,6 +31,7 @@ package Arstd::String;
   use Exporter 'import';
   our @EXPORT_OK=qw(
     cat
+    catpath
     to_char
 
     sqwrap
@@ -62,7 +63,7 @@ package Arstd::String;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.5';
+  our $VERSION = 'v0.01.6';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -72,6 +73,21 @@ package Arstd::String;
 # [0]: byte pptr ; string array
 
 sub cat {join null,@_};
+
+
+# ---   *   ---   *   ---
+# join '/',(in)
+#
+# [0]: byte pptr ; string array
+# [*]: ensures there's no double slashes
+
+sub catpath {
+  my $out =  join '/',@_;
+  my $re  =  qr{/+};
+     $out =~ s[$re][/]g;
+
+  return $out;
+};
 
 
 # ---   *   ---   *   ---
@@ -428,7 +444,6 @@ sub jag {
 
 sub cjag {
   return (@_) ? $_[0] . jag @_ : null ;
-
 };
 
 

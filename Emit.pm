@@ -18,24 +18,26 @@ package Emit;
   use strict;
   use warnings;
 
-  use English;
+  use English qw($ARG);
+
   use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Chk qw(is_arrayref is_coderef);
 
-  use Style;
-  use Chk;
+  use Arstd::Array qw(nkeys nvalues);
 
-  use Arstd::Array;
-  use Arstd::Path;
+  use Arstd::Path qw(to_pkg find_subpkg);
   use Arstd::Re;
   use Arstd::IO;
   use Arstd::PM;
+  use Arstd::throw;
 
   use parent 'St';
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.6';
+  our $VERSION = 'v0.00.7';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -46,7 +48,6 @@ St::vconst {
   ON_NO_TITLE   => 'SCRATCH',
   ON_NO_VERSION => 'v0.00.1a',
   ON_NO_AUTHOR  => 'ANON',
-
 };
 
 
@@ -55,7 +56,6 @@ St::vconst {
 # (c-)load it in if found
 
 sub get_class($class,$name) {
-
   my $out=null;
 
   # nocase Emit::$name lookup
@@ -63,52 +63,24 @@ sub get_class($class,$name) {
 
   # ^make classname from filename
   if($fname) {
-    $out=fname_to_pkg($fname);
+    $out=to_pkg($fname);
     cload($out);
-
   };
 
-
   return $out;
-
 };
 
 
 # ---   *   ---   *   ---
 # transforms type to peso equivalent
 
-sub typetrim($class,$typeref) {
-
-  $$typeref=~ s[^\s*|\s*$][]sg;
-
-  # temporal patch ;>
-  $$typeref=~ s[inline][];
-
-};
-
-sub get_typetab($class) {
-
-  no strict 'refs';
-  my $out=${"$class\::TYPETAB"};
-
-  use strict 'refs';
-
-  return $out;
-
-};
-
 sub typecon($class,$type) {
+  my $re   =  qr{^Emit::};
+  my $lang =  $class;
+     $lang =~ s[$re][];
 
-  my $tab=$class->get_typetab();
-  $class->typetrim(\$type);
-
-  if(exists $tab->{$type}) {
-    $type=$tab->{$type};
-
-  };
-
-  return $type;
-
+  my $out=Type::xlate($class,$type);
+  return $out;
 };
 
 
@@ -117,21 +89,17 @@ sub typecon($class,$type) {
 
 sub boiler_open($class,$fname,%O) {return q{}};
 sub boiler_close($class,$fname,%O) {return q{}};
-sub xltab($class,%table) {return %table};
 
 sub fnwrap($class,$name,$code,%O) {
   return $name.q{ }.$code;
-
 };
 
 sub datasec($class,$name,$type,@items) {
   return $type.q{ }.$name.q{ }.(join ',',@items);
-
 };
 
 sub tidy($class,$sref) {
   return $$sref;
-
 };
 
 
@@ -139,7 +107,6 @@ sub tidy($class,$sref) {
 # puts code in-between two pieces of boiler
 
 sub codewrap($class,$fname,%O) {
-
   # defaults
   $O{guards}  //= 0;
 
@@ -162,11 +129,10 @@ sub codewrap($class,$fname,%O) {
   is_arrayref($O{body})
   or throw_genbody();
 
-  my @code=array_keys($O{body});
-  my @args=array_values($O{body});
+  my @code=nkeys($O{body});
+  my @args=nvalues($O{body});
 
   map {
-
     my $args=shift @args;
 
     $s.=(is_coderef($ARG))
@@ -183,9 +149,7 @@ sub codewrap($class,$fname,%O) {
     : $s
     ;
 
-
   return $s;
-
 };
 
 
@@ -193,18 +157,12 @@ sub codewrap($class,$fname,%O) {
 # ^errme
 
 sub throw_genbody() {
-
-  errcaller();
-  errout(
-
+  throw(
     q[Body of [ctl]:%s must be an ]
   . q[array of [F=>ARGS]],
 
-    lvl  => $AR_FATAL,
     args => ['codewrap'],
-
   );
-
 };
 
 

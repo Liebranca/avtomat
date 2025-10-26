@@ -95,9 +95,9 @@ sub macro {
     my $argline=cat(
       '$_[0]=macroguard([qw(',
       join(' ',@$args),
-      ')],@_);' . "\n",
+      ')],@_);',
 
-      '  my ($',
+      'my ($',
       join(',$',@$args),
       ')=macroin(',
       '$_[0],qw(',
@@ -119,12 +119,7 @@ sub macro {
 
   # ^assemble together with blocks to
   # ^make subroutine
-  my $fnstr=join "\n",(
-    "sub {",
-    (map {"  $ARG"} @$blk),
-
-    "};",
-  );
+  my $fnstr=cat("sub {",@$blk,"};");
 
 
   # generate and register new symbol
@@ -236,7 +231,7 @@ sub macrofoot {
 
 sub macrosave {
   tokenshift($_[1]);
-  push @{cmamout()->{def}},"sub $_[0] $_[1]";
+  push @{cmamout()->{def}},"sub $_[0]$_[1]";
   return;
 };
 

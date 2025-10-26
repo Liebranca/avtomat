@@ -33,6 +33,7 @@ package Arstd::Hash;
   use Exporter 'import';
   our @EXPORT_OK=qw(
     gvalues
+    lfind
   );
 
 

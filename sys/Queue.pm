@@ -9,42 +9,36 @@
 # be a bro and inherit
 #
 # CONTRIBUTORS
-# lyeb,
+# lib,
 
 # ---   *   ---   *   ---
 # deps
 
 package Queue;
-
-  use v5.36.0;
+  use v5.42.0;
   use strict;
   use warnings;
 
-  use English qw(-no_match_vars);
-
-  use lib $ENV{'ARPATH'}.'/lib/sys/';
-  use Style;
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION=v1.00.4;
-  our $AUTHOR='IBN-3DILA';
+  our $VERSION = 'v1.00.5';
+  our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # constructor
 
 sub new($class) {
-
   return bless {
-
     argc  => [],
     argv  => [],
     procs => [],
 
   },$class;
-
 };
+
 
 # ---   *   ---   *   ---
 # push subs to Q
@@ -55,8 +49,8 @@ sub add($self,$fn,@args) {
   push @{$self->{procs}},$fn;
 
   return;
-
 };
+
 
 # ---   *   ---   *   ---
 # ^unshift
@@ -67,81 +61,71 @@ sub skip($self,$fn,@args) {
   unshift @{$self->{procs}},$fn;
 
   return;
-
 };
+
 
 # ---   *   ---   *   ---
 # ^remove all
 
 sub clear($self) {
-
   $self->{argc}  = [];
   $self->{argv}  = [];
   $self->{procs} = [];
 
   return;
-
 };
+
 
 # ---   *   ---   *   ---
 # do next in list
 
 sub get_next($self) {
-
   my $argc = shift @{$self->{argc}};
   my $fn   = shift @{$self->{procs}};
-
-  my @argv=();
+  my @argv = ();
 
   while($argc) {
     push @argv,shift @{$self->{argv}};
     $argc--;
-
   };
 
   return $fn->(@argv);
-
 };
+
 
 # ---   *   ---   *   ---
 # ops in Q
 
 sub pending($self) {
   return 0 < @{$self->{procs}}
-
 };
+
 
 # ---   *   ---   *   ---
 # do if anything left to do
 
 sub ex($self) {
-
   my $out=undef;
 
-  if(0 < @{$self->{procs}}) {
-    $out=$self->get_next();
-
-  };
+  $out=$self->get_next()
+  if 0 < @{$self->{procs}};
 
   return $out;
-
 };
+
 
 # ---   *   ---   *   ---
 # ^do WHILE ;>
 
 sub wex($self) {
-
   my @out=();
 
-  while(0 < @{$self->{procs}}) {
-    push @out,$self->get_next();
-
-  };
+  push @out,$self->get_next()
+  while 0 < @{$self->{procs}};
 
   return @out;
-
 };
+
 
 # ---   *   ---   *   ---
 # ^methods added to Q from
@@ -149,18 +133,15 @@ sub wex($self) {
 # not be executed
 
 sub immwex($self) {
-
   my @out     = ();
   my @pending = @{$self->{procs}};
 
-  map {
-    push @out,$self->get_next();
-
-  } 0..$#pending;
+  push @out,$self->get_next()
+  for 0..$#pending;
 
   return @out;
-
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

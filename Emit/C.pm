@@ -21,21 +21,16 @@ package Emit::C;
   use English;
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
+  use Style qw(null);
   use Chk qw(is_hashref);
   use Type qw(sizeof typefet);
+  use Type::C;
 
-  use Arstd::Array qw(
-    array_keys
-    array_values
-
-  );
+  use Arstd::String qw(cat);
+  use Arstd::Array qw(nkeys nvalues);
 
   use lib "$ENV{ARPATH}/lib/";
-
-  use Emit::Std;
-
-  use parent 'Emit';
+  use parent 'Emit::Std';
 
 
 # ---   *   ---   *   ---
@@ -43,13 +38,6 @@ package Emit::C;
 
   our $VERSION = 'v0.00.7a';
   our $AUTHOR  = 'IBN-3DILA';
-
-
-# ---   *   ---   *   ---
-# LIS:GBL
-
-  use Type::C;
-  our $Typetab=$Type::C::Table;
 
 
 # ---   *   ---   *   ---
@@ -65,9 +53,7 @@ sub open_guards($class,$fname) {
     "#endif",
 
     "\n"
-
   );
-
 };
 
 
@@ -82,23 +68,7 @@ sub close_guards($class,$fname) {
     "#endif // __${fname}_H__",
 
     "\n"
-
   );
-
-};
-
-
-# ---   *   ---   *   ---
-# removes "cruft", so to speak ;>
-
-sub typetrim($class,$typeref) {
-
-  # until I care enough to handle this spec
-  $$typeref=~ s[\b const \b][]sgx;
-
-  Emit->typetrim($typeref);
-  return;
-
 };
 
 
@@ -110,8 +80,8 @@ sub boiler_open($class,$fname,%O) {
 
   # array as hash
   my $defi = 0;
-  my @defk = array_keys($O{def});
-  my @defv = array_values($O{def});
+  my @defk = nkeys($O{def});
+  my @defv = nvalues($O{def});
 
   # add guards?
   my $guards=($O{guards})
@@ -121,7 +91,7 @@ sub boiler_open($class,$fname,%O) {
 
   # open boilerpaste
   my $s=(
-    Emit::Std::note($O{author},q[//])
+    $class->note($O{author},q[//])
   . "\n$guards"
 
   . "// ---   *   ---   *   ---\n"
@@ -153,7 +123,6 @@ sub boiler_open($class,$fname,%O) {
   # ^back to perl
   # give boilerpaste
   return $s;
-
 };
 
 
@@ -171,15 +140,12 @@ sub boiler_close($class,$fname,%O) {
   # close boilerpaste
   my $s=(
     "// ---   *   ---   *   ---\n"
-  . "\n$guards";
-
+  . "\n$guards"
   );
-
 
   # ^back to perl
   # give boilerpaste
   return $s;
-
 };
 
 
@@ -187,7 +153,6 @@ sub boiler_close($class,$fname,%O) {
 # turn list of args into string
 
 sub arglist_str($class,$args,%O) {
-
   # defaults
   $O{nl}//=0;
 
@@ -203,12 +168,9 @@ sub arglist_str($class,$args,%O) {
 
   } else {
     $out=join q[,],@$args;
-
   };
 
-
   return $out;
-
 };
 
 
@@ -216,7 +178,6 @@ sub arglist_str($class,$args,%O) {
 # pastes code inside a function definition
 
 sub fnwrap($class,$name,$code,%O) {
-
   # defaults
   $O{rtype} //= 'int';
   $O{args}  //= 'void';
@@ -224,12 +185,9 @@ sub fnwrap($class,$name,$code,%O) {
   my $s=(
     "$O{rtype} $name($O{args}) "
   . "{\n$code\n\n};\n\n"
-
   );
 
-
   return $s;
-
 };
 
 
@@ -237,13 +195,11 @@ sub fnwrap($class,$name,$code,%O) {
 # ^gives decl
 
 sub fnwrap_decl($class,$name,%O) {
-
   # defaults
   $O{rtype} //= 'int';
   $O{args}  //= 'void';
 
   return "$O{rtype} $name($O{args});\n";
-
 };
 
 
@@ -300,7 +256,6 @@ sub fnwrap_ar($class,$name,$code,%O) {
   );
 
   return $out;
-
 };
 
 
@@ -308,15 +263,12 @@ sub fnwrap_ar($class,$name,$code,%O) {
 # ^sugar for main
 
 sub mfwrap($class,$code) {
-
   return $class->fnwrap(
     'main',$code,
 
     rtype => 'int',
     args  => 'int argc,char** argv',
-
   );
-
 };
 
 
@@ -326,7 +278,7 @@ sub mfwrap($class,$code) {
 
 sub attrlist($class,@vars) {
   my %vars  = @vars;
-  my @names = array_keys(\@vars);
+  my @names = nkeys(\@vars);
 
   my @sorted=sort {
     sizeof($class->typecon($vars{$a}))
@@ -338,7 +290,6 @@ sub attrlist($class,@vars) {
     "$vars{$ARG} $ARG;"
 
   } @sorted;
-
 };
 
 
@@ -365,7 +316,6 @@ sub switch_case($class,$value,$code) {
     ;
 
   return $out;
-
 };
 
 
@@ -374,13 +324,12 @@ sub switch_case($class,$value,$code) {
 # for [key => value] in %O
 
 sub switch_tab($class,$x,%O) {
-  my $body=catar map {
+  my $body=cat map {
     $class->switch_case($ARG,$O{$ARG})
 
   } keys %O;
 
   return "switch($x) {\n$body\n};\n";
-
 };
 
 
@@ -409,8 +358,6 @@ sub struc_decl($class,$type) {
 
     : $out
     ;
-
-
 };
 
 
