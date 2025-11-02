@@ -37,7 +37,43 @@ BEGIN {
 
 Avt::config {
   name => 'avtomat',
-  xcpy => [qw(arperl olink rd symfind)],
+  xcpy => [qw()], # arperl olink rd symfind
+
+  # the reason we're excluding so many things
+  # is we more or less rewrote the core packages
+  # and now need to build avtomat itself without
+  # *also* rewriting all of this stuff
+  scan => qr{(?:
+    sys/A9M
+  | sys/rd
+  | sys/ipret
+  | sys/xlate
+  | sys/Tree/Exec
+  | sys/Bitformat
+  | sys/Bpack
+  | sys/Icebox
+  | sys/FStruc
+  | sys/Ring
+  | sys/id
+  | sys/FF
+  | sys/Mint
+  | Avt/FFI
+  | Avt/Droid
+  | Avt/XS
+  | Avt/olink
+  | Avt/CRun
+  | Avt/flatten
+  | Avt/Xcav/C
+  | Emit/fasm
+  | Emit/Cpp
+  | Emit/html
+  | Emit/Css
+  | Emit/Python
+  | Shb7/Bk/front
+  | Shb7/Bk/jar
+  | Type/Platypus
+  | Type/cstr
+  )}x,
 
   pre  => q[
     my $ex="$ENV{ARPATH}/avtomat/BOOTSTRAP";

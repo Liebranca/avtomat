@@ -19,21 +19,55 @@ package thawout;
   use strict;
   use warnings;
 
+  use English qw($ARG);
   use Storable qw(retrieve);
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
-  use Fmat;
+  use Arstd::fatdump;
+  use Arstd::throw;
+  use Arstd::Array qw(iof);
+
+
+# ---   *   ---   *   ---
+# get '-p' flag
+
+my @path=();
+my $path=iof \@ARGV,'-p';
+if(defined $path) {
+  $path=$ARGV[$path+1] or throw(
+    "'-p' flag passed, but no path provided"
+  );
+
+  @path=split qr{:+},$path;
+  @ARGV=grep {
+    $ARG ne '-p' && $ARG ne $path
+
+  } @ARGV;
+};
+
+
+# ---   *   ---   *   ---
+# get '-r' flag
+
+my $recurse=iof \@ARGV,'-r';
+if(defined $recurse) {
+  $recurse=1;
+  @ARGV=grep {$ARG ne '-r'} @ARGV;
+
+} else {
+  $recurse=0;
+};
 
 
 # ---   *   ---   *   ---
 # the bit
 
-map {
-  my $h=retrieve $_ or die strerr $_;
-  fatdump \$h,blessed=>1;
+for(@ARGV) {
+  my $h=retrieve $_ or throw $_;
+     $h=$h->{$ARG} for @path;
 
-} @ARGV;
+  fatdump \$h,blessed=>1,recurse=>$recurse;
+};
 
 
 # ---   *   ---   *   ---

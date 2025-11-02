@@ -80,6 +80,7 @@ my $ROM={
     /sys/Arstd/Bin.pm
     /sys/Arstd/Repl.pm
     /sys/Chk/Syntax.pm
+    /sys/Chk/Deps.pm
   )],
 
   # MAM does not depend on these files,
@@ -132,6 +133,14 @@ my $ROM={
     /sys/Type/C.pm
     /sys/Type/Cpp.pm
 
+    CMAM/static.pm
+    CMAM/token.pm
+    CMAM/parse.pm
+    CMAM/macro.pm
+    CMAM/emit.pm
+    CMAM/sandbox.pm
+    CMAM.pm
+
     /sys/Shb7/Path.pm
     /sys/Shb7/Find.pm
     /sys/Shb7/Bfile.pm
@@ -141,6 +150,7 @@ my $ROM={
     /sys/Shb7/Bk/mam.pm
     /sys/Shb7/Bk/fake.pm
     /sys/Shb7/Build.pm
+    /sys/Shb7/Link.pm
     /sys/Shb7.pm
 
     /sys/Vault.pm

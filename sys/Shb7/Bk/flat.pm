@@ -49,10 +49,9 @@ sub push_src($self,$fpath) {
     $fpath,
     $self,
 
-    obj_ext=>q[.o],
-    dep_ext=>q[.asmd],
+    obj_ext=>'o',
+    dep_ext=>'asmd',
     asm_ext=>undef,
-
   );
 
   return $self->{file}->[-1];

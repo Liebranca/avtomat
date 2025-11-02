@@ -22,7 +22,6 @@ package Shb7::Bk::mam;
   use lib "$ENV{ARPATH}/lib/sys/";
 
   use Style qw(null);
-
   use Arstd::Path qw(dirof reqdir);
   use Arstd::Bin qw(ot orc owc);
 
@@ -54,8 +53,8 @@ sub push_src($self,$fpath,$fout) {
 
     out     => $fout,
 
-    obj_ext => q[.pm],
-    dep_ext => q[.pmd],
+    obj_ext => 'pm',
+    dep_ext => 'pmd',
     asm_ext => undef,
   );
 
@@ -100,7 +99,7 @@ sub fupdated($self,$bfile) {
 
 
 # ---   *   ---   *   ---
-# makes file list out of pcc .pmd files
+# makes file list out of *.pmd files
 
 sub fdeps($self,$bfile) {
   return () if ! -f $bfile->{dep};
@@ -122,34 +121,20 @@ sub fdeps($self,$bfile) {
 
 
 # ---   *   ---   *   ---
-# Perl "building"
-#
-# actually it's applying any
-# custom source filters
+# makes MAM ice
 
-sub fbuild($self,$bfile,$bld,$rap) {
-  # notify we're here
-  my $rel=$bfile->{src};
-  relto_root($rel);
-  Log->substep($rel);
-
-  # make directories if need
-  map {reqdir dirof $ARG if ! -f $ARG}
-  ($bfile->{obj},$bfile->{dep});
-
-  # make MAM ice
+sub on_build($self,$bld) {
   $ENV{MAMROOT}=root();
   my $mam=MAM->new();
   $mam->set_module(Shb7::Path::module());
-  $mam->set_rap($rap);
-
+  $mam->set_rap(1);
 
   # add libs to path
   my $libd_re = Shb7::Path::libd_re();
   my $inc_re  = Shb7::Path::inc_re();
 
   # ... but first remove "-L" || "-I"
-  my @lib     = (
+  my @lib=(
     @{$bld->{inc}},
     grep {$ARG=~ $libd_re} @{$bld->{lib}}
   );
@@ -162,9 +147,43 @@ sub fbuild($self,$bfile,$bld,$rap) {
   # ^now add the libs ;>
   $mam->libpush(@lib);
 
+  # store MAM ice within self
+  $self->{-MAM}=$mam;
+  return;
+};
 
-  # *now* call MAM
-  my ($dst,$src)=($rap)
+
+# ---   *   ---   *   ---
+# ^uses MAM ice to build file list
+
+sub build_objects($self,$bld,@bfile) {
+  # first step
+  for(@bfile) {
+    $self->log_fpath($ARG->{src});
+    $self->fbuild($ARG,$bld);
+  };
+
+  # ^with all files handled, now go again
+  $self->{-MAM}->set_rap(0);
+  for(@bfile) {
+    $self->log_fpath($ARG->{out});
+    $self->fbuild($ARG,$bld);
+  };
+
+  delete $self->{-MAM};
+  return (0);
+};
+
+
+# ---   *   ---   *   ---
+# Perl "building"
+#
+# it's just a preprocessor step
+# (see: MAM.pm)
+
+sub fbuild($self,$bfile,$bld) {
+  my $mam=$self->{-MAM};
+  my ($dst,$src)=($mam->{rap})
     ? ($bfile->{obj},$bfile->{src})
     : ($bfile->{out},$bfile->{obj})
     ;

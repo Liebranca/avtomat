@@ -28,7 +28,7 @@ package Shb7::Path;
   use Chk qw(is_null is_dir);
 
   use Arstd::String qw(cat catpath);
-  use Arstd::Path qw(based reqdir relto);
+  use Arstd::Path qw(based reqdir relto extwap);
   use Arstd::Array qw(filter);
   use Arstd::Bin qw(dorc moo ot);
   use Arstd::throw;
@@ -368,18 +368,20 @@ sub fmirror {
 
   # set defaults
   $O{reloc} //= [root_re() => trash()];
-  $O{ext}   //= q[.o];
+  $O{ext}   //= 'o';
 
   # swap folder?
   if($O{reloc} ne 0) {
     my ($re,$loc)=(@{$O{reloc}});
-    $out=~ s[$re][$loc];
+    $out=~ s[$re][];
+    $out=  catpath($loc,$out);
   };
 
   # swap extension?
   extwap($out,$O{ext})
   if ! is_null($O{ext});
 
+  relto_root($out);
   return $out;
 };
 

@@ -27,8 +27,9 @@ package Avt::Makescript;
   use Cli;
   use Log;
 
+  use Arstd::String qw(catpath);
   use Arstd::Array qw(filter dupop);
-  use Arstd::Path qw(dirof parof reqdir);
+  use Arstd::Path qw(dirof parof reqdir absto);
   use Arstd::Bin qw(ot moo owc);
 
   use Shb7::Path qw(
@@ -37,11 +38,13 @@ package Avt::Makescript;
     relto_root
     dirp
     trashp
+    include
   );
   use Shb7::Find qw(ffind wfind);
 
   use Shb7::Bfile;
   use Shb7::Build;
+  use Shb7::Link qw(olink);
   use Shb7::Bk::gcc;
   use Shb7::Bk::mam;
   use Shb7::Bk::flat;
@@ -61,7 +64,7 @@ package Avt::Makescript;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.7';
+  our $VERSION = 'v0.01.8';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -69,16 +72,12 @@ package Avt::Makescript;
 # ROM
 
 my $PKG=__PACKAGE__;
-St::vconst {
-  CWD_RE => qr{^\./|(?<=,)\./}x,
-};
 
 
 # ---   *   ---   *   ---
 # get bfiles of all containers
 
 sub get_build_files($self) {
-  # give full list of files to build
   return (
     $self->fasm_bfiles(),
     $self->{gcc}->bfiles(),
@@ -141,65 +140,28 @@ sub fasm_bfiles($self) {
 # ---   *   ---   *   ---
 # adjust fpath arrays
 
-sub abspath_arr($self) {
-  my $re=$PKG->CWD_RE;
+sub make_abspaths {
   for(
-    $self->{xprt},
-    $self->{fcpy},
-    $self->{gen},
-    $self->{inc},
-    $self->{lib}
+    $_[0]->{xprt},
+    $_[0]->{fcpy},
+    $_[0]->{gen},
+    $_[0]->{inc},
+    $_[0]->{lib}
   ) {
     filter $ARG;
-    $ARG=~ s[$re][$self->{root}]sxmg for @$ARG;
+    absto($ARG,$_[0]->{root}) for @$ARG;
   };
 
-  return;
-};
-
-
-# ---   *   ---   *   ---
-# adjust fpath strings
-
-sub abspath_str($self) {
-  my $re=$PKG->CWD_RE;
-  for (
-    $self->{ilib},
-    $self->{mlib},
-    $self->{main},
-    $self->{trash},
-  ) {
-    $ARG=~ s[$re][$self->{root}]sxmg
-    if defined $ARG;
+  for(qw(ilib mlib main trash)) {
+    absto($_[0]->{$ARG},$_[0]->{root});
   };
 
-  return;
-};
-
-
-# ---   *   ---   *   ---
-# adjust fpaths on build file objects
-
-sub abspath_bfile($self) {
-  my $re=$PKG->CWD_RE;
-  for($self->get_build_files()) {
-    $ARG->{src}=~ s[$re][$self->{root}]sxmg;
-    $ARG->{obj}=~ s[$re][$self->{root}]sxmg;
-    $ARG->{asm}=~ s[$re][$self->{root}]sxmg;
-    $ARG->{out}=~ s[$re][$self->{root}]sxmg;
+  for($_[0]->get_build_files()) {
+    my $bfile=$ARG;
+    for(qw(src obj asm out dep)) {
+      absto($bfile->{$ARG},$_[0]->{root});
+    };
   };
-
-  return;
-};
-
-
-# ---   *   ---   *   ---
-# ^shorthand for all
-
-sub abspaths($self) {
-  $self->abspath_arr();
-  $self->abspath_str();
-  $self->abspath_bfile();
 
   return;
 };
@@ -292,11 +254,11 @@ sub load($class,$file,@cmd) {
   $self->{debug} = $cli->{debug} ne null;
   $self->{clean} = $cli->{clean} ne null;
 
-  $self->{root}  = $Shb7::Path::Root;
+  $self->{root}  = root();
   $self->{trash} = trashp($self->{fswat});
 
   Shb7::Path::module($self->{fswat});
-  $self->abspaths();
+  $self->make_abspaths();
 
   $self->{bld}=Shb7::Build->new(
     file    => [],
@@ -310,7 +272,7 @@ sub load($class,$file,@cmd) {
     clean   => $self->{clean},
     def     => $cli->{def},
 
-    tgt     => Shb7::Bk->target_arch()->{x64},
+    tgt     => Shb7::Bk::target_arch('x64'),
 
     linking => ($cli->{flat} ne null)
       ? 'flat'
@@ -381,7 +343,7 @@ sub read_cli($class,@cmd) {
 
 sub set_build_paths($self) {
   my @paths=grep {
-    $ARG ne "-I$Shb7::Path::Root";
+    $ARG ne "-I" . $self->{root};
 
   } @{$self->{inc}};
 
@@ -515,23 +477,26 @@ sub update_regular($self) {
 # re-run object file compilation
 
 sub update_objects($self) {
-  my $bfiles = [];
-  my $objblt = 0;
+  my $bfiles=[];
+  my $objblt=0;
 
-  my @files  = $self->get_build_files();
+  # skip if nothing to build
+  return $objblt if ! $self->get_build_files();
 
-  Log->step("rebuilding objects")
-  if @files;
+  Log->step("rebuilding objects");
 
-  # iter list of source files
-  for my $bfile(@files) {
-    $objblt+=$bfile->update($self->{bld});
 
-    push @$bfiles,$bfile
-    if $bfile->linkable();
+  # iter backends
+  # each holds it's own list of source files
+  for(qw(fasm gcc mam)) {
+    my ($cnt,@link)=
+      $self->{$ARG}->build($self->{bld});
 
+    $objblt+=$cnt;
+    push @$bfiles,@link;
   };
 
+  # save linkable files
   $self->{bld}->push_files(@$bfiles);
   Log->line() if $objblt;
 
@@ -594,7 +559,7 @@ sub side_builds($self) {
     $bld->push_files($bfile);
     $bld->push_flags(@flags);
 
-    $bld->olink() if $bfile->linkable();
+    olink($bld) if $bfile->linkable();
 
   };
 
@@ -649,7 +614,7 @@ sub build_binaries($self,$objblt) {
         ];
       };
 
-      $self->{bld}->olink();
+      olink($self->{bld});
     };
 
   };
@@ -682,31 +647,43 @@ sub build_binaries($self,$objblt) {
 
 
 # ---   *   ---   *   ---
-# writes *.pm dependency files
+# writes *.pmd dependency files for MAM
 
 sub depsmake($self) {
-  my $md    = $Shb7::Build::Makedeps;
+  # Shb7::Bk::mam populates this hash for us
+  my $md  = Shb7::Build::makedeps();
+  my $src = $md->{obj};
+  my $dst = $md->{dep};
 
-  my @objs  = @{$md->{obj}};
-  my @deps  = @{$md->{dep}};
+  return if ! @$src ||! @$dst;
 
-  my $fswat = $self->{fswat};
-
-  Log->step('rebuilding dependencies')
-  if @objs && @deps;
-
+  # notify we're here
+  Log->step('rebuilding dependencies');
   my $ex=Shb7::Bfile->avtopath() . q[/bin/pmd];
 
-  while(@objs && @deps) {
-    my $obj=shift @objs;
-    my $dep=shift @deps;
+  for my $i(0..@$src-1) {
+    # we *execute* the file in a "sandbox"
+    # to get the dependency list (!!!)
+    #
+    # its the same process as a syntax check
+    # (like `perl -c`), but it doesn't require
+    # forking, so its incredibly faster
+    my @dep=AR::load(
+      'Chk::Deps',
+      $src->[$i],
+      orc($src->[$i])
+    );
 
-    next if $obj=~ m[Depsmake\.pm$];
+    # drop first elem as its just the
+    # name of the file itself
+    shift @dep;
 
-    my $body=`$ex $fswat $obj`;
-    owc($dep,$body);
+    # save the dependency list to a *.pmd file
+    my $body=join "\n",@dep;
+    owc($dst->[$i],$body);
   };
 
+  # cleanup and give
   Shb7::Build::clear_makedeps();
   return;
 };

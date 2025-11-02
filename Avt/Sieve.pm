@@ -24,6 +24,7 @@ package Avt::Sieve;
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
   use Arstd::Hash qw(lfind);
+  use Arstd::String qw(catpath);
   use Shb7::Path qw(root relto_root);
 
 
@@ -39,7 +40,6 @@ package Avt::Sieve;
 
 sub new($class,%O) {
   my $self=bless {
-
     # context data
     C      => $O{config},
     M      => $O{makescript},
@@ -66,12 +66,13 @@ sub new($class,%O) {
 
 sub set_paths($self) {
   $self->{name} = $self->{C}->{name};
-  $self->{dir}  = "./$self->{name}";
+  $self->{dir}  = $self->{name};
 
   my $name=$self->{name};
 
   # for pasting in subpaths
-  my $re=root() . "/$name";
+  my $re=catpath(root(),$name);
+     $re=qr{$re};
 
   $self->{lmod}  =  $self->{dir};
   $self->{lmod}  =~ s[$re][];
@@ -84,9 +85,9 @@ sub set_paths($self) {
   $self->{p_out}=  $self->{dir};
   $self->{p_out}=~ s([.]/${name})();
 
-  $self->{p_out}=(
-    $self->{libdir}
-  . $self->{p_out}
+  $self->{p_out}=catpath(
+    $self->{libdir},
+    $self->{p_out}
   );
 
   return;
@@ -123,19 +124,17 @@ sub iter($self,$dirs) {
 
 sub get_files($self,$node) {
   my $name=$self->{name};
-  @{$self->{file}}=$node->get_file_list(
-    full_path=>1,
+  @{$self->{file}}=$node->get_filepath_list(
+    full=>1,
     max_depth=>1,
   );
 
   # shorten paths
   # pop mod from start
   for(@{$self->{file}}) {
-    my $rel=$ARG;
-    relto_root($rel);
+    $ARG=abs_path($ARG);
+    relto_root($ARG);
 
-    $ARG=  abs_path($ARG);
-    $ARG=  $rel;
     $ARG=~ s[^${name}/?][];
   };
 
@@ -151,7 +150,6 @@ sub agroup_files($self) {
   $self->arr_dual_out(
     $self->{M}->{gen},
     $self->{C}->{gen},
-
   );
 
   # project ./bin copy
@@ -238,7 +236,7 @@ sub by_ext_s($self,$tab) {
     my $dst=$tab->{$ext};
 
     $dst->push_src("$self->{dir}/$ARG")
-    for grep m[$ext],@{$self->{file}};
+    for grep {$ARG=~ $ext} @{$self->{file}};
   };
   return;
 };
@@ -250,8 +248,8 @@ sub by_ext_s($self,$tab) {
 
 sub s_files($self) {
   my $tab={
-    qr{\.(?:s|asm)$}x => $self->{M}->{flat},
-    qr{\.(?:cpp|c)$}x => $self->{M}->{gcc},
+    qr{\.(?:s|asm)$} => $self->{M}->{flat},
+    qr{\.(?:cpp|c)$} => $self->{M}->{gcc},
   };
   $self->by_ext_s($tab);
   return;

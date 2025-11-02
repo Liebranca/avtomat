@@ -145,10 +145,6 @@ sub entry($name) {return "-Wl,--entry=$name"};
 # C-style object file boiler
 
 sub fbuild($self,$bfile,$bld) {
-  my $rel=$bfile->{src};
-  relto_root($rel);
-  Log->substep($rel);
-
   # conditionally use octopus
   my $cpp=Ftype::Text::C->is_cpp($bfile->{src});
   my $up=($cpp)
@@ -186,7 +182,6 @@ sub fbuild($self,$bfile,$bld) {
   # ^cleanup and invoke
   filter(\@call);
   system {$call[0]} @call;
-
 
   # ^give on success
   return int(defined is_file($bfile->{obj}));

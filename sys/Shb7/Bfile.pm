@@ -52,33 +52,26 @@ sub new($class,$fpath,$bk,%O) {
   $O{out}//=null;
 
   my $self=bless {
-    src => $fpath,
-    out => $O{out},
     bk  => $bk,
 
-    obj => Shb7::obj_from_src(
+    src => $fpath,
+    out => $O{out},
+
+    obj => Shb7::Path::obj_from_src(
       $fpath,
       ext=>$O{obj_ext}
-
     ),
-
-    dep => Shb7::obj_from_src(
+    dep => Shb7::Path::obj_from_src(
       $fpath,
       ext=>$O{dep_ext}
-
     ),
-
-    asm => Shb7::obj_from_src(
+    asm => Shb7::Path::obj_from_src(
       $fpath,
       ext=>$O{asm_ext}
-
     ),
 
   },$class;
 
-
-  # make paths and give
-  reqdir dirof $self->{obj};
   return $self;
 };
 
@@ -194,6 +187,24 @@ sub binfilter($self) {
 
 sub unroll($self,@keys) {
   return map {$self->{$ARG}} @keys;
+};
+
+
+# ---   *   ---   *   ---
+# ensures that all target directories
+# for this file exist
+
+sub ensure_outdirs {
+  for(
+    $_[0]->{asm},
+    $_[0]->{obj},
+    $_[0]->{dep},
+    $_[0]->{out},
+  ) {
+    reqdir dirof $ARG
+    if ! is_null($ARG) &&! -f $ARG;
+  };
+  return;
 };
 
 

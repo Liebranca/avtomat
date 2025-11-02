@@ -225,9 +225,7 @@ sub is_path {
 
   && ($_[0]=~ qr{^$re$})
   && (1024 >= length $_[0])
-
   );
-
 };
 
 sub is_rpath {

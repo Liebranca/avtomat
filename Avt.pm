@@ -28,7 +28,7 @@ package Avt;
   use Log;
 
   use Arstd::String qw(gstrip);
-  use Arstd::Path qw(reqdir relto);
+  use Arstd::Path qw(reqdir relto dirof parof);
   use Arstd::Array qw(dupop);
   use Arstd::Re qw(eiths);
   use Arstd::Bin qw(orc owc);
@@ -36,6 +36,7 @@ package Avt;
 
   use Shb7::Path qw(
     root
+    set_root
     relto_root
     filep
     dirp
@@ -94,9 +95,9 @@ St::vconst {
     post  => null,
   },
 
-  BINDIR => './bin',
-  LIBDIR => './lib',
-  INCDIR => './include',
+  BINDIR => 'bin',
+  LIBDIR => 'lib',
+  INCDIR => 'include',
 
   GITHUB => 'https://github.com',
   LIBGIT => sub {
@@ -405,7 +406,7 @@ sub get_config_paths($M,$C) {
 
 sub get_config_files($M,$C,$module) {
   my @dirs=$module->get_dir_list(
-    full_path=>0,
+    full=>0,
     inclusive=>1
   );
 
@@ -536,6 +537,9 @@ sub hook_str($which,$M,$C) {
 # then runs the build
 
 sub config($C) {
+  my ($pkgname,$file,$line)=caller;
+  set_root(parof(dirof($file),i=>1));
+
   my $sep_re       = q{\s*,\s*};
   my $list_to_hash = qr{(?:lcpy|xcpy|xprt)}x;
 

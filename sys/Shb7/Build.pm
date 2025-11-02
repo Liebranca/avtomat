@@ -84,10 +84,13 @@ sub DEFAULT {return {
 # ---   *   ---   *   ---
 # GBL
 
-  our $Makedeps={
+sub makedeps {
+  state $out={
     obj=>[],
     dep=>[],
   };
+  return $out;
+};
 
 
 # ---   *   ---   *   ---
@@ -157,13 +160,15 @@ sub push_flags($self,@data) {
 # in a nutshell: it's a hack
 
 sub push_makedeps($obj,$dep) {
-  push @{$Makedeps->{obj}},$obj;
-  push @{$Makedeps->{dep}},$dep;
+  my $have=makedeps();
+  push @{$have->{obj}},$obj;
+  push @{$have->{dep}},$dep;
   return;
 };
 
 sub clear_makedeps() {
-  $Makedeps={obj=>[],dep=>[]};
+  my $have=makedeps();
+  %$have={obj=>[],dep=>[]};
   return;
 };
 

@@ -140,6 +140,9 @@ sub import {
     : "$base"
     ;
 
+  return if ! @_;
+
+
   # get patterns
   my $pkg_re       = qr{::};
   my $term_re      = qr{;};

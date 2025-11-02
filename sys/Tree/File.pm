@@ -25,6 +25,7 @@ package Tree::File;
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null no_match any_match);
   use Chk qw(is_null is_file is_dir);
+  use Arstd::String qw(catpath);
   use Arstd::Array qw(filter);
   use Arstd::Bin qw(dorc);
 
@@ -34,7 +35,7 @@ package Tree::File;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.4';
+  our $VERSION = 'v0.00.5';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -50,7 +51,10 @@ sub type_unk  {return -1};
 # cstruc
 
 sub new($self,$name) {
-  my $tree=Tree::new($self,$name);
+  my $class = (ref $self) ? ref $self : $self ;
+  my $tree  = Tree::new($self,$name);
+
+  bless $tree,$class;
 
   $tree->{cksum}   = 0;
   $tree->{updated} = 0;
@@ -99,11 +103,13 @@ sub expand($self,%O) {
   $O{-x} //= no_match;
 
   # prepend dotbeg to exclusion re
-  my $exclude=qr{(?:^\.|$O{-x})};
+  my $exclude = qr{(?:^\.|$O{-x})};
+  my $full    = $self->get_full();
 
   # open directory pointed to by root
-  for(dorc($self->get_full())) {
-    next if $ARG=~ $exclude;
+  for(dorc($full)) {
+    next if(($ARG=~ $exclude)
+         || (catpath($full,$ARG)=~ $exclude));
 
     # make new node for each returned entry
     my $nd=$self->new($ARG);

@@ -41,34 +41,34 @@ package Shb7::Link;
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT=qw(olink);
+  our @EXPORT_OK=qw(olink);
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.9';
+  our $VERSION = 'v0.01.0';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # standard call to link object files
 
-sub link_cstd($self,@obj) {
+sub link_cstd($bld,@obj) {
   return (
     q[gcc],
 
     Shb7::Bk::gcc::oflg(),
     Shb7::Bk::gcc::lflg(),
-    @{$self->{flag}},
+    @{$bld->{flag}},
 
-    Shb7::Bk::gcc::target($self->{tgt}),
+    Shb7::Bk::gcc::target($bld->{tgt}),
 
-    @{$self->{inc}},
+    @{$bld->{inc}},
     @obj,
 
-    q[-o],$self->{name},
-    @{$self->{lib}},
+    q[-o],$bld->{name},
+    @{$bld->{lib}},
   );
 };
 
@@ -77,21 +77,21 @@ sub link_cstd($self,@obj) {
 # ^similar, but fine-tuned for nostdlib
 # what I *usually* use with assembler *.o files
 
-sub link_half_flat($self,@obj) {
+sub link_half_flat($bld,@obj) {
   return (
     q[gcc],
 
     Shb7::Bk::gcc::flatflg(),
-    @{$self->{flag}},
+    @{$bld->{flag}},
 
-    Shb7::Bk::gcc::entry($self->{entry}),
-    Shb7::Bk::gcc::target($self->{tgt}),
+    Shb7::Bk::gcc::entry($bld->{entry}),
+    Shb7::Bk::gcc::target($bld->{tgt}),
 
-    @{$self->{inc}},
+    @{$bld->{inc}},
     @obj,
 
-    q[-o],$self->{name},
-    @{$self->{lib}},
+    q[-o],$bld->{name},
+    @{$bld->{lib}},
   );
 };
 
@@ -100,20 +100,20 @@ sub link_half_flat($self,@obj) {
 # extreme ld-only setup
 # meant for teensy assembler binaries
 
-sub link_flat($self,@obj) {
+sub link_flat($bld,@obj) {
   return (
     q[ld.bfd],
 
     qw(--relax --omagic -d),
     qw(--gc-sections),
 
-    Shb7::Bk::flat::entry($self->{entry}),
-    Shb7::Bk::flat::target($self->{tgt}),
+    Shb7::Bk::flat::entry($bld->{entry}),
+    Shb7::Bk::flat::target($bld->{tgt}),
 
-    q[-o],$self->{name},
+    q[-o],$bld->{name},
 
     @obj,
-    @{$self->{lib}},
+    @{$bld->{lib}},
   );
 };
 
@@ -121,10 +121,10 @@ sub link_flat($self,@obj) {
 # ---   *   ---   *   ---
 # fake linking for java!
 
-sub link_jar($self,@obj) {
+sub link_jar($bld,@obj) {
   # building lib?
   my $shared=defined iof(
-    $self->{flag},'-shared'
+    $bld->{flag},'-shared'
   );
 
   my $manipath='META-INF/MANIFEST.MF';
@@ -175,9 +175,9 @@ sub link_jar($self,@obj) {
   # reset path
   chdir $old_path;
 
-  my $dst=(! ($self->{name}=~ qr{\.jar$}))
-    ? "$self->{name}.jar"
-    : $self->{name}
+  my $dst=(! ($bld->{name}=~ qr{\.jar$}))
+    ? "$bld->{name}.jar"
+    : $bld->{name}
     ;
 
   # roll jars together
@@ -277,9 +277,9 @@ sub link_jar($self,@obj) {
 # ---   *   ---   *   ---
 # object file linking
 
-sub olink($self) {
+sub olink($bld) {
   # get object file names
-  my @obj  = $self->list_obj();
+  my @obj  = $bld->list_obj();
   my @miss = grep { ! is_file($ARG)} @obj;
 
   # nothing to do?
@@ -299,19 +299,19 @@ sub olink($self) {
   my @call=();
 
   # ^using gcc
-  if($self->{linking} eq 'cstd') {
-    @call=$self->link_cstd(@obj);
+  if($bld->{linking} eq 'cstd') {
+    @call=$bld->link_cstd(@obj);
 
   # ^gcc, but fine-tuned
-  } elsif($self->{linking} eq 'half-flat') {
-    @call=$self->link_half_flat(@obj);
+  } elsif($bld->{linking} eq 'half-flat') {
+    @call=$bld->link_half_flat(@obj);
 
   # ^using ld ;>
-  } elsif($self->{linking} eq 'flat') {
-    @call=$self->link_flat(@obj);
+  } elsif($bld->{linking} eq 'flat') {
+    @call=$bld->link_flat(@obj);
 
-  } elsif($self->{linking} eq 'jar') {
-    @call=$self->link_jar(@obj);
+  } elsif($bld->{linking} eq 'jar') {
+    @call=$bld->link_jar(@obj);
   };
 
 

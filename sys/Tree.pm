@@ -2085,9 +2085,8 @@ sub repr($self,$depth,$prev,%O) {
 # ^dbout whole tree
 
 sub prich($self,%O) {
-
   # I/O defaults
-  my $out=io_procin(\%O);
+  my $out=Arstd::IO::procin(\%O);
   $O{max_depth} //= 0x24;
   $O{vrecurse}  //= 0;
   $O{-x}        //= no_match;
@@ -2150,7 +2149,7 @@ sub prich($self,%O) {
   };
 
 
-  return io_procout(\%O);
+  return Arstd::IO::procout(\%O);
 };
 
 

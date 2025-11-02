@@ -27,6 +27,7 @@ package Arstd::Path;
   use lib "$ENV{ARPATH}/lib/";
   use Style qw(null);
   use Chk qw(is_null is_path is_file is_dir);
+  use Arstd::String qw(catpath has_prefix);
 
 
 # ---   *   ---   *   ---
@@ -45,6 +46,7 @@ package Arstd::Path;
     based
 
     relto
+    absto
     expand
     reqdir
 
@@ -59,7 +61,7 @@ package Arstd::Path;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.0';
+  our $VERSION = 'v0.01.1';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -166,7 +168,7 @@ sub based {
 # [0]: byte ptr ; path to shorten
 # [1]: byte ptr ; base to use | null
 #
-# [<]: bool     ; path is not null
+# [<]: bool ; path is not null
 #
 # [!]: overwrites input path
 # [*]: uses cwd by default
@@ -178,6 +180,30 @@ sub relto {
 
   my $re=qr{/+};
   $_[0]=~ s[$re][/];
+
+  return ! is_null $_[0];
+};
+
+
+# ---   *   ---   *   ---
+# turns root-relative path to absolute
+#
+# [0]: byte ptr ; relative path
+# [1]: byte ptr ; root
+#
+# [<]: bool ; path is not null
+#
+# [!]: overwrites input string
+# [*]: exits early if input already contains root
+
+sub absto {
+  return 0 if is_null $_[0];
+  return 1 if has_prefix $_[0],$_[1];
+
+  my $re=qr{^\./|(?<=,)\./};
+
+  $_[0]=~ s[$re][]smg;
+  $_[0]=  catpath($_[1],$_[0]);
 
   return ! is_null $_[0];
 };
@@ -227,12 +253,12 @@ sub extof {
 # [!]: overwrites input string
 
 sub extwap {
-  return 0 if ! is_file $_[0];
+  return 0 if ! is_path $_[0];
 
   my $re=qr{[^\.]+$};
   $_[0]=~ s[$re][$_[1]]smg;
 
-  return is_file $_[0];
+  return is_path $_[0];
 };
 
 

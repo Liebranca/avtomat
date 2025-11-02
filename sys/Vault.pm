@@ -108,6 +108,8 @@ sub fdeps {
 #
 # [3]: byte pptr | list of dirs that are
 #                  excluded from search path
+#
+# [4]: bool      | force tree recalc
 
 sub req {
   my $self=module()->{$_[1]}//=bless {
@@ -119,8 +121,9 @@ sub req {
   },$_[0];
 
   $_[3]//=[];
-  $self->make_tree($_[3])
-  if is_null($self->{tree});
+  $_[4]//=0;
+  $self->make_tree($_[3],$_[4])
+  if is_null($self->{tree}) || $_[4];
 
   return $self;
 };

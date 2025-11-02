@@ -1,27 +1,26 @@
 >avtomat v4.00.0
 
+*>Makescript/Shb7
+x Exclude deprecated or "update pending" files
+  from Perl build pipeline so that we can
+  actually build avtomat
+
+~ Integrate CMAM into C build pipeline
 
 *>peso
-
 x fasm xlate
 x Generic syscall macro
-
 x Standarize node.vref attrs across all of cmdlib
 x \--> write base class (rd/vref)
-
 
 ~ Implement CTC (compile-time conditional)
   prefix for instructions. This is meant for
   internal use only, so no need to modify the
   instruction set
 
-
 ~ Filemeta builder
-
 ~ \--> automatic var save/load
-
 x \--> formalize hierarchicals as an A9M layer
-
 x .  \--> adapt cmdlib::asm proc bits
 x .  \--> tmp values as stack/anima ptr
 
@@ -33,16 +32,12 @@ x .  .  \--> sort timeline points idex
 
 x .  .  \--> design timeline point format
 
-
 x \--> proc context gather
-
 x .  \--> varname handler
-
 x .  .  \--> use data-decl syntax within proc to
              declare tmp values
 
 x .  .  \--> input/output keywords for proc
-
 
 x .  \--> get register use/overwrite
 x .  .  \--> anima->alloci context bias
@@ -50,15 +45,12 @@ x .  .  \--> mark registers as used/avail
 x .  .  \--> backup unreleased registers
 x .  .  \--> spill to stack
 
-
 ~ Add frontend to olink
 ~ Rewrite IO clan in peso (fto, bin, netstruc, etc)
-
 ~ Design work on metainstructions
 
 
 *>Emit::Cpp
-
 ~ Dependency solver
 ~ \--> 'use' keyword for batch imports
 
@@ -69,9 +61,7 @@ x .  .  \--> spill to stack
 
 
 *>Refactor helper
-
 x Find mentions of a given package or subroutine
-
 x \--> Make this recursive
 ~ \--> Combine f:./bin/symfind with mentions
        on *.mny trees
@@ -81,15 +71,12 @@ x \--> Make this recursive
 
 
 *>Backburner
-
 x Move Python stuff from f:./Avt.pm into
   f:./Emit/Python.pm
 
 ~ Handle structs on f:./Emit/Perl.pm -> shwlbind
-
 ~ Utils for enforcing AR module standards
 ~ DEFAULTS enforcer for nits
-
 ~ VERSION && AUTHOR enforcer/tracker for
   modules and executables
 
@@ -97,119 +84,15 @@ x Rework ARGV handler (partial f:help/Cash.pm
   migration)
 
 ~ Standarize module avto-nit
-
 x \--> Registering of modules on first include,
        for a similar purpose
 
-
 ~ OOP-ification of %Cache-type hashes
-
 ~ Enable/disable loading of optional deps
   on install scripts
 
 ~ Write Lang::Elisp
 ~ Elisp version of f:./bin/sygen
-
-
-# ---   *   ---   *   ---
-# These ones are complete ;>
-
-*>plps rework
-
-x Lang::Plps reimplementation
-  (done: see Grammar && Grammar::Tree)
-
-x \--> Use Tree::Grammar to parse %lpsrom
-x .  \--> Plps as a package, frames and all
-x .  \--> Unique branch for hierarchicals
-x .  .  \--> Sorting
-x .  .  \--> Namespaces
-
-x .  \--> Unique branches for wed/unwed
-x .  \--> Unique branch for re
-x .  \--> repl <tags> inside re
-
-x .  \--> proc inputs
-x .  .  \--> input type checking
-
-x .  \--> reap && sow
-x .  \--> Find across namespaces
-x .  \--> jmp to branch
-
-x .  \--> Define patterns for regexes
-x .  \--> enchain leaf values for lis solving
-x .  \--> Defining grammar branches
-x .  \--> subst on ~= match
-
-x \--> Make plps files output Tree::Grammar structs
-
-x \--> Tweak Tree::Grammar for parsing
-       C, C++, Perl and peso
-
-x Separate Grammar::peso into smaller submodules
-x Extend Lang::Perl for basic (as-doc) parsing
-
-
-*>Makescript
-
-x Replace crude gcc wrappers with a class
-x \--> Dependency checks
-x \--> Building objects
-x \--> Linking
-
-
-*>Shb7
-
-x Break down into packages
-x \--> Path managing and ops
-x \--> Find ops
-x \--> Symbol wrangling
-x \--> ld,gcc && mam wrappers
-
-*>Avt::Sieve
-
-x Implement side build sub
-x Generate olink calls from side builds
-x Run calls before post-build hook
-
-
-*>Avt revision
-
-x Subdivide the f:./Avt.pm monolith into modules
-
-x \-->Use Shb7::Walk instead of Avt implementation
-
-x \-->Use Tree::File checksums instead of
-      timestamps for update checks
-
-x \-->Rework Frame interface
-x \-->Generate syntax highlighting for *.mny files
-x \-->Extend *.mny syntax
-
-
-*>De-bloat Arstd
-
-x Separate array ops from hash ops
-
-x \--> Dump into Arstd::Array && Arstd::Hash,
-       respectively
-
-x Make an Arstd::IO submod
-x Make an Arstd::Bytes submod
-x Make an Arstd::String submod
-x Make an Arstd::Test submod
-
-
-# ---   *   ---   *   ---
-# solved bughunts
-
-*>Bugs
-
-x Investigate the Peso::Ipret::pesc iter
-  command repetition
-
-x Investigate mysterious DOM and SIGIL errors in
-  f:./sys/Via.pm
 
 
 # ---   *   ---   *   ---

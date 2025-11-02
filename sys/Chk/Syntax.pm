@@ -30,14 +30,14 @@ package Chk::Syntax;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.3a';
+  our $VERSION = 'v0.00.4a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # entry point
 #
-# [0]: byte ptr ; class (not unused)
+# [0]: byte ptr ; class
 # [1]: byte ptr ; filename
 # [2]: byte ptr ; buf to exec
 #
@@ -70,7 +70,7 @@ sub import {
 
   # executes the code to get warnings
   # throws on failure
-  run($_[1],$_[2]);
+  my @out=$_[0]->run($_[1],$_[2]);
 
   # restore package names and give
   $re   =  qr{$beg\s+SyntaxCheck\d+::([^;]+);};
@@ -78,9 +78,7 @@ sub import {
 
   ++$uid;
 
-
-  return;
-
+  return @out;
 };
 
 
@@ -95,24 +93,23 @@ sub import {
 #      through this F -- it _will_ be executed
 
 sub run {
+  my $class=shift; # drop class
 
   # discard garbage in errno ;>
   $ERRNO=0;
 
   # set signal handler (to catch error messages)
   # and then syntax check the program
-  my ($errme,$psig)=begcapt();
-  perlc($_[1]);
+  my ($errme,$psig)=$class->begcapt();
+  $class->perlc($_[1]);
 
   # ^show error messages if any;
   # ^else syntax OK, restore signal handler
   throw(undef,$_[0],$errme)
-  if($EVAL_ERROR || @$errme);
+  if $EVAL_ERROR || @$errme;
 
-  endcapt($psig);
-
-  return;
-
+  $class->endcapt($psig);
+  return ();
 };
 
 
@@ -128,6 +125,8 @@ sub run {
 # [!]: need to check if evaled code can undo this
 
 sub begcapt {
+  shift; # drop class
+
   my $errme = [];
   my $psig  = $SIG{__WARN__};
 
@@ -135,12 +134,10 @@ sub begcapt {
   $SIG{__WARN__}=sub {
     push @$errme,$_[0];
     return;
-
   };
 
   # ^remember to restore prev handler
   return ($errme,$psig);
-
 };
 
 
@@ -154,8 +151,10 @@ sub begcapt {
 #      through this F -- it _will_ be executed
 
 sub perlc {
+  shift; # drop class
   eval "return;$_[0]";
 
+  return;
 };
 
 
@@ -166,9 +165,10 @@ sub perlc {
 # [0]: stark ; signal handler
 
 sub endcapt {
+  shift; # drop class
+
   $SIG{__WARN__}=$_[0];
   return;
-
 };
 
 
