@@ -21,9 +21,10 @@ package Shb7::Bfile;
   use English;
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
-  use Chk qw(is_file);
+  use Chk qw(is_null is_file);
 
   use Arstd::String qw(cat cjag);
+  use Arstd::Bin qw(moo);
   use Arstd::Path qw(dirof reqdir);
   use Arstd::throw;
 
@@ -80,7 +81,7 @@ sub new($class,$fpath,$bk,%O) {
 # build output is valid ld input
 
 sub linkable($self) {
-  my $re    = qr{Shb7::Bk::(?:gcc|flat)};
+  my $re    = qr{Shb7::Bk::(?:cmam|flat)};
   my $class = ref $self->{bk};
 
   return int($class=~ $re);
@@ -112,8 +113,7 @@ sub buildchk($self,$do_build,$deps,%O) {
   # ^go on, check!
   for(@$deps) {
     # found dep is updated?
-    if(is_file($ARG)
-    && Shb7::ot($self->{obj},$ARG)) {
+    if(moo($self->{obj},$ARG)) {
       $$do_build=1;
       return;
     };

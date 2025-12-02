@@ -203,7 +203,7 @@ sub absto {
   my $re=qr{^\./|(?<=,)\./};
 
   $_[0]=~ s[$re][]smg;
-  $_[0]=  catpath($_[1],$_[0]);
+  $_[0]=  abs_path(catpath($_[1],$_[0]));
 
   return ! is_null $_[0];
 };
@@ -255,8 +255,8 @@ sub extof {
 sub extwap {
   return 0 if ! is_path $_[0];
 
-  my $re=qr{[^\.]+$};
-  $_[0]=~ s[$re][$_[1]]smg;
+  my $re=qr{\.[^\.]+$};
+  $_[0]=~ s[$re][.$_[1]]smg;
 
   return is_path $_[0];
 };

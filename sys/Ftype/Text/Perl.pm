@@ -21,14 +21,20 @@ package Ftype::Text::Perl;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Arstd::Re;
-  use Ftype::Text;
+  use parent 'Ftype::Text';
+
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = 'v1.00.1';
+  our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # make ice
 
-BEGIN { Ftype::Text->new(
-
+sub classattr {return {
   name   => 'Perl',
   mag    => 'Perl script',
 
@@ -36,7 +42,6 @@ BEGIN { Ftype::Text->new(
   hed    => '^#!.*perl',
 
   use_sigils => {type=>1},
-
 
   type=>[
     '([$%&@][\#]?$:name_re;>)',
@@ -46,9 +51,7 @@ BEGIN { Ftype::Text->new(
 
     '([$%&@]\{\^?$:name_re;>\})',
     '(([$%&@]\{\^[?\^][0-9]+)\})',
-
   ],
-
 
   builtin=>[qw(
     accept alarm atan2 bin bind binmode
@@ -110,17 +113,14 @@ BEGIN { Ftype::Text->new(
     utime values vec wait waitpid
 
     wantarray write
-
   )],
 
   directive=>[qw(
     use no package my our sub state
-
   )],
 
   intrinsic=>[qw(
     eq ne lt gt le ge cmp x can isa
-
   )],
 
   fctl=>[qw(
@@ -130,10 +130,8 @@ BEGIN { Ftype::Text->new(
     try catch finally
 
     throw croak carp warn die
-
   )],
-
-)};
+}};
 
 
 # ---   *   ---   *   ---

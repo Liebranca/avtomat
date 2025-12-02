@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# CMAM TOKEN
+# ARSTD TOKEN
 # basic unit of meaning
 #
 # LIBRE SOFTWARE
@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package CMAM::token;
+package Arstd::Token;
   use v5.42.0;
   use strict;
   use warnings;
@@ -55,14 +55,14 @@ package CMAM::token;
 # ---   *   ---   *   ---
 # gets first token from string
 #
-# [0]: byte ptr ; string
+# [0]: mem  ptr ; expression hashref
 # [<]: byte ptr ; token (new string) | null
 #
-# [!]: overwrites input string
+# [!]: overwrites input mem
 
 sub tokenshift {
   # early exit on blank input
-  return null if ! strip($_[0]);
+  return null if ! strip($_[0]->{expr});
 
   # cut at space or word boundary
   my @have=tokensplit($_[0]);
@@ -72,7 +72,7 @@ sub tokenshift {
      $out=shift @have while ! strip($out);
 
   # overwrite input
-  $_[0]=cat(@have);
+  $_[0]->{expr}=cat(@have);
 
   return $out;
 };
@@ -81,14 +81,14 @@ sub tokenshift {
 # ---   *   ---   *   ---
 # ^gets last token
 #
-# [0]: byte ptr ; string
+# [0]: mem  ptr ; expression hashref
 # [<]: byte ptr ; token (new string) | null
 #
 # [!]: overwrites input string
 
 sub tokenpop {
   # early exit on blank input
-  return null if ! strip($_[0]);
+  return null if ! strip($_[0]->{expr});
 
   # cut at space or word boundary
   my @have=tokensplit($_[0]);
@@ -98,7 +98,7 @@ sub tokenpop {
      $out=pop @have while ! strip($out);
 
   # overwrite input
-  $_[0]=cat(@have);
+  $_[0]->{expr}=cat(@have);
   return $out;
 };
 
@@ -106,7 +106,7 @@ sub tokenpop {
 # ---   *   ---   *   ---
 # splits expression into tokens
 #
-# [0]: byte ptr  ; string
+# [0]: mem  ptr  ; expression hashref
 # [<]: byte pptr ; tokens (new array)
 #
 # [*]: conserves whitespaces
@@ -114,7 +114,7 @@ sub tokenpop {
 sub tokensplit {
   return (
     grep {! is_null($ARG)}
-    split token_re(),$_[0]
+    split token_re(),$_[0]->{expr}
   );
 };
 
@@ -122,18 +122,18 @@ sub tokensplit {
 # ---   *   ---   *   ---
 # clears unwanted spaces
 #
-# [0]: byte ptr  ; string
-# [<]: bool      ; string is not null
+# [0]: mem  ptr ; expression hashref
+# [<]: bool     ; string is not null
 #
 # [!]: overwrites input string
 
 sub tokentidy {
-  return 0 if is_null($_[0]);
+  return 0 if is_null($_[0]->{expr});
 
   my $re=qr{\s+};
   $_[0]=~ s[$re][ ]g;
 
-  return strip($_[0]);
+  return strip($_[0]->{expr});
 };
 
 
@@ -153,18 +153,18 @@ sub token_re {
 # gets rid of semicolons at the
 # end of a token
 #
-# [0]: byte ptr ; string
+# [0]: mem  ptr ; expression hashref
 # [<]: bool     ; string is not null
 #
 # [!]: overwrites input string
 
 sub semipop {
-  return 0 if is_null($_[0]);
+  return 0 if is_null($_[0]->{expr});
 
   my $semi_re=qr{\s*;\s*$};
-  $_[0]=~ s[$semi_re][]sm;
+  $_[0]->{expr}=~ s[$semi_re][]sm;
 
-  return ! is_null($_[0]);
+  return ! is_null($_[0]->{expr});
 };
 
 

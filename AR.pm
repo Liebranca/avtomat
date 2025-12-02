@@ -19,7 +19,8 @@ package AR;
   use warnings;
   use Carp qw(croak);
   use English qw($ARG);
-  use Module::Load qw(load);
+  use Module::Load 'none';
+  use Symbol qw(delete_package);
   use lib "$ENV{ARPATH}/lib/sys/";
   use Chk qw(is_null codefind);
   use Arstd::Path qw(from_pkg);
@@ -39,28 +40,27 @@ sub is_loaded {
   my $fname=shift;
   from_pkg($fname);
 
-  return exists $INC{$fname};
+  return _is_loaded($fname);
+};
+sub _is_loaded {
+  return exists $INC{$_[0]};
 };
 
 
 # ---   *   ---   *   ---
-# [c]onditionally load
-#
 # loads package if it's not
 # already loaded!
 
-sub cload {
-  load $_[0] if ! is_loaded $_[0];
-  return;
-};
+sub load {
+  # skip loaded package
+  my $pkg   = shift;
+  my $fname = "$pkg";
+  from_pkg($fname);
 
+  return if _is_loaded $pkg;
 
-# ---   *   ---   *   ---
-# ^runs import method!
-
-sub cloadi {
-  my $pkg=shift;
-  load $pkg,@_ if ! is_loaded $pkg;
+  Module::Load::load($pkg);
+  $pkg->import(@_) if($pkg->can('import'));
 
   return;
 };
@@ -72,19 +72,19 @@ sub cloadi {
 
 sub unload {
   # skip not loaded
-  return if ! is_loaded $_[0];
-
-  # get package and matching filename
   my $pkg   = shift;
   my $fname = "$pkg";
   from_pkg($fname);
 
+  return if ! _is_loaded $pkg;
+
   # run exit sub if exists
-  $pkg->unimport()
-  if($pkg->can('unimport'));
+  $pkg->unimport(@_) if($pkg->can('unimport'));
 
   # remove from INC
+  delete_package($pkg);
   delete $INC{$fname};
+
   return;
 };
 
@@ -102,19 +102,10 @@ sub pkgof {
 # ---   *   ---   *   ---
 # load package from subroutine path
 
-sub cloads {
-  return if $_[0] eq 'main';
-  return cload pkgof $_;
-};
-
-
-# ---   *   ---   *   ---
-# ^forces calling of import method
-
-sub cloadis {
+sub load_from_sub {
   my $path=shift;
   return if $path eq 'main';
-  return cloadi pkgof($path),@_;
+  return load(pkgof($path),@_);
 };
 
 
@@ -134,12 +125,13 @@ sub import {
   my $flag  = {map {$ARG=>0} flagkey};
 
   # get the lib!
-  my $base=$ENV{ARLIB}//="$ENV{ARPATH}/lib/";
-  load lib=>(! is_null $lib)
+  my $base  = $ENV{ARLIB}//="$ENV{ARPATH}/lib/";
+  my $basep = (! is_null $lib)
     ? "$base/$lib"
     : "$base"
     ;
 
+  load(lib=>$base);
   return if ! @_;
 
 
@@ -201,11 +193,11 @@ sub import {
     if($flag->{imp}) {
       # re-import?
       if($flag->{re}) {
-        load $pkg,@sym;
+        load($pkg,@sym);
 
       # ^nope, use conditional form
       } else {
-        cloadi $pkg,@sym;
+        load($pkg,@sym);
       };
 
       next;
@@ -213,7 +205,7 @@ sub import {
 
 
     # load source package
-    cload $pkg;
+    load($pkg);
 
     # making nested namespace?
     my $path=(! $flag->{'use'})

@@ -65,7 +65,7 @@ sub push_src($self,$fpath,$fout) {
 # ---   *   ---   *   ---
 # Perl-style rebuild check
 
-sub fupdated($self,$bfile) {
+sub fupdated($self,$bfile,%O) {
   state $is_mam=qr{MAM\.pm$};
 
   # don't rebuild the source filter ;>
@@ -123,8 +123,9 @@ sub fdeps($self,$bfile) {
 # ---   *   ---   *   ---
 # makes MAM ice
 
-sub on_build($self,$bld) {
+sub on_build($self,$bld,@bfile) {
   $ENV{MAMROOT}=root();
+
   my $mam=MAM->new();
   $mam->set_module(Shb7::Path::module());
   $mam->set_rap(1);
@@ -149,7 +150,7 @@ sub on_build($self,$bld) {
 
   # store MAM ice within self
   $self->{-MAM}=$mam;
-  return;
+  return @bfile;
 };
 
 
@@ -157,6 +158,8 @@ sub on_build($self,$bld) {
 # ^uses MAM ice to build file list
 
 sub build_objects($self,$bld,@bfile) {
+  Log->ex("MAM","Perl preprocessor:");
+
   # first step
   for(@bfile) {
     $self->log_fpath($ARG->{src});
@@ -188,9 +191,7 @@ sub fbuild($self,$bfile,$bld) {
     : ($bfile->{out},$bfile->{obj})
     ;
 
-  my $code=$mam->run($src);
-  owc $dst,$code;
-
+  owc $dst,$mam->run($dst,$src);
   return 0;
 };
 

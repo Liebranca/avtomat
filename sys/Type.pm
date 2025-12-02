@@ -38,6 +38,7 @@ package Type;
     typedef
 
     struc
+    union
     restruc
 
     badtype
@@ -76,6 +77,7 @@ package Type;
 
   our $VERSION = 'v0.04.7';
   our $AUTHOR  = 'IBN-3DILA';
+  sub errsafe {return 1};
 
 
 # ---   *   ---   *   ---
@@ -211,15 +213,13 @@ sub derefof($ptr_t) {
   $ptr_t=typefet($ptr_t)
   or return null;
 
-
   # strip flags
   my $re   = Type::MAKE->RE->{ptr_any};
   my $name = $ptr_t->{name};
      $name =~ s[$re][]sxmg;
 
   # ^clear blanks
-  $name=Type::MAKE::namestrip($name);
-
+  Type::MAKE::namestrip($name);
 
   # fetch and validate
   return typefet($name);

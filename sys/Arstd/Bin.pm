@@ -18,6 +18,7 @@ package Arstd::Bin;
   use strict;
   use warnings;
 
+  use Storable qw(freeze thaw);
   use Cwd qw(abs_path);
   use English qw($ARG);
   use File::Spec;
@@ -41,6 +42,7 @@ package Arstd::Bin;
     owc
     errmute
     erropen
+    deepcpy
   );
 
 
@@ -250,6 +252,14 @@ sub erropen {
 
   open STDERR,'>',$fh or throw $fh;
   return;
+};
+
+
+# ---   *   ---   *   ---
+# selfex
+
+sub deepcpy {
+  return thaw(freeze($_[0]));
 };
 
 

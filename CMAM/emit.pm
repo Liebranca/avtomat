@@ -24,25 +24,27 @@ package CMAM::emit;
   use Chk qw(is_null is_arrayref);
 
   use Arstd::Array qw(iof);
+  use Arstd::String qw(cat);
+  use Arstd::Path qw(extwap);
   use Arstd::Fmat;
+  use Arstd::fatdump;
   use Arstd::throw;
+
+  use Ftype::Text::C;
 
   use lib "$ENV{ARPATH}/lib/";
   use AR sys=>qw(
     lis Arstd::IO::(procin procout);
   );
-  use CMAM::static qw(
-    cpackage
-    cmamout
-  );
-  use CMAM::token qw(
+  use Arstd::Token qw(
     tokenpop
     tokenshift
     tokentidy
-    semipop
   );
-  use CMAM::parse qw(
-    blkparse_re
+  use CMAM::static qw(
+    cpackage
+    cmamout
+    ctree
   );
 
 
@@ -65,8 +67,8 @@ package CMAM::emit;
 # ---   *   ---   *   ---
 # makes C header from cmamout
 #
-# [0]: byte ptr ; source code string
-# [1]: bool     ; destination is header
+# [0]: byte ptr ; filename
+# [1]: byte ptr ; source code string
 #
 # [<]: byte ptr ; header (new string)
 #
@@ -82,89 +84,128 @@ sub chead {
   # we cat to this output string
   my $out=null;
 
-  # these keywords tell us that we want to
-  # include the block in the resulting header!
-  my $expose_re=qr{^(?:
-    CX|IX|CIX|typedef|struct|union
-
-  )\s+}x;
-
   # for every exported symbol...
   my $re=qr{\b__EXPORT_(\d+)__\s*;\s*}sm;
-  my @captkey=qw(cmd type name args);
-  while($_[0]=~ $re) {
-    # get element
-    my $sym    = cmamout()->{export}->[$1];
-    my $export = null;
+  while($_[1]=~ $re) {
+    # fetch the referenced element and process it
+    my $ref    = $1;
+    my @export = (
+      # each 'public' statement expands an
+      # expression, which may in turn result
+      # in multiple expressions being output!
+      #
+      # as such, we need to apply symbol
+      # processing to the entire array
+      map {chead_proc_sym($ARG)}
+      @{cmamout()->{export}->[$ref]}
+    );
 
-    # perform block capture...
-    $sym="$sym;\n";
-    $sym=~ blkparse_re();
-    my $capt={%+};
+    my $to_hed=join "\n",map {$ARG->[0]} @export;
+    my $to_src=join "\n",map {$ARG->[1]} @export;
 
-    # avoid including entire block?
-    if(! ($sym=~ $expose_re)) {
-      # have preprocessor line?
-      if(! exists $capt->{cmd}) {
-        $export=$sym;
-        semipop($export);
-
-        $sym=null;
-
-      # ^nope, make header line from expression
-      } else {
-        $export=join(' ',map {
-          (is_arrayref($capt->{$ARG}))
-            ? '(' . join(',',@{$capt->{$ARG}}) . ')'
-            : $capt->{$ARG}
-            ;
-
-        } grep {
-          exists $capt->{$ARG};
-
-        } @captkey);
-      };
-
-
-    # ^nope, definition in header!
-    } else {
-      # expand shorthand specifiers
-      my $cmd;
-      if($capt->{cmd} eq 'CX') {
-        $cmd='static const';
-
-      } elsif($capt->{cmd} eq 'IX') {
-        $cmd='static inline';
-
-      } elsif($capt->{cmd} eq 'CIX') {
-        $cmd='static inline const';
-
-      } else {
-        $cmd=$capt->{cmd};
-
-      };
-
-      # ^paste entire definition in header
-      $export="$cmd $capt->{expr}";
-
-      # erase definition from source
-      $sym=null;
-    };
-
-    # cat line to header...
-    if(! $_[1]) {
-      $out .= "$export\n";
-
-    # ... unless output *is* header!
-    } else {
-      $sym="$export\n" if $_[1];
-    };
-
-    $_[0]=~ s[$re][$sym];
+    # cat line to header
+    $out .= "$to_hed\n";
+    $_[1]=~ s[$re][$to_src];
   };
 
-  # give header
-  return $out;
+  # nothing to give!
+  return null if is_null($out);
+
+  # give header with guards
+  my $guard=guardof($_[0]);
+  return join("\n",
+    "#ifndef $guard",
+    "#define $guard",
+
+    "#ifdef __cplusplus",
+    "extern \"C\" {",
+    "#endif",
+
+    $out,
+
+    "#ifdef __cplusplus",
+    "}",
+    "#endif",
+
+    "#endif // $guard"
+  );
+};
+
+
+# ---   *   ---   *   ---
+# ^processes individual symbol
+#
+# [0]: mem  ptr ; expression hashref
+# [<]: byte ptr ; C code (new string)
+
+sub chead_proc_sym {
+  my ($nd)=@_;
+
+  # these keywords tell us that we want to
+  # include the block in the resulting header!
+  my $expose_re=qr{\b(?:
+    CX|IX|CIX|typedef|struct|union
+
+  )\b}x;
+
+  # ^each writ to it's respective var ;>
+  my $to_hed=null;
+  my $to_src=null;
+
+  # exported native C preprocessor line?
+  if($nd->{cmd} eq '#') {
+    my $cmd    = tokenshift($nd);
+    my $opr_re = qr{ *([^[:alnum:]]) *};
+
+    $nd->{expr}=~ s[$opr_re][$1]g
+    if $cmd eq 'include';
+
+    $nd->{cmd} .= $cmd;
+
+  # exported inline?
+  } elsif($nd->{cmd}=~ $expose_re) {
+      # replace specifier shorthands
+      my $cmd=$nd->{cmd};
+      my $tab={
+        CX  => 'static const',
+        IX  => 'static inline',
+        CIX => 'static inline const',
+      };
+
+      $nd->{cmd}=$tab->{$cmd}
+      if exists $tab->{$cmd};
+
+  # exporting *only* the symbol decl!
+  } elsif(int @{$nd->{blk}}) {
+    # save the full definition on the source only
+    $to_src=ctree()->expr_to_code($nd);
+
+    # ^ eliminating the block from the header
+    #   then makes it so only the declaration
+    #   is exported!
+    $nd->{blk}=[];
+  };
+
+  $to_hed=ctree()->expr_to_code($nd);
+  return [$to_hed=>$to_src];
+};
+
+
+# ---   *   ---   *   ---
+# get guard name for file
+#
+# [0]: byte ptr ; filename
+# [<]: byte ptr ; guard name (new string)
+
+sub guardof {
+  my $re  = qr{[\./]};
+  my $out = "$_[0]";
+  extwap $out,'h';
+
+  $out=uc $out;
+  $out=~ s[$re][_]smg;
+
+  return "__${out}__";
 };
 
 
@@ -173,8 +214,7 @@ sub chead {
 
 sub pm {
   my $s=_pm(mute=>1);
-  say Arstd::Fmat::tidyup(\$s,filter=>0);
-  return;
+  return Arstd::Fmat::tidyup(\$s,filter=>0);
 };
 
 
@@ -190,33 +230,33 @@ sub _pm {
   push @$out,join("\n",
     deps_pm(),
     'sub import {',
-      'my $class=shift;',
-    null,
+    'my $class=shift;',
+    'if(! ${loaded()}) {',
   );
 
   # get types defined by user
   my @have=map {
     # get copy of values
-    my ($name,$expr)=@$ARG;
-
-    # make struct or alias?
-    my $keyw=utype_is_struct($name);
-
-    # TODO: unions!
-    throw "NYI -- unions"
-    if $keyw eq 'union';
-
-    # remove `{}` curlies for structs
-    if($keyw ne 'typedef') {
-      tokenpop($expr);
-      tokenshift($expr);
-      tokentidy($expr);
-    };
+    my ($keyw,$name,$expr)=@$ARG;
 
     # add typedef to import sub
-    push @$out,(
-      "Type\::$keyw(q[$name]=>q[$expr]);\n"
-    );
+    if($keyw=~ qr{type(?:def|rev)}) {
+      push @$out,(
+        "Type\::MAKE\::typedef("
+      . "q[$name]=>q[$expr]);"
+      );
+
+    } else {
+      # stringify object
+      my $s  =  fatdump \$expr,mute=>1;
+      my $re =  qr{(?:^\[)|(?:\]\n?$)};
+         $s  =~ s[$re][]g;
+
+      push @$out,(
+        "Type\::MAKE\::strucmake("
+      . "q[$keyw]=>q[$name]=>($s));\n"
+      );
+    };
 
     # give type name
     $name;
@@ -226,10 +266,11 @@ sub _pm {
 
   # add symbol export
   push @$out,join "\n",(
+    '};',
     q[for(@_) {],
       q[my $fn=Chk::getsub($class,$ARG)],
-      q[or throw "Invalid C macro: '$ARG']
-    . q[ at package '$class'";],
+      q[or throw "C macro '$ARG' ]
+    . q[not defined by package '$class'";],
       q[macroload($ARG=>$fn);],
     "};\n",
   );
@@ -238,19 +279,50 @@ sub _pm {
   # close import subroutine;
   # add full unimport sub
   push @$out,join "\n",(
+    'if(! ${loaded()}) {',
+    'set_loaded();',
+    'AR::load($ARG) for pkgdeps();',
+    '};',
     'return;',
     '};',
     'sub unimport {',
+    'if(${loaded()}) {',
+    'unset_loaded();',
     (map {"Type\::rm(q[$ARG]);"} reverse @have),
+    'AR::unload($ARG) for pkgdeps();',
+    '};',
     'return;',
     '};',
     null,
   );
 
+  push @$out,join "\n",(
+    'sub pkgdeps {return qw(',
+    (map {$ARG->[0]} @{cmamout()->{dep}->{pm}}),
+    ')};',
+  );
+
+  push @$out,q[
+    sub loaded {
+      state $out=0;
+      return \$out;
+    };
+    sub set_loaded {
+      ${loaded()}=1;
+      return;
+    };
+    sub unset_loaded {
+      ${loaded()}=0;
+      return;
+    };
+  ];
+
   # add macros as perl subroutines!
   for(@{cmamout()->{def}}) {
     push @$out,"$ARG\n";
   };
+
+  push @$out,"\n1; # ret";
 
   # give result
   return io_procout(\%O);
@@ -269,23 +341,27 @@ sub _pm {
 sub deps_pm {
   return (
     # standard dependencies for all C macros
-    'package ' . cpackage(),
+    'package ' . cpackage() . ';',
     'use v5.42.0;',
     'use strict;',
     'use warnings;',
     'use English qw($ARG);',
-    'use lib "$ENV{ARPATH}/lib/";',
-    'use CMAM::macro qw(' . join(' ',qw(
-      macroguard
-      macroin
-      macrofoot
-      macroload
-    )) . ');',
-    'use CMAM::token qw(' . join(' ',qw(
+    'use lib "$ENV{ARPATH}/lib/sys/";',
+    'use Arstd::Token qw(' . join(' ',qw(
       tokenpop
       tokenshift
       tokensplit
       tokentidy
+    )) . ');',
+    'use Arstd::throw;',
+    'use lib "$ENV{ARPATH}/lib/";',
+    'use AR;',
+    'use CMAM::macro qw(' . join(' ',qw(
+      macroload
+    )) . ');',
+    'use CMAM::sandbox qw(' . join(' ',qw(
+      strnd
+      clnd
     )) . ');',
 
     # ^dependencies added by user
@@ -313,7 +389,7 @@ sub deps_pm {
 # [!]: overwrites input string
 
 sub utype_is_struct {
-  my $re=qr{(union|struct)\s+};
+  my $re=qr{(union|struct?)\s+};
   return ($_[0]=~ s[$re][])
     ? $1
     : 'typedef'
@@ -333,16 +409,28 @@ sub utype_is_struct {
 
 sub utypes_pm {
   return grep {
-    my $name="$ARG->[0]";
-    my $keyw=utype_is_struct($name);
-    my $line=($keyw ne 'typedef')
-      ? "typedef $keyw $ARG->[1] $name"
-      : "typedef $name $ARG->[1]"
-      ;
+    # reconstruct definition from params
+    my $nd={
+      cmd  => $ARG->[0],
+      expr => "$ARG->[1] $ARG->[2]",
+    };
 
-    tokentidy($line) &&! is_null(
-      iof(cmamout()->{export},$line)
-    );
+    if($nd->{cmd} eq 'typerev') {
+      $nd->{expr} = "$ARG->[2] $ARG->[1]";
+      $nd->{cmd}  = 'typedef';
+
+    } elsif($nd->{cmd} ne 'typedef') {
+      $nd->{expr} = "$nd->{cmd} $ARG->[1]";
+      $nd->{cmd}  = 'typedef';
+    };
+
+    # ^ get whether this definition was
+    #   marked for export
+    int grep {grep {
+       $ARG->{cmd}  eq $nd->{cmd}
+    && $ARG->{expr} eq $nd->{expr};
+
+    } @$ARG} @{cmamout()->{export}};
 
   } @{cmamout()->{type}};
 };

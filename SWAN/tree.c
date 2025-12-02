@@ -12,11 +12,11 @@
 // ---   *   ---   *   ---
 // deps
 
-  #include <stddef.h>
-  #include "SWAN/style.h"
-  #include "SWAN/mem.h"
-  #include "SWAN/mem_string.h"
-  #include "SWAN/cask.h"
+package SWAN::tree;
+  use cmam;
+  public use SWAN::cask;
+
+  #include <stddef.h>;
 
 
 // ---   *   ---   *   ---
@@ -29,7 +29,7 @@
 // ---   *   ---   *   ---
 // root or node, same thing
 
-public struct tree {
+public typedef struct tree {
   rel cont;   // relative to container
   rel value;  // relative to value
 
@@ -40,7 +40,6 @@ public struct tree {
   relix prev; // siblings
   relix next;
 };
-public typedef struct tree tree;
 
 
 // ---   *   ---   *   ---
@@ -99,7 +98,6 @@ public rel tree_new(
 
     // relix for this particular node
     .eid=TREE_NODE_ROOT,
-
   };
 
   // make instance
@@ -143,7 +141,7 @@ public bool tree_is_root(tree ref self) {
 public tree ptr tree_prev_node(
   tree ref self
 ) {
-  self=deref(self);
+  self=deref self;
   if(self->prev == TREE_NODE_NULL)
     return NULL;
 
@@ -157,7 +155,7 @@ public tree ptr tree_prev_node(
 public tree ptr tree_next_node(
   tree ref self
 ) {
-  self=deref(self);
+  self=deref self;
   if(self->next == TREE_NODE_NULL)
     return NULL;
 
@@ -171,7 +169,7 @@ public tree ptr tree_next_node(
 public tree ptr tree_first_child(
   tree ref self
 ) {
-  self=deref(self);
+  self=deref self;
   if(self->chd == TREE_NODE_NULL)
     return NULL;
 
@@ -185,7 +183,7 @@ public tree ptr tree_first_child(
 public tree ptr tree_last_child(
   tree ref self
 ) {
-  self=deref(self);
+  self=deref self;
   if(self->chd == TREE_NODE_NULL)
     return NULL;
 
@@ -221,7 +219,7 @@ public rel tree_new_node(
 
     // elem idex is just top of node container ;>
     .eid=m->use
-  };
+  };;
 
   // make child instance
   tree child={
@@ -232,7 +230,7 @@ public rel tree_new_node(
     .chd   = TREE_NODE_NULL,
     .prev  = TREE_NODE_NULL,
     .next  = TREE_NODE_NULL
-  };
+  };;
 
   // is first child?
   if(par->chd == TREE_NODE_NULL)
@@ -243,7 +241,7 @@ public rel tree_new_node(
     tree ptr last=tree_last_child(par);
     child.prev=asrel(last)->eid;
     last->next=child.cont.eid;
-  };
+  };;
 
   // save new node to container buf
   mem_push(m,addr child);
@@ -261,7 +259,7 @@ public void tree_delete(tree ref self) {
     return;
 
   cask_give(addr Cache,asrel(self)->bufid);
-  self->value=NULL_REF;
+  set_null(&self->value);
 
   return;
 };
@@ -270,14 +268,12 @@ public void tree_delete(tree ref self) {
 // ---   *   ---   *   ---
 // dbout
 
-#include <stdio.h>
-
 void tree_repr(
   tree ref self,
   word     depth
 ) {
   // give [value type]:value
-  self=deref(self);
+  self=deref self;
   printf("[%04X]:%04X\n",self->flg,self->value);
 
   // early exit if no children
@@ -289,7 +285,7 @@ void tree_repr(
   while(child) {
     tree_repr(child,depth+1);
     child=tree_next_node(child);
-  };
+  };;
 
   return;
 };

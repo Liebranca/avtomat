@@ -13,9 +13,10 @@
 // ---   *   ---   *   ---
 // deps
 
-  #include <stddef.h>
-  #include "SWAN/style.h"
-  #include "SWAN/mem.h"
+package SWAN::mem_string;
+  use cmam;
+  public use SWAN::mem;
+  #include <string.h>;
 
 
 // ---   *   ---   *   ---
@@ -36,7 +37,7 @@ public byte ptr mem_at_string(
 // ---   *   ---   *   ---
 // put string at top
 
-public IX void mem_place_string(
+public void mem_place_string(
   mem  ptr self,
   byte ptr elem
 ) {
@@ -49,7 +50,7 @@ public IX void mem_place_string(
 // ---   *   ---   *   ---
 // ^with automatic resize
 
-public IX void mem_push_string(
+public void mem_push_string(
   mem  ptr self,
   byte ptr elem
 ) {

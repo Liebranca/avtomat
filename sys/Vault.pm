@@ -22,7 +22,7 @@ package Vault;
 
   use English qw($ARG);
 
-  use Storable qw(store retrieve freeze thaw);
+  use Storable qw(store retrieve);
   use Fcntl qw(SEEK_SET SEEK_CUR);
 
   use lib "$ENV{ARPATH}/lib/";
@@ -465,14 +465,6 @@ sub fchk($self,$var) {
 
   skip:
   return $out;
-};
-
-
-# ---   *   ---   *   ---
-# selfex
-
-sub deepcpy($o) {
-  return thaw(freeze($o));
 };
 
 

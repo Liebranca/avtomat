@@ -19,13 +19,20 @@ package Ftype::Text::Mny;
   use warnings;
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Ftype::Text;
+  use parent 'Ftype::Text';
+
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = 'v1.00.1';
+  our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # make ice
 
-BEGIN { Ftype::Text->new(
+sub classattr {return {
   name => 'Mny',
   ext  => '\.mny$',
   hed  => '\$mny;',
@@ -40,8 +47,7 @@ BEGIN { Ftype::Text->new(
     qr{^x}      => 0x02,
 
   ],
-
-)};
+}};
 
 
 # ---   *   ---   *   ---

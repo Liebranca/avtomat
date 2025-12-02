@@ -46,21 +46,17 @@ package Avt::CRun;
 # cstruc
 
 sub new($class,%O) {
-
   return Shb7::Bk::front::new(
-
     $class,
 
     lang    => 'C',
 
-    bk      => 'gcc',
+    bk      => 'cmam',
     entry   => 'main',
 
     %O,
     linking => 'cstd',
-
   );
-
 };
 
 # ---   *   ---   *   ---

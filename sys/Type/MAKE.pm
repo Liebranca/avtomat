@@ -47,10 +47,12 @@ package Type::MAKE;
   );
   use Arstd::Hash qw(gvalues);
   use Arstd::Bytes qw(bitsize);
-  use Arstd::String qw(cat strip gstrip);
+  use Arstd::String qw(cat strip gstrip gsplit);
+  use Arstd::Token qw(tokenpop);
   use Arstd::Re qw(pekey);
   use Arstd::throw;
 
+  use Tree::C;
   use St;
 
 
@@ -65,6 +67,7 @@ package Type::MAKE;
     typedef
 
     struc
+    union
     restruc
 
     badtype
@@ -230,9 +233,9 @@ St::vconst {
     word   => 'S',
     dword  => 'L',
     qword  => 'Q',
-    xword  => 'Q',
-    yword  => 'Q',
-    zword  => 'Q',
+    xword  => 'L[4]',
+    yword  => 'L[8]',
+    zword  => 'L[16]',
     real   => 'f',
     dreal  => 'd',
     str    => 'Z',
@@ -287,13 +290,14 @@ sub typedef {
 # [*]: throws on invalid
 
 sub typeadd {
-  typetab()->{$_[0]}=$_[1];
+  typetab()->{$_[0]}=$_[1]
+  if ! exists typetab()->{$_[0]};
 
   # ^catch name with underscores or hyphens
   my $alt=flagstrip($_[0]);
 
   typetab()->{$alt}=typetab()->{$_[0]}
-  if $alt ne $_[0];
+  if $alt ne $_[0] &&! exists typetab()->{$alt};
 
   # ^catch invalid
   badtype($_[0]) if ! is_valid($_[0]);
@@ -661,6 +665,19 @@ sub typebuild {
 #      directly to input
 
 sub typelay {
+  if(is_primvec($_[0])) {
+    my $x={
+      xword => 2,
+      yword => 4,
+      zword => 8,
+
+    }->{$_[0]->{key}};
+
+    $_[0]->{layout} = [(1) x $x];
+    $_[0]->{cnt}    = $x;
+    return;
+  };
+
   # get ctx
   my $class = St::cpkg();
   my $type  = $class->TYPEFLAG;
@@ -681,7 +698,7 @@ sub typelay {
     $cols=$_[0]->{cnt};
     $rows=$_[0]->{cnt};
 
-  # ^divide vectors inot (cnt * 1)
+  # ^divide vectors into (cnt * 1)
   # ^for {cnt == 1}, this makes primitives!
   } else {
     $cols=1;
@@ -712,8 +729,11 @@ sub typevec_implicit {
 
   # is element size larger than qword?
   my $xmat     = 0;
-  my @implicit = ($_[0]->{ezy} > 3)
-    ? (0) x ($_[0]->{ezy} - 3)
+  my @implicit = (
+      $_[0]->{ezy} > 3
+  &&! is_primvec($_[0])
+
+  ) ? (0) x ($_[0]->{ezy} - 3)
     : ()
     ;
 
@@ -800,6 +820,15 @@ sub is_wstr {
 
 
 # ---   *   ---   *   ---
+# value is a primitive vector
+
+sub is_primvec {
+  my $re=qr{(?:xword|yword|zword)};
+  return $_[0]->{key}=~ $re;
+};
+
+
+# ---   *   ---   *   ---
 # get format for bytepacker
 #
 # [0]: mem  ptr ; decl hashref
@@ -827,7 +856,7 @@ sub typefmat {
 
   # ^everything else (that is not a string)
   # ^has to include element count
-  } elsif(! is_str($_[0])) {
+  } elsif(! is_str($_[0]) &&! is_primvec($_[0])) {
     $fmat="$fmat\[$_[0]->{cnt}]"
   };
 
@@ -854,10 +883,18 @@ sub voidstruc {
 
 
 # ---   *   ---   *   ---
-# build structure from
+# build structure or union from
 # other types!
 
 sub struc($name,$src=undef) {
+  return struc_inner(struc=>$name,$src);
+};
+
+sub union($name,$src=undef) {
+  return struc_inner(union=>$name,$src);
+};
+
+sub struc_inner($cmd,$name,$src=undef) {
   # case insensitivity!
   $name=lc $name;
 
@@ -871,41 +908,78 @@ sub struc($name,$src=undef) {
     if $have && $have ne '--define';
   };
 
-
   # parse input
-  my @field=strucparse($src);
+  my $tree  = Tree::C->rd($src);
+  my @expr  = $tree->to_expr();
+  my @field = ($cmd eq 'union')
+    ? unionparse(@expr)
+    : strucparse(@expr)
+    ;
+
+  return strucmake($cmd,$name,@field);
+};
+
+sub strucmake($cmd,$name,@field) {
+  # stop if type already defined when
+  # recursing (may happen during parse)
+  if(exists typetab()->{$name}) {
+    return typetab()->{$name};
+  };
+
 
   # ^array as hash
-  my $out={
+  my @fv  = nvalues(\@field);
+  my @fk  = nkeys(\@field);
+
+  my $out = {
     name    => $name,
-    struc_i => [nkeys(\@field)],
+    struc_i => [map {
+      # unroll labels for anonymous blocks
+      my $label = $fk[$ARG];
+      my $type  = $fv[$ARG]->{type};
+      ($type->{name}=~ anonblk_re())
+        ? @{$type->{struc_i}}
+        : $label
+        ;
+
+    } 0..$#fk],
   };
-  my @fv=nvalues(\@field);
-  $out->{struc_t}=[map {$ARG->{type}->{name}} @fv];
+  $out->{struc_t}=[map {
+    # also unroll offsets for anonymous blocks
+    ($ARG->{type}->{name}=~ anonblk_re())
+      ? @{$ARG->{type}->{struc_t}}
+      : $ARG->{type}->{name}
+      ;
+
+  } @fv];
 
   # ^combine sizes
-  strucsizing($out,\@fv);
+  ($cmd eq 'union')
+    ? unionsizing($out,\@fv)
+    : strucsizing($out,\@fv)
+    ;
 
   # ^forbid null size
   badsize($name) if ! $out->{sizeof};
 
   # combine layouts
   $out->{layout}=[map {
-    flatten($ARG->{type}->{layout})
-  * $ARG->{cnt}
+    if($ARG->{type}->{name}=~ anonblk_re()) {
+      my @have=@{$ARG->{type}->{layout}};
+      (@have) x $ARG->{cnt};
+
+    } else {
+      my $have=$ARG->{type}->{layout};
+      int(flatten($have)) * $ARG->{cnt};
+    };
 
   } @fv];
 
   # combine packing formats
-  $out->{fmat}=cat(map {
-    my $sfmat  = $ARG->{type}->{packof};
-    my $cnt    = $ARG->{cnt};
-    my ($have) = $sfmat=~ m[(\d+)];
-
-    $sfmat=~ s[\d+][$cnt] if $cnt > $have;
-    $sfmat;
-
-  } @fv);
+  $out->{packof}=($cmd eq 'union')
+    ? unionpacking(@fv)
+    : strucpacking(@fv)
+    ;
 
   # write to table
   typeadd($name => $out);
@@ -914,8 +988,27 @@ sub struc($name,$src=undef) {
   for(qw(ptr pptr ref)) {
     typedef("$name $ARG" => $ARG);
   };
-
   return $out;
+};
+
+
+# ---   *   ---   *   ---
+# used to detect anonymous structs;
+# in such a case, an element can have
+# an offset larger than 0
+#
+# [*]: const re
+
+sub anonstruc_re {
+  return qr{^_anonstruct?\d+_$};
+};
+
+sub anonunion_re {
+  return qr{^_anonunion\d+_$};
+};
+
+sub anonblk_re {
+  return qr{^_anon(?:union|struct?)\d+_$};
 };
 
 
@@ -943,28 +1036,133 @@ sub strucsizing {
     $tby += $ARG->{type}->{sizeof} * $cnt;
     $tbs += $ARG->{type}->{sizebs} * $cnt;
 
-    # we give copy of total size
-    # before element increase ;>
-    $ezy;
+    # for anonymous strucs, we give offset for
+    # each individual field
+    if($ARG->{type}->{name}=~ anonstruc_re()) {
+      map {$ezy + $ARG}
+      @{$ARG->{type}->{struc_off}};
+
+    # ^ for regular fields we give copy of total
+    #   size before element increase ;>
+    } else {
+      $ezy;
+    };
 
   } @$field];
 
-  # ^get total as a power of 2
+  strucsizing_set($out,$tby,$tbs);
+  return;
+};
+
+
+# ---   *   ---   *   ---
+# ^same thing, but for unions
+#
+# [0]: mem ptr ; type hashref
+# [1]: mem ptr ; decl hashref array (struc fields)
+#
+# [*]: writes to destination struc
+
+sub unionsizing {
+  # get args
+  my ($out,$field)=(shift,shift);
+
+  # calculate offsets and total size
+  # in the same loop
+  my $i   = 0;
+  my $tby = 0;
+  my $tbs = 0;
+  $out->{struc_off}=[map {
+    my $cnt=$ARG->{cnt};
+    my $ezy=$tby;
+
+    # size is determined by largest element
+    if($ARG->{type}->{sizeof} * $cnt > $tby) {
+      $tby=$ARG->{type}->{sizeof} * $cnt;
+      $tbs=$ARG->{type}->{sizebs} * $cnt;
+    };
+
+    # anonymous struc means its elements
+    # can be accessed directly;
+    #
+    # in this case, elements may not start
+    # at offset zero
+    ($ARG->{type}->{name}=~ anonstruc_re())
+      # unroll element offsets for anon
+      ? @{$ARG->{type}->{struc_off}}
+
+      # regular element starts at zero
+      : 0
+      ;
+
+  } @$field];
+
+  strucsizing_set($out,$tby,$tbs);
+  return;
+};
+
+
+# ---   *   ---   *   ---
+# ^common proc to both Fs
+
+sub strucsizing_set($out,$tby,$tbs) {
+  # get total as a power of 2
   my $tzy=bitsize($tby)-1;
-     $tzy++ while (1 << $tzy) < $tby;
+  ++$tzy while (1 << $tzy) < $tby;
 
   # set fields and give
   $out->{sizeof}=$tby;
   $out->{sizep2}=$tzy;
   $out->{sizebs}=$tbs;
   $out->{sizebm}=-1;
-
   return;
 };
 
 
 # ---   *   ---   *   ---
-# ^modify existing structure!
+# determine packing format for struc
+#
+# [0]: mem  pptr ; struc fields
+# [<]: byte ptr  ; packing format (new string)
+
+sub strucpacking {
+  return cat(map {
+    my $sfmat  = $ARG->{type}->{packof};
+    my $cnt    = $ARG->{cnt};
+    my ($have) = $sfmat=~ m[(\d+)];
+
+    $sfmat=~ s[\d+][$cnt] if $cnt > $have;
+    $sfmat;
+
+  } @_);
+};
+
+
+# ---   *   ---   *   ---
+# ^for union
+#
+# [0]: mem  pptr ; struc fields
+# [<]: byte ptr  ; packing format (new string)
+
+sub unionpacking {
+  my $big=typefet('byte');
+  for(@_) {
+    my ($cur,$prev)=(
+      $ARG->{type}->{sizeof},
+      $big->{sizeof}
+    );
+    $big=$ARG->{type} if (
+        $cur > $prev
+    &&! is_str($big)
+    );
+  };
+
+  return $big->{packof};
+};
+
+
+# ---   *   ---   *   ---
+# modify existing structure!
 
 sub restruc($name,$src) {
   # get type to overwrite
@@ -987,33 +1185,38 @@ sub restruc($name,$src) {
 # ---   *   ---   *   ---
 # parse single value decl
 #
-# [0]: byte ptr ; value declaration
-# [<]: mem  ptr ; name => typename[cnt]
+# [0]: mem ptr ; expression hashref
+# [<]: mem ptr ; name => typename[cnt]
 
 sub letparse {
-  # get X => Y[Z]
-  my $array_re  = qr{\[(.+)\]$};
-  my $type_re   = qr{^((?:[^\s,]|\s*,\s*)+)\s};
-  my $nspace_re = qr{\s+};
+  # last token is name
+  # everything else is type
+  my ($decl,$defv)=gsplit($_[0]->{expr},qr{=});
 
-  # first "X[,Y]?" is value type
-  $_[0]=~ s[$type_re][];
+  # ^get [cnt] part of name[cnt]
+  my $array_re = qr{\[(.+)\]$};
+  my $type_re  = qr{^((?:[^\s,]|\s*,\s*)+)\s};
 
-  my $type =  $1;
-     $type =~ s[$nspace_re][];
+  my $cnt=($decl=~ s[$array_re][])
+    ? $1
+    : 1
+    ;
 
+  strip($cnt);
 
-  # ^followed by "name[size]"
-  my $name =  $_[0];
-  my $cnt  = ($name=~ s[$array_re][]) ? $1 : 1 ;
+  # ^_now_ take last token as name
+  $_[0]->{expr}=$decl;
+  my $name=tokenpop($_[0]);
 
-  strip($name);
+  # joining the rest of the expression
+  # gives us the type!
+  my $type=join("_",$_[0]->{cmd},$_[0]->{expr});
 
-
-  # ^give [name=>hashref]
+  # give [name=>hashref]
   return ($name=>{
     type => typefet($type),
     cnt  => $cnt,
+    defv => $defv,
   });
 };
 
@@ -1027,11 +1230,10 @@ sub letparse {
 # [*]: adds padding
 
 sub strucparse {
+  # read each field and add padding in-between
   my $total  = 0;
   my $large  = 0;
   my $padcnt = 0;
-
-  # read each field and add padding in-between
   my @out=map {
     # get next field
     my @have  = letparse($ARG);
@@ -1044,7 +1246,7 @@ sub strucparse {
     # byte is not aligned to size
     (autopad($total,$align,$padcnt),@have);
 
-  } gstrip(split qr{;+},$_[0]);
+  } strucparse_inner(@_);
 
   # add padding at end if total is not a
   # multiple of largest alignment
@@ -1053,7 +1255,73 @@ sub strucparse {
 
 
 # ---   *   ---   *   ---
-# ^calculates padding for structs
+# it's strucparse but without padding ;>
+#
+# [0]: byte ptr ; structure declaration
+# [<]: mem  ptr ; [name => typename[cnt]] array
+#
+# [*]: adds padding only at end
+
+sub unionparse {
+  return (
+    map {letparse($ARG)}
+    strucparse_inner(@_)
+  );
+};
+
+
+# ---   *   ---   *   ---
+# reuse C syntax to recursively
+# break down a (possibly) nested block
+#
+# [0]: mem  pptr ; expression hashref array
+# [<]: byte pptr ; expressions (new array)
+
+sub strucparse_inner {
+  # to keep track of anonymous union/struc
+  state $uid=0;
+
+  # iter each block
+  my @out      = ();
+  my $struc_re = qr{\b(?:union|struct?)\b};
+
+  for(@_) {
+    my $cmd=$ARG->{cmd};
+    my @blk=@{$ARG->{blk}};
+
+    # have (union|struc) (name|null) {...}
+    if(@blk && ($cmd=~ $struc_re)) {
+      # get block name (or make name for anonymous)
+      my $anon=is_null($ARG->{expr});
+      my $name=(! $anon)
+        ? tokenpop($ARG)
+        : "_anon${cmd}" . ++$uid . '_'
+        ;
+
+      # recurse to generate required type
+      my @field=($cmd eq 'union')
+        ? strucparse(@blk)
+        : unionparse(@blk)
+        ;
+
+      my $type=strucmake($cmd=>$name=>@field);
+
+      # ^ give reference to struc as a single field
+      #   in place of block definition
+      push @out,{cmd=>$type->{name},expr=>$name};
+
+    # ^plain field, give asis
+    } else {
+      push @out,$ARG;
+    };
+  };
+
+  return @out;
+};
+
+
+# ---   *   ---   *   ---
+# calculates padding for structs
 #
 # [0]: word ; total size
 # [1]: word ; alignment
@@ -1064,7 +1332,10 @@ sub autopad {
   my @pad  = ();
   my $need = $_[0] % $_[1];
   if($need) {
-    @pad=letparse("byte _autopad_${_[2]}[$need]");
+    @pad=letparse({
+      cmd  => 'byte',
+      expr => "_autopad_${_[2]}[$need]",
+    });
     ++$_[2];
   };
   return @pad;
@@ -1085,9 +1356,9 @@ sub import {
 
   # make primitives
   for(qw(
-    byte word dword qword
+    byte  word  dword qword
     xword yword zword
-    real dreal
+    real  dreal
   )) {
     typedef("$ARG"      => "$ARG");
     typedef("$ARG ptr"  => "$ARG ptr");
@@ -1104,25 +1375,30 @@ sub import {
   };
 
   # make vector aliases
-  for(qw(real dword sign_dword)) {
+  for my $t(qw(real dword sign_dword)) {
     # first letter gives *element* type
-    my $ezy = $ARG;
-    my $i   = {
+    my $i={
       real       => null(),
       dword      => 'u',
       sign_dword => 'i',
 
-    }->{$ezy};
+    }->{$t};
 
-    # ^make vec[2-4],mat[2-4] for element type
-    for(qw(vec mat)) {
-      my $type=$ARG;
-      my $name="$i$type";
-      for(2..4) {
-        typedef("$name$ARG" => ($ezy,"$type$ARG"));
+    # make vec[2-4] for element type
+    for my $sz(2..4) {
+      my @elem=qw(x y);
+      push @elem,'z' if $sz > 2;
+      push @elem,'w' if $sz > 3;
+      for(@elem) {
+        $ARG="$t $ARG;";
       };
+      struc("${i}vec$sz"=>cat(@elem));
     };
 
+    # ^make mat[2-4] for element type
+    for my $sz(2..4) {
+      struc("${i}mat$sz"=>"${i}vec$sz col[$sz];");
+    };
   };
 
   return @out;

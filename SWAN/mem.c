@@ -12,22 +12,25 @@
 // ---   *   ---   *   ---
 // deps
 
-  #include <stddef.h>
-  #include "SWAN/style.h"
-  #include "SWAN/throw.h"
+package SWAN::mem;
+  use cmam;
+  public use SWAN::throw;
+  public #include <stddef.h>;
+
+  #include <stdlib.h>;
 
 
 // ---   *   ---   *   ---
 // info
 
-  VERSION "v0.00.7a";
+  VERSION "v0.00.8a";
   AUTHOR  "IBN-3DILA";
 
 
 // ---   *   ---   *   ---
 // malloc wrapper
 
-public struct mem {
+public typedef struct mem {
   dword ezy;    // elem size
   dword cap;    // capacity
   qword use;    // bytes occupied
@@ -35,7 +38,6 @@ public struct mem {
 
   byte ptr buf; // malloc'd buffer
 };
-public typedef struct mem mem;
 
 
 // ---   *   ---   *   ---
@@ -63,7 +65,7 @@ public mem mem_new(
     .use=0x00,
     .flg=flg,
     .buf=malloc(ezy*cap)
-  };
+  };;
 
   // catch malloc error
   if(! self.buf)
@@ -103,7 +105,6 @@ public IX bool mem_equal(
   && (self->use == other->use)
   && (self->flg == other->flg)
   && (self->buf == other->buf)
-
   );
 };
 
@@ -116,7 +117,6 @@ public IX bool mem_invalid(mem ptr self) {
      (self      == NULL)
   || (self->buf == NULL)
   || mem_equal(self,addr MEM_NULL)
-
   );
 };
 
@@ -205,7 +205,6 @@ public IX qword mem_relto(
   return (
     ((qword) other)
   - ((qword) self->buf)
-
   );
 };
 
@@ -253,7 +252,6 @@ public mem ptr mem_resz(
   mem ptr self,
   qword   n
 ) {
-
   // get mem
   n         = mem_align_n(self,n);
   self->buf = realloc(self->buf,sizeof(mem)+n);
@@ -265,7 +263,6 @@ public mem ptr mem_resz(
 
   // update and give
   self->cap=n/self->ezy;
-
   return self;
 };
 
@@ -281,9 +278,8 @@ public IX dword mem_brkhit(
   qword   n
 ) {
   return (
-    ((sqword) (mem_usedsz(self) + n))
+    ((sign qword) (mem_usedsz(self) + n))
   - mem_bytesz(self)
-
   );
 };
 
@@ -291,13 +287,12 @@ public IX mem ptr mem_brk(
   mem ptr self,
   qword   n
 ) {
-  sqword need=mem_brkhit(self,n);
+  sign qword need=mem_brkhit(self,n);
   if(need > 0)
     return mem_resz(
       self,
       (self->cap + need)
     + (self->ezy * MEM_GROW)
-
     );
 
   return self;

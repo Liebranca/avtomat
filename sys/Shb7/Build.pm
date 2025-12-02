@@ -244,7 +244,7 @@ sub get_module_paths($self) {
 # ^helper F to filter out invalid entries
 
 sub flgchk {
-  return defined($ARG) && 2 < length $ARG;
+  return defined($ARG) && 2 > length $ARG;
 };
 
 

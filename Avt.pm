@@ -384,14 +384,14 @@ sub get_config_build($M,$C) {
 
 sub get_config_paths($M,$C) {
   $M->{lib}=[
-    q{-L} . $PKG->LIBDIR,
+    "-L./" . $PKG->LIBDIR,
     @{$C->{lib}},
   ];
 
   $M->{inc}=[
-    q{-I} . $PKG->INCDIR,
-    q{-I./},
-    q{-I./} . $C->{name}.q{/},
+    "-I./" . $PKG->INCDIR,
+    "-I./",
+    "-I./$C->{name}",
 
     @{$C->{inc}},
   ];

@@ -18,10 +18,12 @@ package Arstd::fatdump;
   use strict;
   use warnings;
 
+  use Scalar::Util qw(looks_like_number);
   use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/";
   use AR sys=>qw(
+    use Style::(null);
     use Chk::(
       is_hashref
       is_arrayref
@@ -29,6 +31,7 @@ package Arstd::fatdump;
       is_qreref
       is_blessref
       is_nref
+      is_null
     );
 
     lis Arstd::Array::(nmap);
@@ -48,7 +51,7 @@ package Arstd::fatdump;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.1';
+  our $VERSION = 'v0.01.2';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -56,6 +59,24 @@ package Arstd::fatdump;
 # RAM
 
   my $Cache={walked=>{}};
+
+
+# ---   *   ---   *   ---
+# padding for nested strucs
+
+sub lvl {
+  state $lvl=0;
+  return \$lvl;
+};
+
+sub pad {
+  my ($x)   = @_;
+     $x   //= 0;
+
+  my $out   = '  ' x (${lvl()} + $x);
+
+  return "\$PAD<=${out}=>";
+};
 
 
 # ---   *   ---   *   ---
@@ -73,6 +94,10 @@ sub recursing($value) {
 # deconstruct value
 
 sub polydump($vref,$blessed=undef) {
+  # enter
+  my $lvl=lvl();
+  ++$$lvl;
+
   # idex into this array
   # based on value type
   my $tab=[
@@ -86,7 +111,7 @@ sub polydump($vref,$blessed=undef) {
   return $vref if recursing $vref;
 
   # corner case: compiled regexes
-  return "'$$vref'" if is_qreref($vref);
+  return "$$vref" if is_qreref($vref);
 
 
   # map type to idex
@@ -109,15 +134,17 @@ sub polydump($vref,$blessed=undef) {
     : undef
     ;
 
-
   # select F from table
   my $f=$tab->[$idex];
 
   # ^give string to print
-  return ($idex)
+  my $out=($idex)
     ? $f->($$vref,$rec)
     : $f->($vref,$rec)
     ;
+
+  --$$lvl;
+  return "$out";
 };
 
 
@@ -126,13 +153,16 @@ sub polydump($vref,$blessed=undef) {
 
 sub deepdump($h,$blessed=undef) {
   return $h if recursing $h;
-  return '{' . join(q[,],array_nmap(
+
+  my $pad  = pad();
+  my $ppad = pad(-1);
+  return "${ppad}{\n" . join(",\n",array_nmap(
     deepfilter($h,$blessed),
-    sub ($kref,$vref) {"'$$kref' => $$vref"},
+    sub ($kref,$vref) {"${pad}$$kref => $$vref"},
 
     'kv'
 
-  )) . '}';
+  )) . "\n${ppad}}";
 };
 
 
@@ -141,15 +171,14 @@ sub deepdump($h,$blessed=undef) {
 
 sub deepfilter($h,$blessed=undef) {
   return [(
-    map  {$ARG=>polydump(\$h->{$ARG},$blessed)}
+    map  {strk($ARG)=>polydump(\$h->{$ARG},$blessed)}
     grep {is_nref $h->{$ARG}}
     keys %$h
 
   ) => (
-    map  {$ARG=>polydump(\$h->{$ARG},$blessed)}
+    map  {strk($ARG)=>polydump(\$h->{$ARG},$blessed)}
     grep {! is_nref $h->{$ARG}}
     keys %$h
-
   )];
 };
 
@@ -159,10 +188,13 @@ sub deepfilter($h,$blessed=undef) {
 
 sub arraydump($ar,$blessed=undef) {
   return $ar if recursing $ar;
-  return '[' . join(q[,],map {
-    polydump(\$ARG,$blessed)
 
-  } @$ar) . ']';
+  my $pad  = pad();
+  my $ppad = pad(-1);
+  return "${ppad}[\n${pad}" . join(",\n${pad}",map {
+    polydump(\$ARG,$blessed);
+
+  } @$ar) . "\n${ppad}]";
 };
 
 
@@ -171,9 +203,24 @@ sub arraydump($ar,$blessed=undef) {
 
 sub valuedump($vref,$blessed=undef) {
   return (defined $$vref)
-    ? "'$$vref'"
+    ? valueprich($$vref)
     : 'undef'
     ;
+};
+
+
+# ---   *   ---   *   ---
+# ^just to keep it short ;>
+
+sub valueprich($v) {
+  return 'null()' if is_null($v);
+  return $v if looks_like_number($v);
+  return "'$v'";
+};
+
+sub strk($k) {
+  return $k if ! ($k=~ qr{\s+});
+  return "q[$k]";
 };
 
 
@@ -208,13 +255,32 @@ sub fatdump($vref,%O) {
 
   # get repr for vref
   my $s=(join ",\n",map {
-    map {$ARG} polydump($ARG,$O{blessed})
+    polydump($ARG,$O{blessed})
 
-  } $vref ) . q[;];
+  } $vref);
 
+  # cleanup
+  my $re=qr{\$PAD<=(\s*)=>\s*};
+  $s=join "\n",map {
+    $ARG=~ s[$re][]g if $ARG=~ s[$re][$1];
+    $ARG;
+
+  } split qr"\n",$s;
+
+  $s=~ s[$re][$+{whole}]gsm;
+  $s=~ s[$re][$+{ct}]g;
+
+  $re=qr{=>\s*};
+  $s=~ s[$re][=> ]g;
+
+  $re=qr{\[\s*\]};
+  $s=~ s[$re][\[\]]g;
+
+  $re=qr{\{\s*\}};
+  $s=~ s[$re][\{\}]g;
 
   # ^give repr
-  push @$out,tidyup(\$s,filter=>1),"\n\n";
+  push @$out,$s;
   return io_procout(\%O);
 };
 

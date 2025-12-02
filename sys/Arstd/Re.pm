@@ -298,7 +298,6 @@ sub nxtok($s,$re) {
 # makes re to match elements in ar
 
 sub eiths($ar,%O) {
-
   # defaults
   $O{mkre}     //= 1;
   $O{opscape}  //= 0;

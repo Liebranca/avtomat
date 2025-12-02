@@ -24,16 +24,19 @@ package Shb7::Bk;
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
 
+  use Arstd::String qw(gsplit);
   use Arstd::Array qw(filter);
+  use Arstd::Bin qw(moo);
   use Arstd::throw;
 
   use Shb7::Bfile;
+  use Shb7::Path qw(relto_root);
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.4';
+  our $VERSION = 'v0.00.5';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -86,7 +89,7 @@ sub push_src($self,$fpath) {
 
 sub depstr_to_array($self,$depstr) {
   # make list
-  my @out=split qr{\*,\s*},$depstr;
+  my @out=gsplit($depstr,qr{\s*,\s*});
 
   # ensure there are no blanks
   filter(\@out);
@@ -110,18 +113,14 @@ sub target($self) {return null};
 sub fbuild($self,$bfile,$bld) {return 0};
 sub fupdated($self,$bfile,%O) {return 1};
 sub fdeps($self,$bfile) {return ()};
-sub on_build($self,$bld,%O) {};
+sub on_build($self,$bld,@bfile) {return @bfile};
 
 
 # ---   *   ---   *   ---
 # common fupdated proto
 
 sub chkfdeps($self,$bfile,%O) {
-  my $do_build =
-     (! -f $bfile->{obj})
-  || Shb7::ot($bfile->{obj},$bfile->{src})
-  ;
-
+  my $do_build=moo($bfile->{obj},$bfile->{src});
   my @deps=$self->fdeps($bfile);
 
   # no missing deps
@@ -152,7 +151,7 @@ sub build($self,$bld) {
 
   # this is so each backend can have
   # its own pre-build hook
-  $self->on_build($bld);
+  @bfile=$self->on_build($bld,@bfile);
 
   # get total number of objects that were built
   my $cnt=int grep(
@@ -185,8 +184,11 @@ sub get_updated($self,%O) {
 
 sub build_objects($self,$bld,@bfile) {
   return map {
-    $self->log_fpath($ARG->{src});
-    $self->fbuild($ARG,$bld);
+    $self->log_fpath($ARG->{obj});
+    ($self->fbuild($ARG,$bld))
+      ? 1
+      : exit
+      ;
 
   } @bfile;
 };

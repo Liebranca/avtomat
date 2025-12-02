@@ -45,7 +45,7 @@ package Avt::Makescript;
   use Shb7::Bfile;
   use Shb7::Build;
   use Shb7::Link qw(olink);
-  use Shb7::Bk::gcc;
+  use Shb7::Bk::cmam;
   use Shb7::Bk::mam;
   use Shb7::Bk::flat;
   use Shb7::Bk::fake;
@@ -80,7 +80,7 @@ my $PKG=__PACKAGE__;
 sub get_build_files($self) {
   return (
     $self->fasm_bfiles(),
-    $self->{gcc}->bfiles(),
+    $self->{cmam}->bfiles(),
     $self->{mam}->bfiles(),
   );
 };
@@ -100,7 +100,7 @@ sub get_build_files($self) {
 
 sub fasm_bfiles($self) {
   return () if ! int $self->{flat}->bfiles();
-  AR::cload 'Avt::flatten';
+  AR::load('Avt::flatten');
 
   my @src   = $self->{flat}->bfiles();
   my %keys  = map {
@@ -141,23 +141,34 @@ sub fasm_bfiles($self) {
 # adjust fpath arrays
 
 sub make_abspaths {
-  for(
+  for my $ar(
     $_[0]->{xprt},
     $_[0]->{fcpy},
     $_[0]->{gen},
     $_[0]->{inc},
     $_[0]->{lib}
   ) {
-    filter $ARG;
-    absto($ARG,$_[0]->{root}) for @$ARG;
+    filter $ar;
+    for my $path(@$ar) {
+      # remove -[char] prefix
+      my $prefix_re   =  qr{^(-[ILl])};
+         $path        =~ s[$prefix_re][];
+
+      my $prefix      =  $1;
+         $prefix    //=  null;
+
+      # ^ make absolute path, and
+      #   *then* put prefix back in
+      absto($path,$_[0]->{root});
+      $path="$prefix$path";
+    };
   };
 
   for(qw(ilib mlib main trash)) {
     absto($_[0]->{$ARG},$_[0]->{root});
   };
 
-  for($_[0]->get_build_files()) {
-    my $bfile=$ARG;
+  for my $bfile($_[0]->get_build_files()) {
     for(qw(src obj asm out dep)) {
       absto($bfile->{$ARG},$_[0]->{root});
     };
@@ -181,7 +192,7 @@ sub new($class) {
       pproc=>'Avt::flatten::pproc',
     ),
 
-    gcc   => Shb7::Bk::gcc->new(),
+    cmam  => Shb7::Bk::cmam->new(),
     mam   => Shb7::Bk::mam->new(),
 
     # io paths
@@ -234,7 +245,6 @@ sub build_module($class,$file,@cmd) {
 # makefile body
 
 sub run($self) {
-  $self->set_build_paths;
   $self->update_generated;
   $self->build_binaries($self->update_objects);
   $self->update_regular;
@@ -259,6 +269,7 @@ sub load($class,$file,@cmd) {
 
   Shb7::Path::module($self->{fswat});
   $self->make_abspaths();
+  $self->set_build_paths();
 
   $self->{bld}=Shb7::Build->new(
     file    => [],
@@ -343,7 +354,7 @@ sub read_cli($class,@cmd) {
 
 sub set_build_paths($self) {
   my @paths=grep {
-    $ARG ne "-I" . $self->{root};
+    $ARG ne "-I$self->{root}";
 
   } @{$self->{inc}};
 
@@ -488,7 +499,7 @@ sub update_objects($self) {
 
   # iter backends
   # each holds it's own list of source files
-  for(qw(fasm gcc mam)) {
+  for(qw(flat cmam mam)) {
     my ($cnt,@link)=
       $self->{$ARG}->build($self->{bld});
 
@@ -511,7 +522,7 @@ sub bk_for($self,$src) {
   my $out=undef;
 
   if($src=~ Ftype::Text::C->{ext}) {
-    $out=$self->{gcc};
+    $out=$self->{cmam};
 
   } elsif($src=~ Ftype::Text::Perl->{ext}) {
     $out=$self->{mam};

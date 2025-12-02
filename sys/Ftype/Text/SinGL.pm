@@ -20,14 +20,20 @@ package Ftype::Text::SinGL;
 
   use lib "$ENV{'ARPATH'}/lib/sys/";
   use Arstd::Re;
-  use Ftype::Text;
+  use parent 'Ftype::Text';
+
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = 'v1.00.1';
+  our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # make ice
 
-BEGIN { Ftype::Text->new(
-
+sub classattr {return {
   name => 'SinGL',
 
   ext  => '\.(sg|glsl)$',
@@ -44,34 +50,27 @@ BEGIN { Ftype::Text->new(
 
     sampler([^\s]+)?
     buffer
-
   )],
 
   specifier=>[qw(
     const uniform in out flat
-
   )],
 
 
   intrinsic=>[qw()],
-
   directive=>[qw(
     struct union layout
-
   )],
 
   fctl=>[qw(
     if else for while do
     switch case default
     break continue return
-
   )],
 
   resname=>[qw()],
   preproc=>Arstd::Re::eaf('#',lbeg=>0,opscape=>1),
-
-
-)};
+}};
 
 
 # ---   *   ---   *   ---

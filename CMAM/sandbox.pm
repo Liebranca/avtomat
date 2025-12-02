@@ -33,6 +33,14 @@ package CMAM::sandbox;
     extwap
   );
   use Arstd::throw;
+  use Arstd::Token qw(
+    tokensplit
+    tokenshift
+    tokenpop
+    tokentidy
+    semipop
+  );
+  use Tree::C;
 
   use lib "$ENV{ARPATH}/lib/";
   use AR ();
@@ -42,13 +50,7 @@ package CMAM::sandbox;
     cmamout
     cmamout_push_pm
     cmamout_push_c
-  );
-  use CMAM::token qw(
-    tokensplit
-    tokenshift
-    tokenpop
-    tokentidy
-    semipop
+    ctree
   );
   use CMAM::macro qw(
     macroguard
@@ -56,7 +58,15 @@ package CMAM::sandbox;
     macrosave
     macroin
     macrofoot
+    c_to_perl
   );
+
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT_OK=qw(strnd clnd);
 
 
 # ---   *   ---   *   ---
@@ -74,43 +84,64 @@ package CMAM::sandbox;
 # [*]: writes to CMAMOUT
 
 sub usepkg {
-  # unpack && validate input
-  $_[0]=macroguard([qw(expr)],@_);
-  my ($expr)=macroin($_[0],qw(expr));
+  my ($nd)=@_;
+
+  # first convert the node into a string
+  $nd->{cmd}="";
+  my $expr=c_to_perl($nd);
+  ctree()->unstrtok($expr);
+
+  $nd->{expr}=$expr;
 
   # get package name
-  my $name=tokenshift($expr);
-  my @dstk=();
+  my $name=tokenshift($nd);
 
   # have language filter?
-  if($name=~ qr{(?:pm|c)}i) {
-    @dstk=(lc $name);
-    $name=tokenshift($expr);
-
-  # ^nope, use both ;>
-  } else {
-    @dstk=qw(pm c);
+  my ($c,$pm)=(1,1);
+  if($name=~ qr{\b(pm|c)\b}i) {
+    my $have=lc $name;
+    ($c,$pm)=($have eq 'c',$have eq 'pm');
+    $name=tokenshift($nd);
   };
 
+  # sneaky shorthand
+  if($name eq 'cmam') {
+    $name = "SWAN::cmacro";
+    $expr = "qw(PKGINFO VERSION AUTHOR public typename deref sign typedef);";
+    $c    = 0;
+    $pm   = 1;
+  };
 
   # need to perform perl package imports?
-  if(int grep {$ARG eq 'pm'} @dstk) {
+  if($pm) {
     # add perl dependency and load it into
     # the sandbox namespace
     my @req=cmamout_push_pm($name,$expr);
-    AR::cloadi($name=>@req);
+    AR::load($name=>@req);
   };
 
   # need to append required C header?
-  cmamout_push_c($name)
-  if int grep {$ARG eq 'c'} @dstk;
+  my @out=();
+  if($c) {
+    push @out,strnd(cmamout_push_c($name));
+  };
 
-
-  # cleanup and give
-  $expr=null;
-  macrofoot($_[0],qw(expr));
-  return null;
+  # give C import if any
+  %$nd=();
+  return @out;
 };
+
+
+# ---   *   ---   *   ---
+# make new expression node from string
+
+sub strnd {return ctree()->rd($_[0])->to_expr()};
+
+
+# ---   *   ---   *   ---
+# clear expression
+
+sub clnd {%{$_[0]}=();return};
 
 
 # ---   *   ---   *   ---

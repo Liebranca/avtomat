@@ -17,24 +17,41 @@ package Ftype;
   use v5.42.0;
   use strict;
   use warnings;
-
   use English qw($ARG);
-
-  use lib "$ENV{ARPATH}/lib/sys/";
-  use parent 'St';
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.1a';
+  our $VERSION = 'v0.00.2a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # GBL
 
-  my $Cache={};
+  my $Cache={SUPER=>{}};
+  sub cache {return $Cache};
+
+# ---   *   ---   *   ---
+# definition
+
+sub classattr {return {name=>'SUPER'}};
+
+
+# ---   *   ---   *   ---
+# make ice
+
+sub import {
+  my ($class)=@_;
+  return if defined fet(
+    $class,
+    $class->classattr()->{name}
+  );
+
+  $class->new();
+  return;
+};
 
 
 # ---   *   ---   *   ---
@@ -42,16 +59,19 @@ package Ftype;
 
 sub register($class,$ice) {
   no strict 'refs';
-  my $subclass="$class\::$ice->{name}";
-  my $skip=exists $Cache->{$subclass};
-  $Cache->{$subclass}=$ice;
+  my $subclass=($class eq __PACKAGE__)
+    ? "$class\::$ice->{name}"
+    : $class
+    ;
+
+  return if exists $Cache->{$subclass};
 
   # yes
-  *$subclass=sub {return $Cache->{$subclass}}
-  if ! $skip;
+  $Cache->{$subclass}=$ice;
+  *$subclass=sub {return $Cache->{$subclass}};
 
+  use strict 'refs';
   return;
-
 };
 
 
@@ -60,7 +80,6 @@ sub register($class,$ice) {
 
 sub fet($class,$name) {
   return $Cache->{$name};
-
 };
 
 
@@ -71,14 +90,10 @@ sub ext_to_ftype($file) {
   my @path=split qr{\/},$file;
   return undef if ! @path;
 
-  map {
+  for(values %$Cache) {
     return $ARG if $path[-1]=$ARG->{ext};
-
-  } values %$Cache;
-
-
+  };
   return undef;
-
 };
 
 

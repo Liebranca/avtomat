@@ -21,25 +21,33 @@ package CMAM::macro;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
-  use Chk qw(is_null is_coderef is_hashref);
+  use Chk qw(
+    is_null
+    is_coderef
+    is_hashref
+    is_arrayref
+  );
 
   use Arstd::String qw(cat);
+  use Arstd::Token qw(
+    tokenshift
+    semipop
+  );
   use Arstd::throw;
+  use Tree::C;
 
   use lib "$ENV{ARPATH}/lib/";
   use CMAM::static qw(
     cmamdef
     cmamout
     cpackage
-  );
-  use CMAM::token qw(
-    tokenshift
-    semipop
+    ctree
   );
   use CMAM::parse qw(
     blk2expr
     type2expr
   );
+  use CMAM::emit;
 
 
 # ---   *   ---   *   ---
@@ -52,6 +60,7 @@ package CMAM::macro;
     macrosave
     macroin
     macrofoot
+    c_to_perl
   );
 
 
@@ -73,165 +82,105 @@ package CMAM::macro;
 # [!]: adds an actual subroutine to CMAM package
 
 sub macro {
-  # unpack && validate input
-  my ($name,$type,$args,$blk)=macroin(
-    $_[0],qw(type args blk)
-  );
+  my ($nd)=@_;
 
   # redef guard
-  throw "Redefinition of macro '$name'"
-  if exists cmamdef()->{$name};
+  throw "Redefinition of macro '$nd->{expr}'"
+  if exists cmamdef()->{$nd->{expr}};
 
-  my $money_re=qr{^\$};
-  for(@$args) {
-    $ARG=~ s[$money_re][];
-  };
+  # make subroutine from source
+  $nd->{cmd}='sub';
+  my $fnstr=c_to_perl($nd);
 
-
-  # need to handle arguments?
-  if(@$args) {
-    # slap the macroin bit (see above) into
-    # the body of the new subroutine
-    my $argline=cat(
-      '$_[0]=macroguard([qw(',
-      join(' ',@$args),
-      ')],@_);',
-
-      'my ($',
-      join(',$',@$args),
-      ')=macroin(',
-      '$_[0],qw(',
-      join(' ',@$args),
-      '));'
-    );
-
-    # ^cleanup for that
-    my $foot=cat(
-      'macrofoot($_[0],',
-      $args->[0],'=>$' . join(',$',@$args),
-      ');'
-    );
-    unshift @$blk,$argline;
-    my $ret=pop @$blk;
-    push @$blk,$foot;
-    push @$blk,$ret;
-  };
-
-  # ^assemble together with blocks to
-  # ^make subroutine
-  my $fnstr=cat("sub {",@$blk,"};");
-
+  # now put strings back in
+  ctree()->unstrtok($fnstr);
 
   # generate and register new symbol
-  macroload($name,$fnstr);
-  macrosave($name,$fnstr);
+  macroload($nd->{expr},$fnstr);
+  macrosave($fnstr);
 
   # defining a macro gives back nothing ;>
-  return null;
-};
-
-
-# ---   *   ---   *   ---
-# unpack && validate macro input
-#
-# [0]: mem  ptr  ; code block capture
-# [1]: byte pptr ; argument names
-#
-# [<]: byte pptr ; args (new string array)
-#
-# [!]: throws on missing args
-
-sub macroin {
-  # get input keys
-  my $capt  = shift;
-  my @order = @_;
-
-  # ^extract keys from capture
-  my %O=map {
-    throw "Missing macro param: '$ARG'"
-    if ! exists $capt->{$ARG};
-
-    # need to pop semis?
-    semipop($capt->{$ARG});
-
-    # give name => value
-    $ARG=>$capt->{$ARG};
-
-  } @order;
-
-
-  # need to extract type and name?
-  if(exists $O{type}) {
-    type2expr($O{type});
-    $O{name}=pop @{$O{type}};
-
-    # put 'name' key into order
-    # else it won't be returned ;>
-    unshift @order,'name';
-  };
-
-  # extract argument names?
-  if(exists $O{args}) {
-    # NOTE: for macros, these are just which capts
-    #       it'll check for
-    my @args=split qr{\s*,\s*},$O{args};
-    $O{args}=\@args;
-  };
-
-  # extract expressions from blk?
-  blk2expr($O{blk}) if exists $O{blk};
-
-  # give back values
-  return map {$O{$ARG}} @order;
-};
-
-
-# ---   *   ---   *   ---
-# ensures you can call a macro from
-# within another by turning arguments
-# passed asis into a capture hashref
-#
-# [0]: byte pptr ; list of argument names
-# [1]: mem  ptr  ; first argument passed
-#
-# [<]: mem ptr ; capture hashref
-
-sub macroguard {
-  my $names=shift;
-  if(! is_hashref($_[0])) {
-    $_[0]={map {$ARG=>(shift @_)} @$names};
-  };
-  return $_[0];
-};
-
-
-# ---   *   ---   *   ---
-# synchronizes capture with
-# copies used within macro
-#
-# [0]: mem  ptr  ; capture hashref
-# [1]: byte pptr ; list of argument names
-
-sub macrofoot {
-  my $capt=shift;
-  for(keys %$capt) {
-    $capt->{$ARG}=shift;
-  };
+  %$nd=();
   return;
+};
+
+
+# ---   *   ---   *   ---
+# doesn't actually translate, it just
+# lets us use a C parser for a subset of perl
+
+sub c_to_perl {
+  my $sigil_re = qr{\s*(?<!\\)([\$\@])\s*};
+  my $deref_re = qr{\s*\->$};
+  my $semi_re  = qr{;$};
+
+  for my $nd(@_) {
+    $nd->{cmd}  =~ s[$sigil_re][$1]g;
+    $nd->{expr} =~ s[$sigil_re][$1]g;
+
+    if(is_arrayref($nd->{args})) {
+      $ARG=~ s[$sigil_re][$1]g for @{$nd->{args}};
+    } else {
+      $nd->{args}=~ s[$sigil_re][$1]g;
+    };
+
+    # recurse for block
+    my @blk=@{$nd->{blk}};
+    c_to_perl(@blk);
+
+    # ^ C parser iprets "$self->{...}->{...}"
+    #   as a series of blocks, so undo that
+    if(int(@blk)
+    && ($nd->{expr}=~ s[$deref_re][->]g)) {
+      my $s=Tree::C->expr_to_code_impl(@blk);
+      $s=~ s[$semi_re][]g;
+      $nd->{expr}   = "$nd->{expr}\{$s}";
+      @{$nd->{blk}} = ();
+    };
+  };
+
+  # make string from all nodes
+  my $out=ctree()->expr_to_code_impl(@_);
+
+  # ^ fix malformed expressions caused by the
+  #   aforementioned "$self->{...}->{...}" issue
+  my $join_re=qr{;\s+(?<opr>[^[:alnum:];\$\@\%\s\{\}]+)};
+  while($out=~ $join_re) {
+    my $opr   = $+{opr};
+       $opr //= null;
+
+    $out=~ s[$join_re][${opr}];
+  };
+
+  # "dir :: pkg" should be "dir::pkg"...
+  my $dcolon_re=qr{\s*::\s*};
+  $out=~ s[$dcolon_re][::]g;
+
+  # ^regexes maan
+  my $subex_re=qr{\bs \[([^\]]+) \]\[ ([^\]]+) \]};
+  while($out=~ $subex_re) {
+    my ($pat,$wat)=($1,$2);
+    $pat//=null;
+    $wat//=null;
+
+    $out=~ s[$subex_re][s\[$pat\]\[$wat\]]g;
+  };
+
+  my $flgex_re=qr{([\]\}]) ([gsmx]+)};
+  $out=~ s[$flgex_re][$1$2]g;
+  return $out;
 };
 
 
 # ---   *   ---   *   ---
 # makes/reloads definitions
 #
-# [0]: byte ptr ; name of symbol
-# [1]: byte ptr ; symbol definition
+# [0]: byte ptr ; symbol definition
 #
 # [*]: writes to CMAMOUT
 
 sub macrosave {
-  tokenshift($_[1]);
-  push @{cmamout()->{def}},"sub $_[0]$_[1]";
+  push @{cmamout()->{def}},$_[0];
   return;
 };
 
@@ -247,10 +196,14 @@ sub macrosave {
 
 sub macroload {
   # need to make definition?
-  my $fn=(! is_coderef($_[1]))
-    ? eval "package CMAM::sandbox;$_[1]"
-    : $_[1]
-    ;
+  my $fn  = $_[1];
+  my $def = ! is_coderef($fn);
+  if($def) {
+    my $re  = qr{^sub\s+[[:alnum:]]+};
+
+    $fn=~ s[$re][sub ];
+    $fn=eval "package CMAM\::sandbox;$fn";
+  };
 
   # ^catch compile error
   throw "Cannot define macro '$_[0]'\n"
@@ -269,12 +222,12 @@ sub macroload {
   #
   # this allows the macro to be invoked from
   # within another, as you would in regular perl
-  no strict 'refs';
+  if($def) {
+    no strict 'refs';
+    *{"CMAM\::sandbox\::$_[0]"}=$fn;
 
-  *{"CMAM\::sandbox\::$_[0]"}=$fn
-  if ! defined *{$_[0]};
-
-  use strict 'refs';
+    use strict 'refs';
+  };
   return;
 };
 
@@ -287,17 +240,20 @@ sub macroload {
 #      to name the guards -- so careful
 
 sub setpkg {
-  # unpack && validate input
-  $_[0]=macroguard([qw(expr)],@_);
-  my ($expr)=macroin($_[0],qw(expr));
+  my ($nd)=@_;
 
   # 'non' just means global scope
-  $expr=null if $expr eq 'non';
-  cpackage(lc $expr);
+  my $name=($nd->{expr} eq 'non')
+    ? null
+    : $nd->{expr}
+    ;
 
-  $expr=null;
-  macrofoot($_[0],qw(expr));
-  return null;
+  my $dcolon_re=qr{\s*::\s*};
+  $name=~ s[$dcolon_re][::];
+  cpackage($name);
+
+  %$nd=();
+  return;
 };
 
 

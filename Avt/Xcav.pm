@@ -62,7 +62,7 @@ sub file_sbl($f) {
   my $xcav="Avt\::Xcav\::$langname";
   my $emit="Emit\::$langname";
 
-  AR::cload $xcav,$emit;
+  AR::load($xcav,$emit);
 
 
   # get symbols

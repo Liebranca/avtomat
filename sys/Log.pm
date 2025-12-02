@@ -198,7 +198,7 @@ sub ex($class,$name,$me=null) {
   my $self=get_self($class);
   $me=(length $me) ? "$me " : $me;
 
-  my $s=$me . Arstd::ansi::m($name,'ex');
+  my $s=$me . Arstd::ansi::mwrap($name,'ex');
   return $self->line(exe_prefix() . $s,1);
 };
 

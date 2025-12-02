@@ -33,99 +33,99 @@ package Ftype::Text;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.2a';
+  our $VERSION = 'v0.00.3a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # ROM
 
-St::vconst {
-  name_re    => '\b[_A-Za-z][_A-Za-z0-9]*\b',
-  uc_name_re => '\b[_A-Z][_A-Z0-9]*\b',
-  lc_name_re => '\b[_a-z][_a-z0-9]*\b',
+sub name_re    {'\b[_A-Za-z][_A-Za-z0-9]*\b'};
+sub uc_name_re {'\b[_A-Z][_A-Z0-9]*\b'};
+sub lc_name_re {'\b[_a-z][_a-z0-9]*\b'};
 
-  pesc_re    => Arstd::Re->PESC_RE,
-  fn_re      => sub {
-    my $name=$_[0]->name_re;
-    return qr{$name\(};
+sub pesc_re    {Arstd::Re->PESC_RE};
 
-  },
-
-  num_re     => sub {return [
-    Arstd::stoi::binnum(),
-    Arstd::stoi::octnum(),
-    Arstd::stoi::decnum(),
-    Arstd::stoi::hexnum(),
-
-  ]},
-
-  opr_re     => qr{[^[:alpha:][:space:]0-9_]},
-  drfc_re    => sub {
-    my $name=$_[0]->name_re;
-    return qr{(?:$name)?(?:->|::|\.)$name}x;
-
-  },
-
-  line_re    => qr{.+},
-  blank_re   => qr{[[:space:]]+$},
-  nblank_re  => qr{[^[:blank:]]+},
-
-  shcmd_re   => Arstd::Re::posix_delim('`'),
-  char_re    => Arstd::Re::posix_delim("'"),
-  string_re  => Arstd::Re::posix_delim('"'),
-
-  sigils_re  => qr{\\?[\$@%&]},
-
-  dev0_re => Arstd::Re::eiths([qw(
-    TODO NOTE
-
-  )],bwrap=>1),
-
-  dev1_re => Arstd::Re::eiths([qw(
-    FIX BUG
-
-  )],bwrap=>1),
-
-
-  DEFAULT => {
-    name        => null,
-
-    com         => q[#],
-    lcom        => q[#],
-
-    hed         => 'N/A',
-    ext         => null,
-    mag         => null,
-
-    highlight   => [],
-
-    type        => [],
-    specifier   => [],
-
-    builtin     => [],
-    intrinsic   => [],
-    fctl        => [],
-
-    directive   => [],
-    resname     => [],
-
-    preproc     => no_match,
-    use_sigils  => {},
-
-  },
-
+sub fn_re($class) {
+  my $name=$class->name_re();
+  return qr{$name\(};
 };
+
+sub num_re {return [
+  Arstd::stoi::binnum(),
+  Arstd::stoi::octnum(),
+  Arstd::stoi::decnum(),
+  Arstd::stoi::hexnum(),
+]};
+
+sub opr_re {qr{[^[:alpha:][:space:]0-9_]}};
+
+sub drfc_re($class) {
+  my $name=$class->name_re;
+  return qr{(?:$name)?(?:->|::|\.)$name}x;
+};
+
+sub line_re   {qr{.+}};
+sub blank_re  {qr{[[:space:]]+$}};
+sub nblank_re {qr{[^[:blank:]]+}};
+
+sub shcmd_re  {Arstd::Re::posix_delim('`')};
+sub char_re   {Arstd::Re::posix_delim("'")};
+sub string_re {Arstd::Re::posix_delim('"')};
+sub sigils_re {qr{\\?[\$@%&]}};
+
+sub dev0_re   {
+  return Arstd::Re::eiths(
+    [qw(TODO NOTE)],
+    bwrap=>1
+  );
+};
+
+sub dev1_re   {
+  return Arstd::Re::eiths(
+    [qw(FIX BUG)],
+    bwrap=>1
+  );
+};
+
+sub DEFAULT {return {
+  name        => null,
+
+  com         => q[#],
+  lcom        => q[#],
+
+  hed         => 'N/A',
+  ext         => null,
+  mag         => null,
+
+  highlight   => [],
+
+  type        => [],
+  specifier   => [],
+
+  builtin     => [],
+  intrinsic   => [],
+  fctl        => [],
+
+  directive   => [],
+  resname     => [],
+
+  preproc     => no_match,
+  use_sigils  => {},
+}};
 
 
 # ---   *   ---   *   ---
 # cstruc
 
 sub new($class,%O) {
+  return new_impl($class,$class->classattr());
+};
 
+sub new_impl($class,$O) {
   # make ice
-  $class->defnit(\%O);
-  my $self=bless \%O,$class;
+  St::defnit($class,$O);
+  my $self=bless $O,$class;
 
   # for replacing $:tag;> with
   # value of self->tag
@@ -133,7 +133,6 @@ sub new($class,%O) {
     pre  => 'PESC',
     inre => $class->pesc_re,
     repv => sub {repv($self,@_)},
-
   );
 
   # ^right here
@@ -152,7 +151,6 @@ sub new($class,%O) {
   $class->register($self);
   delete $self->{repl};
   return $self;
-
 };
 
 
@@ -188,16 +186,13 @@ sub make_keyw_re($self) {
   } qw(
     type specifier builtin fctl
     intrinsic directive resname
-
   );
-
 
   # one regex to rule them all!
   $self->{keyword_re}=join '|',@keyw_re;
   $self->{keyword_re}=qr{$self->{keyword_re}};
 
   return;
-
 };
 
 
@@ -212,7 +207,6 @@ sub repv($self,$repl,$uid) {
   if ! defined $value;
 
   return $value;
-
 };
 
 
@@ -230,9 +224,7 @@ sub fet($self,$key) {
   return $self->$key
   if $self->can($key);
 
-
   return undef;
-
 };
 
 

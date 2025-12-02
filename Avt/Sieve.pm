@@ -244,12 +244,12 @@ sub by_ext_s($self,$tab) {
 
 # ---   *   ---   *   ---
 # ^s/asm to fasm
-# ^c/cpp to gcc
+# ^c/cpp to cmam
 
 sub s_files($self) {
   my $tab={
     qr{\.(?:s|asm)$} => $self->{M}->{flat},
-    qr{\.(?:cpp|c)$} => $self->{M}->{gcc},
+    qr{\.(?:cpp|c)$} => $self->{M}->{cmam},
   };
   $self->by_ext_s($tab);
   return;

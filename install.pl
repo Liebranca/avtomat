@@ -73,6 +73,7 @@ Avt::config {
   | Shb7/Bk/jar
   | Type/Platypus
   | Type/cstr
+  | scratch
   )}x,
 
   pre  => q[

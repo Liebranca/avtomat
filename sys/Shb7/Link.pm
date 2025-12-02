@@ -31,7 +31,7 @@ package Shb7::Link;
   use Arstd::throw;
 
   use Shb7::Bk;
-  use Shb7::Bk::gcc;
+  use Shb7::Bk::cmam;
   use Shb7::Bk::flat;
 
   use Log;
@@ -58,11 +58,11 @@ sub link_cstd($bld,@obj) {
   return (
     q[gcc],
 
-    Shb7::Bk::gcc::oflg(),
-    Shb7::Bk::gcc::lflg(),
+    Shb7::Bk::cmam::oflg(),
+    Shb7::Bk::cmam::lflg(),
     @{$bld->{flag}},
 
-    Shb7::Bk::gcc::target($bld->{tgt}),
+    Shb7::Bk::cmam::target($bld->{tgt}),
 
     @{$bld->{inc}},
     @obj,
@@ -81,11 +81,11 @@ sub link_half_flat($bld,@obj) {
   return (
     q[gcc],
 
-    Shb7::Bk::gcc::flatflg(),
+    Shb7::Bk::cmam::flatflg(),
     @{$bld->{flag}},
 
-    Shb7::Bk::gcc::entry($bld->{entry}),
-    Shb7::Bk::gcc::target($bld->{tgt}),
+    Shb7::Bk::cmam::entry($bld->{entry}),
+    Shb7::Bk::cmam::target($bld->{tgt}),
 
     @{$bld->{inc}},
     @obj,

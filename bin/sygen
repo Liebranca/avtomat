@@ -32,7 +32,7 @@ package sygen;
     is_qre
   );
   use Arstd::Bin qw(xdorc moo);
-  use Arstd::Path qw(extcl relto to_pkg);
+  use Arstd::Path qw(extcl relto to_pkg reqdir);
   use Arstd::Array;
   use Arstd::String qw(cat gstrip dqwrap sqwrap);
   use Arstd::Re;
@@ -45,7 +45,7 @@ package sygen;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.02.1';
+  our $VERSION = 'v0.02.2';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -54,7 +54,6 @@ package sygen;
 
 my $PKG=__PACKAGE__;
 St::vconst {
-
   COLORS=>[qw(
     black red green yellow
     blue magenta cyan white
@@ -68,7 +67,6 @@ St::vconst {
     brightmagenta brightcyan
 
     brightwhite
-
   )],
 
 
@@ -106,16 +104,13 @@ St::vconst {
     dev1        => 0x09,
 
     blank       => 0x66,
-
   ],
 
   # ^hash-ify for convenience
   KEYCOLOR_HASH => sub {
     my $color=$_[0]->KEYCOLOR_LIST;
     return {@$color};
-
   },
-
 };
 
 
@@ -142,12 +137,10 @@ sub load_file {
   # ^turn into package and load it
   my $class="Ftype/Text/$_[0]";
   to_pkg $class;
-
-  AR::cloadi $class;
+  AR::load $class => (null);
 
   # give ice
   return Ftype->fet($class);
-
 };
 
 
@@ -157,7 +150,6 @@ sub load_file {
 sub get_color_name { return join ',',(
   $PKG->COLORS->[$_[0]  & 0xF],
   $PKG->COLORS->[$_[0] >> 0x4],
-
 )};
 
 
@@ -166,7 +158,6 @@ sub get_color_name { return join ',',(
 # in a posix regex
 
 sub prprops($def,$key) {
-
   # extract from instance?
   if($key eq 'highlight') {
     my $have=$def->{highlight};
@@ -176,19 +167,14 @@ sub prprops($def,$key) {
       make_rule($def,$key,$value,$color)
 
     } 0..int(@$have/2)-1;
-
   };
-
 
   # ^nope, use inner table
   my ($value,$color)=(
     $def->fet($key),
     $PKG->KEYCOLOR_HASH->{$key},
-
   );
-
   return make_rule($def,$key,$value,$color);
-
 };
 
 
@@ -196,7 +182,6 @@ sub prprops($def,$key) {
 # extract patterns from value
 
 sub extract($def,$key,$value) {
-
   # scalar as-is
   return $value
   if ! length ref $value
@@ -239,7 +224,6 @@ sub extract($def,$key,$value) {
 
     @out  = @noproc;
     @keys = @exclude;
-
   };
 
 
@@ -260,18 +244,14 @@ sub extract($def,$key,$value) {
 
     } (@keys[$x..$top]);
 
-
     # join them into a single expression
     push @out,($key eq 'num')
       ? '('   . (join '|',@slice) . ')'
       : '\b(' . (join '|',@slice) . ')\b'
       ;
-
   };
 
-
   return @out;
-
 };
 
 
@@ -279,11 +259,10 @@ sub extract($def,$key,$value) {
 # output patterns for specific entry
 
 sub make_rule($def,$key,$value,$color) {
-
   return () if ! defined $value;
   $color=get_color_name $color;
 
-  map {
+  return map {
     $ARG=~ s[\s+|\n][]sxmg;
     $ARG=  cat gstrip split "\n",$ARG;
 
@@ -293,7 +272,6 @@ sub make_rule($def,$key,$value,$color) {
     "color $color $ARG";
 
   } extract($def,$key,$value);
-
 };
 
 
@@ -305,7 +283,6 @@ sub get_file_syntax {
     prprops($_[0],$ARG);
 
   } ((Arstd::Array::nkeys $PKG->KEYCOLOR_LIST));
-
 };
 
 
@@ -314,7 +291,6 @@ sub get_file_syntax {
 # outs a nanorc file for each
 
 sub make_syntax_files(%O) {
-
   # open dst file
   my ($def,$fpath)=($O{def},$O{fpath});
   open my $fh,'>',$fpath or throw $fpath;
@@ -341,11 +317,9 @@ sub make_syntax_files(%O) {
   # spit the whole thing out
   print {$fh} $prop . get_file_syntax $def;
 
-
   # cleanup and give
   close $fh or throw $fpath;
   return;
-
 };
 
 
@@ -356,10 +330,10 @@ sub generate {
   chdir $ENV{ARPATH}
   or throw "Error cd'ing into ARPATH";
 
-  my $config  = glob("~/.config");
-  my $nanorc  = "$config/nano";
+  my ($config) = glob("~/.config");
+  my $nanorc   = "$config/nano";
 
-  `mkdir -p $nanorc` if ! -d $nanorc;
+  reqdir($nanorc);
 
 
   # get whether any syntax files have changed
@@ -394,7 +368,7 @@ sub generate {
   return;
 };
 
-generate;
+generate();
 
 
 # ---   *   ---   *   ---

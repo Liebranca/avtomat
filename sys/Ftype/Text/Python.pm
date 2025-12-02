@@ -19,13 +19,20 @@ package Ftype::Text::Python;
   use warnings;
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Ftype::Text;
+  use parent 'Ftype::Text';
+
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = 'v1.00.1';
+  our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # make ice
 
-BEGIN { Ftype::Text->new(
+sub classattr {return {
   name => 'Python',
   ext  => '\.py$',
   hed  => '^#!.*python',
@@ -33,23 +40,19 @@ BEGIN { Ftype::Text->new(
 
   type=>[qw(
     str int float list dict lambda
-
   )],
 
   resname=>[qw(
     False None True __$:name;>__
-
   )],
 
   intrinsic=>[qw(
     and as in is as with not or
-
   )],
 
   directive=>[qw(
     class def del assert async
     import from pass global nonlocal
-
   )],
 
   fctl=>[qw(
@@ -58,10 +61,8 @@ BEGIN { Ftype::Text->new(
 
     finally for raise return
     try while yield
-
   )],
-
-)};
+}};
 
 
 # ---   *   ---   *   ---

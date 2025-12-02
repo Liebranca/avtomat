@@ -163,7 +163,13 @@ sub set_rap {
 # adds to path
 
 sub libpush {
-  load lib=>$ARG for(@_);
+  # discard  class
+  shift;
+
+  # get non-repeated elems, then load those
+  my %seen=map {$ARG=>1} @INC;
+  load(lib=>$ARG) for grep {! $seen{$ARG}} @_;
+
   return;
 };
 

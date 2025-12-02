@@ -43,35 +43,64 @@ package Arstd::xd;
   use strict;
   use warnings;
 
-  use English;
+  use English qw($ARG);
 
-  use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
-  use Chk;
+  use lib "$ENV{ARPATH}/lib/";
+  use AR sys=>qw(
+    lis Arstd::IO::(procin procout);
+  );
 
-  use Arstd::IO;
-  use Arstd::PM;
+  use Style qw(null);
+  use Chk qw(is_null is_file);
+  use Arstd::String qw(gstrip);
+  use Arstd::Bin qw(orc);
+  use Arstd::throw;
+
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT=qw(xd);
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.9';
+  our $VERSION = 'v0.01.0';
   our $AUTHOR  = 'IBN-3DILA';
+  sub errsafe {return 1};
+
+
+# ---   *   ---   *   ---
+# entry point
+
+sub xd {
+  return null if ! int(grep {! is_null($ARG)} @_);
+
+  # get args and clear blanks
+  my ($src,@args)=gstrip(@_);
+
+  # reading from file?
+  if(is_file($src)) {
+    return from_file($src,@args);
+  };
+
+  # ^nope, direct
+  return draw($src,@args);
+};
 
 
 # ---   *   ---   *   ---
 # get input
 
 sub from_file($fpath,%O) {
-
   # defaults
   $O{order} //= ':>';
 
   # read and give
-  my $body = orc($fpath);
-  draw($body,%O);
-
+  my $body=orc($fpath);
+  return draw($body,%O);
 };
 
 
@@ -80,29 +109,23 @@ sub from_file($fpath,%O) {
 # prints out repr
 
 sub draw($body,%O) {
-
   # own defaults
   $O{head}  //= 1;
   $O{order} //= '<:';
 
   # I/O defaults
-  my $out=ioprocin(\%O);
-
+  my $out=io_procin(\%O);
 
   # walk bytes
   my $k=15;
-
   while(length $body) {
-
     # get next chunk
     my $line=substr $body,0,16,null;
 
     # setup line
     my ($i,$j,$h)=(0,0,0);
-
     my $sl   = null;
     my $sr   = null;
-
     my $diff = 0;
 
     # ^split chunk
@@ -112,13 +135,10 @@ sub draw($body,%O) {
     if(@bytes < 16) {
       $diff=16-@bytes;
       push @bytes,("\x{00}") x $diff;
-
     };
 
-
     # char to num
-    map {
-
+    for(@bytes) {
       $ARG=ord $ARG;
 
       # can print?
@@ -128,29 +148,22 @@ sub draw($body,%O) {
       # else put dot
       } else {
         $sr.='.';
-
       };
-
-    } @bytes;
-
+    };
 
     # shuffle byte ordering?
     if($O{order} eq '<:') {
       @bytes=(
         (reverse @bytes[ 4.. 7]),
         (reverse @bytes[ 0.. 3]),
-
         (reverse @bytes[12..15]),
         (reverse @bytes[ 8..11]),
-
       );
-
     };
 
 
     # walk chunk
-    map {
-
+    for(@bytes) {
       # add byte to mem line
       $sl .= sprintf "%02X",$ARG;
 
@@ -159,12 +172,10 @@ sub draw($body,%O) {
       $j++;
       $h++;
 
-
       # space every 4th
       if($i > 3) {
         $i   = 0;
         $sl .= ' ';
-
       };
 
       # ^reset every 16th
@@ -175,108 +186,31 @@ sub draw($body,%O) {
       } elsif($j >  7) {
         $j   = 0;
         $sl .= ': ';
-
       };
-
-
-    } @bytes;
+    };
 
 
     # add blank every (cache)line
     # and another every 4th
     $k++;
 
-
     # out xword
-    push @$out,"\n\n",
-      sprintf "\$%04X $O{order}\n",($k-16) >> 4
-
-    if (! ($k % 16)) && $O{head} != 0;
-
+    if((! ($k % 16)) && $O{head} != 0) {
+      push @$out,"\n\n",sprintf(
+        "\$%04X $O{order}\n",
+        ($k-16) >> 4
+      );
+    };
     push @$out,"\n" if ! ($k % 4);
-
     $O{head}=2;
-
 
     # out (human)line
     push @$out,' ',$sl,'| ',$sr,"\n";
-
   };
 
+  # spit out and give
   push @$out,"\n";
-
-
-  return ioprocout(\%O);
-
-};
-
-
-# ---   *   ---   *   ---
-# AR/IMP:
-#
-# * runs draw with provided
-#   input if run as executable
-#
-# * if imported as a module,
-#   it aliases 'draw' to 'xd'
-#   and adds it to the calling
-#   module's namespace
-
-sub import($class,@req) {
-  return IMP(
-    $class,
-    \&ON_USE,
-    \&ON_EXE,
-    @req
-
-  );
-
-};
-
-
-# ---   *   ---   *   ---
-# ^imported as exec via arperl
-
-sub ON_EXE($class,$input=undef,@args) {
-
-  # have input?
-  my $src=(! is_null $input)
-    ? $input
-    : throw "xd: no input"
-    ;
-
-
-  # clear null
-  @args=gstrip {$ARG} @args;
-
-  # reading from file?
-  if(is_file($src)) {
-    from_file($src,@args)
-
-  # ^nope, direct
-  } else {
-    draw($src,@args)
-
-  };
-
-};
-
-
-# ---   *   ---   *   ---
-# ^imported as module via use
-
-sub ON_USE($class,$from,@nullarg) {
-  *xd=*draw;
-  submerge(
-    ['Arstd::xd'],
-
-    main  => $from,
-    subok => qr{^xd$},
-
-  );
-
-  return;
-
+  return io_procout(\%O);
 };
 
 

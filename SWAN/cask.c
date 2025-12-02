@@ -12,11 +12,9 @@
 // ---   *   ---   *   ---
 // deps
 
-  #include <stddef.h>
-  #include "SWAN/style.h"
-  #include "SWAN/throw.h"
-  #include "SWAN/mem.h"
-  #include "SWAN/mem_prim.h"
+package SWAN::cask;
+  use cmam;
+  public use SWAN::mem_prim;
 
 
 // ---   *   ---   *   ---
@@ -38,7 +36,7 @@
 // bitmasks, which corresponds to available
 // memory that can be reused
 
-public struct cask {
+public typedef struct cask {
   mem   data; // memory pool
   mem   slot; // array of bitmasks
 
@@ -50,7 +48,6 @@ public struct cask {
               // to the container is requested;
               // goes down when released
 };
-public typedef struct cask cask;
 public CX cask CASK_NULL={0};
 
 
@@ -108,12 +105,11 @@ public IX qword nbsf(qword x) {
 //
 // used to retrieve a specific slot
 
-struct lkp {
+typedef struct lkp {
   qword ptr mask; // reference to self->slot
   word      bit;  // ^bit used in mask
   dword     eid;  // ^idex into self->mask
 };
-typedef struct lkp lkp;
 
 
 // ---   *   ---   *   ---
@@ -187,7 +183,7 @@ public relix cask_take(
   cask ptr self
 ) {
   // get free or new slot, mark it as occupied
-  lkp avail={0};
+  lkp avail={0};;
   cask_avail(self,addr avail);
   ptr avail.mask |= 1LLU << avail.bit;
 
@@ -254,7 +250,6 @@ public IX bool cask_invalid(cask ptr self) {
   return (
      mem_invalid(addr self->data)
   && mem_invalid(addr self->slot)
-
   );
 };
 

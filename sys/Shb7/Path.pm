@@ -369,6 +369,7 @@ sub fmirror {
   # set defaults
   $O{reloc} //= [root_re() => trash()];
   $O{ext}   //= 'o';
+  $O{rel}   //= 1;
 
   # swap folder?
   if($O{reloc} ne 0) {
@@ -381,7 +382,7 @@ sub fmirror {
   extwap($out,$O{ext})
   if ! is_null($O{ext});
 
-  relto_root($out);
+  relto_root($out) if $O{rel};
   return $out;
 };
 
@@ -395,6 +396,7 @@ sub src_from_obj {
 
   # set defaults
   $O{ext}   //= null;
+  $O{rel}   //= 1;
   $O{reloc} //= [qr{\.trash/} => null()];
 
   # give copy
@@ -406,6 +408,7 @@ sub obj_from_src {
   my %O   = @_;
 
   $O{ext}   //= 'o';
+  $O{rel}   //= 1;
   $O{reloc} //= [root_re() => trash()];
 
   return fmirror($out,%O);

@@ -25,6 +25,8 @@ package CMAM::static;
 
   use Arstd::String qw(gsplit);
   use Arstd::Path qw(from_pkg extwap);
+  use Arstd::Re qw(eiths);
+  use Tree::C;
 
   use lib "$ENV{ARPATH}/lib/";
   use AR ();
@@ -38,6 +40,8 @@ package CMAM::static;
     cmamlol
     cmamgbl
     cmamdef
+    cmamdef_re
+    ctree
 
     is_local_scope
     set_local_scope
@@ -78,7 +82,7 @@ sub cpackage {
   $CPACKAGE=$_[0] if ! is_null($_[0]);
   return (! is_null($CPACKAGE))
   ? $CPACKAGE
-  : 'cmacro'
+  : 'SWAN::cmacro'
   ;
 };
 
@@ -111,6 +115,34 @@ sub cmamgbl {return $CSCOPE->{global}};
 # get defined symbols
 
 sub cmamdef {return $CMAMDEF};
+sub cmamdef_re {
+  my $exclude=qr{\b(?:
+    use
+  | package
+  | public
+  | typedef
+
+  )\b}x;
+
+  return eiths(
+    [ grep {! ($ARG=~ $exclude)}
+      keys %$CMAMDEF
+    ],
+    bwrap => 1,
+    capt  => 'scmd',
+  );
+};
+
+
+# ---   *   ---   *   ---
+# we use this to make sure we don't
+# accidentally delete packages that
+# are required by the current process
+
+sub exedeps {
+  state $out={};
+  return $out;
+};
 
 
 # ---   *   ---   *   ---
@@ -120,16 +152,21 @@ sub cmamdef {return $CMAMDEF};
 # a new file
 
 sub restart {
+  my $pkg  = cpackage();
+  my $deps = exedeps();
+
   # unimport any packages that were dynamically
   # loaded while processing the previous file
-  for(@{cmamout()->{dep}->{pm}}) {
-    AR::unload($ARG->[0]);
-  };
+  my @unload=(
+    map {AR::unload($ARG)}
 
-  # ^current package last ;>
-  my $pkg=cpackage();
-  AR::unload(cpackage());
+    # filter out dependencies for *this* program!
+    grep {! exists $deps->{$ARG}}
+    (map {$ARG->[0]} @{cmamout()->{dep}->{pm}}),
 
+    # ^current package unloaded last ;>
+    $pkg
+  );
 
   # delete any dynamically defined symbols
   #
@@ -142,10 +179,13 @@ sub restart {
     ! ($ARG=~ qr{(?:package|use|macro)})
 
   } keys %$CMAMDEF) {
-    *{"CMAM\::sandbox\::$ARG"}=undef;
+    undef  *{"$pkg\::$ARG"};
     delete $CMAMDEF->{$ARG};
   };
   use strict 'refs';
+
+  # delete parse tree
+  ctree(0xCC);
 
   # now reset globals
   $CMAMDEF  = {};
@@ -163,7 +203,12 @@ sub restart {
 
 sub is_local_scope    {$CFLAG &   0x01};
 sub set_local_scope   {$CFLAG |=  0x01};
-sub unset_local_scope {$CFLAG &=~ 0x01};
+
+sub unset_local_scope {
+  $CFLAG &=~ 0x01;
+  %{cmamlol()}=();
+  return;
+};
 
 
 # ---   *   ---   *   ---
@@ -200,7 +245,22 @@ sub cmamout_push_c {
   extwap($cpy,'h');
   push @{cmamout()->{dep}->{c}},$cpy;
 
-  return;
+  return "#include \"$cpy\";";
+};
+
+
+# ---   *   ---   *   ---
+# parse tree
+
+sub ctree {
+  state $tree=undef;
+  if(! is_null($_[0])) {
+    $tree=($_[0] ne 0xCC)
+      ? Tree::C->rd($_[0])
+      : undef
+      ;
+  };
+  return $tree;
 };
 
 

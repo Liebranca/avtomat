@@ -91,6 +91,7 @@ my $ROM={
     /sys/Frame.pm
     /sys/St.pm
 
+    /sys/Arstd/Token.pm
     /sys/Arstd/Array.pm
     /sys/Arstd/Bytes.pm
     /sys/Arstd/Int.pm
@@ -103,9 +104,6 @@ my $ROM={
     /sys/Arstd/Fmat.pm
     /sys/Arstd/fatdump.pm
 
-    /sys/Type/MAKE.pm
-    /sys/Type.pm
-
     /sys/Ftype.pm
     /sys/Ftype/Text.pm
     /sys/Ftype/Text/fasm.pm
@@ -117,6 +115,14 @@ my $ROM={
     /sys/Ftype/Text/Js.pm
     /sys/Ftype/Text/Mny.pm
 
+    /sys/Tree.pm
+    /sys/Tree/File.pm
+    /sys/Tree/Dep.pm
+    /sys/Tree/C.pm
+
+    /sys/Type/MAKE.pm
+    /sys/Type.pm
+
     /sys/Log.pm
     /sys/Warnme.pm
     /sys/Cli.pm
@@ -124,17 +130,12 @@ my $ROM={
     /sys/Queue.pm
     /sys/Cask.pm
 
-    /sys/Tree.pm
-    /sys/Tree/File.pm
-    /sys/Tree/Dep.pm
-
     /sys/Type/MAKE.pm
     /sys/Type.pm
     /sys/Type/C.pm
     /sys/Type/Cpp.pm
 
     CMAM/static.pm
-    CMAM/token.pm
     CMAM/parse.pm
     CMAM/macro.pm
     CMAM/emit.pm
@@ -146,7 +147,7 @@ my $ROM={
     /sys/Shb7/Bfile.pm
     /sys/Shb7/Bk.pm
     /sys/Shb7/Bk/flat.pm
-    /sys/Shb7/Bk/gcc.pm
+    /sys/Shb7/Bk/cmam.pm
     /sys/Shb7/Bk/mam.pm
     /sys/Shb7/Bk/fake.pm
     /sys/Shb7/Build.pm

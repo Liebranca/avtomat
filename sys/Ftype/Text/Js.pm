@@ -19,13 +19,20 @@ package Ftype::Text::Js;
   use warnings;
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Ftype::Text;
+  use parent 'Ftype::Text';
+
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = 'v1.00.1';
+  our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # make ice
 
-BEGIN { Ftype::Text->new(
+sub classattr {return {
   name  => 'Js',
   ext   => '\.js$',
   hed   => '#!.*node',
@@ -36,18 +43,15 @@ BEGIN { Ftype::Text->new(
 
   specifier=>[qw(
     async await export
-
   )],
 
   intrinsic=>[qw(
     extends typeof void
     new delete in with
-
   )],
 
   directive=>[qw(
     import function class
-
   )],
 
   fctl=>[qw(
@@ -56,16 +60,13 @@ BEGIN { Ftype::Text->new(
     if else for while do switch
     case default try throw catch
     break continue return
-
   )],
 
   resname=>[qw(
     true false null undefined this
     var let const
-
   )],
-
-)};
+}};
 
 
 # ---   *   ---   *   ---

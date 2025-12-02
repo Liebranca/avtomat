@@ -1,9 +1,12 @@
 // ---   *   ---   *   ---
 // deps
 
-#include <errno.h>
-#include <stdlib.h>
-#include "SWAN/style.h";
+package SWAN::throw;
+  use cmam;
+  public use SWAN::style;
+
+  #include <errno.h>;
+  #include <stdlib.h>;
 
 
 // ---   *   ---   *   ---
@@ -16,10 +19,11 @@
 // ---   *   ---   *   ---
 // error handling
 
-public IX void throw(const byte ptr errme) {
+public void throw(const byte ptr errme) {
   perror(errme);
   exit(-1);
 };
 
 
 // ---   *   ---   *   ---
+// RET

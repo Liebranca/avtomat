@@ -13,9 +13,9 @@
 // ---   *   ---   *   ---
 // deps
 
-  #include <stddef.h>
-  #include "SWAN/style.h"
-  #include "SWAN/mem.h"
+package SWAN::mem_prim;
+  use cmam;
+  public use SWAN::mem;
 
 
 // ---   *   ---   *   ---

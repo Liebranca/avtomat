@@ -19,14 +19,20 @@ package CMAM;
   use strict;
   use warnings;
   use English qw($ARG);
+  use Cwd qw(getcwd);
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
   use Chk qw(is_null is_file);
-  use Arstd::String qw(to_char has_prefix);
+  use Arstd::String qw(gsplit to_char has_prefix);
+  use Arstd::Array qw(dupop);
   use Arstd::Bin qw(ot moo orc owc);
-  use Arstd::Path qw(extwap extof);
+  use Arstd::Path qw(dirof relto absto to_pkg);
+  use Arstd::Re qw(eiths);
   use Arstd::throw;
+  use Log;
+  use Tree;
+  use Tree::Dep;
 
   use lib "$ENV{ARPATH}/lib/";
   use CMAM::static;
@@ -56,59 +62,27 @@ package CMAM;
 # entry point
 
 sub run {
-  restart();
+  # get dependencies required by *this* program
+  my $deps=CMAM::static::exedeps();
+  %$deps=map {to_pkg($ARG);$ARG=>1} keys %INC;
 
-  my $O    = {c=>0,h=>0,l=>0,g=>0};
-  my @file = grep {
-    rdargv($O,$ARG)
-
-  # expand asterisks, dots and tildes...
-  } map {
+  # expand asterisks, dots and tildes to
+  # get full file list
+  my @have=map {
     (! has_prefix($ARG,'-'))
       ? (glob($ARG))
       : ($ARG)
       ;
 
-  } @ARGV;
+  } @_;
 
+  # now process all files
+  return map {
+    validate($ARG);
+    restart();
+    pproc($ARG);
 
-  take(@file);
-  if($O->{h}) {
-    mkhed($ARG) for @file;
-  };
-
-  check($O,@file);
-
-  return;
-};
-
-
-# ---   *   ---   *   ---
-# reads switches
-#
-# [0]: mem ptr  ; state hashref
-# [1]: byte ptr ; argument
-#
-# [<]: bool ; true if not a switch
-
-sub rdargv {
-  my $re=qr{^\-(.+)};
-  return 1 if ! ($_[1]=~ $re);
-
-  # allow for multiple switches to be
-  # included in the same item
-  #
-  # order not important; -hcl == -chl == -lch
-  my $key=$1;
-  map {
-    throw "Unrecognized switch '$ARG'"
-    if ! exists $_[0]->{$ARG};
-
-    $_[0]->{$ARG}=1;
-
-  } to_char $key;
-
-  return 0;
+  } @have;
 };
 
 
@@ -117,149 +91,139 @@ sub rdargv {
 #
 # [0]: byte pptr ; file list
 
-sub take {
-  throw "No files to syntax-check" if ! @_;
+sub validate {
+  throw "CMAM: no files" if ! @_;
   for(@_) {
     throw "Invalid file: '$ARG'"
     if ! is_file $ARG;
-
   };
-
   return;
 };
 
 
 # ---   *   ---   *   ---
-# generates header file
+# sort list of files according to
+# who depends on who
+
+sub depsort {
+  my $module=shift;
+
+  # find which packages a file depends on
+  my %dep  = map {depsort_file($ARG)} @_;
+  my $tree = Tree::Dep->new("dep");
+
+  # ^ if a file is mentioned by another,
+  #   then expand it to also include
+  #   the dependencies of the mentioned file
+  my @lv=();
+  for my $fname(keys %dep) {
+    my $re=$fname;
+    relto $re,getcwd . "/$module";
+
+    my $nd=$tree->new($re);
+    push @lv,$nd;
+
+    $re=qr{$re$};
+    my $need=$dep{$fname};
+
+    for my $ar(values %dep) {
+      push @$ar,@$need
+      if int grep {$ARG=~ $re} @$ar;
+    };
+    my $ch=$nd->new(null);
+    $ch->{value}=$need;
+  };
+
+  my $file_re=eiths(
+    [$tree->branch_values()],
+    opscape=>1,
+  );
+
+  for my $nd(@lv) {
+    my ($ch) = $nd->pluck_all();
+    my $ar   = $ch->{value};
+
+    # exclude files not within this project
+    # then clear duplicates JIC
+    @$ar=grep {$ARG=~ $file_re} @$ar;
+    dupop($ar);
+
+    $nd->append($ARG) for @$ar;
+  };
+
+  my $out=$tree->track();
+  absto($ARG,getcwd . "/$module") for @$out;
+
+  return @$out;
+};
+
+
+# ---   *   ---   *   ---
+# get dependencies for single file
+#
+# [0]: byte ptr  ; module name
+# [<]: byte pptr ; dependency list (new array)
+
+sub depsort_file {
+  my $dcolon_re=qr{::};
+  my $use_re=qr{^\s*(?:public\b\s+)?
+    use \s+
+    (?:(?:PM|pm|C|c)\s+)?
+    ([[:alnum:]:]+) [^;]*;
+  }smx;
+
+  my $body = orc $_[0];
+  my @out  = ();
+
+  while($body=~ s[$use_re][]) {
+    my $have=  $1;
+       $have=~ s[$dcolon_re][/]g;
+
+    if($have=~ qr{^cmam$}) {
+      $have="SWAN/cmacro";
+    };
+
+    push @out,"$have.c";
+  };
+  return $_[0] => \@out;
+};
+
+
+# ---   *   ---   *   ---
+# ^ make it so updates to CMAM itself trigger
+#   a recompilation of C files!
+
+sub outdeps {
+  my $fname = __FILE__;
+  my $dir   = dirof($fname);
+  return (
+    $fname,
+    glob("$dir/CMAM/*.pm"),
+  );
+};
+
+
+# ---   *   ---   *   ---
+# generates header, source and perl files
+# from a single C source file
 #
 # [0]: byte ptr ; filename
 
-sub mkhed {
-
-#  # first off, we check whether making a
-#  # header is actually necessary
-#  #
-#  # if a header was passed, that's already a 'no'
-#  return if 'h' eq extof $_[0];
-#
-#  # ^second check is whether a header was already
-#  # ^generated for this source file
-  my $dst="$_[0]";
-  extwap $dst,'h';
-#
-#  # if the header is missing, or the source has
-#  # been updated, then we want to regenerate it
-#  #
-#  # else we stop here
-#  return if ! moo($dst,$_[0]);
-#  say "  making header $dst";
-
+sub pproc {
+  my $rel=$_[0];
+  relto($rel);
+  Log->substep($rel);
 
   # read file and pass through block parser
   my $body=orc $_[0];
-  blkparse($body);
+  $body=blkparse($body);
 
   # last step is checking for exported symbols
-  my $head=CMAM::emit::chead($body,0);
+  my $head=CMAM::emit::chead($rel,$body);
 
-  # dbout
-  use Arstd::String qw(gsplit);
+  # give [fname => src]
   $body=join "\n",gsplit($body,qr"\n");
-  say '',(
-    "\n________\n\n",
-    $head,
-    "\n________\n\n",
-    $body,
-    "\n________\n\n",
-#    CMAM::emit::pm()
-  );
-
-  exit;
-  return;
-};
-
-
-# ---   *   ---   *   ---
-# get guard name for file
-#
-# [0]: byte ptr ; filename
-# [<]: byte ptr ; guard name (new string)
-
-sub guardof {
-  my $re  = qr{[\./]};
-  my $out = "$_[0]";
-  extwap $out,'h';
-
-  $out=uc $out;
-  $out=~ s[$re][_]smg;
-
-  return "__${out}__";
-};
-
-
-# ---   *   ---   *   ---
-# get line to summon gcc with
-#
-# [0]: mem  ptr ; switches
-# [<]: byte ptr ; new string with command
-#
-# [*]: const
-
-sub gcc {
-  my $out='gcc -I./ -fpermissive -w';
-
-  $out .= ' -fsyntax-only' if ! $_[0]->{c};
-  $out .= ' -g' if ! $_[0]->{g};
-
-  return $out;
-};
-
-
-# ---   *   ---   *   ---
-# pass file through gcc
-#
-# [0]: mem ptr   ; switches
-# [1]: byte pptr ; file list
-
-sub check {
-  my $O   = shift;
-  my $gcc = gcc $O;
-
-  # compile and/or link?
-  if($O->{c} || $O->{l}) {
-    if($O->{c}) {
-      for(@_) {
-        my $dst="$ARG";
-        extwap $dst,'o';
-        say "  $dst";
-        my $out=`$gcc -O3 -c $ARG -o $dst`;
-        throw $out if ! is_null $out;
-      };
-    };
-
-    if($O->{l}) {
-      my $obj=join ' ',map  {
-        my $dst="$ARG";
-        extwap $dst,'o';
-
-        $dst;
-
-      } @_;
-
-      my $out=`gcc $obj -o ./a.out`;
-      throw $out if ! is_null $out;
-    };
-
-    return;
-  };
-
-  # ^just checking syntax!
-  for(@_) {
-    my $out=`$gcc $ARG`;
-    throw $out if ! is_null $out;
-  };
-
-  return;
+  return [$_[0],$head,$body,CMAM::emit::pm()];
 };
 
 
@@ -277,12 +241,6 @@ sub restart {
 
   return;
 };
-
-
-# ---   *   ---   *   ---
-# all together now!
-
-run;
 
 
 # ---   *   ---   *   ---

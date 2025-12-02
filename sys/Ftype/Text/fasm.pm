@@ -20,13 +20,20 @@ package Ftype::Text::fasm;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Arstd::Re;
-  use Ftype::Text;
+  use parent 'Ftype::Text';
+
+
+# ---   *   ---   *   ---
+# info
+
+  our $VERSION = 'v1.00.1';
+  our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # make ice
 
-BEGIN { Ftype::Text->new(
+sub classattr {return {
   name      => 'fasm',
   ext       => '\.(s|asm|inc)$',
   mag       => '^flat assembler file',
@@ -34,13 +41,11 @@ BEGIN { Ftype::Text->new(
   com       => ';',
   lcom      => Arstd::Re::eaf(';',lbeg=>0,opscape=>0),
 
-
   types=>[qw(
     db file rb
     du dw rw
     dd dp df rd rp rf
     dq dt rq rt
-
   )],
 
   specifier=>[qw(
@@ -52,7 +57,6 @@ BEGIN { Ftype::Text->new(
     public extrn
 
     label local virtual public
-
   )],
 
   intrinsic=>[qw(
@@ -63,7 +67,6 @@ BEGIN { Ftype::Text->new(
     at from as nop
 
     lis
-
   )],
 
   directive=>[qw(
@@ -88,7 +91,6 @@ BEGIN { Ftype::Text->new(
     lib use
 
     strucdef capture
-
   )],
 
   fctl=>[qw(
@@ -101,7 +103,6 @@ BEGIN { Ftype::Text->new(
     enter leave
 
     ret
-
   )],
 
   builtin=>[qw(
@@ -110,7 +111,6 @@ BEGIN { Ftype::Text->new(
     inc dec str lea
 
     ror rol
-
   )],
 
 
@@ -151,10 +151,9 @@ BEGIN { Ftype::Text->new(
     bnd0 bnd1 bnd2 bnd3
 
     %t
-
   )],
 
-)};
+}};
 
 
 # ---   *   ---   *   ---

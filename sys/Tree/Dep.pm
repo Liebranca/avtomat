@@ -25,10 +25,17 @@ package Tree::Dep;
 
 
 # ---   *   ---   *   ---
+# info
+
+  our $VERSION = 'v0.02.0a';
+  our $AUTHOR  = 'IBN-3DILA';
+
+
+# ---   *   ---   *   ---
 # cstruc
 
-sub new($class,$frame,@args) {
-  my $tree=Tree::new($class,$frame,@args);
+sub new($class,@args) {
+  my $tree=Tree::new($class,@args);
   $tree->{needs}     = {};
   $tree->{needed_by} = {};
 
@@ -48,8 +55,9 @@ sub append($self,$value) {
 # get necessary files for build
 
 sub track($self) {
-  my ($root,$depth) = $self->root();
-  my @pending       = ($root);
+  my $root    = $self->root();
+  my $depth   = $self->depth();
+  my @pending = ($root);
 
   while(@pending) {
     $self=shift @pending;
@@ -80,8 +88,9 @@ sub track($self) {
 # reorganize self
 
 sub hier_sort($self) {
-  my ($root,$depth)=$self->root();
-  my $i=0;
+  my $root  = $self->root();
+  my $depth = $self->depth();
+  my $i     = 0;
 
   my @tracked=();
   my @pending=(@{$root->{leaves}});
@@ -102,7 +111,6 @@ sub hier_sort($self) {
       } elsif(grep {$par eq $ARG} @deps) {
         if($par ne $node->{parent}) {
           $par->pushlv($node);
-
         };
 
         $node->pushlv($c);
@@ -124,14 +132,14 @@ sub list_by_priority($self) {
 
   # walk the tree
   my $priority={};
-  for my $node(@pending) {
+  while(@pending) {
     $self=shift @pending;
     if($self eq 1) {$depth++;next};
     if($self eq 0) {$depth--;next};
 
     # save depth of each node
     $priority->{$depth}//=[];
-    push @{$priority->{$depth}},$node;
+    push    @{$priority->{$depth}},$self;
     unshift @pending,1,@{$self->{leaves}},0;
   };
 
@@ -144,8 +152,7 @@ sub list_by_priority($self) {
     push @$result,@{$priority->{$i}};
   };
 
-  $result=[map {$ARG->{value}} @$result];
-  return $result;
+  return [map {$ARG->{value}} @$result];
 };
 
 
