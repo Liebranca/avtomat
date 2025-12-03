@@ -222,7 +222,6 @@ sub pproc {
   my $head=CMAM::emit::chead($rel,$body);
 
   # give [fname => src]
-  $body=join "\n",gsplit($body,qr"\n");
   return [$_[0],$head,$body,CMAM::emit::pm()];
 };
 

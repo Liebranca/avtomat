@@ -111,20 +111,36 @@ sub exprproc {
     my $scmd=$+{scmd};
     my $prev=null;
 
+    # shift tokens until we find the command
     while(! is_null($nd->{expr})) {
       my $s=tokenshift($nd);
       if($s ne $scmd) {
+        # we save the tokens that are _behind_
+        # the token for the command itself
         $prev .= is_null($prev) ? "$s" : " $s" ;
 
+      # we know what the command is, so we
+      # can safely discard this token
       } else {last};
     };
+
+    # we give all tokens to the right of the
+    # command to this command...
     my ($snd)=ctree()->rd(
       "$scmd $nd->{expr}"
 
     )->to_expr();
 
+    # ^then execute it
     ($snd)=runcmd($snd);
+
+    # restore shifted tokens and cat them
+    # to whatever the command returns
     $nd->{expr}="$prev $snd->{expr}";
+
+    # ^ get rid of whitespace
+    #   JIC the command gave null
+    strip($nd->{expr});
   };
 
   # proc top level commands
@@ -132,31 +148,21 @@ sub exprproc {
   return @out if ! %$nd;
 
 
-  # check whether we're inside a function
+  # check whether we're stepping into a block
   my @blk=@{$nd->{blk}};
   if(@blk) {
-    if($nd->{type} eq 'proc') {
-      # if so, start a new scope
-      set_local_scope();
-      %{cmamlol()}=();
-
-      # ^and add function args to scope
-      add_value_typedata(
-        Tree::C->rd($ARG)->to_expr()
-
-      ) for @{$nd->{args}};
-    };
+    # start a new scope if walking into a function
+    set_local_scope($nd) if $nd->{type} eq 'proc';
 
     # recurse for block
     $nd->{blk}=[map {exprproc($ARG)} @blk];
 
     # terminate scope if we're inside a function
-    unset_local_scope()
-    if $nd->{type} eq 'proc';
+    unset_local_scope() if $nd->{type} eq 'proc';
   };
 
   if($nd->{type} eq 'asg') {
-    add_value_typedata($nd);
+    CMAM::static::add_value_typedata($nd);
   };
 
   return @out;
@@ -195,107 +201,6 @@ sub runcmd {
 
   # empty node means command consumed input!
   return @out;
-};
-
-
-# ---   *   ---   *   ---
-# add value typedata to current scope
-#
-# [0]: mem ptr ; expression hashref
-
-sub add_value_typedata {
-  my ($nd)=@_;
-
-  # first, get the entire expression and
-  # split it at the assignment part if any
-  my $full     = "$nd->{cmd} $nd->{expr}";
-  my $asg_re   = qr{[\s\d\w](=[^=].+)};
-  my ($lh,@rh) = gsplit($full,$asg_re);
-
-  # we don't actually use the right-hand side
-  # right now, but we _may_ do so later
-  #
-  # anyway, convert the left-hand side to an
-  # array so we can check whether this is
-  # a value declaration
-  type2expr($lh);
-  my $name=pop @$lh;
-  my $type=join ' ',grep {
-    ! ($ARG=~ spec_t())
-
-  } @$lh;
-
-  # is the joined string in the type-table?
-  if( Type->is_valid($type)
-  &&! Type->is_base_ptr($type)) {
-    # what scope are we in?
-    my $scope=(is_local_scope())
-      ? cmamlol()
-      : cmamgbl()
-      ;
-
-    # record typedata about this value
-    $scope->{$name}=$type;
-  };
-  return;
-};
-
-
-# ---   *   ---   *   ---
-# pattern for matching specifiers
-#
-# [*]: const
-# [<]: re
-
-sub spec_t {
-  return qr{(?:
-    IX | CX | CIX | static | inline
-  )};
-};
-
-
-# ---   *   ---   *   ---
-# turns type specifiers into array
-#
-# [0]: byte ptr ; type specifiers (string)
-# [!]: overwrites input string
-
-sub type2expr {
-  my @type=gsplit($_[0]);
-  push @type,'void' if ! @type;
-
-  $_[0]=\@type;
-
-  return;
-};
-
-
-# ---   *   ---   *   ---
-# turns a code block into an array
-# of expressions
-#
-# [0]: byte ptr ; code block
-# [!]: overwrites input string
-
-sub blk2expr {
-  my $curly_re=qr{(?:
-    (?:^\s*\{\s*)
-  | (?:\s*\}\s*;?\s*$)
-
-  )}smx;
-  $_[0]=~ s[$curly_re][]g;
-
-  my $join_re=qr{\s*\\\n\s*}sm;
-  $_[0]=~ s[$join_re][ ]g;
-
-  my $expr_re=qr{([^\n;]+)\s*;\s*\n}sm;
-  my $semi_re=qr{\s*;\s*$};
-  $_[0]=[map {
-    $ARG .= ';' if ! has_suffix($ARG,';');
-    $ARG;
-  } gsplit($_[0],$expr_re)];
-
-  return;
 };
 
 

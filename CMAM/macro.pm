@@ -43,10 +43,6 @@ package CMAM::macro;
     cpackage
     ctree
   );
-  use CMAM::parse qw(
-    blk2expr
-    type2expr
-  );
   use CMAM::emit;
 
 
@@ -199,7 +195,7 @@ sub macroload {
   my $fn  = $_[1];
   my $def = ! is_coderef($fn);
   if($def) {
-    my $re  = qr{^sub\s+[[:alnum:]]+};
+    my $re  = qr{^sub\s+[[:alnum:]_]+};
 
     $fn=~ s[$re][sub ];
     $fn=eval "package CMAM\::sandbox;$fn";

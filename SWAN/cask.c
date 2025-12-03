@@ -20,7 +20,7 @@ package SWAN::cask;
 // ---   *   ---   *   ---
 // info
 
-  VERSION "v0.00.3a";
+  VERSION "v0.00.4a";
   AUTHOR  "IBN-3DILA";
 
 
@@ -137,7 +137,7 @@ void IX cask_new_slot(
 
 
 // ---   *   ---   *   ---
-// given a cask find the first free slot
+// given a cask, find the first free slot
 
 void cask_avail(
   cask ptr self,
@@ -158,13 +158,12 @@ void cask_avail(
     return cask_new_slot(self,dst);
 
 
-  // viable mask, get first avail bit
-  if(ptr mask != 0)
-    dst->bit=nbsf(ptr mask);
-
-  // or if mask is empty, the bit is zero ;>
-  else
-    dst->bit=0;
+  // get first avail bit on viable mask,
+  // or zero if mask is empty ;>
+  dst->bit=(ptr mask != 0)
+    ? nbsf(ptr mask)
+    : 0
+    ;
 
   // set mask and give
   dst->mask = mask;
@@ -183,25 +182,24 @@ public relix cask_take(
   cask ptr self
 ) {
   // get free or new slot, mark it as occupied
-  lkp avail={0};;
+  lkp avail={0};
   cask_avail(self,addr avail);
   ptr avail.mask |= 1LLU << avail.bit;
 
   // buffer idex (into self->data)
   // (mask number * elements per mask) + slot number
-  dword idex=(avail.eid*CASK_ELEM_CNT)+avail.bit;
+  dword bufid=(avail.eid*CASK_ELEM_CNT)+avail.bit;
 
   // ^guard that it can fit
-  if(idex > RELIX_MAX)
+  if(bufid > RELIX_MAX)
     throw("full cask");
 
   // ^init mem instance at idex
-  mem ptr have=mem_at(addr self->data,idex);
+  mem ptr have=mem_at(addr self->data,bufid);
       ptr have=mem_new(self->ezy,self->cap,self->flg);
 
   // ^give idex
-  relix bufid=idex;
-  return bufid;
+  return ((relix) bufid);
 };
 
 
@@ -258,7 +256,7 @@ public IX bool cask_invalid(cask ptr self) {
 // ensures the static container exists
 // for as long as there's at least one user
 
-public IX use_cask(
+public IX void use_cask(
   cask ptr self,
   dword ezy,
   dword cap,
@@ -272,7 +270,7 @@ public IX use_cask(
   return;
 };
 
-public IX no_cask(cask ptr self) {
+public IX void no_cask(cask ptr self) {
   if(--self->user || cask_invalid(self))
     return;
 

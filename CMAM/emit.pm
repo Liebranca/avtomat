@@ -178,7 +178,7 @@ sub chead_proc_sym {
   # exporting *only* the symbol decl!
   } elsif(int @{$nd->{blk}}) {
     # save the full definition on the source only
-    $to_src=ctree()->expr_to_code($nd);
+    $to_src=ctree()->expr_to_code($nd) . "\n";
 
     # ^ eliminating the block from the header
     #   then makes it so only the declaration

@@ -147,7 +147,6 @@ sub build($self,$bld) {
 
   # get files to (re)build
   my @bfile=$self->get_updated(%O);
-  $ARG->ensure_outdirs() for @bfile;
 
   # this is so each backend can have
   # its own pre-build hook

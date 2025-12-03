@@ -47,6 +47,7 @@ package CMAM::sandbox;
   use CMAM::static qw(
     cmamdef
     cpackage
+    cmamfn
     cmamout
     cmamout_push_pm
     cmamout_push_c
@@ -117,7 +118,7 @@ sub usepkg {
     # add perl dependency and load it into
     # the sandbox namespace
     my @req=cmamout_push_pm($name,$expr);
-    AR::load($name=>@req);
+    AR::reload($name=>@req);
   };
 
   # need to append required C header?

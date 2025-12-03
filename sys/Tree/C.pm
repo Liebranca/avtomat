@@ -38,8 +38,9 @@ package Tree::C;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.3a';
+  our $VERSION = 'v0.00.4a';
   our $AUTHOR  = 'IBN-3DILA';
+
 
 # ---   *   ---   *   ---
 # entry point
@@ -421,6 +422,102 @@ sub node_to_expr {
 
 
 # ---   *   ---   *   ---
+# get [x=>int] from "int x =? value"
+#
+# [0]: mem  ptr  ; expression hashref
+# [<]: byte pptr ; new [name=>type] array
+
+sub decl_from_node {
+  my ($nd)=@_;
+
+  # first, get the entire expression and
+  # split it at the assignment part if any
+  my $full     = "$nd->{cmd} $nd->{expr}";
+  my $asg_re   = qr{[\s\d\w](=[^=].+)};
+  my ($lh,@rh) = ($nd->{type} eq 'asg')
+    ? gsplit($full,$asg_re)
+    : ($full,())
+    ;
+
+  # we don't actually use the right-hand side
+  # right now, but we _may_ do so later
+  #
+  # anyway, convert the left-hand side to an
+  # array so we can check whether this is
+  # a value declaration
+  return decl_from_code($lh);
+};
+
+
+# ---   *   ---   *   ---
+# get [x=>int] from "int x"
+#
+# [0]: byte ptr  ; codestring
+# [<]: byte pptr ; new [name=>type] array
+
+sub decl_from_code {
+  my @type=gsplit($_[0]);
+  push @type,'void' if ! @type;
+
+  my $name=pop @type;
+  my $type=join ' ',grep {
+    ! ($ARG=~ spec_re())
+
+  } @type;
+
+  return ($name ne 'void')
+    ? ($name,$type)
+    : ()
+    ;
+};
+
+
+# ---   *   ---   *   ---
+# pattern for matching specifiers
+#
+# [*]: const
+# [<]: re
+
+sub spec_re {
+  return qr{(?:
+    IX
+  | CX
+  | CIX
+  | static
+  | inline
+  | const
+  | public
+  | typedef
+  | struct
+  | union
+  )}x;
+};
+
+
+# ---   *   ---   *   ---
+# get F data container from node
+
+sub node_to_fn {
+  my ($nd) = @_;
+  my $fn   = {};
+
+  # ^save data to dst
+  my @args=@{$nd->{args}};
+  my ($name,$type)=decl_from_node($nd);
+  $fn->{name}    = $name;
+  $fn->{type}    = $type;
+  $fn->{argtype} = join(',',@args);
+  $fn->{argname} = join(',',map {
+    my ($name)=decl_from_code($ARG);
+    (defined $name) ? $name : () ;
+
+  } @args);
+
+  return $fn;
+};
+
+
+# ---   *   ---   *   ---
 # gives C code from expression array
 
 sub expr_to_code($self,@ar) {
@@ -472,7 +569,7 @@ sub expr_to_code_impl($self,@ar) {
         $blk   =~ s[;$][];
         $post .=  ';';
       };
-      "$out\n{\n$blk\n${pad}}$post";
+      "$out\n${pad}{\n$blk\n${pad}}$post";
 
     } elsif($ARG->{type} eq 'macro') {
       "$out";

@@ -14,6 +14,7 @@
 
 package SWAN::tree;
   use cmam;
+  use PM Arstd::String qw(gsplit);
   public use SWAN::cask;
 
   #include <stddef.h>;
@@ -22,7 +23,7 @@ package SWAN::tree;
 // ---   *   ---   *   ---
 // info
 
-  VERSION "v0.00.4a";
+  VERSION "v0.00.5a";
   AUTHOR  "IBN-3DILA";
 
 
@@ -53,15 +54,19 @@ public CX word TREE_NODE_NULL = (1 << 16) - 1;
 // RAM
 
 static cask Cache=CASK_NULL;
-public use_tree(void) {
+public void use_tree(void) {
   use_cask(
     addr Cache,
     sizeof(tree),
     MEM_GROW,
     0x00
   );
+  return;
 };
-public no_tree(void) {no_cask(addr Cache);};
+public void no_tree(void) {
+  no_cask(addr Cache);
+  return;
+};
 
 
 // ---   *   ---   *   ---
@@ -75,11 +80,15 @@ public mem ptr tree_nodes(tree ref self) {
 // ---   *   ---   *   ---
 // get instance from relative
 
+tree ptr tree_deref_impl(
+  tree ref self,
+  mem  ptr nodes
+) {
+  return void_deref(nodes,self);
+};
+
 public tree ptr tree_deref(tree ref self) {
-  return void_deref(
-    tree_nodes(self),
-    asrel(self)->eid
-  );
+  return tree_deref_impl(self,tree_nodes(self));
 };
 
 
@@ -122,7 +131,7 @@ public rel tree_new(
 // ---   *   ---   *   ---
 // gets root node
 
-public tree ptr tree_root(tree ref self) {
+public IX tree ptr tree_root(tree ref self) {
   return mem_at(tree_nodes(self),TREE_NODE_ROOT);
 };
 
@@ -130,72 +139,109 @@ public tree ptr tree_root(tree ref self) {
 // ---   *   ---   *   ---
 // get node is root
 
-public bool tree_is_root(tree ref self) {
+public IX bool tree_is_root(tree ref self) {
   return asrel(self)->eid == TREE_NODE_ROOT;
+};
+
+
+// ---   *   ---   *   ---
+// prelude to any dereferencing F;
+// the code is always the same, so we generate it
+
+macro tree_fetch_proto($nd) {
+  my ($args,$expr)  = gsplit($nd->{expr},qr" *: *");
+  my ($self,$nodes) = gsplit($args,qr" *, *");
+
+  $nd->{expr} = $expr;
+  $nd->{cmd}  = tokenshift($nd);
+
+  my $fn=Tree::C::node_to_fn($nd);
+
+  // drop specifier?
+  my $type=null;
+  if($nd->{cmd}=~ Tree::C::spec_re()) {
+    $type      = "$nd->{cmd} $fn->{type}";
+    $nd->{cmd} = tokenshift($nd);
+
+  } else {
+    $type="$fn->{type}";
+  };
+
+  my @iface=strnd(
+    // (re)declare the function [yes]
+    "$type $fn->{name}("
+    . "$fn->{argtype}"
+  . ") {"
+
+    // carry out the dereference...
+    . "mem ptr $nodes=tree_nodes($self);"
+    . "$self=tree_deref_impl($self,$nodes);"
+
+    // ^then sneakily call the implementation...
+    . "return $fn->{name}_impl("
+      . "$fn->{argname},$nodes"
+    . ");"
+  . "};"
+  );
+
+  // include the added argument
+  push @{$nd->{args}},"mem ptr $nodes";
+  $nd->{expr} .= "_impl";
+
+  return ($nd,@iface);
 };
 
 
 // ---   *   ---   *   ---
 // get prev sibling node
 
-public tree ptr tree_prev_node(
-  tree ref self
-) {
-  self=deref self;
+tree_fetch_proto self,nodes:
+public tree ptr tree_prev_node(tree ref self) {
   if(self->prev == TREE_NODE_NULL)
     return NULL;
 
-  return mem_at(tree_nodes(self),self->prev);
+  return mem_at(nodes,self->prev);
 };
 
 
 // ---   *   ---   *   ---
 // get next sibling node
 
-public tree ptr tree_next_node(
-  tree ref self
-) {
-  self=deref self;
+tree_fetch_proto self,nodes:
+public tree ptr tree_next_node(tree ref self) {
   if(self->next == TREE_NODE_NULL)
     return NULL;
 
-  return mem_at(tree_nodes(self),self->next);
+  return mem_at(nodes,self->next);
 };
 
 
 // ---   *   ---   *   ---
 // get first child
 
-public tree ptr tree_first_child(
-  tree ref self
-) {
-  self=deref self;
+tree_fetch_proto self,nodes:
+public tree ptr tree_first_child(tree ref self) {
   if(self->chd == TREE_NODE_NULL)
     return NULL;
 
-  return mem_at(tree_nodes(self),self->chd);
+  return mem_at(nodes,self->chd);
 };
 
 
 // ---   *   ---   *   ---
 // get last child
 
-public tree ptr tree_last_child(
-  tree ref self
-) {
-  self=deref self;
+tree_fetch_proto self,nodes:
+public tree ptr tree_last_child(tree ref self) {
   if(self->chd == TREE_NODE_NULL)
     return NULL;
 
   // get first child
-  tree ptr anchor=mem_at(
-    tree_nodes(self),
-    self->chd
-  );
+  tree ptr anchor=mem_at(nodes,self->chd);
 
   // ^walk siblings until end
   while(anchor->next != TREE_NODE_NULL)
-    anchor=mem_at(tree_nodes(self),anchor->next);
+    anchor=mem_at(nodes,anchor->next);
 
   return anchor;
 };
@@ -204,22 +250,20 @@ public tree ptr tree_last_child(
 // ---   *   ---   *   ---
 // cstruc for tree _node_
 
+tree_fetch_proto par,nodes:
 public rel tree_new_node(
   tree ref par,
   byte ptr value,
   word     flg
 ) {
-  // get container
-  mem ptr m=tree_nodes(par);
-
   // make relpptr
   rel self={
     // container is shared across all instances
     .bufid=asrel(par)->bufid,
 
     // elem idex is just top of node container ;>
-    .eid=m->use
-  };;
+    .eid=nodes->use
+  };
 
   // make child instance
   tree child={
@@ -238,13 +282,13 @@ public rel tree_new_node(
 
   // ^nope, chain to parent's last child
   else {
-    tree ptr last=tree_last_child(par);
+    tree ptr last=tree_last_child_impl(par,nodes);
     child.prev=asrel(last)->eid;
     last->next=child.cont.eid;
-  };;
+  };
 
   // save new node to container buf
-  mem_push(m,addr child);
+  mem_push(nodes,addr child);
 
   // give relative pointer
   return self;
@@ -259,7 +303,7 @@ public void tree_delete(tree ref self) {
     return;
 
   cask_give(addr Cache,asrel(self)->bufid);
-  set_null(&self->value);
+  set_null(addr self->value);
 
   return;
 };
@@ -268,12 +312,12 @@ public void tree_delete(tree ref self) {
 // ---   *   ---   *   ---
 // dbout
 
+tree_fetch_proto self,nodes:
 void tree_repr(
   tree ref self,
   word     depth
 ) {
   // give [value type]:value
-  self=deref self;
   printf("[%04X]:%04X\n",self->flg,self->value);
 
   // early exit if no children
@@ -281,11 +325,11 @@ void tree_repr(
     return;
 
   // ^else recurse for each child
-  tree ptr child=tree_first_child(self);
+  tree ptr child=tree_first_child_impl(self,nodes);
   while(child) {
-    tree_repr(child,depth+1);
-    child=tree_next_node(child);
-  };;
+    tree_repr_impl(child,depth+1,nodes);
+    child=tree_next_node_impl(child,nodes);
+  };
 
   return;
 };

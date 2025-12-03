@@ -155,7 +155,7 @@ public IX byte ptr mem_bytetop(mem ptr self) {
 // mem_at wrapper for relative pointers
 //
 // this can be used with any struct whose
-// first field is a ref, so whether you pass
+// first field is a rel, so whether you pass
 // in a relative pointer or the actual pointer
 // itself gives the same result
 //

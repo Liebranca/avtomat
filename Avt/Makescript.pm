@@ -24,6 +24,7 @@ package Avt::Makescript;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
+  use Chk qw(is_null);
   use Cli;
   use Log;
 
@@ -169,6 +170,7 @@ sub make_abspaths {
   };
 
   for my $bfile($_[0]->get_build_files()) {
+    $bfile->ensure_outdirs();
     for(qw(src obj asm out dep)) {
       absto($bfile->{$ARG},$_[0]->{root});
     };

@@ -57,7 +57,18 @@ sub load {
   my $fname = "$pkg";
   from_pkg($fname);
 
-  return if _is_loaded $pkg;
+  return (! _is_loaded($pkg))
+    ? reload($pkg,@_)
+    : ()
+    ;
+};
+
+
+# ---   *   ---   *   ---
+# ^unconditional
+
+sub reload {
+  my $pkg=shift;
 
   Module::Load::load($pkg);
   $pkg->import(@_) if($pkg->can('import'));
@@ -76,7 +87,7 @@ sub unload {
   my $fname = "$pkg";
   from_pkg($fname);
 
-  return if ! _is_loaded $pkg;
+  return if ! _is_loaded($pkg);
 
   # run exit sub if exists
   $pkg->unimport(@_) if($pkg->can('unimport'));

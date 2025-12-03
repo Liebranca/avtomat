@@ -39,6 +39,7 @@ package CMAM::static;
     cpackage
     cmamlol
     cmamgbl
+    cmamfn
     cmamdef
     cmamdef_re
     ctree
@@ -57,7 +58,7 @@ package CMAM::static;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.8a';
+  our $VERSION = 'v0.00.9a';
   our $AUTHOR  = 'IBN-3DILA';
 
   sub errsafe {return 1};
@@ -109,6 +110,7 @@ sub cmamout {
 
 sub cmamlol {return $CSCOPE->{local}};
 sub cmamgbl {return $CSCOPE->{global}};
+sub cmamfn  {return $CSCOPE->{fn}};
 
 
 # ---   *   ---   *   ---
@@ -190,7 +192,7 @@ sub restart {
   # now reset globals
   $CMAMDEF  = {};
   $CMAMOUT  = {};
-  $CSCOPE   = {local=>{},global=>{}};
+  $CSCOPE   = {local=>{},global=>{},fn=>{}};
   $CPACKAGE = null;
   $CFLAG    = 0x00;
 
@@ -199,14 +201,70 @@ sub restart {
 
 
 # ---   *   ---   *   ---
-# get/set global flags
+# read from global flag
 
-sub is_local_scope    {$CFLAG &   0x01};
-sub set_local_scope   {$CFLAG |=  0x01};
+sub is_local_scope {$CFLAG & 0x01};
+
+
+# ---   *   ---   *   ---
+# ^set global flag AND handle scope setup
+
+sub set_local_scope {
+  my ($nd)=@_;
+  $CFLAG |= 0x01;
+
+  # clear scope
+  %{cmamlol()}=();
+
+  # ^and add function args to scope
+  add_value_typedata(
+    Tree::C->rd($ARG)->to_expr()
+
+  ) for @{$nd->{args}};;
+
+  # overwrite F data container
+  my $dst = cmamfn();
+  my $fn  = Tree::C::node_to_fn($nd);
+
+  %$dst=%$fn;
+
+  return;
+};
+
+
+# ---   *   ---   *   ---
+# ^cleanup
 
 sub unset_local_scope {
-  $CFLAG &=~ 0x01;
-  %{cmamlol()}=();
+  $CFLAG        &=~ 0x01;
+  %{cmamlol()}   =  ();
+  %{cmamfn()}    =  ();
+
+  return;
+};
+
+
+# ---   *   ---   *   ---
+# add value typedata to current scope
+#
+# [0]: mem ptr ; expression hashref
+
+sub add_value_typedata {
+  my ($nd)=@_;
+  my ($name,$type)=Tree::C::decl_from_node($nd);
+
+  # is the joined string in the type-table?
+  if( Type->is_valid($type)
+  &&! Type->is_base_ptr($type)) {
+    # what scope are we in?
+    my $scope=(is_local_scope())
+      ? cmamlol()
+      : cmamgbl()
+      ;
+
+    # record typedata about this value
+    $scope->{$name}=$type;
+  };
   return;
 };
 

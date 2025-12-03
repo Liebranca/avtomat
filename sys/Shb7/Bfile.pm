@@ -22,13 +22,14 @@ package Shb7::Bfile;
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
   use Chk qw(is_null is_file);
+  use St qw(is_valid);
 
-  use Arstd::String qw(cat cjag);
+  use Arstd::String qw(cat catpath cjag);
   use Arstd::Bin qw(moo);
   use Arstd::Path qw(dirof reqdir);
   use Arstd::throw;
 
-  use Shb7::Path qw(relto_root);
+  use Shb7::Path qw(root relto_root);
 
 
 # ---   *   ---   *   ---
@@ -195,14 +196,10 @@ sub unroll($self,@keys) {
 # for this file exist
 
 sub ensure_outdirs {
-  for(
-    $_[0]->{asm},
-    $_[0]->{obj},
-    $_[0]->{dep},
-    $_[0]->{out},
-  ) {
-    reqdir dirof $ARG
-    if ! is_null($ARG) &&! -f $ARG;
+  my ($self)=@_;
+  for(qw(asm obj dep out)) {
+    my $path=catpath(root(),dirof($self->{$ARG}));
+    reqdir($path) if ! is_null($self->{$ARG});
   };
   return;
 };
