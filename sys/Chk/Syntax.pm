@@ -67,6 +67,7 @@ sub import {
   my $re  = qr{$beg\s+([^;]+);};
 
   $_[2]=~ s[$re][$beg SyntaxCheck$uid\::${1};]smg;
+  ++$uid;
 
   # executes the code to get warnings
   # throws on failure
@@ -75,8 +76,6 @@ sub import {
   # restore package names and give
   $re   =  qr{$beg\s+SyntaxCheck\d+::([^;]+);};
   $_[2] =~ s[$re][$beg $1;]smg;
-
-  ++$uid;
 
   return @out;
 };

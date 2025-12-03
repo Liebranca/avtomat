@@ -252,7 +252,7 @@ sub mirror {
 
 
   # walk dirs
-  my $mod_re=qr{$mod/$mod/};
+  my $mod_re=qr{$mod/?$mod/};
   for($tree->get_dir_list(inclusive=>1)) {
     # don't bother with top of the tree
     next if $ARG eq $ARG->root();

@@ -69,11 +69,12 @@ sub load {
 
 sub reload {
   my $pkg=shift;
-
   Module::Load::load($pkg);
-  $pkg->import(@_) if($pkg->can('import'));
 
-  return;
+  return ($pkg->can('import'))
+    ? $pkg->import(@_)
+    : ()
+    ;
 };
 
 
@@ -87,16 +88,19 @@ sub unload {
   my $fname = "$pkg";
   from_pkg($fname);
 
-  return if ! _is_loaded($pkg);
+  return () if ! _is_loaded($pkg);
 
   # run exit sub if exists
-  $pkg->unimport(@_) if($pkg->can('unimport'));
+  my @out=($pkg->can('unimport'))
+    ? $pkg->unimport(@_)
+    : ()
+    ;
 
   # remove from INC
   delete_package($pkg);
   delete $INC{$fname};
 
-  return;
+  return @out;
 };
 
 

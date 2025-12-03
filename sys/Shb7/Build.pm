@@ -168,7 +168,7 @@ sub push_makedeps($obj,$dep) {
 
 sub clear_makedeps() {
   my $have=makedeps();
-  %$have={obj=>[],dep=>[]};
+  %$have=(obj=>[],dep=>[]);
   return;
 };
 

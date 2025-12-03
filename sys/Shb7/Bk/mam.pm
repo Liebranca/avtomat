@@ -167,7 +167,7 @@ sub build_objects($self,$bld,@bfile) {
   };
 
   # ^with all files handled, now go again
-  Log->step("^running second pass");
+  Log->step("running second MAM pass");
   $self->{-MAM}->set_rap(0);
   for(@bfile) {
     $self->log_fpath($ARG->{obj});

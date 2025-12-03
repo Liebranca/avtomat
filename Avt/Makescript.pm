@@ -31,7 +31,7 @@ package Avt::Makescript;
   use Arstd::String qw(catpath);
   use Arstd::Array qw(filter dupop);
   use Arstd::Path qw(dirof parof reqdir absto);
-  use Arstd::Bin qw(ot moo owc);
+  use Arstd::Bin qw(ot moo orc owc);
 
   use Shb7::Path qw(
     root
@@ -144,7 +144,6 @@ sub fasm_bfiles($self) {
 sub make_abspaths {
   for my $ar(
     $_[0]->{xprt},
-    $_[0]->{fcpy},
     $_[0]->{gen},
     $_[0]->{inc},
     $_[0]->{lib}
@@ -169,7 +168,11 @@ sub make_abspaths {
     absto($_[0]->{$ARG},$_[0]->{root});
   };
 
-  for my $bfile($_[0]->get_build_files()) {
+  filter $_[0]->{fcpy};
+  for my $bfile(
+    @{$_[0]->{fcpy}},
+    $_[0]->get_build_files(),
+  ) {
     $bfile->ensure_outdirs();
     for(qw(src obj asm out dep)) {
       absto($bfile->{$ARG},$_[0]->{root});
@@ -672,16 +675,20 @@ sub depsmake($self) {
 
   # notify we're here
   Log->step('rebuilding dependencies');
-  my $ex=Shb7::Bfile->avtopath() . q[/bin/pmd];
 
+  # run through the files...
   for my $i(0..@$src-1) {
+    my $rel=$src->[$i];
+    relto($rel);
+    Log->substep($rel);
+
     # we *execute* the file in a "sandbox"
     # to get the dependency list (!!!)
     #
     # its the same process as a syntax check
     # (like `perl -c`), but it doesn't require
     # forking, so its incredibly faster
-    my @dep=AR::load(
+    my @dep=AR::reload(
       'Chk::Deps',
       $src->[$i],
       orc($src->[$i])
