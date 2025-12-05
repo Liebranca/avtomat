@@ -19,6 +19,13 @@ package SWAN::mem_prim;
 
 
 // ---   *   ---   *   ---
+// info
+
+  VERSION "v0.00.2a";
+  AUTHOR  "IBN-3DILA";
+
+
+// ---   *   ---   *   ---
 // place primitive
 
 public IX void mem_place_byte(

@@ -28,7 +28,7 @@ package CMAM::macro;
     is_arrayref
   );
 
-  use Arstd::String qw(cat);
+  use Arstd::String qw(cat gsplit);
   use Arstd::Token qw(
     tokenshift
     semipop
@@ -43,7 +43,6 @@ package CMAM::macro;
     cpackage
     ctree
   );
-  use CMAM::emit;
 
 
 # ---   *   ---   *   ---
@@ -51,12 +50,10 @@ package CMAM::macro;
 
   use Exporter 'import';
   our @EXPORT_OK=qw(
-    macroguard
     macroload
     macrosave
-    macroin
-    macrofoot
     c_to_perl
+    parse_as_label
   );
 
 
@@ -79,25 +76,61 @@ package CMAM::macro;
 
 sub macro {
   my ($nd)=@_;
+  my @spec=gsplit($nd->{expr},qr{\s+});
+  my $name=pop @spec;
 
   # redef guard
-  throw "Redefinition of macro '$nd->{expr}'"
-  if exists cmamdef()->{$nd->{expr}};
+  throw "Redefinition of macro '$name'"
+  if exists cmamdef()->{$name};
+
+  # get specifiers
+  my $valid = spec();
+  my $type  = 0x0000;
+  for(@spec) {
+    throw "Invalid macro specifier '$ARG'"
+    if ! exists $valid->{$ARG};
+
+    $type |= $valid->{$ARG};
+  };
 
   # make subroutine from source
-  $nd->{cmd}='sub';
+  $nd->{expr} = $name;
+  $nd->{cmd}  = 'sub';
   my $fnstr=c_to_perl($nd);
 
   # now put strings back in
   ctree()->unstrtok($fnstr);
 
   # generate and register new symbol
-  macroload($nd->{expr},$fnstr);
-  macrosave($fnstr);
+  macroload($name,$fnstr,$type);
+  macrosave($name,$fnstr,$type);
 
   # defining a macro gives back nothing ;>
   %$nd=();
   return;
+};
+
+
+# ---   *   ---   *   ---
+# list of valid specifiers for macros
+#
+# [*]: const
+
+sub spec {
+  return {
+    # top level macros do not execute unless
+    # they are the very first token in an
+    # expression ($nd->{cmd})
+    top      => 0x0001,
+
+    # label macros are top level macros with
+    # the added syntax of cmd args:expr
+    label    => 0x0011,
+
+    # internal macros will never be called
+    # outside the body of *other* macros!
+    internal => 0x0100,
+  };
 };
 
 
@@ -171,12 +204,17 @@ sub c_to_perl {
 # ---   *   ---   *   ---
 # makes/reloads definitions
 #
-# [0]: byte ptr ; symbol definition
+# [0]: byte ptr  ; name of symbol
+# [1]: byte ptr  ; symbol definition
+# [2]: qword     ; flags
 #
 # [*]: writes to CMAMOUT
 
 sub macrosave {
-  push @{cmamout()->{def}},$_[0];
+  push @{cmamout()->{def}},join("\n",
+    "sub _$_[0]_spec {return $_[2]};",
+    $_[1]
+  );
   return;
 };
 
@@ -187,6 +225,8 @@ sub macrosave {
 # [0]: byte ptr  ; name of symbol
 # [1]: byte fptr ; symbol definition
 #                  OR pointer to defined symbol
+#
+# [2]: qword ; flags
 #
 # [!]: makes an actual subroutine
 
@@ -212,7 +252,7 @@ sub macroload {
   #
   # this allows the macro to be recognized
   # when invoked from C code
-  cmamdef()->{$_[0]}=$fn;
+  cmamdef()->{$_[0]}={fn=>$fn,flg=>$_[2]};
 
   # add symbol to current package's subroutines
   #
@@ -250,6 +290,29 @@ sub setpkg {
 
   %$nd=();
   return;
+};
+
+
+# ---   *   ---   *   ---
+# reads cmd param,param:expr,
+#
+# [<]: byte pptr ; every token before the `:` colon,
+#                  separated as [cmd=>(param)]
+
+sub parse_as_label {
+  my ($nd) = @_;
+  my $cmd  = $nd->{cmd};
+
+  my ($param,@expr)=gsplit(
+    $nd->{expr},
+    qr" *:(?!:) *"
+  );
+  my (@param)=gsplit($param,qr" *, *");
+
+  $nd->{expr} = join(":",@expr);
+  $nd->{cmd}  = tokenshift($nd);
+
+  return ($cmd,@param);
 };
 
 

@@ -18,6 +18,7 @@ package Chk::Syntax;
   use strict;
   use warnings;
 
+  use Time::HiRes qw(clock_gettime);
   use English qw($ERRNO $EVAL_ERROR);
 
   use lib "$ENV{ARPATH}/lib/sys/";
@@ -49,11 +50,8 @@ package Chk::Syntax;
 #      through this F -- it _will_ be executed
 
 sub import {
-  state $uid=0;
   return if is_null $_[1];
-
   $_[2]//=orc $_[1];
-
 
   # make fake package names;
   #
@@ -61,21 +59,30 @@ sub import {
   # in case package is being imported while
   # this F is running
   #
-  # static uid makes it so this can be run
-  # multiple times on the same file
-  my $beg = "\npackage";
-  my $re  = qr{$beg\s+([^;]+);};
+  # also ensures you don't get swarmed with
+  # 'subroutine redefined' garbage warnings ;>
+  #
+  # using a timestamp for the uid makes it so this
+  # can be run multiple times even if packages
+  # with the same name are encountered
+  my $beg    = "\npackage";
+  my $pkg_re = qr{$beg\s+([^;]+);};
+  my $dot_re = qr{\.};
 
-  $_[2]=~ s[$re][$beg SyntaxCheck$uid\::${1};]smg;
-  ++$uid;
+  # we use CLOCK_PROCESS_CPUTIME_ID
+  my $uid =  clock_gettime(2);
+     $uid =~ s[$dot_re][_]g;
+
+  my $beg_new="$beg SyntaxCheck$uid\::";
+  $_[2] =~ s[$pkg_re][$beg_new${1};]smg;
 
   # executes the code to get warnings
   # throws on failure
   my @out=$_[0]->run($_[1],$_[2]);
 
   # restore package names and give
-  $re   =  qr{$beg\s+SyntaxCheck\d+::([^;]+);};
-  $_[2] =~ s[$re][$beg $1;]smg;
+  $pkg_re =  qr{$beg\s+SyntaxCheck[\d_]+::([^;]+);};
+  $_[2]   =~ s[$pkg_re][$beg $1;]smg;
 
   return @out;
 };

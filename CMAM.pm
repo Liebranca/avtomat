@@ -169,7 +169,7 @@ sub depsort_file {
   my $use_re=qr{^\s*(?:public\b\s+)?
     use \s+
     (?:(?:PM|pm|C|c)\s+)?
-    ([[:alnum:]:]+) [^;]*;
+    ([[:alnum:]:_]+) [^;]*;
   }smx;
 
   my $body = orc $_[0];
@@ -182,7 +182,6 @@ sub depsort_file {
     if($have=~ qr{^cmam$}) {
       $have="SWAN/cmacro";
     };
-
     push @out,"$have.c";
   };
   return $_[0] => \@out;
@@ -212,7 +211,6 @@ sub outdeps {
 sub pproc {
   my $rel=$_[0];
   relto($rel);
-  Log->substep($rel);
 
   # read file and pass through block parser
   my $body=orc $_[0];
@@ -220,9 +218,10 @@ sub pproc {
 
   # last step is checking for exported symbols
   my $head=CMAM::emit::chead($rel,$body);
+  my $perl=CMAM::emit::pm();
 
-  # give [fname => src]
-  return [$_[0],$head,$body,CMAM::emit::pm()];
+  # give arrayref with generated code
+  return [$head,$body,$perl];
 };
 
 
@@ -232,11 +231,21 @@ sub pproc {
 
 sub restart {
   CMAM::static::restart();
-  my $tab=CMAM::static::cmamdef();
+  my $tab  = CMAM::static::cmamdef();
+  my $spec = CMAM::macro::spec();
 
-  $tab->{package} = \&CMAM::macro::setpkg;
-  $tab->{use}     = \&CMAM::sandbox::usepkg;
-  $tab->{macro}   = \&CMAM::macro::macro;
+  $tab->{package}={
+    fn  => \&CMAM::macro::setpkg,
+    flg => $spec->{top},
+  };
+  $tab->{use}={
+    fn  => \&CMAM::sandbox::usepkg,
+    flg => $spec->{top},
+  };
+  $tab->{macro}={
+    fn  => \&CMAM::macro::macro,
+    flg => $spec->{top},
+  };
 
   return;
 };

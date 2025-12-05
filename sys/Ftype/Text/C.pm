@@ -50,14 +50,11 @@ sub classattr {return {
     FILE
 
     byte word dword qword
-    sbyte sword sdword sqword
-
     xword yword zword
-    sxword syword szword
 
     real dreal
     ptr pptr addr
-    ref rel relix drelix
+    ref rel deref relix drelix
 
     mem cask tree
 
@@ -102,15 +99,17 @@ sub classattr {return {
     switch case default
     try throw catch break
     continue goto return
-
   )],
 
   resname=>[qw(
     this true false
-
   )],
 
   preproc=>Arstd::Re::eaf('#',lbeg=>0,opscape=>0),
+  highlight=>[
+    qr{^[^\s]+[^:]*:[^:]?} => 0x0D,
+    qr{\s[^:]+:[^:]?}      => 0x07,
+  ],
 }};
 
 

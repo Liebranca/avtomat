@@ -20,6 +20,13 @@ package SWAN::mem_string;
 
 
 // ---   *   ---   *   ---
+// info
+
+  VERSION "v0.00.2a";
+  AUTHOR  "IBN-3DILA";
+
+
+// ---   *   ---   *   ---
 // get Nth string in buf
 
 public byte ptr mem_at_string(

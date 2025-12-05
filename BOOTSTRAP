@@ -136,8 +136,8 @@ my $ROM={
     /sys/Type/Cpp.pm
 
     CMAM/static.pm
-    CMAM/parse.pm
     CMAM/macro.pm
+    CMAM/parse.pm
     CMAM/emit.pm
     CMAM/sandbox.pm
     CMAM.pm

@@ -45,7 +45,6 @@ sub classattr {return {
     qr{^\*>.+$} => 0x8E,
     qr{^~}      => 0x01,
     qr{^x}      => 0x02,
-
   ],
 }};
 

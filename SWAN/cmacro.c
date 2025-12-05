@@ -31,7 +31,7 @@ package non; // global scope
 // ---   *   ---   *   ---
 // first, let's define package info macros...
 
-macro PKGINFO($nd) {
+macro top PKGINFO($nd) {
   throw "No current package"
   if is_null(cpackage());
 
@@ -45,8 +45,8 @@ macro PKGINFO($nd) {
   return strnd("static const unsigned char* $k=$v");
 };
 
-macro VERSION($nd) {return PKGINFO($nd)};
-macro AUTHOR($nd)  {return PKGINFO($nd)};
+macro top VERSION($nd) {return PKGINFO($nd)};
+macro top AUTHOR($nd)  {return PKGINFO($nd)};
 
 
 // ---   *   ---   *   ---
@@ -62,7 +62,7 @@ macro AUTHOR($nd)  {return PKGINFO($nd)};
 //
 // only works with source files, obviously
 
-macro public($nd) {
+macro top public($nd) {
   $nd->{cmd}=tokenshift($nd);
   my $cpy=deepcpy($nd);
   my @out=CMAM::parse::exprproc($cpy);
@@ -115,10 +115,11 @@ macro deref($nd) {
 
   $nd->{cmd}  = "";
   $nd->{expr} = (
-    "$type->{name}_deref($sym)"
+    "$type->{name}_deref($sym) "
   . "$nd->{expr}"
   );
 
+  strip($nd->{expr});
   return $nd;
 };
 
@@ -143,7 +144,6 @@ macro sign($nd) {
   $nd->{cmd}  = "";
 
   strip($nd->{expr});
-
   return $nd;
 };
 
@@ -151,7 +151,7 @@ macro sign($nd) {
 // ---   *   ---   *   ---
 // catches keyword
 
-macro typedef($nd) {
+macro top typedef($nd) {
   // make copy of input
   my $cpy=deepcpy($nd);
 
@@ -227,10 +227,61 @@ macro typedef($nd) {
 
 
 // ---   *   ---   *   ---
+// generates a wrapper for a given F
+//
+// this is for cases where you need some prelude
+// that's identical for every F that uses it
+
+macro internal fwraps($nd,$suffix,$body,@args) {
+  // get function data from the node
+  my ($fn,$type)=fnnd($nd);
+
+  // handle additional parameters
+  my $argname=[];
+  my $argtype=[];
+  for my $i(0..int(@args/2)-1) {
+    my ($name,$type)=(
+      $args[$i*2+0],
+      $args[$i*2+1],
+    );
+    push @$argname,$name;
+    push @$argtype,"$type $name";
+  };
+
+  // generate wrapper
+  my @wrap=strnd(
+    // (re)declare the function [yes]
+    "$type $fn->{name} ($fn->{argtype}) {"
+
+    // paste in the wrapper's body/prelude
+    . $body
+
+    // ^ then sneakily call the implementation,
+    //   passing in the added parameters
+    . "return $fn->{name}${suffix}("
+      . join(',',$fn->{argname},@$argname)
+    . ");"
+  . "};"
+  );
+
+  // include the added argument that will be
+  // passed in by the prelude
+  push @{$nd->{args}},@$argtype;
+
+  // add suffix to the original F name
+  $nd->{expr} .= $suffix;
+
+  // give back the 'mutated' function plus
+  // the wrappers definition
+  return ($nd,@wrap);
+};
+
+
+// ---   *   ---   *   ---
 // _now_ write info at file scope ;>
 
 package SWAN::cmacro;
-  VERSION "v0.00.6a";
+  VERSION "v0.00.7a";
   AUTHOR  "IBN-3DILA";
 
 

@@ -20,7 +20,7 @@ package CMAM::static;
   use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style qw(null);
+  use Style qw(null no_match);
   use Chk qw(is_null);
 
   use Arstd::String qw(gsplit);
@@ -118,18 +118,25 @@ sub cmamfn  {return $CSCOPE->{fn}};
 
 sub cmamdef {return $CMAMDEF};
 sub cmamdef_re {
-  my $exclude=qr{\b(?:
-    use
-  | package
-  | public
-  | typedef
+  my $spec   = shift;
+     $spec //= 0x0000;
 
-  )\b}x;
+  my $tab=cmamdef();
+  my $key=[
+    grep {
+if(! defined $tab->{$ARG}->{flg}) {
+  use Arstd::fatdump;
+  fatdump \$tab;
+  say $ARG;
+  exit;
+};
+! ($tab->{$ARG}->{flg} & $spec)}
+    keys %$tab
+  ];
 
+  return no_match() if ! @$key;
   return eiths(
-    [ grep {! ($ARG=~ $exclude)}
-      keys %$CMAMDEF
-    ],
+    $key,
     bwrap => 1,
     capt  => 'scmd',
   );

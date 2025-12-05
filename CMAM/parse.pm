@@ -32,6 +32,7 @@ package CMAM::parse;
     gsplit
     has_suffix
   );
+  use Arstd::Token qw(tokenshift semipop);
   use Arstd::Repl;
   use Arstd::throw;
 
@@ -40,8 +41,6 @@ package CMAM::parse;
   use Ftype::Text::C;
 
   use lib "$ENV{ARPATH}/lib/";
-  use CMAM::token qw(tokenshift semipop);
-  use CMAM::token qw(tokenshift semipop);
   use CMAM::static qw(
     cmamout
     cmamdef
@@ -54,6 +53,7 @@ package CMAM::parse;
     set_local_scope
     unset_local_scope
   );
+  use CMAM::macro;
 
 
 # ---   *   ---   *   ---
@@ -105,8 +105,12 @@ sub exprproc {
   my ($nd) = @_;
   my @out  = ();
 
-  # proc commands within expression itself
-  my $def_re=cmamdef_re();
+  # proc commands within the expression itself,
+  # excluding those marked as internal or top level
+  my $def_re=cmamdef_re(
+    CMAM::macro::spec()->{top}
+  | CMAM::macro::spec()->{internal}
+  );
   while($nd->{expr}=~ $def_re) {
     my $scmd=$+{scmd};
     my $prev=null;
@@ -124,14 +128,14 @@ sub exprproc {
       } else {last};
     };
 
-    # we give all tokens to the right of the
-    # command to this command...
+    # all tokens to the right of the command
+    # are used as arguments...
     my ($snd)=ctree()->rd(
       "$scmd $nd->{expr}"
 
     )->to_expr();
 
-    # ^then execute it
+    # ^execute it
     ($snd)=runcmd($snd);
 
     # restore shifted tokens and cat them
@@ -143,7 +147,8 @@ sub exprproc {
     strip($nd->{expr});
   };
 
-  # proc top level commands
+  # proc top level commands, as they are excluded
+  # from the previous loop
   push @out,runcmd($nd);
   return @out if ! %$nd;
 
@@ -179,14 +184,26 @@ sub runcmd {
   my ($nd)=@_;
   return () if ! %$nd;
 
+  # fetch command from node
   my @out = ();
   my $cmd = $nd->{cmd};
-  my $fn  = cmamdef()->{$cmd};
+  my $def = (exists cmamdef()->{$cmd})
+    ? cmamdef()->{$cmd}
+    : null
+    ;
 
   # run command, then recurse for each returned
   # node until there is nothing left to process
-  if(! is_null($fn)) {
-    for my $ch($fn->($nd)) {
+  if(! is_null($def)) {
+    # check that its not an internal command
+    my $forbid=CMAM::macro::spec()->{internal};
+    throw "Illegal: internal command '$cmd' called "
+    .     "outside of a macro"
+
+    if $def->{flg} & $forbid;
+
+    # ^and _then_ run ;>
+    for my $ch($def->{fn}->($nd)) {
       if($ch->{cmd} ne $cmd) {
         push @out,exprproc($ch);
       } else {

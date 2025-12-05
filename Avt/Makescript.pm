@@ -30,7 +30,13 @@ package Avt::Makescript;
 
   use Arstd::String qw(catpath);
   use Arstd::Array qw(filter dupop);
-  use Arstd::Path qw(dirof parof reqdir absto);
+  use Arstd::Path qw(
+    dirof
+    parof
+    reqdir
+    absto
+    relto
+  );
   use Arstd::Bin qw(ot moo orc owc);
 
   use Shb7::Path qw(

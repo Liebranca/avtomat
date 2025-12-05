@@ -21,7 +21,7 @@ package CMAM::sandbox;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
-  use Chk qw(is_null);
+  use Chk qw(is_null is_hashref);
 
   use Arstd::String qw(
     strip
@@ -54,12 +54,10 @@ package CMAM::sandbox;
     ctree
   );
   use CMAM::macro qw(
-    macroguard
     macroload
     macrosave
-    macroin
-    macrofoot
     c_to_perl
+    parse_as_label
   );
 
 
@@ -67,7 +65,7 @@ package CMAM::sandbox;
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT_OK=qw(strnd clnd);
+  our @EXPORT_OK=qw(strnd clnd fnnd);
 
 
 # ---   *   ---   *   ---
@@ -108,9 +106,14 @@ sub usepkg {
   # sneaky shorthand
   if($name eq 'cmam') {
     $name = "SWAN::cmacro";
-    $expr = "qw(PKGINFO VERSION AUTHOR public typename deref sign typedef);";
-    $c    = 0;
-    $pm   = 1;
+    $expr = "qw(" . join(' ',qw(
+      PKGINFO VERSION AUTHOR
+      public typename deref sign
+      typedef fwraps
+    )) . ');';
+
+    $c  = 0;
+    $pm = 1;
   };
 
   # need to perform perl package imports?
@@ -143,6 +146,47 @@ sub strnd {return ctree()->rd($_[0])->to_expr()};
 # clear expression
 
 sub clnd {%{$_[0]}=();return};
+
+
+# ---   *   ---   *   ---
+# get a function hashref from a node
+
+sub fnnd($nd) {
+  # convert to node if string passed
+  $nd=strnd($nd) if ! is_hashref($nd);
+
+  # catch invalid input
+  throw "Not a valid function decl:\n"
+  .     ctree()->expr_to_code($nd)
+
+  .     "\n\nCannot make function."
+
+  if $nd->{type} ne 'proc';
+
+  # _now_ perform conversion
+  my $fn=Tree::C::node_to_fn($nd);
+
+  # drop specifier?
+  my $type=null;
+  if($nd->{cmd}=~ Tree::C::spec_re()) {
+    $type      = "$nd->{cmd} $fn->{type}";
+    $nd->{cmd} = tokenshift($nd);
+
+  } else {
+    $type="$fn->{type}";
+  };
+
+  # '$type' here is the return type of the
+  # function you passed, *plus* specifiers
+  #
+  # '$fn->{type}' is that return type
+  # *without* the specifiers
+  #
+  # this is just so you can wrap/mutate functions
+  # without inheriting specs like inline, public,
+  # static, and so on
+  return ($fn,$type);
+};
 
 
 # ---   *   ---   *   ---

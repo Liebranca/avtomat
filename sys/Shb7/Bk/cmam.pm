@@ -128,6 +128,16 @@ sub fdeps($self,$bfile) {
 
     # make array from gcc depsfile
     @out=$self->depstr_to_array($body);
+
+    # drop first file, which is always the source
+    # we run that check elsewhere
+    shift @out;
+
+    # drop second file if it's the header
+    # we generate those, so also not needed
+    my $hed=$bfile->{src};
+    extwap($hed,'h');
+    shift @out if @out && $out[0] eq $hed;
   };
 
   return @out;
@@ -190,89 +200,129 @@ sub bfiles($self) {
 # preproc step
 
 sub on_build($self,$bld,@bfile) {
-  # notify we're here
-  CMAM::restart();
+  # first off, check that there is need
+  # for regenerating intermediate files
+  @bfile=map {
+    # get path to generated header...
+    my $fhead=$ARG->{src};
+    extwap($fhead,'h');
+
+    # ^then generated source...
+    my $fbody=Shb7::Path::obj_from_src(
+      $ARG->{src},
+      ext=>'c',
+      rel=>0
+    );
+
+    # ^and then perl module
+    my $fperl=Shb7::Path::fmirror(
+      $ARG->{src},
+      ext   => 'pm',
+      rel   => 0,
+      reloc => [
+        Shb7::Path::root_re(),
+        null(),
+      ],
+    );
+
+    my $re='^/?' . Shb7::Path::module() . '/+';
+       $re=qr{$re};
+
+    $fperl=~ s[$re][];
+    $fperl=Shb7::Path::lib()->[0] ."/$fperl";
+
+
+    # ^ if either file needs regeneration,
+    #   *then* we run the preprocessor
+    if(moo($fhead,$ARG->{src})
+    || moo($fbody,$ARG->{src})
+    || moo($fperl,$ARG->{src})) {
+      $ARG->{-cmamp}={
+        head=>$fhead,
+        body=>$fbody,
+        perl=>$fperl,
+      };
+      $ARG;
+
+    } else {()};
+
+  } @bfile;
+
+  # ^early exit if nothing to do
+  return () if ! @bfile;
+
+
+  # ^else notify we're here
   Log->ex('MAM',"C preprocessor:");
 
   # walk [fname => src]
   for(@bfile) {
-    my ($fname,$head,$body,$perl)=
-      @{(CMAM::run($ARG->{src}))[0]};
+    # fetch the destination paths we
+    # calculated earlier
+    my $fname = $ARG->{src};
+    my $dst   = $ARG->{-cmamp};
 
-    # generating header?
-    my $fhead=null;
-    if(! is_null($head)) {
-      $fhead=$fname;
-      extwap($fhead,'h');
+    $self->log_fpath($ARG->{src});
 
-      throw "Cannot generate C header for "
-      .     "'$fname': destination is source!"
+    my ($ar)=CMAM::run($fname);
+    my ($head,$body,$perl)=@$ar;
 
-      if $fhead eq $fname;
+    # fairly redundant to run these checks, but
+    # it would massively suck to overwrite the
+    # source if some accident happens...
+    throw "Cannot generate C header for "
+    .     "'$fname': destination is source!"
 
-      owc $fhead,$head;
-    };
+    if $fname eq $dst->{head};
 
-    # generating source?
-    if(! is_null($body)) {
-      my $fbody=Shb7::Path::obj_from_src(
-        $fname,
-        ext=>'c',
-        rel=>0
-      );
+    throw "Cannot generate C source for "
+    .     "'$fname': destination is source!"
 
-      throw "Cannot generate C source for "
-      .     "'$fname': destination is source!"
+    if $fname eq $dst->{body};
 
-      if $fbody eq $fname;
+    throw "Cannot generate perl package for "
+    .     "'$fname': destination is source!"
 
-      # include generated header ;>
-      if(! is_null($fhead)) {
-        $body="#include \"$fhead\"\n$body";
-      };
+    if $fname eq $dst->{perl};
 
-      reqdir(dirof($fbody));
-      owc $fbody,$body;
 
-      # tell gcc to compile the generated source
-      # instead of the actual file
-      $ARG->{src}=$fbody;
+    # include generated header
+    my $skip=is_null($body);
+    $body="#include \"$dst->{head}\"\n$body";
 
-    } else {
+    # *now* update the files
+    #
+    # we do this no matter what simply because
+    # the build will check that all three exist
+    reqdir(dirof($ARG)) for values %$dst;
+    owc $dst->{head},$head;
+    owc $dst->{body},$body;
+    owc $dst->{perl},$perl;
+
+    # however, we do skip compiling files that
+    # output a blank source ;>
+    if($skip) {
       undef $ARG;
-    };
 
-    # generating perl package?
-    if(! is_null($perl)) {
-      my $fperl=Shb7::Path::fmirror(
-        $fname,
-        ext   => 'pm',
-        rel   => 0,
-        reloc => [
-          Shb7::Path::root_re(),
-          null(),
-        ],
-      );
-
-      my $re='^/?' . Shb7::Path::module() . '/+';
-         $re=qr{$re};
-
-      $fperl=~ s[$re][];
-      $fperl=Shb7::Path::lib()->[0] ."/$fperl";
-
-      throw "Cannot generate perl package for "
-      .     "'$fname': destination is source!"
-
-      if $fperl eq $fname;
-
-      reqdir(dirof($fperl));
-      owc $fperl,$perl;
+    # ^ tell gcc to compile the generated source
+    #   instead of the actual file
+    } else {
+      $ARG->{src}=$dst->{body};
     };
   };
 
+  # since we undefine files that need to be
+  # skipped by the compiler, we make sure
+  # to remove blank entries from the list
+  filter(\@bfile,sub {
+      is_null($_[0])
+  ||! int(%{$_[0]})
+  });
+
   # notify we're leaving ;>
   Log->ex('GNU','C compiler:');
-  filter(\@bfile);
+
+  # give filtered file list for compiler
   return @bfile;
 };
 

@@ -74,6 +74,7 @@ St::vconst {
   KEYCOLOR_LIST => [
     line        => 0x07,
     nblank      => 0x07,
+    highlight   => 0x00,
     drfc        => 0x04,
 
     uc_name     => 0x0D,
@@ -96,8 +97,6 @@ St::vconst {
     opr         => 0x0F,
     char        => 0x0E,
     string      => 0x0E,
-
-    highlight   => 0x00,
 
     lcom        => 0x02,
     dev0        => 0x0B,

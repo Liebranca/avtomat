@@ -29,7 +29,7 @@ package Chk::Deps;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.1a';
+  our $VERSION = 'v0.00.2a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -66,8 +66,9 @@ sub begcapt {
   shift; # drop class
 
   my $stk=incstk();
-  push @$stk,[%INC];
+  push @$stk,[{%INC},[@INC]];
   %INC=();
+  @INC=();
 
   return Chk::Syntax->begcapt(@_);
 };
@@ -91,8 +92,11 @@ sub perlc {
 sub endcapt {
   shift; # drop class
 
-  my $stk=incstk();
-  %INC=@{pop @$stk};
+  my $stk  = incstk();
+  my $prev = pop @$stk;
+
+  %INC=%{$prev->[0]};
+  @INC=@{$prev->[1]};
 
   return Chk::Syntax->endcapt(@_);
 };

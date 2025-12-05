@@ -271,7 +271,8 @@ sub _pm {
       q[my $fn=Chk::getsub($class,$ARG)],
       q[or throw "C macro '$ARG' ]
     . q[not defined by package '$class'";],
-      q[macroload($ARG=>$fn);],
+      q[my $spec=Chk::getsub($class,"_${ARG}_spec");],
+      q[macroload($ARG=>$fn,$spec->());],
     "};\n",
   );
 
@@ -362,6 +363,7 @@ sub deps_pm {
     'use CMAM::sandbox qw(' . join(' ',qw(
       strnd
       clnd
+      fnnd
     )) . ');',
 
     # ^dependencies added by user

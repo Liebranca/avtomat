@@ -23,7 +23,7 @@ package SWAN::tree;
 // ---   *   ---   *   ---
 // info
 
-  VERSION "v0.00.5a";
+  VERSION "v0.00.6a";
   AUTHOR  "IBN-3DILA";
 
 
@@ -148,47 +148,23 @@ public IX bool tree_is_root(tree ref self) {
 // prelude to any dereferencing F;
 // the code is always the same, so we generate it
 
-macro tree_fetch_proto($nd) {
-  my ($args,$expr)  = gsplit($nd->{expr},qr" *: *");
-  my ($self,$nodes) = gsplit($args,qr" *, *");
+macro label tree_fetch_proto($nd) {
+  // get macro parameters
+  my ($cmd,$self,$nodes)=parse_as_label($nd);
 
-  $nd->{expr} = $expr;
-  $nd->{cmd}  = tokenshift($nd);
-
-  my $fn=Tree::C::node_to_fn($nd);
-
-  // drop specifier?
-  my $type=null;
-  if($nd->{cmd}=~ Tree::C::spec_re()) {
-    $type      = "$nd->{cmd} $fn->{type}";
-    $nd->{cmd} = tokenshift($nd);
-
-  } else {
-    $type="$fn->{type}";
-  };
-
-  my @iface=strnd(
-    // (re)declare the function [yes]
-    "$type $fn->{name}("
-    . "$fn->{argtype}"
-  . ") {"
-
-    // carry out the dereference...
-    . "mem ptr $nodes=tree_nodes($self);"
-    . "$self=tree_deref_impl($self,$nodes);"
-
-    // ^then sneakily call the implementation...
-    . "return $fn->{name}_impl("
-      . "$fn->{argname},$nodes"
-    . ");"
-  . "};"
+  // make wrapper body
+  my $body=(
+    "mem ptr $nodes=tree_nodes($self);"
+  . "$self=tree_deref_impl($self,$nodes);"
   );
 
-  // include the added argument
-  push @{$nd->{args}},"mem ptr $nodes";
-  $nd->{expr} .= "_impl";
-
-  return ($nd,@iface);
+  // give definition plus wrapper
+  return SWAN::cmacro::fwraps(
+    $nd,
+    '_impl',
+    $body,
+    $nodes=>'mem ptr',
+  );
 };
 
 
@@ -282,6 +258,9 @@ public rel tree_new_node(
 
   // ^nope, chain to parent's last child
   else {
+    // we use the _impl here because we have the
+    // nodes at hand and already dereferenced
+    // the parent
     tree ptr last=tree_last_child_impl(par,nodes);
     child.prev=asrel(last)->eid;
     last->next=child.cont.eid;
