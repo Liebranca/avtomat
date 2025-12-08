@@ -19,316 +19,228 @@ package Avt::XS;
   use strict;
   use warnings;
 
-  use Carp qw(croak);
-  use English;
-  use XSLoader;
   use Cwd qw(getcwd);
+  use English qw($ARG);
+  use Storable qw(store);
+  use XSLoader;
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style;
+  use Style qw(null);
+  use Chk qw(is_null);
 
+  use Arstd::String qw(strip);
+  use Arstd::Bin qw(orc);
   use Arstd::Path qw(
-    pkg_to_fname
-    extcl extwap
-    basef based parof
-
+    to_pkg
+    from_pkg
+    extcl
+    extwap
+    basef
+    based
+    parof
+    reqdir
   );
+  use Arstd::throw;
 
-  use Arstd::Bin qw(orc owc);
-  use Arstd::PM qw(cload);
+  use Shb7::Path qw(
+    dirp
+    include
+    modp
+    shared_libp
+    static_libp
+    libdirp
+    ctrashp
+    relto_root
+    relto_mod
+  );
+  use Shb7::Find qw(ffind wfind);
+  use Shb7::Bk::cmam;
 
   use lib "$ENV{ARPATH}/lib/";
+  use AR;
+  use Avt::XS::Type;
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.1a';
+  our $VERSION = 'v0.00.3a';
   our $AUTHOR  = 'IBN-3DILA';
-
-
-# ---   *   ---   *   ---
-# ^i write VERSION way *I* like
-
-sub sane_version {
-  state $re=qr{[^0-9]+$};
-  $_[0]=~ s[$re][];
-
-  return $_[0];
-
-};
 
 
 # ---   *   ---   *   ---
 # compiles XS stuff
 
-sub build($class,$name,$code,%O) {
-
-
+sub build($shwl,$bld,$name,%O) {
   # get packages needed by build
-  cload qw(
-    Fmat
-    Shb7::Path
-    Avt::XS::Type
-    Inline
-
-  );
+  AR::load('Inline');
 
   # defaults
-  $O{where} //= Shb7::Path::ctrash() . '/_Inline';
-  $O{lib}   //= null;
-  $O{-f}    //= 0,
+  $O{-f} //= 0,
 
   # make path if need
-  reqdir $O{where};
+  my $trash=ctrashp() . '/_Inline';
+  reqdir($trash);
 
+  # get a string with the compiler flags we use
+  my $ccflag=join ' ',(
+    @{$bld->{flag}},
+    Shb7::Bk::cmam::oflg(),
+  );
 
-  # mandatory
-  no strict 'refs';
-  my $version = sane_version ${"$name\::VERSION"};
-  my $author  = ${"$name\::AUTHOR"};
+  push @{$bld->{lib}},@{$shwl->{dep}},"-l$name";
 
-  # where is module?
-  my $modpath = pkg_to_fname $name;
-  my $dir     = extcl        $modpath;
-  my $blddir  = "$O{where}/build/$dir";
-
+  # we have to jump into the module directory
+  # because Inline::C tries to find the current
+  # script (./avto) to perform an unnecessary bit
+  # of setup that crashes the build if said script
+  # isnt found
+  #
+  # I cannot deactivate this 'feature'
+  my $old=getcwd();
+  chdir(modp());
 
   # make the call
-  Inline->bind(C => $code => (
+  Inline->bind(C => $shwl->{hed} => (
     using     => 'ParseRegExp',
 
     name      => $name,
-    directory => $O{where},
+    directory => $trash,
 
-    libs      => $O{lib},
+    libs      => $bld->libline(),
+    inc       => $bld->incline(),
+    ccflags   => $ccflag,
+    myextlib  => static_libp($name),
 
-    typemaps  => Avt::XS::Type->table,
+    typemaps  => Avt::XS::Type->table(),
     enable    => 'autowrap',
     disable   => 'autoname',
     disable   => 'clean_after_build',
 
     ($O{-f}) ? (enable => 'force_build') : () ,
-
   ));
+  chdir($old);
 
+  # ^find the generated *.so
+  my $blddir="$trash/build/$name";
+  my $soname="$name.so";
 
-  # Inline doesn't want you to pass in VERSION
-  # unless you're distributing
-  #
-  # overall, terrible design choice
-  #
-  # what follows is just a waltzaround for it
-
-  my $mkfile="$blddir/Makefile.PL";
-
-  # do we reaaaaally have to?
-  goto lastchk if ! moo($modpath,$mkfile);
-
-  # ^yep, we REALLY have to do this...
-  my $body    = orc $mkfile;
-  my $make_re = qr{
-    %options \s* = \s* %\{ \s*
-    (\{.+\}) \s* \};
-
-  }xs;
-
-
-  # there is NO reason to omit this data
-  if($body=~ $make_re) {
-    my $have=eval $1;
-
-    $have->{VERSION} = $version;
-    $have->{AUTHOR}  = $author;
-
-    my $stir=  Fmat::fatdump \$have,mute=>1;
-       $stir=~ s[;\s*$][];
-       $stir=  "\%options=\%{$stir};";
-
-
-    $body=~ s[$make_re][$stir];
-    owc $mkfile,$body;
-
-
-  # unless MakeMaker changes format,
-  # we shouldn't see this
-  } else {
-    croak "Bad Makefile: '$mkfile'";
-
-  };
-
-
-  # the version is inside the binary
-  #
-  # we have to instruct XS to use the string,
-  # else we get '0.00'
-
-  my $fname  = basef  $modpath;
-  my $xsname = extwap $fname,'xs';
-  my $xspath = "$blddir/$xsname";
-
-  croak "Can't find XS: '$xspath'"
-  if ! -f $xspath;
-
-  # ^insert magic line
-  { my $body=orc $xspath;
-    my $re  =qr{(?<have>
-      PROTOTYPES: \s*
-      (?:DISABLE|ENABLE) \n
-
-    )}x;
-
-    my $s="VERSIONCHECK: ENABLE\n";
-    $body=~ s[$re][$+{have}$s];
-
-    owc $xspath,$body;
-
-  };
-
-
-  # now we actually have to compile _again_!
-  #
-  # else we won't be able to load the compiled
-  # shared object holding the XSUBS, because
-  # XSLoader _will_ version-check that the
-  # compiled *.so has the same version string
-  # as the module!
-  #
-  # this wouldn't be necessary, if only Inline
-  # allowed passing VERSION...
-
-  lastchk:
-  my $soname = extwap $fname,'so';
-  my $out    = "$blddir/blib/arch/auto/$dir/$soname";
-
-  if($O{-f} ||! -f $out || moo($out,$modpath)) {
-    my $old=getcwd;
-
-    chdir $blddir;
-    `perl Makefile.PL && make`;
-
-    chdir $old;
-
-  };
-
-  -f $out or croak "BUILD FAILED: '$fname'";
-
+  my $out="$blddir/blib/arch/auto/$name/$soname";
+  throw "XS build fail: '$soname'" if ! -f $out;
 
   # we copy the *.so to where XSLoader can find it
   #
   # this makes it so a module can work _without_
   # Inline ever being invoked...
+  my $dst=shared_libp($name);
+  rename $out,$dst;
 
-  my $dst=Shb7::libdir(
-    parof($modpath,i=>1,abs=>0)
-
-  );
-
-
-  rename $out,"$dst/$soname";
   return;
-
 };
 
 
 # ---   *   ---   *   ---
-# ^fetches
+# ^fetches the *.so
 
 sub load($name) {
+#  # get version
+#  no strict 'refs';
+#  my $version=sane_version(${"$name\::VERSION"});
 
-  # get version
-  no strict 'refs';
-  my $version=sane_version ${"$name\::VERSION"};
-
-  # get path to package
-  my $fname = pkg_to_fname $name;
-  my $dir   = based $fname;
-  my $full  = "$ENV{ARPATH}/lib/$dir/";
-
-
-#  # set include path?
-#  my $inc=exists $INC{$fname};
-#  if(! $inc) {
-#    $INC{$fname}=$full;
-#    unshift @INC,$full;
+#  # get path to package
+#  my $fname=$name;
+#  from_pkg($fname);
 #
-#  };
+#  my $dir  = based($fname);
+#  my $full = "$ENV{ARPATH}/lib/$dir/";
 
-
-  # get *.so
-  XSLoader::load($name,$version);
-
-#  # clear include path?
-#  if(! $inc) {
-#    shift  @INC;
-#    delete $INC{$fname};
+#  XSLoader::load($name,v0.00);
 #
-#  };
-
-
+#  my $st=mem_new(1,8,0x00);
+#  use Arstd::xd;
+#  xd($st);
+#  mem_del($st);
   return;
-
 };
 
 
 # ---   *   ---   *   ---
-# dirty monkeypatch
+# collects symbol data generated
+# by CMAM for use by an XS module
 
-sub makelib($class,$pkg,$libref) {
+sub mkshwl($mod,$dst,$deps,@fname) {
+  # early exit if nothing to do
+  return if ! @fname;
 
-  # get make deps
-  cload qw(
-    Shb7::Path
-    Emit::Perl
+  # setup search path
+  include(dirp($mod));
 
-  );
-
-  cload $pkg;
-
-
-  # read module
-  my $modpath = pkg_to_fname $pkg;
-  my $name    = extcl based  $modpath;
-  my $body    = orc          $modpath;
-
-  # ^now destroy it
-  no strict 'refs';
-  my $tmp=Emit::Perl->codewrap(
-    author  => ${"$pkg\::AUTHOR"},
-    version => ${"$pkg\::VERSION"},
-
-    body    => [
-      \&Emit::Perl::shwlbind => [
-        [$pkg => $name => $libref]
-
-      ],
-
-    ],
-
-  );
-
-say {*STDERR} "$modpath => $name => (\n",
-  "$body\n\n) => C\::q[",
-  "$tmp\n\n];";
-
-  # ^write the module and run it
-  # ^yes
-  my $tmpf=Shb7::Path::ctrash() . '_Inline/tmp.pm';
-
-#  owc $tmpf,"$tmp\n1;";
-
-#  my $catch=`perl $tmpf`;
-
-  # ^all good?
-#  croak "Build error: '$catch'"
-#  if length $catch;
-
-#  # ^then overwrite AGAIN
-#  owc $modpath,$body;
+  # expand file list from names
+  my @file=map {
+    grep {$ARG} ($ARG=~ qr{\%})
+      ? wfind($ARG)
+      : ffind($ARG)
+      ;
+  } @fname;
 
 
-  return;
+  # nit table
+  my $shwl={
+    dep   => $deps,
+    fswat => $mod,
+    hed   => null,
+    obj   => {},
+  };
 
+  # ^iter through expanded list to fill it out
+  my $hed=null;
+  for(@file) {
+    my $fcpy=$ARG;
+    relto_mod($fcpy);
+    extwap($fcpy,'pm');
+    to_pkg($fcpy);
+
+    # skip if no symbols exported for this file
+    AR::reload($fcpy);
+    next if ! $fcpy->can('XSHED');
+
+    # record symbol data for each object file
+    my $xs = $fcpy->XSHED();
+    my $o  = Shb7::Path::obj_from_src($ARG);
+    relto_root($o);
+
+    $shwl->{obj}->{$o}=$xs;
+
+    # now include the header for it ;>
+    my $h=$ARG;
+    extwap($h,'h');
+    $shwl->{hed} .= orc($h) . "\n";
+
+#    # ^and wrappers below that
+#    for my $sym(@$xs) {
+#      my $rtype=(! is_null($sym->{type}))
+#        ? $sym->{type}
+#        : 'void'
+#        ;
+#
+#      my $args='void';
+#      if(@{$sym->{args}}) {
+#        $args=join ',',map {
+#          "$ARG->{type} $ARG->{name}";
+#
+#        } @{$sym->{args}};
+#      };
+#
+#      $hed .= "$rtype $sym->{name}($args);\n";
+#    };
+  };
+
+  my $re=qr{static inline };
+  $shwl->{hed}=~ s[$re][]smg;
+
+  # dump table to disk
+  store($shwl,$dst) or throw $dst;
+  return $shwl;
 };
 
 

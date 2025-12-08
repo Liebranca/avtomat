@@ -250,7 +250,7 @@ public rel tree_new_node(
     .chd   = TREE_NODE_NULL,
     .prev  = TREE_NODE_NULL,
     .next  = TREE_NODE_NULL
-  };;
+  };
 
   // is first child?
   if(par->chd == TREE_NODE_NULL)
@@ -293,11 +293,23 @@ public void tree_delete(tree ref self) {
 
 tree_fetch_proto self,nodes:
 void tree_repr(
-  tree ref self,
-  word     depth
+  tree  ref  self,
+  const word depth
 ) {
-  // give [value type]:value
-  printf("[%04X]:%04X\n",self->flg,self->value);
+  // make N idents of padding
+  byte pad[depth*2+1];
+  for(word i=0;i < depth;++i) {
+    pad[i]=' ';
+  };
+  pad[depth]='\0';
+
+  // give (ident)[value type]:value
+  printf(
+    "%s[%04X]:%04X\n",
+    addr pad[0],
+    self->flg,
+    self->value
+  );
 
   // early exit if no children
   if(self->chd == TREE_NODE_NULL)

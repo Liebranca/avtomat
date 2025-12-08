@@ -18,12 +18,12 @@ package Chk::Syntax;
   use strict;
   use warnings;
 
-  use Time::HiRes qw(clock_gettime);
   use English qw($ERRNO $EVAL_ERROR);
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
   use Chk qw(is_null);
+  use Arstd::String qw(time_to_uid);
   use Arstd::Bin qw(orc);
   use Arstd::throw;
 
@@ -65,16 +65,12 @@ sub import {
   # using a timestamp for the uid makes it so this
   # can be run multiple times even if packages
   # with the same name are encountered
-  my $beg    = "\npackage";
-  my $pkg_re = qr{$beg\s+([^;]+);};
-  my $dot_re = qr{\.};
+  my $beg     = "\npackage";
+  my $pkg_re  = qr{$beg\s+([^;]+);};
+  my $uid     = time_to_uid();
+  my $beg_new = "$beg SyntaxCheck$uid\::";
 
-  # we use CLOCK_PROCESS_CPUTIME_ID
-  my $uid =  clock_gettime(2);
-     $uid =~ s[$dot_re][_]g;
-
-  my $beg_new="$beg SyntaxCheck$uid\::";
-  $_[2] =~ s[$pkg_re][$beg_new${1};]smg;
+  $_[2]=~ s[$pkg_re][$beg_new${1};]smg;
 
   # executes the code to get warnings
   # throws on failure

@@ -217,8 +217,8 @@ sub pproc {
   $body=blkparse($body);
 
   # last step is checking for exported symbols
-  my $head=CMAM::emit::chead($rel,$body);
   my $perl=CMAM::emit::pm();
+  my $head=CMAM::emit::chead($rel,$body);
 
   # give arrayref with generated code
   return [$head,$body,$perl];

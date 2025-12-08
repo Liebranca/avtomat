@@ -38,7 +38,7 @@ sub classattr {return {
   hed  => '\$mny;',
   mag  => '\$:get0x24;>',
 
-  highlight=>[
+  highlightup=>[
     qr{f:([^[:blank:]]+/[^[:blank:]]+)+} => 0x04,
     qr{[/:.]}   => 0x0F,
     qr{^>+.+$}  => 0x83,

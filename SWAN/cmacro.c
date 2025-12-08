@@ -152,77 +152,28 @@ macro sign($nd) {
 // catches keyword
 
 macro top typedef($nd) {
-  // make copy of input
-  my $cpy=deepcpy($nd);
+  // struct or union definition?
+  if($nd->{type}=~ qr'\b(?:struc|union)\b') {
+    my ($name)=Type::MAKE::strucdef($nd);
+    $nd->{_afterblk}=" $name";
 
-  // get first keyword
-  my $keyw=tokenshift($nd);
-  my $name=null;
+  // ^type alias?
+  } elsif('utype' eq $nd->{type}) {
+    Type::MAKE::utypedef($nd);
 
-  // handle struct definitions
-  if($keyw=~ qr'\b(?:struct|union)\b') {
-    // get name of struct
-    $name=tokenpop($nd);
-
-    $nd->{cmd}  = $keyw;
-    $nd->{expr} = $name;
-
-    // parse the definition/validate name
-    my @field=($keyw eq 'union')
-      ? Type::MAKE::unionparse($nd)
-      : Type::MAKE::strucparse($nd)
-      ;
-
-    Type::MAKE::strucmake($keyw=>$name=>@field);
-
-    // ^ save to CMAM typetab
-    //   this will be used to regen types on import
-    push @{cmamout()->{type}},[
-      $keyw=>$name=>[@field]
-    ];
-
-    $cpy->{_afterblk}=" $name";
-
-  // ^strict type aliases
+  // ^nope, invalid!
   } else {
-    // put the first token back in ;>
-    $nd->{expr}="$keyw $nd->{expr}";
-
-    // get name...
-    $name=tokenpop($nd);
-
-    // expr is a C type and name is a peso type?
-    my @args = ();
-       $keyw = 'typedef';
-    if(Type->is_valid($name)) {
-      @args=($nd->{expr}=>$name);
-
-    // ^nope, is expr a peso type?
-    } elsif(Type->is_valid($nd->{expr})) {
-      $keyw='typerev';
-      @args=($name=>$nd->{expr});
-
-    // ^nope, neither is valid!
-    } else {
-      throw "Invalid typedef: "
-      .     "'$name' => '$nd->{expr}'";
-    };
-
-    // add to typetab
-    strip($ARG) for @args;
-    push @{cmamout()->{type}},[$keyw=>@args];
-    Type::typedef(@args);
+    throw "Malformed typedef: ($nd->{type}) "
+    .     "'$nd->{cmd} $nd->{expr}'";
   };
 
-
-  // we output the same line (rather than
-  // consuming it) as C needs it.
+  // we output the node as is (rather than
+  // clearing/consuming it) as C needs it.
   //
   // CMAM catches this happening, so
   // it won't go into recursion unless you
-  // fail at giving this expression back
-  clnd($nd);
-  return $cpy;
+  // fail at giving the node back
+  return $nd;
 };
 
 

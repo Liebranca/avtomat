@@ -320,7 +320,7 @@ sub on_build($self,$bld,@bfile) {
   });
 
   # notify we're leaving ;>
-  Log->ex('GNU','C compiler:');
+  Log->ex('GNU','C compiler:') if @bfile;
 
   # give filtered file list for compiler
   return @bfile;

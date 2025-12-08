@@ -1,5 +1,17 @@
 >avtomat v4.00.0
 
+*>Avt::XS
+x Save exported symbols during CMAM run.
+x \--> Write mini-ipret for saving constants
+       declared in C as perl subs.
+
+x Retrieve those symbols in Avt::XS to
+  generate the shadow lib
+x \--> Roll Avt::Xcav into Avt::XS while
+       we're at it
+
+x Use Avt::XS to generate bindings
+
 *>Makescript and Shb7 rework
 x Exclude deprecated or "update pending" files
   from Perl build pipeline so that we can

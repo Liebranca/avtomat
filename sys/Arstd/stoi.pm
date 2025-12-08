@@ -22,14 +22,21 @@ package Arstd::stoi;
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
   use Chk qw(is_null);
-  use Arstd::String qw(has_prefix to_char);
+  use Arstd::String qw(cat has_prefix to_char);
   use Arstd::throw;
+
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT=qw(stoi);
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.5';
+  our $VERSION = 'v0.01.6';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -37,14 +44,12 @@ package Arstd::stoi;
 # infers base from string and gives conversion
 
 sub stoi {
-
   # translation table
   my $tab={
     binnum() => 1,
     octnum() => 8,
     decnum() => 10,
     hexnum() => 16,
-
   };
 
   # ^get which base to use
@@ -52,7 +57,6 @@ sub stoi {
   for(keys %$tab) {
     ($have,$base)=($MATCH,$tab->{$ARG}),
     last if $_[0]=~ qr{^$ARG$};
-
   };
 
   # ^catch invalid
@@ -64,7 +68,6 @@ sub stoi {
     stoi_elem($have,$base)
 
   } split qr{:},$_[0];
-
 };
 
 
@@ -79,11 +82,6 @@ sub stoi {
 # [1]: byte  base
 
 sub stoi_elem {
-
-  # decimal is a special case as we don't
-  # actually need to perform a transform
-  return $_[0] if $_[1] == 10;
-
   # for everything else, we care about
   # significant chars and how many bits
   # each char represents
@@ -92,6 +90,9 @@ sub stoi_elem {
     8  => [octchar(),3],
     16 => [hexchar(),4],
 
+    # decimal is a special case as we don't
+    # actually need to perform a transform
+    10 => [decchar(),4],
   };
 
   # ^catch invalid
@@ -107,64 +108,57 @@ sub stoi_elem {
     : (1)
     ;
 
+  # early exit for decimal
+  if($_[1] == 10) {
+    my $x=cat grep {$ARG=~ $valid} to_char $_[0];
+    return $x * $sign;
+  };
+
 
   # accum to
-  my ($r,$i)=0;
-
+  my ($r,$i)=(0,0);
   # filter invalid accto base
   #
   # we reverse the number to read least
   # significant byte first
   #
   # then we walk the chars and add to accum
-
   for(reverse grep {$ARG=~ $valid} to_char $_[0]) {
-
     # perform division when dot is encountered
     #
     # this turns current value in accum
     # into fractional part of number
-
     if($ARG eq '.') {
-
       # [0]: (i  * bpc) == pos
       # [1]: (1 << pos) == bit
       # [2]: (1  / bit) == fraction
       #
       # so mul by fraction to get decimals
-
       $r*=1/(1 << ($i * $bpc));
 
       # we reset idex here so next char
       # starts back from zero (no shift)
       $i=0;
 
-
     # ^either integer or to-be fractional part
     # ^gets processed the same way
     } else {
       my $v=ord($ARG);
-
       # 0x41 ('A') - 0x37 ('7') == 0x0A ('\n')
       # ie hex to decimal formula
       #
       # this leaves value in [0x00,0x0F] range
-
       $v-=($v > 0x39) ? 0x37 : 0x30 ;
 
       # we then shift value to bit and
       # up counter
       $r+=$v << ($i * $bpc);
       ++$i;
-
     };
-
   };
-
 
   # put sign and give
   return $r*$sign;
-
 };
 
 
@@ -176,10 +170,9 @@ sub binnum {
   my $char=binchar;
   return qr{\b(?:
     (?:(?:0b)($char+))
-  | (?:($char+)(?:b))
+  | (?:($char+)(?:[LU]*)(?:b))
 
   )\b}x;
-
 };
 
 
@@ -191,10 +184,9 @@ sub octnum {
   my $char=octchar;
   return qr{\b(?:
     (?:(?:\\)($char+))
-  | (?:($char+)(?:o))
+  | (?:($char+)(?:[LU]*)(?:o))
 
   )\b}x;
-
 };
 
 
@@ -211,8 +203,7 @@ sub octnum {
 sub decchar {return qr{[\:\.0-9]}};
 sub decnum {
   my $char=decchar;
-  return qr{\b(?:(?:[v]?)($char+)(?:[f]?))\b}x;
-
+  return qr{\b(?:(?:[v]?)($char+)(?:[fLU]*))\b}x;
 };
 
 
@@ -223,11 +214,10 @@ sub hexchar {return qr{[\:\.0-9A-F]}};
 sub hexnum {
   my $char=hexchar;
   return qr{(?:
-    (?:(?:(?:\b0x)|\$)($char+)(?:[L]?))
+    (?:(?:(?:\b0x)|\$)($char+)(?:[LU]*))
   | (?:($char+)(?:h))
 
   )\b}x;
-
 };
 
 

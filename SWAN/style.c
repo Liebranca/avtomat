@@ -213,7 +213,7 @@ public typedef union rel {
 };
 
 public CX drelix NULL_REF=(1LLU << 32) - 1;
-public IX bool is_null(rel ptr self) {
+public IX bool is_nullref(rel ptr self) {
   return self->value == NULL_REF;
 };
 

@@ -160,7 +160,7 @@ sub line($class,$s=null,$err=0) {
 
 sub fupdate($class,$name,$me='updated') {
   my $self = get_self($class);
-  my $s    = "$me " . Arstd::ansi::m(
+  my $s    = "$me " . Arstd::ansi::mwrap(
     $name,'update'
   );
 

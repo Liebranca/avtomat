@@ -98,6 +98,8 @@ St::vconst {
     char        => 0x0E,
     string      => 0x0E,
 
+    highlightup => 0x00,
+
     lcom        => 0x02,
     dev0        => 0x0B,
     dev1        => 0x09,
@@ -158,8 +160,8 @@ sub get_color_name { return join ',',(
 
 sub prprops($def,$key) {
   # extract from instance?
-  if($key eq 'highlight') {
-    my $have=$def->{highlight};
+  if($key=~ qr{^highlight}) {
+    my $have=$def->{$key};
     return map {
       my $value=$have->[$ARG*2+0];
       my $color=$have->[$ARG*2+1];

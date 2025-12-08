@@ -17,6 +17,8 @@ package CMAM::emit;
   use v5.42.0;
   use strict;
   use warnings;
+
+  use Scalar::Util qw(looks_like_number);
   use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/sys/";
@@ -24,13 +26,15 @@ package CMAM::emit;
   use Chk qw(is_null is_arrayref);
 
   use Arstd::Array qw(iof);
-  use Arstd::String qw(cat);
+  use Arstd::String qw(cat gsplit);
   use Arstd::Path qw(extwap);
   use Arstd::Fmat;
+  use Arstd::stoi;
   use Arstd::fatdump;
   use Arstd::throw;
 
   use Ftype::Text::C;
+  use Type qw(typefet);
 
   use lib "$ENV{ARPATH}/lib/";
   use AR sys=>qw(
@@ -58,7 +62,7 @@ package CMAM::emit;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.8a';
+  our $VERSION = 'v0.00.9a';
   our $AUTHOR  = 'IBN-3DILA';
 
   sub errsafe {return 1};
@@ -225,80 +229,121 @@ sub _pm {
   my %O   = @_;
   my $out = io_procin(\%O);
 
-  # add perl dependencies and
-  # begin import method
-  push @$out,join("\n",
-    deps_pm(),
-    'sub import {',
-    'my $class=shift;',
-    'if(! ${loaded()}) {',
-  );
+  # add perl dependencies
+  push @$out,join("\n",deps_pm());
+
+  # now lets go over exported symbols...
+  my $export=CMAM::static::sort_export();
+
+  # save exported functions to a shwl
+  my @shwl=();
+  for my $nd(@{$export->{proc}}) {
+    my ($proc,@args)=map {
+      # get typing without compiler specs
+      my @type=(
+        grep {! ($ARG=~ Tree::C::spec_re())}
+        gsplit($ARG,qr{\s+})
+      );
+
+      # proc with no arguments?
+      if(int(@type) == 1 && $type[0] eq 'void') {
+        ()
+
+      # ^nope, give [name=>typing]
+      } else {
+        my $name=pop  @type;
+           @type=grep {$ARG ne 'void'} @type;
+
+        {name=>$name,type=>join(' ',@type)};
+      };
+
+    } ("$nd->{cmd} $nd->{expr}",@{$nd->{args}});
+
+    push @shwl,{
+      name=>$proc->{name},
+      type=>$proc->{type},
+      args=>[@args],
+    };
+  };
+
+  # ^add shwl to file
+  if(@shwl) {
+    # stringify symbol descriptors
+    my $s=fatdump \[@shwl],mute=>1;
+    push @$out,"\nsub XSHED {return $s};"
+  };
 
   # get types defined by user
-  my @have=map {
-    # get copy of values
-    my ($keyw,$name,$expr)=@$ARG;
+  my @mk_utype=();
+  my @utype=map {
+    # stringify type hashref
+    my $s=fatdump \$ARG,mute=>1;
 
-    # add typedef to import sub
-    if($keyw=~ qr{type(?:def|rev)}) {
-      push @$out,(
-        "Type\::MAKE\::typedef("
-      . "q[$name]=>q[$expr]);"
-      );
-
-    } else {
-      # stringify object
-      my $s  =  fatdump \$expr,mute=>1;
-      my $re =  qr{(?:^\[)|(?:\]\n?$)};
-         $s  =~ s[$re][]g;
-
-      push @$out,(
-        "Type\::MAKE\::strucmake("
-      . "q[$keyw]=>q[$name]=>($s));\n"
-      );
-    };
+    # ^add typedef to import sub
+    push @mk_utype,(
+      "Type\::MAKE\::typeadd("
+    . "q[$ARG->{name}]=>$s);"
+    );
 
     # give type name
-    $name;
+    $ARG->{name};
 
-  } utypes_pm();
+  } @{$export->{type}};
 
+  # add exported constants as perl subroutines!
+  for(@{$export->{const}}) {
+    my ($type,$name,@value)=Type::xlate_expr($ARG);
+    push @$out,(
+      "\nsub $name {"
+      . "return pack('$type->{packof}',@value)"
+    . "};"
+    );
+  };
 
-  # add symbol export
+  # add import/unimport subs
+  push @$out,q[
+    sub import {
+      my $class=shift;
+      for(@_) {
+        my $fn=Chk::getsub($class,$ARG),
+        or throw "C macro '$ARG'"
+        .        "not defined by package '$class'";
+
+        my $spec=Chk::getsub($class,"_${ARG}_spec");
+        macroload($ARG=>$fn,$spec->());
+      };
+      if(! ${loaded()}) {
+        set_loaded();
+        mk_utypes();
+        AR::load($ARG) for pkgdeps();
+      };
+      return;
+    };
+    sub unimport {
+      if(${loaded()}) {
+        unset_loaded();
+        rm_utypes();
+        AR::unload($ARG) for reverse pkgdeps();
+      };
+      return;
+    };
+  ];
+
+  # add subs for loading/unloading user types
   push @$out,join "\n",(
-    '};',
-    q[for(@_) {],
-      q[my $fn=Chk::getsub($class,$ARG)],
-      q[or throw "C macro '$ARG' ]
-    . q[not defined by package '$class'";],
-      q[my $spec=Chk::getsub($class,"_${ARG}_spec");],
-      q[macroload($ARG=>$fn,$spec->());],
-    "};\n",
+    "\nsub mk_utypes {",
+      @mk_utype,
+    "};",
+  );
+  push @$out,join "\n",(
+    "\nsub rm_utypes {",
+      (map {"Type\::rm(q[$ARG]);"} reverse @utype),
+    "};",
   );
 
-
-  # close import subroutine;
-  # add full unimport sub
+  # additional subs needed for managing imports
   push @$out,join "\n",(
-    'if(! ${loaded()}) {',
-    'set_loaded();',
-    'AR::load($ARG) for pkgdeps();',
-    '};',
-    'return;',
-    '};',
-    'sub unimport {',
-    'if(${loaded()}) {',
-    'unset_loaded();',
-    (map {"Type\::rm(q[$ARG]);"} reverse @have),
-    'AR::unload($ARG) for pkgdeps();',
-    '};',
-    'return;',
-    '};',
-    null,
-  );
-
-  push @$out,join "\n",(
-    'sub pkgdeps {return qw(',
+    "\nsub pkgdeps {return qw(",
     (map {$ARG->[0]} @{cmamout()->{dep}->{pm}}),
     ')};',
   );
@@ -318,11 +363,8 @@ sub _pm {
     };
   ];
 
-  # add macros as perl subroutines!
-  for(@{cmamout()->{def}}) {
-    push @$out,"$ARG\n";
-  };
-
+  # finally, add macros as perl subroutines
+  push @$out,"$ARG\n" for @{cmamout()->{def}};
   push @$out,"\n1; # ret";
 
   # give result

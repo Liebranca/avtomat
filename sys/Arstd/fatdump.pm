@@ -213,7 +213,6 @@ sub valuedump($vref,$blessed=undef) {
 # ^just to keep it short ;>
 
 sub valueprich($v) {
-  return 'null()' if is_null($v);
   return $v if looks_like_number($v);
   return "'$v'";
 };

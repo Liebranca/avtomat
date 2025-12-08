@@ -22,7 +22,9 @@ package Emit::Perl;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
+  use Chk qw(is_null);
 
+  use Arstd::String qw(strip);
   use Arstd::Path qw(parof to_pkg);
   use Arstd::Array qw(nkeys nvalues);
 
@@ -136,64 +138,6 @@ sub get_pkg($class,$fname) {
   my $dir=parof($fname);
   relto_root($dir);
   return to_pkg($fname,$dir);
-};
-
-
-# ---   *   ---   *   ---
-# use shwl to make XS module glue
-
-sub shwlbind($class,$soname,$libs_ref) {
-  my $symtab=Shb7::Build::soregen(
-    $soname,$libs_ref
-  );
-
-  my $code=null;
-
-
-  # make header for bindings
-  my $hed=null;
-  for my $file(keys %{$symtab->{object}}) {
-    my $obj   = $symtab->{object}->{$file};
-    my $funcs = $obj->{function};
-
-    $hed .= (
-      "\n\n"
-
-    . "// ---   *   ---   *   ---\n"
-    . "// $file\n\n"
-
-    );
-
-
-    # walk functions
-    for(keys %$funcs) {
-      my $name  = $ARG;
-      my $fn    = $funcs->{$name};
-
-      my @ar    = nvalues($fn->{args});
-
-      my $args  = join ',',@ar;
-      my $rtype = $fn->{rtype};
-
-      $hed .= "$rtype $name($args);\n";
-    };
-
-  };
-
-
-  # ^insert header into sneaky XS compilation ;>
-  my $xsbit=join "\n",(
-    '  use Avt::XS;',
-    "  use $class;",
-
-    '  Avt::XS->build(',
-    "    $class => q[$hed],",
-    "    libs   => " . $symtab->{bld}->libline,
-
-    '  );',
-  );
-
-  return $xsbit;
 };
 
 

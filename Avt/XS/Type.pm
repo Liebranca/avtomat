@@ -25,8 +25,6 @@ package Avt::XS::Type;
 
   use Style;
   use Type qw(sizeof derefof typetab);
-  use Type::C;
-
   use Arstd::Path qw(reqdir parof);
 
   use parent 'St';
@@ -35,17 +33,15 @@ package Avt::XS::Type;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.1';
+  our $VERSION = 'v0.00.2';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # ROM
 
-St::vconst {
-  TYPEMAP_FPATH =>
-    "$ENV{ARPATH}/.cache/avtomat/typemap",
-
+sub typemap_fpath {
+  return "$ENV{ARPATH}/.cache/avtomat/typemap";
 };
 
 
@@ -53,23 +49,20 @@ St::vconst {
 # open/close the type conversion table
 
 sub open($class) {
+  my $where=parof($class->typemap_fpath(),i=>1);
+  reqdir($where);
 
-  my $where = parof $class->TYPEMAP_FPATH,i=>1;
-  reqdir $where;
-
-  my $fpath = $class->TYPEMAP_FPATH;
+  my $fpath = $class->typemap_fpath();
   my $tab   = ExtUtils::Typemaps->new(file=>$fpath);
 
   return bless {tab=>$tab};
-
 };
 
 sub close($self) {
-  my $fpath=$self->TYPEMAP_FPATH;
+  my $fpath=$self->typemap_fpath();
   $self->{tab}->write(file => $fpath);
 
   return;
-
 };
 
 
@@ -77,57 +70,79 @@ sub close($self) {
 # peso typenames use spaces lmao
 
 sub altname {
-  return join '_',split $NSPACE_RE,$_[0];
-
+  return join '_',split qr{ +},$_[0];
 };
 
 
 # ---   *   ---   *   ---
-# there is no ptr conversion,
-# a buf is just a buf;
-#
-# deal with it
+# easier to just generate this from
+# scratch every time, than even try
+# to maintain it...
 
-sub enable_ptr_t($self) {
+sub mkiomap($self) {
+  # more or less a simplified version
+  # of the standard typemap from ExtUtils
+  #
+  # it only deals with raw peso types, so
+  # no weird perl stuff needed here
+  my $have={
+    A9M_INT_T=>{
+      in  => q[$var=($type)SvIV($arg)],
+      out => q[sv_setiv($arg,(IV)$var)],
+    },
+    A9M_UINT_T=>{
+      in  => q[$var=($type)SvUV($arg)],
+      out => q[sv_setiv($arg,(UV)$var)],
+    },
+    A9M_REAL_T=>{
+      in  => q[$var=(float)SvNV($arg)],
+      out => q[sv_setnv($arg,(double)$var)],
+    },
+    A9M_DREAL_T=>{
+      in  => q[$var=(double)SvNV($arg)],
+      out => q[sv_setnv($arg,(double)$var)],
+    },
+    A9M_PTR_T=>{
+      in  => q[$var=($type)SvPVbyte_nolen($arg)],
+      out => q[sv_setpv((SV*) $arg,(char*)$var))],
+    },
+    A9M_REL_T=>{
+      in  => q[$var=(unsigned int)SvUV($arg)],
+      out => q[sv_setiv($arg,(UV)$var)],
+    },
+    A9M_STRUC_T=>{
+      in  => q[$var=*(($type*)SvPVbyte($arg,sizeof($type)))],
+      out => q[sv_setpv((SV*) $arg,(char*)&$var))],
+    },
+  };
 
-  $self->{tab}->add_inputmap(
-    xstype  => 'A9M_PTR_T',
-    replace => 1,
-
-    code => q[$var=($type) SvPVbyte_nolen($arg)],
-
-  );
-
-  $self->{tab}->add_outputmap(
-    xstype  => 'A9M_PTR_T',
-    replace => 1,
-
-    code => q[sv_setpv((SV*) $arg, (char*) $var))],
-
-  );
-
-
+  # ^add them all
+  for my $name(keys %$have) {
+    $self->{tab}->add_inputmap(
+      xstype  => $name,
+      replace => 1,
+      code    => $have->{$name}->{in},
+    );
+    $self->{tab}->add_outputmap(
+      xstype  => $name,
+      replace => 1,
+      code    => $have->{$name}->{out},
+    );
+  };
   return;
-
 };
 
 
 # ---   *   ---   *   ---
-# ^registers pointer type for it
+# mark a given type for a specific conversion
 
-sub add_ptr_t($self,$ptr_t) {
-
+sub typecon($self,$peso,$xs) {
   $self->{tab}->add_typemap(
-    ctype   => altname($ptr_t),
-    xstype  => 'A9M_PTR_T',
-
+    ctype   => $peso,
+    xstype  => $xs,
     replace => 1,
-
   );
-
-
   return;
-
 };
 
 
@@ -139,50 +154,44 @@ sub add_ptr_t($self,$ptr_t) {
 # for each of these
 
 sub table($class) {
-
   my $self = $class->open();
-  my $def  = typetab;
-  my $cdef = Type::C->Table;
+  my $def  = typetab();
 
-  $self->enable_ptr_t();
+  $self->mkiomap();
 
-  map {
-
+  for(keys %$def) {
     my $name = $ARG;
     my $type = $def->{$name};
 
-    if(Type->is_ptr($name)
-    && $type->{sizeof} eq sizeof 'qword') {
+    # raw pointers
+    if(Type->is_ptr($name)) {
+      $self->typecon($name=>'A9M_PTR_T');
 
-      my $ptr_t=$type;
+    # relative pointers
+    } elsif($name eq 'rel') {
+      $self->typecon($name=>'A9M_REL_T');
 
-      if(! exists $cdef->{$name}) {
-        $type=derefof $ptr_t;
-        if($type) {
-          $name=$type->{name};
-          Type::C->add($name,$name);
+    # floats and doubles
+    } elsif($name=~ qr{^d?real$}) {
+      my $t=uc $name;
+      $self->typecon($name=>"A9M_${t}_T");
 
-        };
+    # structures
+    } elsif(@{$type->{struc_t}}) {
+      $self->typecon($name=>'A9M_STRUC_T');
 
-      };
-
-      $self->add_ptr_t($name);
-      $self->add_ptr_t(Type::xlate(C=>$name));
-
-
+    # integers
     } else {
-
+      my $t=(Type::MAKE::is_signed($type))
+        ? 'INT'
+        : 'UINT'
+        ;
+      $self->typecon($name=>"A9M_${t}_T");
     };
-
-
-  } keys %$def;
+  };
 
   $self->close();
-
-
-  return $self->TYPEMAP_FPATH;
-
-
+  return $self->typemap_fpath();
 };
 
 

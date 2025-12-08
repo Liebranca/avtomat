@@ -72,6 +72,7 @@ sub tokenshift {
      $out=shift @have while ! strip($out);
 
   # overwrite input
+  strip($have[0]) if @have;
   $_[0]->{expr}=cat(@have);
 
   return $out;
@@ -98,6 +99,7 @@ sub tokenpop {
      $out=pop @have while ! strip($out);
 
   # overwrite input
+  strip($have[0]) if @have;
   $_[0]->{expr}=cat(@have);
   return $out;
 };

@@ -47,7 +47,13 @@ package Type::MAKE;
   );
   use Arstd::Hash qw(gvalues);
   use Arstd::Bytes qw(bitsize);
-  use Arstd::String qw(cat strip gstrip gsplit);
+  use Arstd::String qw(
+    cat
+    strip
+    gstrip
+    gsplit
+    time_to_uid
+  );
   use Arstd::Token qw(tokenpop);
   use Arstd::Re qw(pekey);
   use Arstd::throw;
@@ -273,6 +279,11 @@ sub typedef {
   my $name=shift;
   strip($name);
 
+  # stop if type already defined
+  if(is_valid($name)) {
+    return typetab()->{$name};
+  };
+
   # fetch actual type and assign it to alias
   typeadd($name=>typefet(@_));
 
@@ -291,17 +302,17 @@ sub typedef {
 
 sub typeadd {
   typetab()->{$_[0]}=$_[1]
-  if ! exists typetab()->{$_[0]};
+  if ! is_valid($_[0]);
 
   # ^catch name with underscores or hyphens
   my $alt=flagstrip($_[0]);
 
   typetab()->{$alt}=typetab()->{$_[0]}
-  if $alt ne $_[0] &&! exists typetab()->{$alt};
+  if $alt ne $_[0] &&! is_valid($alt);
 
   # ^catch invalid
   badtype($_[0]) if ! is_valid($_[0]);
-  return;
+  return $_[1];
 };
 
 
@@ -829,6 +840,15 @@ sub is_primvec {
 
 
 # ---   *   ---   *   ---
+# ~~
+
+sub is_signed {
+  my $type=St::cpkg()->TYPEFLAG;
+  return $_[0]->{flags} & $type->{sign};
+};
+
+
+# ---   *   ---   *   ---
 # get format for bytepacker
 #
 # [0]: mem  ptr ; decl hashref
@@ -922,10 +942,9 @@ sub struc_inner($cmd,$name,$src=undef) {
 sub strucmake($cmd,$name,@field) {
   # stop if type already defined when
   # recursing (may happen during parse)
-  if(exists typetab()->{$name}) {
-    return typetab()->{$name};
+  if(is_valid($name)) {
+    return typefet($name);
   };
-
 
   # ^array as hash
   my @fv  = nvalues(\@field);
@@ -982,6 +1001,7 @@ sub strucmake($cmd,$name,@field) {
     ;
 
   # write to table
+  $out->{flags}=0x00;
   typeadd($name => $out);
 
   # ^make pointer-to variations ;>
@@ -1196,7 +1216,6 @@ sub letparse {
   # ^get [cnt] part of name[cnt]
   my $array_re = qr{\[(.+)\]$};
   my $type_re  = qr{^((?:[^\s,]|\s*,\s*)+)\s};
-
   my $cnt=($decl=~ s[$array_re][])
     ? $1
     : 1
@@ -1205,14 +1224,22 @@ sub letparse {
   strip($cnt);
 
   # ^_now_ take last token as name
-  $_[0]->{expr}=$decl;
-  my $name=tokenpop($_[0]);
+  my $cpy  = {expr=>$decl};
+  my $name = tokenpop($cpy);
 
   # joining the rest of the expression
   # gives us the type!
   my $type=join("_",$_[0]->{cmd},$_[0]->{expr});
+  my $typedef_re=qr{\b(?:
+    (?:typedef_?)
+  | (?:(?:union|struct?)_?)
+  )\b}x;
+
+  $type=~ s[$typedef_re][]g;
+  strip($type);
 
   # give [name=>hashref]
+  return () if is_null($type);
   return ($name=>{
     type => typefet($type),
     cnt  => $cnt,
@@ -1234,19 +1261,24 @@ sub strucparse {
   my $total  = 0;
   my $large  = 0;
   my $padcnt = 0;
-  my @out=map {
+  my @out    = ();
+
+  for(strucparse_inner(@_)) {
     # get next field
-    my @have  = letparse($ARG);
-    my $align = $have[1]->{type}->{sizeof};
+    my @have=letparse($ARG);
+    next if ! @have;
 
     # get size is largest yet
-    $large=$align if $align > $large;
+    my $align=$have[1]->{type}->{sizeof};
+       $large=$align if $align > $large;
 
     # add padding before field if current
     # byte is not aligned to size
-    (autopad($total,$align,$padcnt),@have);
-
-  } strucparse_inner(@_);
+    push @out,(
+      autopad($total,$align,$padcnt),
+      @have
+    );
+  };
 
   # add padding at end if total is not a
   # multiple of largest alignment
@@ -1278,37 +1310,23 @@ sub unionparse {
 # [<]: byte pptr ; expressions (new array)
 
 sub strucparse_inner {
-  # to keep track of anonymous union/struc
-  state $uid=0;
-
   # iter each block
   my @out      = ();
-  my $struc_re = qr{\b(?:union|struct?)\b};
+  my $struc_re = qr{^(?:union|struct?)$};
 
   for(@_) {
-    my $cmd=$ARG->{cmd};
     my @blk=@{$ARG->{blk}};
 
     # have (union|struc) (name|null) {...}
-    if(@blk && ($cmd=~ $struc_re)) {
-      # get block name (or make name for anonymous)
-      my $anon=is_null($ARG->{expr});
-      my $name=(! $anon)
-        ? tokenpop($ARG)
-        : "_anon${cmd}" . ++$uid . '_'
-        ;
-
-      # recurse to generate required type
-      my @field=($cmd eq 'union')
-        ? strucparse(@blk)
-        : unionparse(@blk)
-        ;
-
-      my $type=strucmake($cmd=>$name=>@field);
+    if(@blk && ($ARG->{type}=~ $struc_re)) {
+      my ($blkname,$type)=strucdef($ARG);
 
       # ^ give reference to struc as a single field
       #   in place of block definition
-      push @out,{cmd=>$type->{name},expr=>$name};
+      push @out,{
+        cmd  => $type->{name},
+        expr => $blkname,
+      };
 
     # ^plain field, give asis
     } else {
@@ -1317,6 +1335,61 @@ sub strucparse_inner {
   };
 
   return @out;
+};
+
+
+# ---   *   ---   *   ---
+# ~~
+
+sub strucdef($nd) {
+  # make copy of node values
+  my $cmd  = $nd->{type};
+  my $expr = $nd->{expr};
+
+  # get block name (or make name for anonymous)
+  my $anon=is_null($expr);
+  my $name=(! $anon)
+    ? tokenpop({expr=>$expr})
+    : "anon${cmd}" . time_to_uid(1,'x')
+    ;
+
+  # recurse to generate required type
+  my @field=($cmd eq 'union')
+    ? unionparse(@{$nd->{blk}})
+    : strucparse(@{$nd->{blk}})
+    ;
+
+  return ($name=>strucmake($cmd=>$name=>@field));
+};
+
+
+# ---   *   ---   *   ---
+# ^same thing for block-less expressions
+
+sub utypedef($nd) {
+  # make copy of node value
+  my $cpy   = {expr=>$nd->{expr}};
+  my $name  = tokenpop($cpy);
+
+  my $rev   = 0;
+  my @order = ();
+
+  # making alias of peso type?
+  if(Type->is_valid($name)) {
+    @order=($cpy->{expr}=>$name);
+
+  # ^nope, making alias of foreign type?
+  } elsif(Type->is_valid($cpy->{expr})) {
+    $rev   = 1;
+    @order = ($name=>$cpy->{expr});
+
+  # ^nope, neither is valid!
+  } else {
+    throw "Invalid typedef: "
+    .     "$name => $cpy->{expr}";
+  };
+
+  return typedef(@order);
 };
 
 
@@ -1368,6 +1441,11 @@ sub import {
     typedef("sign $ARG" => "sign $ARG")
     if $ARG ne 'real' && $ARG ne 'dreal';
   };
+
+  typedef("bool"      => "byte");
+  typedef("bool ptr"  => "byte ptr");
+  typedef("bool pptr" => "byte pptr");
+  typedef("bool ref"  => "byte ref");
 
   for(qw(cstr plstr)) {
     typedef("$ARG"     => "$ARG");

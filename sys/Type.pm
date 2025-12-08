@@ -18,6 +18,7 @@ package Type;
   use strict;
   use warnings;
 
+  use Scalar::Util qw(looks_like_number);
   use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/sys/";
@@ -26,9 +27,10 @@ package Type;
 
   use Arstd::Bytes qw(bitsize);
   use Arstd::Int qw(urdiv);
-  use Arstd::String qw(cat strip gstrip);
+  use Arstd::String qw(cat strip gstrip gsplit);
   use Arstd::Array qw(nkeys nvalues iof);
   use Arstd::throw;
+  use Arstd::stoi;
   use Arstd::PM qw(subwraps);
 
   use Type::MAKE qw(
@@ -395,6 +397,37 @@ sub xlate_struc($lang,$type) {
     [$stype,$name];
 
   } @{$type->{struc_t}};
+};
+
+
+# ---   *   ---   *   ---
+# ~~
+
+sub xlate_expr {
+  my ($nd)=@_;
+  my ($name,@defv)=gsplit($nd->{expr},qr{=});
+  for(@defv) {
+    $ARG=join(' ',map {
+      if(looks_like_number($ARG)
+      || $ARG=~ qr{^\d+}) {
+        stoi($ARG);
+
+      } else {$ARG};
+
+    } gsplit($ARG,qr{\s+}));
+  };
+  if(@defv) {
+    @defv=join '=',@defv;
+  };
+  push @defv,xlate_expr($ARG) for @{$nd->{blk}};
+
+  my @type=gsplit($name,qr{\s+});
+     $name=pop @type;
+
+  return (@type)
+    ? (typefet(@type),$name=>@defv)
+    : (@defv)
+    ;
 };
 
 

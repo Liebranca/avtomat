@@ -40,9 +40,11 @@ package Shb7::Path;
   our @ISA=qw(Exporter);
   our @EXPORT_OK=qw(
     root
+    module
     set_root
     swap_root
     relto_root
+    relto_mod
 
     include
 
@@ -50,8 +52,12 @@ package Shb7::Path;
     cachep
     filep
     dirp
+    shared_libp
+    static_libp
+    libdirp
     trashp
     ctrashp
+    modp
     memp
     configp
   );
@@ -330,6 +336,10 @@ sub relto_root {
   return relto($_[0],root());
 };
 
+sub relto_mod {
+  return relto($_[0],module());
+};
+
 
 # ---   *   ---   *   ---
 # batch-copy missing/updated
@@ -443,6 +453,7 @@ sub filep   {return catpath(root(),@_)};
 sub dirp    {return catpath(root(),@_,null)};
 sub cachep  {return catpath(cache(),@_)};
 sub configp {return catpath(config(),@_)};
+sub modp    {return catpath(root(),module())};
 sub memp    {return catpath(mem(),@_)};
 sub trashp  {return catpath(trash(),@_)};
 sub ctrashp {return trashp(module())};

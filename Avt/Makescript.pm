@@ -65,7 +65,7 @@ package Avt::Makescript;
   use lib "$ENV{ARPATH}/lib/";
   use AR;
   use Emit::Std;
-  use Avt::Xcav;
+  use Avt::XS;
 
 
 # ---   *   ---   *   ---
@@ -648,20 +648,33 @@ sub build_binaries($self,$objblt) {
     system {$call->[0]} @$call;
   };
 
-  if(@libs && $self->{ilib}) {
+  my @xprt=();
+  for my $bfile($self->{cmam}->bfiles()) {
+    push @xprt,
+    grep {$bfile->{src} eq $ARG}
+
+    @{$self->{xprt}};
+  };
+
+  if(@libs && $self->{ilib} && @xprt) {
     Log->fupdate(
-      $self->{fswat},
+      $self->{mkwat},
       'compiling shwl for'
     );
 
-    Avt::Xcav::symscan(
+    my $shwl=Avt::XS::mkshwl(
       $self->{fswat},
       $self->{ilib},
-
       \@libs,
-
-      @{$self->{xprt}}
+      @xprt
     );
+    Avt::XS::build(
+      $shwl,
+      $self->{bld},
+      $self->{mkwat},
+      -f=>1,
+    );
+#    Avt::XS::load($self->{mkwat});
   };
 
   return;

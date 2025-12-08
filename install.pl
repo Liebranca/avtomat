@@ -37,7 +37,10 @@ BEGIN {
 
 Avt::config {
   name => 'avtomat',
+  bld  => 'ar:swan',
   xcpy => [qw()], # arperl olink rd symfind
+
+  xprt => [qw(SWAN/*.c)],
 
   # the reason we're excluding so many things
   # is we more or less rewrote the core packages
@@ -63,7 +66,6 @@ Avt::config {
   | Avt/olink
   | Avt/CRun
   | Avt/flatten
-  | Avt/Xcav/C
   | Emit/fasm
   | Emit/Cpp
   | Emit/html

@@ -99,6 +99,7 @@ sub DEFAULT {return {
   mag         => null,
 
   highlight   => [],
+  highlightup => [],
 
   type        => [],
   specifier   => [],

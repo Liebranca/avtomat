@@ -27,6 +27,7 @@ package CMAM::static;
   use Arstd::Path qw(from_pkg extwap);
   use Arstd::Re qw(eiths);
   use Tree::C;
+  use Type::MAKE;
 
   use lib "$ENV{ARPATH}/lib/";
   use AR ();
@@ -315,7 +316,7 @@ sub cmamout_push_c {
 
 
 # ---   *   ---   *   ---
-# parse tree
+# get/make parse tree
 
 sub ctree {
   state $tree=undef;
@@ -326,6 +327,39 @@ sub ctree {
       ;
   };
   return $tree;
+};
+
+
+# ---   *   ---   *   ---
+# ~~
+
+sub sort_export {
+  my @proc  = ();
+  my @type  = ();
+  my @const = ();
+
+  for my $blk(@{cmamout()->{export}}) {
+    for my $nd(@$blk) {
+      if($nd->{type}=~ qr{(?:struc|union)}) {
+        push @type,(Type::MAKE::strucdef($nd))[1];
+
+      } elsif($nd->{type} eq 'utype') {
+        push @type,Type::MAKE::utypedef($nd);
+
+      } elsif($nd->{type} eq 'proc') {
+        push @proc,$nd;
+
+      } elsif($nd->{type} eq 'asg'
+        &&    $nd->{cmd}  eq 'CX') {
+        push @const,$nd;
+      };
+    };
+  };
+  return {
+    proc  => [@proc],
+    type  => [@type],
+    const => [@const],
+  };
 };
 
 

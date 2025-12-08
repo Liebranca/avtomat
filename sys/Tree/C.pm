@@ -397,6 +397,9 @@ sub node_to_expr {
       if|elsif|else|while|do|switch
     )$}x;
 
+    my $struc_re=qr{\b(?<keyw>union|struct?)\b};
+    my $utype_re=qr{^(?:public +)?(?:typedef +)};
+
     if($cmd=~ $fctl_re) {
       $type='fctl';
 
@@ -406,9 +409,19 @@ sub node_to_expr {
     } elsif(has_prefix($expr,'#')) {
       $type='macro';
 
-    } elsif(@blk && $cmd=~ qr{^(?:union|struct?)}) {
-      $type='struc';
+    } elsif("$cmd $expr"=~ $utype_re) {
+      if(@blk && "$cmd $expr"=~ $struc_re) {
+        $type=$+{keyw};
+
+      } else {
+        $type='utype';
+      };
+
+    } elsif(@blk && "$cmd $expr"=~ $struc_re) {
+      $type=$+{keyw};
     };
+
+    $type='struc' if $type eq 'struct';
   };
 
   return {

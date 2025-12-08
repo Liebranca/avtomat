@@ -327,7 +327,7 @@ sub scan {
 sub get_config_build($M,$C) {
   $M->{fswat}=$C->{name};
 
-  state $re=qr{\s*:\s*};
+  my $re=qr{\s*:\s*};
   my ($lmode,$mkwat)=(length $C->{bld})
     ? (split $re,$C->{bld})
     : (null,null)
@@ -547,11 +547,10 @@ sub config($C) {
   $PKG->defnit($C);
 
   # convert file lists to hashes
-  for(keys %$C) {
-    $C->{$ARG}={ map {$ARG=>1} @{$C->{$ARG}} }
-    if $ARG=~ $list_to_hash;
+  for(grep {$ARG=~ $list_to_hash} keys %$C) {
+    my @expand=map {glob($ARG)} @{$C->{$ARG}};
+    $C->{$ARG}={map {$ARG=>1} @expand};
   };
-
 
   # run dependency checks
   depchk(dirp($C->{name}),$C->{dep})

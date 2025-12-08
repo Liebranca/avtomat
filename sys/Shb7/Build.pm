@@ -283,6 +283,10 @@ sub libline($self) {
   return join ' ',@{$self->{lib}};
 };
 
+sub incline($self) {
+  return join ' ',@{$self->{inc}};
+};
+
 
 # ---   *   ---   *   ---
 # symrd errme
@@ -320,12 +324,12 @@ sub symtab_read($symtab,$lib,$path,$rebuild) {
   $$rebuild=ot($path,ffind('-l'.$lib))
   if ! $$rebuild;
 
-  # add [file => object] entries
-  for my $o(keys %{$f->{object}}) {
-    my $obj=$f->{object}->{$o};
+  # add [file => obj] entries
+  for my $o(keys %{$f->{obj}}) {
+    my $obj=$f->{obj}->{$o};
     my $key=Shb7::Path::root() . $o;
 
-    $symtab->{object}->{$key}=$obj;
+    $symtab->{obj}->{$key}=$obj;
   };
 
   push @{$symtab->{dep}},$f->{dep};
@@ -334,7 +338,7 @@ sub symtab_read($symtab,$lib,$path,$rebuild) {
 
 
 # ---   *   ---   *   ---
-# makes shared object based on
+# makes shared obj based on
 # the provided shadow lib
 
 sub so_from_symtab($symtab,$path,@libs) {
@@ -342,11 +346,11 @@ sub so_from_symtab($symtab,$path,@libs) {
   map  {$ARG="-l$ARG"} @libs;
   push @libs,map {@$ARG} @{$symtab->{dep}};
 
-  # reformat object field
+  # reformat obj field
   my @objs=map {
     {obj=>$ARG}
 
-  } keys %{$symtab->{object}};
+  } keys %{$symtab->{obj}};
 
 
   # make struc for linking
@@ -367,7 +371,7 @@ sub so_from_symtab($symtab,$path,@libs) {
 
 
 # ---   *   ---   *   ---
-# rebuilds shared objects if need be
+# rebuilds shared objs if need be
 
 sub soregen($name,$libs_ref,$no_regen=0) {
   my $path    = so($name);
@@ -378,7 +382,7 @@ sub soregen($name,$libs_ref,$no_regen=0) {
     rebuild => 0,
     bld     => undef,
     dep     => [],
-    object  => {}
+    obj     => {}
   };
 
 

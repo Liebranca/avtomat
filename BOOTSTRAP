@@ -162,7 +162,8 @@ my $ROM={
     /Emit/Perl.pm
 
     /Avt/Sieve.pm
-    /Avt/Xcav.pm
+    /Avt/XS/Type.pm
+    /Avt/XS.pm
     /Avt/Makescript.pm
     /Avt.pm
   )],

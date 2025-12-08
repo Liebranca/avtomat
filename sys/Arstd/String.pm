@@ -18,6 +18,12 @@ package Arstd::String;
   use strict;
   use warnings;
 
+  use Time::HiRes qw(
+    clock_gettime
+    CLOCK_REALTIME
+    CLOCK_BOOTTIME
+    CLOCK_PROCESS_CPUTIME_ID
+  );
   use English qw($ARG $MATCH);
 
   use lib "$ENV{ARPATH}/lib/sys/";
@@ -57,6 +63,7 @@ package Arstd::String;
 
     jag
     cjag
+    time_to_uid
   );
 
 
@@ -446,6 +453,39 @@ sub cjag {
   return (@_) ? $_[0] . jag @_ : null ;
 };
 
+
+# ---   *   ---   *   ---
+# makes a uid from timestamps
+#
+# [0]: bool ; make uid _strictly_ unique
+# [1]: byte ; join char
+#
+# [<]: byte ptr ; uid (new string)
+#
+# [!]: use of TAI might be overkill...
+
+sub time_to_uid {
+  my ($strict,$ch)=(@_);
+  $strict //= 0;
+  $ch     //= '_';
+
+  # get which clocks to use
+  my @clk=($_[0])
+    ? (CLOCK_REALTIME,CLOCK_BOOTTIME)
+    : ()
+    ;
+
+  push @clk,CLOCK_PROCESS_CPUTIME_ID;
+
+  # get timestamps for each clock and join them
+  @clk=map {clock_gettime($ARG)} @clk;
+
+  my $dot_re =  qr{\.};
+  my $uid    =  join($ch,@clk);
+     $uid    =~ s[$dot_re][$ch]g;
+
+  return $uid;
+};
 
 # ---   *   ---   *   ---
 1; # ret
