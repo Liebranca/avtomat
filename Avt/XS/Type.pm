@@ -22,9 +22,9 @@ package Avt::XS::Type;
   use ExtUtils::Typemaps;
 
   use lib "$ENV{ARPATH}/lib/sys/";
-
-  use Style;
   use Type qw(sizeof derefof typetab);
+
+  use Arstd::String qw(strip);
   use Arstd::Path qw(reqdir parof);
 
   use parent 'St';
@@ -33,7 +33,7 @@ package Avt::XS::Type;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.2';
+  our $VERSION = 'v0.00.3';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -104,29 +104,43 @@ sub mkiomap($self) {
     },
     A9M_PTR_T=>{
       in  => q[$var=($type)SvPVbyte_nolen($arg)],
-      out => q[sv_setpv((SV*) $arg,(char*)$var))],
+      out => q[sv_setpv((SV*) $arg,(char*)$var)],
     },
     A9M_REL_T=>{
-      in  => q[$var=(unsigned int)SvUV($arg)],
-      out => q[sv_setiv($arg,(UV)$var)],
+      in  => q[$var=(rel){.value=(drelix)SvUV($arg)}],
+      out => q[sv_setiv($arg,(UV)$var.value)],
     },
     A9M_STRUC_T=>{
-      in  => q[$var=*(($type*)SvPVbyte($arg,sizeof($type)))],
-      out => q[sv_setpv((SV*) $arg,(char*)&$var))],
+      in  => q[$var=($type)SvPVbyte(
+        $arg,
+        sizeof($type)
+      )],
+      out => q[sv_setpvn(
+        (SV*) $arg,
+        (char*)&$var,
+        sizeof($type)
+      )],
     },
   };
 
   # ^add them all
   for my $name(keys %$have) {
+    for(
+      $have->{$name}->{in},
+      $have->{$name}->{out}
+    ) {
+      strip($ARG);
+      $ARG=~ s[ +][ ]g;
+    };
     $self->{tab}->add_inputmap(
       xstype  => $name,
       replace => 1,
-      code    => $have->{$name}->{in},
+      code    => "$have->{$name}->{in};",
     );
     $self->{tab}->add_outputmap(
       xstype  => $name,
       replace => 1,
-      code    => $have->{$name}->{out},
+      code    => "$have->{$name}->{out};",
     );
   };
   return;
@@ -137,6 +151,8 @@ sub mkiomap($self) {
 # mark a given type for a specific conversion
 
 sub typecon($self,$peso,$xs) {
+  my $sign_re=qr{\bsign +};
+  $peso=~ s[$sign_re][sign_]smg;
   $self->{tab}->add_typemap(
     ctype   => $peso,
     xstype  => $xs,
@@ -158,10 +174,15 @@ sub table($class) {
   my $def  = typetab();
 
   $self->mkiomap();
+  $self->typecon('void ptr'  => 'A9M_PTR_T');
+  $self->typecon('void pptr' => 'A9M_PTR_T');
+  $self->typecon('void ref'  => 'A9M_PTR_T');
 
   for(keys %$def) {
     my $name = $ARG;
     my $type = $def->{$name};
+
+    next if $name=~ Type::MAKE::anonblk_re();
 
     # raw pointers
     if(Type->is_ptr($name)) {

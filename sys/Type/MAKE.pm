@@ -262,6 +262,11 @@ sub typetab {
   return $tab;
 };
 
+sub typebase {
+  state $base={};
+  return $base;
+};
+
 
 # ---   *   ---   *   ---
 # make an alias for a type
@@ -273,6 +278,13 @@ sub typetab {
 #
 # [!]: overwrites strings in input array
 # [*]: throws on invalid
+
+sub base_typedef {
+  my $out=typedef(@_);
+  typebase()->{$out->{name}}=1;
+
+  return $out;
+};
 
 sub typedef {
   # make copy of input string
@@ -327,6 +339,18 @@ sub is_valid {
   return (
       exists(typetab()->{$type})
   &&! is_null(typetab()->{$type})
+  );
+};
+
+
+# ---   *   ---   *   ---
+# type was defined by this module?
+
+sub is_base {
+  my $type=typename($_[0]);
+  return (
+      exists(typebase()->{$type})
+  &&! is_null(typebase()->{$type})
   );
 };
 
@@ -906,6 +930,17 @@ sub voidstruc {
 # build structure or union from
 # other types!
 
+sub base_struc {
+  my $out=struc(@_);
+  typebase()->{$out->{name}}=1;
+
+  for(ptrfet($out->{name})) {
+    typebase()->{$ARG->{name}}=1;
+  };
+
+  return $out;
+};
+
 sub struc($name,$src=undef) {
   return struc_inner(struc=>$name,$src);
 };
@@ -1005,10 +1040,36 @@ sub strucmake($cmd,$name,@field) {
   typeadd($name => $out);
 
   # ^make pointer-to variations ;>
-  for(qw(ptr pptr ref)) {
-    typedef("$name $ARG" => $ARG);
-  };
+  ptrdef($name);
   return $out;
+};
+
+
+# ---   *   ---   *   ---
+# given a type name, define pointer-to variations
+#
+# [0]: byte ptr  ; type name
+# [<]: mem  pptr ; type hashref (new array)
+
+sub ptrdef {
+  return (
+    map {typedef("$_[0] $ARG" => "$_[0] $ARG")}
+    qw  (ptr pptr ref)
+  );
+};
+
+
+# ---   *   ---   *   ---
+# ^fetch
+#
+# [0]: byte ptr  ; type name
+# [<]: mem  pptr ; type hashref (new array)
+
+sub ptrfet {
+  return (
+    map {typefet("$_[0] $ARG")}
+    qw  (ptr pptr ref)
+  );
 };
 
 
@@ -1020,15 +1081,15 @@ sub strucmake($cmd,$name,@field) {
 # [*]: const re
 
 sub anonstruc_re {
-  return qr{^_anonstruct?\d+_$};
+  return qr{^anonstruct?[\dx]+$};
 };
 
 sub anonunion_re {
-  return qr{^_anonunion\d+_$};
+  return qr{^anonunion[\dx]+$};
 };
 
 sub anonblk_re {
-  return qr{^_anon(?:union|struct?)\d+_$};
+  return qr{^anon(?:union|struct?)[\dx]+$};
 };
 
 
@@ -1339,7 +1400,7 @@ sub strucparse_inner {
 
 
 # ---   *   ---   *   ---
-# ~~
+# reloads structure
 
 sub strucdef($nd) {
   # make copy of node values
@@ -1370,18 +1431,16 @@ sub utypedef($nd) {
   # make copy of node value
   my $cpy   = {expr=>$nd->{expr}};
   my $name  = tokenpop($cpy);
-
-  my $rev   = 0;
   my @order = ();
 
-  # making alias of peso type?
-  if(Type->is_valid($name)) {
+  # making alias of foreign type?
+  if( is_valid($name)
+  &&! is_base($cpy->{expr})) {
     @order=($cpy->{expr}=>$name);
 
-  # ^nope, making alias of foreign type?
-  } elsif(Type->is_valid($cpy->{expr})) {
-    $rev   = 1;
-    @order = ($name=>$cpy->{expr});
+  # making alias of peso type?
+  } elsif(is_base($cpy->{expr})) {
+    @order=($name=>$cpy->{expr});
 
   # ^nope, neither is valid!
   } else {
@@ -1389,7 +1448,7 @@ sub utypedef($nd) {
     .     "$name => $cpy->{expr}";
   };
 
-  return typedef(@order);
+  return ($name=>typedef(@order));
 };
 
 
@@ -1433,23 +1492,23 @@ sub import {
     xword yword zword
     real  dreal
   )) {
-    typedef("$ARG"      => "$ARG");
-    typedef("$ARG ptr"  => "$ARG ptr");
-    typedef("$ARG pptr" => "$ARG pptr");
-    typedef("$ARG ref"  => "$ARG ref");
+    base_typedef("$ARG"      => "$ARG");
+    base_typedef("$ARG ptr"  => "$ARG ptr");
+    base_typedef("$ARG pptr" => "$ARG pptr");
+    base_typedef("$ARG ref"  => "$ARG ref");
 
-    typedef("sign $ARG" => "sign $ARG")
+    base_typedef("sign $ARG" => "sign $ARG")
     if $ARG ne 'real' && $ARG ne 'dreal';
   };
 
-  typedef("bool"      => "byte");
-  typedef("bool ptr"  => "byte ptr");
-  typedef("bool pptr" => "byte pptr");
-  typedef("bool ref"  => "byte ref");
+  base_typedef("bool"      => "byte");
+  base_typedef("bool ptr"  => "byte ptr");
+  base_typedef("bool pptr" => "byte pptr");
+  base_typedef("bool ref"  => "byte ref");
 
   for(qw(cstr plstr)) {
-    typedef("$ARG"     => "$ARG");
-    typedef("$ARG ptr" => "$ARG ptr");
+    base_typedef("$ARG"     => "$ARG");
+    base_typedef("$ARG ptr" => "$ARG ptr");
   };
 
   # make vector aliases
@@ -1470,12 +1529,15 @@ sub import {
       for(@elem) {
         $ARG="$t $ARG;";
       };
-      struc("${i}vec$sz"=>cat(@elem));
+      base_struc("${i}vec$sz"=>cat(@elem));
     };
 
     # ^make mat[2-4] for element type
     for my $sz(2..4) {
-      struc("${i}mat$sz"=>"${i}vec$sz col[$sz];");
+      base_struc(
+        "${i}mat$sz",
+        "${i}vec$sz col[$sz];"
+      );
     };
   };
 

@@ -252,8 +252,6 @@ sub _pm {
       # ^nope, give [name=>typing]
       } else {
         my $name=pop  @type;
-           @type=grep {$ARG ne 'void'} @type;
-
         {name=>$name,type=>join(' ',@type)};
       };
 

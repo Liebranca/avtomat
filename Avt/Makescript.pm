@@ -674,7 +674,7 @@ sub build_binaries($self,$objblt) {
       $self->{mkwat},
       -f=>1,
     );
-#    Avt::XS::load($self->{mkwat});
+    Avt::XS::load($self->{mkwat});
   };
 
   return;

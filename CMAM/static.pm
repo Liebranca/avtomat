@@ -24,6 +24,7 @@ package CMAM::static;
   use Chk qw(is_null);
 
   use Arstd::String qw(gsplit);
+  use Arstd::Bin qw(deepcpy);
   use Arstd::Path qw(from_pkg extwap);
   use Arstd::Re qw(eiths);
   use Tree::C;
@@ -331,7 +332,7 @@ sub ctree {
 
 
 # ---   *   ---   *   ---
-# ~~
+# fetches and sorts symbols in export array
 
 sub sort_export {
   my @proc  = ();
@@ -341,10 +342,15 @@ sub sort_export {
   for my $blk(@{cmamout()->{export}}) {
     for my $nd(@$blk) {
       if($nd->{type}=~ qr{(?:struc|union)}) {
-        push @type,(Type::MAKE::strucdef($nd))[1];
+        my ($name,$t)=Type::MAKE::strucdef($nd);
+        my @ptr=Type::MAKE::ptrfet($name);
+        push @type,$t,@ptr;
 
       } elsif($nd->{type} eq 'utype') {
-        push @type,Type::MAKE::utypedef($nd);
+        my ($name,$t)=Type::MAKE::utypedef($nd);
+        my $cpy=deepcpy($t);
+        $cpy->{name}=$name;
+        push @type,$cpy;
 
       } elsif($nd->{type} eq 'proc') {
         push @proc,$nd;

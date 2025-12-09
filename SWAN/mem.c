@@ -65,7 +65,7 @@ public mem mem_new(
     .use=0x00,
     .flg=flg,
     .buf=malloc(ezy*cap)
-  };;
+  };
 
   // catch malloc error
   if(! self.buf)

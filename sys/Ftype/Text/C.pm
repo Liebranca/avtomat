@@ -35,7 +35,7 @@ package Ftype::Text::C;
 
 sub classattr {return {
   name => 'C',
-  ext  => '\.([ch](pp|xx)?|C|cc|c\+\+|cu|H|hh|ii?)$',
+  ext  => '\.(xsc?|[ch](pp|xx)?|C|cc|c\+\+|cu|H|hh|ii?)$',
   mag  => '^(C|C\+\+) (source|program)',
 
   com  => '//',

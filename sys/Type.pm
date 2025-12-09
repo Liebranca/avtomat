@@ -281,11 +281,17 @@ sub is_valid($class,$type) {
   return Type::MAKE::is_valid($type);
 };
 
+sub is_base($class,$type) {
+  return Type::MAKE::is_base($type);
+};
+
 
 # ---   *   ---   *   ---
 # remove entry from table
 
 sub rm($class,$type) {
+  return if $class->is_base($type);
+
   $type=typename($type);
   delete typetab()->{$type}
   if exists typetab()->{$type};

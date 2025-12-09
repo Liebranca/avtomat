@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
 # XS
-# Uses Inline::C to make XS
+# Uses ExtUtils to make XS
 # ... yep, we ain't writing it by hand ;>
 #
 # LIBRE SOFTWARE
@@ -29,7 +29,8 @@ package Avt::XS;
   use Chk qw(is_null);
 
   use Arstd::String qw(strip);
-  use Arstd::Bin qw(orc);
+  use Arstd::Array qw(dupop);
+  use Arstd::Bin qw(moo orc owc);
   use Arstd::Path qw(
     to_pkg
     from_pkg
@@ -37,10 +38,12 @@ package Avt::XS;
     extwap
     basef
     based
+    dirof
     parof
     reqdir
   );
   use Arstd::throw;
+  use Arstd::fatdump;
 
   use Shb7::Path qw(
     dirp
@@ -64,23 +67,32 @@ package Avt::XS;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.3a';
+  our $VERSION = 'v0.00.4a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
-# compiles XS stuff
+# compiles XS from shwl
 
 sub build($shwl,$bld,$name,%O) {
-  # get packages needed by build
-  AR::load('Inline');
-
   # defaults
-  $O{-f} //= 0,
+  $O{-f} //= 0;
+
+  # check whether we can skip compilation
+  my $dst = shared_libp($name);
+  my $ok  = 0;
+  for my $obj(@{$shwl->{obj}}) {
+    $ok+=int(moo($dst,$obj));
+  };
+  return if ! $ok;
 
   # make path if need
-  my $trash=ctrashp() . '/_Inline';
+  my $trash=ctrashp() . '/.XS';
   reqdir($trash);
+
+  # generate XS code with wrappers for
+  # all exported symbols
+  xsgen($trash,$name,$shwl);
 
   # get a string with the compiler flags we use
   my $ccflag=join ' ',(
@@ -88,78 +100,128 @@ sub build($shwl,$bld,$name,%O) {
     Shb7::Bk::cmam::oflg(),
   );
 
+  # add dependencies to lib path
   push @{$bld->{lib}},@{$shwl->{dep}},"-l$name";
+  dupop($bld->{lib});
 
-  # we have to jump into the module directory
-  # because Inline::C tries to find the current
-  # script (./avto) to perform an unnecessary bit
-  # of setup that crashes the build if said script
-  # isnt found
-  #
-  # I cannot deactivate this 'feature'
+  # generate and run makefile
+  my $makefile=makegen(
+    $trash,
+    NAME      => $name,
+    LIBS      => $bld->libline(),
+    INC       => $bld->incline(),
+    CCFLAGS   => $ccflag,
+    MYEXTLIB  => static_libp($name),
+    TYPEMAPS  => [Avt::XS::Type->table()],
+  );
   my $old=getcwd();
-  chdir(modp());
-
-  # make the call
-  Inline->bind(C => $shwl->{hed} => (
-    using     => 'ParseRegExp',
-
-    name      => $name,
-    directory => $trash,
-
-    libs      => $bld->libline(),
-    inc       => $bld->incline(),
-    ccflags   => $ccflag,
-    myextlib  => static_libp($name),
-
-    typemaps  => Avt::XS::Type->table(),
-    enable    => 'autowrap',
-    disable   => 'autoname',
-    disable   => 'clean_after_build',
-
-    ($O{-f}) ? (enable => 'force_build') : () ,
-  ));
-  chdir($old);
+  chdir $trash;
+  `perl $makefile && make`;
+  chdir $old;
 
   # ^find the generated *.so
-  my $blddir="$trash/build/$name";
-  my $soname="$name.so";
+  my $out="$trash/blib/arch/auto/$name/$name.so";
+  throw "'$out'\nXS build fail" if ! -f $out;
 
-  my $out="$blddir/blib/arch/auto/$name/$soname";
-  throw "XS build fail: '$soname'" if ! -f $out;
-
-  # we copy the *.so to where XSLoader can find it
-  #
-  # this makes it so a module can work _without_
-  # Inline ever being invoked...
-  my $dst=shared_libp($name);
+  # we move the *.so to where XSLoader can find it
   rename $out,$dst;
-
   return;
 };
 
 
 # ---   *   ---   *   ---
-# ^fetches the *.so
+# XS code is not so bad, actually ;>
+#
+# this F takes the shwl and outputs
+# wrappers for all of it's symbols
+
+sub xsgen($path,$pkg,$shwl) {
+  my $body=null;
+
+  # walk shwl->src->[symbols]
+  for my $src(@{$shwl->{src}}) {
+  for my $sym(@$src) {
+    my $name = $sym->{name};
+    my $type = (! is_null($sym->{type}))
+      ? $sym->{type}
+      : 'void'
+      ;
+
+    # generate signature
+    my (@argname,@argtype);
+    for(@{$sym->{args}}) {
+      if(! is_null($ARG->{type})) {
+        push @argname,"$ARG->{name}";
+        push @argtype,"$ARG->{type} $ARG->{name}";
+
+      } else {
+        push @argtype,'void';
+      };
+    };
+    my $sig="$name(" . join(',',@argname) . ')';
+
+    # add definition for this symbol
+    $body .= join("\n",
+      $type,
+      $sig,
+      (map {"    $ARG"} @argtype),
+
+      "  CODE:",
+      ($type ne 'void')
+        ? ("    RETVAL = $sig;",
+           "  OUTPUT:",
+           "    RETVAL")
+
+        : ("    $sig;")
+        ,
+      "\n",
+    );
+  }};
+
+  # the 'sign' specifier is a peso thing,
+  # the actual typename would be sign_[type]
+  my $sign_re=qr{\bsign +};
+  $body=~ s[$sign_re][sign_]smg;
+
+  # set the destination package that the
+  # xsubs will be added to
+  my $fname=$pkg;
+  from_pkg($fname);
+  extwap($fname,'xs');
+
+  # write *.xs file and give
+  reqdir(dirof("$path/$fname"));
+  owc("$path/$fname",join("\n",
+    $shwl->{hed},
+    "MODULE = $pkg PACKAGE = $pkg",
+    "PROTOTYPES: DISABLE",
+    "$body",
+  ));
+  return;
+};
+
+
+# ---   *   ---   *   ---
+# output makefile
+
+sub makegen($path,%O) {
+  my $out    = 'Makefile.PL';
+  my $config = fatdump \{%O},mute=>1;
+  my $body   = join(";\n",
+    q[use ExtUtils::MakeMaker],
+    'WriteMakefile(%{' . $config . '})',
+    q[sub MY::makefile { '' }],
+  );
+  owc("$path/$out",$body);
+  return $out;
+};
+
+
+# ---   *   ---   *   ---
+# fetches the *.so
 
 sub load($name) {
-#  # get version
-#  no strict 'refs';
-#  my $version=sane_version(${"$name\::VERSION"});
-
-#  # get path to package
-#  my $fname=$name;
-#  from_pkg($fname);
-#
-#  my $dir  = based($fname);
-#  my $full = "$ENV{ARPATH}/lib/$dir/";
-
-#  XSLoader::load($name,v0.00);
-#
-#  my $st=mem_new(1,8,0x00);
-#  use Arstd::xd;
-#  xd($st);
-#  mem_del($st);
+  XSLoader::load($name,v0.00);
   return;
 };
 
@@ -188,12 +250,17 @@ sub mkshwl($mod,$dst,$deps,@fname) {
   my $shwl={
     dep   => $deps,
     fswat => $mod,
-    hed   => null,
-    obj   => {},
+    obj   => [],
+    src   => [],
+    hed   => join("\n",
+      q[#include "EXTERN.h"],
+      q[#include "perl.h"],
+      q[#include "XSUB.h"],
+      null,
+    ),
   };
 
   # ^iter through expanded list to fill it out
-  my $hed=null;
   for(@file) {
     my $fcpy=$ARG;
     relto_mod($fcpy);
@@ -205,38 +272,17 @@ sub mkshwl($mod,$dst,$deps,@fname) {
     next if ! $fcpy->can('XSHED');
 
     # record symbol data for each object file
-    my $xs = $fcpy->XSHED();
-    my $o  = Shb7::Path::obj_from_src($ARG);
+    my $o=Shb7::Path::obj_from_src($ARG);
     relto_root($o);
 
-    $shwl->{obj}->{$o}=$xs;
+    push @{$shwl->{obj}},$o;
+    push @{$shwl->{src}},$fcpy->XSHED();
 
     # now include the header for it ;>
     my $h=$ARG;
     extwap($h,'h');
-    $shwl->{hed} .= orc($h) . "\n";
-
-#    # ^and wrappers below that
-#    for my $sym(@$xs) {
-#      my $rtype=(! is_null($sym->{type}))
-#        ? $sym->{type}
-#        : 'void'
-#        ;
-#
-#      my $args='void';
-#      if(@{$sym->{args}}) {
-#        $args=join ',',map {
-#          "$ARG->{type} $ARG->{name}";
-#
-#        } @{$sym->{args}};
-#      };
-#
-#      $hed .= "$rtype $sym->{name}($args);\n";
-#    };
+    $shwl->{hed} .= "#include \"$h\"\n";
   };
-
-  my $re=qr{static inline };
-  $shwl->{hed}=~ s[$re][]smg;
 
   # dump table to disk
   store($shwl,$dst) or throw $dst;

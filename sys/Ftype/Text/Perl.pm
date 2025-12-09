@@ -38,7 +38,7 @@ sub classattr {return {
   name   => 'Perl',
   mag    => 'Perl script',
 
-  ext    => '\.p[lm]$',
+  ext    => '\.[pP][lLm]$',
   hed    => '^#!.*perl',
 
   use_sigils => {type=>1},

@@ -11,6 +11,14 @@ x \--> Roll Avt::Xcav into Avt::XS while
        we're at it
 
 x Use Avt::XS to generate bindings
+x Replace Inline::C entirely in favor of
+  raw ExtUtils.
+
+~ Generate a perl module for the compiled
+  extension
+~ \--> Add Exporter boilerpaste
+~ \--> Also consider whether we actually need
+       to add any additional interface feature
 
 *>Makescript and Shb7 rework
 x Exclude deprecated or "update pending" files
