@@ -28,7 +28,7 @@ package Avt::XS;
   use Style qw(null);
   use Chk qw(is_null);
 
-  use Arstd::String qw(strip);
+  use Arstd::String qw(cat strip);
   use Arstd::Array qw(dupop);
   use Arstd::Bin qw(moo orc owc);
   use Arstd::Path qw(
@@ -42,6 +42,7 @@ package Avt::XS;
     parof
     reqdir
   );
+  use Arstd::Fmat;
   use Arstd::throw;
   use Arstd::fatdump;
 
@@ -67,20 +68,32 @@ package Avt::XS;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.4a';
+  our $VERSION = 'v0.00.5a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # compiles XS from shwl
 
-sub build($shwl,$bld,$name,%O) {
+sub build($shwl,$bld,$pkg,%O) {
   # defaults
   $O{-f} //= 0;
 
+  # get file name from package
+  my $fname=$pkg;
+  from_pkg($fname);
+  extcl($fname);
+
+  # ^split it up
+  my ($dir,$outf)=(dirof($fname),basef($fname));
+  relto_root($dir);
+  if($dir=~ q{^\.\.?}) {
+    $dir=null;
+  };
+
   # check whether we can skip compilation
-  my $dst = shared_libp($name);
-  my $ok  = 0;
+  my $dst  = shared_libp($dir,"${fname}XS");
+  my $ok   = 0;
   for my $obj(@{$shwl->{obj}}) {
     $ok+=int(moo($dst,$obj));
   };
@@ -89,10 +102,11 @@ sub build($shwl,$bld,$name,%O) {
   # make path if need
   my $trash=ctrashp() . '/.XS';
   reqdir($trash);
+  reqdir(dirof($dst));
 
   # generate XS code with wrappers for
   # all exported symbols
-  xsgen($trash,$name,$shwl);
+  xsgen($trash,$pkg,$shwl);
 
   # get a string with the compiler flags we use
   my $ccflag=join ' ',(
@@ -101,30 +115,45 @@ sub build($shwl,$bld,$name,%O) {
   );
 
   # add dependencies to lib path
-  push @{$bld->{lib}},@{$shwl->{dep}},"-l$name";
+  push @{$bld->{lib}},(
+    @{$shwl->{dep}},
+    "-L" . libdirp($dir),
+    "-l$outf"
+  );
   dupop($bld->{lib});
 
   # generate and run makefile
   my $makefile=makegen(
     $trash,
-    NAME      => $name,
+    NAME      => "${pkg}XS",
     LIBS      => $bld->libline(),
     INC       => $bld->incline(),
     CCFLAGS   => $ccflag,
-    MYEXTLIB  => static_libp($name),
+    MYEXTLIB  => static_libp($dir,$outf),
     TYPEMAPS  => [Avt::XS::Type->table()],
+    VERSION   => $shwl->{VERSION},
   );
   my $old=getcwd();
   chdir $trash;
   `perl $makefile && make`;
   chdir $old;
 
-  # ^find the generated *.so
-  my $out="$trash/blib/arch/auto/$name/$name.so";
+  # find the generated *.so
+  #
+  # NOTE: the double '$outf' is not a typo,
+  #       *this* is the correct folder structure
+  #
+  #       ... no further comment ;>
+  my $blib = "$trash/blib/arch/auto/$dir";
+  my $out  = "$blib/${outf}XS/${outf}XS.so";
   throw "'$out'\nXS build fail" if ! -f $out;
 
   # we move the *.so to where XSLoader can find it
   rename $out,$dst;
+
+  # finally, make a perl module to serve as
+  # container for the generated xsubs
+  pmgen($pkg,$shwl);
   return;
 };
 
@@ -187,14 +216,23 @@ sub xsgen($path,$pkg,$shwl) {
   # xsubs will be added to
   my $fname=$pkg;
   from_pkg($fname);
-  extwap($fname,'xs');
+  extcl($fname);
+  $fname.="XS.xs";
+
+  # we SLAP recognition _right_ on the sauce
+  my $author=(
+    "static const char* AUTHOR="
+  . "\"$shwl->{AUTHOR}\";\n"
+  );
 
   # write *.xs file and give
   reqdir(dirof("$path/$fname"));
   owc("$path/$fname",join("\n",
     $shwl->{hed},
-    "MODULE = $pkg PACKAGE = $pkg",
+    $author,
+    "MODULE = ${pkg}XS PACKAGE = $pkg",
     "PROTOTYPES: DISABLE",
+    "VERSIONCHECK: ENABLE",
     "$body",
   ));
   return;
@@ -218,10 +256,61 @@ sub makegen($path,%O) {
 
 
 # ---   *   ---   *   ---
-# fetches the *.so
+# generates a perl module from the shwl
 
-sub load($name) {
-  XSLoader::load($name,v0.00);
+sub pmgen($pkg,$shwl) {
+  # paste in dependencies
+  my $body="package $pkg;" . q[
+    use v5.42.0;
+    use strict;
+    use warnings;
+
+    use English qw($ARG);
+    use lib "$ENV{ARPATH}/lib/";
+  ] . cat(map {"use $ARG;\n"} @{$shwl->{pm}});
+
+  # add symbol names for export
+  $body .= q[
+    use Exporter 'import';
+    our @EXPORT_OK=qw(
+  ];
+
+  for my $src(@{$shwl->{src}}) {
+  for my $sym(@$src) {
+    $body .= "$sym->{name}\n";
+  }};
+  $body .= ");\n";
+
+  # put in version data and load the xsubs
+  $body .= join("\n",
+    "our \$VERSION = '$shwl->{VERSION}';",
+    "our \$AUTHOR  = '$shwl->{AUTHOR}';",
+    "require XSLoader;",
+    "XSLoader::load(q[${pkg}XS],\$VERSION);",
+    "1; # ret\n"
+  );
+
+  $body=Arstd::Fmat::tidyup(\$body,filter=>0);
+
+  # make filepath from package name
+  my $fname=$pkg;
+  from_pkg($fname);
+
+  # ^split it up
+  my ($dir,$outf)=(
+    dirof($fname),
+    basef($fname)
+  );
+  relto_root($dir);
+  if($dir=~ q{^\.\.?}) {
+    $dir=null;
+  };
+  $dir=libdirp($dir);
+
+  # write to file
+  reqdir($dir);
+  owc("$dir/$outf",$body);
+
   return;
 };
 
@@ -250,6 +339,7 @@ sub mkshwl($mod,$dst,$deps,@fname) {
   my $shwl={
     dep   => $deps,
     fswat => $mod,
+    pm    => [],
     obj   => [],
     src   => [],
     hed   => join("\n",
@@ -260,29 +350,88 @@ sub mkshwl($mod,$dst,$deps,@fname) {
     ),
   };
 
+  my $info={
+    VERSION => [],
+    AUTHOR  => [],
+  };
+
   # ^iter through expanded list to fill it out
+  no strict 'refs';
   for(@file) {
+    # get perl module generated by CMAM
+    # for this compiled object
     my $fcpy=$ARG;
     relto_mod($fcpy);
     extwap($fcpy,'pm');
     to_pkg($fcpy);
 
-    # skip if no symbols exported for this file
+    # ^now load pkg to get symbol table
     AR::reload($fcpy);
-    next if ! $fcpy->can('XSHED');
+    my $xs=($fcpy->can('XSHED'))
+      ? $fcpy->XSHED()
+      : []
+      ;
+
+    # get package info ;>
+    push @{$info->{VERSION}},${"$fcpy\::VERSION"};
+    push @{$info->{AUTHOR}},${"$fcpy\::AUTHOR"};
 
     # record symbol data for each object file
     my $o=Shb7::Path::obj_from_src($ARG);
     relto_root($o);
 
     push @{$shwl->{obj}},$o;
-    push @{$shwl->{src}},$fcpy->XSHED();
+    push @{$shwl->{src}},$xs;
+    push @{$shwl->{pm}},$fcpy;
 
     # now include the header for it ;>
     my $h=$ARG;
     extwap($h,'h');
     $shwl->{hed} .= "#include \"$h\"\n";
   };
+  use strict 'refs';
+
+  # merge package authors into one string
+  dupop($info->{AUTHOR});
+  $shwl->{AUTHOR}=join q[&&],@{$info->{AUTHOR}};
+
+  # make final version number
+  my $version_re=qr{^v?
+    (?<major>\d+) \.
+    (?<minor>\d+) \.
+    (?<patch>\d+)
+    (?<tag>.*)
+  $}x;
+
+  my $version={
+    major => 0,
+    minor => 0,
+    patch => 0,
+    tag   => '',
+  };
+
+  for my $s(@{$info->{VERSION}}) {
+    # we actually have to ignore version tags
+    # due to XSLoader being too thick to
+    # understand that 'version' is just a string
+    my ($major,$minor,$patch)=($s=~ $version_re);
+    $major //= 0;
+    $minor //= 0;
+    $patch //= 0;
+
+    # lazy aggregate
+    if($major > $version->{major}) {
+      $version->{major}=$major;
+    };
+    $version->{minor} += $minor;
+    $version->{patch} += $patch;
+  };
+
+  $shwl->{VERSION}="v" . join('.',
+    $version->{major},
+    sprintf("%02u",$version->{minor}),
+    sprintf("%04u",$version->{patch}),
+  );
 
   # dump table to disk
   store($shwl,$dst) or throw $dst;

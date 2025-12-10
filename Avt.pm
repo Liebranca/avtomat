@@ -27,7 +27,7 @@ package Avt;
   use Style qw(null);
   use Log;
 
-  use Arstd::String qw(gstrip);
+  use Arstd::String qw(gstrip gsplit);
   use Arstd::Path qw(reqdir relto dirof parof);
   use Arstd::Array qw(dupop);
   use Arstd::Re qw(eiths);
@@ -327,7 +327,7 @@ sub scan {
 sub get_config_build($M,$C) {
   $M->{fswat}=$C->{name};
 
-  my $re=qr{\s*:\s*};
+  my $re=qr{\s+};
   my ($lmode,$mkwat)=(length $C->{bld})
     ? (split $re,$C->{bld})
     : (null,null)
@@ -349,21 +349,26 @@ sub get_config_build($M,$C) {
   my $bindir=$PKG->BINDIR;
 
   if(length $mkwat) {
-    $M->{ilib}="$libdir/.$mkwat";
+    my @fpath=gsplit($mkwat,qr{::});
+    my $fname=pop  @fpath;
+    my $fpath=join '/',$libdir,@fpath;
+    $M->{ilib}="$fpath/.$fname";
 
     if($lmode eq 'ar') {
-      $M->{main}="$libdir/lib$mkwat.a";
+      $M->{main}="$fpath/lib$fname.a";
       $M->{mlib}=undef;
 
     } elsif($lmode eq '-shared ') {
-      $M->{main}="$libdir/lib$mkwat.so";
+      $M->{main}="$fpath/lib$fname.so";
       $M->{mlib}=undef;
 
     } else {
-      $M->{main}="$bindir/$mkwat";
-      $M->{mlib}="$libdir/lib$mkwat.a";
+      $M->{main}=(
+        join('/',$bindir,@fpath)
+      . "/$fname"
+      );
+      $M->{mlib}="$fpath/lib$fname.a";
     };
-
     $M->{mkwat}=$mkwat;
 
 

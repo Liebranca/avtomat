@@ -25,6 +25,7 @@ package non; // global scope
     cmamlol
     cmamgbl
     cmamout
+    ctree
   );
 
 
@@ -37,6 +38,10 @@ macro top PKGINFO($nd) {
 
   my $k=cpackage() . "_" . $nd->{cmd};
   my $v=$nd->{expr};
+
+  my $info=$v;
+  ctree()->unstrtok($info);
+  cmamout()->{info}->{$nd->{cmd}}=$info;
 
   my $dcolon_re=qr' *:: *';
   $k=~ s[$dcolon_re][_]g;

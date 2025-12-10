@@ -60,7 +60,7 @@ package CMAM::static;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.9a';
+  our $VERSION = 'v0.01.0a';
   our $AUTHOR  = 'IBN-3DILA';
 
   sub errsafe {return 1};
@@ -102,6 +102,7 @@ sub cmamout {
     dep    => {c=>[],pm=>[]},
     type   => [],
     export => [],
+    info   => {},
   };
   return $CMAMOUT->{$pkg};
 };
@@ -125,14 +126,7 @@ sub cmamdef_re {
 
   my $tab=cmamdef();
   my $key=[
-    grep {
-if(! defined $tab->{$ARG}->{flg}) {
-  use Arstd::fatdump;
-  fatdump \$tab;
-  say $ARG;
-  exit;
-};
-! ($tab->{$ARG}->{flg} & $spec)}
+    grep {! ($tab->{$ARG}->{flg} & $spec)}
     keys %$tab
   ];
 

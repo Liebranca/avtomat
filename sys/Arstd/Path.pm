@@ -124,14 +124,13 @@ sub parof {
 
   # break path into elements
   my @names=split qr{/},$full;
+  return null if @names == 1;
 
   # pop last element from path to get dir
-     $O{i} = 1 if $#names < $O{i};
-  my $out  = join  '/',@names[0..$#names-$O{i}];
-
+  $O{i}=1 if $#names < $O{i};
+  my $out=join  '/',@names[0..$#names-$O{i}];
 
   return $out;
-
 };
 
 

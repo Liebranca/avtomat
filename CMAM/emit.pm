@@ -62,7 +62,7 @@ package CMAM::emit;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.9a';
+  our $VERSION = 'v0.01.0a';
   our $AUTHOR  = 'IBN-3DILA';
 
   sub errsafe {return 1};
@@ -231,6 +231,13 @@ sub _pm {
 
   # add perl dependencies
   push @$out,join("\n",deps_pm());
+
+  # add package info
+  my $info=cmamout()->{info};
+  push @$out,join("\n",
+    'our $VERSION = ' . $info->{VERSION} . ';',
+    'our $AUTHOR  = ' . $info->{AUTHOR}  . ';',
+  );
 
   # now lets go over exported symbols...
   my $export=CMAM::static::sort_export();

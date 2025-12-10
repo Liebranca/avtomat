@@ -89,9 +89,10 @@ sub cat {join null,@_};
 # [*]: ensures there's no double slashes
 
 sub catpath {
-  my $out =  join '/',@_;
-  my $re  =  qr{/+};
-     $out =~ s[$re][/]g;
+  my @path = @_;
+  my $out  =  join '/',gstrip(@path);
+  my $re   =  qr{/+};
+     $out  =~ s[$re][/]g;
 
   return $out;
 };

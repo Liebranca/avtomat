@@ -44,6 +44,7 @@ package Avt::Makescript;
     set_root
     relto_root
     dirp
+    libdirp
     trashp
     include
   );
@@ -282,6 +283,18 @@ sub load($class,$file,@cmd) {
   $self->make_abspaths();
   $self->set_build_paths();
 
+  # get files used for making bindings
+  # NOTE: only C supported for now...
+  my @xprt=();
+  for my $bfile($self->{cmam}->bfiles()) {
+    push @xprt,
+    grep {$bfile->{src} eq $ARG}
+
+    @{$self->{xprt}};
+  };
+  $self->{xprt}=\@xprt;
+
+  # make build helper
   $self->{bld}=Shb7::Build->new(
     file    => [],
     name    => $self->{main},
@@ -555,15 +568,17 @@ sub side_builds($self) {
 
   for my $ref(@{$self->{util}}) {
     my ($outfile,$srcfile,@flags)=@$ref;
+    my @libpath = gsplit($self->{mkwat},qr{::});
+    my $libname = pop @libpath;
     my $bld=Shb7::Build->new(
       file => [],
       name => $bindir.$outfile,
 
       inc  => $self->{inc},
       lib  => [
-        q[-l].$self->{mkwat},
+        '-L' . libdirp(@libpath),
+        "-l$libname",
         @{$self->{lib}},
-
       ],
 
       shared  => 0,
@@ -648,14 +663,9 @@ sub build_binaries($self,$objblt) {
     system {$call->[0]} @$call;
   };
 
-  my @xprt=();
-  for my $bfile($self->{cmam}->bfiles()) {
-    push @xprt,
-    grep {$bfile->{src} eq $ARG}
-
-    @{$self->{xprt}};
-  };
-
+  # generate bindings to compiled objects
+  # that were marked for export
+  my @xprt=@{$self->{xprt}};
   if(@libs && $self->{ilib} && @xprt) {
     Log->fupdate(
       $self->{mkwat},
@@ -674,7 +684,6 @@ sub build_binaries($self,$objblt) {
       $self->{mkwat},
       -f=>1,
     );
-    Avt::XS::load($self->{mkwat});
   };
 
   return;

@@ -37,7 +37,7 @@ BEGIN {
 
 Avt::config {
   name => 'avtomat',
-  bld  => 'ar:swan',
+  bld  => 'ar SWAN',
   xcpy => [qw()], # arperl olink rd symfind
 
   xprt => [qw(SWAN/*.c)],
