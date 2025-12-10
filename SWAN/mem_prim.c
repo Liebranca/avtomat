@@ -15,170 +15,81 @@
 
 package SWAN::mem_prim;
   use cmam;
+  use PM Style qw(null);
+  use PM Type qw(typefet);
   public use SWAN::mem;
 
 
 // ---   *   ---   *   ---
 // info
 
-  VERSION "v0.00.2a";
+  VERSION "v0.00.3a";
   AUTHOR  "IBN-3DILA";
 
 
 // ---   *   ---   *   ---
-// place primitive
+// generates code string for putting
+// value at top of mem
 
-public IX void mem_place_byte(
-  mem ptr self,
-  byte elem
-) {
-  byte ptr top = mem_top(self);
-       ptr top = elem;
+macro internal place_proto($type) {
+     $type = typefet($type);
+  my $tag  = ($type->{sizeof} > 8) ? 'ptr' : null ;
+  my $T    = $type->{name};
 
-  self->use+=sizeof(byte);
-  return;
-};
+  return join("\n",
+    "public IX void mem_place_${T}(",
+      "mem ptr self,",
+      "${T} $tag elem",
+    ") {",
+      "${T} ptr top=mem_top(self);",
+      "     ptr top=$tag elem;",
 
-public IX void mem_place_word(
-  mem ptr self,
-  word elem
-) {
-  word ptr top = mem_top(self);
-       ptr top = elem;
-
-  self->use+=sizeof(word);
-  return;
-};
-
-public IX void mem_place_dword(
-  mem ptr self,
-  dword elem
-) {
-  dword ptr top = mem_top(self);
-        ptr top = elem;
-
-  self->use+=sizeof(dword);
-  return;
-};
-
-public IX void mem_place_qword(
-  mem ptr self,
-  qword elem
-) {
-  qword ptr top = mem_top(self);
-        ptr top = elem;
-
-  self->use+=sizeof(qword);
-  return;
+      "self->use+=urdiv(sizeof(${T}),self->ezy);",
+      "return;",
+    "};\n"
+  );
 };
 
 
 // ---   *   ---   *   ---
-// place vector-primitive
+// ^same, except it pushes ;>
 
-public IX void mem_place_xword(
-  mem   ptr self,
-  xword ptr elem
-) {
-  xword ptr top = mem_top(self);
-        ptr top = ptr elem;
+macro internal push_proto($type) {
+     $type = typefet($type);
+  my $tag  = ($type->{sizeof} > 8) ? 'ptr' : null ;
+  my $T    = $type->{name};
 
-  self->use+=sizeof(xword);
-  return;
-};
-
-public IX void mem_place_yword(
-  mem   ptr self,
-  yword ptr elem
-) {
-  yword ptr top = mem_top(self);
-        ptr top = ptr elem;
-
-  self->use+=sizeof(yword);
-  return;
-};
-
-public IX void mem_place_zword(
-  mem   ptr self,
-  zword ptr elem
-) {
-  zword ptr top = mem_top(self);
-        ptr top = ptr elem;
-
-  self->use+=sizeof(zword);
-  return;
+  return join("\n",
+    "public IX void mem_push_${T}(",
+      "mem ptr self,",
+      "${T} $tag elem",
+    ") {",
+      "mem_brk(self,sizeof(${T}));",
+      "mem_place_${T}(self,elem);",
+      "return;",
+    "};\n"
+  );
 };
 
 
 // ---   *   ---   *   ---
-// push primitive
+// generate one version of each proto per type
 
-public IX void mem_push_byte(
-  mem ptr self,
-  byte elem
-) {
-  mem_brk(self,sizeof(byte));
-  mem_place_byte(self,elem);
-  return;
+macro top make($nd) {
+  my $s=null;
+  for(qw(
+    byte  word  dword qword
+    xword yword zword
+  )) {
+    $s .= place_proto($ARG);
+    $s .= push_proto($ARG);
+  };
+
+  clnd();
+  return strnd($s);
 };
 
-public IX void mem_push_word(
-  mem ptr self,
-  word elem
-) {
-  mem_brk(self,sizeof(word));
-  mem_place_word(self,elem);
-  return;
-};
-
-public IX void mem_push_dword(
-  mem  ptr self,
-  dword elem
-) {
-  mem_brk(self,sizeof(dword));
-  mem_place_dword(self,elem);
-  return;
-};
-
-public IX void mem_push_qword(
-  mem ptr self,
-  qword elem
-) {
-  mem_brk(self,sizeof(qword));
-  mem_place_qword(self,elem);
-  return;
-};
-
-
-// ---   *   ---   *   ---
-// push vector-primitive
-
-public IX void mem_push_xword(
-  mem   ptr self,
-  xword ptr elem
-) {
-  mem_brk(self,sizeof(xword));
-  mem_place_xword(self,elem);
-  return;
-};
-
-public IX void mem_push_yword(
-  mem   ptr self,
-  yword ptr elem
-) {
-  mem_brk(self,sizeof(yword));
-  mem_place_yword(self,elem);
-  return;
-};
-
-public IX void mem_push_zword(
-  mem   ptr self,
-  zword ptr elem
-) {
-  mem_brk(self,sizeof(zword));
-  mem_place_zword(self,elem);
-  return;
-};
+make;
 
 
 // ---   *   ---   *   ---

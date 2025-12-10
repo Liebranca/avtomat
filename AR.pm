@@ -17,19 +17,26 @@ package AR;
   use v5.42.0;
   use strict;
   use warnings;
-  use Carp qw(croak);
+
   use English qw($ARG);
   use Module::Load 'none';
   use Symbol qw(delete_package);
+
   use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
   use Chk qw(is_null codefind);
+
+  use Arstd::String qw(cat gstrip gsplit);
   use Arstd::Path qw(from_pkg);
+  use Arstd::PM qw(rcaller);
+  use Arstd::fatdump;
+  use Arstd::throw;
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.03.2';
+  our $VERSION = 'v0.03.4';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -57,7 +64,7 @@ sub load {
   my $fname = "$pkg";
   from_pkg($fname);
 
-  return (! _is_loaded($pkg))
+  return (! _is_loaded($fname))
     ? reload($pkg,@_)
     : ()
     ;
@@ -69,14 +76,38 @@ sub load {
 
 sub reload {
   my $pkg=shift;
-  Module::Load::load($pkg);
+  my $dst=rcaller(__PACKAGE__);
 
+  # run import on *calling* module
+  my $args=fatdump \[@_],mute=>1,plain=>1;
+  return eval(join("\n",
+    "package $pkg {",
+      "Module::Load::load($pkg);",
+      "($pkg->can('import'))",
+        "? $pkg->import($args)",
+        ": ()",
+        ";",
+    "};",
+  ));
+};
+
+
+# ---   *   ---   *   ---
+# ^ doesn't use the calling package to
+#   run the import method
+#
+# we use this for modules that are actually
+# meant to be *run* as if they were executables,
+# such as Chk::Syntax
+
+sub run {
+  my $pkg=shift;
+  Module::Load::load($pkg);
   return ($pkg->can('import'))
     ? $pkg->import(@_)
     : ()
     ;
 };
-
 
 # ---   *   ---   *   ---
 # calls unimport method of package (if any)
@@ -136,7 +167,6 @@ sub flagkey {return qw(use lis imp re)};
 sub import {
   my $class = shift;
   my $lib   = shift;
-  my $dst   = caller;
   my $flag  = {map {$ARG=>0} flagkey};
 
   # get the lib!
@@ -146,112 +176,88 @@ sub import {
     : "$base"
     ;
 
-  load(lib=>$base);
+  reload(lib=>$base);
   return if ! @_;
 
-
-  # get patterns
-  my $pkg_re       = qr{::};
-  my $term_re      = qr{;};
-  my $beg_group_re = qr{^\(};
-  my $end_group_re = qr{\);$};
-
-  # walk passed args
-  while(@_) {
-    my $arg=shift;
-
-    # arg is switch?
-    if(exists $flag->{$arg}) {
-      $flag->{$arg}=1;
-      next;
+  # get array of expressions within passed string
+  my $line=shift;
+  my @line=gsplit($line,qr{\n});
+  my @expr=(null);
+  for(@line) {
+    $expr[-1] .= " $ARG ";
+    if($ARG=~ qr{\)?;$}) {
+      push @expr,null;
     };
+  };
+  @expr=gstrip(@expr);
+  duse($ARG) for @expr;
+
+  return;
+};
 
 
-    # read line
-    my @passed=grep {
-    ! is_null($ARG)
+# ---   *   ---   *   ---
+# ^procs import line
 
-    } split $pkg_re,$arg;
+sub duse {
+  my ($line,%O)=@_;
+  $O{reload} //= 0;
 
-    my $sym=pop  @passed;
-    my $pkg=join '::',@passed;
+  my ($cmd,$pkg,@args)=gsplit($line,qr{ +});
+  @args=eval(join(' ',@args));
 
+  # throw if no package!
+  throw "No package provided"
+  if is_null($pkg);
 
-    # throw if no package!
-    croak "No package provided"
-    if is_null($pkg);
+  # always import?
+  if($O{reload}) {
+    reload($pkg,@args);
 
-    # throw if no symbols!
-    croak "No symbols provided"
-    if is_null($sym);
-
-
-    # have multiple symbols?
-    my @sym=($sym);
-    if($sym[0]=~ s[$beg_group_re][]) {
-      while(@_) {
-        last if $sym[-1]=~ s[$end_group_re][];
-        push @sym,shift;
-      };
-
-      $sym[-1]=~ s[$end_group_re][];
-    };
-
-    # ^filter out blanks
-    @sym=grep {! is_null($ARG)} @sym;
-
-
-    # import mode:
-    #
-    # * just load the package
-    # * run import method with @sym as args
-    if($flag->{imp}) {
-      # re-import?
-      if($flag->{re}) {
-        load($pkg,@sym);
-
-      # ^nope, use conditional form
-      } else {
-        load($pkg,@sym);
-      };
-
-      next;
-    };
-
-
-    # load source package
-    load($pkg);
-
-    # making nested namespace?
-    my $path=(! $flag->{'use'})
-      ? lc $passed[-1] . '_'
-      : ''
-      ;
-
-    # make alias declarations
-    my @decl=map {
-      croak "Undefined symbol: '$pkg\::$ARG'"
-      if ! defined codefind($pkg,$ARG);
-
-      "sub ${path}$ARG {goto \&$pkg\::$ARG};";
-
-    } @sym;
-
-    # ^put declarations in package
-    my $decl=join "\n",(
-      "package $dst {",
-      @decl,
-      '}'
-    );
-
-    # ^add symbol(s) to caller
-    eval $decl;
-
-
-    # reset flags for next run
-    $flag->{$ARG}=0 for flagkey;
+  # ^nope, use conditional form
+  } else {
+    load($pkg,@args);
   };
 
+  # making nested namespace?
+  my @pkgpath=gsplit($pkg,qr{::});
+  my $path=($cmd eq 'lis')
+    ? lc $pkgpath[-1] . '_'
+    : null
+    ;
+
+  # make alias declarations
+  my $dst  = rcaller(__PACKAGE__);
+  my @decl = map {
+    throw "Undefined symbol: '$pkg\::$ARG'"
+    if ! defined codefind($pkg,$ARG);
+
+    # redecl warnings are a pain
+    my $blk="{goto \&$pkg\::$ARG};";
+    if(defined codefind($dst,$ARG)) {
+      join("\n",
+        "no strict 'refs';",
+        "no warnings 'redefine';",
+        "*{\"${path}$ARG\"}=sub $blk",
+        "use warnings 'redefine';",
+        "use strict 'refs';",
+      );
+
+    } else {
+      "sub ${path}$ARG $blk";
+    };
+
+  } @args;
+
+  # ^put declarations in package
+  my $decl = join "\n",(
+    "package $dst {",
+      @decl,
+    "};\n"
+  );
+
+  # ^add symbol(s) to caller
+  eval $decl;
   return;
 };
 

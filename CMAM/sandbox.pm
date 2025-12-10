@@ -121,7 +121,7 @@ sub usepkg {
     # add perl dependency and load it into
     # the sandbox namespace
     my @req=cmamout_push_pm($name,$expr);
-    AR::reload($name=>@req);
+    AR::duse("use $name qw(@req)",reload=>1);
   };
 
   # need to append required C header?

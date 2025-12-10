@@ -22,11 +22,8 @@ package Warnme;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Chk qw(is_scalarref);
+  use Arstd::PM qw(rcaller);
   use Arstd::throw;
-
-  use AR sys=>qw(
-    use Arstd::PM::(rcaller);
-  );
 
   use parent 'St';
 

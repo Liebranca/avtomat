@@ -37,9 +37,9 @@ package CMAM::emit;
   use Type qw(typefet);
 
   use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>qw(
-    lis Arstd::IO::(procin procout);
-  );
+  use AR sys=>q[
+    lis Arstd::IO qw(procin procout);
+  ];
   use Arstd::Token qw(
     tokenpop
     tokenshift

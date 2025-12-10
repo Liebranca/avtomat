@@ -32,7 +32,6 @@ package Chk;
   our @EXPORT_OK=qw(
     is_nref
     is_null
-
     is_blessref
     is_hashref
     is_coderef
@@ -40,14 +39,11 @@ package Chk;
     is_qre
     is_qreref
     is_scalarref
-
     is_path
     is_rpath
     is_file
     is_dir
-
     codefind
-
   );
 
 
@@ -66,7 +62,6 @@ package Chk;
 
 sub is_null {
   return ! (defined $_[0] && length $_[0]);
-
 };
 
 
@@ -78,37 +73,30 @@ sub is_null {
 
 sub is_scalarref {
   return ! is_null($_[0]) && 'SCALAR' eq ref $_[0];
-
 };
 
 sub is_arrayref {
   return ! is_null($_[0]) && 'ARRAY' eq ref $_[0];
-
 };
 
 sub is_hashref {
   return ! is_null($_[0]) && 'HASH' eq ref $_[0];
-
 };
 
 sub is_blessref {
   return ! is_null($_[0]) && defined blessed $_[0];
-
 };
 
 sub is_coderef {
   return ! is_null($_[0]) && 'CODE' eq ref $_[0];
-
 };
 
 sub is_qre {
   return ! is_null($_[0]) && 'Regexp' eq ref $_[0];
-
 };
 
 sub is_qreref {
   return is_scalarref($_[0]) && is_qre(${$_[0]});
-
 };
 
 
@@ -127,9 +115,7 @@ sub is_nref {
   &&! is_blessref  ($_[0])
   &&! is_coderef   ($_[0])
   &&! is_qre       ($_[0])
-
   );
-
 };
 
 
@@ -153,7 +139,6 @@ sub getsub {
     ? $fn
     : null
     ;
-
 };
 
 
@@ -171,7 +156,6 @@ sub codefind {
     ? __isa_search(@_)
     : $fn
     ;
-
 };
 
 
@@ -193,13 +177,11 @@ sub __isa_search {
   for(@{"$pkg\::ISA"}) {
     my $fn=getsub($ARG,$name);
     return $fn if ! is_null $fn;
-
   };
 
   # give null on fail
   use strict 'refs';
   return null;
-
 };
 
 
@@ -213,9 +195,7 @@ sub path_chars {
   return qr{
     [/_A-Za-z\.\~]
     [/_A-Za-z0-9\-\.\:\@\%\$\&]*
-
   }x;
-
 };
 
 sub is_path {
@@ -230,17 +210,14 @@ sub is_path {
 
 sub is_rpath {
   return is_path($_[0]) && -e $_[0];
-
 };
 
 sub is_file {
   return is_path($_[0]) && -f $_[0];
-
 };
 
 sub is_dir {
   return is_path($_[0]) && -d $_[0];
-
 };
 
 
@@ -253,27 +230,20 @@ sub is_dir {
 # if so, conditionally dereference
 
 sub cderef($x,$deref,@args) {
-
   # have reference?
   my $isref=(
      (1 * int is_coderef   $x)
   || (2 * int is_scalarref $x)
-
   );
-
 
   if($deref && $isref) {
     my @out=($isref == 1)
       ? ($x->(@args))
       : ($$x)
       ;
-
     return ($isref,@out);
-
   };
-
   return $isref,$x;
-
 };
 
 

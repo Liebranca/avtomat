@@ -21,11 +21,11 @@ package Cli;
   use English qw($ARG $POSTMATCH $MATCH);
 
   use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>qw(
-    use Style::(null);
-    use Chk::(is_null);
-    lis Arstd::Re::(eiths);
-  );
+  use AR sys=>q[
+    use Style qw(null);
+    use Chk qw(is_null);
+    lis Arstd::Re qw(eiths);
+  ];
 
   use Arstd::throw;
   use parent 'St';
@@ -350,11 +350,10 @@ package Cli::Fstruct;
 
   use English qw($ARG);
   use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>qw(
-    use Style::(null);
-    lis Arstd::Path::(expand);
-
-  );
+  use AR sys=>q[
+    use Style qw(null);
+    lis Arstd::Path qw(expand);
+  ];
 
   use parent 'St';
 

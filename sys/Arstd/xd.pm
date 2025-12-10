@@ -45,16 +45,14 @@ package Arstd::xd;
 
   use English qw($ARG);
 
-  use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>qw(
-    lis Arstd::IO::(procin procout);
-  );
-
+  use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
   use Chk qw(is_null is_file);
+
   use Arstd::String qw(gstrip);
   use Arstd::Bin qw(orc);
   use Arstd::throw;
+  use Arstd::IO qw(procin procout);
 
 
 # ---   *   ---   *   ---
@@ -114,7 +112,7 @@ sub draw($body,%O) {
   $O{order} //= '<:';
 
   # I/O defaults
-  my $out=io_procin(\%O);
+  my $out=procin(\%O);
 
   # walk bytes
   my $k=15;
@@ -210,7 +208,7 @@ sub draw($body,%O) {
 
   # spit out and give
   push @$out,"\n";
-  return io_procout(\%O);
+  return procout(\%O);
 };
 
 

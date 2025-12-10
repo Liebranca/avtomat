@@ -15,6 +15,7 @@
 package SWAN::mem;
   use cmam;
   public use SWAN::throw;
+  public use SWAN::lymath;
   public #include <stddef.h>;
 
   #include <stdlib.h>;
@@ -23,7 +24,7 @@ package SWAN::mem;
 // ---   *   ---   *   ---
 // info
 
-  VERSION "v0.00.8a";
+  VERSION "v0.00.9a";
   AUTHOR  "IBN-3DILA";
 
 
@@ -53,26 +54,24 @@ public CX qword MEM_STR  = 1LLU << 62;
 // ---   *   ---   *   ---
 // cstruc
 
-public mem mem_new(
+public void mem_new(
+  mem ptr self,
   dword ezy,
   dword cap,
   qword flg
 ) {
   // make ice
-  mem self={
-    .ezy=ezy,
-    .cap=cap,
-    .use=0x00,
-    .flg=flg,
-    .buf=malloc(ezy*cap)
-  };
+  self->ezy=ezy;
+  self->cap=cap;
+  self->use=0;
+  self->flg=flg;
+  self->buf=malloc(ezy*cap);
 
   // catch malloc error
-  if(! self.buf)
+  if(! self->buf)
     throw("`malloc()` fail on `mem_new()`");
 
-  // give new instance
-  return self;
+  return;
 };
 
 
@@ -308,7 +307,7 @@ public IX void mem_place(
   byte ptr elem
 ) {
   memcpy(mem_top(self),elem,self->ezy);
-  self->use+=self->ezy;
+  ++self->use;
   return;
 };
 
@@ -341,7 +340,7 @@ public IX void mem_skip(
 ) {
   mem_brk(self,n);
   n=mem_align_n(self,n);
-  self->use+=n/self->ezy;
+  self->use+=urdiv(n,self->ezy);
   return;
 };
 

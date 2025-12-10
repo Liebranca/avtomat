@@ -18,16 +18,21 @@ package Arstd::IO;
   use strict;
   use warnings;
 
-  use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>qw(
-    use Arstd::String::(cat);
-  );
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Arstd::String qw(cat);
+
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT_OK=qw(procin procout);
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.1';
+  our $VERSION = 'v0.01.2';
   our $AUTHOR  = 'IBN-3DILA';
 
 

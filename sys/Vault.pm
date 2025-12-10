@@ -26,11 +26,11 @@ package Vault;
   use Fcntl qw(SEEK_SET SEEK_CUR);
 
   use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>qw(
-    use Style::(null);
-    use Chk::(is_null is_hashref is_dir);
-    lis Arstd::Array::(dupop);
-  );
+  use AR sys=>q[
+    use Style qw(null);
+    use Chk qw(is_null is_hashref is_dir);
+    lis Arstd::Array qw(dupop);
+  ];
 
   use Arstd::Bin qw(moo);
   use Arstd::Path qw(reqdir dirof);

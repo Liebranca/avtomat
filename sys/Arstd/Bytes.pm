@@ -26,7 +26,6 @@ package Arstd::Bytes;
   use List::Util qw(max min);
 
   use lib $ENV{'ARPATH'}.'/lib/sys/';
-  use Style;
 
 
 # ---   *   ---   *   ---
@@ -38,7 +37,6 @@ package Arstd::Bytes;
     bitmask
     bitscanf
     bitscanr
-
   );
 
 
@@ -53,24 +51,20 @@ package Arstd::Bytes;
 # get bitsize of number
 
 sub bitsize($x) {
-
   my $out=0;
   my $bit=1;
   my $set=0;
 
   while($x) {
-
     $set   = $bit * ($x & 1);
     $out   = ($set) ? $set : $out;
 
     $x   >>= 1;
 
     $bit++;
-
   };
 
   return (! $out) ? 1 : $out;
-
 };
 
 
@@ -79,7 +73,6 @@ sub bitsize($x) {
 
 sub bitmask($x) {
   return (1 << $x)-1;
-
 };
 
 
@@ -110,11 +103,8 @@ sub bitscanr($x) {
   while($idex--) {
     ($have)=($idex),last
     if $x & (1 << $idex);
-
   };
-
   return $have;
-
 };
 
 
@@ -124,7 +114,6 @@ sub bitscanr($x) {
 sub bytesize($x) {
   my $bits=bitsize $x;
   return int(($bits/8)+0.9999);
-
 };
 
 

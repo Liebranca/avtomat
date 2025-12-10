@@ -29,8 +29,14 @@ package Arstd::ansi;
     fgsplit
     recaptsu
     decaptsu
-
   );
+
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT_OK=qw(ttysz);
 
 
 # ---   *   ---   *   ---
@@ -57,7 +63,6 @@ sub escape_re {qr"\x{1B}\[[\?\d;]+[\w]"};
 sub ttysz {
   my ($x,$y)=GetTerminalSize();
   return ($x,$y);
-
 };
 
 

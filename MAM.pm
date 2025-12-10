@@ -286,7 +286,7 @@ sub AR_step {
     : "\$ENV{ARPATH}/lib/"
     ;
 
-  $body="use AR $lib=>qw($body\n);";
+  $body="use AR $lib=>q[$body\n];";
   $body="\nuse lib \"$arlib\";\n$body" if ! $i++;
 
   $_[1]=~ s[$re][$body]sm;

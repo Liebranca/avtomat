@@ -24,7 +24,8 @@ package Arstd::PM;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null no_match any_match);
-  use Chk qw(is_arrayref);
+  use Chk qw(is_null is_arrayref);
+
   use Arstd::Re qw(eiths);
   use Arstd::Bin qw(orc);
   use Arstd::Path qw(to_pkg);
@@ -38,6 +39,7 @@ package Arstd::PM;
   our @EXPORT_OK=qw(
     subwraps
     rcaller
+    codename
   );
 
 
@@ -46,6 +48,25 @@ package Arstd::PM;
 
   our $VERSION = 'v0.01.5';
   our $AUTHOR  = 'IBN-3DILA';
+
+
+# ---   *   ---   *   ---
+# give first caller that
+# doesn't match passed name
+
+sub rcaller {
+  # default to *this* package ;>
+  my $name   = $_[0];
+     $name //= __PACKAGE__;
+
+  # ^pop until another found
+  my $i    = 1;
+  my $pkg  = caller $i++;
+     $pkg  = caller $i++
+
+  while  $pkg eq $name && $i < 0x24;
+  return $pkg;
+};
 
 
 # ---   *   ---   *   ---
@@ -61,17 +82,16 @@ sub codename($ref,$full=0) {
 
   # fetch package name?
   my %cni  = reverse %INC;
-  my $name = to_pkg $cni{$gv->FILE};
+  my $name = $cni{$gv->FILE};
+  to_pkg($name);
 
-  # you think you're funny?!
-  if(! length $name) {
-    my $body=orc $gv->FILE;
+  # OH, you think you're funny?!
+  if(is_null($name)) {
+    my $body=orc($gv->FILE);
 
     ($name)   = $body=~ qr{package ([^;]+);};
     ($name) //= 'main';
-
   };
-
   return "$name\::" . $gv->NAME;
 };
 
@@ -150,10 +170,8 @@ sub subsof_filter($subs,%O) {
 
   # accept entry if:
   (   ($ARG=~ $O{subok})
-
   &&! ($ARG=~ $O{subex})
   &&! (*$gv{PACKAGE}=~ $O{modex})
-
   );
 
   } keys %$subs;
@@ -213,6 +231,7 @@ sub submerge($classes,%O) {
 sub add_symbol($dst,$src) {
   no strict 'refs';
   *{$dst}=*{$src};
+  use strict 'refs';
 
   return;
 };
@@ -222,6 +241,8 @@ sub add_scalar($dst,$src) {
 
   add_symbol($dst,$src);
   ${$dst}=${$dst};
+
+  use strict 'refs';
 
   return;
 };
@@ -241,25 +262,6 @@ sub redef($old,$new) {
 
 
 # ---   *   ---   *   ---
-# give first caller that
-# doesn't match passed name
-
-sub rcaller {
-  # default to Arstd::PM ;>
-  my $name   = $_[0];
-     $name //= __PACKAGE__;
-
-  # ^pop until another found
-  my $i    = 1;
-  my $pkg  = caller $i++;
-     $pkg  = caller $i++
-
-  while  $pkg eq $name && $i < 0x24;
-  return $pkg;
-};
-
-
-# ---   *   ---   *   ---
 # akin to selective inheritance
 # defines methods of attribute to wrap
 
@@ -270,11 +272,9 @@ sub beqwraps($attr,@names) {
     my $name = $ARG;
     my $fn   = sub ($self,@args) {
       $self->{$attr}->$name(@args);
-
     };
 
     *{"$pkg\::$name"}=$fn;
-
   };
 
   return;
@@ -341,12 +341,12 @@ sub impwraps($dst,@args) {
 # by deparsing it's signature (!!)
 
 sub argsof($pkg,$name=undef) {
-  state $decl=qr{
+  my $decl=qr{
     my \s+ (?<var> \W\w+) \s* =
 
   }x;
 
-  state $doblk=qr{
+  my $doblk=qr{
     do \s* \{
     (?<blk> [^\{\}]+ | (?R)*)
 
@@ -368,7 +368,7 @@ sub argsof($pkg,$name=undef) {
 
   # ^pop do {} block
   $body =~ s[$doblk][];
-  $blk  =$+{blk};
+  $blk  =  $+{blk};
 
 
   # notify of signature-less sub
@@ -377,9 +377,7 @@ sub argsof($pkg,$name=undef) {
   # ^pop "var" from my var = ...
   while($blk=~ s[$decl][]) {
     push @out,$+{var};
-
   };
-
 
   return @out;
 };
@@ -393,11 +391,9 @@ sub codeof($pkg,$name=undef) {
   if(defined $name) {
     $fn=join q[::],$pkg,$name;
     $fn=\&$fn;
-
   };
 
   my $body=St::deparse->coderef2text($fn);
-
   return $body;
 };
 
@@ -433,7 +429,7 @@ sub array_depsof(@classes) {
 # ^get 'use [name]' directives in file
 
 sub depsof_file($fname) {
-  state $re=qr{
+  my $re=qr{
 
   \n\s* use \s+
   (?<name> [^\s]+) ;
@@ -445,7 +441,6 @@ sub depsof_file($fname) {
 
   while($body=~ s[$re][]) {
     push @out,$+{name};
-
   };
 
   return @out;
@@ -458,7 +453,7 @@ sub depsof_file($fname) {
 sub autoload_prologue($kref) {
   return 0 if ($$kref=~ m[DESTROY$]);
 
-  state $re=qr{^.*::};
+  my $re=qr{^.*::};
   $$kref=~ s[$re][];
 
   return 1;
@@ -469,7 +464,6 @@ sub throw_bad_autoload($pkg,$key) {
     "'%s' has no autoload for '%s'",
     $pkg,
     $key,
-
   );
 };
 
@@ -482,6 +476,7 @@ sub get_static($class,$name) {
 
   no strict 'refs';
   return ${"$class\::$name"};
+  use strict 'refs';
 };
 
 
@@ -507,7 +502,7 @@ sub fvars($classes,%O) {
     %O,
 
   }} if ! exists $have{Frame_Vars};
-
+  use strict 'refs';
 
   return;
 };
@@ -527,7 +522,6 @@ sub IMP($class,$on_use,$on_exe,@req) {
   if(defined $req[0] && $req[0] eq '*crux') {
     shift @req;
     return $on_exe->($class,@req);
-
   };
 
   # imported as module via use

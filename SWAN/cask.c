@@ -67,7 +67,8 @@ public void cask_new(
   dword cap,
   qword flg
 ) {
-  self->data=mem_new(
+  mem_new(
+    addr self->data,
     sizeof(mem),
     CASK_ELEM_CNT,
     MEM_NEST
@@ -75,7 +76,12 @@ public void cask_new(
   self->ezy=ezy;
   self->cap=cap;
   self->flg=flg;
-  self->slot=mem_new(sizeof(qword),1,0x00);
+  mem_new(
+    addr self->slot,
+    sizeof(qword),
+    1,
+    0x00
+  );
   return;
 };
 
@@ -83,20 +89,6 @@ public void cask_delete(cask ptr self) {
   mem_delete(addr self->data);
   mem_delete(addr self->slot);
   return;
-};
-
-
-// ---   *   ---   *   ---
-// bitscan && negate-and-bitscan are
-// used to find occupied/available slots
-// within the array of bitmasks
-
-public IX qword bsf(qword x) {
-  return __builtin_ctzll(x);
-};
-
-public IX qword nbsf(qword x) {
-  return __builtin_ctzll(~x);
 };
 
 
@@ -196,7 +188,7 @@ public relix cask_take(
 
   // ^init mem instance at idex
   mem ptr have=mem_at(addr self->data,bufid);
-      ptr have=mem_new(self->ezy,self->cap,self->flg);
+  mem_new(have,self->ezy,self->cap,self->flg);
 
   // ^give idex
   return ((relix) bufid);

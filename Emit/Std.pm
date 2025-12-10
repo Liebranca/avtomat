@@ -25,12 +25,12 @@ package Emit::Std;
   use Arstd::String qw(cjag);
   use Arstd::Path qw(nxbasef);
   use Arstd::Bin qw(owc);
-  use Arstd::PM qw(rcaller);
   use Arstd::throw;
 
   use Shb7::Path;
 
   use lib "$ENV{ARPATH}/lib/";
+  use AR;
   use parent 'Emit';
 
 
@@ -122,7 +122,7 @@ sub get_version($pkg) {
 
 sub outf($class,$f,%O) {
   my $path = filep($f);
-  my $pkg  = rcaller($class);
+  my $pkg  = AR::rcaller($class);
 
   $O{author}  //= get_author($pkg);
   $O{version} //= get_version($pkg);

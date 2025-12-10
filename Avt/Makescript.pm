@@ -716,7 +716,7 @@ sub depsmake($self) {
     # its the same process as a syntax check
     # (like `perl -c`), but it doesn't require
     # forking, so its incredibly faster
-    my @dep=AR::reload(
+    my @dep=AR::run(
       'Chk::Deps',
       $src->[$i],
       orc($src->[$i])

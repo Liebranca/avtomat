@@ -86,23 +86,23 @@ my $ROM={
   # MAM does not depend on these files,
   # so we can mess with their deps alright ;>
   AVTODEPS=>[qw(
-    /AR.pm
-
-    /sys/Frame.pm
-    /sys/St.pm
-
     /sys/Arstd/Token.pm
     /sys/Arstd/Array.pm
     /sys/Arstd/Bytes.pm
     /sys/Arstd/Int.pm
     /sys/Arstd/Re.pm
     /sys/Arstd/stoi.pm
-    /sys/Arstd/Fmat.pm
     /sys/Arstd/Hash.pm
     /sys/Arstd/IO.pm
     /sys/Arstd/PM.pm
     /sys/Arstd/Fmat.pm
     /sys/Arstd/fatdump.pm
+    /sys/Arstd/xd.pm
+
+    /AR.pm
+
+    /sys/Frame.pm
+    /sys/St.pm
 
     /sys/Ftype.pm
     /sys/Ftype/Text.pm

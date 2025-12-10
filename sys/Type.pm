@@ -407,7 +407,8 @@ sub xlate_struc($lang,$type) {
 
 
 # ---   *   ---   *   ---
-# ~~
+# attempts to turn an expression node
+# from Tree::C into valid perl
 
 sub xlate_expr {
   my ($nd)=@_;

@@ -32,7 +32,6 @@ package Arstd::Int;
     npow
     npow2
     ispow
-
   );
 
 
@@ -48,7 +47,6 @@ package Arstd::Int;
 
 sub new($class,$value) {
   return bless \$value,$class;
-
 };
 
 
@@ -57,7 +55,6 @@ sub new($class,$value) {
 
 sub urdiv($a,$b) {
   return int((abs($a)/$b)+0.9999);
-
 };
 
 
@@ -66,7 +63,6 @@ sub urdiv($a,$b) {
 
 sub align($a,$b) {
   return urdiv($a,$b) * $b;
-
 };
 
 
@@ -76,7 +72,6 @@ sub align($a,$b) {
 sub npow($a,$b,$give_exp=0) {
   my $x=int(log $a**$b)-1;
   return ($give_exp) ? $x : $b**$x;
-
 };
 
 
@@ -91,7 +86,6 @@ sub ispow($a,$b) {
   my $z=$x/$y;
 
   return ($z-int $z) ? 0 : $z;
-
 };
 
 
@@ -106,7 +100,6 @@ sub npow2($a,$give_exp=0) {
   $x++ while (1 << $x) < $a;
 
   return ($give_exp) ? $x : 1 << $x;
-
 };
 
 

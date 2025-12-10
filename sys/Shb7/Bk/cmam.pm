@@ -236,7 +236,10 @@ sub on_build($self,$bld,@bfile) {
     #   *then* we run the preprocessor
     if(moo($fhead,$ARG->{src})
     || moo($fbody,$ARG->{src})
-    || moo($fperl,$ARG->{src})) {
+    || moo($fperl,$ARG->{src})
+
+    # ^ also consider the object, obviously ;>
+    || moo($ARG->{obj},$ARG->{src})) {
       $ARG->{-cmamp}={
         head=>$fhead,
         body=>$fbody,

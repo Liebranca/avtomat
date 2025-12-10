@@ -22,7 +22,7 @@ package SWAN::mem_string;
 // ---   *   ---   *   ---
 // info
 
-  VERSION "v0.00.2a";
+  VERSION "v0.00.3a";
   AUTHOR  "IBN-3DILA";
 
 
@@ -49,7 +49,7 @@ public void mem_place_string(
   byte ptr elem
 ) {
   strcpy(mem_top(self),elem);
-  self->use+=strlen(elem)+1;
+  self->use+=urdiv(strlen(elem)+1,self->ezy);
   return;
 };
 

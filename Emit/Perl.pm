@@ -27,15 +27,12 @@ package Emit::Perl;
   use Arstd::String qw(strip);
   use Arstd::Path qw(parof to_pkg);
   use Arstd::Array qw(nkeys nvalues);
+  use Arstd::Fmat qw(tidyup);
 
   use Shb7::Path qw(relto_root);
   use Shb7::Build;
 
   use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>qw(
-    use Arstd::Fmat::(tidyup);
-  );
-
   use parent 'Emit::Std';
 
 

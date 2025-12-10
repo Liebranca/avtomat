@@ -30,12 +30,17 @@ package Arstd::Fmat;
   use Perl::Tidy;
   use English qw($ARG);
 
-  use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>qw(
-    use Style::null
-    use Arstd::String::(cat linewrap);
-    use Arstd::ansi::(ttysz);
-  );
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Arstd::String qw(cat linewrap);
+  use Arstd::ansi qw(ttysz);
+
+
+# ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter 'import';
+  our @EXPORT_OK=qw(tidyup);
 
 
 # ---   *   ---   *   ---

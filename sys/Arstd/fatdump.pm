@@ -21,24 +21,22 @@ package Arstd::fatdump;
   use Scalar::Util qw(looks_like_number);
   use English qw($ARG);
 
-  use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>qw(
-    use Style::(null);
-    use Chk::(
-      is_hashref
-      is_arrayref
-      is_coderef
-      is_qreref
-      is_blessref
-      is_nref
-      is_null
-    );
-
-    lis Arstd::Array::(nmap);
-    use Arstd::Fmat::(tidyup);
-    lis Arstd::IO::(procin procout);
-    use Arstd::PM::(codename);
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Chk qw(
+    is_hashref
+    is_arrayref
+    is_coderef
+    is_qreref
+    is_blessref
+    is_nref
+    is_null
   );
+
+  use Arstd::Array qw(nmap);
+  use Arstd::Fmat qw(tidyup);
+  use Arstd::IO qw(procin procout);
+  use Arstd::PM qw(codename);
 
 
 # ---   *   ---   *   ---
@@ -156,7 +154,7 @@ sub deepdump($h,$blessed=undef) {
 
   my $pad  = pad();
   my $ppad = pad(-1);
-  return "${ppad}{\n" . join(",\n",array_nmap(
+  return "${ppad}{\n" . join(",\n",nmap(
     deepfilter($h,$blessed),
     sub ($kref,$vref) {"${pad}$$kref => $$vref"},
 
@@ -236,11 +234,12 @@ sub codedump($vref,$blessed=undef) {
 
 sub fatdump($vref,%O) {
   # I/O defaults
-  my $out=io_procin(\%O);
+  my $out=procin(\%O);
 
   # defaults
   $O{blessed} //= 0;
   $O{recurse} //= 0;
+  $O{plain}   //= 0;
 
   # ^make setting apply recursively
   $O{blessed}=($O{recurse})
@@ -278,9 +277,16 @@ sub fatdump($vref,%O) {
   $re=qr{\{\s*\}};
   $s=~ s[$re][\{\}]g;
 
+  # give as plain list?
+  if($O{plain}) {
+    $re=qr{(?:^[\[\{])|(?:[\]\}];?$)};
+    $s=~ s[$re][]g;
+  };
+
+
   # ^give repr
   push @$out,$s;
-  return io_procout(\%O);
+  return procout(\%O);
 };
 
 
