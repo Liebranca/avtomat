@@ -25,7 +25,7 @@ package Arstd::Re;
   use Style qw(null);
   use Chk qw(is_null);
   use Arstd::String qw(cat to_char);
-  use Arstd::Array;
+  use Arstd::Array qw(dupop nlsort);
 
   use parent 'St';
 
@@ -34,7 +34,7 @@ package Arstd::Re;
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT_OK=qw(pekey eiths);
+  our @EXPORT_OK=qw(pekey eiths crepl);
 
 
 # ---   *   ---   *   ---
@@ -59,6 +59,22 @@ St::vconst {
 
 
 # ---   *   ---   *   ---
+# ~~
+
+sub crepl($s,%O) {
+  for my $key(keys %O) {
+    my $re=qr{
+      (?:\s*\#\s*)?
+      (?:\b$key\b)
+      (?:\s*\#\s*)?
+    }x;
+    $s=~ s[$re][$O{$key}]smg;
+  };
+  return $s;
+};
+
+
+# ---   *   ---   *   ---
 # or patterns together
 
 sub alt($ar,%O) {
@@ -73,11 +89,10 @@ sub alt($ar,%O) {
   if($O{insens} > 0) {
     @$ar=array_insens($ar);
     $O{insens}=0;
-
   };
 
   # make alternation
-  my $out=join '|',@$ar;
+  my $out=join '|',grep {defined $ARG} @$ar;
 
   # ^run optional procs
   $out=capt($out,$O{capt},insens=>$O{insens});
@@ -142,8 +157,7 @@ sub array_insens($ar) {
 # escapes .^$([{}])+*?/|\: in pattern
 
 sub opscape($s) {
-
-  state $re=qr{([
+  my $re=qr{([
 
     \. \^ \$
 
@@ -311,7 +325,8 @@ sub eiths($ar,%O) {
   my @ar=@$ar;
 
   # force longest pattern first
-  Arstd::Array::nlsort(\@ar);
+  dupop(\@ar);
+  nlsort(\@ar);
 
   # conditionally escape operators
   @ar=array_opscape(\@ar) if $O{opscape};

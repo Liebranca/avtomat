@@ -151,30 +151,16 @@ sub dupop($ar) {
   my %tmp = ();
   my $i   = 0;
 
-  for(@$ar) {
-    my $key;
-    if(is_arrayref $ARG) {
-      $key=join '|',@$ARG;
-
-    } else {
-      $key="$ARG";
-
+  for my $value(@$ar) {
+    if(defined $value &&! exists $tmp{$value}) {
+      $tmp{$value}=[$i++,$value]
     };
-
-    $tmp{$key}=(! exists $tmp{$key})
-      ? [$i++,$ARG]
-      : $tmp{$key}
-      ;
-
   };
 
-
   @$ar=();
-
   for(values %tmp) {
     my ($idex,$value)=@$ARG;
     $ar->[$idex]=$value;
-
   };
 
   return;

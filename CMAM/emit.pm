@@ -235,7 +235,7 @@ sub _pm {
   # add package info
   my $info=cmamout()->{info};
   push @$out,join("\n",
-    'our $VERSION = ' . $info->{VERSION} . ';',
+    "\nour \$VERSION = " . $info->{VERSION} . ';',
     'our $AUTHOR  = ' . $info->{AUTHOR}  . ';',
   );
 
@@ -393,6 +393,8 @@ sub deps_pm {
     'use v5.42.0;',
     'use strict;',
     'use warnings;',
+    # kindly shut up
+    'no warnings "redefine";',
     'use English qw($ARG);',
     'use lib "$ENV{ARPATH}/lib/sys/";',
     'use Arstd::Token qw(' . join(' ',qw(

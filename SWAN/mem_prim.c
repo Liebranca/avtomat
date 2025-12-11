@@ -23,7 +23,7 @@ package SWAN::mem_prim;
 // ---   *   ---   *   ---
 // info
 
-  VERSION "v0.00.3a";
+  VERSION "v0.00.4a";
   AUTHOR  "IBN-3DILA";
 
 
@@ -32,21 +32,23 @@ package SWAN::mem_prim;
 // value at top of mem
 
 macro internal place_proto($type) {
-     $type = typefet($type);
-  my $tag  = ($type->{sizeof} > 8) ? 'ptr' : null ;
-  my $T    = $type->{name};
+  // copy definition to clipboard
+  C public IX void mem_place_#T(
+    mem ptr self,
+    T OP elem
+  ) {
+    T ptr top=mem_top(self);
+      ptr top=OP elem;
 
-  return join("\n",
-    "public IX void mem_place_${T}(",
-      "mem ptr self,",
-      "${T} $tag elem",
-    ") {",
-      "${T} ptr top=mem_top(self);",
-      "     ptr top=$tag elem;",
+    self->use+=urdiv(sizeof(T),self->ezy);
+    return;
+  };
 
-      "self->use+=urdiv(sizeof(${T}),self->ezy);",
-      "return;",
-    "};\n"
+  // give definition with replacements
+  $type=typefet($type);
+  return cmamclip(
+    T  => $type->{name},
+    OP => ($type->{sizeof} > 8) ? 'ptr' : null,
   );
 };
 
@@ -55,19 +57,21 @@ macro internal place_proto($type) {
 // ^same, except it pushes ;>
 
 macro internal push_proto($type) {
-     $type = typefet($type);
-  my $tag  = ($type->{sizeof} > 8) ? 'ptr' : null ;
-  my $T    = $type->{name};
+  // copy definition to clipboard
+  C public IX void mem_push_#T(
+    mem ptr self,
+    T OP elem
+  ) {
+    mem_brk(self,sizeof(T));
+    mem_place_#T(self,elem);
+    return;
+  };
 
-  return join("\n",
-    "public IX void mem_push_${T}(",
-      "mem ptr self,",
-      "${T} $tag elem",
-    ") {",
-      "mem_brk(self,sizeof(${T}));",
-      "mem_place_${T}(self,elem);",
-      "return;",
-    "};\n"
+  // give definition with replacements
+  $type=typefet($type);
+  return cmamclip(
+    T  => $type->{name},
+    OP => ($type->{sizeof} > 8) ? 'ptr' : null,
   );
 };
 

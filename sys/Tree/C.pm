@@ -386,10 +386,26 @@ sub node_to_expr {
   strip($ARG) for $cmd,$expr,$args;
 
   my $type='expr';
-  if(@blk && $have_args && ! is_null($expr)) {
+
+  # do we have a {block} on this expression?
+  if( @blk
+
+  # does it match "[expr] (...)"?
+  &&  $have_args
+  &&! is_null($expr)
+
+  # 'C' as first token is special cased as
+  # we use it to make strings from C code
+  #
+  # so we check for this as well
+  && $cmd ne 'C') {
+    # ^ if all that is true,
+    #   then it *is* a function!
     $type='proc';
     $args=[gsplit($args,qr{\s*,\s*})];
 
+
+  # everything else is a regular expression
   } else {
     $expr .= "($args)" if $have_args;
 
@@ -400,15 +416,46 @@ sub node_to_expr {
     my $struc_re=qr{\b(?<keyw>union|struct?)\b};
     my $utype_re=qr{^(?:public +)?(?:typedef +)};
 
-    if($cmd=~ $fctl_re) {
+    # treat this entire node like a string
+    # containing C code?
+    if($cmd eq 'C') {
+      $type='code';
+
+      my $ct=join("\n",
+        "q[$expr {",
+          $nd->expr_to_code_impl(@blk),
+        "};]",
+      );
+
+      $ct=join("\n",
+        'local *cmamclip=sub(%O) {',
+          "my \$out=$ct;",
+          'use Arstd::Re qw(crepl);',
+          'return crepl($out,%O);',
+        '};',
+      );
+
+      my $ar  = $nd->root()->{string};
+      my $tok = sprintf(strtok_fmat(),int(@$ar));
+      push @$ar,$ct;
+
+      $cmd  = '';
+      $expr = $tok;
+      @blk  = ();
+
+    # if/else
+    } elsif($cmd=~ $fctl_re) {
       $type='fctl';
 
+    # [type]? [name]=[value]
     } elsif($expr=~ $asg_re) {
       $type='asg';
 
-    } elsif(has_prefix($expr,'#')) {
-      $type='macro';
+    # (standard) preprocessor line
+    } elsif(is_cpre($cmd,$expr)) {
+      $type='cpre';
 
+    # typedef
     } elsif("$cmd $expr"=~ $utype_re) {
       if(@blk && "$cmd $expr"=~ $struc_re) {
         $type=$+{keyw};
@@ -417,6 +464,7 @@ sub node_to_expr {
         $type='utype';
       };
 
+    # ^struc
     } elsif(@blk && "$cmd $expr"=~ $struc_re) {
       $type=$+{keyw};
     };
@@ -431,6 +479,22 @@ sub node_to_expr {
     args => $args,
     blk  => \@blk,
   };
+};
+
+
+# ---   *   ---   *   ---
+# we use the '#' kush character for
+# concatenating tokens inside some CMAM macros,
+# and so we need to run an additional check
+# to make sure such an expression isn't itself
+# interpreted as a C preprocessor line!
+
+sub is_cpre {
+  my ($cmd,$expr)=@_;
+  return 1 if has_prefix($cmd,'#');
+
+  return (has_prefix($expr,'#'))
+  &&     (is_null($cmd) || $cmd eq 'public');
 };
 
 
@@ -546,7 +610,7 @@ sub expr_to_code_impl($self,@ar) {
   my $s=join "\n",map {
     # include <file.h> is effed as < file.h >
     # so catch that here
-    if($ARG->{type} eq 'macro'
+    if($ARG->{type} eq 'cpre'
     && ($ARG->{expr}=~ qr{include})) {
       my $sysinc_re=qr{< (.+) >};
       $ARG->{expr}=~ s[$sysinc_re][<$1>]g;
@@ -584,7 +648,7 @@ sub expr_to_code_impl($self,@ar) {
       };
       "$out\n${pad}{\n$blk\n${pad}}$post";
 
-    } elsif($ARG->{type} eq 'macro') {
+    } elsif($ARG->{type} eq 'cpre') {
       "$out";
 
     } else {

@@ -12,7 +12,7 @@ package SWAN::throw;
 // ---   *   ---   *   ---
 // info
 
-  VERSION   "0.00.3a";
+  VERSION   "v0.00.3a";
   AUTHOR    "IBN-3DILA";
 
 

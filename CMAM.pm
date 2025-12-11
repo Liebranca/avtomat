@@ -35,6 +35,7 @@ package CMAM;
   use Tree::Dep;
 
   use lib "$ENV{ARPATH}/lib/";
+  use AR;
   use CMAM::static;
   use CMAM::parse qw(blkparse);
   use CMAM::macro;
@@ -77,12 +78,15 @@ sub run {
   } @_;
 
   # now process all files
-  return map {
+  my @out=map {
     validate($ARG);
     restart();
     pproc($ARG);
 
   } @have;
+
+  restart();
+  return @out;
 };
 
 
@@ -219,6 +223,9 @@ sub pproc {
   # last step is checking for exported symbols
   my $perl=CMAM::emit::pm();
   my $head=CMAM::emit::chead($rel,$body);
+
+  # syntax check the perl file just in case
+  AR::run('Chk::Syntax',$rel,$perl);
 
   # give arrayref with generated code
   return [$head,$body,$perl];
