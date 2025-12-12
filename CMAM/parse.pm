@@ -85,9 +85,9 @@ package CMAM::parse;
 # [!]: overwrites input string
 
 sub blkparse {
-  my $tree  = ctree($_[0]);
-  my @expr  = $tree->to_expr();
-  my @out   = map {exprproc($ARG)} @expr;
+  my $tree = ctree($_[0]);
+  my @expr = $tree->to_expr();
+  my @out  = map {exprproc($ARG)} @expr;
 
   return $tree->expr_to_code(@out);
 };

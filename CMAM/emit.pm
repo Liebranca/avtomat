@@ -29,7 +29,6 @@ package CMAM::emit;
   use Arstd::String qw(cat gsplit);
   use Arstd::Path qw(extwap);
   use Arstd::Fmat;
-  use Arstd::stoi;
   use Arstd::fatdump;
   use Arstd::throw;
 
@@ -311,7 +310,7 @@ sub _pm {
       my $class=shift;
       for(@_) {
         my $fn=Chk::getsub($class,$ARG),
-        or throw "C macro '$ARG'"
+        or throw "C macro '$ARG' "
         .        "not defined by package '$class'";
 
         my $spec=Chk::getsub($class,"_${ARG}_spec");

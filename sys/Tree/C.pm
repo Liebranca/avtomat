@@ -24,12 +24,15 @@ package Tree::C;
   use Chk qw(is_null is_arrayref is_hashref);
 
   use Arstd::String qw(
+    cat
     strip
     gstrip
     gsplit
     has_prefix
+    has_suffix
   );
   use Arstd::throw;
+  use Arstd::fatdump;
   use Ftype::Text;
 
   use parent 'Tree';
@@ -57,37 +60,96 @@ sub rd {
   $self->strtok($_[0]);
   comstrip($_[0]);
 
+  # get root to check flags
+  my $root = $self->root();
+
   # parse source
   my @char = split '',$_[0];
   my $tok  = null;
   my $opr  = 0;
+  my $cmd  = 1;
 
-  for(@char) {
-    if($ARG=~ qr{[\{\}]}) {
+  while(@char) {
+    my $c=shift @char;
+
+    # inside body of macro?
+    if( ($root->{flg} & flg_macro())
+    &&! ($root->{flg} & flg_cblk())) {
+      if($c eq '{') {
+        $self->commit($tok);
+        $self->branch($c);
+        ++$root->{lvl};
+        $tok=null;
+
+      } elsif($c eq '}') {
+        $self->commit($tok);
+        $self->branch($c);
+        --$root->{lvl};
+        $tok=null;
+
+      } elsif(($root->{lvl} <= $root->{plvl})
+        &&    ($c eq ';')) {
+        $root->{flg} &=~ flg_macro();
+        $self->commit($tok);
+        $self->branch('end macro');
+        $self->commit(';');
+        $tok=null;
+        $cmd=1;
+
+      } else {
+        if($c eq ';') {
+          $cmd=1;
+          $self->commit($tok);
+          $self->commit(';');
+          $tok=null;
+
+        } elsif(! ($c=~ qr{\s+})) {
+          $tok .= $c;
+
+        } else {
+          if($cmd && $tok eq 'C') {
+            $self->commit($tok,1);
+            $tok=null;
+          };
+
+          if(! is_null($tok)) {
+            $tok .= $c;
+            $cmd  = 0;
+          };
+        };
+      };
+
+    } elsif($c=~ qr{[\{\}]}) {
       $self->commit($tok);
-      $self->branch($ARG);
+      $self->branch($c);
       $tok=null;
 
-    } elsif($ARG=~ qr{[[:alnum:]_]}) {
+    } elsif($c=~ qr{[[:alnum:]_]}) {
       if($opr) {
         $self->commit($tok);
         $opr  = 0;
         $tok  = null;
       };
-      $tok .= $ARG;
+      $tok .= $c;
 
     } else {
-      my $term=$ARG eq ';';
+      my $ws   = $c=~ qr{\s+};
+      my $term = $c eq ';';
+
       if(! $opr || $term) {
-        $self->commit($tok);
+        $self->commit($tok,$cmd);
+
+        if($term) {
+          $self->commit(';');
+          $cmd=1;
+        } elsif(! is_null($tok)) {
+          $cmd=0;
+        };
         $tok=null;
-
-        $self->commit(';') if $term;
       };
-
-      if(! ($ARG=~ qr{\s+}) &&! $term) {
-        $opr=1;
-        $tok.=$ARG;
+      if(! $ws &&! $term) {
+        $opr  = 1;
+        $tok .= $c;
       };
     };
   };
@@ -100,7 +162,6 @@ sub rd {
   if(@$lv && $lv->[-1]->{value} ne ';') {
     $self->commit(';');
   };
-
   return $self;
 };
 
@@ -117,11 +178,22 @@ sub new {
   };
 
   my $self=Tree::new($class,'root');
-  $self->{branch}=$self;
-  $self->{string}=[];
+  $self->{branch} = $self;
+  $self->{string} = [];
+  $self->{flg}    = 0;
+  $self->{lvl}    = 0;
+  $self->{clvl}   = -1;
+  $self->{plvl}   = -1;
 
   return $self;
 };
+
+
+# ---   *   ---   *   ---
+# flags
+
+sub flg_macro {return 0x01};
+sub flg_cblk  {return 0x02};
 
 
 # ---   *   ---   *   ---
@@ -254,10 +326,29 @@ sub comstrip {
 # ---   *   ---   *   ---
 # adds token to current scope
 
-sub commit($self,$tok) {
+sub commit($self,$tok,$cmd=0) {
   return if is_null($tok);
-
   my $root=$self->root();
+
+  # 'macro' effectively commands the parser
+  # to treat the entire branch as a string
+  if($tok=~ qr{^\s*macro\b} && $cmd) {
+    $root->{flg}  |= flg_macro();
+    $root->{plvl}  = $self->{lvl};
+
+    return $self->branch($tok);
+
+  # ^except when a 'C' block is found within ;>
+  } elsif($tok=~ qr{^\s*C\b} && $cmd) {
+    throw "Error: 'C' block outside of macro"
+    if ! ($root->{flg} & flg_macro());
+
+    $root->{flg}  |= flg_cblk();
+    $root->{clvl}  = $self->{lvl};
+
+    return $self->branch($tok);
+  };
+
   return $root->{branch}->new($tok);
 };
 
@@ -267,13 +358,41 @@ sub commit($self,$tok) {
 
 sub branch($self,$c) {
   my $root = $self->root();
-  my $nd   = $root->{branch}->new($c);
-  if($c eq '{') {
-    $root->{branch}=$nd;
-  } else {
-    $root->{branch}=$root->{branch}->{parent};
+  my $nd   = undef;
+
+  # go down one level
+  if($c=~ qr{^(?:\{|macro|C)$}) {
+    $nd=$root->{branch}->new($c);
+
+    # handle C blocks inside macros
+    if($root->{flg} & flg_cblk()) {
+      ++$root->{lvl};
+    };
+
+  # go up one level
+  } elsif($c eq '}') {
+    $root->{branch}->new($c);
+    $nd=$root->{branch}->{parent};
+
+    # handle C blocks inside macros
+    if($root->{flg} & flg_cblk()) {
+      --$root->{lvl};
+      if($root->{lvl} <= $root->{clvl}+1) {
+        $root->{clvl}  =  $root->{lvl} - 1;
+        $root->{flg}  &=~ flg_cblk();
+
+        $nd=$nd->{parent};
+        --$root->{lvl};
+      };
+    };
+
+  # straight up fasm stuff ;>
+  } elsif($c eq 'end macro') {
+    $nd=$root->{branch}->{parent};
   };
-  return;
+
+  $root->{branch}=$nd;
+  return $root->{branch};
 };
 
 
@@ -295,34 +414,115 @@ sub nest($self,$tok) {
 # get copy of token tree as expression tree
 
 sub to_exprtree($self) {
-  my $out=ref($self)->new();
-  $out->{string}=$self->{string};
+  my $root = $self->root();
+  my $out  = ref($self)->new();
+
+  $out->{string}=$root->{string};
 
   my $expr    = null;
-  my $prev    = [];
   my @pending = (@{$self->{leaves}});
   while(@pending) {
     my $nd = shift @pending;
     my $c  = $nd->{value};
 
     if($c eq ';') {
-      my $have=$out->commit("$expr");
+      strip($expr);
+      if( ($root->{flg} & flg_macro())
+      &&! ($root->{flg} & flg_cblk())) {
+        $out->commit("$expr;");
+      } else {
+        $out->commit($expr);
+      };
       $expr=null;
 
     } else {
-      if($c=~ qr{[\{\}]}) {
-        next if $expr eq null;
+      if($c eq 'macro' || $c eq 'C') {
+        # toggle flags
+        my $bit=0;
+        if($c eq 'macro') {
+          $bit=flg_macro();
+        } else {
+          $bit=flg_cblk();
+        };
 
+        $root->{flg} |= $bit;
+        my $rec=$nd->to_exprtree();
+        $rec->{value}=$c;
+        $out->pushlv($rec);
+        $expr=null;
+
+        $root->{flg} &=~ $bit;
+
+      } elsif(($root->{flg} & flg_macro())
+        &&!   ($root->{flg} & flg_cblk())) {
+
+        if(@{$nd->{leaves}}) {
+          my $rec=$nd->to_exprtree();
+          if($rec->{value} ne 'root') {
+            $expr .= (is_null($expr))
+              ? $root
+              : " $root"
+              ;
+          };
+
+          $rec->{value}="$expr";
+          $out->pushlv($rec);
+          $expr=null;
+
+        } elsif(! ($c=~ qr{^[\{\}]$})) {
+          $expr .= (is_null($expr)) ? $c : " $c" ;
+        };
+
+      } elsif($c=~ qr{^[\{\}]$}) {
         my $rec=$nd->to_exprtree();
         $rec->{value}=$expr;
         $out->pushlv($rec);
         $expr=null;
 
       } else {
-        $expr.=(is_null($expr)) ? $c : " $c" ;
+        $expr .= (is_null($expr)) ? $c : " $c" ;
       };
     };
   };
+
+  if(! is_null($expr)) {
+    $out->commit($expr);
+  };
+
+  if( ($root->{flg} & flg_macro())
+  &&! ($root->{flg} & flg_cblk())) {
+    my @pending=(@{$out->{leaves}});
+
+    while(@pending) {
+      my $nd = shift @pending;
+      my $c  = $nd->{value};
+
+      next if $c eq 'C';
+      next if has_suffix($c,';');
+
+      my @have=($nd);
+      my $join=0;
+      while(@pending) {
+        my $sib=shift @pending;
+        push @have,$sib;
+
+        if(has_suffix($sib->{value},';')) {
+          $join=1;
+          last;
+        };
+      };
+
+      if($join) {
+        my $s=cat(map {$ARG->wstir('{','}')} @have);
+        $nd->{value}=$s;
+
+        shift @have;
+        $ARG->discard() for @have;
+        $nd->pluck_all();
+      };
+    };
+  };
+
   return $out;
 };
 
@@ -337,8 +537,17 @@ sub to_expr {
 };
 
 sub to_expr_impl {
-  return map {
-    $ARG->node_to_expr()
+  return grep {
+    $ARG->{type} ne 'null'
+
+  } map {
+    map {
+      if($ARG->{type} eq 'null') {
+        @{$ARG->{blk}};
+
+      } else {$ARG};
+
+    } $ARG->node_to_expr();
 
   } @{$_[0]->{leaves}};
 };
@@ -349,16 +558,17 @@ sub to_expr_impl {
 
 sub node_to_expr {
   # early exit?
-  my ($nd) = @_;
-  my $expr = $nd->{value};
-  my @blk  = $nd->to_expr_impl();
+  my ($nd)=@_;
+
+  strip($nd->{value});
+  my $expr=$nd->{value};
 
   return {
     type => 'null',
     cmd  => null,
     expr => null,
     args => null,
-    blk  => \@blk,
+    blk  => [$nd->to_expr_impl()],
 
   } if is_null($expr);
 
@@ -372,104 +582,137 @@ sub node_to_expr {
     = [^[:alnum:]]*
   }x;
 
+  # get first appearance of arguments
+  my $have_args = int($expr=~ s[$args_re][]);
+  my $args      = $+{args} // null;
+
   # asm/peso rules: first token is instruction
   # everything else is arguments!
   $expr=~ s[$cmd_re][];
-  my $cmd    = $+{cmd};
-     $cmd  //= null;
+  my $cmd  = $+{cmd} // null;
+  my $full = "$cmd $expr";
 
-  # ^get first appearance of arguments
-  my $have_args   = int($expr=~ s[$args_re][]);
-  my $args        = $+{args};
-     $args      //= null;
+  strip($ARG) for $full,$cmd,$expr,$args;
 
-  strip($ARG) for $cmd,$expr,$args;
-
-  my $type='expr';
+  my $type = 'expr';
+  my @blk  = $nd->to_expr_impl();
 
   # do we have a {block} on this expression?
   if( @blk
 
   # does it match "[expr] (...)"?
   &&  $have_args
-  &&! is_null($expr)
+  &&! is_null($full)
 
   # 'C' as first token is special cased as
   # we use it to make strings from C code
   #
   # so we check for this as well
-  && $cmd ne 'C') {
+  && $cmd ne 'C'
+  && $cmd ne 'macro'
+  ) {
     # ^ if all that is true,
     #   then it *is* a function!
-    $type='proc';
-    $args=[gsplit($args,qr{\s*,\s*})];
+    $type = 'proc';
+    $args = [gsplit($args,qr{\s*,\s*})];
 
 
-  # everything else is a regular expression
+  # not a C function, so it gets... funky
   } else {
     $expr .= "($args)" if $have_args;
+    $args  = null;
 
-    my $fctl_re=qr{^(?:
-      if|elsif|else|while|do|switch
-    )$}x;
+    if($cmd=~ qr{^(?:C|macro)$}) {
+      # perl code, so don't even bother parsing ;>
+      if($cmd eq 'macro') {
+        $type='asis';
+        my $csume=shift @blk;
+        if($csume->{type} ne 'proc') {
+          throw "Invalid macro: "
+          .     fatdump(\$csume,mute=>1)
+        };
 
-    my $struc_re=qr{\b(?<keyw>union|struct?)\b};
-    my $utype_re=qr{^(?:public +)?(?:typedef +)};
+        $expr = "$csume->{cmd} $csume->{expr}";
+        $cmd  = 'macro';
+        $args = $csume->{args};
+        @blk  = @{$csume->{blk}};
 
-    # treat this entire node like a string
-    # containing C code?
-    if($cmd eq 'C') {
-      $type='code';
 
-      my $ct=join("\n",
-        "q[$expr {",
-          $nd->expr_to_code_impl(@blk),
-        "};]",
-      );
+      # treat this entire node like a string
+      # containing C code?
+      } elsif($cmd eq 'C') {
+        $type='code';
 
-      $ct=join("\n",
-        'local *cmamclip=sub(%O) {',
-          "my \$out=$ct;",
-          'use Arstd::Re qw(crepl);',
-          'return crepl($out,%O);',
-        '};',
-      );
+        my $semi_re=qr{^ *; *};
+        $expr=~ s[$semi_re][];
 
-      my $ar  = $nd->root()->{string};
-      my $tok = sprintf(strtok_fmat(),int(@$ar));
-      push @$ar,$ct;
+        my ($beg,$end)=(! is_null($expr))
+          ? ('{','}')
+          : (null,null)
+          ;
 
-      $cmd  = '';
-      $expr = $tok;
-      @blk  = ();
+        my $ct=join("\n",
+          "q[$expr $beg",
+            $nd->expr_to_code_impl(@blk),
+          "$end;]",
+        );
 
-    # if/else
-    } elsif($cmd=~ $fctl_re) {
-      $type='fctl';
+        $ct=join("\n",
+          'local *cmamclip=sub(%O) {',
+            "my \$out=$ct;",
+            'use Arstd::Re qw(crepl);',
+            'return crepl($out,%O);',
+          '};',
+        );
 
-    # [type]? [name]=[value]
-    } elsif($expr=~ $asg_re) {
-      $type='asg';
+        my $ar  = $nd->root()->{string};
+        my $tok = sprintf(strtok_fmat(),int(@$ar));
+        push @$ar,$ct;
 
-    # (standard) preprocessor line
-    } elsif(is_cpre($cmd,$expr)) {
-      $type='cpre';
-
-    # typedef
-    } elsif("$cmd $expr"=~ $utype_re) {
-      if(@blk && "$cmd $expr"=~ $struc_re) {
-        $type=$+{keyw};
-
-      } else {
-        $type='utype';
+        $cmd  = '';
+        $expr = $tok;
+        @blk  = ();
       };
 
-    # ^struc
-    } elsif(@blk && "$cmd $expr"=~ $struc_re) {
-      $type=$+{keyw};
-    };
+    # common expressions
+    } else {
+      my $fctl_re=qr{^(?:
+        if|elsif|else|while|do|switch
+      )$}x;
 
-    $type='struc' if $type eq 'struct';
+      my $struc_re=qr{\b(?<keyw>union|struct?)\b};
+      my $utype_re=qr{^(?:public +)?(?:typedef +)};
+
+      @blk=$nd->to_expr_impl();
+
+      # if/else
+      if($cmd=~ $fctl_re) {
+        $type='fctl';
+
+      # [type]? [name]=[value]
+      } elsif($expr=~ $asg_re) {
+        $type='asg';
+
+      # (standard) preprocessor line
+      } elsif(is_cpre($cmd,$expr)) {
+        $type='cpre';
+
+      # typedef
+      } elsif("$cmd $expr"=~ $utype_re) {
+        if(@blk && "$cmd $expr"=~ $struc_re) {
+          $type=$+{keyw};
+
+        } else {
+          $type='utype';
+        };
+
+      # ^struc
+      } elsif(@blk && "$cmd $expr"=~ $struc_re) {
+        $type=$+{keyw};
+      };
+
+      $type='struc' if $type eq 'struct';
+    };
   };
 
   return {
@@ -608,6 +851,10 @@ sub expr_to_code_impl($self,@ar) {
   my $pad='  ' x $lvl++;
 
   my $s=join "\n",map {
+    if($ARG->{type} eq 'asis') {
+      $ARG->{type}='asis' for @{$ARG->{blk}};
+    };
+
     # include <file.h> is effed as < file.h >
     # so catch that here
     if($ARG->{type} eq 'cpre'
@@ -622,7 +869,7 @@ sub expr_to_code_impl($self,@ar) {
       $ARG->{expr},
       (is_arrayref($ARG->{args}))
         ? '(' . join(',',@{$ARG->{args}}) . ')'
-        : ()
+        : ($ARG->{args})
         ,
     );
 
@@ -639,7 +886,8 @@ sub expr_to_code_impl($self,@ar) {
       my $blk  = $self->expr_to_code_impl(@blk);
       my $post = (exists $ARG->{_afterblk})
         ? "$ARG->{_afterblk};"
-        : (($ARG->{type}=~ qr{^(?:proc|struc)}) ? ';' : null )
+        : (($ARG->{type}=~ qr{^(?:proc|struc)})
+            ? ';' : null)
         ;
 
       if($ARG->{type} eq 'asg') {
@@ -648,7 +896,8 @@ sub expr_to_code_impl($self,@ar) {
       };
       "$out\n${pad}{\n$blk\n${pad}}$post";
 
-    } elsif($ARG->{type} eq 'cpre') {
+    } elsif($ARG->{type}=~
+        qr{^(?:cpre|code|asis)$}) {
       "$out";
 
     } else {
@@ -658,6 +907,9 @@ sub expr_to_code_impl($self,@ar) {
   } grep {is_hashref($ARG)} @ar;
 
   --$lvl;
+
+  my $re=qr{;+};
+  $s=~ s[$re][;]g;
   return $s;
 };
 

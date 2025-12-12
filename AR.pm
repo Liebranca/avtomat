@@ -234,25 +234,29 @@ sub duse {
 
     # redecl warnings are a pain
     my $blk="{goto \&$pkg\::$ARG};";
-    if(defined codefind($dst,$ARG)) {
-      join("\n",
-        "no strict 'refs';",
-        "no warnings 'redefine';",
-        "*{\"${path}$ARG\"}=sub $blk",
-        "use warnings 'redefine';",
-        "use strict 'refs';",
-      );
-
-    } else {
+#    if(defined codefind($dst,"${path}$ARG")) {
+#      join("\n",
+#        "no strict 'refs';",
+#        "no warnings 'redefine';",
+#        "*{\"${path}$ARG\"}=sub $blk",
+#        "use warnings 'redefine';",
+#        "use strict 'refs';",
+#      );
+#
+#    } else {
       "sub ${path}$ARG $blk";
-    };
+#    };
 
   } @args;
 
   # ^put declarations in package
   my $decl = join "\n",(
     "package $dst {",
+      "no strict 'refs';",
+      "no warnings 'redefine';",
       @decl,
+      "use warnings 'redefine';",
+      "use strict 'refs';",
     "};\n"
   );
 

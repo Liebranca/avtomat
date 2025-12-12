@@ -153,13 +153,18 @@ macro label tree_fetch_proto($nd) {
   my ($cmd,$self,$nodes)=parse_as_label($nd);
 
   // make wrapper body
-  my $body=(
-    "mem ptr $nodes=tree_nodes($self);"
-  . "$self=tree_deref_impl($self,$nodes);"
+  C {
+    mem ptr B=tree_nodes(A);
+    A=tree_deref_impl(A,B);
+    return CALL;
+  };
+  my $body=cmamclip(
+    A => $self,
+    B => $nodes,
   );
 
   // give definition plus wrapper
-  return SWAN::cmacro::fwraps(
+  return fwraps(
     $nd,
     '_impl',
     $body,

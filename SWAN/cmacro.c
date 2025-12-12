@@ -10,14 +10,22 @@
 // lib,
 
 // ---   *   ---   *   ---
+// NOTE
+//
+// these are just utility macros that
+// are part of cmam core, and naturally, we
+// define these using cmam ;>
+
+// ---   *   ---   *   ---
 // deps
 
-package non; // global scope
+package SWAN::cmacro;
   use PM Style qw(null);
   use PM Chk qw(is_null);
   use PM Type;
   use PM Arstd::String qw(strip);
   use PM Arstd::Bin qw(deepcpy);
+  use PM Arstd::Re qw(crepl);
   use PM Arstd::throw;
 
   use PM CMAM::static qw(
@@ -55,11 +63,11 @@ macro top AUTHOR($nd)  {return PKGINFO($nd)};
 
 
 // ---   *   ---   *   ---
-// NOTE: what follows also goes in global scope
-//
-// these are just minimal utility macros that
-// are part of cmam core, and naturally, we
-// define these using cmam ;>
+// ^now we can write the info ;>
+
+  VERSION "v0.00.7a";
+  AUTHOR  "IBN-3DILA";
+
 
 // ---   *   ---   *   ---
 // mark symbol for inclusion in
@@ -204,21 +212,35 @@ macro internal fwraps($nd,$suffix,$body,@args) {
     push @$argtype,"$type $name";
   };
 
-  // generate wrapper
-  my @wrap=strnd(
-    // (re)declare the function [yes]
-    "$type $fn->{name} ($fn->{argtype}) {"
-
-    // paste in the wrapper's body/prelude
-    . $body
-
-    // ^ then sneakily call the implementation,
-    //   passing in the added parameters
-    . "return $fn->{name}${suffix}("
-      . join(',',$fn->{argname},@$argname)
-    . ");"
-  . "};"
+  // generate call to implementation
+  my $call=crepl(
+    "NAME##SUFFIX(RARGS)",
+    NAME   => $fn->{name},
+    SUFFIX => $suffix,
+    RARGS  => join(',',$fn->{argname},@$argname),
   );
+
+  // ^ now replace 'CALL' in body with an
+  //   actual call to it!
+  $body=crepl(
+    $body,
+    T      => $fn->{type},
+    SUFFIX => $suffix,
+    CALL   => $call,
+  );
+
+  // ^ then paste the contents inside a new F
+  C T NAME(WARGS) {
+    BODY
+  };
+
+  my @wrap=strnd(cmamclip(
+    T      => $type,
+    NAME   => $fn->{name},
+    WARGS  => $fn->{argtype},
+    BODY   => $body,
+    SUFFIX => $suffix,
+  ));
 
   // include the added argument that will be
   // passed in by the prelude
@@ -231,14 +253,6 @@ macro internal fwraps($nd,$suffix,$body,@args) {
   // the wrappers definition
   return ($nd,@wrap);
 };
-
-
-// ---   *   ---   *   ---
-// _now_ write info at file scope ;>
-
-package SWAN::cmacro;
-  VERSION "v0.00.7a";
-  AUTHOR  "IBN-3DILA";
 
 
 // ---   *   ---   *   ---

@@ -38,7 +38,7 @@ package Tree;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.04.6';
+  our $VERSION = 'v0.04.7';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -1536,6 +1536,28 @@ sub flatten_to_string($self,%O) {
   $self->clear();
 
   return;
+};
+
+
+# ---   *   ---   *   ---
+# wraps child values such that:
+#
+# self
+# \-->c0
+# \-->c1
+#
+# would give: "self (beg) c0 c1 (end)"
+
+sub wstir($self,$beg,$end=undef) {
+  $end//=$beg;
+  my $inner=null;
+  for my $nd(@{$self->{leaves}}) {
+    $inner .= $nd->wstir($beg,$end);
+  };
+  return(! is_null($inner))
+    ? "$self->{value}$beg$inner$end"
+    : $self->{value}
+    ;
 };
 
 

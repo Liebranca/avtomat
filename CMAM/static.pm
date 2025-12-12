@@ -67,24 +67,15 @@ package CMAM::static;
 
 
 # ---   *   ---   *   ---
-# RAM
-
-  my $CMAMDEF={};
-  my $CMAMOUT={};
-  my $CSCOPE;
-  my $CPACKAGE;
-  my $CFLAG;
-
-
-# ---   *   ---   *   ---
 # get current package from C space
 #
 # [<]: mem ptr ; selfex
 
 sub cpackage {
-  $CPACKAGE=$_[0] if ! is_null($_[0]);
-  return (! is_null($CPACKAGE))
-  ? $CPACKAGE
+  state $out='non';
+  $out=$_[0] if ! is_null($_[0]);
+  return (! is_null($out))
+  ? $out
   : 'SWAN::cmacro'
   ;
 };
@@ -95,31 +86,45 @@ sub cpackage {
 #
 # [<]: mem ptr ; output hashref
 
+sub cmamoutp {
+  state $out={};
+  return $out;
+};
 sub cmamout {
+  my $out=cmamoutp();
   my $pkg=cpackage();
-  $CMAMOUT->{$pkg}//={
+
+  $out->{$pkg}//={
     def    => [],
     dep    => {c=>[],pm=>[]},
     type   => [],
     export => [],
     info   => {},
   };
-  return $CMAMOUT->{$pkg};
+  return $out->{$pkg};
 };
 
 
 # ---   *   ---   *   ---
 # get local/global scope
 
-sub cmamlol {return $CSCOPE->{local}};
-sub cmamgbl {return $CSCOPE->{global}};
-sub cmamfn  {return $CSCOPE->{fn}};
+sub cmamscope {
+  state $out={local=>{},global=>{},fn=>{}};
+  return $out;
+};
+sub cmamlol {return cmamscope()->{local}};
+sub cmamgbl {return cmamscope()->{global}};
+sub cmamfn  {return cmamscope()->{fn}};
 
 
 # ---   *   ---   *   ---
 # get defined symbols
 
-sub cmamdef {return $CMAMDEF};
+sub cmamdef {
+  state $out={};
+  return $out;
+};
+
 sub cmamdef_re {
   my $spec   = shift;
      $spec //= 0x0000;
@@ -183,9 +188,9 @@ sub restart {
   for(grep {
     ! ($ARG=~ qr{(?:package|use|macro)})
 
-  } keys %$CMAMDEF) {
+  } keys %{cmamdef()}) {
     undef  *{"$pkg\::$ARG"};
-    delete $CMAMDEF->{$ARG};
+    delete cmamdef()->{$ARG};
   };
   use strict 'refs';
 
@@ -193,11 +198,12 @@ sub restart {
   ctree(0xCC);
 
   # now reset globals
-  $CMAMDEF  = {};
-  $CMAMOUT  = {};
-  $CSCOPE   = {local=>{},global=>{},fn=>{}};
-  $CPACKAGE = null;
-  $CFLAG    = 0x00;
+  %{cmamdef()}   = ();
+  %{cmamoutp()}  = ();
+  %{cmamscope()} = (local=>{},global=>{},fn=>{});
+  ${cflag()}     = 0x00;
+
+  cpackage(null);
 
   return;
 };
@@ -206,7 +212,11 @@ sub restart {
 # ---   *   ---   *   ---
 # read from global flag
 
-sub is_local_scope {$CFLAG & 0x01};
+sub cflag {
+  state $out=0x00;
+  return \$out;
+};
+sub is_local_scope {${cflag()} & 0x01};
 
 
 # ---   *   ---   *   ---
@@ -214,7 +224,7 @@ sub is_local_scope {$CFLAG & 0x01};
 
 sub set_local_scope {
   my ($nd)=@_;
-  $CFLAG |= 0x01;
+  ${cflag()} |= 0x01;
 
   # clear scope
   %{cmamlol()}=();
@@ -239,9 +249,9 @@ sub set_local_scope {
 # ^cleanup
 
 sub unset_local_scope {
-  $CFLAG        &=~ 0x01;
-  %{cmamlol()}   =  ();
-  %{cmamfn()}    =  ();
+  ${cflag()}   &=~ 0x01;
+  %{cmamlol()}  =  ();
+  %{cmamfn()}   =  ();
 
   return;
 };
