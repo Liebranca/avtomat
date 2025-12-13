@@ -1562,6 +1562,27 @@ sub wstir($self,$beg,$end=undef) {
 
 
 # ---   *   ---   *   ---
+# replaces [null] branches with
+# their leaves
+#
+# if the branch has no leaves,
+# it is simply discarded
+
+sub contract($self) {
+  my @pending=(@{$self->{leaves}});
+  while(@pending) {
+    my $nd=shift @pending;
+
+    if(is_null($nd->{value})) {
+      my @lv=$nd->flatten_branch();
+      unshift @pending,@lv;
+    };
+  };
+  return;
+};
+
+
+# ---   *   ---   *   ---
 # selfex; give nodes between another two
 
 sub leaves_between($self,$i0,$i1,@branches) {
@@ -2065,11 +2086,8 @@ sub drawp($depth) {
 
 sub repr($self,$depth,$prev,%O) {
   # default to null or skip excluded
-  my $v   = $self->{value};
-     $v //= sprintf "%08X",0xDEADBEEF;
-
+  my $v=$self->{value} // '[null]';
   return null if $v=~ $O{-x};
-
 
   # recursing optional ;>
   return '[sub-tree]',$depth
@@ -2143,7 +2161,7 @@ sub prich($self,%O) {
         $depth,$prev,%O
       );
 
-      next if is_null $v;
+      $v='[null]' if is_null($v);
 
 
       # ^nope, keep going

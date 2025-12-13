@@ -37,8 +37,10 @@ package Arstd::String;
   use Exporter 'import';
   our @EXPORT_OK=qw(
     cat
+    spacecat
     catpath
     to_char
+    ident
 
     sqwrap
     dqwrap
@@ -78,8 +80,21 @@ package Arstd::String;
 # join null,(in)
 #
 # [0]: byte pptr ; string array
+# [<]: byte ptr  ; new string
 
 sub cat {join null,@_};
+
+
+# ---   *   ---   *   ---
+# joins with spaces, without blanks in between
+#
+# [0]: byte pptr ; string array
+# [<]: byte ptr  ; new string
+
+sub spacecat {
+  my @have=@_;
+  return join(' ',gstrip(@have));
+};
 
 
 # ---   *   ---   *   ---
@@ -104,6 +119,20 @@ sub catpath {
 # [0]: byte ptr ; string
 
 sub to_char {split null,$_[0]};
+
+
+# ---   *   ---   *   ---
+# adds N levels of ident to each line of string
+#
+# [0]: byte ptr ; string
+# [1]: word     ; ident lvl
+
+sub ident {
+  my @line = gsplit($_[0],qr"\n");
+  my $pad  = '  ' x $_[1];
+
+  return $pad . join("\n$pad",@line);
+};
 
 
 # ---   *   ---   *   ---

@@ -46,6 +46,9 @@ macro top PKGINFO($nd) {
 
   my $k=cpackage() . "_" . $nd->{cmd};
   my $v=$nd->{expr};
+  C {
+    test;
+  };
 
   my $info=$v;
   ctree()->unstrtok($info);

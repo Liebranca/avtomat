@@ -139,64 +139,18 @@ sub spec {
 # lets us use a C parser for a subset of perl
 
 sub c_to_perl {
-#  my $sigil_re = qr{\s*(?<!\\)([\$\@])\s*};
-#  my $deref_re = qr{\s*\->$};
-#  my $semi_re  = qr{;$};
-
   for my $nd(@_) {
-#    $nd->{cmd}  =~ s[$sigil_re][$1]g;
-#    $nd->{expr} =~ s[$sigil_re][$1]g;
-#
-#    if(is_arrayref($nd->{args})) {
-#      $ARG=~ s[$sigil_re][$1]g for @{$nd->{args}};
-#    } else {
-#      $nd->{args}=~ s[$sigil_re][$1]g;
-#    };
-
     # recurse for block
     my @blk=@{$nd->{blk}};
     c_to_perl(@blk);
-
-#    # ^ C parser iprets "$self->{...}->{...}"
-#    #   as a series of blocks, so undo that
-#    if(int(@blk)
-#    && ($nd->{expr}=~ s[$deref_re][->]g)) {
-#      my $s=Tree::C->expr_to_code_impl(@blk);
-#      $s=~ s[$semi_re][]g;
-#      $nd->{expr}   = "$nd->{expr}\{$s}";
-#      @{$nd->{blk}} = ();
-#    };
   };
 
   # make string from all nodes
   my $out=ctree()->expr_to_code_impl(@_);
 
-#  # ^ fix malformed expressions caused by the
-#  #   aforementioned "$self->{...}->{...}" issue
-#  my $join_re=qr{;\s+(?<opr>[^[:alnum:];\$\@\%\s\{\}]+)};
-#  while($out=~ $join_re) {
-#    my $opr   = $+{opr};
-#       $opr //= null;
-#
-#    $out=~ s[$join_re][${opr}];
-#  };
-
   # "dir :: pkg" should be "dir::pkg"...
   my $dcolon_re=qr{\s*::\s*};
   $out=~ s[$dcolon_re][::]g;
-
-#  # ^regexes maan
-#  my $subex_re=qr{\bs \[([^\]]+) \]\[ ([^\]]+) \]};
-#  while($out=~ $subex_re) {
-#    my ($pat,$wat)=($1,$2);
-#    $pat//=null;
-#    $wat//=null;
-#
-#    $out=~ s[$subex_re][s\[$pat\]\[$wat\]]g;
-#  };
-#
-#  my $flgex_re=qr{([\]\}]) ([gsmx]+)};
-#  $out=~ s[$flgex_re][$1$2]g;
 
   return $out;
 };
