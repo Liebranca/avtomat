@@ -41,7 +41,6 @@ BEGIN {
 
   chdir "$ENV{ARPATH}/avtomat/"
   or die "$ERRNO";
-
 };
 
 
@@ -61,7 +60,6 @@ my $ROM={
     FNAME   => "\e[32;1m",
     STEP    => "\e[37;1m::\e[0m",
     SUBSTEP => "  ",
-
   },
 
   # these files are needed for building
@@ -78,31 +76,37 @@ my $ROM={
     /sys/Arstd/ansi.pm
     /sys/Arstd/throw.pm
     /sys/Arstd/Bin.pm
-    /sys/Arstd/Repl.pm
+    /sys/Arstd/Array.pm
+    /sys/Arstd/Hash.pm
+    /sys/Arstd/IO.pm
+    /sys/Arstd/Re.pm
+    /sys/Arstd/PM.pm
+    /sys/Arstd/seq.pm
+    /sys/Arstd/strtok.pm
+    /sys/Arstd/peso.pm
+    /sys/Arstd/repl.pm
+    /sys/Shb7/Path.pm
+    /sys/Shb7/Find.pm
     /sys/Chk/Syntax.pm
     /sys/Chk/Deps.pm
+
+    /AR.pm
+    /sys/Arstd/rd.pm
+    /sys/Arstd/pproc.pm
+    /sys/Frame.pm
+    /sys/St.pm
   )],
 
   # MAM does not depend on these files,
   # so we can mess with their deps alright ;>
   AVTODEPS=>[qw(
     /sys/Arstd/Token.pm
-    /sys/Arstd/Array.pm
     /sys/Arstd/Bytes.pm
     /sys/Arstd/Int.pm
-    /sys/Arstd/Re.pm
     /sys/Arstd/stoi.pm
-    /sys/Arstd/Hash.pm
-    /sys/Arstd/IO.pm
-    /sys/Arstd/PM.pm
     /sys/Arstd/Fmat.pm
     /sys/Arstd/fatdump.pm
     /sys/Arstd/xd.pm
-
-    /AR.pm
-
-    /sys/Frame.pm
-    /sys/St.pm
 
     /sys/Ftype.pm
     /sys/Ftype/Text.pm
@@ -114,6 +118,7 @@ my $ROM={
     /sys/Ftype/Text/Python.pm
     /sys/Ftype/Text/Js.pm
     /sys/Ftype/Text/Mny.pm
+    /sys/Ftype/Text/cfg.pm
 
     /sys/Tree.pm
     /sys/Tree/File.pm
@@ -142,8 +147,6 @@ my $ROM={
     CMAM/sandbox.pm
     CMAM.pm
 
-    /sys/Shb7/Path.pm
-    /sys/Shb7/Find.pm
     /sys/Shb7/Bfile.pm
     /sys/Shb7/Bk.pm
     /sys/Shb7/Bk/flat.pm
@@ -167,7 +170,6 @@ my $ROM={
     /Avt/Makescript.pm
     /Avt.pm
   )],
-
 };
 
 

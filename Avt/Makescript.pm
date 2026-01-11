@@ -323,7 +323,7 @@ sub load($class,$file,@cmd) {
 # ^iface
 
 sub read_cli($class,@cmd) {
-  state @tab=(
+  my @tab=(
     { id    => 'clean',
       short => '-c',
       long  => '--clean',

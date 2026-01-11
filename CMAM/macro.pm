@@ -29,6 +29,7 @@ package CMAM::macro;
   );
 
   use Arstd::String qw(cat gsplit);
+  use Arstd::strtok qw(unstrtok);
   use Arstd::Token qw(
     tokenshift
     semipop
@@ -99,7 +100,7 @@ sub macro {
   my $fnstr=c_to_perl($nd);
 
   # now put strings back in
-  ctree()->unstrtok($fnstr);
+  unstrtok($fnstr,ctree()->root()->{string});
 
   # generate and register new symbol
   macroload($name,$fnstr,$type);

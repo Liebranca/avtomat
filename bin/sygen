@@ -30,6 +30,7 @@ package sygen;
     is_arrayref
     is_hashref
     is_qre
+    is_cdelim
   );
   use Arstd::Bin qw(xdorc moo);
   use Arstd::Path qw(extcl relto to_pkg reqdir);
@@ -161,13 +162,23 @@ sub get_color_name { return join ',',(
 sub prprops($def,$key) {
   # extract from instance?
   if($key=~ qr{^highlight}) {
-    my $have=$def->{$key};
-    return map {
-      my $value=$have->[$ARG*2+0];
-      my $color=$have->[$ARG*2+1];
-      make_rule($def,$key,$value,$color)
+    my $have = $def->{$key};
+    my @out  = ();
+    my $i    = 0;
 
-    } 0..int(@$have/2)-1;
+    while($i < @$have) {
+      my $value=$have->[$i];
+      if(is_hashref($value)) {
+        my $color=$value->{color};
+        push @out,make_rule($def,$key,$value,$color);
+        ++$i;
+      } else {
+        my $color=$have->[$i+1];
+        push @out,make_rule($def,$key,$value,$color);
+        $i+=2;
+      };
+    };
+    return @out;
   };
 
   # ^nope, use inner table
@@ -199,8 +210,13 @@ sub extract($def,$key,$value) {
 
   ) if ! is_hashref $value;
 
+  # assume common delimiter sequence?
+  return "start=\"$value->{beg}\" "
+  .      "end=\"$value->{end}\""
 
-  # ^hashref is... complicated ;>
+  if is_cdelim($value);
+
+  # ^plain hashref is... complicated ;>
   delete $value->{-re};
 
   my @keys = keys %$value;
@@ -264,11 +280,13 @@ sub make_rule($def,$key,$value,$color) {
   $color=get_color_name $color;
 
   return map {
-    $ARG=~ s[\s+|\n][]sxmg;
-    $ARG=  cat gstrip split "\n",$ARG;
+    if(! is_cdelim($value)) {
+      $ARG=~ s[\s+|\n][]sxmg;
+      $ARG=  cat gstrip split "\n",$ARG;
 
-    Arstd::Re::qre2re($ARG);
-    $ARG=dqwrap $ARG;
+      Arstd::Re::qre2re($ARG);
+      $ARG=dqwrap $ARG;
+    };
 
     "color $color $ARG";
 

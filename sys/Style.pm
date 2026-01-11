@@ -24,7 +24,7 @@ package Style;
 
   use Exporter 'import';
   our @EXPORT_OK=qw(
-    noop
+    nop
     null
     no_match
     any_match
@@ -42,7 +42,7 @@ package Style;
 # ---   *   ---   *   ---
 # ROM
 
-sub noop      {};
+sub nop       {};
 sub null      {return ''};
 sub no_match  {return qr{\b\B}};
 sub any_match {return qr{[^[:blank:]]+}};

@@ -61,24 +61,26 @@ package Shb7::Build;
 # ---   *   ---   *   ---
 # ROM
 
-sub DEFAULT {return {
-  name    => 'out',
-  entry   => '_start',
+sub DEFAULT {
+  return {
+    name    => 'out',
+    entry   => '_start',
 
-  lang    => 'fasm',
-  file    => [],
-  flag    => [],
-  def     => [],
-  inc     => [],
-  lib     => [],
-  libpath => [],
+    lang    => 'fasm',
+    file    => [],
+    flag    => [],
+    def     => [],
+    inc     => [],
+    lib     => [],
+    libpath => [],
 
-  shared  => 0,
-  linking => 0,
-  debug   => 0,
-  clean   => 0,
-  tgt     => 0,
-}};
+    shared  => 0,
+    linking => 0,
+    debug   => 0,
+    clean   => 0,
+    tgt     => 0,
+  };
+};
 
 
 # ---   *   ---   *   ---

@@ -1,5 +1,12 @@
 >avtomat v4.00.0
 
+*>Standarize nbuild script
+~ Read *.cfg files to get lib/include paths.
+x Use CLI to read arguments.
+x Move Shb7::Find (and deps) to MAMDEPS;
+  that way we can use lib/include paths
+  directly from stdpproc
+
 *>Avt::XS
 x Save exported symbols during CMAM run.
 x \--> Write mini-ipret for saving constants

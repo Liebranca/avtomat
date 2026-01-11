@@ -23,6 +23,7 @@ package Ftype::Text::peso;
   use Type::MAKE;
   use parent 'Ftype::Text';
 
+
 # ---   *   ---   *   ---
 # info
 

@@ -26,6 +26,7 @@ package SWAN::cmacro;
   use PM Arstd::String qw(strip);
   use PM Arstd::Bin qw(deepcpy);
   use PM Arstd::Re qw(crepl);
+  use PM Arstd::strtok qw(unstrtok);
   use PM Arstd::throw;
 
   use PM CMAM::static qw(
@@ -46,12 +47,9 @@ macro top PKGINFO($nd) {
 
   my $k=cpackage() . "_" . $nd->{cmd};
   my $v=$nd->{expr};
-  C {
-    test;
-  };
 
   my $info=$v;
-  ctree()->unstrtok($info);
+  unstrtok($info,ctree()->root()->{string});
   cmamout()->{info}->{$nd->{cmd}}=$info;
 
   my $dcolon_re=qr' *:: *';

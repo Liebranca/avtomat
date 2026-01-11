@@ -19,6 +19,9 @@ package Ftype;
   use warnings;
   use English qw($ARG);
 
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Arstd::strtok;
+
 
 # ---   *   ---   *   ---
 # info
@@ -94,6 +97,24 @@ sub ext_to_ftype($file) {
     return $ARG if $path[-1]=$ARG->{ext};
   };
   return undef;
+};
+
+
+# ---   *   ---   *   ---
+# ^ get syntax rules, if any are
+#   defined by the filetype
+#
+# else uses default ones
+# (defined by strtok)
+
+sub syxof($file) {
+  my $ftype = ext_to_filetype($file);
+  my $def   = Arstd::strtok::defsyx();
+
+  return $def if! $ftype
+              ||! $ftype->can('strtok_syx');
+
+  return $ftype->strtok_syx();
 };
 
 

@@ -28,8 +28,9 @@ package MAM;
   use Arstd::String qw(strip gsplit);
   use Arstd::Path qw(relto dirof);
   use Arstd::Bin qw(orc);
+  use Arstd::seq qw(seqnew);
+  use Arstd::repl;
   use Arstd::throw;
-  use Arstd::Repl;
 
 
 # ---   *   ---   *   ---
@@ -55,21 +56,21 @@ package MAM;
 # [<]: byte ptr ; string to replace placeholder by
 
 sub repv {
-  my $module = \$_[0]->{module};
-  my $have   =  $_[1]->{capt}->[$_[2]];
+  my ($self,$repl,$uid)=@_;
+
+  my $module = $self->{module};
+  my $have   = $_[1]->{capt}->[$uid];
   my $beg    = "\n" . q[  use lib "$ENV{ARPATH}];
-  my $path   = \$have->{path};
 
   # do _not_ rept the module name ;>
-  $$path=~ s[/+$$module/+][];
-
+  $have->{path}=~ s[/+$$module/+][];
 
   # adding build directory?
-  return "$beg/.trash/$$module/$$path\";"
+  return "$beg/.trash/$module/$have->{path}\";"
   if $_[0]->{rap};
 
   # ^nope, restore!
-  return "$beg/lib/$$path\";";
+  return "$beg/lib/$have->{path}\";";
 };
 
 
@@ -89,9 +90,8 @@ sub new {
   };
 
   # make repl ice
-  $self->{repl}=Arstd::Repl->new(
-    pre  => "USE$_[0]",
-    repv => sub {
+  $self->{repl}=Arstd::repl->new(
+    repv=>sub {
       my $re  =  qr{/+};
       my $out =  repv($self,@_);
          $out =~ s[$re][/]g;
@@ -99,8 +99,19 @@ sub new {
       return $out;
     },
 
-    inre => qr{
-      \s* use \s+ lib \s+
+    seq=>seqnew(
+      beg  => "use ",
+      end  => ";",
+      type => 'pproc',
+      wb   => 1,
+    ),
+    syx=>[
+      {%{Arstd::seq::com()->{pline}},keep=>1},
+      values %{Arstd::seq::str()},
+    ],
+
+    inre=>qr{
+      ^\s+ lib \s+
 
       "? \$ENV\{
 
@@ -112,7 +123,7 @@ sub new {
       (?<root> lib|.trash)
       (?<path> [^;]+)
 
-      ['"] \s* ;
+      ['"] \s*
     }x,
   );
 
@@ -178,7 +189,7 @@ sub libpush {
 # Vault is the avtomat package that
 # handles caching.
 #
-# Because it always requires a specific key
+# because it always requires a specific key
 # to identify the root path to the cache
 # directory, but passing this key manually
 # is a bit tedious, we simply generate that here
@@ -488,7 +499,6 @@ sub run {
   $_[0]->Vault_step($body,$path);
   $_[0]->AR_step($body);
   $_[0]->{repl}->proc($body);
-  $_[0]->{repl}->clear();
   $_[0]->proc_step($body);
 
   # syntax check the filtered source ;>

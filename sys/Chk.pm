@@ -39,6 +39,7 @@ package Chk;
     is_qre
     is_qreref
     is_scalarref
+    is_cdelim
     is_path
     is_rpath
     is_file
@@ -116,6 +117,18 @@ sub is_nref {
   &&! is_coderef   ($_[0])
   &&! is_qre       ($_[0])
   );
+};
+
+
+# ---   *   ---   *   ---
+# ~~
+
+sub is_cdelim {
+  return 0 if ! is_hashref($_[0]);
+  return exists $_[0]->{beg}
+  &&     exists $_[0]->{end}
+  &&     exists $_[0]->{keep}
+  &&     exists $_[0]->{color};
 };
 
 

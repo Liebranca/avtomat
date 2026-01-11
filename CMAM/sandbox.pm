@@ -28,6 +28,7 @@ package CMAM::sandbox;
     gstrip
     gsplit
   );
+  use Arstd::strtok qw(unstrtok);
   use Arstd::Path qw(
     from_pkg
     extwap
@@ -88,7 +89,7 @@ sub usepkg {
   # first convert the node into a string
   $nd->{cmd}="";
   my $expr=c_to_perl($nd);
-  ctree()->unstrtok($expr);
+  unstrtok($expr,ctree()->root()->{string});
 
   $nd->{expr}=$expr;
 

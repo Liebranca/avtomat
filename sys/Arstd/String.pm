@@ -58,6 +58,7 @@ package Arstd::String;
     nobs
     charcon
     strip
+    wstrip
     gstrip
     gsplit
     fgsplit
@@ -390,6 +391,23 @@ sub strip {
 
 };
 
+# ---   *   ---   *   ---
+# ^removes extra whitespace
+#
+# [0]: byte ptr ; string
+# [<]: bool     ; string is not null
+#
+# [!]: overwrites input string
+
+sub wstrip {
+  return 0 if ! strip($_[0]);
+
+  my $re=qr{\s+};
+  $_[0]=~ s[$re][ ]gsm;
+
+  return ! is_null($_[0]);
+};
+
 
 # ---   *   ---   *   ---
 # ^from array, filters out empty
@@ -516,6 +534,7 @@ sub time_to_uid {
 
   return $uid;
 };
+
 
 # ---   *   ---   *   ---
 1; # ret

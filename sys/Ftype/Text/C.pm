@@ -26,12 +26,16 @@ package Ftype::Text::C;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v1.00.1';
+  our $VERSION = 'v1.00.2';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # definitions
+
+sub mlcom_t {
+  return {beg=>'/\*',end=>'\*/',keep=>0,color=>0x02};
+};
 
 sub classattr {return {
   name => 'C',
@@ -192,6 +196,25 @@ sub blkparse_re {
     (?:$call_re))
 
   }sx;
+};
+
+
+# ---   *   ---   *   ---
+# syntax definitions for strtok
+
+sub strtok_syx {
+  return [
+    # comments
+    Arstd::seq::com()->{cline},
+    Arstd::seq::com()->{cmulti},
+
+    # strings
+    Arstd::seq::str()->{squote},
+    Arstd::seq::str()->{dquote},
+
+    # preprocessor
+    Arstd::seq::pproc()->{c},
+  ];
 };
 
 

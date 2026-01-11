@@ -27,39 +27,86 @@ package Arstd::Re;
   use Arstd::String qw(cat to_char);
   use Arstd::Array qw(dupop nlsort);
 
-  use parent 'St';
-
 
 # ---   *   ---   *   ---
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT_OK=qw(pekey eiths crepl);
+  our @EXPORT_OK=qw(
+    pekey
+    eiths
+    crepl
+  );
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.7';
+  our $VERSION = 'v0.00.8';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
-# ROM
+# build alternation that will match
+# up to N chars of sequence *if* the
+# following character does not
+# match...
+#
+# that is: "hey" becomes "h[^e] | he[^y]",
+# so "hey" doesn't match, but "hex" does
+#
+# it's just a trick for POSIX regexes,
+# normally you'd do proper negative lookahead
 
-St::vconst {
-  PESC_RE => qr{
-    \$: \s* (?<on>[%/]?) \s*
-    (?<body> (?: [^;] | ;[^>])+)
+sub seqin_re {
+  my ($seq,%O)=@_;
 
-    \s* ;>
+  # _not_ lazy by default ;>
+  $O{lazy}//=0;
 
-  }x,
+  # optionally adds escapes \\\\ so that
+  # they always break the sequence
+  my $esc=($O{e})
+    ? '\\\\'
+    : null
+    ;
+
+  # contionally make primitive multi-line pattern
+  my $carry=($O{m})
+    ? '\\x0D\\x0A|'
+    : null
+    ;
+
+  # walk characters of string
+  my @chars = split null,$seq;
+  my $prev  = shift @chars;
+     $prev  = opscape($prev) if $O{e};
+
+  my $out   = $carry . "[^$prev$esc]";
+
+  for(@chars) {
+    $ARG   = opscape($ARG) if $O{e};
+    $out  .= '|' . $prev . "[^$ARG$esc]";
+    $prev .= $ARG;
+  };
+
+  if($O{capt}) {
+    $out=($O{capt} ne 1)
+      ? "(?<$O{capt}>$out)"
+      : "(?:$out)"
+      ;
+  };
+
+  $out .= '*?' if $O{lazy};
+  return ($O{qr})
+    ? qr"$out"
+    : $out
+    ;
 };
 
 
 # ---   *   ---   *   ---
-# ~~
+# replaces "#?TOKEN#?" with $O{TOKEN}
 
 sub crepl($s,%O) {
   for my $key(keys %O) {
@@ -78,7 +125,6 @@ sub crepl($s,%O) {
 # or patterns together
 
 sub alt($ar,%O) {
-
   # defaults
   $O{capt}   //= 0;
   $O{bwrap}  //= 0;
@@ -105,11 +151,9 @@ sub alt($ar,%O) {
       ? qr{$out}xi
       : qr{$out}x
       ;
-
   };
 
   return $out;
-
 };
 
 
@@ -122,7 +166,6 @@ sub alt($ar,%O) {
 # you do sometimes need this
 
 sub insens($s,%O) {
-
   # defaults
   $O{mkre}//=0;
 
@@ -140,7 +183,6 @@ sub insens($s,%O) {
     ;
 
   return $out;
-
 };
 
 
@@ -149,7 +191,6 @@ sub insens($s,%O) {
 
 sub array_insens($ar) {
   return map {insens($ARG)} @$ar;
-
 };
 
 
@@ -172,9 +213,7 @@ sub opscape($s) {
   ])}x;
 
   $s=~ s[$re][\\$1]g;
-
   return $s;
-
 };
 
 
@@ -191,7 +230,6 @@ sub array_opscape($ar) {
 # makes capturing or non-capturing group
 
 sub capt($pat,$name=0,%O) {
-
   # defaults
   $O{insens} //= 0;
   $O{mkre}   //= 1;
@@ -206,40 +244,31 @@ sub capt($pat,$name=0,%O) {
 
   # make (?<named> capture)
   } elsif($name) {
-
     $name=($name=~ m[^\d])
       ? 'capt'
       : $name
       ;
 
     $beg .= "?<$name>";
-
   };
-
 
   # handle insens posix re
   if($O{insens} > 0) {
     $pat=insens($pat);
-
   };
 
 
   # compile regex?
   $out="$beg$pat$end";
-
   if($O{mkre}) {
-
     $out=($O{insens})
       ? qr{$out}xi
       : qr{$out}x
       ;
-
   };
-
 
   # ^give (pattern)
   return $out;
-
 };
 
 
@@ -248,38 +277,26 @@ sub capt($pat,$name=0,%O) {
 # between delimiters
 
 sub dcapt($beg,$end,%O) {
-
   # defaults
   $O{capt} //= 'capt';
 
-
   # ^shorten subpatterns
   my $nslash = lkback('\\\\',-1);
-
   my $open   = capt("$nslash$beg");
   my $close  = capt("$nslash$end");
-
   my $body   = escaped(
-
     $end,
-
     capt => 0,
     mod  => '+',
-
   );
 
   # ^compose re
   my $out=
-
     $open . '\s*'
   . capt($body,$O{capt})
-
   . '\s*' . $end
-
   ;
-
   return qr{$out}x;
-
 };
 
 
@@ -287,14 +304,11 @@ sub dcapt($beg,$end,%O) {
 # wraps in word delimiter
 
 sub bwrap($pat,$mode=1) {
-
   my $wrap=($mode ne 1)
     ? '(?:\b|_)'
     : '\b'
     ;
-
   return "$wrap$pat$wrap";
-
 };
 
 
@@ -304,7 +318,6 @@ sub bwrap($pat,$mode=1) {
 sub nxtok($s,$re) {
   $s=~ s[($re)][]sg;
   return $s;
-
 };
 
 
@@ -351,16 +364,12 @@ sub eiths($ar,%O) {
 
   # compile regex?
   if($O{mkre}) {
-
     $out=($O{insens})
       ? qr{$out}xi
       : qr{$out}x
       ;
-
   };
-
   return $out;
-
 };
 
 
@@ -369,20 +378,14 @@ sub eiths($ar,%O) {
 # keyword arrays
 
 sub pekey(@ar) {
-
   # defaults
   my %O=(
-
     opscape => 1,
-
     insens  => -1,
     bwrap   => -1,
     capt    => 1,
-
   );
-
   return eiths(\@ar,%O);
-
 };
 
 
@@ -392,7 +395,6 @@ sub pekey(@ar) {
 sub npekey(@ar) {
   my $ex=pekey(@ar);
   return lkahead($ex,-1);
-
 };
 
 
@@ -401,7 +403,6 @@ sub npekey(@ar) {
 # up to newline, inclusive
 
 sub eaf($pat,%O) {
-
   # defaults
   $O{opscape} //= 1;
   $O{capt}    //= 0;
@@ -416,9 +417,7 @@ sub eaf($pat,%O) {
   return capt(
     $pat . '.*(?:\x0D?\x0A|$)',
     $O{capt}
-
   );
-
 };
 
 
@@ -427,7 +426,6 @@ sub eaf($pat,%O) {
 # or is beg of line
 
 sub lbeg($pat,$mode,%O) {
-
   # defaults
   $O{opscape} //= 1;
   $O{capt}    //= 0;
@@ -444,16 +442,12 @@ sub lbeg($pat,$mode,%O) {
 
   # ^either whitespace OR beg of line
   } else {
-
     $pat=
       '\s+' . $pat
     . '|^'  . $pat
     ;
-
   };
-
   return capt($pat,$O{capt});
-
 };
 
 
@@ -462,7 +456,6 @@ sub lbeg($pat,$mode,%O) {
 # or negative look ahead or behind
 
 sub look($pat,%O) {
-
   # defaults
   $O{behind}   //= 0;
   $O{negative} //= 0;
@@ -478,7 +471,6 @@ sub look($pat,%O) {
     ;
 
   return "(?${a}${b}" . "$pat)";
-
 };
 
 
@@ -487,12 +479,10 @@ sub look($pat,%O) {
 
 sub lkback($pat,$i) {
   return look($pat,behind=>1,negative=>$i<0);
-
 };
 
 sub lkahead($pat,$i) {
   return look($pat,behind=>0,negative=>$i<0);
-
 };
 
 
@@ -500,7 +490,6 @@ sub lkahead($pat,$i) {
 # procs options for escaped/nonscaped
 
 sub _escaping_prologue($sref,$O) {
-
   # defaults
   $O->{mod}   //= null;
   $O->{sigws} //= 0;
@@ -522,7 +511,6 @@ sub _escaping_prologue($sref,$O) {
     ;
 
   return ($pat,$excl);
-
 };
 
 
@@ -531,17 +519,13 @@ sub _escaping_prologue($sref,$O) {
 # not preceded by a \\\\ escape
 
 sub nonscaped($s,%O) {
-
   my ($pat,$excl)=
     _escaping_prologue(\$s,\%O);
-
 
   my $out=lkback('\\\\',-1) . $pat;
      $out=capt($out,$O{capt});
 
-
   return qr~$out$O{mod}~x;
-
 };
 
 
@@ -552,23 +536,17 @@ sub nonscaped($s,%O) {
 # OR anything that's not excluded...
 
 sub escaped($s,%O) {
-
   my ($pat,$excl)=
     _escaping_prologue(\$s,\%O);
 
   my $out=
-
     "(?:\\\\[^$excl])"
-
   . "|[^$excl\\\\]"
   . "|(?:\\\\$pat)"
-
   ;
 
   $out=capt($out,$O{capt});
-
   return qr~$out$O{mod}~x;
-
 };
 
 
@@ -577,10 +555,8 @@ sub escaped($s,%O) {
 # works recursively
 
 sub delim($beg,$end,%O) {
-
   # defaults
   $O{capt} //= 0;
-
 
   # escape input
   $beg="\Q$beg";
@@ -592,20 +568,15 @@ sub delim($beg,$end,%O) {
 
   my $ex="(?:$nslash|$ndelim)+";
 
-
   # compose pattern
   my $out=
-
     $beg
 
   . "(?:$ex|(?R))*"
-
   . $end
   ;
 
-
   return capt($out,$O{capt});
-
 };
 
 
@@ -614,7 +585,6 @@ sub delim($beg,$end,%O) {
 
 sub array_delim($ar,%O) {
   return alt([map {delim(@$ARG)} @$ar],%O);
-
 };
 
 
@@ -622,7 +592,6 @@ sub array_delim($ar,%O) {
 # ^posix-friendly version
 
 sub posix_delim($beg,%O) {
-
   # defaults
   $O{end}       //= $beg;
   $O{multiline} //= 0;
@@ -633,7 +602,6 @@ sub posix_delim($beg,%O) {
     $O{end},
     multiline=>$O{multiline},
     uberscape=>1,
-
   );
 
   # ^escape delimiters and give
@@ -642,7 +610,6 @@ sub posix_delim($beg,%O) {
 
   my $out="($beg(($allow)*)$O{end})";
   return qr{$out}x;
-
 };
 
 
@@ -656,18 +623,15 @@ sub posix_delim($beg,%O) {
 # but it does NOT match when '[beg] \[end]'
 
 sub uberscape($o_end) {
-
   my $end   = "\\\\".$o_end;
-
   my @chars = split null,$end;
   my $s     = opscape(shift @chars);
   my $re    = "[^$s$o_end]";
 
   # i don't remember why this works
   # and i don't want to find out!
-
-  my $i=0;map {
-
+  my $i=0;
+  for(@chars) {
     $ARG=($i<1)
       ? opscape($ARG . $o_end)
       : opscape($ARG)
@@ -675,11 +639,8 @@ sub uberscape($o_end) {
 
     $re.='|' . $s . "[^$ARG]";
     $i++;
-
-  } @chars;
-
+  };
   return "$end|$re";
-
 };
 
 
@@ -688,55 +649,18 @@ sub uberscape($o_end) {
 # shame on posix regex II
 
 sub neg_lkahead($s,%O) {
-
   # defaults
   $O{multiline} //= 0;
   $O{uberscape} //= 0;
 
-
-  # contionally make primitive multi-line pattern
-  my $carry=($O{multiline})
-    ? '\\x0D\\x0A|'
-    : null
-    ;
-
-
-  # walk characters of string
-  my @chars = split null,$s;
-
-  my $prev  = opscape(shift @chars);
-  my $out   = $carry . "[^$prev\\\\]";
-
-
-  # build alternation that will match
-  # up to N chars of string if the
-  # following character does not
-  # match
-  #
-  # e.g. 'hey' becomes:
-  #
-  #   h[^e] | he[^y]
-  #
-  # escapes \\\\ always break the seq
-
-  map {
-
-    $$ARG  = opscape($ARG);
-
-    $out  .= '|' . $prev . "[^$ARG\\\\]";
-    $prev .= $ARG;
-
-  } @chars;
-
+  my $out=seqin_re($s,m=>$O{multiline},e=>1);
 
   # conditionally apply primitive
   # delimiter escaping detection
   $out .=  '|' . uberscape(opscape($s))
   if $O{uberscape};;
 
-
   return $out;
-
 };
 
 
@@ -765,7 +689,6 @@ sub qre2re {
     $body_re
 
     \)
-
   }x;
 
   my $outer_re=qr{
@@ -774,14 +697,12 @@ sub qre2re {
     $body_re
 
     \)
-
   }x;
 
   while($_[0]=~ s[$outer_re][($+{body})]sxmg) {};
   while($_[0]=~ s[$inner_re][($+{body})]sxmg) {};
 
   return ! is_null $_[0];
-
 };
 
 

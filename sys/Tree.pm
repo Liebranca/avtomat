@@ -27,10 +27,8 @@ package Tree;
 
   use Arstd::String qw(strip);
   use Arstd::Re qw(eiths);
+  use Arstd::IO qw(procin procout);
   use Arstd::throw;
-  use AR sys=>q[
-    lis Arstd::IO qw(procin procout);
-  ];
 
   use St qw(is_valid is_iceof);
 

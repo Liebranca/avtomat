@@ -40,6 +40,8 @@ package Arstd::Bin;
     dorc
     xdorc
     owc
+    opc
+    xclip
     errmute
     erropen
     deepcpy
@@ -49,7 +51,7 @@ package Arstd::Bin;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.2';
+  our $VERSION = 'v0.01.3';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -217,6 +219,36 @@ sub owc {
   close $fh or throw $_[0];
 
   return $wr*length $_[1];
+};
+
+
+# ---   *   ---   *   ---
+# open,pipe,close
+#
+# [0]: byte ptr ; cmd plus args
+# [1]: byte ptr ; buf to write
+#
+# [<]: qword ; bytes written
+
+sub opc {
+  open my $fh,'|-',$_[0] or throw $_[0];
+  my $wr=print {$fh} $_[1];
+  close $fh or throw $_[0];
+
+  return $wr*length $_[1];
+};
+
+
+# ---   *   ---   *   ---
+# ^ real talk for a minute,
+#   *this* is the real reason that
+#   opc even exists ;>
+#
+# [0]: byte ptr ; string to copy to clipboard
+# [<]: qword    ; bytes written
+
+sub xclip {
+  return opc('xclip -selection c',$_[0]);
 };
 
 

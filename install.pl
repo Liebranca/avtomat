@@ -78,7 +78,7 @@ Avt::config {
   | scratch
   )}x,
 
-  pre  => q[
+  pre=>q[
     my $ex="$ENV{ARPATH}/avtomat/BOOTSTRAP";
     my $me=`$ex`;
 

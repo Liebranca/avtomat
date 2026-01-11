@@ -24,7 +24,6 @@ package Arstd::Hash;
   use Chk qw(is_hashref is_null);
   use Arstd::String qw(gstrip);
   use Arstd::throw;
-  use parent 'St';
 
 
 # ---   *   ---   *   ---
@@ -101,18 +100,16 @@ sub invert($h,%O) {
 
 
 # ---   *   ---   *   ---
-# returns exact copy of hash
+# returns shallow copy of hash
 
 sub cpy($h) {
   my $cpy={};
   for my $key(keys %$h) {
     $cpy->{$key}=$h->{$key};
-
   };
 
-  if(Arstd::Hash->is_valid($h)) {
-    $cpy=bless $cpy,$h->get_class();
-
+  if(is_blessed($h)) {
+    $cpy=bless $cpy,ref $h;
   };
 
   return $cpy;

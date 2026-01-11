@@ -25,7 +25,7 @@ package Ftype::Text::Js;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v1.00.1';
+  our $VERSION = 'v1.00.2';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -67,6 +67,37 @@ sub classattr {return {
     var let const
   )],
 }};
+
+
+# ---   *   ---   *   ---
+# syntax definitions for strtok
+
+sub strtok_syx {
+  return [
+    # comments
+    Arstd::seq::com()->{cline},
+    Arstd::seq::com()->{cmulti},
+
+    # strings
+    Arstd::seq::str()->{squote},
+    Arstd::seq::str()->{dquote},
+
+    # we add in this bit to ensure that
+    # template literals can be tokenized
+    # whenever there's a `${...}` placeholder
+    # within them, as those expressions can
+    # contain a nested literal
+    {
+      %{Arstd::seq::str()->{backtick}},
+      inner=>[Arstd::seq::delim()->{curly}],
+    },
+
+    # vanilla Javascript doesn't have a
+    # preprocessor (to my knowledge), but
+    # i already have it implemented, so why not?
+    Arstd::seq::pproc()->{c},
+  ];
+};
 
 
 # ---   *   ---   *   ---

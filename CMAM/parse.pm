@@ -33,7 +33,6 @@ package CMAM::parse;
     has_suffix
   );
   use Arstd::Token qw(tokenshift semipop);
-  use Arstd::Repl;
   use Arstd::throw;
 
   use Type qw(typefet);

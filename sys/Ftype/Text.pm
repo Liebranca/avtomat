@@ -24,16 +24,15 @@ package Ftype::Text;
   use Style qw(null no_match);
   use Arstd::throw;
   use Arstd::stoi;
-  use Arstd::Re;
-
-  use Arstd::Repl;
+  use Arstd::peso;
+  use Arstd::strtok qw(strtok unstrtok);
   use parent 'Ftype';
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.3a';
+  our $VERSION = 'v0.00.4a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -43,8 +42,6 @@ package Ftype::Text;
 sub name_re    {'\b[_A-Za-z][_A-Za-z0-9]*\b'};
 sub uc_name_re {'\b[_A-Z][_A-Z0-9]*\b'};
 sub lc_name_re {'\b[_a-z][_a-z0-9]*\b'};
-
-sub pesc_re    {Arstd::Re->PESC_RE};
 
 sub fn_re($class) {
   my $name=$class->name_re();
@@ -91,7 +88,8 @@ sub dev1_re   {
 sub DEFAULT {return {
   name        => null,
 
-  com         => q[#],
+  com         => null,
+  mcom        => [],
   lcom        => q[#],
 
   hed         => 'N/A',
@@ -128,18 +126,14 @@ sub new_impl($class,$O) {
   St::defnit($class,$O);
   my $self=bless $O,$class;
 
-  # for replacing $:tag;> with
-  # value of self->tag
-  $self->{repl}=Arstd::Repl->new(
-    pre  => 'PESC',
-    inre => $class->pesc_re,
-    repv => sub {repv($self,@_)},
-  );
-
-  # ^right here
+  # generate regexes
   $self->make_keyw_re();
 
   # comments...
+  if($self->{lcom} &&! $self->{com}) {
+    $self->{com}=$self->{lcom};
+  };
+
   $self->{lcom}=Arstd::Re::eaf(
     $self->{lcom},
     lbeg    => 0,
@@ -166,11 +160,10 @@ sub make_keyw_re($self) {
 
     # perform value substitution for
     # each sub-pattern
-    map {
-      $self->{repl}->proc($ARG);
+    for(@ar) {
+      perepl($self,$ARG);
       $out->{$ARG}=0;
-
-    } @ar;
+    };
 
     # ^make composite
     my $keyw_re=(int %$out)
@@ -199,15 +192,42 @@ sub make_keyw_re($self) {
 
 # ---   *   ---   *   ---
 # get $:value;> to put for replace
+#
+# [0]: mem  ptr ; ice
+# [1]: byte ptr ; string to repl
 
-sub repv($self,$repl,$uid) {
-  my $key   = $repl->{capt}->[$uid]->{body};
-  my $value = $self->fet($key);
+sub perepl {
+  my $self=shift;
 
-  throw "Bad key in peso escape: '$key'"
-  if ! defined $value;
+  # tokenize input
+  my $strar=[];
+  strtok(
+    $strar,
+    $_[0],
+    syx=>[Arstd::seq::pproc()->{peso}],
+  );
 
-  return $value;
+  # ^make replacements inside token contents
+  for(@$strar) {
+    # get $:inner;> of escape
+    if($ARG=~ Arstd::peso::esc_re()) {
+      my $key   = $+{body};
+      my $value = $self->fet($key);
+
+      throw "Bad key in peso escape: '$key'"
+      if ! defined $value;
+
+      $ARG=$value;
+
+    # ^this shouldn't happen but catch it anyway
+    } else {
+      throw "Malformed peso escape: '$ARG'";
+    };
+  };
+
+  # now put the modified contents back
+  unstrtok($_[0],$strar);
+  return;
 };
 
 

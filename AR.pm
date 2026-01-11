@@ -81,7 +81,7 @@ sub reload {
   # run import on *calling* module
   my $args=fatdump \[@_],mute=>1,plain=>1;
   return eval(join("\n",
-    "package $pkg {",
+    "package $dst {",
       "Module::Load::load($pkg);",
       "($pkg->can('import'))",
         "? $pkg->import($args)",
@@ -108,6 +108,43 @@ sub run {
     : ()
     ;
 };
+
+
+# ---   *   ---   *   ---
+# import check; true if package is found
+
+sub impchk {
+  my $pkg=shift;
+  return (! is_loaded($pkg))
+    ? eval {
+      package __IMPCHK__ {
+        Module::Load::load($pkg);
+        1;
+      }
+
+    } : 1 ;
+};
+
+
+# ---   *   ---   *   ---
+# try a multitude of paths to import pkg from
+
+sub pkgfind {
+  my ($name,@path)=@_;
+  for(@path) {
+    my $pkg=pkgfind_e($name,$ARG);
+    return $pkg if ! is_null($pkg);
+  };
+  return null;
+};
+
+sub pkgfind_e {
+  my ($class,@path)=@_;
+  my $pkg=join '::',@path,$class;
+
+  return (AR::impchk($pkg)) ? $pkg : null ;
+};
+
 
 # ---   *   ---   *   ---
 # calls unimport method of package (if any)

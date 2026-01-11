@@ -32,6 +32,7 @@ package Avt;
   use Arstd::Array qw(dupop);
   use Arstd::Re qw(eiths);
   use Arstd::Bin qw(orc owc);
+  use Arstd::rd;
   use Arstd::throw;
 
   use Shb7::Path qw(
@@ -586,6 +587,19 @@ sub config($C) {
   scan;
   make;
   return;
+};
+
+
+# ---   *   ---   *   ---
+# ^from *.cfg file!
+
+sub from_file {
+  my $path=getcwd();
+  throw "No *.cfg file found at '$path'"
+  if!   is_file('./avto.cfg');
+
+  my %C=rd("$path/avto.cfg");
+  return config(\%C);
 };
 
 

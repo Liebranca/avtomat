@@ -27,12 +27,15 @@ package Tree::C;
     cat
     spacecat
     strip
+    wstrip
     gstrip
     gsplit
     ident
     has_prefix
     has_suffix
   );
+  use Arstd::strtok qw(strtok unstrtok);
+  use Arstd::seq qw(seqtok_push);
   use Arstd::throw;
   use Arstd::fatdump;
   use Ftype::Text;
@@ -59,8 +62,27 @@ sub rd {
     ;
 
   # tokenize strings and remove comments
-  $self->strtok($_[0]);
-  comstrip($_[0]);
+  strtok(
+    $self->root()->{string},
+    $_[0],
+
+    # sequences to tokenize
+    syx=>[
+      # comments
+      Arstd::seq->com()->{cline},
+      Arstd::seq->com()->{cmulti},
+
+      # strings
+      values %{Arstd::seq->str()},
+
+      # we're not using peso escapes in C
+      # right now, but in case we ever do...
+      Arstd::seq->pproc()->{peso},
+    ],
+  );
+
+  # cleanup extra whitespace
+  wstrip($_[0]);
 
   # for passing F state around
   my $ctx={
@@ -277,133 +299,6 @@ sub inactive_lvl {return -0xFF};
 
 
 # ---   *   ---   *   ---
-# turns strings into tokens
-
-sub strtok {
-  my $self = (shift)->root();
-  my $ar   = $self->{string};
-  my $out  = null;
-  my $tok  = null;
-  my $end  = null;
-  my $str  = 0;
-  my $com  = 0;
-  my $esc  = 0;
-  my $i    = -1;
-  my @char = split '',$_[0];
-
-  for(@char) {
-    ++$i;
-
-    if(! $str) {
-      if(
-      # not a comment (yet)...
-      !  $com
-
-      # stepped on first comment char
-      && $ARG eq '/'
-
-      # and next char is also comment char
-      && defined $char[$i+1]
-      && $char[$i+1] eq '/'
-      ) {
-        # then we *are* in a comment!
-        $com=1;
-
-        # save whatever was left in the token
-        $out .= $tok if ! is_null($tok);
-        $tok  = null;
-
-        next;
-
-      # it is a comment, so skip until newline
-      } elsif($com) {
-        $com *= $ARG ne "\n";
-        next;
-      };
-    };
-
-    # start of string?
-    if(! $str && ($ARG=~ qr{["']}) &&! $esc) {
-      $out .= $tok;
-      $tok  = $ARG;
-      $end  = $ARG;
-      $esc  = 0;
-      $str  = 1;
-
-    # ^inside string?
-    } elsif($str && $ARG eq $end &&! $esc) {
-      $out .= sprintf(strtok_fmat(),int(@$ar));
-      push @$ar,"$tok$ARG";
-
-      $str = 0;
-      $esc = 0;
-      $end = null;
-      $tok = null;
-
-    # ^escape next character?
-    } elsif($ARG eq '\\') {
-      $esc  = 1;
-      $tok .= $ARG;
-
-    # ^just a regular character
-    } else {
-      $esc  = 0;
-      $tok .= $ARG;
-    };
-  };
-
-  # terribly unhelpful error message ;>
-  throw "Unterminated string!" if $str;
-
-  # save whatever was left on the token
-  # then overwrite the input string
-  $out.=$tok;
-  $_[0]=$out;
-
-  return;
-};
-
-sub strtok_fmat {"__STRTOK_%i__"};
-sub strtok_re   {qr{__STRTOK_(\d+)__}};
-
-
-# ---   *   ---   *   ---
-# ^undo
-
-sub unstrtok {
-  return 0 if is_null($_[1]);
-  my $self = shift;
-  my $re   = strtok_re();
-  my $have = $self->root()->{string};
-
-  while($have && ($_[0]=~ $re)) {
-    my $s=$have->[$1];
-    $_[0]=~ s[$re][$s];
-  };
-
-  return ! is_null($_[0]);
-};
-
-
-# ---   *   ---   *   ---
-# removes whitespace and comments
-
-sub comstrip {
-  return 0 if is_null($_[0]);
-
-  my $nl_re  = qr{\\?\n\s+};
-  my $com_re = qr{//\s*};
-  my $ws_re  = qr{\s+};
-
-  $_[0]=~ s[$com_re][]gsm;
-  $_[0]=~ s[$nl_re][ ]gsm;
-  $_[0]=~ s[$ws_re][ ]gsm;
-
-  return ! is_null($_[0]);
-};
-
-
-# ---   *   ---   *   ---
 # adds token as a new node to the tree
 
 sub commit($root,$tok,$cmd=0) {
@@ -418,7 +313,7 @@ sub commit($root,$tok,$cmd=0) {
   # when 'macro' and 'C' appear as the *first*
   # token in a branch, that effectively commands
   # the parser to switch parsing logic
-  if($tok=~ qr{macro|C} && $cmd) {
+  if($tok=~ qr{^(?:macro|C)$} && $cmd) {
     # in such cases, we start a new branch
     return $root->branch($tok);
   };
@@ -814,10 +709,6 @@ sub node_to_expr {
     if($cmd eq 'C') {
       $type='code';
 
-      # sometimes the parser gets confused
-      # and begins the expression with a `;`
-      $expr=~ s[$semi_re][];
-
       # only wrap the block in `{}` curlies
       # if it's preceded by an expression
       my ($beg,$end)=(! is_null($expr))
@@ -847,9 +738,10 @@ sub node_to_expr {
       # turn it into a single token which will be
       # replaced *after* processing is done on
       # everything else!
-      my $ar  = $nd->root()->{string};
-      my $tok = sprintf(strtok_fmat(),int(@$ar));
-      push @$ar,$ct;
+      my $tok=seqtok_push(
+        $nd->root()->{string},
+        $ct
+      );
 
       # erase the cmd and block to make sure that
       # this expression isn't interpreted
@@ -1029,7 +921,7 @@ sub node_to_fn {
 
 sub expr_to_code($self,@ar) {
   my $out=$self->expr_to_code_impl(@ar);
-  $self->unstrtok($out);
+  unstrtok($out,$self->root()->{string});
 
   return $out;
 };
