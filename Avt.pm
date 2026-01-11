@@ -32,7 +32,6 @@ package Avt;
   use Arstd::Array qw(dupop);
   use Arstd::Re qw(eiths);
   use Arstd::Bin qw(orc owc);
-  use Arstd::rd;
   use Arstd::throw;
 
   use Shb7::Path qw(
@@ -64,7 +63,7 @@ package Avt;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v3.21.9';
+  our $VERSION = 'v3.22.0';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -543,8 +542,17 @@ sub hook_str($which,$M,$C) {
 # then runs the build
 
 sub config($C) {
-  my ($pkgname,$file,$line)=caller;
-  set_root(parof(dirof($file),i=>1));
+  # no filepath passed?
+  if(! exists $C->{fpath}) {
+    # assume caller *is* config file
+    my ($pkgname,$file,$line)=caller;
+    $C->{fpath}=$file;
+  };
+
+  # ^ root is always one level above the
+  #   config file's directory
+  $C->{root}=parof(dirof($C->{fpath}),i=>1);
+  set_root($C->{root});
 
   my $sep_re       = q{\s*,\s*};
   my $list_to_hash = qr{(?:lcpy|xcpy|xprt)}x;
@@ -587,19 +595,6 @@ sub config($C) {
   scan;
   make;
   return;
-};
-
-
-# ---   *   ---   *   ---
-# ^from *.cfg file!
-
-sub from_file {
-  my $path=getcwd();
-  throw "No *.cfg file found at '$path'"
-  if!   is_file('./avto.cfg');
-
-  my %C=rd("$path/avto.cfg");
-  return config(\%C);
 };
 
 

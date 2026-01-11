@@ -21,12 +21,13 @@ package BOOTSTRAP;
   use English qw($ARG $ERRNO);
   use Module::Load qw(load);
   use File::Path qw(mkpath rmtree);
+  use File::Copy qw(copy);
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v2.00.1';
+  our $VERSION = 'v2.00.2';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -492,6 +493,12 @@ sub run {
   make avtomat=>$ROM->{AVTODEPS};
 
 
+  # we don't bother passing avto through MAM
+  copy(
+    "$ENV{ARPATH}/avtomat/avto.pm",
+    "$ENV{ARPATH}/lib/avto.pm"
+  );
+
   # importing sygen rebuilds nanorc files ;>
   $tag=$ROM->{FMAT}->{STEP};
   load lib=>"$ENV{ARPATH}/avtomat/bin/";
@@ -499,7 +506,6 @@ sub run {
   say {*STDERR} "${tag}done\n";
   return;
 };
-
 run();
 
 

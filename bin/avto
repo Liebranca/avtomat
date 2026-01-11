@@ -1,0 +1,5 @@
+#!/usr/bin/perl
+package avto;
+  use lib "$ENV{ARPATH}/lib/";
+  use AR;
+  AR::run('avto',@ARGV);

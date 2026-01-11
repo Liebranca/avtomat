@@ -66,18 +66,26 @@ sub new {
   if! exists $O{inre}
   ||! exists $O{seq};
 
+  # force copy of sequence with unique type,
+  # this allows us to identify tokens
+  $O{seq}={
+    %{$O{seq}},
+    type=>$O{seq}->{type} . 'repl' . $uid++,
+  };
+
   # set defaults
   $O{repv}  //= \&proto_undo_f;
   $O{undo}  //= \&proto_undo_f;
   $O{syx}   //= Arstd::strtok::defsyx();
   $O{outre} //= Arstd::seq::typed_tok_re(
-    $O{seq}->{type} . 'repl' . $uid++
+    $O{seq}->{type}
   );
 
   # make ice and give
   my $self=bless {
     asis  => [],
     capt  => [],
+    idex  => [],
     strar => [],
     ct    => [],
 
@@ -96,7 +104,7 @@ sub new {
 
 sub clear {
   @{$_[0]->{$ARG}}=() for qw(
-    asis capt strar ct
+    asis capt idex strar ct
   );
   return;
 };
@@ -128,7 +136,10 @@ sub repl {
   # so now we walk this array and perform
   # the final regex check to extract the
   # data we need
+  my $idex=-1;
   for(@{$self->{ct}}) {
+    ++$idex;
+
     # make a copy to untokenize,
     # so as to perform the regex check
     my $cpy="$ARG";
@@ -142,6 +153,7 @@ sub repl {
     #   ones we want to modify
     push @{$self->{asis}},$MATCH;
     push @{$self->{capt}},{%+};
+    push @{$self->{idex}},$idex;
   };
   return;
 };
@@ -159,17 +171,18 @@ sub repl {
 
 sub proto_undo {
   my ($self,$fn)=(shift,shift);
-  for my $idex(0..$#{$self->{asis}}) {
+  my $ct_idex=0;
+  for my $tok_idex(@{$self->{idex}}) {
     # get modified contents of token
-    my $ct=$self->{$fn}->($self,$idex);
+    my $ct=$self->{$fn}->($self,$ct_idex++);
 
     # ^ replace token in input with
     #   the modified value
     my $re=Arstd::seq::spec_tok_re(
       $self->{seq}->{type},
-      $idex
+      $tok_idex
     );
-    $_[0]=~ s[$re][$ct]g;
+    $_[0]=~ s[$re][$ct];
   };
 
   # now undo the tokenization we did during repl

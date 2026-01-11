@@ -42,6 +42,7 @@ package Arstd::Bin;
     owc
     opc
     xclip
+    bash
     errmute
     erropen
     deepcpy
@@ -292,6 +293,24 @@ sub erropen {
 
 sub deepcpy {
   return thaw(freeze($_[0]));
+};
+
+
+# ---   *   ---   *   ---
+# run command
+#
+# [0]: byte pptr ; command [args]
+# [<]: 0 or throw
+#
+# [!]: stops execution on fail
+
+sub bash {
+  use English qw($CHILD_ERROR);
+
+  print `@_`;
+  exit  -1 if $CHILD_ERROR;
+
+  return 0;
 };
 
 

@@ -17,6 +17,7 @@ package Arstd::seq;
   use v5.42.0;
   use strict;
   use warnings;
+  use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);

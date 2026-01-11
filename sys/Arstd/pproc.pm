@@ -25,6 +25,7 @@ package Arstd::pproc;
 
   use Arstd::strtok;
   use Arstd::peso qw(peval);
+  use Arstd::throw;
 
   use Shb7::Find qw(ffind);
 
@@ -120,7 +121,7 @@ sub pproc_fpaste {
 
   # now read and tokenize the file
   my $strar = [];
-  my $body  = orc($body);
+  my $body  = orc($fpath);
   strtok($strar,$body,syx=>$syx);
 
   # ^recurse and untokenize
@@ -139,12 +140,14 @@ sub pproc_fpaste {
 # function table
 
 sub symtab {
-  return {
+  my $out={
     include=>\&pproc_fpaste,
 
   }->{$_[0]}
 
   or throw "pproc: undefined function '$_[0]'";
+
+  return $out;
 };
 
 

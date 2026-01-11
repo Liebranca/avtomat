@@ -59,15 +59,15 @@ sub repv {
   my ($self,$repl,$uid)=@_;
 
   my $module = $self->{module};
-  my $have   = $_[1]->{capt}->[$uid];
-  my $beg    = "\n" . q[  use lib "$ENV{ARPATH}];
+  my $have   = $repl->{capt}->[$uid];
+  my $beg    = q[use lib "$ENV{ARPATH}];
 
   # do _not_ rept the module name ;>
-  $have->{path}=~ s[/+$$module/+][];
+  $have->{path}=~ s[/+$module/+][];
 
   # adding build directory?
   return "$beg/.trash/$module/$have->{path}\";"
-  if $_[0]->{rap};
+  if $self->{rap};
 
   # ^nope, restore!
   return "$beg/lib/$have->{path}\";";
@@ -111,7 +111,7 @@ sub new {
     ],
 
     inre=>qr{
-      ^\s+ lib \s+
+      ^use\s+ lib \s+
 
       "? \$ENV\{
 
@@ -123,7 +123,7 @@ sub new {
       (?<root> lib|.trash)
       (?<path> [^;]+)
 
-      ['"] \s*
+      ['"] \s* ;
     }x,
   );
 
