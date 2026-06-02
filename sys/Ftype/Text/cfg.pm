@@ -22,10 +22,10 @@ package Ftype::Text::cfg;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
-  use Chk qw(is_null);
+  use Chk qw(is_null is_arrayref);
   use Arstd::String qw(strip wstrip gsplit);
-  use Arstd::peso qw(peval);
-  use Arstd::seq;
+  use Arstd::peso qw(pefex);
+  use Arstd::seq qw(seqstrip);
   use Arstd::strtok qw(strtok unstrtok);
   use Arstd::throw;
 
@@ -35,7 +35,7 @@ package Ftype::Text::cfg;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.1a';
+  our $VERSION = 'v0.00.4a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -77,15 +77,10 @@ sub rd {
       my $tmp=$1;
 
       # dump existing value
-      if($key) {
-        wstrip($value);
-        unstrtok($value,$strar);
-
-        push @out,$key=>peval($value);
-      };
+      $class->rd_flush(\@out,$key,$value,$strar);
 
       # ^get new value
-      $key   = $1;
+      $key   = $tmp;
       $value = $line;
 
       # process key
@@ -98,19 +93,60 @@ sub rd {
 
     # ^nope, cat to existing
     } else {
-      $value .= $line;
+      $value .= " $line";
     };
   };
 
   # dump last value
-  if($key) {
-    wstrip($value);
-    unstrtok($value,$strar);
-
-    push @out,$key=>peval($value);
-  };
+  $class->rd_flush(\@out,$key,$value,$strar);
 
   # give [key=>value] pairs
+  return @out;
+};
+
+
+# ---   *   ---   *   ---
+# evaluate and save value
+# recurses when needed
+
+sub rd_flush {
+  my ($class,$out,$key,$value,$strar)=@_;
+  return if ! $key;
+
+  my @nest=$class->rd_nest($value,$strar);
+  if(@nest) {
+    push @$out,$key=>[@nest];
+
+  } else {
+    push @$out,$key=>[pefex($value,$strar)];
+  };
+
+  return;
+};
+
+# ---   *   ---   *   ---
+# ^does the recursion
+
+sub rd_nest {
+  my ($class,$value,$strar)=@_;
+
+  # value is a token...
+  my $tok_re=Arstd::seq::tok_re();
+  return () if! ($value=~ qr{^ *$tok_re *$});
+
+  # ^of 'scope' type...
+  my ($type,$idex)=($+{type},$+{idex});
+  return () if $type ne 'SCP';
+
+  # ^and the delimiter is `[]` brackets
+  my $ct=$strar->[$idex];
+  return () if! ($ct=~ qr{^\[});
+
+  # if so, then recurse
+  seqstrip({beg=>'[',end=>']'},$ct);
+  my @out=$class->rd($ct);
+
+  unstrtok($ARG,$strar) for @out;
   return @out;
 };
 

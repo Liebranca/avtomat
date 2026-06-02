@@ -81,7 +81,10 @@ sub rd {
     ],
   );
 
-  # cleanup extra whitespace
+  # cleanup redundant escapes in
+  # C preprocessor macros, then
+  # get rid of extra whitespace
+  pproc_descape($_[0]);
   wstrip($_[0]);
 
   # for passing F state around
@@ -116,6 +119,29 @@ sub rd {
     $ctx->{root}->commit(';');
   };
   return $self;
+};
+
+
+# ---   *   ---   *   ---
+# descape '\\' backslashes in
+# C preprocessor macros
+
+sub pproc_descape {
+  my $strar=[];
+  strtok($strar,$_[0],syx=>[{
+    %{Arstd::seq->pproc()->{c}},
+    type=>'CMAMCPPROC',
+  }]);
+
+  my $re=qr{\\ +};
+  for(@$strar) {
+    wstrip($ARG);
+    $ARG  =~ s[$re][ ]g;
+    $ARG .=  "\n";
+  };
+
+  unstrtok($_[0],$strar,'CMAMCPPROC');
+  return;
 };
 
 
@@ -739,6 +765,7 @@ sub node_to_expr {
       # replaced *after* processing is done on
       # everything else!
       my $tok=seqtok_push(
+        {type=>'CMAMCODESTR'},
         $nd->root()->{string},
         $ct
       );

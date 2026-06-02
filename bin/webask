@@ -1,0 +1,80 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# WEB ASK
+# query sender
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lib,
+
+# ---   *   ---   *   ---
+# NOTE
+#
+# i randomly felt like sending a web search to the
+# browser from the terminal, so i wrote this to see
+# if i could do it ;>
+#
+# doesn't accomplish much!! but maybe we can expand
+# on the idea someday \( ^ .^)/
+
+# ---   *   ---   *   ---
+# deps
+
+package webask;
+  use v5.42.0;
+  use strict;
+  use warnings;
+
+  use URI::Escape qw(uri_escape uri_unescape);
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Arstd::Bin qw(bash);
+  use term qw(cmdchain);
+
+
+# ---   *   ---   *   ---
+# info
+
+  my $AUTHOR  = "IBN-3DILA";
+  my $VERSION = "v0.00.1a";
+
+
+# ---   *   ---   *   ---
+# here we could add more browser options
+
+sub browser {
+  return cmdchain {
+    default => "firefox",
+    firefox => "firefox",
+  },@_;
+};
+
+
+# ---   *   ---   *   ---
+# here we could add more search engines
+
+sub search {
+  return cmdchain {
+    default => "google",
+    google  => "https://google.com/search?q=\${cmd}",
+  },@_;
+};
+
+
+# ---   *   ---   *   ---
+# entry point
+
+sub crux {
+  my $raw   = join(" ",@_);
+  my $query = uri_escape($raw);
+
+  return bash browser search $query;
+};
+
+
+# ---   *   ---   *   ---
+# ret
+
+($0 eq __FILE__) ? crux @ARGV : 1 ;

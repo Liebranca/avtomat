@@ -28,6 +28,8 @@ package Ftype::Text;
   use Arstd::strtok qw(strtok unstrtok);
   use parent 'Ftype';
 
+  use St;
+
 
 # ---   *   ---   *   ---
 # info
@@ -45,7 +47,7 @@ sub lc_name_re {'\b[_a-z][_a-z0-9]*\b'};
 
 sub fn_re($class) {
   my $name=$class->name_re();
-  return qr{$name\(};
+  return qr{$name *\(};
 };
 
 sub num_re {return [

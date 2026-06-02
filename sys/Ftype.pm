@@ -20,6 +20,7 @@ package Ftype;
   use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/sys/";
+  use Arstd::Path qw(extof);
   use Arstd::strtok;
 
 
@@ -66,7 +67,6 @@ sub register($class,$ice) {
     ? "$class\::$ice->{name}"
     : $class
     ;
-
   return if exists $Cache->{$subclass};
 
   # yes
@@ -89,12 +89,13 @@ sub fet($class,$name) {
 # ---   *   ---   *   ---
 # get ftype ice from filename
 
-sub ext_to_ftype($file) {
-  my @path=split qr{\/},$file;
-  return undef if ! @path;
+sub from_ext($file) {
+  my $ext=extof($file);
+  return undef if! $ext;
 
   for(values %$Cache) {
-    return $ARG if $path[-1]=$ARG->{ext};
+    next if! %$ARG;
+    return $ARG if ".$ext"=~ qr{$ARG->{ext}};
   };
   return undef;
 };
@@ -108,7 +109,7 @@ sub ext_to_ftype($file) {
 # (defined by strtok)
 
 sub syxof($file) {
-  my $ftype = ext_to_filetype($file);
+  my $ftype = from_ext($file);
   my $def   = Arstd::strtok::defsyx();
 
   return $def if! $ftype

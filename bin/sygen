@@ -131,18 +131,25 @@ sub get_files {
 # [0]: byte ptr ; filename
 
 sub load_file {
+  my ($fname)=@_;
+
   # shorten and clear extension
-  my $re=qr{^avtomat/*sys/*};
-  extcl relto $_[0],$ENV{ARPATH};
-  $_[0]=~ s[$re][];
+  my $re=qr{^avtomat/sys/};
+  relto($fname,$ENV{ARPATH});
+  extcl($fname);
+  $fname=~ s[$re][];
 
   # ^turn into package and load it
-  my $class="Ftype/Text/$_[0]";
-  to_pkg $class;
-  AR::load $class => (null);
+  my $class="Ftype/Text/$fname";
+  to_pkg($class,$fname);
+  AR::load($class);
 
   # give ice
-  return Ftype->fet($class);
+  my $out=Ftype->fet($class);
+  throw "sygen: error fetching '$class'"
+  if!   defined $out;
+
+  return $out;
 };
 
 
@@ -358,7 +365,7 @@ sub generate {
   # get whether any syntax files have changed
   my @file=map {
     my $src=$ARG;
-    my $def=load_file $src;
+    my $def=load_file($src);
     my $dst="$nanorc/$def->{name}.nanorc";
 
     (moo($dst,ftype_dir() . $src))

@@ -11,6 +11,16 @@
 # lib,
 
 # ---   *   ---   *   ---
+# NOTE
+#
+# 'client' refers to a specific
+# project, identified by it's
+# subdirectory within root
+#
+# all files within that project
+# are registered under the same client
+
+# ---   *   ---   *   ---
 # deps
 
 package Vault;
@@ -19,52 +29,52 @@ package Vault;
   use warnings;
 
   use Cwd qw(abs_path);
-
   use English qw($ARG);
-
   use Storable qw(store retrieve);
-  use Fcntl qw(SEEK_SET SEEK_CUR);
 
-  use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>q[
-    use Style qw(null);
-    use Chk qw(is_null is_hashref is_dir);
-    lis Arstd::Array qw(dupop);
-  ];
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Chk qw(
+    is_null
+    is_file
+    is_hashref
+    is_dir
+  );
 
+  use Arstd::String qw(catpath);
   use Arstd::Bin qw(moo);
-  use Arstd::Path qw(reqdir dirof);
+  use Arstd::Path qw(
+    reqdir
+    dirof
+    extwap
+    extcl
+    from_pkg
+  );
+  use Arstd::Array qw(dupop);
   use Arstd::Re qw(eiths);
+  use Arstd::PM qw(lrcaller rcaller);
   use Arstd::throw;
 
   use Log;
+  use St;
 
-  use Tree;
-  use Tree::File;
-  use Shb7::Path qw(
-    root
-    swap_root
-    cachep
-    modof
-  );
+  use Shb7::Path qw(swap_root cachep relto_root);
   use Shb7::Find qw(ffind);
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.2b';
+  our $VERSION = 'v0.01.5b';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # ROM
 
-my $PKG=__PACKAGE__;
-St::vconst {
-  PX_EXT=>'.px',
-  STD_DIR_RE=>qr{(?:
-
+sub fext   {return 'cash'};
+sub std_dir_re {
+  return qr{(?:
     bin
   | lib
 
@@ -73,59 +83,36 @@ St::vconst {
 
   | include
 
-  )}x,
+  )}x;
 };
 
 
 # ---   *   ---   *   ---
 # global state
 
-sub module {
-  state $out={};
-  return ($_[0] && exists $out->{$_[0]})
-    ? $out->{$_[0]}
-    : $out
-    ;
+sub client {
+  state $tab={};
+  my ($class,$key)=@_;
+
+  # give client from table?
+  if($key) {
+    throw "Vault: cannot fetch client '$key'"
+    if!   exists $tab->{$key};
+
+    return $tab->{$key};
+  };
+
+  # ^nope, give full table!
+  return $tab;
 };
 
-sub regen {
-  state $out={};
-  return $out;
-};
+sub pkg_to_client {
+  state $tab={};
+  my ($class,$pkg,$key)=@_;
 
-sub fdeps {
-  state $out={};
-  return $out;
-};
+  $tab->{$pkg} //= $class->client($key);
 
-
-# ---   *   ---   *   ---
-# makes ice if needed
-#
-# [0]: byte ptr  | class
-# [1]: byte ptr  | module key
-# [2]: byte ptr  | module root
-#
-# [3]: byte pptr | list of dirs that are
-#                  excluded from search path
-#
-# [4]: bool      | force tree recalc
-
-sub req {
-  my $self=module()->{$_[1]}//=bless {
-    key    => $_[1],
-    root   => $_[2],
-    tree   => null,
-    update => [],
-
-  },$_[0];
-
-  $_[3]//=[];
-  $_[4]//=0;
-  $self->make_tree($_[3],$_[4])
-  if is_null($self->{tree}) || $_[4];
-
-  return $self;
+  return $tab->{$pkg};
 };
 
 
@@ -135,286 +122,68 @@ sub req {
 
 sub import {
   my ($class,$to_root,$key)=@_;
-  my ($pkgname,$file,$line)=caller;
+  my ($pkg,$file,$line)=lrcaller($class);
 
   # early exit when either:
+  # * no package
+  # * uninitialized args
   # * called from self,
   # * called from eval,
-  # * invalid module key
-  return if (
-     ($pkgname eq 'Vault')
-  || ($file =~ qr{\(eval \d+\)})
-  || ($key  =~ $PKG->STD_DIR_RE)
-  );
+  # * invalid client key
+  return if (! defined $to_root)
+         || (! defined $key)
+         || ($pkg  eq 'main')
+         || ($pkg  eq $class)
+         || ($pkg  =~ qr{^SyntaxCheck})
+         || ($file =~ qr{\(eval \d+\)})
+         || ($key  =~ $class->std_dir_re());
 
   # get absolute path to root directory
-  my $root=abs_path(
-    dirof(abs_path($file))
-  . "/$to_root"
-  );
+  my $root=abs_path(catpath(
+    dirof($file,abs=>1),
+    $to_root
+  ));
 
-  throw sprintf(
-    q[Invalid root directory <%s> passed in ] .
-    q[to Vault from %s],
+  throw "Vault: invalid root directory <$root> "
+  .     "passed in from '$file'"
 
-    $root,$file,
+  if!   is_dir($root);
 
-  ) unless is_dir($root);
+  # nit client on first run
+  $class->new($key,$root)
+  if! exists $class->client()->{$key};
 
-  # nit module on first run
-  $class->req($key,$root);
-  return;
+  return $class->pkg_to_client($pkg,$key);
 };
 
 
 # ---   *   ---   *   ---
-# make file tree for  a module,
-# used for building
+# make ice for client
 
-sub make_tree($self,$excluded=[],$recalc=0) {
-  my $root = swap_root($self->{root});
+sub new {
+  my ($class,$name,$root)=@_;
+  my $out=bless {
+    name   => $name,
+    root   => $root,
+    update => [],
+    data   => {},
 
-  my $modf = $self->px_file();
-  my $newf = (-f $modf) ? 0 : 1;
+  },$class;
 
-  # load existing?
-  if(! $newf &&! $recalc) {
-    $self->{tree}=retrieve($modf);
-
-  # ^nope, (re)generate!
-  } else {
-    my $fslash_re =  qr{/+};
-    my $path      =  "$root/$self->{key}/";
-       $path      =~ s[$fslash_re][/]smg;
-
-    my $tree=Tree::File->new($path);
-    $tree->expand(
-      -r=>1,
-      -x=>eiths($excluded),
-    );
-    $self->{tree}=$tree;
-  };
-
-  # checksum the tree
-  # new result will be saved if there's changes
-  my $diff=int $self->{tree}->get_cksum_diff();
-  push @{$self->{update}},$diff;
-
-  # cleanup and give
-  swap_root();
-  return $self->{tree};
-};
-
-
-# ---   *   ---   *   ---
-# ^finds a project cache file
-
-sub px_file($self) {
-  my $name=(ref $self)
-    ? $self->{key}
-    : $self
-    ;
-  return cachep("$name" . $PKG->PX_EXT);
-};
-
-
-# ---   *   ---   *   ---
-# get list of updated trees
-
-sub get_module_update() {
-  my @out=();
-  my $reg=module();
-
-  for my $name(keys %$reg) {
-    my $mod=$reg->{$name};
-
-    next if $mod->{root}=~ m[\.trash];
-    next unless int grep {$ARG} @{$mod->{update}};
-
-    push @out,$name;
-  };
-
-  return @out;
-};
-
-
-# ---   *   ---   *   ---
-# dump trees to cache
-
-END {
-  my @updated=get_module_update();
-  Log->mprich(
-    'AR/Vault',
-    'updating module cache'
-
-  ) if @updated;
-
-  for my $name(@updated) {
-    Log->fupdate($name);
-
-    my $self=module($name);
-    swap_root($self->{root});
-
-    # save tree to disk
-    my $modf=cachep("$name" . $PKG->PX_EXT);
-    store($self->{tree},$modf);
-
-    swap_root();
-  };
-};
-
-
-# ---   *   ---   *   ---
-# ^similar, cached objects
-
-END {
-  my $regen = regen();
-  my $done  = int(%$regen);
-  Log->mprich(
-    'AR/Vault',
-    'updating object cache'
-
-  ) if $done;
-
-  for my $file(keys %$regen) {
-    Log->fupdate($file);
-    store($regen->{$file},$file);
-  };
-};
-
-
-# ---   *   ---   *   ---
-# get object needs update
-#
-# forces make/regen of
-# cache sub directory
-
-sub cached_dir($self,$file) {
-  my $root  = swap_root($self->{root});
-
-  my $path  = cashof($file);
-  my $dir   = dirof($path);
-
-  my $regen = regen();
-  my $rbld  = (
-     moo($path,$file)
-  || exists $regen->{$path}
-  );
-
-  # get entry or make new
-  reqdir($dir);
-
-
-  # have existing?
-  my $data=(-f $path)
-    ? retrieve($path)
-    : $regen->{$path}
-    ;
-
-  # check deps
-  my $deps   = fdeps()->{$file};
-     $deps //= [];
-
-  map {$rbld |= moo($path,$ARG)} @$deps;
-
-  # cleanup, pack and give
-  swap_root();
-  return {
-    rbld => $rbld,
-    path => $path,
-    data => $data,
-  };
-};
-
-
-# ---   *   ---   *   ---
-# ^builds path to stash
-
-sub cashof($file) {
-  relto_root($file);
-  $file.='.st';
-
-  return cachep($file);
-};
-
-
-# ---   *   ---   *   ---
-# regen or fetch
-
-sub rof($self,$file,$key,$call,@args) {
-  # get ctx
-  my $root  = swap_root($self->{root});
-  my $cache = $self->cached_dir($file);
-  my $data  = $cache->{data};
-  my $out   = undef;
-
-  # regen entry?
-  if(! exists $data->{$key} || $cache->{rbld}) {
-    $out=$data->{$key}=$call->(@args);
-    cashreg($cache->{path},$data);
-
-  # ^nope, fetch existing
-  } else {
-    $out=$data->{$key};
-  };
-
-  swap_root();
+  $class->client()->{$name}=$out;
   return $out;
 };
 
 
 # ---   *   ---   *   ---
-# ^register stash for update
+# for a package to request the
+# client managing their stuff
 
-sub cashreg($path,$h) {
-  regen()->{$path}=$h;
-  return;
-};
+sub mine {
+  my ($class)=@_;
+  my $pkg=rcaller($class);
 
-
-# ---   *   ---   *   ---
-# ^keyless variant of rof
-
-sub frof($self,$file,$call,@args) {
-  # get ctx
-  my $root  = swap_root($self->{root});
-  my $cache = $self->cached_dir($file);
-  my $data  = $cache->{data};
-  my $out   = undef;
-
-  # regen entry?
-  if(defined $data || $cache->{rbld}) {
-    $out=$data=$call->(@args);
-    cashreg($cache->{path},$data);
-
-  # ^nope, fetch existing
-  } else {
-    $out=$data;
-  };
-
-  swap_root();
-  return $out;
-};
-
-
-# ---   *   ---   *   ---
-# mark file as a dependency
-
-sub depson(@list) {
-  # get/nit handle to package deps
-  my $file = (caller)[1];
-  my $vref = \fdeps()->{$file};
-
-  $$vref //= [];
-
-  # validate input
-  map {-f $ARG or throw "$ARG: $!"} @list;
-
-  # ^push to module deps
-  push @{$$vref},map {abs_path $ARG} @list;
-  dupop($$vref);
-
-  return;
+  return $class->pkg_to_client($pkg);
 };
 
 
@@ -422,49 +191,296 @@ sub depson(@list) {
 # either executes a generator
 # or loads whatever it generates
 
-sub cached($self,$key,$call,@args) {
-  my $file=(caller)[1];
-  return $self->rof($file,$key,$call,@args);
+sub cached {
+  my ($class,$key,$call,@args)=@_;
+
+  my $pkg    = rcaller($class);
+  my $client = $class->pkg_to_client($pkg);
+
+  return $client->rof($pkg,$key,$call,@args);
 };
 
 
 # ---   *   ---   *   ---
-# ^key *IS* file
+# ^shorthand for omitting key
 
-sub fcached($self,$file,$call,@args) {
-  return $self->frof($file,$call,@args);
+sub fcached {
+  my ($class,$call,@args)=@_;
+
+  my $pkg    = rcaller($class);
+  my $client = $class->pkg_to_client($pkg);
+
+  return $client->frof($pkg,null,$call,@args);
 };
 
 
 # ---   *   ---   *   ---
-# retrieve file if passed var
-# is a valid path
+# regen or fetch
 
-sub fchk($self,$var) {
-  my $out=(is_hashref $var)
+sub rof {
+  my ($client,$pkg,$key,$call,@args)=@_;
+
+  # get source file requesting this operation
+  my $src=$pkg;
+  from_pkg($src);
+
+  # jump to client root and find cache dir
+  my $back  = swap_root($client->{root});
+  my $cache = $client->get_cached($pkg,$src,$key);
+  my $out   = undef;
+
+  # regen entry?
+  if(is_null($cache->{data})
+  || $cache->{rbld}) {
+    # catch missing F
+    throw "Vault: cannot regenerate object "
+    .     "'$cache->{path}' -- no function to "
+    .     "do so was provided"
+
+    if    is_null($call);
+
+    # ^run F and save result
+    $out=$cache->{data}=$call->(@args);
+    $client->schedup_impl(
+      $cache->{path},
+      $cache->{data}
+    );
+
+  # ^nope, give existing
+  } else {
+    $out=$cache->{data};
+  };
+  swap_root($back);
+  return $out;
+};
+
+
+# ---   *   ---   *   ---
+# get cached object
+
+sub get_cached {
+  my ($client,$pkg,$src,$key)=@_;
+
+  my $dst  = $client->mykey_impl($pkg,$src,$key);
+  my $rbld = moo($dst,$src);
+
+  # ensure subdir exits for this entry
+  reqdir(dirof($dst));
+
+  # have existing?
+  my $data=($client->loaded($dst))
+    ? $client->{data}->{$dst}
+    : $client->load($dst)
+    ;
+
+  # cleanup, pack and give
+  return {
+    rbld => $rbld,
+    path => $dst,
+    data => $data,
+  };
+};
+
+
+# ---   *   ---   *   ---
+# ^builds path to stored object
+
+sub mykey {
+  my ($client,$key)=@_;
+
+  # make base of path from calling package
+  my $pkg=rcaller(St::cpkg());
+  my $src=$pkg;
+  from_pkg($src);
+
+  # find client if necessary
+  if(! ref($client)) {
+    $client=$client->pkg_to_client($pkg);
+  };
+
+  # ^then generate full cache key
+  my $back = swap_root($client->{root});
+  my $out  = $client->mykey_impl($pkg,$src,$key);
+
+  # cleanup and give
+  swap_root($back);
+  return $out;
+};
+sub mykey_impl {
+  my ($client,$pkg,$src,$key)=@_;
+
+  extcl($src);
+  my $fpath = catpath($src,$key);
+  my $ext   = ($pkg->can('fext'))
+    ? $pkg->fext()
+    : $client->fext()
+    ;
+
+  relto_root($fpath);
+  extwap($fpath,$ext);
+
+  return cachep($fpath);
+};
+
+
+# ---   *   ---   *   ---
+# (re)load a cached object
+
+sub load {
+  my ($client,$fpath)=@_;
+  return null if! is_file($fpath);
+  $client->{data}->{$fpath}=retrieve($fpath);
+
+  return $client->{data}->{$fpath};
+};
+
+
+# ---   *   ---   *   ---
+# get whether a cashed object has
+# already been loaded
+
+sub loaded {
+  my ($client,$fpath)=@_;
+  return is_file($fpath)
+  &&     exists $client->{data}->{$fpath};
+};
+
+
+# ---   *   ---   *   ---
+# register stash for update
+
+sub schedup {
+  my ($client,$key,$data)=@_;
+
+  # make base of path from calling package
+  my $pkg=rcaller(St::cpkg());
+  my $src=$pkg;
+  from_pkg($src);
+
+  # find client if necessary
+  if(! ref($client)) {
+    $client=$client->pkg_to_client($pkg);
+  };
+  # ^then generate full cache key
+  my $back = swap_root($client->{root});
+     $key  = $client->mykey_impl($pkg,$src,$key);
+
+  $client->schedup_impl($key,$data);
+
+  # cleanup and give
+  swap_root($back);
+  return;
+};
+sub schedup_impl {
+  my ($client,$fpath,$data)=@_;
+  if(defined $data) {
+    $client->{data}->{$fpath}=$data;
+
+  } elsif(! defined $client->{data}->{$fpath}) {
+    throw "Vault: cannot schedule update of"
+    .     "key '$fpath' -- no matching value "
+    .     "for client '$client->{name}'";
+  };
+  push @{$client->{update}},$fpath;
+
+  return;
+};
+
+
+# ---   *   ---   *   ---
+# retrieve file, if passed var *is* a file
+
+sub fchk {
+  my ($client,$var)=@_;
+  my $out=(is_hashref($var))
     ? $var
     : undef
     ;
 
   # early ret
-  goto skip if $out;
+  return $out if defined $out;
 
   # validate input
-  ! length ref $var or throw(
-    q[Non-scalar, non-hashref var ] .
-    q[passed in to fchk]
-  );
+  throw "Vault: non-scalar, non-hashref var "
+  .     "'$var' passed to fchk"
+
+  if    length ref $var;
 
   # ^fetch
-  my $root=swap_root($self->{root});
-  my $path=ffind($var)
-  or throw "Cannot find object '$var'";
+  my $back = swap_root($client->{root});
+  my $path = ffind($var);
+  my $pkg  = rcaller(ref $client);
+
+  throw "Vault: cannot find object '$var' "
+  .     "for package '$pkg'";
 
   $out=retrieve($path);
-  swap_root();
+  swap_root($back);
 
-  skip:
   return $out;
+};
+
+
+# ---   *   ---   *   ---
+# write client package data to disk
+
+sub client_update {
+  my ($class)=@_;
+
+  my @updated=$class->get_client_update();
+  return if! @updated;
+  Log->mprich(
+    'AR/Vault',
+    'updating client package cache'
+  );
+  # for each updated client...
+  for(@updated) {
+    my ($client,@fpath)=@$ARG;
+    Log->dopen($client->{name});
+
+    # save objects to disk
+    my $back=swap_root($client->{root});
+    for(@fpath) {
+      my $rel=$ARG;
+      relto_root($rel);
+      Log->substep($rel);
+
+      reqdir(dirof($ARG));
+      store($client->{data}->{$ARG},$ARG);
+    };
+    swap_root($back);
+  };
+  Log->step('done');
+  return;
+};
+
+
+# ---   *   ---   *   ---
+# get list of updated trees
+
+sub get_client_update {
+  my ($class)=@_;
+  my $tab=$class->client();
+
+  return map {
+    my $name   = $ARG;
+    my $client = $tab->{$name};
+
+    dupop($client->{update});
+    my @out=@{$client->{update}};
+
+    (@out) ? [$client=>@out] : () ;
+
+  } keys %$tab;
+};
+
+
+# ---   *   ---   *   ---
+# ensure that cached objects are saved
+# to disk at end of execution
+
+END {
+  St::cpkg()->client_update();
 };
 
 

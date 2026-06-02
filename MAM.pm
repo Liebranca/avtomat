@@ -65,12 +65,13 @@ sub repv {
   # do _not_ rept the module name ;>
   $have->{path}=~ s[/+$module/+][];
 
-  # adding build directory?
-  return "$beg/.trash/$module/$have->{path}\";"
-  if $self->{rap};
+  return ($self->{pass} == 0)
+    # adding build directory?
+    ? "$beg/.trash/$module/$have->{path}\";"
 
-  # ^nope, restore!
-  return "$beg/lib/$have->{path}\";";
+    # ^nope, restore!
+    : "$beg/lib/$have->{path}\";"
+    ;
 };
 
 
@@ -89,11 +90,19 @@ sub new {
     -cproc=>null,
   };
 
-  # make repl ice
-  $self->{repl}=Arstd::repl->new(
+  return $self;
+};
+
+
+# ---   *   ---   *   ---
+# make repl ice
+
+sub mkrepl {
+  my ($pproc)=@_;
+  $pproc->{repl}=Arstd::repl->new(
     repv=>sub {
       my $re  =  qr{/+};
-      my $out =  repv($self,@_);
+      my $out =  repv($pproc,@_);
          $out =~ s[$re][/]g;
 
       return $out;
@@ -126,8 +135,7 @@ sub new {
       ['"] \s* ;
     }x,
   );
-
-  return $self;
+  return;
 };
 
 
@@ -154,7 +162,7 @@ sub set_module {
 
 
 # ---   *   ---   *   ---
-# 'rap' determines whether the
+# 'pass' determines whether the
 # preprocessor is writing to the
 # build directory or the lib directory
 #
@@ -162,10 +170,10 @@ sub set_module {
 # paths will be used to pull packages from
 #
 # [0]: mem ptr ; self
-# [1]: bool    ; rap true or false
+# [1]: word    ; pass number
 
-sub set_rap {
-  $_[0]->{rap}=$_[1];
+sub set_pass {
+  $_[0]->{pass}=$_[1];
   return;
 };
 
@@ -174,7 +182,7 @@ sub set_rap {
 # adds to path
 
 sub libpush {
-  # discard  class
+  # discard class
   shift;
 
   # get non-repeated elems, then load those
@@ -200,12 +208,9 @@ sub libpush {
 
 sub Vault_step {
   my $use_re  = qr{\buse\s+Vault\b[^;]*;};
-  my $call_re = qr{\bvault\->([^\(]+)\(};
   my $name    = $_[0]->{module};
 
   $_[1]=~ s[$use_re][use Vault $_[2];]g;
-  $_[1]=~ s[$call_re][Vault->module($name)->$1(]g;
-
   return;
 };
 
@@ -292,7 +297,7 @@ sub AR_step {
   #
   # this is to ensure the AR package can
   # _always_ be located ;>
-  my $arlib=($_[0]->{rap})
+  my $arlib=($_[0]->{pass} == 0)
     ? "\$ENV{ARPATH}/.trash/$_[0]->{module}/"
     : "\$ENV{ARPATH}/lib/"
     ;
@@ -491,12 +496,14 @@ sub run {
   my $body=orc $_[2];
 
   # get relative path from dst to root
-  my $root=abs_path($ENV{MAMROOT});
-  relto($root,dirof(abs_path($_[1])));
-  my $path="'$root' => '$_[0]->{module}'";
+  my $to_root = abs_path($ENV{MAMROOT});
+  my $path    = dirof(abs_path($_[1]));
+  relto($to_root,$path);
+
+  my $vault_line="'$to_root' => '$_[0]->{module}'";
 
   # ^run textual replacement
-  $_[0]->Vault_step($body,$path);
+  $_[0]->Vault_step($body,$vault_line);
   $_[0]->AR_step($body);
   $_[0]->{repl}->proc($body);
   $_[0]->proc_step($body);
@@ -506,6 +513,18 @@ sub run {
 
   # give filtered
   return $body;
+};
+
+
+# ---   *   ---   *   ---
+# cleanup after execution
+
+sub restart {
+  my ($pproc)=@_;
+  $pproc->set_pass(0);
+  $pproc->mkrepl();
+
+  return;
 };
 
 

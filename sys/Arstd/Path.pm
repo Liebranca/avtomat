@@ -27,7 +27,7 @@ package Arstd::Path;
   use lib "$ENV{ARPATH}/lib/";
   use Style qw(null);
   use Chk qw(is_null is_path is_file is_dir);
-  use Arstd::String qw(catpath has_prefix);
+  use Arstd::String qw(catpath gsplit has_prefix);
 
 
 # ---   *   ---   *   ---
@@ -47,7 +47,6 @@ package Arstd::Path;
 
     relto
     absto
-    expand
     reqdir
 
     find_pkg
@@ -61,7 +60,7 @@ package Arstd::Path;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.1';
+  our $VERSION = 'v0.01.2';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -72,9 +71,8 @@ package Arstd::Path;
 # [<]: byte ptr ; new string
 
 sub basef {
-  my @names=split qr{/},$_[0];
+  my @names=gsplit($_[0],qr{/+});
   return $names[$#names];
-
 };
 
 
@@ -87,19 +85,17 @@ sub basef {
 # [!]: overwrites input string
 
 sub extcl {
-  return 0 if is_null $_[0];
+  return 0 if is_null($_[0]);
 
   my $re=qr{\..*$};
   $_[0]=~ s[$re][];
 
-  return ! is_null $_[0];
-
+  return ! is_null($_[0]);
 };
 
 sub nxbasef {
   my $path=shift;
-  return basef extcl $path;
-
+  return basef(extcl($path));
 };
 
 
@@ -113,24 +109,28 @@ sub parof {
   my $path = shift;
   my %O    = @_;
 
+  return null if is_null($path);
+
   # defaults
   $O{abs} //= 1;
-  $O{i}   //= 2;
-
+  $O{i}   //= 1;
 
   # expand?
-  my $full   = ($O{abs}) ? abs_path $path : $path ;
+  my $full   = ($O{abs}) ? abs_path($path) : $path ;
      $full //= $path;
 
+  # missing the initial slash here would
+  # crash the entire toolchain when comparing
+  # absoulte paths, *just* so we're clear on
+  # why this is here
+  my $pre=(has_prefix($full,'/')) ? '/' : null ;
+
   # break path into elements
-  my @names=split qr{/},$full;
-  return null if @names == 1;
+  my @names=gsplit($full,qr{/+});
 
   # pop last element from path to get dir
-  $O{i}=1 if $#names < $O{i};
-  my $out=join  '/',@names[0..$#names-$O{i}];
-
-  return $out;
+  $O{i}=$#names if $#names < $O{i};
+  return $pre . catpath(@names[0..$#names-$O{i}]);
 };
 
 
@@ -141,10 +141,8 @@ sub parof {
 # [<]: byte ptr ; new string
 
 sub dirof {
-  return (! is_null($_[0]) &&! -d $_[0])
-    ? parof @_,i=>1
-    : $_[0]
-    ;
+  my ($path,%O)=@_;
+  return parof($path,%O,i=>1);
 };
 
 
@@ -156,7 +154,7 @@ sub dirof {
 # [<]: byte ptr ; new string
 
 sub based {
-  my @names=split qr{/},$_[0];
+  my @names=split qr{/+},$_[0];
   return $names[0];
 };
 
@@ -173,14 +171,14 @@ sub based {
 # [*]: uses cwd by default
 
 sub relto {
-  return 0 if is_null $_[0];
+  return 0 if is_null($_[0]);
 
   $_[0]=File::Spec->abs2rel($_[0],$_[1]);
 
   my $re=qr{/+};
   $_[0]=~ s[$re][/];
 
-  return ! is_null $_[0];
+  return ! is_null($_[0]);
 };
 
 
@@ -248,16 +246,16 @@ sub extof {
 # [0]: byte ptr ; fname
 # [1]: byte ptr ; extension
 #
-# [<]: input string is valid
+# [<]: input string is valid path
 # [!]: overwrites input string
 
 sub extwap {
-  return 0 if ! is_path $_[0];
-
   my $re=qr{\.[^\.]+$};
-  $_[0]=~ s[$re][.$_[1]]smg;
+  if(! ($_[0]=~ s[$re][.$_[1]]smg)) {
+    $_[0] .= ".$_[1]";
+  };
 
-  return is_path $_[0];
+  return is_path($_[0]);
 };
 
 

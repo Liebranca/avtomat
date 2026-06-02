@@ -25,12 +25,13 @@ package Shb7::Path;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
-  use Chk qw(is_null is_dir);
+  use Chk qw(is_null is_arrayref is_dir is_file);
 
   use Arstd::String qw(cat catpath);
   use Arstd::Path qw(based reqdir relto extwap);
-  use Arstd::Array qw(filter);
+  use Arstd::Array qw(filter dupop nroll);
   use Arstd::Bin qw(dorc moo ot);
+  use Arstd::rd;
   use Arstd::throw;
 
 
@@ -47,6 +48,7 @@ package Shb7::Path;
     relto_mod
 
     include
+    from_config
 
     modof
     cachep
@@ -86,7 +88,7 @@ sub subpath_list {
 # these are all wraps to the same F;
 # so we build the subroutines from a template
 #
-# [0]: byte ptr ; new value | null#
+# [0]: byte ptr ; new value | null
 # [*]: global state
 
 sub import {
@@ -119,7 +121,7 @@ sub import {
   };
 
   # set default value for root
-  set_root($ENV{'ARPATH'});
+  set_root($ENV{ARPATH});
   $nit |= 1;
 
   use strict 'refs';
@@ -137,8 +139,8 @@ sub include {
   state $inc=[];
 
   if(int @_) {
-    pathlist_prepush($inc,qr{^\s*\-I},@_);
-    push @$inc,@_;
+    pathlist_push($inc,qr{^\s*\-I},@_);
+    dupop($inc);
   };
 
   return $inc;
@@ -148,8 +150,8 @@ sub lib {
   state $lib=[];
 
   if(int @_) {
-    pathlist_prepush($lib,qr{^\s*\-L}i,@_);
-    push @$lib,@_;
+    pathlist_push($lib,qr{^\s*\-L},@_);
+    dupop($lib);
   };
 
   return $lib;
@@ -157,19 +159,19 @@ sub lib {
 
 
 # ---   *   ---   *   ---
-# ^~~
+# ^cleanup before pushing
 #
 # [0]: mem  ptr  ; dst array
 # [1]: re        ; pattern
 # [2]: byte pptr ; values
 
-sub pathlist_prepush {
+sub pathlist_push {
   my ($dst,$re)=(shift,shift);
   for(@_) {
     $ARG=~ s[$re][];
     $ARG=abs_path(glob($ARG));
   };
-
+  push @$dst,@_;
   return;
 };
 
@@ -206,53 +208,66 @@ sub set_root {
 # get back to the previous context after it
 
 sub swap_root {
-  state $back=[];
+  my ($have)=@_;
 
-  # early exit if no swap needed
-  return root() if (
-     ($_[0] && $_[0] eq root())
-  || (is_null($_[0]) &&! int @$back)
-  );
+  # set new root only if needed
+  if(! is_arrayref($have)) {
+    my $out=to_array();
+    set_root($have) if $have ne root();
 
-  # swap to previous?
-  if(is_null($_[0])) {
-    my $path=pop @$back;
-    my (
-      $root,
-      $inc,
-      $lib,
-      $cache,
-      $trash,
-      $config,
-      $mem,
-    )=@$path;
-
-    set_root($root);
-    include_cl();
-    lib_cl();
-    include(@$inc);
-    lib(@$lib);
-    cache($cache);
-    trash($trash);
-    config($config);
-    mem($mem);
-
-  # ^save current, *then* swap to new
-  } else {
-    push @$back,[
-      root(),
-      include(),
-      lib(),
-      cache(),
-      trash(),
-      config(),
-      mem(),
-    ];
-
-    set_root($_[0]);
+    return $out;
   };
 
-  return root();
+  # ^else restore old (also *only* if needed)
+  return from_array($have);
+};
+
+
+# ---   *   ---   *   ---
+# get current path setup
+
+sub to_array {
+  return [
+    root(),
+    include(),
+    lib(),
+    cache(),
+    trash(),
+    config(),
+    mem(),
+  ];
+};
+
+
+# ---   *   ---   *   ---
+# ^restore
+
+sub from_array {
+  my ($have)=@_;
+  return to_array() if $have->[0] eq root();
+
+  my (
+    $root,
+    $inc,
+    $lib,
+    $cache,
+    $trash,
+    $config,
+    $mem,
+
+  )=@$have;
+
+  set_root($root);
+  include_cl();
+  lib_cl();
+  include(@$inc);
+  lib(@$lib);
+  cache($cache);
+  trash($trash);
+  config($config);
+  mem($mem);
+
+  return to_array();
 };
 
 
@@ -260,8 +275,15 @@ sub swap_root {
 # to quickly detect root in path...
 
 sub root_re {
-  my $s=cat('^(?:\./?|',root(),')',);
-  return qr{$s};
+  my $s='\./|' . root();
+  return qr{^(?:$s)};
+};
+
+sub module_re {
+  my $mod = module();
+  my $s   = "\./$mod|" . catpath(root(),$mod);
+
+  return qr{^(?:$s)};
 };
 
 
@@ -337,7 +359,7 @@ sub relto_root {
 };
 
 sub relto_mod {
-  return relto($_[0],module());
+  return relto($_[0],catpath(root(),module()));
 };
 
 
@@ -426,23 +448,35 @@ sub obj_from_src {
 
 
 # ---   *   ---   *   ---
-# removes files from directory
-#
-# [0]: byte ptr  ; path to dir
-# [1]: byte pptr ; [option => value] array
-#
-# [*]: does not recurse by default
+# fetches config file, falling back
+# to a list of alternatives if
+# no file is found
 
-sub cl_dir {
-  my $path = shift;
-  my %O    = @_;
+sub from_config {
+  my ($fname,%O)=@_;
+  $O{roll} //= 0;
+  $O{root} //= [];
 
-  my @have=xdorc($path,%O,-f=>1);
+  dupop($O{root});
 
-  filter(\@have);
-  unlink($ARG) for @have;
+  # look for files and combine if needed,
+  # else give first found
+  my @out=();
+  for(@{$O{root}}) {
+    nroll(\@out,[from_config_rd($ARG,$fname)]);
+    last if @out &&! $O{roll};
+  };
+  return @out;
+};
 
-  return;
+sub from_config_rd {
+  my ($root,$fname)=@_;
+  my $back = swap_root($root);
+  my $src  = configp($fname);
+  my @out  = (is_file($src)) ? rd($src) : () ;
+
+  swap_root($back);
+  return @out;
 };
 
 
@@ -453,7 +487,7 @@ sub filep   {return catpath(root(),@_)};
 sub dirp    {return catpath(root(),@_,null)};
 sub cachep  {return catpath(cache(),@_)};
 sub configp {return catpath(config(),@_)};
-sub modp    {return catpath(root(),module())};
+sub modp    {return catpath(root(),module(),@_)};
 sub memp    {return catpath(mem(),@_)};
 sub trashp  {return catpath(trash(),@_)};
 sub ctrashp {return trashp(module())};

@@ -315,10 +315,10 @@ sub _typeisa($class,$type,$key) {
 subwraps(
   q[$class->_typeisa]=>q[$class,$type],
   map {
-    my ($sufix,$name)=split qr{:},$ARG;
-    ["is_$sufix" => "\$type,'$name'"];
+    my ($suffix,$name)=split qr{:},$ARG;
+    ["is_$suffix" => "\$type,'$name'"];
 
-  } qw (
+  } qw(
     str:str_t
     ptr:ptr_any
     real:real

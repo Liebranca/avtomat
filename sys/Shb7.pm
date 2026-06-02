@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
 # SHB7
-# Shell utils
+# ghost in the shell
 #
 # LIBRE SOFTWARE
 # Licensed under GNU GPL3
@@ -29,7 +29,6 @@ package Shb7;
   use Arstd::Bin qw(moo);
   use Shb7::Path qw(root);
   use Shb7::Find;
-  use Shb7::Build;
 
 
 # ---   *   ---   *   ---

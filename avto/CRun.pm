@@ -14,7 +14,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package Avt::CRun;
+package avto::CRun;
 
   use v5.36.0;
   use strict;

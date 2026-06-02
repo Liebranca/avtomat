@@ -24,7 +24,7 @@ package Arstd::strtok;
   use Style qw(null);
   use Chk qw(is_null);
 
-  use Arstd::String qw(to_char);
+  use Arstd::String qw(to_char linecnt);
   use Arstd::seq qw(seqtok);
 
 
@@ -42,7 +42,7 @@ package Arstd::strtok;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.3a';
+  our $VERSION = 'v0.00.4a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -72,7 +72,6 @@ sub strtok {
     i    => 0,
     dst  => $dst,
   };
-
   while($st->{i} < int(@{$st->{ar}})) {
     my $skip=0;
     for my $seq(@{$st->{syx}}) {
@@ -87,7 +86,6 @@ sub strtok {
 
     $st->{tok} .= $st->{ar}->[$st->{i}++];
   };
-
   # save whatever was left on the token
   # then overwrite the input string
   $st->{out} .= $st->{tok};
@@ -103,10 +101,7 @@ sub strtok {
 sub unstrtok {
   return 0 if is_null($_[0]);
   my $ar=$_[1];
-  my $re=(! is_null($_[2]))
-    ? Arstd::seq::typed_tok_re($_[2])
-    : Arstd::seq::tok_re()
-    ;
+  my $re=Arstd::seq::tok_re($_[2]);
 
   while($_[0]=~ $re) {
     my $idex=$+{idex};
@@ -120,10 +115,7 @@ sub unstrtok {
 
 sub rmstrtok {
   return 0 if is_null($_[0]);
-  my $re=(! is_null($_[2]))
-    ? Arstd::seq::typed_tok_re($_[2])
-    : Arstd::seq::tok_re()
-    ;
+  my $re=Arstd::seq::tok_re($_[2]);
 
   $_[0]=~ s[$re][ ]g;
 
@@ -138,11 +130,32 @@ sub rmstrtok {
 
 sub fet {
   my ($ar,$s,$type)=@_;
-  my $re  = Arstd::seq::typed_tok_re($type);
+  my $re  = Arstd::seq::tok_re($type);
   my @out = ();
 
   while($s=~ s[$re][]) {
-    push @out,$+{idex}
+    push @out,$+{idex};
+  };
+  return @out;
+};
+
+
+# ---   *   ---   *   ---
+# ^same thing, but also gets line number
+
+sub fetln {
+  my ($ar,$s,$type)=@_;
+  my $re  = Arstd::seq::tok_re($type);
+  my @out = ();
+
+  while($s=~ s[$re][
+]) {
+    my $idex  = $+{idex};
+    my $pos   = $-[0];
+    my $chunk = substr($s,0,$pos);
+    my $ln    = linecnt($chunk);
+
+    push @out,[$+{idex},$ln];
   };
   return @out;
 };

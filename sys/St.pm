@@ -34,6 +34,7 @@ package St;
 
   use Exporter 'import';
   our @EXPORT_OK=qw(
+    defnit
     is_valid
     is_iceof
   );

@@ -81,7 +81,10 @@ sub throw {
   # "syntax error", and any duplicates that
   # come after that will be discarded
   # (see below...)
-  if (! is_null($ERRNO) &&! is_null($_[0])) {
+  if(! is_null($_[0]) && ($_[0]=~ qr{^[^\s]+:})) {
+    unshift @{$_[2]},$_[0];
+
+  } elsif (! is_null($ERRNO) &&! is_null($_[0])) {
     unshift @{$_[2]},"$ERRNO: $_[0]";
 
   } elsif(! is_null($ERRNO)) {

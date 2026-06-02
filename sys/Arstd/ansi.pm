@@ -26,6 +26,8 @@ package Arstd::ansi;
   use Style qw(null);
   use Chk qw(is_null);
   use Arstd::String qw(
+    cat
+    gsplit
     fgsplit
     recaptsu
     decaptsu
@@ -42,7 +44,7 @@ package Arstd::ansi;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.5';
+  our $VERSION = 'v0.01.6';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -79,18 +81,18 @@ sub ttysz {
 
 sub m {
   my $tab={
-    op     => "\e[37;1m",
-    num    => "\e[33;22m",
-    warn   => "\e[33;1m",
-    good   => "\e[34;22m",
-    err    => "\e[31;22m",
-    ctl    => "\e[35;1m",
-    update => "\e[32;1m",
-    ex     => "\e[36;1m",
+    op     => "\e[0;37;1m",
+    num    => "\e[0;33;22m",
+    warn   => "\e[0;33;1m",
+    good   => "\e[0;34;22m",
+    err    => "\e[0;31;22m",
+    ctl    => "\e[0;35;1m",
+    update => "\e[0;32;1m",
+    ex     => "\e[0;36;1m",
     off    => "\e[0m",
   };
 
-  return $tab->{off} if is_null $_[0];
+  return $tab->{off} if is_null($_[0]);
 
 
   # ^fetch and set
@@ -113,6 +115,34 @@ sub mwrap {
 
 
 # ---   *   ---   *   ---
+#
+# [0]: byte ptr ; string (defaults to stirr null)
+# [1]: byte ptr ; color id (defaults to off)
+#
+# [<]: byte ptr ; new string
+
+sub mop {
+  my ($s,$id)=@_;
+  return null if is_null($s);
+
+  my $re_str  = '\s_[:alnum:]';
+  my $nopr_re = qr{([$re_str]+)};
+  my $opr_re  = qr{([^$re_str]+)};
+  my @path    = fgsplit($s,qr{$nopr_re|$opr_re});
+
+  for(@path) {
+    if($ARG=~ $opr_re) {
+      $ARG=&m($ARG,'op');
+
+    } else {
+      $ARG=&m($ARG,$id);
+    };
+  };
+  return cat(@path,&m());
+};
+
+
+# ---   *   ---   *   ---
 # wraps word in <braces> with colors
 #
 # [0]: byte ptr ; string (defaults to stirr null)
@@ -124,11 +154,7 @@ sub mtag {
   $_[0]//='null';
   $_[1]//='good';
 
-  my $beg   = &m('<','op');
-  my $end   = &m('>','op');
-  my $color = &m(@_);
-
-  return "$beg$color$end" . &m();
+  return &mop("<$_[0]>",$_[1]);
 };
 
 

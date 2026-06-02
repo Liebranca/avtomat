@@ -38,6 +38,7 @@ package Arstd::PM;
   use Exporter 'import';
   our @EXPORT_OK=qw(
     subwraps
+    lrcaller
     rcaller
     codename
   );
@@ -54,17 +55,20 @@ package Arstd::PM;
 # give first caller that
 # doesn't match passed name
 
-sub rcaller {
+sub lrcaller {
   # default to *this* package ;>
-  my $name   = $_[0];
-     $name //= __PACKAGE__;
+  my $name=$_[0] // __PACKAGE__;
 
   # ^pop until another found
   my $i    = 1;
-  my $pkg  = caller $i++;
-     $pkg  = caller $i++
+  my @pkg  = caller($i++);
+     @pkg  = caller($i++)
 
-  while  $pkg eq $name && $i < 0x24;
+  while  $pkg[0] eq $name && $i < 0x24;
+  return @pkg;
+};
+sub rcaller {
+  my ($pkg)=lrcaller($_[0]);
   return $pkg;
 };
 
@@ -300,10 +304,9 @@ sub mkwraps($pkg,$fn,$sig,@icebox) {
 
     my $wf=eval $src;
 
-
     # ^validate
-    throw "BAD ICEF*CK: $dst\n\n$src\n"
-    if ! defined $wf;
+    throw "BAD-FWRAP: $dst\n\n$src\n"
+    if!   defined $wf;
 
     # add to namespace
     *{$dst}=$wf;
@@ -318,7 +321,7 @@ sub mkwraps($pkg,$fn,$sig,@icebox) {
 # ^icef*ck
 
 sub subwraps($fn,$sig,@icebox) {
-  my $pkg=rcaller;
+  my $pkg=rcaller();
   mkwraps($pkg,$fn,$sig,@icebox);
 
   return;

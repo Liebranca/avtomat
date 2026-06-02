@@ -41,6 +41,9 @@ package Arstd::String;
     catpath
     to_char
     ident
+    recnt
+    linecnt
+    lineof
 
     sqwrap
     dqwrap
@@ -62,6 +65,7 @@ package Arstd::String;
     gstrip
     gsplit
     fgsplit
+    rejoin
     clist
 
     jag
@@ -73,7 +77,7 @@ package Arstd::String;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.6';
+  our $VERSION = 'v0.01.7';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -133,6 +137,47 @@ sub ident {
   my $pad  = '  ' x $_[1];
 
   return $pad . join("\n$pad",@line);
+};
+
+
+# ---   *   ---   *   ---
+# counts occurrences of pattern
+#
+# [0]: byte ptr ; string
+# [1]: re       ; pattern
+#
+# [<]: word     ; count
+
+sub recnt {
+  return int(()=$_[0]=~ m[$_[1]]g);
+};
+
+
+# ---   *   ---   *   ---
+# ^wraps for counting lines
+
+sub linecnt {
+  return recnt($_[0],qr"\n")+1;
+};
+
+
+# ---   *   ---   *   ---
+# get line number for pattern match
+#
+# [0]: byte ptr ; string
+# [1]: re       ; pattern
+#
+# [<]: word     ; line number
+
+sub lineof {
+  # give negative if match fails
+  return -1 if! ($_[0]=~ $_[1]);
+
+  # ^locate line number for this match
+  my $pos   = $-[0];
+  my $chunk = substr($_[0],0,$pos);
+
+  return linecnt($chunk);
 };
 
 
@@ -338,20 +383,15 @@ sub charcon {
     qr{\\b} => "\b",
     qr{\\e} => "\e",
     qr{\\}  => '\\',
-
   ];
-
   # ^replace
   for(0..int(@{$_[1]}/2)-1) {
     my $pat=$_[1]->[$ARG*2+0];
     my $seq=$_[1]->[$ARG*2+1];
 
     $_[0]=~ s[$pat][$seq]sxmg;
-
   };
-
   return ! is_null $_[0];
-
 };
 
 
@@ -370,7 +410,6 @@ sub nobs {
 
   $_[0]=~ s[$re][$1]sxmg;
   return ! is_null $_[0];
-
 };
 
 
@@ -388,8 +427,8 @@ sub strip {
 
   $_[0]=~ s[$re][]smg;
   return ! is_null $_[0];
-
 };
+
 
 # ---   *   ---   *   ---
 # ^removes extra whitespace
@@ -419,7 +458,6 @@ sub wstrip {
 
 sub gstrip {
   return grep {strip $ARG} @_;
-
 };
 
 
@@ -454,6 +492,29 @@ sub fgsplit {
     strip($ARG) && ($ARG=~ $_[1])
 
   } split($_[1],$_[0]);
+};
+
+
+# ---   *   ---   *   ---
+# gsplit by line,
+# then join lines at pattern
+
+sub rejoin {
+  my ($s,$re)=@_;
+  return null if is_null($s);
+
+  $re=qr{^$re};
+  my @line = gsplit($s,qr"\n");
+  my @out  = (null);
+  for(@line) {
+    if($ARG=~ s[$re][]) {
+      push @out,$ARG;
+
+    } else {
+      $out[-1] .= $ARG;
+    };
+  };
+  return gstrip(@out);
 };
 
 
@@ -522,7 +583,6 @@ sub time_to_uid {
     ? (CLOCK_REALTIME,CLOCK_BOOTTIME)
     : ()
     ;
-
   push @clk,CLOCK_PROCESS_CPUTIME_ID;
 
   # get timestamps for each clock and join them

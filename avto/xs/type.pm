@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package Avt::XS::Type;
+package avto::xs::type;
   use v5.42.0;
   use strict;
   use warnings;
@@ -49,7 +49,7 @@ sub typemap_fpath {
 # open/close the type conversion table
 
 sub open($class) {
-  my $where=parof($class->typemap_fpath(),i=>1);
+  my $where=parof($class->typemap_fpath());
   reqdir($where);
 
   my $fpath = $class->typemap_fpath();

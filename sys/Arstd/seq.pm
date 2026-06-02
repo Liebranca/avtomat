@@ -21,6 +21,7 @@ package Arstd::seq;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
+  use Chk qw(is_null);
   use Arstd::String qw(cat);
   use Arstd::throw;
 
@@ -34,6 +35,7 @@ package Arstd::seq;
     seqtok
     seqtok_push
     seqscan
+    seqstrip
     seqin
     seqscap
   );
@@ -42,7 +44,7 @@ package Arstd::seq;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.2a';
+  our $VERSION = 'v0.00.3a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -51,19 +53,14 @@ package Arstd::seq;
 
 sub tok_fmat {"__%s_SEQTOK_%i__"};
 sub tok_re   {
-  return qr{__(?<type>[^_]+)_SEQTOK_(?<idex>\d+)__};
-};
+  my ($t,$i)=@_;
+  $t=(! is_null($t))
+    ? uc($t)
+    : '[^_]+'
+    ;
+  $i//='\d+';
 
-sub typed_tok_re {
-  my $t=uc($_[0]);
-  return qr"__(?<type>${t})_SEQTOK_(?<idex>\d+)__";
-};
-
-sub spec_tok_re {
-  my ($t)=uc($_[0]);
-  my ($i)=$_[1];
-
-  return qr"__(?<type>${t})_SEQTOK_(?<idex>$i)__";
+  return qr{(?<full>__(?<type>${t})_SEQTOK_(?<idex>${i})__)};
 };
 
 
@@ -117,14 +114,25 @@ sub seqtok {
   # sequence must be saved, so give a token
   # to insert in it's place
   my $ct=cat(@$ar[$i..$j-1]);
-  if($seq->{strip}) {
-    # remove sequence delimiters
-    my $re=  qr{(?:^$seq->{beg})|(?:$seq->{end}$)};
-       $ct=~ s[$re][]g;
-  };
+  seqstrip($seq,$ct) if $seq->{strip};
 
   my $tok=seqtok_push($seq,$dst,$ct);
   return ($j-$i,$tok);
+};
+
+
+# ---   *   ---   *   ---
+# remove sequence delimiters
+
+sub seqstrip {
+  my ($beg,$end)=(
+    "\Q$_[0]->{beg}",
+    "\Q$_[0]->{end}"
+  );
+  my $re   =  qr{(?:^$beg)|(?:$end$)};
+     $_[1] =~ s[$re][]g;
+
+  return;
 };
 
 

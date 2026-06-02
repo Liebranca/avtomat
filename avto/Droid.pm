@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package Avt::Droid;
+package avto::Droid;
 
   use v5.36.0;
   use strict;
@@ -50,7 +50,7 @@ sub new($class,%O) {
     entry   => 'main',
     linking => 'jar',
 
-    pproc   => 'Avt::Droid::pproc',
+    pproc   => 'avto::Droid::pproc',
 
     %O
 
@@ -61,7 +61,7 @@ sub new($class,%O) {
 # ---   *   ---   *   ---
 # ^kotlin preprocessor
 
-package Avt::Droid::pproc;
+package avto::Droid::pproc;
 
   use v5.36.0;
   use strict;

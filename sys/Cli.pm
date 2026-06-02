@@ -20,12 +20,10 @@ package Cli;
 
   use English qw($ARG $POSTMATCH $MATCH);
 
-  use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>q[
-    use Style qw(null);
-    use Chk qw(is_null);
-    lis Arstd::Re qw(eiths);
-  ];
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Chk qw(is_null);
+  use Arstd::Re qw(eiths);
 
   use Arstd::PM qw(rcaller);
   use Arstd::throw;
@@ -66,14 +64,14 @@ sub new($class,@args) {
       $short_form,
       $long_form,
       $argc,
-      $default,
+      $defv,
       $combo,
     )=(
       $ref->{id},
       $ref->{short},
       $ref->{long},
       $ref->{argc},
-      $ref->{default},
+      $ref->{defv},
       $ref->{combo},
     );
 
@@ -84,14 +82,26 @@ sub new($class,@args) {
       short_form => $short_form,
       long_form  => $long_form,
       argc       => $argc,
-      default    => $default,
+      defv       => $defv,
       combo      => $combo,
     );
     $optab{$id}=$arg;
 
+    # having *one* form is obligatory
+    throw "CLI: argument '$id' has neither "
+    .     "long or short form"
+
+    if!   defined $arg->{short_form}
+    &&!   defined $arg->{long_form};
+
     # make aliases
-    $alias{$arg->{short_form}} = $id;
-    $alias{$arg->{long_form}}  = $id;
+    if(defined $arg->{short_form}) {
+      $alias{$arg->{short_form}}=$id;
+    };
+
+    if(defined $arg->{long_form}) {
+      $alias{$arg->{long_form}}=$id;
+    };
   };
 
   # make new instance
@@ -100,7 +110,7 @@ sub new($class,@args) {
     -order => \@order,
     -optab => \%optab,
     -alias => \%alias,
-    -re    => re_eiths([keys %alias]),
+    -re    => eiths([keys %alias]),
     -argv  => [],
 
   },$class;
@@ -108,9 +118,9 @@ sub new($class,@args) {
 
   # fill out status vars
   for my $id($cli->order) {
-    my $default=$cli->{-optab}->{$id}->{default};
-    $cli->{$id}=(defined $default)
-      ? $default
+    my $defv=$cli->{-optab}->{$id}->{defv};
+    $cli->{$id}=(defined $defv)
+      ? $defv
       : null
       ;
   };
@@ -156,7 +166,7 @@ sub short_or_long($self,$arg) {
     my $post = $POSTMATCH;
     my $pre  = $MATCH;
 
-    $value = $post if ! is_null $post;
+    $value = $post if ! is_null($post);
     $arg   = $pre;
   };
 
@@ -222,34 +232,30 @@ sub handle_input {
 sub catch_invalid_arg {
   my ($self,$arg)=@_;
 
-  return if exists $self->{-alias}->{$arg};
-  throw sprintf(
-    "%s: invalid switch '%s'",
-    $self->{-name},
-    $arg,
-  );
+  throw "$self->{-name}: invalid switch 'arg'"
+  if!   exists $self->{-alias}->{$arg};
+
+  return;
 };
 
 sub catch_invalid_value {
   my ($self,$opt,$value)=@_;
 
   # no value passed, and no default!
-  if( is_null($value) && $opt->{argc}
-  &&! defined($opt->{default})) {
-    throw sprintf(
-      "%s: switch '%s' requires a value",
-      $self->{-name},
-      $opt->{long_form},
-    );
+  throw "$self->{-name}: switch "
+  .     "'$opt->{id}' requires a value"
+
+  if  is_null($value)
+  &&  $opt->{argc}
+  &&! defined($opt->{defv});
 
   # value passed, but none should be!
-  } elsif(! is_null($value) &&! $opt->{argc}) {
-    throw sprintf(
-      "%s: switch '%s' doesn't take a value",
-      $self->{-name},
-      $opt->{long_form},
-    );
-  };
+  throw "$self->{name}: switch "
+  .     "'$opt->{id}' doesn't take a value"
+
+  if! is_null($value)
+  &&! $opt->{argc};
+
   return;
 };
 
@@ -293,9 +299,9 @@ sub handle_combo {
 
 St::vconst {
   PATTERN=>[
-    qr{--[_\w][_\w\d]*=} => \&long_equal,
-    qr{--[_\w][_\w\d]*}  => \&short_or_long,
-    qr{-[_\w].*}         => \&short_or_long,
+    qr{--[_\w][_\w\d]*=.*} => \&long_equal,
+    qr{--[_\w][_\w\d]*}    => \&short_or_long,
+    qr{-[_\w].*}           => \&short_or_long,
   ],
 };
 
@@ -327,6 +333,9 @@ sub take($self,@args) {
     if(defined $fn) {
       $fn->($self,$arg);
 
+    } elsif($arg=~ qr{^-}) {
+      throw "$self->{-name}: invalid switch '$arg'";
+
     } else {
       push @values,$arg;
     };
@@ -354,14 +363,13 @@ package Cli::Arg;
 
 sub new($class,$id,%attrs) {
   # set defaults
-  $attrs{short_form} //= q{-}.substr $id,0,1;
-  $attrs{long_form}  //= q{--}.$id;
   $attrs{argc}       //= 0;
-  $attrs{default}    //= undef;
+  $attrs{defv}       //= undef;
   $attrs{combo}      //= [];
 
   # make ice
   my $arg=bless {id=>$id,%attrs},$class;
+  $arg->{defv}//=[] if $arg->{argc} eq 'array';
 
   return $arg;
 };
@@ -376,11 +384,9 @@ package Cli::Fstruct;
   use warnings;
 
   use English qw($ARG);
-  use lib "$ENV{ARPATH}/lib/";
-  use AR sys=>q[
-    use Style qw(null);
-    lis Arstd::Path qw(expand);
-  ];
+  use lib "$ENV{ARPATH}/lib/sys/";
+  use Style qw(null);
+  use Arstd::Bin qw(xdorc);
 
   use parent 'St';
 
@@ -411,12 +417,12 @@ sub proto_search($m,@cmd) {
   my @files=$m->take(@cmd);
 
   # dig into the folders?
-  @files=map {path_expand $ARG,-r=>1} @cmd
-  if $m->{recursive} ne null;
+  @files=map {xdorc($ARG,-r=>1)} @cmd
+  if $m->{recursive};
 
 
   # enable/disable auto-backslashing
-  if($m->{no_escaping} eq null) {
+  if(! $m->{no_escaping}) {
     $m->{symbol}="\Q$m->{symbol}";
 
   } else {
@@ -425,7 +431,7 @@ sub proto_search($m,@cmd) {
 
 
   # enable/disable symbol as regex
-  if($m->{regex} eq null) {
+  if(! $m->{regex}) {
     $m->{symbol}=qr{$m->{symbol}(?:\b|$|"|')};
 
   } else {
@@ -434,7 +440,7 @@ sub proto_search($m,@cmd) {
 
 
   # set extension filter?
-  if($m->{extension} eq null) {
+  if(! $m->{extension}) {
     $m->{ext_re}=qr{\..*$}x;
 
   } else {

@@ -40,6 +40,8 @@ package Arstd::Array;
     nsort
     nlsort
     nmap
+    nroll
+    to_hash
 
     filter
     dupop
@@ -57,7 +59,7 @@ package Arstd::Array;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.1';
+  our $VERSION = 'v0.01.3';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -361,6 +363,41 @@ sub kmap($ar,$fn) {
 
 sub vmap($ar,$fn) {
   return nmap($ar,$fn,'v');
+};
+
+
+# ---   *   ---   *   ---
+# combines two pseudo-hashes
+
+sub nroll {
+  my ($ar,$br)=@_;
+
+  # make src into a hash
+  my $tab=to_hash($br);
+
+  # append to existing keys
+  for my $i(0..int(@$ar/2)-1) {
+    my ($k,$v)=($ar->[$i*2+0],$ar->[$i*2+1]);
+    next if! exists $tab->{$k};
+
+    unshift @$v,@{$tab->{$k}};
+    delete  $tab->{$k};
+  };
+
+  # ^save missing keys
+  unshift @$ar,$ARG=>$tab->{$ARG} for keys %$tab;
+  return;
+};
+
+
+# ---   *   ---   *   ---
+# selfex
+
+sub to_hash($ar) {
+  my @nk=nkeys($ar);
+  my @nv=nvalues($ar);
+
+  return {map {$nk[$ARG]=>$nv[$ARG]} 0..$#nk};
 };
 
 

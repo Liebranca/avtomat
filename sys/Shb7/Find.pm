@@ -99,7 +99,6 @@ sub fsearch($search_in,@files) {
 
     last if ! is_null($out);
   };
-
   return $out;
 };
 
@@ -108,19 +107,14 @@ sub fsearch($search_in,@files) {
 # find file within search path
 
 sub ffind($fname,@exts) {
-  return abs_path($fname) if -f $fname;
+  return abs_path($fname) if is_file($fname);
 
   # get search directory and
   # filename variations
   my ($search_in,@files)=illnames($fname,@exts);
 
-  # perform search and errchk
-  my $out=fsearch($search_in,@files);
-
-  throw "Could not find file '$fname' in PATH"
-  if is_null($out);
-
-  return $out;
+  # give search result
+  return fsearch($search_in,@files);
 };
 
 
@@ -150,7 +144,6 @@ sub wsearch($search_in,$re) {
       push @out,grep m[$re],@files;
     };
   };
-
   return @out;
 };
 
@@ -286,57 +279,6 @@ sub libexpand($libs) {
   filter($libs);
 
   return;
-};
-
-
-# ---   *   ---   *   ---
-# retrieve makescript cache
-#
-# [0]: byte ptr ; module dir
-# [<]: mem  ptr ; Avt::Makescript object
-
-sub build_meta {
-  my $M   = retrieve("$_[0]/.avto-cache");
-  my $out = {
-    inc => $M->{inc},
-    lib => $M->{lib},
-  };
-
-  my $old=getcwd();
-  chdir Shb7::Path::root();
-
-  libexpand($out->{lib});
-
-  my $re=qr{^\s*\-I};
-  for(@{$out->{inc}}) {
-    $ARG=~ s[$re][];
-    $ARG=abs_path($ARG);
-    $ARG="-I$ARG";
-  };
-
-  chdir $old;
-  return $out;
-};
-
-
-# ---   *   ---   *   ---
-# find path to build folder
-# from name of library
-
-sub build_path($name) {
-  my $path=Shb7::Path::dirp($name);
-  if(! is_dir($path)) {
-    my $libmeta=Shb7::Path::shwlp($name);
-    $path=(is_file($libmeta))
-      ? Shb7::Path::dirp(
-          retrieve($libmeta)->{fswat}
-        )
-
-      : null
-      ;
-  };
-
-  return $path;
 };
 
 

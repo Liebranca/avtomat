@@ -25,7 +25,14 @@ package Arstd::Bin;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null no_match);
-  use Chk qw(is_null is_path is_file is_dir);
+  use Chk qw(
+    is_null
+    is_path
+    is_file
+    is_dir
+  );
+  use Arstd::Array qw(filter);
+  use Arstd::String qw(strip gsplit);
   use Arstd::throw;
 
 
@@ -39,20 +46,25 @@ package Arstd::Bin;
     orc
     dorc
     xdorc
+    nuke
     owc
     opc
     xclip
     bash
+    perl
     errmute
     erropen
     deepcpy
+
+    cpuinfo
+    cpuflag
   );
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.3';
+  our $VERSION = 'v0.01.4';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -151,7 +163,7 @@ sub xdorc {
   # we get out early if the path to an
   # _actual_ file was passed as that can't
   # be expanded
-  return ($_[0]) if is_file $_[0];
+  return ($_[0]) if is_file($_[0]);
 
   # else we take args
   my $path = shift;
@@ -160,35 +172,31 @@ sub xdorc {
   # defaults
   $O{-f} //= 0;
   $O{-r} //= 0;
+  $O{-d} //= 0;
   $O{-x} //= no_match;
 
   # walk directories
   my @out = ();
-  my @rem = ($path);
+  my @rem = (glob($path));
 
   while(@rem) {
-    # perform expansion and filter out files
-    my @have=grep {is_dir $ARG} (glob(shift @rem));
+    $path=shift @rem;
 
-    # ^then opendir on each directory and filter
-    # ^out results that match the exclusion pattern
-    @have=grep {
-      ! ($ARG=~ $O{-x})
+    # opendir on each directory and filter
+    # out results that match the exclusion pattern
+    my @have=(
+      map  {"$path/$ARG"}
+      grep {! ($ARG=~ $O{-x})} dorc($path)
+    );
 
-    } map {
-      dorc $ARG;
-
-    } @have;
-
-
-    # files to out
-    unshift @out,grep {is_file "$path/$ARG"} @have;
+    # save to out
+    my @dir=grep {is_dir($ARG)} @have;
+    unshift @out,grep {is_file($ARG)} @have;
+    unshift @out,@dir if $O{-d};
 
     # recurse?
-    unshift @rem,grep {is_dir "$path/$ARG"} @have
-    if $O{-r};
+    unshift @rem,@dir if $O{-r};
   };
-
 
   # need to give absolute paths?
   if($O{-f}) {
@@ -197,6 +205,34 @@ sub xdorc {
 
   # give list of files
   return @out;
+};
+
+
+# ---   *   ---   *   ---
+# removes files from directory
+#
+# [0]: byte ptr  ; path to dir
+# [1]: byte pptr ; [option => value] array
+#
+# [*]: does not recurse by default
+
+sub nuke {
+  my $path = shift;
+  my %O    = @_;
+
+  # this ensures directories aren't
+  # destroyed by this F, not by default
+  $O{-d} //= 0;
+  $O{-r} //= 0;
+
+  my @have=xdorc($path,%O,-f=>1);
+
+  # now wipe it off the face of the... disk
+  filter(\@have);
+  unlink($ARG) for grep {is_file($ARG)} @have;
+  rmdir($ARG)  for grep {is_dir($ARG)}  @have;
+
+  return;
 };
 
 
@@ -311,6 +347,75 @@ sub bash {
   exit  -1 if $CHILD_ERROR;
 
   return 0;
+};
+
+
+# ---   *   ---   *   ---
+# ^run perl script!
+
+sub perl {
+  my ($file,@argv)=@_;
+  $file //= '<null>';
+
+  throw "perl: can't do '$file'"
+  if!   is_file($file);
+
+  # force reload
+  delete $INC{$file};
+
+  # this lets us read args through ARGV,
+  # as we normally would
+  local @ARGV=@argv;
+  do $file or throw $@;
+
+  return 0;
+};
+
+
+# ---   *   ---   *   ---
+# reads cpuinfo file and parses
+# it into a hash
+
+sub cpuinfo {
+  # this F always gives the same result,
+  # so it's appropriate to cache it
+  state $cache=null;
+  return $cache if! is_null($cache);
+
+  # get [key]:[value] for each line in
+  # the cpuinfo file
+  my $out  = {};
+  my $re   = qr{^\s*(?<name>[^:]+?)\s*:};
+  my @line = gsplit(orc("/proc/cpuinfo"),qr"\n");
+
+  for(@line) {
+    # detect error, though if this is incorrect
+    # then i reckon we have bigger problems ;>
+    throw "cpuinfo: faulty line '$ARG'"
+    if!   ($ARG=~ s[$re][]);
+
+    # give key=>[value]
+    my $name=$+{name};
+    strip($name);
+
+    $out->{$name}=[gsplit($ARG,qr"\s+")];
+  };
+
+  # cache result and give
+  $cache=$out;
+  return $out;
+};
+
+
+# ---   *   ---   *   ---
+# ^ checks whether there's a given
+#   flag in cpuinfo
+
+sub cpuflag {
+  my ($flag)=@_;
+  my $info=cpuinfo();
+
+  return int grep {$flag eq $ARG} @{$info->{flags}};
 };
 
 

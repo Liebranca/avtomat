@@ -76,8 +76,8 @@ my $ROM={
     /sys/Arstd/Path.pm
     /sys/Arstd/ansi.pm
     /sys/Arstd/throw.pm
-    /sys/Arstd/Bin.pm
     /sys/Arstd/Array.pm
+    /sys/Arstd/Bin.pm
     /sys/Arstd/Hash.pm
     /sys/Arstd/IO.pm
     /sys/Arstd/Re.pm
@@ -86,13 +86,15 @@ my $ROM={
     /sys/Arstd/strtok.pm
     /sys/Arstd/peso.pm
     /sys/Arstd/repl.pm
+
+    /AR.pm
+    /sys/Arstd/rd.pm
+
     /sys/Shb7/Path.pm
     /sys/Shb7/Find.pm
     /sys/Chk/Syntax.pm
     /sys/Chk/Deps.pm
 
-    /AR.pm
-    /sys/Arstd/rd.pm
     /sys/Arstd/pproc.pm
     /sys/Frame.pm
     /sys/St.pm
@@ -148,28 +150,32 @@ my $ROM={
     CMAM/sandbox.pm
     CMAM.pm
 
-    /sys/Shb7/Bfile.pm
-    /sys/Shb7/Bk.pm
-    /sys/Shb7/Bk/flat.pm
-    /sys/Shb7/Bk/cmam.pm
-    /sys/Shb7/Bk/mam.pm
-    /sys/Shb7/Bk/fake.pm
-    /sys/Shb7/Build.pm
-    /sys/Shb7/Link.pm
     /sys/Shb7.pm
-
     /sys/Vault.pm
+    /sys/term.pm
+    /sys/term/urxvt.pm
 
     /Emit.pm
     /Emit/Std.pm
     /Emit/C.pm
     /Emit/Perl.pm
 
-    /Avt/Sieve.pm
-    /Avt/XS/Type.pm
-    /Avt/XS.pm
-    /Avt/Makescript.pm
-    /Avt.pm
+    /avto/shwl.pm
+    /avto/cfg.pm
+    /avto/px.pm
+    /avto/switch.pm
+    /avto/bfile.pm
+    /avto/bk.pm
+    /avto/bk/flat.pm
+    /avto/bk/CMAM.pm
+    /avto/bk/MAM.pm
+    /avto/olink.pm
+    /avto/xs/type.pm
+    /avto/xs.pm
+    /avto/make.pm
+    /avto/emit.pm
+    /avto/nbuild.pm
+    /avto.pm
   )],
 };
 
@@ -178,9 +184,17 @@ my $ROM={
 # nuke
 
 sub build_clean {
-  rmtree("../.trash/",{safe=>1});
-  rmtree("../.cache/",{safe=>1});
-  rmtree("../lib/",{safe=>1});
+  rmtree("../.trash/avtomat",{safe=>1});
+  rmtree("../.cache/avtomat",{safe=>1});
+  rmtree("../lib/sys",{safe=>1});
+  rmtree("../lib/Emit",{safe=>1});
+  rmtree("../lib/CMAM",{safe=>1});
+  rmtree("../lib/avto",{safe=>1});
+
+  unlink("../lib/AR.pm");
+  unlink("../lib/CMAM.pm");
+  unlink("../lib/Emit.pm");
+  unlink("../lib/avto.pm");
 
   return;
 };
@@ -203,7 +217,7 @@ sub build_mkdirs {
 # ---   *   ---   *   ---
 # procs MAM so that it can proc other files ;>
 #
-# [0]: bool ; MAM build step (rap)
+# [0]: word ; MAM build pass
 #
 # [*]: this simply makes a copy of MAM
 #      source with library paths swapped
@@ -214,10 +228,11 @@ sub build_mkdirs {
 #      actual library path)
 
 sub procmam {
+  my ($pass)=@_;
   my ($dst,$src)=(undef,undef);
 
   # swap destination?
-  my ($tmpdir,$dstdir,$srcdir)=($_[0])
+  my ($tmpdir,$dstdir,$srcdir)=($pass == 0)
     ? ($ROM->{AVTODIR},$ROM->{TRASHDIR},
        $ROM->{LIBDIR})
 
@@ -326,7 +341,7 @@ sub req_basedir {
 # makes MAM ice
 #
 # [0]: byte ptr ; destination directory
-# [1]: bool     ; MAM build step (rap)
+# [1]: word     ; MAM build pass
 #
 # [<]: mem ptr ; new MAM instance
 #
@@ -364,10 +379,11 @@ sub mkmam {
   # ^set root and make ice
   $ENV{MAMROOT}=$ROM->{ROOTDIR};
   my $mam=MAM->new();
+  $mam->restart();
 
   # ^configure and give
   $mam->set_module('avtomat');
-  $mam->set_rap($_[1]);
+  $mam->set_pass($_[1]);
 
   return $mam;
 };
@@ -377,11 +393,12 @@ sub mkmam {
 # update files in list if need
 #
 # [0]: mem ptr ; filename arrayref
-# [1]: bool    ; MAM build step (rap)
+# [1]: word    ; MAM build pass
 
 sub update {
+  my ($ar,$pass)=@_;
   # paths used depend on build step
-  my ($dstdir,$srcdir)=($_[1])
+  my ($dstdir,$srcdir)=($pass == 0)
     ? ($ROM->{TRASHDIR},$ROM->{AVTODIR})
     : ($ROM->{LIBDIR},$ROM->{TRASHDIR})
     ;
@@ -391,7 +408,7 @@ sub update {
   my @need=map {
     need_update $dstdir,$srcdir,$ARG
 
-  } @{$_[0]};
+  } @$ar;
 
   # ^skip if none
   return 0 if ! @need;
@@ -399,7 +416,7 @@ sub update {
 
   # ^else build what's needed
   my $tag=$ROM->{FMAT}->{SUBSTEP};
-  my $mam=mkmam($dstdir,$_[1]);
+  my $mam=mkmam($dstdir,$pass);
 
   return int map {
     my ($dst,$src,$fname)=@$ARG;
@@ -445,15 +462,15 @@ sub make {
   # needed to apply source filters
   say {*STDERR} "$tag[2]updating $tag[1]";
 
-  procmam 1 if $_[0] eq 'MAM';
-  my $need=update($_[1],1);
+  procmam 0 if $_[0] eq 'MAM';
+  my $need=update($_[1],0);
 
 
   # we make sure to _always_ update MAM source,
   # as it's a single file and everything else
   # depends on it ;>
 
-  procmam 0 if $_[0] eq 'MAM';
+  procmam 1 if $_[0] eq 'MAM';
   return if ! $need;
 
 
@@ -464,7 +481,7 @@ sub make {
   . "\e[36;1m\"/.trash/\"\e[0m"
   );
 
-  update($_[1],0);
+  update($_[1],1);
   return;
 };
 
@@ -491,13 +508,6 @@ sub run {
   $tag=$ROM->{FMAT}->{AR};
   say {*STDERR} "${tag}starting update";
   make avtomat=>$ROM->{AVTODEPS};
-
-
-  # we don't bother passing avto through MAM
-  copy(
-    "$ENV{ARPATH}/avtomat/avto.pm",
-    "$ENV{ARPATH}/lib/avto.pm"
-  );
 
   # importing sygen rebuilds nanorc files ;>
   $tag=$ROM->{FMAT}->{STEP};

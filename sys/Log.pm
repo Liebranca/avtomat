@@ -49,11 +49,13 @@ sub exe_prefix {
 };
 
 sub dopen_prefix {
-  return Arstd::ansi::mwrap('>>','op');
+  $_[0] //= null;
+  return Arstd::ansi::mop("\%:$_[0]",'update');
 };
 
 sub dclose_prefix {
-  return Arstd::ansi::mwrap('<<','op');
+  $_[0] //= null;
+  return Arstd::ansi::mop("=:$_[0]",'num');
 };
 
 sub tagok_prefix {
@@ -149,7 +151,7 @@ sub line($class,$s=null,$err=0) {
     ;
 
   my $pad='  ' x $self->{lvl};
-  say {$fh} "$pad$s";
+  say {$fh} "$pad$s\e[0m";
 
   return;
 };
@@ -164,7 +166,7 @@ sub fupdate($class,$name,$me='updated') {
     $name,'update'
   );
 
-  return $self->line(step_prefix() . $s,1);
+  return $self->line(step_prefix() . $s,0);
 };
 
 
@@ -177,7 +179,7 @@ sub mupdate($class,$name,$me='upgrading') {
     $name,'update'
   );
 
-  return $self->line(tagok_prefix() . $s,1);
+  return $self->line(tagok_prefix() . $s,0);
 };
 
 
@@ -191,6 +193,7 @@ sub mprich($class,$name,$act) {
   return $self->line($s,1);
 };
 
+
 # ---   *   ---   *   ---
 # notify of bin being run
 
@@ -199,22 +202,37 @@ sub ex($class,$name,$me=null) {
   $me=(length $me) ? "$me " : $me;
 
   my $s=$me . Arstd::ansi::mwrap($name,'ex');
-  return $self->line(exe_prefix() . $s,1);
+  return $self->line(exe_prefix() . $s,0);
 };
+
+sub dopen($class,$name,$me=null) {
+  my $self=get_self($class);
+  $me=(length $me) ? " $me" : $me;
+
+  return $self->line(dopen_prefix($name) . $me,0);
+};
+
+sub dclose($class,$name,$me=null) {
+  my $self=get_self($class);
+  $me=(length $me) ? " $me" : $me;
+
+  return $self->line(dclose_prefix($name) . $me,0);
+};
+
 
 # ---   *   ---   *   ---
 # generic message
 
 sub step($class,$me) {
   my $self=get_self($class);
-  return $self->line(step_prefix() . $me,1);
+  return $self->line(step_prefix() . $me,0);
 };
 
 sub substep($class,$me) {
   my $self = get_self($class);
   my $pad  = '  ' x ($self->{lvl}+1);
 
-  return $self->line($pad . $me,1);
+  return $self->line($pad . $me,0);
 };
 
 
@@ -242,7 +260,8 @@ sub err($class,$me,%O) {
   my @me   = split qr"\n",$me;
   my $head = shift @me;
 
-  $self->line("\n$head",1);
+  $self->line(null,1);
+  $self->line("$head",1);
 
   map {$self->step($ARG)} @me;
   say null;
@@ -256,6 +275,20 @@ sub err($class,$me,%O) {
   throw if $O{throw};
   return;
 };
+
+
+# ---   *   ---   *   ---
+# ~~
+
+sub atexit {
+  my $self=get_self(St::cpkg());
+  return if! $self;
+
+  $self->line("\e[0m",0);
+  return;
+};
+
+END {atexit()};
 
 
 # ---   *   ---   *   ---

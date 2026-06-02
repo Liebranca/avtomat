@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package Avt::flatten;
+package avto::flatten;
   use v5.42.0;
   use strict;
   use warnings;
@@ -45,7 +45,7 @@ sub new($class,%O) {
     lang    => 'fasm',
     bk      => 'flat',
     entry   => 'start',
-    pproc   => 'Avt::flatten::pproc',
+    pproc   => "$class\::pproc",
 
     %O,
 
@@ -63,7 +63,7 @@ sub new($class,%O) {
 # invoke pproc
 
 sub cpproc($class,$f,@args) {
-  return Avt::flatten::pproc->$f(@args);
+  return "$class\::pproc"->$f(@args);
 
 };
 
@@ -86,7 +86,7 @@ sub cpproc($class,$f,@args) {
 #
 # (we may need it; can't tell yet)
 
-package Avt::flatten::pproc;
+package avto::flatten::pproc;
   use v5.42.0;
   use strict;
   use warnings;

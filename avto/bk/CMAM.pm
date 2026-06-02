@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # ---   *   ---   *   ---
-# BK GCC
+# BK CMAM
 # Wrappers for C builds
 #
 # LIBRE SOFTWARE
@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package Shb7::Bk::cmam;
+package avto::bk::CMAM;
   use v5.42.0;
   use strict;
   use warnings;
@@ -25,6 +25,7 @@ package Shb7::Bk::cmam;
   use Style qw(null);
   use Chk qw(is_null is_file);
 
+  use Arstd::String qw(gsplit);
   use Arstd::Array qw(filter);
   use Arstd::Bin qw(orc owc moo);
   use Arstd::Path qw(reqdir dirof extwap);
@@ -34,67 +35,43 @@ package Shb7::Bk::cmam;
   use Ftype::Text::C;
 
   use Log;
-  use parent 'Shb7::Bk';
 
   use lib "$ENV{ARPATH}/lib/";
+  use AR;
   use CMAM;
+  use parent 'avto::bk';
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.8a';
+  our $VERSION = 'v0.01.2a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
 # ---   *   ---   *   ---
 # ROM
 
-sub oflg {return qw(
-  -O2
-  -fpermissive
-  -w
-  -ftree-vectorize
-  -fno-unwind-tables
-  -fno-eliminate-unused-debug-symbols
-  -fno-asynchronous-unwind-tables
-  -ffast-math
-  -fsingle-precision-constant
-  -fno-ident
-  -fPIC
-)};
+sub linkable {return 1};
 
-sub lflg {return qw(
-  -fpermissive
-  -w
-  -flto
-  -ffunction-sections
-  -fdata-sections
-), (
-  '-Wl,--gc-sections',
-  '-Wl,-fuse-ld=bfd',
-)};
 
-sub flatflg {return qw(
-  -fpermissive
-  -w
-  -flto
-  -ffunction-sections
-  -fdata-sections
-  -no-pie
-  -nostdlib
-), (
-  '-Wl,--gc-sections',
-  '-Wl,-fuse-ld=bfd',
-  '-Wl,--relax,-d',
-  '-Wl,--entry=_start',
-)};
+# ---   *   ---   *   ---
+# cstruc
+
+sub new {
+  my ($class,$px,%O)=@_;
+  my $bk=avto::bk::new($class,$px,%O);
+
+  return $bk;
+};
 
 
 # ---   *   ---   *   ---
 # rebuild chk
 
-sub fupdated($self,$bfile,%O) {
+sub fupdated {
+  my ($bk,$bfile)=@_;
+
   # a CMAM update means all files need to
   # be recompiled
   my @cmam=CMAM::outdeps();
@@ -104,14 +81,15 @@ sub fupdated($self,$bfile,%O) {
   } @cmam;
 
   # else perform a standard dependency check
-  return $self->chkfdeps($bfile,%O);
+  return avto::bk::fupdated($bk,$bfile);
 };
 
 
 # ---   *   ---   *   ---
 # get file dependencies
 
-sub fdeps($self,$bfile) {
+sub fdeps {
+  my ($bk,$bfile)=@_;
   my @out=($bfile->{src});
 
   # read file if it exists
@@ -127,7 +105,7 @@ sub fdeps($self,$bfile) {
     $body=~ s[$nspace_re][,]g;
 
     # make array from gcc depsfile
-    @out=$self->depstr_to_array($body);
+    @out=gsplit($body,qr{\s*,\s*});
 
     # drop first file, which is always the source
     # we run that check elsewhere
@@ -145,34 +123,15 @@ sub fdeps($self,$bfile) {
 
 
 # ---   *   ---   *   ---
-# get variant of arch flag
-
-sub target($tgt) {
-  my $out;
-  if($tgt eq Shb7::Bk::target_arch('x64')) {
-    $out='-m64';
-
-  } elsif($tgt eq Shb7::Bk::target_arch('x86')) {
-    $out='-m32';
-  };
-
-  return $out;
-};
-
-
-# ---   *   ---   *   ---
-# get variant of entry flag
-
-sub entry($name) {return "-Wl,--entry=$name"};
-
-
-# ---   *   ---   *   ---
 # get array of build files, but sorted
 # by dependencies
 
-sub bfiles($self) {
-  my @bfile=@{$self->{file}};
-  return @bfile if exists $self->{sorted};
+sub bfiles {
+  my ($bk)=@_;
+
+  # stop if already sorted
+  my @bfile=@{$bk->{file}};
+  return @bfile if exists $bk->{sorted};
 
   # get sorted list first
   my @src    = map {$ARG->{src}} @bfile;
@@ -191,18 +150,21 @@ sub bfiles($self) {
   };
 
   # mark file list as already sorted
-  $self->{file}   = [@out];
-  $self->{sorted} = 1;
+  $bk->{file}   = [@out];
+  $bk->{sorted} = 1;
   return @out;
 };
+
 
 # ---   *   ---   *   ---
 # preproc step
 
-sub on_build($self,$bld,@bfile) {
+sub on_build {
+  my ($bk,$sw)=@_;
+
   # first off, check that there is need
   # for regenerating intermediate files
-  @bfile=map {
+  my @bfile=map {
     # get path to generated header...
     my $fhead=$ARG->{src};
     extwap($fhead,'h');
@@ -249,10 +211,10 @@ sub on_build($self,$bld,@bfile) {
 
     } else {()};
 
-  } @bfile;
+  } $bk->updated();
 
   # ^early exit if nothing to do
-  return () if ! @bfile;
+  return () if! @bfile;
 
 
   # ^else notify we're here
@@ -265,7 +227,7 @@ sub on_build($self,$bld,@bfile) {
     my $fname = $ARG->{src};
     my $dst   = $ARG->{-cmamp};
 
-    $self->log_fpath($ARG->{src});
+    $bk->log_fpath($ARG->{src});
 
     my ($ar)=CMAM::run($fname);
     my ($head,$body,$perl)=@$ar;
@@ -276,17 +238,17 @@ sub on_build($self,$bld,@bfile) {
     throw "Cannot generate C header for "
     .     "'$fname': destination is source!"
 
-    if $fname eq $dst->{head};
+    if    $fname eq $dst->{head};
 
     throw "Cannot generate C source for "
     .     "'$fname': destination is source!"
 
-    if $fname eq $dst->{body};
+    if    $fname eq $dst->{body};
 
     throw "Cannot generate perl package for "
     .     "'$fname': destination is source!"
 
-    if $fname eq $dst->{perl};
+    if    $fname eq $dst->{perl};
 
 
     # include generated header
@@ -298,9 +260,9 @@ sub on_build($self,$bld,@bfile) {
     # we do this no matter what simply because
     # the build will check that all three exist
     reqdir(dirof($ARG)) for values %$dst;
-    owc $dst->{head},$head;
-    owc $dst->{body},$body;
-    owc $dst->{perl},$perl;
+    owc($dst->{head},$head);
+    owc($dst->{body},$body);
+    owc($dst->{perl},$perl);
 
     # however, we do skip compiling files that
     # output a blank source ;>
@@ -333,37 +295,31 @@ sub on_build($self,$bld,@bfile) {
 # ---   *   ---   *   ---
 # C-style object file boiler
 
-sub fbuild($self,$bfile,$bld) {
-  # conditionally use octopus
-  my $cpp=Ftype::Text::C->is_cpp($bfile->{src});
-  my $up=($cpp)
-    ? '-lstdc++'
-    : null
-    ;
+sub fbuild {
+  my ($bk,$sw,$bfile)=@_;
 
-  # clear existing
-  $bfile->prebuild();
+  # conditionally use octopus
+  my $cpp = Ftype::Text::C->is_cpp($bfile->{src});
+  my @up  = ($cpp ? '-lstdc++' : ());
 
   # cstruc cmd
   my @call=(
-    ($cpp) ? q[g++] : q[gcc] ,
+    ($cpp ? q[g++] : q[gcc]),
 
     '-MMD',
-    target($bld->{tgt}),
 
-    (map {"-D$ARG"} @{$bld->{def}}),
+    @{$sw->{arch}},
+    @{$sw->{def}},
+    @{$sw->{obc}},
+    @{$sw->{inc}},
 
-    @{$bld->{flag}},
-    oflg(),
-
-    @{$bld->{inc}},
-    $up,
-
-    "-Wa,-a=$bfile->{asm}",
     -c => $bfile->{src},
     -o => $bfile->{obj},
 
-    @{$bld->{lib}},
+    "-Wa,-a=$bfile->{asm}",
+
+    @{$sw->{lib}},
+    @up,
   );
 
   # ^cleanup and invoke
@@ -371,7 +327,7 @@ sub fbuild($self,$bfile,$bld) {
   system {$call[0]} @call;
 
   # ^give on success
-  return int(defined is_file($bfile->{obj}));
+  return is_file($bfile->{obj});
 };
 
 

@@ -91,7 +91,6 @@ sub strtok_syx {
       %{Arstd::seq::str()->{backtick}},
       inner=>[Arstd::seq::delim()->{curly}],
     },
-
     # vanilla Javascript doesn't have a
     # preprocessor (to my knowledge), but
     # i already have it implemented, so why not?

@@ -55,9 +55,9 @@ sub rd {
 
   if(is_file($s)) {
     my $body=orc($s);
-    return rd_impl($body);
+    return (rd_impl($body),fpath=>$s);
   };
-  return rd_impl($s);
+  return (rd_impl($s),fpath=>null);
 };
 sub rd_impl {
   my ($pproc,$class,@param)=fline_proc($_[0]);

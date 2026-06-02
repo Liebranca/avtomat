@@ -28,7 +28,7 @@ package Arstd::repl;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.4a';
+  our $VERSION = 'v0.00.5a';
   our $AUTHOR  = 'IBN-3DILA';
 
   sub errsafe {return 1};
@@ -77,9 +77,7 @@ sub new {
   $O{repv}  //= \&proto_undo_f;
   $O{undo}  //= \&proto_undo_f;
   $O{syx}   //= Arstd::strtok::defsyx();
-  $O{outre} //= Arstd::seq::typed_tok_re(
-    $O{seq}->{type}
-  );
+  $O{outre} //= Arstd::seq::tok_re($O{seq}->{type});
 
   # make ice and give
   my $self=bless {
@@ -178,7 +176,7 @@ sub proto_undo {
 
     # ^ replace token in input with
     #   the modified value
-    my $re=Arstd::seq::spec_tok_re(
+    my $re=Arstd::seq::tok_re(
       $self->{seq}->{type},
       $tok_idex
     );

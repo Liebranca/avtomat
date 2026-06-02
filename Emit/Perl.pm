@@ -30,7 +30,6 @@ package Emit::Perl;
   use Arstd::Fmat qw(tidyup);
 
   use Shb7::Path qw(relto_root);
-  use Shb7::Build;
 
   use lib "$ENV{ARPATH}/lib/";
   use parent 'Emit::Std';

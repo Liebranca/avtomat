@@ -14,7 +14,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package Avt::XS;
+package avto::xs;
   use v5.42.0;
   use strict;
   use warnings;
@@ -39,7 +39,6 @@ package Avt::XS;
     basef
     based
     dirof
-    parof
     reqdir
   );
   use Arstd::Fmat;
@@ -58,11 +57,11 @@ package Avt::XS;
     relto_mod
   );
   use Shb7::Find qw(ffind wfind);
-  use Shb7::Bk::cmam;
 
   use lib "$ENV{ARPATH}/lib/";
   use AR;
-  use Avt::XS::Type;
+  use avto::bk::CMAM;
+  use avto::xs::type;
 
 
 # ---   *   ---   *   ---
@@ -75,7 +74,9 @@ package Avt::XS;
 # ---   *   ---   *   ---
 # compiles XS from shwl
 
-sub build($shwl,$bld,$pkg,%O) {
+sub build {
+  my ($shwl,$sw,$pkg,%O)=@_;
+
   # defaults
   $O{-f} //= 0;
 
@@ -92,8 +93,8 @@ sub build($shwl,$bld,$pkg,%O) {
   };
 
   # check whether we can skip compilation
-  my $dst  = shared_libp($dir,"${fname}XS");
-  my $ok   = 0;
+  my $dst = shared_libp($dir,"${fname}XS");
+  my $ok  = 0;
   for my $obj(@{$shwl->{obj}}) {
     $ok+=int(moo($dst,$obj));
   };
@@ -109,28 +110,25 @@ sub build($shwl,$bld,$pkg,%O) {
   xsgen($trash,$pkg,$shwl);
 
   # get a string with the compiler flags we use
-  my $ccflag=join ' ',(
-    @{$bld->{flag}},
-    Shb7::Bk::cmam::oflg(),
-  );
+  my $ccflag=join(' ',@{$sw->{obc}});
 
   # add dependencies to lib path
-  push @{$bld->{lib}},(
-    @{$shwl->{dep}},
+  my @libs=(
+    @{$sw->{lib}},
     "-L" . libdirp($dir),
     "-l$outf"
   );
-  dupop($bld->{lib});
+  dupop(\@libs);
 
   # generate and run makefile
   my $makefile=makegen(
     $trash,
     NAME      => "${pkg}XS",
-    LIBS      => $bld->libline(),
-    INC       => $bld->incline(),
+    LIBS      => join(' ',@libs),
+    INC       => join(' ',@{$sw->{inc}}),
     CCFLAGS   => $ccflag,
     MYEXTLIB  => static_libp($dir,$outf),
-    TYPEMAPS  => [Avt::XS::Type->table()],
+    TYPEMAPS  => [avto::xs::type->table()],
     VERSION   => $shwl->{VERSION},
   );
   my $old=getcwd();
@@ -146,7 +144,9 @@ sub build($shwl,$bld,$pkg,%O) {
   #       ... no further comment ;>
   my $blib = "$trash/blib/arch/auto/$dir";
   my $out  = "$blib/${outf}XS/${outf}XS.so";
-  throw "'$out'\nXS build fail" if ! -f $out;
+
+  throw "avto: XS build fail for '$out'"
+  if!   is_file($out);
 
   # we move the *.so to where XSLoader can find it
   rename $out,$dst;
@@ -321,7 +321,7 @@ sub pmgen($pkg,$shwl) {
 
 sub mkshwl($mod,$dst,$deps,@fname) {
   # early exit if nothing to do
-  return if ! @fname;
+  return if! @fname;
 
   # setup search path
   include(dirp($mod));
@@ -333,7 +333,6 @@ sub mkshwl($mod,$dst,$deps,@fname) {
       : ffind($ARG)
       ;
   } @fname;
-
 
   # nit table
   my $shwl={

@@ -1,7 +1,18 @@
 >avtomat v4.00.0
 
+*>main
+x Sync avto.cfg keys to CLI arguments
+x Fix/merge Shb7::Link && Shb7::Build
+x \--> Move code for handling compile/link
+       flags to it's own file
+
+~ Finish avto::make
+~ \--> Move makescript emitting sub
+       to it's own file
+
 *>Standarize nbuild script
-~ Read *.cfg files to get lib/include paths.
+x Make nbuild into a module (similar to avto.pm)
+x Read *.cfg files to get lib/include paths.
 x Use CLI to read arguments.
 x Move Shb7::Find (and deps) to MAMDEPS;
   that way we can use lib/include paths

@@ -13,7 +13,7 @@
 # ---   *   ---   *   ---
 # deps
 
-package Avt::Sieve;
+package avto::Sieve;
   use v5.42.0;
   use strict;
   use warnings;
@@ -122,9 +122,9 @@ sub iter($self,$dirs) {
 # ---   *   ---   *   ---
 # build file list from tree node
 
-sub get_files($self,$node) {
-  my $name=$self->{name};
-  @{$self->{file}}=$node->get_filepath_list(
+sub get_files($cfg,$node) {
+  my $name=$cfg->{name};
+  my @file=$node->get_filepath_list(
     full=>1,
     max_depth=>1,
   );
@@ -156,15 +156,16 @@ sub agroup_files($self) {
   $self->dual_out(
     $self->{M}->{fcpy},
     $self->{C}->{xcpy},
-
-    $self->{bindir},null
+    $self->{bindir},
+    null
   );
 
   # project ./lib copy
   $self->dual_out(
     $self->{M}->{fcpy},
     $self->{C}->{lcpy},
-    $self->{libdir},$self->{lmod}
+    $self->{libdir},
+    $self->{lmod}
   );
 
   # headers for post-build scanning

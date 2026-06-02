@@ -27,6 +27,7 @@ package Arstd::fatdump;
     is_hashref
     is_arrayref
     is_coderef
+    is_qre
     is_qreref
     is_blessref
     is_nref
@@ -109,7 +110,8 @@ sub polydump($vref,$blessed=undef) {
   return $vref if recursing $vref;
 
   # corner case: compiled regexes
-  return "$$vref" if is_qreref($vref);
+  return "$$vref" if is_qreref($vref)
+                  || is_qre($$vref);
 
 
   # map type to idex
