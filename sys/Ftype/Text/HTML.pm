@@ -22,6 +22,7 @@ package Ftype::Text::HTML;
   use parent "Ftype::Text";
 
   use Ftype::Text::JS;
+  use Ftype::Text::CSS;
   use Arstd::seq qw(seqnew);
 
 
@@ -84,9 +85,14 @@ sub package_open {
 };
 
 sub package_close {
-  my ($class,$name,$flg,$sref)=@_;
+  my ($class,$dst,$sref,$name,$flg)=@_;
   return (
-    Ftype::Text::JS->package_close($name,$flg,$sref),
+    Ftype::Text::JS->package_close(
+      $dst,
+      $sref,
+      $name,
+      $flg
+    ),
     q[</script>],
   );
 };

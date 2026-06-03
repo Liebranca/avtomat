@@ -20,6 +20,7 @@ package Ftype;
   use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/sys/";
+  use Chk qw(is_file is_blessref);
   use Arstd::Path qw(extof);
   use Arstd::strtok;
 
@@ -131,8 +132,44 @@ sub package_open {
   return ();
 };
 sub package_close {
-  my ($class,$name,$flg,$sref)=@_;
+  my ($class,$dst,$sref,$name,$flg)=@_;
   return ();
+};
+
+
+# ---   *   ---   *   ---
+# get rules for the tokenizer
+
+sub getlang {
+  # set defaults
+  my ($lang,%O)=@_;
+  $O{com}   //= 1;
+  $O{pproc} //= 1;
+
+  # fetch package containing defs
+  $lang=from_ext($lang) if is_file($lang);
+  if(! is_blessref($lang)) {
+    $lang="Ftype\::Text\::$lang"
+    if! ($lang=~ qr{^Ftype::Text::});
+    AR::load($lang);
+
+    $lang=$lang->selfet();
+  };
+  # ^make copy of syntax rules
+  my $syx=[@{$lang->strtok_syx()}];
+
+  # ^modify rules to conserve comments...
+  if($O{com}) {
+    $ARG->{keep}=1
+    for grep {$ARG->{type} eq 'com'} @$syx;
+  };
+  # ^ and strip preprocessor lines, just
+  #   to make them easier to read!
+  if($O{pproc}) {
+    $ARG->{strip}=1
+    for grep {$ARG->{type} eq 'pproc'} @$syx;
+  };
+  return ($lang,$syx);
 };
 
 

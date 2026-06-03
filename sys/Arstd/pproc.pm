@@ -33,6 +33,7 @@ package Arstd::pproc;
     strarvoid
     strarex
   );
+  use Arstd::seq qw(seqtok_push);
   use Arstd::peso qw(peval);
   use Arstd::throw;
 
@@ -68,7 +69,6 @@ sub pproc_mem {
     if    => [],
     depth => 0,
     lnoff => 0,
-    retry => 0,
     imap  => [],
 
     lang  => undef,
@@ -132,7 +132,12 @@ sub pproc {
 
       # ^invalid!! strip it!
       if($scmd ne "end" && $scmd ne "e$cmd") {
-        strarvoid($strar,$mem->{sref},$si->[0],"vpproc");
+        strarvoid(
+          $strar,
+          $mem->{sref},
+          $si->[0],
+          "vpproc"
+        );
         next;
       };
       # ^valid, so run it!
@@ -140,24 +145,7 @@ sub pproc {
       $ok=symtab($scmd)->($si,$strar,@sargs);
     };
   };
-  # some directives (like `#catin`) generate
-  # further clauses, so naturally they signal
-  # that a second pass is needed
-  if($mem->{retry}) {
-    pproc(
-      $strar,
-      $$sref,
-      lang   => $mem->{lang},
-      strtok => 1,
-    );
-    $mem->{retry}=0;
-  };
-  # perform textual replacements last...
-  #
-  # we wait until this point to do it because
-  # those substitutions might trigger further
-  # recursion, see the comments on the F
-  # we're calling for more info on that
+  # perform textual replacements last
   pproc_txtrepl($strar,$sref) if! $depth;
 
   # same story as with the strtok option
@@ -189,17 +177,16 @@ sub pproc_enter {
     sref  => $mem->{sref},
     lang  => $mem->{lang},
     syx   => $mem->{syx},
-    retry => $mem->{retry},
     pkg   => $mem->{pkg}->{-cur},
   };
   push @$stk,$ctx;
 
   # get tokenizer rules...
-  ($mem->{lang},$mem->{syx})=get_lang($lang);
+  ($mem->{lang},$mem->{syx})=
+    Ftype::getlang($lang);
 
   # overwrite generic values
   $mem->{sref}        = $sref;
-  $mem->{retry}       = 0;
   $mem->{pkg}->{-cur} = null;
   $mem->{honor}       = honor_need();
 
@@ -223,7 +210,6 @@ sub pproc_leave {
   $mem->{sref}        = $ctx->{sref};
   $mem->{lang}        = $ctx->{lang};
   $mem->{syx}         = $ctx->{syx};
-  $mem->{retry}       = $ctx->{retry};
   $mem->{pkg}->{-cur} = $ctx->{pkg};
   $mem->{honor}       = honor_need();
 
@@ -246,6 +232,23 @@ sub pproc_take {
 
   # ^fetch command and give
   return ($i,Arstd::peso::getcmd($cpy));
+};
+
+
+# ---   *   ---   *   ---
+# adds a blank token we can use for
+# executing a function...
+#
+# effectively lets us generate clauses
+# without having to recurse!
+
+sub pproc_blankt {
+  my ($i,$dst)=@_;
+
+  my $si=int @$dst;
+  seqtok_push({type=>"pproc"},$dst,"");
+
+  return [$si,$i->[1]];
 };
 
 
@@ -290,19 +293,22 @@ sub pproc_fpaste {
 
   # overwrite preprocessor directive
   # with the body of the file
-  strarmut($dst,$mem->{sref},$i->[0],code=>$body);
+  strarmut(
+    $dst,
+    $mem->{sref},
+    $i->[0],
+    vpproc=>$body
+  );
   return 1;
 };
 
 
 # ---   *   ---   *   ---
-# OK this bit was implemented solely because
-# it was needed to simplify some "assembling"
-# of web files!!
+# wraps and mutates code in a language-sensitive
+# way, accto `package_open/close`, which should
+# be defined at Ftype::Text::(lang)
 #
-# we might add some language sensitivity to it
-# later, but currently it doesn matter as we
-# don't use this feature anywhere else ;>
+# both default to nop when no F is defined
 
 sub pproc_package {
   my ($i,$dst,$name,@attr)=@_;
@@ -317,7 +323,6 @@ sub pproc_package {
   $mem->{pkg}->{-cur}  = $name;
 
   my $body=join("\n",
-    "#define __PACKAGE__ $name",
     $mem->{lang}->package_open($name),
     null,
   );
@@ -327,8 +332,12 @@ sub pproc_package {
     $i->[0],
     $body,
   );
-  $mem->{retry}=1;
-
+  # define package name
+  pproc_define(
+    pproc_blankt($i,$dst),
+    $dst,
+    __PACKAGE__=>$name
+  );
   return 1;
 };
 sub pproc_package_end {
@@ -338,9 +347,19 @@ sub pproc_package_end {
   my $name = $mem->{pkg}->{-cur};
   my $flg  = $mem->{pkg}->{$name};
   my $out  = join("\n",
-    $mem->{lang}->package_close($name,$flg,$sref),
-    "#undef __PACKAGE__",
+    $mem->{lang}->package_close(
+      $dst,
+      $sref,
+      $name,
+      $flg
+    ),
     null,
+  );
+  # undefine the package name!!
+  pproc_undef(
+    pproc_blankt($i,$dst),
+    $dst,
+    "__PACKAGE__"
   );
   return $out;
 };
@@ -394,11 +413,11 @@ sub pproc_cat {
   my ($i,$dst,$k,$v)=@_;
   $v //= null;
 
-  throw "pproc: <defcat> without a key"
+  throw "pproc: <cat> without a key"
   if    is_null($k);
 
   my $mem=pproc_mem();
-  throw "pproc: undefined key for <defcat> '$k'"
+  throw "pproc: undefined key for <cat> '$k'"
   if!   exists $mem->{def}->{$k};
 
   my $ar=$mem->{def}->{$k};
@@ -422,17 +441,15 @@ sub pproc_catline {
 
 
 # ---   *   ---   *   ---
-# ^adds an `#include` line!! :O
+# includes a file, but instead of pasting
+# it directly, it saves the value to a
+# definition!!
 
-sub pproc_catin {
-  my ($i,$dst,$k,$v)=@_;
-  $v //= null;
-  $v   = "\n#include $v\n";
+sub pproc_catinc {
+  my ($i,$dst,$k,$fpath)=@_;
 
-  # signal that a second pass will be required!
-  pproc_mem()->{retry}=1;
-
-  return pproc_cat($i,$dst,$k,$v);
+  pproc_fpaste($i,$dst,$fpath);
+  return pproc_cat($i,$dst,$k,$dst->[$i->[0]]);
 };
 
 
@@ -453,9 +470,6 @@ sub pproc_undef {
   my $top = pop @$stk // [0,null];
 
   push @$ar,[$i->[1] + $mem->{lnoff},$top->[1]];
-
-  # clear directive;
-  # the replacement will be done later on
   strarvoid($dst,$mem->{sref},$i->[0],"vpproc");
 
   return 1;
@@ -492,12 +506,7 @@ sub pproc_eif {
   my $mem=pproc_mem();
   strarvoid($dst,$mem->{sref},$i->[0],"vpproc");
 
-  # get truth of this statement...
   my $ok=pproc_ifeval(1,@expr);
-
-  # remember line where this clause appeared;
-  # we'll need it for stripping it later if
-  # it evaluates to false
   my $ar=$mem->{if}->[-1];
   throw "pproc: <eif> without preceding <if>"
   if!   $ar;
@@ -556,6 +565,8 @@ sub pproc_end {
   throw "pproc: <end> without clause"
   if    is_null($clause);
 
+  # capture the code between the start
+  # and end (this clause!)
   my $mem  = pproc_mem();
   my $imap = $mem->{imap};
   my $beg;
@@ -566,12 +577,15 @@ sub pproc_end {
       last;
     };
   };
+  # we need to do the honor dance to get
+  # accurate line numbers!
   my $cpy=${$mem->{sref}};
-
   honor_line(\$cpy,"pproc","vpproc");
   my @line=split("\n",$cpy);
-  my $body=join("\n",@line[$beg->[1]..$i->[1]]);
-
+  my $body=join("\n",
+    grep {$ARG}
+    @line[$beg->[1]..$i->[1]]
+  );
   # clauses can have a "close" F to mutate
   # the code!! \( ^ .^)/
   my $fn={
@@ -589,7 +603,7 @@ sub pproc_end {
   dishonor_line(\$cpy,"pproc","vpproc");
   ${$mem->{sref}}=$cpy;
 
-  # ^ it determines what we repl this line with;
+  # ^ $foot determines what we repl this line with;
   #   defaults to null
   strarex(
     $dst,
@@ -619,7 +633,7 @@ sub symtab {
     package => \&pproc_package,
     cat     => \&pproc_cat,
     catline => \&pproc_catline,
-    catin   => \&pproc_catin,
+    catinc  => \&pproc_catinc,
     if      => \&pproc_if,
     eif     => \&pproc_eif,
     end     => \&pproc_end,
@@ -642,19 +656,23 @@ sub pproc_txtrepl {
   # we need to put the line that terminates
   # the expression back in there, so as to
   # get the actual number of lines
-  honor_line($sref,"pproc","vpproc");
+  honor_line($sref,"pproc");
+
+  # these expressions can be safely expanded now
+  unstrtok($$sref,$strar,"vpproc");
 
   # walk definitions!
   my $mem=pproc_mem();
-  for my $k(keys %{$mem->{def}}) {
-    next if $k eq "-stk";
-
+  my @key=(
+    grep {$ARG ne "-stk"}
+    keys %{$mem->{def}}
+  );
+  for my $k(@key) {
     # replace KEY within tokenized body...
     my $re=qr{(?<!\\)\b$k\b};
     while($$sref=~ $re) {
-      last if! pproc_txtrepl_inner($k,$sref,$re);
+      last if! pproc_txtrepl_inner(0,$k,$sref,$re);
     };
-
     # ^unescape
     $re=qr{\\\b$k\b};
     $$sref=~ s[$re][$k];
@@ -662,6 +680,7 @@ sub pproc_txtrepl {
     # replace #KEY; inside strings!! /YES
     $re=qr{(?<!\\)\#$k;};
     pproc_txtrepl_inner(
+      $ARG->[1],
       $k,
       \$strar->[$ARG->[0]],
       $re,
@@ -678,37 +697,16 @@ sub pproc_txtrepl {
     $$sref=~ s[$re][$k];
   };
   # remove the lines we added
-  dishonor_line($sref,"pproc","vpproc");
-
-  # here comes the """esoteric""" bit...
-  #
-  # what happens is that it's entirely possible
-  # that performing these substitutions generates
-  # new preprocessor directives, which means that
-  # a recursion check is necessary!! :o
-  #
-  # so what we do is re-run the tokenizer to see
-  # if any such directives are present, and if so,
-  # recurse right here and now!
-  my $have=strtok($strar,$$sref,syx=>$mem->{syx});
-
-  # ^ it's safe to do it like this because the call
-  #   to the tokenizer will only give us how many
-  #   *new* preprocessor lines it has encountered;
-  #   the ones we have already processed do not
-  #   count towards this total ;>
-  pproc($strar,$$sref,lang=>$mem->{lang})
-  if $have->{pproc} > 0;
-
+  dishonor_line($sref,"pproc");
   return;
 };
 sub pproc_txtrepl_inner {
-  my ($k,$dst,$dst_re,$src,$src_re)=@_;
+  my ($off,$k,$dst,$dst_re,$src,$src_re)=@_;
   $src    //= $dst;
   $src_re //= $dst_re;
 
   # get line number for this match...
-  my $lnx=lineof($$src,$src_re);
+  my $lnx=lineof($$src,$src_re)+$off;
 
   # ^select definition accto line number!
   my $ok=0;
@@ -743,6 +741,7 @@ sub honor_line {
   };
   return;
 };
+
 
 # ---   *   ---   *   ---
 # ^undo
@@ -779,40 +778,6 @@ sub honor_need {
   && $ARG->{end}  eq "\n"
 
   } @$syx;
-};
-
-
-# ---   *   ---   *   ---
-# get rules for the tokenizer
-
-sub get_lang {
-  # set defaults
-  my ($lang,%O)=@_;
-  $O{com}   //= 1;
-  $O{pproc} //= 1;
-
-  # fetch package containing defs
-  if(! is_blessref($lang)) {
-    $lang="Ftype\::Text\::$lang";
-    AR::load($lang);
-
-    $lang=$lang->selfet();
-  };
-  # ^make copy of syntax rules
-  my $syx=[@{$lang->strtok_syx()}];
-
-  # ^modify rules to conserve comments...
-  if($O{com}) {
-    $ARG->{keep}=1
-    for grep {$ARG->{type} eq 'com'} @$syx;
-  };
-  # ^ and strip preprocessor lines, just
-  #   to make them easier to read!
-  if($O{pproc}) {
-    $ARG->{strip}=1
-    for grep {$ARG->{type} eq 'pproc'} @$syx;
-  };
-  return ($lang,$syx);
 };
 
 

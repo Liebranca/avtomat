@@ -115,20 +115,10 @@ sub backtick_seq {
 # effectively implements "public" :D
 
 sub package_close {
-  my ($class,$name,$flg,$sref)=@_;
-
-  # the input is likely tokenized, but we
-  # want to do some further tokenization of
-  # our own!!
-  #
-  # what we do is temporarily invalidate (!!)
-  # those tokens so that we can ignore them ;>
-  my $re=qr{SEQTOK};
-  $$sref=~ s[$re][OLDTOK]sxmg;
+  my ($class,$dst,$sref,$name,$flg)=@_;
 
   # generate footer with symbol data
-  my $strar = [];
-  my $sym   = symrd($strar,$sref);
+  my $sym   = symrd($dst,$sref);
   my @allow = grep {
     ! ($ARG->{flg}=~ qr{\bprivate\b})
 
@@ -145,12 +135,6 @@ sub package_close {
   my $pub=join("\n",
     map {"window.$ARG->{name}=$ARG->{name};"} @pub
   );
-  # undo the transforms we did of the (probably)
-  # already tokenized input...
-  unstrtok($$sref,$strar);
-  $re=qr{OLDTOK};
-  $$sref=~ s[$re][SEQTOK]sxmg;
-
   # ^give back the generated footer!
   return (
     qq[window["/YESPKG"].push("$name");],
@@ -173,10 +157,12 @@ sub symrd {
   #
   # saves us from writing a full-blown parser
   # just for this bit ^^
-  my $syx=[
-    @{strtok_syx()},
+  my ($lang,$syx)=Ftype::getlang(__PACKAGE__);
+  $syx=[
+    @$syx,
     Arstd::seq::delim()->{curly},
   ];
+  unstrtok($$sref,$strar,"vpproc");
   strtok($strar,$$sref,syx=>$syx);
 
   # grab each symbol;
@@ -189,7 +175,7 @@ sub symrd {
       flg  => $+{flg} // null,
       name => $+{name},
       type => $+{type},
-      post => $+{post} // null
+      post => $+{post} // null,
     };
   };
   # ^remove the wraps!

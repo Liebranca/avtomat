@@ -120,6 +120,7 @@ my $ROM={
     /sys/Ftype/Text/Perl.pm
     /sys/Ftype/Text/Python.pm
     /sys/Ftype/Text/JS.pm
+    /sys/Ftype/Text/CSS.pm
     /sys/Ftype/Text/HTML.pm
     /sys/Ftype/Text/Mny.pm
     /sys/Ftype/Text/cfg.pm

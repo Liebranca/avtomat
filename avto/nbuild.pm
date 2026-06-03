@@ -183,8 +183,8 @@ sub file_rd {
   #
   # else the default ones are used
   # (defined by Arstd::strtok)
-  my ($lang,$syx)=Arstd::pproc::get_lang(
-    Ftype::from_ext($fpath),
+  my ($lang,$syx)=Ftype::getlang(
+    $fpath,
     pproc =>  $cli->{pproc},
     com   =>! $cli->{nocom},
   );
@@ -203,7 +203,7 @@ sub file_rd {
     pproc($strar,$body,lang=>$lang);
   };
   # strip file?
-  if($cli->{clean}) {
+  if($cli->{strip}) {
     $body=join "\n",gsplit($body,qr"\n+");
     wstrip($body);
   };

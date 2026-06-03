@@ -26,7 +26,7 @@ package Shb7::Find;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
-  use Chk qw(is_file is_dir);
+  use Chk qw(is_file is_dir is_null);
 
   use Arstd::String qw(has_prefix);
   use Arstd::Array qw(filter dupop);
