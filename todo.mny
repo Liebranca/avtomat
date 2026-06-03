@@ -1,6 +1,7 @@
 >avtomat v4.00.0
 
 *>main
+x Implement "language-sensitivity" for Arstd::pproc
 x Sync avto.cfg keys to CLI arguments
 x Fix/merge Shb7::Link && Shb7::Build
 x \--> Move code for handling compile/link

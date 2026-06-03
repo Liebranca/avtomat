@@ -46,6 +46,8 @@ package avto::nbuild;
   # remember to add supported filetypes here!!
   use Ftype;
   use Ftype::Text::C;
+  use Ftype::Text::JS;
+  use Ftype::Text::HTML;
 
 
 # ---   *   ---   *   ---
@@ -181,34 +183,24 @@ sub file_rd {
   #
   # else the default ones are used
   # (defined by Arstd::strtok)
-  my $strar = [];
-  my $syx   = [@{Ftype::syxof($fpath)}];
-
-  # ^ modify comment rules to avoid discarding
-  #   comments, we need this for the -nc flag
-  if(! $cli->{nocom}) {
-    $ARG->{keep}=1
-    for grep {$ARG->{type} eq 'com'} @$syx;
-  };
-  # ^ to make things easier, we strip all
-  #   preprocessor directives as well
-  if($cli->{pproc}) {
-    $ARG->{strip}=1
-    for grep {$ARG->{type} eq 'pproc'} @$syx;
-  };
-  # ^and *now* tokenize with the modified rules
+  my ($lang,$syx)=Arstd::pproc::get_lang(
+    Ftype::from_ext($fpath),
+    pproc =>  $cli->{pproc},
+    com   =>! $cli->{nocom},
+  );
+  my $strar=[];
   strtok($strar,$body,syx=>$syx);
 
   # use only specific lines?
   if($cli->{regex}) {
     $body=join "\n",(
       grep  {$ARG=~ s[$cli->{regex}][]}
-      split(qr"\n",$body)
+      split (qr"\n",$body)
     );
   };
   # apply standard preprocessor?
   if($cli->{pproc}) {
-    pproc($strar,$body,syx=>$syx);
+    pproc($strar,$body,lang=>$lang);
   };
   # strip file?
   if($cli->{clean}) {

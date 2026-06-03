@@ -26,6 +26,7 @@ package Ftype::Text;
   use Arstd::stoi;
   use Arstd::peso;
   use Arstd::strtok qw(strtok unstrtok);
+  use Arstd::Re qw(eiths);
   use parent 'Ftype';
 
   use St;
@@ -214,7 +215,7 @@ sub perepl {
     # get $:inner;> of escape
     if($ARG=~ Arstd::peso::esc_re()) {
       my $key   = $+{body};
-      my $value = $self->fet($key);
+      my $value = $self->fetv($key);
 
       throw "Bad key in peso escape: '$key'"
       if ! defined $value;
@@ -236,7 +237,7 @@ sub perepl {
 # ---   *   ---   *   ---
 # fetch value
 
-sub fet($self,$key) {
+sub fetv($self,$key) {
   return $self->{$key}
   if exists $self->{$key};
 
@@ -248,6 +249,17 @@ sub fet($self,$key) {
   if $self->can($key);
 
   return undef;
+};
+
+
+# ---   *   ---   *   ---
+# syntax definitions for tokenization!
+#
+# a subclass can overwrite this to define
+# their own ;>
+
+sub strtok_syx {
+  return Arstd::strtok::defsyx();
 };
 
 

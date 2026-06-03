@@ -31,6 +31,7 @@ package Arstd::seq;
 
   use Exporter 'import';
   our @EXPORT_OK=qw(
+    token
     seqnew
     seqtok
     seqtok_push
@@ -61,6 +62,15 @@ sub tok_re   {
   $i//='\d+';
 
   return qr{(?<full>__(?<type>${t})_SEQTOK_(?<idex>${i})__)};
+};
+
+
+# ---   *   ---   *   ---
+# ^makes a token from format!
+
+sub token {
+  my ($t,$i)=@_;
+  return sprintf(tok_fmat(),uc($t),$i);
 };
 
 
@@ -256,11 +266,7 @@ sub seqwb {
 # and gives a token referencing it
 
 sub seqtok_push($seq,$dst,$ct) {
-  my $tok=sprintf(
-    tok_fmat(),
-    uc($seq->{type}),
-    int(@$dst)
-  );
+  my $tok=token($seq->{type},int(@$dst));
   push @$dst,$ct;
 
   return $tok;

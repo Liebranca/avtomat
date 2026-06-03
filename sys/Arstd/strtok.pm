@@ -25,7 +25,7 @@ package Arstd::strtok;
   use Chk qw(is_null);
 
   use Arstd::String qw(to_char linecnt);
-  use Arstd::seq qw(seqtok);
+  use Arstd::seq qw(token seqtok);
 
 
 # ---   *   ---   *   ---
@@ -34,6 +34,10 @@ package Arstd::strtok;
   use Exporter 'import';
   our @EXPORT_OK=qw(
     strtok
+    strarmut
+    strarvoid
+    strarex
+
     unstrtok
     rmstrtok
   );
@@ -42,7 +46,7 @@ package Arstd::strtok;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.4a';
+  our $VERSION = 'v0.00.5a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -72,12 +76,19 @@ sub strtok {
     i    => 0,
     dst  => $dst,
   };
+  my $out={};
   while($st->{i} < int(@{$st->{ar}})) {
     my $skip=0;
     for my $seq(@{$st->{syx}}) {
+      # we want to tell the caller of this F
+      # whether any sequences where found!
+      $out->{$seq->{type}} //= 0;
+
       if(my $j=findseq($st,$seq)) {
         $st->{i} += $j;
         $skip     = 1;
+
+        ++$out->{$seq->{type}};
 
         last;
       };
@@ -91,7 +102,8 @@ sub strtok {
   $st->{out} .= $st->{tok};
   $$sref      = $st->{out};
 
-  return;
+  # give info on which sequences where hit!
+  return $out;
 };
 
 
@@ -101,7 +113,7 @@ sub strtok {
 sub unstrtok {
   return 0 if is_null($_[0]);
   my $ar=$_[1];
-  my $re=Arstd::seq::tok_re($_[2]);
+  my $re=Arstd::seq::tok_re($_[2],$_[3]);
 
   while($_[0]=~ $re) {
     my $idex=$+{idex};
@@ -115,7 +127,7 @@ sub unstrtok {
 
 sub rmstrtok {
   return 0 if is_null($_[0]);
-  my $re=Arstd::seq::tok_re($_[2]);
+  my $re=Arstd::seq::tok_re($_[2],$_[3]);
 
   $_[0]=~ s[$re][ ]g;
 
@@ -148,8 +160,11 @@ sub fetln {
   my $re  = Arstd::seq::tok_re($type);
   my @out = ();
 
-  while($s=~ s[$re][
-]) {
+  # we add a newline after the substitution
+  # so as to ensure each call to linecnt
+  # returns a higher number than the last
+  my $nl="\n";
+  while($s=~ s[$re][$nl]) {
     my $idex  = $+{idex};
     my $pos   = $-[0];
     my $chunk = substr($s,0,$pos);
@@ -158,6 +173,57 @@ sub fetln {
     push @out,[$+{idex},$ln];
   };
   return @out;
+};
+
+
+# ---   *   ---   *   ---
+# given a tokenized string and the index of
+# a token, *mutate* the token into a
+# different type
+#
+# we use this chiefly within preprocessors,
+# when a line expands into code!
+#
+# the mutation makes it so that code doesn't
+# get re-interpreted as a preprocessor directive
+
+sub strarmut {
+  my ($ar,$sref,$i,$t,$v)=@_;
+
+  my $re  = Arstd::seq::tok_re(null()=>$i);
+  my $tok = token($t=>$i);
+
+  $$sref=~ s[$re][$tok];
+  $ar->[$i]=$v;
+
+  return;
+};
+
+
+# ---   *   ---   *   ---
+# voids a token, so that whenever the string
+# is untokenized it won't expand into anything
+
+sub strarvoid {
+  my ($ar,$sref,$i,$t)=@_;
+  $t //= "null";
+
+  return strarmut($ar,$sref,$i,$t,null());
+};
+
+
+# ---   *   ---   *   ---
+# expands a token, then voids it
+# (optionally) sets its value as well
+
+sub strarex {
+  my ($ar,$sref,$i,$v)=@_;
+
+  $ar->[$i]=$v if defined $v;
+  unstrtok($$sref,$ar,null()=>$i);
+  strarvoid($ar,$sref,$i);
+
+  return;
 };
 
 

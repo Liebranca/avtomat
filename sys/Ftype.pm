@@ -27,7 +27,7 @@ package Ftype;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.2a';
+  our $VERSION = 'v0.00.4a';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -48,13 +48,11 @@ sub classattr {return {name=>'SUPER'}};
 
 sub import {
   my ($class)=@_;
-  return if defined fet(
-    $class,
-    $class->classattr()->{name}
-  );
-
-  $class->new();
-  return;
+  my $have=$class->selfet();
+  return (! defined $have)
+    ? $class->new()
+    : $have
+    ;
 };
 
 
@@ -70,7 +68,8 @@ sub register($class,$ice) {
   return if exists $Cache->{$subclass};
 
   # yes
-  $Cache->{$subclass}=$ice;
+  $Cache->{$subclass}    = $ice;
+  $Cache->{$ice->{name}} = $ice;
   *$subclass=sub {return $Cache->{$subclass}};
 
   use strict 'refs';
@@ -83,6 +82,11 @@ sub register($class,$ice) {
 
 sub fet($class,$name) {
   return $Cache->{$name};
+};
+sub selfet($class) {
+  return $class->fet(
+    $class->classattr()->{name}
+  );
 };
 
 
@@ -116,6 +120,19 @@ sub syxof($file) {
               ||! $ftype->can('strtok_syx');
 
   return $ftype->strtok_syx();
+};
+
+
+# ---   *   ---   *   ---
+# placeholders for special pproc clauses...
+
+sub package_open {
+  my ($class,$name)=@_;
+  return ();
+};
+sub package_close {
+  my ($class,$name,$flg,$sref)=@_;
+  return ();
 };
 
 
