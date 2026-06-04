@@ -18,6 +18,7 @@ package avto::cfg;
   use strict;
   use warnings;
 
+  use Cwd qw(abs_path);
   use English qw($ARG);
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
@@ -32,7 +33,11 @@ package avto::cfg;
   use Arstd::rd;
   use Arstd::throw;
 
-  use Shb7::Path qw(swap_root from_config);
+  use Shb7::Path qw(
+    swap_root
+    from_config
+    libdirp
+  );
   use avto::shwl;
 
 
@@ -205,7 +210,7 @@ sub proc_bld_path {
   my $out   = {};
   my @fpath = gsplit($name,qr{::});
   my $fname = pop @fpath;
-  my $fpath = catpath($cfg->libdir(),@fpath);
+  my $fpath = catpath(libdirp(),@fpath);
 
   $out->{sl}=catpath(
     $fpath,

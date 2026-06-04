@@ -19,7 +19,7 @@ package avto::olink;
   use warnings;
 
   use Cwd qw(getcwd);
-  use English qw($ARG);
+  use English qw($ARG $CHILD_ERROR);
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
@@ -54,28 +54,52 @@ package avto::olink;
 
 sub olink {
   my ($px,$sw,@obj)=@_;
+  @obj=map {$ARG->{obj} // $ARG} @obj;
 
   # nothing to do?
-  return Log->step("no linking needed")
-  if!    @obj;
-
+  if(! int(@obj)) {
+    Log->step("no linking needed");
+    return 1;
+  };
   # else validate
   my @miss=grep {! is_file($ARG)} @obj;
   if(@miss) {
-    Log->step("missing file $ARG") for @miss;
+    Log->substep("missing file $ARG") for @miss;
     throw "olink: aborted";
   };
-
   # get linking method and run
-  my @call=($px->{fflat})
-    ? olink_use_ld($sw,@obj)
-    : oling_use_gcc($sw,@obj)
-    ;
-
+  my @call=olink_call($px,$sw,@obj);
   filter(\@call);
   system {$call[0]} @call;
 
-  return is_file($sw->{output});
+  return is_file($sw->{output}) &&! $CHILD_ERROR;
+};
+
+
+# ---   *   ---   *   ---
+# gets which program to run!
+
+sub olink_call {
+  my ($px,$sw,@obj)=@_;
+  return olink_use_ar($sw,@obj) if $sw->{static};
+  return ($px->{fflat})
+    ? olink_use_ld($sw,@obj)
+    : oling_use_gcc($sw,@obj)
+    ;
+};
+
+
+# ---   *   ---   *   ---
+# pack objects into an archive,
+# so actually *not* linking ^^
+
+sub olink_use_ar {
+  my ($sw,@obj)=@_;
+  return (
+    qw(ar -crs),
+    $sw->{output},
+    @obj,
+  );
 };
 
 

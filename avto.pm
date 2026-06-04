@@ -107,7 +107,8 @@ sub import {
 
   # get switches for gcc...
   my $sw=avto::switch::proc($px);
-  $sw->{clean} //= $cli->{clean};
+  $sw->{clean}  //= $cli->{clean};
+  $sw->{update} //= $cli->{update};
 
   # generate makescript if it's not there
   my $make=$px->makefile();

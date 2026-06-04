@@ -109,7 +109,7 @@ sub build {
       thaw(shift),
       thaw(shift),
     );
-    my $ok=avto::make->build($px,$sw);
+    my $ok=avto::make::build($px,$sw);
   ];
 };
 

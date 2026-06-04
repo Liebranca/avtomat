@@ -26,7 +26,7 @@ package avto::xs;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
-  use Chk qw(is_null);
+  use Chk qw(is_null is_file);
 
   use Arstd::String qw(cat strip);
   use Arstd::Array qw(dupop);
@@ -336,12 +336,12 @@ sub mkshwl($mod,$dst,$deps,@fname) {
 
   # nit table
   my $shwl={
-    dep   => $deps,
-    fswat => $mod,
-    pm    => [],
-    obj   => [],
-    src   => [],
-    hed   => join("\n",
+    name => $mod,
+    dep  => $deps,
+    pm   => [],
+    obj  => [],
+    src  => [],
+    hed  => join("\n",
       q[#include "EXTERN.h"],
       q[#include "perl.h"],
       q[#include "XSUB.h"],
@@ -370,7 +370,6 @@ sub mkshwl($mod,$dst,$deps,@fname) {
       ? $fcpy->XSHED()
       : []
       ;
-
     # get package info ;>
     push @{$info->{VERSION}},${"$fcpy\::VERSION"};
     push @{$info->{AUTHOR}},${"$fcpy\::AUTHOR"};

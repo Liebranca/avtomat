@@ -33,6 +33,7 @@ package CMAM;
   use Log;
   use Tree;
   use Tree::Dep;
+  use Shb7::Path qw(root);
 
   use lib "$ENV{ARPATH}/lib/";
   use AR;
@@ -111,6 +112,8 @@ sub validate {
 
 sub depsort {
   my $module=shift;
+  my $old=getcwd();
+  chdir(root());
 
   # find which packages a file depends on
   my %dep  = map {depsort_file($ARG)} @_;
@@ -122,7 +125,7 @@ sub depsort {
   my @lv=();
   for my $fname(keys %dep) {
     my $re=$fname;
-    relto $re,getcwd . "/$module";
+    relto $re,getcwd() . "/$module";
 
     my $nd=$tree->new($re);
     push @lv,$nd;
@@ -156,8 +159,9 @@ sub depsort {
   };
 
   my $out=$tree->track();
-  absto($ARG,getcwd . "/$module") for @$out;
+  absto($ARG,getcwd() . "/$module") for @$out;
 
+  chdir($old);
   return @$out;
 };
 

@@ -47,6 +47,8 @@ sub proc {
     proc_path($px),
     proc_bld($px),
   };
+  $sw->{static}  = 0;
+  $sw->{shared}  = 0;
   $sw->{ldarch}  = [ldarch($sw)];
   $sw->{ldentry} = "--entry=$px->{entry}";
 
@@ -54,14 +56,15 @@ sub proc {
   my $path=$px->{bld}->{path};
   if($px->{shared}) {
     $sw->{output}=$path->{so};
+    $sw->{shared}=1;
 
   } elsif($px->{bld}->{mode} eq 'ar') {
     $sw->{output}=$path->{ar};
+    $sw->{static}=1;
 
   } else {
     $sw->{output}=$path->{ex};
   };
-
   return $sw;
 };
 

@@ -97,7 +97,6 @@ sub is_valid($kind,$obj) {
   return (
      is_blessref($obj)
   && int $obj->isa($kind)
-
   );
 };
 

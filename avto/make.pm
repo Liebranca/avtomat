@@ -22,22 +22,32 @@ package avto::make;
   use English qw($ARG);
 
   use lib "$ENV{ARPATH}/lib/sys/";
-  use Style qw(null);
-  use Chk qw(is_null);
+  use Cwd qw(getcwd);
+  use Style qw(null nop);
+  use Chk qw(is_null is_blessref);
+  use St qw(is_valid);
   use Log;
 
   use Arstd::String qw(catpath);
+  use Arstd::Bin qw(owc moo);
+  use Arstd::Array qw(nkeys nvalues);
+  use Arstd::Path qw(basef dirof reqdir);
   use Arstd::throw;
+  use Shb7::Path qw(root module);
 
   use lib "$ENV{ARPATH}/lib/";
   use avto::bk;
+  use avto::bk::flat;
+  use avto::bk::MAM;
+  use avto::bk::CMAM;
   use avto::xs;
+  use avto::olink;
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.02.1';
+  our $VERSION = 'v0.02.4';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -56,22 +66,19 @@ sub sandbox {
 
 sub build {
   my ($px,$sw)=@_;
+  my $old=getcwd();
+  chdir(module());
   update($px,$sw,'gen');
   update($px,$sw,'fcpy');
 
-  my @obj=update($px,$sw,'obj');
+  my ($cnt,@obj)=update($px,$sw,'obj');
 
+  build_binaries($px,$sw,@obj)
+  if int(@obj) && ($cnt || $sw->{update});
+
+  chdir($old);
   return 1;
 };
-
-# TODO discarding px->{bld}->{path}
-#      based on mode
-#
-#  my $tab={
-#    so => ['ar','ex'],
-#    ar => ['so','ex'],
-#    ex => ['so'],
-#  };
 
 
 # ---   *   ---   *   ---
@@ -93,7 +100,7 @@ sub update {
       qw(lcpy xcpy),
     ],
     obj => [
-      \&upfcpy,
+      \&upobj,
       "rebuilding objects",
       qw(flat CMAM MAM),
     ],
@@ -107,25 +114,31 @@ sub update {
   my $need={};
   my $skip=1;
   for(@key) {
-    my $src=$px->{$which};
-    if($src->isa('avto::bk')) {
+    my $src=($which eq $ARG)
+      ? $px->{$which}
+      : $px->{$ARG}
+      ;
+    if(is_valid("avto::bk",$src)) {
       $need->{$ARG} //= [];
-      push @{$need->{$ARG}},$src->on_build($sw);
+      my @ar=$src->on_build($sw);
+      $skip &=~ (int(@ar) > 0);
+
+      push @{$need->{$ARG}},@ar;
 
     } else {
-      $skip &=~ int(@$src);
+      $skip &=~ (int(@$src) > 0);
     };
   };
-  return (0,()) if $skip;
+  return (0,()) if $skip &&! $sw->{update};
 
   # run method
   Log->step($mess);
-  my ($ok,@out)=$fn->($px,$sw);
+  my ($ok,@out)=$fn->($px,$sw,$need);
 
   # add a blank line to the logs,
   # merely for the cute prints
   Log->line() if $ok;
-  return @out;
+  return ($ok,@out);
 };
 
 
@@ -147,12 +160,13 @@ sub upgen {
     if($sw->{clean} || moo($dst,$src)) {
       avto::bk->log_fpath($dst);
 
-      my $body=sandbox($src);
+      my $body=sandbox(@$src);
       throw "avto: cannot run generator "
       .     "for '$dst'"
 
       if!   defined $body;
 
+      owc($dst,$body);
       ++$ok;
     };
   };
@@ -199,31 +213,24 @@ sub upfcpy_impl {
 # ---   *   ---   *   ---
 # re-run object file compilation
 
-sub upobj_impl {
-  my $bfiles=[];
-  my $objblt=0;
-
-  # skip if nothing to build
-  my ($self)=@_;
-  return $objblt if! $self->get_build_files();
-
-  Log->step("rebuilding objects");
+sub upobj {
+  my ($px,$sw,$need)=@_;
 
   # iter backends
   # each holds it's own list of source files
-  for(qw(flat cmam mam)) {
-    my ($cnt,@link)=
-      $self->{$ARG}->build($self->{bld});
-
-    $objblt+=$cnt;
-    push @$bfiles,@link;
+  my $cnt  = 0;
+  my @link = ();
+  for(qw(flat CMAM MAM)) {
+    my $out=$px->{$ARG}->build(
+      $sw,
+      @{$need->{$ARG}}
+    );
+    $cnt += $out->{updated};
+    push @link,@{$out->{linkable}};
   };
-
   # save linkable files
-  $self->{bld}->push_files(@$bfiles);
-  Log->line() if $objblt;
-
-  return $objblt;
+  Log->line() if $cnt;
+  return ($cnt,@link);
 };
 
 
@@ -234,80 +241,53 @@ sub upobj_impl {
 # there is a target defined AND
 # any objects have been updated
 
-sub build_binaries($self,$objblt) {
-  my @calls = ();
-  my @libs  = ();
+sub build_binaries($px,$sw,@obj) {
+  Log->fupdate(
+    basef($sw->{output}),
+    ($sw->{static} ? "archiving" : "linking"),
+  );
+  throw "linking error"
+  if!   olink($px,$sw,@obj);
 
-  my @objs  = map {
-    $ARG->{obj}
+  # for executables, we archive the objects too!
+  if(! $sw->{static} &&! $sw->{shared}) {
+    my $old=$sw->{output};
+    $sw->{static}=1;
+    $sw->{output}=$px->{bld}->{path}->{ar};
 
-  } @{$self->{bld}->{file}};
+    Log->fupdate(
+      basef($sw->{output}),
+      "archiving"
+    );
+    throw "error updating static lib"
+    if!   olink($px,$sw,@obj);
 
-  @libs=@{$self->{bld}->{lib}};
-
-  if($self->{main}
-  && (($objblt || $self->{clean}) && @objs)) {
-    my $rel=$self->{main};
-    relto_root($rel);
-    Log->fupdate($rel,'compiling binary');
-
-
-    # build mode is 'static library'
-    if($self->{lmode} eq 'ar') {
-      push @calls,[
-        qw(ar -crs),
-        $self->{main},@objs
-      ];
-
-    # otherwise it's executable or shared object
-    } else {
-      if(-f $self->{main}) {
-        unlink $self->{main};
-      };
-
-      # for executables we spawn a shadow lib
-      if($self->{lmode} ne '-shared ') {
-        push @calls,[
-          qw(ar -crs),
-          $self->{mlib},@objs
-        ];
-      };
-
-      olink($self->{bld});
-    };
-
+    $sw->{static}=0;
+    $sw->{output}=$old;
   };
-
-
-  # run build calls and make symbol tables
-  for my $call(@calls) {
-    filter($call);
-    system {$call->[0]} @$call;
-  };
-
   # generate bindings to compiled objects
   # that were marked for export
-  my @xprt=@{$self->{xprt}};
-  if(@libs && $self->{ilib} && @xprt) {
+  my @xprt=@{$px->{xprt}};
+  if(@xprt) {
     Log->fupdate(
-      $self->{mkwat},
-      'compiling shwl for'
+      $px->{bld}->{name},
+      "compiling shwl for"
     );
-
     my $shwl=avto::xs::mkshwl(
-      $self->{fswat},
-      $self->{ilib},
-      \@libs,
+      $px->{name},
+      $px->{bld}->{path}->{sl},
+      $sw->{lib},
       @xprt
     );
+    my $old=chdir(root());
     avto::xs::build(
       $shwl,
-      $self->{bld},
-      $self->{mkwat},
+      $sw,
+      $px->{bld}->{name},
       -f=>1,
     );
+    chdir($old);
   };
-
   return;
 };
 

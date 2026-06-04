@@ -52,7 +52,8 @@ package avto::bk::CMAM;
 # ---   *   ---   *   ---
 # ROM
 
-sub linkable {return 1};
+sub linkable {1};
+sub src_ext  {qr{\.c$}};
 
 
 # ---   *   ---   *   ---
@@ -139,7 +140,6 @@ sub bfiles {
     Shb7::Path::module(),
     @src,
   );
-
   # ^now map sorted file names to bfile objects
   my @out=();
   for my $fname(@sorted) {

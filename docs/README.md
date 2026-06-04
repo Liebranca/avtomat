@@ -318,8 +318,3 @@ However, GPL doesn't spread to program output so, in the case of files generated
 If that's the case, fork `avtomat` and modify `Emit` to both slap a different license on generated files as well as ensuring no GPL code is included by them, for obvious reasons.
 
 Doing all of that is perfectly fine -- I only ask that you refrain from asking *me* to do it.
-
-
----
-# RET
-

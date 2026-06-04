@@ -7,8 +7,8 @@ x Fix/merge Shb7::Link && Shb7::Build
 x \--> Move code for handling compile/link
        flags to it's own file
 
-~ Finish avto::make
-~ \--> Move makescript emitting sub
+x Finish avto::make
+x \--> Move makescript emitting sub
        to it's own file
 
 *>Standarize nbuild script
