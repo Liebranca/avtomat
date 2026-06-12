@@ -19,6 +19,7 @@ package Ftype::Text::Mny;
   use warnings;
 
   use lib "$ENV{ARPATH}/lib/sys/";
+  use Arstd::seq;
   use parent 'Ftype::Text';
 
 
@@ -47,6 +48,13 @@ sub classattr {return {
     qr{^x}      => 0x02,
   ],
 }};
+
+sub strtok_syx {
+  return [
+    Arstd::seq::str()->{dquote},
+    Arstd::seq::pproc()->{peso},
+  ];
+};
 
 
 # ---   *   ---   *   ---

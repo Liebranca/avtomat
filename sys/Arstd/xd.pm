@@ -74,7 +74,7 @@ package Arstd::xd;
 # entry point
 
 sub xd {
-  return null if ! int(grep {! is_null($ARG)} @_);
+  return null if! int(grep {! is_null($ARG)} @_);
 
   # get args and clear blanks
   my ($src,@args)=gstrip(@_);

@@ -98,7 +98,7 @@ sub build {
   for my $obj(@{$shwl->{obj}}) {
     $ok+=int(moo($dst,$obj));
   };
-  return if ! $ok;
+  return if! $ok;
 
   # make path if need
   my $trash=ctrashp() . '/.XS';

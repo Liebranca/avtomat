@@ -78,6 +78,8 @@ package Type::MAKE;
 
     badtype
     badptr
+
+    is_signed
   );
 
 

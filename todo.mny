@@ -1,6 +1,38 @@
->avtomat v4.00.0
+> v4.01.0
 
-*>main
+*> Main
+~ Implement avto::bk for HTML/CSS/JS (yes!)
+~ \--> Write symbols to shwl
+~ \--> Cache processed files
+~ \--> Include web files in *.px checksum
+
+*> WASM compiler (/YES)
+x Inlining compiled *.wasm as a base64 string,
+  so as to avoid the `fetch`
+
+x Emit basic *.wat files
+~ Tree-shaking
+
+x Implement "barebones" C-to-WAT compiler,
+  just to get a feel for it...
+
+  Pipeline should look like this:
+x \--> We use CMAM syntax
+x \--> Convert that to *.wat
+x \--> Run wat2wasm on output
+x \--> Encode the *.wasm
+x \--> Inline the binary inside JS
+x \--> Decode that binary
+
+~ Eventually, we may want to forget about
+  *.wat and emit binary *.wasm directly, as
+  that would speed up build a fair bit, but
+  it's not a priority right now.
+
+
+> v4.00.0
+
+*> Main
 x Implement "language-sensitivity" for Arstd::pproc
 x Sync avto.cfg keys to CLI arguments
 x Fix/merge Shb7::Link && Shb7::Build
@@ -11,7 +43,7 @@ x Finish avto::make
 x \--> Move makescript emitting sub
        to it's own file
 
-*>Standarize nbuild script
+*> Standarize nbuild script
 x Make nbuild into a module (similar to avto.pm)
 x Read *.cfg files to get lib/include paths.
 x Use CLI to read arguments.
@@ -19,7 +51,7 @@ x Move Shb7::Find (and deps) to MAMDEPS;
   that way we can use lib/include paths
   directly from stdpproc
 
-*>Avt::XS
+*> Avt::XS
 x Save exported symbols during CMAM run.
 x \--> Write mini-ipret for saving constants
        declared in C as perl subs.
@@ -37,7 +69,7 @@ x Generate a perl module for the compiled
   extension
 x \--> Add Exporter boilerpaste
 
-*>Makescript and Shb7 rework
+*> Makescript and Shb7 rework
 x Exclude deprecated or "update pending" files
   from Perl build pipeline so that we can
   actually build avtomat
@@ -56,7 +88,8 @@ x \--> Need to fix redecl bug on CMAM
 
 x \--> Implemented an actual parser (Tree::C).
 
-*>peso
+
+> peso
 x fasm xlate
 x Generic syscall macro
 x Standarize node.vref attrs across all of cmdlib
@@ -99,27 +132,7 @@ x .  .  \--> spill to stack
 ~ Design work on metainstructions
 
 
-*>Emit::Cpp
-~ Dependency solver
-~ \--> 'use' keyword for batch imports
-
-~ Class builder
-~ \--> Automatic wraps for getters/setters
-~ \--> VIC override handler
-~ \--> Template handler
-
-
-*>Refactor helper
-x Find mentions of a given package or subroutine
-x \--> Make this recursive
-~ \--> Combine f:./bin/symfind with mentions
-       on *.mny trees
-
-~ Find TODO|FIX|BUG etc and append them to these lists
-~ Optimize away regexes and needless fncalls
-
-
-*>Backburner
+> Backburner
 x Move Python stuff from f:./Avt.pm into
   f:./Emit/Python.pm
 
@@ -143,5 +156,21 @@ x \--> Registering of modules on first include,
 ~ Write Lang::Elisp
 ~ Elisp version of f:./bin/sygen
 
+*> Emit::Cpp
+~ Dependency solver
+~ \--> 'use' keyword for batch imports
 
-# ---   *   ---   *   ---
+~ Class builder
+~ \--> Automatic wraps for getters/setters
+~ \--> VIC override handler
+~ \--> Template handler
+
+
+*> Refactor helper
+x Find mentions of a given package or subroutine
+x \--> Make this recursive
+~ \--> Combine f:./bin/symfind with mentions
+       on *.mny trees
+
+~ Find TODO|FIX|BUG etc and append them to these lists
+~ Optimize away regexes and needless fncalls

@@ -22,7 +22,12 @@ package Arstd::Bin;
   use Cwd qw(abs_path);
   use English qw($ARG);
   use File::Spec;
-
+  use Encode qw(encode);
+  use Digest::SHA qw(sha256 sha256_hex);
+  use MIME::Base64 qw(
+    encode_base64
+    decode_base64
+  );
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null no_match);
   use Chk qw(
@@ -50,6 +55,10 @@ package Arstd::Bin;
     owc
     opc
     xclip
+    enc64
+    shank64
+    borc64
+    bowc64
     bash
     perl
     errmute
@@ -64,7 +73,7 @@ package Arstd::Bin;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.4';
+  our $VERSION = 'v0.01.6';
   our $AUTHOR  = 'IBN-3DILA';
 
 
@@ -85,15 +94,14 @@ my $Cache={errmute=>undef};
 
 sub ot {
   throw "<null> passed to ot"
-  if is_null $_[0] || is_null $_[1];
+  if is_null($_[0]) || is_null($_[1]);
 
-  return (
-      (is_file $_[0])
-  &&  (is_file $_[1])
-
+  my $out=(
+      is_file($_[0])
+  &&  is_file($_[1])
   &&! ((-M $_[0]) < (-M $_[1]))
-
   );
+  return (defined $out) ? $out : 0 ;
 };
 
 
@@ -108,9 +116,10 @@ sub ot {
 
 sub moo {
   throw "<null> passed to moo"
-  if is_null $_[0] || is_null $_[1];
+  if is_null($_[0]) || is_null($_[1]);
 
-  return (! is_file $_[0]) || ot($_[0],$_[1]);
+  my $out=(! is_file($_[0])) || ot($_[0],$_[1]);
+  return (defined $out) ? $out : 0 ;
 };
 
 
@@ -285,7 +294,38 @@ sub opc {
 # [<]: qword    ; bytes written
 
 sub xclip {
-  return opc('xclip -selection c',$_[0]);
+  return opc("xclip -selection c",$_[0]);
+};
+
+
+# ---   *   ---   *   ---
+# encoded binary ORC/OWC
+
+sub enc64 {
+  my $out=encode_base64($_[0],null);
+  chomp($out);
+  return $out;
+};
+sub shank64 {
+  return enc64(sha256(encode("UTF-8","\n$_[0]")));
+};
+sub borc64 {
+  open  my $fh,'<:raw',$_[0] or throw $_[0];
+  read  $fh,my $buf,-s $fh;
+  close $fh or throw $_[0];
+
+  return enc64($buf);
+};
+sub bowc64 {
+  throw "Invalid filename: '$_[0]'"
+  if ! is_path $_[0];
+
+  open my $fh,'+>:raw',$_[0] or throw $_[0];
+  my $buf = enc64($_[1]);
+  my $wr  = print {$fh} $buf;
+  close $fh or throw $_[0];
+
+  return $wr*length $buf;
 };
 
 

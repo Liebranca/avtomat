@@ -146,8 +146,12 @@ sub getlang {
   $O{com}   //= 1;
   $O{pproc} //= 1;
 
+  # get definitions from extension or
+  # default to C syntax!!
+  if(is_file($lang)) {
+    $lang=from_ext($lang) // "Mny";
+  };
   # fetch package containing defs
-  $lang=from_ext($lang) if is_file($lang);
   if(! is_blessref($lang)) {
     $lang="Ftype\::Text\::$lang"
     if! ($lang=~ qr{^Ftype::Text::});

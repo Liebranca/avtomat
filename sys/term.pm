@@ -57,7 +57,7 @@ sub lycon_data {
   $_[0]->{font} //= {
     name => "lycon",
     lvl  => 0,
-    base => $_[0]->fwidth,
+    base => 24, #$_[0]->fwidth,
   };
   $_[0]->{gf} //= {
     flg  => 0x00,
@@ -169,12 +169,9 @@ sub zoom($self,$cmd) {
     $self->{font}->{lvl} -= 4*$allow;
   };
   # build the full *internal* command
-  my $name=  $self->{font}->{name};
+  my $name = $self->{font}->{name};
   my $size = fontsize($self);
-  my $aa   = ($size >= $self->{font}->{base})
-    ? 'false'
-    : 'true'
-    ;
+  my $aa   = "false";
   my $paste=
     "xft:${name}:"
   . "pixelsize=${size}:"

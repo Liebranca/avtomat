@@ -27,7 +27,7 @@ package avto::olink;
   use Log;
 
   use Arstd::Array qw(filter iof);
-  use Arstd::Path qw(reqdir dirof);
+  use Arstd::Path qw(reqdir dirof basef);
   use Arstd::Bin qw(owc);
   use Arstd::throw;
 
@@ -57,10 +57,14 @@ sub olink {
   @obj=map {$ARG->{obj} // $ARG} @obj;
 
   # nothing to do?
-  if(! int(@obj)) {
-    Log->step("no linking needed");
-    return 1;
-  };
+  return 1 if! int(@obj);
+
+  my $op=($sw->{static})
+    ? "archiving"
+    : "linking"
+    ;
+  Log->ex("olink");
+  Log->fupdate(basef($sw->{output}),$op);
   # else validate
   my @miss=grep {! is_file($ARG)} @obj;
   if(@miss) {
@@ -72,7 +76,11 @@ sub olink {
   filter(\@call);
   system {$call[0]} @call;
 
-  return is_file($sw->{output}) &&! $CHILD_ERROR;
+  my $ok=is_file($sw->{output}) &&! $CHILD_ERROR;
+  throw "olink: $op error"
+  if!   $ok;
+
+  return $sw->{output};
 };
 
 

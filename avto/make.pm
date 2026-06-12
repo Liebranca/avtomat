@@ -242,12 +242,7 @@ sub upobj {
 # any objects have been updated
 
 sub build_binaries($px,$sw,@obj) {
-  Log->fupdate(
-    basef($sw->{output}),
-    ($sw->{static} ? "archiving" : "linking"),
-  );
-  throw "linking error"
-  if!   olink($px,$sw,@obj);
+  olink($px,$sw,@obj);
 
   # for executables, we archive the objects too!
   if(! $sw->{static} &&! $sw->{shared}) {
@@ -255,12 +250,7 @@ sub build_binaries($px,$sw,@obj) {
     $sw->{static}=1;
     $sw->{output}=$px->{bld}->{path}->{ar};
 
-    Log->fupdate(
-      basef($sw->{output}),
-      "archiving"
-    );
-    throw "error updating static lib"
-    if!   olink($px,$sw,@obj);
+    olink($px,$sw,@obj);
 
     $sw->{static}=0;
     $sw->{output}=$old;

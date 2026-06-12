@@ -1,0 +1,4 @@
+#!/usr/bin/perl
+use lib "$ENV{ARPATH}/lib/sys/";
+use Arstd::xd;
+xd(@ARGV);

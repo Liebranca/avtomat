@@ -438,6 +438,13 @@ sub pproc_catline {
 
   return pproc_cat($i,$dst,$k,$v);
 };
+sub pproc_spacecat {
+  my ($i,$dst,$k,$v)=@_;
+  $v //= null;
+  $v   = " $v";
+
+  return pproc_cat($i,$dst,$k,$v);
+};
 
 
 # ---   *   ---   *   ---
@@ -627,16 +634,17 @@ sub pproc_end {
 
 sub symtab {
   my $out={
-    include => \&pproc_fpaste,
-    define  => \&pproc_define,
-    undef   => \&pproc_undef,
-    package => \&pproc_package,
-    cat     => \&pproc_cat,
-    catline => \&pproc_catline,
-    catinc  => \&pproc_catinc,
-    if      => \&pproc_if,
-    eif     => \&pproc_eif,
-    end     => \&pproc_end,
+    include  => \&pproc_fpaste,
+    define   => \&pproc_define,
+    undef    => \&pproc_undef,
+    package  => \&pproc_package,
+    cat      => \&pproc_cat,
+    catline  => \&pproc_catline,
+    spacecat => \&pproc_spacecat,
+    catinc   => \&pproc_catinc,
+    if       => \&pproc_if,
+    eif      => \&pproc_eif,
+    end      => \&pproc_end,
 
   }->{$_[0]}
 
@@ -693,8 +701,8 @@ sub pproc_txtrepl {
       "str"
     );
     # ^also unescape!
-    $re=qr{\\\b$k\b};
-    $$sref=~ s[$re][$k];
+    $re=qr{\\\#$k;};
+    $$sref=~ s[$re][#$k;];
   };
   # remove the lines we added
   dishonor_line($sref,"pproc");
@@ -717,8 +725,8 @@ sub pproc_txtrepl_inner {
         ? $$dst=~ s[$dst_re][$v]g
         : $$dst=~ s[$dst_re][$v]
         ;
-      last;
       $ok=1;
+      last;
     };
   };
   return $ok;

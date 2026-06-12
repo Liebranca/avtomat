@@ -45,6 +45,8 @@ package Type;
 
     badtype
     badptr
+
+    is_signed
   );
   use parent 'St';
 
@@ -71,6 +73,8 @@ package Type;
 
     badtype
     badptr
+
+    is_signed
   );
 
 

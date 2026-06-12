@@ -30,7 +30,7 @@ package Ftype::Text::JS;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v1.00.2';
+  our $VERSION = 'v1.00.3';
   our $AUTHOR  = 'IBN-3DILA';
 
 

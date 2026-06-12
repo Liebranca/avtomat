@@ -177,6 +177,8 @@ my $ROM={
     /avto/make.pm
     /avto/emit.pm
     /avto/nbuild.pm
+    /avto/spider/compile.pm
+    /avto/spider.pm
     /avto.pm
   )],
 };
