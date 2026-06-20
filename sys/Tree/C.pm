@@ -75,6 +75,9 @@ sub rd {
       # strings
       values %{Arstd::seq->str()},
 
+      # parens get in the way...
+      Arstd::seq->delim()->{paren},
+
       # we're not using peso escapes in C
       # right now, but in case we ever do...
       Arstd::seq->pproc()->{peso},
@@ -87,6 +90,28 @@ sub rd {
   pproc_descape($_[0]);
   wstrip($_[0]);
 
+  # run the parser loop
+  $self->rd_main($_[0]);
+
+  # un-tokenise parenthesized expressions
+  my $paren_re=Arstd::seq::tok_re("scp");
+  unstrtok(
+    $ARG->{value},
+    $self->root()->{string},
+    "scp"
+
+  ) for ($self->branches_in($paren_re));
+
+  return $self;
+};
+
+
+# ---   *   ---   *   ---
+# parser loop!
+
+sub rd_main {
+  my $self=shift;
+
   # for passing F state around
   my $ctx={
     tok  => null,
@@ -95,7 +120,6 @@ sub rd {
     root => $self->root(),
     char => [split '',$_[0]],
   };
-
   # parse source
   while(@{$ctx->{char}}) {
     # inside body of macro?
@@ -107,18 +131,16 @@ sub rd {
       $self->rd_c($ctx);
     };
   };
-
   # push any leftovers
   if(! is_null($ctx->{tok})) {
     $ctx->{root}->commit($ctx->{tok});
   };
-
   # ^ensure the last expression is terminated
   my $lv=$self->{leaves};
   if(@$lv && $lv->[-1]->{value} ne ';') {
     $ctx->{root}->commit(';');
   };
-  return $self;
+  return;
 };
 
 
@@ -344,6 +366,9 @@ sub commit($root,$tok,$cmd=0) {
     return $root->branch($tok);
   };
   # ^else just push a node to the current branch!
+  if(! $root->{branch}) {
+    $root->{branch}=$root;
+  };
   return $root->{branch}->new($tok);
 };
 
@@ -678,7 +703,7 @@ sub node_to_expr {
   # patterns used to break down the expression
   my $name_re = Ftype::Text->name_re();
   my $cmd_re  = qr{^(?<cmd> $name_re)}x;
-  my $args_re = qr{\((?<args>[^\)]*)\)$};
+  my $args_re = qr{\((?<args>[^\)]*)\)};
   my $asg_re  = qr{
     (?:[\|\&\^\+\-\/\*\%]|\s)
     = [^[:alnum:]]*
@@ -697,6 +722,12 @@ sub node_to_expr {
 
   my $type='expr';
 
+  # we want to tell these apart from
+  # regular functions!!
+  my $fctl_re=qr{^(?:
+    if|eif|else|while|do|switch|for|map
+  )$}x;
+
   # do we have a {block} on this expression?
   if( @blk
 
@@ -708,7 +739,14 @@ sub node_to_expr {
   # we use it to make strings from C code
   #
   # so we check for this as well
-  && $cmd ne 'C'
+  &&! ($cmd eq "C")
+
+  # if we get a bit pedantic, then control
+  # flow bits are *kinda* just functions with
+  # extra steps, aren't they? :D
+  #
+  # anyway, we want to handle them separately
+  &&! ($cmd=~ $fctl_re)
   ) {
     # ^ if all that is true,
     #   then it *is* a function!
@@ -723,12 +761,15 @@ sub node_to_expr {
     $args=[gsplit($args,qr{\s*,\s*})];
 
 
-  # ^everything else is not a function
+  # ^ everything else is not *strictly* a function
+  #   (see: control flow bits)
   } else {
     # and so we put the args back into
     # the expression, if there's any
-    $expr .= "($args)" if $have_args;
-    $args  = null;
+    if($have_args &&! ($cmd=~ $fctl_re)) {
+      $expr .= "($args)";
+      $args  = null;
+    };
 
     # a special case where we treat a block
     # of C code within a macro as a string
@@ -784,16 +825,45 @@ sub node_to_expr {
     } else {
       # just some patterns we use to tell
       # expression types appart
-      my $fctl_re=qr{^(?:
-        if|elsif|else|while|do|switch
-      )$}x;
-
       my $struc_re=qr{\b(?<keyw>union|struct?)\b};
       my $utype_re=qr{^(?:public +)?(?:typedef +)};
 
-      # if/else
+      # control flow!! \( ^ .^)/
       if($cmd=~ $fctl_re) {
         $type='fctl';
+
+        # cleanup wrapping parens in expression
+        my $paren_re=qr{^\(|\)$};
+        $expr=~ s[$paren_re][]g;
+
+        # consume the expression into
+        # it's own subtree
+        my $pre=$nd->nest('$:>');
+        $pre->rd_main("$args;#null;$expr;#null");
+
+        # ^ then save the expression as
+        #   an array of nodes!
+        my @have=$pre->to_expr();
+        for(@have) {
+          # we add these only as separators;
+          # it's safe to mutate them into blanks
+          if($ARG->{type} eq "cpre"
+          && $ARG->{expr} eq "# null") {
+            $ARG->{type}="null";
+            $ARG->{expr}=null();
+          };
+        };
+        # ^ the subtree should precede the
+        #   body of the block!
+        unshift @blk,@have;
+        $args=null;
+        $expr=null;
+
+        # no need to have a null term as
+        # the last element ;>
+        pop @blk
+        if  @blk
+        &&  $blk[-1]->{type} eq "null";
 
       # [type]? [name]=[value]
       } elsif($expr=~ $asg_re) {

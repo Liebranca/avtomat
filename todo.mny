@@ -7,11 +7,22 @@
 ~ \--> Include web files in *.px checksum
 
 *> WASM compiler (/YES)
+x Implement an IR step instead of emitting code
+  right away. This should help with fixing the
+  most glaring bugs, as well as for applying
+  certain optimizations
+
+~ Tree-shaking
+
+~ Eventually, we may want to forget about
+  *.wat and emit binary *.wasm directly, as
+  that would speed up builds a fair bit, but
+  it's not a priority right now
+
 x Inlining compiled *.wasm as a base64 string,
   so as to avoid the `fetch`
 
 x Emit basic *.wat files
-~ Tree-shaking
 
 x Implement "barebones" C-to-WAT compiler,
   just to get a feel for it...
@@ -23,11 +34,6 @@ x \--> Run wat2wasm on output
 x \--> Encode the *.wasm
 x \--> Inline the binary inside JS
 x \--> Decode that binary
-
-~ Eventually, we may want to forget about
-  *.wat and emit binary *.wasm directly, as
-  that would speed up build a fair bit, but
-  it's not a priority right now.
 
 
 > v4.00.0

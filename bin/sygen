@@ -187,10 +187,9 @@ sub prprops($def,$key) {
     };
     return @out;
   };
-
   # ^nope, use inner table
   my ($value,$color)=(
-    $def->fet($key),
+    $def->fetv($key),
     $PKG->KEYCOLOR_HASH->{$key},
   );
   return make_rule($def,$key,$value,$color);
@@ -368,7 +367,7 @@ sub generate {
     my $def=load_file($src);
     my $dst="$nanorc/$def->{name}.nanorc";
 
-    (moo($dst,ftype_dir() . $src))
+    (moo($dst,$src))
       ? [$dst,$def]
       : ()
       ;
@@ -390,7 +389,6 @@ sub generate {
       fpath => $dst,
     );
   };
-
   return;
 };
 

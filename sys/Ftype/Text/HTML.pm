@@ -47,7 +47,7 @@ sub mlcom_t {
 sub classattr {return {
   name => "web",
   com  => "<!--|-->",
-  ext  => "\.(?:wmd|html)\$",
+  ext  => "\.(wmd|html)\$",
   hed  => "\%web;",
   mag  => "DIGITAL MAGICK",
 

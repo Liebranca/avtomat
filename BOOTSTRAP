@@ -110,6 +110,9 @@ my $ROM={
     /sys/Arstd/Fmat.pm
     /sys/Arstd/fatdump.pm
     /sys/Arstd/xd.pm
+    /sys/Arstd/ins.pm
+    /sys/Arstd/opex.pm
+    /sys/Arstd/ir.pm
 
     /sys/Ftype.pm
     /sys/Ftype/Text.pm
