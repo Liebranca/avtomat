@@ -22,7 +22,7 @@ package avto::spider::compile;
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
   use Chk qw(is_null is_file is_hashref);
-  use Type qw(typefet is_signed);
+  use Type qw(typefet is_signed is_real);
 
   use Arstd::String qw(
     cat
@@ -40,21 +40,29 @@ package avto::spider::compile;
   use Arstd::throw;
   use Arstd::strtok qw(strtok);
   use Arstd::seq;
+  use Arstd::vm qw(
+    vm_new
+    vm_enter
+    vm_leave
+    vm_var_has
+    vm_sym_in
+    vm_sym_out
+  );
   use Arstd::ins qw(
+    ins_new
     ins_signed
     ins_valid
   );
   use Arstd::ir qw(
-    ir_new
+    ctoir
     ir_prich
   );
-  use Tree::C;
 
 
 # ---   *   ---   *   ---
 # info
 
-  my $VERSION = "v0.00.3a";
+  my $VERSION = "v0.00.8a";
   my $AUTHOR  = "IBN-3DILA";
 
 
@@ -71,59 +79,71 @@ package avto::spider::compile;
 
 sub import {
   # handle input
-  my ($class,$src)=@_;
+  my ($clss,$src)=@_;
   my $body=(is_file($src) ? orc($src) : $src);
 
   # map C code to expression tree,
   # then generate IR from that
-  my $tree = Tree::C->rd($body);
-  my @ir   = map {ir_new($ARG)} $tree->to_expr();
+  my $vm=vm_new();
+  my @ir=ctoir($vm,$body);
+
+  # for running and previewing the IR itself
+  AR::run("avto::pl",$vm,@ir);
+  exit;
 
   # TODO
   # optimization passes to the IR should
   # be performed right here ;>
 
   # generate WAT code from IR
-  my $ctx={};
-  my $out=join("\n",map {xlate($ctx,$ARG)} @ir);
-
-  say $out;
-  exit;
+  my $out=join("\n",map {xlate($vm,$ARG)} @ir);
   return "(module\n$out\n)";
 };
 sub xlate {
-  my ($ctx,$ir)=@_;
+  state $depth=-1;
+  ++$depth;
+  my ($vm,$ir)=@_;
   my $xlate;
+
   if($ir->{node_t} eq "proc") {
-    $xlate=xlate_proc($ctx,$ir);
+    $xlate=xlate_proc($vm,$ir);
 
   } elsif($ir->{node_t} eq "asg") {
-    $xlate=xlate_asg($ctx,$ir);
+    $xlate=xlate_asg($vm,$ir);
 
-  } elsif($ir->{node_t} eq "expr") {
-    $xlate=xlate_expr($ctx,$ir);
+  } elsif( $ir->{node_t}=~
+           qr{^(?:expr|null|term)$} ) {
+    $xlate=xlate_expr($vm,$ir);
 
   } elsif($ir->{node_t} eq "fctl") {
-    $xlate=xlate_fctl($ctx,$ir);
+    $xlate=xlate_fctl($vm,$ir);
 
   } else {
     throw "NYI: <$ir->{node_t}> node";
   };
-  my $pad=getpad($ir);
-  return "$pad;; $ir->{meta}$pad$xlate";
+  my $pad=("  " x $depth);
+  --$depth;
+
+  my $meta=(! is_null($ir->{meta}))
+    ? "$pad;; $ir->{meta}\n"
+    : ""
+    ;
+
+  $xlate=(! is_null($xlate))
+    ? join("\n",map {
+        ($ARG=~ qr{^\h})
+          ? "$ARG"
+          : "$pad$ARG"
+
+      } split(qr"\n",$xlate))
+
+    : ""
+    ;
+
+  return "$meta$xlate";
 };
-sub blk_xlate {
-  my $ctx=shift;
-  return cat(map {xlate($ctx,$ARG)} @_);
-};
-
-
-# ---   *   ---   *   ---
-# ~~
-
-sub getpad {
-  my $depth=$_[0]->{depth};
-  return "\n" . ("  " x $depth);
+sub xlate_blk {
+  return map {xlate($_[0],$ARG)} @_[1..$#_];
 };
 
 
@@ -131,18 +151,36 @@ sub getpad {
 # translates func node
 
 sub xlate_proc {
-  # get ctx
-  my ($ctx,$ir)=@_;
+  my ($vm,$ir)=@_;
   my $name = $ir->{name};
   my $body = $ir->{body};
   my $flg  = $ir->{flg};
 
-  # emit code
-#  if($flg->{public}) {
-#    push @foot,"(export \"$name\" (func \$$name))";
-#  };
-  my $pad=getpad($ir);
-  return join($pad,xlate_expr($ir->{ctx},$ir));
+  vm_enter($vm,$name);
+  my @param=map {
+    "(param \$$ARG->{id} "
+  . xlate_type($vm,$ARG)
+  . ")";
+  } vm_sym_in($vm);
+
+  my $result="(result "
+  . xlate_type($vm,vm_sym_out($vm))
+  . ")";
+
+  my $out=join("\n",
+    join(" ",
+      emit($vm,$ir->{ins}),
+      @param,
+      $result,
+    ),
+    xlate_blk($vm,@$body),
+    emit($vm,$ir->{eins}),
+  );
+  if($flg->{public}) {
+    $out .= qq[\n(export "$name" (func \$$name))]
+  };
+  vm_leave($vm);
+  return $out;
 };
 
 
@@ -151,19 +189,13 @@ sub xlate_proc {
 # as generic expressions!
 
 sub xlate_asg {
-  my ($ctx,$ir)=@_;
+  my ($vm,$ir)=@_;
   my $body=$ir->{body};
-  my @head=emit($ctx,$ir->{ins});
-  my @body=blk_xlate($ctx,@$body);
-  my @foot=emit($ctx,$ir->{eins});
+  my @head=emit($vm,$ir->{ins});
+  my @body=xlate_blk($vm,@$body);
+  my @foot=emit($vm,$ir->{eins});
 
-  my $sex=shift @head;
-  push @foot,")" if $sex;
-
-  $sex=shift @foot;
-  push @foot,")" if $sex;
-
-  return join(getpad($ir),@head,@body,@foot);
+  return join("\n",@head,@body,@foot);
 };
 sub xlate_expr {
   return xlate_asg(@_);
@@ -177,24 +209,25 @@ sub xlate_fctl {
 # generates code for instruction array
 
 sub emit {
-  my ($ctx,$ar)=@_;
-  my (@out)=(0);
-
+  my ($vm,$ar)=@_;
+  my (@out)=();
+  my $end_re=qr{
+    ^(?:end\h+) \$?
+     (?<name> [[:alnum:]_]+)
+  }x;
   for(0..$#$ar) {
-    my ($sex,$cmd)=emit_inner($ctx,$ar->[$ARG]);
-    if($sex &&! $ARG) {
-      $out[0]=1;
+    my $cmd=emit_inner($vm,$ar->[$ARG]);
+    if($cmd=~ s[$end_re][]) {
+      push @out,")";
 
-    } elsif($sex && $ARG) {
-      throw "spider: opened s-expression "
-      .     "in the middle of an IR chain";
+    } else {
+      push @out,$cmd;
     };
-    push @out,$cmd;
   };
   return @out;
 };
 sub emit_inner {
-  my ($ctx,$ins)=@_;
+  my ($vm,$ins)=@_;
 
   # nop on null
   if(is_null($ins->{cmd})) {
@@ -202,7 +235,7 @@ sub emit_inner {
 
   # map ir to wasm
   } elsif(ins_valid($ins->{cmd})) {
-    return xlate_ins($ctx,$ins);
+    return xlate_ins($vm,$ins);
 
   # catch invalid
   } else {
@@ -216,14 +249,22 @@ sub emit_inner {
 # maps ir to wasm
 
 sub xlate_ins {
-  my ($ctx,$ins)=@_;
+  my ($vm,$ins)=@_;
+  return join("\n",
+    map {xlate_ins_inner($vm,$ARG)}
+    xlate_ins_expand($vm,$ins)
+  );
+};
+
+sub xlate_ins_inner {
+  my ($vm,$ins)=@_;
 
   # get wasm equivalent of...
-  my $type = xlate_type($ctx,$ins);
+  my $type = xlate_type($vm,$ins);
   my $cmd  = xlate_cmd($ins->{cmd});
 
   # ^add suffix for signed/unsigned if need
-  if( (exists ins_signed()->{$ins->{cmd}})
+  if( ins_signed($ins->{cmd})
   &&  ($type=~ qr{^(?:i32|i64)$}) ) {
     $cmd .= (is_signed($ins->{type}))
       ? "_s"
@@ -231,7 +272,7 @@ sub xlate_ins {
       ;
   };
   # handle args...
-  my $args=xlate_args($ins->{args});
+  my $args=join(" ",xlate_args($ins->{args}));
   $cmd=(xlate_usearg($ins->{cmd}))
     ? "$cmd $args"
     : $cmd
@@ -262,30 +303,71 @@ sub xlate_ins {
   # with the second form no matter what
   #
   # its needless; plain old silly /( ~ ,~)\
-  my $sex=0;
   if(xlate_sex($ins->{cmd})) {
-    $sex=1;
     $cmd="($cmd";
   };
-  return ($sex,$cmd);
+  return $cmd;
 };
 
 
 # ---   *   ---   *   ---
-# ^ the ir uses different names for
-#   some instructions, so map those
+# some instructions expand to multiple,
+# so we do that here
+
+sub xlate_ins_expand {
+  my ($vm,$ins)=@_;
+  my $tab={
+    # ~x
+    not => sub {
+      return (
+        ins_new($ins->{type},const=>(-1)),
+        ins_new($ins->{type},xor=>()),
+      );
+    },
+    # -x
+    neg => sub {
+      return ($ins) if is_real($ins->{type});
+      return (
+        ins_new($ins->{type},const=>(0)),
+        ins_new($ins->{type},sub=>()),
+      );
+    },
+    # x != 0
+    nez => sub {
+      return (
+        ins_new($ins->{type},const=>0),
+        ins_new($ins->{type},ne=>()),
+      );
+    },
+  };
+  return (exists $tab->{$ins->{cmd}})
+    ? $tab->{$ins->{cmd}}->()
+    : ($ins)
+    ;
+};
+
+
+# ---   *   ---   *   ---
+# the ir uses different names for
+# some instructions, so map those
 
 sub xlate_cmd {
   return {
-    proc   => "func",
-    in     => "param",
-    out    => "result",
-    break  => "br",
-    rept   => "br",
-    cbreak => "br_if",
-    crept  => "br_if",
-    ret    => "return",
-    seep   => "tee",
+    proc    => "func",
+    in      => "param",
+    out     => "result",
+    break   => "br",
+    rept    => "br",
+    cbreak  => "br_if",
+    crept   => "br_if",
+    ret     => "return",
+    rcall   => "return_call",
+    seep    => "tee",
+    sel     => "select",
+    rol     => "rotl",
+    ror     => "rotr",
+    skip    => "block",
+    jmptab  => "br_table",
 
   }->{$_[0]} // $_[0];
 };
@@ -295,7 +377,7 @@ sub xlate_cmd {
 # maps peso types to wasm
 
 sub xlate_type {
-  my ($ctx,$ins)=@_;
+  my ($vm,$ins)=@_;
   return null if is_null($ins->{type});
 
   # catch invalid
@@ -310,10 +392,11 @@ sub xlate_type {
 
   # these instructions do not require a type
   # (see above note ;>)
-  if(xlate_ntyped($ins->{cmd})) {
+  if( exists $ins->{cmd}
+  &&  xlate_ntyped($ins->{cmd}) ) {
     if(xlate_varins($ins->{cmd})) {
       my $n=$ins->{args}->[0];
-      return (exists $ctx->{$n})
+      return (vm_var_has($vm,$n))
         ? "local"
         : "global"
         ;
@@ -342,12 +425,16 @@ sub xlate_type_valid {
 
 sub xlate_args {
   my ($ar)=@_;
-  return null if! int(@$ar);
+  return () if! int(@$ar);
 
-  return ($ar->[0]=~ qr{^(?:[[:alpha:]_])})
-    ? "\$$ar->[0]"
-    : $ar->[0]
-    ;
+  return map {
+    ($ARG=~ qr{^(?:[[:alpha:]_])})
+      ? "\$"
+      . (is_hashref($ARG) ? $ARG->{name} : $ARG)
+
+      : $ARG
+      ;
+  } @$ar;
 };
 
 
@@ -371,7 +458,7 @@ sub xlate_ntyped {
     get set seep
     block loop end
     break rept cbreak crept
-    proc ret call
+    proc ret call rcall
 
   )}->{$_[0]} // 0;
 };
@@ -391,7 +478,9 @@ sub xlate_usearg {
   return {map {$ARG=>1} qw(
     get set seep const
     in out local
-    proc
+    proc end
+    skip loop jmptab
+    break rept cbreak crept
 
   )}->{$_[0]} // 0;
 };

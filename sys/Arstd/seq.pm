@@ -281,6 +281,7 @@ sub com {
     cline  => seqnew(beg=>'//',end=>"\n",comattr()),
     cmulti => seqnew(beg=>'/*',end=>"*/",comattr()),
     pline  => seqnew(beg=>'#',end=>"\n",comattr()),
+    html   => seqnew(beg=>'<!--',end=>"-->",comattr()),
   };
 };
 sub comattr {

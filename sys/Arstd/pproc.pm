@@ -284,7 +284,7 @@ sub pproc_fpaste {
   pproc(
     $strar,
     $body,
-    lang     => Ftype::from_ext($fpath),
+    lang     => Ftype::from_ext($fpath) // $fpath,
     strtok   => 1,
     unstrtok => 1,
   );

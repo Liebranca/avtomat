@@ -37,7 +37,7 @@ package CMAM::emit;
 
   use lib "$ENV{ARPATH}/lib/";
   use AR sys=>q[
-    lis Arstd::IO qw(procin procout);
+    lis Arstd::IO qw(io_procin io_procout);
   ];
   use Arstd::Token qw(
     tokenpop

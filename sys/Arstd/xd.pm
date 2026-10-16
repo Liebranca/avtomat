@@ -49,10 +49,10 @@ package Arstd::xd;
   use Style qw(null);
   use Chk qw(is_null is_file);
 
-  use Arstd::String qw(gstrip);
+  use Arstd::String qw(cat to_char gstrip);
   use Arstd::Bin qw(orc);
   use Arstd::throw;
-  use Arstd::IO qw(procin procout);
+  use Arstd::IO qw(io_procin io_procout);
 
 
 # ---   *   ---   *   ---
@@ -65,8 +65,8 @@ package Arstd::xd;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.0';
-  our $AUTHOR  = 'IBN-3DILA';
+  our $VERSION = "v0.01.1";
+  our $AUTHOR  = "IBN-3DILA";
   sub errsafe {return 1};
 
 
@@ -77,13 +77,13 @@ sub xd {
   return null if! int(grep {! is_null($ARG)} @_);
 
   # get args and clear blanks
-  my ($src,@args)=gstrip(@_);
+  my ($src,@args)=@_;
+  ($src,@args)=($src,gstrip(@args));
 
   # reading from file?
   if(is_file($src)) {
     return from_file($src,@args);
   };
-
   # ^nope, direct
   return draw($src,@args);
 };
@@ -94,7 +94,7 @@ sub xd {
 
 sub from_file($fpath,%O) {
   # defaults
-  $O{order} //= ':>';
+  $O{order} //= ":>";
 
   # read and give
   my $body=orc($fpath);
@@ -109,16 +109,16 @@ sub from_file($fpath,%O) {
 sub draw($body,%O) {
   # own defaults
   $O{head}  //= 1;
-  $O{order} //= '<:';
+  $O{order} //= "<:";
 
   # I/O defaults
-  my $out=procin(\%O);
+  my $out=io_procin(\%O);
 
   # walk bytes
   my $k=15;
   while(length $body) {
     # get next chunk
-    my $line=substr $body,0,16,null;
+    my $line=substr($body,0,16,null);
 
     # setup line
     my ($i,$j,$h)=(0,0,0);
@@ -127,30 +127,37 @@ sub draw($body,%O) {
     my $diff = 0;
 
     # ^split chunk
-    my @bytes=split null,$line;
+    my @bytes=to_char($line);
 
     # ^pad to 16
     if(@bytes < 16) {
-      $diff=16-@bytes;
-      push @bytes,("\x{00}") x $diff;
+      $diff=16-int(@bytes);
+      push @bytes,(("\x{00}") x $diff);
     };
-
     # char to num
+    my @sr=();
     for(@bytes) {
-      $ARG=ord $ARG;
+      $ARG=ord($ARG);
 
-      # can print?
-      if($ARG <= 0x7E && 0x20 <= $ARG) {
-        $sr.=chr $ARG;
+      # put printable char
+      $sr .= ($ARG <= 0x7E && 0x20 <= $ARG)
+        ? chr($ARG)
+        : "."
+        ;
 
-      # else put dot
-      } else {
-        $sr.='.';
-      };
+      if($i == 7) {
+        $sr=reverse $sr;
+        push @sr,$sr;
+        $sr = null;
+        $i  = 0;
+
+      } else {++$i};
     };
+    $sr = cat(@sr);
+    $i  = 0;
 
     # shuffle byte ordering?
-    if($O{order} eq '<:') {
+    if($O{order} eq ":>") {
       @bytes=(
         (reverse @bytes[ 4.. 7]),
         (reverse @bytes[ 0.. 3]),
@@ -158,24 +165,21 @@ sub draw($body,%O) {
         (reverse @bytes[ 8..11]),
       );
     };
-
-
     # walk chunk
     for(@bytes) {
       # add byte to mem line
       $sl .= sprintf "%02X",$ARG;
 
       # go next
-      $i++;
-      $j++;
-      $h++;
+      ++$i;
+      ++$j;
+      ++$h;
 
       # space every 4th
       if($i > 3) {
         $i   = 0;
-        $sl .= ' ';
+        $sl .= " ";
       };
-
       # ^reset every 16th
       if($h > 15) {
         $j=$h=0;
@@ -183,19 +187,17 @@ sub draw($body,%O) {
       # ^put separator every 8th
       } elsif($j >  7) {
         $j   = 0;
-        $sl .= ': ';
+        $sl .= ": ";
       };
     };
-
-
     # add blank every (cache)line
     # and another every 4th
-    $k++;
+    ++$k;
 
-    # out xword
+    # out page
     if((! ($k % 16)) && $O{head} != 0) {
-      push @$out,"\n\n",sprintf(
-        "\$%04X $O{order}\n",
+      push @$out,sprintf(
+        "\n\n\$%04X $O{order}\n",
         ($k-16) >> 4
       );
     };
@@ -203,12 +205,11 @@ sub draw($body,%O) {
     $O{head}=2;
 
     # out (human)line
-    push @$out,' ',$sl,'| ',$sr,"\n";
+    push @$out," $sl| $sr\n";
   };
-
   # spit out and give
   push @$out,"\n";
-  return procout(\%O);
+  return io_procout(\%O);
 };
 
 

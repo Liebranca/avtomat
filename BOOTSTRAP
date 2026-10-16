@@ -110,12 +110,18 @@ my $ROM={
     /sys/Arstd/Fmat.pm
     /sys/Arstd/fatdump.pm
     /sys/Arstd/xd.pm
-    /sys/Arstd/ins.pm
-    /sys/Arstd/opex.pm
-    /sys/Arstd/ir.pm
 
     /sys/Ftype.pm
     /sys/Ftype/Text.pm
+
+    /sys/Tree.pm
+    /sys/Tree/File.pm
+    /sys/Tree/Dep.pm
+    /sys/Tree/C.pm
+
+    /sys/Type/MAKE.pm
+    /sys/Type.pm
+
     /sys/Ftype/Text/fasm.pm
     /sys/Ftype/Text/C.pm
     /sys/Ftype/Text/peso.pm
@@ -128,14 +134,6 @@ my $ROM={
     /sys/Ftype/Text/Mny.pm
     /sys/Ftype/Text/cfg.pm
 
-    /sys/Tree.pm
-    /sys/Tree/File.pm
-    /sys/Tree/Dep.pm
-    /sys/Tree/C.pm
-
-    /sys/Type/MAKE.pm
-    /sys/Type.pm
-
     /sys/Log.pm
     /sys/Warnme.pm
     /sys/Cli.pm
@@ -147,6 +145,13 @@ my $ROM={
     /sys/Type.pm
     /sys/Type/C.pm
     /sys/Type/Cpp.pm
+
+    /sys/Arstd/flg.pm
+    /sys/Arstd/mem.pm
+    /sys/Arstd/vm.pm
+    /sys/Arstd/ins.pm
+    /sys/Arstd/opex.pm
+    /sys/Arstd/ir.pm
 
     CMAM/static.pm
     CMAM/macro.pm
@@ -180,6 +185,7 @@ my $ROM={
     /avto/make.pm
     /avto/emit.pm
     /avto/nbuild.pm
+    /avto/pl.pm
     /avto/spider/compile.pm
     /avto/spider.pm
     /avto.pm

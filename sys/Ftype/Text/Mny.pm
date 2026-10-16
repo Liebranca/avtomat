@@ -51,6 +51,7 @@ sub classattr {return {
 
 sub strtok_syx {
   return [
+    Arstd::seq::com()->{html},
     Arstd::seq::str()->{dquote},
     Arstd::seq::pproc()->{peso},
   ];

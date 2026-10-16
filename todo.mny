@@ -12,6 +12,11 @@ x Implement an IR step instead of emitting code
   most glaring bugs, as well as for applying
   certain optimizations
 
+~ \--> Decompile IR to perl code. We want to
+       do this to allow writing CMAM macros
+       entirely in our custom C-like syntax
+
+~ [Memory model for IR]
 ~ Tree-shaking
 
 ~ Eventually, we may want to forget about

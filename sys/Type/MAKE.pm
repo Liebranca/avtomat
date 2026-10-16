@@ -72,6 +72,7 @@ package Type::MAKE;
     typefet
     typedef
 
+    array
     struc
     union
     restruc
@@ -80,14 +81,18 @@ package Type::MAKE;
     badptr
 
     is_signed
+    is_real
+    is_prim
+    is_struc
+    is_array
   );
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.8a';
-  our $AUTHOR  = 'IBN-3DILA';
+  our $VERSION = "v0.01.0";
+  our $AUTHOR  = "IBN-3DILA";
 
 
 # ---   *   ---   *   ---
@@ -103,8 +108,8 @@ sub _asis {$_[0]=>$_[1]};
 #
 # so now we have to do it the hard way...
 
-St::vconst {
-  LIST => {
+sub LIST {
+  return {
     # min to max size for all base types
     ezy=>[qw(
       byte  word  dword qword
@@ -149,94 +154,95 @@ St::vconst {
       str cstr plstr
     )],
 
-  },
+  };
+};
 
 
-  # one list to rule them all!
-  ALL_FLAGS=>sub {
-    my $list=$_[0]->LIST;
-    return [
-      flatten(
-        [values %$list],dupop=>1
+# one list to rule them all!
+sub ALL_FLAGS {
+  my $list=LIST();
+  return [
+    flatten(
+      [values %$list],dupop=>1
 
-      ),qw(
-        vec2 vec3 vec4 mat2 mat3 mat4
-        sign
-      ),
-    ];
+    ),qw(
+      vec2 vec3 vec4 mat2 mat3 mat4
+      sign
+    ),
+  ];
+};
 
-  },
+# regexes for all
+sub RE {
+  my $list  = LIST();
+  my $flags = ALL_FLAGS();
 
-  # regexes for all
-  RE=>sub {
-    my $list  = $_[0]->LIST;
-    my $flags = $_[0]->ALL_FLAGS;
+  return {
+    ptr_any  => pekey(
+      @{$list->{ptr_t}}
 
-    return {
-      ptr_any  => pekey(
-        @{$list->{ptr_t}}
+    ),
+    flag_any => pekey(@$flags),
 
-      ),
-      flag_any => pekey(@$flags),
+    map {(
+      $ARG=>pekey(@{$list->{$ARG}})
 
-      map {(
-        $ARG=>pekey(@{$list->{$ARG}})
-
-      )} keys %$list
-    };
-  },
-
-
-  IDEXOF => sub {
-    my $list=$_[0]->LIST;
-    return {
-      Arstd::Array::IDEXUP(
-        0,\&_asis,@{$list->{ezy}}
-      ),
-      Arstd::Array::IDEXUP(
-        2,\&_asis,@{$list->{real}}
-      ),
-
-      (map {$ARG=>3} @{$list->{ptr_t}}),
-      (map {$ARG=>0} @{$list->{str_t}}),
-    };
-  },
-
-  # ^maximum power of 2 allowed
-  EZY_CAP => sub {
-    1 << $_[0]->IDEXOF->{zword}
-  },
+    )} keys %$list
+  };
+};
 
 
-  # signals for the type generator
-  TYPEFLAG => sub {
-    my $list=$_[0]->LIST;
-    return {
-      (map {$ARG=>0x00} @{$list->{defn}}),
+sub IDEXOF {
+  my $list=LIST();
+  return {
+    Arstd::Array::IDEXUP(
+      0,\&_asis,@{$list->{ezy}}
+    ),
+    Arstd::Array::IDEXUP(
+      2,\&_asis,@{$list->{real}}
+    ),
 
-      sign     => 0x001,
-      real     => 0x002,
+    (map {$ARG=>3} @{$list->{ptr_t}}),
+    (map {$ARG=>0} @{$list->{str_t}}),
+  };
+};
 
-      vec      => 0x004,
-      mat      => 0x008,
+# ^maximum power of 2 allowed
+sub EZY_CAP {
+  return 1 << IDEXOF()->{zword}
+};
 
-      str      => 0x010,
-      cstr     => 0x020,
-      plstr    => 0x040,
+# signals for the type generator
+sub TYPEFLAG {
+  my $list=LIST();
+  return {
+    (map {$ARG=>0x0000} @{$list->{defn}}),
 
-      str_t    => 0x070,
+    sign     => 0x0001,
+    real     => 0x0002,
 
-      ptr      => 0x080,
-      pptr     => 0x100,
-      fptr     => 0x200,
-      ref      => 0x400,
+    vec      => 0x0004,
+    mat      => 0x0008,
 
-      ptr_t    => 0x7F0,
-    };
-  },
+    str      => 0x0010,
+    cstr     => 0x0020,
+    plstr    => 0x0040,
+    str_t    => 0x0070,
 
-  # sizes for the bytepacker!
-  TYPEPACK => {
+    ptr      => 0x0080,
+    pptr     => 0x0100,
+    fptr     => 0x0200,
+    ref      => 0x0400,
+    ptr_t    => 0x07F0,
+
+    array_t  => 0x0800,
+    struc_t  => 0x1000,
+  };
+};
+
+# sizes for the bytepacker!
+sub TYPEPACK {
+  return {
     byte   => 'C',
     word   => 'S',
     dword  => 'L',
@@ -252,7 +258,7 @@ St::vconst {
 
     # a pointer is __just__ a pointer...
     (map {$ARG=>'P'} qw(ptr pptr fptr ref)),
-  },
+  };
 };
 
 
@@ -390,8 +396,8 @@ sub typename {
 
 sub typefet {
   return (! is_hashref($_[0]))
-    ? fetch(@_)
-    : $_[0]
+    ? ($_[0] ne "void" ? fetch(@_) : null)
+    : ($_[0])
     ;
 };
 
@@ -791,10 +797,6 @@ sub typevec_implicit {
 # [*]: modifies (ezy,cnt) of input
 
 sub typesizing {
-  # get ctx
-  my $class = St::cpkg();
-  my $type  = $class->TYPEFLAG;
-
   # calc elem byte/bit/mask size
   my $eby = 1    << $_[0]->{ezy};
   my $ebs = $eby << 3;
@@ -802,7 +804,6 @@ sub typesizing {
 
   # calc total size as a power of 2
   my $tby  = $eby * $_[0]->{cnt};
-
   my $tzy  = bitsize($tby)-1;
      $tzy += 1 * ((1 << $tzy) < $tby);
 
@@ -814,7 +815,6 @@ sub typesizing {
 
     ++$tzy;
   };
-
   # write to dst hashref and give
   $_[0]->{sizeof}  = $tby;
   $_[0]->{sizep2}  = $tzy;
@@ -866,11 +866,31 @@ sub is_primvec {
 
 
 # ---   *   ---   *   ---
-# ~~
+# type is *not* unsigned!
 
 sub is_signed {
   my $type=St::cpkg()->TYPEFLAG;
   return $_[0]->{flags} & $type->{sign};
+};
+sub is_real {
+  my $type=St::cpkg()->TYPEFLAG;
+  return $_[0]->{flags} & $type->{real};
+};
+
+
+# ---   *   ---   *   ---
+# type is *not* a structure or array!
+
+sub is_prim {
+  return !( is_struc($_[0]) || is_array($_[0]) );
+};
+sub is_struc {
+  my $type=St::cpkg()->TYPEFLAG;
+  return $_[0]->{flags} & $type->{struc_t};
+};
+sub is_array {
+  my $type=St::cpkg()->TYPEFLAG;
+  return $_[0]->{flags} & $type->{array_t};
 };
 
 
@@ -934,13 +954,29 @@ sub voidstruc {
 
 sub base_struc {
   my $out=struc(@_);
+  return if typebase()->{$out->{name}};
   typebase()->{$out->{name}}=1;
 
   for(ptrfet($out->{name})) {
     typebase()->{$ARG->{name}}=1;
   };
-
   return $out;
+};
+
+sub array {
+  my ($type,$sz)=@_;
+
+  my @elem=(0..$sz-1);
+  $ARG="$type $ARG;" for @elem;
+
+  # make a regular struc, but then flatten it
+  my $struc=struc("$type arr$sz"=>cat(@elem));
+  $struc->{layout}    = [$sz];
+  $struc->{struc_t}   = [$struc->{struc_t}->[0]];
+  $struc->{struc_i}   = [$struc->{struc_i}->[0]];
+  $struc->{struc_off} = [0];
+
+  return $struc;
 };
 
 sub struc($name,$src=undef) {
@@ -1038,7 +1074,10 @@ sub strucmake($cmd,$name,@field) {
     ;
 
   # write to table
-  $out->{flags}=0x00;
+  $out->{flags}=($name=~ qr{arr\d+$})
+    ? TYPEFLAG()->{array_t}
+    : TYPEFLAG()->{struc_t}
+    ;
   typeadd($name => $out);
 
   # ^make pointer-to variations ;>
@@ -1209,15 +1248,15 @@ sub strucsizing_set($out,$tby,$tbs) {
 # [<]: byte ptr  ; packing format (new string)
 
 sub strucpacking {
-  return cat(map {
+  return fmat_zip(cat(map {
     my $sfmat  = $ARG->{type}->{packof};
     my $cnt    = $ARG->{cnt};
     my ($have) = $sfmat=~ m[(\d+)];
 
-    $sfmat=~ s[\d+][$cnt] if $cnt > $have;
+    $sfmat=~ s[\d+][$cnt] if $cnt > ($have // 1);
     $sfmat;
 
-  } @_);
+  } @_));
 };
 
 
@@ -1241,6 +1280,139 @@ sub unionpacking {
   };
 
   return $big->{packof};
+};
+
+
+# ---   *   ---   *   ---
+# optimizes packof string
+
+sub fmat_zip {
+  # map input string to [key=>cnt]
+  my @have = fmat_split($_[0]);
+  my @out  = ();
+  my $min  = 1;
+
+  # walk [key=>cnt] and combine repeats of key
+  combo:
+  @out=();
+  for(@have) {
+    my ($ezy,$cnt)=@$ARG;
+
+    # repeated type
+    if(@out && $out[-1]->[0] eq $ezy) {
+      $out[-1]->[1] += $cnt;
+
+    # ^sequence broken
+    } else {
+      push @out,$ARG;
+    };
+  };
+
+  # stop recursing?
+  if($min > 2 && int(@out) == int(@have)) {
+    goto stop;
+  };
+  # combine elements into multi-type [key=>cnt]
+  my $key  = null;
+  my @rept = ();
+  my $i    = 0;
+  for(@out) {
+    $key .= ($min == 1)
+      ? fmat_zipkey($ARG)
+      : $ARG->[0]
+      ;
+
+    # more than N elements in fmat
+    if(++$i > $min) {
+      my $cnt=1;
+
+      # "fold" repeating characters in fmat,
+      # increasing count for each succcesful fold
+      while($min > 1) {
+        my $old  = $key;
+        my $skey = $key;
+        my $half = int(length($key)/2);
+        substr($skey,$half,length($key),null);
+        substr($key,0,$half,null);
+
+        # both halves are equal,
+        # so we increase the count
+        if($key eq $skey) {
+          ++$cnt;
+
+        # ^ not equal, so restore the
+        #   original key and stop folding!
+        } else {
+          $key=$old;
+          last;
+        };
+      };
+      # save compressed format substr
+      push @rept,[$key,$cnt];
+      $key = null;
+      $i   = 0;
+    };
+  };
+  # ^recurse to flatten repetitions
+  if(@rept) {
+    @have=@rept;
+    @rept=();
+
+    push @have,[$key,1] if! is_null($key);
+
+    ++$min;
+    goto combo;
+  };
+  # end of recursion
+  stop:
+  return cat(map {
+    $ARG->[0]="ux" if $ARG->[0] eq "U";
+    if($ARG->[1] == 1) {
+      "$ARG->[0]";
+
+    } else {
+      "($ARG->[0])$ARG->[1]";
+    };
+
+  } @out);
+};
+
+sub fmat_zipkey {
+  my $cnt=$_[0]->[1];
+  if($cnt == 1) {
+    $cnt=null;
+
+  } elsif($cnt == 0) {
+    $cnt="*";
+
+  } else {
+    $cnt="[$cnt]";
+  };
+  return $_[0]->[0] . $cnt;
+};
+
+
+# ---   *   ---   *   ---
+# breakup packing format into elements
+
+sub fmat_split {
+  my $re=qr{^
+    (?<ezy> [CcSsLlQqfdZzP]|ux)
+    (?<cnt> (?:\[\d+\]|\*))?
+  }x;
+  my $clre  = qr{^\[|\]$};
+  my @out   = ();
+  while($_[0]=~ s[$re][]) {
+    my $ezy=  $+{ezy};
+       $ezy=  "U" if $ezy eq "ux";
+
+    my $cnt=  $+{cnt} // 1;
+       $cnt=~ s[$clre][]g;
+       $cnt=  0 if $cnt eq "*";
+
+    push @out,[$ezy,$cnt];
+  };
+  return @out;
 };
 
 
@@ -1342,7 +1514,6 @@ sub strucparse {
       @have
     );
   };
-
   # add padding at end if total is not a
   # multiple of largest alignment
   return (@out,autopad($total,$large,$padcnt));
@@ -1462,13 +1633,15 @@ sub utypedef($nd) {
 # [2]: word ; padding field counter
 
 sub autopad {
-  return () if ! $_[1];
   my @pad  = ();
   my $need = $_[0] % $_[1];
+
+  $_[0] += $_[1]+$need;
+
   if($need) {
     @pad=letparse({
       cmd  => 'byte',
-      expr => "_autopad_${_[2]}[$need]",
+      expr => "?${_[2]}[$need]",
     });
     ++$_[2];
   };

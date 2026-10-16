@@ -101,8 +101,8 @@ sub classattr {return {
   fctl=>[qw(
     if eif else for while do map
     switch case default
-    try throw catch break
-    continue goto return
+    try throw catch
+    continue break goto return
   )],
 
   resname=>[qw(

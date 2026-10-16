@@ -26,7 +26,7 @@ package Arstd::IO;
 # adds to your namespace
 
   use Exporter 'import';
-  our @EXPORT_OK=qw(procin procout);
+  our @EXPORT_OK=qw(io_procin io_procout);
 
 
 # ---   *   ---   *   ---
@@ -40,7 +40,7 @@ package Arstd::IO;
 # sets default options
 # for an I/O F
 
-sub procin($O) {
+sub io_procin($O) {
   my @bufio=();
 
   $O->{errout} //= 0;
@@ -54,7 +54,7 @@ sub procin($O) {
 # ---   *   ---   *   ---
 # ^handles output!
 
-sub procout($O) {
+sub io_procout($O) {
   # cat buf
   my $out=cat @{$O->{-bufio}};
 

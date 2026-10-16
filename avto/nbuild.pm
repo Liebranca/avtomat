@@ -33,7 +33,7 @@ package avto::nbuild;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
-  use Chk qw(is_null);
+  use Chk qw(is_null is_file);
   use Cli;
 
   use Arstd::String qw(gsplit wstrip);
@@ -149,11 +149,10 @@ sub import {
   throw "No files to copy" if ! @file;
 
   # get contents of all files
-  my $body=join "\n",map {
-    file_rd($cli,$ARG);
-
-  } @file;
-
+  my $body=join("\n",
+    map {file_rd($cli,$ARG)}
+    @file
+  );
   # ^dump to output file?
   if(! is_null($cli->{output})) {
     return owc($cli->{output},$body);
@@ -173,8 +172,10 @@ sub import {
 sub file_rd {
   # read the file
   my ($cli,$fpath)=@_;
-  my $body=orc($fpath);
-
+  my ($ext,$body)=(is_file($fpath))
+    ? ($fpath=>orc($fpath))
+    : (C=>$fpath)
+    ;
   # tokenize in-the-way things like strings
   # and comments and what not
   #
@@ -184,7 +185,7 @@ sub file_rd {
   # else the default ones are used
   # (defined by Arstd::strtok)
   my ($lang,$syx)=Ftype::getlang(
-    $fpath,
+    $ext,
     pproc =>  $cli->{pproc},
     com   =>! $cli->{nocom},
   );
@@ -216,6 +217,8 @@ sub file_rd {
   };
   # untokenize and give
   unstrtok($body,$strar);
+  chomp($body);
+
   return $body;
 };
 

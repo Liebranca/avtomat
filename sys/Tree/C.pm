@@ -44,10 +44,45 @@ package Tree::C;
 
 
 # ---   *   ---   *   ---
+# adds to your namespace
+
+  use Exporter "import";
+  our @EXPORT_OK=qw(
+    asg_re
+    array_re
+  );
+
+
+# ---   *   ---   *   ---
 # info
 
   our $VERSION = 'v0.00.5a';
   our $AUTHOR  = 'IBN-3DILA';
+
+
+# ---   *   ---   *   ---
+# ROM
+
+sub asg_re {
+  return qr{
+    (?<type> [[:alnum:]_\s]+ \s+)?
+    (?<name> [[:alnum:]_]+) \s*
+    (?<arr>  \[ \s* [^\]]+ \s* \])?
+    (?<op>   [^[:alnum:]_!=\s]?=) \s*
+    (?<expr> .*)
+  }x;
+};
+sub array_re {
+  return qr{
+    (?<base>[^\s\[]+)
+    \s* \[ \s*
+    (?<elem>[^\]]+)
+    \s* \]
+  }x;
+};
+sub label_re {
+  return qr{^\s*(?<name>[^:]+)\s*:\s*};
+};
 
 
 # ---   *   ---   *   ---
@@ -648,31 +683,35 @@ sub to_expr {
   my ($self)=@_;
   my $tree=$self->to_exprtree();
 
-  # we generate `;` semi tokens to help
-  # with parsing perl (yes)
-  #
-  # `to_exprtree()` should've consumed these
-  # tokens at this point, so it's safe to
-  # remove them
-  $tree->sweep(qr{^ *; *$});
+#  # we generate `;` semi tokens to help
+#  # with parsing perl (yes)
+#  #
+#  # `to_exprtree()` should've consumed these
+#  # tokens at this point, so it's safe to
+#  # remove them
+#  $tree->sweep(qr{^ *; *$});
 
   return $tree->to_expr_impl();
 };
 
 sub to_expr_impl {
-  return grep {
-    $ARG->{type} ne 'null'
-
-  } map {
-    map {
-      if($ARG->{type} eq 'null') {
-        @{$ARG->{blk}};
-
-      } else {$ARG};
-
-    } $ARG->node_to_expr();
-
-  } @{$_[0]->{leaves}};
+  return (
+    map {$ARG->node_to_expr()}
+    @{$_[0]->{leaves}}
+  );
+#  return grep {
+#    $ARG->{type} ne 'null'
+#
+#  } map {
+#    map {
+#      if($ARG->{type} eq 'null') {
+#        @{$ARG->{blk}};
+#
+#      } else {$ARG};
+#
+#    } $ARG->node_to_expr();
+#
+#  } @{$_[0]->{leaves}};
 };
 
 
@@ -690,12 +729,19 @@ sub node_to_expr {
   my $expr = $nd->{value};
   my @blk  = $nd->to_expr_impl();
 
+  my $label_re=label_re();
+  my $label=($expr=~ s[$label_re][])
+    ? $+{name}
+    : null
+    ;
+  strip($label);
   return {
-    type => 'null',
-    cmd  => null,
-    expr => null,
-    args => null,
-    blk  => \@blk,
+    type  => 'null',
+    cmd   => null,
+    expr  => null,
+    args  => null,
+    label => $label,
+    blk   => \@blk,
 
   } if is_null($expr);
 
@@ -704,10 +750,6 @@ sub node_to_expr {
   my $name_re = Ftype::Text->name_re();
   my $cmd_re  = qr{^(?<cmd> $name_re)}x;
   my $args_re = qr{\((?<args>[^\)]*)\)};
-  my $asg_re  = qr{
-    (?:[\|\&\^\+\-\/\*\%]|\s)
-    = [^[:alnum:]]*
-  }x;
 
   # get first appearance of arguments
   my $have_args = int($expr=~ s[$args_re][]);
@@ -725,7 +767,9 @@ sub node_to_expr {
   # we want to tell these apart from
   # regular functions!!
   my $fctl_re=qr{^(?:
-    if|eif|else|while|do|switch|for|map
+    if|eif|else|while
+  | do|switch|for|map
+  | break|continue
   )$}x;
 
   # do we have a {block} on this expression?
@@ -770,7 +814,6 @@ sub node_to_expr {
       $expr .= "($args)";
       $args  = null;
     };
-
     # a special case where we treat a block
     # of C code within a macro as a string
     if($cmd eq 'C') {
@@ -832,6 +875,31 @@ sub node_to_expr {
       if($cmd=~ $fctl_re) {
         $type='fctl';
 
+        # labels on a switch are special :o
+        if($cmd eq "switch") {
+          my $anchor=undef;
+          my $case_re=qr{^case\h+};
+          for my $i(0..$#blk) {
+            # if stepping on label, then
+            # parent subsequent nodes to it
+            my $child=$blk[$i];
+            if(! is_null($child->{label})) {
+              if(($child->{label}=~ s[$case_re][])
+              || ($child->{label} eq "default")) {
+                $anchor=$child;
+                $child->{label}=
+                  "case_$child->{label}";
+              };
+
+            # ^no label, so apply parent!
+            } elsif(defined $anchor) {
+              push @{$anchor->{blk}},$child;
+              $blk[$i]=undef;
+            };
+          };
+          # clear re-parented nodes
+          @blk=grep {defined $ARG} @blk;
+        };
         # cleanup wrapping parens in expression
         my $paren_re=qr{^\(|\)$};
         $expr=~ s[$paren_re][]g;
@@ -839,8 +907,14 @@ sub node_to_expr {
         # consume the expression into
         # it's own subtree
         my $pre=$nd->nest('$:>');
-        $pre->rd_main("$args;#null;$expr;#null");
-
+        my $fmat=($cmd=~
+          qr{^(?:if|switch|while)$}
+        ) ? "$args;#null;$expr;#null"
+          : (! is_null($args))
+            ? "$expr($args);#null"
+            : "$expr;#null"
+          ;
+        $pre->rd_main($fmat);
         # ^ then save the expression as
         #   an array of nodes!
         my @have=$pre->to_expr();
@@ -849,7 +923,7 @@ sub node_to_expr {
           # it's safe to mutate them into blanks
           if($ARG->{type} eq "cpre"
           && $ARG->{expr} eq "# null") {
-            $ARG->{type}="null";
+            $ARG->{type}="term";
             $ARG->{expr}=null();
           };
         };
@@ -866,7 +940,7 @@ sub node_to_expr {
         &&  $blk[-1]->{type} eq "null";
 
       # [type]? [name]=[value]
-      } elsif($expr=~ $asg_re) {
+      } elsif($expr=~ asg_re()) {
         $type='asg';
 
       # (standard) preprocessor line
@@ -892,11 +966,12 @@ sub node_to_expr {
   };
 
   return {
-    type => $type,
-    cmd  => $cmd,
-    expr => $expr,
-    args => $args,
-    blk  => \@blk,
+    type  => $type,
+    cmd   => $cmd,
+    expr  => $expr,
+    args  => $args,
+    label => $label,
+    blk   => \@blk,
   };
 };
 

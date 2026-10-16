@@ -20,6 +20,7 @@ package Cask;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
+  use St qw(is_valid);
   use Arstd::Bytes qw(bitscanf);
 
 

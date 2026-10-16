@@ -21,7 +21,7 @@ package Arstd::opex;
   use English qw($ARG);
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
-  use Chk qw(is_null is_hashref);
+  use Chk qw(is_null is_hashref is_arrayref);
   use Type qw(typefet is_signed);
 
   use Arstd::String qw(gsplit);
@@ -30,23 +30,29 @@ package Arstd::opex;
   use Arstd::Re qw(eiths);
   use Arstd::throw;
   use Arstd::seq;
-  use Arstd::ins qw(
-    ins_new
+  use Arstd::strtok qw(strtok);
+  use Arstd::vm qw(
+    vm_var_get
+    vm_sym_get
+    vm_sym_in
+    vm_sym_out
+    vm_label_find
   );
-  use Tree::C;
+  use Arstd::ins qw(ins_map ins_new);
+  use Tree::C qw(array_re);
 
 
 # ---   *   ---   *   ---
 # adds to your namespace
 
   use Exporter "import";
-  our @EXPORT=qw(opex);
+  our @EXPORT_OK=qw(opex opex_undo);
 
 
 # ---   *   ---   *   ---
 # info
 
-  my $VERSION = "v0.00.3a";
+  my $VERSION = "v0.00.9a";
   my $AUTHOR  = "IBN-3DILA";
 
 
@@ -63,6 +69,9 @@ sub opex {
   # expansions
   opex_fn($mem,\$s);
 
+  # ~~
+  opex_arr($mem,\$s);
+
   # get operators in expression,
   # sorted by precedence
   my ($op,$value,$chain)=opex_sort(
@@ -73,7 +82,7 @@ sub opex {
 
   # catch unsolved values
   for(
-    grep {! is_null($chain->[0])}
+    grep    {! is_null($ARG)}
     reverse @$chain
   ) {
     opex_push_value($mem,$ARG);
@@ -94,14 +103,14 @@ sub opex_fn {
   my $re     = qr{(?<cmd>[[:alnum:]_]+)\s*$tok_re};
 
   # for every F in string...
-  my $tab=$mem->{sym};
   while($$sref=~ s[$re][]) {
     my $cmd  = $+{cmd};
     my $idex = $+{idex};
 
     # validate F name
+    my $sym=vm_sym_get($mem->{vm},$cmd);
     throw "opex: call to undefined symbol <$cmd>"
-    if!   exists $tab->{$cmd};
+    if!   defined $sym;
 
     # we keep track of which functions were
     # invoked within each scope!
@@ -112,7 +121,7 @@ sub opex_fn {
       scp_unpack($mem->{strar},$idex),
       qr{\s*,\s*},
     );
-    my $argt=$tab->{$cmd}->{in};
+    my @in=vm_sym_in($mem->{vm},$sym);
 
     # we need to recurse in order to solve
     # the arguments...
@@ -121,9 +130,9 @@ sub opex_fn {
     my $old  = $mem->{dst};
 
     $mem->{dst}=$tail;
-    for(0..$#args) {
-      my $svalue = $args[$ARG];
-      my $stype  = $argt->[$ARG]->[0];
+    for my $i(0..$#args) {
+      my $svalue = $args[$i];
+      my $stype  = $in[$i]->{type};
 
       $mem->{type}=$stype;
       opex($mem,$svalue);
@@ -132,17 +141,46 @@ sub opex_fn {
     $mem->{dst}  = $old;
 
     # *now* generate call
-    my $stype = $tab->{$cmd}->{out};
-       $type  = $mem->{type};
+    my $out  = vm_sym_out($mem->{vm},$sym);
+       $type = $mem->{type};
 
-    $mem->{type}=$stype;
+    $mem->{type}=$out->{type};
     opex_push(
       $mem,
-      call=>["$cmd"],
+      call=>[vm_label_find($mem->{vm},$cmd)],
       $tail,
     );
     $mem->{type}=$type;
   };
+  return;
+};
+
+
+# ---   *   ---   *   ---
+# expand array indexing
+
+sub opex_arr {
+  my ($mem,$sref)=@_;
+
+  # for every array idex in string...
+  my $re  = array_re();
+  my @out = ();
+  while($$sref=~ s[$re][::mark]) {
+    # make fetch operation
+    my $ptr=vm_var_get(
+      $mem->{vm},
+      "$+{base}\[$+{elem}]"
+    );
+    push @out,$ptr->{id};
+  };
+  # ^put generated operations back
+  $re=qr{::mark};
+  while($$sref=~ $re) {
+    my $id=shift @out;
+    $$sref=~ s[$re][$id];
+  };
+  # tokenize the parens and give
+  strtok($mem->{strar},$$sref,syx=>$mem->{syx});
   return;
 };
 
@@ -153,7 +191,7 @@ sub opex_fn {
 sub opex_push_value {
   my ($mem,$x)=@_;
   return opex_push($mem,$x->{cmd})
-  if is_hashref($x);
+  if     is_hashref($x);
 
   my $cmd=opex_value($mem,\$x);
   return if is_null($cmd);
@@ -168,28 +206,33 @@ sub opex_push_value {
 };
 sub opex_push {
   my ($mem,$cmd,$args,@tail)=@_;
-  my $tail=[flatten(\@tail)];
-  return push @{$mem->{dst}},{
-    type => $mem->{type},
-    cmd  => $cmd,
-    args => $args // [$mem->{tgt}],
-    tail => $tail,
-  };
+  my $tail   = [flatten(\@tail)];
+     $args //= [$mem->{tgt}];
+
+  my $ins=ins_new($mem->{type},$cmd=>(@$args));
+     $ins->{tail}=$tail;
+
+  return push @{$mem->{dst}},$ins;
 };
 sub opex_value {
   my ($mem,$xref)=@_;
 
-  # null means nop
-  if(is_null($$xref)) {
+  # we check if the value corresponds with
+  # a registered variable
+  my $ptr=vm_var_get($mem->{vm},$$xref);
+
+  # null/opstr means nop
+  if(is_null($$xref)
+  || is_arrayref($$xref)
+  || exists opex_tab()->{$$xref}) {
     return null;
 
-  # is it a named variable?
-  } elsif( ($$xref=~ qr{^[[:alnum:]_]+$})
-  &&  (exists $mem->{var}->{$$xref}) ) {
+  # is it a variable?
+  } elsif(defined $ptr) {
     $mem->{type}=opex_typechk(
       $mem,
       $mem->{type},
-      $$xref
+      $ptr
     );
     $mem->{tgt}=$$xref;
     return "get";
@@ -212,27 +255,24 @@ sub opex_value {
 # typecheck for local values
 
 sub opex_typechk {
-  my ($mem,$type,$x)=@_;
-  my $have=(exists $mem->{var}->{$x})
-    ? $mem->{var}->{$x}
-    : null
-    ;
+  my ($mem,$type,$ptr)=@_;
 
   # edge case: void !!
-  if(is_null($have) && is_null($type)) {
+  if(is_null($ptr) && is_null($type)) {
     return {name=>null};
 
-  } elsif(is_null($type) &&! is_null($have)) {
-    return $have;
+  } elsif(is_null($type) &&! is_null($ptr)) {
+    return $ptr->{type};
 
-  } elsif(! is_null($type) && is_null($have)) {
+  } elsif(! is_null($type) && is_null($ptr)) {
     return $type;
   };
-  # catch invalid
-  throw "opex: type mismatch for '$x'; "
-  .     "[$have->{name}] != [$type->{name}]"
-
-  if $type->{sizeof} != $have->{sizeof};
+#  # catch invalid
+#  throw "opex: type mismatch for '$ptr->{id}'; "
+#  .     "[$ptr->{type}->{name}] != "
+#  .     "[$type->{name}]"
+#
+#  if $type->{sizeof} != $ptr->{type}->{sizeof};
 
   return $type;
 };
@@ -258,7 +298,9 @@ sub opex_sort {
     if($ARG=~ opex_re()) {
       my @ar=gsplit($ARG,$split_re);
       for(@ar) {
-        throw "opex: undefined operator '$ARG'"
+        throw "opex: undefined operator '$ARG'\n"
+        .     "^at '" . join(" ",@_) . "'"
+
         if!   exists $tab->{$ARG};
 
         push @$chain,$ARG;
@@ -302,34 +344,43 @@ sub opex_inner {
     ;
   # recurse if either operand is a
   # parenthesized expression!
-  my $unary = grep {$ARG eq $s} opex_unary();
+  my $unary = opex_unary($s);
   my $tail  = [];
   my $old   = $mem->{dst};
   my @have  = ($unary)
     ? (is_null($rh) ? ($lh) : ($rh))
-    : ($lh,$rh)
+    : grep {defined $ARG} ($lh,$rh)
     ;
-  push @have,flatten($macro);
-
+  # recurse for operands
   $mem->{dst}=$tail;
-  for(@have) {
-    opex_recurse_chk($mem,\$ARG);
-  };
-  $mem->{dst}=$old;
+  my $tgt=$mem->{tgt};
 
+  push @have,flatten($macro);
+  opex_recurse_chk($mem,\$ARG) for @have;
+
+  $mem->{dst}=$old;
+  $mem->{tgt}=$tgt if! is_null($tgt);
+
+  # generating a "get" for the element being
+  # set is redundant!!
+  if($s eq "=") {
+    shift @$tail;
+  };
   # write opcode + operands
-  opex_push(
-    $mem,
-    $ins->{cmd},
-    undef,
-    @$tail,
-  );
+  opex_push($mem,$ins->{cmd},undef,@$tail);
+
   # mark value(s) as already pushed
-  my @asg=($i != 0)
+  my @asg=($i != 0 &&! $unary)
     ? ($i-1,$i+0,$i+1)
     : ($i+0,$i+1)
     ;
-  $chain->[$ARG]=null for @asg;
+  for(@asg) {
+    next if! defined $chain->[$ARG];
+    if( $ARG == $i
+    ||! exists $tab->{$chain->[$ARG]}) {
+      $chain->[$ARG]=$old;
+    };
+  };
   return;
 };
 
@@ -341,15 +392,23 @@ sub opex_recurse_chk {
   my ($mem,$src)=@_;
   my $tok_re=Arstd::seq::tok_re("scp");
 
+  # solved values are pushed
+  if(is_arrayref($$src)) {
+    push @{$mem->{dst}},@{$$src};
+    @{$$src}=();
+
+    return;
+
   # common values can simply be pushed
   # without further processing
-  if(! ($$src=~ s[$tok_re][])) {
+  } elsif(! ($$src=~ s[$tok_re][])) {
     opex_push_value($mem,$$src);
     return;
   };
   # get string to process,
   # then expand into operation
   my $op=scp_unpack($mem->{strar},$+{idex});
+  strtok($mem->{strar},$op,syx=>$mem->{syx});
   opex($mem,$op);
 
   return;
@@ -380,16 +439,19 @@ sub opex_re {
 };
 sub opex_all {
   return qw(
-    ~ & | ^ !
+    -> ~ & | ^ !
     << >> <@ @>
     * / % ++ + -- -
     < > <= >=
     == != && ||
-    += =
+    += *= = *>
   );
 };
 sub opex_unary {
-  return qw(~ ! ++ --);
+  return {map {$ARG=>1} qw(
+    ~ ! ++ --
+
+  )}->{$_[0]} // 0;
 };
 sub opex_order {
   my $i=0;
@@ -397,37 +459,83 @@ sub opex_order {
 };
 sub opex_tab {
   return {
-    q[~]  => ins_new(xor  => -1),
-    q[&]  => ins_new(and  => ()),
-    q[|]  => ins_new(or   => ()),
-    q[^]  => ins_new(xor  => ()),
-    q[!]  => ins_new(eqz  => ()),
+    q[->] => ins_map(qw(at)),
+    q[~]  => ins_map(qw(not)),
+    q[&]  => ins_map(qw(and)),
+    q[|]  => ins_map(qw(or)),
+    q[^]  => ins_map(qw(xor)),
+    q[!]  => ins_map(qw(eqz)),
 
-    q[<<] => ins_new(shl  => ()),
-    q[>>] => ins_new(shr  => ()),
-    q[<@] => ins_new(rol  => ()),
-    q[@>] => ins_new(ror  => ()),
+    q[<<] => ins_map(qw(shl)),
+    q[>>] => ins_map(qw(shr)),
+    q[<@] => ins_map(qw(rol)),
+    q[@>] => ins_map(qw(ror)),
 
-    q[*]  => ins_new(mul  => ()),
-    q[/]  => ins_new(div  => ()),
-    q[%]  => ins_new(rem  => ()),
-    q[++] => ins_new(set  => 1  => "add"),
-    q[+]  => ins_new(add  => ()),
-    q[--] => ins_new(set  => 1  => "sub"),
-    q[-]  => ins_new(sub  => ()),
+    q[*]  => ins_map(qw(mul)),
+    q[/]  => ins_map(qw(div)),
+    q[%]  => ins_map(qw(rem)),
+    q[++] => ins_map(qw(set 1 add)),
+    q[+]  => ins_map(qw(add)),
+    q[--] => ins_map(qw(set 1 sub)),
+    q[-]  => ins_map(qw(sub)),
 
-    q[<]  => ins_new(lt   => ()),
-    q[>]  => ins_new(gt   => ()),
-    q[<=] => ins_new(le   => ()),
-    q[>=] => ins_new(ge   => ()),
+    q[<]  => ins_map(qw(lt)),
+    q[>]  => ins_map(qw(gt)),
+    q[<=] => ins_map(qw(le)),
+    q[>=] => ins_map(qw(ge)),
 
-    q[==] => ins_new(eq   => ()),
-    q[!=] => ins_new(ne   => ()),
-    q[&&] => "nyi",
-    q[||] => "nyi",
-    q[+=] => ins_new(set => add => ()),
-    q[=]  => ins_new(set => ()),
+    q[==] => ins_map(qw(eq)),
+    q[!=] => ins_map(qw(ne)),
+
+    q[||] => ins_map(qw(lor)),
+    q[&&] => ins_map(qw(land)),
+    q[+=] => ins_map(qw(set add)),
+    q[*=] => ins_map(qw(set mul)),
+    q[=]  => ins_map(qw(set)),
+    q[*>] => ins_map(qw(ptr)),
   };
+};
+
+
+# ---   *   ---   *   ---
+# decompiles instructions back
+# into operators
+
+sub opex_undo {
+  my ($cmd,@args)=@_;
+  my $tab={
+    shl     => "<<",
+    shr     => ">>",
+    eqz     => "!",
+    nez     => "!=",
+    xor     => "^",
+    and     => "&",
+
+    mul     => "*",
+    div     => "/",
+    rem     => "%",
+    add     => "+",
+    sub     => "-",
+
+    lt      => "<",
+    le      => "<=",
+    gt      => ">",
+    ge      => ">=",
+    eq      => "==",
+    ne      => "!=",
+
+    set     => "=",
+    seep    => "=",
+  };
+  return if! exists $tab->{$cmd};
+
+  my $op=$tab->{$cmd};
+  return join($op,@args) if $op eq "=";
+  return "(" . join($op,@args,0) . ")" if $cmd eq "nez";
+  return (opex_unary($op))
+    ? "($op " . $args[0] . ")"
+    : "(" . join($op,@args) . ")"
+    ;
 };
 
 

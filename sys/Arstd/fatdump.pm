@@ -35,23 +35,27 @@ package Arstd::fatdump;
   );
 
   use Arstd::Array qw(nmap);
+  use Arstd::String qw(cat to_char);
+  use Arstd::Bin qw(shank64);
   use Arstd::Fmat qw(tidyup);
-  use Arstd::IO qw(procin procout);
+  use Arstd::IO qw(io_procin io_procout);
   use Arstd::PM qw(codename);
+  use Arstd::strtok qw(strtok unstrtok);
+  use Arstd::seq;
 
 
 # ---   *   ---   *   ---
 # adds to your namespace
 
-  use Exporter 'import';
+  use Exporter "import";
   our @EXPORT=qw(fatdump);
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.01.2';
-  our $AUTHOR  = 'IBN-3DILA';
+  our $VERSION = "v0.01.3";
+  our $AUTHOR  = "IBN-3DILA";
 
 
 # ---   *   ---   *   ---
@@ -69,10 +73,8 @@ sub lvl {
 };
 
 sub pad {
-  my ($x)   = @_;
-     $x   //= 0;
-
-  my $out   = '  ' x (${lvl()} + $x);
+  my $x   = $_[0] // 0;
+  my $out = "  " x (${lvl()} + $x);
 
   return "\$PAD<=${out}=>";
 };
@@ -105,7 +107,6 @@ sub polydump($vref,$blessed=undef) {
     \&deepdump,
     \&codedump,
   ];
-
   # value already seen?
   return $vref if recursing $vref;
 
@@ -113,27 +114,22 @@ sub polydump($vref,$blessed=undef) {
   return "$$vref" if is_qreref($vref)
                   || is_qre($$vref);
 
-
   # map type to idex
   my $idex=(
     (is_arrayref($$vref))
   | (is_hashref($$vref)*2)
   | (is_coderef($$vref)*3)
   );
-
   # ^corner case: blessed ones ;>
   if(! $idex && $$vref && $blessed) {
     my $mod =! int($$vref=~ qr{=ARRAY});
     $idex=is_blessref($$vref)*(1+$mod);
   };
-
-
   # need for recursion?
   my $rec=($blessed && $blessed == 2)
     ? $blessed
     : undef
     ;
-
   # select F from table
   my $f=$tab->[$idex];
 
@@ -142,7 +138,6 @@ sub polydump($vref,$blessed=undef) {
     ? $f->($$vref,$rec)
     : $f->($vref,$rec)
     ;
-
   --$$lvl;
   return "$out";
 };
@@ -160,7 +155,7 @@ sub deepdump($h,$blessed=undef) {
     deepfilter($h,$blessed),
     sub ($kref,$vref) {"${pad}$$kref => $$vref"},
 
-    'kv'
+    "kv"
 
   )) . "\n${ppad}}";
 };
@@ -204,7 +199,7 @@ sub arraydump($ar,$blessed=undef) {
 sub valuedump($vref,$blessed=undef) {
   return (defined $$vref)
     ? valueprich($$vref)
-    : 'undef'
+    : "undef"
     ;
 };
 
@@ -236,12 +231,13 @@ sub codedump($vref,$blessed=undef) {
 
 sub fatdump($vref,%O) {
   # I/O defaults
-  my $out=procin(\%O);
+  my $out=io_procin(\%O);
 
   # defaults
   $O{blessed} //= 0;
   $O{recurse} //= 0;
   $O{plain}   //= 0;
+  $O{crypt}   //= 0;
 
   # ^make setting apply recursively
   $O{blessed}=($O{recurse})
@@ -284,11 +280,38 @@ sub fatdump($vref,%O) {
     $re=qr{(?:^[\[\{])|(?:[\]\}];?$)};
     $s=~ s[$re][]g;
   };
-
+  # minimize output?
+  fatzip($s) if $O{zip}
+             && ${lvl()} == 0;
 
   # ^give repr
   push @$out,$s;
-  return procout(\%O);
+  return io_procout(\%O);
+};
+
+
+# ---   *   ---   *   ---
+# ~~
+
+sub fatzip {
+  # tokenize strings in input
+  my $strar = [];
+  my $syx   = [values %{Arstd::seq::str()}];
+
+  strtok($strar,$_[0],syx=>$syx);
+
+  # ^now remove all whitespace
+  my $re   =  qr{\s*};
+     $_[0] =~ s[$re][]sxmg;
+
+  # change `=>` to `,`
+  # I *think* that should work better
+  $re   =  qr{=>};
+  $_[0] =~ s[$re][,]sxmg;
+
+  # untokenize and give
+  unstrtok($_[0],$strar);
+  return $_[0];
 };
 
 

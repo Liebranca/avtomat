@@ -23,7 +23,7 @@ package Type;
 
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
-  use Chk qw(is_null is_hashref);
+  use Chk qw(is_null is_arrayref is_hashref);
 
   use Arstd::Bytes qw(bitsize);
   use Arstd::Int qw(urdiv);
@@ -39,6 +39,7 @@ package Type;
     typefet
     typedef
 
+    array
     struc
     union
     restruc
@@ -47,8 +48,10 @@ package Type;
     badptr
 
     is_signed
+    is_prim
+    is_struc
+    is_array
   );
-  use parent 'St';
 
 
 # ---   *   ---   *   ---
@@ -56,8 +59,10 @@ package Type;
 
   use Exporter 'import';
   our @EXPORT_OK=qw(
+    array
     struc
     strucf
+    strucv
     restruc
 
     sizeof
@@ -70,28 +75,32 @@ package Type;
     typefet
     typedef
     typetab
+    typeraw
 
     badtype
     badptr
 
     is_signed
+    is_real
+    is_prim
+    is_struc
+    is_array
+    is_ptr
   );
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.04.7';
-  our $AUTHOR  = 'IBN-3DILA';
+  our $VERSION = "v0.04.9";
+  our $AUTHOR  = "IBN-3DILA";
   sub errsafe {return 1};
 
 
 # ---   *   ---   *   ---
 # ROM
 
-St::vconst {
-  DEFAULT=>typefet 'word',
-};
+sub DEFAULT {typefet("word")};
 
 
 # ---   *   ---   *   ---
@@ -118,17 +127,15 @@ BEGIN {
 sub strucf($type,$name) {
   # get idex of field
   my $names = $type->{struc_i};
-  my $idex  = iof $names,$name;
+  my $idex  = iof($names,$name);
 
   # ^validate
   return badstrucf("$type->{name}.$ARG")
-  if ! defined $idex;
-
+  if!    defined $idex;
 
   # ^get type
   my $field_t = $type->{struc_t}->[$idex];
      $field_t = typefet($field_t);
-
 
   return ($field_t,$idex);
 };
@@ -143,17 +150,33 @@ sub badstrucf($name) {
 
 
 # ---   *   ---   *   ---
+# get first field within struc that
+# is a primitive;
+#
+# if first field is also a struc,
+# then recurse
+
+sub strucv {
+  my $type  = typefet($_[0]);
+  my $field = typefet($type->{struc_t}->[0]);
+  return ($field->{sizebs} > 64)
+    ? strucv($field)
+    : $field
+    ;
+};
+
+
+# ---   *   ---   *   ---
 # get bytesize of type
 
 sub sizeof($name,@field) {
   # validate input
-  my $type=typefet($name)
-  or return badtype($name);
+  return 0 if is_null($name);
+  my $type=typefet($name);
 
   # ^prepare output
   my $out  = $type->{sizeof};
      $name = $type->{name};
-
 
   # sizeof struc.field?
   for(@field) {
@@ -172,8 +195,6 @@ sub sizeof($name,@field) {
       $name .= ".$ARG";
     };
   };
-
-
   return $out;
 };
 
@@ -220,8 +241,8 @@ sub derefof($ptr_t) {
   or return null;
 
   # strip flags
-  my $re   = Type::MAKE->RE->{ptr_any};
-  my $name = $ptr_t->{name};
+  my $re   =  Type::MAKE->RE->{ptr_any};
+  my $name =  $ptr_t->{name};
      $name =~ s[$re][]sxmg;
 
   # ^clear blanks
@@ -243,15 +264,13 @@ sub offsetof($type,$field) {
   # give zero if not a struc!
   return 0 if ! @{$type->{struc_t}};
 
-
   # get struc field
-  my ($field_t,$idex)=
-    strucf $type,$field;
+  my ($field_t,$idex)=strucf($type,$field);
 
   # ^validate and give
-  return (length $field_t)
+  return (! is_null($field_t))
     ? $type->{struc_off}->[$idex]
-    : $field_t
+    : 0
     ;
 };
 
@@ -275,6 +294,62 @@ sub bitfit($size,$bytes=0) {
   };
 
   return $out;
+};
+
+
+# ---   *   ---   *   ---
+# ~~
+
+sub typeraw {
+  my $in    = typefet($_[0]);
+  my $array = qr{_arr$};
+  my $szre  = qr{\[\d+\]$};
+  my $laysz = int(@{$in->{layout}});
+
+  my $struc = null;
+  my @data  = ();
+
+  my ($idex,$type)=typeraw_struc();
+
+  for my $i(0..$#$idex) {
+    # get typing data for field
+    my $field = $type->[$i];
+    my $len   = ($field=~ s[$array][])
+      ? $laysz
+      : 1
+      ;
+    $field=typefet($field);
+
+    # get format for pack
+    my $fmat=$field->{packof};
+    if(! ($fmat=~ s/$szre/[$len]/)) {
+      $fmat=$fmat x $len;
+    };
+    $struc .= $fmat;
+
+    # read value
+    my $value=$in->{$idex->[$i]};
+    push @data,(is_arrayref($value))
+      ? @{$value}
+      : $value
+      ;
+  };
+  return pack($struc,@data);
+};
+sub typeraw_struc {
+  my @tab=qw(
+    sizeof      dword
+    flags       word
+    layout      word_arr
+    packof      cstr
+    name        cstr
+    struc_t     cstr_arr
+    struc_i     cstr_arr
+  );
+  return (
+    [nkeys(\@tab)],
+    [nvalues(\@tab)]
+  );
 };
 
 
@@ -307,7 +382,7 @@ sub rm($class,$type) {
 # ---   *   ---   *   ---
 # proto: check name against re
 
-sub _typeisa($class,$type,$key) {
+sub _typeisa($type,$key) {
   $type=typename($type);
   return int ($type=~ Type::MAKE->RE->{$key});
 };
@@ -317,7 +392,7 @@ sub _typeisa($class,$type,$key) {
 # ^icef*ck
 
 subwraps(
-  q[$class->_typeisa]=>q[$class,$type],
+  q[Type::_typeisa]=>q[$type],
   map {
     my ($suffix,$name)=split qr{:},$ARG;
     ["is_$suffix" => "\$type,'$name'"];
@@ -326,7 +401,6 @@ subwraps(
     str:str_t
     ptr:ptr_any
     real:real
-    prim:prim
   ),
 );
 

@@ -27,7 +27,7 @@ package Tree;
 
   use Arstd::String qw(strip);
   use Arstd::Re qw(eiths);
-  use Arstd::IO qw(procin procout);
+  use Arstd::IO qw(io_procin io_procout);
   use Arstd::throw;
 
   use St qw(is_valid is_iceof);
@@ -2124,7 +2124,7 @@ sub repr($self,$depth,$prev,%O) {
 
 sub prich($self,%O) {
   # I/O defaults
-  my $out=Arstd::IO::procin(\%O);
+  my $out=io_procin(\%O);
   $O{max_depth} //= 0x24;
   $O{vrecurse}  //= 0;
   $O{-x}        //= no_match;
@@ -2187,7 +2187,7 @@ sub prich($self,%O) {
   };
 
 
-  return Arstd::IO::procout(\%O);
+  return io_procout(\%O);
 };
 
 

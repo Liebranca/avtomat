@@ -32,14 +32,15 @@ package Arstd::Int;
     npow
     npow2
     ispow
+    mulpow2
   );
 
 
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = 'v0.00.6';
-  our $AUTHOR  = 'IBN-3DILA';
+  our $VERSION = "v0.00.7";
+  our $AUTHOR  = "IBN-3DILA";
 
 
 # ---   *   ---   *   ---
@@ -100,6 +101,14 @@ sub npow2($a,$give_exp=0) {
   $x++ while (1 << $x) < $a;
 
   return ($give_exp) ? $x : 1 << $x;
+};
+
+
+# ---   *   ---   *   ---
+# get next multiple of a power of 2
+
+sub mulpow2 {
+  return ($_[0]+($_[1]-1)) &~ ($_[1]-1);
 };
 
 
