@@ -94,7 +94,7 @@ package Arstd::ir;
 # ---   *   ---   *   ---
 # info
 
-  my $VERSION = "v0.01.2a";
+  my $VERSION = "v0.01.4a";
   my $AUTHOR  = "IBN-3DILA";
 
 
@@ -122,8 +122,8 @@ sub ctoir {
 };
 sub ir_build {
   for(qw(ins eins)) {
-    my $ins=$_[1]->{$ARG};
-    @$ins=ins_build($_[0],typefet("void"),@$ins);
+    my $ar=$_[1]->{$ARG};
+    @$ar=ins_build($_[0],typefet("void"),@$ar);
   };
   ir_build($_[0],$ARG) for @{$_[1]->{body}};
   return;
@@ -310,7 +310,6 @@ sub ir_defnit {
   $_[0]->{body}   //= [];
   $_[0]->{ins}    //= [];
   $_[0]->{eins}   //= [];
-  $_[0]->{ctx}    //= {};
   $_[0]->{flg}    //= {};
   $_[0]->{meta}   //= null;
   $_[0]->{label}  //= null;
@@ -358,14 +357,13 @@ sub node_proc {
     @{$node->{blk}}
   );
   # close scope and save data
-  my $ctx=vm_leave($vm);
+  vm_leave($vm);
 
   # give IR
   my $label=vm_label_find($vm,$name);
   return {
     name => $name,
     type => $type,
-    ctx  => $ctx,
     body => \@body,
     dep  => $dep,
     ins  => [
@@ -387,7 +385,16 @@ sub node_proc {
 sub node_asg {
   my ($vm,$node)=@_;
   my ($type,$name,@expr)=ins_rdnode($node,0);
-
+  if(@{$node->{blk}}) {
+    my @blk=(
+      map {join(" ",gstrip(
+        $ARG->{cmd},
+        $ARG->{expr},
+      ))} @{$node->{blk}}
+    );
+    push @expr,@blk;
+    $node->{expr} .= "{" . join(" ",@blk) . "}";
+  };
   # declaring value?
   my $decl =! is_null($type);
   if($decl) {
@@ -426,7 +433,7 @@ sub node_expr {
   # valid type in this case means it's
   # a declaration without a value!
   if(! is_null($type)) {
-    vm_local($vm,$type,$name);
+    ($type,$name)=vm_local($vm,$type,$name);
     return null;
 
   # fetch the current function's type
@@ -921,7 +928,7 @@ sub ir_stkchk_take {
         $y=sizeof(derefof($b));
       };
     };
-    return "type mismatch" if $x != $y;
+#    return "type mismatch" if $x != $y;
     --$take;
   };
   return;

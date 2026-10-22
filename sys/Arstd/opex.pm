@@ -52,7 +52,7 @@ package Arstd::opex;
 # ---   *   ---   *   ---
 # info
 
-  my $VERSION = "v0.00.9a";
+  my $VERSION = "v0.01.1a";
   my $AUTHOR  = "IBN-3DILA";
 
 
@@ -69,7 +69,7 @@ sub opex {
   # expansions
   opex_fn($mem,\$s);
 
-  # ~~
+  # solve array indexing
   opex_arr($mem,\$s);
 
   # get operators in expression,
@@ -314,8 +314,8 @@ sub opex_sort {
   # get order of operations...
   my $order=opex_order();
   @$op=sort {
-    $order->{$chain->[$a]}
-  > $order->{$chain->[$b]}
+      $order->{$chain->[$a]}
+  <=> $order->{$chain->[$b]}
 
   } @$op;
 
@@ -359,16 +359,24 @@ sub opex_inner {
   opex_recurse_chk($mem,\$ARG) for @have;
 
   $mem->{dst}=$old;
-  $mem->{tgt}=$tgt if! is_null($tgt);
+  $mem->{tgt}=$tgt;
 
   # generating a "get" for the element being
   # set is redundant!!
   if($s eq "=") {
-    shift @$tail;
+    my $tmp=shift @$tail;
+    for(@$tail,$ins) {
+      $ARG->{args}->[0]=$tmp->{args}->[0]
+      if is_null($ARG->{args}->[0]);
+    };
   };
   # write opcode + operands
-  opex_push($mem,$ins->{cmd},undef,@$tail);
-
+  opex_push(
+    $mem,
+    $ins->{cmd},
+    (@{$ins->{args}} ? $ins->{args} : undef),
+    @$tail
+  );
   # mark value(s) as already pushed
   my @asg=($i != 0 &&! $unary)
     ? ($i-1,$i+0,$i+1)
@@ -438,14 +446,14 @@ sub opex_re {
   return qr{([^[:alnum:]_]+)};
 };
 sub opex_all {
-  return qw(
+  return gsplit(q[
     -> ~ & | ^ !
     << >> <@ @>
     * / % ++ + -- -
     < > <= >=
-    == != && ||
+    == != && || ,
     += *= = *>
-  );
+  ]);
 };
 sub opex_unary {
   return {map {$ARG=>1} qw(
@@ -489,6 +497,7 @@ sub opex_tab {
 
     q[||] => ins_map(qw(lor)),
     q[&&] => ins_map(qw(land)),
+    q[,]  => ins_map(qw(list)),
     q[+=] => ins_map(qw(set add)),
     q[*=] => ins_map(qw(set mul)),
     q[=]  => ins_map(qw(set)),
@@ -526,6 +535,7 @@ sub opex_undo {
 
     set     => "=",
     seep    => "=",
+    list    => ",",
   };
   return if! exists $tab->{$cmd};
 

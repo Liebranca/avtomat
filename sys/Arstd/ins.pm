@@ -22,8 +22,15 @@ package Arstd::ins;
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null nop);
   use Chk qw(is_null is_hashref);
-  use Type qw(typefet typetab sizeof derefof);
-
+  use Type qw(
+    typefet
+    typetab
+    sizeof
+    derefof
+    offsetof
+    strucf
+    strucv
+  );
   use Arstd::String qw(gstrip gsplit);
   use Arstd::Bin qw(deepcpy);
   use Arstd::vm qw(
@@ -35,8 +42,11 @@ package Arstd::ins;
     vm_label
     vm_label_str
     vm_load
+    vm_dload
     vm_store
+    vm_dstore
     vm_local
+    vm_addr_t
   );
   use Arstd::throw;
   use Tree::C qw(asg_re);
@@ -73,7 +83,7 @@ package Arstd::ins;
 # ---   *   ---   *   ---
 # info
 
-  my $VERSION = "v0.01.6a";
+  my $VERSION = "v0.01.8a";
   my $AUTHOR  = "IBN-3DILA";
 
 
@@ -94,10 +104,7 @@ sub ins_build {
       : $_[1]
       ;
     ins_propagate_t($ARG,$rtype);
-    ins_unfold(
-      {vm=>$_[0]},
-      $ARG,
-    );
+    ins_unfold({vm=>$_[0]},$ARG);
 
   } ins_fold(@_[2..$#_]);
 };
@@ -226,7 +233,8 @@ sub ins_unfold {
   # recursion, and we can detect this by
   # checking that they have no operands to
   # consume anymore!
-  if( ins_stkn(@tail)
+  if( is_null($ins->{cmd})
+  ||  ins_stkn(@tail)
   <   ins_argcnt($ins->{cmd}) ) {
     return (@tail);
   };
@@ -249,15 +257,32 @@ sub ins_unfold {
   return @flat;
 };
 
+
 # ---   *   ---   *   ---
 # propagate typing data whenever missing
 
 sub ins_propagate_t {
-  my ($ins,$type)=@_;
-  $ins->{type}=$type if is_null($ins->{type});
+  my ($ins,$type,$force)=@_;
+  $force //= 0;
 
-  ins_propagate_t($ARG,$type)
+  $ins->{type}=$type if $force
+                     || is_null($ins->{type});
+
+  ins_propagate_t($ARG,$type,$force)
   for @{$ins->{tail}};
+
+  return;
+};
+
+
+# ---   *   ---   *   ---
+# swaps head for element in tail
+
+sub ins_twap {
+  shift @{$_[0]->{tail}};
+  push  @{$_[1]->{tail}},{%{$_[0]}};
+
+  %{$_[0]}=%{$_[1]};
 
   return;
 };
@@ -430,19 +455,13 @@ sub macro_ptr {
       && ($value->{type} eq $have->{type});
 
     } else {
-      $have->{cmd}="load";
+      $ins->{cmd}="load";
     };
-  # ~~
+    $have->{type}=derefof($have->{type});
+
   } else {
-    $ins->{cmd}  = $have->{cmd};
-    $have->{cmd} = ($have->{cmd} eq "set")
-      ? "load"
-      : "store"
-      ;
-    $have->{args}=[];
-    @{$ins->{tail}}=reverse @tail;
+    ins_twap($ins,$have);
   };
-  $have->{type}=derefof($have->{type});
   return;
 };
 
@@ -452,19 +471,58 @@ sub macro_ptr {
 
 sub macro_at {
   my ($ctx,$ins)=@_;
-  my ($base,$off)=@{$ins->{tail}};
+  $ins->{cmd}="add";
 
-#  $ins->{tail}->[1]={
-#    cmd  => "mul",
-#    type => $off->{type},
-#    args => [],
-#    tail => [$off,{
-#      cmd  => "const",
-#      type => $off->{type},
-#      args => [sizeof(derefof($ins->{type}))],
-#      tail => [],
-#    }],
-#  };
+  return;
+};
+
+
+# ---   *   ---   *   ---
+# ~~
+
+sub macro_list {
+  state $depth=0;
+  my ($ctx,$ins)=@_;
+  my $tail=$ins->{tail};
+  return if! @$tail;
+
+  ++$depth;
+  my $have=$tail->[0];
+  @$tail=(
+    grep {$ARG->{cmd} ne "list"}
+    map  {
+      macro_list($ctx,$ARG);
+      ($ARG->{cmd} eq "list")
+        ? @{$ARG->{tail}}
+        : $ARG
+        ;
+    } @$tail
+  );
+  --$depth;
+  return if $ins->{cmd} ne "list"
+         || $depth;
+
+  my @out  = ();
+  my $base = $ins->{args}->[0];
+  my $i    = 0;
+  for(@$tail) {
+    my $addr    = ins_new(vm_addr_t(),at=>());
+    my $off     = offsetof($ins->{type},$i);
+    my ($stype) = strucf($ins->{type},$i);
+    $addr->{tail}=[
+      ins_new($stype,get=>($base)),
+      ins_new(vm_addr_t(),const=>($off)),
+    ];
+    ins_propagate_t($ARG,$stype,1);
+    my $store=ins_new($stype,store=>());
+    $store->{tail}=[$addr,$ARG];
+
+    push @out,$store;
+    ++$i;
+  };
+  $ins->{cmd}=null;
+  @$tail=@out;
+
   return;
 };
 
@@ -532,6 +590,25 @@ sub ins_cleanup_redundant {
     ? $fn->($ctx,$ins,@tail)
     : ($ins,@tail)
     ;
+};
+
+
+# ---   *   ---   *   ---
+# cleanup method for add
+
+sub ins_add_cl {
+  my ($ctx,$ins,@tail)=@_;
+
+  # anything plus 0 means no addition!
+  for(@tail) {
+    if(ins_constchk($ARG,0)) {
+      my $zero=$ARG;
+      $ins->{cmd}=null;
+      @tail=grep {$ARG ne $zero} @tail;
+      last;
+    };
+  };
+  return ($ins,@tail);
 };
 
 
@@ -677,7 +754,11 @@ sub ins_rdexpr {
 
   } else {
     @expr=gsplit($have);
-    $name=pop @expr;
+    $name=null;
+    do {
+      $name=(pop @expr) . $name;
+    } while(@expr &&! ($name=~ qr{^[[:alpha:]]}));
+
     $type=join(" ",gstrip(@expr));
 
     if( ($pure)
@@ -698,7 +779,7 @@ sub ins_rdexpr {
 sub ins_tab_def {
   return {
     ins_decl(not=>(
-      collapse=>sub {~ $_[0]},
+      collapse=>sub {~ $_[1]},
       execute=>sub {
         my ($x)=vm_pop($_[0]);
         return vm_push(
@@ -709,7 +790,7 @@ sub ins_tab_def {
       },
     )),
     ins_decl(neg=>(
-      collapse=>sub {- $_[0]},
+      collapse=>sub {- $_[1]},
       execute=>sub {
         my ($x)=vm_pop($_[0]);
         return vm_push(
@@ -720,7 +801,7 @@ sub ins_tab_def {
       },
     )),
     ins_decl(ne=>(
-      collapse=>sub {$_[0] ne $_[1]},
+      collapse=>sub {$_[1] ne $_[2]},
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -731,7 +812,7 @@ sub ins_tab_def {
       },
     )),
     ins_decl(eq=>(
-      collapse=>sub {$_[0] eq $_[1]},
+      collapse=>sub {$_[1] eq $_[2]},
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -743,7 +824,7 @@ sub ins_tab_def {
     )),
     ins_decl(eqz=>(
       argcnt=>1,
-      collapse=>sub {$_[0] eq 0},
+      collapse=>sub {$_[1] eq 0},
       execute=>sub {
         my ($x)=vm_pop($_[0]);
         return vm_push(
@@ -755,7 +836,7 @@ sub ins_tab_def {
     )),
     ins_decl(nez=>(
       argcnt=>1,
-      collapse=>sub {$_[0] ne 0},
+      collapse=>sub {$_[1] ne 0},
       execute=>sub {
         my ($x)=vm_pop($_[0]);
         return vm_push(
@@ -768,7 +849,7 @@ sub ins_tab_def {
 
     ins_decl(lt=>(
       signed=>1,
-      collapse=>sub {$_[0] <  $_[1]},
+      collapse=>sub {$_[1] <  $_[2]},
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -780,7 +861,7 @@ sub ins_tab_def {
     )),
     ins_decl(le=>(
       signed=>1,
-      collapse=>sub {$_[0] <= $_[1]},
+      collapse=>sub {$_[1] <= $_[2]},
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -792,7 +873,7 @@ sub ins_tab_def {
     )),
     ins_decl(gt=>(
       signed=>1,
-      collapse=>sub {$_[0] >  $_[1]},
+      collapse=>sub {$_[1] >  $_[2]},
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -804,7 +885,7 @@ sub ins_tab_def {
     )),
     ins_decl(ge=>(
       signed=>1,
-      collapse=>sub {$_[0] >= $_[1]},
+      collapse=>sub {$_[1] >= $_[2]},
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -816,7 +897,7 @@ sub ins_tab_def {
     )),
 
     ins_decl(mul=>(
-      collapse=>sub {$_[0] *  $_[1]},
+      collapse=>sub {$_[1] *  $_[2]},
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -828,7 +909,7 @@ sub ins_tab_def {
     )),
     ins_decl(div=>(
       signed=>1,
-      collapse=>sub {$_[0] /  $_[1]},
+      collapse=>sub {$_[1] /  $_[2]},
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -840,7 +921,7 @@ sub ins_tab_def {
     )),
     ins_decl(rem=>(
       signed=>1,
-      collapse=>sub {$_[0] %  $_[1]},
+      collapse=>sub {$_[1] %  $_[2]},
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -851,7 +932,8 @@ sub ins_tab_def {
       },
     )),
     ins_decl(add=>(
-      collapse=>sub {$_[0] +  $_[1]},
+      collapse=>sub {$_[1] +  $_[2]},
+      cleanup=>\&ins_add_cl,
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -862,7 +944,7 @@ sub ins_tab_def {
       },
     )),
     ins_decl(sub=>(
-      collapse=>sub {$_[0] -  $_[1]},
+      collapse=>sub {$_[1] -  $_[2]},
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -876,7 +958,7 @@ sub ins_tab_def {
     ins_decl(ror=>()),
     ins_decl(rol=>()),
     ins_decl(shr=>(
-      collapse=>sub {$_[0] >> $_[1]},
+      collapse=>sub {$_[1] >> $_[2]},
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -888,7 +970,7 @@ sub ins_tab_def {
     )),
     ins_decl(shl=>(
       signed=>1,
-      collapse=>sub {$_[0] << $_[1]},
+      collapse=>sub {$_[1] << $_[2]},
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -899,7 +981,7 @@ sub ins_tab_def {
       },
     )),
     ins_decl(xor=>(
-      collapse=>sub {$_[0] ^  $_[1]},
+      collapse=>sub {$_[1] ^  $_[2]},
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -910,7 +992,7 @@ sub ins_tab_def {
       },
     )),
     ins_decl(or=>(
-      collapse=>sub {$_[0] |  $_[1]},
+      collapse=>sub {$_[1] |  $_[2]},
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
         return vm_push(
@@ -921,7 +1003,7 @@ sub ins_tab_def {
       },
     )),
     ins_decl(and=>(
-      collapse=>sub {$_[0] &  $_[1]},
+      collapse=>sub {$_[1] &  $_[2]},
       cleanup=>\&ins_and_cl,
       execute=>sub {
         my ($x,$y)=vm_pop($_[0],2);
@@ -934,10 +1016,10 @@ sub ins_tab_def {
     )),
 
     ins_decl(lor=>(
-      collapse=>sub {$_[0] || $_[1]},
+      collapse=>sub {$_[1] || $_[2]},
     )),
     ins_decl(land=>(
-      collapse=>sub {$_[0] && $_[1]},
+      collapse=>sub {$_[1] && $_[2]},
       expand=>\&macro_land,
     )),
 
@@ -983,7 +1065,7 @@ sub ins_tab_def {
       },
     )),
     ins_decl(sel=>(
-      collapse=>sub {$_[2] ? $_[0] : $_[1]},
+      collapse=>sub {$_[3] ? $_[1] : $_[2]},
       argcnt=>3,
       execute=>sub {
         my ($x,$y,$c)=vm_pop($_[0],3);
@@ -991,8 +1073,23 @@ sub ins_tab_def {
       },
     )),
 
-    ins_decl(load=>(argcnt=>1)),
-    ins_decl(store=>(argcnt=>2,term=>1,pushcnt=>0)),
+    ins_decl(load=>(
+      argcnt=>1,
+      pushcnt=>1,
+      execute=>sub {
+        my ($addr)=vm_pop($_[0]);
+        return vm_dload($_[0],$addr);
+      },
+    )),
+    ins_decl(store=>(
+      argcnt=>2,
+      pushcnt=>0,
+      term=>1,
+      execute=>sub {
+        my ($addr,$x)=vm_pop($_[0],2);
+        return vm_dstore($_[0],$addr,$x);
+      },
+    )),
 
     ins_decl(proc=>(argcnt=>0,pushcnt=>0)),
     ins_decl(in=>(argcnt=>0,pushcnt=>0)),
@@ -1128,8 +1225,21 @@ sub ins_tab_def {
     ins_decl(ret=>(argcnt=>0,pushcnt=>0,term=>1)),
     ins_decl(end=>(argcnt=>0,pushcnt=>0)),
 
+    ins_decl(list=>(
+      argcnt=>2,
+      pushcnt=>1,
+      expand=>\&macro_list,
+    )),
     ins_decl(at=>(
       expand=>\&macro_at,
+      execute=>sub {
+        my ($base,$off)=vm_pop($_[0],2);
+        return vm_push(
+          $_[0],
+          strucv($base->{type}),
+          $base->{value}+$off->{value}
+        );
+      },
     )),
     ins_decl(ptr=>(
       argcnt=>1,

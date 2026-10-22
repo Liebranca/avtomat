@@ -22,8 +22,15 @@ package avto::spider::compile;
   use lib "$ENV{ARPATH}/lib/sys/";
   use Style qw(null);
   use Chk qw(is_null is_file is_hashref);
-  use Type qw(typefet is_signed is_real);
-
+  use Type qw(
+    typefet
+    is_signed
+    is_real
+    is_array
+    is_struc
+    is_ptr
+    strucv
+  );
   use Arstd::String qw(
     cat
     jag
@@ -46,7 +53,9 @@ package avto::spider::compile;
     vm_leave
     vm_var_has
     vm_sym_in
+    vm_sym_local
     vm_sym_out
+    vm_addr_t
   );
   use Arstd::ins qw(
     ins_new
@@ -87,17 +96,24 @@ sub import {
   my $vm=vm_new();
   my @ir=ctoir($vm,$body);
 
-  # for running and previewing the IR itself
-  AR::run("avto::pl",$vm,@ir);
-  exit;
+#  # for running and previewing the IR itself
+#  AR::run("avto::pl",$vm,@ir);
+#  exit;
 
   # TODO
   # optimization passes to the IR should
   # be performed right here ;>
 
+  # standard WAT header
+  my $head=join("\n",
+    ";; registers",
+    "(global \$sp (mut i32) (i32.const 0))",
+    "(global \$sb (mut i32) (i32.const 0))",
+    "(memory \$ram 1)",
+  );
   # generate WAT code from IR
   my $out=join("\n",map {xlate($vm,$ARG)} @ir);
-  return "(module\n$out\n)";
+  return "(module\n\n$head\n$out\n)";
 };
 sub xlate {
   state $depth=-1;
@@ -125,7 +141,7 @@ sub xlate {
   --$depth;
 
   my $meta=(! is_null($ir->{meta}))
-    ? "$pad;; $ir->{meta}\n"
+    ? "\n$pad;; $ir->{meta}\n"
     : ""
     ;
 
@@ -163,19 +179,89 @@ sub xlate_proc {
   . ")";
   } vm_sym_in($vm);
 
-  my $result="(result "
-  . xlate_type($vm,vm_sym_out($vm))
-  . ")";
+  my @local=vm_sym_local($vm);
+  my ($rtype)=vm_sym_out($vm);
+  my @result=(! is_null($rtype))
+    ? "(result " . xlate_type($vm,$rtype) . ")"
+    : ()
+    ;
+  # handle stack mambo...
+  my ($stk,$stk_cl,$stk_sz)=(null,null,0);
+  my $addr_t = xlate_type_tab()->{
+    vm_addr_t()->{name}
+  };
+  for(@local) {
+    my $type=$ARG->{type};
+    next if! (  is_array($type)
+             || is_struc($type)
+             || is_ptr($ARG) );
 
+    if($stk_sz == 0) {
+      $stk_sz=vm_addr_t()->{sizeof};
+    };
+    $stk .= join("\n",
+      "  global.get \$sb",
+      "  $addr_t.const $stk_sz",
+      "  $addr_t.add",
+      "  local.set \$$ARG->{id}",
+    );
+    $stk_sz += $type->{sizeof};
+  };
+  if($stk_sz > 0) {
+    $stk=join("\n",
+      "  ;; preserve stack base",
+      "  global.get \$sp",
+      "  global.get \$sb",
+      "  $addr_t.store",
+      "",
+      "  ;; ^set new",
+      "  global.get \$sp",
+      "  global.set \$sb",
+      "",
+      "  ;; update stack ptr",
+      "  global.get \$sp",
+      "  $addr_t.const $stk_sz",
+      "  $addr_t.add",
+      "  global.set \$sp",
+      "",
+      "  ;; init vars",
+      $stk,
+    );
+    $stk_cl=join("\n",
+      "",
+      "",
+      "  ;; restore stack ptr",
+      "  global.get \$sb",
+      "  global.set \$sp",
+      "",
+      "  ;; restore stack base",
+      "  global.get \$sb",
+      "  $addr_t.load",
+      "  global.set \$sb",
+    );
+  };
   my $out=join("\n",
     join(" ",
       emit($vm,$ir->{ins}),
       @param,
-      $result,
+      @result,
     ),
+
+    (map {
+      "(local \$$ARG->{id} "
+    . xlate_type($vm,$ARG)
+    . ")"
+    } @local),
+
+    ($stk_sz > 0 ? $stk : ()),
+
     xlate_blk($vm,@$body),
     emit($vm,$ir->{eins}),
   );
+  if($stk_sz > 0) {
+    my $re=qr{(\n\h*return)};
+    $out=~ s[$re][$stk_cl$1]g;
+  };
   if($flg->{public}) {
     $out .= qq[\n(export "$name" (func \$$name))]
   };
@@ -380,6 +466,11 @@ sub xlate_type {
   my ($vm,$ins)=@_;
   return null if is_null($ins->{type});
 
+  # arrays/struc decay to a pointer
+  my $type=$ins->{type};
+  if(is_array($type) || is_struc($type)) {
+    $type=strucv($type);
+  };
   # catch invalid
   #
   # note that not all instructions use their
@@ -388,7 +479,7 @@ sub xlate_type {
   throw  "spider: undefined type "
   .      "<$ins->{type}->{name}>"
 
-  if!    xlate_type_valid($ins->{type}->{name});
+  if!    xlate_type_valid($type->{name});
 
   # these instructions do not require a type
   # (see above note ;>)
@@ -405,9 +496,8 @@ sub xlate_type {
   };
   # ^else *do* perform typing mambo
   my $tab  = xlate_type_tab();
-  my $type = $tab->{$ins->{type}->{name}};
+     $type = $tab->{$type->{name}};
   my $suf  = null;
-
 
   return $type;
 };

@@ -28,19 +28,22 @@ package Arstd::vm;
     typefet
     typename
     sizeof
-
+    derefof
+    strucv
     is_array
   );
 
   use Arstd::String qw(
     strip
     gstrip
+    gsplit
     time_to_uid
   );
   use Arstd::seq;
   use Arstd::strtok qw(strtok);
   use Arstd::mem qw(
     mem_new
+    mem_del
     mem_flg
     mem_blk
     mem_has
@@ -51,6 +54,7 @@ package Arstd::vm;
     mem_dload
 
     ptr_new
+    ptr_del
     ptr_flg
     ptr_get
     ptr_addr
@@ -70,10 +74,11 @@ package Arstd::vm;
     vm_in
     vm_local
     vm_out
-    vm_var_blk
+    vm_sym_blk
     vm_var_get
     vm_var_has
     vm_sym_in
+    vm_sym_local
     vm_sym_out
     vm_sym_get
     vm_eval
@@ -81,7 +86,9 @@ package Arstd::vm;
     vm_push
     vm_pop
     vm_load
+    vm_dload
     vm_store
+    vm_dstore
     vm_skip
     vm_jmp
     vm_prog
@@ -92,14 +99,21 @@ package Arstd::vm;
     vm_label_find
     vm_label_str
     vm_strir
+    vm_addr_t
   );
 
 
 # ---   *   ---   *   ---
 # info
 
-  my $VERSION = "v0.01.0a";
+  my $VERSION = "v0.01.2a";
   my $AUTHOR  = "IBN-3DILA";
+
+
+# ---   *   ---   *   ---
+# we're only using 32-bit pointers for now
+
+sub vm_addr_t {typefet("dword")};
 
 
 # ---   *   ---   *   ---
@@ -113,8 +127,10 @@ sub vm_new {
   $O{prev}    //= [];
   $O{cur}     //= undef;
   $O{typetab} //= {-uid=>0};
-  $O{lvl}     //= 0;
-  $O{rip}     //= 0;
+  $O{pid}     //= null;
+  $O{ip}      //= 0;
+  $O{sp}      //= 0;
+  $O{sb}      //= 0;
   $O{prog}    //= [];
   $O{label}   //= [];
   $O{jmp}     //= {};
@@ -124,8 +140,9 @@ sub vm_new {
   $self->{cur}=$self->{mem};
   mem_blk(
     $self->{mem},
-    id  => "var",
-    flg => mem_flg(qw(ram grow)),
+    id  => "-ram",
+    flg => mem_flg(qw(grow ram)),
+    sz  => 256,
   );
   vm_label_new($self,$self->{mem}->{id});
   return $self;
@@ -148,7 +165,7 @@ sub vm_ctx_save {
     qw  (rip prog cur)
   };
   # reset
-  $vm->{rip}   = -1;
+  $vm->{ip}    = -1;
   $vm->{prog}  = [@prog];
   $vm->{cur}   = $vm->{mem};
 
@@ -190,38 +207,63 @@ sub vm_enter {
   my ($vm,$id,@flg)=@_;
   push @{$vm->{prev}},[
     $vm->{cur},
-    vm_var_blk($vm)->{buf}
+    $vm->{pid},
+    $vm->{sb},
   ];
+  # we make an id for the stack frame
+  my $pid="${id}." . time_to_uid();
+  $vm->{pid}=$pid;
+
   # switching to existing block?
-  my $out;
+  my $sym;
   if(exists $vm->{mem}->{ftab}->{$id}) {
-    $out=$vm->{mem}->{ftab}->{$id};
+    $sym=vm_sym_get($vm,$id);
 
   # ^nope, make new!
   } else {
-    $out=mem_blk(
+    $sym=mem_blk(
       $vm->{cur},
       id  => $id,
       flg => mem_flg(grow=>@flg),
     );
-    mem_blk(
-      $out,
-      id  => "var",
-      flg => mem_flg(qw(ram grow)),
-    );
     vm_label_new($vm,$id);
   };
+  # setup stack
+  $vm->{sb}=$vm->{sp};
+  for (vm_sym_vtab($vm,$sym)) {
+    next if ($ARG->{id}=~ qr{\*>})
+         || $ARG->{flg} & ptr_flg("out");
+
+    my $ptr=ptr_new(
+      vm_ram_blk($vm),
+      $ARG->{type},
+      "${pid}.$ARG->{id}",
+      $vm->{sp},
+    );
+    $ptr->{flg}  = $ARG->{flg};
+    $vm->{sp}   += $ARG->{type}->{sizeof};
+  };
   # set as current and give
-  $vm->{cur}=$out;
-  return $out;
+  $vm->{cur}=$sym;
+  return $sym;
 };
 sub vm_leave {
   my ($vm)=@_;
   my $out=$vm->{cur};
   my $prev=pop @{$vm->{prev}};
 
-  $vm->{cur}=$prev->[0];
-  vm_var_blk($vm)->{buf}=$prev->[1];
+  # cleanup stack
+  my ($id)=gsplit($vm->{pid},qr{\.});
+  my $sym=vm_sym_get($vm,$id);
+  my $ram=vm_ram_blk($vm);
+  for(values %{$sym->{vtab}}) {
+    ptr_del($ram,"$vm->{pid}.$ARG->{id}");
+  };
+  # restore context
+  $vm->{cur} = $prev->[0];
+  $vm->{pid} = $prev->[1];
+  $vm->{sp}  = $vm->{sb};
+  $vm->{sb}  = $prev->[2];
 
   return $out;
 };
@@ -259,7 +301,7 @@ sub vm_out {
 
 sub vm_var_decl {
   my ($vm,$cmd,$type,$name)=@_;
-  my $dst=vm_var_blk($vm);
+  my $dst=$vm->{cur};
   ($type,$name)=gstrip($type,$name);
 
   # void is actually a nop :D
@@ -295,6 +337,15 @@ sub vm_var_decl {
     if(! mem_has($dst,$name)) {
       my $ptr=mem_push($dst,$type,$name);
       $ptr->{flg} |= ptr_flg($cmd);
+
+      my $rptr=ptr_new(
+        vm_ram_blk($vm),
+        $ptr->{type},
+        "$vm->{pid}.$ptr->{id}",
+        $vm->{sp},
+      );
+      $rptr->{flg}  = $ptr->{flg};
+      $vm->{sp}    += $ptr->{type}->{sizeof};
     };
   };
   return ($type,$name);
@@ -305,12 +356,15 @@ sub vm_var_decl {
 # first block in current mem is where
 # we store variables
 
-sub vm_var_blk {
-  return $_[0]->{cur}->{blk}->[0];
+sub vm_sym_blk {
+  return $_[0]->{cur};
 };
 sub vm_var_has {
-  my $dst=vm_var_blk($_[0]);
+  my $dst=vm_sym_blk($_[0]);
   return mem_has($dst,$_[1]);
+};
+sub vm_ram_blk {
+  return $_[0]->{mem}->{ftab}->{-ram};
 };
 
 
@@ -319,7 +373,7 @@ sub vm_var_has {
 
 sub vm_var_get {
   my ($vm,$id)=@_;
-  my $dst=vm_var_blk($vm);
+  my $sym=vm_sym_blk($vm);
 
   # indexing into array?
   my $array=array_re();
@@ -328,7 +382,7 @@ sub vm_var_get {
        $id   = $+{base};
 
     # get array base
-    my $base=ptr_get($dst,$id);
+    my $base=ptr_get($sym,$id);
     throw "vm: undefined value '$id'"
     if!   defined $base;
 
@@ -336,12 +390,9 @@ sub vm_var_get {
     my $step=sizeof($type);
        $type=typefet("$type ptr");
 
-    # eval the idex itself...
-    my @ret=vm_eval(
-      $vm,
-      typefet("dword"),
-      $elem
-    );
+    # xlate the idex to instructions...
+    my @ret=vm_prog_rd($vm,$elem);
+
     # ^solved operation, so take result
     my $solved=0;
     if(int(@ret) == 1
@@ -351,6 +402,7 @@ sub vm_var_get {
 
     # ^unsolved operation
     } else {
+      throw "vm: variable array idex NYI";
     };
     # generate wrapper operation for handling
     # pointer into array element!
@@ -363,20 +415,20 @@ sub vm_var_get {
     if!   is_array($base->{type});
 
     # need to generate pointer for this offset?
-    if(! mem_has($dst,$sid)) {
+    if(! mem_has($sym,$sid)) {
       my $off=($solved)
         ? $step*$elem
         : 0
         ;
       my $addr=ptr_addr($base)+$off;
-      return ptr_new($dst,$type,$sid,$addr);
+      return ptr_new($sym,$base->{type},$sid,$addr);
     };
     # ^nope, give existing!
-    return ptr_get($dst,$sid);
+    return ptr_get($sym,$sid);
 
   # regular value!
   } else {
-    return ptr_get($dst,$id);
+    return ptr_get($sym,$id);
   };
 };
 
@@ -386,26 +438,61 @@ sub vm_var_get {
 
 sub vm_load {
   my ($vm,$id)=@_;
-  my $mem=vm_var_blk($vm);
-  my $ptr=ptr_get($mem,$id);
-  my ($value)=mem_dload($mem,$ptr);
-
+  my $mem=vm_ram_blk($vm);
+  my $ptr=ptr_get($mem,"$vm->{pid}.$id");
+  my ($value)=(! is_array($ptr->{type}))
+    ? mem_dload($mem,$ptr)
+    : ptr_addr($ptr)
+    ;
   return vm_push($vm,$ptr->{type},$value);
+};
+sub vm_dload {
+  my ($vm,$addr)=@_;
+  my $mem=vm_ram_blk($vm);
+  my $ptr=ptr_new(
+    $mem,
+    $addr->{type},
+    "tmp",
+    $addr->{value}
+  );
+  return vm_push(
+    $vm,
+    $addr->{type},
+    mem_dload($mem,$ptr)
+  );
 };
 sub vm_store {
   my ($vm,$id,%O)=@_;
   $O{keep} //= 0;
 
-  my $mem   = vm_var_blk($vm);
-  my $ptr   = ptr_get($mem,$id);
-  my @value = ($O{keep})
+  my $mem=vm_ram_blk($vm);
+  my $ptr=ptr_get($mem,"$vm->{pid}.$id");
+  my ($data)=($O{keep})
     ? ($vm->{stk}->[-1])
     : vm_pop($vm)
     ;
+  return vm_dstore(
+    $vm,
+    {
+      value => ptr_addr($ptr),
+      type  => strucv(derefof($ptr->{type})),
+    },
+    $data,
+  );
+};
+sub vm_dstore {
+  my ($vm,$addr,$data)=@_;
+  my $mem=vm_ram_blk($vm);
+  my $ptr=ptr_new(
+    $mem,
+    $addr->{type},
+    "tmp",
+    $addr->{value}
+  );
   return mem_dstore(
     $mem,
     $ptr,
-    map {$ARG->{value}} @value
+    $data->{value}
   );
 };
 
@@ -421,33 +508,61 @@ sub vm_sym_get {
     : undef
     ;
 };
+sub vm_sym_vtab {
+  my ($vm,$sym)=@_;
+  $sym //= $vm->{cur};
+
+  return (
+    sort    {ptr_addr($a) <=> ptr_addr($b)}
+    values %{$sym->{vtab}}
+  );
+};
 sub vm_sym_in {
   my ($vm,$sym)=@_;
-     $sym //= $vm->{cur};
-  my $mem   = $sym->{ftab}->{var};
+  $sym //= $vm->{cur};
 
   # get all values declared as parameters,
   # in the order in which they were declared
   return (
-    sort    {ptr_addr($a) > ptr_addr($b)}
-    grep    {$ARG->{flg} & ptr_flg("in")}
-    values %{$mem->{vtab}}
+    grep {$ARG->{flg} & ptr_flg("in")}
+    vm_sym_vtab($vm,$sym)
+  );
+};
+sub vm_ram_in {
+  my ($vm,$sym)=@_;
+     $sym //= $vm->{cur};
+  my $ram   = vm_ram_blk($vm);
+
+  return (
+    map {$ram->{vtab}->{"$vm->{pid}.$ARG->{id}"}}
+    vm_sym_in($vm,$sym)
+  );
+};
+sub vm_sym_local {
+  my ($vm,$sym)=@_;
+  $sym //= $vm->{cur};
+
+  # get all values declared as local vars,
+  # in the order in which they were declared
+  return (
+    grep {$ARG->{flg} & ptr_flg("local")}
+    vm_sym_vtab($vm,$sym)
   );
 };
 sub vm_sym_out {
   my ($vm,$sym)=@_;
      $sym //= $vm->{cur};
-  my $tab   = $sym->{ftab}->{var}->{vtab};
+  my $tab   = $sym->{vtab};
 
   return (exists $tab->{-out})
-    ? $tab->{-out}
-    : undef
+    ? ($tab->{-out})
+    : ()
     ;
 };
 
 
 # ---   *   ---   *   ---
-# ~~
+# load in program from source
 
 sub vm_prog {
   # check the program
@@ -479,26 +594,24 @@ sub vm_prog_rd {
 # evaluates expressions
 
 sub vm_eval {
-  my ($vm,$src,%O)=@_;
-  $O{in} //= {};
+  my ($vm,$src)=@_;
+  my @prog = vm_prog($vm,$src);
+  my $mem  = vm_enter($vm,"-eval");
+  my $fn   = vm_label_find($vm,"-eval");
+  $vm->{jmp}->{"x_-eval"}=-1;
 
-  my @prog=vm_prog($vm,$src);
-  my $ctx=($prog[0]->{cmd} eq "proc")
-    ? $vm->{mem}->{ftab}->{$prog[0]->{args}->[0]}
-    : undef
-    ;
-  $vm->{cur}=$ctx if $ctx;
-
-  # set parameters...
-  my $mem=vm_var_blk($vm);
-  for (keys %{$O{in}}) {
-    mem_store($mem,$ARG=>$O{in}->{$ARG});
-  };
   # now execute
-  my @out=vm_exec($vm);
+  my @out=vm_exec($vm,$fn);
 
   # restore context and give
+  vm_leave($vm);
   vm_ctx_load($vm);
+  mem_del($mem);
+  delete $vm->{jmp}->{"x_-eval"};
+
+  my $label=$vm->{label};
+  @$label=grep {$ARG->{name} ne "-eval"} @$label;
+
   return @out;
 };
 
@@ -511,8 +624,8 @@ sub vm_call {
 
   # setup stack frame!
   vm_enter($vm,$fn->{name});
-  my $dst   = vm_var_blk($vm);
-  my @param = vm_sym_in($vm);
+  my $dst   = vm_ram_blk($vm);
+  my @param = vm_ram_in($vm);
   my @args  = vm_pop($vm,int(@param));
   for my $i(0..$#param) {
     my $ptr  = $param[$i];
@@ -532,11 +645,11 @@ sub vm_call {
 sub vm_exec {
   my ($vm,$fn)=@_;
 
-  my $old=$vm->{rip};
+  my $old=$vm->{ip};
   vm_jmp($vm,$fn,"x");
   vm_walk($vm,\&vm_exec_ins);
 
-  $vm->{rip}=$old;
+  $vm->{ip}=$old;
   return $vm->{stk}->[-1];
 };
 sub vm_walk {
@@ -544,9 +657,9 @@ sub vm_walk {
   my $stop=0;
   while(
   !  $stop
-  && ++$vm->{rip} < int(@{$vm->{prog}})
+  && ++$vm->{ip} < int(@{$vm->{prog}})
   ) {
-    my $ins  = $vm->{prog}->[$vm->{rip}];
+    my $ins  = $vm->{prog}->[$vm->{ip}];
        $stop = $out->($vm,$ins);
   };
   return $stop;
@@ -590,7 +703,7 @@ sub vm_pop {
 sub vm_label {
   my ($vm,$label,$dir)=@_;
   my $name=vm_label_dir($vm,$label,$dir);
-  $vm->{jmp}->{$name}=$vm->{rip};
+  $vm->{jmp}->{$name}=$vm->{ip};
 
   return;
 };
@@ -600,7 +713,7 @@ sub vm_jmp {
   throw "vm: undefined label '$name'"
   if!   exists $vm->{jmp}->{$name};
 
-  $vm->{rip}=$vm->{jmp}->{$name};
+  $vm->{ip}=$vm->{jmp}->{$name};
   return;
 };
 sub vm_label_dir {
@@ -617,11 +730,11 @@ sub vm_label_dir {
 
 sub vm_label_recalc {
   my ($vm)=@_;
-  my $old=$vm->{rip};
+  my $old=$vm->{ip};
 
-  $vm->{rip}=-1;
+  $vm->{ip}=-1;
   vm_walk($vm,\&vm_label_recalc_main);
-  $vm->{rip}=$old;
+  $vm->{ip}=$old;
 
   return;
 };
@@ -632,19 +745,19 @@ sub vm_label_recalc_main {
   my $label=$_[1]->{args}->[0];
   if($_[1]->{cmd} eq "loop") {
     my $name=vm_label_dir($_[0],$label,"b");
-    $_[0]->{jmp}->{$name}=$_[0]->{rip};
+    $_[0]->{jmp}->{$name}=$_[0]->{ip};
 
   } elsif($_[1]->{cmd} eq "proc") {
     my $name=vm_label_dir($_[0],$label,"x");
-    $_[0]->{jmp}->{$name}=$_[0]->{rip};
+    $_[0]->{jmp}->{$name}=$_[0]->{ip};
 
   } else {
     my $name = vm_label_dir($_[0],$label,"f");
-    my $old  = $_[0]->{rip};
+    my $old  = $_[0]->{ip};
 
     vm_label_recalc_next($_[0]);
-    $_[0]->{jmp}->{$name} = $_[0]->{rip};
-    $_[0]->{rip}          = $old;
+    $_[0]->{jmp}->{$name} = $_[0]->{ip};
+    $_[0]->{ip}          = $old;
   };
   return 0;
 };

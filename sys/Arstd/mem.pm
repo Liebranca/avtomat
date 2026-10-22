@@ -44,6 +44,7 @@ package Arstd::mem;
   use Exporter "import";
   our @EXPORT_OK=qw(
     mem_new
+    mem_del
     mem_blk
     mem_flg
     mem_has
@@ -54,6 +55,7 @@ package Arstd::mem;
     mem_push
 
     ptr_new
+    ptr_del
     ptr_get
     ptr_flg
     ptr_addr
@@ -63,7 +65,7 @@ package Arstd::mem;
 # ---   *   ---   *   ---
 # info
 
-  my $VERSION = "v0.00.4a";
+  my $VERSION = "v0.00.5a";
   my $AUTHOR  = "IBN-3DILA";
 
 
@@ -129,6 +131,20 @@ sub mem_blk {
 
 
 # ---   *   ---   *   ---
+# dstruc
+
+sub mem_del {
+  my ($mem)=@_;
+  if($mem->{par}) {
+    my $blk=$mem->{par}->{blk};
+    @$blk=grep {$ARG->{id} ne $mem->{id}} @$blk;
+    delete $mem->{par}->{ftab}->{$mem->{id}};
+  };
+  return;
+};
+
+
+# ---   *   ---   *   ---
 # buf read/write
 
 sub mem_load {
@@ -151,7 +167,7 @@ sub mem_dload {
   my $data=substr(
     $_[0]->{buf},
     ptr_addr($_[1]),
-    $_[1]->{sizeof},
+    $_[1]->{type}->{sizeof},
   );
   return unpack(
     $_[1]->{type}->{packof},
@@ -265,6 +281,20 @@ sub mem_goob {
 
 
 # ---   *   ---   *   ---
+# get name for id that includes ancestry
+
+sub mem_strid {
+  my ($mem,$id)=@_;
+  my @ar=($mem->{id});
+  while($mem->{par}) {
+    $mem=$mem->{par};
+    push @ar,$mem->{id};
+  };
+  return join(".",reverse($id,@ar));
+};
+
+
+# ---   *   ---   *   ---
 # check/set/unset flags
 
 sub mem_flgchk {
@@ -349,6 +379,17 @@ sub ptr_new {
   # anyway, this F itself gives the ptr
   # just for convenience...
   return $ptr;
+};
+
+
+# ---   *   ---   *   ---
+# ^dstruc
+
+sub ptr_del {
+  my ($mem,$id)=@_;
+  delete $mem->{vtab}->{$id};
+
+  return;
 };
 
 

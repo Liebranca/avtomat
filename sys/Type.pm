@@ -92,7 +92,7 @@ package Type;
 # ---   *   ---   *   ---
 # info
 
-  our $VERSION = "v0.04.9";
+  our $VERSION = "v0.05.0";
   our $AUTHOR  = "IBN-3DILA";
   sub errsafe {return 1};
 
@@ -126,12 +126,17 @@ BEGIN {
 
 sub strucf($type,$name) {
   # get idex of field
-  my $names = $type->{struc_i};
-  my $idex  = iof($names,$name);
-
+  my $idex=(! ($name=~ qr{^\d+$}))
+    ? iof($type->{struc_i},$name)
+    : $name
+    ;
   # ^validate
-  return badstrucf("$type->{name}.$ARG")
+  return badstrucf("$type->{name}->$ARG")
   if!    defined $idex;
+
+  # all the same for an array
+  return (strucv($type),$idex)
+  if     is_array($type);
 
   # ^get type
   my $field_t = $type->{struc_t}->[$idex];
@@ -157,8 +162,10 @@ sub badstrucf($name) {
 # then recurse
 
 sub strucv {
-  my $type  = typefet($_[0]);
-  my $field = typefet($type->{struc_t}->[0]);
+  my $type=typefet($_[0]);
+  return $type if! @{$type->{struc_t}};
+
+  my $field=typefet($type->{struc_t}->[0]);
   return ($field->{sizebs} > 64)
     ? strucv($field)
     : $field
@@ -262,7 +269,11 @@ sub offsetof($type,$field) {
   or return null;
 
   # give zero if not a struc!
-  return 0 if ! @{$type->{struc_t}};
+  return 0 if! @{$type->{struc_t}};
+
+  # for arrays, we can just calculate the offset
+  return $field * strucv($type)->{sizeof}
+  if is_array($type);
 
   # get struc field
   my ($field_t,$idex)=strucf($type,$field);

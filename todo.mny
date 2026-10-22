@@ -17,6 +17,10 @@ x Implement an IR step instead of emitting code
        entirely in our custom C-like syntax
 
 ~ [Memory model for IR]
+x \--> Map symbol var blocks to linear memory,
+       else `at` instructions can only work
+       with locals!
+
 ~ Tree-shaking
 
 ~ Eventually, we may want to forget about
